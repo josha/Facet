@@ -18,7 +18,7 @@ return {
 	title = "VirtualList on the native canvas (NS-A4)",
 	ledgerRows = { "NS-A4", "NS-A3" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope("virtual-list-native")
 
@@ -73,14 +73,14 @@ return {
 			also exactly the case a consumer really can predict. So it predicts, with the
 			framework's own arithmetic instead of a hand copy of it. ]]
 		local rowHeight = scope:own(core:memo(function(use)
-			return ctx.LuauUI.text.lineBox({
-				facts = ctx.LuauUI.text.facts({ env = ctx.env, use = use }),
+			return ctx.Facet.text.lineBox({
+				facts = ctx.Facet.text.facts({ env = ctx.env, use = use }),
 				size = ROW_TEXT_SIZE,
 				lines = 1,
 			})
 		end))
 
-		local list = ctx.LuauUI.newVirtualList(ctx.LuauUI, core, {
+		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)

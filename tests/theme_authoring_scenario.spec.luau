@@ -13,7 +13,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
 
@@ -37,19 +37,19 @@ local PACKAGES = {
 }
 
 local function makeWorld(flags: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 760 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 
 	-- the adapter's decoration surface, stubbed over the SAME pure state
 	-- machine screen_target drives, so the census here is the census there
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any
 	ctx = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -235,7 +235,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 		local world = makeWorld()
 		local presented = world.built.steps.presentValueFixture()
 		expect(presented.presented).toBe(true)
-		expect(presented.paths.window).toBe("/ValueProbe/Load/Bar/Fill/LuauUIBarWindow")
+		expect(presented.paths.window).toBe("/ValueProbe/Load/Bar/Fill/FacetBarWindow")
 		local swept = world.built.steps.barSweep(nil, "0,0.5,1")
 		expect(#swept.stops).toBe(3)
 		local trackW = swept.stops[1].nodes.bar.geometry.w
@@ -392,7 +392,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 		local source = fs.readFile("examples/gallery/scenarios/init.luau")
 		expect(string.find(source, '"theme_authoring"', 1, true) ~= nil).toBe(true)
 		local project = fs.readFile("examples/gallery.project.json")
-		expect(string.find(project, "LuauUIThemes", 1, true) ~= nil).toBe(true)
+		expect(string.find(project, "FacetThemes", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
@@ -469,7 +469,7 @@ describe("theme_authoring scenario: live authoring and export degrade without th
 		expect(result.controller).toBe("absent")
 		expect(result.spaceM).toBe(32)
 		world.built.steps.restoreMetric()
-		expect(world.env:get("themeMetrics"):get().space.m).toBe(LuauUI.themes.neutral().space.m)
+		expect(world.env:get("themeMetrics"):get().space.m).toBe(Facet.themes.neutral().space.m)
 		teardown(world)
 	end)
 

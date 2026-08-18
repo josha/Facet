@@ -1,6 +1,6 @@
 # The camera still owns the arrow keys
 
-**Measured live in Studio, 2026-08-14** (LuauUI-Showcase, Play mode, the
+**Measured live in Studio, 2026-08-14** (Facet-Showcase, Play mode, the
 `table_columns` fixture (retired 2026-08-16 into the shipped playlist tutorial; the spec is now `tests/playlist_columns.spec.luau`), real engine).
 
 `src/controls/table.luau`'s column model puts a selected column's resize on
@@ -9,7 +9,7 @@ header selects the column, and while it is selected the stick owns the direction
 keys — Left/Right resizes, Up/Down cycles the sort. `tests/paradigm_table.spec.
 luau:147` and `tests/playlist_columns.spec.luau` both prove it, green.
 
-**On the live showcase it does not happen.** Left and Right never reach LuauUI.
+**On the live showcase it does not happen.** Left and Right never reach Facet.
 
 ## The measurement
 
@@ -33,8 +33,8 @@ RbxCameraKeypress[Enum.KeyCode.Left, Enum.KeyCode.Right, Enum.KeyCode.I, Enum.Ke
 ```
 
 Roblox's own default camera script binds Left/Right through
-`ContextActionService` at priority **2000** and **sinks** them. Nothing LuauUI
-does is wrong; the key is consumed before any LuauUI handler is offered it.
+`ContextActionService` at priority **2000** and **sinks** them. Nothing Facet
+does is wrong; the key is consumed before any Facet handler is offered it.
 
 `,` / `.` — the presenter's dynamically bound Adjust keys, live only while a
 resizable header holds focus (`presenter.luau:2599-2639`) — are not contended,
@@ -43,10 +43,10 @@ which is why they work and why the fixture's on-screen hint names *them*.
 ## Why no test could see it
 
 `tests/*.spec.luau` drive `system.deviceKey("Right", true/false)` straight into
-`LuauUI.newActionSystem`. There is no camera script in a Lune process, no
+`Facet.newActionSystem`. There is no camera script in a Lune process, no
 ContextActionService, and therefore no contention: **the headless suite is
 measuring a keyboard nobody has.** Every arrow-key assertion in this repo is a
-proof about LuauUI's routing and says nothing about whether the key arrives.
+proof about Facet's routing and says nothing about whether the key arrives.
 
 This is the `an-instrument-nobody-runs` shape one level down: the instrument runs,
 and it cannot see the thing.
@@ -55,7 +55,7 @@ and it cannot see the thing.
 
 `examples/gallery/scenarios/runner.luau:1094-1100` unbinds `RbxCameraKeypress`
 for any scenario declaring `keyboardFirst = true` — added during Step 8's desktop
-keyboard round, recorded in `luauui-step8-desktop-keyboard`. So the repo has
+keyboard round, recorded in `facet-step8-desktop-keyboard`. So the repo has
 known since 2026-08-03 that the camera eats arrows, and the knowledge lives in
 **one host's opt-in flag**, not in the framework and not in the showcase. Every
 surface reached through the demo picker — which is every surface a player can
@@ -65,7 +65,7 @@ reach in-experience — runs with the camera binding live.
 
 The director ruled the first option, narrowed:
 
-> LuauUI claims the arrows at a priority above the camera's, SCOPED to the moment
+> Facet claims the arrows at a priority above the camera's, SCOPED to the moment
 > a column is actually selected for resize, and releases them the instant it is
 > not — the same shape `row_actions` uses for Delete/Backspace/ButtonX. Verify the
 > priority mechanism live rather than assuming a number works.
@@ -80,7 +80,7 @@ later.
 
 **And Right still did nothing.**
 
-| who is bound on Left/Right | LuauUI claim | result |
+| who is bound on Left/Right | Facet claim | result |
 |---|---|---|
 | `RbxCameraKeypress`, CAS prio 2000, Sink | `InputContext` 10000, Sink | Team **unchanged** (`auto`) |
 | nothing (the camera unbound in-session) | `InputContext` 10000, Sink | Team **352 → 384px** |
@@ -130,10 +130,10 @@ sees every move wherever it lands. Confirmed live: select Team, Tab twice, hint
 line back to idle.
 
 **Carried to the director, not taken:** row 4. A `BindActionAtPriority` claim of
-LuauUI's *own* action above the camera's, unbound on release, works and hands the
+Facet's *own* action above the camera's, unbound on release, works and hands the
 key straight back — measured: the camera received the very next press. It is not
 "unbinding the game's camera": the camera's binding is never touched. But it means
-LuauUI reaching into ContextActionService, which `src/client/roblox_input.luau`
+Facet reaching into ContextActionService, which `src/client/roblox_input.luau`
 deliberately does not do ("arbitration is the ENGINE's job here — this adapter
 never re-implements it", ADR-0004). That is a framework-architecture decision, so
 it is reported rather than switched to.
@@ -147,7 +147,7 @@ honest sentence it can print.
 The open question below was answered, and the answer is not on the list — because
 every option on that list assumed the framework had to win the key. It does not.
 
-> LuauUI must **not** reach into ContextActionService. The Input Action System is
+> Facet must **not** reach into ContextActionService. The Input Action System is
 > the whole story, and there is a workspace property that makes Roblox's own
 > player scripts use IAS. We can note in our docs we use IAS and this is required.
 
@@ -158,7 +158,7 @@ Action System"
 `RolloutState`, ReadWrite). With it enabled, the camera is not on
 ContextActionService at all — its keys are an `InputContext` like everyone
 else's, and the arbitration this whole page is about becomes ordinary priority
-arbitration, which LuauUI already participates in correctly.
+arbitration, which Facet already participates in correctly.
 
 So the ruling above was withdrawn for the right reason and the fix was in the
 wrong layer. The claim at priority 10000 was inert because **no number can work**;
@@ -192,7 +192,7 @@ and `Workspace.SignalBehavior` all answer identically — the capability-gated
 Server-Authority setup class (`GameStudio/specialists/ROBLOX.md`).
 
 The consequence is durable rather than a rollout window: scriptability is a
-reflection-level flag, so **no LuauUI version on any Studio build will be able to
+reflection-level flag, so **no Facet version on any Studio build will be able to
 read this property**, and a newer build will not change that. Waiting for it is
 not a plan. Every detector is behavioural, and the docs can tell an integrator to
 tick it but can never assert that they did.
@@ -235,7 +235,7 @@ experience's property, one layer up.
 Whether a UI framework may unbind the platform's camera keys is a design call,
 not a patch:
 
-- **The framework does it** — LuauUI would be silently changing camera behaviour
+- **The framework does it** — Facet would be silently changing camera behaviour
   in any experience that embeds it, which is exactly the "never shadow gameplay
   bindings" rule that `api.adjustTargets` exists to honour (it binds Adjust *only*
   while a resizable header holds focus, precisely so a bare Table never steals a

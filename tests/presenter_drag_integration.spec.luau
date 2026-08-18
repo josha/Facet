@@ -10,18 +10,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local function rig()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local drops: { any } = {}
 	local screen = UI.Screen({
@@ -189,11 +189,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 	-- "tap" for an under-threshold detector release and the renderer dispatches
 	-- it through the SAME node-tap path a native tap takes.
 	it("an under-threshold detector release dispatches Activate exactly once", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -245,11 +245,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 		-- drop); the consumer's onActivate is NOT called — the pickup is the
 		-- activation. A tap while a session is live flows to the consumer
 		-- unchanged (put-back and row commits stay consumer/list semantics).
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -317,11 +317,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 	end)
 
 	it("one press cannot activate twice when BOTH signals arrive (PLAT-1 echo guard)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -427,11 +427,11 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 	end)
 
 	it("a RETIRING drop target leaves resolution and returns on re-entry (ARCH-F2)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local slotOn = core:signal(true)
 		local dropped = 0
 		local screen = UI.Screen({
@@ -516,11 +516,11 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 
 	it("a retiring '/S/Slot' never excludes its live SIBLING '/S/SlotA' (P2-2)", function()
 		-- the segment-boundary rule: exclusion is by subtree, not by string prefix
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local slotOn = core:signal(true)
 		local droppedA = 0
 		local function target(id: string, y: number, onDrop: () -> ())
@@ -601,11 +601,11 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 	end)
 
 	it("a DISABLED draggable acquires no session (P2-3), and re-enabling restores it", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local enabled = core:signal(false)
 		local screen = UI.Screen({
 			id = "S",
@@ -649,10 +649,10 @@ end)
 
 describe("presenter frame hook (onTick)", function()
 	it("hooks run inside tick with the frame dt, and unsubscribe cleanly", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local seen: { number } = {}
 		local unsub = pres.onTick(function(dt: number)
 			table.insert(seen, dt)

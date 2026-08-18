@@ -60,7 +60,7 @@ function dump.fromSolve(
 		-- /2 adds `textFacts` per text node (LTN-4). Additive, so a /1 reader keeps
 		-- working; the version moves because a diff against a stored /1 fixture
 		-- would otherwise read as a layout change.
-		schema = "luauui-dump/2",
+		schema = "facet-dump/2",
 		viewport = viewport,
 		rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
 		safeInsets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 },

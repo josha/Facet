@@ -25,7 +25,7 @@ local process = require("@lune/process")
 local serde = require("@lune/serde")
 local fs = require("@lune/fs")
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local customFactory = require("../../src/core/custom")
 local mountLib = require("../../src/mount")
 local environment = require("../../src/env/environment")
@@ -33,7 +33,7 @@ local rendererLib = require("../../src/render/renderer")
 local text_metrics = require("../../src/layout/text_metrics")
 local fake_target = require("../../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local VIEWPORTS = {
 	{ name = "phone-portrait", w = 390, h = 844 },
@@ -102,8 +102,8 @@ local function render(name: string, viewport: any, build: (core: any, deps: any)
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
 	local built = build(core, deps)
 	presenter.present(built.screen, built.present)
@@ -121,14 +121,14 @@ end
 
 -- the control vocabulary: every control whose metrics the theme stage migrates
 local function controlVocabulary(core: any, _deps: any): any
-	local slider = LuauUI.newSlider(LuauUI, core, {
+	local slider = Facet.newSlider(Facet, core, {
 		id = "Volume",
 		label = "Volume",
 		value = core:signal(6),
 		min = 0,
 		max = 10,
 	})
-	local stepper = LuauUI.newStepper(LuauUI, core, {
+	local stepper = Facet.newStepper(Facet, core, {
 		id = "Count",
 		label = "Count",
 		value = core:signal(3),
@@ -136,10 +136,9 @@ local function controlVocabulary(core: any, _deps: any): any
 		max = 9,
 		step = 1,
 	})
-	local progress =
-		LuauUI.newProgressView(LuauUI, core, { id = "Load", label = "Load", value = 0.4, showValue = true })
-	local label = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save changes", icon = "rbxassetid://1" })
-	local picker = LuauUI.newPicker(LuauUI, core, {
+	local progress = Facet.newProgressView(Facet, core, { id = "Load", label = "Load", value = 0.4, showValue = true })
+	local label = Facet.newLabel(Facet, core, { id = "Save", title = "Save changes", icon = "rbxassetid://1" })
+	local picker = Facet.newPicker(Facet, core, {
 		id = "Quality",
 		label = "Quality",
 		options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
@@ -156,7 +155,7 @@ local function controlVocabulary(core: any, _deps: any): any
 		-- `Picker-indicator` large-text fixture and `tests/picker_segments.spec`.
 		indicator = "none",
 	})
-	local disclosure = LuauUI.newDisclosureGroup(LuauUI, core, {
+	local disclosure = Facet.newDisclosureGroup(Facet, core, {
 		id = "More",
 		label = "More",
 		expanded = core:signal(true),
@@ -164,13 +163,13 @@ local function controlVocabulary(core: any, _deps: any): any
 			return UI.Text({ id = "Body", text = "Hidden detail", textSize = 14 })
 		end,
 	})
-	local chip = LuauUI.newChip(LuauUI, core, { id = "Tag", label = "Tag", selected = core:signal(false) })
-	local popup = LuauUI.newPopupButton(LuauUI, core, {
+	local chip = Facet.newChip(Facet, core, { id = "Tag", label = "Tag", selected = core:signal(false) })
+	local popup = Facet.newPopupButton(Facet, core, {
 		id = "Mode",
 		options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
 		value = core:signal("a"),
 	})
-	local input = LuauUI.newTextInput(LuauUI, core, {
+	local input = Facet.newTextInput(Facet, core, {
 		id = "Name",
 		value = core:signal("Ada"),
 		placeholder = "Your name",
@@ -223,7 +222,7 @@ for _, viewport in VIEWPORTS do
 		table.insert(
 			results,
 			render(name, viewport, function(core, deps)
-				return module.build(LuauUI, core, deps)
+				return module.build(Facet, core, deps)
 			end)
 		)
 	end
@@ -238,5 +237,5 @@ if target == nil or target == "" then
 	print("  (it used to default to the stored comparison baseline, which running it bare then destroyed)")
 	process.exit(2)
 end
-fs.writeFile(target, serde.encode("json", { schema = "luauui-theme-baseline/1", fixtures = results }, true))
+fs.writeFile(target, serde.encode("json", { schema = "facet-theme-baseline/1", fixtures = results }, true))
 print(`theme baseline: {#results} renders -> {target}`)

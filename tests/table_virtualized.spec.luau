@@ -42,7 +42,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local virtual_extents = require("../src/virtual_extents") :: any
 local fake_target = require("../tests/lib/fake_target")
@@ -72,17 +72,17 @@ type World = {
 
 local function world(opts: any): World
 	opts = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(opts.rows or racers(400))
 	-- THE BUILD COUNTER. `cellFor` runs once per column per MOUNTED row, so it is
 	-- the honest instrument for "did this control build what it cannot show".
 	local builds = 0
-	local tbl = table_control.build(LuauUI, core, {
+	local tbl = table_control.build(Facet, core, {
 		id = "Racers",
 		columns = opts.columns or {
 			{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
@@ -93,7 +93,7 @@ local function world(opts: any): World
 		end,
 		cellFor = function(columnId: string, item: any)
 			builds += 1
-			return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+			return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
 		end,
 		rowHeight = opts.rowHeight or ROW_H,
 		rowGap = opts.rowGap,
@@ -106,7 +106,7 @@ local function world(opts: any): World
 		virtualized = if opts.virtualized == nil then true else opts.virtualized,
 		env = env,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 	local handle = pres.present(screen, {
 		onActivate = function(path: string, meta: any)
 			tbl.api.handleActivate(path, meta)
@@ -207,12 +207,12 @@ describe("Table virtualized: only the window is mounted", function()
 		bound on any body inside it — so frame one over-mounts and never under-mounts.
 		This case is the one that would have caught it. ]]
 	it("FRAME ONE already fills the body: the seed is the screen, so it over-mounts, never under", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
-		local tbl = table_control.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			columns = { { id = "name", title = "R", width = { type = "fill", weight = 1 } } },
 			rows = core:signal(racers(400)),
@@ -220,14 +220,14 @@ describe("Table virtualized: only the window is mounted", function()
 				return item.id
 			end,
 			cellFor = function(_columnId: string, item: any)
-				return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
 			end,
 			rowHeight = ROW_H,
 			header = false,
 			virtualized = true,
 			env = env,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
+		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
 		pres.refresh() -- ONE frame only
 		local body = adapter.node("/S/Racers/Main/Body").rect
 		local needed = math.ceil(body.h / ROW_H)
@@ -558,9 +558,9 @@ end)
 
 describe("Table virtualized: what is refused, and why", function()
 	local function refusal(opts: any): string
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			table_control.build(LuauUI, core, {
+			table_control.build(Facet, core, {
 				id = "T",
 				columns = {
 					{

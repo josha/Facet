@@ -79,29 +79,29 @@ end
 -- (always the literal `"newRowActions"`) — greppable but misleading.
 local function buildActionSpec(label: string, rowId: string, edge: Edge, index: number, raw: any): ActionSpec
 	if type(raw) ~= "table" then
-		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}]\` must be a table (ActionSpec)`, 0)
+		error(`Facet {label}('{rowId}'): \`{edge}[{index}]\` must be a table (ActionSpec)`, 0)
 	end
 	specGuard.assertKnownKeys(label, raw, ACTION_KEYS, `spec.{edge}[{index}]`)
 	if type(raw.label) ~= "string" or raw.label == "" then
-		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].label\` must be a non-empty string`, 0)
+		error(`Facet {label}('{rowId}'): \`{edge}[{index}].label\` must be a non-empty string`, 0)
 	end
 	local role = raw.role
 	if role ~= nil and role ~= "normal" and role ~= "destructive" then
 		error(
-			`LuauUI {label}('{rowId}'): \`{edge}[{index}].role\` '{tostring(role)}' is not a role. `
+			`Facet {label}('{rowId}'): \`{edge}[{index}].role\` '{tostring(role)}' is not a role. `
 				.. "Valid: normal, destructive.",
 			0
 		)
 	end
 	if type(raw.onAction) ~= "function" then
-		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].onAction\` must be a function`, 0)
+		error(`Facet {label}('{rowId}'): \`{edge}[{index}].onAction\` must be a function`, 0)
 	end
 	local actionId = if raw.id ~= nil then raw.id else raw.label
 	if type(actionId) ~= "string" or actionId == "" then
-		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].id\` must be a non-empty string`, 0)
+		error(`Facet {label}('{rowId}'): \`{edge}[{index}].id\` must be a non-empty string`, 0)
 	end
 	if string.find(actionId, "/", 1, true) ~= nil then
-		error(`LuauUI {label}('{rowId}'): {edge} action id '{actionId}' must be path-safe (no "/")`, 0)
+		error(`Facet {label}('{rowId}'): {edge} action id '{actionId}' must be path-safe (no "/")`, 0)
 	end
 	return {
 		id = actionId,
@@ -121,11 +121,11 @@ local function actionsFor(label: string, rowId: string, edge: Edge, raw: any): {
 		return nil
 	end
 	if type(raw) ~= "table" then
-		error(`LuauUI {label}('{rowId}'): \`{edge}\` must be an array of ActionSpec, or nil for none`, 0)
+		error(`Facet {label}('{rowId}'): \`{edge}\` must be an array of ActionSpec, or nil for none`, 0)
 	end
 	if #raw == 0 then
 		error(
-			`LuauUI {label}('{rowId}'): \`{edge}\` is an empty table — use nil for "no actions on this `
+			`Facet {label}('{rowId}'): \`{edge}\` is an empty table — use nil for "no actions on this `
 				.. `edge", not \{\}`,
 			0
 		)
@@ -150,11 +150,11 @@ local function normalizeFullSwipe(label: string, rowId: string, raw: any): { lea
 		local leading = if raw.leading == nil then true else raw.leading
 		local trailing = if raw.trailing == nil then true else raw.trailing
 		if type(leading) ~= "boolean" or type(trailing) ~= "boolean" then
-			error(`LuauUI {label}('{rowId}'): \`fullSwipe.leading\`/\`trailing\` must be booleans`, 0)
+			error(`Facet {label}('{rowId}'): \`fullSwipe.leading\`/\`trailing\` must be booleans`, 0)
 		end
 		return { leading = leading, trailing = trailing }
 	end
-	error(`LuauUI {label}('{rowId}'): \`fullSwipe\` must be a boolean or \{ leading?, trailing? \}`, 0)
+	error(`Facet {label}('{rowId}'): \`fullSwipe\` must be a boolean or \{ leading?, trailing? \}`, 0)
 end
 
 row_actions_spec.patternEscape = patternEscape

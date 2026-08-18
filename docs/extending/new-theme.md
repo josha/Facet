@@ -13,7 +13,7 @@ change owes before it is called done.
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
 rules your addition must follow.
 
-> **What this document is, in plain words.** A theme in LuauUI is a settings
+> **What this document is, in plain words.** A theme in Facet is a settings
 > table, not a program. It can change what the UI *looks like* — colours, type,
 > sizes, and the pictures drawn behind buttons and panels — and it is
 > structurally prevented from changing what the UI *does*: where things sit,
@@ -35,7 +35,7 @@ rules your addition must follow.
 
 ## 0. Ground rules
 
-- Work from the library root: `GameStudio/ui/LuauUI` (all commands below assume
+- Work from the library root: `GameStudio/ui/Facet` (all commands below assume
   it; use absolute paths in shell commands — relative paths against a wrong cwd
   are the #1 recorded time sink, `docs/lessons/absolute-paths-in-shell-commands.md`).
 - Read [`../adr/ADR-0019-theme-packages.md`](../adr/ADR-0019-theme-packages.md)
@@ -136,7 +136,7 @@ control is otherwise indistinguishable at compile time from one that covers it.
 The gate is therefore explicit:
 
 ```lua
-local result = LuauUI.themes.checkCoverage(package, myControl.needs)
+local result = Facet.themes.checkCoverage(package, myControl.needs)
 -- result.ok, result.covered, result.missing = { { name, message, fix } }
 ```
 
@@ -177,8 +177,8 @@ Two schemas travel with the feature:
 
 | Schema | Where | What it versions |
 |---|---|---|
-| `luauui-theme/1` (`themes.SCHEMA`) | `identity.schemaVersion`, `compatibility.requiresSchema` | the package contract |
-| `luauui-theme-sync/1` (`token_sync.SCHEMA`) | the token dump | the export/freshness wire format |
+| `facet-theme/1` (`themes.SCHEMA`) | `identity.schemaVersion`, `compatibility.requiresSchema` | the package contract |
+| `facet-theme-sync/1` (`token_sync.SCHEMA`) | the token dump | the export/freshness wire format |
 
 Install and `swapPackage` compare the declared schema against the build's
 **before any mutation**; a mismatch errors and leaves the target and the
@@ -254,7 +254,7 @@ closed vocabulary:
   `barTrack`, as `glossy_touch.luau` does).
 - **Instances**: a single-asset recipe materializes at most **one**
   non-interactive `ImageLabel` (`Active = false`, full-bleed, named
-  `LuauUIChrome`, tagged `luau-chrome-<slot>`) per slotted node; a layered recipe
+  `FacetChrome`, tagged `luau-chrome-<slot>`) per slotted node; a layered recipe
   materializes one per layer INSTANCE, which is not one per declaration — a
   `corners` layer is four and an `edges` layer is one per side. All of them are
   painted entirely by package rules. A recipe may never insert interactive
@@ -322,7 +322,7 @@ closed vocabulary:
 - **The text lift is mandatory where it applies** (TP-M8): under `Sibling`
   z-behavior a full-bleed child covers its parent's engine-drawn text at any
   ZIndex, so a text-bearing skinned node — `TextButton`, `TextBox` **and**
-  `TextLabel`, which is what a badge is — gets one managed `LuauUIChromeText`
+  `TextLabel`, which is what a badge is — gets one managed `FacetChromeText`
   label above the decoration, INSET by the recipe's `contentInsets`, and a
   `TextBox` yields its chrome while editing (`luau-chrome-editing`) because the
   caret is parent-drawn. Never "fix" this by
@@ -423,7 +423,7 @@ lune run tools/lune/gate theme-packages-and-skinning   # must not REGRESS
 
 `check_docs_cli` is the canonical documentation command for this stage. It is
 **read-only by default** and enforces that the guide index links the custom-theme
-and rich-skinning chapters, that every public `LuauUI.themes` export is
+and rich-skinning chapters, that every public `Facet.themes` export is
 documented in `docs/reference/api.md`, that the guide and playbooks still name
 the shipped tools (`theme_sync_cli`, `theme_controller`, `chromeCensus`,
 `checkCoverage`), that the rich-skinning chapter still names the whole v2 surface
@@ -464,6 +464,6 @@ state yourself.
 - **The base sheet does not see a derive's attributes.** A runtime metric read
   must target the *active theme sheet*, which is why the controller keeps exactly
   one watcher and moves it when the active theme changes.
-- **Never rename the package sheet to `LuauUI`.** That is the library
+- **Never rename the package sheet to `Facet`.** That is the library
   ModuleScript tree's name under `ReplicatedStorage`; a same-name lookup once
-  destroyed the library itself. Package sheets are `LuauUITheme <id>`.
+  destroyed the library itself. Package sheets are `FacetTheme <id>`.

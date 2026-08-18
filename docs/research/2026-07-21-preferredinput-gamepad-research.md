@@ -8,7 +8,7 @@ verbatim below. Consumed by ADR-0015 and the defect disposition in
 
 ---
 
-## VERDICT: Facts established. The live defect is explained by a documented Studio/macOS platform limitation, not a LuauUI logic bug.
+## VERDICT: Facts established. The live defect is explained by a documented Studio/macOS platform limitation, not a Facet logic bug.
 
 The most load-bearing finding: on macOS Roblox Studio playtests, a physical HID gamepad is frequently NOT forwarded to the Studio VM at all (`GamepadEnabled == false`, `GetConnectedGamepads()` empty). If the engine never sees a gamepad, `PreferredInput` cannot flip to `Gamepad` — matching the live observation exactly. This is independent of, and upstream of, the separate (now-fixed) "connect vs first-input" quirk.
 
@@ -20,7 +20,7 @@ The most load-bearing finding: on macOS Roblox Studio playtests, a physical HID 
   - Enum yaml quotes: Gamepad = "The player has connected or most recently interacted with a gamepad." KeyboardAndMouse analogous. Touch = "device has touch capability and no other input method is available or was recently interacted with."
   - Source: https://github.com/Roblox/creator-docs/blob/main/content/en-us/reference/engine/enums/PreferredInput.yaml ; https://create.roblox.com/docs/reference/engine/classes/UserInputService
 - **When it becomes Gamepad (documented intent):** on gamepad *connect* OR most-recent interaction. The docs assert connect alone should suffice. Confidence: high (doc text), but see finding 2 — the connect path was actually broken until Aug 2025.
-- **Persistence:** "PreferredInput remembers the player's last configuration when they start the client" (persists across sessions). Full release **June 17, 2025** (previously client beta). Recommended read pattern is exactly what LuauUI uses: `UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(...)`. Confidence: high.
+- **Persistence:** "PreferredInput remembers the player's last configuration when they start the client" (persists across sessions). Full release **June 17, 2025** (previously client beta). Recommended read pattern is exactly what Facet uses: `UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(...)`. Confidence: high.
   - Source: https://devforum.roblox.com/t/full-release-introducing-preferredinput-and-improved-touch-capabilities/3750890
 
 ### 2. Known bugs/quirks on the PreferredInput property itself
@@ -39,7 +39,7 @@ The most load-bearing finding: on macOS Roblox Studio playtests, a physical HID 
 
 ### 4. Recommended engine-truth pattern for "gamepad UX now"
 
-- Official gamepad docs recommend **`PreferredInput`** as the *primary* method for deciding cross-platform UI affordances; `GamepadEnabled` + `GamepadConnected`/`GamepadDisconnected` events are named as *secondary alternatives*. So LuauUI's choice of `PreferredInput` is the doc-endorsed approach. Confidence: high.
+- Official gamepad docs recommend **`PreferredInput`** as the *primary* method for deciding cross-platform UI affordances; `GamepadEnabled` + `GamepadConnected`/`GamepadDisconnected` events are named as *secondary alternatives*. So Facet's choice of `PreferredInput` is the doc-endorsed approach. Confidence: high.
   - Source: https://create.roblox.com/docs/input/gamepad
 - Docs do NOT recommend `LastInputTypeChanged` for the presentation decision (it is lower-level, raw `UserInputType`); `PreferredInput` is the higher-level, capability-aware, persistence-aware signal that supersedes hand-rolled `LastInputTypeChanged` heuristics. Confidence: medium-high (docs present PreferredInput as the successor pattern; no doc explicitly deprecates LastInputTypeChanged for this).
   - **Design note:** keying purely off `PreferredInput` is correct per docs, but it inherits the Studio-detection gap. A defensive fallback (e.g. also flip the affordance on any `Gamepad*` `UserInputType` seen via `InputBegan`/`LastInputTypeChanged`, or on `GamepadEnabled`) lets the affordance appear in retail-client edge cases where connect-signal timing lags — but will NOT help in Studio-macOS where the pad is invisible. This is a correctness-vs-testability tradeoff, not a spec violation.
@@ -62,7 +62,7 @@ The most load-bearing finding: on macOS Roblox Studio playtests, a physical HID 
 4. **Whether the Aug-2025 connect-path fix is present in the specific Studio build used** — not checkable without a detected pad.
 
 ### Bottom line
-LuauUI's `env.preferredInput` sourcing is doc-correct and uses the Roblox-recommended signal. The example-02 "no Edit button on gamepad" repro is fully consistent with a **known Studio/macOS gamepad-forwarding limitation** (pad invisible to engine → PreferredInput cannot read Gamepad), compounded by the Controller-Emulator Gamepad1-slot bug. It is NOT evidence of a LuauUI machinery fault (the full engine→env→memo→When→render chain was verified live both directions the same session). Definitive confirmation of the Gamepad affordance requires the **retail client on a real console or a desktop with a detected pad** — not synthetically reproducible in Studio here.
+Facet's `env.preferredInput` sourcing is doc-correct and uses the Roblox-recommended signal. The example-02 "no Edit button on gamepad" repro is fully consistent with a **known Studio/macOS gamepad-forwarding limitation** (pad invisible to engine → PreferredInput cannot read Gamepad), compounded by the Controller-Emulator Gamepad1-slot bug. It is NOT evidence of a Facet machinery fault (the full engine→env→memo→When→render chain was verified live both directions the same session). Definitive confirmation of the Gamepad affordance requires the **retail client on a real console or a desktop with a detected pad** — not synthetically reproducible in Studio here.
 
 ---
 

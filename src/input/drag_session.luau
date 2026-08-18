@@ -11,7 +11,7 @@
 --
 -- Determinism rules, all headlessly tested:
 --   * Overlapping targets: the LAST match in the array wins. Later array order =
---     higher z in LuauUI's paint order, so the topmost drawn target is the one
+--     higher z in Facet's paint order, so the topmost drawn target is the one
 --     the pointer is "over" — mirrors what the player sees.
 --   * `accepts(payload) == false` makes a target ILLEGAL for this drag: it is
 --     skipped by hit-testing, so no enter/predict fires for it.

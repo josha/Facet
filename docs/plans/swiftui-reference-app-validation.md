@@ -1,23 +1,23 @@
-# Validate SwiftUI-scale reference apps with LuauUI
+# Validate SwiftUI-scale reference apps with Facet
 
 **Status:** Planned after keyboard support and the tutorial quality pass.
 
 ## Question
 
-Can a Roblox developer use LuauUI to build the in-experience parts of Apple's
+Can a Roblox developer use Facet to build the in-experience parts of Apple's
 Backyard Birds, Food Truck, and Fruta samples from one declarative description that
 adapts across Roblox devices?
 
 The answer must separate three things:
 
-1. **LuauUI behavior** — layout, controls, navigation, input, styling, motion, state
+1. **Facet behavior** — layout, controls, navigation, input, styling, motion, state
    binding, and presentation inside a Roblox experience;
 2. **game or Roblox-service behavior** — persistence, commerce, network data,
    localization, timers, and domain rules;
 3. **Apple host-OS behavior** — widgets, App Clips, Live Activities, Dynamic Island,
    WeatherKit, and other surfaces Roblox does not expose to an experience.
 
-An unavailable host-OS surface is not a LuauUI defect. The core in-experience flow
+An unavailable host-OS surface is not a Facet defect. The core in-experience flow
 may still be fully achievable through a Roblox-shaped design.
 
 ## Source and intellectual-property boundary
@@ -55,12 +55,12 @@ that a real game would use and state what remains game-owned.
 
 ## Framework responsibility
 
-Use only public LuauUI APIs for UI composition. Each proof owns its domain state,
-content, and commands, and declares style/control/layout intent. LuauUI owns reusable
+Use only public Facet APIs for UI composition. Each proof owns its domain state,
+content, and commands, and declares style/control/layout intent. Facet owns reusable
 layout, focus, input, accessibility, presentation, motion, and platform adaptation.
 
 Create a responsibility and capability ledger before coding. If a core interaction
-needs reusable framework behavior, fix and prove it in LuauUI rather than adding raw
+needs reusable framework behavior, fix and prove it in Facet rather than adding raw
 GuiObjects, local input listeners, a parallel focus graph, or imperative responsive
 layout. Small compatible framework fixes are in scope. A large new subsystem becomes
 an evidence-backed follow-on proposal; do not disguise it as sample code.
@@ -81,7 +81,7 @@ state, lifecycle, and performance evidence.
 
 Register `swiftui-reference-app-validation`. The gate passes when all three clean-room
 proofs run from self-contained builds, their representative loops work, the complete
-feature ledgers are honest, reusable defects are fixed in LuauUI, no local workaround
+feature ledgers are honest, reusable defects are fixed in Facet, no local workaround
 substitutes for framework behavior, existing gates remain green, and the parity and
 authoring documentation explain both what Roblox can reproduce and what has no host
 equivalent. Physical and subjective rows may remain explicitly pending.

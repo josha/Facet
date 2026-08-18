@@ -10,7 +10,7 @@
 --
 -- Usage: lune run tools/lune/_probe_modal_solves
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 
 local function body()
@@ -18,26 +18,26 @@ local function body()
 	for i = 1, 12 do
 		table.insert(
 			rows,
-			LuauUI.UI.HStack({
+			Facet.UI.HStack({
 				id = "R" .. i,
 				width = { type = "fill", weight = 1 },
 				children = {
-					LuauUI.UI.Text({ id = "A", text = "Row " .. i }),
-					LuauUI.UI.Spacer({ id = "S" }),
-					LuauUI.UI.Text({ id = "B", text = "value " .. i }),
+					Facet.UI.Text({ id = "A", text = "Row " .. i }),
+					Facet.UI.Spacer({ id = "S" }),
+					Facet.UI.Text({ id = "B", text = "value " .. i }),
 				},
 			})
 		)
 	end
-	return LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.VStack({ id = "List", children = rows }) } })
+	return Facet.UI.Screen({ id = "S", children = { Facet.UI.VStack({ id = "List", children = rows }) } })
 end
 
 local function arm(mode: string, opts: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
 	local handle
 	if mode == "modal" then
 		handle = pres.presentModal(body(), opts)
@@ -82,19 +82,19 @@ local ARMS = {
 -- two CTA sub-labels). `stable` holds px constant, so nothing about the layout
 -- moved and every solve past the first is pure overhead.
 local function boundArm(stable: boolean)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 	local width = core:memo(function(use)
 		local vp = use(env:get("viewportRect")) :: any
 		return { type = "fixed", px = if stable then 120 else math.min(120, vp.w // 8) }
 	end)
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
-	local handle = pres.present(LuauUI.UI.Screen({
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
+	local handle = pres.present(Facet.UI.Screen({
 		id = "S",
 		children = {
-			LuauUI.UI.VStack({ id = "Card", children = { LuauUI.UI.Text({ id = "Sub", text = "x", width = width }) } }),
+			Facet.UI.VStack({ id = "Card", children = { Facet.UI.Text({ id = "Sub", text = "x", width = width }) } }),
 		},
 	}))
 	pres.refresh()

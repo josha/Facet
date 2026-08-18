@@ -81,7 +81,7 @@ light-dismiss, and even then Apple mandates the auto-close outcome be *save*, no
   **touch + mouse concept only.**
 - The universal grammar is **B / Circle = Cancel = back out one level**, plus an on-screen
   focusable Close/Cancel, plus A/Cross to activate the focused choice. This is exactly what
-  LuauUI already binds (`cancel.bind ButtonB`; Escape is engine-reserved, `07-input.md` §7.4).
+  Facet already binds (`cancel.bind ButtonB`; Escape is engine-reserved, `07-input.md` §7.4).
 - Consequence for this spec: **gamepad behavior does not change at all.** Whatever we decide
   about scrims and forgiveness rings, the pad still cancels with B and the region math is
   simply not consulted.
@@ -89,7 +89,7 @@ light-dismiss, and even then Apple mandates the auto-close outcome be *save*, no
 ### 1.5 Touch-accuracy / forgiveness research
 
 - The finger contact patch is ~7–10 mm; Apple's 44 pt and Material's 48 dp minimum targets
-  exist because the *centroid* of a touch lands with roughly ±half-a-target of slop. LuauUI
+  exist because the *centroid* of a touch lands with roughly ±half-a-target of slop. Facet
   encodes this as `minHitSize = 44` (`contract.luau`) — every Button/Toggle/TextField already
   gets a 44 px effective hit rect that may exceed its visual rect.
 - The relevant forgiveness for *dismissal* is the mirror of target forgiveness: a tap aimed at
@@ -111,7 +111,7 @@ Synthesizing 1.1–1.4, modal kinds fall into two families, and **kind should se
 | **Decision / confirm** | destructive confirm (example 04), required consent, form with unsaved input | **dismiss ON *iff* dismiss = the safe outcome; otherwise OFF** | Never let a stray tap perform or skip the dangerous thing. |
 
 The nuance in row 2 is the whole game (see §3.5): a destructive **confirm** *should* default to
-outside-dismiss, because in LuauUI dismissing runs neither button — it just closes, leaving the
+outside-dismiss, because in Facet dismissing runs neither button — it just closes, leaving the
 dangerous action **not taken**. A form with **unsaved input** should default outside-dismiss OFF
 (or intercepted), because there the safe outcome is not "close," it's "keep my edits."
 
@@ -187,7 +187,7 @@ From §1.1/§1.2, one rule governs correctness and must be stated in the spec an
 > data-losing action MUST set `outsideTapCancel = false` (and typically supply an explicit
 > Cancel), OR intercept dismissal to confirm (the "Discard changes?" pattern, §4).
 
-### 2.4 The two regions, precisely, in LuauUI terms
+### 2.4 The two regions, precisely, in Facet terms
 
 - **Zone A — no dismiss (forgiveness):** ( outermost painted panel rect **⊕ 24 px forgiveness
   margin** ) ∪ ( each focusable's 44 px effective hit rect ). A tap here that is *not* on an
@@ -201,7 +201,7 @@ From §1.1/§1.2, one rule governs correctness and must be stated in the spec an
 
 ## 3. The concrete spec for the presenter
 
-Engine-free; all values are tokens/LuauUI px. This refines the `onNodeTap` outside-tap path and
+Engine-free; all values are tokens/Facet px. This refines the `onNodeTap` outside-tap path and
 adds the synthesized scrim. Gamepad/keyboard paths (`cancel.onPressed`, focus walk) are
 unchanged.
 
@@ -219,7 +219,7 @@ unchanged.
 
 ### 3.2 Hit-region rules (the numbers)
 
-- **Forgiveness margin = `space.l` = 24 LuauUI px** around the panel's painted rect. Chosen as
+- **Forgiveness margin = `space.l` = 24 Facet px** around the panel's painted rect. Chosen as
   ≈ half the 44 px hit floor (22 px) rounded up to the existing grid step — the same touch-slop
   logic that sets `minHitSize`, applied to the boundary. It is a **token**, not a literal, so a
   game can retune it; it collapses to a smaller value on precise-pointer-only environments is
@@ -279,7 +279,7 @@ an engaged HUD panel doesn't kick it out of first-responder mid-interaction.
 ### 3.7 Confirm-style dialogs: the default + opt-out (recommendation, not a menu)
 
 **Default: destructive *confirm* dialogs (like example 04) DEFAULT to `outsideTapCancel = true`
-(outside-tap dismisses).** Rationale, decisive: in LuauUI `presenter.dismiss` runs **neither**
+(outside-tap dismisses).** Rationale, decisive: in Facet `presenter.dismiss` runs **neither**
 button — it just closes — so an outside tap on example 04 leaves `result` at `"none"`: the
 delete **does not happen.** Outside-tap therefore already maps to the *safe* outcome, satisfying
 the §2.3 invariant, and matches Material (dialogs scrim-dismiss by default) and Apple action
@@ -320,7 +320,7 @@ single default with a single, testable exception, not a per-screen menu.
 - **Accidental dismissal of forms with unsaved input.** Follow SwiftUI/UIKit/Material:
   SwiftUI `interactiveDismissDisabled(hasChanges)` / UIKit `isModalInPresentation`, and
   Material's disable-scrim-click — all block the casual dismiss *and* substitute a "Discard
-  changes?" confirmation rather than silently eating data. LuauUI's equivalent: a form modal
+  changes?" confirmation rather than silently eating data. Facet's equivalent: a form modal
   sets `outsideTapCancel = false` and, on an attempted exit (B or a Close press), presents a
   small confirm modal ("Discard changes?" → Discard / Keep editing). The framework guarantees
   the *barrier* (§3.4 swallow); the *discard-confirm* is a consumer composition the guide should
@@ -355,12 +355,12 @@ single default with a single, testable exception, not a per-screen menu.
   cancels; no outside-tap concept; scrim non-focusable).
 - **`outsideTapCancel = false`** now **swallows** the outside tap (true barrier), instead of
   today's fall-through-to-clickthrough.
-- **Confirm dialogs (example 04): DEFAULT outside-dismiss ON** — because in LuauUI dismiss runs
+- **Confirm dialogs (example 04): DEFAULT outside-dismiss ON** — because in Facet dismiss runs
   neither button, so tap-away = the safe "do nothing." Opt OUT only for unsaved-input forms and
   genuinely-required gates, which additionally use the "Discard changes?" intercept.
 
 **Artifact:**
-`/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/LuauUI/docs/research/2026-07-21-modal-dismissal-spec.md`
+`/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/docs/research/2026-07-21-modal-dismissal-spec.md`
 
 ## Sources
 

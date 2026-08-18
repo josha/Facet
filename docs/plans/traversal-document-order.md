@@ -6,7 +6,7 @@ director playtest of the shipped stage.
 
 ## Purpose
 
-Step 8 gave LuauUI Tab and Shift+Tab over the existing focus graph. It inherited one
+Step 8 gave Facet Tab and Shift+Tab over the existing focus graph. It inherited one
 thing it should not have: a focusable `UI.Grip` is deferred to the **end** of the
 focus order, so a Slider between a button row and a list traverses *after* the whole
 list. Tab means document order, on every platform that has ever had a Tab key.
@@ -45,7 +45,7 @@ two cannot drift.
 ### Query
 
 `handle.focusOrder()` returns a frozen, deterministic dump carrying
-`schema = "luauui-focus-order/1"`: the resolved traversal order with each entry's
+`schema = "facet-focus-order/1"`: the resolved traversal order with each entry's
 priority and live eligibility, **and** the navigation groups. Reporting both readings
 side by side is the point — a debugger has to be able to see that they differ, and
 that they cover the same set. Safe to call after dispose.

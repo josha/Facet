@@ -1,13 +1,13 @@
 --!strict
--- LuauUI Studio verification scenarios (fable-execution-contract §5).
+-- Facet Studio verification scenarios (fable-execution-contract §5).
 -- A scenario is a NAMED, DETERMINISTIC fixture the Studio MCP can select,
 -- drive, observe, and reset without assembling game state. Scenario modules
 -- are ENGINE-FREE (like examples/gallery/examples): they build blueprints and
 -- pure state against the ctx the runner passes in; only runner.luau touches
 -- the engine, and only through the adapter/env seams it is handed.
 --
--- Select in Studio: set workspace attribute LuauUI_Scenario = "<name>" before
--- Play. Drive via _G.LuauUIScenario (report/step/reset/list) from the MCP.
+-- Select in Studio: set workspace attribute Facet_Scenario = "<name>" before
+-- Play. Drive via _G.FacetScenario (report/step/reset/list) from the MCP.
 -- Every scenario export is keyed to acceptance-ledger rows
 -- (artifacts/native-substrate/acceptance-ledger.md).
 --
@@ -23,7 +23,7 @@ local ORDER = {
 	"selection_bridge",
 	"preferred_text",
 	-- ...and its SIBLING GuiService preference (ADR-0035 / owed row O-26): the
-	-- player's BACKGROUND TRANSPARENCY setting, answered by LuauUI's own painting.
+	-- player's BACKGROUND TRANSPARENCY setting, answered by Facet's own painting.
 	-- Filed here rather than at the tail because the two are one story — one
 	-- accessibility fact each, both pushed from `roblox_env`, neither driveable
 	-- from a script. The fixture honours nothing by hand: it moves the environment
@@ -43,7 +43,7 @@ local ORDER = {
 	"perf_capture",
 	-- roadmap Step 5 (sponsor-framework-gaps): the eight Sponsor-shaped fixtures,
 	-- one per contract cluster (ui-designer-spec §8). Each is keyed to its SF-*
-	-- ledger rows and drives ONLY public LuauUI.
+	-- ledger rows and drives ONLY public Facet.
 	"sponsor_motion",
 	"sponsor_celebration",
 	"sponsor_list",
@@ -202,11 +202,11 @@ local ORDER = {
 	-- `demo_picker.DEMOS`.
 	"time_curves",
 	-- ...and react-lua-comparison.md §5 rank 1 / ADR-0034: UI.FOREIGN. The one
-	-- fixture in this list whose panes are NOT drawn by LuauUI — RichText spans in
+	-- fixture in this list whose panes are NOT drawn by Facet — RichText spans in
 	-- one label, an engine-measured UIListLayout with AutomaticCanvasSize, and a
 	-- deliberately 2x-oversize Frame that proves the box clips. Each is a
 	-- capability the framework declines by design, which is the only way to
-	-- demonstrate an escape hatch: a pane LuauUI could have drawn would show
+	-- demonstrate an escape hatch: a pane Facet could have drawn would show
 	-- nothing. A fourth button adopts a `Part` and puts the framework's own
 	-- refusal on screen verbatim. Also in `demo_picker.DEMOS`.
 	"foreign_content",

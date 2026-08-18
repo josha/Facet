@@ -17,7 +17,7 @@ return {
 	title = "Safe-area authority (NS-A1)",
 	ledgerRows = { "NS-A1" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 
 		local screen = UI.Screen({
 			id = "SafeAreaScreen",

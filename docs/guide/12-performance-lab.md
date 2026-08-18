@@ -1,6 +1,6 @@
 # 12 — The performance lab
 
-The lab is a self-contained Roblox place that makes LuauUI performance problems easy
+The lab is a self-contained Roblox place that makes Facet performance problems easy
 to **reproduce, profile, optimize and compare** — with the same workload, the same
 seed and the same conditions every time. It is not a demo. Everything on screen
 exists so a number can be attributed to something.
@@ -24,7 +24,7 @@ enough", and no amount of Studio profiling substitutes for it.
 ## 12.1 Rebuild and open the place
 
 ```bash
-cd GameStudio/ui/LuauUI
+cd GameStudio/ui/Facet
 tools/build_places.sh                      # rebuilds every example place, the lab last
 python3 tools/check_perf_place.py          # rebuilds from clean source and inspects the result
 ```
@@ -48,15 +48,15 @@ place and an ornate panel renders blank, that is the reason, and it affects only
 theme-cost workload.
 
 Then, in Studio: **File → Open from File →**
-`GameStudio/ui/LuauUI/examples/places/LuauUI-PerformanceLab.rbxl`, and press Play.
+`GameStudio/ui/Facet/examples/places/Facet-PerformanceLab.rbxl`, and press Play.
 No Rojo session, no plugin, no `.env`. The console prints:
 
 ```
-[LuauUI Scenario] 'perf_lab' ready (0.8.0); steps: cleanCapture,counters,export,fault,mount,...
-[LuauUI PerfLab] 0.8.0 ready — scopes engine=true
+[Facet Scenario] 'perf_lab' ready (0.8.0); steps: cleanCapture,counters,export,fault,mount,...
+[Facet PerfLab] 0.8.0 ready — scopes engine=true
 ```
 
-`scopes engine=true` means `debug.profilebegin` is available and the LuauUI phase
+`scopes engine=true` means `debug.profilebegin` is available and the Facet phase
 scopes will appear in a capture. If it says `false`, every scope silently becomes a
 direct call and the capture will show `$Script` only.
 
@@ -70,9 +70,9 @@ lune run tools/lune/studio_sync perf        # NOT the default gallery tree — s
 
 then run `tools/studio/inject.luau` through the Studio MCP in the **Edit** datamodel.
 `perf` mode matters: the gallery and the lab both mount at
-`ReplicatedStorage.LuauUIScenarios` (the lab *reuses* the gallery's runner rather than
+`ReplicatedStorage.FacetScenarios` (the lab *reuses* the gallery's runner rather than
 forking it), so serving both at once would put two different `init.luau` files at the
-same path. The injector stamps `workspace.LuauUI_SourceStamp`, and every capture
+same path. The injector stamps `workspace.Facet_SourceStamp`, and every capture
 records it — that stamp is how you prove a session is running the source you just
 built rather than whatever Studio had cached.
 
@@ -83,7 +83,7 @@ built rather than whatever Studio had cached.
 The build never publishes, uploads, or attaches a universe. To get the lab onto a
 phone:
 
-1. Open `examples/places/LuauUI-PerformanceLab.rbxl` in Studio.
+1. Open `examples/places/Facet-PerformanceLab.rbxl` in Studio.
 2. **File → Publish to Roblox As…**, create a **new** experience, and set its privacy
    to **Private** (Creator Dashboard → the experience → Configure → Permissions).
    A private experience is still openable by you on any device you are signed in on.
@@ -104,7 +104,7 @@ scriptable step, so a sweep needs no pointer:
 ```lua
 -- Studio MCP execute_luau, Client datamodel
 local HttpService = game:GetService("HttpService")
-local api = workspace:WaitForChild("LuauUIScenarioAPI")
+local api = workspace:WaitForChild("FacetScenarioAPI")
 local function step(s) return HttpService:JSONDecode(api.step:Invoke(s)).result end
 
 step("select:scenario=dense-scroll,rows=2000,seed=1,content=normal,theme=flat")
@@ -118,7 +118,7 @@ print(HttpService:JSONEncode(step("export:1")))
 
 | id | question it answers |
 |---|---|
-| `idle-baseline` | what the place costs before any LuauUI work |
+| `idle-baseline` | what the place costs before any Facet work |
 | `mount-ramp` | how mount, layout, Instances and memory scale with row count |
 | `dense-scroll` | is steady scrolling smooth, and is windowing bounded |
 | `dense-scroll-native` | which cost is unavoidable engine work vs framework overhead |
@@ -159,7 +159,7 @@ DONE 14/14 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
   `running 4/9 · collection-churn` as it goes.
 - At the end the sweep unmounts everything and the status line tells you what to press.
   Arm the MicroProfiler first and one dump covers the whole sweep with every
-  `LuauUI/*` phase scope in it.
+  `Facet/*` phase scope in it.
 
 **A workload that fails does not end the sweep.** Its error is recorded in the result
 row and shown on the status line, and the remaining workloads still run — so one
@@ -170,7 +170,7 @@ scenario that cannot mount in this environment costs you one result, not eight.
 
 ### The controls that matter
 
-- **`select:`** — `scenario`, `impl` (`luauui`/`native`/`none`), `rows`, `seed`,
+- **`select:`** — `scenario`, `impl` (`facet`/`native`/`none`), `rows`, `seed`,
   `content` (`normal`/`locale`/`identity`), `theme`, `warmup`, `frames`. An unknown
   scenario or setting is refused **by name**; `rows` is clamped to the declared ceiling.
 - **`cleanCapture:on`** — *dismisses* the overlay rather than hiding it. A hidden
@@ -196,7 +196,7 @@ server side:
 ```lua
 -- Server datamodel
 local HttpService, RS = game:GetService("HttpService"), game:GetService("ReplicatedStorage")
-local ev = Instance.new("RemoteEvent"); ev.Name = "LuauUI_PerfSave"; ev.Parent = RS
+local ev = Instance.new("RemoteEvent"); ev.Name = "Facet_PerfSave"; ev.Parent = RS
 ev.OnServerEvent:Connect(function(_p, name, body)
     print(HttpService:RequestAsync({
         Url = "http://127.0.0.1:8642/save?name=" .. name .. "&dir=perf",
@@ -204,7 +204,7 @@ ev.OnServerEvent:Connect(function(_p, name, body)
 end)
 ```
 
-client side: `RS.LuauUI_PerfSave:FireServer("my-capture", HttpService:JSONEncode(payload))`.
+client side: `RS.Facet_PerfSave:FireServer("my-capture", HttpService:JSONEncode(payload))`.
 The row lands in `artifacts/performance-stress-places/studio/` byte-for-byte as the
 instrument emitted it. Then:
 
@@ -216,19 +216,19 @@ python3 tools/check_perf_captures.py
 
 ## 12.4 Profile it: the MicroProfiler and LibMP
 
-LuauUI publishes a **closed set of nine phase scopes** (`src/core/profile.luau`):
+Facet publishes a **closed set of nine phase scopes** (`src/core/profile.luau`):
 
 | scope | phase |
 |---|---|
-| `LuauUI/mutate` | the batched model change |
-| `LuauUI/react` | reactive propagation: dirty walk, memos, observers, effects |
-| `LuauUI/measure` | the solver's measure pass |
-| `LuauUI/arrange` | the solver's arrange pass |
-| `LuauUI/commit` | adapter property writes |
-| `LuauUI/mount` | Instance creation, reconciliation and disposal |
-| `LuauUI/resource` | an async resource landing and its UI update |
-| `LuauUI/scenario` | the lab driver's own per-frame and per-pass work |
-| `LuauUI/reset` | the driver's teardown |
+| `Facet/mutate` | the batched model change |
+| `Facet/react` | reactive propagation: dirty walk, memos, observers, effects |
+| `Facet/measure` | the solver's measure pass |
+| `Facet/arrange` | the solver's arrange pass |
+| `Facet/commit` | adapter property writes |
+| `Facet/mount` | Instance creation, reconciliation and disposal |
+| `Facet/resource` | an async resource landing and its UI update |
+| `Facet/scenario` | the lab driver's own per-frame and per-pass work |
+| `Facet/reset` | the driver's teardown |
 
 There is deliberately no label per row, key or node: `profile.span` refuses any name
 outside the set, and a headless case proves the emitted label count does not scale
@@ -236,7 +236,7 @@ with row count.
 
 **Interactively**, press <kbd>Ctrl</kbd>+<kbd>F6</kbd> in Studio (<kbd>Cmd</kbd>+
 <kbd>F6</kbd> on macOS) to open the MicroProfiler, then pause it (<kbd>Ctrl</kbd>+
-<kbd>P</kbd>) on an interesting frame. The `LuauUI/*` bars sit under the script scope.
+<kbd>P</kbd>) on an interesting frame. The `Facet/*` bars sit under the script scope.
 
 **Programmatically**, through the Studio MCP or the command bar — this is how the
 numbers in `artifacts/performance-stress-places/studio/perf-lab.json` were produced:
@@ -266,7 +266,7 @@ step("pass:scrollSteady=60")                      -- drive the workload
 local buf = LibMP.Control:CaptureToBufferSync()   -- snapshot; do NOT OpenFromLiveData here
 local session = LibMP.Session.OpenFromBuffer(buf)
 local tickToMs = session:FetchGlobalDesc().TickToMsCpu
-local ids = session:FindTimerIds("LuauUI/*", false)   -- returns exactly the nine, or fewer
+local ids = session:FindTimerIds("Facet/*", false)   -- returns exactly the nine, or fewer
 local nameOf = {}
 for _, id in ids do nameOf[id] = session:FetchTimerDesc(id).TimerName end
 
@@ -289,9 +289,9 @@ end
 session:Dispose()
 ```
 
-**One thing to know before you add the bars up: LuauUI scope times are INCLUSIVE and
+**One thing to know before you add the bars up: Facet scope times are INCLUSIVE and
 they nest.** A solve driven from inside an observer runs `measure`/`arrange`/`commit`
-*within* `LuauUI/react`, so summing `byScope` double-counts. Compare exclusive times, or
+*within* `Facet/react`, so summing `byScope` double-counts. Compare exclusive times, or
 compare one phase against itself across two captures — which is what the optimization
 loop actually does.
 
@@ -309,7 +309,7 @@ Three things measured on Studio 0.732 that will cost you an hour if you rediscov
   after the pass you care about, and read `GetFrameIdMin`/`GetFrameIdMax` rather than
   assuming your window is in there.
 - **A scope appears in the timer table only once it has RUN.** A capture taken without
-  driving a `reset` finds eight of the nine `LuauUI/*` timers, which is not the same as
+  driving a `reset` finds eight of the nine `Facet/*` timers, which is not the same as
   the framework declaring eight. If you are auditing the scope set, exercise every
   phase first — and never assert a count you did not read out of
   `src/core/profile.luau`.
@@ -377,7 +377,7 @@ identical repeats each, frame wait excluded:
 
 | | p50 | GuiObjects | per row |
 |---|---|---|---|
-| LuauUI | 3.9–4.2 ms | 260 (11 rows mounted) | 23.6 |
+| Facet | 3.9–4.2 ms | 260 (11 rows mounted) | 23.6 |
 | matched raw-Roblox reference | 1.0 ms | 119 (13 rows mounted) | 9.2 |
 
 About **4×**, and read it as "about" — the reference early-returns when the window's

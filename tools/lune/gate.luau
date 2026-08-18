@@ -1,5 +1,5 @@
 --!strict
--- LuauUI canonical gate (design §16.1, §16.4). Runs the active phase's check
+-- Facet canonical gate (design §16.1, §16.4). Runs the active phase's check
 -- manifest, writes artifacts/<phaseDir>/gate.json, exits 0 only when the phase
 -- passes. Usage: lune run tools/lune/gate [phase-gate-name]
 -- Pass rule: every check PASS, or FAIL_OPTIONAL (capability removed), or
@@ -90,7 +90,7 @@ end
 table.sort(requirements)
 
 local gateJson = {
-	schema = "luauui-gate/1",
+	schema = "facet-gate/1",
 	gate = phaseName,
 	status = if overallPass then "PASS" else worst,
 	requirements = requirements,

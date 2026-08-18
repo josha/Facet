@@ -1,7 +1,7 @@
 # TextBox — verified engine facts (2026-07-20)
 
-Live probes for the LuauUI `UI.TextInput` expansion. Every row was run against
-a **real** Roblox Studio TextBox in `Place1.rbxl` (LuauUI gallery place) over the
+Live probes for the Facet `UI.TextInput` expansion. Every row was run against
+a **real** Roblox Studio TextBox in `Place1.rbxl` (Facet gallery place) over the
 Studio MCP — reflection/property probes in the **Edit** datamodel, focus/typing
 probes in a running **Play → Client** VM. No claim below is from memory or docs
 prose unless explicitly marked UNVERIFIED-ON-DEVICE / API-documented-but-unprobed.
@@ -42,7 +42,7 @@ IME / autocorrect surface: none discoverable. `IMEBehavior`, `ImeBehavior`,
 `OnScreenKeyboardInput` all `pcall`-fail as non-members (not security-locked —
 absent). The only text-mode knob is the security-locked `TextInputType`.
 
-**Load-bearing:** LuauUI **cannot** drive keyboard mode (numeric/email/password)
+**Load-bearing:** Facet **cannot** drive keyboard mode (numeric/email/password)
 via `TextInputType` from a game/plugin script. `Password`-style masking and
 numeric keypads are not available to us through this property. Treat the whole
 `TextInputType` axis as unavailable; do not design an API that promises it.
@@ -89,8 +89,8 @@ Probe: install `UIS.InputBegan` listener counting keyboard events by
 - **With the box focused (`IsFocused()==true`, `GetFocusedTextBox()==box`), every
   injected keyboard input reached `UIS.InputBegan` with `gameProcessedEvent ==
   true`** — 3 of 3 keys, zero with `false`. — **PROBED.**
-- **This is the handshake LuauUI relies on:** while a TextBox owns focus the
-  engine marks keyboard InputBegan as game-processed, so any LuauUI semantic
+- **This is the handshake Facet relies on:** while a TextBox owns focus the
+  engine marks keyboard InputBegan as game-processed, so any Facet semantic
   action that (correctly) ignores `gameProcessedEvent==true` input will **not
   fire** — letters and arrows are consumed by the focused box, not by nav/hotkey
   bindings. `UIS:GetFocusedTextBox()` is the reliable "is a box eating keys right

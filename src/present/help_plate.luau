@@ -65,7 +65,7 @@ local help_plate = {}
 local HELP_ROOT = "__help__"
 local PLATE_ID = "Plate"
 local BODY_ID = "Body"
-local DUMP_SCHEMA = "luauui-help-dump/1"
+local DUMP_SCHEMA = "facet-help-dump/1"
 
 -- THE SAME 0.45 s DELIBERATION the disclosure plate's pointer dwell uses, and
 -- for the same reason: a plate that appeared the instant a pointer crossed a

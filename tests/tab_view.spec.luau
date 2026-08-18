@@ -26,12 +26,12 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local tab_view = require("../src/controls/tab_view")
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- ===== the harness ========================================================
 -- One mounted TabView on a real presenter. The viewport/input facts below are
@@ -62,8 +62,8 @@ end
 local function world(opts: any?)
 	local options = opts or {}
 	local view = options.viewport or PHONE
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.capabilities ~= nil then
@@ -75,9 +75,9 @@ local function world(opts: any?)
 	if options.displaySize ~= nil then
 		env:set("displaySize", options.displaySize)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local selection = core:signal(options.initial or "home")
 	local built: any = {
 		id = "Tabs",
@@ -90,7 +90,7 @@ local function world(opts: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local tv = LuauUI.newTabView(LuauUI, core, built)
+	local tv = Facet.newTabView(Facet, core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
 	pres.refresh()
 	return {
@@ -136,7 +136,7 @@ describe("D5: the strip IS a segmented picker, not a second option row", functio
 		expect(w.adapter.node(stripPath(w) .. "/Indicator/Layer/Bar") ~= nil).toBe(true)
 		-- ...and the strip's whole state is the picker's OWN dump, nested rather
 		-- than paraphrased, so there is one description of a segment row
-		expect(w.tv.dump().strip.schema).toBe("luauui-picker-dump/1")
+		expect(w.tv.dump().strip.schema).toBe("facet-picker-dump/1")
 		expect(w.tv.dump().strip.optionCount).toBe(3)
 	end)
 
@@ -261,9 +261,9 @@ describe("D5: placement comes from the policy, and the strip is RE-HOMED not reb
 	end)
 
 	it("an automatic placement with nothing to ask is an authoring error, not a guess", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newTabView(LuauUI, core, {
+			Facet.newTabView(Facet, core, {
 				id = "X",
 				selection = core:signal("a"),
 				tabs = { { id = "a", content = body("a") } },
@@ -278,18 +278,18 @@ end)
 local function nestedWorld(opts: any?)
 	local options = opts or {}
 	local view = options.viewport or PHONE
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local outerSelection = core:signal("discover")
 	local innerSelection = core:signal("foryou")
 	local inner: any = nil
 	local innerBuilds = 0
-	local outer = LuauUI.newTabView(LuauUI, core, {
+	local outer = Facet.newTabView(Facet, core, {
 		id = "App",
 		selection = outerSelection,
 		env = env,
@@ -301,7 +301,7 @@ local function nestedWorld(opts: any?)
 				-- tab's content factory, which is also where laziness puts it
 				content = function(tabScope: any)
 					innerBuilds += 1
-					inner = LuauUI.newTabView(LuauUI, core, {
+					inner = Facet.newTabView(Facet, core, {
 						id = "Page",
 						selection = innerSelection,
 						env = env,
@@ -423,12 +423,12 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 	it("a content factory that THROWS still leaves the depth balanced", function()
 		-- an unbalanced build stack would make every later TabView in the session
 		-- think it was nested, which is a bug that only shows up two screens away
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
-		local boom = LuauUI.newTabView(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local boom = Facet.newTabView(Facet, core, {
 			id = "Boom",
 			selection = core:signal("a"),
 			env = env,
@@ -551,15 +551,15 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 	end)
 
 	it("eviction disposes what the CALLER owned on the tab scope", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local selection = core:signal("home")
 		local disposed = 0
 		local baseline: any = nil
-		local tv = LuauUI.newTabView(LuauUI, core, {
+		local tv = Facet.newTabView(Facet, core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -627,15 +627,15 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 	end)
 
 	it("...and state held OUTSIDE the TabView survives it — the documented escape hatch", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local selection = core:signal("home")
 		-- the caller's Signal, OUTSIDE the TabView, exactly as `selection` is
 		local draft = core:signal("half typed")
-		local tv = LuauUI.newTabView(LuauUI, core, {
+		local tv = Facet.newTabView(Facet, core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -925,9 +925,9 @@ end)
 
 describe("D5: the closed spec, the dump, and disposal", function()
 	it("an unknown key is an authoring error", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newTabView(LuauUI, core, {
+			Facet.newTabView(Facet, core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -940,9 +940,9 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("`content` must be a FACTORY, and the refusal says why", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newTabView(LuauUI, core, {
+			Facet.newTabView(Facet, core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -954,9 +954,9 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("two tabs may not share an id, because a tab id IS the selection value", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newTabView(LuauUI, core, {
+			Facet.newTabView(Facet, core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -968,9 +968,9 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("`selection` must be a settable Signal the caller owns", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newTabView(LuauUI, core, {
+			Facet.newTabView(Facet, core, {
 				id = "X",
 				selection = "home",
 				placement = "topBar",
@@ -984,7 +984,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	it("the dump is deterministic and names every fact a bug report needs", function()
 		local w = world()
 		local d = w.tv.dump()
-		expect(d.schema).toBe("luauui-tab_view-dump/1")
+		expect(d.schema).toBe("facet-tab_view-dump/1")
 		expect(d.id).toBe("Tabs")
 		expect(d.tabCount).toBe(3)
 		expect(d.selectedId).toBe("home")
@@ -994,12 +994,12 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("dispose is registry-neutral, strip and indicator and all", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		-- the selection Signal is the CALLER's, so it is created BEFORE the
 		-- baseline: a control that freed it would be freeing what it does not own
 		local selection = core:signal("a")
 		local baseline = core:counters()
-		local tv = LuauUI.newTabView(LuauUI, core, {
+		local tv = Facet.newTabView(Facet, core, {
 			id = "X",
 			selection = selection,
 			placement = "sidebar",

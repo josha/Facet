@@ -31,7 +31,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local row_actions_state = require("../src/input/row_actions_state")
 local text_metrics = require("../src/layout/text_metrics")
@@ -125,10 +125,10 @@ end
 	contribution's `syncGeometry`, which is how a hosted engine measures). ]]
 local function world(opts: any?): any
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
 	-- KEYBOARD NAVIGATION IS OPT-IN at the presenter (director playtest
@@ -142,7 +142,7 @@ local function world(opts: any?): any
 	if options.keyboardNavigation ~= nil then
 		presenterOpts.keyboardNavigation = options.keyboardNavigation
 	end
-	local pres = LuauUI.newPresenter(core, env, adapter, system, presenterOpts)
+	local pres = Facet.newPresenter(core, env, adapter, system, presenterOpts)
 	local rows = core:signal(makeRows(options.count or 100))
 	local activations: { string } = {}
 	local spec: any = {
@@ -155,7 +155,7 @@ local function world(opts: any?): any
 		viewportHeight = 400, -- 10 visible rows
 		overscan = 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any)
 			table.insert(activations, item.id)
@@ -192,13 +192,13 @@ local function world(opts: any?): any
 	if options.rowDropTarget ~= nil then
 		spec.rowDropTarget = options.rowDropTarget
 	end
-	local list = virtual_list.build(LuauUI, core, spec)
+	local list = virtual_list.build(Facet, core, spec)
 	local children: { any } = { list.blueprint }
 	if options.sibling then
 		-- a rendered node OUTSIDE the list, for the outside-tap half of dismiss
 		table.insert(
 			children,
-			LuauUI.UI.Button({
+			Facet.UI.Button({
 				id = "Outside",
 				label = "Outside",
 				onActivate = function()
@@ -207,7 +207,7 @@ local function world(opts: any?): any
 			})
 		)
 	end
-	local screen = LuauUI.UI.Screen({ id = "S", children = children })
+	local screen = Facet.UI.Screen({ id = "S", children = children })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -518,9 +518,9 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 	end)
 
 	it("(c) rowActions + reorderable is refused at build (v1)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = core:signal(makeRows(4)),
 				key = function(item: any)
@@ -529,7 +529,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 				rowHeight = 40,
 				viewportHeight = 200,
 				cell = function(item: any)
-					return LuauUI.UI.Text({ id = "L", text = item.label })
+					return Facet.UI.Text({ id = "L", text = item.label })
 				end,
 				reorderable = true,
 				onReorder = function() end,
@@ -684,7 +684,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(w.debug().engineCount).toBe(1)
 
 		w.pres.dismiss(w.handle)
-		local screen2 = LuauUI.UI.Screen({ id = "S2", children = { w.blueprint } })
+		local screen2 = Facet.UI.Screen({ id = "S2", children = { w.blueprint } })
 		local handle2 = w.pres.present(screen2)
 		w.pres.refresh()
 		w.list.bindNativeScroll(handle2.controller)

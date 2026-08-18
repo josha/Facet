@@ -47,7 +47,7 @@ Every claim below was read out of `src/` (not docs) on 2026-08-12 against
 |---|---|---|
 | `ProgressView` is determinate-bar only | **Confirmed** | `src/controls/progress_view.luau:2`; closed key set = `format, height, id, label, max, min, showValue, value` (`:47-56`); internal paint slots `barTrack`/`barFill` (`:107,111`) |
 | `Label` has titleAndIcon / titleOnly / iconOnly | **Confirmed** | `src/controls/label.luau:30`, default `titleAndIcon` (`:56`); keys `gap, icon, iconSize, id, presentation, textSize, title` (`:34-42`); absent icon degrades to `titleOnly` (`:68-70`) |
-| Feedback-bus taxonomy | **Confirmed, and CLOSED** | `src/present/feedback.luau:32-45` — `activate, select, adjust, pickup, commit, reject, cancel, arrive, land, dismiss, supersede, celebrate`. `bus.emit/subscribe/count/dispose` (`:68-73`), handlers quarantined (`:122-127`). **No haptics adapter exists** (`:4-5`: "LuauUI PLAYS NOTHING") |
+| Feedback-bus taxonomy | **Confirmed, and CLOSED** | `src/present/feedback.luau:32-45` — `activate, select, adjust, pickup, commit, reject, cancel, arrive, land, dismiss, supersede, celebrate`. `bus.emit/subscribe/count/dispose` (`:68-73`), handlers quarantined (`:122-127`). **No haptics adapter exists** (`:4-5`: "Facet PLAYS NOTHING") |
 | Table Shift-click ranges shipped? | **YES — shipped and tested** | `table.luau:2063` dispatches `mode = "range"`; anchor at `:544`, `rangeKeys` at `:1823-1834` (min/max, so reversed ranges work), applied at `:1895`, anchor pruned on row removal (`:726-728`). Real keys: `screen_target.luau:2728`. Tests: `tests/table.spec.luau:1004-1030`, `:1061-1075` |
 | Table Cmd/Ctrl-click toggles shipped? | **YES — shipped and tested** | `table.luau:2061` dispatches `mode = "toggle"`; body `:1897-1905`. Cmd **and** Ctrl both map: `screen_target.luau:2729-2731`, `roblox_input.luau:29-32`, `input/actions.luau:262-267`. Test: `tests/table.spec.luau:1048-1059` |
 | — the "Phase B" marker | **Stale comment, not deferred work** | `table.luau:8-10` header still says "modifier-key semantics are Phase B"; the implementation comment at `:1879` says the modes shipped. The header is a lie the next agent will believe — **Phase 3 fixes it** |
@@ -70,7 +70,7 @@ Every claim below was read out of `src/` (not docs) on 2026-08-12 against
 2. **Hit geometry already follows a live presentation OFFSET; it does not follow
    scale or rotation.** `screenRectOf` adds `presentationShift` on purpose
    (`renderer.luau:1073-1142`) — platform-verifier finding PLAT-4: while the
-   keyboard keep-visible shift or an enter slide was live, LuauUI's own drop
+   keyboard keep-visible shift or an enter slide was live, Facet's own drop
    verdicts disagreed with what the player saw, by exactly the offset. The
    comment at `:1100-1103` fixes the other half: scale/rotation would turn a hit
    rect into a quad, so a scaled node hit-tests at its solved size. The brief's
@@ -328,7 +328,7 @@ call 2's fresh records.
 
 Revision 1 proposed extending the presentation channel with a `dw/dh` size delta,
 on the argument that the instance tree is flat so an interpolated size moves
-nothing else. The flatness claim is true of LuauUI *nodes* and false of
+nothing else. The flatness claim is true of Facet *nodes* and false of
 everything else in the frame, and the review enumerated the cost:
 
 - `applyRect` is not just Position and Size. The same function writes the **hit
@@ -609,7 +609,7 @@ on ZStack and its children — the nine-position `Alignment` is expressible),
 content-hugging default sizing, weighted `fill` distribution with
 largest-remainder rounding (`solver.luau:3209-3234`), per-child `margin`,
 `Spacer` main-axis fill (`solver.luau:284-292`), `Divider` axis inference.
-LuauUI's `align = "stretch"` is a **superset** — SwiftUI needs a frame trick for it.
+Facet's `align = "stretch"` is a **superset** — SwiftUI needs a frame trick for it.
 
 **Intentional divergences, to be written down rather than closed:**
 
@@ -676,7 +676,7 @@ loudly at construction (`blueprint_schema.luau:734` `GAP`, `:748` `ALIGN`).
 
 **One correction before that refusal is written, from the flex parity audit
 (2026-08-12), and it is a dependency rather than an addition.** Refusing
-`alignH`/`alignV` under an H/VStack would close off LuauUI's only leaf-level
+`alignH`/`alignV` under an H/VStack would close off Facet's only leaf-level
 route to Roblox's `ItemLineAlignment` — per-child cross-axis alignment — and
 ship a refusal that has to be un-shipped the moment that gap is closed. The
 audit also found the ambiguity underneath: the solver reads `child.align`
@@ -781,7 +781,7 @@ file is the decision queue; the summary is:
 | `init.client.luau` `…/Dock/Bar` | `anchor` | `alignH` | redundant — inert twice, and the column is `width = FILL` |
 
 **The third blocker cleared itself, as predicted, and was verified rather than
-assumed.** `games/RascalRally/code/tests/luauui_sponsor_results.spec.luau:3739` and
+assumed.** `games/RascalRally/code/tests/facet_sponsor_results.spec.luau:3739` and
 `tests/reference/glade_spec.luau:1466,1489` assert an *empty* `diagnostics()` list.
 With the inert props deleted those screens emit nothing and all three pass
 **unedited** — no test was weakened, skipped or changed.
@@ -843,7 +843,7 @@ pinned by a test that fails if row mode changes flow-mode geometry by a pixel.
 #### Shipped 2026-08-13 — and two things the design above did not say
 
 `tests/grid_row.spec.luau` (framework) and
-`games/RascalRally/code/tests/luauui_grid_row_contract.spec.luau` (consumer pin,
+`games/RascalRally/code/tests/facet_grid_row_contract.spec.luau` (consumer pin,
 which reads the two declarations out of `ResultsScreen.luau` so the replica cannot
 drift from the call site). Both halves mutation-proved: a shared column width, a
 span that widens its first column, a span that forgets the gaps it crosses, a mix
@@ -893,7 +893,7 @@ updating an existing module over adding a parallel one.
 
 **So neither `LazyVStack` nor `LazyHStack` ships as a name** (game-director
 decision, 2026-08-12). `newVirtualList` stays the one lazy-collection surface and
-the parity doc records it as LuauUI's equivalent, with its divergences named
+the parity doc records it as Facet's equivalent, with its divergences named
 rather than papered over. The brief sanctions this ("document the gap precisely
 and stop — that is an acceptable phase outcome").
 
@@ -913,7 +913,7 @@ The work is not in the arithmetic, it is in everything that quietly assumed
 
 | Assumes vertical today | What `axis = "x"` needs |
 |---|---|
-| Naming: `rowHeight`, `viewportHeight` | `itemExtent` / `viewportExtent` as the axis-neutral names, with `rowHeight` / `viewportHeight` kept working as deprecated aliases per ADR-0011 (≥ one MINOR) and registered in `LuauUI.DEPRECATIONS`. A `rowHeight` on a sideways list is a lying name, and this codebase punishes those |
+| Naming: `rowHeight`, `viewportHeight` | `itemExtent` / `viewportExtent` as the axis-neutral names, with `rowHeight` / `viewportHeight` kept working as deprecated aliases per ADR-0011 (≥ one MINOR) and registered in `Facet.DEPRECATIONS`. A `rowHeight` on a sideways list is a lying name, and this codebase punishes those |
 | Focus navigation walks Up/Down | the list declares its axis to the focus graph so Navigate maps to Left/Right; the focus map stays **one** map read two ways (constitution §9) |
 | Keyboard/gamepad: arrows and DPad | the same binding move, gated the same way |
 | Edge autoscroll during a drag | drives the axis the list actually scrolls |
@@ -998,7 +998,7 @@ byte-for-byte, no shipped screen moves, and no consumer that currently relies on
 overflow-and-scroll is disturbed. Setting `shrinkWeight = 1` on a row gives
 Roblox `Fill`/CSS `flex-shrink: 1` semantics.
 
-Two algorithm details Roblox's docs leave undefined, so LuauUI decides them
+Two algorithm details Roblox's docs leave undefined, so Facet decides them
 explicitly and records the decision as its own (not as parity):
 
 - **Shrink weight is multiplied by the child's basis size**, as CSS does. Without
@@ -1091,13 +1091,13 @@ Two properties this owes, and both are proved rather than argued:
 
 ### 2.6 `distribute` — main-axis distribution (added 2026-08-12)
 
-The flex parity audit found the gap that most clearly puts LuauUI *behind* the
+The flex parity audit found the gap that most clearly puts Facet *behind* the
 native controls, and it is one prop wide.
 
 The solver packs stack children from the start of the axis, unconditionally —
 `local cursor = if isH then innerX else innerY` (`solver.luau:2044`), with no
 distribution term anywhere in the branch. Roblox's `UIFlexAlignment` offers
-`SpaceBetween`, `SpaceAround` and `SpaceEvenly`; LuauUI can reproduce all three
+`SpaceBetween`, `SpaceAround` and `SpaceEvenly`; Facet can reproduce all three
 **pixel-exactly** today by hand-placing bare `Spacer`s between children (verified
 by solver probe: three 100px children in a 500px stack land at x = 0/200/400 with
 Spacers between, and 33/67/67/33 with weighted Spacers at the ends).
@@ -1127,14 +1127,14 @@ doing nothing.
 ### 2.7 Flow-wrap — recorded, not built
 
 Roblox's `UIListLayout.Wraps` packs "as many as fit per line" with ragged item
-widths. LuauUI cannot express it: `Grid` is a **uniform-pitch** layout
+widths. Facet cannot express it: `Grid` is a **uniform-pitch** layout
 (`solver.luau:1875-1876`) where every cell gets `innerW / cols`, and
 `minColumnWidth = "intrinsic"` sizes every column to the widest child — a
 different and wastefu shape.
 
 This one is genuinely its own mission, not a prop. It is a new arrange branch
 with line breaking, per-line cross extent, and a cross-axis line-distribution
-rule that **the Roblox docs do not define** — so LuauUI would have to define it —
+rule that **the Roblox docs do not define** — so Facet would have to define it —
 plus non-trivial interaction with incremental layout, instance recycling and
 virtualization, each of which carries a live perf budget. It gets the same
 treatment as variable-height virtualization in §2.3: the requirement and the open
@@ -1288,7 +1288,7 @@ degradation (`label.luau:65-70`) is better than SwiftUI's, which shows nothing.
 Three findings, and none of them is a Label change:
 
 - **`LabelStyle` conformances** — locked decision, not built. The mapping the
-  parity doc records: LuauUI's `newLabel` *is* the default style, and a bespoke
+  parity doc records: Facet's `newLabel` *is* the default style, and a bespoke
   arrangement is hand-authored `UI.HStack`/`UI.VStack` content, not a pluggable
   style object.
 - **Bindable `title`** — construction-fixed today (`label.luau:111-113`, static
@@ -1312,7 +1312,7 @@ either way.
 `UI.sensoryFeedback(bp, { trigger, event })`: when the `trigger` Readable
 changes, emit `{ type = event, path = … }` on the presenter's feedback bus. The
 taxonomy is **closed** (`feedback.luau:32-45`), so an unregistered `event` name
-is an authoring error with the twelve valid names listed. LuauUI still plays
+is an authoring error with the twelve valid names listed. Facet still plays
 nothing.
 
 **The platform research changed the adapter's design.** Checked against the live
@@ -1333,9 +1333,9 @@ Findings:
   `UINotification`, `GameplayExplosion`, `GameplayCollision`. So the adapter
   cites presets and never hand-rolls motor pulses.
 - **`GuiButton` carries `HoverHapticEffect` and `PressHapticEffect`** — assignable
-  `HapticEffect` references the **engine** fires. LuauUI already materializes
+  `HapticEffect` references the **engine** fires. Facet already materializes
   `TextButton`s, so the `activate` verb takes this **property route**: the
-  framework assigns a reference and never calls `Play()`, which keeps "LuauUI
+  framework assigns a reference and never calls `Play()`, which keeps "Facet
   plays nothing" literally rather than nearly true. The bus subscription covers
   only the verbs with no engine hook. This was not in the brief's design and is
   strictly better than what the brief described.
@@ -1541,14 +1541,14 @@ developer.apple.com on 2026-08-13:
 
 So the capability→edit-mode half *is* Apple's, and it is precisely the principle
 above: edit mode surfaces whichever capabilities exist. The **auto-show** is ours,
-forced by a bar SwiftUI does not carry — LuauUI's four-input rule makes every
+forced by a bar SwiftUI does not carry — Facet's four-input rule makes every
 declared verb reachable on every input, so a consumer who simply forgot to place a
 toggle must not be able to ship a table no finger can select in.
 
 Proved in `tests/table_input.spec.luau` from all four sides (the shape that needs
 it, plus mouse-session / `selection = "none"` / no-`onPrimaryAction` / consumer-owned
 `editing`), cited as a fourth Table×touch case in `tests/conformance/controls_registry.luau`,
-and pinned game-side in RascalRally's `tests/luauui_racer_list.spec.luau` — its racer
+and pinned game-side in RascalRally's `tests/facet_racer_list.spec.luau` — its racer
 list is `single`-select with no primary action and must never grow an Edit button.
 The interaction-class CANCEL block now shares the same `autoEditRoute` predicate, so
 the widened toggle cannot strand a widened set of tables in edit mode.
@@ -1678,7 +1678,7 @@ natural home exists.
 Then the **showcase rule** in full, per the brief §"Showcase rule": register in
 `scenarios/init.luau` `ORDER` and in `demo_picker.DEMOS`; update
 `tests/gallery_demo_picker.spec.luau` and `tests/examples_gallery.spec.luau`;
-rebuild `examples/places/LuauUI-Showcase.rbxl` with `tools/build_places.sh` and
+rebuild `examples/places/Facet-Showcase.rbxl` with `tools/build_places.sh` and
 commit it; drive the device canary — including the 320×640 sweep — through the
 in-experience picker, never through a workspace attribute.
 
@@ -1762,7 +1762,7 @@ decisions explicitly:
   requirement, why `index × pitch` cannot express it, and both candidate designs
   (estimate-and-correct versus measure-up-front) with what each costs, so the
   next mission starts from the problem rather than the symptom;
-- `sensoryFeedback` is a semantic bus event and LuauUI plays nothing;
+- `sensoryFeedback` is a semantic bus event and Facet plays nothing;
 - the `Toggle`-cannot-compose-a-Label gap (§3.2) and the baseline-alignment and
   `alignmentGuide` gaps (§2.1) as named, deliberate non-deliveries.
 
@@ -1940,7 +1940,7 @@ or weakened: all eleven run in full on `./run-tests.sh`.
 **A fast tier mistaken for the suite is worse than no fast tier**, so it is loud
 and it is refused where it matters:
 
-- the runner prints a `LUAUUI-FAST-TIER` banner **before and after** the run,
+- the runner prints a `FACET-FAST-TIER` banner **before and after** the run,
   naming the file count and repeating that the gate runs `./run-tests.sh`;
 - the closing banner prints its own share of the recorded 42.7 s baseline and
   **reddens over 25 %**, so the tier's own budget is self-policing;
@@ -2024,7 +2024,7 @@ control (restored tree) is green. Every one reddened the named case:
 
 **M9 caught a real defect in this phase's own work, of exactly the class the
 gate-integrity sweep exists for.** The guard was first written as
-`printf '%s' "$plain" | grep -q 'LUAUUI-FAST-TIER'` — and `tools/test.sh` runs
+`printf '%s' "$plain" | grep -q 'FACET-FAST-TIER'` — and `tools/test.sh` runs
 under `set -o pipefail`. `grep -q` exits at the first match, `printf` takes
 SIGPIPE, and the pipeline reports **141**, so the `if` fell through and
 `tools/test.sh` **PASSED a fast-tier transcript as a suite result** (4163 cases,
@@ -2082,9 +2082,9 @@ verified to **bite** against a deliberately-unconditional framework mutation.
 | Round-2 surface | RR call sites | What the rider owes |
 |---|---|---|
 | `withAnimation`, `layoutPriority`, `GridRow`, `LazyVStack`, `containerRelativeFrame`, `sensoryFeedback`, `onPrimaryAction` | **0** each | a biting guard test that RR's screens animate/compress/select exactly as they do today |
-| `newProgressView` | **1** — `src/client/LuauUISponsor/ResultsScreen.luau:1471` | the determinate bar's behavior is byte-identical after the indeterminate mode lands |
+| `newProgressView` | **1** — `src/client/FacetSponsor/ResultsScreen.luau:1471` | the determinate bar's behavior is byte-identical after the indeterminate mode lands |
 | `UI.Grid` | **2** — `ResultsScreen.luau:2495, :2546` | GridRow's row mode must leave these flow-grid callers untouched; that is the phase's own constraint, pinned by an RR test |
-| `newTable` / `newVirtualList` | `LuauUIRacerListScreen.luau`, `LuauUISponsor/RacerList.luau` | already covered by the three row-actions guard tests; extended for `onPrimaryAction`, and — since §3.4.1 widened the auto Edit/Done toggle — for the pin that the racer list (single-select, no primary action, not reorderable, and built with **no `env`**, so an unwanted toggle would show on every session) grows **no** Edit button |
+| `newTable` / `newVirtualList` | `FacetRacerListScreen.luau`, `FacetSponsor/RacerList.luau` | already covered by the three row-actions guard tests; extended for `onPrimaryAction`, and — since §3.4.1 widened the auto Edit/Done toggle — for the pin that the racer list (single-select, no primary action, not reorderable, and built with **no `env`**, so an unwanted toggle would show on every session) grows **no** Edit button |
 
 No game behavior changes without separate authorization.
 
@@ -2099,7 +2099,7 @@ text surviving ~1.4× pseudo-localization; and the Rascal Rally rider — inspec
 affected callers and land compatibility evidence that bites, with no game
 behavior change without separate authorization.
 
-Phase end: fresh-context `luauui-architecture-verifier` every phase, plus
-`luauui-reactive-runtime-verifier` for Phase 1. Milestone end:
-`luauui-phase-gate-verifier`, a fresh-context RED-TEAM `code-reviewer`, confirmed
+Phase end: fresh-context `facet-architecture-verifier` every phase, plus
+`facet-reactive-runtime-verifier` for Phase 1. Milestone end:
+`facet-phase-gate-verifier`, a fresh-context RED-TEAM `code-reviewer`, confirmed
 findings fixed, and a report in the `GameStudio/STUDIO.md` mission format.

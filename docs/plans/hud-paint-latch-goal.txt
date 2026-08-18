@@ -4,7 +4,7 @@ five investigations have already failed to reproduce it in any instrument here.
 Your job is to succeed where they did not — so read what they ruled out before
 you spend a minute re-ruling it out.
 
-Repo: GameStudio/ui/LuauUI (its own git repo; cd there). Its own CLAUDE.md, the
+Repo: GameStudio/ui/Facet (its own git repo; cd there). Its own CLAUDE.md, the
 root CLAUDE.md and docs/plans/agent-execution-contract.md are binding.
 
 ────────────────────────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ A stale place already cost this project one device session.
 ────────────────────────────────────────────────────────────────────────────
 VERIFICATION — run verbatim at the end, all green
 
-cd GameStudio/ui/LuauUI
+cd GameStudio/ui/Facet
 lune run tests/run                            # expect 6083+ passed / 0 failed
 python3 tools/check_source_size.py
 lune run tools/lune/check_registration_cli

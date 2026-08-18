@@ -27,7 +27,7 @@ local PLAYBOOK_DIR = "docs/extending"
 
 local problems: { string } = {}
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 
 local ledger = if fs.isFile(LEDGER) then fs.readFile(LEDGER) else nil
 if ledger == nil then
@@ -52,14 +52,14 @@ local function sortedKeys(t: { [string]: any }): { string }
 	return keys
 end
 
-for _, key in sortedKeys(LuauUI) do
+for _, key in sortedKeys(Facet) do
 	if key == "DEPRECATIONS" or key == "VERSION" then
 		if not covered(key) then
 			table.insert(problems, `metadata '{key}' has no ledger row`)
 		end
 		continue
 	end
-	local value = LuauUI[key]
+	local value = Facet[key]
 	if not covered(key) then
 		table.insert(problems, `top-level export '{key}' is not classified in the surface ledger`)
 	end

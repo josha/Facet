@@ -86,7 +86,7 @@ export type Context = {
 -- parentage stays load-bearing (the per-state tint rules read GuiState from
 -- the PARENT via the child combinator), so the resolution is the CHROME TEXT
 -- LIFT: a text-bearing node with an active decoration gets one managed
--- `LuauUIChromeText` TextLabel above the chrome that mirrors the parent's
+-- `FacetChromeText` TextLabel above the chrome that mirrors the parent's
 -- text (the parent keeps `Text` for semantics/measure; its paint is hidden
 -- under the chrome either way). Paint on the lifted label is sheet-owned in
 -- native mode (`.luau-chrome-text` rules + parent-tag child combinators);
@@ -100,7 +100,7 @@ export type Context = {
 -- NOT SUPPORTED UNDER CHROME: `TextScaled`. It sizes text from the box the
 -- label happens to occupy, and the lifted label's box is the decoration's,
 -- not the parent's content rect — so a scaled mirror would disagree with
--- both the parent and the solver. LuauUI sizes text through the solver
+-- both the parent and the solver. Facet sizes text through the solver
 -- (textSize + typographyScale) and never sets TextScaled anywhere; a host
 -- that sets it by hand gets an unmirrored label under a skinned node.
 function screen_chrome.new(ctx: Context)
@@ -1045,7 +1045,7 @@ function screen_chrome.new(ctx: Context)
 		--
 		-- Found live on `fantasy_ornate` (2026-08-05): a 60x46 Open button whose OWN
 		-- text reported `TextFits = true` at 36x18, while the label the chrome lifted
-		-- into `LuauUIChromeText` was **8px wide** — a 36px decoration minus two 14px
+		-- into `FacetChromeText` was **8px wide** — a 36px decoration minus two 14px
 		-- corner pieces. The button rendered with no readable label and the solver
 		-- filed nothing, because the solver measured the BUTTON's box and the adapter
 		-- then painted the label into a box derived from the ART.
@@ -1114,8 +1114,8 @@ function screen_chrome.new(ctx: Context)
 		for _, handle in handlesByPath do
 			local host = handle.instance
 			if typeof(host) == "Instance" and host:IsA("GuiObject") then
-				-- the single-decoration path names it `LuauUIChrome`; a LAYERED package
-				-- names its layers `LuauUIChromeL<N>` and never creates the former, so a
+				-- the single-decoration path names it `FacetChrome`; a LAYERED package
+				-- names its layers `FacetChromeL<N>` and never creates the former, so a
 				-- check that only looked for `DECORATION_NAME` was blind to exactly the
 				-- packages this defect lives in
 				local primary = host:FindFirstChild(chrome_slots.DECORATION_NAME)
@@ -1373,7 +1373,7 @@ function screen_chrome.new(ctx: Context)
 		-- THE LIFT BELONGS TO THE DECORATION (live-found, director round 7). The
 		-- nine-slice rebuild path has always torn the lifted label down with the
 		-- decoration; the ladder did not, so a swap from a layered package to a
-		-- flat one left an orphan `LuauUIChromeText` still boxed by the OUTGOING
+		-- flat one left an orphan `FacetChromeText` still boxed by the OUTGOING
 		-- recipe's contentInsets. Measured live: after ornate -> studio-neutral the
 		-- toolbar's three buttons each kept a lift at `{1, -28}` inside a 36px box,
 		-- i.e. -16 px wide. It draws nothing at that size, which is exactly why it
@@ -1595,7 +1595,7 @@ function screen_chrome.new(ctx: Context)
 		instance.Size = UDim2.new(box.size.xScale, box.size.xOffset, box.size.yScale, box.size.yOffset)
 	end
 
-	-- THE TRACK THIS FILL BELONGS TO, found through the LuauUI PATH.
+	-- THE TRACK THIS FILL BELONGS TO, found through the Facet PATH.
 	--
 	-- Live-found (2026-07-25, first drive): `instance.Parent` is NOT the track.
 	-- This target renders a FLAT instance tree — every node is a direct child of

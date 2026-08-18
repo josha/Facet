@@ -918,7 +918,7 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
-		-- `LuauUI.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
+		-- `Facet.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
 		-- renders nothing and has no input surface — it is a one-slot registry of
 		-- "which row is currently open on this list surface", talking to rows only
 		-- through their public `_close`/`_closeMenu` handle. It was already a
@@ -1491,7 +1491,7 @@ local registry: { Entry } = {
 	-- the consumer (a Grip sibling to orbit, a Button overlay to act), so the
 	-- four-input story belongs to those controls, not to the picture.
 	{ name = "Stage", kind = "leaf", inputProofs = false, affordanceProofs = false },
-	-- Foreign (ADR-0034): the 2-D sibling of Stage — a box for a GuiObject LuauUI
+	-- Foreign (ADR-0034): the 2-D sibling of Stage — a box for a GuiObject Facet
 	-- does not wrap. It owns no input surface either, and for a stronger reason:
 	-- the framework has never seen the content, so it could not route input to it
 	-- if it wanted to. The four-input story belongs to the controls composed

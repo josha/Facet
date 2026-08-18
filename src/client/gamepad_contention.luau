@@ -5,7 +5,7 @@
 --
 -- SCOPE — UI-ONLY PLACES ONLY. `disableLegacyControls` turns OFF the avatar
 -- control scripts. That is correct for a place that is nothing but UI (the
--- LuauUI gallery qualifies), and WRONG for a real game: a game must NOT disable
+-- Facet gallery qualifies), and WRONG for a real game: a game must NOT disable
 -- avatar input to win a button. A real game instead puts avatar input onto the
 -- Input Action System (`Workspace.PlayerScriptsUseInputActionSystem = true`,
 -- a Properties-panel-only flag — ENGINE TRUTH 2) and lets UI-vs-gameplay
@@ -42,7 +42,7 @@
 -- class (`GameStudio/specialists/ROBLOX.md`, Server Authority setup).
 --
 -- The consequence for design: this is NOT a rollout gap that a newer Studio build
--- will close. Scriptability is a reflection-level flag, so **no LuauUI version on
+-- will close. Scriptability is a reflection-level flag, so **no Facet version on
 -- any build can read this property**, and every detector here is necessarily
 -- BEHAVIOURAL — it observes the symptom, never the setting. Docs must therefore
 -- tell an integrator to tick it; they can never assert that it was ticked.
@@ -51,7 +51,7 @@
 -- ARBITRATION SPACE (measured live in the showcase 2026-08-14, four readings in
 -- one session). A sinking `ContextActionService` binding consumes a key BEFORE
 -- any `InputContext` is offered it, at ANY priority: a CAS Sink at priority 100
--- beat a LuauUI `InputContext` at priority 10000 with `Sink = true` (the probe
+-- beat a Facet `InputContext` at priority 10000 with `Sink = true` (the probe
 -- fired twice; the InputContext action never fired). Unbinding the CAS action
 -- made the identical presses reach the InputContext immediately.
 --
@@ -61,7 +61,7 @@
 -- Sink) is therefore un-outrankable from IAS. A claim built at priority 10000 was
 -- measured inert and REMOVED rather than shipped (`3eb97fb`).
 --
--- THE RESOLUTION IS TRUTH 2, NOT A NUMBER (director's ruling 2026-08-15). LuauUI
+-- THE RESOLUTION IS TRUTH 2, NOT A NUMBER (director's ruling 2026-08-15). Facet
 -- does not reach into ContextActionService — `src/client/roblox_input.luau`
 -- deliberately never re-implements or reaches into arbitration (ADR-0004). The
 -- Input Action System is the whole story, and the property is what puts Roblox's
@@ -100,7 +100,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "arbitrate (focus-aware first-responder model, ADR-0014 in progress).",
 	"2. Workspace.PlayerScriptsUseInputActionSystem (which puts Roblox's own "
 		.. "player scripts — camera included — onto IAS so they join normal "
-		.. "priority arbitration) is REQUIRED by LuauUI and is a "
+		.. "priority arbitration) is REQUIRED by Facet and is a "
 		.. "Properties-panel-only flag: present in the reflection database but NOT "
 		.. "scriptable, so it is not readable or settable from code or Rojo, on any "
 		.. "build (re-probed 0.734.0.7340915, 2026-08-15: a plain read says 'not a "
@@ -113,7 +113,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "scripting it off.",
 	"5. ContextActionService priority and InputContext.Priority are NOT one "
 		.. "arbitration space (measured live 2026-08-14): a sinking CAS binding at "
-		.. "priority 100 consumed Left/Right while a LuauUI InputContext at priority "
+		.. "priority 100 consumed Left/Right while a Facet InputContext at priority "
 		.. "10000 with Sink=true never fired, and unbinding the CAS action let the "
 		.. "identical presses through at once. So no number outranks a legacy "
 		.. "CoreScript binding from IAS — RbxCameraKeypress (Left/Right/I/O, prio "
@@ -122,7 +122,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "become an InputContext that ordinary arbitration can outrank. (A "
 		.. "BindActionAtPriority claim of our OWN action above 2000, unbound on "
 		.. "release, was also measured to work and to hand the key straight back — "
-		.. "but LuauUI does not reach into ContextActionService, so it is not the "
+		.. "but Facet does not reach into ContextActionService, so it is not the "
 		.. "route; roblox_input.luau never re-implements arbitration, ADR-0004.)",
 	"6. cameraKeysContended() reports whether ANY ContextActionService binding "
 		.. "currently holds an arrow key. Measured live 2026-08-15 in a default "
@@ -132,7 +132,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "different bindings and neither substitutes for the other.",
 	"4. Tab is the CoreGui PLAYERS LIST shortcut, and while that CoreGuiType is "
 		.. "enabled (the default) the platform documents it as reserved — so "
-		.. "LuauUI's Tab/Shift+Tab focus traversal will not receive it. Roblox "
+		.. "Facet's Tab/Shift+Tab focus traversal will not receive it. Roblox "
 		.. "files Tab under 'reserved unless you disable the respective feature' "
 		.. "rather than in its hard-reserved set (Esc/F9/F11/F12/PrintScreen), "
 		.. "and documents exactly one remedy: StarterGui:SetCoreGuiEnabled("
@@ -164,7 +164,7 @@ function gamepad_contention.legacyStackActive(): boolean
 	return ok and active == true
 end
 
--- The four codes LuauUI's focus navigation reads off the keyboard. Compared as
+-- The four codes Facet's focus navigation reads off the keyboard. Compared as
 -- STRINGS (`tostring(Enum.KeyCode.Left)` == "Enum.KeyCode.Left") so the matching
 -- rule below runs headless, where the `Enum` global does not exist at all.
 local ARROW_CODES: { [string]: true } = {
@@ -184,7 +184,7 @@ local ARROW_CODES: { [string]: true } = {
 -- separate CoreScripts; a probe for one says nothing about the other.
 --
 -- SAME SHAPE AS THE OTHER TWO PROBES, AND THE SAME CONTRACT: it is something a
--- game or a doctor check ASKS, never something LuauUI announces. It is
+-- game or a doctor check ASKS, never something Facet announces. It is
 -- deliberately not wired to a boot-time warning, because in every place that has
 -- not ticked `Workspace.PlayerScriptsUseInputActionSystem` it is true — which is
 -- currently every default Studio session — and a warning that fires always is
@@ -234,7 +234,7 @@ end
 --
 -- Its intended use is the same: a game (or doctor tooling) WARNING that keyboard
 -- traversal may be silently dead, so the loss is visible. It is never a gate,
--- and LuauUI never disables the players list on a consumer's behalf — hiding a
+-- and Facet never disables the players list on a consumer's behalf — hiding a
 -- game's leaderboard to win a key is exactly the trade this module's SCOPE note
 -- refuses to make for the avatar controls.
 --

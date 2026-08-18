@@ -70,9 +70,9 @@ local STEPPER_KEYS = specGuard.keySet({
 	"value",
 })
 
-function stepper.build(LuauUI: any, core: any, spec: Spec)
+function stepper.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newStepper", spec, STEPPER_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Stepper"
 	local scope = core:scope("stepper-" .. tostring(id))
 	local value = spec.value
@@ -81,7 +81,7 @@ function stepper.build(LuauUI: any, core: any, spec: Spec)
 	-- reject it at BUILD, exactly as TextInput does (ARCH-TI-1)
 	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
 		error(
-			`LuauUI newStepper('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
+			`Facet newStepper('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
 				.. `(the control never creates it, because the value must outlive the control)`,
 			0
 		)
@@ -259,7 +259,7 @@ function stepper.build(LuauUI: any, core: any, spec: Spec)
 	function api.dump()
 		local v = value:get()
 		return {
-			schema = "luauui-stepper-dump/1",
+			schema = "facet-stepper-dump/1",
 			id = id,
 			value = v,
 			formatted = model.format(v),

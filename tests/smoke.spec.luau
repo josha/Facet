@@ -5,25 +5,25 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 
-describe("LuauUI public surface", function()
+describe("Facet public surface", function()
 	it("loads headless under lune with the phase-1 API", function()
-		expect(LuauUI.VERSION).toBe("0.9.0") -- ADR-0011; bump alongside the ADR
-		expect(type(LuauUI.newCore)).toBe("function")
-		expect(type(LuauUI.UI.Screen)).toBe("function")
-		expect(type(LuauUI.mount)).toBe("function")
-		expect(type(LuauUI.newPresenter)).toBe("function")
-		expect(type(LuauUI.replication.snapshot)).toBe("function")
+		expect(Facet.VERSION).toBe("0.9.0") -- ADR-0011; bump alongside the ADR
+		expect(type(Facet.newCore)).toBe("function")
+		expect(type(Facet.UI.Screen)).toBe("function")
+		expect(type(Facet.mount)).toBe("function")
+		expect(type(Facet.newPresenter)).toBe("function")
+		expect(type(Facet.replication.snapshot)).toBe("function")
 	end)
 
 	it("the public API drives a full slice without touching internals", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
-		local screen = LuauUI.UI.Screen({
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
+		local screen = Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Button({ id = "Go", label = "Go" }) },
+			children = { Facet.UI.Button({ id = "Go", label = "Go" }) },
 		})
 		local created = 0
 		local adapter = {
@@ -39,7 +39,7 @@ describe("LuauUI public surface", function()
 			remove = function() end,
 			destroyRoot = function() end,
 		}
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		pres.present(screen)
 		expect(created).toBe(2) -- Screen + Button
 		expect(pres.focus.focused:get()).toBe("/S/Go")

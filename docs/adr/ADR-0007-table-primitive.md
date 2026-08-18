@@ -5,12 +5,12 @@
 
 ## Decision — a composite control, not a solver kind
 
-`UI table = src/controls/table.luau :: table_control.build(LuauUI, core, spec) -> { blueprint, api, dispose }` — the same composite pattern the game screens use. Internally it composes shipped primitives (VStack/HStack/ScrollView/Button/Text) with a **column-width resolver**: column widths resolve once per table width (fixed / fill-weight / percent, each with min), then every row's cells receive those widths as fixed dims — so the existing solver algebra does all layout and NO new solver kind is needed. Structural row identity rides ForEach-style keying.
+`UI table = src/controls/table.luau :: table_control.build(Facet, core, spec) -> { blueprint, api, dispose }` — the same composite pattern the game screens use. Internally it composes shipped primitives (VStack/HStack/ScrollView/Button/Text) with a **column-width resolver**: column widths resolve once per table width (fixed / fill-weight / percent, each with min), then every row's cells receive those widths as fixed dims — so the existing solver algebra does all layout and NO new solver kind is needed. Structural row identity rides ForEach-style keying.
 
 ### Spec shape (v1)
 
 ```luau
-table_control.build(LuauUI, core, {
+table_control.build(Facet, core, {
   columns = {            -- ordered; single-column + custom cells = a list
     { id = "name", title = "Racer", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
     { id = "laps", title = "Laps", width = { type = "fixed", px = 64 } },

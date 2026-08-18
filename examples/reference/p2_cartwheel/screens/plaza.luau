@@ -1,7 +1,7 @@
 --!strict
 -- PLAZA — the engine-content hero (spec §13).
 --
--- `UI.Stage` is the new engine-content leaf: LuauUI owns the box, the frame, the
+-- `UI.Stage` is the new engine-content leaf: Facet owns the box, the frame, the
 -- WorldModel, the Camera and the lifecycle; the PROOF owns what is in it. A
 -- proof module is engine-free, so it cannot build a Part — it declares the
 -- diorama as DATA (`stageContent`, returned from build) and the scenario runner,
@@ -76,7 +76,7 @@ function plaza.new(app: any): any
 		return string.match(use(app.state.section), "^plaza:") ~= nil
 	end)
 
-	-- THE ORBIT. The camera is the proof's (LuauUI owns the box and the frame; the
+	-- THE ORBIT. The camera is the proof's (Facet owns the box and the frame; the
 	-- content and how it is looked at are ours), so it is driven here, through the
 	-- public handle, on the same tick everything else in this proof rides. Long
 	-- period, eased pitch, deterministic start angle — and REDUCED MOTION PARKS

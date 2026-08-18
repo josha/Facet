@@ -4,7 +4,7 @@
 -- These cases guard a promise and a boundary. The promise: adding spatial input
 -- later must be an adapter change, not a rewrite — so a two-dimensional
 -- callback written today has to keep working when the optional fields arrive.
--- The boundary: LuauUI does not support VR, and nothing in the shipped surface
+-- The boundary: Facet does not support VR, and nothing in the shipped surface
 -- may start saying it does.
 
 local t = require("./lib/testkit")
@@ -12,7 +12,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local spatial = require("../src/input/spatial")
 local environment = require("../src/env/environment")
 local custom = require("../src/core/custom")
@@ -134,7 +134,7 @@ describe("normalized spatial event data (XP-D2)", function()
 		expect(spatial.extend(pos, {})).toBe(pos)
 	end)
 
-	it("every event LuauUI produces today is flat", function()
+	it("every event Facet produces today is flat", function()
 		expect(spatial.isFlat({ x = 1, y = 2 })).toBe(true)
 		expect(spatial.isFlat({ x = 1, y = 2, pointerType = "touch" })).toBe(true)
 		expect(spatial.describe({ x = 1, y = 2 })).toBe("flat")
@@ -147,10 +147,10 @@ describe("normalized spatial event data (XP-D2)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		local seen: { any } = {}
-		local bp = LuauUI.UI.Screen({
+		local bp = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "Card",
 					label = "Card",
 					onPointerDown = function(_path, pos)
@@ -192,14 +192,14 @@ describe("the future world render target is declared, not implemented (XP-D3)", 
 	end)
 
 	it("no world/surface adapter is exported", function()
-		expect((LuauUI :: any).newSurfaceTarget).toBe(nil)
+		expect((Facet :: any).newSurfaceTarget).toBe(nil)
 		expect(fs.isFile("src/client/surface_target.luau")).toBe(false)
 	end)
 end)
 
 describe("no VR support claim (XP-D5)", function()
 	-- The one irreversible mistake in this section is a document that starts
-	-- saying LuauUI supports VR. A grep is a crude instrument, so it is aimed
+	-- saying Facet supports VR. A grep is a crude instrument, so it is aimed
 	-- narrowly: the shipped guide and API reference may DISCUSS the seam, but
 	-- may not contain a support claim in any of the phrasings a reader would
 	-- take as one.
@@ -209,7 +209,7 @@ describe("no VR support claim (XP-D5)", function()
 		"VR%-ready",
 		"VR ready",
 		"works in VR",
-		"LuauUI in VR",
+		"Facet in VR",
 		"spatial support",
 	}
 	-- the plan documents deliberately discuss what a VR claim WOULD require; the
@@ -234,7 +234,7 @@ describe("no VR support claim (XP-D5)", function()
 	-- phrase and means its opposite, so a blunt grep flags the very sentences
 	-- that make the boundary explicit. The check is line-scoped and skips a line
 	-- carrying a negation — which is why the guarded set can include the two
-	-- documents whose whole subject is what LuauUI does NOT support.
+	-- documents whose whole subject is what Facet does NOT support.
 	local NEGATORS = { "not ", "no ", "nothing", "none", "neither", "never", "without", "unearned", "cannot", "n't" }
 	local function isDenial(line: string): boolean
 		local lower = string.lower(line)
@@ -276,12 +276,12 @@ describe("no VR support claim (XP-D5)", function()
 			expect(string.find(string.lower(text), gate, 1, true) ~= nil).toBe(true)
 		end
 		-- and it says plainly that none of them has been run
-		expect(string.find(text, "LuauUI does not currently support VR", 1, true) ~= nil).toBe(true)
+		expect(string.find(text, "Facet does not currently support VR", 1, true) ~= nil).toBe(true)
 		expect(string.find(text, "PENDING_PHYSICAL", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the spatial module says so in its own header, where an implementer reads it", function()
 		local text = fs.readFile("src/input/spatial.luau")
-		expect(string.find(text, "LuauUI does not support VR", 1, true) ~= nil).toBe(true)
+		expect(string.find(text, "Facet does not support VR", 1, true) ~= nil).toBe(true)
 	end)
 end)

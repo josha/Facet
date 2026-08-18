@@ -3,7 +3,7 @@
 -- worked example `docs/guide/09-custom-themes.md` walks through line by line.
 --
 -- Written as a CLEAN CONSUMER: everything here goes through the public
--- `LuauUI.themes` surface (define + neutralPackage as the base) — no internal
+-- `Facet.themes` surface (define + neutralPackage as the base) — no internal
 -- imports, no screen-specific branches. A game team with only the public docs
 -- can reproduce this file, which is the acceptance claim it exists to prove.
 --
@@ -384,7 +384,7 @@ local GENERATED: any = {
 function fantasy_parchment.definition(themes: any): any
 	return {
 		-- start from the library's own package and override what the theme
-		-- means to change; core roles added by future LuauUI versions are then
+		-- means to change; core roles added by future Facet versions are then
 		-- inherited through a diagnosed upgrade instead of a copied sheet
 		base = themes.neutralPackage(),
 		identity = {

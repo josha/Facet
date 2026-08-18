@@ -2,7 +2,7 @@
 
 **2026-08-15.** `tools/prior_gates.sh` had never released its lock. Not
 sometimes, not on crashes — **never, on any path, including a clean run.** The
-sweep that finished at 16:43 left `/tmp/luauui_prior_gates.lock` behind, created
+sweep that finished at 16:43 left `/tmp/facet_prior_gates.lock` behind, created
 at 12:54, with no process holding it.
 
 ## The bug
@@ -39,7 +39,7 @@ trap - EXIT; exit 0
 The lock is acquired with `mkdir`, and the refusal is one line to **stderr**:
 
 ```
-prior_gates: another sweep holds /tmp/luauui_prior_gates.lock — refusing to start a second
+prior_gates: another sweep holds /tmp/facet_prior_gates.lock — refusing to start a second
 exit 2
 ```
 

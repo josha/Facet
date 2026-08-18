@@ -32,6 +32,9 @@ def main() -> int:
         return 1
     d = json.load(open(PATH))
 
+    # IMMUTABLE EVIDENCE: this capture was recorded before the Facet rename and
+    # keeps the schema string it was written with. A frozen artifact is not
+    # re-stamped by a rebrand.
     if d.get("schema") != "luauui-device-perf/1":
         errors.append(f"unexpected schema {d.get('schema')!r}")
     if d.get("evidenceClass") != "studio-emulated":

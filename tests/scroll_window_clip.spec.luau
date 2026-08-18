@@ -63,10 +63,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 local BAR = fake_target.SCROLL_BAR_THICKNESS
 
 local TOUCH = { touch = true, mouse = false, keyboard = false, gamepad = false }
@@ -75,12 +75,12 @@ local POINTER = { touch = false, mouse = true, keyboard = true, gamepad = false 
 -- one scroll host, filled with `rows` fill-width children of `rowHeight`
 local function world(caps: any, preferred: string, rows: number, opts: any?): any
 	local options: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 400 })
 	env:set("capabilities", caps)
 	env:set("preferredInput", preferred)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	-- OPT INTO THE LIVE DEFAULT. The fake publishes NO bar thickness unless a spec
 	-- asks for one ("which is WHY no headless sweep ever saw this class" —
 	-- scroll_bar_measure.spec), while the live adapter publishes
@@ -90,7 +90,7 @@ local function world(caps: any, preferred: string, rows: number, opts: any?): an
 	-- boot policy.
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = BAR
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local children = {}
 	for i = 1, rows do
 		table.insert(

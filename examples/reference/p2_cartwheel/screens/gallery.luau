@@ -17,7 +17,7 @@ function gallery.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local stats = app.services.stats
 
 	local self: any = {}
@@ -92,7 +92,7 @@ function gallery.new(app: any): any
 
 	-- ---- toolbar -------------------------------------------------------------
 
-	local layoutPicker = LuauUI.newPicker(LuauUI, core, {
+	local layoutPicker = Facet.newPicker(Facet, core, {
 		id = "Layout",
 		label = S.t("gallery.layout"),
 		options = {
@@ -103,7 +103,7 @@ function gallery.new(app: any): any
 		sizeClass = app.state.sizeClass,
 	})
 
-	local sortMenu = LuauUI.newPopupButton(LuauUI, core, {
+	local sortMenu = Facet.newPopupButton(Facet, core, {
 		id = "Sort",
 		options = {
 			{ id = "popularity", label = S.t("gallery.sortPopularity") },
@@ -114,7 +114,7 @@ function gallery.new(app: any): any
 		sizeClass = app.state.sizeClass,
 	})
 
-	local timeframePicker = LuauUI.newPicker(LuauUI, core, {
+	local timeframePicker = Facet.newPicker(Facet, core, {
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.today") },
@@ -130,14 +130,14 @@ function gallery.new(app: any): any
 	for index, name in data.ATTRIBUTES :: any do
 		table.insert(axisOptions, { id = name, label = parts.attributeName(app, index) })
 	end
-	local axisMenu = LuauUI.newPopupButton(LuauUI, core, {
+	local axisMenu = Facet.newPopupButton(Facet, core, {
 		id = "Axis",
 		options = axisOptions,
 		value = axisKey,
 		sizeClass = app.state.sizeClass,
 	})
 
-	local search = LuauUI.newTextInput(LuauUI, core, {
+	local search = Facet.newTextInput(Facet, core, {
 		id = "Search",
 		value = query,
 		placeholder = S.t("gallery.search"),
@@ -309,7 +309,7 @@ function gallery.new(app: any): any
 
 	-- ---- the table form ------------------------------------------------------
 
-	local tableControl = LuauUI.newTable(LuauUI, core, {
+	local tableControl = Facet.newTable(Facet, core, {
 		id = "PotionTable",
 		rows = rows,
 		key = function(item)

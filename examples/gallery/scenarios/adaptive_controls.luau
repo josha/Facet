@@ -3,7 +3,7 @@
 -- the live fixture the five-view device matrix drives (rows D-1..D-6).
 --
 -- ONE semantic tree. There is no per-profile copy and no device-name branch: the
--- layout adapts from `LuauUI.adaptive.conditions` (space + viewing distance) and
+-- layout adapts from `Facet.adaptive.conditions` (space + viewing distance) and
 -- from `UI.ViewThatFits` (the container's real measured space). Every Milestone B
 -- control appears, so a single matrix sweep covers them all.
 --
@@ -34,7 +34,7 @@
 --                                        spanning both
 --   * `UI.sensoryFeedback`       (§3.3) — the quality picker emits `select` and
 --                                        the volume stepper emits `adjust` on
---                                        the presenter's feedback bus. LuauUI
+--                                        the presenter's feedback bus. Facet
 --                                        still plays nothing; it says what
 --                                        happened and a subscriber decides.
 
@@ -55,11 +55,11 @@ return {
 		"D-5",
 	},
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("adaptive-controls")
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
 
 		-- owner-held state (it must outlive the controls, and it is what a live
 		-- orientation change has to preserve)
@@ -69,7 +69,7 @@ return {
 		local advancedOpen = core:signal(false)
 		local progress = core:signal(0.35)
 
-		local stepper = LuauUI.newStepper(LuauUI, core, {
+		local stepper = Facet.newStepper(Facet, core, {
 			id = "Volume",
 			label = "Volume",
 			value = volume,
@@ -77,7 +77,7 @@ return {
 			max = 10,
 			step = 1,
 		})
-		local slider = LuauUI.newSlider(LuauUI, core, {
+		local slider = Facet.newSlider(Facet, core, {
 			id = "Brightness",
 			label = "Brightness",
 			value = brightness,
@@ -85,7 +85,7 @@ return {
 			max = 100,
 			step = 5,
 		})
-		local picker = LuauUI.newPicker(LuauUI, core, {
+		local picker = Facet.newPicker(Facet, core, {
 			id = "Quality",
 			label = "Quality",
 			options = {
@@ -96,14 +96,14 @@ return {
 			selected = quality,
 			sizeClass = conditions.sizeClass,
 		})
-		local progressView = LuauUI.newProgressView(LuauUI, core, {
+		local progressView = Facet.newProgressView(Facet, core, {
 			id = "Download",
 			label = "Download",
 			value = progress,
 			showValue = true,
 		})
-		local saveLabel = LuauUI.newLabel(LuauUI, core, { id = "SaveLabel", title = "Save changes" })
-		local disclosure = LuauUI.newDisclosureGroup(LuauUI, core, {
+		local saveLabel = Facet.newLabel(Facet, core, { id = "SaveLabel", title = "Save changes" })
+		local disclosure = Facet.newDisclosureGroup(Facet, core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = advancedOpen,
@@ -148,7 +148,7 @@ return {
 			{ value = "compose", label = "Compose", icon = "edit" },
 			{ value = "more", label = "More", icon = "more" },
 		}
-		local navPill = LuauUI.newPicker(LuauUI, core, {
+		local navPill = Facet.newPicker(Facet, core, {
 			id = "NavPill",
 			options = NAV_OPTIONS,
 			selected = navSection,
@@ -156,7 +156,7 @@ return {
 			iconOnly = true,
 			env = ctx.env,
 		})
-		local navRail = LuauUI.newPicker(LuauUI, core, {
+		local navRail = Facet.newPicker(Facet, core, {
 			id = "NavRail",
 			options = NAV_OPTIONS,
 			selected = navSection,
@@ -259,7 +259,7 @@ return {
 				-- not), `select` the discrete one. The declaration rides `meta`, so
 				-- the control's own blueprint is returned unchanged apart from it,
 				-- and BOTH stay exactly the controls they were: nothing here plays a
-				-- sound, a haptic or a particle, and nothing downstream of LuauUI
+				-- sound, a haptic or a particle, and nothing downstream of Facet
 				-- does either unless a game subscribes the bus and decides to
 				-- (`src/present/feedback.luau:4-5`).
 				UI.sensoryFeedback(stepper.blueprint, { trigger = volume, event = "adjust" }),

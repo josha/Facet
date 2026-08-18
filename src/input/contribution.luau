@@ -163,7 +163,7 @@ export type Bundle = {
 	-- "modal"`), not a lightweight overlay: it participates in
 	-- `presenter.exclusiveSurfaceActive`'s own fan-out the identical way any
 	-- other modal does. A game observing that signal to gate its own input
-	-- (RascalRally's `LuauUISponsor/init.luau`: `core:observe(presenter.
+	-- (RascalRally's `FacetSponsor/init.luau`: `core:observe(presenter.
 	-- exclusiveSurfaceActive, ...)` -> `inputBridge:setModalBlocked(...)`)
 	-- sees gameplay input BLOCKED for as long as ANY control using this seam
 	-- (e.g. row_actions' own action menu) holds a presented handle open —
@@ -257,7 +257,7 @@ function contribution.attach(rootBlueprint: any, bundle: Bundle): any
 	local axis = (bundle :: any).adjustAxis
 	if axis ~= nil and axis ~= "horizontal" and axis ~= "vertical" then
 		error(
-			`LuauUI contribution.attach: adjustAxis '{tostring(axis)}' is not an axis. Valid: horizontal, vertical.`,
+			`Facet contribution.attach: adjustAxis '{tostring(axis)}' is not an axis. Valid: horizontal, vertical.`,
 			0
 		)
 	end

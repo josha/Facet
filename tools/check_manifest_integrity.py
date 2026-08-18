@@ -48,7 +48,7 @@ FOUR TRAPS, ALL HIT WHILE MEASURING THIS. They are not hypothetical:
     is a different expression or a syntax error, and grep's exit 2 reads as "no match".
     This alone inflated the first count from 13 to 95.
  2. Route each pattern to the transcript ITS OWN CAPTURE came from, positionally. A check
-    may capture `$out` from the LuauUI suite and THEN `cd` into Rascal Rally for a later
+    may capture `$out` from the Facet suite and THEN `cd` into Rascal Rally for a later
     assertion; the mention of RascalRally anywhere in the run string is not the test. The
     capture belongs to Rascal Rally only when a `cd .../RascalRally/code` precedes the
     `out=` assignment and has not been closed by a subshell `)`. Getting this wrong
@@ -147,11 +147,11 @@ def repo_at(run, index):
 
     Rascal Rally only when a `cd` into it precedes this point AND that `cd` has not been
     closed by a subshell `)` — `(cd .../RascalRally/code && …) && tools/bench.sh` runs its
-    tail back in LuauUI.
+    tail back in Facet.
     """
     here = paren_depth(run, index)
     start = 0
-    result = "luauui"
+    result = "facet"
     while True:
         found = run.find(RR_CD, start)
         if found == -1 or found >= index:
@@ -260,7 +260,7 @@ def main():
         return 0
 
     transcripts = {}
-    for repo, cwd in (("luauui", "."), ("rascalrally", RR_ROOT)):
+    for repo, cwd in (("facet", "."), ("rascalrally", RR_ROOT)):
         text, err = read_transcript(cwd)
         if text is None:
             print(
@@ -328,8 +328,8 @@ def main():
             f"- negated (`grep -v`), not match-checked: **{negated}**\n"
             f"- matching ZERO lines: **0**\n\n"
             "Patterns are routed to the transcript their own capture came from, positionally —\n"
-            "a check may capture `$out` from the LuauUI suite and only then `cd` into Rascal\n"
-            "Rally. Mis-routing all 65 Rascal Rally patterns to the LuauUI transcript reports 63\n"
+            "a check may capture `$out` from the Facet suite and only then `cd` into Rascal\n"
+            "Rally. Mis-routing all 65 Rascal Rally patterns to the Facet transcript reports 63\n"
             "false positives, which is the measurement error the round's brief itself made.\n"
         )
 

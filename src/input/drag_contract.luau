@@ -120,17 +120,17 @@ local GRAB_ANCHOR = { center = true, preserve = true }
 
 local function requireFunction(value: any, what: string)
 	if value ~= nil and type(value) ~= "function" then
-		error(`LuauUI drag: {what} must be a function (got {typeof(value)})`, 0)
+		error(`Facet drag: {what} must be a function (got {typeof(value)})`, 0)
 	end
 end
 
 function drag_contract.source(spec: SourceSpec): SourceSpec
 	if type(spec) ~= "table" then
-		error("LuauUI drag: UI.draggable needs a table — UI.draggable(bp, { payload = … })", 0)
+		error("Facet drag: UI.draggable needs a table — UI.draggable(bp, { payload = … })", 0)
 	end
 	if spec.payload == nil then
 		error(
-			"LuauUI drag: UI.draggable needs a `payload`. It is the only thing a drop target is handed, so a "
+			"Facet drag: UI.draggable needs a `payload`. It is the only thing a drop target is handed, so a "
 				.. "draggable with none can never be accepted or refused by a legality predicate.",
 			0
 		)
@@ -145,7 +145,7 @@ function drag_contract.source(spec: SourceSpec): SourceSpec
 	end
 	if spec.onCommitProxy ~= nil and COMMIT_PROXY[spec.onCommitProxy] ~= true then
 		error(
-			`LuauUI drag: UI.draggable's onCommitProxy must be "destroy" or "flyToTarget" (got '{tostring(
+			`Facet drag: UI.draggable's onCommitProxy must be "destroy" or "flyToTarget" (got '{tostring(
 				spec.onCommitProxy
 			)}')`,
 			0
@@ -155,7 +155,7 @@ function drag_contract.source(spec: SourceSpec): SourceSpec
 		local readable = type(spec.enabled) == "table" and type((spec.enabled :: any).get) == "function"
 		if not readable then
 			error(
-				"LuauUI drag: UI.draggable's `enabled` must be a boolean or a Readable<boolean> — it gates "
+				"Facet drag: UI.draggable's `enabled` must be a boolean or a Readable<boolean> — it gates "
 					.. "ACQUISITION only, so a blocked source can still be tapped and explain itself.",
 				0
 			)
@@ -163,7 +163,7 @@ function drag_contract.source(spec: SourceSpec): SourceSpec
 	end
 	if spec.grabAnchor ~= nil and GRAB_ANCHOR[spec.grabAnchor] ~= true then
 		error(
-			`LuauUI drag: UI.draggable's grabAnchor must be "center" or "preserve" (got '{tostring(spec.grabAnchor)}')`,
+			`Facet drag: UI.draggable's grabAnchor must be "center" or "preserve" (got '{tostring(spec.grabAnchor)}')`,
 			0
 		)
 	end
@@ -184,11 +184,11 @@ end
 
 function drag_contract.target(spec: TargetSpec): TargetSpec
 	if type(spec) ~= "table" then
-		error("LuauUI drag: UI.dropTarget needs a table — UI.dropTarget(bp, { onDrop = … })", 0)
+		error("Facet drag: UI.dropTarget needs a table — UI.dropTarget(bp, { onDrop = … })", 0)
 	end
 	if type(spec.onDrop) ~= "function" then
 		error(
-			"LuauUI drag: UI.dropTarget needs an `onDrop(payload, info)` — a target that accepts nothing is a gap",
+			"Facet drag: UI.dropTarget needs an `onDrop(payload, info)` — a target that accepts nothing is a gap",
 			0
 		)
 	end
@@ -217,12 +217,12 @@ local MODIFIER_FOR_KEY: { [string]: string } = { [SOURCE_PROP] = "UI.draggable",
 -- frozen blueprint (blueprints are immutable)
 function drag_contract.attach(bp: any, key: string, decl: any): any
 	if type(bp) ~= "table" or type(bp.class) ~= "string" then
-		error(`LuauUI drag: {key} must be applied to a blueprint`, 0)
+		error(`Facet drag: {key} must be applied to a blueprint`, 0)
 	end
 	if STRUCTURAL_CLASSES[bp.class] then
 		local modifier = MODIFIER_FOR_KEY[key] or key
 		error(
-			`LuauUI drag: {modifier} cannot be applied to a UI.{bp.class} — a structural region mounts no `
+			`Facet drag: {modifier} cannot be applied to a UI.{bp.class} — a structural region mounts no `
 				.. `instance of its own, so the declaration would be accepted and never wired to anything. `
 				.. `Fix: wrap the RENDERED node instead — put {modifier} on the blueprint the region returns, `
 				.. `or on a UI.Box/UI.VStack around the UI.{bp.class}.`,

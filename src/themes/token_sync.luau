@@ -50,7 +50,7 @@
 
 local token_sync = {}
 
-token_sync.SCHEMA = "luauui-theme-sync/1"
+token_sync.SCHEMA = "facet-theme-sync/1"
 
 export type Record = {
 	path: string, -- snapshot path ("space.m", "type.body.font")

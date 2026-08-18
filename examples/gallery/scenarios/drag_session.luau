@@ -4,7 +4,7 @@
 -- the PURE drag-session model: payload, legal/illegal targets, enter/leave,
 -- drop commit, cancellation. The Sponsor-shaped case: drag the card onto one
 -- of two rows; the third target rejects the payload (accepts=false).
--- Fallback A/B (NS-I2): set workspace attribute LuauUI_ForceDragFallback=true
+-- Fallback A/B (NS-I2): set workspace attribute Facet_ForceDragFallback=true
 -- and the same scenario wires the raw pointer-capture seam instead.
 -- Touch-gesture connection (NS-A6) is wired on the card; FIRING requires real
 -- touch (NS-P2) — the connection + normalization contract is headless-proven.
@@ -13,7 +13,7 @@ return {
 	title = "Native drag session (NS-A5/NS-A6)",
 	ledgerRows = { "NS-A5", "NS-A6", "NS-I2" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 
 		local status = core:signal("idle")
@@ -103,7 +103,7 @@ return {
 		end
 
 		local function beginSession(rectOf: (string) -> any)
-			session = ctx.LuauUI.newDragSession({
+			session = ctx.Facet.newDragSession({
 				payload = { kind = "sponsor-card", id = 7 },
 				source = "/DragLab/Board/Card",
 				targets = targetsFromGeometry(rectOf),

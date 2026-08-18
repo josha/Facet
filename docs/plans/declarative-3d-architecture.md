@@ -1,10 +1,10 @@
 # Declarative 3D architecture decision and spike
 
-**Status:** Planned research. This is not approval to add 3D nodes to LuauUI.
+**Status:** Planned research. This is not approval to add 3D nodes to Facet.
 
 ## Initial recommendation
 
-Declarative 3D should be a sibling system, not an extension of LuauUI's two-dimensional
+Declarative 3D should be a sibling system, not an extension of Facet's two-dimensional
 blueprint and layout solver.
 
 The systems can share fine-grained reactivity, keyed identity, ownership scopes,
@@ -33,7 +33,7 @@ engine out of scope.
 
 Compare at least these architectures:
 
-1. adding world nodes to LuauUI;
+1. adding world nodes to Facet;
 2. a sibling declarative scene package using a shared reactive/lifecycle kernel;
 3. a separate system with compatible authoring principles but no shared package.
 
@@ -46,7 +46,7 @@ merely for conceptual neatness.
 ## Required spike
 
 Build the smallest isolated experiment that can disprove the chosen design. It must
-stay outside LuauUI's public exports and production game code and demonstrate:
+stay outside Facet's public exports and production game code and demonstrate:
 
 - a declarative hierarchy of Parts/Models with local transform composition;
 - keyed add, remove, and reorder without recreating surviving objects;
@@ -67,13 +67,13 @@ Write a plain-language ADR that says:
 
 - whether to build the system at all;
 - its name and repository/package boundary if recommended;
-- which concepts are shared with LuauUI and which are deliberately different;
+- which concepts are shared with Facet and which are deliberately different;
 - its server/client/replication model and trust boundary;
 - the first useful, bounded product milestone;
 - non-goals, risks, migration cost, and the evidence needed before production use.
 
 This stage may correctly conclude that no production implementation should follow.
-It must not merge the spike into LuauUI, extract the core, or create a public package
+It must not merge the spike into Facet, extract the core, or create a public package
 without a later approved build step.
 
 ## Gate
@@ -81,5 +81,5 @@ without a later approved build step.
 Register `declarative-3d-architecture`. It passes with a reviewed ADR, alternatives
 matrix, isolated runnable spike, topology and lifecycle proof, measured costs, fresh
 architecture/runtime/platform reviews, and a clear recommendation. A PASS means the
-decision is well supported, not that LuauUI now supports 3D layout.
+decision is well supported, not that Facet now supports 3D layout.
 

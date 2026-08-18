@@ -39,7 +39,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 local hud = require("../examples/gallery/scenarios/hud") :: any
 
@@ -58,14 +58,14 @@ local LANDSCAPE = {
 }
 
 local function world(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	for key, value in view do
 		env:set(key, value)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -106,7 +106,7 @@ end
 
 local function ctxFor(w: any, lie: ((path: string) -> any)?): any
 	return {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -567,7 +567,7 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 	end)
 
 	--[[ THE MEASUREMENT THAT DECIDED WHERE THE SWITCH LIVES, and it is a FRAMEWORK
-		GAP rather than a fixture choice. LuauUI has no cross-surface traversal: a
+		GAP rather than a fixture choice. Facet has no cross-surface traversal: a
 		second base surface's focusables are in NEITHER surface's ring, in either
 		responder mode, so a control over there is reachable by pointer and touch
 		and by nothing else. The fixture cannot supply that capability for itself,
@@ -578,14 +578,14 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 		THIS CASE IS THE PIN. The day cross-surface traversal ships, it goes red and
 		whoever lands it moves the switch. ]]
 	it("a second base surface's control is in NEITHER traversal ring (the reported gap)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		for key, value in LANDSCAPE do
 			env:set(key, value)
 		end
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local w = { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 		local built = mount(w, ctxFor(w))
 
@@ -649,20 +649,20 @@ describe("hud: the director's sequence with the gallery's other surfaces present
 			end
 			return out
 		end)
-		return LuauUI.UI.Screen({
+		return Facet.UI.Screen({
 			id = "Showcase",
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "ShowcaseCol",
 					children = {
-						LuauUI.UI.ForEach({
+						Facet.UI.ForEach({
 							id = "ShowcaseItems",
 							items = items,
 							key = function(item: any)
 								return item.id
 							end,
 							row = function(item: any)
-								return LuauUI.UI.Text({ id = "ShowcaseText", text = item.id, textSize = 15 })
+								return Facet.UI.Text({ id = "ShowcaseText", text = item.id, textSize = 15 })
 							end,
 						}),
 					},
@@ -878,7 +878,7 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		-- the engine seam answers the node's real rect, moved: exactly what a
 		-- Position write that never landed leaves behind
 		local built = mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -925,7 +925,7 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 	it("a node pushed OFF the viewport is a loss on the same rule", function()
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -969,7 +969,7 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		-- a pixel would be as useless as one that never fires.
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1008,7 +1008,7 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 			the session (`b.jpeg`). A single sample of drift must leave the probe live. ]]
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1107,8 +1107,8 @@ end)
 --[[ NM-H4a round 6 — WHY THE PLATE WAS CUT OFF, which is a question about layout
 	and not about the probe.
 
-	The director, 2026-08-17: *"why isn't luauui handling the overlap in the popup so
-	that it's not cutoff right?"* — and the answer is that LuauUI was handling
+	The director, 2026-08-17: *"why isn't facet handling the overlap in the popup so
+	that it's not cutoff right?"* — and the answer is that Facet was handling
 	exactly what it was given. The plate handed it ONE `UI.Text` carrying five lines
 	joined with `\n`: a single opaque box, measured once, with the button placed
 	against that one number. When the engine's own text metrics disagree with the
@@ -1335,7 +1335,7 @@ end)
 
 	Every row accused, every one by the same 58px — which is exactly that phone's
 	topbar inset. `screenRectOf` answers in WINDOW space; the engine seam answers
-	off the live GuiObject, and a LuauUI ScreenGui is `IgnoreGuiInset = true`, so
+	off the live GuiObject, and a Facet ScreenGui is `IgnoreGuiInset = true`, so
 	its descendants' `AbsolutePosition` reads back INSET-SUBTRACTED. Comparing the
 	two directly makes a constant space difference look like a defect on every row
 	at once.
@@ -1373,7 +1373,7 @@ describe("hud: a whole-surface coordinate offset is a space, not a defect", func
 
 	local function mountWith(w: any, geo: any): any
 		return mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1401,7 +1401,7 @@ describe("hud: a whole-surface coordinate offset is a space, not a defect", func
 		local w = world(LANDSCAPE)
 		-- the whole surface in the engine's space, and one node genuinely misplaced
 		local built = mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1584,7 +1584,7 @@ describe("hud: faded and clipped are not painting", function()
 
 	local function mountSeam(w: any, decorate: (path: string, out: any) -> ()): any
 		return mount(w, {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,

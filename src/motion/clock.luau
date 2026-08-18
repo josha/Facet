@@ -2,7 +2,7 @@
 -- The motion clock (ADR-0022 Decision 1): the one thing that advances time for
 -- every motion in a surface, and the reason the whole authority is testable.
 --
---   LuauUI.motion.newClock(core, { now?, motionPolicy? })   -- the motion clock
+--   Facet.motion.newClock(core, { now?, motionPolicy? })   -- the motion clock
 --                                                           -- ("newMotionClock"
 --                                                           -- in ADR-0022 prose)
 --
@@ -97,7 +97,7 @@ local CLOCK_OPTS_KEYS = specGuard.keySet({ "motionPolicy", "now" })
 
 function clock.new(core: any, opts: Opts?): Clock
 	specGuard.assertKnownKeys("motion.newClock", opts, CLOCK_OPTS_KEYS, "opts")
-	assert(type(core) == "table" and type(core.transaction) == "function", "LuauUI motion: newClock needs a core")
+	assert(type(core) == "table" and type(core.transaction) == "function", "Facet motion: newClock needs a core")
 	local options: Opts = opts or {}
 	local now = options.now or os.clock
 	local policy = options.motionPolicy
@@ -136,7 +136,7 @@ function clock.new(core: any, opts: Opts?): Clock
 	local internals: motionValues.Internals = {
 		core = core,
 		attach = function(entry: motionValues.Entry): () -> ()
-			assert(not disposed, "LuauUI motion: cannot attach a motion to a disposed clock")
+			assert(not disposed, "Facet motion: cannot attach a motion to a disposed clock")
 			entry.detached = false
 			table.insert(active, entry)
 			return function()
@@ -278,19 +278,19 @@ function clock.new(core: any, opts: Opts?): Clock
 	end
 
 	function self.spring(_: any, initial: number, class: any, valueOpts: motionValues.ValueOpts?)
-		assert(not disposed, "LuauUI motion: cannot build a spring on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a spring on a disposed clock")
 		return motionValues.newSpring(internals, initial, class, valueOpts)
 	end
 
 	-- the numeral a player reads: a spring that publishes whole numbers and never
 	-- overshoots the count it is heading for
 	function self.counter(_: any, initial: number, class: any, valueOpts: motionValues.ValueOpts?)
-		assert(not disposed, "LuauUI motion: cannot build a counter on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a counter on a disposed clock")
 		return motionValues.newCounter(internals, initial, class, valueOpts)
 	end
 
 	function self.timer(_: any, spec: motionValues.TimerSpec)
-		assert(not disposed, "LuauUI motion: cannot build a timer on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a timer on a disposed clock")
 		return motionValues.newTimer(internals, spec)
 	end
 
@@ -299,7 +299,7 @@ function clock.new(core: any, opts: Opts?): Clock
 	-- as continuous motion — a spring re-aimed per sample eases out inside each
 	-- gap, which the eye reads as stepping (see motion.newGlide's header).
 	function self.glide(_: any, initial: number, spec: motionValues.GlideSpec)
-		assert(not disposed, "LuauUI motion: cannot build a glide on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a glide on a disposed clock")
 		return motionValues.newGlide(internals, initial, spec)
 	end
 
@@ -311,7 +311,7 @@ function clock.new(core: any, opts: Opts?): Clock
 	-- inline spec table at the call site is refused, exactly as an inline spring
 	-- params table is.
 	function self.tween(_: any, initial: number, curveName: any, valueOpts: motionValues.ValueOpts?)
-		assert(not disposed, "LuauUI motion: cannot build a tween on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a tween on a disposed clock")
 		return motionValues.newTween(internals, initial, curveName, valueOpts)
 	end
 
@@ -323,20 +323,17 @@ function clock.new(core: any, opts: Opts?): Clock
 	-- pinned to the engine by a differential oracle over 33,033 samples
 	-- (artifacts/time-based-easing/engine-oracle.md, max |err| 4.73e-7).
 	function self.setEasing(_: any, evaluate: (number, string, string) -> number)
-		assert(
-			type(evaluate) == "function",
-			"LuauUI motion: clock:setEasing needs a function (alpha, style, direction)"
-		)
+		assert(type(evaluate) == "function", "Facet motion: clock:setEasing needs a function (alpha, style, direction)")
 		easing = evaluate
 	end
 
 	function self.chase(_: any, chaseOpts: chaseLib.Opts)
-		assert(not disposed, "LuauUI motion: cannot build a chase on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a chase on a disposed clock")
 		return chaseLib.new(internals, chaseOpts)
 	end
 
 	function self.timeline(_: any, spec: timelineLib.Spec)
-		assert(not disposed, "LuauUI motion: cannot build a timeline on a disposed clock")
+		assert(not disposed, "Facet motion: cannot build a timeline on a disposed clock")
 		return timelineLib.new(internals, spec)
 	end
 

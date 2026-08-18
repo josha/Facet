@@ -13,7 +13,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -28,15 +28,15 @@ local OPTIONS = {
 -- host screen routes activation, exactly as tests/table.spec.luau does).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = options.core or LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = options.core or Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local changes: { string } = {}
 	local value = options.value or core:signal(options.initial or "normal")
-	local control = popup_button.build(LuauUI, core, {
+	local control = popup_button.build(Facet, core, {
 		id = "Difficulty",
 		options = options.options or OPTIONS,
 		value = value,
@@ -44,7 +44,7 @@ local function world(opts: any?)
 			table.insert(changes, id)
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)
@@ -251,22 +251,22 @@ describe("PopupButton: reactive discipline", function()
 		-- so the baseline is taken AFTER the harness exists — exactly as
 		-- tests/table.spec.luau does. This isolates the CONTROL's neutrality:
 		-- build + mount + open/select/open/cancel churn + dismiss + dispose.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local value = core:signal("normal")
-		local control = popup_button.build(LuauUI, core, {
+		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = OPTIONS,
 			value = value,
 			onChange = function() end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, {
 			sinkNavigation = true,
 			onActivate = function(path, meta)
@@ -296,9 +296,9 @@ end)
 
 describe("PopupButton: build-time contract", function()
 	it("option ids must be path-safe (a '/' would corrupt path routing)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok = pcall(function()
-			popup_button.build(LuauUI, core, {
+			popup_button.build(Facet, core, {
 				id = "Bad",
 				options = { { id = "a/b", label = "Nope" } },
 				value = core:signal("a/b"),
@@ -313,9 +313,9 @@ describe("PopupButton: build-time contract", function()
 	-- sibling — Stepper, Slider, Rating, Picker, DisclosureGroup, TextInput —
 	-- rejects exactly this at BUILD.
 	it("rejects a read-only Memo `value` at BUILD, naming the control and the field", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			popup_button.build(LuauUI, core, {
+			popup_button.build(Facet, core, {
 				id = "Difficulty",
 				options = OPTIONS,
 				value = core:memo(function()
@@ -330,9 +330,9 @@ describe("PopupButton: build-time contract", function()
 	end)
 
 	it("rejects a non-signal `value` at BUILD", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			popup_button.build(LuauUI, core, { id = "Difficulty", options = OPTIONS, value = "normal" :: any })
+			popup_button.build(Facet, core, { id = "Difficulty", options = OPTIONS, value = "normal" :: any })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)

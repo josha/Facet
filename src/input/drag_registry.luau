@@ -118,8 +118,8 @@ local DRAG_REGISTRY_OPTS_KEYS = specGuard.keySet({
 
 function drag_registry.new(opts: Opts)
 	specGuard.assertKnownKeys("newDragRegistry", opts, DRAG_REGISTRY_OPTS_KEYS, "opts")
-	assert(type(opts) == "table" and type(opts.core) == "table", "LuauUI drag registry: `core` is required")
-	assert(type(opts.rectOf) == "function", "LuauUI drag registry: `rectOf` is required (the renderer's live rects)")
+	assert(type(opts) == "table" and type(opts.core) == "table", "Facet drag registry: `core` is required")
+	assert(type(opts.rectOf) == "function", "Facet drag registry: `rectOf` is required (the renderer's live rects)")
 	local core = opts.core
 	local rectOf = opts.rectOf
 	local zOf = opts.zOf
@@ -1132,7 +1132,7 @@ function drag_registry.new(opts: Opts)
 		end
 		table.sort(sourcePaths)
 		return {
-			schema = "luauui-drag-registry-dump/1",
+			schema = "facet-drag-registry-dump/1",
 			sources = sourcePaths,
 			targets = targetPaths,
 			active = live ~= nil,

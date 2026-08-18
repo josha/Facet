@@ -123,11 +123,11 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("menu-scenario")
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		local lastOpen = scope:own(core:signal(COPY.nothingYet))
 		local ran = scope:own(core:signal(COPY.ranNothing))
@@ -237,7 +237,7 @@ return {
 
 		local cards: { any } = {}
 		local function card(id: string, label: string, routes: string, triggers: { string }?, items: { any })
-			local control = LuauUI.newMenu(LuauUI, core, {
+			local control = Facet.newMenu(Facet, core, {
 				id = id,
 				--[[ AN ORDINARY LABELLED BUTTON, and it carries NO `onActivate`. That
 					absence is load-bearing rather than an omission: the presenter's
@@ -360,7 +360,7 @@ return {
 			end
 		end
 
-		local idiomPicker = LuauUI.newPicker(LuauUI, core, {
+		local idiomPicker = Facet.newPicker(Facet, core, {
 			id = "Idiom",
 			label = COPY.idiomTitle,
 			presentation = "segmented",

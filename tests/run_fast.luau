@@ -1,11 +1,11 @@
 --!nocheck
--- LuauUI FAST TIER — the inner-loop runner.  Run with:  ./run-tests.sh --fast
+-- Facet FAST TIER — the inner-loop runner.  Run with:  ./run-tests.sh --fast
 --
 -- ============================================================================
 -- THIS IS NOT THE GATE SUITE. It runs tests/run.luau's spec list MINUS the
 -- eleven measured-slowest files (tests/lib/tiers.luau names each one and why).
 -- The gate runs `./run-tests.sh` with no arguments, and `tools/test.sh` REFUSES
--- a transcript carrying the LUAUUI-FAST-TIER marker printed below.
+-- a transcript carrying the FACET-FAST-TIER marker printed below.
 -- ============================================================================
 --
 -- Nothing is skipped or weakened: every excluded file runs in full on the gate
@@ -28,7 +28,7 @@ local full = tiers.fullOrder()
 print("")
 print(
 	string.format(
-		"\27[1;33m=== LUAUUI-FAST-TIER — %d of %d spec files — NOT THE GATE SUITE ===\27[0m",
+		"\27[1;33m=== FACET-FAST-TIER — %d of %d spec files — NOT THE GATE SUITE ===\27[0m",
 		#order,
 		#full
 	)
@@ -49,7 +49,7 @@ local share = elapsed / FULL_SUITE_SECONDS
 print("")
 print(
 	string.format(
-		"\27[1;33m=== LUAUUI-FAST-TIER: %.1fs = %.0f%% of the %.1fs full suite (%d of %d files) ===\27[0m",
+		"\27[1;33m=== FACET-FAST-TIER: %.1fs = %.0f%% of the %.1fs full suite (%d of %d files) ===\27[0m",
 		elapsed,
 		share * 100,
 		FULL_SUITE_SECONDS,

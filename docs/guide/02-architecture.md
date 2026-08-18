@@ -92,10 +92,10 @@ that actually changed are written back.
 
 ## 2.3 Extension points
 
-You extend LuauUI at four seams, each a documented contract rather than a place
+You extend Facet at four seams, each a documented contract rather than a place
 to edit library internals. Whatever you add through one of them is held to
 [`the constitution`](../reference/constitution.md) — the authoritative rule set
-for how a LuauUI public surface is shaped, and what the playbooks and the
+for how a Facet public surface is shaped, and what the playbooks and the
 registration checkers enforce.
 
 ### Composite controls
@@ -115,13 +115,13 @@ root, create a node, set its rectangle, set a property, remove it, destroy the
 root). `client/screen_target.luau` implements it with real Roblox `Instance`s;
 `tests/lib/fake_target.luau` implements it by recording calls into a table. Any
 target that satisfies the same interface can be dropped in — which is exactly how
-`client/billboard_target.luau` renders a LuauUI screen onto an in-world billboard
+`client/billboard_target.luau` renders a Facet screen onto an in-world billboard
 by swapping only the *root* and reusing all the flat node rendering below it.
 
 ### Engine-feature adoption via the property-authority path
 
 When Roblox ships a new visual capability (drop shadows and per-corner rounding
-are the current examples), LuauUI adopts it as **normalized style data** that
+are the current examples), Facet adopts it as **normalized style data** that
 rides a single, declared *authority* to the adapter, where it is materialized —
 and only if the running engine actually supports it. You do not scatter
 `Instance.new("UIShadow")` calls through your UI; you set a style modifier, and
@@ -183,7 +183,7 @@ The renderer calls `authority.assertWrite(class, prop, writer)` before *every*
 write, and a writer touching a property it does not own is a hard error. This
 exists because of a measured engine fact: writing a property directly silently
 defeats the engine's own style rules and fires no change signal — so if two parts
-of LuauUI both wrote the same property, the bug would be invisible. One authority
+of Facet both wrote the same property, the bug would be invisible. One authority
 per property makes that class of bug impossible.
 
 ### Scope ownership
@@ -192,7 +192,7 @@ Every reactive subscription and resource is owned by a scope, and scopes nest
 along the tree (a screen owns a mount scope; a list row owns an item scope). When
 a screen closes or a row leaves a list, its scope is disposed and *everything*
 under it — observers, effects, async requests, child scopes — is cleaned up
-exactly once, in reverse order. This is why LuauUI does not leak observers as
+exactly once, in reverse order. This is why Facet does not leak observers as
 screens come and go, and why a list can churn thousands of rows without
 accumulating dead subscriptions.
 

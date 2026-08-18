@@ -8,7 +8,7 @@ just a dump.
 
 ## First: reopen the place
 
-`examples/places/LuauUI-PerformanceLab.rbxl` has been rebuilt from current source
+`examples/places/Facet-PerformanceLab.rbxl` has been rebuilt from current source
 (`rojo build examples/performance.project.json`). **Close the copy you have open
 without saving and open the rebuilt file** — the open copy was live-patched
 during this session's profiling.
@@ -34,8 +34,8 @@ and last but two in the cycler:
 6. Repeat for **`variable-extents`**.
 
 The workload identity is written into `workspace` attributes
-(`LuauUI_ProfilingWorkload`, `LuauUI_ProfilingPass`, `LuauUI_ProfilingRows`,
-`LuauUI_ProfilingTheme`) and warned to the console, so neither dump has to be
+(`Facet_ProfilingWorkload`, `Facet_ProfilingPass`, `Facet_ProfilingRows`,
+`Facet_ProfilingTheme`) and warned to the console, so neither dump has to be
 identified by forensics.
 
 ## What the numbers should look like
@@ -88,7 +88,7 @@ step: pass:tableUnified=30/40
 step: pass:extentArms=60/60
 ```
 
-(through `workspace.LuauUIScenarioAPI.step`, or just press Profile and accept the
+(through `workspace.FacetScenarioAPI.step`, or just press Profile and accept the
 defaults, which are 60/12 and 60/24.)
 
 ## The two questions this capture is actually asking
@@ -104,7 +104,7 @@ defaults, which are 60/12 and 60/24.)
 
 2. **Is `$newindex` still bigger than `arrange`?** The Studio capture counted
    **79 538 engine property writes across 127 frames — 626 per frame — costing more
-   of the frame than `LuauUI/arrange`**. No framework scope can see any of it. If a
+   of the frame than `Facet/arrange`**. No framework scope can see any of it. If a
    device dump agrees, the property-write volume is the next lever and the property
    diff (L-18) needs its coverage on this path measured.
 

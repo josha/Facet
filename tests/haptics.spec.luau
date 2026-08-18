@@ -1,7 +1,7 @@
 --!strict
 -- THE OPT-IN, DEFAULT-OFF HAPTICS ADAPTER (`src/client/haptics.luau`;
 -- docs/plans/swiftui-parity-round2.md §3.3). It is a SUBSCRIBER to the semantic
--- feedback bus, not part of it: LuauUI still says what happened and plays
+-- feedback bus, not part of it: Facet still says what happened and plays
 -- nothing (`src/present/feedback.luau:4-5`), and this file proves the framework
 -- cannot reach it.
 --
@@ -1057,15 +1057,15 @@ describe("haptics: the framework cannot reach it", function()
 	it("the shared/server-safe entry point does not export it", function()
 		-- src/init.luau is the module a server require graph may reach
 		-- (UI-BOUND-001); an engine adapter behind it would be a boundary break
-		local LuauUI = require("../src") :: any
-		expect(LuauUI.haptics).toBeNil()
+		local Facet = require("../src") :: any
+		expect(Facet.haptics).toBeNil()
 		expect(string.find(fs.readFile("src/init.luau"), "haptic", 1, true)).toBeNil()
 	end)
 
 	it("the adapter itself calls Play only on a POOLED effect, never on a button's", function()
 		-- a structural pin on the property route: the one `:Play(` call site in
 		-- the module is the bus path. If a future edit plays the press effect
-		-- itself, "LuauUI plays nothing" stops being literally true.
+		-- itself, "Facet plays nothing" stops being literally true.
 		local source = fs.readFile("src/client/haptics.luau")
 		local plays = 0
 		for _ in string.gmatch(source, ":Play%(%)") do

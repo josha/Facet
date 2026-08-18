@@ -19,7 +19,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
@@ -374,7 +374,7 @@ describe("themes.define: every layer rejection names the field, the rule and the
 				"glossy_touch",
 			}
 		do
-			local pkg = (require(`../examples/themes/{name}`) :: any).build(LuauUI.themes)
+			local pkg = (require(`../examples/themes/{name}`) :: any).build(Facet.themes)
 			for _, slot in chrome_slots.SLOTS do
 				local stack = chrome_slots.layerPlanFor(pkg, slot)
 				if stack == nil then
@@ -397,7 +397,7 @@ describe("themes.define: every layer rejection names the field, the rule and the
 		-- the corner. It drops to the ART's two lines — `bar_track` in
 		-- generate_art.py draws a 1px hard rim and a 1px lit bottom lip — while
 		-- the pill clips the hatch along the arc.
-		local pkg = (require("../examples/themes/glossy_touch") :: any).build(LuauUI.themes)
+		local pkg = (require("../examples/themes/glossy_touch") :: any).build(Facet.themes)
 		local stack = chrome_slots.layerPlanFor(pkg, "barTrack")
 		expect(stack.layers[1].kind).toBe("fill") -- the trough itself: full bleed
 		expect(chrome_slots.layerInsetOf(stack.layers[1]).x).toBe(0)
@@ -425,7 +425,7 @@ describe("themes.define: every layer rejection names the field, the rule and the
 				"glossy_touch",
 			}
 		do
-			local pkg = (require(`../examples/themes/{name}`) :: any).build(LuauUI.themes)
+			local pkg = (require(`../examples/themes/{name}`) :: any).build(Facet.themes)
 			for _, slot in chrome_slots.SLOTS do
 				local stack = chrome_slots.layerPlanFor(pkg, slot)
 				if stack == nil then
@@ -934,16 +934,16 @@ end)
 -- paint, not layout, which is why only a device showed it.
 -- ===========================================================================
 describe("a clipping scroll container reserves the package's shadow bleed", function()
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local fake = require("./lib/fake_target")
 
 	local function widestChildOvershoot(pkgName: string): (number, number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -967,7 +967,7 @@ describe("a clipping scroll container reserves the package's shadow bleed", func
 			},
 		}))
 		pres.refresh()
-		local snap = LuauUI.themes.resolve((require)(`../examples/themes/{pkgName}`).build(LuauUI.themes), nil, {})
+		local snap = Facet.themes.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
 		env:set("themeMetrics", snap)
 		pres.refresh()
 		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0

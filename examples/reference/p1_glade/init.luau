@@ -4,7 +4,7 @@
 -- ============================================================================
 --
 -- A clean-room reinterpretation of the behavioral reference as an original
--- LuauUI product, built to `artifacts/swiftui-reference-app-validation/specs/
+-- Facet product, built to `artifacts/swiftui-reference-app-validation/specs/
 -- p1-glade.md`. Keepers tend moss gardens — GLADES — that glowing sprites —
 -- WISPS — visit while the supplies are kept up. Two supplies per glade: Dew
 -- (instant refill) and Nectar (chosen from varieties, some premium).
@@ -18,7 +18,7 @@
 -- → wisp info → the keeper screen, its edit form, and a Fresh Start that reseeds
 -- the world byte-identically.
 --
--- WHAT IT OWNS AND WHAT IT DOES NOT. LuauUI owns layout, adaptation, focus,
+-- WHAT IT OWNS AND WHAT IT DOES NOT. Facet owns layout, adaptation, focus,
 -- presentation, motion, text and theming. This proof owns its content, its
 -- domain signals, and three deterministic fake services (SupplyService,
 -- CommerceService, VisitScheduler). It reads no wall clock, calls no
@@ -96,14 +96,14 @@ local function serialize(value: any): string
 	return tostring(value)
 end
 
-function Glade.build(LuauUI: any, core: any, deps: any): any
-	local UI = LuauUI.UI
+function Glade.build(Facet: any, core: any, deps: any): any
+	local UI = Facet.UI
 	local env = deps.env
 	local presenter = deps.presenter
 	local actionSystem = deps.actionSystem
 
 	local scope = core:scope("ref-p1-glade")
-	local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope })
+	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 	local clock = presenter.motionClock
 
 	-- ---- injected time ------------------------------------------------------
@@ -250,7 +250,7 @@ function Glade.build(LuauUI: any, core: any, deps: any): any
 	-- ---- the context every surface module reads -----------------------------
 	local nav = {}
 	local ctx = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		UI = UI,
 		core = core,
 		scope = scope,

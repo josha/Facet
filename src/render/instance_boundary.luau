@@ -2,7 +2,7 @@
 --[[ WHICH NODES EARN A REAL ENGINE OBJECT, AND OF WHAT KIND (ADR-0032 Decision 2).
 
 	This is the one predicate the nested-instance-tree migration changes.
-	ADR-0032's thesis is that switching LuauUI from a flat instance tree to a
+	ADR-0032's thesis is that switching Facet from a flat instance tree to a
 	nested one "is not a rewrite of the renderer... it is a change to one
 	predicate: which paths get registered". A predicate that is the whole content
 	of a migration needs somewhere to live, and it was two inline branches in

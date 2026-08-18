@@ -12,7 +12,7 @@ rules your addition must follow.
 
 ## 0. Ground rules
 
-- Work from the library root: `GameStudio/ui/LuauUI` (all commands below
+- Work from the library root: `GameStudio/ui/Facet` (all commands below
   assume it; use absolute paths in shell commands — relative paths against a
   wrong cwd are the #1 recorded time sink, `docs/lessons/absolute-paths-in-shell-commands.md`).
 - The scaffold and deterministic conformance toolchain run in Lune
@@ -35,7 +35,7 @@ This stamps and REGISTERS everything so nothing can be forgotten:
 
 | File | What it is |
 |---|---|
-| `src/controls/<name>.luau` | the control source: `build(LuauUI, core, spec)` seam + `dump()` |
+| `src/controls/<name>.luau` | the control source: `build(Facet, core, spec)` seam + `dump()` |
 | `tests/<name>.spec.luau` | spec file with one deliberately-failing TODO test |
 | `tests/run.luau` | your spec registered in the runner (edit applied) |
 | `tests/conformance/controls_registry.luau` | your registry row (edit applied) |
@@ -136,9 +136,9 @@ Rules the reviewers will hold you to:
   navigation semantics, use `NavigationGroup`s (see
   `src/focus/focus_graph.luau`).
 - **Attach your input contribution** (ui_todo §0; ADR-0013). Wrap the returned
-  root with `LuauUI.contribution.attach(blueprint, bundle)` — a PUBLIC export,
+  root with `Facet.contribution.attach(blueprint, bundle)` — a PUBLIC export,
   so a control built outside this repository uses the same seam (the scaffold
-  stamps `local contribution = LuauUI.contribution` and a commented bundle
+  stamps `local contribution = Facet.contribution` and a commented bundle
   skeleton). The bundle rides the blueprint's internal `meta` channel, never
   the public prop bag, so it is unaffected by strict prop validation. Fill only the fields your control needs
   (`focusGroups` for D-pad/arrow navigation, `handleActivate` for tap/A/Return,
@@ -172,7 +172,7 @@ Rules the reviewers will hold you to:
   3. **`pres.refresh()` before reading rendered props.** Binding writes flush
      to the adapter on refresh; a spec that asserts an adapter prop right
      after an interaction reads stale state without it.
-- Async resources only via `LuauUI.newResourceProvider` handles owned by the
+- Async resources only via `Facet.newResourceProvider` handles owned by the
   right scope (item scopes for per-row resources).
 - Keep `dump()` truthful as the state grows.
 
@@ -247,7 +247,7 @@ Before calling a player-visible control complete:
 
 1. Add it to an instrumented gallery fixture with deterministic state and reset
    controls.
-2. Pass the Studio preflight in the LuauUI execution contract, including a visible
+2. Pass the Studio preflight in the Facet execution contract, including a visible
    viewport, current source, working capture, and a raw-input canary.
 3. Drive the mounted control through every Studio-observable native path. Pair the
    raw/native event with the semantic action, focus/value/command effect, actual hit

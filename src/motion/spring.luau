@@ -88,9 +88,9 @@ end
 function spring.new(initial: number, params: Params, eps: number?): Spring
 	assert(
 		type(params) == "table" and type(params.dampingRatio) == "number" and type(params.response) == "number",
-		"LuauUI motion: spring params need numeric dampingRatio and response (resolve a motion class first)"
+		"Facet motion: spring params need numeric dampingRatio and response (resolve a motion class first)"
 	)
-	assert(isFinite(initial), "LuauUI motion: a spring needs a finite initial value")
+	assert(isFinite(initial), "Facet motion: a spring needs a finite initial value")
 
 	local k, c = coeffs(params.dampingRatio, params.response)
 	local epsilon = if eps ~= nil and isFinite(eps) and eps > 0 then eps else DEFAULT_EPS

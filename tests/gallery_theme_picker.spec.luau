@@ -12,10 +12,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local theme_picker = require("../examples/gallery/client/theme_picker")
 
-local themes = LuauUI.themes
+local themes = Facet.themes
 
 local function packages(): { [string]: any }
 	return {
@@ -184,7 +184,7 @@ describe("theme picker: it stays out of the library", function()
 		expect(string.find(source, 'require("../../../src', 1, true)).toBeNil()
 		expect(string.find(source, "src/tokens", 1, true)).toBeNil()
 		-- and it names the hide switch the gallery documents
-		expect(theme_picker.ATTRIBUTE).toBe("LuauUI_ThemePicker")
+		expect(theme_picker.ATTRIBUTE).toBe("Facet_ThemePicker")
 		local bootstrap = fs.readFile("examples/gallery/client/init.client.luau")
 		expect(string.find(bootstrap, "theme_picker.ATTRIBUTE", 1, true) ~= nil).toBe(true)
 		-- the discovery site is where testOnly is read (see isPickable): a filter
@@ -267,15 +267,15 @@ end
 -- structure rather than the pixels, so the guarantee is checked headlessly.
 describe("theme picker: composed pieces carry their own handlers", function()
 	local function composed(): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		return theme_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -350,15 +350,15 @@ end)
 
 -- mount the picker under `pkg`'s metrics and return the solved geometry
 local function pickerUnder(pkg: any, w: number, h: number): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+	local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 	local mounted = theme_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -718,15 +718,15 @@ end)
 -- ===========================================================================
 describe("theme picker: the composed panel hugs, and scrolls when it must", function()
 	local function panelUnder(viewportH: number, pkg: any?): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = viewportH })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(pkg or themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -737,7 +737,7 @@ describe("theme picker: the composed panel hugs, and scrolls when it must", func
 			composed = true,
 			warn = function() end,
 		})
-		presenter.present(LuauUI.UI.Screen({ id = "Host", children = { mounted.panel } }))
+		presenter.present(Facet.UI.Screen({ id = "Host", children = { mounted.panel } }))
 		presenter.refresh()
 		return adapter.node("/Host/Panel"), mounted.panel
 	end
@@ -773,15 +773,15 @@ describe("theme picker: the composed panel hugs, and scrolls when it must", func
 		-- BELOW a row of chips, inside an offset Anchor. A `hug` child used to be
 		-- measured against that column's whole height rather than the part its
 		-- siblings had left it, so it overflowed by exactly the chip row.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 500 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -792,7 +792,7 @@ describe("theme picker: the composed panel hugs, and scrolls when it must", func
 			composed = true,
 			warn = function() end,
 		})
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		presenter.present(UI.Screen({
 			id = "ShowcaseChrome",
 			children = {
@@ -852,15 +852,15 @@ end)
 -- ============================================================================
 describe("theme picker: the standalone collapsed shell stays out of the example's way", function()
 	local function collapsed(w: number, h: number): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,

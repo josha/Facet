@@ -633,7 +633,7 @@ describe("ADR-0023 rule 9 (DV6-2): an all-empty lane COLLAPSES and gives up its 
 				ctx(releaseSizes({ Lead = EMPTY_FORM }))
 			)
 		)
-		expect(quiet.schema).toBe("luauui-composition-dump/1")
+		expect(quiet.schema).toBe("facet-composition-dump/1")
 		local pinned = ""
 		for _, lane in quiet.lanes do
 			pinned ..= `{lane.index}|{lane.affinities}|{lane.groups}|{lane.rect.x},{lane.rect.w}|{tostring(
@@ -829,7 +829,7 @@ describe("ADR-0023 (2026-07-31): a group may SPAN the composition as its own row
 
 	it("the dump carries the row, and a declaration WITHOUT one is byte-unchanged", function()
 		local spanned = composition.dump(composition.resolve(spanDecl(), { w = 733, h = 313 }, ctx(SPAN_SIZES)))
-		expect(spanned.schema).toBe("luauui-composition-dump/1")
+		expect(spanned.schema).toBe("facet-composition-dump/1")
 		expect(#spanned.spans).toBe(1)
 		expect(spanned.spans[1].id).toBe("caption")
 		expect(spanned.spans[1].side).toBe("above")
@@ -1055,7 +1055,7 @@ describe("ADR-0023: the resolution is deterministic and dumpable", function()
 
 	it("the dump carries WHICH arrangement, WHICH form, and WHY each loser lost", function()
 		local d = composition.dump(resolve(360, 570))
-		expect(d.schema).toBe("luauui-composition-dump/1")
+		expect(d.schema).toBe("facet-composition-dump/1")
 		expect(d.arrangement).toBe("column")
 		expect(d.scroller).toBe("Field")
 		expect(#d.rejected).toBe(2)
@@ -1192,7 +1192,7 @@ describe("ADR-0023: UI.Composition, mounted", function()
 	it("the resolution is readable from the controller, with the losing candidate's rule", function()
 		local _, _, _, _, controller = mounted(360, 900)
 		local d = controller.compositionAt("/S/C")
-		expect(d.schema).toBe("luauui-composition-dump/1")
+		expect(d.schema).toBe("facet-composition-dump/1")
 		expect(d.arrangement).toBe("column")
 		expect(d.rejected[1].arrangement).toBe("threeLane")
 		expect(d.rejected[1].rule).toBe("laneWidth")
@@ -1643,21 +1643,21 @@ end)
 -- survival the scenario exists to show.
 -- ===========================================================================
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local SCENARIO = require("../examples/gallery/scenarios/composition") :: any
 local COMP_PATH = "/CompositionScreen/Body/OfferFrame/Summary"
 
 local function world(viewport: { x: number, y: number, w: number, h: number }?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", viewport or { x = 0, y = 0, w = 1920, h = 1080 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local built: any
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -1722,7 +1722,7 @@ describe("scenario 'composition': the fixture the device matrix drives", functio
 	it("mounts headlessly and resolves an arrangement with no core error", function()
 		local w = world()
 		expect(w.core:counters().errors or 0).toBe(0)
-		expect(w.resolution().schema).toBe("luauui-composition-dump/1")
+		expect(w.resolution().schema).toBe("facet-composition-dump/1")
 	end)
 
 	it("every step the driver names exists and lands its declared state", function()
@@ -2028,7 +2028,7 @@ end)
 
 	Every OTHER finding this solver produces reports something the author did not
 	intend and would fix. Those two kinds of message were indistinguishable, so
-	each consumer had to recognise this one by its wording: LuauUI's own sweep
+	each consumer had to recognise this one by its wording: Facet's own sweep
 	carried it as a waiver with a px ceiling (i.e. "a defect we tolerate"), while
 	Rascal Rally excluded it by substring with the reason in a comment (i.e. "not
 	a defect"). The two sides of the lockstep rule disagreed about the same

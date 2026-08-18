@@ -47,7 +47,7 @@ local function runAll(command: string, fixtures: { Fixture }, emptyHint: string)
 		end
 	end
 	artifact.writeJson(`artifacts/{command}/summary.json`, {
-		schema = `luauui-{command}/1`,
+		schema = `facet-{command}/1`,
 		status = if failed then "FAIL" else "PASS",
 		fixtures = summary,
 	})

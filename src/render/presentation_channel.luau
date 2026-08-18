@@ -143,7 +143,7 @@ function presentation_channel.new(deps: {
 	-- channel was sound and the geometry half was not — `screenRectOf` composed
 	-- scroll offsets only, so while the keyboard keep-visible shift sat on the root
 	-- (the whole time the OS keyboard is up) or an enter/exit slide sat on a region,
-	-- LuauUI's own drop verdicts disagreed with what the player was looking at by
+	-- Facet's own drop verdicts disagreed with what the player was looking at by
 	-- exactly the offset.
 	--
 	-- THE ACCUMULATION RULE, IN WINDOW SPACE. The adapter stops its own
@@ -323,7 +323,7 @@ function presentation_channel.new(deps: {
 		end
 		if not isFadeGroup(node) then
 			error(
-				`LuauUI presentation: {path} cannot be faded — presentation transparency needs a fade GROUP. `
+				`Facet presentation: {path} cannot be faded — presentation transparency needs a fade GROUP. `
 					.. "Wrap the subtree in UI.Box{ canvasGroup = true } (or declare an authored `opacity`, "
 					.. "which implies one) and fade that: GroupTransparency is one engine property no style "
 					.. "rule owns, while per-node transparency would contest native-sheet paint and fade only "

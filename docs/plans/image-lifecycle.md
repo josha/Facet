@@ -52,7 +52,7 @@ happened to contain.
 
 **The engine already caches decoded content.** Re-setting the same `Image` string on an
 `ImageLabel` is not a fresh download; Roblox keeps the decoded texture. So the saving is
-the LuauUI-side request/handle/generation round trip and the `PreloadAsync` call, **not**
+the Facet-side request/handle/generation round trip and the `PreloadAsync` call, **not**
 the image fetch itself. That may be a small number.
 
 **Instance recycling now covers part of the same ground.** A recycled row keeps its
@@ -62,7 +62,7 @@ entirely.
 
 **So the honest position is: viable, cheap to build, and not yet shown to be worth it.**
 The measurement that would settle it is one number — the wall-clock cost of a re-acquire
-that hits the engine's cache versus one served from a LuauUI-side hold — and it is worth
+that hits the engine's cache versus one served from a Facet-side hold — and it is worth
 taking before writing the LRU rather than after.
 
 ## Recommendation

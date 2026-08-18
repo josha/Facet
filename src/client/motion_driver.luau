@@ -33,15 +33,15 @@ local bound: { [any]: RBXScriptConnection } = {}
 --[[ THE ENGINE OWNS THE CURVE (ADR-0033; director ruling 2026-08-15, "use
 	Roblox's animation system wherever possible"). `TweenService:GetValue` is the
 	engine's easing evaluator and it is PURE — a number in, a number out, touching
-	no Instance — which is the property that lets it drive a value LuauUI owns.
+	no Instance — which is the property that lets it drive a value Facet owns.
 	`TweenService:Create` cannot: it targets an Instance, so driving a MotionValue
 	through it would mean a proxy Instance per animated value (measured 6.1 us and
-	one Instance each, against 0.031 us for the ramp LuauUI already runs), a dead
+	one Instance each, against 0.031 us for the ramp Facet already runs), a dead
 	Tween object per retarget, a completion that fires outside the clock's post
 	phase, and a flight `clock:step(dt)` cannot advance — which would put the whole
 	shipped path outside the headless suite.
 
-	So the engine evaluates the curve and LuauUI's clock keeps the time — and the
+	So the engine evaluates the curve and Facet's clock keeps the time — and the
 	clock's time is the engine's too, since `PreRender` below is what advances it.
 	Binding here rather than asking every game to wire it means native is the
 	DEFAULT on Roblox, not an opt-in someone forgets; the pure twin in

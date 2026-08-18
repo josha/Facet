@@ -22,7 +22,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local fake_target = require("../tests/lib/fake_target")
 local lt = require("./lib/large_text")
@@ -54,7 +54,7 @@ local EDIT_AFFORDANCE_PATH = ROW .. "/EditAffordanceWhen/then/EditAffordance"
 -- tray Buttons fill it, so a too-short fixture would blame the composite for
 -- what is really an unrealistic caller-provided row box.
 local function content(id: string?)
-	return LuauUI.UI.Text({ id = id or "Body", text = "Row content", height = { type = "fixed", px = 48 } })
+	return Facet.UI.Text({ id = id or "Body", text = "Row content", height = { type = "fixed", px = 48 } })
 end
 
 -- Task 4: `_open`/`_close` now ANIMATE through a presenter's real motion
@@ -63,7 +63,7 @@ end
 -- frames first — `pres.tick(dt)` takes an EXPLICIT dt (src/present/
 -- presenter.luau tickBody: "the headless suite passes a scripted dt"), so
 -- this is deterministic regardless of wall-clock time; no scripted clock
--- injection needed (contrast tests/drag_public.spec.luau's `LuauUI.motion.
+-- injection needed (contrast tests/drag_public.spec.luau's `Facet.motion.
 -- newClock`, which exists to override a DIFFERENT clock — the drag
 -- registry's, wired through `controller.setDragCollaborators` — not the
 -- presenter's own `self.motionClock` this composite now rides). 90 frames
@@ -79,14 +79,14 @@ end
 -- presenter harness: the four-input auto-composition path (chip.spec's house
 -- style). `build` receives `core` and returns the row_actions instance.
 local function presenterWorld(build: (core: any) -> any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local ra = build(core)
-	local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -99,7 +99,7 @@ end
 local function openTrailingWorld(actions: { any }?)
 	local fired: { string } = {}
 	local w = presenterWorld(function(core)
-		return row_actions.build(LuauUI, core, {
+		return row_actions.build(Facet, core, {
 			id = "Row",
 			content = content(),
 			trailing = actions or {
@@ -131,19 +131,19 @@ end
 -- renderer harness: mount a row_actions (trailing tray pre-opened) and attach
 -- the renderer directly, mirroring chip.spec.luau's renderWorld.
 local function renderWorldOpen(envSetup: ((any) -> ())?, actions: { any }?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if envSetup then
 		envSetup(env)
 	end
-	local ra = row_actions.build(LuauUI, core, {
+	local ra = row_actions.build(Facet, core, {
 		id = "Row",
 		content = content(),
 		trailing = actions or { { id = "delete", label = "Delete", onAction = function() end } },
 	})
 	ra._open("trailing")
-	local root = mountLib.mount(core, LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+	local root = mountLib.mount(core, Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
@@ -153,27 +153,27 @@ end
 describe("RowActions control", function()
 	-- 1. AUTHORING CONTRACT (constitution §4; ARCH-1) ------------------------
 	it("validates unknown spec keys", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, { contnet = content() } :: any)
+			return row_actions.build(Facet, core, { contnet = content() } :: any)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "you mean", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("rejects an empty action list", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, { content = content(), leading = {} })
+			return row_actions.build(Facet, core, { content = content(), leading = {} })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "nil", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("rejects an unknown ActionSpec key", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				content = content(),
 				trailing = { { label = "Delete", onAction = function() end, oaction = function() end } :: any },
 			})
@@ -184,9 +184,9 @@ describe("RowActions control", function()
 	end)
 
 	it("rejects an ActionSpec with an unknown role", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				content = content(),
 				trailing = { { label = "Delete", role = "scary", onAction = function() end } :: any },
 			})
@@ -204,10 +204,10 @@ describe("RowActions control", function()
 	-- same literal, corrupting the presenter's own path-keyed bookkeeping
 	-- the instant a second such row mounts. Refused loudly at build time.
 	it("rejects a coordinator-sharing row with no explicit id", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local coordinator = row_actions.newCoordinator(core)
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				content = content(),
 				trailing = { { label = "Delete", onAction = function() end } },
 				coordinator = coordinator,
@@ -219,10 +219,10 @@ describe("RowActions control", function()
 	end)
 
 	it("a coordinator-sharing row WITH an explicit id builds normally", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local coordinator = row_actions.newCoordinator(core)
 		local ok = pcall(function()
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content(),
 				trailing = { { label = "Delete", onAction = function() end } },
@@ -235,7 +235,7 @@ describe("RowActions control", function()
 	-- 2. INERT PASSTHROUGH (perf directive) -----------------------------------
 	it("is an inert passthrough with no actions", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, { id = "Row", content = content("Body") })
+			return row_actions.build(Facet, core, { id = "Row", content = content("Body") })
 		end)
 		expect(w.adapter.node("/S/Body") ~= nil).toBe(true) -- content mounted, unwrapped
 		expect(w.adapter.node(ROW) == nil).toBe(true) -- no RowActions wrapper node at all
@@ -246,7 +246,7 @@ describe("RowActions control", function()
 	-- 3. LAZY TRAY STRUCTURE ---------------------------------------------------
 	it("mounts trailing tray buttons with ids Action:<id> only once revealed", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -262,7 +262,7 @@ describe("RowActions control", function()
 
 	it("destructive action paints danger tokens; normal action paints the default role", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -320,7 +320,7 @@ describe("RowActions control", function()
 		-- against the NEW contract below (glyph drawn, floor honoured, one line).
 		local function build(icon: string?)
 			return presenterWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = { { id = "delete", label = lt.PSEUDO, icon = icon, onAction = function() end } },
@@ -386,7 +386,7 @@ describe("RowActions control", function()
 	-- 5. THE REVEAL SEAM (Task 4 builds spring motion on this) -----------------
 	it("_open slides content by tray width; _close returns it; dump reflects openEdge", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -420,7 +420,7 @@ describe("RowActions control", function()
 	it("_open animates offset toward tray width over stepped frames", function()
 		local function build()
 			return presenterWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -455,7 +455,7 @@ describe("RowActions control", function()
 	it("buttons grow proportionally with offset", function()
 		local function build()
 			return presenterWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -499,7 +499,7 @@ describe("RowActions control", function()
 	it("an icon action wears its icon at EVERY width — settled and mid-swipe (icon-first)", function()
 		local function build()
 			return presenterWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = { { id = "delete", label = "Delete", icon = "trash", onAction = function() end } },
@@ -529,7 +529,7 @@ describe("RowActions control", function()
 		-- old ladder degrades a long word at this width too, so only a label that
 		-- FITS can tell "preferred" apart from "did not fit".
 		local short = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Do", icon = "trash", onAction = function() end } },
@@ -553,7 +553,7 @@ describe("RowActions control", function()
 	-- (the scenario's own "Mark Read" is exactly this case).
 	it("a label-only action keeps its word — icon-first is a default, not a ban on text", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -567,19 +567,19 @@ describe("RowActions control", function()
 	end)
 
 	it("reduced motion snaps the reveal in one frame", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("reducedMotion", true) -- derives env:get("motionPolicy") == "reduced"
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local ra = row_actions.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
 		pres.refresh()
 		ra._open("trailing")
 		pres.refresh()
@@ -590,20 +590,20 @@ describe("RowActions control", function()
 	end)
 
 	it("dispose mid-flight leaks nothing", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		ra._open("trailing")
@@ -630,7 +630,7 @@ describe("RowActions control", function()
 
 	it("_settleTo retargets the spring at the verdict (Task 5 wires the gesture that produces one)", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -663,19 +663,19 @@ describe("RowActions control", function()
 	-- "live preference swing" idiom (`env:set("preferredTextOffset", ...)`
 	-- then `pres.refresh()` on an ALREADY-presented, already-open screen).
 	it("tray button width re-derives when preferredTextSize changes (not frozen)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local ra = row_actions.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			env = env,
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
 		pres.refresh()
 		ra._open("trailing")
 		pres.refresh()
@@ -703,7 +703,7 @@ describe("RowActions control", function()
 
 	it("_open on an edge with no actions is a no-op", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -716,20 +716,20 @@ describe("RowActions control", function()
 
 	-- 6. DISPOSAL / REGISTRY NEUTRALITY ------------------------------------------
 	it("dispose unmounts and releases the scope", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		ra._open("trailing")
@@ -836,14 +836,14 @@ describe("RowActions control", function()
 	end)
 
 	it("RowActions keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local fired: { string } = {}
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = {
@@ -864,7 +864,7 @@ describe("RowActions control", function()
 			},
 		})
 		ra._open("trailing")
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		pres.present(screen)
 		pres.refresh()
 		local flagPath = TRAILING_TRAY .. "/Action:flag"
@@ -898,9 +898,9 @@ describe("RowActions control", function()
 
 	-- 9. TASK 9: EDIT-MODE DELETE AFFORDANCE (iOS leading minus) --------------
 	it("rejects an editing value that is not a Readable", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				content = content(),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 				editing = true :: any,
@@ -914,7 +914,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(false)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -926,7 +926,7 @@ describe("RowActions control", function()
 
 	it("the minus is absent when the row has no destructive action, even while editing", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "flag", label = "Flag", onAction = function() end } }, -- normal, not destructive
@@ -938,7 +938,7 @@ describe("RowActions control", function()
 
 	it("the minus is absent when the caller never wires `editing` (nil, not false)", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -984,7 +984,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1026,7 +1026,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1059,7 +1059,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1091,7 +1091,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				leading = {
@@ -1142,7 +1142,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1172,7 +1172,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1251,7 +1251,7 @@ describe("RowActions control", function()
 		-- table of closures — `row_actions.newCoordinator`'s own return shape
 		-- — so wrapping one field is ordinary Lua, no framework hook needed)
 		-- and assert it is called exactly ONCE for two activations.
-		local coordinator = row_actions.newCoordinator(LuauUI.newCore())
+		local coordinator = row_actions.newCoordinator(Facet.newCore())
 		local claimCount = 0
 		local realClaim = coordinator.claim
 		coordinator.claim = function(...)
@@ -1262,7 +1262,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1338,7 +1338,7 @@ describe("RowActions control", function()
 					if withEditing then
 						spec.editing = core:signal(true)
 					end
-					return row_actions.build(LuauUI, core, spec)
+					return row_actions.build(Facet, core, spec)
 				end)
 				-- `_open` then an IMMEDIATE refresh, before `settle` — the same
 				-- two-step the "labels survive pseudo-loc" test above uses
@@ -1382,7 +1382,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -1406,7 +1406,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(false)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -1426,7 +1426,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				leading = { { id = "flag", label = "Flag", onAction = function() end } },
@@ -1449,7 +1449,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -1480,7 +1480,7 @@ describe("RowActions control", function()
 		"the close flight is a rigid translation that decelerates onto the settled geometry (no terminal step)",
 		function()
 			local w = presenterWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -1541,7 +1541,7 @@ describe("RowActions control", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -1589,7 +1589,7 @@ describe("RowActions control", function()
 	it("the minus paints OVER Content — the director's 'stays pinned during a swipe'", function()
 		local built
 		local w = presenterWorld(function(core)
-			built = row_actions.build(LuauUI, core, {
+			built = row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
@@ -1618,7 +1618,7 @@ describe("RowActions control", function()
 	-- easy half.
 	it("adjacent tray buttons carry the theme's trayGap, and the travel distance includes it", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -1661,11 +1661,11 @@ describe("RowActions control", function()
 		-- and the grammar still refuses what it always refused: `prefer` names no
 		-- form, so a table holding only it is still formless.
 		local ok = pcall(function()
-			return LuauUI.UI.Button({ id = "B", label = "x", compactLabel = { prefer = true } })
+			return Facet.UI.Button({ id = "B", label = "x", compactLabel = { prefer = true } })
 		end)
 		expect(ok).toBe(false)
 		local badType = pcall(function()
-			return LuauUI.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
+			return Facet.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
 		end)
 		expect(badType).toBe(false)
 	end)
@@ -1695,7 +1695,7 @@ local PACKAGES = {
 	"scifi_hud",
 }
 local function packageOf(name: string): any
-	return (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+	return (require)(`../examples/themes/{name}`).build(Facet.themes)
 end
 -- the theme's own numbers, never a literal restated here
 local function metricOf(snap: any, path: string): number
@@ -1708,17 +1708,17 @@ end
 -- control at all. Without it the composite degrades to the neutral snapshot and
 -- a themed sweep would measure the wrong package on purpose.
 local function themedWorld(snap: any?, spec: (core: any, env: any) -> any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if snap ~= nil then
 		env:set("themeMetrics", snap)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
-	local ra = row_actions.build(LuauUI, core, spec(core, env))
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local ra = row_actions.build(Facet, core, spec(core, env))
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
 	pres.refresh()
 	return { core = core, env = env, adapter = adapter, pres = pres, ra = ra, handle = handle }
 end
@@ -1726,7 +1726,7 @@ end
 describe("device bug round 2026-08-12 — the tray's negative space (findings A1a, A2)", function()
 	it("a trailing plate never touches the row: the band carries the theme's rowGutter", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fill", weight = 1 },
@@ -1764,7 +1764,7 @@ describe("device bug round 2026-08-12 — the tray's negative space (findings A1
 
 	it("...and neither does a leading one, on the mirrored edge", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fill", weight = 1 },
@@ -1787,7 +1787,7 @@ describe("device bug round 2026-08-12 — the tray's negative space (findings A1
 
 	it("the edit-mode minus sits in the same negative space, not against the row (A2)", function()
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fill", weight = 1 },
@@ -1852,7 +1852,7 @@ describe("device bug round 2026-08-12 — a tray label fits the package's frame 
 		-- the fix must be inert wherever it was already right, or it is a geometry
 		-- change to every flat theme rather than a repair of the framed ones
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fill", weight = 1 },
@@ -1883,7 +1883,7 @@ describe("device bug round 2026-08-12 — actions that cannot fit the row (findi
 			action a player cannot touch is a silent wrong result. ]]
 		local ROW_PX = 160
 		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fixed", px = ROW_PX },

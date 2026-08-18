@@ -248,7 +248,7 @@ function toast_schedule.new(opts: Opts?)
 	-- push a toast. Returns its id; `dismiss(id)` retires it early.
 	function schedule.push(spec: any): number
 		if type(spec) ~= "table" then
-			error(`LuauUI toast: presentToast takes an options table, got {typeof(spec)}`, 0)
+			error(`Facet toast: presentToast takes an options table, got {typeof(spec)}`, 0)
 		end
 		nextId += 1
 		sequence += 1

@@ -336,7 +336,7 @@ local TINT_KEYS: { [string]: boolean } = { role = true, blend = true, from = tru
 
 --[[ THE TINT'S OWN ALPHA (`transparency`, added 2026-07-31 — RascalRally row
 	OWN-D39, recorded 2026-07-30 as "if a SECOND consumer meets it, a tint alpha
-	returns to the LuauUI roadmap rather than being re-composited per game").
+	returns to the Facet roadmap rather than being re-composited per game").
 
 	The recorded workaround was to compute the COMPOSITE a legacy transparency
 	paints — the fill lerped toward the backdrop it sits on — which is exact, and
@@ -446,7 +446,7 @@ function styling.normalizeStroke(spec: any, style: any?): any
 		local v = (spec :: any)[key]
 		if type(v) == "table" and (v.kind == "signal" or v.kind == "memo") then
 			error(
-				`LuauUI UI.stroke: '{key}' cannot be a Signal/Memo — normalized style data is read once. `
+				`Facet UI.stroke: '{key}' cannot be a Signal/Memo — normalized style data is read once. `
 					.. "Bind the whole prop instead: stroke = core:memo(function() return "
 					.. `UI.strokeData(\{ {key} = … }) end)`,
 				0

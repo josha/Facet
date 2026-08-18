@@ -42,14 +42,14 @@ return {
 		"SF-C3",
 	},
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
 		local scope = core:scope("sponsor-drop")
 		local clock = pres.motionClock
-		local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
 
 		local SCREEN = "/DropLab"
 		local LIST = SCREEN .. "/Main/ListZone/Rows"
@@ -192,18 +192,18 @@ return {
 
 		-- ===== the list =====================================================
 		local rowHeight = scope:own(core:memo(function(use)
-			--[[ THE LINE BOX COMES FROM THE FRAMEWORK (`LuauUI.text.facts` /
-				`LuauUI.text.lineBox`, adopted 2026-08-15). The copy that was here read
+			--[[ THE LINE BOX COMES FROM THE FRAMEWORK (`Facet.text.facts` /
+				`Facet.text.lineBox`, adopted 2026-08-15). The copy that was here read
 				`typographyScale` alone; the measure seam reserves at
 				`max(typographyScale, typographyPaintScale)`, so at a sub-1 accessibility
 				preference this reserved less than the engine drew.
 				docs/plans/variable-item-extents.md. ]]
-			local facts = LuauUI.text.facts({ env = env, use = use })
+			local facts = Facet.text.facts({ env = env, use = use })
 			local metrics: any = facts.metrics
 			if type(metrics) ~= "table" or type(metrics.type) ~= "table" then
 				return 56
 			end
-			local lineBox = LuauUI.text.lineBox({ facts = facts, size = "body", lines = 1 })
+			local lineBox = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
 			return math.max(metrics.targetSizes.minimum or 44, lineBox + 2 * (metrics.space.s or 8))
 		end))
 
@@ -362,7 +362,7 @@ return {
 			})
 		end
 
-		list = LuauUI.newVirtualList(LuauUI, core, {
+		list = Facet.newVirtualList(Facet, core, {
 			id = "Rows",
 			rows = rows,
 			key = function(item: any)
@@ -660,7 +660,7 @@ return {
 		local unbindScroll: any = nil
 		local unbindCancel: any = nil
 		local unbindVerdict: any = nil
-		local autoscrollDefaults = LuauUI.newAutoscroll():options()
+		local autoscrollDefaults = Facet.newAutoscroll():options()
 
 		local function ensureWired()
 			local ctrl = controller()
@@ -909,7 +909,7 @@ return {
 				local expectation = {
 					step = "pressUnderThreshold",
 					travelPx = 4.47,
-					gatePx = LuauUI.interactionTokens.dragPromotionPx.pointer,
+					gatePx = Facet.interactionTokens.dragPromotionPx.pointer,
 					expectSession = false,
 					expectActivate = 1,
 					observedSession = activeMidGesture,
@@ -1217,8 +1217,8 @@ return {
 				autoscrollTrace = autoscrollTrace,
 				autoscroll = list.autoscroll:get(),
 				autoscrollOptions = autoscrollDefaults,
-				promotionTokens = LuauUI.interactionTokens.dragPromotionPx,
-				promotionRange = LuauUI.interactionTokens.dragPromotionRangePx,
+				promotionTokens = Facet.interactionTokens.dragPromotionPx,
+				promotionRange = Facet.interactionTokens.dragPromotionRangePx,
 				drops = drops,
 				rejects = rejects,
 				sessionIds = sessionIds,

@@ -7,7 +7,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local device_profiles = require("../src/preview/device_profiles")
 local fake_target = require("../tests/lib/fake_target")
 local environment = require("../src/env/environment")
@@ -74,16 +74,16 @@ describe("Preview: device profiles", function()
 	end)
 
 	it("applying a profile re-renders an attached tree with rect writes only", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "P",
 				children = {
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "Panel",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
@@ -92,7 +92,7 @@ describe("Preview: device profiles", function()
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		expect(adapter.node("/P/Panel").rect.w).toBe(device_profiles.get("desktop").viewport.w)
 		local factoryRuns = root.counters().factoryRuns
@@ -110,16 +110,16 @@ describe("Preview: device profiles", function()
 	-- ten-foot, the renderer composes overscanInsets ON TOP of coreSafeInsets
 	-- (TVs clip edges), and leaving the profile restores the full canvas
 	it("applying the console profile insets the solved tree by the overscan margins", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "P",
 				children = {
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "Panel",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
@@ -128,7 +128,7 @@ describe("Preview: device profiles", function()
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		device_profiles.apply(env, "console")
 		local rect = adapter.node("/P/Panel").rect

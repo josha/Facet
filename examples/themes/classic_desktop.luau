@@ -14,7 +14,7 @@
 --
 -- Written against the PUBLIC API only: `themes.neutralPackage()` for the
 -- derivation base and `themes.define` for compilation. Nothing here requires a
--- LuauUI internal module, which is the point — a game team can copy this file.
+-- Facet internal module, which is the point — a game team can copy this file.
 
 local classic_desktop = {}
 

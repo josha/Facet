@@ -8,24 +8,24 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
 local function world()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
-	local system = LuauUI.newActionSystem(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
 describe("slice: UI-driven authoritative mutation", function()
 	local function build(core: any, pres: any, system: any)
-		local snapshot = LuauUI.replication.snapshot(core, 1, { music = false })
+		local snapshot = Facet.replication.snapshot(core, 1, { music = false })
 		local draft = core:signal(false)
 		local status = core:signal("idle")
-		local mutation = LuauUI.replication.mutation(core, {
+		local mutation = Facet.replication.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)
@@ -36,11 +36,11 @@ describe("slice: UI-driven authoritative mutation", function()
 			},
 		})
 		local pendingEnvelope: any = nil
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Toggle({ id = "Music", label = "Music", value = draft }),
-				LuauUI.UI.Button({ id = "Save", label = "Save" }),
+				Facet.UI.Toggle({ id = "Music", label = "Music", value = draft }),
+				Facet.UI.Button({ id = "Save", label = "Save" }),
 			},
 		})
 		pres.present(screen, {
@@ -104,8 +104,8 @@ describe("slice: UI-driven authoritative mutation", function()
 	end)
 
 	it("one action carries keyboard, touch, and gamepad bindings simultaneously", function()
-		local core = LuauUI.newCore()
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local system = Facet.newActionSystem(core)
 		local ctx = system.createContext({ name = "Multi" })
 		local activate = ctx.createAction("Activate", "Bool")
 		activate.bind({ keyCode = "Return", displayName = "Enter" })

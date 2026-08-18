@@ -13,7 +13,7 @@ acceptance gates may have missed. It also prepares the code for future maintaine
 a person or agent should be able to find the correct owner, add a feature through the
 established pattern, and prove the result without reconstructing project history.
 
-This stage also completes the framework's pre-public rename from **LuauUI** to
+This stage also completes the framework's pre-public rename from **Facet** to
 **Facet**. Facet is the permanent product, package, module, documentation, and
 profiling identity. Use `Facet` for the product, repository, root folder, ModuleScript,
 and public Luau binding; use lowercase `facet` only where a tool requires a slug. The
@@ -62,10 +62,10 @@ skills, repository metadata, and Rascal Rally. Classify each match as current so
 generated output, persistent/external identifier, immutable evidence, or Git/remote
 metadata. Count it before and after.
 
-Use history-preserving moves to rename `GameStudio/ui/LuauUI` to
+Use history-preserving moves to rename `GameStudio/ui/Facet` to
 `GameStudio/ui/Facet` and every maintained file whose name contains the old brand,
 including this roadmap, agent stubs, Sponsor documents, example places, model/package
-outputs, and `skills/use-luauui`. Rename the required ModuleScript and public binding
+outputs, and `skills/use-facet`. Rename the required ModuleScript and public binding
 to `Facet`; canonical calls read `Facet.UI...`, `Facet.Controls...`, or another shape
 chosen by the naming ADR. Rebuild binary/generated outputs from renamed source. Do not
 patch serialized binaries or generated manifests by blind text replacement.
@@ -216,7 +216,7 @@ unless it independently meets a real product need.
 Reopen the public-name rules with real call sites and autocomplete in mind. Inventory
 every top-level export and group primitives, composites, services, pure helpers,
 controllers, and advanced namespaces. Start with awkward examples such as
-the old `LuauUI.newTable(LuauUI, core, spec)`. Judge discoverability, consistency,
+the old `Facet.newTable(Facet, core, spec)`. Judge discoverability, consistency,
 redundant arguments, lifecycle meaning, and how easily a new author predicts the next
 name.
 

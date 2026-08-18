@@ -18,7 +18,7 @@ below that line, and each was found by a human looking at a screen:
 | 2026-08-04 | role-pick pop from a 1×1 first-frame viewport | nothing — the frame does not exist headlessly |
 
 `tools/studio/visual_diff.luau` already reads what the **engine** resolved
-(`AbsolutePosition/AbsoluteSize/Visible/ZIndex`/text) rather than what LuauUI
+(`AbsolutePosition/AbsoluteSize/Visible/ZIndex`/text) rather than what Facet
 asked for, and is self-checked for stability. What is missing is a *standing,
 small, gated* set that runs it — today every one of those numbers is captured by
 hand during a mission and then goes stale.

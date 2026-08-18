@@ -1,14 +1,14 @@
-# LuauUI execution contract — prove the running Roblox UI
+# Facet execution contract — prove the running Roblox UI
 
 **Date:** 2026-08-01
 **Status:** Required by every build prompt in
-[`luauui-consolidated-roadmap.md`](luauui-consolidated-roadmap.md).
+[`facet-consolidated-roadmap.md`](facet-consolidated-roadmap.md).
 Roadmap Steps 3–14, including Steps 3.5 and 8.5, plus Step 5.5 when cleanup can affect
 visible behavior, follow the canonical scriptable Studio matrix in
 [`studio-device-verification.md`](studio-device-verification.md).
 
 This contract exists because a green headless suite is necessary but has not been
-enough. Previous LuauUI work passed pure tests and still needed repeated correction
+enough. Previous Facet work passed pure tests and still needed repeated correction
 in Studio for paint, clipping, text, hit targets, input routing, focus, and game
 integration. The goal is not more ceremony. The goal is for the agent to find those
 problems before asking a person to test.
@@ -38,11 +38,11 @@ The roadmap deliberately uses two lead models:
   to finish the long tool-use run.
 
 For Fable-led Steps 5 and 6, follow the orchestration and product-quality contract in
-`games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md`. Fable owns live diagnosis,
+`games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md`. Fable owns live diagnosis,
 integration, and reruns; it must continue while an in-scope automated, Studio, or
 specialist finding remains. The UI Designer owns the build-ready interaction/
 adaptation/motion specification and integrated quality reviews, not implementation.
-Apply `GameStudio/specialists/APPLE_UI_MOTION_SKILL.md` through reusable LuauUI
+Apply `GameStudio/specialists/APPLE_UI_MOTION_SKILL.md` through reusable Facet
 mechanisms and the declared property-authority model, never as game-side bypass code.
 
 For an Opus 5 stage, treat the listed plans and acceptance criteria as the complete
@@ -86,8 +86,8 @@ that the behavior works.
 
 ## Rascal Rally consumer lockstep
 
-Rascal Rally's normal and debug Rojo projects mount `GameStudio/ui/LuauUI/src`
-directly. A LuauUI source, public-contract, default, behavior, asset, or distribution
+Rascal Rally's normal and debug Rojo projects mount `GameStudio/ui/Facet/src`
+directly. A Facet source, public-contract, default, behavior, asset, or distribution
 change is incomplete until its direct game consumer is synchronized in the same
 stage.
 
@@ -99,7 +99,7 @@ For every such change:
    workarounds in the game;
 3. add or update a Rascal Rally contract/integration test that exercises the change
    through a real game surface;
-4. run the affected LuauUI checks, the relevant Rascal Rally suite, both game Rojo
+4. run the affected Facet checks, the relevant Rascal Rally suite, both game Rojo
    project mappings when applicable, and an affected Rascal Rally Studio canary for
    visible, input, layout, adapter, or lifecycle behavior; and
 5. include a consumer-impact ledger and the game commands/results in the stage
@@ -109,9 +109,9 @@ Do not manufacture a production-game edit for a compatible internal change. In t
 case, update or add the game-side compatibility test/evidence and record why no
 caller change was correct. Documentation-only changes with no contract or behavior
 effect update Rascal Rally documentation only when its claim changed. Preserve game
-behavior, content ownership, feature flags, the production LuauUI Sponsor default,
-and the `UseLuauUISponsor = false` legacy rollback unless a separate authorized goal
-changes them. A LuauUI gate cannot pass while its Rascal
+behavior, content ownership, feature flags, the production Facet Sponsor default,
+and the `UseFacetSponsor = false` legacy rollback unless a separate authorized goal
+changes them. A Facet gate cannot pass while its Rascal
 Rally consumer is stale, failing, or unaudited.
 
 ## 2. Create the acceptance ledger before coding
@@ -158,7 +158,7 @@ Use the lowest level that can actually observe the behavior, but no lower.
 |---|---|---|
 | E0 — source and documentation | API names, intended ownership, and current platform guidance | Runtime behavior |
 | E1 — pure/headless | Deterministic decisions, validation, state transitions, lifecycle, geometry invariants, and regressions | Roblox Instances, engine layout/paint, input delivery, clipping, or timing |
-| E2 — live engine probe | A Roblox class/property/event exists and behaves as measured | The integrated LuauUI screen uses it correctly |
+| E2 — live engine probe | A Roblox class/property/event exists and behaves as measured | The integrated Facet screen uses it correctly |
 | E3 — visible Studio slice | The real adapter, Instances, presentation, and game or gallery wiring work together in a visible play session | A physical OS/device path or subjective production feel |
 | E4 — physical device | The retail client and real input/display/device behavior work on named hardware | Whether the result meets the intended visual and interaction feel |
 | E5 — human review | Readability, hierarchy, polish, pacing, and platform feel meet the stated target | Uninstrumented correctness |
@@ -196,7 +196,7 @@ Run this before every Studio evidence session and store the result with that ses
 3. Confirm `workspace.CurrentCamera.ViewportSize` is larger than `1,1`, the game view
    is visible, command execution works, and a canary capture succeeds.
 4. Clear or mark the log boundary so new warnings and errors belong to this run.
-5. Confirm the expected LuauUI target and presenter mounted exactly once.
+5. Confirm the expected Facet target and presenter mounted exactly once.
 6. Drive one canary input and observe both the raw/native signal and the intended
    application effect before running the matrix.
 
@@ -239,7 +239,7 @@ gate system. Do not create a second UI framework or ship test controls to player
 should let an agent:
 
 - select a named deterministic scenario and reset it without assembling game state;
-- mount the real LuauUI adapter and identify the exact presenter/source version;
+- mount the real Facet adapter and identify the exact presenter/source version;
 - change supported viewport, orientation, environment, accessibility, and fixture
   facts through declared test seams and, where supported, Roblox's scriptable Studio
   testing APIs;
@@ -314,7 +314,7 @@ contain:
 - captures named by fixture, device profile, orientation, input path, and state;
 - baseline-versus-new comparison when preserving behavior;
 - profiler captures and measurement conditions for performance claims;
-- the LuauUI-to-RascalRally consumer-impact ledger, game-side code/test updates, and
+- the Facet-to-RascalRally consumer-impact ledger, game-side code/test updates, and
   exact consumer verification results;
 - the fresh-context verifier findings and the fixes or explicit disposition;
 - all `FAIL_ENVIRONMENT`, `PENDING_PHYSICAL`, and `PENDING_HUMAN` rows with one exact
@@ -354,14 +354,14 @@ evidence pending**. Do not report the stage or roadmap outcome fully complete.
 | 3 — authoring and common UI | Invalid public authoring fails at the boundary; the actual gallery drives each control through available real Studio input; portrait, landscape, desktop, and console-emulated layouts have geometry and captures; layout/input hot changes retain valid state |
 | 3.5 — theme packages | A clean consumer builds Fantasy Parchment through public docs/APIs; its nine-slice panels/control chrome and every package install/swap run in the mounted all-controls fixture; palette, effective font/metrics, solved/actual/hit geometry, states, adaptive paradigms, fallbacks, focus/resource identity, Style Editor synchronization, documentation drift, and flat-versus-ornate cost have paired evidence across the device matrix |
 | 4 — quality and future seam | Production-shaped scenes emit separate headless, Studio, and physical artifacts; telemetry measures the promised quantities; unavailable device measurements remain pending; spatial work is limited to contracts and test fixtures |
-| 5 — Sponsor framework gaps | Every reusable gap runs in a Sponsor-shaped Studio gallery with deterministic fixtures for success, failure, interruption, reduced motion, preferred text, and teardown; the UI Designer reviews its interaction/adaptation/motion quality against named legacy criteria; relevant Apple-motion principles are generalized behind public LuauUI contracts; no RascalRally game policy appears in LuauUI |
+| 5 — Sponsor framework gaps | Every reusable gap runs in a Sponsor-shaped Studio gallery with deterministic fixtures for success, failure, interruption, reduced motion, preferred text, and teardown; the UI Designer reviews its interaction/adaptation/motion quality against named legacy criteria; relevant Apple-motion principles are generalized behind public Facet contracts; no RascalRally game policy appears in Facet |
 | 5.5 — simplicity cleanup | Current Studio baselines remain unchanged for every touched visible/input/adapter path; public exports, deprecations, lifecycle/resource counts, and prior gates are compared before and after; cleanup claims are backed by a candidate ledger rather than line count alone |
-| 6 — parallel Sponsor | The real place freezes named legacy quality baselines, runs the LuauUI presenter against the same fixtures, proves only one live presenter/command effect, and produces paired captures/traces for every matrix row; Fable repeats integrated UI Designer reviews until no automatable/specialist gap remains; an ownership ledger proves framework needs were fixed/tested in LuauUI and no local workaround/parallel adaptation machinery remains; physical and director FEEL approval remain separate gates |
+| 6 — parallel Sponsor | The real place freezes named legacy quality baselines, runs the Facet presenter against the same fixtures, proves only one live presenter/command effect, and produces paired captures/traces for every matrix row; Fable repeats integrated UI Designer reviews until no automatable/specialist gap remains; an ownership ledger proves framework needs were fixed/tested in Facet and no local workaround/parallel adaptation machinery remains; physical and director FEEL approval remain separate gates |
 | 7 — API consistency | The fresh-author exercise uses only public docs and APIs; any compatible change that can affect runtime has matching real-adapter proof; the surface ledger and checks classify every public item or justified exception |
 | 8 — desktop keyboard | Raw Tab/Shift+Tab, Space/Return, and arrow input reaches semantic traversal/activation/adjustment through the real adapter; responder ownership, text editing, exactly-once activation, keep-visible, and teardown are traced |
 | 8.5 — large text | All four native preference values and live changes have exact-once measurement/paint evidence; the public surface and production Sponsor fixtures reflow without overlap or inaccessible essential text; compact portrait/landscape, full-value access, focus/scroll survival, reduced motion, and bounded reveal work have paired traces/captures |
 | 9 — performance lab | Self-contained places rebuild and run without Rojo; the scenario runner, dense scroll workload, matched native reference, bounded mount window, MicroProfiler labels, capture metadata, reset, and teardown work in Studio; low-end Android remains a named physical row |
-| 10 — example quality | All seven examples are played through the real adapter; teaching, style authority, geometry, input, completion/reset, failure, and lifecycle rows have paired traces/captures; an ownership ledger proves examples contain domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs; source claims alone close nothing |
+| 10 — example quality | All seven examples are played through the real adapter; teaching, style authority, geometry, input, completion/reset, failure, and lifecycle rows have paired traces/captures; an ownership ledger proves examples contain domain/content plus declarative composition while reusable fixes live behind public Facet APIs; source claims alone close nothing |
 | 11 — reference apps | Each clean-room reference proof runs a complete representative loop across the applicable five views and input paths; the feature ledger cites live evidence and never substitutes a fake for an unavailable Apple host surface |
 | 12 — declarative 3D decision | The isolated Part/Model spike records explicit server/client roots, identity, writes, lifecycle, streaming-like loss/reentry, failures, and cost; no spike evidence is relabeled as production 3D or VR support |
 | 13 — release review | Representative scenarios preserve their baseline after fixes; each live defect has reproduction/after-proof; the finding ledger is independently audited; clear guide/API catalogs match exports; the exact comparison allowlist scan rejects a seeded violation; and fresh Roblox-author/agent tasks prove the docs work without repository history |

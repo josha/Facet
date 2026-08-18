@@ -55,7 +55,7 @@ platformChrome = {
 - **`band` is `nil`, not a zero rect.** An engine without `GetInsetArea` keeps zeroes (the adapter's
   pcall belt), and "no strip" and "a strip at the window origin" are the same table with opposite
   meanings. The nil is the guard every consumer used to write by hand — Rascal Rally's
-  `LuauUISponsor:_topStrip` wrote it as `hasStrip = stripHeight > 0`.
+  `FacetSponsor:_topStrip` wrote it as `hasStrip = stripHeight > 0`.
 - **`rects` is a LIST.** The top band minus a free strip is an L, and on a notched landscape phone
   it is two rects (the cluster on the left, the notch strip on the right). That is precisely what an
   inset cannot express, and it is the shape the never-overlap check needs.
@@ -137,7 +137,7 @@ asserts that **no painted node's rect intersects any `platformChrome.rects` rect
   orientations, at all four text sizes — otherwise the strip would be unexercised by the one thing
   that watches everything. The sweep earned its keep immediately: it failed the moment a second
   driver toggle was added, at 320px and the largest preference.
-- **The consumer:** Rascal Rally's `LuauUISponsor:_topStrip` (the production default since the
+- **The consumer:** Rascal Rally's `FacetSponsor:_topStrip` (the production default since the
   2026-08-03 cutover) now reads `platformChrome.band` for the strip height, the cluster offset and
   the "is there a strip at all" guard it used to write itself. Identical numbers on a real client;
   its DV3-1 fixtures were corrected to state `topbarInset` in window space, because they had encoded
@@ -151,7 +151,7 @@ asserts that **no painted node's rect intersects any `platformChrome.rects` rect
   other than the top.
 ## The Studio canary — real engine, 2026-08-14, and exactly what it covers
 
-Two live readings on `LuauUI-Showcase` in Play, viewport 735 x 413.
+Two live readings on `Facet-Showcase` in Play, viewport 735 x 413.
 
 1. **The engine's raw answers**, plus a probe Frame under a `ScreenInsets = None` ScreenGui — the
    table at the top of this ADR. That is what corrected the `TopbarInset` semantics.

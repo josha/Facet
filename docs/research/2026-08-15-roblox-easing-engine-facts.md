@@ -1,6 +1,6 @@
 # Roblox easing / TweenService — measured engine facts (2026-08-15)
 
-Measured live in `LuauUI-Showcase.rbxl` via the Studio MCP, Edit and Play
+Measured live in `Facet-Showcase.rbxl` via the Studio MCP, Edit and Play
 datamodels as noted. Companion to ADR-0033. Every number here is an observation,
 not a recollection — the point of the file is that the next agent does not have to
 re-derive them, and does not trust memory instead.
@@ -90,7 +90,7 @@ to 0.25, then a `TweenService` tween on the same property to 1.
   sheet did not regain it.
 - No error, no warning, on either side.
 
-So a `TweenService` tween pointed at a `GuiObject` property that LuauUI's native
+So a `TweenService` tween pointed at a `GuiObject` property that Facet's native
 StyleSheets claim does not merely conflict for the duration of the tween; it takes
 the property for good. This is a second reason (beyond ADR-0022 Decision 2's write
 authority) that the engine's interpolator must not be aimed at rendered UI

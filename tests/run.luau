@@ -1,5 +1,5 @@
 --!strict
--- LuauUI test entry point. Run with:  lune run tests/run   (from GameStudio/ui/LuauUI)
+-- Facet test entry point. Run with:  lune run tests/run   (from GameStudio/ui/Facet)
 -- or ./run-tests.sh. Requires each spec, then runs. Same testkit as the games use.
 
 local process = require("@lune/process")
@@ -59,7 +59,7 @@ require("./path.spec")
 -- its renderer-mediated content seam (camera/lighting/content root)
 require("./stage.spec")
 -- UI.Foreign (ADR-0034, react-lua-comparison §5 rank 1): the bounded escape
--- hatch to a GuiObject class LuauUI does not wrap — one box, one claim
+-- hatch to a GuiObject class Facet does not wrap — one box, one claim
 -- (`Foreign.Parent`, on the reserved `host` authority), everything else the
 -- caller's
 require("./foreign.spec")
@@ -280,7 +280,7 @@ require("./grid_row.spec")
 -- central case). It is what a `LazyHGrid`'s mounted band can be
 require("./grid_column_flow.spec")
 -- round 3 item A: FLOW-WRAP. `UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }`
--- — Roblox's `UIListLayout.Wraps`, which LuauUI had no spelling for. One prop, one
+-- — Roblox's `UIListLayout.Wraps`, which Facet had no spelling for. One prop, one
 -- native arrange branch (never a public `Layout` protocol — see the round-3 design
 -- doc's Phase 0 verdict), and NO new alignment vocabulary: the engine's cross-axis
 -- rule was measured live and it is `align` for the block of lines and `lineAlign`
@@ -431,7 +431,7 @@ require("./toast_presentation.spec")
 require("./feedback.spec")
 -- the AUTHORED half of that seam: UI.sensoryFeedback(bp, { trigger, event })
 -- (docs/plans/swiftui-parity-round2.md §3.3), and the opt-in, default-off client
--- haptics adapter that is one possible SUBSCRIBER to it — LuauUI still plays
+-- haptics adapter that is one possible SUBSCRIBER to it — Facet still plays
 -- nothing
 require("./sensory_feedback.spec")
 require("./haptics.spec")

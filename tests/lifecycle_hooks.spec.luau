@@ -4,7 +4,7 @@
 	(docs/plans/swiftui-parity-round3.md, item D — the completeness audit's
 	ranked gaps #12 and #16).
 
-	Two shared box props, both of which the audit found LuauUI had no spelling
+	Two shared box props, both of which the audit found Facet had no spelling
 	for at all:
 
 	  · `onAppear(path)` / `onDisappear(path)` — SwiftUI's `onAppear(perform:)`
@@ -14,7 +14,7 @@
 	    not.
 	  · `hidden` — SwiftUI's `hidden()`: "invisible and can't receive or respond
 	    to interactions. However, they do remain in the view hierarchy and
-	    affect layout." NEITHER of LuauUI's two existing answers is that.
+	    affect layout." NEITHER of Facet's two existing answers is that.
 	    `UI.When` REMOVES the node (the siblings close up), and the engine's own
 	    `Visible = false` frees the layout slot inside a `UIListLayout` — which
 	    is why this framework, which arranges absolutely and ships no
@@ -115,7 +115,7 @@ describe("lifecycle hooks: the schema declaration", function()
 		-- ...but `hidden` IS: the useful form is "reserve the slot until the
 		-- value arrives", and SwiftUI's own answer for the conditional case —
 		-- an `if` statement — REMOVES the node from layout, which is what
-		-- LuauUI's `UI.When` already does.
+		-- Facet's `UI.When` already does.
 		expect(props.hidden.reactive).toBe(true)
 		-- `arrange`, not `paint`. The solver already publishes a per-rect `hidden`
 		-- verdict (a losing `ViewThatFits` candidate), and this prop merges into
@@ -172,7 +172,7 @@ describe("onAppear", function()
 	it("fires AFTER the first layout solve — the callback can read its own rect", function()
 		-- THE ORDERING DECISION, asserted where it is observable. Apple's
 		-- contract is that "the action closure completes before the first
-		-- rendered frame appears"; LuauUI draws nothing until the refresh
+		-- rendered frame appears"; Facet draws nothing until the refresh
 		-- returns, so firing after the solve is still pre-first-frame AND hands
 		-- the callback a solved box instead of a nil.
 		local rectInside: string = "NEVER CALLED"

@@ -6,15 +6,15 @@ shows exactly which pieces are engine-free and which live only on the client.
 
 ## 3.1 The pieces, in order
 
-Every LuauUI screen is assembled from the same short sequence:
+Every Facet screen is assembled from the same short sequence:
 
-1. **A core** — the reactive runtime. `LuauUI.newCore()`.
-2. **An environment** — the per-device facts. `LuauUI.newEnvironment(core)`.
-3. **An action system** — the input pipeline. `LuauUI.newActionSystem(core)`.
+1. **A core** — the reactive runtime. `Facet.newCore()`.
+2. **An environment** — the per-device facts. `Facet.newEnvironment(core)`.
+3. **An action system** — the input pipeline. `Facet.newActionSystem(core)`.
 4. **A render-target adapter** — where output goes. The real screen on the
    client; a fake recorder in a test.
 5. **A presenter** — owns screens on top of all of the above.
-   `LuauUI.newPresenter(core, env, adapter, actionSystem)`.
+   `Facet.newPresenter(core, env, adapter, actionSystem)`.
 6. **A blueprint**, handed to `presenter.present(...)`.
 
 ## 3.2 The smallest screen, headless
@@ -25,17 +25,17 @@ here doing nothing but counting the nodes it is asked to create. This is exactly
 how `tests/smoke.spec.luau` proves the whole library wires together.
 
 ```lua
-local LuauUI = require("../src") -- relative require: runs under Lune
+local Facet = require("../src") -- relative require: runs under Lune
 
-local core   = LuauUI.newCore()
-local env    = LuauUI.newEnvironment(core)
-local system = LuauUI.newActionSystem(core)
+local core   = Facet.newCore()
+local env    = Facet.newEnvironment(core)
+local system = Facet.newActionSystem(core)
 
 -- a blueprint: a screen with one button
-local screen = LuauUI.UI.Screen({
+local screen = Facet.UI.Screen({
     id = "S",
     children = {
-        LuauUI.UI.Button({ id = "Go", label = "Go" }),
+        Facet.UI.Button({ id = "Go", label = "Go" }),
     },
 })
 
@@ -50,7 +50,7 @@ local adapter = {
     destroyRoot  = function() end,
 }
 
-local presenter = LuauUI.newPresenter(core, env, adapter, system)
+local presenter = Facet.newPresenter(core, env, adapter, system)
 presenter.present(screen)
 
 assert(created == 2)                                 -- the Screen and the Button
@@ -74,7 +74,7 @@ The screen above is static. To make it *do* something, give it semantic state as
 a signal and read that signal from the blueprint.
 
 ```lua
-local core = LuauUI.newCore()
+local core = Facet.newCore()
 
 -- semantic state: a label the button will change
 local count = core:signal(0)
@@ -84,13 +84,13 @@ local label = core:memo(function(use)
     return `Clicked {use(count)} times`
 end)
 
-local screen = LuauUI.UI.Screen({
+local screen = Facet.UI.Screen({
     id = "Counter",
     padding = 16,
     gap = 8,
     children = {
-        LuauUI.UI.Text({ id = "Label", text = label }),  -- a signal/memo as a prop = reactive
-        LuauUI.UI.Button({
+        Facet.UI.Text({ id = "Label", text = label }),  -- a signal/memo as a prop = reactive
+        Facet.UI.Button({
             id = "Bump",
             label = "Bump",
             onActivate = function()
@@ -102,7 +102,7 @@ local screen = LuauUI.UI.Screen({
 ```
 
 The important line is `text = label`. When you pass a **signal or memo** as a
-prop value, LuauUI subscribes to it: whenever the memo changes, the text node is
+prop value, Facet subscribes to it: whenever the memo changes, the text node is
 marked dirty and repainted on the next refresh. When you pass a **plain value**
 (like `label = "Bump"`), it is fixed for the life of the node. That is the entire
 rule for making a prop reactive — hand it a readable value instead of a constant.
@@ -125,7 +125,7 @@ end to end.
 
 ## 3.4 Wiring inside Roblox Studio
 
-> ### ⚠️ One checkbox first: LuauUI requires the Input Action System
+> ### ⚠️ One checkbox first: Facet requires the Input Action System
 >
 > Before any of the code below, open the **Workspace** in Studio's Explorer and
 > **The shipped example places already carry it** — it is declared in every
@@ -140,16 +140,16 @@ end to end.
 > scripts are updated to use the Input Action System"
 > ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
 >
-> LuauUI's input layer is built entirely on the Input Action System and never
+> Facet's input layer is built entirely on the Input Action System and never
 > reaches into `ContextActionService`. Roblox's *own* scripts do, and with this
-> box unticked they hold keys outside IAS where no LuauUI binding can reach
+> box unticked they hold keys outside IAS where no Facet binding can reach
 > them: the default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
 > priority 2000, sinking), and the legacy control scripts keep gamepad
 > `ButtonA`. Screens built on this page still *render* perfectly — the input
 > just silently never arrives, which is the hard part to diagnose later.
 >
 > Do it once per place. It is not scriptable and not Rojo-syncable, so no code
-> here — LuauUI's included — can set it or check it for you; it is genuinely a
+> here — Facet's included — can set it or check it for you; it is genuinely a
 > human checkbox. The whole story, including why a higher priority number is not
 > an alternative, is [chapter 7](07-input.md).
 
@@ -161,22 +161,22 @@ reference is `examples/gallery/client/init.client.luau`; here is its shape.
 
 > **Not using Rojo?** Rojo is not a dependency — it only turns the source folder
 > into an `Instance` tree. [Chapter 8](08-without-rojo.md) covers the same setup
-> with no external toolchain: drag in the prebuilt `build/LuauUI.rbxm` (or lift
+> with no external toolchain: drag in the prebuilt `build/Facet.rbxm` (or lift
 > the library out of an example place) and skip to
 > [§3.4 The client script](#the-client-script), which is identical either way.
 
-LuauUI is placed under `ReplicatedStorage` and the client script under
+Facet is placed under `ReplicatedStorage` and the client script under
 `StarterPlayerScripts`. The example project file
 `examples/gallery.project.json` does exactly this:
 
 ```json
 {
-  "name": "LuauUI-Gallery",
+  "name": "Facet-Gallery",
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "LuauUI": { "$path": "../src" }
+      "Facet": { "$path": "../src" }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {
@@ -188,7 +188,7 @@ LuauUI is placed under `ReplicatedStorage` and the client script under
 ```
 
 Note `globIgnorePaths` drops the `*.spec.luau` test files from the synced build,
-and `"$path": "../src"` maps the whole library folder to a `ReplicatedStorage.LuauUI`
+and `"$path": "../src"` maps the whole library folder to a `ReplicatedStorage.Facet`
 `Instance`. The library's internal requires are relative, so the *same* source
 runs headless under Lune and mounted under Rojo with no changes.
 
@@ -198,29 +198,29 @@ runs headless under Lune and mounted under Rojo with no changes.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI"))
+local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 
--- the client-only adapters are NOT on the LuauUI table; require them directly
-local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target)
-local roblox_env    = require(ReplicatedStorage.LuauUI.client.roblox_env)
-local roblox_input  = require(ReplicatedStorage.LuauUI.client.roblox_input)
+-- the client-only adapters are NOT on the Facet table; require them directly
+local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
+local roblox_env    = require(ReplicatedStorage.Facet.client.roblox_env)
+local roblox_input  = require(ReplicatedStorage.Facet.client.roblox_input)
 
-local core   = LuauUI.newCore()
-local env    = LuauUI.newEnvironment(core)
+local core   = Facet.newCore()
+local env    = Facet.newEnvironment(core)
 local unbind = roblox_env.bind(env)          -- pushes real screen size / input type into env
 local adapter = screen_target.new()          -- renders under PlayerGui with real Instances
 local system  = roblox_input.newSystem(core) -- maps actions onto the engine input system
-local presenter = LuauUI.newPresenter(core, env, adapter, system)
+local presenter = Facet.newPresenter(core, env, adapter, system)
 
 local count = core:signal(0)
 local label = core:memo(function(use) return `Clicked {use(count)} times` end)
 
-local screen = LuauUI.UI.Screen({
+local screen = Facet.UI.Screen({
     id = "Counter",
     padding = 16, gap = 8,
     children = {
-        LuauUI.UI.Text({ id = "Label", text = label }),
-        LuauUI.UI.Button({
+        Facet.UI.Text({ id = "Label", text = label }),
+        Facet.UI.Button({
             id = "Bump",
             label = "Bump",
             onActivate = function()
@@ -242,7 +242,7 @@ The three differences from the headless version are the only differences that
 ever matter between test and production:
 
 1. **The client-only requires.** `screen_target`, `roblox_env`, and
-   `roblox_input` come from `src/client/*`, *not* from the `LuauUI` table. Keeping
+   `roblox_input` come from `src/client/*`, *not* from the `Facet` table. Keeping
    them off the public table is what lets server and shared code `require` the
    main library safely — none of the engine-touching code is pulled in unless a
    client explicitly asks for it.

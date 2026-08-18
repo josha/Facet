@@ -53,7 +53,7 @@ local POST_COUNT = 400
 	computes a post's height from these numbers and `cell` paints with the same
 	ones, so the declared extent and the painted row cannot disagree — which is
 	the whole authoring discipline the per-item form exists to make possible.
-	`docs/lessons/luauui-fixed-px-heights.md` is the class this avoids: a px
+	`docs/lessons/facet-fixed-px-heights.md` is the class this avoids: a px
 	height fixed against unfixed content. ]]
 local METRICS = {
 	padding = 10,
@@ -106,7 +106,7 @@ end
 	then the ONLY correct copy of it in the repo — while `row_actions`, `perf_capture`
 	and `virtual_list_native` each carried a lying-extent waiver for getting the same
 	sum wrong the same way. That is an API defect, not three careless consumers, and
-	`LuauUI.text.facts` / `LuauUI.text.lineBox` are the fix (ruled 2026-08-15,
+	`Facet.text.facts` / `Facet.text.lineBox` are the fix (ruled 2026-08-15,
 	docs/plans/variable-item-extents.md). Deleting this fixture's private copy is the
 	proof the public shape is the right one: the demo is unchanged, the numbers are
 	unchanged, and the arithmetic now comes from the same two seams the solver spends. ]]
@@ -114,7 +114,7 @@ local function rowExtent(
 	item: any,
 	index: number,
 	use: any,
-	LuauUI: any,
+	Facet: any,
 	textFacts: any,
 	chipSignal: any,
 	modeSignal: any
@@ -128,16 +128,16 @@ local function rowExtent(
 	local chip = use(chipSignal)
 	local _ = item
 	return METRICS.padding * 2
-		+ LuauUI.text.lineBox({ facts = facts, size = METRICS.titleSize + chip, lines = 1 })
+		+ Facet.text.lineBox({ facts = facts, size = METRICS.titleSize + chip, lines = 1 })
 		+ METRICS.gap
-		+ LuauUI.text.lineBox({ facts = facts, size = METRICS.bodySize + chip, lines = linesFor(index) })
+		+ Facet.text.lineBox({ facts = facts, size = METRICS.bodySize + chip, lines = linesFor(index) })
 end
 
 return {
 	title = "Variable item extents (ruling 7)",
 	ledgerRows = { "R3-VIE" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope("variable-extents")
 
@@ -174,7 +174,7 @@ return {
 			`text.facts` takes the memo's own `use` for exactly that reason — it is the
 			caller's derivation the edges have to land in. ]]
 		local textFacts = scope:own(core:memo(function(use)
-			return ctx.LuauUI.text.facts({ env = ctx.env, use = use })
+			return ctx.Facet.text.facts({ env = ctx.env, use = use })
 		end))
 
 		--[[ THE LIST'S WINDOW IS THE PANE THE SOLVER GAVE IT, fed back through
@@ -190,7 +190,7 @@ return {
 			preference the control row and the status both grow, and the sweep measured
 			this page painting 77px past its own box at `preferredTextOffset` 14 and 49px
 			at 10, plus a further 19 findings under packages whose own metrics widen the
-			same chrome at the DEFAULT preference. `docs/lessons/luauui-fixed-px-heights.md`
+			same chrome at the DEFAULT preference. `docs/lessons/facet-fixed-px-heights.md`
 			is the class, in its height spelling; a fixed reserve against unfixed chrome
 			is the same bug as a fixed row height against unfixed text.
 
@@ -213,14 +213,14 @@ return {
 		local SEED_WINDOW = 72
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local list = ctx.LuauUI.newVirtualList(ctx.LuauUI, core, {
+		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
 			id = "Feed",
 			rows = rows,
 			key = function(item: any): string
 				return item.id
 			end,
 			itemExtent = function(item: any, index: number, use: any): number
-				return rowExtent(item, index, use, ctx.LuauUI, textFacts, textOffset, mode)
+				return rowExtent(item, index, use, ctx.Facet, textFacts, textOffset, mode)
 			end,
 			viewportExtent = viewportExtent,
 			overscan = 2,
@@ -311,7 +311,7 @@ return {
 			share of a tall screen for a band that needs ~150px of it and leave the
 			rest blank. `heightClass` (ADR-0023) is the framework's own Readable for
 			"the vertical room is scarce" and it re-resolves on rotation. ]]
-		local conditions = ctx.LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
 			return if use(conditions.isShort) then { type = "fill", weight = 1 } else nil
 		end))

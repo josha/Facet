@@ -3,7 +3,7 @@
 -- responder model (passive vs engaged-exclusive surfaces) is engine-free and
 -- resolves purely through IAS InputContext priority + Sink. This module is the
 -- thin CLIENT-LOCAL seam that applies the one engine-level side effect the
--- headless presenter cannot: while an EXCLUSIVE (sinking) LuauUI surface is up,
+-- headless presenter cannot: while an EXCLUSIVE (sinking) Facet surface is up,
 -- hide the mobile touch controls so the thumbstick + jump button do not sit
 -- under the surface. It observes the presenter's `exclusiveSurfaceActive`
 -- readable and drives `GuiService.TouchControlsEnabled` (the current, non-
@@ -13,7 +13,7 @@
 -- DEFERRED IN v1 (ADR-0014, pending a live Studio probe): this module does NOT
 -- touch `GuiService.SelectedObject`. `SelectedObject` and IAS are parallel,
 -- undocumented-linkage systems (research Open risk 4); driving engine gamepad
--- focus alongside LuauUI's own focus graph risks a double-drive, so it waits on
+-- focus alongside Facet's own focus graph risks a double-drive, so it waits on
 -- a probe. `TouchControlsEnabled` as the modal touch recipe is inferred from
 -- the effect and itself carries a physical-touch-device confirmation rider
 -- (research Open risk 6).
@@ -23,7 +23,7 @@
 -- inside a function and is `pcall`-guarded, so binding it off the live client
 -- (server, Edit, headless) never throws — the observer still runs; only the
 -- engine write no-ops. Like `gamepad_contention`, it is deliberately NOT
--- exported on the `LuauUI` table (see docs/guide/07-input.md §7.3): require it
+-- exported on the `Facet` table (see docs/guide/07-input.md §7.3): require it
 -- directly from a client script.
 
 local responder_effects = {}

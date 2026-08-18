@@ -2,7 +2,7 @@
 --[[ THE PLAYER'S BACKGROUND-TRANSPARENCY PREFERENCE, HONOURED BY A PAINT PATH
 	(owed row O-26, ADR-0035).
 
-	`GuiService.PreferredTransparency` reaches LuauUI as the `preferredTransparency`
+	`GuiService.PreferredTransparency` reaches Facet as the `preferredTransparency`
 	fact and the `effectiveTransparency` memo, and for four stages NOTHING read it —
 	the one accessibility preference the framework published and did not honour.
 	These are the pins that close it.
@@ -16,7 +16,7 @@
 
 	SO THE SCOPE IS A MEASUREMENT, NOT A TASTE CALL. Case 3 walks the whole
 	generated sheet and asserts what the audit found: `Scrim backdrop` is the ONLY
-	rule in LuauUI's painted output whose `BackgroundTransparency` is strictly
+	rule in Facet's painted output whose `BackgroundTransparency` is strictly
 	between 0 and 1. Every other framework background is already opaque or already
 	invisible, and the preference is a **Background** Transparency setting.
 
@@ -31,7 +31,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
 local light_style = require("../src/tokens/default_light_style")
@@ -174,7 +174,7 @@ end)
 describe("why the sweep is refused rather than merely unfashionable", function()
 	--[[ This is the whole argument in two numbers. In the engine, transparency 1 is
 		INVISIBLE, so the naive sweep does not make hidden things more opaque — it
-		makes them APPEAR. LuauUI's class-default rules exist precisely to hold every
+		makes them APPEAR. Facet's class-default rules exist precisely to hold every
 		Frame/Label/Button/Image/Field/Scroll background at 1 ("invisible until a
 		surface says otherwise" is itself sheet-owned), so a blanket multiply would
 		paint a plate behind every label in every tree. ]]
@@ -261,20 +261,20 @@ describe("an AUTHORED opacity is the author's number and the preference never sc
 		declared as decoration; it never scales a number an author or an animation
 		is driving. ]]
 	local function opacityUnder(preference: number): number
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("preferredTransparency", preference)
 		local adapter = fake_target.new()
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		pres.present(LuauUI.UI.Screen({
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		pres.present(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.ZStack({
+				Facet.UI.ZStack({
 					id = "Fade",
 					opacity = 0.5,
-					children = { LuauUI.UI.Text({ id = "Label", text = "hello" }) },
+					children = { Facet.UI.Text({ id = "Label", text = "hello" }) },
 				}),
 			},
 		}))
@@ -294,16 +294,16 @@ end)
 -- ===========================================================================
 describe("the renderer pushes the preference at attach and on every change", function()
 	local function world(initial: number?)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		if initial ~= nil then
 			env:set("preferredTransparency", initial)
 		end
 		local adapter = fake_target.new()
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.Text({ id = "L", text = "x" }) } }))
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		pres.present(Facet.UI.Screen({ id = "S", children = { Facet.UI.Text({ id = "L", text = "x" }) } }))
 		pres.refresh()
 		return core, env, adapter
 	end

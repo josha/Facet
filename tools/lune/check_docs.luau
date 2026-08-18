@@ -5,7 +5,7 @@
 --
 --   1. the guide index links the custom-theme chapter, and both new documents
 --      exist (an unlinked chapter is a chapter nobody finds);
---   2. every public `LuauUI.themes` export is documented in the API reference —
+--   2. every public `Facet.themes` export is documented in the API reference —
 --      read out of src/init.luau, never a hardcoded list, so a new export is
 --      undocumented the moment it lands;
 --   3. each document still NAMES the tools it teaches (theme_sync_cli,
@@ -88,7 +88,7 @@ local GUIDE_ANCHORS: { Anchor } = {
 	{ term = "sliceCenter", why = "nine-slice geometry is the centrepiece of the chrome step" },
 	{ term = "contentInsets", why = "the solver-visible inset the chrome step declares" },
 	{ term = "luau-chrome-fallback", why = "the asset-failure fallback the chrome step promises" },
-	{ term = "LuauUIChromeText", why = "the chrome text lift a Button author must design around" },
+	{ term = "FacetChromeText", why = "the chrome text lift a Button author must design around" },
 	{ term = "luau-chrome-editing", why = "the TextBox editing yield" },
 	{ term = WORKED_EXAMPLE, why = "Fantasy Parchment is THE worked example" },
 	{ term = "provenance.md", why = "the art/import/content-ID story" },
@@ -101,7 +101,7 @@ local PLAYBOOK_ANCHORS: { Anchor } = {
 	{ term = "::UIStroke", why = "the pseudo-selector allowlist" },
 	{ term = "::UIGradient", why = "the pseudo-selector allowlist" },
 	{ term = "::UIShadow", why = "the inert selector the allowlist exists to reject (TP-M7)" },
-	{ term = "luauui-theme/1", why = "the schema/version migration duties" },
+	{ term = "facet-theme/1", why = "the schema/version migration duties" },
 	{ term = "provenance.md", why = "the asset provenance obligation" },
 	{ term = "theme_authoring", why = "the Studio evidence obligation" },
 	{ term = "check_docs_cli", why = "the gate obligations must name the canonical command" },
@@ -147,7 +147,7 @@ local RICH_GUIDE_ANCHORS: { Anchor } = {
 	{ term = "contentId", why = "the permanent alias for the canonical `content` field" },
 	{ term = "UI.gradient", why = "the rung-2 per-view gradient modifier (charter cap 11)" },
 	{
-		term = "LuauUIGradient",
+		term = "FacetGradient",
 		why = "the bespoke child the gradient modifier materializes — instance, never a rule",
 	},
 	{ term = "checkCoverage", why = "rung 3's pre-play gate" },
@@ -232,7 +232,7 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	{
 		file = "docs/reference/swiftui-parity.md",
 		phrase = "there is no public\nreusable theme-package API",
-		why = "LuauUI.themes is public surface",
+		why = "Facet.themes is public surface",
 	},
 	-- rich skinning v2: statements that were TRUE before ADR-0020 and are now
 	-- wrong. Each one would send a package author looking for a capability the
@@ -278,7 +278,7 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 -- ---- SwiftUI citations (parity round 2, 2026-08-13) -----------------------
 --
 -- The parity document's whole value is a comparison, and until this check only
--- HALF of it was guarded. Claims about LuauUI are reconciled against the build
+-- HALF of it was guarded. Claims about Facet are reconciled against the build
 -- by this checker, check_prop_parity and check_registration; claims about
 -- SwiftUI were guarded by nothing, and a citation pass found ten of them wrong
 -- -- an API named after a symbol that does not exist (`gridCellUnsizedAxis`), a
@@ -384,8 +384,8 @@ local ASSET_FILES = {
 	-- semantic name this library invented, and the pencil is what a
 	-- `compactLabel = { icon = "edit" }` button draws; the chevron stands in for
 	-- the ten names that predate the art.
-	ICON_ASSET_DIR .. "/luauui_icon_edit.png",
-	ICON_ASSET_DIR .. "/luauui_icon_chevron_right.png",
+	ICON_ASSET_DIR .. "/facet_icon_edit.png",
+	ICON_ASSET_DIR .. "/facet_icon_chevron_right.png",
 	ICON_ASSET_DIR .. "/source/generate_icons.py",
 	ICON_ASSET_DIR .. "/upload-manifest.json",
 	ICON_ASSET_DIR .. "/provenance.md",
@@ -399,7 +399,7 @@ export type Opts = {
 	missingFiles: { [string]: boolean }?,
 }
 
--- Documents that restate `LuauUI.VERSION` in prose. Each pattern captures the
+-- Documents that restate `Facet.VERSION` in prose. Each pattern captures the
 -- version the document claims, so the check compares NUMBERS rather than
 -- searching for a phrase that would go stale with the number in it.
 local VERSION_DOCS: { { file: string, pattern: string, why: string } } = {
@@ -415,7 +415,7 @@ local VERSION_DOCS: { { file: string, pattern: string, why: string } } = {
 	},
 	{
 		file = "docs/guide/README.md",
-		pattern = 'LuauUI%.VERSION%s+%-%- "([%d%.]+)"',
+		pattern = 'Facet%.VERSION%s+%-%- "([%d%.]+)"',
 		why = "the guide index shows the constant's value in its API sketch",
 	},
 	{
@@ -543,7 +543,7 @@ function check_docs.check(opts: Opts?)
 		end
 	end
 
-	-- ---- 2. every public LuauUI.themes export is documented -----------------
+	-- ---- 2. every public Facet.themes export is documented -----------------
 	local initSource = read(INIT)
 	local api = requireFile(API, "the API reference is missing", "restore docs/reference/api.md")
 	local exportsDocumented = 0
@@ -553,7 +553,7 @@ function check_docs.check(opts: Opts?)
 			problem(
 				INIT,
 				"could not find the `themes = { … }` export block (this checker reads the export list from it)",
-				"keep the themes export block on the LuauUI table, or update the pattern in tools/lune/check_docs.luau"
+				"keep the themes export block on the Facet table, or update the pattern in tools/lune/check_docs.luau"
 			)
 		else
 			for name in string.gmatch(block, "\n\t\t([%w_]+) = ") do
@@ -561,7 +561,7 @@ function check_docs.check(opts: Opts?)
 				if not contains(api, `themes.{name}`) then
 					problem(
 						API,
-						`public export 'LuauUI.themes.{name}' is not documented`,
+						`public export 'Facet.themes.{name}' is not documented`,
 						`document it in the \`themes\` section of docs/reference/api.md as \`themes.{name}\``
 					)
 				end
@@ -592,7 +592,7 @@ function check_docs.check(opts: Opts?)
 				problem(
 					WORKED_EXAMPLE,
 					`no longer calls '{needle}' — the guide teaches it as a clean-consumer package built on the public API`,
-					"keep the example building through LuauUI.themes only, and update docs/guide/09-custom-themes.md if the public path changed"
+					"keep the example building through Facet.themes only, and update docs/guide/09-custom-themes.md if the public path changed"
 				)
 			end
 		end
@@ -743,7 +743,7 @@ function check_docs.check(opts: Opts?)
 
 	-- ---- 7b. VERSION CONSISTENCY (phase-gate verifier F11) ------------------
 	--
-	-- `LuauUI.VERSION` is a number three documents restate in prose, and until
+	-- `Facet.VERSION` is a number three documents restate in prose, and until
 	-- this check they drifted silently: api.md and guide 08 still said 0.5.0 two
 	-- stages after 0.6.0 shipped. The version is the ONE fact a consumer pins a
 	-- build by, so a document that names a version nobody runs is worse than one
@@ -764,7 +764,7 @@ function check_docs.check(opts: Opts?)
 				if named ~= version then
 					problem(
 						entry.file,
-						`says the current version is '{tostring(named)}' but LuauUI.VERSION is '{version}'`,
+						`says the current version is '{tostring(named)}' but Facet.VERSION is '{version}'`,
 						`{entry.why} — update the sentence when you bump the constant (ADR-0011 says both move together)`
 					)
 				end
@@ -980,12 +980,12 @@ end
 check_docs.OBLIGATIONS = table.freeze({
 	"docs/guide/README.md links 09-custom-themes.md and that guide exists",
 	"docs/extending/new-theme.md exists",
-	"every public LuauUI.themes export (read from src/init.luau) is documented in docs/reference/api.md",
+	"every public Facet.themes export (read from src/init.luau) is documented in docs/reference/api.md",
 	"docs/guide/09-custom-themes.md still names the shipped surface it teaches (themes.define, neutralPackage, "
 		.. "theme_controller, theme_sync_cli + --check, dumpTokens, chromeCensus, checkCoverage, sliceCenter, "
-		.. "contentInsets, luau-chrome-fallback, LuauUIChromeText, luau-chrome-editing, the worked example, provenance.md)",
+		.. "contentInsets, luau-chrome-fallback, FacetChromeText, luau-chrome-editing, the worked example, provenance.md)",
 	"docs/extending/new-theme.md still names lintProperty, checkCoverage, the ::UICorner/::UIStroke/::UIGradient "
-		.. "allowlist and inert ::UIShadow, luauui-theme/1, provenance.md, the theme_authoring scenario, "
+		.. "allowlist and inert ::UIShadow, facet-theme/1, provenance.md, the theme_authoring scenario, "
 		.. "check_docs_cli and the acceptance ledger",
 	"docs/reference/api.md documents the client controller (require path, dumpTokens, inspect())",
 	"docs/guide/05-styling.md points at 09-custom-themes.md and explains themeMetrics",
@@ -1018,7 +1018,7 @@ check_docs.OBLIGATIONS = table.freeze({
 	"docs/guide/10-rich-skinning.md still names the whole v2 surface it teaches (layered recipes and MAX_LAYERS, the "
 		.. "corners/plaque/tile layer kinds, the per-state vocabulary, barTrack/barFill/barCap, toggleKnob, "
 		.. 'stepperPlate, iconSizes, tintRole, rendering = "pixel" + pixelUnit + Pixelated, selectBy, contentId, '
-		.. "the rung-2 UI.gradient modifier and its LuauUIGradient child, checkCoverage, chromeCensus, and both the "
+		.. "the rung-2 UI.gradient modifier and its FacetGradient child, checkCoverage, chromeCensus, and both the "
 		.. "rung-3 example and its playbook)",
 	"docs/extending/skinned-control.md still names checkCoverage, ns:role, the three contribution kinds and their "
 		.. "legal sections, fallbacks, UI.shadow, UI.Image, provenance.md, upload-manifest.json, the theme_authoring "
@@ -1033,7 +1033,7 @@ check_docs.OBLIGATIONS = table.freeze({
 		.. "U+25B8/U+25BE absent from Michroma, not a private-use codepoint)",
 	"every rich-skinning scenario step the chapter teaches exists in the scenario, and every step in the checker's "
 		.. "list is taught by the chapter",
-	"every document that restates LuauUI.VERSION in prose (api.md, guide 08, guide README, ADR-0011) names the "
+	"every document that restates Facet.VERSION in prose (api.md, guide 08, guide README, ADR-0011) names the "
 		.. "version src/init.luau actually exports",
 })
 

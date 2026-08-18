@@ -88,8 +88,8 @@ return {
 	copy = COPY,
 	stops = STOPS,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("canvas-group")
 

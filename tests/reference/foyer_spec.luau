@@ -9,19 +9,19 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
 local proof = require("../../examples/reference/p4_foyer") :: any
 
 local function makeWorld(viewportW: number?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = viewportW or 1400, h = 900 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-	local built = proof.build(LuauUI, core, deps)
+	local built = proof.build(Facet, core, deps)
 	local handle = presenter.present(built.screen, built.present)
 	presenter.refresh()
 	return {
@@ -50,7 +50,7 @@ local function findPath(adapter: any, needle: string): string?
 	return nil
 end
 
---[[ THE SECTION NAV IS NOW ONE `LuauUI.newTabView` (navigation-and-menus D5),
+--[[ THE SECTION NAV IS NOW ONE `Facet.newTabView` (navigation-and-menus D5),
 	so the four hand-built bars and the two content `When`s this file used to pin
 	by name are gone. The paths below are the construct's, and the helpers under
 	them are how a case names a WING without knowing which home it is standing in
@@ -131,17 +131,17 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 	-- wrong place. The top CHROME bar (brand, search, refresh, profile, bell)
 	-- is a separate band and must stay put on every one of them.
 	local function shaped(viewport: any, facts: any?): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", viewport)
 		for key, value in facts or {} do
 			env:set(key, value)
 		end
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local built =
-			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local self: any = {
@@ -684,18 +684,15 @@ describe("Foyer proof — notices, locale, images, determinism", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
 			(adapter :: any).scrollBarThickness = 8
-			local presenter = LuauUI.newPresenter(core, env, adapter, system)
-			local built = proof.build(
-				LuauUI,
-				core,
-				{ env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-			)
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local built =
+				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 			local handle = presenter.present(built.screen, built.present)
 			presenter.refresh()
 			expect(#handle.controller.diagnostics()).toBe(0)
@@ -728,15 +725,15 @@ describe("Foyer — the tile meta row WRAPS where it used to ladder (parity roun
 	local SPONSORED = "Sections/[new]/Body/Grid/Tiles/[harbor-watch]/harbor-watch/Col/MetaFits"
 
 	local function worldAtText(offset: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
 		env:set("preferredTextSize", offset)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built =
-			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return { built = built, adapter = adapter, handle = handle, presenter = presenter }

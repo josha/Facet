@@ -60,7 +60,7 @@
 ## 1. The `ThemePackage` contract
 
 `src/themes/package.luau` (pure, engine-free) exports `define(def) -> (package?, report)`.
-Sections (schema `luauui-theme/1`):
+Sections (schema `facet-theme/1`):
 
 - **identity**: `id` (stable slug), `displayName`, `schemaVersion`, `version` (semver).
 - **style**: the color token schema (superset of `tokens.compile` — the same contrast
@@ -74,7 +74,7 @@ Sections (schema `luauui-theme/1`):
   asset + insets + failure fallback.
 - **assets**: semantic name → `{contentId, sliceCenter?, sliceScale?, preload,
   fallback, tintRole?}` with provenance notes required for repository packages.
-- **compatibility**: required LuauUI schema range, required capabilities, declared
+- **compatibility**: required Facet schema range, required capabilities, declared
   degradations.
 
 Validation rejects, each with the offending field and the fix: missing core roles,
@@ -186,10 +186,10 @@ text stays applied exactly once (unchanged seams, re-proven in the matrix).
 `src/client/theme_controller.luau`: `install(adapter, package, opts) -> controller`
 with `swap(packageOrThemeName)`, `current()`, `inspect()` (active package, schema
 version, effective snapshot, fallback state), and `onChange`. Installation
-materializes the package's sheet (per-package name `LuauUITheme <id>`, Step 2 host
+materializes the package's sheet (per-package name `FacetTheme <id>`, Step 2 host
 policy: designer-seeded ReplicatedStorage preferred, runtime creation client-local)
 and links it at the target root — per-target isolation per m1. The default shared
-`LuauUIStyle` path is unchanged for targets that never install a package. A target
+`FacetStyle` path is unchanged for targets that never install a package. A target
 that cannot own its root/link (or runs fallback mode without the capability the
 package requires) fails installation with a capability error naming the missing
 capability. In explicit-write fallback mode the package still works: its style section
@@ -250,8 +250,8 @@ transitions (opt-in); geometry never animates independently of the solver.
   a second install on the same env is a capability error, not a silent clobber.
   Two *targets* want two envs (they already own separate adapters).
 - **Same package on two separately-enved targets shares its sheet** (name =
-  `LuauUITheme <id>`), so its *paint* theme state is shared across them — the same
-  class of documented limit as Step 2's shared `LuauUIStyle`. Different packages on
+  `FacetTheme <id>`), so its *paint* theme state is shared across them — the same
+  class of documented limit as Step 2's shared `FacetStyle`. Different packages on
   different targets are fully isolated (TP-M1).
 - **Gradient `alpha` is engine `UIGradient.Transparency`** — it fades the parent's
   ENTIRE rendering including its text. The compiler rejects stops above 0.9, and
@@ -283,7 +283,7 @@ transitions (opt-in); geometry never animates independently of the solver.
 
 ## Consequences
 
-- `LuauUI.themes` becomes public surface (`define`, `snapshot`, plus the client
+- `Facet.themes` becomes public surface (`define`, `snapshot`, plus the client
   controller via the client entry); `VERSION` bumps to 0.6.0 at stage end.
 - The renderer/presenter stop reading `default_style` directly for metric decisions
   (the presenter's hit-floor/forgiveness constants move to the snapshot).

@@ -1,6 +1,6 @@
 --!strict
 -- Native-sheet MODEL builder (native-stylesheets stage; plan §6.1/§6.2, ledger
--- NSS-A1). PURE and engine-free: compiles LuauUI token styles into a
+-- NSS-A1). PURE and engine-free: compiles Facet token styles into a
 -- declarative StyleSheet model — token names, theme token sets, ordered rules,
 -- transitions, and layout-reference mirrors — that the client materializer
 -- (src/client/native_style.luau) turns into DataModel instances. Everything a
@@ -32,7 +32,7 @@ local themePackage = require("../themes/package")
 local sheet_model = {}
 
 -- The classification vocabulary shared with the adapter (Phase 2): tags are
--- the ONLY channel by which LuauUI states/roles reach native selectors.
+-- the ONLY channel by which Facet states/roles reach native selectors.
 sheet_model.TAGS = table.freeze({
 	surfacePrefix = "luau-surface-", -- + base|raised|control|chip|badge|accent|scrim
 	selected = "luau-selected",
@@ -473,7 +473,7 @@ function sheet_model.selectedPairReport(theme: any): any
 	}
 end
 
--- theme token set from a compiled LuauUI style (plan §6.1 naming: schema keys
+-- theme token set from a compiled Facet style (plan §6.1 naming: schema keys
 -- PascalCased so the Style Editor shows words designers know from the docs)
 local function themeTokens(style: any): { [string]: TokenValue }
 	local c, x = style.colors, style.extra
@@ -1184,7 +1184,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	end
 
 	return {
-		schema = "luauui-native-sheet/1",
+		schema = "facet-native-sheet/1",
 		stamp = stampOf(parts),
 		defaultTheme = opts.defaultTheme or opts.themes[1].name,
 		themes = themes,
@@ -1199,7 +1199,7 @@ end
 -- (ADR-0019 §5, theme-packages-and-skinning package 3)
 -- ===========================================================================
 --
--- `build` above compiles ONE LuauUI token style and is the legacy path; it is
+-- `build` above compiles ONE Facet token style and is the legacy path; it is
 -- unchanged and byte-stable. `buildPackage` compiles a package's `style` and
 -- `chrome` sections, which adds three things `build` cannot express:
 --
@@ -1229,7 +1229,7 @@ sheet_model.ALLOWED_PSEUDO = table.freeze({ UICorner = true, UIStroke = true, UI
 -- A phantom-modifier selector addresses a DIFFERENT class's property namespace:
 -- `Color` on a `::UIStroke` rule is UIStroke.Color, which is not any GuiObject
 -- property and therefore is not in `render/authority`'s manifest (that manifest
--- names them StrokeColor/StrokeTransparency/StrokeThickness, the LuauUI-side
+-- names them StrokeColor/StrokeTransparency/StrokeThickness, the Facet-side
 -- prop names, which is the right vocabulary for the adapter and the wrong one
 -- for a rule). So the property gate for a pseudo selector is this closed set,
 -- and `package.lintProperty` governs everything else.
@@ -1472,7 +1472,7 @@ function sheet_model.paletteColor(theme: any, role: string): any
 		local danger = dangerPair(if type(c) == "table" then c else {})
 		return { r = danger.r, g = danger.g, b = danger.b }
 	end
-	error(`LuauUI tint: theme carries no colour for role '{role}'`, 0)
+	error(`Facet tint: theme carries no colour for role '{role}'`, 0)
 end
 
 -- tintColor(theme, tint, class) -> { r, g, b }. `theme` is one entry of
@@ -1484,7 +1484,7 @@ end
 function sheet_model.tintColor(theme: any, tint: any, class: string): any
 	local ok, detail = styling.checkTint(tint)
 	if not ok then
-		error(`LuauUI tint on a {class}: {tostring(detail)}`, 0)
+		error(`Facet tint on a {class}: {tostring(detail)}`, 0)
 	end
 	local direct = tint.direct
 	if direct ~= nil then
@@ -1516,7 +1516,7 @@ function sheet_model.tintTransparency(tint: any, class: string): number
 	end
 	if class == "Path" then
 		error(
-			"LuauUI tint on a Path: `transparency` has no channel here — a Path2D stroke carries a colour "
+			"Facet tint on a Path: `transparency` has no channel here — a Path2D stroke carries a colour "
 				.. "and a thickness only. Fade the path's container instead (a `canvasGroup` ZStack/Box).",
 			0
 		)
@@ -2954,7 +2954,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 
 	return {
-		schema = "luauui-native-sheet/1",
+		schema = "facet-native-sheet/1",
 		stamp = stampOf(parts),
 		defaultTheme = defaultTheme,
 		themes = themes,

@@ -19,7 +19,7 @@ local renderer = require("../src/render/renderer")
 local contribution = require("../src/input/contribution")
 local controlContract = require("../src/controls/contract")
 local registry = require("./conformance/controls_registry")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 local propParity = require("../tools/lune/check_prop_parity")
 
@@ -188,7 +188,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 
 	it("every diagnosed property is in the ADR-0011 ledger with all required fields", function()
 		local wanted = { ["UI.Text.color"] = false, ["UI.Text.font"] = false }
-		for _, entry in LuauUI.DEPRECATIONS do
+		for _, entry in Facet.DEPRECATIONS do
 			expect(#entry.since > 0).toBe(true)
 			expect(#entry.removeNoEarlierThan > 0).toBe(true)
 			expect(#entry.replacement > 0).toBe(true)
@@ -300,9 +300,9 @@ end)
 
 describe("M0-A5: the extension seam is genuinely public", function()
 	it("the input-contribution seam is exported from the library entry point", function()
-		expect(type(LuauUI.contribution)).toBe("table")
-		expect(type(LuauUI.contribution.attach)).toBe("function")
-		expect(type(LuauUI.contribution.read)).toBe("function")
+		expect(type(Facet.contribution)).toBe("table")
+		expect(type(Facet.contribution.attach)).toBe("function")
+		expect(type(Facet.contribution.read)).toBe("function")
 	end)
 
 	it("an attached bundle rides the internal meta channel, never the public prop bag", function()
@@ -607,7 +607,7 @@ describe("F-7 (BP-F4): a modifier error names the modifier the author typed", fu
 		local err = failure(function()
 			return UI.VStack({ id = "V", columns = 3 })
 		end)
-		expect(contains(err, "LuauUI UI.VStack: unknown property 'columns'")).toBe(true)
+		expect(contains(err, "Facet UI.VStack: unknown property 'columns'")).toBe(true)
 		expect(contains(err, " on UI.")).toBe(false)
 	end)
 end)

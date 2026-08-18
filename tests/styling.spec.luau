@@ -15,17 +15,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local mountLib = require("../src/mount")
 local rendererLib = require("../src/render/renderer")
 local style_lint = require("../src/render/style_lint")
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local function present(screen: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	local adapter = fake_target.new()
 	local root = mountLib.mount(core, screen)
 	local controller = rendererLib.attach(core, root, env, adapter, {})
@@ -174,7 +174,7 @@ describe("engine styling: shadows and per-corner rounding (§17)", function()
 		for i = 1, 101 do
 			table.insert(children, UI.shadow(UI.Box({ id = `Bx{i}` }), "raised"))
 		end
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local root = mountLib.mount(core, UI.Screen({ id = "S", children = children }))
 		local warnings = style_lint.lint(root.node)
 		local sawJagged, sawBudget = false, false
@@ -305,7 +305,7 @@ describe("engine styling: the per-view gradient modifier (rung 2)", function()
 					return UI.Button({ id = "B", label = "Go" })
 				end,
 				function()
-					return UI.Toggle({ id = "Sw", label = "On", value = LuauUI.newCore():signal(false) })
+					return UI.Toggle({ id = "Sw", label = "On", value = Facet.newCore():signal(false) })
 				end,
 			}
 		do
@@ -375,7 +375,7 @@ describe("engine styling: the per-view gradient modifier (rung 2)", function()
 					return UI.Button({ id = "B", label = "Go" })
 				end,
 				function()
-					return UI.Toggle({ id = "Sw", label = "On", value = LuauUI.newCore():signal(false) })
+					return UI.Toggle({ id = "Sw", label = "On", value = Facet.newCore():signal(false) })
 				end,
 			}
 		do

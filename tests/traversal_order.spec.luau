@@ -20,23 +20,23 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
-local UI = LuauUI.UI
+local Facet = require("../src") :: any
+local UI = Facet.UI
 local customFactory = require("../src/core/custom")
 local focus_graph = require("../src/focus/focus_graph")
 local fake_target = require("../tests/lib/fake_target")
 
 local function harnessWithAdapter(presenterOpts: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local opts = if presenterOpts ~= nil then table.clone(presenterOpts) else {}
 	if opts.keyboardNavigation == nil then
 		opts.keyboardNavigation = true
 	end
-	local pres = LuauUI.newPresenter(core, env, adapter, system, opts)
+	local pres = Facet.newPresenter(core, env, adapter, system, opts)
 	pres.adapter = adapter -- test-local convenience, never a framework field
 	return core, env, system, pres
 end
@@ -58,7 +58,7 @@ local function focusedPath(adapter: any, paths: { string }): string?
 end
 
 local function slider(core: any, id: string)
-	return LuauUI.newSlider(LuauUI, core, { id = id, value = core:signal(0.5), min = 0, max = 1, step = 0.1 })
+	return Facet.newSlider(Facet, core, { id = id, value = core:signal(0.5), min = 0, max = 1, step = 0.1 })
 end
 
 local function button(id: string, extra: any?)
@@ -237,7 +237,7 @@ describe("every focusable Grip traverses in document position — no exceptions 
 	-- would be the same purpose-derived special case TDN-1 refused.
 	it("newRating's strip Grip traverses in document position too", function()
 		local core, _, _, pres = harness()
-		local rating = LuauUI.newRating(LuauUI, core, { id = "Stars", value = core:signal(3), count = 5 })
+		local rating = Facet.newRating(Facet, core, { id = "Stars", value = core:signal(3), count = 5 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("Before"), rating.blueprint, button("After") },
@@ -328,7 +328,7 @@ describe("traversalPriority refuses what it cannot honour (TD-8)", function()
 	end)
 
 	it("a BOUND value is refused: the prop is construction-only", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local err = refusal(function()
 			UI.Button({ id = "B", label = "B", traversalPriority = core:signal(1) })
 		end)
@@ -408,7 +408,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 			id = "S",
 			children = { button("A"), slider(core, "V").blueprint },
 		})).focusOrder()
-		expect(dump.schema).toBe("luauui-focus-order/1")
+		expect(dump.schema).toBe("facet-focus-order/1")
 		expect(dump.scope).toBe("S")
 		expect(dump.present).toBe(true)
 		expect(#dump.traversal > 0).toBe(true)
@@ -451,7 +451,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 		local handle = pres.present(UI.Screen({ id = "S", children = { button("A") } }))
 		pres.dismiss(handle)
 		local dump = handle.focusOrder()
-		expect(dump.schema).toBe("luauui-focus-order/1")
+		expect(dump.schema).toBe("facet-focus-order/1")
 		expect(dump.present).toBe(false)
 		expect(#dump.traversal).toBe(0)
 	end)

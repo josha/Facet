@@ -2,8 +2,8 @@
 
 Audience: an agent or developer with no prior repository context.
 
-**LuauUI does not currently support VR.** The worked future case in this playbook is
-spatial UI, and nothing in it is a support claim. What LuauUI has, as of roadmap Step
+**Facet does not currently support VR.** The worked future case in this playbook is
+spatial UI, and nothing in it is a support claim. What Facet has, as of roadmap Step
 4, is the *seam*: presentation-space facts, an optional spatial payload on normalized
 events, and a declared-but-unimplemented world render target. The gate below is what a
 support claim would first have to pass, and none of it has been run.
@@ -23,15 +23,15 @@ run happens; no emulator, preview profile or headless test can close one.
 
 | Gate | The question | What exists today | Status |
 |---|---|---|---|
-| Contracts | Can spatial input and world surfaces be added without rewriting screens? | `presentationSpace` fact + `presentationProfile` policy; `LuauUI.spatial` optional event payload; `capabilities.spatialPointer`; `target_contract.FUTURE.surface` | **Shipped** (contracts only) |
-| Focus | Does logical focus stay coherent when the pointing device is a ray or a hand that can leave the surface entirely? | LuauUI's focus graph is device-agnostic and untested against a spatial pointer | PENDING_PHYSICAL |
+| Contracts | Can spatial input and world surfaces be added without rewriting screens? | `presentationSpace` fact + `presentationProfile` policy; `Facet.spatial` optional event payload; `capabilities.spatialPointer`; `target_contract.FUTURE.surface` | **Shipped** (contracts only) |
+| Focus | Does logical focus stay coherent when the pointing device is a ray or a hand that can leave the surface entirely? | Facet's focus graph is device-agnostic and untested against a spatial pointer | PENDING_PHYSICAL |
 | Hover | Is hover distinguishable from selection at arm's length, and does it stay stable under natural hand tremor? | hover is pointer-class-gated and has no spatial notion | PENDING_PHYSICAL |
 | Occlusion | What does a control do when its surface is behind geometry, edge-on, or off-view? | undefined; one of the eleven open questions on the future target | PENDING_PHYSICAL |
-| Comfort | Does the surface hold a stable frame rate, and is text legible at the distance and angle it is actually viewed from? | Roblox's own VR guidance makes stable frame rate a comfort requirement; LuauUI has no spatial frame measurement at all | PENDING_PHYSICAL |
+| Comfort | Does the surface hold a stable frame rate, and is text legible at the distance and angle it is actually viewed from? | Roblox's own VR guidance makes stable frame rate a comfort requirement; Facet has no spatial frame measurement at all | PENDING_PHYSICAL |
 | Cancellation | If a ray, hand, controller or headset disappears mid-interaction, does the interaction carry or cancel cleanly, without wedging or losing committed data? | the hot-switch/carry-cancel model exists for pointer/touch/keyboard/gamepad and has never seen a spatial class | PENDING_PHYSICAL |
 | Performance | What does a world surface cost per frame at production node counts on the supported hardware? | no world target exists to measure | PENDING_PHYSICAL |
 
-Until every row above is closed on named hardware, the honest statement is: *LuauUI
+Until every row above is closed on named hardware, the honest statement is: *Facet
 has an extension seam for spatial UI.* Anything stronger is unearned.
 
 ## Design rule
@@ -78,7 +78,7 @@ Write concrete use cases and acceptance cases. For spatial UI, distinguish:
 - a familiar flat menu shown in a headset;
 - a world-fixed or object-fixed two-dimensional surface;
 - a surface selected by a ray or tracked hand;
-- true three-dimensional content, which may be outside LuauUI's two-dimensional
+- true three-dimensional content, which may be outside Facet's two-dimensional
   layout model.
 
 Name what remains out of scope. A preview profile or adapter stub is not proof that

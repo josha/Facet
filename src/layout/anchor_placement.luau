@@ -48,7 +48,7 @@
 	    a menu that hides the row it belongs to is worse than one that is clipped.
 	Neither is right for both, so the caller says which, once, in its own source.
 
-	WRITING DIRECTION. `leading`/`trailing` resolve to `left`/`right`. LuauUI has
+	WRITING DIRECTION. `leading`/`trailing` resolve to `left`/`right`. Facet has
 	no RTL fact today (`src/present/text_reveal.luau` records the same absence for
 	the same reason); when one lands, `resolveEdge` below is the one place that
 	changes, which is why the vocabulary is directional at the boundary and
@@ -120,19 +120,19 @@ end
 -- than on whatever later frame the first solve happens to run.
 function anchor_placement.assertEdge(edge: any, where: string)
 	if edge ~= nil and EDGES[edge] ~= true then
-		error(`LuauUI {where}: unknown anchor edge '{tostring(edge)}'. Known: {names(EDGES)}.`, 0)
+		error(`Facet {where}: unknown anchor edge '{tostring(edge)}'. Known: {names(EDGES)}.`, 0)
 	end
 end
 
 function anchor_placement.assertAlign(align: any, where: string)
 	if align ~= nil and ALIGNS[align] ~= true then
-		error(`LuauUI {where}: unknown anchor align '{tostring(align)}'. Known: {names(ALIGNS)}.`, 0)
+		error(`Facet {where}: unknown anchor align '{tostring(align)}'. Known: {names(ALIGNS)}.`, 0)
 	end
 end
 
 function anchor_placement.assertOverflow(overflow: any, where: string)
 	if overflow ~= nil and OVERFLOWS[overflow] ~= true then
-		error(`LuauUI {where}: unknown anchor overflow '{tostring(overflow)}'. Known: {names(OVERFLOWS)}.`, 0)
+		error(`Facet {where}: unknown anchor overflow '{tostring(overflow)}'. Known: {names(OVERFLOWS)}.`, 0)
 	end
 end
 

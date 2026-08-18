@@ -265,7 +265,7 @@ local function suggestions(ctx: any): any
 									.. ctx.Lnow("overview.visiting")
 									.. ctx.Lnow("glade." .. item.glade)
 							end))
-							-- emphasis through SPLIT TEXT RUNS: LuauUI has no rich-text
+							-- emphasis through SPLIT TEXT RUNS: Facet has no rich-text
 							-- spans, and the two names are the part that carries the
 							-- sentence
 							local function wisp(): any
@@ -375,7 +375,7 @@ end
 
 function overview.glades(ctx: any): any
 	local UI = ctx.UI
-	local search = ctx.LuauUI.newTextInput(ctx.LuauUI, ctx.core, {
+	local search = ctx.Facet.newTextInput(ctx.Facet, ctx.core, {
 		id = "Search",
 		value = ctx.state.search,
 		placeholder = ctx.L("overview.search"),

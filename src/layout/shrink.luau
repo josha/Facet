@@ -76,7 +76,7 @@ export type Deps = {
 	documented "neither shrinks nor grows". `shrinkWeight = 1` is `UIFlexMode.Shrink`
 	/ CSS `flex-shrink: 1`.
 
-	TWO DETAILS ROBLOX'S DOCS LEAVE UNDEFINED, decided here and owned as LuauUI's
+	TWO DETAILS ROBLOX'S DOCS LEAVE UNDEFINED, decided here and owned as Facet's
 	own rulings rather than claimed as parity:
 
 	  * the weight is MULTIPLIED BY THE BASIS, as CSS does. Without it a 400px child

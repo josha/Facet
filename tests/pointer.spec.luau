@@ -9,26 +9,26 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
 local function world(screenBp: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local adapter = fake_target.new()
-	local root = LuauUI.mount(core, screenBp)
-	local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+	local root = Facet.mount(core, screenBp)
+	local controller = Facet.renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
 	return core, adapter, controller, root
 end
 
 describe("Pointer seam: grips and cursor hints", function()
 	it("a Grip renders as a non-button node and hover requests its cursor hint", function()
-		local _, adapter = world(LuauUI.UI.Screen({
+		local _, adapter = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -49,10 +49,10 @@ describe("Pointer seam: grips and cursor hints", function()
 
 	it("pointer capture: down on a grip routes moves and up to it, with rects", function()
 		local calls: { any } = {}
-		local _, adapter = world(LuauUI.UI.Screen({
+		local _, adapter = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -89,10 +89,10 @@ describe("Pointer seam: grips and cursor hints", function()
 	end)
 
 	it("cursor hint persists across a captured drag even off the grip", function()
-		local _, adapter = world(LuauUI.UI.Screen({
+		local _, adapter = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -114,10 +114,10 @@ describe("Pointer seam: capture lifecycle", function()
 	it("destroying the root cancels an active pointer capture", function()
 		local cancelled = false
 		local moves = 0
-		local _, adapter, controller = world(LuauUI.UI.Screen({
+		local _, adapter, controller = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -155,15 +155,15 @@ describe("Pointer seam: capture lifecycle", function()
 	-- invariant at the one seam it actually lives in (`destroyRoot` itself),
 	-- independent of that whole call chain.
 	local function mountRoot(adapter: any, id: string, counts: { moves: number, ups: number, cancels: number })
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = id,
 				children = {
-					LuauUI.UI.Grip({
+					Facet.UI.Grip({
 						id = "G",
 						width = { type = "fixed", px = 8 },
 						height = { type = "fixed", px = 20 },
@@ -184,7 +184,7 @@ describe("Pointer seam: capture lifecycle", function()
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		return root, controller
 	end
@@ -237,10 +237,10 @@ describe("Pointer seam: capture lifecycle", function()
 	-- destruction its own tracked mutators never leave uncancelled.
 	it("a capture whose node dies through an untracked path no longer blocks a fresh press", function()
 		local movesG, movesH, upsH = 0, 0, 0
-		local _, adapter, controller = world(LuauUI.UI.Screen({
+		local _, adapter, controller = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "G",
 					width = { type = "fixed", px = 8 },
 					height = { type = "fixed", px = 20 },
@@ -251,7 +251,7 @@ describe("Pointer seam: capture lifecycle", function()
 						movesG += 1
 					end,
 				}),
-				LuauUI.UI.Grip({
+				Facet.UI.Grip({
 					id = "H",
 					width = { type = "fixed", px = 8 },
 					height = { type = "fixed", px = 20 },
@@ -289,17 +289,17 @@ end)
 
 describe("Pointer seam: dynamic hints and opt-in bindings", function()
 	it("a dynamic cursorHint re-applies through the adapter on change", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local hint = core:signal("colResize")
-		local env = LuauUI.newEnvironment(core)
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "S",
 				children = {
-					LuauUI.UI.Grip({
+					Facet.UI.Grip({
 						id = "G",
 						cursorHint = hint,
 						width = { type = "fixed", px = 8 },
@@ -308,7 +308,7 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		expect(adapter.node("/S/G").props.cursorHint).toBe("colResize")
 		hint:set("rowDrag")
@@ -319,12 +319,12 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 	it("sinkNavigation stops nav keys from reaching lower contexts (the avatar)", function()
 		-- hand-test finding 2026-07-20: arrow keys walked list focus AND moved
 		-- the avatar — a focus-driven screen must be able to sink its keys
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		-- the "character controls": a lower-priority context bound to Down
 		local game = system.createContext({ name = "CharacterControls", priority = 1000 })
 		local move = game.createAction("Move", "Bool")
@@ -333,9 +333,9 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		move.onPressed(function()
 			moved += 1
 		end)
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Button({ id = "A", label = "A" }), LuauUI.UI.Button({ id = "B", label = "B" }) },
+			children = { Facet.UI.Button({ id = "A", label = "A" }), Facet.UI.Button({ id = "B", label = "B" }) },
 		})
 		-- without the opt-in, nav keys leak through (base screens never sink
 		-- by default: HUD overlays must not eat gameplay input)
@@ -353,15 +353,15 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 	end)
 
 	it("Adjust and reorder-nav bindings exist only when the screen opts in", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local screen = LuauUI.UI.Screen({
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local screen = Facet.UI.Screen({
 			id = "Plain",
-			children = { LuauUI.UI.Button({ id = "B", label = "Go" }) },
+			children = { Facet.UI.Button({ id = "B", label = "Go" }) },
 		})
 		local h1 = pres.present(screen, {})
 		expect(#h1.actions.adjust.bindings).toBe(0)
@@ -374,10 +374,10 @@ end)
 
 describe("Pointer seam: rectOf and anchored overlays", function()
 	it("controller.rectOf returns solved rects for live paths", function()
-		local _, _, controller = world(LuauUI.UI.Screen({
+		local _, _, controller = world(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "Main",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 100 },
@@ -392,28 +392,28 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 	end)
 
 	it("Anchor overlay: a dynamic offset re-arranges with rect writes only (no remount)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local offsetX = core:signal(40)
-		local env = LuauUI.newEnvironment(core)
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "S",
 				children = {
-					LuauUI.UI.Anchor({
+					Facet.UI.Anchor({
 						id = "Z",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						children = {
-							LuauUI.UI.VStack({
+							Facet.UI.VStack({
 								id = "Main",
 								width = { type = "fill", weight = 1 },
 								height = { type = "fill", weight = 1 },
 								children = {},
 							}),
-							LuauUI.UI.Box({
+							Facet.UI.Box({
 								id = "Line",
 								anchor = "topLeft",
 								offsetX = offsetX,
@@ -425,7 +425,7 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		expect(adapter.node("/S/Z/Line").rect.x).toBe(40)
 		-- the Main content still fills underneath the overlay

@@ -184,7 +184,7 @@ R2 grammar, with shadow/gradient modifiers composing predictably (the view modif
 that node; theme recipes keep their slot shadows — ADR-0019). **"The view wins" is MEASURED,
 not assumed** (`feasibility/rs-m8-gradient-composition.json`, fix round): on a node a theme
 gradients through a phantom `.luau-surface-raised::UIGradient` rule AND that carries the
-adapter's real `LuauUIGradient` child, `GetStyled` on that child returns the VIEW's sequence,
+adapter's real `FacetGradient` child, `GetStyled` on that child returns the VIEW's sequence,
 the theme's tokens appear nowhere on the node, and the visual A/B against a no-child sibling
 shows the theme gloss on the sibling and only the view's wash on the card. `::UIGradient`
 therefore groups with `::UICorner` (a real child SUPPRESSES the phantom) rather than with

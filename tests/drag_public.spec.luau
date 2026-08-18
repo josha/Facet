@@ -10,24 +10,24 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- a board with one draggable card and two stacked slots, at known offsets so
 -- every pointer coordinate below is a fact about geometry, not a guess
 local function board(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	if options.noDragDetector then
 		adapter.noDragDetector = true
 	end
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local drops: { any } = {}
 	local enters: { string } = {}
@@ -361,12 +361,12 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 	end)
 
 	it("removing the hovered target mid-session leaves ONCE and clears the verdict (F5)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local present = core:signal(true)
 		local leaves: { string } = {}
 		local card = UI.draggable(
@@ -449,12 +449,12 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			underneath. Director report, 2026-08-04: "the card stayed picked up
 			outside director view and was inaccessible when I opened director view
 			up." ]]
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local present = core:signal(true)
 		local events: { string } = {}
 		local screen = UI.Screen({
@@ -524,12 +524,12 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			the dragged row is routinely the one that leaves. `recycled` is how the
 			only thing that knows says so. Asserted through the SAME teardown as the
 			case above, so the declaration is provably the whole difference. ]]
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local present = core:signal(true)
 		local screen = UI.Screen({
 			id = "S",
@@ -588,12 +588,12 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 	end)
 
 	it("a target inside a SCROLLED host hit-tests where it is DRAWN, not where it solved", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local hits: { string } = {}
 		local rowsChildren: { any } = {}
 		for i = 1, 10 do
@@ -687,7 +687,7 @@ describe("public drag: hit geometry follows the PAINT (PLAT-4)", function()
 	-- composed ancestor offsets and the GEOMETRY half did not, so while any
 	-- transform was live — the keyboard keep-visible shift sits on the root for the
 	-- whole time the OS keyboard is up, an enter/exit slide sits on a region that
-	-- can contain drop targets — LuauUI's own drop verdicts were about a rect the
+	-- can contain drop targets — Facet's own drop verdicts were about a rect the
 	-- player is not looking at. The engine's hit-testing follows the moved
 	-- instance, so a plain button press still landed; the disagreement was ours.
 	it("a target under a live surface shift hit-tests where it PAINTS", function()
@@ -960,7 +960,7 @@ describe("public drag: the presentation collaborators", function()
 	it("with a motion clock the reject flies home, seeded with the release velocity", function()
 		local b = board()
 		local now = 0
-		local clock = LuauUI.motion.newClock(b.core, {
+		local clock = Facet.motion.newClock(b.core, {
 			now = function()
 				return now
 			end,
@@ -1016,7 +1016,7 @@ describe("public drag: the presentation collaborators", function()
 	it("a NON-gestural cancel seeds ZERO through the same path", function()
 		local b = board()
 		local now = 0
-		local clock = LuauUI.motion.newClock(b.core, {
+		local clock = Facet.motion.newClock(b.core, {
 			now = function()
 				return now
 			end,
@@ -1115,22 +1115,22 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 	-- loses the one thing that could tell them WHY. `enabled = false` on the node
 	-- refuses acquisition too, but it also eats the tap — so it cannot serve this.
 	local function world(gate: any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Anchor({
+				Facet.UI.Anchor({
 					id = "Board",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						LuauUI.UI.draggable(
-							LuauUI.UI.Button({
+						Facet.UI.draggable(
+							Facet.UI.Button({
 								id = "Card",
 								label = "Card",
 								anchor = "topLeft",
@@ -1191,7 +1191,7 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 	end)
 
 	it("the gate is LIVE: a Readable flipping true makes the same tap a pickup", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local gate = core:signal(false)
 		local w = world(gate)
 		w.tap()
@@ -1214,7 +1214,7 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 
 	it("a non-boolean, non-Readable gate is refused at construction, naming the reason", function()
 		local ok, err = pcall(function()
-			LuauUI.UI.draggable(LuauUI.UI.Box({ id = "B" }), { payload = "x", enabled = "yes" })
+			Facet.UI.draggable(Facet.UI.Box({ id = "B" }), { payload = "x", enabled = "yes" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "ACQUISITION only", 1, true) ~= nil).toBe(true)
@@ -1231,7 +1231,7 @@ end)
 
 describe("F-18: a drag declaration is refused on a structural node", function()
 	local function structural(class: string): any
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		if class == "When" then
 			return UI.When({
 				id = "W",

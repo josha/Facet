@@ -50,7 +50,7 @@ export type Candidate = {
 -- the refusal a handle whose node has died answers, spelled once so both adapters
 -- say the same thing (and a caller can match on it)
 function foreign_content.disposedError(path: string): string
-	return `LuauUI foreignHost: the Foreign node '{path}' has been disposed — its handle is dead. `
+	return `Facet foreignHost: the Foreign node '{path}' has been disposed — its handle is dead. `
 		.. "Ask controller.foreignHost(path) again after the node remounts."
 end
 
@@ -64,22 +64,22 @@ end
 function foreign_content.assertAdmissible(path: string, candidate: Candidate)
 	if not candidate.present then
 		error(
-			`LuauUI foreignHost.adopt on '{path}': no instance was passed. `
-				.. "Pass the GuiObject you created — LuauUI reserves the box and never creates the content.",
+			`Facet foreignHost.adopt on '{path}': no instance was passed. `
+				.. "Pass the GuiObject you created — Facet reserves the box and never creates the content.",
 			0
 		)
 	end
 	if candidate.isLayerCollector then
 		error(
-			`LuauUI foreignHost.adopt on '{path}': a {candidate.className} is a LayerCollector and cannot be a `
+			`Facet foreignHost.adopt on '{path}': a {candidate.className} is a LayerCollector and cannot be a `
 				.. "child of a GuiObject, so it can never render inside this box. Adopt the GuiObject from "
-				.. "INSIDE it instead, or mount your own LuauUI surface for it.",
+				.. "INSIDE it instead, or mount your own Facet surface for it.",
 			0
 		)
 	end
 	if not candidate.isGuiObject then
 		error(
-			`LuauUI foreignHost.adopt on '{path}': a {candidate.className} is not a GuiObject, so this box — `
+			`Facet foreignHost.adopt on '{path}': a {candidate.className} is not a GuiObject, so this box — `
 				.. "which is 2-D layout — can never draw it. For a Part/Model/Beam (the 3-D case) use "
 				.. "UI.Stage and controller.stageHost(path).contentRoot(); see ADR-0024.",
 			0
@@ -87,14 +87,14 @@ function foreign_content.assertAdmissible(path: string, candidate: Candidate)
 	end
 	if not candidate.alive then
 		error(
-			`LuauUI foreignHost.adopt on '{path}': that {candidate.className} has already been destroyed. `
-				.. "The content is yours to own and to keep alive; LuauUI never resurrects an instance.",
+			`Facet foreignHost.adopt on '{path}': that {candidate.className} has already been destroyed. `
+				.. "The content is yours to own and to keep alive; Facet never resurrects an instance.",
 			0
 		)
 	end
 end
 
---[[ THE ONE ENGINE PROPERTY LUAUUI EVER WRITES ON AN INSTANCE IT DOES NOT OWN.
+--[[ THE ONE ENGINE PROPERTY FACET EVER WRITES ON AN INSTANCE IT DOES NOT OWN.
 
 	Named here rather than spelled at the write site so the authority manifest,
 	the adapter and the tests all read the same constant — the same anti-drift

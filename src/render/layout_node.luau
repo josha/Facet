@@ -218,7 +218,7 @@ local function toLayoutNode(
 		local _, role = themeSnapshot.effectiveTypeRole(metrics, class, raw)
 		local size = themeSnapshot.resolveSize(metrics, raw)
 		-- ONE SPELLING OF "scale, then add the engine's additive offset"
-		-- (`text_metrics.reservedSize`), shared with the PUBLIC `LuauUI.text.lineBox`
+		-- (`text_metrics.reservedSize`), shared with the PUBLIC `Facet.text.lineBox`
 		-- so a consumer predicting a text box spends the seam's own arithmetic
 		-- instead of a hand copy. The scale asymmetry is the whole reason the two
 		-- branches differ and is now explicit: an INTRINSIC size never reaches paint

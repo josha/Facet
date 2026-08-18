@@ -41,7 +41,7 @@ exposed them is the reason this brief leads with rules rather than features.
    `debug.profilebegin`/`profileend`, with balance-on-every-exit-path and a
    cardinality bound proved by `tests/profile_scopes.spec.luau` — because Lune
    has no `debug.profilebegin`, so the instrumented branch is otherwise never
-   executed at all. And `examples/places/LuauUI-PerformanceLab.rbxl` exists,
+   executed at all. And `examples/places/Facet-PerformanceLab.rbxl` exists,
    is current, and is built for exactly this.
 
    So the scope discipline is proved and the capture has never been taken. That
@@ -86,7 +86,7 @@ exposed them is the reason this brief leads with rules rather than features.
 
 **A. Native flex parity — finish it.** Round 2 closed three of four gaps
 (`distribute`, `layoutPriority`×`shrinkWeight`, `lineAlign`). **Flow-wrap
-(`UIListLayout.Wraps`) remains, and LuauUI is behind the native controls until
+(`UIListLayout.Wraps`) remains, and Facet is behind the native controls until
 it lands.** It is a real arrange branch: line breaking, per-line cross extent,
 and a cross-axis line-distribution rule Roblox does not define — so we must.
 Interacts with incremental layout, instance recycling and virtualization, each
@@ -117,7 +117,7 @@ parity we are not claiming.
 Game-director request, 2026-08-13, citing Apple's HIG
 [Progress indicators](https://developer.apple.com/design/human-interface-guidelines/progress-indicators):
 the **determinate circular** (a ring that fills) and the **indeterminate
-circular spinner** (the rotating one). LuauUI ships **neither**.
+circular spinner** (the rotating one). Facet ships **neither**.
 
 What actually ships today: `presentation = "bar" | "spinner"` where `"spinner"`
 is **indeterminate-only** — a determinate spinner is refused at construction
@@ -158,7 +158,7 @@ both forms on `Path2D` rather than inventing a channel. Requirements:
 
 **D3. Re-prove the five clean-room reference apps against the new surface.**
 Game-director request, 2026-08-13. `examples/reference/p1_glade`, `p2_cartwheel`,
-`p3_sipworks`, `p4_foyer`, `p5_wardrobe` — LuauUI's answer to Apple's sample
+`p3_sipworks`, `p4_foyer`, `p5_wardrobe` — Facet's answer to Apple's sample
 apps, and the only artefacts in the repo built **clean-room**: written from a
 spec by an author who did not read framework internals, which is what makes them
 evidence rather than demos.

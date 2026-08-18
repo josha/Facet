@@ -20,12 +20,12 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local selection_indicator = require("../src/controls/selection_indicator")
 local fake_target = require("../tests/lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- ===== the harness ========================================================
 -- A two-segment horizontal strip of Buttons wrapped by the indicator. Segment
@@ -33,16 +33,16 @@ local UI = LuauUI.UI
 -- below would fail if anything interpolated an index instead of a rect.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.reducedMotion == true then
 		env:set("reducedMotion", true)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local selected = core:signal(options.initial or "a")
 	local axis = options.axis or "x"
 	local widths = options.widths or { 120, 80 }
@@ -58,7 +58,7 @@ local function world(opts: any?)
 	local strip = if axis == "x"
 		then UI.HStack({ id = "Strip", gap = 0, children = kids })
 		else UI.VStack({ id = "Strip", gap = 0, children = kids })
-	local indicator = selection_indicator.build(LuauUI, core, {
+	local indicator = selection_indicator.build(Facet, core, {
 		id = "Tabs",
 		content = strip,
 		segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -434,12 +434,12 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 	end)
 
 	it("build/mount/select/dispose returns every registry to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters() -- AFTER the long-lived singletons
 
 		local selected = core:signal("a")
@@ -450,7 +450,7 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 				UI.Button({ id = "B", label = "B", width = { type = "fixed", px = 80 } }),
 			},
 		})
-		local indicator = selection_indicator.build(LuauUI, core, {
+		local indicator = selection_indicator.build(Facet, core, {
 			id = "Tabs",
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -483,7 +483,7 @@ end)
 
 describe("D4 authoring: the spec is closed and the ids are checked", function()
 	local function bare()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local strip = UI.HStack({ id = "Strip", children = { UI.Button({ id = "A", label = "A" }) } })
 		return core, strip
 	end
@@ -492,7 +492,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		local core, strip = bare()
 		local ok, err = pcall(function()
 			selection_indicator.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					content = strip,
@@ -509,7 +509,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	it("a segment id that names no child of `content` is caught at build", function()
 		local core, strip = bare()
 		local ok, err = pcall(function()
-			selection_indicator.build(LuauUI, core, {
+			selection_indicator.build(Facet, core, {
 				content = strip,
 				segments = { { value = "z", id = "Nope" } },
 				selected = core:signal("z"),
@@ -520,7 +520,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	end)
 
 	it("a strip built from a When/ForEach is trusted instead, and reports what never resolved", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local flag = core:signal(false)
 		local strip = UI.HStack({
 			id = "Strip",
@@ -535,7 +535,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 				}),
 			},
 		})
-		local indicator = selection_indicator.build(LuauUI, core, {
+		local indicator = selection_indicator.build(Facet, core, {
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
 			selected = core:signal("a"),
@@ -549,7 +549,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		local segments = { { value = "a", id = "A" } }
 		local ok, err = pcall(function()
 			selection_indicator.build(
-				LuauUI,
+				Facet,
 				core,
 				{ content = strip, segments = segments, selected = core:signal("a"), skin = "glow" }
 			)
@@ -558,7 +558,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		expect(string.find(tostring(err), "underline | pill", 1, true) ~= nil).toBe(true)
 		local ok2, err2 = pcall(function()
 			selection_indicator.build(
-				LuauUI,
+				Facet,
 				core,
 				{ content = strip, segments = segments, selected = core:signal("a"), axis = "z" }
 			)
@@ -570,7 +570,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	it("with NO presenter (a bare mount) it still places the bar, instantly", function()
 		-- the supported degradation: `bindMotion` never runs, so every retarget is
 		-- an instant placement rather than a flight
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local strip = UI.HStack({
 			id = "Strip",
 			children = {
@@ -579,16 +579,16 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 			},
 		})
 		local selected = core:signal("a")
-		local indicator = selection_indicator.build(LuauUI, core, {
+		local indicator = selection_indicator.build(Facet, core, {
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
 			selected = selected,
 		})
-		local env = LuauUI.newEnvironment(core)
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(core, UI.Screen({ id = "S", children = { indicator.blueprint } }))
-		local controller = LuauUI.renderer.attach(core, root, env, adapter)
+		local root = Facet.mount(core, UI.Screen({ id = "S", children = { indicator.blueprint } }))
+		local controller = Facet.renderer.attach(core, root, env, adapter)
 		controller.initialRender()
 		-- no presenter walked the tree, so nothing fed geometry: the bar is hidden
 		-- rather than painted at the origin
@@ -597,7 +597,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		-- ...and once its own geometry is fed by hand, it places INSTANTLY: with no
 		-- clock there is no flight to run, which is the degradation the seam owes a
 		-- caller who mounts it without a presenter
-		local bundle = LuauUI.contribution.read(root.node.children[1])
+		local bundle = Facet.contribution.read(root.node.children[1])
 		bundle.syncGeometry(controller.rectOf, root.node.children[1])
 		expect(indicator.state().placed).toBe(true)
 		expect(indicator.state().rect.w).toBe(100)
@@ -614,18 +614,18 @@ end)
 describe("D4 through the public property: newPicker's `indicator` and `axis`", function()
 	local function pickerWorld(spec: any?)
 		local options = spec or {}
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		if options.reducedMotion == true then
 			env:set("reducedMotion", true)
 		end
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local selected = core:signal("grid")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -709,8 +709,8 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 		expect(w.adapter.node(PBAR).rect.y).toBe(b.y + 4)
 		-- and `inline` still means the ROW LIST it always meant: a distinct shape
-		local core = LuauUI.newCore()
-		local inline = LuauUI.newPicker(LuauUI, core, {
+		local core = Facet.newCore()
+		local inline = Facet.newPicker(Facet, core, {
 			id = "P",
 			selected = core:signal("a"),
 			options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
@@ -724,7 +724,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 	it("the picker's own dump carries the indicator's state — there is no second schema", function()
 		local w = pickerWorld({ indicator = "underline" })
 		local d = w.picker.dump()
-		expect(d.schema).toBe("luauui-picker-dump/1")
+		expect(d.schema).toBe("facet-picker-dump/1")
 		expect(d.indicator.skin).toBe("underline")
 		expect(d.indicator.resolved).toBe(2)
 		expect(d.indicator.placed).toBe(true)
@@ -733,7 +733,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 	end)
 
 	it("an unknown indicator or axis names the legal set", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local function build(extra: any)
 			local spec: any = {
 				id = "P",
@@ -743,7 +743,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 			for k, v in extra do
 				spec[k] = v
 			end
-			return LuauUI.newPicker(LuauUI, core, spec)
+			return Facet.newPicker(Facet, core, spec)
 		end
 		local ok, err = pcall(build, { indicator = "glow" })
 		expect(ok).toBe(false)
@@ -812,15 +812,15 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 	end)
 
 	it("an indicated picker is registry-neutral: build, mount, switch, dispose", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 		local selected = core:signal("grid")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -863,12 +863,12 @@ end)
 -- a `When` that toggles, not a TabView special case, so the fix belongs here.
 describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", function()
 	local function homedWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local selected = core:signal("a")
 		local kids = {}
 		for i, label in { "A", "B" } do
@@ -882,7 +882,7 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 				})
 			)
 		end
-		local indicator = selection_indicator.build(LuauUI, core, {
+		local indicator = selection_indicator.build(Facet, core, {
 			id = "Tabs",
 			content = UI.HStack({ id = "Strip", gap = 0, children = kids }),
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },

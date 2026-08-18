@@ -20,8 +20,8 @@ return {
 	title = "Toast lab (SF-T1/T2/T3/M6)",
 	ledgerRows = { "SF-T1", "SF-T2", "SF-T3", "SF-M6", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter

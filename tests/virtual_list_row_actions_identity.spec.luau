@@ -33,7 +33,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local row_actions_state = require("../src/input/row_actions_state")
 local fake_target = require("../tests/lib/fake_target")
@@ -59,13 +59,13 @@ end
 	same scripted clock, same env — so any difference the diff below finds is
 	`rowActions` and can be nothing else. ]]
 local function world(hosted: boolean): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
@@ -81,7 +81,7 @@ local function world(hosted: boolean): any
 		viewportHeight = 400,
 		overscan = 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function() end,
 		env = env,
@@ -101,8 +101,8 @@ local function world(hosted: boolean): any
 			}
 		end
 	end
-	local list = virtual_list.build(LuauUI, core, spec)
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local list = virtual_list.build(Facet, core, spec)
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -173,7 +173,7 @@ end
 	that acquired (say) a `stroke` or a `corner` prop would materialize a real
 	UIStroke/UICorner per row on the engine — the exact per-row instance cost this
 	whole design exists to avoid — while its class and its solved box stayed byte
-	identical. `fake_target` records what LuauUI asked the target to hold, so the
+	identical. `fake_target` records what Facet asked the target to hold, so the
 	honest comparison is the NODE, whole: its class, its box, every prop it
 	carries (deeply — a prop's value is often a table), the decoration hint and
 	elision that decide whether it is a real instance at all, and which handler

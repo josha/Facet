@@ -7,9 +7,9 @@ preparation.
 ## Purpose
 
 Make the three tutorial games feel understandable and complete in play. Make the
-sensory-feedback demo useful as soon as it opens. Add one interactive LuauUI surface
+sensory-feedback demo useful as soon as it opens. Add one interactive Facet surface
 inside the 3D world. Turn a small, curated part of the showcase into standalone places
-that teach important LuauUI ideas through believable game screens. Remove obsolete
+that teach important Facet ideas through believable game screens. Remove obsolete
 example material after proving that nothing still uses it.
 
 This is a product pass, not a gallery rewrite. Reuse the exact tutorial and scenario
@@ -19,15 +19,15 @@ place.
 ## Authority and release-review boundary
 
 Examples own game rules, content, deterministic fixtures, teaching copy, and declared
-composition. LuauUI owns reusable layout, focus, input, adaptation, accessibility,
+composition. Facet owns reusable layout, focus, input, adaptation, accessibility,
 theme, motion, transition, resource, and lifecycle behavior. Create a responsibility
-ledger before editing. Fix a framework defect or missing general mechanism in LuauUI,
+ledger before editing. Fix a framework defect or missing general mechanism in Facet,
 then make the example consume its public API. Do not hide a framework need in an
 example-only tween, geometry loop, input branch, or raw GUI helper.
 
 Step 13 has already reviewed the release candidate. Prefer example-only changes except
 for the required, already-declared `SurfaceGui` render-target seam. If this stage
-changes LuauUI source, public behavior, assets, or contracts, update every affected
+changes Facet source, public behavior, assets, or contracts, update every affected
 Rascal Rally caller and contract test, rerun the affected Step 13 review rows and
 gates, and refresh the frozen release evidence. Documentation and examples must
 continue to pass Step 13's product-language and clear-writing guards.
@@ -85,7 +85,7 @@ Show legal next cells, selected tile, uncommitted versus committed letters, curr
 word, score, goal, and turns. Give the player an obvious first action and a guaranteed
 opening move. Keep board and rack navigation natural for pointer/touch, keyboard, and
 gamepad. Put shared word data and pure word validation in one example-domain module;
-do not put crossword rules in LuauUI.
+do not put crossword rules in Facet.
 
 Test placement direction, gaps, center/connectivity, crossing consistency, dictionary
 accept/reject, commit, undo, scoring, refill, end states, reset, rapid input, and
@@ -183,11 +183,11 @@ world objects respond. Give the player a clear objective, constrained choices, e
 validation feedback, success, reset, and exit. The terminal should feel like a small
 piece of a real game, not a render-target diagnostic with buttons.
 
-This is ordinary two-dimensional LuauUI rendered by a `SurfaceGui`. It is not the
+This is ordinary two-dimensional Facet rendered by a `SurfaceGui`. It is not the
 declarative Part/Model layout considered in Step 12, and it is not VR, ray, hand, or
 gaze support. Reuse the same declarative terminal-content module in the showcase and
 standalone hosts. Example code owns the power-allocation rules and world fixture.
-LuauUI owns the reusable world-surface render target, layout, styling, input, focus,
+Facet owns the reusable world-surface render target, layout, styling, input, focus,
 motion, and teardown behavior.
 
 Follow `docs/extending/new-render-target.md`, `ADR-0003`, `ADR-0021`, and the open
@@ -209,7 +209,7 @@ Implement a capability correctly or remove it with its named degradation; never 
 screen-capability method appear to work when its coordinate space is wrong.
 
 Use a Roblox `ProximityPrompt` on an Attachment as the native, cross-input walk-up
-invitation. Triggering it engages one LuauUI responder/focus scope. Direct pointer and
+invitation. Triggering it engages one Facet responder/focus scope. Direct pointer and
 touch activation must work on the physical screen. Keyboard and gamepad then use the
 same semantic Input Action System actions and logical focus as screen UI. Do not bind
 hardware through ContextActionService or UserInputService in the example. Cancel,
@@ -231,7 +231,7 @@ materially different themes; Full/Reduced motion if the terminal animates; norma
 Largest text; server refusal of invalid/stale/distant commands; and bounded cost versus the same
 showcase at idle. Do not turn Studio emulation into a physical-device or VR claim.
 
-Add a plain-language guide recipe for “put LuauUI on a part players can use.” Explain
+Add a plain-language guide recipe for “put Facet on a part players can use.” Explain
 the client `SurfaceGui` topology, native walk-up prompt, responder handoff, shared
 world-state server validation, canvas/theme choices, teardown, supported inputs, and
 the exact limits (flat world-fixed UI, not declarative Parts or VR). Link the public

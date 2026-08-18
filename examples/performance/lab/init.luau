@@ -56,7 +56,7 @@ return {
 	-- IT WAS MISSING FROM 2026-08-15 (`cad3617`, the UI.Foreign showcase, which
 	-- added that require) UNTIL 2026-08-17, and in that window pressing Play in the
 	-- Performance Lab did nothing at all: `Attempted to call require with invalid
-	-- argument(s)` out of `LuauUIScenarios.runner:217`. Nothing caught it because
+	-- argument(s)` out of `FacetScenarios.runner:217`. Nothing caught it because
 	-- the lab is only opened when somebody takes a capture, and the headless suite
 	-- requires these modules directly rather than through the built place. The
 	-- registry-contract check in `tests/perf_lab.spec.luau` is the guard that would

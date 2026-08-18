@@ -12,7 +12,7 @@
 -- DEVELOPER TOOL, not of a UI framework: a shipping game chooses its theme, it
 -- does not hand the player a menu of the five reference packages. Putting it in
 -- the library would have made every consumer carry it. It is written entirely
--- through the public surface (`LuauUI.themes`, `theme_controller`, `UI.*`), so
+-- through the public surface (`Facet.themes`, `theme_controller`, `UI.*`), so
 -- a game that DOES want one can copy this file and keep it.
 --
 -- TWO HALVES:
@@ -27,15 +27,15 @@
 -- appears, and it becomes first responder only once the player actually engages
 -- it. That is the whole reason it can sit over an arbitrary screen.
 --
--- RE-THEMING ITSELF. The picker is an ordinary LuauUI screen on the SAME
+-- RE-THEMING ITSELF. The picker is an ordinary Facet screen on the SAME
 -- adapter, so the package it installs paints it too — which is exactly the
 -- proof you want from it: if the picker still reads after a swap, the swap
 -- worked.
 
 local theme_picker = {}
 
--- set the workspace attribute LuauUI_ThemePicker = false to hide it
-theme_picker.ATTRIBUTE = "LuauUI_ThemePicker"
+-- set the workspace attribute Facet_ThemePicker = false to hide it
+theme_picker.ATTRIBUTE = "Facet_ThemePicker"
 
 theme_picker.NEUTRAL_ID = "studio-neutral"
 
@@ -64,7 +64,7 @@ export type Entry = {
 	-- the package's own identity slug ("studio-neutral", "fantasy-parchment")
 	id: string,
 	displayName: string,
-	-- the ModuleScript name under ReplicatedStorage.LuauUIThemes (nil for the
+	-- the ModuleScript name under ReplicatedStorage.FacetThemes (nil for the
 	-- built-in neutral package, which is not a module at all)
 	moduleName: string?,
 	themes: { string },
@@ -101,7 +101,7 @@ end
 -- listing(packages, neutralPackage) -> ordered entries.
 --
 -- `packages` is moduleName -> compiled package (the shape the runner already
--- builds from ReplicatedStorage.LuauUIThemes). Studio Neutral is ALWAYS first
+-- builds from ReplicatedStorage.FacetThemes). Studio Neutral is ALWAYS first
 -- and always present, because "put it back the way it was" has to be one click
 -- and can never depend on a module having replicated. The rest sort by display
 -- name so the list is stable between sessions — a picker whose rows move
@@ -318,17 +318,17 @@ theme_picker.CHIP_PADDING = table.freeze({
 })
 
 -- ===== the overlay =========================================================
--- Everything below needs a live LuauUI; nothing above does.
+-- Everything below needs a live Facet; nothing above does.
 
 export type MountOpts = {
-	LuauUI: any,
+	Facet: any,
 	core: any,
 	env: any,
 	adapter: any,
 	presenter: any,
 	-- moduleName -> compiled package (the caller resolves ReplicatedStorage)
 	packages: { [string]: any },
-	-- injected so a caller can pass its own; defaults to LuauUI.client's
+	-- injected so a caller can pass its own; defaults to Facet.client's
 	themeController: any,
 	-- COLLAPSIBLE (the showcase place). With ten reference packages this panel
 	-- is a full-height column on a 360px phone: it covers the screen it is
@@ -349,10 +349,10 @@ export type MountOpts = {
 -- Returns nil when there is nothing to pick BETWEEN (no replicated packages):
 -- a one-row picker is chrome that teaches nothing and still costs a surface.
 function theme_picker.mount(opts: MountOpts): any
-	local LuauUI = opts.LuauUI
-	local UI = LuauUI.UI
+	local Facet = opts.Facet
+	local UI = Facet.UI
 	local core = opts.core
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 	local entries = theme_picker.listing(opts.packages, themes.neutralPackage())
 	if #entries < 2 then
 		return nil
@@ -370,7 +370,7 @@ function theme_picker.mount(opts: MountOpts): any
 		env = opts.env,
 	})
 	if not ok then
-		warnFn(`[LuauUI Gallery] theme picker: {tostring(controller)}`)
+		warnFn(`[Facet Gallery] theme picker: {tostring(controller)}`)
 		scope:dispose()
 		return nil
 	end
@@ -381,8 +381,8 @@ function theme_picker.mount(opts: MountOpts): any
 	-- nothing changes colour, and there is nothing on screen explaining why.
 	if controller.inspect().fallback then
 		warnFn(
-			"[LuauUI Gallery] theme picker: this target paints through the explicit-write path, so a swap moves "
-				.. "METRICS live but not the palette (ADR-0019). Set the workspace attribute LuauUI_NativeStyle = true "
+			"[Facet Gallery] theme picker: this target paints through the explicit-write path, so a swap moves "
+				.. "METRICS live but not the palette (ADR-0019). Set the workspace attribute Facet_NativeStyle = true "
 				.. "before Play to see the full transaction."
 		)
 	end
@@ -401,7 +401,7 @@ function theme_picker.mount(opts: MountOpts): any
 		if not applied then
 			-- a refused swap must leave the PICKER showing what is really
 			-- installed, or the next click reasons from a lie
-			warnFn(`[LuauUI Gallery] theme picker: {tostring(err)}`)
+			warnFn(`[Facet Gallery] theme picker: {tostring(err)}`)
 			return
 		end
 		selection:set(command.selection)
@@ -755,7 +755,7 @@ function theme_picker.mount(opts: MountOpts): any
 			-- reference survived, which Luau reads as a nil GLOBAL rather than
 			-- failing (docs/lessons/later-locals-are-not-upvalues.md is the same
 			-- family). So the composed picker shipped `dispatch = nil`, and the
-			-- showcase's `LuauUIShowcaseAPI.pickTheme` errored with "attempt to call
+			-- showcase's `FacetShowcaseAPI.pickTheme` errored with "attempt to call
 			-- a nil value" for every caller: there was NO working route to switch
 			-- theme from a script, which is exactly the kind of thing an agent
 			-- driving the place needs and cannot get from a tap (XP-B3).

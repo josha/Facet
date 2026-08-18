@@ -141,20 +141,20 @@ describe("navigation groups (§9.3)", function()
 	it("presenter: navigationGroups opt drives grouped, direction-aware navigation end to end", function()
 		-- architecture verifier F2: grouped navigation must be reachable
 		-- through the PUBLIC presenter, not only by hand-driving the graph
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local screen = LuauUI.UI.Screen({
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local screen = Facet.UI.Screen({
 			id = "Board",
 			children = {
-				LuauUI.UI.Button({ id = "A", label = "A" }),
-				LuauUI.UI.Button({ id = "B", label = "B" }),
-				LuauUI.UI.Button({ id = "C", label = "C" }),
-				LuauUI.UI.Button({ id = "D", label = "D" }),
+				Facet.UI.Button({ id = "A", label = "A" }),
+				Facet.UI.Button({ id = "B", label = "B" }),
+				Facet.UI.Button({ id = "C", label = "C" }),
+				Facet.UI.Button({ id = "D", label = "D" }),
 			},
 		})
 		local handle = pres.present(screen, {
@@ -197,24 +197,24 @@ describe("navigation groups (§9.3)", function()
 	end)
 
 	it("presenter: D-PAD navigates (grouped scopes) and a groups FUNCTION re-derives on refresh", function()
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local extra = core:signal(false)
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "G",
 			children = {
-				LuauUI.UI.Button({ id = "A", label = "A" }),
-				LuauUI.UI.Button({ id = "B", label = "B" }),
-				LuauUI.UI.When({
+				Facet.UI.Button({ id = "A", label = "A" }),
+				Facet.UI.Button({ id = "B", label = "B" }),
+				Facet.UI.When({
 					id = "W",
 					condition = extra,
 					thenView = function()
-						return LuauUI.UI.Button({ id = "C", label = "C" })
+						return Facet.UI.Button({ id = "C", label = "C" })
 					end,
 				}),
 			},
@@ -255,16 +255,16 @@ describe("navigation groups (§9.3)", function()
 	end)
 
 	it("the INITIAL focus paints its ring (gamepad users must see where focus starts)", function()
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local screen = LuauUI.UI.Screen({
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local screen = Facet.UI.Screen({
 			id = "R",
-			children = { LuauUI.UI.Button({ id = "First", label = "F" }) },
+			children = { Facet.UI.Button({ id = "First", label = "F" }) },
 		})
 		pres.present(screen, {})
 		expect(pres.focus.focused:get()).toBe("/R/First")

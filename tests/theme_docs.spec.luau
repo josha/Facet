@@ -64,7 +64,7 @@ describe("documentation gate: the shipped theme surface and its docs agree", fun
 
 	it("fails when the guide index stops linking the custom-theme chapter", function()
 		local result = checker.check({
-			fileOverrides = { ["docs/guide/README.md"] = "# LuauUI Guide\n\nNo chapter list here.\n" },
+			fileOverrides = { ["docs/guide/README.md"] = "# Facet Guide\n\nNo chapter list here.\n" },
 		})
 		expect(result.ok).toBe(false)
 		expect(problemsMentioning(result, "does not link 09-custom-themes.md")).toBeGreaterThanOrEqual(1)
@@ -78,10 +78,10 @@ describe("documentation gate: the shipped theme surface and its docs agree", fun
 		end
 	end)
 
-	it("fails when a public LuauUI.themes export is undocumented", function()
+	it("fails when a public Facet.themes export is undocumented", function()
 		local result = checker.check({ fileOverrides = { ["docs/reference/api.md"] = apiWithout("checkCoverage") } })
 		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "LuauUI.themes.checkCoverage' is not documented")).toBe(1)
+		expect(problemsMentioning(result, "Facet.themes.checkCoverage' is not documented")).toBe(1)
 	end)
 
 	it("fails when a guide stops naming the surface it teaches", function()
@@ -183,7 +183,7 @@ describe("documentation gate: the rich-skinning surface and its docs agree", fun
 	it("fails when the guide index stops linking the rich-skinning chapter", function()
 		local result = checker.check({
 			fileOverrides = {
-				["docs/guide/README.md"] = "# LuauUI Guide\n\n| [`09-custom-themes.md`](09-custom-themes.md) | … |\n",
+				["docs/guide/README.md"] = "# Facet Guide\n\n| [`09-custom-themes.md`](09-custom-themes.md) | … |\n",
 			},
 		})
 		expect(result.ok).toBe(false)
@@ -332,11 +332,11 @@ local function parityFixture(claimRows: string, citationRows: string): string
 	return table.concat({
 		"# fixture",
 		"",
-		"| SwiftUI capability | Verdict | What LuauUI has | Evidence |",
+		"| SwiftUI capability | Verdict | What Facet has | Evidence |",
 		"|---|---|---|---|",
 		claimRows,
 		"",
-		"| SwiftUI item | Verdict | What LuauUI has | Evidence |",
+		"| SwiftUI item | Verdict | What Facet has | Evidence |",
 		"|---|---|---|---|",
 		"| `Table.onPrimaryAction` (SwiftUI: the item-based context menu) | **Covered** | owned elsewhere | — |",
 		"| Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` | **Missing** | owned elsewhere | — |",
@@ -432,7 +432,7 @@ describe("documentation gate: every claim about SwiftUI carries a citation", fun
 		local noExemptRows = table.concat({
 			"# fixture",
 			"",
-			"| SwiftUI capability | Verdict | What LuauUI has | Evidence |",
+			"| SwiftUI capability | Verdict | What Facet has | Evidence |",
 			"|---|---|---|---|",
 			GOOD_ROW,
 			"",

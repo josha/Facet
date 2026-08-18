@@ -47,18 +47,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("./lib/fake_target")
 
 local function world()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
 	env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = true })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 

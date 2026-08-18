@@ -1,8 +1,8 @@
 # The 200k `Source` cap is on WRITING, not on loading
 
-**Measured 2026-08-13, live Studio, `LuauUI-PerformanceLab.rbxl`.**
+**Measured 2026-08-13, live Studio, `Facet-PerformanceLab.rbxl`.**
 
-Two LuauUI modules are over 200,000 characters on disk:
+Two Facet modules are over 200,000 characters on disk:
 
 | file | on disk |
 |---|---|
@@ -75,11 +75,11 @@ Edit datamodel directly:
 
 | module | on disk | in Studio | current? |
 |---|---|---|---|
-| `LuauUI.row_capability` (**added** this round) | 5,735 | 5,735 | **yes** |
-| `LuauUI.core.contract` (modified, small) | 3.4k | 3,420 | **no** |
-| `LuauUI.core.custom` (modified, small) | 15,267 | 13,748 | **no** |
-| `LuauUI.render.renderer` (modified, **220,891**) | 220,891 | 207,117 | **no** |
-| `LuauUIScenarios/*` (separately mapped path) | — | — | **yes** |
+| `Facet.row_capability` (**added** this round) | 5,735 | 5,735 | **yes** |
+| `Facet.core.contract` (modified, small) | 3.4k | 3,420 | **no** |
+| `Facet.core.custom` (modified, small) | 15,267 | 13,748 | **no** |
+| `Facet.render.renderer` (modified, **220,891**) | 220,891 | 207,117 | **no** |
+| `FacetScenarios/*` (separately mapped path) | — | — | **yes** |
 
 **Additions land; modifications do not.** A live-sync patch has to assign
 `Script.Source`, and three files now exceed the cap on disk — `renderer.luau`

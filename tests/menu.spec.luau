@@ -28,13 +28,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local menuLib = require("../src/controls/menu")
 local menuRecipe = require("../src/controls/menu_recipe")
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local ITEMS = {
 	{ id = "accessory", label = "Accessory Adjustment", icon = "edit", onSelect = function() end },
@@ -49,14 +49,14 @@ local ITEMS = {
 	system.deviceKey), never by calling a control callback directly. ]]
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.w or 800, h = options.h or 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local ran: { string } = {}
-	local control = menuLib.build(LuauUI, core, {
+	local control = menuLib.build(Facet, core, {
 		id = "M",
 		trigger = UI.Button({
 			id = "Trigger",
@@ -133,10 +133,10 @@ local NESTED = {
 
 describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", function()
 	it("an unknown spec key is an authoring error, named with the whole legal set", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "M",
@@ -151,10 +151,10 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("declaring BOTH children and onSelect is a spec error, never a precedence rule", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "M",
@@ -175,10 +175,10 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("an item with neither an action nor children is refused rather than silently inert", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "M",
@@ -192,10 +192,10 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("HIG: icons for ALL items in a group, or none — a half-iconned group is refused", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "M",
@@ -212,9 +212,9 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("...and a DIVIDER starts a new group, so the two sides may differ", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -230,10 +230,10 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("a menu that drops `activate` without both key triggers is unreachable, and refused", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "M",
@@ -252,9 +252,9 @@ end)
 
 describe("D2 Menu: submenus nest without a cap, and say so past one level", function()
 	it("a three-level tree BUILDS, and depth >= 2 is diagnosed rather than refused", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -274,9 +274,9 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("one level of submenu is silent — the diagnostic is advice, not noise", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -294,13 +294,13 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("HIG: a group of more than about five items is diagnosed as wanting its own menu", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local many = {}
 		for i = 1, 6 do
 			table.insert(many, { id = `i{i}`, label = `Item {i}`, onSelect = function() end })
 		end
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -313,9 +313,9 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("HIG: a destructive item that is not last is diagnosed", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -607,15 +607,15 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 	end)
 
 	it("a live class flip while a submenu is open CARRIES the open path into the new presentation", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local classes = core:signal({ pointer = true })
-		local env = LuauUI.newEnvironment(core)
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -684,15 +684,15 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 	end)
 
 	it("`icon` and a divider joined popup_button.Option, and both render from the recipe", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local value = core:signal("a")
 		local control = popup_button.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "P",
@@ -719,10 +719,10 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 	end)
 
 	it("popup_button refuses a half-iconned group through the SAME lint the Menu uses", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			popup_button.build(
-				LuauUI,
+				Facet,
 				core,
 				{
 					id = "P",
@@ -751,16 +751,16 @@ describe("D2: long-press ownership, settled in code", function()
 		These two cases are the alarm in both directions. If `help` (D3a) ever binds
 		long-press, the first one fails; if the carve-out is dropped, the second does. ]]
 	local function discloseWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		-- a pure-touch world, declared the way every other spec does: the CLASSES
 		-- are derived from these two facts, never set directly
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		return core, env, adapter, system, pres
 	end
 
@@ -793,7 +793,7 @@ describe("D2: long-press ownership, settled in code", function()
 		local core, _, adapter, system, pres = discloseWorld()
 		local long = "A racer name far too long for the sixty pixels this cell was given"
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -872,7 +872,7 @@ describe("D2: long-press ownership, settled in code", function()
 		local core, _, _, _, pres = discloseWorld()
 		local long = "A racer name far too long for the sixty pixels this cell was given"
 		local control = menuLib.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "M",
@@ -904,7 +904,7 @@ describe("D2 Menu: the dump says what is on screen", function()
 	it("the dump carries the schema, the open chain and the whole item tree", function()
 		local w = world({ items = NESTED })
 		local shut = w.control.dump()
-		expect(shut.schema).toBe("luauui-menu-dump/1")
+		expect(shut.schema).toBe("facet-menu-dump/1")
 		expect(shut.open).toBe(false)
 		expect(shut.surfaces).toBe(0)
 		expect(string.find(shut.text, "closed", 1, true) ~= nil).toBe(true)

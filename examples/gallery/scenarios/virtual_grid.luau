@@ -2,7 +2,7 @@
 --[[ Scenario 'virtual_grid' — FIVE THOUSAND CELLS, AND THE COUNT OF THE ONES
 	THAT WERE EVER BUILT.
 
-	`LuauUI.newVirtualGrid` is SwiftUI's `LazyVGrid` ([SW-21]): a grid that mounts
+	`Facet.newVirtualGrid` is SwiftUI's `LazyVGrid` ([SW-21]): a grid that mounts
 	only the LINES OF CELLS the viewport touches. The standing obligation is that
 	every new public API appears in a gallery scenario the headless suite executes,
 	and this is that scenario.
@@ -51,7 +51,7 @@
 	  · THE GRID'S WINDOW IS THE PANE THE SOLVER GAVE IT, fed back through
 	    `present.onGeometry` — never `viewportHeight - <a reserve for chrome>`,
 	    which is the same class in its other spelling
-	    (`docs/lessons/luauui-fixed-px-heights.md`). `GridPane` takes `fill`, so
+	    (`docs/lessons/facet-fixed-px-heights.md`). `GridPane` takes `fill`, so
 	    its height is the screen's decision and never the grid's, and the grid has
 	    no floor of its own: a pane that is genuinely 0px on a short landscape
 	    phone gets a 0px grid, because a grid that insists on one line in a 0px
@@ -110,7 +110,7 @@ return {
 	title = "Lazy grid (newVirtualGrid)",
 	ledgerRows = { "R3-VGRID" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope("virtual-grid")
 
@@ -134,7 +134,7 @@ return {
 
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local grid = ctx.LuauUI.newVirtualGrid(ctx.LuauUI, core, {
+		local grid = ctx.Facet.newVirtualGrid(ctx.Facet, core, {
 			id = "Cells",
 			items = items,
 			key = function(item: any): string

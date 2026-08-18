@@ -8,7 +8,7 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
 local proof = require("../../examples/reference/p5_wardrobe") :: any
 
@@ -16,14 +16,14 @@ local BODY = "/Wardrobe/BoutiqueWhen/then/Body"
 local PANE = BODY .. "/Preview/PreviewCol/PaneZ/Pane"
 
 local function makeWorld(viewportW: number?, viewportH: number?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = viewportW or 1400, h = viewportH or 900 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-	local built = proof.build(LuauUI, core, deps)
+	local built = proof.build(Facet, core, deps)
 	presenter.refresh()
 	return {
 		core = core,
@@ -310,17 +310,17 @@ describe("Wardrobe — the worn chips FLOW (parity round 3)", function()
 	local EQUIP = { "puffin-beanie", "tidepool-tee", "fen-trousers", "marsh-boots", "quiet-smile" }
 
 	local function fallbackWorld(viewportW: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = viewportW, h = 900 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		-- NO STAGE SEAM: this is the capability-absent world the fallback plate
 		-- exists for, and the only one that mounts these chips at all
 		adapter.stageHost = nil
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built =
-			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		presenter.refresh()
 		local w = { core = core, adapter = adapter, presenter = presenter, built = built, handle = built.handle }
 		-- dress the rig THROUGH THE CARDS, never through the service

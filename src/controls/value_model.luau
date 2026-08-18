@@ -67,13 +67,13 @@ local VALUE_MODEL_KEYS = specGuard.keySet({ "format", "max", "min", "step" })
 function value_model.new(spec: Spec): Model
 	specGuard.assertKnownKeys("valueModel.new", spec, VALUE_MODEL_KEYS, "spec")
 	if not isFinite(spec.min) or not isFinite(spec.max) then
-		error("LuauUI value control: min and max must be finite numbers", 0)
+		error("Facet value control: min and max must be finite numbers", 0)
 	end
 	if spec.max <= spec.min then
-		error(`LuauUI value control: max ({spec.max}) must be greater than min ({spec.min})`, 0)
+		error(`Facet value control: max ({spec.max}) must be greater than min ({spec.min})`, 0)
 	end
 	if spec.step ~= nil and (not isFinite(spec.step) or spec.step <= 0) then
-		error(`LuauUI value control: step must be a positive number (got {tostring(spec.step)})`, 0)
+		error(`Facet value control: step must be a positive number (got {tostring(spec.step)})`, 0)
 	end
 	local min, max, step = spec.min, spec.max, spec.step
 	local authored = spec.format

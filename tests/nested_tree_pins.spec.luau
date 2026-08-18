@@ -440,7 +440,7 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 	--[[ FOUND IN THE DEVICE CAPTURES, 2026-08-17, and it is a measurement error as
 		much as a cost.
 
-		`LuauUI/commit` names TWO different passes on purpose — the adapter commit
+		`Facet/commit` names TWO different passes on purpose — the adapter commit
 		after a solve (rects, visibility, z-order, transforms) and the paint/semantics
 		PROP-WRITE pass — because "is the framework's output cheap relative to its
 		solve" is better answered by one bar than by eight. Fine. But the prop pass
@@ -480,7 +480,7 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 	local function countCommits(log: { string }): number
 		local n = 0
 		for _, label in log do
-			if label == "LuauUI/commit" then
+			if label == "Facet/commit" then
 				n += 1
 			end
 		end

@@ -249,7 +249,7 @@ export type Options = {
 
 -- ===== view 7 source reader ================================================
 -- `BINDING_PROP_CLASSES` is a PRIVATE local in the renderer (it is not part of
--- the public `LuauUI.renderer` surface and should not become part of it just to
+-- the public `Facet.renderer` surface and should not become part of it just to
 -- be checkable), so it is read from source — the same way views 3/4/5 read the
 -- adapter, the solver and the renderer's own wiring.
 local function sortedKeysOf(set: { [string]: boolean }): { string }

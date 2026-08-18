@@ -32,7 +32,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local customFactory = require("../src/core/custom")
 local environment = require("../src/env/environment")
@@ -169,7 +169,7 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 			expect(box.size.xScale).toBe(1)
 			expect(box.size.yScale).toBe(1)
 			expect(box.size.xOffset).toBe(0)
-			expect(box.name).toBe(`LuauUIChromeL{index}`)
+			expect(box.name).toBe(`FacetChromeL{index}`)
 			expect(box.corner).toBeNil()
 		end
 	end)
@@ -200,7 +200,7 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 			expect(box.size.xOffset).toBe(24)
 			expect(box.size.yOffset).toBe(24)
 		end
-		expect(boxes[1].name).toBe("LuauUIChromeL5TopLeft")
+		expect(boxes[1].name).toBe("FacetChromeL5TopLeft")
 	end)
 
 	it("only a corner with its OWN art carries the second tag", function()
@@ -235,7 +235,7 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		expect(boxes[2].anchor.y).toBe(1)
 		expect(boxes[2].position.yScale).toBe(1)
 		expect(boxes[2].position.yOffset).toBe(0)
-		expect(boxes[2].name).toBe("LuauUIChromeL4Bottom")
+		expect(boxes[2].name).toBe("FacetChromeL4Bottom")
 	end)
 
 	it("a left/right rail stretches on the OTHER axis", function()
@@ -360,15 +360,15 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 	-- A DECORATION IS A BACKDROP, AND THE LADDER FORGOT (director report 2026-08-05:
 	-- "the Ready toggle has no label under the ornate theme").
 	--
-	-- The single-decoration path parents `LuauUIChrome` at ZIndex 0 — *below anything
+	-- The single-decoration path parents `FacetChrome` at ZIndex 0 — *below anything
 	-- the node's own content draws*. The layered path numbered its layers 1..N, and a
 	-- control's own adapter-built content sits at 1 (`Label`, `Track`) and 2 (`Knob`).
 	-- Equal ZIndex breaks by SIBLING ORDER and a decoration is built after the content
-	-- it decorates, so an opaque full-bleed `LuauUIChromeL1` painted over both.
+	-- it decorates, so an opaque full-bleed `FacetChromeL1` painted over both.
 	--
 	-- Measured live at 360x691: under fantasy-ornate (layered) `Label z=1, Track z=1,
-	-- LuauUIChromeL1 z=1` and the word "Ready" was invisible; under pixel-quest (one
-	-- nine-slice) `LuauUIChrome z=0` and the same control read correctly. Same defect
+	-- FacetChromeL1 z=1` and the word "Ready" was invisible; under pixel-quest (one
+	-- nine-slice) `FacetChrome z=0` and the same control read correctly. Same defect
 	-- shape as `applyFullBleed` (L-25) — a ruling that lived at one call site.
 	describe("the ladder is a BACKDROP: every layer sits below the node's own content", function()
 		it("the band is <= 0, and the topmost layer lands where a single decoration does", function()
@@ -592,7 +592,7 @@ describe("screen_target: the layer ladder is materialized as the plan describes"
 	it("the LIFTED LABEL falls with the ladder (live-found orphan)", function()
 		-- the nine-slice rebuild path has always torn the lift down with the
 		-- decoration; the ladder did not, so a swap from a layered package to a
-		-- flat one left an orphan `LuauUIChromeText` still boxed by the OUTGOING
+		-- flat one left an orphan `FacetChromeText` still boxed by the OUTGOING
 		-- recipe's contentInsets. Measured live at the director round: after
 		-- fantasy-ornate -> studio-neutral the toolbar's three buttons each kept a
 		-- lift at `{1, -28}` inside a 36px box — minus sixteen pixels wide. It drew
@@ -889,7 +889,7 @@ describe("rung 2: one grammar, one normalizer, both rungs", function()
 	it("a bad rung-2 map is an authoring error naming the prop", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return LuauUI.newSlider(LuauUI, core, {
+			return Facet.newSlider(Facet, core, {
 				id = "Bad",
 				value = core:signal(1),
 				min = 0,
@@ -917,7 +917,7 @@ describe("rung 2: the per-state map REACHES the adapter", function()
 		for k, v in (specOverrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = LuauUI.newSlider(LuauUI, core, spec)
+		local control = Facet.newSlider(Facet, core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return adapter, control

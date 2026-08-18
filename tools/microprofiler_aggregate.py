@@ -3,7 +3,7 @@
 timer table, and its engine layout diagnostics, without opening a browser.
 
     python3 tools/microprofiler_aggregate.py <dump.html> [<dump.html> ...]
-    python3 tools/microprofiler_aggregate.py --all <dump.html>     every scope, not just LuauUI/*
+    python3 tools/microprofiler_aggregate.py --all <dump.html>     every scope, not just Facet/*
     python3 tools/microprofiler_aggregate.py --layout <dump.html>  the Relayout/Update/Resize records
 
 WHY THIS EXISTS. Three rounds of device captures were decoded by hand, and the
@@ -37,14 +37,14 @@ failed this way, and both looked like healthy files. This tool prints
 exactly that reason.
 
 THE CROSS-CHECK THAT SAYS THE DECODE IS RIGHT rather than plausible: on a healthy
-LuauUI capture `LuauUI/tick` reads EXACTLY the frame window, one per frame. This
+Facet capture `Facet/tick` reads EXACTLY the frame window, one per frame. This
 tool prints it as `tick==window` so the check is on the page instead of in
 somebody's memory.
 
 THE LAYOUT RECORDS (`--layout`) are the engine's own accounting and are not in the
 timer table at all - they are `Context=... Cause=... Root=... Relayouts=N
 Updates=N Resizes=N` strings in the blob. They are how a capture answers "did the
-ENGINE do less work", which no `LuauUI/*` scope can: totalling them across
+ENGINE do less work", which no `Facet/*` scope can: totalling them across
 contexts is what showed, on 2026-08-17, that a nested host re-attributes the
 descendant relayout rather than removing it.
 """
@@ -139,13 +139,13 @@ def main(argv):
             print("  The timer table and names are present and every count is zero. The")
             print("  MicroProfiler's accumulator had collected no frames when it was dumped.")
         else:
-            tick = next((x for x in r["rows"] if x["name"] == "LuauUI/tick"), None)
+            tick = next((x for x in r["rows"] if x["name"] == "Facet/tick"), None)
             ok = tick is not None and tick["count"] == frames
             print(
                 f"  window={frames} frames  freq={ns}"
                 + (f"  tick=={tick['count']} ({'OK' if ok else 'MISMATCH'})" if tick else "")
             )
-        rows = [x for x in r["rows"] if x["count"] > 0 and (show_all or x["name"].startswith("LuauUI/"))]
+        rows = [x for x in r["rows"] if x["count"] > 0 and (show_all or x["name"].startswith("Facet/"))]
         rows.sort(key=lambda x: -x["total"])
         if rows:
             print(f"  {'scope':<26}{'occ':>7}{'occ/fr':>8}{'total ms':>11}{'ms/occ':>9}{'ms/frame':>10}{'worst':>9}")

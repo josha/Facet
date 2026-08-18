@@ -22,7 +22,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local fake_target = require("../tests/lib/fake_target")
@@ -51,14 +51,14 @@ end
 -- bucket keyed by the hint table's ADDRESS can never match across a slide, and a
 -- bucket keyed by the hint's CONTENT always can.
 local function hintedWorld(recycle: boolean)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(makeItems(400))
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -68,25 +68,25 @@ local function hintedWorld(recycle: boolean)
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return LuauUI.UI.HStack({
+			return Facet.UI.HStack({
 				id = "Row",
 				gap = 6,
 				children = {
 					chrome_slots.attachHint(
-						LuauUI.UI.Box({
+						Facet.UI.Box({
 							id = "Deco",
 							width = { type = "fixed", px = 24 },
 							height = { type = "fixed", px = 24 },
 						}),
 						{ slot = "control" }
 					),
-					LuauUI.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
-					LuauUI.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
+					Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
+					Facet.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen, { recycleInstances = recycle })
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)

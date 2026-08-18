@@ -65,7 +65,7 @@ function scene.ring(ctx: any, spec: RingSpec): any
 	local points = spec.scope:own(core:memo(function(use)
 		local degrees = use(sweep)
 		local segments = math.clamp(math.ceil(degrees / 24), 2, 24)
-		return ctx.LuauUI.pathShapes.arc(0, degrees, { segments = segments })
+		return ctx.Facet.pathShapes.arc(0, degrees, { segments = segments })
 	end))
 
 	local mark
@@ -129,7 +129,7 @@ function scene.ring(ctx: any, spec: RingSpec): any
 		children = {
 			UI.Path({
 				id = "Track",
-				points = ctx.LuauUI.pathShapes.ring({}),
+				points = ctx.Facet.pathShapes.ring({}),
 				thickness = "xs",
 				role = "secondary",
 				width = { type = "fill", weight = 1 },

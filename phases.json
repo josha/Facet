@@ -1,5 +1,5 @@
 {
- "schema": "luauui-phases/1",
+ "schema": "facet-phases/1",
  "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md#17",
  "gateStates": [
   "PASS",
@@ -85,7 +85,7 @@
   {
    "gate": "native-substrate",
    "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport \u2014 deterministic decisions stay headless",
-   "specSection": "docs/plans/luauui-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
+   "specSection": "docs/plans/facet-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
    "artifactDir": "artifacts/native-substrate",
    "gateArtifact": "artifacts/native-substrate/gate.json",
    "next": "native-stylesheets"
@@ -125,15 +125,15 @@
   {
    "gate": "cross-platform-proof",
    "title": "Cross-platform performance proof and the future spatial seam: production-shaped scenes, evidence-class separation, the reusable Studio five-view driver, and spatial contracts with no VR claim",
-   "specSection": "roadmap Step 4 (docs/plans/luauui-consolidated-roadmap.md); swiftui-parity-next.md investment 10",
+   "specSection": "roadmap Step 4 (docs/plans/facet-consolidated-roadmap.md); swiftui-parity-next.md investment 10",
    "artifactDir": "artifacts/cross-platform-proof",
    "gateArtifact": "artifacts/cross-platform-proof/gate.json",
    "next": "sponsor-framework-gaps"
   },
   {
    "gate": "sponsor-framework-gaps",
-   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in LuauUI",
-   "specSection": "roadmap Step 5 (docs/plans/luauui-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
+   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in Facet",
+   "specSection": "roadmap Step 5 (docs/plans/facet-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
    "artifactDir": "artifacts/sponsor-framework-gaps",
    "gateArtifact": "artifacts/sponsor-framework-gaps/gate.json",
    "next": "code-simplicity-cleanup"
@@ -180,7 +180,7 @@
   },
   {
    "gate": "performance-stress-places",
-   "title": "Publish-ready LuauUI performance stress place and repeatable profiling loop (roadmap Step 9): a self-contained examples/places/LuauUI-PerformanceLab.rbxl that opens without Rojo, a deterministic scenario registry centred on a dense interactive virtualized list with a matched raw-Roblox reference, flat-versus-ornate theme cost, large-text/long-content reflow, bounded virtualization, low-cardinality MicroProfiler phase scopes, safe ramp/emergency stop, clean-capture mode and idle teardown \u2014 with Lune, Studio, emulator and physical Android evidence kept separately labelled",
+   "title": "Publish-ready Facet performance stress place and repeatable profiling loop (roadmap Step 9): a self-contained examples/places/Facet-PerformanceLab.rbxl that opens without Rojo, a deterministic scenario registry centred on a dense interactive virtualized list with a matched raw-Roblox reference, flat-versus-ornate theme cost, large-text/long-content reflow, bounded virtualization, low-cardinality MicroProfiler phase scopes, safe ramp/emergency stop, clean-capture mode and idle teardown \u2014 with Lune, Studio, emulator and physical Android evidence kept separately labelled",
    "specSection": "docs/plans/performance-stress-places.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/performance-stress-places",
    "gateArtifact": "artifacts/performance-stress-places/gate.json",
@@ -188,7 +188,7 @@
   },
   {
    "gate": "example-quality-pass",
-   "title": "Tutorial gallery quality pass (roadmap Step 10): all seven tutorial examples understandable and playable in Studio WITHOUT reading their source \u2014 one designed LuauUI product sharing the native-StyleSheet property authority, adapting across the canonical five views and the supported input paradigms, with deterministic reset paths, a complete Wordle-like word game, a visibly taught optimistic-sync lesson, played-and-corrected tile and match-3 games, an ownership ledger proving examples hold domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs, and standalone places that rebuild",
+   "title": "Tutorial gallery quality pass (roadmap Step 10): all seven tutorial examples understandable and playable in Studio WITHOUT reading their source \u2014 one designed Facet product sharing the native-StyleSheet property authority, adapting across the canonical five views and the supported input paradigms, with deterministic reset paths, a complete Wordle-like word game, a visibly taught optimistic-sync lesson, played-and-corrected tile and match-3 games, an ownership ledger proving examples hold domain/content plus declarative composition while reusable fixes live behind public Facet APIs, and standalone places that rebuild",
    "specSection": "docs/plans/example-quality-pass.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/example-quality-pass",
    "gateArtifact": "artifacts/example-quality-pass/gate.json",
@@ -220,7 +220,7 @@
   },
   {
    "gate": "declarative-3d-architecture",
-   "title": "Declarative 3D architecture decision: whether and how the studio builds a declarative fine-grained-reactive system for Roblox Parts/Models - a reviewed plain-language ADR (LuauUI extension vs sibling-with-shared-kernel vs independent system vs no build) backed by an isolated disproof spike with topology, lifecycle, and cost evidence. PASS means the decision is proved, not that LuauUI supports 3D; the stage merges nothing into LuauUI, extracts no core, and starts no production package",
+   "title": "Declarative 3D architecture decision: whether and how the studio builds a declarative fine-grained-reactive system for Roblox Parts/Models - a reviewed plain-language ADR (Facet extension vs sibling-with-shared-kernel vs independent system vs no build) backed by an isolated disproof spike with topology, lifecycle, and cost evidence. PASS means the decision is proved, not that Facet supports 3D; the stage merges nothing into Facet, extracts no core, and starts no production package",
    "specSection": "docs/plans/declarative-3d-architecture.md",
    "artifactDir": "artifacts/declarative-3d-architecture",
    "gateArtifact": "artifacts/declarative-3d-architecture/gate.json",

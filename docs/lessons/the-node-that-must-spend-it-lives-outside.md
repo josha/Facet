@@ -1,6 +1,6 @@
 # The node that must spend the reservation lives outside the subtree
 
-**Found:** 2026-08-14, desktop, `LuauUI-Showcase` / `table-columns`.
+**Found:** 2026-08-14, desktop, `Facet-Showcase` / `table-columns`.
 **Reported as:** *"on desktop, the scroll bar is persistent (correct) but it
 always overlaps content"* — and, once the first diagnosis came back
 vertical-only, *"the scroll bar issue should apply to both horizontal and

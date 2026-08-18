@@ -1,5 +1,5 @@
 --!strict
--- Logical focus graph (design §9.3, UI-FOCUS-001): LuauUI owns focus identity
+-- Logical focus graph (design §9.3, UI-FOCUS-001): Facet owns focus identity
 -- and movement; Roblox SelectedObject/NextSelection* are render outputs
 -- applied by the platform adapter (not here — engine-free).
 -- Scopes stack; the top scope owns navigation; modal scopes trap and restore
@@ -809,7 +809,7 @@ function focus_graph.new(core: any)
 	function self.pushScope(scope: FocusScope)
 		if scope.chrome ~= nil and CHROME_BEFORE[scope.chrome] == nil then
 			error(
-				`LuauUI focus: chrome must be "top", "bottom", "leading" or "trailing" (got {tostring(scope.chrome)}).`,
+				`Facet focus: chrome must be "top", "bottom", "leading" or "trailing" (got {tostring(scope.chrome)}).`,
 				0
 			)
 		end

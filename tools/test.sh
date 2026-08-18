@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LuauUI test: runs the deterministic Lune suite ONCE PER TREE STATE and REFUSES
+# Facet test: runs the deterministic Lune suite ONCE PER TREE STATE and REFUSES
 # a green verdict if the summary line is missing (a main-thread yield truncates
 # the suite with exit 0 — docs/lessons/lune-main-thread-yield-truncates-suite.md).
 # Writes artifacts/test.json.
@@ -66,7 +66,7 @@ cd "$(dirname "$0")/.."
 # pinned toolchain built it fine. Measured 2026-08-15.
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-CACHE_DIR="${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}"
+CACHE_DIR="${FACET_SUITE_CACHE_DIR:-artifacts/suite_cache}"
 # Entries are keyed by fingerprint so two agents on two tree states never
 # contend for one filename. Set once the fingerprint is known.
 TRANSCRIPT=""
@@ -190,7 +190,7 @@ fi
 
 status=FAIL
 reason=""
-if [[ "$plain" == *LUAUUI-FAST-TIER* ]]; then
+if [[ "$plain" == *FACET-FAST-TIER* ]]; then
 	# The inner-loop tier (./run-tests.sh --fast) prints that marker. It runs a
 	# SUBSET of the specs, so its "N passed" is not a suite result and must never
 	# be written into artifacts/test.json as one.
@@ -228,7 +228,7 @@ fi
 
 cat >artifacts/test.json <<EOF
 {
-  "schema": "luauui-test/1",
+  "schema": "facet-test/1",
   "status": "$status",
   "requirement": "UI-AGENT-001",
   "passed": ${passed:-0},

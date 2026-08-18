@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 2 of the LuauUI tutorial: an iTunes-style playlist table.
+-- Example 2 of the Facet tutorial: an iTunes-style playlist table.
 -- ============================================================================
 --
 -- WHAT THIS TEACHES (combining the old star-rating and track-browser examples)
@@ -74,7 +74,7 @@
 --   * NOTE: reordering is disabled while a filter is active (see below)
 --
 -- Module contract (same for every example in this folder):
---   returns { title, build(LuauUI, core, deps) } with
+--   returns { title, build(Facet, core, deps) } with
 --   deps = { env, actionSystem, presenter, adapter }; build returns
 --   { screen, present, ...handles } and the caller presents it.
 -- ----------------------------------------------------------------------------
@@ -99,8 +99,8 @@ local TRACKS = {
 	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
 
-function example.build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+function example.build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 
 	-- STATE ------------------------------------------------------------------
 	-- The FULL playlist order lives in one signal. Reordering writes a new
@@ -242,7 +242,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- is live by construction (no onChange plumbing needed). `clearButton`
 	-- shows a trailing ✕ only while the field is non-empty; activating it
 	-- empties `filterText` and the whole list returns.
-	local filterControl = LuauUI.newTextInput(LuauUI, core, {
+	local filterControl = Facet.newTextInput(Facet, core, {
 		id = "Filter",
 		value = filterText,
 		placeholder = "Filter tracks",
@@ -273,7 +273,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- a control there would leak one control per call.
 	local ratingControls: { [string]: any } = {}
 	for _, track in TRACKS do
-		ratingControls[track.id] = LuauUI.newRating(LuauUI, core, {
+		ratingControls[track.id] = Facet.newRating(Facet, core, {
 			id = "Rating",
 			-- the live env, so the star run spaces itself for the input paradigm:
 			-- wider between marks under touch, tighter under a pointer
@@ -381,7 +381,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- Columns own their content: `value` renders a plain text cell; `cell`
 	-- renders any blueprint — here, the interactive star control. `rows` is the
 	-- DERIVED memo, so the table filters reactively.
-	local tbl = LuauUI.newTable(LuauUI, core, {
+	local tbl = Facet.newTable(Facet, core, {
 		id = "Tracks",
 		columns = {
 			--[[ TWO `fill` COLUMNS THAT RESIZE, AND ONE FIXED ONE THAT REFUSES.
@@ -532,7 +532,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 		end,
 		-- NO rowHeight, DELIBERATELY (director report 2026-07-27: "generally, we
 		-- likely want taller table cells on mobile for touch targeting. that seems
-		-- like the paradigm adaptation luauui should handle").
+		-- like the paradigm adaptation facet should handle").
 		--
 		-- This used to say 48, with a comment explaining that a phone's narrow Name
 		-- column wraps a real track title to two lines and 34 could not hold them.

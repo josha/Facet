@@ -11,7 +11,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -26,12 +26,12 @@ end
 -- a reorderable / droppable VirtualList presented with ZERO opts
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local rows = core:signal(makeRows(options.count or 40))
 	local reorders: { any } = {}
@@ -39,7 +39,7 @@ local function world(opts: any?)
 	local selections: { any } = {}
 	local events: { any } = {}
 
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -81,11 +81,11 @@ local function world(opts: any?)
 		motionClock = options.motionClock,
 		reorderMotion = options.reorderMotion,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = options.onActivate,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -456,7 +456,7 @@ describe("unified collection: rows as drop targets (SF-L1)", function()
 	it("a reorder payload from ANOTHER list is refused", function()
 		local w = world({ reorderable = true })
 		local registry = w.registry()
-		registry.registerSource("/S/VL", { payload = { kind = "__luauui_reorder", key = "x", list = "OtherList" } })
+		registry.registerSource("/S/VL", { payload = { kind = "__facet_reorder", key = "x", list = "OtherList" } })
 		registry.arm("/S/VL")
 		registry.armTo(w.hitPath("r2"))
 		expect(registry.verdict:get().legal).toBe(false)
@@ -593,8 +593,8 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 
 	it("reorder motion slides the moved rows through presentation, never a re-solve", function()
 		local now = 0
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return now
 			end,
@@ -685,15 +685,15 @@ end)
 
 describe("unified collection: uniform derived row height (finding F13)", function()
 	it("accepts a Readable row height and re-derives the whole list from it", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rowHeight = core:signal(40)
 		local rows = core:signal(makeRows(40))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -703,10 +703,10 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			viewportHeight = 400,
 			overscan = 0,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		expect(list.dump().rowHeight).toBe(40)
 		local windowAt40 = 0
@@ -730,18 +730,18 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 		-- is wrong for the rest of the session the moment the device turns. Both
 		-- consumers of the number move together — the painted host box and the
 		-- windowing arithmetic — or the list paints rows it did not mount.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(makeRows(60))
 		local viewportHeight = core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			return math.floor(vp.h * 0.5)
 		end)
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -751,10 +751,10 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			viewportHeight = viewportHeight,
 			overscan = 0,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
 		pres.refresh()
 		expect(list.dump().viewportHeight).toBe(400)
 		local tall = 0
@@ -789,9 +789,9 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			happens when a caller hands in a function" is still a contract this file
 			owns — it is now a running-offset index, and the numbers below are what
 			that means. `virtual_list_variable_extents.spec` holds the whole feature. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(6))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -802,7 +802,7 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			end,
 			viewportHeight = 400,
 			cell = function()
-				return LuauUI.UI.Text({ id = "L", text = "x" })
+				return Facet.UI.Text({ id = "L", text = "x" })
 			end,
 		})
 		local d = list.dump()
@@ -816,16 +816,16 @@ end)
 
 describe("unified collection: teardown", function()
 	it("build/mount/reorder/drop/dispose returns the core to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local rows = core:signal(makeRows(30))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -838,10 +838,10 @@ describe("unified collection: teardown", function()
 			onReorder = function() end,
 			dropSurface = true,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		local unbind = list.bindNativeScroll(handle.controller)
 		local hit = "/S/VL/Canvas/W/[r1]/Row/Hit"
@@ -871,7 +871,7 @@ describe("unified collection: the control dump (CTRL-08b)", function()
 	it("list.dump() is deterministic and carries its schema string", function()
 		local serde = require("@lune/serde")
 		local w = world({ count = 40, selection = "single", reorderable = true })
-		expect(w.list.dump().schema).toBe("luauui-virtual-list-dump/1")
+		expect(w.list.dump().schema).toBe("facet-virtual-list-dump/1")
 		local d1 = serde.encode("json", w.list.dump(), true)
 		expect(d1).toBe(serde.encode("json", w.list.dump(), true))
 		-- ...and still deterministic once live state has moved

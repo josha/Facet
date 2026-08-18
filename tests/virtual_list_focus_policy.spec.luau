@@ -8,7 +8,7 @@
 	the rows on its own: the ring rides the racer, and the racer keeps changing
 	slots. Rascal Rally's legacy sponsor list carries a director ruling against
 	exactly that ("selection riding a racer's button visibly JUMPS slots on every
-	overtake"), and the LuauUI port had to re-implement it CONSUMER-SIDE, driving
+	overtake"), and the Facet port had to re-implement it CONSUMER-SIDE, driving
 	the control's logical `focusedKey` and the presenter's focus graph by hand —
 	two focus authorities, which is the split brain this field exists to remove.
 
@@ -30,7 +30,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -50,14 +50,14 @@ end
 -- so the focus graph reaches the control the way it does on a real surface)
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(options.rows or makeRows(options.count or 8))
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -73,11 +73,11 @@ local function world(opts: any?)
 		onReorder = if options.reorderable then function() end else nil,
 		grabOnActivate = if options.reorderable then false else nil,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function() end,
 	})
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 	local w: any = {
@@ -358,9 +358,9 @@ end)
 -- ===========================================================================
 describe("VirtualList focusPolicy validation (constitution §4)", function()
 	it("an illegal value is refused at construction, naming BOTH legal ones", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = core:signal(makeRows(2)),
 				key = function(item: any)
@@ -370,7 +370,7 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 				viewportHeight = 200,
 				focusPolicy = "slot",
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)
@@ -382,9 +382,9 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 	end)
 
 	it("the closed spec set knows the field: a near-miss is refused by name", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = core:signal(makeRows(2)),
 				key = function(item: any)
@@ -394,7 +394,7 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 				viewportHeight = 200,
 				focusPolicey = "index",
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)

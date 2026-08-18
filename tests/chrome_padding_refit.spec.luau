@@ -6,7 +6,7 @@
 	table". The tray plate's left border and both left corners are gone; its right
 	border is intact.
 
-	MEASURED LIVE (Studio, LuauUI-Showcase, Compact Pointer, `row-actions` Table
+	MEASURED LIVE (Studio, Facet-Showcase, Compact Pointer, `row-actions` Table
 	surface, viewport 413x735). The plate's LAYOUT rect is flush — no rect
 	assertion anywhere could have caught this — and what the engine paints is not:
 

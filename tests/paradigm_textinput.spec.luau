@@ -21,7 +21,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -34,8 +34,8 @@ local KEYBOARD_ONLY = { keyboard = true, mouse = false, touch = false, gamepad =
 
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if options.caps ~= nil then
 		env:set("capabilities", options.caps)
@@ -43,13 +43,13 @@ local function world(opts: any?)
 	if options.preferredInput ~= nil then
 		env:set("preferredInput", options.preferredInput)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local commits: { { text: string, reason: string } } = {}
 	local value = core:signal(options.initial or "")
-	local control = text_input.build(LuauUI, core, {
+	local control = text_input.build(Facet, core, {
 		id = "Name",
 		value = value,
 		onCommit = function(text: string, reason: string)
@@ -58,7 +58,7 @@ local function world(opts: any?)
 		env = env,
 		actionSystem = system,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)

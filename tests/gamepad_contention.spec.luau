@@ -50,7 +50,7 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 
 			Measured live in the showcase, four readings in one session: a sinking
 			ContextActionService binding at priority 100 consumed Left/Right while a
-			LuauUI `InputContext` at priority 10000 with `Sink = true` never fired, and
+			Facet `InputContext` at priority 10000 with `Sink = true` never fired, and
 			unbinding the CAS action let the identical presses through at once. It is
 			pinned HERE, in the module this repo already keeps engine input truths in,
 			because there is no headless surface for ContextActionService at all —
@@ -68,7 +68,7 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 			CAS binding. Pinned so the ruling cannot quietly fall back out of the
 			one string a doctor check prints. ]]
 		expect(string.find(text, "THE FIX IS TRUTH 2, NOT A NUMBER", 1, true) ~= nil).toBeTruthy()
-		expect(string.find(text, "REQUIRED by LuauUI", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "REQUIRED by Facet", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(text, "NOT scriptable", 1, true) ~= nil).toBeTruthy()
 		-- truth 6: the arrow probe, and that it is not the same reading as truth 1's
 		expect(string.find(text, "cameraKeysContended", 1, true) ~= nil).toBeTruthy()
@@ -101,7 +101,7 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 
 		The fixtures below are a VERBATIM transcription of one live reading —
 		`ContextActionService:GetAllBoundActionInfo()` in a Play session of
-		LuauUI-Showcase on 0.734.0.7340915, 2026-08-15 — because the point of this
+		Facet-Showcase on 0.734.0.7340915, 2026-08-15 — because the point of this
 		probe is that it matches what the engine actually hands back. Six actions
 		were bound; exactly one of them held an arrow.
 

@@ -46,8 +46,8 @@ def main() -> int:
     budgets = json.load(open(BUDGETS))
     errors = []
 
-    if budgets.get("schema") != "luauui-perf-budgets/2":
-        errors.append(f"unexpected schema {budgets.get('schema')!r}; expected luauui-perf-budgets/2")
+    if budgets.get("schema") != "facet-perf-budgets/2":
+        errors.append(f"unexpected schema {budgets.get('schema')!r}; expected facet-perf-budgets/2")
     if budgets.get("evidenceClass") != "lune":
         errors.append("the scene budgets must be labelled with the evidence class that produced them")
 

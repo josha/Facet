@@ -84,7 +84,7 @@ end
 table.sort(stamps)
 
 local report = {
-	schema = "luauui-device-matrix/1",
+	schema = "facet-device-matrix/1",
 	stage = "cross-platform-proof",
 	sourceStamps = stamps,
 	sourceStampsCoherent = #stamps == 1,

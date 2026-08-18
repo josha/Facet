@@ -104,7 +104,7 @@ end)
 describe("perf runner — budget enforcement (§16.1)", function()
 	local function report(p95: number)
 		return {
-			schema = "luauui-perf/1",
+			schema = "facet-perf/1",
 			referenceProfile = "floorAndroid",
 			runs = {
 				{
@@ -182,7 +182,7 @@ describe("perf runner — shape determinism (§15.2)", function()
 		-- schema/2 (roadmap Step 4) added the evidence-class inventory and the
 		-- metric ledger to every record; the matrix SHAPE contract below is
 		-- unchanged, which is exactly what this case is here to pin.
-		expect(rep1.schema).toBe("luauui-perf/2")
+		expect(rep1.schema).toBe("facet-perf/2")
 		expect(#rep1.runs).toBe(4)
 		expect(matrixKeys(rep1)).toEqual({ "a@desktop", "a@floorAndroid", "b@desktop", "b@floorAndroid" })
 		expect(matrixKeys(rep1)).toEqual(matrixKeys(rep2))

@@ -10,7 +10,7 @@
 --   * INDETERMINATE — the same shape with no value: a fixed-sweep head whose
 --     START ANGLE advances with the phase, so the ring rotates without any
 --     rotation channel existing. There is no native radial primitive in the
---     engine; both forms are `UI.Path` + `LuauUI.pathShapes.arc`.
+--     engine; both forms are `UI.Path` + `Facet.pathShapes.arc`.
 --   * ...and the five-dot SPINNER beside it, unchanged, because it is the
 --     fallback if the arc's per-frame paint ever fails on a device, and a
 --     fixture that dropped it would delete the comparison a device pass needs.
@@ -53,8 +53,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local pres = ctx.presenter
 		local scope = core:scope("progress-ring")
@@ -62,7 +62,7 @@ return {
 
 		local progress = scope:own(core:signal(0.25))
 
-		local ring = LuauUI.newProgressView(LuauUI, core, {
+		local ring = Facet.newProgressView(Facet, core, {
 			id = "Ring",
 			label = COPY.determinate,
 			value = progress,
@@ -77,14 +77,14 @@ return {
 			return string.format("%d%%", use(progress) * 100 + 0.5)
 		end))
 
-		local busy = LuauUI.newProgressView(LuauUI, core, {
+		local busy = Facet.newProgressView(Facet, core, {
 			id = "Busy",
 			label = COPY.indeterminate,
 			presentation = "circular",
 			motionClock = clock,
 			scope = scope,
 		})
-		local dots = LuauUI.newProgressView(LuauUI, core, {
+		local dots = Facet.newProgressView(Facet, core, {
 			id = "Dots",
 			label = COPY.spinner,
 			presentation = "spinner",

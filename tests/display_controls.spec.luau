@@ -12,7 +12,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
 local customFactory = require("../src/core/custom")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
 local presenterLib = require("../src/present/presenter")
@@ -34,7 +34,7 @@ end
 describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	it("maps the value onto a percent fill", function()
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, showValue = true })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.25, showValue = true })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(p.dump().fraction).toBe(0.25)
@@ -46,7 +46,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	it("a reactive value re-renders the fill with no rebuild", function()
 		local core, _, adapter, _, pres = harness()
 		local v = core:signal(0)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = v })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = v })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar/Fill").rect.w).toBe(0)
@@ -58,7 +58,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 
 	it("clamps out-of-range values instead of overflowing the bar", function()
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 5 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(p.dump().fraction).toBe(1)
@@ -74,7 +74,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 		-- Slider's rail and thumb do, so nothing generic can mistake them.
 		local sheet_model = require("../src/tokens/sheet_model")
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		for path, slot in { ["/S/Load/Bar"] = "barTrack", ["/S/Load/Bar/Fill"] = "barFill" } do
@@ -96,7 +96,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 
 	it("carries semantic value-in-range text and a deterministic dump", function()
 		local core = customFactory.new()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, min = 0, max = 1 })
+		local p = Facet.newProgressView(Facet, core, { id = "L", value = 0.5, min = 0, max = 1 })
 		expect(p.dump().semanticText).toBe("0.5 of 0 to 1")
 		expect(serde.encode("json", p.dump(), true)).toBe(serde.encode("json", p.dump(), true))
 	end)
@@ -104,7 +104,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	it("is registry-neutral after dispose", function()
 		local core = customFactory.new()
 		local baseline = core:counters()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5 })
+		local p = Facet.newProgressView(Facet, core, { id = "L", value = 0.5 })
 		p.dispose()
 		expect(core:counters().scopes).toBe(baseline.scopes)
 		expect(core:counters().observers).toBe(baseline.observers)
@@ -114,7 +114,7 @@ end)
 describe("B-DSP1: Label keeps a semantic text fallback", function()
 	it("renders icon and title together", function()
 		local core, _, adapter, _, pres = harness()
-		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
+		local l = Facet.newLabel(Facet, core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
 		pres.present(UI.Screen({ id = "S", children = { l.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Save/Icon") ~= nil).toBe(true)
@@ -123,7 +123,7 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 
 	it("an icon-only presentation still reports the title as its semantic text", function()
 		local core = customFactory.new()
-		local l = LuauUI.newLabel(LuauUI, core, {
+		local l = Facet.newLabel(Facet, core, {
 			id = "Save",
 			title = "Save",
 			icon = "rbxassetid://1",
@@ -139,7 +139,7 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	-- one control whose whole reason to exist is the semantic fallback.
 	it("semanticText is a Readable, like every sibling that publishes one", function()
 		local core = customFactory.new()
-		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save changes" })
+		local l = Facet.newLabel(Facet, core, { id = "Save", title = "Save changes" })
 		expect(UI.isReadable(l.semanticText)).toBe(true)
 		expect(l.semanticText:get()).toBe("Save changes")
 		-- dump() still carries the STRING value (a dump is data, not a graph node)
@@ -150,7 +150,7 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
 		local baseline = core:counters()
-		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
+		local l = Facet.newLabel(Facet, core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
 		expect(serde.encode("json", l.dump(), true)).toBe(serde.encode("json", l.dump(), true))
 		l.dispose()
 		expect(core:counters().scopes).toBe(baseline.scopes)
@@ -160,7 +160,7 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 
 	it("iconOnly DEGRADES to the title when there is no icon (an empty square is worse than a word)", function()
 		local core, _, adapter, _, pres = harness()
-		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save", presentation = "iconOnly" })
+		local l = Facet.newLabel(Facet, core, { id = "Save", title = "Save", presentation = "iconOnly" })
 		pres.present(UI.Screen({ id = "S", children = { l.blueprint } }))
 		pres.refresh()
 		expect(l.dump().degradedToTitle).toBe(true)
@@ -170,7 +170,7 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 
 	it("titleOnly renders no empty icon slot", function()
 		local core, _, adapter, _, pres = harness()
-		local l = LuauUI.newLabel(LuauUI, core, {
+		local l = Facet.newLabel(Facet, core, {
 			id = "Save",
 			title = "Save",
 			icon = "rbxassetid://1",
@@ -184,17 +184,17 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	it("requires a title, because an icon-only label without one has no accessible name", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return LuauUI.newLabel(LuauUI, core, { id = "X", icon = "rbxassetid://1" })
+			return Facet.newLabel(Facet, core, { id = "X", icon = "rbxassetid://1" })
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.newLabel(LuauUI, core, { id = "X", title = "" })
+			return Facet.newLabel(Facet, core, { id = "X", title = "" })
 		end)).toBe(false)
 	end)
 
 	it("rejects an unknown presentation", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return LuauUI.newLabel(LuauUI, core, { id = "X", title = "T", presentation = "sideways" })
+			return Facet.newLabel(Facet, core, { id = "X", title = "T", presentation = "sideways" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "iconOnly | titleAndIcon | titleOnly", 1, true) ~= nil).toBe(true)
@@ -222,7 +222,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		for k, v in (overrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = LuauUI.newPicker(LuauUI, core, spec)
+		local control = Facet.newPicker(Facet, core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return core, env, adapter, system, pres, selected, control
@@ -250,7 +250,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		local core, _, adapter, _, pres = harness()
 		local selected = core:signal("a")
 		local sizeClass = core:signal("wide")
-		local control = LuauUI.newPicker(LuauUI, core, {
+		local control = Facet.newPicker(Facet, core, {
 			id = "Mode",
 			-- long labels: in a COMPACT space these cannot sit side by side legibly,
 			-- which is the space-based condition the rule keys on
@@ -341,10 +341,10 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	it("rejects an empty option set, a non-settable selection, and an unknown presentation", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return LuauUI.newPicker(LuauUI, core, { id = "X", options = {}, selected = core:signal(1) })
+			return Facet.newPicker(Facet, core, { id = "X", options = {}, selected = core:signal(1) })
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
 				selected = core:memo(function()
@@ -353,7 +353,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 			})
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
 				selected = core:signal(1),
@@ -365,7 +365,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
 		local baseline = core:counters()
-		local control = LuauUI.newPicker(LuauUI, core, {
+		local control = Facet.newPicker(Facet, core, {
 			id = "X",
 			options = { { value = 1, label = "one" }, { value = 2, label = "two" } },
 			selected = core:signal(1),
@@ -381,7 +381,7 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 	local function mountDisclosure(startExpanded: boolean)
 		local core, env, adapter, system, pres = harness()
 		local expanded = core:signal(startExpanded)
-		local control = LuauUI.newDisclosureGroup(LuauUI, core, {
+		local control = Facet.newDisclosureGroup(Facet, core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = expanded,
@@ -473,7 +473,7 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 	it("a disabled group does not toggle", function()
 		local core, _, adapter, _, pres = harness()
 		local expanded = core:signal(false)
-		local control = LuauUI.newDisclosureGroup(LuauUI, core, {
+		local control = Facet.newDisclosureGroup(Facet, core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = expanded,
@@ -495,14 +495,10 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 			return UI.Box({ id = "B" })
 		end
 		expect(pcall(function()
-			return LuauUI.newDisclosureGroup(
-				LuauUI,
-				core,
-				{ id = "X", expanded = core:signal(false), content = content }
-			)
+			return Facet.newDisclosureGroup(Facet, core, { id = "X", expanded = core:signal(false), content = content })
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.newDisclosureGroup(LuauUI, core, {
+			return Facet.newDisclosureGroup(Facet, core, {
 				id = "X",
 				label = "L",
 				expanded = core:memo(function()
@@ -512,14 +508,14 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 			})
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.newDisclosureGroup(LuauUI, core, { id = "X", label = "L", expanded = core:signal(false) })
+			return Facet.newDisclosureGroup(Facet, core, { id = "X", label = "L", expanded = core:signal(false) })
 		end)).toBe(false)
 	end)
 
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
 		local baseline = core:counters()
-		local control = LuauUI.newDisclosureGroup(LuauUI, core, {
+		local control = Facet.newDisclosureGroup(Facet, core, {
 			id = "X",
 			label = "L",
 			expanded = core:signal(false),
@@ -544,7 +540,7 @@ describe("B-DSP3: PopupButton rows meet the enforced target floor", function()
 	it("the trigger and every open row report a hit rect at or above the floor", function()
 		local core, _, adapter, _, pres = harness()
 		local selected = core:signal("one")
-		local control = LuauUI.newPopupButton(LuauUI, core, {
+		local control = Facet.newPopupButton(Facet, core, {
 			id = "Choice",
 			value = selected,
 			options = {
@@ -621,7 +617,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		for k, v in (overrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = LuauUI.newPopupButton(LuauUI, core, spec)
+		local control = Facet.newPopupButton(Facet, core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return core, adapter, system, pres, value, control
@@ -701,7 +697,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		local adapter3 = fake_target.new()
 		local pres3 = presenterLib.new(core2, env2, adapter3, actionsLib.newSystem(core2))
 		local classes = core2:signal({ touch = false, pointer = true })
-		local c3 = LuauUI.newPopupButton(LuauUI, core2, {
+		local c3 = Facet.newPopupButton(Facet, core2, {
 			id = "Choice",
 			value = core2:signal("one"),
 			options = {
@@ -743,7 +739,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 	it("rejects an unknown presentation at build", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return LuauUI.newPopupButton(LuauUI, core, {
+			return Facet.newPopupButton(Facet, core, {
 				id = "X",
 				value = core:signal("a"),
 				options = { { id = "a", label = "A" } },
@@ -759,7 +755,7 @@ describe("progress: exact vertical centring (director review 2026-07-24)", funct
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local progress = LuauUI.newProgressView(LuauUI, core, {
+		local progress = Facet.newProgressView(Facet, core, {
 			id = "Down",
 			label = "Download",
 			value = core:signal(0.35),
@@ -789,7 +785,7 @@ describe("label: the title reads centred in its own box (director review 2026-07
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local label = LuauUI.newLabel(LuauUI, core, { id = "Cap", title = "Save changes" })
+		local label = Facet.newLabel(Facet, core, { id = "Cap", title = "Save changes" })
 		local root = require("../src/mount").mount(core, UI.Screen({ id = "S", children = { label.blueprint } }))
 		local adapter = fake_target.new()
 		local controller =
@@ -808,7 +804,7 @@ end)
 -- Two things are proved here that nothing else can prove:
 --   1. the DETERMINATE path is untouched — same node tree, same geometry, same
 --      dump values — because one live RascalRally caller depends on it
---      (LuauUISponsor/ResultsScreen.luau:1471);
+--      (FacetSponsor/ResultsScreen.luau:1471);
 --   2. BOTH reduced-motion policies. A loading indicator is the one piece of
 --      motion in this framework that CARRIES information, so it is
 --      `kind = "informational"`: under reduced motion it must still visibly
@@ -836,7 +832,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 
 	it("the DETERMINATE tree and dump are exactly what they were before indeterminate existed", function()
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, showValue = true })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.25, showValue = true })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -849,7 +845,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		expect(fill.x).toBe(bar.x)
 		expect(fill.w).toBe(math.floor(bar.w * 0.25 + 0.5))
 		local d = p.dump()
-		expect(d.schema).toBe("luauui-progress-dump/1")
+		expect(d.schema).toBe("facet-progress-dump/1")
 		expect(d.value).toBe(0.25)
 		expect(d.fraction).toBe(0.25)
 		expect(d.formatted).toBe("0.25")
@@ -865,7 +861,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 
 	it("value = nil builds the sweeping segment instead of a value-tracking fill", function()
 		local core, adapter, pres, clock, _, scope = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -889,7 +885,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- — so the peak's POSITION in the cycle is asserted instead, plus the
 		-- symmetry of the quarter points, and both bite.
 		local core, adapter, pres, clock, t, scope = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local bar = adapter.node("/S/Load/Bar").rect
@@ -930,7 +926,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- the settle handler left every other case green, because none of them ran
 		-- past the first cycle's terminus — so this one does, deliberately.
 		local core, adapter, pres, clock, t, scope = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local function sweep(): number
@@ -963,7 +959,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 	it("REDUCED MOTION keeps the indicator advancing — quantized, never frozen (§3.1)", function()
 		local core, adapter, pres, clock, t, scope = clockWorld("reduced")
 		expect(clock:isReduced()).toBe(true)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		-- the motion is INFORMATIONAL, which is the whole decision: a decorative
@@ -1005,7 +1001,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- the differential the two policies are ABOUT, measured rather than asserted
 		local function distinctPositions(policy: string): number
 			local core, adapter, pres, clock, t, scope = clockWorld(policy)
-			local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+			local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 			pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 			pres.refresh()
 			local seen: { [number]: boolean } = {}
@@ -1035,7 +1031,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- the owner is required even with no clock: adding a clock later must not
 		-- turn a working call into an authoring error
 		local scope = core:scope("surface")
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -1054,7 +1050,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 			end,
 		})
 		local scope = core:scope("surface")
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "L", motionClock = clock, scope = scope })
 		p.dispose()
 		scope:dispose()
 		clock:dispose()
@@ -1100,7 +1096,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 
 	it("keeps writing while it is alive, and stops DEAD when its owner is disposed", function()
 		local core, pres, clock, t, scope = ownedWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		-- the positive control: without it, a check that only measures silence
@@ -1121,7 +1117,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 
 	it("a view built and NEVER presented stops with its owner too", function()
 		local core, _, clock, t, scope = ownedWorld()
-		LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		Facet.newProgressView(Facet, core, { id = "Load", motionClock = clock, scope = scope })
 		expect(spin(clock, t, 120) > 100).toBe(true)
 		scope:dispose()
 		expect(spin(clock, t, 120)).toBe(0)
@@ -1137,7 +1133,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 			end,
 		})
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock })
+			Facet.newProgressView(Facet, core, { id = "L", motionClock = clock })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "scope", 1, true) ~= nil).toBe(true)
@@ -1146,7 +1142,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 		expect(clock:activeCount()).toBe(0)
 		-- a table that is not a Scope is refused too, rather than failing later
 		local ok2 = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = {} })
+			Facet.newProgressView(Facet, core, { id = "L", motionClock = clock, scope = {} })
 		end)
 		expect(ok2).toBe(false)
 		--[[ ...INCLUDING THE HALF-SCOPE (redteam follow-up, 2026-08-13). The
@@ -1168,10 +1164,10 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 			}
 		do
 			local ok3, err3 = pcall(function()
-				LuauUI.newProgressView(LuauUI, core, spec)
+				Facet.newProgressView(Facet, core, spec)
 			end)
 			expect(ok3).toBe(false)
-			expect(string.find(tostring(err3), "must be a LuauUI Scope", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(err3), "must be a Facet Scope", 1, true) ~= nil).toBe(true)
 			expect(string.find(tostring(err3), "attempt to call", 1, true)).toBeNil()
 		end
 		clock:dispose()
@@ -1180,7 +1176,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 	it("dispose() and the owner's disposal are safe in EITHER order, and in both", function()
 		for _, disposeFirst in { true, false } do
 			local core, _, clock, t, scope = ownedWorld()
-			local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = scope })
+			local p = Facet.newProgressView(Facet, core, { id = "L", motionClock = clock, scope = scope })
 			if disposeFirst then
 				p.dispose()
 				scope:dispose()
@@ -1201,7 +1197,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 		-- rally bar: a value, a height, no clock). If this ever attaches to the
 		-- clock, the fix above has changed the wrong half.
 		local core, pres, clock, t = ownedWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, height = 40 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.25, height = 40 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(clock:activeCount()).toBe(0)
@@ -1211,7 +1207,7 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 		-- ...and it is the VALUE that decides, not the absence of a clock: handing a
 		-- determinate view the surface's clock must still attach nothing. (Without
 		-- this half, dropping `indeterminate and` from the cycle's condition passes.)
-		local withClock = LuauUI.newProgressView(LuauUI, core, { id = "Load2", value = 0.25, motionClock = clock })
+		local withClock = Facet.newProgressView(Facet, core, { id = "Load2", value = 0.25, motionClock = clock })
 		expect(clock:activeCount()).toBe(0)
 		expect(spin(clock, t, 120)).toBe(0)
 		expect(withClock.dump().animating).toBeNil() -- a determinate dump has no such key
@@ -1230,7 +1226,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 			end,
 			motionPolicy = core:signal(policy or "full"),
 		})
-		local p = LuauUI.newProgressView(LuauUI, core, {
+		local p = Facet.newProgressView(Facet, core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
@@ -1276,7 +1272,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 				return 0
 			end,
 		})
-		local p = LuauUI.newProgressView(LuauUI, core, {
+		local p = Facet.newProgressView(Facet, core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
@@ -1381,7 +1377,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	it("refuses a spinner with a value — and names the shape that DOES draw one", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "spinner" })
+			Facet.newProgressView(Facet, core, { id = "L", value = 0.5, presentation = "spinner" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "indeterminate only", 1, true) ~= nil).toBe(true)
@@ -1396,7 +1392,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	it("refuses an unknown presentation, listing the three that exist", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "dial" })
+			Facet.newProgressView(Facet, core, { id = "L", value = 0.5, presentation = "dial" })
 		end)
 		expect(ok).toBe(false)
 		for _, name in { "bar", "circular", "spinner" } do
@@ -1434,7 +1430,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 				spec.value = 0.5
 			end
 			local ok, err = pcall(function()
-				local p = LuauUI.newProgressView(LuauUI, core, spec)
+				local p = Facet.newProgressView(Facet, core, spec)
 				p.dispose()
 			end)
 			local label =
@@ -1452,7 +1448,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- silent reinterpretation.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "circular", height = 40 })
+			Facet.newProgressView(Facet, core, { id = "L", value = 0.5, presentation = "circular", height = 40 })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "circularSize", 1, true) ~= nil).toBe(true)
@@ -1468,7 +1464,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- Refused, with both alternatives named.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, {
+			Facet.newProgressView(Facet, core, {
 				id = "L",
 				value = 0.5,
 				presentation = "circular",
@@ -1482,7 +1478,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- either way, and accepting the falsy one would be the silent no-op the
 		-- closed spec exists to prevent
 		local okFalse = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, {
+			Facet.newProgressView(Facet, core, {
 				id = "L2",
 				value = 0.5,
 				presentation = "circular",
@@ -1496,7 +1492,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- the other half: the circular refusal must not be the same as deleting the
 		-- feature from the shape that declares it
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5, showValue = true })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.5, showValue = true })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Value") ~= nil).toBe(true)
@@ -1511,7 +1507,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- that owns the dot instead.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, {
+			Facet.newProgressView(Facet, core, {
 				id = "L",
 				presentation = "spinner",
 				height = 40,
@@ -1527,7 +1523,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- the other half of the refusal. Deleting the refusal must not be the same
 		-- as deleting `height`.
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5, height = 40 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.5, height = 40 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar").rect.h).toBe(40)
@@ -1540,13 +1536,13 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 			local spec: any = { id = "L" }
 			spec[key] = if key == "showValue" then true else 3
 			local ok, err = pcall(function()
-				LuauUI.newProgressView(LuauUI, core, spec)
+				Facet.newProgressView(Facet, core, spec)
 			end)
 			expect(ok).toBe(false)
 			expect(string.find(tostring(err), key, 1, true) ~= nil).toBe(true)
 		end
 		local ok = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, {
+			Facet.newProgressView(Facet, core, {
 				id = "L",
 				format = function()
 					return ""

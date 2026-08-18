@@ -2,9 +2,9 @@
 
 The previous single prompt could close framework gaps but could not prove the full
 game experience. It is replaced by Step 5 and Step 6 of
-[`luauui-consolidated-roadmap.md`](luauui-consolidated-roadmap.md):
+[`facet-consolidated-roadmap.md`](facet-consolidated-roadmap.md):
 
-- Step 5 builds reusable LuauUI capabilities without changing the game presentation.
+- Step 5 builds reusable Facet capabilities without changing the game presentation.
 - Step 6 builds a development-selectable parallel Sponsor presenter and verifies the
   full game parity matrix.
 

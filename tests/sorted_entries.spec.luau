@@ -283,7 +283,7 @@ describe("sortedEntries: the comparator", function()
 		do
 			local ok, err = pcall(UI.sortedEntries, case.dict, case.compare)
 			expect(ok).toBe(false)
-			expect(string.find(tostring(err), "LuauUI sortedEntries", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(err), "Facet sortedEntries", 1, true) ~= nil).toBe(true)
 		end
 	end)
 end)

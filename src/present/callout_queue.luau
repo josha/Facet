@@ -44,7 +44,7 @@ local toastSchedule = require("./toast_schedule")
 
 local callout_queue = {}
 
-local DUMP_SCHEMA = "luauui-callout-queue-dump/1"
+local DUMP_SCHEMA = "facet-callout-queue-dump/1"
 -- ~31 years in seconds. See the header: a coach mark waits for the player, and
 -- the scheduler wants a finite number.
 local NEVER_TIMES_OUT = 1e9
@@ -194,7 +194,7 @@ function callout_queue.new(ctx: any)
 		specGuard.assertKnownKeys("presenter.presentCallout", spec, REQUEST_KEYS, "spec")
 		if type(spec) ~= "table" or type(spec.build) ~= "function" or type(spec.id) ~= "string" then
 			error(
-				"LuauUI presenter.presentCallout: `id` (the surface id) and `build` (a function returning the "
+				"Facet presenter.presentCallout: `id` (the surface id) and `build` (a function returning the "
 					.. "panel blueprint and its anchor table) are both required. The queue mounts; the caller builds.",
 				0
 			)

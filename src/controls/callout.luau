@@ -24,7 +24,7 @@
 	through your app, or for advertising and promotion purposes."*
 
 	PERSISTENCE IS THE CALLER'S, NEVER THE FRAMEWORK'S. This is a hard boundary.
-	LuauUI has no save layer and must not grow one here, so the construct READS
+	Facet has no save layer and must not grow one here, so the construct READS
 	the caller's own Readables — `seen`, `sessions`, `featureUsed` — and REPORTS,
 	exactly once, through the required `onRetire(reason)` that this tip should
 	never be shown again. Whether anything is written, and where, is a decision
@@ -57,7 +57,7 @@ local callout = {}
 
 local PLATE_ID = "Plate"
 local DISMISS_ID = "Dismiss"
-local DUMP_SCHEMA = "luauui-callout-dump/1"
+local DUMP_SCHEMA = "facet-callout-dump/1"
 
 -- THEME METRICS, never bare pixels (ADR-0019 §2). The dismiss row is a real
 -- target, so its floor is the theme's own minimum rather than a number written
@@ -139,22 +139,22 @@ local function readFact(fact: any): any
 	return fact
 end
 
-function callout.build(LuauUI: any, core: any, spec: Spec)
+function callout.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newCallout", spec, CALLOUT_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Callout"
 	local scope = core:scope(`callout-{id}`)
 
 	if type(spec.anchor) ~= "table" then
 		error(
-			`LuauUI newCallout('{id}'): \`anchor\` is the blueprint the plate points at — ANY node. The `
+			`Facet newCallout('{id}'): \`anchor\` is the blueprint the plate points at — ANY node. The `
 				.. "contribution rides it; its layout is untouched.",
 			0
 		)
 	end
 	if type(spec.content) ~= "table" then
 		error(
-			`LuauUI newCallout('{id}'): \`content\` is a BLUEPRINT, not a string. The reference plate is styled `
+			`Facet newCallout('{id}'): \`content\` is a BLUEPRINT, not a string. The reference plate is styled `
 				.. "and holds more than one line, and a string-only tip could not express it.",
 			0
 		)
@@ -165,7 +165,7 @@ function callout.build(LuauUI: any, core: any, spec: Spec)
 		the fact for them, so it refuses to pretend the question does not exist. ]]
 	if type(spec.onRetire) ~= "function" then
 		error(
-			`LuauUI newCallout('{id}'): \`onRetire(reason)\` is REQUIRED. LuauUI has no save layer and will `
+			`Facet newCallout('{id}'): \`onRetire(reason)\` is REQUIRED. Facet has no save layer and will `
 				.. "not grow one: this construct reads your `seen`/`sessions`/`featureUsed` Readables and reports "
 				.. "back exactly once when the tip should never be shown again. Persisting that is yours.",
 			0

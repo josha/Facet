@@ -22,11 +22,11 @@ document rather than from source or a live URL is marked as such.
 | | |
 |---|---|
 | Branch / commit | `main` @ `ff0c28a` |
-| LuauUI suite | **4638 passed**, green (`./run-tests.sh`) |
+| Facet suite | **4638 passed**, green (`./run-tests.sh`) |
 | Rascal Rally suite | **3138 passed**, green (`games/RascalRally/code/run-tests.sh`) |
-| LuauUI version | `0.9.0` (`src/init.luau`) |
-| Working tree at start | three modified files and three untracked paths, all belonging to the **declarative-3D** decision session (`docs/adr/ADR-0024-declarative-3d.md`, `spikes/`, `artifacts/declarative-3d-architecture/`, plus edits to `artifacts/code-simplicity-cleanup/public-surface.txt`, `docs/plans/distribution-readiness.md`, `docs/plans/luauui-consolidated-roadmap.md`). **Not this mission's work**, and not to be swept into this mission's commits |
-| Rascal Rally version control | **`games/RascalRally` is not a git repository.** The git root is `GameStudio/ui/LuauUI`. So "commit as you go" (brief rule 6) covers framework work only, and the game-side rider's evidence is protected by the scratchpad backup rule instead |
+| Facet version | `0.9.0` (`src/init.luau`) |
+| Working tree at start | three modified files and three untracked paths, all belonging to the **declarative-3D** decision session (`docs/adr/ADR-0024-declarative-3d.md`, `spikes/`, `artifacts/declarative-3d-architecture/`, plus edits to `artifacts/code-simplicity-cleanup/public-surface.txt`, `docs/plans/distribution-readiness.md`, `docs/plans/facet-consolidated-roadmap.md`). **Not this mission's work**, and not to be swept into this mission's commits |
+| Rascal Rally version control | **`games/RascalRally` is not a git repository.** The git root is `GameStudio/ui/Facet`. So "commit as you go" (brief rule 6) covers framework work only, and the game-side rider's evidence is protected by the scratchpad backup rule instead |
 
 ### Standing rule 3's premise is wrong, and the true state is more interesting
 
@@ -53,7 +53,7 @@ the one the brief set out to fix.
   `resource` 0.21, `mutate` 0.04. **Eight scopes of twelve.** Its own key says
   `beforeFix`; the source stamp and the scenario version (`/1` → `/4`) are both
   since superseded.
-- **2026-08-05, `microprofilerScopes` (row PL-8)** — all **twelve** `LuauUI/*`
+- **2026-08-05, `microprofilerScopes` (row PL-8)** — all **twelve** `Facet/*`
   timers found by mask in a live capture (frames 18132–18387), with engine timer
   ids, `opens == closes == 313541`, `maxDepth: 4`. **Discovery and balance only.
   Zero milliseconds.**
@@ -66,7 +66,7 @@ And no capture file has ever been kept: `find` over the whole repo for `*.gprx`,
 > once for **timings**, on 2026-08-04, covering eight of twelve scopes at a source
 > stamp and scenario version both since superseded; and once for **timer
 > discovery and balance only**, on 2026-08-05. **No capture file has ever been
-> preserved**, and **`LuauUI/present`, `LuauUI/focusmap` and `LuauUI/tick` have
+> preserved**, and **`Facet/present`, `Facet/focusmap` and `Facet/tick` have
 > never been MicroProfiler-timed at all** — the three scopes that exist precisely
 > because they own the frame nobody was measuring.
 
@@ -134,7 +134,7 @@ all (`src/core/profile.luau:87-90`):
   *entire* dense-scroll workload's entry point and it is outside every scope
   until it reaches `react`.
 - **the resource drain loop** — `roblox_resources.luau:63`, a per-frame Heartbeat
-  iteration. `LuauUI/resource` covers only the completion.
+  iteration. `Facet/resource` covers only the completion.
 - **text measurement** — correctly excluded, because `GetTextBoundsAsync` yields
   and `profile.luau` rule 2 forbids a yield inside a span. A deliberate hole, but
   a capture reader must know the text round is invisible.
@@ -241,7 +241,7 @@ Three supporting facts, each verified rather than assumed:
 - **Apple built the containers first.** `Layout` is iOS 16 / macOS 13 — three-plus
   years and four major versions after `HStack`. The generalisation *followed* a
   large body of native containers; it did not substitute for them.
-- **LuauUI already has the better-shaped answer in this space.** `UI.Composition`
+- **Facet already has the better-shaped answer in this space.** `UI.Composition`
   / `UI.Region` is "closer to a full `Layout` protocol plus `layoutPriority`
   combined than SwiftUI ships in any single construct"
   (`swiftui-parity.md:221`) — and it does it with **frozen, validated data**
@@ -267,7 +267,7 @@ the exact internal seam a future `Layout` would need proven anyway.
 ### Roblox's undefined rule turned out to be defined — measured, not read
 
 Both the brief and `swiftui-parity.md` §4.3 say flow-wrap "needs a cross-axis
-line-distribution rule that the Roblox documentation does not define — so LuauUI
+line-distribution rule that the Roblox documentation does not define — so Facet
 would have to define it, and own the divergence". The documentation half is
 confirmed: the string `AlignContent` appears **zero** times in the engine API
 dump (client `0.734.0.7340915`, 2026-08-10), and neither the `UIListLayout`
@@ -299,18 +299,18 @@ and, with a ragged line (item 2 is 90 tall rather than 40):
    the job. CSS's `space-between` / `space-around` *between lines* has no native
    counterpart.
 2. **A line's cross extent is its tallest item** — the second line starts at 90,
-   not at 40. Same rule as CSS, and the same rule LuauUI's flow-`grid` branch
+   not at 40. Same rule as CSS, and the same rule Facet's flow-`grid` branch
    already uses (`solver.luau:3160`).
 
 **This deletes a design decision instead of adding one.** The reconnaissance
 recommended a new cross-axis distribution prop reusing `distribute`'s six-word
 vocabulary, defaulting to `start`. The measurement says **no new prop is needed
-at all**: LuauUI's existing `align` on an `HStack`/`VStack` *is* the container's
+at all**: Facet's existing `align` on an `HStack`/`VStack` *is* the container's
 cross-axis alignment, and `lineAlign` (shipped in round 2) *is* per-child
-alignment within a line. The engine's three-level structure and LuauUI's map
+alignment within a line. The engine's three-level structure and Facet's map
 one-to-one, already:
 
-| Level | Roblox | LuauUI, today |
+| Level | Roblox | Facet, today |
 |---|---|---|
 | where the block of lines sits on the cross axis | `VerticalAlignment` / `HorizontalAlignment` | **`align`** |
 | where an item sits within its line | `ItemLineAlignment` | **`lineAlign`** |
@@ -319,7 +319,7 @@ one-to-one, already:
 So flow-wrap adds **one prop** — the switch that turns wrapping on — and inherits
 its whole alignment story from vocabulary that already ships. That is rung 1 of
 the simplicity ladder answering "does it need to exist at all?" with *no*, and it
-is byte-identical native parity rather than a divergence LuauUI has to own and
+is byte-identical native parity rather than a divergence Facet has to own and
 document.
 
 *(A note for the record, since it will otherwise be re-hunted: `FlexAlgorithm` is
@@ -489,7 +489,7 @@ SwiftUI's family, verified live 2026-08-13 (all three live on `View`, not on
 | `moveDisabled(_:)` | "Adds a condition for whether the view's view hierarchy is movable." | iOS 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ |
 
 Apple attaches them to the **row view** with an ordinary boolean over the item.
-LuauUI has no per-row-view modifier vocabulary, so the faithful translation is a
+Facet has no per-row-view modifier vocabulary, so the faithful translation is a
 **spec-level per-row closure** — which is already this codebase's idiom for
 exactly this shape, five times over: `rowFocusable`, `rowDropTarget`,
 `rowActions`, `rowHeight`, `dragLabel`.
@@ -531,8 +531,8 @@ paid for:
    precedent.
 
 **Consumer blast radius: near zero.** Rascal Rally's two call sites —
-`LuauUIRacerListScreen.luau:159` (`newTable`) and
-`LuauUISponsor/RacerList.luau:917` (`newVirtualList`) — declare no `reorderable =
+`FacetRacerListScreen.luau:159` (`newTable`) and
+`FacetSponsor/RacerList.luau:917` (`newVirtualList`) — declare no `reorderable =
 true`, no `rowActions`, and the Sponsor list already carries a per-row predicate
 of exactly the proposed shape (`rowFocusable`). Both compile untouched; the rider
 is an added contract test, not a migration.
@@ -554,7 +554,7 @@ Checked live 2026-08-13 against `create.roblox.com` and the engine API dump
 | `GuiObject.Rotation` | Exists, degrees — but **the pivot is not settable** ("relative to the centre… you cannot change the point of rotation") and it is documented **incompatible with `ClipsDescendants`** |
 | a first-party spinner/loading widget | **None** in the class list or the UI docs |
 
-So: build both forms on **`Path2D`**, which LuauUI already ships as `UI.Path`.
+So: build both forms on **`Path2D`**, which Facet already ships as `UI.Path`.
 
 ### The enabling fact, and why nothing new is invented
 
@@ -741,7 +741,7 @@ The most valuable half of the audit, each with its evidence:
 ### Two process findings worth more than any single item
 
 1. **No round-2 review artifact exists in the tree.** `artifacts/swiftui-parity-round2/` holds three files and none is a review; `[SHOWCASE-CHROME]: CONCERNS 16` survives only as prose citations, and `gate.json` cites a `prior-gates-rerun.txt` that **does not exist**. Every round-2 review finding is unrecoverable except as summary. *Reviews must land as artifacts.*
-2. **The tree was not exclusively this mission's, and checking is what proved it.** A concurrent session's `tools/gate.sh swiftui-parity-round2` had been hung for 2 h 37 m holding `/tmp/luauui_prior_gates.lock`, which is why round 2's `prior-gates-unregressed` reads `FAIL_RECOVERABLE`. The reconnaissance recommended clearing the lock as "the cheapest unblock in the ledger"; **`pgrep` showed a live process holding it, and clearing it blind would have broken that run.** It also explains the perf place changing mid-session. Killed with director authorisation, 2026-08-13, along with three further orphans. *`ListAgents` is not enough — check the process table.*
+2. **The tree was not exclusively this mission's, and checking is what proved it.** A concurrent session's `tools/gate.sh swiftui-parity-round2` had been hung for 2 h 37 m holding `/tmp/facet_prior_gates.lock`, which is why round 2's `prior-gates-unregressed` reads `FAIL_RECOVERABLE`. The reconnaissance recommended clearing the lock as "the cheapest unblock in the ledger"; **`pgrep` showed a live process holding it, and clearing it blind would have broken that run.** It also explains the perf place changing mid-session. Killed with director authorisation, 2026-08-13, along with three further orphans. *`ListAgents` is not enough — check the process table.*
 
 ---
 
@@ -822,7 +822,7 @@ where no determinate circular progress view style is available, circular progres
 views use an indeterminate style"* (SW-130). So `swiftui-parity.md` claims
 `ProgressView` parity for the **indeterminate** ring only; the determinate ring is
 cited against `Gauge(.accessoryCircularCapacity)` (SW-131), which is also the one
-`Gauge` shape LuauUI now has.
+`Gauge` shape Facet now has.
 
 ### 4. Sizing: two optional metrics, and the arithmetic lives where the numbers do
 
@@ -911,7 +911,7 @@ It is **still open**, and the honest statement is in two halves:
 `ORDER`, `demo_picker.DEMOS` and the always-on `overflow_sweep` list ·
 `docs/reference/api.md`, `docs/reference/swiftui-parity.md` (rows + citations
 SW-130/SW-131), `docs/guide/10-rich-skinning.md` · and one extended framework
-rider in Rascal Rally's `tests/luauui_sponsor_results.spec.luau`, which asserts
+rider in Rascal Rally's `tests/facet_sponsor_results.spec.luau`, which asserts
 the bar's three registry cells directly (mutating `bar.valueLabel` to `false`
 reddens that one case and nothing else; mutating `bar.hasTrack` reddens 388,
 because the rally bar stops presenting).
@@ -923,7 +923,7 @@ because the rally bar stops presenting).
 Built 2026-08-13 against the Phase 0 verdict above, which is not re-litigated here:
 flow-wrap is a **native arrange branch**, the public `Layout` protocol stays a
 conditional refusal with a trigger, and the engine's cross-axis rule is a measured
-fact rather than a divergence LuauUI has to own. This section records the five
+fact rather than a divergence Facet has to own. This section records the five
 decisions the verdict left open, the two things it got wrong, and the evidence.
 
 ### A.1 The prop, and why it is a prop
@@ -1000,7 +1000,7 @@ It found a real defect immediately. The gallery fixture's alignment panel was a
 200px box reasoned from Studio Neutral's ~36px chip; the nine-package sweep
 reported it overflowing on the cross axis under **four** packages at 320px wide —
 glossy_touch by 33px, fantasy_parchment by 33, fantasy_ornate by 49, pixel_quest
-by 88. That is `docs/lessons/luauui-fixed-px-heights` arriving on schedule, caught
+by 88. That is `docs/lessons/facet-fixed-px-heights` arriving on schedule, caught
 by an instrument that did not exist an hour earlier.
 
 ### A.4 The cache key and the reuse skip: no widening, and here is the sentence
@@ -1111,7 +1111,7 @@ and the child axis) · `tests/flow_wrap.spec.luau` (**40 cases**) ·
 cross axis · `docs/reference/api.md`, `docs/guide/01-concepts.md` (§1.9, the ELI5
 paragraph), and the three now-false flow-wrap rows in
 `docs/reference/swiftui-parity.md` (§4.1's scorecard, the `Wraps` row, §4.3) ·
-plus `games/RascalRally/code/tests/luauui_flow_wrap_contract.spec.luau` (8 cases).
+plus `games/RascalRally/code/tests/facet_flow_wrap_contract.spec.luau` (8 cases).
 
 **Found and NOT fixed, in descending order of how much it would bother me:**
 
@@ -1153,7 +1153,7 @@ plus `games/RascalRally/code/tests/luauui_flow_wrap_contract.spec.luau` (8 cases
 # Item D3 — the five clean-room reference apps, re-proved
 
 **Closed 2026-08-13.** `examples/reference/p1_glade`, `p2_cartwheel`,
-`p3_sipworks`, `p4_foyer`, `p5_wardrobe`. Suites **4725 → 4734** (LuauUI) and
+`p3_sipworks`, `p4_foyer`, `p5_wardrobe`. Suites **4725 → 4734** (Facet) and
 **3149 → 3149** (Rascal Rally, untouched by this item). Nine new cases, every one
 mutation-proved. Five places rebuilt.
 
@@ -1369,7 +1369,7 @@ against `docs/guide/**` and `api.md`, and the results are what defect (2) report
 - `examples/reference/p5_wardrobe/init.luau`
 - `tests/reference/{cartwheel,foyer,wardrobe}_spec.luau` — 9 cases, 11 mutations
 - `artifacts/swiftui-reference-app-validation/capability-ledger.md` — gap #3 spent
-- all five `examples/places/LuauUI-Ref-*.rbxl` rebuilt
+- all five `examples/places/Facet-Ref-*.rbxl` rebuilt
 
 ---
 
@@ -1519,7 +1519,7 @@ goes true. Mutation **M15** makes the write a no-op and the case reddens, so it 
 not vacuous.
 
 The reduced-motion axis of a device canary is now reachable without a pointer and
-without that one demo on screen: `LuauUIShowcaseAPI.motion("reduced")`, plus
+without that one demo on screen: `FacetShowcaseAPI.motion("reduced")`, plus
 `chrome("demos"|"settings"|nil)` and a `toggleThemes` that routes through the same
 `chrome.request` a chip press and the toggle key take.
 
@@ -1554,13 +1554,13 @@ through a `copy` override the surface itself accepts.
 
 - `examples/gallery/client/showcase_chrome.luau` — new
 - `examples/gallery/client/settings_panel.luau` — new
-- `examples/gallery/client/init.client.luau` — the chrome block replaced by the module; `settings.apply()` on every demo mount; `motion` / `chrome` added to `LuauUIShowcaseAPI`
+- `examples/gallery/client/init.client.luau` — the chrome block replaced by the module; `settings.apply()` on every demo mount; `motion` / `chrome` added to `FacetShowcaseAPI`
 - `examples/gallery/client/demo_picker.luau` — `rows` (a plain stack for the panel's own card), `iconChip`, `onChip`/`onChose`, and the composed chip's label off the character clip
 - `examples/gallery/client/theme_picker.luau` — `sections` beside `panel`
 - `examples/gallery/scenarios/with_animation.luau` — reads the fact back; header updated
 - `tests/gallery_chrome.spec.luau` — new, 38 cases, 27 mutations
 - `tests/gallery_demo_picker.spec.luau` — the `pres.present` census follows the chrome out of the bootstrap
-- `examples/places/LuauUI-Showcase.rbxl` rebuilt
+- `examples/places/Facet-Showcase.rbxl` rebuilt
 
 ### 8. Not closed
 
@@ -1593,10 +1593,10 @@ citations:
 
 | Capability | Verdict it actually earned |
 |---|---|
-| `AsyncImage` → `LuauUI.newAsyncImage` | **Covered.** Its silent-failure rule is Apple's own, arrived at independently ([SW-132]) |
+| `AsyncImage` → `Facet.newAsyncImage` | **Covered.** Its silent-failure rule is Apple's own, arrived at independently ([SW-132]) |
 | `compositingGroup()`/`drawingGroup()` → `canvasGroup` | **Partial.** A `CanvasGroup` is grouped alpha and re-renders its children every frame; it is never `drawingGroup`'s cached bitmap |
 | `.keyboardType` → `TextField.keyboardType` | **Partial.** Declared, validated, enum-closed, adapter-mapped — and **inert**, because `TextBox.TextInputType` is not writable from a LocalScript today. Capability-detected, so the day the engine opens it every declaration already in the tree starts working |
-| `accessibilityReduceTransparency` → `effectiveTransparency` | **Partial.** The signal is first-class and fault-tested; **no shipped paint path reads it**. The one accessibility preference LuauUI reads and does not honour |
+| `accessibilityReduceTransparency` → `effectiveTransparency` | **Partial.** The signal is first-class and fault-tested; **no shipped paint path reads it**. The one accessibility preference Facet reads and does not honour |
 | `.onSubmit` → `onFocusLost(reason == "enter")` | **Composable**, scored so it stops looking like a gap. What is genuinely absent is the hierarchy-level submit channel |
 
 **Two of the four were Partial, not Covered**, which is the useful half. The
@@ -1623,7 +1623,7 @@ cost estimate is trustworthy.
 
 Apple declines to specify these: *"The exact moment that SwiftUI calls this
 method depends on the specific view type that you apply it to"* ([SW-138],
-[SW-139]). So they are LuauUI's to define, and they are defined:
+[SW-139]). So they are Facet's to define, and they are defined:
 
 - **`onAppear` drains after that frame's layout solve.** The callback can read
   its own rect. It is still before anything reaches the screen, because a refresh
@@ -1672,7 +1672,7 @@ No player could produce that tap — `Visible = false`, zero painted height — 
 longer reach content nobody can see. It is the round-2 orchestration note ("a
 test can be satisfied by a hidden copy") one step worse: this one *drove* the
 hidden copy. Pinned framework-side with a clean-room `ViewThatFits`, and
-game-side as `A37b`, which is the contract test for LuauUI's largest
+game-side as `A37b`, which is the contract test for Facet's largest
 `ViewThatFits` consumer.
 
 ## 3. What was deliberately left, and why each
@@ -1730,7 +1730,7 @@ out (#3, #7, #18, #19, #23, #39) stay ruled out.
 
 ## 4. Evidence
 
-- **Suites.** LuauUI **4725 → 4803**. Rascal Rally **3149 → 3150** (A37b added;
+- **Suites.** Facet **4725 → 4803**. Rascal Rally **3149 → 3150** (A37b added;
   A37 fixed). Both green.
 - **Mutations, 18 in total**, every anchor asserted to match exactly once before
   the run because a mutation that silently matches nothing reports "0 reddened"
@@ -1890,7 +1890,7 @@ a shrug:
    to delete the line, so the list can only shrink.
 
 **Triage classes.** `fixed-px-vs-text` = a px extent fixed against content that is
-not (`docs/lessons/luauui-fixed-px-heights.md`); `row-cannot-shrink` = a row of
+not (`docs/lessons/facet-fixed-px-heights.md`); `row-cannot-shrink` = a row of
 labels or controls wider than the screen with nothing allowed to shrink;
 `page-not-scrollable` = a whole surface taller than a short canvas (usually
 640×320) with no page scroller; `wrap-clamp` = a `hwrap` line clamping a child it
@@ -1984,7 +1984,7 @@ type scale (the ten-foot row overflowed its 56px slot by **3px**), then the them
 insets (**19px** under fantasy-ornate), and — found on a real device on
 2026-08-13 — never the accessibility text preference (**11/39/59px** at
 `preferredTextOffset` 4/10/14, and the lab refused to mount). Four inputs, three
-of them added post-mortem. The class is `docs/lessons/luauui-fixed-px-heights.md`.
+of them added post-mortem. The class is `docs/lessons/facet-fixed-px-heights.md`.
 
 The director's ruling was to build the CHECK, not variable extents.
 
@@ -2043,7 +2043,7 @@ marked-row comparison in both suites:
 
 | suite | comparisons | distinct lists | deltas in (0,1)px | tightest fitting row |
 |---|---|---|---|---|
-| LuauUI (4819 cases) | 56 298 | 7 | **0** | exactly 0.0 |
+| Facet (4819 cases) | 56 298 | 7 | **0** | exactly 0.0 |
 | RascalRally (3150 cases) | 5 143 | 1 | **0** | −17.0 |
 
 The distribution is quantized: an honest row lands on **0 or below**, and the
@@ -2079,7 +2079,7 @@ scene the noise is ~27 %, so no single-scene number is quoted.
 ## What the guard found, and what it cannot yet enforce
 
 - **The fill-axis lift is not theoretical.** Of 791 positive deltas across the
-  LuauUI suite, **254 sit on a `fill` main axis** — shapes the previous ZStack
+  Facet suite, **254 sit on a `fill` main axis** — shapes the previous ZStack
   overlap finding was structurally blind to. The paths are the gallery sponsor
   labs' row cards: `/ListLab/…/Row/Card` (+5px) and `/DropLab/…/Row/Card` (+4px).
   (`/ListLab/…/Row/Card/Labels` is already on the overflow sweep's waiver list for
@@ -2286,7 +2286,7 @@ Everything above the line is one of the five. Below it is what the same run foun
 The two `lying-itemExtent` rows on `perf_capture` and `virtual_list_native` are
 the class the guard's own author expected the sweep to catch and could not; both
 are the ten-foot type scale against a declared px pitch, which is
-`docs/lessons/luauui-fixed-px-heights.md` for the fourth time.
+`docs/lessons/facet-fixed-px-heights.md` for the fourth time.
 
 ## Mutation-proved, eight ways, each naming the case it reddened
 
@@ -2312,13 +2312,13 @@ asserts that **neither message contains either phrase the old filter grepped for
 The game holds two of its own always-on diagnostic checks, and both had the same
 defect in a narrower form. Measured first, then widened:
 
-- `code/tests/luauui_large_text_sweep.spec.luau` greped `"overflow"`. **The
+- `code/tests/facet_large_text_sweep.spec.luau` greped `"overflow"`. **The
   surface it sweeps is built on `newVirtualList`**, whose slot guard never uses
   that word — a lying `itemExtent` on the production racer list, every row
   painting over the next, would have left it green. It now collects **every**
   finding; measured before the change, that world produces **zero** findings of
   any class at 3 views × 4 preferences, so the wider check needed no waiver.
-- `code/tests/luauui_large_text_results.spec.luau` greped `"overflows its"`, and
+- `code/tests/facet_large_text_results.spec.luau` greped `"overflows its"`, and
   therefore could not see either the slot class or `"content box collapses to
   0px"`. It now collects everything **except** the declared-fallback note, which
   the case below it already pins with a director-level reason.
@@ -2356,7 +2356,7 @@ slot — so on that surface the guard is not the protection; the geometry pins a
 # Rows 8 and 9 shipped — row actions are no longer pointer-only
 
 **Closed 2026-08-13.** `e54d671` (Table), `e725c68` (VirtualList), `2774513`
-(showcase), `245e6bb` (the engine measurement). LuauUI **4842 → 4856**, Rascal
+(showcase), `245e6bb` (the engine measurement). Facet **4842 → 4856**, Rascal
 Rally **3154 → 3160**, both green.
 
 ## One sentence, two hosts
@@ -2430,7 +2430,7 @@ pin it was, plus 5 more; 6 mutations) · `tests/row_actions_scenario.spec.luau` 
 `examples/gallery/scenarios/row_actions.luau` (`keyDeleteVList`, `menuVList`,
 `padMinusTable` — the showcase demo the rule requires) ·
 `tests/examples_gallery.spec.luau` (the shipped playlist, by keyboard) ·
-`games/RascalRally/code/tests/luauui_row_actions_reach_contract.spec.luau`
+`games/RascalRally/code/tests/facet_row_actions_reach_contract.spec.luau`
 (7 cases, 4 mutations).
 
 ## Found and NOT fixed

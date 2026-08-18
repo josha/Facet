@@ -8,11 +8,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local focus_graph = require("../src/focus/focus_graph")
 
 local function graphWith(entries: { any }, opts: any?)
-	local core = LuauUI.newCore()
+	local core = Facet.newCore()
 	local graph = focus_graph.new(core)
 	local options = opts or {}
 	if options.grouped then

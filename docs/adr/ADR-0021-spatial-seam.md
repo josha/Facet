@@ -7,7 +7,7 @@ that deferral left undefined.
 
 ## Context
 
-LuauUI targets Roblox, and Roblox has spatial surfaces: `SurfaceGui` in the world,
+Facet targets Roblox, and Roblox has spatial surfaces: `SurfaceGui` in the world,
 `VRService`, user-frame tracking, a GUI-input frame and a laser-pointer mode. A future
 game may want a menu on a garage wall or a HUD a player points at with a controller
 ray.
@@ -50,7 +50,7 @@ exactly that.
 
 ### 3. Spatial data is optional payload beside the 2D fields
 
-`LuauUI.spatial` defines `{ hit?, ray?, pose?, handedness, phase, target?, distance? }`
+`Facet.spatial` defines `{ hit?, ray?, pose?, handedness, phase, target?, distance? }`
 and attaches it to the existing normalized pointer position as `pos.spatial`. `pos.x`
 and `pos.y` keep meaning what they mean. A handler written before this ADR keeps
 working — proven by mounting a real Button through the real renderer, driving it once
@@ -62,7 +62,7 @@ Three deliberate restrictions:
   platform reporting a distance that disagrees with its own geometry would be
   reporting two different things.
 - **`pose` carries position and an optional forward vector, not a transform.** A
-  rotation convention LuauUI has not measured on hardware would be an invented
+  rotation convention Facet has not measured on hardware would be an invented
   semantic.
 - **`normalize` never errors.** Hostile or partial data degrades to a well-formed
   value or to `nil`: a zero-length direction drops the ray rather than dividing by
@@ -78,7 +78,7 @@ carries the ten questions a Studio and physical spike must answer before an adap
 written: canvas mapping, adornee lifetime, local ownership, clipping, stylesheet
 resolution, pointer/ray coordinates, focus legibility, occlusion, teardown, and
 per-frame cost. The contract checker does not know about it, no adapter file exists,
-and `LuauUI.newSurfaceTarget` is absent — all three asserted.
+and `Facet.newSurfaceTarget` is absent — all three asserted.
 
 The questions are the deliverable. Guessing at any of them produces an adapter that
 looks correct and is not.
@@ -99,5 +99,5 @@ API reference and source for VR-support phrasings and fails the build if one app
 - The cost is a small amount of currently-unused surface: one environment fact, one
   derived policy, one capability flag, one pure module and one declaration table. That
   is the price of the seam, and it is paid once.
-- **Nothing here is spatial support.** The honest statement is: *LuauUI has an
+- **Nothing here is spatial support.** The honest statement is: *Facet has an
   extension seam for spatial UI.*

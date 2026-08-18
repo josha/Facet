@@ -2,7 +2,7 @@
 --[[ Scenario 'flow_wrap' — THE ROW THAT RUNS OUT OF ROOM, and what it does then.
 
 	`wrap` shipped in SwiftUI-parity round 3 item A: Roblox's
-	`UIListLayout.Wraps`, which LuauUI had no spelling for at all. The standing
+	`UIListLayout.Wraps`, which Facet had no spelling for at all. The standing
 	obligation is that every new public API appears in a gallery scenario the
 	headless suite executes, and this is that scenario.
 
@@ -43,7 +43,7 @@
 -- the lines do not fill their container.
 --
 -- THIS NUMBER WAS MEASURED, NOT GUESSED, and the first guess was wrong in exactly
--- the documented way (`docs/lessons/luauui-fixed-px-heights`: a px height fixed
+-- the documented way (`docs/lessons/facet-fixed-px-heights`: a px height fixed
 -- against unfixed content). 200 was reasoned from Studio Neutral's ~36px chip and
 -- held there — and then the nine-package sweep in `tests/flow_wrap.spec.luau`
 -- reported four packages overflowing this box on the cross axis at 320px wide:
@@ -123,8 +123,8 @@ return {
 	tagCount = TAG_COUNT,
 	shortCount = SHORT_COUNT,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("flow-wrap")
 
@@ -141,7 +141,7 @@ return {
 			return if use(wrapping) then COPY.fitting else COPY.overflowing
 		end))
 
-		local alignPicker = LuauUI.newPicker(LuauUI, core, {
+		local alignPicker = Facet.newPicker(Facet, core, {
 			id = "BlockAlign",
 			label = COPY.alignLabel,
 			-- SEGMENTED, declared: three peers, and the whole point is that they are

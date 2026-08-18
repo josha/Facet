@@ -17,7 +17,7 @@ function topfive.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local stats = app.services.stats
 
 	local self: any = {}
@@ -44,7 +44,7 @@ function topfive.new(app: any): any
 		return tostring(use(total))
 	end)
 
-	local picker = LuauUI.newPicker(LuauUI, core, {
+	local picker = Facet.newPicker(Facet, core, {
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.day") },

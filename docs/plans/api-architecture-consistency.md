@@ -1,10 +1,10 @@
-# LuauUI API and architecture consistency
+# Facet API and architecture consistency
 
 **Status:** Planned after the parallel Sponsor build and before new public features.
 
 ## Purpose
 
-LuauUI should feel like one framework. After learning one primitive, control, or
+Facet should feel like one framework. After learning one primitive, control, or
 extension workflow, an author should be able to predict how the next one is named,
 constructed, bound to state, styled, adapted, tested, and disposed.
 
@@ -30,7 +30,7 @@ Publish one concise API constitution that covers:
 - the minimum tests, Studio evidence, documentation, and registration required for
   each kind of public addition.
 
-The rules must use current LuauUI examples rather than abstract slogans. Explain each
+The rules must use current Facet examples rather than abstract slogans. Explain each
 approved exception and why making it uniform would make the API worse.
 
 ## Consistency audit
@@ -78,5 +78,5 @@ change visible, input, layout, adapter, or lifecycle behavior.
 The gate passes when every current public item is classified, the rules are linked
 from the guide and extension docs, compatible defects are fixed, larger changes are
 not smuggled in, and a future agent has one authoritative place to learn how a new
-LuauUI feature should fit.
+Facet feature should fit.
 

@@ -11,7 +11,7 @@ platform assumption.
 
 The product rule is simple:
 
-> Keep LuauUI's decisions deterministic and headlessly testable. At the Roblox
+> Keep Facet's decisions deterministic and headlessly testable. At the Roblox
 > adapter edge, use the engine primitive that already owns the behavior. Build a
 > framework abstraction only for composition, policy, fallback, or behavior Roblox
 > does not provide.
@@ -24,7 +24,7 @@ Roblox has a native cross-input drag detector. It handles mouse, touch, and game
 supports constrained or scriptable motion, exposes drag lifecycle events, and can be
 used for sliders as well as free dragging.
 
-LuauUI should therefore not begin by generalizing its raw `UI.Grip` pointer capture
+Facet should therefore not begin by generalizing its raw `UI.Grip` pointer capture
 into another platform-level recognizer.
 
 - Put `UIDragDetector` behind an adapter capability.
@@ -35,7 +35,7 @@ into another platform-level recognizer.
 - Use the detector for Slider before inventing slider-specific pointer capture.
 - Preserve the raw pointer seam only where it represents genuinely missing behavior.
 
-The Studio spike must prove coordinate mapping through LuauUI's flat renderer,
+The Studio spike must prove coordinate mapping through Facet's flat renderer,
 reparented scroll hosts, scrolling during drag, gamepad speed, cancellation, and the
 Sponsor card-to-row drop case.
 
@@ -48,7 +48,7 @@ Sources: [Roblox drag detector guide](https://create.roblox.com/docs/ui/ui-drag-
 `TouchRotate`, `TouchSwipe`, and `TouchTap`. The SwiftUI audit's claim that the
 engine surface is unverified is outdated.
 
-LuauUI still needs a framework gesture layer, but its job is to normalize native
+Facet still needs a framework gesture layer, but its job is to normalize native
 events into stable value objects, compose gestures, arbitrate conflicts, express
 cross-input alternatives, and provide headless drivers. It should not re-recognize
 touch gestures from raw samples unless a Studio test proves a native event is
@@ -92,7 +92,7 @@ non-interactable states.
 Replace every instruction to "set" or "flip" `GuiState` with this division:
 
 - use `:Hover`, `:Press`, and `:NonInteractable` rules for engine-owned button state;
-- add or remove named tags for LuauUI-owned state such as `selected`, logical focus,
+- add or remove named tags for Facet-owned state such as `selected`, logical focus,
   validation, drag eligibility, and semantic role.
 
 Source: [`GuiObject` reference](https://create.roblox.com/docs/reference/engine/classes/GuiObject).
@@ -100,13 +100,13 @@ Source: [`GuiObject` reference](https://create.roblox.com/docs/reference/engine/
 ### 6. `StyleQuery` conditions are a closed native set
 
 `StyleQuery:SetCondition` accepts named built-in conditions; it is not a general
-store for arbitrary LuauUI environment values. Custom names fail silently. Use native
+store for arbitrary Facet environment values. Custom names fail silently. Use native
 queries only for native facts such as preferred input, display size, reduced motion,
-aspect ratio, and size ranges. Use tags for LuauUI's filtered interaction class,
+aspect ratio, and size ranges. Use tags for Facet's filtered interaction class,
 pointer-live rule, and other framework decisions.
 
 In particular, do not call `SetCondition("preferredInput", ...)`. Native
-`PreferredInput` and LuauUI's noise-filtered paradigm are not the same thing.
+`PreferredInput` and Facet's noise-filtered paradigm are not the same thing.
 
 Source: [`StyleQuery` reference](https://create.roblox.com/docs/reference/engine/classes/StyleQuery).
 
@@ -135,7 +135,7 @@ Luau.
 
 The headless solver remains authoritative for layout geometry and the values it must
 read while no DataModel exists. Do not claim that a spacing or type-size edit in the
-Style Editor affects LuauUI layout unless a tested export/synchronization workflow is
+Style Editor affects Facet layout unless a tested export/synchronization workflow is
 installed. Choose one honest workflow:
 
 1. a Studio-owned sheet plus an exported, freshness-checked layout-token snapshot;
@@ -150,17 +150,17 @@ which editor fields affect runtime paint immediately and which require export.
 
 Roblox applies `PreferredTextSize` in its font-rendering pipeline. Text measurement
 APIs honor it; `TextScaled` opts out; `UITextSizeConstraint` can bound it; and
-`AutomaticSize` can grow containers around it. LuauUI currently maps the preference
+`AutomaticSize` can grow containers around it. Facet currently maps the preference
 to `typographyScale` and also multiplies `TextSize`, which may apply the preference
 twice.
 
 Before changing text scaling, run a Studio matrix covering every
 `PreferredTextSize`, explicit/default `TextSize`, `TextScaled`,
-`UITextSizeConstraint`, wrapped text, and the measurement API LuauUI uses. The likely
+`UITextSizeConstraint`, wrapped text, and the measurement API Facet uses. The likely
 target is:
 
 - the engine owns the player's preferred text rendering in production;
-- LuauUI applies only authored scale such as the ten-foot treatment;
+- Facet applies only authored scale such as the ten-foot treatment;
 - the headless solver models the same reserved bounds using injected preference
   facts, without writing the player's preference back as another scale;
 - measured and painted bounds agree and never clip.
@@ -170,7 +170,7 @@ Source: [Roblox accessibility guidance](https://create.roblox.com/docs/productio
 ### 10. Safe-area authority must be singular
 
 Read four-edge insets from `GuiService:GetInsetArea(Enum.ScreenInsets...)` and choose
-one coordinate model. If LuauUI applies injected inset facts in the solver, configure
+one coordinate model. If Facet applies injected inset facts in the solver, configure
 the root `ScreenGui` so Roblox does not apply the same inset again. Verify portrait,
 landscape notch, topbar, console overscan, and orientation changes.
 
@@ -187,19 +187,19 @@ sound design contract, and Roblox may clear a selection that moves offscreen.
 
 Use this safety rule:
 
-- LuauUI's logical focus graph always owns focus identity and navigation.
+- Facet's logical focus graph always owns focus identity and navigation.
 - Gameplay/passive HUDs, including the normal Sponsor race surface, keep
   `GuiService.SelectedObject = nil`; selecting UI can reserve controls that gameplay
   needs.
 - A modal/menu may opt into an engine-selection bridge only while its responder owns
   UI input, after Studio and physical-gamepad verification.
-- If the bridge cannot be made passive, use LuauUI's own focus visual and explicit
+- If the bridge cannot be made passive, use Facet's own focus visual and explicit
   scroll-to-visible command.
 
 ### 12. `PreloadAsync` cancellation is logical, not physical
 
 `ContentProvider:PreloadAsync` yields and reports final per-asset fetch status through
-its callback. It exposes no cancellation API. Releasing a LuauUI resource handle can
+its callback. It exposes no cancellation API. Releasing a Facet resource handle can
 ignore a stale completion and prevent queued work from starting, but it cannot stop
 an in-flight Roblox fetch.
 
@@ -214,7 +214,7 @@ Source: [`ContentProvider` reference](https://create.roblox.com/docs/reference/e
 not a stub. Sponsor parity work should verify and extend it only for missing live
 requirements such as coordinate mapping or pointer capture.
 
-Haptics and sound stay semantic seams. LuauUI may emit events such as select,
+Haptics and sound stay semantic seams. Facet may emit events such as select,
 activate, error, commit, land, or celebrate; the game owns `HapticEffect` selection,
 sound assets, mixing, and policy. Confetti and other authored particles remain game
 presentation unless a broadly reusable framework need is demonstrated.
@@ -223,7 +223,7 @@ presentation unless a broadly reusable framework need is demonstrated.
 
 Before production implementation, capture machine evidence for:
 
-1. `ScrollingFrame` as LuauUI's scroll/clip host, including virtualization.
+1. `ScrollingFrame` as Facet's scroll/clip host, including virtualization.
 2. `UIDragDetector` through flat hierarchy, scrolling, gamepad, and Sponsor drop.
 3. Native touch gesture events and their arbitration behavior.
 4. `Path2D` for Sponsor rings/needle and Studio authoring.

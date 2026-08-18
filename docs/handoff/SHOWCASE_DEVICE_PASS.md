@@ -1,7 +1,7 @@
-# Handoff — LuauUI showcase place, device-fix pass
+# Handoff — Facet showcase place, device-fix pass
 
 **Written:** 2026-07-26, end of session. **For:** a fresh context continuing the
-device-driven bug fixing on `examples/places/LuauUI-Showcase.rbxl`.
+device-driven bug fixing on `examples/places/Facet-Showcase.rbxl`.
 
 Read this, then `docs/guide/11-device-verification.md` §"The hands-on place".
 
@@ -26,12 +26,12 @@ fresh-context review closed at **READY TO DECLARE** (round 7).
 ## 1. First thing to do
 
 ```bash
-cd GameStudio/ui/LuauUI
+cd GameStudio/ui/Facet
 ./tools/test.sh                       # expect 2058
 ./tools/gate.sh cross-platform-proof  # expect PASS
 ```
 
-Then **open `examples/places/LuauUI-Showcase.rbxl` fresh** and press Play.
+Then **open `examples/places/Facet-Showcase.rbxl` fresh** and press Play.
 
 > ⚠️ If a Studio session from the last run is still open, its scripts hold
 > PUSHED sources from mid-session and are **older than the tree**. The `.rbxl`
@@ -58,7 +58,7 @@ the running place, through the MCP bridge (§2):
 
 ```lua
 -- in the Edit datamodel
-return (game:GetService("ReplicatedStorage").LuauUI.controls :: any):FindFirstChild("rating") ~= nil
+return (game:GetService("ReplicatedStorage").Facet.controls :: any):FindFirstChild("rating") ~= nil
 ```
 
 A `false` there with a `1` from the grep above means: close the place and reopen
@@ -87,7 +87,7 @@ local rs = game:GetService("ReplicatedStorage")
 ;(g :: any).Source              = Http:GetAsync(B .. "examples/gallery/client/init.client.luau")
 ;(g.demo_picker :: any).Source  = Http:GetAsync(B .. "examples/gallery/client/demo_picker.luau")
 ;(g.theme_picker :: any).Source = Http:GetAsync(B .. "examples/gallery/client/theme_picker.luau")
-;(rs.LuauUI.render.renderer :: any).Source = Http:GetAsync(B .. "src/render/renderer.luau")
+;(rs.Facet.render.renderer :: any).Source = Http:GetAsync(B .. "src/render/renderer.luau")
 return "synced"
 ```
 
@@ -99,12 +99,12 @@ tree disagree.
 
 Injected input **does not deliver events** in this Studio (the open XP-B3
 limitation — `VirtualInput` methods exist and are callable, calls succeed, no
-`InputBegan` arrives). So the place publishes `workspace.LuauUIShowcaseAPI` as
+`InputBegan` arrives). So the place publishes `workspace.FacetShowcaseAPI` as
 BindableFunctions (the MCP runs in a different Luau VM, so `_G` does not cross
 but the DataModel does):
 
 ```lua
-local api = workspace.LuauUIShowcaseAPI
+local api = workspace.FacetShowcaseAPI
 api.showNext:Invoke("1")            -- {"current":"ex03","mounted":"ex03","ok":true}
 api.current:Invoke()                 -- the same three fields
 api.toggleThemes:Invoke()            -- open/close the theme panel
@@ -172,7 +172,7 @@ seven fixes are in `src/`, and the seventh is a new control.
 | 3 | Ugly blur behind the stars (Glossy Mobile) | `surface = "plain"` was honoured by native paint and IGNORED by the chrome classifier, so every star still got the package's `control` recipe — art in one theme, a drop shadow in another | `src/tokens/chrome_slots.luau` `classify` |
 | 4a | Row text overflows the row card (Glossy Touch, Pixel Quest, Compact) | a row's painted card and its cells are DIFFERENT nodes, so the renderer's inset reservation landed on a childless hit button and nothing spent it | `src/controls/table.luau` + `chromeInsets` as a readable metric |
 | 4b | Edit button clipped to "E" / empty | `fixed` 56×24 could not grow for the theme's own frame | `src/controls/table.luau` |
-| 4c | "the rating shouldn't render individual buttons" | it shouldn't — five Buttons is wrong on paint, input AND semantics | **new `LuauUI.newRating`** |
+| 4c | "the rating shouldn't render individual buttons" | it shouldn't — five Buttons is wrong on paint, input AND semantics | **new `Facet.newRating`** |
 | 5 | Filter field has no background while focused; ✕ overflows its button | the editing yield hid the ART while slot suppression had already hidden the NODE's own fill — nothing painted; and a 28px box minus a 12px-a-side text inset leaves 4px for a glyph | `src/tokens/sheet_model.luau`, `src/client/screen_chrome.luau`, `src/controls/text_input.luau` |
 | 6 | Compact: both sides of the rows overflow | same as 4a | see 4a |
 
@@ -479,7 +479,7 @@ framework started shipping art, and they now assert the icon floor instead
 
 ### Found, NOT fixed
 
-* **`workspace.LuauUIShowcaseAPI.pickTheme` is dead.** It calls
+* **`workspace.FacetShowcaseAPI.pickTheme` is dead.** It calls
   `showcasePicker.dispatch(...)`, and the theme picker stopped exposing `dispatch`
   when behaviour moved onto the nodes (§4.1). It errors with *"attempt to call a
   nil value"* at `Gallery:526`. §2 already warns that driving it does not prove a
@@ -607,7 +607,7 @@ Worth writing down, because each one nearly produced a false finding.
    `AbsolutePosition` of the host, the decoration and the text — three numbers,
    no interpretation.
 
-**Also fixed on the way:** `LuauUIShowcaseAPI.pickTheme` had been dead. The
+**Also fixed on the way:** `FacetShowcaseAPI.pickTheme` had been dead. The
 composed theme picker returned `dispatch = dispatch`, and `dispatch` had not
 existed since behaviour moved onto the nodes — a deleted local whose reference
 survived, which Luau reads as a nil GLOBAL rather than failing. So the composed
@@ -716,7 +716,7 @@ is not fixed.**
 |---|---|---|
 | 1 | Glossy Touch, playlist: "Drift City Nights" overflows the cell vertically | `rowHeight = 48` with an **uncapped** `UI.Text` cell |
 | 2 | Pixel Quest: same, plus the demo chip overlapping the "Playlist" heading | as above, and `BAR_HEIGHT = 62` reserved less than the chip it holds |
-| 3 | *"we likely want taller table cells on mobile for touch targeting — that seems like the paradigm adaptation luauui should handle"* | `rowHeight` was the consumer's number to guess at all |
+| 3 | *"we likely want taller table cells on mobile for touch targeting — that seems like the paradigm adaptation facet should handle"* | `rowHeight` was the consumer's number to guess at all |
 
 **Why the emulator was clean and the device was not.** It takes only a few
 pixels of extra text width to turn a two-line wrap into a three-line one. A fixed
@@ -831,13 +831,13 @@ guess about every font on every device.** Compose them into one solver instead.
 ## 5. Architecture of the showcase (what to read)
 
 - `examples/gallery/client/init.client.luau`, branch
-  `if workspace:GetAttribute("LuauUI_Showcase")` — the host. Owns: the backdrop,
+  `if workspace:GetAttribute("Facet_Showcase")` — the host. Owns: the backdrop,
   the reserved strip (`reserveBar`), the ONE chrome surface, per-demo scopes,
-  the loopback-server flush, and `LuauUIShowcaseAPI`.
+  the loopback-server flush, and `FacetShowcaseAPI`.
 - `examples/gallery/client/demo_picker.luau` / `theme_picker.luau` — each has a
   pure MODEL half (tested) and a `mount()`. Pass `composed = true` to get
   `{ chip, panel/list, open, ... }` back instead of a presented overlay.
-- `tools/build_places.sh` — the `LuauUI-Showcase` target.
+- `tools/build_places.sh` — the `Facet-Showcase` target.
 - `examples/showcase.project.json` — extracted for `rojo serve` if you want live
   sync instead of the HTTP push.
 

@@ -3,7 +3,7 @@
 -- ScrollingFrame — the solver owns every content rect and the canvas extent;
 -- the ENGINE owns scrolling (wheel/touch/momentum/bars) and clipping.
 -- Fallback A/B (NS-I2): run again with workspace attribute
--- LuauUI_ForceScrollFallback=true — same blueprint, clip-only Frame host.
+-- Facet_ForceScrollFallback=true — same blueprint, clip-only Frame host.
 --
 -- Native-input rows are driven by the MCP's real wheel injection OVER the
 -- list, not by steps; the steps here are labeled programmatic drivers.
@@ -17,13 +17,13 @@ return {
 	title = "Native scroll host (NS-A2)",
 	ledgerRows = { "NS-A2", "NS-I2" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local scope = ctx.core:scope("scroll-host")
 		-- "the vertical room is scarce", the framework's own Readable for it
 		-- (`adaptive.HEIGHT_BREAKPOINTS`, ADR-0023) — a Readable, so a rotation
 		-- re-resolves it instead of freezing whichever orientation booted first
-		local conditions = LuauUI.adaptive.conditions(ctx.core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(ctx.core, ctx.env, { scope = scope })
 		local showTitle = scope:own(ctx.core:memo(function(use)
 			return not use(conditions.isShort)
 		end))

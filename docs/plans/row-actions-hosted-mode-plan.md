@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Working dir: `GameStudio/ui/LuauUI`, branch `row-actions-perf`. NO git worktree (gates cannot run in one — known trap).
+- Working dir: `GameStudio/ui/Facet`, branch `row-actions-perf`. NO git worktree (gates cannot run in one — known trap).
 - Full suite must stay green at every commit: `tools/test.sh 4049` (floor rises as tests are added; never falls).
 - `stylua src tests` clean before each commit.
 - NO behavior change to standalone/Table row_actions — `tests/row_actions*.spec.luau` and `tests/table.spec.luau` are the net; never edit an existing assertion to make it pass (adding the two `_open()` precursor lines in Task 1 is the only sanctioned existing-test edit).
@@ -49,7 +49,7 @@ expect(w.rowA._isOpen()).toBe(true)
 - Test: `tests/row_actions_hosted.spec.luau` (new)
 
 **Interfaces:**
-- Produces: `row_actions.buildHosted(LuauUI, core, spec) -> HostedEngine` where `spec` = the standard row-actions spec fields (`id`, `leading`, `trailing`, `fullSwipe`, callbacks) PLUS `paths: { content: string, trayLeading: string?, trayTrailing: string? }` (rect-lookup paths the host owns) and `onSlide: (px: number) -> ()` (host applies the visual slide), `onCommitHeight: ((px: number?) -> ())?`.
+- Produces: `row_actions.buildHosted(Facet, core, spec) -> HostedEngine` where `spec` = the standard row-actions spec fields (`id`, `leading`, `trailing`, `fullSwipe`, callbacks) PLUS `paths: { content: string, trayLeading: string?, trayTrailing: string? }` (rect-lookup paths the host owns) and `onSlide: (px: number) -> ()` (host applies the visual slide), `onCommitHeight: ((px: number?) -> ())?`.
 - `HostedEngine` = `{ pointerHandlers = {onPointerDown, onPointerMove, onPointerUp, onPointerCancel}, open, close, _open, _isOpen, _commitFirst, dump, trayState: Readable, dispose }` — `pointerHandlers` signature identical to the existing `_pointerHandlers` (`(path, pos, rectOf)` contract, `src/controls/row_actions.luau:1799+`).
 - `trayState` (memo) = `nil | { edge: "leading"|"trailing", actions: {ActionSpec}, revealPx: Readable }` — what a host overlay needs to build/position trays.
 
@@ -144,17 +144,17 @@ Mechanics (design §Measured floors):
 
 ### Task 9: Full gate + RascalRally suite
 
-- [ ] **Step 1:** Stale lock check: `ls /tmp/luauui_prior_gates.lock 2>/dev/null && pgrep -f prior_gates.sh || true` — if lock exists with NO live prior_gates process: `rmdir /tmp/luauui_prior_gates.lock`.
+- [ ] **Step 1:** Stale lock check: `ls /tmp/facet_prior_gates.lock 2>/dev/null && pgrep -f prior_gates.sh || true` — if lock exists with NO live prior_gates process: `rmdir /tmp/facet_prior_gates.lock`.
 - [ ] **Step 2:** `nohup tools/gate.sh row-actions > artifacts/row-actions/gate-run.log 2>&1 &` — DETACHED (the prior-gates sweep inside runs >1hr); poll the log; requirement: exit 0, all checks PASS, `prior-gates-rerun.txt` ends `DONE` with only allowlisted FAIL_RECOVERABLE lines.
-- [ ] **Step 3:** RascalRally: run its suite per `games/RascalRally/code` convention (root CLAUDE.md: LuauUI and RascalRally move together; RR has zero rowActions call sites per `artifacts/row-actions/rr-compat.md`, so expectation = green with no changes; still update/extend the game-side compatibility evidence per the standing rule — at minimum re-run its suite against the new LuauUI src and record the count).
-- [ ] **Step 4:** Final full LuauUI suite; stylua; final commit; update `docs/plans/row-actions-perf-mission.md` status if not already.
+- [ ] **Step 3:** RascalRally: run its suite per `games/RascalRally/code` convention (root CLAUDE.md: Facet and RascalRally move together; RR has zero rowActions call sites per `artifacts/row-actions/rr-compat.md`, so expectation = green with no changes; still update/extend the game-side compatibility evidence per the standing rule — at minimum re-run its suite against the new Facet src and record the count).
+- [ ] **Step 4:** Final full Facet suite; stylua; final commit; update `docs/plans/row-actions-perf-mission.md` status if not already.
 
 ### Task 10: Icons — fresh Open Cloud key, upload, ids
 
 **Files:** `GameStudio/tools/API_KEYS.txt` (ROBLOX_API_KEY), `src/themes/standard_icons.luau` (ids pushed by the tool), `assets/icons/provenance.md`, `assets/icons/upload-manifest.json`
 
 - [ ] **Step 1:** Fresh key: create.roblox.com → Open Cloud → API keys — scope `assets` read+write (browser session; see `assets/icons/provenance.md:95-145` "Pending upload" for the exact failure being resumed).
-- [ ] **Step 2:** From `GameStudio/ui/LuauUI/`: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/.venv/bin/python tools/upload_icons.py` then `--recheck` (expect Approved/Image).
+- [ ] **Step 2:** From `GameStudio/ui/Facet/`: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/.venv/bin/python tools/upload_icons.py` then `--recheck` (expect Approved/Image).
 - [ ] **Step 3:** Verify `standard_icons.luau` now carries non-nil `contentId` for `trash`/`flag`; run `tests/compact_label.spec.luau`'s resolve tests + full suite; update provenance.md's Pending section to CLOSED; commit `feat(icons): trash/flag uploaded — content ids live`.
 
 ## Execution notes

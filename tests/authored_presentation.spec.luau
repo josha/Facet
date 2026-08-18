@@ -2,7 +2,7 @@
 --[[ AUTHORED PRESENTATION — `opacity`, `scale`, `rotation` (ADR-0026).
 
 	The director's ruling, 2026-08-14: *"should opacity, transparency, and scale
-	get owned/influenced by luauui? it seems like we should be able to animate
+	get owned/influenced by facet? it seems like we should be able to animate
 	those."*
 
 	THE WHOLE DESIGN IN ONE SENTENCE, and every case below defends one clause of
@@ -28,7 +28,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local schema = require("../src/blueprint_schema") :: any
 local fake_target = require("./lib/fake_target")
 
@@ -45,16 +45,16 @@ end
 -- of them (the off-path control).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.reducedMotion then
 		env:set("reducedMotion", true)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local opacity = core:signal(options.opacity or 1)
 	local scale = core:signal(options.scale or 1)
@@ -66,7 +66,7 @@ local function world(opts: any?)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
 
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local screen = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -153,7 +153,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`opacity` on a LEAF is refused at construction, because a leaf fade would defeat the sheet", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local ok, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -168,7 +168,7 @@ describe("authored presentation A — the props, and the refusals", function()
 		contain the answer, and never mentions the one-line spelling that works.
 		A capability that is refused has to say so at the point of use. ]]
 	it("THE DISABLED-DIMMING CASE: the refusal names the defeat it exists to prevent", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local ok, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -185,7 +185,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("...and it names the WORKAROUND, spelled out, not a doc reference", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -194,7 +194,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`canvasGroup` on a leaf is refused with the SAME message — one fact, both spellings", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", canvasGroup = true })
 		end)
@@ -204,7 +204,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("a genuinely unknown property is UNCHANGED — the refusal did not swallow the suggester", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", opactiy = 0.5 })
 		end)
@@ -259,7 +259,7 @@ describe("authored presentation A — the props, and the refusals", function()
 			expect(`{className}:{schema.refusal(className, "opacity")}`).toBe(`{className}:nil`)
 			expect(`{className} cg:{schema.refusal(className, "canvasGroup")}`).toBe(`{className} cg:nil`)
 		end
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local _, err = pcall(function()
 			return UI.When({
 				condition = true,
@@ -296,7 +296,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`scale` and `rotation` ARE offered on a leaf — neither touches a sheet-owned property", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		expect(function()
 				return UI.Text({ text = "hi", scale = 1.2, rotation = 8 })
 			end)
@@ -312,14 +312,14 @@ describe("authored presentation A — the props, and the refusals", function()
 		engine fact headless cannot see; it is measured live — probe W1, and
 		artifacts/leaf-opacity/live-probes.md.) ]]
 	it("the wrap fades the GROUP and writes nothing at all on the control inside it", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local UI = LuauUI.UI
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -349,7 +349,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		expect(function()
 			return UI.Box({ opacity = 1.5 })
 		end).toThrow()
@@ -418,14 +418,14 @@ describe("authored presentation B — the composition rule (ADR-0026 Decision 2)
 	end)
 
 	it("NESTED groups do NOT double-compose: the engine multiplies across nodes, the framework within one", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local UI = LuauUI.UI
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -559,14 +559,14 @@ end)
 
 describe("authored presentation D — off-path cost, and one write site", function()
 	it("a surface authoring NONE of the three writes no presentation property at all", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local UI = LuauUI.UI
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
 		pres.present(UI.Screen({
 			id = "S",
 			children = {

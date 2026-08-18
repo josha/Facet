@@ -30,7 +30,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local UI = require("../src/blueprint")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local environment = require("../src/env/environment")
 local mountLib = require("../src/mount")
@@ -51,7 +51,7 @@ local PACKAGES = {
 }
 
 local function packageOf(name: string): any
-	return (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+	return (require)(`../examples/themes/{name}`).build(Facet.themes)
 end
 
 -- mount one Button at a fixed width and report the rect AND the solver's

@@ -1,19 +1,19 @@
-# Plan: adopting Roblox native StyleSheets as LuauUI's styling backing store
+# Plan: adopting Roblox native StyleSheets as Facet's styling backing store
 
 > **2026-07-22 correction:** Read
 > [`roblox-native-audit-corrections.md`](roblox-native-audit-corrections.md) first.
-> In particular: `GuiState` is read-only; LuauUI-owned states use tags;
+> In particular: `GuiState` is read-only; Facet-owned states use tags;
 > `StyleQuery` accepts a closed set of built-in conditions rather than arbitrary
 > environment keys; `ReducedMotionEnabled` is a built-in query; and preferred text
 > size must be tested for double application. The addendum governs on conflict.
 
 - **Status:** Draft / proposal — **Revision 2 (2026-07-21, director rulings).** No
   code changed by this document.
-- **Author brief:** investigate whether LuauUI's bespoke styling/token system can
+- **Author brief:** investigate whether Facet's bespoke styling/token system can
   leverage Roblox's native UI styling (`StyleSheet` / `StyleRule` / `StyleDerive` /
   `StyleLink`, editable in Studio's visual Style Editor) so a user can author a
   stylesheet that **lives in the DataModel**, edit it with the **visual Style
-  Editor**, using **human-readable rule/token names**, while LuauUI consumes it —
+  Editor**, using **human-readable rule/token names**, while Facet consumes it —
   additively, never in conflict with native styling.
 - **Scope note:** this is a design plan with a phased build-out and verification
   gates. Several load-bearing engine facts are marked as **open questions** with a
@@ -28,7 +28,7 @@
 Three premises of Revision 1 were challenged. The rewrite below applies these
 rulings throughout; this section is the summary of the delta.
 
-**R1 — the boundary is *headless testability*, not engine-agnosticism.** LuauUI is
+**R1 — the boundary is *headless testability*, not engine-agnosticism.** Facet is
 Roblox-only; portability is not a goal, so R1's original justification for the
 paint/layout split ("keep the core engine-agnostic") is **void**. What survives —
 and is load-bearing — is that the 595-test Lune suite, the gates, the fuzzer, and
@@ -56,25 +56,25 @@ with a stated reason. The "what stays bespoke" list (§6.5) shrinks — most vis
 **state-driven motion** (hover/press/selection polish, theme cross-fades) moves
 from bespoke `TweenService` to native transitions.
 
-**R3 — LuauUI must be *additive* to native styling, never in conflict.** The
-director's example: a stylesheet defines a default font size; LuauUI's
+**R3 — Facet must be *additive* to native styling, never in conflict.** The
+director's example: a stylesheet defines a default font size; Facet's
 accessibility scaling applies *on top of it*. This collides head-on with the
 pivotal 2026-07-19 spike truth (§3): an explicit instance-property write **silently
 and permanently defeats** a `StyleRule`. So additive layering may **not** be
 implemented as explicit writes to styled properties. New **§6.9** specifies the
 layering contract — which value classes are sheet-owned base, which are
-LuauUI-owned modifiers, and the composition rule per class — and picks the
-mechanism. The chosen mechanism reuses the composition seam LuauUI **already**
+Facet-owned modifiers, and the composition rule per class — and picks the
+mechanism. The chosen mechanism reuses the composition seam Facet **already**
 ships: the type-scale resolver (`env.typographyScale` = base preference × ten-foot
 floor, `src/env/environment.luau:52-62`, applied in `applyTextScale`,
 `src/render/renderer.luau:352-368`) is exactly "one place where a base value and
-LuauUI's modifiers compose," and it already runs headlessly.
+Facet's modifiers compose," and it already runs headlessly.
 
 Preserved unchanged: the explicit-write-defeats-StyleRule constraint and the
 hand-off discipline (`src/render/authority.luau` as the map; delete explicit writes
 for handed-off properties); human-readable naming (§6.1); token-mapping direction;
 capability-probe + opt-in-flag staging; pixel-parity verification; the migration
-story; and the honest open-questions-with-verification-steps format. LuauUI's
+story; and the honest open-questions-with-verification-steps format. Facet's
 reduced-motion support, logical focus ring, and four-input-paradigm interaction
 model (ADR-0015/0016) remain **requirements, not negotiable**.
 
@@ -82,14 +82,14 @@ model (ADR-0015/0016) remain **requirements, not negotiable**.
 
 ## 1. Summary and recommendation
 
-Roblox native styling and LuauUI's current renderer are, today, **mutually
-exclusive for any given property**: LuauUI's client adapter paints by writing
+Roblox native styling and Facet's current renderer are, today, **mutually
+exclusive for any given property**: Facet's client adapter paints by writing
 instance properties *explicitly*, and a Studio spike this project already ran
 proved that an explicitly-set property **silently and permanently defeats a
 `StyleRule` for that property** and fires no change signal
 (`docs/research/2026-07-19-studio-spikes.md:17-20`). So "leverage native styling"
 cannot mean "layer a StyleSheet on top of what we already do" — it means
-**handing specific properties off**: LuauUI must *stop* writing the properties it
+**handing specific properties off**: Facet must *stop* writing the properties it
 wants native rules to own, tag/name the instances so native selectors match, and
 let a DataModel `StyleSheet` paint them. This same constraint is what makes R3's
 "additive" requirement a design problem rather than a one-liner (§6.9).
@@ -101,33 +101,33 @@ one-way scaffold generator as the Phase 1 on-ramp. The split that remains is **n
 paint-vs-everything; it is **"does this value feed the headless layout solver?"**
 Values the solver consumes (spacing, type sizes, layout radii, target sizes, motion
 *durations* used for measurement/scheduling) must be resolvable as plain Luau
-headlessly (R1) and so stay authoritative in LuauUI's compiled token set — with an
+headlessly (R1) and so stay authoritative in Facet's compiled token set — with an
 honest source-of-truth/sync story so a designer can still see and edit them in the
 Style Editor (§6.9). Everything else — the colour palette, surface fills, corner
 radius, hairline stroke, per-state fills, and the transitions that animate state
 changes — moves into a DataModel `StyleSheet` that becomes its source of truth,
-visually editable, with human-readable token and rule names derived from LuauUI's
-own semantic vocabulary. LuauUI's client adapter switches from *painting* those
+visually editable, with human-readable token and rule names derived from Facet's
+own semantic vocabulary. Facet's client adapter switches from *painting* those
 properties to **classifying** instances (class + app-state tags, one `StyleLink`
 per screen), while Roblox supplies read-only native button states.
 
-Two capabilities this unlocks are new to LuauUI: **runtime theming** (light/dark and
+Two capabilities this unlocks are new to Facet: **runtime theming** (light/dark and
 beyond) via `StyleDerive` swaps — no runtime path exists today (a game passes
 exactly one compiled style at target-creation time,
 `src/client/screen_target.luau:49-50`) — and **free state-driven motion**, because
-if LuauUI expresses app state as **tag changes instead of property writes** and
+if Facet expresses app state as **tag changes instead of property writes** and
 uses engine-owned hover/press states, native Styling Transitions animate them with no Luau
 tween loop. The single biggest *risk* is that state styling (`:Hover`/`:Press`),
 modifier-instance styling (`::UICorner`/`::UIStroke`/`::UIScale`), transition
 trigger semantics, StyleSheet GA status, and Rojo authorability are not yet
-confirmed against LuauUI's exact instance shapes; those are the Phase 0 gate. The
+confirmed against Facet's exact instance shapes; those are the Phase 0 gate. The
 plan therefore treats transitions as **progressive enhancement** (natural fallback:
 instant change, which is exactly today's behaviour) and lands **state-as-tags before
 transitions**, so switching the beta on later is zero-rework.
 
 ---
 
-## 2. How LuauUI styles today (current system)
+## 2. How Facet styles today (current system)
 
 ### 2.1 The pipeline in one paragraph
 
@@ -153,7 +153,7 @@ Luau table plus a completeness/contrast report (`tokens.compile`, L35). It
 title`), a minimum target size, and motion durations (L12-18), and it fails the
 build if any surface/content pair is below 4.5:1 contrast (L60-78). Notably, the
 file's own header records that **StyleSheet generation is deliberately deferred
-"while style transitions are beta"** because "LuauUI always has a non-beta path"
+"while style transitions are beta"** because "Facet always has a non-beta path"
 (`src/tokens/tokens.luau:1-6`) — this plan is the revisit of that deferral. (Note
 the reframing under R2: the deferral rationale — "always a non-beta path" — still
 holds for *depending* on transitions, but no longer justifies deferring the whole
@@ -183,7 +183,7 @@ functions:
   live (`adapter.enableHover`, L838-849; a pure-touch device allocates no hover).
   *Under R2 this is the biggest candidate to move to native `:Hover`/`:Press` +
   transitions (§6.3, §6.10).*
-- `setFocusVisual` draws the focus ring as a `UIStroke` driven by LuauUI's
+- `setFocusVisual` draws the focus ring as a `UIStroke` driven by Facet's
   *logical* focus graph (not engine `GuiState`), and on a ten-foot display adds a
   bounds-checked `UIScale` lift (L856-939, thickness/scale at L871,910,927).
 - `applyShadow` / `applyCorners` materialize `UIShadow` / `UICorner` **behind
@@ -218,7 +218,7 @@ theme. Runtime colour re-theming would be entirely new.
 ### 2.6 The headless-testability boundary (must be respected) — reframed under R1
 
 Revision 1 called this "the engine-agnostic boundary." **R1 renames and narrows
-it.** LuauUI is Roblox-only; the invariant is not portability but that the whole
+it.** Facet is Roblox-only; the invariant is not portability but that the whole
 pipeline runs **headlessly** under Lune with **no Roblox process**: the headless
 render target `tests/lib/fake_target.luau` implements the same
 `RenderTargetAdapter` contract (`src/render/target_contract.luau`) so the 595-test
@@ -261,16 +261,16 @@ Consequences that constrain everything below:
    cannot "mostly" style a `BackgroundColor3` with a rule and occasionally poke
    it; the poke wins forever and silently. So adopting native styling for a
    property means *deleting* the explicit write for it in `screen_target`.
-2. **Layout must never be handed to native.** LuauUI's solver owns `Size`,
+2. **Layout must never be handed to native.** Facet's solver owns `Size`,
    `Position`, and `TextSize` (the ten-foot 1.5× floor is a *layout* concern,
    `src/render/renderer.luau:352-368`). A `StyleRule` that set any of these would
    fight the solver invisibly. The style/layout split in the authority manifest is
    exactly what keeps native styling out of layout.
-3. **No change signal means LuauUI cannot observe native-applied values.** Any
-   value LuauUI needs to *read back* for its own logic (e.g. a resolved colour fed
-   into a `Lerp`) cannot be sourced from a rule; it must come from a token LuauUI
+3. **No change signal means Facet cannot observe native-applied values.** Any
+   value Facet needs to *read back* for its own logic (e.g. a resolved colour fed
+   into a `Lerp`) cannot be sourced from a rule; it must come from a token Facet
    also holds.
-4. **R3's "additive" therefore cannot be an explicit write.** LuauUI's
+4. **R3's "additive" therefore cannot be an explicit write.** Facet's
    accessibility scaling, ten-foot lift, density cap, and reduced-motion adjustments
    must layer over the sheet **without** poking a styled property — or they defeat
    the very rule they mean to modify. §6.9 is the design that honours this.
@@ -294,27 +294,27 @@ engine class references for
 
 ### 4.1 Confirmed from docs
 
-| Capability | What the docs say | LuauUI relevance |
+| Capability | What the docs say | Facet relevance |
 |---|---|---|
-| **Instances** | `StyleSheet` holds `StyleRule`s (`GetStyleRules`, `InsertStyleRule(rule, priority?)`, `SetStyleRules`; `StyleRulesChanged`) and can `SetDerives`/`GetDerives` other sheets. `StyleLink.StyleSheet` applies one sheet to a tree; **"Only one StyleSheet can apply to a given tree."** | A single `StyleLink` under each LuauUI `ScreenGui` is the application point. |
-| **Class selectors** | `rule.Selector = "Frame"` / `"TextButton"` targets by class. | Matches LuauUI's `CLASS_TO_INSTANCE` map (`Frame`/`TextButton`/`TextLabel`/`ImageLabel`/`TextBox`, `screen_target.luau:26-33`). |
-| **Name selectors** | `#InstanceName` (CSS ID analogue). | LuauUI already names every instance by its **path** (`instance.Name = path`, `screen_target.luau:474`) — usable but paths are unstable/verbose; class+tag is better. |
-| **Tag selectors** | CollectionService tags, CSS-class analogue. | The clean carrier for LuauUI **surface roles and app-state pseudo-states** (e.g. tag `luau-surface-raised`, `luau-selected`), and — crucially under R2 — the **trigger for state-driven transitions** (§6.10). |
+| **Instances** | `StyleSheet` holds `StyleRule`s (`GetStyleRules`, `InsertStyleRule(rule, priority?)`, `SetStyleRules`; `StyleRulesChanged`) and can `SetDerives`/`GetDerives` other sheets. `StyleLink.StyleSheet` applies one sheet to a tree; **"Only one StyleSheet can apply to a given tree."** | A single `StyleLink` under each Facet `ScreenGui` is the application point. |
+| **Class selectors** | `rule.Selector = "Frame"` / `"TextButton"` targets by class. | Matches Facet's `CLASS_TO_INSTANCE` map (`Frame`/`TextButton`/`TextLabel`/`ImageLabel`/`TextBox`, `screen_target.luau:26-33`). |
+| **Name selectors** | `#InstanceName` (CSS ID analogue). | Facet already names every instance by its **path** (`instance.Name = path`, `screen_target.luau:474`) — usable but paths are unstable/verbose; class+tag is better. |
+| **Tag selectors** | CollectionService tags, CSS-class analogue. | The clean carrier for Facet **surface roles and app-state pseudo-states** (e.g. tag `luau-surface-raised`, `luau-selected`), and — crucially under R2 — the **trigger for state-driven transitions** (§6.10). |
 | **State selectors** | `:Hover`, `:Press` — one of four `Enum.GuiState` values ("similar to CSS pseudo-classes"). | Candidate replacement for `wireInteractiveStates` hover/press *fills*, with free transitions — **but see Q1/Q2**. |
 | **Modifier / pseudo-instance selectors** | `::UICorner`, `::UIStroke` ("pseudo-elements → pseudo-instances"). | Could let a rule own corner radius and hairline stroke. Whether a rule *creates* a missing modifier or only styles an existing one is **open Q2**. |
 | **Combinators / lists / nesting** | child `>`, descendant `>>` (not whitespace), comma lists, SCSS-style nesting with selector merging. | Enables e.g. "text inside a raised surface" rules. |
-| **Tokens** | Custom **attributes** on a StyleSheet, referenced `"$TokenName"` in `SetProperties`. Editor: "Add a Token…", "Link Token". Runtime mutation of a token attribute updates every rule referencing it. | Direct home for LuauUI's paint palette; **runtime token mutation is additive-mechanism candidate (a) in §6.9**, and may (unconfirmed, Q9) trigger transitions. |
-| **Derives / inheritance** | `SetDerives` chains sheets; higher `StyleDerive.Priority` wins on conflicting tokens/rules. Editor exposes **themes as radio buttons** = derive swaps. | **The runtime theming mechanism** LuauUI lacks, **and** additive-mechanism candidate (b) in §6.9. A `SetDerives` swap **is documented to trigger transitions** (editor page) → animated theme cross-fade, if confirmed (Q10). |
+| **Tokens** | Custom **attributes** on a StyleSheet, referenced `"$TokenName"` in `SetProperties`. Editor: "Add a Token…", "Link Token". Runtime mutation of a token attribute updates every rule referencing it. | Direct home for Facet's paint palette; **runtime token mutation is additive-mechanism candidate (a) in §6.9**, and may (unconfirmed, Q9) trigger transitions. |
+| **Derives / inheritance** | `SetDerives` chains sheets; higher `StyleDerive.Priority` wins on conflicting tokens/rules. Editor exposes **themes as radio buttons** = derive swaps. | **The runtime theming mechanism** Facet lacks, **and** additive-mechanism candidate (b) in §6.9. A `SetDerives` swap **is documented to trigger transitions** (editor page) → animated theme cross-fade, if confirmed (Q10). |
 | **Transitions** | Per-rule default and per-property transitions using `TweenInfo` and reusable transition tokens. They run for styling-system changes, not ordinary layout/property writes. **Currently Studio beta** — do not require them in a published experience. | **Progressive enhancement.** App state uses tags; hover/press use engine-owned state. Fallback is instant state change. Prefer a `ReducedMotionEnabled` query for the no-motion variant. |
-| **Queries** | `@`-prefixed selectors + `::StyleQuery`, with a closed set of built-in conditions including preferred input, display size, size/aspect ranges, and reduced motion. Unknown custom names fail. | Use for engine-native facts only. LuauUI's filtered paradigm and pointer-live policy use tags. |
-| **Selector validation** | `StyleRule.SelectorError` (read-only) reports malformed selectors; `StyleRule.Priority` orders rules. | LuauUI's generator/loader can assert `SelectorError == ""` at apply time. |
+| **Queries** | `@`-prefixed selectors + `::StyleQuery`, with a closed set of built-in conditions including preferred input, display size, size/aspect ranges, and reduced motion. Unknown custom names fail. | Use for engine-native facts only. Facet's filtered paradigm and pointer-live policy use tags. |
+| **Selector validation** | `StyleRule.SelectorError` (read-only) reports malformed selectors; `StyleRule.Priority` orders rules. | Facet's generator/loader can assert `SelectorError == ""` at apply time. |
 | **Style Editor** | Visually creates tokens, sheets, rules, themes, state rules (`New ▸ GuiState ▸ Hover`), queries, transitions (`Insert ▸ Transition`, default 1s/Quad/Out/0-delay), and token links; manages `StyleDerive` automatically; **warns you not to modify/delete the base style sheet**. | Satisfies the user's "visually editable, human-readable names" requirement directly. |
 
 ### 4.2 Open questions (NOT confirmed — each has a verification step)
 
 The docs are explicitly silent on several mechanics the CSS-comparison page itself
 flags as "not addressed": **properties that cannot be styled, specificity/cascade
-resolution, whether explicit instance properties override rules (LuauUI's own spike
+resolution, whether explicit instance properties override rules (Facet's own spike
 answered this — they do), and inheritance behaviour.** The transition docs also
 carry an internal **conflict worth resolving early**: the Style Editor page lists
 "explicit property writes" among transition triggers, while the studio-beta thread
@@ -328,7 +328,7 @@ Q9–Q12.
 
 ## 5. Architecture options
 
-### (a) Full replacement — LuauUI styling API becomes a thin authoring layer over native
+### (a) Full replacement — Facet styling API becomes a thin authoring layer over native
 
 The public `UI.*` styling surface (`surface`, `role`, `UI.shadow`, `UI.corners`,
 `tokens.compile`) becomes sugar that ultimately emits StyleSheet instances; the
@@ -355,14 +355,14 @@ the Style Editor do **not** flow back.
   a *human-readable starter sheet* a designer can inspect; a natural first
   increment.
 - **Cons:** fails the user's actual requirement — they want to **edit in the
-  Studio tool and have LuauUI consume it**, i.e. round-trip. A generated sheet the
+  Studio tool and have Facet consume it**, i.e. round-trip. A generated sheet the
   engine ignores at runtime (because the adapter still explicit-writes, §3) is
   documentation, not styling. Editor edits get clobbered on regeneration.
 - **Verdict:** **valuable as a scaffold, not an end state.** Adopt it as the Phase 1
   generator that *seeds* a human-readable sheet with stable names — meaningful once
   the adapter (option (c)) actually reads that sheet.
 
-### (c) Native-*maximal* hybrid — the DataModel StyleSheet owns everything native can express (paint, corners/strokes, state, theming, queries, transitions); LuauUI keeps only what feeds the headless solver, plus what native provably cannot do
+### (c) Native-*maximal* hybrid — the DataModel StyleSheet owns everything native can express (paint, corners/strokes, state, theming, queries, transitions); Facet keeps only what feeds the headless solver, plus what native provably cannot do
 
 Split by **"does the value feed the headless layout solver?"** (not "paint vs
 everything" — that was Revision 1's narrower cut, loosened by R2):
@@ -378,7 +378,7 @@ everything" — that was Revision 1's narrower cut, loosened by R2):
 - The client adapter stops explicit-writing handed-off properties; instead it
   **classifies** each node (class + tags) and parents one `StyleLink`
   per `ScreenGui`. Roblox supplies read-only native `GuiState` values for hover,
-  press, and non-interactable rules; LuauUI adds/removes tags for app-owned states.
+  press, and non-interactable rules; Facet adds/removes tags for app-owned states.
   Those styling changes let native rules paint and, when available, animate them.
   Everything native still can't express stays bespoke and
   explicit (§6.5, now shorter).
@@ -403,7 +403,7 @@ everything" — that was Revision 1's narrower cut, loosened by R2):
 **Adopt (c), native-maximal, staged, seeded by (b).** Rationale: it is the only
 option that meets the literal requirement (editable-in-DataModel, round-trip,
 human-readable), maximises native leverage per R2, *and* preserves the one invariant
-that keeps LuauUI testable — the headless core. The two-token-home cost is real but
+that keeps Facet testable — the headless core. The two-token-home cost is real but
 bounded and honest: it is the direct consequence of the layout solver being
 headless, which is a feature, not an accident.
 
@@ -413,7 +413,7 @@ headless, which is a feature, not an accident.
 
 ### 6.1 Naming conventions (human-readable, the user's explicit ask)
 
-Names derive mechanically from LuauUI's existing semantic vocabulary so a designer
+Names derive mechanically from Facet's existing semantic vocabulary so a designer
 opening the Style Editor sees words they already know from the API docs:
 
 - **Tokens** (StyleSheet attributes) mirror the schema keys: `Surface`,
@@ -436,7 +436,7 @@ opening the Style Editor sees words they already know from the API docs:
 
 ### 6.2 Token mapping (semantic tokens → StyleSheet tokens/attributes)
 
-| LuauUI token | Home under (c) | Native carrier |
+| Facet token | Home under (c) | Native carrier |
 |---|---|---|
 | `colors.*`, `extra.control*`, `extra.hairline`, `extra.contentSecondary` | **Sheet** (source of truth) | StyleSheet attributes `$Surface`, `$Accent`, `$Control`, … |
 | `radii.control` / `.panel` (as *paint*) | **Sheet** | rule `CornerRadius = UDim.new(0, …)` via `::UICorner` (pending Q2) |
@@ -456,20 +456,20 @@ unreadable text" (`05-styling.md:26`) survives the move to the DataModel — and
 - **Hover, Pressed** → native `:Hover` / `:Press` state rules **if Q1 confirms**
   they fire for `AutoButtonColor=false` buttons. Under R2 this is the *preferred*
   path even before transitions ship, because expressing state as `GuiState` (native)
-  or a tag flip (§6.10) is what makes state motion free later. Caveat: LuauUI gates
+  or a tag flip (§6.10) is what makes state motion free later. Caveat: Facet gates
   hover to live pointers (`enableHover`, `screen_target.luau:838-849`); native
   `:Hover` has no paradigm gate, so on a touch device native hover could flash on
   tap. Use a native `PreferredInput` query only if its raw engine semantics are good
-  enough for the visual. Otherwise have LuauUI add/remove a pointer-live tag from its
+  enough for the visual. Otherwise have Facet add/remove a pointer-live tag from its
   filtered interaction-class fact. Do not invent a custom StyleQuery condition.
   If the native-state path cannot preserve touch behavior, hover/press stay bespoke.
-- **Focus** → **stays bespoke.** LuauUI's focus ring follows its *logical* focus
+- **Focus** → **stays bespoke.** Facet's focus ring follows its *logical* focus
   graph, not engine `GuiState` focus (`setFocusVisual`, driven by
   `controller.setFocusPath`, `renderer.luau:516`), and the ten-foot lift is a
   computed bounds-fit decision (`screen_target.luau:883-927`). Native has no concept
   of either. The focus ring `UIStroke` and lift `UIScale` remain explicit writes.
   *Why native can't:* native `GuiState` focus is a single-object engine concept;
-  LuauUI's is a four-paradigm logical graph (ADR-0015/0016) that native cannot
+  Facet's is a four-paradigm logical graph (ADR-0015/0016) that native cannot
   represent.
 - **Selected** → **tag-driven native rule.** `selected` is a data binding
   (`authority.luau` binding authority; `screen_target.luau:1050-1058`). The adapter
@@ -482,14 +482,14 @@ unreadable text" (`05-styling.md:26`) survives the move to the DataModel — and
 
 Two mechanisms compose:
 
-1. **Environment strengthening (stays LuauUI/layout):** ten-foot text floor,
+1. **Environment strengthening (stays Facet/layout):** ten-foot text floor,
    overscan insets, focus thickening are *layout/geometry* computed from
    `env.displaySize` / `distanceProfile` (`environment.luau:34,60,96,118`) and
    remain in the solver — native queries cannot compute a bounds-fit lift. *Why
    native can't:* these are measurement/geometry decisions the headless solver owns.
 2. **Paint variants (native):** use only the documented built-in StyleQuery
    conditions for engine facts such as display size, preferred input, size/aspect
-   ranges, and reduced motion. Express LuauUI's filtered paradigm and pointer-live
+   ranges, and reduced motion. Express Facet's filtered paradigm and pointer-live
    decisions with tags. `SetCondition("preferredInput", …)` is invalid and must not
    be implemented.
 
@@ -518,9 +518,9 @@ state fills bespoke). Each survivor now carries a "why native can't":
 5. **Reduced-motion enforcement** — prefer the built-in
    `ReducedMotionEnabled` StyleQuery for native transitions. Keep a tested
    strip/clear fallback only if the beta cannot express the required rule variant;
-   choreographed motion keeps its separate LuauUI policy.
+   choreographed motion keeps its separate Facet policy.
 6. **Pointer-liveness hover gate** — bespoke condition even if the fill is native
-   (§6.3). *Why native can't:* native `PreferredInput` is not LuauUI's filtered
+   (§6.3). *Why native can't:* native `PreferredInput` is not Facet's filtered
    interaction class; the framework can express this decision with a tag.
 7. **The Toggle knob-track assembly** — a bespoke child hierarchy with animated
    knob position (`buildToggleVisual`, `screen_target.luau:373-409`). *Why native
@@ -538,14 +538,14 @@ Moved **out** of this list versus Revision 1: hover/press *fills* (→ native
 
 ### 6.6 Interaction with the reactive system
 
-LuauUI styles that depend on app state stay in LuauUI's reactive path: the blueprint
+Facet styles that depend on app state stay in Facet's reactive path: the blueprint
 carries a hint or a binding, the renderer diffs it, and the adapter either
   explicit-writes (bespoke path) or **toggles a tag** (native path) — native
   `GuiState` is read-only and engine-owned. The tag flip is the reactive → native
   bridge and a transition trigger. Native
 tokens themselves are *static* per theme; anything genuinely value-dynamic
-(interpolated, per-frame, gauge-like) stays a LuauUI presentation/binding write. Rule
-of thumb: **native owns the palette, static paint, and state→state motion; LuauUI
+(interpolated, per-frame, gauge-like) stays a Facet presentation/binding write. Rule
+of thumb: **native owns the palette, static paint, and state→state motion; Facet
 owns layout, data, and anything that animates a *value*.**
 
 ### 6.7 Theming (light/dark)
@@ -564,20 +564,20 @@ headline reason to pursue (c). Contrast-gate **every** theme's paint tokens thro
 `src/client/edit_preview.luau` already runs the real pipeline into a ScreenGui
 during Studio Edit and live-updates on Heartbeat (L98-113). Because the Style Editor
 edits the DataModel sheet directly and `StyleLink` repaints live, native paint edits
-would preview **without** LuauUI's refresh loop at all — a genuine ergonomic win.
-LuauUI's preview harness keeps driving layout/state; the sheet drives paint. Confirm
+would preview **without** Facet's refresh loop at all — a genuine ergonomic win.
+Facet's preview harness keeps driving layout/state; the sheet drives paint. Confirm
 the two do not double-apply (Q2/Q4 interplay), and that runtime token mutation for
 additive scaling (§6.9) does not fight the editor's live view of the sheet (Q11).
 
-### 6.9 The additive-layering contract (R3) — how LuauUI modifiers compose over sheet-owned base
+### 6.9 The additive-layering contract (R3) — how Facet modifiers compose over sheet-owned base
 
-R3 requires LuauUI to layer *on top of* native styling without ever writing a styled
+R3 requires Facet to layer *on top of* native styling without ever writing a styled
 property (which would defeat the rule, §3.4). This section defines **which value
-classes are sheet-owned base, which are LuauUI-owned modifiers, the composition rule
+classes are sheet-owned base, which are Facet-owned modifiers, the composition rule
 per class, and the single mechanism** — chosen so the headless solver computes the
 *same* effective value the edge paints.
 
-**The key realisation: LuauUI already ships the shared resolver.** The type-scale
+**The key realisation: Facet already ships the shared resolver.** The type-scale
 memo composes a base and a modifier in one headless place:
 
 ```
@@ -587,19 +587,19 @@ preferredTextReserve = injected engine preference used by headless measurement
 -- applied at the paint+measure seam, src/render/renderer.luau:352-368 (applyTextScale)
 ```
 
-This is *exactly* the "one place where base-from-sheet and LuauUI-modifiers compose,"
+This is *exactly* the "one place where base-from-sheet and Facet-modifiers compose,"
 and it already runs under Lune. The additive design generalises it rather than
 inventing a new seam.
 
 **Layering contract — value classes, ownership, composition rule:**
 
-| Value class | Base owner | LuauUI modifier(s) | Composition rule | Where they compose (shared resolver) |
+| Value class | Base owner | Facet modifier(s) | Composition rule | Where they compose (shared resolver) |
 |---|---|---|---|---|
-| **Type size** | Sheet-authored base font size, mirrored to Luau (R1) | authored/ten-foot scale; engine-owned preferred text rendering | **measure once, paint once** | A Phase 0 matrix must split engine preference from LuauUI-authored scale and prove no double application |
-| **Geometric size** (whole-UI lift) | native/instrinsic | ten-foot focus lift, density | **multiply via `UIScale`** | LuauUI-owned `UIScale` (option (c) below); solver accounts for it |
+| **Type size** | Sheet-authored base font size, mirrored to Luau (R1) | authored/ten-foot scale; engine-owned preferred text rendering | **measure once, paint once** | A Phase 0 matrix must split engine preference from Facet-authored scale and prove no double application |
+| **Geometric size** (whole-UI lift) | native/instrinsic | ten-foot focus lift, density | **multiply via `UIScale`** | Facet-owned `UIScale` (option (c) below); solver accounts for it |
 | **Spacing / density** | Sheet-mirrored Luau tokens | density cap | **multiply or offset** in solver | layout solver (headless) |
 | **Paint (colour/fill/stroke)** | **Sheet** (source of truth) | accessibility contrast/dim overlays | **override** via generated derive | native `StyleDerive` swap (option (b)) |
-| **Motion** | Sheet transition tokens | reduced-motion | **strip / gate** | LuauUI strip-transitions mode (§6.10, Q12) |
+| **Motion** | Sheet transition tokens | reduced-motion | **strip / gate** | Facet strip-transitions mode (§6.10, Q12) |
 | **Focus strengthening** | Luau `extra.*` | ten-foot thickness/scale | **override/additive** | `setFocusVisual` (bespoke, §6.3) |
 
 **Chosen mechanism, by value class** (the four candidates R3 named, applied where
@@ -607,21 +607,21 @@ each fits — not one mechanism for everything, because the value classes genuin
 differ):
 
 - **Type & layout-affecting values → one measured and painted result.** Roblox may
-  already apply `PreferredTextSize`; LuauUI must not multiply that preference into
+  already apply `PreferredTextSize`; Facet must not multiply that preference into
   `TextSize` a second time. Phase 0 therefore measures the live engine across all
   preference values and splits the current `typographyScale` into an authored scale
   (including ten-foot treatment) and a headless preferred-text reserve if the
   evidence confirms double application. The base font size remains available to the
   solver through the synchronization workflow below.
 - **Paint accessibility overlays (high-contrast, dim) → generated `StyleDerive`
-  overlay, candidate (b).** LuauUI generates/maintains a small derive (e.g. "A11y
+  overlay, candidate (b).** Facet generates/maintains a small derive (e.g. "A11y
   High Contrast") overriding paint tokens, swapped via `SetDerives`. Trade-off: this
   is **discrete steps**, not a continuous scale — acceptable for contrast/dim, which
   are stepped preferences anyway, and it may **cross-fade for free** if Q10 holds. For
   a genuinely *continuous* paint adjustment, fall back to runtime token mutation
   (candidate (a)) — flagged with its two open risks: does it trigger transitions
   (Q9), and does it fight the editor's live view of the sheet (Q11).
-- **Whole-UI geometric scaling → `UIScale`, candidate (c).** LuauUI already uses a
+- **Whole-UI geometric scaling → `UIScale`, candidate (c).** Facet already uses a
   `UIScale` for the ten-foot lift (`screen_target.luau:883-927`); density and any
   future global geometric scale ride the same instance. Scales *everything*, so the
   solver must account for it — which it already does for the lift's bounds-fit check.
@@ -664,14 +664,14 @@ features (ten-foot lift, density cap, reduced-motion) layer identically.
 ### 6.10 Motion via native Styling Transitions (R2, progressive enhancement)
 
 Native transitions fire when a property changes through the styling system. Roblox
-owns read-only native `GuiState`; LuauUI-owned state changes through tags. Ordinary
+owns read-only native `GuiState`; Facet-owned state changes through tags. Ordinary
 layout or direct property writes are not transition triggers. Design:
 
 - **Transition tokens** `$MotionFast` / `$MotionNormal` mirror `default_style.motion`
   (`default_style.luau:86`), linked to `TweenInfo`; per-property transitions on the
   hover/press/selected rules (per-property is higher-precedence and more performant
   per the docs).
-- **Trigger discipline:** native state changes and LuauUI tag changes are the
+- **Trigger discipline:** native state changes and Facet tag changes are the
   triggers; explicit writes are not used for handed-off state props.
 - **Progressive enhancement:** transitions are Studio-beta and cannot ship to live
   experiences yet; the plan **never depends** on them. With the beta off (or on a
@@ -707,7 +707,7 @@ zero-rework to enable.
   machine evidence.
 - **Gate:** every Q1–Q12 answered with evidence, or explicitly deferred with the
   bespoke fallback named. **No later phase starts on an unproven capability.**
-- **Risks:** a capability (esp. state selectors / transition triggers on LuauUI's
+- **Risks:** a capability (esp. state selectors / transition triggers on Facet's
   exact buttons) may not work → those sub-features stay bespoke / instant; plan still
   proceeds for tokens/derives/paint.
 
@@ -783,7 +783,7 @@ zero-rework to enable.
 - **Deliverables:** `docs/guide/05-styling.md` new "Native stylesheets" section; an
   ADR (`ADR-00xx-native-stylesheets`) recording the headless-testability reframing
   (R1), native-maximal decision (R2), and the additive-layering contract (R3);
-  existing **LuauUI-based** RascalRally screens opted in reversibly (§8). This does
+  existing **Facet-based** RascalRally screens opted in reversibly (§8). This does
   not migrate or default-flip Sponsor Mode.
 - **Verification gate:** a designer edits a colour in the Style Editor, and the
   running RascalRally UI reflects it with no code change; full suites green; api.md
@@ -794,21 +794,21 @@ zero-rework to enable.
 
 ---
 
-## 8. Migration story (existing LuauUI screens)
+## 8. Migration story (existing Facet screens)
 
-The real consumers are the RascalRally LuauUI screens at
-`games/RascalRally/code/src/client/LuauUI*.luau`. The migration cost is
+The real consumers are the RascalRally Facet screens at
+`games/RascalRally/code/src/client/Facet*.luau`. The migration cost is
 **deliberately near-zero for screen authors**, because styling was designed as
 semantic hints resolved only at the edge:
 
-- **Pure blueprint screens need no change.** `LuauUISettingsScreen.luau` builds its
+- **Pure blueprint screens need no change.** `FacetSettingsScreen.luau` builds its
   tree with `surface = "raised"` and `role`/`textSize` hints and *never names a
-  colour* (`.../LuauUISettingsScreen.luau:83`). Under native paint those same hints
-  become tag stamps; the blueprint is untouched. Same for `LuauUIRacerListScreen`.
-- **Only the "Gui" glue half opts in.** `LuauUISettingsGui.luau` constructs the
-  target with `screen_target.new()` (`.../LuauUISettingsGui.luau:34,80`). Migration
+  colour* (`.../FacetSettingsScreen.luau:83`). Under native paint those same hints
+  become tag stamps; the blueprint is untouched. Same for `FacetRacerListScreen`.
+- **Only the "Gui" glue half opts in.** `FacetSettingsGui.luau` constructs the
+  target with `screen_target.new()` (`.../FacetSettingsGui.luau:34,80`). Migration
   = pass `{ nativeStyle = <sheet> }` and ensure the sheet exists under
-  `ReplicatedStorage.LuauUI` (a generated asset from Phase 1). If the sheet is absent,
+  `ReplicatedStorage.Facet` (a generated asset from Phase 1). If the sheet is absent,
   the adapter falls back to explicit-write and the screen looks exactly as today.
 - **Contrast/behaviour parity** is the gate, screenshot-matched per ADR-0006, so a
   migrated screen is provably identical before any editor customization — and,
@@ -821,7 +821,7 @@ semantic hints resolved only at the edge:
   rewrite.
 
 The migration is therefore **opt-in per target, invisible to screen code, and
-reversible by a flag** — the same graceful-degradation shape LuauUI already uses for
+reversible by a flag** — the same graceful-degradation shape Facet already uses for
 `UIShadow`/per-corner radii.
 
 ---
@@ -862,8 +862,8 @@ engine-agnosticism, so its questions stand.
 |---|---|---|---|
 | Q1 | Do `:Hover`/`:Press` fire for `AutoButtonColor=false` buttons, and on **touch**? | Whether hover/press fills can be native at all (and whether touch flashes hover) — and whether state motion can be free | Studio place: `TextButton:Hover`/`:Press` rules, drive on desktop + touch emulator via Studio MCP |
 | Q2 | Can rules style modifier children (`::UICorner`, `::UIStroke`, `::UIScale`), and do they **create** a missing modifier or only style an existing one? | Corner radius, hairline, and (if it works) shadow/scale via rules; else these stay bespoke | Studio rule on a Frame with and without the modifier present |
-| Q3 | Is core StyleSheet **GA** (not beta), and what is the min engine version + capability probe? | LuauUI needs a `hasStyleSheet` probe like `hasUIShadow` (`screen_target.luau:100-105`) | `pcall(Instance.new,"StyleSheet")` on min client; check channel notes |
-| Q4 | How do the documented built-in `StyleQuery` conditions re-evaluate, and when should LuauUI tags represent a filtered framework fact instead? | Per-platform paint + the touch-hover gate | Studio place changing preferred input/display/reduced-motion; separately toggle the LuauUI pointer-live tag and observe repaint |
+| Q3 | Is core StyleSheet **GA** (not beta), and what is the min engine version + capability probe? | Facet needs a `hasStyleSheet` probe like `hasUIShadow` (`screen_target.luau:100-105`) | `pcall(Instance.new,"StyleSheet")` on min client; check channel notes |
+| Q4 | How do the documented built-in `StyleQuery` conditions re-evaluate, and when should Facet tags represent a filtered framework fact instead? | Per-platform paint + the touch-hover gate | Studio place changing preferred input/display/reduced-motion; separately toggle the Facet pointer-live tag and observe repaint |
 | Q5 | Can `StyleSheet`/`StyleRule` trees be authored in the **Rojo** project, or must they be an `.rbxm`? | **Decides the §6.9 layout-token source-of-truth mechanism** (Rojo shared file vs snapshot+staleness vs Luau-source) *and* how the sheet ships | Attempt `$className: StyleSheet` in a Rojo node; inspect round-trip |
 | Q6 | **Specificity/cascade** when class + tag + state + query rules all match — which wins, and how does `StyleRule.Priority` interact? | Predictable paint; the docs are explicitly silent | Studio: overlapping rules with varied `Priority`, read resulting property |
 | Q7 | Does applying/swapping a `StyleLink`/derive at runtime cost proportional to tree size? Any documented budget? | Theme-swap perf on device (the style lint already watches a shadow budget, `05-styling.md:140-144`) | Measure a derive swap over a large tree on a mid device (device numbers authoritative, design §14.3) |
@@ -871,4 +871,4 @@ engine-agnosticism, so its questions stand.
 | **Q9** | Do CollectionService tag changes, engine-owned `GuiState` changes, derive swaps, and token changes trigger transitions exactly as documented? Confirm direct writes do not. | The state-to-native-motion premise (§6.10) | Studio place with native-state and tag rules; exercise each styling change and a direct property write; record which animates |
 | **Q10** | Does a **`SetDerives` theme swap** trigger transitions (animated cross-fade)? | Free theme cross-fade (§6.7); if not, theme swaps are instant (acceptable) | Studio: two derives with a transition on the shared rules; `SetDerives` at runtime; observe |
 | **Q11** | Does **runtime token (attribute) mutation** trigger transitions, and does it **fight the visual editor's live view** of the sheet? | Additive candidate (a) viability for continuous paint scaling (§6.9); preview correctness (§6.8) | Studio: mutate a `$Token` at runtime with a transition present + editor open; observe animation and editor sync |
-| **Q12** | Is there a **reduced-motion / global disable** for transitions? If not, does `SetPropertyTransitions` zero-duration / clearing reliably strip them? | LuauUI's non-negotiable reduced-motion requirement (§6.5 item 5, §6.10) | Studio: apply transitions, then strip via `SetPropertyTransitions` zero-duration; confirm instant changes |
+| **Q12** | Is there a **reduced-motion / global disable** for transitions? If not, does `SetPropertyTransitions` zero-duration / clearing reliably strip them? | Facet's non-negotiable reduced-motion requirement (§6.5 item 5, §6.10) | Studio: apply transitions, then strip via `SetPropertyTransitions` zero-duration; confirm instant changes |

@@ -439,7 +439,7 @@ describe("ADR-0025 Decision 3: a zone painting over its neighbour is REPORTED", 
 	it("ADDITIVE: a declaration with no collision dumps `collisions = {}`", function()
 		local d = composition.dump(composition.resolve(hud(FULL), { w = 900, h = 500 }, CTX))
 		expect(#d.collisions).toBe(0)
-		expect(d.schema).toBe("luauui-composition-dump/1")
+		expect(d.schema).toBe("facet-composition-dump/1")
 	end)
 end)
 
@@ -603,7 +603,7 @@ end)
 -- environment would pass everywhere and prove nothing.
 
 describe("ADR-0027: nothing the HUD paints lands on the platform's own controls", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local hudScenario = require("../examples/gallery/scenarios/hud")
 
 	-- verbatim from the live engine where marked; the rest are the device classes
@@ -660,18 +660,18 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 	}
 
 	local function drive(profile: any): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = profile.vp.w, h = profile.vp.h })
 		env:set("coreSafeInsets", profile.core)
 		env:set("deviceSafeInsets", profile.device)
 		env:set("topbarSafeInsets", profile.topbarSafe)
 		env:set("topbarInset", profile.bar)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built = hudScenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,

@@ -13,7 +13,7 @@
 -- Usage: lune run tools/lune/_probe_levers
 
 local process = require("@lune/process")
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local profile = require("../../src/core/profile") :: any
 local perf_lab = require("../../examples/performance/lab/perf_lab") :: any
@@ -27,14 +27,14 @@ local REPS = tonumber((process :: any).args[1] or "") or 120
 local SCOPES = { "arrange", "measure", "mount", "react", "commit", "resource", "reset" }
 
 local function newHarness(): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

@@ -380,24 +380,24 @@ end
 -- ============================ input switch ===========================
 
 local function inputSwitchCase(rng: any)
-	local LuauUI = require("../../src") :: any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
-	local system = LuauUI.newActionSystem(core)
+	local Facet = require("../../src") :: any
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local hint = core:memo(function(use)
 		local preferred = use(env:get("preferredInput"))
 		return if preferred == "Touch" then "Tap" else "Press"
 	end)
-	local screen = LuauUI.UI.Screen({
+	local screen = Facet.UI.Screen({
 		id = "S",
 		children = {
-			LuauUI.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
-			LuauUI.UI.Button({ id = "A", label = "A" }),
-			LuauUI.UI.Button({ id = "B", label = "B" }),
+			Facet.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+			Facet.UI.Button({ id = "A", label = "A" }),
+			Facet.UI.Button({ id = "B", label = "B" }),
 		},
 	})
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local handle = pres.present(screen)
 	local runsBefore = handle.root.counters().factoryRuns
 	local mountedBefore = handle.root.counters().mounted
@@ -545,19 +545,19 @@ end
 -- verifier F3: dismissing a NON-top presented screen must remove ITS focus
 -- scope, leaving the top scope (the modal) active and reachable
 local function presenterDismissNonTop(_iterations: number)
-	local LuauUI = require("../../src") :: any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
-	local system = LuauUI.newActionSystem(core)
+	local Facet = require("../../src") :: any
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
-	local base = pres.present(LuauUI.UI.Screen({
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local base = pres.present(Facet.UI.Screen({
 		id = "Base",
-		children = { LuauUI.UI.Button({ id = "A", label = "A" }), LuauUI.UI.Button({ id = "B", label = "B" }) },
+		children = { Facet.UI.Button({ id = "A", label = "A" }), Facet.UI.Button({ id = "B", label = "B" }) },
 	}))
-	local modal = pres.presentModal(LuauUI.UI.Screen({
+	local modal = pres.presentModal(Facet.UI.Screen({
 		id = "Modal",
-		children = { LuauUI.UI.Button({ id = "Ok", label = "Ok" }), LuauUI.UI.Button({ id = "No", label = "No" }) },
+		children = { Facet.UI.Button({ id = "Ok", label = "Ok" }), Facet.UI.Button({ id = "No", label = "No" }) },
 	}))
 	assert(pres.focus.focused:get() == "/Modal/Ok", "modal must own focus")
 	pres.dismiss(base)

@@ -15,7 +15,7 @@ Yes, and there is a clean stopping point rather than an open-ended list.
 values it can interpolate are the values a commit **produces**: the solver's
 rect — `x`, `y`, `w`, `h`. Position was two of the four. All four now animate,
 and that is the whole set. Everything else SwiftUI's `withAnimation` reaches is
-an *authored paint* value, which LuauUI has none of in this channel — see
+an *authored paint* value, which Facet has none of in this channel — see
 "Opacity" below, where the answer is *not yet, and here is the actual blocker*.
 
 ## ELI5
@@ -29,7 +29,7 @@ rest. Now the card grows too, on the same spring, and lands on the same frame.
 One thing worth knowing because it is not obvious: when a box grows, the things
 **inside** it do not grow. A label pinned to the top of a card stays exactly
 where it is while the card opens underneath it. That is deliberate and it falls
-out of how LuauUI draws (below).
+out of how Facet draws (below).
 
 ## Judging the round-2 deferral
 
@@ -61,7 +61,7 @@ and no second writer.
 The interesting half is the asymmetry, because it is the same fact producing
 opposite rules:
 
-> **LuauUI's instance tree is flat.** Every node parents under the root gui
+> **Facet's instance tree is flat.** Every node parents under the root gui
 > unless a real parent claimed it, and the solver positions absolutely.
 
 - For **position**, that means a container's move carries nothing inside it — so
@@ -122,7 +122,7 @@ around it. What this mission can add is the precise scope:
 **It is not the animation system that blocks an animated opacity — it is that
 there is nothing authored to animate.** `withAnimation` diffs what a commit
 produces. A commit produces a rect. Opacity, rotation, scale and colour are all
-authored paint values, and LuauUI has **no authored prop in the presentation
+authored paint values, and Facet has **no authored prop in the presentation
 channel at all**: its three presentation-authority properties are `transform`,
 `transparency` and `dragHeld`, every one renderer-driven, and none of them
 appears in `blueprint_schema.luau`.
@@ -159,7 +159,7 @@ smaller than the harness's own same-arm spread is noise.
 figure the pass reports is synthetic and identical across arms *by construction*.
 Headless, only the counts mean anything, and only the counts are asserted. The
 timings are a Studio quantity, taken inside the lab bootstrap's per-frame
-`LuauUI/scenario` scope. Neither tier is a device claim.
+`Facet/scenario` scope. Neither tier is a device claim.
 
 | Tier | Status |
 |---|---|
@@ -174,11 +174,11 @@ The live consumer has zero `withAnimation` call sites and three write-only
 `setPresentationTransform(path, {x, y, scale})` writers, so nothing in the game
 was forced to change and no product change was authorized or made. The evidence
 the standing rule asks for is a contract block in
-`games/RascalRally/code/tests/luauui_motion_and_scroll_contract.spec.luau`
+`games/RascalRally/code/tests/facet_motion_and_scroll_contract.spec.luau`
 (commit `24c1679`, +7 cases): a real shipped reactive size change — the docked
 racer list's content-hugging panel growing 160 → 280 px as the grid fills — plus
 the invariant that matters most to that package, that a settled record clears to
-`nil` and not to a `{w=0,h=0}` residue, since `luauui_sponsor_entry.spec.luau`
+`nil` and not to a `{w=0,h=0}` residue, since `facet_sponsor_entry.spec.luau`
 pins `props.transform == nil` at rest in six places. Every case
 mutation-proved against a deliberately broken framework, restored byte-exact.
 Suite 3166 passed / 2 failed, both pre-existing and confirmed by re-running the
@@ -195,7 +195,7 @@ author's carelessness.
 
 - The Studio MicroProfiler capture over `motion-flight`, and the `canvasGroup`
   buffer-churn number it is the only tier that can see.
-- `examples/places/LuauUI-Showcase.rbxl` rebuild for the new demo card. The
+- `examples/places/Facet-Showcase.rbxl` rebuild for the new demo card. The
   scenario is registered in `scenarios/init.luau` and `demo_picker.DEMOS` and is
   swept by `tests/overflow_sweep.spec.luau` at every viewport and theme; the
   place binary was left alone because several agents held it modified at the

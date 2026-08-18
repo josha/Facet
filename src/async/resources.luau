@@ -88,7 +88,7 @@ local function requireIntegerAtLeast(value: any, minimum: number, name: string)
 		return
 	end
 	if not isFinite(value) or math.floor(value) ~= value or value < minimum then
-		error(`LuauUI resource provider: {name} must be an integer >= {minimum} (got {tostring(value)})`, 0)
+		error(`Facet resource provider: {name} must be an integer >= {minimum} (got {tostring(value)})`, 0)
 	end
 end
 
@@ -97,7 +97,7 @@ local function requireNonNegativeNumber(value: any, name: string)
 		return
 	end
 	if not isFinite(value) or value < 0 then
-		error(`LuauUI resource provider: {name} must be a non-negative number (got {tostring(value)})`, 0)
+		error(`Facet resource provider: {name} must be a non-negative number (got {tostring(value)})`, 0)
 	end
 end
 
@@ -348,7 +348,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	end
 
 	-- returns "applied" | "stale"
-	-- MICROPROFILER PHASE `LuauUI/resource` (roadmap Step 9). Completion is where
+	-- MICROPROFILER PHASE `Facet/resource` (roadmap Step 9). Completion is where
 	-- an async landing turns into UI work — cache admission, LRU/eviction, and the
 	-- transaction that pushes the value into the tree — and a capture has to be able
 	-- to tell that apart from steady-state framework cost, or a cold-image profile

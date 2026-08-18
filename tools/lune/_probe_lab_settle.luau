@@ -4,7 +4,7 @@
 -- 7.12 arranges/step and 3.03 react/step are explained by name rather than by
 -- a decomposition. Usage: lune run tools/lune/_probe_lab_settle
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local profile = require("../../src/core/profile")
 
@@ -21,20 +21,20 @@ local tracing = false
 profile.setEnabled(true)
 profile.setHooks(function(label: string)
 	spans[label] = (spans[label] or 0) + 1
-	if tracing and (label == "LuauUI/react" or label == "LuauUI/arrange" or label == "LuauUI/mount") then
-		table.insert(trace, (label:gsub("LuauUI/", "")))
+	if tracing and (label == "Facet/react" or label == "Facet/arrange" or label == "Facet/mount") then
+		table.insert(trace, (label:gsub("Facet/", "")))
 	end
 end, function() end)
 
-local core = LuauUI.newCore()
-local env = LuauUI.newEnvironment(core)
+local core = Facet.newCore()
+local env = Facet.newEnvironment(core)
 env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 local adapter = fake_target.new()
-local system = LuauUI.newActionSystem(core)
-local pres = LuauUI.newPresenter(core, env, adapter, system)
+local system = Facet.newActionSystem(core)
+local pres = Facet.newPresenter(core, env, adapter, system)
 local clock = 0
 local ctx: any = {
-	LuauUI = LuauUI,
+	Facet = Facet,
 	core = core,
 	env = env,
 	adapter = adapter,
@@ -117,19 +117,19 @@ end
 
 local STEPS = 3
 local before = {
-	react = spans["LuauUI/react"] or 0,
-	arrange = spans["LuauUI/arrange"] or 0,
-	mount = spans["LuauUI/mount"] or 0,
-	commit = spans["LuauUI/commit"] or 0,
-	measure = spans["LuauUI/measure"] or 0,
-	present = spans["LuauUI/present"] or 0,
+	react = spans["Facet/react"] or 0,
+	arrange = spans["Facet/arrange"] or 0,
+	mount = spans["Facet/mount"] or 0,
+	commit = spans["Facet/commit"] or 0,
+	measure = spans["Facet/measure"] or 0,
+	present = spans["Facet/present"] or 0,
 }
 tracing = true
 built.steps.pass(nil, `resizeStorm={STEPS}`)
 tracing = false
 
 local function per(key: string): string
-	local d = (spans[`LuauUI/{key}`] or 0) - (before :: any)[key]
+	local d = (spans[`Facet/{key}`] or 0) - (before :: any)[key]
 	return `{key}={d} ({string.format("%.2f", d / STEPS)}/step)`
 end
 

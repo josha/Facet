@@ -100,7 +100,7 @@ prop**.
 | `dump().windowRows` / `.contentExtent`, present only under `virtualized` so every recorded dump is byte-identical | same |
 | the control's spec (21 cases) | `tests/table_virtualized.spec.luau` |
 | the showcase: 2 000 rows, a status line reporting how many are in the tree, three verbs that each act on row 1500 | `examples/gallery/scenarios/table_virtualized.luau` |
-| the consumer proof, both halves (a differential oracle on the FLOWING racer list, and a use-proof under `virtualized`) | `games/RascalRally/code/tests/luauui_racer_list.spec.luau` |
+| the consumer proof, both halves (a differential oracle on the FLOWING racer list, and a use-proof under `virtualized`) | `games/RascalRally/code/tests/facet_racer_list.spec.luau` |
 | mutation evidence (25 mutations, 23 killed) and the perf numbers | `artifacts/unified-collection/` |
 
 **§13's row is closed by this**: `newTable{ virtualized = true }` unifies

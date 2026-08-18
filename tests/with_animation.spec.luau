@@ -33,7 +33,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local FRAME = 1 / 60
@@ -52,8 +52,8 @@ end
 -- clean, whole-pixel rect change with nothing else in the frame.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.reducedMotion then
@@ -61,15 +61,15 @@ local function world(opts: any?)
 		-- setting the derived key is refused, which is the right refusal
 		env:set("reducedMotion", true)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local tall = core:signal(false)
 	local headerHeight = core:memo(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local screen = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -408,15 +408,15 @@ describe("withAnimation: a path that did not exist before", function()
 	-- baseline snapshot of live paths instead. Instance recycling is on by
 	-- default, so this is the shipped configuration, not a contrived one.
 	local function appearWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local shown = core:signal(false)
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -497,8 +497,8 @@ end)
 	that raises on `setVelocity`. ]]
 describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", function()
 	local function curveWorld(opts: any?)
-		LuauUI.motion.resetCurves()
-		LuauUI.motion.registerCurve("panel", { duration = 0.3, style = "quad", direction = "out" })
+		Facet.motion.resetCurves()
+		Facet.motion.registerCurve("panel", { duration = 0.3, style = "quad", direction = "out" })
 		return world(opts)
 	end
 
@@ -584,7 +584,7 @@ describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", funct
 		expect(string.find(tostring(err), "unknown motion class", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(tostring(err), "motion CURVE name", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(tostring(err), "panel", 1, true) ~= nil).toBeTruthy()
-		LuauUI.motion.resetCurves()
+		Facet.motion.resetCurves()
 	end)
 end)
 
@@ -609,22 +609,22 @@ end)
 	own size. ]]
 local function sizeWorld(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.reducedMotion then
 		env:set("reducedMotion", true)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local tall = core:signal(false)
 	local panelHeight = core:memo(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	-- Panel is FIRST, so its own position never changes: the only thing that can
 	-- animate about it is its SIZE. Tail sits under it and moves by exactly the
 	-- same 100 px the Panel grew, which is what makes the "one spring" assertion
@@ -727,7 +727,7 @@ describe("withAnimation: the painted SIZE travels, and the solved size is still 
 			w.tall:set(true)
 		end)
 		settle(w.pres)
-		-- RascalRally's luauui_sponsor_entry.spec asserts `props.transform == nil`
+		-- RascalRally's facet_sponsor_entry.spec asserts `props.transform == nil`
 		-- at rest in six places; a size animation that left `{w=0,h=0}` behind would
 		-- break the game's own invariant while every count here still read zero
 		expect(w.adapter.node("/S/Panel").props.transform).toBe(nil)

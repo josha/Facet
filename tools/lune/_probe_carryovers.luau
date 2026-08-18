@@ -5,7 +5,7 @@
 -- from a measurement rather than from reading the code.
 -- Usage: lune run tools/lune/_probe_carryovers
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local customFactory = require("../../src/core/custom")
 local adaptive = require("../../src/layout/adaptive")
 local environment = require("../../src/env/environment")
@@ -33,7 +33,7 @@ end
 -- ===== RR-1-R2: stats invariant "transactions must equal steps"
 do
 	local core = customFactory.new()
-	local clock = LuauUI.motion.newClock(core, {
+	local clock = Facet.motion.newClock(core, {
 		now = function()
 			return 0
 		end,
@@ -59,7 +59,7 @@ end
 -- ===== RR-1-R1: blast radius of a PERSISTENTLY throwing live target
 do
 	local core = customFactory.new()
-	local clock = LuauUI.motion.newClock(core, {
+	local clock = Facet.motion.newClock(core, {
 		now = function()
 			return 0
 		end,

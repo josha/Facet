@@ -1,17 +1,17 @@
-# LuauUI consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
+# Facet consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
 
 **Date:** 2026-08-13
 **Updated:** 2026-08-16
 
-This is the entry point for LuauUI work. Running the prompts in order is intended to
+This is the entry point for Facet work. Running the prompts in order is intended to
 produce these outcomes:
 
-Steps before Step 13 use the current LuauUI path and name. Step 13 renames the complete
+Steps before Step 13 use the current Facet path and name. Step 13 renames the complete
 framework and every current consumer to **Facet**, including this roadmap and its root
 directory. All later steps use Facet.
 
-1. LuauUI stops rebuilding Roblox capabilities that belong at the engine adapter.
-2. designers can restyle LuauUI screens through Roblox's Style Editor, while the
+1. Facet stops rebuilding Roblox capabilities that belong at the engine adapter.
+2. designers can restyle Facet screens through Roblox's Style Editor, while the
    headless solver remains deterministic;
 3. invalid or stale UI code fails clearly, and common controls/layouts adapt without
    device-specific screen copies;
@@ -22,7 +22,7 @@ directory. All later steps use Facet.
    from an honest extension seam for future spatial input and VR;
 6. a fresh-context simplification pass removes proven framework waste where found,
    without changing public behavior or smuggling in a redesign;
-7. Rascal Rally ships the proved LuauUI Sponsor presenter as production default while
+7. Rascal Rally ships the proved Facet Sponsor presenter as production default while
    retaining the untouched legacy presenter as an explicit rollback;
 8. one API and architecture constitution makes new features predictable to authors
    and agents, with current exceptions documented rather than accidental;
@@ -31,11 +31,11 @@ directory. All later steps use Facet.
 10. Roblox preferred text size becomes a live layout input; public UI and Rascal
    Rally Sponsor View reflow without overlap or inaccessible essential text, including
    compact mobile portrait and landscape;
-11. self-contained performance places make LuauUI cost reproducible and optimizable in
+11. self-contained performance places make Facet cost reproducible and optimizable in
    Studio and on the supported low-end Android floor;
 12. every tutorial example is visibly instructive, playable, consistently styled, and
    verified through the real Roblox adapter.
-13. three clean-room, SwiftUI-scale reference experiences show what LuauUI can build
+13. three clean-room, SwiftUI-scale reference experiences show what Facet can build
    inside Roblox and distinguish framework gaps from Roblox/Apple platform differences;
 14. a measured architecture decision determines whether declarative 3D should become
    a sibling system without forcing world objects into the 2D UI solver;
@@ -84,12 +84,12 @@ repeated requests for the user to test unfinished work.
 Before any prompt, read the repository `CLAUDE.md`, every closer `CLAUDE.md`, and
 the relevant `.claude` guidance. The repository boundary is important:
 
-- `GameStudio/ui/LuauUI` owns reusable framework capability;
+- `GameStudio/ui/Facet` owns reusable framework capability;
 - `games/RascalRally` consumes the framework and owns game behavior and authored
   Sponsor presentation;
 - game-specific logic must not move into GameStudio.
 
-Because both Rascal Rally Rojo projects mount LuauUI source directly, every framework
+Because both Rascal Rally Rojo projects mount Facet source directly, every framework
 source/contract/default/behavior/asset/distribution change must also audit and update
 the affected Rascal Rally integration and a game-side contract test in the same
 stage. If no production caller should change, update the compatibility test/evidence
@@ -121,7 +121,7 @@ These documents govern the work:
    framework capability ledger for Sponsor Mode.
 9. [`code-simplicity-cleanup.md`](code-simplicity-cleanup.md) — fresh-context,
    behavior-preserving simplification gate before game integration.
-10. [`games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md`](../../../../../games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md)
+10. [`games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md`](../../../../../games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md)
    — full game-specific parallel-build and proof plan.
 11. [`api-architecture-consistency.md`](api-architecture-consistency.md) — the
     predictable public API, lifecycle, extension, and enforcement rules.
@@ -164,7 +164,7 @@ silently code around the disagreement.
 
 ## What stays custom and what moves native
 
-The useful boundary is not “engine-agnostic versus Roblox-specific.” LuauUI is a
+The useful boundary is not “engine-agnostic versus Roblox-specific.” Facet is a
 Roblox framework. The boundary is decision versus mechanism:
 
 - Keep deterministic decisions in pure Luau: layout geometry, logical focus,
@@ -183,13 +183,13 @@ Key corrections to the earlier roadmap:
 - `GuiObject` already exposes long-press, pan, pinch, rotate, swipe, and tap events.
 - `Path2D` is the first candidate for rings, arcs, curves, and stroked icons.
 - `UIPageLayout` is worth testing for paged `TabView`, not general transitions.
-- `GuiState` is read-only; Roblox owns native button state and LuauUI tags app state.
-- `StyleQuery` has a closed built-in condition set; tags carry LuauUI's filtered
+- `GuiState` is read-only; Roblox owns native button state and Facet tags app state.
+- `StyleQuery` has a closed built-in condition set; tags carry Facet's filtered
   paradigm decisions.
 - Roblox preferred text size must be applied exactly once.
 - passive gameplay HUDs keep `GuiService.SelectedObject` nil; only engaged
   modal/menu surfaces may test an engine-selection bridge.
-- `PreloadAsync` has no physical cancellation; LuauUI can reject stale completion
+- `PreloadAsync` has no physical cancellation; Facet can reject stale completion
   and avoid starting queued work.
 - `billboard_target.luau` is implemented already.
 
@@ -198,7 +198,7 @@ Key corrections to the earlier roadmap:
 | Step | Outcome | Main gate |
 |---|---|---|
 | 1 | Corrected Roblox-native substrate and evidence | Native spikes pass; headless decisions remain tested |
-| 2 | Style Editor owns runtime paint and state styling | A designer edit changes a running LuauUI screen without a Luau edit |
+| 2 | Style Editor owns runtime paint and state styling | A designer edit changes a running Facet screen without a Luau edit |
 | 3 | Trustworthy authoring plus everyday adaptive controls/layouts | Invalid UI fails clearly; common screens pass all input/layout profiles |
 | 3.5 | Metric-aware theme packages and rich skinning | Public custom packages swap paint/fonts/metrics/chrome; solver reflows without remount or drift |
 | 4 | Cross-platform performance and future-platform proof | Existing headless gates plus real phone/console evidence; no unearned VR claim |
@@ -208,7 +208,7 @@ Key corrections to the earlier roadmap:
 | 7 | API constitution and consistency audit | Every public item follows a documented pattern or a justified exception; drift is checked |
 | 8 | Desktop keyboard interaction | Tab/Shift+Tab, Space/Return, and value arrows work through the existing focus/responder system |
 | 8.5 | Large-text accessibility | Native text preference is exact and live; public UI and Sponsor View reflow without inaccessible content on compact mobile |
-| 9 | Publish-ready LuauUI performance lab | Deterministic Studio/device profiles and matched native baseline; low-end Android row honest |
+| 9 | Publish-ready Facet performance lab | Deterministic Studio/device profiles and matched native baseline; low-end Android row honest |
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
 | 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
@@ -264,7 +264,7 @@ earlier decision and a future agent will otherwise "restore" the old one:
   indicator claims no layout space;
 - **`rowHeight` / `viewportHeight` on `newVirtualList` are deprecated aliases** of
   the axis-neutral `itemExtent` / `viewportExtent`, registered in
-  `LuauUI.DEPRECATIONS`; both still work on a vertical list.
+  `Facet.DEPRECATIONS`; both still work on a vertical list.
 
 Steps 2 and 3 may overlap after property authority and native state are settled.
 Step 3.5 starts only after Step 3's control vocabulary is stable; it does not reopen
@@ -321,20 +321,20 @@ modal-only selection bridging, and resource status/stale completion.
 ### Fable goal prompt
 
 ```text
-/goal Make LuauUI use Roblox-native UI mechanisms wherever the corrected audit says
+/goal Make Facet use Roblox-native UI mechanisms wherever the corrected audit says
 to adopt or use a hybrid, while keeping deterministic framework decisions headlessly
 testable. Read and follow:
 
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-primitives.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-primitives.md
 
-Outcome: native engine mechanisms do the work Roblox already owns, while LuauUI keeps
+Outcome: native engine mechanisms do the work Roblox already owns, while Facet keeps
 the reusable decisions, fallbacks, and deterministic tests it genuinely needs.
 
-Why: LuauUI is Roblox-only. Roblox should own scroll physics, clipping, drag
+Why: Facet is Roblox-only. Roblox should own scroll physics, clipping, drag
 acquisition, native touch recognition, safe-area measurement, path rendering,
-appropriate page layout, and resource transport. LuauUI should own layout geometry,
+appropriate page layout, and resource transport. Facet should own layout geometry,
 logical focus, virtualization, semantic input, payload/drop policy, and testable
 fallback models.
 
@@ -348,7 +348,7 @@ Boundaries:
   bridge is opt-in for an engaged modal/menu only and requires physical-gamepad proof.
 - Treat PreloadAsync cancellation honestly: ignore stale completion and skip queued
   work; do not claim an in-flight fetch was stopped.
-- Keep RascalRally game behavior unchanged, but synchronize affected LuauUI consumer
+- Keep RascalRally game behavior unchanged, but synchronize affected Facet consumer
   code/tests under the execution contract.
 
 The execution contract is a hard acceptance contract, not background reading. Before
@@ -363,7 +363,7 @@ keyboard, and device-performance rows pending when the available instrument cann
 observe them.
 
 Complete the adoption in reversible phases, updating the audit, ADRs, API reference,
-tests, examples, and evidence as each capability lands. Verify the full LuauUI suite,
+tests, examples, and evidence as each capability lands. Verify the full Facet suite,
 the relevant RascalRally suite, Studio device profiles, and fresh-context architecture
 and Roblox-platform review. Fix verifier findings and rerun the affected live slice.
 Report exact evidence and any fallback retained. Stop only for a destructive action,
@@ -377,7 +377,7 @@ pending—not the stage fully complete.
 Done July 24, 2026
 
 The desired promise is specific: a designer can open the Style Editor, find
-human-readable LuauUI roles, edit paint or a supported state, and see the running UI
+human-readable Facet roles, edit paint or a supported state, and see the running UI
 change without editing Luau. This promise does not extend to solver geometry unless a
 tested export/synchronization step exists and is clearly documented.
 
@@ -387,27 +387,27 @@ must work with instant state changes.
 ### Fable goal prompt
 
 ```text
-/goal Implement the corrected native-stylesheet plan for LuauUI. Read and follow:
+/goal Implement the corrected native-stylesheet plan for Facet. Read and follow:
 
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-stylesheets.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-stylesheets.md
 
 Outcome: Roblox StyleSheets and the Style Editor become the runtime source of truth
 for every proven styleable paint property, semantic role, native interaction state,
 app-state tag, theme, and transition. A designer can edit a named rule or paint token
-in Studio and see it on a running LuauUI screen without changing Luau.
+in Studio and see it on a running Facet screen without changing Luau.
 
 Why: visual authors should use Roblox's supported visual workflow, and future Roblox
-styling improvements should benefit LuauUI without a competing custom paint system.
+styling improvements should benefit Facet without a competing custom paint system.
 
 Boundaries:
 - GuiState is read-only and engine-owned. Use native state selectors for native
-  hover/press/non-interactable state and tags for LuauUI-owned state.
-- Use only documented built-in StyleQuery conditions. Tags carry LuauUI's filtered
+  hover/press/non-interactable state and tags for Facet-owned state.
+- Use only documented built-in StyleQuery conditions. Tags carry Facet's filtered
   input-paradigm and pointer-live decisions.
 - One authority owns each engine property. Once a property is native-styled, remove
-  LuauUI's direct write for that property; preserve an explicit-write fallback only
+  Facet's direct write for that property; preserve an explicit-write fallback only
   as a separate target mode.
 - Keep solver inputs available in pure Luau. Do not promise editor round-trip for
   spacing or type metrics without a tested export/freshness workflow.
@@ -418,11 +418,11 @@ Boundaries:
 
 The execution contract is a hard acceptance contract. Create the acceptance ledger
 and Studio preflight first, reusing the shared verification surface. A stylesheet row
-passes only when a visible running LuauUI screen changes through an actual native
+passes only when a visible running Facet screen changes through an actual native
 style rule or token change without a Luau source edit, and the artifact pairs the
 capture with mount identity, focus, state, and property-authority telemetry. Prove
 that an explicit write is no longer silently defeating each stylesheet-owned
-property. Exercise hover/press/disabled, LuauUI app-state tags, theme changes, reduced
+property. Exercise hover/press/disabled, Facet app-state tags, theme changes, reduced
 motion, and preferred text through the real adapter. A generated stylesheet, unit
 test, or screenshot without runtime state evidence is insufficient. If the MCP cannot
 operate the visual Style Editor, automate the runtime rule edit and leave one clearly
@@ -450,7 +450,7 @@ consume Step 2's native styling model.
 ### Opus 5 goal prompt
 
 ```text
-/goal Make LuauUI safe to author, then deliver the adaptive-layout and common-control
+/goal Make Facet safe to author, then deliver the adaptive-layout and common-control
 milestones in the referenced plan.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Follow the plans
@@ -459,13 +459,13 @@ only materially unresolved architecture/product choices with an evidence-backed
 decision packet for Fable 5 or the user.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/swiftui-parity-next.md
-- GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- GameStudio/ui/LuauUI/docs/guide/
-- GameStudio/ui/LuauUI/docs/extending/new-control.md
+- GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md
+- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/guide/
+- GameStudio/ui/Facet/docs/extending/new-control.md
 
 Outcome: invalid UI receives immediate useful feedback, and common screens can be
 written once while adapting correctly to supported input, display, and accessibility
@@ -523,7 +523,7 @@ metrics, and bounded decorative chrome still agree with the solver.
 ### Fable-led goal prompt
 
 ```text
-/goal Deliver LuauUI's public theme packages, metric-aware swapping, and rich
+/goal Deliver Facet's public theme packages, metric-aware swapping, and rich
 skinning as specified by the plan.
 
 Lead with Claude Fable 5 at its highest practical effort after Step 3 is green; Step
@@ -535,11 +535,11 @@ adjacent features.
 Read:
 - GameStudio/ENGINEERING.md
 - GameStudio/MODELS.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/adr/ADR-0018-native-stylesheets.md
-- GameStudio/ui/LuauUI/docs/guide/05-styling.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/adr/ADR-0018-native-stylesheets.md
+- GameStudio/ui/Facet/docs/guide/05-styling.md
 
 Outcome: authors can create, validate, install, reuse, and swap versioned themes
 changing paint, fonts, metrics, and bounded native/asset chrome while screens stay
@@ -598,7 +598,7 @@ resolved reviews, and honest pending hardware.
 
 Done - July 27
 
-LuauUI already has headless performance and preview infrastructure. Extend it so
+Facet already has headless performance and preview infrastructure. Extend it so
 performance claims can be tied to real Roblox devices, and make the environment,
 event, and render-target contracts extensible to future spatial UI without claiming
 VR support prematurely.
@@ -606,7 +606,7 @@ VR support prematurely.
 ### Opus 5 goal prompt
 
 ```text
-/goal Turn LuauUI's existing preview, conformance, and performance systems into an
+/goal Turn Facet's existing preview, conformance, and performance systems into an
 honest cross-platform proof system while preserving a future spatial-UI seam.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Treat the plans
@@ -615,26 +615,26 @@ unresolved architecture/product choices to Fable 5 or the user as evidence-backe
 decision packets.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/plans/swiftui-parity-next.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md
-- GameStudio/ui/LuauUI/bench/
-- GameStudio/ui/LuauUI/tools/lune/perf.luau
-- GameStudio/ui/LuauUI/src/preview/device_profiles.luau
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- GameStudio/ui/LuauUI/docs/extending/new-platform-mode.md
-- GameStudio/ui/LuauUI/docs/extending/new-render-target.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/bench/
+- GameStudio/ui/Facet/tools/lune/perf.luau
+- GameStudio/ui/Facet/src/preview/device_profiles.luau
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/extending/new-platform-mode.md
+- GameStudio/ui/Facet/docs/extending/new-render-target.md
 
 Outcome: fast deterministic headless regressions remain separate from Studio/device
-evidence capable of supporting real platform/performance claims. LuauUI gains only
+evidence capable of supporting real platform/performance claims. Facet gains only
 the contracts needed to add spatial input/world surfaces later; do not claim VR.
 
 Extend the current perf runner, artifacts, and shared Studio surface—do not create
 competing systems. Add console/ten-foot coverage and production-shaped virtual-list,
 native scroll/drag, dense HUD, StyleSheet churn, async-image, and lifecycle scenes.
-Capture real frame work, LuauUI update cost, Instances, connections, memory, and
+Capture real frame work, Facet update cost, Instances, connections, memory, and
 input-to-visible latency where exposed. Establish budgets from measured baselines and
 frame targets, never desktop Lune results presented as low-end-device proof.
 Include flat, metric-changing, and asset-backed theme swaps as distinct invalidation
@@ -678,7 +678,7 @@ not cross-platform proof complete.
 This is framework work, not the game port. Close the Sponsor ledger with native-first
 substrates and reusable APIs. The acceptance fixture is Sponsor-shaped, but no race
 rules, copy, sound assets, camera policy, or authored celebration content belongs in
-LuauUI.
+Facet.
 
 Required areas include native scrolling and virtualized reorder/select/drop lists;
 native-backed drag sessions and edge autoscroll; interruptible choreography models;
@@ -690,7 +690,7 @@ sound/haptic hooks.
 ### Fable-led goal prompt
 
 ```text
-/goal Close every reusable LuauUI framework gap required by the RascalRally Sponsor
+/goal Close every reusable Facet framework gap required by the RascalRally Sponsor
 parity matrix, without porting the game UI or embedding game policy.
 
 Lead with Claude Fable 5 at its highest practical effort. Fable owns architecture,
@@ -701,21 +701,21 @@ the integrated result; resolve its in-scope findings. Avoid adjacent work.
 Read:
 - GameStudio/specialists/UI_DESIGNER.md
 - GameStudio/specialists/APPLE_UI_MOTION_SKILL.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/reference/sponsor-view-parity.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/reference/sponsor-view-parity.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md
 
-Outcome: LuauUI can express every Sponsor ledger row at production quality; each row
+Outcome: Facet can express every Sponsor ledger row at production quality; each row
 is closed or honestly reclassified. Sponsor fixtures prove the reusable mechanisms
 can match the legacy quality baseline; Step 6 proves the complete game UI.
 
 Boundaries:
 - Start with ScrollingFrame, UIDragDetector, GuiObject touch events, Path2D, native
   StyleSheets, and the existing BillboardTarget.
-- LuauUI owns reusable virtualization, payload/drop legality seams, normalized and
+- Facet owns reusable virtualization, payload/drop legality seams, normalized and
   composed gestures, interruptible/reduced-motion-aware choreography, lifecycle,
   toast presentation, marker composition, and semantic feedback events.
 - RascalRally retains state, authority/fairness, copy/localization, camera/world and
@@ -724,15 +724,15 @@ Boundaries:
   its own motion model.
 - Do not port Sponsor Mode or change its default presenter.
 
-Create a responsibility ledger before coding. Sponsor fixtures consume public LuauUI
+Create a responsibility ledger before coding. Sponsor fixtures consume public Facet
 only: no fixture-local input/focus/layout/control workaround may stand in for a
-framework requirement. Fix reusable mechanisms and public-contract bugs in LuauUI
+framework requirement. Fix reusable mechanisms and public-contract bugs in Facet
 with tests/docs/real-adapter proof. Keep only game policy/content outside it and
 escalate a material unresolved architecture choice rather than hiding the gap.
 
 Apply relevant motion principles—immediate response, direct tracking, interruption,
 velocity handoff/projection, spatial consistency, reduced-motion equivalents, and
-cheap frame updates—as generalized LuauUI contracts, never fixture/game bypass code.
+cheap frame updates—as generalized Facet contracts, never fixture/game bypass code.
 
 Treat agent-execution-contract.md as binding. Convert every framework-owned ledger
 row into an acceptance row before coding. Extend the shared Studio surface with one
@@ -782,7 +782,7 @@ being smuggled into a cleanup pass.
 ### Opus 5 goal prompt
 
 ```text
-/goal As a fresh-context lead, simplify LuauUI without changing public behavior,
+/goal As a fresh-context lead, simplify Facet without changing public behavior,
 supported paradigms, or completed roadmap outcomes.
 
 Run in a new task with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`;
@@ -791,7 +791,7 @@ not invent work. Send material redesigns to Fable 5 or the user as evidence-back
 decision packets.
 
 Read `CLAUDE.md` and `GameStudio/ENGINEERING.md`. Under
-`GameStudio/ui/LuauUI`, read:
+`GameStudio/ui/Facet`, read:
 - docs/guide/02-architecture.md
 - docs/adr/ADR-0011-semver-and-deprecation.md
 - docs/plans/code-simplicity-cleanup.md
@@ -851,7 +851,7 @@ Studio proof exists; and every candidate is dispositioned. Report
 deletions/consolidations, retentions, evidence, pending hardware, and decision packets.
 ```
 
-## Step 6 — Build and prove a parallel LuauUI Sponsor Mode
+## Step 6 — Build and prove a parallel Facet Sponsor Mode
 
 Done August 2, 2026
 
@@ -860,13 +860,13 @@ the game plan exactly: legacy remains the default, one development-only selector
 chooses one presenter, and no old-code removal occurs.
 
 This is the historical pre-cutover prompt. The director separately authorized the
-LuauUI default on 2026-08-03; current work preserves that default and the untouched
+Facet default on 2026-08-03; current work preserves that default and the untouched
 legacy rollback.
 
 ### Fable-led goal prompt
 
 ```text
-/goal Build and verify the parallel LuauUI Sponsor Mode while preserving the working
+/goal Build and verify the parallel Facet Sponsor Mode while preserving the working
 legacy implementation as the shipped default.
 
 Fable owns live diagnosis, integration, feel iteration, and ownership decisions; dispatch only decided,
@@ -876,14 +876,14 @@ Avoid adjacent work.
 Read:
 - GameStudio/specialists/UI_DESIGNER.md
 - GameStudio/specialists/APPLE_UI_MOTION_SKILL.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md
-- GameStudio/ui/LuauUI/docs/reference/sponsor-view-parity.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md
+- GameStudio/ui/Facet/docs/reference/sponsor-view-parity.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
 
-Outcome: a developer can select and test a complete LuauUI Sponsor presenter with
+Outcome: a developer can select and test a complete Facet Sponsor presenter with
 behavioral, visual, and feel-parity evidence; legacy remains intact and default.
 
 Safety boundary:
@@ -895,7 +895,7 @@ Safety boundary:
   presenters.
 - Cutover/removal requires separate later user approval.
 
-Dispatch `ui-designer` before coding to refresh a build-ready LuauUI spec from the
+Dispatch `ui-designer` before coding to refresh a build-ready Facet spec from the
 working baseline and ratified docs, then after integrated layers to review paired
 device evidence. Sponsor view user experience must be as good or better than status quo on all platforms. Apply the motion skill where relevant. Fable fixes and repeats until
 every automatable or specialist-identifiable gap is closed. The new UI must meet or
@@ -905,9 +905,9 @@ human UI-SPEC gate; final physical/FEEL approval remains separate.
 
 Apply the plan's declarative-responsibility test. RascalRally owns semantic game
 state/commands, content, style/control choices, intended layout, and authored Sponsor
-beats. LuauUI owns reusable mechanisms and environment-driven layout, paradigm,
+beats. Facet owns reusable mechanisms and environment-driven layout, paradigm,
 input, focus, hit, scroll, lifecycle, accessibility, and motion adaptation. Ledger
-custom helpers/direct engine access. Fix framework needs in LuauUI with public API,
+custom helpers/direct engine access. Fix framework needs in Facet with public API,
 tests, docs, and live proof before consuming them. Finish with no temporary UI
 workaround, platform-name branch, or parallel input/focus/layout/control system.
 
@@ -941,7 +941,7 @@ compatible defects, and records larger migrations without smuggling in a redesig
 ### Fable-led goal prompt
 
 ```text
-/goal Establish and enforce a coherent LuauUI API and architecture constitution so
+/goal Establish and enforce a coherent Facet API and architecture constitution so
 learning one part makes the rest predictable, without breaking working consumers.
 
 Lead with Claude Fable 5 at its highest practical effort. Fable owns architecture,
@@ -952,14 +952,14 @@ dispatch only sizeable disjoint implementation packages to Claude Opus 5
 Read:
 - GameStudio/MODELS.md
 - GameStudio/ENGINEERING.md
-- GameStudio/ui/LuauUI/docs/guide/02-architecture.md
-- GameStudio/ui/LuauUI/docs/reference/api.md
-- GameStudio/ui/LuauUI/docs/adr/ADR-0011-semver-and-deprecation.md
-- GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/extending/
-- GameStudio/ui/LuauUI/src/init.luau
-- GameStudio/ui/LuauUI/tools/lune/gate_manifest.luau
+- GameStudio/ui/Facet/docs/guide/02-architecture.md
+- GameStudio/ui/Facet/docs/reference/api.md
+- GameStudio/ui/Facet/docs/adr/ADR-0011-semver-and-deprecation.md
+- GameStudio/ui/Facet/docs/plans/api-architecture-consistency.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/extending/
+- GameStudio/ui/Facet/src/init.luau
+- GameStudio/ui/Facet/tools/lune/gate_manifest.luau
 
 Outcome: one concise, example-backed constitution governs constructors, specs,
 reactive values, results, callbacks, ownership/lifecycle, errors, input/focus,
@@ -1011,7 +1011,7 @@ contended case), and keyboard Input Action bindings do not fire while a `TextBox
 holds focus, so `handleTraverse` is unreachable on today's engine. Evidence and
 decisions in `artifacts/desktop-keyboard-navigation/`.
 
-LuauUI's directional focus remains the base. This stage adds the desktop conventions
+Facet's directional focus remains the base. This stage adds the desktop conventions
 authors should get automatically when a keyboard is available, while engaged UI owns
 input and passive gameplay remains untouched.
 
@@ -1019,7 +1019,7 @@ input and passive gameplay remains untouched.
 
 ```text
 /goal Add automatic desktop keyboard traversal, activation, and value adjustment to
-LuauUI through its existing focus, responder, and Input Action System architecture.
+Facet through its existing focus, responder, and Input Action System architecture.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Treat the plans
 as the complete brief; make routine implementation decisions and avoid adjacent UI,
@@ -1027,18 +1027,18 @@ shortcut, or focus features. Send material unresolved choices to Fable 5/user wi
 evidence.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
-- GameStudio/ui/LuauUI/docs/plans/desktop-keyboard-navigation.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/reference/api.md
-- GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md
-- GameStudio/ui/LuauUI/src/focus/
-- GameStudio/ui/LuauUI/src/input/
-- GameStudio/ui/LuauUI/src/present/presenter.luau
-- GameStudio/ui/LuauUI/src/client/roblox_input.luau
+- GameStudio/ui/Facet/docs/plans/api-architecture-consistency.md
+- GameStudio/ui/Facet/docs/plans/desktop-keyboard-navigation.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/reference/api.md
+- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/src/focus/
+- GameStudio/ui/Facet/src/input/
+- GameStudio/ui/Facet/src/present/presenter.luau
+- GameStudio/ui/Facet/src/client/roblox_input.luau
 
-Outcome: when keyboard capability is live and an interactive LuauUI responder owns
+Outcome: when keyboard capability is live and an interactive Facet responder owns
 input, Tab/Shift+Tab traverse the active focus chain, Return and Space activate once,
 and a focused value control consumes its declared arrows as Adjust. Screens add no
 key listeners. Passive HUD/gameplay input remains untouched.
@@ -1087,14 +1087,14 @@ RascalRally gameplay or publish/deploy.
 > readability stay honestly pending with the prepared review packet.
 
 This stage closes the exact Roblox preferred-text seam, establishes one framework
-overflow policy, and proves the result on the production LuauUI Sponsor presenter.
+overflow policy, and proves the result on the production Facet Sponsor presenter.
 It is Fable-led because engine measurement, public API, accessibility judgment,
 responsive composition, and game integration must be decided together.
 
 ### Fable-led goal prompt
 
 ```text
-/goal Make LuauUI and the production Rascal Rally Sponsor View resilient at Roblox
+/goal Make Facet and the production Rascal Rally Sponsor View resilient at Roblox
 PreferredTextSize Medium, Large, Larger, and Largest, especially compact mobile
 portrait and landscape.
 
@@ -1104,13 +1104,13 @@ iteration. Dispatch at most three decided, disjoint packages to Claude Opus 5
 (`claude-opus-5`) at `xhigh`.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/reference/api.md and the current environment, text,
+- GameStudio/ui/Facet/docs/plans/large-text-accessibility.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/reference/api.md and the current environment, text,
   layout, focus, scroll, and motion implementations
-- games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md
-- games/RascalRally/docs/ui/UI_SPEC_sponsor_luauui.md
+- games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md
+- games/RascalRally/docs/ui/UI_SPEC_sponsor_facet.md
 - GameStudio/specialists/{UI_DESIGNER,APPLE_UI_MOTION_SKILL,ROBLOX}.md
 
 Treat `large-text-accessibility.md` as the full specification. Outcome: preference is
@@ -1136,7 +1136,7 @@ opt-in research.
 Diagnose bounds/lines, policy/full-value access, overlap/clipping, hit floors, hidden
 focus, repeated reflow, and moving-label count; declare intentional overlays.
 
-Keep responsibility declarative: LuauUI owns measurement, overflow, adaptation,
+Keep responsibility declarative: Facet owns measurement, overflow, adaptation,
 input/focus/scroll, diagnostics, and motion policy. RascalRally owns localized
 content, importance, style/control choices, relationships, and layout candidates.
 No game-local marquee, measurement, geometry, input, focus, scroll, or device branch.
@@ -1155,13 +1155,13 @@ Injected coverage is not the real read-only setting; physical Largest phone port
 landscape and subjective readability remain honest external gates.
 
 Complete only with gate exit 0/artifact; exact live behavior; green public/Sponsor
-matrices, LuauUI/RascalRally suites and prior gates; no inaccessible essential text,
+matrices, Facet/RascalRally suites and prior gates; no inaccessible essential text,
 overlap, state loss, unbounded motion, or game workaround; reviews resolved; and
 API/guide/parity/Sponsor docs updated. Do not publish/deploy/push, remove legacy
 Sponsor, or claim assistive-technology parity Roblox cannot expose.
 ```
 
-## Step 9 — Ship a publish-ready LuauUI performance lab
+## Step 9 — Ship a publish-ready Facet performance lab
 
 **DONE**
 
@@ -1173,7 +1173,7 @@ second only when measured isolation requires it.
 ### Opus 5 goal prompt
 
 ```text
-/goal Build the publish-ready LuauUI performance stress place and repeatable
+/goal Build the publish-ready Facet performance stress place and repeatable
 Studio/low-end-Android profiling loop defined by the plan.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Treat the plans
@@ -1181,18 +1181,18 @@ as acceptance requirements; avoid adjacent work. Escalate materially unresolved
 architecture/product choices with evidence for Fable 5 or the user.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/plans/performance-stress-places.md
-- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
-- GameStudio/ui/LuauUI/docs/plans/desktop-keyboard-navigation.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/bench/
-- GameStudio/ui/LuauUI/tools/lune/perf.luau
-- GameStudio/ui/LuauUI/tools/build_places.sh
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/plans/performance-stress-places.md
+- GameStudio/ui/Facet/docs/plans/large-text-accessibility.md
+- GameStudio/ui/Facet/docs/plans/desktop-keyboard-navigation.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/bench/
+- GameStudio/ui/Facet/tools/lune/perf.luau
+- GameStudio/ui/Facet/tools/build_places.sh
 - GameStudio/specialists/ROBLOX.md
 
-Outcome: emit a self-contained examples/places/LuauUI-PerformanceLab.rbxl that opens
+Outcome: emit a self-contained examples/places/Facet-PerformanceLab.rbxl that opens
 without Rojo and is ready for manual publishing and repeatable Studio/Android
 profiling.
 
@@ -1228,7 +1228,7 @@ From a clean source state, rebuild and open the emitted place; verify registry,
 selector, reset, native reference, labels, export, and idle teardown.
 
 Use the canonical device API matrix to prove the lab remains operable. Then run the
-profiling loop: repeated baselines; falsifiable LuauUI cause; smallest fix; focused,
+profiling loop: repeated baselines; falsifiable Facet cause; smallest fix; focused,
 full, and perf gates; rebuild; identical repeated after-captures; cross-scenario
 regression check. Record negative/inconclusive attempts.
 
@@ -1255,29 +1255,29 @@ complete Wordle-like game, and actually validates the tile and match-3 loops.
 ### Opus 5 goal prompt
 
 ```text
-/goal Run the LuauUI tutorial-gallery quality pass so every example teaches, plays,
+/goal Run the Facet tutorial-gallery quality pass so every example teaches, plays,
 styles, adapts, rebuilds, and verifies as specified by the plan.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Treat the plans
 as binding; avoid unrelated work. Escalate material unresolved choices with evidence.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/plans/example-quality-pass.md
-- GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
-- GameStudio/ui/LuauUI/ui_todo.md (§0, §2)
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-stylesheets.md
-- GameStudio/ui/LuauUI/examples/gallery/
-- GameStudio/ui/LuauUI/tools/lune/gate_manifest.luau
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/plans/example-quality-pass.md
+- GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/Facet/docs/plans/large-text-accessibility.md
+- GameStudio/ui/Facet/ui_todo.md (§0, §2)
+- GameStudio/ui/Facet/docs/plans/roblox-native-stylesheets.md
+- GameStudio/ui/Facet/examples/gallery/
+- GameStudio/ui/Facet/tools/lune/gate_manifest.luau
 
 Outcome: all seven examples are understandable/playable without source, share one
 native-StyleSheet product design, adapt across supported layouts/inputs, build as
 standalone places, and pass the canonical `example-quality-pass` gate.
 
 Examples own domain rules/content/state and declare style/control/layout intent.
-LuauUI owns reusable behavior and environment-driven adaptation. Ledger helpers; fix
+Facet owns reusable behavior and environment-driven adaptation. Ledger helpers; fix
 framework needs there with public API/tests/docs/live proof. Finish with no workaround,
 platform branch, raw GUI/input bypass, or parallel control machinery; do not
 generalize game rules.
@@ -1329,14 +1329,14 @@ resolved reviews, and accurate docs. Report results, artifacts, and pending rows
 
 **DONE**
 
-This stage answers a narrower, more useful question than “does LuauUI have every
+This stage answers a narrower, more useful question than “does Facet have every
 SwiftUI type?” It builds representative in-experience loops and distinguishes real
 framework gaps from Roblox service work and Apple-only host operating-system surfaces.
 
 ### Fable-led goal prompt
 
 ```text
-/goal Determine and prove how well LuauUI can build the in-experience behavior of
+/goal Determine and prove how well Facet can build the in-experience behavior of
 Apple's Backyard Birds, Food Truck, and Fruta samples as adaptive Roblox experiences.
 
 Lead with Claude Fable 5 at its highest practical effort. Fable owns sample
@@ -1346,19 +1346,19 @@ build-ready proof specs. After shared decisions are fixed, dispatch at most thre
 disjoint sample packages to Claude Opus 5 (`claude-opus-5`) at `xhigh`.
 
 Read:
-- GameStudio/ui/LuauUI/docs/plans/swiftui-reference-app-validation.md
-- GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
-- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
-- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
-- GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md
-- GameStudio/ui/LuauUI/docs/reference/api.md
+- GameStudio/ui/Facet/docs/plans/swiftui-reference-app-validation.md
+- GameStudio/ui/Facet/docs/plans/api-architecture-consistency.md
+- GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
+- GameStudio/ui/Facet/docs/plans/studio-device-verification.md
+- GameStudio/ui/Facet/docs/plans/large-text-accessibility.md
+- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/docs/reference/api.md
 - GameStudio/specialists/UI_DESIGNER.md
 - GameStudio/specialists/ROBLOX.md
 
 Outcome: three self-contained clean-room Roblox proofs run complete representative
 loops across supported layouts/inputs, and a complete feature ledger says what is
-available, composable, a LuauUI gap, a Roblox-service adaptation, or unavailable as a
+available, composable, a Facet gap, a Roblox-service adaptation, or unavailable as a
 Roblox host surface.
 
 At stage start, inspect the current official Apple pages and downloadable source;
@@ -1373,15 +1373,15 @@ compact entry flow sharing the full components. Use deterministic fake services�
 real purchase, player-data write, private service, or required network. Map the real
 Roblox service a production game would own.
 
-Separate LuauUI UI behavior, game/service behavior, and Apple host-OS behavior.
+Separate Facet UI behavior, game/service behavior, and Apple host-OS behavior.
 Widgets, App Clips, Live Activities, Dynamic Island, WeatherKit, and similar surfaces
 with no experience API are platform differences, not framework failures. Do not fake
 them and claim parity.
 
-Create capability and responsibility ledgers first. Proofs use public LuauUI only
-and own domain state/content/commands. LuauUI owns reusable layout, focus, input,
+Create capability and responsibility ledgers first. Proofs use public Facet only
+and own domain state/content/commands. Facet owns reusable layout, focus, input,
 accessibility, presentation, motion, and adaptation. Fix bounded compatible framework
-defects in LuauUI with API/tests/docs/live proof; never use raw GuiObjects, local key
+defects in Facet with API/tests/docs/live proof; never use raw GuiObjects, local key
 listeners, parallel focus/layout, or device-name branches. Turn a large missing
 subsystem into an evidence-backed follow-on proposal rather than hiding it locally.
 
@@ -1401,7 +1401,7 @@ parity/authoring docs, and explicit physical/human pendings. Do not publish/depl
 
 **DONE**
 
-The likely answer is a sibling declarative scene system that may share LuauUI's
+The likely answer is a sibling declarative scene system that may share Facet's
 reactive/lifecycle foundation, not world nodes added to the 2D solver. This stage
 tests that answer with an isolated spike; it does not create a production feature.
 
@@ -1419,16 +1419,16 @@ research or an explicitly designed spike to Claude Opus 5 at `xhigh`.
 Read:
 - GameStudio/ENGINEERING.md
 - GameStudio/specialists/ROBLOX.md
-- GameStudio/ui/LuauUI/docs/guide/02-architecture.md
-- GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
-- GameStudio/ui/LuauUI/docs/plans/declarative-3d-architecture.md
-- GameStudio/ui/LuauUI/src/core/contract.luau
-- GameStudio/ui/LuauUI/src/render/target_contract.luau
-- GameStudio/ui/LuauUI/src/input/spatial.luau
+- GameStudio/ui/Facet/docs/guide/02-architecture.md
+- GameStudio/ui/Facet/docs/plans/api-architecture-consistency.md
+- GameStudio/ui/Facet/docs/plans/declarative-3d-architecture.md
+- GameStudio/ui/Facet/src/core/contract.luau
+- GameStudio/ui/Facet/src/render/target_contract.luau
+- GameStudio/ui/Facet/src/input/spatial.luau
 
-Outcome: a plain-language reviewed ADR recommends LuauUI extension, sibling package,
+Outcome: a plain-language reviewed ADR recommends Facet extension, sibling package,
 separate system, or no build; an isolated spike supplies topology/lifecycle/cost
-evidence. PASS means the decision is proved, not that LuauUI supports 3D.
+evidence. PASS means the decision is proved, not that Facet supports 3D.
 
 Start from current official Roblox guidance and live probes. Inventory concrete
 static layout, keyed collection, reactive visual property, attachment/assembly,
@@ -1436,7 +1436,7 @@ server-owned shared object, client-local decoration, streaming, and teardown use
 cases. Keep physics controllers, terrain generation, networking replacement, and a
 general game engine out of scope.
 
-Compare adding world nodes to LuauUI, a sibling using a shared core, and an independent
+Compare adding world nodes to Facet, a sibling using a shared core, and an independent
 system with compatible conventions. Test the plan's initial recommendation: share
 fine-grained reactivity, identity, scopes, transactions, errors, and API principles,
 but keep pixel/text/focus layout separate from CFrame/pivot/constraint/physics/
@@ -1451,8 +1451,8 @@ cleanup/reparent/destroy and streaming-like loss/reentry; invalid authoring and
 callback failure; instance/connection/update cost. Use native mechanisms instead of
 per-frame writes where Roblox owns the work.
 
-Do not modify LuauUI public exports, extract its core, edit game code, or create a
-production package. Because the spike changes no LuauUI contract, consumer lockstep
+Do not modify Facet public exports, extract its core, edit game code, or create a
+production package. Because the spike changes no Facet contract, consumer lockstep
 does not require a RascalRally edit. The ADR must decide whether extraction is worth migration risk,
 name the boundary and first bounded milestone if recommended, and state non-goals,
 authority, compatibility, risks, and required future device/performance proof.
@@ -1463,9 +1463,9 @@ Complete only with gate exit zero/artifact and a decisive recommendation; do not
 publish/deploy or silently begin the follow-on build.
 ```
 
-## Step 13 — Rename LuauUI to Facet and run a fresh release-candidate review
+## Step 13 — Rename Facet to Facet and run a fresh release-candidate review
 
-This stage first renames the framework and all current consumers from LuauUI to Facet,
+This stage first renames the framework and all current consumers from Facet to Facet,
 then runs the whole-framework adversarial pass requested before distribution. It
 reviews from a frozen baseline, remediates confirmed defects, makes every human
 document clear, and describes Facet in Roblox terms. It gives humans and agents one
@@ -1478,7 +1478,7 @@ features do not become bugs.
 ### Fable-led goal prompt
 
 ```text
-/goal Rename LuauUI to Facet and run its release review. Fix defects, make IAS
+/goal Rename Facet to Facet and run its release review. Fix defects, make IAS
 authoritative, improve maintenance/API/performance, and ship polished sensory haptics.
 
 Use fresh Fable 5 at highest effort for decisions/integration; delegate decided fixes
@@ -1611,7 +1611,7 @@ exact physical pendings. Report evidence/deletions. Do not publish/package.
 
 ## Step 14 — Prepare the existing repository for public distribution
 
-The existing private `josha/LuauUI` repository becomes `josha/Facet` at one guarded
+The existing private `josha/Facet` repository becomes `josha/Facet` at one guarded
 owner checkpoint. This stage gives its public branch a clean product/contributor
 structure, MIT licensing, provenance, and agent onboarding; it also creates one private,
 stable-ID Facet Roblox Package with a guarded update workflow.

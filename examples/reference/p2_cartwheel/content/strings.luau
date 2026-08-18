@@ -248,7 +248,7 @@ function strings.new(locale: string?): any
 	return self
 end
 
--- ---- the proof's own tiny i18n (LuauUI ships no date/number formatter) ------
+-- ---- the proof's own tiny i18n (Facet ships no date/number formatter) ------
 
 -- minutes since midnight -> "4:02 PM"
 function strings.clockTime(minutes: number): string

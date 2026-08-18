@@ -8,7 +8,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local table_control = require("../src/controls/table")
 local snapshot = require("../src/themes/snapshot")
 local fake_target = require("../tests/lib/fake_target")
@@ -29,10 +29,10 @@ local function hasColumnCells(columns: { any }): boolean
 end
 
 local function world(spec: any)
-	local core = spec.core or LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = spec.core or Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	-- Task 10: `spec.now` is an OPTIONAL scripted clock (row_actions_input.
 	-- spec.luau's own `pointerWorld` pattern) — every existing caller omits
@@ -46,9 +46,9 @@ local function world(spec: any)
 	-- decayed to). Reorder's own drag math never reads velocity at all,
 	-- which is why no table.spec.luau test needed this before row_actions
 	-- rode the same harness.
-	local pres = LuauUI.newPresenter(core, env, adapter, system, if spec.now then { now = spec.now } else nil)
+	local pres = Facet.newPresenter(core, env, adapter, system, if spec.now then { now = spec.now } else nil)
 	local rows = core:signal(spec.rowsOverride or RACERS)
-	local tbl = table_control.build(LuauUI, core, {
+	local tbl = table_control.build(Facet, core, {
 		id = "Racers",
 		columns = spec.columns or {
 			{ id = "name", title = "Racer", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
@@ -63,7 +63,7 @@ local function world(spec: any)
 				or (spec.columns and hasColumnCells(spec.columns))
 			then spec.cellFor
 			else function(columnId, item)
-				return LuauUI.UI.Text({
+				return Facet.UI.Text({
 					id = "Value",
 					text = if columnId == "name" then item.name else tostring(item.laps),
 					textSize = 16,
@@ -91,7 +91,7 @@ local function world(spec: any)
 		env = if spec.passEnv == false then nil else env,
 		height = spec.height,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 	local handle = pres.present(screen, {
 		-- this legacy harness drives the table's FLAT-ring story (grip in the
 		-- ring, wrap-around, shift+Navigate reorder); it opts out of the
@@ -216,9 +216,9 @@ describe("Table: custom cells and resize model", function()
 			header = false,
 			cellFor = function(columnId, item)
 				if columnId == "name" then
-					return LuauUI.UI.Toggle({ id = "Fav", label = item.name, value = false })
+					return Facet.UI.Toggle({ id = "Fav", label = item.name, value = false })
 				end
-				return LuauUI.UI.Text({ id = "Value", text = tostring(item.laps), textSize = 16 })
+				return Facet.UI.Text({ id = "Value", text = tostring(item.laps), textSize = 16 })
 			end,
 		})
 		local favPath = cellPath(0, "razz", "name") .. "/Fav"
@@ -271,14 +271,14 @@ describe("Table: custom cells and resize model", function()
 	end)
 
 	it("table ids containing Lua pattern magic still route rows and grips", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(RACERS)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "results-list", -- '-' is pattern magic
 			columns = {
 				{
@@ -294,12 +294,12 @@ describe("Table: custom cells and resize model", function()
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
 			end,
 			rowHeight = 40,
 			selection = "single",
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen, {
 			onActivate = function(path, meta)
 				tbl.api.handleActivate(path, meta)
@@ -338,7 +338,7 @@ describe("Table: custom cells and resize model", function()
 	-- string appeared nowhere in the repo.
 	it("the CONTROL dump is deterministic and carries its schema string", function()
 		local _, adapter, pres, tbl = world({})
-		expect(tbl.dump().schema).toBe("luauui-table-dump/1")
+		expect(tbl.dump().schema).toBe("facet-table-dump/1")
 		local d1 = serde.encode("json", tbl.dump(), true)
 		expect(d1).toBe(serde.encode("json", tbl.dump(), true))
 		-- ...and it stays deterministic after live interaction moved the state
@@ -451,7 +451,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		clearance alone), and it is paid by a LEADING title too. The leading half is
 		asserted below, since it was the case with no coverage at all. ]]
 	it("a trailing title on a SORTABLE column clears the sort mark", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local sortOrder = core:signal({ column = "laps", ascending = true })
 		local _, adapter = world({
 			core = core,
@@ -503,7 +503,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 	-- localization case, which this asserts by measuring the box rather than by
 	-- hoping the corpus contains a long enough word.
 	it("a LEADING title on a sortable column reserves the mark's room too", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local sortOrder = core:signal({ column = "laps", ascending = true })
 		local _, adapter = world({
 			core = core,
@@ -542,7 +542,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 					id = "name",
 					width = { type = "fill", weight = 1 },
 					cell = function(item)
-						return LuauUI.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
+						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
 					end,
 				},
 				{
@@ -581,9 +581,9 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 	end)
 
 	it("a content-less column asserts AT BUILD, even with zero rows; ids must be path-safe", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local okEmpty = pcall(function()
-			table_control.build(LuauUI, core, {
+			table_control.build(Facet, core, {
 				id = "Bare",
 				columns = { { id = "name", width = { type = "fill", weight = 1 } } },
 				rows = core:signal({}),
@@ -595,14 +595,14 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		end)
 		expect(okEmpty).toBe(false)
 		local okSlash = pcall(function()
-			table_control.build(LuauUI, core, {
+			table_control.build(Facet, core, {
 				id = "Slashy",
 				columns = {
 					{
 						id = "a/b",
 						width = { type = "fill", weight = 1 },
 						cell = function()
-							return LuauUI.UI.Text({ id = "X", text = "", textSize = 12 })
+							return Facet.UI.Text({ id = "X", text = "", textSize = 12 })
 						end,
 					},
 				},
@@ -624,7 +624,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 					id = "name",
 					width = { type = "fill", weight = 1 },
 					cell = function(item)
-						return LuauUI.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
+						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
 					end,
 				},
 				{
@@ -640,7 +640,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 	end)
 
 	it("header taps cycle the owner-held sortOrder; the table never sorts the data", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local sortOrder = core:signal(nil :: any)
 		local _, adapter, pres, tbl, rows = world({
 			core = core,
@@ -652,7 +652,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 					width = { type = "fill", weight = 1 },
 					-- a `cell` column WITHOUT sortable=true stays out of sorting
 					cell = function(item)
-						return LuauUI.UI.Text({ id = "Custom", text = item.name, textSize = 16 })
+						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 16 })
 					end,
 				},
 				{
@@ -1376,7 +1376,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		-- icon overflows row on the left in edit mode."
 		--
 		-- Measured live under Pixel Quest: the row rect began at x=16 and the row's
-		-- card art (`LuauUIChromeL1`) at x=28 — a 12px carved border. Every other
+		-- card art (`FacetChromeL1`) at x=28 — a 12px carved border. Every other
 		-- element of the row pays that inset: the cells through `cellsEditPadding`,
 		-- the header through its own explicit padding. The handle zone did not, so
 		-- it sat at the raw row x and the ≡ drew 12px OUTSIDE the card it belongs
@@ -1387,9 +1387,9 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		-- border under a skinned one.
 		local packages = {
 			{ name = "flat", pkg = nil },
-			{ name = "pixel_quest", pkg = (require)("../examples/themes/pixel_quest").build(LuauUI.themes) },
-			{ name = "fantasy_ornate", pkg = (require)("../examples/themes/fantasy_ornate").build(LuauUI.themes) },
-			{ name = "glossy_touch", pkg = (require)("../examples/themes/glossy_touch").build(LuauUI.themes) },
+			{ name = "pixel_quest", pkg = (require)("../examples/themes/pixel_quest").build(Facet.themes) },
+			{ name = "fantasy_ornate", pkg = (require)("../examples/themes/fantasy_ornate").build(Facet.themes) },
+			{ name = "glossy_touch", pkg = (require)("../examples/themes/glossy_touch").build(Facet.themes) },
 		}
 		for _, config in packages do
 			local _, adapter, pres, tbl, _, env = scrollWorld()
@@ -1713,17 +1713,17 @@ end)
 -- was meant to sit in, and Compact's last column ran off the other end.
 -- ===========================================================================
 describe("table rows sit inside the theme's own selection card", function()
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 
 	local function cellXUnder(pkgModule: any?): (number, number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(RACERS)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
 				{ id = "name", title = "Name", width = { type = "fill", weight = 1 } },
@@ -1734,7 +1734,7 @@ describe("table rows sit inside the theme's own selection card", function()
 				return item.id
 			end,
 			cellFor = function(columnId, item)
-				return LuauUI.UI.Text({
+				return Facet.UI.Text({
 					id = "Value",
 					text = if columnId == "name" then item.name else tostring(item.laps),
 					textSize = 16,
@@ -1744,7 +1744,7 @@ describe("table rows sit inside the theme's own selection card", function()
 			header = true,
 			selection = "multi",
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		pres.refresh()
 		if pkgModule ~= nil then
 			env:set("themeMetrics", themes.resolve(pkgModule, nil, {}))
@@ -1798,14 +1798,14 @@ end)
 -- ===========================================================================
 describe("Table: `scrolls = false` makes it a block for a scrolling host", function()
 	local function blockWorld(scrolls: boolean?, w: number, h: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local rows = core:signal(RACERS)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			env = env,
 			scrolls = scrolls,
@@ -1817,21 +1817,21 @@ describe("Table: `scrolls = false` makes it a block for a scrolling host", funct
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 15 })
+				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 15 })
 			end,
 		})
-		pres.present(LuauUI.UI.Screen({
+		pres.present(Facet.UI.Screen({
 			id = "S",
 			padding = 8,
 			children = {
-				LuauUI.UI.ScrollView({
+				Facet.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						LuauUI.UI.Text({ id = "Title", text = "Racers", textSize = 24 }),
+						Facet.UI.Text({ id = "Title", text = "Racers", textSize = 24 }),
 						tbl.blueprint,
 					},
 				}),
@@ -1955,10 +1955,10 @@ end)
 
 describe("Table column boundary is strict (architecture review F-4)", function()
 	local function build(column: any)
-		return table_control.build(LuauUI, LuauUI.newCore(), {
+		return table_control.build(Facet, Facet.newCore(), {
 			id = "T",
 			columns = { column },
-			rows = LuauUI.newCore():signal({}),
+			rows = Facet.newCore():signal({}),
 			key = function(item: any)
 				return item.id
 			end,
@@ -2027,14 +2027,14 @@ describe("Table.rowGap: a number or a theme metric name", function()
 	end)
 
 	it("a SPACING STEP resolves to the theme's own step, not to a crash", function()
-		local neutral = snapshot.resolve(LuauUI.themes.neutralPackage(), nil, {})
+		local neutral = snapshot.resolve(Facet.themes.neutralPackage(), nil, {})
 		local expected = snapshot.resolveNumber(neutral, "s")
 		expect(type(expected)).toBe("number")
 		expect(gapBetweenFirstTwoRows("s")).toBe(expected)
 	end)
 
 	it("a DOTTED METRIC PATH resolves too — the spelling the playlist example uses", function()
-		local neutral = snapshot.resolve(LuauUI.themes.neutralPackage(), nil, {})
+		local neutral = snapshot.resolve(Facet.themes.neutralPackage(), nil, {})
 		local expected = snapshot.resolveNumber(neutral, "controls.table.rowGap")
 		expect(type(expected)).toBe("number")
 		expect(expected > 0).toBe(true)
@@ -2091,19 +2091,19 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 	-- one real table, solved on a compact phone with the auto toolbar showing;
 	-- returns the three band rects plus the solver's own verdict
 	local function solveChrome(offset: number, viewport: any): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", viewport)
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
 		env:set("preferredTextOffset", offset)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 
 		local rows = core:signal({ { id = "a", name = "Drift City Nights" }, { id = "b", name = "Neon Overpass" } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
 				{
@@ -2133,7 +2133,7 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 			onReorder = function() end,
 			env = env,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		local rectOf = handle.controller.rectOf
 		local out = {
 			toolbar = rectOf("/S/T/Main/ToggleWhen/then/Toolbar"),
@@ -2525,7 +2525,7 @@ describe("Table: row actions (Task 10)", function()
 	it(
 		"starting a reorder-handle drag on a row whose tray is open closes the tray FIRST, before reorder proceeds",
 		function()
-			local core = LuauUI.newCore()
+			local core = Facet.newCore()
 			local editingSignal = core:signal(true) -- edit mode: the ≡ handle is mounted
 			local w = raWorld({
 				core = core,
@@ -2661,7 +2661,7 @@ describe("Table: row actions (Task 10)", function()
 	)
 
 	it("editing signal shows the minus on rows with a destructive action", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local editingSignal = core:signal(false)
 		local _, adapter, pres = world({
 			core = core,
@@ -2681,7 +2681,7 @@ describe("Table: row actions (Task 10)", function()
 	end)
 
 	it("rows removed from spec.rows dispose their wrapper (no leak)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local _, adapter, pres, _tbl, rows = world({
 			core = core,
 			header = false,
@@ -2740,7 +2740,7 @@ describe("Table: row actions (Task 10)", function()
 
 	it("Delete key on a focused row deletes via the row's destructive action", function()
 		local fired: { string } = {}
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local _, adapter, pres, _tbl, _rows, _handle, system = world({
 			core = core,
 			header = false,
@@ -2920,7 +2920,7 @@ describe("Table: row actions (Task 10)", function()
 	)
 
 	it("edit mode shows BOTH the row_actions minus and Table's own reorder handle at once", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local editingSignal = core:signal(true) -- start in edit mode
 		local _, adapter = world({
 			core = core,
@@ -3017,20 +3017,20 @@ end)
 	page" as the shipped shape). ]]
 describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", function()
 	local function pageWorld(spec: any)
-		local core = spec.core or LuauUI.newCore()
+		local core = spec.core or Facet.newCore()
 		local clockTime = 0
-		local env = LuauUI.newEnvironment(core)
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
 		})
 		local rows = core:signal(RACERS)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			env = env,
 			scrolls = spec.scrolls,
@@ -3042,7 +3042,7 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
 			end,
 			rowActions = function(_item)
 				return {
@@ -3054,10 +3054,10 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 		-- THE HOST OWNS THE SCROLLING (the shipped playlist's own shape,
 		-- examples/gallery/examples/02_playlist_table.luau): a page ScrollView
 		-- wrapping a table that is a block inside it.
-		local handle = pres.present(LuauUI.UI.Screen({
+		local handle = pres.present(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.ScrollView({
+				Facet.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
@@ -3143,8 +3143,8 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 	end)
 
 	it("binding a BLOCK table still reports the mount error when it was never presented", function()
-		local core = LuauUI.newCore()
-		local tbl = table_control.build(LuauUI, core, {
+		local core = Facet.newCore()
+		local tbl = table_control.build(Facet, core, {
 			id = "Loose",
 			scrolls = false,
 			columns = { { id = "name", title = "N", width = { type = "fill", weight = 1 } } },
@@ -3153,7 +3153,7 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 				return item.id
 			end,
 			cellFor = function()
-				return LuauUI.UI.Text({ id = "V", text = "x", textSize = 16 })
+				return Facet.UI.Text({ id = "V", text = "x", textSize = 16 })
 			end,
 		})
 		local ok, err = pcall(function()

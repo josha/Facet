@@ -1,10 +1,10 @@
-# Brief — Navigation & Transient Menus (LuauUI)
+# Brief — Navigation & Transient Menus (Facet)
 
-**Status:** binding brief for the round. Written 2026-08-16 against LuauUI `0.9.0`
+**Status:** binding brief for the round. Written 2026-08-16 against Facet `0.9.0`
 (`src/init.luau:135`), commit `37e9dad`.
 
 **Origin:** the game director surveyed the shipping Roblox mobile app and named four
-constructs LuauUI must be able to express, then added three tasks of his own — the sweep
+constructs Facet must be able to express, then added three tasks of his own — the sweep
 optimization (§2 D0), the HUD repair (§2 D7) and the playlist-table consolidation (§2 D8). Reference media is checked in beside this
 file at `docs/plans/reference-media/2026-08-16-roblox-app-navigation/`:
 
@@ -25,7 +25,7 @@ name must not appear in any new source file.
 
 ---
 
-## 1. What LuauUI has today — verified, not remembered
+## 1. What Facet has today — verified, not remembered
 
 Every row below was read in source at `37e9dad`.
 
@@ -70,7 +70,7 @@ that's inefficient. let's optimize this."* Correct, and the size of it is worth 
 | Fact | Number | How |
 |---|---|---|
 | One full suite run | **83.4 s** wall, 5618 passed | `/usr/bin/time -p ./run-tests.sh` |
-| Gate checks that invoke the LuauUI suite | **161** | `run =` strings in `tools/lune/gate_manifest.luau` |
+| Gate checks that invoke the Facet suite | **161** | `run =` strings in `tools/lune/gate_manifest.luau` |
 | …of which the capture-then-grep form | **144** | `out="$(./run-tests.sh 2>&1)"` |
 | `grep -q` assertions riding those captures | **1074** | — |
 | Gate checks that invoke the Rascal Rally suite | **39** | `cd ../../../games/RascalRally/code && ./run-tests.sh` |
@@ -109,7 +109,7 @@ are the deliverable, not caveats on it:
    exists to have removed (PG-2, ledger C-08). Any edit busts it or the sweep proves
    nothing.
 3. **Refuse the fast tier, exactly as today.** `run-tests.sh --fast` skips eleven files
-   and prints `LUAUUI-FAST-TIER`; `tools/test.sh` already refuses that transcript, and
+   and prints `FACET-FAST-TIER`; `tools/test.sh` already refuses that transcript, and
    the guard has already been broken once by a `printf | grep -q` pipeline returning 141
    under `pipefail` (mutation M9, 2026-08-13). Reuse the bash-match form, do not rewrite it.
 4. **Standalone stays honest.** `tools/gate.sh <one-gate>` outside a sweep must still run
@@ -138,7 +138,7 @@ twice.
 
 | | |
 |---|---|
-| Suite grep patterns in the manifest | **990** (940 LuauUI, 50 Rascal Rally) |
+| Suite grep patterns in the manifest | **990** (940 Facet, 50 Rascal Rally) |
 | **Patterns matching ZERO lines in a fully green run** | **13** |
 | Gates affected | `phase-2-settings-parity` (5), `phase-3-pilot` (6), `part-2-director` (2) |
 
@@ -157,7 +157,7 @@ Three traps, all of which I hit while measuring this, so they are not hypothetic
    `traverse(+1)` is a different expression or a syntax error, and grep's exit 2 reads as
    "no match". This alone inflated my first count from 13 to 95.
 2. **Route each pattern to the transcript its own capture came from, positionally.** A
-   check may capture `$out` from the LuauUI suite and *then* `cd` into Rascal Rally for a
+   check may capture `$out` from the Facet suite and *then* `cd` into Rascal Rally for a
    later assertion; the mention of RascalRally anywhere in the run string is not the test.
    The capture belongs to Rascal Rally only when a `cd .../RascalRally/code` precedes the
    `out=` assignment. Getting this wrong reported 15 false positives in one check.
@@ -293,7 +293,7 @@ find a `help` string that appears nowhere else — the touch player cannot read 
   your app, or for advertising and promotion purposes."*
 - **Invalidation**: a callout dies permanently when its feature is used, when the player
   dismisses it, or on an explicit invalidate. Persistence is the **caller's**, not the
-  framework's — LuauUI has no save layer and must not grow one here. The construct takes
+  framework's — Facet has no save layer and must not grow one here. The construct takes
   a "has this been seen" Readable and reports back when it should be retired.
 - **Never blocks.** A callout is not a modal: it must not trap focus, and the control
   it points at stays operable underneath it (the tap-away catcher's non-consuming mode,
@@ -330,7 +330,7 @@ child's rect to the new one** instead of cross-fading two static fills.
 - **Overflow scrolls.** `f1` and `r3` both run their strip off-screen
   (`Avatars / Body / Clothing / Accessories / Backgrounds`). The strip is a
   horizontal `ScrollView` that **auto-scrolls the selected tab into view**;
-  `LuauUI.newAutoscroll` exists (`src/input/autoscroll.luau`).
+  `Facet.newAutoscroll` exists (`src/input/autoscroll.luau`).
 - **Lazy content, evicted state** (director ruling 2026-08-16). Build only the selected
   tab's subtree, and **tear the previous tab's subtree down on switch** — do not retain
   it. This is the memory-cheap choice and it is the right default for a kart racer whose
@@ -576,7 +576,7 @@ should be able to fail on.
 ## 5. Verification — run at the end of every stage, all green before moving on
 
 ```
-cd GameStudio/ui/LuauUI
+cd GameStudio/ui/Facet
 lune run tests/run                            # expect 5530+ passed / 0 failed
 python3 tools/check_source_size.py            # PASS, KNOWN_OVER empty
 lune run tools/lune/check_registration_cli    # PASS

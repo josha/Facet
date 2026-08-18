@@ -6,11 +6,11 @@
 
 **Architecture:** A pure decision module (`row_actions_state.luau`) owns all thresholds/verdicts; a composite (`row_actions.luau`) owns blueprints, springs, input entry points, and the contribution bundle (outside-dismiss, action bindings); Table wraps each row and composes pointer handlers with reorder via an axis lock. Spec: `docs/plans/row-actions.md`.
 
-**Tech Stack:** Luau, LuauUI internals (specGuard, motion clock/springs, drag_velocity, contribution bundles, presenter), lune test harness, Studio MCP for device verification.
+**Tech Stack:** Luau, Facet internals (specGuard, motion clock/springs, drag_velocity, contribution bundles, presenter), lune test harness, Studio MCP for device verification.
 
 ## Global Constraints
 
-- Repo: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/LuauUI` (git branch `sponsor/director-round-2026-08-04`; commit only your own files, other uncommitted work exists — including `docs/reference/swiftui-parity.md`, do not clobber it).
+- Repo: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet` (git branch `sponsor/director-round-2026-08-04`; commit only your own files, other uncommitted work exists — including `docs/reference/swiftui-parity.md`, do not clobber it).
 - Run one spec: `lune run tests/run -- tests/<name>.spec.luau`. Full suite: `./run-tests.sh`. Gates: `tools/gate.sh <gate-name>`.
 - Suite-grep gate checks MUST use Form A: `out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*<test name>"` — never pipe the suite straight into grep (masks exit code).
 - Specs are validated at build: `specGuard.assertKnownKeys(where, spec, KEYS, "spec")` with `specGuard.keySet({...})`; unknown keys are errors; empty action list `{}` is an error (use nil).
@@ -289,7 +289,7 @@ git commit -m "feat(row-actions): theme metrics for action trays"
 - Produces (consumed by Tasks 4–10):
 
 ```luau
-row_actions.build(LuauUI, core, spec: {
+row_actions.build(Facet, core, spec: {
 	id: string?,
 	content: Blueprint,                 -- required
 	leading: { ActionSpec }?,           -- nil = none; {} = spec error
@@ -328,7 +328,7 @@ ZStack id=<spec.id or "RowActions">
 └─ ZStack id="Content"       (the wrapped row; slides horizontally by `offset`)
 ```
 
-- [ ] **Step 1: Write the failing tests** — mirror `tests/chip.spec.luau`'s `presenterWorld` harness verbatim (fake_target adapter, `LuauUI.newPresenter`, `pres.present(screen)`). Cases:
+- [ ] **Step 1: Write the failing tests** — mirror `tests/chip.spec.luau`'s `presenterWorld` harness verbatim (fake_target adapter, `Facet.newPresenter`, `pres.present(screen)`). Cases:
 
 ```luau
 -- tests/row_actions.spec.luau (structure; use chip.spec.luau's world-builder idioms)
@@ -424,7 +424,7 @@ The one platform unknown: whether row-level pointer/gesture events fire for touc
 - Modify: `src/controls/row_actions.luau` (whichever path wins)
 - Test: extend `tests/row_actions_input.spec.luau` with `pointerType = "touch"` variants of Task 5's cases (headless), plus the Studio canary below.
 
-- [ ] **Step 1: Spike in Studio (timebox ~1h).** Use the open empty place. Sync a minimal fixture (a Y-scrolling list of rows built with `newRowActions`) via the examples pipeline (see `docs/` for the showcase sync recipe — memory: HTTP source push + `LuauUIShowcaseAPI`). With the device emulator emitting touch input, test two candidates and record which delivers usable horizontal pans without breaking vertical scroll: (a) blueprint PointerHandlers with `pointerType == "touch"` accepted on down + axis lock, (b) engine TouchPan via `touch_gestures.normalize`/`newArbiter` fed from the row's adapter events. Note: the emulator cannot produce `preferredInput = Touch` (known trap) — that only affects preferred-input styling, not touch event delivery; say so in the artifact.
+- [ ] **Step 1: Spike in Studio (timebox ~1h).** Use the open empty place. Sync a minimal fixture (a Y-scrolling list of rows built with `newRowActions`) via the examples pipeline (see `docs/` for the showcase sync recipe — memory: HTTP source push + `FacetShowcaseAPI`). With the device emulator emitting touch input, test two candidates and record which delivers usable horizontal pans without breaking vertical scroll: (a) blueprint PointerHandlers with `pointerType == "touch"` accepted on down + axis lock, (b) engine TouchPan via `touch_gestures.normalize`/`newArbiter` fed from the row's adapter events. Note: the emulator cannot produce `preferredInput = Touch` (known trap) — that only affects preferred-input styling, not touch event delivery; say so in the artifact.
 - [ ] **Step 2: Write `artifacts/row-actions/touch-spike.md`** — candidate, evidence (what fired, what scrolled), decision, and the exact wiring chosen.
 - [ ] **Step 3: Implement the winning path behind the same `_pointerHandlers`/state seam (no new decision logic — the state module already owns axis lock and settle).**
 - [ ] **Step 4: Headless touch-variant tests PASS + full suite. Step 5: Commit** `feat(row-actions): touch swipe wiring (spike-verified)` including the artifact.
@@ -547,7 +547,7 @@ it("Delete key on a focused row deletes via the row's destructive action", ...)
 - Create: `artifacts/row-actions/device-matrix.md` (evidence: per-view screenshots + diagnostics output)
 
 - [ ] **Step 1: Build the example; every fixture calls `controller.diagnostics()` and the example fails loudly on findings.**
-- [ ] **Step 2: Sync to the open Studio place (HTTP source push recipe), drive the five-view matrix via the `LuauUIScenarioAPI` BindableFunctions (traps: `run()` returns a JSON *string*; `compact-phone-landscape` needs `pinnedDeviceId`; sweep includes 320×640). At each view: swipe-open, full-swipe delete, keyboard Delete, ButtonX menu, edit-mode minus, reorder still works.**
+- [ ] **Step 2: Sync to the open Studio place (HTTP source push recipe), drive the five-view matrix via the `FacetScenarioAPI` BindableFunctions (traps: `run()` returns a JSON *string*; `compact-phone-landscape` needs `pinnedDeviceId`; sweep includes 320×640). At each view: swipe-open, full-swipe delete, keyboard Delete, ButtonX menu, edit-mode minus, reorder still works.**
 - [ ] **Step 3: Capture screenshots into the artifact; run diagnostics at every view; record PASS/FAIL per cell in `device-matrix.md`.**
 - [ ] **Step 4: Fix anything found (loop). Step 5: Commit** `test(row-actions): gallery example + five-view device matrix evidence`
 
@@ -580,7 +580,7 @@ it("Delete key on a focused row deletes via the row's destructive action", ...)
 
 ### Task 13: RascalRally consumer compatibility evidence
 
-Per the root constitution: LuauUI changes ship with Rascal Rally consumer work in the same task. No RR Table uses `rowActions` yet, so the expected deliverable is **evidence, not edits**.
+Per the root constitution: Facet changes ship with Rascal Rally consumer work in the same task. No RR Table uses `rowActions` yet, so the expected deliverable is **evidence, not edits**.
 
 **Files:**
 - Create: `artifacts/row-actions/rr-compat.md`
@@ -597,8 +597,8 @@ Per the root constitution: LuauUI changes ship with Rascal Rally consumer work i
 - Modify: `docs/reference/swiftui-parity.md` — **it has uncommitted local edits; `git diff docs/reference/swiftui-parity.md` FIRST and reconcile, never clobber.**
 
 - [ ] **Step 1: Read the current doc + its uncommitted diff; inventory its item list and section structure.**
-- [ ] **Step 2: Dispatch fresh-context subagents, one per area (state/reactivity, layout, controls, styling/theming, input/accessibility, motion, performance, tooling/preview), each given: the area's old audit verdicts, the current SwiftUI (June 2026/Xcode 27) baseline for that area (WebSearch as needed), and instructions to re-verdict every item against today's LuauUI citing file/test evidence — no verdict without a citation. Fresh context is the point: old judgments must not survive by inertia.**
-- [ ] **Step 3: Synthesize into the doc: new validation date (today), per-area verdict tables, an explicit "changed since 2026-07-22" section, the swipeActions row flipped to covered citing `newRowActions` + `tests/row_actions*.spec.luau`, LuauUI version updated (0.5.0 → the Task-12 version).**
+- [ ] **Step 2: Dispatch fresh-context subagents, one per area (state/reactivity, layout, controls, styling/theming, input/accessibility, motion, performance, tooling/preview), each given: the area's old audit verdicts, the current SwiftUI (June 2026/Xcode 27) baseline for that area (WebSearch as needed), and instructions to re-verdict every item against today's Facet citing file/test evidence — no verdict without a citation. Fresh context is the point: old judgments must not survive by inertia.**
+- [ ] **Step 3: Synthesize into the doc: new validation date (today), per-area verdict tables, an explicit "changed since 2026-07-22" section, the swipeActions row flipped to covered citing `newRowActions` + `tests/row_actions*.spec.luau`, Facet version updated (0.5.0 → the Task-12 version).**
 - [ ] **Step 4: One fresh-context reviewer subagent reads only the final doc for internal consistency and unsupported claims; fix findings.**
 - [ ] **Step 5: Commit** `docs: full swiftui-parity re-audit against v0.<N> (row actions shipped)`
 

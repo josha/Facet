@@ -5,10 +5,10 @@
 -- defaulted it to `function() return false end`. Every bespoke tween in that
 -- adapter — the press dip, the state-paint fades, the fill crossfade, the toggle
 -- slide — asked that closure, and NO production caller anywhere passed one: not
--- the showcase, and not RascalRally's four LuauUI GUIs (`GaragePilotGui`,
--- `LuauUIRacerListGui`, `LuauUISettingsGui`, `LuauUISponsor`), which all pass
+-- the showcase, and not RascalRally's four Facet GUIs (`GaragePilotGui`,
+-- `FacetRacerListGui`, `FacetSettingsGui`, `FacetSponsor`), which all pass
 -- `nativeStyle` and nothing else. So a player who asked for reduced motion got
--- full motion on every LuauUI surface ever shipped.
+-- full motion on every Facet surface ever shipped.
 --
 -- It survived because the only checks that named `isReducedMotion` matched the
 -- SOURCE TEXT of screen_target.luau (`native_style_scenario.spec.luau` uses the
@@ -28,22 +28,22 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local target_contract = require("../src/render/target_contract")
 local fake_target = require("./lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- ONE BUTTON, PRESENTED THE WAY A CONSUMER PRESENTS ONE — with no motion opts of
 -- any kind. That absence is the point: the fix is framework-side, so the fact has
 -- to arrive without this world asking for it.
 local function world(): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local pressed = 0
 	local handle = presenter.present(UI.Screen({
 		id = "S",
@@ -118,14 +118,14 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 	-- player who set the preference before the game booted must not see one
 	-- full-motion frame
 	it("a surface attached while the preference is already ON is born reduced", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 		env:set("reducedMotion", true)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		expect(adapter.reducedMotion()).toBe(false) -- nothing has told it yet
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		presenter.present(UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "hi" }) } }))
 		presenter.refresh()
 		expect(adapter.reducedMotion()).toBe(true)
@@ -145,13 +145,13 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 
 	-- the declared degrade: an adapter without the method is not a crash
 	it("a target WITHOUT setReducedMotion degrades by name", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).setReducedMotion = nil
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		presenter.present(UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "hi" }) } }))
 		presenter.refresh()
 		env:set("reducedMotion", true)

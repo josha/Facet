@@ -31,7 +31,7 @@ migration is written out so the decision is "yes/no", not "go and work it out".
 
 | | |
 |---|---|
-| File | `games/RascalRally/code/src/client/LuauUISponsor/OmenBillboard.luau` |
+| File | `games/RascalRally/code/src/client/FacetSponsor/OmenBillboard.luau` |
 | Nodes | `/Omen/OmenStack/HelpCap`, `/Omen/OmenStack/HinderCap`, `/Omen/OmenStack/Tail` |
 | Parent | `OmenStack`, a **vstack** |
 | Prop deleted | `alignH = "center"` on each |
@@ -49,7 +49,7 @@ omen billboard in the game. This is the single largest visual change in the queu
 
 | | |
 |---|---|
-| File | `games/RascalRally/code/src/client/LuauUISponsor/RacerList.luau` |
+| File | `games/RascalRally/code/src/client/FacetSponsor/RacerList.luau` |
 | Nodes | `AutoscrollChevron_top`, `AutoscrollChevron_bottom` |
 | Parent | `RacerListRegion`, a **zstack** |
 | Prop deleted | `offsetY = ±m.autoscrollChevronInset` (2 px) |
@@ -68,7 +68,7 @@ in `TableMetrics.luau` — it is a theme token, and it is what the migration spe
 
 | | |
 |---|---|
-| Files | `games/RascalRally/code/src/client/LuauUISponsor/ChipRow.luau`, `…/init.luau` |
+| Files | `games/RascalRally/code/src/client/FacetSponsor/ChipRow.luau`, `…/init.luau` |
 | Node | `/SponsorChips/…/ChipBand/ChipRow` |
 | Parent | `ChipBand`, an **hstack** |
 | Props deleted | `anchor = "top"`, `offsetY = opts.bandOffsetY` — plus the now-dead `bandOffsetY` option and its call site |
@@ -88,7 +88,7 @@ one kind that reads them.
 not the migration — it is whether §6's reflow is still a requirement at all**, given
 A8 superseded the problem it solved. If it is not, this row closes as "withdrawn".
 
-### 4. LuauUI reference proof — Glade's "Best value" chip never right-sets
+### 4. Facet reference proof — Glade's "Best value" chip never right-sets
 
 | | |
 |---|---|
@@ -105,7 +105,7 @@ is 75 wide at the card's leading inset.
 **Moves pixels:** yes — about **+1045 px** at 1200 px wide (it is a full-width card),
 proportionally less on a phone.
 
-### 5. LuauUI gallery host — the theme picker's chip never right-sets under its panel
+### 5. Facet gallery host — the theme picker's chip never right-sets under its panel
 
 | | |
 |---|---|
@@ -206,9 +206,9 @@ Every figure above comes from a live headless mount over `FakeTarget`, read out 
 
 | Row | Harness driven |
 |---|---|
-| Omen column | `games/RascalRally/code/tests/luauui_sponsor_omen.spec.luau` (`world` + `omenBeat`) |
-| Chip band / row | `games/RascalRally/code/tests/luauui_sponsor_story.spec.luau` |
-| Watched card | `games/RascalRally/code/tests/luauui_sponsor_table.spec.luau` (all three size classes) |
+| Omen column | `games/RascalRally/code/tests/facet_sponsor_omen.spec.luau` (`world` + `omenBeat`) |
+| Chip band / row | `games/RascalRally/code/tests/facet_sponsor_story.spec.luau` |
+| Watched card | `games/RascalRally/code/tests/facet_sponsor_table.spec.luau` (all three size classes) |
 | Glade shop | `tests/reference/glade_spec.luau` (`world`, tap through to the shop) |
 | Wardrobe buy bar | `tests/reference/wardrobe_spec.luau` |
 | Theme picker | `tests/gallery_theme_picker.spec.luau` |

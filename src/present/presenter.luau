@@ -81,7 +81,7 @@ export type PresentOpts = {
 	-- has to mean to a player. See api.md § Desktop keyboard conventions.
 	keyboardNavigation: boolean?,
 	-- engine-selection bridge (native-substrate NS-A12): presentModal-only
-	-- opt-in that mirrors LuauUI's logical focus to GuiService.SelectedObject
+	-- opt-in that mirrors Facet's logical focus to GuiService.SelectedObject
 	-- while the modal owns UI input. Ignored on present() (passive/gameplay
 	-- surfaces keep SelectedObject nil — NS-A11). Experiment until the
 	-- physical-gamepad row (NS-P1) closes; reversible by omitting the opt.
@@ -343,7 +343,7 @@ end
 -- `source` names which of the two paths saw the press: "action" (the IAS
 -- Activate action — Return, Space, ButtonA) or "tap" (a native tap/Activated
 -- routed through the renderer). One press can be seen by BOTH exactly when this
--- surface mirrors LuauUI focus onto `GuiService.SelectedObject`: the engine then
+-- surface mirrors Facet focus onto `GuiService.SelectedObject`: the engine then
 -- fires the selected `GuiButton`'s own `Activated` for the same key press that
 -- IAS delivered as Activate. That must still be ONE activation (roadmap Step 8,
 -- DK-9), so a cross-source pair inside ACTIVATE_ECHO_WINDOW collapses.
@@ -476,7 +476,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- ONE bus per presenter. `presenter.onFeedback` is the primary seam (every
 	-- surface, one subscription — a game maps events to sound/haptics in one
 	-- place); `handle.onFeedback` is the same bus filtered to that surface.
-	-- LuauUI plays nothing.
+	-- Facet plays nothing.
 	local bus = feedbackLib.new()
 
 	local function emitFeedback(event: any)
@@ -492,7 +492,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.feedbackTypes = feedbackLib.TYPES
 	-- the documented five-band paint order, reachable from the INSTANCE the
 	-- public API hands out (P5-F3: the module-table copy was unreachable through
-	-- `LuauUI.newPresenter`)
+	-- `Facet.newPresenter`)
 	self.SURFACE_LAYER = SURFACE_LAYER
 
 	-- subscribers to "a modal took the screen" (disposition F7; see presentModal)
@@ -833,7 +833,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- asks for, long enough to be a decision and short enough not to feel broken.
 	-- Focus and long-press carry their own deliberation and present immediately.
 	local DISCLOSE_DWELL = 0.45
-	local DISCLOSURE_SCHEMA = "luauui-disclosure-dump/1"
+	local DISCLOSURE_SCHEMA = "facet-disclosure-dump/1"
 
 	local disclosurePlate: any = nil -- { scope, controller, root, owner, sourcePath, source, text }
 	local disclosureDwell: any = nil -- { owner, sourcePath, text, remaining }
@@ -1375,7 +1375,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 	end
 
-	--[[ THE HELP PLATE'S OWN STATE (D3a, schema `luauui-help-dump/1`): what is
+	--[[ THE HELP PLATE'S OWN STATE (D3a, schema `facet-help-dump/1`): what is
 		showing, which control asked, which engagement raised it, and how many help
 		declarations are live across the whole stack. ]]
 	function self.help(): any
@@ -1531,7 +1531,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- would read as "the framework ignored my mandatory modal".
 		local cancelPolicy = (opts and opts.cancelPolicy) or "dismiss"
 		if cancelPolicy ~= "dismiss" and cancelPolicy ~= "none" then
-			error(`LuauUI presenter: unknown cancelPolicy '{tostring(cancelPolicy)}'. Valid: dismiss, none.`, 0)
+			error(`Facet presenter: unknown cancelPolicy '{tostring(cancelPolicy)}'. Valid: dismiss, none.`, 0)
 		end
 		-- ...and so do the other two string enums (F-15). They used to be compared
 		-- by equality and passed through raw, which is the exact failure the rule
@@ -1541,13 +1541,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local responderOpt = if opts ~= nil then opts.responder else nil
 		if responderOpt ~= nil and responderOpt ~= "passive" then
 			error(
-				`LuauUI presenter: unknown responder '{tostring(responderOpt)}'. Valid: passive (omit for engaged).`,
+				`Facet presenter: unknown responder '{tostring(responderOpt)}'. Valid: passive (omit for engaged).`,
 				0
 			)
 		end
 		local scrimOpt = if opts ~= nil then opts.scrim else nil
 		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
-			error(`LuauUI presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
+			error(`Facet presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
 		end
 		-- Tab/Shift+Tab wrap policy for this surface's scope (roadmap Step 8),
 		-- declared once here rather than per control. Same enum discipline as the
@@ -1558,7 +1558,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local keyboardNavOpt = if opts ~= nil then opts.keyboardNavigation else nil
 		if keyboardNavOpt ~= nil and type(keyboardNavOpt) ~= "boolean" then
 			error(
-				`LuauUI presenter: keyboardNavigation must be a boolean (got {typeof(keyboardNavOpt)}); `
+				`Facet presenter: keyboardNavigation must be a boolean (got {typeof(keyboardNavOpt)}); `
 					.. `omit it to inherit the presenter's default.`,
 				0
 			)
@@ -1569,7 +1569,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local traversalWrap = if opts ~= nil then opts.traversalWrap else nil
 		if traversalWrap ~= nil and type(traversalWrap) ~= "boolean" then
 			error(
-				`LuauUI presenter: traversalWrap must be a boolean (got {typeof(traversalWrap)}); `
+				`Facet presenter: traversalWrap must be a boolean (got {typeof(traversalWrap)}); `
 					.. `it declares whether Tab wraps at the ends of this surface's focus scope.`,
 				0
 			)
@@ -1590,7 +1590,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- itself is checked by the graph. See FocusScope.chrome.
 		local focusChrome = if opts ~= nil then opts.focusChrome else nil
 		if focusChrome ~= nil and kind ~= "screen" then
-			error(`LuauUI presenter: focusChrome is a screen option; a {kind} cannot be adopted as chrome.`, 0)
+			error(`Facet presenter: focusChrome is a screen option; a {kind} cannot be adopted as chrome.`, 0)
 		end
 		local initialFocus = if opts ~= nil then opts.initialFocus else nil
 		if initialFocus == nil and kind == "screen" and (opts and opts.responder) == "passive" then
@@ -1598,7 +1598,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		if initialFocus ~= nil and type(initialFocus) ~= "string" and type(initialFocus) ~= "table" then
 			error(
-				`LuauUI presenter: initialFocus must be "first", "none", a node id, or \{ id = "…" } `
+				`Facet presenter: initialFocus must be "first", "none", a node id, or \{ id = "…" } `
 					.. `(got {typeof(initialFocus)}).`,
 				0
 			)
@@ -1606,7 +1606,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if type(initialFocus) == "table" then
 			local id = (initialFocus :: any).id
 			if type(id) ~= "string" then
-				error(`LuauUI presenter: initialFocus \{ id = … } needs a string id (got {typeof(id)}).`, 0)
+				error(`Facet presenter: initialFocus \{ id = … } needs a string id (got {typeof(id)}).`, 0)
 			end
 			-- the table form is the ESCAPE HATCH from the reserved words below, so
 			-- it is remembered as "definitely an id" rather than collapsed to a
@@ -1687,7 +1687,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- engine-selection bridge (native-substrate NS-A12, corrections §11):
 			-- OPT-IN and modal/exclusive-only. Passive/gameplay surfaces never
 			-- set it, so GuiService.SelectedObject stays nil for them (NS-A11).
-			-- LuauUI's logical focus graph remains the sole authority; the
+			-- Facet's logical focus graph remains the sole authority; the
 			-- bridge is a render output that clears on teardown. Physical-pad
 			-- non-interference proof is ledger row NS-P1; until it closes this
 			-- stays an experiment, not a contract.
@@ -3347,7 +3347,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	end
 
 	-- every live anchored surface, its resolved edge, whether it flipped, how far
-	-- it shifted and what became of its tail (schema `luauui-anchored-dump/1`)
+	-- it shifted and what became of its tail (schema `facet-anchored-dump/1`)
 	function self.anchoredSurfaces(): any
 		return anchoredSurfaces.dump()
 	end
@@ -3371,7 +3371,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return calloutQueue.release(id, reason)
 	end
 
-	-- what is on screen and what is waiting (schema `luauui-callout-queue-dump/1`)
+	-- what is on screen and what is waiting (schema `facet-callout-queue-dump/1`)
 	function self.callouts(): any
 		return calloutQueue.dump()
 	end

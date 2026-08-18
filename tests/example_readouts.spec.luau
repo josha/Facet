@@ -62,7 +62,7 @@
 local t = require("./lib/testkit")
 local describe, it = t.describe, t.it
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
@@ -188,17 +188,17 @@ local READOUTS: { { example: string, paths: { string } } } = {
 local SETTLE_FRAMES = 3
 
 local function world(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
 	env:set("displaySize", view.displaySize)
 	env:set("preferredInput", view.input)
 	env:set("capabilities", CAPABILITIES[view.input])
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -212,7 +212,7 @@ describe("readout sweep: every tutorial example renders the content it declares"
 				for _, view in VIEWS do
 					local w = world(view)
 					local built = module.build(
-						LuauUI,
+						Facet,
 						w.core,
 						{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
 					)

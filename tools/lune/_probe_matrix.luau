@@ -1,5 +1,5 @@
 -- TEMPORARY probe (RS-A16-D2/D3): headless ornament-vs-neighbour sweep.
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local chrome_slots = require("../../src/tokens/chrome_slots")
 local scenario = require("../../examples/gallery/scenarios/theme_authoring") :: any
@@ -14,19 +14,19 @@ local PACKAGES = {
 }
 
 local function makeWorld(facts: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	for k, v in facts do
 		env:set(k, v)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	adapter.scrollBarThickness = 8
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any
 	ctx = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

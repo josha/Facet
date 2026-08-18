@@ -27,7 +27,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
@@ -52,15 +52,15 @@ local function sheetRow(card: string, itemId: string): string
 end
 
 local function world(view: { w: number, h: number })
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local built = module.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

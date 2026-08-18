@@ -1,5 +1,5 @@
 --!strict
--- "Studio Neutral" — LuauUI's built-in default style (director brief
+-- "Studio Neutral" — Facet's built-in default style (director brief
 -- 2026-07-19: "if Apple made a game UI system — minimal but polished,
 -- affordances always clear, professional/neutral, renders quickly, motion in
 -- key areas by default"). Design principles:
@@ -15,7 +15,7 @@
 --   * motion only where it informs (toggle knob, pressed dip, modal enter),
 --     always through motion tokens, always honoring reducedMotion.
 -- Games override any of this via tokens.compile with their own schema; this
--- module is the neutral floor every LuauUI app gets for free.
+-- module is the neutral floor every Facet app gets for free.
 
 local tokens = require("./tokens")
 

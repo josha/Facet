@@ -13,7 +13,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local target_contract = require("../src/render/target_contract")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
@@ -163,24 +163,24 @@ describe("RenderTargetAdapter contract", function()
 	end)
 
 	it("a billboard-sized pixel canvas renders a nameplate and updates paint-only", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 96 }) -- the canvas
 		local adapter = fake_target.new()
 		local health = core:signal("100")
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "Nameplate",
 				padding = 8,
 				gap = 4,
 				children = {
-					LuauUI.UI.Text({ id = "Name", text = "Razz Raccoon", textSize = 18 }),
-					LuauUI.UI.Text({ id = "Health", text = health, textSize = 14 }),
+					Facet.UI.Text({ id = "Name", text = "Razz Raccoon", textSize = 18 }),
+					Facet.UI.Text({ id = "Health", text = health, textSize = 14 }),
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		local name = adapter.node("/Nameplate/Name")
 		expect(name.rect.x).toBe(8)
@@ -323,12 +323,12 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 		local blueprint = require("../src/blueprint")
 		for _, role in { "secondary", "content" } do
 			local ok = pcall(function()
-				return LuauUI.UI.Text({ id = "T", text = "x", role = role })
+				return Facet.UI.Text({ id = "T", text = "x", role = role })
 			end)
 			expect(`{role}=accepted:{ok}`).toBe(`{role}=accepted:true`)
 		end
 		local rejected = pcall(function()
-			return LuauUI.UI.Text({ id = "T", text = "x", role = "accent" })
+			return Facet.UI.Text({ id = "T", text = "x", role = "accent" })
 		end)
 		expect(rejected).toBe(false)
 		expect(blueprint ~= nil).toBe(true)

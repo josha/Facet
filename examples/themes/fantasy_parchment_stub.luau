@@ -213,7 +213,7 @@ function fantasy_parchment_stub.buildBadFont(themes: any): (any, any)
 	return themes.define(def)
 end
 
-fantasy_parchment_stub.INCOMPATIBLE_SCHEMA = "luauui-theme/99"
+fantasy_parchment_stub.INCOMPATIBLE_SCHEMA = "facet-theme/99"
 
 function fantasy_parchment_stub.buildIncompatible(themes: any): (any, any)
 	local def = fantasy_parchment_stub.definition(themes)

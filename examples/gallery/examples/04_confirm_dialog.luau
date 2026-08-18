@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 4 of the LuauUI tutorial: a confirmation dialog.
+-- Example 4 of the Facet tutorial: a confirmation dialog.
 -- ============================================================================
 --
 -- WHAT THIS TEACHES  —  the presenter stack
@@ -26,8 +26,8 @@
 local example = {}
 example.title = "Confirmation Dialog"
 
-function example.build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+function example.build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 	local presenter = deps.presenter
 
 	-- "none" | "confirmed" | "cancelled" — the last answer, and the thing the

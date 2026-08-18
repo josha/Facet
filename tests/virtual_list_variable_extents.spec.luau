@@ -37,7 +37,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local mountLib = require("../src/mount")
 local fake_target = require("../tests/lib/fake_target")
@@ -74,7 +74,7 @@ local function scrollStub()
 end
 
 local function newList(core: any, opts: any)
-	return virtual_list.build(LuauUI, core, {
+	return virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = opts.rows,
 		key = function(item: any)
@@ -87,19 +87,19 @@ local function newList(core: any, opts: any)
 		reorderable = opts.reorderable,
 		onReorder = opts.onReorder,
 		cell = opts.cell or function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
 
 -- a PRESENTED list, so the real solver gives rects to measure row boxes against
 local function world(opts: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(opts.rows or makeRows(8))
 	local list = newList(core, {
 		rows = rows,
@@ -111,7 +111,7 @@ local function world(opts: any)
 		onReorder = opts.onReorder,
 		cell = opts.cell,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -139,7 +139,7 @@ end
 
 describe("VirtualList variable extents: what the spec accepts", function()
 	it("accepts a per-item function, and the dump says which arithmetic is running", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(6))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent })
 		local d = list.dump()
@@ -153,7 +153,7 @@ describe("VirtualList variable extents: what the spec accepts", function()
 	end)
 
 	it("a uniform list still reports its one number, and says so", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(6))
 		local list = newList(core, { rows = rows, itemExtent = 56 })
 		local d = list.dump()
@@ -165,7 +165,7 @@ describe("VirtualList variable extents: what the spec accepts", function()
 	end)
 
 	it("refuses a per-item extent that is not a positive number, naming the row", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local function build(fn: any)
 			local list = newList(core, { rows = rows, itemExtent = fn })
@@ -213,7 +213,7 @@ describe("VirtualList variable extents: the geometry is the running offset", fun
 	end)
 
 	it("the content extent is the sum plus the gutters, with none trailing", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, rowGap = 6, viewportExtent = 200 })
 		list.bindNativeScroll(scrollStub(), "/VL")
@@ -236,7 +236,7 @@ describe("VirtualList variable extents: the geometry is the running offset", fun
 	end)
 
 	it("keep-visible measures the row's OWN extent, not an average", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 300 })
 		local ctrl = scrollStub()
@@ -254,7 +254,7 @@ end)
 
 describe("VirtualList variable extents: virtualization stays bounded", function()
 	it("a viewport inside ONE tall row windows that row alone", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(40))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 120, overscan = 0 })
 		-- row 2 spans 84..333; a 120px viewport parked at 100 is entirely inside it
@@ -268,7 +268,7 @@ describe("VirtualList variable extents: virtualization stays bounded", function(
 			is one of the two candidate designs the parity doc recorded, and this is
 			the check that refuses it: a build counter, not a timer. Two candidate
 			designs, and the one that pays O(N) MEASUREMENT cannot pass this. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(10000))
 		local built = 0
 		local list = newList(core, {
@@ -277,7 +277,7 @@ describe("VirtualList variable extents: virtualization stays bounded", function(
 			viewportExtent = 498,
 			cell = function(item: any)
 				built += 1
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, list.blueprint)
@@ -303,7 +303,7 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 			lengthens under a fixed pixel offset and the player is somewhere else in
 			the list — the recorded jump class. The anchor is the item under the
 			viewport's leading edge, and the offset INTO it. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(200))
 		local grow = core:signal(0)
 		local list = newList(core, {
@@ -327,7 +327,7 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 	end)
 
 	it("the extents re-derive through `use`, and the canvas follows", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local grow = core:signal(0)
 		local list = newList(core, {
@@ -381,7 +381,7 @@ describe("VirtualList variable extents: the rest of the control agrees with the 
 				return if index == 2 then 20 else 200
 			end,
 			cell = function(item: any)
-				return LuauUI.UI.Box({ id = "Plate", height = { type = "fixed", px = 60 } })
+				return Facet.UI.Box({ id = "Plate", height = { type = "fixed", px = 60 } })
 			end,
 		})
 		local found = nil
@@ -432,7 +432,7 @@ describe("VirtualList variable extents: an edit that moves no geometry rebuilds 
 
 	it("a uniform list rebuilds its index only when the geometry moves", function()
 		countingExtents(function(counts)
-			local core = LuauUI.newCore()
+			local core = Facet.newCore()
 			local rows = core:signal(makeRows(20))
 			local extent = core:signal(56)
 			local list = newList(core, { rows = rows, itemExtent = extent, viewportExtent = 300 })
@@ -460,7 +460,7 @@ describe("VirtualList variable extents: an edit that moves no geometry rebuilds 
 
 	it("a variable list rebuilds only when an EXTENT moves, not when an item does", function()
 		countingExtents(function(counts)
-			local core = LuauUI.newCore()
+			local core = Facet.newCore()
 			local rows = core:signal(makeRows(20))
 			local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 300 })
 			list.dump()

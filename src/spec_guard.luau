@@ -91,7 +91,7 @@ function spec_guard.assertKnownKeys(where: string, tbl: any, known: KeySet, kind
 			local shown = tostring(key)
 			local suggestion = if type(key) == "string" then nearest(key, known) else nil
 			local didYouMean = if suggestion ~= nil then ` Did you mean '{suggestion}'?` else ""
-			error(`LuauUI {where}: unknown {kind} key '{shown}'.{didYouMean} Known: {sortedNames(known)}.`, 0)
+			error(`Facet {where}: unknown {kind} key '{shown}'.{didYouMean} Known: {sortedNames(known)}.`, 0)
 		end
 	end
 end

@@ -15,7 +15,7 @@
 --    than it measures, so the legal names are a CLOSED SET declared below and
 --    `span` refuses anything else. The set is a phase vocabulary, not a call-site
 --    log: two different call sites that answer the same profiling question share a
---    name on purpose (every commit write is `LuauUI/commit`, wherever it happens).
+--    name on purpose (every commit write is `Facet/commit`, wherever it happens).
 --
 -- 2. THE BODY MUST NOT YIELD. `debug.profilebegin` opens a scope on the executing
 --    thread; a yield inside it hands the engine an enter and a leave in different
@@ -37,7 +37,7 @@
 --    scopes off should pay a branch and a direct call — not a pcall. `active`
 --    collapses both conditions into one boolean read.
 --
--- This module is INTERNAL (no LuauUI.* export). The performance lab reaches it by
+-- This module is INTERNAL (no Facet.* export). The performance lab reaches it by
 -- instance path through the named exemption in tools/lune/check_boundary.luau, so
 -- the scenario driver's own scopes and the framework's come from one implementation
 -- and can never disagree about naming or balance. Recorded as PLN-2.
@@ -46,42 +46,42 @@ local profile = {}
 
 -- ---- the closed scope set -------------------------------------------------
 -- Keys are what call sites pass; values are what the MicroProfiler shows. Every
--- label is prefixed so a LibMP `FindTimerIds("LuauUI/*")` returns this set and
--- nothing else, and so a LuauUI scope is never confused with a game's own.
+-- label is prefixed so a LibMP `FindTimerIds("Facet/*")` returns this set and
+-- nothing else, and so a Facet scope is never confused with a game's own.
 local SCOPES: { [string]: string } = {
 	-- the model changed: a transaction, a signal write storm, a batch commit
-	mutate = "LuauUI/mutate",
+	mutate = "Facet/mutate",
 	-- reactive propagation: dirty walk, memo recompute, observer dispatch
-	react = "LuauUI/react",
+	react = "Facet/react",
 	-- layout: the measure pass (intrinsic sizes, text metrics, candidate choice)
-	measure = "LuauUI/measure",
+	measure = "Facet/measure",
 	-- layout: the arrange pass (turning measured sizes into rects)
-	arrange = "LuauUI/arrange",
+	arrange = "Facet/arrange",
 	-- adapter commit: the property writes that make the frame visible
-	commit = "LuauUI/commit",
+	commit = "Facet/commit",
 	-- resource completion: an async image/asset landing and its UI update
-	resource = "LuauUI/resource",
+	resource = "Facet/resource",
 	-- building or disposing a mounted tree
-	mount = "LuauUI/mount",
+	mount = "Facet/mount",
 	-- the scenario driver: one named workload step
-	scenario = "LuauUI/scenario",
+	scenario = "Facet/scenario",
 	-- the scenario driver: teardown back to the idle baseline
-	reset = "LuauUI/reset",
+	reset = "Facet/reset",
 	-- THE PER-FRAME DRIVER, and it was the one thing none of the nine could see
 	-- (2026-08-05). `presenter.refresh()` runs every frame from the host's frame
 	-- connection, and the phases above only open when there is layout work to do — so
 	-- on a frame that solves nothing, every scope read zero while the frame was not
 	-- free. Measured on the ornate scroll at 360x691: 2.09 ms/frame of presenter work
 	-- with no annotated phase under it at all.
-	present = "LuauUI/present",
+	present = "Facet/present",
 	-- ...and the part of it that turned out to own that number: re-deriving the focus
 	-- map. Its own scope because "the presenter costs 2ms" is not actionable and
 	-- "the focus map walk costs 2ms" is.
-	focusmap = "LuauUI/focusmap",
+	focusmap = "Facet/focusmap",
 	-- the OTHER half of every frame: the motion clock, the dwell/reveal timers and the
 	-- registered tick hooks. `present` without `tick` would have left half the frame
 	-- attributed to whatever happened to wrap it.
-	tick = "LuauUI/tick",
+	tick = "Facet/tick",
 }
 
 -- The bound is asserted by tests, not merely intended. If a later stage needs a
@@ -205,7 +205,7 @@ end
 -- keeps this signature single-shaped and avoids a varargs pack per frame.
 --
 -- ERRORS. The body is pcall'd only while scopes are active, so the un-instrumented
--- path keeps LuauUI's ordinary error semantics exactly (same stack, same level).
+-- path keeps Facet's ordinary error semantics exactly (same stack, same level).
 -- While active, the error VALUE is re-raised unchanged at level 0 — a string error
 -- already carries its own `file:line:` prefix from the original raise, and adding a
 -- second one here would rewrite messages that callers match on.
@@ -216,7 +216,7 @@ function profile.span<T>(key: string, fn: () -> T): T
 		-- error is deliberately loud: a new phase is a decision, and an ad-hoc
 		-- label is the beginning of a per-node label set.
 		error(
-			`[LuauUI profile] unknown scope '{tostring(key)}' — scopes are a closed set (see src/core/profile.luau)`,
+			`[Facet profile] unknown scope '{tostring(key)}' — scopes are a closed set (see src/core/profile.luau)`,
 			2
 		)
 	end

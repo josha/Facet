@@ -1,4 +1,4 @@
-# LuauUI — director TODO / decision notes
+# Facet — director TODO / decision notes
 
 ## 0. STANDING PRINCIPLE (director, 2026-07-20): every control supports EVERY input
 
@@ -16,9 +16,9 @@ Working notes from the director's example-review sessions (2026-07-20).
 Standing riders and gate-tracked work live in the gate manifest and
 `artifacts/`; this file is the informal product-direction list.
 
-## 1. Text input control (TextInput: `LuauUI.newTextInput` over the `UI.TextField` primitive) — BUILT (2026-07-20)
+## 1. Text input control (TextInput: `Facet.newTextInput` over the `UI.TextField` primitive) — BUILT (2026-07-20)
 
-Shipped: `LuauUI.newTextInput` — a composite over a new `UI.TextField` leaf
+Shipped: `Facet.newTextInput` — a composite over a new `UI.TextField` leaf
 primitive (the engine-`TextBox` seam) plus an optional in-field clear ✕. The
 owner holds the `value: Signal<string>`; the control never creates it. All four
 design concerns below are resolved: the text-entry-mode handshake raises a
@@ -121,7 +121,7 @@ on touch; reordering is entered explicitly — edit mode with trailing ≡ drag
 handles (`.onMove` + EditButton), or long-press lift (`draggable`). Mouse
 pointers keep direct drag because the wheel handles scrolling.
 
-Proposed for LuauUI (3 pieces):
+Proposed for Facet (3 pieces):
 1. touch pan -> scroll: row hits stop capturing touch drags outside edit
    mode; pan drives the scroll container (Table body / VirtualList
    scrollTop); engine clipping + wheel scroll at the adapter (the missing
@@ -160,7 +160,7 @@ dropped:
 
 ## 4. Other deferred items already on the ledger (for reference)
 
-- `newTable`/`newVirtualList` taking `LuauUI` as first arg — signature
+- `newTable`/`newVirtualList` taking `Facet` as first arg — signature
   cleanup queued for the 0.5.0 window via the `DEPRECATIONS` ledger
   (architecture review F5).
 - Physical phone + gamepad confirmation — the one pending release item
@@ -230,7 +230,7 @@ the inner-half tap still forwards to its own cell and sorts. The desktop figure 
 row was written against is closed. **The device row below is what remains.**
 
 `contract.luau` gives `Grip` `minHitSize = 44`, and the renderer materialises a
-44px `LuauUIHitExpander` centred on the Table's 8-10px resize divider. Measured
+44px `FacetHitExpander` centred on the Table's 8-10px resize divider. Measured
 live in the showcase (`table_columns`, glossy-touch), the z-order is:
 
 | node | z | x band |
@@ -287,9 +287,9 @@ only, leaving expander-vs-expander to host z order (two 44px floors overlap each
 other; measured on `hud` host `R1`, 5%).
 
 **Instrument note for whoever picks this up.** The showcase was unusable as a
-live instrument on 2026-08-15: `LuauUIShowcaseAPI.showNext` *returns* the
+live instrument on 2026-08-15: `FacetShowcaseAPI.showNext` *returns* the
 advanced demo id (`surface-overlap`, `sorted-entries`) while a subsequent
-`current` read answers `hud` and `LuauUI_HudScreen` stays mounted — something
+`current` read answers `hud` and `Facet_HudScreen` stays mounted — something
 snaps the picker back to the HUD fixture. A demo sweep run against that state
 silently scans `hud` 21 times instead of the corpus and reports a clean bill of
 health for demos it never looked at. Confirm the picker actually advances before
@@ -300,10 +300,10 @@ trusting any sweep over it.
 > catalogue demos, each one proved by its own `ScreenGui` and not by the returned
 > id. Two separate things were being read as one:
 >
-> 1. **`LuauUI_HudScreen` was a directly-mounted probe, not a picker mount.** It
+> 1. **`Facet_HudScreen` was a directly-mounted probe, not a picker mount.** It
 >    was watched appearing in `PlayerGui` *between two picker advances that never
->    visited `hud`*, carrying `LuauUIHitExpander` children — i.e. this very
->    measurement's own scan, mounting scenarios off `LuauUIScenarios` as its own
+>    visited `hud`*, carrying `FacetHitExpander` children — i.e. this very
+>    measurement's own scan, mounting scenarios off `FacetScenarios` as its own
 >    advice recommends and leaving them parented. A sweep that identifies "the
 >    demo on screen" by scanning `PlayerGui` reads the leftover, not the picker's
 >    mount, and `GetChildren()` order puts the older leftover first. That is the
@@ -356,7 +356,7 @@ makes the lane's arithmetic honest, the report makes a wrong declaration loud.
 ## OWED (2026-08-15) — the round buttons' touch expander overhangs the app's chrome by 4px
 
 Measured live, Studio, iPhone 16 Pro landscape 749x380, showcase place, URL bar
-open: the two `LuauUIHitExpander` TextButtons behind the HUD's round buttons sit
+open: the two `FacetHitExpander` TextButtons behind the HUD's round buttons sit
 at y 50..94 against a chip row ending at y=54 — **4px of touch band, 40-44px
 wide, inside the app's own chrome**. Nothing is PAINTED there (the discs
 themselves start exactly at the chrome's bottom edge, 0px over) and the expander

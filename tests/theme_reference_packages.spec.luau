@@ -3,7 +3,7 @@
 -- future stage restyles against).
 --
 -- Each package is built the way a game team would build one — through the
--- PUBLIC `LuauUI.themes` surface and nothing else — so these tests double as
+-- PUBLIC `Facet.themes` surface and nothing else — so these tests double as
 -- the proof that the public surface is sufficient. If a reference package ever
 -- needs an internal require to compile, that is a hole in the public API and
 -- this spec is where it shows up.
@@ -15,11 +15,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local sheet_model = require("../src/tokens/sheet_model")
 local themePackage = require("../src/themes/package")
 local chromeSlots = require("../src/tokens/chrome_slots")
-local themes = LuauUI.themes
+local themes = Facet.themes
 
 local MODULES = {
 	classic_desktop = require("../examples/themes/classic_desktop"),
@@ -131,7 +131,7 @@ describe("reference theme packages compile and resolve through the public API on
 		it(`{name}: compiles to a sheet model with a stable stamp`, function()
 			local pkg = built(name)
 			local model = sheet_model.buildPackage(pkg)
-			expect(model.schema).toBe("luauui-native-sheet/1")
+			expect(model.schema).toBe("facet-native-sheet/1")
 			expect(#model.rules).toBeGreaterThan(30)
 			expect(model.defaultTheme).toBe(pkg.style.defaultTheme)
 			expect(model.stamp).toBe(sheet_model.buildPackage(pkg).stamp)
@@ -427,7 +427,12 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- `circularThickness` 3 and `spinnerDotSize` 9 — three numbers it used to
 		-- inherit from its space scale, which is exactly the change a stamp is
 		-- supposed to notice.
-		expect(built("fantasy_parchment").stamp).toBe("538b2cb8")
+		--
+		-- Re-pinned again 2026-08-17 by the Facet rename: the package's schema
+		-- string moved from the pre-rename `luauui-theme/1` to `facet-theme/1`,
+		-- so the compiled value really is different and the stamp is doing its
+		-- job. Measured, not guessed: 538b2cb8 -> 9a3b8dd8.
+		expect(built("fantasy_parchment").stamp).toBe("9a3b8dd8")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()

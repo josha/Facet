@@ -20,7 +20,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local FRAME = 1 / 60
@@ -108,8 +108,8 @@ local ROOT_PATH: { [string]: string } = {
 
 local function makeWorld(name: string, opts: any?): any
 	local options: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", options.viewport or { x = 0, y = 0, w = 900, h = 760 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	if options.reducedMotion then
@@ -118,12 +118,12 @@ local function makeWorld(name: string, opts: any?): any
 	if options.preferredTextOffset ~= nil then
 		env:set("preferredTextOffset", options.preferredTextOffset)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -199,15 +199,15 @@ describe("sponsor fixtures: long-lived-core churn (RR-8)", function()
 	-- leaking 132 memos/cycle (the unowned newAsyncImage memos — now scope-owned)
 	for _, name in { "sponsor_motion", "sponsor_drop", "sponsor_avatars" } do
 		it(`{name}: three build/dispose cycles in one core leave zero residue`, function()
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 900, h = 760 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local pres = Facet.newPresenter(core, env, adapter, system)
 			local ctx: any = {
-				LuauUI = LuauUI,
+				Facet = Facet,
 				core = core,
 				env = env,
 				adapter = adapter,
@@ -325,7 +325,7 @@ describe("sponsor fixtures: 20 mount/reset/dispose cycles return the core to bas
 			warm.frames(2)
 			warm.teardown()
 
-			local core = LuauUI.newCore()
+			local core = Facet.newCore()
 			local baseline: any = nil
 			for cycle = 1, 20 do
 				local w = makeWorld(name)

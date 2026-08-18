@@ -210,7 +210,7 @@ export type Arbiter = {
 function touch_gestures.newArbiter(opts: { [string]: any }?): Arbiter
 	if opts ~= nil then
 		if type(opts) ~= "table" then
-			error(`LuauUI touchGestures.newArbiter: opts must be a table (got {type(opts)})`, 0)
+			error(`Facet touchGestures.newArbiter: opts must be a table (got {type(opts)})`, 0)
 		end
 		local keys: { string } = {}
 		for key in opts :: any do
@@ -219,7 +219,7 @@ function touch_gestures.newArbiter(opts: { [string]: any }?): Arbiter
 		if #keys > 0 then
 			table.sort(keys)
 			error(
-				`LuauUI touchGestures.newArbiter: options are reserved and none exist yet — got `
+				`Facet touchGestures.newArbiter: options are reserved and none exist yet — got `
 					.. `\{ {table.concat(keys, ", ")} \}. The arbitration policy (pinch/rotate preempt pan; a began `
 					.. "longPress preempts tap; tap and swipe never own) is fixed; pass nil or {} until an option is "
 					.. "declared, or arbitrate yourself with the gesture stream.",

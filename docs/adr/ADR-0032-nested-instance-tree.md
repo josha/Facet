@@ -11,13 +11,13 @@ motion-curve vocabulary (`src/motion/curves.luau:2`, `src/init.luau:259`) — wh
 `ADR-0031-*.md` exists on disk. Those two agents own that collision; this ADR steps over
 it rather than joining it.
 **Commissioned by:** the game director, 2026-08-15. Verbatim: *"from reading the
-luauui-react comparison, i'm wondering if we should allow for nested instance trees vs.
+facet-react comparison, i'm wondering if we should allow for nested instance trees vs.
 just the flat hierarchy? it seems like a view of nested views is a good approach and will
 allow for things like compositing of animation or traits like opacity"* — followed, the
 same day, by the ruling that settles the schedule: ***"switching to nested should come
 before release."***
 **Amends:** [ADR-0022](ADR-0022-sponsor-framework-gaps.md) Decision 2 (which named the
-fade group *"the single documented exception to LuauUI's flat instance tree"* — there are
+fade group *"the single documented exception to Facet's flat instance tree"* — there are
 three, and after this ADR the exception becomes the rule).
 **Companions:** [ADR-0026](ADR-0026-authored-presentation-composition.md) Decisions 2/5/7,
 [ADR-0029](ADR-0029-leaf-opacity-refusal.md) Decision 2 (the offerable-term rule, which is
@@ -49,7 +49,7 @@ registered host (`screen_target.luau:3382`), so a hosted node leaves the instanc
 The virtualised list row is both the best move boundary *and* the case recycling exists
 for. That collision is unpriced here and gates the first build step.
 
-**The elision cost is reconcilable, and that is the whole design.** Parenting in LuauUI does not
+**The elision cost is reconcilable, and that is the whole design.** Parenting in Facet does not
 walk the node tree — `hostFor(path)` is a **longest-path-prefix match over a registry**,
 so a container that is not registered is *invisible to parenting* and elision is
 untouched. Nesting is therefore not "mirror the blueprint in Instances". It is **"register
@@ -142,7 +142,7 @@ writes, not milliseconds; the engine's own C++ descendant walk is untouched and
 unmeasured, exactly as §Risks says. A Performance Lab run and a device pass remain the
 only things that can turn this into a frame number.
 
-## Decision 1 — LuauUI adopts a nested instance tree, and it requires no new mechanism
+## Decision 1 — Facet adopts a nested instance tree, and it requires no new mechanism
 
 The mechanism is already shipped, already general, and already load-bearing. `clipHosts`
 plus `hostFor` produce real engine parents today for **three** triggers:
@@ -204,7 +204,7 @@ associate with nesting are not properties of nesting:
 A move-boundary host is one extra `Frame` and nothing else. **This matters because the
 live consumer already reasons about exactly this trade**: Rascal Rally's Sponsor HUD sets
 `canvasGroup = false` explicitly on its whole-screen layer root
-(`LuauUISponsor/HudScreen.luau:472`) because a group there *"would clip every child's
+(`FacetSponsor/HudScreen.luau:472`) because a group there *"would clip every child's
 decoration and cost a render buffer over live gameplay"*. That judgement is correct and
 this ADR does not disturb it — a move boundary would give that node engine-carried motion
 without a buffer and without clipping.
@@ -233,7 +233,7 @@ a hit-test oracle *and* confirmed in pixels:
 
 **`Global` is refused**, and not on taste: the right-hand column is ADR-0009's *verifier
 F1* (*"nested control internals sort behind their opaque parents"*), reconfirmed live this
-session — a child at `ZIndex = 20` under a parent at `50` was **invisible**. LuauUI pins
+session — a child at `ZIndex = 20` under a parent at `50` was **invisible**. Facet pins
 its icon child at a fixed `ZIndex = 20` on every button in the live tree; under `Global`
 every one of those disappears the moment its button's counter passes 20.
 
@@ -314,7 +314,7 @@ The genuinely ambiguous entry is `common.zIndex`, and Decision 3 settles it: DFS
 ## Decision 6 — Roblox's layout objects stay refused, and nesting is not an argument for them
 
 Nesting makes `UIListLayout` newly *possible*, which is exactly why this is written down.
-It stays refused. LuauUI solves layout itself to get what the engine's layout objects
+It stays refused. Facet solves layout itself to get what the engine's layout objects
 cannot give: headless layout in tests with no Roblox present, a solver that can be
 *diagnosed*, incremental re-solve of the affected subtree, and a vocabulary the engine
 does not have — priority tiers, ranked region degradation, `ViewThatFits`. An
@@ -454,26 +454,26 @@ maintainability grounds, not on this limit.
 
 ## The Rascal Rally consumer rider — investigated, and the answer is smaller than expected
 
-Per the root constitution, LuauUI and Rascal Rally move together. The game side was
+Per the root constitution, Facet and Rascal Rally move together. The game side was
 audited in full (its own repo, `code/`, 203 spec files; its suite live-run this session at
 **3248 passed / 0 failed**).
 
 **The blast radius is close to zero, and the reason is structural rather than lucky:**
 
-- **Zero game code reaches into the rendered instance tree.** Every LuauUI consumer — the
+- **Zero game code reaches into the rendered instance tree.** Every Facet consumer — the
   Sponsor package (34 files), the racer list, the garage pilot screen, the settings modal
   — goes through the framework's API only. The single raw-instance touch in the whole game
-  is `LuauUISettingsGui.luau:96-98`, which resolves `adapter.getInstance(path)` and checks
+  is `FacetSettingsGui.luau:96-98`, which resolves `adapter.getInstance(path)` and checks
   `IsA("GuiObject")` before assigning `GuiService.SelectedObject`. It is **path-keyed with
   no depth or sibling assumption — it survives unchanged.**
 - **Zero tests depend on Roblox parenting.** Seven files matched a parenting-shaped grep;
   all seven are false positives (data folders, fake haptics roots, prose in comments). No
-  real `Instance` is constructed in a headless Lune run at all, and LuauUI-touching specs
+  real `Instance` is constructed in a headless Lune run at all, and Facet-touching specs
   run against `fake_target.luau` — whose own source says *"there is no parenting here"*.
-- **Zero snapshot or baseline files** in the game repo encode LuauUI instance names or tree
+- **Zero snapshot or baseline files** in the game repo encode Facet instance names or tree
   shape.
-- **The legacy hand-rolled Sponsor UI** (the `UseLuauUISponsor = false` rollback path) has
-  no LuauUI dependency and is untouched, as its authorization requires.
+- **The legacy hand-rolled Sponsor UI** (the `UseFacetSponsor = false` rollback path) has
+  no Facet dependency and is untouched, as its authorization requires.
 
 **What the game side does owe, in order:**
 
@@ -555,5 +555,5 @@ Also considered and rejected:
 - **No `PerformanceLab` session was connected this round** — checked, not assumed. And the
   connected Showcase session was carrying a **broken** synced renderer from concurrent
   in-flight work (a `NO_DECORATION_CLASSES` use with its declaration missing), so every
-  LuauUI measurement here ran against a clone-and-require patch. Recorded in the evidence
+  Facet measurement here ran against a clone-and-require patch. Recorded in the evidence
   file; it means these numbers should be re-taken on a clean tree before step 3 lands.

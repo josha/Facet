@@ -91,7 +91,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 		filled ASYNCHRONOUSLY: the first solve of a newly presented surface uses the
 		conservative estimator, the engine answers `GetTextBoundsAsync` a few frames
 		later, and the renderer re-solves. The SOLVER re-runs and is fine — but a
-		consumer MEMO that calls `LuauUI.text.fit/.size/.measure` has no dependency
+		consumer MEMO that calls `Facet.text.fit/.size/.measure` has no dependency
 		on a table nobody can subscribe to, so it evaluates once against the
 		estimator and is never invalidated. It then changes at an arbitrary later
 		moment, when some unrelated dependency happens to tick, which is what a
@@ -153,7 +153,7 @@ function environment.new(core: any): Env
 	-- THE POLICY ITSELF LIVES IN `themes/snapshot` (the text-scale policy block),
 	-- as pure functions of these two facts. These memos only supply the facts.
 	-- The reason it moved there rather than staying here: `composition.floorPx`
-	-- and the public `LuauUI.text.facts` must derive the SAME two scales from a
+	-- and the public `Facet.text.facts` must derive the SAME two scales from a
 	-- theme snapshot, which carries the facts but has no env — and a second copy
 	-- that agrees today is the defect the line-box helper exists to end
 	-- (docs/plans/variable-item-extents.md).
@@ -162,7 +162,7 @@ function environment.new(core: any): Env
 	end)
 	-- PAINT-seam scale (NS-A9; MODEL CORRECTED by Step 8.5, LTN-1): the engine
 	-- applies the player's PreferredTextSize as an ADDITIVE px offset at draw
-	-- time, so LuauUI must not fold the preference into the painted TextSize —
+	-- time, so Facet must not fold the preference into the painted TextSize —
 	-- that is the double-application defect. Paint carries ONLY authored scale
 	-- (the ten-foot floor). On the live path the multiplier fact stays 1, so
 	-- the two SCALE seams are identical and the preference travels exclusively

@@ -1,6 +1,6 @@
 # A compensation is only true for the value it was computed from
 
-**Found:** 2026-08-13, Studio, LuauUI-Showcase, Compact Pointer, the `row-actions`
+**Found:** 2026-08-13, Studio, Facet-Showcase, Compact Pointer, the `row-actions`
 Table surface. Director: *"the left side of the mark read button is cutoff"*
 (`cutoff.png`).
 

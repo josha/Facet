@@ -9,17 +9,17 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local customFactory = require("../src/core/custom")
-local LuauUIRoot = require("../src")
+local FacetRoot = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
 local function present(kind: string, opts: any)
 	local core = customFactory.new()
-	local env = LuauUIRoot.newEnvironment(core)
+	local env = FacetRoot.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 	local adapter = fake_target.new()
-	local system = LuauUIRoot.newActionSystem(core)
-	local pres = LuauUIRoot.newPresenter(core, env, adapter, system)
-	local UI = LuauUIRoot.UI
+	local system = FacetRoot.newActionSystem(core)
+	local pres = FacetRoot.newPresenter(core, env, adapter, system)
+	local UI = FacetRoot.UI
 	local bp = UI.Screen({
 		id = "S",
 		children = {

@@ -1,9 +1,9 @@
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
-local LuauUI = require("./src") :: any
+local Facet = require("./src") :: any
 local sheet_model = require("./src/tokens/sheet_model")
 local tokens = require("./src/tokens/tokens")
-local themes = LuauUI.themes
+local themes = Facet.themes
 local samples = serde.decode("json", fs.readFile("assets/themes/plate-samples.json")).samples
 local NAMES = { "glossy_touch", "compact_pointer", "fantasy_ornate", "fantasy_parchment", "pixel_quest" }
 local function n255(c) return string.format("rgb(%3d,%3d,%3d)", math.floor(c.r*255+0.5), math.floor(c.g*255+0.5), math.floor(c.b*255+0.5)) end

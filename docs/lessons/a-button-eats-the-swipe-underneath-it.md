@@ -1,6 +1,6 @@
 # A Button eats the swipe underneath it
 
-**Measured live in Studio, 2026-08-13** (LuauUI-Showcase, Play mode, real engine).
+**Measured live in Studio, 2026-08-13** (Facet-Showcase, Play mode, real engine).
 
 `src/controls/row_actions.luau:3322` justified putting the drag hit surface
 *behind* the row's content with this claim:

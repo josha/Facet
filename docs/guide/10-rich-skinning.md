@@ -7,7 +7,7 @@ track *and* fill are images, a switch whose ON state is a different picture, a
 pixel-art skin that stays nearest-neighbour crisp, and one view tree that
 re-skins itself when the player docks a phone to a monitor.
 
-It is also the chapter about **how far you have to climb**. LuauUI copies
+It is also the chapter about **how far you have to climb**. Facet copies
 SwiftUI's customization ladder, and the point of a ladder is that you stop at the
 rung that solves your problem:
 
@@ -47,7 +47,7 @@ lune run tools/lune/check_docs_cli      # read-only; exit 0 = the docs match the
 > **In plain words.** Chapter 9 gave each slot ONE picture. That is not enough
 > for a fantasy frame: you want a wood ground, a gilt border over it, four
 > different corner ornaments, a rail down each edge and a title board hanging off
-> the top. So a slot can name a short list of layers instead, and LuauUI draws
+> the top. So a slot can name a short list of layers instead, and Facet draws
 > them back to front. It is a *list*, not a drawing program — every layer is one
 > of six kinds with a fixed set of numbers you may give it.
 
@@ -274,7 +274,7 @@ optimized away on evidence that does not exist.
 
 > **In plain words.** A health bar made of pictures has a problem: if you scale
 > the fill image to the percentage, the art squashes — a bevel gets thinner as
-> the bar empties. So LuauUI never scales the fill. It draws the fill at **full
+> the bar empties. So Facet never scales the fill. It draws the fill at **full
 > width** and reveals part of it through a window. The art is byte-identical at
 > 1 % and at 100 %; only the window moves.
 
@@ -477,7 +477,7 @@ fallback path is exercised inside the centerpiece rather than only in a test.
 ## 10.6 Pixel mode
 
 > **In plain words.** Pixel art has one requirement: never blur it. Say your
-> package is pixel art and LuauUI stops smoothing your images, refuses to slice
+> package is pixel art and Facet stops smoothing your images, refuses to slice
 > them by a fraction, and rounds the theme's own measurements onto your grid.
 
 ```lua
@@ -544,7 +544,7 @@ they use compile to the same 81 rules and paint byte-identically.
 > **In plain words.** One game, one screen description, two skins: glossy 44 px
 > rows on the phone, compact 22 px controls with hairlines when the player docks
 > to a monitor. You declare which package belongs to which kind of input and
-> LuauUI does the rest — including swapping live, mid-session, when the player
+> Facet does the rest — including swapping live, mid-session, when the player
 > plugs in a keyboard.
 
 ```lua
@@ -555,7 +555,7 @@ local controller = theme_controller.install(adapter, glossyTouch, {
 })
 ```
 
-- The vocabulary is exactly the input-paradigm classes LuauUI already publishes:
+- The vocabulary is exactly the input-paradigm classes Facet already publishes:
   `touch`, `pointer`, `gamepad`. Nothing new is detected.
 - **The right package installs at install time.** It resolves from the live
   profile before the first paint, so a desktop never shows one frame of 44 px
@@ -579,7 +579,7 @@ fill art changes.
 
 ## 10.9 The image is the element
 
-> **In plain words.** If a button is a picture, you do not want LuauUI's grey
+> **In plain words.** If a button is a picture, you do not want Facet's grey
 > rounded rectangle showing around the edges of it. It does not draw one — and
 > that now holds for every image-bearing slot and every layer stack.
 
@@ -607,7 +607,7 @@ The per-view props take the **same grammar as a recipe** — a bare string or a
 per-state map:
 
 ```lua
-local slider = LuauUI.newSlider(LuauUI, core, {
+local slider = Facet.newSlider(Facet, core, {
     id = "Power", label = "Power", value = power, min = 0, max = 100,
     trackImage = "rbxassetid://133629068271978",        -- one picture
     thumbImage = {                                       -- ...or per state
@@ -662,7 +662,7 @@ and compile to phantom `::UIGradient` rules with zero child instances — right 
 a theme, because a rule matches a *class* of nodes. This one has to win on
 exactly one node, so it follows `UI.shadow`'s architecture instead: bounded
 normalized data under the style authority, materialized by the adapter as **one**
-bespoke `UIGradient` child named `LuauUIGradient`. The child is reused rather
+bespoke `UIGradient` child named `FacetGradient`. The child is reused rather
 than re-created, which is what makes a **package swap safe**: measured live, the
 view's ramp survives the swap on the same node object with no second ramp stacked
 on it, while the theme's own gradients keep painting everywhere else.
@@ -757,7 +757,7 @@ a theme's `extra`, and a plain metric section such as `radii`.
 **Ask, before play:**
 
 ```lua
-local result = LuauUI.themes.checkCoverage(package, ornate_gauge.needs)
+local result = Facet.themes.checkCoverage(package, ornate_gauge.needs)
 -- result.ok, result.covered, result.missing = { { name, message, fix } }
 ```
 

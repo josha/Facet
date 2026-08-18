@@ -1,22 +1,22 @@
 --!strict
 -- Scenario 'foreign_content' (UI.Foreign, ADR-0034; react-lua-comparison §5 rank 1):
--- the BOUNDED ESCAPE HATCH, shown with instances LuauUI genuinely cannot draw.
+-- the BOUNDED ESCAPE HATCH, shown with instances Facet genuinely cannot draw.
 --
 -- WHY THESE THREE PANES AND NOT A COLOURED FRAME. A demo of an escape hatch that
 -- shows something the framework could have drawn itself demonstrates nothing. Each
--- pane is a capability LuauUI declines by design:
+-- pane is a capability Facet declines by design:
 --
 --   RICH TEXT   markup spans inside ONE string. `UI.Text` resolves ONE typography
 --               role and ONE colour per label — deliberately, because the solver
 --               measures with one font descriptor — so bold + italic + two colours
---               on one line is not expressible in LuauUI at all.
+--               on one line is not expressible in Facet at all.
 --   ENGINE LIST a ScrollingFrame with a UIListLayout and AutomaticCanvasSize, whose
---               rows carry AutomaticSize. LuauUI pins `AutomaticCanvasSize = None`
+--               rows carry AutomaticSize. Facet pins `AutomaticCanvasSize = None`
 --               on every ScrollingFrame it creates (the solver owns content
 --               geometry), so this is exactly the measure model the framework
 --               refuses — running inside a box the framework declared.
 --   THE CLIP    a Frame at 2x the box on both axes, offset negatively. It proves
---               the containment promise: "LuauUI owns the box" is a contract only
+--               the containment promise: "Facet owns the box" is a contract only
 --               while nothing adopted can paint outside it.
 --
 -- ...and a fourth button that is not a pane: adopting a `Part` — the 3-D case
@@ -34,9 +34,9 @@
 local PANES = "/ForeignContent/Page/Panes"
 
 return {
-	title = "UI.Foreign — a box for an instance LuauUI does not own (ADR-0034)",
+	title = "UI.Foreign — a box for an instance Facet does not own (ADR-0034)",
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 
 		local status = core:signal("adopting on present…")
@@ -49,7 +49,7 @@ return {
 			"AutomaticSize rows: each one sizes itself from its own text,",
 			"and the UIListLayout re-flows around it.",
 			"The canvas grows with them (AutomaticCanvasSize = Y).",
-			"LuauUI pins that to None on every ScrollingFrame it makes,",
+			"Facet pins that to None on every ScrollingFrame it makes,",
 			"because its solver owns content geometry — which is why the",
 			"BOX around this list is declared in px and never inferred.",
 			"Scroll me: the engine measured all of this, not the framework.",
@@ -83,7 +83,7 @@ return {
 						UI.Text({ id = "Title", text = "UI.Foreign", textSize = 24 }),
 						UI.Text({
 							id = "Blurb",
-							text = "LuauUI reserves and clips the box. You create the instance, you own every "
+							text = "Facet reserves and clips the box. You create the instance, you own every "
 								.. "property on it, and the framework writes exactly one thing: its Parent.",
 							textSize = 14,
 						}),

@@ -1,4 +1,4 @@
-# LuauUI fresh-context simplicity cleanup
+# Facet fresh-context simplicity cleanup
 
 **Date:** 2026-07-24  
 **Status:** Proposed gate between roadmap Steps 5 and 6.
@@ -10,7 +10,7 @@ before either production Sponsor integration or the performance lab. At that poi
 the intended framework surface exists, but game integration has not yet made
 unnecessary internals harder to remove.
 
-This is a behavior-preserving cleanup, not a license to redesign LuauUI. Its outcome
+This is a behavior-preserving cleanup, not a license to redesign Facet. Its outcome
 is less owned code, fewer parallel paths, clearer ownership, and a codebase a fresh
 agent can navigate more reliably. A small audit that correctly retains already-simple
 code is better than a large refactor performed to justify the pass.
@@ -20,12 +20,12 @@ The pass adapts the efficiency principles in
 understand the real flow first; ask whether code needs to exist; reuse what is already
 present; prefer standard-library, platform-native, and installed capabilities; then
 write the minimum clear code. `GameStudio/ENGINEERING.md` remains the repository
-authority and adds LuauUI's platform, testing, documentation, and agent-maintainability
+authority and adds Facet's platform, testing, documentation, and agent-maintainability
 requirements.
 
 ## Scope
 
-Review LuauUI-owned source, tests, tools, registrations, examples, and maintainer
+Review Facet-owned source, tests, tools, registrations, examples, and maintainer
 documentation. Do not edit:
 
 - `vendor/`, generated `build/` output, historical artifacts, or third-party code;

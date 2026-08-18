@@ -38,7 +38,7 @@ local CONTROL_TEMPLATE = [==[
 --!strict
 -- %DISPLAY% control (scaffolded by tools/lune/scaffold — replace this line
 -- with what the control IS and which primitives it composes).
--- Composite-control seam: build(LuauUI, core, spec) returns
+-- Composite-control seam: build(Facet, core, spec) returns
 -- { blueprint, dump, dispose } (plus any control-specific api). Compose the
 -- shipped UI.* primitives; own every resource in the control scope; expose a
 -- deterministic dump() (the control contract's diagnostic form).
@@ -46,11 +46,11 @@ local CONTROL_TEMPLATE = [==[
 
 local %NAME% = {}
 
-function %NAME%.build(LuauUI: any, core: any, spec: any)
-	local UI = LuauUI.UI
-	-- the input-contribution seam is PUBLIC (LuauUI.contribution), so a control
+function %NAME%.build(Facet: any, core: any, spec: any)
+	local UI = Facet.UI
+	-- the input-contribution seam is PUBLIC (Facet.contribution), so a control
 	-- built outside this repository attaches its bundle exactly like this one
-	local contribution = LuauUI.contribution
+	local contribution = Facet.contribution
 	local scope = core:scope("%NAME%-" .. tostring(spec.id or "%DISPLAY%"))
 
 	-- TODO: control state (signals/memos) owned by `scope`
@@ -105,7 +105,7 @@ function %NAME%.build(LuauUI: any, core: any, spec: any)
 	-- deterministic diagnostic summary (keep in sync with the control state)
 	local function dump()
 		return {
-			schema = "luauui-%NAME%-dump/1",
+			schema = "facet-%NAME%-dump/1",
 			id = spec.id or "%DISPLAY%",
 			-- TODO: the state a bug report needs
 		}
@@ -132,13 +132,13 @@ local SPEC_TEMPLATE = [==[
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local %NAME% = require("../src/controls/%NAME%")
 
 describe("%DISPLAY% control", function()
 	it("TODO: replace with the control's first real behavior", function()
-		local core = LuauUI.newCore()
-		local control = %NAME%.build(LuauUI, core, { id = "%DISPLAY%" })
+		local core = Facet.newCore()
+		local control = %NAME%.build(Facet, core, { id = "%DISPLAY%" })
 		expect(control.blueprint ~= nil).toBeTruthy()
 		error("unimplemented: write the control's real failing test, then implement it")
 	end)
@@ -360,7 +360,7 @@ local API_STUB_TEMPLATE = [==[
 
 ### `new%DISPLAY%`
 
-`LuauUI.new%DISPLAY%(LuauUI, core, spec) -> { blueprint, dump, dispose }` —
+`Facet.new%DISPLAY%(Facet, core, spec) -> { blueprint, dump, dispose }` —
 TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
 anchor; the docs-accuracy review requires it to be REAL).]==]

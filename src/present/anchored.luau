@@ -112,7 +112,7 @@ local TAIL_ID = "Tail"
 -- the band that carries the panel's fill ACROSS the wedge's base (header)
 local TAIL_SEAM_ID = "TailSeam"
 
-local DUMP_SCHEMA = "luauui-anchored-dump/1"
+local DUMP_SCHEMA = "facet-anchored-dump/1"
 
 -- THEME METRICS (ADR-0019 §2), never bare pixels. The gap is the small spacing
 -- step; the tail is one medium step square, which is 16px under Studio Neutral
@@ -307,7 +307,7 @@ function anchored.new(ctx: any)
 	local function normalizeAnchor(raw: any): any
 		if type(raw) ~= "table" then
 			error(
-				"LuauUI presenter.presentAnchored: `anchor` is required — { source = { path = … } | { rect = … }, "
+				"Facet presenter.presentAnchored: `anchor` is required — { source = { path = … } | { rect = … }, "
 					.. "edge?, align?, gap?, tail?, overflow? }. An anchored surface with no source is just present().",
 				0
 			)
@@ -315,14 +315,14 @@ function anchored.new(ctx: any)
 		specGuard.assertKnownKeys("presenter.presentAnchored", raw, ANCHOR_KEYS, "opts.anchor")
 		local source = raw.source
 		if type(source) ~= "table" then
-			error('LuauUI presenter.presentAnchored: `anchor.source` must be { path = "…" } or { rect = … }.', 0)
+			error('Facet presenter.presentAnchored: `anchor.source` must be { path = "…" } or { rect = … }.', 0)
 		end
 		specGuard.assertKnownKeys("presenter.presentAnchored", source, SOURCE_KEYS, "opts.anchor.source")
 		local hasPath = type(source.path) == "string"
 		local hasRect = type(source.rect) == "table"
 		if hasPath == hasRect then
 			error(
-				"LuauUI presenter.presentAnchored: `anchor.source` names EXACTLY one of `path` (a mounted node, "
+				"Facet presenter.presentAnchored: `anchor.source` names EXACTLY one of `path` (a mounted node, "
 					.. "followed as it moves) or `rect` (a fixed window-space box).",
 				0
 			)
@@ -335,7 +335,7 @@ function anchored.new(ctx: any)
 			specGuard.assertKnownKeys("presenter.presentAnchored", tail, TAIL_KEYS, "opts.anchor.tail")
 		elseif tail ~= nil and type(tail) ~= "boolean" then
 			error(
-				`LuauUI presenter.presentAnchored: \`anchor.tail\` is true/false or a table `
+				`Facet presenter.presentAnchored: \`anchor.tail\` is true/false or a table `
 					.. `\{ size?, surface?, cornerInset? } (got {typeof(tail)}).`,
 				0
 			)
@@ -354,7 +354,7 @@ function anchored.new(ctx: any)
 		specGuard.assertKnownKeys("presenter.presentAnchored", opts, optsKeys, "opts")
 		if type(panel) ~= "table" then
 			error(
-				"LuauUI presenter.presentAnchored: the first argument is the PANEL blueprint — any node, not a "
+				"Facet presenter.presentAnchored: the first argument is the PANEL blueprint — any node, not a "
 					.. "`UI.Screen`. The surface around it is synthesized here.",
 				0
 			)
@@ -369,7 +369,7 @@ function anchored.new(ctx: any)
 		local rootPolicy = if opts ~= nil then opts.rootPolicy else nil
 		if rootPolicy ~= nil and rootPolicy ~= "edgeToEdge" then
 			error(
-				`LuauUI presenter.presentAnchored: rootPolicy must be "edgeToEdge" (got '{tostring(rootPolicy)}'). `
+				`Facet presenter.presentAnchored: rootPolicy must be "edgeToEdge" (got '{tostring(rootPolicy)}'). `
 					.. "An anchored surface is placed in WINDOW space, the coordinates screenRectOf answers in; "
 					.. "an inset root would re-base every offset by the safe-area inset. The safe area is honoured "
 					.. "by the placement itself.",
@@ -533,7 +533,7 @@ function anchored.new(ctx: any)
 		local chrome = opts ~= nil and opts.chrome == true
 		if chrome and opts ~= nil and opts.modal == true then
 			error(
-				"LuauUI presenter.presentAnchored: `chrome` and `modal` are opposites. A chrome layer takes no "
+				"Facet presenter.presentAnchored: `chrome` and `modal` are opposites. A chrome layer takes no "
 					.. "input and pushes no focus scope; a modal exists to trap both.",
 				0
 			)

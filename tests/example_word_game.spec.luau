@@ -18,7 +18,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local wordGame = require("../examples/gallery/examples/05_word_game")
 
@@ -29,12 +29,12 @@ local rules = wordGame.rules
 local PHONE = { x = 0, y = 0, w = 360, h = 633 }
 
 local function makeWorld(viewport: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", viewport or { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
 	return core, deps, adapter
 end
@@ -238,7 +238,7 @@ end)
 describe("examples/05 word game — the state machine", function()
 	it("starts on a visible six-by-five board with a caret in the first cell", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		expect(core:lastError()).toBeNil()
 		for r = 1, rules.ROWS do
 			for c = 1, rules.COLS do
@@ -255,7 +255,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("every tile paints a REAL tint — the plate is never invisible", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		-- the defect this pins: a bound value outside a closed enum used to be
 		-- accepted and paint nothing, so all thirty tiles rendered transparent
 		for r = 1, rules.ROWS do
@@ -272,7 +272,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("letters land in the ACTIVE row only", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		typeWord(game, "RULES")
 		expect(game.row(1)).toBe("RULES")
 		expect(game.row(2)).toBe("")
@@ -289,7 +289,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("a SHORT guess is refused with a message and does not consume a row", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		typeWord(game, "REA")
 		game.press("Return")
 		expect(game.activeRow()).toBe(1)
@@ -301,7 +301,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("an INVALID guess is refused with a different message and does not consume a row", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		typeWord(game, "ZZZZZ")
 		game.press("Return")
 		expect(game.activeRow()).toBe(1)
@@ -316,7 +316,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("backspace deletes from the active row and stops at empty", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		typeWord(game, "RE")
 		game.press("Backspace")
 		expect(game.row(1)).toBe("R")
@@ -329,7 +329,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("a scored row keeps its verdict AND its marks while the next row becomes active", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "RULES") -- vs REACT
 		expectStates(game, 1, { "correct", "absent", "absent", "present", "absent" })
 		expect(game.mark(1, 1)).toBe("v")
@@ -344,7 +344,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("the duplicate-letter rule reaches the board, not just the scorer", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "ERROR") -- vs REACT: E present, R correct, then R/O/R absent
 		expectStates(game, 1, { "present", "present", "absent", "absent", "absent" })
 		game.dispose()
@@ -352,7 +352,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("key state accumulates monotonically and never downgrades", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "RULES") -- R correct, E present, U/L/S absent
 		expect(game.keyState("R")).toBe("correct")
 		expect(game.keyState("E")).toBe("present")
@@ -369,7 +369,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("wins when the solution is submitted, and opens the results card", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "RULES")
 		guess(game, "REACT")
 		expect(game.phase()).toBe("won")
@@ -382,7 +382,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("loses after SIX accepted wrong guesses and reveals the word", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local six = { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE", "TILES" }
 		for i, word in six do
 			expect(game.phase()).toBe("playing")
@@ -400,7 +400,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("a refused guess does NOT count toward the six", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		for _, word in { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE" } do
 			guess(game, word)
 		end
@@ -418,7 +418,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("input is dead after the game ends, except restart", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "REACT")
 		expect(game.phase()).toBe("won")
 		local before = game.row(1)
@@ -439,7 +439,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("restart is deterministic: the same seed replays the same word", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		expect(game.seed()).toBe(1)
 		expect(game.solution()).toBe("REACT")
 		guess(game, "RULES")
@@ -465,7 +465,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("restart after a loss closes the results card and re-enables the keyboard", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		for _, word in { "RULES", "ERROR", "AWARE", "LEVEL", "SOLVE", "TILES" } do
 			guess(game, word)
 		end
@@ -491,7 +491,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("the results card's Close button actually closes it", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "REACT")
 		expect(deps.presenter.depth()).toBe(2)
 		expect(adapter.node("/WordleResult/centre/Card/Close") ~= nil).toBe(true)
@@ -506,7 +506,7 @@ describe("examples/05 word game — the state machine", function()
 
 	it("the results card's New game button restarts from inside the card", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "REACT")
 		adapter.tap("/WordleResult/centre/Card/Again")
 		expect(deps.presenter.depth()).toBe(1)
@@ -518,7 +518,7 @@ describe("examples/05 word game — the state machine", function()
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
 		local baseline = core:counters()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		guess(game, "RULES")
 		guess(game, "REACT")
 		game.dispose()
@@ -541,7 +541,7 @@ describe("examples/05 word game — it fits and stays operable on a phone", func
 
 	it("the solver reports NO layout finding on a compact phone", function()
 		local core, deps = makeWorld(PHONE)
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		assertClean(game.handle, "360x633 portrait, empty board")
 		guess(game, "RULES")
 		deps.presenter.refresh()
@@ -551,7 +551,7 @@ describe("examples/05 word game — it fits and stays operable on a phone", func
 
 	it("the board and every key stay inside the phone's width", function()
 		local core, deps = makeWorld(PHONE)
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local rectOf = game.handle.controller.rectOf
 		local board = rectOf("/Wordle/page/col/board")
 		expect(board ~= nil).toBe(true)
@@ -570,7 +570,7 @@ describe("examples/05 word game — it fits and stays operable on a phone", func
 
 	it("a tile is square and the board is six rows of five", function()
 		local core, deps = makeWorld(PHONE)
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local rectOf = game.handle.controller.rectOf
 		local first = rectOf(game.tilePath(1, 1))
 		expect(first.w).toBe(first.h)
@@ -585,7 +585,7 @@ describe("examples/05 word game — it fits and stays operable on a phone", func
 
 	it("the page is a scroll host, so the largest text size cannot strand the keyboard", function()
 		local core, deps, adapter = makeWorld(PHONE)
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local page = adapter.node("/Wordle/page")
 		expect(page ~= nil).toBe(true)
 		expect(page.class).toBe("ScrollView")

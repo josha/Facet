@@ -2,7 +2,7 @@
 
 Measured against the live creator docs and the current API dump (client
 `0.734.0.7340915`) for SwiftUI-parity round 2 Phase 3, which adds one opt-in
-client haptics adapter behind LuauUI's semantic feedback bus. Recorded here per
+client haptics adapter behind Facet's semantic feedback bus. Recorded here per
 constitution §12 ("engine facts are measured, then recorded, never assumed from
 memory") and `ENGINEERING.md` "platform-native first — verify, every time".
 
@@ -59,9 +59,9 @@ Two live, scriptable, untagged properties:
 
 <https://create.roblox.com/docs/reference/engine/classes/GuiButton#HoverHapticEffect>
 
-LuauUI already materializes `TextButton`s, so assigning these makes the **engine**
-the player — LuauUI hands over a reference and never calls `Play()`, which keeps
-`src/present/feedback.luau:4-5` ("LuauUI PLAYS NOTHING") literally true rather
+Facet already materializes `TextButton`s, so assigning these makes the **engine**
+the player — Facet hands over a reference and never calls `Play()`, which keeps
+`src/present/feedback.luau:4-5` ("Facet PLAYS NOTHING") literally true rather
 than nearly true. Two caveats: the docs never say which input devices trigger
 them, and an Instance-reference property is not StyleSheet-expressible, so the
 adapter assigns it directly.
@@ -150,7 +150,7 @@ honors the player — only a device can answer that.
 ## 9. Two inherited claims that are NOT documented
 
 RascalRally's `src/client/ItemAudio.luau` already uses `HapticEffect` and its
-comments assert two things the docs do not support. Do not copy them into LuauUI
+comments assert two things the docs do not support. Do not copy them into Facet
 as facts:
 
 - `:590-600` — "an effect outside the evaluated container is a silent no-op",
@@ -187,14 +187,14 @@ never falls back to `Custom`.
 
 Standing rule 1 (`docs/plans/swiftui-parity-round3-brief.md`) requires checking
 the *current* platform rather than trusting a two-day-old note, so every fact
-above was re-asked of a running client — `0.734.0.7340915`, `LuauUI-Showcase`,
+above was re-asked of a running client — `0.734.0.7340915`, `Facet-Showcase`,
 Play mode, macOS. **Nothing had moved.** The creator docs for `HapticEffect`,
 `GuiButton` and the two announcement threads are byte-identical in substance; the
 newest platform change anywhere in this area is still the November 2025 `Ended`
 update.
 
 Everything below was measured by executing Luau in the live client. **None of it
-required a LuauUI module from the place**, so the stale-Rojo-sync issue recorded
+required a Facet module from the place**, so the stale-Rojo-sync issue recorded
 the same day (additions land, modifications do not) cannot have contaminated it:
 these are questions about the ENGINE.
 
@@ -221,7 +221,7 @@ running inside a sandboxed container.
 The per-control sensory hook (2026-08-14) publishes a control's declared verb as
 an attribute the haptics adapter reads. That channel was exercised live:
 
-- `SetAttribute("LuauUI_ActivationFeedback", "commit")` then `GetAttribute` round
+- `SetAttribute("Facet_ActivationFeedback", "commit")` then `GetAttribute` round
   trips on a `TextButton`;
 - `SetAttribute(name, nil)` **clears** it (`GetAttribute` answers `nil`) — which
   is what makes the renderer's unconditional push safe against instance

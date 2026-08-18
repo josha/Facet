@@ -52,7 +52,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local profile = require("../src/core/profile")
 local fake_target = require("./lib/fake_target")
 
@@ -98,29 +98,29 @@ type Scene = {
 	and publishes that height as `coreSafeInsets.bottom`. `roundTrip=false` builds
 	the identical pair with the publication removed — the control. ]]
 local function scene(roundTrip: boolean): Scene
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
 
 	local rows = {}
 	for i = 1, 24 do
 		table.insert(
 			rows,
-			LuauUI.UI.HStack({
+			Facet.UI.HStack({
 				id = "R" .. i,
 				width = { type = "fill", weight = 1 },
 				children = {
-					LuauUI.UI.Text({ id = "A", text = "Row " .. i }),
-					LuauUI.UI.Spacer({ id = "S" }),
-					LuauUI.UI.Text({ id = "B", text = "value " .. i }),
+					Facet.UI.Text({ id = "A", text = "Row " .. i }),
+					Facet.UI.Spacer({ id = "S" }),
+					Facet.UI.Text({ id = "B", text = "value " .. i }),
 				},
 			})
 		)
 	end
 	local content =
-		pres.present(LuauUI.UI.Screen({ id = "W", children = { LuauUI.UI.VStack({ id = "List", children = rows }) } }))
+		pres.present(Facet.UI.Screen({ id = "W", children = { Facet.UI.VStack({ id = "List", children = rows }) } }))
 
 	--[[ The equality guard reads the LIVE fact, never a remembered one — the
 		platform adapter is the author of `coreSafeInsets` and rewrites all four
@@ -146,14 +146,14 @@ local function scene(roundTrip: boolean): Scene
 	end
 
 	local dock = pres.present(
-		LuauUI.UI.Screen({
+		Facet.UI.Screen({
 			id = "D",
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "Dock",
 					children = {
-						LuauUI.UI.Spacer({ id = "Push" }),
-						LuauUI.UI.VStack({
+						Facet.UI.Spacer({ id = "Push" }),
+						Facet.UI.VStack({
 							id = "Panel",
 							-- the dock's height DEPENDS ON THE VIEWPORT, exactly as the
 							-- performance lab's own panel does. This is what makes the
@@ -162,8 +162,8 @@ local function scene(roundTrip: boolean): Scene
 							-- cycle has to run and the only question is how much it costs
 							height = { type = "percent", fraction = 0.34, min = 96, max = 260 },
 							children = {
-								LuauUI.UI.Text({ id = "T1", text = "dock line one" }),
-								LuauUI.UI.Text({ id = "T2", text = "dock line two" }),
+								Facet.UI.Text({ id = "T1", text = "dock line one" }),
+								Facet.UI.Text({ id = "T2", text = "dock line two" }),
 							},
 						}),
 					},
@@ -219,20 +219,20 @@ describe("a measure→publish cycle settles inside one flush", function()
 	it("the round trip costs NO extra reactive flush — the control is in the case", function()
 		withSpanCounts(function(counts)
 			local plain = scene(false)
-			local before = counts["LuauUI/react"] or 0
+			local before = counts["Facet/react"] or 0
 			for _, shape in SHAPES do
 				resize(plain, shape)
 				plain.pres.refresh()
 			end
-			local plainReact = (counts["LuauUI/react"] or 0) - before
+			local plainReact = (counts["Facet/react"] or 0) - before
 
 			local loop = scene(true)
-			before = counts["LuauUI/react"] or 0
+			before = counts["Facet/react"] or 0
 			for _, shape in SHAPES do
 				resize(loop, shape)
 				loop.pres.refresh()
 			end
-			local loopReact = (counts["LuauUI/react"] or 0) - before
+			local loopReact = (counts["Facet/react"] or 0) - before
 
 			-- the control first, so a scene that stopped flushing at all cannot
 			-- pass by making both numbers zero
@@ -268,22 +268,22 @@ describe("a measure→publish cycle settles inside one flush", function()
 			presented. ]]
 		withSpanCounts(function(counts)
 			local plain = scene(false)
-			local p0, pa0 = plain.solves(), counts["LuauUI/arrange"] or 0
+			local p0, pa0 = plain.solves(), counts["Facet/arrange"] or 0
 			for _, shape in SHAPES do
 				resize(plain, shape)
 				plain.pres.refresh()
 			end
 			local plainSolves = plain.solves() - p0
-			local plainArrange = (counts["LuauUI/arrange"] or 0) - pa0
+			local plainArrange = (counts["Facet/arrange"] or 0) - pa0
 
 			local loop = scene(true)
-			local l0, la0 = loop.solves(), counts["LuauUI/arrange"] or 0
+			local l0, la0 = loop.solves(), counts["Facet/arrange"] or 0
 			for _, shape in SHAPES do
 				resize(loop, shape)
 				loop.pres.refresh()
 			end
 			local loopSolves = loop.solves() - l0
-			local loopArrange = (counts["LuauUI/arrange"] or 0) - la0
+			local loopArrange = (counts["Facet/arrange"] or 0) - la0
 
 			-- the control: two surfaces, one solve each per geometry change
 			expect(plainSolves).toBe(#SHAPES * 2)
@@ -381,7 +381,7 @@ describe("a measure→publish cycle settles inside one flush", function()
 			pass is a non-convergent measure→publish cycle — the runaway shape a
 			real consumer reaches by publishing a value derived from a rect that
 			its own publication moves. It must terminate, and it must say so. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local sig = core:signal(0)
 		local passes = 0
 		core:settle(function()
@@ -436,11 +436,11 @@ type PropScene = {
 }
 
 local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
 
 	-- the published number, bound to the probe's HEIGHT — a `measure`-class
 	-- reactive prop (src/blueprint_schema.luau BOX.height), which is exactly the
@@ -458,7 +458,7 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 		return { top = 0, bottom = 0, left = m, right = m }
 	end)
 
-	local screen = LuauUI.UI.Screen({
+	local screen = Facet.UI.Screen({
 		id = "P",
 		children = {
 			--[[ TWO SIBLING SUBTREES, deliberately — the Table's own shape, where the
@@ -468,11 +468,11 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 				`Published`, so a re-solve that reused that set would skip the very
 				subtree the publication moved. A probe parented under the dirty node's
 				own parent is re-measured for free and proves nothing. ]]
-			LuauUI.UI.VStack({
+			Facet.UI.VStack({
 				id = "Col",
 				width = { type = "fill", weight = 1 },
 				children = {
-					LuauUI.UI.Anchor({
+					Facet.UI.Anchor({
 						id = "Measured",
 						width = { type = "fill", weight = 1 },
 						-- the margin rides the WRAPPER, because the VStack is the node
@@ -485,7 +485,7 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 							-- converge in one step (the same structural argument the
 							-- Table's gutter makes about a `lineLimit = 1` title in a
 							-- `minMax`-floored band).
-							LuauUI.UI.Anchor({
+							Facet.UI.Anchor({
 								id = "Bar",
 								width = { type = "fill", weight = 1 },
 								height = { type = "fixed", px = 40 },
@@ -500,12 +500,12 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 						able to strand this subtree: `arrange`'s skip fires when a
 						subtree lands on the rect it already had, so a wrapper that
 						grows with its content re-walks for free and proves nothing. ]]
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "Published",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fixed", px = 200 },
 						children = {
-							LuauUI.UI.Anchor({
+							Facet.UI.Anchor({
 								id = "Probe",
 								width = { type = "fill", weight = 1 },
 								height = probeHeight,

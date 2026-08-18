@@ -97,12 +97,12 @@ return {
 	copy = COPY,
 	playerCount = PLAYER_COUNT,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("sorted-entries")
 		-- scope-owned so the six memos die with the fixture (RR-8)
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		-- THE THREE CONSTRUCTIONS. Same twelve pairs out of all three; only the
 		-- history that produced the table differs.
@@ -171,7 +171,7 @@ return {
 		end
 		lastRawOrder = orderOf(rawEntries:get())
 
-		local picker = LuauUI.newPicker(LuauUI, core, {
+		local picker = Facet.newPicker(Facet, core, {
 			id = "Construction",
 			label = COPY.pick,
 			presentation = "segmented",

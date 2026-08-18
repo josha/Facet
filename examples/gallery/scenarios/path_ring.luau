@@ -3,7 +3,7 @@
 -- progress ring and a gauge needle via the engine's Path2D, with the arc
 -- BOUND to a progress signal — steps sweep the value and the stroke updates
 -- as paint-only prop writes (never a re-solve). Shape math is the pure,
--- headlessly-tested LuauUI.pathShapes; the engine only strokes. The column
+-- headlessly-tested Facet.pathShapes; the engine only strokes. The column
 -- (Title/Value/gauge) is hosted in a `fill` ScrollView so it stays reachable
 -- on a short landscape phone instead of clipping off the bottom.
 
@@ -11,8 +11,8 @@ return {
 	title = "Path2D ring + needle (NS-A7)",
 	ledgerRows = { "NS-A7" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
-		local shapes = ctx.LuauUI.pathShapes
+		local UI = ctx.Facet.UI
+		local shapes = ctx.Facet.pathShapes
 		local core = ctx.core
 
 		local progress = core:signal(0.25)

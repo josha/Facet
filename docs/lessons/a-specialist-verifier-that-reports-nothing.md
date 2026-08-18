@@ -1,7 +1,7 @@
 # A verifier that ends on its opening sentence
 
 **Found:** 2026-08-13, four times in one mission, across two different
-`luauui-*-verifier` agent types.
+`facet-*-verifier` agent types.
 **Cost:** roughly 340k subagent tokens and 120 tool calls of real investigation
 thrown away, plus three redispatches — and, the first time, very nearly a
 milestone closed without its architecture gate.

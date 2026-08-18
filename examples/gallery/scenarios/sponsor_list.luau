@@ -38,8 +38,8 @@ return {
 	title = "Collection lab (SF-L1/L3/P1/P3)",
 	ledgerRows = { "SF-L1", "SF-L3", "SF-P1", "SF-P3", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -110,20 +110,20 @@ return {
 
 		-- ===== the derived row height =======================================
 		local rowHeight = scope:own(core:memo(function(use)
-			--[[ THE LINE BOXES COME FROM THE FRAMEWORK (`LuauUI.text.facts` /
-				`LuauUI.text.lineBox`, adopted 2026-08-15). This memo used to carry its own
+			--[[ THE LINE BOXES COME FROM THE FRAMEWORK (`Facet.text.facts` /
+				`Facet.text.lineBox`, adopted 2026-08-15). This memo used to carry its own
 				copy of the arithmetic, and the copy was wrong in the way six of the seven
 				in-repo copies were: it read `typographyScale` alone, while the measure seam
 				reserves at `max(typographyScale, typographyPaintScale)` — so at any sub-1
 				accessibility preference it reserved less than the engine drew.
 				docs/plans/variable-item-extents.md. ]]
-			local facts = LuauUI.text.facts({ env = env, use = use })
+			local facts = Facet.text.facts({ env = env, use = use })
 			local metrics: any = facts.metrics
 			if type(metrics) ~= "table" or type(metrics.type) ~= "table" then
 				return 56
 			end
 			local function lineBox(role: string, lines: number): number
-				return LuauUI.text.lineBox({ facts = facts, size = role, lines = lines })
+				return Facet.text.lineBox({ facts = facts, size = role, lines = lines })
 			end
 			-- THE ARRANGEMENT AND THE HEIGHT ARE ONE DECISION (the row-height lesson,
 			-- restated here because this row is exactly its worked example). Every
@@ -298,7 +298,7 @@ return {
 		local selections: { string } = {}
 		local activations: { any } = {}
 
-		list = LuauUI.newVirtualList(LuauUI, core, {
+		list = Facet.newVirtualList(Facet, core, {
 			id = "Rows",
 			rows = rows,
 			key = function(item: any)

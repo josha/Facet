@@ -33,6 +33,7 @@ def main() -> int:
     report = json.load(open(MATRIX))
     errors = []
 
+    # IMMUTABLE EVIDENCE: recorded pre-rename, keeps its original schema string.
     if report.get("schema") != "luauui-device-matrix/1":
         errors.append(f"unexpected schema {report.get('schema')!r}")
     if report.get("evidenceClass") != "studio-emulated":

@@ -4,7 +4,7 @@
 
 	This screen exists because the two mechanisms it shows look almost identical
 	in a still frame and are opposites in every other respect. Apple keeps them
-	apart and so does LuauUI:
+	apart and so does Facet:
 
 	  · `help` — the player PULLS it. Rest a pointer on a control, or land the
 	    ring on it, and one sentence appears. On TOUCH nothing happens at all, by
@@ -75,8 +75,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local presenter = ctx.presenter
 		local scope = core:scope("callout-scenario")
@@ -141,7 +141,7 @@ return {
 			the arrow over the button. It also carries `help`, so the same node
 			demonstrates both mechanisms: hover it and the pulled plate appears; press
 			"Show the coach mark" and the pushed one does. ]]
-		local tip = scope:own(LuauUI.newCallout(LuauUI, core, {
+		local tip = scope:own(Facet.newCallout(Facet, core, {
 			id = "AvatarTip",
 			anchor = UI.Button({
 				id = "Plus",
@@ -175,7 +175,7 @@ return {
 
 		-- a SECOND coach mark, so the queue is something a player can see rather than
 		-- a claim in a document: ask for both and only one is ever up.
-		local second = scope:own(LuauUI.newCallout(LuauUI, core, {
+		local second = scope:own(Facet.newCallout(Facet, core, {
 			id = "ShareTip",
 			anchor = UI.Button({
 				id = "Share",

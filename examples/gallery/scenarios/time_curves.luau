@@ -66,8 +66,8 @@
 	file touches `game`, an Instance, `task.delay` or a frame connection.
 
 	TWO HOSTS MOUNT IT, exactly as `with_animation.luau` documents: the scenario
-	runner with the full ctx and `_G.LuauUIScenario` driving the steps below, and
-	the showcase demo picker with the MINIMAL ctx `{LuauUI, core, env,
+	runner with the full ctx and `_G.FacetScenario` driving the steps below, and
+	the showcase demo picker with the MINIMAL ctx `{Facet, core, env,
 	actionSystem, presenter}` and NO step ever running. Everything here is
 	therefore reachable from four controls, all of them four-input reachable.
 ]]
@@ -178,8 +178,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -191,8 +191,8 @@ return {
 		-- that reset the registry between cases, must find the same six curves
 		-- rather than a refusal from `resolve`.
 		local function ensureCurve(name: string, spec: any)
-			if not LuauUI.motion.isRegisteredCurve(name) then
-				LuauUI.motion.registerCurve(name, spec)
+			if not Facet.motion.isRegisteredCurve(name) then
+				Facet.motion.registerCurve(name, spec)
 			end
 		end
 		-- LINEAR, and that is a decision rather than an omission: an informational
@@ -274,7 +274,7 @@ return {
 			return `{COPY.elapsed} {e} — {tw} — {sp}`
 		end))
 
-		local cooldownBar = LuauUI.newProgressView(LuauUI, core, {
+		local cooldownBar = Facet.newProgressView(Facet, core, {
 			id = "CooldownBar",
 			label = COPY.tweenLabel,
 			value = cooldown,
@@ -283,7 +283,7 @@ return {
 			showValue = true,
 			format = percent,
 		})
-		local springBar = LuauUI.newProgressView(LuauUI, core, {
+		local springBar = Facet.newProgressView(Facet, core, {
 			id = "SpringBar",
 			label = COPY.springLabel,
 			value = spring,
@@ -405,7 +405,7 @@ return {
 			end
 		end))
 
-		local motionPicker = LuauUI.newPicker(LuauUI, core, {
+		local motionPicker = Facet.newPicker(Facet, core, {
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.
@@ -645,7 +645,7 @@ return {
 					records = pres.animationRecordCount(),
 					-- the registry this surface depends on, so a report says whether
 					-- the six curves it cites are actually there
-					curves = LuauUI.motion.curveNames(),
+					curves = Facet.motion.curveNames(),
 				}
 			end,
 

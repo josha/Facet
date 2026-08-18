@@ -8,10 +8,10 @@
 -- would prove the wrong thing. That scenario's blueprint stays its own; this
 -- one requires it, mounts it, and drives packages over it.
 --
--- Drive from Studio: set workspace attribute LuauUI_Scenario = "theme_authoring"
--- before Play; optionally LuauUI_ThemePackage = "<module name>" and
--- LuauUI_ThemeName = "<theme>" to choose the package the fixture opens under.
--- Steps run through workspace.LuauUIScenarioAPI.step (or _G.LuauUIScenario.step
+-- Drive from Studio: set workspace attribute Facet_Scenario = "theme_authoring"
+-- before Play; optionally Facet_ThemePackage = "<module name>" and
+-- Facet_ThemeName = "<theme>" to choose the package the fixture opens under.
+-- Steps run through workspace.FacetScenarioAPI.step (or _G.FacetScenario.step
 -- in the client VM); see the step list below.
 --
 -- ENGINE-FREE, like every scenario module: packages arrive as ctx.themePackages,
@@ -57,8 +57,8 @@ return {
 	title = "Theme authoring (packages, swaps, failures)",
 	ledgerRows = { "TP-A1", "TP-A2", "TP-A3", "TP-A4", "TP-A5" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local themes = LuauUI.themes
+		local Facet = ctx.Facet
+		local themes = Facet.themes
 		local packages: { [string]: any } = ctx.themePackages or {}
 		local customControl = packages.custom_control
 
@@ -103,14 +103,14 @@ return {
 				}
 			end
 			local core = ctx.core
-			local themed = LuauUI.newSlider(LuauUI, core, {
+			local themed = Facet.newSlider(Facet, core, {
 				id = "ThemedSlider",
 				label = "Theme",
 				value = core:signal(40),
 				min = 0,
 				max = 100,
 			})
-			local overridden = LuauUI.newSlider(LuauUI, core, {
+			local overridden = Facet.newSlider(Facet, core, {
 				id = "ViewSlider",
 				label = "View",
 				value = core:signal(60),
@@ -120,7 +120,7 @@ return {
 				-- `asset` accepts (ADR-0020 R2), normalized by the same function
 				thumbImage = probe.thumbVariants,
 			})
-			local field = LuauUI.newTextInput(LuauUI, core, {
+			local field = Facet.newTextInput(Facet, core, {
 				id = "ProbeField",
 				value = core:signal("edit me"),
 				placeholder = "layered field",
@@ -130,13 +130,13 @@ return {
 			-- that `:NonInteractable > .<layerTag>` matches a LAYER. The test package
 			-- supplies no `disabled` ART, which is the point — the accessibility floor
 			-- still applies over `default` (ADR-0020 R2).
-			local disabledField = LuauUI.newTextInput(LuauUI, core, {
+			local disabledField = Facet.newTextInput(Facet, core, {
 				id = "DisabledField",
 				value = core:signal("disabled"),
 				disabled = true,
 			})
 			probe.controls = { themed, overridden, field, disabledField }
-			probe.handle = ctx.presenter.present(LuauUI.UI.Screen({
+			probe.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "LayerProbe",
 				surface = "raised",
 				children = { themed.blueprint, overridden.blueprint, field.blueprint, disabledField.blueprint },
@@ -222,11 +222,11 @@ return {
 		local VALUE_PATHS = {
 			bar = VALUE_SCREEN .. "/Load/Bar",
 			fill = VALUE_SCREEN .. "/Load/Bar/Fill",
-			window = VALUE_SCREEN .. "/Load/Bar/Fill/LuauUIBarWindow",
-			art = VALUE_SCREEN .. "/Load/Bar/Fill/LuauUIBarFill",
-			capStart = VALUE_SCREEN .. "/Load/Bar/LuauUIBarCapStart",
-			capEnd = VALUE_SCREEN .. "/Load/Bar/LuauUIBarCapEnd",
-			center = VALUE_SCREEN .. "/Load/Bar/LuauUIBarCenter",
+			window = VALUE_SCREEN .. "/Load/Bar/Fill/FacetBarWindow",
+			art = VALUE_SCREEN .. "/Load/Bar/Fill/FacetBarFill",
+			capStart = VALUE_SCREEN .. "/Load/Bar/FacetBarCapStart",
+			capEnd = VALUE_SCREEN .. "/Load/Bar/FacetBarCapEnd",
+			center = VALUE_SCREEN .. "/Load/Bar/FacetBarCenter",
 			toggle = VALUE_SCREEN .. "/Switch",
 			disabledToggle = VALUE_SCREEN .. "/SwitchOff",
 			stepperDec = VALUE_SCREEN .. "/Qty/Dec",
@@ -255,24 +255,21 @@ return {
 			-- "the caps never moved" would have been measuring text reflow. The
 			-- sweep has to isolate the CLIP; the readout is the adaptive fixture's
 			-- job and is proven there.
-			local bar = LuauUI.newProgressView(LuauUI, core, { id = "Load", label = "Health", value = values.progress })
-			local steps = LuauUI.newStepper(
-				LuauUI,
-				core,
-				{ id = "Qty", label = "Potions", value = values.count, min = 0, max = 9 }
-			)
+			local bar = Facet.newProgressView(Facet, core, { id = "Load", label = "Health", value = values.progress })
+			local steps =
+				Facet.newStepper(Facet, core, { id = "Qty", label = "Potions", value = values.count, min = 0, max = 9 })
 			values.controls = { bar, steps }
-			values.handle = ctx.presenter.present(LuauUI.UI.Screen({
+			values.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "ValueProbe",
 				surface = "raised",
 				children = {
 					bar.blueprint,
-					LuauUI.UI.Toggle({ id = "Switch", label = "Candlelight", value = values.switch }),
+					Facet.UI.Toggle({ id = "Switch", label = "Candlelight", value = values.switch }),
 					-- the DISABLED state, reached through the public prop rather than
 					-- a raw Interactable poke. The test package supplies no `disabled`
 					-- toggle art, which is the point: the accessibility floor still
 					-- applies over `default` (ADR-0020 R2).
-					LuauUI.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
+					Facet.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
 					steps.blueprint,
 				},
 			}))
@@ -539,7 +536,7 @@ return {
 			if adjacency.handle ~= nil then
 				return { alreadyPresented = true, paths = ADJ_PATHS }
 			end
-			local UI = LuauUI.UI
+			local UI = Facet.UI
 			local function cell(id: string): any
 				-- `raised` classifies as the PANEL slot, so each cell wears the
 				-- installed package's own plate: a 1px gap between two plates is a
@@ -553,7 +550,7 @@ return {
 					height = { type = "fixed", px = 40 },
 				})
 			end
-			adjacency.handle = ctx.presenter.present(LuauUI.UI.Screen({
+			adjacency.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "AdjacencyProbe",
 				padding = 0,
 				children = {
@@ -704,14 +701,14 @@ return {
 			gauge.fraction = core:signal(0.62)
 			gauge.heightPx = core:signal(resolved.height)
 			gauge.builtUnder = installed.package.identity.id
-			gauge.handle = ctx.presenter.present(LuauUI.UI.Screen({
+			gauge.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "GaugeProbe",
 				surface = "raised",
 				-- clears the Roblox topbar, and keeps the end caps off the very
 				-- edge of the viewport so a capture shows the dial's whole width
 				padding = { top = 56, right = 32, bottom = 32, left = 32 },
 				children = {
-					module.blueprint(LuauUI.UI, core, resolved, {
+					module.blueprint(Facet.UI, core, resolved, {
 						id = "Gauge",
 						label = "Boiler pressure (gauge:dial)",
 						fraction = gauge.fraction,
@@ -719,19 +716,19 @@ return {
 					}),
 					-- RUNG 2, the whole modifier set on one node. The gradient is
 					-- the charter's cap-11 per-view wash: bounded data, one
-					-- adapter-owned `LuauUIGradient` child, and it must survive a
+					-- adapter-owned `FacetGradient` child, and it must survive a
 					-- package swap while the theme keeps painting this node's
 					-- surface, corner and everything around it.
-					LuauUI.UI.shadow(
-						LuauUI.UI.gradient(
-							LuauUI.UI.VStack({
+					Facet.UI.shadow(
+						Facet.UI.gradient(
+							Facet.UI.VStack({
 								id = "WashCard",
 								surface = "raised",
 								width = { type = "fill", weight = 1 },
 								height = { type = "fixed", px = 96 },
 								padding = { top = 12, right = 16, bottom = 12, left = 16 },
 								children = {
-									LuauUI.UI.Text({
+									Facet.UI.Text({
 										id = "WashLabel",
 										text = "Rung 2: UI.gradient on this card only",
 										textSize = "caption",
@@ -787,7 +784,7 @@ return {
 			if circle.handle ~= nil then
 				return { alreadyPresented = true, paths = CIRCLE_PATHS }
 			end
-			local UI = LuauUI.UI
+			local UI = Facet.UI
 			circle.handle = ctx.presenter.present(UI.Screen({
 				id = "CircleProbe",
 				surface = "raised",
@@ -1004,7 +1001,7 @@ return {
 			end
 			local out: { any } = {}
 			for _, path in GEOMETRY_PATHS do
-				local decoration = path .. "/LuauUIChrome"
+				local decoration = path .. "/FacetChrome"
 				local entry: any = { path = decoration, styled = {} }
 				local any = false
 				for _, prop in CHROME_PROBE_PROPS do
@@ -1043,7 +1040,7 @@ return {
 			end,
 			steps = {
 				-- ---- installation and swapping ----------------------------
-				-- payload = the module name under ReplicatedStorage.LuauUIThemes
+				-- payload = the module name under ReplicatedStorage.FacetThemes
 				-- ("installPackage:fantasy_parchment" from the Studio bridge);
 				-- default keeps the historic stub target
 				installPackage = function(_session, payload: string?)
@@ -1577,8 +1574,8 @@ return {
 					return {
 						dec = artReport(VALUE_PATHS.stepperDec),
 						inc = artReport(VALUE_PATHS.stepperInc),
-						decChrome = artReport(VALUE_PATHS.stepperDec .. "/LuauUIChrome"),
-						incChrome = artReport(VALUE_PATHS.stepperInc .. "/LuauUIChrome"),
+						decChrome = artReport(VALUE_PATHS.stepperDec .. "/FacetChrome"),
+						incChrome = artReport(VALUE_PATHS.stepperInc .. "/FacetChrome"),
 					}
 				end,
 				-- ---- P4: icons, pixel mode, content A/B, tile, selectBy ----
@@ -1602,7 +1599,7 @@ return {
 				-- absent-instance case is reported rather than inferred.
 				iconProbe = function()
 					local function iconReport(nodePath: string): any
-						local iconPath = nodePath .. "/LuauUIIcon"
+						local iconPath = nodePath .. "/FacetIcon"
 						return {
 							node = {
 								path = nodePath,
@@ -1669,13 +1666,13 @@ return {
 						},
 						-- SliceScale and the Pixelated stamp, read off the LIVE
 						-- decoration rather than off the model that emitted them
-						plate = artReport(VALUE_PATHS.stepperInc .. "/LuauUIChrome"),
+						plate = artReport(VALUE_PATHS.stepperInc .. "/FacetChrome"),
 						plateSliceScale = ctx.nativeStyle.styledOf(
-							VALUE_PATHS.stepperInc .. "/LuauUIChrome",
+							VALUE_PATHS.stepperInc .. "/FacetChrome",
 							"SliceScale"
 						),
 						plateResample = ctx.nativeStyle.styledOf(
-							VALUE_PATHS.stepperInc .. "/LuauUIChrome",
+							VALUE_PATHS.stepperInc .. "/FacetChrome",
 							"ResampleMode"
 						),
 						barTrack = artReport(VALUE_PATHS.bar),
@@ -1691,10 +1688,10 @@ return {
 						stamp = installed.package.stamp,
 						assets = installed.package.assets,
 						control = artReport(node),
-						chrome = artReport(node .. "/LuauUIChrome"),
+						chrome = artReport(node .. "/FacetChrome"),
 						icon = {
-							Image = ctx.nativeStyle.styledOf(node .. "/LuauUIIcon", "Image"),
-							ImageColor3 = ctx.nativeStyle.styledOf(node .. "/LuauUIIcon", "ImageColor3"),
+							Image = ctx.nativeStyle.styledOf(node .. "/FacetIcon", "Image"),
+							ImageColor3 = ctx.nativeStyle.styledOf(node .. "/FacetIcon", "ImageColor3"),
 						},
 					}
 				end,
@@ -1706,7 +1703,7 @@ return {
 					local out: { any } = {}
 					for _, path in (census.layeredPaths or {}) :: { string } do
 						for index = 1, 8 do
-							local layer = `{path}/LuauUIChromeL{index}`
+							local layer = `{path}/FacetChromeL{index}`
 							local scaleType = ctx.nativeStyle.styledOf(layer, "ScaleType")
 							if type(scaleType) == "string" and string.find(scaleType, "Tile", 1, true) ~= nil then
 								table.insert(out, {
@@ -1942,7 +1939,7 @@ return {
 				-- existing subtree dump, which already counts UIStroke children per
 				-- instance and reports every rect — so "the ring is on the art, and
 				-- the art is the box it hugs" is one machine read rather than a
-				-- pixel judgement. payload = the LuauUI path (default: the stepper's
+				-- pixel judgement. payload = the Facet path (default: the stepper's
 				-- decrement, which is the node the defect was reported on).
 				focusNode = function(_session, payload: string?)
 					local path = if type(payload) == "string" and payload ~= ""

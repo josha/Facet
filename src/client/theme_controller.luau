@@ -158,11 +158,11 @@ function theme_controller.sheetModelFor(package: any): any
 	return sheet_model.buildPackage(package)
 end
 
--- the per-package sheet name. NEVER "LuauUI": that is the library ModuleScript
+-- the per-package sheet name. NEVER "Facet": that is the library ModuleScript
 -- tree's name under ReplicatedStorage, and a same-name lookup once found (and
 -- the old replace path destroyed) the library itself.
 function theme_controller.sheetNameFor(package: any): string
-	return `LuauUITheme {package.identity.id}`
+	return `FacetTheme {package.identity.id}`
 end
 
 -- ===== fonts ===============================================================
@@ -415,7 +415,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	if declared ~= nil and declared ~= pkgLib.SCHEMA then
 		error(
 			`theme_controller.install: package '{package.identity.id}' declares schema '{tostring(declared)}' `
-				.. `but this LuauUI speaks '{pkgLib.SCHEMA}' — republish the package against this schema`,
+				.. `but this Facet speaks '{pkgLib.SCHEMA}' — republish the package against this schema`,
 			0
 		)
 	end
@@ -665,7 +665,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 				if not warnedOverrides[attribute] then
 					warnedOverrides[attribute] = true
 					warnFn(
-						`LuauUI theme '{activePackage.identity.id}': attribute '{attribute}' on theme sheet `
+						`Facet theme '{activePackage.identity.id}': attribute '{attribute}' on theme sheet `
 							.. `'{themeName}' {reason} — the edit was DROPPED and the package's own value stands. `
 							.. "Fix the attribute in the Style Editor and the edit applies on the next change."
 					)
@@ -739,7 +739,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			if not ok and not warnedListeners[listener] then
 				warnedListeners[listener] = true
 				warnFn(
-					`LuauUI theme '{activePackage.identity.id}': an onChange listener errored ({tostring(err)}). `
+					`Facet theme '{activePackage.identity.id}': an onChange listener errored ({tostring(err)}). `
 						.. "The theme change itself completed; this listener will not be reported again."
 				)
 			end
@@ -860,7 +860,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 				if not ok and not warnedRules[entry.rule] then
 					warnedRules[entry.rule] = true
 					warnFn(
-						`LuauUI theme '{activePackage.identity.id}': rule '{entry.rule}' is not on the theme sheet, `
+						`Facet theme '{activePackage.identity.id}': rule '{entry.rule}' is not on the theme sheet, `
 							.. `so the live edit to '{entry.path}' could not repaint '{entry.prop}'. Geometry follows `
 							.. "the edit; paint does not. Restore the rule's name in the Style Editor."
 					)
@@ -995,7 +995,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		end
 		table.sort(prefixes)
 		warnFn(
-			`LuauUI theme '{activePackage.identity.id}': '{attribute}' on theme sheet '{activeTheme}' is not a `
+			`Facet theme '{activePackage.identity.id}': '{attribute}' on theme sheet '{activeTheme}' is not a `
 				.. `supported theme token and was ignored. The supported set is the {#packageRecords} metric/font `
 				.. `token attributes this package seeded ({table.concat(prefixes, "")}…); `
 				.. "controller.inspect().tokens lists every one"
@@ -1077,7 +1077,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			end
 			if not ok then
 				warnFn(
-					`LuauUI theme '{activePackage.identity.id}': font calibration failed ({tostring(applied)}); `
+					`Facet theme '{activePackage.identity.id}': font calibration failed ({tostring(applied)}); `
 						.. "the conservative estimator stands, so text is over-reserved rather than clipped"
 				)
 				return
@@ -1240,7 +1240,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		if declaredNext ~= nil and declaredNext ~= pkgLib.SCHEMA then
 			error(
 				`theme_controller.swapPackage: package '{nextPackage.identity.id}' declares schema `
-					.. `'{tostring(declaredNext)}' but this LuauUI speaks '{pkgLib.SCHEMA}'`,
+					.. `'{tostring(declaredNext)}' but this Facet speaks '{pkgLib.SCHEMA}'`,
 				0
 			)
 		end
@@ -1382,7 +1382,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			if not warnedManual then
 				warnedManual = true
 				warnFn(
-					"LuauUI theme_controller: swapPackage was called by hand while `selectBy` is active. The manual "
+					"Facet theme_controller: swapPackage was called by hand while `selectBy` is active. The manual "
 						.. "package stands until the input profile next changes, and then selectBy resumes. Remove "
 						.. "`selectBy`, or drive the profile, if the manual package should be permanent."
 				)

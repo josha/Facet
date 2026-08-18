@@ -79,8 +79,8 @@ return {
 	copy = COPY,
 	handlesPerOpen = HANDLES_PER_OPEN,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("branch-scope")
 

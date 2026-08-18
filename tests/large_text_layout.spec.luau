@@ -30,7 +30,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local adaptive = require("../src/layout/adaptive")
 local lt = require("./lib/large_text")
@@ -100,14 +100,14 @@ end
 local function formScreen(core: any, w: any): any
 	local name = core:signal("")
 	local volume = core:signal(0.5)
-	local field = LuauUI.newTextInput(LuauUI, core, {
+	local field = Facet.newTextInput(Facet, core, {
 		id = "Name",
 		value = name,
 		placeholder = STATUS,
 		env = w.env,
 		actionSystem = w.system,
 	})
-	local slider = LuauUI.newSlider(LuauUI, core, {
+	local slider = Facet.newSlider(Facet, core, {
 		id = "Volume",
 		label = STATUS,
 		value = volume,

@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 1 of the LuauUI tutorial: a temperature converter.
+-- Example 1 of the Facet tutorial: a temperature converter.
 -- ============================================================================
 --
 -- WHAT THIS TEACHES
@@ -20,7 +20,7 @@
 --
 -- ----------------------------------------------------------------------------
 -- HOW EVERY EXAMPLE IN THIS FOLDER IS SHAPED
---   Each module returns:  { title = "...", build = function(LuauUI, core, deps) }
+--   Each module returns:  { title = "...", build = function(Facet, core, deps) }
 --   `deps` is always the same four-field table:
 --       { env, actionSystem, presenter, adapter }
 --   This example uses `env` (keyboard-occlusion keep-visible) and `actionSystem`
@@ -50,8 +50,8 @@ local function toCelsius(f: number): number
 	return (f - 32) * 5 / 9
 end
 
-function example.build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+function example.build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 
 	-- STATE ------------------------------------------------------------------
 	-- The field's contents are TEXT (owner-held, per §10.5: state that must
@@ -95,7 +95,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- keyboardType is a DECLARED INTENT for the engine adapter (a hint it may
 	-- honor where a numeric keyboard exists — it is never a guarantee); the
 	-- validate hook is what actually enforces numeric input everywhere.
-	local field = LuauUI.newTextInput(LuauUI, core, {
+	local field = Facet.newTextInput(Facet, core, {
 		id = "Fahrenheit",
 		value = fahrenheitText,
 		placeholder = "e.g. 212",

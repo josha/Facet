@@ -19,7 +19,7 @@ local fs = require("@lune/fs")
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
 local seedData = require("../../examples/reference/p1_glade/content/seed") :: any
 local strings = require("../../examples/reference/p1_glade/content/strings") :: any
@@ -35,13 +35,13 @@ local FRAME = 1 / 60
 -- above them is the framework's business), and `tap` drives the real activation
 -- closure the engine would call.
 local function world(width: number?, height: number?): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = width or 1200, h = height or 800 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local built = proof.build(LuauUI, core, {
+	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local built = proof.build(Facet, core, {
 		env = env,
 		actionSystem = system,
 		presenter = presenter,
@@ -1170,14 +1170,14 @@ describe("Glade: motion (spec §11)", function()
 	end)
 
 	it("reduced motion places the same states and fires the same events", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		env:set("reducedMotion", true)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(LuauUI, core, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local built = proof.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = presenter,
@@ -1311,9 +1311,9 @@ describe("Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)", functio
 	it("a theme-package swap re-solves the same tree — no remount, no source edit", function()
 		local w = world()
 		local before = w.find("/GladeCard_mossholm")
-		local package = (parchment :: any).build(LuauUI.themes)
+		local package = (parchment :: any).build(Facet.themes)
 		expect(package ~= nil).toBe(true)
-		local snapshot = LuauUI.themes.resolve(package, nil, {})
+		local snapshot = Facet.themes.resolve(package, nil, {})
 		w.env:set("themeMetrics", snapshot)
 		w.presenter.refresh()
 		-- same node identity, same semantic tree, and the geometry moved with the
@@ -1411,14 +1411,14 @@ describe("Glade: the scenario surface", function()
 	end)
 
 	it("two fresh builds are identical (reset determinism) and dispose cleanly", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local before = core:counters()
-		local built = proof.build(LuauUI, core, {
+		local built = proof.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = presenter,
@@ -1449,18 +1449,15 @@ describe("Glade: the scenario surface", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
 			(adapter :: any).scrollBarThickness = 8
-			local presenter = LuauUI.newPresenter(core, env, adapter, system)
-			local built = proof.build(
-				LuauUI,
-				core,
-				{ env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-			)
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local built =
+				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 			local handle = presenter.present(built.screen, built.present)
 			presenter.refresh()
 			expect(#handle.controller.diagnostics()).toBe(0)

@@ -32,11 +32,11 @@ return {
 	title = "Production-shaped performance capture",
 	ledgerRows = { "XP-B2", "XP-B3", "XP-B4", "XP-B5", "XP-B6", "XP-C1", "XP-C2" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("perf-capture")
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
 
 		-- ---- owner-held state -------------------------------------------
 		local readouts = {}
@@ -75,7 +75,7 @@ return {
 			return if use(faultsSignal) then { type = "fixed", px = 2400 } else nil
 		end)
 
-		local progress = LuauUI.newProgressView(LuauUI, core, { id = "Lap", value = lap, label = "Lap" })
+		local progress = Facet.newProgressView(Facet, core, { id = "Lap", value = lap, label = "Lap" })
 
 		--[[ THE ROSTER ROW'S HEIGHT — a design FLOOR that grows with the text
 			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
@@ -102,15 +102,15 @@ return {
 			everywhere it was already honest, and the line box takes over exactly where
 			it stopped being. ]]
 		local rowHeight = core:memo(function(use)
-			local facts = LuauUI.text.facts({ env = ctx.env, use = use })
+			local facts = Facet.text.facts({ env = ctx.env, use = use })
 			local content = math.max(
-				LuauUI.text.lineBox({ facts = facts, size = ROSTER_NAME_SIZE, lines = 1 }),
-				LuauUI.text.lineBox({ facts = facts, size = ROSTER_DETAIL_SIZE, lines = 1 })
+				Facet.text.lineBox({ facts = facts, size = ROSTER_NAME_SIZE, lines = 1 }),
+				Facet.text.lineBox({ facts = facts, size = ROSTER_DETAIL_SIZE, lines = 1 })
 			)
 			return math.max(ROSTER_ROW_FLOOR, content + 2 * ROSTER_ROW_PADDING)
 		end)
 
-		local list = LuauUI.newVirtualList(LuauUI, core, {
+		local list = Facet.newVirtualList(Facet, core, {
 			id = "Roster",
 			rows = roster,
 			key = function(item)
@@ -259,7 +259,7 @@ return {
 					local frames = tonumber(payload or "") or 90
 					local t = ctx.telemetry
 					local before = t.memory()
-					-- LuauUI's own update cost: 60 driven refreshes, timed
+					-- Facet's own update cost: 60 driven refreshes, timed
 					local updates = table.create(60)
 					for i = 1, 60 do
 						for k = 1, 8 do
@@ -284,7 +284,7 @@ return {
 							p95_ms = pct(0.95),
 							p99_ms = pct(0.99),
 							samples = #updates,
-							note = "wall time around presenter.refresh() after a live binding storm; LuauUI's share only",
+							note = "wall time around presenter.refresh() after a live binding storm; Facet's share only",
 						},
 						frameWorkMs = frameWork,
 						instances = t.instances(),
@@ -361,7 +361,7 @@ return {
 				-- readInput() is called AFTER the injected press. It pairs the raw
 				-- native event with the painted result and reports the interval
 				-- between them. It is frame-quantized and excludes scan-out, so it
-				-- is an upper bound on LuauUI's share, never display latency.
+				-- is an upper bound on Facet's share, never display latency.
 				readInput = function()
 					local t = ctx.telemetry
 					-- COMMIT, then let the engine draw. The activate handler sets a
@@ -378,7 +378,7 @@ return {
 					local raw = pair.began
 					-- the activation completes on RELEASE, so the gesture's end is
 					-- what the paint should be timed from; the press-to-release
-					-- dwell belongs to whatever injected it, not to LuauUI
+					-- dwell belongs to whatever injected it, not to Facet
 					local gestureEnd = pair.ended or pair.began
 					local paint = t.paintWatch.read()
 					local painted = ctx.geometry({ "/PerfCapture/BoostCount" })
@@ -434,7 +434,7 @@ return {
 					-- exists to prevent (found live, 2026-07-26).
 					local module = if name == "flat" then nil else ctx.themePackages[name]
 					local pkg = if module ~= nil and type(module.build) == "function"
-						then module.build(ctx.LuauUI.themes)
+						then module.build(ctx.Facet.themes)
 						else module
 					local t0 = t.clock()
 					local changed = ctx.themeChrome.setPackage(pkg)

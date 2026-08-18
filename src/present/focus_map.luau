@@ -225,7 +225,7 @@ local function resolveInitialFocus(spec: any, order: { string }, surfaceName: st
 	if not explicitId and RESERVED_INITIAL_FOCUS[wanted] then
 		if hit ~= nil then
 			error(
-				`LuauUI present('{surfaceName}'): initialFocus '{wanted}' is ambiguous — it is a reserved word `
+				`Facet present('{surfaceName}'): initialFocus '{wanted}' is ambiguous — it is a reserved word `
 					.. `AND a mounted focusable has that id ({hit}). Rename the control, or say `
 					.. `initialFocus = \{ id = "{wanted}" } to mean the control.`,
 				0
@@ -240,7 +240,7 @@ local function resolveInitialFocus(spec: any, order: { string }, surfaceName: st
 			shown = table.concat(table.move(ids, 1, 12, 1, {}), ", ") .. `, … ({#ids} focusables)`
 		end
 		error(
-			`LuauUI present('{surfaceName}'): initialFocus '{wanted}' names no focusable on this surface. `
+			`Facet present('{surfaceName}'): initialFocus '{wanted}' names no focusable on this surface. `
 				.. `Available: {if #ids > 0 then shown else "(none — this surface has no focusables)"}. `
 				.. `Use "first" for the first one, or "none" for no initial focus.`,
 			0
@@ -251,7 +251,7 @@ end
 
 -- `handle.focusOrder()`'s dump schema (constitution §6: every dump carries one).
 -- Bump the integer if the shape changes in a way a reader could not absorb.
-local FOCUS_ORDER_SCHEMA = "luauui-focus-order/1"
+local FOCUS_ORDER_SCHEMA = "facet-focus-order/1"
 
 -- the AUTHORED traversal tier on one mounted path, for the inspection dump.
 -- Linear rather than a cached map on purpose: this runs once per entry in a

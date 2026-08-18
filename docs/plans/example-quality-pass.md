@@ -1,4 +1,4 @@
-# LuauUI tutorial gallery quality pass
+# Facet tutorial gallery quality pass
 
 **Date:** 2026-07-26
 **Status:** Proposed gameplay, teaching, and visual-quality plan.
@@ -12,7 +12,7 @@
 ## Outcome
 
 Every tutorial example must be understandable and playable in Roblox Studio without
-reading its source. Together the seven files should feel like one designed LuauUI
+reading its source. Together the seven files should feel like one designed Facet
 product, teach the concept promised by the guide, work through the framework's
 supported input paradigms, and have a deterministic reset path.
 
@@ -45,10 +45,10 @@ logic that is genuinely framework capability.
 
 ## Framework versus example responsibility
 
-Examples are deliberately thin consumers of LuauUI. They own tutorial copy,
+Examples are deliberately thin consumers of Facet. They own tutorial copy,
 deterministic fixture data, and domain/game rules such as Wordle scoring or match-3
 resolution. Their UI code should select public controls and semantic theme roles,
-bind state/commands, and declare intended layout alternatives. LuauUI—not each
+bind state/commands, and declare intended layout alternatives. Facet—not each
 example—owns choosing and executing layout, input paradigm, focus/navigation, hit
 targets, scrolling, interaction states, accessibility, preferred-text/safe-area
 adaptation, resource lifecycle, and reduced-motion behavior.
@@ -62,16 +62,16 @@ duplicate adaptation/control machinery. One example is enough to expose a framew
 bug.
 
 For framework-owned needs, add the smallest general public mechanism or root-cause
-fix in LuauUI with focused tests, docs, conformance/registration updates, and
+fix in Facet with focused tests, docs, conformance/registration updates, and
 real-adapter proof; then rewrite the example to consume it. Do not make an example
 pass with raw `Instance` construction, direct UI input routing, platform-name
 branches, imperative responsive geometry, a parallel focus graph, copied control
 state, or animation that bypasses the framework model. Do not move Wordle, tile, or
-match-3 rules into LuauUI merely because only one example needs them.
+match-3 rules into Facet merely because only one example needs them.
 
 Completion requires no temporary UI workaround or unexplained non-declarative helper
 in an example. The ledger must show that example code is content/domain logic plus
-declarative LuauUI composition, with any unavoidable adapter boundary named and
+declarative Facet composition, with any unavoidable adapter boundary named and
 justified.
 
 ## Audit all seven by playing them
@@ -145,7 +145,7 @@ Use the linked
 [React/Wordle walkthrough](https://www.rozmichelle.com/react-game-design-recreating-wordle/)
 for its useful decomposition of board, row, cell, keyboard, and game state—not as the
 authority for exact mechanics. The article explicitly chooses to color excess
-duplicate letters differently from the actual game. LuauUI's example must use the
+duplicate letters differently from the actual game. Facet's example must use the
 letter-budget rule below.
 
 Required mechanics:

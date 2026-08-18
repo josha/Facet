@@ -7,8 +7,8 @@
 
 ## Decision
 
-LuauUI adopts semantic versioning (`MAJOR.MINOR.PATCH`) exposed as
-`LuauUI.VERSION`, starting at **0.4.0** with this ADR (the scaffold-era
+Facet adopts semantic versioning (`MAJOR.MINOR.PATCH`) exposed as
+`Facet.VERSION`, starting at **0.4.0** with this ADR (the scaffold-era
 `0.1.0-phase1` suffix form is retired; the minor tracks the completed design
 phase while the library is pre-1.0).
 
@@ -33,7 +33,7 @@ change without notice. Games must not require library-internal modules.
 ### Deprecation policy
 
 - Deprecations are declared in the machine-readable ledger
-  `LuauUI.DEPRECATIONS` (array of `{ surface, since, removeNoEarlierThan,
+  `Facet.DEPRECATIONS` (array of `{ surface, since, removeNoEarlierThan,
   replacement, note? }`), kept in `src/init.luau` next to the exports.
 - A deprecated surface keeps working for **at least one MINOR version** after
   `since`; `removeNoEarlierThan` names the earliest version that may delete
@@ -129,7 +129,7 @@ change without notice. Games must not require library-internal modules.
   `artifacts/rich-skinning-v2/rs-a1-image-is-element.json`, and every new field
   is optional.
 - Previous: **0.6.0** — theme packages and skinning (ADR-0019): the
-  public versioned `LuauUI.themes` contract (define / resolve / neutral /
+  public versioned `Facet.themes` contract (define / resolve / neutral /
   neutralPackage / lintProperty / checkCoverage), one frozen metric snapshot on
   the `themeMetrics` environment fact, semantic metric names in public props,
   the client theme controller with atomic package/theme swapping, bounded

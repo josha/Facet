@@ -29,7 +29,7 @@ clipping all behaved as normal GuiObject chrome.
 
 1. **Lighting lives on the frame, not on content.** If the content owner set
    `Ambient`/`LightColor`/`LightDirection` directly they would write properties
-   on a LuauUI-owned Instance — an authority violation. The adapter therefore
+   on a Facet-owned Instance — an authority violation. The adapter therefore
    mediates: the stage handle exposes lighting/camera setters and the authority
    manifest claims those properties for the STAGE seam.
 2. **`WorldModel` is the content root.** Content (models, camera targets) is

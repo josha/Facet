@@ -1,6 +1,6 @@
 # `user_mouse_input` coordinates are GUI (AbsolutePosition) space, not where the cursor lands
 
-Observed 2026-07-21 (no-Rojo install verification, Studio 0.730.0.7300790, viewport 1734x1067, `GetGuiInset() = (0,58)`), driving a LuauUI screen whose ScreenGui has `IgnoreGuiInset = true`:
+Observed 2026-07-21 (no-Rojo install verification, Studio 0.730.0.7300790, viewport 1734x1067, `GetGuiInset() = (0,58)`), driving a Facet screen whose ScreenGui has `IgnoreGuiInset = true`:
 
 | Injected `moveTo` y | `UserInputService:GetMouseLocation()` | `InputBegan` `InputObject.Position` | Hit? (button `AbsolutePosition` y 44..90) |
 |---|---|---|---|
@@ -14,7 +14,7 @@ The trap: `GetMouseLocation()` and the drawn cursor agree with each other and *d
 
 Two more notes from the same session:
 
-- `user_mouse_input`'s `instance_path` cannot address LuauUI nodes: their names are paths (`/Counter/Bump`) and the tool's path parser splits on `.`/`/`. Use x/y.
+- `user_mouse_input`'s `instance_path` cannot address Facet nodes: their names are paths (`/Counter/Bump`) and the tool's path parser splits on `.`/`/`. Use x/y.
 - To tell a *pointer* activation from an *action-system* activation, count both: connect `GuiButton.Activated` and compare against the app-level effect. Enter-key activation bumped the app state while the button's own `Activated` count stayed flat — that is the action system dispatching, not the widget.
 
 ## Addendum 2026-07-26 — a TOUCH-booted device-emulator session shifts the routed position
@@ -32,7 +32,7 @@ So on a touch-booted emulator session the injected click arrives as **`Touch`, n
 
 ## Addendum 2026-08-15 — `GetMouseLocation()` FREEZES under an active device simulator, and the readback it is used for is the calibration itself
 
-Driving the showcase (Studio 0.735, place `LuauUI-Showcase.rbxl`) the rule above
+Driving the showcase (Studio 0.735, place `Facet-Showcase.rbxl`) the rule above
 held exactly at the **default** viewport (907x1067): `moveTo (38, 89)` put
 `GetMouseLocation()` at `(38, 147)` — `injected + inset` — and `moveTo (271, 134)`
 aimed at a `Grip`'s own `AbsolutePosition` centre resized the column by exactly
@@ -98,7 +98,7 @@ knew it had happened:
 Round 3 · Capture    @(416,-37) 81x15      vis=true   -- y + h = -22
 ```
 
-It is not painted above the viewport. A LuauUI ScreenGui renders
+It is not painted above the viewport. A Facet ScreenGui renders
 `IgnoreGuiInset = true`, and **`AbsolutePosition` on such a tree is reported in the
 inset-subtracted space**: the top of the window reads back as `-GetGuiInset().Y`.
 The headless twin, driven at the same size with the same chrome facts, puts the
@@ -117,7 +117,7 @@ capture:
    capture in which window-space 0 reads back as `-58` has a `-58` offset in it.
 
 **Rule: before diagnosing a negative `AbsolutePosition.Y`, add `GetGuiInset().Y`.**
-A LuauUI node whose reported y is `-inset` is at the top of the window; one whose
+A Facet node whose reported y is `-inset` is at the top of the window; one whose
 reported y is `0` is `inset` px down. The pinned regression is
 `tests/elision_recovery.spec.luau` ("the objective chip is inside the platform's
 band at 749x380, not above the screen"), which asserts the invariant in window

@@ -18,7 +18,7 @@ milestone table at the end). This plan changes no runtime code.
 
 ## Outcome
 
-LuauUI should let a Roblox developer describe a screen once and rely on the
+Facet should let a Roblox developer describe a screen once and rely on the
 framework to make it usable, appropriate, and efficient on phones, tablets,
 desktop computers, and television/console setups. A future spatial target should
 fit the same model without forcing every game screen to be rewritten.
@@ -32,7 +32,7 @@ SwiftUI are the authoring guarantees around the controls:
 - a view can adapt to available space without duplicating the whole screen;
 - previews and diagnostics make mistakes visible before release.
 
-LuauUI adds Roblox-specific guarantees SwiftUI does not need: semantic Input Action
+Facet adds Roblox-specific guarantees SwiftUI does not need: semantic Input Action
 System integration, simultaneous input classes, ten-foot presentation, server-owned
 state adapters, headless deterministic tests, and world-space render targets.
 
@@ -48,7 +48,7 @@ validation adds several conclusions that change the work order:
    property names today. A misspelled or unsupported property can be frozen into a
    node and then ignored by the renderer. This is especially damaging to agent-made
    changes because a plausible-looking screen can silently omit behavior.
-2. **Adaptive layout is central to “write once.”** LuauUI exposes size facts but
+2. **Adaptive layout is central to “write once.”** Facet exposes size facts but
    makes each screen branch manually. It has no `ViewThatFits`, adaptive stack, or
    custom-layout protocol.
 3. **A real ScrollView is foundational.** The current primitive calculates overflow
@@ -228,7 +228,7 @@ a separate visual-state system for these controls.
 ### 8. Generalize collection interaction
 
 SwiftUI's current direction is instructive: reordering and swipe actions apply to
-containers, not only one List type. LuauUI should similarly provide reusable pieces:
+containers, not only one List type. Facet should similarly provide reusable pieces:
 
 - one virtualized, selectable, reorderable collection substrate;
 - native-backed drag sessions with payload and legal-drop policy kept in pure Luau;
@@ -237,7 +237,7 @@ containers, not only one List type. LuauUI should similarly provide reusable pie
   long-press/swipe, keyboard, and gamepad to context actions;
 - reusable row actions, deletion confirmation, and context menus.
 
-Use `UIDragDetector` and native `GuiObject` touch events for recognition. LuauUI owns
+Use `UIDragDetector` and native `GuiObject` touch events for recognition. Facet owns
 normalization, arbitration, hot-switch behavior, focus, and headless drivers.
 
 ### 9. Make semantics, presentation, and motion framework services
@@ -270,7 +270,7 @@ Extend the existing benchmark system; do not replace it.
 - Add console/ten-foot to the headless profile matrix and add production-shaped
   scenes for a large virtual list, native scroll/drag, a dense Sponsor-like HUD,
   stylesheet state churn, async images, and mount/unmount churn.
-- Add a Studio/device capture path that records real frame work, LuauUI update time,
+- Add a Studio/device capture path that records real frame work, Facet update time,
   live Instances and connections, memory, input-to-visible latency where measurable,
   and engine/game build. Store device results separately from headless trends.
 - Establish budgets from the supported frame target and measured baseline. Do not
@@ -290,12 +290,12 @@ For future spatial support, define only the extensibility contract now:
 - render targets can add `SurfaceGui` alongside the existing screen and billboard
   targets;
 - focus, hover, target sizing, occlusion, comfort, and performance receive physical
-  VR tests before LuauUI claims VR support.
+  VR tests before Facet claims VR support.
 
 Roblox exposes `VRService`, user-frame tracking, a GUI-input frame, and a laser
 pointer mode, while its own VR guidance makes stable high frame rate a comfort
 requirement. Those are reasons to preserve the seam, not evidence that current
-LuauUI screens already work in VR.
+Facet screens already work in VR.
 
 Sources: [Roblox `VRService`](https://create.roblox.com/docs/reference/engine/classes/VRService),
 [Roblox VR guidance](https://create.roblox.com/docs/production/publishing/vr-guidelines),
@@ -328,7 +328,7 @@ not claim a screen-reader bridge Roblox does not expose.
 
 Once Milestone B is stable, add the public theme-package contract in
 [`theme-packages-and-skinning.md`](theme-packages-and-skinning.md). Roblox
-StyleSheets remain the paint and visual-authoring authority. LuauUI adds only the
+StyleSheets remain the paint and visual-authoring authority. Facet adds only the
 bridge required for solver-owned geometry: versioned packages, semantic font/spacing/
 control metrics, one exported effective snapshot, font-aware measurement, and bounded
 native or nine-slice decoration slots.
@@ -354,7 +354,7 @@ cost remain correct across the device matrix.
 Milestone 0 should finish before the public surface grows. Native StyleSheet work may
 run alongside Milestones A and B after property authority is settled. Sponsor-required
 framework work can pull a later item forward, but must use the same reusable contract
-and cannot embed RascalRally policy in LuauUI.
+and cannot embed RascalRally policy in Facet.
 
 ## Where this stands today (2026-08-13)
 
@@ -393,7 +393,7 @@ and `be37e92`; suite 4534 green):
 | Open work | Where it is scoped |
 |---|---|
 | Variable item extents in the virtualized collection | parity doc §4.2 — requirement plus both candidate designs and what each costs |
-| Flow-wrap (`UIListLayout.Wraps`) — the one place LuauUI is behind Roblox's own layout controls | parity doc §4.1, §4.3 — its own mission, not a prop |
+| Flow-wrap (`UIListLayout.Wraps`) — the one place Facet is behind Roblox's own layout controls | parity doc §4.1, §4.3 — its own mission, not a prop |
 | `Toggle` cannot compose a `Label` (it is a leaf, not a container) | parity doc §5.3 |
 | Baseline alignment and `.alignmentGuide` | parity doc §4.4 |
 | Screen-path navigation, alerts, `TabView` | investment 9, unstarted |
@@ -409,9 +409,9 @@ raises the priority of native scrolling, virtualized reorder/drop, drag sessions
 world targets, semantic feedback, and device performance.
 
 The game-specific implementation and its retained rollback path are governed by
-[`../../../../../games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md`](../../../../../games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md).
-The LuauUI presenter became the production default on 2026-08-03; legacy remains
-shipped and untouched behind `UseLuauUISponsor = false`.
+[`../../../../../games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md`](../../../../../games/RascalRally/docs/FACET_SPONSOR_PARALLEL.md).
+The Facet presenter became the production default on 2026-08-03; legacy remains
+shipped and untouched behind `UseFacetSponsor = false`.
 
 ## Completion standard
 

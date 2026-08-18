@@ -31,7 +31,7 @@ function commands.new(opts: any): any
 	local core = opts.core
 	local clock = opts.clock
 	local presenter = opts.presenter
-	local LuauUI = opts.LuauUI
+	local Facet = opts.Facet
 	local S = opts.strings
 	local latency: number = opts.latency or 0.25
 
@@ -74,10 +74,10 @@ function commands.new(opts: any): any
 	-- the toast a rejection owes the player. `key = id` so a retry SUPERSEDES
 	-- its predecessor instead of stacking a second copy of the same sentence.
 	local function toast(id: string, message: string)
-		if presenter == nil or presenter.presentToast == nil or LuauUI == nil then
+		if presenter == nil or presenter.presentToast == nil or Facet == nil then
 			return
 		end
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		presenter.presentToast(
 			UI.ZStack({
 				id = "CartwheelToast",

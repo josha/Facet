@@ -15,7 +15,7 @@ principle that styling is *data* until the very last moment.
 ## 5.1 Tokens
 
 A **token** is a named design value used instead of a raw number: a color, a
-spacing step, a text size, a corner radius. `LuauUI.tokens` holds the token
+spacing step, a text size, a corner radius. `Facet.tokens` holds the token
 tooling.
 
 `tokens.compile(schema)` takes a game's design values and returns *(compiled,
@@ -36,7 +36,7 @@ for the compiled value and an explanatory report — a game's style is not allow
 to ship unreadable text. On success you get a **frozen** (immutable) token set.
 
 ```lua
-local compiled, report = LuauUI.tokens.compile(mySchema)
+local compiled, report = Facet.tokens.compile(mySchema)
 assert(compiled ~= nil, "style failed its own contrast/completeness check")
 ```
 
@@ -73,7 +73,7 @@ both weights. Author either one to override it — see
 
 ## 5.2 The Studio Neutral default
 
-You do not have to write a token schema to get a good-looking interface. LuauUI
+You do not have to write a token schema to get a good-looking interface. Facet
 ships one, **Studio Neutral** (`src/tokens/default_style.luau`), and the client
 render target uses it automatically when you do not pass your own. Its brief was
 "if Apple made a game UI system — minimal but polished, affordances always clear,
@@ -100,7 +100,7 @@ professional and neutral, renders quickly." Concretely:
   `Medium`/`Large`/`Larger`/`Largest`) is a first-class layout input. The engine
   paints every text node at `TextSize + offset`, where the offset is a measured
   per-preference constant (0 / 4 / 10 / 14 px — uniform across font, weight, and
-  size). LuauUI's adapter feeds that offset into the environment
+  size). Facet's adapter feeds that offset into the environment
   (`preferredTextOffset`), the solver reserves the exact painted box, and a
   mid-session change re-solves every mounted surface in place — mount identity,
   focus, scroll, and control state all survive. Screens declare content and
@@ -199,7 +199,7 @@ never hard errors, since these are quality and performance signals:
   performance suffers. The lint flags a tree with more than 100 shadowed nodes.
 
 These thresholds are constants in the lint module; they are diagnostics you run
-against a tree, not part of the public `LuauUI` table.
+against a tree, not part of the public `Facet` table.
 
 ## 5.6 Why styling is data, then instances
 
@@ -222,7 +222,7 @@ This has a concrete payoff:
   radius using the largest declared corner. Your blueprint never changes; the same
   description degrades gracefully on engines that cannot honor it.
 
-This is the general shape of how LuauUI adopts any new engine visual feature:
+This is the general shape of how Facet adopts any new engine visual feature:
 express it as normalized data on a single declared authority, and let the one
 edge adapter materialize it when — and only when — the platform can.
 
@@ -240,7 +240,7 @@ local adapter = screen_target.new({ nativeStyle = true })
 With the flag on (and the engine capability present), the adapter stops
 explicit-writing every handed-off paint property and instead **classifies**
 each instance — engine class plus `luau-*` CollectionService tags — under one
-`StyleLink` per screen. A generated sheet named **`LuauUIStyle`** (under
+`StyleLink` per screen. A generated sheet named **`FacetStyle`** (under
 `ReplicatedStorage` by default) owns:
 
 - surface fills and transparency (`Base surface`, `Raised panel`, `Control
@@ -295,9 +295,9 @@ re-solves the mounted screen instead of merely recolouring it.
 The whole surface is public:
 
 ```lua
-local themes = LuauUI.themes                     -- engine-free: define/resolve/neutral…
+local themes = Facet.themes                     -- engine-free: define/resolve/neutral…
 local theme_controller =                          -- client-only: install/swap/inspect
-    require(ReplicatedStorage.LuauUI.client.theme_controller)
+    require(ReplicatedStorage.Facet.client.theme_controller)
 
 local package, report = themes.define({ base = themes.neutralPackage(), … })
 local controller = theme_controller.install(adapter, package, { env = env, rootGui = gui })
@@ -306,7 +306,7 @@ controller.swap("Candlelight")
 
 The four moving parts:
 
-- **One versioned package** (`themes.define`, schema `luauui-theme/1`) —
+- **One versioned package** (`themes.define`, schema `facet-theme/1`) —
   declarative data, deeply frozen, content-stamped, validated for contrast,
   completeness, legal properties, insets, target floors and schema
   compatibility. No callbacks; a theme is inspectable, never code.

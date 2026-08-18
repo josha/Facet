@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 
 // Optional argv[1]: a substring the window TITLE must contain. With two Studio
-// windows open (measured 2026-07-26: a LuauUI place and a game place side by
+// windows open (measured 2026-07-26: a Facet place and a game place side by
 // side) the first large window is a coin toss, and a capture of the WRONG place
 // looks exactly like a capture of the right one — the failure mode this whole
 // script exists to prevent. Pass the place name to be sure.

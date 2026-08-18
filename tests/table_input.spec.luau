@@ -19,17 +19,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -56,7 +56,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 		local core, env, system, adapter, pres = harness()
 		local sortOrder = core:signal(nil :: any)
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -84,7 +84,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 			rowHeight = 40,
 			sortOrder = sortOrder,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, sortOrder = sortOrder, handle = handle, tbl = tbl }
@@ -176,7 +176,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 	local function scrollWorld()
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal(bigRows(20))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -196,7 +196,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			rowHeight = 40,
 			height = { type = "fixed", px = 200 }, -- 5 rows of 20 visible
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		-- wire the engine CanvasPosition mirror so keep-visible can scrollTo and
@@ -274,7 +274,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 	local function resizeWorld()
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -303,7 +303,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 			selection = "single",
 			rowHeight = 40,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts (grip drag is framework-automatic)
 		pres.refresh()
 		return { adapter = adapter, pres = pres, handle = handle }
@@ -353,7 +353,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		local rows = core:signal(bigRows(5))
 		local editing = core:signal(options.editing == true)
 		local reorders: { any } = {}
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -396,7 +396,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 				rows:set(out)
 			end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		return {
@@ -526,7 +526,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal(bigRows(12))
 		local reorders: { any } = {}
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -555,16 +555,16 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 				return item.name
 			end,
 		})
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.ScrollView({
+				Facet.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						LuauUI.UI.Box({
+						Facet.UI.Box({
 							id = "Header",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fixed", px = 200 },
@@ -600,7 +600,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 		local options = opts or {}
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal(bigRows(14))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -627,17 +627,17 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 				return item.name
 			end,
 		})
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.ScrollView({
+				Facet.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					autoscroll = if options.pageAutoscroll == false then false else nil,
 					children = {
-						LuauUI.UI.Box({
+						Facet.UI.Box({
 							id = "Filler",
 							width = { type = "fill", weight = 1 },
 							-- pushes the table down so its BOTTOM EDGE sits inside the
@@ -648,7 +648,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 							height = { type = "fixed", px = options.fillerPx or 360 },
 						}),
 						tbl.blueprint,
-						LuauUI.UI.Box({
+						Facet.UI.Box({
 							id = "PageTail",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fixed", px = 600 },
@@ -985,8 +985,8 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		ownEditing: boolean?,
 	}?)
 		local o = opts or {}
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		if o.input == "touch" then
 			env:set("preferredInput", "Touch")
@@ -1002,10 +1002,10 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			env:set("preferredInput", "KeyboardAndMouse")
 			env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
 		end
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
@@ -1013,7 +1013,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		local opened: { { key: string, name: string } } = {}
 		local ownedEditing = if o.ownEditing then core:signal(false) else nil
 		local rows = core:signal(bigRows(o.rows or 3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -1048,7 +1048,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 					table.insert(opened, { key = key, name = item.name })
 				end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
 		pres.refresh()
 		-- the solver's own verdict, on every fixture (docs/lessons/the-solver-already-told-you.md)
@@ -1528,14 +1528,14 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 	end)
 
 	it("a table with NO onPrimaryAction behaves exactly as it does today on all four inputs", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -1554,7 +1554,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			selection = "multi",
 			rowHeight = 40,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
 		-- touch: tap toggles ON, tap again toggles OFF (the Phase A idiom, intact)
@@ -1606,17 +1606,17 @@ end)
 -- =============================================================================
 describe("table_input: a swipe that ends with no Activated does not eat the next device press", function()
 	local function swipeWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		-- A PAD PLUS A KEYBOARD: the one session class that can drive ButtonA at
 		-- the rows, the same choice `primaryWorld({ input = "gamepad" })` makes.
 		env:set("preferredInput", "Gamepad")
 		env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
@@ -1624,7 +1624,7 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 		local opened: { string } = {}
 		local fired: { string } = {}
 		local tbl = table_control.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "T",
@@ -1664,7 +1664,7 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 				end,
 			} :: any
 		)
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
 		local w: any = {
@@ -1814,15 +1814,15 @@ end)
 describe("table_input: a revealed tray and the edit minus are reachable by keyboard and pad", function()
 	local function trayWorld(opts: any?)
 		local options = opts or {}
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("preferredInput", "Gamepad")
 		env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
@@ -1830,7 +1830,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		local fired: { string } = {}
 		local editing = core:signal(options.editing == true)
 		local tbl = table_control.build(
-			LuauUI,
+			Facet,
 			core,
 			{
 				id = "T",
@@ -1886,7 +1886,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 				end,
 			} :: any
 		)
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = {
 			core = core,

@@ -161,10 +161,10 @@ PLAIN screen (no contributions) still leaves on `CW`/`MISSING` are closed here, 
    focus). The one framework-layer `MISSING` cell stays MISSING **by platform necessity** and is
    recorded as a justified exception rather than closed with a substitute key.
 
-4. **WP-4 — `LuauUI.inputHint(core, env, action)`** (`src/input/hint.luau`). A reactive hint
+4. **WP-4 — `Facet.inputHint(core, env, action)`** (`src/input/hint.luau`). A reactive hint
    memo tracking `env.preferredInput` and `action.preferredBinding(preferredInput)` (displayName
    → keyCode/uiButton → `""`). It is the minimal affordance for the audit's "hint text MISSING"
-   sub-affordance: consumers mount `UI.Text{ text = LuauUI.inputHint(...) }` instead of
+   sub-affordance: consumers mount `UI.Text{ text = Facet.inputHint(...) }` instead of
    hand-deriving a memo. It **never** injects visible UI and never auto-mounts anywhere — purely
    a label source; the caller owns and disposes the memo. A preferredInput flip re-labels the
    same Text node with no remount (reuses the ADR-0004 phase-1 no-remount property).

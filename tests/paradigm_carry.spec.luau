@@ -7,7 +7,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
 local function press(system: any, key: string)
@@ -16,21 +16,21 @@ local function press(system: any, key: string)
 end
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
 local function twoButtonScreen(id: string)
-	return LuauUI.UI.Screen({
+	return Facet.UI.Screen({
 		id = id,
 		children = {
-			LuauUI.UI.Button({ id = "A", label = "A" }),
-			LuauUI.UI.Button({ id = "B", label = "B" }),
+			Facet.UI.Button({ id = "A", label = "A" }),
+			Facet.UI.Button({ id = "B", label = "B" }),
 		},
 	})
 end
@@ -64,9 +64,9 @@ describe("UI-PARADIGM-002: framework CARRY rows (matrix §C)", function()
 	it("an exclusive modal survives any class flip (never un-engages; dismissal paths intact)", function()
 		local _, env, system, _, pres = harness()
 		pres.present(twoButtonScreen("Base"))
-		local modalHandle = pres.presentModal(LuauUI.UI.Screen({
+		local modalHandle = pres.presentModal(Facet.UI.Screen({
 			id = "M",
-			children = { LuauUI.UI.Button({ id = "Close", label = "Close" }) },
+			children = { Facet.UI.Button({ id = "Close", label = "Close" }) },
 		}))
 		pres.refresh()
 		expect(pres.exclusiveSurfaceActive:get()).toBe(true)

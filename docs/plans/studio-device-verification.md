@@ -1,4 +1,4 @@
-# LuauUI Studio device verification
+# Facet Studio device verification
 
 **Date:** 2026-07-24
 **Status:** Required verification substrate for roadmap Steps 3–14, including Steps
@@ -35,13 +35,13 @@ each candidate with `GetDeviceInfoAsync()`, choose the device that satisfies the
 named matrix role, and record the exact ID and returned configuration in the
 artifact. Device switching and overrides are plugin-security APIs and some calls
 error in PlayServer mode, so this driver belongs in development tooling, not in
-LuauUI runtime code or a shipped example.
+Facet runtime code or a shipped example.
 
 ### Player-like scriptable input
 
 Create `VirtualInput` through `UserInputService:CreateVirtualInput()`. Use it for
 mouse buttons and movement, keyboard keys and text, and pointer wheel/pan/pinch.
-These events run through Roblox's input path rather than calling a LuauUI callback
+These events run through Roblox's input path rather than calling a Facet callback
 directly.
 
 Coordinates must be derived from the mounted control's live
@@ -193,13 +193,13 @@ low-end Android result.
 | 3.5 | Build Fantasy Parchment through public APIs, then swap it and the flat package in the all-controls fixture; verify nine-slice panels/control states, effective fonts/metrics, solved/actual/hit geometry, adaptive input paradigms, mount/focus identity, asset fallback, and cost |
 | 4 | Build the reusable driver, artifact schema, and intentional-failure proof if Step 3 did not already finish them; keep emulated and physical performance rows separate |
 | 5 | Run Sponsor-shaped framework fixtures on the relevant matrix rows, including drag/scroll, interruption, preferred text, and teardown |
-| 6 | Run identical legacy and LuauUI Sponsor fixtures at the same device rows; use `StudioTestService` only for lifecycle rows that need multiple clients |
+| 6 | Run identical legacy and Facet Sponsor fixtures at the same device rows; use `StudioTestService` only for lifecycle rows that need multiple clients |
 | 7 | Run the fresh-author control and any runtime-affecting compatible repair on applicable rows; documentation-only rules need no fake Studio evidence |
 | 8 | Drive Tab/Shift+Tab, Space/Return, and arrows with `VirtualInput` on desktop and keyboard-capable phone/tablet configurations; pair raw input with responder, focus, action, scroll, and state traces |
 | 8.5 | Sweep all four preference values through deterministic fixtures; run `Medium` and `Largest` on compact phone portrait/landscape plus the 667x375 Sponsor fixture, hot-change the mounted tree, and pair paint/measure/geometry/composition/focus/scroll/full-value-access evidence. Probe the real read-only player setting separately; emulation does not close physical Largest-text rows |
 | 9 | Use the matrix to prove performance-lab layout, scenario controls, and repeatability; never treat it as the low-end Android performance gate |
 | 10 | Batch all seven examples under both materially different theme packages across the five view rows, then drive the canonical keyboard/pointer gameplay paths with `VirtualInput`; keep touch/gamepad rows separate |
 | 11 | Run each clean-room reference loop on the applicable five views and prove reflow, theme, state/focus survival, and supported input paths; Apple host-OS features are ledger rows, not simulator fixtures |
-| 12 | Use Studio for server/client topology, Instance/lifecycle, streaming-like, failure, and cost evidence; the five-view UI matrix applies only if the spike includes a player-facing LuauUI surface |
+| 12 | Use Studio for server/client topology, Instance/lifecycle, streaming-like, failure, and cost evidence; the five-view UI matrix applies only if the spike includes a player-facing Facet surface |
 | 13 | Rerun representative matrix scenarios for every runtime-affecting finding/fix and compare them with the frozen baseline |
 | 14 | Run the standalone consumer from the clean source export and prove mount, theme, adaptation, input, geometry, and teardown without monorepo imports; Package publishing is irrelevant to this row |

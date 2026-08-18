@@ -1,10 +1,10 @@
 --!strict
 --[[ Scenario 'preferred_transparency' — THE PLAYER'S BACKGROUND TRANSPARENCY
-	SETTING, ANSWERED BY LUAUUI'S OWN PAINTING (ADR-0035, owed row O-26).
+	SETTING, ANSWERED BY FACET'S OWN PAINTING (ADR-0035, owed row O-26).
 
 	WHY THIS FIXTURE EXISTS AT ALL. `GuiService.PreferredTransparency` reached the
 	environment four stages ago and nothing read it, so a player who turned the
-	setting down saw no change anywhere in LuauUI. The row that recorded that was
+	setting down saw no change anywhere in Facet. The row that recorded that was
 	left open deliberately, because a DEMO would have had to honour the preference
 	by hand — consumer code advertising a capability the framework did not have.
 	So this fixture contains no honouring at all. It moves the PREFERENCE; every
@@ -51,7 +51,7 @@
 	~1.4x. All `policy = "none"` copy: it must fit and wrap, never clip. ]]
 local COPY = {
 	title = "Background Transparency",
-	caption = "Roblox publishes the player's Background Transparency setting. LuauUI reads it and paints its own backdrops with it — nothing here honours it by hand.",
+	caption = "Roblox publishes the player's Background Transparency setting. Facet reads it and paints its own backdrops with it — nothing here honours it by hand.",
 	setting = "Your setting",
 	realHint = "On a device this comes from Settings → Accessibility. A game script cannot write it, so this drives the same environment fact the adapter publishes.",
 	backdrop = "Backdrop",
@@ -84,8 +84,8 @@ return {
 	copy = COPY,
 	stops = STOPS,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter

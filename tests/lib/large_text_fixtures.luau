@@ -15,7 +15,7 @@
 	carries the failing repro for each one.
 ]]
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local UI = require("../../src/blueprint")
 local resources = require("../../src/async/resources")
 local lt = require("./large_text")
@@ -183,7 +183,7 @@ local FIXTURES: { Fixture } = {
 		id = "Slider",
 		class = "Slider",
 		build = function(core)
-			return LuauUI.newSlider(LuauUI, core, {
+			return Facet.newSlider(Facet, core, {
 				id = "Ctl",
 				label = PSEUDO,
 				value = core:signal(0.5),
@@ -197,7 +197,7 @@ local FIXTURES: { Fixture } = {
 		id = "Stepper",
 		class = "Stepper",
 		build = function(core)
-			return LuauUI.newStepper(LuauUI, core, {
+			return Facet.newStepper(Facet, core, {
 				id = "Ctl",
 				label = PSEUDO,
 				value = core:signal(3),
@@ -211,7 +211,7 @@ local FIXTURES: { Fixture } = {
 		id = "Chip",
 		class = "Chip",
 		build = function(core)
-			return LuauUI.newChip(LuauUI, core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
+			return Facet.newChip(Facet, core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
 		end,
 	},
 	{
@@ -224,7 +224,7 @@ local FIXTURES: { Fixture } = {
 		id = "RowActions",
 		class = "RowActions",
 		build = function(core)
-			local ra = LuauUI.newRowActions(LuauUI, core, {
+			local ra = Facet.newRowActions(Facet, core, {
 				id = "Ctl",
 				content = UI.Text({ id = "Title", text = "Row" }),
 				trailing = { { id = "delete", label = PSEUDO, onAction = function() end } },
@@ -237,7 +237,7 @@ local FIXTURES: { Fixture } = {
 		id = "PopupButton",
 		class = "PopupButton",
 		build = function(core)
-			return LuauUI.newPopupButton(LuauUI, core, {
+			return Facet.newPopupButton(Facet, core, {
 				id = "Ctl",
 				value = core:signal("one"),
 				options = { { id = "one", label = PSEUDO }, { id = "two", label = lt.PSEUDO_SECONDARY } },
@@ -309,7 +309,7 @@ local FIXTURES: { Fixture } = {
 		id = "Rating",
 		class = "Rating",
 		build = function(core)
-			return LuauUI.newRating(LuauUI, core, { id = "Ctl", value = core:signal(3) }).blueprint
+			return Facet.newRating(Facet, core, { id = "Ctl", value = core:signal(3) }).blueprint
 		end,
 	},
 	{
@@ -322,8 +322,8 @@ local FIXTURES: { Fixture } = {
 		id = "LevelPicker",
 		class = "LevelPicker",
 		build = function(core)
-			return LuauUI.newLevelPicker(
-				LuauUI,
+			return Facet.newLevelPicker(
+				Facet,
 				core,
 				{ id = "Ctl", value = core:signal(4), count = 10, segment = "glyph" }
 			).blueprint
@@ -333,7 +333,7 @@ local FIXTURES: { Fixture } = {
 		id = "Picker",
 		class = "Picker",
 		build = function(core)
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
 				selected = core:signal("a"),
@@ -366,7 +366,7 @@ local FIXTURES: { Fixture } = {
 		id = "Picker-indicator",
 		class = "Picker",
 		build = function(core)
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "Ctl",
 				selected = core:signal("a"),
 				presentation = "segmented",
@@ -397,7 +397,7 @@ local FIXTURES: { Fixture } = {
 		id = "TabView",
 		class = "TabView",
 		build = function(core)
-			return LuauUI.newTabView(LuauUI, core, {
+			return Facet.newTabView(Facet, core, {
 				id = "Ctl",
 				selection = core:signal("a"),
 				placement = "bottomBar",
@@ -431,7 +431,7 @@ local FIXTURES: { Fixture } = {
 		id = "DisclosureGroup",
 		class = "DisclosureGroup",
 		build = function(core)
-			return LuauUI.newDisclosureGroup(LuauUI, core, {
+			return Facet.newDisclosureGroup(Facet, core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
 				expanded = core:signal(true),
@@ -445,21 +445,21 @@ local FIXTURES: { Fixture } = {
 		id = "ProgressView",
 		class = "ProgressView",
 		build = function(core)
-			return LuauUI.newProgressView(LuauUI, core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
+			return Facet.newProgressView(Facet, core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
 		end,
 	},
 	{
 		id = "Label",
 		class = "Label",
 		build = function(core)
-			return LuauUI.newLabel(LuauUI, core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
+			return Facet.newLabel(Facet, core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
 		end,
 	},
 	{
 		id = "TextInput",
 		class = "TextInput",
 		build = function(core, w)
-			return LuauUI.newTextInput(LuauUI, core, {
+			return Facet.newTextInput(Facet, core, {
 				id = "Ctl",
 				value = core:signal(""),
 				placeholder = PSEUDO,
@@ -472,7 +472,7 @@ local FIXTURES: { Fixture } = {
 		id = "Table",
 		class = "Table",
 		build = function(core)
-			return LuauUI.newTable(LuauUI, core, {
+			return Facet.newTable(Facet, core, {
 				id = "Ctl",
 				rows = core:signal({ { id = "a", name = PSEUDO }, { id = "b", name = GERMAN } }),
 				key = function(row: any)
@@ -516,7 +516,7 @@ local FIXTURES: { Fixture } = {
 		-- the unbroken name declares `disclose` and the row produces no finding —
 		-- the same fix the Table cannot express
 		build = function(core)
-			return LuauUI.newVirtualList(LuauUI, core, {
+			return Facet.newVirtualList(Facet, core, {
 				id = "Ctl",
 				rows = core:signal({ { id = "a", label = PSEUDO }, { id = "b", label = GERMAN } }),
 				key = function(item: any)
@@ -542,7 +542,7 @@ local FIXTURES: { Fixture } = {
 		-- case a list cannot reach, and it is why this is a fixture rather than an
 		-- UNSWEEPABLE row.
 		build = function(core)
-			return LuauUI.newVirtualGrid(LuauUI, core, {
+			return Facet.newVirtualGrid(Facet, core, {
 				id = "Ctl",
 				items = core:signal({
 					{ id = "a", label = PSEUDO },
@@ -568,7 +568,7 @@ local FIXTURES: { Fixture } = {
 		class = "AsyncImage",
 		build = function(core)
 			local provider = resources.newProvider(core)
-			return LuauUI.newAsyncImage(LuauUI, core, {
+			return Facet.newAsyncImage(Facet, core, {
 				id = "Ctl",
 				provider = provider,
 				scope = core:scope("large-text-async"),
@@ -584,7 +584,7 @@ local FIXTURES: { Fixture } = {
 		build = function()
 			return UI.Path({
 				id = "Ctl",
-				points = LuauUI.pathShapes.ring({ radius = 0.5 }),
+				points = Facet.pathShapes.ring({ radius = 0.5 }),
 				width = { type = "fixed", px = 64 },
 				height = { type = "fixed", px = 64 },
 			})
@@ -596,7 +596,7 @@ local FIXTURES: { Fixture } = {
 		build = function()
 			return UI.Path({
 				id = "Ctl",
-				points = LuauUI.pathShapes.ring({ radius = 0.4 }),
+				points = Facet.pathShapes.ring({ radius = 0.4 }),
 				width = { type = "fixed", px = 48 },
 				height = { type = "fixed", px = 48 },
 			})

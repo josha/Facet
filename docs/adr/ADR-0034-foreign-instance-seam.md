@@ -7,7 +7,7 @@
 dispositioned that authority as dead in the Step 5.5 cleanup ledger, and
 satisfying requirement **UI-EXT-001** in a narrower form than it was written.
 **Commissioned by:** [`docs/reference/react-lua-comparison.md`](../reference/react-lua-comparison.md)
-§5 **rank 1 · BUILD NOW** — *"LuauUI has 26 classes and a seven-entry class map;
+§5 **rank 1 · BUILD NOW** — *"Facet has 26 classes and a seven-entry class map;
 anything else becomes a `Frame`."*
 **Companions:** [ADR-0024](ADR-0024-declarative-3d.md) (the 3-D/world-instance
 case, decided separately and NOT this), [ADR-0029](ADR-0029-leaf-opacity-refusal.md)
@@ -20,7 +20,7 @@ precedent for every part of this.
 
 ## Context — the gap, and why the obvious fix is worse than the gap
 
-Every class LuauUI renders is one LuauUI declares. A consumer who needs a
+Every class Facet renders is one Facet declares. A consumer who needs a
 `VideoFrame`, an `EditableImage` surface, a vendored widget, or any first-party
 control the framework has not wrapped has **no route at all** — the class map
 answers `Frame` and the pixels never arrive. The comparison ranks this first not
@@ -78,7 +78,7 @@ The comparison says the seam should *"hand the caller a container"*, mirroring
 `stageHost`'s `contentRoot()`. Building it that way surfaced the problem: a
 container handed out is a **framework-owned `GuiObject`** that the renderer writes
 a rect, a plate and a visibility onto every solve — a writable handle to an
-instance LuauUI owns and continues to write, which is precisely the hole
+instance Facet owns and continues to write, which is precisely the hole
 `fusion-comparison.md` §5 defers `Ref` for.
 
 So the seam inverts. `controller.foreignHost(path)` answers one verb:
@@ -88,7 +88,7 @@ local host = controller.foreignHost("/Watch/Trailer")
 if host ~= nil then host.adopt(myVideoFrame) end
 ```
 
-The caller passes their instance **in**; nothing LuauUI owns travels **out**. The
+The caller passes their instance **in**; nothing Facet owns travels **out**. The
 framework's total surface area on the caller's side is one function call, and the
 caller's total surface area on the framework's side is zero. `contentRoot()` is
 deliberately absent, and `api.md` says so where a reader looking for parity with
@@ -125,14 +125,14 @@ reservation described. The reservation was for a seam that claims; the seam that
 shipped mostly **disclaims**, and needed exactly one row to say so.
 
 **Why `host` and not `layout`.** The four live authorities all answer *"which
-LuauUI writer owns this property of a LuauUI instance"*. This one answers a
+Facet writer owns this property of a Facet instance"*. This one answers a
 different question — *"what does the framework claim over an instance it does not
 own"* — and the answer being auditable is the entire safety argument. Putting it in
 the manifest means the existing `assertWrite` gate carries it with no new
 machinery: `assertWrite("Foreign", "Parent", "style")` is a loud error naming
 `host`, exactly as every other second-writer attempt is.
 
-**And "LuauUI writes nothing else" is structural, not a promise.** The seam
+**And "Facet writes nothing else" is structural, not a promise.** The seam
 parents and **forgets**: no handle field, no registry, no closure captures the
 adopted instance. A framework that holds no reference cannot write a property
 later, whatever a future edit intends. `tests/foreign.spec.luau` walks the handle
@@ -144,7 +144,7 @@ after an adoption and fails if the content is reachable from it at all.
 propagates; adopted content goes with it. This matches `UI.Stage`'s shipped
 contract and is stated in `api.md` as a fact a caller must design around: content
 that must outlive the node is re-parented out by its owner in `onDisappear`. The
-rejected alternative — LuauUI unparenting the caller's content on the way down —
+rejected alternative — Facet unparenting the caller's content on the way down —
 would be a second write on an instance we have just finished disclaiming, and it
 would leak (nobody would then destroy it).
 
@@ -169,7 +169,7 @@ no semantic actions, and inserting a `Foreign` between two `Button`s does not
 change the Tab order. The reason is stronger than the one that keeps a `Stage`
 unfocusable: the framework has never seen the adopted instance, so it *could not*
 route a focus stop to it. The content's own engine input still works — a
-`VideoFrame`'s controls, a vendored widget's buttons — LuauUI's traversal simply
+`VideoFrame`'s controls, a vendored widget's buttons — Facet's traversal simply
 cannot stop on it. A consumer who needs a focus stop composes one **around** the
 box (a `Button` overlay, a focusable `Grip` sibling), exactly as they would around
 a `Stage`. The control contract says this in full so it is discoverable from the
@@ -229,7 +229,7 @@ adopted Frame:  raw BackgroundTransparency = 0
 ```
 
 A native-mode surface links a theme `StyleSheet` at its root, and a `StyleLink` is
-**ambient in the DataModel and selects by class**. LuauUI's sheet carries
+**ambient in the DataModel and selects by class**. Facet's sheet carries
 class-default transparency rules for the seven GuiObject classes it renders, so a
 foreign `Frame` — an instance the framework has never heard of — wears
 `BackgroundTransparency = 1` simply for being a descendant.
@@ -242,7 +242,7 @@ changes nothing observable and the rule keeps winning. Writing `0.5` gave
 value cannot be held against a rule at all.**
 
 **Is this an authority leak that should refuse the design? No, and the distinction
-is exact.** The authority claim in Decision 3 is that LuauUI *writes* exactly one
+is exact.** The authority claim in Decision 3 is that Facet *writes* exactly one
 property of the caller's instance, and that is still true — `GetStyled` and the raw
 property disagreeing is the proof that nobody wrote it. What reaches the content is
 the engine's own cascade, through a sheet the framework installs for its own nodes.
@@ -260,7 +260,7 @@ instance, not less.
 ## Consequences
 
 - **The class list is no longer a bet.** Any `GuiObject` Roblox ships is reachable
-  from a LuauUI layout on the day it ships, with no framework change.
+  from a Facet layout on the day it ships, with no framework change.
 - **Cost, measured against the estimate.** The comparison estimated "one blueprint
   class, one render-target optional method, one solver content-leaf branch". The
   first two are exact. **The solver branch cost zero**: the solver has no `Stage`
@@ -272,20 +272,20 @@ instance, not less.
   create path where there used to be one string compare (net neutral, and the
   `Stage` compare it replaced is now an index too); and one field test in the park
   eligibility chain. Measured in `artifacts/foreign-instance-seam/`.
-- **`Ref` stays deferred.** Nothing here hands out an instance LuauUI created —
+- **`Ref` stays deferred.** Nothing here hands out an instance Facet created —
   Decision 2 exists specifically to keep that true — so `fusion-comparison.md`
   §5 G-2's refusal is untouched and should not be read as relaxed.
 - **A consumer can now shoot themselves.** A caller may adopt an instance that
   paints badly, animates every frame, or costs more than the surface it sits in.
   The framework's contract stops at the box, and `api.md` says so plainly. This is
   the correct trade for an escape hatch — the alternative is the gap — but it is
-  the first place in this framework where "LuauUI renders this correctly" has a
+  the first place in this framework where "Facet renders this correctly" has a
   stated boundary rather than being a whole-surface claim.
 
 ## Assumptions that depend on the tree being FLAT
 
 Recorded deliberately, because [ADR-0032](ADR-0032-nested-instance-tree.md) moves
-LuauUI from a flat instance tree to a **nested** one before first release, and this
+Facet from a flat instance tree to a **nested** one before first release, and this
 seam is about parenting. Each of these is true today and should be re-examined
 then; none of them is load-bearing for the *authority* argument, which is what
 makes the design likely to survive.
@@ -298,23 +298,23 @@ registering one as an instance host under nesting **costs this class nothing** a
 cannot regress a recycling win it never had. If the nesting round wants a rule of
 thumb: `Foreign` is the one class where becoming a host is free.
 
-1. **The container is a leaf's own instance, and no LuauUI node is ever its
+1. **The container is a leaf's own instance, and no Facet node is ever its
    child.** That is why adopted content can be parented directly under the node's
    own `Frame` with no dedicated content child, and why the node is deliberately
-   **not** registered as a `clipHost` (a clip host means "LuauUI nodes are
+   **not** registered as a `clipHost` (a clip host means "Facet nodes are
    re-parented under this instance and re-based against it"). Under a nested tree
    both statements need re-reading: a `Foreign` is still a leaf, so it should still
-   have no LuauUI children — but the *reason* changes from "the tree is flat" to
+   have no Facet children — but the *reason* changes from "the tree is flat" to
    "this class takes no children", and the code should be made to say the second
    one.
 2. **Adopted content is invisible to the path-naming scheme.** `instancesByPath`
-   is keyed by LuauUI paths and the caller's instance is registered nowhere, keeps
+   is keyed by Facet paths and the caller's instance is registered nowhere, keeps
    its own `Name`, and is never enumerated. Under nesting, any walk that recurses
    through *engine children* rather than through handles would start meeting
    foreign instances; every such walk must skip a `Foreign` node's children by
    construction, and `handle.foreignBox` is the flag to skip on.
 3. **`ZIndexBehavior = Sibling` gives the caller a local stacking context.**
-   Adopted content stacks inside the container above the plate, and LuauUI never
+   Adopted content stacks inside the container above the plate, and Facet never
    writes the caller's `ZIndex` — which would be a second writer. Nesting does not
    obviously change this, but it changes what the container's own `ZIndex` means
    relative to its parent, so the "we never write your `ZIndex`" promise should be

@@ -2,7 +2,7 @@
 -- Table Phase B demo (ADR-0007 B / ADR-0008): the live-verification screen for
 -- grip column-resize (preview + commit), row drag-and-drop (drop indicator +
 -- reorder), modifier multi-select, and focus+Adjust gamepad resize.
--- Studio verification reads workspace attributes LuauUI_TB_* each frame.
+-- Studio verification reads workspace attributes Facet_TB_* each frame.
 
 if not game:IsLoaded() then
 	game.Loaded:Wait()
@@ -11,18 +11,18 @@ end
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI")) :: any
-local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target) :: any
-local roblox_env = require(ReplicatedStorage.LuauUI.client.roblox_env) :: any
-local roblox_input = require(ReplicatedStorage.LuauUI.client.roblox_input) :: any
+local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
+local screen_target = require(ReplicatedStorage.Facet.client.screen_target) :: any
+local roblox_env = require(ReplicatedStorage.Facet.client.roblox_env) :: any
+local roblox_input = require(ReplicatedStorage.Facet.client.roblox_input) :: any
 
-local UI = LuauUI.UI
-local core = LuauUI.newCore()
-local env = LuauUI.newEnvironment(core)
+local UI = Facet.UI
+local core = Facet.newCore()
+local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
 local adapter = screen_target.new()
 local system = roblox_input.newSystem(core)
-local pres = LuauUI.newPresenter(core, env, adapter, system)
+local pres = Facet.newPresenter(core, env, adapter, system)
 
 local rows = core:signal({
 	{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -48,13 +48,13 @@ core:observe(sortOrder, function(order)
 		return a.laps > b.laps
 	end)
 	rows:set(sorted)
-	workspace:SetAttribute("LuauUI_TB_Sort", `{order.column}:{if order.ascending then "asc" else "desc"}`)
+	workspace:SetAttribute("Facet_TB_Sort", `{order.column}:{if order.ascending then "asc" else "desc"}`)
 end)
 
 -- the PUBLIC export, not an instance-path reach into src/controls (ADR-0011:
--- a consumer goes through the LuauUI root plus the blessed client entry points;
+-- a consumer goes through the Facet root plus the blessed client entry points;
 -- check_boundary now enforces it)
-local tbl = LuauUI.newTable(LuauUI, core, {
+local tbl = Facet.newTable(Facet, core, {
 	id = "Racers",
 	columns = {
 		{
@@ -110,8 +110,8 @@ local tbl = LuauUI.newTable(LuauUI, core, {
 		end
 		rows:set(remaining)
 		reorderCount += 1
-		workspace:SetAttribute("LuauUI_TB_Reorders", reorderCount)
-		workspace:SetAttribute("LuauUI_TB_LastReorder", `{table.concat(keys, "+")}->{toIndex}`)
+		workspace:SetAttribute("Facet_TB_Reorders", reorderCount)
+		workspace:SetAttribute("Facet_TB_LastReorder", `{table.concat(keys, "+")}->{toIndex}`)
 	end,
 })
 
@@ -149,22 +149,22 @@ local heartbeat = RunService.Heartbeat:Connect(function()
 	for _, item in rows:get() do
 		table.insert(order, item.id)
 	end
-	workspace:SetAttribute("LuauUI_TB_Order", table.concat(order, ","))
+	workspace:SetAttribute("Facet_TB_Order", table.concat(order, ","))
 	local selected = {}
 	for key in tbl.api.selectedKeys:get() do
 		table.insert(selected, key)
 	end
 	table.sort(selected)
-	workspace:SetAttribute("LuauUI_TB_Selected", table.concat(selected, ","))
+	workspace:SetAttribute("Facet_TB_Selected", table.concat(selected, ","))
 	-- a Readable since 2026-08-14 (it was a zero-arg getter): a pointer drag
 	-- commits inside the control and fires no consumer callback, so the widths
 	-- had to become subscribable — see src/controls/table.luau's own note
 	local overrides = tbl.api.columnWidthOverrides:get()
-	workspace:SetAttribute("LuauUI_TB_NameOverride", overrides.name or 0)
-	workspace:SetAttribute("LuauUI_TB_Focused", pres.focus.focused:get() or "")
+	workspace:SetAttribute("Facet_TB_NameOverride", overrides.name or 0)
+	workspace:SetAttribute("Facet_TB_Focused", pres.focus.focused:get() or "")
 end)
 
-workspace:SetAttribute("LuauUI_TB_Ready", true)
-print(`[LuauUI TablePhaseB] running {LuauUI.VERSION}`)
+workspace:SetAttribute("Facet_TB_Ready", true)
+print(`[Facet TablePhaseB] running {Facet.VERSION}`)
 
 local _keep = { unbindEnv, heartbeat, tbl }

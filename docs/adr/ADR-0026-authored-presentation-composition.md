@@ -3,7 +3,7 @@
 **Date:** 2026-08-14
 **Status:** Accepted
 **Commissioned by:** the game director, 2026-08-14. Verbatim: *"should opacity, transparency, and
-scale get owned/influenced by luauui? it seems like we should be able to animate those."*
+scale get owned/influenced by facet? it seems like we should be able to animate those."*
 **Companions:** ADR-0022 Decision 2 (the presentation channel, and the `canvasGroup` fade rule),
 ADR-0018 / ADR-0019 §4 (native stylesheet ownership and the five-name authority vocabulary),
 ADR-0020 R8 (composition when a rule and a real child both paint),
@@ -63,7 +63,7 @@ may that one function read?"
 | property | composition | identity | engine target |
 |---|---|---|---|
 | **opacity** | **multiply** | `1` | `CanvasGroup.GroupTransparency` |
-| **scale** | **multiply** | `1` | `UIScale.Scale` (`LuauUIMotionScale`) |
+| **scale** | **multiply** | `1` | `UIScale.Scale` (`FacetMotionScale`) |
 | **rotation** | **add** (degrees) | `0` | `GuiObject.Rotation` |
 
 This is one rule, not three: **compose in the transform's own group.** Two scalings compose by
@@ -146,7 +146,7 @@ out reaches zero, and on the way there paints `0.6 × p`; it never briefly brigh
 
 **Nested nodes.** An outer `canvasGroup` is fading, and a *descendant* declares its own opacity.
 **The engine composes this one, and the framework must not.** A `canvasGroup` node is its subtree's
-**real instance parent** — the single documented exception to LuauUI's flat instance tree
+**real instance parent** — the single documented exception to Facet's flat instance tree
 (ADR-0022 Decision 2) — so a nested fade group's `CanvasGroup` is genuinely inside the outer one's
 render buffer. The inner group renders its subtree at its own `GroupTransparency`; the outer buffer
 then composites that already-faded result at its own. The visible alpha is the product, which is
@@ -168,7 +168,7 @@ than by luck:
 - **`GroupTransparency`** is owned by no rule at all — that is exactly why ADR-0022 chose it as the
   fade channel, and the sheet has no `CanvasGroup` class-default rule (`screen_target.luau`'s
   CanvasGroup note).
-- **`UIScale.Scale`** lives on a **bespoke instance**, `LuauUIMotionScale`, already a declared
+- **`UIScale.Scale`** lives on a **bespoke instance**, `FacetMotionScale`, already a declared
   member of `BESPOKE_INSTANCES`: no rule can express a motion scale, and being on that list is what
   buys the instance the right to exist.
 - **`GuiObject.Rotation`** is written by no generated rule anywhere in `src/tokens/`, and is absent
@@ -255,7 +255,7 @@ shape here:
   `adapter.park` refuses to recycle a node with one.** So such a node opts out of instance
   recycling. Named here rather than discovered later: put an authored rotation on a virtualized
   list's rows and those rows stop being pooled.
-- **Scale and rotation move no layout, no hit geometry and no focus.** LuauUI hit-tests solver
+- **Scale and rotation move no layout, no hit geometry and no focus.** Facet hit-tests solver
   rects, so a rotated button's tap target is its unrotated box. This matches Apple, who is explicit
   for both: `rotationEffect` *"has no effect on the view's frame"* ([SW-146]) and `scaleEffect`'s
   dimensions *"are considered to be unchanged by scaling the contents"* ([SW-147]).

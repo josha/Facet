@@ -1,13 +1,13 @@
 {
-  "schema": "luauui-theme-assets/1",
-  "package": "luauui-standard-icons",
+  "schema": "facet-theme-assets/1",
+  "package": "facet-standard-icons",
   "stage": "compact-label",
   "uploaded": "2026-07-27",
   "method": "Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via /assets/v1/operations/<id>, by tools/upload_icons.py. FULLY HEADLESS -- no Studio and no human step, unlike the eleven per-package assets that went up through the Studio MCP upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1.",
   "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with assets/icons/source/generate_icons.py.",
   "assets": {
-    "luauui_icon_check": {
-      "file": "luauui_icon_check.png",
+    "facet_icon_check": {
+      "file": "facet_icon_check.png",
       "contentId": "rbxassetid://108245103349446",
       "size": "128x128",
       "sliceBorder": 0,
@@ -17,8 +17,8 @@
       "sha256": "15c125ba9f08e6e698fc2b699f9424b1f5b717b021789c5a51616faa7ca9ee47",
       "assetType": "Image"
     },
-    "luauui_icon_chevron_down": {
-      "file": "luauui_icon_chevron_down.png",
+    "facet_icon_chevron_down": {
+      "file": "facet_icon_chevron_down.png",
       "contentId": "rbxassetid://90343755930598",
       "size": "128x128",
       "sliceBorder": 0,
@@ -28,8 +28,8 @@
       "sha256": "3765fec39fcb2fe048368c24f372e5b8dc3c5e93d3277f42b633f294a57779ca",
       "assetType": "Image"
     },
-    "luauui_icon_chevron_left": {
-      "file": "luauui_icon_chevron_left.png",
+    "facet_icon_chevron_left": {
+      "file": "facet_icon_chevron_left.png",
       "contentId": "rbxassetid://81739481512878",
       "size": "128x128",
       "sliceBorder": 0,
@@ -39,8 +39,8 @@
       "sha256": "ec01a4a0be4781348318cdb0acf6d7ef2788cd8e8db768f063d4ccf5e4f793fe",
       "assetType": "Image"
     },
-    "luauui_icon_chevron_right": {
-      "file": "luauui_icon_chevron_right.png",
+    "facet_icon_chevron_right": {
+      "file": "facet_icon_chevron_right.png",
       "contentId": "rbxassetid://121626475799702",
       "size": "128x128",
       "sliceBorder": 0,
@@ -50,8 +50,8 @@
       "sha256": "d3c543d46d200c74c7e1b62a00f93b3da8baa2d658d30297b845e18710575032",
       "assetType": "Image"
     },
-    "luauui_icon_chevron_up": {
-      "file": "luauui_icon_chevron_up.png",
+    "facet_icon_chevron_up": {
+      "file": "facet_icon_chevron_up.png",
       "contentId": "rbxassetid://92798715826227",
       "size": "128x128",
       "sliceBorder": 0,
@@ -61,8 +61,8 @@
       "sha256": "bfdb5b50442ce2a03a601df54c8e2682692e9c6756aa3e66d48466d91f267eeb",
       "assetType": "Image"
     },
-    "luauui_icon_close": {
-      "file": "luauui_icon_close.png",
+    "facet_icon_close": {
+      "file": "facet_icon_close.png",
       "contentId": "rbxassetid://133198978089241",
       "size": "128x128",
       "sliceBorder": 0,
@@ -72,8 +72,8 @@
       "sha256": "e5280a2cd8654106cf807d89c02e80f226b32eda40aa2b5e37d01127135bc274",
       "assetType": "Image"
     },
-    "luauui_icon_edit": {
-      "file": "luauui_icon_edit.png",
+    "facet_icon_edit": {
+      "file": "facet_icon_edit.png",
       "contentId": "rbxassetid://97349995335189",
       "size": "128x128",
       "sliceBorder": 0,
@@ -83,8 +83,8 @@
       "sha256": "a0f62fc4b1a2b2176b9e12b97a7d5f8ab8539cdbb266e3248e27e092ff212c5f",
       "assetType": "Image"
     },
-    "luauui_icon_flag": {
-      "file": "luauui_icon_flag.png",
+    "facet_icon_flag": {
+      "file": "facet_icon_flag.png",
       "contentId": "rbxassetid://109067109704366",
       "size": "128x128",
       "sliceBorder": 0,
@@ -94,8 +94,8 @@
       "sha256": "ada43c6afd8bcf65e04bc18691ebfa0fa52662899086f71cd581b06c3fab1a6d",
       "assetType": "Image"
     },
-    "luauui_icon_menu": {
-      "file": "luauui_icon_menu.png",
+    "facet_icon_menu": {
+      "file": "facet_icon_menu.png",
       "contentId": "rbxassetid://119066409501208",
       "size": "128x128",
       "sliceBorder": 0,
@@ -105,8 +105,8 @@
       "sha256": "2806b523209128af510a61b3016f5dfefe4cc1a689f619e56cf4faa7ab05ee85",
       "assetType": "Image"
     },
-    "luauui_icon_minus": {
-      "file": "luauui_icon_minus.png",
+    "facet_icon_minus": {
+      "file": "facet_icon_minus.png",
       "contentId": "rbxassetid://115068690098353",
       "size": "128x128",
       "sliceBorder": 0,
@@ -116,8 +116,8 @@
       "sha256": "9401eeb2591b905348ee5c2f658f0faaf3948ae02403e2eaed1e5c3d8948294d",
       "assetType": "Image"
     },
-    "luauui_icon_more": {
-      "file": "luauui_icon_more.png",
+    "facet_icon_more": {
+      "file": "facet_icon_more.png",
       "contentId": "rbxassetid://117014407191998",
       "size": "128x128",
       "sliceBorder": 0,
@@ -127,8 +127,8 @@
       "sha256": "80c8bcbb803fdabc9b9d98d8cd729307ce1c4d96714e5204fffef56c50ec8019",
       "assetType": "Image"
     },
-    "luauui_icon_plus": {
-      "file": "luauui_icon_plus.png",
+    "facet_icon_plus": {
+      "file": "facet_icon_plus.png",
       "contentId": "rbxassetid://128664097463435",
       "size": "128x128",
       "sliceBorder": 0,
@@ -138,8 +138,8 @@
       "sha256": "ac3007a3c503fd1bb1218a5721986d0b7e532d0014c4ff8cacb3e1d5b0701d1c",
       "assetType": "Image"
     },
-    "luauui_icon_trash": {
-      "file": "luauui_icon_trash.png",
+    "facet_icon_trash": {
+      "file": "facet_icon_trash.png",
       "contentId": "rbxassetid://84398508341623",
       "size": "128x128",
       "sliceBorder": 0,
@@ -152,18 +152,18 @@
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
   "uploadedFiles": [
-    "luauui_icon_check",
-    "luauui_icon_chevron_down",
-    "luauui_icon_chevron_left",
-    "luauui_icon_chevron_right",
-    "luauui_icon_chevron_up",
-    "luauui_icon_close",
-    "luauui_icon_edit",
-    "luauui_icon_flag",
-    "luauui_icon_menu",
-    "luauui_icon_minus",
-    "luauui_icon_more",
-    "luauui_icon_plus",
-    "luauui_icon_trash"
+    "facet_icon_check",
+    "facet_icon_chevron_down",
+    "facet_icon_chevron_left",
+    "facet_icon_chevron_right",
+    "facet_icon_chevron_up",
+    "facet_icon_close",
+    "facet_icon_edit",
+    "facet_icon_flag",
+    "facet_icon_menu",
+    "facet_icon_minus",
+    "facet_icon_more",
+    "facet_icon_plus",
+    "facet_icon_trash"
   ]
 }

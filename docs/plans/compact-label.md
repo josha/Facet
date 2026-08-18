@@ -72,7 +72,7 @@ does not fit, and it must not disturb either existing branch.
 | A semantic icon a theme can repaint | `chrome_slots.attachHint(node, { slot, icon, iconSize })`. `syncIconArt` (`src/client/screen_chrome.luau`) reads `handle.decorationHint.icon`, resolves it with `themePackage.resolveIcon`, and parents theme art **over** the control's own character. `slot = chrome_slots.NO_SLOT` means "icon, but no decoration surface" |
 | The framework's own glyphs | `themePackage.iconGlyph(name)` / `package.ICON_FALLBACK_GLYPHS` — **plain ASCII by construction**, enforced by a test ("the fallback glyph table can never be tofu") |
 | An icon-or-short-text button content path | `UI.Button{ shape = "circle" }` already accepts "one semantic icon or up to three characters" — see `tests/button_shape.spec.luau`. **Read how it does this before designing anything** |
-| Images | `UI.Image`, and `LuauUI.newAsyncImage` for a loaded one |
+| Images | `UI.Image`, and `Facet.newAsyncImage` for a loaded one |
 | A Button with custom content | already supported: children make it a CONTENT button (`kind = "hstack"`, sizes from children). **A focusable inside that content is a build error** |
 
 ## 4. The design questions to settle first
@@ -185,7 +185,7 @@ for it. Propose that fallback explicitly and get it agreed.
 
 Per-package art lives at `assets/themes/<package>/` with three things beside the
 PNGs: `source/`, `provenance.md`, and an `upload-manifest.json`
-(`"schema": "luauui-theme-assets/1"`, mapping each asset name to its
+(`"schema": "facet-theme-assets/1"`, mapping each asset name to its
 `contentId`). **Framework-owned art has no home yet** — pick one (`assets/icons/`
 is the obvious candidate), give it the same three companions, and check whether
 `tools/lune/check_docs.luau` needs extending: it currently enforces provenance

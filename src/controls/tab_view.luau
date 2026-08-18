@@ -104,7 +104,7 @@
 --     directly; re-deriving the arithmetic here would be a fifth copy of a
 --     clamp that exists once on purpose.
 --
--- `LuauUI.newAutoscroll` is NOT this and the brief named the wrong one: it is a
+-- `Facet.newAutoscroll` is NOT this and the brief named the wrong one: it is a
 -- drag-to-edge POINTER PROXIMITY model (band/dwell/ramp/velocity, vertical bands
 -- only) whose own header says non-pointer schemes have no autoscroll path
 -- because focus-follows-navigation already scrolls the host.
@@ -251,9 +251,9 @@ function tab_view.resolveSizing(requested: string, placement: string): string
 	return if placement == "bottomBar" then "fill" else "hug"
 end
 
-function tab_view.build(LuauUI: any, core: any, spec: Spec)
+function tab_view.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newTabView", spec, TABVIEW_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "TabView"
 	local scope = core:scope("tab-view-" .. tostring(id))
 	-- READ THE DEPTH BEFORE ANYTHING ELSE CAN CHANGE IT. This is the whole
@@ -264,30 +264,30 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 	local selection = spec.selection
 	if type(selection) ~= "table" or (selection :: any).kind ~= "signal" then
 		error(
-			`LuauUI newTabView('{id}'): \`selection\` must be a SETTABLE Signal the caller owns. It is the `
+			`Facet newTabView('{id}'): \`selection\` must be a SETTABLE Signal the caller owns. It is the `
 				.. "escape hatch as well as the state: everything that must survive a tab switch lives in a "
 				.. "caller-owned Signal outside this control, and this is the first one.",
 			0
 		)
 	end
 	if type(spec.tabs) ~= "table" or #spec.tabs == 0 then
-		error(`LuauUI newTabView('{id}'): \`tabs\` must be a non-empty array of ` .. "{ id, label?, content }", 0)
+		error(`Facet newTabView('{id}'): \`tabs\` must be a non-empty array of ` .. "{ id, label?, content }", 0)
 	end
 	local seen: { [string]: boolean } = {}
 	for index, tab in spec.tabs do
 		if type(tab) ~= "table" then
-			error(`LuauUI newTabView('{id}'): tab {index} must be a table of id / label? / icon? / badge? / content`, 0)
+			error(`Facet newTabView('{id}'): tab {index} must be a table of id / label? / icon? / badge? / content`, 0)
 		end
 		if type(tab.id) ~= "string" or tab.id == "" then
 			error(
-				`LuauUI newTabView('{id}'): tab {index} needs a non-empty string \`id\` — it is the SELECTION `
+				`Facet newTabView('{id}'): tab {index} needs a non-empty string \`id\` — it is the SELECTION `
 					.. "VALUE the caller's Signal holds, and it is what `dump()` reports.",
 				0
 			)
 		end
 		if seen[tab.id] then
 			error(
-				`LuauUI newTabView('{id}'): two tabs share the id '{tab.id}'. A tab id is the selection value, so `
+				`Facet newTabView('{id}'): two tabs share the id '{tab.id}'. A tab id is the selection value, so `
 					.. "a duplicate makes the selection ambiguous rather than merely confusing.",
 				0
 			)
@@ -295,7 +295,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 		seen[tab.id] = true
 		if type(tab.content) ~= "function" then
 			error(
-				`LuauUI newTabView('{id}'): tab '{tab.id}' needs \`content\` as a FUNCTION (tabScope) -> Blueprint, `
+				`Facet newTabView('{id}'): tab '{tab.id}' needs \`content\` as a FUNCTION (tabScope) -> Blueprint, `
 					.. "not a blueprint. It is a factory because the tab is LAZY: it is not called until the tab "
 					.. "is selected, and `tabScope` is disposed when the tab is deselected. State that must "
 					.. "survive a switch belongs to a Signal the CALLER owns, outside this control.",
@@ -307,7 +307,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 	local requestedPlacement = spec.placement or "automatic"
 	if not PLACEMENTS[requestedPlacement] then
 		error(
-			`LuauUI newTabView('{id}'): unknown placement '{tostring(requestedPlacement)}'. One of automatic | `
+			`Facet newTabView('{id}'): unknown placement '{tostring(requestedPlacement)}'. One of automatic | `
 				.. "bottomBar | bottomBarCompact | topBar | sidebar — the vocabulary `adaptive.navPlacement` "
 				.. "already speaks. A device name is not one of them.",
 			0
@@ -316,7 +316,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 	local requestedIndicator = spec.indicator or "automatic"
 	if not INDICATORS[requestedIndicator] then
 		error(
-			`LuauUI newTabView('{id}'): unknown indicator '{tostring(requestedIndicator)}'. `
+			`Facet newTabView('{id}'): unknown indicator '{tostring(requestedIndicator)}'. `
 				.. "One of automatic | none | underline | pill.",
 			0
 		)
@@ -324,7 +324,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 	local requestedSizing = spec.sizing or "automatic"
 	if not SIZINGS[requestedSizing] then
 		error(
-			`LuauUI newTabView('{id}'): unknown sizing '{tostring(requestedSizing)}'. One of automatic | fill | hug.`,
+			`Facet newTabView('{id}'): unknown sizing '{tostring(requestedSizing)}'. One of automatic | fill | hug.`,
 			0
 		)
 	end
@@ -343,8 +343,8 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 			policySource = adaptive.conditions(core, spec.env, { scope = scope }).navPlacement
 		else
 			error(
-				`LuauUI newTabView('{id}'): an automatic placement reads \`adaptive.navPlacement\`, so it needs `
-					.. "either `conditions` (the table `LuauUI.adaptive.conditions(core, env)` returns — pass "
+				`Facet newTabView('{id}'): an automatic placement reads \`adaptive.navPlacement\`, so it needs `
+					.. "either `conditions` (the table `Facet.adaptive.conditions(core, env)` returns — pass "
 					.. "yours so its thirteen memos are not built twice) or `env`. Or declare `placement` and "
 					.. "the policy is never consulted.",
 				0
@@ -389,7 +389,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 			badge = tab.badge,
 		})
 	end
-	local strip = picker.build(LuauUI, core, {
+	local strip = picker.build(Facet, core, {
 		id = "Strip",
 		options = options,
 		selected = selection,
@@ -689,7 +689,7 @@ function tab_view.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		return {
-			schema = "luauui-tab_view-dump/1",
+			schema = "facet-tab_view-dump/1",
 			id = id,
 			tabCount = #spec.tabs,
 			selectedId = current,

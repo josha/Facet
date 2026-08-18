@@ -282,5 +282,5 @@
       "total_p95_ms": 6.816499982960522
     }
   },
-  "schema": "luauui-perf-budgets/2"
+  "schema": "facet-perf-budgets/2"
 }

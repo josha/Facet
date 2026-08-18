@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LuauUI fault injection: async/teardown/locale/accessibility/input-switch
+# Facet fault injection: async/teardown/locale/accessibility/input-switch
 # fault paths (design §17 Phase 4). Wraps tools/lune/faults; artifact at
 # artifacts/phase-4/faults.json.
 set -uo pipefail

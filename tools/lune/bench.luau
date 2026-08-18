@@ -1,5 +1,5 @@
 --!strict
--- LuauUI bench (design §16.1, §14.3): runs named scenarios from
+-- Facet bench (design §16.1, §14.3): runs named scenarios from
 -- bench/scenarios.luau, records p50/p95/p99 wall time plus a heap net and the
 -- collector SWING around it (never a retention figure — see `measure`), writes
 -- artifacts/bench.json, compares against bench/baseline.json when present.
@@ -51,7 +51,7 @@ local REGRESSION_FLOOR_MS = 0.05
 -- for none of those reasons. Raising REGRESSION_FACTOR would only trade false
 -- alarms for a real 2x slipping through.
 --
--- So each scene is divided by a LuauUI-free CPU workload measured in the same
+-- So each scene is divided by a Facet-free CPU workload measured in the same
 -- run on the same machine (bench/scenarios.luau "zz-yardstick-cpu"), and the
 -- RATIO is what gets compared. A slow day lifts both and the ratio holds still.
 --
@@ -280,7 +280,7 @@ if yardstickDriftPct > DRIFT_WARN_PCT then
 end
 
 artifact.writeJson("artifacts/bench.json", {
-	schema = "luauui-bench/1",
+	schema = "facet-bench/1",
 	status = if failed then "FAIL" else "PASS",
 	environment = "lune-headless (trend screening only; device authoritative per design §14.3)",
 	warmup = WARMUP,

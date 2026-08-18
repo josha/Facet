@@ -41,7 +41,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local snapshot = require("../src/themes/snapshot") :: any
 local l10n = require("./fixtures/a11y_l10n_fixtures")
@@ -52,22 +52,22 @@ local module = require("../examples/gallery/scenarios/row_capabilities") :: any
 local ROOT = "/RowCapabilities/Page/RunSheet/Main/Body/Rows"
 
 local function world(view: { w: number, h: number }, package: string?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	if package ~= nil then
 		-- built through the PUBLIC facade and resolved through the snapshot
 		-- compiler — the same pair `tests/flow_wrap.spec.luau` §9 uses
 		env:set(
 			"themeMetrics",
-			snapshot.resolve((require)(`../examples/themes/{package}`).build(LuauUI.themes), nil, {})
+			snapshot.resolve((require)(`../examples/themes/{package}`).build(Facet.themes), nil, {})
 		)
 	end
 	local built = module.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

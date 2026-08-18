@@ -1,13 +1,13 @@
 --!strict
 -- Reference proof "Sipworks" (RA-P3, swiftui-reference-app-validation).
 --
--- A clean-room LuauUI reinterpretation of a craft TEA HOUSE: browse house
+-- A clean-room Facet reinterpretation of a craft TEA HOUSE: browse house
 -- blends, inspect botanicals, order a pour, earn Steam Stamps, unlock the Blend
 -- Book. Built to `artifacts/swiftui-reference-app-validation/specs/p3-sipworks.md`;
 -- the named approximations in `capability-ledger.md` §A/§D are the ceiling and
 -- nothing here claims past them.
 --
--- Contract: `build(LuauUI, core, deps) -> { screen, present, steps, report,
+-- Contract: `build(Facet, core, deps) -> { screen, present, steps, report,
 -- dispose }` — the shape the tutorial examples and the gallery scenarios use.
 --
 -- THIS FILE IS THE ASSEMBLY. The content is in `content/`, the deterministic
@@ -70,8 +70,8 @@ local function factOf(deps: any, key: string): any
 	return nil
 end
 
-function Sipworks.build(LuauUI: any, core: any, deps: any): any
-	local UI = LuauUI.UI
+function Sipworks.build(Facet: any, core: any, deps: any): any
+	local UI = Facet.UI
 	local presenter = deps.presenter
 	local env = deps.env
 	local actions = deps.actionSystem
@@ -143,7 +143,7 @@ function Sipworks.build(LuauUI: any, core: any, deps: any): any
 	-- ---- the app context every view factory is handed ---------------------
 	local app: any = {}
 	app.UI = UI
-	app.LuauUI = LuauUI
+	app.Facet = Facet
 	app.core = core
 	app.env = env
 	app.presenter = presenter
@@ -161,7 +161,7 @@ function Sipworks.build(LuauUI: any, core: any, deps: any): any
 		order = order,
 		i18n = i18n,
 	}
-	app.cond = LuauUI.adaptive.conditions(core, env, { scope = scope })
+	app.cond = Facet.adaptive.conditions(core, env, { scope = scope })
 	-- "NOT COMPACT", not "isRegular". `isRegular` is the middle class only, so a
 	-- desktop (`wide`) reads false on it — the two-pane layout would have been
 	-- absent on the widest screen there is. The shell asks the question it
@@ -256,7 +256,7 @@ function Sipworks.build(LuauUI: any, core: any, deps: any): any
 	end
 
 	-- ---- shared controls (model-owned, so they outlive a shell rebuild) ----
-	local search = LuauUI.newTextInput(LuauUI, core, {
+	local search = Facet.newTextInput(Facet, core, {
 		id = "Search",
 		value = state.search,
 		placeholder = app.text("search.placeholder"),
@@ -265,7 +265,7 @@ function Sipworks.build(LuauUI: any, core: any, deps: any): any
 		actionSystem = actions,
 	})
 	app.search = search
-	local batch = LuauUI.newStepper(LuauUI, core, {
+	local batch = Facet.newStepper(Facet, core, {
 		id = "Batch",
 		label = "",
 		value = state.batch,

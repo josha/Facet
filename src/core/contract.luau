@@ -1,7 +1,7 @@
 --!strict
--- LuauUI core contract (design §6, §17 Phase 0): the reactive-foundation
+-- Facet core contract (design §6, §17 Phase 0): the reactive-foundation
 -- interface every candidate core (custom / fusion-adapter / imperative
--- baseline) implements identically. The public LuauUI API depends only on this
+-- baseline) implements identically. The public Facet API depends only on this
 -- contract, so the Phase 0 rubric can swap implementations without API change.
 -- Pure types; no code. Semantics the conformance suite enforces:
 --   * writes outside a transaction flush synchronously; inside, at close;

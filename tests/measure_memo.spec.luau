@@ -191,7 +191,7 @@ end)
 
 --[[ THE OFFERED HEIGHT LEAVES THE KEY WHEN THE ANSWER CANNOT READ IT (L-37).
 
-	WHY THIS BLOCK EXISTS. `LuauUI/arrange` was the largest scope in all four of the
+	WHY THIS BLOCK EXISTS. `Facet/arrange` was the largest scope in all four of the
 	director's device captures (9.1-10.6 ms per occurrence, worst single occurrence
 	298.87 ms), and L-36 found the mechanism by workload rather than by reading: the
 	same 240 leaves cost 8.7x more per arranged node under 30 nested stacks than
@@ -335,7 +335,7 @@ end)
 describe("the measure fan-out no longer grows with nesting depth", function()
 	-- THE COST THIS FIX EXISTS TO REMOVE, read off the PUBLIC result. `work.measured`
 	-- counts uncached measures, so it is the same number L-36 reported as 4 425 for
-	-- the 30-deep shape arm and the same one a device dump's `LuauUI/arrange` is made
+	-- the 30-deep shape arm and the same one a device dump's `Facet/arrange` is made
 	-- of. Before: 4.30 measures per arranged node at 4 levels, 8.32 at 12, 17.33 at 30
 	-- — quadratic in depth, because every enclosing level re-measured the whole
 	-- subtree. After: 2.35 / 2.05 / 1.95.

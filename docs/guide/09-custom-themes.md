@@ -8,7 +8,7 @@ editing a single screen**.
 The thing you build is a **theme package**: one frozen, versioned, plain-data
 table. It carries no code and no component trees, so you can inspect it, diff
 it, serialize it, and hand it to another project. Everything in this chapter
-goes through the public `LuauUI.themes` surface and the client-side
+goes through the public `Facet.themes` surface and the client-side
 `theme_controller`; nothing here requires an internal import.
 
 The worked example is **Fantasy Parchment**, the repository's proof theme. Its
@@ -48,7 +48,7 @@ A package has seven sections. Six you author; one (`base`) says where to start.
 | `metrics` | typography roles, space steps, control sizes, radii, strokes, target floor, per-slot insets, motion |
 | `chrome` | one recipe per decoration slot: flat native paint, or a nine-slice image |
 | `assets` | semantic name → content ID, slice geometry, preload policy, failure fallback |
-| `compatibility` | the LuauUI schema and capabilities the package requires |
+| `compatibility` | the Facet schema and capabilities the package requires |
 
 Two rules make a package safe to pass around:
 
@@ -64,18 +64,18 @@ Two rules make a package safe to pass around:
 
 ## 9.2 Step 1 — derive from Studio Neutral
 
-> **In plain words.** Do not start from an empty table; start from LuauUI's own
+> **In plain words.** Do not start from an empty table; start from Facet's own
 > theme and change only what you care about. Anything you leave out you simply
-> inherit — including new things future versions of LuauUI add, which you would
+> inherit — including new things future versions of Facet add, which you would
 > otherwise be missing without knowing it.
 
 Never start from a blank table. Start from the library's own package, so core
-roles that a future LuauUI version adds are inherited through a diagnosed
+roles that a future Facet version adds are inherited through a diagnosed
 upgrade instead of being missing from your copy:
 
 ```lua
-local LuauUI = require(ReplicatedStorage.LuauUI)
-local themes = LuauUI.themes
+local Facet = require(ReplicatedStorage.Facet)
+local themes = Facet.themes
 
 local definition = {
     base = themes.neutralPackage(),          -- <-- start here, always
@@ -207,8 +207,8 @@ the right size for the size it was measured at.
 > Luau file — you never hand-edit the numbers in two places.
 
 Once a package is installed (§9.7), its values live on a real `StyleSheet` in
-the DataModel named **`LuauUITheme <id>`** — for Parchment,
-`LuauUITheme fantasy-parchment` — with one child sheet per theme
+the DataModel named **`FacetTheme <id>`** — for Parchment,
+`FacetTheme fantasy-parchment` — with one child sheet per theme
 (`Theme Daylight`, `Theme Candlelight`). That sheet is the authoring surface:
 open Studio's Style Editor and edit it while the game runs.
 
@@ -242,16 +242,16 @@ theme value.
 ## 9.4 Step 3 — add nine-slice chrome
 
 > **In plain words.** This is the step where the UI stops being coloured
-> rectangles and starts being *artwork*. You give LuauUI a picture for a button,
+> rectangles and starts being *artwork*. You give Facet a picture for a button,
 > a picture for a panel, and it stretches them correctly at any size ("nine
 > slice" just means: keep the corners crisp, stretch only the middle). The
-> picture becomes the button — LuauUI turns off the plain rectangle it would
+> picture becomes the button — Facet turns off the plain rectangle it would
 > otherwise have drawn underneath, so you do not get a border around your art.
 
 A `StyleSheet` can repaint a `Frame`; it cannot turn a `Frame` into an
-`ImageLabel`. So for image-backed skins LuauUI adds the smallest possible
+`ImageLabel`. So for image-backed skins Facet adds the smallest possible
 substrate: **one non-interactive `ImageLabel` per skinned node**, named
-`LuauUIChrome`, tagged `luau-chrome-<slot>`, painted entirely by the package's
+`FacetChrome`, tagged `luau-chrome-<slot>`, painted entirely by the package's
 own rules.
 
 The **decoration slots** are a closed list. These nine are the ones this chapter
@@ -397,7 +397,7 @@ substitutes its own IDs — there are no hidden assets.
 ### Declare the recipes
 
 > **In plain words.** Now point each slot at a picture. A slot you leave as
-> `native` keeps LuauUI's plain painted look and costs nothing at all.
+> `native` keeps Facet's plain painted look and costs nothing at all.
 
 A recipe has exactly four fields — `kind`, `asset`, `contentInsets`, `fallback`
 — and nothing else is accepted:
@@ -444,7 +444,7 @@ rejects any stop above `0.9`, and a subtle ramp lives around `0.1–0.35`.
 
 ### States can be tints — or they can be more art
 
-> **In plain words.** The cheap way is to draw one picture and let LuauUI
+> **In plain words.** The cheap way is to draw one picture and let Facet
 > brighten it on hover and darken it on press; that is what this section is
 > about, and it is why the resting picture is drawn very slightly dimmed — there
 > has to be somewhere brighter to go. If you want the *pressed* button to be a
@@ -468,7 +468,7 @@ press is a full third darker than rest rather than a polite nudge.
 
 ### The image IS the button
 
-> **In plain words.** If you give a button a picture, you do not want LuauUI's
+> **In plain words.** If you give a button a picture, you do not want Facet's
 > own rounded grey rectangle showing around the edges of it. It does not draw
 > one.
 
@@ -519,7 +519,7 @@ the `Chrome text — destructive` / `— cancel` rules from the lift, above).
 
 The `sliderTrack` and `sliderThumb` slots are reached only through a control's
 internal slot hint, never through a public `surface`, so nothing else paints them
-and the sheet does. These rules are in **every** sheet LuauUI runs — every theme
+and the sheet does. These rules are in **every** sheet Facet runs — every theme
 package *and* the built-in default with no package installed at all:
 
 | Rule | Selector | Paints |
@@ -649,10 +649,10 @@ engine-verified (`artifacts/theme-packages-and-skinning/feasibility/m8-render-or
 > different ones), and a text field gets out of the way of its own art while
 > you are typing in it.
 
-**1. The chrome text lift.** LuauUI roots use `ZIndexBehavior = Sibling`, and
+**1. The chrome text lift.** Facet roots use `ZIndexBehavior = Sibling`, and
 under Sibling a full-bleed child covers its parent's own engine-drawn text *at
 any ZIndex* — including negative ones. So a text-bearing node with an active
-decoration gets one managed `TextLabel` named `LuauUIChromeText`, tagged
+decoration gets one managed `TextLabel` named `FacetChromeText`, tagged
 `luau-chrome-text`, sitting above the decoration and mirroring the parent's
 text. The parent keeps its `Text` for semantics and measurement; the lifted
 label is what you see.
@@ -681,7 +681,7 @@ be a usable editing surface, because that is what the player types into.
 ## 9.5 Step 4 — insets and fallbacks
 
 > **In plain words.** Two safety nets. The first keeps your text off the painted
-> border — you tell LuauUI how thick the border is and the layout engine leaves
+> border — you tell Facet how thick the border is and the layout engine leaves
 > room for it. The second is what happens when a picture fails to load: the
 > theme falls back to plain paint instead of showing nothing.
 
@@ -689,7 +689,7 @@ be a usable editing surface, because that is what the player types into.
 
 > **In plain words.** "How far in from the edge should the content start?" You
 > give two numbers — one for the slot's own breathing room, one for the
-> thickness of the painted border — and LuauUI adds them together.
+> thickness of the painted border — and Facet adds them together.
 
 Content must clear painted borders, and the **solver** has to know about it or
 text will sit on the art. Two values compose:
@@ -751,7 +751,7 @@ first time a screen claims that slot.
 ## 9.6 Step 5 — preview every control on every device profile
 
 > **In plain words.** Never judge a theme from one screen. The repository ships
-> a Studio place that puts every control LuauUI has on screen at once and lets
+> a Studio place that puts every control Facet has on screen at once and lets
 > you restyle the lot from the outside — that is the thing to look at.
 
 Do not eyeball one screen. The repository ships a Studio fixture that mounts the
@@ -760,23 +760,23 @@ Do not eyeball one screen. The repository ships a Studio fixture that mounts the
 
 **Swapping themes by hand.** The gallery place ships a small theme picker in the
 top-right corner: Studio Neutral plus every package under
-`ReplicatedStorage.LuauUIThemes`, with that package's themes underneath. Click a
+`ReplicatedStorage.FacetThemes`, with that package's themes underneath. Click a
 row and the running screen re-themes — the same `install` / `swapPackage` /
 `swap` calls §9.8 and §9.9 describe, driven by a UI instead of by an attribute
 you had to set before pressing Play. It is a *passive* surface, so it never
 steals focus from the fixture underneath it, and it re-themes itself along with
 everything else — if the picker still reads after a swap, the swap worked. Set
-the workspace attribute `LuauUI_ThemePicker = false` to hide it, and
-`LuauUI_NativeStyle = true` to see the *full* swap: on a target painting through
+the workspace attribute `Facet_ThemePicker = false` to hide it, and
+`Facet_NativeStyle = true` to see the *full* swap: on a target painting through
 the explicit-write path a swap moves metrics live but not the palette (§9.8), and
 the picker warns once when it finds itself there. The source is
 [`examples/gallery/client/theme_picker.luau`](../../examples/gallery/client/theme_picker.luau);
 it is an example, not library code, and it goes through the public surface only,
 so a game that wants one can copy the file.
 
-Set the workspace attribute `LuauUI_Scenario = "theme_authoring"` before Play
-(optionally `LuauUI_ThemePackage` and `LuauUI_ThemeName` to choose what it opens
-under), then drive it through `workspace.LuauUIScenarioAPI.step`:
+Set the workspace attribute `Facet_Scenario = "theme_authoring"` before Play
+(optionally `Facet_ThemePackage` and `Facet_ThemeName` to choose what it opens
+under), then drive it through `workspace.FacetScenarioAPI.step`:
 
 | Step | What it proves |
 |---|---|
@@ -878,7 +878,7 @@ hand-authored art.
 The controller is **client-only** and **per-target**. Require it directly:
 
 ```lua
-local theme_controller = require(ReplicatedStorage.LuauUI.client.theme_controller)
+local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller)
 
 local controller = theme_controller.install(adapter, package, {
     env = env,                 -- REQUIRED: the metric snapshot rides it
@@ -947,7 +947,7 @@ Geometry never animates independently of the solver.
 
 ## 9.10 Step 9 — upgrades
 
-> **In plain words.** What happens to your theme when LuauUI itself moves
+> **In plain words.** What happens to your theme when Facet itself moves
 > forward. Short version: values you set are kept, things you never knew about
 > are filled in for you, and anything genuinely incompatible is reported before
 > the game runs rather than discovered on a device.
@@ -955,7 +955,7 @@ Geometry never animates independently of the solver.
 Three mechanisms, and you should know which one is protecting you:
 
 - **Schema.** `identity.schemaVersion` (and `compatibility.requiresSchema`) are
-  compared against `themes.SCHEMA` — currently `luauui-theme/1` — before install
+  compared against `themes.SCHEMA` — currently `facet-theme/1` — before install
   or `swapPackage` touches anything. A mismatch is an error telling you to
   republish against this schema, and the installed package is unchanged.
 - **Sheet stamp migration.** The sheet carries the model stamp it was seeded
@@ -964,7 +964,7 @@ Three mechanisms, and you should know which one is protecting you:
   names that did not exist before. `inspect().sheet.seeded` and
   `.sheet.migrated` tell you which happened.
 - **Derivation.** Because your package names `base = themes.neutralPackage()`,
-  a core role added by a future LuauUI version is inherited automatically. This
+  a core role added by a future Facet version is inherited automatically. This
   is the single strongest reason not to hand-copy a package.
 
 After any upgrade that touched metrics, re-run the freshness gate (§9.7) — it is
@@ -1002,7 +1002,7 @@ Low-end-device performance is not claimed by this stage.
 > thing, write a control. Each rung is a normal amount of work — you should
 > never feel you have to fight the framework to change one slider.
 
-This is SwiftUI's shape, and LuauUI copies it deliberately.
+This is SwiftUI's shape, and Facet copies it deliberately.
 
 | Rung | What you do | When |
 |---|---|---|
@@ -1018,7 +1018,7 @@ custom control at rung 3. This section is the short version.
 **Rung 2, concretely.** `Slider` takes `thumbImage` and `trackImage`:
 
 ```lua
-local slider = LuauUI.newSlider(LuauUI, core, {
+local slider = Facet.newSlider(Facet, core, {
     id = "Power", label = "Power", value = power, min = 0, max = 100,
     thumbImage = "rbxassetid://102024273231445",   -- THIS slider only
 })
@@ -1051,14 +1051,14 @@ them.
 ## 9.12 Shipping a custom control with your theme
 
 > **In plain words.** If you wrote your own control, it may need theme values
-> nobody else does. Declare what it needs and LuauUI will tell you — before the
+> nobody else does. Declare what it needs and Facet will tell you — before the
 > game runs — whether a given theme actually covers them.
 
 If you ship a control of your own, it can declare namespaced roles (`ns:role`)
 and ask a package whether it is covered — *before* play, not on a device:
 
 ```lua
-local result = LuauUI.themes.checkCoverage(package, myControl.needs)
+local result = Facet.themes.checkCoverage(package, myControl.needs)
 -- result.ok, result.covered, result.missing = { { name, message, fix } }
 ```
 

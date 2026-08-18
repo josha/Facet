@@ -122,7 +122,7 @@ export type Row = {
 }
 
 --[[ ONE MENU ROW. `UI` is the blueprint library the caller already holds
-	(`LuauUI.UI`), passed rather than required so this module stays free of the
+	(`Facet.UI`), passed rather than required so this module stays free of the
 	init cycle every control avoids the same way. ]]
 function menu_recipe.row(UI: any, row: Row): any
 	local height = { type = "fixed", px = row.height or menu_recipe.ROW_HEIGHT }

@@ -548,13 +548,13 @@ export type Entry<K, V> = { key: K, value: V }
 function blueprint.sortedEntries<K, V>(dict: { [K]: V }, compare: ((a: K, b: K) -> boolean)?): { Entry<K, V> }
 	if type(dict) ~= "table" then
 		error(
-			`LuauUI sortedEntries: expected a dictionary table, got '{typeof(dict)}'. It flattens a map into the array UI.ForEach takes.`,
+			`Facet sortedEntries: expected a dictionary table, got '{typeof(dict)}'. It flattens a map into the array UI.ForEach takes.`,
 			0
 		)
 	end
 	if compare ~= nil and type(compare) ~= "function" then
 		error(
-			`LuauUI sortedEntries: 'compare' must be a function (a: key, b: key) -> boolean, got '{typeof(compare)}'.`,
+			`Facet sortedEntries: 'compare' must be a function (a: key, b: key) -> boolean, got '{typeof(compare)}'.`,
 			0
 		)
 	end
@@ -566,7 +566,7 @@ function blueprint.sortedEntries<K, V>(dict: { [K]: V }, compare: ((a: K, b: K) 
 			-- run-to-run instability the helper exists to remove — a silent wrong
 			-- answer is worse here than a loud refusal.
 			error(
-				`LuauUI sortedEntries: a key of type '{typeof(key)}' has no default order — pass 'compare', e.g. sortedEntries(dict, function(a, b) return a.id < b.id end). It must be a strict order on KEYS; string and number keys are ordered for you.`,
+				`Facet sortedEntries: a key of type '{typeof(key)}' has no default order — pass 'compare', e.g. sortedEntries(dict, function(a, b) return a.id < b.id end). It must be a strict order on KEYS; string and number keys are ordered for you.`,
 				0
 			)
 		end
@@ -603,7 +603,7 @@ end
 -- `withProps` runs a modifier's writes through the SAME validation a
 -- constructor uses, which is right — but the message it produced named only the
 -- class and the INTERNAL prop the modifier had chosen. `UI.alignment(when,
--- "center")` reported *"LuauUI UI.When: unknown property 'alignH'"*: a property
+-- "center")` reported *"Facet UI.When: unknown property 'alignH'"*: a property
 -- the author never typed, on a class they may not have written, followed by
 -- that class's valid properties — none of which is the fix. The two helpers
 -- below therefore take the modifier the author actually called, and every
@@ -616,13 +616,13 @@ local function unknownPropError(class: string, key: string, modifier: string?): 
 	-- the right one is a spelling. Everything else falls through unchanged.
 	local refusal = schema.refusal(class, key)
 	if refusal ~= nil then
-		local head = if modifier == nil then `LuauUI UI.{class}:` else `LuauUI UI.{modifier} on UI.{class}:`
+		local head = if modifier == nil then `Facet UI.{class}:` else `Facet UI.{modifier} on UI.{class}:`
 		return `{head} '{key}' is REFUSED on UI.{class}, not missing. {refusal}`
 	end
 	local suggestions = schema.suggest(class, key)
 	local msg = if modifier == nil
-		then `LuauUI UI.{class}: unknown property '{key}'.`
-		else `LuauUI UI.{modifier} on UI.{class}: UI.{class} has no property '{key}'.`
+		then `Facet UI.{class}: unknown property '{key}'.`
+		else `Facet UI.{modifier} on UI.{class}: UI.{class} has no property '{key}'.`
 	if #suggestions > 0 then
 		msg ..= ` Did you mean {quoteList(suggestions)}?`
 	end
@@ -630,13 +630,13 @@ local function unknownPropError(class: string, key: string, modifier: string?): 
 	return msg
 end
 
--- "LuauUI UI.Text.text" for a constructor; "LuauUI UI.frame on UI.When:
+-- "Facet UI.Text.text" for a constructor; "Facet UI.frame on UI.When:
 -- UI.When.height" when a modifier wrote it
 local function propErrorHead(class: string, key: string, modifier: string?): string
 	if modifier == nil then
-		return `LuauUI UI.{class}.{key}`
+		return `Facet UI.{class}.{key}`
 	end
-	return `LuauUI UI.{modifier} on UI.{class}: UI.{class}.{key}`
+	return `Facet UI.{modifier} on UI.{class}: UI.{class}.{key}`
 end
 
 local function validateProp(class: string, key: string, value: any, propSpec: schema.PropSpec, modifier: string?)
@@ -673,11 +673,11 @@ end
 
 local function make(class: string, spec: any): Blueprint
 	if type(spec) ~= "table" then
-		error(`LuauUI UI.{class}: the constructor takes one spec table, got {typeof(spec)}`, 0)
+		error(`Facet UI.{class}: the constructor takes one spec table, got {typeof(spec)}`, 0)
 	end
 	local classSpec = schema.forClass(class)
 	if classSpec == nil then
-		error(`LuauUI: unknown blueprint class '{class}'`, 0)
+		error(`Facet: unknown blueprint class '{class}'`, 0)
 	end
 	local known = classSpec.props
 	local props: { [string]: any } = {}
@@ -686,24 +686,24 @@ local function make(class: string, spec: any): Blueprint
 	for k, v in spec do
 		if k == "id" then
 			if type(v) ~= "string" or v == "" then
-				error(`LuauUI UI.{class}.id must be a non-empty string, got {typeof(v)}`, 0)
+				error(`Facet UI.{class}.id must be a non-empty string, got {typeof(v)}`, 0)
 			end
 			id = v
 		elseif k == "children" then
 			if not classSpec.container then
 				error(
-					`LuauUI UI.{class} does not take children (it is a leaf). `
+					`Facet UI.{class} does not take children (it is a leaf). `
 						.. `Containers: {table.concat(CONTAINER_NAMES, ", ")}.`,
 					0
 				)
 			end
 			if type(v) ~= "table" then
-				error(`LuauUI UI.{class}.children must be an array of blueprints, got {typeof(v)}`, 0)
+				error(`Facet UI.{class}.children must be an array of blueprints, got {typeof(v)}`, 0)
 			end
 			children = table.clone(v)
 		else
 			if type(k) ~= "string" then
-				error(`LuauUI UI.{class}: spec keys must be strings (got a {typeof(k)} key)`, 0)
+				error(`Facet UI.{class}: spec keys must be strings (got a {typeof(k)} key)`, 0)
 			end
 			local propSpec = known[k]
 			if propSpec == nil then
@@ -715,7 +715,7 @@ local function make(class: string, spec: any): Blueprint
 	end
 	for propName, propSpec in known do
 		if propSpec.required and props[propName] == nil then
-			error(`LuauUI UI.{class}.{propName} is required ({propSpec.doc})`, 0)
+			error(`Facet UI.{class}.{propName} is required ({propSpec.doc})`, 0)
 		end
 	end
 	-- `overflow = "clip"` IS a clip host (api-architecture-consistency F-19 /
@@ -747,7 +747,7 @@ local function make(class: string, spec: any): Blueprint
 	-- bound value and does not pretend to.
 	if props.wrap == true and props.align == "stretch" then
 		error(
-			`LuauUI UI.{class}: \`align = "stretch"\` has two readings on a wrapping stack — "each child `
+			`Facet UI.{class}: \`align = "stretch"\` has two readings on a wrapping stack — "each child `
 				.. `fills its line" and "the lines fill the container" — so it is refused. Put `
 				.. '`lineAlign = "stretch"` on the children that should fill their line, and use `align` '
 				.. "(start|center|end) for where the block of lines sits.",
@@ -829,7 +829,7 @@ function blueprint.ViewThatFits(spec: ViewThatFitsSpec): Blueprint
 	local bp = make("ViewThatFits", spec)
 	if bp.children == nil or #bp.children == 0 then
 		error(
-			"LuauUI UI.ViewThatFits needs at least one candidate in `children` (they are the candidate layouts, in preference order)",
+			"Facet UI.ViewThatFits needs at least one candidate in `children` (they are the candidate layouts, in preference order)",
 			0
 		)
 	end
@@ -870,14 +870,14 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	local bp = make("Region", spec)
 	if bp.id == nil then
 		error(
-			"LuauUI UI.Region needs an explicit `id`: it is what the resolution, the dump and the "
+			"Facet UI.Region needs an explicit `id`: it is what the resolution, the dump and the "
 				.. "focus ring address, and a generated one would change the diagnosis between runs",
 			0
 		)
 	end
 	if bp.children == nil or #bp.children == 0 then
 		error(
-			`LuauUI UI.Region '{bp.id}' needs at least one form in \`children\` (the forms are the `
+			`Facet UI.Region '{bp.id}' needs at least one form in \`children\` (the forms are the `
 				.. `representations of this region, richest first)`,
 			0
 		)
@@ -904,7 +904,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		has to hold for a declaration driven straight from a test as well.) ]]
 	if spec.recover ~= nil and #bp.children == 1 then
 		error(
-			`LuauUI UI.Region '{bp.id}' declares one form, so 'recover' has nothing to describe — a `
+			`Facet UI.Region '{bp.id}' declares one form, so 'recover' has nothing to describe — a `
 				.. "single-form region can only stop showing content by being DROPPED, and a dropped region "
 				.. "has no form left to be its own route, so the screen's overflow surface is the only "
 				.. "possible answer. `mayDrop` is already that declaration",
@@ -921,7 +921,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			local form = bp.children[i]
 			if not containsFocusable(form) then
 				error(
-					`LuauUI UI.Region '{bp.id}' declares recover = "self", so every form below the richest is `
+					`Facet UI.Region '{bp.id}' declares recover = "self", so every form below the richest is `
 						.. `the route to what that form stopped showing — but form {i} of {#bp.children} (a `
 						.. `UI.{form.class}) contains nothing focusable, so there is nothing for a player to `
 						.. "activate while it is the one on screen. Put a UI.Button (or Toggle/TextField, or a "
@@ -944,13 +944,13 @@ function blueprint.Composition(spec: CompositionSpec): Blueprint
 	local bp = make("Composition", spec)
 	local children = bp.children or {}
 	if #children == 0 then
-		error("LuauUI UI.Composition needs at least one UI.Region in `children` — the regions ARE the declaration", 0)
+		error("Facet UI.Composition needs at least one UI.Region in `children` — the regions ARE the declaration", 0)
 	end
 	local regions = {}
 	for i, child in children do
 		if child.class ~= "Region" then
 			error(
-				`LuauUI UI.Composition child {i} is a {child.class}, not a UI.Region. A composition places `
+				`Facet UI.Composition child {i} is a {child.class}, not a UI.Region. A composition places `
 					.. "RANKED regions; wrap it in UI.Region{ id, group, rank, children = { <forms> } }",
 				0
 			)
@@ -987,7 +987,7 @@ function blueprint.Composition(spec: CompositionSpec): Blueprint
 				local ok, detail = schema.checkValue(METRIC_OR_PX :: any, value)
 				if not ok then
 					error(
-						`LuauUI UI.Composition group '{tostring((group :: any).id)}'.{field} expects a px `
+						`Facet UI.Composition group '{tostring((group :: any).id)}'.{field} expects a px `
 							.. `number or a theme metric name{if detail ~= nil then ` — {detail}` else ""}`,
 						0
 					)
@@ -1056,7 +1056,7 @@ local function assertNoFocusableContent(children: { Blueprint }?)
 	local function walk(node: Blueprint)
 		if CONTENT_FOCUSABLE[node.class] or (node.class == "Grip" and node.props.focusable == true) then
 			error(
-				`LuauUI UI.Button: custom content must stay inside one activation surface, but it `
+				`Facet UI.Button: custom content must stay inside one activation surface, but it `
 					.. `contains a focusable UI.{node.class} ('{node.id or "unnamed"}'). Put the control `
 					.. `beside the Button, not inside it.`,
 				0
@@ -1098,10 +1098,10 @@ local function assertShape(props: { [string]: any }, children: { Blueprint }?)
 	local shape = props.shape
 	if props.icon ~= nil and shape ~= "circle" then
 		error(
-			`LuauUI UI.Button.icon is only supported with shape = "circle" (got shape = `
+			`Facet UI.Button.icon is only supported with shape = "circle" (got shape = `
 				.. `{if shape == nil then "nil" else `'{tostring(shape)}'`}). A circle's content is ONE mark, `
 				.. `which is what a semantic icon name describes. Fix: add shape = "circle", or put an icon `
-				.. `BESIDE a title with LuauUI.newLabel inside the button's children.`,
+				.. `BESIDE a title with Facet.newLabel inside the button's children.`,
 			0
 		)
 	end
@@ -1112,7 +1112,7 @@ local function assertShape(props: { [string]: any }, children: { Blueprint }?)
 		end
 		table.sort(known)
 		error(
-			`LuauUI UI.Button.icon: '{tostring(props.icon)}' names no semantic icon. It must be a framework `
+			`Facet UI.Button.icon: '{tostring(props.icon)}' names no semantic icon. It must be a framework `
 				.. `name ({table.concat(known, ", ")}) or a namespaced one a package contributes ("ns:name"). `
 				.. `Fix: use a framework name, or namespace your own and declare it in the package's `
 				.. `\`icons\` map.`,
@@ -1124,7 +1124,7 @@ local function assertShape(props: { [string]: any }, children: { Blueprint }?)
 	end
 	if props.width ~= nil and props.height ~= nil then
 		error(
-			`LuauUI UI.Button: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
+			`Facet UI.Button: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
 				.. `enforces the 1:1 square, so the other axis follows and the author never does the math. `
 				.. `Fix: drop one of them (or drop both to size the disc from the control metric).`,
 			0
@@ -1137,7 +1137,7 @@ local function assertShape(props: { [string]: any }, children: { Blueprint }?)
 	local text = tostring(drawn)
 	if string.find(text, "%s") ~= nil or utf8.len(text) == nil or (utf8.len(text) :: number) > CIRCLE_MAX_CHARS then
 		error(
-			`LuauUI UI.Button.label: '{text}' cannot be the drawn content of shape = "circle" — a disc holds `
+			`Facet UI.Button.label: '{text}' cannot be the drawn content of shape = "circle" — a disc holds `
 				.. `ONE icon or up to {CIRCLE_MAX_CHARS} characters with no spaces, and a longer label has `
 				.. `nowhere to go inside a 1:1 target. Fix: pass icon = "<semantic name>" (e.g. "more", `
 				.. `"close", "menu") and keep this label as the semantic name, shorten the label, or drop `
@@ -1160,7 +1160,7 @@ local function assertCompactLabel(props: { [string]: any }, children: { Blueprin
 	-- not drawn over. A compact form here would be silently inert.
 	if children ~= nil and #children > 0 then
 		error(
-			`LuauUI UI.Button.compactLabel is not supported on a CONTENT button — a button with children `
+			`Facet UI.Button.compactLabel is not supported on a CONTENT button — a button with children `
 				.. `draws no text of its own (its label is semantics only), so there is nothing to shorten. `
 				.. `Fix: drop compactLabel, or make the content itself adapt with UI.ViewThatFits.`,
 			0
@@ -1175,7 +1175,7 @@ local function assertCompactLabel(props: { [string]: any }, children: { Blueprin
 	-- exactly as tall as the case we were escaping (director round 6, "Don"/"e").
 	if type(text) == "string" and string.find(text, "%s") ~= nil then
 		error(
-			`LuauUI UI.Button.compactLabel: '{text}' contains whitespace, and a compact label must be ONE `
+			`Facet UI.Button.compactLabel: '{text}' contains whitespace, and a compact label must be ONE `
 				.. `word. It is drawn only when the full label did not fit, and a phrase has a legal break `
 				.. `point — so the engine would wrap it and the button would be as tall as the case the `
 				.. `compact form exists to avoid. Fix: use a single word, or icon = "<semantic name>".`,
@@ -1190,7 +1190,7 @@ local function assertCompactLabel(props: { [string]: any }, children: { Blueprin
 		end
 		table.sort(known)
 		error(
-			`LuauUI UI.Button.compactLabel.icon: '{tostring(icon)}' names no semantic icon. It must be a `
+			`Facet UI.Button.compactLabel.icon: '{tostring(icon)}' names no semantic icon. It must be a `
 				.. `framework name ({table.concat(known, ", ")}) or a namespaced one a package contributes `
 				.. `("ns:name"). Fix: use a framework name, or namespace your own and declare it in the `
 				.. `package's \`icons\` map.`,
@@ -1224,7 +1224,7 @@ end
 -- Stage: the engine-content box. A leaf like Box (it measures 0x0 without dims);
 -- the adapter materializes it as a ViewportFrame and owns the WorldModel/Camera
 -- behind `controller.stageHost`.
--- Foreign: the box for a GuiObject LuauUI does not wrap (ADR-0034). A leaf like
+-- Foreign: the box for a GuiObject Facet does not wrap (ADR-0034). A leaf like
 -- Box and Stage (it measures 0x0 without dims); the adapter materializes it as a
 -- CLIPPING Frame and makes exactly one claim on what the caller adopts into it —
 -- `Parent`, on the `host` authority — behind `controller.foreignHost`.
@@ -1259,7 +1259,7 @@ local function withProps(bp: Blueprint, extra: { [string]: any }, modifier: stri
 	-- node exactly as a bad spec key once did.
 	local classSpec = schema.forClass(bp.class)
 	if classSpec == nil then
-		error(`LuauUI: unknown blueprint class '{bp.class}'`, 0)
+		error(`Facet: unknown blueprint class '{bp.class}'`, 0)
 	end
 	for k, v in extra do
 		local propSpec = classSpec.props[k]
@@ -1322,7 +1322,7 @@ local function assertGradientable(bp: Blueprint, entry: string)
 	local slot = if hint ~= nil then hint.slot else nil
 	if type(slot) == "string" and chromeSlots.isSlot(slot) and not chromeSlots.isGradientable(slot) then
 		error(
-			`LuauUI: {entry} cannot paint '{slot}' — it is a value control's own chrome, and a wash's alpha `
+			`Facet: {entry} cannot paint '{slot}' — it is a value control's own chrome, and a wash's alpha `
 				.. "would make it see-through so whatever the control draws behind it reads straight through the "
 				.. "glass. Gradient the surfaces an author opted into instead (a panel, a card, a control's own "
 				.. "box), or retune the slot's flat colour. This is the same ruling themes.define enforces on a "
@@ -1332,7 +1332,7 @@ local function assertGradientable(bp: Blueprint, entry: string)
 	end
 	if TEXT_BEARING_CLASSES[bp.class] then
 		error(
-			`LuauUI: {entry} cannot paint a {bp.class} — UIGradient multiplies the node's OWN rendering, its `
+			`Facet: {entry} cannot paint a {bp.class} — UIGradient multiplies the node's OWN rendering, its `
 				.. "engine-drawn glyphs included, so the wash would darken the label with the fill. Wrap it: put "
 				.. `the gradient on a UI.Box (or the container) behind the {bp.class} and leave the text node `
 				.. "alone. (This is the same construction-time ruling `surface` uses on a UI.Text.)",
@@ -1355,7 +1355,7 @@ end
 -- UI.stroke(bp, { thickness?, color?, transparency? }, style?) — a reactive
 -- authored border (ADR-0022 Decision 6, row SF-P3). Defaults are the theme's
 -- hairline, so `UI.stroke(bp, {})` is the hairline the adapter already draws on a
--- raised panel. The adapter materializes ONE bespoke `LuauUIStroke` child and
+-- raised panel. The adapter materializes ONE bespoke `FacetStroke` child and
 -- reuses it, exactly as `UI.gradient` does — so no reactive update and no theme
 -- swap can ever stack two borders on one node.
 --
@@ -1436,7 +1436,7 @@ end
 -- deliberately unfelt. Resolution lives in `mount.luau`; the vocabulary and the
 -- reasoning live in `src/present/feedback.luau`.
 --
--- LuauUI STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). SwiftUI's
+-- Facet STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). SwiftUI's
 -- modifier names a HAPTIC (`.impact`, `.selection`); this one names a semantic
 -- verb from the closed twelve, and what — if anything — is played is the
 -- subscriber's ruling. `src/client/haptics.luau` is one opt-in, default-off
@@ -1451,11 +1451,11 @@ local SENSORY_STRUCTURAL: { [string]: boolean } = { When = true, ForEach = true,
 
 function blueprint.sensoryFeedback(bp: Blueprint, spec: feedbackContract.SensoryFeedbackSpec): Blueprint
 	if type(bp) ~= "table" or type(bp.class) ~= "string" then
-		error("LuauUI UI.sensoryFeedback: the first argument must be a blueprint", 0)
+		error("Facet UI.sensoryFeedback: the first argument must be a blueprint", 0)
 	end
 	if SENSORY_STRUCTURAL[bp.class] then
 		error(
-			`LuauUI UI.sensoryFeedback cannot be applied to a UI.{bp.class} — a structural region mounts no node `
+			`Facet UI.sensoryFeedback cannot be applied to a UI.{bp.class} — a structural region mounts no node `
 				.. "of its own, so the declaration would be accepted and never emit anything. Fix: put it on the "
 				.. `blueprint the region returns, or on a UI.Box/UI.VStack around the UI.{bp.class}.`,
 			0
@@ -1475,7 +1475,7 @@ function blueprint.sensoryFeedback(bp: Blueprint, spec: feedbackContract.Sensory
 		local existing = feedbackContract.activationIn(declared)
 		if existing ~= nil then
 			error(
-				`LuauUI UI.sensoryFeedback: this blueprint already declares activation = '{existing}', so `
+				`Facet UI.sensoryFeedback: this blueprint already declares activation = '{existing}', so `
 					.. `'{decl.activation}' would silently replace it. A control has ONE activation sensation — `
 					.. "declare it once, or put the second one on a different node.",
 				0
@@ -1511,7 +1511,7 @@ function blueprint.styleGroup(
 	style: any?
 ): { Blueprint }
 	if type(spec) ~= "table" then
-		error(`LuauUI UI.styleGroup: expected a spec table first, got {typeof(spec)}`, 0)
+		error(`Facet UI.styleGroup: expected a spec table first, got {typeof(spec)}`, 0)
 	end
 	local legal: { [string]: boolean } = {}
 	for _, key in STYLE_GROUP_KEYS do
@@ -1520,7 +1520,7 @@ function blueprint.styleGroup(
 	for key in spec :: any do
 		if legal[key] ~= true then
 			error(
-				`LuauUI UI.styleGroup: unknown spec key '{tostring(key)}'. `
+				`Facet UI.styleGroup: unknown spec key '{tostring(key)}'. `
 					.. `Valid keys: {table.concat(STYLE_GROUP_KEYS, ", ")}.`,
 				0
 			)
@@ -1601,7 +1601,7 @@ end
 -- "infinity"` is SwiftUI's fill idiom.
 function blueprint.frame(bp: Blueprint, spec: FrameSpec): Blueprint
 	if type(spec) ~= "table" then
-		error(`LuauUI UI.frame: expected a spec table, got {typeof(spec)}`, 0)
+		error(`Facet UI.frame: expected a spec table, got {typeof(spec)}`, 0)
 	end
 	for k in spec :: any do
 		if not FRAME_FIELDS[k] then
@@ -1610,7 +1610,7 @@ function blueprint.frame(bp: Blueprint, spec: FrameSpec): Blueprint
 				table.insert(names, f)
 			end
 			table.sort(names)
-			error(`LuauUI UI.frame: unknown field '{tostring(k)}'. Valid fields: {table.concat(names, ", ")}.`, 0)
+			error(`Facet UI.frame: unknown field '{tostring(k)}'. Valid fields: {table.concat(names, ", ")}.`, 0)
 		end
 	end
 	local extra: { [string]: any } = {}
@@ -1633,7 +1633,7 @@ function blueprint.padding(bp: Blueprint, sides: Sides): Blueprint
 	local classSpec = schema.forClass(bp.class)
 	if classSpec == nil or classSpec.props.padding == nil then
 		error(
-			`LuauUI UI.padding: UI.{bp.class} has no inner spacing to set — wrap it in a `
+			`Facet UI.padding: UI.{bp.class} has no inner spacing to set — wrap it in a `
 				.. `UI.VStack/UI.HStack and pad that instead.`,
 			0
 		)
@@ -1693,7 +1693,7 @@ export type ContainerRelativeFrameSpec = {
 }
 function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelativeFrameSpec): Blueprint
 	if type(spec) ~= "table" then
-		error(`LuauUI UI.containerRelativeFrame: expected a spec table, got {typeof(spec)}`, 0)
+		error(`Facet UI.containerRelativeFrame: expected a spec table, got {typeof(spec)}`, 0)
 	end
 	for k in spec :: any do
 		if not CRF_FIELDS[k] then
@@ -1703,7 +1703,7 @@ function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelative
 			end
 			table.sort(names)
 			error(
-				`LuauUI UI.containerRelativeFrame: unknown field '{tostring(k)}'. Valid fields: {table.concat(
+				`Facet UI.containerRelativeFrame: unknown field '{tostring(k)}'. Valid fields: {table.concat(
 					names,
 					", "
 				)}.`,
@@ -1713,14 +1713,11 @@ function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelative
 	end
 	local prop = CRF_AXES[spec.axis :: any]
 	if prop == nil then
-		error(
-			`LuauUI UI.containerRelativeFrame: axis must be "horizontal" or "vertical" (got {tostring(spec.axis)})`,
-			0
-		)
+		error(`Facet UI.containerRelativeFrame: axis must be "horizontal" or "vertical" (got {tostring(spec.axis)})`, 0)
 	end
 	local function positive(name: string, value: any)
 		if type(value) ~= "number" or value ~= value or value <= 0 then
-			error(`LuauUI UI.containerRelativeFrame: {name} must be a positive number (got {tostring(value)})`, 0)
+			error(`Facet UI.containerRelativeFrame: {name} must be a positive number (got {tostring(value)})`, 0)
 		end
 	end
 	-- ONE FORM PER CALL. `fraction` and `count` are two different rulers for the same
@@ -1728,7 +1725,7 @@ function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelative
 	if spec.fraction ~= nil then
 		if spec.count ~= nil or spec.span ~= nil or spec.spacing ~= nil then
 			error(
-				"LuauUI UI.containerRelativeFrame: `fraction` is the fractional form and `count`/`span`/"
+				"Facet UI.containerRelativeFrame: `fraction` is the fractional form and `count`/`span`/"
 					.. "`spacing` are the paging form — pass one form or the other, not both.",
 				0
 			)
@@ -1737,27 +1734,27 @@ function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelative
 	elseif spec.count ~= nil then
 		positive("count", spec.count)
 		if spec.count ~= math.floor(spec.count :: number) then
-			error(`LuauUI UI.containerRelativeFrame: count must be a whole number (got {tostring(spec.count)})`, 0)
+			error(`Facet UI.containerRelativeFrame: count must be a whole number (got {tostring(spec.count)})`, 0)
 		end
 		if spec.span ~= nil then
 			positive("span", spec.span)
 			if spec.span ~= math.floor(spec.span :: number) then
-				error(`LuauUI UI.containerRelativeFrame: span must be a whole number (got {tostring(spec.span)})`, 0)
+				error(`Facet UI.containerRelativeFrame: span must be a whole number (got {tostring(spec.span)})`, 0)
 			end
 			if (spec.span :: number) > (spec.count :: number) then
 				error(
-					`LuauUI UI.containerRelativeFrame: span ({spec.span}) cannot exceed count ({spec.count}) — a `
+					`Facet UI.containerRelativeFrame: span ({spec.span}) cannot exceed count ({spec.count}) — a `
 						.. "view cannot cover more pages than the container holds.",
 					0
 				)
 			end
 		end
 		if spec.spacing ~= nil and (type(spec.spacing) ~= "number" or spec.spacing ~= spec.spacing) then
-			error(`LuauUI UI.containerRelativeFrame: spacing must be a number (got {tostring(spec.spacing)})`, 0)
+			error(`Facet UI.containerRelativeFrame: spacing must be a number (got {tostring(spec.spacing)})`, 0)
 		end
 	else
 		error(
-			"LuauUI UI.containerRelativeFrame: pass either `fraction` (a share of the container) or `count` "
+			"Facet UI.containerRelativeFrame: pass either `fraction` (a share of the container) or `count` "
 				.. "(the paging form, with optional `span` and `spacing`).",
 			0
 		)
@@ -1776,7 +1773,7 @@ end
 -- UI.aspectRatio(bp, ratio) — derive the unconstrained axis from the other.
 function blueprint.aspectRatio(bp: Blueprint, ratio: number): Blueprint
 	if type(ratio) ~= "number" or ratio ~= ratio or ratio <= 0 then
-		error(`LuauUI UI.aspectRatio: ratio must be a positive number (got {tostring(ratio)})`, 0)
+		error(`Facet UI.aspectRatio: ratio must be a positive number (got {tostring(ratio)})`, 0)
 	end
 	-- the solver's `aspect` dim resolves against the resolved other axis; applying
 	-- it to HEIGHT is the common case (a 16:9 media box with a known width)
@@ -1808,7 +1805,7 @@ local function layered(
 	align: string?
 ): Blueprint
 	if bp.id == nil then
-		error(`LuauUI UI.{suffix}: the base blueprint needs an explicit id (the wrapper's id derives from it)`, 0)
+		error(`Facet UI.{suffix}: the base blueprint needs an explicit id (the wrapper's id derives from it)`, 0)
 	end
 	local children = if contentFirst then { content, bp } else { bp, content }
 	local spec: { [string]: any } = { id = `{bp.id}+{suffix}`, children = children }

@@ -49,7 +49,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local hud = require("../examples/gallery/scenarios/hud") :: any
 
@@ -79,8 +79,8 @@ local function platform(view: View): { [string]: any }
 end
 
 local function world(view: View, appChrome: { any }?): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	for k, v in platform(view) do
 		env:set(k, v)
 	end
@@ -89,16 +89,16 @@ local function world(view: View, appChrome: { any }?): any
 	end
 	env:set("preferredInput", "Touch")
 	env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	-- the runner's own resolution accessor, resolved lazily for the reason the
 	-- showcase host resolves its `foreign` seam lazily: the handle does not exist
 	-- until `present` returns, and the fixture reads this long afterwards
 	local handle: any = nil
 	local built = hud.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

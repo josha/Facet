@@ -51,7 +51,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
 local table_control = require("../src/controls/table")
@@ -68,12 +68,12 @@ end
 
 -- a presenter over a fake target, with NOTHING presented yet
 local function stage()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 
@@ -118,7 +118,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 	local function listWorld(opts: any?)
 		local s = stage()
 		local options = opts or {}
-		local list = virtual_list.build(LuauUI, s.core, {
+		local list = virtual_list.build(Facet, s.core, {
 			id = "VL",
 			rows = s.core:signal(makeItems(400)),
 			key = function(item: any)
@@ -128,10 +128,10 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			viewportExtent = 400,
 			overscan = 0,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
 		local handle = s.pres.present(screen, options.presentOpts)
 		s.pres.refresh()
 		return { s = s, list = list, handle = handle }
@@ -151,7 +151,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 
 	local function gridWorld(axis: string, presentOpts: any?)
 		local s = stage()
-		local grid = virtual_grid.build(LuauUI, s.core, {
+		local grid = virtual_grid.build(Facet, s.core, {
 			id = "VG",
 			items = s.core:signal(makeItems(400)),
 			key = function(item: any)
@@ -166,10 +166,10 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			-- the width IS the scroll axis and the control refuses it by name
 			width = if axis == "x" then nil else { type = "fixed", px = 320 },
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
 		local handle = s.pres.present(screen, presentOpts)
 		s.pres.refresh()
 		return { s = s, grid = grid, handle = handle }
@@ -204,7 +204,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 	local function tableWorld(opts: any?)
 		local options = opts or {}
 		local s = stage()
-		local tbl = table_control.build(LuauUI, s.core, {
+		local tbl = table_control.build(Facet, s.core, {
 			id = "T",
 			columns = { { id = "name", title = "Name", width = { type = "fill", weight = 1 } } },
 			rows = s.core:signal(makeItems(400)),
@@ -212,7 +212,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 				return item.id
 			end,
 			cellFor = function(_columnId: string, item: any)
-				return LuauUI.UI.Text({ id = "Value", text = item.label, textSize = 16 })
+				return Facet.UI.Text({ id = "Value", text = item.label, textSize = 16 })
 			end,
 			rowHeight = 40,
 			header = false,
@@ -220,7 +220,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			scrolls = options.scrolls,
 			env = s.env,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { tbl.blueprint } })
 		local handle = s.pres.present(screen, options.presentOpts)
 		-- two refreshes: the window is taken against the body's MEASURED height,
 		-- which only exists after a solve (see tests/table_virtualized.spec.luau)
@@ -290,7 +290,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			`focusGroups` is wrapped in a counter and the control presented twice. ]]
 			local function callsUnder(presentOpts: any?): number
 				local s = stage()
-				local grid = virtual_grid.build(LuauUI, s.core, {
+				local grid = virtual_grid.build(Facet, s.core, {
 					id = "VG",
 					items = s.core:signal(makeItems(40)),
 					key = function(item: any)
@@ -301,7 +301,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 					viewportExtent = 400,
 					width = { type = "fixed", px = 320 },
 					cell = function(item: any)
-						return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 				local bp = grid.blueprint
@@ -322,7 +322,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 					children = bp.children,
 					meta = table.freeze(meta),
 				})
-				local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { bp } })
+				local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { bp } })
 				s.pres.present(screen, presentOpts)
 				s.pres.refresh()
 				s.pres.refresh()
@@ -337,7 +337,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 	-- =======================================================================
 	-- (c) THE LIVE CONSUMER MUST NOT DOUBLE-BIND. Rascal Rally's Sponsor HUD
 	--     calls `api.bindNativeScroll(self._scrollController)` from its own
-	--     `onGeometry` (`LuauUISponsor/init.luau:2562`) and holds the unbind for
+	--     `onGeometry` (`FacetSponsor/init.luau:2562`) and holds the unbind for
 	--     teardown. `onGeometry` is fed BEFORE the contributions' `syncGeometry`
 	--     (presenter `feedGeometry`), so the game's call and the framework's meet
 	--     on the same frame, on the same controller and the same path.
@@ -432,8 +432,8 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			no such walk, so the refusal that names the alternative must survive
 			verbatim — otherwise this fix would have quietly turned a legible
 			construction-time error into a nil-deref somewhere downstream. ]]
-		local core = LuauUI.newCore()
-		local list = virtual_list.build(LuauUI, core, {
+		local core = Facet.newCore()
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = core:signal(makeItems(10)),
 			key = function(item: any)
@@ -442,7 +442,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			itemExtent = 40,
 			viewportExtent = 400,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local ok, err = pcall(function()

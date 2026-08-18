@@ -133,7 +133,7 @@ describe("text_fit.fit — the largest size that actually fits", function()
 end)
 
 --[[ ONE NAMESPACE, ONE ARGUMENT CONVENTION (api-architecture-consistency F-31).
-	`LuauUI.text` shipped `fit`/`size` taking a spec table and `measure` taking six
+	`Facet.text` shipped `fit`/`size` taking a spec table and `measure` taking six
 	positional arguments — the same question asked two ways, in three functions
 	exported in one commit. `measure` now ALSO accepts the spec table (detected by
 	a table-typed first argument), with the vocabulary its siblings use. The

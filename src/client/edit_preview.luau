@@ -12,7 +12,7 @@
 --     viewport and is never saved into the place file. StarterGui also works
 --     (and screenshots identically) but IS saved: always dispose() before
 --     saving the place, or preview furniture gets committed (verifier F5).
---   * The durable plugin (tools/studio/LuauUI_EditPreview.plugin.lua) wraps
+--   * The durable plugin (tools/studio/Facet_EditPreview.plugin.lua) wraps
 --     this with a toolbar (profile cycle + off) parented under CoreGui.
 
 local RunService = game:GetService("RunService")
@@ -24,22 +24,22 @@ local edit_preview = {}
 
 export type StartOpts = {
 	parent: Instance,
-	-- a Blueprint, or a factory (LuauUI, core) -> Blueprint so entries can
+	-- a Blueprint, or a factory (Facet, core) -> Blueprint so entries can
 	-- create signals/memos on the preview's core
 	blueprint: any,
 	profile: string?,
 	style: any?,
 }
 
-function edit_preview.start(LuauUI: any, opts: StartOpts)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+function edit_preview.start(Facet: any, opts: StartOpts)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	local profile = device_profiles.apply(env, opts.profile or "desktop")
 
 	-- device-bounds decoration: an outline + caption so screenshots read
 	-- which profile is active and where its viewport ends
 	local deco = Instance.new("ScreenGui")
-	deco.Name = "LuauUI_EditPreviewFrame"
+	deco.Name = "Facet_EditPreviewFrame"
 	deco.IgnoreGuiInset = true
 	deco.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	deco.DisplayOrder = 1000
@@ -65,7 +65,7 @@ function edit_preview.start(LuauUI: any, opts: StartOpts)
 	local function applyDeco(active: any)
 		bounds.Position = UDim2.fromOffset(0, 0)
 		bounds.Size = UDim2.fromOffset(active.viewport.w, active.viewport.h)
-		caption.Text = "  LuauUI preview — " .. active.title .. "  "
+		caption.Text = "  Facet preview — " .. active.title .. "  "
 		local textWidth = 8 * #caption.Text -- generous; edit-only furniture
 		caption.Size = UDim2.fromOffset(math.min(textWidth, active.viewport.w), 22)
 		caption.Position = UDim2.fromOffset(0, active.viewport.h + 4)
@@ -79,9 +79,9 @@ function edit_preview.start(LuauUI: any, opts: StartOpts)
 	local root: any = nil
 	local controller: any = nil
 	local ok, startErr = pcall(function()
-		local blueprint = if type(opts.blueprint) == "function" then opts.blueprint(LuauUI, core) else opts.blueprint
-		root = LuauUI.mount(core, blueprint)
-		controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local blueprint = if type(opts.blueprint) == "function" then opts.blueprint(Facet, core) else opts.blueprint
+		root = Facet.mount(core, blueprint)
+		controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 	end)
 	if not ok then
@@ -92,7 +92,7 @@ function edit_preview.start(LuauUI: any, opts: StartOpts)
 			pcall(root.dispose)
 		end
 		deco:Destroy()
-		error(`LuauUI edit_preview.start failed (all preview instances removed): {tostring(startErr)}`, 0)
+		error(`Facet edit_preview.start failed (all preview instances removed): {tostring(startErr)}`, 0)
 	end
 
 	local heartbeat = RunService.Heartbeat:Connect(function()

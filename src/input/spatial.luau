@@ -2,7 +2,7 @@
 -- SPATIAL EVENT SEAM (roadmap Step 4; docs/extending/new-platform-mode.md §4;
 -- ADR-0021). Contracts only.
 --
--- READ THIS FIRST: **LuauUI does not support VR.** Nothing in this module is a
+-- READ THIS FIRST: **Facet does not support VR.** Nothing in this module is a
 -- spatial implementation, an adapter, or a capability claim. It is the shape a
 -- normalized pointer event may take once a spatial adapter exists, defined now
 -- so that adding one later is an adapter change rather than a rewrite of every
@@ -39,7 +39,7 @@ export type Vec3 = { x: number, y: number, z: number }
 export type Ray = { origin: Vec3, direction: Vec3, length: number? }
 
 -- the pose of the pointing device or hand. Position plus a forward direction is
--- deliberately weaker than a full transform: a rotation convention LuauUI has
+-- deliberately weaker than a full transform: a rotation convention Facet has
 -- not measured on hardware would be an invented semantic.
 export type Pose = { position: Vec3, forward: Vec3? }
 
@@ -55,7 +55,7 @@ export type Spatial = {
 	-- "began" | "changed" | "ended" | "cancelled" | "none"
 	phase: string,
 	-- an opaque identifier for what was targeted (a surface id, a part name):
-	-- LuauUI stores and forwards it and never interprets it
+	-- Facet stores and forwards it and never interprets it
 	target: string?,
 	-- distance from the pose to the hit, when both are known. Derived, not
 	-- supplied: a platform that reports a distance disagreeing with its own

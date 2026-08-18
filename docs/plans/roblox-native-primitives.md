@@ -1,4 +1,4 @@
-# Plan: leaning on Roblox's built-in UI primitives in LuauUI
+# Plan: leaning on Roblox's built-in UI primitives in Facet
 
 > **2026-07-22 correction:** Read
 > [`roblox-native-audit-corrections.md`](roblox-native-audit-corrections.md) first.
@@ -14,7 +14,7 @@
   §6 Table/VirtualList re-point (native canvas), §8 four-edge `GetInsetArea` facts +
   `deviceSafeContent` (scenario `safe_area`), §5 measure/paint seam split + engine
   calibration (scenario `preferred_text`; the engine paints the player preference —
-  LuauUI no longer multiplies it into TextSize), §7 modal-only selection bridge
+  Facet no longer multiplies it into TextSize), §7 modal-only selection bridge
   (opt-in `engineSelectionBridge`; passive surfaces stay `SelectedObject=nil`;
   physical-pad row pending), §9 `PreloadAsync` transport + `AsyncImage` (scenario
   `async_images`; stale-rejection only, never in-flight cancellation), corrections
@@ -27,12 +27,12 @@
   exist (§9 — use PreloadAsync status / `GetAssetFetchStatus*`); selection is NOT
   auto-cleared when scrolled offscreen programmatically and selecting an offscreen
   object natively autoscrolls its ScrollingFrame (§7; spike m9).
-- **Author brief:** the game director has ruled that **LuauUI is a Roblox-only
-  framework** and that engine-agnosticism is no longer a design goal. LuauUI was
+- **Author brief:** the game director has ruled that **Facet is a Roblox-only
+  framework** and that engine-agnosticism is no longer a design goal. Facet was
   originally built with a discipline that kept its core, layout, rendering, focus,
   and environment code free of Roblox APIs, touching the engine only through thin
   adapters in `src/client/`. This document asks: now that portability is off the
-  table, **what hand-rolled machinery in LuauUI duplicates something Roblox already
+  table, **what hand-rolled machinery in Facet duplicates something Roblox already
   ships, and where should we hand that work to the engine?**
 - **The one constraint that survives the ruling:** *headless testability* (defined
   below). It is load-bearing and non-negotiable. Every recommendation is weighed
@@ -51,25 +51,25 @@
 
 ## 0. Terms a reader outside this project needs
 
-This plan is written for a competent engineer who has not worked inside LuauUI.
+This plan is written for a competent engineer who has not worked inside Facet.
 The following terms recur; each is defined once here.
 
 - **Lune** — a standalone runtime that executes Luau (Roblox's Lua dialect) on a
   developer machine *without* a Roblox game process. It has no `game`, no
-  `Instance`, no rendering. LuauUI's automated library suite (**595 tests on
+  `Instance`, no rendering. Facet's automated library suite (**595 tests on
   2026-07-22**) plus the game suite, its correctness gates, and its property-based
-  **fuzzer** all run under Lune. Running under Lune is what makes LuauUI's
+  **fuzzer** all run under Lune. Running under Lune is what makes Facet's
   autonomous, no-human-in-the-loop development workflow possible: an agent can
   change layout code and get a definitive pass/fail in seconds without launching
   Studio.
 - **Headless / headless testability** — "headless" means "with no Roblox engine
   present." A piece of logic is *headlessly testable* if its behaviour can be
-  asserted under Lune. LuauUI's rule is that everything except the client adapters
+  asserted under Lune. Facet's rule is that everything except the client adapters
   must run headlessly. This is verified structurally: `src/core`, `src/layout`,
   `src/render`, `src/present`, and `src/env` contain **zero** `game:GetService` or
   `Instance.new` calls; only `src/client/*` touches the engine
   (`docs/plans/roblox-native-stylesheets.md` §2.6).
-- **The flat renderer** — LuauUI's rendering strategy. Instead of building a nested
+- **The flat renderer** — Facet's rendering strategy. Instead of building a nested
   tree of engine `Frame`s that mirror the UI's logical nesting, the renderer
   creates **every node as a direct child of one root container**, each positioned
   by an absolute pixel rectangle the layout solver computed
@@ -90,7 +90,7 @@ The following terms recur; each is defined once here.
   real, engine-touching implementation; `FakeTarget` (`tests/lib/fake_target.luau`)
   is a headless one that records the same calls as data so tests can assert on them.
 - **The Input Action System (IAS)** — Roblox's first-party input-binding system
-  (`InputAction`/`InputBinding` instances). LuauUI wires its controls to it for
+  (`InputAction`/`InputBinding` instances). Facet wires its controls to it for
   activation and navigation. It is a *parallel* system to Roblox's gamepad UI
   selection (`GuiService.SelectedObject` + `NextSelection*`); the two were
   deliberately not driven together (ADR-0014). This distinction matters in §5.4.
@@ -144,15 +144,15 @@ hand-rolled Luau and into the primitive Roblox already ships.
 |---|---|---|
 | **2-pass layout solver** vs `UIListLayout`/`UIGridLayout`/`UIFlexLayout`/`AutomaticSize` | **Keep custom** | The solver is the headless source of truth every layout test and the fuzzer assert against; native layout objects make geometry emergent and engine-only. |
 | `UIPadding`/`UICorner`/`UIAspectRatioConstraint`/`UISizeConstraint` (leaf constraints) | **Keep solver-authoritative; do not add more native constraint objects** | Padding is already double-tracked (solver + one native `UIPadding` on Buttons); adding constraint objects that feed geometry would fight the solver invisibly. |
-| **Scrolling & clipping** (flat renderer) vs `ScrollingFrame` + `ClipsDescendants` | **Adopt native (hybrid): solver owns content layout, a native `ScrollingFrame` owns scroll + clip** | *The single biggest change.* Fixes the recorded "ScrollView cannot scroll or clip" gap (sponsor-parity A1) and deletes repeated hand-rolled scrolling. Roblox supplies touch momentum, elastic behavior, and scroll bars; LuauUI explicitly keeps logical focus visible for keyboard/gamepad. |
+| **Scrolling & clipping** (flat renderer) vs `ScrollingFrame` + `ClipsDescendants` | **Adopt native (hybrid): solver owns content layout, a native `ScrollingFrame` owns scroll + clip** | *The single biggest change.* Fixes the recorded "ScrollView cannot scroll or clip" gap (sponsor-parity A1) and deletes repeated hand-rolled scrolling. Roblox supplies touch momentum, elastic behavior, and scroll bars; Facet explicitly keeps logical focus visible for keyboard/gamepad. |
 | Explicit `ZIndex` paint-order walk | **Keep, revisit opportunistically** | Cheap and deterministic; only worth reconsidering once native containers exist. |
 | **Headless text measurement** (`text_metrics`) vs `TextService`/`GetTextBoundsAsync`/`AutomaticSize` | **Hybrid: keep the headless estimator as the solver's measurer; add an engine-side correction at the edge** | The solver must measure text under Lune, so the estimator stays; the engine can *refine* it (the calibration the code already promises) but must never become the sole source or measure/paint diverge. Do **not** adopt `AutomaticSize`. |
 | **Logical focus graph** (`src/focus`) vs `GuiService.SelectedObject`/`Selectable`/`NextSelection*` | **Keep custom; test an opt-in modal/menu bridge only** | Gameplay and passive HUDs must not reserve controls. Native selection is allowed only while a responder owns UI input and only after gamepad proof; otherwise keep `SelectedObject=nil`. |
 | **`VirtualList` windowing** vs native `ScrollingFrame` canvas + `CanvasPosition` | **Hybrid: keep windowing, back it with the native `ScrollingFrame` from the scroll decision** | Roblox has no built-in virtualization, so windowing stays; but it should ride a real canvas instead of the current `Anchor` + `offsetY` trick. |
 | **Environment facts** (safe areas, viewport, notch) vs `GuiService`/`ScreenInsets` APIs | **Keep the injectable fact seam; adopt the modern inset APIs in the adapter; fill the unpopulated notch fact** | The env fact seam is required for headless tests; but the adapter reads only legacy insets and never populates `deviceSafeInsets` (notch), a real gap. |
 | **Async image/resource loading** (`src/async`) vs `ContentProvider:PreloadAsync`/`rbxthumb://` | **Keep the provider state machine; ship a native transport + wire `Image` to load states** | The provider is a good engine-free state machine with no transport; Roblox ships the transport (`PreloadAsync`, thumbnail URLs) and image load/failure signals it should consume. |
-| **Drag acquisition** vs raw `UI.Grip` capture | **Adopt `UIDragDetector` at the adapter edge; keep LuauUI payload/drop policy** | Roblox already owns cross-input drag motion; LuauUI should own composable drag sessions, legal targets, cancellation, fallback, and tests. |
-| **Touch gestures** vs raw sample recognition | **Adopt native `GuiObject` touch events; normalize and compose them in LuauUI** | Long press, pan, pinch, rotate, swipe, and tap are native events; framework value types and arbitration remain useful. |
+| **Drag acquisition** vs raw `UI.Grip` capture | **Adopt `UIDragDetector` at the adapter edge; keep Facet payload/drop policy** | Roblox already owns cross-input drag motion; Facet should own composable drag sessions, legal targets, cancellation, fallback, and tests. |
+| **Touch gestures** vs raw sample recognition | **Adopt native `GuiObject` touch events; normalize and compose them in Facet** | Long press, pan, pinch, rotate, swipe, and tap are native events; framework value types and arbitration remain useful. |
 | **Stroked paths/arcs** vs rotated-frame constructions | **Adopt `Path2D` where it fits** | Roblox supplies a Studio-editable 2D path; keep bespoke drawing only for unsupported filled/general-canvas cases. |
 | **Paged full-screen navigation** | **Evaluate `UIPageLayout` for paged `TabView`** | It owns cross-input page changes, but does not replace general view transitions or Sponsor choreography. |
 | **Non-style animation choreography** (timelines, springs, value-driven motion) | **Keep a deterministic framework model when built (mostly absent today)** | Native Styling Transitions can own supported style-state changes when publishable. Timeline, spring, value, and structural choreography still need a reduced-motion-aware model plus a Roblox adapter. |
@@ -167,7 +167,7 @@ Everything else is smaller and several items depend on that one landing first.
 
 ## 3. Layout: the two-pass solver vs native layout objects
 
-### What LuauUI does today
+### What Facet does today
 
 `src/layout/solver.luau` is a complete, deterministic layout engine. `solver.solve`
 (`solver.luau:505`) runs a **measure** pass (`measure`, `:218`) that computes each
@@ -220,7 +220,7 @@ to the "adopt" recommendations below. The reasoning:
    override solved rects.
 
 4. **The value native layout adds is small here.** `UIListLayout`'s selling points
-   are auto-flow and free reordering — but LuauUI already re-solves and writes only
+   are auto-flow and free reordering — but Facet already re-solves and writes only
    changed rects incrementally, so it is not paying a re-layout cost native would
    save. There is no free lunch on the table, only a testability loss.
 
@@ -250,7 +250,7 @@ those in the solver.**
 
 **This is the single most important decision in the document.**
 
-### What LuauUI does today
+### What Facet does today
 
 The flat renderer cannot natively scroll or clip, and the codebase says so
 repeatedly. There are three separate hand-rolled scroll implementations, plus a
@@ -310,7 +310,7 @@ headless; the engine performs scrolling on top of that geometry.** Concretely:
   `:459-470`).
 - The **solver keeps computing the content layout** exactly as it does now,
   including `contentSize` (`solver.luau:317`). The adapter maps `contentSize` to the
-  `ScrollingFrame`'s `CanvasSize` and lets the engine own the offset. Where LuauUI
+  `ScrollingFrame`'s `CanvasSize` and lets the engine own the offset. Where Facet
   needs programmatic scroll (scroll-a-focused-row-into-view), it writes
   `CanvasPosition` instead of poking per-row `offsetY`.
 - **Retire the hand-rolled scroll code** in `Table` and `VirtualList`: the
@@ -345,7 +345,7 @@ fake target.
 **Cross-input impact — positive, but not automatic.** Today scroll is mouse-wheel +
 touch-pan only, hand-wired; gamepad scroll does not exist in the scroll primitive
 (VirtualList notes it has "NO navigateIntercept," `virtual_list.luau:34`). A native
-`ScrollingFrame` gives LuauUI the correct canvas and clipping mechanism, while the
+`ScrollingFrame` gives Facet the correct canvas and clipping mechanism, while the
 presenter keeps logical focus visible by computing and writing `CanvasPosition`.
 Correct gamepad scrolling must not depend on an engine `SelectedObject` mirror. An
 engaged modal/menu may separately test whether a safe bridge adds native behavior,
@@ -366,7 +366,7 @@ but passive/gameplay UI keeps engine selection nil.
 
 ## 5. Text measurement — `text_metrics` vs `TextService` / `AutomaticSize`
 
-### What LuauUI does today
+### What Facet does today
 
 `src/layout/text_metrics.luau` is a **headless, non-yielding text measurer**. It
 estimates a string's wrapped width and height from an average-glyph-width fraction
@@ -406,7 +406,7 @@ The tension here is real and the resolution is subtle:
   "modelling refined by the engine," not "depending on the engine": the headless
   path still works standalone; the engine just makes it more accurate when present.
 
-- **The danger to avoid: measure/paint divergence.** LuauUI has a hard-won invariant
+- **The danger to avoid: measure/paint divergence.** Facet has a hard-won invariant
   that the size the solver *measures* and the size the adapter *paints* must agree —
   the whole `applyTextScale` design (`renderer.luau:352-368`) and its "verifier F1:
   measure and paint must agree" comment (`renderer.luau:113-115`) exist to enforce
@@ -429,7 +429,7 @@ The tension here is real and the resolution is subtle:
 
 ## 6. `VirtualList` windowing vs native `ScrollingFrame` canvas + `CanvasPosition`
 
-### What LuauUI does today
+### What Facet does today
 
 `VirtualList` (`src/controls/virtual_list.luau`) mounts **only the visible rows plus
 a small overscan buffer** ("windowing"): a `windowItems` memo computes which keyed
@@ -472,15 +472,15 @@ mount-only-what's-visible behaviour that is its reason to exist.
 
 ## 7. Focus and selection — the logical focus graph vs `GuiService.SelectedObject`
 
-### What LuauUI does today
+### What Facet does today
 
-`src/focus/focus_graph.luau` is a **logical focus model** that LuauUI owns entirely.
+`src/focus/focus_graph.luau` is a **logical focus model** that Facet owns entirely.
 It maintains a stack of focus scopes (flat rings and grouped 2-D navigation with
 axes, wrap policy, containment, and per-direction exits), modal focus trapping with
 restore-on-pop, and nearest-surviving-neighbour recovery when a focused node
 disappears (`focus_graph.luau:1-16`, `navigateDirection` `:232-266`, `remove`
 `:382-409`). The file header is explicit about the relationship to the engine:
-"LuauUI owns focus identity and movement; **Roblox SelectedObject/NextSelection* are
+"Facet owns focus identity and movement; **Roblox SelectedObject/NextSelection* are
 render outputs applied by the platform adapter (not here — engine-free)**"
 (`focus_graph.luau:2-4`). Focus *visuals* are drawn by the adapter's `setFocusVisual`
 (`screen_target.luau:856-939`) driven by the logical focus path
@@ -490,7 +490,7 @@ Critically, **the "render output" the header promises is not actually wired.**
 `setFocusVisual` draws a `UIStroke` ring and a ten-foot `UIScale` lift, but nothing
 in the codebase writes `GuiService.SelectedObject` or sets `Selectable`/
 `NextSelectionUp/Down/Left/Right`. This was a deliberate deferral: ADR-0014 declined
-to drive `SelectedObject` alongside LuauUI's own graph and the Input Action System
+to drive `SelectedObject` alongside Facet's own graph and the Input Action System
 because "`SelectedObject` and IAS are parallel systems… risks a double-drive"
 (quoted in `sponsor-view-parity.md:380-385`).
 
@@ -498,7 +498,7 @@ Roblox ships gamepad UI selection: `GuiService.SelectedObject` (the currently
 selected GUI), `GuiObject.Selectable`, and `NextSelectionUp/Down/Left/Right` for the
 selection graph. These APIs participate in native navigation and highlighting. Their
 interaction with IAS, offscreen scrolling, platform sound, and haptics is not a
-LuauUI contract until Q3 records it without double-driving focus.
+Facet contract until Q3 records it without double-driving focus.
 
 ### Recommendation: **keep the custom graph; test an opt-in modal/menu bridge only.**
 
@@ -522,7 +522,7 @@ reassessment:
   would delete the framework's most distinctive capability and its tests.
 
 - **Do not wire a general mirror.** `controller.setFocusPath(path)` continues to
-  drive LuauUI's own focus visual and explicit scroll-to-visible command. Passive
+  drive Facet's own focus visual and explicit scroll-to-visible command. Passive
   HUDs and gameplay screens set or leave `GuiService.SelectedObject = nil` so UI does
   not reserve controls the game needs.
 
@@ -535,7 +535,7 @@ reassessment:
 
 - **Sounds, haptics, and native autoscroll are observations, not the contract.** If
   they occur safely they are optional benefits. Logical focus visibility still uses
-  LuauUI's explicit keep-visible calculation so every surface works with the bridge
+  Facet's explicit keep-visible calculation so every surface works with the bridge
   off.
 
 - **Headless-test impact:** none. The logical graph, focus visual, and keep-visible
@@ -547,7 +547,7 @@ reassessment:
 
 ## 8. Environment facts — safe areas, viewport, notch insets
 
-### What LuauUI does today
+### What Facet does today
 
 `src/env/environment.luau` is an engine-free store of observable client facts
 (viewport rect, safe insets, preferred input, capabilities, reduced motion, display
@@ -595,7 +595,7 @@ facts. The env store, its derived memos, and their tests are unchanged.
 
 ## 9. Async images and resource loading — `src/async` vs `ContentProvider` / `rbxthumb://`
 
-### What LuauUI does today
+### What Facet does today
 
 `src/async/resources.luau` is an **engine-free async-state machine**: it tracks
 `ready`/`pending`/`failed` per cache key with bounded concurrency, an LRU cache
@@ -657,7 +657,7 @@ The finding: **the framework ships almost none of this today.** A grep for
 tweens in `screen_target.luau` (hover/press fills, the toggle knob, the focus lift —
 all owned by the stylesheets plan) and one `RunService.Heartbeat` in the Edit-mode
 preview harness (`edit_preview.luau:98`). All the timeline/spring/value motion the
-sponsor view needs lives in *game* code, invisible to LuauUI
+sponsor view needs lives in *game* code, invisible to Facet
 (`sponsor-view-parity.md:216-238`, gap B1, rated XL).
 
 Roblox's native offering here is `TweenService` (already used for state motion) and
@@ -673,7 +673,7 @@ specified.
 
 ### 10.2 Render targets — **keep; already native**
 
-LuauUI's render targets are already thin wrappers over native surfaces. `ScreenTarget`
+Facet's render targets are already thin wrappers over native surfaces. `ScreenTarget`
 creates a native `ScreenGui` (`screen_target.luau:433-439`). `BillboardTarget`
 (`src/client/billboard_target.luau`) is "a thin root swap over ScreenTarget" that
 renders into a native `BillboardGui`, with the platform truths (offset-only canvas,
@@ -763,7 +763,7 @@ most downstream work.
 
 ### Phase 4 — Modal/menu engine-selection bridge experiment (§7)
 - **Scope:** keep passive/gameplay targets at `SelectedObject=nil`. In an engaged
-  modal/menu only, experiment with mirroring the logical focus path while LuauUI
+  modal/menu only, experiment with mirroring the logical focus path while Facet
   remains the authority; verify no engine self-navigation or IAS double drive. Composes
   with Phase 2 for gamepad scroll-into-view.
 - **Gate:** Studio and physical-gamepad drives prove the logical graph remains the
@@ -808,7 +808,7 @@ answer here would mis-scope Phase 2 or Phase 4.
 | # | Question | Why it matters | Verification |
 |---|---|---|---|
 | Q1 | When a `ScrollingFrame` is used as the clip host and descendants are re-parented into it with canvas-relative positions, does clipping + native scroll behave exactly as the current `Frame` + `ClipsDescendants` host does for the non-scroll case? | Phase 2 extends the existing clip-host mechanism; a behavioural difference would ripple into every clipped surface. | Studio place: build a clipped region both ways (Frame host vs ScrollingFrame host), overflow it, confirm identical clipping and that scroll only engages on the ScrollingFrame. |
-| Q2 | Can LuauUI set `CanvasSize` to the full virtual height while only a *window* of rows is mounted, drive scroll-into-view via `CanvasPosition`, and read `CanvasPosition` back to slide the window — without the engine fighting an `AutomaticCanvasSize`? | The VirtualList re-point (Phase 3) depends on a full-height canvas over a partial row set. | Studio: a ScrollingFrame with `CanvasSize` = 10,000×rowHeight but only ~15 mounted rows; scroll via drag and via `CanvasPosition`; confirm the bar is proportioned to 10,000 rows and the window can be repositioned from `CanvasPosition`. |
+| Q2 | Can Facet set `CanvasSize` to the full virtual height while only a *window* of rows is mounted, drive scroll-into-view via `CanvasPosition`, and read `CanvasPosition` back to slide the window — without the engine fighting an `AutomaticCanvasSize`? | The VirtualList re-point (Phase 3) depends on a full-height canvas over a partial row set. | Studio: a ScrollingFrame with `CanvasSize` = 10,000×rowHeight but only ~15 mounted rows; scroll via drag and via `CanvasPosition`; confirm the bar is proportioned to 10,000 rows and the window can be repositioned from `CanvasPosition`. |
 | Q3 | Can an engaged modal/menu mirror logical focus to engine selection without IAS double drive, engine-cleared offscreen selection, or control theft? | Decides whether an opt-in bridge is safe. Passive/gameplay targets stay visuals-only regardless. | Studio and physical gamepad: exercise focus, offscreen rows, scrolling, teardown, and return to gameplay. Treat sounds/haptics/autoscroll as observed results, not promised behavior. |
 | Q4 | Does the native safe-area / four-edge inset API report distinct left/right insets on a landscape notched phone (where `GetGuiInset` assumes zero), and does it update on orientation change? | Phase 1's `deviceSafeInsets` population depends on the API actually differing from the legacy inset. | Studio device emulator (notched phone, landscape): read both APIs, confirm the safe-area API reports non-zero left/right and updates on rotate. |
 | Q5 | Does `GetTextBoundsAsync` calibration, fed back into the estimator table and re-solved, converge to tighter boxes without ever under-reserving (text clipping) across the known fonts and CJK? | Phase 5's correction must not trade the estimator's safe over-reserve for clipped text. | Studio: measure a corpus (Latin wrap, CJK, unknown font) both ways; confirm corrected boxes are ≥ actual text bounds and < estimator bounds. |

@@ -22,7 +22,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local customFactory = require("../src/core/custom")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
 local presenterLib = require("../src/present/presenter")
@@ -31,7 +31,7 @@ local motionClockLib = require("../src/motion/clock")
 local fake_target = require("../tests/lib/fake_target")
 local progress_view = require("../src/controls/progress_view")
 local path_shapes = require("../src/controls/path_shapes")
-local themes = LuauUI.themes
+local themes = Facet.themes
 local device_views = require("./lib/device_views")
 
 local RING = "/S/Load/Ring"
@@ -70,7 +70,7 @@ end
 describe("ProgressView circular: the DETERMINATE ring is the value's own arc", function()
 	it("draws an arc over a full backing ring, and no bar at all", function()
 		local core, _, adapter, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, presentation = "circular" })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.25, presentation = "circular" })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -92,7 +92,7 @@ describe("ProgressView circular: the DETERMINATE ring is the value's own arc", f
 	it("the SWEEP is the value: 25% ends at 3 o'clock, 100% closes the ring", function()
 		local core, _, adapter, pres = harness()
 		local v = core:signal(0.25)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = v, presentation = "circular" })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = v, presentation = "circular" })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local pts = adapter.node(ARC).props.points
@@ -114,7 +114,7 @@ describe("ProgressView circular: the DETERMINATE ring is the value's own arc", f
 	it("a value change is PAINT ONLY: one prop write on `points`, zero re-solves", function()
 		local core, _, adapter, pres = harness()
 		local v = core:signal(0.25)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = v, presentation = "circular" })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = v, presentation = "circular" })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		adapter.takeOps()
@@ -137,7 +137,7 @@ end)
 describe("ProgressView circular: the INDETERMINATE ring rotates its own start angle", function()
 	local function ringWorld(policy: string?)
 		local core, _, adapter, pres, clock, now = clockWorld(policy)
-		local p = LuauUI.newProgressView(LuauUI, core, {
+		local p = Facet.newProgressView(Facet, core, {
 			id = "Load",
 			presentation = "circular",
 			motionClock = clock,
@@ -207,7 +207,7 @@ describe("ProgressView circular: the INDETERMINATE ring rotates its own start an
 		expect(clock:activeCount()).toBe(1)
 		-- ...and a second, DOT spinner beside it takes exactly one more: the arc did
 		-- not quietly acquire a private cycle
-		local dots = LuauUI.newProgressView(LuauUI, core, {
+		local dots = Facet.newProgressView(Facet, core, {
 			id = "Dots",
 			presentation = "spinner",
 			motionClock = clock,
@@ -239,7 +239,7 @@ describe("ProgressView circular: the INDETERMINATE ring rotates its own start an
 
 	it("with no clock it holds its rest pose and says so", function()
 		local core, _, adapter, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, {
+		local p = Facet.newProgressView(Facet, core, {
 			id = "Load",
 			presentation = "circular",
 			scope = core:scope("surface"),
@@ -263,8 +263,8 @@ describe("ProgressView circular: the OFF-PATH cost is exactly zero", function()
 		-- single Path is materialised, or a single `points` op reaches the adapter,
 		-- the new shape has leaked into the old ones.
 		local core, _, adapter, pres, clock, now = clockWorld()
-		local bar = LuauUI.newProgressView(LuauUI, core, { id = "Bar", value = core:signal(0.4), height = 12 })
-		local dots = LuauUI.newProgressView(LuauUI, core, {
+		local bar = Facet.newProgressView(Facet, core, { id = "Bar", value = core:signal(0.4), height = 12 })
+		local dots = Facet.newProgressView(Facet, core, {
 			id = "Dots",
 			presentation = "spinner",
 			motionClock = clock,
@@ -530,7 +530,7 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 			for _, view in device_views.VIEWS do
 				local core, env, adapter, pres = harness(view.w, view.h)
 				env:set("themeMetrics", themes.resolve(pkg, nil, {}))
-				local p = LuauUI.newProgressView(LuauUI, core, {
+				local p = Facet.newProgressView(Facet, core, {
 					id = "Load",
 					label = "Loading the race",
 					value = 0.42,
@@ -604,7 +604,7 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 				else
 					spec.value = 0.42
 				end
-				local p = LuauUI.newProgressView(LuauUI, core, spec)
+				local p = Facet.newProgressView(Facet, core, spec)
 				local handle = pres.present(UI.Screen({ id = "S", padding = 16, children = { p.blueprint } }))
 				pres.refresh()
 				pres.refresh()

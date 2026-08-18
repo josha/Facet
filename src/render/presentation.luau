@@ -1,7 +1,7 @@
 --!strict
 --[[ presentation — the PRESENTATION CHANNEL'S ARITHMETIC (ADR-0026).
 
-	WHAT THIS IS FOR (read this first if you have never met the channel). LuauUI
+	WHAT THIS IS FOR (read this first if you have never met the channel). Facet
 	paints a node at its solved rect. Three things can then bend that paint without
 	touching the layout: a fade, a scale and a rotation. Two different people ask
 	for them:
@@ -45,7 +45,7 @@
 	composites multiply their alphas. Anything else makes nesting non-associative —
 	a subtree scaled 2x inside a container scaled 2x has to read 4x.
 
-	Opacity is also the one Apple writes down, and LuauUI took the rule from there:
+	Opacity is also the one Apple writes down, and Facet took the rule from there:
 	applying `opacity(_:)` to a view "that has already had its opacity transformed…
 	multiplies the effect of the underlying opacity transformation"
 	(developer.apple.com/documentation/swiftui/view/opacity(_:), read 2026-08-14;
@@ -90,19 +90,19 @@ function presentation.readAuthored(props: any, class: string, path: string): Aut
 	if o ~= nil then
 		local ok, why = schema.checkOpacity(o)
 		if not ok then
-			error(`LuauUI {class}.opacity at {path}: expects {why}`, 0)
+			error(`Facet {class}.opacity at {path}: expects {why}`, 0)
 		end
 	end
 	if s ~= nil then
 		local ok, why = schema.checkScaleFactor(s)
 		if not ok then
-			error(`LuauUI {class}.scale at {path}: expects {why}`, 0)
+			error(`Facet {class}.scale at {path}: expects {why}`, 0)
 		end
 	end
 	if r ~= nil then
 		local ok, why = schema.checkDegrees(r)
 		if not ok then
-			error(`LuauUI {class}.rotation at {path}: expects {why}`, 0)
+			error(`Facet {class}.rotation at {path}: expects {why}`, 0)
 		end
 	end
 	return { opacity = o, scale = s, rotation = r }

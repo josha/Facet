@@ -6,7 +6,7 @@ in the background while the gate that killed it reported green.
 ## What happened
 
 `tools/suite_cache_selftest.sh` proves the Rascal Rally fingerprint is content-sensitive to
-a LuauUI edit. It did that the obvious way: write a probe file under `src/`, re-hash,
+a Facet edit. It did that the obvious way: write a probe file under `src/`, re-hash,
 delete the probe.
 
 `examples/showcase.project.json` mounts `../src`. A `rojo serve` running the ordinary dev
@@ -17,7 +17,7 @@ it already gone:
 [ERROR rojo] Rojo crashed! You are running Rojo 7.7.0.
 [ERROR rojo] Details: called `Result::unwrap()` on an `Err` value: Custom { kind: NotFound,
   error: Error { kind: Canonicalize, source: Os { code: 2, kind: NotFound } },
-  path: ".../LuauUI/src/.suite_cache_selftest_probe.luau" }
+  path: ".../Facet/src/.suite_cache_selftest_probe.luau" }
 [ERROR rojo] in file src/change_processor.rs on line 172
 ```
 
@@ -44,7 +44,7 @@ grep -o '"\$path": "[^"]*"' examples/*.project.json
 
 At the time of writing, `showcase.project.json` mounts `../src`, `gallery/examples`,
 `gallery/scenarios`, `gallery/client` and `themes`. **`tests/` is mounted by no project
-file**, which is why the LuauUI half of the same selftest never crashed anything.
+file**, which is why the Facet half of the same selftest never crashed anything.
 
 `globIgnorePaths` is not a defence. It filters the snapshot, not necessarily the filesystem
 event that precedes it, and relying on it means relying on the ordering inside someone
@@ -53,8 +53,8 @@ else's change processor.
 ## What replaced it
 
 The probe moved to `tests/`, which is inside Rascal Rally's fingerprint for the same reason
-`src/` is — its specs require LuauUI's `tests/lib` directly — so the behavioural claim ("a
-LuauUI-side edit moves the game's fingerprint") is unchanged and still proved by an actual
+`src/` is — its specs require Facet's `tests/lib` directly — so the behavioural claim ("a
+Facet-side edit moves the game's fingerprint") is unchanged and still proved by an actual
 edit.
 
 The claim the move *would* have weakened — that `src/` specifically is covered — is now a

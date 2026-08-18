@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload LuauUI's standard icon set to Roblox, headlessly, and write the manifest.
+"""Upload Facet's standard icon set to Roblox, headlessly, and write the manifest.
 
 WHY THIS EXISTS. Every one of the 11 theme assets shipped before this went up
 through Studio: a local `http.server` on 127.0.0.1:8643 plus the Studio MCP
@@ -73,7 +73,7 @@ def load_keys() -> None:
 
 def multipart(fields: dict[str, str], filename: str, blob: bytes) -> tuple[bytes, str]:
     """Hand-rolled multipart so this script needs nothing outside the stdlib."""
-    boundary = f"----luauui{uuid.uuid4().hex}"
+    boundary = f"----facet{uuid.uuid4().hex}"
     out = bytearray()
     for name, value in fields.items():
         out += f"--{boundary}\r\n".encode()
@@ -104,7 +104,7 @@ def upload_one(path: pathlib.Path, key: str, creator: str) -> tuple[str, str]:
     request = {
         "assetType": "Image",  # NOT "Decal" -- see the module docstring
         "displayName": path.stem,
-        "description": "LuauUI standard icon set. Near-white silhouette on transparency; colour comes from the theme's tintRole.",
+        "description": "Facet standard icon set. Near-white silhouette on transparency; colour comes from the theme's tintRole.",
         "creationContext": {"creator": {"userId": creator}},
     }
     body, ctype = multipart({"request": json.dumps(request)}, path.name, path.read_bytes())
@@ -254,8 +254,8 @@ def main() -> int:
     MANIFEST.write_text(
         json.dumps(
             {
-                "schema": "luauui-theme-assets/1",
-                "package": "luauui-standard-icons",
+                "schema": "facet-theme-assets/1",
+                "package": "facet-standard-icons",
                 "stage": "compact-label",
                 "uploaded": datetime.date.today().isoformat(),
                 "method": (

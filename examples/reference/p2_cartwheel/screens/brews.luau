@@ -17,7 +17,7 @@ function brews.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local orders = app.services.orders
 
 	local self: any = {}
@@ -149,7 +149,7 @@ function brews.new(app: any): any
 
 	-- ---- the toolbar ---------------------------------------------------------
 
-	local search = LuauUI.newTextInput(LuauUI, core, {
+	local search = Facet.newTextInput(Facet, core, {
 		id = "Search",
 		value = query,
 		placeholder = S.t("brews.search"),
@@ -296,7 +296,7 @@ function brews.new(app: any): any
 		return S.t("status." .. item.status)
 	end
 
-	tableControl = LuauUI.newTable(LuauUI, core, {
+	tableControl = Facet.newTable(Facet, core, {
 		id = "BrewTable",
 		rows = sorted,
 		key = function(item)

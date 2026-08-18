@@ -16,17 +16,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -51,7 +51,7 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 		local core, _, system, adapter, pres = harness()
 		local sortOrder = core:signal(nil :: any)
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -81,7 +81,7 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 			rowHeight = 40,
 			sortOrder = sortOrder,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO opts: full auto-composition
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, handle = handle, tbl = tbl }
@@ -292,8 +292,8 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			env = env,
 		}
 		reorderConsumer(rows, log)(spec)
-		local tbl = table_control.build(LuauUI, core, spec)
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local tbl = table_control.build(Facet, core, spec)
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		return {
@@ -397,7 +397,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 		local ownerEditing = core:signal(true)
 		editing = ownerEditing
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -419,7 +419,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			editing = ownerEditing,
 			env = env,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen)
 		pres.refresh()
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
@@ -499,16 +499,16 @@ end)
 -- =============================================================================
 describe("paradigm_table: reorderable + selection-none keeps rows reachable (live-drive regression)", function()
 	local function noneWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(bigRows(3))
 		local reorders: { any } = {}
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -532,7 +532,7 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 				table.insert(reorders, { keys = keys, toIndex = toIndex })
 			end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen) -- zero opts
 		pres.refresh()
 		local function press(key: string)
@@ -564,14 +564,14 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 	end)
 
 	it("a selection-none NON-reorderable table keeps rows out of the ring (unchanged)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(bigRows(2))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -591,9 +591,9 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 			rowHeight = 40,
 			env = env,
 		})
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
-			children = { tbl.blueprint, LuauUI.UI.Button({ id = "After", label = "After" }) },
+			children = { tbl.blueprint, Facet.UI.Button({ id = "After", label = "After" }) },
 		})
 		pres.present(screen)
 		pres.refresh()
@@ -609,17 +609,17 @@ end)
 -- =============================================================================
 describe("paradigm_table: class-flip-then-dispose is registry-neutral", function()
 	it("grab, rip the classes away (cancel fires), dispose: counters at baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local rows = core:signal(bigRows(3))
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(r: any)
@@ -641,7 +641,7 @@ describe("paradigm_table: class-flip-then-dispose is registry-neutral", function
 			env = env,
 			onReorder = function() end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		local function press(key: string)
@@ -680,7 +680,7 @@ end)
 --
 -- Plus the director's standing ask from the same report: "we likely want taller
 -- table cells on mobile for touch targeting. that seems like the paradigm
--- adaptation luauui should handle."
+-- adaptation facet should handle."
 -- =============================================================================
 describe("paradigm_table: the row box adapts, and cells can never outgrow it", function()
 	local LONG = "Drift City Nights Extended Club Mix"
@@ -698,11 +698,11 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 			-- the metric half of a package install, exactly as the theme picker
 			-- commits it (ADR-0019 §7) — which is what makes a themed row solvable
 			-- headlessly at all
-			local pkg = require(`../examples/themes/{opts.package}`).build(LuauUI.themes)
-			env:set("themeMetrics", LuauUI.themes.resolve(pkg, nil, {}))
+			local pkg = require(`../examples/themes/{opts.package}`).build(Facet.themes)
+			env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))
 		end
 		local rows = core:signal({ { id = "drift", name = LONG } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
 				{
@@ -740,7 +740,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 			rowHeight = opts.rowHeight,
 			env = env,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		local rectOf = handle.controller.rectOf
 		local base = "/S/T/Main/Body/Rows/[drift@0]/Row"
 		local out = {
@@ -889,7 +889,7 @@ describe("paradigm_table: a surface onGeometry is additive, not an override", fu
 		local fed = { count = 0 }
 		local surface = { count = 0 }
 		local node = contribution.attach(
-			LuauUI.UI.Box({ id = "Probe", width = { type = "fixed", px = 10 }, height = { type = "fixed", px = 10 } }),
+			Facet.UI.Box({ id = "Probe", width = { type = "fixed", px = 10 }, height = { type = "fixed", px = 10 } }),
 			{
 				syncGeometry = function()
 					fed.count += 1
@@ -902,7 +902,7 @@ describe("paradigm_table: a surface onGeometry is additive, not an override", fu
 				surface.count += 1
 			end
 		end
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { node } }), opts)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { node } }), opts)
 		pres.refresh()
 		return { pres = pres, handle = handle, fed = fed, surface = surface }
 	end
@@ -975,7 +975,7 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 			local core, env, _, _, pres = harness()
 			env:set("themeMetrics", case.metrics)
 			local rows = core:signal({ { id = "a", name = "Neon Straightaway" } })
-			local tbl = table_control.build(LuauUI, core, {
+			local tbl = table_control.build(Facet, core, {
 				id = "T",
 				rows = rows,
 				key = function(i: any)
@@ -994,7 +994,7 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 				scrolls = false,
 				env = env,
 			})
-			local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+			local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 			local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a@0]/Row")
 			if r == nil or r.h <= 0 then
 				error(`{case.label}: no solved row`)
@@ -1014,7 +1014,7 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 		env:set("preferredTextSize", 0 / 0)
 		env:set("preferredTextOffset", 0 / 0)
 		local rows = core:signal({ { id = "a", name = "Neon Straightaway" } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
 			key = function(i: any)
@@ -1033,7 +1033,7 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 			scrolls = false,
 			env = env,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a@0]/Row")
 		expect(r ~= nil).toBe(true)
 		expect(r.h == r.h).toBe(true) -- not NaN

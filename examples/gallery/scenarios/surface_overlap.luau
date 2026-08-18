@@ -76,8 +76,8 @@ return {
 	copy = COPY,
 	declarations = DECLARATIONS,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local presenter = ctx.presenter
 		local scope = core:scope("surface-overlap")

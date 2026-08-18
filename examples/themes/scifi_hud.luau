@@ -65,7 +65,7 @@ end
 
 -- A gradient's COLOUR ramp MULTIPLIES the parent's rendering — including its
 -- label's glyphs. The deep ramp above is therefore legal only on slots that
--- draw no text of their own (the panel; LuauUI content is flat-tree siblings,
+-- draw no text of their own (the panel; Facet content is flat-tree siblings,
 -- never panel children). Text-bearing slots take this near-white sheen: the
 -- CONTROL FILL carries the darkness, the gradient only hints cyan, and the
 -- label keeps its contrast. Found live: the deep ramp on controls crushed

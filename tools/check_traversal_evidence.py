@@ -34,7 +34,7 @@ evidence predates the scenario.
 
 RE-RECORDED 2026-08-14, AND THIS CHECK HAS BEEN GREEN SINCE. It did not need a
 human after all: the whole drive ran through the Studio MCP against a freshly
-restarted Studio holding `LuauUI-Showcase.rbxl` — real `Tab`/`Shift+Tab`/arrow
+restarted Studio holding `Facet-Showcase.rbxl` — real `Tab`/`Shift+Tab`/arrow
 events into a live Play session, the grip still reached THIRD, the artifact
 rebuilt from what came back rather than edited. The 2026-08-13 conclusion that
 "the Play bridge does not work in this environment" turned out to be a property

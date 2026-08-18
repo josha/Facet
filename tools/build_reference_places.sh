@@ -2,10 +2,10 @@
 # Reference-proof place builder (swiftui-reference-app-validation): emits one
 # ready-to-open .rbxl per clean-room reference proof. Each place maps the full
 # gallery surface (src, scenarios, reference modules, themes, bootstrap) and
-# pre-sets the Workspace attribute LuauUI_Scenario so the place boots straight
+# pre-sets the Workspace attribute Facet_Scenario so the place boots straight
 # into its proof through the shared scenario runner.
 # Usage: tools/build_reference_places.sh          (from the library root)
-# Output: examples/places/LuauUI-Ref-*.rbxl
+# Output: examples/places/Facet-Ref-*.rbxl
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo
@@ -17,11 +17,11 @@ export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 mkdir -p examples/places
 
 PROOFS=(
-  "ref_glade|LuauUI-Ref-Glade"
-  "ref_cartwheel|LuauUI-Ref-Cartwheel"
-  "ref_sipworks|LuauUI-Ref-Sipworks"
-  "ref_foyer|LuauUI-Ref-Foyer"
-  "ref_wardrobe|LuauUI-Ref-Wardrobe"
+  "ref_glade|Facet-Ref-Glade"
+  "ref_cartwheel|Facet-Ref-Cartwheel"
+  "ref_sipworks|Facet-Ref-Sipworks"
+  "ref_foyer|Facet-Ref-Foyer"
+  "ref_wardrobe|Facet-Ref-Wardrobe"
 )
 
 for entry in "${PROOFS[@]}"; do
@@ -41,7 +41,7 @@ for entry in "${PROOFS[@]}"; do
       }
     },
     "Workspace": {
-      "\$attributes": { "LuauUI_Scenario": "$scenario" },
+      "\$attributes": { "Facet_Scenario": "$scenario" },
       "\$properties": { "FilteringEnabled": true },
       "Baseplate": {
         "\$className": "Part",
@@ -70,11 +70,11 @@ for entry in "${PROOFS[@]}"; do
       "\$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
-      "LuauUI": { "\$path": "../src" },
-      "LuauUIExamples": { "\$path": "gallery/examples" },
-      "LuauUIScenarios": { "\$path": "gallery/scenarios" },
-      "LuauUIReference": { "\$path": "reference" },
-      "LuauUIThemes": { "\$path": "themes" }
+      "Facet": { "\$path": "../src" },
+      "FacetExamples": { "\$path": "gallery/examples" },
+      "FacetScenarios": { "\$path": "gallery/scenarios" },
+      "FacetReference": { "\$path": "reference" },
+      "FacetThemes": { "\$path": "themes" }
     },
     "StarterGui": {
       "\$properties": { "ScreenOrientation": "Sensor" }

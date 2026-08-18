@@ -37,7 +37,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("../tests/lib/fake_target")
 --[[ THE TABLE CASE MOVED SURFACES ON 2026-08-16 (navigation-and-menus D8). It used
@@ -53,14 +53,14 @@ type World = { core: any, env: any, adapter: any, pres: any, built: any }
 
 -- the showcase host's own fixture mount (`examples/gallery/client/init.client.luau`)
 local function mount(scenario: any, w: number, h: number): World
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local built = scenario.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		actionSystem = system,
@@ -77,16 +77,16 @@ local function mount(scenario: any, w: number, h: number): World
 end
 
 -- ...and the TUTORIAL's mount, which takes a different shape of argument
--- (`build(LuauUI, core, deps)`, not `build(ctx)`) because it is an example rather
+-- (`build(Facet, core, deps)`, not `build(ctx)`) because it is an example rather
 -- than a scenario. The gallery client mounts each with its own contract.
 local function mountExample(module: any, w: number, h: number): World
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
-	local built = module.build(LuauUI, core, {
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local built = module.build(Facet, core, {
 		env = env,
 		actionSystem = system,
 		presenter = pres,
@@ -181,12 +181,12 @@ describe("hit-expander overhang: the qualifier and the stability it buys", funct
 		-- 20x20 buttons 16px apart: each floor reaches 12px past its own button,
 		-- so the two FLOORS overlap while neither floor reaches the other's
 		-- button. Under an unqualified rule each would want to outrank the other.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {

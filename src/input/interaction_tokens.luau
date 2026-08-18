@@ -25,7 +25,7 @@
 
 local interaction_tokens = {}
 
--- input class -> press→drag promotion distance in LuauUI px
+-- input class -> press→drag promotion distance in Facet px
 local DRAG_PROMOTION_PX: { [string]: number } = {
 	pointer = 6,
 	touch = 14,

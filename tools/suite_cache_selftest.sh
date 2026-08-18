@@ -14,7 +14,7 @@
 #   tools/test.sh --fingerprint   the content hash of the tree under test
 #   tools/test.sh --status        `hit` or `miss`, decided without running
 # Every refusal case builds a synthetic cache in a temp dir pointed at by
-# LUAUUI_SUITE_CACHE_DIR, so the real cache is never clobbered.
+# FACET_SUITE_CACHE_DIR, so the real cache is never clobbered.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -57,7 +57,7 @@ refuses() {
 	fp="$(tools/test.sh --fingerprint)"
 	synth "$dir" "$fp" "$body" "$code" "$passed" "$failed"
 	local out rc
-	out="$(LUAUUI_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
+	out="$(FACET_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
 	rc=$?
 	if [ $rc -eq 0 ]; then
 		no "$label — served it and exited 0 (FORM A checks would pass over this)"
@@ -113,7 +113,7 @@ fi
 # strictly stronger: a POPULATED but stale cache must miss, not merely an empty one.
 seeded="$TMP/seeded-previous-state"
 synth "$seeded" "$before" "$GREEN_BODY" 0 5618 0
-if [ "$(LUAUUI_SUITE_CACHE_DIR="$seeded" tools/test.sh --status)" = "miss" ]; then
+if [ "$(FACET_SUITE_CACHE_DIR="$seeded" tools/test.sh --status)" = "miss" ]; then
 	ok "a cache holding the PREVIOUS tree state reports a MISS for the new one"
 else
 	no "a cache holding the PREVIOUS tree state reports a MISS — a stale transcript would be served"
@@ -134,8 +134,8 @@ rm -f tests/.suite_cache_selftest_probe.luau
 # what made this check unpassable once already. Only the two fingerprints this
 # script created are touched — never another agent's entry.
 for junk in "$dirty" "$edited"; do
-	[ -n "$junk" ] && rm -f "${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.txt" \
-		"${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.meta"
+	[ -n "$junk" ] && rm -f "${FACET_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.txt" \
+		"${FACET_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.meta"
 done
 restored="$(tools/test.sh --fingerprint)"
 if [ "$restored" = "$before" ]; then
@@ -148,7 +148,7 @@ fi
 # 2. Hit-or-run, never trust-the-file: a cold cache RUNS the suite. Standalone
 #    `tools/gate.sh <one-gate>` outside a sweep must still be honest.
 # ---------------------------------------------------------------------------
-if [ "$(LUAUUI_SUITE_CACHE_DIR="$TMP/cold" tools/test.sh --status)" = "miss" ]; then
+if [ "$(FACET_SUITE_CACHE_DIR="$TMP/cold" tools/test.sh --status)" = "miss" ]; then
 	ok "an absent cache reports MISS (hit-or-run, never trust-the-file)"
 else
 	no "an absent cache reports MISS"
@@ -156,14 +156,14 @@ fi
 
 synth "$TMP/nometa" "$before" "$GREEN_BODY" 0 5618 0
 rm -f "$TMP/nometa/$before.meta"
-if [ "$(LUAUUI_SUITE_CACHE_DIR="$TMP/nometa" tools/test.sh --status)" = "miss" ]; then
+if [ "$(FACET_SUITE_CACHE_DIR="$TMP/nometa" tools/test.sh --status)" = "miss" ]; then
 	ok "a transcript with no meta reports MISS"
 else
 	no "a transcript with no meta reports MISS — an unattributed transcript would be served"
 fi
 
 synth "$TMP/stale" "not-the-current-fingerprint" "$GREEN_BODY" 0 5618 0
-if [ "$(LUAUUI_SUITE_CACHE_DIR="$TMP/stale" tools/test.sh --status)" = "miss" ]; then
+if [ "$(FACET_SUITE_CACHE_DIR="$TMP/stale" tools/test.sh --status)" = "miss" ]; then
 	ok "a foreign fingerprint reports MISS"
 else
 	no "a foreign fingerprint reports MISS — a cache from another tree would be served"
@@ -178,7 +178,7 @@ fi
 refuses "a RED suite (non-zero exit) is refused" "$GREEN_BODY" 1 5618 0
 refuses "a suite with failures is refused" $'\xe2\x9c\x93 a case that passed\n5617 passed\n1 failed' 0 5617 1
 refuses "a TRUNCATED transcript (no summary line) is refused" $'\xe2\x9c\x93 a case that passed' 0 "" ""
-refuses "a FAST-TIER transcript is refused" $'LUAUUI-FAST-TIER\n\xe2\x9c\x93 a case that passed\n1200 passed\n0 failed' 0 1200 0
+refuses "a FAST-TIER transcript is refused" $'FACET-FAST-TIER\n\xe2\x9c\x93 a case that passed\n1200 passed\n0 failed' 0 1200 0
 refuses "an EMPTY transcript is refused" "" 0 5618 0
 
 # A transcript mutated on disk after caching still has to redden the checks that
@@ -187,7 +187,7 @@ mutated="$TMP/mutated"
 mutated_fp="$(tools/test.sh --fingerprint)"
 synth "$mutated" "$mutated_fp" "$GREEN_BODY" 0 5618 0
 printf '%s\n' $'\xe2\x9c\x93 a case that passed' >"$mutated/$mutated_fp.txt"
-out="$(LUAUUI_SUITE_CACHE_DIR="$mutated" tools/suite_transcript.sh 2>/dev/null)"
+out="$(FACET_SUITE_CACHE_DIR="$mutated" tools/suite_transcript.sh 2>/dev/null)"
 if [ $? -ne 0 ] && [ -z "$out" ]; then
 	ok "a transcript mutated on disk after caching is refused"
 else
@@ -199,7 +199,7 @@ fi
 # ---------------------------------------------------------------------------
 good="$TMP/good"
 synth "$good" "$(tools/test.sh --fingerprint)" "$GREEN_BODY" 0 5618 0
-out="$(LUAUUI_SUITE_CACHE_DIR="$good" tools/suite_transcript.sh)"
+out="$(FACET_SUITE_CACHE_DIR="$good" tools/suite_transcript.sh)"
 rc=$?
 if [ $rc -eq 0 ] && [ "$out" = "$GREEN_BODY" ]; then
 	ok "a valid cache is served verbatim and exits 0"
@@ -247,9 +247,9 @@ fi
 # ---------------------------------------------------------------------------
 # 5. RASCAL RALLY. Its 67 gate invocations ride the same cache, in its own repo,
 #    against its own suite — and its fingerprint must ALSO cover
-#    GameStudio/ui/LuauUI/{src,tests}, because its specs require LuauUI modules
-#    directly (tests/luauui_*.spec.luau, tests/hud_zone_model.spec.luau). A
-#    LuauUI edit changes that suite's result, so a cache that misses it would
+#    GameStudio/ui/Facet/{src,tests}, because its specs require Facet modules
+#    directly (tests/facet_*.spec.luau, tests/hud_zone_model.spec.luau). A
+#    Facet edit changes that suite's result, so a cache that misses it would
 #    serve a stale green over a broken consumer — the exact lockstep failure
 #    root CLAUDE.md exists to prevent.
 # ---------------------------------------------------------------------------
@@ -275,25 +275,25 @@ fi
 # retry, which is worse than a reliable failure: this is a gate check, so a
 # sweep would kill the dev loop at random. `tests/` is mounted by no project
 # file, and it is inside RascalRally's fingerprint for the same reason `src/` is
-# — its specs require LuauUI's tests/lib directly.
+# — its specs require Facet's tests/lib directly.
 printf -- '-- suite cache selftest probe\nreturn {}\n' >tests/.suite_cache_selftest_probe.luau
 rr_dirty="$(rr_fp)"
 rm -f tests/.suite_cache_selftest_probe.luau
 if [ "$rr_dirty" != "$rr_before" ]; then
-	ok "RascalRally: a LuauUI-side edit changes the RascalRally fingerprint"
+	ok "RascalRally: a Facet-side edit changes the RascalRally fingerprint"
 else
-	no "RascalRally: a LuauUI-side edit changes the RascalRally fingerprint — the consumer would serve a stale green"
+	no "RascalRally: a Facet-side edit changes the RascalRally fingerprint — the consumer would serve a stale green"
 fi
 
-# The probe above proves the fingerprint is content-sensitive to a LuauUI edit.
-# It cannot prove WHICH LuauUI roots are covered, and `src/` is the one that
+# The probe above proves the fingerprint is content-sensitive to a Facet edit.
+# It cannot prove WHICH Facet roots are covered, and `src/` is the one that
 # matters most — a game suite that missed it would serve a stale green over a
 # framework change. Asserted as a declaration, and labelled as one.
 rr_roots="$(cd "$RR" && tools/suite_transcript.sh --roots)"
-if printf '%s\n' "$rr_roots" | grep -q '/LuauUI/src$'; then
-	ok "RascalRally: LuauUI src/ is a declared fingerprint root"
+if printf '%s\n' "$rr_roots" | grep -q '/Facet/src$'; then
+	ok "RascalRally: Facet src/ is a declared fingerprint root"
 else
-	no "RascalRally: LuauUI src/ is a declared fingerprint root — got: $(printf '%s' "$rr_roots" | tr '\n' ' ')"
+	no "RascalRally: Facet src/ is a declared fingerprint root — got: $(printf '%s' "$rr_roots" | tr '\n' ' ')"
 fi
 
 rr_refuses() {

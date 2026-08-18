@@ -1,8 +1,8 @@
 {
-  "schema": "luauui-rubric/1",
+  "schema": "facet-rubric/1",
   "name": "foundation",
   "adrSlug": "foundation-core-selection",
-  "question": "Which reactive foundation implements the LuauUI core contract? (design §3, §17 Phase 0)",
+  "question": "Which reactive foundation implements the Facet core contract? (design §3, §17 Phase 0)",
   "context": "Three candidates behind the identical public contract (src/core/contract.luau) ran the identical 26-check conformance suite (artifacts/conformance-<core>.json) and 12 bench scenarios (artifacts/bench.json). Selection rules from the design: custom if it materially wins; Fusion if it conforms better; imperative if reactivity complexity is unjustified.",
   "criteria": [
     { "id": "semantic-correctness", "weight": 5 },

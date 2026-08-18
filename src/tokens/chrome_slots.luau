@@ -93,7 +93,7 @@ chrome_slots.TAGS = table.freeze({
 	-- TextTransparency is sheet-owned in native mode (authority.nativeSheetOwned:
 	-- the `:NonInteractable` rules write it), so the suppression cannot be an
 	-- explicit write. It is a TAG the package's own sheet carries a rule for —
-	-- the same channel every other LuauUI state reaches native selectors by.
+	-- the same channel every other Facet state reaches native selectors by.
 	iconArt = "luau-icon-art", -- on the NODE whose glyph the art replaced
 	-- THE HELD SOURCE (director round five): the node a live drag session is
 	-- carrying. Every theme's sheet empties its label — "the slot sits empty
@@ -104,10 +104,10 @@ chrome_slots.TAGS = table.freeze({
 -- The decoration child's fixed identity. Named, so a Studio reader can tell a
 -- theme's decoration from game content at a glance, and so the adapter can
 -- find its own instance again without bookkeeping.
-chrome_slots.DECORATION_NAME = "LuauUIChrome"
-chrome_slots.TEXT_LIFT_NAME = "LuauUIChromeText"
+chrome_slots.DECORATION_NAME = "FacetChrome"
+chrome_slots.TEXT_LIFT_NAME = "FacetChromeText"
 -- the managed semantic-icon picture (ADR-0020 R4), same naming discipline
-chrome_slots.ICON_NAME = "LuauUIIcon"
+chrome_slots.ICON_NAME = "FacetIcon"
 -- Above every layer a stack may declare (R1 caps a stack at 8) and above the
 -- chrome text lift, which sits at `#layers + 1`. A picture that the plate it
 -- names could cover would be worse than no picture at all.
@@ -1301,14 +1301,14 @@ export type LayerBox = {
 	size: { xScale: number, xOffset: number, yScale: number, yOffset: number },
 }
 
-chrome_slots.LAYER_NAME_PREFIX = "LuauUIChromeL"
+chrome_slots.LAYER_NAME_PREFIX = "FacetChromeL"
 
 -- the adapter-owned CanvasGroup a masked layer is wrapped in (R1 `mask`, probe
 -- rs-m9). Suffixed onto the layer's own name so the Explorer still reads in
 -- z-order and one layer's wrapper is never confused with another's.
 chrome_slots.LAYER_MASK_SUFFIX = "Mask"
 
--- "LuauUIChromeL5TopLeft" — index first so the ladder reads in z-order in the
+-- "FacetChromeL5TopLeft" — index first so the ladder reads in z-order in the
 -- Explorer, key suffixed so the four ornaments of one layer are distinguishable
 function chrome_slots.layerInstanceName(index: number, key: string): string
 	if key == "" then
@@ -1614,12 +1614,12 @@ end
 
 -- WHERE A LAYER SITS IN ITS HOST'S Z BAND (director report 2026-08-05).
 --
--- The single-decoration path has always parented its `LuauUIChrome` at **ZIndex 0**,
+-- The single-decoration path has always parented its `FacetChrome` at **ZIndex 0**,
 -- with the ruling written on the line: *below anything the node's own content draws*.
 -- The LAYERED path never got it. It numbered its layers 1..N, and a control's own
 -- adapter-built content sits at 1 and 2 — `Label`, `Track`, `Knob`. Equal ZIndex is
 -- broken by SIBLING ORDER, and a decoration is created after the content it decorates,
--- so `LuauUIChromeL1` painted straight over both.
+-- so `FacetChromeL1` painted straight over both.
 --
 -- Live under fantasy-ornate: a Toggle's `Label` ("Ready") and its `Track` were BURIED
 -- under an opaque full-bleed layer; only the `Knob` at 2 survived, and only because
@@ -1679,10 +1679,10 @@ end
 --
 -- A FLAT bar therefore costs ZERO extra instances: its fill is the solved node
 -- itself, painted solid by the `luau-slot-barFill` rules (R9's OWN_PAINT_SLOTS).
-chrome_slots.BAR_WINDOW_NAME = "LuauUIBarWindow"
-chrome_slots.BAR_FILL_NAME = "LuauUIBarFill"
-chrome_slots.BAR_CENTER_NAME = "LuauUIBarCenter"
-chrome_slots.BAR_CAP_NAMES = table.freeze({ start = "LuauUIBarCapStart", finish = "LuauUIBarCapEnd" })
+chrome_slots.BAR_WINDOW_NAME = "FacetBarWindow"
+chrome_slots.BAR_FILL_NAME = "FacetBarFill"
+chrome_slots.BAR_CENTER_NAME = "FacetBarCenter"
+chrome_slots.BAR_CAP_NAMES = table.freeze({ start = "FacetBarCapStart", finish = "FacetBarCapEnd" })
 -- "start" is the end the fill GROWS FROM and "finish" is the far end, so the two
 -- names keep meaning the same thing when `direction` flips. `finish` rather than
 -- `end` because `end` is a Luau keyword and a field nobody can write without

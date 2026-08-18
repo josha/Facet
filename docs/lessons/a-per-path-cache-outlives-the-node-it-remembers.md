@@ -35,7 +35,7 @@ and was never added to the list.
    the button once. The regression pin (`compact_label.spec` — "a REMOUNTED
    button gets its verdict re-applied") toggles a `When` off and on and reads
    the drawn label after the second mount; the consumer pin
-   (RascalRally `luauui_sponsor_table.spec` — "the ‹ › GLYPHS survive a
+   (RascalRally `facet_sponsor_table.spec` — "the ‹ › GLYPHS survive a
    pose-toggle remount") drives the production presenter through the exact
    live dance. Mutation-verified: commenting the clear line fails only these.
 3. **"Device-verified once" dates a behaviour, it does not guarantee it.** The

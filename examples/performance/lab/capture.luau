@@ -27,7 +27,7 @@
 
 local capture = {}
 
-capture.SCHEMA = "luauui-perf-capture/1"
+capture.SCHEMA = "facet-perf-capture/1"
 
 capture.CLASSES = {
 	lune = { device = false, note = "headless Lune; no engine, no frame, no device" },

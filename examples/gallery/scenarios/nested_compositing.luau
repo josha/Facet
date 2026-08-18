@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'nested_compositing' — TWO THINGS A REAL PARENT BUYS (ADR-0032).
 
-	ADR-0032 switches LuauUI from a flat instance tree to a nested one: a
+	ADR-0032 switches Facet from a flat instance tree to a nested one: a
 	container registered as a real engine parent (a "host") lets the ENGINE
 	compose a presentation term for its whole subtree instead of the framework
 	computing it per descendant. Two terms already prove that live this round —
@@ -157,8 +157,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("nested-compositing")
 
@@ -185,7 +185,7 @@ return {
 			return if use(turned) then COPY.turnLabelOn else COPY.turnLabelOff
 		end))
 
-		local fadeSlider = LuauUI.newSlider(LuauUI, core, {
+		local fadeSlider = Facet.newSlider(Facet, core, {
 			id = "FadeSlider",
 			label = COPY.fadeLabel,
 			value = fade,

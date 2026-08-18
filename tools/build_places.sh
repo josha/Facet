@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# LuauUI example place builder: emits one ready-to-open .rbxl per tutorial
+# Facet example place builder: emits one ready-to-open .rbxl per tutorial
 # example (docs/guide/04-tutorial-examples.md) plus the plain settings demo.
-# Each place maps src -> ReplicatedStorage.LuauUI, the example modules ->
-# ReplicatedStorage.LuauUIExamples, the gallery bootstrap ->
+# Each place maps src -> ReplicatedStorage.Facet, the example modules ->
+# ReplicatedStorage.FacetExamples, the gallery bootstrap ->
 # StarterPlayerScripts, adds a baseplate + spawn, and pre-sets the Workspace
-# attribute LuauUI_Example so the place boots straight into its example.
+# attribute Facet_Example so the place boots straight into its example.
 # Usage: tools/build_places.sh          (from the library root)
 # Output: examples/places/*.rbxl
 set -euo pipefail
@@ -35,14 +35,14 @@ fi
 BUILD_STAMP="$BUILD_SHA $(date '+%Y-%m-%d %H:%M')"
 
 EXAMPLES=(
-  "0|LuauUI-SettingsDemo|00_settings_demo"
-  "1|LuauUI-Ex01-TemperatureConverter|01_temperature_converter"
-  "2|LuauUI-Ex02-PlaylistTable|02_playlist_table"
-  "3|LuauUI-Ex03-SettingsSync|03_settings_sync"
-  "4|LuauUI-Ex04-ConfirmDialog|04_confirm_dialog"
-  "5|LuauUI-Ex05-WordGame|05_word_game"
-  "6|LuauUI-Ex06-TileGame|06_tile_game"
-  "7|LuauUI-Ex07-Match3|07_match3"
+  "0|Facet-SettingsDemo|00_settings_demo"
+  "1|Facet-Ex01-TemperatureConverter|01_temperature_converter"
+  "2|Facet-Ex02-PlaylistTable|02_playlist_table"
+  "3|Facet-Ex03-SettingsSync|03_settings_sync"
+  "4|Facet-Ex04-ConfirmDialog|04_confirm_dialog"
+  "5|Facet-Ex05-WordGame|05_word_game"
+  "6|Facet-Ex06-TileGame|06_tile_game"
+  "7|Facet-Ex07-Match3|07_match3"
 )
 
 for entry in "${EXAMPLES[@]}"; do
@@ -51,7 +51,7 @@ for entry in "${EXAMPLES[@]}"; do
   if [ "$index" = "0" ]; then
     attributes=""
   else
-    attributes="\"\$attributes\": { \"LuauUI_Example\": $index },"
+    attributes="\"\$attributes\": { \"Facet_Example\": $index },"
   fi
   cat >"$project" <<JSON
 {
@@ -96,8 +96,8 @@ for entry in "${EXAMPLES[@]}"; do
       "\$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
-      "LuauUI": { "\$path": "../src" },
-      "LuauUIExamples": { "\$path": "gallery/examples" }
+      "Facet": { "\$path": "../src" },
+      "FacetExamples": { "\$path": "gallery/examples" }
     },
     "StarterGui": {
       "\$properties": { "ScreenOrientation": "Sensor" }
@@ -119,11 +119,11 @@ done
 # Everything the eight single-example places need an attribute + a republish to
 # change, this place changes in-game: the demo AND the theme. It therefore maps
 # the scenarios (for the all-controls fixture) and the theme packages too, and
-# sets LuauUI_Showcase so the bootstrap takes its showcase branch.
+# sets Facet_Showcase so the bootstrap takes its showcase branch.
 project="examples/.place_build.project.json"
 cat >"$project" <<'JSON'
 {
-  "name": "LuauUI-Showcase",
+  "name": "Facet-Showcase",
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
@@ -136,9 +136,9 @@ cat >"$project" <<'JSON'
     },
     "Workspace": {
       "$attributes": {
-        "LuauUI_Showcase": true,
-        "LuauUI_NativeStyle": true,
-        "LuauUI_Build": "@@BUILD_STAMP@@"
+        "Facet_Showcase": true,
+        "Facet_NativeStyle": true,
+        "Facet_Build": "@@BUILD_STAMP@@"
       },
       "$properties": { "FilteringEnabled": true },
       "Baseplate": {
@@ -168,10 +168,10 @@ cat >"$project" <<'JSON'
       "$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
-      "LuauUI": { "$path": "../src" },
-      "LuauUIExamples": { "$path": "gallery/examples" },
-      "LuauUIScenarios": { "$path": "gallery/scenarios" },
-      "LuauUIThemes": { "$path": "themes" }
+      "Facet": { "$path": "../src" },
+      "FacetExamples": { "$path": "gallery/examples" },
+      "FacetScenarios": { "$path": "gallery/scenarios" },
+      "FacetThemes": { "$path": "themes" }
     },
     "StarterGui": {
       "$properties": { "ScreenOrientation": "Sensor" }
@@ -187,9 +187,9 @@ JSON
 # The project heredoc above is single-quoted so JSON's $className/$path keys
 # survive the shell; the stamp is therefore substituted, not interpolated.
 sed -i '' "s|@@BUILD_STAMP@@|$BUILD_STAMP|" "$project"
-rojo build "$project" -o "examples/places/LuauUI-Showcase.rbxl"
+rojo build "$project" -o "examples/places/Facet-Showcase.rbxl"
 rm "$project"
-echo "built examples/places/LuauUI-Showcase.rbxl (LuauUI-Showcase — in-game demo + theme switching)"
+echo "built examples/places/Facet-Showcase.rbxl (Facet-Showcase — in-game demo + theme switching)"
 
 # ===== THE PERFORMANCE LAB ==================================================
 # Roadmap Step 9 (docs/plans/performance-stress-places.md). Unlike every place
@@ -202,7 +202,7 @@ echo "built examples/places/LuauUI-Showcase.rbxl (LuauUI-Showcase — in-game de
 # no private asset, no secret, no universe id and no plugin — it is safe for the
 # user to open and choose "Publish to Roblox" manually. THIS SCRIPT NEVER
 # PUBLISHES: `rojo build` writes a local file and nothing else.
-rojo build examples/performance.project.json -o "examples/places/LuauUI-PerformanceLab.rbxl"
-echo "built examples/places/LuauUI-PerformanceLab.rbxl (LuauUI-PerformanceLab — Step 9 performance lab)"
+rojo build examples/performance.project.json -o "examples/places/Facet-PerformanceLab.rbxl"
+echo "built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — Step 9 performance lab)"
 
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LuauUI canonical aggregate gate. Usage: tools/gate.sh [phase-gate-name]
+# Facet canonical aggregate gate. Usage: tools/gate.sh [phase-gate-name]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo

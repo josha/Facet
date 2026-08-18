@@ -1,6 +1,6 @@
-/goal Build LuauUI's missing navigation and transient-menu constructs, fix two showcases,
+/goal Build Facet's missing navigation and transient-menu constructs, fix two showcases,
 and fix the sweep — per the binding brief at
-GameStudio/ui/LuauUI/docs/plans/navigation-and-menus-brief.md. Read it in full, then the
+GameStudio/ui/Facet/docs/plans/navigation-and-menus-brief.md. Read it in full, then the
 media in docs/plans/reference-media/2026-08-16-roblox-app-navigation/ (f1/r1-r3 = the
 Roblox app, the .movs carry the motion; hud-a/b/c = our own HUD failing). Trust §1's
 today-state at 37e9dad; don't re-audit it.

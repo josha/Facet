@@ -1,4 +1,4 @@
-# ADR-0035 — The player asked for opaque backgrounds, and LuauUI has exactly one background to make opaque
+# ADR-0035 — The player asked for opaque backgrounds, and Facet has exactly one background to make opaque
 
 **Date:** 2026-08-15
 **Status:** Accepted
@@ -17,7 +17,7 @@ whose Decision 2 rule is the instrument used below), [ADR-0026](ADR-0026-authore
 
 `GuiService.PreferredTransparency` is the player's **Background Transparency**
 setting: a 0–1 scalar, 1 meaning "paint what the designer said" and 0 meaning "I want
-opaque backgrounds". LuauUI has read it into the `preferredTransparency` fact since
+opaque backgrounds". Facet has read it into the `preferredTransparency` fact since
 the native-substrate stage, derives `effectiveTransparency` from it, clamps garbage
 readings into the legal domain, and fault-tests that clamp.
 
@@ -47,7 +47,7 @@ tree either — it tags the elements that mean to be see-through.
 
 **The arithmetic refuses the sweep outright.** In this engine transparency `1` means
 *invisible*. Multiplying an invisible background by 0.5 does not make it more opaque;
-it makes it **appear**. LuauUI's class-default rules exist precisely to hold every
+it makes it **appear**. Facet's class-default rules exist precisely to hold every
 `Frame`/`TextLabel`/`TextButton`/`ImageLabel`/`TextBox`/`ScrollingFrame` background at
 1 — *"invisible until a surface says otherwise"* is itself sheet-owned — so a blanket
 multiply paints a plate behind every label in every tree.
@@ -56,7 +56,7 @@ So the audit walked all of it instead. Every partial alpha the framework chooses
 lives in four tokens plus three shadow constants; there is not one hard-coded partial
 transparency at any write site. The result:
 
-> **`Scrim backdrop` is the only rule in LuauUI's generated sheet whose
+> **`Scrim backdrop` is the only rule in Facet's generated sheet whose
 > `BackgroundTransparency` is strictly between 0 and 1**, and the bespoke painter
 > mirrors that exactly — of its eight `surface` branches, only `scrim` writes a
 > partial value. Every other framework background is already `0` (a surface) or
@@ -229,7 +229,7 @@ fact is production code.
 
 ## Consequences
 
-- **The one accessibility preference LuauUI read and did not honour is honoured**, in
+- **The one accessibility preference Facet read and did not honour is honoured**, in
   both paint modes, on framework furniture and on any consumer node that declares
   `surface = "scrim"`. `swiftui-parity.md`'s `accessibilityReduceTransparency` row
   moves from *Partial* to covered.

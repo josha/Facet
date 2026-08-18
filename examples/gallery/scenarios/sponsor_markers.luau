@@ -18,8 +18,8 @@ return {
 	title = "Marker lab (SF-P5)",
 	ledgerRows = { "SF-P5", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter

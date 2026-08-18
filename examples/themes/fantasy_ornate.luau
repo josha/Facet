@@ -3,7 +3,7 @@
 -- (ADR-0020, ledger row RS-A12). The claim it exists to make falsifiable:
 --
 --   a heavily stylized game can make EVERY visible part of its UI artwork
---   through the public `LuauUI.themes` surface alone.
+--   through the public `Facet.themes` surface alone.
 --
 -- Written as a CLEAN CONSUMER, exactly like `fantasy_parchment.luau`: the only
 -- framework contact is `themes.define` and `themes.neutralPackage()`. There is
@@ -379,7 +379,7 @@ end
 
 function fantasy_ornate.definition(themes: any): any
 	return {
-		-- start from the library's own package, so roles a later LuauUI adds are
+		-- start from the library's own package, so roles a later Facet adds are
 		-- inherited through a diagnosed upgrade rather than missing silently
 		base = themes.neutralPackage(),
 		identity = {

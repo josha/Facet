@@ -7,15 +7,15 @@
 -- THREE SURFACES, one shared mail model per surface (independent state, so
 -- deleting in one never touches the others):
 --   "list"  a plain ScrollView > VStack of HAND-WRAPPED rows, each built with
---           `LuauUI.newRowActions` directly and sharing ONE
---           `LuauUI.newRowActionsCoordinator()` — the non-Table path Task 7
+--           `Facet.newRowActions` directly and sharing ONE
+--           `Facet.newRowActionsCoordinator()` — the non-Table path Task 7
 --           exists for. Every row carries an explicit `id` (required the
 --           moment a coordinator is shared — row_actions.luau refuses a
 --           collision-prone default id at build time).
---   "table" a reorderable, editable `LuauUI.newTable` using the public
+--   "table" a reorderable, editable `Facet.newTable` using the public
 --           `rowActions` spec key (Task 10) — Table owns the wrapping, the
 --           shared coordinator, and the reorder/swipe axis-lock dispatcher.
---   "vlist" a `LuauUI.newVirtualList` using its own public `rowActions` spec
+--   "vlist" a `Facet.newVirtualList` using its own public `rowActions` spec
 --           key (row-actions perf mission) — a CLOSED row here mounts NOTHING
 --           beyond the row `Hit` it always had; the gesture engine builds
 --           lazily on the first gesture that resolves horizontal past the
@@ -253,8 +253,8 @@ return {
 	title = "Row actions (Task 11 + row-actions perf mission): mail-style list + table + hosted VirtualList",
 	ledgerRows = { "ROW-ACTIONS-EX1", "ROW-ACTIONS-EX2", "ROW-ACTIONS-EX3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("row-actions-scenario")
 
@@ -274,7 +274,7 @@ return {
 		-- is what goes: the demo picker's own chip already names this demo on screen,
 		-- so on a short viewport it is the one piece of chrome that says nothing the
 		-- player cannot already see.
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local showHeading = scope:own(core:memo(function(use)
 			return not use(conditions.isShort)
 		end))
@@ -302,7 +302,7 @@ return {
 
 		-- ===== surface 1: plain ScrollView > VStack, hand-wrapped rows =========
 		local listModel = newMailModel(core, animateReflow)
-		local coordinator = LuauUI.newRowActionsCoordinator(core)
+		local coordinator = Facet.newRowActionsCoordinator(core)
 		local listRows: { [string]: any } = {}
 
 		local function rowContent(model: any, item: any): any
@@ -370,7 +370,7 @@ return {
 			end,
 			row = function(item, itemScope)
 				local actions = actionsFor(listModel, item.id)
-				local built = LuauUI.newRowActions(LuauUI, core, {
+				local built = Facet.newRowActions(Facet, core, {
 					id = item.id,
 					-- restores the row's normal list-flow width — `content` is
 					-- itself `width = fill` with nothing to measure against once
@@ -416,7 +416,7 @@ return {
 		-- the row `onPrimaryAction` last opened (nil until one is)
 		local openedKey = scope:own(core:signal(nil :: string?))
 		local editingSignal = core:signal(false)
-		local tbl = LuauUI.newTable(LuauUI, core, {
+		local tbl = Facet.newTable(Facet, core, {
 			id = "MailTable",
 			columns = {
 				{ id = "from", title = "From", width = { type = "fixed", px = 150 } },
@@ -571,7 +571,7 @@ return {
 		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
 		local vlistWindow = core:signal(336)
 
-		local vlist = LuauUI.newVirtualList(LuauUI, core, {
+		local vlist = Facet.newVirtualList(Facet, core, {
 			id = "VList",
 			rows = vlModel.rows,
 			key = function(item: any)

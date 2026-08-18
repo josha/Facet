@@ -19,7 +19,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local resources = require("../src/async/resources")
 local async_image = require("../src/controls/async_image")
@@ -187,7 +187,7 @@ describe("provider construction is strict (F-12)", function()
 	it("maxConcurrent = 0 is refused instead of silently wedging every request", function()
 		local ok, err = build({ maxConcurrent = 0 })
 		expect(ok).toBe(false)
-		expect(string.find(err, "LuauUI resource provider:", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "Facet resource provider:", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, "maxConcurrent", 1, true) ~= nil).toBe(true)
 	end)
 
@@ -298,7 +298,7 @@ describe("AsyncImage: silent failure and the dim treatment", function()
 		local core = customFactory.new()
 		local provider = resources.newProvider(core, spec.providerOpts)
 		local scope = core:scope("img")
-		local image = async_image.build(LuauUI, core, {
+		local image = async_image.build(Facet, core, {
 			id = "Avatar",
 			scope = scope,
 			provider = provider,
@@ -347,7 +347,7 @@ describe("AsyncImage: silent failure and the dim treatment", function()
 		local provider = resources.newProvider(core)
 		local scope = core:scope("img")
 		local dimmed = core:signal(false)
-		local image = async_image.build(LuauUI, core, {
+		local image = async_image.build(Facet, core, {
 			id = "Avatar",
 			scope = scope,
 			provider = provider,

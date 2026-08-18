@@ -1,7 +1,7 @@
 --!strict
 -- Scenario 'selection_bridge' (ledger rows NS-A11/NS-A12): the passive base
 -- screen keeps GuiService.SelectedObject nil; an OPTED-IN modal mirrors
--- LuauUI's logical focus to engine selection (Selectable flipped only while
+-- Facet's logical focus to engine selection (Selectable flipped only while
 -- mirrored), follows focus moves, exercises the measured native autoscroll
 -- (focusing an off-view row inside the modal's ScrollView), and clears on
 -- dismissal. Steps are logical-focus drivers (downstream action proof); real
@@ -11,7 +11,7 @@ return {
 	title = "Engine-selection bridge (NS-A11/NS-A12)",
 	ledgerRows = { "NS-A11", "NS-A12" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local pres = ctx.presenter
 
 		local baseScreen = UI.Screen({

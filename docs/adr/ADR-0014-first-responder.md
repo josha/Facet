@@ -1,10 +1,10 @@
-# ADR-0014 — First responder: a LuauUI surface engages over avatar input via focus, never by disabling player control
+# ADR-0014 — First responder: a Facet surface engages over avatar input via focus, never by disabling player control
 
 Date: 2026-07-21 · Status: **ACCEPTED** · Spec: ui_todo.md §0/§3, design §9.1/§12.1 · Research: [`docs/research/2026-07-21-first-responder-platform-research.md`](../research/2026-07-21-first-responder-platform-research.md)
 
 ## Context
 
-The director's standing principle (ui_todo §0) is that every LuauUI surface must
+The director's standing principle (ui_todo §0) is that every Facet surface must
 coexist with a real avatar game: a menu, a HUD, or a modal on screen must NOT
 swallow the player's movement/jump input wholesale. The UI-only-place hammer —
 `gamepad_contention.disableLegacyControls()` / `PlayerModule:GetControls():Disable()`
@@ -31,11 +31,11 @@ Its conclusions in brief:
    shipped `PlayerModule`, they are far lower and are not one number:
    **Camera 100, Character 150, Vehicle 200, Transformer 300**. The 2000 figure is
    a *recommendation for a game's own sink*, never where the avatar actually sits.
-   No behavior depends on the difference — LuauUI's bands (1500 plain, 3000
+   No behavior depends on the difference — Facet's bands (1500 plain, 3000
    engaged) clear all of these either way — but the false number invites somebody
    to size a context against it, which is why it is written down correctly here
    rather than left as folklore.
-3. To be focus-aware and never swallow jump wholesale, LuauUI must **sink jump
+3. To be focus-aware and never swallow jump wholesale, Facet must **sink jump
    inputs only in the engaged context, above the gameplay band** — mirror
    `ContextActionPriority.High = 3000` rather than tying the game's 2000.
 4. **This only works in IAS player-script mode** (`PlayerScriptsUseInputActionSystem
@@ -119,7 +119,7 @@ no-op **`GameplayGuard`** Bool action — sunk while engaged, so jump never fire
 like `gamepad_contention`) observes `presenter.exclusiveSurfaceActive` and sets
 `GuiService.TouchControlsEnabled = false` while an exclusive surface is up,
 restoring the prior value on release. `bind(core, presenter) -> disconnect`. It is
-NOT exported on the `LuauUI` table (client-only; require directly from
+NOT exported on the `Facet` table (client-only; require directly from
 `src/client`). The gallery bootstrap wires it once with a comment — the gallery is
 a UI-only place whose default screen presents no modal, so the effect is inert
 there but proves the one-line wiring shape a real game uses.
@@ -128,7 +128,7 @@ there but proves the one-line wiring shape a real game uses.
 
 This model **only works in IAS player-script mode**. A real game must set
 `Workspace.PlayerScriptsUseInputActionSystem = true` so the avatar controls
-join the same arbitration LuauUI participates in. The flag is **Properties-panel
+join the same arbitration Facet participates in. The flag is **Properties-panel
 only** — not script- or rojo-reflectable (ui_todo §3; ENGINE TRUTH 2). The
 framework therefore **DETECTS, never sets**:
 
@@ -137,7 +137,7 @@ framework therefore **DETECTS, never sets**:
   gate. A game (or doctor tooling) uses it to surface "gamepad ButtonA may be
   contended" instead of failing silently.
 - **Legacy fallback is explicitly coarser.** With the flag off, the character
-  binds jump via legacy CAS at 2000 and consumes `ButtonA` before IAS — a LuauUI
+  binds jump via legacy CAS at 2000 and consumes `ButtonA` before IAS — a Facet
   IAS context can never see or sink it. The only levers are CAS-level
   (`BindAction` sink above 2000) or `Controls:Disable()`, neither per-action nor
   focus-granular. The director's requirement is attainable ONLY with the flag on;
@@ -156,7 +156,7 @@ scoped** and out of scope for a real game — recorded so the two paths never bl
   (Open risk 3).
 - **`GuiService.SelectedObject`** — v1 does **not** drive engine gamepad focus.
   `SelectedObject` and IAS are parallel systems with undocumented linkage (Open
-  risk 4); driving it alongside LuauUI's own focus graph risks a double-drive.
+  risk 4); driving it alongside Facet's own focus graph risks a double-drive.
   Deferred pending a probe of whether setting `SelectedObject` alters IAS
   arbitration (expected: no).
 - **`TouchControlsEnabled` verification** — that `false` hides *both* thumbstick and
@@ -165,7 +165,7 @@ scoped** and out of scope for a real game — recorded so the two paths never bl
   `physical-device-confirmation` gate rider).
 - **Default PlayerScripts priorities/names, priority tie behavior, and Escape /
   CoreGui reservations** — undocumented / no sanctioned mechanism (research Open
-  risks 1, 2, 5). LuauUI relies only on the doc-guaranteed "2000 sinks the
+  risks 1, 2, 5). Facet relies only on the doc-guaranteed "2000 sinks the
   defaults" and beats it at 3000.
 
 ## Consequences
@@ -211,7 +211,7 @@ delivery. Full reports: `artifacts/input-adaptation-audit/platform-verification.
 **Acknowledged advisories (recorded, not gate-blocking):**
 - **P3** — two headless behaviors (equal-priority sink tie; Released-on-disable) are
   [INFERRED], not doc-backed; `actions.luau` comments now carry the rider. Not load-bearing:
-  LuauUI never shares a priority band.
+  Facet never shares a priority band.
 - **P4** — adapter-parity had no test; the P1 spy test now guards the Sink seam contract.
 - **F1** — reserved-prop collision: `contribution.read` now type-guards (non-table → nil).
 - **F2** — auto navigation-mode is latched at present time; a screen that mounts its first

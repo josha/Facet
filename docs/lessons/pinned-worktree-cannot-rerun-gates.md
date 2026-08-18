@@ -15,10 +15,10 @@ Two independent causes, both environmental:
 1. **Relative paths out of the library.** Several checks do
    `cd ../../../games/RascalRally/code`. A worktree at
    `/tmp/<anything>` resolves that to a directory that does not exist. A worktree
-   only works if it sits at `<root>/GameStudio/ui/LuauUI` with a real (or
+   only works if it sits at `<root>/GameStudio/ui/Facet` with a real (or
    symlinked) `<root>/games` beside it.
 2. **`build/` is gitignored.** `tools/doctor.sh` builds the gallery place to
-   `build/LuauUI-Gallery.rbxl`, and `rojo build` fails when the output directory
+   `build/Facet-Gallery.rbxl`, and `rojo build` fails when the output directory
    does not exist. `doctor` is a check in most gates, so one missing empty
    directory reddened the whole battery. `mkdir -p build` fixes it.
 

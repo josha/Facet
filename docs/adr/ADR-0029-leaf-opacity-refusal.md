@@ -97,7 +97,7 @@ and never said why. It is one rule, and it is not about opacity being special:
 
 | term | the one property | who owns it | offerable on |
 |---|---|---|---|
-| `scale` | `UIScale.Scale` on `LuauUIMotionScale` | nobody — a bespoke instance, no rule can express a motion scale | every rendered class |
+| `scale` | `UIScale.Scale` on `FacetMotionScale` | nobody — a bespoke instance, no rule can express a motion scale | every rendered class |
 | `rotation` | `GuiObject.Rotation` | nobody — written by no generated rule, absent from `NATIVE_SHEET_OWNED` | every rendered class |
 | `opacity` | `CanvasGroup.GroupTransparency` | nobody — which is why ADR-0022 chose it | **only a node whose engine instance can BE a CanvasGroup** |
 
@@ -119,7 +119,7 @@ The obvious alternative to refusing is materializing a leaf-with-opacity as a
 `CanvasGroup` containing its `TextLabel` — the wrap, written by the framework. It is
 refused on the first rung of the simplicity ladder: **it produces exactly the two
 instances `UI.ZStack{ opacity }` already produces**, so it buys one line of author
-text, and it costs a second exception to LuauUI's flat instance tree (ADR-0022
+text, and it costs a second exception to Facet's flat instance tree (ADR-0022
 Decision 2's *"single documented exception"*), a hidden render buffer where ADR-0022
 deliberately made the cost explicit, an extra ancestor that breaks any `>`
 child-combinator rule reaching that node, and a recycle-key split. One line is not
@@ -138,7 +138,7 @@ so at the point of use.**
 engine instance, and `blueprint.unknownPropError` prefers it to the suggester. The
 message states the rule, the measured consequence, and the spelling:
 
-> `LuauUI UI.Text: 'opacity' is REFUSED on UI.Text, not missing. A fade in LuauUI is
+> `Facet UI.Text: 'opacity' is REFUSED on UI.Text, not missing. A fade in Facet is
 > one engine property no style rule owns — CanvasGroup.GroupTransparency — and only a
 > node materialized as a CanvasGroup has one. UI.Box and UI.ZStack are the two classes
 > that can BE one. Anywhere else the fade would have to write

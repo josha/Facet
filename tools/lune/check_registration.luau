@@ -279,7 +279,7 @@ function check_registration.check(opts: Opts?)
 
 	-- ---- 2. API reference drift ---------------------------------------
 	local exports: { string } = {}
-	-- top-level LuauUI table keys
+	-- top-level Facet table keys
 	for key in string.gmatch(initSource, "\n\t(%w+) = ") do
 		table.insert(exports, key)
 	end
@@ -327,19 +327,19 @@ function check_registration.check(opts: Opts?)
 	-- APIs underneath. The live table is the source of truth: require src and
 	-- walk each namespace, so a member added tomorrow is covered without anyone
 	-- updating a list. A member counts as documented when api.md writes it
-	-- QUALIFIED — `` `<ns>.<member>` `` (optionally through `LuauUI.`) — or gives
+	-- QUALIFIED — `` `<ns>.<member>` `` (optionally through `Facet.`) — or gives
 	-- it its own heading. A bare mention of the short name does not count, for
 	-- the same reason (a) does not: `resolve` is four different functions.
 	local allow: { [string]: string } = table.clone(NESTED_DOC_ALLOW)
 	for key, reason in options.extraNestedAllow or {} do
 		allow[key] = reason
 	end
-	local LuauUI = require("../../src") :: any
+	local Facet = require("../../src") :: any
 
 	-- a qualified mention, with a right-hand boundary so `tokens.contrast` does
 	-- not get credit from `tokens.contrastRatio`
 	local function mentionsQualified(qualified: string): boolean
-		for _, prefix in { "`" .. qualified, "`LuauUI." .. qualified } do
+		for _, prefix in { "`" .. qualified, "`Facet." .. qualified } do
 			local from = 1
 			while true do
 				local _, stop = string.find(apiMd, prefix, from, true)
@@ -357,10 +357,10 @@ function check_registration.check(opts: Opts?)
 
 	local nestedMembers: { any } = {}
 	for _, namespace in NESTED_NAMESPACES do
-		local value = LuauUI[namespace]
+		local value = Facet[namespace]
 		if type(value) ~= "table" then
 			problem(
-				`nested namespace '{namespace}' is declared in check_registration but LuauUI.{namespace} is {type(value)} — update the list`
+				`nested namespace '{namespace}' is declared in check_registration but Facet.{namespace} is {type(value)} — update the list`
 			)
 			continue
 		end

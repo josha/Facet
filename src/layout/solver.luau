@@ -997,7 +997,7 @@ end
 --[[ ===== FLOW-WRAP (docs/plans/swiftui-parity-round3.md, item A) =============
 
 	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` reach this file as the
-	kinds `hwrap` / `vwrap`: Roblox's `UIListLayout.Wraps`, which LuauUI had no
+	kinds `hwrap` / `vwrap`: Roblox's `UIListLayout.Wraps`, which Facet had no
 	spelling for at all. It is a NATIVE branch and deliberately not a public
 	`Layout` protocol — the round-3 Phase 0 verdict, whose one carrying reason is
 	that this file's three newest correctness mechanisms (the measure memo's cache
@@ -1718,7 +1718,7 @@ end
 -- had already produced for the SAME node at the SAME limits.
 --
 -- Measured on the lab's dense-scroll workload (2 000 rows, 11 mounted, steady
--- 40px/frame): `LuauUI/arrange` ran at 1.51ms mean against `LuauUI/measure` at
+-- 40px/frame): `Facet/arrange` ran at 1.51ms mean against `Facet/measure` at
 -- 0.23ms — 6.6x, in a pass that is supposed to be the cheap one, and 56% of the
 -- whole step. The re-measure was the difference.
 --
@@ -2575,7 +2575,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 
 			`designed = true` is how a reader tells the two apart WITHOUT recognising
 			this sentence. Both sides of the consumer lockstep used to do exactly
-			that and disagreed about the answer: LuauUI's sweep carried it as a
+			that and disagreed about the answer: Facet's sweep carried it as a
 			waiver with a px ceiling ("a defect we tolerate"), Rascal Rally excluded
 			it by substring ("not a defect"). One field, set in one place, ends that
 			— and a new designed-by-contract report is covered the day it is written
@@ -2742,7 +2742,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					width, then the type scale (+3px on the ten-foot row), then the theme
 					insets (+19px under fantasy-ornate), and never the accessibility text
 					preference — at `preferredTextOffset` 4/10/14 every row overflowed its
-					56px slot by 11/39/59px on a real device. `docs/lessons/luauui-fixed-px-
+					56px slot by 11/39/59px on a real device. `docs/lessons/facet-fixed-px-
 					heights.md` names the class: a px height fixed against unfixed content.
 
 					IT IS NOT KNOWABLE AT CONSTRUCTION, which is why it is filed here and not
@@ -3392,7 +3392,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- `child.lineAlign` is the word for the SECOND job alone, and it outranks
 		-- both. It is a shared BOX prop, so it is the only spelling that works on a
 		-- LEAF — `align` is container-only and is refused on `UI.Text`/`Box`/
-		-- `Spacer`/`Image`, which is why LuauUI had no leaf-level route to Roblox's
+		-- `Spacer`/`Image`, which is why Facet had no leaf-level route to Roblox's
 		-- `ItemLineAlignment` at all until this.
 		local childAlign = child.lineAlign or child.align or node.align
 		local crossSize = if crossDim.type == "fill" or childAlign == "stretch"
@@ -3589,7 +3589,7 @@ solver.flowPartition = flowPartition
 -- For each node it walks upward to the nearest ancestor that ABSORBS a size change
 -- (inclusive of the node itself — a fixed-size node absorbs its own content's
 -- change) and counts that ancestor's subtree. With no absorbing ancestor the answer
--- is the whole tree, which is what LuauUI does today for every node.
+-- is the whole tree, which is what Facet does today for every node.
 --
 -- Reported as a distribution rather than one number because the interesting fact is
 -- the SHAPE: if the median node is isolated to a handful of nodes but the mean is
@@ -3657,7 +3657,7 @@ function solver.boundaryReport(root: Node, result: any): any
 		medianAffected = pct(0.5),
 		p95Affected = pct(0.95),
 		worstAffected = affected[#affected],
-		-- what LuauUI does today for every single change
+		-- what Facet does today for every single change
 		todayAffected = total,
 		-- 1.0 = boundaries would buy nothing; 0.1 = a change touches a tenth of the tree
 		meanShareOfTree = if total > 0 and #affected > 0 then (sum / #affected) / total else 1,

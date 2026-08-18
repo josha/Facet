@@ -1,6 +1,6 @@
 # A 44px floor under an 8px divider makes a dead zone, not a target
 
-**Measured live in Studio, 2026-08-14** (LuauUI-Showcase, Play mode, the
+**Measured live in Studio, 2026-08-14** (Facet-Showcase, Play mode, the
 `table_columns` fixture (retired 2026-08-16 into the shipped playlist tutorial; the spec is now `tests/playlist_columns.spec.luau`), real engine).
 
 `src/controls/contract.luau:95-102` gives `Grip` `minHitSize = 44`. The table's
@@ -9,7 +9,7 @@ resize divider (`table.luau`'s `gripFor`) is `width = { type = "fixed", px = "s"
 of a 28px header band. So the renderer asks the adapter for a **44×44 hit rect
 centred on an 8×28 grip** (`layout_node.luau:182-186` → `renderer.luau:1978-2028`).
 
-`screen_target.luau:2461-2500` realizes that as a real `LuauUIHitExpander`
+`screen_target.luau:2461-2500` realizes that as a real `FacetHitExpander`
 `TextButton`, parented **beside** the grip at `ZIndex = grip.ZIndex - 1`.
 
 > **Sibling defect, same fixture, same session.** This page is about the
@@ -18,7 +18,7 @@ centred on an 8×28 grip** (`layout_node.luau:182-186` → `renderer.luau:1978-2
 > through ContextActionService and sinks them, so the selected-column arrow
 > resize never receives a keypress
 > ([`the-camera-still-owns-the-arrow-keys`](the-camera-still-owns-the-arrow-keys.md)).
-> That one is **not** a LuauUI defect and has no LuauUI fix: it is closed by the
+> That one is **not** a Facet defect and has no Facet fix: it is closed by the
 > embedding experience enabling `Workspace.PlayerScriptsUseInputActionSystem`,
 > which puts the camera on the Input Action System where priority arbitration
 > works. Read the two together before concluding anything about which resize
@@ -32,7 +32,7 @@ Header cell `Head-name` spans x ∈ [12, 277]; the header band is y ∈ [120, 14
 |---|---|---|---|
 | `Head-name/Column` | `TextButton` | (12,120) 265×28 | **10** |
 | `Head-name/Title` | `TextLabel` | (20,125) 249×17 | 11 |
-| **`LuauUIHitExpander`** (the grip's) | **`TextButton`** | **(251,112) 44×44** | **12** |
+| **`FacetHitExpander`** (the grip's) | **`TextButton`** | **(251,112) 44×44** | **12** |
 | `Head-name/Grip` | `Frame` (Active) | (269,120) 8×28 | 13 |
 
 `12 > 10`: the expander sits **above the header cell's own button**, and a

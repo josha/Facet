@@ -19,7 +19,7 @@ function brew_detail.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local orders = app.services.orders
 
 	local self: any = {}
@@ -77,7 +77,7 @@ function brew_detail.new(app: any): any
 		return if use(expired) then "strong" else "caption"
 	end)
 
-	local bar = LuauUI.newProgressView(LuauUI, core, {
+	local bar = Facet.newProgressView(Facet, core, {
 		id = "Countdown",
 		value = countdownFraction,
 		min = 0,

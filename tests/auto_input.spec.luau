@@ -10,18 +10,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -31,10 +31,10 @@ describe("auto-input: Button props.onActivate fires on every input, no consumer 
 	local function buttonWorld()
 		local core, _, system, adapter, pres = harness()
 		local hits: { any } = {}
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "Go",
 					label = "Go",
 					onActivate = function(path, meta)
@@ -91,9 +91,9 @@ describe("auto-input: Toggle auto-flips its bound value (contract §10.2)", func
 	local function toggleWorld()
 		local core, _, system, adapter, pres = harness()
 		local value = core:signal(false)
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Toggle({ id = "Mute", label = "Mute", value = value }) },
+			children = { Facet.UI.Toggle({ id = "Mute", label = "Mute", value = value }) },
 		})
 		local handle = pres.present(screen) -- ZERO present opts
 		pres.refresh()
@@ -153,7 +153,7 @@ describe("auto-input: Table + TextInput on one screen, zero present opts", funct
 		local options = opts or {}
 		local core, env, system, adapter, pres = harness()
 		local fieldValue = core:signal("")
-		local ti = text_input.build(LuauUI, core, {
+		local ti = text_input.build(Facet, core, {
 			id = "Filter",
 			value = fieldValue,
 			env = env,
@@ -166,7 +166,7 @@ describe("auto-input: Table + TextInput on one screen, zero present opts", funct
 		})
 		local editing = core:signal(options.editing == true)
 		local reorders: { any } = {}
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Rows",
 			rows = rows,
 			key = function(r: any)
@@ -191,7 +191,7 @@ describe("auto-input: Table + TextInput on one screen, zero present opts", funct
 			end,
 			env = env,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ti.blueprint, tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ti.blueprint, tbl.blueprint } })
 		local presOpts = options.present -- may be nil (zero opts)
 		local handle = pres.present(screen, presOpts)
 		pres.refresh()
@@ -296,10 +296,10 @@ describe("auto-input: per-opt override (consumer opt beats its auto counterpart)
 		local core, _, _, adapter, pres = harness()
 		local propHits = 0
 		local optHits: { any } = {}
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "Go",
 					label = "Go",
 					onActivate = function()
@@ -325,7 +325,7 @@ describe("auto-input: per-opt override (consumer opt beats its auto counterpart)
 		-- (its buildFocusGroups omits the grip); forcing flat proves the override.
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal({ { id = "a", name = "Alpha" }, { id = "b", name = "Beta" } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			rows = rows,
 			key = function(r: any)
@@ -346,7 +346,7 @@ describe("auto-input: per-opt override (consumer opt beats its auto counterpart)
 			selection = "single",
 			rowHeight = 40,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen, { navigationGroups = false })
 		pres.refresh()
 		-- the flat ring is TREE order, and the column handle is a header: it leads
@@ -366,7 +366,7 @@ describe("auto-input: refresh re-derives auto groups after structural change", f
 	it("a row added after present becomes reachable through the auto groups", function()
 		local core, env, system, adapter, pres = harness()
 		local rows = core:signal({ { id = "a", name = "Alpha" }, { id = "b", name = "Beta" } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Rows",
 			rows = rows,
 			key = function(r: any)
@@ -388,7 +388,7 @@ describe("auto-input: refresh re-derives auto groups after structural change", f
 			reorderable = true,
 			onReorder = function() end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen) -- zero opts
 		pres.refresh()
 		-- add a third row
@@ -413,19 +413,19 @@ end)
 -- ===========================================================================
 describe("auto-input: registry neutrality of the contribution seam", function()
 	it("build/mount/present/interact/dispose returns every registry to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local fieldValue = core:signal("")
-		local ti = text_input.build(LuauUI, core, { id = "Filter", value = fieldValue, env = env })
+		local ti = text_input.build(Facet, core, { id = "Filter", value = fieldValue, env = env })
 		local rows = core:signal({ { id = "a", name = "Alpha" }, { id = "b", name = "Beta" } })
 		local editing = core:signal(false)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Rows",
 			rows = rows,
 			key = function(r: any)
@@ -445,7 +445,7 @@ describe("auto-input: registry neutrality of the contribution seam", function()
 			rowHeight = 40,
 			editing = editing,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ti.blueprint, tbl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ti.blueprint, tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts: full auto-composition
 		pres.refresh()
 

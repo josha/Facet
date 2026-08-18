@@ -44,7 +44,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_grid = require("../src/controls/virtual_grid")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -67,16 +67,16 @@ end
 	instruction `newVirtualList` gives for its own horizontal mode. ]]
 local function world(opts: any?)
 	local options: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local items = core:signal(options.items or makeItems(options.count or 400))
 	local built = 0
 	local activations: { any } = {}
-	local grid = virtual_grid.build(LuauUI, core, {
+	local grid = virtual_grid.build(Facet, core, {
 		id = "HG",
 		axis = "x",
 		items = items,
@@ -91,18 +91,18 @@ local function world(opts: any?)
 		overscan = options.overscan,
 		cell = function(item: any)
 			built += 1
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = LuauUI.UI.Screen({
+	local screen = Facet.UI.Screen({
 		id = "S",
 		padding = 0,
 		gap = 0,
 		children = {
-			LuauUI.UI.VStack({
+			Facet.UI.VStack({
 				id = "Wrap",
 				padding = 0,
 				gap = 0,
@@ -155,9 +155,9 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 	end)
 
 	it("...and an axis that is neither is still refused, naming the legal pair", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return virtual_grid.build(LuauUI, core, {
+			return virtual_grid.build(Facet, core, {
 				id = "HG",
 				axis = "diagonal",
 				items = core:signal(makeItems(4)),
@@ -168,7 +168,7 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 				itemExtent = 40,
 				viewportExtent = 200,
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x" })
+					return Facet.UI.Text({ id = "L", text = "x" })
 				end,
 			})
 		end)
@@ -182,9 +182,9 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 		declares — so accepting both would be two answers to one dim. Same refusal,
 		same reason, as `newVirtualList`'s. ]]
 	it("`width` is refused on the horizontal axis, and the message names the route", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return virtual_grid.build(LuauUI, core, {
+			return virtual_grid.build(Facet, core, {
 				id = "HG",
 				axis = "x",
 				items = core:signal(makeItems(4)),
@@ -196,7 +196,7 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 				viewportExtent = 200,
 				width = { type = "fixed", px = 300 },
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x" })
+					return Facet.UI.Text({ id = "L", text = "x" })
 				end,
 			})
 		end)
@@ -255,27 +255,27 @@ describe("VirtualHGrid: the mounted band's lanes are the flow grid's own arithme
 			grown its own `floor((innerH - gap * (lanes - 1)) / lanes)`; comparing
 			against the eager grid is what makes the two unable to drift apart. ]]
 		local w = world({ count = 20, gap = 6 })
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local kids = {}
 		for i = 1, 20 do
 			table.insert(
 				kids,
-				LuauUI.UI.Box({
+				Facet.UI.Box({
 					id = `e{i}`,
 					width = { type = "fixed", px = LINE },
 					height = { type = "fill" },
 				})
 			)
 		end
-		local eager = pres.present(LuauUI.UI.Screen({
+		local eager = pres.present(Facet.UI.Screen({
 			id = "E",
 			padding = 0,
 			gap = 0,
 			children = {
-				LuauUI.UI.Grid({
+				Facet.UI.Grid({
 					id = "G",
 					flow = "column",
 					columns = LANES,

@@ -1,7 +1,7 @@
 --!strict
 -- Art for the gallery examples.
 --
--- LuauUI treats an image value as an opaque string: headless tests never fetch
+-- Facet treats an image value as an opaque string: headless tests never fetch
 -- anything, and on a real Roblox client the string is handed straight to the
 -- engine as the Image property.
 --

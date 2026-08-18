@@ -6,27 +6,27 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
 describe("hint changes without remount (ADR-0004)", function()
 	it("preferredInput flip updates the hint text prop only; zero factory reruns", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local hint = core:memo(function(use)
 			local preferred = use(env:get("preferredInput"))
 			return if preferred == "Touch" then "Tap Save" else "Press Enter"
 		end)
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
-				LuauUI.UI.Button({ id = "Save", label = "Save" }),
+				Facet.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+				Facet.UI.Button({ id = "Save", label = "Save" }),
 			},
 		})
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local handle = pres.present(screen)
 		local runsBefore = handle.root.counters().factoryRuns
 		local mountedBefore = handle.root.counters().mounted

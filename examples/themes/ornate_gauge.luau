@@ -8,7 +8,7 @@
 -- the game changes package.
 --
 -- Everything below goes through the PUBLIC surface and nothing else:
---   * `LuauUI.themes.checkCoverage` — the pre-play conformance gate;
+--   * `Facet.themes.checkCoverage` — the pre-play conformance gate;
 --   * the `UI.*` primitives, `UI.shadow` and `UI.corners`;
 --   * the resolved `ThemeSnapshot` (the `themeMetrics` environment fact) and the
 --     compiled package's own plain data.

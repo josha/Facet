@@ -9,12 +9,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 
 describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", function()
 	it("after a throwing onSettle, later motions still run and the error is recorded", function()
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
 			end,
@@ -42,8 +42,8 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 	it("a throwing onSettle subscriber does not starve the ones after it (RR-12-R1)", function()
 		-- settle fires once per arrival: without the per-subscriber quarantine the
 		-- first throw skipped every later subscriber's ONLY notification
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
 			end,
@@ -67,9 +67,9 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 		-- same guarantee on the reduced-motion announce path, which fires settle
 		-- SYNCHRONOUSLY from setTarget, outside the step pcall — the quarantine
 		-- must be fireSettle's own, not the frame's
-		local core2 = LuauUI.newCore()
+		local core2 = Facet.newCore()
 		local policy = core2:signal("reduced")
-		local clock2 = LuauUI.motion.newClock(core2, {
+		local clock2 = Facet.motion.newClock(core2, {
 			motionPolicy = policy,
 			now = function()
 				return 0
@@ -90,8 +90,8 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 	end)
 
 	it("a throwing live-target function quarantines the frame, not the clock", function()
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
 			end,
@@ -117,8 +117,8 @@ end)
 
 describe("motion clock: dispose during a step defers, never crashes (RR-2)", function()
 	it("an onSettle handler disposing the clock is safe and completes at the step tail", function()
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
 			end,
@@ -142,7 +142,7 @@ end)
 
 describe("scope disposal: a throwing cleanup is quarantined (RR-4)", function()
 	it("siblings still release, counters stay exact, and no false double-dispose follows", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local scope = core:scope("quarantine")
 		local released: { string } = {}
 		scope:own(function()
@@ -173,7 +173,7 @@ describe("scope disposal: a throwing cleanup is quarantined (RR-4)", function()
 	-- detector doing its job. Both directions are pinned so the decision cannot
 	-- be quietly reversed into a suppressed diagnostic.
 	it("the double-dispose report fires for an ALIASED child and stays silent otherwise (RR-5-R1)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local parent = core:scope("p")
 		local child: any = nil
 		parent:own(function()
@@ -187,7 +187,7 @@ describe("scope disposal: a throwing cleanup is quarantined (RR-4)", function()
 		expect(core:counters().scopes).toBe(before - 2)
 
 		-- the same cleanup SHAPE over a scope the parent does not own is silent
-		local core2 = LuauUI.newCore()
+		local core2 = Facet.newCore()
 		local owner = core2:scope("owner")
 		local standalone = core2:scope("standalone")
 		owner:own(function()
@@ -206,13 +206,13 @@ end)
 -- mistake is, rather than never.
 describe("scope ownership: an unreleasable resource is refused at own() (F-13)", function()
 	it("a table with no dispose() is refused, naming the scope and the fix", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local scope = core:scope("ownership")
 		local ok, err = pcall(function()
 			scope:own({ pendingRequests = function() end }) -- a provider-shaped table
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "LuauUI scope:", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "Facet scope:", 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring(err), "ownership", 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring(err), "dispose", 1, true) ~= nil).toBe(true)
 		-- refusing is not corrupting: the scope never took it, and still works
@@ -225,7 +225,7 @@ describe("scope ownership: an unreleasable resource is refused at own() (F-13)",
 	end)
 
 	it("functions, child scopes, and dispose-bearing objects all stay legal", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local before = core:counters()
 		local scope = core:scope("legal")
 		local order: { string } = {}
@@ -248,7 +248,7 @@ describe("scope ownership: an unreleasable resource is refused at own() (F-13)",
 	end)
 
 	it("`use` still borrows anything — only OWNERSHIP implies releasability", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local scope = core:scope("borrow")
 		local borrowed = { name = "not mine to release" }
 		expect(scope:use(borrowed)).toBe(borrowed)
@@ -258,8 +258,8 @@ end)
 
 describe("motion clock: the stats contract under a quarantined frame (RR-1-R2)", function()
 	it("transactions counts frames that really committed, never the aborted ones", function()
-		local core = LuauUI.newCore()
-		local clock = LuauUI.motion.newClock(core, {
+		local core = Facet.newCore()
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
 			end,
@@ -293,8 +293,8 @@ describe("motion clock: the stats contract under a quarantined frame (RR-1-R2)",
 		clock:dispose()
 
 		-- healthy clock: the two agree exactly, which is what the batching claim rests on
-		local core2 = LuauUI.newCore()
-		local clock2 = LuauUI.motion.newClock(core2, {
+		local core2 = Facet.newCore()
+		local clock2 = Facet.motion.newClock(core2, {
 			now = function()
 				return 0
 			end,

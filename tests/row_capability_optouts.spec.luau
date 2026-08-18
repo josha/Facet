@@ -5,7 +5,7 @@
 --
 -- WHAT THESE ARE. SwiftUI ships `selectionDisabled(_:)` (iOS 17), `deleteDisabled(_:)`
 -- and `moveDisabled(_:)` (both iOS 13) as modifiers you attach to a ROW VIEW, taking an
--- ordinary boolean computed from the item. LuauUI has no per-row-view modifier
+-- ordinary boolean computed from the item. Facet has no per-row-view modifier
 -- vocabulary, so the faithful translation is a spec-level per-row closure — which is
 -- already this codebase's idiom for exactly this shape five times over (`rowFocusable`,
 -- `rowDropTarget`, `rowActions`, `rowHeight`, `dragLabel`).
@@ -32,7 +32,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("./lib/fake_target")
 local virtual_list = require("../src/controls/virtual_list")
 local table_control = require("../src/controls/table")
@@ -49,12 +49,12 @@ end
 
 -- ── VirtualList worlds ──────────────────────────────────────────────────────
 local function vlistWorld(extra: { [string]: any }?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(ITEMS)
 	local moved: { { key: string, to: number } } = {}
 	local selected: { string } = {}
@@ -73,14 +73,14 @@ local function vlistWorld(extra: { [string]: any }?)
 			table.insert(moved, { key = key, to = to })
 		end,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Cell", text = item.name })
+			return Facet.UI.Text({ id = "Cell", text = item.name })
 		end,
 	}
 	for k, v in extra or {} do
 		spec[k] = v
 	end
-	local vl = virtual_list.build(LuauUI, core, spec)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { vl.blueprint } }))
+	local vl = virtual_list.build(Facet, core, spec)
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { vl.blueprint } }))
 	pres.refresh()
 	return {
 		core = core,
@@ -161,7 +161,7 @@ end)
 
 describe("row capability opt-outs — construction refusals (a predicate may only subtract)", function()
 	local function buildVL(extra: { [string]: any })
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(ITEMS)
 		local spec: any = {
 			id = "VL",
@@ -170,14 +170,14 @@ describe("row capability opt-outs — construction refusals (a predicate may onl
 			itemExtent = 40,
 			viewportExtent = 600,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Cell", text = item.name })
+				return Facet.UI.Text({ id = "Cell", text = item.name })
 			end,
 		}
 		for k, v in extra do
 			spec[k] = v
 		end
 		return function()
-			virtual_list.build(LuauUI, core, spec)
+			virtual_list.build(Facet, core, spec)
 		end
 	end
 
@@ -227,12 +227,12 @@ end
 
 -- ── Table ───────────────────────────────────────────────────────────────────
 local function tableWorld(extra: { [string]: any }?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 500, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(ITEMS)
 	local moved: { any } = {}
 	local spec: any = {
@@ -260,8 +260,8 @@ local function tableWorld(extra: { [string]: any }?)
 	for k, v in extra or {} do
 		spec[k] = v
 	end
-	local tbl = table_control.build(LuauUI, core, spec)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "T0", children = { tbl.blueprint } }))
+	local tbl = table_control.build(Facet, core, spec)
+	local handle = pres.present(Facet.UI.Screen({ id = "T0", children = { tbl.blueprint } }))
 	pres.refresh()
 	return { core = core, pres = pres, adapter = adapter, tbl = tbl, handle = handle, moved = moved, rows = rows }
 end
@@ -301,7 +301,7 @@ describe("row capability opt-outs — Table", function()
 	it("a pinned row is not a DESTINATION either: a movable row cannot displace it", function()
 		-- moveDisabled's source-vs-destination question is one Apple does not
 		-- document (its page is an abstract and a declaration, no discussion).
-		-- LuauUI decides: a pinned row holds its INDEX, so a move that would
+		-- Facet decides: a pinned row holds its INDEX, so a move that would
 		-- shift it is refused. Otherwise "pinned" would mean "cannot be dragged
 		-- but can be pushed around", which is not what an author means by it.
 		local w = tableWorld({
@@ -330,10 +330,10 @@ end)
 	a refusal that does not say why gets re-filed as a feature request. ]]
 describe("flow-wrap x virtualization: refused, and the refusal names the conflict", function()
 	it("newVirtualList refuses `wrap` and explains the index x itemExtent arithmetic", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal({ { id = "a" } })
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = rows,
 				key = function(item: any)
@@ -343,7 +343,7 @@ describe("flow-wrap x virtualization: refused, and the refusal names the conflic
 				viewportExtent = 400,
 				wrap = true,
 				cell = function()
-					return LuauUI.UI.Text({ id = "Cell", text = "x" })
+					return Facet.UI.Text({ id = "Cell", text = "x" })
 				end,
 			})
 		end)
@@ -385,14 +385,14 @@ local ROW_KEYS_DELETE = "Delete"
 
 -- ── Table: all FOUR delete routes ───────────────────────────────────────────
 local function deletableTableWorld(protectedId: string?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clock = { t = 100 }
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clock.t
 		end,
@@ -453,8 +453,8 @@ local function deletableTableWorld(protectedId: string?)
 			return item.id ~= protectedId
 		end
 	end
-	local tbl = table_control.build(LuauUI, core, spec)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }), {
+	local tbl = table_control.build(Facet, core, spec)
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {
 		onActivate = function(path, meta)
 			tbl.api.handleActivate(path, meta)
 		end,
@@ -615,14 +615,14 @@ end)
 
 -- ── hosted VirtualList: the same funnel, the other host ─────────────────────
 local function deletableVListWorld(protectedId: string?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clock = { t = 100 }
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clock.t
 		end,
@@ -636,7 +636,7 @@ local function deletableVListWorld(protectedId: string?)
 		viewportHeight = 400,
 		env = env,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.name, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.name, textSize = 14 })
 		end,
 		rowActions = function(item: any)
 			return {
@@ -659,8 +659,8 @@ local function deletableVListWorld(protectedId: string?)
 			return item.id ~= protectedId
 		end
 	end
-	local list = virtual_list.build(LuauUI, core, spec)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local list = virtual_list.build(Facet, core, spec)
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
 	local w: any =

@@ -29,8 +29,8 @@
 	    switch at the bottom installs the real adapter, and the line under it says
 	    REQUESTED, or THIS PLATFORM SAYS NO, or COULD NOT DETERMINE. See below.
 
-	WHAT LuauUI ITSELF STILL DOES NOT DO: play anything.
-	`src/present/feedback.luau:4-5` — LuauUI says what happened and plays nothing.
+	WHAT Facet ITSELF STILL DOES NOT DO: play anything.
+	`src/present/feedback.luau:4-5` — Facet says what happened and plays nothing.
 	Playback is one opt-in, DEFAULT-OFF client adapter (`src/client/haptics.luau`)
 	that the GAME constructs. The sensation column below is that adapter's
 	published map, shown so a reader can see what each verb would be felt as; the
@@ -114,7 +114,7 @@ local COPY = {
 	pressesPrefix = "Presses that reported something",
 	muteNote = "Mute declares `none`: it activates, and reports nothing. Its line never appears.",
 	sensationTitle = "What an opt-in haptics adapter would play",
-	playsNothing = "LuauUI itself plays nothing. Playback is one opt-in, default-OFF client adapter — the switch below installs it.",
+	playsNothing = "Facet itself plays nothing. Playback is one opt-in, default-OFF client adapter — the switch below installs it.",
 	silent = "(silent, on purpose)",
 	-- THE OPT-IN AND ITS REPORT (NM-G3). Every branch below is a whole sentence
 	-- rather than a fragment assembled at the call site, because the pseudo-
@@ -122,7 +122,7 @@ local COPY = {
 	-- sentence stitched from three of them expands in three places at once.
 	playTitle = "Feel it on this device",
 	playToggle = "Play haptics on this device",
-	playNote = "LuauUI stays default-OFF, and this switch does not change that: it is the DEMO opting in, which is a different decision from the library opting in. It constructs the client adapter and hands it the same two seams a game does.",
+	playNote = "Facet stays default-OFF, and this switch does not change that: it is the DEMO opting in, which is a different decision from the library opting in. It constructs the client adapter and hands it the same two seams a game does.",
 	stateOffHeadline = "Off",
 	stateOff = "Nothing is installed, and nothing is claimed about this device.",
 	stateRequestedHeadline = "Requested",
@@ -191,7 +191,7 @@ export type Facts = {
 	top of this file.
 
 	Two hosts, two different instance trees. `tools/build_places.sh` maps `src` to
-	`ReplicatedStorage.LuauUI` and this directory to `ReplicatedStorage.LuauUIScenarios`
+	`ReplicatedStorage.Facet` and this directory to `ReplicatedStorage.FacetScenarios`
 	— SIBLING trees, so no relative path between them exists in the place even
 	though one exists on disk. The headless suite is the mirror image: it has a
 	filesystem and no `game`. Each route is therefore the ONLY route on the host it
@@ -204,7 +204,7 @@ export type Facts = {
 local function resolveAdapterModule(): (any?, string?)
 	local reasons: { string } = {}
 	local engineOk, engineResult = pcall(function(): any
-		return require((game :: any):GetService("ReplicatedStorage").LuauUI.client.haptics)
+		return require((game :: any):GetService("ReplicatedStorage").Facet.client.haptics)
 	end)
 	if engineOk and engineResult ~= nil then
 		return engineResult, nil
@@ -314,8 +314,8 @@ return {
 	declared = DECLARED,
 	sensation = SENSATION,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("sensory-feedback")
 

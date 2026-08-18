@@ -14,7 +14,7 @@ Measured on a live tree, on a freshly mounted screen:
 
 ```
 z=26  /HudScreen/Hud/Rounds/RoundStrip/R1   36x36 @59,62
-z=26  LuauUIHitExpander                     44x44 @97,58    <- R2's
+z=26  FacetHitExpander                     44x44 @97,58    <- R2's
 z=27  /HudScreen/Hud/Rounds/RoundStrip/R2   36x36 @101,62
 ```
 

@@ -45,10 +45,10 @@
 -- and a phase named `inputToVisible` which the runner lifts into the metric
 -- ledger's M6 slot.
 --
--- Depends on: src (LuauUI public API), src/controls/table, tests/lib/fake_target
+-- Depends on: src (Facet public API), src/controls/table, tests/lib/fake_target
 -- (the headless RenderTargetAdapter), bench/perf_profiles.
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 local perf_profiles = require("../bench/perf_profiles")
@@ -62,7 +62,7 @@ local perf_rows = require("../examples/performance/lab/rows")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 export type PerfScene = {
 	name: string,
@@ -79,12 +79,12 @@ export type PerfScene = {
 
 -- build a fully-wired headless stack sized to `profile`
 local function newStack(profile: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	perf_profiles.apply(env, profile)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -209,7 +209,7 @@ table.insert(scenes, {
 			table.insert(items, { id = `r{i}`, name = `Racer {i}` })
 		end
 		local rows = core:signal(items)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Bench",
 			columns = {
 				{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
@@ -248,7 +248,7 @@ table.insert(scenes, {
 -- 5. animation interruption: a value eased toward a target is RETARGETED before
 -- it settles every iteration (the interruption), stepping several frames each
 -- time and committing. Models the re-render churn a spring/tween under constant
--- interruption imposes — LuauUI has no tween module yet, so the scene builds the
+-- interruption imposes — Facet has no tween module yet, so the scene builds the
 -- observability (ENGINEERING.md "build the observability") deterministically.
 table.insert(scenes, {
 	name = "animation-interruption",
@@ -316,7 +316,7 @@ table.insert(scenes, {
 -- 7. async image burst: a grid of Image nodes takes a burst of new asset ids
 -- each iteration, fed through a modeled bounded-concurrency loader. When a
 -- node's target changes before its in-flight load completes, that load is
--- counted STALE/dropped (§14.3 "dropped or stale async work"). LuauUI has no
+-- counted STALE/dropped (§14.3 "dropped or stale async work"). Facet has no
 -- async-resource module yet, so the loader is modeled deterministically in the
 -- scene — measuring both the image-prop reactive churn and the async accounting.
 local ASYNC_CONCURRENCY = 4
@@ -451,7 +451,7 @@ table.insert(scenes, {
 			items[i] = { id = `racer{i}`, name = `Racer {i}`, detail = `Lap {i % 5 + 1} · P{i % 24 + 1}` }
 		end
 		local rows = core:signal(items)
-		local list = LuauUI.newVirtualList(LuauUI, core, {
+		local list = Facet.newVirtualList(Facet, core, {
 			id = "Roster",
 			rows = rows,
 			key = function(item)
@@ -534,7 +534,7 @@ table.insert(scenes, {
 					label = `Card {i}`,
 					height = { type = "fixed", px = 48 },
 					onPointerDown = function(_path, pos)
-						session = LuauUI.newDragSession({
+						session = Facet.newDragSession({
 							payload = { card = i },
 							source = `Card{i}`,
 							targets = {
@@ -632,7 +632,7 @@ table.insert(scenes, {
 		end
 		markerData:set(marks)
 		local progress = core:signal(0)
-		local bar = LuauUI.newProgressView(LuauUI, core, { id = "Lap", value = progress })
+		local bar = Facet.newProgressView(Facet, core, { id = "Lap", value = progress })
 		local boosts = core:signal(0)
 		local actions = {}
 		for i = 1, 4 do
@@ -724,7 +724,7 @@ table.insert(scenes, {
 })
 
 -- 12. StyleSheet state churn. In production the visual states are native
--- StyleSheet rules and the ADAPTER writes the tags; what LuauUI owns — and what
+-- StyleSheet rules and the ADAPTER writes the tags; what Facet owns — and what
 -- can regress — is the state fan-out plus the pure hint->tag classification the
 -- adapter runs per node. Both are measured here. The engine's own
 -- CollectionService writes are an E3 quantity and are NOT modelled.
@@ -792,7 +792,7 @@ table.insert(scenes, {
 	warmup = 30,
 	setup = function(profile)
 		local core, _env, _sys, adapter, pres = newStack(profile)
-		local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 16 })
+		local provider = Facet.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 16 })
 		local state = {
 			core = core,
 			adapter = adapter,
@@ -827,7 +827,7 @@ table.insert(scenes, {
 		local images = {}
 		local children = {}
 		for i = 1, 12 do
-			local img = LuauUI.newAsyncImage(LuauUI, state.core, {
+			local img = Facet.newAsyncImage(Facet, state.core, {
 				id = `Av{i}`,
 				scope = state.scope,
 				provider = state.provider,
@@ -893,10 +893,10 @@ table.insert(scenes, {
 		local quality = core:signal(2)
 		local choice = core:signal("medium")
 		local slider =
-			LuauUI.newSlider(LuauUI, core, { id = "Vol", label = "Volume", value = volume, min = 0, max = 100 })
+			Facet.newSlider(Facet, core, { id = "Vol", label = "Volume", value = volume, min = 0, max = 100 })
 		local stepper =
-			LuauUI.newStepper(LuauUI, core, { id = "Qual", label = "Quality", value = quality, min = 0, max = 4 })
-		local picker = LuauUI.newPicker(LuauUI, core, {
+			Facet.newStepper(Facet, core, { id = "Qual", label = "Quality", value = quality, min = 0, max = 4 })
+		local picker = Facet.newPicker(Facet, core, {
 			id = "Detail",
 			label = "Detail",
 			options = {
@@ -906,8 +906,8 @@ table.insert(scenes, {
 			},
 			selected = choice,
 		})
-		local bar = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.4 })
-		local label = LuauUI.newLabel(LuauUI, core, { id = "Head", title = "Settings" })
+		local bar = Facet.newProgressView(Facet, core, { id = "Load", value = 0.4 })
+		local label = Facet.newLabel(Facet, core, { id = "Head", title = "Settings" })
 		local toggles = {}
 		for i = 1, 12 do
 			table.insert(toggles, UI.Toggle({ id = `Flag{i}`, label = `Flag {i}`, value = i % 2 == 0 }))
@@ -950,7 +950,7 @@ local THEME_PROBES = { "/Fixture/Head", "/Fixture/Row/Go", "/Fixture/Row/Flag", 
 
 local function themeFixture(profile: any)
 	local core, env, _sys, adapter, pres = newStack(profile)
-	local bar = LuauUI.newProgressView(LuauUI, core, { id = "Bar", value = 0.6 })
+	local bar = Facet.newProgressView(Facet, core, { id = "Bar", value = 0.6 })
 	pres.present(UI.Screen({
 		id = "Fixture",
 		padding = 8,
@@ -1080,7 +1080,7 @@ table.insert(
 		dataset = "Fantasy Parchment Daylight <-> Candlelight (identical metrics); swap + refresh per iter",
 		assetsDeclared = 0,
 		snapshots = function()
-			local pkg = parchment.build(LuauUI.themes)
+			local pkg = parchment.build(Facet.themes)
 			return {
 				themeSnapshot.resolve(pkg, "Daylight", {}),
 				themeSnapshot.resolve(pkg, "Candlelight", {}),
@@ -1103,8 +1103,8 @@ table.insert(
 		assetsDeclared = 0,
 		snapshots = function()
 			return {
-				themeSnapshot.resolve(compactPointer.build(LuauUI.themes), nil, {}),
-				themeSnapshot.resolve(glossyTouch.build(LuauUI.themes), nil, {}),
+				themeSnapshot.resolve(compactPointer.build(Facet.themes), nil, {}),
+				themeSnapshot.resolve(glossyTouch.build(Facet.themes), nil, {}),
 			}
 		end,
 	})
@@ -1117,7 +1117,7 @@ table.insert(
 -- which the artifact says rather than implying this number covers them.
 local fantasyOrnate = require("../examples/themes/fantasy_ornate")
 local ORNATE_ASSETS = (function(): number
-	local pkg = fantasyOrnate.build(LuauUI.themes)
+	local pkg = fantasyOrnate.build(Facet.themes)
 	local n = 0
 	for _ in (pkg.assets or {}) do
 		n += 1
@@ -1148,7 +1148,7 @@ table.insert(scenes, {
 	setup = function(profile)
 		local core, _env, _sys, adapter, pres = newStack(profile)
 		local now = 0
-		local clock = LuauUI.motion.newClock(core, {
+		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return now
 			end,
@@ -1158,7 +1158,7 @@ table.insert(scenes, {
 			items[i] = { id = `chip{i}`, name = `Racer {i}` }
 		end
 		local rows = core:signal(items)
-		local list = LuauUI.newVirtualList(LuauUI, core, {
+		local list = Facet.newVirtualList(Facet, core, {
 			id = "Roster",
 			rows = rows,
 			key = function(item)
@@ -1299,8 +1299,8 @@ table.insert(
 		assetsDeclared = ORNATE_ASSETS,
 		snapshots = function()
 			return {
-				themeSnapshot.resolve(LuauUI.themes.neutralPackage(), nil, {}),
-				themeSnapshot.resolve(fantasyOrnate.build(LuauUI.themes), nil, {}),
+				themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}),
+				themeSnapshot.resolve(fantasyOrnate.build(Facet.themes), nil, {}),
 			}
 		end,
 	})
@@ -1324,7 +1324,7 @@ table.insert(
 -- close the device budget.
 local function labStack(profile)
 	local core, env, system, adapter, pres = newStack(profile)
-	local provider = LuauUI.newResourceProvider(core)
+	local provider = Facet.newResourceProvider(core)
 	return core, env, system, adapter, pres, provider
 end
 
@@ -1340,7 +1340,7 @@ local function labList(core: any, pres: any, provider: any, items: { any }, view
 	-- budget taken from it was guarding the wrong thing. Sharing `compactFor` is the
 	-- whole point of sharing the row module.
 	local compact = perf_rows.compactFor(profile.viewport.w)
-	local list = LuauUI.newVirtualList(LuauUI, core, {
+	local list = Facet.newVirtualList(Facet, core, {
 		id = "Rows",
 		rows = rowsSignal,
 		key = function(item: any)
@@ -1352,7 +1352,7 @@ local function labList(core: any, pres: any, provider: any, items: { any }, view
 		overscan = perf_rows.OVERSCAN,
 		selection = "single",
 		cell = function(item: any, cellCtx: any)
-			return perf_rows.cell(LuauUI, core, item, {
+			return perf_rows.cell(Facet, core, item, {
 				scope = cellCtx.scope,
 				ownerScope = ownerScope,
 				provider = provider,

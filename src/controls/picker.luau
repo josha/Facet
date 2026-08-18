@@ -7,7 +7,7 @@
 --
 -- The presentation is ADAPTIVE, not a platform branch: `presentation = "automatic"`
 -- (the default) chooses from the option count and the available space class the
--- caller passes in, exactly as `LuauUI.adaptive` computes it. A device name never
+-- caller passes in, exactly as `Facet.adaptive` computes it. A device name never
 -- appears. For a popup presentation use `newPopupButton`, which owns the transient
 -- surface machinery.
 --
@@ -198,7 +198,7 @@ export type Spec = {
 	-- false: the segment keeps its word and degrades to the glyph. A GROUP
 	-- decision — see the header on why it cannot be per-option.
 	iconOnly: boolean?,
-	sizeClass: any?, -- string | Readable<string> from LuauUI.adaptive.conditions
+	sizeClass: any?, -- string | Readable<string> from Facet.adaptive.conditions
 	env: any?, -- optional environment, so the indicator's metrics follow a live theme
 	enabled: any?,
 	onChange: ((value: any) -> ())?,
@@ -285,26 +285,26 @@ local function readValue(source: any, use: any?): any
 	return source
 end
 
-function picker.build(LuauUI: any, core: any, spec: Spec)
+function picker.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Picker"
 	local scope = core:scope("picker-" .. tostring(id))
 	if type(spec.options) ~= "table" or #spec.options == 0 then
-		error(`LuauUI newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
 	end
 	local selected = spec.selected
 	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
-		error(`LuauUI newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
+		error(`Facet newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
 	end
 	local requested = spec.presentation or "automatic"
 	if not PRESENTATIONS[requested] then
-		error(`LuauUI newPicker('{id}'): unknown presentation '{requested}'. One of automatic | segmented | inline.`, 0)
+		error(`Facet newPicker('{id}'): unknown presentation '{requested}'. One of automatic | segmented | inline.`, 0)
 	end
 	local indicatorRequest = spec.indicator or "automatic"
 	if not INDICATORS[indicatorRequest] then
 		error(
-			`LuauUI newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
+			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
 				.. "One of automatic | none | underline | pill. "
 				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
 			0
@@ -330,7 +330,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	end
 	if not AXES[readValue(axisSource)] then
 		error(
-			`LuauUI newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
+			`Facet newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
 				.. '`axis = "y"` is the VERTICAL segmented pill; the stacked row list is `presentation = "inline"`.',
 			0
 		)
@@ -342,7 +342,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	end
 	if not SIZINGS[readValue(sizingSource)] then
 		error(
-			`LuauUI newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
+			`Facet newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
 				.. "`fill` divides the offer among the segments (and therefore can never overflow); `hug` gives "
 				.. "the band and every segment its natural width, which is what an overflowing tab strip is.",
 			0
@@ -368,12 +368,12 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	end
 	for index, option in spec.options do
 		if type(option) ~= "table" then
-			error(`LuauUI newPicker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
+			error(`Facet newPicker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
 		end
 		local labelText = labelNow(option)
 		if type(labelText) ~= "string" or labelText == "" then
 			error(
-				`LuauUI newPicker('{id}'): option {index} needs a non-empty \`label\`. It is the SEMANTIC name — `
+				`Facet newPicker('{id}'): option {index} needs a non-empty \`label\`. It is the SEMANTIC name — `
 					.. "what `dump().semanticText` announces and what an icon-only segment has instead of "
 					.. "readable text. An icon with no name is unreadable to every non-visual consumer.",
 				0
@@ -383,7 +383,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 			local badgeText = readValue(option.badge)
 			if type(badgeText) ~= "string" and type(badgeText) ~= "number" then
 				error(
-					`LuauUI newPicker('{id}'): option {index}'s \`badge\` must be a string or a number (or a `
+					`Facet newPicker('{id}'): option {index}'s \`badge\` must be a string or a number (or a `
 						.. "Readable of one) — the COUNT the seal shows. An empty one hides the plate rather "
 						.. "than painting an empty bubble.",
 					0
@@ -394,7 +394,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 		if option.icon ~= nil then
 			if type(option.icon) ~= "string" or option.icon == "" then
 				error(
-					`LuauUI newPicker('{id}'): option {index}'s \`icon\` must be a semantic icon NAME `
+					`Facet newPicker('{id}'): option {index}'s \`icon\` must be a semantic icon NAME `
 						.. '("close", "chevron.trailing", "ns:name"), never an asset id.',
 					0
 				)
@@ -405,19 +405,19 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	end
 	if iconCount > 0 and iconCount < #spec.options then
 		error(
-			`LuauUI newPicker('{id}'): {iconCount} of {#spec.options} options carry an \`icon\`. Provide icons for `
+			`Facet newPicker('{id}'): {iconCount} of {#spec.options} options carry an \`icon\`. Provide icons for `
 				.. "all options in a group, or none of them (HIG: Menus) — a half-iconned group reads as a "
 				.. "mistake at every width except the one it was authored at.",
 			0
 		)
 	end
 	if spec.iconOnly ~= nil and type(spec.iconOnly) ~= "boolean" then
-		error(`LuauUI newPicker('{id}'): \`iconOnly\` must be a boolean`, 0)
+		error(`Facet newPicker('{id}'): \`iconOnly\` must be a boolean`, 0)
 	end
 	local iconOnly = spec.iconOnly == true
 	if iconOnly and iconCount == 0 then
 		error(
-			`LuauUI newPicker('{id}'): \`iconOnly\` was asked for but no option carries an \`icon\`, so there `
+			`Facet newPicker('{id}'): \`iconOnly\` was asked for but no option carries an \`icon\`, so there `
 				.. "would be nothing to draw. Give every option an icon, or drop `iconOnly`.",
 			0
 		)
@@ -605,7 +605,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	-- space (see selection_indicator.luau on rectOf vs screenRectOf).
 	local indicatorApi: any = nil
 	if slides then
-		indicatorApi = selectionIndicator.build(LuauUI, core, {
+		indicatorApi = selectionIndicator.build(Facet, core, {
 			id = "Indicator",
 			content = group,
 			segments = segments,
@@ -684,7 +684,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		return {
-			schema = "luauui-picker-dump/1",
+			schema = "facet-picker-dump/1",
 			id = id,
 			optionCount = #spec.options,
 			requestedPresentation = requested,

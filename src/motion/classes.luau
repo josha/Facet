@@ -133,16 +133,16 @@ end
 -- an out-of-range class would ship a feel nobody chose.
 function classes.registerClass(name: string, params: Class): Class
 	if type(name) ~= "string" or name == "" then
-		error(`LuauUI motion.registerClass: a class name must be a non-empty string, got {typeof(name)}`, 0)
+		error(`Facet motion.registerClass: a class name must be a non-empty string, got {typeof(name)}`, 0)
 	end
 	if type(params) ~= "table" then
-		error(`LuauUI motion.registerClass('{name}'): params must be a table \{ dampingRatio, response }`, 0)
+		error(`Facet motion.registerClass('{name}'): params must be a table \{ dampingRatio, response }`, 0)
 	end
 	local zeta = params.dampingRatio
 	local response = params.response
 	if not isFinite(zeta) or zeta <= MIN_DAMPING or zeta > MAX_DAMPING then
 		error(
-			`LuauUI motion.registerClass('{name}'): dampingRatio must be a number in ({MIN_DAMPING}, {MAX_DAMPING}], `
+			`Facet motion.registerClass('{name}'): dampingRatio must be a number in ({MIN_DAMPING}, {MAX_DAMPING}], `
 				.. `got {tostring(zeta)}. 1.0 is critically damped (no overshoot); below 1.0 overshoots, and overshoot `
 				.. `is earned — only 'reward' ships under-damped.`,
 			0
@@ -150,7 +150,7 @@ function classes.registerClass(name: string, params: Class): Class
 	end
 	if not isFinite(response) or response <= MIN_RESPONSE or response > MAX_RESPONSE then
 		error(
-			`LuauUI motion.registerClass('{name}'): response must be a number of seconds in `
+			`Facet motion.registerClass('{name}'): response must be a number of seconds in `
 				.. `({MIN_RESPONSE}, {MAX_RESPONSE}], got {tostring(response)}. Below that reads as a hard cut (use `
 				.. `snap); above it reads as a stall.`,
 			0
@@ -166,22 +166,22 @@ end
 function classes.resolve(name: any): Class
 	if type(name) == "table" then
 		error(
-			`LuauUI motion: a motion class is a NAME, not an inline params table (zero per-call magic numbers). `
+			`Facet motion: a motion class is a NAME, not an inline params table (zero per-call magic numbers). `
 				.. `Registered classes: {nameList()}. Register your own with `
-				.. `LuauUI.motion.registerClass("myClass", \{ dampingRatio = 1, response = 0.3 }) and cite that name.`,
+				.. `Facet.motion.registerClass("myClass", \{ dampingRatio = 1, response = 0.3 }) and cite that name.`,
 			0
 		)
 	end
 	if type(name) ~= "string" then
-		error(`LuauUI motion: a motion class name must be a string, got {typeof(name)}. Registered: {nameList()}.`, 0)
+		error(`Facet motion: a motion class name must be a string, got {typeof(name)}. Registered: {nameList()}.`, 0)
 	end
 	local class = registry[name]
 	if class == nil then
 		local did = suggestion(name)
 		local hint = if did ~= nil then ` Did you mean '{did}'?` else ""
 		error(
-			`LuauUI motion: unknown motion class '{name}'.{hint} Registered classes: {nameList()}. `
-				.. `Register a new one with LuauUI.motion.registerClass before citing it (never a silent fallback).`,
+			`Facet motion: unknown motion class '{name}'.{hint} Registered classes: {nameList()}. `
+				.. `Register a new one with Facet.motion.registerClass before citing it (never a silent fallback).`,
 			0
 		)
 	end

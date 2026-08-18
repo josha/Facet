@@ -61,7 +61,7 @@ describe("themes.define: a valid package compiles, freezes and stamps", function
 		local pkg, report = themes.define(goodDef())
 		expect(report.ok).toBe(true)
 		expect(pkg ~= nil).toBe(true)
-		expect(pkg.schema).toBe("luauui-theme/1")
+		expect(pkg.schema).toBe("facet-theme/1")
 		expect(table.isfrozen(pkg)).toBe(true)
 		expect(table.isfrozen(pkg.metrics.space)).toBe(true)
 	end)
@@ -282,11 +282,11 @@ describe("themes.define: rejection classes (each names the field and the fix)", 
 
 	it("an incompatible schema version, declared either way round", function()
 		local a = reportFor(function(def)
-			def.identity.schemaVersion = "luauui-theme/2"
+			def.identity.schemaVersion = "facet-theme/2"
 		end)
 		expect(errorClasses(a).schemaVersion).toBe(true)
 		local b = reportFor(function(def)
-			def.compatibility.requiresSchema = "luauui-theme/99"
+			def.compatibility.requiresSchema = "facet-theme/99"
 		end)
 		expect(errorClasses(b).schemaVersion).toBe(true)
 	end)

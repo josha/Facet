@@ -3,7 +3,7 @@
 -- onActivate, driven through the real adapter seam. 12 combinations:
 -- pointer kind (mouse|touch) x edge (trailing|leading) x release order
 -- (none|after|before).
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local virtual_list = require("../../src/controls/virtual_list")
 local row_actions_state = require("../../src/input/row_actions_state")
 local fake_target = require("../../tests/lib/fake_target")
@@ -20,13 +20,13 @@ local function tray(key: string, edge: string): string
 end
 
 local function makeWorld()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
@@ -38,7 +38,7 @@ local function makeWorld()
 	local activations: { string } = {}
 	local fired: { string } = {}
 	local list = virtual_list.build(
-		LuauUI,
+		Facet,
 		core,
 		{
 			id = "VL",
@@ -50,7 +50,7 @@ local function makeWorld()
 			viewportHeight = 400,
 			overscan = 2,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function(item: any)
 				table.insert(activations, item.id)
@@ -80,7 +80,7 @@ local function makeWorld()
 			env = env,
 		} :: any
 	)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 

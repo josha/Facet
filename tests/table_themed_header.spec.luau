@@ -40,7 +40,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("./lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
@@ -122,17 +122,17 @@ type Row = {
 }
 
 local function solveRow(packageName: string?, sortColumn: string, resizable: boolean, nameWidth: number?): Row
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1232, h = 1067 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	-- the engine draws the bar INSIDE the region; the header's third gutter term
 	-- is a measurement of that reserve, so a row solved without it lays out wide
 	adapter.scrollBarThickness = 8
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
-	local tbl = table_control.build(LuauUI, core, {
+	local tbl = table_control.build(Facet, core, {
 		id = "Entrants",
 		columns = columnsFor(resizable),
 		rows = core:signal(RACERS),
@@ -144,15 +144,15 @@ local function solveRow(packageName: string?, sortColumn: string, resizable: boo
 		sortOrder = core:signal({ column = sortColumn, ascending = true }),
 		env = env,
 	})
-	local handle = presenter.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
+	local handle = presenter.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
 	presenter.refresh()
 	local pkg = nil
 	if packageName ~= nil then
-		pkg = PACKAGES[packageName].build(LuauUI.themes)
+		pkg = PACKAGES[packageName].build(Facet.themes)
 		-- both halves of a theme: the chrome plan decides what is PAINTED, the
 		-- snapshot decides what is MEASURED (docs/lessons/a-theme-has-two-halves.md)
 		chromeState.setPackage(pkg)
-		env:set("themeMetrics", LuauUI.themes.resolve(pkg, nil, {}))
+		env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))
 		presenter.refresh()
 	end
 	if nameWidth ~= nil then
@@ -336,17 +336,17 @@ describe("Table header: the columns line up with the rows in every body shape", 
 	type Alignment = { drift: number, detail: string, bleed: number, toolbar: string }
 
 	local function solveShape(packageName: string?, shape: string): Alignment
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		-- a TOUCH session, so the auto Edit/Done toolbar mounts and the band has the
 		-- third sibling the device report caught (`reorderable` below is its route)
 		env:set("preferredInput", "Touch")
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).scrollBarThickness = 8
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
-		local tbl = table_control.build(LuauUI, core, {
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(Facet, core, {
 			id = "Entrants",
 			columns = alignmentColumns(),
 			rows = core:signal(RACERS),
@@ -367,7 +367,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 		if shape ~= "viewport" then
 			-- a page that scrolls: the host a block table is built for, and the
 			-- ancestor that makes a viewport table's own body an INNER clipper
-			content = LuauUI.UI.ScrollView({
+			content = Facet.UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				width = { type = "fill", weight = 1 },
@@ -375,13 +375,13 @@ describe("Table header: the columns line up with the rows in every body shape", 
 				children = { content },
 			})
 		end
-		presenter.present(LuauUI.UI.Screen({ id = "S", children = { content } }), {})
+		presenter.present(Facet.UI.Screen({ id = "S", children = { content } }), {})
 		for _ = 1, 4 do
 			presenter.refresh()
 		end
 		if packageName ~= nil then
-			local pkg = PACKAGES[packageName].build(LuauUI.themes)
-			env:set("themeMetrics", LuauUI.themes.resolve(pkg, nil, {}))
+			local pkg = PACKAGES[packageName].build(Facet.themes)
+			env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))
 			for _ = 1, 4 do
 				presenter.refresh()
 			end

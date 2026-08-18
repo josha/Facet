@@ -4,7 +4,7 @@
 
 ## Purpose
 
-LuauUI already has a strong logical focus graph and directional navigation for
+Facet already has a strong logical focus graph and directional navigation for
 keyboard and gamepad. It does not yet provide the desktop convention an author will
 expect: Tab and Shift+Tab move through a focus chain, Space activates the focused
 control, and arrow keys adjust a focused value control.
@@ -38,7 +38,7 @@ This is a framework behavior. Screens must not bind these keys themselves.
 
 ### Input ownership
 
-- Bind and sink desktop navigation keys only while an interactive LuauUI responder
+- Bind and sink desktop navigation keys only while an interactive Facet responder
   owns UI input and keyboard capability is live. Passive HUDs never steal Tab, Space,
   arrows, or gameplay actions.
 - While a TextInput is editing, Space inserts text and arrow keys remain native text

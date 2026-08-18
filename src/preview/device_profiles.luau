@@ -128,7 +128,7 @@ function device_profiles.get(name: string): Profile?
 	return PROFILES[name]
 end
 
--- writes the profile's geometry AND its input/display facts into a LuauUI
+-- writes the profile's geometry AND its input/display facts into a Facet
 -- environment; any attached renderer re-solves live (rect-only writes for a
 -- pure geometry change; fact flips may re-derive input-adaptive structure —
 -- that is the point of previewing another device class)

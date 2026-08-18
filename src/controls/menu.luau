@@ -119,7 +119,7 @@ local PRESENTATIONS: { [string]: boolean } = table.freeze({ automatic = true, me
 
 local PANEL_ID = "Panel"
 local BACK_ID = "Back"
-local DUMP_SCHEMA = "luauui-menu-dump/1"
+local DUMP_SCHEMA = "facet-menu-dump/1"
 
 --[[ VALIDATE ONE LEVEL OF ITEMS, and every level below it. Returns the
 	diagnostics; an outright authoring error throws instead, because a closed spec
@@ -130,7 +130,7 @@ local DUMP_SCHEMA = "luauui-menu-dump/1"
 	runs, and the author would find out from a player. ]]
 local function validate(id: string, items: { Item }, path: string, depth: number, notes: { string })
 	if type(items) ~= "table" or #items == 0 then
-		error(`LuauUI newMenu('{id}'): {path} must be a non-empty array of items.`, 0)
+		error(`Facet newMenu('{id}'): {path} must be a non-empty array of items.`, 0)
 	end
 	local seen: { [string]: boolean } = {}
 	local actionable = 0
@@ -138,13 +138,13 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	for index, item in items do
 		local where = `{path}[{index}]`
 		if type(item) ~= "table" then
-			error(`LuauUI newMenu('{id}'): {where} must be a table.`, 0)
+			error(`Facet newMenu('{id}'): {where} must be a table.`, 0)
 		end
 		specGuard.assertKnownKeys("newMenu", item, ITEM_KEYS, where)
 		if item.divider == true then
 			if item.label ~= nil or item.onSelect ~= nil or item.children ~= nil or item.icon ~= nil then
 				error(
-					`LuauUI newMenu('{id}'): {where} is a divider, so it carries nothing else — `
+					`Facet newMenu('{id}'): {where} is a divider, so it carries nothing else — `
 						.. "no label, icon, onSelect or children. A divider groups; it never responds.",
 					0
 				)
@@ -155,7 +155,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		local hasChildren = item.children ~= nil
 		if hasSelect and hasChildren then
 			error(
-				`LuauUI newMenu('{id}'): {where} declares BOTH onSelect and children. That is a spec error, `
+				`Facet newMenu('{id}'): {where} declares BOTH onSelect and children. That is a spec error, `
 					.. "not a precedence rule: an item is an ACTION or a SUBMENU, and silently running one of "
 					.. "the two is how an author finds out from a player.",
 				0
@@ -163,20 +163,20 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		end
 		if not hasSelect and not hasChildren then
 			error(
-				`LuauUI newMenu('{id}'): {where} has neither onSelect nor children, so activating it would `
+				`Facet newMenu('{id}'): {where} has neither onSelect nor children, so activating it would `
 					.. "silently do nothing. Give it an action, give it children, or make it divider = true.",
 				0
 			)
 		end
 		if type(item.id) ~= "string" or type(item.label) ~= "string" then
-			error(`LuauUI newMenu('{id}'): {where} needs a string id and a string label.`, 0)
+			error(`Facet newMenu('{id}'): {where} needs a string id and a string label.`, 0)
 		end
 		local itemId = item.id :: string
 		if string.find(itemId, "/", 1, true) then
-			error(`LuauUI newMenu('{id}'): item id '{itemId}' must be path-safe (no "/").`, 0)
+			error(`Facet newMenu('{id}'): item id '{itemId}' must be path-safe (no "/").`, 0)
 		end
 		if seen[itemId] then
-			error(`LuauUI newMenu('{id}'): two items in {path} share the id '{itemId}'.`, 0)
+			error(`Facet newMenu('{id}'): two items in {path} share the id '{itemId}'.`, 0)
 		end
 		seen[itemId] = true
 		actionable += 1
@@ -192,7 +192,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 				table.insert(
 					notes,
 					`submenu '{itemId}' nests {depth + 1} levels deep. SwiftUI sets no cap and neither does `
-						.. 'LuauUI, but the HIG advises a single level: "It can be difficult for people to '
+						.. 'Facet, but the HIG advises a single level: "It can be difficult for people to '
 						.. 'reveal multiple levels of hierarchical submenus."'
 				)
 			end
@@ -200,7 +200,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		end
 	end
 	if actionable == 0 then
-		error(`LuauUI newMenu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
+		error(`Facet newMenu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
 	end
 	--[[ THE ICON LINT (HIG: "provide icons for all menu items in a group, or none
 		of them"). A GROUP is the run between two dividers, which is what makes this
@@ -211,7 +211,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	local mixed = menuRecipe.mixedIconGroup(items)
 	if mixed ~= nil then
 		error(
-			`LuauUI newMenu('{id}'): the {path} group starting at index {mixed} mixes items that declare an `
+			`Facet newMenu('{id}'): the {path} group starting at index {mixed} mixes items that declare an `
 				.. "icon with items that do not. Give every item in a group an icon, or none of them "
 				.. "(HIG: Menus). A divider starts a new group.",
 			0
@@ -236,15 +236,15 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	end
 end
 
-function menu.build(LuauUI: any, core: any, spec: Spec)
+function menu.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newMenu", spec, MENU_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Menu"
 	local scope = core:scope(`menu-{id}`)
 
 	if type(spec.trigger) ~= "table" then
 		error(
-			`LuauUI newMenu('{id}'): \`trigger\` is the blueprint the menu attaches to — ANY node, not a `
+			`Facet newMenu('{id}'): \`trigger\` is the blueprint the menu attaches to — ANY node, not a `
 				.. "built-in trigger. The contribution rides it; its layout is untouched.",
 			0
 		)
@@ -255,7 +255,7 @@ function menu.build(LuauUI: any, core: any, spec: Spec)
 	local requestedPresentation = spec.presentation or "automatic"
 	if not PRESENTATIONS[requestedPresentation] then
 		error(
-			`LuauUI newMenu('{id}'): unknown presentation '{requestedPresentation}' (automatic | menu | sheet). `
+			`Facet newMenu('{id}'): unknown presentation '{requestedPresentation}' (automatic | menu | sheet). `
 				.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
 			0
 		)
@@ -264,12 +264,12 @@ function menu.build(LuauUI: any, core: any, spec: Spec)
 	local enabledTriggers: { [string]: boolean } = {}
 	local requestedTriggers = spec.triggers or ALL_TRIGGERS
 	if type(requestedTriggers) ~= "table" or #requestedTriggers == 0 then
-		error(`LuauUI newMenu('{id}'): \`triggers\` is a non-empty array, or absent for all five.`, 0)
+		error(`Facet newMenu('{id}'): \`triggers\` is a non-empty array, or absent for all five.`, 0)
 	end
 	for _, name in requestedTriggers do
 		if not TRIGGERS[name] then
 			error(
-				`LuauUI newMenu('{id}'): unknown trigger '{tostring(name)}' `
+				`Facet newMenu('{id}'): unknown trigger '{tostring(name)}' `
 					.. `(activate | secondary | longPress | keyboard | gamepad).`,
 				0
 			)
@@ -283,7 +283,7 @@ function menu.build(LuauUI: any, core: any, spec: Spec)
 		right-click is a defect" is the brief's own wording. ]]
 	if not enabledTriggers.activate and not (enabledTriggers.keyboard and enabledTriggers.gamepad) then
 		error(
-			`LuauUI newMenu('{id}'): dropping the 'activate' trigger leaves the menu unreachable on a `
+			`Facet newMenu('{id}'): dropping the 'activate' trigger leaves the menu unreachable on a `
 				.. "keyboard or a gamepad. Keep 'activate', or declare both 'keyboard' and 'gamepad'.",
 			0
 		)

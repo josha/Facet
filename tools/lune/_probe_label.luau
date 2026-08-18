@@ -5,7 +5,7 @@ local environment = require("../../src/env/environment")
 local renderer = require("../../src/render/renderer")
 local text_metrics = require("../../src/layout/text_metrics")
 local fake_target = require("../../tests/lib/fake_target")
-local LuauUI = require("../../src")
+local Facet = require("../../src")
 
 -- the engine's real numbers, measured live 2026-07-24
 local ENGINE = {
@@ -23,7 +23,7 @@ env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 1067 })
 env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 local volume = core:signal(6)
 local stepper =
-	LuauUI.newStepper(LuauUI, core, { id = "Volume", label = "Volume", value = volume, min = 0, max = 10, step = 1 })
+	Facet.newStepper(Facet, core, { id = "Volume", label = "Volume", value = volume, min = 0, max = 10, step = 1 })
 local screen = UI.Screen({
 	id = "S",
 	padding = 0,

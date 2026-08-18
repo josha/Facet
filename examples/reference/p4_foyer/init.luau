@@ -34,13 +34,13 @@ local SEARCH_W = 320
 local BADGE_MIN = 20
 local BADGE_MAX = 40
 
-function Foyer.build(LuauUI: any, core: any, deps: any): any
-	local UI = LuauUI.UI
+function Foyer.build(Facet: any, core: any, deps: any): any
+	local UI = Facet.UI
 	local env = deps.env
 	local presenter = deps.presenter
 
 	local scope = core:scope("ref-p4-foyer")
-	local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope })
+	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 	local clock = presenter.motionClock
 
 	-- ── locale ─────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── services + images ──────────────────────────────────────────────────
 	local services = Services.new({ core = core })
-	local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 64 })
+	local provider = Facet.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 64 })
 
 	-- the scripted transport (spec §3): drain the provider's active window and
 	-- resolve each key from the seed table — two keys scripted to fail. Looping
@@ -131,7 +131,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── shared pieces ──────────────────────────────────────────────────────
 	local function asyncImage(id: string, imgScope: any, key: string, width: any, height: any, radius: string?)
-		local img = LuauUI.newAsyncImage(LuauUI, core, {
+		local img = Facet.newAsyncImage(Facet, core, {
 			id = id,
 			scope = imgScope,
 			provider = provider,
@@ -342,7 +342,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── tile card (spec §6.4) ──────────────────────────────────────────────
 	local function tileCard(tile: seedData.Tile, itemScope: any)
-		local approval = LuauUI.newLabel(LuauUI, core, {
+		local approval = Facet.newLabel(Facet, core, {
 			id = "Approval",
 			title = tile.approval .. "%",
 			icon = "foyer:approval",
@@ -813,7 +813,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		},
 	})
 
-	-- ── nav chrome (spec §6.2) — ONE `LuauUI.newTabView`, built below ──────
+	-- ── nav chrome (spec §6.2) — ONE `Facet.newTabView`, built below ──────
 	--
 	-- THE FOUR NAV HOMES ARE NO LONGER THIS FILE'S BUSINESS (navigation-and-menus
 	-- D5). `adaptive.navPlacement` shipped 2026-08-09 and every reference app
@@ -872,7 +872,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 	end
 
 	-- ── top bar (spec §6.1) ────────────────────────────────────────────────
-	local searchField = owned(LuauUI.newTextInput(LuauUI, core, {
+	local searchField = owned(Facet.newTextInput(Facet, core, {
 		id = "Search",
 		value = query,
 		placeholder = Lnow("search.ph"),
@@ -1031,7 +1031,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 				end,
 		})
 	end
-	local nav = owned(LuauUI.newTabView(LuauUI, core, {
+	local nav = owned(Facet.newTabView(Facet, core, {
 		id = "Nav",
 		selection = destination,
 		-- the conditions this screen already builds, passed in rather than rebuilt:

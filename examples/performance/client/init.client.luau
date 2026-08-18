@@ -1,9 +1,9 @@
 --!strict
--- LuauUI PERFORMANCE LAB bootstrap (roadmap Step 9,
+-- Facet PERFORMANCE LAB bootstrap (roadmap Step 9,
 -- docs/plans/performance-stress-places.md; acceptance PL-1/PL-10/PL-13).
 --
 -- The engine half of the lab. It wires the same production path every other
--- LuauUI place uses — replicated source -> real adapter -> presenter -> the
+-- Facet place uses — replicated source -> real adapter -> presenter -> the
 -- gallery's scenario runner — and adds exactly three things the lab needs and no
 -- other place does:
 --
@@ -30,17 +30,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI")) :: any
-local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target) :: any
-local roblox_env = require(ReplicatedStorage.LuauUI.client.roblox_env) :: any
-local roblox_input = require(ReplicatedStorage.LuauUI.client.roblox_input) :: any
-local motion_driver = require(ReplicatedStorage.LuauUI.client.motion_driver) :: any
-local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention) :: any
+local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
+local screen_target = require(ReplicatedStorage.Facet.client.screen_target) :: any
+local roblox_env = require(ReplicatedStorage.Facet.client.roblox_env) :: any
+local roblox_input = require(ReplicatedStorage.Facet.client.roblox_input) :: any
+local motion_driver = require(ReplicatedStorage.Facet.client.motion_driver) :: any
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention) :: any
 -- INTERNAL REACH, DECLARED. `src/core/profile` is not a blessed client entry
 -- point; the lab reaches it through the named exemption in
 -- tools/lune/check_boundary.luau so the scenario driver's scopes and the
 -- framework's phases are literally the same wrapper (PLN-2).
-local profile = require(ReplicatedStorage.LuauUI.core.profile) :: any
+local profile = require(ReplicatedStorage.Facet.core.profile) :: any
 
 local native_list = require(script:WaitForChild("native_list")) :: any
 
@@ -51,14 +51,14 @@ local native_list = require(script:WaitForChild("native_list")) :: any
 -- overhead is never compared against one taken without it.
 profile.setEnabled(true)
 
-local core = LuauUI.newCore()
-local env = LuauUI.newEnvironment(core)
+local core = Facet.newCore()
+local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
 local adapter = screen_target.new({
-	nativeStyle = workspace:GetAttribute("LuauUI_NativeStyle") == true and { transitions = false } or false,
+	nativeStyle = workspace:GetAttribute("Facet_NativeStyle") == true and { transitions = false } or false,
 })
 local system = roblox_input.newSystem(core)
-local pres = LuauUI.newPresenter(core, env, adapter, system)
+local pres = Facet.newPresenter(core, env, adapter, system)
 motion_driver.bind(pres)
 
 -- UI-only place: free ButtonA and the Tab key exactly as the gallery does, for
@@ -138,8 +138,8 @@ local host = {
 			-- is the only place the label is minted.
 			evidenceClass = if RunService:IsStudio() then "studio" else "desktop-retail",
 			capturedAtIso = isoNow(),
-			sourceStamp = tostring(workspace:GetAttribute("LuauUI_SourceStamp") or "unstamped"),
-			placeName = tostring(workspace:GetAttribute("LuauUI_PerfLabPlace") or "LuauUI-PerformanceLab"),
+			sourceStamp = tostring(workspace:GetAttribute("Facet_SourceStamp") or "unstamped"),
+			placeName = tostring(workspace:GetAttribute("Facet_PerfLabPlace") or "Facet-PerformanceLab"),
 			viewport = `{math.floor(viewport.X)}x{math.floor(viewport.Y)}`,
 			orientation = if viewport.X >= viewport.Y then "landscape" else "portrait",
 			graphicsQualityLevel = tostring(quality),
@@ -148,23 +148,23 @@ local host = {
 			-- admissibility rule correctly refuses — a non-answer dressed as a value
 			-- (phase-gate review F-7). "not recorded" is the honest default: an explicit
 			-- statement that nobody set it. The operator sets
-			-- `workspace.LuauUI_PerfFrameTarget` on the device, where it actually
+			-- `workspace.Facet_PerfFrameTarget` on the device, where it actually
 			-- matters; the measured cadence is separately available in the capture's
 			-- `frame.heartbeatInterval`.
-			frameTarget = tostring(workspace:GetAttribute("LuauUI_PerfFrameTarget") or "not recorded"),
+			frameTarget = tostring(workspace:GetAttribute("Facet_PerfFrameTarget") or "not recorded"),
 			studioVersion = tostring(studioVersion),
 			deviceLabel = if RunService:IsStudio()
 				then `Studio host · touch={tostring(UserInputService.TouchEnabled)}`
 				else "retail client",
-			thermalNote = tostring(workspace:GetAttribute("LuauUI_PerfThermalNote") or "not recorded"),
+			thermalNote = tostring(workspace:GetAttribute("Facet_PerfThermalNote") or "not recorded"),
 			-- device-class fields stay nil in Studio ON PURPOSE: a Studio row that
 			-- carried them would look admissible as a device row
 			deviceModel = nil,
 			osVersion = nil,
 			clientVersion = nil,
 			powerState = nil,
-			capturePath = tostring(workspace:GetAttribute("LuauUI_PerfCapturePath") or "not captured in this run"),
-			summaryPath = tostring(workspace:GetAttribute("LuauUI_PerfSummaryPath") or "not derived in this run"),
+			capturePath = tostring(workspace:GetAttribute("Facet_PerfCapturePath") or "not captured in this run"),
+			summaryPath = tostring(workspace:GetAttribute("Facet_PerfSummaryPath") or "not derived in this run"),
 		}
 	end,
 
@@ -188,23 +188,23 @@ local host = {
 }
 
 -- ---- the scenario surface --------------------------------------------------
-local registry = require(ReplicatedStorage:WaitForChild("LuauUIScenarios")) :: any
+local registry = require(ReplicatedStorage:WaitForChild("FacetScenarios")) :: any
 local runner = require(registry.runner) :: any
 
--- ONE frame scope around the lab's own driving. `LuauUI/scenario` is a declared
+-- ONE frame scope around the lab's own driving. `Facet/scenario` is a declared
 -- phase, so the capture shows the driver's per-frame share beside the framework's
--- — which is what stops "the lab is slow" from being mistaken for "LuauUI is slow".
+-- — which is what stops "the lab is slow" from being mistaken for "Facet is slow".
 --[[ THE TICK IS NOT DRIVEN HERE — `motion_driver.bind(pres)` above already does
 	it, on PreRender, which is where it belongs (Heartbeat runs AFTER render, so
 	ticking there adds a frame of latency to every visual the tick drives).
 
 	IT USED TO BE DRIVEN IN BOTH PLACES, and the first physical-device capture is
 	what made that visible (game director, 2026-08-13, Galaxy A10e). The dump
-	showed `LuauUI/present` and `LuauUI/tick` each occurring SIXTY times across
-	thirty frames — twice per frame — with `LuauUI/scenario` wrapping exactly one
+	showed `Facet/present` and `Facet/tick` each occurring SIXTY times across
+	thirty frames — twice per frame — with `Facet/scenario` wrapping exactly one
 	of each pair. Measured cost of the duplication on that device: 0.072 ms/frame
 	of duplicate tick plus 0.208 ms/frame of duplicate present+focusmap, i.e.
-	0.279 ms/frame, which was 45% of ALL LuauUI time in the capture.
+	0.279 ms/frame, which was 45% of ALL Facet time in the capture.
 
 	`motion_driver`'s own header already called this out — "a second bind of the
 	same presenter is a mistake the double-tick would make visible, so it is
@@ -225,7 +225,7 @@ local heartbeat = RunService.Heartbeat:Connect(function(_dt: number)
 end)
 
 local api = runner.start({
-	LuauUI = LuauUI,
+	Facet = Facet,
 	registry = registry,
 	scenarioName = "perf_lab",
 	core = core,
@@ -238,11 +238,11 @@ local api = runner.start({
 	lab = registry.lab,
 })
 
-workspace:SetAttribute("LuauUI_PerfLabReady", true)
-workspace:SetAttribute("LuauUI_Version", LuauUI.VERSION)
+workspace:SetAttribute("Facet_PerfLabReady", true)
+workspace:SetAttribute("Facet_Version", Facet.VERSION)
 print(
-	`[LuauUI PerfLab] {LuauUI.VERSION} ready — scopes engine={tostring(profile.available())}; `
-		.. `drive via workspace.LuauUIScenarioAPI (list/steps/step/report/reset)`
+	`[Facet PerfLab] {Facet.VERSION} ready — scopes engine={tostring(profile.available())}; `
+		.. `drive via workspace.FacetScenarioAPI (list/steps/step/report/reset)`
 )
 
 local _keep = { heartbeat, api, unbindEnv, Players.LocalPlayer }

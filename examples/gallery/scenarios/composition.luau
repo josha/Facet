@@ -22,7 +22,7 @@
 -- owner state survives it, and the runner's counters prove nothing rebuilt.
 --
 -- Every string here is the framework's own placeholder copy. This fixture
--- belongs to LuauUI, not to a game.
+-- belongs to Facet, not to a game.
 --
 -- THE SCREEN BODY SCROLLS. The offer bar and the offer frame live inside a
 -- `UI.ScrollView` (`Body`) rather than directly under the screen, because the
@@ -42,13 +42,13 @@ return {
 	title = "Declared-content adaptive composition (ADR-0023)",
 	ledgerRows = { "OWN-D45" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("composition-scenario")
 		-- the height half of the adaptive facts rides here too: the offer frame
 		-- never asks for more than the display actually has
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		-- OWNER STATE. It must survive every arrangement change; that is the
 		-- whole "re-solve, never rebuild" promise, and `bump` is how the driver

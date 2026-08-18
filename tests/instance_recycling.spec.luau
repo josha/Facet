@@ -6,8 +6,8 @@
 	Measured on the engine, in a Studio Play session (2026-08-05): building one
 	24-object row costs **0.252 ms** and destroying it **0.045 ms**, while rewriting
 	the same 24 objects' properties costs **0.024 ms** — twelve times cheaper. The
-	structural pass (`LuauUI/mount`) was 0.66–0.97 ms/frame at every viewport, the
-	largest single component of a LuauUI frame after the L-9 measure-key fix.
+	structural pass (`Facet/mount`) was 0.66–0.97 ms/frame at every viewport, the
+	largest single component of a Facet frame after the L-9 measure-key fix.
 
 	THE ONLY INVARIANT THAT MATTERS: a recycled node must be indistinguishable from
 	a freshly created one. Not "close" — identical. Every test here is therefore a
@@ -29,7 +29,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -75,14 +75,14 @@ local function assertClean(handle: any, where: string)
 end
 
 local function world(recycle: boolean?, ragged: boolean?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(makeItems(400))
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -96,15 +96,15 @@ local function world(recycle: boolean?, ragged: boolean?)
 		cell = function(item: any)
 			local n = tonumber(string.match(item.id, "%d+")) or 0
 			local odd = ragged == true and n % 3 == 0
-			return LuauUI.UI.HStack({
+			return Facet.UI.HStack({
 				id = "Row",
 				gap = 6,
 				children = {
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "Labels",
 						gap = 2,
 						children = {
-							LuauUI.UI.Text({
+							Facet.UI.Text({
 								id = "Name",
 								text = item.label,
 								textSize = 15,
@@ -113,15 +113,15 @@ local function world(recycle: boolean?, ragged: boolean?)
 								-- centre-aligned label in a row that never asked for one
 								textAlign = if odd then "center" else nil,
 							}),
-							LuauUI.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+							Facet.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
 						},
 					}),
-					LuauUI.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
+					Facet.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	-- `nil` presents with NO recycling opt at all, which is the path every ordinary
 	-- consumer takes and therefore the one the default has to be proven on
 	local handle = pres.present(screen, if recycle == nil then nil else { recycleInstances = recycle })
@@ -326,29 +326,29 @@ end)
 	host branch and was never exposed. ]]
 describe("recycling: an adopted node belongs to its OWN surface", function()
 	local function twoSurfaceWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 
 		local alphaItems = core:signal({ { id = "a1" }, { id = "a2" }, { id = "a3" } })
 		local alpha = pres.present(
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "Alpha",
 				children = {
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "Col",
 						children = {
-							LuauUI.UI.ForEach({
+							Facet.UI.ForEach({
 								id = "Rows",
 								items = alphaItems,
 								key = function(item: any)
 									return item.id
 								end,
 								row = function(item: any)
-									return LuauUI.UI.Text({ id = "RowText", text = item.id, textSize = 15 })
+									return Facet.UI.Text({ id = "RowText", text = item.id, textSize = 15 })
 								end,
 							}),
 						},
@@ -370,20 +370,20 @@ describe("recycling: an adopted node belongs to its OWN surface", function()
 			return out
 		end)
 		pres.present(
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "Beta",
 				children = {
-					LuauUI.UI.VStack({
+					Facet.UI.VStack({
 						id = "BetaCol",
 						children = {
-							LuauUI.UI.ForEach({
+							Facet.UI.ForEach({
 								id = "BetaItems",
 								items = betaItems,
 								key = function(item: any)
 									return item.id
 								end,
 								row = function(item: any)
-									return LuauUI.UI.Text({ id = "BetaText", text = item.id, textSize = 15 })
+									return Facet.UI.Text({ id = "BetaText", text = item.id, textSize = 15 })
 								end,
 							}),
 						},

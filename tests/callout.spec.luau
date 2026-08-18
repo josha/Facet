@@ -17,7 +17,7 @@
 
 	FOUR CLAIMS THIS FILE EXISTS TO FAIL ON:
 
-	  1. PERSISTENCE IS THE CALLER'S. LuauUI has no save layer and must not grow
+	  1. PERSISTENCE IS THE CALLER'S. Facet has no save layer and must not grow
 	     one. The construct READS a "has this been seen" Readable and REPORTS when
 	     it should be retired; it never writes player state. The case that would
 	     catch a framework that quietly did is here by name.
@@ -33,11 +33,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local calloutLib = require("../src/controls/callout")
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local TIP = "Post Avatars to Marketplace"
 local SURFACE = "/Callout/Layer/Surface"
@@ -64,16 +64,16 @@ end
 	(adapter.tap, system.deviceKey), never by calling a callback directly. ]]
 local function world(opts: any?)
 	local options: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.w or 390, h = options.h or 844 })
 	if options.capabilities ~= nil then
 		env:set("capabilities", options.capabilities)
 		env:set("preferredInput", options.preferredInput)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 
@@ -119,7 +119,7 @@ local function build(w: any, spec: any): any
 	for key, value in spec do
 		merged[key] = value
 	end
-	return calloutLib.build(LuauUI, w.core, merged)
+	return calloutLib.build(Facet, w.core, merged)
 end
 
 -- a screen whose `+` IS the callout's anchor blueprint
@@ -274,7 +274,7 @@ describe("D3b Callout: invalidation, and the persistence boundary", function()
 		local w = world()
 		local ok, err = pcall(function()
 			return calloutLib.build(
-				LuauUI,
+				Facet,
 				w.core,
 				{
 					id = "Callout",
@@ -291,7 +291,7 @@ describe("D3b Callout: invalidation, and the persistence boundary", function()
 		local w = world()
 		local ok, err = pcall(function()
 			return calloutLib.build(
-				LuauUI,
+				Facet,
 				w.core,
 				{
 					id = "Callout",
@@ -674,7 +674,7 @@ describe("D3b Callout: the dump, and the teardown", function()
 		local control = build(w, { id = "Callout", sessions = sessions, afterSessions = 2, priority = 3 })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		local closed = control.dump()
-		expect(closed.schema).toBe("luauui-callout-dump/1")
+		expect(closed.schema).toBe("facet-callout-dump/1")
 		expect(closed.id).toBe("Callout")
 		expect(closed.state).toBe("waiting")
 		expect(closed.eligible).toBe(true)
@@ -689,7 +689,7 @@ describe("D3b Callout: the dump, and the teardown", function()
 		local w = world()
 		local control = build(w, { id = "Callout" })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
-		expect(w.pres.callouts().schema).toBe("luauui-callout-queue-dump/1")
+		expect(w.pres.callouts().schema).toBe("facet-callout-queue-dump/1")
 		expect(w.pres.callouts().showing).toBeNil()
 		control.api.present()
 		w.pres.refresh()

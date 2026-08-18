@@ -1,5 +1,5 @@
 {
-  "name": "LuauUI-Gallery",
+  "name": "Facet-Gallery",
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],
@@ -41,19 +41,19 @@
       }
     },
     "ReplicatedStorage": {
-      "LuauUI": {
+      "Facet": {
         "$path": "../src"
       },
-      "LuauUIExamples": {
+      "FacetExamples": {
         "$path": "gallery/examples"
       },
-      "LuauUIScenarios": {
+      "FacetScenarios": {
         "$path": "gallery/scenarios"
       },
-      "LuauUIReference": {
+      "FacetReference": {
         "$path": "reference"
       },
-      "LuauUIThemes": {
+      "FacetThemes": {
         "$path": "themes"
       }
     },

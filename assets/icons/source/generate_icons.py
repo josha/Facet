@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate LuauUI's own standard icon set.
+"""Generate Facet's own standard icon set.
 
 THE FRAMEWORK'S FIRST ART. Everything else in this repo is per-PACKAGE
 (assets/themes/<pkg>/); this set is owned by the library itself and fills in
@@ -187,19 +187,19 @@ def flag() -> Image.Image:
 
 
 ICONS = {
-    "luauui_icon_chevron_left": lambda: chevron("left"),
-    "luauui_icon_chevron_right": lambda: chevron("right"),
-    "luauui_icon_chevron_up": lambda: chevron("up"),
-    "luauui_icon_chevron_down": lambda: chevron("down"),
-    "luauui_icon_check": check,
-    "luauui_icon_close": close,
-    "luauui_icon_plus": plus,
-    "luauui_icon_minus": minus,
-    "luauui_icon_menu": menu,
-    "luauui_icon_more": more,
-    "luauui_icon_edit": edit,
-    "luauui_icon_trash": trash,
-    "luauui_icon_flag": flag,
+    "facet_icon_chevron_left": lambda: chevron("left"),
+    "facet_icon_chevron_right": lambda: chevron("right"),
+    "facet_icon_chevron_up": lambda: chevron("up"),
+    "facet_icon_chevron_down": lambda: chevron("down"),
+    "facet_icon_check": check,
+    "facet_icon_close": close,
+    "facet_icon_plus": plus,
+    "facet_icon_minus": minus,
+    "facet_icon_menu": menu,
+    "facet_icon_more": more,
+    "facet_icon_edit": edit,
+    "facet_icon_trash": trash,
+    "facet_icon_flag": flag,
 }
 
 

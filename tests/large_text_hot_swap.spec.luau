@@ -25,7 +25,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local lt = require("./lib/large_text")
 
@@ -40,7 +40,7 @@ local function busyScreen(core: any, w: any): any
 	for i = 1, 12 do
 		table.insert(rows, UI.Text({ id = `Row{i}`, text = `{i} — {STATUS}` }))
 	end
-	local field = LuauUI.newTextInput(LuauUI, core, {
+	local field = Facet.newTextInput(Facet, core, {
 		id = "Name",
 		value = w.fieldValue,
 		placeholder = STATUS,

@@ -3,14 +3,14 @@
 -- execute_luau in the EDIT datamodel while `lune run tools/lune/studio_sync`
 -- is serving. Fetches build/studio_manifest.json from the local sync server
 -- and creates/patches the gallery instance tree in the open place:
---   ReplicatedStorage.LuauUI            (library, src/)
---   ReplicatedStorage.LuauUIExamples    (tutorial examples)
---   ReplicatedStorage.LuauUIScenarios   (verification scenarios + runner)
+--   ReplicatedStorage.Facet            (library, src/)
+--   ReplicatedStorage.FacetExamples    (tutorial examples)
+--   ReplicatedStorage.FacetScenarios   (verification scenarios + runner)
 --   StarterPlayer.StarterPlayerScripts.Gallery (client bootstrap)
 -- Idempotent: existing nodes are patched in place (module require cache means
 -- a PLAY session always sees fresh sources because play-mode copies re-require;
 -- see docs/lessons re: cached module results in a single play session).
--- Stamps workspace attribute LuauUI_SourceStamp with the manifest stamp so a
+-- Stamps workspace attribute Facet_SourceStamp with the manifest stamp so a
 -- session can prove which source state it runs (contract §4 step 2).
 -- Returns a JSON summary string.
 --
@@ -104,11 +104,11 @@ for idx, entry in ipairs(manifest.files) do
 	end
 end
 
-workspace:SetAttribute("LuauUI_SourceStamp", manifest.stamp)
+workspace:SetAttribute("Facet_SourceStamp", manifest.stamp)
 -- The stamp describes the manifest, NOT the place, whenever anything was
 -- refused — say so on the attribute too, so a preflight that only reads the
 -- stamp cannot certify a source state the place does not have.
-workspace:SetAttribute("LuauUI_SourceStale", #refused + #failed)
+workspace:SetAttribute("Facet_SourceStale", #refused + #failed)
 return HttpService:JSONEncode({
 	stamp = manifest.stamp,
 	nodes = #manifest.files,

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# LuauUI model builder: emits build/LuauUI.rbxm — the library alone, as a single
-# ModuleScript named LuauUI with the whole src/ tree beneath it. This is the
+# Facet model builder: emits build/Facet.rbxm — the library alone, as a single
+# ModuleScript named Facet with the whole src/ tree beneath it. This is the
 # artifact a consumer WITHOUT Rojo drags into ReplicatedStorage
 # (docs/guide/08-without-rojo.md). Rebuild it whenever src/ or VERSION changes.
 # Usage: tools/build_model.sh          (from anywhere)
-# Output: build/LuauUI.rbxm
+# Output: build/Facet.rbxm
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo
@@ -18,13 +18,13 @@ mkdir -p build
 project=".model_build.project.json"
 cat >"$project" <<'JSON'
 {
-  "name": "LuauUI",
+  "name": "Facet",
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": { "$path": "src" }
 }
 JSON
 trap 'rm -f "$project"' EXIT
 
-rojo build "$project" -o build/LuauUI.rbxm
+rojo build "$project" -o build/Facet.rbxm
 version=$(grep -m1 'VERSION = ' src/init.luau | sed -E 's/.*"([^"]+)".*/\1/')
-echo "built build/LuauUI.rbxm (LuauUI $version, $(find src -name '*.luau' | wc -l | tr -d ' ') modules)"
+echo "built build/Facet.rbxm (Facet $version, $(find src -name '*.luau' | wc -l | tr -d ' ') modules)"

@@ -225,7 +225,7 @@ describe("theme_controller.install: per-target, all-or-nothing", function()
 		expect(info.mode).toBe("native")
 		expect(info.fallback).toBe(false)
 		expect(info.sheet.present).toBe(true)
-		expect(info.sheet.name).toBe("LuauUITheme install-native")
+		expect(info.sheet.name).toBe("FacetTheme install-native")
 		expect(info.link.present).toBe(true)
 		expect(info.package.id).toBe("install-native")
 		expect(info.snapshot.space.m).toBe(40)
@@ -242,8 +242,8 @@ describe("theme_controller.install: per-target, all-or-nothing", function()
 			definePackage("parchment"),
 			{ env = w.env, nativeStyle = native }
 		)
-		expect(controller.inspect().sheet.name).toBe("LuauUITheme parchment")
-		expect(controller.inspect().sheet.name ~= "LuauUI").toBe(true)
+		expect(controller.inspect().sheet.name).toBe("FacetTheme parchment")
+		expect(controller.inspect().sheet.name ~= "Facet").toBe(true)
 	end)
 
 	it("package sheets carry NO reference mirrors — their attributes are the source", function()
@@ -253,7 +253,7 @@ describe("theme_controller.install: per-target, all-or-nothing", function()
 			env = w.env,
 			nativeStyle = native,
 		})
-		expect(state.sheets["LuauUITheme no-mirrors"].handle.mirrors).toBe(false)
+		expect(state.sheets["FacetTheme no-mirrors"].handle.mirrors).toBe(false)
 	end)
 
 	it("a fallback target still installs: the whole metric half, no sheet", function()
@@ -327,11 +327,11 @@ describe("theme_controller.install: capability errors leave everything untouched
 		local compiled = definePackage("future")
 		local fromTheFuture = table.clone(compiled)
 		fromTheFuture.identity = table.clone(compiled.identity)
-		fromTheFuture.identity.schemaVersion = "luauui-theme/2"
+		fromTheFuture.identity.schemaVersion = "facet-theme/2"
 		local err = untouched(w, before, function()
 			theme_controller.install(w.adapter, fromTheFuture, { env = w.env })
 		end)
-		expect(string.find(err, "luauui-theme/2", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "facet-theme/2", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, themes.SCHEMA, 1, true) ~= nil).toBe(true)
 	end)
 
@@ -404,9 +404,9 @@ describe("the swap transaction: one solve, zero rebuilds", function()
 		expect(w.renderer.stats().removes).toBe(0)
 		expect(w.root.counters().factoryRuns).toBe(factoryBefore)
 		-- the new package got its OWN sheet and the one link now points at it
-		expect(state.sheets["LuauUITheme roomy"] ~= nil).toBe(true)
+		expect(state.sheets["FacetTheme roomy"] ~= nil).toBe(true)
 		expect(state.links).toBe(1)
-		expect(state.lastLink.StyleSheet.Name).toBe("LuauUITheme roomy")
+		expect(state.lastLink.StyleSheet.Name).toBe("FacetTheme roomy")
 		expect(controller.inspect().package.id).toBe("roomy")
 	end)
 
@@ -500,7 +500,7 @@ describe("live authoring: a supported token edit re-solves, an unknown one warns
 			- (w.adapter.node("/S/Title").rect.y + w.adapter.node("/S/Title").rect.h)
 
 		state.edit(
-			"LuauUITheme authoring",
+			"FacetTheme authoring",
 			"Dark",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 40 }
@@ -518,7 +518,7 @@ describe("live authoring: a supported token edit re-solves, an unknown one warns
 
 	it("editing a FONT token re-keys measurement so the descriptor follows the theme", function()
 		local w, controller, state = authoring()
-		state.edit("LuauUITheme authoring", "Dark", "Type_body_font", {
+		state.edit("FacetTheme authoring", "Dark", "Type_body_font", {
 			path = "type.body.font",
 			attribute = "Type_body_font",
 			kind = "font",
@@ -536,8 +536,8 @@ describe("live authoring: a supported token edit re-solves, an unknown one warns
 	it("an unknown attribute is ignored with ONE warn naming the supported set", function()
 		local w, controller, state, warns = authoring()
 		local solvesBefore = w.renderer.stats().solves
-		state.edit("LuauUITheme authoring", "Dark", "Spacing_medium", 40)
-		state.edit("LuauUITheme authoring", "Dark", "Spacing_medium", 41)
+		state.edit("FacetTheme authoring", "Dark", "Spacing_medium", 40)
+		state.edit("FacetTheme authoring", "Dark", "Spacing_medium", 41)
 		expect(#warns).toBe(1)
 		expect(string.find(warns[1], "Spacing_medium", 1, true) ~= nil).toBe(true)
 		expect(string.find(warns[1], "Space_", 1, true) ~= nil).toBe(true)
@@ -550,7 +550,7 @@ describe("live authoring: a supported token edit re-solves, an unknown one warns
 	it("a Step 2 COLOUR token edit is silent — native paint owns it, not the solver", function()
 		local w, _, state, warns = authoring()
 		local solvesBefore = w.renderer.stats().solves
-		state.edit("LuauUITheme authoring", "Dark", "Accent", { engineColor = "Accent" })
+		state.edit("FacetTheme authoring", "Dark", "Accent", { engineColor = "Accent" })
 		expect(#warns).toBe(0)
 		expect(w.renderer.stats().solves).toBe(solvesBefore)
 	end)
@@ -564,14 +564,14 @@ describe("live authoring: a supported token edit re-solves, an unknown one warns
 		-- the Dark sheet no longer drives anything; the Light one does
 		local solvesAfterSwap = w.renderer.stats().solves
 		state.edit(
-			"LuauUITheme authoring",
+			"FacetTheme authoring",
 			"Dark",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 40 }
 		)
 		expect(w.renderer.stats().solves).toBe(solvesAfterSwap)
 		state.edit(
-			"LuauUITheme authoring",
+			"FacetTheme authoring",
 			"Light",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 32 }
@@ -722,7 +722,7 @@ describe("token_sync: typed records round-trip and drift is detectable", functio
 		expect(#token_sync.diff(dump.tokens, token_sync.records(pkg))).toBe(0)
 		-- ...and a designer edit shows up in the dump, which is what the gate sees
 		state.edit(
-			"LuauUITheme dumped",
+			"FacetTheme dumped",
 			"Dark",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 40 }
@@ -887,7 +887,7 @@ describe("sheet overrides belong to the theme being resolved TO (A2)", function(
 		)
 		-- a designer retunes the medium step on DARK only
 		state.edit(
-			"LuauUITheme per-theme",
+			"FacetTheme per-theme",
 			"Dark",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 40 }
@@ -1324,7 +1324,7 @@ describe("metric rule pushes happen on a token EDIT and nowhere else (A9)", func
 	it("a metric token edit DOES push, so paint follows the geometry", function()
 		local _, controller, state, pushes = withRuleSpy("rule-metric")
 		state.edit(
-			"LuauUITheme rule-metric",
+			"FacetTheme rule-metric",
 			"Dark",
 			"Radii_control",
 			{ path = "radii.control", attribute = "Radii_control", kind = "number", value = 20 }
@@ -1351,7 +1351,7 @@ describe("metric rule pushes happen on a token EDIT and nowhere else (A9)", func
 			end,
 		})
 		local before = #asked
-		state.edit("LuauUITheme rule-font", "Dark", "Type_control_font", {
+		state.edit("FacetTheme rule-font", "Dark", "Type_control_font", {
 			path = "type.control.font",
 			attribute = "Type_control_font",
 			kind = "font",
@@ -1382,7 +1382,7 @@ describe("metric rule pushes happen on a token EDIT and nowhere else (A9)", func
 		table.insert(missing, "Control — corner")
 		for _, value in { 20, 21 } do
 			state.edit(
-				"LuauUITheme rule-missing",
+				"FacetTheme rule-missing",
 				"Dark",
 				"Radii_control",
 				{ path = "radii.control", attribute = "Radii_control", kind = "number", value = value }
@@ -1410,13 +1410,13 @@ describe("a sheet edit is sanitized before it reaches the resolver (A10)", funct
 		local packageBodySize = controller.inspect().snapshot.type.body.size
 
 		state.edit(
-			"LuauUITheme sanitize",
+			"FacetTheme sanitize",
 			"Dark",
 			"Insets_panel_top",
 			{ path = "insets.panel.top", attribute = "Insets_panel_top", kind = "number", value = -5 }
 		)
 		state.edit(
-			"LuauUITheme sanitize",
+			"FacetTheme sanitize",
 			"Dark",
 			"Type_body_size",
 			{ path = "type.body.size", attribute = "Type_body_size", kind = "number", value = 0 }
@@ -1445,13 +1445,13 @@ describe("a sheet edit is sanitized before it reaches the resolver (A10)", funct
 			end,
 		})
 		state.edit(
-			"LuauUITheme sanitize-2",
+			"FacetTheme sanitize-2",
 			"Dark",
 			"Space_l",
 			{ path = "space.l", attribute = "Space_l", kind = "number", value = 0 / 0 }
 		)
 		state.edit(
-			"LuauUITheme sanitize-2",
+			"FacetTheme sanitize-2",
 			"Dark",
 			"Space_m",
 			{ path = "space.m", attribute = "Space_m", kind = "number", value = 40 }
@@ -1519,18 +1519,18 @@ describe("the theme sheet follows EVERY root of the target (B12)", function()
 			env = w.env,
 			nativeStyle = native,
 		})
-		expect(w.adapter.rootThemeSheets()["S"].Name).toBe("LuauUITheme relink-a")
+		expect(w.adapter.rootThemeSheets()["S"].Name).toBe("FacetTheme relink-a")
 		expect(theme.inspect().link.present).toBe(true)
 		expect(theme.inspect().link.whole).toBe(true)
 
 		-- a modal opened AFTER the install inherits the themed sheet
 		w.adapter.createRoot("Modal")
-		expect(w.adapter.rootThemeSheets()["Modal"].Name).toBe("LuauUITheme relink-a")
+		expect(w.adapter.rootThemeSheets()["Modal"].Name).toBe("FacetTheme relink-a")
 
 		theme.swapPackage(definePackage("relink-b"))
 		local after = w.adapter.rootThemeSheets()
-		expect(after["S"].Name).toBe("LuauUITheme relink-b")
-		expect(after["Modal"].Name).toBe("LuauUITheme relink-b")
+		expect(after["S"].Name).toBe("FacetTheme relink-b")
+		expect(after["Modal"].Name).toBe("FacetTheme relink-b")
 
 		theme.uninstall()
 		local restored = w.adapter.rootThemeSheets()

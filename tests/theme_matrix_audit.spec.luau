@@ -45,7 +45,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local sheet_model = require("../src/tokens/sheet_model")
@@ -145,24 +145,24 @@ end
 -- seams stubbed exactly as tests/theme_authoring_scenario.spec.luau stubs them:
 -- the module under solve is the same file Studio loads.
 local function solveRow(row: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", row.view.viewport)
 	env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
 	env:set("displaySize", row.view.displaySize)
 	env:set("preferredInput", row.view.preferredInput)
 	env:set("capabilities", row.view.capabilities)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	-- the engine draws the scrollbar INSIDE the region; the live adapter reserves
 	-- 8px off the cross axis when content overflows, and a row solved without it
 	-- would lay out 8px wider than the live one
 	adapter.scrollBarThickness = 8
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any
 	ctx = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -808,7 +808,7 @@ end)
 --
 -- The row audit above catches a missing rule for a tag the FIXTURE happens to
 -- emit. This one closes the class: it drives `classifyTags` — the single function
--- by which every LuauUI state reaches a native selector — over its whole declared
+-- by which every Facet state reaches a native selector — over its whole declared
 -- input domain, and requires each resulting tag to be selected by a rule in every
 -- sheet the framework can run. A tag added to the classifier with no rule behind
 -- it fails here whether or not any fixture happens to render it.
@@ -917,7 +917,7 @@ describe("every tag the framework can emit has a rule that applies it (RS-A16-D4
 
 	local SHEETS: { { name: string, package: any? } } = { { name = "studio-neutral (the BASE seed)", package = nil } }
 	for _, name in { "fantasy_ornate", "pixel_quest", "glossy_touch", "compact_pointer" } do
-		local pkg, report = (PACKAGES[name] :: any).build(LuauUI.themes)
+		local pkg, report = (PACKAGES[name] :: any).build(Facet.themes)
 		assert(pkg ~= nil, `{name} failed its own package gate: {report.errors[1] and report.errors[1].message}`)
 		table.insert(SHEETS, { name = name, package = pkg })
 	end

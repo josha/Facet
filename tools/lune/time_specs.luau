@@ -151,7 +151,7 @@ end
 fs.writeFile(
 	outPath,
 	string.format(
-		'{\n  "schema": "luauui-spec-timings/1",\n  "green": %s,\n  "specs": %d,\n  "cases": %d,\n  "wallMs": %.2f,\n  "attributedMs": %.2f,\n  "rows": [\n%s\n  ]\n}\n',
+		'{\n  "schema": "facet-spec-timings/1",\n  "green": %s,\n  "specs": %d,\n  "cases": %d,\n  "wallMs": %.2f,\n  "attributedMs": %.2f,\n  "rows": [\n%s\n  ]\n}\n',
 		tostring(ok),
 		#order,
 		sumCount,

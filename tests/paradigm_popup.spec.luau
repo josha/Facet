@@ -30,7 +30,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -45,15 +45,15 @@ local OPTIONS = {
 -- multi-focusable screen the gaps only surface on (a lone control masks them:
 -- the trigger is then the sole ring survivor).
 local function world()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local changes: { string } = {}
 	local value = core:signal("normal")
-	local control = popup_button.build(LuauUI, core, {
+	local control = popup_button.build(Facet, core, {
 		id = "Difficulty",
 		options = OPTIONS,
 		value = value,
@@ -61,13 +61,13 @@ local function world()
 			table.insert(changes, id)
 		end,
 	})
-	local sibling = LuauUI.UI.Button({
+	local sibling = Facet.UI.Button({
 		id = "Outside",
 		label = "Outside",
 		width = { type = "fixed", px = 80 },
 		height = { type = "fixed", px = 40 },
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint, sibling } })
+	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint, sibling } })
 	pres.present(screen, { sinkNavigation = true })
 	pres.refresh()
 	return {
@@ -289,22 +289,22 @@ end)
 -- ===========================================================================
 describe("PopupButton parity: dismiss-while-open is registry-neutral", function()
 	it("open popup -> pres.dismiss + dispose returns every core counter to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local value = core:signal("normal")
-		local control = popup_button.build(LuauUI, core, {
+		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = OPTIONS,
 			value = value,
 			onChange = function() end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")

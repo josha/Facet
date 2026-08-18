@@ -536,7 +536,7 @@ describe("layout: purity and determinism", function()
 		local d1 = dump.fromSolve(root, { w = 390, h = 844 }, opts)
 		local d2 = dump.fromSolve(root, { w = 390, h = 844 }, opts)
 		expect(serde.encode("json", d1, true)).toBe(serde.encode("json", d2, true))
-		expect(d1.schema).toBe("luauui-dump/2")
+		expect(d1.schema).toBe("facet-dump/2")
 	end)
 end)
 

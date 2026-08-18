@@ -40,7 +40,7 @@
 	The axis-neutral names are `itemExtent` and `viewportExtent`. `rowHeight`
 	and `viewportHeight` are DEPRECATED ALIASES of exactly those two and KEEP
 	WORKING unchanged (ADR-0011: at least one MINOR of notice; both spellings
-	are in `LuauUI.DEPRECATIONS`). Passing a name and its alias together is
+	are in `Facet.DEPRECATIONS`). Passing a name and its alias together is
 	refused — it is one field, and two answers to it is an authoring mistake.
 	Nothing else was renamed: `rowGap` is still `rowGap` (a gap is a gap, and it
 	applies along whichever axis the list scrolls), and `scrollTop` is still
@@ -185,7 +185,7 @@
 --     is reorderable it contributes a navigateIntercept: while a row is ARMED,
 --     Navigate moves the predicted drop target instead of focus, Activate
 --     commits and Cancel cancels — the same session, the same legality.
--- build(LuauUI, core, spec) -> {
+-- build(Facet, core, spec) -> {
 --   blueprint, focusGroupName (the contributed group's name),
 --   scrollTop (Signal px, engine mirror), focusedKey (Signal key?),
 --   selectedKey (Signal key?), armedKey (Signal key?), dropIndex (Signal number?),
@@ -290,7 +290,7 @@ local virtual_list = {}
 
 -- the internal reorder payload kind. Namespaced with the list id so two lists on
 -- one surface can never accept each other's row moves by accident.
-local REORDER_KIND = "__luauui_reorder"
+local REORDER_KIND = "__facet_reorder"
 
 --[[ THE MEASURED CELL'S WRAPPER, AND THEREFORE THE MEASUREMENT'S PATH (measured
 	extents, Stage 2). Built ONLY under `itemExtent = "measured"`; a uniform or
@@ -428,7 +428,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"width",
 })
 
-function virtual_list.build(LuauUI: any, core: any, spec: any)
+function virtual_list.build(Facet: any, core: any, spec: any)
 	--[[ FLOW-WRAP DOES NOT COMPOSE WITH VIRTUALIZATION, and it says why.
 
 		`wrap` is not in this control's closed key set, so the guard above already
@@ -450,7 +450,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		why reads as an oversight and gets re-filed as a feature request. ]]
 	if spec.wrap ~= nil then
 		error(
-			"LuauUI newVirtualList: spec.wrap is refused — flow-wrap and virtualization do not compose. "
+			"Facet newVirtualList: spec.wrap is refused — flow-wrap and virtualization do not compose. "
 				.. "This list windows by index x itemExtent, which is exact only because the extent is ONE number; "
 				.. "a wrapped line has ragged extents and a variable count per line, so that arithmetic cannot say "
 				.. "which items are on screen. Use UI.HStack/UI.VStack with wrap = true inside a UI.ScrollView for a "
@@ -506,7 +506,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	--[[ ONE FIELD, TWO NAMES (ADR-0011). `itemExtent` / `viewportExtent` are the
 		canonical, axis-neutral names; `rowHeight` / `viewportHeight` are their
 		DEPRECATED ALIASES and keep working unchanged for at least one MINOR —
-		both spellings are registered in `LuauUI.DEPRECATIONS`, and an existing
+		both spellings are registered in `Facet.DEPRECATIONS`, and an existing
 		vertical caller needs no edit at all.
 
 		PASSING BOTH IS REFUSED rather than resolved by precedence. They are one
@@ -582,7 +582,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	)
 	--[[ THE SEED, REQUIRED RATHER THAN DEFAULTED. A measured list windows rows it
 		has never built, so something stands in for them — and a framework default
-		would put a LuauUI constant into the scroll extent of every measured list.
+		would put a Facet constant into the scroll extent of every measured list.
 		Requiring it costs one field and is refused loudly rather than guessed. ]]
 	local estimateSpec: any = spec.estimatedItemExtent
 	local estimateIsLive = type(estimateSpec) == "table" and type(estimateSpec.get) == "function"
@@ -655,7 +655,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				.. "which fills its container; wrap the list to fix it."
 		)
 	end
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "VirtualList"
 	local function viewportIn(use: any): number
 		return if viewportIsLive then use(viewportSpec) else viewportSpec
@@ -1701,7 +1701,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if rowPath == nil then
 			return nil
 		end
-		local engine = row_actions.buildHosted(LuauUI, core, {
+		local engine = row_actions.buildHosted(Facet, core, {
 			-- unique per row: rows sharing a coordinator must carry unique ids
 			-- (row_actions' own refusal), and the id is what a dump names
 			id = `{id}:{key}`,
@@ -3602,7 +3602,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			would send someone the wrong way. Nothing shipped reads them off a
 			horizontal list — there were no horizontal lists until this field. ]]
 		local d: any = {
-			schema = "luauui-virtual-list-dump/1",
+			schema = "facet-virtual-list-dump/1",
 			id = id,
 			axis = axis,
 			--[[ WHICH ARITHMETIC IS RUNNING, and the number only one of them has.

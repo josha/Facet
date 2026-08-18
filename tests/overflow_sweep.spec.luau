@@ -41,7 +41,7 @@
 -- ...at EVERY ACCESSIBILITY TEXT SIZE a player can choose (2026-08-13, below).
 --
 -- ...under the showcase's OWN chrome reservation. Every one of these surfaces is
--- reached in `LuauUI-Showcase` through the demo picker, which reserves its chip
+-- reached in `Facet-Showcase` through the demo picker, which reserves its chip
 -- strip by writing `coreSafeInsets.top` (see `examples/gallery/client/init.client`
 -- and `demo_picker.barReservation`). A sweep that laid out against the bare
 -- viewport would be measuring a screen no player ever sees — 62px taller than the
@@ -57,7 +57,7 @@
 -- 4/10/14 (clean at 0, so headless and a default Studio session both saw nothing),
 -- and `examples/reference/p4_foyer`'s TopBar was found overflowing its hstack at
 -- the same preference — PRE-EXISTING, byte-identical with every edit stashed,
--- invisible for exactly the same reason. `docs/lessons/luauui-fixed-px-heights.md`
+-- invisible for exactly the same reason. `docs/lessons/facet-fixed-px-heights.md`
 -- names the class: a px height fixed against content that is not fixed. The
 -- player's text preference is the one input that moves the content and nothing
 -- else, so a sweep that holds it at Medium is measuring one quarter of the
@@ -190,7 +190,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("./lib/fake_target")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
@@ -235,12 +235,12 @@ local PACKAGE_MODULES: { { id: string, module: any } } = {
 }
 local PACKAGES: { { id: string, snapshot: any } } = {}
 for _, entry in PACKAGE_MODULES do
-	local pkg, report = entry.module.build(LuauUI.themes)
+	local pkg, report = entry.module.build(Facet.themes)
 	assert(
 		pkg ~= nil,
 		`{entry.id} failed its own package gate: {report and report.errors[1] and report.errors[1].message}`
 	)
-	table.insert(PACKAGES, { id = entry.id, snapshot = LuauUI.themes.resolve(pkg, nil, {}) })
+	table.insert(PACKAGES, { id = entry.id, snapshot = Facet.themes.resolve(pkg, nil, {}) })
 end
 
 -- THE CELLS A PACKAGE IS SWEPT AT (the tier, from the header): every viewport at
@@ -734,7 +734,7 @@ end
 	`kind` is the triage class (docs/plans/swiftui-parity-round3.md carries the
 	full list with the per-view/per-preference detail):
 	  * fixed-px-vs-text  — a px extent fixed against content that is not fixed
-	                        (`docs/lessons/luauui-fixed-px-heights.md`)
+	                        (`docs/lessons/facet-fixed-px-heights.md`)
 	  * row-cannot-shrink — a row of labels/controls wider than the screen with
 	                        nothing allowed to shrink. NOTE: not ONE of these
 	                        carries the solver's "every shrinkable child is already
@@ -1066,14 +1066,14 @@ local function settle(presenter: any)
 end
 
 local function world(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
 	env:set("displaySize", view.displaySize)
 	env:set("preferredInput", view.input)
 	env:set("capabilities", CAPABILITIES[view.input])
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	-- THE LIVE BAR THICKNESS, OPTED INTO. The fake publishes none by default —
 	-- "which is WHY no headless sweep ever saw this class" (scroll_bar_measure.spec)
@@ -1085,7 +1085,7 @@ local function world(view: any): any
 	-- input class, not just the pointer views. See tests/scroll_window_clip.spec.luau
 	-- for the half of this the reserve does NOT cover.
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -1485,7 +1485,7 @@ end
 
 local function scenarioCtx(w: any): any
 	return {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -1554,7 +1554,7 @@ describe("overflow sweep: tutorial examples", function()
 			return present(
 				w,
 				module.build(
-					LuauUI,
+					Facet,
 					w.core,
 					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
 				)
@@ -1570,7 +1570,7 @@ describe("overflow sweep: reference proofs", function()
 			return present(
 				w,
 				module.build(
-					LuauUI,
+					Facet,
 					w.core,
 					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
 				)
@@ -1581,7 +1581,7 @@ describe("overflow sweep: reference proofs", function()
 			-- which the coverage case reports rather than assumes.
 			local built = present(
 				w,
-				module.build(LuauUI, w.core, {
+				module.build(Facet, w.core, {
 					env = w.env,
 					actionSystem = w.system,
 					presenter = w.presenter,
@@ -1708,7 +1708,7 @@ describe("overflow sweep: the widened breadth bites", function()
 		for i = 1, 4 do
 			table.insert(rows, { id = `r{i}` })
 		end
-		local list = LuauUI.newVirtualList(LuauUI, w.core, {
+		local list = Facet.newVirtualList(Facet, w.core, {
 			id = "Lying",
 			rows = w.core:signal(rows),
 			key = function(item: any)

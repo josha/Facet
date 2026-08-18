@@ -13,7 +13,7 @@ end
 fs.writeFile(
 	"artifacts/example-quality-pass/drift.json",
 	serde.encode("json", {
-		schema = "luauui-example-drift/1",
+		schema = "facet-example-drift/1",
 		ok = result.ok,
 		counts = result.counts,
 		violations = result.violations,

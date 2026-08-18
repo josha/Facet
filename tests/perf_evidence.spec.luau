@@ -105,7 +105,7 @@ end)
 describe("device budgets are unreachable from the wrong class (UI-PERF-002)", function()
 	local function headlessReport()
 		return {
-			schema = "luauui-perf/2",
+			schema = "facet-perf/2",
 			environment = { evidenceClass = "lune" },
 			referenceProfile = "floorAndroid",
 			runs = {
@@ -226,7 +226,7 @@ describe("device budgets are unreachable from the wrong class (UI-PERF-002)", fu
 		-- the review packet asks a reviewer to author a device capture by hand;
 		-- the refusal used to crash on the shape they would produce
 		local ok, result = pcall(perf_runner.checkBudgets, {
-			schema = "luauui-perf/2",
+			schema = "facet-perf/2",
 			runs = {
 				{ scene = "x", device = "floorAndroid", evidenceClass = "lune", phases = { total = { p95_ms = 1 } } },
 			},
@@ -277,7 +277,7 @@ describe("the frame ceiling is one-directional (UI-PERF-002)", function()
 
 	it("flags a scene above the ceiling separately from a trend regression", function()
 		local rep = {
-			schema = "luauui-perf/2",
+			schema = "facet-perf/2",
 			environment = { evidenceClass = "lune" },
 			runs = {
 				{

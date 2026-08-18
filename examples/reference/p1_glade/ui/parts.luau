@@ -60,7 +60,7 @@ function parts.commandButton(ctx: any, spec: CommandSpec): any
 		if use(status) == "pending" then
 			return ctx.Lnow("picker.pending")
 		end
-		if ctx.LuauUI.UI.isReadable(spec.label) then
+		if ctx.Facet.UI.isReadable(spec.label) then
 			return use(spec.label)
 		end
 		return spec.label

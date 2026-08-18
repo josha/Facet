@@ -21,6 +21,8 @@ Exit 0 when every named row is covered; non-zero with a reason otherwise.
 import json
 import sys
 
+# The 34 row artifacts this validates were emitted before the Facet rename and
+# are immutable evidence; they keep the schema string they were written with.
 SCHEMA = "luauui-sf-row/1"
 
 

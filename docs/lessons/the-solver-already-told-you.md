@@ -30,7 +30,7 @@ the geometry it had just produced.
 
 ## Four mistakes, in the order they mattered
 
-**1. Nothing read the diagnostics.** This is the whole lesson. LuauUI's solver reports
+**1. Nothing read the diagnostics.** This is the whole lesson. Facet's solver reports
 overlap, main-axis overflow, collapsed content boxes, clipped essential text and
 sub-floor hit targets. A fixture that does not read them is not verified, however many
 other checks are green.
@@ -197,7 +197,7 @@ a pass.
 ## The one-line version
 
 > A green suite means your decisions are right. It does not mean anything is on screen
-> where you think it is. LuauUI will tell you — if you ask it.
+> where you think it is. Facet will tell you — if you ask it.
 
 ---
 

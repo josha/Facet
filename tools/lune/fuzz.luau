@@ -1,11 +1,11 @@
 --!strict
--- LuauUI seeded property-fuzz command (design §15.2, §16.1, §17 Phase 4).
+-- Facet seeded property-fuzz command (design §15.2, §16.1, §17 Phase 4).
 -- Runs the scheduler/layout/replication fuzzers at scaled case counts and
 -- writes one artifact per target under artifacts/phase-4/. Deterministic:
 -- fixed default base seeds; every failure records a replayable case seed.
 -- Usage:  lune run tools/lune/fuzz [target]           (default: all)
---   env LUAUUI_FUZZ_CASES=N     scale case count (default 400)
---   env LUAUUI_FUZZ_SEED=S      replay ONE case seed for the target (raw
+--   env FACET_FUZZ_CASES=N     scale case count (default 400)
+--   env FACET_FUZZ_SEED=S      replay ONE case seed for the target (raw
 --                               error + stack surfaces; no artifact)
 -- Exits nonzero on any failure, naming the requirement and the replay
 -- command (UI-AGENT-001 command contract).
@@ -52,8 +52,8 @@ local TARGETS: { [string]: Target } = {
 }
 
 local targetArg = process.args[1] or "all"
-local cases = tonumber(process.env.LUAUUI_FUZZ_CASES) or 400
-local replaySeed = tonumber(process.env.LUAUUI_FUZZ_SEED)
+local cases = tonumber(process.env.FACET_FUZZ_CASES) or 400
+local replaySeed = tonumber(process.env.FACET_FUZZ_SEED)
 
 if replaySeed ~= nil then
 	local target = TARGETS[targetArg]
@@ -86,7 +86,7 @@ for _, name in names do
 			cases = report.cases,
 			fingerprint = report.fingerprint,
 			failures = report.failures,
-			replay = `LUAUUI_FUZZ_SEED=<seed> lune run tools/lune/fuzz {name}`,
+			replay = `FACET_FUZZ_SEED=<seed> lune run tools/lune/fuzz {name}`,
 		})
 	end
 	runOne(target.name, target.baseSeed, target.case, cases)
@@ -96,7 +96,7 @@ for _, name in names do
 
 	local status = if failures == 0 then "PASS" else "FAIL"
 	artifact.writeJson(`artifacts/phase-4/fuzz-{name}.json`, {
-		schema = "luauui-fuzz/1",
+		schema = "facet-fuzz/1",
 		target = name,
 		status = status,
 		requirements = target.requirements,
@@ -104,7 +104,7 @@ for _, name in names do
 		runs = runs,
 		hint = if failures == 0
 			then ""
-			else `re-run one failing case with LUAUUI_FUZZ_SEED=<seed> lune run tools/lune/fuzz {name}; the raw error and stack will surface`,
+			else `re-run one failing case with FACET_FUZZ_SEED=<seed> lune run tools/lune/fuzz {name}; the raw error and stack will surface`,
 	})
 	print(`fuzz {name}: {status} ({cases} cases/run, {failures} failure(s)) -> artifacts/phase-4/fuzz-{name}.json`)
 	if failures > 0 then

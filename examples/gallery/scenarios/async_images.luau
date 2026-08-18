@@ -11,26 +11,26 @@ return {
 	title = "Async images via PreloadAsync (NS-A13/NS-A14)",
 	ledgerRows = { "NS-A13", "NS-A14" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope()
-		local provider = ctx.LuauUI.newResourceProvider(core)
+		local provider = ctx.Facet.newResourceProvider(core)
 		local unbindTransport = ctx.bindResourceTransport(provider)
 
 		local imgs = {
-			ctx.LuauUI.newAsyncImage(ctx.LuauUI, core, {
+			ctx.Facet.newAsyncImage(ctx.Facet, core, {
 				id = "AvatarRoblox",
 				scope = scope,
 				provider = provider,
 				key = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48",
 			}),
-			ctx.LuauUI.newAsyncImage(ctx.LuauUI, core, {
+			ctx.Facet.newAsyncImage(ctx.Facet, core, {
 				id = "AvatarBuilderman",
 				scope = scope,
 				provider = provider,
 				key = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48",
 			}),
-			ctx.LuauUI.newAsyncImage(ctx.LuauUI, core, {
+			ctx.Facet.newAsyncImage(ctx.Facet, core, {
 				id = "BadAsset",
 				scope = scope,
 				provider = provider,

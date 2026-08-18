@@ -11,7 +11,7 @@ authority, and containment: PASS. Findings and dispositions:
 | F2 | major | NavigationGroups unreachable through the public presenter (flat scope only; no direction routing) | `PresentOpts.navigationGroups` pushes a grouped scope; Up/Down route `navigateDirection("down"/"up")`; Left/Right(+dpad) bound to a NavigateH action on grouped screens; end-to-end deviceKey test in tests/navigation_groups.spec.luau |
 | F3 | minor/major | `Grid` in the §10.1 v1 list had no blueprint constructor / renderer mapping | `UI.Grid` constructor + `Grid -> grid` renderer kind + mount/render test (tests/layout_v1.spec.luau) + api.md entry |
 | F4 | minor | presenter opts untyped `any` | exported `PresentOpts` type; present/presentModal/presentCritical annotated |
-| F5 | minor | `newTable`/`newVirtualList` take `LuauUI` first, unlike other `new*` | DEFERRED: documented shape (api.md); breaking change queued for the 0.5.0 window via the ADR-0011 deprecation ledger rather than churning three consumers late in the phase |
+| F5 | minor | `newTable`/`newVirtualList` take `Facet` first, unlike other `new*` | DEFERRED: documented shape (api.md); breaking change queued for the 0.5.0 window via the ADR-0011 deprecation ledger rather than churning three consumers late in the phase |
 | — | — | no text-input control (tutorial examples model entry as a signal) | recorded as a Phase 5 expansion-gate use case: the §10.1 v1 control list contains no editable text control by design; examples document the workaround |
 
 Docs-acceptable verdicts (colon-call convention, refresh loop discoverability,

@@ -1,9 +1,9 @@
 --!strict
--- LuauUI fault-injection command (design §17 Phase 4, §16.1). Runs every
+-- Facet fault-injection command (design §17 Phase 4, §16.1). Runs every
 -- scenario in tests/lib/fault_scenarios.luau at scaled iteration counts and
 -- writes artifacts/phase-4/faults.json. Deterministic: seeded storms record
 -- replayable seeds in their error messages.
--- Usage:  lune run tools/lune/faults        (env LUAUUI_FAULT_ITERATIONS=N)
+-- Usage:  lune run tools/lune/faults        (env FACET_FAULT_ITERATIONS=N)
 -- Exits nonzero on any scenario failure, naming the requirement + scenario.
 
 local process = require("@lune/process")
@@ -11,7 +11,7 @@ local process = require("@lune/process")
 local artifact = require("./artifact")
 local scenarios = require("../../tests/lib/fault_scenarios")
 
-local iterations = tonumber(process.env.LUAUUI_FAULT_ITERATIONS) or 200
+local iterations = tonumber(process.env.FACET_FAULT_ITERATIONS) or 200
 
 local results = {}
 local anyFailed = false
@@ -34,7 +34,7 @@ for _, scenario in scenarios.list do
 end
 
 artifact.writeJson("artifacts/phase-4/faults.json", {
-	schema = "luauui-faults/1",
+	schema = "facet-faults/1",
 	status = if anyFailed then "FAIL" else "PASS",
 	iterations = iterations,
 	scenarios = results,

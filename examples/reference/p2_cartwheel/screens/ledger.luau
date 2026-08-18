@@ -21,7 +21,7 @@ function ledger.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local stats = app.services.stats
 	local entitlement = app.services.entitlement
 
@@ -62,7 +62,7 @@ function ledger.new(app: any): any
 		end
 	end
 
-	local picker = LuauUI.newPicker(LuauUI, core, {
+	local picker = Facet.newPicker(Facet, core, {
 		id = "Timeframe",
 		options = optionLabels,
 		selected = timeframe,

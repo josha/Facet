@@ -514,7 +514,7 @@ local ALIGNS: { [string]: boolean } = { start = true, center = true, ["end"] = t
 local SPANS: { [string]: boolean } = { above = true, below = true }
 
 local function fail(msg: string): never
-	error(`LuauUI composition: {msg}`, 0)
+	error(`Facet composition: {msg}`, 0)
 end
 
 local function keyList(set: { [string]: boolean }): string
@@ -2165,7 +2165,7 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 end
 
 -- ===== the dump ============================================================
--- Follows the library's dump idiom (`luauui-<thing>-dump/N`, deterministic
+-- Follows the library's dump idiom (`facet-<thing>-dump/N`, deterministic
 -- ordering, two calls equal). This is the diagnosability half of the contract:
 -- WHICH arrangement, WHICH form per region, and WHY every richer candidate
 -- lost — by name of the rule it broke.
@@ -2232,7 +2232,7 @@ function composition.dump(resolution: Resolution): any
 		table.insert(unshown, { id = u.id, reason = u.reason, route = u.route })
 	end
 	return {
-		schema = "luauui-composition-dump/1",
+		schema = "facet-composition-dump/1",
 		arrangement = resolution.arrangement,
 		legal = resolution.legal,
 		fallback = resolution.fallback,

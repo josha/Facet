@@ -1,5 +1,5 @@
 --!strict
--- Public-surface dump (Step 5.5 cleanup evidence). Prints the exported LuauUI
+-- Public-surface dump (Step 5.5 cleanup evidence). Prints the exported Facet
 -- surface — every key, its Luau type, and one level into the exported
 -- sub-tables (`UI`, `themes`, `motion`, `tokens`, …) — plus the version and the
 -- full DEPRECATIONS ledger, in a stable sorted order.
@@ -10,7 +10,7 @@
 -- SHAPE rules, and tools/lune/check_docs owns api.md drift.
 -- Usage: lune run tools/lune/_probe_public_surface
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 
 local lines: { string } = {}
 
@@ -31,10 +31,10 @@ local function describe(value: any): string
 	return kind
 end
 
-table.insert(lines, `VERSION {LuauUI.VERSION}`)
+table.insert(lines, `VERSION {Facet.VERSION}`)
 
-for _, key in sortedKeys(LuauUI) do
-	local value = LuauUI[key]
+for _, key in sortedKeys(Facet) do
+	local value = Facet[key]
 	if key == "DEPRECATIONS" then
 		continue -- dumped in full below
 	end
@@ -48,7 +48,7 @@ end
 
 table.insert(lines, "DEPRECATIONS:")
 local entries: { any } = {}
-for _, entry in LuauUI.DEPRECATIONS :: { any } do
+for _, entry in Facet.DEPRECATIONS :: { any } do
 	table.insert(entries, entry)
 end
 table.sort(entries, function(a, b)

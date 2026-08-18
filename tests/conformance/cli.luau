@@ -84,7 +84,7 @@ for claim, checkName in claimChecks do
 end
 
 artifact.writeJson(`artifacts/conformance-{coreName}.json`, {
-	schema = "luauui-conformance/1",
+	schema = "facet-conformance/1",
 	core = coreName,
 	claims = factory.claims,
 	claimsMismatches = claimsMismatches,

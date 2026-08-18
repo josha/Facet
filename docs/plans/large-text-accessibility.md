@@ -6,7 +6,7 @@ the performance lab.
 
 ## Purpose
 
-LuauUI should treat the player's Roblox preferred text size as a first-class layout
+Facet should treat the player's Roblox preferred text size as a first-class layout
 input. A screen written once must remain readable, navigable, and stable at
 `Medium`, `Large`, `Larger`, and `Largest`, including on a compact phone in portrait
 and landscape. A theme with wider fonts or larger controls must receive the same
@@ -25,7 +25,7 @@ Official platform anchors:
   returns the additive size offset for a font and size. It yields and can fail, so a
   live adapter must cache it and retain a safe fallback.
 - Roblox text wrapping, bounds, truncation, and automatic sizing remain engine
-  mechanisms. LuauUI owns the deterministic layout and overflow decisions around
+  mechanisms. Facet owns the deterministic layout and overflow decisions around
   them.
 - Apple's [typography guidance](https://developer.apple.com/design/human-interface-guidelines/typography)
   and [SwiftUI accessibility fundamentals](https://developer.apple.com/documentation/swiftui/accessibility-fundamentals)
@@ -37,7 +37,7 @@ before implementation. Roblox is a rolling platform.
 
 ## Baseline to audit, not assume
 
-LuauUI already has useful pieces: `Text.lineLimit`, exact/conservative text metrics,
+Facet already has useful pieces: `Text.lineLimit`, exact/conservative text metrics,
 `ViewThatFits`, adaptive composition, scroll-to-visible, theme typography metrics,
 `compactLabel`, and reduced-motion facts. The live adapter also keeps the player's
 preference out of `TextSize` so the engine does not receive a multiplicative scale
@@ -132,14 +132,14 @@ and likely fix.
 
 ## Rascal Rally Sponsor View proof
 
-Rascal Rally is the production proof and must remain synchronized with every LuauUI
+Rascal Rally is the production proof and must remain synchronized with every Facet
 change. Reusable measurement, overflow, adaptation, focus, input, motion, and
-diagnostic behavior belongs in LuauUI. Sponsor code owns localized content,
+diagnostic behavior belongs in Facet. Sponsor code owns localized content,
 importance, semantic style/control choices, intended relationships, and declared
 layout alternatives. Do not add game-local marquees, text measurement, responsive
 geometry, input wiring, or parallel focus/scroll behavior.
 
-Exercise the production LuauUI presenter through deterministic fixtures for role
+Exercise the production Facet presenter through deterministic fixtures for role
 selection, table/racer list and cards, race HUD/ticker/toasts/captions/countdown/
 omens, both roles' results, and success/error/empty states. Include long display
 names, long localized strings, large rosters, Studio Neutral, and Fantasy Parchment.
@@ -200,7 +200,7 @@ The stage passes only when the canonical gate exits zero and writes
 native behavior exactly once and updates while mounted; public controls/layouts pass
 the large-text matrix; Sponsor View remains excellent and usable in compact mobile
 portrait and landscape; full essential text is reachable; motion is bounded and
-reduced-motion-safe; relevant LuauUI/RascalRally suites and prior gates are green;
+reduced-motion-safe; relevant Facet/RascalRally suites and prior gates are green;
 both documentation sets are current; and required fresh UI, architecture, platform,
 and phase-gate findings are resolved. Physical/human rows may remain honestly pending
 with one prepared review build and checklist.

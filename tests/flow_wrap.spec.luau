@@ -3,10 +3,10 @@
 	FLOW-WRAP (docs/plans/swiftui-parity-round3.md, item A).
 
 	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` — Roblox's
-	`UIListLayout.Wraps`, which LuauUI had no spelling for at all. One PROP, one
+	`UIListLayout.Wraps`, which Facet had no spelling for at all. One PROP, one
 	new arrange branch, and NO new alignment vocabulary: the cross-axis rule was
 	measured live in Studio on 2026-08-13 and it is `align` for the block of lines
-	and `lineAlign` for an item inside its line — the two words LuauUI already
+	and `lineAlign` for an item inside its line — the two words Facet already
 	ships. SwiftUI has no flow layout to be parity with ([SW-10]-shaped absence,
 	verified 2026-08-13); the gap being closed is the NATIVE one.
 
@@ -43,7 +43,7 @@ local environment = require("../src/env/environment")
 local mountLib = require("../src/mount")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 
 local function fixed(px: number): any
 	return { type = "fixed", px = px }
@@ -710,7 +710,7 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 	it("the same list WITHOUT `wrap` builds, so the refusal below is about the word", function()
 		local core, spec = listSpec()
 		local ok, err = pcall(function()
-			LuauUI.newVirtualList(LuauUI, core, spec)
+			Facet.newVirtualList(Facet, core, spec)
 		end)
 		expect(`built: {ok} {tostring(err)}`).toBe("built: true nil")
 	end)
@@ -718,7 +718,7 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 	it("`newVirtualList{ wrap = true }` is refused: the spec is CLOSED", function()
 		local core, spec = listSpec({ wrap = true })
 		local ok, err = pcall(function()
-			LuauUI.newVirtualList(LuauUI, core, spec)
+			Facet.newVirtualList(Facet, core, spec)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "wrap", 1, true) ~= nil).toBe(true)
@@ -736,7 +736,7 @@ end)
 -- puts fewer tags on a line, more lines in the block, and a taller block in the
 -- same box.
 describe("flow-wrap: the gallery surface holds under every shipped package", function()
-	-- the packages are BUILT through the PUBLIC facade (`LuauUI.themes`), which is
+	-- the packages are BUILT through the PUBLIC facade (`Facet.themes`), which is
 	-- what a reference package's `build` expects, and RESOLVED through the snapshot
 	-- compiler — the same pair `tests/compact_label.spec.luau` uses
 	local snapshot = require("../src/themes/snapshot") :: any
@@ -760,21 +760,21 @@ describe("flow-wrap: the gallery surface holds under every shipped package", fun
 	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 
 	local function mountUnder(pkgName: string?, view: any): (any, any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		if pkgName ~= nil then
 			env:set(
 				"themeMetrics",
-				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(LuauUI.themes), nil, {})
+				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
 			)
 		end
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			actionSystem = system,

@@ -5,7 +5,7 @@
 -- RenderTargetAdapter interface as tests/lib/fake_target: createRoot/create/
 -- setRect/setProp/remove/destroyRoot (+ setActivateHandler/setFocusVisual/
 -- getInstance). Renders under PlayerGui with ZIndexBehavior=Sibling and
--- IgnoreGuiInset=true: LuauUI solves insets itself (§8.1).
+-- IgnoreGuiInset=true: Facet solves insets itself (§8.1).
 --
 -- STYLE: applies the "Studio Neutral" default style (src/tokens/default_style)
 -- or a game-compiled override passed via new({ style = ... }). All visual
@@ -138,8 +138,8 @@ local CLASS_TO_INSTANCE: { [string]: string } = {
 
 -- the instances the stage seam owns, named from one place so the adapter and any
 -- probe reading the Explorer agree
-local STAGE_WORLD_NAME = "LuauUIStageWorld"
-local STAGE_CAMERA_NAME = "LuauUIStageCamera"
+local STAGE_WORLD_NAME = "FacetStageWorld"
+local STAGE_CAMERA_NAME = "FacetStageCamera"
 
 -- THE ONE WRITER for a seam-owned engine property (render/authority.luau's
 -- SEAM_OWNED: Ambient, LightColor, LightDirection, CurrentCamera). It writes by
@@ -198,10 +198,10 @@ export type Opts = {
 		silently removing a capability the game wants.
 
 		THE MEASUREMENT IS REAL AND IS WHY THE OPTION EXISTS (Galaxy A10e, the
-		first MicroProfiler capture ever to contain LuauUI's solver scopes,
+		first MicroProfiler capture ever to contain Facet's solver scopes,
 		2026-08-13): `LocalizationService::attemptLocalization` ran 64 times for
-		39.54 ms, parented to `LuauUI/mount` in ALL 64 cases — 25.1% of `mount`
-		and 8.9% of all LuauUI CPU, at 0.6178 ms per call. **55% of that is
+		39.54 ms, parented to `Facet/mount` in ALL 64 cases — 25.1% of `mount`
+		and 8.9% of all Facet CPU, at 0.6178 ms per call. **55% of that is
 		`Stat::send` telemetry**, not translation.
 
 		So a game that localizes pays ~0.62 ms per text instance materialised on
@@ -214,7 +214,7 @@ export type Opts = {
 		`adapter.setReducedMotion`, which the renderer pushes from the environment
 		at attach and on every change.
 
-		Declared in `LuauUI.DEPRECATIONS` as `screen_target.new(opts.isReducedMotion)`
+		Declared in `Facet.DEPRECATIONS` as `screen_target.new(opts.isReducedMotion)`
 		(since 0.9.0, remove no earlier than 0.10.0) — prose in two places and no
 		ledger row was the Milestone-1 review's C3.
 
@@ -234,7 +234,7 @@ export type Opts = {
 	rootFactory: ((screenId: string) -> { gui: Instance })?,
 	-- native-substrate NS-A2/NS-I2: render ScrollView nodes as plain Frame clip
 	-- hosts (no engine scrolling). Billboard targets set this until proven;
-	-- the gallery sets it from the LuauUI_ForceScrollFallback attribute so the
+	-- the gallery sets it from the Facet_ForceScrollFallback attribute so the
 	-- fallback path is exercised separately in Studio (never only headlessly).
 	forceScrollFallback: boolean?,
 	-- native-substrate NS-A5/NS-I2: force setDragDetector to return nil so the
@@ -270,7 +270,7 @@ function screen_target.new(opts: Opts?)
 
 		It used to come ONLY from `opts.isReducedMotion`, a construction-time
 		closure defaulting to "no". No production caller anywhere passed one — not
-		the showcase, not RascalRally's four LuauUI GUIs — so the player's setting
+		the showcase, not RascalRally's four Facet GUIs — so the player's setting
 		reached none of these tweens, on any surface, ever.
 
 		Now the RENDERER pushes the environment fact into `adapter.setReducedMotion`
@@ -381,13 +381,13 @@ function screen_target.new(opts: Opts?)
 	--     to the sheet, because the engine has no such operation.
 	--   * a claimed property no longer follows a theme swap. That is the price of a
 	--     continuous channel and the reason finite states must stay on tags.
-	local CLAIM_ATTRIBUTE = "LuauUI_PaintClaims"
+	local CLAIM_ATTRIBUTE = "Facet_PaintClaims"
 
 	-- the per-control sensory verb's attribute name. Kept identical to
 	-- `src/client/haptics.luau`'s `ACTIVATION_ATTRIBUTE` and pinned equal by
 	-- tests/control_feedback.spec.luau, because the two ends of a string-keyed
 	-- channel that drift apart fail as silence rather than as an error.
-	local ACTIVATION_FEEDBACK_ATTRIBUTE = "LuauUI_ActivationFeedback"
+	local ACTIVATION_FEEDBACK_ATTRIBUTE = "Facet_ActivationFeedback"
 
 	-- the value the sheet (or the bespoke path) had on this property when the claim
 	-- was taken. `GetStyled` is the instrument in native mode: a plain read is blind
@@ -464,11 +464,11 @@ function screen_target.new(opts: Opts?)
 			then
 				return
 			end
-			error(`LuauUI native-style: bespoke write to sheet-owned {engineProp} in native mode`, 0)
+			error(`Facet native-style: bespoke write to sheet-owned {engineProp} in native mode`, 0)
 		end
 	end
 
-	-- tag synchronization: the ONLY channel by which LuauUI state reaches
+	-- tag synchronization: the ONLY channel by which Facet state reaches
 	-- native selectors (corrections §5 — GuiState is read-only; app state is
 	-- tags). Desired set computed by the PURE sheet_model.classifyTags.
 	local function syncTags(handle: any)
@@ -970,7 +970,7 @@ function screen_target.new(opts: Opts?)
 			if gui.Parent ~= nil then
 				table.insert(live, gui)
 				if effective ~= nil then
-					-- repoints the existing LuauUIStyleLink rather than adding a
+					-- repoints the existing FacetStyleLink rather than adding a
 					-- second one: two links means two sheets on one tree and the
 					-- cascade winner depends on load order
 					native_style.linkAt(gui, effective)
@@ -998,12 +998,12 @@ function screen_target.new(opts: Opts?)
 			return { gui = made.gui, screenId = screenId }
 		end
 		local gui = Instance.new("ScreenGui")
-		gui.Name = `LuauUI_{screenId}`
+		gui.Name = `Facet_{screenId}`
 		gui.ResetOnSpawn = false
 		gui.IgnoreGuiInset = true
 		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 		if nativeMode then
-			-- one StyleLink per LuauUI root (plan §6): the single application point
+			-- one StyleLink per Facet root (plan §6): the single application point
 			local sheet = activeSheetFor()
 			if sheet ~= nil then
 				native_style.link(gui, sheet)
@@ -1078,7 +1078,7 @@ function screen_target.new(opts: Opts?)
 	-- MEASURED on the performance lab: of 137 GuiObjects on a five-row surface, **55
 	-- (40%) are completely inert** — they do not paint, do not clip, are not
 	-- interactive, carry no modifier children and hold no text or image. And in
-	-- LuauUI's FLAT tree they are not even the engine parent of their children:
+	-- Facet's FLAT tree they are not even the engine parent of their children:
 	-- `create` parents everything to the root and the solver positions absolutely. An
 	-- inert container is an invisible, zero-child `Frame` holding a rect nothing
 	-- reads. At ~12.4us of engine work each that is ~0.68ms per full window build,
@@ -1279,7 +1279,7 @@ function screen_target.new(opts: Opts?)
 
 				TWO CREATION-TIME FACTS, both structural rather than cosmetic:
 
-				CLIPSDESCENDANTS IS THE CONTRACT. "LuauUI owns the box, you own what is
+				CLIPSDESCENDANTS IS THE CONTRACT. "Facet owns the box, you own what is
 				in it" is a promise only while nothing in it can paint outside it. The
 				clip is what makes the solved rect the WHOLE truth about this node —
 				which is also what keeps the cross-surface cover-rect alarm (ADR-0028)
@@ -1289,9 +1289,9 @@ function screen_target.new(opts: Opts?)
 				`UI.Foreign` does not offer it, so the renderer can never write this
 				property on this class and there is no second writer.
 
-				NOT AN INSTANCE HOST. A registered host means "LuauUI nodes are re-parented
+				NOT AN INSTANCE HOST. A registered host means "Facet nodes are re-parented
 				under this instance and re-based against it". A Foreign is a LEAF: no
-				LuauUI node is ever its child, so registering one would add a rect the
+				Facet node is ever its child, so registering one would add a rect the
 				solver re-places every frame for children that cannot exist.
 
 				`foreignBox` is what the park refusal and the disposal marker key on —
@@ -1319,13 +1319,13 @@ function screen_target.new(opts: Opts?)
 
 				MEASURED on a physical device (Samsung Galaxy A10e, Android 11,
 				Release 734) in the first MicroProfiler capture that ever contained
-				LuauUI's solver scopes, 2026-08-13:
+				Facet's solver scopes, 2026-08-13:
 
 				  LocalizationService::attemptLocalization  64 calls, 39.54 ms
-				  ...its parent, in ALL 64 cases                LuauUI/mount
+				  ...its parent, in ALL 64 cases                Facet/mount
 				  per call                                     0.6178 ms mean, 2.52 worst
-				  share of LuauUI/mount inclusive              25.1%
-				  share of ALL LuauUI CPU in the capture        8.9%
+				  share of Facet/mount inclusive              25.1%
+				  share of ALL Facet CPU in the capture        8.9%
 				  of which Stat::send TELEMETRY                21.90 ms — 55%
 
 				The engine runs `attemptLocalization` when a `TextLabel`/`TextButton`
@@ -1333,7 +1333,7 @@ function screen_target.new(opts: Opts?)
 				set, and more than half of what it costs on this hardware is
 				telemetry the game gets nothing from. Nothing in `src/` had ever
 				touched the property — `grep -rn "AutoLocalize" src/` returned
-				nothing — so every text instance LuauUI has ever created has paid it.
+				nothing — so every text instance Facet has ever created has paid it.
 
 				DEFAULTING THIS OFF WAS THE WRONG CALL AND WAS REVERSED THE SAME DAY.
 				The director's ruling: *"we do want to localize text."* Buying frame
@@ -1454,7 +1454,7 @@ function screen_target.new(opts: Opts?)
 			pad.PaddingRight = UDim.new(0, style.space.s + 4)
 			pad.Parent = instance
 			-- gamepad reachability: the engine A-press on a Selected TextBox
-			-- captures focus natively (engine-facts §8); LuauUI's own focus graph
+			-- captures focus natively (engine-facts §8); Facet's own focus graph
 			-- still drives the ring via setFocusVisual.
 			instance.Selectable = true
 		end
@@ -1582,7 +1582,7 @@ function screen_target.new(opts: Opts?)
 		in, CFrame/Color3/Vector3 writes out — and the split of ownership is stated
 		once here and repeated in api.md:
 
-		  LuauUI owns  the ViewportFrame, the WorldModel, the Camera, the box, the
+		  Facet owns  the ViewportFrame, the WorldModel, the Camera, the box, the
 		               lifecycle, and every write to Ambient/LightColor/
 		               LightDirection/CurrentCamera (all four declared SEAM_OWNED);
 		  the CALLER   owns whatever it parents into `contentRoot()` — the framework
@@ -1674,12 +1674,12 @@ function screen_target.new(opts: Opts?)
 		clipping box; what goes in it is one GuiObject the CALLER created, so the
 		seam is a per-node handle with ONE verb and the split of ownership is:
 
-		  LuauUI owns  the container Frame, its rect, its plate, its clip and its
+		  Facet owns  the container Frame, its rect, its plate, its clip and its
 		               lifecycle — and makes exactly ONE claim on the adopted
 		               instance, its `Parent`, declared in the authority manifest as
 		               `Foreign.Parent = "host"` and gated below;
 		  the CALLER   owns the instance itself: its class, every one of its
-		               properties, its own children, and its lifetime. LuauUI never
+		               properties, its own children, and its lifetime. Facet never
 		               enumerates it, never sizes it, never paints it, and keeps no
 		               reference to it — which is why "we write nothing else" is a
 		               structural fact rather than a promise. It DIES WITH THE BOX
@@ -2181,7 +2181,7 @@ function screen_target.new(opts: Opts?)
 
 	-- THE PER-CONTROL SENSORY VERB (director request 2026-08-13;
 	-- `src/render/target_contract.luau`'s `setActivationFeedback`). An ATTRIBUTE,
-	-- for the same reason `LuauUI_PaintClaims` is one: it is a fact about the node
+	-- for the same reason `Facet_PaintClaims` is one: it is a fact about the node
 	-- that something outside the renderer needs to read, and an attribute is the
 	-- engine's own channel for exactly that. `src/client/haptics.luau` reads it and
 	-- assigns `GuiButton.PressHapticEffect` accordingly — this adapter plays
@@ -2215,12 +2215,12 @@ function screen_target.new(opts: Opts?)
 		local expander = handle.hitExpander
 		if expander == nil then
 			expander = Instance.new("TextButton")
-			expander.Name = "LuauUIHitExpander"
+			expander.Name = "FacetHitExpander"
 			expander.Text = ""
 			expander.AutoButtonColor = false
 			expander.BackgroundTransparency = 1
 			expander.BorderSizePixel = 0
-			expander.Selectable = false -- LuauUI's focus graph owns focus, not this
+			expander.Selectable = false -- Facet's focus graph owns focus, not this
 			expander.ZIndex = instance.ZIndex - 1
 			-- born at the host's CURRENT visibility, so it cannot flash live for a
 			-- control that is already hidden (RS-A16-D1)
@@ -2308,7 +2308,7 @@ function screen_target.new(opts: Opts?)
 
 	-- native drag acquisition (native-substrate NS-A5; spike m3-dragdetector):
 	-- attaches a UIDragDetector in CustomOffset mode so the DETECTOR never
-	-- writes Position (LuauUI's renderer keeps that authority — the default
+	-- writes Position (Facet's renderer keeps that authority — the default
 	-- Offset mode would fight it, measured in the spike). The engine owns
 	-- acquisition + cross-input motion; handlers receive screen-space
 	-- positions and feed the PURE drag-session model (src/input/drag_session).
@@ -2342,7 +2342,7 @@ function screen_target.new(opts: Opts?)
 		detector.ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset
 		-- ENGINE TRUTH (live drive 2026-07-23): DragStart/Continue/End pass a
 		-- **Vector2** in the detector's LayerCollector coordinate space — for
-		-- LuauUI's IgnoreGuiInset=true roots that IS the renderer's window
+		-- Facet's IgnoreGuiInset=true roots that IS the renderer's window
 		-- space, so no inset correction applies (a default-inset gui reports
 		-- inset-subtracted coords instead — the spike place matched injection
 		-- coords for exactly that reason). Tolerate a UDim2 defensively in
@@ -2414,7 +2414,7 @@ function screen_target.new(opts: Opts?)
 	end
 
 	-- native touch gestures (native-substrate NS-A6; corrections §2): the
-	-- ENGINE recognizes; LuauUI normalizes into stable value objects
+	-- ENGINE recognizes; Facet normalizes into stable value objects
 	-- (src/input/touch_gestures) and composes/arbitrates purely. Connection is
 	-- proven headless+Studio; FIRING requires real touch (VIM touch injection
 	-- is RobloxScript-locked; emulator not MCP-drivable) — ledger row NS-P2.
@@ -2499,7 +2499,7 @@ function screen_target.new(opts: Opts?)
 				-- GuiState=Hover (native-substrate m9), so on a pointer-live
 				-- session a bridged node would paint the :Hover fill. The
 				-- bridge suppresses the pointer-live tag while it owns the
-				-- node — LuauUI's focus visual is the selection affordance;
+				-- node — Facet's focus visual is the selection affordance;
 				-- hover stays a POINTER affordance.
 				handle.nativeBridgeSelected = true
 				syncTags(handle)
@@ -3508,7 +3508,7 @@ function screen_target.new(opts: Opts?)
 	-- MEASURED, on this engine, in this Studio session: building one virtualized
 	-- row (24 GuiObjects) costs 0.252 ms and destroying it 0.045 ms, while
 	-- REWRITING the same 24 objects' properties costs 0.024 ms. **Twelve times
-	-- cheaper**, and `LuauUI/mount` — the structural pass — was measured at
+	-- cheaper**, and `Facet/mount` — the structural pass — was measured at
 	-- 0.66-0.97 ms/frame at every viewport, the largest single component of the
 	-- framework's frame after the L-9 measure fix. A scrolling list churns rows
 	-- for no reason other than that their PATH changed.
@@ -3589,7 +3589,7 @@ function screen_target.new(opts: Opts?)
 	-- helpers clear `instancesByPath[handle.path .. "/" .. name]` internally, and
 	-- a successor node may have re-registered those very keys under the old path
 	-- — so the parked path is a sentinel nobody else can collide with
-	local PARKED_PATH = "\0LuauUIParked"
+	local PARKED_PATH = "\0FacetParked"
 
 	-- PARK: take a dying node out of the tree without destroying it. Returns false
 	-- if the node is not eligible, and the caller then removes it normally — so a
@@ -3817,7 +3817,7 @@ function screen_target.new(opts: Opts?)
 		invalidateSubtree()
 		-- the LIFTED LABEL is decoration too: without this its connections stayed
 		-- live, `census.textLifts` only ever grew across remounts, and
-		-- `instancesByPath[path .. "/LuauUIChromeText"]` retained a destroyed
+		-- `instancesByPath[path .. "/FacetChromeText"]` retained a destroyed
 		-- label — a census that cannot fall cannot show a leak
 		destroyChromeText(handle)
 		-- ...and so is the managed ICON picture (ADR-0020 R4): its path entry and

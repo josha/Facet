@@ -1,6 +1,6 @@
 --!strict
---[[ THE LINE BOX — `LuauUI.text.facts` / `LuauUI.text.lineBox`, and the three
-	defects they fixed in `LuauUI.composition.floorPx` (ruled 2026-08-15,
+--[[ THE LINE BOX — `Facet.text.facts` / `Facet.text.lineBox`, and the three
+	defects they fixed in `Facet.composition.floorPx` (ruled 2026-08-15,
 	docs/plans/variable-item-extents.md).
 
 	WHAT THIS FILE IS FOR. Declaring a correct `itemExtent`, a correct composition
@@ -31,7 +31,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local composition = require("../src/layout/composition")
 local textFit = require("../src/layout/text_fit")
@@ -73,7 +73,7 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 			preferredTextSize = 2,
 			preferredTextOffset = 14,
 		})
-		local facts = LuauUI.text.facts({ metrics = snap })
+		local facts = Facet.text.facts({ metrics = snap })
 		-- typographyScale = clamp(2) * the ten-foot 1.5 floor = 3; paint = 1.5;
 		-- measure takes the larger, which is 3
 		expect(`scale={facts.scale} offset={facts.offset}`).toBe("scale=3 offset=14")
@@ -85,16 +85,16 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 			all, so a helper that used `typographyScale` alone would reserve HALF the box
 			the engine draws into. Six of the seven hand copies did exactly that. ]]
 		local snap = snapshot.resolve(NEUTRAL_PKG, nil, { preferredTextSize = 0.5 })
-		expect(LuauUI.text.facts({ metrics = snap }).scale).toBe(1)
+		expect(Facet.text.facts({ metrics = snap }).scale).toBe(1)
 		local tenFoot = snapshot.resolve(NEUTRAL_PKG, nil, { displaySize = "Large", preferredTextSize = 0.5 })
-		expect(LuauUI.text.facts({ metrics = tenFoot }).scale).toBe(1.5)
+		expect(Facet.text.facts({ metrics = tenFoot }).scale).toBe(1.5)
 	end)
 
 	it("the offset is clamped to the same legal domain the renderer's measure seam clamps it to", function()
 		local wild = snapshot.resolve(NEUTRAL_PKG, nil, { preferredTextOffset = 4000 })
-		expect(LuauUI.text.facts({ metrics = wild }).offset).toBe(32)
+		expect(Facet.text.facts({ metrics = wild }).offset).toBe(32)
 		local negative = snapshot.resolve(NEUTRAL_PKG, nil, { preferredTextOffset = -8 })
-		expect(LuauUI.text.facts({ metrics = negative }).offset).toBe(0)
+		expect(Facet.text.facts({ metrics = negative }).offset).toBe(0)
 	end)
 
 	it("the { env, use } form and the { metrics } form agree on every measured preference", function()
@@ -102,8 +102,8 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 			an `itemExtent` has a live env. If those two derivations could disagree, the
 			framework would have exactly the parallel-copy defect this feature exists to
 			end, one level up. Both call `themes/snapshot`'s text-scale policy. ]]
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		for _, display in { "Medium", "Large" } do
 			for _, preference in { 0.5, 1, 1.5, 3 } do
 				for _, offset in { 0, 4, 10, 14 } do
@@ -112,8 +112,8 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 					env:set("displaySize", display)
 					env:set("preferredTextSize", preference)
 					env:set("preferredTextOffset", offset)
-					local fromEnv = LuauUI.text.facts({ env = env, use = get })
-					local fromSnap = LuauUI.text.facts({ metrics = snapshot.resolve(NEUTRAL_PKG, nil, facts) })
+					local fromEnv = Facet.text.facts({ env = env, use = get })
+					local fromSnap = Facet.text.facts({ metrics = snapshot.resolve(NEUTRAL_PKG, nil, facts) })
 					expect(`{display}/{preference}/{offset}: {fromEnv.scale},{fromEnv.offset}`).toBe(
 						`{display}/{preference}/{offset}: {fromSnap.scale},{fromSnap.offset}`
 					)
@@ -123,10 +123,10 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 	end)
 
 	it("{ env } WITHOUT `use` is refused — a fact read with :get() is right once and then stale", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		local ok, err = pcall(function()
-			return LuauUI.text.facts({ env = env })
+			return Facet.text.facts({ env = env })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "use", 1, true) ~= nil).toBe(true)
@@ -134,13 +134,13 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 
 	it("neither form, or both, is refused; an unknown key is refused", function()
 		expect(pcall(function()
-			return LuauUI.text.facts({})
+			return Facet.text.facts({})
 		end)).toBe(false)
 		expect(pcall(function()
-			return LuauUI.text.facts({ env = {}, use = get, metrics = NEUTRAL })
+			return Facet.text.facts({ env = {}, use = get, metrics = NEUTRAL })
 		end)).toBe(false)
 		expect(pcall(function()
-			return (LuauUI.text.facts :: any)({ metrics = NEUTRAL, scale = 2 })
+			return (Facet.text.facts :: any)({ metrics = NEUTRAL, scale = 2 })
 		end)).toBe(false)
 	end)
 
@@ -148,13 +148,13 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 		--[[ The reason `facts` takes `use` rather than reading the env itself: it has
 			to register the dependency edges in the CALLER's derivation. Proved by
 			driving the preference and watching a memo built on top of it recompute. ]]
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		local runs = 0
 		local extent = core:memo(function(use)
 			runs += 1
-			local facts = LuauUI.text.facts({ env = env, use = use })
-			return LuauUI.text.lineBox({ facts = facts, size = "body", lines = 2 })
+			local facts = Facet.text.facts({ env = env, use = use })
+			return Facet.text.lineBox({ facts = facts, size = "body", lines = 2 })
 		end)
 		local first = extent:get()
 		expect(runs).toBe(1)
@@ -171,12 +171,12 @@ end)
 
 describe("text.lineBox — the one implementation of the line-box arithmetic", function()
 	it("is the solver's own two seams, composed in the solver's order", function()
-		local facts = LuauUI.text.facts({
+		local facts = Facet.text.facts({
 			metrics = snapshot.resolve(NEUTRAL_PKG, nil, { preferredTextSize = 1.5, preferredTextOffset = 10 }),
 		})
 		local body = facts.metrics.type.body
 		local expected = textMetrics.lineBoxPx(textMetrics.reservedSize(body.size, 1.5, 10), 3, body.lineHeight)
-		expect(LuauUI.text.lineBox({ facts = facts, size = "body", lines = 3 })).toBe(expected)
+		expect(Facet.text.lineBox({ facts = facts, size = "body", lines = 3 })).toBe(expected)
 	end)
 
 	it("THE CEIL LANDS ONCE, on the whole product — not per line", function()
@@ -186,9 +186,9 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 			§4 fail. This case is chosen so the two spellings differ: 13px at scale 1 and
 			offset 0 under a 1.2 factor is 15.6 per line — `ceil(4 * 15.6) = 63` against
 			`4 * ceil(15.6) = 64`. ]]
-		local facts = LuauUI.text.facts({ metrics = NEUTRAL })
-		local once = LuauUI.text.lineBox({ facts = facts, size = 13, lines = 4 })
-		local perLine = 4 * LuauUI.text.lineBox({ facts = facts, size = 13, lines = 1 })
+		local facts = Facet.text.facts({ metrics = NEUTRAL })
+		local once = Facet.text.lineBox({ facts = facts, size = 13, lines = 4 })
+		local perLine = 4 * Facet.text.lineBox({ facts = facts, size = 13, lines = 1 })
 		expect(`once={once} perLine={perLine}`).toBe("once=63 perLine=64")
 	end)
 
@@ -197,12 +197,12 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 			so folding the preference into the scale is the double-application defect.
 			`(size + offset) * scale` and `size * scale + offset` differ for every scale
 			other than 1, and one of the seven copies had it the wrong way round. ]]
-		local facts = LuauUI.text.facts({
+		local facts = Facet.text.facts({
 			metrics = snapshot.resolve(NEUTRAL_PKG, nil, { displaySize = "Large", preferredTextOffset = 14 }),
 		})
 		-- scale 1.5, offset 14, body 16, factor 1.2 -> ceil((16*1.5 + 14) * 1.2) = 46.
 		-- The wrong order would be ceil((16 + 14) * 1.5 * 1.2) = 54.
-		expect(LuauUI.text.lineBox({ facts = facts, size = "body", lines = 1 })).toBe(46)
+		expect(Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })).toBe(46)
 	end)
 
 	it("a numeric size takes `body`'s line height — which is what the solver resolves it to", function()
@@ -219,13 +219,13 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 			`RAGGED` is therefore a corpus theme too, not just a case here. ]]
 		local parchment = lt.THEMES[2].metrics
 		expect(parchment.type.body.lineHeight ~= textMetrics.LINE_HEIGHT_FACTOR).toBe(true)
-		local facts = LuauUI.text.facts({ metrics = parchment })
-		expect(LuauUI.text.lineBox({ facts = facts, size = 20, lines = 2 })).toBe(
+		local facts = Facet.text.facts({ metrics = parchment })
+		expect(Facet.text.lineBox({ facts = facts, size = 20, lines = 2 })).toBe(
 			textMetrics.lineBoxPx(20, 2, parchment.type.body.lineHeight)
 		)
-		local ragged = LuauUI.text.facts({ metrics = RAGGED })
+		local ragged = Facet.text.facts({ metrics = RAGGED })
 		expect(RAGGED.type.control.lineHeight ~= RAGGED.type.body.lineHeight).toBe(true)
-		expect(LuauUI.text.lineBox({ facts = ragged, size = 20, lines = 2 })).toBe(
+		expect(Facet.text.lineBox({ facts = ragged, size = 20, lines = 2 })).toBe(
 			textMetrics.lineBoxPx(20, 2, RAGGED.type.body.lineHeight)
 		)
 	end)
@@ -242,7 +242,7 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 				preferredTextSize = 1,
 				preferredTextOffset = offset,
 			})
-			return LuauUI.text.lineBox({ facts = LuauUI.text.facts({ metrics = snap }), size = 20, lines = 1 })
+			return Facet.text.lineBox({ facts = Facet.text.facts({ metrics = snap }), size = 20, lines = 1 })
 		end
 		local nearCost = boxAt(1, 14) - boxAt(1, 0)
 		local tenFootCost = boxAt(1.5, 14) - boxAt(1.5, 0)
@@ -252,60 +252,60 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 	it("`role` overrides which line height applies, without moving the size", function()
 		-- against `RAGGED` for the reason above: under every shipped package this
 		-- assertion is vacuous, because title and body carry the same factor
-		local facts = LuauUI.text.facts({ metrics = RAGGED })
-		local asBody = LuauUI.text.lineBox({ facts = facts, size = 20, lines = 2 })
-		local asTitle = LuauUI.text.lineBox({ facts = facts, size = 20, lines = 2, role = "title" })
+		local facts = Facet.text.facts({ metrics = RAGGED })
+		local asBody = Facet.text.lineBox({ facts = facts, size = 20, lines = 2 })
+		local asTitle = Facet.text.lineBox({ facts = facts, size = 20, lines = 2, role = "title" })
 		expect(asTitle).toBe(textMetrics.lineBoxPx(20, 2, RAGGED.type.title.lineHeight))
 		expect(asBody).toBe(textMetrics.lineBoxPx(20, 2, RAGGED.type.body.lineHeight))
 		expect(`overrideMoved={asTitle ~= asBody}`).toBe("overrideMoved=true")
 		-- ...and a role-NAMED size takes that role's own factor, not body's
-		expect(LuauUI.text.lineBox({ facts = facts, size = "control", lines = 2 })).toBe(
+		expect(Facet.text.lineBox({ facts = facts, size = "control", lines = 2 })).toBe(
 			textMetrics.lineBoxPx(RAGGED.type.control.size, 2, RAGGED.type.control.lineHeight)
 		)
 	end)
 
 	it("refuses a role this theme does not carry, a bad size, a bad line count and an unknown key", function()
-		local facts = LuauUI.text.facts({ metrics = NEUTRAL })
+		local facts = Facet.text.facts({ metrics = NEUTRAL })
 		local cases: { { name: string, run: () -> any, names: string } } = {
 			{
 				name = "unknown role in `size`",
 				run = function()
-					return LuauUI.text.lineBox({ facts = facts, size = "nonsense" })
+					return Facet.text.lineBox({ facts = facts, size = "nonsense" })
 				end,
 				names = "nonsense",
 			},
 			{
 				name = "unknown role in `role`",
 				run = function()
-					return LuauUI.text.lineBox({ facts = facts, size = 12, role = "nonsense" })
+					return Facet.text.lineBox({ facts = facts, size = 12, role = "nonsense" })
 				end,
 				names = "nonsense",
 			},
 			{
 				name = "zero lines",
 				run = function()
-					return LuauUI.text.lineBox({ facts = facts, size = 12, lines = 0 })
+					return Facet.text.lineBox({ facts = facts, size = 12, lines = 0 })
 				end,
 				names = "lines",
 			},
 			{
 				name = "negative size",
 				run = function()
-					return LuauUI.text.lineBox({ facts = facts, size = -3 })
+					return Facet.text.lineBox({ facts = facts, size = -3 })
 				end,
 				names = "size",
 			},
 			{
 				name = "facts that did not come from text.facts",
 				run = function()
-					return LuauUI.text.lineBox({ facts = { scale = 1 } :: any, size = 12 })
+					return Facet.text.lineBox({ facts = { scale = 1 } :: any, size = 12 })
 				end,
 				names = "text.facts",
 			},
 			{
 				name = "an unknown spec key",
 				run = function()
-					return (LuauUI.text.lineBox :: any)({ facts = facts, size = 12, lineHeight = 1.4 })
+					return (Facet.text.lineBox :: any)({ facts = facts, size = 12, lineHeight = 1.4 })
 				end,
 				names = "lineHeight",
 			},
@@ -373,7 +373,7 @@ describe("composition.floorPx — the three defects a public function carried", 
 			floor by four times that. ]]
 		for _, offset in { 0, 4, 10, 14 } do
 			local snap = snapshot.resolve(NEUTRAL_PKG, nil, { preferredTextOffset = offset })
-			expect(LuauUI.text.facts({ metrics = snap }).scale).toBe(1) -- no scale in this row
+			expect(Facet.text.facts({ metrics = snap }).scale).toBe(1) -- no scale in this row
 			local one = composition.floorPx({ lines = 1 }, snap) :: number
 			local four = composition.floorPx({ lines = 4 }, snap) :: number
 			expect(`+{offset} one={one} four={four}`).toBe(
@@ -427,7 +427,7 @@ local PACKAGE_NAMES = {
 local THEMES: { { id: string, pkg: any, overrides: any? } } = { { id = "studio-neutral", pkg = NEUTRAL_PKG } }
 for _, name in PACKAGE_NAMES do
 	local built = (require)(`../examples/themes/{name}`)
-	local pkg = built.build(LuauUI.themes)
+	local pkg = built.build(Facet.themes)
 	table.insert(THEMES, { id = name, pkg = pkg })
 end
 -- ...and the ragged-factor theme, which is the ONLY configuration in this repo
@@ -525,7 +525,7 @@ describe("text.lineBox equals what the solver arranges — differentially, over 
 					end
 					w.present(UI.Screen({ id = "S", children = children }))
 
-					local live = LuauUI.text.facts({ env = w.env, use = get })
+					local live = Facet.text.facts({ env = w.env, use = get })
 					if live.scale > 1 and display == "Large" then
 						sawTenFoot = true
 					end
@@ -549,7 +549,7 @@ describe("text.lineBox equals what the solver arranges — differentially, over 
 							continue
 						end
 						comparisons += 1
-						local predicted = LuauUI.text.lineBox({ facts = live, size = d.size, lines = d.lines })
+						local predicted = Facet.text.lineBox({ facts = live, size = d.size, lines = d.lines })
 						if predicted ~= node.rect.h then
 							table.insert(
 								failures,

@@ -21,8 +21,8 @@ return {
 	title = "Motion lab (SF-M1/M2/M3/M5/M7/M8)",
 	ledgerRows = { "SF-M1", "SF-M2", "SF-M3", "SF-M5", "SF-M7", "SF-M8", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -186,7 +186,7 @@ return {
 		end
 
 		-- ===== the stage ====================================================
-		local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
 		local SLOT: any = { type = "fixed", px = "targetSizes.minimum" }
 
 		local function slot(id: string, alignH: string, alignV: any)
@@ -334,7 +334,7 @@ return {
 			-- so the number that seeds the flight is one the framework computed.
 			local goingHome = tossedTo == "SlotB"
 			local dir = if goingHome then -1 else 1
-			local tracker = LuauUI.newDragVelocity()
+			local tracker = Facet.newDragVelocity()
 			for i = 0, 4 do
 				tracker:push(i * 30 * dir, i * 12 * dir, elapsed + i * 0.016)
 			end

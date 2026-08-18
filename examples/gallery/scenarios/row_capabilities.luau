@@ -138,8 +138,8 @@ return {
 	copy = COPY,
 	seed = SEED,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("row-capabilities")
 		-- THE SAME TABLE the module exports, never a snapshot of it: the
@@ -208,7 +208,7 @@ return {
 			rows:set(out)
 		end
 
-		local tbl = LuauUI.newTable(LuauUI, core, {
+		local tbl = Facet.newTable(Facet, core, {
 			id = "RunSheet",
 			rows = rows,
 			key = function(item: any)

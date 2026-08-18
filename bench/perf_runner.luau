@@ -17,7 +17,7 @@
 --
 -- Metric ledger (artifacts/cross-platform-proof/acceptance-ledger.md §0):
 --   M1 real frame work ....... BLIND here (no engine frame exists)
---   M2 LuauUI update cost .... measured (per-phase p50/p95/p99)
+--   M2 Facet update cost .... measured (per-phase p50/p95/p99)
 --   M3 live Instances ........ measured via the adapter node census
 --   M4 connections ........... measured via the adapter handler census
 --                              + the reactive registry (declared stand-ins)
@@ -69,7 +69,7 @@ perf_runner.EVIDENCE_CLASSES = {
 		id = "lune",
 		level = "E1",
 		instrument = "headless Lune on the development host",
-		proves = "deterministic regressions in LuauUI's own decision/commit cost",
+		proves = "deterministic regressions in Facet's own decision/commit cost",
 		cannotProve = "engine frame work, GPU/paint cost, or any device performance claim",
 	},
 	{
@@ -367,7 +367,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local wallSeconds = os.clock() - wallStart
 	local allocGrowthKb = gcinfo() - heapFloorKb
 
-	-- live registry counters (§14.3): the reactive graph is what LuauUI owns
+	-- live registry counters (§14.3): the reactive graph is what Facet owns
 	-- and leaks headless.
 	local counters = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0 }
 	if state.core ~= nil then
@@ -419,7 +419,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 
 	-- M6: lifted from the scene-declared phase. Deterministic and frame-free —
 	-- it is the cost of the semantic action → committed visible write chain,
-	-- which is the part LuauUI owns. It is NOT display latency and the record
+	-- which is the part Facet owns. It is NOT display latency and the record
 	-- says so.
 	local inputToVisible: any
 	if phases.inputToVisible ~= nil then
@@ -429,7 +429,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 			p95_ms = phases.inputToVisible.p95_ms,
 			p99_ms = phases.inputToVisible.p99_ms,
 			note = "action dispatch -> committed visible property write, one synchronous chain; "
-				.. "no frame, no scan-out — an upper bound on LuauUI's share only",
+				.. "no frame, no scan-out — an upper bound on Facet's share only",
 		}
 	else
 		inputToVisible = blind("scene drives no input")
@@ -477,7 +477,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 				reactiveObservers = counters.observers,
 				reactiveEffects = counters.effects,
 				note = "adapterHandlers is the headless stand-in for engine connections: it counts the "
-					.. "handler slots LuauUI asked the target to hold, not engine-internal allocations",
+					.. "handler slots Facet asked the target to hold, not engine-internal allocations",
 			},
 			memoryKb = {
 				measured = true,
@@ -532,7 +532,7 @@ function perf_runner.run(scenes: { any }, profiles: { any }, opts: any?): any
 		table.insert(classes, entry)
 	end
 	return {
-		schema = "luauui-perf/2",
+		schema = "facet-perf/2",
 		environment = {
 			engine = ENGINE,
 			host = hostOs(),
@@ -644,7 +644,7 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 					observedMs = observed,
 					budgetMs = budget.ceilingMs,
 					hint = `scene '{scene}' costs more than {budget.ceilingMs}ms — the share of a `
-						.. `{budget.frameTargetHz}Hz frame LuauUI may occupy — on a host FASTER than every `
+						.. `{budget.frameTargetHz}Hz frame Facet may occupy — on a host FASTER than every `
 						.. `supported device, so it cannot hold the frame target anywhere. Fix the scene's `
 						.. `hot path; re-baselining does not make this one go away.`,
 				})

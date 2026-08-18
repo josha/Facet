@@ -307,25 +307,25 @@ local function findIds(bp: any, ids: { [string]: boolean }, structural: { boolea
 	end
 end
 
-function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
+function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("selectionIndicator", spec, INDICATOR_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "SelectionIndicator"
 	local scope = core:scope("selection-indicator-" .. tostring(id))
 
 	if type(spec.content) ~= "table" or spec.content.class == nil then
-		error(`LuauUI selectionIndicator('{id}'): \`content\` must be the strip blueprint this indicator tracks`, 0)
+		error(`Facet selectionIndicator('{id}'): \`content\` must be the strip blueprint this indicator tracks`, 0)
 	end
 	if type(spec.segments) ~= "table" or #spec.segments == 0 then
 		error(
-			`LuauUI selectionIndicator('{id}'): \`segments\` must be a non-empty array of `
+			`Facet selectionIndicator('{id}'): \`segments\` must be a non-empty array of `
 				.. "{ value = <selection value>, id = <the child's id> } pairs",
 			0
 		)
 	end
 	local skin = spec.skin or "underline"
 	if not SKINS[skin] then
-		error(`LuauUI selectionIndicator('{id}'): unknown skin '{tostring(skin)}'. One of underline | pill.`, 0)
+		error(`Facet selectionIndicator('{id}'): unknown skin '{tostring(skin)}'. One of underline | pill.`, 0)
 	end
 	-- `axis` may be a plain string or a Readable (see the Spec comment). A plain
 	-- one is validated here; a Readable's CURRENT value is validated here too, so
@@ -340,7 +340,7 @@ function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
 	local declaredAxis = readValue(axisSource)
 	if not AXES[declaredAxis] then
 		error(
-			`LuauUI selectionIndicator('{id}'): unknown axis '{tostring(declaredAxis)}'. One of x | y — a vertical `
+			`Facet selectionIndicator('{id}'): unknown axis '{tostring(declaredAxis)}'. One of x | y — a vertical `
 				.. 'segmented pill is `axis = "y"`, and it is the same mechanism, not a second one.',
 			0
 		)
@@ -357,14 +357,14 @@ function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
 	for i, segment in spec.segments do
 		if type(segment) ~= "table" or type(segment.id) ~= "string" or segment.id == "" then
 			error(
-				`LuauUI selectionIndicator('{id}'): segments[{i}] needs an \`id\` naming the child this `
+				`Facet selectionIndicator('{id}'): segments[{i}] needs an \`id\` naming the child this `
 					.. "indicator points at",
 				0
 			)
 		end
 		if not structural[1] and not declaredIds[segment.id] then
 			error(
-				`LuauUI selectionIndicator('{id}'): segments[{i}].id '{segment.id}' names no child of `
+				`Facet selectionIndicator('{id}'): segments[{i}].id '{segment.id}' names no child of `
 					.. "`content`. The indicator resolves each segment's SOLVED RECT by id, so the id must be the "
 					.. "one the strip gave that child.",
 				0

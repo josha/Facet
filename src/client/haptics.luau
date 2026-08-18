@@ -1,12 +1,12 @@
 --!strict
--- CLIENT-ONLY, OPT-IN, DEFAULT OFF. One adapter that turns LuauUI's semantic
+-- CLIENT-ONLY, OPT-IN, DEFAULT OFF. One adapter that turns Facet's semantic
 -- feedback events into Roblox haptics — and the framework's only relationship
 -- with it is that it is a SUBSCRIBER. `src/present/feedback.luau:4-5` says
--- LuauUI plays nothing; nothing in `src/` outside this directory names a haptic
+-- Facet plays nothing; nothing in `src/` outside this directory names a haptic
 -- symbol or requires this file (pinned by tests/haptics.spec.luau), so that rule
 -- survives this module existing.
 --
---   local haptics = require(ReplicatedStorage.LuauUI.client.haptics)
+--   local haptics = require(ReplicatedStorage.Facet.client.haptics)
 --   local hap = haptics.new({ enabled = settings.haptics })
 --   hap.bind(presenter)             -- the verbs with no engine hook
 --   hap.attachButtons(screenGui)    -- the property route: every button's press
@@ -22,16 +22,16 @@
 --      and zeroing requirement are all undocumented. A motor you cannot prove
 --      stops is a stuck-rumble bug with no test.
 --   2. `GuiButton.HoverHapticEffect` / `PressHapticEffect` are assignable
---      references the ENGINE fires. LuauUI already materializes TextButtons, so
+--      references the ENGINE fires. Facet already materializes TextButtons, so
 --      `activate` takes that property route: this module hands over a reference
---      and never calls Play on it, which keeps "LuauUI plays nothing" literally
+--      and never calls Play on it, which keeps "Facet plays nothing" literally
 --      true rather than nearly true. The bus subscription covers only the verbs
 --      with no engine hook. Since 2026-08-13 the reference is chosen PER BUTTON
 --      from the verb the author declared with
 --      `UI.sensoryFeedback(bp, { activation = … })`, which the renderer publishes
---      as the `LuauUI_ActivationFeedback` attribute — so a Buy button and a
+--      as the `Facet_ActivationFeedback` attribute — so a Buy button and a
 --      Cancel button can feel different without this module learning anything
---      about LuauUI's node graph, and without either of them being played twice.
+--      about Facet's node graph, and without either of them being played twice.
 --   3. There is NO capability API — no IsSupported, nothing on
 --      UserInputService. The only probe on the platform belongs to the
 --      superseded service, is boolean, and returns false both for "this device
@@ -147,9 +147,9 @@ haptics.PRESS_EFFECT_TYPE = "UIClick"
 -- as this attribute on the materialized GuiButton
 -- (`src/render/target_contract.luau`'s `setActivationFeedback`), so this adapter
 -- can hand the ENGINE a different effect per control without knowing anything
--- about LuauUI's node graph. An attribute is data: reading one keeps this module
+-- about Facet's node graph. An attribute is data: reading one keeps this module
 -- a subscriber rather than a second consumer of framework internals.
-haptics.ACTIVATION_ATTRIBUTE = "LuauUI_ActivationFeedback"
+haptics.ACTIVATION_ATTRIBUTE = "Facet_ActivationFeedback"
 
 -- the effect a button's press should play, given the verb the author declared on
 -- it (nil = undeclared). Returns nil for a control that must be felt as nothing:
@@ -724,7 +724,7 @@ function haptics.new(opts: Options?): any
 	function adapter.bind(presenter: any): () -> ()
 		if type(presenter) ~= "table" or type(presenter.onFeedback) ~= "function" then
 			error(
-				"LuauUI haptics.bind(presenter): expected something with an `onFeedback(fn) -> unsubscribe` — "
+				"Facet haptics.bind(presenter): expected something with an `onFeedback(fn) -> unsubscribe` — "
 					.. "a presenter, or a presented handle for one surface only.",
 				0
 			)
@@ -746,7 +746,7 @@ function haptics.new(opts: Options?): any
 		end
 	end
 
-	-- attachButtons(root) -> detach. Point it at the LuauUI ScreenGui: every
+	-- attachButtons(root) -> detach. Point it at the Facet ScreenGui: every
 	-- GuiButton under it, now and later, gets the press reference.
 	function adapter.attachButtons(root: any): () -> ()
 		-- INERT AFTER DISPOSE (see `bind`): the `DescendantAdded` connection this

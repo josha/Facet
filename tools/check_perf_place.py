@@ -33,32 +33,32 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 PROJECT = "examples/performance.project.json"
-BUILT = "examples/places/LuauUI-PerformanceLab.rbxl"
+BUILT = "examples/places/Facet-PerformanceLab.rbxl"
 ARTIFACT = "artifacts/performance-stress-places/place.json"
 
 # Everything the lab cannot run without. A name here is a promise the built place
 # keeps, and each one has broken in some other stage's build at least once.
 REQUIRED = [
     # the library itself, and the profiler phases the capture reads
-    ("ReplicatedStorage/LuauUI", "ModuleScript"),
-    ("ReplicatedStorage/LuauUI/core/profile", "ModuleScript"),
-    ("ReplicatedStorage/LuauUI/client/screen_target", "ModuleScript"),
-    ("ReplicatedStorage/LuauUI/controls/virtual_list", "ModuleScript"),
+    ("ReplicatedStorage/Facet", "ModuleScript"),
+    ("ReplicatedStorage/Facet/core/profile", "ModuleScript"),
+    ("ReplicatedStorage/Facet/client/screen_target", "ModuleScript"),
+    ("ReplicatedStorage/Facet/controls/virtual_list", "ModuleScript"),
     # the scenario registry, the reused gallery runner, and the lab modules
-    ("ReplicatedStorage/LuauUIScenarios", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/runner", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/perf_lab", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/dataset", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/rows", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/capture", "ModuleScript"),
-    ("ReplicatedStorage/LuauUIScenarios/overlay", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/runner", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/perf_lab", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/dataset", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/rows", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/capture", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/overlay", "ModuleScript"),
     # the two named levers of device-capture-2026-08-15 §7 (`arrange-shapes`,
     # `edit-locality`). NOT optional: `perf_lab` asserts `ctx.lab.levers` at build,
     # so a place that dropped this module cannot mount ANY workload — which is the
     # failure this list exists to catch at the gate instead of at the phone.
-    ("ReplicatedStorage/LuauUIScenarios/levers", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/levers", "ModuleScript"),
     # the ornate reference package the flat-vs-ornate comparison needs
-    ("ReplicatedStorage/LuauUIThemes/fantasy_ornate", "ModuleScript"),
+    ("ReplicatedStorage/FacetThemes/fantasy_ornate", "ModuleScript"),
     # the bootstrap and the matched raw-Roblox reference
     ("StarterPlayer/StarterPlayerScripts/PerfLab", "LocalScript"),
     ("StarterPlayer/StarterPlayerScripts/PerfLab/native_list", "ModuleScript"),
@@ -70,10 +70,10 @@ REQUIRED = [
 # Version markers a capture cites. If one of these strings is not in the built
 # source, a capture claiming it is citing a version the place does not carry.
 VERSION_MARKERS = [
-    ("ReplicatedStorage/LuauUIScenarios/dataset", 'dataset.VERSION = "perf-dataset/'),
-    ("ReplicatedStorage/LuauUIScenarios/rows", 'rows.VERSION = "perf-row/'),
-    ("ReplicatedStorage/LuauUIScenarios/perf_lab", 'local SCENARIO_VERSION = "perf-scenarios/'),
-    ("ReplicatedStorage/LuauUIScenarios/capture", 'capture.SCHEMA = "luauui-perf-capture/'),
+    ("ReplicatedStorage/FacetScenarios/dataset", 'dataset.VERSION = "perf-dataset/'),
+    ("ReplicatedStorage/FacetScenarios/rows", 'rows.VERSION = "perf-row/'),
+    ("ReplicatedStorage/FacetScenarios/perf_lab", 'local SCENARIO_VERSION = "perf-scenarios/'),
+    ("ReplicatedStorage/FacetScenarios/capture", 'capture.SCHEMA = "facet-perf-capture/'),
     ("StarterPlayer/StarterPlayerScripts/PerfLab/native_list", 'native_list.VERSION = "perf-native/'),
 ]
 
@@ -183,7 +183,7 @@ def main():
         # review F-6, confirmed by a mutation that passed). What actually matters is
         # that the project points at the gallery's file rather than at a copy under
         # examples/performance/.
-        runner = tree.get("ReplicatedStorage/LuauUIScenarios/runner")
+        runner = tree.get("ReplicatedStorage/FacetScenarios/runner")
         if runner is None:
             problems.append("the built place has no scenario runner")
         else:
@@ -191,7 +191,7 @@ def main():
                 project = json.load(fh)
             mapped = (
                 project["tree"]["ReplicatedStorage"]
-                .get("LuauUIScenarios", {})
+                .get("FacetScenarios", {})
                 .get("runner", {})
                 .get("$path")
             )
@@ -221,7 +221,7 @@ def main():
         notes.append(f"{BUILT}: {size} bytes, binary place")
 
     result = {
-        "schema": "luauui-perf-place/1",
+        "schema": "facet-perf-place/1",
         "status": "PASS" if not problems else "FAIL",
         "project": PROJECT,
         "built": BUILT,

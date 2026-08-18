@@ -413,7 +413,7 @@ function screen_paint.new(ctx: any)
 	-- UIScale objects sat at Scale = 1.0** — one per interactive control, created at
 	-- construction for a dip that had not happened and on most controls never will.
 	-- That is 10% of every instance on the surface doing nothing, and it is paid by
-	-- every LuauUI consumer with buttons on screen, not just this fixture.
+	-- every Facet consumer with buttons on screen, not just this fixture.
 	--
 	-- ONE SCALE, SHARED WITH THE MOTION CHANNEL. The engine honours a single UIScale
 	-- per instance, so the press dip and a running motion must not each own one — the
@@ -551,7 +551,7 @@ function screen_paint.new(ctx: any)
 		local live = handle.gradientInstance
 		if live == nil then
 			live = Instance.new("UIGradient")
-			live.Name = "LuauUIGradient"
+			live.Name = "FacetGradient"
 			handle.gradientInstance = live
 		end
 		local keypoints: { ColorSequenceKeypoint } = {}

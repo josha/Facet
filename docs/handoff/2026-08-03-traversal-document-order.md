@@ -154,7 +154,7 @@ Inherit these; do not re-derive them.
 - **The gameplay-band number is wrong in the docs.** `docs/guide/07-input.md` and
   ADR-0014 say the avatar sits at priority **2000**. Measured on the real
   `PlayerModule`: **Camera 100, Character 150, Vehicle 200, Transformer 300**.
-  Behavior is unaffected (LuauUI sits at 1500+); the number is simply false and
+  Behavior is unaffected (Facet sits at 1500+); the number is simply false and
   someone will size against it.
 - **Unverified live:** the end-to-end key drive *after* `keyboardNavigation` made
   surfaces sink. Three consecutive `execute_luau` timeouts on any call routed
@@ -177,7 +177,7 @@ Inherit these; do not re-derive them.
   declaration order first.
 - **The gallery frees Tab for you**, in `examples/gallery/client/init.client.luau`
   (`SetCoreGuiEnabled(PlayerList, false)`, beside the existing
-  `disableLegacyControls()`). That is a **UI-only-place** trade; LuauUI never makes
+  `disableLegacyControls()`). That is a **UI-only-place** trade; Facet never makes
   it for a consumer. `gamepad_contention.traversalKeyContended()` reports the live
   answer.
 

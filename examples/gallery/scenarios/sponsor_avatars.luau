@@ -19,8 +19,8 @@ return {
 	title = "Avatar lab (SF-A1..A4/P2)",
 	ledgerRows = { "SF-A1", "SF-A2", "SF-A3", "SF-A4", "SF-P2", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -48,7 +48,7 @@ return {
 		-- NOT scope-owned: a provider is not disposable (its handles are — each
 		-- `acquire` registers its own release on the caller's scope), so owning
 		-- it here only ever read as ownership.
-		local provider = LuauUI.newResourceProvider(core, {
+		local provider = Facet.newResourceProvider(core, {
 			maxConcurrent = 4,
 			now = function()
 				return elapsed
@@ -132,7 +132,7 @@ return {
 		end))
 
 		local function composite(item: any, itemScope: any): any
-			local image = LuauUI.newAsyncImage(LuauUI, core, {
+			local image = Facet.newAsyncImage(Facet, core, {
 				id = "Face",
 				scope = itemScope,
 				provider = provider,

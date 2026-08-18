@@ -112,7 +112,7 @@ describe("showcase catalogue", function()
 		-- 1.05 s, and a reduced-motion pass where the decorative halves place
 		-- instantly while that cooldown keeps stepping.
 		-- ...and the UI.Foreign surface (ADR-0034), which is in the catalogue for a
-		-- reason none of the others are: its three panes are not drawn by LuauUI at
+		-- reason none of the others are: its three panes are not drawn by Facet at
 		-- all, so it is the only demo where "does the framework render this" is the
 		-- wrong question and "does the box hold it" is the right one.
 		-- ...and TWENTY-FOUR since round 3's O-30 (2026-08-15): `async-images` and
@@ -166,7 +166,7 @@ describe("showcase catalogue", function()
 	-- A fixture reaches a player through TWO registrations, not one: the picker
 	-- offers it (`demo_picker.DEMOS`), and the scenario registry resolves the
 	-- module (`examples/gallery/scenarios/init.luau`'s explicit ordered `ORDER`,
-	-- which the showcase host replicates as `ReplicatedStorage.LuauUIScenarios`).
+	-- which the showcase host replicates as `ReplicatedStorage.FacetScenarios`).
 	-- The test above proves the FILE exists; a file that exists and is not in
 	-- `ORDER` is not in that folder, so the picker's own `require` fails on the
 	-- device, in front of whoever is holding it — the one failure mode this
@@ -302,20 +302,20 @@ end)
 -- with a matching canvas is a clipped list, not a scrolling one.
 -- ===========================================================================
 describe("the showcase demo list scrolls rather than running off the screen", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local UI = require("../src/blueprint")
 	local fake_target = require("./lib/fake_target")
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 
 	local function listGeometry(pkgName: string, w: number, h: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local picker = demo_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			presenter = pres,
@@ -373,11 +373,11 @@ end)
 -- measure — which is the check the literal could not make.
 -- ===========================================================================
 describe("the showcase strip reserves what its chips MEASURE, not a literal", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local UI = require("../src/blueprint")
 	local fake_target = require("./lib/fake_target")
 	local theme_picker = require("../examples/gallery/client/theme_picker")
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 
 	local CORE_TOP = 58 -- a notched phone's Roblox topbar inset
 	local SLACK = 8 -- metrics.space.s, the step init.client passes
@@ -386,18 +386,18 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 	-- HStack, in a full-width column placed at the live topbar inset. The chip row
 	-- does NOT sit inside the reservation — that is what makes measuring it safe.
 	local function chipRowBottom(pkgName: string?, textOffset: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 852 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("preferredTextOffset", textOffset)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		if pkgName ~= nil then
 			env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {}))
 		end
 		local demos = demo_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			presenter = pres,
@@ -407,7 +407,7 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 			end,
 		} :: any)
 		local picker = theme_picker.mount({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -520,18 +520,18 @@ end)
 -- today — `row_actions`, whose hosted VirtualList derives its window from its own
 -- solved pane through `present.onGeometry`.
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 -- the picker's MINIMAL ctx (init.client.luau `mountDemo`, kind == "fixture"):
--- {LuauUI, core, env, actionSystem, presenter} — no adapter, no record, no flags
+-- {Facet, core, env, actionSystem, presenter} — no adapter, no record, no flags
 local function pickerWorld(viewport: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", viewport)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, presenter = presenter }
 end
 
@@ -547,7 +547,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
 			local scenario = require(`../examples/gallery/scenarios/{demo.module}`) :: any
 			local built = scenario.build({
-				LuauUI = LuauUI,
+				Facet = Facet,
 				core = w.core,
 				env = w.env,
 				actionSystem = w.system,
@@ -628,7 +628,7 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 		local w = pickerWorld({ x = 0, y = 0, w = 700, h = 360 }) -- a landscape phone
 		local scenario = require("../examples/gallery/scenarios/row_actions") :: any
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			actionSystem = w.system,
@@ -712,7 +712,7 @@ end
 local function hostMountFixture(w: any, module: string, bind: boolean): any
 	local scenario = require(`../examples/gallery/scenarios/{module}`) :: any
 	local built = scenario.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
@@ -959,7 +959,7 @@ describe("showcase fixture: one fade group, or three (canvas_group)", function()
 		local scenario = require(`../examples/gallery/scenarios/{FIXTURE}`) :: any
 		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = w.core,
 			env = w.env,
 			actionSystem = w.system,
@@ -980,7 +980,7 @@ end)
 
 	On 2026-08-15 the showcase was unusable as a live instrument, and the way it
 	failed is the reason this file gained a sweep rather than one more case:
-	`LuauUIShowcaseAPI.showNext` answered with the id it had ADVANCED TO while the
+	`FacetShowcaseAPI.showNext` answered with the id it had ADVANCED TO while the
 	demo behind it had not mounted at all. A 32-demo sweep taken through that
 	answer scanned a leftover surface twenty-one times and reported a clean bill of
 	health for demos it never looked at
@@ -1006,7 +1006,7 @@ end)
 	drive with one demo's build made to throw, which is the live defect exactly. ]]
 
 -- EACH DEMO'S OWN ROOT SCREEN, which is the thing an assertion has to be about.
--- Measured off the live showcase place on 2026-08-15 (PlayerGui `LuauUI_<root>`
+-- Measured off the live showcase place on 2026-08-15 (PlayerGui `Facet_<root>`
 -- after each advance) and not derived from any module's first `UI.Screen` — four
 -- of these surfaces declare a modal or a probe screen BEFORE their root, so a
 -- grep of the source names the wrong node for `preferred-transparency`,
@@ -1056,13 +1056,13 @@ local DEMO_ROOT: { [string]: string } = {
 
 -- the shipped host's `mountDemo` (init.client.luau), by the same fork: a fixture
 -- takes one ctx and hands back a screen to present, a tutorial example takes
--- (LuauUI, core, opts) and may present itself
+-- (Facet, core, opts) and may present itself
 local function hostMountDemo(w: any, demo: any): any
 	if demo.kind == "fixture" then
 		return hostMountFixture(w, demo.module, true)
 	end
 	local module = require(`../examples/gallery/examples/{demo.module}`) :: any
-	local built = module.build(LuauUI, w.core, {
+	local built = module.build(Facet, w.core, {
 		env = w.env,
 		actionSystem = w.system,
 		presenter = w.presenter,
@@ -1089,7 +1089,7 @@ end
 
 local function sweepPicker(w: any, mountDemo: (any) -> any): any
 	return demo_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		presenter = w.presenter,
@@ -1169,7 +1169,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 	--[[ THE NEGATIVE CONTROL, AND IT IS THE LIVE DEFECT VERBATIM.
 
 		Measured in the showcase place on 2026-08-15 by renaming
-		`ReplicatedStorage.LuauUIScenarios.measured_extents` out from under the host
+		`ReplicatedStorage.FacetScenarios.measured_extents` out from under the host
 		and advancing into it: `showNext` returned `{"current":"measured-extents"}`,
 		`current` agreed, and PlayerGui held only the backdrop and the chrome.
 		`mountDemo` runs under a pcall, so the failure was a client-console `warn`
@@ -1180,7 +1180,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		local picker = sweepPicker(w, function(demo)
 			if demo.id == BROKEN then
 				-- what a missing ModuleScript does to `require` in the shipped host
-				error(`Unable to require: {demo.module} is not a valid member of LuauUIScenarios`)
+				error(`Unable to require: {demo.module} is not a valid member of FacetScenarios`)
 			end
 			return hostMountDemo(w, demo)
 		end)

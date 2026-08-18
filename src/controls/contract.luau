@@ -17,7 +17,7 @@ local contract = {}
 export type ControlContract = {
 	focusRole: string, -- "none" | "focusable"
 	actions: { string }, -- semantic actions the control consumes
-	minHitSize: number?, -- effective target floor (LuauUI px units)
+	minHitSize: number?, -- effective target floor (Facet px units)
 	accessibility: string, -- readable summary of behavior
 }
 
@@ -95,13 +95,13 @@ local CONTROLS: { [string]: ControlContract } = {
 	Foreign = {
 		focusRole = "none",
 		actions = {},
-		accessibility = "a box for a GuiObject LuauUI does not wrap (ADR-0034): the framework reserves and "
+		accessibility = "a box for a GuiObject Facet does not wrap (ADR-0034): the framework reserves and "
 			.. "CLIPS the rect, the caller adopts an instance into it through controller.foreignHost, and "
-			.. "LuauUI writes exactly one property on that instance (its Parent) and nothing else. It owns no "
+			.. "Facet writes exactly one property on that instance (its Parent) and nothing else. It owns no "
 			.. "input and takes no focus stop — the content is outside the focus graph by construction, since "
 			.. "the framework has never seen it — so a consumer who needs a focus stop composes one AROUND the "
 			.. "box (a Button overlay, a focusable Grip sibling), exactly as a Stage does. The content's own "
-			.. "engine input still works; LuauUI's Tab/gamepad traversal simply cannot stop on it",
+			.. "engine input still works; Facet's Tab/gamepad traversal simply cannot stop on it",
 	},
 	Grip = {
 		focusRole = "focusable", -- OPT-IN: unfocusable unless focusable = true

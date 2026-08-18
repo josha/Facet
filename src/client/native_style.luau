@@ -3,9 +3,9 @@
 -- ADR-0003 seam rule applies — no non-client code may require this). Turns the
 -- PURE sheet model (src/tokens/sheet_model.luau) into DataModel instances:
 --
---   <host>.LuauUI                (StyleSheet — rules as ordered children,
+--   <host>.Facet                (StyleSheet — rules as ordered children,
 --                                 mirrors + stamp as attributes)
---   <host>.LuauUI["Theme <name>"] (one StyleSheet per theme; ALL color tokens
+--   <host>.Facet["Theme <name>"] (one StyleSheet per theme; ALL color tokens
 --                                 live here — a base-sheet attribute would
 --                                 defeat every derive, spike m5/m7)
 --
@@ -17,11 +17,11 @@
 --
 -- Transitions (spike m8): declared per state rule from model.rules[].transitions;
 -- setTransitionsEnabled(false) strips them via SetPropertyTransitions({}) —
--- the proven instant-change path LuauUI's reducedMotion policy drives.
+-- the proven instant-change path Facet's reducedMotion policy drives.
 --
 -- THEME PACKAGES (ADR-0019 §3/§7, stage theme-packages-and-skinning): `ensure`
 -- is parameterized so a theme PACKAGE materializes its own sheet
--- ("LuauUITheme <id>") beside — never on top of — the shared legacy sheet, with
+-- ("FacetTheme <id>") beside — never on top of — the shared legacy sheet, with
 -- per-target isolation (feasibility m1). Two package-only additions:
 --   * `tokens`: metric/font tokens land as TYPED ATTRIBUTES on the THEME sheets
 --     (m4). Runtime reads must target the ACTIVE theme sheet — `GetAttribute` on
@@ -47,10 +47,10 @@ local native_style = {}
 -- are unaffected by this flag.
 native_style.DEFAULT_ENABLED = false
 
--- distinct from the library ModuleScript tree (also commonly named "LuauUI"
+-- distinct from the library ModuleScript tree (also commonly named "Facet"
 -- under ReplicatedStorage — live find 2026-07-24: a same-name lookup found the
 -- LIBRARY and the old replace path would have destroyed it)
-local SHEET_NAME = "LuauUIStyle"
+local SHEET_NAME = "FacetStyle"
 local ATTR_SCHEMA = "NativeSheetSchema"
 local ATTR_STAMP = "NativeSheetStamp"
 local ATTR_MIRROR_NOTE = "MirrorsAreReadOnlyReference"
@@ -231,8 +231,8 @@ export type EnsureOpts = {
 	-- instant-change path is today's look). Opt in explicitly per target.
 	transitionsEnabled: boolean?,
 	theme: string?, -- initial theme; default model.defaultTheme
-	-- theme packages: the per-package sheet name ("LuauUITheme <id>"). NEVER
-	-- "LuauUI" — that is the library ModuleScript tree's name and a same-name
+	-- theme packages: the per-package sheet name ("FacetTheme <id>"). NEVER
+	-- "Facet" — that is the library ModuleScript tree's name and a same-name
 	-- lookup found (and the old replace path destroyed) the library itself.
 	sheetName: string?,
 	-- typed metric/font token records written onto EVERY theme sheet, seed-once
@@ -360,7 +360,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 		if sheet:GetAttribute(ATTR_STAMP) ~= model.stamp then
 			migrated = true
 			warn(
-				`LuauUI native-style: model stamp changed ({tostring(sheet:GetAttribute(ATTR_STAMP))} -> {model.stamp}); regenerating rules (theme token edits preserved)`
+				`Facet native-style: model stamp changed ({tostring(sheet:GetAttribute(ATTR_STAMP))} -> {model.stamp}); regenerating rules (theme token edits preserved)`
 			)
 			for _, child in sheet:GetChildren() do
 				if child:IsA("StyleRule") then
@@ -601,10 +601,10 @@ function native_style.setRuleProperty(sheet: StyleSheet?, ruleName: string, prop
 	return false
 end
 
--- One StyleLink per LuauUI root (plan §6: single application point per tree)
+-- One StyleLink per Facet root (plan §6: single application point per tree)
 function native_style.link(rootGui: Instance, sheet: StyleSheet): StyleLink
 	local link = Instance.new("StyleLink")
-	link.Name = "LuauUIStyleLink"
+	link.Name = "FacetStyleLink"
 	link.StyleSheet = sheet
 	link.Parent = rootGui
 	return link
@@ -613,12 +613,12 @@ end
 -- linkAt(rootGui, sheet) -> (link, previousSheet, created). Installing a theme
 -- package must not ADD a second link beside the shared one: two links means two
 -- sheets apply to the same tree and the cascade winner depends on load order.
--- So an existing LuauUI link is REPOINTED at the package sheet and its previous
+-- So an existing Facet link is REPOINTED at the package sheet and its previous
 -- sheet handed back, which is exactly what `uninstall` needs to put the target
 -- back the way it found it (ADR-0019 §7 per-target isolation, feasibility m1).
 function native_style.linkAt(rootGui: Instance, sheet: StyleSheet): (StyleLink, StyleSheet?, boolean)
 	for _, child in rootGui:GetChildren() do
-		if child:IsA("StyleLink") and child.Name == "LuauUIStyleLink" then
+		if child:IsA("StyleLink") and child.Name == "FacetStyleLink" then
 			local previous = child.StyleSheet
 			child.StyleSheet = sheet
 			return child, previous, false

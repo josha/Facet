@@ -49,7 +49,7 @@ for _, f in fx.localization do
 end
 
 artifact.writeJson("artifacts/phase-4/a11y-l10n-corpus.json", {
-	schema = "luauui-a11y-l10n-corpus/1",
+	schema = "facet-a11y-l10n-corpus/1",
 	requirement = "UI-ADAPT-001",
 	core = "custom",
 	status = if failed == 0 then "PASS" else "FAIL",

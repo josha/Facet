@@ -26,14 +26,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local environment = require("../src/env/environment")
 local customFactory = require("../src/core/custom")
 local fake_target = require("./lib/fake_target")
 
 local function world(caps: any?, preferred: string?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 	if caps ~= nil then
 		env:set("capabilities", caps)
@@ -41,10 +41,10 @@ local function world(caps: any?, preferred: string?)
 	if preferred ~= nil then
 		env:set("preferredInput", preferred)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = 8
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return core, env, adapter, presenter
 end
 
@@ -107,14 +107,14 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 	end)
 
 	it("an adapter WITHOUT the seam degrades by name: nothing is called, nothing breaks", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).scrollBarThickness = 8
 		(adapter :: any).setScrollIndicatorPolicy = nil
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		expect(presenter ~= nil).toBe(true)
 		expect((adapter :: any).scrollBarThickness).toBe(8)
 		expect(core:lastError()).toBeNil()
@@ -128,7 +128,7 @@ describe("scroll indicator policy: the reserve is stable across a session flip",
 	-- may move when the input class flips, because the engine's charge did not.
 	it("a hug shelf does NOT change size when the session flips to touch", function()
 		local core, env, adapter, presenter = world()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local handle = presenter.present(
 			UI.Screen({
 				id = "S",
@@ -175,7 +175,7 @@ describe("a single-axis scroller's canvas never exceeds its window on the other 
 		-- carousel MEASURES at content width — so the engine drew a HORIZONTAL
 		-- bar on a vertical scroller, straight through the tab dock under it.
 		local core, _, adapter, presenter = world()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		presenter.present(
 			UI.Screen({
 				id = "S",
@@ -226,7 +226,7 @@ end)
 describe('indicators = "none": the carousel opt-out', function()
 	it("a peeking carousel declares its indicator off; its parent page keeps one", function()
 		local core, _, adapter, presenter = world()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		presenter.present(
 			UI.Screen({
 				id = "S",

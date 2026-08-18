@@ -101,7 +101,7 @@ function with_animation.new(ctx: any)
 	function api.withAnimation(class: any, fn: () -> ())
 		if inWithAnimation then
 			error(
-				"LuauUI presenter.withAnimation: called from inside another withAnimation call. "
+				"Facet presenter.withAnimation: called from inside another withAnimation call. "
 					.. "Arming is presenter-wide and disarming is not counted, so the inner call would "
 					.. "disarm the controllers the outer call armed and the OUTER animation would "
 					.. "silently not happen (its layout still lands exactly; only the flight is lost). "
@@ -141,7 +141,7 @@ function with_animation.new(ctx: any)
 			end
 		end
 		if type(fn) ~= "function" then
-			error(`LuauUI presenter.withAnimation(class, fn): fn must be a function, got {typeof(fn)}`, 0)
+			error(`Facet presenter.withAnimation(class, fn): fn must be a function, got {typeof(fn)}`, 0)
 		end
 		-- THE UNARMED PRE-DRAIN, and it is load-bearing. `controller.refresh` opens
 		-- by draining the WHOLE dirty queue, so without this the armed commit would
@@ -219,7 +219,7 @@ function with_animation.new(ctx: any)
 		applies it twice. ]]
 		if not animationProbeFired then
 			error(
-				"LuauUI presenter.withAnimation: nothing flushed, so it could not force its own "
+				"Facet presenter.withAnimation: nothing flushed, so it could not force its own "
 					.. "commit and no records were installed — the change landed instantly with no "
 					.. "flight. Either an outer core transaction is still open, or this ran during a "
 					.. "core commit (from an observer, an effect, or a settle/handler dispatched by "

@@ -41,7 +41,7 @@
 local settings_panel = {}
 
 -- the workspace attribute that hides the whole surface, matching the two pickers
-settings_panel.ATTRIBUTE = "LuauUI_SettingsPanel"
+settings_panel.ATTRIBUTE = "Facet_SettingsPanel"
 
 -- THE TWO MODES, as a closed vocabulary rather than a boolean. `full` and
 -- `reduced` are the two words the accessibility claim is about; nothing here
@@ -94,10 +94,10 @@ function settings_panel.choose(current: string, mode: string): Command
 end
 
 -- ===== the surface ==========================================================
--- Everything below needs a live LuauUI; nothing above does.
+-- Everything below needs a live Facet; nothing above does.
 
 export type MountOpts = {
-	LuauUI: any,
+	Facet: any,
 	core: any,
 	env: any,
 	-- the theme picker's own two sections (`theme_picker.mount(...).sections`),
@@ -149,8 +149,8 @@ export type MountOpts = {
 	    last. That is what makes this a setting rather than a demo's side effect.
 ]]
 function settings_panel.mount(opts: MountOpts): any
-	local LuauUI = opts.LuauUI
-	local UI = LuauUI.UI
+	local Facet = opts.Facet
+	local UI = Facet.UI
 	local core = opts.core
 	local env = opts.env
 	local scope = core:scope("gallery-settings-panel")
@@ -183,7 +183,7 @@ function settings_panel.mount(opts: MountOpts): any
 		end
 	end))
 
-	local motionPicker = LuauUI.newPicker(LuauUI, core, {
+	local motionPicker = Facet.newPicker(Facet, core, {
 		id = "MotionMode",
 		label = COPY.motion,
 		-- SEGMENTED, declared rather than adaptive: two short labels side by side

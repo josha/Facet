@@ -1,4 +1,4 @@
-# LuauUI theme packages, metric-aware swaps, and rich skinning
+# Facet theme packages, metric-aware swaps, and rich skinning
 
 **Date:** 2026-07-24  
 **Status:** Proposed Step 3.5, after completed native StyleSheets and the current
@@ -6,7 +6,7 @@ authoring/control milestone.
 
 ## Decision summary
 
-LuauUI can currently swap a dark and light **palette**, but it is not yet a complete
+Facet can currently swap a dark and light **palette**, but it is not yet a complete
 theme system.
 
 The native StyleSheet stage established the right paint foundation: semantic tags,
@@ -47,7 +47,7 @@ The concrete causes are visible in the current source:
 - `setNativeTheme` changes only the native derive; it does not update the solver.
 - the renderer and composite controls still contain numeric text sizes, gaps, and
   padding. Those values cannot react to a theme.
-- `LuauUI` exports token compilation but no supported theme builder, controller,
+- `Facet` exports token compilation but no supported theme builder, controller,
   importer, exporter, or package format.
 - ordinary surfaces are Frames. A StyleSheet can style them, but cannot turn a Frame
   into an arbitrary ImageLabel subtree.
@@ -57,12 +57,12 @@ This is narrower than Roblox itself. The current
 for colors, fonts, and text sizes, and runtime theme swapping. Roblox's
 [styling compatibility table](https://create.roblox.com/docs/ui/styling/compatibility)
 also includes ImageLabel image/nine-slice properties, UIGradient, UICorner, UIStroke,
-UIShadow, text typography, and many other properties. LuauUI should expose that power
+UIShadow, text typography, and many other properties. Facet should expose that power
 without surrendering its deterministic solver or property-authority rules.
 
 ## User-facing promise
 
-A game author writes a screen once using semantic LuauUI roles. They can install or
+A game author writes a screen once using semantic Facet roles. They can install or
 create a versioned theme package and swap it at runtime without editing that screen.
 
 A theme may change:
@@ -88,7 +88,7 @@ rules.
 
 ### 1. A public, versioned `ThemePackage`
 
-Define one documented schema, available through public LuauUI APIs rather than
+Define one documented schema, available through public Facet APIs rather than
 internal requires. The exact names are a Fable design decision, but the package must
 contain these conceptual sections:
 
@@ -100,7 +100,7 @@ contain these conceptual sections:
 - assets: semantic asset names, content IDs, nine-slice/tile metadata, preload
   policy, failure fallback, and optional tint roles;
 - motion: native paint transitions plus reduced-motion behavior;
-- compatibility: required LuauUI schema/capabilities and declared fallbacks.
+- compatibility: required Facet schema/capabilities and declared fallbacks.
 
 This is a thin packaging and solver bridge around Roblox's native StyleSheets, not a
 second style language. The DataModel sheet should remain the authoring source for
@@ -113,7 +113,7 @@ Use native `StyleDerive` composition so an author can begin with a supported bas
 override only the visual decisions they intend to change, and inherit new core roles
 through a diagnosed upgrade instead of copying the whole sheet. Keep one versioned
 core role vocabulary. Custom controls may register namespaced semantic roles,
-metrics, and decoration slots through LuauUI's public contribution contract; their
+metrics, and decoration slots through Facet's public contribution contract; their
 registration must declare types, fallbacks, authority, and required capabilities so
 package validation can report uncovered controls before play.
 
@@ -134,7 +134,7 @@ preview, and native materializer must consume the same effective values.
 The resolver composes, exactly once:
 
 1. theme-authored base metric;
-2. LuauUI display/density policy;
+2. Facet display/density policy;
 3. Roblox preferred-text reservation;
 4. accessibility and minimum-hit-target floors;
 5. a deliberate local override, if the screen explicitly requests one.
@@ -191,7 +191,7 @@ an actionable stale-snapshot error. Never maintain two manually editable metric
 sources.
 
 The design must also declare which native properties are legal for a theme. Roblox
-can style `Size`, `Position`, and other layout properties, but a LuauUI theme may not
+can style `Size`, `Position`, and other layout properties, but a Facet theme may not
 bypass the solver. The theme linter rejects writes that conflict with layout,
 binding, presentation, or host authority.
 
@@ -223,7 +223,7 @@ layers.
 
 ### 6. Fantasy Parchment is the primary proof theme
 
-Build **Fantasy Parchment** as though it came from a game team that only has LuauUI's
+Build **Fantasy Parchment** as though it came from a game team that only has Facet's
 public APIs and documentation. It is not a toy palette and must not require internal
 module imports or screen-specific branches.
 
@@ -259,7 +259,7 @@ The completed API should make these operations ordinary and documented:
 1. create or duplicate a theme package;
 2. edit it in the Style Editor and theme authoring preview;
 3. validate/export it;
-4. install it in a game without modifying LuauUI internals;
+4. install it in a game without modifying Facet internals;
 5. choose an initial theme for an application root and swap through its reactive
    controller;
 6. inspect the active package, schema version, effective metrics, and fallback state;
@@ -372,7 +372,7 @@ and phase-gate reviews resolved.
   system.
 - Step 5 uses only the public semantic theme contract for Sponsor-shaped fixtures.
 - Step 5.5 may simplify the implementation but cannot weaken the theme capability.
-- Step 6 may author a RascalRally package, but does not embed game styling in LuauUI.
+- Step 6 may author a RascalRally package, but does not embed game styling in Facet.
 - Step 7 profiles both a flat theme and the most expensive reference skin.
 - Step 8 proves all tutorial examples restyle through at least one materially
   different reference package without screen edits.

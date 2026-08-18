@@ -8,7 +8,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local customFactory = require("../src/core/custom")
-local LuauUIRoot = require("../src")
+local FacetRoot = require("../src")
 local resources = require("../src/async/resources")
 local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
@@ -22,13 +22,13 @@ local function slice(key: string)
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local provider = resources.newProvider(core)
 	local scope = core:scope()
-	local img = LuauUIRoot.newAsyncImage(LuauUIRoot, core, {
+	local img = FacetRoot.newAsyncImage(FacetRoot, core, {
 		id = "Avatar",
 		scope = scope,
 		provider = provider,
 		key = key,
 	})
-	local bp = LuauUIRoot.UI.Screen({ id = "S", children = { img.blueprint } })
+	local bp = FacetRoot.UI.Screen({ id = "S", children = { img.blueprint } })
 	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })

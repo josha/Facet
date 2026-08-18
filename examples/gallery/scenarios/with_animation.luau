@@ -85,11 +85,11 @@
 	=== TWO HOSTS MOUNT THIS FILE ===
 
 	  1. THE SCENARIO RUNNER (`scenarios/runner.luau`, workspace attribute
-	     `LuauUI_Scenario`): full ctx, `_G.LuauUIScenario` drives the steps below
+	     `Facet_Scenario`): full ctx, `_G.FacetScenario` drives the steps below
 	     by name.
 	  2. THE SHOWCASE DEMO PICKER (`examples/gallery/client/init.client.luau`,
 	     `mountDemo`, `kind == "fixture"`): the MINIMAL ctx
-	     `{LuauUI, core, env, actionSystem, presenter}`, and NO step ever runs —
+	     `{Facet, core, env, actionSystem, presenter}`, and NO step ever runs —
 	     a player presses the buttons. Everything below therefore has to work
 	     with no scripted help, which is why the whole demonstration is reachable
 	     from two controls and both of them are four-input reachable Buttons.
@@ -165,8 +165,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -231,7 +231,7 @@ return {
 			end
 		end))
 
-		local motionPicker = LuauUI.newPicker(LuauUI, core, {
+		local motionPicker = Facet.newPicker(Facet, core, {
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED, declared rather than adaptive: two short labels shown side
@@ -360,7 +360,7 @@ return {
 				--[[ (5) THE PAINT — opacity, scale and rotation, authored (ADR-0026).
 
 					These are the consequence the director asked for: *"should opacity,
-					transparency, and scale get owned/influenced by luauui? it seems
+					transparency, and scale get owned/influenced by facet? it seems
 					like we should be able to animate those."* Until this round the
 					only values `withAnimation` could interpolate were the solver's
 					four rect numbers, because they were the only values a commit
@@ -558,7 +558,7 @@ return {
 			},
 		})
 
-		local chargeBar = LuauUI.newProgressView(LuauUI, core, {
+		local chargeBar = Facet.newProgressView(Facet, core, {
 			id = "Charge",
 			label = COPY.chargeLabel,
 			value = charge,
@@ -582,13 +582,13 @@ return {
 		-- for as long as it exists, so `scope` is required exactly as it is for
 		-- newAsyncImage's provider handle: this scenario's scope already retires
 		-- everything else it built, and now retires these two cycles with it.
-		local busyBar = LuauUI.newProgressView(LuauUI, core, {
+		local busyBar = Facet.newProgressView(Facet, core, {
 			id = "Busy",
 			label = COPY.busyLabel,
 			motionClock = clock,
 			scope = scope,
 		})
-		local busySpinner = LuauUI.newProgressView(LuauUI, core, {
+		local busySpinner = Facet.newProgressView(Facet, core, {
 			id = "Working",
 			label = COPY.spinnerLabel,
 			presentation = "spinner",

@@ -44,7 +44,7 @@ local function buildEnv(core: any, profile: any?): any
 	return env
 end
 
--- §8.4: an EFFECTIVE minimum target in LuauUI units DERIVED from the display
+-- §8.4: an EFFECTIVE minimum target in Facet units DERIVED from the display
 -- environment (never a device-model check, never a raw "44 pt"). Touch-primary
 -- surfaces need the full token floor; a precise pointer may go a bit smaller but
 -- never below ~0.73x of it. The derivation reads environment facts only.
@@ -96,7 +96,7 @@ end
 -- ── deterministic dump (feeds the artifact + the determinism check) ──────────
 
 local function dumpCore(core: any): any
-	local out: any = { schema = "luauui-a11y-l10n-corpus/1", requirement = REQ }
+	local out: any = { schema = "facet-a11y-l10n-corpus/1", requirement = REQ }
 
 	local loc = {}
 	for _, f in fx.localization do
@@ -344,7 +344,7 @@ local checks: { Check } = {
 				return false,
 					`[display-class] effective min not calibrated by class (phone {phoneMin} vs desktop {deskMin})`
 			end
-			return true, `phoneMin={round3(phoneMin)} desktopMin={round3(deskMin)} (LuauUI units, env-derived)`
+			return true, `phoneMin={round3(phoneMin)} desktopMin={round3(deskMin)} (Facet units, env-derived)`
 		end,
 	},
 	{

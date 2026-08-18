@@ -22,7 +22,7 @@
 --   * THE VERB REPLACES `activate` ON THE BUS, on the same causal frame, from
 --     every input class. `none` emits nothing at all.
 --   * THE RESOLVED VERB REACHES THE ADAPTER, so the ENGINE can play the right
---     sensation through `GuiButton.PressHapticEffect`. LuauUI still plays
+--     sensation through `GuiButton.PressHapticEffect`. Facet still plays
 --     nothing — it publishes a fact and hands over a reference.
 --
 -- Mutation evidence for every check in this file:
@@ -33,7 +33,7 @@ local fs = require("@lune/fs")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local mountLib = require("../src/mount")
 local feedbackLib = require("../src/present/feedback")
@@ -43,7 +43,7 @@ local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
 local fake_target = require("./lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local function world()
 	local core = customFactory.new()
@@ -420,7 +420,7 @@ describe("what a press emits", function()
 			table.insert(events, event)
 		end)
 		local on = core:signal(false)
-		local chip = LuauUI.newChip(LuauUI, core, { id = "C", label = "Wet", selected = on })
+		local chip = Facet.newChip(Facet, core, { id = "C", label = "Wet", selected = on })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.sensoryFeedback(chip.blueprint, { activation = "select" }) },
@@ -532,7 +532,7 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 	local function fakeButton(attribute: string?): any
 		local attrs: { [string]: any } = {}
 		if attribute ~= nil then
-			attrs.LuauUI_ActivationFeedback = attribute
+			attrs.Facet_ActivationFeedback = attribute
 		end
 		return {
 			PressHapticEffect = nil :: any,
@@ -744,21 +744,21 @@ describe("the showcase fixture drives the real thing", function()
 	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 
 	local function mountUnder(pkgName: string?, view: any): (any, any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		if pkgName ~= nil then
 			env:set(
 				"themeMetrics",
-				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(LuauUI.themes), nil, {})
+				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
 			)
 		end
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -1054,14 +1054,13 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 	end
 
 	local function mountDemo(): (any, any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local built =
-			scenario.build({ LuauUI = LuauUI, core = core, env = env, actionSystem = system, presenter = pres })
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local built = scenario.build({ Facet = Facet, core = core, env = env, actionSystem = system, presenter = pres })
 		built.handle = pres.present(built.screen, built.present)
 		for _ = 1, 3 do
 			pres.refresh()
@@ -1169,7 +1168,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 
 	it("an adapter that could not be LOADED is undetermined, not a platform claim", function()
 		local _, built = mountDemo()
-		built.useScriptedEngine({ moduleError = "LuauUI.client.haptics is not replicated here" })
+		built.useScriptedEngine({ moduleError = "Facet.client.haptics is not replicated here" })
 		built.playHaptics:set(true)
 		expect(built.hapticsState:get()).toBe("undetermined")
 		expect(string.find(built.hapticsDetail:get(), "not replicated", 1, true) ~= nil).toBe(true)

@@ -11,7 +11,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -24,12 +24,12 @@ local function makeRows(n: number): { { id: string, label: string } }
 end
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -39,7 +39,7 @@ local function world(opts: any?)
 	local core, env, system, adapter, pres = harness()
 	local rows = core:signal(makeRows(options.count or 100))
 	local activations: { any } = {}
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -49,13 +49,13 @@ local function world(opts: any?)
 		viewportHeight = options.viewportHeight or 400, -- 10 visible rows
 		overscan = options.overscan or 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen) -- ZERO present opts
 	pres.refresh()
 	-- wire the engine CanvasPosition mirror (native-substrate NS-A2): on the live
@@ -269,16 +269,16 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 	end)
 
 	it("VirtualList registry neutrality: build/mount/present/interact/dispose returns to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local rows = core:signal(makeRows(50))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -288,11 +288,11 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 			viewportHeight = 400,
 			overscan = 2,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function() end,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 		local handle = pres.present(screen) -- zero opts: full auto-composition
 		pres.refresh()
 		local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -394,14 +394,14 @@ end)
 describe("VirtualList navigation-group overrides (SF-L4)", function()
 	-- a list plus a sibling HStack of two buttons, each side naming the other
 	local function twoGroupWorld(navigation: any?)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(makeRows(4))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -411,16 +411,16 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 			viewportHeight = 400,
 			navigation = navigation,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function() end,
 		})
-		local dock = LuauUI.contribution.attach(
-			LuauUI.UI.HStack({
+		local dock = Facet.contribution.attach(
+			Facet.UI.HStack({
 				id = "Dock",
 				children = {
-					LuauUI.UI.Button({ id = "A", label = "A", onActivate = function() end }),
-					LuauUI.UI.Button({ id = "B", label = "B", onActivate = function() end }),
+					Facet.UI.Button({ id = "A", label = "A", onActivate = function() end }),
+					Facet.UI.Button({ id = "B", label = "B", onActivate = function() end }),
 				},
 			}),
 			{
@@ -437,7 +437,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 				end,
 			}
 		)
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint, dock } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint, dock } }))
 		pres.refresh()
 		list.bindNativeScroll(handle.controller)
 		return { pres = pres, system = system, list = list, handle = handle }
@@ -495,15 +495,15 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 	end)
 
 	it("the overrides never replace the group: the focus-skip predicates survive", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(makeRows(4))
 		local blocked = core:signal(true)
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -516,11 +516,11 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 				return not (blocked:get() and item.id == "r2")
 			end,
 			cell = function(item: any)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function() end,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		pres.focus.focusOn("/S/VL/Canvas/W/[r1]/Row/Hit")
 		system.deviceKey("Down", true)
@@ -537,9 +537,9 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 	end)
 
 	it("an unknown navigation field is refused at construction, naming the valid set", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = core:signal(makeRows(2)),
 				key = function(item: any)
@@ -549,7 +549,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 				viewportHeight = 200,
 				navigation = { wrapp = true },
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)

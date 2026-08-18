@@ -24,7 +24,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -58,12 +58,12 @@ type World = {
 -- A list whose rows carry the shapes real UI has: an image, text, a toggle and a
 -- value control. Measuring a tree of bare Frames would flatter every rule here.
 local function world(rowCount: number): World
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local items = {}
 	for i = 1, rowCount do
 		table.insert(items, {
@@ -73,7 +73,7 @@ local function world(rowCount: number): World
 			ready = core:signal(i % 2 == 0),
 		})
 	end
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = core:signal(items),
 		key = function(item: any)
@@ -83,27 +83,27 @@ local function world(rowCount: number): World
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return LuauUI.UI.HStack({
+			return Facet.UI.HStack({
 				id = "Row",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fixed", px = ROW_HEIGHT },
 				children = {
-					LuauUI.UI.Image({ id = "Av", image = "rbxassetid://0", width = { type = "fixed", px = 40 } }),
-					LuauUI.UI.Text({
+					Facet.UI.Image({ id = "Av", image = "rbxassetid://0", width = { type = "fixed", px = 40 } }),
+					Facet.UI.Text({
 						id = "N",
 						textSize = 15,
 						text = core:memo(function(use)
 							return `{item.label} · {use(item.value)}`
 						end),
 					}),
-					LuauUI.UI.Toggle({ id = "Rdy", label = "Ready", value = item.ready }),
-					LuauUI.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
+					Facet.UI.Toggle({ id = "Rdy", label = "Ready", value = item.ready }),
+					Facet.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
 	assertClean(handle, `mount ({rowCount} rows)`)

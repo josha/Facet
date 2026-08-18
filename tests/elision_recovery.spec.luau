@@ -37,7 +37,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
 local UI = require("../src/blueprint")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local deviceViews = require("./lib/device_views")
 local hudScenario = require("../examples/gallery/scenarios/hud")
@@ -379,8 +379,8 @@ local PICKER_STRIP = 62
 local SINK_PATH = "/HudScreen/Hud/Rounds/RoundStrip/R3"
 
 local function drive(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = CORE_TOP + PICKER_STRIP, bottom = 0, left = 0, right = 0 })
 	env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -390,12 +390,12 @@ local function drive(view: any): any
 		"appChromeRects",
 		{ { x = 8, y = CORE_TOP, w = math.max(1, math.min(259, view.w - 16)), h = PICKER_STRIP } }
 	)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local handle: any = nil
 	local built = hudScenario.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -557,8 +557,8 @@ describe("D7.6 — every elided or dropped region has a live recovery route, at 
 		local built = err :: any
 		local ok2, err2 = pcall(UI.Composition, {
 			id = "Hud",
-			groups = LuauUI.composition.HUD_GROUPS,
-			arrangements = { LuauUI.composition.HUD },
+			groups = Facet.composition.HUD_GROUPS,
+			arrangements = { Facet.composition.HUD },
 			children = { built },
 		})
 		expect(ok2).toBe(false)
@@ -710,7 +710,7 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 
 	--[[ THE BASELINE'S "FOURTH FAILURE CLASS", REFUTED WITH ARITHMETIC.
 		`Round 3 · Capture @(416,-37) 81x15` was read as a node painted entirely above
-		the top of the viewport. It is not: a LuauUI ScreenGui renders
+		the top of the viewport. It is not: a Facet ScreenGui renders
 		`IgnoreGuiInset = true`, and `AbsolutePosition` on such a tree is reported in
 		the INSET-SUBTRACTED space, so window-space y 21 reads back as 21 - 58 = -37
 		against the session's measured 58px inset. The baseline proves its own offset:

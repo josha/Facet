@@ -1,7 +1,7 @@
 --!strict
 -- Reference proof "Cartwheel" (RA-P2, swiftui-reference-app-validation).
 --
--- A clean-room LuauUI reinterpretation of the BEHAVIOR of a dashboard-shaped
+-- A clean-room Facet reinterpretation of the BEHAVIOR of a dashboard-shaped
 -- operations app: adaptive split navigation, a four-card dashboard, an orders
 -- table that becomes a sectioned list, a status machine with a countdown that
 -- survives navigation, a completion celebration, a gallery and a live editor,
@@ -133,8 +133,8 @@ local STAGE_CONTENT = {
 	},
 }
 
-function Cartwheel.build(LuauUI: any, core: any, deps: any): any
-	local UI = LuauUI.UI
+function Cartwheel.build(Facet: any, core: any, deps: any): any
+	local UI = Facet.UI
 	local env = deps.env
 	local presenter = deps.presenter
 	local scope = core:scope("cartwheel")
@@ -168,7 +168,7 @@ function Cartwheel.build(LuauUI: any, core: any, deps: any): any
 		core = core,
 		clock = clock,
 		presenter = presenter,
-		LuauUI = LuauUI,
+		Facet = Facet,
 		strings = S,
 		latency = 0.25,
 	})
@@ -180,7 +180,7 @@ function Cartwheel.build(LuauUI: any, core: any, deps: any): any
 	end)
 
 	-- ---- presentation state --------------------------------------------------
-	local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope })
+	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 	-- THE OPENING SECTION IS AN INPUT, and it exists for one measured reason: the
 	-- scenario runner materializes `stageContent` ONCE, immediately after
 	-- `present`, through `controller.stageHost(path)` — and a Stage inside a
@@ -214,7 +214,7 @@ function Cartwheel.build(LuauUI: any, core: any, deps: any): any
 	local tickHooks: { (dt: number) -> () } = {}
 
 	local app: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		UI = UI,
 		core = core,
 		scope = scope,

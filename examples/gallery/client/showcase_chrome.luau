@@ -149,7 +149,7 @@ function showcase_chrome.toggle(open: boolean, current: string, want: string?): 
 end
 
 export type MountOpts = {
-	LuauUI: any,
+	Facet: any,
 	core: any,
 	env: any,
 	presenter: any,
@@ -173,8 +173,8 @@ export type MountOpts = {
 }
 
 function showcase_chrome.mount(opts: MountOpts): any
-	local LuauUI = opts.LuauUI
-	local UI = LuauUI.UI
+	local Facet = opts.Facet
+	local UI = Facet.UI
 	local core = opts.core
 	local presenter = opts.presenter
 	local scope = core:scope("showcase-chrome")
@@ -190,7 +190,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- "open this"; this says "which section am I in", which is a different
 	-- question and reads as one. It is also what makes both targets reachable
 	-- from ONE toggle key: press the key, then Tab/d-pad onto this.
-	local sectionPicker = LuauUI.newPicker(LuauUI, core, {
+	local sectionPicker = Facet.newPicker(Facet, core, {
 		id = "Section",
 		label = COPY.section,
 		presentation = "segmented",

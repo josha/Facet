@@ -35,7 +35,7 @@ devforum post (§21). Confidence high unless noted.
 ## Discrepancies vs design §17 wording (encoded in the token schema)
 
 1. §17 says "BlurRadius (percent of the parent's shortest dimension)" — the
-   authoritative type is **UDim (scale + pixel offset)**. LuauUI encodes
+   authoritative type is **UDim (scale + pixel offset)**. Facet encodes
    blurRadius as `{ scale, offset }`, not a bare percent.
 2. §17 lists Spread without a type — it is **UDim2**. Encoded as
    `{ x = {scale, offset}, y = {scale, offset} }`.

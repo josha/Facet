@@ -9,7 +9,7 @@
 --   LEVER 1 — `arrange` ITSELF. Top cost in all four device captures, 9.1-10.6 ms
 --   per occurrence across two sessions, 2-3x `measure`, worst single occurrence
 --   298.87 ms. Nothing had been done about it because no analysis could get INSIDE
---   it: `LuauUI/arrange` is one scope wrapping one recursive tree walk, so a dump
+--   it: `Facet/arrange` is one scope wrapping one recursive tree walk, so a dump
 --   says "arrange is expensive" and stops.
 --
 --   LEVER 2 — INCREMENTAL LAYOUT ON A COLLECTION EDIT. L-27 measured incremental
@@ -39,7 +39,7 @@
 --    the comparison it was built for. Here **an arm IS a pass**: one lap is one arm
 --    at its default reps (24-40 frames), and `profileWindow` loops exactly one pass.
 -- 2. THE ARM IDENTITY IS IN `workspace`, NOT IN FORENSICS. `profileWindow` already
---    stamps `LuauUI_ProfilingPass`, so making the arm a pass puts the arm name in a
+--    stamps `Facet_ProfilingPass`, so making the arm a pass puts the arm name in a
 --    workspace attribute for free. Nothing here has to be identified by counting
 --    child instances in a binary blob.
 -- 3. EVERY REP YIELDS. `telemetry.step()` inside the rep loop, outside the timed
@@ -202,7 +202,7 @@ local EDIT_ARMS = {
 	declares), `arrangedNodes`/`measuredNodes` (did it provoke a real solve), and
 	`arrangePerRep`/`measurePerRep` (did every rep provoke exactly one — not zero,
 	not a fraction of one). `commitPerRep` is measured rather than asserted at 1:
-	the renderer opens `LuauUI/commit` twice per full solve here (once for the
+	the renderer opens `Facet/commit` twice per full solve here (once for the
 	rect write, once for the paint/z-order-sync dirty it provokes alongside it),
 	steadily across every arm — so what actually matters is that the cadence is
 	IDENTICAL hosted and unhosted, which is what makes the comparison fair. ]]
@@ -240,19 +240,19 @@ levers.HOST_CELLS_PER_ROW = HOST_CELLS_PER_ROW
 	`deps` rather than being re-derived, so an arm here and a pass in `perf_lab`
 	can never disagree about what a millisecond, a percentile or a scope count is:
 
-	  LuauUI, core, ctx          the framework, the reactive core, the runner ctx
+	  Facet, core, ctx          the framework, the reactive core, the runner ctx
 	  labScope                   the scenario's disposal root (arms take children of it)
 	  dataset, rows              the shared deterministic dataset and row spec
 	  settings                   the live selector table (read for `recycle`, `seed`, theme)
 	  telemetry                  `clock()` and `step()` — the frame-yield seam
 	  timed, summarize           the shared pass-record and p50/p95/worst helpers
-	  scopeCount                 `LuauUI/<phase>` open counts, for solve accounting
+	  scopeCount                 `Facet/<phase>` open counts, for solve accounting
 	  framesAndReps              the shared `frames` / `frames/reps` payload parser
 	  viewportH                  the derived list height (the same one every pass uses)
 	  passes                     the table to install into
 ]]
 function levers.install(deps: any)
-	local LuauUI = deps.LuauUI
+	local Facet = deps.Facet
 	local core = deps.core
 	local ctx = deps.ctx
 	local labScope = deps.labScope
@@ -266,7 +266,7 @@ function levers.install(deps: any)
 	local framesAndReps = deps.framesAndReps
 	local viewportH = deps.viewportH
 	local passes = deps.passes
-	local U = LuauUI.UI
+	local U = Facet.UI
 	local clock = telemetry.clock
 
 	-- ================================================================
@@ -455,7 +455,7 @@ function levers.install(deps: any)
 				measuredNodes = if stats ~= nil then stats.lastMeasured else 0,
 				arrangePerRep = arranges / REPS,
 				measurePerRep = measures / REPS,
-				--[[ THE HEADLINE. Not comparable to a MicroProfiler `LuauUI/arrange`
+				--[[ THE HEADLINE. Not comparable to a MicroProfiler `Facet/arrange`
 					ms/occurrence — this is the WHOLE set+refresh round trip, which
 					includes measure, commit and the adapter write. It is comparable
 					ARM TO ARM, which is the only comparison this workload makes. ]]
@@ -530,7 +530,7 @@ function levers.install(deps: any)
 		local base = dataset.build({ count = EDIT_ROWS, seed = settings.seed, content = "normal" })
 		local armRows = armScope:own(core:signal(base))
 		local listH = math.max(100, viewportH())
-		local list = LuauUI.newVirtualList(LuauUI, core, {
+		local list = Facet.newVirtualList(Facet, core, {
 			id = "EditRows",
 			rows = armRows,
 			key = function(item: any)
@@ -657,7 +657,7 @@ function levers.install(deps: any)
 				arrangePerEdit = (scopeCount("arrange") - arrangeBefore) / REPS,
 				measurePerEdit = (scopeCount("measure") - measureBefore) / REPS,
 				--[[ THE OTHER HALF OF L-35's FINDING, kept as a field. `collection-churn`
-					measured `LuauUI/mount` at exactly 0 across 29 device frames: 25 inserts
+					measured `Facet/mount` at exactly 0 across 29 device frames: 25 inserts
 					~475 rows outside the window provoke NO structural sync. That half is
 					healthy and this records it holding. ]]
 				mountPerEdit = (scopeCount("mount") - mountBefore) / REPS,

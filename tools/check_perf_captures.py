@@ -54,7 +54,12 @@ REQUIRED = [
 REQUIRED_DEVICE = ["deviceModel", "osVersion", "clientVersion", "powerState"]
 DEVICE_CLASSES = {"phone-physical", "desktop-retail"}
 HOST_CLASSES = {"lune", "studio", "emulator"}
-SCHEMA = "luauui-perf-capture/1"
+# Two accepted spellings of ONE schema. The captures already on disk were emitted
+# before the Facet rename and are immutable evidence, so they carry the old string;
+# `examples/performance/lab/capture.luau` emits the new one from now on. Anything
+# that is neither is still refused, so this is the same check, not a weaker one.
+SCHEMA = "facet-perf-capture/1"
+SCHEMAS = (SCHEMA, "luauui-perf-capture/1")
 
 # read the workload identity from SOURCE, never from a constant here — a checker that
 # hard-codes the version it expects has to be edited in lockstep with the thing it
@@ -90,8 +95,8 @@ def missing(row, keys):
 
 def check_row(row, where):
     problems = []
-    if row.get("schema") != SCHEMA:
-        problems.append(f"{where}: schema is {row.get('schema')!r}, expected {SCHEMA!r}")
+    if row.get("schema") not in SCHEMAS:
+        problems.append(f"{where}: schema is {row.get('schema')!r}, expected one of {SCHEMAS!r}")
     cls = row.get("evidenceClass")
     if cls not in DEVICE_CLASSES and cls not in HOST_CLASSES:
         problems.append(f"{where}: unknown evidenceClass {cls!r}")
@@ -113,17 +118,17 @@ def collect_rows(path):
     """A capture file may hold one row or a list under `rows`/`captures`."""
     with open(path) as fh:
         doc = json.load(fh)
-    if isinstance(doc, dict) and doc.get("schema") == SCHEMA:
+    if isinstance(doc, dict) and doc.get("schema") in SCHEMAS:
         return [(doc, os.path.basename(path))]
     # the lab's `export` step emits {admissible, note, row, problems}; that envelope is
     # what the evidence bridge drops on disk, so the reader has to understand the shape
     # the INSTRUMENT produces rather than a tidied one
-    if isinstance(doc, dict) and isinstance(doc.get("row"), dict) and doc["row"].get("schema") == SCHEMA:
+    if isinstance(doc, dict) and isinstance(doc.get("row"), dict) and doc["row"].get("schema") in SCHEMAS:
         return [(doc["row"], os.path.basename(path))]
     rows = []
     for key in ("rows", "captures"):
         for i, r in enumerate(doc.get(key, []) or []):
-            if isinstance(r, dict) and r.get("schema") == SCHEMA:
+            if isinstance(r, dict) and r.get("schema") in SCHEMAS:
                 rows.append((r, f"{os.path.basename(path)}[{key}][{i}]"))
     return rows
 
@@ -182,7 +187,7 @@ def main():
             )
 
     result = {
-        "schema": "luauui-perf-captures-check/1",
+        "schema": "facet-perf-captures-check/1",
         "status": "PASS" if not problems else "FAIL",
         "rowsChecked": checked,
         "byClass": classes,

@@ -2,7 +2,7 @@
 -- Tests for the three game gallery examples (docs progressive tutorial 6-8):
 --   06 Wordle-style word game, 07 Scrabble-style tile game, 08 match-3.
 -- Each example module exports { title, build } where
---   build(LuauUI, core, deps) -> a table with the presented screen, the
+--   build(Facet, core, deps) -> a table with the presented screen, the
 --   presenter handle, and a small game/test API.
 -- deps = { env, actionSystem, presenter, adapter }.
 -- Everything here runs headless under Lune against the FakeTarget adapter, so
@@ -11,7 +11,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
 local wordGame = require("../examples/gallery/examples/05_word_game")
@@ -25,14 +25,14 @@ local standard_icons = require("../src/themes/standard_icons")
 -- the example builds, so a later example.dispose() can prove registry-neutral
 -- teardown of everything the example itself created.
 local function makeWorld(viewport: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	if viewport ~= nil then
 		env:set("viewportRect", viewport)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
 	return core, deps, adapter
 end
@@ -50,7 +50,7 @@ end
 describe("examples/05 word game (Wordle-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		expect(core:lastError()).toBeNil()
 		-- the screen and a first-row tile both reached the adapter
 		expect(adapter.node("/Wordle") == nil).toBeFalsy()
@@ -60,7 +60,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("hardware keys fill the row and a wrong guess colors the tiles", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		-- solution is REACT; guess RULES: R is correct, E is present (wrong
 		-- spot), U/L/S absent
 		for _, ch in { "R", "U", "L", "E", "S" } do
@@ -78,7 +78,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("backspace deletes, and the winning word opens the results modal", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		game.press("R")
 		game.press("X")
 		game.press("Backspace") -- undo the X
@@ -97,7 +97,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("the on-screen keyboard is three navigation-group rows a gamepad can cross", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local focus = deps.presenter.focus
 		-- focus enters the first key of the top row
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))
@@ -112,7 +112,7 @@ describe("examples/05 word game (Wordle-style)", function()
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
 		local baseline = core:counters()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		for _, ch in { "R", "E", "A", "C", "T", "Return" } do
 			game.press(ch)
 		end
@@ -132,7 +132,7 @@ describe("examples/05 word game (Wordle-style)", function()
 	-- device DPad + ButtonA.
 	it("✓ ex05 pointer: tapping on-screen keys fills the row and Enter submits", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		for _, ch in { "R", "E", "A", "C", "T" } do
 			adapter.tap(game.keyPath(ch)) -- mouse click on the on-screen key
 		end
@@ -145,7 +145,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 touch: a touch tap on an on-screen key types its letter", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		adapter.tap(game.keyPath("R"), { pointer = "touch" })
 		expect(game.row(1)).toBe("R")
 		expect(core:lastError()).toBeNil()
@@ -154,7 +154,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 keyboard: arrow keys navigate the on-screen keyboard grid (device path)", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))
@@ -167,7 +167,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 gamepad: DPad navigates the keyboard and ButtonA types the focused key", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(LuauUI, core, deps)
+		local game = wordGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))
@@ -186,7 +186,7 @@ end)
 describe("examples/07 tile game (Scrabble-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		expect(core:lastError()).toBeNil()
 		expect(adapter.node("/TileGame") == nil).toBeFalsy()
 		expect(adapter.node(game.cellPath(1, 1)) == nil).toBeFalsy()
@@ -196,7 +196,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("select-then-place moves a rack tile onto a cell and scores it", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		expect(game.score()).toBe(0)
 		local rackBefore = game.rackCount()
 		local letter, value = game.rackTile(1)
@@ -217,7 +217,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps, adapter = makeWorld()
 		local baseline = core:counters()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		adapter.tap(game.rackPath(1))
 		adapter.tap(game.cellPath(1, 1))
 		game.dispose()
@@ -234,7 +234,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- nav that was STRUCTURALLY ABSENT (flat ring) in the audit.
 	it("✓ ex06 touch: touch taps select a rack tile and place it on a board cell", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		local letter, value = game.rackTile(1)
 		adapter.tap(game.rackPath(1), { pointer = "touch" })
 		adapter.tap(game.cellPath(1, 1), { pointer = "touch" })
@@ -261,7 +261,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("✓ ex06 keyboard: arrow/Return select-then-place from the rack onto the board", function()
 		local core, deps = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		local letter, value = game.rackTile(1)
@@ -278,7 +278,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("✓ ex06 gamepad: DPad grid navigation with ButtonA select-then-place", function()
 		local core, deps = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		local letter, value = game.rackTile(1)
@@ -306,7 +306,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- ========================================================================
 	it("placing with nothing picked up says so instead of doing nothing", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		local before = game.hintText()
 		adapter.tap(game.cellPath(1, 1))
 		expect(game.placedAt(1, 1)).toBeNil()
@@ -321,7 +321,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("placing on an occupied square names the square, and does not silently keep the tile held", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		adapter.tap(game.rackPath(1))
 		adapter.tap(game.cellPath(2, 3))
 		local scoreAfterFirst = game.score()
@@ -339,7 +339,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		-- control that carries a spent marker answers that before the tap, which is
 		-- better than answering after it.
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		deps.presenter.refresh()
 		expect(adapter.node("/TileGame/Page/rack/rt1").props.enabled).toBe(true)
 		adapter.tap(game.rackPath(1))
@@ -361,7 +361,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		-- a stale complaint under a board the player has since changed is its own
 		-- defect: the line has to describe the state it sits above
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		adapter.tap(game.cellPath(1, 1)) -- refused, message set
 		expect(string.find(game.hintText(), "Pick a letter", 1, true) ~= nil).toBe(true)
 		adapter.tap(game.rackPath(1))
@@ -371,7 +371,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("progress and completion are visible, and the rack really does run out", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		deps.presenter.refresh()
 		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("0 of 7 tiles placed")
 		-- ...AND THAT IT IS ARRANGED TO SOMETHING. This test was called "visible"
@@ -407,7 +407,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("reset returns every observable to its starting value, selection and message included", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		local startHint = game.hintText()
 		adapter.tap(game.rackPath(1))
 		adapter.tap(game.cellPath(3, 3))
@@ -431,7 +431,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("rapid alternating input leaves no stale selection or held tile", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(LuauUI, core, deps)
+		local game = tileGame.build(Facet, core, deps)
 		for _ = 1, 20 do
 			adapter.tap(game.rackPath(1))
 			adapter.tap(game.cellPath(1, 1))
@@ -452,7 +452,7 @@ end)
 describe("examples/08 match-3", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		expect(core:lastError()).toBeNil()
 		expect(adapter.node("/Match3") == nil).toBeFalsy()
 		expect(adapter.node(game.cellPath(1, 1)) == nil).toBeFalsy()
@@ -461,7 +461,7 @@ describe("examples/08 match-3", function()
 
 	it("a swap that forms a run clears and refills, and replays deterministically", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		-- arrange a board where swapping (1,3)<->(2,3) completes a horizontal
 		-- run of three 'a' tiles on row 1. Kinds: a,b,c,d,e.
 		game.debugSetBoard({
@@ -482,7 +482,7 @@ describe("examples/08 match-3", function()
 		-- determinism: a second game with the same seed, board, and swap lands
 		-- on an identical board — tests replay exactly (§ seeded refill).
 		local core2, deps2 = makeWorld()
-		local game2 = match3.build(LuauUI, core2, deps2)
+		local game2 = match3.build(Facet, core2, deps2)
 		game2.debugSetBoard({
 			{ "a", "a", "b", "c", "d", "e" },
 			{ "c", "d", "a", "e", "b", "c" },
@@ -501,12 +501,12 @@ describe("examples/08 match-3", function()
 		-- THIS TEST USED TO ASSERT THE DEFECT (example-quality-pass, 2026-08-06).
 		-- It required `desktopW > phoneW`, which was only true because the example
 		-- computed its own cell size from `env sizeClass` -> 40/56/72 px: imperative
-		-- responsive geometry inside a consumer, the thing LuauUI owns. The tile is
+		-- responsive geometry inside a consumer, the thing Facet owns. The tile is
 		-- now a THEME metric, so what matters is that a viewport change reflows the
 		-- page without rebuilding it, and that the tile never drops below the
 		-- theme's own touch floor at any of them.
 		local core, deps, adapter = makeWorld({ x = 0, y = 0, w = 390, h = 844 }) -- phone
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		local mountedBefore = game.handle.root.counters().mounted
 		local runsBefore = game.handle.root.counters().factoryRuns
@@ -540,7 +540,7 @@ describe("examples/08 match-3", function()
 		-- provider" and the gallery host never did. A tutorial whose board is
 		-- unreadable until someone runs a script is not a tutorial.
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		local kind = game.kindAt(1, 1)
 		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(assets.match3Tiles[kind].image)
@@ -551,7 +551,7 @@ describe("examples/08 match-3", function()
 
 	it("re-request -> pending -> deliver is the async lesson, driven from the screen", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		adapter.tap(game.reloadPath)
 		deps.presenter.refresh()
@@ -573,7 +573,7 @@ describe("examples/08 match-3", function()
 
 	it("a FAILED load is visible and recoverable, which is the half that was missing", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		adapter.tap(game.breakPath)
 		deps.presenter.refresh()
@@ -620,7 +620,7 @@ describe("examples/08 match-3", function()
 	-- ========================================================================
 	it("opens with no run already on the board", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		expect(next(game.findMatches())).toBeNil()
 		expect(game.score()).toBe(0) -- and it did not score the run it cleared while dealing
 		expect(game.moves()).toBe(0)
@@ -630,14 +630,14 @@ describe("examples/08 match-3", function()
 
 	it("opens with at least one legal move", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		expect(game.hasLegalMove()).toBe(true)
 		game.dispose()
 	end)
 
 	it("...and so does every board a reset deals", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		for _ = 1, 8 do
 			adapter.tap(game.resetPath)
 			expect(next(game.findMatches())).toBeNil()
@@ -649,7 +649,7 @@ describe("examples/08 match-3", function()
 
 	it("a swap that makes no run is refused WITH A REASON, and costs no move", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.debugSetBoard({
 			{ "a", "b", "c", "d", "e", "a" },
 			{ "b", "c", "d", "e", "a", "b" },
@@ -670,7 +670,7 @@ describe("examples/08 match-3", function()
 
 	it("tapping a NON-adjacent tile says tiles have to touch", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		adapter.tap(game.cellPath(1, 1))
 		adapter.tap(game.cellPath(4, 4))
 		expect(string.find(game.hintText(), "have to touch", 1, true) ~= nil).toBe(true)
@@ -680,7 +680,7 @@ describe("examples/08 match-3", function()
 
 	it("tapping the selected tile again puts it down", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		adapter.tap(game.cellPath(2, 2))
 		deps.presenter.refresh()
@@ -693,7 +693,7 @@ describe("examples/08 match-3", function()
 
 	it("a swap SCORES what it clears, counts the move, and chains resolve in one go", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		-- swapping (1,3)<->(2,3) completes a,a,a on row 1
 		game.debugSetBoard({
 			{ "a", "a", "b", "c", "d", "e" },
@@ -719,7 +719,7 @@ describe("examples/08 match-3", function()
 
 	it("reset returns score, moves, selection and the message to their start values", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		local startHint = game.hintText()
 		local startBoard = game.boardSnapshot()
 		adapter.tap(game.cellPath(1, 1))
@@ -738,7 +738,7 @@ describe("examples/08 match-3", function()
 
 	it("rapid tapping and resetting leaves no stale selection or error", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		for _ = 1, 15 do
 			adapter.tap(game.cellPath(1, 1))
 			adapter.tap(game.cellPath(1, 2))
@@ -757,7 +757,7 @@ describe("examples/08 match-3", function()
 
 	it("supports gamepad grid navigation across navigation-group rows", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		local focus = deps.presenter.focus
 		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
 		focus.navigateDirection("right")
@@ -770,7 +770,7 @@ describe("examples/08 match-3", function()
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
 		local baseline = core:counters()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.swap(1, 1, 1, 2)
 		game.dispose()
 		local after = core:counters()
@@ -796,7 +796,7 @@ describe("examples/08 match-3", function()
 	-- the board that the direct swap API (1,3)<->(2,3) produces from SWAP_BOARD
 	local function referenceAfterSwap(): { string }
 		local core, deps = makeWorld()
-		local ref = match3.build(LuauUI, core, deps)
+		local ref = match3.build(Facet, core, deps)
 		ref.debugSetBoard(SWAP_BOARD)
 		ref.swap(1, 3, 2, 3)
 		local snap = ref.boardSnapshot()
@@ -806,7 +806,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 pointer: tapping two adjacent tiles swaps them (matches the swap API)", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3)) -- select
 		adapter.tap(game.cellPath(2, 3)) -- adjacent -> swap
@@ -816,7 +816,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 touch: touch taps on two adjacent tiles swap them", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3), { pointer = "touch" })
 		adapter.tap(game.cellPath(2, 3), { pointer = "touch" })
@@ -826,7 +826,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 keyboard: arrow keys navigate and Return swaps adjacent tiles", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.debugSetBoard(SWAP_BOARD)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
@@ -843,7 +843,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 gamepad: DPad navigation and ButtonA swaps adjacent tiles", function()
 		local core, deps = makeWorld()
-		local game = match3.build(LuauUI, core, deps)
+		local game = match3.build(Facet, core, deps)
 		game.debugSetBoard(SWAP_BOARD)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus

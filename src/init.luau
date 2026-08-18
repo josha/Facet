@@ -1,5 +1,5 @@
 --!strict
--- LuauUI public entry point (design Â§5): the game-agnostic, engine-free
+-- Facet public entry point (design Â§5): the game-agnostic, engine-free
 -- surface. Client-only modules (ScreenTarget, roblox_env, roblox_input) are
 -- NOT exported here â client entry points require them from @self/client/*
 -- directly, keeping this module safe for shared/server require graphs
@@ -129,7 +129,7 @@ local function buildDeprecations(): { Deprecation }
 	return table.freeze(ledger)
 end
 
-local LuauUI = {
+local Facet = {
 	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
 	VERSION = "0.9.0",
@@ -242,7 +242,7 @@ local LuauUI = {
 	-- optional ray/hit/pose/handedness/phase/target a normalized pointer event
 	-- may one day carry, plus the readers a consumer uses to ask. Public because
 	-- the compatibility promise is a public one: `pos.x`/`pos.y` keep meaning
-	-- what they mean, and `spatial.isFlat(pos)` is true for every event LuauUI
+	-- what they mean, and `spatial.isFlat(pos)` is true for every event Facet
 	-- produces today.
 	spatial = require("@self/input/spatial"),
 	newChip = require("@self/controls/chip").build,
@@ -371,4 +371,4 @@ local LuauUI = {
 	},
 }
 
-return LuauUI
+return Facet

@@ -1,6 +1,6 @@
 --!strict
 -- First-responder (focus-engagement) model (ADR-0014; ui_todo §0/§3; director
--- 2026-07-21). A LuauUI surface becomes first responder over avatar/gameplay
+-- 2026-07-21). A Facet surface becomes first responder over avatar/gameplay
 -- input via FOCUS ENGAGEMENT (the Apple responder-chain analog), NOT by
 -- disabling player input. The proof here builds a fake gameplay stack in the
 -- headless action system and drives the REAL device path (system.deviceKey /
@@ -21,16 +21,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -41,7 +41,7 @@ end
 
 -- fake gameplay stack (director's exact scenario): the avatar's CharacterContext
 -- at 1000 (non-sinking) with Jump<-Space+ButtonA and Move<-Up/Down, plus a game
--- PlayContext at 2000 SINK with its own action on a distinct key. LuauUI's
+-- PlayContext at 2000 SINK with its own action on a distinct key. Facet's
 -- engaged band must sit strictly above the 2000 sink.
 local function gameplay(system: any, core: any)
 	local char = system.createContext({ name = "CharacterContext", priority = 1000, sink = false })
@@ -73,17 +73,17 @@ end
 
 -- a simple passive HUD: two buttons that record activation
 local function hudScreen(acts: { [string]: number })
-	return LuauUI.UI.Screen({
+	return Facet.UI.Screen({
 		id = "HUD",
 		children = {
-			LuauUI.UI.Button({
+			Facet.UI.Button({
 				id = "b1",
 				label = "b1",
 				onActivate = function()
 					acts.b1 = (acts.b1 or 0) + 1
 				end,
 			}),
-			LuauUI.UI.Button({
+			Facet.UI.Button({
 				id = "b2",
 				label = "b2",
 				onActivate = function()
@@ -203,10 +203,10 @@ describe("responder (c): resign restores gameplay delivery exactly", function()
 		local core, _, system, adapter, pres = harness()
 		local g = gameplay(system, core)
 		local baseHits: { string } = {}
-		local base = LuauUI.UI.Screen({
+		local base = Facet.UI.Screen({
 			id = "Base",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -239,9 +239,9 @@ describe("responder (d): a modal over gameplay suppresses avatar input; dismiss 
 	it("Space/ButtonA/Up are suppressed while the modal is up and restored on dismiss", function()
 		local core, _, system, _, pres = harness()
 		local g = gameplay(system, core)
-		local modal = pres.presentModal(LuauUI.UI.Screen({
+		local modal = pres.presentModal(Facet.UI.Screen({
 			id = "Sheet",
-			children = { LuauUI.UI.Button({ id = "ok", label = "ok" }) },
+			children = { Facet.UI.Button({ id = "ok", label = "ok" }) },
 		}))
 		pres.refresh()
 		expect(pres.exclusiveSurfaceActive:get()).toBe(true)
@@ -346,9 +346,9 @@ end)
 describe("responder: the engaged band sits strictly above the gameplay sink (2000)", function()
 	it("a modal's context priority is >= 3000 (mirrors CAS High) and > 2000", function()
 		local _, _, _, _, pres = harness()
-		local modal = pres.presentModal(LuauUI.UI.Screen({
+		local modal = pres.presentModal(Facet.UI.Screen({
 			id = "M",
-			children = { LuauUI.UI.Button({ id = "x", label = "x" }) },
+			children = { Facet.UI.Button({ id = "x", label = "x" }) },
 		}))
 		expect(modal.context.priority > 2000).toBe(true)
 		expect(modal.context.priority >= 3000).toBe(true)
@@ -357,7 +357,7 @@ describe("responder: the engaged band sits strictly above the gameplay sink (200
 	it("an engaged-from-passive context sits above 2000", function()
 		local _, _, _, _, pres = harness()
 		local h = pres.present(
-			LuauUI.UI.Screen({ id = "H", children = { LuauUI.UI.Button({ id = "x", label = "x" }) } }),
+			Facet.UI.Screen({ id = "H", children = { Facet.UI.Button({ id = "x", label = "x" }) } }),
 			{ responder = "passive" }
 		)
 		h.engage()
@@ -376,10 +376,10 @@ end)
 -- ===========================================================================
 describe("responder: Sink changes go through the setSink adapter seam", function()
 	it("engage() calls setSink(true) and resign() calls setSink(false) on the context", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local sinkCalls: { boolean } = {}
 		-- wrap the action system: every created context records setSink calls
 		local spySystem = setmetatable({
@@ -400,9 +400,9 @@ describe("responder: Sink changes go through the setSink adapter seam", function
 			deviceKey = system.deviceKey,
 		}, { __index = system })
 		local adapter = require("../tests/lib/fake_target").new()
-		local pres = LuauUI.newPresenter(core, env, adapter, spySystem)
+		local pres = Facet.newPresenter(core, env, adapter, spySystem)
 		local h = pres.present(
-			LuauUI.UI.Screen({ id = "SpyH", children = { LuauUI.UI.Button({ id = "b", label = "b" }) } }),
+			Facet.UI.Screen({ id = "SpyH", children = { Facet.UI.Button({ id = "b", label = "b" }) } }),
 			{ responder = "passive" }
 		)
 		h.engage()

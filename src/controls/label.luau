@@ -41,14 +41,14 @@ local LABEL_KEYS = specGuard.keySet({
 	"title",
 })
 
-function label_control.build(LuauUI: any, core: any, spec: Spec)
+function label_control.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newLabel", spec, LABEL_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Label"
 	local scope = core:scope("label-" .. tostring(id))
 	if type(spec.title) ~= "string" or spec.title == "" then
 		error(
-			`LuauUI newLabel('{id}'): \`title\` is required and must be non-empty — it is the semantic `
+			`Facet newLabel('{id}'): \`title\` is required and must be non-empty — it is the semantic `
 				.. `text, so an icon-only Label without one would have no accessible name`,
 			0
 		)
@@ -60,7 +60,7 @@ function label_control.build(LuauUI: any, core: any, spec: Spec)
 			table.insert(names, k)
 		end
 		table.sort(names)
-		error(`LuauUI newLabel('{id}'): unknown presentation '{presentation}'. One of {table.concat(names, " | ")}.`, 0)
+		error(`Facet newLabel('{id}'): unknown presentation '{presentation}'. One of {table.concat(names, " | ")}.`, 0)
 	end
 	-- iconOnly DEGRADES to the title when there is no icon to show: an empty
 	-- square is worse than a word (the fallback this construct exists for)
@@ -114,7 +114,7 @@ function label_control.build(LuauUI: any, core: any, spec: Spec)
 
 	function api.dump()
 		return {
-			schema = "luauui-label-dump/1",
+			schema = "facet-label-dump/1",
 			id = id,
 			title = spec.title,
 			icon = spec.icon,

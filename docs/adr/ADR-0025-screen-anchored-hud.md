@@ -3,7 +3,7 @@
 **Date:** 2026-08-14
 **Status:** Accepted (stage 1 shipped; stage 2 named in Consequences)
 **Commissioned by:** the game director, 2026-08-14, from two screenshots of a shipped Roblox FPS
-(*Rivals*, built on NativeUI, not LuauUI). Verbatim: *"note things are largely pinned to the top,
+(*Rivals*, built on NativeUI, not Facet). Verbatim: *"note things are largely pinned to the top,
 upper left, middle left, upper right, upper center, and lower right parts of the screens and should
 stay that way as the screen changes"* and *"if not, what would be needed--we should build that."*
 **Companions:** ADR-0023 (`UI.Composition` — this is its second consumer shape and the reason it
@@ -19,14 +19,14 @@ buttons overlap each other.
 
 The director asked two questions.
 
-**(1) Can LuauUI build these controls?** Yes, and it was verified rather than assumed
+**(1) Can Facet build these controls?** Yes, and it was verified rather than assumed
 (`tests/hud_composition.spec.luau` builds the same shapes out of the public surface): round icon
 buttons are `UI.Button` + `corners`, pill badges are `newChip`, the bars are `newProgressView`, the
 ring indicators are the round-3 circular `newProgressView`, and the rest is `UI.Text` / `UI.Image` /
 stacks. The one element on screen that is not a UI control is the virtual joystick, which is a
 Roblox touch-control concern and not a layout one.
 
-**(2) Would a LuauUI build have adapted instead of overlapping?** **No — and the reason was
+**(2) Would a Facet build have adapted instead of overlapping?** **No — and the reason was
 structural, not a bug.**
 
 - `UI.Composition` is a **FLOW**: "lanes sit side by side; a lane stacks its groups down the cross
@@ -246,13 +246,13 @@ the whole showcase corpus is the natural follow-on and is deliberately not smugg
   region with more than one form, which is a **breaking change to every multi-form Region author**
   (51 declarations migrated: 18 in the showcase and reference apps, 15 in the framework suite, 18 in
   RascalRally). `elided` on `RegionResolution` and `unshown` on `Resolution`, both additive and both
-  on `luauui-composition-dump/1` — empty/`false` on every declaration that resolved cleanly before
+  on `facet-composition-dump/1` — empty/`false` on every declaration that resolved cleanly before
   this shipped. Required-rather-than-defaulted is the deliberate call: a default would mean every
   existing declaration silently claimed a route nobody had thought about, which is the
   accepted-and-ignored class this boundary exists to remove.
 - **Public surface added:** the `holdsLane` group field; `composition.ZONES`, `composition.HUD_GROUPS`
   and `composition.HUD` (frozen presets); `collisions` on the resolution and on
-  `luauui-composition-dump/1`. MINOR bump; additive in both directions — a declaration with no
+  `facet-composition-dump/1`. MINOR bump; additive in both directions — a declaration with no
   `holdsLane` and no colliding region resolves and dumps byte-identically, pinned by a test.
 - **Cost, measured — tier: HEADLESS LUNE, which is a regression signal and never a device claim.**
   The instrument is `composition.resolve` driven directly against the pre-change module read out of
@@ -291,7 +291,7 @@ the whole showcase corpus is the natural follow-on and is deliberately not smugg
 
 ## The Studio canary — real engine, 2026-08-14
 
-Driven on `LuauUI-Showcase` in Play, viewport **735 x 413**, Studio Neutral, through the demo
+Driven on `Facet-Showcase` in Play, viewport **735 x 413**, Studio Neutral, through the demo
 picker. The oracle is the ENGINE's own `AbsolutePosition` / `AbsoluteSize`, not the solver's rects,
 so it cannot agree with the solver by construction.
 

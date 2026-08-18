@@ -1,18 +1,18 @@
-# LuauUI performance stress places
+# Facet performance stress places
 
 **Date:** 2026-07-24
 **Status:** Proposed implementation and profiling plan.
 
 ## Outcome
 
-Produce at least one self-contained, publish-ready Roblox place that makes LuauUI
+Produce at least one self-contained, publish-ready Roblox place that makes Facet
 performance problems easy to reproduce, profile, optimize, and compare on the weakest
 supported Android device.
 
 The place is not a visual demo and the existing Lune runner is not device evidence.
 It is the engine/device half of the performance system: deterministic workloads,
 stable MicroProfiler labels, repeatable capture windows, matched baselines, and enough
-telemetry to tell whether a change improved LuauUI or merely changed the workload.
+telemetry to tell whether a change improved Facet or merely changed the workload.
 
 Follow the evidence rules in
 [`agent-execution-contract.md`](agent-execution-contract.md). Reuse
@@ -36,7 +36,7 @@ Start with one scenario-driven place:
 
 - source under `examples/performance/`;
 - a checked-in Rojo project file;
-- built output at `examples/places/LuauUI-PerformanceLab.rbxl`;
+- built output at `examples/places/Facet-PerformanceLab.rbxl`;
 - a deterministic scenario registry shared with headless scenes where their
   decisions overlap;
 - a small launcher/status overlay that can be hidden completely during capture.
@@ -44,7 +44,7 @@ Start with one scenario-driven place:
 One place keeps the engine, content, rendering settings, and capture workflow
 comparable. Add another place only if a measured isolation problem requires it—for
 example, if a minimal native reference cannot be kept dormant without affecting the
-LuauUI capture. If a second place is needed, give it a single documented purpose and
+Facet capture. If a second place is needed, give it a single documented purpose and
 never compare MicroProfiler dumps from different places as though they were the same
 workload.
 
@@ -77,15 +77,15 @@ mounts the full logical collection.
 Include a matched raw-Roblox reference for the principal workload using the same
 dataset, images, approximate presentation, viewport, and interactions. Exactly one
 implementation mounts during a capture. The reference is not expected to have every
-LuauUI feature; it exists to separate unavoidable Roblox UI work from framework
+Facet feature; it exists to separate unavoidable Roblox UI work from framework
 overhead.
 
-Run the LuauUI workload under both Studio Neutral and the most expensive shipped
+Run the Facet workload under both Studio Neutral and the most expensive shipped
 asset-backed reference theme. Keep dataset, content, geometry contract, interactions,
 and capture sequence identical. Record the package/snapshot version, active decoration
 layers, preloaded assets, and effective metrics. Capture cold install, warm swap and
 reflow, steady scroll, and teardown separately so ornate chrome is not confused with
-LuauUI's ordinary flat-theme cost.
+Facet's ordinary flat-theme cost.
 
 ## Additional scenarios
 
@@ -93,10 +93,10 @@ Keep each scenario focused enough that a profile has an interpretable cause:
 
 | ID | Scenario | Primary question |
 |---|---|---|
-| `idle-baseline` | Place and hidden launcher with no stress UI mounted | What does the place cost before LuauUI work? |
+| `idle-baseline` | Place and hidden launcher with no stress UI mounted | What does the place cost before Facet work? |
 | `mount-ramp` | Increase a deterministic tree through safe row-count steps | How do initial mount, layout, Instance creation, and memory scale? |
 | `dense-scroll` | Principal virtualized interactive list | Is steady scrolling smooth and windowing bounded? |
-| `dense-scroll-native` | Matched raw-Roblox reference | Which cost is engine work versus LuauUI overhead? |
+| `dense-scroll-native` | Matched raw-Roblox reference | Which cost is engine work versus Facet overhead? |
 | `collection-churn` | Selection, edits, insert/remove/reorder while scrolling | Do updates stay proportional to changed/visible content? |
 | `layout-style-churn` | All four preferred-text values, hot preference changes, locale length, resize/orientation, palette-only and metric/chrome theme swaps | Which invalidations cause unnecessary whole-tree work? |
 | `large-text-overflow` | Long localized/identity strings at `Largest`, both reference fonts, repeated reflow/scroll, and an engaged overflow reveal if shipped | Are measurement, disclosure, and any motion bounded without hiding content? |
@@ -117,7 +117,7 @@ The development overlay must provide:
 - warm-up, run, pause, reset, and automatic-sequence actions;
 - visible source/build/scenario/device labels;
 - a countdown and stable “capture now” period;
-- current frame, LuauUI update, layout/commit, Instance, connection, memory, logical
+- current frame, Facet update, layout/commit, Instance, connection, memory, logical
   row, mounted row, and stale-resource counters where measurable;
 - active theme package/snapshot, metric revision, decoration-layer, asset-fallback,
   and theme-swap/reflow counters;
@@ -140,7 +140,7 @@ implementation:
 - [Roblox LibMP and its AI skill](https://github.com/Roblox/libmp)
 
 Add stable, low-cardinality `debug.profilebegin()` / `debug.profileend()` scopes for
-the scenario driver and the LuauUI phases that profiles need to distinguish, such as
+the scenario driver and the Facet phases that profiles need to distinguish, such as
 model mutation, reactive propagation, layout/measure, arrangement, adapter commit,
 resource completion, and scenario reset. Do not create a label per row, key, or node.
 Balance scopes on every exit/error path and cover the wrapper with tests.
@@ -159,7 +159,7 @@ retail mobile client. Record at least:
 - implementation, dataset, seed, warm/cold resource state, warm-up, capture length,
   and repeat number;
 - frame-time distribution and spikes;
-- named LuauUI scope inclusive/exclusive times where the tooling exposes them;
+- named Facet scope inclusive/exclusive times where the tooling exposes them;
 - memory, live Instances/connections, mounted window, and stale/dropped resources;
 - for the text workloads (Step 8.5 gate rider): text-measurement queue depth and
   premeasure cache hits/misses/corrections, re-solve count per preference change
@@ -184,7 +184,7 @@ For every investigated bottleneck:
 4. state a falsifiable cause before changing code;
 5. make the smallest framework change that addresses it without weakening behavior,
    row count, fidelity, or the budget;
-6. run focused and full LuauUI tests plus the headless perf gate;
+6. run focused and full Facet tests plus the headless perf gate;
 7. rebuild the same place and recapture the same scenario/settings;
 8. compare multiple before/after captures and check other scenarios for regression;
 9. record the result, including inconclusive or negative optimizations.
@@ -229,11 +229,11 @@ It must verify:
 - Studio preflight and representative captures;
 - canonical Studio device-matrix smoke results for layout and scenario controls,
   labeled as emulation rather than low-end-device evidence;
-- full LuauUI suite, registration, architecture, and existing perf gates;
+- full Facet suite, registration, architecture, and existing perf gates;
 - fresh-context architecture, runtime, Roblox-platform, and evidence review.
 
 If no low-end Android is available, the gate may report automation complete with the
 physical row explicitly pending and the publish/review packet ready. It may not claim
-that LuauUI meets the low-end-device budget. Full completion requires repeated
+that Facet meets the low-end-device budget. Full completion requires repeated
 physical captures on the declared floor device and resolution of framework-attributed
 bottlenecks against the versioned budget.

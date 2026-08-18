@@ -11,7 +11,7 @@
 -- WHAT THE FAST TIER IS FOR: the inner loop. It is NOT the gate. The gate runs
 -- `./run-tests.sh` with no arguments, which runs `tests/run.luau` — every file.
 -- `tools/test.sh` refuses a fast-tier transcript outright (it greps for the
--- `LUAUUI-FAST-TIER` marker the fast runner prints).
+-- `FACET-FAST-TIER` marker the fast runner prints).
 --
 -- THE RULE IS A THRESHOLD, NOT A RANK (2026-08-15, O-17). It used to read "the
 -- eleven costliest files and nothing else", which was true when it was written

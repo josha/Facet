@@ -239,7 +239,7 @@ population that is single digits.
 ## The Studio canary — OWED, and the reason is structural
 
 **No live canary ran, and this says so rather than glossing it.** Checked rather than assumed: the
-one connected Studio instance is `LuauUI-PerformanceLab.rbxl`, and `script_grep` for a string written
+one connected Studio instance is `Facet-PerformanceLab.rbxl`, and `script_grep` for a string written
 in this task returns nothing while the datamodel's `screen_paint` still carries the pre-extraction
 line numbering — so that session is not syncing this tree, and no result read from it would have been
 about this change.
@@ -294,7 +294,7 @@ through its shipped `present` opts.
      the alarm is quiet across an enter fade at both ends, matching Decision 4's answer for the exit.
   3. **Two targets.** Surfaces on different adapters never see each other, by construction. A game
      painting one logical screen through two adapters is outside this alarm.
-  4. **The engine's own overlays.** CoreGui, the topbar and the platform's controls are not LuauUI
+  4. **The engine's own overlays.** CoreGui, the topbar and the platform's controls are not Facet
      surfaces; `rootPolicy` and ADR-0027's `platformChrome` are the vocabulary for those.
 - **RascalRally consumer pass:** the game mounts one presenter and its surfaces are the presenter's
   own banded and `edgeToEdge` ones, so the lockstep obligation here is a compatibility proof rather

@@ -1,4 +1,4 @@
-# ADR-0002: Which reactive foundation implements the LuauUI core contract? (design §3, §17 Phase 0)
+# ADR-0002: Which reactive foundation implements the Facet core contract? (design §3, §17 Phase 0)
 
 - **Status:** Accepted (2026-07-19)
 - **Decision:** `custom` (weighted 144.00)

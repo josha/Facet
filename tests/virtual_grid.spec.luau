@@ -3,11 +3,11 @@
 	THE LAZY GRID — `newVirtualGrid`, SwiftUI's `LazyVGrid` ([SW-21]).
 
 	THE GAP THIS CLOSES (docs/reference/swiftui-parity.md §4.2, the
-	`LazyHGrid`/`LazyVGrid` row). LuauUI shipped only the EAGER half of the grid:
+	`LazyHGrid`/`LazyVGrid` row). Facet shipped only the EAGER half of the grid:
 	`UI.Grid` measures and arranges every cell, and SwiftUI's non-lazy `Grid` says
 	the same of itself — it "renders all of its child views immediately"
 	([SW-16]). The lazy grids are the ones that "create items only as needed"
-	([SW-21]), and nothing in LuauUI did.
+	([SW-21]), and nothing in Facet did.
 
 	WHAT THIS SPEC PINS:
 
@@ -40,7 +40,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_grid = require("../src/controls/virtual_grid")
 local mountLib = require("../src/mount")
 local fake_target = require("../tests/lib/fake_target")
@@ -77,7 +77,7 @@ local function scrollStub()
 end
 
 local function newGrid(core: any, opts: any)
-	return virtual_grid.build(LuauUI, core, {
+	return virtual_grid.build(Facet, core, {
 		id = opts.id or "VG",
 		items = opts.items,
 		key = function(item: any)
@@ -92,19 +92,19 @@ local function newGrid(core: any, opts: any)
 		overscan = opts.overscan,
 		width = opts.width,
 		cell = opts.cell or function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
 
 -- a PRESENTED grid, so the real solver gives rects to measure cells against
 local function world(opts: any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local items = core:signal(opts.items or makeItems(20))
 	local grid = newGrid(core, {
 		items = items,
@@ -117,7 +117,7 @@ local function world(opts: any)
 		width = opts.width or { type = "fixed", px = 320 },
 		cell = opts.cell,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	grid.bindNativeScroll(handle.controller)
@@ -135,9 +135,9 @@ end
 
 describe("VirtualGrid: what the spec accepts", function()
 	it("an unknown spec key is refused and the message names it", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			virtual_grid.build(LuauUI, core, {
+			virtual_grid.build(Facet, core, {
 				id = "VG",
 				items = core:signal({}),
 				key = function(i: any)
@@ -147,7 +147,7 @@ describe("VirtualGrid: what the spec accepts", function()
 				itemExtent = 40,
 				viewportExtent = 200,
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x" })
+					return Facet.UI.Text({ id = "L", text = "x" })
 				end,
 				minColumWidth = 120,
 			})
@@ -157,7 +157,7 @@ describe("VirtualGrid: what the spec accepts", function()
 	end)
 
 	it("columns must be a positive INTEGER — 0, a fraction and a negative are all refused", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local items = core:signal(makeItems(4))
 		for _, bad in { 0, 2.5, -3 } do
 			local ok, err = pcall(newGrid, core, { items = items, columns = bad })
@@ -171,7 +171,7 @@ describe("VirtualGrid: what the spec accepts", function()
 	end)
 
 	it("itemExtent must be a positive number, a Readable, or a per-LINE function", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local items = core:signal(makeItems(4))
 		local ok, err = pcall(newGrid, core, { items = items, columns = 2, itemExtent = "tall" })
 		expect(ok).toBe(false)
@@ -197,7 +197,7 @@ describe("VirtualGrid: what the spec accepts", function()
 		`tests/virtual_hgrid.spec.luau` is the sideways half. What is still refused
 		is an axis that is not an axis, and the message names the legal pair. ]]
 	it('axis = "x" is accepted; an axis that is not an axis is refused', function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local sideways = newGrid(core, { items = core:signal(makeItems(9)), columns = 3, axis = "x" })
 		expect(sideways.dump().axis).toBe("x")
 		sideways.dispose()
@@ -210,7 +210,7 @@ describe("VirtualGrid: what the spec accepts", function()
 	end)
 
 	it("a per-line itemExtent that returns garbage fails at CONSTRUCTION, naming the line", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(newGrid, core, {
 			items = core:signal(makeItems(9)),
 			columns = 3,
@@ -232,7 +232,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 			loop that happens to agree with the module today. Comparing against the
 			module itself is what makes the two unable to drift: if the grid ever
 			re-derives content, this reddens on the first disagreement. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local grid = newGrid(core, { items = core:signal(makeItems(17)), columns = 4, itemExtent = 40, rowGap = 6 })
 		-- 17 items over 4 lanes is 5 lines: four full and one of a single cell
 		local ix = virtual_extents.uniform(5, 40, 6)
@@ -243,7 +243,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 	end)
 
 	it("the WINDOW is the index's window in line units, and the items follow by division", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local grid = newGrid(core, {
 			items = core:signal(makeItems(400)),
 			columns = 4,
@@ -268,7 +268,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 	end)
 
 	it("a viewport inside ONE tall line windows that line alone (the prefix sum, searched)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		-- lines of 40, 249, 40, 120 — the ragged shape the extent ruling names
 		local RAGGED = { 40, 249, 40, 120 }
 		local grid = newGrid(core, {
@@ -288,7 +288,7 @@ describe("VirtualGrid: the extent index is the shipped one, its unit is a LINE",
 	end)
 
 	it("the LAST line is short, and the index still spans exactly the lines that exist", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local grid = newGrid(core, { items = core:signal(makeItems(9)), columns = 4, itemExtent = 40, rowGap = 6 })
 		-- 9 items over 4 lanes is 3 lines, the last holding ONE cell
 		expect(grid.dump().lineCount).toBe(3)
@@ -306,7 +306,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 			A BUILD COUNTER, not a timer — and an EXACT count rather than a ceiling,
 			because "<= 40" is also satisfied by mounting nothing, which is a lazy
 			grid that has deleted itself. Both directions are named here. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local built = 0
 		local grid = newGrid(core, {
 			items = core:signal(makeItems(10000)),
@@ -316,7 +316,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 			overscan = 2,
 			cell = function(item: any)
 				built += 1
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, grid.blueprint)
@@ -342,7 +342,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 			that is bounded but grows with the collection is not laziness, it is a
 			smaller eager grid. This is the differential that says so. ]]
 		local function buildsFor(n: number): number
-			local core = LuauUI.newCore()
+			local core = Facet.newCore()
 			local built = 0
 			local grid = newGrid(core, {
 				items = core:signal(makeItems(n)),
@@ -352,7 +352,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 				overscan = 2,
 				cell = function(item: any)
 					built += 1
-					return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+					return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 				end,
 			})
 			local root = mountLib.mount(core, grid.blueprint)
@@ -380,7 +380,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 			SUPERSET, never a subset, so no cell the viewport touches goes unmounted;
 			both halves are asserted below so the relationship is pinned and not just
 			the number. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local extentCalls = 0
 		local built = 0
 		local grid = newGrid(core, {
@@ -394,7 +394,7 @@ describe("VirtualGrid: only the windowed cells are ever built", function()
 			end,
 			cell = function(item: any)
 				built += 1
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, grid.blueprint)
@@ -416,7 +416,7 @@ end)
 
 describe("VirtualGrid: the scroll does not jump", function()
 	it("when the line extents re-derive, the item at the top of the viewport stays at the top", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local grow = core:signal(0)
 		local grid = newGrid(core, {
 			items = core:signal(makeItems(400)),
@@ -443,7 +443,7 @@ describe("VirtualGrid: the scroll does not jump", function()
 			rather than on the line. A reflow moves every item to a different line,
 			so a line-keyed anchor would hold a line the player was never looking
 			at. `newVirtualList` never had this case: there, an item IS its line. ]]
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local lanes = core:signal(4)
 		local grid = newGrid(core, {
 			items = core:signal(makeItems(400)),
@@ -551,7 +551,7 @@ end)
 
 describe("VirtualGrid: the engine owns the offset, the framework owns the window", function()
 	it("the engine's reported offset moves the window", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local grid = newGrid(core, {
 			items = core:signal(makeItems(400)),
 			columns = 4,

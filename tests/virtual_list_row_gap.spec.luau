@@ -26,7 +26,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local mountLib = require("../src/mount")
 local fake_target = require("../tests/lib/fake_target")
@@ -62,7 +62,7 @@ local function scrollStub()
 end
 
 local function newList(core: any, opts: any)
-	return virtual_list.build(LuauUI, core, {
+	return virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = opts.rows,
 		key = function(item: any)
@@ -73,7 +73,7 @@ local function newList(core: any, opts: any)
 		viewportHeight = opts.viewportHeight or 498,
 		overscan = opts.overscan or 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
@@ -82,15 +82,15 @@ end
 -- the gutter against (a dump can only report the numbers it was handed)
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(makeRows(options.count or 8))
 	local reorders: { any } = {}
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -107,10 +107,10 @@ local function world(opts: any?)
 			end
 			else nil,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -146,7 +146,7 @@ end
 
 describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", function()
 	it("is refused unless it is a non-negative number or a Readable<number>", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		expect(pcall(function()
 			newList(core, { rows = rows, rowGap = -1 })
@@ -162,7 +162,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("carries the resolved gutter in the dump", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, { rows = rows, rowGap = 6 })
 		local d = list.dump()
@@ -178,7 +178,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("the CONTENT EXTENT is N*rowHeight + (N-1)*rowGap — no trailing gutter", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		-- legacy's own racer list: 8 rows of 56 on a 62 pitch
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 200 })
@@ -195,7 +195,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("window membership steps on the PITCH, not the row height", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(200))
 		-- 62 pitch, a 124 px viewport = exactly 2 whole slots, no overscan
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 124, overscan = 0 })
@@ -212,7 +212,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("keep-visible brings the ROW into the band, measured on the pitch", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 200 })
 		local ctrl = scrollStub()
@@ -246,7 +246,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 		local b = w.rect("r2")
 		expect(b.y - a.y).toBe(56)
 		expect(b.y - (a.y + a.h)).toBe(0)
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, { rows = rows, viewportHeight = 200 })
 		list.bindNativeScroll(scrollStub(), "/VL")
@@ -269,7 +269,7 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("a bounded window is still bounded with a gutter (the canvas never mounts the list)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(1000))
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 620 })
 		local root = mountLib.mount(core, list.blueprint)

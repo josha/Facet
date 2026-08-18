@@ -3,12 +3,12 @@
 **Date:** 2026-08-15
 **Status:** Accepted
 **Amends:** ADR-0022 (motion authority) — adds a third driver behind the shared `MotionValue` handle and a second named registry beside `motion.registerClass`
-**Commissioned by:** the director, closing `docs/reference/fusion-comparison.md` §5 **G-1** (ranked BUILD NOW, the only row in §4 where a Fusion user moving to LuauUI loses a capability outright)
+**Commissioned by:** the director, closing `docs/reference/fusion-comparison.md` §5 **G-1** (ranked BUILD NOW, the only row in §4 where a Fusion user moving to Facet loses a capability outright)
 **Companions:** `docs/research/2026-08-15-roblox-easing-engine-facts.md`, `artifacts/time-based-easing/`
 
 ## Context
 
-LuauUI's motion vocabulary was springs, `timeline`, `chase`, `counter`, `timer`
+Facet's motion vocabulary was springs, `timeline`, `chase`, `counter`, `timer`
 and `glide`. `Enum.EasingStyle`, `TweenInfo` and the word `easing` appeared
 nowhere in `src/`.
 
@@ -20,7 +20,7 @@ exactly 400 ms, quad ease-out" is not expressible and a cooldown cannot be
 commanded to arrive on the beat.
 
 ~~The consumer proof was already in the repo. RascalRally's
-`src/shared/CommitBeatModel.luau` ramps on `p^1.6` ... the LuauUI port had to
+`src/shared/CommitBeatModel.luau` ramps on `p^1.6` ... the Facet port had to
 flatten it to a linear `clock:timer`.~~
 
 **WITHDRAWN 2026-08-15, by the consumer rider this ADR commissioned.** The claim
@@ -31,7 +31,7 @@ section, so it is struck rather than quietly softened:
   (`f(p) = SLOW + (FAST-SLOW)*p^1.6`, integrated closed-form), not a value over
   time. **No curve primitive can express it** — an easing curve is
   value-at-time.
-* Its only callers are the **legacy** modules. The LuauUI port never calls
+* Its only callers are the **legacy** modules. The Facet port never calls
   `tellLit`/`tellPhaseCycles` at all.
 * The blink was removed by a **director ruling** (amendment A24, 2026-07-31 — "the
   wind-up TELL is a PLATE ramp"), not lost to a missing primitive.
@@ -61,7 +61,7 @@ Roblox's animation system is two separable things, and they answer differently.
 
 `TweenService:GetValue(alpha, style, direction)` is a **pure** function: a number
 in, a number out, touching no `Instance`. That is the property that lets it drive
-a value LuauUI owns, and it is exactly the piece "time-based easing" means. It is
+a value Facet owns, and it is exactly the piece "time-based easing" means. It is
 therefore the production evaluator, installed onto the clock by
 `motion_driver.bind`, so a client that binds gets the engine's own easing with no
 wiring of its own. `Enum.EasingStyle` defines the vocabulary; a style Roblox adds
@@ -69,9 +69,9 @@ later is a line of data, not an implementation.
 
 **AMENDED 2026-08-15.** This decision originally claimed native was "the default,
 not an opt-in a game forgets to wire". The consumer rider measured otherwise:
-**RascalRally requires `motion_driver` nowhere** — all four of its LuauUI surfaces
-hand-roll their own frame source (`LuauUISponsor/init.luau:1029` on `PreRender`;
-`LuauUIRacerListGui:72` and `GaragePilotGui:93` on `Heartbeat`). So on the one
+**RascalRally requires `motion_driver` nowhere** — all four of its Facet surfaces
+hand-roll their own frame source (`FacetSponsor/init.luau:1029` on `PreRender`;
+`FacetRacerListGui:72` and `GaragePilotGui:93` on `Heartbeat`). So on the one
 shipped consumer, a curve evaluates on the **pure twin**, and the claim was true
 of the binding rather than of the clients.
 
@@ -98,7 +98,7 @@ it.** Saying so explicitly matters: "native" was not allowed to stand in for
 instance per animated value. Four measured or structural facts close it:
 
 1. **Cost.** A/A control spread 41.0% (small N, stated first). Arming 500 values:
-   **6.1 µs each plus one `Instance` each**, against 0.031 µs for the ramp LuauUI
+   **6.1 µs each plus one `Instance` each**, against 0.031 µs for the ramp Facet
    already runs — ~196x — and a retarget is `Cancel` + `Create` + `Play`, i.e. a
    dead `Tween` object every time a `withAnimation` is interrupted.
 2. **The headless suite could not cover the shipped path.** `clock:step(dt)` under
@@ -156,7 +156,7 @@ symmetry is the decision, not the default.
 
 `clock:tween` goes through the same value layer as every other primitive, so it
 inherits ADR-0022's policy unchanged, and the policy is unaffected by the engine
-driving the curve (LuauUI still owns the time, so it still owns the branch).
+driving the curve (Facet still owns the time, so it still owns the branch).
 
 - **Decorative (the default, as `clock:spring`)**: `setTarget` places the terminus
   instantly and fires the *same* settle event on the same frame.

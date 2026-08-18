@@ -45,7 +45,7 @@
 	reference packages, and every sweep is a plain nested loop over sorted keys.
 ]]
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local snapshot = require("../../src/themes/snapshot")
 local controlContract = require("../../src/controls/contract")
 local audit = require("../../src/layout/text_audit")
@@ -75,7 +75,7 @@ large_text.LARGEST = 14
 -- names ("a theme with wider fonts or larger controls must receive the same
 -- guarantee"). Resolved ONCE: a ThemeSnapshot is frozen data, so sharing it
 -- across rows costs nothing and cannot drift between them.
-local parchmentPackage = (require)("../../examples/themes/fantasy_parchment").build(LuauUI.themes)
+local parchmentPackage = (require)("../../examples/themes/fantasy_parchment").build(Facet.themes)
 
 export type Theme = { id: string, metrics: any }
 
@@ -147,8 +147,8 @@ export type WorldOpts = {
 ]]
 function large_text.world(opts: WorldOpts?)
 	local options: WorldOpts = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", options.viewport or large_text.PHONE_PORTRAIT)
 	-- the sweep is about TEXT, so the surface starts flush: a device inset would
 	-- change the box every row is measured against and prove nothing about the
@@ -170,8 +170,8 @@ function large_text.world(opts: WorldOpts?)
 		env:set("themeMetrics", theme.metrics)
 	end
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local w: any = { core = core, env = env, adapter = adapter, system = system, pres = pres }
 

@@ -1,5 +1,5 @@
 --!strict
--- UI.Foreign — the bounded escape hatch to a Roblox GuiObject LuauUI does not
+-- UI.Foreign — the bounded escape hatch to a Roblox GuiObject Facet does not
 -- wrap (ADR-0034; docs/reference/react-lua-comparison.md §5 rank 1).
 --
 -- Six contracts, all deterministic and engine-free:
@@ -14,7 +14,7 @@
 --                     a loud error;
 --   (d) AUTHORITY     the reserved `host` authority is now LIVE and owns exactly
 --                     one engine property — `Foreign.Parent`, the only property
---                     LuauUI ever writes on an instance it does not own — and
+--                     Facet ever writes on an instance it does not own — and
 --                     the framework retains no reference to the adopted content,
 --                     which is what makes "we write nothing else" structural;
 --   (e) LAYOUT        it declares its box (0x0 without dims, like Box), clips to
@@ -30,7 +30,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local customFactory = require("../src/core/custom")
 local mountLib = require("../src/mount")
@@ -139,7 +139,7 @@ describe("UI.Foreign: strict authoring (a)", function()
 		end
 	end)
 
-	it("refuses `tint`, because LuauUI never paints the caller's content", function()
+	it("refuses `tint`, because Facet never paints the caller's content", function()
 		local err = fails(function()
 			UI.Foreign({ id = "Video", tint = { role = "accent", blend = 0.5 } } :: any)
 		end)
@@ -390,7 +390,7 @@ describe("UI.Foreign: property authority (d)", function()
 	it("makes the reserved `host` authority LIVE, owning exactly Foreign.Parent", function()
 		expect(authority.authorityFor("Foreign", "Parent")).toBe("host")
 		-- and it is the ONLY host-owned entry in the whole manifest: this authority
-		-- means "a claim on an instance LuauUI does not own", and there is one
+		-- means "a claim on an instance Facet does not own", and there is one
 		local hostEntries: { string } = {}
 		for class, props in authority.manifest() do
 			for prop, owner in props do
@@ -433,7 +433,7 @@ describe("UI.Foreign: property authority (d)", function()
 		expect(contains(liveSource, 'authority.assertWrite("Foreign", "Parent", "host")')).toBe(true)
 	end)
 
-	--[[ "LUAUUI WRITES NOTHING ELSE" IS STRUCTURAL, NOT A PROMISE. The framework
+	--[[ "FACET WRITES NOTHING ELSE" IS STRUCTURAL, NOT A PROMISE. The framework
 		cannot write a property of an instance it holds no reference to, so the
 		seam parents and FORGETS. This walks the handle after an adoption and
 		fails if the adopted content is reachable from it at all. ]]
@@ -523,7 +523,7 @@ describe("UI.Foreign: layout (e)", function()
 		root.dispose()
 	end)
 
-	--[[ THE BOX IS THE PROMISE. LuauUI reserves a rect and the caller fills it;
+	--[[ THE BOX IS THE PROMISE. Facet reserves a rect and the caller fills it;
 		what keeps that a CONTRACT rather than a hope is that the container clips,
 		so no foreign instance can paint one pixel outside the rect the solver
 		reserved — which is also what keeps the cross-surface cover rect (ADR-0028)
@@ -547,14 +547,14 @@ describe("UI.Foreign: layout (e)", function()
 
 	--[[ AN ORNATE PACKAGE MUST NOT COVER THE CONTENT. This is the defect the
 		reference-app matrix found on `UI.Stage` in 2026-08-08 (a whole-art `control`
-		recipe painted its plate OVER the 3-D scene), and it is worse here: LuauUI
+		recipe painted its plate OVER the 3-D scene), and it is worse here: Facet
 		does not even know what shape the covered thing was. The renderer pins the
 		no-slot hint at CREATION and unconditionally, so no channel can override it
 		— which is a fact about the create path, not about the classifier, so the
 		classifier check alone would prove nothing. ]]
 	--[[ THE SHEET REACHES CONTENT THE FRAMEWORK DOES NOT WRITE (ADR-0034 Decision 7,
 		found live 2026-08-15). A native-mode surface links a theme StyleSheet whose
-		class-default rules select the seven GuiObject classes LuauUI renders, and the
+		class-default rules select the seven GuiObject classes Facet renders, and the
 		engine decides "explicitly set" by VALUE: an adopted `Frame` born at
 		`BackgroundTransparency = 0` — the class default — cannot hold that value
 		against a `Frame { BackgroundTransparency = 1 }` rule, and the pane renders
@@ -610,17 +610,17 @@ describe("UI.Foreign: containment (f)", function()
 	end)
 
 	--[[ OUTSIDE THE FOCUS GRAPH, deliberately and on the record. The content is
-		the caller's; its own engine input still works, but LuauUI's Tab/gamepad
+		the caller's; its own engine input still works, but Facet's Tab/gamepad
 		traversal cannot stop on something it has never seen. A consumer who needs
 		a focus stop composes one AROUND the box, exactly as a Stage does. ]]
 	it("takes no focus stop: inserting one does not change traversal order", function()
 		local function orderOf(withForeign: boolean): string
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+			local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 			local children: { any } = { UI.Button({ id = "A", label = "A" }) }
 			if withForeign then
 				table.insert(

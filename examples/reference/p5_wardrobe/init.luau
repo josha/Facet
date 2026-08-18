@@ -32,13 +32,13 @@ local function cameraFor(yawDeg: number): any
 	}
 end
 
-function Wardrobe.build(LuauUI: any, core: any, deps: any): any
-	local UI = LuauUI.UI
+function Wardrobe.build(Facet: any, core: any, deps: any): any
+	local UI = Facet.UI
 	local env = deps.env
 	local presenter = deps.presenter
 
 	local scope = core:scope("ref-p5-wardrobe")
-	local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope })
+	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 	local clock = presenter.motionClock
 
 	-- ── locale ─────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── services, images ───────────────────────────────────────────────────
 	local services = Services.new({ core = core })
-	local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 64 })
+	local provider = Facet.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 64 })
 	local function settleImages()
 		for _ = 1, 64 do
 			local pending = provider.pendingRequests()
@@ -304,7 +304,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 	-- ── refine modal ───────────────────────────────────────────────────────
 	local sortSignal = services.sort
 	local function presentRefine()
-		local picker = LuauUI.newPicker(LuauUI, core, {
+		local picker = Facet.newPicker(Facet, core, {
 			id = "Sort",
 			label = Lnow("filter.sort"),
 			options = {
@@ -366,7 +366,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── item card ──────────────────────────────────────────────────────────
 	local function itemCard(item: seedData.Item, itemScope: any)
-		local img = LuauUI.newAsyncImage(LuauUI, core, {
+		local img = Facet.newAsyncImage(Facet, core, {
 			id = "Thumb",
 			scope = itemScope,
 			provider = provider,
@@ -394,7 +394,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 		end)
 		local verifiedLabel: any = nil
 		if item.verified then
-			local vl = LuauUI.newLabel(LuauUI, core, {
+			local vl = Facet.newLabel(Facet, core, {
 				id = "Verified",
 				title = Lnow("verified"),
 				icon = "wardrobe:verified",
@@ -738,7 +738,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 		end,
 	})
 
-	local orbitWithAdjust = LuauUI.contribution.attach(orbitGrip, {
+	local orbitWithAdjust = Facet.contribution.attach(orbitGrip, {
 		adjustTargets = function(rootNode: any): { [string]: boolean }
 			return { [rootNode.path] = true }
 		end,
@@ -951,7 +951,7 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 	})
 
 	-- ── chrome (segments + wallet) ─────────────────────────────────────────
-	local sectionPicker = LuauUI.newPicker(LuauUI, core, {
+	local sectionPicker = Facet.newPicker(Facet, core, {
 		id = "Section",
 		options = {
 			{ value = "boutique", label = Lnow("section.boutique") },

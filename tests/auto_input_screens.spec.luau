@@ -9,7 +9,7 @@
 --     and never clicks through to a lower screen; opt-out per modal);
 --   * WP-3 a modal's declared close affordance is keyboard-reachable and
 --     Activate-dismissable (Escape is engine-reserved — the justified exception);
---   * WP-4 LuauUI.inputHint(core, env, action): a reactive hint memo that flips
+--   * WP-4 Facet.inputHint(core, env, action): a reactive hint memo that flips
 --     with env preferredInput, with no remount.
 -- Every interaction rides the REAL device paths (adapter.tap for pointer/touch,
 -- system.deviceKey for keyboard/gamepad), never a direct callback.
@@ -17,16 +17,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
@@ -43,11 +43,11 @@ describe("auto-screens WP-1: a Grid of Buttons gets 2D D-pad navigation, zero op
 		local core, _, system, adapter, pres = harness()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }) },
+			children = { Facet.UI.Grid({ id = "G", columns = 3, children = cells }) },
 		})
 		local handle = pres.present(screen) -- ZERO present opts
 		pres.refresh()
@@ -108,14 +108,14 @@ describe("auto-screens WP-1: a Grid is linked into the page around it", function
 		local core, _, system, adapter, pres = harness()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({ id = "Before", label = "Before" }),
-				LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }),
-				LuauUI.UI.Button({ id = "After", label = "After" }),
+				Facet.UI.Button({ id = "Before", label = "Before" }),
+				Facet.UI.Grid({ id = "G", columns = 3, children = cells }),
+				Facet.UI.Button({ id = "After", label = "After" }),
 			},
 		})
 		local handle = pres.present(screen)
@@ -163,11 +163,11 @@ describe("auto-screens WP-1: a Grid is linked into the page around it", function
 		local function grid(id: string, prefix: string)
 			local cells = {}
 			for i = 1, 4 do
-				cells[i] = LuauUI.UI.Button({ id = prefix .. i, label = prefix .. i })
+				cells[i] = Facet.UI.Button({ id = prefix .. i, label = prefix .. i })
 			end
-			return LuauUI.UI.Grid({ id = id, columns = 2, children = cells })
+			return Facet.UI.Grid({ id = id, columns = 2, children = cells })
 		end
-		local screen = LuauUI.UI.Screen({ id = "S", children = { grid("G1", "a"), grid("G2", "c") } })
+		local screen = Facet.UI.Screen({ id = "S", children = { grid("G1", "a"), grid("G2", "c") } })
 		pres.present(screen)
 		pres.refresh()
 		expect(pres.focus.focused:get()).toBe("/S/G1/a1")
@@ -185,11 +185,11 @@ describe("auto-screens WP-1: a Grid is linked into the page around it", function
 		local core, _, system, adapter, pres = harness()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		pres.present(LuauUI.UI.Screen({
+		pres.present(Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }) },
+			children = { Facet.UI.Grid({ id = "G", columns = 3, children = cells }) },
 		}))
 		pres.refresh()
 		expect(pres.focus.focused:get()).toBe("/S/G/b1")
@@ -206,15 +206,15 @@ end)
 describe("auto-screens WP-1: an HStack row navigates horizontally, zero opts", function()
 	local function rowWorld()
 		local core, _, system, adapter, pres = harness()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.HStack({
+				Facet.UI.HStack({
 					id = "Row",
 					children = {
-						LuauUI.UI.Button({ id = "a", label = "a" }),
-						LuauUI.UI.Button({ id = "b", label = "b" }),
-						LuauUI.UI.Button({ id = "c", label = "c" }),
+						Facet.UI.Button({ id = "a", label = "a" }),
+						Facet.UI.Button({ id = "b", label = "b" }),
+						Facet.UI.Button({ id = "c", label = "c" }),
 					},
 				}),
 			},
@@ -245,12 +245,12 @@ end)
 describe("auto-screens WP-1: a plain vertical screen keeps the byte-identical flat ring", function()
 	it("Down advances in document order and WRAPS at the end (unchanged flat behavior)", function()
 		local core, _, system, _, pres = harness()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({ id = "a", label = "a" }),
-				LuauUI.UI.Button({ id = "b", label = "b" }),
-				LuauUI.UI.Button({ id = "c", label = "c" }),
+				Facet.UI.Button({ id = "a", label = "a" }),
+				Facet.UI.Button({ id = "b", label = "b" }),
+				Facet.UI.Button({ id = "c", label = "c" }),
 			},
 		})
 		pres.present(screen) -- ZERO present opts
@@ -270,21 +270,21 @@ describe("auto-screens WP-1: refresh re-derives auto layout groups after a struc
 	it("a grid row added after present becomes reachable through the derived groups", function()
 		local core, _, system, _, pres = harness()
 		local items = core:signal({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" } })
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grid({
+				Facet.UI.Grid({
 					id = "G",
 					columns = 2,
 					children = {
-						LuauUI.UI.ForEach({
+						Facet.UI.ForEach({
 							id = "Cells",
 							items = items,
 							key = function(x: any)
 								return x.k
 							end,
 							row = function(x: any)
-								return LuauUI.UI.Button({ id = "cell", label = x.k })
+								return Facet.UI.Button({ id = "cell", label = x.k })
 							end,
 						}),
 					},
@@ -313,10 +313,10 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 	local function stackWorld()
 		local core, _, system, adapter, pres = harness()
 		local baseHits: { string } = {}
-		local base = LuauUI.UI.Screen({
+		local base = Facet.UI.Screen({
 			id = "Base",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -326,13 +326,13 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 			},
 		})
 		pres.present(base)
-		local m1 = LuauUI.UI.Screen({ id = "M1", children = { LuauUI.UI.Button({ id = "X", label = "X" }) } })
+		local m1 = Facet.UI.Screen({ id = "M1", children = { Facet.UI.Button({ id = "X", label = "X" }) } })
 		local hm1 = pres.presentModal(m1)
 		local topHits: { string } = {}
-		local m2 = LuauUI.UI.Screen({
+		local m2 = Facet.UI.Screen({
 			id = "M2",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "Y",
 					label = "Y",
 					onActivate = function(path: string)
@@ -383,10 +383,10 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 		-- spec closes that (Apple "other views disabled", Material scrim).
 		local core, _, _, adapter, pres = harness()
 		local baseHits: { string } = {}
-		local base = LuauUI.UI.Screen({
+		local base = Facet.UI.Screen({
 			id = "Base",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -396,7 +396,7 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 			},
 		})
 		pres.present(base)
-		local modal = LuauUI.UI.Screen({ id = "M", children = { LuauUI.UI.Button({ id = "X", label = "X" }) } })
+		local modal = Facet.UI.Screen({ id = "M", children = { Facet.UI.Button({ id = "X", label = "X" }) } })
 		pres.presentModal(modal, { outsideTapCancel = false })
 		expect(pres.depth()).toBe(2)
 		adapter.tap("/Base/B") -- outside the modal: the barrier swallows it
@@ -408,10 +408,10 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 	it("with NO modal, base taps route normally (unchanged)", function()
 		local core, _, _, adapter, pres = harness()
 		local baseHits: { string } = {}
-		local base = LuauUI.UI.Screen({
+		local base = Facet.UI.Screen({
 			id = "Base",
 			children = {
-				LuauUI.UI.Button({
+				Facet.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -434,17 +434,17 @@ end)
 describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Activate-dismisses", function()
 	it("Navigate reaches the close Button; Return activates it and dismisses the modal end-to-end", function()
 		local core, _, system, _, pres = harness()
-		pres.present(LuauUI.UI.Screen({
+		pres.present(Facet.UI.Screen({
 			id = "Base",
-			children = { LuauUI.UI.Button({ id = "Open", label = "Open" }) },
+			children = { Facet.UI.Button({ id = "Open", label = "Open" }) },
 		}))
 		local modal
-		modal = pres.presentModal(LuauUI.UI.Screen({
+		modal = pres.presentModal(Facet.UI.Screen({
 			id = "Sheet",
 			children = {
-				LuauUI.UI.Text({ id = "Msg", text = "Delete this?" }),
-				LuauUI.UI.Button({ id = "Confirm", label = "Delete" }),
-				LuauUI.UI.Button({
+				Facet.UI.Text({ id = "Msg", text = "Delete this?" }),
+				Facet.UI.Button({ id = "Confirm", label = "Delete" }),
+				Facet.UI.Button({
 					id = "Close",
 					label = "Cancel",
 					onActivate = function()
@@ -467,7 +467,7 @@ describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Ac
 end)
 
 -- ===========================================================================
--- WP-4: LuauUI.inputHint(core, env, action) reactive hint memo
+-- WP-4: Facet.inputHint(core, env, action) reactive hint memo
 -- ===========================================================================
 describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", function()
 	it("the hint text prop follows env preferredInput via preferredBinding; zero factory reruns", function()
@@ -477,12 +477,12 @@ describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", f
 		activate.bind({ keyCode = "Return", displayName = "Enter" })
 		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
 
-		local hint = LuauUI.inputHint(core, env, activate)
-		local screen = LuauUI.UI.Screen({
+		local hint = Facet.inputHint(core, env, activate)
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
-				LuauUI.UI.Button({ id = "Go", label = "Go" }),
+				Facet.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+				Facet.UI.Button({ id = "Go", label = "Go" }),
 			},
 		})
 		local handle = pres.present(screen)
@@ -510,7 +510,7 @@ describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", f
 		local activate = ctx.createAction("Activate", "Bool")
 		activate.bind({ keyCode = "Return", displayName = "Enter" })
 		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
-		local phrase = LuauUI.inputHint(core, env, activate, { style = "phrase" })
+		local phrase = Facet.inputHint(core, env, activate, { style = "phrase" })
 		expect(phrase:get()).toBe("Press Enter")
 		env:set("preferredInput", "Gamepad")
 		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
@@ -530,7 +530,7 @@ describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", f
 		local ctx = system.createContext({ name = "Nav2" })
 		local adjust = ctx.createAction("Adjust", "Bool")
 		adjust.bind({ keyCode = "Period" }) -- no displayName
-		local hint = LuauUI.inputHint(core, env, adjust)
+		local hint = Facet.inputHint(core, env, adjust)
 		expect(hint:get()).toBe("Period")
 		env:set("preferredInput", "Touch")
 		expect(hint:get()).toBe("") -- no uiButton binding for Touch: empty, not an error

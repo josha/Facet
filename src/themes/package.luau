@@ -43,7 +43,7 @@ local standard_icons = require("./standard_icons")
 
 local package = {}
 
-package.SCHEMA = "luauui-theme/1"
+package.SCHEMA = "facet-theme/1"
 
 -- ===== the versioned core vocabulary =======================================
 -- v1 is a CLOSED set. A custom control's namespaced roles are a later
@@ -519,7 +519,7 @@ function package.lintProperty(prop: string, scope: string?): (boolean, string?)
 	end
 	if owner ~= nil then
 		return false,
-			`'{prop}' is {owner} authority in LuauUI (render/authority.luau) — a theme may never write it; `
+			`'{prop}' is {owner} authority in Facet (render/authority.luau) — a theme may never write it; `
 				.. `remove it from the recipe`
 	end
 	if IMAGE_CHROME[prop] then
@@ -1176,7 +1176,7 @@ function package.define(def: any): (any, any)
 			"schemaVersion",
 			"base",
 			"`base` must be a package compiled by themes.define",
-			"pass the value themes.define(...) returned (or LuauUI.themes.neutralPackage())"
+			"pass the value themes.define(...) returned (or Facet.themes.neutralPackage())"
 		)
 		base = nil
 	end
@@ -1221,7 +1221,7 @@ function package.define(def: any): (any, any)
 		reject(
 			"schemaVersion",
 			"identity.schemaVersion",
-			`package declares schema '{tostring(identity.schemaVersion)}' but this LuauUI speaks '{package.SCHEMA}'`,
+			`package declares schema '{tostring(identity.schemaVersion)}' but this Facet speaks '{package.SCHEMA}'`,
 			`set schemaVersion = "{package.SCHEMA}" and re-validate the package against this version`
 		)
 	elseif identity.schemaVersion == nil then
@@ -1290,8 +1290,8 @@ function package.define(def: any): (any, any)
 				reject(
 					"schemaVersion",
 					"compatibility.requiresSchema",
-					`package requires schema '{tostring(compatibility.requiresSchema)}'; this LuauUI provides '{package.SCHEMA}'`,
-					"upgrade LuauUI, or republish the package against the schema this build speaks"
+					`package requires schema '{tostring(compatibility.requiresSchema)}'; this Facet provides '{package.SCHEMA}'`,
+					"upgrade Facet, or republish the package against the schema this build speaks"
 				)
 			end
 		end
@@ -1304,7 +1304,7 @@ function package.define(def: any): (any, any)
 			"missingRole",
 			"metrics",
 			"metrics section is required",
-			"start from LuauUI.themes.neutralPackage() as `base`"
+			"start from Facet.themes.neutralPackage() as `base`"
 		)
 		metrics = {}
 	else
@@ -1371,7 +1371,7 @@ function package.define(def: any): (any, any)
 				"missingRole",
 				`metrics.typography.{role}.lineHeight`,
 				`lineHeight must be a positive factor (got {tostring(entry.lineHeight)})`,
-				"1.2 is the LuauUI default line-height factor"
+				"1.2 is the Facet default line-height factor"
 			)
 		end
 		if type(entry.font) ~= "table" or type(entry.font.family) ~= "string" or entry.font.family == "" then
@@ -1460,7 +1460,7 @@ function package.define(def: any): (any, any)
 				"missingRole",
 				`metrics.controls.{family}`,
 				`no metrics for the '{family}' control family`,
-				`declare {table.concat(fields, ", ")} (or derive from LuauUI.themes.neutralPackage())`
+				`declare {table.concat(fields, ", ")} (or derive from Facet.themes.neutralPackage())`
 			)
 			table.insert(missing, `metrics.controls.{family}`)
 			continue

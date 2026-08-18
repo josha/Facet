@@ -12,7 +12,7 @@
 
 	So this reads what the ENGINE actually resolved: `AbsolutePosition`,
 	`AbsoluteSize`, `Visible`, `ZIndex` and text, for every GuiObject on the surface.
-	Not the values LuauUI asked for — the values the engine ended up with.
+	Not the values Facet asked for — the values the engine ended up with.
 
 	IT IS NOT A SCREENSHOT DIFF, deliberately. A screenshot compares pixels and tells
 	you *that* something moved; this tells you *which node* moved and by how much,
@@ -44,7 +44,7 @@ local function surfaces(): { Instance }
 end
 
 -- Every GuiObject on every live surface, keyed by its instance NAME — which for a
--- LuauUI node is its path, and therefore stable across a re-solve. Rounded to whole
+-- Facet node is its path, and therefore stable across a re-solve. Rounded to whole
 -- pixels: the engine carries sub-pixel floats and comparing those would make the
 -- instrument report noise as a defect.
 function visual_diff.snapshot(filter: string?): { [string]: string }
@@ -64,9 +64,9 @@ function visual_diff.snapshot(filter: string?): { [string]: string }
 				if inst:IsA("ImageLabel") or inst:IsA("ImageButton") then
 					image = (inst :: any).Image
 				end
-				-- THE KEY MUST BE UNIQUE. LuauUI node instances are named by path and are
+				-- THE KEY MUST BE UNIQUE. Facet node instances are named by path and are
 				-- unique, but their adapter-owned CHROME children are not — every hit
-				-- expander is called `LuauUIHitExpander`. Keying on name alone collapsed
+				-- expander is called `FacetHitExpander`. Keying on name alone collapsed
 				-- all of them onto one entry, and the survivor depended on
 				-- `GetDescendants` order, so two runs of the SAME build reported a
 				-- phantom difference. The key is the ancestry path plus the class.

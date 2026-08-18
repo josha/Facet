@@ -98,7 +98,7 @@ describe("LTN-4 text facts: the solve reports what it truncated", function()
 		expect(facts.policy).toBe("truncate+disclose")
 	end)
 
-	it("the layout dump is luauui-dump/2 and carries textFacts per text node", function()
+	it("the layout dump is facet-dump/2 and carries textFacts per text node", function()
 		local root: solver.Node = {
 			kind = "vstack",
 			id = "root",
@@ -114,7 +114,7 @@ describe("LTN-4 text facts: the solve reports what it truncated", function()
 			},
 		}
 		local d = dump.fromSolve(root, { w = 390, h = 844 })
-		expect(d.schema).toBe("luauui-dump/2")
+		expect(d.schema).toBe("facet-dump/2")
 		local text = d.tree.children[1]
 		expect(text.textFacts.truncated).toBe(true)
 		expect(text.textFacts.disclose).toBe(true)

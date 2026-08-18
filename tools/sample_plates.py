@@ -18,7 +18,7 @@ against. Whole-image art samples the whole image. The file's sha256 rides with
 the sample so a re-cut of the art that was never re-sampled is a FAILING test
 rather than a silently stale number.
 
-Run from the LuauUI root with the repo-root shared venv python:
+Run from the Facet root with the repo-root shared venv python:
     ../../../.venv/bin/python tools/sample_plates.py            # write the file
     ../../../.venv/bin/python tools/sample_plates.py --check    # verify, exit 1 on drift
 """
@@ -127,7 +127,7 @@ def sample(path: str, rect):
 
 def build():
     out = {
-        "schema": "luauui-art-plate-samples/1",
+        "schema": "facet-art-plate-samples/1",
         "note": (
             "Alpha-weighted mean of each asset's nine-slice CENTRE rect — the pixels a "
             "lifted label is read against. Regenerate with tools/sample_plates.py "

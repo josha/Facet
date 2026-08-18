@@ -515,7 +515,7 @@ function schema.checkValue(spec: PropSpec, value: any): (boolean, string?)
 	for _, t in spec.types do
 		local check = TYPE_CHECKS[t]
 		if check == nil then
-			error(`LuauUI schema: unknown logical type '{t}'`, 0)
+			error(`Facet schema: unknown logical type '{t}'`, 0)
 		end
 		local ok, why = check(value)
 		if ok then
@@ -763,7 +763,7 @@ local BOX: { [string]: PropSpec } = {
 	}),
 	-- THE SPACE-RESERVING HIDE (parity round 3, item D; SwiftUI `hidden()`). The
 	-- node keeps its solved box and stops being painted, focusable and tappable.
-	-- Neither of the two things LuauUI already had is this: `UI.When` REMOVES the
+	-- Neither of the two things Facet already had is this: `UI.When` REMOVES the
 	-- node so its siblings close up, and the engine's own `Visible = false` is
 	-- documented to free the layout slot — but only inside a `UIListLayout` /
 	-- `UIGridLayout` / `UITableLayout`, and this framework arranges absolutely and
@@ -778,7 +778,7 @@ local BOX: { [string]: PropSpec } = {
 	--
 	-- Reactive, where Apple's modifier is unconditional ("Hides this view
 	-- unconditionally"; its answer for the conditional case is an `if`, which
-	-- removes the node from layout). LuauUI's `if` is `UI.When` and it removes the
+	-- removes the node from layout). Facet's `if` is `UI.When` and it removes the
 	-- node too — so without a bindable form the space-reserving case would have no
 	-- spelling at all.
 	hidden = p({
@@ -804,7 +804,7 @@ local BOX: { [string]: PropSpec } = {
 		is what makes nesting mean what it says.
 
 		NEITHER MOVES LAYOUT, hit geometry or focus — the solver never sees them and
-		LuauUI hit-tests solved rects. That is Apple's rule too, stated for both:
+		Facet hit-tests solved rects. That is Apple's rule too, stated for both:
 		`rotationEffect` "has no effect on the view's frame", and `scaleEffect`'s
 		dimensions "are considered to be unchanged by scaling the contents". To
 		change a box, change its `width`/`height`.
@@ -936,7 +936,7 @@ local ALIGN: PropSpec = p({
 -- MAIN-AXIS DISTRIBUTION OF THE LEFTOVER (parity round 2 §2.6) — Roblox's
 -- `UIFlexAlignment` plus whole-group centring, on the CONTAINER.
 --
--- LuauUI could already reproduce SpaceBetween/Around/Evenly pixel-exactly with
+-- Facet could already reproduce SpaceBetween/Around/Evenly pixel-exactly with
 -- hand-placed `Spacer`s between children, but only for a STATIC child list:
 -- `children` is a static array, a variable-count list goes through `UI.ForEach`,
 -- and `ForEach`'s `row` returns exactly ONE blueprint — so separators cannot be
@@ -957,7 +957,7 @@ local DISTRIBUTE: PropSpec = p({
 })
 
 -- FLOW-WRAP (docs/plans/swiftui-parity-round3.md item A) — Roblox's
--- `UIListLayout.Wraps`, which LuauUI had no spelling for at all.
+-- `UIListLayout.Wraps`, which Facet had no spelling for at all.
 --
 -- A PROP, NOT A CLASS, and the ladder decides it. Constitution §1 asks whether a
 -- thing "needs its own layout/paint/input semantics an existing class cannot
@@ -989,7 +989,7 @@ local WRAP: PropSpec = p({
 
 -- Horizontal alignment of a node's OWN text inside its own box. Until now the
 -- adapter hard-coded TextXAlignment.Left, so there was no way to centre text
--- anywhere in LuauUI at all — which is why a Stepper's value readout could not
+-- anywhere in Facet at all — which is why a Stepper's value readout could not
 -- sit centred between its buttons (director review 2026-07-24). Vertical
 -- alignment stays adapter-owned: it is Center everywhere on purpose, because the
 -- headless measurer over-reserves and centring splits that error evenly.
@@ -1108,7 +1108,7 @@ local REVEAL: PropSpec = p({
 	possible to show a tooltip WHEN HOVERING A POINTER over a view or control".
 
 	ON TOUCH IT SHOWS NOTHING, AND THAT IS THE SPECIFICATION rather than a gap.
-	Apple binds no gesture to it on any platform, and LuauUI must not either: D2
+	Apple binds no gesture to it on any platform, and Facet must not either: D2
 	measured the long-press collision and left that gesture with the full-value
 	disclosure plate, which is the only touch route to a truncated label's value.
 	Two constructs fighting for one gesture on the one class where neither has an
@@ -1118,7 +1118,7 @@ local REVEAL: PropSpec = p({
 
 	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops ITSELF,
 	from eligibility rules, appears on every input class and retires permanently is
-	`LuauUI.newCallout` (TipKit's `popoverTip`), not this. Both plates point with
+	`Facet.newCallout` (TipKit's `popoverTip`), not this. Both plates point with
 	D1's arrow tail — the stem says which control the words are about, and was
 	never what told the two apart.
 
@@ -1326,7 +1326,7 @@ class("ZStack", {
 			shape the promise holds for. It changes NO geometry: the solver reads it to
 			check the slot's content against the extent that was declared for it, and
 			says so naming both numbers when the content is taller (the defect class in
-			`docs/lessons/luauui-fixed-px-heights.md`). Content SHORTER than its slot is
+			`docs/lessons/facet-fixed-px-heights.md`). Content SHORTER than its slot is
 			legitimate over-reservation and stays silent, and a cell that scrolls or
 			clips its own overflow is skipped. ]]
 		virtualSlot = p({
@@ -1388,7 +1388,7 @@ class("ScrollView", {
 			-- ON BY DEFAULT, AND INERT. Nothing happens unless a pointer drag is in
 			-- flight inside this host's edge band, so a screen with no draggable
 			-- content pays a nil check per frame and behaves identically. `false`
-			-- opts out; a table tunes the band/dwell/ramp (see `LuauUI.newAutoscroll`).
+			-- opts out; a table tunes the band/dwell/ramp (see `Facet.newAutoscroll`).
 			types = { "boolean", "table" },
 			reactive = false,
 			channel = "handler",
@@ -1925,7 +1925,7 @@ class("Button", {
 		-- single mark. A NAME, never an asset id: the framework draws its own
 		-- ASCII-safe glyph and a package that ships art for that name has the
 		-- adapter paint the picture over it. Circle-only on purpose — an icon
-		-- BESIDE a title is `LuauUI.newLabel`, which already owns that layout.
+		-- BESIDE a title is `Facet.newLabel`, which already owns that layout.
 		icon = p({
 			types = { "string" },
 			reactive = false,
@@ -2198,7 +2198,7 @@ class("Grip", {
 -- THE ENGINE-CONTENT BOX (ViewportFrame adoption; research
 -- docs/research/2026-08-08-viewportframe-engine-facts.md). A leaf that reserves a
 -- rectangle for content the ENGINE draws — a 3D preview, a hero rig — instead of
--- content LuauUI lays out. It is deliberately spare: the box, its surface, and its
+-- content Facet lays out. It is deliberately spare: the box, its surface, and its
 -- one continuous paint channel are authored props like any other leaf's, and
 -- everything engine-shaped (the camera, the lighting, the content root) rides the
 -- adapter's `stageHost` seam, where the engine types can be converted at the one
@@ -2223,7 +2223,7 @@ class("Stage", {
 
 --[[ THE FOREIGN BOX (ADR-0034; docs/reference/react-lua-comparison.md §5 rank 1).
 
-	A box reserved for a `GuiObject` LuauUI does not wrap — a `VideoFrame`, an
+	A box reserved for a `GuiObject` Facet does not wrap — a `VideoFrame`, an
 	`EditableImage` surface, a vendored widget, a class Roblox ships next month.
 	It is `Stage`'s sibling: the same "the framework owns the box, somebody else
 	owns the content" shape, opening onto a 2-D GuiObject instead of onto a 3-D
@@ -2231,7 +2231,7 @@ class("Stage", {
 
 	IT IS DELIBERATELY THE SPAREST CLASS IN THE SCHEMA, and the emptiness is the
 	design. It takes the shared box vocabulary and ONE paint prop — `surface`, the
-	plate BEHIND the content, which is a property of the container LuauUI owns —
+	plate BEHIND the content, which is a property of the container Facet owns —
 	and nothing else. No engine props at all: the closed key set stays closed,
 	because the schema cannot validate props it has never heard of, and the
 	authority manifest cannot own a property on a class it does not know. What
@@ -2251,7 +2251,7 @@ class("Foreign", {
 	structural = false,
 	props = merge(BOX, {
 		-- the plate BEHIND the content: a fallback while the caller's instance
-		-- loads, or a frame around it. It paints the CONTAINER, which LuauUI owns.
+		-- loads, or a frame around it. It paints the CONTAINER, which Facet owns.
 		surface = CONTAINER_LAYOUT.surface,
 	}),
 })
@@ -2266,7 +2266,7 @@ class("Path", {
 			dirty = { "paint" },
 			required = true,
 			channel = "binding",
-			doc = "normalized Path2D control points from LuauUI.pathShapes",
+			doc = "normalized Path2D control points from Facet.pathShapes",
 		}),
 		thickness = p({
 			-- same ruling as Divider.thickness (BP-F12): a theme-owned number
@@ -2527,7 +2527,7 @@ end
 	reason is the same for a leaf and for a `VStack`, because the fact is about
 	which engine INSTANCE can carry the one alpha property no rule owns, not about
 	having children. ]]
-local REFUSED_FADE = "A fade in LuauUI is one engine property no style rule owns — "
+local REFUSED_FADE = "A fade in Facet is one engine property no style rule owns — "
 	.. "CanvasGroup.GroupTransparency — and only a node materialized as a CanvasGroup has one. "
 	.. "UI.Box and UI.ZStack are the two classes that can BE one. Anywhere else the fade would have to "
 	.. "write TextTransparency/BackgroundTransparency, which the native stylesheet owns, and one explicit "
@@ -2559,7 +2559,7 @@ local REFUSED: { [string]: string } = {
 	fires no signal, measured 2026-08-15); and an `AutomaticSize` child measures
 	itself, which the solver cannot see. The bounded form gives up all three
 	problems at once by never accepting an engine prop: the caller owns the
-	instance, so LuauUI claims nothing to have to arbitrate.
+	instance, so Facet claims nothing to have to arbitrate.
 
 	CLASS-SCOPED, unlike `REFUSED` above, because these words are only true here:
 	`class` and `props` mean nothing on a `UI.Text`, so there the generic unknown-
@@ -2584,7 +2584,7 @@ local REFUSED_BY_CLASS: { [string]: { [string]: string } } = {
 		-- instance, and multiplying it would be the framework painting content it
 		-- has just finished disclaiming.
 		tint = "UI.Foreign has no `tint`: a tint multiplies the node's own picture, and this node's picture "
-			.. "is the instance YOU adopted — painting it would be LuauUI writing the content it exists to "
+			.. "is the instance YOU adopted — painting it would be Facet writing the content it exists to "
 			.. "disclaim. `surface` paints the plate BEHIND the content, which the framework does own; "
 			.. "anything on the content itself is yours to set on your own instance. See ADR-0034.",
 	},

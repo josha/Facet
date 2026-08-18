@@ -22,7 +22,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local mountLib = require("../src/mount")
 local feedbackLib = require("../src/present/feedback")
@@ -31,7 +31,7 @@ local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
 local fake_target = require("./lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- a mount with a scripted feedback sink: the presenter supplies the real one,
 -- and this is the same seam scripted, exactly as the transitions collaborator is

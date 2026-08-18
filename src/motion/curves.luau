@@ -12,7 +12,7 @@
 --
 -- (A CLAIM THIS HEADER USED TO MAKE, WITHDRAWN 2026-08-15 by the RascalRally
 -- consumer rider: that the game's `CommitBeatModel` `p^1.6` ramp had been
--- FLATTENED to a linear `clock:timer` in its LuauUI port for want of a curve.
+-- FLATTENED to a linear `clock:timer` in its Facet port for want of a curve.
 -- It had not. That exponent shapes a blink FREQUENCY, is integrated closed-form,
 -- and is called only by the legacy modules; the port's linear timer faithfully
 -- matches the linear plate ramp legacy actually paints, and the blink was removed
@@ -23,7 +23,7 @@
 -- THE ENGINE OWNS THE CURVE (director ruling 2026-08-15, "use Roblox's animation
 -- system wherever possible"). `TweenService:GetValue(alpha, style, direction)` is
 -- a PURE evaluator — it takes a number and returns a number, touching no Instance
--- — so unlike `TweenService:Create` it can drive a value LuauUI owns. On Roblox
+-- — so unlike `TweenService:Create` it can drive a value Facet owns. On Roblox
 -- it IS the evaluator: `src/client/motion_driver.luau` installs it on the
 -- presenter's clock at the one bind every client already makes, so a game gets
 -- the engine's own easing with no wiring. `Enum.EasingStyle` therefore defines
@@ -291,15 +291,15 @@ end
 -- available outcomes (it looks like it worked).
 function curves.registerCurve(name: string, spec: Curve): Curve
 	if type(name) ~= "string" or name == "" then
-		error(`LuauUI motion.registerCurve: a curve name must be a non-empty string, got {typeof(name)}`, 0)
+		error(`Facet motion.registerCurve: a curve name must be a non-empty string, got {typeof(name)}`, 0)
 	end
 	if type(spec) ~= "table" then
-		error(`LuauUI motion.registerCurve('{name}'): spec must be a table \{ duration, style, direction? }`, 0)
+		error(`Facet motion.registerCurve('{name}'): spec must be a table \{ duration, style, direction? }`, 0)
 	end
 	local duration = spec.duration
 	if not isFinite(duration) or duration < MIN_DURATION or duration > MAX_DURATION then
 		error(
-			`LuauUI motion.registerCurve('{name}'): duration must be a number of seconds in `
+			`Facet motion.registerCurve('{name}'): duration must be a number of seconds in `
 				.. `[{MIN_DURATION}, {MAX_DURATION}], got {tostring(duration)}. A duration is the whole point of a curve `
 				.. `— under ~50 ms it reads as a hard cut (use snap) and over 2 s it reads as a stall.`,
 			0
@@ -308,7 +308,7 @@ function curves.registerCurve(name: string, spec: Curve): Curve
 	local style = spec.style
 	if type(style) ~= "string" or not STYLE_SET[style] then
 		error(
-			`LuauUI motion.registerCurve('{name}'): unknown easing style '{tostring(style)}'. `
+			`Facet motion.registerCurve('{name}'): unknown easing style '{tostring(style)}'. `
 				.. `The vocabulary is Roblox's own Enum.EasingStyle, spelled lower-camel: {styleList()}.`,
 			0
 		)
@@ -319,7 +319,7 @@ function curves.registerCurve(name: string, spec: Curve): Curve
 	end
 	if type(direction) ~= "string" or not DIRECTION_SET[direction] then
 		error(
-			`LuauUI motion.registerCurve('{name}'): unknown easing direction '{tostring(spec.direction)}'. `
+			`Facet motion.registerCurve('{name}'): unknown easing direction '{tostring(spec.direction)}'. `
 				.. `Use "in", "out" (the default) or "inOut".`,
 			0
 		)
@@ -334,23 +334,23 @@ end
 function curves.resolve(name: any): Curve
 	if type(name) == "table" then
 		error(
-			`LuauUI motion: a motion curve is a NAME, not an inline spec table (zero per-call magic numbers). `
+			`Facet motion: a motion curve is a NAME, not an inline spec table (zero per-call magic numbers). `
 				.. `Registered curves: {nameList()}. Register yours with `
-				.. `LuauUI.motion.registerCurve("banner", \{ duration = 0.4, style = "quad", direction = "out" }) `
+				.. `Facet.motion.registerCurve("banner", \{ duration = 0.4, style = "quad", direction = "out" }) `
 				.. `and cite that name.`,
 			0
 		)
 	end
 	if type(name) ~= "string" then
-		error(`LuauUI motion: a motion curve name must be a string, got {typeof(name)}. Registered: {nameList()}.`, 0)
+		error(`Facet motion: a motion curve name must be a string, got {typeof(name)}. Registered: {nameList()}.`, 0)
 	end
 	local curve = registry[name]
 	if curve == nil then
 		local did = suggestion(name)
 		local hint = if did ~= nil then ` Did you mean '{did}'?` else ""
 		error(
-			`LuauUI motion: unknown motion curve '{name}'.{hint} Registered curves: {nameList()}. `
-				.. `Register one with LuauUI.motion.registerCurve before citing it (never a silent fallback). `
+			`Facet motion: unknown motion curve '{name}'.{hint} Registered curves: {nameList()}. `
+				.. `Register one with Facet.motion.registerCurve before citing it (never a silent fallback). `
 				.. `A curve is \{ duration, style, direction? } — a motion CLASS ({"a spring"}) is the other vocabulary, `
 				.. `and clock:spring is where those live.`,
 			0

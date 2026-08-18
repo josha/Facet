@@ -31,7 +31,7 @@ local popup_button = {}
 --[[ AN OPTION IS A VALUE, AND `icon` / `divider` ARE ITS TWO NEW SPELLINGS
 	(navigation-and-menus D2, so `r1`'s icon rows work and both menus render from
 	one row recipe). This stays a VALUE picker — `value` is a `Signal<string>` and
-	picking writes it. A list of VERBS is `LuauUI.newMenu`, which is a different
+	picking writes it. A list of VERBS is `Facet.newMenu`, which is a different
 	control on purpose: a control that sometimes owns a value Signal and sometimes
 	does not is two controls in one.
 
@@ -91,9 +91,9 @@ local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"value",
 })
 
-function popup_button.build(LuauUI: any, core: any, spec: Spec)
+function popup_button.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newPopupButton", spec, POPUP_BUTTON_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "PopupButton"
 	local scope = core:scope(`popup_button-{id}`)
 
@@ -103,7 +103,7 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 	-- `value`) — reject it at BUILD, exactly as the six siblings do (CTRL-01)
 	if type(spec.value) ~= "table" or (spec.value :: any).kind ~= "signal" then
 		error(
-			`LuauUI newPopupButton('{id}'): \`value\` must be a SETTABLE Signal<string> the caller owns `
+			`Facet newPopupButton('{id}'): \`value\` must be a SETTABLE Signal<string> the caller owns `
 				.. `(the control never creates it, because the selection must outlive the control)`,
 			0
 		)
@@ -341,7 +341,7 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		return {
-			schema = "luauui-popup_button-dump/1",
+			schema = "facet-popup_button-dump/1",
 			id = id,
 			open = open:get(),
 			value = spec.value:get(),

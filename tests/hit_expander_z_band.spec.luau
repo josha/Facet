@@ -20,9 +20,9 @@
 	not been pushed yet — so nothing is reserved:
 
 	    z=26  /HudScreen/Hud/Rounds/RoundStrip/R1      36x36 @59,62
-	    z=26  LuauUIHitExpander                        44x44 @97,58   <- R2's
+	    z=26  FacetHitExpander                        44x44 @97,58   <- R2's
 	    z=27  /HudScreen/Hud/Rounds/RoundStrip/R2      36x36 @101,62
-	    z=27  LuauUIHitExpander                        44x44 @139,58  <- R3's
+	    z=27  FacetHitExpander                        44x44 @139,58  <- R3's
 
 	Every expander sitting on the previous button's number, on a freshly mounted
 	screen, live. A later sync — after any structural change, which a rotation
@@ -37,18 +37,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local function world(): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 734, h = 393 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, pres = pres, system = system }
 end
 

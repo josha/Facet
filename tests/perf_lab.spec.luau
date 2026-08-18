@@ -17,7 +17,7 @@
 local testkit = require("./lib/testkit")
 local describe, it, expect = testkit.describe, testkit.it, testkit.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("./lib/fake_target")
 
 local dataset = require("../examples/performance/lab/dataset")
@@ -35,13 +35,13 @@ local profile = require("../src/core/profile")
 -- reads, so a seam the scenario starts depending on shows up here as a nil-index
 -- rather than as a Studio-only surprise.
 local function newHarness(hostOverrides: any?, viewport: { w: number, h: number }?, labOpts: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	local vp = viewport or { w = 900, h = 700 }
 	env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local clock = 0
 	local steps = 0
 	local host: any = {
@@ -69,7 +69,7 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 		end
 	end
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -363,7 +363,7 @@ describe("incremental layout Stage 1: boundary detection sizes the prize", funct
 		built.steps.select(nil, "scenario=dense-scroll,rows=500,seed=1")
 		built.steps.mount()
 		local r = built.report()
-		expect(r.mountedImplementation).toBe("luauui")
+		expect(r.mountedImplementation).toBe("facet")
 		local report = built.boundaryReport()
 		expect(report ~= nil).toBe(true)
 		expect(report.nodes > 0).toBe(true)
@@ -491,7 +491,7 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 	it("selecting a scenario adopts its implementation and content", function()
 		local built = newHarness()
 		local result = built.steps.select(nil, "scenario=large-text-overflow")
-		expect(result.settings.implementation).toBe("luauui")
+		expect(result.settings.implementation).toBe("facet")
 		expect(result.settings.content).toBe("identity")
 		expect(#result.datasetDigest).toBe(8)
 		built.dispose()
@@ -717,7 +717,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 			ctx.presenter.refresh()
 			built.steps.pass(nil, "scrollSteady=20")
 		end
-		expect(built.report().mountedImplementation).toBe("luauui")
+		expect(built.report().mountedImplementation).toBe("facet")
 		built.dispose()
 	end)
 
@@ -776,7 +776,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 		local c = built.overlayControls
 		expect(c.selectScenario("dense-scroll")).toBe(true)
 		expect(built.report().settings.scenario).toBe("dense-scroll")
-		expect(built.report().mountedImplementation).toBe("luauui")
+		expect(built.report().mountedImplementation).toBe("facet")
 		c.cycleScenario(1)
 		expect(built.report().settings.scenario).toBe(c.currentScenario())
 		expect(built.report().settings.scenario ~= "dense-scroll").toBe(true)
@@ -802,7 +802,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 			-- `pass` runs the layout audit over both surfaces and refuses on a finding,
 			-- so completing the loop IS the assertion
 			built.steps.pass(nil, "scrollSteady=10")
-			expect(built.report().mountedImplementation).toBe("luauui")
+			expect(built.report().mountedImplementation).toBe("facet")
 			expect(built.report().lastRemountError).toBe(nil)
 		end
 		built.dispose()
@@ -815,7 +815,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 		built.steps.mount()
 		built.steps.pass(nil, "preferenceSweep=1")
 		built.steps.pass(nil, "resize=1")
-		expect(built.report().mountedImplementation).toBe("luauui")
+		expect(built.report().mountedImplementation).toBe("facet")
 		expect(built.report().mountedRows > 0).toBe(true)
 		built.dispose()
 	end)
@@ -850,7 +850,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 			local built = newHarness(nil, { w = vp[1], h = vp[2] })
 			built.steps.select(nil, "scenario=large-text-overflow")
 			built.steps.mount()
-			expect(built.report().mountedImplementation).toBe("luauui")
+			expect(built.report().mountedImplementation).toBe("facet")
 			-- WALK THE WHOLE COLLECTION. The defect needs a long name, a narrow box AND
 			-- that row inside the window at the moment the audit runs; a short scroll
 			-- samples a handful of names and misses it, which is exactly how it reached
@@ -994,7 +994,7 @@ describe("perf lab: run, stop, reset and clean capture (PL-10/PL-11)", function(
 		local built = newHarness()
 		built.steps.select(nil, "scenario=dense-scroll,rows=600,seed=8")
 		built.steps.mount()
-		expect(built.report().mountedImplementation).toBe("luauui")
+		expect(built.report().mountedImplementation).toBe("facet")
 		local result = built.steps.reset()
 		expect(result.mounted).toBe(false)
 		expect(built.report().mountedImplementation).toBe("none")
@@ -1075,11 +1075,11 @@ end)
 
 describe("perf lab: the row is the shape the plan requires (PL-3)", function()
 	it("a row carries an image, a two-line text stack, and three controls", function()
-		local core = LuauUI.newCore()
-		local provider = LuauUI.newResourceProvider(core)
+		local core = Facet.newCore()
+		local provider = Facet.newResourceProvider(core)
 		local scope = core:scope("row-shape")
 		local item = dataset.build({ count = 1, seed = 1 })[1]
-		local bp = rowsLib.cell(LuauUI, core, item, {
+		local bp = rowsLib.cell(Facet, core, item, {
 			scope = scope,
 			provider = provider,
 			values = {},
@@ -1120,11 +1120,11 @@ describe("perf lab: the row is the shape the plan requires (PL-3)", function()
 	end)
 
 	it("the identity line keeps its full-value disclosure — the profile is not bought with accessibility", function()
-		local core = LuauUI.newCore()
-		local provider = LuauUI.newResourceProvider(core)
+		local core = Facet.newCore()
+		local provider = Facet.newResourceProvider(core)
 		local scope = core:scope("row-disclose")
 		local item = dataset.build({ count = 1, seed = 1, content = "identity" })[1]
-		local bp = rowsLib.cell(LuauUI, core, item, {
+		local bp = rowsLib.cell(Facet, core, item, {
 			scope = scope,
 			provider = provider,
 			values = {},
@@ -1243,7 +1243,7 @@ describe("perf lab: installing a theme installs BOTH halves (L-26)", function()
 	-- Stated against the constants rather than against a remembered number, so it
 	-- still bites if someone gives the flat path a non-zero term later.
 	it("the FLAT row geometry is byte-identical — which is why the workload version holds", function()
-		local neutral = LuauUI.themes.neutral()
+		local neutral = Facet.themes.neutral()
 		expect(rowsLib.themeInset(neutral).x).toBe(0)
 		expect(rowsLib.themeInset(neutral).y).toBe(0)
 		expect(rowsLib.themeInset(nil).x).toBe(0)
@@ -1262,7 +1262,7 @@ describe("perf lab: installing a theme installs BOTH halves (L-26)", function()
 
 	-- ...and the ornate row is a DIFFERENT height, or the term above is decoration.
 	it("a themed row reserves the recipe's vertical inset per control line", function()
-		local snap = LuauUI.themes.resolve(ornateModule.build(LuauUI.themes), nil, {})
+		local snap = Facet.themes.resolve(ornateModule.build(Facet.themes), nil, {})
 		local inset = rowsLib.themeInset(snap)
 		expect(inset.y > 0).toBe(true)
 		-- one control line in the one-line form, two in the compact form
@@ -1288,7 +1288,7 @@ end)
 	  capture 2: `profileWindow` looped `steps.run()`, which runs the workload's
 	             WHOLE declared pass list; `scrollSteady` alone is 60 steps, so the
 	             window could not escape pass #1 — and the selected workload was
-	             again the native reference, which calls no LuauUI code at all.
+	             again the native reference, which calls no Facet code at all.
 
 	Nothing on screen said which implementation was mounted, so both mistakes were
 	invisible until the dump was parsed. These cases are the guards that make them
@@ -1302,7 +1302,7 @@ describe("perf lab: profileWindow cannot be aimed at nothing (device captures 1 
 			built.steps.profileWindow(nil, nil)
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "calls NO LuauUI code") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "calls NO Facet code") ~= nil).toBe(true)
 		expect(string.find(tostring(err), "zero solver scopes") ~= nil).toBe(true)
 		built.dispose()
 	end)
@@ -1358,7 +1358,7 @@ describe("perf lab: profileWindow cannot be aimed at nothing (device captures 1 
 		local out = built.steps.profileWindow(nil, "dense-scroll:scrollSteady:2")
 		expect(out.pass).toBe("scrollSteady")
 		expect(out.scenario).toBe("dense-scroll")
-		expect(out.implementation).toBe("luauui")
+		expect(out.implementation).toBe("facet")
 		expect(out.laps).toBe(2)
 		-- steps.run would have executed all seven passes; profileWindow must not use it
 		expect(#ran).toBe(0)
@@ -1369,7 +1369,7 @@ end)
 --[[ DEVICE CAPTURE 5, 2026-08-15: THE THIRD AIMING FAILURE — a pass that runs.
 
 	`asyncImage.html` (SM-A102U1, tier 3) holds twenty-nine BYTE-IDENTICAL frames:
-	2 arranges, 2 measures, 0 mounts, 0 `LuauUI/resource`, every frame. The
+	2 arranges, 2 measures, 0 mounts, 0 `Facet/resource`, every frame. The
 	workload was `async-image-churn` and the looped pass was `w.passes[1]` =
 	`imagesCold`, whose whole body is `settings.resourceState = "cold"` plus one
 	`presenter.refresh()`. Reproduced headless to the unit
@@ -1525,7 +1525,7 @@ describe("perf lab: the three named levers measure what they claim (device captu
 
 	it("the measure memo serves the fan-out at depth — the L-37 regression pin", function()
 		--[[ THE NUMBER THIS FIX EXISTS FOR, pinned where a future edit to the memo
-			would move it. `LuauUI/arrange` was the largest scope in all four device
+			would move it. `Facet/arrange` was the largest scope in all four device
 			captures, and L-36 found the mechanism: a leaf under 30 nested stacks was
 			measured 16.4 times per solve against 2.0 under one stack, and the memo
 			produced ZERO hits on that shape because its cache key carried the offered
@@ -1615,7 +1615,7 @@ describe("perf lab: the three named levers measure what they claim (device captu
 
 	it("an off-window edit provokes ONE solve and NO structural sync", function()
 		-- the half of L-35's finding that was healthy: 25 inserts ~475 rows outside
-		-- the mounted window provoked zero `LuauUI/mount` on the device. This holds
+		-- the mounted window provoked zero `Facet/mount` on the device. This holds
 		-- it, and pins the other half — one full solve per edit — as the cost.
 		local built = newHarness({ profile = profile })
 		profile.resetCounters()
@@ -1749,7 +1749,7 @@ describe("perf lab: the host-move lever measures a real host, not a label", func
 			expect(`{arm}:{detail.measurePerRep}`).toBe(`{arm}:1`)
 		end
 		--[[ `commitPerRep` is NOT asserted at 1, on purpose — measured (not assumed)
-			at a steady 2 for every arm here: the renderer opens `LuauUI/commit` once
+			at a steady 2 for every arm here: the renderer opens `Facet/commit` once
 			for the layout-driven rect write and again for the paint/z-order-sync dirty
 			pass it provokes alongside it, a framework fact this workload's header
 			provocation happens to surface (`arrange`/`measure` do not split this way).
@@ -1857,12 +1857,12 @@ describe("perf lab overlay: the status line is readable, not one character wide"
 		.. "by 132px on the main axis; it will paint outside its box (wrap it in a ScrollView, or give it room)"
 
 	local function statusRect(vw: number, vh: number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = vw, h = vh })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local model: any = {
 			buildLine = core:signal("build"),
 			scenarioLine = core:signal("dense-scroll"),
@@ -1878,8 +1878,8 @@ describe("perf lab overlay: the status line is readable, not one character wide"
 			scenarioPosition = core:signal("1/2"),
 			onRunAll = function() end,
 		}
-		local bp = overlayLib.build(LuauUI, core, model)
-		local handle = pres.present(LuauUI.UI.Screen({ id = "O", children = { bp } }))
+		local bp = overlayLib.build(Facet, core, model)
+		local handle = pres.present(Facet.UI.Screen({ id = "O", children = { bp } }))
 		pres.refresh()
 		local found: string? = nil
 		for _, path in adapter.paths() do
@@ -2065,7 +2065,7 @@ describe("the lab's registry satisfies the SHARED runner's contract", function()
 	--[[ WHY THIS EXISTS, AND WHAT IT COST NOT TO.
 
 		`examples/performance.project.json` GRAFTS the gallery's `runner.luau` into
-		the lab's own `LuauUIScenarios` folder — one runner for both surfaces,
+		the lab's own `FacetScenarios` folder — one runner for both surfaces,
 		deliberately, so the test rig cannot end up more capable than the surface a
 		player opens. That graft makes the lab's `init.luau` and the gallery's
 		`init.luau` two implementations of ONE interface, and nothing checked they
@@ -2077,7 +2077,7 @@ describe("the lab's registry satisfies the SHARED runner's contract", function()
 		The gallery registry exports `foreignInstances`; the lab registry did not.
 		So from that commit until 2026-08-17, pressing Play in the Performance Lab
 		did NOTHING — `Attempted to call require with invalid argument(s)` out of
-		`LuauUIScenarios.runner:217` — and every lab workload was unreachable.
+		`FacetScenarios.runner:217` — and every lab workload was unreachable.
 
 		It survived two days because of exactly where the seam is: this suite
 		requires these modules DIRECTLY and never through the built place, so nothing

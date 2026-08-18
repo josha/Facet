@@ -161,7 +161,7 @@ local menuRecipe = require("./menu_recipe")
 -- `buildEngine`. See that file's header for why the split happened at all.
 local rowActionsSpec = require("./row_actions_spec")
 -- ...and the open-state coordinator, which was always a PUBLIC export
--- (`LuauUI.newRowActionsCoordinator`) living inside this module's private body.
+-- (`Facet.newRowActionsCoordinator`) living inside this module's private body.
 -- Re-exported below as `row_actions.newCoordinator`, unchanged.
 local rowActionsCoordinator = require("./row_actions_coordinator")
 -- ...and the reorder-vs-swipe arbiter Table composes over one row Hit surface.
@@ -559,8 +559,8 @@ row_actions.newCoordinator = rowActionsCoordinator.new
 -- routes the two things a node used to answer — paths and paint — through
 -- `pathsOf`/`applySlide` below. Each entry point validates its OWN spec
 -- against its own closed key set before calling in here.
-local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts?)
-	local UI = LuauUI.UI
+local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?)
+	local UI = Facet.UI
 	local id = spec.id or "RowActions"
 	local scope = core:scope("row-actions-" .. tostring(id))
 	-- read once: `hosted` is a build-time fact, never live
@@ -587,14 +587,14 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local label = if isHosted then "newRowActionsHosted" else "newRowActions"
 
 	if not isHosted and (type(spec.content) ~= "table" or (spec.content :: any).class == nil) then
-		error(`LuauUI {label}('{id}'): \`content\` is required and must be a Blueprint`, 0)
+		error(`Facet {label}('{id}'): \`content\` is required and must be a Blueprint`, 0)
 	end
 	-- nil in hosted mode: the HOST mounts the row, this engine wraps nothing
 	local content = spec.content
 
 	if spec.coordinator ~= nil and type(spec.coordinator) ~= "table" then
 		error(
-			`LuauUI {label}('{id}'): \`coordinator\` must be a table (the value newRowActionsCoordinator `
+			`Facet {label}('{id}'): \`coordinator\` must be a table (the value newRowActionsCoordinator `
 				.. "returns) — Task 7 wires it",
 			0
 		)
@@ -614,7 +614,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- rather than left to silently corrupt the second row's own state.
 	if spec.coordinator ~= nil and spec.id == nil then
 		error(
-			`LuauUI {label}: rows sharing a coordinator must carry unique ids `
+			`Facet {label}: rows sharing a coordinator must carry unique ids `
 				.. '(pass `id` explicitly — every row defaults to the same "RowActions" id otherwise, '
 				.. "colliding paths under one shared list)",
 			0
@@ -650,11 +650,11 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- existing footgun this control does not repeat: a caller who passes a
 	-- literal boolean here gets a loud build-time error naming the mistake,
 	-- not a silently-ignored one). `UI.isReadable` is the framework's own
-	-- published check (`blueprint.isReadable`, exposed as `LuauUI.UI.isReadable`
+	-- published check (`blueprint.isReadable`, exposed as `Facet.UI.isReadable`
 	-- — `async_image.luau`'s own precedent for reaching it from a control).
 	if spec.editing ~= nil and not UI.isReadable(spec.editing) then
 		error(
-			`LuauUI {label}('{id}'): \`editing\` must be a Readable<boolean> (a signal or memo), or nil `
+			`Facet {label}('{id}'): \`editing\` must be a Readable<boolean> (a signal or memo), or nil `
 				.. "for a row that is never in edit mode",
 			0
 		)
@@ -729,7 +729,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local hostedEditPath: string? = if hosted ~= nil then (hosted.paths :: any).editAffordance else nil
 	if isHosted and hasEditAffordance and (type(hostedEditPath) ~= "string" or hostedEditPath == "") then
 		error(
-			`LuauUI {label}('{id}'): \`editing\` on a row with a destructive action requires `
+			`Facet {label}('{id}'): \`editing\` on a row with a destructive action requires `
 				.. "`paths.editAffordance` (where the host mounts `editAffordanceView`) — without it the "
 				.. "minus is mounted but unreachable: every Activate on it falls through, and a button "
 				.. 'that announces itself as "Delete" does nothing',
@@ -2384,7 +2384,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local function currentNow(): number
 		assert(
 			nowFn ~= nil,
-			`LuauUI {label}('{id}'): a pointer gesture reached _pointerHandlers with no bound \`now\` `
+			`Facet {label}('{id}'): a pointer gesture reached _pointerHandlers with no bound \`now\` `
 				.. "(bindMotion never ran) — these handlers must only be driven through a live presenter capture"
 		)
 		return nowFn()
@@ -2761,7 +2761,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			phase = "open"
 		end
 		return {
-			schema = "luauui-rowactions-dump/1",
+			schema = "facet-rowactions-dump/1",
 			id = id,
 			offset = offset:get(),
 			openEdge = edge,
@@ -3570,11 +3570,11 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	return api
 end
 
--- THE STANDALONE/TABLE ENTRY POINT — `LuauUI.newRowActions`. Unchanged
+-- THE STANDALONE/TABLE ENTRY POINT — `Facet.newRowActions`. Unchanged
 -- behavior: the whole composite, blueprint and all.
-function row_actions.build(LuauUI: any, core: any, spec: Spec)
+function row_actions.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newRowActions", spec, ROW_ACTIONS_KEYS, "spec")
-	return buildEngine(LuauUI, core, spec, nil)
+	return buildEngine(Facet, core, spec, nil)
 end
 
 -- THE HOSTED ENTRY POINT (Task 2) — engine only, NO blueprint. Internal, not
@@ -3583,30 +3583,30 @@ end
 -- See the HOSTED MODE comment at the top of this file for the contract, and
 -- docs/plans/row-actions-hosted-mode-design.md for why the host owns the
 -- nodes.
-function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): HostedEngine
+function row_actions.buildHosted(Facet: any, core: any, spec: HostedSpec): HostedEngine
 	specGuard.assertKnownKeys("newRowActionsHosted", spec, HOSTED_KEYS, "spec")
 	local id = spec.id or "RowActions"
 	local paths: any = spec.paths
 	if type(paths) ~= "table" then
 		error(
-			`LuauUI newRowActionsHosted('{id}'): \`paths\` is required — a hosted engine mounts nothing of its `
+			`Facet newRowActionsHosted('{id}'): \`paths\` is required — a hosted engine mounts nothing of its `
 				.. "own, so the host must name the nodes it reads live rects and text facts from",
 			0
 		)
 	end
 	specGuard.assertKnownKeys("newRowActionsHosted", paths, HOSTED_PATH_KEYS, "spec.paths")
 	if type(paths.content) ~= "string" or paths.content == "" then
-		error(`LuauUI newRowActionsHosted('{id}'): \`paths.content\` must be the host's own row path (a string)`, 0)
+		error(`Facet newRowActionsHosted('{id}'): \`paths.content\` must be the host's own row path (a string)`, 0)
 	end
 	if type(spec.onSlide) ~= "function" then
 		error(
-			`LuauUI newRowActionsHosted('{id}'): \`onSlide\` must be a function — the host paints the slide `
+			`Facet newRowActionsHosted('{id}'): \`onSlide\` must be a function — the host paints the slide `
 				.. "(this engine owns no node to paint)",
 			0
 		)
 	end
 	if spec.onCommitHeight ~= nil and type(spec.onCommitHeight) ~= "function" then
-		error(`LuauUI newRowActionsHosted('{id}'): \`onCommitHeight\` must be a function, or nil`, 0)
+		error(`Facet newRowActionsHosted('{id}'): \`onCommitHeight\` must be a function, or nil`, 0)
 	end
 	-- REFUSED, not silently degraded: a hosted engine with nothing to reveal on
 	-- either edge is a host that built a row engine it never needed. The
@@ -3614,7 +3614,7 @@ function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): Host
 	-- meaning here — there is no content to hand back.
 	if spec.leading == nil and spec.trailing == nil then
 		error(
-			`LuauUI newRowActionsHosted('{id}'): a hosted engine needs actions on at least one edge — build no `
+			`Facet newRowActionsHosted('{id}'): a hosted engine needs actions on at least one edge — build no `
 				.. "engine at all for a row with none",
 			0
 		)
@@ -3632,7 +3632,7 @@ function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): Host
 	-- instead.
 	if spec.leading ~= nil and (type(paths.trayLeading) ~= "string" or paths.trayLeading == "") then
 		error(
-			`LuauUI newRowActionsHosted('{id}'): \`leading\` actions require \`paths.trayLeading\` (the host's `
+			`Facet newRowActionsHosted('{id}'): \`leading\` actions require \`paths.trayLeading\` (the host's `
 				.. "own leading tray container path) — without it the tray can never be measured or found to "
 				.. "paint, and the row would silently claim to be open with nothing revealed",
 			0
@@ -3640,13 +3640,13 @@ function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): Host
 	end
 	if spec.trailing ~= nil and (type(paths.trayTrailing) ~= "string" or paths.trayTrailing == "") then
 		error(
-			`LuauUI newRowActionsHosted('{id}'): \`trailing\` actions require \`paths.trayTrailing\` (the host's `
+			`Facet newRowActionsHosted('{id}'): \`trailing\` actions require \`paths.trayTrailing\` (the host's `
 				.. "own trailing tray container path) — without it the tray can never be measured or found to "
 				.. "paint, and the row would silently claim to be open with nothing revealed",
 			0
 		)
 	end
-	return buildEngine(LuauUI, core, spec, {
+	return buildEngine(Facet, core, spec, {
 		paths = paths,
 		onSlide = spec.onSlide,
 		onCommitHeight = spec.onCommitHeight,

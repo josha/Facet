@@ -14,7 +14,7 @@
 	real device on 2026-08-13 — never the accessibility text preference. At
 	`preferredTextOffset` 4/10/14 every row overflowed its slot and the lab
 	refused to mount. Four inputs, three of them added post-mortem, and the class
-	is `docs/lessons/luauui-fixed-px-heights.md`: a px height fixed against
+	is `docs/lessons/facet-fixed-px-heights.md`: a px height fixed against
 	unfixed content.
 
 	The ruling was NOT to build variable extents (a subsystem, and it changes what
@@ -37,11 +37,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local virtual_list = require("../src/controls/virtual_list")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 local SLOT = 56
 
@@ -154,14 +154,14 @@ local function cellFor(kind: string): (any) -> any
 end
 
 local function world(opts: WorldOpts): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 600 })
 	env:set("preferredTextOffset", opts.offset or 0)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
-	local list = LuauUI.newVirtualList(LuauUI, core, {
+	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local list = Facet.newVirtualList(Facet, core, {
 		id = "VL",
 		axis = opts.axis,
 		rows = core:signal(makeRows(60)),
@@ -320,10 +320,10 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 		-- height ladder on purpose, and a guard reading the box would shout through
 		-- the whole animation. Here the box is 20px and the declared extent 56px —
 		-- content of 40px is inside the promise and must say nothing.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
-		local presenter = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local handle = presenter.present(
 			UI.Screen({
 				id = "Root",
@@ -383,14 +383,14 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 			THE CASE IS THE ONE THAT MATTERS IN PRACTICE: a per-item extent that
 			re-derives correctly after the text preference moves. Under the bug, the
 			list that had just been FIXED went on shouting the old number. ]]
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local rows = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
 		local declared = core:signal(20)
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -404,14 +404,14 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 			end,
 			viewportExtent = 600,
 			cell = function()
-				return LuauUI.UI.Box({
+				return Facet.UI.Box({
 					id = "Plate",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 60 },
 				})
 			end,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 		local function slotCount(): number
 			local n = 0
 			for _, d in handle.controller.diagnostics() do

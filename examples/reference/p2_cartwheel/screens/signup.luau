@@ -17,7 +17,7 @@ function signup.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 	local identity = app.services.identity
 
 	local self: any = {}
@@ -30,7 +30,7 @@ function signup.new(app: any): any
 	self.watchword = watchword
 	self.fieldError = fieldError
 
-	local nameField = LuauUI.newTextInput(LuauUI, core, {
+	local nameField = Facet.newTextInput(Facet, core, {
 		id = "GuildName",
 		value = guildName,
 		placeholder = S.t("guild.name"),
@@ -46,7 +46,7 @@ function signup.new(app: any): any
 		actionSystem = app.actionSystem,
 	})
 
-	local watchwordField = LuauUI.newTextInput(LuauUI, core, {
+	local watchwordField = Facet.newTextInput(Facet, core, {
 		id = "Watchword",
 		value = watchword,
 		placeholder = S.t("guild.watchword"),

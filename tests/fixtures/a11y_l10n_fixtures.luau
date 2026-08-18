@@ -248,7 +248,7 @@ fixtures.displayProfiles = {
 -- Controls under test for effective-target checks: the shipping focusable
 -- controls (Button, Toggle) plus a small custom chip. The chip's declared floor
 -- is the knob the target-size corpus asserts against.
--- A compliant custom chip: meets the phone-class effective floor (44 LuauUI units).
+-- A compliant custom chip: meets the phone-class effective floor (44 Facet units).
 fixtures.SMALL_CONTROL_TARGET = 44
 
 function fixtures.controlsUnderTest(): { { class: string, minHitSize: number } }

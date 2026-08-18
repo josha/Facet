@@ -29,7 +29,7 @@ end
 local function vec3(where: string, field: string, value: any): { x: number, y: number, z: number }
 	if type(value) ~= "table" or not (isFinite(value.x) and isFinite(value.y) and isFinite(value.z)) then
 		error(
-			`LuauUI {where}.{field} expects a vector table `
+			`Facet {where}.{field} expects a vector table `
 				.. "{ x = <number>, y = <number>, z = <number> }, got "
 				.. `{typeof(value)}. Fix: pass plain numbers — the adapter converts to the engine type.`,
 			0
@@ -42,7 +42,7 @@ end
 local function rgb(where: string, field: string, value: any): { r: number, g: number, b: number }
 	if type(value) ~= "table" or not (isFinite(value.r) and isFinite(value.g) and isFinite(value.b)) then
 		error(
-			`LuauUI {where}.{field} expects a colour table `
+			`Facet {where}.{field} expects a colour table `
 				.. "{ r = 0..1, g = 0..1, b = 0..1 }, got "
 				.. `{typeof(value)}. Fix: pass 0-1 floats, the same shape the theme tokens use.`,
 			0
@@ -74,7 +74,7 @@ export type Lighting = {
 -- the engine's legal 1..120 range rather than silently rejected at the write site.
 function stage_content.normalizeCamera(spec: any): Camera
 	if type(spec) ~= "table" then
-		error(`LuauUI stageHost.setCamera expects a spec table, got {typeof(spec)}`, 0)
+		error(`Facet stageHost.setCamera expects a spec table, got {typeof(spec)}`, 0)
 	end
 	spec_guard.assertKnownKeys("stageHost.setCamera", spec, CAMERA_KEYS, "spec")
 	local camera: any = {
@@ -93,7 +93,7 @@ function stage_content.normalizeCamera(spec: any): Camera
 		local dz = camera.lookAt.z - camera.position.z
 		if (dx * dx + dy * dy + dz * dz) <= 1e-8 then
 			error(
-				"LuauUI stageHost.setCamera: position and lookAt are the same point — "
+				"Facet stageHost.setCamera: position and lookAt are the same point — "
 					.. "a camera with no direction cannot render. Move one of them.",
 				0
 			)
@@ -101,7 +101,7 @@ function stage_content.normalizeCamera(spec: any): Camera
 	end
 	if spec.fov ~= nil then
 		if not isFinite(spec.fov) then
-			error(`LuauUI stageHost.setCamera.fov expects a number (degrees), got {typeof(spec.fov)}`, 0)
+			error(`Facet stageHost.setCamera.fov expects a number (degrees), got {typeof(spec.fov)}`, 0)
 		end
 		camera.fov = math.clamp(spec.fov :: number, 1, 120)
 	end
@@ -114,7 +114,7 @@ end
 -- doing nothing is the accepted-and-ignored failure this framework keeps closing.
 function stage_content.normalizeLighting(spec: any): Lighting
 	if type(spec) ~= "table" then
-		error(`LuauUI stageHost.setLighting expects a spec table, got {typeof(spec)}`, 0)
+		error(`Facet stageHost.setLighting expects a spec table, got {typeof(spec)}`, 0)
 	end
 	spec_guard.assertKnownKeys("stageHost.setLighting", spec, LIGHTING_KEYS, "spec")
 	local lighting: any = {}
@@ -129,7 +129,7 @@ function stage_content.normalizeLighting(spec: any): Lighting
 	end
 	if next(lighting) == nil then
 		error(
-			"LuauUI stageHost.setLighting: the spec declares nothing. Pass at least one of "
+			"Facet stageHost.setLighting: the spec declares nothing. Pass at least one of "
 				.. "ambient / lightColor / lightDirection.",
 			0
 		)
@@ -140,7 +140,7 @@ end
 -- the refusal a handle whose node has died answers, spelled once so both adapters
 -- say the same thing (and a caller can match on it)
 function stage_content.disposedError(path: string): string
-	return `LuauUI stageHost: the Stage node '{path}' has been disposed — its handle is dead. `
+	return `Facet stageHost: the Stage node '{path}' has been disposed — its handle is dead. `
 		.. "Ask controller.stageHost(path) again after the node remounts."
 end
 

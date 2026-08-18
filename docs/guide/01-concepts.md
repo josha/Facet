@@ -10,20 +10,20 @@ listen for a click, and inside that listener you reach back out and change other
 objects. As the screen grows, the number of "when this changes, remember to also
 update that" rules grows faster, and they are easy to get wrong.
 
-LuauUI is *declarative*. You write a function that returns a **description** of
+Facet is *declarative*. You write a function that returns a **description** of
 what the screen should look like *right now*, given the current data. You never
-mutate objects yourself. When the data changes, LuauUI compares the new
+mutate objects yourself. When the data changes, Facet compares the new
 description to what is currently on screen and makes the minimum set of changes
 needed. Your job is to answer one question — "given this data, what should the
 screen be?" — and answer it as plain data.
 
-A description is built from **constructors** on `LuauUI.UI`: `UI.Screen`,
+A description is built from **constructors** on `Facet.UI`: `UI.Screen`,
 `UI.VStack` (a vertical stack), `UI.Text`, `UI.Button`, and so on. Each returns a
 small frozen table — nothing is created on screen yet. These descriptions are
 called **blueprints** in the code (`src/blueprint.luau`).
 
 ```lua
-local UI = LuauUI.UI
+local UI = Facet.UI
 local screen = UI.Screen({
     id = "Menu",
     padding = 16,
@@ -50,7 +50,7 @@ giving one axis makes the other follow and giving neither uses the metric. A dis
 holds exactly one mark — a semantic `icon`, or a `label` of up to three characters —
 and a longer drawn label is refused when you construct the button, naming the rule
 and the fix, rather than being quietly clipped on somebody's phone. `icon` is a
-*meaning* (`"more"`, `"close"`, `"chevron.trailing"`), never an asset id: LuauUI
+*meaning* (`"more"`, `"close"`, `"chevron.trailing"`), never an asset id: Facet
 draws its own plain-ASCII glyph for that name so the button is legible under every
 theme, a theme that ships art for the name paints the picture over it, and `label`
 stays the button's real name for screen readers and ten-foot readouts.
@@ -65,9 +65,9 @@ are in [the API reference](../reference/api.md#button).
 ### Stable identity
 
 Every node can carry an `id`. Sibling nodes with the same parent must have
-different ids; duplicate ids are a hard error. If you omit an `id`, LuauUI
+different ids; duplicate ids are a hard error. If you omit an `id`, Facet
 generates a stable one from the node's class and position (for example
-`Button#2`). Ids matter because they are how LuauUI recognizes "this is the same
+`Button#2`). Ids matter because they are how Facet recognizes "this is the same
 button as last time, just with new text" versus "this is a brand-new button."
 
 ## 1.2 Two kinds of state: semantic vs. presentation
@@ -85,7 +85,7 @@ This distinction runs through the entire library, so it is worth being precise.
   game data; it is a consequence of showing the semantic state on one particular
   device at one particular moment.
 
-LuauUI keeps these strictly apart because they have different lifetimes and
+Facet keeps these strictly apart because they have different lifetimes and
 different owners. Semantic state may come from the server and may need to be
 saved. Presentation state is throwaway, belongs to one screen on one device, and
 — critically — **must never be sent over the network** (more on that in
@@ -94,8 +94,8 @@ saved. Presentation state is throwaway, belongs to one screen on one device, and
 ## 1.3 The reactive runtime
 
 You need semantic state to *change* — coins go up, a toggle flips — and you need
-the screen to follow. LuauUI provides a small **reactive runtime** for this,
-created with `LuauUI.newCore()`. The object it returns is called the **core**
+the screen to follow. Facet provides a small **reactive runtime** for this,
+created with `Facet.newCore()`. The object it returns is called the **core**
 (`src/core/custom.luau`). It gives you four building blocks:
 
 - **Signal** — a container for a value that can change. `core:signal(0)` returns
@@ -137,12 +137,12 @@ recorded (readable via `core:lastError()`), and the update loop keeps running.
 ### Ownership and cleanup: scopes
 
 Reactive things (observers, effects, signals) and other resources need to be
-cleaned up when the screen or list row they belong to goes away. LuauUI handles
+cleaned up when the screen or list row they belong to goes away. Facet handles
 this with **scopes** (`core:scope("label")`). A scope owns resources; disposing
 the scope disposes everything it owns, in reverse order, exactly once. You rarely
 create scopes by hand for simple screens — the mounting and presentation layers
 create and dispose them for you — but understanding that "a screen owns a scope,
-and closing the screen disposes it" explains why LuauUI does not leak.
+and closing the screen disposes it" explains why Facet does not leak.
 
 **A structural region hands you the scope for the thing it just made.** Both of
 them do, and they are the same idea twice:
@@ -171,7 +171,7 @@ interface from whatever data that client has.
 This is not an implementation detail you can ignore; it is the mental model.
 "What does the screen look like?" is always a *local* computation. The same
 blueprint on a phone and on a desktop produces different pixel rectangles because
-the local device facts (screen size, input type) differ — and LuauUI computes
+the local device facts (screen size, input type) differ — and Facet computes
 both locally, from the same description.
 
 ## 1.5 Server-authoritative, validated mutations
@@ -181,18 +181,18 @@ If the UI is client-local, where does trustworthy game data come from? The
 the outcome of a purchase — these live on the server, because a client can be
 tampered with and must never be trusted to declare its own rewards.
 
-LuauUI's model for this has two directions:
+Facet's model for this has two directions:
 
 - **Down (server → client):** the server sends **semantic state** to the client,
-  which feeds it into a signal. The UI reads that signal like any other. LuauUI
-  provides **replication adapters** (`LuauUI.replication`) that handle the
+  which feeds it into a signal. The UI reads that signal like any other. Facet
+  provides **replication adapters** (`Facet.replication`) that handle the
   bookkeeping of receiving these updates in order and recovering from dropped
   messages. Covered in [chapter 6](06-client-server.md).
 
 - **Up (client → server):** the client never changes authoritative state
   directly. Instead it sends a **typed request** — "I would like to buy item X" —
   and the server validates it, decides, and (if it accepts) sends back new
-  semantic state. LuauUI models this as a **mutation** with an explicit lifecycle:
+  semantic state. Facet models this as a **mutation** with an explicit lifecycle:
   `idle → pending → confirmed` or `rejected`. A pending request on the client
   *never* means success; only the server's confirmation does.
 
@@ -208,7 +208,7 @@ corner radius — used instead of a raw number. Rather than writing "18-pixel ga
 in fifty places, you refer to a spacing token; change the token once and every
 screen follows.
 
-LuauUI's tokens live under `LuauUI.tokens`. `tokens.compile(schema)` takes a
+Facet's tokens live under `Facet.tokens`. `tokens.compile(schema)` takes a
 game's design values, checks them for completeness and for adequate text
 contrast, and returns a frozen, validated set. The library ships a built-in
 default token set called **Studio Neutral** (`src/tokens/default_style.luau`) so
@@ -218,7 +218,7 @@ game can override it. Tokens and styling are the subject of
 
 ## 1.7 Actions and input contexts
 
-Here is a rule that surprises people: **LuauUI controls never listen for hardware
+Here is a rule that surprises people: **Facet controls never listen for hardware
 keys directly.** A button does not "know" it is activated by the Enter key or the
 gamepad's A button or a screen tap. Instead there is one indirection layer.
 
@@ -230,13 +230,13 @@ gamepad's A button or a screen tap. Instead there is one indirection layer.
   highest-priority enabled context wins; if that context *sinks*, lower contexts
   never see the input.
 
-This is the **action system** (`LuauUI.newActionSystem`, `src/input/actions.luau`).
+This is the **action system** (`Facet.newActionSystem`, `src/input/actions.luau`).
 Why the indirection? Three reasons:
 
 1. **Every control works on every device automatically.** Because a control
    responds to the *intent* `"Activate"`, it works with keyboard, gamepad, and
    touch without the control author writing a single device check. This is one
-   of **three adaptation axes** LuauUI holds together: the *layout* adapts to
+   of **three adaptation axes** Facet holds together: the *layout* adapts to
    the screen (size classes, safe areas), the *input* adapts to the device
    (bindings and reachability), and the *interaction paradigm* adapts to how
    the player actually manipulates things — a mouse drags a row directly, a
@@ -264,7 +264,7 @@ the B button is the bindable "cancel."
 gamepad act on right now?" On a touchscreen you just tap; with a keyboard or
 gamepad there is a moving cursor, and focus is where it sits.
 
-LuauUI owns focus logically, in the **focus graph** (`src/focus/focus_graph.luau`),
+Facet owns focus logically, in the **focus graph** (`src/focus/focus_graph.luau`),
 independent of any engine. A **focus scope** is the set of focusable controls for
 one screen, in navigation order. Scopes stack: opening a modal pushes a new scope
 that *traps* focus (navigation cannot escape into the screen behind it) and
@@ -375,7 +375,7 @@ Two properties matter as much as the layout:
   screenshot cannot tell you the three-lane candidate lost the field lane's
   minimum width by six pixels.
 
-The same decision is available with no screen at all — `LuauUI.composition.resolve`
+The same decision is available with no screen at all — `Facet.composition.resolve`
 takes a declaration, a box and a measure callback — so "does this survive a
 landscape phone" is a unit test, not a device round.
 
@@ -392,8 +392,8 @@ and the nine anchor names are the nine group ids. So the whole thing is data:
 UI.Composition{
     id = "Hud",
     width = fill, height = fill,
-    groups = LuauUI.composition.HUD_GROUPS,     -- the twelve groups, frozen
-    arrangements = { LuauUI.composition.HUD },  -- one arrangement: three columns
+    groups = Facet.composition.HUD_GROUPS,     -- the twelve groups, frozen
+    arrangements = { Facet.composition.HUD },  -- one arrangement: three columns
     children = {
         UI.Region{ id = "Rounds", group = "topLeft", rank = 1, children = { wrappedStrip } },
         UI.Region{ id = "Tasks",  group = "left",   rank = 7, mayDrop = true,
@@ -441,7 +441,7 @@ worth knowing:
 The showcase's **Screen-anchored HUD** demo is exactly this, with a "URL bar"
 switch so you can watch it happen.
 
-For the coarse facts a screen sometimes still wants, `LuauUI.adaptive.conditions`
+For the coarse facts a screen sometimes still wants, `Facet.adaptive.conditions`
 now classifies **both** axes (`sizeClass` / `heightClass`, plus `orientation`), so
 no screen has to invent a height threshold of its own. They stay viewport-relative
 and therefore coarse: when the answer must depend on the space a particular
@@ -451,7 +451,7 @@ container really got, measure it — that is what `UI.Composition` and
 ### Deciding who gives way when a row is too tight: `layoutPriority`, `shrinkWeight`
 
 Before a row is *too long* it is merely *tight*, and something has to give. By
-default LuauUI shrinks nothing — a child keeps its natural size — so a row that
+default Facet shrinks nothing — a child keeps its natural size — so a row that
 does not fit simply overflows and the solver complains. Two props say what should
 happen instead:
 

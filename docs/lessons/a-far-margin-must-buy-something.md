@@ -7,7 +7,7 @@ triangle table header sort indicator appears outside when themed."*
 
 ## The measurement, before the story
 
-Live, `LuauUI_TableColumns`, one header cell (`Head-name`), its plate (`Column`),
+Live, `Facet_TableColumns`, one header cell (`Head-name`), its plate (`Column`),
 and its sort glyph (`SortMark`), in absolute pixels:
 
 | package | cell | mark | reserve declared | reserve **spent** |

@@ -298,7 +298,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			for _, item in items do
 				local key = tostring(bp.props.key(item))
 				if wanted[key] ~= nil then
-					error(`LuauUI ForEach {path}: duplicate key '{key}' (duplicate keys are hard errors)`, 0)
+					error(`Facet ForEach {path}: duplicate key '{key}' (duplicate keys are hard errors)`, 0)
 				end
 				wanted[key] = item
 				table.insert(order, key)
@@ -439,7 +439,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		for _, item in initialItems do
 			local key = tostring(bp.props.key(item))
 			if seen[key] then
-				error(`LuauUI ForEach {path}: duplicate key '{key}' (duplicate keys are hard errors)`, 0)
+				error(`Facet ForEach {path}: duplicate key '{key}' (duplicate keys are hard errors)`, 0)
 			end
 			seen[key] = true
 			local itemScope = scope:child(`{path}/[{key}]`)
@@ -646,7 +646,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			for i, childBp in bp.children do
 				local childId = childBp.id or `{childBp.class}#{i}`
 				if seen[childId] then
-					error(`LuauUI mount {path}: duplicate child id '{childId}'`, 0)
+					error(`Facet mount {path}: duplicate child id '{childId}'`, 0)
 				end
 				seen[childId] = true
 				table.insert(node.children, mountNode(childBp, path, scope, i, boundary, activationFeedback))
@@ -655,7 +655,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		return node
 	end
 
-	-- MICROPROFILER PHASE `LuauUI/mount` (roadmap Step 9): the INITIAL tree build.
+	-- MICROPROFILER PHASE `Facet/mount` (roadmap Step 9): the INITIAL tree build.
 	-- The same scope name the renderer's structural sync uses, because they are the
 	-- same question — how much does making and un-making this tree cost — and a
 	-- mount-ramp profile wants one bar that grows with row count, not two.
@@ -706,7 +706,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			return table.clone(counters)
 		end,
 		dump = function()
-			return { schema = "luauui-mount-dump/1", tree = dumpNode(rootNode) }
+			return { schema = "facet-mount-dump/1", tree = dumpNode(rootNode) }
 		end,
 	}
 	return root

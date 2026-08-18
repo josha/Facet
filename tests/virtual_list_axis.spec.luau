@@ -16,7 +16,7 @@
 	  · NAMING. `itemExtent` / `viewportExtent` are the canonical, axis-neutral
 	    names. `rowHeight` / `viewportHeight` are DEPRECATED ALIASES that keep
 	    working unchanged (ADR-0011, ≥ one MINOR, registered in
-	    `LuauUI.DEPRECATIONS`) — the cases below prove an existing vertical caller
+	    `Facet.DEPRECATIONS`) — the cases below prove an existing vertical caller
 	    passing the old names is untouched, and that passing a name AND its alias
 	    is refused rather than silently resolved.
 	  · THE ENGINE COORDINATE. A horizontal list mirrors `CanvasPosition.X`,
@@ -37,7 +37,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -84,7 +84,7 @@ local function newList(core: any, opts: any)
 		rowGap = opts.rowGap,
 		overscan = opts.overscan or 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	}
 	-- the two spellings, exactly as a caller would write one or the other
@@ -95,18 +95,18 @@ local function newList(core: any, opts: any)
 		spec.itemExtent = opts.itemExtent or 40
 		spec.viewportExtent = opts.viewportExtent or 400
 	end
-	return virtual_list.build(LuauUI, core, spec)
+	return virtual_list.build(Facet, core, spec)
 end
 
 -- a PRESENTED list, so the real solver hands back rects and a scroll region
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(makeRows(options.count or 100))
 	local activations: { any } = {}
 	local reorders: { any } = {}
@@ -127,7 +127,7 @@ local function world(opts: any?)
 			else nil,
 		autoscroll = options.autoscroll,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
@@ -140,8 +140,8 @@ local function world(opts: any?)
 		spec.itemExtent = options.itemExtent or 40
 		spec.viewportExtent = options.viewportExtent or 400
 	end
-	local list = virtual_list.build(LuauUI, core, spec)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local list = virtual_list.build(Facet, core, spec)
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 	local w: any = {
@@ -194,7 +194,7 @@ end
 -- ===========================================================================
 describe('VirtualList.axis — the contract ("y" | "x", construction-only)', function()
 	it('defaults to "y", accepts "y" explicitly, and refuses anything else naming BOTH values', function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local default = newList(core, { rows = rows })
 		expect(default.dump().axis).toBe("y")
@@ -218,7 +218,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("itemExtent / viewportExtent are the canonical names and land in the dump", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, { rows = rows, itemExtent = 56, viewportExtent = 200 })
 		local d = list.dump()
@@ -227,7 +227,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("rowHeight / viewportHeight still work UNCHANGED — the deprecated aliases (ADR-0011)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		-- the SAME list, spelled both ways: the two dumps must agree field for field
 		local canonical = newList(core, { rows = rows, itemExtent = 56, viewportExtent = 200 })
@@ -253,7 +253,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("the deprecated names are ABSENT from a horizontal dump — a rowHeight there is a lie", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local d = list.dump()
@@ -265,7 +265,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("a name and its alias TOGETHER are refused, naming both and which is deprecated", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local function build(extra: any)
 			local spec: any = {
@@ -275,13 +275,13 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 					return item.id
 				end,
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			}
 			for key, value in extra do
 				spec[key] = value
 			end
-			return virtual_list.build(LuauUI, core, spec)
+			return virtual_list.build(Facet, core, spec)
 		end
 		local ok, err = pcall(build, { itemExtent = 40, rowHeight = 40, viewportExtent = 200 })
 		expect(ok).toBe(false)
@@ -295,13 +295,13 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 		expect(string.find(tostring(err2), "viewportHeight", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("both deprecations are in LuauUI.DEPRECATIONS with a replacement and a minor of notice", function()
+	it("both deprecations are in Facet.DEPRECATIONS with a replacement and a minor of notice", function()
 		local wanted = {
 			["newVirtualList(spec.rowHeight)"] = "itemExtent",
 			["newVirtualList(spec.viewportHeight)"] = "viewportExtent",
 		}
 		local seen: { [string]: boolean } = {}
-		for _, entry in LuauUI.DEPRECATIONS :: { any } do
+		for _, entry in Facet.DEPRECATIONS :: { any } do
 			local want = wanted[entry.surface]
 			if want ~= nil then
 				seen[entry.surface] = true
@@ -314,10 +314,10 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it('rowActions is refused on axis = "x", and the refusal says WHY (the gesture collides)', function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
+			virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = rows,
 				key = function(item: any)
@@ -327,7 +327,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 				itemExtent = 120,
 				viewportExtent = 400,
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 				rowActions = function()
 					return { trailing = { { id = "del", label = "Delete", onActivate = function() end } } }
@@ -342,7 +342,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 		expect(string.find(message, "swipe", 1, true) ~= nil).toBe(true)
 		expect(string.find(message, "scroll gesture", 1, true) ~= nil).toBe(true)
 		-- ...and the identical spec is perfectly legal on the default axis
-		local fine = virtual_list.build(LuauUI, core, {
+		local fine = virtual_list.build(Facet, core, {
 			id = "VL2",
 			rows = rows,
 			key = function(item: any)
@@ -351,7 +351,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 			itemExtent = 40,
 			viewportExtent = 200,
 			cell = function()
-				return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+				return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 			end,
 			rowActions = function()
 				return { trailing = { { id = "del", label = "Delete", onActivate = function() end } } }
@@ -362,10 +362,10 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it('`width` is refused on axis = "x" — there, the width IS viewportExtent', function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
 		local function build(axis: string?)
-			return virtual_list.build(LuauUI, core, {
+			return virtual_list.build(Facet, core, {
 				id = "VL",
 				rows = rows,
 				key = function(item: any)
@@ -376,7 +376,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 				viewportExtent = 200,
 				width = { type = "fixed", px = 300 },
 				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end
@@ -393,7 +393,7 @@ end)
 -- ===========================================================================
 describe("VirtualList.axis — the windowing arithmetic reads the x canvas", function()
 	it("the content extent is N*itemExtent + (N-1)*rowGap along x, with no trailing gutter", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		local list = newList(core, {
 			rows = rows,
@@ -413,7 +413,7 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("window membership steps on the PITCH along x", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(200))
 		-- 126 pitch, a 252 px viewport = exactly 2 whole slots, no overscan
 		local list = newList(core, {
@@ -431,7 +431,7 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("keep-visible writes the target on X, and leaves Y at zero (the discriminator)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()
@@ -447,7 +447,7 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("the CanvasPosition mirror reads .X on a horizontal list (and .Y on a vertical one)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local sideways = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()
@@ -465,7 +465,7 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("scrollTo clamps and writes along the list's own axis", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(10))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()

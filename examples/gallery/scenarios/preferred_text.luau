@@ -1,7 +1,7 @@
 --!strict
 -- Scenario 'preferred_text' (ledger rows NS-A9/NS-A10; Step 8.5 LT-2/LT-9):
 -- preferred text is applied EXACTLY ONCE (the engine paints the preference;
--- LuauUI reserves via the measure seam only), and a preference change reflows
+-- Facet reserves via the measure seam only), and a preference change reflows
 -- the mounted tree in place.
 --
 -- Two distinct drivers, never conflated (LT-10):
@@ -24,19 +24,19 @@ return {
 	title = "Preferred text: exact-once seam + large-text reflow (NS-A9/NS-A10, LT-2/LT-9)",
 	ledgerRows = { "NS-A9", "NS-A10", "LT-2", "LT-9" },
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 
 		local volume = core:signal(40)
 		local nickname = core:signal("racer")
 
-		local field = LuauUI.newTextInput(LuauUI, core, {
+		local field = Facet.newTextInput(Facet, core, {
 			id = "Nickname",
 			value = nickname,
 			placeholder = "Nickname",
 		})
-		local slider = LuauUI.newSlider(LuauUI, core, {
+		local slider = Facet.newSlider(Facet, core, {
 			id = "Volume",
 			value = volume,
 			min = 0,

@@ -38,7 +38,7 @@
 	declarations this one was missing:
 
 	  TextButton '/__popupcatcher__/catcher'  413x735  bgT=0.00
-	    ImageLabel 'LuauUIChrome'             413x735  bgT=0.00   <- the plate
+	    ImageLabel 'FacetChrome'             413x735  bgT=0.00   <- the plate
 	  TextButton '/__scrim__/catcher'         413x735  bgT=1.00   <- and nothing else
 
 	Full write-up: docs/lessons/an-invisible-surface-declares-its-invisibility.md ]]
@@ -46,7 +46,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("./lib/fake_target")
@@ -83,20 +83,20 @@ describe("popup catcher paint: an open row-actions tray", function()
 		programmatic: the catcher appears because a real gesture left a real tray
 		open, which is when the director saw the plate. ]]
 	local function leadingWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clockTime = 0
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
 		})
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
-			content = LuauUI.UI.Text({
+			content = Facet.UI.Text({
 				id = "Body",
 				text = "Row content",
 				width = { type = "fixed", px = 400 },
@@ -106,7 +106,7 @@ describe("popup catcher paint: an open row-actions tray", function()
 				{ id = "read", label = "Mark Read", onAction = function() end },
 			},
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		local w: any =
@@ -158,19 +158,19 @@ end)
 -- ===========================================================================
 describe("popup catcher paint: an open PopupButton", function()
 	it("the same catcher, reached through the other outsideDismiss owner, is equally unpainted", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local control = popup_button.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = { { id = "easy", label = "Easy" }, { id = "normal", label = "Normal" } },
 			value = core:signal("normal"),
 			onChange = function() end,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")
 		pres.refresh()
@@ -188,19 +188,19 @@ describe("popup catcher paint: an open PopupButton", function()
 		blocking the demo picker") stays explained by a measured fact rather than
 		by this comment alone. ]]
 	it("sits beneath its owner's DisplayOrder — which is why only the uncovered chrome band showed it", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local control = popup_button.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = { { id = "easy", label = "Easy" } },
 			value = core:signal("easy"),
 			onChange = function() end,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")
 		pres.refresh()

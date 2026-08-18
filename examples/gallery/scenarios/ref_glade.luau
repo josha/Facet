@@ -12,14 +12,14 @@ return {
 	build = function(ctx: any)
 		local folder = ctx.referenceModules
 		if folder == nil then
-			error("ReplicatedStorage.LuauUIReference is not replicated (gallery.project.json maps examples/reference)")
+			error("ReplicatedStorage.FacetReference is not replicated (gallery.project.json maps examples/reference)")
 		end
 		local module = folder:FindFirstChild("p1_glade")
 		if module == nil then
-			error("LuauUIReference.p1_glade is missing")
+			error("FacetReference.p1_glade is missing")
 		end
 		local proof = require(module) :: any
-		local built = proof.build(ctx.LuauUI, ctx.core, {
+		local built = proof.build(ctx.Facet, ctx.core, {
 			env = ctx.env,
 			actionSystem = ctx.actionSystem,
 			presenter = ctx.presenter,
@@ -79,7 +79,7 @@ return {
 		end
 		-- GENERIC THEME AXIS (RA-M3): install a reference package by module name
 		-- through the same controller path the tutorial-examples scenario uses.
-		-- Boot: the LuauUI_ThemePackage workspace attribute; live: step "theme:<name>".
+		-- Boot: the Facet_ThemePackage workspace attribute; live: step "theme:<name>".
 		local installedTheme: any = nil
 		local function installTheme(moduleName: string): any
 			local controllerModule = if type(ctx.themeController) == "function" then ctx.themeController() else nil
@@ -88,7 +88,7 @@ return {
 			end
 			local package
 			if moduleName == "neutral" or moduleName == "studio_neutral" then
-				package = ctx.LuauUI.themes.neutralPackage()
+				package = ctx.Facet.themes.neutralPackage()
 			else
 				local module = (ctx.themePackages or {})[moduleName]
 				if module == nil then
@@ -96,7 +96,7 @@ return {
 				end
 				-- a theme module exports a BUILDER; the compiled package comes
 				-- from build(themes) (same call the examples scenario makes)
-				package = (module :: any).build(ctx.LuauUI.themes)
+				package = (module :: any).build(ctx.Facet.themes)
 			end
 			if installedTheme ~= nil and installedTheme.uninstall ~= nil then
 				pcall(installedTheme.uninstall)

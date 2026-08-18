@@ -92,7 +92,7 @@ target_contract.OPTIONAL = {
 	"observeScroll", -- (handle, fn({x,y})) -> unsubscribe
 	-- engine-selection bridge (native-substrate NS-A12): the renderer calls
 	-- this ONLY for a surface presented with engineSelectionBridge=true (a
-	-- modal). handle=nil clears. Adapters without it degrade to LuauUI's own
+	-- modal). handle=nil clears. Adapters without it degrade to Facet's own
 	-- focus visual — the bridge is an experiment until physical-pad proof.
 	"setEngineSelection", -- (handle | nil)
 	-- native drag acquisition (NS-A5): UIDragDetector in CustomOffset mode
@@ -148,7 +148,7 @@ target_contract.OPTIONAL = {
 		IT IS A FACT, NOT A COMMAND. The renderer never asks the adapter to play
 		anything; it publishes what the author declared so an engine-side consumer
 		(the opt-in client haptics adapter, which turns it into the button's own
-		press-effect property) can. `src/present/feedback.luau:4-5` — LuauUI plays
+		press-effect property) can. `src/present/feedback.luau:4-5` — Facet plays
 		nothing — is why this is a property write and not a `play` seam. The engine
 		symbols are named only in `src/client/`, a boundary tests/haptics.spec.luau
 		enforces by scanning every file outside it.
@@ -202,7 +202,7 @@ target_contract.OPTIONAL = {
 	-- The boundary is engine-type-free (plain {x,y,z} / {r,g,b} tables) — converting
 	-- to CFrame/Color3/Vector3 is the adapter's job, which is what keeps the leaf
 	-- itself engine-free. CONTENT IS CALLER-OWNED: the handle hands back a root to
-	-- parent models into, and LuauUI owns the box, the lifecycle, the camera and the
+	-- parent models into, and Facet owns the box, the lifecycle, the camera and the
 	-- lighting writes. WITHOUT IT: `controller.stageHost(path)` answers nil, so a
 	-- Stage is an empty reserved box — authors gate on the nil or present a fallback
 	-- plate. `billboard_target` deliberately does not offer it (its canvas story is
@@ -295,7 +295,7 @@ target_contract.FUTURE = table.freeze({
 		openQuestions = table.freeze({
 			"canvas mapping: pixels-per-stud policy, and whether solved rects map linearly at every part size",
 			"adornee lifetime: what the adapter does when the part streams out, is destroyed, or is re-parented mid-interaction",
-			"local ownership: the SurfaceGui must be client-owned like every other LuauUI target, never replicated UI",
+			"local ownership: the SurfaceGui must be client-owned like every other Facet target, never replicated UI",
 			"clipping: whether ClipsDescendants and the scroll host behave as they do on a ScreenGui",
 			"stylesheets: whether a StyleLink under a SurfaceGui resolves the same rules with the same cascade",
 			"pointer coordinates: mouse/touch hit points arrive in surface space, and a spatial ray arrives as world geometry — both must reach the same solver rects",

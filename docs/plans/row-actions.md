@@ -155,17 +155,17 @@ scattered).
   sweep includes 320×640.
 - Gate: new checks follow the `✓.*` grep rule; Studio five-view matrix drive
   (phone portrait/landscape emphasized) + RascalRally consumer check per the
-  LuauUI/RascalRally coupling rule (no current RR Table uses rowActions, so
+  Facet/RascalRally coupling rule (no current RR Table uses rowActions, so
   expected outcome is a compatibility-evidence row, not game edits).
 
 ## Audit refresh (after the feature ships)
 
 Full fresh re-audit of `docs/reference/swiftui-parity.md`:
 
-- Re-validate **every** item against current LuauUI (v0.8+, Steps 7–11:
+- Re-validate **every** item against current Facet (v0.8+, Steps 7–11:
   API constitution, desktop keyboard, large text, perf lab + incremental
   layout + elision, reference apps) and the June 2026 SwiftUI baseline.
-- Performed by fresh-context subagents (the luauui verifier roles) so stale
+- Performed by fresh-context subagents (the facet verifier roles) so stale
   judgments don't survive by inertia; claims must cite file/test evidence.
 - Structure: keep the doc path; rewrite with a new validation date, per-area
   verdict tables, and an explicit "changed since last audit" section.

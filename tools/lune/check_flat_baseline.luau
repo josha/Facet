@@ -519,7 +519,7 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 	{
 		fixture = "02_playlist_table",
 		prefix = "/Row/Cells/Cell-rating/",
-		why = "the rating cell became `LuauUI.newRating` (director round 10, 2026-07-26). It was five "
+		why = "the rating cell became `Facet.newRating` (director round 10, 2026-07-26). It was five "
 			.. "`UI.Button`s under a Grip, hand-rolled in the example, and a physical-device pass showed why "
 			.. "that shape is wrong: a Button is a `control` to every theme, so under Glossy Touch a rating "
 			.. "rendered as five glossy PILLS and under Glossy Mobile — whose control recipe is a raised "
@@ -750,7 +750,7 @@ end
 -- 1. REGENERATE. A stored dump nobody recomputes is exactly the failure this
 -- exists to catch, so the check never trusts the checked-in file's content
 -- without reproducing it first.
-local temp = `/tmp/luauui-flat-baseline-{os.time()}.json`
+local temp = `/tmp/facet-flat-baseline-{os.time()}.json`
 local regen = process.exec("lune", { "run", GENERATOR, "--", temp })
 if not regen.ok then
 	print("check_flat_baseline: FAIL — could not regenerate the neutral dump")

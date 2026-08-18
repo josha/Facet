@@ -114,8 +114,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("table-virtualized")
 		-- THE SAME TABLE the module exports, never a snapshot: the localization
@@ -167,7 +167,7 @@ return {
 			moves:set(moves:get() + 1)
 		end
 
-		local tbl = LuauUI.newTable(LuauUI, core, {
+		local tbl = Facet.newTable(Facet, core, {
 			id = "Entrants",
 			rows = rows,
 			key = function(item: any)
@@ -280,7 +280,7 @@ return {
 
 		-- hug where there is room, a bounded scroller where there is not (see the
 		-- `Chrome` block below); `heightClass` is ADR-0023's own Readable for it
-		local conditions = ctx.LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
 			return if use(conditions.isShort) then { type = "fill", weight = 1 } else nil
 		end))

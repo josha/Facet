@@ -1,9 +1,9 @@
 {
-  "schema": "luauui-rubric/1",
+  "schema": "facet-rubric/1",
   "name": "phase3-pilot",
   "adrSlug": "phase3-pilot-selection",
   "question": "Which surface is the Phase 3 production pilot: card management or garage? (design §17 Phase 3)",
-  "context": "Neither surface exists yet in RascalRally. Card management = deck curation + collection (GameDesign §5/§6.12: deck-validity floors, Card Tokens, hand-of-cards; 'lands with Mission 14') and per the LuauUI design §9.4 card pick-and-place is an explicitly DEFERRED (Phase 5) interaction pattern. Garage = kart ownership/equip over the existing pure, Lune-tested semantic schema code/src/shared/CarInventory.luau (owned set + equipped id; grant/equip validated; 5-kart roster). Rubric axes from §17 Phase 3, higher = better for the pilot.",
+  "context": "Neither surface exists yet in RascalRally. Card management = deck curation + collection (GameDesign §5/§6.12: deck-validity floors, Card Tokens, hand-of-cards; 'lands with Mission 14') and per the Facet design §9.4 card pick-and-place is an explicitly DEFERRED (Phase 5) interaction pattern. Garage = kart ownership/equip over the existing pure, Lune-tested semantic schema code/src/shared/CarInventory.luau (owned set + equipped id; grant/equip validated; 5-kart roster). Rubric axes from §17 Phase 3, higher = better for the pilot.",
   "criteria": [
     { "id": "fewer-bespoke-interactions", "weight": 5 },
     { "id": "less-deferred-feature-dependency", "weight": 5 },

@@ -10,15 +10,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local mountLib = require("../src/mount")
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 describe("error boundaries (§17 Phase 4)", function()
 	it("renders its view when healthy; the fallback is not mounted", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -51,7 +51,7 @@ describe("error boundaries (§17 Phase 4)", function()
 	end)
 
 	it("a throwing view factory at mount swaps to the fallback; siblings survive", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -84,7 +84,7 @@ describe("error boundaries (§17 Phase 4)", function()
 	end)
 
 	it("a structural rebuild that throws INSIDE the boundary trips it at runtime", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local explode = core:signal(false)
 		local root = mountLib.mount(
 			core,
@@ -142,7 +142,7 @@ describe("error boundaries (§17 Phase 4)", function()
 	end)
 
 	it("boundary trips are registry-clean: dispose returns to baseline", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local baseline = core:counters()
 		local explode = core:signal(false)
 		local root = mountLib.mount(
@@ -178,11 +178,11 @@ describe("error boundaries (§17 Phase 4)", function()
 	end)
 
 	it("critical screen: a throwing screen presents its declared fallback screen", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local handle = pres.presentCritical(function()
 			error("screen construction failed")
 		end, {
@@ -203,7 +203,7 @@ describe("error boundaries (§17 Phase 4)", function()
 	end)
 
 	it("outside a boundary the mount-time hard-error contract is unchanged", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(
 			mountLib.mount,
 			core,

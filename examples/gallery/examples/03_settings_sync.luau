@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 3 of the LuauUI tutorial: a settings form that syncs to a server.
+-- Example 3 of the Facet tutorial: a settings form that syncs to a server.
 -- ============================================================================
 --
 -- WHAT THE PLAYER SEES  —  the client/server boundary, made watchable
@@ -51,9 +51,9 @@ local function describeSettings(music: boolean, volume: number): string
 	return `Music {if music then "on" else "off"}, volume {volume}`
 end
 
-function example.build(LuauUI: any, core: any, _deps: any)
-	local UI = LuauUI.UI
-	local replication = LuauUI.replication
+function example.build(Facet: any, core: any, _deps: any)
+	local UI = Facet.UI
+	local replication = Facet.replication
 
 	-- AUTHORITATIVE STATE (what the server has confirmed). A snapshot is the
 	-- replicated truth; we start it at revision 1.

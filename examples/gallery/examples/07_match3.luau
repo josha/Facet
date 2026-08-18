@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 7 of the LuauUI tutorial: a match-3 board.
+-- Example 7 of the Facet tutorial: a match-3 board.
 -- ============================================================================
 --
 -- WHAT THIS TEACHES
@@ -60,8 +60,8 @@ local function makeRng(seed: number): () -> number
 	end
 end
 
-local function build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+local function build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 	local pres = deps.presenter
 	local seed = DEFAULT_SEED
 
@@ -224,7 +224,7 @@ local function build(LuauUI: any, core: any, deps: any)
 
 	-- ---- async images: one provider handle per tile kind --------------------
 	-- Generous concurrency so every kind is in the active window at once.
-	local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 8 })
+	local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
 	local kindHandle: { [string]: any } = {}
 	for _, kind in KINDS do
 		kindHandle[kind] = provider.acquire(gameScope, `img/{kind}`)
@@ -481,7 +481,7 @@ local function build(LuauUI: any, core: any, deps: any)
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = "LuauUI Match-3", textSize = "title" }),
+					UI.Text({ id = "Title", text = "Facet Match-3", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
 					-- ...AND THE SCORE ROW WRAPS, for the same reason the artwork
 					-- controls below do. `numeral` + `label` at the Largest text

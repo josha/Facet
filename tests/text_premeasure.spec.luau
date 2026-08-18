@@ -240,7 +240,7 @@ describe("renderer: engine premeasurement round", function()
 		--[[ DIRECTOR 2026-08-04, the finish-screen size pop.
 
 			The re-solve above fixes the SOLVER's boxes. It does nothing for a
-			consumer MEMO that called `LuauUI.text.fit/.size/.measure` to derive its
+			consumer MEMO that called `Facet.text.fit/.size/.measure` to derive its
 			own reservation — the exact-width store is plain, non-reactive data, so
 			such a memo has no dependency to invalidate. It evaluated once, against
 			the ESTIMATOR, and then changed at whatever arbitrary later moment some

@@ -1,7 +1,7 @@
 --!strict
 -- The MATCHED RAW-ROBLOX REFERENCE (roadmap Step 9, acceptance PL-5).
 --
--- WHAT IT IS FOR. A LuauUI frame time on its own answers nothing: some of that
+-- WHAT IT IS FOR. A Facet frame time on its own answers nothing: some of that
 -- cost is Roblox drawing a scrolling list of composite rows, and that half would
 -- be paid by any implementation. This is the same dataset, the same images, the
 -- same row pitch, the same viewport and the same interactions, built with nothing
@@ -9,17 +9,17 @@
 -- share and not a guess about it.
 --
 -- WHAT IT IS NOT. It is not a second UI framework and it is not expected to have
--- LuauUI's features: no focus graph, no theme authority, no async resource
+-- Facet's features: no focus graph, no theme authority, no async resource
 -- lifecycle, no accessibility disclosure, no adaptive composition. Those absences
 -- are the point — the reference is a FLOOR, and a comparison that reads it as
--- "LuauUI costs N times more than it should" without naming what the floor omits
+-- "Facet costs N times more than it should" without naming what the floor omits
 -- is misreading it. Every omission is listed in `capabilities` below and travels
 -- with the capture.
 --
 -- IT WINDOWS. A non-virtualized reference against a virtualized list would
 -- compare two different algorithms and attribute the difference to the framework,
 -- which is the single easiest way to produce a confident wrong answer here. So
--- this hand-rolls the same shape LuauUI's VirtualList uses: a full-extent canvas,
+-- this hand-rolls the same shape Facet's VirtualList uses: a full-extent canvas,
 -- a recycled pool of row frames, and absolute offsets driven from CanvasPosition.
 --
 -- EXACTLY ONE IMPLEMENTATION MOUNTS AT A TIME; `perf_lab` enforces that, and this
@@ -95,7 +95,7 @@ local function newRowFrame(parent: Instance, opts: any): any
 	ready.Size = UDim2.fromOffset(64, 28)
 	ready.Parent = row
 
-	-- the value control, matched in SHAPE to the LuauUI Stepper: a readout
+	-- the value control, matched in SHAPE to the Facet Stepper: a readout
 	-- flanked by decrement/increment affordances
 	local minus = Instance.new("TextButton")
 	minus.Name = "Minus"
@@ -162,9 +162,9 @@ function native_list.mount(opts: any): any
 	local pitch = opts.rowHeight + opts.rowGap
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-	-- NAME IT WITHOUT THE `LuauUI` PREFIX ON PURPOSE. The runner's instance census
-	-- counts `LuauUI*` ScreenGuis as LuauUI's own and everything else as foreign;
-	-- this tree is emphatically NOT LuauUI's, and a name that made it look like it
+	-- NAME IT WITHOUT THE `Facet` PREFIX ON PURPOSE. The runner's instance census
+	-- counts `Facet*` ScreenGuis as Facet's own and everything else as foreign;
+	-- this tree is emphatically NOT Facet's, and a name that made it look like it
 	-- would inflate the framework's own cost in exactly the comparison this
 	-- reference exists to make honest.
 	local gui = Instance.new("ScreenGui")
@@ -264,7 +264,7 @@ function native_list.mount(opts: any): any
 		-- the engine coalesces the property change signal, so the window is
 		-- refreshed synchronously here too: a driven scroll must do the same work
 		-- a player's scroll does, in the same call, or the comparison is unfair to
-		-- LuauUI (whose windowing IS synchronous with the refresh)
+		-- Facet (whose windowing IS synchronous with the refresh)
 		window()
 	end
 

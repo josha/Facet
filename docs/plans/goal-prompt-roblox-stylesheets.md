@@ -1,27 +1,27 @@
-# /goal prompt — native Roblox styling for LuauUI
+# /goal prompt — native Roblox styling for Facet
 
 This prompt is the standalone copy of Step 2 in
-[`luauui-consolidated-roadmap.md`](luauui-consolidated-roadmap.md). The consolidated
+[`facet-consolidated-roadmap.md`](facet-consolidated-roadmap.md). The consolidated
 roadmap is the preferred entry point because it includes dependencies and ordering.
 
 ```text
-/goal Implement the corrected native-stylesheet plan for LuauUI. Read and follow:
+/goal Implement the corrected native-stylesheet plan for Facet. Read and follow:
 
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-audit-corrections.md
-- GameStudio/ui/LuauUI/docs/plans/roblox-native-stylesheets.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
+- GameStudio/ui/Facet/docs/plans/roblox-native-stylesheets.md
 
 Outcome: Roblox StyleSheets and the Style Editor become the runtime source of truth
 for every proven styleable paint property, semantic role, native interaction state,
 app-state tag, theme, and transition. A designer can edit a named rule or paint token
-in Studio and see it on a running LuauUI screen without changing Luau.
+in Studio and see it on a running Facet screen without changing Luau.
 
 Boundaries:
 - GuiState is read-only and engine-owned. Use native state selectors for native
-  hover/press/non-interactable state and tags for LuauUI-owned state.
-- Use only documented built-in StyleQuery conditions. Tags carry LuauUI's filtered
+  hover/press/non-interactable state and tags for Facet-owned state.
+- Use only documented built-in StyleQuery conditions. Tags carry Facet's filtered
   input-paradigm and pointer-live decisions.
 - One authority owns each engine property. Once a property is native-styled, remove
-  LuauUI's direct write for that property; preserve an explicit-write fallback only
+  Facet's direct write for that property; preserve an explicit-write fallback only
   as a separate target mode.
 - Keep solver inputs available in pure Luau. Do not promise editor round-trip for
   spacing or type metrics without a tested export/freshness workflow.

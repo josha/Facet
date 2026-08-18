@@ -2,21 +2,21 @@
 
 The interface runs on each player's own machine, but the *data that matters* is
 owned by the server. This chapter covers the three replication adapters
-(`LuauUI.replication`, in `src/replication/adapters.luau`), how they recover from
+(`Facet.replication`, in `src/replication/adapters.luau`), how they recover from
 an imperfect network, how to show a change instantly and reconcile it, and the
 firm list of things that must never travel over the network.
 
-A ground rule first: **LuauUI does not move bytes.** Your game already has a way
+A ground rule first: **Facet does not move bytes.** Your game already has a way
 to send data between server and client (remote events, or whatever transport you
 use). The adapters sit *on top of* that transport: your networking code calls the
 adapter's `ingest`/`confirm`/`reject` functions, and the adapter turns the raw
 messages into consistent, well-ordered signals your UI can read. This keeps
-LuauUI transport-agnostic.
+Facet transport-agnostic.
 
 ## 6.1 Receiving whole-state: the snapshot adapter
 
 The simplest case: the server owns a chunk of semantic state and sends the whole
-thing each time it changes. `LuauUI.replication.snapshot(core, initialRevision,
+thing each time it changes. `Facet.replication.snapshot(core, initialRevision,
 initialData)` gives you:
 
 - `snapshot.binding` — a signal holding the current data. Read it from blueprints
@@ -40,7 +40,7 @@ flaky network cannot make the UI flicker backward to old state.
 
 For a set of keyed items (a leaderboard, an inventory) the server often sends
 small **patches** — "item 7 changed, item 3 was removed" — instead of the whole
-set each time. `LuauUI.replication.collection(core, initialRevision, initialItems,
+set each time. `Facet.replication.collection(core, initialRevision, initialItems,
 requestResnapshot)` handles this, and it is stricter about ordering because a
 missed patch would silently corrupt the set.
 
@@ -82,7 +82,7 @@ dead collection.
 ## 6.3 Sending a change: the mutation adapter
 
 A client must **never** change authoritative state directly. It sends a request
-and waits for the server's verdict. `LuauUI.replication.mutation(core, opts?)`
+and waits for the server's verdict. `Facet.replication.mutation(core, opts?)`
 models this:
 
 - `mutation.status` — a signal moving through `"idle" → "pending" →
@@ -126,7 +126,7 @@ passing an `optimistic` handler to `mutation`:
 ```lua
 local draftMusic = core:signal(false)   -- what the UI shows right now
 
-local mutation = LuauUI.replication.mutation(core, {
+local mutation = Facet.replication.mutation(core, {
     optimistic = {
         -- called the instant send() runs: show the expected result
         apply = function(payload) draftMusic:set(payload.music) end,

@@ -7,7 +7,7 @@
 -- harness answers them. Stale completions never resurrect a released image
 -- (provider generations; corrections addendum §12 honesty rule).
 --
--- newAsyncImage(LuauUI, core, spec) -> { blueprint, state, handle }
+-- newAsyncImage(Facet, core, spec) -> { blueprint, state, handle }
 --   spec = {
 --     id: string,
 --     scope: Scope,            -- owns the provider handle (release-on-dispose)
@@ -57,9 +57,9 @@ local ASYNC_IMAGE_KEYS = specGuard.keySet({
 	"width",
 })
 
-function async_image.build(LuauUI: any, core: any, spec: any)
+function async_image.build(Facet: any, core: any, spec: any)
 	specGuard.assertKnownKeys("newAsyncImage", spec, ASYNC_IMAGE_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	assert(type(spec) == "table" and type(spec.id) == "string", "newAsyncImage: spec.id required")
 	assert(spec.provider ~= nil and spec.scope ~= nil, "newAsyncImage: provider and scope required")
 	assert(type(spec.key) == "string" and spec.key ~= "", "newAsyncImage: key must be a content string")
@@ -96,7 +96,7 @@ function async_image.build(LuauUI: any, core: any, spec: any)
 	local dimmed = spec.dimmed
 	local tint: any = nil
 	if dimmed ~= nil then
-		if LuauUI.UI.isReadable(dimmed) then
+		if Facet.UI.isReadable(dimmed) then
 			tint = spec.scope:own(core:memo(function(use)
 				return if use(dimmed) == true then DIM_TINT else PLAIN_TINT
 			end))

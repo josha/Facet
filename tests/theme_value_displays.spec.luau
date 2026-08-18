@@ -32,7 +32,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local customFactory = require("../src/core/custom")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
 local presenterLib = require("../src/present/presenter")
@@ -228,7 +228,7 @@ describe("chrome_slots: the window clip, expressed as numbers", function()
 		-- the window wins over an ImageRect crop — the nine-patch is never
 		-- re-derived, so the rail texture and the caps are byte-stable at 1%.
 		local box = chrome_slots.barFillBox("ltr", 300)
-		expect(box.name).toBe("LuauUIBarFill")
+		expect(box.name).toBe("FacetBarFill")
 		expect(box.size.xOffset).toBe(300)
 		expect(box.size.xScale).toBe(0)
 		expect(box.size.yScale).toBe(1) -- full bleed on the cross axis
@@ -258,7 +258,7 @@ describe("chrome_slots: the window clip, expressed as numbers", function()
 		-- centred rather than inset, so a 36px jewel on a 28px rail overhangs
 		-- evenly and reads as a cap instead of a block at the end
 		local start = chrome_slots.barCapBox("start", "ltr", { w = 28, h = 36 })
-		expect(start.name).toBe("LuauUIBarCapStart")
+		expect(start.name).toBe("FacetBarCapStart")
 		expect(start.anchor.x).toBe(0.5)
 		expect(start.anchor.y).toBe(0.5)
 		expect(start.position.xScale).toBe(0)
@@ -266,7 +266,7 @@ describe("chrome_slots: the window clip, expressed as numbers", function()
 		expect(start.size.xOffset).toBe(28)
 		expect(start.size.yOffset).toBe(36)
 		local finish = chrome_slots.barCapBox("finish", "ltr", { w = 28, h = 36 })
-		expect(finish.name).toBe("LuauUIBarCapEnd")
+		expect(finish.name).toBe("FacetBarCapEnd")
 		expect(finish.position.xScale).toBe(1)
 	end)
 
@@ -281,7 +281,7 @@ describe("chrome_slots: the window clip, expressed as numbers", function()
 
 	it("the centrepiece is dead centre on both axes, direction-independently", function()
 		local box = chrome_slots.barCenterBox({ w = 36, h = 28 })
-		expect(box.name).toBe("LuauUIBarCenter")
+		expect(box.name).toBe("FacetBarCenter")
 		expect(box.anchor.x).toBe(0.5)
 		expect(box.anchor.y).toBe(0.5)
 		expect(box.position.xScale).toBe(0.5)
@@ -439,7 +439,7 @@ describe("the bar's ornaments reserve the space they paint in", function()
 	it("the SOLVER clears the label, the readout and the rows above and below", function()
 		local core, env, adapter, _, pres = harness()
 		local p =
-			LuauUI.newProgressView(LuauUI, core, { id = "Load", label = "Download", value = 0.35, showValue = true })
+			Facet.newProgressView(Facet, core, { id = "Load", label = "Download", value = 0.35, showValue = true })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -546,7 +546,7 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		d.metrics.controls.progress = { trackHeight = 40, rowMinHeight = 56 }
 		local pkg = themes.define(d)
 		assert(pkg ~= nil, "the deep-inset fixture must compile at a 40px track")
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.35, height = 12 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.35, height = 12 })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
@@ -567,7 +567,7 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		expect(string.find(reported.issue, "16px of border", 1, true) ~= nil).toBe(true)
 		expect(string.find(reported.issue, "12px", 1, true) ~= nil).toBe(true)
 		-- and a track that CAN afford its insets reports nothing
-		local ok = LuauUI.newProgressView(LuauUI, core, { id = "Fine", value = 0.35 })
+		local ok = Facet.newProgressView(Facet, core, { id = "Fine", value = 0.35 })
 		pres.present(UI.Screen({ id = "T", children = { ok.blueprint } })).controller.diagnostics()
 		pres.refresh()
 		p.dispose()
@@ -689,7 +689,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		-- the live defect. `glossy-touch` declares barTrack/barFill and NO slider
 		-- recipe at all, so before this round a view that supplied its own thumb
 		-- image earned `luau-skinned-sliderThumb` and nothing matched it.
-		local glossy = (require("../examples/themes/glossy_touch") :: any).build(LuauUI.themes)
+		local glossy = (require("../examples/themes/glossy_touch") :: any).build(Facet.themes)
 		expect(chrome_slots.planFor(glossy, "sliderThumb")).toBeNil() -- no recipe
 		local override = chrome_slots.planFor(glossy, "sliderThumb", { image = "rbxassetid://991" })
 		expect(override.localOverride).toBe(true) -- ...but a view can still skin it
@@ -801,7 +801,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 			motionPolicy = core:signal("full"),
 		})
 		local scope = core:scope("spinner-paint")
-		local view = LuauUI.newProgressView(LuauUI, core, {
+		local view = Facet.newProgressView(Facet, core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
@@ -1251,7 +1251,7 @@ end)
 describe("the value controls declare their slots on the internal channel", function()
 	it("a ProgressView's track and fill reach adapter.create as hints", function()
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.4 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.4 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar").decorationHint.slot).toBe("barTrack")
@@ -1262,7 +1262,7 @@ describe("the value controls declare their slots on the internal channel", funct
 	it("the fill's solved rect is still the percent — geometry stays solver-owned", function()
 		local core, _, adapter, _, pres = harness()
 		local v = core:signal(0.25)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = v })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = v })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect
@@ -1275,7 +1275,7 @@ describe("the value controls declare their slots on the internal channel", funct
 
 	it("a Stepper's two affordances declare the plate slot", function()
 		local core, _, adapter, _, pres = harness()
-		local s = LuauUI.newStepper(LuauUI, core, { id = "Qty", value = core:signal(2), min = 0, max = 9 })
+		local s = Facet.newStepper(Facet, core, { id = "Qty", value = core:signal(2), min = 0, max = 9 })
 		pres.present(UI.Screen({ id = "S", children = { s.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Qty/Dec").decorationHint.slot).toBe("stepperPlate")
@@ -1338,7 +1338,7 @@ describe("the bar family's census falls on EVERY teardown path", function()
 		-- the SOLVER's number is what the presenter actually publishes for the
 		-- track, in unscaled px, and the fill box is derived from it verbatim
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5 })
+		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect

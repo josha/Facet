@@ -1,6 +1,6 @@
-# The LuauUI constitution
+# The Facet constitution
 
-**This is the one authoritative rule set for how a LuauUI public surface is shaped.**
+**This is the one authoritative rule set for how a Facet public surface is shaped.**
 Learn one control, service, or extension seam and the rules here tell you what the
 next one looks like. The [API reference](api.md) documents each item; this document
 governs the *patterns*; [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md) governs
@@ -24,7 +24,7 @@ Every feature is exactly one of these kinds. Choose by the question, not by tast
 | **Blueprint primitive** | a node class the solver/renderer understand natively | needs its own layout/paint/input semantics an existing class cannot compose | `UI.Text`, `UI.ScrollView`, `UI.Grip`, `UI.Path` |
 | **Structural region** | the only things that may mount/unmount nodes later | its job is presence, not paint | `UI.When`, `UI.ForEach`, `UI.ErrorBoundary` |
 | **Modifier** | `(blueprint, …) -> new frozen Blueprint` | it decorates or re-frames an existing node | `UI.shadow`, `UI.frame`, `UI.draggable`, `contribution.attach` |
-| **Composite control** | primitives assembled behind `build(LuauUI, core, spec)` | it could be written outside the library with public API only | `newTable`, `newStepper`, `newChip` |
+| **Composite control** | primitives assembled behind `build(Facet, core, spec)` | it could be written outside the library with public API only | `newTable`, `newStepper`, `newChip` |
 | **Service** | a stateful runtime collaborator created per client/surface | it owns live state and a lifetime | `newCore`, `newPresenter`, `newEnvironment`, `renderer.attach` |
 | **Pure decision module** | engine-free functions + frozen data, no ownership | the whole contract is (input → answer) | `adaptive`, `composition`, `valueModel`, `interactionTokens`, `text` |
 | **Engine adapter** | the only code that touches Instances / real input / device facts | it would not compile under Lune | `client/screen_target`, `client/roblox_env` |
@@ -57,7 +57,7 @@ over the `valueModel` decision module plus adapter seams).
 
 - Services: **`(core, …collaborators, opts?)`** — core first, options last
   (`mount(core, blueprint, opts?)`, `newPresenter(core, env, adapter, actionSystem, opts?)`).
-- Composite controls: **`build(LuauUI, core, spec)`** — the library table is
+- Composite controls: **`build(Facet, core, spec)`** — the library table is
   injected so an out-of-repo control uses the identical seam.
 - Pure models: **`new(opts?)`** single table (`newAutoscroll`, `newDragVelocity`,
   `motion.newValueReveal`).
@@ -75,7 +75,7 @@ legal set, with a did-you-mean where possible:
 
 ```
 UI.Button: unknown property 'lable'. Did you mean 'label'?
-LuauUI newStepper('Volume'): spec.value must be a settable Signal you own — a Memo cannot be set.
+Facet newStepper('Volume'): spec.value must be a settable Signal you own — a Memo cannot be set.
 ```
 
 Rules:
@@ -114,7 +114,7 @@ Rules:
 
 - Composite controls return a frozen table
   **`{ blueprint, …extras, dump, dispose }`**. `dump()` is deterministic (two
-  calls, identical result), carries a `schema = "luauui-<name>-dump/N"` string, and
+  calls, identical result), carries a `schema = "facet-<name>-dump/N"` string, and
   reflects the state a bug report needs. `dispose()` tears down the control scope
   and nothing else. Control-specific verbs either sit flat (few) or under `api`
   (many) — today both exist (see §16/PKT-1); new controls put extra surface under
@@ -225,7 +225,7 @@ Rules:
 - Everything except `src/client/` is engine-free and runs under Lune
   (UI-BOUND-001; `tools/lune/check_boundary`, which also scans consumers).
 - The **blessed client entry points** — required directly, never exported from the
-  LuauUI table — are exactly: `screen_target`, `billboard_target`, `roblox_env`,
+  Facet table — are exactly: `screen_target`, `billboard_target`, `roblox_env`,
   `roblox_input`, `roblox_resources`, `theme_controller`, `edit_preview`,
   `motion_driver`. The list lives in api.md §Client entry points and is pinned by
   the checkers; everything else under `src/` is internal to consumers.
@@ -258,7 +258,7 @@ foreign names, it resolves or falls back visibly.
 ## 14. Versioning, deprecation, documentation
 
 - ADR-0011 is binding: `VERSION` single-sourced in `src/init.luau`;
-  `LuauUI.DEPRECATIONS` is the machine-readable ledger (schema-generated property
+  `Facet.DEPRECATIONS` is the machine-readable ledger (schema-generated property
   entries plus declared entries), frozen; a deprecated surface keeps working for
   ≥ one MINOR unless it never worked (diagnosed-not-preserved).
 - Every public item has an api.md entry — signature, spec fields, return surface,
@@ -298,7 +298,7 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 | E-8 | `newAsyncImage` takes `spec.scope`, returns no `dump`/`dispose` | its resources must die with the owner's scope alongside the provider handle; a control-owned scope would be a second teardown path racing the first |
 | E-9 | `core:signal(initial, eq?)` / `core:memo(fn, eq?)` take a positional optional | the hottest constructors in the library, one option; an opts table would tax every call site for one rare argument |
 | E-10 | `renderer.attach` is not `newRenderer` | the module is also the adapter-conformance data (`EMITTED_PROPS`, …); `attach` names what happens — a controller bound to an existing mount's lifetime |
-| E-11 | `edit_preview.start(LuauUI, opts)` | dev tooling injected like a composite so the plugin can hand in the game's own library table |
+| E-11 | `edit_preview.start(Facet, opts)` | dev tooling injected like a composite so the plugin can hand in the game's own library table |
 | E-12 | `themes.define` / `composition.normalize` / `arrangementOf` accept `any` in | they are validators; ruling on malformed input is their job. Their *outputs* are typed/frozen |
 | E-13 | `valueModel.new` is the one `.new` a consumer types | it is a namespace module's factory (like `motion.newClock`), kept beside its `defaultFormat` constant |
 | E-14 | `mount.dump()` nests under `tree`; `composition.dump()` is flat | a mount dump IS a tree; a resolution is a record. Forcing either shape flattens meaning |

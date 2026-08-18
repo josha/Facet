@@ -19,10 +19,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local UI = require("../src/blueprint")
--- packages are BUILT through the public facade (`LuauUI.themes` carries
+-- packages are BUILT through the public facade (`Facet.themes` carries
 -- `neutralPackage`, which every reference package derives from); the bare package
 -- module is the compiler and is what owns the glyph table.
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local environment = require("../src/env/environment")
 local mountLib = require("../src/mount")
@@ -505,14 +505,14 @@ describe("compactLabel: measured under every reference package", function()
 		end
 		ladder(nil)
 		for _, name in PACKAGES do
-			local pkg = (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+			local pkg = (require)(`../examples/themes/{name}`).build(Facet.themes)
 			ladder(pkg)
 		end
 	end)
 
 	it("the compact form never costs a second line, under any package", function()
 		for _, name in PACKAGES do
-			local pkg = (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+			local pkg = (require)(`../examples/themes/{name}`).build(Facet.themes)
 			local roomy = drawAt({ label = "Edit item", compactLabel = "Ed" }, 400, pkg)
 			local tight = drawAt({ label = "Edit item", compactLabel = "Ed" }, 44, pkg)
 			expect(tight.h).toBe(roomy.h)
@@ -532,13 +532,13 @@ describe("compactLabel: the table's Edit/Done toggle, its first consumer", funct
 	local TOGGLE = "/S/Racers/Main/ToggleWhen/then/Toolbar/EditToggle"
 
 	local function tableWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local rows = core:signal({ { id = "r1", name = "Ada", laps = 3 } })
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			columns = { { id = "name", title = "Racer", width = { type = "fill", weight = 1 } } },
 			rows = rows,

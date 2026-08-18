@@ -1,6 +1,6 @@
 # Native-adoption docs grounding — 2026-07-23
 
-**Mission:** LuauUI native-adoption evidence gathering (Roblox-native primitives audit +
+**Mission:** Facet native-adoption evidence gathering (Roblox-native primitives audit +
 corrections addendum). **Date fetched:** 2026-07-23. Every claim below carries the
 exact `create.roblox.com` URL it was fetched from; where a fetch could not confirm a
 fact from the reference page's rendered content, that is stated explicitly rather than
@@ -483,7 +483,7 @@ Confirmed, quoted verbatim from the fetched page:
 This is a strong, direct confirmation of corrections addendum §9's entire premise:
 the engine's font pipeline already applies `PreferredTextSize`; `TextScaled` opts a
 node out; `UITextSizeConstraint` bounds it; `AutomaticSize` grows containers around
-it. LuauUI's current double-application risk (mapping the preference to
+it. Facet's current double-application risk (mapping the preference to
 `typographyScale` *and* multiplying `TextSize`) is exactly the failure mode this page's
 facts predict — no disagreement, this fully supports the addendum's required Studio
 matrix.
@@ -545,7 +545,7 @@ sensitivity, gamepad camera sensitivity, rotation type), and VR-specific setting
 **Resolution:** per items 8 and 14 above, **`PreferredTextSize` and
 `ReducedMotionEnabled` both live on `GuiService`, not `UserGameSettings`.** Any
 implementation code or design doc that reads these off `UserGameSettings` is reading
-the wrong class — this is worth propagating back into the LuauUI Roblox adapter
+the wrong class — this is worth propagating back into the Facet Roblox adapter
 (`src/client/roblox_env.luau`) if it currently assumes `UserGameSettings` for either
 fact.
 
@@ -592,7 +592,7 @@ search-indexed docs content, corroborating item 8's `SelectedObject` finding):
 gap flagged in item 7 — it is exactly the open question the primitives audit's Q2/Q3
 and the corrections addendum's item-9 spike already require settling with a live
 Studio + physical-gamepad test, not something the current published docs state
-outright. Do not implement LuauUI's modal/menu selection-bridge experiment (Phase 4 of
+outright. Do not implement Facet's modal/menu selection-bridge experiment (Phase 4 of
 the primitives audit) assuming autoscroll-on-select is free — prove it or keep the
 explicit scroll-into-view path as primary regardless.
 
@@ -608,7 +608,7 @@ Source: https://create.roblox.com/docs/reference/engine/classes/GuiObject (fetch
    member is `Idle`, not `None`. Fix any reference to `Enum.GuiState.None`.
 2. **⚠ `UserGameSettings` does not carry accessibility preferences.**
    `PreferredTextSize` and `ReducedMotionEnabled` are `GuiService` properties. If any
-   LuauUI doc or code assumes `UserGameSettings`, it is wrong and should be corrected
+   Facet doc or code assumes `UserGameSettings`, it is wrong and should be corrected
    to `GuiService`.
 3. **⚠ `UIDragDetector` mouse/touch/gamepad input support is not directly stated** in
    either the reference page or the guide as currently published — the corrections
@@ -648,7 +648,7 @@ corrections addendum):**
   (item 13) — confirms addendum §7 exactly.
 - `PreferredTextSize` is engine-applied with `TextScaled` opt-out,
   `UITextSizeConstraint` bounding, and `AutomaticSize` growth (item 14) — confirms
-  addendum §9's entire premise, including the double-application risk LuauUI
+  addendum §9's entire premise, including the double-application risk Facet
   currently carries.
 - `GetInsetArea(Enum.ScreenInsets): Rect` is the modern, single-call, four-edge-via-
   `Rect` API (item 8/9) — supports addendum §10's "choose one coordinate model"
@@ -658,4 +658,4 @@ corrections addendum):**
   that moves offscreen."
 
 **File written:**
-`/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/LuauUI/docs/research/2026-07-23-native-adoption-docs-grounding.md`
+`/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/docs/research/2026-07-23-native-adoption-docs-grounding.md`

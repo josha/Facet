@@ -197,24 +197,24 @@ end)
 
 describe("UI.Grid blueprint (architecture verifier F3: §10.1 v1 control)", function()
 	it("UI.Grid mounts and renders through the solver's grid kind", function()
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local mountLib = require("../src/mount")
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Grid({
+				Facet.UI.Grid({
 					id = "G",
 					columns = 2,
 					gap = 4,
 					children = {
-						LuauUI.UI.Box({ id = "A", height = { type = "fixed", px = 30 } }),
-						LuauUI.UI.Box({ id = "B", height = { type = "fixed", px = 30 } }),
-						LuauUI.UI.Box({ id = "C", height = { type = "fixed", px = 30 } }),
+						Facet.UI.Box({ id = "A", height = { type = "fixed", px = 30 } }),
+						Facet.UI.Box({ id = "B", height = { type = "fixed", px = 30 } }),
+						Facet.UI.Box({ id = "C", height = { type = "fixed", px = 30 } }),
 					},
 				}),
 			},

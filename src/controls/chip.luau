@@ -35,9 +35,9 @@ local CHIP_KEYS = specGuard.keySet({
 	"selected",
 })
 
-function chip.build(LuauUI: any, core: any, spec: any)
+function chip.build(Facet: any, core: any, spec: any)
 	specGuard.assertKnownKeys("newChip", spec, CHIP_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Chip"
 	local scope = core:scope("chip-" .. tostring(id))
 	local selected = spec.selected -- owner-held Signal<boolean>
@@ -50,7 +50,7 @@ function chip.build(LuauUI: any, core: any, spec: any)
 	-- TextInput (CTRL-03).
 	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
 		error(
-			`LuauUI newChip('{id}'): \`selected\` must be a SETTABLE Signal<boolean> the caller owns `
+			`Facet newChip('{id}'): \`selected\` must be a SETTABLE Signal<boolean> the caller owns `
 				.. `(the control never creates it, because the selection must outlive the control)`,
 			0
 		)
@@ -98,7 +98,7 @@ function chip.build(LuauUI: any, core: any, spec: any)
 	-- deterministic diagnostic summary (§10.2): the state a bug report needs.
 	local function dump()
 		return {
-			schema = "luauui-chip-dump/1",
+			schema = "facet-chip-dump/1",
 			id = id,
 			label = label,
 			selected = selected:get(),

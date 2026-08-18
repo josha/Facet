@@ -1,7 +1,7 @@
 --!strict
 -- perf CLI (design §16.1 command contract; §17 Phase 4; roadmap Step 4).
 -- Runs the controlled performance runner over every named scene × every device
--- profile, writes artifacts/phase-4/perf.json (schema "luauui-perf/2"), prints
+-- profile, writes artifacts/phase-4/perf.json (schema "facet-perf/2"), prints
 -- a human-readable summary, enforces the versioned budgets in
 -- bench/perf_budgets.json, and EXITS NONZERO on any violation — naming the
 -- scene, the failing requirement, and an actionable hint (§16.1: "does not
@@ -11,7 +11,7 @@
 --
 --   trend         max(observed_p95 × multiplier, floor). Catches regressions
 --                 against a MEASURED baseline. Says nothing about any device.
---   frame ceiling the share of the supported frame target one LuauUI update
+--   frame ceiling the share of the supported frame target one Facet update
 --                 may occupy. ONE-DIRECTIONAL: this host is faster than every
 --                 supported device, so exceeding it proves the scene cannot
 --                 hold the frame target anywhere. Passing it proves nothing
@@ -51,7 +51,7 @@ local BUDGET_MULTIPLIER = 4.0
 -- floor below which a scenario is so cheap the multiplier is pure noise; a
 -- fixed floor keeps a ~2µs scene from flip-flopping the gate run to run.
 local BUDGET_FLOOR_MS = 0.10
--- The share of one frame LuauUI's own update may occupy. A quarter: the game
+-- The share of one frame Facet's own update may occupy. A quarter: the game
 -- simulation, physics, replication and the engine's own render all have to fit
 -- in the same frame, and a UI framework that wants more than a quarter of it
 -- has stopped being a reasonable neighbour. This is a PRODUCT decision, stated
@@ -71,11 +71,11 @@ end
 -- set is stamped `injectedRegression` — which tools/check_perf_metrics.py
 -- refuses to accept as the committed artifact.
 --
---   LUAUUI_PERF_INJECT_REGRESSION=<scene> [LUAUUI_PERF_INJECT_FACTOR=8] tools/perf.sh
+--   FACET_PERF_INJECT_REGRESSION=<scene> [FACET_PERF_INJECT_FACTOR=8] tools/perf.sh
 --
 -- tools/lune/prove_perf_gate drives exactly this and records the result.
-local injectScene = process.env.LUAUUI_PERF_INJECT_REGRESSION
-local injectFactor = tonumber(process.env.LUAUUI_PERF_INJECT_FACTOR or "") or 8
+local injectScene = process.env.FACET_PERF_INJECT_REGRESSION
+local injectFactor = tonumber(process.env.FACET_PERF_INJECT_FACTOR or "") or 8
 local scenes = perf_scenes
 if injectScene ~= nil and injectScene ~= "" then
 	local found = false
@@ -97,7 +97,7 @@ if injectScene ~= nil and injectScene ~= "" then
 			table.insert(scenes, scene)
 		end
 	end
-	assert(found, `perf: LUAUUI_PERF_INJECT_REGRESSION names no scene '{injectScene}'`)
+	assert(found, `perf: FACET_PERF_INJECT_REGRESSION names no scene '{injectScene}'`)
 	print(`perf: INJECTED REGRESSION — scene '{injectScene}' doing {injectFactor}x the work (falsification run)`)
 end
 
@@ -175,7 +175,7 @@ if mode == "baseline" then
 		end
 	end
 	local budgets = {
-		schema = "luauui-perf-budgets/2",
+		schema = "facet-perf-budgets/2",
 		evidenceClass = perf_runner.CLASS,
 		evidenceLevel = perf_runner.LEVEL,
 		referenceProfile = perf_profiles.REFERENCE,

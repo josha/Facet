@@ -15,7 +15,7 @@
 --   * every path the suite requires is a real file (this one guards
 --     tests/run.luau itself, not only the tier);
 --   * and the fast runner cannot be mistaken for the suite: it prints the
---     LUAUUI-FAST-TIER marker that tools/test.sh refuses.
+--     FACET-FAST-TIER marker that tools/test.sh refuses.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -99,9 +99,9 @@ describe("test tiers: the fast tier is the suite list minus named exclusions", f
 
 	it("the fast runner announces itself with the marker tools/test.sh refuses", function()
 		local runner = fs.readFile("tests/run_fast.luau")
-		expect(string.find(runner, "LUAUUI-FAST-TIER", 1, true) ~= nil).toBe(true)
+		expect(string.find(runner, "FACET-FAST-TIER", 1, true) ~= nil).toBe(true)
 		local gate = fs.readFile("tools/test.sh")
-		expect(string.find(gate, "LUAUUI-FAST-TIER", 1, true) ~= nil).toBe(true)
+		expect(string.find(gate, "FACET-FAST-TIER", 1, true) ~= nil).toBe(true)
 		-- ...and the gate's own path is still the argument-free full suite
 		expect(string.find(gate, 'out="$(./run-tests.sh 2>&1)"', 1, true) ~= nil).toBe(true)
 	end)

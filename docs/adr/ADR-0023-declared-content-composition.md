@@ -4,16 +4,16 @@
 **Status:** Accepted
 **Stage:** `parallel-sponsor` (roadmap Step 6), ledger row **OWN-D45**
 **Commissioned by:** director visual round 4, **DV4-3** (verbatim): *"this also seems like exactly
-the type of thing luauui should solve well — we have a screen with information we declare, and want
+the type of thing facet should solve well — we have a screen with information we declare, and want
 to ensure the ui auto-adapts well everywhere."*
 **Companions:** `artifacts/parallel-sponsor/responsibility-ledger.md` (OWN-D45),
-`games/RascalRally/docs/ui/UI_SPEC_sponsor_luauui.md` §S16.2–§S16.7 (the designer-seat contract this
+`games/RascalRally/docs/ui/UI_SPEC_sponsor_facet.md` §S16.2–§S16.7 (the designer-seat contract this
 implements), ADR-0011 (semver), ADR-0019 (theme snapshot / metric names), ADR-0022 (motion,
 transitions, paint escapes).
 
 ## Context
 
-LuauUI had two adaptive primitives and a hole between them.
+Facet had two adaptive primitives and a hole between them.
 
 - **`UI.AdaptiveStack`** resolves ONE axis, from a bound `Readable`. The author decides the axis.
 - **`UI.ViewThatFits`** resolves ONE container's candidate, by measuring it against the space that
@@ -242,7 +242,7 @@ count in `conditions` moved 6 → 12 (documented, and `opts.scope` owns all twel
   Five mutations run against the load-bearing checks — the collapsed-lane report, the mount rule,
   the blueprint's live-reserve normalization, the prop's reactivity/dirty class, and the
   boolean refusal — and every one of them fails the suite.
-- **Public surface added:** `UI.Composition`, `UI.Region`, `LuauUI.composition`
+- **Public surface added:** `UI.Composition`, `UI.Region`, `Facet.composition`
   (`resolve` / `normalize` / `dump` / `floorPx` / `arrangementOf` / `ARRANGEMENTS`),
   `controller.compositionAt(path?)`, `adaptive.heightClass` / `orientationFor` /
   `HEIGHT_BREAKPOINTS`, six new `conditions` Readables, and `composition` on the layout dump. MINOR
@@ -252,7 +252,7 @@ count in `conditions` moved 6 → 12 (documented, and `opts.scope` owns all twel
   fix is fewer forms, not a rebuild.
 - **Diagnosability is now a first-class output.** An adaptive screen whose only evidence is a
   screenshot cannot be debugged: a screenshot cannot say that the three-lane candidate lost on the
-  field lane's minimum width by six pixels. `luauui-composition-dump/1` says exactly that, the
+  field lane's minimum width by six pixels. `facet-composition-dump/1` says exactly that, the
   solver publishes it on the node, the layout dump carries it, the controller exposes it, and the
   gallery scenario's report returns it.
 - **Refused at construction, not resolved around:** unknown fields, a second `mayScroll`, `reserved`

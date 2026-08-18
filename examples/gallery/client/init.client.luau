@@ -1,10 +1,10 @@
 --!strict
--- LuauUI Gallery client bootstrap (design §17 Phase 1): the complete path —
+-- Facet Gallery client bootstrap (design §17 Phase 1): the complete path —
 -- replicated semantic state -> adapters -> blueprint -> mount -> solve ->
 -- ScreenTarget, with real IAS input and the presenter. The "server" here is a
 -- local loopback of semantic state (the gallery is single-place); games wire
 -- the same adapters to their replication layer.
--- Studio verification reads workspace attributes LuauUI_* (checkpoints).
+-- Studio verification reads workspace attributes Facet_* (checkpoints).
 
 -- string requires do NOT wait for replication (platform research 2026-07-19)
 if not game:IsLoaded() then
@@ -15,29 +15,29 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
-local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI")) :: any
-local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target) :: any
-local roblox_env = require(ReplicatedStorage.LuauUI.client.roblox_env) :: any
-local roblox_input = require(ReplicatedStorage.LuauUI.client.roblox_input) :: any
-local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention) :: any
-local responder_effects = require(ReplicatedStorage.LuauUI.client.responder_effects) :: any
+local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
+local screen_target = require(ReplicatedStorage.Facet.client.screen_target) :: any
+local roblox_env = require(ReplicatedStorage.Facet.client.roblox_env) :: any
+local roblox_input = require(ReplicatedStorage.Facet.client.roblox_input) :: any
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention) :: any
+local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects) :: any
 
-local UI = LuauUI.UI
-local core = LuauUI.newCore()
-local env = LuauUI.newEnvironment(core)
+local UI = Facet.UI
+local core = Facet.newCore()
+local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
--- NS-I2 fallback A/B driver: set workspace attribute LuauUI_ForceScrollFallback
+-- NS-I2 fallback A/B driver: set workspace attribute Facet_ForceScrollFallback
 -- BEFORE running to exercise the clip-only ScrollView fallback in Studio
--- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10): LuauUI_NativeStyle=true
--- opts the target into sheet-owned paint; LuauUI_ForceStyleFallback wins over it
+-- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10): Facet_NativeStyle=true
+-- opts the target into sheet-owned paint; Facet_ForceStyleFallback wins over it
 -- so the explicit-write path is exercised separately (never only headlessly)
 local adapter = screen_target.new({
-	forceScrollFallback = workspace:GetAttribute("LuauUI_ForceScrollFallback") == true,
-	-- LuauUI_NativeTransitions opts the sheet transitions in (progressive
+	forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
+	-- Facet_NativeTransitions opts the sheet transitions in (progressive
 	-- enhancement, default OFF until the NSS-P3 publish rider clears)
-	nativeStyle = (workspace:GetAttribute("LuauUI_NativeStyle") == true and workspace:GetAttribute(
-		"LuauUI_ForceStyleFallback"
-	) ~= true) and { transitions = workspace:GetAttribute("LuauUI_NativeTransitions") == true } or false,
+	nativeStyle = (workspace:GetAttribute("Facet_NativeStyle") == true and workspace:GetAttribute(
+		"Facet_ForceStyleFallback"
+	) ~= true) and { transitions = workspace:GetAttribute("Facet_NativeTransitions") == true } or false,
 })
 local system = roblox_input.newSystem(core)
 -- KEYBOARD NAVIGATION ON, BECAUSE THIS PLACE FREED THE KEY FOR IT
@@ -48,12 +48,12 @@ local system = roblox_input.newSystem(core)
 -- then never opted in, so Tab bound nothing and traversal was dead in all seven
 -- tutorial examples: six Tab presses moved focus zero times. A UI-only gallery
 -- whose whole job is demonstrating the framework's input story has to have it on.
-local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 
 -- The presentation layer's clock (Step 5): transitions, toasts, and every
 -- motion-clock consumer advance ONLY inside presenter.tick — bind it to the
 -- render clock exactly once, or nothing animates live while headless stays green.
-local motion_driver = require(ReplicatedStorage.LuauUI.client.motion_driver) :: any
+local motion_driver = require(ReplicatedStorage.Facet.client.motion_driver) :: any
 motion_driver.bind(pres)
 
 -- First-responder engine seam (ADR-0014): while an EXCLUSIVE (sinking) surface
@@ -90,9 +90,9 @@ end
 -- paths only: a scenario run owns its own theme controller (the runner installs
 -- and swaps packages as acceptance steps), and `themeMetrics` is ONE env fact,
 -- so a second controller there would be a capability error rather than a
--- convenience. Set the workspace attribute LuauUI_ThemePicker = false to hide it.
+-- convenience. Set the workspace attribute Facet_ThemePicker = false to hide it.
 local theme_picker = require(script:WaitForChild("theme_picker")) :: any
-local theme_controller = require(ReplicatedStorage.LuauUI.client.theme_controller) :: any
+local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller) :: any
 
 -- `collapsible` is passed only by the showcase place: see theme_picker's
 -- MountOpts for why it is opt-in rather than the default.
@@ -101,9 +101,9 @@ local function mountThemePicker(collapsible: boolean?, composed: boolean?)
 		return nil
 	end
 	-- the reference packages replicate as ModuleScripts under
-	-- ReplicatedStorage.LuauUIThemes (examples/gallery.project.json); each
+	-- ReplicatedStorage.FacetThemes (examples/gallery.project.json); each
 	-- exposes `build(themes) -> (package, report)` through the PUBLIC surface
-	local folder = ReplicatedStorage:FindFirstChild("LuauUIThemes")
+	local folder = ReplicatedStorage:FindFirstChild("FacetThemes")
 	local packages: { [string]: any } = {}
 	if folder ~= nil then
 		for _, module in folder:GetChildren() do
@@ -115,7 +115,7 @@ local function mountThemePicker(collapsible: boolean?, composed: boolean?)
 				-- `testOnly` fixtures stay out of the list (theme_picker.isPickable):
 				-- the acceptance scenarios install those by name, and a picker whose
 				-- rows are broken-on-purpose packages misrepresents the framework
-				return if theme_picker.isPickable(m) then (m.build(LuauUI.themes)) else nil
+				return if theme_picker.isPickable(m) then (m.build(Facet.themes)) else nil
 			end)
 			if ok and built ~= nil then
 				packages[module.Name] = built
@@ -123,7 +123,7 @@ local function mountThemePicker(collapsible: boolean?, composed: boolean?)
 		end
 	end
 	local mounted = theme_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -137,7 +137,7 @@ local function mountThemePicker(collapsible: boolean?, composed: boolean?)
 		warn = warn,
 	})
 	if mounted ~= nil then
-		workspace:SetAttribute("LuauUI_ThemePickerReady", true)
+		workspace:SetAttribute("Facet_ThemePickerReady", true)
 	end
 	return mounted
 end
@@ -167,7 +167,7 @@ end)
 -- are UI-only and have no leaderboard worth keeping, so the trade is free HERE.
 --
 -- IT IS NOT FREE IN A GAME, which is why this lives in the gallery bootstrap and
--- not in LuauUI: hiding a game's leaderboard to win a key is the same trade the
+-- not in Facet: hiding a game's leaderboard to win a key is the same trade the
 -- gamepad_contention scope note refuses for avatar controls, and the library
 -- never makes it for a consumer. A game decides for itself, and
 -- `gamepad_contention.traversalKeyContended()` tells it what the current answer
@@ -200,10 +200,10 @@ end)
 -- republish to change — a fine developer affordance and a useless one on a
 -- device you are holding.
 --
--- The showcase place sets `LuauUI_Showcase = true` in its own Rojo project
+-- The showcase place sets `Facet_Showcase = true` in its own Rojo project
 -- (tools/build_places.sh), so nobody has to touch an attribute; the branch is
 -- inert in every other place.
-if workspace:GetAttribute("LuauUI_Showcase") == true then
+if workspace:GetAttribute("Facet_Showcase") == true then
 	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
 	local settings_panel = require(script:WaitForChild("settings_panel")) :: any
 	local showcase_chrome = require(script:WaitForChild("showcase_chrome")) :: any
@@ -215,7 +215,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	-- a fixed overlay always covers SOMETHING — the all-controls fixture's own
 	-- title and its stepper both ended up underneath a chip.
 	--
-	-- LuauUI already has the right mechanism, and it is the one the CoreGui
+	-- Facet already has the right mechanism, and it is the one the CoreGui
 	-- topbar itself uses: `coreSafeInsets` is read on every solve, so a top inset
 	-- of (core topbar + bar) makes the SOLVER lay every demo out below both.
 	-- Nothing overlaps because nothing floats.
@@ -285,8 +285,8 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		})
 	end
 	reserveBar()
-	local examplesFolder = ReplicatedStorage:WaitForChild("LuauUIExamples", 10)
-	local scenariosFolder = ReplicatedStorage:FindFirstChild("LuauUIScenarios")
+	local examplesFolder = ReplicatedStorage:WaitForChild("FacetExamples", 10)
+	local scenariosFolder = ReplicatedStorage:FindFirstChild("FacetScenarios")
 	-- the engine-side materializer BOTH hosts share (ADR-0034). Required here and
 	-- not inside `mountDemo` so a missing module is a loud boot failure rather than
 	-- a demo that silently mounts empty panes.
@@ -329,7 +329,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	end
 
 	-- HOW A DEMO MOUNTS is the host's job, because the two contracts differ:
-	-- a tutorial example takes (LuauUI, core, opts) and may present itself; a
+	-- a tutorial example takes (Facet, core, opts) and may present itself; a
 	-- scenario fixture takes one ctx table and returns a screen for us to
 	-- present. The picker knows neither, which is what keeps it a picker.
 	local function mountDemo(demo: any): any
@@ -337,10 +337,10 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		local demoCore = scopedCore(demoScope)
 		local built: any
 		if demo.kind == "fixture" then
-			assert(scenariosFolder ~= nil, "showcase: LuauUIScenarios is not replicated")
+			assert(scenariosFolder ~= nil, "showcase: FacetScenarios is not replicated")
 			local mod = require(scenariosFolder:FindFirstChild(demo.module)) :: any
 			-- the MINIMAL ctx: the build-time subset of the runner's ctx. The
-			-- adaptive-controls fixture reads {LuauUI, core, env}; row_actions
+			-- adaptive-controls fixture reads {Facet, core, env}; row_actions
 			-- additionally binds `presenter.onTick` at build (its VirtualList
 			-- waits for a mounted scroll path). `actionSystem` rides along for
 			-- the same reason it does in the runner — a fixture's steps never
@@ -359,7 +359,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				fixture's buttons are pressed long after that. ]]
 			local demoHandle: any = nil
 			built = mod.build({
-				LuauUI = LuauUI,
+				Facet = Facet,
 				core = demoCore,
 				env = env,
 				actionSystem = system,
@@ -384,7 +384,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 					`sponsor_avatars` reads the same seam and degrades honestly when it is
 					absent, which is what a headless run still exercises. ]]
 				bindResourceTransport = function(provider: any): () -> ()
-					local transport = require(ReplicatedStorage.LuauUI.client.roblox_resources) :: any
+					local transport = require(ReplicatedStorage.Facet.client.roblox_resources) :: any
 					return transport.bind(provider)
 				end,
 				--[[ THE ENGINE'S OWN PAINT BIT, WHICH ONLY THE TEST RIG USED TO CARRY
@@ -528,7 +528,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 			end
 		else
 			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
-			built = mod.build(LuauUI, demoCore, {
+			built = mod.build(Facet, demoCore, {
 				env = env,
 				actionSystem = system,
 				presenter = pres,
@@ -628,7 +628,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	local chrome: any = nil
 
 	demos = demo_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		presenter = pres,
@@ -657,7 +657,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	})
 	showcasePicker = mountThemePicker(true, true)
 	settings = settings_panel.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		-- theme is a SETTING and lives in here now (CONCERNS 16); nil when no
@@ -669,11 +669,11 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		-- stamped by tools/build_places.sh at build time; nil in a Rojo-served
 		-- session, where the source on disk IS the running source and the
 		-- question this answers cannot arise.
-		buildStamp = workspace:GetAttribute("LuauUI_Build"),
+		buildStamp = workspace:GetAttribute("Facet_Build"),
 	})
 
 	chrome = showcase_chrome.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		presenter = pres,
@@ -725,7 +725,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	-- LocalScript, so `_G` does not cross but a BindableFunction in the shared
 	-- DataModel does. It is what lets the demo be advanced without a pointer,
 	-- which matters while the injected-input limitation (XP-B3) stands.
-	_G.LuauUIShowcase = {
+	_G.FacetShowcase = {
 		list = demo_picker.list,
 		current = demos.current,
 		mounted = demos.mounted,
@@ -743,7 +743,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		`warn` no MCP caller ever sees, while this handle answers with the demo's id
 		as though it were up.
 
-		MEASURED, 2026-08-15, showcase place: with `LuauUIScenarios.measured_extents`
+		MEASURED, 2026-08-15, showcase place: with `FacetScenarios.measured_extents`
 		renamed out from under it, `showNext` returned `{"current":"measured-extents"}`,
 		`current` agreed, and PlayerGui held only the backdrop and the chrome. That
 		answer is worse than an error, because it AGREES with whoever is driving — a
@@ -760,7 +760,7 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		return { current = demos.current(), mounted = delivered or false, ok = delivered == demos.current() }
 	end
 	local showcaseApi = Instance.new("Folder")
-	showcaseApi.Name = "LuauUIShowcaseAPI"
+	showcaseApi.Name = "FacetShowcaseAPI"
 	for fnName, impl in
 		{
 			list = function(_arg: string?)
@@ -836,10 +836,10 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		bf.Parent = showcaseApi
 	end
 	showcaseApi.Parent = workspace
-	workspace:SetAttribute("LuauUI_GalleryReady", true)
-	workspace:SetAttribute("LuauUI_ShowcaseReady", true)
+	workspace:SetAttribute("Facet_GalleryReady", true)
+	workspace:SetAttribute("Facet_ShowcaseReady", true)
 	print(
-		`[LuauUI Showcase] {LuauUI.VERSION} — {#demo_picker.list()} demos, theme picker {if showcasePicker ~= nil
+		`[Facet Showcase] {Facet.VERSION} — {#demo_picker.list()} demos, theme picker {if showcasePicker ~= nil
 			then "on"
 			else "unavailable"}; chrome toggle: {showcase_chrome.TOGGLE_KEYBOARD} / {showcase_chrome.TOGGLE_GAMEPAD}`
 	)
@@ -848,13 +848,13 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 end
 
 -- Verification-scenario selector (fable-execution-contract §5): set the
--- workspace STRING attribute LuauUI_Scenario to a registered scenario name
+-- workspace STRING attribute Facet_Scenario to a registered scenario name
 -- BEFORE running to mount that deterministic fixture instead of the demo.
--- The runner exposes _G.LuauUIScenario (list/steps/step/report/reset) for the
--- Studio MCP and stamps LuauUI_ScenarioReady/LuauUI_ScenarioState attributes.
-local scenarioName = workspace:GetAttribute("LuauUI_Scenario")
+-- The runner exposes _G.FacetScenario (list/steps/step/report/reset) for the
+-- Studio MCP and stamps Facet_ScenarioReady/Facet_ScenarioState attributes.
+local scenarioName = workspace:GetAttribute("Facet_Scenario")
 if type(scenarioName) == "string" and scenarioName ~= "" then
-	local registryModule = ReplicatedStorage:WaitForChild("LuauUIScenarios", 10)
+	local registryModule = ReplicatedStorage:WaitForChild("FacetScenarios", 10)
 	if registryModule ~= nil then
 		local registry = require(registryModule) :: any
 		local runner = require(registry.runner) :: any
@@ -869,7 +869,7 @@ if type(scenarioName) == "string" and scenarioName ~= "" then
 			pres.refresh()
 		end)
 		local api = runner.start({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			registry = registry,
 			scenarioName = scenarioName,
 			core = core,
@@ -882,21 +882,21 @@ if type(scenarioName) == "string" and scenarioName ~= "" then
 		local _keep = { scenarioHeartbeat, api, unbindResponderEffects }
 		return
 	else
-		warn("[LuauUI Scenario] LuauUIScenarios not present in ReplicatedStorage; falling through to demo")
+		warn("[Facet Scenario] FacetScenarios not present in ReplicatedStorage; falling through to demo")
 	end
 end
 
 -- Tutorial example selector (§17 Phase 4 documentation deliverable): set the
--- workspace attribute LuauUI_Example to 1..7 BEFORE running to present that
+-- workspace attribute Facet_Example to 1..7 BEFORE running to present that
 -- gallery example instead of the default settings demo. The examples are the
 -- exact engine-free modules the tutorial (docs/guide/04-tutorial-examples.md)
 -- walks through — they run here as written.
 -- only places that SET the attribute wait for the examples folder; the plain
 -- settings-demo place must not stall on a folder it never mapped
-local selectedExample = workspace:GetAttribute("LuauUI_Example")
+local selectedExample = workspace:GetAttribute("Facet_Example")
 local EXAMPLES = if selectedExample ~= nil
-	then ReplicatedStorage:WaitForChild("LuauUIExamples", 10)
-	else ReplicatedStorage:FindFirstChild("LuauUIExamples")
+	then ReplicatedStorage:WaitForChild("FacetExamples", 10)
+	else ReplicatedStorage:FindFirstChild("FacetExamples")
 local EXAMPLE_MODULES = {
 	"01_temperature_converter",
 	"02_playlist_table",
@@ -911,7 +911,7 @@ if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES 
 	local exampleModule = EXAMPLES:FindFirstChild(EXAMPLE_MODULES[selected])
 	if exampleModule ~= nil then
 		local example = require(exampleModule) :: any
-		local built = example.build(LuauUI, core, {
+		local built = example.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = pres,
@@ -944,19 +944,19 @@ if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES 
 		-- covered the example entirely. It now docks as a chip in the top-right
 		-- and opens on demand -- the same restyling reach, none of the occlusion.
 		local examplePicker = mountThemePicker(true)
-		workspace:SetAttribute("LuauUI_GalleryReady", true)
-		workspace:SetAttribute("LuauUI_ExampleTitle", example.title)
-		print(`[LuauUI Gallery] example {selected}: {example.title}`)
+		workspace:SetAttribute("Facet_GalleryReady", true)
+		workspace:SetAttribute("Facet_ExampleTitle", example.title)
+		print(`[Facet Gallery] example {selected}: {example.title}`)
 		local _keep = { exampleHeartbeat, unbindEnv, built, examplePicker }
 		return
 	end
 end
 
 -- semantic state: authoritative snapshot + draft + mutation (loopback server)
-local snapshot = LuauUI.replication.snapshot(core, 1, { music = false, sfx = true })
+local snapshot = Facet.replication.snapshot(core, 1, { music = false, sfx = true })
 local draftMusic = core:signal(false)
 local saveStatus = core:signal("idle")
-local mutation = LuauUI.replication.mutation(core, {
+local mutation = Facet.replication.mutation(core, {
 	optimistic = {
 		apply = function(payload)
 			draftMusic:set(payload.music)
@@ -986,7 +986,7 @@ local screen = UI.Screen({
 	padding = 16,
 	gap = 8,
 	children = {
-		UI.Text({ id = "Title", text = "LuauUI Gallery — Settings", textSize = 24 }),
+		UI.Text({ id = "Title", text = "Facet Gallery — Settings", textSize = 24 }),
 		UI.Text({ id = "Hint", text = hint, textSize = 14 }),
 		UI.Toggle({ id = "Music", label = "Music", value = draftMusic }),
 		UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
@@ -1021,28 +1021,28 @@ local heartbeat = RunService.Heartbeat:Connect(function()
 end)
 
 -- Studio verification checkpoints
-workspace:SetAttribute("LuauUI_GalleryReady", true)
-workspace:SetAttribute("LuauUI_Version", LuauUI.VERSION)
+workspace:SetAttribute("Facet_GalleryReady", true)
+workspace:SetAttribute("Facet_Version", Facet.VERSION)
 core:observe(pres.focus.focused, function(path)
-	workspace:SetAttribute("LuauUI_Focused", path or "")
+	workspace:SetAttribute("Facet_Focused", path or "")
 end)
-workspace:SetAttribute("LuauUI_Focused", pres.focus.focused:get() or "")
+workspace:SetAttribute("Facet_Focused", pres.focus.focused:get() or "")
 core:observe(statusLine, function(line)
-	workspace:SetAttribute("LuauUI_Status", line)
+	workspace:SetAttribute("Facet_Status", line)
 end)
-workspace:SetAttribute("LuauUI_Status", statusLine:get())
+workspace:SetAttribute("Facet_Status", statusLine:get())
 core:observe(hint, function(text)
-	workspace:SetAttribute("LuauUI_Hint", text)
+	workspace:SetAttribute("Facet_Hint", text)
 end)
-workspace:SetAttribute("LuauUI_Hint", hint:get())
+workspace:SetAttribute("Facet_Hint", hint:get())
 
 -- factory-rerun counter for the no-remount proof: mounted total is stable
 -- unless structure genuinely changes
 task.defer(function()
-	workspace:SetAttribute("LuauUI_FactoryRuns", handle.root.counters().factoryRuns)
+	workspace:SetAttribute("Facet_FactoryRuns", handle.root.counters().factoryRuns)
 end)
 
-print(`[LuauUI Gallery] running {LuauUI.VERSION}; focus={pres.focus.focused:get()}`)
+print(`[Facet Gallery] running {Facet.VERSION}; focus={pres.focus.focused:get()}`)
 
 -- keep references alive for the session
 local _keep = { unbindEnv, heartbeat, mutation, unbindResponderEffects, picker }

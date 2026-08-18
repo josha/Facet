@@ -75,8 +75,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("level-picker-scenario")
 
@@ -104,8 +104,8 @@ return {
 			-- switch. Without `env` they would all take the pointer spacing and the
 			-- one thing this fixture exists to be looked at on would be missing.
 			spec.env = ctx.env
-			local picker = keep(LuauUI.newLevelPicker(LuauUI, core, spec))
-			local stepper = keep(LuauUI.newStepper(LuauUI, core, {
+			local picker = keep(Facet.newLevelPicker(Facet, core, spec))
+			local stepper = keep(Facet.newStepper(Facet, core, {
 				id = `{id}Step`,
 				value = value,
 				min = if spec.allowZero == false then 1 else 0,

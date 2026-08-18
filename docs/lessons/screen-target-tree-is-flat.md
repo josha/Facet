@@ -13,7 +13,7 @@ viewport-wide one on another.
 
 `screen_target` renders a **flat instance tree**: every mounted node is a direct
 child of its root `ScreenGui` (or its scroll host) with an *absolute* rect
-written by the solver, and its `Name` is the full LuauUI path. So
+written by the solver, and its `Name` is the full Facet path. So
 
 ```
 /ValueProbe/Load/Bar/Fill        -- a Frame whose Parent is the ScreenGui
@@ -40,12 +40,12 @@ fill as deep as it likes.
 
 Adapter-created chrome — decorations, layer ladders, the bar window, the toggle
 knob-track — ARE real children of the node they decorate, and they position
-relative to it normally. The flatness is about LuauUI *nodes*, not about the
+relative to it normally. The flatness is about Facet *nodes*, not about the
 managed children the adapter hangs off them. Two consequences worth remembering:
 
 - a child combinator in a StyleSheet rule (`.luau-interactive:Press > .luau-chrome-toggleKnob`)
   reaches adapter chrome exactly as written, because that part of the tree is real;
-- the same combinator can NEVER reach one LuauUI node from another, because they
+- the same combinator can NEVER reach one Facet node from another, because they
   are siblings — which is why every node-to-node state rule keys on tags instead.
 
 ## Related

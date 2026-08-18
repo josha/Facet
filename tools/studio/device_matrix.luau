@@ -4,14 +4,14 @@
 --  docs/plans/agent-execution-contract.md §5; roadmap Step 4, rows XP-B1..B7)
 --
 -- HOW IT RUNS. The file is checked in here and INSTALLED into the open place
--- as a transient `workspace.LuauUIMatrixDriver` ModuleScript, fetched verbatim
+-- as a transient `workspace.FacetMatrixDriver` ModuleScript, fetched verbatim
 -- from `tools/lune/studio_sync`'s /driver route (so the running copy cannot
 -- drift from the repository copy). It is deliberately NOT part of the sync
 -- manifest and not in `src/`: the plan puts this driver in development tooling,
--- not in LuauUI runtime code or a shipped example. `tools/studio/install_matrix_driver`
+-- not in Facet runtime code or a shipped example. `tools/studio/install_matrix_driver`
 -- creates it; the driver's `reset` mode removes it again.
 --
---   local run = require(workspace.LuauUIMatrixDriver)
+--   local run = require(workspace.FacetMatrixDriver)
 --   return run({ mode = "select", row = "console-ten-foot" })
 --
 -- WHAT IT IS NOT. It is not a test oracle and it is not an input synthesizer.
@@ -97,7 +97,7 @@ end
 -- until they do not
 local function matrixRows(): any
 	local ok, mod = pcall(function()
-		return require(game:GetService("ReplicatedStorage").LuauUI.preview.matrix_rows) :: any
+		return require(game:GetService("ReplicatedStorage").Facet.preview.matrix_rows) :: any
 	end)
 	return if ok then mod else nil
 end
@@ -150,7 +150,7 @@ end
 -- the shared scenario surface, reached through the BindableFunctions the runner
 -- publishes (the MCP command VM is a different Luau VM, so _G does not cross)
 local function scenarioApi(): any
-	local folder = workspace:FindFirstChild("LuauUIScenarioAPI")
+	local folder = workspace:FindFirstChild("FacetScenarioAPI")
 	if folder == nil then
 		return nil
 	end
@@ -250,8 +250,8 @@ local function preflight(): any
 	end
 
 	-- 2. the running place carries the source state just built
-	out.sourceStamp = workspace:GetAttribute("LuauUI_SourceStamp")
-	out.version = workspace:GetAttribute("LuauUI_Version")
+	out.sourceStamp = workspace:GetAttribute("Facet_SourceStamp")
+	out.version = workspace:GetAttribute("Facet_Version")
 	if ARGS.expectStamp ~= nil and out.sourceStamp ~= ARGS.expectStamp then
 		problem(
 			`source stamp is '{tostring(out.sourceStamp)}' but this run was built from '{tostring(ARGS.expectStamp)}' `
@@ -259,7 +259,7 @@ local function preflight(): any
 		)
 	end
 
-	-- 5. the expected LuauUI target and presenter mounted exactly once
+	-- 5. the expected Facet target and presenter mounted exactly once
 	local lp = game:GetService("Players").LocalPlayer
 	local screenGuis = {}
 	if lp ~= nil and lp:FindFirstChild("PlayerGui") ~= nil then
@@ -270,16 +270,16 @@ local function preflight(): any
 		end
 	end
 	out.screenGuis = screenGuis
-	out.scenario = workspace:GetAttribute("LuauUI_Scenario")
-	out.scenarioReady = workspace:GetAttribute("LuauUI_ScenarioReady")
-	out.scenarioState = workspace:GetAttribute("LuauUI_ScenarioState")
+	out.scenario = workspace:GetAttribute("Facet_Scenario")
+	out.scenarioReady = workspace:GetAttribute("Facet_ScenarioReady")
+	out.scenarioState = workspace:GetAttribute("Facet_ScenarioState")
 	if out.scenarioReady ~= true then
 		problem(`the scenario surface is not ready (state '{tostring(out.scenarioState)}')`)
 	end
 	local api = scenarioApi()
 	out.scenarioApi = api ~= nil
 	if api == nil then
-		problem("workspace.LuauUIScenarioAPI is absent — there is nothing to drive")
+		problem("workspace.FacetScenarioAPI is absent — there is nothing to drive")
 	end
 
 	-- 1. the device simulator's actual configuration, recorded
@@ -308,7 +308,7 @@ local function preflight(): any
 	out.virtualInput = virtualInputProbe()
 
 	-- 4. mark the log boundary so new warnings belong to this run
-	out.logBoundary = `LuauUI matrix boundary {os.clock()}`
+	out.logBoundary = `Facet matrix boundary {os.clock()}`
 	print(out.logBoundary)
 
 	return out
@@ -320,7 +320,7 @@ end
 local function selectRow(): any
 	local rows = matrixRows()
 	if rows == nil then
-		return { ok = false, reason = "ReplicatedStorage.LuauUI.preview.matrix_rows is absent — sync the place" }
+		return { ok = false, reason = "ReplicatedStorage.Facet.preview.matrix_rows is absent — sync the place" }
 	end
 	local svc = serviceOrNil("StudioDeviceSimulatorService")
 	if svc == nil then
@@ -635,7 +635,7 @@ local function observe(): any
 	local clippedNodes = 0
 	local cam = workspace.CurrentCamera
 	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
-	-- JUDGE LUAUUI'S OWN TREES, NOT ROBLOX'S (example-quality-pass, 2026-08-06).
+	-- JUDGE FACET'S OWN TREES, NOT ROBLOX'S (example-quality-pass, 2026-08-06).
 	-- The runner dumps EVERY ScreenGui under PlayerGui, which on a live client
 	-- includes the CoreGui chat window. Its nodes reported `textFits = false`
 	-- ("MessageMode", "Leave channel <XX>?", a Confirm and a Cancel) on every
@@ -643,13 +643,13 @@ local function observe(): any
 	-- about the example — six phantom unfit entries per row, identical everywhere,
 	-- which is exactly what an always-firing check looks like.
 	--
-	-- The discriminator is the tree ROOT: a LuauUI surface's ScreenGui is named
-	-- `LuauUI_<screen id>` by the adapter, and its descendants carry the flat
+	-- The discriminator is the tree ROOT: a Facet surface's ScreenGui is named
+	-- `Facet_<screen id>` by the adapter, and its descendants carry the flat
 	-- `/path` names. Anything else in PlayerGui belongs to the platform.
 	local judgedTrees = 0
 	local skippedTrees = {}
 	for _, tree in report.instanceTrees or {} do
-		if type(tree.root) ~= "string" or string.sub(tree.root, 1, 6) ~= "LuauUI" then
+		if type(tree.root) ~= "string" or string.sub(tree.root, 1, 6) ~= "Facet" then
 			table.insert(skippedTrees, tostring(tree.root))
 			continue
 		end
@@ -1072,9 +1072,9 @@ local function rowRecord(): any
 		boundaryNotes = selected.boundaryNotes,
 		identity = {
 			studioVersion = tostring(version()),
-			sourceStamp = workspace:GetAttribute("LuauUI_SourceStamp"),
-			libraryVersion = workspace:GetAttribute("LuauUI_Version"),
-			scenario = workspace:GetAttribute("LuauUI_Scenario"),
+			sourceStamp = workspace:GetAttribute("Facet_SourceStamp"),
+			libraryVersion = workspace:GetAttribute("Facet_Version"),
+			scenario = workspace:GetAttribute("Facet_Scenario"),
 			placeId = game.PlaceId,
 		},
 		device = {
@@ -1135,7 +1135,7 @@ local function run(args: any): string
 		return json(driveKeyboard())
 	elseif mode == "reset" then
 		local result = resetSimulation()
-		local installed = workspace:FindFirstChild("LuauUIMatrixDriver")
+		local installed = workspace:FindFirstChild("FacetMatrixDriver")
 		if installed ~= nil and ARGS.uninstall == true then
 			installed:Destroy()
 			result.uninstalled = true

@@ -33,7 +33,7 @@ function rewardsView.card(app: any, opts: any): any
 		--[[ ...and the ten-foot type scale, for the same reason: the mark is drawn
 			text and the box has to hold it at whatever scale the seat distance asks.
 
-			THE SCALE COMES FROM `LuauUI.text.facts` (adopted 2026-08-15). This read
+			THE SCALE COMES FROM `Facet.text.facts` (adopted 2026-08-15). This read
 			`math.max(1, typographyScale)`, and on a ten-foot display at a SUB-1
 			accessibility preference that is 1 where the measure seam reserves at 1.5 —
 			the under-reservation `max(typographyScale, typographyPaintScale)` exists to
@@ -47,7 +47,7 @@ function rewardsView.card(app: any, opts: any): any
 			also stays as it is: it over-reserves relative to the measure seam's
 			`size * scale + offset`, and for a token that must not clip its glyph, over
 			is the safe side. ]]
-		local facts = app.LuauUI.text.facts({ env = app.env, use = use })
+		local facts = app.Facet.text.facts({ env = app.env, use = use })
 		return metrics.fixed(math.ceil((sealSize + facts.offset) * facts.scale))
 	end))
 

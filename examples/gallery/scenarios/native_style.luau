@@ -3,10 +3,10 @@
 -- E3 fixture. One representative screen exercising every handed-off property
 -- group — surfaces (base/raised/control/accent/scrim-free variants), selected
 -- rows, disabled controls, secondary/strong text, a TextField, a ScrollView —
--- through the REAL adapter with `LuauUI_NativeStyle=true` (or the explicit-
--- write fallback when `LuauUI_ForceStyleFallback=true`, the NSS-A10 A/B).
+-- through the REAL adapter with `Facet_NativeStyle=true` (or the explicit-
+-- write fallback when `Facet_ForceStyleFallback=true`, the NSS-A10 A/B).
 --
--- Steps drive LuauUI state (tags follow), runtime designer-edits (the SAME
+-- Steps drive Facet state (tags follow), runtime designer-edits (the SAME
 -- DataModel objects the Style Editor edits), theme swaps, and the transition
 -- strip. The runner's report carries per-node tags + GetStyled resolution +
 -- GuiState + mount identity, which is the property-authority telemetry the
@@ -17,14 +17,14 @@ return {
 	title = "Native stylesheet paint",
 	ledgerRows = { "NSS-A2", "NSS-A3", "NSS-A4", "NSS-A5", "NSS-A6", "NSS-A7", "NSS-A10" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local selectedA = core:signal(true)
 		local selectedB = core:signal(false)
 		local rowBEnabled = core:signal(true)
 		local toggleOn = core:signal(true)
 		local fieldText = core:signal("styled")
-		local field = ctx.LuauUI.newTextInput(ctx.LuauUI, core, {
+		local field = ctx.Facet.newTextInput(ctx.Facet, core, {
 			id = "Field",
 			value = fieldText,
 			placeholder = "type here",

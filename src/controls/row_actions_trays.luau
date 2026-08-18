@@ -214,11 +214,11 @@ function row_actions_trays.build(p: Params): { any }
 			LAYOUT rects are flush the whole way down, exactly as the headless sweep
 			says (`plateR == rootR == 700` on every frame). What is painted is not:
 
-			    plate w26 -> LuauUIChrome [674..700]   (flush)
-			    plate w16 -> LuauUIChrome [684..700]   (flush — the crossover)
-			    plate w13 -> LuauUIChrome [684..703]   ( +3 past the row)
-			    plate  w8 -> LuauUIChrome [684..708]   ( +8 past the row)
-			    plate  w4 -> LuauUIChrome [684..712]   (+12 past the row)
+			    plate w26 -> FacetChrome [674..700]   (flush)
+			    plate w16 -> FacetChrome [684..700]   (flush — the crossover)
+			    plate w13 -> FacetChrome [684..703]   ( +3 past the row)
+			    plate  w8 -> FacetChrome [684..708]   ( +8 past the row)
+			    plate  w4 -> FacetChrome [684..712]   (+12 past the row)
 
 			...and at w4 the two plates' decorations are [680..708] and [684..712]:
 			24 of their 28px overlap each other. Then the tray unmounts. Past the
@@ -232,7 +232,7 @@ function row_actions_trays.build(p: Params): { any }
 			own padding. Below that the padded content box inverts, and Roblox
 			normalizes an inverted box by absolute value, so the compensation stops
 			cancelling and starts INFLATING. Confirmed by a controlled probe with no
-			LuauUI in it at all — a bare Frame, `UIPadding(8,8)`, one child at
+			Facet in it at all — a bare Frame, `UIPadding(8,8)`, one child at
 			`(0,-8)`/`(1,+16)`, host width swept 40 -> 0 (12/12 exact):
 
 			    painted = if left + right <= w then w else 2 * (left + right) - w

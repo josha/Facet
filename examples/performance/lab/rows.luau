@@ -8,12 +8,12 @@
 -- control construction, async resource lifecycle per row, or the hit-floor
 -- expansion that real interactive rows pay for.
 --
--- ONE definition, three consumers: the LuauUI dense-scroll workload, the headless
+-- ONE definition, three consumers: the Facet dense-scroll workload, the headless
 -- Lune scene, and the raw-Roblox reference (which reads the GEOMETRY constants
 -- below so the two implementations present the same box at the same pitch — a
 -- reference laid out differently compares nothing).
 --
--- ENGINE-FREE AND REQUIRE-FREE, like the gallery scenario modules: `LuauUI` and
+-- ENGINE-FREE AND REQUIRE-FREE, like the gallery scenario modules: `Facet` and
 -- `core` arrive as arguments, so this file runs identically under Lune and inside
 -- Roblox with no path assumptions.
 
@@ -147,7 +147,7 @@ end
 	row overflowed by 3px, and learned the theme after L-26 measured 19px under
 	fantasy-ornate. It never learned the ACCESSIBILITY TEXT PREFERENCE. A
 	VirtualList is a fixed-pitch window, so a slot measured without an input the
-	content actually has is simply wrong — `docs/lessons/luauui-fixed-px-heights.md`
+	content actually has is simply wrong — `docs/lessons/facet-fixed-px-heights.md`
 	names the class: a px height fixed against unfixed content.
 
 	`preferredTextOffset` adds its px to EVERY text line's font size, so the charge
@@ -308,7 +308,7 @@ export type CellCtx = {
 	-- path and the cheap one is not offered.
 	failImage: boolean?,
 	-- true when the row must restack for a narrow offer. Supplied by the caller from
-	-- `LuauUI.adaptive.conditions(...).isCompact`, so the height and the arrangement
+	-- `Facet.adaptive.conditions(...).isCompact`, so the height and the arrangement
 	-- come from ONE decision.
 	compact: boolean?,
 	-- true when the compact form's controls line must ALSO break in two, because the
@@ -319,8 +319,8 @@ export type CellCtx = {
 }
 
 -- Build one row. `item` is a dataset.Item.
-function rows.cell(LuauUI: any, core: any, item: any, ctx: CellCtx): any
-	local UI = LuauUI.UI
+function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
+	local UI = Facet.UI
 	local scope = ctx.scope
 
 	-- The per-row value/toggle signals OUTLIVE the cell (a control that resets when
@@ -346,7 +346,7 @@ function rows.cell(LuauUI: any, core: any, item: any, ctx: CellCtx): any
 		ctx.toggles[item.id] = toggled
 	end
 
-	local image = LuauUI.newAsyncImage(LuauUI, core, {
+	local image = Facet.newAsyncImage(Facet, core, {
 		id = "Avatar",
 		scope = scope,
 		provider = ctx.provider,
@@ -377,7 +377,7 @@ function rows.cell(LuauUI: any, core: any, item: any, ctx: CellCtx): any
 	--
 	-- The cell scope releases it, because `scope:own` accepts any table with a
 	-- `dispose()`. Recorded as PLN-4.
-	local stepper = scope:own(LuauUI.newStepper(LuauUI, core, {
+	local stepper = scope:own(Facet.newStepper(Facet, core, {
 		id = "Rate",
 		label = "Rate",
 		value = value,

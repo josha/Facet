@@ -588,7 +588,7 @@ end
 
 --[[ TWO FORMS, ONE ANSWER (api-architecture-consistency F-31).
 
-	`LuauUI.text` exports three functions in one namespace: `fit` and `size` take a
+	`Facet.text` exports three functions in one namespace: `fit` and `size` take a
 	spec table, `measure` took six positional arguments. Same question, two ways to
 	ask it, and a caller who learned one could not guess the other — `measure`'s
 	shape was inherited from its life as a solver internal, which is a reason and
@@ -738,7 +738,7 @@ function text_metrics.measure(
 		local spec: any = text
 		for key in spec do
 			if MEASURE_SPEC_KEYS[key] ~= true then
-				error("LuauUI text.measure: unknown key '" .. tostring(key) .. "' — " .. MEASURE_SPEC_SHAPE .. ".", 0)
+				error("Facet text.measure: unknown key '" .. tostring(key) .. "' — " .. MEASURE_SPEC_SHAPE .. ".", 0)
 			end
 		end
 		if
@@ -748,7 +748,7 @@ function text_metrics.measure(
 			or type(spec.width) ~= "number"
 		then
 			error(
-				"LuauUI text.measure: "
+				"Facet text.measure: "
 					.. MEASURE_SPEC_SHAPE
 					.. " — text and font are strings, size and width are numbers.",
 				0

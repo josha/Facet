@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 5 of the LuauUI tutorial: a complete word game (Wordle-like).
+-- Example 5 of the Facet tutorial: a complete word game (Wordle-like).
 -- ============================================================================
 --
 -- WHAT THE PLAYER SEES AT STARTUP
@@ -316,8 +316,8 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 	return "empty"
 end
 
-function example.build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+function example.build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 	local pres = deps.presenter
 	local actions = deps.actionSystem
 
@@ -663,7 +663,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 						-- alignH/alignV would be accepted and ignored here.
 						align = "center",
 						children = {
-							UI.Text({ id = "Title", text = "LuauUI Wordle", textSize = "title" }),
+							UI.Text({ id = "Title", text = "Facet Wordle", textSize = "title" }),
 							UI.Text({ id = "Status", text = statusSig, textSize = "label", textAlign = "center" }),
 							board,
 							UI.Text({

@@ -1,8 +1,8 @@
 # 7. The input story
 
-> ## ⚠️ LuauUI requires the Input Action System
+> ## ⚠️ Facet requires the Input Action System
 >
-> LuauUI's input layer is built on Roblox's **Input Action System** (IAS:
+> Facet's input layer is built on Roblox's **Input Action System** (IAS:
 > `InputContext` / `InputAction` / `InputBinding`), and nothing else. It never
 > reaches into `ContextActionService`. That is a deliberate architecture choice
 > ([`ADR-0004`](../adr/ADR-0004-input-verification-scope.md)) — arbitration is the engine's
@@ -14,8 +14,8 @@
 > hand, once per place.** Roblox describes it as controlling "whether the
 > built-in player scripts are updated to use the Input Action System"
 > ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
-> The flag is not scriptable and not Rojo-syncable — no code (including LuauUI)
-> can read it, set it, or verify it for you. It is the single thing LuauUI
+> The flag is not scriptable and not Rojo-syncable — no code (including Facet)
+> can read it, set it, or verify it for you. It is the single thing Facet
 > cannot do on your behalf.
 >
 > **Why it matters — two measured symptoms, one cause.** With the flag off,
@@ -26,7 +26,7 @@
 >   is what makes it confusing).
 > - **The arrow keys `Left` and `Right` never arrive**, because the default
 >   camera binds them as `RbxCameraKeypress` at CAS priority 2000 and sinks
->   them. Any LuauUI surface that navigates or adjusts on the horizontal arrows
+>   them. Any Facet surface that navigates or adjusts on the horizontal arrows
 >   simply does nothing.
 >
 > And there is **no priority number that fixes either one**: a sinking CAS
@@ -36,12 +36,12 @@
 > CAS priority and `InputContext.Priority` are not one arbitration space. The
 > property is the fix, because it is what moves those bindings *into* the space
 > where priority means something. With the flag on, player input joins the same
-> arbitration as every LuauUI action and everything in this chapter simply
+> arbitration as every Facet action and everything in this chapter simply
 > works. If A-presses or arrows ever feel dead, start at
 > [§7.4 Troubleshooting](#74-troubleshooting-and-hard-limits).
 
 Roblox players arrive on four kinds of input: a **mouse**, a **touchscreen**, a
-**keyboard**, and a **gamepad**. LuauUI's position (the studio's standing
+**keyboard**, and a **gamepad**. Facet's position (the studio's standing
 principle) is that a control which only answers one of them is unfinished — so
 the framework doesn't stop at *layouts* that adapt per device. Every control
 ships its **interaction** for all four inputs, and the conformance suite fails
@@ -58,14 +58,14 @@ screen, and the input story comes with it.
 3. **In a game with an avatar:** present HUD surfaces with
    `{ responder = "passive" }` and bind the one-line touch-controls effect
    (both in [§7.3](#73-the-responder-chain-ui-in-a-game-with-an-avatar)).
-4. **Optionally:** mount input hints (`LuauUI.inputHint`) where you want a
+4. **Optionally:** mount input hints (`Facet.inputHint`) where you want a
    "Press A / Press Enter" label.
 
 Everything else in this chapter is explanation, not obligation.
 
 ## 7.2 The concepts: how input works everywhere by default
 
-**Semantic actions, not keys.** LuauUI controls consume *semantic* actions —
+**Semantic actions, not keys.** Facet controls consume *semantic* actions —
 **Navigate**, **Activate**, **Cancel**, **Adjust** — never raw key codes. The
 presenter builds an `InputContext` per presented screen and binds each action
 across the input classes that carry it: Activate is a tap on touch, a click on
@@ -148,7 +148,7 @@ Measured live against a real gameplay stack:
 > game use for its own sink*. The shipped `PlayerModule`'s own contexts, measured
 > 2026-08-03, are **Camera 100, Character 150, Vehicle 200, Transformer 300** —
 > an earlier version of this guide said 1000, which was simply wrong. Nothing in
-> LuauUI's behavior turns on it (a plain screen is 1500 and an engaged one 3000,
+> Facet's behavior turns on it (a plain screen is 1500 and an engaged one 3000,
 > which clear all four regardless), but do not size a context against the old
 > number.
 
@@ -328,7 +328,7 @@ touch/pointer concept only; gamepad and keyboard are unchanged (the scrim is
 never focusable). There is deliberately no keyboard `Escape` binding — the engine
 reserves it (see §7.4).
 
-**Hints re-label themselves.** `UI.Text{ text = LuauUI.inputHint(core, env,
+**Hints re-label themselves.** `UI.Text{ text = Facet.inputHint(core, env,
 action) }` reads "Press A" on a gamepad and "Press Enter" on a keyboard, and
 re-labels the same node with no remount when the player switches input
 mid-session.
@@ -379,12 +379,12 @@ thumbstick + jump button should hide. Bind the client-only effect once in your
 bootstrap:
 
 ```lua
-local responder_effects = require(ReplicatedStorage.LuauUI.client.responder_effects)
+local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects)
 responder_effects.bind(core, pres) -- toggles GuiService.TouchControlsEnabled
 ```
 
 Like `roblox_env`/`roblox_input`, this module is client-only and deliberately
-not on the `LuauUI.*` table (that keeps the main library safe to require from
+not on the `Facet.*` table (that keeps the main library safe to require from
 server code — [chapter 2](02-architecture.md)).
 
 ### Saying "that mattered": `UI.sensoryFeedback`
@@ -424,7 +424,7 @@ UI.sensoryFeedback(UI.HStack({ id = "Filters", children = chips }), { activation
 A control that declares nothing keeps the default it always had: pressing it
 emits `activate`.
 
-One thing to be clear about: **LuauUI plays nothing.** It publishes the verb; a
+One thing to be clear about: **Facet plays nothing.** It publishes the verb; a
 game decides whether that becomes a haptic pulse, a sound, or nothing at all —
 `src/client/haptics.luau` is an opt-in, **default-off** adapter you bind to the
 bus. Switch it on and it hands each button the Roblox haptic effect its declared
@@ -440,11 +440,11 @@ the *legacy* control scripts: they bind `ButtonA` to `jumpAction` outside IAS �
 even with no character — and consume it before IAS ever sees it (D-pad still
 works, which is why only A feels dead). Fix: tick
 `Workspace.PlayerScriptsUseInputActionSystem` (the warning at the top). The
-flag can't be read from code, so LuauUI ships a behavioral probe you can log or
+flag can't be read from code, so Facet ships a behavioral probe you can log or
 surface in a doctor check:
 
 ```lua
-local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention)
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention)
 if gamepad_contention.legacyStackActive() then
     warn("legacy control scripts detected — gamepad ButtonA may be contended: ",
         gamepad_contention.describeContention())
@@ -467,9 +467,9 @@ measured live 2026-08-15, `RbxCameraKeypress` held the arrows in a session where
 while the arrows were owned:
 
 ```lua
-local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention)
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention)
 if gamepad_contention.cameraKeysContended() then
-    warn("an arrow key is held by a ContextActionService binding; LuauUI will "
+    warn("an arrow key is held by a ContextActionService binding; Facet will "
         .. "not receive it: ", gamepad_contention.describeContention())
 end
 ```
@@ -479,13 +479,13 @@ now. `false` is narrower than it looks: CAS exposes no sink flag through
 `GetAllBoundActionInfo`, so it means "no CAS action claims an arrow", not
 "arrows are guaranteed to arrive".
 
-**Ask these probes; LuauUI does not announce them.** None of the three is wired
+**Ask these probes; Facet does not announce them.** None of the three is wired
 to a boot-time warning. In any place that has not ticked the property they are
 all true — which today is every default Studio session — and a warning that
 fires always is noise that teaches people to skip it. They exist so that when
 something *is* dead you get an answer in one line instead of a session.
 
-**UI-only places (no avatar at all)** — a menu shell, a lobby, LuauUI's own
+**UI-only places (no avatar at all)** — a menu shell, a lobby, Facet's own
 gallery — may instead just disable the legacy control scripts:
 `gamepad_contention.disableLegacyControls()`. This is the *only* situation where
 disabling player input is acceptable; a real game keeps its avatar controls and
@@ -505,20 +505,20 @@ game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, fal
 ```
 
 No `InputContext` priority is documented to outrank CoreGui, so while the players
-list is enabled (the default) assume `Tab` does not reach LuauUI's traversal
+list is enabled (the default) assume `Tab` does not reach Facet's traversal
 action. Tab is deliberately *not* in Roblox's hard-reserved set
-(`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), which is why LuauUI binds it rather than
+(`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), which is why Facet binds it rather than
 refusing to — a UI-only place, a menu shell, or any game that has already turned
 its leaderboard off gets the desktop convention for free. Everything else in
 §7.2.1 — Space activation, the focused-value arrows, the scroll-into-view, the
 modal trap — is unaffected either way, because none of those keys are contended.
 
-LuauUI never disables your leaderboard for you. It gives you the same kind of
+Facet never disables your leaderboard for you. It gives you the same kind of
 probe it gives you for gamepad `ButtonA`, so the loss is visible instead of
 silent:
 
 ```lua
-local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention)
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention)
 if gamepad_contention.traversalKeyContended() then
     warn("Tab traversal is contended by the CoreGui players list; ",
         gamepad_contention.describeContention())
@@ -527,7 +527,7 @@ end
 
 Roblox's own keyboard UI navigation is a separate, coexisting feature:
 **Backslash** enters UI-selection mode, then the arrows/WASD move and Enter
-activates. LuauUI's arrows and Return do the same job inside a LuauUI surface,
+activates. Facet's arrows and Return do the same job inside a Facet surface,
 and neither disables the other.
 
 **`Escape` is engine-reserved.** It is permanently bound to the Roblox menu and
@@ -551,4 +551,4 @@ ideas, [chapter 2](02-architecture.md) for how the modules fit and why, [chapter
 server.
 
 One appendix follows: [chapter 8](08-without-rojo.md), for installing and working
-with LuauUI when you build directly in Studio and do not use Rojo.
+with Facet when you build directly in Studio and do not use Rojo.

@@ -7,9 +7,9 @@
 	SwiftUI's non-lazy `Grid` does too and says of itself — it "renders all of its
 	child views immediately" (parity §16 [SW-16]). The lazy grids are the ones
 	that "create items only as needed" ([SW-21]), and until this module nothing in
-	LuauUI did. `docs/reference/swiftui-parity.md` §4.2.2 has the full argument.
+	Facet did. `docs/reference/swiftui-parity.md` §4.2.2 has the full argument.
 
-	build(LuauUI, core, spec) -> {
+	build(Facet, core, spec) -> {
 	  blueprint, focusGroupName (the contributed group's name),
 	  scrollTop (Signal px, the engine mirror),
 	  pathOf(key) -> path?, focusKey(key) -> hit path?, revealItem(key) -> path?,
@@ -247,7 +247,7 @@ local function patternEscape(s: string): string
 	return (s:gsub("%W", "%%%0"))
 end
 
-function virtual_grid.build(LuauUI: any, core: any, spec: any)
+function virtual_grid.build(Facet: any, core: any, spec: any)
 	--[[ ── CONSTRUCTION-TIME REFUSALS ──────────────────────────────────────────
 		Each one names the boundary, the legal shapes, the value it got, and WHY
 		the constraint exists. The two structural refusals run BEFORE the closed-key
@@ -266,7 +266,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 			"newVirtualGrid: minColumnWidth is refused — deriving the lane count from a minimum cell width needs "
 				.. "the CROSS-axis size in px, which would be a second measured seam beside viewportExtent. The "
 				.. "flow grid's own arithmetic is already exported: bind `columns` to a memo over "
-				.. "LuauUI.adaptive.columnsFor(availableWidth, minColumnWidth, gap) and the grid re-lanes itself "
+				.. "Facet.adaptive.columnsFor(availableWidth, minColumnWidth, gap) and the grid re-lanes itself "
 				.. "with no new authority in this control.",
 			0
 		)
@@ -280,7 +280,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		"VirtualGrid.items is required: a Readable of the collection"
 	)
 
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "VirtualGrid"
 	local axis: string = spec.axis or "y"
 	local isX = axis == "x"

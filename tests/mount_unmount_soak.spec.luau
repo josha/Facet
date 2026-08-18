@@ -3,7 +3,7 @@
 -- return to the starting instance count.
 --
 -- WHY THIS SPEC EXISTS, AND WHY IT DOES NOT COUNT `liveCount`. A physical-device
--- MicroProfiler read suggested LuauUI was accumulating Instances across mounts.
+-- MicroProfiler read suggested Facet was accumulating Instances across mounts.
 -- The obvious instrument — the adapter's live-node count, and its Studio
 -- equivalent `instances.guiObjects` (which walks PlayerGui) — is STRUCTURALLY
 -- BLIND to the one mechanism that can actually do it:
@@ -24,7 +24,7 @@
 local testkit = require("./lib/testkit")
 local describe, it, expect = testkit.describe, testkit.it, testkit.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("./lib/fake_target")
 
 local dataset = require("../examples/performance/lab/dataset")
@@ -35,15 +35,15 @@ local leversLib = require("../examples/performance/lab/levers")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 
 local function newHarness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local clock = 0
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

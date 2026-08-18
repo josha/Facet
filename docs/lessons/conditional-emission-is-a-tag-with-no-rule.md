@@ -61,7 +61,7 @@ shared emitter both call, never a second copy — a copy diverges silently and o
 one of the two paths is ever exercised by the fixture in front of you.
 
 **Detection that now exists** (`tests/theme_matrix_audit.spec.luau`, audit (e)):
-drive `classifyTags` — the single function by which any LuauUI state reaches a
+drive `classifyTags` — the single function by which any Facet state reaches a
 native selector — over its whole input domain and require every resulting tag to
 be selected by at least one rule in *every* sheet the framework can run (the base
 seed included), with the only exemptions computed from the same `chrome_slots`

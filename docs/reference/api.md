@@ -1,11 +1,11 @@
-# LuauUI API reference
+# Facet API reference
 
 Every public surface of the library, mechanically checked against the source
 by `lune run tools/lune/check_registration_cli` (an export without a heading
 here — or a heading without an export — fails the check). Format per entry:
 signature, parameters, return value, invariants, and a short example.
 
-The library is required as one module (`require(path.to.LuauUI)`); everything
+The library is required as one module (`require(path.to.Facet)`); everything
 below hangs off that table unless noted. Client-only entry points live under
 `src/client/` and are required directly by client scripts, never from shared
 or server code — the blessed list is [Client entry points](#client-entry-points).
@@ -32,14 +32,14 @@ anything below, because they decide how a call is written:
 
 ### `VERSION`
 
-`LuauUI.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
+`Facet.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
 currently `0.9.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
 pre-1.0, a minor bump may change behavior with notice; a patch bump never
 does. The version lives only here; docs and tests read it from the source.
 
 ### `DEPRECATIONS`
 
-`LuauUI.DEPRECATIONS: { { surface, since, removeNoEarlierThan, replacement, note? } }`
+`Facet.DEPRECATIONS: { { surface, since, removeNoEarlierThan, replacement, note? } }`
 — the machine-readable deprecation ledger, and it is **frozen**: authority, not
 a scratch table. It is the UNION of two halves in one record shape, so every
 consumer reads one list — the entries generated from the property schema
@@ -69,7 +69,7 @@ entries.
 
 ### `newCore`
 
-`LuauUI.newCore() -> Core` — creates an independent reactive core: the
+`Facet.newCore() -> Core` — creates an independent reactive core: the
 signal/memo/observer/effect graph plus the transaction scheduler and scope
 (ownership) system. Everything else in the library is built over one core per
 client.
@@ -133,7 +133,7 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   library's own tests are.
 
 ```lua
-local core = LuauUI.newCore()
+local core = Facet.newCore()
 local count = core:signal(0)
 local label = core:memo(function(use) return `Count: {use(count)}` end)
 core:observe(label, print)
@@ -146,7 +146,7 @@ count:set(1) -- prints "Count: 1"
 
 ### `UI`
 
-`LuauUI.UI` — the blueprint constructors. Blueprints are immutable plain
+`Facet.UI` — the blueprint constructors. Blueprints are immutable plain
 tables describing a tree; they carry no reactivity themselves, but any prop
 may be a Signal/Memo and the mount layer subscribes it to the right update
 class. Every constructor takes one spec table; `id` gives a node stable
@@ -169,8 +169,8 @@ error naming the control, the property, and the valid alternatives:
 
 A **modifier's** refusals name the modifier you called, not the internal
 property it chose: `UI.alignment(bp, "center")` on a class with no `alignH`
-reports `LuauUI UI.alignment on UI.When: UI.When has no property 'alignH'`. A
-direct constructor error is unchanged (`LuauUI UI.When: …`).
+reports `Facet UI.alignment on UI.When: UI.When has no property 'alignH'`. A
+direct constructor error is unchanged (`Facet UI.When: …`).
 
 Each constructor also has an exported spec type (`UI.ButtonSpec`,
 `UI.ScrollViewSpec`, …) built from the same schema, so an editor completes the
@@ -208,7 +208,7 @@ for that parent — a property that is accepted must do something.
 Three exports exist for tooling, tests and extension authors rather than for
 authoring a screen. They are public and covered by ADR-0011 like anything else.
 
-`LuauUI.UI.schema` is the property schema itself — eleven members:
+`Facet.UI.schema` is the property schema itself — eleven members:
 
 | Member | Answers |
 |---|---|
@@ -220,7 +220,7 @@ authoring a screen. They are public and covered by ADR-0011 like anything else.
 | `checkValue(propSpec, value) -> (ok, problem?)` | the single value ruling every constructor and modifier runs |
 | `suggest(class, badKey) -> { string }` | the did-you-mean candidates for an unknown key |
 | `propDirty() -> { [prop]: { [class]: { dirtyClass } } }` | which update classes a reactive prop schedules (a fresh table per call) |
-| `deprecations() -> { Deprecation }` | the schema-generated half of `LuauUI.DEPRECATIONS` (a fresh table per call) |
+| `deprecations() -> { Deprecation }` | the schema-generated half of `Facet.DEPRECATIONS` (a fresh table per call) |
 | `TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
 | `TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
 
@@ -230,10 +230,10 @@ disable framework validation process-wide. Read them; to annotate one, clone it.
 The shape of a `ClassSpec`/`PropSpec` is internal detail that may change in a
 minor; the eleven names and what they answer are the contract.
 
-`LuauUI.UI.isReadable(value) -> boolean` is **the one public predicate** for "is
+`Facet.UI.isReadable(value) -> boolean` is **the one public predicate** for "is
 this a Signal or a Memo". Reach for it instead of duck-typing `.get`.
 
-`LuauUI.UI.PROP_DIRTY` is the frozen `prop -> class -> { dirty class }` map the
+`Facet.UI.PROP_DIRTY` is the frozen `prop -> class -> { dirty class }` map the
 mount layer reads to decide what a reactive prop invalidates. It is the same
 data `schema.propDirty()` builds; the export exists so a diagnostic tool can
 read it without rebuilding it per call.
@@ -286,7 +286,7 @@ Three groups recur in the column below and are worth naming once:
 | `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
-| `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. This is SwiftUI's `hidden()`, and it is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (LuauUI arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
+| `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. This is SwiftUI's `hidden()`, and it is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (Facet arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
 | `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. This is SwiftUI's `opacity(_:)`. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued ([ADR-0029](../adr/ADR-0029-leaf-opacity-refusal.md)): a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), exactly as Apple specifies, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
 | `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — which is Apple's rule for `scaleEffect` too; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side |
 | `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
@@ -363,7 +363,7 @@ the engine multiplies it through the same pair, so the tint hues the *content*,
 not the plate), `Path` → the `Path2D`'s colour. In native-stylesheet mode those properties are
 sheet-owned, so a tinted node **claims** them: the write is an intentional,
 recorded defeat of the rule, published on the instance as the
-`LuauUI_PaintClaims` attribute so the `GetStyled` authority audit reads a declared
+`Facet_PaintClaims` attribute so the `GetStyled` authority audit reads a declared
 hand-off instead of tripping on an accident. Two consequences, both by design — a
 claim is permanent for the instance's lifetime (releasing a tint restores the
 value recorded when the claim was taken; the engine has no operation that gives
@@ -521,7 +521,7 @@ so read them before declaring one there):
   texture**, and its quality follows the client's `QualityLevel`. On a weakest
   device that is a whole subtree gone, not a degraded one, so groups are declared
   where a fade is wanted and nowhere else.
-- **Resizing recreates the texture**, and LuauUI writes `Size` on every re-solve
+- **Resizing recreates the texture**, and Facet writes `Size` on every re-solve
   that changes the box. A group belongs on a subtree whose box is stable (a card,
   a toast, a screen), not on one that re-measures every frame.
 
@@ -564,7 +564,7 @@ itself, so a drag can reach content below the fold. It is **on by default and
 inert**: nothing happens unless a drag is announced, so a screen with no draggable
 content behaves identically. Pass `false` to opt a scroller out entirely, or an
 options table to tune the model (`bandH`, `dwellS`, `rampS`, `exitEaseS`, `vMin`,
-`vMax` — see `LuauUI.newAutoscroll` for what each one means). The band defaults
+`vMax` — see `Facet.newAutoscroll` for what each one means). The band defaults
 to the HOST's own shape, not the screen's: **40 px** when the host is wider than
 it is tall, **44 px** when it is taller (a portrait box has less vertical room to
 aim at). The framework picks between the two per host; there is no call to make.
@@ -632,7 +632,7 @@ display-class change re-solves the stack in place:
 ```lua
 -- pass the screen's scope: `conditions` builds six memos, and a screen that
 -- rebuilds without owning them leaks six per cycle (see below)
-local conditions = LuauUI.adaptive.conditions(core, env, { scope = scope })
+local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 UI.AdaptiveStack{ id = "Toolbar", axis = conditions.axis, gap = 8, children = { ... } }
 ```
 
@@ -670,13 +670,13 @@ solver already knows what each candidate measures.
 squeezed into.** SwiftUI selects "the first child whose *ideal size* on the
 constrained axes fits within the proposed size", and an ideal size is what a view
 reports when nothing is proposed to it — so truncation, `lineLimit` and
-`minimumScaleFactor` are all invisible to the choice there. LuauUI's member of
+`minimumScaleFactor` are all invisible to the choice there. Facet's member of
 that family is `shrinkWeight`, and it is invisible here for the same reason: a
 candidate that only fits *after* being squeezed does not fit. Once a candidate has
 won it is laid out against the real offer and shrinks normally, exactly as
 SwiftUI hands its winner the parent's proposal. Picking is unshrunk; showing is
 not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md` carries the
-measurement, the citations, and the one place LuauUI still differs on purpose.)
+measurement, the citations, and the one place Facet still differs on purpose.)
 
 Two properties make it safe:
 
@@ -694,7 +694,7 @@ Two properties make it safe:
   2026-07-30 that path skipped the filter: a pad walked onto the hidden column and
   could not reach the visible row.
 
-This is also the **container-relative** condition: `LuauUI.adaptive.conditions` is
+This is also the **container-relative** condition: `Facet.adaptive.conditions` is
 viewport-relative, while this measures the container.
 
 ### `Composition`
@@ -799,7 +799,7 @@ and every grouped scope. **Focus order is the declaration's own order**, and is
 therefore identical in every arrangement.
 
 **Diagnosability.** The resolution is published on the solved node and carried by
-the layout dump as `luauui-composition-dump/1`: which arrangement won, which form
+the layout dump as `facet-composition-dump/1`: which arrangement won, which form
 and rect every region resolved to, which regions dropped, the **spanning rows**
 (`spans = { { id, side, rect } }`, empty when none is declared — an additive key,
 same schema), every lane's **`collapsed`** flag (rule 9 — a lane that used to be
@@ -809,7 +809,7 @@ candidate — the **rule it broke** and the measured detail (`laneWidth`,
 `overflow`). Read it live with `controller.compositionAt(path)`. In the mounted
 dump a region is addressed by its **node path** (`/Screen/Results/Field`), exactly
 like every rect key and every hidden root; the declared id is its last segment.
-The same decision is callable with no tree at all through `LuauUI.composition`,
+The same decision is callable with no tree at all through `Facet.composition`,
 where a region id is simply whatever the caller passed.
 
 ### `Region`
@@ -1036,7 +1036,7 @@ about what this view DOES, **pulled by the player**: a pointer resting on it for
 a dwell, or the keyboard/gamepad ring landing on it. See **Help** under
 `newPresenter` for the whole contract — including the part that is easy to get
 wrong. **On touch, nothing appears, and that is the specification.** Apple binds
-no gesture to help on any platform, and neither does LuauUI: touch long-press
+no gesture to help on any platform, and neither does Facet: touch long-press
 belongs to the full-value disclosure plate, which is the only touch route to a
 truncated label's own value. The consequence is a rule — `help` is never the only
 route to something a player needs — and `text_audit.helpRoutes` is the check that
@@ -1231,7 +1231,7 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   paint the picture over it, tinted by that asset's `tintRole`. With an `icon` the
   `label` stays the **semantic name** and is not drawn — so an icon button still
   has a real accessible name. `icon` is circle-only; for an icon *beside* a title,
-  put a `LuauUI.newLabel` in the button's `children`.
+  put a `Facet.newLabel` in the button's `children`.
 - **Paint costs a flat theme nothing.** The pill radius and the rim are phantom
   `::UICorner` / `::UIStroke` rules on the `luau-shape-circle` tag (the same radii
   machinery the slider thumb uses) — no extra instances. The rim carries
@@ -1321,7 +1321,7 @@ through the optional `setTextInputHandlers(handle, handlers)` seam
 (`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason) }`,
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
 path — engine-initiated focus must deliver it so occlusion keep-visible works
-without a prior activate). Prefer the `LuauUI.newTextInput`
+without a prior activate). Prefer the `Facet.newTextInput`
 composite over building on the raw primitive.
 
 ### `Box` / `Spacer`
@@ -1351,7 +1351,7 @@ both forms; they are written out under
 `UI.Path{ id?, points, thickness?, closed?, role?, tint?, width?, height? }` —
 stroked-path leaf backed by the engine's `Path2D` (native-substrate NS-A7):
 progress rings, arcs, gauge needles. `points` is a (reactive) array of
-NORMALIZED control points from `LuauUI.pathShapes` — a points change is a
+NORMALIZED control points from `Facet.pathShapes` — a points change is a
 paint-only prop write (never a re-solve), and the adapter re-scales the same
 normalized points when the solved rect changes. `role` picks the stroke color
 from the **active theme's** palette (`"accent"`, `"secondary"`, default content)
@@ -1382,7 +1382,7 @@ than its plate) must live OUTSIDE that container, exactly as a shadow does.
 
 `UI.Stage{ id?, width?, height?, surface?, tint? }` — the **engine-content box**:
 a leaf that reserves a rectangle for content the *engine* draws (a kart preview, a
-character turnaround, a hero rig) instead of content LuauUI lays out. The adapter
+character turnaround, a hero rig) instead of content Facet lays out. The adapter
 materializes it as a `ViewportFrame` and creates and owns two instances inside it:
 one `WorldModel` (the content root) and one `Camera` assigned to the frame's
 `CurrentCamera`. Both die with the node.
@@ -1431,7 +1431,7 @@ else
 end
 ```
 
-**Who owns what.** LuauUI owns the frame, the `WorldModel`, the `Camera`, the box,
+**Who owns what.** Facet owns the frame, the `WorldModel`, the `Camera`, the box,
 the lifecycle, and *every* write to `Ambient`, `LightColor`, `LightDirection` and
 `CurrentCamera` — those four are declared seam-owned in
 `src/render/authority.luau`, so a bespoke write to one is an error, not a silent
@@ -1464,7 +1464,7 @@ by name rather than shipping an unmeasured render.
 ### `Foreign`
 
 `UI.Foreign{ id?, width?, height?, surface? }` — the **bounded escape hatch**:
-a leaf that reserves a rectangle for a Roblox `GuiObject` **LuauUI does not wrap**.
+a leaf that reserves a rectangle for a Roblox `GuiObject` **Facet does not wrap**.
 A `VideoFrame`, an `EditableImage` surface, a vendored widget, a first-party class
 Roblox ships next month. It is `UI.Stage`'s 2-D sibling — same "the framework owns
 the box, somebody else owns the content" shape — and it is decided by
@@ -1495,7 +1495,7 @@ UI.Foreign({
 ```
 
 `surface` is the standard eight-surface vocabulary and paints the container, which
-LuauUI owns. There is deliberately **no `tint`**: a tint multiplies the node's own
+Facet owns. There is deliberately **no `tint`**: a tint multiplies the node's own
 picture, and this node's picture is *your* instance — painting it would be the
 framework writing the content it exists to disclaim.
 
@@ -1520,7 +1520,7 @@ else
 end
 ```
 
-**Who owns what.** LuauUI owns the container, its rect, its plate, its clip and its
+**Who owns what.** Facet owns the container, its rect, its plate, its clip and its
 lifecycle. **You own the instance**: its class, every one of its properties, its own
 children, and its lifetime. Position and size it in the container's own space
 (`UDim2.fromScale(1, 1)` fills the box and tracks it with no per-frame work).
@@ -1537,10 +1537,10 @@ exactly the writable-handle hole that defers `Ref`-shaped APIs. Adopting *into* 
 container hands back nothing at all.
 
 **One thing the framework does not write but does still reach: the theme sheet.**
-LuauUI writes exactly one property on your instance. A *native-mode* surface,
+Facet writes exactly one property on your instance. A *native-mode* surface,
 however, links a theme `StyleSheet` at its root, and a `StyleLink` is **ambient in
 the DataModel and selects by class** — so a rule can style an instance the
-framework has never heard of, simply because it is now a descendant. LuauUI's own
+framework has never heard of, simply because it is now a descendant. Facet's own
 sheet carries class-default rules for the seven GuiObject classes it renders
 (`Frame`, `TextLabel`, `TextButton`, `ImageLabel`, `TextBox`, `ScrollingFrame`,
 `CanvasGroup`), including `BackgroundTransparency = 1`.
@@ -1557,10 +1557,10 @@ So: **a class-default value cannot be held against a style rule at all.** Give a
 property you care about a non-default value (`0.02` instead of `0`). Note that the
 classes you most likely came here for — `VideoFrame`, `EditableImage` surfaces, a
 vendored widget's own class — are **not** selected by that sheet and are
-unaffected; the collision is specifically with the classes LuauUI itself renders.
+unaffected; the collision is specifically with the classes Facet itself renders.
 
 **What it is outside of.** A Foreign box takes **no focus stop** and consumes no
-semantic action. The framework has never seen your instance, so LuauUI's
+semantic action. The framework has never seen your instance, so Facet's
 Tab/gamepad traversal cannot stop on it; its own engine input still works normally.
 Compose a focus stop *around* the box (a `Button` overlay, a focusable `Grip`
 sibling) exactly as you would around a `Stage`. It is also **never recycled** into
@@ -1770,7 +1770,7 @@ rung 2 of the customization ladder
 
 It follows `UI.shadow`'s architecture exactly: bounded normalized data under the
 STYLE authority, materialized by the adapter as **one** bespoke `UIGradient`
-child named `LuauUIGradient` — never a sheet rule, because a rule matches a
+child named `FacetGradient` — never a sheet rule, because a rule matches a
 *class* of nodes and this one must win on exactly one. The child is reused, not
 re-created, so a reactive gradient or a theme swap can never stack two ramps on
 one node, and **the view's gradient survives a package swap** while the theme's
@@ -1795,7 +1795,7 @@ rendering and does not reach children, so a wash needs a fill to act on. Under a
 package that skins that slot with art the node's own plate is already suppressed
 (the image-is-the-element posture) and the decoration is a child — so the art
 wins and the wash paints nothing. The child itself is unaffected: measured live
-across three packages the same `LuauUIGradient` survived with identical stops and
+across three packages the same `FacetGradient` survived with identical stops and
 was never duplicated. See [guide §10.10](../guide/10-rich-skinning.md).
 
 ### `corners`
@@ -1821,7 +1821,7 @@ on a raised panel.
 | `transparency` | 0..1. Default: the style's hairline opacity. |
 
 Architecture follows `UI.gradient` exactly: bounded normalized data, materialized
-by the adapter as **one** bespoke `UIStroke` child named `LuauUIStroke` and
+by the adapter as **one** bespoke `UIStroke` child named `FacetStroke` and
 **reused**, never re-created — so a reactive pulse or a theme swap can never stack
 two borders on one node — and destroyed when the declaration goes away.
 `ApplyStrokeMode` is always `Border`, because the engine default (`Contextual`)
@@ -1940,7 +1940,7 @@ accepts everything), `onDrop(payload, info)` (required; `info` carries
 
 **Legality is always the game's.** `accepts` is the only place a rule enters, and
 its `reason` code comes back out through the `reject` event — a refusal is never
-silent. LuauUI never invents legality, and there is exactly one legality path for
+silent. Facet never invents legality, and there is exactly one legality path for
 pointer, touch, keyboard and gamepad.
 
 **Reachability.** Pointer and touch acquire by press-and-travel (the shared
@@ -1976,7 +1976,7 @@ no honest reading. Declaring `activation` twice on one node is refused too — a
 control has one activation sensation, and a silent last-writer-wins would make
 the two orderings of the same two modifiers produce different results.
 
-**LuauUI plays nothing.** SwiftUI's modifier names a haptic; this one names a
+**Facet plays nothing.** SwiftUI's modifier names a haptic; this one names a
 verb, and whether that becomes a rumble, a sound, a particle or nothing at all is
 the subscriber's ruling (`presenter.onFeedback` / `handle.onFeedback`).
 `src/client/haptics.luau` is one opt-in, default-off subscriber — see
@@ -2022,9 +2022,9 @@ already owns, and a tree that declares nothing carries no extra field on any nod
 
 The control form also reaches the **engine**: the renderer publishes each
 activatable control's resolved verb to the adapter, which the Roblox target
-realizes as a `LuauUI_ActivationFeedback` attribute, and the opt-in haptics
+realizes as a `Facet_ActivationFeedback` attribute, and the opt-in haptics
 adapter hands that button the effect its verb maps to. So a Buy button and a
-Cancel button feel different — and LuauUI still never calls `Play()` for a press.
+Cancel button feel different — and Facet still never calls `Play()` for a press.
 
 ### Layout modifiers: `frame`, `padding`, `offset`, `aspectRatio`, `alignment`, `overlay`, `background`
 
@@ -2109,7 +2109,7 @@ appears. Spec-first is deliberate — the collection is the thing being produced
 
 ### `newAsyncImage`
 
-`LuauUI.newAsyncImage(LuauUI, core, spec) -> { blueprint, state, handle }` —
+`Facet.newAsyncImage(Facet, core, spec) -> { blueprint, state, handle }` —
 an Image whose content arrives through the async resource provider
 (native-substrate NS-A14): `spec = { id, scope, provider, key, width?,
 height?, failureLabel?, retry?, dimmed? }`. Shows a placeholder surface while
@@ -2137,7 +2137,7 @@ requests via `ContentProvider:PreloadAsync` per-asset statuses.
 
 ### `pathShapes`
 
-`LuauUI.pathShapes` — pure, headlessly-tested shape math for `UI.Path`
+`Facet.pathShapes` — pure, headlessly-tested shape math for `UI.Path`
 (`src/controls/path_shapes.luau`): `arc(startDeg, sweepDeg, { segments?,
 radius? })`, `ring({ radius? })`, `needle(angleDeg, { innerRadius?, radius? })`
 return normalized control points (unit box; tangents relative to each point;
@@ -2147,20 +2147,20 @@ exact circular-arc bezier handles). Angles are screen-clockwise with 0° at
 ### Engine-selection bridge (a presentModal opt)
 
 `presentModal(bp, { engineSelectionBridge = true })` — opt-in mirror of
-LuauUI's logical focus to `GuiService.SelectedObject` while the modal owns UI
+Facet's logical focus to `GuiService.SelectedObject` while the modal owns UI
 input (native-substrate NS-A12). Modal-only: `present()` ignores the opt so
 passive/gameplay surfaces always keep `SelectedObject = nil` (NS-A11). The
 mirrored instance is made `Selectable` only while selected (the engine warns
 and reassigns selection set on a non-selectable object — measured); expect
 native autoscroll inside scroll hosts; the bridge clears on dismiss/teardown.
-EXPERIMENT until the physical-gamepad row (ledger NS-P1) closes — LuauUI's
+EXPERIMENT until the physical-gamepad row (ledger NS-P1) closes — Facet's
 focus graph remains the authority and every surface works with the bridge off.
 
 ## Mounting and rendering
 
 ### `mount`
 
-`LuauUI.mount(core, blueprint, opts?) -> MountedRoot` — materializes a
+`Facet.mount(core, blueprint, opts?) -> MountedRoot` — materializes a
 blueprint over a core. Factories run exactly once per node; dynamic props
 subscribe to their declared update classes. `opts.scope` supplies an owning
 scope. MountedRoot: `.node` (tree), `.takeDirty()` (drain the update queue),
@@ -2180,7 +2180,7 @@ lives in the coordinator and not here.
 
 ### `renderer`
 
-`LuauUI.renderer` is a namespace, not a factory: it carries the attach verb
+`Facet.renderer` is a namespace, not a factory: it carries the attach verb
 **and** the adapter-conformance data an adapter author writes against
 (constitution E-10 — `attach` is not `newRenderer` because the controller's
 lifetime is the mount's, not the module's).
@@ -2267,7 +2267,7 @@ end
 ```
 
 Read the field, never the wording. This is one decision, made in one place
-(`src/layout/solver.luau`, the composition arrange branch), and both LuauUI's
+(`src/layout/solver.luau`, the composition arrange branch), and both Facet's
 always-on overflow sweep and Rascal Rally's own screen checks read it — they used
 to recognise the sentence separately and had reached opposite conclusions about
 whether it counted as a defect. A designed report added later is handled
@@ -2304,7 +2304,7 @@ Two controller methods are the framework's entire **motion write surface**, on t
   rect write, so a re-solve can never drop a running motion and a motion never
   touches solver geometry (no `Size`, no re-solve per frame; layout-affecting
   animation is deliberately out of scope). `scale` materializes a transient
-  `LuauUIMotionScale` `UIScale`, removed at rest — and on a pressable control it
+  `FacetMotionScale` `UIScale`, removed at rest — and on a pressable control it
   *shares* that control's own `UIScale`, because the engine honours one per object.
   `rotation` maps to `GuiObject.Rotation`, which is paint-only in Roblox. `nil`
   clears. Values are compared before writing, so a settled motion costs nothing.
@@ -2358,7 +2358,7 @@ scrubs against layout space (ESC-2 residual, tracked in
 
 ### `newPresenter`
 
-`LuauUI.newPresenter(core, env, adapter, actionSystem, opts?) -> Presenter` —
+`Facet.newPresenter(core, env, adapter, actionSystem, opts?) -> Presenter` —
 owns screen/modal lifetimes, focus scopes, and input contexts. `opts` is
 `{ clock?, now?, keyboardNavigation? }`: pass `clock` to share one motion clock
 with the rest of the application, `now` to inject time.
@@ -2388,11 +2388,11 @@ scopes that own the records, and `refresh` itself.
   on the same spring, so a panel finishes growing on the very frame the rows it
   displaced finish sliding. There is nothing else in the set: every other
   property SwiftUI animates this way (opacity, rotation, scale, colour) is an
-  *authored paint* value, and LuauUI has no authored prop in the presentation
+  *authored paint* value, and Facet has no authored prop in the presentation
   channel for one to be diffed from — see `swiftui-parity.md` §6's `opacity(_:)`
   row for the authority decision that has to happen first.
 - **A size delta does NOT reach into the subtree**, and this is the one rule to
-  carry away. A position offset accumulates downward: LuauUI's instance tree is
+  carry away. A position offset accumulates downward: Facet's instance tree is
   flat by default, so an ordinary container's move carries nothing inside it and
   every descendant re-adds its ancestors' offsets, stopping only at the nearest
   node that is a real engine parent — a `ScrollView`, a `clipChildren` host, a
@@ -2495,11 +2495,11 @@ Left/Right reach the UI like every other key.
 There is no in-framework alternative, and specifically **no priority number**.
 Measured 2026-08-14: a sinking `ContextActionService` binding consumes a key
 before *any* `InputContext` is offered it, at any priority — a CAS sink at
-priority **100** beat a LuauUI `InputContext` at **10000** with `Sink = true`. CAS
+priority **100** beat a Facet `InputContext` at **10000** with `Sink = true`. CAS
 priority and `InputContext.Priority` are not one arbitration space, so a claim
 built at 10000 was measured inert and removed rather than shipped
 ([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
-LuauUI does not reach into `ContextActionService` at all (`ADR-0004`), and
+Facet does not reach into `ContextActionService` at all (`ADR-0004`), and
 silently unbinding a consumer's camera would be worse than the symptom. Note that
 disabling the PlayerModule's **controls** module does *not* free the key either —
 the camera module is a separate binding, and measured live 2026-08-15 the arrows
@@ -2528,9 +2528,9 @@ Methods:
 - `presenter.anchoredSurfaces() -> { schema, count, surfaces, text }` — every
   live anchored surface with its resolved edge, whether it flipped, how far it
   shifted along that edge and what became of its tail (schema
-  `luauui-anchored-dump/1`). Deterministic; the shape a bug report needs.
+  `facet-anchored-dump/1`). Deterministic; the shape a bug report needs.
 - `presenter.help() -> { schema, present, sourcePath, source, helpText, declarations, text }`
-  — the player-pulled help plate's state (schema `luauui-help-dump/1`). See
+  — the player-pulled help plate's state (schema `facet-help-dump/1`). See
   **Help** below.
 - `presenter.helpDeclarations() -> { [path] = { text, hover, focus } }` — every
   live `help` declaration and the routes that actually reach it, read off the
@@ -2542,7 +2542,7 @@ Methods:
   [`newCallout`](#newcallout) rather than directly.
 - `presenter.callouts() -> { schema, showing, visible, queued, waiting, text }` —
   what is on screen and what is waiting (schema
-  `luauui-callout-queue-dump/1`).
+  `facet-callout-queue-dump/1`).
 - `presenter.presentCritical(blueprintFactory, opts) -> handle` — runs the
   factory and presentation under protection; on error presents
   `opts.fallbackScreen(err)` instead (critical-screen fallback). **The fallback
@@ -2605,7 +2605,7 @@ Methods:
   is the one sanctioned frame source outside the motion clock — a second
   `RunService` connection in a consumer is the bug class it prevents. The
   unsubscribe is yours to own (`scope:own(presenter.onTick(...))`).
-- `presenter.motionClock` — the clock itself. `LuauUI.newPresenter(core, env,
+- `presenter.motionClock` — the clock itself. `Facet.newPresenter(core, env,
   adapter, actionSystem, opts?)` takes `opts.clock` to share one with the rest
   of the application, and `opts.now` to inject time.
 - `presenter.presentToast(blueprint, opts?) -> { id, dismiss() }` — see
@@ -2736,7 +2736,7 @@ and deterministic — two calls with nothing changed in between return equal dat
 
 ```lua
 {
-  schema = "luauui-focus-order/1",
+  schema = "facet-focus-order/1",
   scope = "SettingsScreen",
   present = true,          -- false after the surface is dismissed/disposed
   trap = false,            -- is this a trapping (modal) scope?
@@ -2976,7 +2976,7 @@ presenter's own — `presentAnchored` delegates to `present`/`presentModal`, so
 `scrim`, `cancelPolicy`, `outsideTapCancel`, `initialFocus`, `transition`,
 `navigationGroups` and the rest apply exactly as they do to any other surface.
 `presenter.dismiss(handle)` retires it. A **tap-away** is the ordinary
-contribution seam too: `LuauUI.contribution.attach(panel, { outsideDismiss = {
+contribution seam too: `Facet.contribution.attach(panel, { outsideDismiss = {
 active, dismiss, consume } })` and the presenter synthesizes its own popup
 catcher for this surface exactly as it does for a PopupButton, `consume = false`
 included — the mode that dismisses without swallowing, so the control the panel
@@ -3121,7 +3121,7 @@ opts = {
 `handle.onFeedback(fn)` (filtered to that surface) subscribe to one per-presenter
 bus. An event is `{ type, path?, surface?, reason?, context? }`.
 
-**LuauUI plays nothing.** It never triggers a sound, a haptic or a particle — it
+**Facet plays nothing.** It never triggers a sound, a haptic or a particle — it
 says what happened, on the frame it happened, with enough context for a game to
 map it to its own assets and policy.
 
@@ -3242,7 +3242,7 @@ until `engage()`:
   rather than refused because Tab is *not* in Roblox's hard-reserved set
   (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), so a UI-only place gets the convention
   for free. `gamepad_contention.traversalKeyContended()` probes the condition;
-  LuauUI never disables a consumer's leaderboard. Everything else here — Space,
+  Facet never disables a consumer's leaderboard. Everything else here — Space,
   the focused-value arrows, keep-visible, the modal trap — is uncontended.
 
   Traversal is a *second reading* of the same mounted focus graph the arrows
@@ -3383,7 +3383,7 @@ trap-and-restore) without engaging the modal machinery.
 
 ### `newEnvironment`
 
-`LuauUI.newEnvironment(core) -> Env` — per-client observable platform facts plus
+`Facet.newEnvironment(core) -> Env` — per-client observable platform facts plus
 derived policy. Four methods: `env:get(key) -> Readable` (any key, fact or
 derived; an unknown key errors), `env:set(key, value)` (**facts only** — setting
 a derived key errors), `env:batch(body)` (below), and `env:keys() -> { string }`
@@ -3494,22 +3494,22 @@ player's first touch.
 
 ### Requirement: `Workspace.PlayerScriptsUseInputActionSystem`
 
-**LuauUI's input layer is the Input Action System and nothing else.** The client
+**Facet's input layer is the Input Action System and nothing else.** The client
 adapter (`src/client/roblox_input.luau`) drives `InputContext` / `InputAction` /
 `InputBinding` and deliberately never touches `ContextActionService` — arbitration
 is the engine's job, and a UI framework that outbid a consumer's own bindings
 would be a worse problem than the one it solved (`ADR-0004`).
 
-**An experience embedding LuauUI must therefore enable
+**An experience embedding Facet must therefore enable
 `Workspace.PlayerScriptsUseInputActionSystem`.** Roblox documents it as
 controlling "whether the built-in player scripts are updated to use the Input
 Action System"
 ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
 With it off, Roblox's own scripts hold keys through `ContextActionService`, where
-no `InputContext` can reach them, and any LuauUI surface that binds those keys
+no `InputContext` can reach them, and any Facet surface that binds those keys
 silently does nothing:
 
-| what holds it | keys | what goes dead in LuauUI |
+| what holds it | keys | what goes dead in Facet |
 |---|---|---|
 | `RbxCameraKeypress` (default camera, CAS priority 2000, sinks) | `Left` `Right` `I` `O` | horizontal focus navigation; a Table's selected-column resize |
 | `jumpAction` (legacy control scripts, CAS priority 2000, sinks) | gamepad `ButtonA` | gamepad Activate on every control (D-pad still works, masking it) |
@@ -3518,7 +3518,7 @@ silently does nothing:
 priority and `InputContext.Priority` are **not one arbitration space**: a sinking
 CAS binding consumes the key before any `InputContext` is offered it, at any
 priority. Measured live 2026-08-14, four readings in one session — a CAS sink at
-priority **100** beat a LuauUI `InputContext` at **10000** with `Sink = true`; a
+priority **100** beat a Facet `InputContext` at **10000** with `Sink = true`; a
 claim built at 10000 was measured inert and removed rather than shipped
 ([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
 Enabling the property is what moves those bindings *into* the space where priority
@@ -3530,7 +3530,7 @@ database but is **not scriptable** (re-probed on `0.734.0.7340915`, 2026-08-15:
 a plain read answers "is not a valid member", `GetPropertyChangedSignal` answers
 "is not a **scriptable** property", and a made-up name answers "is not a valid
 property **name**" — three distinguishable sentences). It is also not
-Rojo-syncable. So no LuauUI version on any build can read it, set it, or verify
+Rojo-syncable. So no Facet version on any build can read it, set it, or verify
 it, and every diagnostic below is necessarily *behavioural* — it observes the
 symptom, never the setting.
 
@@ -3554,7 +3554,7 @@ truth set as one string for a log line.
 
 ### `newActionSystem`
 
-`LuauUI.newActionSystem(core) -> ActionSystem` — the headless semantic-action
+`Facet.newActionSystem(core) -> ActionSystem` — the headless semantic-action
 pipeline (the client swaps in `src/client/roblox_input.luau`, which drives
 the same interface from the engine's Input Action System). Contexts own
 priority/sinking/lifetime: `system.createContext{ name, priority, sink }`,
@@ -3629,7 +3629,7 @@ through `bind`/`deviceKey`, never through these.
 
 ### `inputHint`
 
-`LuauUI.inputHint(core, env, action, opts?) -> Readable<string>` — a reactive
+`Facet.inputHint(core, env, action, opts?) -> Readable<string>` — a reactive
 input-affordance label for an action (ADR-0013). It tracks the environment's
 `effectiveInput` fact and resolves the action's `preferredBinding(...)`,
 returning that binding's `displayName` (falling back to its `keyCode` /
@@ -3638,7 +3638,7 @@ returning that binding's `displayName` (falling back to its `keyCode` /
 label re-flips with no remount when the player switches input device:
 
 ```lua
-local hint = LuauUI.inputHint(core, env, activateAction) -- "Enter" | "A" | "Tap"
+local hint = Facet.inputHint(core, env, activateAction) -- "Enter" | "A" | "Tap"
 local text = UI.Text{ id = "Hint", text = hint }
 -- ... hint:dispose() with the rest of the screen's resources
 ```
@@ -3648,7 +3648,7 @@ the whole affordance — `"Press Enter"`, `"Press A"`, `"Tap"` — so a consumer
 write one template instead of branching on input class to author copy:
 
 ```lua
-local how = LuauUI.inputHint(core, env, activateAction, { style = "phrase" })
+local how = Facet.inputHint(core, env, activateAction, { style = "phrase" })
 local line = core:memo(function(use) return `{use(how)} to apply` end)
 ```
 
@@ -3667,7 +3667,7 @@ same node, no factory rerun.
 
 ### `adaptive`
 
-`LuauUI.adaptive` — the adaptive-layout decisions. Two halves, both usable
+`Facet.adaptive` — the adaptive-layout decisions. Two halves, both usable
 independently.
 
 **Pure functions** (no core, no environment, no DataModel — deterministic and
@@ -3713,7 +3713,7 @@ because the memos die with a short-lived core). `opts.scope` hands them to a sco
 so they die with the screen:
 
 ```lua
-local conditions = LuauUI.adaptive.conditions(core, env, { scope = screenScope })
+local conditions = Facet.adaptive.conditions(core, env, { scope = screenScope })
 ```
 
 Omitting it is still legal — then you own the twelve memos by hand, which is the
@@ -3733,12 +3733,12 @@ container actually received, use the real measurement contract instead — see
 
 **`contentWidth` is deprecated (since 0.8.0; replacement `viewportWidth`).** It
 is the same value under a second name, and the name is a lie: it states an inset
-subtraction that never happens. It keeps working — it is in `LuauUI.DEPRECATIONS`
+subtraction that never happens. It keeps working — it is in `Facet.DEPRECATIONS`
 with at least one minor of notice — but new code reads `viewportWidth`.
 
 ### `composition`
 
-`LuauUI.composition` — the **pure** half of declared-content adaptive composition
+`Facet.composition` — the **pure** half of declared-content adaptive composition
 (ADR-0023). `UI.Composition` / `UI.Region` are the declaration face; this is the
 decision itself, callable with **no mount, no engine and no theme**, which is what
 makes a whole device matrix a headless sweep rather than a screenshot review.
@@ -3747,7 +3747,7 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 |---|---|
 | `composition.resolve(decl, offer, ctx)` | the full `Resolution`: `arrangement`, `legal`, `fallback`, per-region `{ form, mounted, dropped, floor, rect, lane }` (plus `regionById`), lane rects with each lane's `collapsed` flag (rule 9), group rects, `scroller`, `used`, and `rejected` — one entry per losing candidate with the **rule** it broke and the measured detail. `offer` is `{ w, h }`; `ctx.measure(regionId, formIndex, availW, availH) -> (w, h)` supplies the measurements and `ctx.floorOf(region) -> number?` the authored floors |
 | `composition.normalize(decl)` | validate and default a declaration — the ONE ruling on what a declaration may say, run both at construction and on every solve. Idempotent |
-| `composition.dump(resolution)` | the deterministic diagnostic table (`{ schema = "luauui-composition-dump/1", … }`); two calls are equal. This is what the solver publishes and the layout dump carries |
+| `composition.dump(resolution)` | the deterministic diagnostic table (`{ schema = "facet-composition-dump/1", … }`); two calls are equal. This is what the solver publishes and the layout dump carries |
 | `composition.floorPx(floor, metrics)` | a CONTENT floor (`{ lines = n, role? }`, `{ targets = n }`) resolved to pixels against a theme snapshot; `nil` when nothing was declared |
 | `composition.arrangementOf(value)` | a preset name or a custom table, validated to `{ name, lanes }` |
 | `composition.ARRANGEMENTS` | the three presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `threeLane` = `{ lead } { main } { trail }` |
@@ -3781,8 +3781,8 @@ bar, the HUD **degrades by rank** instead of collapsing into itself.
 UI.Composition{
   id = "Hud",
   width = fill, height = fill,
-  groups = LuauUI.composition.HUD_GROUPS,
-  arrangements = { LuauUI.composition.HUD },
+  groups = Facet.composition.HUD_GROUPS,
+  arrangements = { Facet.composition.HUD },
   children = {
     UI.Region{ id = "Rail", group = "topRight", rank = 3, recover = "overflow",
                children = { rich, compact } },
@@ -3820,7 +3820,7 @@ extents are granted by the mechanism rather than claimed by the author.
 
 ### `contribution`
 
-`LuauUI.contribution` — the input-contribution seam (ADR-0013). A composite
+`Facet.contribution` — the input-contribution seam (ADR-0013). A composite
 control advertises its whole four-input story by attaching one bundle to its
 blueprint root; the presenter discovers it on mount and composes navigation
 groups, Activate dispatch, grab intercept, focus reporting, geometry feed,
@@ -3829,7 +3829,7 @@ cancel/dismiss/trap — with **no** `present()` opts from the consumer.
 
 ```lua
 local root = UI.VStack{ id = "MyControl", children = { … } }
-root = LuauUI.contribution.attach(root, {
+root = Facet.contribution.attach(root, {
     focusGroups = function(rootNode) … end,
     handleActivate = function(path, meta) … return true end,
     adjustTargets = function(rootNode) … end,
@@ -3855,7 +3855,7 @@ declaring both double-fires the verb.
 
 ### `text`
 
-`LuauUI.text` — the library's own measurement engine, reachable. Three pure
+`Facet.text` — the library's own measurement engine, reachable. Three pure
 functions over one non-yielding measurer: per-font calibration, per-role line
 height, real greedy wrapping, and the CJK/emoji full-em path. It exists because
 the alternative is what consumers were writing instead — a character count times
@@ -3874,7 +3874,7 @@ fallback* for a font it has never seen.
 matches its two siblings:
 
 ```lua
-local m = LuauUI.text.measure({
+local m = Facet.text.measure({
     text = "Rally Points",
     font = "GothamSSm",
     size = 18,          -- the size to measure AT
@@ -3972,11 +3972,11 @@ own two seams rather than a copy of them, so it moves when they move.
 
 ```lua
 local extent = core:memo(function(use)
-    local facts = LuauUI.text.facts({ env = env, use = use })
+    local facts = Facet.text.facts({ env = env, use = use })
     return PADDING * 2
-        + LuauUI.text.lineBox({ facts = facts, size = "title", lines = 1 })
+        + Facet.text.lineBox({ facts = facts, size = "title", lines = 1 })
         + GAP
-        + LuauUI.text.lineBox({ facts = facts, size = 13, lines = 3 })
+        + Facet.text.lineBox({ facts = facts, size = 13, lines = 3 })
 end)
 ```
 
@@ -4018,7 +4018,7 @@ ceiling their sum.
 
 ### `newFocusGraph`
 
-`LuauUI.newFocusGraph(core) -> FocusGraph` — the logical focus graph (engine
+`Facet.newFocusGraph(core) -> FocusGraph` — the logical focus graph (engine
 selection is a render output). Scopes stack; the top scope owns navigation;
 modal scopes trap and restore the previous focus on pop.
 
@@ -4106,7 +4106,7 @@ unchanged.
 
 ### `newTable`
 
-`LuauUI.newTable(LuauUI, core, spec) -> { blueprint, api, dump, dispose }` —
+`Facet.newTable(Facet, core, spec) -> { blueprint, api, dump, dispose }` —
 the multi-column list control (SwiftUI-`Table`-shaped columns that own their
 cells; owner-held `sortOrder`; selection none/single/multi with the
 Apple-style focus/selection model; column resize via focusable grips;
@@ -4182,7 +4182,7 @@ Auto-showing it is **ours, not Apple's**: SwiftUI's `EditButton` is placed by ha
 and Apple documents no condition on its appearance. What Apple conditions on
 declared capabilities is the *content* of edit mode (`EditMode`: a `List` whose
 `ForEach` carries `onDelete(perform:)`/`onMove(perform:)` "provides controls to
-delete or move list items while in edit mode"). The auto-show is what LuauUI's
+delete or move list items while in edit mode"). The auto-show is what Facet's
 four-input reachability rule requires on top of that.
 
 **The cost is real, deliberate, and yours to weigh.** With a primary action
@@ -4249,15 +4249,15 @@ is now `columnWidthOverrides:get()`.) SwiftUI spells the same thing as a binding
 [`TableColumn`](https://developer.apple.com/documentation/swiftui/tablecolumn).
 
 **Two things this reaches on a real device and one it does not**, measured
-2026-08-14 on `LuauUI-Showcase`'s `table_columns` fixture (retired 2026-08-16;
+2026-08-14 on `Facet-Showcase`'s `table_columns` fixture (retired 2026-08-16;
 the same header now ships on the `02_playlist_table` tutorial):
 
 - the divider drag and the `,` / `.` Adjust keys both work;
 - **Left/Right do not, in a place that has not enabled
   `Workspace.PlayerScriptsUseInputActionSystem`** — Roblox's own
   `RbxCameraKeypress` binds them at ContextActionService priority 2000 and sinks
-  them before any LuauUI handler is offered the key. The rows above describe
-  LuauUI's routing, which is correct; the key does not arrive. Enabling the
+  them before any Facet handler is offered the key. The rows above describe
+  Facet's routing, which is correct; the key does not arrive. Enabling the
   property puts the camera on IAS and the arrows resolve by ordinary priority —
   it is a stated requirement, see [Input](#input); no priority number is an
   alternative. See
@@ -4353,7 +4353,7 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 
 ### `newVirtualList`
 
-`LuauUI.newVirtualList(LuauUI, core, spec) -> VirtualList` — keyed-row
+`Facet.newVirtualList(Facet, core, spec) -> VirtualList` — keyed-row
 virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
@@ -4382,7 +4382,7 @@ and a horizontal list's own scroll would be the same sideways swipe.
 
 **`rowHeight` and `viewportHeight` are DEPRECATED aliases** of `itemExtent` and
 `viewportExtent` (since 0.9.0, removed no earlier than 0.10.0 — see
-`LuauUI.DEPRECATIONS`). Both still work and are identical on `axis = "y"`, so a
+`Facet.DEPRECATIONS`). Both still work and are identical on `axis = "y"`, so a
 vertical list needs no edit at all; they were renamed because a `rowHeight` on
 `axis = "x"` names a height that is really a width, and the alias would have to
 lie to somebody. Passing the new name and the old one together is refused at
@@ -4583,7 +4583,7 @@ row's signed reveal offset in px). Both are nil on a list without
 authored row of controls has to state how focus crosses between them ("left from
 any row returns to the hand"; "the hand's up/down enters the list"). Both halves
 are declarations: the neighbour attaches its own group through
-`LuauUI.contribution.attach`, and the list's own `wrap`/`exit` come from
+`Facet.contribution.attach`, and the list's own `wrap`/`exit` come from
 `navigation`. Rebuilding the list's group consumer-side is never the answer — its
 order entries carry the live focus-skip predicates *and* the active-interaction
 exemption, so a hand-written copy silently loses both.
@@ -4693,7 +4693,7 @@ pointer-handler funnel this feature rides is its own future task.
 
 ### `newVirtualGrid`
 
-`LuauUI.newVirtualGrid(LuauUI, core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
+`Facet.newVirtualGrid(Facet, core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
 
 **The lazy grid** — SwiftUI's `LazyVGrid` and, on `axis = "x"`, its `LazyHGrid`.
 A collection laid out in `columns` lanes that builds and mounts only the
@@ -4705,7 +4705,7 @@ that "create items only as needed". See
 [`swiftui-parity.md`](swiftui-parity.md) §4.2.2 for the full argument.
 
 ```luau
-local grid = LuauUI.newVirtualGrid(LuauUI, core, {
+local grid = Facet.newVirtualGrid(Facet, core, {
     id = "Wardrobe",
     items = catalog,                      -- Readable<{T}>
     key = function(item) return item.id end,
@@ -4716,7 +4716,7 @@ local grid = LuauUI.newVirtualGrid(LuauUI, core, {
     gap = 8,                              -- between cells ACROSS a line
     rowGap = 8,                           -- between LINES
     cell = function(item, ctx)            -- ctx = { scope, index, line, lane }
-        return LuauUI.UI.Text({ id = "Name", text = item.name })
+        return Facet.UI.Text({ id = "Name", text = item.name })
     end,
     onActivate = function(item) open(item) end,
 })
@@ -4796,7 +4796,7 @@ its lifecycle *is* the window's.
 | | |
 |---|---|
 | `itemExtent = "measured"` | Not offered, unlike `newVirtualList`. A grid's line extent is a fact about `columns` cells rather than one, so "measure the cell and window at that" has no single cell to measure. A consumer whose cells cannot predict their own extent should say so with the per-line function form, or use a list |
-| `minColumnWidth` | Refused. It needs the cross-axis size in px — a second measured seam beside `viewportExtent`. Bind `columns` to a memo over `LuauUI.adaptive.columnsFor(availableWidth, minColumnWidth, gap)`, which is the flow grid's own arithmetic, already exported |
+| `minColumnWidth` | Refused. It needs the cross-axis size in px — a second measured seam beside `viewportExtent`. Bind `columns` to a memo over `Facet.adaptive.columnsFor(availableWidth, minColumnWidth, gap)`, which is the flow grid's own arithmetic, already exported |
 | selection / reorder / `rowActions` | Not offered. A cell is the consumer's blueprint and carries its own interaction beyond the hit's Activate |
 
 ---
@@ -4805,7 +4805,7 @@ its lifecycle *is* the window's.
 
 ### `newResourceProvider`
 
-`LuauUI.newResourceProvider(core, opts?) -> Provider` — bounded async
+`Facet.newResourceProvider(core, opts?) -> Provider` — bounded async
 resource provider (images and friends). `opts`: `maxConcurrent` (default 4),
 `cacheBudget` (LRU entries, default 16),
 `retry = { count, delaySeconds?, giveUp? }`, `now` (injected clock, default
@@ -4879,7 +4879,7 @@ keeps its old promise until removal.
 
 ### `replication`
 
-`LuauUI.replication` — the client-side replicated-state adapters. Transport
+`Facet.replication` — the client-side replicated-state adapters. Transport
 is game-owned; you feed these from your remotes.
 
 **Three ingest verbs, not one overloaded one** (constitution E-16): the name
@@ -4936,7 +4936,7 @@ call sites branch on.
 
 ### `tokens`
 
-`LuauUI.tokens` — the token compiler. `tokens.compile(schema) -> (compiled?,
+`Facet.tokens` — the token compiler. `tokens.compile(schema) -> (compiled?,
 report)` validates a game's semantic token schema (surface/content color
 pairs with a 4.5:1 contrast gate, type ramp, spacing, radii, strokes, target
 sizes, motion durations, optional `shadows` presets) into frozen tables plus
@@ -4958,12 +4958,12 @@ caveat, ~100 on-screen shadow budget) in `src/render/style_lint.luau`.
 
 ### `themes`
 
-`LuauUI.themes` — theme packages and the effective metric snapshot (ADR-0019).
+`Facet.themes` — theme packages and the effective metric snapshot (ADR-0019).
 Engine-free: this is the pure half of the theme system, safe in a shared or
 server require graph.
 
 `themes.define(def) -> (package?, report)` compiles a declarative package
-(schema `luauui-theme/1`). Sections: `identity` (`id`, `displayName`,
+(schema `facet-theme/1`). Sections: `identity` (`id`, `displayName`,
 `schemaVersion`, `version`), `style` (ordered per-theme colour variants, gated
 by the same 4.5:1 contrast/completeness rules `tokens.compile` applies),
 `metrics` (typography roles, spacing steps, control sizes, per-family control
@@ -4980,7 +4980,7 @@ are inherited key-by-key, so "start from Studio Neutral and change the parts I
 mean to" is one line. On success the package is deeply frozen and carries a
 deterministic content `stamp`; on failure it returns `nil` plus a report whose
 `errors` name the offending field, the problem, and the fix. Rejections cover
-missing roles, unknown fields (with a "did you mean"), rule properties LuauUI
+missing roles, unknown fields (with a "did you mean"), rule properties Facet
 does not allow a theme to write, contrast failures, invalid insets, target
 sizes under the 44px accessibility floor, nine-slice recipes without a declared
 fallback or naming an undeclared asset, incompatible schema versions, and any
@@ -5066,7 +5066,7 @@ its values are the literals the framework shipped before packages existed).
 `themes.lintProperty(prop, scope?)` is the legal-property ruling: a theme rule
 may write only the native paint set, plus image chrome inside a nine-slice
 recipe (`scope = "chrome"`). `themes.SCHEMA` is the schema string this build
-speaks (`luauui-theme/1`).
+speaks (`facet-theme/1`).
 
 `themes.checkCoverage(package, declarations) -> { ok, covered, missing }` is the
 pre-play gate for a **contributed control**. `define` deliberately passes
@@ -5083,11 +5083,11 @@ and the fuller rung-3 example `examples/themes/ornate_gauge.luau`, walked in
 
 #### The client-side theme controller
 
-The engine half is client-only and is required directly, not from the `LuauUI`
+The engine half is client-only and is required directly, not from the `Facet`
 table (the same rule as `screen_target`):
 
 ```lua
-local theme_controller = require(ReplicatedStorage.LuauUI.client.theme_controller)
+local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller)
 local controller = theme_controller.install(adapter, package, {
     env = env,                -- REQUIRED: the snapshot rides it as `themeMetrics`
     rootGui = rootHandle.gui, -- the target's root; per-target isolation is one
@@ -5104,7 +5104,7 @@ local controller = theme_controller.install(adapter, package, {
 })
 ```
 
-`install` materializes the package's own sheet (named `LuauUITheme <id>`, with a
+`install` materializes the package's own sheet (named `FacetTheme <id>`, with a
 `Theme <name>` child per theme), links it at the target root, resolves the
 snapshot and commits it. Every capability check runs **before** the first
 mutation: a schema this build does not speak, an unknown or unprovided capability
@@ -5135,7 +5135,7 @@ and `inspect().fallback` reports the degradation. Full walkthrough:
 rich-skinning surface is [`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md).
 ### `newPopupButton`
 
-`LuauUI.newPopupButton(LuauUI, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.newPopupButton(Facet, core, spec) -> { blueprint, api, dump, dispose }`
 — a select/dropdown control. Closed, it is a single focusable button showing
 the currently-selected option's label. Activating it (tap, keyboard Return,
 gamepad ButtonA) opens a popup panel listing the options as activatable rows
@@ -5176,7 +5176,7 @@ diagnostic summary (`{ schema, id, open, value, selectedLabel, options }`).
 
 ```lua
 local value = core:signal("normal")
-local difficulty = LuauUI.newPopupButton(LuauUI, core, {
+local difficulty = Facet.newPopupButton(Facet, core, {
 	id = "Difficulty",
 	options = {
 		{ id = "easy", label = "Easy" },
@@ -5189,7 +5189,7 @@ local difficulty = LuauUI.newPopupButton(LuauUI, core, {
 	end,
 })
 -- host screen wires activation to the control's router:
-pres.present(LuauUI.UI.Screen({ id = "S", children = { difficulty.blueprint } }), {
+pres.present(Facet.UI.Screen({ id = "S", children = { difficulty.blueprint } }), {
 	sinkNavigation = true,
 	onActivate = function(path, meta)
 		difficulty.api.handleActivate(path, meta)
@@ -5199,7 +5199,7 @@ pres.present(LuauUI.UI.Screen({ id = "S", children = { difficulty.blueprint } })
 
 ### `newMenu`
 
-`LuauUI.newMenu(LuauUI, core, spec) -> { blueprint, api, presentation, dump, dispose }`
+`Facet.newMenu(Facet, core, spec) -> { blueprint, api, presentation, dump, dispose }`
 — a freestanding **action menu**. Its items are *verbs*, not values: each one runs
 something when it is picked. That is the whole difference from `newPopupButton`,
 whose `value` is a `Signal<string>` a verb list cannot fill. It is what closes
@@ -5264,9 +5264,9 @@ control is a **function** returning the resolved idiom. `dump()` returns
 diagnostics, text }`.
 
 ```lua
-local avatarMenu = LuauUI.newMenu(LuauUI, core, {
+local avatarMenu = Facet.newMenu(Facet, core, {
 	id = "AvatarMenu",
-	trigger = LuauUI.UI.Button({ id = "More", label = "More", shape = "circle", icon = "more" }),
+	trigger = Facet.UI.Button({ id = "More", label = "More", shape = "circle", icon = "more" }),
 	items = {
 		{ id = "accessory", label = "Accessory Adjustment", icon = "edit", onSelect = function()
 			openAccessories()
@@ -5284,14 +5284,14 @@ local avatarMenu = LuauUI.newMenu(LuauUI, core, {
 		{ id = "reset", label = "Reset Avatar", role = "destructive", onSelect = function() end },
 	},
 })
-pres.present(LuauUI.UI.Screen({ id = "S", children = { avatarMenu.blueprint } }), {
+pres.present(Facet.UI.Screen({ id = "S", children = { avatarMenu.blueprint } }), {
 	sinkNavigation = true,
 })
 ```
 
 ### `newCallout`
 
-`LuauUI.newCallout(LuauUI, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.newCallout(Facet, core, spec) -> { blueprint, api, dump, dispose }`
 — the **app-pushed coach mark**: a styled plate with an arrow tail that the
 application raises from its own rules, pointing at the control it is about.
 SwiftUI's TipKit `popoverTip(_:arrowEdge:action:)`, not a tooltip.
@@ -5332,7 +5332,7 @@ used). **Invalidation** is permanent: the tip dies when its feature is used, whe
 the player dismisses it, or on an explicit `invalidate()`, and a retired callout
 cannot be presented again in that session.
 
-**Persistence is the CALLER'S, never the framework's.** LuauUI has no save layer
+**Persistence is the CALLER'S, never the framework's.** Facet has no save layer
 and does not grow one here. The construct reads your Readables and reports —
 exactly once, through the **required** `onRetire(reason)` — that this tip should
 never be shown again. Whether anything is written, and where, happens entirely
@@ -5365,15 +5365,15 @@ same rules toasts already follow. `presenter.callouts()` reports what is showing
 and what is waiting.
 
 ```lua
-local tip = LuauUI.newCallout(LuauUI, core, {
+local tip = Facet.newCallout(Facet, core, {
 	id = "PostAvatar",
-	anchor = LuauUI.UI.Button({ id = "Plus", label = "+", shape = "circle", icon = "add" }),
-	content = LuauUI.UI.VStack({
+	anchor = Facet.UI.Button({ id = "Plus", label = "+", shape = "circle", icon = "add" }),
+	content = Facet.UI.VStack({
 		id = "Body",
 		gap = "xs",
 		children = {
-			LuauUI.UI.Text({ id = "Title", text = "Post Avatars to Marketplace", textSize = "body" }),
-			LuauUI.UI.Text({ id = "Sub", text = "Anyone can wear it", textSize = "caption", role = "secondary" }),
+			Facet.UI.Text({ id = "Title", text = "Post Avatars to Marketplace", textSize = "body" }),
+			Facet.UI.Text({ id = "Sub", text = "Anyone can wear it", textSize = "caption", role = "secondary" }),
 		},
 	}),
 	-- the CALLER'S state, read and never written
@@ -5385,7 +5385,7 @@ local tip = LuauUI.newCallout(LuauUI, core, {
 		analytics.tipRetired("PostAvatar", reason)
 	end,
 })
-pres.present(LuauUI.UI.Screen({ id = "S", children = { tip.blueprint } }))
+pres.present(Facet.UI.Screen({ id = "S", children = { tip.blueprint } }))
 if tip.api.eligible() then
 	tip.api.present()
 end
@@ -5393,13 +5393,13 @@ end
 
 ### `newStepper`
 
-`LuauUI.newStepper(LuauUI, core, spec) -> { blueprint, model, semanticText, dump, dispose }`
+`Facet.newStepper(Facet, core, spec) -> { blueprint, model, semanticText, dump, dispose }`
 — a labelled value with discrete decrement/increment affordances, composed from
 shipped primitives over the shared value model.
 
 ```lua
 local volume = core:signal(5)
-local stepper = LuauUI.newStepper(LuauUI, core, {
+local stepper = Facet.newStepper(Facet, core, {
     id = "Volume", label = "Volume",
     value = volume,              -- OWNER-held settable Signal<number>
     min = 0, max = 10, step = 1, -- step defaults to 1
@@ -5422,7 +5422,7 @@ class, including Adjust.
 
 ### `newProgressView`
 
-`LuauUI.newProgressView(LuauUI, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
+`Facet.newProgressView(Facet, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
 — progress, determinate or indeterminate, linear or circular. `spec = { id?,
 label?, value? (number | Readable), min? = 0, max? = 1, format?, showValue?,
 height?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
@@ -5459,7 +5459,7 @@ the engine (searched, 2026-08-13: `UIGradient` has no angular mode, `ImageLabel`
 no fractional fill, `EditableImage` no arc, and `GuiObject.Rotation` cannot move
 its pivot and is documented incompatible with `ClipsDescendants`), so both forms
 are strokes on the `UI.Path` primitive that already ships, drawn from
-`LuauUI.pathShapes.arc`. `points` is `dirty = { "paint" }`, so a value change and
+`Facet.pathShapes.arc`. `points` is `dirty = { "paint" }`, so a value change and
 a frame of rotation are each **one prop write and zero re-solves**. It adds **no
 blueprint prop and no decoration slot**: the arc's paint identity is the Path's
 own `role` (`accent`, over a `secondary` capacity ring), and its size is the pair
@@ -5477,7 +5477,7 @@ sliced.
 **Do not read the circular ring as `ProgressView` parity.** On iOS/macOS/tvOS
 `ProgressView(value:).progressViewStyle(.circular)` is *indeterminate* — the
 determinate ring is a **`Gauge`** (`.accessoryCircularCapacity`, "a closed ring
-that's partially filled in"), which LuauUI does not otherwise ship. The
+that's partially filled in"), which Facet does not otherwise ship. The
 indeterminate form is the `ProgressView` parity claim; the determinate one is the
 Gauge shape, offered on the same control because the arithmetic is identical.
 
@@ -5624,7 +5624,7 @@ and `animating`.
 
 ### `newLabel`
 
-`LuauUI.newLabel(LuauUI, core, spec) -> { blueprint, semanticText, dump, dispose }`
+`Facet.newLabel(Facet, core, spec) -> { blueprint, semanticText, dump, dispose }`
 — an icon + title pair. `spec = { id?, title (required), icon?, presentation?
 ("titleAndIcon" | "titleOnly" | "iconOnly"), iconSize?, textSize?, gap? }`.
 
@@ -5639,7 +5639,7 @@ content) when it must be pressable, which keeps one activation surface.
 
 ### `newPicker`
 
-`LuauUI.newPicker(LuauUI, core, spec) -> { blueprint, presentation, dump, dispose }`
+`Facet.newPicker(Facet, core, spec) -> { blueprint, presentation, dump, dispose }`
 — single selection from a small option set. `spec = { id?, label?, options ({ value,
 label, icon? }[]), selected (Signal), presentation? ("automatic" | "segmented" |
 "inline"), indicator? ("automatic" | "none" | "underline" | "pill"), axis? ("x" |
@@ -5653,7 +5653,7 @@ that is deliberate. A picker chooses a value; a tab view chooses a page.
 
 **The presentation is adaptive, not a platform branch.** `"automatic"` (the default)
 picks from the option count and the space class you pass in — typically
-`LuauUI.adaptive.conditions(core, env).sizeClass`. The rule is small enough to
+`Facet.adaptive.conditions(core, env).sizeClass`. The rule is small enough to
 state in full, and it is the whole rule — a device name appears nowhere:
 
 | Condition (first match wins) | Presentation |
@@ -5664,7 +5664,7 @@ state in full, and it is the whole rule — a device name appears nowhere:
 
 `presentation` on the returned table is a **`Readable<string>`** of the resolved
 answer, so you can bind it. (The rule function itself is not on the public
-`LuauUI` table today; the table above is the contract.)
+`Facet` table today; the table above is the contract.)
 
 The option group is a `UI.AdaptiveStack`, so a live space change **flips the
 presentation without remounting the options** — they keep their identity, focus and
@@ -5700,7 +5700,7 @@ different construct and already owns that layout.
 
 `indicator = "automatic"` (default) `| "none" | "underline" | "pill"`. When it is on,
 the selection chip or bar **animates from the previously selected option's rect to the
-new one** instead of the fill cross-fading — LuauUI's answer to SwiftUI's
+new one** instead of the fill cross-fading — Facet's answer to SwiftUI's
 `matchedGeometryEffect` for the selection case. The mechanism is internal
 (`src/controls/selection_indicator.luau`); this property is the whole public
 surface, and `TabView` carries the same one.
@@ -5717,7 +5717,7 @@ it** — one selection paint re-solved, rather than two paintings swapping.
 it leaves the pre-indicator control byte-identical.
 
 ```lua
-LuauUI.newPicker(LuauUI, core, {
+Facet.newPicker(Facet, core, {
     id = "View",
     selected = view,
     options = { { value = "grid", label = "Grid" }, { value = "list", label = "List" } },
@@ -5788,13 +5788,13 @@ Activation is unaffected (the control dispatches on the leaf segment), and
 always had. `indicator` is the seam's live state (`skin`, `axis`, the resolved rect,
 how many placements and how many slides, how many times the fed geometry actually
 moved), or the string `"none"`. The schema string is still
-`"luauui-picker-dump/1"`: every field that shipped keeps its name, type and meaning,
+`"facet-picker-dump/1"`: every field that shipped keeps its name, type and meaning,
 so nothing written against `/1` breaks — a schema string warns about an incompatible
 shape, and adding fields is not one.
 
 ### `newTabView`
 
-`LuauUI.newTabView(LuauUI, core, spec) -> { blueprint, strip placement, dump, dispose }`
+`Facet.newTabView(Facet, core, spec) -> { blueprint, strip placement, dump, dispose }`
 — a tab bar and the pages behind it. `spec = { id?, selection (Signal), tabs ({ id,
 label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
@@ -5802,10 +5802,10 @@ label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 enabled?, onChange? }`.
 
 ```lua
-local tabs = LuauUI.newTabView(LuauUI, core, {
+local tabs = Facet.newTabView(Facet, core, {
     id = "App",
     selection = section,             -- YOUR Signal, holding a tab id
-    conditions = LuauUI.adaptive.conditions(core, env, { scope = scope }),
+    conditions = Facet.adaptive.conditions(core, env, { scope = scope }),
     tabs = {
         { id = "home",  label = "Home",  icon = "app:home",
           content = function(tabScope) return homeScreen(tabScope) end },
@@ -5825,7 +5825,7 @@ nesting. `dump().strip` is the picker's own dump, nested rather than paraphrased
 `adaptive.navPlacement` — a compact width takes the thumb-zone `bottomBar`, a short
 height its centered `bottomBarCompact`, a pointer-primary desktop the `sidebar`, a
 tablet or a ten-foot screen the `topBar`. Pass `conditions` (the table
-`LuauUI.adaptive.conditions(core, env)` returns) so its thirteen memos are not built
+`Facet.adaptive.conditions(core, env)` returns) so its thirteen memos are not built
 twice, or `env` and the control builds and owns them. A **declared** `placement` never
 consults the policy at all. The resolved answer is published as `api.placement`, so a
 screen with its own chrome to place — a search field that rides the bar, a wordmark
@@ -5878,7 +5878,7 @@ owns whatever that tab's factory put on it. `selection` is yours.
 
 ### `newDisclosureGroup`
 
-`LuauUI.newDisclosureGroup(LuauUI, core, spec) -> { blueprint, bindFocus, dump, dispose }`
+`Facet.newDisclosureGroup(Facet, core, spec) -> { blueprint, bindFocus, dump, dispose }`
 — a labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle? }`.
 
@@ -5897,13 +5897,13 @@ open across a remount.
 
 ### `newSlider`
 
-`LuauUI.newSlider(LuauUI, core, spec) -> { blueprint, model, semanticText, fillWidth, thumbOffset, onInteractionClassLost, dump, dispose }`
+`Facet.newSlider(Facet, core, spec) -> { blueprint, model, semanticText, fillWidth, thumbOffset, onInteractionClassLost, dump, dispose }`
 — a continuous or stepped value along a track, sharing the value arithmetic with
 `newStepper`.
 
 ```lua
 local volume = core:signal(50)
-local slider = LuauUI.newSlider(LuauUI, core, {
+local slider = Facet.newSlider(Facet, core, {
     id = "Vol", label = "Volume",
     value = volume,               -- OWNER-held settable Signal<number>
     min = 0, max = 100, step = 5, -- step nil = continuous
@@ -5960,13 +5960,13 @@ parent would resolve to zero and leave nothing to drag along.
 
 ### `newLevelPicker`
 
-`LuauUI.newLevelPicker(LuauUI, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
+`Facet.newLevelPicker(Facet, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
 — a run of `count` **discrete segments** that reads as one value: a graphics
 preset, a difficulty dial, a capacity meter, a rating. Zero is a real state.
 
 ```lua
 local quality = core:signal(2)
-local picker = LuauUI.newLevelPicker(LuauUI, core, {
+local picker = Facet.newLevelPicker(Facet, core, {
     id = "Balanced",
     value = quality,           -- OWNER-held settable Signal<number>
     count = 10,                -- the maximum; default 5
@@ -6011,7 +6011,7 @@ is a construction error rather than a silent no-op — `glyphs` beside
 asset of its own, so there is no default to fall back on.
 
 **`tint` is the continuous-colour channel, one value per half.** Each is an
-ordinary LuauUI tint — `{ role = …, blend = … }` (themable, preferred) or
+ordinary Facet tint — `{ role = …, blend = … }` (themable, preferred) or
 `{ direct = "#rrggbb" }` (declared theming-exempt) — and each is independently
 optional: omitting one leaves that half to the theme. It is the analogue of
 SwiftUI's `.symbolRenderingMode(.palette)` with the two-argument
@@ -6053,7 +6053,7 @@ same of the shape ("A large value range can make the segments of a discrete
 capacity indicator too small to be useful"), and says it as guidance rather than
 as a limit. The notes also ride `dump().diagnostics`.
 
-`dump()` reports `schema = "luauui-level-picker-dump/1"`, `segment`, `value`,
+`dump()` reports `schema = "facet-level-picker-dump/1"`, `segment`, `value`,
 `count`, `min`, `readOnly`, `enabled`, `semanticText`, `diagnostics` and
 `rootPath`. `segment` and `semanticText` are the pair that make a bar- or
 image-only control readable to a consumer that cannot see it: one says what is
@@ -6061,7 +6061,7 @@ being painted, the other says what it means (`"2 of 10"`).
 
 ### `newRating`
 
-`LuauUI.newRating(LuauUI, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
+`Facet.newRating(Facet, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
 — a short run of glyphs that reads as **one** value: a star rating, a difficulty
 dial, a five-point score. It is a **thin preset over `newLevelPicker`**:
 `count = 5`, `segment = "glyph"`, the star pair, and no tint. Everything below is
@@ -6072,7 +6072,7 @@ glyphs, or a colour per half.
 
 ```lua
 local score = core:signal(3)
-local rating = LuauUI.newRating(LuauUI, core, {
+local rating = Facet.newRating(Facet, core, {
     id = "Score",
     value = score,             -- OWNER-held settable Signal<number>
     count = 5,                 -- how many glyphs; default 5
@@ -6137,7 +6137,7 @@ content, so a standalone rating still hugs its glyphs rather than stretching.
 
 ### `valueModel`
 
-`LuauUI.valueModel.new({ min, max, step?, format? }) -> Model` — the shared,
+`Facet.valueModel.new({ min, max, step?, format? }) -> Model` — the shared,
 pure arithmetic behind the value-control family, so `Stepper` and a `Slider` cannot
 disagree at the edges: `clamp`, `quantize`, `stepped`, `fraction`, `fromFraction`,
 `format`, `semanticText`, `atMin`, `atMax`.
@@ -6162,7 +6162,7 @@ unwinding a solve.
 
 ### `newTextInput`
 
-`LuauUI.newTextInput(LuauUI, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.newTextInput(Facet, core, spec) -> { blueprint, api, dump, dispose }`
 — a single-line text field: a composite of the `UI.TextField` primitive and an
 optional trailing clear button. The OWNER holds the text in a `Signal<string>`;
 the control never creates it (state that must outlive the control belongs to
@@ -6278,7 +6278,7 @@ clearButtonMode, occlusionOffset, keyboardType, submitLabel }`.
 
 ```lua
 local name = core:signal("")
-local field = LuauUI.newTextInput(LuauUI, core, {
+local field = Facet.newTextInput(Facet, core, {
 	id = "Name",
 	value = name,
 	placeholder = "Your name",
@@ -6292,7 +6292,7 @@ local field = LuauUI.newTextInput(LuauUI, core, {
 -- these three opts ARE the text-entry wiring; nothing here is required to make
 -- typing stop navigating — that comes from the injected `actionSystem` raising
 -- the field's own sinking edit context while editing.
-pres.present(LuauUI.UI.Screen({ id = "S", children = { field.blueprint } }), {
+pres.present(Facet.UI.Screen({ id = "S", children = { field.blueprint } }), {
 	onActivate = function(path, meta) field.api.handleActivate(path, meta) end,
 	onGeometry = function(rectOf) field.api.syncGeometry(rectOf) end,
 	keepVisibleOffset = field.api.keepVisibleOffset,
@@ -6300,7 +6300,7 @@ pres.present(LuauUI.UI.Screen({ id = "S", children = { field.blueprint } }), {
 ```
 ### `newChip`
 
-`LuauUI.newChip(LuauUI, core, spec) -> { blueprint, dump, dispose }` — a small
+`Facet.newChip(Facet, core, spec) -> { blueprint, dump, dispose }` — a small
 toggleable tag/filter pill. It renders as a single rounded label (a Button with
 `pill` corners) whose surface reflects a caller-owned selection: activating it
 (pointer tap, mouse click, keyboard Return, or gamepad ButtonA) flips the
@@ -6325,7 +6325,7 @@ Return surface:
   `pres.present(screen)` makes the chip reachable and activatable on pointer,
   touch, keyboard, and gamepad.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "luauui-chip-dump/1", id, label, selected }`); two calls with
+  (`{ schema = "facet-chip-dump/1", id, label, selected }`); two calls with
   unchanged state are byte-identical.
 - `dispose()` — disposes the control scope and nothing else.
 
@@ -6347,18 +6347,18 @@ Invariants:
 
 ```lua
 local raining = core:signal(false)
-local chip = LuauUI.newChip(LuauUI, core, {
+local chip = Facet.newChip(Facet, core, {
 	id = "Rain",
 	label = "Rain",
 	selected = raining,
 	onToggle = function(on) print("rain filter:", on) end,
 })
 -- zero present opts: pointer/touch/keyboard/gamepad all just work
-pres.present(LuauUI.UI.Screen({ id = "S", children = { chip.blueprint } }))
+pres.present(Facet.UI.Screen({ id = "S", children = { chip.blueprint } }))
 ```
 ### `newRowActions`
 
-`LuauUI.newRowActions(LuauUI, core, spec) -> { blueprint, dump, dispose }` — a
+`Facet.newRowActions(Facet, core, spec) -> { blueprint, dump, dispose }` — a
 swipeable action tray around an arbitrary row (iOS Mail-style leading/trailing
 actions: Delete, Flag, Mark Read, ...): the spec contract, a lazily-mounted
 tray on each edge, spring-animated reveal with proportional tray-button
@@ -6403,7 +6403,7 @@ Return surface:
   Activate dispatch (pointer, touch, keyboard, gamepad) exactly like every
   other interactive composite — **no `present()` opts are needed**.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "luauui-rowactions-dump/1", id, offset, openEdge, phase, menuOpen }`,
+  (`{ schema = "facet-rowactions-dump/1", id, offset, openEdge, phase, menuOpen }`,
   `phase` one of `"closed" | "open"`; `menuOpen` is the action menu's own open
   state, independent of the tray).
 - `dispose()` — disposes the control scope and nothing else.
@@ -6519,20 +6519,20 @@ Invariants:
   uncovered at a full reveal.
 
 ```lua
-local row = LuauUI.newRowActions(LuauUI, core, {
+local row = Facet.newRowActions(Facet, core, {
 	id = "Row1",
-	content = LuauUI.UI.Text({ id = "Title", text = "Inbox message" }),
+	content = Facet.UI.Text({ id = "Title", text = "Inbox message" }),
 	trailing = {
 		{ id = "delete", label = "Delete", role = "destructive", onAction = function() print("deleted") end },
 		{ id = "flag", label = "Flag", onAction = function() print("flagged") end },
 	},
 })
-pres.present(LuauUI.UI.Screen({ id = "S", children = { row.blueprint } }))
+pres.present(Facet.UI.Screen({ id = "S", children = { row.blueprint } }))
 ```
 
 ### `newRowActionsCoordinator`
 
-`LuauUI.newRowActionsCoordinator(core) -> { claim, release, bindScroll }` — the
+`Facet.newRowActionsCoordinator(core) -> { claim, release, bindScroll }` — the
 open-state coordinator for a list of `newRowActions` rows: **at most one row
 open per surface**. A plain `VStack`/`ScrollView` list builds its own instance
 and passes it to every wrapped row's `spec.coordinator` key; `newTable`'s own
@@ -6552,24 +6552,24 @@ Return surface:
 | `bindScroll` | `(controller, path: string) -> (() -> ())` | wires `controller.observeScroll(path, ...)` (present-time, same idiom as `Table.bindNativeScroll`) so **any** scroll movement on that host — no distance/velocity threshold, matching iOS — closes whichever row is currently open. Returns the unsubscribe. |
 
 ```lua
-local coordinator = LuauUI.newRowActionsCoordinator(core)
+local coordinator = Facet.newRowActionsCoordinator(core)
 local rows = {}
 for _, item in items do
-	table.insert(rows, LuauUI.newRowActions(LuauUI, core, {
+	table.insert(rows, Facet.newRowActions(Facet, core, {
 		id = item.id,
 		content = rowContent(item),
 		trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() remove(item) end } },
 		coordinator = coordinator,
 	}))
 end
-local scrollHandle = LuauUI.UI.ScrollView({ id = "List", children = blueprintsOf(rows) })
+local scrollHandle = Facet.UI.ScrollView({ id = "List", children = blueprintsOf(rows) })
 -- after present(): controller comes from pres.present/pres.refresh's own render controller
 local unbindScroll = coordinator.bindScroll(controller, "/S/List")
 ```
 
 ### `newDragSession`
 
-`LuauUI.newDragSession(opts) -> session` — the pure, engine-free drag-session
+`Facet.newDragSession(opts) -> session` — the pure, engine-free drag-session
 model (roblox-native audit corrections §1). Roblox's `UIDragDetector` owns
 cross-input drag *motion* at the adapter edge; this session owns the framework
 *policy* the engine does not: which drop targets are legal for a payload, the
@@ -6596,7 +6596,7 @@ state (drop/cancel) makes the session inert.
 
 ### `interactionTokens`
 
-`LuauUI.interactionTokens` — the shared per-input-class interaction thresholds
+`Facet.interactionTokens` — the shared per-input-class interaction thresholds
 (ADR-0022 Decision 5, row SF-D3). **One** place decides whether a press became a
 drag, because a promotion threshold is a device fact, not a control fact: a
 finger's resting jitter is ~10 px and a mouse's is ~1 px, so no single number
@@ -6633,7 +6633,7 @@ the capture on touch so the native `ScrollingFrame` keeps the pan.
 
 ### `newDragVelocity`
 
-`LuauUI.newDragVelocity(opts?) -> tracker` — the rolling release-velocity
+`Facet.newDragVelocity(opts?) -> tracker` — the rolling release-velocity
 tracker (row SF-D2). `opts.windowS` defaults to **0.1 s**.
 
 - `tracker:push(x, y, t)` — record a position. **Time is injected**: this module
@@ -6655,7 +6655,7 @@ and a thrown card cannot drift apart in feel.
 
 ### `newAutoscroll`
 
-`LuauUI.newAutoscroll(opts?) -> model` — the pure drag-to-edge autoscroll model
+`Facet.newAutoscroll(opts?) -> model` — the pure drag-to-edge autoscroll model
 (row SF-L2). It answers a **delta**; it scrolls nothing, reads no clock and
 re-solves nothing. `model:step(input) -> { delta, state, justArmed }` where
 `input` is `{ now, pointerPos, hostRect, canvasPos, maxScroll }` and `state` is
@@ -6690,7 +6690,7 @@ navigation already scrolls the host.
 
 ### `newDragRegistry`
 
-`LuauUI.newDragRegistry(opts) -> registry` — a surface's live
+`Facet.newDragRegistry(opts) -> registry` — a surface's live
 `UI.draggable`/`UI.dropTarget` set plus the **one** session every input class
 drives (rows SF-D1/D4/D5). The renderer builds one per surface automatically and
 exposes it as `controller.dragRegistry()`; construct your own only for a host
@@ -6766,7 +6766,7 @@ cancel.
 
 ### `touchGestures`
 
-`LuauUI.touchGestures` — normalization and composition for the native `GuiObject`
+`Facet.touchGestures` — normalization and composition for the native `GuiObject`
 touch events (roblox-native audit corrections §2). The engine *recognizes*
 gestures; this module never re-recognizes from raw samples.
 
@@ -6794,9 +6794,9 @@ ignored.
 
 ### `spatial`
 
-`LuauUI.spatial` — the **contract** for spatial data a normalized pointer event
+`Facet.spatial` — the **contract** for spatial data a normalized pointer event
 may one day carry (ADR-0021). This is a seam, not a feature: no adapter produces
-this data today, every event LuauUI currently delivers is flat, and the framework
+this data today, every event Facet currently delivers is flat, and the framework
 makes no claim about headsets or world-space input. It exists so that adding
 spatial input later is an adapter change rather than a change to every control.
 
@@ -6807,17 +6807,17 @@ working unchanged; a handler that wants the third dimension asks for it.
 
 ```lua
 -- an adapter would build this; a handler reads it (or ignores it)
-local pos = LuauUI.spatial.extend({ x = 120, y = 44 }, {
+local pos = Facet.spatial.extend({ x = 120, y = 44 }, {
     ray   = { origin = { x = 0, y = 2, z = 0 }, direction = { x = 0, y = 0, z = -1 } },
     hit   = { x = 0, y = 2, z = -5 },
     pose  = { position = { x = 0, y = 2, z = 0 } },
     handedness = "right",     -- left | right | unknown
     phase = "changed",        -- began | changed | ended | cancelled | none
-    target = "GarageSurface", -- opaque; LuauUI forwards it and never interprets it
+    target = "GarageSurface", -- opaque; Facet forwards it and never interprets it
 })
 
-if not LuauUI.spatial.isFlat(pos) then
-    local s = LuauUI.spatial.of(pos)   -- { hit?, ray?, pose?, handedness, phase, target?, distance? }
+if not Facet.spatial.isFlat(pos) then
+    local s = Facet.spatial.of(pos)   -- { hit?, ray?, pose?, handedness, phase, target?, distance? }
 end
 ```
 
@@ -6829,7 +6829,7 @@ returns `nil` rather than pretending to be spatially targeted. `distance` is
 *derived* from the pose and the hit, never taken on trust. `spatial.extend`
 returns a new value and leaves the input untouched; `spatial.of(pos)` reads the
 spatial payload back off a position (`nil` for a flat one — it is the reader the
-example above uses); `spatial.isFlat(pos)` is `true` for every event LuauUI
+example above uses); `spatial.isFlat(pos)` is `true` for every event Facet
 produces today; `spatial.describe(pos)` gives a one-line diagnostic.
 
 The two vocabularies are frozen sets, published so an adapter and a consumer
@@ -6848,13 +6848,13 @@ for the physical gate a support claim would have to pass first.
 
 ## Client entry points
 
-Everything above hangs off the `LuauUI` table. These nine modules do not: they
+Everything above hangs off the `Facet` table. These nine modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
 
 ```lua
-local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target)
+local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
 ```
 
 **This list is the contract** (ADR-0011, constitution §12). These nine are
@@ -6883,7 +6883,7 @@ releases the tree.
 #### `client.billboard_target`
 
 `billboard_target.new(opts) -> RenderTargetAdapter` — the same adapter with a
-`BillboardGui` root, for a LuauUI surface in the world. `opts` is
+`BillboardGui` root, for a Facet surface in the world. `opts` is
 `{ parent, adornee, canvas = { w, h } }` (all three required and asserted) plus
 `studsOffset?`, `alwaysOnTop?`, `maxDistance?`, `style?`, `isReducedMotion?`.
 Parent it under `PlayerGui` for input; anywhere else is display-only.
@@ -6896,7 +6896,7 @@ per billboard, same rule as above.
 #### `client.roblox_env`
 
 `roblox_env.bind(env) -> unbind` — populates and keeps live every engine-owned
-fact on a `LuauUI.newEnvironment` (viewport, safe insets, topbar geometry,
+fact on a `Facet.newEnvironment` (viewport, safe insets, topbar geometry,
 keyboard occlusion, input preference and capabilities, display class,
 accessibility preferences, locale). This is the one place allowed to read
 `UserInputService`/`GuiService` facts. The unbind is yours to own.
@@ -6904,7 +6904,7 @@ accessibility preferences, locale). This is the one place allowed to read
 #### `client.roblox_input`
 
 `roblox_input.newSystem(core) -> ActionSystem` — the same interface as
-`LuauUI.newActionSystem`, implemented over real `InputContext`/`InputAction`/
+`Facet.newActionSystem`, implemented over real `InputContext`/`InputAction`/
 `InputBinding` instances, so the presenter runs unchanged on either. Arbitration
 (priority and sinking) is the ENGINE's job here; this adapter never
 re-implements it. Pass it to `newPresenter` in place of the headless system.
@@ -6912,7 +6912,7 @@ re-implements it. Pass it to `newPresenter` in place of the headless system.
 #### `client.roblox_resources`
 
 `roblox_resources.bind(provider) -> unbind` — the transport for
-`LuauUI.newResourceProvider`. It drains `provider.pendingRequests()` and fulfils
+`Facet.newResourceProvider`. It drains `provider.pendingRequests()` and fulfils
 each key through `ContentProvider:PreloadAsync`, answering
 `provider.complete/fail` with the request's generation. Honest about
 cancellation: releasing a handle prevents unstarted work and makes a late
@@ -6953,11 +6953,11 @@ environment untouched.
 
 #### `client.edit_preview`
 
-`edit_preview.start(LuauUI, opts) -> handle` — Studio Edit-mode preview: builds
+`edit_preview.start(Facet, opts) -> handle` — Studio Edit-mode preview: builds
 its own core, environment and device profile, mounts a blueprint and draws a
 labelled device frame around it. `opts` is
 `{ parent, blueprint, profile?, style? }`, where `blueprint` may be a factory
-`(LuauUI, core) -> Blueprint` so an entry can create its own signals. The handle
+`(Facet, core) -> Blueprint` so an entry can create its own signals. The handle
 is `{ controller, profile, setProfile(name), refresh(), dispose() }`. Taking the
 library table as a positional first argument is deliberate (constitution E-11):
 dev tooling is injected like a composite so a plugin can hand in the game's own
@@ -6988,13 +6988,13 @@ Two things stay the caller's:
 
 `haptics.new(opts?) -> adapter` — **opt-in, default off.** The one adapter that
 turns semantic feedback events into Roblox haptics. It is a *subscriber* to the
-bus, never part of it: LuauUI still plays nothing, and nothing under `src/`
+bus, never part of it: Facet still plays nothing, and nothing under `src/`
 outside `src/client/` names a haptic symbol or requires this module (pinned by
 `tests/haptics.spec.luau`). Every engine fact it rests on is recorded, with
 sources, in `docs/research/2026-08-12-haptics-engine-facts.md`.
 
 ```lua
-local haptics = require(ReplicatedStorage.LuauUI.client.haptics)
+local haptics = require(ReplicatedStorage.Facet.client.haptics)
 local hap = haptics.new({ enabled = playerSettings.haptics })
 hap.bind(presenter)            -- the verbs with no engine hook
 hap.attachButtons(screenGui)   -- the property route, for `activate`
@@ -7100,7 +7100,7 @@ open `PENDING_PHYSICAL` rows.
 
 ### `motion`
 
-`LuauUI.motion` — the motion authority (ADR-0022 Decision 1): all value motion in
+`Facet.motion` — the motion authority (ADR-0022 Decision 1): all value motion in
 one pure, engine-free place, stepped by an injectable clock. It contains no
 `RunService`, no `os.clock` inside the solver, and no engine globals at all, which
 is what makes every motion contract below assertable frame by frame in the
@@ -7115,7 +7115,7 @@ or through any ordinary reactive binding — the authority audit must stay clean
 while motion runs.
 
 ```lua
-local motion = LuauUI.motion
+local motion = Facet.motion
 local clock = motion.newClock(core, { motionPolicy = env:get("motionPolicy") })
 
 local x = clock:spring(0, "object")        -- a Readable<number>, bindable anywhere
@@ -7204,7 +7204,7 @@ fallback to linear, which is the worst outcome available because it looks like i
 worked.
 
 ```lua
-LuauUI.motion.registerCurve("banner", { duration = 0.4, style = "quad", direction = "out" })
+Facet.motion.registerCurve("banner", { duration = 0.4, style = "quad", direction = "out" })
 local reveal = clock:tween(0, "banner")
 reveal:setTarget(1)
 ```
@@ -7418,7 +7418,7 @@ flags your own view reads and the animator it reads, and the reveal only decides
 what state they should be in.
 
 ```lua
-local reveal = LuauUI.motion.newValueReveal({
+local reveal = Facet.motion.newValueReveal({
     held = heldSignal,        -- true  -> the view paints `from`
     counting = countingSignal,-- true  -> the view paints the animator
     animator = coinCount,     -- optional: a clock:counter / clock:spring

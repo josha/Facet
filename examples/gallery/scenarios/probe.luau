@@ -11,7 +11,7 @@ return {
 	title = "Verification-surface probe",
 	ledgerRows = { "NS-A2:baseline" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local counter = core:signal(0)
 		local counterText = core:memo(function(use)

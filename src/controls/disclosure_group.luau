@@ -42,24 +42,24 @@ local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"onToggle",
 })
 
-function disclosure_group.build(LuauUI: any, core: any, spec: Spec)
+function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newDisclosureGroup", spec, DISCLOSURE_GROUP_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Disclosure"
 	local scope = core:scope("disclosure-" .. tostring(id))
 	if type(spec.label) ~= "string" or spec.label == "" then
-		error(`LuauUI newDisclosureGroup('{id}'): \`label\` is required (the header is the control)`, 0)
+		error(`Facet newDisclosureGroup('{id}'): \`label\` is required (the header is the control)`, 0)
 	end
 	local expanded = spec.expanded
 	if type(expanded) ~= "table" or (expanded :: any).kind ~= "signal" then
 		error(
-			`LuauUI newDisclosureGroup('{id}'): \`expanded\` must be a SETTABLE Signal<boolean> the caller `
+			`Facet newDisclosureGroup('{id}'): \`expanded\` must be a SETTABLE Signal<boolean> the caller `
 				.. `owns (the disclosure state must outlive the control)`,
 			0
 		)
 	end
 	if type(spec.content) ~= "function" then
-		error(`LuauUI newDisclosureGroup('{id}'): \`content\` must be a function returning a Blueprint`, 0)
+		error(`Facet newDisclosureGroup('{id}'): \`content\` must be a function returning a Blueprint`, 0)
 	end
 
 	local headerPath: string? = nil
@@ -212,7 +212,7 @@ function disclosure_group.build(LuauUI: any, core: any, spec: Spec)
 
 	function api.dump()
 		return {
-			schema = "luauui-disclosure-dump/1",
+			schema = "facet-disclosure-dump/1",
 			id = id,
 			label = spec.label,
 			expanded = expanded:get(),

@@ -11,7 +11,7 @@ remainder.
 ## The gap, and what it actually asked
 
 The parity row said it plainly: *"Neither grid mode is lazy: every cell is
-measured and arranged … LuauUI ships only the eager half."* And its last clause
+measured and arranged … Facet ships only the eager half."* And its last clause
 was the real brief — **the windowing substrate a lazy grid would need already
 existed, and only the two collection controls consumed it.**
 

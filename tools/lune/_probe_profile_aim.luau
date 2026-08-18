@@ -1,13 +1,13 @@
 --!strict
 -- Device-capture 2026-08-15 probe: what does ONE lap of a `profileWindow` pass
 -- actually provoke? The device capture of `async-image-churn` contained 29
--- byte-identical frames, zero `LuauUI/mount` and zero `LuauUI/resource` — the
+-- byte-identical frames, zero `Facet/mount` and zero `Facet/resource` — the
 -- looped pass was `passes[1]` = `imagesCold`, which sets a flag and refreshes.
 -- This prints the per-lap scope deltas for every pass of the workloads the
 -- director captured, so the claim is a table rather than a reading of the source.
 -- Usage: lune run tools/lune/_probe_profile_aim
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local profile = require("../../src/core/profile") :: any
 local perf_lab = require("../../examples/performance/lab/perf_lab") :: any
@@ -20,16 +20,16 @@ local leversLib = require("../../examples/performance/lab/levers")
 local SCOPES = { "arrange", "measure", "mount", "react", "commit", "resource", "reset", "present" }
 
 local function newHarness(): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local clock = 0
 	local host: any = { profile = profile }
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,

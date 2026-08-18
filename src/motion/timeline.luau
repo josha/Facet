@@ -52,7 +52,7 @@ end
 function timeline.new(internals: any, spec: Spec): Timeline
 	if type(spec) ~= "table" or type(spec.beats) ~= "table" then
 		error(
-			"LuauUI motion: clock:timeline takes { beats = { { at = seconds, run = fn, terminal = fn? } } }, "
+			"Facet motion: clock:timeline takes { beats = { { at = seconds, run = fn, terminal = fn? } } }, "
 				.. "declared in the order they fire",
 			0
 		)
@@ -62,22 +62,22 @@ function timeline.new(internals: any, spec: Spec): Timeline
 	local previousAt = 0
 	for index, beat in beats do
 		if type(beat) ~= "table" or not isFinite(beat.at) or beat.at < 0 then
-			error(`LuauUI motion: timeline beat {index} needs a finite 'at' >= 0 (seconds from the start)`, 0)
+			error(`Facet motion: timeline beat {index} needs a finite 'at' >= 0 (seconds from the start)`, 0)
 		end
 		if beat.at < previousAt then
 			-- an out-of-order beat could never fire on the frame it claims, and
 			-- interrupt/skip order would stop meaning anything
 			error(
-				`LuauUI motion: timeline beat {index} is out of order (at {beat.at} after {previousAt}). `
+				`Facet motion: timeline beat {index} is out of order (at {beat.at} after {previousAt}). `
 					.. `Declare beats in the order they fire.`,
 				0
 			)
 		end
 		if beat.run ~= nil and type(beat.run) ~= "function" then
-			error(`LuauUI motion: timeline beat {index}: run must be a function`, 0)
+			error(`Facet motion: timeline beat {index}: run must be a function`, 0)
 		end
 		if beat.terminal ~= nil and type(beat.terminal) ~= "function" then
-			error(`LuauUI motion: timeline beat {index}: terminal must be a function`, 0)
+			error(`Facet motion: timeline beat {index}: terminal must be a function`, 0)
 		end
 		previousAt = beat.at
 	end

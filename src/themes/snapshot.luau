@@ -644,7 +644,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 
 	-- THE TABLE ROW BOX, per input paradigm (director, 2026-07-27: "generally, we
 	-- likely want taller table cells on mobile for touch targeting. that seems like
-	-- the paradigm adaptation luauui should handle").
+	-- the paradigm adaptation facet should handle").
 	--
 	-- A ROW IS DESCRIBED BY THE LINES IT HOLDS, not by a pixel count, and that is
 	-- the whole idea. `rowLines` is the paradigm constant — a pointer table is the

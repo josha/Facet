@@ -41,7 +41,7 @@ local checker = {}
 -- attributes and owns the theme picker, all of which are legitimately engine
 -- work — and `examples/gallery/scenarios` is verification tooling. The claim this
 -- lint enforces is the plan's claim about EXAMPLES: "content/domain logic plus
--- declarative LuauUI composition".
+-- declarative Facet composition".
 local SCANNED_DIR = "examples/gallery/examples"
 -- swiftui-reference-app-validation: the five clean-room proofs are held to the
 -- same authority rules as the tutorials. Scanned recursively (proof folders
@@ -142,7 +142,7 @@ local COLOUR_RULES: { { pattern: string, what: string } } = {
 	{ pattern = "{%s*r%s*=%s*[%d%.]+%s*,%s*g%s*=", what = "an { r, g, b } colour literal" },
 }
 
--- R4: an example composes LuauUI. It does not reach around it.
+-- R4: an example composes Facet. It does not reach around it.
 local REACHAROUND_RULES: { { pattern: string, what: string } } = {
 	{ pattern = "Instance%s*%.%s*new", what = "raw Instance construction" },
 	{ pattern = "game%s*:%s*GetService", what = "a direct engine service" },
@@ -391,7 +391,7 @@ function checker.check(opts: Options?)
 			problems,
 			`{v.file}:{v.line}: [{v.rule}] {v.what} — "{v.text}". An example declares style INTENT: a `
 				.. `typography role for text, a spacing step or theme metric path for space and size, a `
-				.. "semantic surface/role or a tint naming a theme role for colour, and public LuauUI for "
+				.. "semantic surface/role or a tint naming a theme role for colour, and public Facet for "
 				.. "everything the engine would otherwise be asked for. If the value really is content or "
 				.. "structure, add it to the ALLOWLIST in tools/lune/check_example_drift.luau with the reason."
 		)

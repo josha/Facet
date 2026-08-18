@@ -157,7 +157,7 @@ end
 -- be a different screen.
 function keeper.editForm(ctx: any, scope: any): any
 	local UI = ctx.UI
-	local nameField = ctx.LuauUI.newTextInput(ctx.LuauUI, ctx.core, {
+	local nameField = ctx.Facet.newTextInput(ctx.Facet, ctx.core, {
 		id = "NameField",
 		value = ctx.state.draftName,
 		placeholder = ctx.L("keeper.displayName"),
@@ -165,7 +165,7 @@ function keeper.editForm(ctx: any, scope: any): any
 		env = ctx.env,
 		actionSystem = ctx.actionSystem,
 	})
-	local contactField = ctx.LuauUI.newTextInput(ctx.LuauUI, ctx.core, {
+	local contactField = ctx.Facet.newTextInput(ctx.Facet, ctx.core, {
 		id = "ContactField",
 		value = ctx.state.draftContact,
 		placeholder = ctx.L("keeper.contact"),

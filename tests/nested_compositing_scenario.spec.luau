@@ -37,7 +37,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local l10n = require("./fixtures/a11y_l10n_fixtures")
 local fs = require("@lune/fs")
@@ -62,13 +62,13 @@ local NARROW_LANDSCAPE = { w = 640, h = 320 }
 local DESKTOP = { w = 1232, h = 1067 }
 
 local function fixtureWorld(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -77,7 +77,7 @@ end
 -- `mountFixture`, the same idiom this file follows)
 local function mountFixture(w: any): any
 	local built = module.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,

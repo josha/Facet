@@ -15,20 +15,20 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local function world(build: (any) -> any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	-- the live shape carried the engine bar: keep it so the reserve half of
 	-- the false positive (offer + bar on the cross axis) is in the fixture
 	(adapter :: any).scrollBarThickness = 8
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
-	local handle = presenter.present(build(LuauUI.UI), {})
+	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local handle = presenter.present(build(Facet.UI), {})
 	presenter.refresh()
 	return handle
 end

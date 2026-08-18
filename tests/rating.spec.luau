@@ -12,7 +12,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local customFactory = require("../src/core/custom")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
 local presenterLib = require("../src/present/presenter")
@@ -35,7 +35,7 @@ local function mount(specOverrides: any?)
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = LuauUI.newRating(LuauUI, core, spec)
+	local control = Facet.newRating(Facet, core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control
@@ -51,7 +51,7 @@ describe("Rating: the value model", function()
 	it("a read-only Memo is refused at BUILD, not on the first tap", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return LuauUI.newRating(LuauUI, core, {
+			return Facet.newRating(Facet, core, {
 				id = "R",
 				value = core:memo(function()
 					return 3
@@ -64,7 +64,7 @@ describe("Rating: the value model", function()
 		local core = customFactory.new()
 		for _, bad in { 0, -3, 2.5 } do
 			expect(pcall(function()
-				return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(1), count = bad })
+				return Facet.newRating(Facet, core, { id = "R", value = core:signal(1), count = bad })
 			end)).toBe(false)
 		end
 	end)
@@ -110,7 +110,7 @@ describe("Rating: the value model", function()
 	it("dump is deterministic and carries its schema string", function()
 		local serde = require("@lune/serde")
 		local _, adapter, _, pres, _, control = mount()
-		expect(control.dump().schema).toBe("luauui-rating-dump/1")
+		expect(control.dump().schema).toBe("facet-rating-dump/1")
 		local d1 = serde.encode("json", control.dump(), true)
 		expect(d1).toBe(serde.encode("json", control.dump(), true))
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
@@ -131,7 +131,7 @@ describe("Rating: the value model", function()
 		local baseline = core:counters() -- AFTER the long-lived singletons
 
 		local value = core:signal(3)
-		local control = LuauUI.newRating(LuauUI, core, { id = "Stars", value = value, env = env })
+		local control = Facet.newRating(Facet, core, { id = "Stars", value = value, env = env })
 		local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
@@ -278,7 +278,7 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local value = core:signal(3)
-		local control = LuauUI.newRating(LuauUI, core, { id = "Stars", value = value })
+		local control = Facet.newRating(Facet, core, { id = "Stars", value = value })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -345,7 +345,7 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local value = core:signal(start)
-		local control = LuauUI.newRating(LuauUI, core, { id = "Stars", value = value })
+		local control = Facet.newRating(Facet, core, { id = "Stars", value = value })
 		pres.present(
 			UI.Screen({
 				id = "S",
@@ -422,8 +422,8 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local left, right = core:signal(5), core:signal(2)
-		local a = LuauUI.newRating(LuauUI, core, { id = "A", value = left })
-		local b = LuauUI.newRating(LuauUI, core, { id = "B", value = right })
+		local a = Facet.newRating(Facet, core, { id = "A", value = left })
+		local b = Facet.newRating(Facet, core, { id = "B", value = right })
 		local A, B = "/S/Row/A/Strip", "/S/Row/B/Strip"
 		local START = "/S/Row/Start"
 		pres.present(
@@ -481,8 +481,8 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local top, bottom = core:signal(5), core:signal(2)
-		local r1 = LuauUI.newRating(LuauUI, core, { id = "R1", value = top })
-		local r2 = LuauUI.newRating(LuauUI, core, { id = "R2", value = bottom })
+		local r1 = Facet.newRating(Facet, core, { id = "R1", value = top })
+		local r2 = Facet.newRating(Facet, core, { id = "R2", value = bottom })
 		local ENTER, S1, BTN, S2 =
 			"/S/Body/Row1/Enter", "/S/Body/Row1/R1/Strip", "/S/Body/Row1/Btn", "/S/Body/Row2/R2/Strip"
 		local function btn(id: string)
@@ -559,7 +559,7 @@ end)
 -- off the end of their cells in exactly the themes the director was looking at.
 -- ===========================================================================
 describe("Rating: the strip fits the cell a table gives it, under every package", function()
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 	local fake = require("../tests/lib/fake_target")
 	local PACKAGES = {
 		"glossy_touch",
@@ -581,7 +581,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3), starSize = starSize })
+		local control = Facet.newRating(Facet, core, { id = "R", value = core:signal(3), starSize = starSize })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -650,7 +650,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+		local control = Facet.newRating(Facet, core, { id = "R", value = core:signal(3) })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -696,7 +696,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+		local control = Facet.newRating(Facet, core, { id = "R", value = core:signal(3) })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -723,7 +723,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 	it("an unknown starSize is a build error, not a silently-default star", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(1), starSize = "huge" })
+			return Facet.newRating(Facet, core, { id = "R", value = core:signal(1), starSize = "huge" })
 		end)).toBe(false)
 	end)
 end)
@@ -744,7 +744,7 @@ end)
 describe("Rating: the star run spaces itself for the input paradigm", function()
 	local environment = require("../src/env/environment")
 	-- re-declared: the earlier describe's locals are not in scope here
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 	local fake = require("../tests/lib/fake_target")
 	local COLUMN = 144
 	local PACKAGES = {
@@ -769,7 +769,7 @@ describe("Rating: the star run spaces itself for the input paradigm", function()
 		env:set("preferredInput", if touch then "Touch" else "KeyboardAndMouse")
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3), env = env })
+		local control = Facet.newRating(Facet, core, { id = "R", value = core:signal(3), env = env })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -820,7 +820,7 @@ describe("Rating: the star run spaces itself for the input paradigm", function()
 	it("a rating with NO env takes the pointer spacing, which is the one that always fits", function()
 		local core = customFactory.new()
 		local ok = pcall(function()
-			return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+			return Facet.newRating(Facet, core, { id = "R", value = core:signal(3) })
 		end)
 		expect(ok).toBe(true)
 	end)

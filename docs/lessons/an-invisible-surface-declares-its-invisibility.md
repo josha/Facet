@@ -38,9 +38,9 @@ A catcher mounts at `owner.displayOrder - 50`. Measured live in the running
 showcase client, mid-defect:
 
 ```
-LuauUI_ShowcaseChrome        DisplayOrder=10200   <- the demo picker + Settings
-LuauUI___popupcatcher__      DisplayOrder=10350   <- the plate
-LuauUI_MailActions           DisplayOrder=10400   <- the demo screen
+Facet_ShowcaseChrome        DisplayOrder=10200   <- the demo picker + Settings
+Facet___popupcatcher__      DisplayOrder=10350   <- the plate
+Facet_MailActions           DisplayOrder=10400   <- the demo screen
 ```
 
 The demo screen covers the catcher everywhere it paints; the chrome band above it
@@ -56,15 +56,15 @@ frame, one declared invisible and one not:
 ```
 -- popup catcher, as shipped (no declarations)
 TextButton '/__popupcatcher__/catcher'  413x735  bgT=0.00
-  ImageLabel 'LuauUIChrome'             413x735  bgT=0.00   <- the package's plate
-  TextLabel  'LuauUIChromeText'
+  ImageLabel 'FacetChrome'             413x735  bgT=0.00   <- the package's plate
+  TextLabel  'FacetChromeText'
 
 -- scrim catcher, scrim="none" (surface="plain" + NO_SLOT)
 TextButton '/__scrim__/catcher'         413x735  bgT=1.00
   UIPadding                                                 <- and nothing else
 ```
 
-`BackgroundTransparency` and the presence of a `LuauUIChrome` child are the whole
+`BackgroundTransparency` and the presence of a `FacetChrome` child are the whole
 measurement. A screenshot would have shown the same thing and proved less.
 
 ## The rules this leaves

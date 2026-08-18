@@ -1,6 +1,6 @@
-# LuauUI toolchain pin.
+# Facet toolchain pin.
 #
-# WHY THIS FILE EXISTS (2026-08-15). LuauUI had no rokit.toml, so `rokit`'s shim
+# WHY THIS FILE EXISTS (2026-08-15). Facet had no rokit.toml, so `rokit`'s shim
 # fell back to a global default when run from here — Rojo 7.7.0-rc.1 (Nov 2025)
 # — while RascalRally, which does pin, correctly resolved 7.7.0 (Jul 2026). The
 # two builds of the same source used toolchains seven months apart and nothing
@@ -8,7 +8,7 @@
 #
 # It cost a real thing: 7.7.0-rc.1's reflection database does not know
 # `Workspace.PlayerScriptsUseInputActionSystem`, the property that puts Roblox's
-# own player scripts on the Input Action System. LuauUI REQUIRES it (without it
+# own player scripts on the Input Action System. Facet REQUIRES it (without it
 # the engine camera keeps the arrow keys and any surface binding them is
 # silently dead — docs/guide/03-getting-started.md §3.4). Declaring it in a
 # project file failed the build outright with "Unknown property", so it was

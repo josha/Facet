@@ -29,7 +29,7 @@
 # this script again: the work becomes factorial in the number of regenerating
 # gates rather than linear, and the terminal gate never finishes.
 #
-# So this script exports LUAUUI_PRIOR_GATES_NESTED=1 around the gate runs. Every
+# So this script exports FACET_PRIOR_GATES_NESTED=1 around the gate runs. Every
 # `prior-gates-unregressed` check tests that variable first and skips
 # regeneration when it is set. The claim survives intact: a gate run STANDALONE
 # genuinely re-runs all of its priors, and when it is itself being re-run as
@@ -44,7 +44,7 @@ set -uo pipefail
 # same artifacts, which invalidated both). mkdir is the atomic lock; a stale
 # lock from a killed sweep is cleared by hand (rmdir) — deliberate, so a crash
 # is investigated rather than papered over.
-LOCK="/tmp/luauui_prior_gates.lock"
+LOCK="/tmp/facet_prior_gates.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
 	echo "prior_gates: another sweep holds $LOCK — refusing to start a second (rmdir it if stale)" >&2
 	exit 2
@@ -54,7 +54,7 @@ fi
 # `trap 'rm -f "$tmp"' EXIT` further down, and the second silently discarded the
 # first — so the lock was NEVER released, on any path, including a clean run
 # (which then also did `trap - EXIT`, clearing what was left). MEASURED
-# 2026-08-15: the sweep that finished at 16:43 left /tmp/luauui_prior_gates.lock
+# 2026-08-15: the sweep that finished at 16:43 left /tmp/facet_prior_gates.lock
 # behind, created 12:54, with no process holding it. Every run orphaned its own
 # lock, so the NEXT run exits 2 — silently, because the refusal goes to stderr
 # and the caller only reads the roll-up. That is the whole "the lock refuses
@@ -141,7 +141,7 @@ current_load() {
 
 # See RECURSION GUARD in the header. Exported here rather than per-invocation so
 # it reaches tools/gate.sh -> lune -> the check's own `bash -c`.
-export LUAUUI_PRIOR_GATES_NESTED=1
+export FACET_PRIOR_GATES_NESTED=1
 
 # MEASUREMENT CONDITIONS, ON THE ARTIFACT (phase-gate PG-11, 2026-08-03). A
 # contended sweep and a clean one used to produce identically-shaped files, so a

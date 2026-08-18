@@ -82,7 +82,7 @@ export type Opts = {
 function transitions.resolve(declared: any): Spec
 	if type(declared) ~= "table" then
 		error(
-			"LuauUI transition: a transition is a table { enter = <form>, exit? , class?, fade? } — "
+			"Facet transition: a transition is a table { enter = <form>, exit? , class?, fade? } — "
 				.. `got {typeof(declared)}`,
 			0
 		)
@@ -102,8 +102,8 @@ local function fades(spec: Spec, form: string): boolean
 end
 
 function transitions.new(opts: Opts)
-	assert(type(opts) == "table" and opts.core ~= nil, "LuauUI transitions: a core is required")
-	assert(opts.clock ~= nil, "LuauUI transitions: a motion clock is required (LuauUI.motion.newClock)")
+	assert(type(opts) == "table" and opts.core ~= nil, "Facet transitions: a core is required")
+	assert(opts.clock ~= nil, "Facet transitions: a motion clock is required (Facet.motion.newClock)")
 	local core = opts.core
 	local clock = opts.clock
 	local controller: any = opts.controller
@@ -154,7 +154,7 @@ function transitions.new(opts: Opts)
 			return
 		end
 		error(
-			`LuauUI transition: {path} declares a '{form}' transition, which fades — but the node it applies to `
+			`Facet transition: {path} declares a '{form}' transition, which fades — but the node it applies to `
 				.. `is not a fade group. Make the region's child a UI.ZStack\{ canvasGroup = true } (or a `
 				.. "UI.Box{ canvasGroup = true } for a single plate) and put the content inside it: "
 				.. "GroupTransparency is the one engine property no style rule owns, while per-node transparency "

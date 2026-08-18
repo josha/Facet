@@ -166,7 +166,7 @@ export type Spec = {
 	images: { filled: string, empty: string }?,
 	-- the continuous-colour channel, one value per half, both independently
 	-- optional: omitting one leaves that half to the theme. Each is an ordinary
-	-- LuauUI tint — `{ role = …, blend = … }` (themable) or `{ direct = … }`.
+	-- Facet tint — `{ role = …, blend = … }` (themable) or `{ direct = … }`.
 	tint: { filled: any?, empty: any? }?,
 	enabled: any?, -- boolean | Readable<boolean>
 	-- a display-only picker (a reported quality level, another player's setting):
@@ -250,13 +250,13 @@ local function validate(constructor: string, id: string, value: any, count: any)
 	-- reject it at BUILD, exactly as Stepper and Slider do
 	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
 		error(
-			`LuauUI {constructor}('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
+			`Facet {constructor}('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
 				.. `(the control never creates it, because the value must outlive the control)`,
 			0
 		)
 	end
 	if type(count) ~= "number" or count < 1 or count % 1 ~= 0 then
-		error(`LuauUI {constructor}('{id}'): \`count\` must be a whole number >= 1 (got {tostring(count)})`, 0)
+		error(`Facet {constructor}('{id}'): \`count\` must be a whole number >= 1 (got {tostring(count)})`, 0)
 	end
 end
 
@@ -265,7 +265,7 @@ end
 local function sizeRole(constructor: string, id: string, key: string, requested: any): string
 	local role = requested or DEFAULT_SIZE_ROLE
 	if not SIZE_ROLES[role] then
-		error(`LuauUI {constructor}('{id}'): {key} must be small | medium | large (got '{tostring(requested)}')`, 0)
+		error(`Facet {constructor}('{id}'): {key} must be small | medium | large (got '{tostring(requested)}')`, 0)
 	end
 	return role
 end
@@ -279,7 +279,7 @@ local function diagnoseCount(constructor: string, id: string, count: number, not
 	end
 	table.insert(
 		notes,
-		`LuauUI {constructor}('{id}'): count = {count} is above {level_picker.HIGH_COUNT}, the largest run every `
+		`Facet {constructor}('{id}'): count = {count} is above {level_picker.HIGH_COUNT}, the largest run every `
 			.. "shipped theme package still draws as a distinct segment on the narrowest viewport this framework "
 			.. 'sweeps. Apple says the same of this shape (HIG, Gauges): "A large value range can make the '
 			.. 'segments of a discrete capacity indicator too small to be useful." This is a diagnostic and not '
@@ -287,8 +287,8 @@ local function diagnoseCount(constructor: string, id: string, count: number, not
 	)
 end
 
-function level_picker.compose(LuauUI: any, core: any, cfg: Config)
-	local UI = LuauUI.UI
+function level_picker.compose(Facet: any, core: any, cfg: Config)
+	local UI = Facet.UI
 	local id = cfg.id
 	-- named for the CONSTRUCTOR the caller wrote, not for the shared body: a leak
 	-- report that says `newRating-Score` points at a line somebody wrote, while
@@ -578,7 +578,7 @@ function level_picker.compose(LuauUI: any, core: any, cfg: Config)
 
 	--[[ THE FACTS, WITHOUT THE SCHEMA — and the split is not bookkeeping. A dump
 		schema string is a promise a SPECIFIC constructor makes to its own
-		consumers (`luauui-rating-dump/1` has been in the field since 2026-07-26),
+		consumers (`facet-rating-dump/1` has been in the field since 2026-07-26),
 		so a shared body must not be able to renumber one control's contract by
 		editing the other's. Each public entry stamps its own onto these fields,
 		which is also exactly what `check_registration` §10.2 asks for: a `dump`
@@ -610,7 +610,7 @@ function level_picker.compose(LuauUI: any, core: any, cfg: Config)
 	return api, facts
 end
 
-function level_picker.build(LuauUI: any, core: any, spec: Spec)
+function level_picker.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newLevelPicker", spec, LEVEL_PICKER_KEYS, "spec")
 	local id = spec.id or "LevelPicker"
 	local count = if spec.count ~= nil then spec.count else 5
@@ -619,7 +619,7 @@ function level_picker.build(LuauUI: any, core: any, spec: Spec)
 	local segment = spec.segment or level_picker.DEFAULT_SEGMENT
 	if not SEGMENTS[segment] then
 		error(
-			`LuauUI newLevelPicker('{id}'): unknown segment '{tostring(spec.segment)}' — use one of `
+			`Facet newLevelPicker('{id}'): unknown segment '{tostring(spec.segment)}' — use one of `
 				.. `{SEGMENT_LIST} ("bar" is the default and needs no assets).`,
 			0
 		)
@@ -632,21 +632,21 @@ function level_picker.build(LuauUI: any, core: any, spec: Spec)
 	-- looking at glyphs.
 	if spec.glyphs ~= nil and segment ~= "glyph" then
 		error(
-			`LuauUI newLevelPicker('{id}'): \`glyphs\` describes a glyph segment, and this picker is a `
+			`Facet newLevelPicker('{id}'): \`glyphs\` describes a glyph segment, and this picker is a `
 				.. `"{segment}" — it would be accepted and ignored. Drop it, or use \`segment = "glyph"\`.`,
 			0
 		)
 	end
 	if spec.images ~= nil and segment ~= "image" then
 		error(
-			`LuauUI newLevelPicker('{id}'): \`images\` describes an image segment, and this picker is a `
+			`Facet newLevelPicker('{id}'): \`images\` describes an image segment, and this picker is a `
 				.. `"{segment}" — it would be accepted and ignored. Drop it, or use \`segment = "image"\`.`,
 			0
 		)
 	end
 	if segment == "image" and spec.images == nil then
 		error(
-			`LuauUI newLevelPicker('{id}'): \`segment = "image"\` needs \`images = \{ filled, empty }\` — this `
+			`Facet newLevelPicker('{id}'): \`segment = "image"\` needs \`images = \{ filled, empty }\` — this `
 				.. "control never names an asset of its own, so there is no default to fall back to. Use "
 				.. '`segment = "bar"` (no assets at all) or `segment = "glyph"`.',
 			0
@@ -656,7 +656,7 @@ function level_picker.build(LuauUI: any, core: any, spec: Spec)
 	local diagnostics: { string } = {}
 	diagnoseCount("newLevelPicker", id, count, diagnostics)
 
-	local api, facts = level_picker.compose(LuauUI, core, {
+	local api, facts = level_picker.compose(Facet, core, {
 		constructor = "newLevelPicker",
 		names = { run = "Levels", mark = "Level" },
 		id = id,
@@ -693,14 +693,14 @@ function level_picker.build(LuauUI: any, core: any, spec: Spec)
 	})
 
 	-- THIS CONTROL'S OWN DUMP, and its first version. `/1` rather than `/2` is
-	-- not a judgement call here: nothing published `luauui-level-picker-dump`
+	-- not a judgement call here: nothing published `facet-level-picker-dump`
 	-- before this round, so there is no consumer for a `/2` to be compatible
 	-- with. (`newRating`'s dump is the one with history, and it stays `/1` for
 	-- the opposite reason — every key it carried still carries the same value,
 	-- and `segment` is purely additive.)
 	function api.dump()
 		local out = facts()
-		out.schema = "luauui-level-picker-dump/1"
+		out.schema = "facet-level-picker-dump/1"
 		return out
 	end
 

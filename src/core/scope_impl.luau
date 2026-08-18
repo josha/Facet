@@ -67,7 +67,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 			local kind = (resource :: any).kind
 			local named = if type(kind) == "string" then ` (kind '{kind}')` else ""
 			error(
-				`LuauUI scope: own() on scope '{self.label or "?"}' was handed a table with no dispose(){named} — a scope releases functions, child scopes, and objects with a dispose(). Own its release/unsubscribe FUNCTION instead, or do not own it (use scope:use() to borrow).`,
+				`Facet scope: own() on scope '{self.label or "?"}' was handed a table with no dispose(){named} — a scope releases functions, child scopes, and objects with a dispose(). Own its release/unsubscribe FUNCTION instead, or do not own it (use scope:use() to borrow).`,
 				0
 			)
 		end
@@ -92,7 +92,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 
 	function Scope.dispose(self: any)
 		if self.disposed then
-			note(`LuauUI: double disposal of scope '{self.label or "?"}' detected`)
+			note(`Facet: double disposal of scope '{self.label or "?"}' detected`)
 			return
 		end
 		self.disposed = true
@@ -122,7 +122,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 				end
 			end)
 			if not ok then
-				note(`LuauUI: scope cleanup error in '{self.label or "?"}': {tostring(err)}`)
+				note(`Facet: scope cleanup error in '{self.label or "?"}': {tostring(err)}`)
 			end
 		end
 		self.owned = {}

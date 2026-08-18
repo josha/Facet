@@ -18,7 +18,7 @@
 -- THREE RULES, each from a rule this repo already paid for:
 --
 --   1. POSITIVE POLARITY. SwiftUI spells these `selectionDisabled` /
---      `deleteDisabled` / `moveDisabled` — negative, where true means OFF. LuauUI
+--      `deleteDisabled` / `moveDisabled` — negative, where true means OFF. Facet
 --      spells them positively, because `rowFocusable` already sits on the same
 --      spec tables meaning true = on, and `rowFocusable` beside `moveDisabled`
 --      is a bug factory. The parity doc carries the inverse mapping so a SwiftUI
@@ -112,7 +112,7 @@ function row_capability.assertNarrowsSomething(
 		return
 	end
 	error(
-		`LuauUI {control}: spec.{predName} narrows a capability this control does not have — `
+		`Facet {control}: spec.{predName} narrows a capability this control does not have — `
 			.. `it would be accepted and do nothing. {declared} is missing. {fix}`,
 		3
 	)

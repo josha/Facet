@@ -31,10 +31,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local chrome_slots = require("../src/tokens/chrome_slots")
 
-local themes = LuauUI.themes
+local themes = Facet.themes
 local ornateModule = require("../examples/themes/fantasy_ornate")
 
 local function ornate(): any

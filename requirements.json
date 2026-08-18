@@ -1,5 +1,5 @@
 {
- "schema": "luauui-requirements/1",
+ "schema": "facet-requirements/1",
  "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md",
  "note": "IDs are stable; gates and tests reference them. 'spec' cites the design section. 'firstGate' names the earliest phase gate that must prove the requirement.",
  "requirements": [
@@ -90,7 +90,7 @@
   },
   {
    "id": "UI-FOCUS-001",
-   "title": "Logical focus graph owned by LuauUI; engine selection is a render output; modal trap and previous-focus restoration",
+   "title": "Logical focus graph owned by Facet; engine selection is a render output; modal trap and previous-focus restoration",
    "spec": "9.3",
    "firstGate": "phase-0-foundation"
   },
@@ -180,7 +180,7 @@
   },
   {
    "id": "UI-NATIVE-002",
-   "title": "Native drag acquisition: UIDragDetector behind an adapter capability; LuauUI keeps the pure drag-session model (payload, legal targets, enter/leave, cancellation) with a headless driver and a fallback path exercised separately",
+   "title": "Native drag acquisition: UIDragDetector behind an adapter capability; Facet keeps the pure drag-session model (payload, legal targets, enter/leave, cancellation) with a headless driver and a fallback path exercised separately",
    "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
    "firstGate": "native-substrate"
   },
@@ -204,7 +204,7 @@
   },
   {
    "id": "UI-NATIVE-006",
-   "title": "Preferred text applied exactly once: the engine owns the player's preference in paint; LuauUI applies only authored scale; headless measurement reserves matching bounds from injected facts; measure and paint never diverge or clip",
+   "title": "Preferred text applied exactly once: the engine owns the player's preference in paint; Facet applies only authored scale; headless measurement reserves matching bounds from injected facts; measure and paint never diverge or clip",
    "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
    "firstGate": "native-substrate"
   },
@@ -288,7 +288,7 @@
   },
   {
    "id": "UI-FEEDBACK-001",
-   "title": "Semantic interaction events: controls, drag sessions, and motion arrivals emit named events on their causal frames through one subscribe seam; LuauUI never plays sound or haptics; events carry source and reason context",
+   "title": "Semantic interaction events: controls, drag sessions, and motion arrivals emit named events on their causal frames through one subscribe seam; Facet never plays sound or haptics; events carry source and reason context",
    "spec": "roadmap Step 5; sponsor-view-parity C3/C4",
    "firstGate": "sponsor-framework-gaps"
   },

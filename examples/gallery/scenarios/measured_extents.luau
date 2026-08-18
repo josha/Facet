@@ -88,7 +88,7 @@ return {
 	title = "Measured item extents (ruling 7, stage 2)",
 	ledgerRows = { "R3-VIE" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope("measured-extents")
 
@@ -112,7 +112,7 @@ return {
 			list that starts too short can only grow. ]]
 		local viewportExtent = scope:own(core:signal(72))
 
-		local list = ctx.LuauUI.newVirtualList(ctx.LuauUI, core, {
+		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
 			id = "Feed",
 			rows = rows,
 			key = function(item: any): string

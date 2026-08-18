@@ -16,7 +16,7 @@
 local testkit = require("./lib/testkit")
 local describe, it, expect = testkit.describe, testkit.it, testkit.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local profile = require("../src/core/profile")
 local fake_target = require("./lib/fake_target")
 
@@ -67,10 +67,10 @@ describe("profile scopes are a closed, bounded set", function()
 		local n = 0
 		for key, label in profile.SCOPES do
 			n += 1
-			expect(string.sub(label, 1, 7)).toBe("LuauUI/")
+			expect(string.sub(label, 1, 6)).toBe("Facet/")
 			-- the label is derived from the key, so a capture's bar name and the
 			-- call-site vocabulary can never drift apart
-			expect(label).toBe("LuauUI/" .. key)
+			expect(label).toBe("Facet/" .. key)
 		end
 		expect(n > 0).toBe(true)
 		expect(n <= profile.MAX_SCOPES).toBe(true)
@@ -108,7 +108,7 @@ describe("a span is balanced on every exit path", function()
 				return 42
 			end)
 			expect(value).toBe(42)
-			expect(log[1]).toBe("+LuauUI/scenario")
+			expect(log[1]).toBe("+Facet/scenario")
 			expect(log[2]).toBe("-")
 			local depth = depthOf(log)
 			expect(depth).toBe(0)
@@ -128,7 +128,7 @@ describe("a span is balanced on every exit path", function()
 			-- level 0 on both raise sites: the message a caller matches on is the
 			-- one the body wrote, with no extra position prefix bolted on
 			expect(err).toBe("boom-42")
-			expect(log[1]).toBe("+LuauUI/mutate")
+			expect(log[1]).toBe("+Facet/mutate")
 			expect(log[2]).toBe("-")
 			expect(profile.counters().balanced).toBe(true)
 			return true
@@ -161,8 +161,8 @@ describe("a span is balanced on every exit path", function()
 				end)
 			end)
 			expect(ok).toBe(false)
-			expect(log[1]).toBe("+LuauUI/mount")
-			expect(log[2]).toBe("+LuauUI/commit")
+			expect(log[1]).toBe("+Facet/mount")
+			expect(log[2]).toBe("+Facet/commit")
 			expect(log[3]).toBe("-")
 			expect(log[4]).toBe("-")
 			local depth, worst = depthOf(log)
@@ -237,7 +237,7 @@ describe("scopes stay out of the way when the host cannot profile", function()
 
 	it("scopes are OFF by default: production pays no pcall and keeps its tracebacks", function()
 		-- THE PRODUCT DECISION, PINNED (platform review MAJOR-2). With the default at
-		-- `true`, every LuauUI phase on the engine ran under a pcall and re-raised at
+		-- `true`, every Facet phase on the engine ran under a pcall and re-raised at
 		-- level 0 — so an error inside a solve reached a game's console with the stack
 		-- below the boundary gone, permanently, to instrument a session nobody reads.
 		-- Lune could never catch it, because `active` is false here and the suite
@@ -281,21 +281,21 @@ end)
 describe("a real render pass emits the phase set and stays balanced", function()
 	it("mount -> solve -> commit produces only declared labels, and closes them all", function()
 		withRecorder(function(log)
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 			local adapter = fake_target.new()
-			local system = LuauUI.newActionSystem(core)
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local system = Facet.newActionSystem(core)
+			local pres = Facet.newPresenter(core, env, adapter, system)
 			local n = core:signal(0)
 			local label = core:memo(function(use)
 				return `n={use(n)}`
 			end)
-			local handle = pres.present(LuauUI.UI.Screen({
+			local handle = pres.present(Facet.UI.Screen({
 				id = "S",
 				children = {
-					LuauUI.UI.Text({ id = "T", text = label }),
-					LuauUI.UI.Button({ id = "B", label = "go" }),
+					Facet.UI.Text({ id = "T", text = label }),
+					Facet.UI.Button({ id = "B", label = "go" }),
 				},
 			}))
 			core:transaction(function()
@@ -324,11 +324,11 @@ describe("a real render pass emits the phase set and stays balanced", function()
 			expect(depth).toBe(0)
 			expect(profile.counters().balanced).toBe(true)
 			-- the phases a render pass must be able to show
-			expect(seen["LuauUI/mount"]).toBe(true)
-			expect(seen["LuauUI/measure"]).toBe(true)
-			expect(seen["LuauUI/arrange"]).toBe(true)
-			expect(seen["LuauUI/react"]).toBe(true)
-			expect(seen["LuauUI/mutate"]).toBe(true)
+			expect(seen["Facet/mount"]).toBe(true)
+			expect(seen["Facet/measure"]).toBe(true)
+			expect(seen["Facet/arrange"]).toBe(true)
+			expect(seen["Facet/react"]).toBe(true)
+			expect(seen["Facet/mutate"]).toBe(true)
 			return true
 		end)
 	end)
@@ -339,17 +339,17 @@ describe("a real render pass emits the phase set and stays balanced", function()
 		-- capture is a per-node log wearing a closed set's clothes
 		local function opensFor(rows: number): number
 			return withRecorder(function(log)
-				local core = LuauUI.newCore()
-				local env = LuauUI.newEnvironment(core)
+				local core = Facet.newCore()
+				local env = Facet.newEnvironment(core)
 				env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 				local adapter = fake_target.new()
-				local system = LuauUI.newActionSystem(core)
-				local pres = LuauUI.newPresenter(core, env, adapter, system)
+				local system = Facet.newActionSystem(core)
+				local pres = Facet.newPresenter(core, env, adapter, system)
 				local children = {}
 				for i = 1, rows do
-					table.insert(children, LuauUI.UI.Text({ id = `T{i}`, text = `row {i}` }))
+					table.insert(children, Facet.UI.Text({ id = `T{i}`, text = `row {i}` }))
 				end
-				pres.present(LuauUI.UI.Screen({ id = "S", children = children }))
+				pres.present(Facet.UI.Screen({ id = "S", children = children }))
 				pres.refresh()
 				local n = 0
 				for _, entry in log do

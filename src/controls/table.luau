@@ -301,7 +301,7 @@ local TABLE_KEYS = specGuard.keySet({
 	"virtualized",
 })
 
-function table_control.build(LuauUI: any, core: any, spec: Spec)
+function table_control.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newTable", spec, TABLE_KEYS, "spec")
 	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C) — a
 		predicate narrowing a capability this table does not have would be an
@@ -337,7 +337,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	local virtualized = spec.virtualized == true
 	if virtualized and spec.scrolls == false then
 		error(
-			"LuauUI newTable: spec.virtualized needs a viewport to window against, and scrolls = false gives it none "
+			"Facet newTable: spec.virtualized needs a viewport to window against, and scrolls = false gives it none "
 				.. "— a BLOCK table sizes to its rows so its HOST can scroll them, so every row is on screen as far as "
 				.. "this table can tell. Drop one of the two.",
 			2
@@ -368,14 +368,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			windowed path alone leaves THREE row-actions integrations in the library
 			rather than converging two. ]]
 		error(
-			"LuauUI newTable: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
+			"Facet newTable: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
 				.. "in its own row_actions composite whose lifecycle is pruned by the data, not by the window, so a row "
 				.. "scrolling out would strand its engine. Use newVirtualList (which HOSTS row actions) for a swipeable "
 				.. "virtualized list, or drop spec.virtualized.",
 			2
 		)
 	end
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local scope = core:scope(`Table-{spec.id or "table"}`)
 	local tableId = spec.id or "Table"
 	local selectionMode = spec.selection or "none"
@@ -395,7 +395,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	--
 	-- THE HEIGHT IS A DESCRIPTION, NOT A NUMBER (director ask, same report: "we
 	-- likely want taller table cells on mobile for touch targeting. that seems like
-	-- the paradigm adaptation luauui should handle"). The theme says how many lines
+	-- the paradigm adaptation facet should handle"). The theme says how many lines
 	-- a row holds per input paradigm and what floor it may not go under
 	-- (`controls.table.rowLines` / `.rowHeight`, derived in themes/snapshot); this
 	-- adds the two things only the LIVE environment knows — the ten-foot typography
@@ -445,7 +445,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		local bottom = if type(art.bottom) == "number" then art.bottom else 0
 		return top + bottom
 	end
-	--[[ `facts` is a `LuauUI.text.facts` record ({ scale, offset, metrics }) — the
+	--[[ `facts` is a `Facet.text.facts` record ({ scale, offset, metrics }) — the
 		live text facts, so a cell's line box here is the one the solver will measure
 		rather than a hand copy of it. This used to read `typographyScale` alone and
 		multiply it out in place, which under-reserved at any sub-1 accessibility
@@ -2014,7 +2014,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- `externalGesture` false: no composition needed, the composite's
 		-- own internal Grip is the row's only pointer surface, exactly
 		-- Tasks 3-9's shipped shape.
-		local rowActionsApi = row_actions.build(LuauUI, core, {
+		local rowActionsApi = row_actions.build(Facet, core, {
 			id = "RowActions-" .. rowKey,
 			-- Task 10: restores the row's normal list-flow width — `content`
 			-- (rowBp, its own "Row" node) is ITSELF `width = fill`, which has
@@ -2072,7 +2072,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 
 		THE MEASUREMENT: `contract.luau` gives `Grip` `minHitSize = 44`, so the
 		renderer asks the adapter for a 44x44 hit rect centred on this 8x28 divider
-		and the engine adapter realises it as a real `LuauUIHitExpander` TextButton.
+		and the engine adapter realises it as a real `FacetHitExpander` TextButton.
 		That button sits ABOVE the header cell's own `Column` button, and a GuiButton
 		sinks `InputBegan` — so live, in the showcase, a click at (264,134) inside the
 		name header did NOTHING while the same click at (100,134) cycled the sort. A
@@ -3610,7 +3610,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		IT DOES NOT WORK, and the reason is an engine fact nobody here had measured.
 		Driven live in the showcase, 2026-08-14, all four readings in one session:
 
-		  | who is bound on Left/Right | LuauUI claim | result |
+		  | who is bound on Left/Right | Facet claim | result |
 		  |---|---|---|
 		  | `RbxCameraKeypress`, CAS prio 2000, Sink | InputContext 10000 Sink | column UNCHANGED |
 		  | nothing (camera unbound) | InputContext 10000 Sink | 352 -> 384px |
@@ -3630,7 +3630,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		The fourth row is the lever that DOES work and is a framework-architecture
 		decision, not a patch: a `BindActionAtPriority` of our OWN action above the
 		camera's, unbound on release (measured: the camera received the very next
-		press). It means LuauUI reaching into ContextActionService, which
+		press). It means Facet reaching into ContextActionService, which
 		`src/client/roblox_input.luau` deliberately does not do ("arbitration is the
 		ENGINE's job here"), so it is carried to the director rather than taken here.
 
@@ -3677,7 +3677,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 
 			SOURCE **AND** DESTINATION. `moveDisabled`'s source-vs-destination
 			question is one Apple does not document (its page is an abstract and
-			a declaration, no discussion), so LuauUI decides: a pinned row holds
+			a declaration, no discussion), so Facet decides: a pinned row holds
 			its INDEX. A move that would displace one is refused, because
 			otherwise "pinned" would mean "cannot be dragged but can be shoved",
 			which is not what an author means by it. ]]
@@ -3854,7 +3854,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end
 		table.sort(selected)
 		return {
-			schema = "luauui-table-dump/1",
+			schema = "facet-table-dump/1",
 			id = spec.id or "Table",
 			columns = (function()
 				local out = {}

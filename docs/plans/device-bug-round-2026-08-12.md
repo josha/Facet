@@ -1,6 +1,6 @@
 # Device bug round — 2026-08-12 (showcase, real hardware)
 
-Nine findings from the game director testing `LuauUI-Showcase` on a phone.
+Nine findings from the game director testing `Facet-Showcase` on a phone.
 Evidence in `UntitledRacingGame/bugs/` (seven stills, three recordings, plus
 `iOS.mov` as the motion reference). **Fix at the framework level where
 applicable, never in the example place** — a showcase screen papering over a
@@ -314,7 +314,7 @@ the desktop capture is the SAME defect, not a second cause. To settle it, run th
 with the "All controls" demo mounted and paste the result:
 
 ```lua
-print(_G.LuauUIScenario.report())   -- its `diagnostics` block is the whole question
+print(_G.FacetScenario.report())   -- its `diagnostics` block is the whole question
 ```
 
 plus, for the `BodyScroll` `ScrollingFrame`: `AbsoluteSize`,
@@ -390,9 +390,9 @@ carrying a `priorRecording` block that names what invalidated the 2026-08-03 one
 Nothing was hand-edited: the five rows were re-driven and the paths in them came
 back from the running session.
 
-The session, exactly: place `LuauUI-Showcase.rbxl`, Play (Client datamodel),
+The session, exactly: place `Facet-Showcase.rbxl`, Play (Client datamodel),
 library `0.9.0`, Studio `0.734.0.7340915`, viewport `907x1067`, source stamp
-`bc33c64b-5189706` with `LuauUI_SourceStale = 2`. Forward Tab x5 from
+`bc33c64b-5189706` with `Facet_SourceStale = 2`. Forward Tab x5 from
 `/KbdNav/Body/Name/Field` → `Actions/Save`, `Actions/Reset`,
 `Volume/TrackHost/Track`, `Count/Dec`, `Count/Inc` — **the grip third**, ten raw
 key events, `gameProcessed = false` on every one. Shift+Tab x7 from
@@ -416,11 +416,11 @@ Four corrections to the procedure as it was written, each of which cost time:
 
 - **`tools/studio/install_matrix_driver` does not exist as a file.** The driver is
   installed by fetching `http://127.0.0.1:8642/driver` from `tools/lune/studio_sync`
-  into a `workspace.LuauUIMatrixDriver` ModuleScript.
+  into a `workspace.FacetMatrixDriver` ModuleScript.
 - **`HttpService:GetAsync` is server-only.** Fetching the driver from the Client
   datamodel answers `Http requests can only be executed by game server`. Fetch it in
   the **Server** datamodel, parent it to `workspace`, and let it replicate — then
-  `require(workspace.LuauUIMatrixDriver)` from the Client.
+  `require(workspace.FacetMatrixDriver)` from the Client.
 - **The fixture is `responder = "passive"` (TD18), so it binds nothing until a real
   tap engages it.** At rest `handle.actions.traverse.bindings` is EMPTY and Tab
   belongs to the game — driving keys at that point measures nothing and looks like a
@@ -428,7 +428,7 @@ Four corrections to the procedure as it was written, each of which cost time:
   button first, and read `traverse: ["Tab"]` back before sending a key. This is not
   a workaround; it is the shape the director asked for in round 3.
 - **`user_mouse_input`'s `instance_path` cannot address these nodes.** The renderer
-  names each instance with its full LuauUI path (`/KbdNav/Body/Actions/Save`), and
+  names each instance with its full Facet path (`/KbdNav/Body/Actions/Save`), and
   the tool's dotted resolver does not find them. Use `x`/`y` — the button's live
   `AbsolutePosition` + half its `AbsoluteSize` lands correctly, which is the same
   coordinate space TD24's clicks used.
@@ -438,8 +438,8 @@ fixture will need them again:
 
 1. Sync the current source into the open place (`lune run tools/lune/studio_sync`,
    then `tools/studio/inject.luau` in the **Edit** datamodel — Play copies re-require,
-   Edit caches), set `LuauUI_Showcase = false` and
-   `LuauUI_Scenario = "keyboard_navigation"` in Edit, then Play. Confirm the
+   Edit caches), set `Facet_Showcase = false` and
+   `Facet_Scenario = "keyboard_navigation"` in Edit, then Play. Confirm the
    staleness markers (`traversalPriority` accepted, `traversalPriorty` still refused,
    `UI.Grip` accepts it too) **in the Play session**.
 2. `game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)`

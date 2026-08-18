@@ -26,7 +26,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local row_actions_state = require("../src/input/row_actions_state")
 local clockLib = require("../src/motion/clock")
@@ -121,7 +121,7 @@ end
 type World = any
 
 local function hostedWorld(overrides: any?): World
-	local core = LuauUI.newCore()
+	local core = Facet.newCore()
 	local fired: { string } = {}
 	local slides: { number } = {}
 	-- boxed, because `onCommitHeight(nil)` ("no override, back to content
@@ -195,7 +195,7 @@ local function hostedWorld(overrides: any?): World
 		end
 	end
 
-	local engine = row_actions.buildHosted(LuauUI, core, spec)
+	local engine = row_actions.buildHosted(Facet, core, spec)
 	-- what a presenter hands a composite, handed over by the HOST instead —
 	-- the two binds a hosted engine cannot get through a contribution of its
 	-- own, because it has no node to attach one to.
@@ -376,10 +376,10 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	end)
 
 	it("(e) two hosted engines share one coordinator: opening B closes A", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local coordinator = row_actions.newCoordinator(core)
 		local function engineFor(id: string, contentPath: string)
-			return row_actions.buildHosted(LuauUI, core, {
+			return row_actions.buildHosted(Facet, core, {
 				id = id,
 				coordinator = coordinator,
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -416,7 +416,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	end)
 
 	it("refuses the spec keys a hosted row cannot have (closed spec, constitution §4)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local function build(extra: any)
 			local spec: any = {
 				id = "Row-1",
@@ -428,28 +428,28 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 				spec[key] = value
 			end
 			return function()
-				row_actions.buildHosted(LuauUI, core, spec)
+				row_actions.buildHosted(Facet, core, spec)
 			end
 		end
 		-- `content` is the HOST's, not this engine's: there is no blueprint here
 		-- to wrap it in
-		expect(build({ content = LuauUI.UI.Text({ id = "Body", text = "x" }) })).toThrow()
+		expect(build({ content = Facet.UI.Text({ id = "Body", text = "x" }) })).toThrow()
 		expect(build({ width = { type = "fill", weight = 1 } })).toThrow()
 		expect(build({ externalGesture = true })).toThrow()
 		expect(build({ nonsense = true })).toThrow()
 	end)
 
 	it("requires `paths.content` and `onSlide` — the two things only the host can supply", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		expect(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				onSlide = function() end,
 			})
 		end).toThrow()
 		expect(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				paths = { content = ROW },
@@ -485,9 +485,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	-- ===== fix round 1 (review findings) ====================================
 
 	it("(finding 1) refuses trailing actions with no paths.trayTrailing, by name", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				paths = { content = ROW }, -- no trayTrailing
@@ -499,9 +499,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	end)
 
 	it("(finding 1) refuses leading actions with no paths.trayLeading, by name", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				leading = { { id = "flag", label = "Flag", onAction = function() end } },
 				paths = { content = ROW }, -- no trayLeading
@@ -578,9 +578,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	)
 
 	it("(finding 5) labels a hosted action-spec error with the hosted entry point, not the standalone one", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { label = "Delete" } }, -- missing onAction
 				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
@@ -591,15 +591,15 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
 		-- discriminates from a substring match: "newRowActions(" (with the
 		-- opening paren) only ever appears in the STANDALONE label's own
-		-- message shape (`LuauUI newRowActions('id')`), never inside
+		-- message shape (`Facet newRowActions('id')`), never inside
 		-- "newRowActionsHosted('id')".
 		expect(string.find(err, "newRowActions('", 1, true)).toBeNil()
 	end)
 
 	it("(finding 5) labels a hosted coordinator-type error with the hosted entry point too", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				coordinator = "not-a-table",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -639,9 +639,9 @@ end)
 	    host to do but write a signal it was already handed. ]]
 describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", function()
 	it("accepts `editing` — it is no longer refused from the hosted spec by name", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 				editing = core:signal(false),
@@ -719,9 +719,9 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 		as "Delete" (it borrows the destructive action's own accessible label) does
 		nothing at all. Refused by name, at build time, instead. ]]
 	it("refuses a hosted row that can show the minus but named no path for it", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 				editing = core:signal(false),
@@ -735,9 +735,9 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 	end)
 
 	it("still refuses `editing` that is not a Readable, with the hosted label", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(LuauUI, core, {
+			row_actions.buildHosted(Facet, core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 				editing = true :: any,

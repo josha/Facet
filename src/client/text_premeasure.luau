@@ -44,7 +44,7 @@ end
 
 local text_premeasure = {}
 
--- the fonts LuauUI names, mapped to their engine font files. Shared with
+-- the fonts Facet names, mapped to their engine font files. Shared with
 -- src/client/text_calibration (the per-font average seam) so one list defines
 -- what "BuilderSans" means to the engine.
 text_premeasure.FONT_FILES = {
@@ -91,7 +91,7 @@ function text_premeasure.fontFileFor(family: string): string?
 	return nil
 end
 
--- the inverse, for reading a Font attribute back into a LuauUI family name
+-- the inverse, for reading a Font attribute back into a Facet family name
 function text_premeasure.familyForFile(file: string): string?
 	for family, mapped in text_premeasure.FONT_FILES do
 		if mapped == file then

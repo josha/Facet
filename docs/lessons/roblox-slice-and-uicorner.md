@@ -54,7 +54,7 @@ Isolating probe (one variable at a time, same art, same 44x24 box):
 | Z3 | 1 | **yes** | **6 rounded blobs** |
 | Z4 | 24/28 | **yes** | **6 rounded blobs** |
 
-### Why LuauUI hit it
+### Why Facet hit it
 
 `docs/lessons/stylesheet-defeat-order-sensitive.md` records that a REAL
 `UICorner` child suppresses the phantom `::UICorner` rule. ADR-0020 R9's

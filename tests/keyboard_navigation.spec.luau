@@ -20,8 +20,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
-local UI = LuauUI.UI
+local Facet = require("../src") :: any
+local UI = Facet.UI
 local customFactory = require("../src/core/custom")
 local focus_graph = require("../src/focus/focus_graph")
 local fake_target = require("../tests/lib/fake_target")
@@ -254,16 +254,16 @@ end)
 -- to be keyboard-navigable. The opt's own semantics (off by default, per-surface
 -- override, and the sink it implies) are proven in their own describe block below.
 local function harness(presenterOpts: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local opts = if presenterOpts ~= nil then table.clone(presenterOpts) else {}
 	if opts.keyboardNavigation == nil then
 		opts.keyboardNavigation = true
 	end
-	local pres = LuauUI.newPresenter(core, env, adapter, system, opts)
+	local pres = Facet.newPresenter(core, env, adapter, system, opts)
 	return core, env, system, adapter, pres
 end
 
@@ -326,8 +326,8 @@ end)
 
 describe("traversal calls the SHARED keep-visible service (DK-7)", function()
 	local function scrollSlice()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		local rows = {}
 		for i = 1, 12 do
@@ -337,8 +337,8 @@ describe("traversal calls the SHARED keep-visible service (DK-7)", function()
 			)
 		end
 		local adapter = fake_target.new()
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.ScrollView({ id = "List", height = { type = "fixed", px = 160 }, children = rows }) },
@@ -409,7 +409,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 end)
 
 describe("exactly one Activate per press across the IAS and native-tap paths (DK-9)", function()
-	-- the two signals only coexist on a surface that mirrors LuauUI focus onto
+	-- the two signals only coexist on a surface that mirrors Facet focus onto
 	-- GuiService.SelectedObject: the engine then fires the selected GuiButton's
 	-- own Activated for the same key press IAS delivered as Activate
 	local function bridgedModal(nowFn: () -> number)
@@ -507,14 +507,14 @@ describe("a focused value control consumes its declared axis (DK-10/DK-11)", fun
 	-- a GROUPED screen (an HStack of two buttons engages the layout derivation),
 	-- which is exactly where Left/Right used to belong permanently to NavigateH
 	local function sliderScreen()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(0.5)
-		local slider = LuauUI.newSlider(LuauUI, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -587,14 +587,14 @@ end)
 	is why the suite was blind. This one deliberately does not. ]]
 describe("a value control claims Adjust only inside its own subtree (DK-11)", function()
 	local function mixedScreen()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local count = core:signal(3)
-		local stepper = LuauUI.newStepper(LuauUI, core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
+		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -630,11 +630,11 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 		playtest found the opposite (Space jumped the avatar while the UI had
 		focus), which is why the feature became opt-in at all. ]]
 	it("with keyboard navigation OFF the surface binds nothing and sinks nothing", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system) -- no opt
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, fake_target.new(), system) -- no opt
 		local acts: { [string]: number } = {}
 		local handle = pres.present(formScreen(acts))
 		pres.refresh()
@@ -691,14 +691,14 @@ end)
 	answers it in its own palette. ]]
 describe("a focused Slider draws its own treatment, on the thumb (DK-20)", function()
 	it("the thumb takes a focus stroke while the track holds focus, and drops it after", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(0.5)
-		local slider = LuauUI.newSlider(LuauUI, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.Button({ id = "before", label = "before" }), slider.blueprint },
@@ -757,21 +757,21 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 		its focus ring thickens it for both and a Slider's ring can never stop
 		matching every other control on the screen. ]]
 	it('the "focusRing" thickness alias resolves to the adapter\'s own ring weight', function()
-		local resolved = LuauUI.UI.strokeData({ thickness = "focusRing" })
+		local resolved = Facet.UI.strokeData({ thickness = "focusRing" })
 		expect(resolved.thickness).toBe(default_style.extra.focusRingThickness)
 		expect(resolved.thickness > default_style.strokes.hairline).toBe(true)
 		-- ...and it is still a CLOSED set: a made-up token is refused by name
 		local ok, err = pcall(function()
-			return LuauUI.UI.strokeData({ thickness = "focusRingg" })
+			return Facet.UI.strokeData({ thickness = "focusRingg" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "focusRingg") ~= nil).toBe(true)
 	end)
 
 	it("the track declares that the adapter must not paint a focused state", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local value = core:signal(0.5)
-		local slider = LuauUI.newSlider(LuauUI, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local found = nil
 		local function walk(bp: any)
 			if bp.id == "Track" and bp.class == "Grip" then
@@ -788,14 +788,14 @@ end)
 
 describe("a Stepper is driven by Activate, not by the arrows (DK-10)", function()
 	it("Space on the focused button steps the value, in both directions", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(3)
-		local stepper = LuauUI.newStepper(LuauUI, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		-- focus lands on Dec first; Space decrements
@@ -811,13 +811,13 @@ describe("a Stepper is driven by Activate, not by the arrows (DK-10)", function(
 	end)
 
 	it("the axis-independent Adjust keys still reach the same arithmetic", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
 		local value = core:signal(3)
-		local stepper = LuauUI.newStepper(LuauUI, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		press(system, "Period")
@@ -829,15 +829,15 @@ end)
 
 describe("text editing owns Space and the arrows; Tab commits then advances (DK-12)", function()
 	local function fieldScreen()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal("hi")
 		local commits: { string } = {}
-		local field = LuauUI.newTextInput(LuauUI, core, {
+		local field = Facet.newTextInput(Facet, core, {
 			id = "Name",
 			value = value,
 			onCommit = function(text: string)
@@ -1204,7 +1204,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		ever does, it belongs here too. ]]
 	it("a self-painted focus ring clears when the surface resigns", function()
 		local core, _, _, adapter, pres = harness()
-		local slider = LuauUI.newSlider(LuauUI, core, {
+		local slider = Facet.newSlider(Facet, core, {
 			id = "Vol",
 			value = core:signal(0.5),
 			min = 0,
@@ -1300,7 +1300,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		because a passive context is disabled, which is luck rather than design. ]]
 	it("a resigned surface unbinds the Adjust keys it had claimed", function()
 		local core, _, _, adapter, pres = harness()
-		local slider = LuauUI.newSlider(LuauUI, core, {
+		local slider = Facet.newSlider(Facet, core, {
 			id = "Vol",
 			value = core:signal(0.5),
 			min = 0,
@@ -1387,11 +1387,11 @@ end)
 	the character jumps; sinking = UI activates and the character gets nothing. ]]
 describe("keyboard navigation is opt-in, globally and per surface (DK-19)", function()
 	local function world(presenterOpts: any?)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system, presenterOpts)
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, fake_target.new(), system, presenterOpts)
 		return system, pres
 	end
 	local function keys(handle: any): { [string]: boolean }
@@ -1442,11 +1442,11 @@ describe("keyboard navigation is opt-in, globally and per surface (DK-19)", func
 	end)
 
 	it("an engaged surface EATS the contended keys instead of sharing them", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
 		-- the avatar stack, underneath, exactly as the responder chain describes it
 		local char = system.createContext({ name = "Character", priority = 150, sink = false })
 		local jump = char.createAction("Jump", "Bool")

@@ -280,7 +280,7 @@ follow-up, not a smuggled refactor.
 - **Live**: `artifacts/two-dimensional-focus/live-studio.md` — both grids driven on a real Studio
   place through the real `InputAction`s, read off the painted focus ring, with a staleness check on
   the datamodel's source and a positive control in the transcript.
-- **Consumer rider**: `games/RascalRally/code/tests/luauui_focus_grid_axis_contract.spec.luau` — this
+- **Consumer rider**: `games/RascalRally/code/tests/facet_focus_grid_axis_contract.spec.luau` — this
   game mounts no lazy grid and no focusable grid cell, so the rider is the tripwire that asserts it
   against a real shipped screen, plus a positive control proving that game's own focus dump would
   report a lane count if one existed.

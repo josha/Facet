@@ -12,7 +12,7 @@
 	THE HARD CONSTRAINT IS THE FIRST DESCRIBE, NOT THE LAST. Every existing caller
 	keeps the flow grid to the pixel; Rascal Rally's two live `UI.Grid` call sites
 	(`ResultsScreen.luau:2495, :2546`) are pinned on the consumer side as well
-	(`games/RascalRally/code/tests/luauui_grid_row_contract.spec.luau`). The frozen
+	(`games/RascalRally/code/tests/facet_grid_row_contract.spec.luau`). The frozen
 	table below is this side of that pin: it is the SAME shape the flow grid laid
 	out before `GridRow` existed, and the numbers were read off the pre-change
 	build.
@@ -44,7 +44,7 @@ local environment = require("../src/env/environment")
 local mountLib = require("../src/mount")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 
 local function fixed(px: number): any
 	return { type = "fixed", px = px }
@@ -451,23 +451,23 @@ describe("GridRow through the public authoring surface", function()
 		-- and a row grid has none — so the same code read a 2x2 board as ONE row four
 		-- cells wide, and Down went nowhere. `emitGridGroups` now uses the `GridRow`
 		-- children when the Grid has them (`src/present/focus_map.luau`).
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+		local system = Facet.newActionSystem(core)
+		local pres = Facet.newPresenter(core, env, fake_target.new(), system)
 		local function rowOf(n: number): any
-			return LuauUI.UI.GridRow({
+			return Facet.UI.GridRow({
 				id = `R{n}`,
 				children = {
-					LuauUI.UI.Button({ id = `b{n}1`, label = `b{n}1` }),
-					LuauUI.UI.Button({ id = `b{n}2`, label = `b{n}2` }),
+					Facet.UI.Button({ id = `b{n}1`, label = `b{n}1` }),
+					Facet.UI.Button({ id = `b{n}2`, label = `b{n}2` }),
 				},
 			})
 		end
-		pres.present(LuauUI.UI.Screen({
+		pres.present(Facet.UI.Screen({
 			id = "S",
-			children = { LuauUI.UI.Grid({ id = "G", gap = 8, children = { rowOf(1), rowOf(2) } }) },
+			children = { Facet.UI.Grid({ id = "G", gap = 8, children = { rowOf(1), rowOf(2) } }) },
 		}))
 		pres.refresh()
 		local function press(key: string)

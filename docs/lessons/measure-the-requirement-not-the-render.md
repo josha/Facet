@@ -12,13 +12,13 @@ reporting **zero** findings, and a gate at 22/22.
 A 60×46 button. Its own `Text = "Open"`, `TextBounds = 36×18`, `TextFits = true`. The
 solver sized the control for that label and was right.
 
-The theme then **lifted the label into `LuauUIChromeText`, sized from the art** — a 36px
+The theme then **lifted the label into `FacetChromeText`, sized from the art** — a 36px
 decoration minus two 14px corner pieces — leaving a box **8 pixels wide**. The label
 rendered as nothing.
 
 ```
 button          60x46   Text="Open"  TextBounds=36x18  TextFits=true
-LuauUIChromeText 8x26   Text="Open"  TextBounds= 0x18   ← rendered nothing
+FacetChromeText 8x26   Text="Open"  TextBounds= 0x18   ← rendered nothing
 ```
 
 ## Why every existing instrument missed it

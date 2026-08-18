@@ -40,7 +40,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local fake_target = require("./lib/fake_target")
 
@@ -62,14 +62,14 @@ local ROW_GUTTER_PX = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "cont
 -- WRAPPING preview line — the leading-reveal defect (C9c/C9d) is a re-wrap, so a
 -- row whose content cannot wrap could not have shown it.
 local function content()
-	return LuauUI.UI.VStack({
+	return Facet.UI.VStack({
 		id = "Body",
 		gap = 2,
 		width = { type = "fill", weight = 1 },
 		padding = { top = 10, bottom = 10, left = 14, right = 14 },
 		children = {
-			LuauUI.UI.Text({ id = "From", text = "Sender Name", textSize = 15 }),
-			LuauUI.UI.Text({
+			Facet.UI.Text({ id = "From", text = "Sender Name", textSize = 15 }),
+			Facet.UI.Text({
 				id = "Preview",
 				text = "a preview line long enough that it wraps once the row is squeezed",
 				textSize = 12,
@@ -84,22 +84,22 @@ end
 -- `pres.tick` with `pres.refresh`, for the same reason: `syncGeometry` only runs
 -- on the refresh, and the naturals this whole file is about are derived there).
 local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageWidth: number?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if envSetup ~= nil then
 		envSetup(env)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = LuauUI.UI.Screen({
+	local screen = Facet.UI.Screen({
 		id = "S",
 		-- a fixed-width cage, so the row's own width is decided FOR it exactly as a
 		-- list row's is, and `deriveNaturals`' clamp branch behaves like the shipped
@@ -111,7 +111,7 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageW
 				believed at 703px, which is what a phone-width playlist row
 				actually is. `cageWidth` exists for exactly that one case;
 				every other case passes nothing and is byte-identical. ]]
-			LuauUI.UI.VStack({
+			Facet.UI.VStack({
 				id = "Cage",
 				width = { type = "fixed", px = cageWidth or 360 },
 				children = { ra.blueprint },
@@ -206,7 +206,7 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageW
 end
 
 local function twoActionRow(core: any, fired: { string }, fullSwipe: boolean?)
-	return row_actions.build(LuauUI, core, {
+	return row_actions.build(Facet, core, {
 		id = "Row",
 		width = { type = "fill", weight = 1 },
 		content = content(),
@@ -781,7 +781,7 @@ describe("RowActions flight — the plate's DECORATION never paints past the ban
 		it is a defect NO rect assertion in this file could ever have caught, because
 		every rect involved is flush. Measured live in Studio, Glossy Touch, per
 		frame through the close flight — plate LAYOUT rect vs what the engine
-		actually painted for its `LuauUIChrome` decoration:
+		actually painted for its `FacetChrome` decoration:
 
 		    plate w26 -> chrome [674..700]   flush
 		    plate w16 -> chrome [684..700]   flush (the crossover)
@@ -796,7 +796,7 @@ describe("RowActions flight — the plate's DECORATION never paints past the ban
 		identity only while the host is wider than its own padding. Below that the
 		padded content box inverts and Roblox normalizes it by absolute value, so the
 		compensation inflates instead of cancelling. Verified with a controlled probe
-		containing no LuauUI at all (bare Frame + `UIPadding(8,8)` + one child at
+		containing no Facet at all (bare Frame + `UIPadding(8,8)` + one child at
 		`(0,-8)`/`(1,+16)`, width swept 40 -> 0, 12/12 exact):
 
 		    painted = if left + right <= w then w else 2 * (left + right) - w

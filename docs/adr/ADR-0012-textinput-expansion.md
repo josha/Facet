@@ -8,7 +8,7 @@ Build `UI.TextInput` as the library's first post-Phase-4 expansion, governed by 
 gate (`lune run tools/lune/gate expansion-textinput`), registered in `phases.json` and
 `tools/lune/gate_manifest.luau`. The shape is the split approved in ui_todo.md §1:
 
-- a **signal-backed value model** in a composite control (`LuauUI.newTextInput`) that owns
+- a **signal-backed value model** in a composite control (`Facet.newTextInput`) that owns
   editing state, live (`onChange`) and commit (`onCommit` on Enter/FocusLost) modes,
   placeholder, disabled, keyboard-type hint, optional in-field clear affordance, max
   length, and a validation hook — fully provable headlessly;

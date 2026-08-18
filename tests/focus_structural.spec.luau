@@ -9,16 +9,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
 describe("focus ring follows structure (F1)", function()
 	local function world()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		return core, system, pres
 	end
 
@@ -27,18 +27,18 @@ describe("focus ring follows structure (F1)", function()
 		local showExtra = core:signal(false)
 		local activated: { string } = {}
 		pres.present(
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "S",
 				children = {
-					LuauUI.UI.Button({ id = "A", label = "a" }),
-					LuauUI.UI.When({
+					Facet.UI.Button({ id = "A", label = "a" }),
+					Facet.UI.When({
 						id = "W",
 						condition = showExtra,
 						thenView = function()
-							return LuauUI.UI.Button({ id = "B", label = "b" })
+							return Facet.UI.Button({ id = "B", label = "b" })
 						end,
 					}),
-					LuauUI.UI.Button({ id = "C", label = "c" }),
+					Facet.UI.Button({ id = "C", label = "c" }),
 				},
 			}),
 			{
@@ -73,10 +73,10 @@ end)
 
 describe("confirm-before-ingest convergence (F2)", function()
 	it("an optimistic view reconciled on snapshot ingest converges regardless of delivery order", function()
-		local core = LuauUI.newCore()
-		local snapshot = LuauUI.replication.snapshot(core, 1, { music = false })
+		local core = Facet.newCore()
+		local snapshot = Facet.replication.snapshot(core, 1, { music = false })
 		local draft = core:signal(false)
-		local mutation = LuauUI.replication.mutation(core, {
+		local mutation = Facet.replication.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)

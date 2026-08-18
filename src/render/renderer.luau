@@ -347,7 +347,7 @@ function renderer.attach(
 			table.insert(names, name)
 		end
 		table.sort(names)
-		error(`LuauUI renderer: unknown rootPolicy '{tostring(rootPolicy)}'. Valid: {table.concat(names, ", ")}.`, 0)
+		error(`Facet renderer: unknown rootPolicy '{tostring(rootPolicy)}'. Valid: {table.concat(names, ", ")}.`, 0)
 	end
 	local rootHandle = adapter.createRoot(root.node.id or "Screen")
 	local attachScope = core:scope("renderer-attach")
@@ -391,7 +391,7 @@ function renderer.attach(
 	-- tree, so no ancestor's clip crops it: inside a scrolling list a WINDOWED
 	-- row sitting outside the viewport still painted its ring — a family-hued
 	-- arc floating on empty plate, unattached to any row (Sponsor review round
-	-- 1, F1; `PS-T1-luauui-max-iphone16-landscape.png`, the ring of the row one
+	-- 1, F1; `PS-T1-facet-max-iphone16-landscape.png`, the ring of the row one
 	-- pitch BELOW the last visible one). Every sibling in that row cropped
 	-- correctly, which is the tell: the defect is the primitive, not the layout.
 	--
@@ -800,7 +800,7 @@ function renderer.attach(
 	-- It exists because `presenter.refresh` re-derived the whole focus map from a full
 	-- tree walk plus a traversal-rank sort EVERY frame, for EVERY presented surface,
 	-- whether or not anything had moved. Measured on the ornate dense-scroll at
-	-- 360x691: 478 derivations across 120 frames, 78.4 ms — 20% of all LuauUI work in
+	-- 360x691: 478 derivations across 120 frames, 78.4 ms — 20% of all Facet work in
 	-- the frame, and the great majority of it re-deriving a map identical to the one
 	-- already installed.
 	local structureEpoch = 0
@@ -911,7 +911,7 @@ function renderer.attach(
 			end
 		end
 		error(
-			`LuauUI {class}.{prop}: '{value}' is not one of {table.concat(spec.enum, " | ")}. `
+			`Facet {class}.{prop}: '{value}' is not one of {table.concat(spec.enum, " | ")}. `
 				.. "A bound value outside the closed set is not a state — it paints nothing.",
 			0
 		)
@@ -967,7 +967,7 @@ function renderer.attach(
 	-- other, every time the window slides, for no reason except that the PATH
 	-- changed. Measured on this engine: build one 24-object row 0.252 ms, destroy
 	-- it 0.045 ms, rewrite the same objects' properties 0.024 ms — **12x**. The
-	-- structural pass (`LuauUI/mount`) was 0.66-0.97 ms/frame at every viewport,
+	-- structural pass (`Facet/mount`) was 0.66-0.97 ms/frame at every viewport,
 	-- the largest single component of a frame.
 	--
 	-- Feature-detected on both sides: the adapter must offer
@@ -1961,7 +1961,7 @@ function renderer.attach(
 		-- draw time (double-application fix, corrections §9). The RESERVATION
 		-- FLOOR (measure >= paint, preferred-text sweep 2026-07-24) and its
 		-- garbage-fact guards live once, in `themes/snapshot.reserveScale`, which
-		-- the public `LuauUI.text.facts` calls on the same two keys — so a
+		-- the public `Facet.text.facts` calls on the same two keys — so a
 		-- consumer PREDICTING a text box reserves at exactly this scale.
 		local paintScale = env:get("typographyPaintScale"):get()
 		if type(paintScale) ~= "number" or paintScale ~= paintScale then
@@ -1983,7 +1983,7 @@ function renderer.attach(
 			end
 		end
 		-- the legal domain lives with the policy (`themes/snapshot.textOffset`), so
-		-- the public `LuauUI.text.facts` clamps the offset exactly as this seam does
+		-- the public `Facet.text.facts` clamps the offset exactly as this seam does
 		local prefOffset = themeSnapshot.textOffset(env:get("preferredTextOffset"):get())
 		-- the adapter owns the scrollbar thickness (it is engine-specific); the
 		-- solver reserves it off a scrolling region's cross axis so content is
@@ -2031,7 +2031,7 @@ function renderer.attach(
 			stats.lastArranged = result.work.arranged
 			stats.lastMeasured = result.work.measured
 		end
-		-- MICROPROFILER PHASE `LuauUI/commit` (roadmap Step 9): the ADAPTER COMMIT —
+		-- MICROPROFILER PHASE `Facet/commit` (roadmap Step 9): the ADAPTER COMMIT —
 		-- everything between a finished solve and a frame the player can see. Visibility,
 		-- hit rects, rects, scroll regions, z-order, transforms and the text-measurement
 		-- follow-up all live here. It is deliberately ONE scope for the whole pass rather
@@ -2358,7 +2358,7 @@ function renderer.attach(
 
 							PUBLISH THE GENERATION FIRST (director 2026-08-04, the
 							finish-screen size pop). The re-solve fixes the SOLVER's boxes,
-							but a consumer memo that called `LuauUI.text.fit/.size/.measure`
+							but a consumer memo that called `Facet.text.fit/.size/.measure`
 							has no dependency on the exact-width store — it is plain data —
 							so it evaluated once against the ESTIMATOR and nothing here
 							invalidated it. Bumping `textMeasureEpoch` is that dependency:
@@ -2448,7 +2448,7 @@ function renderer.attach(
 		if feedbackDepth >= SOLVE_FEEDBACK_ROUND_CAP then
 			feedbackDepth = 0
 			error(
-				`LuauUI renderer: a solve's geometry feedback did not converge in {SOLVE_FEEDBACK_ROUND_CAP} rounds `
+				`Facet renderer: a solve's geometry feedback did not converge in {SOLVE_FEEDBACK_ROUND_CAP} rounds `
 					.. `(a consumer publishing a layout prop derived from the rect that prop moves?); solve-feedback round cap`,
 				0
 			)
@@ -3018,7 +3018,7 @@ function renderer.attach(
 			-- paint/semantics: prop-level writes below
 		end
 		if needsStructure then
-			-- MICROPROFILER PHASE `LuauUI/mount` (roadmap Step 9): creating,
+			-- MICROPROFILER PHASE `Facet/mount` (roadmap Step 9): creating,
 			-- reconciling and retiring Instances. Named apart from `commit` because
 			-- Instance churn and property writes have completely different fixes —
 			-- one is a keying/virtualization problem, the other is a diff problem.
@@ -3061,7 +3061,7 @@ function renderer.attach(
 			end
 		end
 		if hasPaintDirt then
-			-- MICROPROFILER PHASE `LuauUI/commit`: adapter property writes. Guarded so
+			-- MICROPROFILER PHASE `Facet/commit`: adapter property writes. Guarded so
 			-- an idle frame pays a comparison rather than a scope.
 			profile.span("commit", function()
 				local seen: { [string]: boolean } = {}
@@ -3154,7 +3154,7 @@ function renderer.attach(
 		-- constraints (spike m9): the mirrored instance must be Selectable
 		-- (non-selectable targets get warned about and REASSIGNED); expect
 		-- native autoscroll inside scroll hosts; offscreen selection is NOT
-		-- auto-cleared. LuauUI focus identity stays authoritative — this is a
+		-- auto-cleared. Facet focus identity stays authoritative — this is a
 		-- render output, cleared on dispose. Feature-detected + flag-gated:
 		-- passive surfaces never reach here with the flag set (NS-A11).
 		if bridgeEngaged and adapter.setEngineSelection ~= nil then
@@ -3953,7 +3953,7 @@ function renderer.attach(
 
 	-- THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034). Stage's 2-D sibling and the
 	-- same door in the same place: a `Foreign` reserves a box for a GuiObject class
-	-- LuauUI does not wrap, the caller creates that instance, and `adopt` is the one
+	-- Facet does not wrap, the caller creates that instance, and `adopt` is the one
 	-- verb that puts it in the box. Optional on BOTH sides for the same reasons —
 	-- an adapter that never grew the seam, a node that is not a live Foreign, or a
 	-- path that is not mounted all answer nil, so an author gates on the nil and
@@ -4098,7 +4098,7 @@ function renderer.attach(
 		return out
 	end
 
-	-- compositionAt(path) -> the last solve's `luauui-composition-dump/1` for that
+	-- compositionAt(path) -> the last solve's `facet-composition-dump/1` for that
 	-- UI.Composition node, or nil. Omit the path for every one of them, keyed by
 	-- path (ADR-0023). This is the "why" surface: which arrangement won, which
 	-- form each region resolved to, and the rule every richer candidate broke.

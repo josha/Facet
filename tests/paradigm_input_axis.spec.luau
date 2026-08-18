@@ -27,7 +27,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local customFactory = require("../src/core/custom")
 local actionsLib = require("../src/input/actions")
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local contribution = require("../src/input/contribution")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -132,23 +132,23 @@ end)
 -- Part 1 — presenter wires Thumbstick1 onto Navigate / NavigateH
 -- ===========================================================================
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
 describe("input-axis: presenter binds Thumbstick1 for Navigate (vertical, flat ring)", function()
 	it("a Thumbstick1 y push moves focus down like DPadDown, with the latch", function()
 		local _, _, system, _, pres = harness()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({ id = "a", label = "a" }),
-				LuauUI.UI.Button({ id = "b", label = "b" }),
+				Facet.UI.Button({ id = "a", label = "a" }),
+				Facet.UI.Button({ id = "b", label = "b" }),
 			},
 		})
 		pres.present(screen) -- ZERO opts
@@ -167,15 +167,15 @@ end)
 describe("input-axis: presenter binds Thumbstick1 for NavigateH (horizontal, grouped)", function()
 	it("a Thumbstick1 x push walks an HStack row like DPadRight", function()
 		local _, _, system, _, pres = harness()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.HStack({
+				Facet.UI.HStack({
 					id = "Row",
 					children = {
-						LuauUI.UI.Button({ id = "a", label = "a" }),
-						LuauUI.UI.Button({ id = "b", label = "b" }),
-						LuauUI.UI.Button({ id = "c", label = "c" }),
+						Facet.UI.Button({ id = "a", label = "a" }),
+						Facet.UI.Button({ id = "b", label = "b" }),
+						Facet.UI.Button({ id = "c", label = "c" }),
 					},
 				}),
 			},
@@ -198,11 +198,11 @@ end)
 -- declared adjustable, exactly the shape a Table grip would take (this proves
 -- the seam without touching src/controls/table.luau).
 local function fakeAdjustControl(id: string)
-	local root = LuauUI.UI.VStack({
+	local root = Facet.UI.VStack({
 		id = id,
 		children = {
-			LuauUI.UI.Button({ id = "Plain", label = "Plain" }),
-			LuauUI.UI.Button({ id = "Adj", label = "Adj" }),
+			Facet.UI.Button({ id = "Plain", label = "Plain" }),
+			Facet.UI.Button({ id = "Adj", label = "Adj" }),
 		},
 	})
 	local adjustHits: { any } = {}
@@ -223,7 +223,7 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 	local function world(presOpts: any?)
 		local _, _, system, adapter, pres = harness()
 		local ctl = fakeAdjustControl("Ctl")
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ctl.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ctl.blueprint } })
 		local handle = pres.present(screen, presOpts)
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, handle = handle, ctl = ctl }

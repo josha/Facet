@@ -3,16 +3,16 @@
 -- surface (roadmap Step 10, docs/plans/example-quality-pass.md).
 --
 -- WHY THIS EXISTS. Until this stage the seven examples were reachable only
--- through the gallery bootstrap's `LuauUI_Example` attribute, which mounts them
+-- through the gallery bootstrap's `Facet_Example` attribute, which mounts them
 -- and stamps two workspace attributes and nothing else. Every other stage's
--- evidence rides `_G.LuauUIScenario` / `workspace.LuauUIScenarioAPI` —
+-- evidence rides `_G.FacetScenario` / `workspace.FacetScenarioAPI` —
 -- `report`/`step`/`reset`/`setEnv`/`freezeEnv` — and the five-view device matrix
 -- driver (`tools/studio/device_matrix.luau`) reads that API and nothing else. So
 -- the examples were structurally outside the matrix: not because a rule excluded
 -- them, but because there was no handle to hold them by.
 --
 -- This scenario is that handle. It owns NO UI of its own: it builds one tutorial
--- example, verbatim, through the same `(LuauUI, core, deps)` contract the
+-- example, verbatim, through the same `(Facet, core, deps)` contract the
 -- bootstrap uses, and hands the runner exactly what the bootstrap would have
 -- presented. What it adds is the DRIVE surface the matrix needs — select an
 -- example, swap the theme package, read back what is mounted — so the same
@@ -25,8 +25,8 @@
 -- both fields straight through is enough — a self-presenting example arrives with
 -- its handle set and is not mounted twice.
 --
--- Select before Play with the workspace attribute `LuauUI_Example` (1..7), or at
--- runtime with `step("select", <n>)`. The theme package is `LuauUI_ThemePackage`
+-- Select before Play with the workspace attribute `Facet_Example` (1..7), or at
+-- runtime with `step("select", <n>)`. The theme package is `Facet_ThemePackage`
 -- before Play, or `step("theme", "<moduleName>")` at runtime.
 
 local MODULES = {
@@ -44,15 +44,15 @@ return {
 	ledgerRows = { "EQ-1", "EQ-3", "EQ-5", "EQ-6", "EQ-14", "EQ-16" },
 	build = function(ctx: any)
 		-- The example modules replicate as ModuleScripts under
-		-- ReplicatedStorage.LuauUIExamples, exactly like the reference theme
-		-- packages under LuauUIThemes. Resolving them is RUNNER-SHAPED work — an
+		-- ReplicatedStorage.FacetExamples, exactly like the reference theme
+		-- packages under FacetThemes. Resolving them is RUNNER-SHAPED work — an
 		-- instance path — but this module has no other way to reach them and the
 		-- runner has no reason to know about tutorials, so it happens here and
 		-- degrades loudly rather than mounting nothing.
 		local folder = ctx.exampleModules
 		if folder == nil then
 			local ok, found = pcall(function()
-				return game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIExamples")
+				return game:GetService("ReplicatedStorage"):FindFirstChild("FacetExamples")
 			end)
 			folder = if ok then found else nil
 		end
@@ -92,17 +92,17 @@ return {
 			end
 			currentName = name
 			if folder == nil then
-				mountError = "ReplicatedStorage.LuauUIExamples is not present"
+				mountError = "ReplicatedStorage.FacetExamples is not present"
 				return
 			end
 			local module = folder:FindFirstChild(name)
 			if module == nil then
-				mountError = `LuauUIExamples.{name} is missing`
+				mountError = `FacetExamples.{name} is missing`
 				return
 			end
 			local ok, built = pcall(function()
 				local example = require(module) :: any
-				return example.build(ctx.LuauUI, ctx.core, {
+				return example.build(ctx.Facet, ctx.core, {
 					env = ctx.env,
 					actionSystem = ctx.actionSystem,
 					presenter = ctx.presenter,
@@ -162,7 +162,7 @@ return {
 				local ok, err = pcall(function()
 					installed = controllerModule.install(
 						ctx.adapter,
-						ctx.LuauUI.themes.neutralPackage(),
+						ctx.Facet.themes.neutralPackage(),
 						{ env = ctx.env, core = ctx.core }
 					)
 				end)
@@ -187,7 +187,7 @@ return {
 			-- the assert doing its job on a caller that had guessed the signature.
 			uninstallCurrent()
 			local ok, err = pcall(function()
-				local package = (module :: any).build(ctx.LuauUI.themes)
+				local package = (module :: any).build(ctx.Facet.themes)
 				installed = controllerModule.install(ctx.adapter, package, { env = ctx.env, core = ctx.core })
 			end)
 			return { ok = ok, reason = if ok then nil else tostring(err), package = moduleName }

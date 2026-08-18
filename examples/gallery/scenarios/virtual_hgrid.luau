@@ -96,7 +96,7 @@ return {
 	title = "Lazy grid, sideways (newVirtualGrid axis = x)",
 	ledgerRows = { "R3-HGRID" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local scope = core:scope("virtual-hgrid")
 
@@ -123,7 +123,7 @@ return {
 
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local grid = ctx.LuauUI.newVirtualGrid(ctx.LuauUI, core, {
+		local grid = ctx.Facet.newVirtualGrid(ctx.Facet, core, {
 			id = "Rail",
 			-- the one word that makes this fixture different from `virtual_grid`
 			axis = "x",

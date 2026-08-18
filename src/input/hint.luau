@@ -60,7 +60,7 @@ function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
 	-- `responder` / `scrim` are: `style = "Phrase"` used to yield the bare key
 	-- label, which is the silent-default failure this library does not have.
 	if style ~= "key" and style ~= "phrase" then
-		error(`LuauUI inputHint: unknown style '{tostring(style)}'. Valid: key, phrase.`, 0)
+		error(`Facet inputHint: unknown style '{tostring(style)}'. Valid: key, phrase.`, 0)
 	end
 	local memo = core:memo(function(use)
 		-- the RESOLVED class, not the raw platform report: a phone nobody has

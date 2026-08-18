@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prints ONE valid LuauUI suite transcript on stdout, running the suite at most
+# Prints ONE valid Facet suite transcript on stdout, running the suite at most
 # once per tree state. This is what a gate check greps instead of re-running
 # `./run-tests.sh` itself:
 #

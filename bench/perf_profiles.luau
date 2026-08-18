@@ -124,7 +124,7 @@ function perf_profiles.get(name: string): Profile
 	return p
 end
 
--- write the profile into a LuauUI environment so the REAL solver renders what
+-- write the profile into a Facet environment so the REAL solver renders what
 -- that device sees, and input/display-sensitive views see the right facts.
 -- Geometry + fact writes only — an attached renderer re-solves live (no
 -- remount).

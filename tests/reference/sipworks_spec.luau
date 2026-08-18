@@ -14,7 +14,7 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local proof = require("../../examples/reference/p3_sipworks") :: any
 local strings = require("../../examples/reference/p3_sipworks/content/strings") :: any
@@ -27,16 +27,16 @@ local PHONE = { x = 0, y = 0, w = 360, h = 720 }
 local FRAME = 1 / 30
 
 local function world(opts: any?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", (opts or {}).viewport or WIDE)
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	-- OPT-IN, because the live engine reserves one and the headless twin does not:
 	-- a page scroller that overflows loses `scrollBar` px off its CROSS axis, and
 	-- every box downstream of it is that much narrower than a bar-less run says.
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = (opts or {}).scrollBar
-	local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 	local deps = {
 		env = env,
 		actionSystem = system,
@@ -46,7 +46,7 @@ local function world(opts: any?)
 		entryItemId = (opts or {}).entryItemId,
 		seed = (opts or {}).seed,
 	}
-	local built = proof.build(LuauUI, core, deps)
+	local built = proof.build(Facet, core, deps)
 	presenter.refresh()
 	return {
 		core = core,
@@ -1000,7 +1000,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 	end)
 
 	it("mounts under BOTH reference theme packages with no source edit", function()
-		local themes = LuauUI.themes
+		local themes = Facet.themes
 		for _, packageName in { "studio-neutral", "fantasy_parchment" } do
 			local w = world()
 			local snapshot = if packageName == "studio-neutral"
@@ -1063,14 +1063,14 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 	end)
 
 	it("build, drive and dispose are registry-neutral", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", WIDE)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local before = core:counters()
-		local built = proof.build(LuauUI, core, {
+		local built = proof.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = presenter,
@@ -1105,19 +1105,16 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
 			(adapter :: any).scrollBarThickness = 8
-			local presenter = LuauUI.newPresenter(core, env, adapter, system)
+			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
-			local built = proof.build(
-				LuauUI,
-				core,
-				{ env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-			)
+			local built =
+				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 			presenter.refresh()
 			expect(#built.handle.controller.diagnostics()).toBe(0)
 			built.dispose()

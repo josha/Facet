@@ -16,7 +16,7 @@
 -- through ONE function instead of the scenario runner having a capability the
 -- showcase a player actually opens does not.
 --
--- EVERY `kind` IS SOMETHING LUAUUI CANNOT EXPRESS. That is not decoration: a demo
+-- EVERY `kind` IS SOMETHING FACET CANNOT EXPRESS. That is not decoration: a demo
 -- of an escape hatch whose panes the framework could have drawn demonstrates
 -- nothing. See `foreign_content.luau`'s header for what each one proves.
 
@@ -30,7 +30,7 @@ function foreign_instances.build(content: any): Instance
 		-- RICH TEXT: markup spans inside ONE string. `UI.Text` resolves ONE
 		-- typography role and ONE colour for the whole label — by design, because
 		-- the solver measures with one font descriptor — so bold + italic + two
-		-- colours on one line is not expressible in LuauUI at all.
+		-- colours on one line is not expressible in Facet at all.
 		local label = Instance.new("TextLabel")
 		label.RichText = true
 		label.Text = content.text
@@ -46,7 +46,7 @@ function foreign_instances.build(content: any): Instance
 	elseif content.kind == "engineList" then
 		-- ENGINE-MEASURED LAYOUT: a UIListLayout with AutomaticCanvasSize over rows
 		-- carrying AutomaticSize, i.e. the engine deciding extents from its own
-		-- children. LuauUI pins `AutomaticCanvasSize = None` on every ScrollingFrame
+		-- children. Facet pins `AutomaticCanvasSize = None` on every ScrollingFrame
 		-- it creates (the solver owns content geometry), so this is precisely the
 		-- measure model the framework refuses — running inside a box it declared.
 		local scroller = Instance.new("ScrollingFrame")
@@ -87,7 +87,7 @@ function foreign_instances.build(content: any): Instance
 		frame.BackgroundColor3 = Color3.fromRGB(196, 92, 64)
 		frame.BorderSizePixel = 0
 		--[[ 0.02 AND NOT 0, AND THE REASON IS A LIVE MEASUREMENT (Studio, 2026-08-15).
-			A native-mode LuauUI surface links a theme StyleSheet at its root, and that
+			A native-mode Facet surface links a theme StyleSheet at its root, and that
 			sheet's class-default rules select `Frame` among six others — including
 			`BackgroundTransparency = 1`. A StyleRule loses to an EXPLICIT write, but
 			the engine decides "explicit" by VALUE, not by assignment: this frame is
@@ -98,7 +98,7 @@ function foreign_instances.build(content: any): Instance
 			styled = 1. So a class-default value cannot be held against a rule at all.
 
 			0.02 is visually opaque and not the default, so it sticks. This is the
-			general rule for ANY adopted GuiObject of a class LuauUI itself renders,
+			general rule for ANY adopted GuiObject of a class Facet itself renders,
 			and api.md's `Foreign` section states it. ]]
 		frame.BackgroundTransparency = 0.02
 		local corner = Instance.new("UICorner")
@@ -128,7 +128,7 @@ function foreign_instances.adopt(controller: any, nodePath: string, content: any
 		host.adopt(made)
 	end)
 	if not ok then
-		-- the caller owns the instance, so the caller cleans it up: LuauUI never
+		-- the caller owns the instance, so the caller cleans it up: Facet never
 		-- took it and never will
 		(made :: Instance):Destroy()
 		return `REFUSED — {tostring(err)}`

@@ -1,20 +1,20 @@
-# Fusion ↔ LuauUI: two ways to build a Roblox interface
+# Fusion ↔ Facet: two ways to build a Roblox interface
 
-Fusion is the reactive UI library most Roblox developers reach for. LuauUI is a
+Fusion is the reactive UI library most Roblox developers reach for. Facet is a
 declarative UI framework for the same platform. They overlap enough that a
 developer picking one has a real decision to make, and they differ enough that
 the decision matters — so this document is that comparison, capability by
 capability, with a citation on every claim about Fusion.
 
 It is a sibling of [`swiftui-parity.md`](swiftui-parity.md), which measures
-LuauUI against the most complete declarative UI framework in wide production
+Facet against the most complete declarative UI framework in wide production
 use. This one measures it against the framework it is actually competing with on
 this platform. Read that one for *how good is this, as a UI framework*. Read this
 one for *which of these two should I use for my Roblox game*.
 
 **One thing makes this comparison unusually cheap to verify, and it should be
-said up front.** LuauUI ships a working Fusion adapter — `src/core/fusion_adapter.luau`
-implements LuauUI's reactive contract (`src/core/contract.luau`) **over Fusion's
+said up front.** Facet ships a working Fusion adapter — `src/core/fusion_adapter.luau`
+implements Facet's reactive contract (`src/core/contract.luau`) **over Fusion's
 own primitives**, and the shared conformance suite runs against it on every
 build. That is not a paper comparison of two design documents. It is one
 framework's reactive semantics re-expressed in the other's substrate by somebody
@@ -38,7 +38,7 @@ wrong sentence about this framework, so every claim below is tagged.
 - **Fusion 0.3** shipped in August 2024 ([FU-17]) and changed the memory model,
   the state-reading API, and — the part nobody's documentation states — the
   evaluation strategy. It is the current release.
-- **LuauUI's vendored copy is 0.3** (`vendor/Fusion/init.luau` declares
+- **Facet's vendored copy is 0.3** (`vendor/Fusion/init.luau` declares
   `version = {major = 0, minor = 3, isRelease = true}`), so every claim that
   rests on the adapter or on the conformance run describes **0.3**.
 
@@ -58,7 +58,7 @@ differences are largest.
 
 Each area below opens with plain framing, then a table, then the caveats that did
 not fit in a cell. The verdicts are the same four `swiftui-parity.md` uses, and
-they read in one direction — **what LuauUI's answer to a Fusion capability is**:
+they read in one direction — **what Facet's answer to a Fusion capability is**:
 
 | Verdict | Means |
 |---|---|
@@ -67,15 +67,15 @@ they read in one direction — **what LuauUI's answer to a Fusion capability is*
 | **Composable** | Not a shipped construct, but buildable today from the public surface with no framework change. The recipe is named. |
 | **Missing** | No construct and no honest recipe. |
 
-Rows that run the other way — where LuauUI has something Fusion does not — are
+Rows that run the other way — where Facet has something Fusion does not — are
 marked **no Fusion equivalent** and carry the same evidence discipline. There are
-a lot of them, which is why §3 exists: a raw count of "things LuauUI has that
+a lot of them, which is why §3 exists: a raw count of "things Facet has that
 Fusion doesn't" is not a verdict on which framework you should use, and this
 document is not going to pretend it is.
 
 ### Every claim about Fusion carries a citation
 
-Claims about LuauUI are guarded by checkers (`check_docs`, `check_prop_parity`,
+Claims about Facet are guarded by checkers (`check_docs`, `check_prop_parity`,
 `check_registration`, `check_surface_ledger`, `check_boundary`). Nothing guards
 the other side, which is the side the whole comparison rests on — and this
 project's own history is why that matters: `swiftui-parity.md` once carried ten
@@ -101,7 +101,7 @@ rots differently — pin it to the tag, not to `main`.
 
 ### The rule this document holds itself to
 
-This document lives in LuauUI's repository and is written by LuauUI's authors.
+This document lives in Facet's repository and is written by Facet's authors.
 That is a structural reason to distrust it, and the only useful answer is to be
 specific about where Fusion wins and to make those sentences actionable rather
 than gracious. §3 names four jobs where Fusion is the better choice and says so
@@ -131,7 +131,7 @@ diffs the result the way React does.
 
 Everything below is a difference *inside* that shared idea.
 
-### 2.2 In Fusion the graph **is** the UI; in LuauUI it is only the first of four layers
+### 2.2 In Fusion the graph **is** the UI; in Facet it is only the first of four layers
 
 This is the whole difference, and every other one falls out of it.
 
@@ -166,7 +166,7 @@ own one-line description of itself is honest about the scope — "a UI, state
 management and animation library for Roblox" ([FU-01]) — a **library**, three
 jobs, and layout is not one of them, because Roblox already ships layout.
 
-LuauUI splits the same job into four pieces that are not allowed to know about
+Facet splits the same job into four pieces that are not allowed to know about
 each other:
 
 | Layer | What it does |
@@ -176,7 +176,7 @@ each other:
 | **Renderer** | Turns solved rectangles into real `GuiObject`s, through a written target contract. Swappable — that is what lets the solver be tested headlessly. |
 | **Adapter** | The Roblox-specific end of that contract. Also swappable; a second one drives billboards. |
 
-The consequence a beginner feels first: **LuauUI owns layout and does not use
+The consequence a beginner feels first: **Facet owns layout and does not use
 `UIListLayout` at all.** It materializes no `UIListLayout`, no `UIGridLayout`, no
 `UITableLayout` anywhere. Every node is positioned by an absolute rectangle the
 solver computed, and the instance tree is flat by default — objects are not
@@ -207,7 +207,7 @@ That is a big thing to take on, and it needs to buy something. What it buys:
   row-by-row scorecard.
 
 And what it costs: a great deal more machinery. The vendored Fusion 0.3 in this
-repository is **5,153 lines across 67 files**. LuauUI's `src/` is **83,801 lines
+repository is **5,153 lines across 67 files**. Facet's `src/` is **83,801 lines
 across 122 files** — sixteen times as much. That number is the honest headline of
 this whole comparison, and §3 is about what you get for it and when you do not
 want it.
@@ -229,7 +229,7 @@ wrong type ([FU-12]). If two different Fusion components bind the same property
 of the same instance, or if a StyleSheet rule already owned it, Fusion neither
 knows nor could.
 
-LuauUI keeps a manifest — `src/render/authority.luau` — that names, for every
+Facet keeps a manifest — `src/render/authority.luau` — that names, for every
 engine property of every class, the **one** part of the framework allowed to
 write it. Rects are written by layout. Token paint by style. A data-driven colour
 by binding. A transient fade or slide by presentation. Every write goes through
@@ -246,7 +246,7 @@ many *facts* that one function may read.
 
 This is a real philosophical fork, and neither side is obviously right. Fusion's
 position is that the developer knows what they are doing and the library should
-not stand between them and the instance. LuauUI's is that on a platform where a
+not stand between them and the instance. Facet's is that on a platform where a
 double write is invisible, the framework has to be the one thing that cannot make
 that mistake — at the cost of a vocabulary you must work within rather than
 around.
@@ -269,7 +269,7 @@ not read in ten minutes recomputes anyway.
 `Value:set()` now walks the dependent graph marking everything **invalid**, then
 evaluates only the eager nodes — the Observers — and a Computed recomputes when
 something actually reads it, through `use()` or `peek()` ([FS-01], [FS-02]). That
-is the same pull-based, glitch-free strategy LuauUI's own core uses, arrived at
+is the same pull-based, glitch-free strategy Facet's own core uses, arrived at
 independently.
 
 **Neither version has a boundary.** That is the sentence. In both versions, every
@@ -290,7 +290,7 @@ formatting it as text, an observer counting how many times a renderer would have
 to write. It sets the speed a hundred times individually, then sets it a hundred
 more times **inside one transaction**.
 
-- LuauUI's core: 100 writes, then **1**.
+- Facet's core: 100 writes, then **1**.
 - Fusion, through the adapter: 100 writes, then **100**.
   (`expected exactly 1 batched render write, got 100` — re-run 2026-08-15.)
 
@@ -320,7 +320,7 @@ qualifications, each of which makes Fusion look better than the bare number:
 
 So the honest form of the claim is: **Fusion has no way to say "these fifteen
 changes are one change", and 0.3 removed the one place it used to compensate for
-that.** LuauUI's `transaction` is that boundary, and it is why LuauUI can promise
+that.** Facet's `transaction` is that boundary, and it is why Facet can promise
 that a screen never paints a half-applied state.
 
 ### 2.5 Cleanup: the same destination, from opposite directions
@@ -348,16 +348,16 @@ than the documentation suggests:
   will be destroyed before the thing using it [FS-07]. That is a whole class of
   bug caught at the moment you write it.
 
-**LuauUI** has scopes too, and they landed by the same reasoning: `scope:own()`,
+**Facet** has scopes too, and they landed by the same reasoning: `scope:own()`,
 `scope:child()`, reverse-order idempotent disposal, double-dispose detection, a
 releasability check that raises immediately if you hand `own()` something with no
 `dispose()`, and quarantined cleanup errors so one bad teardown does not skip its
 siblings. Two differences worth knowing:
 
-- LuauUI **asserts** on `own()` and `child()` into a disposed scope, which covers
+- Facet **asserts** on `own()` and `child()` into a disposed scope, which covers
   the two operations that matter; it does not poison the handle the way Fusion
-  does, because a LuauUI scope is an opaque object rather than an array you index.
-- LuauUI has **no cross-scope lifetime check**. A memo in a long-lived scope may
+  does, because a Facet scope is an opaque object rather than an array you index.
+- Facet has **no cross-scope lifetime check**. A memo in a long-lived scope may
   `use()` a signal owned by a short-lived one and nothing complains until the read
   fails. This is a real Fusion 0.3 lead and it is item G-6 in §5.
 
@@ -374,7 +374,7 @@ the graph is still churning it reports `"Detected an infinite loop"` ([FS-01]).
 That means a real cycle costs you a full second of frozen frame before you are
 told, and the message cannot name the path.
 
-LuauUI's core treats a *semantic* mistake as the interesting kind. A dependency
+Facet's core treats a *semantic* mistake as the interesting kind. A dependency
 cycle is reported **with its path** instead of recursing. Writing to state during
 a derivation is refused by construction. A feedback loop between effects hits a
 bounded round cap — a hundred generations, not a wall-clock second — and reports
@@ -395,20 +395,20 @@ deciding today.
 - **You can hold the whole thing in your head.** Fusion's entire documented API
   is **26 members** — twelve State, eleven Instances, three Animation ([FU-13]).
   You can read all of it in an afternoon and you will not be surprised later.
-  LuauUI has 45 top-level exports over 83,801 lines and a reference document
+  Facet has 45 top-level exports over 83,801 lines and a reference document
   measured in hundreds of kilobytes.
 - **Nothing stands between you and Roblox.** `New "Frame" { … }` gives you a
   `Frame`. If you need to hand that instance to `TweenService`, to
   `GuiService.SelectedObject`, to a plugin, to a `BillboardGui.Adornee`, or to
-  some library written in 2019, you just do. LuauUI does not expose the instances
+  some library written in 2019, you just do. Facet does not expose the instances
   it creates at all.
 - **It works on anything, not just UI.** `New` takes any class name. Fusion will
   reactively drive a `Part`, a `Beam`, a `Sound`, a `Highlight` — the same graph
-  that runs your menu can run your world. LuauUI renders 21 declared UI classes
+  that runs your menu can run your world. Facet renders 21 declared UI classes
   through a target contract and nothing else.
 - **`Hydrate` lets you adopt UI you did not write** — "Given an instance, returns
   a component which modifies that instance" ([FU-08]). You can make a
-  Studio-authored screen reactive one property at a time. LuauUI is all-or-nothing
+  Studio-authored screen reactive one property at a time. Facet is all-or-nothing
   per surface.
 - **You already know the layout system.** It is `UIListLayout`. There is nothing
   to learn, nothing to port, and everything a Roblox tutorial says still applies.
@@ -416,7 +416,7 @@ deciding today.
   example in §2.2. That is a real and underrated property.
 - **Time-based animation is built in.** `Tween(goal, tweenInfo)` takes a plain
   Roblox `TweenInfo` ([FU-10]), so a designer's "400 ms, quad ease-out" is one
-  line. LuauUI has no easing curves at all (§5, G-1).
+  line. Facet has no easing curves at all (§5, G-1).
 - **0.3's lifetime checking is genuinely ahead.** Using a value that will die
   before its user is caught where you wrote it, not where it breaks [FS-07].
 
@@ -436,7 +436,7 @@ deciding today.
   check, or an agent, this matters a great deal.
 - **You own layout, and layout is where UI bugs live.** `UIListLayout` will
   cheerfully lay content outside a box, ignore a property that does not apply to
-  the current fill direction, and tell you neither. Everything LuauUI's
+  the current fill direction, and tell you neither. Everything Facet's
   diagnostics channel reports is, in Fusion, something you find in a screenshot.
 - **Nothing is provided above the primitive.** No focus system, no keyboard or
   gamepad navigation, no theming, no controls, no virtualization, no safe areas,
@@ -452,7 +452,7 @@ deciding today.
   learned is gone; the destructor you wrote is gone; the write coalescing you were
   implicitly relying on is gone. Plan the migration, do not drift into it.
 
-### LuauUI, the good parts
+### Facet, the good parts
 
 - **Layout that answers back.** Overflow, unbounded percentages, containers with
   no bound, mixed grid children, inert placement properties, HUD zone collisions,
@@ -481,7 +481,7 @@ deciding today.
   smallest enclosing subtree it can affect — 141 arranged nodes down to 8 on the
   framework's own instrumented surface.
 
-### LuauUI, the costs
+### Facet, the costs
 
 - **It is sixteen times the code, and you will feel it on day one.** There is a
   vocabulary — blueprint, solver, surface, contribution, authority, decoration
@@ -497,46 +497,46 @@ deciding today.
 - **No time-based easing anywhere.** Springs, a beat-sequenced timeline, a chase,
   a counter, a timer — and no duration-plus-curve. §5, G-1.
 - **No assistive-technology bridge of any kind.** Nothing talks to a screen
-  reader. A blind player cannot use a LuauUI interface. Fusion has none either,
-  but Fusion is a library and LuauUI is the one claiming to be a framework, so
-  this is a hole on LuauUI's side of the ledger and not on Fusion's.
+  reader. A blind player cannot use a Facet interface. Fusion has none either,
+  but Fusion is a library and Facet is the one claiming to be a framework, so
+  this is a hole on Facet's side of the ledger and not on Fusion's.
 - **No right-to-left or bidirectional support.** Same asymmetry.
 - **Nothing here has ever run on a physical device.** Every claim is a headless
   test run or a scripted drive of Roblox Studio's emulator.
 - **It has one production consumer.** Fusion has years of shipped games behind it
-  and a community that has hit the sharp edges already. LuauUI has Rascal Rally.
+  and a community that has hit the sharp edges already. Facet has Rascal Rally.
 
 ### So which one
 
 | If your situation is… | Use |
 |---|---|
-| A jam game, a plugin, a tool, a prototype, one HUD | **Fusion.** You will be done before you finish reading LuauUI's guide. |
-| You need to reactively drive Parts, Beams, Sounds — not just UI | **Fusion.** LuauUI does not do this and has not decided to yet. |
-| You have existing Studio-authored UI you want to make reactive without rewriting | **Fusion.** `Hydrate` is exactly this and LuauUI has no answer. |
-| You must hand a `GuiObject` to some other Roblox API | **Fusion**, unless the thing you need is one LuauUI already wraps internally. |
-| A shipping game's full UI: settings, store, results, HUD, on phone and console and desktop | **LuauUI.** The four-input conformance, adaptive composition, theming and focus systems are the parts you would otherwise be writing for six months. |
-| Long lists, tables, grids of thousands of rows | **LuauUI.** Windowing is shipped and measured; Fusion has no virtualization. |
-| Your interface must adapt from a 320×640 phone to a TV with no device-name branches | **LuauUI.** `Composition`/`Region` is what that is for. |
-| You are an agent, or a small team who will not be reading this code in six months | **LuauUI**, for the checkers and the diagnostics. |
+| A jam game, a plugin, a tool, a prototype, one HUD | **Fusion.** You will be done before you finish reading Facet's guide. |
+| You need to reactively drive Parts, Beams, Sounds — not just UI | **Fusion.** Facet does not do this and has not decided to yet. |
+| You have existing Studio-authored UI you want to make reactive without rewriting | **Fusion.** `Hydrate` is exactly this and Facet has no answer. |
+| You must hand a `GuiObject` to some other Roblox API | **Fusion**, unless the thing you need is one Facet already wraps internally. |
+| A shipping game's full UI: settings, store, results, HUD, on phone and console and desktop | **Facet.** The four-input conformance, adaptive composition, theming and focus systems are the parts you would otherwise be writing for six months. |
+| Long lists, tables, grids of thousands of rows | **Facet.** Windowing is shipped and measured; Fusion has no virtualization. |
+| Your interface must adapt from a 320×640 phone to a TV with no device-name branches | **Facet.** `Composition`/`Region` is what that is for. |
+| You are an agent, or a small team who will not be reading this code in six months | **Facet**, for the checkers and the diagnostics. |
 | You need a value to change over exactly 400 ms with a designer's easing curve | **Fusion today.** See G-1. |
 
 ---
 
 ## 4. Feature comparison
 
-Reading direction: each row names a **Fusion** capability and verdicts **LuauUI's
+Reading direction: each row names a **Fusion** capability and verdicts **Facet's
 answer to it**. Rows marked *no Fusion equivalent* run the other way.
 
 ### 4.1 The reactive core
 
 This is the area the adapter measures directly, so it is the area with the
 hardest evidence in the document. The scorecard below is a re-run from
-2026-08-15: the identical 46-check conformance suite against LuauUI's own core
+2026-08-15: the identical 46-check conformance suite against Facet's own core
 and against Fusion 0.3 through the adapter.
 
-**LuauUI custom core: 46/46. Fusion adapter: 37/46.**
+**Facet custom core: 46/46. Fusion adapter: 37/46.**
 
-| Fusion capability (version) | Verdict | What LuauUI has | Evidence |
+| Fusion capability (version) | Verdict | What Facet has | Evidence |
 |---|---|---|---|
 | `Value` — a mutable observed value ([FU-02], 0.2/0.3) | **Covered** | `core:signal(initial, eq?)` | `src/core/custom.luau`; check `signal-read-write` PASS on both cores |
 | `Computed` — a derived, cached value ([FU-03], 0.2/0.3) | **Covered** | `core:memo(compute, eq?)`. Same idea, and in 0.3 the same *strategy*: both are pull-based and recompute on demand | `src/core/custom.luau`; [FS-03]; check `memo-derives-and-updates` PASS on both |
@@ -550,11 +550,11 @@ and against Fusion 0.3 through the adapter.
 | A failed derivation is *queryable* | **Covered** — **no Fusion equivalent** | `core:lastError()` returns the quarantined error string. Fusion's Computed `xpcall`s its processor, routes the error to `logErrorNonFatal`, keeps the old value and returns "not changed" — so the error is printed and the graph never learns [FS-03] | check `memo-error-quarantined` — **PASS custom, FAIL fusion** |
 | Bounded feedback-loop protection | **Covered** | A hundred effect-write generations, then a report naming how many writes were discarded — a *round* cap rather than a wall clock, so it is deterministic and testable | check `feedback-loop-hits-iteration-cap` — **PASS on both**, by different mechanisms |
 | Effects (a tracked side-effecting run) | **Covered** | `core:effect(run)`. Fusion has no effect primitive; the adapter emulates one with an eager Observer over a Computed that performs the tracked run | `src/core/fusion_adapter.luau`; check `effect-runs-post-commit-and-writes-schedule-later-round` PASS on both |
-| Observers ([FU-05], 0.2/0.3) | **Covered** | `core:observe(source, onChange)`. **Both frameworks notify in node creation order** — LuauUI by sequence number, Fusion 0.3 by sorting its eager list on `createdAt` [FS-01]. §6 is about that convergence | checks `observer-*` PASS on both |
+| Observers ([FU-05], 0.2/0.3) | **Covered** | `core:observe(source, onChange)`. **Both frameworks notify in node creation order** — Facet by sequence number, Fusion 0.3 by sorting its eager list on `createdAt` [FS-01]. §6 is about that convergence | checks `observer-*` PASS on both |
 | `Observer:onBind` — run now, then on change (0.3) | **Covered** | `core:effect` is exactly this: the tracked body runs immediately at registration and re-runs on dependency change | `src/core/contract.luau` |
 | A settle phase — terminal work that runs after propagation quiesces, repeating until nothing moves | **Covered** — **no Fusion equivalent** | `core:settle(run)`. Registration-ordered, restarts when a pass writes, and counts against the same bounded cap. This is where a surface's layout solve lives. The adapter can offer the convergence half and not the joining half, for exactly the reason in §2.4 | checks `settle-runs-after-propagation-and-converges-in-one-flush`, `settle-that-never-converges-hits-the-iteration-cap` — **PASS custom, FAIL fusion**; `settle-callbacks-never-see-a-half-propagated-graph` PASS on both |
 | Scope ownership and reverse-order disposal ([FU-16], 0.3) | **Covered** | `scope:own/use/child/dispose/isDisposed`, idempotent, reverse-order, with double-dispose detection, quarantined cleanup errors, and a releasability check at `own()` | checks `scope-dispose-reverse-order-idempotent`, `double-dispose-detected`, `memory-neutral-churn` — **PASS on both** |
-| Scope poisoning — using a destroyed scope crashes loudly (0.3) [FS-06] | **Partial** | LuauUI asserts on `own()` and `child()` into a disposed scope, which is the same protection for the two operations that mutate one. It does not poison the handle, because a LuauUI scope is opaque rather than an array the consumer indexes | `src/core/scope_impl.luau` |
+| Scope poisoning — using a destroyed scope crashes loudly (0.3) [FS-06] | **Partial** | Facet asserts on `own()` and `child()` into a disposed scope, which is the same protection for the two operations that mutate one. It does not poison the handle, because a Facet scope is opaque rather than an array the consumer indexes | `src/core/scope_impl.luau` |
 | Lifetime checking — using a value that will outlive its user is an error (0.3) [FS-07] | **Missing** | No cross-scope lifetime check exists. See §5, G-6 | verified absent by search of `src/core/` |
 | A derivation that owns per-value resources (0.3's `Computed(scope, fn(use, scope))`; 0.2's destructor parameter [FU-06]) | **Partial** | The UI-shaped case is covered elsewhere and better: `UI.ForEach`'s `row(item, itemScope)` gives a genuine per-item scope, and `newResourceProvider` gives scope-owned handles with generation-counter stale-completion rejection. The **core-shaped** case is not: `Core.memo`'s compute receives `use` and nothing else. §5, G-5 | `src/core/contract.luau`; `src/blueprint.luau` (`ForEachSpec`) |
 | Live counters over the reactive graph | **Covered** — **no Fusion equivalent** | `core:counters()` returns live signal/memo/observer/effect/scope/settle counts, which is what makes "this churn is memory-neutral" an assertion rather than a hope | `src/core/contract.luau`; check `memory-neutral-churn` |
@@ -563,12 +563,12 @@ and against Fusion 0.3 through the adapter.
 device claim (`artifacts/bench.json`, 2026-08-15). Two hundred independent
 signal→memo→observer chains, one of them written:
 
-| scenario | LuauUI core | Fusion 0.3 adapter | imperative baseline |
+| scenario | Facet core | Fusion 0.3 adapter | imperative baseline |
 |---|---|---|---|
 | `sparse-update-under-load` p50 | 0.0010 ms | 0.0020 ms | 0.0172 ms |
 | `hud-binding-storm` p50 | 0.1651 ms | 0.2936 ms | **0.0478 ms** |
 
-Read those honestly. Fusion is about **2× LuauUI on the sparse update**, which is
+Read those honestly. Fusion is about **2× Facet on the sparse update**, which is
 close, and both are an order of magnitude better than recompute-everything —
 which is the comparison that actually matters, because recompute-everything is
 what hand-written Roblox UI code does. On `hud-binding-storm`, where nearly
@@ -583,7 +583,7 @@ either.
 - **The nine red checks are a measurement of Fusion's native semantics, not a
   ceiling.** §2.4 explains what a thicker adapter could and could not recover.
 - **The bake-off is on record and it is old.** [`ADR-0002`](../adr/ADR-0002-foundation-core-selection.md)
-  chose LuauUI's custom core over the Fusion adapter and an imperative baseline
+  chose Facet's custom core over the Fusion adapter and an imperative baseline
   in July 2026, weighted 144 / 91 / 108 against a 26-check suite where Fusion
   scored 19. The suite has since grown to 46 and the adapter has gained a settle
   implementation, so **use the 37/46 above, not the ADR's number.** The ADR's
@@ -594,19 +594,19 @@ either.
 
 ### 4.2 Instances and rendering
 
-The area where Fusion is a library and LuauUI is a framework, with everything
+The area where Fusion is a library and Facet is a framework, with everything
 that implies in both directions.
 
-| Fusion capability | Verdict | What LuauUI has | Evidence |
+| Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
-| `New "ClassName" { … }` — create **any** Roblox instance, with reactive properties ([FU-07]) | **Partial**, narrower on purpose | Twenty-one declared UI classes, rendered through a written target contract. LuauUI cannot create a `Part`, a `Beam` or a `Sound`. Declarative 3D is an **accepted decision with no implementation**: a sibling scene system on the shared reactive kernel, built when a consumer arrives | [`ADR-0024`](../adr/ADR-0024-declarative-3d.md); `src/render/target_contract.luau` |
+| `New "ClassName" { … }` — create **any** Roblox instance, with reactive properties ([FU-07]) | **Partial**, narrower on purpose | Twenty-one declared UI classes, rendered through a written target contract. Facet cannot create a `Part`, a `Beam` or a `Sound`. Declarative 3D is an **accepted decision with no implementation**: a sibling scene system on the shared reactive kernel, built when a consumer arrives | [`ADR-0024`](../adr/ADR-0024-declarative-3d.md); `src/render/target_contract.luau` |
 | Reactive property binding | **Covered**, with a stricter rule | Eleven style properties are re-applied on reactive change in a declared order, and binding-authority properties are written by exactly one writer per class per property (§2.3). Fusion binds whatever you pass | `src/render/authority.luau`; `src/render/renderer.luau` (`STYLE_PROP_ORDER`) |
-| `[Children]` — declarative parenting ([FU-14]) | **Covered**, and differently | `children` is an ordinary blueprint field. But LuauUI's **instance tree is flat by default**: a node is not parented to its container unless the container registered as a real engine parent — a `ScrollView`, `clipChildren`, a fade group, or an authored `scale`/`rotation` on children it has ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)) — because every node is placed by an absolute solved rect regardless, and registering only pays where the engine can carry something down the subtree for it | `src/render/renderer.luau`; `src/render/instance_boundary.luau` |
+| `[Children]` — declarative parenting ([FU-14]) | **Covered**, and differently | `children` is an ordinary blueprint field. But Facet's **instance tree is flat by default**: a node is not parented to its container unless the container registered as a real engine parent — a `ScrollView`, `clipChildren`, a fade group, or an authored `scale`/`rotation` on children it has ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)) — because every node is placed by an absolute solved rect regardless, and registering only pays where the engine can carry something down the subtree for it | `src/render/renderer.luau`; `src/render/instance_boundary.luau` |
 | `Hydrate` — bind onto an instance you did not create ([FU-08]) | **Missing** | No public seam. `adapter.adopt` exists but is the internal recycling path, not a hydration API. §5, G-8 has the argument for why this is a *decline* rather than a gap | verified absent by search of `src/` |
 | `Ref` / `Out` — get the instance, or read a property back ([FU-13]) | **Missing** | The public controller surface is `rectOf`, `screenRectOf`, `diagnostics()` and the presentation writes. Nothing returns a `GuiObject`. §5, G-2 | `src/render/renderer.luau`; verified by search |
 | `OnEvent` / `OnChange` — connect to an instance's events ([FU-13]) | **Covered** for UI events, **Missing** as a general seam | Blueprint props (`onPress`, `onPointerDown`, `onScrollWheel`, `onAppear`, `onDisappear`, …) cover the events a UI needs; there is no "connect to any signal on the instance" | `src/blueprint_schema.luau` |
-| `SpecialKey` — a user-extensible property-table key ([FU-13]) | **Missing**, deliberately | LuauUI's property set is closed and validated at construction: an unknown property is refused with a did-you-mean and the full legal set. A user-defined key is exactly the second-authority case §2.3 exists to prevent | `src/blueprint_schema.luau` |
-| `Component` — a reusable piece of UI ([FU-15]) | **Covered** | Both answers are the same: a plain Lua function that returns a description. Fusion's returns an instance; LuauUI's returns a blueprint table | `src/blueprint.luau` |
+| `SpecialKey` — a user-extensible property-table key ([FU-13]) | **Missing**, deliberately | Facet's property set is closed and validated at construction: an unknown property is refused with a did-you-mean and the full legal set. A user-defined key is exactly the second-authority case §2.3 exists to prevent | `src/blueprint_schema.luau` |
+| `Component` — a reusable piece of UI ([FU-15]) | **Covered** | Both answers are the same: a plain Lua function that returns a description. Fusion's returns an instance; Facet's returns a blueprint table | `src/blueprint.luau` |
 | Default properties (opting out of unhelpful engine defaults) ([FU-07]) | **Covered**, and far wider | Theme packages own typography, spacing, control heights, radii, strokes, solver-visible content insets and asset chrome; native StyleSheets carry the state selectors | [`ADR-0019`](../adr/ADR-0019-theme-packages.md) |
 | — | **No Fusion equivalent** | **Instance recycling.** A retiring node's Roblox instances are handed to the next node of the same shape rather than destroyed and recreated | `src/render/renderer.luau` |
 | — | **No Fusion equivalent** | **A swappable render target.** The solver has never seen a Roblox object, so the same tree renders to a screen, a billboard, or a test harness | `src/render/target_contract.luau` |
@@ -615,12 +615,12 @@ that implies in both directions.
 
 Fusion has none, correctly and by design — its answer is that Roblox already
 ships layout, and the cookbook uses `UIListLayout` directly ([FU-14]). So this
-whole table is one-directional, and the fair reading is not "LuauUI wins" but
-"these are different products". `swiftui-parity.md` §4.1 is where LuauUI's layout
+whole table is one-directional, and the fair reading is not "Facet wins" but
+"these are different products". `swiftui-parity.md` §4.1 is where Facet's layout
 vocabulary is scored against the native controls it replaces, which is the
 comparison a Fusion user actually cares about.
 
-| Fusion capability | Verdict | What LuauUI has | Evidence |
+| Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
 | Layout — anything at all | **No Fusion equivalent.** Fusion's documented API has three categories, State, Instances and Animation ([FU-13]); layout is `New "UIListLayout"` ([FU-14]) | A headless measure-then-arrange solver: weighted flex stacks, `distribute`, `layoutPriority` × `shrinkWeight`, per-child `lineAlign`, flow-wrap, three grid modes with row/column flow and spanning, `ViewThatFits`, `containerRelativeFrame`, safe areas, and `Composition`/`Region` ranked adaptive degradation | `src/layout/`; `swiftui-parity.md` §4 |
 | — | **No Fusion equivalent** | **Layout complains.** Overflow, unbounded percent, unbounded containers, mixed grid children, inert placement props, HUD zone collisions and cross-surface overlap all arrive through `controller.diagnostics()` | `src/render/renderer.luau`; `src/layout/placement_audit.luau` |
@@ -629,7 +629,7 @@ comparison a Fusion user actually cares about.
 
 ### 4.4 Collections
 
-| Fusion capability | Verdict | What LuauUI has | Evidence |
+| Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
 | `ForValues` — map over a table's values, leaving unchanged ones alone ([FU-11]) | **Covered** | `UI.ForEach { items, key, row }` — keyed structural diffing with adds, removes and moves only; duplicate keys are a hard error; a row removed and re-added mid-exit-transition resumes the same mounted subtree | `src/mount.luau`; `src/blueprint.luau` |
 | `ForKeys` / `ForPairs` — map over a **dictionary** ([FU-11]) | **Composable**, and the recipe has a trap | `ForEachSpec.items` is `Readable<{any}>` — an **array**. A dictionary must be flattened in a memo first, and the flattening must sort, because Luau's `pairs` order is not stable and an unsorted flatten silently makes your row order nondeterministic. There is no shipped helper. §5, G-3 | `src/blueprint.luau` (`ForEachSpec`) |
@@ -639,14 +639,14 @@ comparison a Fusion user actually cares about.
 
 ### 4.5 Motion
 
-The one area where Fusion has something LuauUI genuinely lacks.
+The one area where Fusion has something Facet genuinely lacks.
 
-| Fusion capability | Verdict | What LuauUI has | Evidence |
+| Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
-| `Spring(goal, speed, damping)` — a value that follows another as if on a damped spring ([FU-09]) | **Covered**, with a different vocabulary | `MotionValue` springs declared as `{ dampingRatio, response }`. Fusion's damping is the same idea in the same words — "`0` represents no friction, and `1` is just enough friction to reach the goal without overshooting" ([FU-09]). LuauUI's `response` is a time constant where Fusion's `speed` "does not directly correlate to a duration" ([FU-09]) | `src/motion/motion.luau`, `src/motion/spring.luau` |
+| `Spring(goal, speed, damping)` — a value that follows another as if on a damped spring ([FU-09]) | **Covered**, with a different vocabulary | `MotionValue` springs declared as `{ dampingRatio, response }`. Fusion's damping is the same idea in the same words — "`0` represents no friction, and `1` is just enough friction to reach the goal without overshooting" ([FU-09]). Facet's `response` is a time constant where Fusion's `speed` "does not directly correlate to a duration" ([FU-09]) | `src/motion/motion.luau`, `src/motion/spring.luau` |
 | An inline spring at a call site ([FU-09]) | **Missing, by decision** | Refused with a hard error naming `motion.registerClass`. Four named classes ship, and re-registering one is the sanctioned way to tune it. The reason is drift: a library with forty slightly different feels got there one call site at a time | `src/motion/classes.luau` |
 | `Spring:setVelocity` / `addVelocity` / `setPosition` ([FU-09]) | **Covered**, and deeper | `setTarget` never touches value or velocity, so an interrupted spring continues instead of jumping — pinned by a differential test against a velocity-cut twin. A 100 ms rolling-window velocity tracker feeds gesture→animation hand-off | `src/motion/motion.luau`; `src/input/drag_velocity.luau` |
-| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Covered** (built 2026-08-15, ADR-0033) | `clock:tween(initial, curveName)` and the `motion.registerCurve` registry. Before that mission: nothing in `src/motion/` took a duration and a curve, and `Enum.EasingStyle`, `TweenInfo` and the word `easing` appeared nowhere in `src/` (all three are there now). The engine's own `TweenService:GetValue` evaluates the curve in production (a PURE evaluator, so it can drive a value LuauUI owns where `TweenService:Create` cannot); a twin pinned to it by a 33,033-sample differential oracle serves Lune. Fusion takes a plain `TweenInfo` at the call site; LuauUI refuses that and takes a registered curve NAME, which is the same drift rule the spring classes already carry | `src/motion/curves.luau`; ADR-0033; `artifacts/time-based-easing/` |
+| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Covered** (built 2026-08-15, ADR-0033) | `clock:tween(initial, curveName)` and the `motion.registerCurve` registry. Before that mission: nothing in `src/motion/` took a duration and a curve, and `Enum.EasingStyle`, `TweenInfo` and the word `easing` appeared nowhere in `src/` (all three are there now). The engine's own `TweenService:GetValue` evaluates the curve in production (a PURE evaluator, so it can drive a value Facet owns where `TweenService:Create` cannot); a twin pinned to it by a 33,033-sample differential oracle serves Lune. Fusion takes a plain `TweenInfo` at the call site; Facet refuses that and takes a registered curve NAME, which is the same drift rule the spring classes already carry | `src/motion/curves.luau`; ADR-0033; `artifacts/time-based-easing/` |
 | — | **No Fusion equivalent** | **Reduce Motion that preserves information.** Decorative motion snaps but still fires its completion callback; *informational* motion (a count-up whose number is the message) keeps running to the same terminus but quantizes its writes to a 250 ms step | `src/motion/motion.luau` |
 | — | **No Fusion equivalent** | **`withAnimation`** — wrap a state write and every node whose box changed is painted travelling, on one shared progress spring, plus the three authored paint values | `src/present/presenter.luau` |
 | — | **No Fusion equivalent** | **Arrival at a live target** (`chase`), **choreography** (`timeline` with `interrupt`/`skip`), and structural **enter/exit transitions** shared by `ForEach` and `When` | `src/motion/`; `src/render/transitions.luau` |
@@ -656,7 +656,7 @@ The one area where Fusion has something LuauUI genuinely lacks.
 Fusion ships none of this and does not claim to. The table is here so a Fusion
 user can see the size of what they will be writing themselves, not as a score.
 
-| Capability | Fusion | LuauUI |
+| Capability | Fusion | Facet |
 |---|---|---|
 | Controls catalog | none ([FU-13]); the cookbook has a button *recipe* ([FU-01]) | 51 registered rows; 25 composites; 16 interactive, all with automated four-input proofs |
 | Focus / keyboard / gamepad navigation | none | `newFocusGraph`: flat and grouped scopes, per-group axis/wrap/entry/exit, directional navigation, document-order Tab traversal, focus traps and restore |
@@ -673,21 +673,21 @@ user can see the size of what they will be writing themselves, not as a score.
 
 ### 4.7 Context and environment
 
-| Fusion capability | Verdict | What LuauUI has | Evidence |
+| Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
-| `Contextual` — a user-defined value passed down the call stack without threading it through props (0.3; [FU-17] names theme colour as the motivating case) | **Partial** | LuauUI's environment does the same job for the framework's own facts — per-key signals with derived memos on top, so a keyboard-occlusion change cannot invalidate a subscriber that only reads colours. But **the key set is closed**: there is no `defineKey`, no consumer namespace, and no way for a game to add "this panel is in preview mode" as an environment fact. §5, G-4 | `src/env/environment.luau`; verified by search |
+| `Contextual` — a user-defined value passed down the call stack without threading it through props (0.3; [FU-17] names theme colour as the motivating case) | **Partial** | Facet's environment does the same job for the framework's own facts — per-key signals with derived memos on top, so a keyboard-occlusion change cannot invalidate a subscriber that only reads colours. But **the key set is closed**: there is no `defineKey`, no consumer namespace, and no way for a game to add "this panel is in preview mode" as an environment fact. §5, G-4 | `src/env/environment.luau`; verified by search |
 
 ### Verdict counts
 
 Across §§4.1–4.7: **48 comparison rows** carrying a verdict — **26 Covered, 4
 Partial, 1 Composable, 5 Missing**, plus **16** marked *no Fusion equivalent*.
-(Those overlap by five: a row can name a LuauUI capability whose nearest Fusion
+(Those overlap by five: a row can name a Facet capability whose nearest Fusion
 analogue exists in a narrower form, and it carries both marks.) §4.6's
 scope-of-the-two-products table is deliberately excluded from the count — it
 scores nothing.
 
 **A count is not a score, and here it is less of one than usual.** Fusion is a
-library with three jobs and LuauUI is a framework with about fifteen; counting
+library with three jobs and Facet is a framework with about fifteen; counting
 rows measures scope, not quality, and a reader who takes "26 Covered" as a
 verdict on which to use has read the wrong section — §3 is that section. The five
 **Missing** rows are the part of this document worth acting on, and §5 is where
@@ -698,10 +698,10 @@ they go.
 ## 5. Ranked gap analysis — what, if anything, to build before first release
 
 The director's question, restated: *are there features in Fusion we should
-implement before LuauUI's first release?*
+implement before Facet's first release?*
 
 **The short answer is two, and they are both small.** Ranked by what a real game
-author would actually miss, with a cost, whether LuauUI already answers it
+author would actually miss, with a cost, whether Facet already answers it
 differently, and a recommendation. This was the list to dispatch from; **G-1 was
 built on 2026-08-15 (ADR-0033) and G-3 alongside it** — the rest stand as written.
 
@@ -714,7 +714,7 @@ built on 2026-08-15 (ADR-0033) and G-3 alongside it** — the rest stand as writ
 | **G-5** | A derivation that owns per-value resources | **DEFER** — trigger named |
 | **G-6** | Cross-scope lifetime checking | **DEFER** — trigger named |
 | **G-7** | Driving arbitrary Roblox instances (`New "Part"`) | **DEFER** — already owns a decision record |
-| **G-8** | `Hydrate` — adopting instances LuauUI did not create | **DECLINE** — reason and route below |
+| **G-8** | `Hydrate` — adopting instances Facet did not create | **DECLINE** — reason and route below |
 | **G-9** | Scope poisoning | **DECLINE** — already answered |
 | **G-10** | Per-frame instance-write coalescing | **DECLINE** — already answered, better |
 
@@ -727,7 +727,7 @@ another state object, by tweening towards it", where `tweenInfo` is "The style o
 tween to use when moving to the goal" ([FU-10]) — a plain Roblox `TweenInfo`, so
 easing style, direction, duration, delay, repeat count and reverse all come free.
 
-**What LuauUI has instead**, as of the survey and BEFORE ADR-0033 shipped.
+**What Facet has instead**, as of the survey and BEFORE ADR-0033 shipped.
 Springs, a beat-sequenced `timeline`, a 2-D `chase`, a `counter` and a `timer`.
 Verified AT THAT TIME: `Enum.EasingStyle`, `TweenInfo` and the string `easing`
 appeared nowhere in `src/`. All three are there now — `src/motion/curves.luau`
@@ -760,7 +760,7 @@ it by a differential oracle, serving the headless suite. Two findings worth
 carrying back into this document's own claims: the gap was never "no duration"
 (`timer` and `glide` both had one) but "no SHAPE" — both were strictly linear;
 and the "consumer proof" this note first claimed — that RascalRally's `p^1.6`
-ease-in had been flattened to a linear timer in its LuauUI port — **was withdrawn
+ease-in had been flattened to a linear timer in its Facet port — **was withdrawn
 on the same day** by the consumer rider: that exponent shapes a blink FREQUENCY no
 easing curve can express, only legacy calls it, and the port's linear timer
 faithfully matches the linear ramp legacy actually paints (ADR-0033, "Context").
@@ -768,7 +768,7 @@ No shipped consumer had a curve taken away from it; the primitive stands on the
 duration that arrives on time. The original reasoning below stands as written.
 
 It is the only row in §4 where a Fusion user
-moving to LuauUI loses a capability outright, it is the shape every design
+moving to Facet loses a capability outright, it is the shape every design
 handoff arrives in, and shipping 1.0 of a motion system with no duration is a
 hole a reviewer will find in the first hour.
 
@@ -777,25 +777,25 @@ hole a reviewer will find in the first hour.
 **What it is.** Fusion's `Ref` writes the created instance into a `Value`, and
 `Out` binds a property back out ([FU-13]). You always have the `GuiObject`.
 
-**What LuauUI has instead.** Nothing. The public controller surface is `rectOf`,
+**What Facet has instead.** Nothing. The public controller surface is `rectOf`,
 `screenRectOf`, `diagnostics()` and the presentation writes; verified by search,
 no public API returns an `Instance`.
 
 **Why it matters.** The Roblox API is full of functions that take a `GuiObject`:
 `GuiService.SelectedObject`, `TweenService:Create`, `UIDragDetector`,
 `BillboardGui.Adornee`, `CanvasGroup` capture, and every third-party library.
-LuauUI already wraps several of these internally — there is an opt-in engine
+Facet already wraps several of these internally — there is an opt-in engine
 selection bridge, native drag detectors, and `canvasGroup` as a declared prop —
 so the gap is narrower than it sounds. But it is not zero, and "I cannot get at
 it" is the single most common reason a developer abandons a framework.
 
-**Does LuauUI answer it differently?** Partly, and the reason it withholds the
+**Does Facet answer it differently?** Partly, and the reason it withholds the
 handle is not squeamishness: handing out a `GuiObject` hands out the ability to
 write its properties, which is precisely the second-writer situation §2.3 exists
 to make impossible. A read-only handle is not a thing Roblox offers.
 
 **Recommendation: defer, with a named trigger** — *the first consumer naming a
-specific Roblox API that requires a `GuiObject` and that LuauUI does not already
+specific Roblox API that requires a `GuiObject` and that Facet does not already
 wrap.* The right shape when that arrives is almost certainly not `Ref`; it is a
 narrow, named seam for that one API, the way the selection bridge already is.
 Booking it as "add `Ref`" would ship the authority hole with it.
@@ -805,13 +805,13 @@ Booking it as "add `Ref`" would ship the authority hole with it.
 **What it is.** Fusion's `ForKeys` and `ForPairs` map over a table with arbitrary
 keys, "leaving unchanged values alone" ([FU-11]).
 
-**What LuauUI has instead.** `ForEachSpec.items` is `Readable<{ any }>` — an
+**What Facet has instead.** `ForEachSpec.items` is `Readable<{ any }>` — an
 array, keyed by `key(item)`. A dictionary must be flattened into an array first.
 
 **Why it matters, and this is the actual argument.** The flatten is three lines
 and every consumer will write it, and **the obvious version of it is wrong**:
 Luau's `pairs` order is not stable, so a memo that flattens a dictionary with
-`pairs` produces a different row order between runs. LuauUI guarantees
+`pairs` produces a different row order between runs. Facet guarantees
 deterministic dumps at the framework level and then hands its consumers a
 one-liner that silently breaks determinism in their own screen. That is exactly
 the class of defect this codebase spends its diagnostics budget on.
@@ -836,14 +836,14 @@ duration of one callback and read anywhere down the call stack, without threadin
 it through every function in between. Fusion's own release material names theme
 colour as the motivating case ([FU-17]).
 
-**What LuauUI has instead.** An environment of per-key signals with derived memos
+**What Facet has instead.** An environment of per-key signals with derived memos
 on top, precise enough that a keyboard-occlusion change cannot invalidate a
 subscriber that only reads colours. But the key set is **closed** — verified: no
 `defineKey`, no `registerKey`, no consumer namespace anywhere in `src/env/`. A
 game that wants "this panel is in preview mode" as an ambient fact threads a
 signal through props.
 
-**Does LuauUI answer it differently?** Adequately, for now. A blueprint is built
+**Does Facet answer it differently?** Adequately, for now. A blueprint is built
 by a plain Lua function, so passing a signal down is cheap and explicit — and
 explicit prop-passing is a defensible position, not a missing feature.
 
@@ -866,11 +866,11 @@ produced; when the value is replaced, the old inner scope is cleaned up
 automatically [FS-03]. Fusion 0.2's cruder version of the same idea was the
 destructor parameter ([FU-06]).
 
-**What LuauUI has instead.** `Core.memo`'s compute receives `use` and nothing
+**What Facet has instead.** `Core.memo`'s compute receives `use` and nothing
 else. A derivation that allocates something releasable has nowhere to put it: you
 hoist it to an outer scope and it outlives its value, or you release it by hand.
 
-**Does LuauUI answer it differently?** At a different layer, yes, and well. The
+**Does Facet answer it differently?** At a different layer, yes, and well. The
 UI-shaped version of this problem is per-item resources in a collection, and
 `UI.ForEach`'s `row(item, itemScope)` gives each item a genuine scope disposed
 when the item leaves. Asynchronous resources have `newResourceProvider`, with
@@ -895,7 +895,7 @@ attribute and ref binding, that the used object's scope outlives the using
 object's, and raises a formatted message naming both [FS-07]. It catches
 use-after-dispose at the line where you wrote it.
 
-**What LuauUI has instead.** Ownership, reverse-order idempotent disposal,
+**What Facet has instead.** Ownership, reverse-order idempotent disposal,
 double-dispose detection, a releasability check at `own()`, and quarantined
 cleanup errors — but no check that a long-lived memo is not reading a
 short-lived signal. That failure surfaces later, as a read of a disposed node.
@@ -905,9 +905,9 @@ today it does not: `scope:own(core:signal(...))` is ownership by insertion into
 the scope's array, and the signal itself has no back-reference. Adding one is a
 change to the node representation in all three cores.
 
-**Honest note on priority.** Fusion needs this more than LuauUI does. In Fusion
+**Honest note on priority.** Fusion needs this more than Facet does. In Fusion
 the consumer hand-builds the whole graph, so the mistake is available everywhere.
-In LuauUI the framework owns most of the graph, and the places a consumer creates
+In Facet the framework owns most of the graph, and the places a consumer creates
 long-lived derivations over short-lived signals are few.
 
 **Recommendation: defer, with a named trigger** — *the first bug traced to a
@@ -918,7 +918,7 @@ refactor `ENGINEERING.md` says should not be folded into feature work.
 #### G-7 — Driving arbitrary Roblox instances. **DEFER** — a decision already exists.
 
 Fusion's `New` takes any class name ([FU-07]), so the same graph that runs your
-menu can run a `Part`, a `Beam` or a `Sound`. LuauUI renders 21 UI classes and
+menu can run a `Part`, a `Beam` or a `Sound`. Facet renders 21 UI classes and
 nothing else.
 
 This is **already decided and does not need re-deciding**:
@@ -937,33 +937,33 @@ Studio-authored screen and you want to make it reactive without rewriting it.**
 
 **Decline, and the reason is the one thing this framework will not trade.** A
 hydrated instance has an unknown existing writer — a StyleSheet rule, a legacy
-script, the engine's own default. LuauUI's whole property model rests on knowing
+script, the engine's own default. Facet's whole property model rests on knowing
 that exactly one function writes each property (§2.3), and the measured reason it
 rests there is that on this platform a second writer is *silent*: an explicit
 write defeats a StyleSheet rule, fires no signal, and the rule never comes back.
 A hydration API is a supported way to create that situation, and the framework
 would have no way to detect it or report it.
 
-**The route, so this is a decline and not a dead end.** LuauUI's incremental-
-adoption story is **per surface, not per property**: mount a LuauUI surface beside
+**The route, so this is a decline and not a dead end.** Facet's incremental-
+adoption story is **per surface, not per property**: mount a Facet surface beside
 your existing UI, and move screens over one at a time. That works today — it is
-what Rascal Rally did, where the LuauUI Sponsor surface is the production default
+what Rascal Rally did, where the Facet Sponsor surface is the production default
 and the legacy modules stay shipped and untouched behind a flag. Document that as
 the migration path; do not build the per-property one.
 
 #### G-9 — Scope poisoning. **DECLINE** — already answered.
 
 Fusion 0.3 replaces a destroyed scope's metatable so any later use raises
-[FS-06]. LuauUI asserts on `own()` and `child()` into a disposed scope, which
+[FS-06]. Facet asserts on `own()` and `child()` into a disposed scope, which
 covers both operations that mutate one, and detects double disposal. Fusion needs
 the wider version because a Fusion scope *is* a plain array the consumer indexes
-directly; a LuauUI scope is an opaque object with four methods, and there is
+directly; a Facet scope is an opaque object with four methods, and there is
 nothing else to poison.
 
 #### G-10 — Per-frame instance-write coalescing. **DECLINE** — already answered, better.
 
 Fusion 0.2 coalesces a bound property write to one per resumption step via a
-`willUpdate` latch [FS-08]; Fusion 0.3 removed it [FS-10]. LuauUI's answer is
+`willUpdate` latch [FS-08]; Fusion 0.3 removed it [FS-10]. Facet's answer is
 `transaction`, which batches at the *source* rather than at the sink, so the
 intermediate derivations do not run either — and the renderer commits once per
 flush regardless. Listed so a reader migrating from 0.2 can see that the thing
@@ -977,12 +977,12 @@ The rarest output of this exercise. Six findings, each verified in source, each
 absent from both projects' written material.
 
 **1. Fusion 0.3 already sorts its observers into node-creation order, for a
-reason LuauUI arrived at independently.** `change()` collects the eager nodes it
+reason Facet arrived at independently.** `change()` collects the eager nodes it
 must evaluate and does
 `table.sort(eagerList, function(a, b) return a.createdAt < b.createdAt end)`,
 with the comment *"If objects are not executed in order of creations, then
 dynamic graphs may experience 'glitches' where nested graph objects see
-intermediate values before being destroyed"* [FS-01]. LuauUI's contract added the
+intermediate values before being destroyed"* [FS-01]. Facet's contract added the
 same rule — "within one flush, OBSERVERS are notified in node CREATION order" —
 on 2026-08-14, for a *different* stated reason: several consumers each watch their
 own memo, and table-hash notification order varies run to run, so a surface's
@@ -1013,7 +1013,7 @@ easy to misread: it is about **notification**, not evaluation. Fusion 0.3 is
 pull-based *and* has no boundary, which are independent properties. The useful
 generalization: **the thing that makes transactions possible is not laziness, it
 is having a moment that is not a write.** Fusion has laziness and no such moment;
-LuauUI has both.
+Facet has both.
 
 **4. Fusion's diagnostics are printed, not returned, and that single fact
 accounts for four of the adapter's nine red checks.** `logErrorNonFatal` routes to
@@ -1030,7 +1030,7 @@ versions, for every class of error.
 frozen frame before you are told, the message cannot name the path, and — the
 part that matters for a test suite — the guard's behaviour depends on how fast
 your machine is. Fusion knows this and exposes `External.safetyTimerMultiplier`
-specifically so its own tests can tighten it. LuauUI's equivalent is a hundred
+specifically so its own tests can tighten it. Facet's equivalent is a hundred
 write generations, which is deterministic and therefore assertable. **If you are
 writing a reactive core, count rounds, not seconds.**
 
@@ -1050,11 +1050,11 @@ them.
 
 | | |
 |---|---|
-| LuauUI version | `0.9.0` (`src/init.luau`) |
+| Facet version | `0.9.0` (`src/init.luau`) |
 | Audit date | 2026-08-15 |
 | Fusion baseline — documentation | **0.2** as published at `elttob.uk/Fusion/0.2`, read 2026-08-15; **0.3** pages read the same day where cited. Every quote is in §8 with its version tag |
 | Fusion baseline — source | **0.2**: `github.com/dphfox/Fusion` at tag `v0.2-beta`, files read verbatim via the GitHub API on 2026-08-15. **0.3**: `vendor/Fusion/` in this repository, whose `init.luau` declares `version = {major = 0, minor = 3, isRelease = true}` |
-| LuauUI baseline | Source only: `src/core/`, `src/render/`, `src/layout/`, `src/motion/`, `src/env/`, `src/blueprint.luau`, `src/init.luau`, plus `tests/conformance/` |
+| Facet baseline | Source only: `src/core/`, `src/render/`, `src/layout/`, `src/motion/`, `src/env/`, `src/blueprint.luau`, `src/init.luau`, plus `tests/conformance/` |
 | Conformance evidence | `lune run tests/conformance/cli fusion` and `… custom`, both re-run 2026-08-15. Results in `artifacts/conformance-fusion.json` (37/46) and `artifacts/conformance-custom.json` (46/46) |
 | Performance evidence | `artifacts/bench.json`, 2026-08-15. **Headless Lune = regression signal only.** No Studio arm and no device arm exists for any number in this document |
 | Size figures | `find vendor -name '*.luau'`: 67 files, 5,153 lines. `find src -name '*.luau'`: 122 files, 83,801 lines. Both measured 2026-08-15 |
@@ -1076,7 +1076,7 @@ them.
   native semantics by design.** §2.4 states what a thicker adapter could recover
   and what it could not. Do not read them as a claim that Fusion's model cannot be
   wrapped better.
-- **No physical-device evidence exists for anything on LuauUI's side**, here or in
+- **No physical-device evidence exists for anything on Facet's side**, here or in
   `swiftui-parity.md` §14.
 
 ---

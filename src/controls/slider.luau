@@ -36,7 +36,7 @@ local controlContract = require("./contract")
 local contribution = require("../input/contribution")
 local chrome_slots = require("../tokens/chrome_slots")
 -- the RUNG-2 prop normalizer. Required directly (not through the public
--- `LuauUI.themes` table) so the schema this control validates against is
+-- `Facet.themes` table) so the schema this control validates against is
 -- literally the schema `themes.define` validates recipes against.
 local themePackage = require("../themes/package")
 local value_model = require("./value_model")
@@ -113,7 +113,7 @@ local function hintFor(id: string, slot: string, prop: string, value: any): chro
 	local variant, errors = themePackage.normalizeVariant(value, prop)
 	if #errors > 0 then
 		local first = errors[1]
-		error(`LuauUI newSlider('{id}'): {prop} — {first.message} ({first.fix})`, 0)
+		error(`Facet newSlider('{id}'): {prop} — {first.message} ({first.fix})`, 0)
 	end
 	return { slot = slot, imageVariants = variant }
 end
@@ -136,15 +136,15 @@ local SLIDER_KEYS = specGuard.keySet({
 	"value",
 })
 
-function slider.build(LuauUI: any, core: any, spec: Spec)
+function slider.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newSlider", spec, SLIDER_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Slider"
 	local scope = core:scope("slider-" .. tostring(id))
 	local value = spec.value
 	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
 		error(
-			`LuauUI newSlider('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
+			`Facet newSlider('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
 				.. `(a read-only Memo would pass a duck-type check and then fail on the first drag)`,
 			0
 		)
@@ -322,7 +322,7 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 		if not use(trackFocused) then
 			return nil
 		end
-		return LuauUI.UI.strokeData({ color = "accent", thickness = FOCUS_RING, transparency = 0 })
+		return Facet.UI.strokeData({ color = "accent", thickness = FOCUS_RING, transparency = 0 })
 	end))
 
 	-- both read the track through `use`, so a solve that resizes the track moves
@@ -641,7 +641,7 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 	function api.dump()
 		local v = value:get()
 		return {
-			schema = "luauui-slider-dump/1",
+			schema = "facet-slider-dump/1",
 			id = id,
 			value = v,
 			formatted = model.format(v),

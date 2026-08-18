@@ -1,5 +1,5 @@
-/goal Execute the nested instance tree migration for LuauUI, per the binding brief at
-GameStudio/ui/LuauUI/docs/plans/nested-instance-tree-brief.md. Read it in full first, then
+/goal Execute the nested instance tree migration for Facet, per the binding brief at
+GameStudio/ui/Facet/docs/plans/nested-instance-tree-brief.md. Read it in full first, then
 docs/adr/ADR-0032-nested-instance-tree.md — the ADR is the authority for the decision, the
 measurements, the staged order and the implementation sketch.
 
@@ -16,7 +16,7 @@ stage is ready to measure, hand the user a note naming the exact workload, which
 and what the status line must read before they spend the dump.
 
 TESTS TO RUN at the end of every stage — all green before moving on:
-  cd GameStudio/ui/LuauUI
+  cd GameStudio/ui/Facet
   lune run tests/run                            # expect 5530+ passed / 0 failed
   python3 tools/check_source_size.py            # PASS, KNOWN_OVER empty
   lune run tools/lune/check_registration_cli    # PASS

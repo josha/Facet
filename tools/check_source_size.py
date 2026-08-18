@@ -299,12 +299,12 @@ THE NEXT SEAM, if this file ever needs one, is the FLOW-WRAP branch —
 grid's twin: one plan, two passes, a cache on the ctx. It would arrive with the
 same `Deps` + call-site-`place` shape this row worked out. It is NOT needed at
 169,436 — 30,564 of headroom, the widest margin any file in `src/` has had — and
-`flowPartition` is a PUBLIC export the game's `luauui_flow_wrap_contract` spec
+`flowPartition` is a PUBLIC export the game's `facet_flow_wrap_contract` spec
 calls directly, so moving it costs a re-export the grid did not.
 
 LIVE PROOF, which is the whole point of this check: after the commit the Rojo
 plugin synced both files into the open Showcase session, and the running datamodel
-holds `ReplicatedStorage.LuauUI.layout.solver` at exactly 169,436 chars with this
+holds `ReplicatedStorage.Facet.layout.solver` at exactly 169,436 chars with this
 mission's `GRID_DEPS` marker in it and a NEW sibling `layout.grid` at 34,447 —
 which also proves the directory-mount claim the game-side rider makes, since no
 project file was edited. Driven live: both flow directions solve to an exact

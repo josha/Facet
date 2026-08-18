@@ -1,7 +1,7 @@
 --!strict
 --[[ row_actions_coordinator — at most ONE row open per shared list surface.
 
-	WHAT THIS IS. `LuauUI.newRowActionsCoordinator`, whole. It is a registry of
+	WHAT THIS IS. `Facet.newRowActionsCoordinator`, whole. It is a registry of
 	exactly one thing — the currently-open row's own API table — behind three
 	closures, and it shares nothing with the row engine it coordinates: it calls
 	`_close()`/`_closeMenu()` on rows through their PUBLIC handle and never reads
@@ -23,7 +23,7 @@
 
 local row_actions_coordinator = {}
 
--- PUBLIC API (`LuauUI.newRowActionsCoordinator`, director decision
+-- PUBLIC API (`Facet.newRowActionsCoordinator`, director decision
 -- 2026-08-09): at most one row open per shared list surface. A VStack/
 -- ScrollView list builds its own and passes it to every wrapped row's
 -- `coordinator` spec key; Table (Task 10) does the identical wiring for its

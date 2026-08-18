@@ -12,7 +12,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local FILL = { type = "fill", weight = 1 }
@@ -21,22 +21,22 @@ local function FIXED(px: number)
 end
 
 local function harness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	return core, env, system, adapter, pres
 end
 
 -- a base screen with a recorded button so "clickthrough" is observable
 local function presentBase(pres: any): { string }
 	local baseHits: { string } = {}
-	local base = LuauUI.UI.Screen({
+	local base = Facet.UI.Screen({
 		id = "Base",
 		children = {
-			LuauUI.UI.Button({
+			Facet.UI.Button({
 				id = "B",
 				label = "B",
 				onActivate = function(path: string)
@@ -52,13 +52,13 @@ end
 -- a small painted panel modal pinned top-left (surface="raised" => the ROOT is
 -- the painted panel rect, so Zone geometry is deterministic)
 local function paintedModal(id: string?)
-	return LuauUI.UI.Screen({
+	return Facet.UI.Screen({
 		id = id or "M",
 		surface = "raised",
 		width = FIXED(200),
 		height = FIXED(120),
 		padding = 16,
-		children = { LuauUI.UI.Button({ id = "OK", label = "OK" }) },
+		children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
 	})
 end
 
@@ -148,17 +148,17 @@ describe("modal dismissal: an invisible fullscreen root contributes nothing to Z
 		local _, _, _, adapter, pres = harness()
 		presentBase(pres)
 		-- fill root, TRANSPARENT (no surface); a small VISIBLE panel inside it
-		local modal = LuauUI.UI.Screen({
+		local modal = Facet.UI.Screen({
 			id = "M",
 			width = FILL,
 			height = FILL,
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "Panel",
 					surface = "raised",
 					width = FIXED(200),
 					height = FIXED(120),
-					children = { LuauUI.UI.Button({ id = "OK", label = "OK" }) },
+					children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
 				}),
 			},
 		})
@@ -179,12 +179,12 @@ describe("modal dismissal: a visible fullscreen takeover has no outside", functi
 	it("a tap anywhere lands in Zone A (the painted fullscreen panel) — no dismiss", function()
 		local _, _, _, adapter, pres = harness()
 		presentBase(pres)
-		local modal = LuauUI.UI.Screen({
+		local modal = Facet.UI.Screen({
 			id = "M",
 			surface = "raised", -- PAINTED and fill: the panel is the whole viewport
 			width = FILL,
 			height = FILL,
-			children = { LuauUI.UI.Button({ id = "OK", label = "OK" }) },
+			children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
 		})
 		pres.presentModal(modal)
 		pres.refresh()
@@ -243,12 +243,12 @@ describe("modal dismissal: the scrim is non-focusable and absent from navigation
 	it("focus stays inside the modal and never lands on the scrim", function()
 		local _, _, system, _, pres = harness()
 		presentBase(pres)
-		local modal = LuauUI.UI.Screen({
+		local modal = Facet.UI.Screen({
 			id = "M",
 			surface = "raised",
 			children = {
-				LuauUI.UI.Button({ id = "Confirm", label = "Delete" }),
-				LuauUI.UI.Button({ id = "Cancel", label = "Cancel" }),
+				Facet.UI.Button({ id = "Confirm", label = "Delete" }),
+				Facet.UI.Button({ id = "Cancel", label = "Cancel" }),
 			},
 		})
 		pres.presentModal(modal)
@@ -333,7 +333,7 @@ describe("modal dismissal: cancelPolicy", function()
 	it("the DEFAULT is unchanged — Cancel dismisses a modal and resigns an engaged HUD", function()
 		local _, _, system, _, pres = harness()
 		local hud = pres.present(
-			LuauUI.UI.Screen({ id = "Hud", children = { LuauUI.UI.Button({ id = "Go", label = "Go" }) } }),
+			Facet.UI.Screen({ id = "Hud", children = { Facet.UI.Button({ id = "Go", label = "Go" }) } }),
 			{ responder = "passive" }
 		)
 		pres.presentModal(paintedModal("M"))
@@ -382,8 +382,8 @@ describe("modal dismissal: cancelPolicy", function()
 	it("cancelPolicy='none' still offers Cancel to the focused contribution first", function()
 		local _, _, system, _, pres = harness()
 		local consumed = 0
-		local inner = LuauUI.contribution.attach(
-			LuauUI.UI.VStack({ id = "Inner", children = { LuauUI.UI.Button({ id = "OK", label = "OK" }) } }),
+		local inner = Facet.contribution.attach(
+			Facet.UI.VStack({ id = "Inner", children = { Facet.UI.Button({ id = "OK", label = "OK" }) } }),
 			{
 				handleCancel = function(_focused: string?): boolean
 					consumed += 1
@@ -392,7 +392,7 @@ describe("modal dismissal: cancelPolicy", function()
 			}
 		)
 		local modal = pres.presentModal(
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "M",
 				surface = "raised",
 				width = FIXED(200),
@@ -411,7 +411,7 @@ describe("modal dismissal: cancelPolicy", function()
 	it("cancelPolicy='none' on a passive HUD keeps it engaged (Cancel no longer resigns)", function()
 		local _, _, system, _, pres = harness()
 		local hud = pres.present(
-			LuauUI.UI.Screen({ id = "Hud", children = { LuauUI.UI.Button({ id = "Go", label = "Go" }) } }),
+			Facet.UI.Screen({ id = "Hud", children = { Facet.UI.Button({ id = "Go", label = "Go" }) } }),
 			{ responder = "passive", cancelPolicy = "none" }
 		)
 		hud.engage()

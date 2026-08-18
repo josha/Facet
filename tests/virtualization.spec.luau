@@ -14,7 +14,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local resources = require("../src/async/resources")
 local mountLib = require("../src/mount")
@@ -67,7 +67,7 @@ local function scrollStub()
 end
 
 local function newList(core: any, opts: { rows: any, viewportHeight: number?, overscan: number? })
-	return virtual_list.build(LuauUI, core, {
+	return virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = opts.rows,
 		key = function(item: any)
@@ -77,14 +77,14 @@ local function newList(core: any, opts: { rows: any, viewportHeight: number?, ov
 		viewportHeight = opts.viewportHeight or 400, -- 10 visible rows
 		overscan = opts.overscan or 2,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
 
 describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	it("mounts a bounded window (visible + overscan), never the whole list", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(1000))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -100,7 +100,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("a same-window scroll delta is ZERO framework writes (the engine owns the offset)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -124,7 +124,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("surviving rows keep their mounted identity across a window slide", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -141,7 +141,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("focuses an off-window item BY KEY: materializes and scrolls it into view", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(500))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -165,7 +165,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("keeps focus on the nearest surviving neighbor when the focused row is removed", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(30))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -179,7 +179,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("a re-entered row's dump equals a fresh row's dump (no state bleed)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))
 		local list = newList(core, { rows = rows })
 		local root = mountLib.mount(core, list.blueprint)
@@ -210,11 +210,11 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("cancels async cell resources on window exit; late completion is stale", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local provider = resources.newProvider(core, { maxConcurrent = 4 })
 		local acquired: { [string]: any } = {}
 		local rows = core:signal(makeRows(100))
-		local list = virtual_list.build(LuauUI, core, {
+		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
@@ -226,7 +226,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 			cell = function(item: any, ctx: any)
 				-- item-scope-owned async acquire (the §10.3 contract)
 				acquired[item.id] = provider.acquire(ctx.scope, `img/{item.id}`)
-				return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, list.blueprint)
@@ -240,7 +240,7 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	end)
 
 	it("scroll storms leave every registry at baseline after dispose", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local baseline = core:counters()
 		local rows = core:signal(makeRows(300))
 		local list = newList(core, { rows = rows })

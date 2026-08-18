@@ -11,7 +11,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
 local UI = require("../src/blueprint")
 local mountLib = require("../src/mount")
@@ -42,8 +42,8 @@ local function presentedWorld(build: (core: any) -> any, w: number?, h: number?)
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w or 800, h = h or 600 })
 	local adapter = fake_target.new()
-	local system = LuauUI.newActionSystem(core)
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local system = Facet.newActionSystem(core)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	presenter.present(UI.Screen({ id = "S", padding = 0, children = { build(core) } }))
 	presenter.refresh()
 	return core, env, adapter, presenter
@@ -127,7 +127,7 @@ describe("role resolution: renderer layout-node construction", function()
 	it("a package that moves the control role moves the DRAWN button label", function()
 		-- the compact-pointer shape, reduced: a 13px control role. Before the fix
 		-- the adapter drew 16 here no matter what the package said.
-		local pkg = require("../examples/themes/compact_pointer").build(LuauUI.themes)
+		local pkg = require("../examples/themes/compact_pointer").build(Facet.themes)
 		local snap = snapshot.resolve(pkg, nil, {})
 		local _, env, _, adapter, controller = world(function()
 			return UI.Screen({ id = "S", padding = 0, children = { UI.Button({ id = "B", label = "Play" }) } })
@@ -415,8 +415,8 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Slider: 44px track, 20px thumb, 6px rail, 16px label gap, 40px readout", function()
 		local core, _, _, adapter = controlWorld(function(core)
-			return LuauUI.newSlider(
-				LuauUI,
+			return Facet.newSlider(
+				Facet,
 				core,
 				{ id = "V", label = "Volume", value = core:signal(5), min = 0, max = 10 }
 			).blueprint
@@ -437,7 +437,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("ProgressView: 6px track, 20px row floor, 14px label text, 8px row gap", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return LuauUI.newProgressView(LuauUI, core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
+			return Facet.newProgressView(Facet, core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
 		end)
 		expect(adapter.node("/S/P/Bar").rect.h).toBe(6)
 		expect(adapter.node("/S/P").rect.h >= 20).toBe(true)
@@ -448,7 +448,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("PopupButton: 40px trigger, and 36/44/56 rows per presentation", function()
 		local _, _, adapter, presenter = presentedWorld(function(core)
-			return LuauUI.newPopupButton(LuauUI, core, {
+			return Facet.newPopupButton(Facet, core, {
 				id = "M",
 				options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
 				value = core:signal("a"),
@@ -466,7 +466,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 	it("PopupButton inline rows are 44 and sheet rows are 56", function()
 		for presentation, height in { inline = 44, sheet = 56 } do
 			local _, _, adapter, presenter = presentedWorld(function(core)
-				return LuauUI.newPopupButton(LuauUI, core, {
+				return Facet.newPopupButton(Facet, core, {
 					id = "M",
 					options = { { id = "a", label = "Alpha" } },
 					value = core:signal("a"),
@@ -481,7 +481,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("TextInput: 44px field, 28px clear button inset 8px from the right edge", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return LuauUI.newTextInput(LuauUI, core, {
+			return Facet.newTextInput(Facet, core, {
 				id = "F",
 				value = core:signal("Ada"),
 				placeholder = "name",
@@ -508,7 +508,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Stepper: square 44px buttons, 32px readout, 8px row gap, 16px label", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return LuauUI.newStepper(LuauUI, core, {
+			return Facet.newStepper(Facet, core, {
 				id = "C",
 				label = "Count",
 				value = core:signal(3),
@@ -530,12 +530,12 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Chip, DisclosureGroup and Picker rows all sit on the 44px target floor", function()
 		local _, _, _, chip = controlWorld(function(core)
-			return LuauUI.newChip(LuauUI, core, { id = "C", label = "Tag", selected = core:signal(false) }).blueprint
+			return Facet.newChip(Facet, core, { id = "C", label = "Tag", selected = core:signal(false) }).blueprint
 		end)
 		expect(chip.node("/S/C").rect.h).toBe(46) -- the 44 floor plus the button's own text box
 
 		local _, _, _, group = controlWorld(function(core)
-			return LuauUI.newDisclosureGroup(LuauUI, core, {
+			return Facet.newDisclosureGroup(Facet, core, {
 				id = "D",
 				label = "More",
 				expanded = core:signal(false),
@@ -547,7 +547,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 		expect(group.node("/S/D/Header").rect.h).toBe(46)
 
 		local _, _, _, picker = controlWorld(function(core)
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "Q",
 				label = "Quality",
 				options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
@@ -567,7 +567,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Label: 20px icon, 6px gap, 16px title", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return LuauUI.newLabel(LuauUI, core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
+			return Facet.newLabel(Facet, core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
 		end)
 		expect(adapter.node("/S/L/Icon").rect.w).toBe(20)
 		expect(adapter.node("/S/L/Icon").rect.h).toBe(20)
@@ -604,8 +604,8 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 			-- `{ load = … }` used to sit here: a key the provider never had, accepted
 			-- and ignored for the life of this test. The transport is driven through
 			-- `pendingRequests`/`complete`, never a `load` callback (ARCH-1).
-			local provider = LuauUI.newResourceProvider(core)
-			return LuauUI.newAsyncImage(LuauUI, core, {
+			local provider = Facet.newResourceProvider(core)
+			return Facet.newAsyncImage(Facet, core, {
 				id = "I",
 				provider = provider,
 				scope = core:scope("img"),
@@ -618,7 +618,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Table: 28px header, 15px cell text, 2px row gap, 8px cell inset", function()
 		local _, _, _, adapter = world(function(core)
-			local control = LuauUI.newTable(LuauUI, core, {
+			local control = Facet.newTable(Facet, core, {
 				id = "T",
 				rows = core:signal({ { id = "a", name = "Apex" } }),
 				key = function(row: any)

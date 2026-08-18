@@ -22,7 +22,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_grid = require("../src/controls/virtual_grid")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -38,15 +38,15 @@ end
 -- 4 lanes x 40px lines in a 400px viewport = 10 visible lines, overscan 2.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local items = core:signal(makeItems(options.count or 400))
 	local activations: { any } = {}
-	local grid = virtual_grid.build(LuauUI, core, {
+	local grid = virtual_grid.build(Facet, core, {
 		id = "VG",
 		items = items,
 		key = function(item: any)
@@ -58,13 +58,13 @@ local function world(opts: any?)
 		overscan = options.overscan or 2,
 		width = { type = "fixed", px = 320 },
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
 	local handle = pres.present(screen) -- ZERO present opts
 	pres.refresh()
 	local unbindScroll = grid.bindNativeScroll(handle.controller)

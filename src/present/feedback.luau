@@ -1,7 +1,7 @@
 --!strict
 -- THE SEMANTIC FEEDBACK SEAM (ADR-0022 Decision 7; ui-designer spec §7;
 -- acceptance row SF-F1). One per-presenter event bus, and one rule that matters
--- more than the bus: LuauUI PLAYS NOTHING. It never triggers a sound, a haptic or
+-- more than the bus: Facet PLAYS NOTHING. It never triggers a sound, a haptic or
 -- a particle — it says what happened, on the frame it happened, with enough
 -- context for a game to map it to its own assets and policy (corrections §13,
 -- responsibility ledger RG-4).
@@ -147,7 +147,7 @@ end
 function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	if type(spec) ~= "table" then
 		error(
-			`LuauUI UI.sensoryFeedback: expected a spec table — UI.sensoryFeedback(bp, \{ trigger = …, event = "select" }) `
+			`Facet UI.sensoryFeedback: expected a spec table — UI.sensoryFeedback(bp, \{ trigger = …, event = "select" }) `
 				.. `or UI.sensoryFeedback(bp, \{ activation = "commit" }), got {typeof(spec)}`,
 			0
 		)
@@ -155,11 +155,11 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	for key in spec :: any do
 		if key ~= "trigger" and key ~= "event" and key ~= "activation" then
 			error(
-				`LuauUI UI.sensoryFeedback: unknown spec key '{tostring(key)}'. Valid keys: {table.concat(
+				`Facet UI.sensoryFeedback: unknown spec key '{tostring(key)}'. Valid keys: {table.concat(
 					SENSORY_KEYS,
 					", "
 				)}. `
-					.. "Intensity, duration and choice of effect are the SUBSCRIBER's business — LuauUI says what "
+					.. "Intensity, duration and choice of effect are the SUBSCRIBER's business — Facet says what "
 					.. "happened and plays nothing.",
 				0
 			)
@@ -172,7 +172,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	local wantsChange = spec.trigger ~= nil or spec.event ~= nil
 	if wantsControl and wantsChange then
 		error(
-			`LuauUI UI.sensoryFeedback: a spec is EITHER the change form \{ trigger, event } or the control form `
+			`Facet UI.sensoryFeedback: a spec is EITHER the change form \{ trigger, event } or the control form `
 				.. `\{ activation }, never both — they have different causes, so one verb could not describe both. `
 				.. "Fix: apply the modifier twice, once per cause.",
 			0
@@ -180,7 +180,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	end
 	if not wantsControl and not wantsChange then
 		error(
-			`LuauUI UI.sensoryFeedback: an empty spec declares nothing. Pass \{ trigger = someSignal, event = "select" } `
+			`Facet UI.sensoryFeedback: an empty spec declares nothing. Pass \{ trigger = someSignal, event = "select" } `
 				.. `for a value change, or \{ activation = "commit" } for what this control's own press feels like.`,
 			0
 		)
@@ -188,7 +188,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	if wantsControl then
 		if type(spec.activation) ~= "string" then
 			error(
-				`LuauUI UI.sensoryFeedback: \`activation\` must be a string (got {typeof(spec.activation)}). `
+				`Facet UI.sensoryFeedback: \`activation\` must be a string (got {typeof(spec.activation)}). `
 					.. `One of: {feedback.TYPE_LIST}, or "{SILENT}".`,
 				0
 			)
@@ -196,7 +196,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 		local verb = spec.activation :: string
 		if verb ~= SILENT and not TYPE_SET[verb] then
 			error(
-				`LuauUI UI.sensoryFeedback: unknown activation verb '{verb}'. The v1 taxonomy is CLOSED: `
+				`Facet UI.sensoryFeedback: unknown activation verb '{verb}'. The v1 taxonomy is CLOSED: `
 					.. `{feedback.TYPE_LIST} — plus "{SILENT}" for a control that must be felt as nothing. `
 					.. "Growing it is a contract amendment with a gate.",
 				0
@@ -206,7 +206,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	end
 	if not isReadable(spec.trigger) then
 		error(
-			`LuauUI UI.sensoryFeedback: \`trigger\` must be a Signal or Memo (got {typeof(spec.trigger)}). `
+			`Facet UI.sensoryFeedback: \`trigger\` must be a Signal or Memo (got {typeof(spec.trigger)}). `
 				.. "The modifier fires on a CHANGE, so a plain value could never fire at all — the declaration "
 				.. "would be accepted and inert.",
 			0
@@ -214,13 +214,13 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	end
 	if type(spec.event) ~= "string" then
 		error(
-			`LuauUI UI.sensoryFeedback: \`event\` must be a string (got {typeof(spec.event)}). One of: {feedback.TYPE_LIST}.`,
+			`Facet UI.sensoryFeedback: \`event\` must be a string (got {typeof(spec.event)}). One of: {feedback.TYPE_LIST}.`,
 			0
 		)
 	end
 	if not TYPE_SET[spec.event] then
 		error(
-			`LuauUI UI.sensoryFeedback: unknown event type '{spec.event}'. The v1 taxonomy is CLOSED: `
+			`Facet UI.sensoryFeedback: unknown event type '{spec.event}'. The v1 taxonomy is CLOSED: `
 				.. `{feedback.TYPE_LIST}. Growing it is a contract amendment with a gate — pick the verb that `
 				.. "describes what happened.",
 			0
@@ -271,7 +271,7 @@ function feedback.new(): Bus
 
 	function bus.subscribe(fn: (event: Event) -> ()): () -> ()
 		if type(fn) ~= "function" then
-			error(`LuauUI feedback: onFeedback takes a function(event), got {typeof(fn)}`, 0)
+			error(`Facet feedback: onFeedback takes a function(event), got {typeof(fn)}`, 0)
 		end
 		local box: { fn: ((event: Event) -> ())? } = { fn = fn }
 		table.insert(subs, box)
@@ -291,11 +291,11 @@ function feedback.new(): Bus
 			return
 		end
 		if type(event) ~= "table" or type(event.type) ~= "string" then
-			error(`LuauUI feedback: an event is a table \{ type, path?, reason?, context? }, got {typeof(event)}`, 0)
+			error(`Facet feedback: an event is a table \{ type, path?, reason?, context? }, got {typeof(event)}`, 0)
 		end
 		if not TYPE_SET[event.type] then
 			error(
-				`LuauUI feedback: unknown event type '{event.type}'. The v1 taxonomy is CLOSED: `
+				`Facet feedback: unknown event type '{event.type}'. The v1 taxonomy is CLOSED: `
 					.. `{feedback.TYPE_LIST}. Growing it is a contract amendment with a gate — carry your own `
 					.. "meaning in `reason`/`context` instead of inventing a verb.",
 				0

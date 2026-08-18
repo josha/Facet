@@ -4,18 +4,18 @@
   might infer from `DragUDim2`. Indexing `.X.Offset` on it throws
   "attempt to index number with 'Offset'" — and because DragContinue fires every
   frame of a drag, the error spams and the wired handlers effectively go dead.
-- **The position needs NO inset correction under LuauUI roots** (`IgnoreGuiInset
+- **The position needs NO inset correction under Facet roots** (`IgnoreGuiInset
   = true`): measured window-space coordinates match solver rects directly. Do not
   blanket-add `GetGuiInset` the way the raw pointer seam must
   (`engine-input-truths-phaseb.md` §1) — the two seams differ. (Official docs
   call the value "screen space"; the m3 spike under a default-inset gui echoed
-  the inset-subtracted injection coords exactly. For LuauUI's roots the two
+  the inset-subtracted injection coords exactly. For Facet's roots the two
   descriptions coincide; do NOT generalize the default-inset behavior to other
   gui configurations without a fresh spike — platform verifier F7.)
 - `DragUDim2` IS a `UDim2` (cumulative drag delta in offsets) and works as
   documented with `ResponseStyle = CustomOffset`.
 - Default `ResponseStyle = Offset` makes the DETECTOR write `GuiObject.Position`
-  (measured in spike m3) — always use `CustomOffset`/`Scriptable` under LuauUI so
+  (measured in spike m3) — always use `CustomOffset`/`Scriptable` under Facet so
   the renderer keeps Position authority.
 - `Enabled = false` mid-drag fires `DragEnd` immediately (usable cancellation).
 - **The detector CONSUMES the click** (measured live 2026-07-27, sponsor-framework-gaps):

@@ -50,7 +50,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -93,12 +93,12 @@ end
 
 local function world(count: number, opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	-- one signal per row, built up front so a mutation later allocates nothing
 	local items: { Item } = {}
@@ -114,7 +114,7 @@ local function world(count: number, opts: any?)
 	local shared = core:signal("shared-0")
 
 	local rows = core:signal(items)
-	local list = virtual_list.build(LuauUI, core, {
+	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
 		key = function(item: any)
@@ -126,11 +126,11 @@ local function world(count: number, opts: any?)
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return LuauUI.UI.HStack({
+			return Facet.UI.HStack({
 				id = "Row",
 				children = {
 					-- bound to THIS row's own signal
-					LuauUI.UI.Text({
+					Facet.UI.Text({
 						id = "Value",
 						text = core:memo(function(use)
 							return `{use(item.value)}`
@@ -138,17 +138,17 @@ local function world(count: number, opts: any?)
 						textSize = 14,
 					}),
 					-- bound to a signal every row shares
-					LuauUI.UI.Text({
+					Facet.UI.Text({
 						id = "Shared",
 						text = if options.readShared == false then "static" else shared,
 						textSize = 14,
 					}),
-					LuauUI.UI.Text({ id = "Label", text = item.label, textSize = 14 }),
+					Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 }),
 				},
 			})
 		end,
 	})
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	assertClean(handle, "mount")
@@ -317,7 +317,7 @@ describe("fine-grained reactivity: one changed value costs the same at any scale
 	end)
 
 	it("KNOWN GAP: one changed value re-lays-out the WHOLE tree, and this records it", function()
-		-- The question this answers: when one bound value changes, does LuauUI
+		-- The question this answers: when one bound value changes, does Facet
 		-- re-lay-out only that node and whatever its size change cascades into, or the
 		-- entire screen?
 		--

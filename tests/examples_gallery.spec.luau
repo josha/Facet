@@ -2,7 +2,7 @@
 -- Documentation deliverable (design §17 Phase 4): the first FIVE progressive
 -- tutorial examples, each a runnable, engine-free gallery module verified
 -- headless under Lune. Every example module exports:
---     { title = "...", build = function(LuauUI, core, deps) ... end }
+--     { title = "...", build = function(Facet, core, deps) ... end }
 -- and build(...) returns { screen = <Blueprint>, present? = <presenter opts>,
 -- ...example-specific handles }. deps is the uniform four-field table
 --     { env, actionSystem, presenter, adapter }
@@ -26,19 +26,19 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 -- A complete headless stack: the same wiring a client bootstrap uses, minus
 -- the Roblox-only adapters (FakeTarget stands in for ScreenTarget; the headless
 -- action system stands in for the Input Action System).
 local function makeHarness()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
 	return core, system, adapter, presenter, deps
 end
@@ -65,7 +65,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 	local function tempWorld()
 		local ex = require("../examples/gallery/examples/01_temperature_converter")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle, deps
@@ -214,7 +214,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	local function playlistWorld()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle
@@ -223,7 +223,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
 	end
 	-- ONE CONTROL, NOT FIVE BUTTONS (director round 10, 2026-07-26). The rating
-	-- cell is `LuauUI.newRating`, so the glyphs are Texts under a single Grip:
+	-- cell is `Facet.newRating`, so the glyphs are Texts under a single Grip:
 	-- `star()` still names a glyph to READ, but there is nothing to tap there —
 	-- every input class lands on the strip.
 	local function star(key: string, index: number): string
@@ -305,7 +305,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("the handshake: typing in the filter field never navigates the table or moves selection", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local sys = deps.actionSystem
@@ -360,7 +360,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("per-input activation: keyboard/gamepad Activate on the focused filter field enters edit mode", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local sys = deps.actionSystem
@@ -454,19 +454,19 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		real scrolling ancestor, so the page scroll closes it. ]]
 	it("RULING 3: scrolling the PAGE closes a swiped-open tray on the shipped playlist", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local built =
-			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		-- THE SHIPPED BOOTSTRAP's auto-bind, the same loop as the case above
@@ -563,7 +563,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		function()
 			local ex = require("../examples/gallery/examples/02_playlist_table")
 			local core, _, adapter, presenter, deps = makeHarness()
-			local built = ex.build(LuauUI, core, deps)
+			local built = ex.build(Facet, core, deps)
 			presenter.present(built.screen, built.present)
 			presenter.refresh()
 			local first = built.rows:get()[1].id
@@ -602,19 +602,19 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- a scripted one.
 	local function playingWorld()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local built =
-			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle, clock
@@ -724,7 +724,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
 		local env = deps.env
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local togglePath = "/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle"
@@ -762,7 +762,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local core, _, adapter, presenter, deps = makeHarness()
 		local env = deps.env
 		env:set("preferredInput", "Gamepad")
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local system = deps.actionSystem
@@ -826,7 +826,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
 		deps.env:set("preferredInput", "Gamepad")
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local system = deps.actionSystem
@@ -878,21 +878,21 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			DIFFERENT order (document-order rank, above) and losing it would be a
 			separate regression. ]]
 			local ex = require("../examples/gallery/examples/02_playlist_table")
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("preferredInput", "KeyboardAndMouse")
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
 			local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
-			local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+			local presenter = Facet.newPresenter(core, env, adapter, system, {
 				now = function()
 					return clock.t
 				end,
 				keyboardNavigation = true, -- Tab is opt-in at the presenter
 			})
 			local built =
-				ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+				ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 			presenter.present(built.screen, built.present)
 			presenter.refresh()
 			local function settle(frames: number?)
@@ -969,20 +969,20 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			swipe), and then the pointer is left alone — everything after the swipe is
 			the pad. ]]
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("preferredInput", "Gamepad")
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 0 }
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local built =
-			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local function settle(frames: number?)
@@ -1066,7 +1066,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("Restore puts the original order and every original rating back", function()
 		local core, _, adapter, presenter, deps = makeHarness()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local startOrder = {}
@@ -1122,24 +1122,24 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- on touch" was never the same sentence as "this works on a phone".
 	local function phoneWorld(vw: number?, vh: number?)
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = vw or 390, h = vh or 844 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		-- ...and PreferredInput reads KeyboardAndMouse on a phone nobody has
 		-- touched yet (the engine default, not a fact — environment.luau's own
 		-- 2026-07-29 note). Boot in exactly that state.
 		env:set("preferredInput", "KeyboardAndMouse")
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 0 }
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local built =
-			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local world: any = {
@@ -1529,7 +1529,7 @@ describe("examples/gallery 04: settings sync", function()
 	local function ex03World()
 		local ex = require("../examples/gallery/examples/03_settings_sync")
 		local core, system, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, system, adapter, presenter, built, handle
@@ -1747,7 +1747,7 @@ describe("examples/gallery 04: settings sync", function()
 				do
 					local w = lt.world({ viewport = view.rect, offset = offset, input = "touch", theme = theme })
 					local built = ex.build(
-						LuauUI,
+						Facet,
 						w.core,
 						{ env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
 					)
@@ -1878,7 +1878,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 	it("mounts headlessly with no core error", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, _, _, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
@@ -1887,7 +1887,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 	it("opens a modal that traps focus, and ButtonB dismisses it and restores focus", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, _, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
@@ -1918,7 +1918,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 	it("gamepad navigation to Cancel + activate reports a cancel and dismisses", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, _, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 
 		system.deviceKey("ButtonA", true) -- open the modal (gamepad activate)
@@ -1946,7 +1946,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 	local function ex04World()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
+		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 		return core, system, adapter, presenter, built, handle
 	end
@@ -2080,7 +2080,7 @@ end)
 -- cosmetic:
 --
 --   1. THE MINIMAL CTX. `init.client.luau`'s fixture branch passes
---      {LuauUI, core, env, actionSystem, presenter} — no adapter, no `record`,
+--      {Facet, core, env, actionSystem, presenter} — no adapter, no `record`,
 --      no `flags`, and NO step ever runs. Anything a fixture needs at BUILD has
 --      to be in that set, and anything a player must be able to do has to work
 --      with no scripted help.
@@ -2117,24 +2117,24 @@ local function settleFixture(presenter: any)
 end
 
 local function fixtureWorld(view: any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	-- the live adapter publishes a bar thickness for a pointer session and the
 	-- fake publishes none unless asked — a sweep laid out without it models a
 	-- desktop 8px wider than the real one (tests/scroll_bar_measure.spec.luau)
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
-	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
 -- exactly the call `init.client.luau`'s `mountDemo` makes for `kind == "fixture"`
 local function mountFixture(w: any, module: any): any
 	local built = module.build({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
@@ -2466,7 +2466,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 
 	--[[ THE BADGE — the fifth consequence, and the director's own question
 		(ADR-0026, 2026-08-14): *"should opacity, transparency, and scale get
-		owned/influenced by luauui? it seems like we should be able to animate
+		owned/influenced by facet? it seems like we should be able to animate
 		those."*
 
 		THREE ASSERTIONS, and each of them fails against a DIFFERENT plausible
@@ -3153,7 +3153,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			built.steps.cycleQuality()
 			expect(#events).toBe(2)
 			expect(`{events[2].type} {events[2].path}`).toBe(`select {SETTINGS}/Quality`)
-			-- ...and the fixture is still exactly the controls it was: LuauUI plays
+			-- ...and the fixture is still exactly the controls it was: Facet plays
 			-- nothing, so the only trace of either verb is the event above
 			expect(w.core:lastError()).toBeNil()
 			unsubscribe()

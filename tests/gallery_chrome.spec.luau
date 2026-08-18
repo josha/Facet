@@ -31,7 +31,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
@@ -39,7 +39,7 @@ local demo_picker = require("../examples/gallery/client/demo_picker")
 local theme_picker = require("../examples/gallery/client/theme_picker")
 local settings_panel = require("../examples/gallery/client/settings_panel")
 local showcase_chrome = require("../examples/gallery/client/showcase_chrome")
-local themes = LuauUI.themes
+local themes = Facet.themes
 
 -- the reference packages the showcase actually replicates, minus the
 -- deliberately-degenerate fixtures (`theme_picker.isPickable`'s population split)
@@ -77,17 +77,17 @@ end
 	inference about somebody else's tree. ]]
 local function showcase(opts: any?): any
 	local o: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = o.w or 1232, h = o.h or 1067 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	env:set("capabilities", o.capabilities or { touch = false, mouse = true, keyboard = true, gamepad = true })
 	if o.theme ~= nil then
 		env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{o.theme}`).build(themes), nil, {}))
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 
 	-- the backdrop, presented first and never raised (z-order is present order)
 	pres.present(
@@ -106,7 +106,7 @@ local function showcase(opts: any?): any
 	local settings: any = nil
 
 	local demos = demo_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		presenter = pres,
@@ -141,7 +141,7 @@ local function showcase(opts: any?): any
 	})
 
 	local picker = theme_picker.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -157,7 +157,7 @@ local function showcase(opts: any?): any
 	})
 
 	settings = settings_panel.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		themeSections = if picker ~= nil then picker.sections else nil,
@@ -168,7 +168,7 @@ local function showcase(opts: any?): any
 	})
 
 	chrome = showcase_chrome.mount({
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		presenter = pres,
@@ -877,16 +877,16 @@ end)
 -- ===========================================================================
 describe("settings surface x with_animation: one fact, two editors", function()
 	local function withAnimationWorld(reduced: boolean): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("reducedMotion", reduced)
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local fixture = (require)("../examples/gallery/scenarios/with_animation") :: any
 		local built = fixture.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			actionSystem = system,

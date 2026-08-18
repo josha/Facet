@@ -10,7 +10,7 @@ for truth 4. This file is the compact durable version plus a map of where each
 truth is now encoded so a future consumer cannot re-hit it.
 
 **All of it collapses to one action:** the embedding experience ticks
-`Workspace.PlayerScriptsUseInputActionSystem` (truth 2). That is a LuauUI
+`Workspace.PlayerScriptsUseInputActionSystem` (truth 2). That is a Facet
 requirement, not a suggestion, because no priority number is an alternative.
 
 ## The truths
@@ -23,7 +23,7 @@ requirement, not a suggestion, because no priority number is an alternative.
    through, which masks it until a gamepad user presses A on a button.
 
 2. **`Workspace.PlayerScriptsUseInputActionSystem` is Properties-panel-only —
-   and it is a LuauUI REQUIREMENT, not a tuning knob** (director, 2026-08-15).
+   and it is a Facet REQUIREMENT, not a tuning knob** (director, 2026-08-15).
    The flag that puts Roblox's own player scripts onto IAS (so they join
    arbitration instead of contending) is **not** script- or rojo-reflectable —
    code can neither read nor set it. A human must toggle it in Studio. Best a
@@ -37,7 +37,7 @@ requirement, not a suggestion, because no priority number is an alternative.
    control (`capability-probes-must-be-tri-state`). The property is in the
    reflection database with scriptability off, the same class as
    `StarterPlayer.CreateDefaultPlayerModule` and `Workspace.SignalBehavior`. So
-   this is **not a rollout window a newer build closes**: no LuauUI version on any
+   this is **not a rollout window a newer build closes**: no Facet version on any
    build will read it, and every diagnostic here stays behavioural forever.
 
    **Why "requirement" and not "recommended": no priority number is an
@@ -62,7 +62,7 @@ requirement, not a suggestion, because no priority number is an alternative.
 
 ## The two remedies (they are NOT the same)
 
-- **UI-only place** (menu shell / lobby / the LuauUI gallery — no player-driven
+- **UI-only place** (menu shell / lobby / the Facet gallery — no player-driven
   avatar): disable the control scripts. `gamepad_contention.disableLegacyControls()`
   does `PlayerModule:GetControls():Disable()`, fallback
   `CAS:UnbindAction("jumpAction")`.
@@ -70,7 +70,7 @@ requirement, not a suggestion, because no priority number is an alternative.
   input. Set `PlayerScriptsUseInputActionSystem = true` (truth 2) so avatar input
   joins IAS, then let UI-vs-gameplay contention resolve through InputContext
   priority + Sink — a focus-aware first-responder model (Apple responder-chain
-  analog): an *engaged* LuauUI surface (modal, or a screen the player entered)
+  analog): an *engaged* Facet surface (modal, or a screen the player entered)
   sinks its context above the avatar contexts; a passive HUD binds nothing
   gameplay-contended. The framework-level engagement model is being designed
   under **ADR-0014 (in progress)** — do not hand-roll one ahead of it.

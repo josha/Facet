@@ -331,15 +331,15 @@ end
 table.sort(PRESENTATION_NAMES)
 local PRESENTATION_LIST = `"{table.concat(PRESENTATION_NAMES, '", "')}"`
 
-function progress_view.build(LuauUI: any, core: any, spec: Spec)
+function progress_view.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newProgressView", spec, PROGRESS_VIEW_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "Progress"
 	local presentation = spec.presentation or "bar"
 	local caps = PRESENTATIONS[presentation]
 	if caps == nil then
 		error(
-			`LuauUI newProgressView: unknown presentation '{tostring(presentation)}'. Use one of `
+			`Facet newProgressView: unknown presentation '{tostring(presentation)}'. Use one of `
 				.. `{PRESENTATION_LIST} ("bar" is the default; "spinner" is indeterminate only).`,
 			0
 		)
@@ -350,7 +350,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		local mode = if indeterminate then "indeterminate" else "determinate"
 		local other = if indeterminate then "determinate" else "indeterminate"
 		error(
-			`LuauUI newProgressView: presentation = "{presentation}" is {other} only — `
+			`Facet newProgressView: presentation = "{presentation}" is {other} only — `
 				.. (if indeterminate
 					then "give the view a `value`"
 					else "drop `value` for it, or keep the value and use the default bar")
@@ -360,7 +360,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	end
 	if spec.height ~= nil and not caps.hasTrack then
 		error(
-			`LuauUI newProgressView: \`height\` is the BAR's track thickness, and a "{presentation}" has no `
+			`Facet newProgressView: \`height\` is the BAR's track thickness, and a "{presentation}" has no `
 				.. "track — it would silently become this shape's own size instead. Drop it (the size is the "
 				.. `theme metric \`{tostring(caps.sizeMetric)}\`), or use the default \`presentation = "bar"\`.`,
 			0
@@ -368,7 +368,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	end
 	if not indeterminate and spec.showValue ~= nil and not caps.valueLabel then
 		error(
-			`LuauUI newProgressView: \`showValue\` has nowhere to go on a "{presentation}" — `
+			`Facet newProgressView: \`showValue\` has nowhere to go on a "{presentation}" — `
 				.. `{tostring(caps.valueLabelAlt)}.`,
 			0
 		)
@@ -377,7 +377,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		for _, key in { "min", "max", "format", "showValue" } do
 			if (spec :: any)[key] ~= nil then
 				error(
-					`LuauUI newProgressView: '{key}' describes a value, and this ProgressView has none `
+					`Facet newProgressView: '{key}' describes a value, and this ProgressView has none `
 						.. "(`value = nil` is indeterminate). Drop it, or give the view a value.",
 					0
 				)
@@ -392,7 +392,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		-- that is passed, whatever the presentation).
 		if spec.scope == nil then
 			error(
-				"LuauUI newProgressView: an indeterminate view (`value = nil`) runs a motion cycle for as long "
+				"Facet newProgressView: an indeterminate view (`value = nil`) runs a motion cycle for as long "
 					.. "as it exists, so it needs `scope` — the Scope that owns it, exactly as newAsyncImage "
 					.. "does. Pass the surface's own scope (`handle.scope` retires it with the surface), or any "
 					.. "scope you dispose. `dispose()` is still there for a caller who owns it directly.",
@@ -418,7 +418,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		)
 	then
 		error(
-			"LuauUI newProgressView: `scope` must be a LuauUI Scope — what `core:scope(...)` returns, or a "
+			"Facet newProgressView: `scope` must be a Facet Scope — what `core:scope(...)` returns, or a "
 				.. "presented surface's own `handle.scope`. This control asks it for `own` and `child`, and the "
 				.. "value passed answers neither.",
 			0
@@ -758,7 +758,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	function api.dump()
 		if indeterminate then
 			return {
-				schema = "luauui-progress-dump/1",
+				schema = "facet-progress-dump/1",
 				id = id,
 				indeterminate = true,
 				presentation = presentation,
@@ -772,7 +772,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		end
 		local v = read(nil)
 		return {
-			schema = "luauui-progress-dump/1",
+			schema = "facet-progress-dump/1",
 			id = id,
 			-- ADDITIVE (parity round 2 §3.1): every key below this pair carries the
 			-- exact value it carried before indeterminate existed, so the determinate

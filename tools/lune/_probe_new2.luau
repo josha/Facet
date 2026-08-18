@@ -5,7 +5,7 @@
 -- Runs unchanged on 13fd3c6 (pre-fix) and a6229e0+ (post-fix): it uses only
 -- pointerDown/pointerMove/pointerUp/interruptCapture, never the
 -- `pointerUpActivating` that post-dates 13fd3c6.
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local table_control = require("../../src/controls/table")
 local fake_target = require("../../tests/lib/fake_target")
 
@@ -23,15 +23,15 @@ local function trayPath(key: string, action: string): string
 end
 
 local function makeWorld()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("preferredInput", "Gamepad")
 	env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clock = { t = 100 }
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clock.t
 		end,
@@ -39,7 +39,7 @@ local function makeWorld()
 	local opened: { string } = {}
 	local fired: { string } = {}
 	local tbl = table_control.build(
-		LuauUI,
+		Facet,
 		core,
 		{
 			id = "T",
@@ -79,7 +79,7 @@ local function makeWorld()
 			end,
 		} :: any
 	)
-	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 	pres.refresh()
 	local w: any = {
 		core = core,

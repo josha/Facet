@@ -5,7 +5,7 @@
 --
 -- D6 is a PROPERTIES-ONLY stage (director call 2026-08-16,
 -- `artifacts/navigation-and-menus/additive-vs-net-new.md` §1): no new construct
--- and no new module, so every case below drives `LuauUI.newPicker` the way an
+-- and no new module, so every case below drives `Facet.newPicker` the way an
 -- author will and never reaches into a private.
 --
 -- The three claims that carry the deliverable, and how each is falsified:
@@ -25,11 +25,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 
-local UI = LuauUI.UI
+local UI = Facet.UI
 
 -- ===== the harness ========================================================
 -- One mounted picker on a real presenter. `viewportRect` is wide, so a picker
@@ -37,13 +37,13 @@ local UI = LuauUI.UI
 -- shape every case here is about.
 local function world(spec: any?)
 	local options = spec or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.viewport or 480, h = 640 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local selected = core:signal(options.initial or "grid")
 	local built: any = {
 		id = "View",
@@ -59,7 +59,7 @@ local function world(spec: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local p = LuauUI.newPicker(LuauUI, core, built)
+	local p = Facet.newPicker(Facet, core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 	pres.refresh()
 	return {
@@ -162,9 +162,9 @@ describe("D6: the segmented presentation ADOPTS the sliding indicator", function
 	it("`automatic` is a legal spelling and the refusal message names the whole set", function()
 		local w = world({ presentation = "segmented", indicator = "automatic" })
 		expect(w.adapter.node(BAR) ~= nil).toBe(true)
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
 				selected = core:signal(1),
@@ -222,10 +222,10 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("a nameless option is an AUTHORING ERROR — an icon with no name announces nothing", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		for _, bad in { "", nil :: any } do
 			local ok, err = pcall(function()
-				return LuauUI.newPicker(LuauUI, core, {
+				return Facet.newPicker(Facet, core, {
 					id = "X",
 					options = { { value = "a", label = bad, icon = "shop:bag" } },
 					selected = core:signal("a"),
@@ -237,9 +237,9 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("HIG: icons for ALL options in a group, or none — a half-iconned group is refused", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "X",
 				options = {
 					{ value = "a", label = "Alpha", icon = "shop:bag" },
@@ -251,7 +251,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "all options in a group, or none", 1, true) ~= nil).toBe(true)
 		-- ...and a group with NO icons at all is of course fine
-		local none = LuauUI.newPicker(LuauUI, core, {
+		local none = Facet.newPicker(Facet, core, {
 			id = "Y",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 			selected = core:signal("a"),
@@ -261,9 +261,9 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("`iconOnly` with nothing to draw is refused rather than silently ignored", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return LuauUI.newPicker(LuauUI, core, {
+			return Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 				selected = core:signal("a"),
@@ -368,14 +368,14 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		-- adaptive picker asked for `axis = "y"` is a rail only while it is
 		-- segmented; a live space change that stacks it must not leave a 44px
 		-- column standing where a full-width row list belongs.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local sizeClass = core:signal("regular")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			selected = core:signal("grid"),
 			axis = "y",
@@ -406,7 +406,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		w.adapter.tap(optPath(w, 2))
 		w.pres.refresh()
 		expect(w.selected:get()).toBe("list")
-		local sys = LuauUI.newActionSystem
+		local sys = Facet.newActionSystem
 		expect(type(sys)).toBe("function")
 	end)
 end)
@@ -415,7 +415,7 @@ describe("D6: the dump keeps schema /1 and stays deterministic", function()
 	it("new fields, same schema string — every pre-D6 field keeps its name and meaning", function()
 		local w = world({ presentation = "segmented", options = ICONS, iconOnly = true, label = "View" })
 		local d = w.picker.dump()
-		expect(d.schema).toBe("luauui-picker-dump/1")
+		expect(d.schema).toBe("facet-picker-dump/1")
 		expect(d.id).toBe("View")
 		expect(d.optionCount).toBe(2)
 		expect(d.requestedPresentation).toBe("segmented")
@@ -425,9 +425,9 @@ describe("D6: the dump keeps schema /1 and stays deterministic", function()
 	end)
 
 	it("dispose is registry-neutral with icons, a rail and an indicator all on", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local baseline = core:counters()
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "X",
 			options = ICONS,
 			selected = core:signal("grid"),
@@ -482,14 +482,14 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 		local sizing = nil
 		local w = nil
 		do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+			local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 			sizing = core:signal("fill")
-			local p = LuauUI.newPicker(LuauUI, core, {
+			local p = Facet.newPicker(Facet, core, {
 				id = "View",
 				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 				selected = core:signal("grid"),
@@ -514,9 +514,9 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 	end)
 
 	it("an unknown `sizing` is an authoring error, not a silent fill", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			LuauUI.newPicker(LuauUI, core, {
+			Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = "a", label = "A" } },
 				selected = core:signal("a"),
@@ -530,14 +530,14 @@ end)
 
 describe("D5 seam: `axis` is REACTIVE, because a placement flip is a re-solve", function()
 	it("a live axis flip turns the band into a rail without rebuilding an option", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local axis = core:signal("x")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 			selected = core:signal("grid"),
@@ -614,14 +614,14 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 	end)
 
 	it("a badge VALUE is reactive, and an empty one hides the plate rather than painting a bubble", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local count = core:signal("")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing", badge = count } },
 			selected = core:signal("grid"),
@@ -658,9 +658,9 @@ end)
 
 describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names the row", function()
 	it("a bound label satisfies the non-empty lint and is what dump() announces", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local name = core:signal("Listing")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			label = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = name } },
@@ -676,9 +676,9 @@ describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names t
 	end)
 
 	it("a bound label that is EMPTY right now is still the authoring error it would be as a string", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok = pcall(function()
-			LuauUI.newPicker(LuauUI, core, {
+			Facet.newPicker(Facet, core, {
 				id = "X",
 				options = { { value = "a", label = core:signal("") } },
 				selected = core:signal("a"),
@@ -730,14 +730,14 @@ describe("D5 found: a segmented strip navigates ACROSS on a pad, not down", func
 	end)
 
 	it("a LIVE axis flip re-derives the group with it", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local axis = core:signal("x")
-		local p = LuauUI.newPicker(LuauUI, core, {
+		local p = Facet.newPicker(Facet, core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 			selected = core:signal("grid"),

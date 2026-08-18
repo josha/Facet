@@ -11,7 +11,7 @@
 -- and the frame would still pay for. `perf_lab` owns the dismiss; this module
 -- owns only the blueprint and the signals it reads.
 --
--- ENGINE-FREE: `LuauUI` and `core` arrive as arguments, every value is a signal
+-- ENGINE-FREE: `Facet` and `core` arrive as arguments, every value is a signal
 -- the scenario writes, and no engine type appears anywhere in the file.
 
 local overlay = {}
@@ -43,8 +43,8 @@ export type Model = {
 	splitAction: boolean?,
 }
 
-function overlay.build(LuauUI: any, core: any, model: Model): any
-	local UI = LuauUI.UI
+function overlay.build(Facet: any, core: any, model: Model): any
+	local UI = Facet.UI
 
 	local chips = {}
 	for _, name in model.scenarioNames do

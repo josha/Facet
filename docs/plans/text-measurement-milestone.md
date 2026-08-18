@@ -15,7 +15,7 @@ nothing below needs re-deriving.
 
 ## The goal
 
-Make LuauUI's text boxes match what the engine actually draws, without ever risking a clip.
+Make Facet's text boxes match what the engine actually draws, without ever risking a clip.
 
 Today the solver estimates text width from an average glyph fraction. It is deliberately
 conservative so it can never under-reserve, and the cost is visible: action buttons reserve
@@ -116,10 +116,10 @@ Shape of the work:
 ## Instrument setup
 
 ```
-cd GameStudio/ui/LuauUI
+cd GameStudio/ui/Facet
 lune run tools/lune/studio_sync              # serves current source on :8642
 # then, in Studio via the MCP, Edit datamodel: run tools/studio/inject.luau
-# set workspace.LuauUI_Scenario = "adaptive_controls", press Play
+# set workspace.Facet_Scenario = "adaptive_controls", press Play
 ./run-tests.sh                                # headless suite
 lune run tools/lune/gate authoring-adaptive-ui
 python3 tools/check_matrix_rows.py
@@ -127,7 +127,7 @@ lune run tools/lune/check_prop_parity_cli     # if you touch any public prop
 ./tools/studio/capture_viewport.sh <out.png>  # real PNG of the Studio viewport
 ```
 
-`workspace.LuauUIScenarioAPI` exposes `freezeEnv`, `setEnv`, `step`, `report`, `reset` as
+`workspace.FacetScenarioAPI` exposes `freezeEnv`, `setEnv`, `step`, `report`, `reset` as
 BindableFunctions. `report()` returns geometry, `TextBounds`, `TextFits` and the solver's own
 `diagnostics`.
 

@@ -150,9 +150,9 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"value",
 })
 
-function text_input.build(LuauUI: any, core: any, spec: Spec)
+function text_input.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newTextInput", spec, TEXT_INPUT_KEYS, "spec")
-	local UI = LuauUI.UI
+	local UI = Facet.UI
 	local id = spec.id or "TextInput"
 	local scope = core:scope(`text_input-{id}`)
 
@@ -208,7 +208,7 @@ function text_input.build(LuauUI: any, core: any, spec: Spec)
 	local clearMode = spec.clearButtonMode or (if spec.clearButton then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
 		error(
-			`LuauUI newTextInput('{id}'): clearButtonMode '{tostring(spec.clearButtonMode)}' is not a mode `
+			`Facet newTextInput('{id}'): clearButtonMode '{tostring(spec.clearButtonMode)}' is not a mode `
 				.. `(never | whileEditing | unlessEditing | always)`,
 			0
 		)
@@ -616,7 +616,7 @@ function text_input.build(LuauUI: any, core: any, spec: Spec)
 	-- deterministic diagnostic summary (§10.2 control contract dump form)
 	local function dump()
 		return {
-			schema = "luauui-text_input-dump/1",
+			schema = "facet-text_input-dump/1",
 			id = id,
 			value = spec.value:get(),
 			editing = editing:get(),

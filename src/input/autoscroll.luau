@@ -34,7 +34,7 @@
 --     CARRIES A DIRECT BAND CROSS: dropping from full speed one way to zero
 --     the instant the finger reaches the opposite band is a hard velocity flip,
 --     and "reversing direction mid-ease reads better" is the shipped ruling
---     (RascalRally `UI_SPEC_sponsor_luauui` §11 D-11, off `SponsorGesture`
+--     (RascalRally `UI_SPEC_sponsor_facet` §11 D-11, off `SponsorGesture`
 --     :762-770). So the decay is a channel, not a state: it runs under
 --     "exiting" AND under the fresh "dwelling" the cross starts, and arming
 --     supersedes it.

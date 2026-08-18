@@ -180,7 +180,7 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 	function self.send(payload: any, expectedRevision: number?)
 		if status:get() == "pending" then
 			error(
-				"LuauUI mutation: send() while a request is pending (one in flight per Mutation; wait for confirm/reject)",
+				"Facet mutation: send() while a request is pending (one in flight per Mutation; wait for confirm/reject)",
 				0
 			)
 		end

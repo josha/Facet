@@ -101,7 +101,7 @@ function textReveal.new(ctx: any)
 	local REVEAL_ROOT = "__reveal__"
 	local REVEAL_WINDOW = `/{REVEAL_ROOT}/Layer/Window`
 	local REVEAL_LABEL = `{REVEAL_WINDOW}/Inner/Full`
-	local REVEAL_SCHEMA = "luauui-reveal-dump/1"
+	local REVEAL_SCHEMA = "facet-reveal-dump/1"
 	-- the quiet delay before travel, and both end pauses. Longer than the plate's
 	-- 0.45 dwell on purpose: nothing here was asked for, so the reader gets a
 	-- moment with the stable ellipsis before the line starts moving.

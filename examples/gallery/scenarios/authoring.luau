@@ -59,7 +59,7 @@ return {
 	title = "Strict public authoring",
 	ledgerRows = { "M0-A1", "M0-A4" },
 	build = function(ctx: any)
-		local UI = ctx.LuauUI.UI
+		local UI = ctx.Facet.UI
 		local core = ctx.core
 		local results: { [string]: any } = {}
 		local summary = core:signal("no attempts run")

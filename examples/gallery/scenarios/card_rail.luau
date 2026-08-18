@@ -40,11 +40,11 @@
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS.
 
 	  1. THE SCENARIO RUNNER (`scenarios/runner.luau`, selected by the workspace
-	     attribute `LuauUI_Scenario`): full ctx, `_G.LuauUIScenario` drives the
+	     attribute `Facet_Scenario`): full ctx, `_G.FacetScenario` drives the
 	     steps below by name, and the bootstrap ticks and refreshes every frame.
 	  2. THE SHOWCASE DEMO PICKER (`examples/gallery/client/init.client.luau`,
 	     `mountDemo`, `kind == "fixture"`): the MINIMAL ctx
-	     `{LuauUI, core, env, actionSystem, presenter}` — no adapter, and NO step
+	     `{Facet, core, env, actionSystem, presenter}` — no adapter, and NO step
 	     ever runs. A player reaches this rail by picking "Card rail" from the
 	     chip, and everything they can do to it must therefore work with no
 	     scripted help at all.
@@ -109,8 +109,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("card-rail")
 
@@ -136,7 +136,7 @@ return {
 			return math.clamp(math.floor(w - left - right - PADDING * 2 - RAIL_SLACK), 96, 1600)
 		end))
 
-		local rail = LuauUI.newVirtualList(LuauUI, core, {
+		local rail = Facet.newVirtualList(Facet, core, {
 			id = "Rail",
 			-- THE ONE FIELD THIS WHOLE FIXTURE EXISTS FOR
 			axis = "x",
@@ -213,11 +213,11 @@ return {
 			rail together. Declaring it is what lets the PAGE take the deficit
 			instead — see the scroller below. ]]
 		local cardHeight = scope:own(core:memo(function(use)
-			local facts = LuauUI.text.facts({ env = ctx.env, use = use })
+			local facts = Facet.text.facts({ env = ctx.env, use = use })
 			local box = CARD_PADDING * 2
-				+ LuauUI.text.lineBox({ facts = facts, size = NAME_SIZE, lines = 1 })
+				+ Facet.text.lineBox({ facts = facts, size = NAME_SIZE, lines = 1 })
 				+ CARD_ROW_GAP
-				+ LuauUI.text.lineBox({ facts = facts, size = BADGE_SIZE, lines = 1 })
+				+ Facet.text.lineBox({ facts = facts, size = BADGE_SIZE, lines = 1 })
 			--[[ ...PLUS WHAT THE THEME CARVES OUT OF THE PLATE. `surface = "raised"`
 				classifies to the `panel` chrome slot, and a package whose panel art has
 				a border reserves that border off the node's content box before anything

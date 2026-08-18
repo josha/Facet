@@ -79,8 +79,8 @@ def main() -> int:
     report = json.load(open(PERF))
     errors = []
 
-    if report.get("schema") != "luauui-perf/2":
-        errors.append(f"unexpected schema {report.get('schema')!r}; expected luauui-perf/2")
+    if report.get("schema") != "facet-perf/2":
+        errors.append(f"unexpected schema {report.get('schema')!r}; expected facet-perf/2")
 
     by_scene = {}
     devices = set()

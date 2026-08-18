@@ -59,7 +59,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 local example = require("../examples/gallery/examples/02_playlist_table") :: any
@@ -82,13 +82,13 @@ type World = {
 	whatever the Table contributes for itself. ]]
 local function world(opts: any?): World
 	local o: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 900, h = 640 })
 	if o.preferredInput ~= nil then
 		env:set("preferredInput", o.preferredInput)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	-- OPT INTO THE LIVE DEFAULT (the fake publishes no bar unless a spec asks —
 	-- "which is WHY no headless sweep ever saw this class", scroll_bar_measure).
@@ -100,10 +100,10 @@ local function world(opts: any?): World
 	-- Tab traversal is OPT-IN at the presenter (`keyboardNavigation`), so a case
 	-- that walks the document order has to ask for it — the same way the gallery
 	-- client does for a desktop session
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		keyboardNavigation = o.keyboardNavigation,
 	})
-	local built = example.build(LuauUI, core, {
+	local built = example.build(Facet, core, {
 		env = env,
 		actionSystem = system,
 		presenter = pres,
@@ -618,11 +618,11 @@ end)
 
 	`src/controls/contract.luau` gives Grip `minHitSize = 44`, so the renderer asks
 	the adapter for a 44x44 hit rect CENTRED on an 8x28 grip. On the live engine
-	that is a real `LuauUIHitExpander` TextButton parented beside the grip at
+	that is a real `FacetHitExpander` TextButton parented beside the grip at
 	`grip.z - 1` — which is still ABOVE the header cell's own `Column` button, and a
 	GuiButton sinks `InputBegan` (docs/lessons/a-button-eats-the-swipe-underneath-it).
 
-	MEASURED LIVE, 2026-08-14, LuauUI-Showcase, on the fixture this file replaced,
+	MEASURED LIVE, 2026-08-14, Facet-Showcase, on the fixture this file replaced,
 	with the control in the same session (docs/lessons/a-forty-four-pixel-floor-
 	under-an-eight-pixel-divider.md):
 
@@ -685,17 +685,17 @@ end)
 	measured decision of its own, so it cannot be the surface that asks this. ]]
 describe("column resize on a VIRTUALIZED table", function()
 	local function virtualWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = {}
 		for i = 1, 2000 do
 			table.insert(rows, { id = `r{i}`, n = i })
 		end
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "V",
 			columns = {
 				{
@@ -727,7 +727,7 @@ describe("column resize on a VIRTUALIZED table", function()
 			selection = "single",
 			env = env,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
 		pres.refresh()
 		return adapter, pres, tbl, handle, core
 	end
@@ -879,20 +879,20 @@ describe("newTable: the header's column boundaries are the body's", function()
 
 	local function scrollingWorld(opts: any?): World
 		local o: any = opts or {}
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		if o.reserveBar ~= false then
 			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
 		end
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = {}
 		for i = 1, 28 do
 			table.insert(rows, { id = `r{i}`, name = `Track {i}`, artist = `Artist {i}`, rating = i % 6 })
 		end
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Tracks",
 			columns = {
 				{
@@ -940,7 +940,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 				tbl.dispose()
 			end,
 		}
-		built.handle = pres.present(LuauUI.UI.Screen({ id = "Grid", padding = 12, children = { tbl.blueprint } }), {})
+		built.handle = pres.present(Facet.UI.Screen({ id = "Grid", padding = 12, children = { tbl.blueprint } }), {})
 		if not o.presentOnly then
 			pres.refresh()
 		end
@@ -1077,7 +1077,7 @@ end)
 
 	IT WAS BUILT AND IT DOES NOT WORK, and the measurement is in the second lesson
 	round and in `src/controls/table.luau`'s own comment: a ContextActionService
-	sink at priority **100** consumed both presses while a LuauUI `InputContext` at
+	sink at priority **100** consumed both presses while a Facet `InputContext` at
 	priority **10000, Sink = true** received nothing. The two priorities are not one
 	arbitration space, so no number takes a key back from a CAS binding. What is
 	left of the ruling is the RELEASE — which was a live bug in its own right, and
@@ -1116,13 +1116,13 @@ describe("playlist columns: a selected column is released the moment focus leave
 		press Tab twice, and the hint line goes back to idle with the selection
 		released. ]]
 	it("focus leaving the table entirely releases it too, however it left", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local tbl = table_control.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
 				{
@@ -1144,9 +1144,9 @@ describe("playlist columns: a selected column is released the moment focus leave
 			env = env,
 		})
 		pres.present(
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "S",
-				children = { tbl.blueprint, LuauUI.UI.Button({ id = "Away", label = "Away", focusable = true }) },
+				children = { tbl.blueprint, Facet.UI.Button({ id = "Away", label = "Away", focusable = true }) },
 			}),
 			{}
 		)
@@ -1198,15 +1198,15 @@ end)
 	ONE line rather than wrapping into a row that cannot hold them. ]]
 describe("playlist columns: the 320x640 edit-mode measurement that kept the third column", function()
 	local function editModeCell(vw: number, vh: number, columnId: string): (number, number)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = vw, h = vh })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local built =
-			example.build(LuauUI, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
 		pres.present(built.screen, built.present)
 		pres.refresh()
 		built.table_.api.editing:set(true)
@@ -1230,15 +1230,15 @@ describe("playlist columns: the 320x640 edit-mode measurement that kept the thir
 	end)
 
 	it("the solver files NO collapse diagnostic — which is the whole difference from the fixed column", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local built =
-			example.build(LuauUI, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
 		local handle = pres.present(built.screen, built.present)
 		pres.refresh()
 		built.table_.api.editing:set(true)

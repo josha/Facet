@@ -1,6 +1,6 @@
 # Two InputContexts on one key: the engine's arbitration, measured
 
-**Measured live in Studio, 2026-08-13** (LuauUI-Showcase, **Play / Client**, real
+**Measured live in Studio, 2026-08-13** (Facet-Showcase, **Play / Client**, real
 engine instances — `InputContext` / `InputAction` / `InputBinding` under
 `Players.LocalPlayer`).
 
@@ -42,7 +42,7 @@ fires" is equally explained by "this context was never live at all".
 3. **`PrimaryModifier` really gates candidacy.** A shift-modified binding is not
    a candidate with shift up, which is what leaves plain `Return` to the base
    screen's Activate — the behaviour Rascal Rally's own Shift+Return watch
-   depends on (`code/tests/luauui_row_actions_reach_contract.spec.luau`).
+   depends on (`code/tests/facet_row_actions_reach_contract.spec.luau`).
 
 ## …and it corrects a recorded truth
 

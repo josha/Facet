@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Example 6 of the LuauUI tutorial: a Scrabble-style tile game.
+-- Example 6 of the Facet tutorial: a Scrabble-style tile game.
 -- ============================================================================
 --
 -- WHAT THIS TEACHES
@@ -52,8 +52,8 @@ local function cellKey(r: number, c: number): string
 	return r .. "," .. c
 end
 
-local function build(LuauUI: any, core: any, deps: any)
-	local UI = LuauUI.UI
+local function build(Facet: any, core: any, deps: any)
+	local UI = Facet.UI
 	local pres = deps.presenter
 
 	local gameScope = core:scope("example-06-tile-game")
@@ -269,7 +269,7 @@ local function build(LuauUI: any, core: any, deps: any)
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = "LuauUI Tiles", textSize = "title" }),
+					UI.Text({ id = "Title", text = "Facet Tiles", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
 					-- THE STATS LINE WRAPS (overflow sweep, 320x640: as a plain HStack
 					-- the two readouts needed 307px of row and the page's padded

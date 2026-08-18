@@ -45,7 +45,7 @@ if [ -z "${WIN_ID:-}" ]; then
 	exit 3
 fi
 
-TMP="$(mktemp -t luauui_capture).png"
+TMP="$(mktemp -t facet_capture).png"
 trap 'rm -f "$TMP"' EXIT
 
 # -l<id>: this window's buffer only. -x: no shutter sound. -o: no drop shadow.

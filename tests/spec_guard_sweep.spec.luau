@@ -23,7 +23,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
 local BOGUS = "definitelyNotAKey"
@@ -41,8 +41,8 @@ local function contains(haystack: string, needle: string): boolean
 end
 
 local function world()
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	return core, env
 end
@@ -71,7 +71,7 @@ local function controlRow(name: string, buildSpec: (core: any, env: any) -> any)
 		local core, env = world()
 		return { core, buildSpec(core, env) }, 2
 	end, function(args)
-		LuauUI[name](LuauUI, args[1], args[2])
+		Facet[name](Facet, args[1], args[2])
 	end)
 end
 
@@ -96,7 +96,7 @@ controlRow("newTable", function(core)
 				title = "Name",
 				width = { type = "fill", weight = 1 },
 				cell = function(item: any)
-					return LuauUI.UI.Text({ id = "n", text = item.name })
+					return Facet.UI.Text({ id = "n", text = item.name })
 				end,
 			},
 		},
@@ -113,7 +113,7 @@ controlRow("newVirtualList", function(core)
 		rowHeight = 32,
 		viewportHeight = 200,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "r", text = tostring(item.id) })
+			return Facet.UI.Text({ id = "r", text = tostring(item.id) })
 		end,
 	}
 end)
@@ -129,7 +129,7 @@ controlRow("newVirtualGrid", function(core)
 		itemExtent = 32,
 		viewportExtent = 200,
 		cell = function(item: any)
-			return LuauUI.UI.Text({ id = "r", text = tostring(item.id) })
+			return Facet.UI.Text({ id = "r", text = tostring(item.id) })
 		end,
 	}
 end)
@@ -173,7 +173,7 @@ controlRow("newDisclosureGroup", function(core)
 		label = "Details",
 		expanded = core:signal(false),
 		content = function()
-			return LuauUI.UI.Text({ id = "T", text = "body" })
+			return Facet.UI.Text({ id = "T", text = "body" })
 		end,
 	}
 end)
@@ -186,7 +186,7 @@ controlRow("newAsyncImage", function(core)
 	return {
 		id = "I",
 		scope = core:scope("img"),
-		provider = LuauUI.newResourceProvider(core),
+		provider = Facet.newResourceProvider(core),
 		key = "rbxassetid://1",
 	}
 end)
@@ -196,26 +196,26 @@ end)
 row("valueModel.new", "spec", function()
 	return { { min = 0, max = 10, step = 1 } }, 1
 end, function(args)
-	LuauUI.valueModel.new(args[1])
+	Facet.valueModel.new(args[1])
 end)
 
 row("newResourceProvider", "opts", function()
 	local core = world()
 	return { core, { maxConcurrent = 4, cacheBudget = 16 } }, 2
 end, function(args)
-	LuauUI.newResourceProvider(args[1], args[2])
+	Facet.newResourceProvider(args[1], args[2])
 end)
 
 row("newResourceProvider opts.retry", "opts", function()
 	local core = world()
 	return { core, { count = 2, delaySeconds = 1, giveUp = true } }, 2
 end, function(args)
-	LuauUI.newResourceProvider(args[1], { retry = args[2] })
+	Facet.newResourceProvider(args[1], { retry = args[2] })
 end)
 
 row("provider.acquire", "opts", function()
 	local core = world()
-	local provider = LuauUI.newResourceProvider(core)
+	local provider = Facet.newResourceProvider(core)
 	return { core, provider, { retry = { count = 1 } } }, 3
 end, function(args)
 	args[2].acquire(args[1]:scope("acq"), "rbxassetid://1", args[3])
@@ -223,7 +223,7 @@ end)
 
 row("provider.preload", "opts", function()
 	local core = world()
-	return { LuauUI.newResourceProvider(core), { retry = { count = 1 } } }, 2
+	return { Facet.newResourceProvider(core), { retry = { count = 1 } } }, 2
 end, function(args)
 	args[1].preload({ "rbxassetid://1" }, args[2])
 end)
@@ -232,26 +232,26 @@ row("adaptive.conditions", "opts", function()
 	local core, env = world()
 	return { core, env, { scope = core:scope("cond"), stackAbove = 600 } }, 3
 end, function(args)
-	LuauUI.adaptive.conditions(args[1], args[2], args[3])
+	Facet.adaptive.conditions(args[1], args[2], args[3])
 end)
 
 row("inputHint", "opts", function()
 	local core, env = world()
 	return { core, env, { style = "phrase" } }, 3
 end, function(args)
-	LuauUI.inputHint(args[1], args[2], nil, args[3])
+	Facet.inputHint(args[1], args[2], nil, args[3])
 end)
 
 row("newAutoscroll", "opts", function()
 	return { { bandH = 40, dwellS = 0.1, vMin = 100, vMax = 900 } }, 1
 end, function(args)
-	LuauUI.newAutoscroll(args[1])
+	Facet.newAutoscroll(args[1])
 end)
 
 row("newDragVelocity", "opts", function()
 	return { { windowS = 0.1 } }, 1
 end, function(args)
-	LuauUI.newDragVelocity(args[1])
+	Facet.newDragVelocity(args[1])
 end)
 
 row("newDragSession", "opts", function()
@@ -264,13 +264,13 @@ row("newDragSession", "opts", function()
 	},
 		1
 end, function(args)
-	LuauUI.newDragSession(args[1])
+	Facet.newDragSession(args[1])
 end)
 
 row("newDragSession target", "spec", function()
 	return { { id = "/S/B", rect = { x = 0, y = 0, w = 10, h = 10 } } }, 1
 end, function(args)
-	LuauUI.newDragSession({ payload = 1, source = "/S/A", targets = { args[1] } })
+	Facet.newDragSession({ payload = 1, source = "/S/A", targets = { args[1] } })
 end)
 
 row("newDragRegistry", "opts", function()
@@ -284,49 +284,49 @@ row("newDragRegistry", "opts", function()
 		},
 	}, 1
 end, function(args)
-	LuauUI.newDragRegistry(args[1])
+	Facet.newDragRegistry(args[1])
 end)
 
 row("mount", "opts", function()
 	local core = world()
 	return { core, { scope = core:scope("mount") } }, 2
 end, function(args)
-	LuauUI.mount(args[1], LuauUI.UI.Screen({ id = "S", children = {} }), args[2])
+	Facet.mount(args[1], Facet.UI.Screen({ id = "S", children = {} }), args[2])
 end)
 
 row("renderer.attach", "opts", function()
 	local core, env = world()
 	return { core, env, { rootPolicy = "edgeToEdge" } }, 3
 end, function(args)
-	local root = LuauUI.mount(args[1], LuauUI.UI.Screen({ id = "S", children = {} }))
-	LuauUI.renderer.attach(args[1], root, args[2], fake_target.new(), args[3])
+	local root = Facet.mount(args[1], Facet.UI.Screen({ id = "S", children = {} }))
+	Facet.renderer.attach(args[1], root, args[2], fake_target.new(), args[3])
 end)
 
 row("motion.newClock", "opts", function()
 	local core = world()
 	return { core, { now = os.clock } }, 2
 end, function(args)
-	LuauUI.motion.newClock(args[1], args[2])
+	Facet.motion.newClock(args[1], args[2])
 end)
 
 row("newPresenter", "opts", function()
 	local core, env = world()
 	return { core, env, { now = os.clock } }, 3
 end, function(args)
-	LuauUI.newPresenter(args[1], args[2], fake_target.new(), LuauUI.newActionSystem(args[1]), args[3])
+	Facet.newPresenter(args[1], args[2], fake_target.new(), Facet.newActionSystem(args[1]), args[3])
 end)
 
 local function presenterRow(name: string, method: string, opts: any)
 	row(name, "opts", function()
 		local core, env = world()
-		local pres = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		-- a FRESH opts table per build: the bogus run mutates the table it is
 		-- handed, and a shared literal would leak the stray key into the legal run
 		return { pres, table.clone(opts) }, 2
 	end, function(args)
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = `S{math.random(1, 1e6)}`,
-			children = { LuauUI.UI.Text({ id = "T", text = "hi" }) },
+			children = { Facet.UI.Text({ id = "T", text = "hi" }) },
 		})
 		if method == "presentCritical" then
 			args[1].presentCritical(function()
@@ -342,7 +342,7 @@ presenterRow("presenter.present", "present", { rootPolicy = "edgeToEdge" })
 presenterRow("presenter.presentModal", "presentModal", { scrim = "none", cancelPolicy = "none" })
 presenterRow("presenter.presentCritical", "presentCritical", {
 	fallbackScreen = function()
-		return LuauUI.UI.Screen({ id = "Fallback", children = {} })
+		return Facet.UI.Screen({ id = "Fallback", children = {} })
 	end,
 })
 presenterRow("presenter.presentToast", "presentToast", { duration = 2, readFloor = 1, position = "top" })
@@ -400,7 +400,7 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 			local err = failure(function()
 				r.call(args)
 			end)
-			expect(contains(err, `LuauUI {r.name}:`)).toBe(true)
+			expect(contains(err, `Facet {r.name}:`)).toBe(true)
 			expect(contains(err, `unknown {r.kind} key '{BOGUS}'`)).toBe(true)
 			-- the legal set is in the message, because a closed set the author
 			-- cannot read is a wall with no door
@@ -416,12 +416,12 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 	it("a near-miss key gets a did-you-mean", function()
 		local core = world()
 		local err = failure(function()
-			LuauUI.valueModel.new({ min = 0, max = 1, stepp = 1 })
+			Facet.valueModel.new({ min = 0, max = 1, stepp = 1 })
 		end)
 		expect(contains(err, "Did you mean 'step'?")).toBe(true)
 		-- ...and a key nothing resembles does not invent one
 		local far = failure(function()
-			LuauUI.newAutoscroll({ zzzzzzzzzz = 1 })
+			Facet.newAutoscroll({ zzzzzzzzzz = 1 })
 		end)
 		expect(contains(far, "Did you mean")).toBe(false)
 		expect(core ~= nil).toBe(true)
@@ -429,15 +429,15 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 
 	it("nil and empty tables stay legal — the guard is a closed set, not a schema", function()
 		local core = world()
-		expect(LuauUI.newAutoscroll() ~= nil).toBe(true)
-		expect(LuauUI.newAutoscroll({}) ~= nil).toBe(true)
-		expect(LuauUI.newResourceProvider(core, {}) ~= nil).toBe(true)
-		expect(LuauUI.motion.newClock(core, nil) ~= nil).toBe(true)
+		expect(Facet.newAutoscroll() ~= nil).toBe(true)
+		expect(Facet.newAutoscroll({}) ~= nil).toBe(true)
+		expect(Facet.newResourceProvider(core, {}) ~= nil).toBe(true)
+		expect(Facet.motion.newClock(core, nil) ~= nil).toBe(true)
 	end)
 
 	it("a NON-STRING key is the same authoring mistake and is refused too", function()
 		local err = failure(function()
-			LuauUI.valueModel.new({ min = 0, max = 1, [1] = "positional" })
+			Facet.valueModel.new({ min = 0, max = 1, [1] = "positional" })
 		end)
 		expect(contains(err, "unknown spec key '1'")).toBe(true)
 	end)

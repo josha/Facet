@@ -8,15 +8,15 @@ parity-doc rewrite, and test-suite efficiency.
 
 ## Context — read these first, in order
 
-1. Root `CLAUDE.md` — note the "LuauUI and Rascal Rally move together" rule; it binds every phase below.
+1. Root `CLAUDE.md` — note the "Facet and Rascal Rally move together" rule; it binds every phase below.
 2. `GameStudio/ENGINEERING.md` and `GameStudio/MODELS.md`.
-3. `GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md` — current parity inventory and its verdict taxonomy (Covered / Partial / Composable / Missing).
-4. `GameStudio/ui/LuauUI/docs/plans/swiftui-parity-next.md` — the governing roadmap. This mission implements slices of investments 5, 6, 7, and 9 and closes gaps that doc already names (`withAnimation`, `layoutPriority`, container-relative conditions, sensory feedback).
-5. `GameStudio/ui/LuauUI/docs/lessons/` — skim titles; read any that touch the solver, perf, or gates before the relevant phase.
+3. `GameStudio/ui/Facet/docs/reference/swiftui-parity.md` — current parity inventory and its verdict taxonomy (Covered / Partial / Composable / Missing).
+4. `GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md` — the governing roadmap. This mission implements slices of investments 5, 6, 7, and 9 and closes gaps that doc already names (`withAnimation`, `layoutPriority`, container-relative conditions, sensory feedback).
+5. `GameStudio/ui/Facet/docs/lessons/` — skim titles; read any that touch the solver, perf, or gates before the relevant phase.
 
-All framework work happens in `GameStudio/ui/LuauUI/`; consumer work in
+All framework work happens in `GameStudio/ui/Facet/`; consumer work in
 `games/RascalRally/` ships in the same phase as the framework change that
-requires it. Tests: `./run-tests.sh` from the LuauUI folder (~3.8k cases; keep
+requires it. Tests: `./run-tests.sh` from the Facet folder (~3.8k cases; keep
 green). Gates: `tools/lune/gate` via `tools/gate.sh <phase>`;
 `tools/prior_gates.sh` re-runs predecessors. When any check greps suite output,
 match `✓` lines exactly — a grep that can't fail proves nothing.
@@ -28,7 +28,7 @@ match `✓` lines exactly — a grep that can't fail proves nothing.
 - Grid/GridRow: add a SwiftUI-style aligned-column grid API without breaking existing `UI.Grid` callers.
 - Indeterminate progress: yes — both a bar mode and a circular spinner.
 - Label: audit against SwiftUI and close only gaps a real scenario needs (YAGNI).
-- `sensoryFeedback`: a modifier that emits through the existing semantic feedback bus. LuauUI still plays nothing itself. One opt-in client haptics adapter, default off.
+- `sensoryFeedback`: a modifier that emits through the existing semantic feedback bus. Facet still plays nothing itself. One opt-in client haptics adapter, default off.
 - Table: add pointer double-click primary action; verify/finish modifier-key multi-select.
 - `layoutPriority`: implement (it is already on the roadmap, investment 6).
 - `containerRelativeFrame`: implement a scoped form (axis + fraction, count/span for paging) measured against the nearest container viewport, not the immediate parent.
@@ -45,7 +45,7 @@ match `✓` lines exactly — a grep that can't fail proves nothing.
 - Blueprint schema stays strict: every new public property registered; unknown properties still rejected; exported Luau types updated.
 - Every new public API appears in at least one gallery scenario that `examples_gallery.spec` executes headlessly.
 - Rascal Rally rider: each phase, inspect affected callers; update or add game-side compatibility test/evidence proving the live consumer is current. No game behavior change without separate authorization.
-- Phase end: dispatch fresh-context verifier subagents — `luauui-architecture-verifier` every phase, `luauui-reactive-runtime-verifier` for Phase 1, `luauui-phase-gate-verifier` at each milestone — and fix findings before moving on.
+- Phase end: dispatch fresh-context verifier subagents — `facet-architecture-verifier` every phase, `facet-reactive-runtime-verifier` for Phase 1, `facet-phase-gate-verifier` at each milestone — and fix findings before moving on.
 
 ## Showcase rule — new content must be reachable in-experience
 
@@ -65,7 +65,7 @@ The showcase place already switches both the demo and the theme in-game
 3. Update `tests/gallery_demo_picker.spec.luau` (the picker model is pure and
    asserted there) and `tests/examples_gallery.spec.luau` (headless execution).
 4. Rebuild the places: `tools/build_places.sh` from the library root. It emits
-   `examples/places/LuauUI-Showcase.rbxl` (plus the per-example places and the
+   `examples/places/Facet-Showcase.rbxl` (plus the per-example places and the
    performance lab) using `rojo build` only — it never publishes. Commit the
    rebuilt `.rbxl` so the checked-in showcase is current.
 5. Device canary: at least one compact view including the 320x640 sweep, driven
@@ -134,7 +134,7 @@ home exists. Every new/changed scenario runs headlessly in
 compact view — include the 320x640 sweep.
 
 Then apply the **Showcase rule** above in full: register, test, rebuild
-`examples/places/LuauUI-Showcase.rbxl` with `tools/build_places.sh`, commit it,
+`examples/places/Facet-Showcase.rbxl` with `tools/build_places.sh`, commit it,
 and prove the new content is selectable in-experience.
 
 ## Phase 5 — parity doc rewrite [M3]

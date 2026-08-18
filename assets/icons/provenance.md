@@ -1,4 +1,4 @@
-# LuauUI standard icon set — provenance
+# Facet standard icon set — provenance
 
 **Stage:** compact-label · **Created:** 2026-07-27 · **Deterministic:** no seed, no randomness.
 
@@ -38,19 +38,19 @@ drawn at. A 128 px preview would prove nothing.
 
 | File | Size | Semantic name | ASCII floor | Tint role |
 |---|---|---|---|---|
-| luauui_icon_chevron_left.png | 128×128 | `chevron.leading` | `<` | content |
-| luauui_icon_chevron_right.png | 128×128 | `chevron.trailing` | `>` | content |
-| luauui_icon_chevron_up.png | 128×128 | `chevron.up` | `^` | content |
-| luauui_icon_chevron_down.png | 128×128 | `chevron.down` | `v` | content |
-| luauui_icon_check.png | 128×128 | `checkmark` | `v` | content |
-| luauui_icon_close.png | 128×128 | `close` | `x` | content |
-| luauui_icon_plus.png | 128×128 | `increment` | `+` | content |
-| luauui_icon_minus.png | 128×128 | `decrement` | `-` | content |
-| luauui_icon_menu.png | 128×128 | `menu` | `=` | content |
-| luauui_icon_more.png | 128×128 | `more` | `...` | content |
-| luauui_icon_edit.png | 128×128 | `edit` | `/` | content |
-| luauui_icon_trash.png | 128×128 | `trash` | `U` | content |
-| luauui_icon_flag.png | 128×128 | `flag` | `P` | content |
+| facet_icon_chevron_left.png | 128×128 | `chevron.leading` | `<` | content |
+| facet_icon_chevron_right.png | 128×128 | `chevron.trailing` | `>` | content |
+| facet_icon_chevron_up.png | 128×128 | `chevron.up` | `^` | content |
+| facet_icon_chevron_down.png | 128×128 | `chevron.down` | `v` | content |
+| facet_icon_check.png | 128×128 | `checkmark` | `v` | content |
+| facet_icon_close.png | 128×128 | `close` | `x` | content |
+| facet_icon_plus.png | 128×128 | `increment` | `+` | content |
+| facet_icon_minus.png | 128×128 | `decrement` | `-` | content |
+| facet_icon_menu.png | 128×128 | `menu` | `=` | content |
+| facet_icon_more.png | 128×128 | `more` | `...` | content |
+| facet_icon_edit.png | 128×128 | `edit` | `/` | content |
+| facet_icon_trash.png | 128×128 | `trash` | `U` | content |
+| facet_icon_flag.png | 128×128 | `flag` | `P` | content |
 
 13 files, 24 KB of PNG on disk (~100 KB including the source and contact sheet).
 

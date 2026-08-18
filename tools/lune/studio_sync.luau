@@ -7,8 +7,8 @@
 --   lune run tools/lune/studio_sync manifest   -- write build/studio_manifest.json and exit
 --
 -- Manifest maps repository files onto the gallery Rojo tree
--- (examples/gallery.project.json): src -> ReplicatedStorage.LuauUI,
--- examples/gallery/examples -> ReplicatedStorage.LuauUIExamples,
+-- (examples/gallery.project.json): src -> ReplicatedStorage.Facet,
+-- examples/gallery/examples -> ReplicatedStorage.FacetExamples,
 -- examples/gallery/client -> StarterPlayer.StarterPlayerScripts.Gallery.
 -- Rojo folding: <dir>/init.luau => ModuleScript named <dir> whose Source is the
 -- init file; sibling .luau files => child ModuleScripts. *.spec.luau excluded.
@@ -23,7 +23,7 @@ local process = require("@lune/process")
 local PORT = 8642
 
 type FileEntry = {
-	path: string, -- dot path under game, e.g. ReplicatedStorage.LuauUI.layout.solver
+	path: string, -- dot path under game, e.g. ReplicatedStorage.Facet.layout.solver
 	className: string, -- ModuleScript | LocalScript
 	file: string, -- repo-relative source file
 }
@@ -60,7 +60,7 @@ local function addTree(fsDir: string, robloxPath: string, rootClassName: string)
 end
 
 -- TWO TREES, ONE AT A TIME (roadmap Step 9). The gallery and the performance lab
--- both mount at `ReplicatedStorage.LuauUIScenarios`, because the lab REUSES the
+-- both mount at `ReplicatedStorage.FacetScenarios`, because the lab REUSES the
 -- gallery's scenario runner rather than forking it — so serving both at once
 -- would put two different `init.luau` files at the same path and the last writer
 -- would win silently. The mode is explicit instead:
@@ -73,23 +73,23 @@ end
 -- the gallery runner mapped in as a child of the lab registry.
 local mode = if process.args[1] == "perf" then "perf" else "gallery"
 
-addTree("src", "ReplicatedStorage.LuauUI", "ModuleScript")
-addTree("examples/themes", "ReplicatedStorage.LuauUIThemes", "Folder")
+addTree("src", "ReplicatedStorage.Facet", "ModuleScript")
+addTree("examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
 if mode == "perf" then
-	addTree("examples/performance/lab", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
+	addTree("examples/performance/lab", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 	table.insert(entries, {
-		path = "ReplicatedStorage.LuauUIScenarios.runner",
+		path = "ReplicatedStorage.FacetScenarios.runner",
 		className = "ModuleScript",
 		file = "examples/gallery/scenarios/runner.luau",
 	})
 	addTree("examples/performance/client", "StarterPlayer.StarterPlayerScripts.PerfLab", "ModuleScript")
 else
-	addTree("examples/gallery/examples", "ReplicatedStorage.LuauUIExamples", "Folder")
-	addTree("examples/gallery/scenarios", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
+	addTree("examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
+	addTree("examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 	addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
 	-- swiftui-reference-app-validation: the five clean-room reference proofs,
-	-- mirrored from gallery.project.json's LuauUIReference mapping
-	addTree("examples/reference", "ReplicatedStorage.LuauUIReference", "Folder")
+	-- mirrored from gallery.project.json's FacetReference mapping
+	addTree("examples/reference", "ReplicatedStorage.FacetReference", "Folder")
 end
 -- vendored Fusion is not needed by the gallery runtime path; skip.
 
@@ -118,7 +118,7 @@ local function buildManifest(): any
 		hash = (hash * 33 + string.byte(stampInput, i)) % 4294967296
 	end
 	return {
-		schema = "luauui-studio-sync/1",
+		schema = "facet-studio-sync/1",
 		stamp = string.format("%08x-%d", hash, totalBytes),
 		port = PORT,
 		files = entries,

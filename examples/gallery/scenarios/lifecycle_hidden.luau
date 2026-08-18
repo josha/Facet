@@ -78,8 +78,8 @@ return {
 	copy = COPY,
 	logLines = LOG_LINES,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("lifecycle-hidden")
 

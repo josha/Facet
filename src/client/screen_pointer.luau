@@ -271,7 +271,7 @@ function screen_pointer.new(ctx: any)
 		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
 
 		A control whose solved rect is under its contract's `minHitSize` gets a
-		second real `TextButton` from `setHitRect` — the `LuauUIHitExpander`, a
+		second real `TextButton` from `setHitRect` — the `FacetHitExpander`, a
 		sibling at `host.z - 1`. Until now that button was wired to `handle.activate`
 		ALONE, and `activate` is assigned for TAPPABLE classes only (Button, Toggle,
 		TextField). A `Grip` is a POINTER ZONE, not a tappable, so its expander was a

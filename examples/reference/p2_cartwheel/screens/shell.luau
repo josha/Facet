@@ -438,7 +438,7 @@ function shell.new(app: any): any
 	-- CANCEL, one verb, one owner (spec §4/§17): the screen's contribution pops
 	-- exactly one level, and the Back button in the compact header calls the
 	-- same function — pointer and Cancel can never disagree.
-	self.screen = app.LuauUI.contribution.attach(screen, {
+	self.screen = app.Facet.contribution.attach(screen, {
 		handleCancel = function(): boolean
 			return app.actions.back()
 		end,

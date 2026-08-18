@@ -499,7 +499,7 @@ describe("D1 anchored surface: presented against a source view's screen rect", f
 		})
 		local a = pres.anchoredSurfaces()
 		local b = pres.anchoredSurfaces()
-		expect(a.schema).toBe("luauui-anchored-dump/1")
+		expect(a.schema).toBe("facet-anchored-dump/1")
 		expect(a.text).toBe(b.text)
 		expect(a.surfaces[1].edge).toBe("bottom")
 		expect(string.find(a.text, "Tip", 1, true) ~= nil).toBe(true)
@@ -608,7 +608,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 		"SEAM AUTHORITY: the band's tint role and the panel's own rule name the same colour, in every package",
 		function()
 			local sheet_model = require("../src/tokens/sheet_model")
-			local LuauUI = require("../src") :: any
+			local Facet = require("../src") :: any
 			local PACKAGES = {
 				"classic_desktop",
 				"compact_pointer",
@@ -623,7 +623,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 				return a ~= nil and b ~= nil and near(a.r, b.r, 1e-9) and near(a.g, b.g, 1e-9) and near(a.b, b.b, 1e-9)
 			end
 			for _, name in PACKAGES do
-				local pkg = (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+				local pkg = (require)(`../examples/themes/{name}`).build(Facet.themes)
 				for _, theme in pkg.style.themes do
 					-- what the BAND paints: the tint role resolved through the palette
 					local band = sheet_model.tintColor(theme, { role = "surfaceStrong", blend = 1 }, "Box")

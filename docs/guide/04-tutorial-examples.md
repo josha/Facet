@@ -3,14 +3,14 @@
 The library ships seven small example programs under
 `examples/gallery/examples/`. The playlist example covers two distinct learning
 stages, so the table below has eight numbered stages. Work through the files in
-order and you will have used every major feature of LuauUI.
+order and you will have used every major feature of Facet.
 
 ## How the examples are structured
 
 Every example file returns the same shape:
 
 ```lua
-{ title = "...", build = function(LuauUI, core, deps) ... end }
+{ title = "...", build = function(Facet, core, deps) ... end }
 ```
 
 `deps` is always the same four-field table — `{ env, actionSystem, presenter,
@@ -52,10 +52,10 @@ The file order:
 **New concepts: signals, memos, and a real text field with its two edit modes.**
 
 The smallest interactive screen. The user types a Fahrenheit value into a
-numeric text field (`LuauUI.newTextInput`) and sees it converted to Celsius. The field is the
+numeric text field (`Facet.newTextInput`) and sees it converted to Celsius. The field is the
 primary — and only — input affordance. (Earlier builds of this tutorial used
 stepper buttons because the library had no editable text-box control; now that
-the text-input control (`LuauUI.newTextInput`, over the `UI.TextField` primitive) ships, the field replaces them.)
+the text-input control (`Facet.newTextInput`, over the `UI.TextField` primitive) ships, the field replaces them.)
 
 **The way back.** The quality pass played this screen and found it had no reset at
 all: once a value was typed, the only route to the starting state was select-all-
@@ -95,7 +95,7 @@ a callback for each:
   Until you commit, the Result stays `—`.
 
 ```lua
-local field = LuauUI.newTextInput(LuauUI, core, {
+local field = Facet.newTextInput(Facet, core, {
     id = "Fahrenheit",
     value = fahrenheitText,
     placeholder = "e.g. 212",
@@ -279,12 +279,12 @@ splice is applied to the full `baseRows` (the post-removal contract below).
 
 A table column can render plain text with `value`, or any blueprint with
 `cell`. Name is a `value` column; Rating is a `cell` column that mounts a real
-`LuauUI.newRating` control — one control, not five buttons, built once per track
+`Facet.newRating` control — one control, not five buttons, built once per track
 and owned by the example — whose glyphs are derived values over that track's
 rating signal:
 
 ```lua
-ratingControls[track.id] = LuauUI.newRating(LuauUI, core, {
+ratingControls[track.id] = Facet.newRating(Facet, core, {
 	id = "Rating", env = deps.env, value = ratings[track.id], count = 5,
 })
 ```
@@ -336,7 +336,7 @@ convention makes multi-row drags unambiguous.
 ### Swipe actions on either edge
 
 Swiping a row sideways reveals its actions — left for **Remove**, right for
-**Top**. This is `rowActions`, the turnkey form of `LuauUI.newRowActions` that
+**Top**. This is `rowActions`, the turnkey form of `Facet.newRowActions` that
 `Table` hosts for you: return `{ leading, trailing, fullSwipe }` for a row and
 that row gets a tray on each edge you filled in.
 
@@ -438,7 +438,7 @@ mode. Reordering is disabled while a filter is active — clear it first.
 reconciles, with every step of the round trip on the screen.**
 
 An audio-settings form (a Music toggle and a volume stepper) whose values are
-owned by the server. This is the first example to use `LuauUI.replication`, and it
+owned by the server. This is the first example to use `Facet.replication`, and it
 is the practical version of the client/server model from
 [chapter 1](01-concepts.md).
 
@@ -887,7 +887,7 @@ pulls together three features not seen before.
 **Adaptive layout — and who is allowed to do it.** This example used to size its
 own tiles from the environment's `sizeClass` fact, with a `compact/regular/wide ->
 40/56/72 px` branch computed right here. That is *imperative responsive geometry
-inside a consumer*, and the quality pass removed it: adaptation is LuauUI's job,
+inside a consumer*, and the quality pass removed it: adaptation is Facet's job,
 not an example's, and an example that names device classes has taken over a
 decision the framework already makes.
 
@@ -908,12 +908,12 @@ the tree and the tile never drops below the theme's touch floor at any of four
 viewports.
 
 **Asynchronous images.** Each tile kind's picture is loaded through
-`LuauUI.newResourceProvider`, which models the *ready* and *pending* states a real
+`Facet.newResourceProvider`, which models the *ready* and *pending* states a real
 texture load has. A tile shows an explicit placeholder until its image resolves,
 so nothing on screen assumes an image exists the instant a tile appears:
 
 ```lua
-local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 8 })
+local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
 kindHandle[kind] = provider.acquire(gameScope, `img/{kind}`)
 ...
 local image = reg(core:memo(function(use)

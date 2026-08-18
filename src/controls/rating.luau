@@ -134,7 +134,7 @@ local RATING_KEYS = specGuard.keySet({
 	"value",
 })
 
-function rating.build(LuauUI: any, core: any, spec: Spec)
+function rating.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newRating", spec, RATING_KEYS, "spec")
 	local id = spec.id or "Rating"
 	local count = if spec.count ~= nil then spec.count else 5
@@ -146,7 +146,7 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 	local diagnostics: { string } = {}
 	level_picker.diagnoseCount("newRating", id, count, diagnostics)
 
-	local api, facts = level_picker.compose(LuauUI, core, {
+	local api, facts = level_picker.compose(Facet, core, {
 		constructor = "newRating",
 		-- THE NODE NAMES ARE PART OF THE PRESET, not decoration: `Stars/Star{n}`
 		-- and `Strip` are read by `tests/rating.spec.luau`,
@@ -194,7 +194,7 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 	-- any key it read yesterday reads the same thing today.
 	function api.dump()
 		local out = facts()
-		out.schema = "luauui-rating-dump/1"
+		out.schema = "facet-rating-dump/1"
 		return out
 	end
 

@@ -1,7 +1,7 @@
 # Playbook: a custom control that ships its own art (rung 3)
 
 Audience: an agent (or developer) with NO prior context on this repository, who
-has decided that the look they want is **not a variation of anything LuauUI
+has decided that the look they want is **not a variation of anything Facet
 ships**. That is rung 3 of the customization ladder
 ([`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md) §10.11); rungs 1
 and 2 are a theme package and a per-view override, and you should be sure you
@@ -25,10 +25,10 @@ one module and it is the whole answer.
 
 ## 0. Ground rules
 
-- Work from the library root: `GameStudio/ui/LuauUI` (use absolute paths in shell
+- Work from the library root: `GameStudio/ui/Facet` (use absolute paths in shell
   commands — `docs/lessons/absolute-paths-in-shell-commands.md`).
 - **Public API only.** A control written outside this repository gets
-  `LuauUI.UI`, `LuauUI.themes`, the resolved snapshot, and the compiled package's
+  `Facet.UI`, `Facet.themes`, the resolved snapshot, and the compiled package's
   own plain data. That is the whole seam. If your control needs
   `src/tokens/chrome_slots` or any other internal require, stop: that is a hole
   in the public API, and the honest move is to file it rather than to reach

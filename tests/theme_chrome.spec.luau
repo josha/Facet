@@ -14,13 +14,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local chrome_props = require("../src/tokens/chrome_props")
 local fake_target = require("./lib/fake_target")
 
-local themes = LuauUI.themes
+local themes = Facet.themes
 local parchmentModule = require("../examples/themes/fantasy_parchment_stub")
 local classicModule = require("../examples/themes/classic_desktop")
 local scifiModule = require("../examples/themes/scifi_hud")
@@ -431,7 +431,7 @@ describe("chrome_slots: classification", function()
 	end)
 
 	it("the hint round-trips through the blueprint's internal meta channel", function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		local box = UI.Box({ id = "Rail", surface = "control" })
 		expect(chrome_slots.readHint(box)).toBeNil()
 		local hinted = chrome_slots.attachHint(box, { slot = "sliderTrack", image = "rbxassetid://1" })
@@ -490,14 +490,14 @@ describe("chrome_slots: the census and the fallback ledger", function()
 		-- the REAL all-controls fixture, mounted headlessly: the census below is
 		-- over what the framework actually renders, not a hand-written list
 		local scenario = require("../examples/gallery/scenarios/adaptive_controls") :: any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -665,13 +665,13 @@ describe("decoration content insets reach the solver", function()
 	end)
 
 	it("the renderer adds the chrome insets to a slotted node's padding, and nothing else", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
-		local UI = LuauUI.UI
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
 		local screen = UI.Screen({
 			id = "InsetProbe",
 			children = {
@@ -750,13 +750,13 @@ describe("a LAYERED recipe's content insets reach the solver too", function()
 	end)
 
 	it("a content-sized button under the layered skin reserves the room its label is painted in", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 400 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
-		local UI = LuauUI.UI
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
 		-- the reported node: a plain label button in a row that lets it size to
 		-- its own content (the fixture's toolbar shape)
 		local handle = presenter.present(UI.Screen({
@@ -1204,7 +1204,7 @@ describe("readable badges: the seal, the lift, and the inset the value sits in",
 	end)
 
 	it('`UI.Text{ surface = "badge" }` is the public authoring path, and it is NARROW', function()
-		local UI = LuauUI.UI
+		local UI = Facet.UI
 		-- the two READ-ONLY surfaces a label may wear...
 		for _, surface in { "badge", "chip" } do
 			local bp = UI.Text({ id = "B", text = "3", surface = surface })
@@ -1860,13 +1860,13 @@ describe("the scroll canvas reaches a theme's decoration bleed", function()
 	end)
 
 	it("the canvas a scrolling region declares grows by exactly that much", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
-		local UI = LuauUI.UI
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local UI = Facet.UI
 		local rows = {}
 		for i = 1, 10 do
 			table.insert(rows, UI.Box({ id = `r{i}`, surface = "raised", height = { type = "fixed", px = 40 } }))

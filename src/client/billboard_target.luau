@@ -29,7 +29,7 @@ export type Opts = {
 	maxDistance: number?,
 	style: any?,
 	-- DEPRECATED, and forwarded verbatim to `screen_target.new` — see its own `Opts`
-	-- for why it survives at all. Registered in `LuauUI.DEPRECATIONS` as
+	-- for why it survives at all. Registered in `Facet.DEPRECATIONS` as
 	-- `screen_target.new(opts.isReducedMotion)`, which this field retires with:
 	-- reduced motion arrives on its own through `adapter.setReducedMotion`, and a
 	-- closure passed here can only force it ON, never off.
@@ -54,7 +54,7 @@ function billboard_target.new(opts: Opts)
 		-- StyleLink under BillboardGui resolves rules + phantom chrome) but the
 		-- billboard contract stays conservative: explicit false so the library
 		-- default flip (native_style.DEFAULT_ENABLED) never sweeps billboards
-		-- before a full billboard LuauUI drive proves the integrated adapter path
+		-- before a full billboard Facet drive proves the integrated adapter path
 		nativeStyle = false,
 		-- same rule for native drag acquisition (verifier F1 2026-07-23):
 		-- UIDragDetector positions on a billboard arrive in the camera-
@@ -64,7 +64,7 @@ function billboard_target.new(opts: Opts)
 		forceDragFallback = true,
 		rootFactory = function(screenId: string)
 			local gui = Instance.new("BillboardGui")
-			gui.Name = `LuauUI_BB_{screenId}`
+			gui.Name = `Facet_BB_{screenId}`
 			-- Instance.new LayerCollectors keep the LEGACY Global behavior;
 			-- nested control internals (toggle track/knob/label) sort behind
 			-- their opaque parents under Global — Sibling is the framework's

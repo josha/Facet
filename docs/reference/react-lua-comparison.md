@@ -1,15 +1,15 @@
-# React-Lua ↔ LuauUI: two declarative frameworks for the same engine
+# React-Lua ↔ Facet: two declarative frameworks for the same engine
 
-LuauUI is a declarative UI framework for Roblox. So is React-Lua — Roblox's own
+Facet is a declarative UI framework for Roblox. So is React-Lua — Roblox's own
 port of React, maintained by Roblox, used by Roblox for its Studio plugins and
 its Universal App ([RL-23]). It is the only other declarative UI framework on
 this platform with a first-party publisher behind it, which makes it the most
-useful thing to hold LuauUI up against for a reader deciding what to build with.
+useful thing to hold Facet up against for a reader deciding what to build with.
 
-The companion document, [`swiftui-parity.md`](swiftui-parity.md), measures LuauUI
+The companion document, [`swiftui-parity.md`](swiftui-parity.md), measures Facet
 against SwiftUI — the most complete declarative UI framework in wide production
 use. That is a *ceiling* comparison: what does a mature framework offer that we
-do not. This one is different. React-Lua and LuauUI are peers on the same engine,
+do not. This one is different. React-Lua and Facet are peers on the same engine,
 solving the same problem, and they **disagree** — about what a component is, who
 owns layout, what a property write means, and whether a frame may be interrupted.
 The interesting content is the disagreements, not a score.
@@ -32,10 +32,10 @@ Neither framework is the yardstick here. Both columns carry verdicts.
 
 ### Every claim about React-Lua carries a citation
 
-Claims about LuauUI are guarded by checkers (`check_docs`, `check_prop_parity`,
+Claims about Facet are guarded by checkers (`check_docs`, `check_prop_parity`,
 `check_registration`, `check_surface_ledger`, `check_boundary`) and, more
 importantly, were read **from `src/`** for this document rather than from
-LuauUI's own documentation. Nothing guards the React-Lua side, so every row that
+Facet's own documentation. Nothing guards the React-Lua side, so every row that
 asserts something about React-Lua's behaviour carries a bracketed id — `[RL-05]`
 — resolved in **§7**, with the URL, the sentence quoted verbatim, and the date
 the page or file was read.
@@ -77,7 +77,7 @@ Nothing in this document is sourced from the fork.
   on both lists from different directions, and §5's preamble reconciles them
   rather than leaving the reader to notice.
 - **Distribution is out of scope but not out of mind.** React-Lua ships on Wally
-  and the Creator Store ([RL-25], [RL-26]); LuauUI 0.9.0 has no public
+  and the Creator Store ([RL-25], [RL-26]); Facet 0.9.0 has no public
   distribution at all. That is the single largest practical difference between
   the two projects today and it is
   [`distribution-readiness.md`](../plans/distribution-readiness.md)'s to close,
@@ -85,18 +85,18 @@ Nothing in this document is sourced from the fork.
 
 ### Vocabulary
 
-React-Lua's terms, and LuauUI's, side by side where an analogue exists:
+React-Lua's terms, and Facet's, side by side where an analogue exists:
 
-| React-Lua | LuauUI | What it is |
+| React-Lua | Facet | What it is |
 |---|---|---|
-| **Element** (`React.createElement`) | **Blueprint** (`UI.VStack{…}`) | A plain table describing what should be on screen. React's carries a `type` that is either a component function or a Roblox `ClassName`; LuauUI's carries one of 26 framework class names. |
-| **Component** | *(no equivalent)* | A function that takes props and returns elements, and may hold state via hooks. LuauUI has no unit of this kind — see §2.3. |
-| **Host element** | *(no equivalent)* | An element whose `type` is a Roblox class name, rendered by `Instance.new(type)`. LuauUI's classes are not engine class names. |
-| **Reconciler / fiber tree** | **Mounted node graph** (`src/mount.luau`) | React's is rebuilt and diffed; LuauUI's is built once and mutated in place. |
-| **Binding** | **Signal / Memo** | A value that updates a property without re-rendering. React-Lua added Bindings for exactly the case LuauUI's whole core is ([RL-02], [RL-12]). |
-| **Root** (`createRoot`) | **Surface** (`presenter.present`) | One independently mounted tree. A React root "take[s] complete control of the provided container, deleting all existing children" ([RL-21]); a LuauUI surface creates its own `ScreenGui`. |
-| **`ReactRoblox` host config** | **Render target** (`src/render/target_contract.luau`) | The layer that turns the framework's output into Roblox Instances. Both are swappable; only LuauUI's is a written contract with named degrades. |
-| *(no equivalent)* | **Solver** | LuauUI's headless layout engine: measures the blueprint, arranges it into rectangles, with no engine objects involved. React-Lua has nothing of this kind — see §2.2. |
+| **Element** (`React.createElement`) | **Blueprint** (`UI.VStack{…}`) | A plain table describing what should be on screen. React's carries a `type` that is either a component function or a Roblox `ClassName`; Facet's carries one of 26 framework class names. |
+| **Component** | *(no equivalent)* | A function that takes props and returns elements, and may hold state via hooks. Facet has no unit of this kind — see §2.3. |
+| **Host element** | *(no equivalent)* | An element whose `type` is a Roblox class name, rendered by `Instance.new(type)`. Facet's classes are not engine class names. |
+| **Reconciler / fiber tree** | **Mounted node graph** (`src/mount.luau`) | React's is rebuilt and diffed; Facet's is built once and mutated in place. |
+| **Binding** | **Signal / Memo** | A value that updates a property without re-rendering. React-Lua added Bindings for exactly the case Facet's whole core is ([RL-02], [RL-12]). |
+| **Root** (`createRoot`) | **Surface** (`presenter.present`) | One independently mounted tree. A React root "take[s] complete control of the provided container, deleting all existing children" ([RL-21]); a Facet surface creates its own `ScreenGui`. |
+| **`ReactRoblox` host config** | **Render target** (`src/render/target_contract.luau`) | The layer that turns the framework's output into Roblox Instances. Both are swappable; only Facet's is a written contract with named degrades. |
+| *(no equivalent)* | **Solver** | Facet's headless layout engine: measures the blueprint, arranges it into rectangles, with no engine objects involved. React-Lua has nothing of this kind — see §2.2. |
 
 ---
 
@@ -152,7 +152,7 @@ time, and the framework figures out the difference. The cost is that the
 framework has to do work proportional to the size of the tree you re-described,
 not to the size of the change.
 
-**LuauUI's answer is: nothing runs again; the one thing that reads that value
+**Facet's answer is: nothing runs again; the one thing that reads that value
 gets told.** A blueprint node is materialized exactly once — `src/mount.luau`
 calls this *factory-once*, and the mounted node carries `factoryRuns = 1` so a
 test can prove no re-run happened. A reactive prop is not compared; it is
@@ -166,30 +166,30 @@ The trade is the mirror image. **You never pay for what did not change** — the
 framework's own regression suite pins that a single bound-value change costs the
 same at 100, 800 and 3200 rows. The cost is that a value only propagates if it
 was a `Signal` or a `Memo` in the first place. Hand a control a plain number and
-it is frozen at that number forever, and LuauUI's answer is to *refuse it at
+it is frozen at that number forever, and Facet's answer is to *refuse it at
 construction* rather than let you find out later:
 
-> `LuauUI UI.Text.text does not accept a Signal/Memo (it is read once at mount).
+> `Facet UI.Text.text does not accept a Signal/Memo (it is read once at mount).
 > Pass a plain value, or rebuild the subtree through UI.When/UI.ForEach.`
 > — the inverse message, from `src/blueprint.luau`, for a reactive value passed to
 > a static prop.
 
 **Where they meet.** React-Lua *also* has a per-value channel, and it invented
-one for the same reason LuauUI's core exists. Bindings are, in the README's own
+one for the same reason Facet's core exists. Bindings are, in the README's own
 words, "a form of signals-based state that doesn't re-render, for highly-efficient
 animations driven by React" ([RL-02]), and the deviations page calls a binding "a
 unidirectional data binding that can be updated outside of the render cycle"
 ([RL-12]). A React-Lua author animating a bar writes a Binding, not `useState`,
 precisely to bypass reconciliation.
 
-So the honest framing is not "React re-renders and LuauUI does not." It is:
-**React-Lua has two update channels and you choose per value; LuauUI has one, and
+So the honest framing is not "React re-renders and Facet does not." It is:
+**React-Lua has two update channels and you choose per value; Facet has one, and
 it is the fine-grained one.** React-Lua's default is the coarse channel and its
-fast path is opt-in. LuauUI has no coarse channel at all, which is a strength
+fast path is opt-in. Facet has no coarse channel at all, which is a strength
 until you want one — see the `When` gap in §5.
 
-**What LuauUI keeps of reconciliation, and where.** Structure still has to
-change: rows appear, panels open. LuauUI's answer is that **only three classes
+**What Facet keeps of reconciliation, and where.** Structure still has to
+change: rows appear, panels open. Facet's answer is that **only three classes
 may mount or unmount anything** — `UI.When`, `UI.ForEach`, `UI.ErrorBoundary`
 (`src/mount.luau`, `UI-RUNTIME-002`). Inside a `ForEach` the algorithm is exactly
 React's keyed children reconciliation: build the wanted key set, remove what is
@@ -227,7 +227,7 @@ purpose here at all:
 > until performance is investigated in detail and best practices emerge."
 > ([RL-28])
 
-**LuauUI measures and arranges itself, and materializes no engine layout object
+**Facet measures and arranges itself, and materializes no engine layout object
 at all.** There is not one `Instance.new("UIListLayout")`, `UIGridLayout`, or
 `UITableLayout` anywhere in `src/`. The solver is a headless measure-then-arrange
 pass over the blueprint that produces absolute rectangles, and the renderer
@@ -235,7 +235,7 @@ writes exactly two engine properties for geometry — `Position` and `Size`, bot
 as `UDim2.fromOffset`, at one call site (`src/client/screen_presentation.luau`).
 Pure pixels; no scale component anywhere.
 
-**The consequence people notice first is that LuauUI's Instance tree is FLAT BY
+**The consequence people notice first is that Facet's Instance tree is FLAT BY
 DEFAULT.** A `VStack` inside a `VStack` inside a `ZStack` still produces no
 nested Frames unless one of them is registered as a *host* — a real engine
 parent for its own subtree. The render-target seam still *cannot express
@@ -286,13 +286,13 @@ later needs to write to it. The measurement that motivated it, from the source:
 > "MEASURED on the performance lab: of 137 GuiObjects on a five-row surface, **55
 > (40%) are completely inert** — they do not paint, do not clip, are not
 > interactive, carry no modifier children and hold no text or image. And in
-> LuauUI's FLAT tree they are not even the engine parent of their children."
+> Facet's FLAT tree they are not even the engine parent of their children."
 
 An elided container in React-Lua is not expressible. A `Frame` with a
 `UIListLayout` child *is* the layout; it cannot be removed, because removing it
 removes the arrangement.
 
-**The trade, stated plainly.** LuauUI's way costs a whole layout engine to build
+**The trade, stated plainly.** Facet's way costs a whole layout engine to build
 and maintain, and every layout capability the engine has must be re-implemented
 before you can use it (flow-wrap, which is one `UIListLayout` boolean natively,
 was its own solver mission). In exchange it gets: layout that runs headlessly in
@@ -312,7 +312,7 @@ as long as the component is mounted. `local value, setValue = React.useState(0)`
 ([RL-32]). The state is keyed by call order within that component instance, which
 is why the rules of hooks exist.
 
-**LuauUI has no component abstraction at all.** There is no unit smaller than a
+**Facet has no component abstraction at all.** There is no unit smaller than a
 blueprint node, and blueprint nodes hold no state — they hold `Readable`s the
 caller created. A repository-wide search for `useState`, `withState`,
 `createSignal` returns nothing.
@@ -321,8 +321,8 @@ What it has instead is **scopes**. A scope is an explicit ownership token:
 `scope:own(resource)` registers something for disposal, `scope:child(label)`
 nests one, and disposing a scope releases everything under it in reverse order,
 idempotently, with a throwing cleanup quarantined rather than aborting the walk
-(`src/core/scope_impl.luau`). LuauUI's shipped controls are the pattern: each
-`build(LuauUI, core, spec)` opens its own scope, creates its own signals and
+(`src/core/scope_impl.luau`). Facet's shipped controls are the pattern: each
+`build(Facet, core, spec)` opens its own scope, creates its own signals and
 memos inside it, and returns a blueprint plus an imperative handle. That *is*
 component-local state; it is written by hand instead of inferred from call order.
 
@@ -338,7 +338,7 @@ no `dispose()`, and the reason is recorded in the source:
 **Where this genuinely costs the author.** React's ergonomics here are better and
 it is worth saying without hedging. A React-Lua author writes `useState` inside a
 conditionally-rendered component and gets per-instance state that appears and
-disappears with the component, for free, with no ceremony. In LuauUI:
+disappears with the component, for free, with no ceremony. In Facet:
 
 - A **`ForEach` row** gets this. The row factory's signature is `(item,
   itemScope) -> Blueprint`, and the item scope is the row's lifetime — signals
@@ -352,7 +352,7 @@ disappears with the component, for free, with no ceremony. In LuauUI:
 
 **Which model is easier to reason about is genuinely contested.** React's hooks
 are less to write and have famous failure modes (stale closures, dependency
-arrays, the rules of hooks). LuauUI's scopes are more to write and fail loudly.
+arrays, the rules of hooks). Facet's scopes are more to write and fail loudly.
 React-Lua inherits the dependency-array problem and adds a Luau-specific twist to
 it: because `#{"A","B",nil} == #{"A","B"}` is true in Luau, a dependency array
 that shrinks is indistinguishable from one containing a trailing `nil`, so
@@ -397,24 +397,24 @@ for `GetPropertyChangedSignal` ([RL-17]). `[React.Tag] = "a b"` applies
 CollectionService tags ([RL-18]). One ergonomic wart: an event callback's first
 argument is the Instance, not the event's own first argument ([RL-17]).
 
-**LuauUI's props are a closed set per class, and an unknown one is a construction
+**Facet's props are a closed set per class, and an unknown one is a construction
 error.** Twenty-six classes are registered in `src/blueprint_schema.luau`, each
 with an explicit prop table. Every public constructor funnels through one `make()`
 that walks the spec and errors on the first key it does not know, with a
 Levenshtein suggestion and the full legal set enumerated. Beyond "unknown", there
 is a second category — **refused, with the reason**:
 
-> `LuauUI UI.Button.label: 'Continue to checkout' cannot be the drawn content of
+> `Facet UI.Button.label: 'Continue to checkout' cannot be the drawn content of
 > shape = "circle" — a disc holds ONE icon or up to 3 characters with no spaces,
 > and a longer label has nowhere to go inside a 1:1 target. Fix: pass icon =
 > "<semantic name>" (e.g. "more", "close", "menu"), shorten the label, or drop
 > shape = "circle" for the default rectangular Button.`
 
-> `LuauUI UI.Button: custom content must stay inside one activation surface, but
+> `Facet UI.Button: custom content must stay inside one activation surface, but
 > it contains a focusable UI.Toggle ('Mute'). Put the control beside the Button,
 > not inside it.`
 
-> `LuauUI UI.HStack: 'align = "stretch"' has two readings on a wrapping stack —
+> `Facet UI.HStack: 'align = "stretch"' has two readings on a wrapping stack —
 > "each child fills its line" and "the lines fill the container" — so it is
 > refused. Put 'lineAlign = "stretch"' on the children that should fill their
 > line, and use 'align' (start|center|end) for where the block of lines sits.`
@@ -429,13 +429,13 @@ closed — `newSlider(…, { tapToPositon = false })` used to build a slider tha
 silently ignored the option.
 
 **The cost is stated at the top of §5 because it is the most important thing in
-this document: LuauUI has no escape hatch.** The adapter's class map is closed
+this document: Facet has no escape hatch.** The adapter's class map is closed
 (`CLASS_TO_INSTANCE`, seven entries, everything else becomes a `Frame`), and
 there is no blueprint class that takes an engine class name or an engine
 Instance. `UI.Stage` hands you a `ViewportFrame`'s 3D content root; that is the
 only door, and it opens onto a 3D scene rather than onto GuiObjects. If your game
 needs a `VideoFrame`, an `EditableImage` surface, or a vendor's GUI widget inside
-a LuauUI layout, there is currently no way to say so.
+a Facet layout, there is currently no way to say so.
 
 ### 2.5 "Who owns a property?" — the thing React has no concept of
 
@@ -446,7 +446,7 @@ Roblox ships StyleSheets — its own CSS-like system, described on Roblox's UI p
 as "a Roblox solution to stylesheets, similar to CSS, that lets you declare and
 globally apply overrides to UI instance properties" ([RL-30]). Two things can
 therefore decide a `Frame`'s `BackgroundColor3`: a StyleRule, and a script. And
-the engine does not arbitrate. LuauUI's manifest opens by stating what a Studio
+the engine does not arbitrate. Facet's manifest opens by stating what a Studio
 spike measured:
 
 ```lua
@@ -461,7 +461,7 @@ An explicit write does not merely win this frame — it **permanently defeats th
 rule**, and nothing fires. That is a bug class with no symptom until a theme
 swap or a state change fails to repaint.
 
-**LuauUI's answer is a static manifest of exactly one authority per property per
+**Facet's answer is a static manifest of exactly one authority per property per
 class**, with five names — `layout`, `style`, `binding`, `presentation`, `host` —
 and a hard assertion at the single write site:
 
@@ -469,10 +469,10 @@ and a hard assertion at the single write site:
 function authority.assertWrite(class: string, prop: string, writer: Authority)
 	local owner = authority.authorityFor(class, prop)
 	if owner == nil then
-		error(`LuauUI authority: no declared authority for {class}.{prop} (declare it in the manifest)`, 0)
+		error(`Facet authority: no declared authority for {class}.{prop} (declare it in the manifest)`, 0)
 	end
 	if owner ~= writer then
-		error(`LuauUI authority: {writer} tried to write {class}.{prop} owned by {owner}`, 0)
+		error(`Facet authority: {writer} tried to write {class}.{prop} owned by {owner}`, 0)
 	end
 end
 ```
@@ -505,7 +505,7 @@ contend for one property in the ordinary case. What is unguarded is the
 *engine-versus-script* boundary — a project that adopts Roblox StyleSheets
 alongside React-Lua gets no warning when a prop write silently kills a rule, and
 a project that uses `refs` to write properties imperatively gets no warning at
-all. LuauUI treats that boundary as the framework's problem; React-Lua treats it
+all. Facet treats that boundary as the framework's problem; React-Lua treats it
 as yours.
 
 There is one live correctness issue in the same layer worth recording rather than
@@ -550,7 +550,7 @@ uses concurrent rendering by default, you will always need this global to be set
 to `true`" ([RL-19]). `act` itself "will not be available" in production and is
 gated behind a second global ([RL-20]).
 
-**LuauUI is completely synchronous, deliberately, and says so in the source:**
+**Facet is completely synchronous, deliberately, and says so in the source:**
 
 ```lua
 -- src/render/renderer.luau, at the end of controller.refresh()
@@ -562,10 +562,10 @@ gated behind a second global ([RL-20]).
 There is no time slicing, no priority, no interruption. `task.defer` and
 `task.spawn` appear **zero times** in `src/`; `task.delay` appears twice, in
 async-resource retry backoff and a paint timer, neither on the render path.
-LuauUI never schedules itself at all — the game host calls `presenter.refresh()`
+Facet never schedules itself at all — the game host calls `presenter.refresh()`
 and `presenter.tick(dt)` from its own frame connection.
 
-What LuauUI has instead is **`settle`**, and it is the piece of the reactive
+What Facet has instead is **`settle`**, and it is the piece of the reactive
 contract with no React analogue. From `src/core/contract.luau`:
 
 > "a flush SETTLES before it ends. `settle` registers terminal work — the
@@ -579,20 +579,20 @@ contract with no React analogue. From `src/core/contract.luau`:
 > top-level write still returns with all of its consequences applied."
 
 React's nearest neighbour is `useLayoutEffect`, and it is not the same shape: a
-write from a layout effect schedules a **new** render pass. LuauUI's settle phase
+write from a layout effect schedules a **new** render pass. Facet's settle phase
 converges *inside* the current flush, which is the two-pass shape it was built to
 eliminate — the source records the measurement, 4 solves and 2 reactive flushes
 per geometry change before, 2 and 1 after.
 
-**The honest trade.** LuauUI's synchrony buys exactness (`env:set` returns with
+**The honest trade.** Facet's synchrony buys exactness (`env:set` returns with
 the surface solved), trivially deterministic tests with no `act` and no mock
 scheduler, and one clock. It buys those by putting the entire cost of a change on
 one frame. Its answers to a large mount are all *reduce the work* rather than
 *spread the work*: virtualization, incremental layout (~17× fewer arranged nodes
 for a one-value change), container elision (−34 % instances), instance recycling.
-Those are measured — headlessly. **No LuauUI number in this document or any other
+Those are measured — headlessly. **No Facet number in this document or any other
 comes from a physical device.** React-Lua's slicing is a structurally different
-answer to the same problem and LuauUI has no counterpart to it.
+answer to the same problem and Facet has no counterpart to it.
 
 ### 2.7 The difference that decides adoption: a renderer versus a UI kit
 
@@ -608,7 +608,7 @@ scope and it is a coherent choice — the web ecosystem fills that gap with a
 hundred component libraries. **On Roblox, there is no such ecosystem, so the gap
 is yours to fill.**
 
-**LuauUI is a UI kit with a framework under it.** Its conformance registry holds
+**Facet is a UI kit with a framework under it.** Its conformance registry holds
 59 rows — 32 composite classes and 27 leaves — and `check_registration` reports
 **19 of 19** interactive controls carrying an automated proof that they work with
 mouse, touch, keyboard *and* gamepad, plus a device-idiom proof. It ships theme packages that
@@ -618,16 +618,16 @@ focus traps and layering bands; a motion system with named spring classes and a
 Reduce Motion policy; drag and drop across four input classes.
 
 If you are building a Roblox game UI and you pick React-Lua, your first month is
-spent building the things in the previous paragraph. If you pick LuauUI, your
+spent building the things in the previous paragraph. If you pick Facet, your
 first month is spent finding out which of the 26 classes can express your design
 and what to do about the parts that cannot — because there is no escape hatch.
 
 Those are different risks, not different amounts of risk.
 
-### 2.8 Could a React reconciler sit under LuauUI's core contract?
+### 2.8 Could a React reconciler sit under Facet's core contract?
 
 The director asked this directly, and it deserves a real answer rather than a
-shrug, because LuauUI's core **is** deliberately swappable and there is proof.
+shrug, because Facet's core **is** deliberately swappable and there is proof.
 
 `src/core/contract.luau` is a pure type module — it ends `return nil` — declaring
 an eleven-member `Core` interface (`signal`, `memo`, `observe`, `effect`,
@@ -682,7 +682,7 @@ React expression:
 2. **`transaction` must batch writes and publish once, and a reverted
    transaction must fire nothing.** The conformance suite pins both
    (`transaction-batches-observer-to-one-fire`,
-   `transaction-revert-produces-no-fire`), and LuauUI's core implements the second
+   `transaction-revert-produces-no-fire`), and Facet's core implements the second
    by de-duplicating each observer against a `lastSeen` value. React-Lua at 17.0.1
    exposes no transaction verb at all — there is no `withTransaction` in the
    export table ([RL-40]) — so a core built on it would have to synthesize the
@@ -699,7 +699,7 @@ React expression:
    "_during_ an update in between rendering and reconciliation" ([RL-28]) — which
    is a *position in the pipeline*, not a convergence guarantee — and rendering
    itself is asynchronous and interruptible by default ([RL-14]). A React core
-   could not make `env:set(…)` return with the surface solved, and LuauUI's
+   could not make `env:set(…)` return with the surface solved, and Facet's
    renderer, presenter and every test depend on exactly that.
 
 4. **`scope`, `counters` and disposal as first-class verbs.** The contract
@@ -709,13 +709,13 @@ React expression:
    contains nothing that returns a disposable scope or a live resource count
    ([RL-40]) — so there is no handle to hand back and nothing to count.
 
-**The honest conclusion.** LuauUI's core contract is not a general "reactive
+**The honest conclusion.** Facet's core contract is not a general "reactive
 library" interface — it is a *synchronous, glitch-free, convergent-within-a-flush*
 interface, and the settle clause in particular was written for a layout solver
 that must publish geometry and read it back before the frame ends. React's
 reconciler is a different answer to a different question, and the two are not
 substitutable in this direction. That is a finding about the contract's shape, not
-a criticism of React: it means LuauUI's swappability is real but bounded, and the
+a criticism of React: it means Facet's swappability is real but bounded, and the
 boundary is *synchrony*.
 
 One consequence is worth naming for the record: **`src/init.luau` hardcodes the
@@ -757,7 +757,7 @@ Store package published by Roblox itself ([RL-25], [RL-26]). Real dependency
 management, real versioning.
 
 **Concurrent rendering is real.** A large tree can be built across frames rather
-than in one hitch ([RL-14], [RL-33]). LuauUI has no counterpart to it, and §5
+than in one hitch ([RL-14], [RL-33]). Facet has no counterpart to it, and §5
 rank 7 explains why it declines to build one.
 
 **A serious testing and tooling ecosystem.** React DevTools, Fast Refresh,
@@ -816,7 +816,7 @@ StyleSheets is unguarded ([RL-31]).
 **There are no published benchmarks.** `docs/bench.md` is an empty chart shell
 whose data renders on the dead domain ([RL-38]).
 
-### LuauUI — what is genuinely good
+### Facet — what is genuinely good
 
 **It is a UI kit, not a renderer.** 51 registered rows; 16 of 16 interactive
 controls carry an automated four-input proof *and* a device-idiom proof. You do
@@ -853,7 +853,7 @@ views of every property; a control cannot ship unregistered; documentation canno
 drift from the export table without a gate going red. Three of the four suite
 failures in the run recorded in §6 are the repository policing *itself*.
 
-### LuauUI — what it costs you
+### Facet — what it costs you
 
 **There is no escape hatch.** Twenty-six classes; no way to render an arbitrary
 Roblox class. If your design needs something the framework has not modelled, you
@@ -864,9 +864,9 @@ release. Version `0.9.0`, private repository.
 
 **Nobody else knows it.** Every concept — blueprint, solver, surface, scope,
 authority, contribution — is local to this codebase. A new hire's React knowledge
-transfers to React-Lua on day one and to LuauUI not at all.
+transfers to React-Lua on day one and to Facet not at all.
 
-**No screen-reader support of any kind.** A blind player cannot use a LuauUI
+**No screen-reader support of any kind.** A blind player cannot use a Facet
 interface. (React-Lua has none either; neither does Roblox. This is a platform
 hole, not a differentiator — but it is a hole.)
 
@@ -878,7 +878,7 @@ haptics and performance claim is a headless test run or a Studio emulator drive.
 **One long frame is one long frame.** No time slicing (§2.6).
 
 **No live tree inspector and no hot reload.** React DevTools and Fast Refresh
-have no LuauUI counterpart; the answers are deterministic dumps, a diagnostics
+have no Facet counterpart; the answers are deterministic dumps, a diagnostics
 surface and scripted Studio drives — all batch, none interactive.
 
 **One person and a set of agents maintain it**, against a framework Roblox
@@ -888,17 +888,17 @@ maintains and ships its own products on.
 
 ## 4. Feature comparison
 
-Capability, status on each side, evidence. React-Lua rows cite §7; LuauUI rows
+Capability, status on each side, evidence. React-Lua rows cite §7; Facet rows
 cite source files, which is where they were read from.
 
 ### 4.1 Element and component model
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Declarative element construction | **Ships.** `React.createElement(type, props, children)`. **No JSX** — "The Luau ecosystem does not yet have the tooling to support JSX" ([RL-04]) | **Ships.** `UI.VStack{ children = {…} }` — a table literal per class, so there is no `createElement` ceremony and no children-vs-props argument order to remember | [RL-04]; `src/blueprint.luau` |
 | Arbitrary Roblox class as an element | **Ships**, and it is the whole model: the element type string is passed to `Instance.new(type_)` ([RL-15]) | **Absent.** 26 registered classes; the adapter's `CLASS_TO_INSTANCE` map has seven entries and everything else becomes a `Frame`. No blueprint class takes an engine class name or Instance. §5 rank 1 | [RL-15]; `src/blueprint_schema.luau`, `src/client/screen_target.luau` |
 | Unknown property | **Ships as a runtime error at write time** — the prop is assigned by name to the Instance and Roblox raises ([RL-16]) | **Ships as a construction-time error** naming the class, the property, up to three Levenshtein suggestions, and the full legal set. A *refused* prop gets the reason instead | [RL-16]; `src/blueprint.luau` (`make`, `unknownPropError`), `src/blueprint_schema.luau` (`suggest`, `refusal`) |
-| Function components | **Ships**, and are the preferred style — but "function components do not support the `defaultProps` feature" and the same for `propTypes` ([RL-10]) | **N/A by design.** No component unit exists; a reusable piece is a plain Luau function returning a blueprint, or a `build(LuauUI, core, spec)` control | [RL-10]; §2.3 |
+| Function components | **Ships**, and are the preferred style — but "function components do not support the `defaultProps` feature" and the same for `propTypes` ([RL-10]) | **N/A by design.** No component unit exists; a reusable piece is a plain Luau function returning a blueprint, or a `build(Facet, core, spec)` control | [RL-10]; §2.3 |
 | Class components with lifecycle | **Ships** via `React.Component:extend(name)`; `init` replaces the constructor, and `setState` is legal there ([RL-39]) | **N/A by design** | [RL-39] |
 | Immutable elements | **Ships** by convention (React elements are not frozen in Luau) | **Ships, enforced.** `table.freeze` on props, children and the node — added after a shared row template was mutated in place through `bp.props` | `src/blueprint.luau` |
 | Fragments (several siblings, no wrapper) | **Ships.** `React.Fragment` ([RL-40]) | **Ships, differently.** `UI.When` and `UI.ForEach` splice their children into the parent's flow; there is no bare fragment class, and none has been needed | [RL-40]; `src/mount.luau` |
@@ -907,7 +907,7 @@ cite source files, which is where they were read from.
 
 ### 4.2 State and data flow
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Component-local state | **Ships.** `useState`, returning two values rather than a destructured array ([RL-32]) | **Ships, with caveats.** State is caller-owned signals in an explicit scope. A `ForEach` row receives an `itemScope`; **a `When` branch receives no scope at all** — §5 rank 2 | [RL-32]; `src/mount.luau`, `src/blueprint_schema.luau` |
 | Fine-grained value subscription (no re-render) | **Ships** as a second, opt-in channel: Bindings — "signals-based state that doesn't re-render" ([RL-02], [RL-12]) | **Ships** as the *only* channel: `core:signal` / `core:memo` with per-value dependency tracking | [RL-02], [RL-12]; `src/core/custom.luau` |
@@ -918,13 +918,13 @@ cite source files, which is where they were read from.
 | Tree-scoped context | **Ships.** `React.createContext` + Provider/Consumer + `useContext` ([RL-40]) | **Absent as a general mechanism.** `Env` is one per application, shared across every surface, with per-key signals so a keyboard-occlusion change never touches a colour-only subscriber. The only tree-scoped inheritance is one static string, the `sensoryFeedback` activation verb. §5 rank 6 | [RL-40]; `src/env/environment.luau`, `src/mount.luau` |
 | External-store subscription hook | **N/A.** `useSyncExternalStore` is a React 18 API and does not exist at 17.0.1 alignment ([RL-08]) | **N/A by design** — everything is the store | [RL-08] |
 | Cycles in derivation | **Absent as a concept** (a render loop hits React's update-depth guard) | **Ships** — a dependency cycle raises with the full path rather than recursing | `src/core/custom.luau`, conformance `cycle-reported-not-hung` |
-| Writing state during a derivation | **Absent as a concept** | **Ships** — illegal by construction: `LuauUI: writing state during memo evaluation is an error` | `src/core/custom.luau`, conformance `write-during-memo-is-error` |
+| Writing state during a derivation | **Absent as a concept** | **Ships** — illegal by construction: `Facet: writing state during memo evaluation is an error` | `src/core/custom.luau`, conformance `write-during-memo-is-error` |
 | Runaway-effect protection | **Absent** as a named public behaviour | **Ships.** A 100-round flush cap turns an effect or settle feedback loop into a readable error with the count of discarded writes | `src/core/custom.luau`, conformance `feedback-loop-hits-iteration-cap` |
 | Deterministic notification order | **N/A by design** (order is tree order, rebuilt each render) | **Ships, with a stated limit.** Observers fire in node **creation** order — a total order across nodes. The contract states plainly that **effect ordering is not yet promised** | `src/core/contract.luau`, `src/core/custom.luau` |
 
 ### 4.3 Layout
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | A layout system | **Absent by design.** No layout API in the export table, no layout package, and the element vocabulary is Roblox class names — so layout is `UIListLayout`/`UIGridLayout`/`UIPadding` declared as child elements, exactly as ReactDOM defers to CSS | **Ships.** A headless measure-then-arrange solver producing absolute rects; the renderer writes only `Position` and `Size`, as `UDim2.fromOffset`, at one call site | [RL-08], [RL-34], [RL-15]; `src/layout/solver.luau`, `src/client/screen_presentation.luau` |
 | Engine layout objects materialized | **Ships** — they are the mechanism | **Zero.** Not one `Instance.new("UIListLayout")`, `UIGridLayout` or `UITableLayout` in `src/`. `UIPadding` is created twice, both for a single control's own engine text inset | `src/` (searched); `src/client/screen_target.luau` |
@@ -938,19 +938,19 @@ cite source files, which is where they were read from.
 
 ### 4.4 The engine boundary
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Property write model | **Ships** as `hostInstance[key] = newValue`, no allowlist, no validation. `nil` calls `ResetPropertyToDefault` with a default-table fallback ([RL-16]) | **Ships** as a gated write: `authority.assertWrite(class, prop, writer)` before every engine write, with exactly one authority per property per class and an error on both undeclared and wrongly-claimed | [RL-16]; `src/render/authority.luau` |
 | Awareness of Roblox StyleSheets | **Absent.** `StyleSheet`, `StyleRule` and `GetStyled` occur **zero** times in the repository ([RL-31]) | **Ships.** 19 engine properties declared native-sheet-owned and forbidden to the adapter in native mode, because "an explicit write silently and permanently defeats the rule" | [RL-31]; `src/render/authority.luau`, `src/client/native_style.luau` |
 | Engine events | **Ships.** `[React.Event.X]` and `[React.Change.X]`, auto-connected at mount and auto-disconnected at unmount. Callback's first argument is the Instance ([RL-17]) | **Ships, differently.** Blueprint handler props (`onActivate`, pointer handlers) routed through the render-target contract; raw engine event access is not a consumer surface | [RL-17]; `src/render/target_contract.luau` |
 | CollectionService tags | **Ships.** `[React.Tag] = "a b"` ([RL-18]) | **Ships, internally only.** `luau-*` tags classify instances for the native stylesheet cascade; not a consumer prop | [RL-18]; `src/client/native_style.luau` |
-| Reference to the underlying Instance | **Ships.** `createRef`, callback refs, `useRef` — implemented on top of Bindings, which solves the sibling-ref ordering problem ([RL-12]) | **Ships, barely.** `adapter.getInstance(path)` exists but is not on the render-target contract, is not reachable through `LuauUI.*` or the controller, returns `nil` for an elided node, and every in-repo consumer is a test or gallery scenario. The sanctioned handle is `controller.stageHost(path)` for `UI.Stage` | [RL-12]; `src/client/screen_target.luau`, `src/render/renderer.luau` |
+| Reference to the underlying Instance | **Ships.** `createRef`, callback refs, `useRef` — implemented on top of Bindings, which solves the sibling-ref ordering problem ([RL-12]) | **Ships, barely.** `adapter.getInstance(path)` exists but is not on the render-target contract, is not reachable through `Facet.*` or the controller, returns `nil` for an elided node, and every in-repo consumer is a test or gallery scenario. The sanctioned handle is `controller.stageHost(path)` for `UI.Stage` | [RL-12]; `src/client/screen_target.luau`, `src/render/renderer.luau` |
 | Swappable render target | **Ships.** `react-reconciler` plus host configs; `react-noop-renderer` and a test renderer ship ([RL-34]) | **Ships**, as a written contract: 6 required methods, 25 optional (each absence one named non-crashing degrade), 5 theme. Two shipping targets (`ScreenGui`, `BillboardGui`) plus a headless fake | [RL-34]; `src/render/target_contract.luau` |
-| Coexisting with existing Roblox GUI | **Ships, with caveats.** A root "take[s] complete control of the provided container, deleting all existing children", so the documented pattern is to mount into a dedicated `Folder` and portal out ([RL-21], [RL-22]) | **Ships.** Each surface creates its own `ScreenGui` under `PlayerGui`; existing GUI is untouched. What is **absent** is the reverse — you cannot mount a LuauUI subtree inside an existing `Frame` | [RL-21], [RL-22]; `src/client/screen_target.luau` |
+| Coexisting with existing Roblox GUI | **Ships, with caveats.** A root "take[s] complete control of the provided container, deleting all existing children", so the documented pattern is to mount into a dedicated `Folder` and portal out ([RL-21], [RL-22]) | **Ships.** Each surface creates its own `ScreenGui` under `PlayerGui`; existing GUI is untouched. What is **absent** is the reverse — you cannot mount a Facet subtree inside an existing `Frame` | [RL-21], [RL-22]; `src/client/screen_target.luau` |
 
 ### 4.5 Structure, lifecycle and errors
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Keyed list reconciliation | **Ships**, both spellings: a keyed table of children (legacy Roact's shape) and the reserved `key` prop; using both warns in Dev Mode ([RL-09]). The key also becomes the Instance's `Name` ([RL-15]) | **Ships.** `UI.ForEach{ key, row }`: add / remove / move only, with **duplicate keys a hard error**, per-key child scopes, and a row removed and re-added mid-exit resuming the same mounted subtree and instances | [RL-09], [RL-15]; `src/mount.luau` |
 | Conditional subtrees | **Ships** — return `nil` or a different element from render | **Ships.** `UI.When{ condition, thenView }`, one of exactly three classes permitted to mount or unmount | `src/mount.luau` |
@@ -963,7 +963,7 @@ cite source files, which is where they were read from.
 
 ### 4.6 Scheduling
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Interruptible / time-sliced rendering | **Ships**, and is the default. A real scheduler with a yield deadline, configurable yield interval (default 15 ms), frame-rate targets and a `Heartbeat` connection ([RL-14], [RL-33]) | **Absent.** `refresh()` is one synchronous call; zero `task.defer`, zero `task.spawn` in `src/`. The framework never schedules itself — the host drives `refresh()` and `tick(dt)` | [RL-14], [RL-33]; `src/render/renderer.luau` |
 | Priority / transitions API | **Absent.** `useTransition`, `startTransition`, `useDeferredValue` are commented-out `ROBLOX TODO`s ([RL-08]) | **Absent** | [RL-08] |
@@ -972,7 +972,7 @@ cite source files, which is where they were read from.
 
 ### 4.7 What is only on one side
 
-| Capability | React-Lua | LuauUI | Evidence |
+| Capability | React-Lua | Facet | Evidence |
 |---|---|---|---|
 | Shipped, proven controls | **Absent.** No button, slider, table, picker, or anything else | **Ships.** 51 registered rows; `check_registration` reports 16 of 16 interactive controls carrying an automated mouse/touch/keyboard/gamepad proof plus a device-idiom proof | `tests/conformance/controls_registry.luau`; `tools/lune/check_registration_cli` |
 | Theming | **Absent** | **Ships.** Theme packages owning typography, spacing, control heights, radii, strokes, solver-visible insets and asset chrome; installed or swapped in one transaction; dark/light on native StyleSheets with no remount | `src/themes/`, `src/client/theme_controller.luau` |
@@ -999,7 +999,7 @@ stand as written.**
 
 The ranking is by **what a real game author would miss**, not by effort and not
 by architectural interest. Each row gives what it is, what it would cost, whether
-LuauUI already answers it differently, and one of three recommendations:
+Facet already answers it differently, and one of three recommendations:
 
 - **BUILD NOW** — a first release without it is materially worse.
 - **DEFER** — real, but the trigger that should lift it is named.
@@ -1016,8 +1016,8 @@ them by hand:
 
 | This list | Fusion §5 | Are they the same thing? |
 |---|---|---|
-| **Rank 1**, a foreign **GuiObject** inside a LuauUI layout | **G-7**, driving arbitrary Roblox instances (`New "Part"` — a `Part`, a `Beam`, a `Sound`) | **No.** G-7 is the 3D/world-instance question and it is already decided by [`ADR-0024`](../adr/ADR-0024-declarative-3d.md) — a sibling scene system on the shared kernel, build waiting for a consumer. Rank 1 is the *2-D* question: a GuiObject class the solver must lay out. ADR-0024 does not cover it |
-| **Rank 1** (again) | **G-2**, an instance escape hatch (`Ref`/`Out`) — **DEFER** | **Adjacent, and the distinction is the whole design.** G-2 is *handing out the `GuiObject` LuauUI created*, and its argument for deferring is exactly right: a writable handle to a framework-owned instance is the second-writer hole §2.5 exists to close. Rank 1 hands out **nothing LuauUI owns** — it is a container the *caller* creates the instance inside, so the framework claims one authority (the container's rect) and disclaims the rest by construction. Rank 1 does not weaken G-2's refusal and should not be read as overturning it |
+| **Rank 1**, a foreign **GuiObject** inside a Facet layout | **G-7**, driving arbitrary Roblox instances (`New "Part"` — a `Part`, a `Beam`, a `Sound`) | **No.** G-7 is the 3D/world-instance question and it is already decided by [`ADR-0024`](../adr/ADR-0024-declarative-3d.md) — a sibling scene system on the shared kernel, build waiting for a consumer. Rank 1 is the *2-D* question: a GuiObject class the solver must lay out. ADR-0024 does not cover it |
+| **Rank 1** (again) | **G-2**, an instance escape hatch (`Ref`/`Out`) — **DEFER** | **Adjacent, and the distinction is the whole design.** G-2 is *handing out the `GuiObject` Facet created*, and its argument for deferring is exactly right: a writable handle to a framework-owned instance is the second-writer hole §2.5 exists to close. Rank 1 hands out **nothing Facet owns** — it is a container the *caller* creates the instance inside, so the framework claims one authority (the container's rect) and disclaims the rest by construction. Rank 1 does not weaken G-2's refusal and should not be read as overturning it |
 | **Rank 6**, subtree-scoped environment overrides | **G-4**, consumer-defined environment values (`Contextual`) — **DEFER** | **Two halves of one hole.** G-4 is *new keys a consumer defines*; Rank 6 is *existing framework keys overridden for a subtree*. Either build should look at both before choosing a shape |
 
 One disagreement is worth stating plainly rather than smoothing over: this
@@ -1032,18 +1032,18 @@ propose. Nothing here asks for `Ref`.
 
 **What it is.** React-Lua's entire element model is
 `createElement("<AnyRobloxClassName>", props)` → `Instance.new(type_)` ([RL-15]),
-so every Roblox class ever shipped is reachable. LuauUI has 26 classes and a
+so every Roblox class ever shipped is reachable. Facet has 26 classes and a
 seven-entry class map; anything else becomes a `Frame`. There is no way to put a
 `VideoFrame`, an `EditableImage` surface, a vendored widget, or a class Roblox
-ships next month inside a LuauUI layout.
+ships next month inside a Facet layout.
 
-**Why it ranks first.** Every other row on this list makes LuauUI worse to use.
+**Why it ranks first.** Every other row on this list makes Facet worse to use.
 This one makes it *unusable* for a specific project, discovered late, with no
 workaround — and it is the first thing an evaluating developer tests. A framework
 with no escape hatch is a bet that its 26 classes cover everything; that bet
 cannot be won.
 
-**What LuauUI already answers differently, and why it is not enough.** `UI.Stage`
+**What Facet already answers differently, and why it is not enough.** `UI.Stage`
 already proves the pattern exists: the solver treats it as an ordinary content
 leaf, the framework owns the box and the lifecycle, and `controller.stageHost(path)`
 hands the caller a content root to parent into, with an engine-type-free boundary
@@ -1051,7 +1051,7 @@ hands the caller a content root to parent into, with an engine-type-free boundar
 **it just opens onto a `ViewportFrame`'s 3D scene rather than onto a GuiObject.**
 
 **The cost, honestly.** The naive version — `UI.Native{ class = "VideoFrame",
-props = {…} }` — costs the three things that make LuauUI what it is, and should
+props = {…} }` — costs the three things that make Facet what it is, and should
 be refused: it reopens the closed key set (the schema cannot validate props it
 has never heard of), it defeats property authority (the manifest has no entry for
 a class it does not know), and it breaks the elision and hosting invariants and
@@ -1084,7 +1084,7 @@ precedent for every part of it.
 the *3-D/world-instance* case (a `Part`, a `Beam`, a `Sound`) in favour of a
 sibling scene system on the shared kernel, with the build waiting for a consumer.
 This is the 2-D case: a `GuiObject` class the solver has to lay out. And it is not
-`fusion-comparison.md` §5's `Ref` — nothing here hands out an instance LuauUI
+`fusion-comparison.md` §5's `Ref` — nothing here hands out an instance Facet
 created, which is why the authority argument that defers `Ref` does not defer
 this. See §5's preamble table.
 
@@ -1094,14 +1094,14 @@ form should ship with it, as a construction error naming the reason — the same
 way `opacity` on a leaf is refused with an argument rather than a shrug. Both
 shipped: the unbounded form is refused by name, and the seam INVERTED on the way
 in — `controller.foreignHost(path)` takes the caller's instance rather than
-handing a LuauUI-owned one out, which is why `Ref` stays deferred.
+handing a Facet-owned one out, which is why `Ref` stays deferred.
 
 ---
 
 ### Rank 2 — A branch scope for `UI.When` · ~~BUILD NOW~~ — **BUILT 2026-08-15**
 
 **What it is.** In React, a conditionally-rendered component owns state that
-appears and disappears with it: `useState` inside it, done. In LuauUI, a
+appears and disappears with it: `useState` inside it, done. In Facet, a
 `ForEach` row gets this — `row(item, itemScope)` — but `When.thenView` is
 `() -> Blueprint` with no second argument, even though `src/mount.luau` creates
 a `branchScope` for exactly that lifetime one line before calling the factory.
@@ -1123,17 +1123,17 @@ to (`src/mount.luau`, and `api.md`'s `UI.When` section carry the refusal).
 
 ---
 
-### Rank 3 — Mounting a LuauUI surface into a caller-supplied container · **DEFER**
+### Rank 3 — Mounting a Facet surface into a caller-supplied container · **DEFER**
 
-**What it is.** Every LuauUI surface creates its own `ScreenGui` under
-`PlayerGui`. A studio with an existing UI cannot put a LuauUI subtree inside an
+**What it is.** Every Facet surface creates its own `ScreenGui` under
+`PlayerGui`. A studio with an existing UI cannot put a Facet subtree inside an
 existing `Frame` and adopt the framework one screen at a time. React-Lua's story
 is the inverse and it is *documented as a hazard*: a root "take[s] complete
 control of the provided container, deleting all existing children" ([RL-21]), so
 you mount into a `Folder` and portal out ([RL-22]).
 
-**What LuauUI already answers differently.** Coexistence is already better:
-LuauUI never touches GUI it did not create, and `screen_target.new({ parent })`
+**What Facet already answers differently.** Coexistence is already better:
+Facet never touches GUI it did not create, and `screen_target.new({ parent })`
 already accepts a parent override (used today for the Studio Edit preview). What
 is missing is the finer grain — a surface rooted at an arbitrary `GuiObject`
 rather than at `PlayerGui`.
@@ -1156,11 +1156,11 @@ root are the same "engine size is a layout input" problem.
 ### Rank 4 — A live tree inspector · **DEFER**
 
 **What it is.** React DevTools ships in React-Lua's monorepo ([RL-34]): a live
-tree with props, state and a highlighter. LuauUI has deterministic `dump()`,
+tree with props, state and a highlighter. Facet has deterministic `dump()`,
 `controller.diagnostics()`, `theme_controller.inspect()`, five reference apps and
 a scripted Studio driver — all excellent, all **batch**.
 
-**Why it matters more than it looks.** LuauUI's whole selling point in §2.4 is
+**Why it matters more than it looks.** Facet's whole selling point in §2.4 is
 that mistakes are refused early with a message that names the fix. That covers
 *authoring* mistakes. It does not cover "the layout is not what I expected and I
 cannot see why", which is the daily experience of building UI, and which the
@@ -1169,7 +1169,7 @@ still-mostly-flat instance tree makes *harder* than in React-Lua — outside a
 container ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)), the Roblox
 Explorer shows you a flat pile of Frames with no structure to read.
 
-**What LuauUI already answers differently.** `controller.diagnostics()` is
+**What Facet already answers differently.** `controller.diagnostics()` is
 genuinely strong and the project has a recorded case of it naming a shipped
 layout defect a screenshot review had missed
 ([`the-solver-already-told-you`](../lessons/the-solver-already-told-you.md)). The
@@ -1204,12 +1204,12 @@ they share the Studio-side host.
 ### Rank 6 — Subtree-scoped environment overrides · **DEFER**
 
 **What it is.** React's `createContext` + Provider lets a subtree see a different
-value for something an ancestor provides. LuauUI's `Env` is one object per
+value for something an ancestor provides. Facet's `Env` is one object per
 application, shared by every surface.
 
 **Why it is lower than it looks.** For *author* data, the honest answer is that
 React needs Context because components are opaque function boundaries, and
-LuauUI does not, because **a blueprint is built by ordinary Luau code and lexical
+Facet does not, because **a blueprint is built by ordinary Luau code and lexical
 scope already is the context mechanism.** Passing a value down three levels is
 three parameters in a function you wrote — not a prop-drilling problem through
 framework-owned components.
@@ -1243,20 +1243,20 @@ other half of the same hole (consumer-*defined* keys, where this is consumer-
 **What it is.** React-Lua's headline capability: spread a large render across
 frames instead of dropping one ([RL-14], [RL-33]).
 
-**Why decline.** It is incompatible with the contract LuauUI is built on. §2.8
+**Why decline.** It is incompatible with the contract Facet is built on. §2.8
 sets it out: `settle` requires terminal work to converge *inside* the flush so
 that a top-level write returns with all consequences applied, and the renderer,
 the presenter and effectively every test depend on that. Slicing would make
 `env:set` return before the surface is solved. This is not a feature that could
 be added; it is a different framework.
 
-**What LuauUI answers instead**, and it is a real answer: reduce the work rather
+**What Facet answers instead**, and it is a real answer: reduce the work rather
 than spread it — virtualization on lists, tables and grids; incremental layout
 (~17× fewer arranged nodes for a one-value change); inert-container elision
 (−34 % instances); instance recycling.
 
 **The honest residue, and it should be written down rather than argued away:**
-those numbers are **headless**. Nobody has measured what a large LuauUI mount
+those numbers are **headless**. Nobody has measured what a large Facet mount
 costs on a real phone, and React-Lua's slicing is a structurally better answer to
 exactly that risk. If a device capture ever shows a mount blowing a frame budget
 that virtualization cannot fix, this row is wrong and should be revisited on that
@@ -1276,7 +1276,7 @@ mounted node and nothing above it is visited. Recorded so it is not re-proposed.
 
 React-Lua ships both and its own documentation says Suspense "should be
 considered unusable" ([RL-06]) and that `lazy` addresses a problem that "is
-rarely a concern in the context of Luau projects" ([RL-36]). LuauUI's async story
+rarely a concern in the context of Luau projects" ([RL-36]). Facet's async story
 — `newResourceProvider` with scope-owned handles, generation-counter
 stale-completion rejection and bounded retry — covers the case that actually
 occurs (an image or a request arriving late).
@@ -1289,7 +1289,7 @@ occurs (an image or a request arriving late).
 consumer writes less ceremony.
 
 **Why decline.** Hooks work because React owns a call stack and can key state by
-call order within a component instance. LuauUI has no component instance and no
+call order within a component instance. Facet has no component instance and no
 render call to be inside, so any hook-shaped API here would be a lookalike with
 different rules — which is the parity-claim-the-code-does-not-honour defect the
 API constitution rates as severe. The ceremony is real; the answer to it is Rank
@@ -1300,7 +1300,7 @@ API constitution rates as severe. The ceremony is real; the answer to it is Rank
 ### Rank 11 — Class components, `propTypes`, `defaultProps` · **DECLINE**
 
 `propTypes` and `defaultProps` do not work on React-Lua function components
-anyway ([RL-10]), and LuauUI's construction-time closed key sets with required
+anyway ([RL-10]), and Facet's construction-time closed key sets with required
 fields, typed `*Spec` exports and did-you-mean errors are a strictly stronger
 answer at authoring time.
 
@@ -1309,7 +1309,7 @@ answer at authoring time.
 ### Rank 12 — Bindings as a distinct concept · **DECLINE**
 
 React-Lua invented Bindings to bypass reconciliation for values that change every
-frame ([RL-02], [RL-12]). LuauUI's `Signal`/`Memo` *is* that channel, for every
+frame ([RL-02], [RL-12]). Facet's `Signal`/`Memo` *is* that channel, for every
 value, with no second concept and no `getValue`-is-stale-inside-render caveat
 ([RL-41]). Nothing to take.
 
@@ -1338,10 +1338,10 @@ value, with no second concept and no `getValue`-is-stale-inside-render caveat
 
 | | |
 |---|---|
-| LuauUI version | `0.9.0` (`src/init.luau`) |
+| Facet version | `0.9.0` (`src/init.luau`) |
 | React-Lua baseline | `Roblox/react-luau` at `main`, commit stream read 2026-08-15; latest commit `2026-07-30`; Wally `roblox/react@17.3.11`; alignment React JS **17.0.1** ([RL-03], [RL-24], [RL-25]) |
 | Audit date | 2026-08-15 |
-| LuauUI method | **Source only.** `src/core/contract.luau`, `src/core/fusion_adapter.luau`, `src/core/custom.luau`, `src/core/scope_impl.luau`, `src/render/authority.luau`, `src/render/renderer.luau`, `src/render/target_contract.luau`, `src/render/presentation.luau`, `src/client/screen_target.luau`, `src/client/screen_presentation.luau`, `src/mount.luau`, `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/env/environment.luau`, `src/init.luau`, `src/spec_guard.luau`, `src/controls/`, `src/layout/`, `src/present/`, plus `tests/conformance/` and `artifacts/conformance-*.json`. **No claim below was taken from LuauUI's own documentation** — the last two rewrites of the sibling parity document found nine and then several more stale or false claims sourced that way, including a citation to a source comment that existed nowhere in the file or its history |
+| Facet method | **Source only.** `src/core/contract.luau`, `src/core/fusion_adapter.luau`, `src/core/custom.luau`, `src/core/scope_impl.luau`, `src/render/authority.luau`, `src/render/renderer.luau`, `src/render/target_contract.luau`, `src/render/presentation.luau`, `src/client/screen_target.luau`, `src/client/screen_presentation.luau`, `src/mount.luau`, `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/env/environment.luau`, `src/init.luau`, `src/spec_guard.luau`, `src/controls/`, `src/layout/`, `src/present/`, plus `tests/conformance/` and `artifacts/conformance-*.json`. **No claim below was taken from Facet's own documentation** — the last two rewrites of the sibling parity document found nine and then several more stale or false claims sourced that way, including a citation to a source comment that existed nowhere in the file or its history |
 | React-Lua method | Raw source and docs fetched from `raw.githubusercontent.com` (not the rendered docs site, which does not resolve — [RL-27]), plus the GitHub, Wally and Roblox toolbox APIs. Every quote in §7 was read from the payload named there on the date given |
 
 **Suite state at the time of writing.** `./run-tests.sh` → **5438 passed, 0
@@ -1389,7 +1389,7 @@ cited URL, quote and date. Here the §7 convention is followed by hand.
 - **Any React-Lua roadmap.** No statement about a React 18 port, or about
   deprecation, was found on any first-party source.
 - **Anything on physical hardware, on either side.**
-- **LuauUI's own performance figures were not re-run for this document.** The
+- **Facet's own performance figures were not re-run for this document.** The
   `55 of 137` inert-container measurement is quoted verbatim from the source
   comment in `src/client/screen_target.luau`; the `~17×` incremental-layout and
   `−34 %` elision figures are the numbers

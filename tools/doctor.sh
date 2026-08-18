@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LuauUI doctor: verifies the toolchain and library invariants (design §16.1).
+# Facet doctor: verifies the toolchain and library invariants (design §16.1).
 # Writes artifacts/doctor.json. Exits nonzero if any REQUIRED check fails.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -28,7 +28,7 @@ ROJO_V="$(rojo --version 2>/dev/null)" && add_check rojo OK "$ROJO_V" true || ad
 [ -f phases.json ] && add_check phases OK "phases.json present" true || add_check phases FAIL "phases.json missing" true
 
 # Gallery place must build (proves the Rojo project maps the library).
-if rojo build examples/gallery.project.json -o build/LuauUI-Gallery.rbxl >/dev/null 2>&1; then
+if rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl >/dev/null 2>&1; then
   add_check rojo-build OK "gallery place builds" true
 else
   add_check rojo-build FAIL "rojo build examples/gallery.project.json failed" true
@@ -41,7 +41,7 @@ add_check studio-mcp ENV "verified per-session via Studio MCP, not from shell" f
 status=$([ $fail -eq 0 ] && echo PASS || echo FAIL)
 cat > artifacts/doctor.json <<EOF
 {
-  "schema": "luauui-doctor/1",
+  "schema": "facet-doctor/1",
   "status": "$status",
   "requirement": "UI-AGENT-001",
   "checks": [$checks

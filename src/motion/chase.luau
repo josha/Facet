@@ -50,7 +50,7 @@ end
 function chase.new(internals: any, opts: Opts): Chase
 	if type(opts) ~= "table" or opts.x == nil or opts.y == nil or type(opts.target) ~= "function" then
 		error(
-			"LuauUI motion: clock:chase needs { x = MotionValue, y = MotionValue, target = function() -> (x, y) } "
+			"Facet motion: clock:chase needs { x = MotionValue, y = MotionValue, target = function() -> (x, y) } "
 				.. "(2-D motion is two scalar springs, never one spring on a 2-D distance)",
 			0
 		)

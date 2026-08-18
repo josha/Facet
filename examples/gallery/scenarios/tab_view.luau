@@ -98,12 +98,12 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("tab-view-scenario")
 		-- thirteen memos, owned, so a demo swap does not leave them behind
-		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		--[[ THE TWO SELECTIONS, AND THEY ARE TWO. `selection` is the caller's
 			Signal by contract, so the app level and the page level are owned by two
@@ -337,7 +337,7 @@ return {
 				320px would be 40px each — so an autoscroll demonstration built on the
 				filling default would demonstrate nothing. A `topBar` already hugs; it is
 				written out here because this fixture's subject is what hugging costs. ]]
-			inner = LuauUI.newTabView(LuauUI, core, {
+			inner = Facet.newTabView(Facet, core, {
 				id = "Page",
 				selection = page,
 				indicator = "pill",
@@ -493,7 +493,7 @@ return {
 			out because it is the thing being demonstrated: the policy reads space and
 			input, never a device name, and publishes its answer as a Readable so this
 			screen can print it rather than re-deriving the rule. ]]
-		outer = LuauUI.newTabView(LuauUI, core, {
+		outer = Facet.newTabView(Facet, core, {
 			id = "App",
 			selection = section,
 			placement = "automatic",

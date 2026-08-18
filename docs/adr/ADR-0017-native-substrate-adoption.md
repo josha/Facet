@@ -6,7 +6,7 @@
 text) → `docs/plans/roblox-native-primitives.md` → the feasibility artifacts under
 `artifacts/native-substrate/feasibility/`.
 
-The product rule: LuauUI keeps deterministic, headlessly-testable decisions; the
+The product rule: Facet keeps deterministic, headlessly-testable decisions; the
 engine owns mechanisms it already ships, at the adapter edge, behind the existing
 capability seam with a fallback that is exercised separately.
 
@@ -28,7 +28,7 @@ coordinate mapping.
 
 Evidence: spike `m1-scroll-host.json`/`m2-canvas-window.json` (clip parity,
 600k-px canvas, clamping); live slice `a2-scroll-host.json` (real wheel moved a
-running LuauUI list's canvas; fallback run separately); headless
+running Facet list's canvas; fallback run separately); headless
 `tests/native_scroll.spec.luau`.
 
 ### 2. `Path2D` backs the new `UI.Path` leaf (NS-A7)

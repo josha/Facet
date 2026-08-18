@@ -14,11 +14,11 @@ XML: `refitFullBleed` 8, `catcherScreen` 4, `geometryFacts` 2, `env:batch` 5,
 plus `Technology=Unified` / `LightingStyle=Soft`.
 
 So: **close without saving, then open the rebuilt files** from
-`GameStudio/ui/LuauUI/examples/places/`.
+`GameStudio/ui/Facet/examples/places/`.
 
 
 The perf lab place has been rebuilt with the solve-count fix in it
-(`examples/places/LuauUI-PerformanceLab.rbxl`). **Reopen it** — the copy you had
+(`examples/places/Facet-PerformanceLab.rbxl`). **Reopen it** — the copy you had
 open in Studio is running the old source, which was confirmed by reading the
 loaded module text, not guessed.
 
@@ -26,7 +26,7 @@ loaded module text, not guessed.
 
 - **`perfPlace2gb.html`** — the dump holds ~30 frames (~1.08 s) and a `Run all`
   sweep is tens of seconds long, so it sampled a random second and drew
-  `dense-scroll-native`: the one workload with no LuauUI code in it. Nine of the
+  `dense-scroll-native`: the one workload with no Facet code in it. Nine of the
   twelve scopes had zero occurrences.
 - **`resize-relayout` + Profile** — the pass ran a whole lap inside one frame, so
   nothing repainted and the profiler had a single several-hundred-millisecond
@@ -35,7 +35,7 @@ loaded module text, not guessed.
 
 ## The capture, step by step
 
-1. Open the rebuilt `LuauUI-PerformanceLab.rbxl` and press Play.
+1. Open the rebuilt `Facet-PerformanceLab.rbxl` and press Play.
 2. Pick a workload — `resize-relayout` is the one this round's fix targets.
 3. Press **Profile**, not `Run all`. Profile loops ONE pass until you stop it, so
    the ~1.3 s dump window is guaranteed to land inside the workload you chose.
@@ -52,8 +52,8 @@ Full detail: `docs/guide/12-performance-lab.md` §12.4.
 ## What to look for, and what would be new information
 
 The fix should show as a **count**, not a duration. Before: one viewport change
-cost 5 solves. After: 1. So in a `resize-relayout` capture, `LuauUI/arrange` and
-`LuauUI/measure` occurrences per step should drop sharply; the per-occurrence
+cost 5 solves. After: 1. So in a `resize-relayout` capture, `Facet/arrange` and
+`Facet/measure` occurrences per step should drop sharply; the per-occurrence
 milliseconds should be roughly unchanged, because the solve itself was never the
 problem.
 

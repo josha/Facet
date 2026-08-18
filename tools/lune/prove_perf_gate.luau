@@ -41,8 +41,8 @@ end
 
 print(`prove_perf_gate: injecting a {FACTOR}x regression into '{TARGET_SCENE}' and running the real gate…`)
 local injectedCode, injectedOut = run({
-	LUAUUI_PERF_INJECT_REGRESSION = TARGET_SCENE,
-	LUAUUI_PERF_INJECT_FACTOR = tostring(FACTOR),
+	FACET_PERF_INJECT_REGRESSION = TARGET_SCENE,
+	FACET_PERF_INJECT_FACTOR = tostring(FACTOR),
 })
 
 local trendFailed = injectedCode ~= 0
@@ -61,7 +61,7 @@ print(`prove_perf_gate: injected run exit={injectedCode} (expected nonzero)`)
 
 -- 2. the frame ceiling, in-process: a scene above the share of the frame target
 local ceilingReport = {
-	schema = "luauui-perf/2",
+	schema = "facet-perf/2",
 	environment = { evidenceClass = "lune" },
 	runs = {
 		{
@@ -94,7 +94,7 @@ end
 
 -- 3. the refusal: a measured device budget against a report of headless rows
 local refusalResult = perf_runner.checkBudgets({
-	schema = "luauui-perf/2",
+	schema = "facet-perf/2",
 	environment = { evidenceClass = "lune" },
 	runs = {
 		{
@@ -139,7 +139,7 @@ local ok = trendFailed
 	and restoredArtifactClean
 
 artifact.writeJson(ROW_PATH, {
-	schema = "luauui-perf-falsification/1",
+	schema = "facet-perf-falsification/1",
 	row = "XP-A6",
 	requirement = "UI-PERF-002",
 	evidenceClass = "lune",
@@ -169,7 +169,7 @@ artifact.writeJson(ROW_PATH, {
 		committedArtifactIsClean = restoredArtifactClean,
 		note = "the falsification run must not leave a poisoned artifact; the clean rerun is part of the proof",
 	},
-	note = "Reproduce: LUAUUI_PERF_INJECT_REGRESSION=" .. TARGET_SCENE .. " LUAUUI_PERF_INJECT_FACTOR=" .. tostring(
+	note = "Reproduce: FACET_PERF_INJECT_REGRESSION=" .. TARGET_SCENE .. " FACET_PERF_INJECT_FACTOR=" .. tostring(
 		FACTOR
 	) .. " tools/perf.sh   (expect exit 1), then tools/perf.sh (expect exit 0).",
 })

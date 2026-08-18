@@ -7,7 +7,7 @@
 -- tablet, a desktop and a console.
 --
 -- Before this, choosing what to look at meant setting a workspace attribute
--- (`LuauUI_Example = 5`) and republishing. That is a fine developer affordance
+-- (`Facet_Example = 5`) and republishing. That is a fine developer affordance
 -- and a useless one on a device you are holding.
 --
 -- WHY IT LIVES IN examples/, NOT src/. Same reason as the theme picker: a demo
@@ -30,7 +30,7 @@
 
 local demo_picker = {}
 
-demo_picker.ATTRIBUTE = "LuauUI_DemoPicker"
+demo_picker.ATTRIBUTE = "Facet_DemoPicker"
 
 -- The FLOOR of the strip the showcase reserves for its chrome (see
 -- init.client's reserveBar and `barReservation` below). The two picker chips
@@ -81,9 +81,9 @@ export type Demo = {
 	id: string,
 	title: string,
 	blurb: string,
-	-- "example" -> ReplicatedStorage.LuauUIExamples.<module>, built with the
-	--              tutorial contract build(LuauUI, core, opts)
-	-- "fixture"  -> ReplicatedStorage.LuauUIScenarios.<module>, built with the
+	-- "example" -> ReplicatedStorage.FacetExamples.<module>, built with the
+	--              tutorial contract build(Facet, core, opts)
+	-- "fixture"  -> ReplicatedStorage.FacetScenarios.<module>, built with the
 	--              scenario contract build(ctx) using a MINIMAL ctx
 	kind: string,
 	module: string,
@@ -326,14 +326,14 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "time_curves",
 	},
-	-- ...and the one demo whose content LuauUI does not draw at all (ADR-0034):
+	-- ...and the one demo whose content Facet does not draw at all (ADR-0034):
 	-- RichText spans, an engine-measured list, and a 2x-oversize frame the box
 	-- crops — three capabilities the framework declines by design, plus a button
 	-- that adopts a `Part` and shows the refusal verbatim.
 	{
 		id = "foreign-content",
 		title = "Foreign instances",
-		blurb = "A box for an instance LuauUI does not own: RichText, an engine list, and the clip",
+		blurb = "A box for an instance Facet does not own: RichText, an engine list, and the clip",
 		kind = "fixture",
 		module = "foreign_content",
 	},
@@ -528,7 +528,7 @@ function demo_picker.next(current: string, step: number): string
 end
 
 export type MountOpts = {
-	LuauUI: any,
+	Facet: any,
 	core: any,
 	env: any,
 	presenter: any,
@@ -551,8 +551,8 @@ export type MountOpts = {
 
 -- mount(opts) -> { handle, selection, current, dispose }
 function demo_picker.mount(opts: MountOpts): any
-	local LuauUI = opts.LuauUI
-	local UI = LuauUI.UI
+	local Facet = opts.Facet
+	local UI = Facet.UI
 	local core = opts.core
 	local scope = core:scope("gallery-demo-picker")
 
@@ -595,7 +595,7 @@ function demo_picker.mount(opts: MountOpts): any
 
 		THAT IS NOT HYPOTHETICAL. Measured live in the showcase place on
 		2026-08-15: with one scenario module renamed out from under it,
-		`LuauUIShowcaseAPI.showNext` answered `{"current":"measured-extents"}` and
+		`FacetShowcaseAPI.showNext` answered `{"current":"measured-extents"}` and
 		`current` agreed — over an EMPTY screen. A caller that takes the id on
 		faith then measures whatever surface is still standing (a leftover probe,
 		the chrome, nothing at all) and reports a clean bill of health for a demo
@@ -612,7 +612,7 @@ function demo_picker.mount(opts: MountOpts): any
 		disposeMounted()
 		local ok, built = pcall(opts.mountDemo, demo)
 		if not ok then
-			(opts.warn or print)(`[LuauUI Showcase] '{demo.title}' failed to mount: {tostring(built)}`)
+			(opts.warn or print)(`[Facet Showcase] '{demo.title}' failed to mount: {tostring(built)}`)
 			-- RAISE ANYWAY. The previous demo has already been dismissed, so
 			-- returning here left a blank screen with no way back: the chips are
 			-- presented BELOW the demo in z-order, and only `raise` puts them back

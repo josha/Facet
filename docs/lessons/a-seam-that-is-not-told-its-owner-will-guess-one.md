@@ -53,7 +53,7 @@ another **is** the defect — no framework handle needed:
 
 ```lua
 for _, gui in playerGui:GetChildren() do
-    if gui:IsA("ScreenGui") and string.sub(gui.Name, 1, 7) == "LuauUI_" then
+    if gui:IsA("ScreenGui") and string.sub(gui.Name, 1, 7) == "Facet_" then
         local screenId = string.sub(gui.Name, 8)
         for _, d in gui:GetDescendants() do
             if d:IsA("GuiObject") and string.sub(d.Name, 1, 1) == "/" then

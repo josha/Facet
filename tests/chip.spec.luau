@@ -15,7 +15,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local chip = require("../src/controls/chip")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -31,15 +31,15 @@ local CHIP2 = "/S/Chip2"
 -- presenter harness: the four-input auto-composition path (auto_input house style)
 local function presenterWorld(opts: any?)
 	local options = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 	local selected = core:signal(options.selected == true)
 	local toggles: { boolean } = {}
-	local c = chip.build(LuauUI, core, {
+	local c = chip.build(Facet, core, {
 		id = "Chip",
 		label = "Rain",
 		selected = selected,
@@ -52,10 +52,10 @@ local function presenterWorld(opts: any?)
 	local c2 = nil
 	if options.sibling then
 		selected2 = core:signal(false)
-		c2 = chip.build(LuauUI, core, { id = "Chip2", label = "Snow", selected = selected2 })
+		c2 = chip.build(Facet, core, { id = "Chip2", label = "Snow", selected = selected2 })
 		table.insert(children, c2.blueprint)
 	end
-	local screen = LuauUI.UI.Screen({ id = "S", children = children })
+	local screen = Facet.UI.Screen({ id = "S", children = children })
 	local handle = pres.present(screen) -- ZERO opts: full auto-composition
 	pres.refresh()
 	return {
@@ -75,15 +75,15 @@ end
 
 -- renderer harness: mount a chip inside a Screen and attach the renderer directly
 local function renderWorld(envSetup: ((any) -> ())?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if envSetup then
 		envSetup(env)
 	end
 	local selected = core:signal(false)
-	local c = chip.build(LuauUI, core, { id = "Chip", label = "Rain", selected = selected })
-	local root = mountLib.mount(core, LuauUI.UI.Screen({ id = "S", children = { c.blueprint } }))
+	local c = chip.build(Facet, core, { id = "Chip", label = "Rain", selected = selected })
+	local root = mountLib.mount(core, Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
@@ -228,17 +228,17 @@ describe("Chip control", function()
 
 	-- 6. REGISTRY NEUTRALITY (playbook step 2.6) ---------------------------
 	it("build/mount/present/interact/dispose returns every registry to baseline", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters() -- AFTER the long-lived singletons
 
 		local selected = core:signal(false)
-		local c = chip.build(LuauUI, core, { id = "Chip", label = "Rain", selected = selected })
-		local screen = LuauUI.UI.Screen({ id = "S", children = { c.blueprint } })
+		local c = chip.build(Facet, core, { id = "Chip", label = "Rain", selected = selected })
+		local screen = Facet.UI.Screen({ id = "S", children = { c.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		adapter.tap(CHIP)
@@ -261,9 +261,9 @@ describe("Chip control", function()
 	-- nil"); a read-only Memo used to error with "cannot set a memo" from deep
 	-- inside core. Both are BUILD errors now, exactly like every sibling.
 	it("rejects a missing `selected` at BUILD, naming the control and the field", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return chip.build(LuauUI, core, { id = "Rain", label = "Rain" })
+			return chip.build(Facet, core, { id = "Rain", label = "Rain" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "Chip", 1, true) ~= nil).toBe(true)
@@ -272,9 +272,9 @@ describe("Chip control", function()
 	end)
 
 	it("rejects a read-only Memo `selected` at BUILD", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return chip.build(LuauUI, core, {
+			return chip.build(Facet, core, {
 				id = "Rain",
 				label = "Rain",
 				selected = core:memo(function()

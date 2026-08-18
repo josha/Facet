@@ -148,7 +148,7 @@ end)
 
 describe("motion curves: the pure twin IS the engine's curve", function()
 	--[[ THE FROZEN ENGINE CORPUS. Captured from `TweenService:GetValue` in a live
-		Studio session on 2026-08-15 (LuauUI-Showcase.rbxl, Edit datamodel) and
+		Studio session on 2026-08-15 (Facet-Showcase.rbxl, Edit datamodel) and
 		recorded with its method in artifacts/time-based-easing/engine-oracle.md. The
 		live oracle compares 33,033 samples and reports max |twin - engine| = 4.73e-7;
 		this is the subset that travels with the suite, so a twin that drifts reddens

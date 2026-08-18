@@ -76,7 +76,7 @@
 -- and see nothing change, which is the opposite of what this surface is for.
 -- `width = nil` on the first stop means FILL: "roomy" is whatever room this screen
 -- actually has, never a literal wider than the narrowest supported viewport (that
--- literal is `docs/lessons/luauui-fixed-px-heights` in its width spelling — a fixed
+-- literal is `docs/lessons/facet-fixed-px-heights` in its width spelling — a fixed
 -- box against an unfixed screen, which overflows the moment the chrome is real).
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },
@@ -143,8 +143,8 @@ return {
 	stops = STOPS,
 	sortCompact = SORT_COMPACT,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("text-degrade")
 
@@ -162,7 +162,7 @@ return {
 			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
 		end))
 
-		local widthPicker = LuauUI.newPicker(LuauUI, core, {
+		local widthPicker = Facet.newPicker(Facet, core, {
 			id = "Room",
 			label = COPY.widthLabel,
 			-- SEGMENTED, declared: four peers named for how much room there is,

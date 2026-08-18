@@ -6,7 +6,7 @@
 -- request's GENERATION so the provider's stale-completion rejection governs.
 --
 -- HONEST CANCELLATION (corrections addendum §12; spike m10-preload.json):
--- PreloadAsync yields and exposes NO cancellation API. Releasing a LuauUI
+-- PreloadAsync yields and exposes NO cancellation API. Releasing a Facet
 -- handle (a) prevents queued-but-unstarted work from being dispatched (the
 -- provider removes it from the pending window) and (b) makes any late
 -- completion STALE (generation mismatch -> rejected, state never resurrects).

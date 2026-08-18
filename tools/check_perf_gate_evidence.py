@@ -36,6 +36,8 @@ def studio():
 def native_reference():
     c = studio()["denseScrollVsNativeReference"]
     assert c["cleanCapture"] is True, "the comparison must be taken with the overlay dismissed"
+    # `luauui` is the key the pre-rename Studio capture recorded; the artifact is
+    # immutable evidence and is read under the name it was written with.
     assert len(c["luauui"]["repeats"]) == 3, "three identical repeats per side"
     assert len(c["nativeReference"]["repeats"]) == 3
     assert c["luauui"]["ownGuiObjects"] > 0 and c["nativeReference"]["guiObjects"] > 0
@@ -71,30 +73,34 @@ def scopes():
     # version asserted `len(timers) == 8` against an artifact that claimed eight names
     # were "the whole closed set" — while the module declared nine. That froze a wrong
     # number into the gate: appending the truthful ninth timer would have REDDENED it.
-    # (Phase-gate review F-2.) The ninth, `LuauUI/reset`, was simply not exercised in
+    # (Phase-gate review F-2.) The ninth, `Facet/reset`, was simply not exercised in
     # that capture; a scope enters the timer table only once it has run.
     declared = set()
     for line in open("src/core/profile.luau"):
         line = line.strip()
         if line.startswith("--"):
             continue
-        m = re.match(r'^(\w+) = "(LuauUI/[\w/]+)",$', line)
+        m = re.match(r'^(\w+) = "(Facet/[\w/]+)",$', line)
         if m:
             declared.add(m.group(2))
     assert len(declared) >= 8, f"could not read the scope set from src/core/profile.luau (got {declared})"
 
     d = studio()["microprofilerScopes"]
-    seen = {t["name"] for t in d["timers"]}
+    # The capture is IMMUTABLE EVIDENCE recorded before the Facet rename, so its bar
+    # names still carry the pre-rename prefix. Normalise the SPELLING of the prefix
+    # before comparing; the claim — every declared scope was observed live and no
+    # undeclared timer appeared — is exactly the one it always made.
+    seen = {re.sub(r"^LuauUI/", "Facet/", t["name"]) for t in d["timers"]}
     for name in seen:
-        assert name.startswith("LuauUI/"), name
+        assert name.startswith("Facet/"), name
     missing = declared - seen
     assert not missing, f"declared scopes never observed in a live capture: {sorted(missing)}"
     extra = seen - declared
-    assert not extra, f"the capture contains LuauUI timers that are not declared: {sorted(extra)}"
+    assert not extra, f"the capture contains Facet timers that are not declared: {sorted(extra)}"
     assert d["allDeclaredScopesVisible"] is True
     assert d["balanceLive"]["opens"] == d["balanceLive"]["closes"], d["balanceLive"]
     assert d["balanceLive"]["balanced"] is True
-    return f"scopes: all {len(declared)} declared LuauUI/* timers found live, opens == closes"
+    return f"scopes: all {len(declared)} declared Facet/* timers found live, opens == closes"
 
 
 def headless_linkage():
@@ -162,7 +168,7 @@ def falsifiable():
     assert d["artifactStampedAsInjected"] is True
     kinds = {v["kind"] for v in d["violations"]}
     assert "trend" in kinds and "frame-ceiling" in kinds, kinds
-    assert "LUAUUI_PERF_INJECT_REGRESSION" in open("tools/lune/perf.luau").read()
+    assert "FACET_PERF_INJECT_REGRESSION" in open("tools/lune/perf.luau").read()
     return "falsifiable: an injected regression reddened both budgets on the lab scene"
 
 

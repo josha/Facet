@@ -10,7 +10,7 @@
 
 Adopt the plan's option (c), the **native-maximal hybrid**, behind an opt-in
 target capability (`screen_target.new({ nativeStyle = … })`, gallery A/B via
-`workspace` attributes `LuauUI_NativeStyle` / `LuauUI_ForceStyleFallback`):
+`workspace` attributes `Facet_NativeStyle` / `Facet_ForceStyleFallback`):
 
 1. **The DataModel `StyleSheet` owns every proven styleable paint property** at
    an opted-in target: surface fills + transparency, corner/hairline chrome (as
@@ -21,7 +21,7 @@ target capability (`screen_target.new({ nativeStyle = … })`, gallery A/B via
 2. **The adapter classifies instead of painting**: engine class + CollectionService
    tags (`luau-surface-*`, `luau-interactive`, `luau-pointer-live`,
    `luau-selected`, `luau-role-*`), computed by the pure
-   `sheet_model.classifyTags`; one `StyleLink` per LuauUI root.
+   `sheet_model.classifyTags`; one `StyleLink` per Facet root.
 3. **One authority per property, now runtime-provable.** The 2026-07-19 defeat
    truth holds (an explicit write silently and permanently beats a rule), and
    `GuiObject:GetStyled(prop)` resolves the ACTUAL winner — so the verification
@@ -43,7 +43,7 @@ target capability (`screen_target.new({ nativeStyle = … })`, gallery A/B via
 Rojo authors sheet skeletons but not rule property maps (m5), so: **the Luau
 token styles are the source; a seed-once generator**
 (`src/tokens/sheet_model.luau` → `src/client/native_style.luau`) **emits the
-sheet named `LuauUIStyle`** and never overwrites an existing same-schema sheet.
+sheet named `FacetStyle`** and never overwrites an existing same-schema sheet.
 Designer paint edits (tokens on theme sheets, properties on named rules) are
 therefore durable; layout mirrors are regenerated on every apply and labeled
 read-only. Theme tokens live ONLY in theme sheets — a base-sheet attribute
@@ -74,7 +74,7 @@ would defeat every derive (m5/m7).
   `@PreferredTextSize*`, `@ReducedMotionEnabled`) nested under a rule, and
   element-attached container `StyleQuery` (`MinSize`/`MaxSize`/
   `AspectRatioRange`, live `IsActive`). A `StyleQuery` under the sheet is
-  inert; custom names fail silently → LuauUI facts ride tags, per corrections §6.
+  inert; custom names fail silently → Facet facts ride tags, per corrections §6.
 - Tag flips, GuiState changes, derive swaps, and token mutation all trigger
   declared transitions; direct writes never do.
 - Plain property reads are blind to styles; **`GetStyled` is the instrument**.
@@ -112,7 +112,7 @@ corrections, all landed and re-verified:
   `SetDerives`/attribute writes on a replicated sheet are client-local — each
   client can hold its own theme.
 - **Transitions default OFF** (`nativeStyle = { transitions = true }` to opt
-  in; gallery attribute `LuauUI_NativeTransitions`) and every
+  in; gallery attribute `Facet_NativeTransitions`) and every
   `SetPropertyTransitions` call is pcall-guarded — publish status is the open
   NSS-P3 rider and the instant path must never depend on the method existing.
   The renderer's reduced-motion wiring composes with the opt (RM strips; RM
@@ -120,7 +120,7 @@ corrections, all landed and re-verified:
 - **Gamepad-selection hover suppression:** engine selection reports
   `GuiState=Hover` (native-substrate m9), so the engine-selection bridge
   suppresses the node's pointer-live tag while it owns it — a pad-selected
-  control never paints the pointer hover fill. Outside the bridge LuauUI keeps
+  control never paints the pointer hover fill. Outside the bridge Facet keeps
   `SelectedObject=nil`, so no other selection path exists.
 - **Stroke precedence precision:** real `UIStroke` COEXISTS with a phantom
   stroke (probe `NSS_phantom_vs_focusring`); only `UICorner` has real-child
@@ -129,7 +129,7 @@ corrections, all landed and re-verified:
 ## Known limits (documented, not defects)
 
 - **One shared sheet per host:** all native-mode targets of one client share
-  `LuauUIStyle` — theme and transition state are global across those roots
+  `FacetStyle` — theme and transition state are global across those roots
   (last writer wins). Per-target theming would need per-target sheets via
   `nativeStyle.host`/`model`; deliberately out of scope this stage.
 - **Disabled affordance parity:** only text dims (`TextTransparency 0.4`), and
@@ -145,5 +145,5 @@ corrections, all landed and re-verified:
   NSS-P1 human row).
 - Transitions remain progressive enhancement: strip path proven, publish
   status re-checked at release (NSS-P3).
-- The sheet must never share a name with the library tree (`LuauUIStyle`;
+- The sheet must never share a name with the library tree (`FacetStyle`;
   class-checked lookup — a live-found hazard, a9).

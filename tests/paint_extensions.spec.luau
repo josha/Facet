@@ -189,7 +189,7 @@ describe("tint: resolution (the ONE pure resolver both adapters use)", function(
 		local err = fails(function()
 			sheet_model.tintColor(NEUTRAL_THEME, { role = "nope", blend = 1 }, "Box")
 		end)
-		expect(contains(err, "LuauUI tint on a Box")).toBe(true)
+		expect(contains(err, "Facet tint on a Box")).toBe(true)
 	end)
 
 	it("the schema and the resolver share ONE role vocabulary", function()
@@ -308,7 +308,7 @@ describe("tint: emission and application", function()
 		local err = fails(function()
 			sheet_model.tintTransparency({ direct = "#ffffff", transparency = 0.4 }, "Path")
 		end)
-		expect(contains(err, "LuauUI tint on a Path")).toBe(true)
+		expect(contains(err, "Facet tint on a Path")).toBe(true)
 		expect(contains(err, "canvasGroup")).toBe(true)
 		-- a Path with NO alpha is untouched
 		expect(sheet_model.tintTransparency({ direct = "#ffffff" }, "Path")).toBe(0)
@@ -395,7 +395,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 	end)
 
 	it("the claim reaches the node dump, beside the GetStyled reading it explains", function()
-		expect(contains(runnerSource, 'inst:GetAttribute("LuauUI_PaintClaims")')).toBe(true)
+		expect(contains(runnerSource, 'inst:GetAttribute("Facet_PaintClaims")')).toBe(true)
 		expect(contains(runnerSource, "d.paintClaims = claims")).toBe(true)
 	end)
 
@@ -630,7 +630,7 @@ describe("UI.stroke: the authored border", function()
 	end)
 
 	it("is a declared bespoke family, named from the manifest's own constant", function()
-		expect(authority.INSTANCE_NAMES.stroke).toBe("LuauUIStroke")
+		expect(authority.INSTANCE_NAMES.stroke).toBe("FacetStroke")
 		expect(authority.bespokeInstances()[authority.INSTANCE_NAMES.stroke] ~= nil).toBe(true)
 		local body =
 			section(adapterSource, "local function applyStroke(instance: Instance, stroke: any, handle: any)", 1200)

@@ -427,8 +427,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
-		local UI = LuauUI.UI
+		local Facet = ctx.Facet
+		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("hud")
 
@@ -819,7 +819,7 @@ return {
 				`shrinkWeight = 1` so it gives up pixels instead of lines (O-23). A
 				task row is therefore the control plus a mark and a reward, and the one
 				thing on it that can grow is the one thing that is allowed to. ]]
-			local view = LuauUI.newProgressView(LuauUI, core, {
+			local view = Facet.newProgressView(Facet, core, {
 				id = `Task{i}`,
 				value = scope:own(core:signal(0.2 * i)),
 			})
@@ -898,14 +898,14 @@ return {
 		-- the `numeral` role — the type role that exists for a figure that has to
 		-- read at a glance.
 		local roundLeft = scope:own(core:signal(0.62))
-		local timerRing = LuauUI.newProgressView(LuauUI, core, {
+		local timerRing = Facet.newProgressView(Facet, core, {
 			id = "TimerRing",
 			value = roundLeft,
 			presentation = "circular",
 		})
 
 		local health = scope:own(core:signal(0.84))
-		local healthBar = LuauUI.newProgressView(LuauUI, core, { id = "HealthBar", value = health })
+		local healthBar = Facet.newProgressView(Facet, core, { id = "HealthBar", value = health })
 
 		-- ---- the weapon rail -------------------------------------------------
 		local function weaponChip(id: string, name: string, ammo: string): any
@@ -1209,7 +1209,7 @@ return {
 				disagree about whether the sink is open. `consume = false` is the
 				row-actions mode — the tap still reaches whatever it landed on — because
 				a HUD's own controls stay live while a disclosure plate is up. ]]
-			return LuauUI.contribution.attach(
+			return Facet.contribution.attach(
 				glass(
 					"OverflowPanel",
 					"panel",
@@ -1322,7 +1322,7 @@ return {
 		end))
 		local probeBody = scope:own(core:signal(COPY.probeWaiting))
 		--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
-			(director, 2026-08-17: *"why isn't luauui handling the overlap in the popup
+			(director, 2026-08-17: *"why isn't facet handling the overlap in the popup
 			so that it's not cutoff right?"*).
 
 			The plate used to hand the framework ONE `UI.Text` carrying five lines
@@ -1335,7 +1335,7 @@ return {
 			the engine that decides, and three photographs in a row lost the line that
 			mattered.
 
-			LuauUI was not failing to lay this out. It was laying out exactly what it
+			Facet was not failing to lay this out. It was laying out exactly what it
 			was given: one box. A VStack of one Text per line is what lets it do the
 			job — each line is measured, wrapped and placed on its own, the column's
 			height is the sum of what the lines actually need, and a line that grows
@@ -1488,7 +1488,7 @@ return {
 				that was WORKING).
 
 				`screenRectOf` answers in WINDOW space. The engine seam answers off the
-				live GuiObject, and a LuauUI ScreenGui is `IgnoreGuiInset = true`, so its
+				live GuiObject, and a Facet ScreenGui is `IgnoreGuiInset = true`, so its
 				descendants' `AbsolutePosition` reads back with the GUI inset SUBTRACTED
 				— on that phone, 58px, which is exactly the number the plate printed for
 				every node it accused. Comparing the two directly makes a constant
@@ -2108,8 +2108,8 @@ return {
 			width = { type = "fill", weight = 1 },
 			height = { type = "fill", weight = 1 },
 			margin = margin,
-			groups = LuauUI.composition.HUD_GROUPS,
-			arrangements = { LuauUI.composition.HUD },
+			groups = Facet.composition.HUD_GROUPS,
+			arrangements = { Facet.composition.HUD },
 			children = {
 				-- THE PLATFORM'S OWN ROW (ADR-0027). A `span = "above"` group, so it
 				-- is one full-width row above every lane in every arrangement — which
@@ -2577,7 +2577,7 @@ return {
 							focusables are in NEITHER surface's traversal ring (measured
 							headless, in both responder modes — `tests/hud_paint_probe.spec.luau`
 							pins it), so a control on the probe's own plate is reachable by touch
-							and pointer and by nothing else. LuauUI has no cross-surface
+							and pointer and by nothing else. Facet has no cross-surface
 							traversal, and that is the capability this fixture cannot supply for
 							itself.
 

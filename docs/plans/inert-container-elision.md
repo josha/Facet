@@ -37,7 +37,7 @@ Across the whole surface (5-row window, 137 GuiObjects):
 carries no text or image. Examples: `/Row/Row`, `/Row/Row/Head`, `/Head/Labels`,
 `/Row/Controls`, `/Row/Value`, `/Value/Rate`, `/Rows/Canvas`, `/Rows/Canvas/W`.
 
-**And in LuauUI's flat tree they are not even the engine parent of their children.**
+**And in Facet's flat tree they are not even the engine parent of their children.**
 `adapter.create` parents everything to the root (or to the nearest clip host) and the
 solver positions every node absolutely. So an inert container is an invisible, zero-child
 `Frame` holding a rect that nothing reads.
@@ -86,4 +86,4 @@ adjusted to whatever the code produces.
 
 ~55 of 137 GuiObjects on this surface, ~11 of 20 per row. That would take the lab's row
 from 23.6 objects to roughly the native reference's 9.2 — closing the entire gap that
-started this line of work, and it would apply to every LuauUI consumer, not just lists.
+started this line of work, and it would apply to every Facet consumer, not just lists.

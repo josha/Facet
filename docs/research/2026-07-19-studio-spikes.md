@@ -17,7 +17,7 @@ device measurements stay authoritative (design §14.3).
 ## ScreenGui/StyleSheet property authority (UI-STYLE-001) — artifacts/studio/property-authority-spike.json
 
 - An explicitly-set instance property **silently and permanently defeats** a StyleRule for that property, and style application fires **no** `GetPropertyChangedSignal` and does not change property reads.
-- Consequence: the engine will not police authority conflicts; LuauUI's property-authority manifest (one authority per engine property, conflicts are debug errors — design §7.3) must be enforced in the framework. Validated as buildable: authority checks live where writes are issued (the renderer), which is the only writer.
+- Consequence: the engine will not police authority conflicts; Facet's property-authority manifest (one authority per engine property, conflicts are debug errors — design §7.3) must be enforced in the framework. Validated as buildable: authority checks live where writes are issued (the renderer), which is the only writer.
 
 ## Engine fidelity differential (UI-FID-001) — artifacts/studio/engine-fidelity.json
 

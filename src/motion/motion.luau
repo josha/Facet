@@ -176,7 +176,7 @@ local function newValue(
 	local motionKind = options.kind or "decorative"
 	if not KINDS[motionKind] then
 		error(
-			`LuauUI motion: unknown motion kind '{tostring(motionKind)}'. Use "decorative" (default: reduced motion `
+			`Facet motion: unknown motion kind '{tostring(motionKind)}'. Use "decorative" (default: reduced motion `
 				.. `snaps it) or "informational" (reduced motion keeps it running, quantized to {DEFAULT_QUANTUM}s).`,
 			0
 		)
@@ -184,7 +184,7 @@ local function newValue(
 	local reducedForm = options.reducedMotion or "snap"
 	if not REDUCED_FORMS[reducedForm] then
 		error(
-			`LuauUI motion: unknown reducedMotion form '{tostring(reducedForm)}'. Use "snap" (default) or "fade" `
+			`Facet motion: unknown reducedMotion form '{tostring(reducedForm)}'. Use "snap" (default) or "fade" `
 				.. `(a declaration that the caller pairs the instant placement with a transparency fade).`,
 			0
 		)
@@ -234,7 +234,7 @@ local function newValue(
 			if fn ~= nil then
 				local ok, err = pcall(fn)
 				if not ok then
-					internals.noteError(`LuauUI motion: onSettle subscriber error: {tostring(err)}`)
+					internals.noteError(`Facet motion: onSettle subscriber error: {tostring(err)}`)
 				end
 			end
 		end
@@ -316,7 +316,7 @@ local function newValue(
 		end
 		if driver.aim == nil then
 			error(
-				"LuauUI motion: this value is a timer — it has no target. A timer runs from `from` to `to` over "
+				"Facet motion: this value is a timer — it has no target. A timer runs from `from` to `to` over "
 					.. "`duration`; use clock:spring for a value you re-aim.",
 				0
 			)
@@ -352,7 +352,7 @@ local function newValue(
 			return
 		end
 		if driver.seed == nil then
-			error("LuauUI motion: this value is a timer — there is no velocity to seed.", 0)
+			error("Facet motion: this value is a timer — there is no velocity to seed.", 0)
 		end
 		if not isFinite(velocity) then
 			return
@@ -595,15 +595,15 @@ end
 -- under reduced motion would restore the very stepping this primitive removes.
 function motion.newGlide(internals: Internals, initial: number, spec: GlideSpec): MotionValue
 	if type(spec) ~= "table" then
-		error(`LuauUI motion: clock:glide takes a spec table \{ duration }, got {typeof(spec)}`, 0)
+		error(`Facet motion: clock:glide takes a spec table \{ duration }, got {typeof(spec)}`, 0)
 	end
 	specGuard.assertKnownKeys("motion.glide", spec, GLIDE_SPEC_KEYS, "spec")
 	if not isFinite(initial) then
-		error("LuauUI motion: clock:glide needs a finite initial value", 0)
+		error("Facet motion: clock:glide needs a finite initial value", 0)
 	end
 	local duration = spec.duration
 	if not isFinite(duration) or duration < 0 then
-		error(`LuauUI motion: clock:glide needs a duration in seconds >= 0, got {tostring(duration)}`, 0)
+		error(`Facet motion: clock:glide needs a duration in seconds >= 0, got {tostring(duration)}`, 0)
 	end
 
 	-- `from` is the ramp's origin, re-seeded at every aim; `elapsed >= duration`
@@ -689,7 +689,7 @@ local TWEEN_OPTS_KEYS = specGuard.keySet({ "eps", "kind", "quantum", "reducedMot
 -- LINEAR. A tween is the same ramp with the curve between the endpoints made
 -- authorable — which is precisely the half RascalRally lost when its `p^1.6`
 -- ease-in ramp (`src/shared/CommitBeatModel.luau`) had to be flattened to a
--- linear `clock:timer` in the LuauUI port, for want of a curve to name.
+-- linear `clock:timer` in the Facet port, for want of a curve to name.
 --
 -- THE CONTRACT. `setTarget(v)` restarts a FULL-duration flight from wherever the
 -- value currently IS to `v` — it never moves the value, so a re-aim mid-flight
@@ -712,7 +712,7 @@ local TWEEN_OPTS_KEYS = specGuard.keySet({ "eps", "kind", "quantum", "reducedMot
 function motion.newTween(internals: Internals, initial: number, curve: any, opts: ValueOpts?): MotionValue
 	specGuard.assertKnownKeys("clock:tween", opts, TWEEN_OPTS_KEYS, "opts")
 	if not isFinite(initial) then
-		error("LuauUI motion: clock:tween needs a finite initial value", 0)
+		error("Facet motion: clock:tween needs a finite initial value", 0)
 	end
 	local spec = curvesLib.resolve(curve)
 	local options: ValueOpts = opts or {}
@@ -801,14 +801,14 @@ end
 -- are target-seeking, not cadence-locked.
 function motion.newTimer(internals: Internals, spec: TimerSpec): MotionValue
 	if type(spec) ~= "table" then
-		error(`LuauUI motion: clock:timer takes a spec table \{ from, to, duration }, got {typeof(spec)}`, 0)
+		error(`Facet motion: clock:timer takes a spec table \{ from, to, duration }, got {typeof(spec)}`, 0)
 	end
 	local from, to, duration = spec.from, spec.to, spec.duration
 	if not isFinite(from) or not isFinite(to) then
-		error("LuauUI motion: clock:timer needs finite `from` and `to` values", 0)
+		error("Facet motion: clock:timer needs finite `from` and `to` values", 0)
 	end
 	if not isFinite(duration) or duration < 0 then
-		error(`LuauUI motion: clock:timer needs a duration in seconds >= 0, got {tostring(duration)}`, 0)
+		error(`Facet motion: clock:timer needs a duration in seconds >= 0, got {tostring(duration)}`, 0)
 	end
 
 	local elapsed = 0

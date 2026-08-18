@@ -15,7 +15,7 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../../src") :: any
+local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
 local standard_icons = require("../../src/themes/standard_icons")
 
@@ -33,8 +33,8 @@ type World = { core: any, env: any, adapter: any, presenter: any, system: any, b
 
 local function makeWorld(opts: any?): World
 	local options: any = opts or {}
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.width or 1200, h = options.height or 800 })
 	if options.reducedMotion then
 		env:set("reducedMotion", true)
@@ -42,7 +42,7 @@ local function makeWorld(opts: any?): World
 	if options.locale ~= nil then
 		env:set("locale", options.locale)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	if options.noStageHost then
 		-- an adapter WITHOUT the optional stage seam. `controller.stageHost`
@@ -50,8 +50,8 @@ local function makeWorld(opts: any?): World
 		-- fallback plate exists for.
 		adapter.stageHost = nil
 	end
-	local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local built = proof.build(LuauUI, core, {
+	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local built = proof.build(Facet, core, {
 		env = env,
 		actionSystem = system,
 		presenter = presenter,
@@ -833,13 +833,13 @@ describe("Cartwheel — the Plaza stage and its fallback", function()
 	end)
 
 	it("can open straight on a plaza, so the runner's one-shot stage content lands", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(LuauUI, core, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local built = proof.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = presenter,
@@ -953,21 +953,21 @@ describe("Cartwheel — the solver's own verdict", function()
 	it("reports NO layout diagnostics on any real viewport, in any section", function()
 		for _, viewport in VIEWPORTS do
 			for _, section in SECTIONS do
-				local core = LuauUI.newCore()
-				local env = LuauUI.newEnvironment(core)
+				local core = Facet.newCore()
+				local env = Facet.newEnvironment(core)
 				env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 				if viewport.large then
 					env:set("displaySize", "Large")
 				end
-				local system = LuauUI.newActionSystem(core)
+				local system = Facet.newActionSystem(core)
 				local adapter = fake_target.new();
 				-- UNDER THE BAR THE LIVE ENGINE ACTUALLY RESERVES. The headless twin
 				-- defaults to none, so a bar-less sweep measures every page scroller
 				-- 8px wider than the screen will, and reports clean on rows that
 				-- overflow in Studio.
 				(adapter :: any).scrollBarThickness = 8
-				local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-				local built = proof.build(LuauUI, core, {
+				local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+				local built = proof.build(Facet, core, {
 					env = env,
 					actionSystem = system,
 					presenter = presenter,
@@ -991,17 +991,17 @@ describe("Cartwheel — the solver's own verdict", function()
 
 	it("...and none on the pushed detail, the celebration, or the sign-up form either", function()
 		for _, viewport in VIEWPORTS do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 			if viewport.large then
 				env:set("displaySize", "Large")
 			end
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
 			(adapter :: any).scrollBarThickness = 8
-			local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-			local built = proof.build(LuauUI, core, {
+			local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+			local built = proof.build(Facet, core, {
 				env = env,
 				actionSystem = system,
 				presenter = presenter,
@@ -1043,7 +1043,7 @@ describe("Cartwheel — the solver's own verdict", function()
 	)
 
 	it("mounts under BOTH reference theme packages with no source edit", function()
-		local themes = LuauUI.themes
+		local themes = Facet.themes
 		for _, packageName in { "studio-neutral", "fantasy_parchment" } do
 			local world = makeWorld()
 			local snapshot = if packageName == "studio-neutral"
@@ -1103,17 +1103,17 @@ describe("Cartwheel — determinism and lifecycle", function()
 	end)
 
 	it("build + drive + dispose is registry-neutral", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
 
 		local baseline: any = nil
 		for cycle = 1, 3 do
-			local built = proof.build(LuauUI, core, deps)
+			local built = proof.build(Facet, core, deps)
 			presenter.refresh()
 			built.steps.section(built, "brews")
 			built.steps.open_brew(built, "101")
@@ -1185,19 +1185,16 @@ describe("Cartwheel — reduced motion", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
 			(adapter :: any).scrollBarThickness = 8
-			local presenter = LuauUI.newPresenter(core, env, adapter, system)
+			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
-			local built = proof.build(
-				LuauUI,
-				core,
-				{ env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-			)
+			local built =
+				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
 			presenter.refresh()
 			expect(#built.handle.controller.diagnostics()).toBe(0)
 			built.dispose()
@@ -1218,14 +1215,14 @@ describe("Cartwheel — the rows that WRAP (parity round 3)", function()
 	-- off their published paths past a green suite. So every case below reads
 	-- `screenRectOf` and insists on a NON-ZERO rect at a NAMED path.
 	local function worldAt(w: number, h: number, section: string)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).scrollBarThickness = 8
-		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(LuauUI, core, {
+		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local built = proof.build(Facet, core, {
 			env = env,
 			actionSystem = system,
 			presenter = presenter,

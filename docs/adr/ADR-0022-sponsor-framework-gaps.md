@@ -76,7 +76,7 @@ The authority manifest already declares `transform` and `transparency` as
   `controller.setPresentationTransparency(path, alpha)` — the renderer's only
   motion write sites, `authority.assertWrite(..., "presentation")` enforced.
 - `screen_target` implements them: offset composes onto the solver's last rect
-  (re-applied on `setRect`), `scale` materializes a transient `LuauUIMotionScale`
+  (re-applied on `setRect`), `scale` materializes a transient `FacetMotionScale`
   `UIScale` (declared bespoke instance family), `rotation` maps to
   `GuiObject.Rotation` (paint-only in Roblox). Presentation transparency is
   supported on nodes declared `canvasGroup = true` — the node itself
@@ -180,7 +180,7 @@ renderer/presenter layer, scripted in headless tests):
   a named `from` role, toward the target role) and `{ direct }` (declared
   theming-exempt escape). A node binding `tint` **claims** the engine property
   from the native sheet: the claim is recorded on the handle and published as the
-  `LuauUI_PaintClaims` instance attribute the scenario dump reports, so defeat
+  `Facet_PaintClaims` instance attribute the scenario dump reports, so defeat
   detection audits the hand-off instead of tripping on it. Claims do **not**
   strip the node's tags (a surface tag also carries corner/stroke/state chrome
   the author never surrendered — the explicit write already wins on exactly the
@@ -205,7 +205,7 @@ renderer/presenter layer, scripted in headless tests):
 motion arrivals, and toasts emit named events (`activate`, `select`, `commit`,
 `land`, `reject`, `dismiss`, `arrive`, `celebrate`) with source path and optional
 game-supplied reason/context, on their causal frames. `presenterHandle.onFeedback(fn)`
-subscribes. LuauUI plays nothing — haptics, sound, and their policies stay game-side
+subscribes. Facet plays nothing — haptics, sound, and their policies stay game-side
 (corrections §13).
 
 ## Decision 8 — async-avatar completeness stays in the provider/control layer
@@ -223,7 +223,7 @@ presentable placeholder — never a spinner or broken-image glyph.
 - The keyboard keep-visible defect class (fake adapter records what the live
   adapter ignores) gets a pinned conformance check; the lesson lands in
   `docs/lessons/`.
-- New public exports: `LuauUI.motion` (classes/clock/springs/chase/timeline),
+- New public exports: `Facet.motion` (classes/clock/springs/chase/timeline),
   `UI.draggable`/`UI.dropTarget`, `presenter.presentToast`, `UI.stroke`, `tint`/
   `scaleMode`/`zIndex`/fractional offsets, `onFeedback`, AsyncImage retry/preload.
   All documented in `docs/reference/api.md` with authority notes.

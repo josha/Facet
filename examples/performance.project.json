@@ -1,5 +1,5 @@
 {
-  "name": "LuauUI-PerformanceLab",
+  "name": "Facet-PerformanceLab",
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],
@@ -7,8 +7,8 @@
     "$className": "DataModel",
     "Workspace": {
       "$attributes": {
-        "LuauUI_PerfLabPlace": "LuauUI-PerformanceLab",
-        "LuauUI_NativeStyle": false
+        "Facet_PerfLabPlace": "Facet-PerformanceLab",
+        "Facet_NativeStyle": false
       },
       "$properties": {
         "FilteringEnabled": true,
@@ -63,13 +63,13 @@
       }
     },
     "ReplicatedStorage": {
-      "LuauUI": {
+      "Facet": {
         "$path": "../src"
       },
-      "LuauUIThemes": {
+      "FacetThemes": {
         "$path": "themes"
       },
-      "LuauUIScenarios": {
+      "FacetScenarios": {
         "$path": "performance/lab",
         "runner": {
           "$path": "gallery/scenarios/runner.luau"

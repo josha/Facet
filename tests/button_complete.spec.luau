@@ -245,7 +245,7 @@ describe("B-BTN2: semantic roles ride tags and style rules", function()
 	it("verifier V14: a role + selected combination is a KNOWN limitation, recorded not hidden", function()
 		-- "Selected row" is inserted BEFORE the role rules, so a control that is both
 		-- selected and role-tagged paints the ROLE and loses its selection feedback.
-		-- Selection is a LuauUI tag, not an engine pseudo-state, so it cannot layer.
+		-- Selection is a Facet tag, not an engine pseudo-state, so it cannot layer.
 		-- This is deliberate for now (a destructive control is not a selectable row in
 		-- any shipped surface) and is asserted so the ordering cannot drift silently.
 		local model = sheetModel.build({ themes = { { name = "Dark", style = defaultStyle } } })

@@ -27,7 +27,7 @@ function workbench.new(app: any): any
 	local UI = app.UI
 	local core = app.core
 	local S = app.S
-	local LuauUI = app.LuauUI
+	local Facet = app.Facet
 
 	local self: any = {}
 
@@ -223,7 +223,7 @@ function workbench.new(app: any): any
 
 	-- ---- the form ------------------------------------------------------------
 
-	local nameField = LuauUI.newTextInput(LuauUI, core, {
+	local nameField = Facet.newTextInput(Facet, core, {
 		id = "Name",
 		value = nameValue,
 		placeholder = S.t("bench.name"),
@@ -247,7 +247,7 @@ function workbench.new(app: any): any
 			return math.clamp(attrs[axis] / use(peak), 0, 1)
 		end)
 		table.insert(gaugeMemos, ratio)
-		local gauge = LuauUI.newProgressView(LuauUI, core, {
+		local gauge = Facet.newProgressView(Facet, core, {
 			id = "Gauge" .. axis,
 			value = ratio,
 			min = 0,
@@ -323,21 +323,21 @@ function workbench.new(app: any): any
 		return options
 	end
 
-	local basePicker = LuauUI.newPopupButton(LuauUI, core, {
+	local basePicker = Facet.newPopupButton(Facet, core, {
 		id = "Base",
 		options = ingredientOptions(data.bases :: any, false),
 		value = baseValue,
 		presentation = "automatic",
 		sizeClass = app.state.sizeClass,
 	})
-	local essencePicker = LuauUI.newPopupButton(LuauUI, core, {
+	local essencePicker = Facet.newPopupButton(Facet, core, {
 		id = "Essence",
 		options = ingredientOptions(data.essences :: any, true),
 		value = essenceValue,
 		presentation = "automatic",
 		sizeClass = app.state.sizeClass,
 	})
-	local garnishPicker = LuauUI.newPopupButton(LuauUI, core, {
+	local garnishPicker = Facet.newPopupButton(Facet, core, {
 		id = "Garnish",
 		options = ingredientOptions(data.garnishes :: any, true),
 		value = garnishValue,

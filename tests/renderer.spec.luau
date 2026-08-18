@@ -248,18 +248,18 @@ describe("Button padding reaches the adapter (playlist stars defect 2026-07-20)"
 	it("forwards the blueprint padding so the engine text inset matches the solver", function()
 		-- the adapter hardcoded a 12px UIPadding; a 22px star button solved
 		-- with padding=2 but rendered with a -2px text area (invisible glyph)
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local mountLib = require("../src/mount")
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Button({ id = "Tiny", label = "★", padding = 2, width = { type = "fixed", px = 22 } }),
-				LuauUI.UI.Button({ id = "Normal", label = "Save" }),
+				Facet.UI.Button({ id = "Tiny", label = "★", padding = 2, width = { type = "fixed", px = 22 } }),
+				Facet.UI.Button({ id = "Normal", label = "Save" }),
 			},
 		})
 		local root = mountLib.mount(core, screen)
@@ -276,20 +276,20 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 		-- ScreenTarget renders label-left + 44px track right-aligned with
 		-- 12px inset and 16px label margin; a 56px track-only rect painted
 		-- the label UNDER the track (director screenshot, settings place)
-		local LuauUI = require("../src") :: any
+		local Facet = require("../src") :: any
 		local mountLib = require("../src/mount")
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new()
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			padding = 16,
 			gap = 8,
 			children = {
-				LuauUI.UI.Toggle({ id = "Music", label = "Music", value = core:signal(false) }),
-				LuauUI.UI.Text({ id = "Below", text = "below", textSize = 14 }),
+				Facet.UI.Toggle({ id = "Music", label = "Music", value = core:signal(false) }),
+				Facet.UI.Text({ id = "Below", text = "below", textSize = 14 }),
 			},
 		})
 		local root = mountLib.mount(core, screen)
@@ -303,10 +303,10 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 		expect(toggle.w).toBeGreaterThanOrEqual(labelWidth + 84)
 		expect(toggle.h).toBeGreaterThanOrEqual(28) -- never shorter than the track row
 		-- an explicit width still wins (the Settings-port row pattern)
-		local screen2 = LuauUI.UI.Screen({
+		local screen2 = Facet.UI.Screen({
 			id = "T",
 			children = {
-				LuauUI.UI.Toggle({
+				Facet.UI.Toggle({
 					id = "Wide",
 					label = "Music",
 					value = core:signal(false),
@@ -413,7 +413,7 @@ describe("preferred text applied exactly once (native-substrate NS-A9)", functio
 		controller.refresh()
 		-- measure seam: the solver reserved a taller box for the engine-scaled text
 		expect(adapter.node("/T/Body").rect.h > baseH).toBe(true)
-		-- paint seam: LuauUI did NOT multiply the preference into TextSize —
+		-- paint seam: Facet did NOT multiply the preference into TextSize —
 		-- the ENGINE applies the preference at draw time (double-application fix)
 		expect(adapter.node("/T/Body").props.textSize).toBe(20)
 	end)
@@ -715,7 +715,7 @@ end)
 -- ===========================================================================
 
 describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local themeSnapshot = require("../src/themes/snapshot")
 
 	local PACKAGES = {
@@ -733,22 +733,22 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 	-- disabled, so the sweep covers the state the accessibility floor paints) and
 	-- a Button beside them, all under the package's own resolved metrics
 	local function world(pkg: any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 1067 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(pkg, nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local switch = core:signal(false)
-		presenter.present(LuauUI.UI.Screen({
+		presenter.present(Facet.UI.Screen({
 			id = "S",
 			padding = 16,
 			gap = 8,
 			children = {
-				LuauUI.UI.Toggle({ id = "Music", label = "Music", value = switch }),
-				LuauUI.UI.Toggle({ id = "Locked", label = "Locked", value = switch, enabled = false }),
-				LuauUI.UI.Button({ id = "Save", label = "Save" }),
+				Facet.UI.Toggle({ id = "Music", label = "Music", value = switch }),
+				Facet.UI.Toggle({ id = "Locked", label = "Locked", value = switch, enabled = false }),
+				Facet.UI.Button({ id = "Save", label = "Save" }),
 			},
 		}))
 		presenter.refresh()
@@ -776,8 +776,8 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 		table.sort(names)
 		for _, name in names do
 			local pkg = if name == "studio-neutral"
-				then LuauUI.themes.neutralPackage()
-				else (PACKAGES[name] :: any).build(LuauUI.themes)
+				then Facet.themes.neutralPackage()
+				else (PACKAGES[name] :: any).build(Facet.themes)
 			local w = world(pkg)
 			local before = w.geometry()
 			for _ = 1, 3 do
@@ -804,7 +804,7 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 end)
 
 describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local themeSnapshot = require("../src/themes/snapshot")
 	local fs = require("@lune/fs")
 
@@ -838,19 +838,19 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 		-- one thing while the measure seam reserved another. A single-line label
 		-- must be MEASURED single-line or the row reserves height for a second
 		-- line nobody draws.
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		env:set("themeMetrics", themeSnapshot.resolve(LuauUI.themes.neutralPackage(), nil, {}))
+		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
-		presenter.present(LuauUI.UI.Screen({
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		presenter.present(Facet.UI.Screen({
 			id = "S",
 			children = {
 				-- a label far too long for the column the track leaves behind, in a
 				-- row that is NOT free to grow (fill width inside a 320px screen)
-				LuauUI.UI.Toggle({
+				Facet.UI.Toggle({
 					id = "Long",
 					label = "Ambient occlusion quality preset",
 					value = false,
@@ -860,7 +860,7 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 		}))
 		presenter.refresh()
 		local row = adapter.node("/S/Long").rect
-		local snap = themeSnapshot.resolve(LuauUI.themes.neutralPackage(), nil, {})
+		local snap = themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {})
 		local pad = themeSnapshot.toggleRowPadding(snap)
 		local role = snap.type[themeSnapshot.INTRINSIC_TEXT_ROLE.Toggle]
 		-- the label genuinely does not fit: the column the track leaves is
@@ -887,18 +887,18 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 	it("a long label still GROWS the row where the row is free to grow", function()
 		-- "ellipsize-or-grow per the row's rules": an intrinsic-width row takes the
 		-- width its one line needs instead of wrapping into a second one
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		env:set("themeMetrics", themeSnapshot.resolve(LuauUI.themes.neutralPackage(), nil, {}))
+		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
-		presenter.present(LuauUI.UI.Screen({
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		presenter.present(Facet.UI.Screen({
 			id = "S",
 			children = {
-				LuauUI.UI.Toggle({ id = "Short", label = "Music", value = false }),
-				LuauUI.UI.Toggle({ id = "Long", label = "Ambient occlusion quality", value = false }),
+				Facet.UI.Toggle({ id = "Short", label = "Music", value = false }),
+				Facet.UI.Toggle({ id = "Long", label = "Ambient occlusion quality", value = false }),
 			},
 		}))
 		presenter.refresh()
@@ -917,23 +917,23 @@ end)
 -- the scrim was silently inset for months while a comment at the call site said
 -- otherwise. These cases pin both halves of the fix.
 describe("renderer — root policy", function()
-	local LuauUI = require("../src") :: any
+	local Facet = require("../src") :: any
 	local themeSnapshot = require("../src/themes/snapshot")
 	local function world(insets: any)
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		env:set("coreSafeInsets", insets)
-		env:set("themeMetrics", themeSnapshot.resolve(LuauUI.themes.neutralPackage(), nil, {}))
+		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		return presenter, adapter
 	end
 	local function fullScreen(id: string)
-		return LuauUI.UI.Screen({
+		return Facet.UI.Screen({
 			id = id,
 			children = {
-				LuauUI.UI.Spacer({
+				Facet.UI.Spacer({
 					id = "Fill",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },

@@ -49,57 +49,57 @@ local standard_icons = {}
 -- are cross-checked by `tools/lune/check_docs`.
 standard_icons.ART = table.freeze({
 	["chevron.leading"] = table.freeze({
-		assetName = "luauui_icon_chevron_left",
+		assetName = "facet_icon_chevron_left",
 		contentId = "rbxassetid://81739481512878",
 		tintRole = "content",
 	}),
 	["chevron.trailing"] = table.freeze({
-		assetName = "luauui_icon_chevron_right",
+		assetName = "facet_icon_chevron_right",
 		contentId = "rbxassetid://121626475799702",
 		tintRole = "content",
 	}),
 	["chevron.up"] = table.freeze({
-		assetName = "luauui_icon_chevron_up",
+		assetName = "facet_icon_chevron_up",
 		contentId = "rbxassetid://92798715826227",
 		tintRole = "content",
 	}),
 	["chevron.down"] = table.freeze({
-		assetName = "luauui_icon_chevron_down",
+		assetName = "facet_icon_chevron_down",
 		contentId = "rbxassetid://90343755930598",
 		tintRole = "content",
 	}),
 	["checkmark"] = table.freeze({
-		assetName = "luauui_icon_check",
+		assetName = "facet_icon_check",
 		contentId = "rbxassetid://108245103349446",
 		tintRole = "content",
 	}),
 	["close"] = table.freeze({
-		assetName = "luauui_icon_close",
+		assetName = "facet_icon_close",
 		contentId = "rbxassetid://133198978089241",
 		tintRole = "content",
 	}),
 	["increment"] = table.freeze({
-		assetName = "luauui_icon_plus",
+		assetName = "facet_icon_plus",
 		contentId = "rbxassetid://128664097463435",
 		tintRole = "content",
 	}),
 	["decrement"] = table.freeze({
-		assetName = "luauui_icon_minus",
+		assetName = "facet_icon_minus",
 		contentId = "rbxassetid://115068690098353",
 		tintRole = "content",
 	}),
 	["menu"] = table.freeze({
-		assetName = "luauui_icon_menu",
+		assetName = "facet_icon_menu",
 		contentId = "rbxassetid://119066409501208",
 		tintRole = "content",
 	}),
 	["more"] = table.freeze({
-		assetName = "luauui_icon_more",
+		assetName = "facet_icon_more",
 		contentId = "rbxassetid://117014407191998",
 		tintRole = "content",
 	}),
 	["edit"] = table.freeze({
-		assetName = "luauui_icon_edit",
+		assetName = "facet_icon_edit",
 		contentId = "rbxassetid://97349995335189",
 		tintRole = "content",
 	}),
@@ -107,12 +107,12 @@ standard_icons.ART = table.freeze({
 	-- `icon` names. Same recipe as the rest of the set (generate_icons.py,
 	-- Open Cloud upload via tools/upload_icons.py) -- not new art paradigms.
 	["trash"] = table.freeze({
-		assetName = "luauui_icon_trash",
+		assetName = "facet_icon_trash",
 		contentId = "rbxassetid://84398508341623",
 		tintRole = "content",
 	}),
 	["flag"] = table.freeze({
-		assetName = "luauui_icon_flag",
+		assetName = "facet_icon_flag",
 		contentId = "rbxassetid://109067109704366",
 		tintRole = "content",
 	}),

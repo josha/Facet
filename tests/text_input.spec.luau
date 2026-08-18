@@ -16,7 +16,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -31,12 +31,12 @@ local CLEAR = "/S/Name/ClearWhen/then/Clear"
 -- direct callback).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = options.core or LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = options.core or Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local changes: { string } = {}
 	local commits: { { text: string, reason: string } } = {}
@@ -62,9 +62,9 @@ local function world(opts: any?)
 		env = if options.env == false then nil else env,
 		actionSystem = system,
 	}
-	local control = text_input.build(LuauUI, core, spec)
+	local control = text_input.build(Facet, core, spec)
 
-	local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)
@@ -105,18 +105,18 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 	end)
 
 	it("a bare TextField primitive mounts and renders text/placeholder through the renderer", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		local adapter = fake_target.new()
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "S",
-				children = { LuauUI.UI.TextField({ id = "F", text = "hi", placeholder = "type", maxLength = 10 }) },
+				children = { Facet.UI.TextField({ id = "F", text = "hi", placeholder = "type", maxLength = 10 }) },
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		local node = adapter.node("/S/F")
 		expect(node ~= nil).toBe(true)
@@ -486,9 +486,9 @@ describe("TextInput: keyboardType", function()
 	end)
 
 	it("an unknown keyboardType is a build error", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok = pcall(function()
-			text_input.build(LuauUI, core, {
+			text_input.build(Facet, core, {
 				id = "Bad",
 				value = core:signal(""),
 				keyboardType = "frobnicate",
@@ -546,9 +546,9 @@ describe("TextInput: submitLabel (declared Return-key hint; engine-absent clean 
 	end)
 
 	it("an unknown submitLabel is a build error", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local ok = pcall(function()
-			text_input.build(LuauUI, core, {
+			text_input.build(Facet, core, {
 				id = "Bad",
 				value = core:signal(""),
 				submitLabel = "frobnicate",
@@ -680,16 +680,16 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 	end)
 
 	it("build/mount/interact/dispose returns every registry to its baseline (incl. a mid-edit dispose)", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
 		local value = core:signal("")
-		local control = text_input.build(LuauUI, core, {
+		local control = text_input.build(Facet, core, {
 			id = "Name",
 			value = value,
 			placeholder = "Name",
@@ -700,7 +700,7 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 			env = env,
 			actionSystem = system,
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, {
 			sinkNavigation = true,
 			onActivate = function(path, meta)
@@ -733,24 +733,24 @@ end)
 
 describe("TextInput: build-time contract", function()
 	it("value is required and must be a Signal/Memo (owner-held)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		expect(pcall(function()
-			text_input.build(LuauUI, core, { id = "NoValue" })
+			text_input.build(Facet, core, { id = "NoValue" })
 		end)).toBe(false)
 		expect(pcall(function()
-			text_input.build(LuauUI, core, { id = "BadValue", value = "not a signal" })
+			text_input.build(Facet, core, { id = "BadValue", value = "not a signal" })
 		end)).toBe(false)
 	end)
 
 	it("value must be a SETTABLE signal — a read-only Memo is a build error (ARCH-TI-1)", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		local memo = core:memo(function()
 			return "x"
 		end)
 		-- a Memo passes a bare readable check but errors on the first edit
 		-- (value:set); fail loudly at BUILD instead
 		local ok, err = pcall(function()
-			text_input.build(LuauUI, core, { id = "M", value = memo })
+			text_input.build(Facet, core, { id = "M", value = memo })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "settable", 1, true) ~= nil).toBe(true)
@@ -787,22 +787,22 @@ end)
 -- content box to zero outright.
 -- ===========================================================================
 describe("TextInput: the clear chip sizes for its glyph, in every theme", function()
-	local themes = LuauUI.themes
+	local themes = Facet.themes
 
 	local function clearRect(pkgModule: any?): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local control = LuauUI.newTextInput(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local control = Facet.newTextInput(Facet, core, {
 			id = "F",
 			value = core:signal("typed"),
 			placeholder = "filter",
 			clearButton = true,
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		if pkgModule ~= nil then
 			env:set("themeMetrics", themes.resolve(pkgModule, nil, {}))
@@ -913,9 +913,9 @@ describe("TextInput: clearButtonMode", function()
 	end)
 
 	it("an unrecognised mode is a build error, not a field that never offers a ✕", function()
-		local core = LuauUI.newCore()
+		local core = Facet.newCore()
 		expect(pcall(function()
-			return LuauUI.newTextInput(LuauUI, core, {
+			return Facet.newTextInput(Facet, core, {
 				id = "Bad",
 				value = core:signal(""),
 				clearButtonMode = "sometimes",

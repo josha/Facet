@@ -83,7 +83,7 @@ function Custom.new()
 	local function safeEq(node: Node, a: any, b: any): boolean
 		local ok, result = pcall(node.eq, a, b)
 		if not ok then
-			fail(`LuauUI: equality callback error quarantined: {tostring(result)}`)
+			fail(`Facet: equality callback error quarantined: {tostring(result)}`)
 			return false
 		end
 		return result == true
@@ -102,7 +102,7 @@ function Custom.new()
 				table.insert(path, n.name or "memo")
 			end
 			table.insert(path, node.name or "memo")
-			error(`LuauUI cycle: {table.concat(path, " -> ")}`, 0)
+			error(`Facet cycle: {table.concat(path, " -> ")}`, 0)
 		end
 		if not node.stale then
 			return node.value
@@ -185,7 +185,7 @@ function Custom.new()
 
 	local function write(node: Node, value: any)
 		if evaluatingMemo then
-			error("LuauUI: writing state during memo evaluation is an error", 0)
+			error("Facet: writing state during memo evaluation is an error", 0)
 		end
 		if safeEq(node, node.value, value) then
 			return
@@ -258,7 +258,7 @@ function Custom.new()
 			return
 		end
 		flushing = true
-		-- MICROPROFILER PHASE `LuauUI/react` (roadmap Step 9): reactive propagation
+		-- MICROPROFILER PHASE `Facet/react` (roadmap Step 9): reactive propagation
 		-- — the dirty walk, memo recomputes, observer notifies and effect runs that
 		-- one batch of writes caused. This is the phase that grows superlinearly
 		-- when a dependency graph is wrong, and it is invisible in a capture that
@@ -383,7 +383,7 @@ function Custom.new()
 				dropped += 1
 			end
 			fail(
-				`LuauUI: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect or settle feedback loop?); {dropped} pending signal write(s) discarded`
+				`Facet: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect or settle feedback loop?); {dropped} pending signal write(s) discarded`
 			)
 			writeSet = {}
 			capped = true
@@ -607,7 +607,7 @@ function Custom.new()
 
 		transaction = function(_self, body: () -> ())
 			txDepth += 1
-			-- MICROPROFILER PHASE `LuauUI/mutate` (roadmap Step 9): the batched
+			-- MICROPROFILER PHASE `Facet/mutate` (roadmap Step 9): the batched
 			-- MODEL change, separated from the propagation it causes. A profile that
 			-- cannot tell "the game wrote 400 signals" from "the framework walked the
 			-- dependency graph" cannot attribute the frame to either of them. The

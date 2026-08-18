@@ -9,10 +9,10 @@ the script ran fine. (Within the command VM itself, `_G` persists across success
 `execute_luau` calls — spike sessions rely on that.)
 
 **Working bridge:** the game script publishes `BindableFunction`s (e.g. under a
-`workspace.LuauUIScenarioAPI` folder) and the command VM calls `:Invoke(...)`.
+`workspace.FacetScenarioAPI` folder) and the command VM calls `:Invoke(...)`.
 Instances cross VMs; closures don't. Keep payloads JSON strings so no live tables
 cross the boundary.
 
 This is why `examples/gallery/scenarios/runner.luau` exposes list/steps/step/report/
-reset/freezeEnv as BindableFunctions and only additionally sets `_G.LuauUIScenario`
+reset/freezeEnv as BindableFunctions and only additionally sets `_G.FacetScenario`
 for same-VM consumers.

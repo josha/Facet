@@ -1,4 +1,4 @@
-# ADR-0024 — Declarative 3D: build a sibling scene system on LuauUI's kernel, when a consumer arrives
+# ADR-0024 — Declarative 3D: build a sibling scene system on Facet's kernel, when a consumer arrives
 
 **Status:** Accepted at stage PASS (2026-08-13), after four fresh-context
 reviews (architecture, reactive-runtime, Roblox-platform, phase-gate) whose
@@ -13,7 +13,7 @@ round's corrections).
 
 ## The system, explained like you're five
 
-LuauUI is a machine for screens. You hand it a *description* — "a list of these
+Facet is a machine for screens. You hand it a *description* — "a list of these
 rows, this label shows that number" — and the machine keeps the real screen
 matching the description while the numbers change, without ever redrawing more
 than it must, and it cleans up perfectly when a screen closes.
@@ -29,20 +29,20 @@ double-builds.
 ## Decision, in one paragraph
 
 **Build it as a SIBLING system — a new, separate package (working name
-`LuauScene`, proposed home `GameStudio/world/LuauScene/`) that reuses LuauUI's
+`LuauScene`, proposed home `GameStudio/world/LuauScene/`) that reuses Facet's
 reactive kernel and conventions but none of its screen machinery — and do not
 start building until a concrete consumer mission exists.** Do not add world
-nodes to LuauUI (wrong shape: its solver, render contract, and presenter are
+nodes to Facet (wrong shape: its solver, render contract, and presenter are
 rectangle-and-focus machinery, and every public change taxes the shipping game).
 Do not write a second independent kernel (two subtly different "engine rooms"
-maintained forever). Do not extract LuauUI's core into a shared package today
+maintained forever). Do not extract Facet's core into a shared package today
 (real migration churn for a production framework, zero present benefit) —
-instead, when the build mission starts, LuauUI **blesses its core as a public
+instead, when the build mission starts, Facet **blesses its core as a public
 entry point**. Said precisely, because "blessing" is cheap but not free: the
 semantic interface already exists as `src/core/contract.luau` (types only); the
 runtime entry is `src/core/custom.luau`, and blessing it means one additive
-export added to LuauUI's boundary-check allowlist, `api.md`, and the surface
-ledger, shipped through LuauUI's own gate with the RascalRally consumer rider —
+export added to Facet's boundary-check allowlist, `api.md`, and the surface
+ledger, shipped through Facet's own gate with the RascalRally consumer rider —
 zero migration, one gated public-surface addition. Extraction is reconsidered
 only if a third consumer of the kernel ever appears.
 
@@ -51,7 +51,7 @@ only if a third consumer of the kernel ever appears.
 The spike set out to disprove the sibling-with-shared-kernel shape. It failed to
 — every riskiest assumption held, measured live:
 
-- **Kernel fit.** LuauUI's actual core (required as-is, not copied) drove
+- **Kernel fit.** Facet's actual core (required as-is, not copied) drove
   Part/Model materialization with the same discipline it drives screens: one
   reactive change → exactly one adapter write (a per-signal guarantee — the
   order signals notify within one flush is unspecified, so multi-signal claims
@@ -115,7 +115,7 @@ spike before this ADR closed):
    Builds therefore RECEIVE their item scope, and "counters at baseline on
    teardown" is proven against exactly this shape.
 
-## Shared with LuauUI vs deliberately different
+## Shared with Facet vs deliberately different
 
 **Shared (the kernel and its conventions):** fine-grained reactivity (signals,
 memos, observers, effects, transactions, glitch-free flush), scope ownership
@@ -135,7 +135,7 @@ Authority specifics the reviews sharpened, carried as rules for the build:
 
 - The authority table must be MECHANIZED, not asserted — a world authority
   manifest asserted at the adapter's write site, refusing declared props another
-  mechanism owns (LuauUI's `assertWrite` precedent). The spike already enforces
+  mechanism owns (Facet's `assertWrite` precedent). The spike already enforces
   the first instances at mount: a welded child may not declare `anchored` (the
   weld owns anchoring) or a reactive transform (the parent's motion owns it).
 - **Anchored→unanchored is an authority TRANSFER, not a tuning change.** Anchor
@@ -200,13 +200,13 @@ authoring.
 
 Physics controllers; terrain generation; networking or replication replacement;
 a general game engine; per-frame update loops; VR/spatial input; replacing the
-art/level pipelines; any LuauUI public-surface change from THIS stage.
+art/level pipelines; any Facet public-surface change from THIS stage.
 
 ## Risks and costs
 
 - **Shared-kernel coupling:** a kernel bug or semantic change now has two
   consumers. Mitigation: the kernel is contract-pinned with its own conformance
-  suite; blessing (not extracting) keeps LuauUI's tree authoritative.
+  suite; blessing (not extracting) keeps Facet's tree authoritative.
 - **Streaming semantics are shakier than UI ever faces:** client-set properties
   can be lost on stream-out/in; client-children lifetime on streamed parts is
   officially undefined. The belt must re-apply state idempotently — designed in,
@@ -244,13 +244,13 @@ art/level pipelines; any LuauUI public-surface change from THIS stage.
 7. A template-clone probe: Model placement on a cloned model WITH a PrimaryPart
    (the spike's models had none; the adapter now uses PivotTo, which is correct
    in both cases, and the probe proves it).
-8. The LuauUI core-blessing change through LuauUI's own gate with the
+8. The Facet core-blessing change through Facet's own gate with the
    RascalRally consumer rider satisfied.
 
 ## Alternatives considered
 
 `artifacts/declarative-3d-architecture/alternatives.md` scores all four shapes
-(extend LuauUI / sibling with shared kernel / independent kernel / no build)
+(extend Facet / sibling with shared kernel / independent kernel / no build)
 against ten criteria with the research citations. Extension fails on package
 boundary, topology, and the solver shape mismatch; independence fails on kernel
 drift; no-build fails on the recurring per-game cost of exactly the hard parts

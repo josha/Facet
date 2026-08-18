@@ -12,7 +12,7 @@
 -- repo, its own type-union member — reserved for the custom-control escape hatch
 -- (UI-EXT-001, "mounts raw Instances under explicit contract") that had never
 -- shipped a blueprint class. It has now. The other four authorities answer "which
--- LuauUI writer owns this property of a LuauUI instance"; `host` answers "what
+-- Facet writer owns this property of a Facet instance"; `host` answers "what
 -- does the framework claim over an instance it does NOT own", and the whole point
 -- of the bounded escape hatch is that the answer is one property.
 
@@ -166,14 +166,14 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	--[[ THE FOREIGN BOX, AND THE ONE CLAIM THAT MAKES `host` LIVE (ADR-0034).
 
 		`Parent` is not an authored prop — no `UI.Foreign{ parent = … }` exists and
-		no consumer can ask for this. It is the ONE engine property LuauUI ever
+		no consumer can ask for this. It is the ONE engine property Facet ever
 		writes on an instance IT DOES NOT OWN: the caller creates the GuiObject,
 		`controller.foreignHost(path).adopt(instance)` puts it in the box, and from
 		that write onward the framework touches nothing about it — not its size, not
 		its paint, not its lifetime beyond dying with the container.
 
 		THAT IS WHY THE AUTHORITY IS `host` AND NOT `layout`. The four live
-		authorities all answer "which LuauUI writer owns this property of a LuauUI
+		authorities all answer "which Facet writer owns this property of a Facet
 		instance". This one answers a different question — "what does the framework
 		claim over content it has disclaimed" — and the answer is: exactly one
 		thing, declared here by name, so the disclaimer is auditable rather than
@@ -198,10 +198,10 @@ end
 function authority.assertWrite(class: string, prop: string, writer: Authority)
 	local owner = authority.authorityFor(class, prop)
 	if owner == nil then
-		error(`LuauUI authority: no declared authority for {class}.{prop} (declare it in the manifest)`, 0)
+		error(`Facet authority: no declared authority for {class}.{prop} (declare it in the manifest)`, 0)
 	end
 	if owner ~= writer then
-		error(`LuauUI authority: {writer} tried to write {class}.{prop} owned by {owner}`, 0)
+		error(`Facet authority: {writer} tried to write {class}.{prop} owned by {owner}`, 0)
 	end
 end
 
@@ -268,8 +268,8 @@ local NATIVE_SHEET_OWNED: { [string]: boolean } = {
 -- constants, one module up — the adapter reads the name from here, and the
 -- manifest below is keyed by it, so a rename cannot leave the two disagreeing.
 local INSTANCE_NAMES = table.freeze({
-	motionScale = "LuauUIMotionScale",
-	stroke = "LuauUIStroke",
+	motionScale = "FacetMotionScale",
+	stroke = "FacetStroke",
 })
 authority.INSTANCE_NAMES = INSTANCE_NAMES
 
@@ -281,17 +281,17 @@ local BESPOKE_INSTANCES: { [string]: string } = {
 	[INSTANCE_NAMES.stroke] = "the authored UI.stroke border (ADR-0022 Decision 6) — the same sanctioned-override "
 		.. "standing UI.corners/UI.shadow have. A theme's own chrome stroke is a phantom ::UIStroke rule and the "
 		.. "engine renders both, so this one is additive and never suppresses the theme's",
-	LuauUIChrome = "the single-asset slot decoration (nineSlice recipes)",
-	LuauUIChromeText = "the chrome text lift: the node's own glyphs, above the decoration",
-	LuauUIChromeL = "the layered decoration ladder (one child per layer, plus per-corner ornaments, plus the "
-		.. "`LuauUIChromeL<n>Mask` CanvasGroup a masked full-bleed layer is wrapped in — a SILHOUETTE, not "
+	FacetChrome = "the single-asset slot decoration (nineSlice recipes)",
+	FacetChromeText = "the chrome text lift: the node's own glyphs, above the decoration",
+	FacetChromeL = "the layered decoration ladder (one child per layer, plus per-corner ornaments, plus the "
+		.. "`FacetChromeL<n>Mask` CanvasGroup a masked full-bleed layer is wrapped in — a SILHOUETTE, not "
 		.. "paint: untagged, Active=false, with the layer's tagged art still inside it; probe rs-m9)",
-	LuauUIIcon = "the managed semantic-icon picture — the ONE sanctioned `Image` write",
-	LuauUIBarWindow = "the bar fill's ClipsDescendants window (percent = one Size write)",
-	LuauUIBarFill = "the full-track sliced fill art inside that window",
-	LuauUIBarCenter = "the bar's whole-image centre ornament",
-	LuauUIBarCapStart = "the bar's start cap, which must survive every percent",
-	LuauUIBarCapEnd = "the bar's end cap, which must survive every percent",
+	FacetIcon = "the managed semantic-icon picture — the ONE sanctioned `Image` write",
+	FacetBarWindow = "the bar fill's ClipsDescendants window (percent = one Size write)",
+	FacetBarFill = "the full-track sliced fill art inside that window",
+	FacetBarCenter = "the bar's whole-image centre ornament",
+	FacetBarCapStart = "the bar's start cap, which must survive every percent",
+	FacetBarCapEnd = "the bar's end cap, which must survive every percent",
 	Track = "the toggle switch's track art (a direct child, so `:Hover > ` can reach it)",
 	Knob = "the toggle switch's travelling knob art (solver-owned travel, rule-owned paint)",
 }
@@ -300,7 +300,7 @@ local BESPOKE_INSTANCES: { [string]: string } = {
 -- docs/research/2026-08-08-viewportframe-engine-facts.md §1).
 --
 -- A ViewportFrame carries its scene's lighting and its camera as PLAIN PROPERTIES
--- ON THE FRAME ITSELF — the instance LuauUI created and owns. So "the content
+-- ON THE FRAME ITSELF — the instance Facet created and owns. So "the content
 -- owner sets the lighting" would mean a consumer writing properties on a
 -- framework-owned Instance, which is the authority violation the manifest above
 -- exists to prevent; and no `style`/`binding`/`layout`/`presentation` channel fits
@@ -340,14 +340,14 @@ end
 function authority.assertSeamWrite(engineProp: string, bySeam: boolean)
 	if SEAM_OWNED[engineProp] == nil then
 		error(
-			`LuauUI authority: '{engineProp}' is not a declared seam-owned engine property `
+			`Facet authority: '{engineProp}' is not a declared seam-owned engine property `
 				.. "(declare it in render/authority.luau's SEAM_OWNED, with who writes it)",
 			0
 		)
 	end
 	if not bySeam then
 		error(
-			`LuauUI authority: {engineProp} is owned by the Stage content seam (adapter.stageHost) — `
+			`Facet authority: {engineProp} is owned by the Stage content seam (adapter.stageHost) — `
 				.. "a bespoke write would be a second authority over the frame",
 			0
 		)

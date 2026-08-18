@@ -157,7 +157,7 @@ away for later.
 | the arithmetic's own spec (17 cases, incl. the uniform-containment invariant and a counted boundedness check) | `tests/virtual_extents.spec.luau` |
 | the control's spec (17 cases, incl. a build counter on 10 000 ragged rows and the anchored-scroll case) | `tests/virtual_list_variable_extents.spec.luau` |
 | the showcase: 400 posts of four heights, with a toggle that re-creates the measured defect beside the fix | `examples/gallery/scenarios/variable_extents.luau` |
-| the consumer proof: Rascal Rally's racer list is still on the uniform arithmetic | `games/RascalRally/code/tests/luauui_closed_key_contract.spec.luau` |
+| the consumer proof: Rascal Rally's racer list is still on the uniform arithmetic | `games/RascalRally/code/tests/facet_closed_key_contract.spec.luau` |
 | mutation evidence (20 mutations across three rounds) and the perf numbers | `artifacts/variable-item-extents/` |
 
 ---
@@ -209,7 +209,7 @@ what changed, and what it cost, is below.
 | the stale-finding witness on the DECLARED path | `tests/virtual_list_slot_guard.spec.luau` |
 | the showcase: 400 posts, no height arithmetic anywhere, bodies that wrap with no `lineLimit` | `examples/gallery/scenarios/measured_extents.luau` (ORDER, `demo_picker.DEMOS`, the overflow sweep) |
 | the perf lab's fifth arm (D, measured, against arm C's identical picture) | `examples/performance/lab/perf_lab.luau` |
-| the consumer proof: Rascal Rally's racer list is still uniform AND mounts no wrapper | `games/RascalRally/code/tests/luauui_closed_key_contract.spec.luau` |
+| the consumer proof: Rascal Rally's racer list is still uniform AND mounts no wrapper | `games/RascalRally/code/tests/facet_closed_key_contract.spec.luau` |
 
 ### The one design change, and why
 
@@ -261,7 +261,7 @@ stands — the reason on the error message is the measured one.
   converged that walk finds nothing and is pure cost — it is most of the +30%
   steady-state number. Gating it on a per-row dirty signal is a real optimization
   and is its own change with its own before/after.
-- **The `LuauUI.text` line-box helper did NOT land with Stage 2** — see below.
+- **The `Facet.text` line-box helper did NOT land with Stage 2** — see below.
 
 ## What the showcase proved about Stage 1, the hard way (2026-08-14)
 
@@ -294,7 +294,7 @@ line box**, and every itemExtent consumer in the repo currently gets it wrong th
 same way: `row_actions`, `perf_capture` and `virtual_list_native` each carry a
 lying-extent waiver in `tests/overflow_sweep.spec.luau` for exactly this.
 
-Flagged rather than smuggled: a `LuauUI.text` helper for "the height of N lines of
+Flagged rather than smuggled: a `Facet.text` helper for "the height of N lines of
 this size, against these live facts" would close all three waivers and remove the
 whole class from Stage-1 authoring. It is an API addition and belongs to whoever
 takes Stage 2 — the two are the same problem, once from each side.
@@ -316,7 +316,7 @@ not have to redo it:
   genuinely wants a correct declaration, and today the only correct copy of the
   arithmetic in the repo is private to `examples/gallery/scenarios/variable_extents.luau`.
   A survey run for this mission found **seven** near-duplicates of the line-box
-  formula and exactly one of them right; the public `LuauUI.composition.floorPx` is
+  formula and exactly one of them right; the public `Facet.composition.floorPx` is
   wrong in three ways (no `ceil`, no scale, no text offset).
 * **It is a bigger change than it looks.** The correct spelling needs the env facts
   read through `use` — `max(typographyScale, typographyPaintScale)` is the part every
@@ -344,10 +344,10 @@ without amendment. Evidence: `artifacts/text-line-box/mutation-evidence.md`.
 | the arithmetic itself, exported from the module that already owned it: `reservedSize` (scale, then the additive offset) and `lineBoxPx` (the ceil, once) — and `measureAt` now CALLS `lineBoxPx`, so the prediction and the measurement cannot drift | `src/layout/text_metrics.luau` |
 | the measure seam calls `reservedSize` too, and its two branches now say out loud that an INTRINSIC size is reserved at scale 1 | `src/render/layout_node.luau` |
 | the text-scale POLICY as pure functions of the three platform facts (`typographyScale` / `typographyPaintScale` / `reserveScale` / `measureScale` / `textOffset`) — one implementation, called by the env memos, by the renderer's measure seam, and by `text.facts` | `src/themes/snapshot.luau`, `src/env/environment.luau`, `src/render/renderer.luau` |
-| the public face: `LuauUI.text.facts` (two forms — `{ env, use }` and `{ metrics }`) and `LuauUI.text.lineBox` | `src/layout/text_fit.luau`, `src/init.luau` |
+| the public face: `Facet.text.facts` (two forms — `{ env, use }` and `{ metrics }`) and `Facet.text.lineBox` | `src/layout/text_fit.luau`, `src/init.luau` |
 | `composition.floorPx` spending `text.lineBox`, which is all three fixes at once | `src/layout/composition.luau` |
 | 20 cases: the two facts forms and that they agree, the ceil-once and additive-after-scale properties, the refusals, one case per `floorPx` defect, and a DIFFERENTIAL oracle — nine themes x both display classes x sub-1..3x preferences x the four measured offsets x numeric and role-named sizes x 1..6 lines, each row mounted through the real presenter and compared to the arranged rect AND to the reserved size the solve recorded | `tests/text_line_box.spec.luau` |
-| the consumer rider: the new surface, the three `floorPx` fixes seen from the game side, and this package's own line-factor mirrors held to the claim their comments make | `games/RascalRally/code/tests/luauui_line_box_contract.spec.luau` |
+| the consumer rider: the new surface, the three `floorPx` fixes seen from the game side, and this package's own line-factor mirrors held to the claim their comments make | `games/RascalRally/code/tests/facet_line_box_contract.spec.luau` |
 
 ### The three `composition.floorPx` defects, each with its own case
 

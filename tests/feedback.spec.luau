@@ -9,7 +9,7 @@
 --     that flipped is already flipped when its `activate` arrives).
 --   * A CLOSED TAXONOMY — an unknown verb is an authoring error naming the
 --     vocabulary, because taxonomy sprawl is the named risk.
---   * LuauUI PLAYS NOTHING — the framework's only job is to say what happened.
+--   * Facet PLAYS NOTHING — the framework's only job is to say what happened.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect

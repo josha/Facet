@@ -9,11 +9,11 @@
 --       Instances) or the vendor root init (which pulls them in).
 --
 -- ...and then walks the CONSUMER side (ENF-2). ADR-0011 tells a game to reach
--- LuauUI through the root module plus a short list of client entry points, and
+-- Facet through the root module plus a short list of client entry points, and
 -- nothing else — but nothing checked it, so the rule lived only in prose. Rule
---   (c) a require in the game or in examples/ that names a LuauUI module by
---       INSTANCE PATH (`require(ReplicatedStorage.LuauUI.<...>.<module>)`)
---       must land on a BLESSED client entry point. Requiring the LuauUI root
+--   (c) a require in the game or in examples/ that names a Facet module by
+--       INSTANCE PATH (`require(ReplicatedStorage.Facet.<...>.<module>)`)
+--       must land on a BLESSED client entry point. Requiring the Facet root
 --       is always legal; reaching past it into `core`, `render`, `layout`,
 --       `controls` … is the "features usable only via internal imports" class,
 --       and it is what makes an internal rename a consumer break.
@@ -96,7 +96,7 @@ walk("src")
 
 -- ---------------------------------------------------------------------------
 -- (c) CONSUMER SCAN (ENF-2). The blessed client entry points: everything else
--- under the LuauUI tree is internal, and a consumer reaching it is a boundary
+-- under the Facet tree is internal, and a consumer reaching it is a boundary
 -- violation whether or not it currently works. Pinned in api.md's client
 -- entry-point section and in ADR-0011 — this is the same list, mechanically.
 local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
@@ -112,7 +112,7 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	-- game switching haptics on requires it directly, exactly as it requires
 	-- `motion_driver` — and because it must never be reachable any other way:
 	-- nothing in `src/` outside `src/client/` requires it, which is what keeps
-	-- "LuauUI plays nothing" true of the shared/server graph.
+	-- "Facet plays nothing" true of the shared/server graph.
 	haptics = true,
 }
 
@@ -137,7 +137,7 @@ local EXAMPLE_INTERNAL_REACH: { [string]: string } = {
 	text_premeasure = "the lab drives the premeasurement task directly to prove the two-read correction on a device",
 	gamepad_contention = "the gallery demonstrates the legacy-control disable seam documented in docs/guide/07-input.md; not yet a blessed entry point",
 	responder_effects = "the gallery binds the responder-effects seam the guide teaches; not yet a blessed entry point",
-	profile = "the performance lab opens the framework's OWN balanced MicroProfiler span wrapper, so the scenario driver's scopes and LuauUI's phases come from one implementation and cannot disagree about naming or balance (roadmap Step 9, PLN-2)",
+	profile = "the performance lab opens the framework's OWN balanced MicroProfiler span wrapper, so the scenario driver's scopes and Facet's phases come from one implementation and cannot disagree about naming or balance (roadmap Step 9, PLN-2)",
 }
 
 local consumerScanned = 0
@@ -150,15 +150,15 @@ local function normalizeIndexing(text: string): string
 	return out
 end
 
--- where the WHOLE identifier `LuauUI` appears in already-normalized text, or nil.
+-- where the WHOLE identifier `Facet` appears in already-normalized text, or nil.
 -- Whole-identifier, because the gallery replicates sibling folders whose names
--- START with it — `LuauUIThemes`, `LuauUIScenarios`, `LuauUIExamples` — and a
--- substring match reads `FindFirstChild("LuauUIScenarios")` as the library root
+-- START with it — `FacetThemes`, `FacetScenarios`, `FacetExamples` — and a
+-- substring match reads `FindFirstChild("FacetScenarios")` as the library root
 -- with a stray `Themes`/`Scenarios` path component hanging off it.
 local function findRootToken(normalized: string): number?
 	local from = 1
 	while true do
-		local s, e = string.find(normalized, "LuauUI", from, true)
+		local s, e = string.find(normalized, "Facet", from, true)
 		if s == nil then
 			return nil
 		end
@@ -172,20 +172,20 @@ local function findRootToken(normalized: string): number?
 end
 
 -- HOISTED ROOTS (ARCH-6). The scan used to inspect only require expressions whose
--- TEXT contained "LuauUI", which is defeated by the single most likely real-world
+-- TEXT contained "Facet", which is defeated by the single most likely real-world
 -- spelling — and the one the production game already uses:
 --
---   local root = ReplicatedStorage:WaitForChild("LuauUI")
---   require(root.render.renderer)      -- text has no "LuauUI"; missed entirely
+--   local root = ReplicatedStorage:WaitForChild("Facet")
+--   require(root.render.renderer)      -- text has no "Facet"; missed entirely
 --
--- So a local whose right-hand side names LuauUI MARKS that variable, and a
--- require through a marked variable is resolved to the same LuauUI-relative path
+-- So a local whose right-hand side names Facet MARKS that variable, and a
+-- require through a marked variable is resolved to the same Facet-relative path
 -- and judged by the same blessed list. Requiring the ROOT through a marked
 -- variable (`require(root)`) stays legal — that is the documented entry point,
 -- and it is exactly what the game does.
 --
 -- Marking is transitive through pure index chains (`local c = root.client`) but
--- deliberately NOT through `require(...)`: `local LuauUI = require(root)` yields
+-- deliberately NOT through `require(...)`: `local Facet = require(root)` yields
 -- the library TABLE, whose fields are values rather than module instances.
 local function markedRoots(source: string): { [string]: boolean }
 	-- a chained call broken across lines is one statement for our purposes
@@ -214,9 +214,9 @@ local function markedRoots(source: string): { [string]: boolean }
 	return marked
 end
 
--- the LuauUI-relative path a require expression reaches, or nil when the
--- expression is not a LuauUI instance-path require at all
-local function luauUiPath(expr: string, marked: { [string]: boolean }): { string }?
+-- the Facet-relative path a require expression reaches, or nil when the
+-- expression is not a Facet instance-path require at all
+local function facetPath(expr: string, marked: { [string]: boolean }): { string }?
 	local normalized = normalizeIndexing(expr)
 	local tail: string? = nil
 	local rootEnd = findRootToken(normalized)
@@ -244,17 +244,17 @@ local function consumerViolations(filePath: string, source: string): { { file: s
 	local found: { { file: string, target: string, rule: string } } = {}
 	local marked = markedRoots(source)
 	for expr in string.gmatch(source, "require%b()") do
-		local components = luauUiPath(expr, marked)
+		local components = facetPath(expr, marked)
 		if components == nil or #components == 0 then
-			continue -- not a LuauUI path, or the LuauUI root module itself (legal)
+			continue -- not a Facet path, or the Facet root module itself (legal)
 		end
 		local module = components[#components]
 		local exempt = string.sub(filePath, 1, 9) == "examples/" and EXAMPLE_INTERNAL_REACH[module] ~= nil
 		if not BLESSED_CLIENT_MODULES[module] and not exempt then
 			table.insert(found, {
 				file = filePath,
-				target = "LuauUI." .. table.concat(components, "."),
-				rule = "consumer-requires-luauui-internal",
+				target = "Facet." .. table.concat(components, "."),
+				rule = "consumer-requires-facet-internal",
 			})
 		end
 	end
@@ -308,23 +308,23 @@ end
 local SELF_TEST: { { name: string, source: string, expect: string? } } = {
 	{
 		name = "hoisted root, dot path",
-		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\nlocal r = require(root.render.renderer)',
-		expect = "LuauUI.render.renderer",
+		source = 'local root = ReplicatedStorage:WaitForChild("Facet")\nlocal r = require(root.render.renderer)',
+		expect = "Facet.render.renderer",
 	},
 	{
 		name = "hoisted root, WaitForChild chain",
-		source = "local root = ReplicatedStorage.LuauUI\n"
+		source = "local root = ReplicatedStorage.Facet\n"
 			.. 'local s = require(root:WaitForChild("layout"):WaitForChild("solver"))',
-		expect = "LuauUI.layout.solver",
+		expect = "Facet.layout.solver",
 	},
 	{
 		name = "hoisted root, required as the ROOT (the game's own spelling)",
-		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\nlocal LuauUI = require(root)',
+		source = 'local root = ReplicatedStorage:WaitForChild("Facet")\nlocal Facet = require(root)',
 		expect = nil,
 	},
 	{
 		name = "hoisted root, blessed client entry point",
-		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\n'
+		source = 'local root = ReplicatedStorage:WaitForChild("Facet")\n'
 			.. "local st = require(root.client.screen_target)",
 		expect = nil,
 	},
@@ -342,7 +342,7 @@ for _, case in SELF_TEST do
 end
 
 artifact.writeJson("artifacts/boundary.json", {
-	schema = "luauui-boundary/1",
+	schema = "facet-boundary/1",
 	status = if #violations == 0 then "PASS" else "FAIL",
 	requirement = "UI-BOUND-001",
 	scannedFiles = scanned,
@@ -351,7 +351,7 @@ artifact.writeJson("artifacts/boundary.json", {
 	rules = {
 		"non-client-requires-client",
 		"engine-free-zone-requires-engine-vendor",
-		"consumer-requires-luauui-internal",
+		"consumer-requires-facet-internal",
 	},
 	violations = violations,
 })

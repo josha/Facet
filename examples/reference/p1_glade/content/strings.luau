@@ -1,7 +1,7 @@
 --!strict
 -- Glade (RA-P1) — the proof's OWN string table, keyed by locale (spec §13).
 --
--- LuauUI measures and reflows; it does not own copy, plurals, dates or
+-- Facet measures and reflows; it does not own copy, plurals, dates or
 -- expansion. So the proof ships its own table, and a second locale `xa` that
 -- exists for exactly one purpose: proving every screen survives a ~1.4×
 -- expansion without clipping essential text.
@@ -149,7 +149,7 @@ local en: { [string]: string } = {
 	["reject.owned"] = "You already have this charm tier.",
 	["reject.fallback"] = "Something went wrong. You weren't charged.",
 
-	-- proof-owned time formatting (LuauUI has no date formatter) -------------
+	-- proof-owned time formatting (Facet has no date formatter) -------------
 	["time.hour"] = "{n}h",
 	["time.minute"] = "{n}m",
 	["time.second"] = "{n}s",

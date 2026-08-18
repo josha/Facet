@@ -8,7 +8,7 @@ release."* That is settled. This round executes it; it does not re-open it.
 
 ## The binding statement
 
-> Move LuauUI from a flat instance tree to a nested one — earning the
+> Move Facet from a flat instance tree to a nested one — earning the
 > compositing the flat tree cannot express and the arrange cost it cannot
 > avoid — in stages that each ship green, without regressing what flat bought
 > us and without breaking the live consumer.
@@ -23,7 +23,7 @@ release."* That is settled. This round executes it; it does not re-open it.
    shape, follow it. If you disagree with it, say so with a measurement before
    you deviate** — it was written with live captures and you should assume it
    knows something you have not re-derived.
-2. `GameStudio/ENGINEERING.md`, and the root `CLAUDE.md` **"LuauUI and Rascal
+2. `GameStudio/ENGINEERING.md`, and the root `CLAUDE.md` **"Facet and Rascal
    Rally move together"** clause — which binds this round hard, see the rider.
 3. `docs/adr/ADR-0024` (declarative 3-D) as the voice and structure precedent
    for any new ADR this round needs.
@@ -87,7 +87,7 @@ here so nobody re-derives them.**
   its ancestor's z-slot (pixel-confirmed). And `Global` is not the fix: it is
   **disqualifying** for a separate reason, ADR-0009's "verifier F1",
   reconfirmed live — a child at `ZIndex = 20` beneath a parent at `50` renders
-  **invisible**, and LuauUI pins every button icon at a fixed `ZIndex = 20`.
+  **invisible**, and Facet pins every button icon at a fixed `ZIndex = 20`.
 - **WRONG:** *"a `CanvasGroup` is an ordering boundary."* **Refuted at pixel
   level**, including at `GroupTransparency = 0.5` where the offscreen buffer is
   demonstrably real. Frame nesting and `CanvasGroup` nesting order
@@ -139,10 +139,10 @@ parent handle.
   write defeats a StyleSheet rule and fires no signal, and reading a styled
   property returns your own last write. Settle whether an engine-computed
   inherited effect (group transparency, inherited transform) counts as a second
-  writer on the properties LuauUI already claims. **If it does, that is a
+  writer on the properties Facet already claims. **If it does, that is a
   manifest change and it needs an ADR, not a patch.**
 - **Roblox's own layout objects** (`UIListLayout`, `UIPadding`) become tempting
-  the moment there are parents. LuauUI solves layout itself for reasons —
+  the moment there are parents. Facet solves layout itself for reasons —
   restate them and confirm they still hold before adopting any of them.
 
 ---
@@ -188,8 +188,8 @@ parent handle.
 
 ## The Rascal Rally rider — not optional
 
-Per the root `CLAUDE.md`: **LuauUI and Rascal Rally move together.** Rascal
-Rally consumes `GameStudio/ui/LuauUI/src` directly through both of its Rojo
+Per the root `CLAUDE.md`: **Facet and Rascal Rally move together.** Rascal
+Rally consumes `GameStudio/ui/Facet/src` directly through both of its Rojo
 projects, so a change to the rendered instance shape is exactly the kind of
 change that must include the consumer work **in the same task**.
 
@@ -212,11 +212,11 @@ rider here is *not* a migration — it is proof of compatibility:
 - **Preserve game behaviour and flags** unless the user separately authorises a
   product change. Anything that reads instance paths or walks the UI tree is a
   prime suspect.
-- The Sponsor cutover stands (authorised 2026-08-03): LuauUI is the production
-  default; `UseLuauUISponsor = false` is the legacy rollback; the legacy Sponsor
+- The Sponsor cutover stands (authorised 2026-08-03): Facet is the production
+  default; `UseFacetSponsor = false` is the legacy rollback; the legacy Sponsor
   modules stay shipped and untouched.
 
-**Baselines to hold:** LuauUI **~5438 passed / 0 failed**; Rascal Rally
+**Baselines to hold:** Facet **~5438 passed / 0 failed**; Rascal Rally
 **~3234 passed / 0 failed**. Both must be green at the end of every stage, not
 only at the end of the round.
 

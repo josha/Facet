@@ -12,7 +12,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local scenario = require("../examples/gallery/scenarios/row_actions") :: any
@@ -23,22 +23,22 @@ local scenario = require("../examples/gallery/scenarios/row_actions") :: any
 -- presenter would seed drag_velocity with near-zero real-time deltas between
 -- two synchronous pushes.
 local function makeWorld(envSetup: ((any) -> ())?)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
 	if envSetup ~= nil then
 		envSetup(env)
 	end
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+	local presenter = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ctx: any = {
-		LuauUI = LuauUI,
+		Facet = Facet,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -845,20 +845,20 @@ end)
 describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogue entry)", function()
 	-- The in-game demo picker mounts kind="fixture" entries with the BUILD-TIME
 	-- subset of the runner ctx (examples/gallery/client/init.client.luau
-	-- `mountDemo`): {LuauUI, core, env, actionSystem, presenter} — no adapter,
+	-- `mountDemo`): {Facet, core, env, actionSystem, presenter} — no adapter,
 	-- no record, no flags, and no step is ever run. This scenario binds
 	-- `presenter.onTick` at build, so this case pins that the picker's exact
 	-- ctx shape builds, presents, ticks, and disposes clean — the contract the
 	-- "row-actions" catalogue row (demo_picker.luau) depends on.
 	it("builds, presents, ticks and disposes under the picker's ctx", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -909,16 +909,16 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 	local SHOWCASE_TOP = 120 -- demo_picker.barReservation(58, nil, 8) — the strip the picker reserves
 
 	local function shortLandscape(mode: string): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 640, h = 320 })
 		env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
 		env:set("preferredInput", "Touch")
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			env = env,
 			adapter = adapter,

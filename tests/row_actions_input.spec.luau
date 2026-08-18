@@ -20,7 +20,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local LuauUI = require("../src") :: any
+local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local fake_target = require("../tests/lib/fake_target")
 local lt = require("./lib/large_text")
@@ -37,7 +37,7 @@ local FRAME = 1 / 60
 -- open-at-half-tray and commit-at-60%-of-row thresholds land far apart
 -- rather than crowding each other at the row's bare text-hug width.
 local function content(id: string?)
-	return LuauUI.UI.Text({
+	return Facet.UI.Text({
 		id = id or "Body",
 		text = "Row content",
 		width = { type = "fixed", px = 400 },
@@ -52,19 +52,19 @@ end
 -- composite's own `drag_velocity` tracker (src/controls/row_actions.luau
 -- `currentNow`).
 local function pointerWorld(build: (core: any) -> any)
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local w: any = { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -98,7 +98,7 @@ end
 local function trailingWorld(fullSwipeOpt: any?, roleOpt: ("normal" | "destructive")?)
 	local fired: { string } = {}
 	local w = pointerWorld(function(core)
-		return row_actions.build(LuauUI, core, {
+		return row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = {
@@ -440,7 +440,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		function()
 			local calls = 0
 			local w = pointerWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = content("Body"),
 					trailing = {
@@ -521,7 +521,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	it("commit with a throwing onAction still closes and does not refire", function()
 		local calls = 0
 		local w = pointerWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -575,7 +575,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	it("_commitFirst('trailing') fires the first trailing action once", function()
 		local fired: { string } = {}
 		local w = pointerWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -604,7 +604,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra._isOpen()).toBe(false)
 	end)
 
-	--[[ THE REUSED SPRING (found by the hosted row-actions parity sweep, LuauUI
+	--[[ THE REUSED SPRING (found by the hosted row-actions parity sweep, Facet
 		row-actions perf mission Task 5; fixed in `onPointerUp`/`onPointerCancel`
 		with `spring:snap(offset:get())`).
 
@@ -1063,7 +1063,7 @@ end)
 -- ===========================================================================
 -- Task 7: the open-state coordinator + outside-tap/scroll dismissal
 -- (docs/plans/row-actions-implementation.md Task 7; row_actions.newCoordinator,
--- public export `LuauUI.newRowActionsCoordinator`).
+-- public export `Facet.newRowActionsCoordinator`).
 --
 -- THE ROUND-7 LESSON (docs/plans/row-actions.md: "note the round-7 Zone-A
 -- lesson: closing must not swallow unrelated clicks"). `outsideDismiss`
@@ -1087,7 +1087,7 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	-- other describe blocks' bare Text) so "does the tap land on this row's
 	-- OWN control" is provable, not just "did offset move".
 	local function rowButtonContent(id: string, fired: { string })
-		return LuauUI.UI.Button({
+		return Facet.UI.Button({
 			id = id,
 			label = "Row " .. id,
 			width = { type = "fixed", px = 400 },
@@ -1099,17 +1099,17 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	end
 
 	local function twoRowWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local coordinator = row_actions.newCoordinator(core)
 		local firedA: { string } = {}
 		local firedB: { string } = {}
 		local function trailingRow(rowId: string, fired: { string })
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = rowId,
 				content = rowButtonContent("Body", fired),
 				trailing = {
@@ -1126,7 +1126,7 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 		end
 		local rowA = trailingRow("RowA", firedA)
 		local rowB = trailingRow("RowB", firedB)
-		local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 		-- sinkNavigation: the same opt-in tests/paradigm_popup.spec.luau's own
 		-- gamepad-Cancel world uses, so ButtonB reaches this screen's own
 		-- contributions rather than leaking through as ordinary gameplay input.
@@ -1304,16 +1304,16 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	it(
 		"a VStack of wrapped rows sharing newRowActionsCoordinator gets one-open + scroll-close + no-swallow behavior",
 		function()
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local pres = Facet.newPresenter(core, env, adapter, system)
 			local coordinator = row_actions.newCoordinator(core)
 			local fired: { [string]: { string } } = { RowA = {}, RowB = {}, RowC = {} }
 			local function trailingRow(rowId: string)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = rowId,
 					content = rowButtonContent("Body", fired[rowId]),
 					trailing = {
@@ -1329,14 +1329,14 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 				})
 			end
 			local rowA, rowB, rowC = trailingRow("RowA"), trailingRow("RowB"), trailingRow("RowC")
-			local screen = LuauUI.UI.Screen({
+			local screen = Facet.UI.Screen({
 				id = "S",
 				children = {
-					LuauUI.UI.ScrollView({
+					Facet.UI.ScrollView({
 						id = "List",
 						height = { type = "fixed", px = 100 }, -- < 3 * 48px rows: genuinely overflows
 						children = {
-							LuauUI.UI.VStack({
+							Facet.UI.VStack({
 								id = "Rows",
 								children = { rowA.blueprint, rowB.blueprint, rowC.blueprint },
 							}),
@@ -1408,7 +1408,7 @@ local ROW_ACTIONS_KEY_FRAME = 1 / 60
 -- can. Carries its OWN `onActivate` on request, so a scoped binding that DID
 -- collide with Activate would show up in a test using it.
 local function focusableBody(id: string, fired: { string }?): any
-	return LuauUI.UI.Button({
+	return Facet.UI.Button({
 		id = id,
 		label = "Row",
 		width = { type = "fixed", px = 400 },
@@ -1426,19 +1426,19 @@ end
 -- keyboard focus/press helpers Task 8's tests need that the pointer/touch
 -- describe blocks above did not.
 local function keyboardWorld(build: (core: any) -> any): any
-	local core = LuauUI.newCore()
-	local env = LuauUI.newEnvironment(core)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = LuauUI.newActionSystem(core)
+	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	local pres = Facet.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen, { sinkNavigation = true })
 	pres.refresh()
 	local w: any = { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -1474,7 +1474,7 @@ describe("RowActions Task 8: keyboard Delete", function()
 	it("Delete on a focused row fires the first destructive action", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -1500,7 +1500,7 @@ describe("RowActions Task 8: keyboard Delete", function()
 	it("Backspace does the same as Delete", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -1526,7 +1526,7 @@ describe("RowActions Task 8: keyboard Delete", function()
 		function()
 			local fired: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					leading = {
@@ -1585,14 +1585,14 @@ describe("RowActions Task 8: keyboard Delete", function()
 	it(
 		"Delete does nothing when no destructive action exists anywhere — and never registers a binding (the key reaches a sibling consumer untouched)",
 		function()
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local pres = Facet.newPresenter(core, env, adapter, system)
 			local fired: { string } = {}
-			local ra = row_actions.build(LuauUI, core, {
+			local ra = row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -1606,7 +1606,7 @@ describe("RowActions Task 8: keyboard Delete", function()
 					},
 				},
 			})
-			local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+			local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			-- a SIBLING consumer bound directly, bypassing row_actions entirely:
@@ -1638,18 +1638,18 @@ describe("RowActions Task 8: keyboard Delete", function()
 
 	it("Delete does nothing while focus is outside this row (scoped to the content subtree)", function()
 		local fired: { string } = {}
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clockTime = 0
-		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		local pres = Facet.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
 		})
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
 			trailing = {
@@ -1663,13 +1663,13 @@ describe("RowActions Task 8: keyboard Delete", function()
 				},
 			},
 		})
-		local other = LuauUI.UI.Button({
+		local other = Facet.UI.Button({
 			id = "Other",
 			label = "Other",
 			width = { type = "fixed", px = 200 },
 			height = { type = "fixed", px = 48 },
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint, other } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint, other } })
 		pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Other")
@@ -1700,13 +1700,13 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		same number. This world deliberately pushes the row away from the origin on
 		BOTH axes, which is the whole instrument. ]]
 	local function offsetMenuWorld(): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local ra = row_actions.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
 			trailing = {
@@ -1716,16 +1716,16 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		})
 		-- padding on the screen and a tall spacer above the row: the trigger's own
 		-- screen coordinates are now (20, 148), which no origin can be mistaken for
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			padding = 20,
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "Cage",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					children = {
-						LuauUI.UI.Box({ id = "Spacer", height = { type = "fixed", px = 120 }, surface = "base" }),
+						Facet.UI.Box({ id = "Spacer", height = { type = "fixed", px = 120 }, surface = "base" }),
 						ra.blueprint,
 					},
 				}),
@@ -1749,13 +1749,13 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		needs the viewport height, and both shipped hosts pass one). 20 padding + 480
 		spacer + 8 gap = a trigger at exactly y=508, which is the reported case. ]]
 	local function bottomMenuWorld(spacerPx: number, withEnv: boolean?, viewportH: number?): any
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = viewportH or 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		local ra = row_actions.build(LuauUI, core, {
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
 			env = if withEnv == false then nil else env,
@@ -1764,16 +1764,16 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = LuauUI.UI.Screen({
+		local screen = Facet.UI.Screen({
 			id = "S",
 			padding = 20,
 			children = {
-				LuauUI.UI.VStack({
+				Facet.UI.VStack({
 					id = "Cage",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					children = {
-						LuauUI.UI.Box({
+						Facet.UI.Box({
 							id = "Spacer",
 							height = { type = "fixed", px = spacerPx },
 							surface = "base",
@@ -1946,7 +1946,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local fired: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					trailing = {
@@ -1977,7 +1977,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 
 	it("lists every action, leading then trailing, in document order", function()
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				leading = {
@@ -2008,7 +2008,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local fired: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					trailing = {
@@ -2044,7 +2044,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 	it("Cancel (gamepad ButtonB) closes the menu without firing anything, and restores focus", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2072,7 +2072,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 
 	it("menu traps focus while open (transientScope): Navigate cannot escape into content or a sibling", function()
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				leading = {
@@ -2098,15 +2098,15 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 	end)
 
 	it("toggling the menu 10 times leaks nothing", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
 			trailing = {
@@ -2114,7 +2114,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Content/Body")
@@ -2151,7 +2151,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 	it("Delete while the menu is open does not bypass it — the open menu owns input", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2215,7 +2215,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 	it("a full-swipe commit under an OPEN MENU on the SAME row closes the menu first, not stranding it", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2259,19 +2259,19 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local firedA: { string } = {}
 			local firedB: { string } = {}
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
 			local clockTime = 0
-			local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			local pres = Facet.newPresenter(core, env, adapter, system, {
 				now = function()
 					return clockTime
 				end,
 			})
 			local function trailingRow(rowId: string, fired: { string })
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = rowId,
 					content = focusableBody("Body"),
 					trailing = {
@@ -2288,7 +2288,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			end
 			local rowA = trailingRow("RowA", firedA)
 			local rowB = trailingRow("RowB", firedB)
-			local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+			local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			pres.focus.focusOn("/S/RowA/Content/Body")
@@ -2310,13 +2310,13 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local menuFired: { string } = {}
 			local siblingFired: { string } = {}
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
-			local ra = row_actions.build(LuauUI, core, {
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local ra = row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2330,7 +2330,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 					},
 				},
 			})
-			local sibling = LuauUI.UI.Button({
+			local sibling = Facet.UI.Button({
 				id = "Sibling",
 				label = "Sibling",
 				width = { type = "fixed", px = 200 },
@@ -2339,7 +2339,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 					table.insert(siblingFired, "tap")
 				end,
 			})
-			local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint, sibling } })
+			local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint, sibling } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			pres.focus.focusOn("/S/Row/Content/Body")
@@ -2376,7 +2376,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		"menu row labels survive 1.4x pseudo-loc without wrapping or clipping (fill-inside-a-hugging-parent widens instead)",
 		function()
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					trailing = {
@@ -2417,7 +2417,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 	-- have to live.
 	it("the same action wears its ICON in the tray and its WORD in the menu row", function()
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2456,7 +2456,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 	it("Shift+Return opens the menu, entering focus on its first row — identical outcome to ButtonX", function()
 		local fired: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2488,7 +2488,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 
 	it("Shift+Return while the menu is open closes it (toggle, no distinct close key needed)", function()
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
 				trailing = {
@@ -2519,7 +2519,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		function()
 			local activated: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body", activated),
 					trailing = {
@@ -2542,7 +2542,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 	it("plain Return still activates the focused row content normally — byte-identical to before Task 8b", function()
 		local activated: { string } = {}
 		local w = keyboardWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body", activated),
 				trailing = {
@@ -2569,7 +2569,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		function()
 			local activated: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body", activated),
 					trailing = {
@@ -2597,7 +2597,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		function()
 			local fired: { string } = {}
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					trailing = {
@@ -2628,7 +2628,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		"opening via Shift+Return and closing via ButtonX (and vice versa) both work — one action, two bindings",
 		function()
 			local w = keyboardWorld(function(core)
-				return row_actions.build(LuauUI, core, {
+				return row_actions.build(Facet, core, {
 					id = "Row",
 					content = focusableBody("Body"),
 					trailing = {
@@ -2669,12 +2669,12 @@ end)
 -- comment above `local function openMenu` (row_actions.luau) for the design.
 describe("RowActions redteam item 2: the menu contributes zero to row/list measure", function()
 	it("opening row A's menu leaves row B's solved rect (y, x, height) byte-identical — VStack list", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 
 		-- THREE actions (leading + two trailing), not one (re-review finding,
 		-- MAJOR): a single-action menu is ONE row at the theme's compact
@@ -2689,7 +2689,7 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 		-- reverted to 0c43f1b with tests at HEAD -> this test fails;
 		-- restored -> passes (redteam-fixwave-report.md item 2's own
 		-- bite-proof section has the exact transcript).
-		local rowA = row_actions.build(LuauUI, core, {
+		local rowA = row_actions.build(Facet, core, {
 			id = "RowA",
 			content = focusableBody("Body"),
 			leading = {
@@ -2703,14 +2703,14 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 		-- a plain sibling leaf (not itself wrapped in row_actions — the
 		-- point is only to observe whether ANYTHING moves under row A, not
 		-- to exercise a second row's own actions).
-		local rowB = LuauUI.UI.Text({
+		local rowB = Facet.UI.Text({
 			id = "RowB",
 			text = "Row B",
 			width = { type = "fixed", px = 400 },
 			height = { type = "fixed", px = 48 },
 		})
-		local list = LuauUI.UI.VStack({ id = "List", children = { rowA.blueprint, rowB } })
-		local screen = LuauUI.UI.Screen({ id = "S", children = { list } })
+		local list = Facet.UI.VStack({ id = "List", children = { rowA.blueprint, rowB } })
+		local screen = Facet.UI.Screen({ id = "S", children = { list } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 
@@ -2733,22 +2733,22 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 	end)
 
 	it("wrapper dispose while its menu is open dismisses the menu's own surface too — no leak", function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
-		local ra = row_actions.build(LuauUI, core, {
+		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
 			trailing = {
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Content/Body")
@@ -3080,19 +3080,19 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 	-- a normal-role "delete" — irrelevant for probing an in-flight
 	-- irrevocable COMMIT, which only a destructive full swipe ever starts).
 	local function twoDestructiveRowWorld()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local coordinator = row_actions.newCoordinator(core)
 		local firedA: { string } = {}
 		local firedB: { string } = {}
 		local function trailingRow(rowId: string, fired: { string })
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = rowId,
-				content = LuauUI.UI.Button({
+				content = Facet.UI.Button({
 					id = "Body",
 					label = "Row " .. rowId,
 					width = { type = "fixed", px = 400 },
@@ -3116,7 +3116,7 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 		end
 		local rowA = trailingRow("RowA", firedA)
 		local rowB = trailingRow("RowB", firedB)
-		local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		local w: any = {
@@ -3233,12 +3233,12 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 	it(
 		"outside tap on the catcher over a passive HUD: tray closes, HUD is NOT engaged, gameplay input is still delivered",
 		function()
-			local core = LuauUI.newCore()
-			local env = LuauUI.newEnvironment(core)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local system = LuauUI.newActionSystem(core)
+			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local pres = Facet.newPresenter(core, env, adapter, system)
 
 			-- a fake gameplay stack UNDERNEATH the HUD (mirrors tests/responder.spec.luau's
 			-- own `gameplay` harness): a non-sinking CharacterContext with Jump<-Space.
@@ -3251,7 +3251,7 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 			end)
 
 			local fired: { string } = {}
-			local ra = row_actions.build(LuauUI, core, {
+			local ra = row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
 				trailing = {
@@ -3265,7 +3265,7 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 					},
 				},
 			})
-			local screen = LuauUI.UI.Screen({ id = "HUD", children = { ra.blueprint } })
+			local screen = Facet.UI.Screen({ id = "HUD", children = { ra.blueprint } })
 			local handle = pres.present(screen, { responder = "passive" })
 			pres.refresh()
 			expect(handle.responder:get()).toBe("passive")
@@ -3328,7 +3328,7 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 		local taps: { string } = {}
 		local fired: { string } = {}
 		local w = pointerWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				-- `width` AS TABLE PASSES IT. Without it the composite root is
 				-- content-sized, and a `fill` content inside a content-sized root
@@ -3347,12 +3347,12 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 					the single-button version). `Under` and `MarkRead` fill the same
 					rect; `MarkRead` is declared last, so it is the one painted on top
 					and the only one a press may ever reach. ]]
-				content = LuauUI.UI.ZStack({
+				content = Facet.UI.ZStack({
 					id = "Body",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 48 },
 					children = {
-						LuauUI.UI.Button({
+						Facet.UI.Button({
 							id = "Under",
 							label = "Under",
 							width = { type = "fill", weight = 1 },
@@ -3361,7 +3361,7 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 								table.insert(taps, "Under")
 							end,
 						}),
-						LuauUI.UI.Button({
+						Facet.UI.Button({
 							id = "MarkRead",
 							label = "Mark read",
 							width = { type = "fill", weight = 1 },
@@ -3515,15 +3515,15 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 			pair for them. ]]
 		local presses: { string } = {}
 		local w = pointerWorld(function(core)
-			return row_actions.build(LuauUI, core, {
+			return row_actions.build(Facet, core, {
 				id = "Row",
 				width = { type = "fill", weight = 1 },
-				content = LuauUI.UI.HStack({
+				content = Facet.UI.HStack({
 					id = "Body",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 48 },
 					children = {
-						LuauUI.UI.Grip({
+						Facet.UI.Grip({
 							id = "Stars",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },

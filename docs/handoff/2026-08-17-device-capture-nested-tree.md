@@ -30,9 +30,9 @@ can turn that into a frame-time answer.
 
 ## First: reopen the place
 
-`examples/places/LuauUI-PerformanceLab.rbxl` has been rebuilt from current
+`examples/places/Facet-PerformanceLab.rbxl` has been rebuilt from current
 source (`python3 tools/check_perf_place.py`, which runs `rojo build
-examples/performance.project.json -o examples/places/LuauUI-PerformanceLab.rbxl`
+examples/performance.project.json -o examples/places/Facet-PerformanceLab.rbxl`
 itself). **Close the copy you have open without saving and open the rebuilt
 file.**
 
@@ -183,7 +183,7 @@ proves the five arms build the trees they declare (`scrollHosted` matches
 `hosted`, both structurally and via the oracle) and provoke exactly one solve
 per rep; every `*Ms` field is a synthetic 1ms-per-call stub there and means
 nothing as a timing. **This lab under Studio is the real engine** — real
-Instances, real property writes, real `LuauUI/*` MicroProfiler scopes — and
+Instances, real property writes, real `Facet/*` MicroProfiler scopes — and
 is where the numbers above should first be sanity-checked before a device is
 spent. **A physical device is the only device claim.** A Studio number on a
 desktop machine is not evidence about a phone or a console; it only proves
@@ -197,7 +197,7 @@ Five dumps, four usable; `hostmove1.html` (arm 1, the A/A partner) came back wit
 **zero-frame aggregate** and no timings, so **there is no A/A control spread** and the
 N=20 numbers sit at the edge of the 6.7 % noise proxy.
 
-**`LuauUI/commit` −18.9 % at 600 leaves (−2.05 ms/frame), −8.8 % at 120.** The scaling
+**`Facet/commit` −18.9 % at 600 leaves (−2.05 ms/frame), −8.8 % at 120.** The scaling
 prediction in this note held: hosted `commit` grows 2.94× over 5× the rows, unhosted
 3.31×.
 

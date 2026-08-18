@@ -64,7 +64,7 @@ checker, so the stretch and the end-cap alignment are judgeable on disk.
 ```sh
 # from the repo root's shared venv; any CWD works
 /path/to/UntitledRacingGame/.venv/bin/python \
-  GameStudio/ui/LuauUI/assets/themes/ornate-gauge/source/generate_art.py
+  GameStudio/ui/Facet/assets/themes/ornate-gauge/source/generate_art.py
 ```
 
 Deterministic: re-running reproduces all three PNGs byte-for-byte on the

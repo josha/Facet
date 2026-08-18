@@ -1,8 +1,8 @@
 --!strict
--- LuauUI decision command (design §16.1): evaluates a declared rubric file and
+-- Facet decision command (design §16.1): evaluates a declared rubric file and
 -- writes the ADR + artifacts/decision-<name>.json.
 -- Usage: lune run tools/lune/decision <rubric.json>
--- Rubric schema (luauui-rubric/1):
+-- Rubric schema (facet-rubric/1):
 -- { "name": str, "adrSlug": str, "question": str,
 --   "criteria": [{ "id": str, "weight": number, "higherIsBetter": bool? }],
 --   "candidates": [{ "id": str, "summary": str,
@@ -97,7 +97,7 @@ table.insert(lines, "")
 fs.writeFile(adrPath, table.concat(lines, "\n"))
 
 artifact.writeJson(`artifacts/decision-{rubric.name}.json`, {
-	schema = "luauui-decision/1",
+	schema = "facet-decision/1",
 	status = "PASS",
 	rubric = rubricPath,
 	winner = winner.id,

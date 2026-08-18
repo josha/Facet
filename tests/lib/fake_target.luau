@@ -211,7 +211,7 @@ function fake_target.new(opts: Opts?)
 	end
 	local trackThemeRoots = (opts ~= nil and opts.trackThemeRoots == true)
 	local themeRoots: { any } = {}
-	local LEGACY_SHEET = { Name = "LuauUIStyle (legacy)" }
+	local LEGACY_SHEET = { Name = "FacetStyle (legacy)" }
 	local activeThemeSheet: any = nil
 
 	-- ===== THE PALETTE ADAPTER-OWNED PAINT RESOLVES AGAINST =================
@@ -515,7 +515,7 @@ function fake_target.new(opts: Opts?)
 			else
 				local live = handle.gradientInstance
 				if live == nil then
-					live = { className = "UIGradient", name = "LuauUIGradient", creations = 0 }
+					live = { className = "UIGradient", name = "FacetGradient", creations = 0 }
 					handle.gradientInstance = live
 				end
 				live.creations += 1
@@ -533,7 +533,7 @@ function fake_target.new(opts: Opts?)
 			else
 				local live = handle.strokeInstance
 				if live == nil then
-					live = { className = "UIStroke", name = "LuauUIStroke", creations = 0 }
+					live = { className = "UIStroke", name = "FacetStroke", creations = 0 }
 					handle.strokeInstance = live
 				end
 				live.creations += 1
@@ -590,7 +590,7 @@ function fake_target.new(opts: Opts?)
 			handle.motionScaleInstance = if type(value) == "table"
 					and type(value.scale) == "number"
 					and value.scale ~= 1
-				then { className = "UIScale", name = "LuauUIMotionScale", scale = value.scale }
+				then { className = "UIScale", name = "FacetMotionScale", scale = value.scale }
 				else nil
 			handle.rotation = if type(value) == "table" and type(value.rotation) == "number" then value.rotation else 0
 			local prefix = handle.path .. "/"
@@ -1895,7 +1895,7 @@ function fake_target.new(opts: Opts?)
 	-- ADAPTER-HELD HANDLER CENSUS (roadmap Step 4, metric M4). On the engine
 	-- every one of these slots is a live RBXScriptConnection; headless they are
 	-- the same slots holding plain functions. Counting them is the honest
-	-- headless stand-in for "engine connections": it counts exactly what LuauUI
+	-- headless stand-in for "engine connections": it counts exactly what Facet
 	-- asked the target to hold, and claims nothing about what the engine
 	-- allocates internally. The ScreenTarget answers the same question with its
 	-- own real connection count, so a perf record can carry the field on both

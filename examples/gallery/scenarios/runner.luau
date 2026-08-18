@@ -9,15 +9,15 @@
 -- input through the MCP input tools, then read the same report for effects.
 --
 -- MCP contract (execute_luau, Client datamodel):
---   _G.LuauUIScenario.list()          -> registered scenario names
---   _G.LuauUIScenario.step(name)      -> run a named scenario step, returns its result
---   _G.LuauUIScenario.report(opts?)   -> JSON string (luauui-scenario/1)
---   _G.LuauUIScenario.reset()         -> teardown + rebuild the scenario fresh
---   _G.LuauUIScenario.freezeEnv()     -> detach live engine env binding so
+--   _G.FacetScenario.list()          -> registered scenario names
+--   _G.FacetScenario.step(name)      -> run a named scenario step, returns its result
+--   _G.FacetScenario.report(opts?)   -> JSON string (facet-scenario/1)
+--   _G.FacetScenario.reset()         -> teardown + rebuild the scenario fresh
+--   _G.FacetScenario.freezeEnv()     -> detach live engine env binding so
 --                                        env:set(...) overrides hold steady
--- Workspace attributes: LuauUI_Scenario (selection, set BEFORE Play),
--- LuauUI_ScenarioReady, LuauUI_ScenarioState, LuauUI_SourceStamp (injector),
--- LuauUI_Version.
+-- Workspace attributes: Facet_Scenario (selection, set BEFORE Play),
+-- Facet_ScenarioReady, Facet_ScenarioState, Facet_SourceStamp (injector),
+-- Facet_Version.
 
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
@@ -120,7 +120,7 @@ local function dumpGuiInstance(inst: Instance): { [string]: any }?
 		-- modifier-instance telemetry (arch verifier 2026-07-24): phantom-chrome
 		-- claims must be machine-checkable — count REAL UICorner/UIStroke
 		-- children per node (native mode: zero except declared overrides, which
-		-- carry the LuauUI_DeclaredOverride attribute)
+		-- carry the Facet_DeclaredOverride attribute)
 		local corners, strokes = 0, 0
 		for _, c in inst:GetChildren() do
 			if c:IsA("UICorner") then
@@ -132,7 +132,7 @@ local function dumpGuiInstance(inst: Instance): { [string]: any }?
 		if corners > 0 or strokes > 0 then
 			d.modifierChildren = { UICorner = corners, UIStroke = strokes }
 		end
-		if inst:GetAttribute("LuauUI_DeclaredOverride") == true then
+		if inst:GetAttribute("Facet_DeclaredOverride") == true then
 			d.declaredOverride = true
 		end
 		-- PAINT CLAIMS (ADR-0022 Decision 6): the engine properties this node took
@@ -140,7 +140,7 @@ local function dumpGuiInstance(inst: Instance): { [string]: any }?
 		-- identity hue, an authored `scaleMode`). Dumped BESIDE `styled` on purpose —
 		-- a claimed property is EXPECTED to diverge from the sheet-resolved value, and
 		-- this is what tells the defeat audit that the divergence was declared.
-		local claims = inst:GetAttribute("LuauUI_PaintClaims")
+		local claims = inst:GetAttribute("Facet_PaintClaims")
 		if type(claims) == "string" and claims ~= "" then
 			d.paintClaims = claims
 		end
@@ -208,7 +208,7 @@ end
 local Runner = {}
 
 function Runner.start(deps: { [string]: any })
-	local LuauUI = deps.LuauUI
+	local Facet = deps.Facet
 	local registry = deps.registry
 	local name = deps.scenarioName :: string
 	local mod = registry.modules[name]
@@ -216,8 +216,8 @@ function Runner.start(deps: { [string]: any })
 	-- `applyForeignContent` below for why it is not a local in this file
 	local foreign_instances = require(registry.foreignInstances) :: any
 	if mod == nil then
-		workspace:SetAttribute("LuauUI_ScenarioState", "failed:unknown-scenario:" .. name)
-		error(`[LuauUI Scenario] unknown scenario '{name}' (registered: {table.concat(registry.order, ",")})`)
+		workspace:SetAttribute("Facet_ScenarioState", "failed:unknown-scenario:" .. name)
+		error(`[Facet Scenario] unknown scenario '{name}' (registered: {table.concat(registry.order, ",")})`)
 	end
 
 	local scenario = require(mod) :: any
@@ -294,7 +294,7 @@ function Runner.start(deps: { [string]: any })
 
 	local function build()
 		local ctx = {
-			LuauUI = LuauUI,
+			Facet = Facet,
 			-- HOST SEAMS (roadmap Step 9). A scenario module is engine-free by
 			-- contract, and the runner owns every engine seam it needs — but a stage
 			-- can need one this runner has no business knowing about (the performance
@@ -320,7 +320,7 @@ function Runner.start(deps: { [string]: any })
 			-- engine seams stay runner-owned so scenario modules remain
 			-- engine-free: binds the Roblox resource transport (NS-A13)
 			bindResourceTransport = function(provider: any): () -> ()
-				local transport = require(game:GetService("ReplicatedStorage").LuauUI.client.roblox_resources) :: any
+				local transport = require(game:GetService("ReplicatedStorage").Facet.client.roblox_resources) :: any
 				return transport.bind(provider)
 			end,
 			-- WORLD-ANCHORED PRESENTATION (ADR-0009; row SF-W1). A BillboardGui, a
@@ -342,10 +342,10 @@ function Runner.start(deps: { [string]: any })
 					end
 					local ok, built = pcall(function()
 						local ReplicatedStorage = game:GetService("ReplicatedStorage")
-						local billboardTarget = require(ReplicatedStorage.LuauUI.client.billboard_target) :: any
+						local billboardTarget = require(ReplicatedStorage.Facet.client.billboard_target) :: any
 						local canvas = spec.canvas or { w = 320, h = 220 }
 						local part = Instance.new("Part")
-						part.Name = "LuauUI_BillboardAnchor"
+						part.Name = "Facet_BillboardAnchor"
 						part.Anchored = true
 						part.CanCollide = false
 						part.CanQuery = false
@@ -363,16 +363,11 @@ function Runner.start(deps: { [string]: any })
 							alwaysOnTop = true,
 						})
 						-- the solver's world IS the canvas (scale units mean studs here)
-						local billboardEnv = LuauUI.newEnvironment(deps.core)
+						local billboardEnv = Facet.newEnvironment(deps.core)
 						billboardEnv:set("viewportRect", billboardTarget.canvasRect(canvas))
-						local root = LuauUI.mount(deps.core, spec.blueprint)
-						local controller = LuauUI.renderer.attach(
-							deps.core,
-							root,
-							billboardEnv,
-							adapter,
-							{ rootPolicy = "edgeToEdge" }
-						)
+						local root = Facet.mount(deps.core, spec.blueprint)
+						local controller =
+							Facet.renderer.attach(deps.core, root, billboardEnv, adapter, { rootPolicy = "edgeToEdge" })
 						controller.initialRender()
 						return {
 							part = part,
@@ -418,7 +413,7 @@ function Runner.start(deps: { [string]: any })
 					end
 					local anchors = 0
 					for _, inst in workspace:GetChildren() do
-						if inst.Name == "LuauUI_BillboardAnchor" then
+						if inst.Name == "Facet_BillboardAnchor" then
 							anchors += 1
 						end
 					end
@@ -457,36 +452,36 @@ function Runner.start(deps: { [string]: any })
 			end)(),
 			-- test-run flags (engine attribute reads stay runner-owned)
 			flags = {
-				forceDragFallback = workspace:GetAttribute("LuauUI_ForceDragFallback") == true,
-				forceScrollFallback = workspace:GetAttribute("LuauUI_ForceScrollFallback") == true,
+				forceDragFallback = workspace:GetAttribute("Facet_ForceDragFallback") == true,
+				forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
 				-- theme-packages stage: the package/theme a Studio operator
 				-- selects BEFORE Play, so the five-view matrix can be driven
 				-- against a chosen skin without editing a scenario
-				themePackage = workspace:GetAttribute("LuauUI_ThemePackage"),
-				themeName = workspace:GetAttribute("LuauUI_ThemeName"),
+				themePackage = workspace:GetAttribute("Facet_ThemePackage"),
+				themeName = workspace:GetAttribute("Facet_ThemeName"),
 				-- roadmap Step 10: which tutorial example the `examples` scenario
 				-- opens on, selected the same way and for the same reason as the
 				-- theme package above — an operator picks it BEFORE Play and the
 				-- matrix re-selects at runtime through the scenario step
-				example = workspace:GetAttribute("LuauUI_Example"),
+				example = workspace:GetAttribute("Facet_Example"),
 			},
 			-- REFERENCE THEME PACKAGES (theme-packages-and-skinning). They are
-			-- ModuleScripts under ReplicatedStorage.LuauUIThemes here and files
+			-- ModuleScripts under ReplicatedStorage.FacetThemes here and files
 			-- under examples/themes/ headlessly, so resolving them is runner
 			-- work exactly like the resource transport and the calibration seam
 			-- — the scenario module stays engine-free and path-free.
 			-- THE TUTORIAL EXAMPLE MODULES, resolved the same way and for the same
 			-- reason as the theme packages below: they are ModuleScripts under
-			-- ReplicatedStorage.LuauUIExamples here and files under
+			-- ReplicatedStorage.FacetExamples here and files under
 			-- examples/gallery/examples headlessly, so finding them is runner work
 			-- and the `examples` scenario stays path-free.
-			exampleModules = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIExamples"),
+			exampleModules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetExamples"),
 			-- THE REFERENCE PROOF MODULES (swiftui-reference-app-validation):
-			-- ModuleScripts under ReplicatedStorage.LuauUIReference here, files
+			-- ModuleScripts under ReplicatedStorage.FacetReference here, files
 			-- under examples/reference/ headlessly — resolved by the runner for the
 			-- same reason as the tutorial examples above, so the ref_* scenarios
 			-- stay engine-free and path-free.
-			referenceModules = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIReference"),
+			referenceModules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetReference"),
 			-- Live stage re-dress seam for the reference proofs: the proof hands
 			-- DATA, the runner does the engine work through the same shared
 			-- materializer the post-present pass uses. Resolves the controller
@@ -513,7 +508,7 @@ function Runner.start(deps: { [string]: any })
 			},
 			themePackages = (function(): { [string]: any }
 				local out: { [string]: any } = {}
-				local folder = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIThemes")
+				local folder = game:GetService("ReplicatedStorage"):FindFirstChild("FacetThemes")
 				if folder ~= nil then
 					for _, mod in folder:GetChildren() do
 						if mod:IsA("ModuleScript") then
@@ -571,7 +566,7 @@ function Runner.start(deps: { [string]: any })
 			-- the sentence that says so travelling with the number.
 			telemetry = {
 				-- p50/p95/p99 of Heartbeat deltas over `frames` frames. This is
-				-- WHOLE-frame work (everything the client does), not LuauUI's
+				-- WHOLE-frame work (everything the client does), not Facet's
 				-- share; the two are recorded separately and never added.
 				frameWork = function(frames: number?): any
 					local RunService = game:GetService("RunService")
@@ -657,13 +652,13 @@ function Runner.start(deps: { [string]: any })
 							}
 						end)(),
 						note = "measured in a Studio Play session on the development host. It is not the frame "
-							.. "work of any device, and it is not LuauUI's share of the frame — that is M2.",
+							.. "work of any device, and it is not Facet's share of the frame — that is M2.",
 					}
 				end,
 				-- M3: the real Instance census under the mounted surfaces.
-				-- LuauUI-OWNED roots are counted separately from everything else
+				-- Facet-OWNED roots are counted separately from everything else
 				-- in PlayerGui. The first live capture counted Roblox's own
-				-- Freecam ScreenGui into "LuauUI's instances", which is the kind of
+				-- Freecam ScreenGui into "Facet's instances", which is the kind of
 				-- quiet contamination that makes a cost number mean nothing.
 				instances = function(): any
 					local lp = Players.LocalPlayer
@@ -674,7 +669,7 @@ function Runner.start(deps: { [string]: any })
 						if not gui:IsA("ScreenGui") then
 							continue
 						end
-						local mine = string.sub(gui.Name, 1, 6) == "LuauUI"
+						local mine = string.sub(gui.Name, 1, 6) == "Facet"
 						local count = 0
 						for _, inst in gui:GetDescendants() do
 							if inst:IsA("GuiObject") then
@@ -700,8 +695,8 @@ function Runner.start(deps: { [string]: any })
 						foreign = {
 							roots = foreignRoots,
 							guiObjects = foreignGuiObjects,
-							note = "GUIs in PlayerGui that LuauUI does not own (Roblox core scripts, other systems); "
-								.. "counted separately so they never inflate LuauUI's cost",
+							note = "GUIs in PlayerGui that Facet does not own (Roblox core scripts, other systems); "
+								.. "counted separately so they never inflate Facet's cost",
 						},
 					}
 				end,
@@ -741,13 +736,13 @@ function Runner.start(deps: { [string]: any })
 					if okGui then
 						out.guiMb = guiMb
 						-- UNCONDITIONAL. This is the engine's whole Gui memory tag for
-						-- the client process, not LuauUI's share — the same figure came
+						-- the client process, not Facet's share — the same figure came
 						-- back byte-identical across three different presets, viewports
 						-- and layouts, which is what it looks like when a number is not
 						-- about your screen. Only the DELTA around a mount is
 						-- attributable. Gating this on a failure mode meant no published
 						-- row ever carried it.
-						out.guiMbNote = "Stats' whole Gui memory tag for the client process, NOT LuauUI's share; "
+						out.guiMbNote = "Stats' whole Gui memory tag for the client process, NOT Facet's share; "
 							.. "only guiMbDelta (the change across the workload) is attributable"
 						if out.memoryTrackingEnabled == false then
 							out.guiMbNote = out.guiMbNote
@@ -756,7 +751,7 @@ function Runner.start(deps: { [string]: any })
 					else
 						out.guiMbUnavailable = tostring(guiMb)
 					end
-					out.totalMbNote = "totalMb is the whole client process on the development host, not LuauUI's share"
+					out.totalMbNote = "totalMb is the whole client process on the development host, not Facet's share"
 					return out
 				end,
 				clock = function(): number
@@ -939,7 +934,7 @@ function Runner.start(deps: { [string]: any })
 					return game:GetService("RunService").Heartbeat:Wait() * 1000
 				end,
 			},
-			-- the mounted Instance for a LuauUI path. Engine access stays
+			-- the mounted Instance for a Facet path. Engine access stays
 			-- runner-owned; a scenario uses this only to hand an instance BACK to
 			-- another runner seam (paintWatch), never to write to it.
 			instanceAt = function(path: string): Instance?
@@ -1046,13 +1041,13 @@ function Runner.start(deps: { [string]: any })
 			-- than failing to mount. Delete the pcall the day the module lands.
 			themeController = function(): any
 				local ok, module = pcall(function()
-					return require(game:GetService("ReplicatedStorage").LuauUI.client.theme_controller) :: any
+					return require(game:GetService("ReplicatedStorage").Facet.client.theme_controller) :: any
 				end)
 				return if ok then module else nil
 			end,
 			-- engine text calibration (NS-A10): yields; returns the applied table
 			runTextCalibration = function(fonts: { string }?): { [string]: number }
-				local calibration = require(game:GetService("ReplicatedStorage").LuauUI.client.text_calibration) :: any
+				local calibration = require(game:GetService("ReplicatedStorage").Facet.client.text_calibration) :: any
 				return calibration.run(fonts)
 			end,
 			-- native-stylesheets seams (NSS-A2..A7): runner-owned so scenario
@@ -1110,7 +1105,7 @@ function Runner.start(deps: { [string]: any })
 				setTransitionsEnabled = function(on: boolean)
 					(deps.adapter :: any).setNativeTransitionsEnabled(on)
 				end,
-				-- THE WHOLE SUBTREE of a mounted node, by LuauUI path: names,
+				-- THE WHOLE SUBTREE of a mounted node, by Facet path: names,
 				-- ZIndex, tags, geometry, plain-vs-styled reads. A layer ladder is
 				-- N children of one node, so "the adapter built what the plan asked
 				-- for" is one read rather than N (rich-skinning-v2 RS-A1/A2/A3).
@@ -1137,7 +1132,7 @@ function Runner.start(deps: { [string]: any })
 					end
 					return true
 				end,
-				-- resolved styled read for a mounted node (by LuauUI path)
+				-- resolved styled read for a mounted node (by Facet path)
 				styledOf = function(path: string, prop: string): any
 					local inst = (deps.adapter :: any).getInstance and (deps.adapter :: any).getInstance(path)
 					if inst == nil then
@@ -1264,14 +1259,14 @@ function Runner.start(deps: { [string]: any })
 		assert(session.built, "scenario not built")
 		local fn = session.built.steps and session.built.steps[stepName]
 		assert(fn ~= nil, `no step '{stepName}' in scenario '{name}'`)
-		workspace:SetAttribute("LuauUI_ScenarioState", "running:" .. stepName)
+		workspace:SetAttribute("Facet_ScenarioState", "running:" .. stepName)
 		local ok, result = pcall(fn, session.built, payload)
 		table.insert(session.stepLog, {
 			step = stepName,
 			at = os.clock(),
 			result = if ok then serializeValue(result) else "ERROR:" .. tostring(result),
 		})
-		workspace:SetAttribute("LuauUI_ScenarioState", if ok then "ready" else "failed:" .. stepName)
+		workspace:SetAttribute("Facet_ScenarioState", if ok then "ready" else "failed:" .. stepName)
 		if not ok then
 			error(result)
 		end
@@ -1327,7 +1322,7 @@ function Runner.start(deps: { [string]: any })
 		session.stepLog = {}
 		build()
 		deps.presenter.refresh()
-		workspace:SetAttribute("LuauUI_ScenarioState", "ready")
+		workspace:SetAttribute("Facet_ScenarioState", "ready")
 		return true
 	end
 
@@ -1384,7 +1379,7 @@ function Runner.start(deps: { [string]: any })
 		local textMeasurement: any = nil
 		do
 			local ok, tm = pcall(function()
-				return require(game:GetService("ReplicatedStorage").LuauUI.layout.text_metrics) :: any
+				return require(game:GetService("ReplicatedStorage").Facet.layout.text_metrics) :: any
 			end)
 			if ok and tm ~= nil and tm.measuredDump ~= nil then
 				textMeasurement = { measuredWords = tm.measuredCount(), words = tm.measuredDump() }
@@ -1392,7 +1387,7 @@ function Runner.start(deps: { [string]: any })
 				-- boot answers: without these the widths above would be the
 				-- wrong-but-stable ones the API hands out during startup
 				local okp, premeasure = pcall(function()
-					return require(game:GetService("ReplicatedStorage").LuauUI.client.text_premeasure) :: any
+					return require(game:GetService("ReplicatedStorage").Facet.client.text_premeasure) :: any
 				end)
 				if okp and premeasure ~= nil and premeasure.corrections ~= nil then
 					textMeasurement.bootWindowCorrections = premeasure.corrections
@@ -1424,14 +1419,14 @@ function Runner.start(deps: { [string]: any })
 			end
 		end
 		local report = {
-			schema = "luauui-scenario/1",
+			schema = "facet-scenario/1",
 			scenario = name,
 			diagnostics = diagnostics,
 			textPolicies = textPolicies,
 			textMeasurement = textMeasurement,
 			ledgerRows = scenario.ledgerRows or {},
-			version = LuauUI.VERSION,
-			sourceStamp = workspace:GetAttribute("LuauUI_SourceStamp"),
+			version = Facet.VERSION,
+			sourceStamp = workspace:GetAttribute("Facet_SourceStamp"),
 			viewport = serializeValue(workspace.CurrentCamera.ViewportSize),
 			envFrozen = session.envFrozen,
 			env = envFacts,
@@ -1446,12 +1441,12 @@ function Runner.start(deps: { [string]: any })
 	end
 
 	build()
-	_G.LuauUIScenario = api
+	_G.FacetScenario = api
 	-- The MCP's execute_luau runs in a DIFFERENT Luau VM than this LocalScript,
 	-- so _G does not cross. Publish the API as BindableFunctions the command VM
 	-- can Invoke (same client DataModel). JSON-in/JSON-out for table safety.
 	local apiFolder = Instance.new("Folder")
-	apiFolder.Name = "LuauUIScenarioAPI"
+	apiFolder.Name = "FacetScenarioAPI"
 	for fnName, impl in
 		{
 			list = function(_arg: string?)
@@ -1491,7 +1486,7 @@ function Runner.start(deps: { [string]: any })
 			-- measure differently" — and those need different fixes.
 			measureNow = function(arg: string?)
 				local spec = HttpService:JSONDecode(arg :: string)
-				local premeasure = require(game:GetService("ReplicatedStorage").LuauUI.client.text_premeasure) :: any
+				local premeasure = require(game:GetService("ReplicatedStorage").Facet.client.text_premeasure) :: any
 				local done = false
 				local results: any = nil
 				premeasure.measure(spec.requests, function(r)
@@ -1522,10 +1517,10 @@ function Runner.start(deps: { [string]: any })
 		bf.Parent = apiFolder
 	end
 	apiFolder.Parent = workspace
-	workspace:SetAttribute("LuauUI_ScenarioReady", true)
-	workspace:SetAttribute("LuauUI_ScenarioState", "ready")
-	workspace:SetAttribute("LuauUI_Version", LuauUI.VERSION)
-	print(`[LuauUI Scenario] '{name}' ready ({LuauUI.VERSION}); steps: {table.concat(api.steps(), ",")}`)
+	workspace:SetAttribute("Facet_ScenarioReady", true)
+	workspace:SetAttribute("Facet_ScenarioState", "ready")
+	workspace:SetAttribute("Facet_Version", Facet.VERSION)
+	print(`[Facet Scenario] '{name}' ready ({Facet.VERSION}); steps: {table.concat(api.steps(), ",")}`)
 	return api
 end
 

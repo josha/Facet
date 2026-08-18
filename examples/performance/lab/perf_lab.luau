@@ -10,7 +10,7 @@
 -- required "scenario, implementation, dataset size, seed, and run-mode selectors"
 -- literal rather than aspirational.
 --
--- EXACTLY ONE IMPLEMENTATION IS MOUNTED (PL-5). The LuauUI list and the matched
+-- EXACTLY ONE IMPLEMENTATION IS MOUNTED (PL-5). The Facet list and the matched
 -- raw-Roblox reference answer the same question from opposite sides, and a
 -- capture with both mounted is a sum of the two wearing one label. `mount`
 -- refuses rather than trusting the caller.
@@ -28,7 +28,7 @@
 -- that divided the whole canvas extent by the step count — with 2 000 rows and 12
 -- steps that is a 166-row jump per step, which replaces the entire mounted window
 -- every time. That is a SEEK (a scrollbar drag, a jump-to-index), not steady
--- scrolling, and the first MicroProfiler capture read exactly that: LuauUI/mount
+-- scrolling, and the first MicroProfiler capture read exactly that: Facet/mount
 -- at 12.5ms mean while measure/arrange/commit together were under 2ms. Answering
 -- "is steady scrolling smooth" with a seek profile would have blamed the wrong
 -- phase. `scrollSteady` advances a fixed pixel rate per frame the way a flick
@@ -66,18 +66,18 @@ local WORKLOADS = {
 	{
 		id = "idle-baseline",
 		implementation = "none",
-		question = "What does the place cost before any LuauUI work?",
+		question = "What does the place cost before any Facet work?",
 		passes = {},
 	},
 	{
 		id = "mount-ramp",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "How do initial mount, layout, Instance creation and memory scale with row count?",
 		passes = { "ramp" },
 	},
 	{
 		id = "dense-scroll",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "Is steady scrolling smooth and is windowing bounded?",
 		passes = {
 			"scrollSteady",
@@ -92,37 +92,37 @@ local WORKLOADS = {
 	{
 		id = "dense-scroll-native",
 		implementation = "native",
-		question = "Which cost is unavoidable engine UI work versus LuauUI overhead?",
+		question = "Which cost is unavoidable engine UI work versus Facet overhead?",
 		passes = { "scrollSteady", "scrollSeek", "selectRow", "updateOne", "updateBatch" },
 	},
 	{
 		id = "collection-churn",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "Do updates stay proportional to changed and visible content?",
 		passes = { "insert", "remove", "reorder", "selectRow", "scrollSteady" },
 	},
 	{
 		id = "layout-style-churn",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "Which invalidations cause unnecessary whole-tree work?",
 		passes = { "preferenceSweep", "resize", "themeCost" },
 	},
 	{
 		id = "resize-relayout",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "What does a continuous resize cost, and how much of it is re-solving what did not change?",
 		passes = { "resizeStorm", "scrollSteady", "updateOne" },
 	},
 	{
 		id = "large-text-overflow",
-		implementation = "luauui",
+		implementation = "facet",
 		content = "identity",
 		question = "Are measurement, disclosure and any motion bounded without hiding content?",
 		passes = { "preferenceSweep", "localeSwap", "scrollSteady", "revealAudit" },
 	},
 	{
 		id = "async-image-churn",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "Are decoding, resource lifecycle and UI updates separated and bounded?",
 		passes = { "imagesCold", "imagesWarm", "imagesFail", "imagesReuse" },
 		--[[ THE PASS `Profile 1` LOOPS, WHICH IS NOT `passes[1]` HERE.
@@ -188,7 +188,7 @@ local WORKLOADS = {
 		five arms inside one pass — 540 frames per lap — so a 60-frame MicroProfiler
 		aggregate could never contain the comparison it was built for, and nothing in
 		the dump named which arm the window landed in (L-35 D3). Here one lap is one
-		arm, and `profileWindow` already stamps `LuauUI_ProfilingPass` into a
+		arm, and `profileWindow` already stamps `Facet_ProfilingPass` into a
 		`workspace` attribute, so the arm identity is in the session for free.
 
 		WHY THE PASS NAMES ARE WRITTEN OUT HERE. This table is the one answer to
@@ -256,7 +256,7 @@ local WORKLOADS = {
 	},
 	{
 		id = "lifecycle-soak",
-		implementation = "luauui",
+		implementation = "facet",
 		question = "Do Instances, connections, memory or stale work trend upward?",
 		passes = { "soak" },
 	},
@@ -282,7 +282,7 @@ local FLAT_PACKAGE = "flat"
 local ORNATE_PACKAGE = "fantasy_ornate"
 
 return {
-	title = "LuauUI performance lab",
+	title = "Facet performance lab",
 	ledgerRows = {
 		"PL-2",
 		"PL-3",
@@ -300,7 +300,7 @@ return {
 	SCENARIO_VERSION = SCENARIO_VERSION,
 
 	build = function(ctx: any)
-		local LuauUI = ctx.LuauUI
+		local Facet = ctx.Facet
 		local core = ctx.core
 		local env = ctx.env
 		local host = ctx.host or {}
@@ -438,7 +438,7 @@ return {
 		local mounted: any = nil -- the ONE mounted implementation
 		local items = dataset.build({ count = settings.rows, seed = settings.seed, content = settings.content })
 		local rowsSignal = labScope:own(core:signal(items))
-		local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 8 })
+		local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
 		local unbindTransport: (() -> ())? = nil
 		-- OWNED, so a reset RELEASES them (found live 2026-08-04). The per-row value
 		-- and toggle signals are deliberately retained across scrolling — a control
@@ -682,7 +682,7 @@ return {
 		-- overlay's own tree is what catches the other half, a control row too wide for
 		-- the screen ("Clean capture" clipped at the edge).
 		local function layoutProblem(where: string): string?
-			if mounted ~= nil and mounted.kind == "luauui" then
+			if mounted ~= nil and mounted.kind == "facet" then
 				local problem = surfaceProblem("workload", mounted.controller, where)
 				if problem ~= nil then
 					return problem
@@ -695,7 +695,7 @@ return {
 		end
 
 		local function windowProblem(where: string): string?
-			if mounted == nil or mounted.kind ~= "luauui" then
+			if mounted == nil or mounted.kind ~= "facet" then
 				return nil
 			end
 			local n = mountedRowCount()
@@ -724,8 +724,8 @@ return {
 		end
 
 		-- ---- implementations ----------------------------------------------
-		local function buildLuauUI()
-			local list = LuauUI.newVirtualList(LuauUI, core, {
+		local function buildFacet()
+			local list = Facet.newVirtualList(Facet, core, {
 				id = "Rows",
 				rows = rowsSignal,
 				key = function(item: any)
@@ -737,7 +737,7 @@ return {
 				overscan = if settings.faultWindow then #rowsSignal:get() else rows.OVERSCAN,
 				selection = "single",
 				cell = function(item: any, cellCtx: any)
-					return rows.cell(LuauUI, core, item, {
+					return rows.cell(Facet, core, item, {
 						scope = cellCtx.scope,
 						compact = isCompact:get(),
 						splitControls = splitControls:get(),
@@ -751,14 +751,14 @@ return {
 					})
 				end,
 			})
-			local screen = LuauUI.UI.Screen({
+			local screen = Facet.UI.Screen({
 				id = "PerfWorkload",
 				padding = SCREEN_PADDING,
 				gap = SCREEN_GAP,
 				children = {
-					LuauUI.UI.Text({
+					Facet.UI.Text({
 						id = "Head",
-						text = `LuauUI · {#rowsSignal:get()} rows`,
+						text = `Facet · {#rowsSignal:get()} rows`,
 						textSize = 14,
 					}),
 					list.blueprint,
@@ -776,7 +776,7 @@ return {
 				end
 			end
 			return {
-				kind = "luauui",
+				kind = "facet",
 				list = list,
 				handle = handle,
 				controller = handle.controller,
@@ -838,7 +838,7 @@ return {
 				if settings.implementation == "native" then
 					mounted = buildNative()
 				else
-					mounted = buildLuauUI()
+					mounted = buildFacet()
 				end
 			end)
 			raiseOverlay()
@@ -919,18 +919,18 @@ return {
 		-- Each returns its own timing and is recorded SEPARATELY in the pass log:
 		-- the plan requires scroll, focus, selection, churn and resource work to be
 		-- labeled apart, because a blended number cannot be attributed to any of
-		-- them. Each is wrapped in the driver's `LuauUI/scenario` scope so a
+		-- them. Each is wrapped in the driver's `Facet/scenario` scope so a
 		-- MicroProfiler capture can find the workload inside the frame.
 		local passes: { [string]: (payload: string?) -> any } = {}
 
 		-- NO SPAN HERE (Roblox-platform review 2026-08-04, MAJOR-1). This used to open a
-		-- `LuauUI/scenario` scope around the whole pass — and a pass body waits a
+		-- `Facet/scenario` scope around the whole pass — and a pass body waits a
 		-- Heartbeat once per frame, sixty times, INSIDE the scope. `debug.profilebegin`
 		-- opens a scope on the executing thread, so a yield leaves the enter and the
 		-- leave in different frames, and this module's counters cannot see it: they
 		-- count Lua call sites, so `balanced` read true for a stack that was not.
 		--
-		-- The per-frame `LuauUI/scenario` scope in the lab bootstrap stays, because that
+		-- The per-frame `Facet/scenario` scope in the lab bootstrap stays, because that
 		-- one wraps `presenter.tick` + `presenter.refresh` and does not yield. A pass is
 		-- timed with the wall clock instead, which is what its numbers were anyway.
 		local function timed(name: string, body: () -> any): any
@@ -970,7 +970,7 @@ return {
 
 		--[[ HOW MANY TIMES A FRAMEWORK PHASE SCOPE OPENED, since the session started.
 
-			`src/core/profile.luau` counts every `LuauUI/<phase>` span whenever
+			`src/core/profile.luau` counts every `Facet/<phase>` span whenever
 			scopes are on, which is what the lab boots with. A pass takes the count
 			before and after and reports the difference, which makes "how many
 			solves did this cost" a FIELD rather than something read out of a binary
@@ -1008,7 +1008,7 @@ return {
 		-- `telemetry.step()` waits one Heartbeat. Headless it is a no-op stub and
 		-- the fake echo has already happened, so both worlds do the same thing.
 		-- Split in two, because the two halves are different quantities and only one
-		-- of them is LuauUI's. `scrollWrite` is the framework/engine WRITE; the frame
+		-- of them is Facet's. `scrollWrite` is the framework/engine WRITE; the frame
 		-- wait that follows it is the engine's echo latency and belongs to nobody's
 		-- budget. Timing them together produced a 26.6ms "worst scroll step" that was
 		-- ~17ms of Heartbeat and would have been reported as framework cost.
@@ -1146,7 +1146,7 @@ return {
 				armedAt = clock(),
 				canvasBefore = before,
 				mountedRows = mountedRowCount(),
-				scrollPath = if m.kind == "luauui" and m.list.scrollPath ~= nil then m.list.scrollPath() else nil,
+				scrollPath = if m.kind == "facet" and m.list.scrollPath ~= nil then m.list.scrollPath() else nil,
 				evidence = "engine-observed; pair with an injected wheel/pan and re-read",
 				payload = payload,
 			}
@@ -1157,8 +1157,8 @@ return {
 				local steps = tonumber(payload or "") or 24
 				local m = requireList()
 				assert(
-					m.kind == "luauui",
-					"[perf lab] focus traversal is a LuauUI pass; the reference has no focus graph"
+					m.kind == "facet",
+					"[perf lab] focus traversal is a Facet pass; the reference has no focus graph"
 				)
 				local list = m.list
 				local all = rowsSignal:get()
@@ -1193,7 +1193,7 @@ return {
 		passes.keepVisible = function()
 			return timed("keepVisible", function()
 				local m = requireList()
-				assert(m.kind == "luauui", "[perf lab] keep-visible is a LuauUI pass")
+				assert(m.kind == "facet", "[perf lab] keep-visible is a Facet pass")
 				local all = rowsSignal:get()
 				local target = all[math.max(1, math.floor(#all * 0.75))]
 				m.list.focusKey(target.id)
@@ -1260,7 +1260,7 @@ return {
 					-- the frame INTERVAL is not the frame WORK: this pass waits a frame
 					-- and reports the wall clock around the wait, so the figure includes
 					-- the engine's own frame. It is here for the SCOPE breakdown beside
-					-- it (`scopes:idle`), which is where the LuauUI share is legible.
+					-- it (`scopes:idle`), which is where the Facet share is legible.
 					intervalMs = summarize(samples),
 				}
 			end)
@@ -1304,7 +1304,7 @@ return {
 			by construction. Headless, only the COUNTS mean anything — records,
 			flight frames, arms present — and that is what the spec asserts. The
 			timings are real only in Studio, inside the lab bootstrap's per-frame
-			`LuauUI/scenario` scope, where they are real engine work with real
+			`Facet/scenario` scope, where they are real engine work with real
 			instance counts. Neither tier is a device claim; that needs a physical
 			run. Reading a headless `p50_ms` off this pass as a performance result
 			would be the `the-solver-already-told-you` mistake in reverse.
@@ -1346,7 +1346,7 @@ return {
 				local rowDim = core:memo(function(use: any)
 					return { type = "fixed", px = if use(tall) then 44 else 28 }
 				end)
-				local U = LuauUI.UI
+				local U = Facet.UI
 				local handle = ctx.presenter.present(U.Screen({
 					id = "MotionFlight",
 					padding = 8,
@@ -1559,7 +1559,7 @@ return {
 		passes.sensoryCascade = function(payload: string?)
 			return timed("sensoryCascade", function()
 				local presses = math.clamp(math.floor(tonumber(payload or "") or 60), 5, 400)
-				local U = LuauUI.UI
+				local U = Facet.UI
 
 				-- one arm: `decorate` decides where (if anywhere) the declaration goes
 				local function arm(decorate: string): any
@@ -1740,7 +1740,7 @@ return {
 			it is a separate module (the 200,000-char live-sync cap) and for what each
 			arm isolates. ]]
 		leversLib.install({
-			LuauUI = LuauUI,
+			Facet = Facet,
 			core = core,
 			ctx = ctx,
 			labScope = labScope,
@@ -1759,7 +1759,7 @@ return {
 		passes.extentArms = function(payload: string?)
 			return timed("extentArms", function()
 				local frames, EDITS = framesAndReps(payload, 60, 24)
-				local U = LuauUI.UI
+				local U = Facet.UI
 
 				--[[ ONE ARM. `mode` picks the arithmetic and the raggedness; everything
 					else — the item count, the cell class, the viewport, the overscan,
@@ -1793,7 +1793,7 @@ return {
 					local function linesOf(item: any): number
 						return if ragged then extentLines(item.rank) else 1
 					end
-					local list = LuauUI.newVirtualList(LuauUI, core, {
+					local list = Facet.newVirtualList(Facet, core, {
 						id = "ExtentRows",
 						rows = armRows,
 						key = function(item: any)
@@ -1837,7 +1837,7 @@ return {
 						end,
 					})
 					--[[ THE PRESENT OPTIONS COME FROM THE SELECTORS, exactly as
-						`buildLuauUI` takes them. A self-mounting pass that presents
+						`buildFacet` takes them. A self-mounting pass that presents
 						with no options silently ignores `select:recycle=off` and
 						`select:incremental=on` — so the lab would answer an A/B
 						question with two identical arms and no error, which is the
@@ -2086,7 +2086,7 @@ return {
 		passes.tableUnified = function(payload: string?)
 			return timed("tableUnified", function()
 				local frames, reps = framesAndReps(payload, 60, 12)
-				local U = LuauUI.UI
+				local U = Facet.UI
 				local base = dataset.build({ count = TABLE_ROWS, seed = settings.seed, content = "normal" })
 				-- owned, for the reason `extentArms` records: this pass loops under
 				-- `Profile 1`, so one un-owned signal per lap is an unbounded trend
@@ -2096,7 +2096,7 @@ return {
 					return `r{rank}`
 				end
 
-				local tbl = LuauUI.newTable(LuauUI, core, {
+				local tbl = Facet.newTable(Facet, core, {
 					id = "UnifiedRows",
 					rows = tableRows,
 					key = function(item: any)
@@ -2555,7 +2555,7 @@ return {
 				local original = env:get("viewportRect"):get()
 				local baseW = if type(original) == "table" then original.w else 360
 				local baseH = if type(original) == "table" then original.h else 640
-				local stats = if m.kind == "luauui"
+				local stats = if m.kind == "facet"
 						and m.controller ~= nil
 						and m.controller.stats ~= nil
 					then m.controller.stats
@@ -2781,7 +2781,7 @@ return {
 			if module == nil then
 				return nil
 			end
-			return if type(module.build) == "function" then (module.build(LuauUI.themes)) else module
+			return if type(module.build) == "function" then (module.build(Facet.themes)) else module
 		end
 
 		-- The FULL isolated theme sequence (PL-6): flat -> ornate install -> ornate
@@ -2864,7 +2864,7 @@ return {
 				end
 				env:set(
 					"themeMetrics",
-					if pkg ~= nil then LuauUI.themes.resolve(pkg, nil, {}) else LuauUI.themes.neutral()
+					if pkg ~= nil then Facet.themes.resolve(pkg, nil, {}) else Facet.themes.neutral()
 				)
 			end
 			-- the overlay's own arrangement is a theme fact too, and it is the one that
@@ -2996,7 +2996,7 @@ return {
 		-- ---- reveal / moving-label audit (PL-7) ------------------------------
 		passes.revealAudit = function()
 			return timed("revealAudit", function()
-				local controller = mounted ~= nil and mounted.kind == "luauui" and mounted.controller or nil
+				local controller = mounted ~= nil and mounted.kind == "facet" and mounted.controller or nil
 				local findings: { any } = {}
 				local moving = 0
 				if controller ~= nil and controller.diagnostics ~= nil then
@@ -3045,7 +3045,7 @@ return {
 					rebuildDataset()
 					local before = telemetry.memory()
 					local t0 = clock()
-					settings.implementation = "luauui"
+					settings.implementation = "facet"
 					mount()
 					local mountMs = (clock() - t0) * 1000
 					local after = telemetry.memory()
@@ -3080,7 +3080,7 @@ return {
 						break
 					end
 					unmount()
-					settings.implementation = "luauui"
+					settings.implementation = "facet"
 					mount()
 					passes.scrollSteady("10")
 					table.insert(samples, {
@@ -3110,7 +3110,7 @@ return {
 		-- the renderer's own structural counters, so "is recycling actually doing
 		-- anything" is a number in the capture rather than an inference from a timing
 		local function renderStats(): any
-			if mounted == nil or mounted.kind ~= "luauui" or mounted.controller == nil then
+			if mounted == nil or mounted.kind ~= "facet" or mounted.controller == nil then
 				return nil
 			end
 			local ok, s = pcall(mounted.controller.stats)
@@ -3137,7 +3137,7 @@ return {
 
 		local overlayModel = {
 			buildLine = core:memo(function()
-				return `LuauUI {LuauUI.VERSION} · {SCENARIO_VERSION} · {dataset.VERSION} · {rows.VERSION}`
+				return `Facet {Facet.VERSION} · {SCENARIO_VERSION} · {dataset.VERSION} · {rows.VERSION}`
 			end),
 			scenarioLine = core:memo(function(use)
 				return `scenario: {use(currentScenario)}`
@@ -3261,8 +3261,8 @@ return {
 			flushes and 7 arranges before, 2 and 6 after — with the removed flush
 			being exactly this dance. The 2026-08-14 device capture had priced it at
 			`react` = 3.03 flushes per step where the framework's own contribution is
-			1, and `Root=LuauUI_PerfLabOverlay Relayouts=8` against
-			`Root=LuauUI_PerfWorkload Relayouts=8` — one dock panel provoking as many
+			1, and `Root=Facet_PerfLabOverlay Relayouts=8` against
+			`Root=Facet_PerfWorkload Relayouts=8` — one dock panel provoking as many
 			engine relayouts as the entire 2 000-row workload.
 
 			`reserveBottom` above no longer keeps a private cache, so this no longer
@@ -3299,7 +3299,7 @@ return {
 				-- drops the cached blueprint when the answer changes — which on a flat
 				-- package it never does, because a flat package charges nothing.
 				overlayModel.splitAction = rows.themeInset(env:get("themeMetrics"):get()).x > 0
-				overlayBlueprint = overlayLib.build(LuauUI, core, overlayModel)
+				overlayBlueprint = overlayLib.build(Facet, core, overlayModel)
 			end
 			return overlayBlueprint
 		end
@@ -3385,8 +3385,8 @@ return {
 					currentScenario:set(value)
 				elseif key == "impl" or key == "implementation" then
 					assert(
-						value == "luauui" or value == "native" or value == "none",
-						`[perf lab] implementation must be luauui|native|none, got '{value}'`
+						value == "facet" or value == "native" or value == "none",
+						`[perf lab] implementation must be facet|native|none, got '{value}'`
 					)
 					settings.implementation = value
 				elseif key == "rows" then
@@ -3771,7 +3771,7 @@ return {
 				-- conditions. NOT defaulted: a fact the host did not supply must arrive
 				-- here as nil so `capture.problems` refuses the row. Substituting
 				-- "unknown" would make every capture admissible and none comparable.
-				frameworkVersion = LuauUI.VERSION,
+				frameworkVersion = Facet.VERSION,
 				sourceStamp = hostFacts.sourceStamp,
 				placeName = hostFacts.placeName,
 				viewport = hostFacts.viewport,
@@ -3896,7 +3896,7 @@ return {
 			during the second sweep. The dump held **30 frames — 1.08 seconds**. A
 			`Run all` sweep is tens of seconds long, so it sampled a random second of
 			it, and the second it drew was `dense-scroll-native`: the one workload
-			with **no LuauUI code in it at all**.
+			with **no Facet code in it at all**.
 
 			The result: `measure`, `arrange`, `commit`, `mount`, `react` and `reset`
 			had ZERO occurrences in the window, and `mutate`/`resource` had never been
@@ -3952,12 +3952,12 @@ return {
 			local w = WORKLOAD_BY_ID[id]
 			if w == nil then
 				error(
-					`[LuauUI PerfLab] profileWindow: unknown workload '{tostring(id)}'. `
+					`[Facet PerfLab] profileWindow: unknown workload '{tostring(id)}'. `
 						.. `Legal: {table.concat(WORKLOAD_ORDER, ", ")}.`,
 					0
 				)
 			end
-			--[[ REFUSE A WORKLOAD WITH NO LUAUUI IN IT.
+			--[[ REFUSE A WORKLOAD WITH NO FACET IN IT.
 
 				TWO CONSECUTIVE DEVICE CAPTURES SAMPLED `dense-scroll-native`, the one
 				workload whose `implementation = "native"` means it runs the raw-Roblox
@@ -3973,10 +3973,10 @@ return {
 				to be asked for in words. ]]
 			if w.implementation == "native" and wantWorkload == nil then
 				error(
-					`[LuauUI PerfLab] profileWindow: '{id}' is the raw-Roblox reference `
-						.. `(implementation = "native") — it calls NO LuauUI code, so a capture of it `
+					`[Facet PerfLab] profileWindow: '{id}' is the raw-Roblox reference `
+						.. `(implementation = "native") — it calls NO Facet code, so a capture of it `
 						.. `records zero solver scopes. Two device captures have already been lost this `
-						.. `way. Select a LuauUI workload, or ask for this one explicitly: `
+						.. `way. Select a Facet workload, or ask for this one explicitly: `
 						.. `profileWindow:{id}`,
 					0
 				)
@@ -4002,7 +4002,7 @@ return {
 			local passName = wantPass or w.profilePass or w.passes[1]
 			if passes[passName] == nil then
 				error(
-					`[LuauUI PerfLab] profileWindow: '{id}' declares no pass '{tostring(passName)}'. `
+					`[Facet PerfLab] profileWindow: '{id}' declares no pass '{tostring(passName)}'. `
 						.. `Its passes: {table.concat(w.passes, ", ")}.`,
 					0
 				)
@@ -4023,7 +4023,7 @@ return {
 				survive into the blob. Consequence, measured across five device
 				captures: EVERY ONE had to be identified by forensic signature — the
 				presence of solver scopes, per-mount child counts, whether
-				`LuauUI/reset` ever fires. Three had sampled a session with nothing
+				`Facet/reset` ever fires. Three had sampled a session with nothing
 				mounted, one pair turned out to be byte-identical duplicates of each
 				other, and a capture filed as `mount-ramp` contained no ramp data at
 				all.
@@ -4044,15 +4044,15 @@ return {
 			-- rather than refusing.
 			pcall(function()
 				local ws = workspace :: any
-				ws:SetAttribute("LuauUI_ProfilingWorkload", id)
-				ws:SetAttribute("LuauUI_ProfilingPass", passName)
-				ws:SetAttribute("LuauUI_ProfilingImplementation", tostring(w.implementation or "luauui"))
-				ws:SetAttribute("LuauUI_ProfilingRows", settings.rows)
-				ws:SetAttribute("LuauUI_ProfilingTheme", tostring(settings.theme))
+				ws:SetAttribute("Facet_ProfilingWorkload", id)
+				ws:SetAttribute("Facet_ProfilingPass", passName)
+				ws:SetAttribute("Facet_ProfilingImplementation", tostring(w.implementation or "facet"))
+				ws:SetAttribute("Facet_ProfilingRows", settings.rows)
+				ws:SetAttribute("Facet_ProfilingTheme", tostring(settings.theme))
 			end)
 			warn(
 				`[perf lab] PROFILING workload='{id}' pass='{passName}' implementation='{tostring(
-					w.implementation or "luauui"
+					w.implementation or "facet"
 				)}' `
 					.. `rows={settings.rows} theme='{tostring(settings.theme)}' viewport={(function()
 						local v = env:get("viewportRect"):get()
@@ -4163,7 +4163,7 @@ return {
 			return {
 				scenario = id,
 				pass = passName,
-				implementation = w.implementation or "luauui",
+				implementation = w.implementation or "facet",
 				laps = laps,
 				maxLaps = maxLaps,
 				stopped = emergencyStopped,
@@ -4390,7 +4390,7 @@ return {
 			-- Stage-1 boundary analysis, exposed so the measurement can be taken from a
 			-- test and from a live Studio session through the same call
 			boundaryReport = function(): any
-				if mounted == nil or mounted.kind ~= "luauui" or mounted.controller == nil then
+				if mounted == nil or mounted.kind ~= "facet" or mounted.controller == nil then
 					return nil
 				end
 				if mounted.controller.analyzeBoundaries == nil then

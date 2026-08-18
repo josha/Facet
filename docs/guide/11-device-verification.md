@@ -1,6 +1,6 @@
 # 11 — Verifying on devices, and reading performance numbers honestly
 
-This chapter is about instruments. LuauUI publishes performance numbers and
+This chapter is about instruments. Facet publishes performance numbers and
 cross-platform claims, and every one of them is only as good as the thing that
 measured it. So the framework's rule is simple and it is enforced by the gates:
 
@@ -14,7 +14,7 @@ not a phone result, and no amount of it ever becomes one.
 
 | Class | Instrument | What it proves | What it cannot |
 |---|---|---|---|
-| `lune` (E1) | `tools/perf.sh`, headless on your development machine | deterministic regressions in LuauUI's own decision and commit cost | engine frame work, paint cost, any device claim |
+| `lune` (E1) | `tools/perf.sh`, headless on your development machine | deterministic regressions in Facet's own decision and commit cost | engine frame work, paint cost, any device claim |
 | `studio-emulated` (E3) | a Roblox Studio Play session with a simulated device | the integrated adapter's real Instances, connections and frame work **on your host** | low-end CPU/GPU, memory pressure, thermals, battery |
 | `desktop-retail` (E4) | the retail Roblox client on your desktop | non-Studio client behaviour and desktop frame work | mobile or console hardware |
 | `phone-physical` (E4) | the weakest supported physical Android device | the supported device floor | console behaviour, subjective feel |
@@ -36,7 +36,7 @@ being omitted. Absence is stated, never inferred.
 - **Trend budget** — `max(observed_p95 × 4, floor)`, derived from a measured
   baseline. It catches regressions. It says nothing about any device.
 - **Frame ceiling** — the share of the supported frame target (a quarter) that
-  one LuauUI update may occupy. It is **one-directional**: your development host
+  one Facet update may occupy. It is **one-directional**: your development host
   is faster than every supported device, so exceeding the ceiling proves the
   scene cannot hold the frame target *anywhere*. Passing it proves nothing.
 
@@ -48,7 +48,7 @@ Re-baseline with `tools/perf.sh baseline` **only** when a cost increase is
 intended. To convince yourself the gate is real, break it on purpose:
 
 ```bash
-LUAUUI_PERF_INJECT_REGRESSION=dense-hud tools/perf.sh   # expect exit 1
+FACET_PERF_INJECT_REGRESSION=dense-hud tools/perf.sh   # expect exit 1
 tools/perf.sh                                            # expect exit 0
 lune run tools/lune/prove_perf_gate                      # does both, and records it
 ```
@@ -85,16 +85,16 @@ row would measure a large desktop and call it a console.
 ```bash
 lune run tools/lune/studio_sync        # serves library + gallery + the driver
 # inject the manifest into the open place (Edit datamodel), set the workspace
-# attribute LuauUI_Scenario = "perf_capture", then Play
+# attribute Facet_Scenario = "perf_capture", then Play
 ```
 
 Then, in the **Server** datamodel (HttpService is server-only during Play),
-install the driver from the sync server into `workspace.LuauUIMatrixDriver`, and
+install the driver from the sync server into `workspace.FacetMatrixDriver`, and
 drive it from the **Client**:
 
 ```lua
-local run = require(workspace.LuauUIMatrixDriver)
-run({ mode = "preflight", expectStamp = workspace:GetAttribute("LuauUI_SourceStamp") })
+local run = require(workspace.FacetMatrixDriver)
+run({ mode = "preflight", expectStamp = workspace:GetAttribute("Facet_SourceStamp") })
 run({ mode = "row", row = "compact-phone-portrait" })
 run({ mode = "row", row = "compact-phone-landscape", pinnedDeviceId = "<the phone row's device>" })
 ```
@@ -206,11 +206,11 @@ device profiles.
 Device-layout sweeps are solo focused-client sessions. They do not need it, and
 this stage did not use it.
 
-## The hands-on place: `LuauUI-Showcase.rbxl`
+## The hands-on place: `Facet-Showcase.rbxl`
 
 Every claim above is an instrument reading. None of them is somebody holding the
 thing. For that, `tools/build_places.sh` builds one publishable place —
-`examples/places/LuauUI-Showcase.rbxl` — that you open once and explore:
+`examples/places/Facet-Showcase.rbxl` — that you open once and explore:
 
 - a **demo chip** at the top-left switches between the all-controls fixture and
   all seven tutorial examples, in game;
@@ -218,7 +218,7 @@ thing. For that, `tools/build_places.sh` builds one publishable place —
   game.
 
 Before this, choosing what to look at meant setting a workspace attribute
-(`LuauUI_Example = 5`) and republishing — a fine developer affordance and a
+(`Facet_Example = 5`) and republishing — a fine developer affordance and a
 useless one on a device you are holding.
 
 **How the chrome stays out of the way.** The two chips are separate presented
@@ -240,7 +240,7 @@ cost a round to find:
   of the strip and over the demo's title.
 
 **Driving it without a pointer.** The place publishes
-`workspace.LuauUIShowcaseAPI` (`list`, `current`, `showNext`) as
+`workspace.FacetShowcaseAPI` (`list`, `current`, `showNext`) as
 BindableFunctions, the same shape the scenario runner uses and for the same
 reason: the Studio MCP's `execute_luau` runs in a different Luau VM than the
 client LocalScript, so `_G` does not cross but the DataModel does.
@@ -287,4 +287,4 @@ Roblox exposes several frame quantities and they are not interchangeable:
 `Stats.FrameTime` and the Heartbeat interval did not always agree across these
 captures. Nothing here adjudicates that, so each row records the ratio it
 measured rather than a story about it. **Never add M1 to M2**: one is whole-frame
-work on a fast host, the other is LuauUI's share of one client's work.
+work on a fast host, the other is Facet's share of one client's work.

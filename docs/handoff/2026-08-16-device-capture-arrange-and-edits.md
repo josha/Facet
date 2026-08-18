@@ -28,7 +28,7 @@ capture has a question rather than just a dump.
 
 ## First: reopen the place
 
-`examples/places/LuauUI-PerformanceLab.rbxl` has been rebuilt from current
+`examples/places/Facet-PerformanceLab.rbxl` has been rebuilt from current
 source. **Close the copy you have open without saving and open the rebuilt
 file.**
 
@@ -52,7 +52,7 @@ Two things, both because the old shape could not answer the question:
    Stop, and one button that both advanced the arm and started a run would race
    the loop it had just started.
 
-The arm name goes into `workspace.LuauUI_ProfilingPass` automatically, so no
+The arm name goes into `workspace.Facet_ProfilingPass` automatically, so no
 dump has to be identified by forensics.
 
 ## The capture, step by step
@@ -153,7 +153,7 @@ configuration your players never run.
 time drops by more than the 4 % control band. **What would be a surprise:** the
 node count drops and the time does not. That would say arrange is not where the
 edit's cost is on ARM — which is checkable, because the same dump has
-`LuauUI/measure` and `LuauUI/commit` beside it.
+`Facet/measure` and `Facet/commit` beside it.
 
 ## If you want more samples
 
@@ -165,7 +165,7 @@ step: pass:flat=60/60
 step: pass:editOffWindow=60/60
 ```
 
-(through `workspace.LuauUIScenarioAPI.step`; or just press `Profile 1` and take
+(through `workspace.FacetScenarioAPI.step`; or just press `Profile 1` and take
 the defaults.)
 
 ## The two questions this capture is actually asking

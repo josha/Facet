@@ -1,5 +1,5 @@
 {
-  "name": "LuauUI-Showcase",
+  "name": "Facet-Showcase",
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],
@@ -7,8 +7,8 @@
     "$className": "DataModel",
     "Workspace": {
       "$attributes": {
-        "LuauUI_Showcase": true,
-        "LuauUI_NativeStyle": true
+        "Facet_Showcase": true,
+        "Facet_NativeStyle": true
       },
       "$properties": {
         "FilteringEnabled": true,
@@ -63,16 +63,16 @@
       }
     },
     "ReplicatedStorage": {
-      "LuauUI": {
+      "Facet": {
         "$path": "../src"
       },
-      "LuauUIExamples": {
+      "FacetExamples": {
         "$path": "gallery/examples"
       },
-      "LuauUIScenarios": {
+      "FacetScenarios": {
         "$path": "gallery/scenarios"
       },
-      "LuauUIThemes": {
+      "FacetThemes": {
         "$path": "themes"
       }
     },

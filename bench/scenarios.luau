@@ -152,26 +152,26 @@ end
 
 -- Phase 1: full mounted-slice update storm (blueprint -> mount -> render ->
 -- fake adapter), the production-shaped hot path
-local LuauUI = require("../src")
+local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 table.insert(scenarios, {
 	name = "mounted-slice-update-storm",
 	requirement = "UI-PERF-001",
 	setup = function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local speed = core:signal(0)
 		local label = core:memo(function(use)
 			return `{use(speed)} sps`
 		end)
-		pres.present(LuauUI.UI.Screen({
+		pres.present(Facet.UI.Screen({
 			id = "Hud",
 			children = {
-				LuauUI.UI.Text({ id = "Speed", text = label, textSize = 18 }),
-				LuauUI.UI.Button({ id = "Boost", label = "Boost" }),
+				Facet.UI.Text({ id = "Speed", text = label, textSize = 18 }),
+				Facet.UI.Button({ id = "Boost", label = "Boost" }),
 			},
 		}))
 		return { core = core, pres = pres, speed = speed, n = 0 }
@@ -192,18 +192,18 @@ table.insert(scenarios, {
 	name = "table-mutation",
 	requirement = "UI-PERF-001",
 	setup = function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal({})
 		local items = {}
 		for i = 1, 8 do
 			table.insert(items, { id = `r{i}`, name = `Racer {i}` })
 		end
 		rows:set(items)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Bench",
 			columns = {
 				{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
@@ -214,13 +214,13 @@ table.insert(scenarios, {
 				return item.id
 			end,
 			cellFor = function(columnId, item)
-				return LuauUI.UI.Text({ id = "V", text = item.name, textSize = 14 })
+				return Facet.UI.Text({ id = "V", text = item.name, textSize = 14 })
 			end,
 			rowHeight = 40,
 			header = false,
 			selection = "multi",
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		return { core = core, pres = pres, rows = rows, tbl = tbl, items = items, n = 8 }
 	end,
@@ -242,17 +242,17 @@ table.insert(scenarios, {
 	name = "table-resize-drag",
 	requirement = "UI-PERF-001",
 	setup = function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		local system = LuauUI.newActionSystem(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local items = {}
 		for i = 1, 8 do
 			table.insert(items, { id = `r{i}`, name = `Racer {i}` })
 		end
 		local rows = core:signal(items)
-		local tbl = table_control.build(LuauUI, core, {
+		local tbl = table_control.build(Facet, core, {
 			id = "Bench",
 			columns = {
 				{
@@ -269,13 +269,13 @@ table.insert(scenarios, {
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return LuauUI.UI.Text({ id = "V", text = item.name, textSize = 14 })
+				return Facet.UI.Text({ id = "V", text = item.name, textSize = 14 })
 			end,
 			rowHeight = 40,
 			header = true,
 			selection = "none",
 		})
-		pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		return { pres = pres, adapter = adapter, n = 0 }
 	end,
@@ -300,24 +300,24 @@ table.insert(scenarios, {
 	name = "billboard-nameplate-storm",
 	requirement = "UI-PERF-001",
 	setup = function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 96 })
 		local adapter = fake_target.new()
 		local health = core:signal("100")
-		local root = LuauUI.mount(
+		local root = Facet.mount(
 			core,
-			LuauUI.UI.Screen({
+			Facet.UI.Screen({
 				id = "Nameplate",
 				padding = 8,
 				gap = 4,
 				children = {
-					LuauUI.UI.Text({ id = "Name", text = "Racer", textSize = 18 }),
-					LuauUI.UI.Text({ id = "Health", text = health, textSize = 14 }),
+					Facet.UI.Text({ id = "Name", text = "Racer", textSize = 18 }),
+					Facet.UI.Text({ id = "Health", text = health, textSize = 14 }),
 				},
 			})
 		)
-		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		return { controller = controller, health = health, n = 0 }
 	end,
@@ -341,14 +341,14 @@ table.insert(scenarios, {
 	name = "textinput-typing-storm",
 	requirement = "UI-PERF-001",
 	setup = function()
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = LuauUI.newActionSystem(core)
+		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local pres = Facet.newPresenter(core, env, adapter, system)
 		local value = core:signal("")
-		local control = text_input_control.build(LuauUI, core, {
+		local control = text_input_control.build(Facet, core, {
 			id = "Storm",
 			value = value,
 			placeholder = "type",
@@ -357,7 +357,7 @@ table.insert(scenarios, {
 			actionSystem = system,
 			onChange = function() end,
 		})
-		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { control.blueprint } }), {
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }), {
 			sinkNavigation = true,
 			onActivate = function(path, meta)
 				control.api.handleActivate(path, meta)
@@ -405,7 +405,7 @@ table.insert(scenarios, {
 -- day makes both numbers rise together and the ratio holds still.
 --
 -- Requirements this workload has to meet, and why:
---   * NO LuauUI code. It must move when the machine moves and never when the
+--   * NO Facet code. It must move when the machine moves and never when the
 --     library changes, or it would mask the very regressions it exists to
 --     expose. Nothing here requires anything from src/.
 --   * Above REGRESSION_FLOOR_MS (0.05ms) by a comfortable margin, so it is not
