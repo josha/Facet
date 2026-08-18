@@ -3902,9 +3902,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "studio-baseline-frozen",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/release-candidate-review/baseline/studio && test -f $d/README.md && test -f $d/demo-sweep.json && grep -qF "199665" $d/README.md && grep -qF "196790" $d/README.md && grep -qF "all 36" $d/README.md && python3 -c "import json;d=json.load(open(\'$d/demo-sweep.json\'));assert len(d[\'order\'])==36;assert d[\'themes\'][\'entries\']==9"',
 			evidence = "artifacts/release-candidate-review/baseline/studio/README.md",
-			note = "Representative Studio scenarios captured against the pre-rename source: showcase preflight + device-matrix pass and a Rascal Rally canary, stored with preflight identity per the execution contract. Blocked on a live Rojo-connected Studio session; PENDING until the artifacts exist.",
+			note = "Captured 2026-08-17 in the open LuauUI-Showcase session via Studio MCP, no Rojo connect needed: preflight proved the session runs the tree byte-for-byte (renderer 199665 / table 196790), the full 36-demo catalogue sweep returned current==mounted ok on every row, all-controls held 126 GuiObjects at 749x380, and the fantasy-parchment swap applied and reverted with the expected StyleSheets. Two captures reviewed live; the machine-readable sweep is the stored oracle because the MCP transport returns capture bytes, not files. The Rascal Rally Studio canary is deliberately NOT here — it is captured in the same session that verifies the RR-side rename, per the baseline README.",
 		},
 		{
 			name = "facet-collision-evidence",

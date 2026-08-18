@@ -8,7 +8,7 @@ FAIL_PRODUCT / FAIL_ENVIRONMENT / PENDING_PHYSICAL / PENDING_HUMAN / PENDING.
 | ID | User-visible behavior | Risk if skipped | Evidence | Driver | Artifact | Status |
 |---|---|---|---|---|---|---|
 | **RC-1** | Pre-edit baselines frozen: source identity, both suites, public surface, headless perf, rename inventory | Post-rename comparisons have no anchor; drift invisible | E1 | run-tests.sh both repos, _probe_public_surface, perf.sh, rename_inventory.py | `baseline/identity.md` | PASS_AUTOMATED |
-| **RC-2** | Representative Studio scenarios captured pre-rename (showcase preflight + device matrix, RR canary) | Engine-visible regressions from the rename undetectable | E3 | Studio MCP session with Rojo connected | `baseline/studio/README.md` | PENDING |
+| **RC-2** | Representative Studio scenarios captured pre-rename (showcase preflight + device matrix, RR canary) | Engine-visible regressions from the rename undetectable | E3 | Studio MCP session with Rojo connected | `baseline/studio/README.md` | PASS_AUTOMATED |
 | **RC-3** | Facet collision/rights evidence recorded for the owner | Owner ships into a conflict unseen | E0 | web search sweep | `facet-collision-check.md` | PASS_AUTOMATED |
 | **RC-4** | Facet is the canonical identity: folder, ModuleScript, public binding, docs, tools, labels, agents, both RR projects | Two brands; broken requires; stale labels | E1+E3 | history-preserving moves, content rewrite, rebuilds | `rename/after-inventory.md` | PENDING |
 | **RC-5** | Old-name drift guard exists, allowlisted (rename ADR, migration manifest, immutable evidence), and PROVABLY fails on planted content and a planted path | Guard that cannot fail proves nothing | E1 | negative-control run | `rename/drift-guard-proof.md` | PENDING |
