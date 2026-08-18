@@ -40,6 +40,20 @@ trigger.
 | Docs wave | ARCH-4, ARCH-5, ARCH-6, ARCH-9, ARCH-21, ARCH-22, PLAT-15, PLAT-16, PLAT-23, MAINT docs items + T12 catalog/product-language/comments | QUEUED |
 | Perf wave | RR-5 (fresh-`{}` memo identity, 25 sites — measure first), RR-12, PLAT-20 + T15 requalification | QUEUED |
 
+## Director device round (2026-08-17, physical phone, screenshots on file)
+
+| ID | Observation | Diagnosis state | Route |
+|---|---|---|---|
+| DIR-1 | Demo-chip strip's left border clipped at the screen edge, light package, ~393px portrait | Bounded diagnosis delegated with the examples_gallery harness + per-package gutter regression | R1 item 39 |
+| DIR-2 | Themed HUD plate TEXT overflows its plate (fantasy-ornate / fantasy-parchment) | Current tree is GREEN under the themed overflow sweep (46 surfaces x 9 viewports x package axis), so either the phone ran a stale published build or the effect is device-real (font rasterization) where the headless oracle is blind | Device retest on the CURRENT build (batched Studio/device session); if it reproduces, new sweep viewport + oracle work |
+| DIR-3 | Themed HUD plates overcrowd/overlap each other and the topbar | Same as DIR-2 (same sweep owns plate partition) | Same as DIR-2 |
+| DIR-4 | Column resize in landscape, rotate portrait → Rating column gone | CONFIRMED in code: resolveDim makes overrides absolute fixed px, no re-clamp on viewport shrink (table.luau:1180) | R1 item 38 (clamp contract decided) |
+| DIR-5 | Portrait→landscape loses LEFT HUD content; URL-bar toggle restores | Model-level rotation is proven equal to a fresh mount by tests/hud_chrome_rotation.spec.luau (green), so the live symptom matches PLAT-3's stale-inset race in the real adapter (bogus insets published right after rotation; any later re-arrangement repairs) | PLAT-3 fix in R1 item 10 + rotation row in the batched device checklist |
+
+The published-place question is open: the phone build may predate the 2026-08-15
+ornate-overflow fixes (O-23/O-25). The batched session re-publishes the rebuilt
+place and re-tests DIR-1/2/3/5 on device.
+
 ## Dispositions recorded so far (owner · risk · reason · trigger)
 
 - MAINT-2 (gate-manifest restructure, 757 KB / 2,270 pins): the empty-failure-
