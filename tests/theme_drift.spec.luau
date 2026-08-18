@@ -24,19 +24,64 @@ describe("no reusable framework control hardcodes a theme-owned metric", functio
 		expect(result.counts.lines > 5000).toBe(true)
 	end)
 
-	-- NEGATIVE PROOF: inject each shape of violation and watch the lint catch it
+	--[[ NEGATIVE PROOF: inject each shape of violation and watch the lint catch it.
+
+		SCOPED TO THE PLANTED FILE, ALWAYS (MAINT-4, 2026-08-17). These cases used
+		to assert ABSOLUTE global counts — `#result.violations == 1`, `result.ok ==
+		true` — which made every one of them a second, silent copy of "the
+		framework surface is clean". One real violation ANYWHERE in `src/` reddened
+		four unrelated mutation cases with messages naming the wrong file, so the
+		instrument that exists to prove the lint works became the loudest source of
+		misdirection the moment the lint had something to say.
+
+		A mutation case has exactly one question: did the lint see THE LINE I
+		PLANTED? So each case takes a baseline, plants its line, and asserts the
+		DELTA in the planted file. Whether the rest of the tree is clean is the
+		first case's job, and it says so by name. ]]
+	local function inPlantedFile(result: any, file: string): { any }
+		local mine: { any } = {}
+		for _, violation in result.violations do
+			if violation.file == file then
+				table.insert(mine, violation)
+			end
+		end
+		return mine
+	end
+
+	-- how many violations this file ALREADY has, so a planted one is a delta
+	local function baselineFor(file: string): number
+		return #inPlantedFile(drift.check(), file)
+	end
+
+	local function plantedIn(file: string, line: string): { any }
+		local before = baselineFor(file)
+		local result = drift.check({ injectFile = file, injectLine = line })
+		local mine = inPlantedFile(result, file)
+		expect(`{file}: planted violations {#mine - before}`).toBe(`{file}: planted violations 1`)
+		return mine
+	end
+
 	it("catches a hardcoded dimension in a control", function()
+		local file = "src/controls/chip.luau"
+		local before = baselineFor(file)
 		local result = drift.check({
-			injectFile = "src/controls/chip.luau",
+			injectFile = file,
 			injectLine = 'local synthetic = { type = "fixed", px = 44 }',
 		})
 		expect(result.ok).toBe(false)
-		expect(#result.violations).toBe(1)
-		expect(result.violations[1].file).toBe("src/controls/chip.luau")
-		expect(result.violations[1].what).toBe("dimension px")
+		local mine = inPlantedFile(result, file)
+		expect(#mine - before).toBe(1)
+		expect(mine[#mine].what).toBe("dimension px")
 		-- the message tells the author what to do instead
-		expect(string.find(result.problems[1], "theme metric name", 1, true) ~= nil).toBe(true)
-		expect(string.find(result.problems[1], "ALLOWLIST", 1, true) ~= nil).toBe(true)
+		local message: string? = nil
+		for _, problem in result.problems do
+			if string.find(problem, file, 1, true) ~= nil then
+				message = problem
+			end
+		end
+		expect(message ~= nil).toBe(true)
+		expect(string.find(message :: string, "theme metric name", 1, true) ~= nil).toBe(true)
+		expect(string.find(message :: string, "ALLOWLIST", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("catches a hardcoded text size, gap, padding and named metric constant", function()
@@ -48,30 +93,32 @@ describe("no reusable framework control hardcodes a theme-owned metric", functio
 				{ line = "local ROW_HEIGHT = 36", what = "named metric constant" },
 			}
 		do
-			local result = drift.check({ injectFile = "src/controls/label.luau", injectLine = case.line })
-			expect(result.ok).toBe(false)
-			expect(result.violations[1].what).toBe(case.what)
+			local mine = plantedIn("src/controls/label.luau", case.line)
+			expect(mine[#mine].what).toBe(case.what)
 		end
 	end)
 
 	it("catches drift in the renderer and the presenter too, not only in controls", function()
 		for _, file in { "src/render/renderer.luau", "src/present/presenter.luau" } do
-			local result = drift.check({ injectFile = file, injectLine = "local HIT_FLOOR = 44" })
-			expect(result.ok).toBe(false)
-			expect(result.violations[1].file).toBe(file)
+			local mine = plantedIn(file, "local HIT_FLOOR = 44")
+			expect(mine[#mine].file).toBe(file)
 		end
 	end)
 
 	it("zero is not a metric: 'this container adds no spacing' stays legal", function()
-		local result =
-			drift.check({ injectFile = "src/controls/chip.luau", injectLine = "local x = { gap = 0, padding = 0 }" })
-		expect(result.ok).toBe(true)
+		local file = "src/controls/chip.luau"
+		local before = baselineFor(file)
+		local result = drift.check({ injectFile = file, injectLine = "local x = { gap = 0, padding = 0 }" })
+		-- the DELTA is what this case is about: `result.ok` would also answer for
+		-- every other file in the tree
+		expect(#inPlantedFile(result, file) - before).toBe(0)
 	end)
 
 	it("a comment describing a literal is not a violation", function()
-		local result =
-			drift.check({ injectFile = "src/controls/chip.luau", injectLine = "-- the old height = 44 literal" })
-		expect(result.ok).toBe(true)
+		local file = "src/controls/chip.luau"
+		local before = baselineFor(file)
+		local result = drift.check({ injectFile = file, injectLine = "-- the old height = 44 literal" })
+		expect(#inPlantedFile(result, file) - before).toBe(0)
 	end)
 
 	it("every allowlist entry carries a real justification", function()

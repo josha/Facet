@@ -388,10 +388,32 @@ Re-snapshot them once the wave lands: a ceiling set mid-churn that nobody
 revisits becomes a licence to grow.
 """
 
+import re
 import sys
 from pathlib import Path
 
 CAP = 200_000
+
+# THE WARNING BAND (MAINT-1, 2026-08-17). The cap alone is not a budget: it is a
+# cliff. Before this existed, `main()`'s only size branch was `>= CAP`, so the
+# first signal a maintainer got was the commit that made a file unsyncable — and
+# the remedy the header prescribes (find a seam by the mutable-upvalue test,
+# prove it with a live Studio A/B) is a multi-hour mission, not an edit. Five
+# modules were sitting inside 10 KB of the cap and one of them 350 chars from it,
+# which turned every ordinary maintenance act on the densest files in the
+# framework into a hazard.
+#
+# So the band is a REQUIREMENT TO HAVE DONE THE THINKING, not a warning to
+# ignore: at or over WARN a module fails unless docs/handoff/SOURCE_CAP_LEDGER.md
+# carries a row for it that names (a) its size at the time it was recorded,
+# within DRIFT_ALLOWANCE of what it is now, (b) a seam analysis — the one-way
+# candidates, or the recorded reason none exists — and (c) the trigger that ends
+# the deferral. A row that has drifted past the allowance fails too: it means the
+# file grew since anyone last looked at the analysis, which is exactly when the
+# analysis is worth re-reading.
+WARN = 190_000
+DRIFT_ALLOWANCE = 2_000
+LEDGER = "docs/handoff/SOURCE_CAP_LEDGER.md"
 
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER: dict[str, tuple[int, str]] = {}
@@ -399,9 +421,62 @@ KNOWN_OVER: dict[str, tuple[int, str]] = {}
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def read_ledger() -> tuple[dict[str, dict[str, str]], list[str]]:
+    """Parse SOURCE_CAP_LEDGER.md's rows.
+
+    One row per module, in a markdown table whose first cell is the module path
+    in backticks:
+
+        | `src/render/renderer.luau` | 194,791 | <seam analysis> | <trigger> |
+
+    Returns (rows, problems). A malformed row is a problem, not a silent skip —
+    the whole point is that the ledger cannot be a place text goes to die.
+    """
+    path = ROOT / LEDGER
+    if not path.exists():
+        return {}, []
+    rows: dict[str, dict[str, str]] = {}
+    problems: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 4:
+            continue
+        module = re.fullmatch(r"`([^`]+)`", cells[0])
+        if module is None:
+            continue
+        rel = module.group(1)
+        digits = re.sub(r"[^0-9]", "", cells[1])
+        if not digits:
+            problems.append(
+                f"{LEDGER}: the row for {rel} does not record a size in its "
+                f"second column (got {cells[1]!r})"
+            )
+            continue
+        if len(cells[2]) < 40:
+            problems.append(
+                f"{LEDGER}: the row for {rel} has no real seam analysis — name the "
+                f"one-way candidates, or record why none exists"
+            )
+            continue
+        if len(cells[3]) < 20:
+            problems.append(
+                f"{LEDGER}: the row for {rel} has no next-extraction trigger — a "
+                f"deferral with no trigger is a deferral forever"
+            )
+            continue
+        rows[rel] = {"size": int(digits), "seam": cells[2], "trigger": cells[3]}
+    return rows, problems
+
+
 def main() -> int:
     problems: list[str] = []
     listed_seen: set[str] = set()
+    ledger, ledger_problems = read_ledger()
+    problems.extend(ledger_problems)
+    ledger_seen: set[str] = set()
+    in_band: list[tuple[str, int]] = []
 
     for path in sorted(ROOT.glob("src/**/*.luau")):
         rel = path.relative_to(ROOT).as_posix()
@@ -430,6 +505,39 @@ def main() -> int:
                 f"place file rather than your edits. Split it, or add it to "
                 f"KNOWN_OVER with the reason and the plan"
             )
+        elif size >= WARN:
+            in_band.append((rel, size))
+            row = ledger.get(rel)
+            if row is None:
+                problems.append(
+                    f"{rel} is {size:,} chars — inside the {CAP - WARN:,}-char warning "
+                    f"band below the {CAP:,} Source-write cap, and it has no row in "
+                    f"{LEDGER}. Add one recording its size, a seam analysis (the "
+                    f"one-way candidates, or why none exists) and the trigger that "
+                    f"ends the deferral. The cap is a cliff; this band is the last "
+                    f"place the thinking is cheap"
+                )
+            else:
+                ledger_seen.add(rel)
+                drift = size - row["size"]
+                if abs(drift) > DRIFT_ALLOWANCE:
+                    problems.append(
+                        f"{rel} is {size:,} chars against the {row['size']:,} its "
+                        f"{LEDGER} row records ({drift:+,}, past the "
+                        f"{DRIFT_ALLOWANCE:,} allowance). Re-record the size AND "
+                        f"re-read the seam analysis — the file moved since anyone "
+                        f"last looked at it, which is when that analysis is worth "
+                        f"re-reading"
+                    )
+        elif rel in ledger:
+            ledger_seen.add(rel)
+
+    for rel in ledger:
+        if rel not in ledger_seen and not (ROOT / rel).exists():
+            problems.append(
+                f"{LEDGER} carries a row for {rel}, which does not exist — if it "
+                f"was split, delete the row"
+            )
 
     for rel in KNOWN_OVER:
         if rel not in listed_seen:
@@ -454,6 +562,13 @@ def main() -> int:
             f"{CAP:,}-char Source-write cap, and KNOWN_OVER is empty. Nothing is "
             f"waived: a file that reaches the cap fails on the run that crosses it."
         )
+        if in_band:
+            print(
+                f"  {len(in_band)} module(s) inside the {CAP - WARN:,}-char warning "
+                f"band, each with a seam analysis and a trigger in {LEDGER}:"
+            )
+            for rel, size in sorted(in_band, key=lambda row: -row[1]):
+                print(f"    {rel} — {size:,} ({CAP - size:,} to the cap)")
         return 0
     total = sum(c for c, _ in KNOWN_OVER.values())
     print(

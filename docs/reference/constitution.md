@@ -227,8 +227,14 @@ Rules:
 - The **blessed client entry points** — required directly, never exported from the
   Facet table — are exactly: `screen_target`, `billboard_target`, `roblox_env`,
   `roblox_input`, `roblox_resources`, `theme_controller`, `edit_preview`,
-  `motion_driver`. The list lives in api.md §Client entry points and is pinned by
-  the checkers; everything else under `src/` is internal to consumers.
+  `motion_driver`, `haptics`, `gamepad_contention`, `responder_effects`. That is
+  **eleven**. `tools/lune/check_boundary.luau` holds the same list in code and is
+  the authority; api.md §Client entry points documents each one. Everything else
+  under `src/` is internal to consumers. (`haptics` was blessed with the round-2
+  feedback bus; `gamepad_contention` and `responder_effects` on 2026-08-17,
+  because the guide had been teaching a direct require of both while the checker
+  refused it — neither engine-level side effect has a `Facet.*` route, so the
+  list moved rather than the guide.)
 - A render target implements `render/target_contract.luau`: six REQUIRED methods,
   the OPTIONAL set (each absence degrades one named behavior), and the THEME set
   (required for `theme_controller.install`). Engine facts are **measured, then

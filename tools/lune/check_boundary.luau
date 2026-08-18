@@ -114,6 +114,21 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	-- nothing in `src/` outside `src/client/` requires it, which is what keeps
 	-- "Facet plays nothing" true of the shared/server graph.
 	haptics = true,
+	--[[ BLESSED 2026-08-17 (MAINT-7), because the guide already taught them and
+		neither has a blessed route.
+
+		`docs/guide/07-input.md` tells a consumer to require both of these
+		DIRECTLY — the legacy-control disable and its two contention probes, and
+		the touch-controls suppression an exclusive surface needs — while this
+		checker refused the same require for every consumer outside `examples/`.
+		One of the two had to move, and it could not be the guide: both are
+		engine-level side effects the engine-free presenter structurally cannot
+		perform, so there is no `Facet.*` route to send an author to instead. They
+		are blessed as what they already are: narrow, client-only, documented in
+		api.md §Client entry points with the same compatibility promise as the
+		other nine. ]]
+	gamepad_contention = true,
+	responder_effects = true,
 }
 
 -- consumer trees, relative to the library root. The game is the production
@@ -135,8 +150,10 @@ local EXAMPLE_INTERNAL_REACH: { [string]: string } = {
 	text_calibration = "the text-measurement lab drives the calibration module directly; it has no public surface (PKT-5 class)",
 	text_metrics = "the same lab reads the estimator's own bounds to compare them against the engine's",
 	text_premeasure = "the lab drives the premeasurement task directly to prove the two-read correction on a device",
-	gamepad_contention = "the gallery demonstrates the legacy-control disable seam documented in docs/guide/07-input.md; not yet a blessed entry point",
-	responder_effects = "the gallery binds the responder-effects seam the guide teaches; not yet a blessed entry point",
+	-- `gamepad_contention` and `responder_effects` were here, each with the reason
+	-- "not yet a blessed entry point" — a promise with no date and no owner
+	-- (MAINT-22). Both are blessed now (see BLESSED_CLIENT_MODULES above), so the
+	-- exemptions are gone rather than reworded.
 	profile = "the performance lab opens the framework's OWN balanced MicroProfiler span wrapper, so the scenario driver's scopes and Facet's phases come from one implementation and cannot disagree about naming or balance (roadmap Step 9, PLN-2)",
 }
 

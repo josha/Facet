@@ -935,6 +935,8 @@ local FIXTURES: { Fixture } = {
 			})
 		end,
 	},
+
+	-- scaffold: new control fixtures are appended above this line
 }
 
 -- registry rows that CANNOT be a fixture, each with the reason. Silence here
@@ -953,6 +955,8 @@ local UNSWEEPABLE: { [string]: string } = {
 	-- `Script.Source` WRITE cap (docs/lessons/
 	-- the-200k-source-cap-is-on-writing-not-loading.md). Neither is a control;
 	-- the RowActions row itself is swept and is the thing that mounts them.
+	TableColumns = "pure column-width arithmetic (the DIR-4 resize clamp) — no blueprint, nothing to mount or "
+		.. "measure. The columns it sizes are swept through the Table fixture, at every preference",
 	RowActionsSpec = "pure ActionSpec validation and leaf string/id helpers — no blueprint, nothing to mount or "
 		.. "measure. The tray buttons its output describes are swept through the RowActions fixture",
 	RowActionsCoordinator = "three closures over one plain local (which row is open) — no blueprint, nothing to "

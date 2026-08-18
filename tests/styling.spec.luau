@@ -529,6 +529,96 @@ describe("F-5 (BP-F2): the shadow and gradient grammars are closed like the stro
 		end)).toBe(true)
 	end)
 
+	--[[ THE STYLE-MODIFIER FAMILY IS DERIVED, NOT TRUSTED (MAINT-6, 2026-08-17).
+
+		`STYLE_GROUP_KEYS` is a hand-maintained closed list in `src/blueprint.luau`
+		and, until this case, nothing read it. Its own comment records what that
+		cost: the list held three keys and `stroke` — the fourth member of the
+		family — was silently DROPPED, so the collection form of `UI.stroke` gave
+		no border on any element, with no error, while the singular form worked.
+		The bug read as a theme problem.
+
+		The check below never mentions the list. It computes the family from the
+		normalizer registry every one of those modifiers is built on
+		(`src/tokens/styling`, `normalize<Modifier>`), cross-checks it against the
+		two other places the same family is spelled — the `UI.<x>Data` factories
+		and the property-authority manifest — and then puts each member through
+		`UI.styleGroup` and looks at the resulting node. A member the list forgets
+		does not error; it paints nothing. Only reading the painted node can see
+		that, which is why this is a behavioural case and not a list comparison. ]]
+	local function derivedStyleModifiers(): { string }
+		local styling = require("../src/tokens/styling")
+		local out: { string } = {}
+		for name in styling :: any do
+			local modifier = string.match(name, "^normalize(%a+)$")
+			if modifier ~= nil then
+				table.insert(out, string.lower(string.sub(modifier, 1, 1)) .. string.sub(modifier, 2))
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	it("the modifier family the normalizers define is the family the manifest and the factories carry", function()
+		local family = derivedStyleModifiers()
+		expect(#family >= 4).toBe(true)
+		local authority = require("../src/render/authority")
+		for _, key in family do
+			-- every member is a `UI.<x>Data` factory...
+			expect(`{key}Data:{type((UI :: any)[`{key}Data`])}`).toBe(`{key}Data:function`)
+			-- ...and a singular `UI.<x>` modifier...
+			expect(`{key}:{type((UI :: any)[key])}`).toBe(`{key}:function`)
+			-- ...and carries STYLE authority on the common manifest
+			expect(`{key}:{tostring(authority.authorityFor("Box", key))}`).toBe(`{key}:style`)
+		end
+	end)
+
+	it("EVERY derived modifier survives UI.styleGroup and lands on the node", function()
+		local SPECS: { [string]: any } = {
+			shadow = "raised",
+			corners = 10,
+			gradient = { colors = { "accent", "surface" } },
+			stroke = { color = "accent", thickness = 2 },
+		}
+		local family = derivedStyleModifiers()
+		local missingFixture: { string } = {}
+		for _, key in family do
+			if SPECS[key] == nil then
+				table.insert(missingFixture, key)
+			end
+		end
+		-- a NEW modifier must be given a fixture here rather than quietly skipped
+		expect(missingFixture).toEqual({})
+
+		for _, key in family do
+			local group = UI.styleGroup({ [key] = SPECS[key] }, {
+				UI.Box({ id = "A", width = { type = "fixed", px = 40 }, height = { type = "fixed", px = 40 } }),
+				UI.Box({ id = "B", width = { type = "fixed", px = 40 }, height = { type = "fixed", px = 40 } }),
+			})
+			local screen = UI.Screen({ id = "S", children = group })
+			local _, root, _, adapter = present(screen)
+			for _, id in { "A", "B" } do
+				local node = adapter.node(`/S/{id}`)
+				-- THE ASSERTION THE STROKE DROP WOULD HAVE FAILED: the modifier is
+				-- on the painted node, not merely accepted by the call
+				expect(`{key} on {id}: {tostring(node.props[key] ~= nil)}`).toBe(`{key} on {id}: true`)
+			end
+			root.dispose()
+		end
+	end)
+
+	it("a key outside the derived family is refused by name", function()
+		local ok, err = pcall(function()
+			return UI.styleGroup({ glow = 3 }, { UI.Box({ id = "A" }) })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown spec key 'glow'", 1, true) ~= nil).toBe(true)
+		-- ...and the refusal names the legal set, so the fix is in the message
+		for _, key in derivedStyleModifiers() do
+			expect(`{key} named: {tostring(string.find(tostring(err), key, 1, true) ~= nil)}`).toBe(`{key} named: true`)
+		end
+	end)
+
 	it("the preset-NAME form of a shadow still works on both shipped styles", function()
 		expect(pcall(function()
 			return UI.shadow(UI.Box({ id = "A" }), "raised")

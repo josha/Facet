@@ -41,25 +41,36 @@ local contract = require("../../src/controls/contract")
 
 local check_registration = {}
 
--- NESTED NAMESPACE COVERAGE (ENF-1). A top-level export like `motion` is one
--- token, but the SURFACE is every member of the table behind it — and a bare
--- `documented["motion"]` said nothing about `motion.newValueReveal`. These are
--- the exports whose value is a namespace table built in src/init.luau; the
--- checker reads the LIVE table (a headless `require` of src) rather than parsing
--- the literal, so a member added by any route is covered.
-local NESTED_NAMESPACES = {
-	"motion",
-	"text",
-	"themes",
-	"tokens",
-	"adaptive",
-	"composition",
-	"replication",
-	"spatial",
-	"touchGestures",
-	"interactionTokens",
-	"valueModel",
-}
+--[[ NESTED NAMESPACE COVERAGE (ENF-1), DERIVED FROM THE LIVE TREE (ARCH-7).
+
+	A top-level export like `motion` is one token and a whole API underneath, so
+	a bare `documented["motion"]` said nothing about `motion.newValueReveal`. The
+	checker has always read the LIVE table rather than parsing a literal — but
+	WHICH tables to walk was a hand list of eleven names, and the hand list is the
+	hole: `UI` was not on it (so `UI.schema`'s fifteen members were invisible, and
+	api.md asserted it had eleven while the live table had fifteen), nor were
+	`pathShapes`, `contribution` or `renderer`. A checker that exists to catch
+	drift cannot itself be a list somebody has to remember to extend.
+
+	THE RULE, and why it stops where it does. Every top-level export whose value
+	is a TABLE is a namespace: that is what a namespace IS here, and no judgement
+	is involved. Below the top level the walk descends only into a table that
+	HOLDS A FUNCTION — `UI.schema` is an API and is walked; `renderer.EMITTED_PROPS`
+	is a data set whose keys are prop names already governed by the prop-parity
+	checker, and walking it would demand an api.md heading per engine property.
+	"Holds a function" is the mechanical form of "is a surface, not a value", and
+	it is checked rather than declared.
+]]
+local NESTED_WALK_DEPTH = 3
+
+local function holdsFunction(value: { [string]: any }): boolean
+	for _, member in value do
+		if type(member) == "function" then
+			return true
+		end
+	end
+	return false
+end
 
 -- Members that api.md documents in PROSE rather than as `<namespace>.<member>`.
 -- EVERY entry needs a reason — an allowlist without one is just a hole. Keyed
@@ -71,6 +82,10 @@ local NESTED_DOC_ALLOW: { [string]: string } = {}
 
 local REQUIRED_PLAYBOOKS = {
 	"docs/extending/new-control.md",
+	-- MAINT-5: the primitive path had no playbook at all — `new-control.md`
+	-- deferred it to `new-engine-feature.md`, which only covers adding a property
+	-- or a modifier to a class that already exists
+	"docs/extending/new-primitive.md",
 	"docs/extending/new-engine-feature.md",
 	"docs/extending/new-platform-mode.md",
 	"docs/extending/new-render-target.md",
@@ -356,20 +371,22 @@ function check_registration.check(opts: Opts?)
 	end
 
 	local nestedMembers: { any } = {}
-	for _, namespace in NESTED_NAMESPACES do
-		local value = Facet[namespace]
-		if type(value) ~= "table" then
-			problem(
-				`nested namespace '{namespace}' is declared in check_registration but Facet.{namespace} is {type(value)} — update the list`
-			)
-			continue
-		end
-		for key in value do
-			if type(key) == "string" and string.sub(key, 1, 1) ~= "_" then
-				table.insert(nestedMembers, { namespace = namespace, member = key })
+	local function walkNamespace(prefix: string, tbl: { [string]: any }, depth: number)
+		for key, value in tbl do
+			if type(key) ~= "string" or string.sub(key, 1, 1) == "_" then
+				continue
+			end
+			local qualified = if prefix == "" then key else `{prefix}.{key}`
+			if prefix ~= "" then
+				table.insert(nestedMembers, { namespace = prefix, member = key })
+			end
+			if depth > 0 and type(value) == "table" and (prefix == "" or holdsFunction(value)) then
+				walkNamespace(qualified, value, depth - 1)
 			end
 		end
 	end
+	walkNamespace("", Facet, NESTED_WALK_DEPTH)
+	assert(#nestedMembers > 0, "check_registration: the namespace walk found nothing — the export tree moved")
 	for _, ghost in options.extraNestedMembers or {} do
 		table.insert(nestedMembers, ghost)
 	end

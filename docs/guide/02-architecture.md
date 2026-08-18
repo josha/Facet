@@ -25,7 +25,7 @@ All source lives under `src/`. Grouped by responsibility:
 | **env** | `env/environment.luau` | Per-device facts (screen size, safe areas, input capabilities and preference, display class, accessibility preferences) as observable values, plus derived policy — notably `interactionClasses` (the live set of input idioms the device offers right now) and `distanceProfile` (`near` vs `ten-foot` for TV-class displays). |
 | **async** | `async/resources.luau` | Bounded, cancellable async loading with a cache and stale-response rejection. |
 | **controls** | `controls/table.luau`, `controls/virtual_list.luau`, `controls/contract.luau` | Composite controls built *out of* the primitive blueprints. |
-| **client** | `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these eight are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). |
+| **client** | `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau`, `client/haptics.luau`, `client/gamepad_contention.luau`, `client/responder_effects.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these **eleven** are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). The list in code is `tools/lune/check_boundary.luau`'s `BLESSED_CLIENT_MODULES`, and it is the authority. |
 
 Everything except the **client** group is engine-free and runs headless.
 
@@ -174,10 +174,12 @@ corner radius) has **exactly one** owner, declared in `render/authority.luau`:
 - **binding** owns data-driven values (a label's text, a toggle's value, whether
   a button is enabled);
 - **presentation** owns transient transforms and opacity;
-- **host** is reserved for properties a custom control claims for itself. It is
-  declared in the vocabulary but **no property uses it today** — the custom-control
-  seam it was reserved for has not shipped, so in practice there are four live
-  authorities.
+- **host** answers a different question from the other four: they say *which
+  Facet writer owns this property of a Facet instance*, and `host` says *what the
+  framework claims over an instance it does NOT own*. It went live with
+  `UI.Foreign` (ADR-0034) and owns exactly one entry — `Foreign.Parent`, the
+  single write that puts a caller-created GuiObject into a Facet box. One entry
+  is the point of a bounded escape hatch, and all **five** authorities are live.
 
 The renderer calls `authority.assertWrite(class, prop, writer)` before *every*
 write, and a writer touching a property it does not own is a hard error. This

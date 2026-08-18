@@ -59,7 +59,15 @@ function %NAME%.build(Facet: any, core: any, spec: any)
 		id = spec.id or "%DISPLAY%",
 		children = {
 			-- TODO: compose primitives here
-			UI.Text({ id = "Todo", text = "%DISPLAY%: unimplemented", textSize = 14 }),
+			-- NO `textSize`: a bare number here is a theme-owned metric written into
+			-- the control, and `tools/lune/check_theme_drift` rejects it — which
+			-- used to make this scaffold's own output fail the playbook's stated
+			-- pass condition (MAINT-3). Omitting it is not a shortcut: the renderer
+			-- resolves the intrinsic size from the type ROLE for the class, so the
+			-- text scales with the package and with the player's text-size
+			-- preference. Name a role when you want a different one
+			-- (`role = "caption"`), never a number.
+			UI.Text({ id = "Todo", text = "%DISPLAY%: unimplemented" }),
 		},
 	})
 
@@ -320,6 +328,22 @@ describe("%DISPLAY% render-target adapter", function()
 	end)
 end)]==]
 
+-- the large-text sweep row (tests/lib/large_text_fixtures.luau). The stub
+-- control already renders a Text, so the sweep has something real to measure at
+-- every preference offset and in both reference themes from day one.
+local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
+	{
+		id = "%DISPLAY%",
+		class = "%DISPLAY%",
+		-- STAMPED BY THE SCAFFOLD. Grow it with the control: a fixture that mounts
+		-- the stub proves the stub, and the sweep's whole question is whether THIS
+		-- control's text still fits its boxes at +14px in a wider theme.
+		build = function(core: any)
+			return Facet.new%DISPLAY%(Facet, core, { id = "Ctl" }).blueprint
+		end,
+	},
+]==]
+
 local REGISTRY_ROW_TEMPLATE = [==[
 	{
 		name = "%DISPLAY%",
@@ -441,6 +465,19 @@ function scaffold.plan(kind: string, name: string): Plan
 				path = "src/init.luau",
 				before = "	-- async resources",
 				insert = `	new{display} = require("@self/controls/{name}").build,`,
+			},
+			--[[ ...AND THE LARGE-TEXT SWEEP (MAINT-3/MAINT-29, 2026-08-17). Without
+				this row the scaffold's own output failed `LT8-COVER` the moment it
+				landed — "every controls_registry row is swept or carries a declared
+				reason" — and no playbook mentioned large-text fixtures at all, so the
+				author met a red case with no instruction anywhere. A fixture, not a
+				waiver: the stub already renders text, which is exactly what the sweep
+				measures, so the new control is covered from its first commit and the
+				author edits a real fixture rather than removing an exemption. ]]
+			{
+				path = "tests/lib/large_text_fixtures.luau",
+				before = "scaffold: new control fixtures are appended above this line",
+				insert = fill(LARGE_TEXT_FIXTURE_TEMPLATE, name, display),
 			},
 			{
 				path = "docs/reference/api.md",
