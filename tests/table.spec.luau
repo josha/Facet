@@ -55,6 +55,9 @@ local function world(spec: any)
 			{ id = "laps", title = "Laps", width = { type = "fixed", px = 64 } },
 		},
 		rows = rows,
+		-- NEW-3: the row's own gap is part of what the columns divide, so a case
+		-- about column widths has to be able to declare one
+		gap = spec.gap,
 		key = function(item)
 			return item.id
 		end,
@@ -337,6 +340,70 @@ describe("Table: custom cells and resize model", function()
 		pres.refresh()
 		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(600)
 		expect(tbl.api.columnWidthOverrides:get().name).toBe(600)
+	end)
+
+	it("the clamp reserves the row's own GAP, so the last column still fits (NEW-3)", function()
+		--[[ The first version of the clamp fitted `sum(widths) <= bodyWidth` and the
+			cells live in an HStack with `gap` between them, so it under-reserved by
+			`gap * (n - 1)` and the director's symptom reproduced for any table that
+			declares one. Measured on this very harness before the fix:
+
+			    no gap  -> name 329  laps x=329 w=64  right edge 393  fits
+			    12px gap -> name 329  laps x=341 w=64  right edge 405  OVERFLOWS
+
+			`world()` never set a gap, which is why the original mounted case passed. ]]
+		local GAP = 12
+		local _, adapter, pres, tbl, _rows, _handle, _system, env = world({
+			gap = GAP,
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					minWidth = 60,
+					resizable = true,
+				},
+				{ id = "laps", title = "Laps", width = { type = "fixed", px = 64 } },
+			},
+		})
+		tbl.api.setColumnWidth("name", 600)
+		pres.refresh()
+		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 800 })
+		pres.refresh()
+		pres.refresh()
+
+		local laps = adapter.node(cellPath(1, "razz", "laps"))
+		local name = adapter.node(cellPath(1, "razz", "name"))
+		expect(laps ~= nil and name ~= nil).toBe(true)
+		-- the gap really is spent between them — otherwise this proves nothing
+		expect(math.abs((laps.rect.x - (name.rect.x + name.rect.w)) - GAP) <= 0.001).toBe(true)
+		-- ...and the trailing edge is still inside the window
+		expect(`right edge {laps.rect.x + laps.rect.w} <= 393: {tostring(laps.rect.x + laps.rect.w <= 393.001)}`).toBe(
+			`right edge {laps.rect.x + laps.rect.w} <= 393: true`
+		)
+		-- the locked column keeps its declared width; only the overridden one paid
+		expect(laps.rect.w).toBe(64)
+		expect(name.rect.w < 600).toBe(true)
+	end)
+
+	it("the pure rule takes the reservation as a number, and zero is the old behaviour", function()
+		local table_columns = require("../src/controls/table_columns")
+		local columns = {
+			{ id = "a", width = { type = "fill", weight = 1 }, minWidth = 40, resizable = true },
+			{ id = "b", width = { type = "fill", weight = 1 }, minWidth = 40, resizable = true },
+			{ id = "c", width = { type = "fixed", px = 60 } },
+		}
+		local committed = { a = 200, b = 200 }
+		-- no reservation: the columns divide the whole 460 and nothing clamps
+		expect(table_columns.fitOverrides(columns, committed, 460, 0).a).toBe(200)
+		-- 24px of gap (two gaps of 12) plus 16px of card padding has to come out
+		local fitted = table_columns.fitOverrides(columns, committed, 460, 40)
+		expect(fitted.a < 200).toBe(true)
+		expect(math.abs((fitted.a + fitted.b + 60 + 40) - 460) < 0.001).toBe(true)
+		-- a reservation larger than the space leaves the floors standing
+		local crushed = table_columns.fitOverrides(columns, committed, 100, 400)
+		expect(crushed.a).toBe(40)
+		expect(crushed.b).toBe(40)
 	end)
 
 	it("remounted rows keep hits painted beneath cell content (deterministic z-order)", function()

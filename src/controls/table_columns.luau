@@ -76,15 +76,53 @@ local function reservedFor(column: Column): number
 	return column.minWidth or 0
 end
 
--- committed overrides -> the px this solve can actually afford
+--[[ WHAT THE COLUMNS DO NOT GET: the row's own gap and card padding.
+
+	`sides` is the row card's padding AFTER a snapshot has resolved it — it is
+	theme metric NAMES until then, which is why the caller resolves it and this
+	takes the answer. Only the two horizontal sides matter: a column divides
+	width. ]]
+function table_columns.reserved(gap: any, columnCount: number, sides: any): number
+	local total = (if type(gap) == "number" then gap else 0) * math.max(0, columnCount - 1)
+	if type(sides) == "table" then
+		for _, side in { "left", "right" } do
+			local n = (sides :: any)[side]
+			if type(n) == "number" then
+				total += n
+			end
+		end
+	end
+	return total
+end
+
+--[[ THE COLUMNS DO NOT GET THE WHOLE WIDTH (review NEW-3, 2026-08-17).
+
+	The cells live in an `HStack` with the table's own `gap` between them and the
+	row card's `padding` around them, and the first version of this clamp fitted
+	`sum(widths) <= available` against the BODY's width — so it under-reserved by
+	`gap * (n - 1)` plus both padding sides, and the director's symptom
+	reproduced for any table with a gap:
+
+	    no gap  -> name 329  laps x=329 w=64  right edge 393  fits
+	    12px gap -> name 329  laps x=341 w=64  right edge 405  OVERFLOWS
+
+	`reserved` is that space, resolved by the caller (the padding is theme metric
+	NAMES until a snapshot resolves them, which a pure function cannot do), so
+	what the columns divide is `available - reserved`. Zero is the old behaviour,
+	which is what every direct caller of the pure function gets by omission. ]]
 function table_columns.fitOverrides(
 	columns: { Column },
 	overrides: { [string]: number },
-	available: number?
+	available: number?,
+	reserved: number?
 ): { [string]: number }
-	if available == nil or available <= 0 or next(overrides) == nil then
+	-- `nil` is "no measurement yet, do not clamp"; a MEASURED width that the
+	-- reservation eats entirely is a real answer — zero space — and clamps every
+	-- overridden column to its floor rather than declining to clamp at all
+	if available == nil or next(overrides) == nil then
 		return overrides
 	end
+	available = math.max(0, available - math.max(0, reserved or 0))
 	local demand = 0
 	local slack = 0
 	local overridden: { Column } = {}

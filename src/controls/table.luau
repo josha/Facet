@@ -1181,13 +1181,24 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return (spec.cellFor :: any)(column.id, item)
 	end
 
-	-- AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE (DIR-4). The committed
-	-- px never move; what clamps is RESOLUTION. The rule is `table_columns`.
-	-- `availableContentWidth` is the POST-RESERVE content width `syncGeometry`
-	-- measures below; nil means "no measurement yet, do not clamp".
+	-- AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE (DIR-4): the committed
+	-- px never move, what clamps is RESOLUTION, and the rule is `table_columns`.
+	-- Nil means "no measurement yet, do not clamp".
 	local availableContentWidth = scope:own(core:signal(nil :: number?))
-	local function fittedOverrides(overrides: { [string]: number }, available: number?): { [string]: number }
-		return table_columns.fitOverrides(columns, overrides, available)
+	-- what the columns do NOT get: the row's own gap and card padding (NEW-3).
+	-- The rule is `table_columns.reserved`; the padding is theme metric NAMES
+	-- until a snapshot resolves it, so that half is resolved here, per solve.
+	local cellsReserved = scope:own(core:memo(function(use): number
+		local env = spec.env
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		return table_columns.reserved(spec.gap, #columns, themeSnapshot.resolveSides(snap, use(cellsEditPadding)))
+	end))
+	local function fittedOverrides(
+		overrides: { [string]: number },
+		available: number?,
+		reserved: number?
+	): { [string]: number }
+		return table_columns.fitOverrides(columns, overrides, available, reserved)
 	end
 
 	local function resolveDim(column: Column, overrides: { [string]: number }): any
@@ -1204,18 +1215,18 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return dim
 	end
 
-	--[[ ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS. The header
-		already tracked commits reactively; the CELLS took a plain value, which was
-		fine while the only input was a commit (a commit bumps `widthsVersion` and
-		remounts the rows anyway) and stopped being fine when resolution also
-		depended on the VIEWPORT (DIR-4) — a rotation must not remount every row,
-		and the two halves must never divide different widths between the same
-		columns. One memo is the only spelling in which they cannot disagree. ]]
+	-- ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS (DIR-4): a
+	-- rotation must not remount every row, and the two halves must never divide
+	-- different widths between the same columns. One memo is the only spelling in
+	-- which they cannot disagree.
 	local columnDims: { [string]: any } = {}
 	local function columnDim(column: Column): any
 		if columnDims[column.id] == nil then
 			columnDims[column.id] = scope:own(core:memo(function(use)
-				return resolveDim(column, fittedOverrides(use(widthOverrides), use(availableContentWidth)))
+				return resolveDim(
+					column,
+					fittedOverrides(use(widthOverrides), use(availableContentWidth), use(cellsReserved))
+				)
 			end))
 		end
 		return columnDims[column.id]
@@ -4029,10 +4040,9 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 						)
 					end
 				end
-				-- THE POST-RESERVE CONTENT WIDTH (DIR-4): the body's solved width minus
-				-- the gutter its own scrollbar took is what the ROWS divide, and the
-				-- only honest number to measure committed widths against.
-				-- Equality-guarded like the gutter beside it, and for the same reason.
+				-- THE POST-RESERVE CONTENT WIDTH (DIR-4): what the ROWS divide, and the
+				-- only honest number to measure committed widths against. Equality-
+				-- guarded like the gutter beside it, and for the same reason.
 				if root ~= nil then
 					local bodyRect = rectOf(root .. "/Main/Body")
 					if type(bodyRect) == "table" and type(bodyRect.w) == "number" and bodyRect.w > 0 then
