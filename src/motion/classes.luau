@@ -38,6 +38,13 @@
 -- these names, and whoever registers a name LAST wins it. `reset` is the
 -- teardown seam; `tests/process_globals.spec.luau` pins the sharing and the
 -- last-writer rule as behaviour rather than leaving them to be found.
+--
+-- AND `reset` IS THE SHARP EDGE, not part of the dial (R5 review §4-6): it is
+-- not a write to one name, it is a write to ALL of them, so one consumer
+-- calling it deletes another consumer's vocabulary and the other consumer's
+-- next motion call THROWS. It exists for tests and for a studio tool reloading
+-- a design system — both single-consumer situations. A second Facet consumer in
+-- the same VM should not call it.
 
 local num = require("../num")
 local textDistance = require("../text_distance")

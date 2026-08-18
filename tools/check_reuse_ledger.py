@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Does the reuse ledger disposition EVERY finding the reuse audit filed?
+
+    python3 tools/check_reuse_ledger.py [--selftest]
+
+WHY THIS EXISTS
+---------------
+`artifacts/release-candidate-review/reuse-ledger.md` is acceptance row RC-10's
+whole evidence, and it opens by claiming that every finding in
+`artifacts/release-candidate-review/reviews/reuse.md` is dispositioned. The
+first version of that file made the claim while carrying 16 of 125 findings, and
+the gate row that published it could not tell: its ledger clauses were five
+fixed `grep -qF` strings, so they asserted that some sentences existed, not that
+the property held. That is this repository's own documented "check that proves
+nothing" shape, aimed at exactly the property the acceptance row names.
+
+So the check is STRUCTURAL and takes no fixed strings. It reads the audit's own
+`### REUSE-<n> —` headers — the authoritative enumeration, because every finding
+has one and the summary tables are split across sections and repeat rows — and
+compares that set against the `| REUSE-<n> |` rows in the ledger. Three ways to
+fail, each named separately because they are different mistakes:
+
+  * MISSING   — a finding the audit filed and the ledger never mentions.
+  * DUPLICATE — a finding dispositioned twice, which is two answers to one
+                question and hides which one is current.
+  * INVENTED  — an ID in the ledger that the audit never filed, which is how a
+                ledger drifts into describing a report nobody wrote.
+
+Every row must also carry a DISPOSITION word, because "REUSE-42 exists in the
+table" is not a disposition either.
+
+`--selftest` proves it can fail: it plants an omission, a duplicate and an
+invented ID in a scratch COPY of the ledger, requires each to be caught with the
+right verdict, and requires the real file to pass afterwards. The copy is a copy
+on purpose — a concurrent reader never sees a mutated artifact.
+
+Exit 0 = complete; 1 = incomplete; 2 = environment failure.
+"""
+
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+AUDIT = os.path.join(REPO, "artifacts", "release-candidate-review", "reviews", "reuse.md")
+LEDGER = os.path.join(REPO, "artifacts", "release-candidate-review", "reuse-ledger.md")
+
+# the audit's authoritative enumeration: one `###` header per finding
+AUDIT_ID = re.compile(r"^### REUSE-(\d+) —", re.M)
+# a ledger row: `| REUSE-<n> | … |`
+LEDGER_ROW = re.compile(r"^\| REUSE-(\d+) \|(.*)$", re.M)
+DISPOSITIONS = ("CONSOLIDATED", "KEPT SEPARATE", "DEFERRED")
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError as exc:
+        print(f"check_reuse_ledger: FAIL_ENVIRONMENT cannot read {path}: {exc}")
+        sys.exit(2)
+
+
+def audit_ids(text=None):
+    ids = [int(m) for m in AUDIT_ID.findall(text if text is not None else read(AUDIT))]
+    if not ids:
+        print("check_reuse_ledger: FAIL_ENVIRONMENT the audit has no `### REUSE-n —` headers")
+        sys.exit(2)
+    return ids
+
+
+def check(ledger_text, audit_text=None):
+    """-> (problems, filed_count, row_count). Empty problems == complete."""
+    filed = audit_ids(audit_text)
+    filed_set = set(filed)
+    rows = LEDGER_ROW.findall(ledger_text)
+    seen = {}
+    undisposed = []
+    for num, rest in rows:
+        i = int(num)
+        seen[i] = seen.get(i, 0) + 1
+        if not any(word in rest for word in DISPOSITIONS):
+            undisposed.append(i)
+    problems = []
+    for i in sorted(filed_set - set(seen)):
+        problems.append(f"MISSING   REUSE-{i} — filed by the audit, absent from the ledger")
+    for i in sorted(k for k, n in seen.items() if n > 1):
+        problems.append(f"DUPLICATE REUSE-{i} — dispositioned {seen[i]} times")
+    for i in sorted(set(seen) - filed_set):
+        problems.append(f"INVENTED  REUSE-{i} — in the ledger, never filed by the audit")
+    for i in sorted(set(undisposed)):
+        problems.append(
+            f"UNDISPOSED REUSE-{i} — the row names no disposition "
+            f"({', '.join(DISPOSITIONS)})")
+    return problems, len(filed_set), len(rows)
+
+
+def selftest():
+    audit = read(AUDIT)
+    ledger = read(LEDGER)
+    filed = sorted(set(audit_ids(audit)))
+    cases = []
+
+    victim = filed[len(filed) // 2]
+    omitted = re.sub(rf"^\| REUSE-{victim} \|.*$\n", "", ledger, count=1, flags=re.M)
+    cases.append(("omission", omitted, f"MISSING   REUSE-{victim}"))
+
+    row = re.search(rf"^\| REUSE-{filed[0]} \|.*$", ledger, re.M).group(0)
+    cases.append(("duplicate", ledger.replace(row, row + "\n" + row, 1),
+                  f"DUPLICATE REUSE-{filed[0]}"))
+
+    invented = max(filed) + 77
+    cases.append(("invented id", ledger.replace(
+        row, row + f"\n| REUSE-{invented} | Low / low | made up | **DEFERRED** — nobody | — |", 1),
+        f"INVENTED  REUSE-{invented}"))
+
+    stripped = re.sub(rf"^(\| REUSE-{filed[1]} \|[^|]*\|[^|]*\|)[^|]*\|",
+                      r"\1 no answer at all |", ledger, count=1, flags=re.M)
+    cases.append(("undisposed row", stripped, f"UNDISPOSED REUSE-{filed[1]}"))
+
+    for name, text, expected in cases:
+        problems, _, _ = check(text, audit)
+        if not any(p.startswith(expected) for p in problems):
+            print(f"check_reuse_ledger: SELFTEST FAIL — a planted {name} was not caught")
+            print("  expected a problem starting: " + expected)
+            print("  got: " + ("; ".join(problems[:5]) or "(none)"))
+            return 1
+
+    problems, filed_n, rows_n = check(ledger, audit)
+    if problems:
+        print("check_reuse_ledger: SELFTEST FAIL — the real ledger is not complete:")
+        print("\n".join("  " + p for p in problems[:20]))
+        return 1
+    print(f"check_reuse_ledger: SELFTEST PASS — planted omission, duplicate, invented ID and "
+          f"undisposed row each caught; the real ledger dispositions all {filed_n} filed "
+          f"findings in {rows_n} rows")
+    return 0
+
+
+def main():
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
+    problems, filed_n, rows_n = check(read(LEDGER))
+    if problems:
+        print(f"check_reuse_ledger: FAIL — {len(problems)} problem(s) against the "
+              f"{filed_n} findings the audit filed:")
+        for p in problems[:60]:
+            print("  " + p)
+        if len(problems) > 60:
+            print(f"  … and {len(problems) - 60} more")
+        sys.exit(1)
+    print(f"check_reuse_ledger: PASS — every one of the {filed_n} findings in "
+          f"reviews/reuse.md is dispositioned exactly once in reuse-ledger.md "
+          f"({rows_n} rows), and every row names its disposition")
+
+
+if __name__ == "__main__":
+    main()

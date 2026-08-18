@@ -130,24 +130,16 @@ function textReveal.new(ctx: any)
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
 		end
-		local hidden: { string } = {}
-		if ctrl.hiddenRoots ~= nil then
-			for root in ctrl.hiddenRoots() do
-				table.insert(hidden, root)
-			end
-		end
-		local function isHiddenPath(p: string): boolean
-			for _, root in hidden do
-				if isPathPrefix(root, p) then
-					return true
-				end
-			end
-			return false
-		end
+		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
+			(reuse audit REUSE-29). `focusMap.isHiddenPath` is the published answer and
+			takes the SET `hiddenRoots()` already returns, so the array this used to
+			build was a conversion nobody needed. Hoisted once rather than re-read per
+			node: the walk visits every node in the subtree. ]]
+		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
 		local function walk(n: any)
-			if foundPath ~= nil or isHiddenPath(n.path) then
+			if foundPath ~= nil or focusMap.isHiddenPath(n.path, hiddenRoots) then
 				return
 			end
 			if n.props ~= nil and n.props.reveal ~= nil then
@@ -377,14 +369,14 @@ function textReveal.new(ctx: any)
 		-- drop flipped the recap's composition to the rich form and the strip
 		-- kept travelling over the hidden reduced line. Hiddenness is re-read
 		-- every tick exactly as the facts are.
+		--[[ THE FOURTH COPY OF THE SAME TEST (reuse audit REUSE-29 — the audit
+			counted three and this file had two of them). Same published owner as
+			the scan above; hiddenness is re-read every tick exactly as the facts
+			are, so this one takes the set fresh rather than hoisting it. ]]
 		local ctrl = st.owner.controller
-		if ctrl.hiddenRoots ~= nil then
-			for root in ctrl.hiddenRoots() do
-				if isPathPrefix(root, st.sourcePath) then
-					retireReveal()
-					return
-				end
-			end
+		if ctrl.hiddenRoots ~= nil and focusMap.isHiddenPath(st.sourcePath, ctrl.hiddenRoots()) then
+			retireReveal()
+			return
 		end
 		-- the reader's own static ask outranks the ambient travel
 		if plateShows(st.sourcePath) then

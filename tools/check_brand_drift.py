@@ -94,12 +94,21 @@ ALLOWLIST = [
     ("tools/lune/gate_manifest.luau", re.compile(r"artifacts/", re.I),
      "run/note lines that quote files under artifacts/ quote frozen evidence",
      "when the quoted prior-gate rows are archived (Step 14 gate simplification)"),
-    ("tools/lune/gate_manifest.luau", TAG,
-     "the naming-adr-implemented note states WHICH tag family ADR-0038 retired and what "
-     "this guard could not see; a gate note that cannot name the old vocabulary cannot "
-     "record that it moved",
+    #[[ SCOPED TO THE SENTENCE, NOT TO THE FILE (R5 review §2-1). The first
+    #   version of these two entries reused the profile patterns themselves as
+    #   their `pat`, which makes `allow()` tautological: ANY `luau-*` tag
+    #   anywhere in this ~4,000-line, every-wave-edited manifest was excused.
+    #   Proved by planting an unrelated tag 4,000 lines from the note and
+    #   watching the checker still PASS. The patterns below match only the two
+    #   literal clauses of the naming-adr-implemented note that have to name the
+    #   retired vocabulary, so a tag anywhere else in the file is caught. ]]
+    ("tools/lune/gate_manifest.luau",
+     re.compile(r"renamed the public theme-authoring tags luau-\*/luau-slot-\* to facet-\*/facet-slot-\*"),
+     "the naming-adr-implemented note states WHICH tag family ADR-0038 retired; a gate note "
+     "that cannot name the old vocabulary cannot record that it moved",
      "permanent (the note is the gate's own history, like the ADR it cites)"),
-    ("tools/lune/gate_manifest.luau", BRAND,
+    ("tools/lune/gate_manifest.luau",
+     re.compile(r"BRAND is luau\[\\\\s\._-\]\?ui and there is no ui after luau in a tag"),
      "the same note quotes this checker's own BRAND pattern to explain why 346 surviving "
      "tags were structurally invisible to it",
      "permanent (same reason)"),

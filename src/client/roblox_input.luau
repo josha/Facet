@@ -31,6 +31,8 @@ local roblox_input = {}
 local PLAYER_SCRIPTS_WAIT_SECONDS = 5
 
 function roblox_input.newSystem(core: any)
+	local contexts: { any } = {}
+	local disposed = false
 	local host = Players.LocalPlayer:WaitForChild("PlayerScripts", PLAYER_SCRIPTS_WAIT_SECONDS)
 	assert(
 		host ~= nil,
@@ -426,8 +428,15 @@ function roblox_input.newSystem(core: any)
 		end
 
 		function context.destroy()
+			if context.destroyed then
+				return
+			end
 			context.destroyed = true
 			context.enabled = false
+			local i = table.find(contexts, context)
+			if i ~= nil then
+				table.remove(contexts, i)
+			end
 			for _, action in context.actions do
 				for _, connection in action.connections do
 					connection:Disconnect()
@@ -445,7 +454,36 @@ function roblox_input.newSystem(core: any)
 			contextInstance:Destroy()
 		end
 
+		table.insert(contexts, context)
 		return context
+	end
+
+	--[[ THE SESSION ENDS, and this system's session owns ENGINE OBJECTS
+		(ARCH-12's engine twin; R5 review §3b-2). `src/input/actions.luau` — the
+		headless system this one mirrors 1:1 — gained `dispose` in 0.10.0 and this
+		one had nothing, so `client.host` could not release it and a consumer
+		tearing a surface down left every `InputContext`, `InputAction` and
+		`InputBinding` Instance parented under `PlayerScripts`, plus their
+		connections, for the life of the client.
+
+		Same contract as the headless twin: destroys every context it still holds
+		(each one Destroys its own `InputContext`, which takes its action and
+		binding children with it), idempotent, and safe after a context was
+		destroyed by hand — `context.destroy` removes itself from the list. ]]
+	function system.contextCount(): number
+		return #contexts
+	end
+
+	function system.dispose()
+		if disposed then
+			return
+		end
+		disposed = true
+		-- BACKWARDS, because `context.destroy` removes itself from this list
+		for i = #contexts, 1, -1 do
+			contexts[i].destroy()
+		end
+		table.clear(contexts)
 	end
 
 	return system

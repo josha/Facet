@@ -9,18 +9,26 @@
 	IT LIVED AT `src/controls/contract.luau` AND WAS NEITHER (ARCH-10/ARCH-11,
 	moved 0.10.0). Its rows are Screen, VStack, Text, Grip, ScrollView — the
 	PRIMITIVES a composite control is built out of, not the composites — so its
-	old name misled every reader who opened it expecting Table and Slider. Worse,
-	`src/render/layout_node.luau` and `src/layout/solver.luau` both required it,
-	which made `render/` and `layout/` depend on `controls/` and inverted the
-	layering the architecture guide teaches (composites are built ON TOP OF
-	primitives, never underneath them).
+	old name misled every reader who opened it expecting Table and Slider. And
+	`src/render/layout_node.luau` required it, which made `render/` depend on
+	`controls/` and inverted the layering the architecture guide teaches
+	(composites are built ON TOP OF primitives, never underneath them).
 
-	IT IS A ROOT LEAF RATHER THAN `render/class_contract.luau`, which was the
-	first proposal, because `src/layout/solver.luau` consumes it too: filing it
-	under `render/` would have replaced one inversion (layout -> controls) with
-	another (layout -> render) and moved the problem rather than removing it.
+	WHY A ROOT LEAF RATHER THAN `render/class_contract.luau`, CORRECTED. The
+	first version of this header argued from `src/layout/solver.luau`, and that
+	was wrong: solver has never required this module — its only mention is the
+	comment at `solver.luau:220`, and the R5 review caught the misreading. The
+	true reason is the one the REQUIRE LIST gives, which is stronger. The
+	consumers are `src/blueprint.luau`, `src/render/layout_node.luau` and five
+	`src/controls/*` modules, so filing this under `render/` would have made the
+	AUTHORING layer and five composite controls depend on the RENDER layer — the
+	same inversion pointing the other way, and a worse one, because `blueprint`
+	is structurally above `render` rather than beside it.
+
 	This file requires NOTHING — the `src/spec_guard.luau` shape — so every layer
-	may depend on it and no layer is depending on another by doing so.
+	may depend on it and no layer is depending on another by doing so. That is
+	also why no CONTEST was needed: the brief said "or the location that makes the
+	layering true", so a root leaf was authorised from the start.
 
 	minHitSize is ENFORCED (B-BTN3, swiftui-parity-next investment 3): after every
 	solve the renderer compares each declared class's solved rect against this

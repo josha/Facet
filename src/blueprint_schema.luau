@@ -1737,7 +1737,7 @@ class("Region", {
 			reactive = false,
 			channel = "layout",
 			doc = 'how a stepped-down region discloses its richest form: "auto" (default — the framework '
-				.. "presents it in a transient plate at the region's anchor), \"none\" (the authored escape), "
+				.. 'presents it in a transient plate at the region\'s anchor), "none" (the authored escape), '
 				.. "or a handler function that replaces the presentation. Refused on a one-form region",
 		}),
 		-- THE ONE REACTIVE PROP ON A REGION, and it is reactive for a reason the
@@ -2066,7 +2066,7 @@ class("Button", {
 			types = { "expandTarget" },
 			reactive = false,
 			channel = "layout",
-			doc = "framework-declared: this button is a region's expand affordance. { role = \"cover\" } "
+			doc = 'framework-declared: this button is a region\'s expand affordance. { role = "cover" } '
 				.. 'covers the compact form (which carries no controls of its own); { role = "chevron" } '
 				.. "sits beside it. Authors declare `UI.Region{ expand = … }`, never this",
 		}),

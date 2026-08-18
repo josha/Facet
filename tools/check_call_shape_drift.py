@@ -25,10 +25,14 @@ marking disappears. Prose is governed there; this guard governs code.
 
 Every permitted match lives in ALLOWLIST with a reason and a removal rule.
 
-`--selftest` proves the guard can fail: it plants one old-form call and one
-colon-spelling call inside scanned trees, requires both to go red, removes them,
-and requires the restored tree to pass. It also plants an allowlisted file's
-pattern in a NON-allowlisted file, to prove the allowlist is scoped to its paths.
+`--selftest` proves the guard can fail: it plants one old-form call, one
+colon-spelling call and one WRAPPED old-form call (the shape stylua produces for
+a long argument list, and the one the line-based first version let through)
+inside scanned trees, requires all three to go red at the right line numbers,
+removes them, and requires the restored tree to pass. It also plants an
+allowlisted file's pattern in a NON-allowlisted file, to prove the allowlist is
+scoped to its paths. `scan_file`'s docstring names the two shapes this scan
+still cannot see and why neither is hiding anything today.
 
 Usage:  python3 tools/check_call_shape_drift.py [--selftest]
 Exit 0 = clean; 1 = drift found; 2 = environment failure.
@@ -47,7 +51,9 @@ RR = os.path.join(STUDIO_ROOT, "games", "RascalRally", "code")
 # (1) `x.newFoo(x,` — the first argument is the very expression the call is made
 # on. `\1` is what makes this specific: `Facet.newTable(core, …)` is not a match,
 # and neither is `row_actions.newCoordinator(Facet.newCore())`.
-TWO_ARG = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\.new([A-Z][A-Za-z0-9_]*)\(\s*\1\s*,")
+# `\s` already spans newlines, so these match a wrapped call once the scan
+# stops chopping the source into lines (see `scan_file`).
+TWO_ARG = re.compile(r"([A-Za-z_][A-Za-z0-9_.]*)\.new([A-Z][A-Za-z0-9_]*)\s*\(\s*\1\s*,")
 # (2) the colon spelling, which hides the library in `self`
 COLON = re.compile(r":new[A-Z][A-Za-z0-9_]*\s*\(")
 
@@ -89,24 +95,59 @@ def allowed(scope_path):
 
 
 def scan_file(abs_path, scope_path, hits):
+    """Scan one file WHOLE, not line by line.
+
+    WHY WHOLE (R5 review §6-2). The first version iterated lines and applied
+    the patterns to each, so a call wrapped across lines was invisible:
+
+        local x = Facet.newTable(
+            Facet,
+            core,
+            {}
+        )
+
+    passed, while the identical call on one line failed. stylua wrapping a long
+    call is the realistic way in, which makes the blind spot one the formatter
+    can open by itself. The source is read once and matched with the patterns
+    compiled `re.DOTALL`, and the line number is recovered by counting newlines
+    up to the match, so the message still points at the call's first line.
+
+    LIMITS, NAMED. Two shapes are still invisible and neither is a bug this
+    scan can fix without a Luau parser:
+
+      * DYNAMIC construction — `Facet[name](Facet, ...)` builds a composite
+        without ever writing its name. `tests/spec_guard_sweep.spec.luau` does
+        this deliberately over all 19 to prove the deprecated builders still
+        work, which is the one thing that MUST keep constructing the old way.
+      * An ALIASED receiver — `local F = Facet; F.newTable(Facet, ...)`. The
+        backreference is what makes the two-argument pattern specific (it is
+        what tells `x.newFoo(x, ...)` from `x.newFoo(core, ...)`), and an alias
+        defeats it by construction.
+
+    Measured at the time of writing: a DOTALL scan of every `.luau` in both
+    repositories finds zero old-form calls, so nothing is hiding behind either
+    limit today.
+    """
     if allowed(scope_path):
         return
     try:
         with open(abs_path, encoding="utf-8", errors="replace") as fh:
-            for n, line in enumerate(fh, 1):
-                m = TWO_ARG.search(line)
-                if m:
-                    hits.append(f"{scope_path}:{n}: old two-argument form "
-                                f"`{m.group(1)}.new{m.group(2)}({m.group(1)}, …)` — "
-                                f"write `{m.group(1)}.Controls.{m.group(2)}(core, spec)` "
-                                f"(ADR-0037)")
-                    continue
-                if COLON.search(line):
-                    hits.append(f"{scope_path}:{n}: colon spelling `:new<Name>(` puts "
-                                f"the library in `self` — write "
-                                f"`Facet.Controls.<Name>(core, spec)` (ADR-0037)")
+            source = fh.read()
     except OSError:
-        pass
+        return
+
+    def line_of(index):
+        return source.count("\n", 0, index) + 1
+
+    for m in TWO_ARG.finditer(source):
+        hits.append(f"{scope_path}:{line_of(m.start())}: old two-argument form "
+                    f"`{m.group(1)}.new{m.group(2)}({m.group(1)}, …)` — "
+                    f"write `{m.group(1)}.Controls.{m.group(2)}(core, spec)` "
+                    f"(ADR-0037)")
+    for m in COLON.finditer(source):
+        hits.append(f"{scope_path}:{line_of(m.start())}: colon spelling "
+                    f"`:new<Name>(` puts the library in `self` — write "
+                    f"`Facet.Controls.<Name>(core, spec)` (ADR-0037)")
 
 
 def scan_repo(repo, prefix, hits):
@@ -130,6 +171,7 @@ def selftest():
     two_arg = os.path.join(REPO, "src", "call_shape_probe_tmp.luau")
     colon = os.path.join(REPO, "tests", "call_shape_colon_probe_tmp.luau")
     scoped = os.path.join(REPO, "src", "call_shape_allow_probe_tmp.luau")
+    wrapped = os.path.join(REPO, "src", "call_shape_wrapped_probe_tmp.luau")
     try:
         with open(two_arg, "w") as f:
             f.write("local x = Facet.newTable(Facet, core, {})\nreturn x\n")
@@ -138,23 +180,35 @@ def selftest():
         # the allowlisted SPEC's own pattern, in a file that is not allowlisted
         with open(scoped, "w") as f:
             f.write("local old = Facet.newLabel(Facet, core, {})\nreturn old\n")
+        #[[ THE WRAPPED CALL (R5 review §6-2). The same construction stylua would
+        #   produce for a long argument list. The line-based scan this replaced
+        #   passed it while failing the identical call on one line, which made the
+        #   FORMATTER a way through the guard. Planted here so the whole-file scan
+        #   can never quietly go back to being line-based. ]]
+        with open(wrapped, "w") as f:
+            f.write("local x = Facet.newTable(\n\tFacet,\n\tcore,\n\t{}\n)\nreturn x\n")
         hits = []
         scan_file(two_arg, "src/call_shape_probe_tmp.luau", hits)
         scan_file(colon, "tests/call_shape_colon_probe_tmp.luau", hits)
         scan_file(scoped, "src/call_shape_allow_probe_tmp.luau", hits)
+        scan_file(wrapped, "src/call_shape_wrapped_probe_tmp.luau", hits)
         # ...and the same content INSIDE the allowlisted path must be tolerated
         tolerated = []
         scan_file(two_arg, "tests/controls_namespace.spec.luau", tolerated)
-        if (len([h for h in hits if "call_shape_probe_tmp" in h]) != 1
+        wrapped_hits = [h for h in hits if "call_shape_wrapped_probe_tmp" in h]
+        # ...and it must point at the call's FIRST line, not at the file's start
+        wrapped_line_ok = len(wrapped_hits) == 1 and wrapped_hits[0].split(":")[1] == "1"
+        if (len([h for h in hits if "src/call_shape_probe_tmp" in h]) != 1
                 or len([h for h in hits if "colon spelling" in h]) != 1
                 or len([h for h in hits if "call_shape_allow_probe_tmp" in h]) != 1
+                or not wrapped_line_ok
                 or tolerated):
             print("check_call_shape_drift: SELFTEST FAIL — a planted violation "
                   "survived, or the allowlist did not apply to its own path")
             print("\n".join(hits + [f"tolerated: {t}" for t in tolerated]))
             return 1
     finally:
-        for p in (two_arg, colon, scoped):
+        for p in (two_arg, colon, scoped, wrapped):
             if os.path.exists(p):
                 os.unlink(p)
     clean = run_scan()
@@ -163,8 +217,9 @@ def selftest():
         print("\n".join(clean[:20]))
         return 1
     print("check_call_shape_drift: SELFTEST PASS — planted two-argument call, "
-          "planted colon call, and out-of-scope allowlisted pattern each caught; "
-          "the allowlisted path tolerates the same content; restored tree clean")
+          "planted colon call, planted WRAPPED call (reported at its first line), "
+          "and out-of-scope allowlisted pattern each caught; the allowlisted path "
+          "tolerates the same content; restored tree clean")
     return 0
 
 

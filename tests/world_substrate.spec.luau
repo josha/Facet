@@ -36,8 +36,20 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local worldLib = require("./lib/world")
 
--- the twelve that carried the retired order, plus the fourteen they collided
--- with: every file whose top-level builder is now `tests/lib/world.luau`
+--[[ EVERY FILE WHOSE TOP-LEVEL BUILDER IS NOW `tests/lib/world.luau`.
+
+	THE COUNTS, RE-MEASURED (R5 review §3c-1). At `d1b2d7b2^`: **12** spec files
+	returned the retired order and **15** returned the kept one — the wave said
+	sixteen. **24** spec files migrated (this comment said "the twelve plus the
+	fourteen", which is 26 and was never true of the list below it), and the
+	commit rewrote **91** destructure lines, not the 131 the report claimed.
+
+	THREE KEPT-ORDER FILES WERE LEFT BEHIND and are named rather than papered
+	over: `button_complete`, `menu` and `leaf_helpers`. `leaf_helpers` has since
+	migrated — the R12 trigger it violated caught up with it — and the other two
+	stay under that same trigger. THE GUARD DOES NOT CARE: its first scan is
+	every top-level `*.spec.luau`, not this list, so a retired-order return in an
+	un-migrated file reddens exactly as it does in a migrated one. ]]
 local MIGRATED = {
 	"anchored_surface",
 	"auto_input",
@@ -48,6 +60,7 @@ local MIGRATED = {
 	"help",
 	"keyboard_navigation",
 	"late_contributions",
+	"leaf_helpers",
 	"level_picker",
 	"modal_dismissal",
 	"paradigm_carry",
@@ -185,6 +198,62 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 			the construction lives. ]]
 		expect(`files returning the retired order: {table.concat(offenders, ", ")}`).toBe(
 			"files returning the retired order: "
+		)
+	end)
+
+	--[[ THE R12 TRIGGER, MADE MECHANICAL (R5 review §3c-2).
+
+		The trigger is "the next spec file that ADDS a builder migrates its file",
+		and its only trace was a `grep -qF` in the gate row for the SENTENCE — the
+		gate asserted the rule was written down, not that anyone honoured it. It
+		was violated inside the wave that wrote it: `tests/leaf_helpers.spec.luau`
+		added a hand-rolled six-piece builder hours before the substrate landed.
+
+		A RATCHET IS THE ONLY HONEST MECHANISATION. "No spec may build a presenter
+		by hand" is false today by 78 files and R12 deliberately declined to churn
+		them, so what can be enforced is the DIRECTION: the count may fall, never
+		rise. Adding a builder reddens this; migrating one reddens it too, and the
+		fix is to lower the number — which is the point, because that edit is
+		where an author reads the trigger.
+
+		THE DETECTOR IS FILE-LEVEL AND SAYS SO: "this file declares a builder AND
+		constructs a presenter somewhere". It cannot tell whether the presenter is
+		built INSIDE the builder without parsing Luau, so the number is a stable
+		over-approximation rather than a census — which is all a ratchet needs, so
+		long as the pin is what THIS detector sees rather than a number measured
+		some other way. ]]
+	local HAND_ROLLED_BUILDERS = 78
+
+	it("the count of hand-rolled presenter builders only ever falls (R12 trigger)", function()
+		local live: { string } = {}
+		for _, name in fs.readDir("tests") do
+			if string.sub(name, -10) ~= ".spec.luau" then
+				continue
+			end
+			local source = fs.readFile(`tests/{name}`)
+			local hasBuilder = string.find(source, "local function world", 1, true) ~= nil
+				or string.find(source, "local function makeWorld", 1, true) ~= nil
+				or string.find(source, "local function harness", 1, true) ~= nil
+			local buildsPresenter = string.find(source, "presenterLib.newPresenter(", 1, true) ~= nil
+				or string.find(source, "presenterLib.new(", 1, true) ~= nil
+				or string.find(source, "Facet.newPresenter(", 1, true) ~= nil
+			if hasBuilder and buildsPresenter then
+				table.insert(live, name)
+			end
+		end
+		if #live > HAND_ROLLED_BUILDERS then
+			error(
+				`{#live} spec files build a presenter by hand, up from {HAND_ROLLED_BUILDERS}. `
+					.. "R12's follow-up trigger: the next spec file that ADDS a builder migrates its "
+					.. "file onto tests/lib/world.luau instead. If you migrated one, lower "
+					.. "HAND_ROLLED_BUILDERS in this file to match.",
+				0
+			)
+		end
+		--[[ AND IT MUST NOT SILENTLY DRIFT DOWN EITHER: a stale high pin is a
+			ratchet with slack in it, which is how a ceiling stops being one. ]]
+		expect(`hand-rolled builders: {#live} (pin {HAND_ROLLED_BUILDERS})`).toBe(
+			`hand-rolled builders: {HAND_ROLLED_BUILDERS} (pin {HAND_ROLLED_BUILDERS})`
 		)
 	end)
 

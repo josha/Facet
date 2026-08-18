@@ -1042,6 +1042,32 @@ function screen_target.new(opts: Opts?)
 		return baseRootGui
 	end
 
+	--[[ THE TARGET'S OWN TEARDOWN (R5 review §3b-2). `destroyRoot` releases ONE
+		root and, on the last one, the adapter-wide pointer globals — which meant
+		an adapter that never got as far as creating a root, or a consumer holding
+		several, had no way to give the target back. `client.host` needs one, and
+		"call destroyRoot for each root you happen to know about" is not an API.
+
+		Destroys every root this target created, newest first, through the same
+		`destroyRoot` path — so the capture cancel, the cursor-hint release and
+		`disposeGlobalPointerState` on the last one all run exactly as they do in
+		a normal teardown. Idempotent. It does NOT touch a root handed in through
+		`opts.rootFactory`'s caller-owned gui beyond destroying the gui it was
+		given, which is what `destroyRoot` already did.
+
+		A root that was already destroyed is skipped: `themeRoots` keeps only live
+		guis (`relinkThemeSheet` compacts it), and a destroyed gui has no Parent. ]]
+	function adapter.dispose()
+		for i = #themeRoots, 1, -1 do
+			local gui = themeRoots[i]
+			if gui ~= nil and gui.Parent ~= nil then
+				adapter.destroyRoot({ gui = gui })
+			end
+		end
+		themeRoots = {}
+		baseRootGui = nil
+	end
+
 	-- ===== THE PRESENTATION CHANNEL (src/client/screen_presentation) ======
 	--
 	-- A presentation transform composes onto the solver's rect at the WRITE, so a

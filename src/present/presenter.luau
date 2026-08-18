@@ -940,24 +940,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- textFacts — only visibility knows it does not paint. Without this
 		-- gate, focusing a row whose RICH candidate lost raised a plate for a
 		-- string that is nowhere on screen.
-		local hidden: { string } = {}
-		if ctrl.hiddenRoots ~= nil then
-			for root in ctrl.hiddenRoots() do
-				table.insert(hidden, root)
-			end
-		end
-		local function isHiddenPath(p: string): boolean
-			for _, root in hidden do
-				if isPathPrefix(root, p) then
-					return true
-				end
-			end
-			return false
-		end
+		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
+			(reuse audit REUSE-29). `focusMap.isHiddenPath` is the published answer and
+			takes the SET `hiddenRoots()` already returns, so the array this used to
+			build was a conversion nobody needed. Hoisted once rather than re-read per
+			node: the walk visits every node in the subtree. ]]
+		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
 		local function walk(n: any)
-			if foundPath ~= nil or isHiddenPath(n.path) then
+			if foundPath ~= nil or isHiddenPath(n.path, hiddenRoots) then
 				return
 			end
 			-- class-AGNOSTIC on purpose (LT-G1): any node whose measured text
@@ -4060,6 +4052,52 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- siblings or escape into the render thread's PreRender handler
 			pcall(hook, step :: number)
 		end
+	end
+
+	--[[ ONE CLOCK, ONE DRIVER — CLAIMED HERE, WHERE BOTH DRIVERS CAN SEE IT
+		(R5 review §3b-3).
+
+		`motion_driver.bind` has asserted "this presenter is already bound" since
+		it shipped, but the assert reads a table private to that module, so it can
+		only ever see ITS OWN binds. `client.host` connects its own PreRender and
+		registered nowhere, which made `host.new()` followed by
+		`motion_driver.bind(h.presenter)` legal and silent — and it is not a
+		cosmetic collision: measured, two drivers advance this clock twice per
+		frame, so a one-second timer is fully elapsed after half a second.
+
+		The claim lives on the PRESENTER because the presenter is the thing being
+		driven and the only object both drivers already hold. It is engine-free,
+		so the rule has a headless test for the first time; `motion_driver` keeps
+		its own connection table for its own unbind and takes the claim on top.
+
+		`name` is what the error prints, so it must be the thing an author would
+		grep for (`"client.host"`, `"motion_driver.bind"`). The returned function
+		releases the claim; a driver that releases and re-claims is fine, which is
+		what a surface torn down and stood back up does. ]]
+	local frameDriver: string? = nil
+	function self.claimFrameDriver(name: string): () -> ()
+		if frameDriver ~= nil then
+			error(
+				`Facet presenter: this presenter is already driven by '{frameDriver}', and '{name}' `
+					.. `tried to drive it too. ONE CLOCK, ONE DRIVER: two frame sources advance the motion `
+					.. `clock twice per frame, so every duration on it elapses at double speed and nothing `
+					.. `reports it. Drive it once — 'client.host' already connects a PreRender that ticks `
+					.. `and refreshes, and per-frame work of your own belongs on presenter.onTick.`,
+				0
+			)
+		end
+		frameDriver = name
+		return function()
+			if frameDriver == name then
+				frameDriver = nil
+			end
+		end
+	end
+
+	-- who is driving this presenter's frame, or nil. The honest read behind the
+	-- claim above, for a diagnostic or a spec.
+	function self.frameDriver(): string?
+		return frameDriver
 	end
 
 	-- register per-frame work on the presenter's clock; returns an unsubscribe.

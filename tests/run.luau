@@ -656,6 +656,11 @@ require("./session_lifetime.spec")
 	and the motion registries are shared ON PURPOSE because a motion name is a
 	design-system decision and the registry is the only dial ]]
 require("./process_globals.spec")
+--[[ one owner for "is this path inside a subtree that does not paint": the
+	disclosure walk, the help walk and the reveal walk's two gates all asked it
+	themselves, and `presenter.luau` imported the published answer and then
+	shadowed it with a nested copy (REUSE-29) ]]
+require("./hidden_roots_owner.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

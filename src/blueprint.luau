@@ -987,8 +987,8 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	if authoredExpand ~= nil and declaredForms == 1 then
 		error(
 			`Facet UI.Region '{spec.id}' declares ONE form, so 'expand' has nothing to disclose — a `
-				.. "single-form region never simplifies, and that is also the answer to \"how do I stop "
-				.. "this region collapsing\": give it one form. `rank` and `forms` are the whole "
+				.. 'single-form region never simplifies, and that is also the answer to "how do I stop '
+				.. 'this region collapsing": give it one form. `rank` and `forms` are the whole '
 				.. "collapse-customization surface; `expand` only says what happens once a collapse has "
 				.. "already happened",
 			0
@@ -1059,7 +1059,11 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			-- art for `chevron.trailing` paints it over the glyph, and a control never
 			-- names an asset
 			mark = chromeSlots.attachHint(
-				blueprint.Text({ id = "Caret", text = themePackage.iconGlyph("chevron.trailing") or ">", textSize = "control" }),
+				blueprint.Text({
+					id = "Caret",
+					text = themePackage.iconGlyph("chevron.trailing") or ">",
+					textSize = "control",
+				}),
 				{ icon = "chevron.trailing" }
 			)
 		else

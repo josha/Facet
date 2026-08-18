@@ -13,22 +13,35 @@
 	THE ANSWER IS DIFFERENT FOR THE TWO FAMILIES, and that is why this file exists
 	rather than a blanket "scope it per core".
 
-	TEXT METRICS ARE CONTENT-ADDRESSED, so sharing them is not a coupling — it is
-	a cache hit. The key is `(canonical font, size, word)` and the value is what
-	the ENGINE answers for exactly that triple; nothing about which core asked can
-	change it. Two cores measuring "Ready" in Gotham 18 must get the same number
-	or one of them is wrong. Per-core scoping would not remove a hazard here, it
-	would remove the sharing that makes the second surface free, and it would
-	double the engine round trips that
-	`docs/lessons/roblox-text-bounds-boot-window.md` exists because of. Both
-	stores already have reset seams (`resetCalibration`, `resetMeasured`); what
-	they lacked was a stated owner, which is now in each module's header.
+	THE TWO TEXT-METRIC STORES ARE NOT THE SAME KIND OF THING, and the first
+	version of this file said they were. `exactWidths` IS content-addressed —
+	the key is `(canonical font, size, word)` and the value is what the ENGINE
+	answers for exactly that triple, so two cores measuring "Ready" in Gotham 18
+	must get the same number or one of them is wrong; sharing it is a cache hit.
+	`calibration` is NOT: it is keyed by FONT ALONE and its value is a
+	per-consumer tuning fraction, so one consumer's calibration changes what
+	another consumer's screens MEASURE. The R5 review caught the overclaim and
+	the case below pins the coupling rather than denying it.
+
+	It stays shared anyway, and that is a decision: the calibration is a fact
+	about the engine's font rendering on this device, measured once per session
+	for the whole VM by `src/client/text_calibration.luau`. The clamp bounds the
+	damage — a calibration may only TIGHTEN toward the proven-safe default — so
+	the worst case is a conservative layout, never an under-reserved one.
 
 	THE MOTION REGISTRIES ARE SHARED ON PURPOSE, and the sharing is the API. A
 	motion class is a design-system decision — `classes.luau`'s own header: "the
 	registry is the only dial" — and re-registering a name is the sanctioned way
 	to tune it. Two consumers in one VM therefore share a vocabulary, and the
-	third case below pins exactly what that means so nobody has to discover it.
+	cases below pin exactly what that means so nobody has to discover it.
+
+	REGISTRATION IS A DISPOSITION; TEARDOWN IS NOT THE SAME ONE. "Last writer
+	wins a name" is a fair reading of a shared dial. `resetClasses()` is not a
+	write to a name — it is a write to ALL of them, and one consumer calling it
+	makes another consumer's next motion call THROW. The review found that the
+	first version of this file pinned the write collision and missed the reset
+	collision entirely; both are pinned now, and the reset is documented as the
+	sharp edge it is rather than as part of the dial.
 	This is the residual the reuse ledger records rather than a defect this wave
 	fixes: making the registry per-core would change the shape of
 	`Facet.motion.registerClass`, which is a public break on a compatible-minor
@@ -43,7 +56,7 @@ local customCore = require("../src/core/custom")
 local textMetrics = require("../src/layout/text_metrics")
 local Facet = require("../src") :: any
 
-describe("ARCH-23: the text-metric stores are content-addressed, not core-owned", function()
+describe("ARCH-23: one of the two text-metric stores is content-addressed", function()
 	it("a width measured under one core is the same answer under another", function()
 		textMetrics.resetMeasured()
 		local a = customCore.new()
@@ -61,6 +74,36 @@ describe("ARCH-23: the text-metric stores are content-addressed, not core-owned"
 		expect(textMetrics.measuredWidth("GothamSSm", 18, "Steady")).toBeNil() -- so is the word
 		textMetrics.resetMeasured()
 		expect(textMetrics.measuredWidth("GothamSSm", 18, "Ready")).toBeNil()
+	end)
+
+	--[[ THE COUPLING, MEASURED RATHER THAN DENIED (R5 review §4-5). Two cores,
+		one calibration store: core A tunes a font and core B's next measurement of
+		a string it never asked about comes back a different height. This is the
+		case the module header's old "both are CONTENT-ADDRESSED" sentence claimed
+		was impossible. ]]
+	it("calibration is keyed by FONT ALONE, so one core's tuning changes what another measures", function()
+		textMetrics.resetCalibration()
+		local a = customCore.new()
+		local b = customCore.new()
+		expect(a ~= b).toBe(true)
+
+		local LONG = "Bartholomew Fitzgerald-Montgomery III and friends"
+		local before = textMetrics.measure(LONG, "GothamSSm", 16, 180)
+		expect(before.lines).toBe(3)
+
+		-- core A calibrates the font, having never touched core B's screens
+		textMetrics.calibrate("GothamSSm", 0.30)
+		local after = textMetrics.measure(LONG, "GothamSSm", 16, 180)
+		expect(after.lines).toBe(2) -- ...and core B's measurement moved
+		expect(after.height ~= before.height).toBe(true)
+
+		--[[ WHAT BOUNDS IT is the clamp, not isolation: a calibration may only
+			TIGHTEN toward the proven-safe default, so the coupling can make another
+			consumer's layout tighter — never under-reserved, which is the failure
+			that clips text on a device. ]]
+		textMetrics.resetCalibration()
+		local restored = textMetrics.measure(LONG, "GothamSSm", 16, 180)
+		expect(restored.lines).toBe(3)
 	end)
 
 	it("calibration is per-FONT and clamps, so a bad measurement cannot corrupt a good one", function()
@@ -115,6 +158,40 @@ describe("ARCH-24: the motion registries are shared, and that is the dial", func
 
 		Facet.motion.resetClasses()
 		expect(Facet.motion.isRegisteredClass("arch24")).toBe(false)
+	end)
+
+	--[[ THE RESET COLLISION, which the first version of this file missed
+		(R5 review §4-6). Registration's last-writer-wins is a shared DIAL and a
+		defensible disposition. `resetClasses()` is not a dial — one consumer
+		calling it deletes another consumer's vocabulary, and the other consumer's
+		next motion call throws. Nobody had written that down. ]]
+	it("one consumer's resetClasses() makes another consumer's next motion call throw", function()
+		Facet.motion.resetClasses()
+		-- consumer B registers its own class and can resolve it
+		Facet.motion.registerClass("bOwnClass", { dampingRatio = 1, response = 0.4 })
+		expect(Facet.motion.resolveClass("bOwnClass").response).toBe(0.4)
+
+		-- consumer A tears its own surface down, the sanctioned way
+		Facet.motion.resetClasses()
+
+		local ok, err = pcall(function()
+			Facet.motion.resolveClass("bOwnClass")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown motion class 'bOwnClass'", 1, true) ~= nil).toBe(true)
+
+		--[[ AND THE SAME EDGE ON THE TEXT SIDE: `resetCalibration` and
+			`resetMeasured` are process-wide too, so a second consumer's cached
+			measurements go with them. Recorded here because the two families'
+			teardown behaves identically and the reset seams read like per-consumer
+			verbs while being nothing of the kind. ]]
+		textMetrics.resetMeasured()
+		textMetrics.setMeasured("GothamSSm", 18, "Ready", 47)
+		expect(textMetrics.measuredWidth("GothamSSm", 18, "Ready")).toBe(47)
+		textMetrics.resetMeasured() -- somebody else's teardown
+		expect(textMetrics.measuredWidth("GothamSSm", 18, "Ready")).toBeNil()
+
+		Facet.motion.resetClasses()
 	end)
 
 	it("reset restores the built-in classes but leaves the curve registry empty", function()

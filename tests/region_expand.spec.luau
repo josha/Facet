@@ -166,9 +166,9 @@ describe("EXPAND 1 — the resolution states which form is standing and whether 
 			)
 		end).toThrow()
 		expect(function()
-			composition.normalize(
-				decl({ { id = "Clock", group = "body", rank = 1, forms = 2, recover = "overflow", formInteractive = 3 } })
-			)
+			composition.normalize(decl({
+				{ id = "Clock", group = "body", rank = 1, forms = 2, recover = "overflow", formInteractive = 3 },
+			}))
 		end).toThrow()
 	end)
 end)

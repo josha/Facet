@@ -6,21 +6,41 @@
 -- under-reserves. The engine premeasurement queue (TextService) lives behind
 -- the same interface in the Roblox platform adapter, NOT here.
 --
--- WHO OWNS THE TWO MUTABLE STORES (ARCH-23, stated 0.10.0). `calibration` and
--- `exactWidths` are module-level and therefore PROCESS-GLOBAL: every core and
--- every surface in the VM shares them. That is deliberate, and it is not a
--- coupling, because both are CONTENT-ADDRESSED — the key is
--- `(canonical font, size, word)` and the value is what the engine answers for
--- exactly that triple. Nothing about which core asked can change it, so two
--- cores measuring the same word in the same font MUST get the same number or
--- one of them is wrong. Sharing is what makes the second surface free, and
--- scoping per core would double the engine round trips that
--- `docs/lessons/roblox-text-bounds-boot-window.md` exists because of.
+-- WHO OWNS THE TWO MUTABLE STORES (ARCH-23, stated 0.10.0; CORRECTED after the
+-- R5 review measured the second half). `calibration` and `exactWidths` are
+-- module-level and therefore PROCESS-GLOBAL: every core and every surface in
+-- the VM shares them. They are NOT the same kind of thing, and the first
+-- version of this note said they were.
 --
--- The seams are `resetCalibration()` and `resetMeasured()`, and safety is
--- enforced HERE rather than trusted from the caller (the clamp below), so the
--- worst a second consumer can do to a first is hand in a number that gets
--- clamped. `tests/process_globals.spec.luau` pins all of that.
+-- `exactWidths` IS CONTENT-ADDRESSED, and sharing it is a cache hit rather than
+-- a coupling: the key is `(canonical font, size, word)` and the value is what
+-- the engine answers for exactly that triple, so two cores measuring the same
+-- word in the same font MUST get the same number or one of them is wrong.
+-- Scoping it per core would remove the sharing that makes a second surface free
+-- and double the engine round trips `docs/lessons/roblox-text-bounds-boot-window.md`
+-- exists because of.
+--
+-- `calibration` IS A REAL CROSS-CONSUMER COUPLING, and calling it
+-- content-addressed was wrong. It is keyed by FONT ALONE — no size, no word —
+-- and the value is a per-consumer TUNING FRACTION, not an engine answer. So one
+-- consumer's calibration changes what another consumer's screens measure:
+-- calibrating GothamSSm to 0.30 takes a 48-character string in a 180 px box from
+-- three lines to two, for every core in the VM. Measured, and pinned in
+-- `tests/process_globals.spec.luau`.
+--
+-- IT IS KEPT SHARED ANYWAY, deliberately: the calibration is a fact about the
+-- ENGINE's font rendering on this device, not about a consumer, and the client
+-- adapter that measures it (`src/client/text_calibration.luau`) measures it once
+-- per session for the whole VM. What bounds the damage is the clamp below —
+-- a calibration may only TIGHTEN toward the proven-safe default and can never
+-- collapse below the floor, so the worst case is a conservative layout, never an
+-- under-reserved one. What it does NOT do is make the stores independent.
+--
+-- THE RESET SEAMS ARE THE SHARP EDGE. `resetCalibration()` and `resetMeasured()`
+-- are process-wide: one consumer calling either drops the other's work as well.
+-- They exist for tests and for a Studio tool reloading a design system, which
+-- are single-consumer situations; a second Facet consumer in the same VM should
+-- not call them at all.
 --
 -- FONT KEYS (ADR-0019 §6): every store here keys on the canonical descriptor
 -- "family#weight#style". The three short names the library shipped with remain

@@ -103,6 +103,66 @@ end)
 --[[ THE POLICIES, AT THE BOUNDARIES THAT OWN THEM. Two families, and the point
 	of consolidating the arithmetic was to make the difference between them
 	visible rather than to erase it. ]]
+--[[ THE PUBLIC FACADE, WHICH IS A DIFFERENT THING FROM THE MODULE
+	(ARCH-8; R5 review §4-4).
+
+	`Facet.specGuard` is the wave's only new public export, and it shipped with
+	no facade test at all — every case below this line requires
+	`../src/spec_guard` directly, which exercises the MODULE and says nothing
+	about the export. Measured by the review: replacing the export in
+	`src/init.luau` with a frozen no-op stub left the suite at 6467 passed, the
+	public-surface dump unchanged and both structural checkers at exit 0.
+
+	That is the exact defect §4 existed to fix — the wave added four facade cases
+	for four motion aliases in the same commit for this reason and did not apply
+	the rule to itself. These four go through `Facet.specGuard`, the table an
+	out-of-repo control author actually holds. ]]
+describe("ARCH-8: the specGuard FACADE, not the module behind it", function()
+	local Facet = require("../src") :: any
+
+	it("the export is the module, and carries both members", function()
+		expect(Facet.specGuard).toBe(spec_guard)
+		expect(type(Facet.specGuard.keySet)).toBe("function")
+		expect(type(Facet.specGuard.assertKnownKeys)).toBe("function")
+	end)
+
+	it("keySet through the facade builds a FROZEN set", function()
+		local set = Facet.specGuard.keySet({ "id", "value", "onChange" })
+		expect(set.id).toBe(true)
+		expect(set.nope).toBeNil()
+		--[[ FROZEN is load-bearing, not decoration: the documented shape is "build
+			it once at module scope", and a shared mutable set would let one control's
+			spec widen another's legal keys. ]]
+		expect(table.isfrozen(set)).toBe(true)
+	end)
+
+	it("assertKnownKeys through the facade refuses, names the boundary, and suggests", function()
+		local SPEC_KEYS = Facet.specGuard.keySet({ "id", "value", "onChange" })
+		-- the documented example from api.md §specGuard, run
+		local ok, err = pcall(function()
+			Facet.specGuard.assertKnownKeys("newGauge", { id = "g", onChanged = function() end }, SPEC_KEYS, "spec")
+		end)
+		expect(ok).toBe(false)
+		local text = tostring(err)
+		-- the PUBLIC name the author typed, so the error is greppable from the call site
+		expect(string.find(text, "Facet newGauge:", 1, true) ~= nil).toBe(true)
+		expect(string.find(text, "unknown spec key 'onChanged'", 1, true) ~= nil).toBe(true)
+		expect(string.find(text, "Did you mean 'onChange'%?") ~= nil).toBe(true)
+		expect(string.find(text, "Known: id, onChange, value.", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a conforming spec passes, and `kind` is the sentence's own word", function()
+		local OPTS_KEYS = Facet.specGuard.keySet({ "retry", "now" })
+		Facet.specGuard.assertKnownKeys("newGauge", { retry = 1 }, OPTS_KEYS, "opts") -- no throw
+		Facet.specGuard.assertKnownKeys("newGauge", nil, OPTS_KEYS, "opts") -- nil is not a spec
+		local ok, err = pcall(function()
+			Facet.specGuard.assertKnownKeys("newGauge", { nope = 1 }, OPTS_KEYS, "opts")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown opts key", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("ARCH-17: each caller kept its own threshold", function()
 	local KNOWN = spec_guard.keySet({ "label", "onActivate", "focusVisual" })
 

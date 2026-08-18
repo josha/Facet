@@ -129,21 +129,17 @@ if not game:IsLoaded() then
 end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 
--- client-only adapters are NOT on the Facet table; require them directly
-local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
-local roblox_env    = require(ReplicatedStorage.Facet.client.roblox_env)
-local roblox_input  = require(ReplicatedStorage.Facet.client.roblox_input)
+-- client-only modules are NOT on the Facet table; require them directly
+local host = require(ReplicatedStorage.Facet.client.host)
 
-local core    = Facet.newCore()
-local env     = Facet.newEnvironment(core)
-local unbind  = roblox_env.bind(env)
-local adapter = screen_target.new()
-local system  = roblox_input.newSystem(core)
-local presenter = Facet.newPresenter(core, env, adapter, system)
+-- ONE call stands the whole thing up: a core, an environment BOUND to the
+-- engine, a render target under PlayerGui, an input system, a presenter — and
+-- one PreRender connection driving both halves of the frame.
+local h = host.new()
+local core, presenter = h.core, h.presenter
 
 local count = core:signal(0)
 local label = core:memo(function(use) return `Clicked {use(count)} times` end)
@@ -165,9 +161,8 @@ presenter.present(
     })
 )
 
-RunService.Heartbeat:Connect(function()
-    presenter.refresh()
-end)
+-- ...and when this surface goes away, `h.dispose()` takes back the frame
+-- connection, the input system, the render target and the environment binding.
 ```
 
 Press Play. A button appears; clicking, pressing Enter, or pressing gamepad A all
@@ -231,4 +226,5 @@ Latest Package*), press Play. Your UI code is outside the node and is untouched.
 | `attempt to index nil with 'client'` from a server or shared script | `client/*` is client-only by design and never on the public table | Require the adapters from a LocalScript only ([chapter 2](02-architecture.md)) |
 | `core.fusion_adapter` fails to require | It is a Phase-0 bake-off artifact that reaches outside `src/` for `vendor/Fusion`, which the model does not ship | Don't require it — `Facet.newCore()` is the supported core |
 | Gamepad A does nothing | `Workspace.PlayerScriptsUseInputActionSystem` is off | §8.7, then [chapter 7](07-input.md) |
-| Nothing renders, no errors | `presenter.refresh()` is never called | Connect it to `RunService.Heartbeat` (§8.6) |
+| Nothing renders, no errors | nothing is driving the frame | Stand the surface up with `client.host` (§8.6), which connects one `PreRender` and drives `tick(dt)` then `refresh()` |
+| It renders but nothing ever animates — a toast never expires, a transition never completes | the motion clock is not advancing: something is calling `presenter.refresh()` without `presenter.tick(dt)` | Same fix. `refresh` re-solves what the frame dirtied; `tick` is what moves the clock every transition, spring and timer rides, and a frozen clock looks exactly like a settled one in a dump |

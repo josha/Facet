@@ -6,9 +6,12 @@
 	WHAT WAS WRONG. Standing up a surface takes six steps in a fixed order — a
 	core, an environment, the environment BOUND to the engine, a render target, an
 	input system, a presenter — and then one per-frame drive. There was no
-	framework entry that did it, so every consumer wrote its own: four in the
-	shipped game, three in this repository's examples, one in the getting-started
-	guide. THREE OF THE FOUR GAME BOOTSTRAPS DROVE ONLY `refresh()`. `refresh`
+	framework entry that did it, so every consumer wrote its own: NINE of them —
+	four in the shipped game, three in this repository's examples, and TWO in the
+	guide (`03-getting-started.md` and `08-without-rojo.md`, the page an adopter
+	without Rojo lands on). This census said eight and missed the ninth, which was
+	still teaching the defect below when the R5 review found it.
+	THREE OF THE FOUR GAME BOOTSTRAPS DROVE ONLY `refresh()`. `refresh`
 	re-solves whatever the frame dirtied; `tick` advances the MOTION CLOCK that
 	every transition, toast schedule, spring and timer rides. So on those surfaces
 	a toast never expired, a transition never completed and a spring never
@@ -146,6 +149,11 @@ end
 	Returns the six pieces a consumer needs plus `dispose`. Present your
 	blueprints on `presenter`; register per-frame work with `presenter.onTick`.
 
+	`dispose()` releases what the host BUILT — the frame connection, the input
+	system, the render target and the environment binding, in that order — and
+	nothing else. It is idempotent, and a piece you supplied through a seam with
+	no `dispose` of its own is left untouched.
+
 	CONSTRUCTION IS ALL-OR-NOTHING. A failure halfway through must not leave a
 	bound environment or a live root behind — a half-built host is exactly the
 	state whose teardown nobody writes — so every step that has already succeeded
@@ -172,8 +180,32 @@ function host.new(opts: Opts?): Host
 		local unbindEnv = if o.bindEnv then o.bindEnv(env) else engineBindEnv(env)
 		table.insert(undo, unbindEnv)
 
+		--[[ EVERY BUILT THING GOES ON THE STACK AS IT IS BUILT (R5 review §3b-2).
+			The first version pushed only the env binding and the frame connection,
+			which had two consequences and hid both: a throw from `newInputSystem` —
+			reachable, `roblox_input` asserts after a 5 s `PlayerScripts` wait —
+			abandoned a fully constructed render target whose pointer seam had
+			already opened an adapter-wide `GuiService.MenuOpened` connection, and a
+			SUCCESSFUL `dispose()` leaked the same two objects. `unwind` is the same
+			list both paths run, so there is one answer to "what did the host hold"
+			rather than two.
+
+			GUARDED, because these are seams: a consumer may hand in an adapter or
+			an input system it owns and intends to keep (a billboard target, one
+			system shared across surfaces). No `dispose` method means the host built
+			nothing to release and touches nothing. ]]
+		local function ownIfDisposable(thing: any)
+			if type(thing) == "table" and type(thing.dispose) == "function" then
+				table.insert(undo, function()
+					thing.dispose()
+				end)
+			end
+		end
+
 		local adapter = if o.newAdapter then o.newAdapter() else engineAdapter(o)
+		ownIfDisposable(adapter)
 		local inputSystem = if o.newInputSystem then o.newInputSystem(core) else engineInputSystem(core)
+		ownIfDisposable(inputSystem)
 		local presenter = presenterLib.new(core, env, adapter, inputSystem, { now = o.now })
 
 		--[[ THE FRAME, AND BOTH HALVES OF IT. `tick(dt)` first: it steps the
@@ -183,6 +215,13 @@ function host.new(opts: Opts?): Host
 			when nothing is dirty. Reversing them costs every hook a frame of
 			latency, which is the same defect as driving `refresh` alone, one frame
 			smaller. ]]
+		--[[ ONE CLOCK, ONE DRIVER (R5 review §3b-3). Claimed BEFORE the connection
+			exists, so a presenter already driven by `motion_driver.bind` refuses the
+			host rather than quietly double-ticking, and a later `motion_driver.bind`
+			on this host's presenter refuses too. On the undo stack like everything
+			else, so a torn-down surface can be stood back up. ]]
+		table.insert(undo, presenter.claimFrameDriver("client.host"))
+
 		local disposed = false
 		local disconnect = (if o.connectFrame then o.connectFrame else engineConnectFrame)(function(dt: number)
 			if disposed then
@@ -199,11 +238,18 @@ function host.new(opts: Opts?): Host
 			adapter = adapter,
 			inputSystem = inputSystem,
 			presenter = presenter,
-			--[[ IDEMPOTENT, AND THE FRAME GOES FIRST. A frame that lands between the
-				unbind and the disconnect would drive a presenter whose environment has
-				stopped answering, which is the one ordering that turns a clean teardown
-				into a mid-frame error. Everything the CONSUMER presented is the
-				consumer's to dismiss — this disposes only what the host built. ]]
+			--[[ IDEMPOTENT, AND THE FRAME GOES FIRST. `unwind` runs the stack in
+				reverse, so the order is: frame connection, input system, render
+				target, environment binding. A frame that landed between the unbind
+				and the disconnect would drive a presenter whose environment has
+				stopped answering, which is the one ordering that turns a clean
+				teardown into a mid-frame error.
+
+				WHAT IT DOES NOT DISPOSE, stated because the first version of this
+				comment over-promised: the PRESENTER and the CORE. Neither has a
+				teardown seam — the presenter's state is owned by the core's reactive
+				graph, and the core may be the caller's own (`opts.newCore`). Nor does
+				it dismiss what you presented; a handle is the consumer's. ]]
 			dispose = function()
 				if disposed then
 					return

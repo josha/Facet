@@ -188,6 +188,59 @@ describe("REUSE-109: the frame drives the clock, not just the solve", function()
 	end)
 end)
 
+--[[ ONE CLOCK, ONE DRIVER (R5 review §3b-3). Two frame sources on one presenter
+	advance its motion clock twice per frame, so every duration on it elapses at
+	double speed — measured by the review over the real host: 30 hook fires and a
+	1 s timer reading 0.5000 with the host alone, 60 fires and 0.0000 with the
+	host plus `motion_driver.bind`, and no error raised either way.
+
+	`motion_driver` has asserted this since it shipped, but against a table
+	private to itself, so it could only ever see its own binds. The claim now
+	lives on the PRESENTER — the one object both drivers hold — which is also the
+	first time the rule has been testable without an engine.
+
+	THERE IS ONLY ONE ORDER TO TEST, and that is worth writing down rather than
+	writing a second case that proves nothing: `host.new` BUILDS its presenter,
+	so no driver can have claimed it first. The reachable collision is always
+	host-then-driver, which is the case below. ]]
+describe("REUSE-115 / §3b-3: a presenter takes exactly one frame driver", function()
+	it("the host claims it, and a second driver is refused by name", function()
+		local h = newHost()
+		expect(h.presenter.frameDriver()).toBe("client.host")
+		local ok, err = pcall(function()
+			h.presenter.claimFrameDriver("motion_driver.bind")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "already driven by 'client.host'", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "ONE CLOCK, ONE DRIVER", 1, true) ~= nil).toBe(true)
+		h.dispose()
+	end)
+
+	it("disposing the host releases the claim, so the surface can be stood back up", function()
+		local h = newHost()
+		expect(h.presenter.frameDriver()).toBe("client.host")
+		h.dispose()
+		expect(h.presenter.frameDriver()).toBeNil()
+		-- ...and the presenter now accepts a driver again
+		local release = h.presenter.claimFrameDriver("motion_driver.bind")
+		expect(h.presenter.frameDriver()).toBe("motion_driver.bind")
+		release()
+		expect(h.presenter.frameDriver()).toBeNil()
+	end)
+
+	--[[ THE ENGINE HALF, pinned as source because `motion_driver` reaches
+		`game:GetService` at module scope and cannot be required headlessly. What
+		matters is that it takes the claim at all — the behaviour of the claim
+		itself is proved above, engine-free. ]]
+	it("motion_driver.bind takes the same claim", function()
+		local fs = require("@lune/fs")
+		local driver = fs.readFile("src/client/motion_driver.luau")
+		expect(string.find(driver, 'presenter.claimFrameDriver("motion_driver.bind")', 1, true) ~= nil).toBe(true)
+		-- ...and gives it back on unbind, or a re-bind after teardown is refused
+		expect(string.find(driver, "releaseClaim()", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("client host: teardown", function()
 	it("dispose unbinds the environment and is idempotent", function()
 		local h, frames, _adapter, unbinds = newHost()
@@ -199,6 +252,109 @@ describe("client host: teardown", function()
 		h.dispose()
 		expect(unbinds()).toBe(1) -- ...and does not unbind twice
 		expect(frames.disconnects()).toBe(1)
+	end)
+
+	--[[ WHAT THE HOST BUILT, COUNTED — ON BOTH PATHS (R5 review §3b-2).
+
+		The first version of this spec only ever failed at `newAdapter`, which is
+		the ONE position where the undo stack is provably complete: nothing had
+		been built yet but the env binding. The review found what that hid — the
+		adapter, the input system and the presenter were never pushed onto `undo`
+		at all, so a throw from `newInputSystem` (reachable: `roblox_input` asserts
+		after a 5 s PlayerScripts wait) abandoned a fully constructed render target
+		whose pointer seam had already opened an adapter-wide connection, and a
+		SUCCESSFUL `dispose()` leaked the same two objects.
+
+		So both paths are counted here, and the failure is injected LATE — after
+		the adapter and the input system exist — which is the position that could
+		not previously fail. ]]
+	local function countingHost(extra: any?)
+		local counts = { adapter = 0, input = 0, unbind = 0, disconnect = 0 }
+		local o: any = {
+			newAdapter = function()
+				local a = fake_target.new()
+				a.dispose = function()
+					counts.adapter += 1
+				end
+				return a
+			end,
+			newInputSystem = function(core: any)
+				local sys = actionsLib.newSystem(core)
+				local inner = sys.dispose
+				sys.dispose = function()
+					counts.input += 1
+					inner()
+				end
+				return sys
+			end,
+			bindEnv = function(env: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+				return function()
+					counts.unbind += 1
+				end
+			end,
+			connectFrame = function()
+				return function()
+					counts.disconnect += 1
+				end
+			end,
+		}
+		for k, v in (extra or {}) :: any do
+			o[k] = v
+		end
+		return o, counts
+	end
+
+	it("dispose releases the adapter and the input system, not only the frame and the binding", function()
+		local o, counts = countingHost()
+		local h = host.new(o)
+		h.dispose()
+		expect(`adapter {counts.adapter} input {counts.input} unbind {counts.unbind} frame {counts.disconnect}`).toBe(
+			"adapter 1 input 1 unbind 1 frame 1"
+		)
+		h.dispose() -- ...and still exactly once
+		expect(`adapter {counts.adapter} input {counts.input}`).toBe("adapter 1 input 1")
+	end)
+
+	it("a throw AFTER the adapter and input system exist unwinds both of them", function()
+		local o, counts = countingHost({
+			connectFrame = function()
+				error("the frame source could not be connected", 0)
+			end,
+		})
+		local ok = pcall(function()
+			host.new(o)
+		end)
+		expect(ok).toBe(false)
+		--[[ THE POSITION THAT COULD NOT FAIL BEFORE. Everything constructed before
+			the throw is released, in reverse order, and nothing that was never
+			constructed is touched. ]]
+		expect(`adapter {counts.adapter} input {counts.input} unbind {counts.unbind}`).toBe(
+			"adapter 1 input 1 unbind 1"
+		)
+	end)
+
+	it("a caller-supplied piece with no dispose is left alone rather than errored on", function()
+		--[[ The seams take ANY object shaped like an adapter or a system; a
+			consumer handing in one it owns (a billboard target, a long-lived input
+			system shared across surfaces) must not have the host call a method it
+			does not have, and must not have its object disposed underneath it. ]]
+		local h = host.new({
+			newAdapter = function()
+				return fake_target.new() -- no `dispose`
+			end,
+			newInputSystem = function(core: any)
+				return { deviceKey = function() end, createContext = function() end } -- no `dispose`
+			end,
+			bindEnv = function()
+				return function() end
+			end,
+			connectFrame = function()
+				return function() end
+			end,
+		})
+		h.dispose()
+		h.dispose()
 	end)
 
 	--[[ CONSTRUCTION IS ALL-OR-NOTHING. A bootstrap that throws after binding the

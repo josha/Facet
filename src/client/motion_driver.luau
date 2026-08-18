@@ -77,6 +77,15 @@ function motion_driver.bind(presenter: any): () -> ()
 	if type(clock) == "table" and type(clock.setEasing) == "function" then
 		clock:setEasing(engineEasing)
 	end
+	--[[ AND THE CLAIM THE OTHER DRIVER CAN SEE (R5 review §3b-3). `bound` above
+		is private to this module, so its assert only ever caught a second
+		`motion_driver.bind`; `client.host` connects its own PreRender and was
+		invisible to it. `presenter.claimFrameDriver` is on the presenter, which
+		is the one object both drivers hold, so the rule now catches the pair in
+		either order. Guarded for a presenter stub older than the seam. ]]
+	local releaseClaim = if type(presenter.claimFrameDriver) == "function"
+		then presenter.claimFrameDriver("motion_driver.bind")
+		else function() end
 	local connection = RunService.PreRender:Connect(function(dt: number)
 		presenter.tick(dt)
 	end)
@@ -85,6 +94,7 @@ function motion_driver.bind(presenter: any): () -> ()
 		if bound[presenter] ~= nil then
 			bound[presenter]:Disconnect()
 			bound[presenter] = nil
+			releaseClaim()
 		end
 	end
 end

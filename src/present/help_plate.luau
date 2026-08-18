@@ -128,24 +128,16 @@ function help_plate.new(ctx: any)
 		-- A HIDDEN CANDIDATE HELPS NOBODY (the F-1 class): a losing ViewThatFits
 		-- candidate keeps its mount and its rects, and a plate raised for a control
 		-- that is nowhere on screen points at nothing.
-		local hidden: { string } = {}
-		if ctrl.hiddenRoots ~= nil then
-			for root in ctrl.hiddenRoots() do
-				table.insert(hidden, root)
-			end
-		end
-		local function isHidden(p: string): boolean
-			for _, root in hidden do
-				if isPathPrefix(root, p) then
-					return true
-				end
-			end
-			return false
-		end
+		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
+			(reuse audit REUSE-29). `focusMap.isHiddenPath` is the published answer and
+			takes the SET `hiddenRoots()` already returns, so the array this used to
+			build was a conversion nobody needed. Hoisted once rather than re-read per
+			node: the walk visits every node in the subtree. ]]
+		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
 		local function walk(n: any)
-			if foundPath ~= nil or isHidden(n.path) then
+			if foundPath ~= nil or focusMap.isHiddenPath(n.path, hiddenRoots) then
 				return
 			end
 			local text = if n.props ~= nil then n.props.help else nil

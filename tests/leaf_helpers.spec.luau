@@ -33,6 +33,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local num = require("../src/num")
 local paths = require("../src/paths")
 local rectLib = require("../src/rect")
@@ -181,14 +183,14 @@ end)
 	the finding is that the PRESENTER used the unsafe form to decide which surface
 	a tap belongs to, so the proof has to be a tap. ]]
 describe("REUSE-3: a tap on /MenuBar does not route to /Menu", function()
+	--[[ THE R12 TRIGGER, HONOURED (R5 review §3c-2). The ledger's follow-up rule
+		is "the next spec file that ADDS a builder migrates its file" — and this
+		file added one, in the same wave that wrote the rule, hours before the
+		substrate landed. `tests/lib/world.luau` owns the construction and its two
+		invariants; this is the shim, in the one order the suite has. ]]
 	local function world()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
-		return core, env, adapter, system, pres
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		return w.core, w.env, w.adapter, w.system, w.pres
 	end
 
 	it("the longer-named screen owns its own button, whichever order they were presented", function()
