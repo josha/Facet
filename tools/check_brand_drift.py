@@ -94,6 +94,15 @@ ALLOWLIST = [
     ("tools/lune/gate_manifest.luau", re.compile(r"artifacts/", re.I),
      "run/note lines that quote files under artifacts/ quote frozen evidence",
      "when the quoted prior-gate rows are archived (Step 14 gate simplification)"),
+    ("tools/lune/gate_manifest.luau", TAG,
+     "the naming-adr-implemented note states WHICH tag family ADR-0038 retired and what "
+     "this guard could not see; a gate note that cannot name the old vocabulary cannot "
+     "record that it moved",
+     "permanent (the note is the gate's own history, like the ADR it cites)"),
+    ("tools/lune/gate_manifest.luau", BRAND,
+     "the same note quotes this checker's own BRAND pattern to explain why 346 surviving "
+     "tags were structurally invisible to it",
+     "permanent (same reason)"),
     ("tools/check_perf_gate_evidence.py", BRAND,
      "reads frozen capture artifacts whose schema strings predate the rename",
      "when those capture schemas are re-recorded under Facet"),

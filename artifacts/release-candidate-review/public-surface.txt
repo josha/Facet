@@ -1,0 +1,230 @@
+VERSION 0.10.0
+Controls : table(frozen)
+  Controls.AsyncImage : function
+  Controls.Callout : function
+  Controls.Chip : function
+  Controls.DisclosureGroup : function
+  Controls.Label : function
+  Controls.LevelPicker : function
+  Controls.Menu : function
+  Controls.Picker : function
+  Controls.PopupButton : function
+  Controls.ProgressView : function
+  Controls.Rating : function
+  Controls.RowActions : function
+  Controls.Slider : function
+  Controls.Stepper : function
+  Controls.TabView : function
+  Controls.Table : function
+  Controls.TextInput : function
+  Controls.VirtualGrid : function
+  Controls.VirtualList : function
+UI : table
+  UI.AdaptiveStack : function
+  UI.Anchor : function
+  UI.Box : function
+  UI.Button : function
+  UI.Composition : function
+  UI.Divider : function
+  UI.ErrorBoundary : function
+  UI.ForEach : function
+  UI.Foreign : function
+  UI.Grid : function
+  UI.GridRow : function
+  UI.Grip : function
+  UI.HStack : function
+  UI.Image : function
+  UI.PROP_DIRTY : table(frozen)
+  UI.Path : function
+  UI.Region : function
+  UI.Screen : function
+  UI.ScrollView : function
+  UI.Spacer : function
+  UI.Stage : function
+  UI.Text : function
+  UI.TextField : function
+  UI.Toggle : function
+  UI.VStack : function
+  UI.ViewThatFits : function
+  UI.When : function
+  UI.ZStack : function
+  UI.alignment : function
+  UI.aspectRatio : function
+  UI.background : function
+  UI.containerRelativeFrame : function
+  UI.corners : function
+  UI.cornersData : function
+  UI.draggable : function
+  UI.dropTarget : function
+  UI.frame : function
+  UI.gradient : function
+  UI.gradientData : function
+  UI.isReadable : function
+  UI.offset : function
+  UI.overlay : function
+  UI.padding : function
+  UI.schema : table
+  UI.sensoryFeedback : function
+  UI.shadow : function
+  UI.shadowData : function
+  UI.sortedEntries : function
+  UI.stroke : function
+  UI.strokeData : function
+  UI.styleGroup : function
+VERSION : string
+adaptive : table
+  adaptive.BREAKPOINTS : table(frozen)
+  adaptive.DEFAULT_STACK_ABOVE : number
+  adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.axisFor : function
+  adaptive.columnsFor : function
+  adaptive.conditions : function
+  adaptive.heightClass : function
+  adaptive.navPlacement : function
+  adaptive.orientationFor : function
+  adaptive.sizeClass : function
+composition : table
+  composition.ARRANGEMENTS : table(frozen)
+  composition.HUD : table(frozen)
+  composition.HUD_GROUPS : table(frozen)
+  composition.ZONES : table(frozen)
+  composition.arrangementOf : function
+  composition.dump : function
+  composition.floorPx : function
+  composition.normalize : function
+  composition.resolve : function
+contribution : table
+  contribution.PROP : string
+  contribution.attach : function
+  contribution.read : function
+inputHint : function
+interactionTokens : table
+  interactionTokens.classForPointerType : function
+  interactionTokens.dragPromotionPx : table(frozen)
+  interactionTokens.dragPromotionRangePx : table(frozen)
+  interactionTokens.promoted : function
+  interactionTokens.promotionForPointerType : function
+  interactionTokens.promotionPx : function
+motion : table
+  motion.classNames : function
+  motion.curveNames : function
+  motion.isRegisteredClass : function
+  motion.isRegisteredCurve : function
+  motion.newClock : function
+  motion.newValueReveal : function
+  motion.registerClass : function
+  motion.registerCurve : function
+  motion.resetClasses : function
+  motion.resetCurves : function
+  motion.resolveClass : function
+  motion.resolveCurve : function
+mount : function
+newActionSystem : function
+newAsyncImage : function
+newAutoscroll : function
+newCallout : function
+newChip : function
+newCore : function
+newDisclosureGroup : function
+newDragRegistry : function
+newDragSession : function
+newDragVelocity : function
+newEnvironment : function
+newFocusGraph : function
+newLabel : function
+newLevelPicker : function
+newMenu : function
+newPicker : function
+newPopupButton : function
+newPresenter : function
+newProgressView : function
+newRating : function
+newResourceProvider : function
+newRowActions : function
+newRowActionsCoordinator : function
+newSlider : function
+newStepper : function
+newTabView : function
+newTable : function
+newTextInput : function
+newVirtualGrid : function
+newVirtualList : function
+pathShapes : table
+  pathShapes.MAX_CONTROL_POINTS : number
+  pathShapes.arc : function
+  pathShapes.needle : function
+  pathShapes.ring : function
+renderer : table
+  renderer.BINDING_PROPS : table
+  renderer.DIRECT_PROPS : table(frozen)
+  renderer.EMITTED_PROPS : table(frozen)
+  renderer.STYLE_PROPS : table
+  renderer.attach : function
+  renderer.compactForm : function
+  renderer.drawnButtonText : function
+replication : table
+  replication.collection : function
+  replication.mutation : function
+  replication.snapshot : function
+spatial : table
+  spatial.HANDEDNESS : table(frozen)
+  spatial.PHASES : table(frozen)
+  spatial.describe : function
+  spatial.extend : function
+  spatial.isFlat : function
+  spatial.normalize : function
+  spatial.of : function
+specGuard : table(frozen)
+  specGuard.assertKnownKeys : function
+  specGuard.keySet : function
+text : table
+  text.facts : function
+  text.fit : function
+  text.lineBox : function
+  text.measure : function
+  text.size : function
+themes : table
+  themes.SCHEMA : string
+  themes.checkCoverage : function
+  themes.define : function
+  themes.lintProperty : function
+  themes.neutral : function
+  themes.neutralPackage : function
+  themes.resolve : function
+tokens : table
+  tokens.compile : function
+  tokens.contrastRatio : function
+  tokens.dangerPair : function
+touchGestures : table
+  touchGestures.newArbiter : function
+  touchGestures.normalize : function
+valueModel : table
+  valueModel.defaultFormat : function
+  valueModel.new : function
+DEPRECATIONS:
+  UI.Text.color | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } | note=Text.color was declared and documented but no render target ever consumed it: a reactive color scheduled paint work the adapter dropped. Text color is style authority (native StyleSheet / style role), never an authored literal.
+  UI.Text.font | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } (fonts are style authority) | note=Text.font reached the text-metrics measure seam but no paint seam, so an authored font silently made measured and painted bounds disagree. FontFace is owned by the style sheet (authority.nativeSheetOwned).
+  adaptive.conditions().contentWidth | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=viewportWidth | note=alias; the value never subtracted insets
+  newAsyncImage | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.AsyncImage(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newCallout | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Callout(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newChip | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Chip(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newDisclosureGroup | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.DisclosureGroup(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newLabel | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Label(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newLevelPicker | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.LevelPicker(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newMenu | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Menu(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newPicker | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Picker(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newPopupButton | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.PopupButton(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newProgressView | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.ProgressView(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newRating | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Rating(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newResourceProvider(opts.retryAttempts) | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=opts.retry = { count, delaySeconds?, giveUp? } | note=legacy immediate-retry semantics preserved until removal
+  newRowActions | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.RowActions(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newSlider | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Slider(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newStepper | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Stepper(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTabView | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.TabView(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTable | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Table(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTextInput | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.TextInput(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newVirtualGrid | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.VirtualGrid(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newVirtualList | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.VirtualList(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newVirtualList(spec.rowHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=itemExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
+  newVirtualList(spec.viewportHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=viewportExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
+  screen_target.new(opts.isReducedMotion) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=adapter.setReducedMotion, pushed by the renderer from the environment | note=still accepted, and now OR-ed with the pushed fact: it can force reduced motion on, never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it
