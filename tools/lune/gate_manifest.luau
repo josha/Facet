@@ -4023,7 +4023,7 @@ local manifest: { [string]: { Check } } = {
 			name = "naming-adr-implemented",
 			requirements = { "UI-AGENT-001" },
 			state = "PENDING",
-			evidence = "docs/adr/ADR-0033-public-call-shapes.md",
+			evidence = "docs/adr/ADR-0037-public-call-shapes.md",
 			note = "The public call-shape decision: Facet.Controls.Table-style role namespace trialled against one consistent flat alternative on representative screens, autocomplete, types, and migration cost; one ADR recorded; the chosen surface made coherent through the existing deprecation policy with Rascal Rally updated in the same change.",
 		},
 		{
