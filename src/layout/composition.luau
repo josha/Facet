@@ -170,10 +170,10 @@ export type RegionDecl = {
 		the blueprint boundary replaces the presentation and this module records only
 		that one exists. The pure decision needs the THREE-WAY answer and nothing
 		else — a function is not a fact a layout pass can hold. ]]
-	reveal: string?,
+	expand: string?,
 	--[[ WHICH FORMS CARRY A CONTROL, INDEXED LIKE `forms` (wave REVEAL). Read off
 		the class contract at the blueprint boundary — never guessed here — because
-		the answer decides WHICH gesture opens the reveal: a form that contributes no
+		the answer decides WHICH gesture opens the expansion: a form that contributes no
 		focus stop and no semantic action can BE the target, and a form that does
 		must keep its own meanings and take a chevron beside it instead. Absent, every
 		form is taken as passive, which is what a declaration driven straight from a
@@ -209,12 +209,12 @@ export type Rect = { x: number, y: number, w: number, h: number }
 export type MeasureFn = (string, number, number, number) -> (number, number)
 export type ResolveCtx = {
 	measure: MeasureFn,
-	--[[ THE GUTTER A REVEAL PLATE MUST LEAVE on each side of the viewport, in px
+	--[[ THE GUTTER A EXPAND PLATE MUST LEAVE on each side of the viewport, in px
 		(wave REVEAL). A theme spacing step, resolved by the caller — this module
 		owns no theme, so the NUMBER arrives and the NAME never does. Absent, the
 		plate may use the whole offer, which is what a pure test means when it says
 		nothing. ]]
-	revealGutter: number?,
+	expandGutter: number?,
 	-- the AUTHORED floor in px, when the declaration expressed one. Absent, a
 	-- region's floor is its minimum-viable form's own measured height, which is
 	-- the honest default: the smallest thing the author was willing to show.
@@ -239,7 +239,7 @@ export type RegionResolution = {
 	elided: boolean,
 	floor: number,
 	rect: Rect?,
-	--[[ ── THE REVEAL FACTS (wave REVEAL, 2026-08-18) ──────────────────────────
+	--[[ ── THE EXPAND FACTS (wave REVEAL, 2026-08-18) ──────────────────────────
 		`form` above is the index into the region's forms and stays exactly what it
 		was. These five are the answer to a DIFFERENT question — "is the player
 		looking at less than this region has, and can they ask for the rest right
@@ -257,17 +257,17 @@ export type RegionResolution = {
 		  formInteractive  whether the ACTIVE form contributes a focus stop or a
 		                   semantic action — the declaration's own answer, indexed by
 		                   `activeForm`, false when nothing is standing.
-		  reveal           the declared mode, never nil ("auto" is what silence
+		  expand           the declared mode, never nil ("auto" is what silence
 		                   means).
-		  revealable       activeForm > 1 and reveal ~= "none". The predicate the
+		  expandable       activeForm > 1 and expand ~= "none". The predicate the
 		                   overflow census and the dead-end sweep both read.
-		  plate            present only when revealable: the box form 1 wants at this
+		  plate            present only when expandable: the box form 1 wants at this
 		                   offer, and whether it can be a plate at all. ]]
 	activeForm: number,
 	richestForm: number,
 	formInteractive: boolean,
-	reveal: string,
-	revealable: boolean,
+	expand: string,
+	expandable: boolean,
 	plate: { w: number, h: number, sheet: boolean }?,
 }
 
@@ -532,7 +532,7 @@ local REGION_KEYS: { [string]: boolean } = {
 	mayDrop = true,
 	reserved = true,
 	recover = true,
-	reveal = true,
+	expand = true,
 	formInteractive = true,
 }
 --[[ ── THE RECOVERY CONTRACT (D7.1) ───────────────────────────────────────────
@@ -568,12 +568,12 @@ local REGION_KEYS: { [string]: boolean } = {
 	WHY "none" AND `mayDrop` CANNOT BOTH BE TRUE. Dropping shows nothing at all, so
 	"nothing is lost" is not a claim the author can make about it. ]]
 local RECOVERS: { [string]: boolean } = { none = true, self = true, overflow = true }
---[[ ── THE REVEAL CONTRACT (wave REVEAL, 2026-08-18) ──────────────────────────
+--[[ ── THE EXPAND CONTRACT (wave REVEAL, 2026-08-18) ──────────────────────────
 	D7 made every step-down state where its content WENT. This states how the
 	player gets it back, and the default is that the framework does it:
 
-	  "auto"    (the default) a region standing on a form below its richest gains a
-	            REVEAL — activation presents form 1 in a transient plate at the
+	  "auto"    (the default) a region standing on a form below its richest gains an
+	            EXPANSION — activation presents form 1 in a transient plate at the
 	            region's own anchor. The region declares nothing; `forms` and `rank`
 	            stay the whole collapse-customization surface.
 	  "none"    there is nothing to disclose, or the author is disclosing it
@@ -583,12 +583,12 @@ local RECOVERS: { [string]: boolean } = { none = true, self = true, overflow = t
 	            presentations. The pure pass records that a route EXISTS (so the
 	            sweep can see it) and nothing about what it does.
 
-	A ONE-FORM REGION NEVER SIMPLIFIES, so a reveal on one can never fire. The
+	A ONE-FORM REGION NEVER SIMPLIFIES, so an `expand` on one can never fire. The
 	refusal lives at the blueprint boundary rather than here, for the same
 	measurement `recover`'s mirror rule records: the count reaching this function is
 	the count of MOUNTED forms, and a form behind a `UI.When` is absent while its
 	condition reads false. ]]
-local REVEALS: { [string]: boolean } = { auto = true, none = true, custom = true }
+local EXPANDS: { [string]: boolean } = { auto = true, none = true, custom = true }
 local SIZINGS: { [string]: boolean } = { hug = true, fill = true }
 local PLACES: { [string]: boolean } = { start = true, center = true, ["end"] = true }
 local ALIGNS: { [string]: boolean } = { start = true, center = true, ["end"] = true }
@@ -934,9 +934,9 @@ function composition.normalize(decl: any): Declaration
 					.. 'is either its own route ("self") or the overflow surface\'s ("overflow")'
 			)
 		end
-		if r.reveal ~= nil and not (type(r.reveal) == "string" and REVEALS[r.reveal]) then
+		if r.expand ~= nil and not (type(r.expand) == "string" and EXPANDS[r.expand]) then
 			fail(
-				`region '{r.id}' reveal must be "auto" | "none" | "custom", got '{tostring(r.reveal)}' — `
+				`region '{r.id}' expand must be "auto" | "none" | "custom", got '{tostring(r.expand)}' — `
 					.. '"auto" = the framework discloses the richest form from the one standing, "none" = '
 					.. 'nothing to disclose (the authored escape), "custom" = an authored handler replaces it'
 			)
@@ -971,9 +971,9 @@ function composition.normalize(decl: any): Declaration
 			-- NIL on a one-form region and a string on every other, which is exactly
 			-- what the two rules above have already guaranteed
 			recover = r.recover,
-			-- ...and the reveal is NEVER nil past here: "auto" is what silence means,
+			-- ...and the expand is NEVER nil past here: "auto" is what silence means,
 			-- resolved once so no consumer has to know that (wave REVEAL)
-			reveal = r.reveal or "auto",
+			expand = r.expand or "auto",
 			formInteractive = r.formInteractive,
 		})
 	end
@@ -1849,14 +1849,14 @@ local function solveArrangement(
 			elided = dropped[r.id] ~= true and forms[r.id] > 1,
 			floor = p.floor[r.id] or 0,
 			rect = nil,
-			-- the reveal facts are filled in by `resolve` once an arrangement has
+			-- the expand facts are filled in by `resolve` once an arrangement has
 			-- been CHOSEN (see the block there); a candidate that lost never had a
 			-- standing form to describe
 			activeForm = 0,
 			richestForm = 1,
 			formInteractive = false,
-			reveal = (r :: any).reveal or "auto",
-			revealable = false,
+			expand = (r :: any).expand or "auto",
+			expandable = false,
 			plate = nil,
 		}
 		regionResolutions[#regionResolutions + 1] = res
@@ -2219,7 +2219,7 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		    be. This is the half `mayDrop` has always implied and never stated.
 		  * ELIDED with recover "none" — nothing is missing; it does not appear.
 		  * ELIDED otherwise — the author's declared route, verbatim. ]]
-	--[[ THE REVEAL FACTS (wave REVEAL), resolved HERE rather than inside
+	--[[ THE EXPAND FACTS (wave REVEAL), resolved HERE rather than inside
 		`solveArrangement`, because `mounted` is only final once an arrangement has
 		been chosen — and because the plate MEASURE below must run exactly once per
 		solve rather than once per attempted candidate.
@@ -2231,7 +2231,7 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		here. The rule: form 1 at min(its natural width, the offer minus a gutter on
 		each side); a form that comes back WIDER than that cap cannot meet its floor
 		in a plate, and the caller falls back to the full-width sheet. ]]
-	local gutter = if type((ctx :: any).revealGutter) == "number" then (ctx :: any).revealGutter :: number else 0
+	local gutter = if type((ctx :: any).expandGutter) == "number" then (ctx :: any).expandGutter :: number else 0
 	for _, r in d.regions do
 		local res = byId[r.id]
 		if res == nil then
@@ -2240,10 +2240,10 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		local active = if res.dropped or not res.mounted then 0 else res.form
 		res.activeForm = active
 		res.richestForm = 1
-		res.reveal = (r :: any).reveal or "auto"
+		res.expand = (r :: any).expand or "auto"
 		res.formInteractive = active > 0 and ((r :: any).formInteractive or {})[active] == true
-		res.revealable = active > 1 and res.reveal ~= "none"
-		if res.revealable then
+		res.expandable = active > 1 and res.expand ~= "none"
+		if res.expandable then
 			local maxW = math.max(0, offerW - gutter * 2)
 			local maxH = math.max(0, offerH - gutter * 2)
 			local w, h = ctx.measure(r.id, 1, maxW, maxH)
@@ -2363,8 +2363,8 @@ function composition.dump(resolution: Resolution): any
 			activeForm = r.activeForm or 0,
 			richestForm = r.richestForm or 1,
 			formInteractive = r.formInteractive == true,
-			reveal = r.reveal or "auto",
-			revealable = r.revealable == true,
+			expand = r.expand or "auto",
+			expandable = r.expandable == true,
 			plate = if r.plate ~= nil
 				then { w = roundPx(r.plate.w), h = roundPx(r.plate.h), sheet = r.plate.sheet }
 				else nil,

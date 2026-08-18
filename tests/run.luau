@@ -518,11 +518,12 @@ require("./sponsor_scenarios.spec")
 -- (arrangement choice, step-down/drop order, floors, reserved-at-rest, the
 -- one-scroll refusal, the column fallback) plus the mounted re-solve identity
 require("./composition.spec")
--- WAVE REVEAL: a region standing on a form below its richest DISCLOSES the richest
--- one — the pure facts (activeForm/richestForm/formInteractive/reveal), the plate's
--- size and its sheet fallback, the affordance the framework synthesizes, and the
--- plate's own lifetime
-require("./region_reveal.spec")
+-- WAVE REVEAL: a region standing on a form below its richest EXPANDS to it — the
+-- pure facts (activeForm/richestForm/formInteractive/expand), the plate's size and
+-- its sheet fallback, the affordance the framework synthesizes, and the plate's
+-- own lifetime. The knob is `expand` because `reveal` is UI.Text's, and one key
+-- with two meanings on one surface is the collision this rename removed
+require("./region_expand.spec")
 -- ADR-0025: the SCREEN-ANCHORED HUD — the nine anchors as a partition that cannot
 -- overlap, `holdsLane` (rule 9's counterpart), rank degradation under a HEIGHT
 -- shrink, and the collision alarm for the one case a partition cannot remove
