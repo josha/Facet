@@ -7,8 +7,8 @@
 -- control scripts. That is correct for a place that is nothing but UI (the
 -- Facet gallery qualifies), and WRONG for a real game: a game must NOT disable
 -- avatar input to win a button. A real game instead puts avatar input onto the
--- Input Action System (`Workspace.PlayerScriptsUseInputActionSystem = true`,
--- a Properties-panel-only flag — ENGINE TRUTH 2) and lets UI-vs-gameplay
+-- Input Action System (`Workspace.PlayerScriptsUseInputActionSystem = "Enabled"`,
+-- declared in the place's Rojo project — ENGINE TRUTH 2) and lets UI-vs-gameplay
 -- contention resolve through InputContext priority + Sink — the focus-aware
 -- first-responder model being designed under ADR-0014 (in progress). See the
 -- "Gamepad in real places" section of docs/guide/07-input.md. This module gives
@@ -23,10 +23,21 @@
 -- therefore disable the control module (fallback: unbind `jumpAction`). A real
 -- game keeps its controls and relies on IAS arbitration (Truth 2), NOT on this.
 --
--- ENGINE TRUTH 2 — that flag is Properties-panel-only, and it is NOT MISSING.
--- `Workspace.PlayerScriptsUseInputActionSystem` is NOT script- or rojo-reflectable;
--- code can neither read nor set it. This module cannot detect or toggle it — the
--- human must set it in Studio's Properties panel. Surfaced in docs, not here.
+-- ENGINE TRUTH 2 — that flag is NOT SCRIPT-READABLE, and it is NOT MISSING.
+-- `Workspace.PlayerScriptsUseInputActionSystem` is not scriptable: code can
+-- neither read nor set it, so this module cannot ASK whether it is on.
+--
+-- WHAT THIS PARAGRAPH USED TO SAY, AND WHY THE CORRECTION MATTERS (2026-08-18).
+-- It said the property is "NOT script- OR ROJO-reflectable" and that "the human
+-- must set it in Studio's Properties panel". The rojo half is FALSE with the
+-- pinned toolchain: `tools/build_places.sh:12-16` records the 2026-08-15
+-- measurement — a stale `/usr/local/bin/rojo` (7.7.0-rc.1) failed on the
+-- property with "Unknown property" while the rokit-pinned 7.7.0 builds it fine —
+-- and every Facet example project plus both Rascal Rally projects now declare
+-- it. That wrong half is precisely why five shipped project files went without
+-- the declaration for months: a place's input topology was left as an
+-- unversioned, hand-ticked Studio property because this comment said versioning
+-- it was impossible. Declare it in the Rojo project; only the READ is closed.
 --
 -- Re-probed live 2026-08-15 on 0.734.0.7340915, and the exact failure mode
 -- matters because it has been misread before. A plain read
@@ -44,8 +55,10 @@
 -- The consequence for design: this is NOT a rollout gap that a newer Studio build
 -- will close. Scriptability is a reflection-level flag, so **no Facet version on
 -- any build can read this property**, and every detector here is necessarily
--- BEHAVIOURAL — it observes the symptom, never the setting. Docs must therefore
--- tell an integrator to tick it; they can never assert that it was ticked.
+-- BEHAVIOURAL — it observes the symptom, never the setting. Docs can tell an
+-- integrator to DECLARE it (the Rojo half works); no code can ever assert from
+-- the property itself that it was declared. `iasPlayerScriptsActive()` below is
+-- the closest available reading, and it reads an artifact, not the flag.
 --
 -- ENGINE TRUTH 5 — CAS PRIORITY AND InputContext.Priority ARE NOT ONE
 -- ARBITRATION SPACE (measured live in the showcase 2026-08-14, four readings in
@@ -100,14 +113,17 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "arbitrate (focus-aware first-responder model, ADR-0014 in progress).",
 	"2. Workspace.PlayerScriptsUseInputActionSystem (which puts Roblox's own "
 		.. "player scripts — camera included — onto IAS so they join normal "
-		.. "priority arbitration) is REQUIRED by Facet and is a "
-		.. "Properties-panel-only flag: present in the reflection database but NOT "
-		.. "scriptable, so it is not readable or settable from code or Rojo, on any "
-		.. "build (re-probed 0.734.0.7340915, 2026-08-15: a plain read says 'not a "
-		.. "valid member', GetPropertyChangedSignal says 'not a scriptable "
-		.. "property', and a made-up name says 'not a valid property name' — three "
-		.. "different sentences). A human must tick it in Studio. Every probe here "
-		.. "is therefore behavioral: it observes the symptom, never the setting.",
+		.. "priority arbitration) is REQUIRED by Facet. It is present in the "
+		.. "reflection database but NOT scriptable, so no code on any build can "
+		.. "read or set it (re-probed 0.734.0.7340915, 2026-08-15: a plain read "
+		.. "says 'not a valid member', GetPropertyChangedSignal says 'not a "
+		.. "scriptable property', and a made-up name says 'not a valid property "
+		.. "name' — three different sentences). Only the READ is closed: a Rojo "
+		.. "project file CAN declare it with the rokit-pinned toolchain "
+		.. "(tools/build_places.sh:12-16, measured 2026-08-15), which is how every "
+		.. "Facet place and both Rascal Rally places now carry it — so it need "
+		.. "never be a hand-ticked Studio property again. Every probe here is "
+		.. "still behavioral: it observes the symptom, never the setting.",
 	"3. GuiService.CoreGuiNavigationEnabled re-enables itself if scripted off "
 		.. "(CoreScripts fight back) and is not the eater anyway; do not rely on "
 		.. "scripting it off.",
@@ -160,6 +176,60 @@ function gamepad_contention.legacyStackActive(): boolean
 		local ContextActionService = game:GetService("ContextActionService")
 		local bound = ContextActionService:GetAllBoundActionInfo()
 		return bound["jumpAction"] ~= nil
+	end)
+	return ok and active == true
+end
+
+-- The default contexts the engine's own player scripts register once
+-- `Workspace.PlayerScriptsUseInputActionSystem` is Enabled. They do not exist at
+-- all under the legacy stack, which is what makes their presence a behavioural
+-- read of a property no code may read. Consumers already rely on this shape:
+-- Rascal Rally holds exactly these three disabled because they bind gamepad
+-- codes for an avatar its kart game never controls.
+local DEFAULT_IAS_CONTEXTS = { "CharacterContext", "CameraContext", "VehicleContext" }
+
+-- Does the ENGINE's own player-script stack run on the Input Action System?
+--
+-- ENGINE TRUTH 2 says the deciding flag is not script-readable, so like every
+-- other probe here this is behavioural: it looks for
+-- `Player.InputContexts.{CharacterContext,CameraContext,VehicleContext}`, the
+-- instances the IAS player scripts create and the legacy ones never do. `true`
+-- is a fact about this client right now; ANY ONE of the three is enough, since a
+-- game may have removed the others.
+--
+-- THE FALSE NEGATIVE IS THE HONEST RESIDUAL, and it is why the wait exists. The
+-- folder replicates at player-add, so a bootstrap that asks the instant it runs
+-- can miss it. `waitSeconds` (default 1) bounds one `WaitForChild` retry —
+-- bounded because an unbounded wait in a place where the folder never arrives
+-- would hang the caller's bootstrap forever (observed live 2026-07-21 for the
+-- PlayerModule wait below). A miss degrades to the pre-existing legacy path,
+-- which is today's behaviour: slower, not wronger.
+--
+-- `player` (optional) is the instance to probe; defaults to the local player.
+-- Returns false headless / off the live client.
+function gamepad_contention.iasPlayerScriptsActive(player: any?, waitSeconds: number?): boolean
+	local ok, active = pcall(function(): boolean
+		local subject = player
+		if subject == nil then
+			subject = game:GetService("Players").LocalPlayer
+		end
+		local folder = subject:FindFirstChild("InputContexts")
+		if folder == nil then
+			folder = subject:WaitForChild("InputContexts", waitSeconds or 1)
+		end
+		if folder == nil then
+			return false
+		end
+		for _, name in DEFAULT_IAS_CONTEXTS do
+			local context = folder:FindFirstChild(name)
+			-- ClassName rather than IsA: the check has to run against a plain
+			-- table in a headless spec, and InputContext has no subclasses. A
+			-- same-named Folder must NOT answer true.
+			if context ~= nil and context.ClassName == "InputContext" then
+				return true
+			end
+		end
+		return false
 	end)
 	return ok and active == true
 end
@@ -256,15 +326,37 @@ end
 -- SCOPE note in the module header and docs/guide/07-input.md). Call it once from
 -- a UI-only place's client bootstrap.
 --
--- `playerModuleParent` (optional) is the instance that CONTAINS `PlayerModule`;
--- it defaults to the local player's `PlayerScripts`. Injecting it lets a caller
--- (or a test) supply the container explicitly.
+-- IT IS A NO-OP WHERE IAS ALREADY OWNS THE PLAYER SCRIPTS (DF-9, 2026-08-18).
+-- The `jumpAction` measurement this remedy is built on was taken 2026-07-20,
+-- BEFORE any Facet place declared `Workspace.PlayerScriptsUseInputActionSystem`.
+-- Under that flag the player scripts ARE IAS contexts: there is no CAS
+-- `jumpAction` to unbind, and `PlayerScripts.PlayerModule` is never inserted at
+-- all — so the primary path spent its full bounded wait and then the fallback
+-- found nothing. Both example bootstraps call this while their tracked project
+-- files declare the flag, and nothing said which of the two mechanisms was live.
+-- Now the call ASKS FIRST (`iasPlayerScriptsActive`) and returns an explicit
+-- inert verdict instead of performing a remedy for a contention that cannot
+-- exist. Where the flag is off — the eight tutorial places and any consumer that
+-- has not declared it — the behaviour below is unchanged, byte for byte.
 --
--- Returns whether it believes ButtonA is now UNCONTENDED:
---   * true  — the control module was disabled (removes all its CAS binds,
---             jumpAction included), or the narrower jumpAction unbind fallback ran.
---   * false — neither engine path was reachable (running on the server, in Studio
---             Edit, or headless under Lune — there is no live gamepad to free).
+-- `playerModuleParent` (optional) is the instance that CONTAINS `PlayerModule`;
+-- it defaults to the local player's `PlayerScripts`. `player` (optional) is the
+-- instance the IAS probe reads; it defaults to the local player. Injecting
+-- either lets a caller (or a test) supply the container explicitly.
+--
+-- Returns `(uncontended, status)`. The boolean is whether it believes ButtonA is
+-- now UNCONTENDED; the status says WHY, because the boolean alone cannot
+-- distinguish "I disabled the control module" from "there was nothing to
+-- disable":
+--   * true,  "inert: IAS owns PlayerScripts" — nothing was touched and nothing
+--            needed to be; the legacy stack is not running in this place.
+--   * true,  "disabled" — the control module was disabled (removes all its CAS
+--            binds, jumpAction included).
+--   * true,  "unbound" — the narrower jumpAction unbind fallback ran AND the
+--            binding is confirmed gone.
+--   * false, "unavailable" — neither engine path was reachable (running on the
+--            server, in Studio Edit, or headless under Lune — there is no live
+--            gamepad to free).
 -- The return is a best-belief signal, not an end-to-end proof: only a physical
 -- gamepad press can confirm ButtonA now reaches Activate (standing
 -- FAIL_ENVIRONMENT rider `physical-device-confirmation`).
@@ -277,7 +369,13 @@ function gamepad_contention.freedJumpAction(before: { [string]: any }, after: { 
 	return before["jumpAction"] ~= nil and after["jumpAction"] == nil
 end
 
-function gamepad_contention.disableLegacyControls(playerModuleParent: any?): boolean
+function gamepad_contention.disableLegacyControls(playerModuleParent: any?, player: any?): (boolean, string)
+	-- DF-9: with the flag on there is no legacy stack to disable. Ask before
+	-- acting, and say so — an inert call that reported the same `true` as a real
+	-- remedy is how "one of these two mechanisms is dead" went unnoticed.
+	if gamepad_contention.iasPlayerScriptsActive(player) then
+		return true, "inert: IAS owns PlayerScripts"
+	end
 	-- Primary: disable the whole control module. This is the correct move for a
 	-- UI-only place — it removes ALL of the control scripts' CAS bindings,
 	-- jumpAction included, in one call.
@@ -295,7 +393,7 @@ function gamepad_contention.disableLegacyControls(playerModuleParent: any?): boo
 		PlayerModule:GetControls():Disable()
 	end)
 	if disabled then
-		return true
+		return true, "disabled"
 	end
 	--[[ Fallback: unbind jumpAction directly. Narrower — the rest of the control
 		module keeps running — but the specific ButtonA eater is gone.
@@ -316,7 +414,10 @@ function gamepad_contention.disableLegacyControls(playerModuleParent: any?): boo
 		ContextActionService:UnbindAction("jumpAction")
 		return gamepad_contention.freedJumpAction(before, ContextActionService:GetAllBoundActionInfo())
 	end)
-	return ok and freed
+	if ok and freed then
+		return true, "unbound"
+	end
+	return false, "unavailable"
 end
 
 return gamepad_contention

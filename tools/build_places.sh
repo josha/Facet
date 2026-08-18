@@ -68,7 +68,10 @@ for entry in "${EXAMPLES[@]}"; do
     },
     "Workspace": {
       $attributes
-      "\$properties": { "FilteringEnabled": true },
+      "\$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
       "Baseplate": {
         "\$className": "Part",
         "\$properties": {
@@ -140,7 +143,10 @@ cat >"$project" <<'JSON'
         "Facet_NativeStyle": true,
         "Facet_Build": "@@BUILD_STAMP@@"
       },
-      "$properties": { "FilteringEnabled": true },
+      "$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {

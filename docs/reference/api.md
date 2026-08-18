@@ -7328,20 +7328,30 @@ if gamepad_contention.legacyStackActive() then
 end
 ```
 
-- `disableLegacyControls(playerModuleParent?) -> boolean` — **UI-ONLY PLACES
-  ONLY**; it turns off avatar input. Returns whether anything was actually
-  freed: it disables the whole control module if it can, else unbinds
-  `jumpAction` *and confirms the binding is gone* (an `UnbindAction` on an
-  unbound action only warns, so a `pcall` succeeding proves nothing).
+- `disableLegacyControls(playerModuleParent?, player?) -> (boolean, string)` —
+  **UI-ONLY PLACES ONLY**; it turns off avatar input. Returns whether ButtonA is
+  believed uncontended, and a status that says why. It asks
+  `iasPlayerScriptsActive()` first: where the flag is on there is no legacy stack
+  to disable, so it touches nothing and answers
+  `true, "inert: IAS owns PlayerScripts"`. Otherwise it disables the whole
+  control module (`true, "disabled"`), else unbinds `jumpAction` *and confirms
+  the binding is gone* (`true, "unbound"` — an `UnbindAction` on an unbound
+  action only warns, so a `pcall` succeeding proves nothing), else
+  `false, "unavailable"`.
 - `legacyStackActive() -> boolean`, `cameraKeysContended() -> boolean`,
-  `traversalKeyContended() -> boolean` — behavioural probes. They answer
-  different questions and one can be false while another is true; measured
-  2026-08-15, `RbxCameraKeypress` held the arrows in a session where
-  `jumpAction` was not bound at all.
+  `traversalKeyContended() -> boolean`, `iasPlayerScriptsActive(player?,
+  waitSeconds?) -> boolean` — behavioural probes. They answer different questions
+  and one can be false while another is true; measured 2026-08-15,
+  `RbxCameraKeypress` held the arrows in a session where `jumpAction` was not
+  bound at all. `iasPlayerScriptsActive` reads the artifact of the flag rather
+  than the flag: `Player.InputContexts.{Character,Camera,Vehicle}Context` exist
+  only once the player scripts are on IAS.
 - `describeContention() -> string` — the whole recorded truth, for a log line or
   a doctor check. The real fix for a shipping game is
-  `Workspace.PlayerScriptsUseInputActionSystem`, which is a Properties-panel flag
-  and not scriptable; this string says so.
+  `Workspace.PlayerScriptsUseInputActionSystem`, which is not *scriptable* — no
+  code can read or set it — but **is** declarable in a Rojo project file with the
+  pinned toolchain, which is how every Facet place carries it. This string says
+  so.
 - `freedJumpAction(before, after) -> boolean` — the pure verdict the fallback
   uses, exported so the rule is provable without a live ContextActionService.
 

@@ -29,6 +29,7 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(type(mod.legacyStackActive)).toBe("function")
 		expect(type(mod.cameraKeysContended)).toBe("function")
 		expect(type(mod.traversalKeyContended)).toBe("function")
+		expect(type(mod.iasPlayerScriptsActive)).toBe("function")
 	end)
 
 	-- name keeps its "…carrying all three" prefix on purpose: the gate manifest
@@ -70,6 +71,17 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(string.find(text, "THE FIX IS TRUTH 2, NOT A NUMBER", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(text, "REQUIRED by Facet", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(text, "NOT scriptable", 1, true) ~= nil).toBeTruthy()
+		--[[ …and the HALF OF TRUTH 2 THAT WAS WRONG (corrected 2026-08-18).
+
+			The module claimed the property is "not script- OR ROJO-reflectable".
+			The rojo half is false with the pinned toolchain and has been since
+			2026-08-15: `tools/build_places.sh:12-16` records the measurement — a
+			stale /usr/local/bin/rojo failed on the property while the rokit-pinned
+			7.7.0 builds it fine — and every Facet place project plus both Rascal
+			Rally projects now declare it. That wrong half is exactly why five
+			shipped project files went without the declaration for months, so the
+			correction is pinned rather than left to a comment. ]]
+		expect(string.find(text, "a Rojo project file CAN declare it", 1, true) ~= nil).toBeTruthy()
 		-- truth 6: the arrow probe, and that it is not the same reading as truth 1's
 		expect(string.find(text, "cameraKeysContended", 1, true) ~= nil).toBeTruthy()
 	end)
@@ -176,6 +188,105 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 	it("cameraKeysContended() tolerates a bound action with no inputTypes", function()
 		local mod = require("../src/client/gamepad_contention")
 		expect(mod.cameraKeysContended({ Bare = {} })).toBe(false)
+	end)
+
+	--[[ DF-9 — the recheck the release review asked for, and the answer.
+
+		`disableLegacyControls()` was built on a `jumpAction` measurement taken
+		2026-07-20, BEFORE any Facet place declared
+		`Workspace.PlayerScriptsUseInputActionSystem`. Under that flag the player
+		scripts are IAS contexts, not ContextActionService bindings — so there is
+		no `jumpAction` to unbind and no control module to disable, and the call
+		is inert. Both example bootstraps call it while their tracked project
+		files declare the flag: one of the two mechanisms is dead in those places
+		and nothing said which.
+
+		The flag is NOT script-readable on any build, so the detector has to be
+		behavioural like every other probe in this module. Its symptom is the one
+		the flag's own doc text implies and a consumer already relies on: with the
+		flag on, the engine registers its default player contexts as
+		`Player.InputContexts.{CharacterContext,CameraContext,VehicleContext}` —
+		instances that do not exist at all under the legacy stack. Rascal Rally
+		holds exactly those three disabled (`init.client.luau`) for that reason.
+
+		A false NEGATIVE is the honest residual: the folder replicates at
+		player-add, so a bootstrap that asks before it lands falls through to the
+		legacy path — which is today's behaviour, slower by the bounded wait, not
+		wronger. The live confirmation is booked in
+		artifacts/release-candidate-review/input/studio-checklist.md. ]]
+	local function fakePlayer(contextNames: { string }?): any
+		local folder = { children = {} :: { [string]: any } }
+		for _, name in contextNames or {} do
+			folder.children[name] = { ClassName = "InputContext" }
+		end
+		function folder.FindFirstChild(_self: any, name: string): any
+			return folder.children[name]
+		end
+		return {
+			FindFirstChild = function(_self: any, name: string): any
+				return if name == "InputContexts" and contextNames ~= nil then folder else nil
+			end,
+			WaitForChild = function(): any
+				return nil
+			end,
+		}
+	end
+
+	it("iasPlayerScriptsActive() sees the engine's default IAS contexts", function()
+		local mod = require("../src/client/gamepad_contention")
+		expect(mod.iasPlayerScriptsActive(fakePlayer({ "CharacterContext", "CameraContext", "VehicleContext" }))).toBe(
+			true
+		)
+		-- any ONE of the three is enough: a game may have removed the others
+		expect(mod.iasPlayerScriptsActive(fakePlayer({ "CameraContext" }))).toBe(true)
+	end)
+
+	it("iasPlayerScriptsActive() is false under the legacy stack, and headless", function()
+		local mod = require("../src/client/gamepad_contention")
+		-- no InputContexts folder at all — the legacy player scripts
+		expect(mod.iasPlayerScriptsActive(fakePlayer(nil))).toBe(false)
+		-- the folder exists but holds nothing this probe recognises: NOT a claim
+		-- that IAS owns the player scripts
+		expect(mod.iasPlayerScriptsActive(fakePlayer({}))).toBe(false)
+		-- a same-named child that is not an InputContext must not answer true
+		local imposter = fakePlayer({ "CharacterContext" })
+		local folder = imposter.FindFirstChild(imposter, "InputContexts")
+		folder.children.CharacterContext = { ClassName = "Folder" }
+		expect(mod.iasPlayerScriptsActive(imposter)).toBe(false)
+		-- and with no engine at all it reports false rather than throwing
+		local ok, result = pcall(function()
+			return mod.iasPlayerScriptsActive()
+		end)
+		expect(ok).toBeTruthy()
+		expect(result).toBe(false)
+	end)
+
+	it("disableLegacyControls() is INERT when IAS owns the player scripts (DF-9)", function()
+		local mod = require("../src/client/gamepad_contention")
+		-- a parent whose WaitForChild would be reached only if the legacy path ran
+		local touched = false
+		local parent = {
+			WaitForChild = function()
+				touched = true
+				return {}
+			end,
+		}
+		local freed, status =
+			mod.disableLegacyControls(parent, fakePlayer({ "CharacterContext", "CameraContext", "VehicleContext" }))
+		-- ButtonA is uncontended — nothing bound it — but nothing was DONE either,
+		-- and the status is what says so instead of an ambiguous boolean
+		expect(freed).toBe(true)
+		expect(status).toBe("inert: IAS owns PlayerScripts")
+		expect(touched).toBe(false)
+	end)
+
+	it("disableLegacyControls() is UNCHANGED where the legacy stack still runs", function()
+		local mod = require("../src/client/gamepad_contention")
+		-- same call, a player with no IAS contexts: the legacy path runs exactly
+		-- as before and, headless, reaches neither engine remedy
+		local freed, status = mod.disableLegacyControls(nil, fakePlayer(nil))
+		expect(freed).toBe(false)
+		expect(status).toBe("unavailable")
 	end)
 
 	it("disableLegacyControls(injectedParent) also stays guarded headless", function()

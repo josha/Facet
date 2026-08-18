@@ -219,7 +219,31 @@ describe("disableLegacyControls only claims what it freed (PLAT-21)", function()
 		expect(fallback ~= nil).toBe(true)
 		expect(string.find(fallback :: string, "GetAllBoundActionInfo()", 1, true) ~= nil).toBe(true)
 		expect(string.find(fallback :: string, "freedJumpAction(", 1, true) ~= nil).toBe(true)
-		expect(string.find(source, "return ok and freed", 1, true) ~= nil).toBe(true)
+		--[[ The claim is still gated on what was actually freed — the spelling moved
+			with DF-9 (2026-08-18), which gave the function a STATUS alongside the
+			boolean so an inert call could be told apart from a real remedy. It used
+			to read `return ok and freed`; the gate is now the `if`, and the failure
+			path names itself instead of returning a bare false. ]]
+		expect(string.find(source, "if ok and freed then", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, 'return true, "unbound"', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, 'return false, "unavailable"', 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ DF-9: and the inert branch must come FIRST. If the IAS check ran after the
+		primary path, a flag-on place would still spend the bounded PlayerModule
+		wait before discovering there was nothing to disable — which is the cost
+		the whole change exists to remove, and it would be invisible in a boolean
+		return. Order is the behaviour here, so order is what this pins. ]]
+	it("the IAS inert check runs BEFORE either engine remedy is attempted", function()
+		local source = fs.readFile("src/client/gamepad_contention.luau")
+		local body = string.match(source, "function gamepad_contention%.disableLegacyControls(.*)")
+		expect(body ~= nil).toBe(true)
+		local inert = string.find(body :: string, "iasPlayerScriptsActive", 1, true)
+		local primary = string.find(body :: string, "GetControls():Disable()", 1, true)
+		local fallbackAt = string.find(body :: string, "UnbindAction", 1, true)
+		expect(inert ~= nil).toBe(true)
+		expect((inert :: number) < (primary :: number)).toBe(true)
+		expect((inert :: number) < (fallbackAt :: number)).toBe(true)
 	end)
 end)
 

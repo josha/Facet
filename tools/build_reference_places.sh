@@ -42,7 +42,10 @@ for entry in "${PROOFS[@]}"; do
     },
     "Workspace": {
       "\$attributes": { "Facet_Scenario": "$scenario" },
-      "\$properties": { "FilteringEnabled": true },
+      "\$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
       "Baseplate": {
         "\$className": "Part",
         "\$properties": {

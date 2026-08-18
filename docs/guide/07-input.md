@@ -9,14 +9,31 @@
 > job, and a UI framework that quietly outbid a game's own bindings would be
 > worse than the symptom it fixed.
 >
-> **So the experience has to put Roblox's own player scripts on IAS too: tick
-> `Workspace.PlayerScriptsUseInputActionSystem` in Studio's Properties panel, by
-> hand, once per place.** Roblox describes it as controlling "whether the
-> built-in player scripts are updated to use the Input Action System"
+> **So the experience has to put Roblox's own player scripts on IAS too:
+> `Workspace.PlayerScriptsUseInputActionSystem` must be `Enabled` in every
+> place.** Roblox describes it as controlling "whether the built-in player
+> scripts are updated to use the Input Action System"
 > ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
-> The flag is not scriptable and not Rojo-syncable — no code (including Facet)
-> can read it, set it, or verify it for you. It is the single thing Facet
-> cannot do on your behalf.
+>
+> **Declare it in your Rojo project** — that is the versioned way, and it works:
+>
+> ```json
+> "Workspace": { "$properties": { "PlayerScriptsUseInputActionSystem": "Enabled" } }
+> ```
+>
+> Every Facet place project does this, and so do both of Rascal Rally's. The
+> older wording here said the flag was "not Rojo-syncable"; that was wrong, and
+> it is why five shipped place projects went without the declaration for months
+> while a human re-ticked the property by hand after every rebuild. It needs the
+> rokit-pinned toolchain: a stale `rojo` fails the build with `Unknown property`
+> (measured 2026-08-15 — see `tools/build_places.sh`).
+>
+> The flag is still **not scriptable**: no code (including Facet) can read it,
+> set it, or verify it for you, on any build. Every detector Facet ships is
+> therefore behavioral — it observes a symptom, never the setting. The closest
+> reading available is `gamepad_contention.iasPlayerScriptsActive()`, which
+> looks for the default contexts the IAS player scripts create
+> (`Player.InputContexts.CharacterContext` and friends) rather than for the flag.
 >
 > **Why it matters — two measured symptoms, one cause.** With the flag off,
 > Roblox's own scripts hold keys through `ContextActionService`, *outside* IAS:
@@ -51,8 +68,8 @@ screen, and the input story comes with it.
 
 ## 7.1 What you actually have to do
 
-1. **Tick `Workspace.PlayerScriptsUseInputActionSystem`** in the Properties
-   panel (the warning above). Once, per place.
+1. **Declare `Workspace.PlayerScriptsUseInputActionSystem = "Enabled"`** in your
+   Rojo project (the warning above). Once, per place — versioned, not hand-ticked.
 2. **Mount controls and present screens.** That's the whole input setup for a
    UI screen — no key bindings, no activation callbacks, no navigation wiring.
 3. **In a game with an avatar:** present HUD surfaces with
@@ -565,9 +582,9 @@ live pulse counter for exactly that pass.
 **Gamepad A does nothing on my buttons.** The place is almost certainly running
 the *legacy* control scripts: they bind `ButtonA` to `jumpAction` outside IAS —
 even with no character — and consume it before IAS ever sees it (D-pad still
-works, which is why only A feels dead). Fix: tick
+works, which is why only A feels dead). Fix: declare
 `Workspace.PlayerScriptsUseInputActionSystem` (the warning at the top). The
-flag can't be read from code, so Facet ships a behavioral probe you can log or
+flag can't be READ from code, so Facet ships a behavioral probe you can log or
 surface in a doctor check:
 
 ```lua
@@ -582,7 +599,7 @@ end
 default camera holds `Left`/`Right`/`I`/`O` as `RbxCameraKeypress` through
 ContextActionService at priority 2000 and sinks them, so horizontal focus
 navigation and a Table's selected-column resize never see a keypress. Fix: the
-same tick of `Workspace.PlayerScriptsUseInputActionSystem`. There is no
+same declaration of `Workspace.PlayerScriptsUseInputActionSystem`. There is no
 alternative involving a bigger priority number — see the warning at the top of
 this chapter for the measurement, and
 [`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)
@@ -606,17 +623,26 @@ now. `false` is narrower than it looks: CAS exposes no sink flag through
 `GetAllBoundActionInfo`, so it means "no CAS action claims an arrow", not
 "arrows are guaranteed to arrive".
 
-**Ask these probes; Facet does not announce them.** None of the three is wired
-to a boot-time warning. In any place that has not ticked the property they are
-all true — which today is every default Studio session — and a warning that
-fires always is noise that teaches people to skip it. They exist so that when
+**Ask these probes; Facet does not announce them.** None of them is wired to a
+boot-time warning. In any place that has not declared the property they are all
+true — which today is every default Studio session — and a warning that fires
+always is noise that teaches people to skip it. They exist so that when
 something *is* dead you get an answer in one line instead of a session.
 
 **UI-only places (no avatar at all)** — a menu shell, a lobby, Facet's own
 gallery — may instead just disable the legacy control scripts:
 `gamepad_contention.disableLegacyControls()`. This is the *only* situation where
 disabling player input is acceptable; a real game keeps its avatar controls and
-uses the responder chain (§7.3). Full details:
+uses the responder chain (§7.3).
+
+It returns `(uncontended, status)`, and the status is the part worth logging:
+where the flag is on there is no legacy stack to disable, so the call touches
+nothing and answers `true, "inert: IAS owns PlayerScripts"` rather than spending
+a bounded `PlayerModule` wait discovering the same thing. `"disabled"`,
+`"unbound"` and `"unavailable"` are the three legacy-stack outcomes. A boolean
+alone could not tell "I disabled the control module" from "there was nothing to
+disable", which is how a place could carry both remedies with neither one live.
+Full details:
 [`docs/lessons/gamepad-contention-truths.md`](../lessons/gamepad-contention-truths.md).
 
 **Do not script `GuiService.CoreGuiNavigationEnabled`.** The CoreScripts
