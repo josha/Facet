@@ -379,6 +379,79 @@ The same decision is available with no screen at all — `Facet.composition.reso
 takes a declaration, a box and a measure callback — so "does this survive a
 landscape phone" is a unit test, not a device round.
 
+#### Adapting without dead ends
+
+Everything above decides **what to show**. This decides what happens to what it
+stopped showing, and it is the half that used to be left to the author.
+
+Two things can happen to a region: it steps DOWN to a poorer form, or it is
+DROPPED. From the player's side those are one event — content this screen used to
+have and does not — so a multi-form region must state where it went:
+
+```lua
+recover = "none"      -- every form still shows everything. A poorer LAYOUT, not less
+recover = "self"      -- the reduced form is the route: ask it, where it stands
+recover = "overflow"  -- the screen's overflow surface is the route (it reads resolution.unshown)
+```
+
+`recover` is **required** with more than one form and refused with one. Silence is
+not consent: a declaration that says nothing is exactly the state this contract
+exists to remove.
+
+**The framework builds the `"self"` route for you.** A region standing on a form
+below its richest gets one **expand** affordance, appended as its last child, and
+it stands exactly while a reduced form stands:
+
+- when no reduced form carries a control of its own, the affordance **covers** the
+  compact form — the whole thing is the target, the gesture a player would have
+  tried anyway. One focus stop, at the target floor, "expands to full &lt;region
+  id&gt;" to a screen reader;
+- when a reduced form does carry one (a button, a toggle, a field, a scroller),
+  that control keeps its meaning and the affordance becomes a **chevron** beside
+  it, with its own tap target and its own focus stop **after** the form's own. One
+  gesture, one meaning — a compact form that already holds a button has spoken for
+  the tap.
+
+Activating it presents the region's **richest form** — the same blueprint, by
+identity — in a transient plate at the region's own anchor, sized by the same
+solve that chose the ladder rung. Where the richest form cannot meet its floor in
+a plate, the identical content is presented as a full-width sheet instead. It
+closes on a tap outside, on Escape, on gamepad B, and by itself when the box it
+was opened against moves, resizes or goes (a rotation, a viewport change, a theme
+change, or a re-solve that put the region back at its richest form).
+
+You can turn it off — `expand = "none"` says there is nothing to disclose or that
+you are disclosing it yourself — or replace it with a handler:
+
+```lua
+UI.Region{ id = "Clock", group = "top", rank = 2, recover = "overflow",
+           expand = function() myOwnPanel() end,        -- or "none", or omit for "auto"
+           children = { clockAndScores, clockOnly } }
+```
+
+**A region with one form never simplifies**, so `expand` is refused on one — and
+that is also the answer to *"how do I stop this region collapsing?"*. `rank` and
+the forms list are the whole collapse-customization surface. One form means one
+representation, at every size, or the region drops whole.
+
+**The minimum form must carry the region's essential value.** This is an authoring
+rule the framework cannot check for you, and it is the one thing that makes the
+expand honest. A ladder is a promise that each rung is still *worth reading*: a
+round timer's last rung may lose its precision (`2m` for `2:14`) but not the fact
+that a round is running; a scoreboard's last rung may lose the team names but not
+the score. If the last rung drops the number the player actually needs, you have
+moved a defect behind a tap — and no disclosure repairs that, because the player
+has to know there is something to ask for before they will ask. **The expand is
+for the rest**, never for the point.
+
+Finally, the census: `resolution.unshown` is the framework's own list of what the
+screen has stopped showing, in declaration order, with the route for each. Build
+your overflow surface from it and it cannot drift — and use `expandable` beside it
+to tell the two row types apart: a DROPPED region needs its content carried into
+the sink (there is no form left to disclose from), while a SIMPLIFIED one only
+needs a row that calls `presenter.expand(path)` and opens the plate the region
+already has.
+
 #### A HUD is a composition too
 
 A game HUD looks like the opposite problem — clusters pinned to the screen's

@@ -81,7 +81,21 @@ for the house style):
    contribution you attach in step 3 (below) — a composite attaches a
    contribution bundle to its root instead of asking consumers for `present()`
    opts.
-3. **The paradigm axis** (UI-PARADIGM-001/002; the affordance matrix,
+3. **Every form you offer must be worth reading.** A control that offers a
+   COMPACT representation — a `compactLabel`, a ViewThatFits ladder, or a form
+   list a `UI.Region` collapses through — is making a promise about each rung of
+   that ladder, and the framework cannot check it for you. The rule: **the
+   minimum form must carry the control's essential value.** A round timer's
+   smallest form may lose precision (`2m` for `2:14`) but not the fact that a
+   round is running; a scoreboard's may lose the team names but not the score.
+   Everything else — the detail, the history, the secondary figures — is what the
+   `expand` discloses (`docs/guide/01-concepts.md`, "Adapting without dead ends"),
+   and a disclosure cannot repair a missing headline: the player has to know there
+   is something to ask for before they will ask for it. A ladder whose last rung
+   drops the number the player needs has moved a defect behind a tap.
+   The painted half of this is mechanical (`text_audit`'s value sweep refuses a
+   truncated VALUE at any size); the authoring half is yours.
+4. **The paradigm axis** (UI-PARADIGM-001/002; the affordance matrix,
    `artifacts/input-paradigms/affordance-matrix.md`). Reachability (item 2) is
    not enough — a control can be reachable on every class and still feel wrong.
    Prove the STRUCTURAL IDIOM each live class expects, as a *distinct* set of
@@ -105,11 +119,11 @@ for the house style):
    it; set `affordanceProofs.hotSwitch = false` (and delete the stub case) if the
    control holds none. See `tests/paradigm_table.spec.luau` (drag/grab/edit) and
    `tests/paradigm_textinput.spec.luau` (edit) for the house patterns.
-4. **No factory reruns** for non-structural updates (compare
+5. **No factory reruns** for non-structural updates (compare
    `root.counters().factoryRuns` before/after a binding change).
-5. **Dump determinism**: `dump()` twice → identical; it reflects the state a
+6. **Dump determinism**: `dump()` twice → identical; it reflects the state a
    bug report needs.
-6. **Registry neutrality**: build/mount/interact/dispose returns
+7. **Registry neutrality**: build/mount/interact/dispose returns
    `core:counters()` to its baseline. Snapshot the baseline AFTER creating
    the long-lived harness singletons (environment, action system, presenter)
    — they intentionally allocate for the client's lifetime and have no

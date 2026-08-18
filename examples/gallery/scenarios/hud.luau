@@ -3109,10 +3109,19 @@ return {
 					end
 				end
 				local elided: { string } = {}
+				--[[ ...AND WHICH OF THEM CAN BE ASKED FOR THE REST WHERE THEY STAND
+					(wave REVEAL). A driver reading this can tell the two kinds of "showing
+					less" apart without a screenshot: an elided zone with an expand is a
+					disclosure away from its full self, and one without is either the
+					authored escape or a dead end the sweep would already have failed on. ]]
+				local expandable: { string } = {}
 				if dump ~= nil then
 					for _, r in dump.regions do
 						if r.elided then
 							table.insert(elided, r.id)
+						end
+						if r.expandable then
+							table.insert(expandable, r.id)
 						end
 					end
 				end
@@ -3133,6 +3142,8 @@ return {
 						`dropped` is the other half of the same fact. ]]
 					elided = elided,
 					unshown = if dump ~= nil then dump.unshown else nil,
+					-- the zones standing on a reduced form that carry their own route back
+					expandable = expandable,
 					overflowOpen = overflowOpen:get(),
 					-- ...and the OTHER whole point, in three: what the platform kept,
 					-- what it left free, and whether this HUD is using it. The rects
