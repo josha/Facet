@@ -39,7 +39,7 @@ local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local foreign_content = require("../src/render/foreign_content")
 local target_contract = require("../src/render/target_contract")
-local controlContract = require("../src/controls/contract")
+local controlContract = require("../src/class_contract")
 local fake_target = require("./lib/fake_target")
 
 local function fails(fn: () -> ()): string

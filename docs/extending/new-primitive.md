@@ -112,7 +112,7 @@ legitimate choice — say so in a comment, so the next reader knows it was chose
 
 ## 5. Register the control contract
 
-`src/controls/contract.luau` carries the rest of the declared contract: focus
+`src/class_contract.luau` carries the rest of the declared contract: focus
 role, semantic actions, effective hit floor, accessibility summary.
 
 ```lua

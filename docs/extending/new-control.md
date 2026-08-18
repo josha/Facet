@@ -119,6 +119,26 @@ for the house style):
 Run `./run-tests.sh` after writing them: they must fail for the RIGHT
 reason (missing behavior, not typos).
 
+**Your OWN spec is strict too, with the framework's own guard.** The rule below
+is about `UI.*` specs; it says nothing about the table a consumer hands
+`newGauge(core, spec)`, and until 0.10.0 there was no public route to enforce
+that half — which meant the strictness this playbook asks for stopped at the
+repository boundary (ARCH-8). Use `Facet.specGuard`, which is the same
+implementation the twenty-two in-repo controls use:
+
+```lua
+local SPEC_KEYS = Facet.specGuard.keySet({ "id", "value", "onChange" })
+
+function gauge.build(core, spec)
+    -- `where` is the PUBLIC name an author typed, so the error is greppable from
+    -- the call site; `kind` is "spec" or "opts"
+    Facet.specGuard.assertKnownKeys("newGauge", spec, SPEC_KEYS, "spec")
+```
+
+A misspelled key then gets the same sentence every Facet boundary produces: the
+key that was wrong, a "Did you mean" when one is close, and the whole legal set.
+See [api.md §`specGuard`](../reference/api.md#specguard).
+
 **Authoring is strict.** Every `UI.*` spec is validated against
 `src/blueprint_schema.luau` at construction: an unknown key, a wrongly typed
 value, a bare number where a dimension belongs, a Signal on a prop read once at

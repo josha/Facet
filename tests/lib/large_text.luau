@@ -47,7 +47,7 @@
 
 local Facet = require("../../src") :: any
 local snapshot = require("../../src/themes/snapshot")
-local controlContract = require("../../src/controls/contract")
+local controlContract = require("../../src/class_contract")
 local audit = require("../../src/layout/text_audit")
 local fixtures = require("../fixtures/a11y_l10n_fixtures")
 local fake_target = require("./fake_target")

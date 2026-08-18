@@ -14,7 +14,7 @@
 -- OWNERSHIP: `expanded` is the CALLER's Signal, so the disclosure state survives
 -- the control (a settings screen remembers which sections were open).
 
-local controlContract = require("./contract")
+local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")

@@ -48,7 +48,7 @@ require("./pointer_seam_ownership.spec")
 	engine property two binders each thought they owned ]]
 require("./platform_adapters_recovery.spec")
 --[[ MAINT-5: adding a blueprint PRIMITIVE touches four registries nothing used
-	to compare — the schema, controls/contract, CLASS_TO_INSTANCE and the create()
+	to compare — the schema, class_contract, CLASS_TO_INSTANCE and the create()
 	branch on both targets. `tools/lune/check_primitives` compares them, and the
 	mutation cases here are what say it can still see each kind of drift ]]
 require("./primitive_registration.spec")
@@ -639,6 +639,17 @@ require("./client_host.spec")
 	returned the same five names with positions three and four swapped, which
 	Luau binds without a word ]]
 require("./world_substrate.spec")
+--[[ the two `newX` factories that held session state and could not be put down:
+	`newActionSystem`'s contexts and their signals, `newResourceProvider`'s cache,
+	in-flight requests, give-up ledger and one signal triple per live key. Both
+	teardowns are asserted against the core's COUNTERS, which is the only
+	instrument that tells "disposed" from "the reference went out of scope" ]]
+require("./session_lifetime.spec")
+--[[ the three process-global stores and who owns them: the text-metric caches
+	are CONTENT-ADDRESSED so sharing them is a cache hit rather than a coupling,
+	and the motion registries are shared ON PURPOSE because a motion name is a
+	design-system decision and the registry is the only dial ]]
+require("./process_globals.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

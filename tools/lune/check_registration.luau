@@ -37,7 +37,7 @@
 
 local fs = require("@lune/fs")
 
-local contract = require("../../src/controls/contract")
+local contract = require("../../src/class_contract")
 
 local check_registration = {}
 
@@ -507,7 +507,7 @@ function check_registration.check(opts: Opts?)
 	for className in contract.all() do
 		if not leafRowNames[className] then
 			problem(
-				`contract control {className} (src/controls/contract.luau) has no leaf row in the registry — declare its inputProofs (or 'inputProofs = false' if non-interactive; silent omission is a failure, ui_todo §0)`
+				`contract control {className} (src/class_contract.luau) has no leaf row in the registry — declare its inputProofs (or 'inputProofs = false' if non-interactive; silent omission is a failure, ui_todo §0)`
 			)
 		end
 	end

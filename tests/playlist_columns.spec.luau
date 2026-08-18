@@ -616,7 +616,7 @@ end)
 
 --[[ THE 44px HIT FLOOR EXPANDS THE DIVIDER OVER ITS OWN HEADER BUTTON.
 
-	`src/controls/contract.luau` gives Grip `minHitSize = 44`, so the renderer asks
+	`src/class_contract.luau` gives Grip `minHitSize = 44`, so the renderer asks
 	the adapter for a 44x44 hit rect CENTRED on an 8x28 grip. On the live engine
 	that is a real `FacetHitExpander` TextButton parented beside the grip at
 	`grip.z - 1` — which is still ABOVE the header cell's own `Column` button, and a

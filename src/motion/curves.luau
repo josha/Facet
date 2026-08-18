@@ -34,10 +34,13 @@
 -- authority is testable (ADR-0022 Decision 1: engine-free, no globals). So the
 -- evaluator is INJECTED exactly the way `now` is, and this module carries a pure
 -- twin for the headless suite. The twin is not a second opinion: it is pinned to
--- the engine by a differential oracle over a dense generated corpus
--- (`tools/lune/oracle_easing.luau` + the Studio probe recorded in
--- `artifacts/time-based-easing/engine-oracle.md`), and any style whose twin
--- drifts is a red check, not a rounding difference someone lives with.
+-- the engine by a differential oracle over a dense generated corpus — a LIVE
+-- Studio session, recorded once in `artifacts/time-based-easing/engine-oracle.md`
+-- (11 styles x 3 directions x 1,001 alphas; max |twin - engine| 4.73e-7), which
+-- the suite then compares against at 50 sampled alphas. It is a RECORDED
+-- session and not a headless comparison, because Lune never calls TweenService.
+-- This comment used to cite `tools/lune/oracle_easing.luau`, a file that has
+-- never existed (dead-code interim finding); the artifact is the oracle.
 --
 -- A CURVE IS A NAME, never an inline spec — the same refusal `classes.luau`
 -- makes, for the same reason: a library gets forty slightly different feels one
@@ -46,6 +49,16 @@
 -- no defensible built-in duration: 400 ms is a decision about a specific
 -- surface, where `classes.luau`'s four shapes are decisions about physics that
 -- generalize. Registering a curve IS the act of choosing, once, with a name.
+
+-- WHO OWNS THE REGISTRY (ARCH-24, stated 0.10.0). It is module-level and
+-- therefore PROCESS-GLOBAL: every core and every surface in the VM shares one
+-- vocabulary. That is the DESIGN, not an oversight — a motion name is a design
+-- system decision and `registerCurve` is the only dial, so a tuning pass has one
+-- place to change and every surface follows. The consequence, written down so
+-- nobody has to discover it: two independent Facet consumers in one VM share
+-- these names, and whoever registers a name LAST wins it. `reset` is the
+-- teardown seam; `tests/process_globals.spec.luau` pins the sharing and the
+-- last-writer rule as behaviour rather than leaving them to be found.
 
 local num = require("../num")
 local textDistance = require("../text_distance")

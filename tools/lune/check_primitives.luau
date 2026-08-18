@@ -6,7 +6,7 @@
 	compared:
 
 	  1. `src/blueprint_schema.luau`      the class and its property declarations
-	  2. `src/controls/contract.luau`     its focus role, actions and hit floor
+	  2. `src/class_contract.luau`     its focus role, actions and hit floor
 	  3. `CLASS_TO_INSTANCE`              the engine instance the live adapter creates
 	     (`src/client/screen_target.luau`)
 	  4. the adapter's own `create()` branch, on BOTH targets
@@ -22,7 +22,7 @@
 
 	  * a STALE MAPPING — `CLASS_TO_INSTANCE` names a class the schema no longer
 	    declares, so an adapter keeps a branch for something that cannot exist;
-	  * a GHOST CONTRACT — `controls/contract.luau` declares a class the schema
+	  * a GHOST CONTRACT — `class_contract.luau` declares a class the schema
 	    does not, so a conformance row points at nothing;
 	  * an UNREGISTERED PRIMITIVE — the schema declares a class with no contract
 	    row, which is exactly how `Grip` (a focusable, pointer-handling control)
@@ -44,7 +44,7 @@
 local fs = require("@lune/fs")
 
 local Facet = require("../../src") :: any
-local controlContract = require("../../src/controls/contract")
+local controlContract = require("../../src/class_contract")
 local mountLib = require("../../src/mount")
 local environment = require("../../src/env/environment")
 local rendererLib = require("../../src/render/renderer")
@@ -176,7 +176,7 @@ function check_primitives.check(opts: Options?): { ok: boolean, problems: { stri
 	for class in contractClasses do
 		if not schemaClasses[class] then
 			problem(
-				`src/controls/contract.luau declares '{class}', which the blueprint schema does not — a conformance `
+				`src/class_contract.luau declares '{class}', which the blueprint schema does not — a conformance `
 					.. `row pointing at nothing reads as coverage`
 			)
 		end
@@ -189,7 +189,7 @@ function check_primitives.check(opts: Options?): { ok: boolean, problems: { stri
 		-- 3. every class is registered for conformance
 		if not contractClasses[class] then
 			problem(
-				`blueprint class '{class}' has no row in src/controls/contract.luau — an unregistered primitive is a `
+				`blueprint class '{class}' has no row in src/class_contract.luau — an unregistered primitive is a `
 					.. `primitive no four-input, paradigm or hit-floor rule can see (this is how Grip shipped unseen)`
 			)
 		end

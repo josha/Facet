@@ -31,7 +31,7 @@
 
 	Depends on: layout/solver (the Node type), themes/snapshot (metric and
 	typography resolution), themes/package (icon glyphs), tokens/chrome_slots,
-	controls/contract (the declared hit floors), blueprint_schema.
+	class_contract (the declared hit floors), blueprint_schema.
 ]]
 
 local solver = require("../layout/solver")
@@ -39,7 +39,7 @@ local text_metrics = require("../layout/text_metrics")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
-local controlContract = require("../controls/contract")
+local controlContract = require("../class_contract")
 local schema = require("../blueprint_schema")
 
 local layout_node = {}
@@ -171,7 +171,7 @@ local function isSingleWord(label: any): boolean
 end
 
 -- THE EFFECTIVE TARGET FLOOR for a class, or nil when it declares none. The
--- CONTRACT (src/controls/contract.luau) is the source of truth for WHETHER a
+-- CONTRACT (src/class_contract.luau) is the source of truth for WHETHER a
 -- class has a floor, so adding a focusable control gets it enforced; the THEME
 -- owns the VALUE, and floors clamp UP only (ADR-0019 §2 step 4) — a package may
 -- enlarge a touch target, never shrink one below what the control declared.

@@ -145,6 +145,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	local keyState: { [string]: { state: any, value: any, error: any, refs: number } } = {}
 
 	local provider = {}
+	local disposed = false
 
 	local function syncCounters()
 		counters.active = activeCount
@@ -270,6 +271,18 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- the spacing are the call site's).
 	function provider.acquire(scope: any, key: string, acquireOpts: { retry: RetryOpts? }?)
 		specGuard.assertKnownKeys("provider.acquire", acquireOpts, CALL_OPTS_KEYS, "opts")
+		--[[ A DISPOSED SESSION DOES NOT RESURRECT (see `provider.dispose`). The
+			handle is a real one so the caller's binding still reads a value rather
+			than nil-indexing, and it opens FAILED, which is the honest state: this
+			key will never fill, and that is what the placeholder should say. ]]
+		if disposed then
+			return {
+				state = core:signal("failed"),
+				value = core:signal(nil),
+				error = core:signal("resource provider disposed"),
+				release = function() end,
+			}
+		end
 		if acquireOpts ~= nil then
 			specGuard.assertKnownKeys("provider.acquire opts.retry", acquireOpts.retry, RETRY_OPTS_KEYS, "opts")
 		end
@@ -355,6 +368,9 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- storm is resource work too, and a phase that only names the happy path hides
 	-- exactly the case worth profiling.
 	function provider.complete(key: string, generation: number, value: any): string
+		if disposed then
+			return "stale" -- a fetch that lands after teardown, see `provider.dispose`
+		end
 		return profile.span("resource", function(): string
 			local request = requests[key]
 			if request == nil or request.generation ~= generation then
@@ -381,6 +397,9 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 
 	-- returns "retrying" | "failed" | "stale"
 	function provider.fail(key: string, generation: number, message: any): string
+		if disposed then
+			return "stale" -- see `provider.dispose`
+		end
 		return profile.span("resource", function(): string
 			local request = requests[key]
 			if request == nil or request.generation ~= generation then
@@ -442,7 +461,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- queue. Call it once per frame from the same loop that steps the motion clock;
 	-- a provider with no spaced retry has nothing to do here.
 	function provider.tick()
-		if #waiting == 0 then
+		if disposed or #waiting == 0 then
 			return
 		end
 		local t = now()
@@ -540,6 +559,53 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	function provider.counters()
 		syncCounters()
 		return table.clone(counters)
+	end
+
+	--[[ THE SESSION ENDS (ARCH-13; constitution §2 "who disposes it", §8).
+
+		This is a `newX` factory holding the most state of anything on the public
+		surface — an LRU cache, the in-flight request table, the queue, the spaced
+		retry list, the session's `gaveUp` ledger, and one core SIGNAL TRIPLE
+		(`state`, `value`, `error`) per live key — with no teardown seam and no
+		stated lifetime. A consumer that dropped its reference left every one of
+		those signals in the reactive graph for the life of the core.
+
+		WHAT IT DOES NOT DO IS CANCEL YOUR FETCHES. This module is the engine-free
+		MODEL: the actual work is somebody else's coroutine calling `complete` or
+		`fail` back into it, and it has no handle on that. What it does instead is
+		make the landing harmless — `complete` and `fail` answer `"stale"` after
+		disposal, which is the same word they already use for a superseded
+		generation, so a caller that checks the return needs no new branch. `tick`
+		and `acquire` are inert for the same reason: teardown is not a moment, it is
+		a window, and everything already in flight arrives inside it.
+
+		Idempotent. `releaseState` frees each key's triple exactly once through the
+		refcount it already keeps, so a key still held by a live scope is not
+		double-freed when that scope disposes afterwards. ]]
+	function provider.dispose()
+		if disposed then
+			return
+		end
+		disposed = true
+		-- the signal triples first, through the refcount that owns them: drop each
+		-- key to zero rather than clearing the table out from under it
+		for key, entry in keyState do
+			for _ = 1, entry.refs do
+				releaseState(key)
+			end
+		end
+		table.clear(keyState)
+		table.clear(requests)
+		table.clear(queue)
+		table.clear(waiting)
+		table.clear(gaveUp)
+		table.clear(cache)
+		table.clear(cacheOrder)
+		activeCount = 0
+		counters.handles = 0
+		counters.staleRejected = 0
+		counters.dropped = 0
+		syncCounters()
 	end
 
 	return provider

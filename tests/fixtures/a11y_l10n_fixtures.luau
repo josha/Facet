@@ -5,7 +5,7 @@
 --
 -- These fixtures feed tests/conformance/a11y_l10n_corpus.luau. They deliberately
 -- reuse the SHIPPING token schema (src/tokens/default_style) and the SHIPPING
--- control contracts (src/controls/contract) so the corpus asserts real product
+-- control contracts (src/class_contract) so the corpus asserts real product
 -- surfaces, not invented ones.
 --
 -- Where the HEADLESS text provider (src/layout/text_metrics) cannot represent a
@@ -15,7 +15,7 @@
 -- fixture and surfaced in the corpus artifact for the phase gate).
 
 local defaultStyle = require("../../src/tokens/default_style")
-local controlContract = require("../../src/controls/contract")
+local controlContract = require("../../src/class_contract")
 
 local fixtures = {}
 

@@ -484,6 +484,21 @@ local Facet = {
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
 
+	--[[ THE CLOSED-KEY-SET GUARD, so an out-of-repo control can be as strict as an
+		in-repo one (ARCH-8; constitution §4).
+
+		Twenty-two control modules in `src/` require this, and the extension
+		playbook (`docs/extending/new-control.md`) tells an author their control
+		must refuse an unknown spec key and name the legal set — while the only
+		implementation of that was library-internal and reachable by no public
+		route. A rule an author is asked to follow with nothing to follow it WITH
+		is a rule that gets skipped, and the strictness the framework promises then
+		stops at the repository boundary.
+
+		`assertKnownKeys(where, tbl, known, kind)` + `keySet(names)`. It requires
+		nothing, so it is safe from anywhere. ]]
+	specGuard = require("@self/spec_guard"),
+
 	-- row actions: pure swipe state verdicts (axis lock, rubber-band, settle)
 	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
 

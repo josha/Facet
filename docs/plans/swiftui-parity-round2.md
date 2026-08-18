@@ -823,7 +823,7 @@ cell may declare `gridSpan = n` to cover several columns.
 
 Mechanically: `GridRow` is a new blueprint **primitive** — a node class the
 solver understands natively, per the constitution's kind ladder — so it gets a
-schema class, a `controls/contract.luau` registry row (`focusRole = "none"`, a
+schema class, a `class_contract.luau` registry row (`focusRole = "none"`, a
 layout container, like `Grid`'s), and its own solver branch. Row mode is selected
 by the Grid's children, not by a mode prop: a Grid whose children are all
 `GridRow` is a row grid, a Grid with no `GridRow` child is today's flow grid, and

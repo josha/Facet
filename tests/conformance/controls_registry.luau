@@ -2,7 +2,7 @@
 -- Composite-control registry (design §17 Phase 4 agentic maintainability;
 -- UI-AGENT-001). ONE row per control class: every composite under src/controls/
 -- (the contract module excepted) AND every leaf primitive declared in
--- src/controls/contract.luau. tools/lune/check_registration fails the gate when
+-- src/class_contract.luau. tools/lune/check_registration fails the gate when
 -- a control file exists without a row here, when a row's spec / conformance /
 -- docs / dump surface is missing, or when an INTERACTIVE control's four-input
 -- story is not PROVEN (ui_todo §0: every control supports pointer + touch +
@@ -1396,7 +1396,7 @@ local registry: { Entry } = {
 	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
-	-- ===== leaf primitives (src/controls/contract.luau classes) =========
+	-- ===== leaf primitives (src/class_contract.luau classes) =========
 	-- INTERACTIVE leaves. Button/Toggle proofs live in tests/auto_input.spec.luau
 	-- (the presenter auto-wires their four-input story with zero consumer opts);
 	-- TextField's proofs live in the TextInput composite's spec, since TextField

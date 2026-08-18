@@ -125,7 +125,7 @@ function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
 	-- DIAMETER: `shape = "circle"` + ONE authored axis (`width` only —
 	-- `blueprint.luau`'s own `assertShape` rejects both) makes a true 1:1
 	-- disc at the theme's `editAffordance` metric; the framework's OWN
-	-- Button contract (`src/controls/contract.luau`: `Button.minHitSize =
+	-- Button contract (`src/class_contract.luau`: `Button.minHitSize =
 	-- 44`) already floors the ENGINE HIT RECT at `targetSizes.minimum`
 	-- regardless of the painted size (`renderer.luau`'s `effectiveHitFloor`
 	-- — B-BTN3, "the VISUAL rect is deliberately untouched... declaring a

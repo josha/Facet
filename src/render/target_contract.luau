@@ -141,7 +141,7 @@ target_contract.OPTIONAL = {
 	-- narrower than the seam: an adapter could pass with `#optionalAbsent == 0`
 	-- and still silently drop five channels. Each line names what degrades.
 	--
-	-- WITHOUT IT: no 44 px effective-target floor (src/controls/contract.luau) —
+	-- WITHOUT IT: no 44 px effective-target floor (src/class_contract.luau) —
 	-- a small control stays exactly as big as it paints, so touch accuracy is
 	-- whatever the visual happens to be. Layout is unaffected; only the hit area.
 	"setHitRect", -- (handle, rect | nil)

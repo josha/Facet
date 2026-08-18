@@ -17,7 +17,7 @@ local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local contribution = require("../src/input/contribution")
-local controlContract = require("../src/controls/contract")
+local controlContract = require("../src/class_contract")
 local registry = require("./conformance/controls_registry")
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
@@ -342,7 +342,7 @@ describe("M0-A6: every public constructor is visible to conformance", function()
 		end
 		for _, class in schema.classNames() do
 			if controlContract.forClass(class) == nil then
-				error(`UI.{class} has no control contract (src/controls/contract.luau)`)
+				error(`UI.{class} has no control contract (src/class_contract.luau)`)
 			end
 			if not rowNames[class] then
 				error(`UI.{class} has no conformance registry row`)

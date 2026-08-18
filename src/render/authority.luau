@@ -6,6 +6,23 @@
 -- Authorities: layout (rects), style (token paint), binding (data-driven),
 -- presentation (transient transform/opacity), host (a custom control's claims).
 --
+-- THIS FILE HAS ZERO REQUIRES, AND THAT IS WHY `themes/` MAY CONSULT IT
+-- (ARCH-19, answered 0.10.0). The review read `src/themes/package.luau`'s
+-- require of this module as a layering inversion — the pure theme compiler
+-- reaching into the render layer. It is not one, for the same reason
+-- `src/spec_guard.luau` and `src/class_contract.luau` are legal from anywhere: a
+-- module with no requires has no direction to get wrong, so depending on it
+-- couples a caller to nothing.
+--
+-- What matters is WHICH WAY the traffic goes, and it is one-way by construction.
+-- `themes/package` only ever READS this manifest, and only to REFUSE: a theme
+-- package that tries to author a property the renderer owns is rejected at
+-- compile time with the authority named (`package.luau`'s `lintProperty`). The
+-- alternative is a theme that silently loses to the renderer at run time on a
+-- device, which is the exact failure the Studio spike above proved the engine
+-- will not report. Nothing in `themes/` writes here, and nothing here knows
+-- `themes/` exists.
+--
 -- `host` WENT LIVE WITH `UI.Foreign` (ADR-0034, 2026-08-15) and owns exactly one
 -- entry: `Foreign.Parent`. It had been declared and unused since phase 3 —
 -- architecture verifier ARCH-F8 confirmed the string appeared once in the whole

@@ -60,7 +60,7 @@
 -- OWNERSHIP: `value` is the CALLER's settable Signal. The control never creates
 -- it, because a level outlives the row that shows it.
 
-local controlContract = require("./contract")
+local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 

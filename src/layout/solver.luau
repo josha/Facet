@@ -217,7 +217,7 @@ export type Node = {
 	-- is that width less the box — a number only the measure pass knows
 	reveal: string?,
 	-- the EFFECTIVE target floor this node's control class declares, in px
-	-- (renderer-set from controls/contract minHitSize clamped up by the theme's
+	-- (renderer-set from class_contract minHitSize clamped up by the theme's
 	-- targetSizes.minimum). Diagnostics only — the renderer still owns the hit
 	-- expansion — and it is what makes "which nodes are interactive" a fact of the
 	-- solve rather than something a pure audit has to guess from a rect.

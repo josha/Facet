@@ -19,6 +19,7 @@ export type ActionType = "Bool" | "Direction1D" | "Direction2D" | "ViewportPosit
 function actions.newSystem(core: any)
 	local system = {}
 	local contexts: { any } = {}
+	local disposed = false
 
 	local function newAction(context: any, name: string, actionType: ActionType)
 		local action = {
@@ -354,6 +355,9 @@ function actions.newSystem(core: any)
 	-- device input entry point (the arbitrated path): keyDown/keyUp resolve to
 	-- the highest-priority enabled context bound to that key; Sink consumes.
 	function system.deviceKey(keyCode: string, isDown: boolean)
+		if disposed then
+			return -- see `system.dispose`: inert, never a throw into the input thread
+		end
 		if MODIFIER_GROUP[keyCode] ~= nil then
 			modifierKeysDown[keyCode] = isDown
 		end
@@ -415,6 +419,9 @@ function actions.newSystem(core: any)
 	-- Sink arbitration as deviceKey (a higher-priority sink context consumes the
 	-- axis so lower screens never navigate while covered).
 	function system.deviceAxis(axisName: string, x: number, y: number)
+		if disposed then
+			return -- see `system.dispose`
+		end
 		local candidates = {}
 		for _, context in contexts do
 			if context.enabled and not context.destroyed then
@@ -443,6 +450,47 @@ function actions.newSystem(core: any)
 				consumedPriority = candidate.context.priority
 			end
 		end
+	end
+
+	--[[ HOW MANY CONTEXTS THIS SYSTEM IS HOLDING. The honest read behind the
+		lifetime contract below, and the one number a consumer can assert against:
+		a context destroyed by hand removes itself from this list, so a system with
+		a nonzero count at teardown is holding something nobody released. ]]
+	function system.contextCount(): number
+		return #contexts
+	end
+
+	--[[ THE SESSION ENDS (ARCH-12; constitution §2 "who disposes it", §8).
+
+		This is a `newX` factory holding real per-session state — every context it
+		created, every action on them, and one core SIGNAL per action — and it had
+		no teardown seam and no stated lifetime. A consumer standing a surface up
+		and tearing it down could drop its reference and the signals stayed in the
+		reactive graph for the life of the core, which is a leak no comment can
+		rule out and no reference-drop can fix.
+
+		`dispose` destroys every context it still holds, which is exactly what the
+		consumer would have had to do by hand, in a loop, over a list it does not
+		own. It is IDEMPOTENT, and it is safe to call after a context was destroyed
+		by hand: `context.destroy` removes itself from `contexts`, so this walks
+		only what is left.
+
+		A DISPOSED SYSTEM IS INERT, NOT BROKEN. `deviceKey` and `deviceAxis` return
+		immediately rather than throwing, because the engine's input stream does
+		not stop the instant a consumer calls this — a key event already in flight
+		lands afterwards, on the render thread, where a throw is not a diagnosis but
+		a crash in somebody else's frame. ]]
+	function system.dispose()
+		if disposed then
+			return
+		end
+		disposed = true
+		-- BACKWARDS, because `context.destroy` removes itself from this list
+		for i = #contexts, 1, -1 do
+			contexts[i].destroy()
+		end
+		table.clear(contexts)
+		table.clear(modifierKeysDown)
 	end
 
 	return system

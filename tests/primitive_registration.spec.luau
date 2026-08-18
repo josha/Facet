@@ -4,7 +4,7 @@
 
 	A primitive — a class the adapter materialises, not a composite built from
 	existing ones — touches four registries, and nothing compared them: the
-	schema, `controls/contract.luau`, `CLASS_TO_INSTANCE`, and the adapter's own
+	schema, `class_contract.luau`, `CLASS_TO_INSTANCE`, and the adapter's own
 	`create()` branch. `docs/extending/new-control.md` deferred the case to
 	`new-engine-feature.md`, which only covers the property/modifier path, so the
 	whole class of change had no playbook and no check. A class could be declared
@@ -62,7 +62,7 @@ describe("primitive registration (agentic maintainability, MAINT-5)", function()
 		expect(result.ok).toBe(false)
 		local named = false
 		for _, problem in result.problems do
-			if string.find(problem, "'Unregistered' has no row in src/controls/contract.luau", 1, true) ~= nil then
+			if string.find(problem, "'Unregistered' has no row in src/class_contract.luau", 1, true) ~= nil then
 				named = true
 				-- the message says WHY it matters, not just that it happened
 				expect(string.find(problem, "Grip", 1, true) ~= nil).toBe(true)

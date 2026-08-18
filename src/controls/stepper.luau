@@ -27,7 +27,7 @@
 -- Stepper never creates it — it reads and writes it through the shared model.
 
 local chrome_slots = require("../tokens/chrome_slots")
-local controlContract = require("./contract")
+local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local value_model = require("./value_model")

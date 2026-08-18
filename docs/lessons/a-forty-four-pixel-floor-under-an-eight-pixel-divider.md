@@ -3,7 +3,7 @@
 **Measured live in Studio, 2026-08-14** (Facet-Showcase, Play mode, the
 `table_columns` fixture (retired 2026-08-16 into the shipped playlist tutorial; the spec is now `tests/playlist_columns.spec.luau`), real engine).
 
-`src/controls/contract.luau:95-102` gives `Grip` `minHitSize = 44`. The table's
+`src/class_contract.luau:95-102` gives `Grip` `minHitSize = 44`. The table's
 resize divider (`table.luau`'s `gripFor`) is `width = { type = "fixed", px = "s" }`
 — **8px** under Studio Neutral, 4px under `classic_desktop` — and `height = fill`
 of a 28px header band. So the renderer asks the adapter for a **44×44 hit rect

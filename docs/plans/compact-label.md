@@ -68,7 +68,7 @@ does not fit, and it must not disturb either existing branch.
 
 | Need | What already exists |
 |---|---|
-| Choose a layout by measuring candidates | **`UI.ViewThatFits`** — "chooses among candidate layouts by MEASURING them against the space it received; losing candidates stay mounted but are hidden and excluded from focus order" (`src/controls/contract.luau`) |
+| Choose a layout by measuring candidates | **`UI.ViewThatFits`** — "chooses among candidate layouts by MEASURING them against the space it received; losing candidates stay mounted but are hidden and excluded from focus order" (`src/class_contract.luau`) |
 | A semantic icon a theme can repaint | `chrome_slots.attachHint(node, { slot, icon, iconSize })`. `syncIconArt` (`src/client/screen_chrome.luau`) reads `handle.decorationHint.icon`, resolves it with `themePackage.resolveIcon`, and parents theme art **over** the control's own character. `slot = chrome_slots.NO_SLOT` means "icon, but no decoration surface" |
 | The framework's own glyphs | `themePackage.iconGlyph(name)` / `package.ICON_FALLBACK_GLYPHS` — **plain ASCII by construction**, enforced by a test ("the fallback glyph table can never be tofu") |
 | An icon-or-short-text button content path | `UI.Button{ shape = "circle" }` already accepts "one semantic icon or up to three characters" — see `tests/button_shape.spec.luau`. **Read how it does this before designing anything** |

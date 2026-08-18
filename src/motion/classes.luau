@@ -29,6 +29,16 @@
 -- All four are tunable ±30 % without re-gating, and re-registering a built-in
 -- name is the sanctioned way to tune one: the registry is the only dial.
 
+-- WHO OWNS THE REGISTRY (ARCH-24, stated 0.10.0). It is module-level and
+-- therefore PROCESS-GLOBAL: every core and every surface in the VM shares one
+-- vocabulary. That is the DESIGN, not an oversight — a motion name is a design
+-- system decision and `registerClass` is the only dial, so a tuning pass has one
+-- place to change and every surface follows. The consequence, written down so
+-- nobody has to discover it: two independent Facet consumers in one VM share
+-- these names, and whoever registers a name LAST wins it. `reset` is the
+-- teardown seam; `tests/process_globals.spec.luau` pins the sharing and the
+-- last-writer rule as behaviour rather than leaving them to be found.
+
 local num = require("../num")
 local textDistance = require("../text_distance")
 

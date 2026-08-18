@@ -32,7 +32,7 @@
 --
 -- OWNERSHIP: `value` is the CALLER's settable Signal.
 
-local controlContract = require("./contract")
+local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local chrome_slots = require("../tokens/chrome_slots")
 -- the RUNG-2 prop normalizer. Required directly (not through the public

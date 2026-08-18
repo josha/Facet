@@ -155,7 +155,7 @@
 -- unbadged picker mounts no wrapper and no badge node, so every path that
 -- shipped before D5 is byte-identical.
 
-local controlContract = require("./contract")
+local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")

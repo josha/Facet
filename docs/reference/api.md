@@ -1284,7 +1284,7 @@ explicit `opts.onActivate` on `present()` overrides it.
 #### Hit-target floor
 
 `Button`, `Toggle`, `TextField` and `Grip` declare a 44 px minimum effective target
-(`src/controls/contract.luau`). The renderer now **enforces** it: after each solve,
+(`src/class_contract.luau`). The renderer now **enforces** it: after each solve,
 any such control whose solved rect is below the floor on either axis gets an
 expanded **hit rect**, centred on its visual, pushed to the adapter through
 `setHitRect`. The engine adapter realises that as a transparent expander behind the
@@ -2150,6 +2150,35 @@ queued-unstarted work — it does NOT stop an in-flight engine fetch (Roblox
 exposes no cancellation; measured 2026-07-23). The Roblox transport is
 `src/client/roblox_resources.luau` (`bind(provider) -> unbind`), which fulfils
 requests via `ContentProvider:PreloadAsync` per-asset statuses.
+
+### `specGuard`
+
+`Facet.specGuard` — the closed-key-set guard the framework's own controls use
+(`src/spec_guard.luau`), exported so an out-of-repo control can meet the
+[constitution](constitution.md) §4 strictness rule with the same implementation
+rather than its own. It requires nothing, so it is safe from any layer.
+
+- `specGuard.keySet(names: { string }) -> KeySet` — a frozen `{ [name]: true }`
+  set from an array. Build it once at module scope; the sorted list an error
+  prints is derived from it.
+- `specGuard.assertKnownKeys(where: string, tbl: any, known: KeySet, kind: string)`
+  — throws on the first key not in `known`. `where` is the PUBLIC name of your
+  boundary as the author typed it (`"newGauge"`, not an internal module path), so
+  the error is greppable from the call site; `kind` is `"spec"` or `"opts"`, so
+  the sentence reads the way your API does. A close miss gets a "Did you mean"
+  (distance ≤ 2, case-sensitive) and the error always names the whole legal set —
+  a closed set is only useful if the error tells you what it is.
+
+```lua
+local SPEC_KEYS = Facet.specGuard.keySet({ "id", "value", "onChange" })
+
+function gauge.build(core, spec)
+    Facet.specGuard.assertKnownKeys("newGauge", spec, SPEC_KEYS, "spec")
+    -- ...
+end
+```
+
+`docs/extending/new-control.md` walks the rest of the playbook.
 
 ### `pathShapes`
 
@@ -3597,6 +3626,26 @@ for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
 
+**Lifecycle.** The system is a **session object**: it holds every context it
+created, every action on them, and one core signal per action. It lives as long
+as the surface it serves, and it is put down explicitly.
+
+- `system.contextCount() -> number` — how many contexts it is still holding.
+  A destroyed context removes itself, so a nonzero count at teardown means
+  something is still held.
+- `system.dispose()` — destroys every context it still holds, releasing their
+  signals. **Idempotent**, and safe after you destroyed some contexts by hand.
+  A disposed system is **inert, not broken**: `deviceKey` and `deviceAxis` return
+  immediately rather than throwing, because the engine's input stream does not
+  stop the instant you call this and an event already in flight lands afterwards
+  on the render thread, where a throw is a crash in somebody else's frame.
+
+If you built the system through `client.host`, the host does not dispose it for
+you today — it disposes what it CONNECTED (the frame) and what it BOUND (the
+environment). Call `system.dispose()` alongside `host.dispose()` when the surface
+is genuinely finished; a client that runs one system for the session's lifetime
+never needs to.
+
 **`action.bind{ ..., modifiers = { shift: boolean? } }` (Task 8b, additive).**
 A keyCode binding may declare a held-modifier requirement; only `shift` is
 wired (`ctrl`/`alt` are not accepted — `system.modifiers()` only tracks
@@ -4942,11 +4991,26 @@ keeps its old promise until removal.
   — live counts for leak and behaviour assertions: outstanding handles, requests
   in the active window, requests waiting for a slot, cached keys, completions
   rejected as stale, and requests dropped before they started.
-- The provider itself has **no `dispose()`**: its cache and per-key state live as
-  long as it does. Handles are scope-owned, and releasing the last handle for a
-  key disposes that key's shared `state`/`value`/`error` Readables — so a
-  blueprint prop that captured `handle.state` outlives the signal behind it and
-  will read its last value forever. Bind the handle, not a copy of its field.
+- Handles are scope-owned, and releasing the last handle for a key disposes that
+  key's shared `state`/`value`/`error` Readables — so a blueprint prop that
+  captured `handle.state` outlives the signal behind it and will read its last
+  value forever. Bind the handle, not a copy of its field.
+
+**Lifecycle.** The provider is a **session object**, and it holds the most state
+of anything on this surface: an LRU cache, the in-flight request table, the
+queue, the spaced-retry list, the session's give-up ledger, and one signal
+triple per live key.
+
+- `provider.dispose()` — drops all of it. **Idempotent.** After it, `acquire`
+  returns a real handle that opens `"failed"` (the honest state: this key will
+  never fill, and a nil would nil-index the caller's binding), while `tick`,
+  `complete` and `fail` are inert — `complete`/`fail` answer `"stale"`, the same
+  word they already use for a superseded generation, so a caller that checks the
+  return needs no new branch.
+- **It does not cancel your fetches**, and cannot: this module is the engine-free
+  model, and the actual work is your coroutine calling `complete`/`fail` back
+  into it. What `dispose` guarantees is that the landing is harmless. Teardown is
+  a window, not a moment, and everything already in flight arrives inside it.
 
 ---
 

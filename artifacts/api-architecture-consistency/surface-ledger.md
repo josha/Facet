@@ -72,6 +72,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newAsyncImage` | composite | E-8 (caller-scope; no dump/dispose) | DOC (honest entry kept), registry `dump=false` reason (ENF-1) | controls |
 | `newRowActions` | composite | control-build, `(LuauUI, core, spec)`; underscore-prefixed internal seam (`_open` `_close` `_isOpen` `_settleTo` `_closeMenu` `_menuHandle` `_pointerHandlers` `_commitFirst` `_handleActivate`) for Table's `rowActions` composition | NOTE (row-actions merge, postdates the Step 7 F-n audit round) | controls |
 | `pathShapes` · `pathShapes.arc` · `pathShapes.ring` · `pathShapes.needle` · `pathShapes.MAX_CONTROL_POINTS` | pure decision module | stateless dot module | NOTE (ring comment count) | controls |
+| `specGuard` · `specGuard.keySet` · `specGuard.assertKnownKeys` | pure decision module | stateless dot module | none (exported 0.10.0, ARCH-8: the strictness rule the extension playbook teaches had no public route) | root |
 
 ## Runtime services
 

@@ -19,6 +19,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local customCore = require("../src/core/custom")
+-- the PUBLIC table, for the facade cases at the end of this file: what is under
+-- test there is `Facet.motion`, which is what a consumer holds
+local Facet = require("../src") :: any
 local clockLib = require("../src/motion/clock")
 local blueprint = require("../src/blueprint")
 
@@ -707,5 +710,94 @@ describe("motion clock: lifetime", function()
 		end
 		expect(core:counters()).toEqual(baseline)
 		expect(core:lastError()).toBe(nil)
+	end)
+end)
+
+--[[ THE FOUR "DEAD" MOTION FACADE ENTRIES (RC dead-code interim; wave R5).
+
+	`motion.resolveClass`, `motion.isRegisteredClass`, `motion.resetClasses` and
+	`motion.resolveCurve` were reported as dead public surface — exported, never
+	called, never tested. Two of those three adjectives were wrong, and the third
+	is what these cases fix.
+
+	THEY ARE NOT UNCALLED. The audit scanned this repository. `isRegisteredClass`
+	has a SHIPPED consumer — `games/RascalRally/code/src/client/FacetSponsor/init.luau:413`
+	guards its one-per-presenter class registration with it — plus four Rascal
+	Rally contract specs; `resolveClass` is read by that game's motion contract
+	spec, which is the test that exists precisely to notice when this surface
+	moves. Deprecating either would have told the one live consumer to stop using
+	the thing it correctly uses.
+
+	`resetClasses` and `resolveCurve` genuinely have no caller in either
+	repository, and they are still kept and not deprecated, for two reasons. They
+	are the exact twins of `resetCurves` and `resolveClass`, both of which ARE
+	called — half a symmetric registry API is a worse surface than all of it. And
+	ADR-0011's ledger requires a non-empty `replacement` (tests/api_surface.spec
+	§"deprecations are a machine-readable ledger"): there is no successor to name,
+	so declaring them would mean inventing one, which is a promise to a reader
+	that resolves to nothing.
+
+	What was true is that nothing in THIS suite touched them. That is what the
+	four cases below are: the facade, exercised through `Facet.motion` — the same
+	table a consumer holds — rather than through the modules behind it.
+]]
+describe("motion facade: the four entries the audit called dead", function()
+	it("resolveClass returns the registered class, and refuses an unknown name by suggestion", function()
+		Facet.motion.registerClass("r5Facade", { dampingRatio = 1, response = 0.3 })
+		local class = Facet.motion.resolveClass("r5Facade")
+		expect(class.dampingRatio).toBe(1)
+		expect(class.response).toBe(0.3)
+		-- the refusal is the other half of the value: a misspelling names the
+		-- intended class rather than silently falling back to a feel nobody chose
+		local ok, err = pcall(function()
+			Facet.motion.resolveClass("r5Facde")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Did you mean 'r5Facade'%?") ~= nil).toBe(true)
+	end)
+
+	it("isRegisteredClass answers without throwing — which is why RascalRally guards with it", function()
+		--[[ THE SHIPPED SHAPE, verbatim from FacetSponsor/init.luau:413: a surface
+			registers its own class once per presenter and must not re-register, and
+			`resolveClass` would THROW for the ask. This is the whole reason the
+			predicate exists beside the resolver. ]]
+		expect(Facet.motion.isRegisteredClass("r5Facade")).toBe(true)
+		expect(Facet.motion.isRegisteredClass("nothingByThatName")).toBe(false)
+		local seen = false
+		if Facet.motion.isRegisteredClass("r5Facade2") ~= true then
+			Facet.motion.registerClass("r5Facade2", { dampingRatio = 1, response = 0.3 })
+			seen = true
+		end
+		expect(seen).toBe(true)
+		expect(Facet.motion.isRegisteredClass("r5Facade2")).toBe(true)
+	end)
+
+	it("resetClasses drops what was registered and restores the four built-ins", function()
+		expect(Facet.motion.isRegisteredClass("r5Facade")).toBe(true)
+		Facet.motion.resetClasses()
+		expect(Facet.motion.isRegisteredClass("r5Facade")).toBe(false)
+		expect(Facet.motion.isRegisteredClass("r5Facade2")).toBe(false)
+		--[[ RESTORES, unlike `resetCurves`: the class registry ships with four
+			built-in shapes and the curve registry ships EMPTY, so their resets are
+			not the same operation and the asymmetry is deliberate. ]]
+		local names = table.concat(Facet.motion.classNames(), ",")
+		expect(#Facet.motion.classNames() >= 4).toBe(true)
+		expect(string.find(names, "object", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("resolveCurve returns a registered curve and refuses an unknown one", function()
+		Facet.motion.resetCurves()
+		Facet.motion.registerCurve("r5Banner", { duration = 0.4, style = "quad", direction = "out" })
+		local curve = Facet.motion.resolveCurve("r5Banner")
+		expect(curve.duration).toBe(0.4)
+		expect(curve.style).toBe("quad")
+		local ok, err = pcall(function()
+			Facet.motion.resolveCurve("neverRegistered")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown motion curve", 1, true) ~= nil).toBe(true)
+		-- the registry ships EMPTY; leave it that way for every later spec
+		Facet.motion.resetCurves()
+		expect(#Facet.motion.curveNames()).toBe(0)
 	end)
 end)

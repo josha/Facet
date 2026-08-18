@@ -6,6 +6,22 @@
 -- under-reserves. The engine premeasurement queue (TextService) lives behind
 -- the same interface in the Roblox platform adapter, NOT here.
 --
+-- WHO OWNS THE TWO MUTABLE STORES (ARCH-23, stated 0.10.0). `calibration` and
+-- `exactWidths` are module-level and therefore PROCESS-GLOBAL: every core and
+-- every surface in the VM shares them. That is deliberate, and it is not a
+-- coupling, because both are CONTENT-ADDRESSED — the key is
+-- `(canonical font, size, word)` and the value is what the engine answers for
+-- exactly that triple. Nothing about which core asked can change it, so two
+-- cores measuring the same word in the same font MUST get the same number or
+-- one of them is wrong. Sharing is what makes the second surface free, and
+-- scoping per core would double the engine round trips that
+-- `docs/lessons/roblox-text-bounds-boot-window.md` exists because of.
+--
+-- The seams are `resetCalibration()` and `resetMeasured()`, and safety is
+-- enforced HERE rather than trusted from the caller (the clamp below), so the
+-- worst a second consumer can do to a first is hand in a number that gets
+-- clamped. `tests/process_globals.spec.luau` pins all of that.
+--
 -- FONT KEYS (ADR-0019 §6): every store here keys on the canonical descriptor
 -- "family#weight#style". The three short names the library shipped with remain
 -- aliases for their Regular/Normal descriptor, so `calibrate("BuilderSans", …)`

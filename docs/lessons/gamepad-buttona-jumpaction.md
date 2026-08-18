@@ -13,7 +13,15 @@ bind `jumpAction` to `Enum.KeyCode.ButtonA` at priority 2000 UNCONDITIONALLY
 invisibly and consumes the button. Fix for UI-only places: disable the
 control module (`require(PlayerScripts.PlayerModule):GetControls():Disable()`;
 fallback `CAS:UnbindAction("jumpAction")`) — the gallery bootstrap does this.
-Games: run the IAS player-script stack (`StarterPlayer.
-PlayerScriptsUseInputActionSystem` — Properties-panel-only; not reachable
-from Luau reflection or rojo's database) or accept A-contention. Related:
+Games: run the IAS player-script stack or accept A-contention. That flag is
+`Workspace.PlayerScriptsUseInputActionSystem = "Enabled"` — **on Workspace, not
+StarterPlayer**, and it IS declarable from rojo
+(`"Workspace": { "$properties": { "PlayerScriptsUseInputActionSystem": "Enabled" } }`),
+which is what `docs/guide/07-input.md` tells every consumer to do. This note
+carried the earlier session's two errors — the wrong class, and
+"Properties-panel-only; not reachable from Luau reflection or rojo's database" —
+after both were corrected in
+`docs/research/2026-07-21-first-responder-platform-research.md` (platform
+verifier P2). It is still not settable at RUNTIME from Luau; a game declares it
+in its project, and Facet detects the mode rather than setting it. Related:
 `GuiService.CoreGuiNavigationEnabled` re-enables itself when scripted off.
