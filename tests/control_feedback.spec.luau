@@ -39,6 +39,7 @@ local mountLib = require("../src/mount")
 local feedbackLib = require("../src/present/feedback")
 local hapticsLib = require("../src/client/haptics")
 local sensoryProfile = require("../src/client/sensory_profile")
+local controlContract = require("../src/controls/contract")
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
@@ -766,10 +767,10 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			it, at every seam that can change one of the three facts. Each assertion
 			names the seam, so a mirror deleted from one of them reddens on its own. ]]
 		local body = fs.readFile("src/client/screen_target.luau")
-		local function calls(after: string): number
+		local function calls(after: string, span: number?): number
 			local at = string.find(body, after, 1, true)
 			expect(`{after} exists:{at ~= nil}`).toBe(`{after} exists:true`)
-			local segment = string.sub(body, at :: number, (at :: number) + 1400)
+			local segment = string.sub(body, at :: number, (at :: number) + (span or 1400))
 			local n = 0
 			for _ in string.gmatch(segment, "mirrorToHitExpander%(handle%)") do
 				n += 1
@@ -794,7 +795,64 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			"verb seam:true"
 		)
 		expect(`birth seam:{calls("handle.hitExpander = expander") > 0}`).toBe("birth seam:true")
-		expect(`enabled seam:{calls('elseif instance:IsA("TextButton") then') > 0}`).toBe("enabled seam:true")
+		-- ANCHORED ON THE BRANCH, not on a class arm inside it (fix-2): the call sits
+		-- outside the class chain now, so anchoring here on `IsA("TextButton")` would
+		-- be a window that happens to reach it rather than a claim about the seam
+		-- (a wider span than the other two: this branch carries the whole
+		-- per-instance-class chain before the mirror it must reach)
+		expect(`enabled seam:{calls('elseif prop == "enabled" then', 2400) > 0}`).toBe("enabled seam:true")
+	end)
+
+	it("the enabled seam mirrors for EVERY host class that can carry an expander", function()
+		--[[ THE RESIDUAL OF F1 (fix-1 re-review). The first fix put the enabled-seam
+			mirror inside `elseif instance:IsA("TextButton") then`, which is where the
+			`enabled` branch happens to write `Active`. But the EXPANDER is not
+			TextButton-shaped: `setHitRect` builds one for whatever host asked for a
+			hit rect, and four control classes declare `minHitSize` — Button and
+			Toggle realize as `TextButton`, TextField as a `TextBox`, and Grip as
+			neither. So a TextField disabled after decorate kept whatever
+			`Interactable` its expander was born with: the same "a disabled control's
+			tap band still advertises a press" defect F1 named, surviving for one of
+			the four eligible classes.
+
+			THE CONDITION IS DERIVED, NOT LISTED. `mirrorToHitExpander` already guards
+			on `handle.hitExpander == nil` — that guard IS the predicate that decides
+			whether an expander exists, and it is the same one `setHitRect` writes. So
+			the call belongs at the branch's own level with no class test in front of
+			it; a parallel list (`IsA("TextBox") or IsA("TextButton")`) would be a
+			second copy of a fact that already has one, and would still have missed
+			Grip. The assertion is INDENTATION, because in this file indentation is
+			exactly the difference between "gated on a class" and "not". ]]
+		local body = fs.readFile("src/client/screen_target.luau")
+		local at = string.find(body, 'elseif prop == "enabled" then', 1, true)
+		expect(`enabled branch exists:{at ~= nil}`).toBe("enabled branch exists:true")
+		local nextBranch = string.find(body, "\n\t\telseif prop == ", (at :: number) + 10, true)
+		local block = string.sub(body, at :: number, nextBranch :: number)
+		-- exactly ONE call, and it is at the BRANCH's level (three tabs) rather than
+		-- inside a class arm (four)
+		local total, gated = 0, 0
+		for _ in string.gmatch(block, "mirrorToHitExpander%(handle%)") do
+			total += 1
+		end
+		for _ in string.gmatch(block, "\n\t\t\t\tmirrorToHitExpander%(handle%)") do
+			gated += 1
+		end
+		expect(`calls={total} class-gated={gated}`).toBe("calls=1 class-gated=0")
+		expect(`at branch level:{string.find(block, "\n\t\t\tmirrorToHitExpander(handle)", 1, true) ~= nil}`).toBe(
+			"at branch level:true"
+		)
+		-- ...and the population really is more than one instance class: the classes
+		-- that declare a hit floor are read from the CONTRACT, not from a list here
+		local floors: { string } = {}
+		for class, spec in controlContract.all() do
+			if (spec :: any).minHitSize ~= nil then
+				table.insert(floors, class)
+			end
+		end
+		table.sort(floors)
+		expect(floors).toEqual({ "Button", "Grip", "TextField", "Toggle" })
+		-- TextField is the one the TextButton-scoped mirror could never reach
+		expect(string.find(body, 'TextField = "TextBox"', 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a sub-floor control really produces the population F1 is about", function()

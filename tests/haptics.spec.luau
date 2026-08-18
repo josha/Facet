@@ -1324,6 +1324,42 @@ describe("haptics: a hit expander feels EXACTLY like the control it belongs to",
 		expect(adapter.diagnostics().decorated).toBe(0)
 	end)
 
+	it("a TEXT FIELD's band obeys its host too, and its host is not a button at all", function()
+		--[[ THE FIX-1 RESIDUAL, from the other side of the boundary. `TextField`
+			declares the same 44px hit floor as `Button` and `Toggle`, but it realizes
+			as a `TextBox` — so the HOST is not a GuiButton and is never decorated,
+			while its expander is `Instance.new("TextButton")` and very much is. The
+			enabled seam's mirror used to be gated on the host being a TextButton, so
+			this control's band kept whatever it was born with when the field was
+			disabled.
+
+			Here the adapter is handed the two instances a mirrored TextField
+			produces, and asked for the only thing it can be asked for: that it reads
+			the band's facts and nothing else. ]]
+		local adapter = rig({ enabled = true })
+		-- the host: a TextBox, which `isGuiButton` refuses, so it is never decorated
+		local field: any = { Name = "Name", Interactable = true, PressHapticEffect = nil }
+		function field:IsA(className: string): boolean
+			return className == "TextBox"
+		end
+		function field:GetAttribute(): any
+			return nil
+		end
+		local band = fakeButton("FacetHitExpander")
+		band.Interactable = field.Interactable
+		local root = fakeRoot({ field, band })
+		adapter.attachButtons(root)
+		expect(`host decorated:{field.PressHapticEffect ~= nil}`).toBe("host decorated:false")
+		expect(`band decorated:{band.PressHapticEffect ~= nil}`).toBe("band decorated:true")
+		-- ...and the field is disabled: the seam mirrors, and the band goes quiet
+		field.Interactable = false
+		band.Interactable = field.Interactable
+		adapter.setEnabled(false)
+		adapter.setEnabled(true)
+		expect(`band after disable:{tostring(band.PressHapticEffect)}`).toBe("band after disable:nil")
+		expect(adapter.diagnostics().decorated).toBe(0)
+	end)
+
 	it("an UNMIRRORED expander is the defect, and this is what it looked like", function()
 		--[[ THE NEGATIVE CONTROL. Without the mirror the expander reads as
 			undeclared and gets the press phase, which is precisely the reported bug:

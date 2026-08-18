@@ -3510,12 +3510,24 @@ function screen_target.new(opts: Opts?)
 					assertBespokePaint("TextTransparency")
 					instance.TextTransparency = if value == true then 0 else style.extra.disabledContentOpacity
 				end
-				-- the band goes with the face (review F1): a disabled control whose
-				-- 44px expander still advertises a press is a promise it does not
-				-- keep, and the expander is a sibling so nothing about `enabled`
-				-- reaches it by parentage
-				mirrorToHitExpander(handle)
 			end
+			--[[ THE BAND GOES WITH THE FACE (review F1, and its fix-1 residual): a
+				disabled control whose 44px expander still advertises a press is a
+				promise it does not keep, and the expander is a SIBLING so nothing
+				about `enabled` reaches it by parentage.
+
+				OUTSIDE THE CLASS CHAIN, deliberately. The chain above is about which
+				engine PROPERTY says "disabled" for each instance class; the expander
+				is a different question entirely — `setHitRect` builds one for whatever
+				host asked for a hit rect, and four control classes declare a hit floor
+				(Button and Toggle are TextButtons, TextField is a TextBox, Grip is
+				neither). Gating this on `TextButton` left a disabled TextField's band
+				carrying whatever it was born with. `mirrorToHitExpander` already
+				guards on "does this handle have an expander", which is the same
+				predicate `setHitRect` writes — so the condition is derived from that
+				one guard rather than restated here as a class list that would drift
+				the moment a fifth class declares a floor. ]]
+			mirrorToHitExpander(handle)
 		elseif prop == "active" then
 			if instance:IsA("GuiObject") then
 				instance.Active = value == true
