@@ -204,6 +204,34 @@ function contract.enabledIn(use: (any) -> any, enabled: any): boolean
 	return enabled ~= false
 end
 
+--[[ DOES THIS CLASS CONTRIBUTE A FOCUS STOP OR A SEMANTIC ACTION? (wave REVEAL).
+
+	The `expand` affordance has to answer one question about a compact form — "do
+	the player's existing gestures on it already mean something?" — because the
+	answer decides which gesture opens the expansion. A form that means nothing can
+	BE the target; a form that means something keeps its meanings and takes a
+	chevron beside it.
+
+	IT IS READ OFF THE REGISTRY ABOVE RATHER THAN OFF A LIST OF CLASS NAMES, and
+	that is the whole point: the day a new primitive declares a focus role or an
+	action, the expand mechanism learns it in the same commit that declares it,
+	instead of in the commit after the bug. `ScrollView` is the case a name list
+	always missed — no focus stop, one action (`Scroll`), and overloading a
+	scrollable compact form with a tap-to-expand is exactly the collision the
+	chevron exists to avoid.
+
+	THE PROP OPT-OUTS ARE NOT CONSULTED HERE, deliberately. `focusable = false` on a
+	Button removes a focus STOP and leaves an activation surface standing; `enabled
+	= false` is a state, not a shape. Both still mean "the player's tap on this
+	thing already has an owner", which is the question being asked. ]]
+function contract.isInteractive(class: string): boolean
+	local c = CONTROLS[class]
+	if c == nil then
+		return false
+	end
+	return c.focusRole == "focusable" or #c.actions > 0
+end
+
 function contract.forClass(class: string): ControlContract?
 	return CONTROLS[class]
 end

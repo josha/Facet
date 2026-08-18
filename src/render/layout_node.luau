@@ -392,6 +392,12 @@ local function toLayoutNode(
 		-- geometry: the hit expansion stays where it was, and this is the fact a
 		-- pure audit needs to tell an interactive rect from a decorative one.
 		hitFloor = effectiveHitFloor(class, metrics),
+		-- wave REVEAL: "this button is a region's expand affordance, and this is how
+		-- it is placed". Declared by `UI.Region` and by nothing else; the solver's
+		-- region branch is the only reader. It is carried rather than inferred
+		-- because a region's FORMS can splice themselves out from under an index
+		-- (`UI.When`), so counting children could name the wrong node.
+		expandTarget = props.expandTarget,
 	}
 	if class == "Composition" then
 		-- Every theme-owned number is resolved HERE, on every solve, so a package
@@ -432,6 +438,11 @@ local function toLayoutNode(
 			-- that it was elided — the two are one answer and a consumer that has to
 			-- join them by hand is the seam this exists to remove.
 			recover = props.recover,
+			-- wave REVEAL: the record `UI.Region` resolved at construction — the mode,
+			-- the DECLARED form count (which `#children` no longer is, since the expand
+			-- affordance rides in the same list), one interactivity boolean per form
+			-- and the affordance's role. The solver reads all four.
+			expand = props.expand,
 		}
 	end
 	if class == "Text" then

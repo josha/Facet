@@ -289,13 +289,23 @@ local function regionErr(spec: any): string
 	return tostring(err)
 end
 
-describe("D7.2 — a `self` route whose reduced form cannot be activated is an authoring error", function()
-	it("refuses a LAST form with nothing focusable in it", function()
+--[[ WAVE REVEAL MOVED THE POLARITY OF THIS RULE, and the two describes below are
+	the same set of declarations read the other way round. D7.2 made a focusable in
+	every reduced form MANDATORY under `recover = "self"`, because "the reduced form
+	IS the route" was a promise only the author could keep. The framework now keeps
+	it: `UI.Region` synthesizes one expand affordance for a collapsing region, it is
+	a Button, and it stands exactly while a reduced form stands. So the refusal is
+	now scoped to the ONE declaration that leaves nobody supplying a route —
+	`expand = "none"` — and the same trees that used to be refused are accepted, by
+	the framework doing the work instead. ]]
+describe("D7.2 — a `self` route with no route left in it is still an authoring error", function()
+	it('refuses a LAST form with nothing focusable in it — under expand = "none"', function()
 		local err = regionErr({
 			id = "Tasks",
 			group = "body",
 			rank = 8,
 			recover = "self",
+			expand = "none",
 			children = {
 				UI.VStack({ id = "Full", children = { UI.Text({ id = "T1", text = "everything" }) } }),
 				UI.HStack({ id = "Chip", children = { UI.Text({ id = "T2", text = "Tasks 1/3" }) } }),
@@ -311,6 +321,7 @@ describe("D7.2 — a `self` route whose reduced form cannot be activated is an a
 			group = "body",
 			rank = 8,
 			recover = "self",
+			expand = "none",
 			children = {
 				UI.VStack({ id = "Full", children = { UI.Text({ id = "T1", text = "everything" }) } }),
 				UI.VStack({ id = "One", children = { UI.Text({ id = "T2", text = "one task" }) } }),
@@ -320,12 +331,29 @@ describe("D7.2 — a `self` route whose reduced form cannot be activated is an a
 		expect(string.find(err, "form 2 of 3", 1, true) ~= nil).toBe(true)
 	end)
 
+	it("...and accepts every one of them once the framework is supplying the route", function()
+		-- the SAME declaration as the two above, with the default expand: what used
+		-- to be an authoring error is now a region with an affordance in it
+		local ok = pcall(UI.Region, {
+			id = "Tasks",
+			group = "body",
+			rank = 8,
+			recover = "self",
+			children = {
+				UI.VStack({ id = "Full", children = { UI.Text({ id = "T1", text = "everything" }) } }),
+				UI.HStack({ id = "Chip", children = { UI.Text({ id = "T2", text = "Tasks 1/3" }) } }),
+			},
+		})
+		expect(ok).toBe(true)
+	end)
+
 	it("accepts a form whose focusable is NESTED — the walk is the whole subtree", function()
 		local ok = pcall(UI.Region, {
 			id = "Tasks",
 			group = "body",
 			rank = 8,
 			recover = "self",
+			expand = "none",
 			children = {
 				UI.VStack({ id = "Full", children = { UI.Text({ id = "T1", text = "everything" }) } }),
 				UI.VStack({

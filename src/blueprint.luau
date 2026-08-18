@@ -22,6 +22,13 @@ local dragContract = require("./input/drag_contract")
 -- composition declaration may say, read here for construction and by the solver
 -- on every solve, so the two can never disagree about what is legal
 local compositionLib = require("./layout/composition")
+-- WAVE REVEAL: the two leaves `UI.Region` needs to synthesize an expand — the
+-- registry that says which classes carry a meaning already (so the affordance
+-- never overloads one) and the engine that owns the plate's lifetime. Both
+-- require nothing, which is what lets a constructor reach them
+local classContract = require("./class_contract")
+local regionExpand = require("./region_expand")
+local contributionLib = require("./input/contribution")
 -- the semantic feedback vocabulary and the `UI.sensoryFeedback` declaration
 -- contract (round 2 §3.3). Required for the same reason `drag_contract` is: the
 -- ruling on what a declaration may say lives with the vocabulary it cites, so
@@ -267,6 +274,9 @@ export type RegionSpec = {
 	-- "none" | "self" | "overflow": where the content a reduced form stops showing
 	-- went (D7.1). Required with more than one form, refused with one
 	recover: string?,
+	-- "auto" (default), "none", or a handler function — how a stepped-down region
+	-- discloses its richest form (wave REVEAL). Refused with one form
+	expand: (string | (() -> ()))?,
 	children: { Blueprint },
 }
 export type DividerSpec = BoxProps & {
@@ -344,6 +354,11 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
+	-- FRAMEWORK-DECLARED (wave REVEAL). `UI.Region` sets this on the one button it
+	-- synthesizes for a collapsing region; an author writes `UI.Region{ expand }`
+	-- and never this. Public because a prop nothing can see is a prop nothing can
+	-- audit — the standing `virtualSlot` has
+	expandTarget: { role: string }?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
@@ -862,26 +877,240 @@ local function containsFocusable(node: Blueprint): boolean
 	return false
 end
 
+--[[ ── THE EXPAND AFFORDANCE (wave REVEAL, 2026-08-18) ────────────────────────
+	A region that stepped DOWN is showing less than it has, and until now the only
+	way a player could ask for the rest was a route the AUTHOR built: a Button
+	inside the compact form (`recover = "self"`, and the boundary rule below made
+	it mandatory), or a trip to the screen's overflow surface. This synthesizes the
+	first one, once, for every region that collapses.
+
+	ONE AFFORDANCE PER REGION, NOT ONE PER FORM, and the reason is a measurement
+	rather than economy: a form declared behind a `UI.When` SPLICES ITSELF OUT of
+	the mounted child list when its condition reads false (`render/layout_node`
+	does the splice, and the composition showcase declares exactly that shape), so
+	a per-form affordance would be addressed by an index that shifts under it. One
+	button, appended LAST, is findable in every state — and being last is also what
+	puts its focus stop after the form's own stops in document order, which is the
+	ordering the director's constraint asks for and which no code here has to
+	arrange.
+
+	ITS ROLE IS DECIDED HERE, AT CONSTRUCTION, from what the forms CONTAIN:
+
+	  "cover"    no form below the richest carries a focus stop or a semantic
+	             action, so the whole compact form can BE the target. The button is
+	             `surface = "plain"` (no plate) and holds one empty Box, because a
+	             Button with no children draws its own label and the label here is
+	             for a screen reader, not for the screen.
+	  "chevron"  some form below the richest does carry one. Its meanings are left
+	             alone and the affordance becomes a mark beside it — a separate tap
+	             target, its own focus stop, the standard 44px floor from the
+	             Button contract.
+
+	MIXED LADDERS TAKE THE CHEVRON. A three-form region whose middle rung is
+	passive and whose last rung holds a button gets one affordance, and it is the
+	non-colliding one: "never overload a control" outranks "cover what you can".
+
+	WHAT COUNTS AS CARRYING A MEANING is `class_contract.isInteractive`, read off
+	the registry every primitive already declares its focus role and its semantic
+	actions in — never a list of class names here. Content a `UI.When` or
+	`UI.ForEach` produces LAZILY is invisible to this walk (their views are
+	functions), so a form holding one is taken as interactive: the framework will
+	not claim a form is passive when it cannot see inside it, and the conservative
+	answer is the one that never doubles an activation surface. ]]
+local LAZY_CONTENT: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true }
+
+local function formCarriesMeaning(node: Blueprint): boolean
+	if classContract.isInteractive(node.class) or LAZY_CONTENT[node.class] then
+		return true
+	end
+	for _, child in node.children or {} do
+		if formCarriesMeaning(child) then
+			return true
+		end
+	end
+	return false
+end
+
 -- Region (ADR-0023): ONE ranked thing a composition has to say. Its children are
 -- its FORMS, richest first, and the last one is its minimum-viable form — the
 -- smallest thing the author is willing to show. Declared in READING order; the
 -- `rank` is adaptation priority only, and the two are deliberately independent.
 function blueprint.Region(spec: RegionSpec): Blueprint
-	local bp = make("Region", spec)
-	if bp.id == nil then
+	if type(spec) ~= "table" then
+		-- ONE owner for "that is not a spec table" — everything below reads fields
+		return make("Region", spec)
+	end
+	if spec.id == nil then
 		error(
 			"Facet UI.Region needs an explicit `id`: it is what the resolution, the dump and the "
 				.. "focus ring address, and a generated one would change the diagnosis between runs",
 			0
 		)
 	end
-	if bp.children == nil or #bp.children == 0 then
+	local forms: { Blueprint } = if type(spec.children) == "table" then spec.children else {}
+	--[[ THE DECLARED FORM COUNT, taken HERE and carried in the `expand` record,
+		because from this point on `#children` is not it: the affordance rides in the
+		same list. Everything downstream — the normalizer's `recover` rules, the
+		solver's ladder — reads the record rather than counting. ]]
+	local declaredForms = #forms
+	if declaredForms == 0 then
 		error(
-			`Facet UI.Region '{bp.id}' needs at least one form in \`children\` (the forms are the `
+			`Facet UI.Region '{spec.id}' needs at least one form in \`children\` (the forms are the `
 				.. `representations of this region, richest first)`,
 			0
 		)
 	end
+	--[[ THE EXPAND MODE, resolved before anything is synthesized. Silence means
+		"auto" — EXCEPT on a region whose author has already stated that nothing is
+		missing. `recover = "none"` is exactly that statement ("every form below the
+		richest still shows everything that matters"), and disclosing a form that
+		holds nothing more would be a plate that repeats the screen. ]]
+	local authoredExpand = (spec :: any).expand
+	local expandHandler: (() -> ())? = nil
+	local expandMode: string
+	if authoredExpand == nil then
+		expandMode = if spec.recover == "none" then "none" else "auto"
+	elseif type(authoredExpand) == "function" then
+		expandMode = "custom"
+		expandHandler = authoredExpand :: any
+	elseif authoredExpand == "auto" or authoredExpand == "none" then
+		expandMode = authoredExpand :: string
+	else
+		error(
+			`Facet UI.Region '{spec.id}' expand must be "auto", "none" or a handler function, got `
+				.. `'{tostring(authoredExpand)}'. "auto" = the framework discloses the richest form in a `
+				.. 'transient plate at this region\'s anchor; "none" = there is nothing to disclose, or you '
+				.. "are disclosing it yourself; a function replaces the presentation entirely",
+			0
+		)
+	end
+	if authoredExpand ~= nil and declaredForms == 1 then
+		error(
+			`Facet UI.Region '{spec.id}' declares ONE form, so 'expand' has nothing to disclose — a `
+				.. "single-form region never simplifies, and that is also the answer to \"how do I stop "
+				.. "this region collapsing\": give it one form. `rank` and `forms` are the whole "
+				.. "collapse-customization surface; `expand` only says what happens once a collapse has "
+				.. "already happened",
+			0
+		)
+	end
+	--[[ WHICH FORMS CARRY A MEANING ALREADY — the input to both the affordance's
+		role (here) and the resolution's `formInteractive` (through the record). One
+		walk, one answer, read by both. ]]
+	local formInteractive: { boolean } = {}
+	local anyReducedFormCarriesMeaning = false
+	for i, form in forms do
+		formInteractive[i] = formCarriesMeaning(form)
+		if i > 1 and formInteractive[i] then
+			anyReducedFormCarriesMeaning = true
+		end
+	end
+	local built: any = table.clone(spec :: any)
+	local engine: any = nil
+	if expandMode ~= "none" and declaredForms > 1 then
+		engine = regionExpand.new({
+			id = spec.id :: string,
+			--[[ THE PLATE'S CONTENT IS THE REGION'S OWN FORM 1, BY IDENTITY. Not a
+				description of it, not a rebuilt copy: the same blueprint the region
+				mounts, so the disclosure cannot show less than the thing it is
+				disclosing and cannot drift from it as the screen changes. The width is
+				the composition's own `plate.w`. ]]
+			panelOf = function(plateW: number): Blueprint
+				return blueprint.VStack({
+					id = "ExpandPanel",
+					surface = "raised",
+					padding = "s",
+					width = { type = "fixed", px = plateW },
+					children = { forms[1] },
+				})
+			end,
+			--[[ ...AND THE SAME CONTENT AS A FULL-WIDTH SHEET for the offer where a
+				plate cannot meet its floor. One content, two presentations, chosen by
+				the composition rather than by a device name. ]]
+			sheetOf = function(): Blueprint
+				return blueprint.Screen({
+					id = `ExpandSheet:{spec.id}`,
+					children = {
+						blueprint.Anchor({
+							id = "Layer",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = {
+								blueprint.VStack({
+									id = "ExpandSheet",
+									anchor = "bottom",
+									surface = "raised",
+									padding = "m",
+									width = { type = "fill", weight = 1 },
+									children = { forms[1] },
+								}),
+							},
+						}),
+					},
+				})
+			end,
+			handler = expandHandler,
+		})
+		local role = if anyReducedFormCarriesMeaning then "chevron" else "cover"
+		local mark: Blueprint
+		if role == "chevron" then
+			-- the caret is its own node carrying the semantic NAME beside the ASCII
+			-- character, exactly as the disclosure group's is: a package that ships
+			-- art for `chevron.trailing` paints it over the glyph, and a control never
+			-- names an asset
+			mark = chromeSlots.attachHint(
+				blueprint.Text({ id = "Caret", text = themePackage.iconGlyph("chevron.trailing") or ">", textSize = "control" }),
+				{ icon = "chevron.trailing" }
+			)
+		else
+			-- a Button with NO children draws its own label, and this label is for a
+			-- screen reader rather than for the screen — so it gets an empty box to
+			-- make it a content button that paints nothing
+			mark = blueprint.Box({
+				id = "Zone",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+			})
+		end
+		local children = table.clone(forms)
+		table.insert(
+			children,
+			blueprint.Button({
+				id = "Expand",
+				-- WHAT A SCREEN READER SAYS. The region's own id is its name here, and
+				-- that is a real consequence of this design worth stating: a region id
+				-- reaches a player through this sentence, so it is a noun, not a slug
+				label = `expands to full {spec.id}`,
+				surface = "plain",
+				--[[ NO PADDING, and it is not a style choice. A Button's theme padding
+					is a control's inner gutter, and this control's box is not its own: a
+					"cover" is the region's whole box (24px of gutter on a 23px compact
+					form collapses the content box to nothing and the solver says so, which
+					is how this was found), and a "chevron" is a mark whose TARGET comes
+					from the 44px hit floor rather than from padding. ]]
+				padding = 0,
+				expandTarget = { role = role },
+				onActivate = function()
+					engine.open()
+				end,
+				children = { mark },
+			})
+		)
+		built.children = children
+		built.expand = {
+			mode = expandMode,
+			forms = declaredForms,
+			interactive = formInteractive,
+			-- carried beside the array because the array is indexed by DECLARED form
+			-- and the solver counts MOUNTED ones: a form behind a `UI.When` splices
+			-- itself out, and when the two counts disagree this is the conservative
+			-- answer the solver falls back to (see `compositionResolution`)
+			role = role,
+		}
+	else
+		built.expand = { mode = "none", forms = declaredForms, interactive = formInteractive }
+	end
+	local bp = make("Region", built)
 	--[[ D7.2 — A TERMINAL FORM ON A "SELF" ROUTE MUST BE ACTIONABLE.
 		`recover = "self"` says "the reduced form IS the route: the player taps what is
 		left to get the rest". If the last form holds nothing focusable then there is
@@ -902,7 +1131,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		flipped. Here the count is the DECLARED one, which is what the rule is about.
 		(The other half, "required with more than one form", is the normalizer's: it
 		has to hold for a declaration driven straight from a test as well.) ]]
-	if spec.recover ~= nil and #bp.children == 1 then
+	if spec.recover ~= nil and declaredForms == 1 then
 		error(
 			`Facet UI.Region '{bp.id}' declares one form, so 'recover' has nothing to describe — a `
 				.. "single-form region can only stop showing content by being DROPPED, and a dropped region "
@@ -916,22 +1145,37 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		only the terminal form leaves a dead end on exactly the middle-sized devices
 		nobody fixtures. Form 1 is the richest and is exempt by definition: it is not
 		showing less than anything. ]]
-	if spec.recover == "self" then
-		for i = 2, #bp.children do
-			local form = bp.children[i]
+	--[[ ...AND THE FRAMEWORK'S OWN AFFORDANCE IS NOW A ROUTE (wave REVEAL). D7.2
+		made a focusable in every reduced form MANDATORY under `recover = "self"`,
+		because "the reduced form IS the route" was a promise only the author could
+		keep. It is kept by the framework whenever an expand exists — the affordance
+		is a Button, in the region, standing exactly while a reduced form is — so the
+		rule now fires only where nothing supplies one: `expand = "none"`. The
+		message is unchanged, and it gained the third answer. ]]
+	if spec.recover == "self" and expandMode == "none" then
+		for i = 2, declaredForms do
+			local form = forms[i]
 			if not containsFocusable(form) then
 				error(
 					`Facet UI.Region '{bp.id}' declares recover = "self", so every form below the richest is `
 						.. `the route to what that form stopped showing — but form {i} of {#bp.children} (a `
 						.. `UI.{form.class}) contains nothing focusable, so there is nothing for a player to `
 						.. "activate while it is the one on screen. Put a UI.Button (or Toggle/TextField, or a "
-						.. 'focusable Grip) in it, or declare recover = "overflow" and let the screen\'s '
-						.. "overflow surface carry it. A route nobody can reach is the defect wearing the "
-						.. "fix's clothes",
+						.. 'focusable Grip) in it, drop the `expand = "none"` and let the framework supply the '
+						.. 'route, or declare recover = "overflow" and let the screen\'s overflow surface '
+						.. "carry it. A route nobody can reach is the defect wearing the fix's clothes",
 					0
 				)
 			end
 		end
+	end
+	--[[ THE ENGINE RIDES ON THE REGION'S OWN NODE, through the contribution seam
+		every composite already uses. It is what hands this region `presentAnchored`,
+		`dismiss`, the render controller (for the composition's own resolution) and
+		the per-frame geometry feed — none of which a blueprint constructor can
+		build, and all of which arrive without any consumer wiring at all. ]]
+	if engine ~= nil then
+		bp = contributionLib.attach(bp, engine.contribution)
 	end
 	return bp
 end
@@ -959,13 +1203,21 @@ function blueprint.Composition(spec: CompositionSpec): Blueprint
 			id = child.id,
 			group = child.props.group,
 			rank = child.props.rank,
-			forms = #(child.children or {}),
+			--[[ THE DECLARED COUNT, off the region's own record — never `#children`,
+				which since wave REVEAL also holds the expand affordance. `UI.Region`
+				always writes the record, so the fallback is for a hand-built node in a
+				test rather than for any production path. ]]
+			forms = if child.props.expand ~= nil then child.props.expand.forms else #(child.children or {}),
 			sizing = child.props.sizing,
 			weight = child.props.weight,
 			floor = child.props.floor,
 			mayScroll = child.props.mayScroll,
 			mayDrop = child.props.mayDrop,
 			recover = child.props.recover,
+			-- wave REVEAL: the mode and the per-form interactivity the resolution
+			-- reports back, resolved once by `UI.Region` and passed straight through
+			expand = if child.props.expand ~= nil then child.props.expand.mode else nil,
+			formInteractive = if child.props.expand ~= nil then child.props.expand.interactive else nil,
 			-- A LIVE `reserved` IS STILL A RESERVATION AT CONSTRUCTION. The read
 			-- answers WHEN the box is held, never WHETHER this region is the kind that
 			-- holds one — so the floor requirement and the mayDrop exclusivity below

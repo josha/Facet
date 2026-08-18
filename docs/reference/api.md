@@ -825,7 +825,7 @@ where a region id is simply whatever the caller passed.
 
 ### `Region`
 
-`UI.Region{ id (required), group (required), rank (required), recover (required with 2+ forms), floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
+`UI.Region{ id (required), group (required), rank (required), recover (required with 2+ forms), expand?, floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
 — one ranked thing a `Composition` has to say. **Its children are its forms**,
 richest first; the last is its minimum-viable form. Exactly one is shown.
 
@@ -839,7 +839,29 @@ richest first; the last is its minimum-viable form. Exactly one is shown.
 | `mayScroll` | this is *the* scroll region. **At most one per composition**; a second is refused at construction |
 | `mayDrop` | it may be removed entirely when stepping down is not enough (default `false`) |
 | `recover` | **where the content a reduced form stops showing went.** `"none"` (every form below the richest still shows everything — a poorer *layout*, not less content) \| `"self"` (the reduced form **is** the route: the player taps what is left to get the rest) \| `"overflow"` (the screen's overflow surface is the route, and it reads `resolution.unshown`). **Required** with more than one form and **refused** with one: a one-form region can only stop showing content by being *dropped*, and a dropped region has no form left to be its own route, so the sink is the only possible answer — `mayDrop` is already that declaration. `"none"` together with `mayDrop` is refused for the same reason: dropping shows nothing |
+| `expand` | **how a stepped-down region discloses its richest form.** `"auto"` (default) — the framework presents form 1 in a transient plate at this region's own anchor, opened by the WHOLE compact form when that form carries no controls of its own and by a chevron beside it when it does \| `"none"` — the authored escape (nothing to disclose, or you are disclosing it yourself) \| a **function**, which replaces the presentation entirely. **Refused on a one-form region**: a region with one form never simplifies, and that is also the answer to "how do I stop this region collapsing" — give it one form. Silence means `"auto"` except under `recover = "none"`, which has already stated that nothing is missing |
 | `reserved` | hold its box while its content rests **between pieces**, so a finishing transient never moves its neighbours. `true` reserves for the surface's whole life; **a `Readable<boolean>`** — the only reactive prop on a `Region` — reserves only while it reads true ("this schedule can still produce a piece") and releases the box, and with it the lane (rule 9), when it reads false. Mutually exclusive with `mayDrop` |
+
+**The expand, in one paragraph.** A region standing on a form below its richest is
+showing less than it has, and `expand` is how the player asks for the rest without
+leaving the screen. The framework appends **one** button to such a region — the last
+child, so its focus stop lands after the form's own stops in document order — and
+the solver stands it up only while a reduced form is standing. Its shape is decided
+at construction from what the forms contain: a **cover** (the compact form's whole
+box, `surface = "plain"`, painting nothing) when no form below the richest carries a
+focus stop or a semantic action, and a **chevron** beside the form when any of them
+does — because one gesture may only have one meaning, and a compact form that
+already holds a button has spoken for the tap. The plate's width is the composition's
+own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
+plate, the same content is presented as a full-width sheet instead. Dismissal is the
+presented surface's: tap-away, Escape, gamepad B — and the plate closes itself when
+the rect it was opened against moves, resizes or goes (a rotation, a viewport change,
+a theme-metric change, or a re-solve that put the region back on its richest form).
+
+**A form's minimum must carry the region's essential value.** The expand is for the
+REST. A ladder whose last rung drops the number the player actually needs has moved
+a defect behind a tap, and no disclosure repairs that — the value-text sweep polices
+the painted half, and this is the authoring half of the same rule.
 
 A region whose chosen form measures nothing is **not mounted** and costs no gap —
 "empty ⇒ absent" is mechanical, so a composition cannot have a dead band. A
@@ -861,7 +883,9 @@ notion of where the content went — so "step down" and "delete" were the same
 operation from the player's side. A `recover = "self"` route is checked at
 construction against **every** form below the richest (the ladder can stop at any
 rung): a form with nothing focusable in it is an authoring error, because a route
-nobody can reach is the defect wearing the fix's clothes.
+nobody can reach is the defect wearing the fix's clothes. **That check now fires only
+under `expand = "none"`** — with an expand, the framework's own affordance is the
+route, and it is a Button standing exactly while a reduced form is.
 
 Declaration errors are refused at **construction**: an unknown field, a second
 `mayScroll`, `reserved` with `mayDrop`, a missing or refused `recover`, a
@@ -1134,6 +1158,14 @@ onPointerUp?, onPointerCancel? }` — activatable control.
 **`help`** (string, construction-only) is the one sentence a pointer hover or a
 focus ring gets about what this button does; it shows **nothing on touch** by
 specification. See `Text`'s `help` above and **Help** under `newPresenter`.
+
+**`expandTarget`** (`{ role = "cover" | "chevron" }`, construction-only) is
+**framework-declared**: `UI.Region` sets it on the one button it synthesizes for a
+collapsing region, and nothing else ever should. Authors write `UI.Region{ expand }`.
+It is public for the reason `virtualSlot` is — a prop nothing can see is a prop
+nothing can audit — and it is carried rather than inferred because a region's forms
+can splice themselves out from under an index (`UI.When`), so counting children would
+name the wrong node.
 
 **Custom content.** A Button takes `children`, which render inside the ONE
 activation surface. `label` stays **required** even for an icon-only button — it is

@@ -124,7 +124,12 @@ large_text.MIXED = `{large_text.CJK} {large_text.EMOJI} {large_text.PSEUDO_ACTIO
 
 -- CLASS -> the solver kind `text_audit.overlaps` consults. See the header: only
 -- the layering pair is load-bearing.
-local KIND: { [string]: string } = { ZStack = "zstack", Anchor = "anchor" }
+--[[ ...and `Region` joined the two layering classes in wave REVEAL, for the
+	reason `text_audit`'s own LAYERING_KIND note gives: a region paints exactly ONE
+	of its forms, so the only painted-sibling pair it can produce is the
+	framework's own expand affordance over the form it discloses. Without this the
+	sweep reports the cover as a collision on every stepped-down region. ]]
+local KIND: { [string]: string } = { ZStack = "zstack", Anchor = "anchor", Region = "region" }
 
 local TOUCH_PHONE = { keyboard = false, mouse = false, touch = true, gamepad = false }
 local DESKTOP = { keyboard = true, mouse = true, touch = false, gamepad = false }

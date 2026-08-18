@@ -61,9 +61,18 @@ export type Finding = {
 export type Viewport = { path: string, rect: Rect }
 export type Focus = { path: string?, rect: Rect }
 
--- containers whose job IS to stack children over one another. A pair of children
--- of one of these is not an overlap finding at any epsilon (solver kinds).
-local LAYERING_KIND: { [string]: boolean } = { zstack = true, anchor = true }
+--[[ containers whose job IS to stack children over one another. A pair of children
+	of one of these is not an overlap finding at any epsilon (solver kinds).
+
+	`region` JOINED THEM IN WAVE REVEAL, and it is the narrowest possible addition:
+	a `UI.Region` paints exactly ONE of its forms (every other one is hidden, and
+	`isHidden` above already prunes those), so the only pair of painted siblings a
+	region can ever produce is the framework's own expand affordance over the form
+	it discloses — which is deliberate, transparent, and the whole point of the
+	"cover" role. There is no author-authored pair inside a region for this rule to
+	protect, because an author does not put two things in a region: they put FORMS
+	in it, and the composition chooses one. ]]
+local LAYERING_KIND: { [string]: boolean } = { zstack = true, anchor = true, region = true }
 
 local OVERLAP_KEYS = specGuard.keySet({ "epsilon", "declaredOverlays" })
 local CLIPPED_KEYS = specGuard.keySet({ "nonEssential" })

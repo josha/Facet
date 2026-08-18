@@ -298,6 +298,57 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		return true
 	end,
+	--[[ A REGION'S EXPAND (wave REVEAL). The AUTHOR writes one of three things —
+		"auto", "none", or a handler function — and `UI.Region` resolves that, once,
+		into the record below before this validator ever sees it: the mode, the
+		DECLARED form count (which is not `#children` once the affordances are in the
+		tree) and one interactivity boolean per form. Both spellings are accepted
+		because the resolution is idempotent and a test may drive either. ]]
+	--[[ THE AFFORDANCE THE FRAMEWORK SYNTHESIZED (wave REVEAL), declared on the one
+		Button `UI.Region` appends to a collapsing region. It is public for the reason
+		`virtualSlot` is: the framework declares it, an author never does, and a prop
+		nothing can see is a prop nothing can audit. `role` is decided at CONSTRUCTION
+		from the forms' own contents — "cover" when no form below the richest carries
+		a control (the whole compact form is the target), "chevron" when any of them
+		does (the form keeps its meanings and the mark sits beside it). ]]
+	expandTarget = function(v)
+		if type(v) ~= "table" then
+			return false, 'a target such as { role = "cover" }'
+		end
+		local r = v :: any
+		if r.role ~= "cover" and r.role ~= "chevron" then
+			return false, '`role` must be "cover" or "chevron"'
+		end
+		return true
+	end,
+	expandSpec = function(v)
+		if type(v) == "function" then
+			return true
+		end
+		if type(v) == "string" then
+			if v == "auto" or v == "none" then
+				return true
+			end
+			return false, 'a mode: "auto" (the framework discloses the richest form) or "none"'
+		end
+		if type(v) ~= "table" then
+			return false, '"auto", "none", a handler function, or the resolved record'
+		end
+		local r = v :: any
+		if r.mode ~= "auto" and r.mode ~= "none" and r.mode ~= "custom" then
+			return false, '`mode` must be "auto", "none" or "custom"'
+		end
+		if type(r.forms) ~= "number" or r.forms < 1 then
+			return false, "`forms` must be the DECLARED form count"
+		end
+		if type(r.interactive) ~= "table" then
+			return false, "`interactive` must be one boolean per form"
+		end
+		if r.role ~= nil and r.role ~= "cover" and r.role ~= "chevron" then
+			return false, '`role` must be "cover" or "chevron"'
+		end
+		return true
+	end,
 	array = function(v)
 		return type(v) == "table"
 	end,
@@ -1669,6 +1720,26 @@ class("Region", {
 				.. 'something focusable | "overflow" = the screen\'s overflow surface is the route, and it '
 				.. "reads `resolution.unshown`",
 		}),
+		--[[ WAVE REVEAL. `recover` says WHERE the content a reduced form stopped
+			showing went; this says how the player gets it back WITHOUT leaving. Default
+			"auto": the framework presents this region's RICHEST form in a transient
+			plate at the region's own anchor, reached by the whole compact form when
+			that form carries no controls of its own and by a chevron beside it when it
+			does. "none" is the authored escape (nothing to disclose, or the author is
+			disclosing it themselves) and a FUNCTION replaces the presentation entirely.
+
+			NOT reactive, and refused on a one-form region: a region with one form never
+			simplifies, so an expand on one could never fire. `rank` and `forms` stay
+			the whole collapse-customization surface — if a region must not collapse,
+			give it one form. ]]
+		expand = p({
+			types = { "expandSpec" },
+			reactive = false,
+			channel = "layout",
+			doc = 'how a stepped-down region discloses its richest form: "auto" (default — the framework '
+				.. "presents it in a transient plate at the region's anchor), \"none\" (the authored escape), "
+				.. "or a handler function that replaces the presentation. Refused on a one-form region",
+		}),
 		-- THE ONE REACTIVE PROP ON A REGION, and it is reactive for a reason the
 		-- rest of the declaration is not. Every other field answers "what is this
 		-- region" — a fact about the screen, which is why re-deriving it from state
@@ -1986,6 +2057,19 @@ class("Button", {
 		surface = CONTAINER_LAYOUT.surface,
 		padding = CONTAINER_LAYOUT.padding,
 		textSize = TEXT_SIZE,
+		--[[ WAVE REVEAL. Declared by `UI.Region` on the ONE button it synthesizes for
+			a collapsing region, and by nobody else — the same standing `virtualSlot`
+			has. It is what lets the solver tell that button apart from the region's
+			FORMS, which matters because a form behind a `UI.When` splices itself out of
+			the child list and a count alone would then name the wrong node. ]]
+		expandTarget = p({
+			types = { "expandTarget" },
+			reactive = false,
+			channel = "layout",
+			doc = "framework-declared: this button is a region's expand affordance. { role = \"cover\" } "
+				.. 'covers the compact form (which carries no controls of its own); { role = "chevron" } '
+				.. "sits beside it. Authors declare `UI.Region{ expand = … }`, never this",
+		}),
 		onActivate = p({
 			types = { "function" },
 			reactive = false,

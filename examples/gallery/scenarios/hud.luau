@@ -2567,32 +2567,24 @@ return {
 							What survives is the control's own row, whose label shrinks by
 							construction (O-23). The rich row is what the FULL form is for,
 							and the full form is what a screen with room gets. ]]
-						--[[ ...AND IT IS ALSO A ROUTE, because a MIDDLE rung is a rung
-							(D7.2). `recover = "self"` is checked against every form below the
-							richest, not only the last one: this form is what a mid-sized screen is
-							left with, and two tasks plus their rewards are missing from it exactly
-							as they are from the chip below. A dead end on the device nobody
-							fixtures is the whole defect class.
-
-							`surface = "plain"` is what lets the Button be the ROUTE without being a
-							second plate: the glass is already painted behind it, and a chip surface
-							here would put a control frame inside a panel frame. ]]
+						--[[ ...AND IT NEEDS NO ROUTE OF ITS OWN EITHER (wave REVEAL). A MIDDLE
+							rung is a rung — `recover = "self"` is checked against every form below
+							the richest, and this one is what a mid-sized screen is left with, two
+							tasks and their rewards short. It used to carry a Button for that. The
+							region's one affordance covers whichever reduced form is standing, so
+							the middle rung is served by the same construct as the last one and
+							this form goes back to being content. ]]
 						glass(
 							"TasksOne",
 							"panel",
-							--[[ THE ROW IS THE BUTTON'S OWN ROW, and that is not a
-								simplification — it is the same measurement the comment below
-								records, met a second time. A Button lays its children out as ONE
-								row and measures THAT row, so an inner `fill` HStack between them
-								contributes nothing to the Button's own measure: the plate hugged
-								to 16px and the solver said so ("content box collapses to 0px on x:
-								padding 8 + 8 on a 16px width", measured pseudo-localized at
-								320x640). The children go straight on the Button. ]]
-							UI.Button({
+							--[[ ONE ROW, NOT A ROW INSIDE A ROW, and the measurement outlived the
+								Button it was first written for. An inner `fill` HStack between this
+								box and its children contributes nothing to the outer measure: the
+								plate hugged to 16px and the solver said so ("content box collapses
+								to 0px on x: padding 8 + 8 on a 16px width", measured
+								pseudo-localized at 320x640). The children go straight on the row. ]]
+							UI.HStack({
 								id = "TasksOneBody",
-								label = COPY.tasksTitle,
-								surface = "plain",
-								onActivate = openOverflow,
 								padding = 8,
 								gap = 8,
 								align = "center",
@@ -2614,25 +2606,21 @@ return {
 								},
 							})
 						),
-						--[[ THE TERMINAL FORM, AND IT IS A BUTTON (D7.2). It was `pill(...)`
-							— `glass` wrapping an HStack of `UI.Text` — so the ladder's last rung
-							for this zone was three tasks and their rewards replaced by an
-							untappable label reading "Tasks 1/3". That is the dead end
-							`recover = "self"` exists to refuse, and the framework now refuses it
-							at construction: a `self` route whose last form holds nothing
-							focusable is an authoring error, named at the call site.
+						--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
+							`pill(...)`; D7.2 turned it into a Button because a `self` route needs
+							something focusable in every reduced form and only the author could
+							supply one. The framework supplies it now — `UI.Region` appends one
+							expand affordance to a collapsing region, and because this pill
+							carries no control of its own the affordance is a COVER: the whole
+							chip is the target, which is the gesture a player would have tried
+							first anyway.
 
-							It opens the same panel the ··· sink does, which is deliberate: the
-							recovery for "this zone is reduced" and the recovery for "this zone
-							is gone" are the same content, and two panels would be two things to
-							keep in step. ]]
-						UI.Button({
-							id = "TasksChip",
-							label = COPY.tasksChip,
-							surface = "chip",
-							textSize = "caption",
-							onActivate = openOverflow,
-						}),
+							WHAT IT OPENS IS ALSO BETTER. The Button opened the ··· sink — every
+							zone's hidden content, two navigations from a thing standing on the
+							screen. The expand opens THIS region's own form 1: the task panel,
+							by identity, at this region's own anchor. Zero lines of route code in
+							this fixture is the product claim; a shorter route is the bonus. ]]
+						pill("TasksChip", COPY.tasksChip, "caption"),
 					},
 				}),
 				-- LOWER LEFT — the health bar, and under it the kill feed.
