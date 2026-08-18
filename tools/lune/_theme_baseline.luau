@@ -121,14 +121,14 @@ end
 
 -- the control vocabulary: every control whose metrics the theme stage migrates
 local function controlVocabulary(core: any, _deps: any): any
-	local slider = Facet.newSlider(Facet, core, {
+	local slider = Facet.Controls.Slider(core, {
 		id = "Volume",
 		label = "Volume",
 		value = core:signal(6),
 		min = 0,
 		max = 10,
 	})
-	local stepper = Facet.newStepper(Facet, core, {
+	local stepper = Facet.Controls.Stepper(core, {
 		id = "Count",
 		label = "Count",
 		value = core:signal(3),
@@ -136,9 +136,9 @@ local function controlVocabulary(core: any, _deps: any): any
 		max = 9,
 		step = 1,
 	})
-	local progress = Facet.newProgressView(Facet, core, { id = "Load", label = "Load", value = 0.4, showValue = true })
-	local label = Facet.newLabel(Facet, core, { id = "Save", title = "Save changes", icon = "rbxassetid://1" })
-	local picker = Facet.newPicker(Facet, core, {
+	local progress = Facet.Controls.ProgressView(core, { id = "Load", label = "Load", value = 0.4, showValue = true })
+	local label = Facet.Controls.Label(core, { id = "Save", title = "Save changes", icon = "rbxassetid://1" })
+	local picker = Facet.Controls.Picker(core, {
 		id = "Quality",
 		label = "Quality",
 		options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
@@ -155,7 +155,7 @@ local function controlVocabulary(core: any, _deps: any): any
 		-- `Picker-indicator` large-text fixture and `tests/picker_segments.spec`.
 		indicator = "none",
 	})
-	local disclosure = Facet.newDisclosureGroup(Facet, core, {
+	local disclosure = Facet.Controls.DisclosureGroup(core, {
 		id = "More",
 		label = "More",
 		expanded = core:signal(true),
@@ -163,13 +163,13 @@ local function controlVocabulary(core: any, _deps: any): any
 			return UI.Text({ id = "Body", text = "Hidden detail", textSize = 14 })
 		end,
 	})
-	local chip = Facet.newChip(Facet, core, { id = "Tag", label = "Tag", selected = core:signal(false) })
-	local popup = Facet.newPopupButton(Facet, core, {
+	local chip = Facet.Controls.Chip(core, { id = "Tag", label = "Tag", selected = core:signal(false) })
+	local popup = Facet.Controls.PopupButton(core, {
 		id = "Mode",
 		options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
 		value = core:signal("a"),
 	})
-	local input = Facet.newTextInput(Facet, core, {
+	local input = Facet.Controls.TextInput(core, {
 		id = "Name",
 		value = core:signal("Ada"),
 		placeholder = "Your name",

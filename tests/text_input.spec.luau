@@ -796,7 +796,7 @@ describe("TextInput: the clear chip sizes for its glyph, in every theme", functi
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system)
-		local control = Facet.newTextInput(Facet, core, {
+		local control = Facet.Controls.TextInput(core, {
 			id = "F",
 			value = core:signal("typed"),
 			placeholder = "filter",
@@ -915,7 +915,7 @@ describe("TextInput: clearButtonMode", function()
 	it("an unrecognised mode is a build error, not a field that never offers a ✕", function()
 		local core = Facet.newCore()
 		expect(pcall(function()
-			return Facet.newTextInput(Facet, core, {
+			return Facet.Controls.TextInput(core, {
 				id = "Bad",
 				value = core:signal(""),
 				clearButtonMode = "sometimes",

@@ -781,7 +781,7 @@ return {
 
 		-- ---- implementations ----------------------------------------------
 		local function buildFacet()
-			local list = Facet.newVirtualList(Facet, core, {
+			local list = Facet.Controls.VirtualList(core, {
 				id = "Rows",
 				rows = rowsSignal,
 				key = function(item: any)
@@ -1849,7 +1849,7 @@ return {
 					local function linesOf(item: any): number
 						return if ragged then extentLines(item.rank) else 1
 					end
-					local list = Facet.newVirtualList(Facet, core, {
+					local list = Facet.Controls.VirtualList(core, {
 						id = "ExtentRows",
 						rows = armRows,
 						key = function(item: any)
@@ -2152,7 +2152,7 @@ return {
 					return `r{rank}`
 				end
 
-				local tbl = Facet.newTable(Facet, core, {
+				local tbl = Facet.Controls.Table(core, {
 					id = "UnifiedRows",
 					rows = tableRows,
 					key = function(item: any)

@@ -51,7 +51,17 @@ change without notice. Games must not require library-internal modules.
 - `tests/api_surface.spec.luau` enforces the semver shape, the ledger schema,
   and that this ADR names the current version (update BOTH on every bump —
   the test fails otherwise, which is the point).
-- Current version: **0.9.0** — row-actions (docs/plans/row-actions.md,
+- Current version: **0.10.0** — ADR-0037, composite controls at
+  `Facet.Controls.<Name>(core, spec)`. One new export, `Facet.Controls`: a frozen
+  namespace of nineteen typed entries, each closing over the library so the
+  redundant first argument (`Facet.newTable(Facet, core, spec)` wrote the
+  library's name twice) disappears. Additive MINOR: every `new<Control>` builder
+  is untouched and keeps working — `Facet.Controls.<Name>` is a closure over the
+  same builder, not a second implementation — and all nineteen are declared in
+  the ledger with `removeNoEarlierThan = 0.12.0`, so the retirement is a later
+  decision the ledger holds rather than one this version takes. Nothing is
+  removed here.
+- Previous: **0.9.0** — row-actions (docs/plans/row-actions.md,
   docs/plans/row-actions-implementation.md): SwiftUI-parity swipe actions.
   `newRowActions` (a swipeable leading/trailing action tray around an
   arbitrary row: spring reveal, proportional tray-button growth, full-swipe

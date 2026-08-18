@@ -53,7 +53,7 @@ local function mount(specOverrides: any?, start: number?)
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.newLevelPicker(Facet, core, spec)
+	local control = Facet.Controls.LevelPicker(core, spec)
 	local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control, env, handle
@@ -93,7 +93,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("a read-only Memo is refused at BUILD, not on the first tap", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.newLevelPicker(Facet, core, {
+			return Facet.Controls.LevelPicker(core, {
 				id = "L",
 				value = core:memo(function()
 					return 3
@@ -106,7 +106,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 		local core = customFactory.new()
 		for _, bad in { 0, -3, 2.5 } do
 			expect(pcall(function()
-				return Facet.newLevelPicker(Facet, core, { id = "L", value = core:signal(1), count = bad })
+				return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), count = bad })
 			end)).toBe(false)
 		end
 	end)
@@ -114,7 +114,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("an unknown spec key is an authoring error that names the key", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.newLevelPicker(Facet, core, { id = "L", value = core:signal(1), starSize = "small" })
+			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), starSize = "small" })
 		end)
 		expect(ok).toBe(false)
 		-- `starSize` is newRating's spelling and is NOT on this control's spec:
@@ -126,7 +126,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("an unknown segment is a build error naming the three that exist", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.newLevelPicker(Facet, core, { id = "L", value = core:signal(1), segment = "dots" })
+			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segment = "dots" })
 		end)
 		expect(ok).toBe(false)
 		for _, name in { "bar", "glyph", "image" } do
@@ -137,7 +137,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("an unknown segmentSize is a build error, not a silently-default segment", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.newLevelPicker(Facet, core, { id = "L", value = core:signal(1), segmentSize = "huge" })
+			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segmentSize = "huge" })
 		end)).toBe(false)
 	end)
 
@@ -147,15 +147,13 @@ describe("LevelPicker: the value model and the closed spec", function()
 		-- wrong pair is the accepted-and-ignored class the closed spec exists to
 		-- remove (the progress_view refusal shape)
 		expect(pcall(function()
-			return Facet.newLevelPicker(
-				Facet,
+			return Facet.Controls.LevelPicker(
 				core,
 				{ id = "L", value = core:signal(1), segment = "bar", glyphs = { filled = "x", empty = "o" } }
 			)
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.newLevelPicker(
-				Facet,
+			return Facet.Controls.LevelPicker(
 				core,
 				{ id = "L", value = core:signal(1), segment = "glyph", images = { filled = "a", empty = "b" } }
 			)
@@ -163,7 +161,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 		-- ...and an image segment with NO images is refused too: an image picker
 		-- with nothing to draw is an empty strip, not a default
 		expect(pcall(function()
-			return Facet.newLevelPicker(Facet, core, { id = "L", value = core:signal(1), segment = "image" })
+			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segment = "image" })
 		end)).toBe(false)
 	end)
 
@@ -208,7 +206,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 		local baseline = core:counters() -- AFTER the long-lived singletons
 
 		local value = core:signal(2)
-		local control = Facet.newLevelPicker(Facet, core, { id = "Quality", value = value, count = 10, env = env })
+		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10, env = env })
 		local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
@@ -465,7 +463,7 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 	it("LevelPicker keyboard affordance: no Adjust key is bound while focus sits outside", function()
 		local core, _, _, system, pres = world()
 		local value = core:signal(2)
-		local control = Facet.newLevelPicker(Facet, core, { id = "Quality", value = value, count = 10 })
+		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -482,7 +480,7 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 	it("LevelPicker gamepad affordance: at the limit the arrow goes back to navigation", function()
 		local core, _, _, system, pres = world()
 		local value = core:signal(9)
-		local control = Facet.newLevelPicker(Facet, core, { id = "Quality", value = value, count = 10 })
+		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
 		local STRIP_IN_ROW = "/S/Row/Quality/Strip"
 		local AFTER = "/S/Row/After"
 		pres.present(
@@ -575,7 +573,7 @@ describe("LevelPicker: a high count is diagnosed, never refused", function()
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
 		local control =
-			Facet.newLevelPicker(Facet, core, { id = "Quality", value = core:signal(1), count = count, env = env })
+			Facet.Controls.LevelPicker(core, { id = "Quality", value = core:signal(1), count = count, env = env })
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		local snap = themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {})
@@ -608,7 +606,7 @@ end)
 describe("newRating is a thin preset over newLevelPicker", function()
 	it("newRating is count 5, glyph segments and the star pair — nothing else", function()
 		local core, _, adapter, _, pres = world()
-		local control = Facet.newRating(Facet, core, { id = "Stars", value = core:signal(3) })
+		local control = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3) })
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		local out = ""
@@ -628,8 +626,8 @@ describe("newRating is a thin preset over newLevelPicker", function()
 
 	it("newRating still accepts starSize and maps it to the segment size", function()
 		local core, _, adapter, _, pres = world()
-		local small = Facet.newRating(Facet, core, { id = "A", value = core:signal(3) })
-		local large = Facet.newRating(Facet, core, { id = "B", value = core:signal(3), starSize = "large" })
+		local small = Facet.Controls.Rating(core, { id = "A", value = core:signal(3) })
+		local large = Facet.Controls.Rating(core, { id = "B", value = core:signal(3), starSize = "large" })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -643,7 +641,7 @@ describe("newRating is a thin preset over newLevelPicker", function()
 		local a = adapter.node("/S/Col/A/Stars/Star1").props.textSize
 		local b = adapter.node("/S/Col/B/Stars/Star1").props.textSize
 		expect(b > a).toBe(true)
-		local explicitSmall = Facet.newRating(Facet, core, { id = "C", value = core:signal(3), starSize = "small" })
+		local explicitSmall = Facet.Controls.Rating(core, { id = "C", value = core:signal(3), starSize = "small" })
 		pres.present(UI.Screen({ id = "T", children = { explicitSmall.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/T/C/Stars/Star1").props.textSize).toBe(a)
@@ -651,7 +649,7 @@ describe("newRating is a thin preset over newLevelPicker", function()
 
 	it("newRating keeps its own dump schema, and gains `segment` additively", function()
 		local core = customFactory.new()
-		local control = Facet.newRating(Facet, core, { id = "Stars", value = core:signal(3) })
+		local control = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3) })
 		local d = control.dump()
 		-- every key the schema carried before this control was generalized still
 		-- carries the value it carried: the schema stays /1 because nothing moved
@@ -666,7 +664,7 @@ describe("newRating is a thin preset over newLevelPicker", function()
 	it("newRating diagnoses a high count through exactly the same rule", function()
 		local core = customFactory.new()
 		local control =
-			Facet.newRating(Facet, core, { id = "Stars", value = core:signal(3), count = level_picker.HIGH_COUNT + 1 })
+			Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3), count = level_picker.HIGH_COUNT + 1 })
 		expect(#control.diagnostics()).toBe(1)
 		control.dispose()
 	end)
@@ -760,8 +758,8 @@ describe("LevelPicker: every mark paints a rectangle with AREA", function()
 		-- declared floor is the only thing holding the run open.
 		local core, _, adapter, _, pres = world()
 		local value = core:signal(2)
-		local picker = Facet.newLevelPicker(Facet, core, { id = "Quality", value = value, count = 10 })
-		local stepper = Facet.newStepper(Facet, core, { id = "QualityStep", value = value, min = 0, max = 10 })
+		local picker = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
+		local stepper = Facet.Controls.Stepper(core, { id = "QualityStep", value = value, min = 0, max = 10 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {

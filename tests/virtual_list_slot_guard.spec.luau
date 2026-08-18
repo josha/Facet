@@ -161,7 +161,7 @@ local function world(opts: WorldOpts): any
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local list = Facet.newVirtualList(Facet, core, {
+	local list = Facet.Controls.VirtualList(core, {
 		id = "VL",
 		axis = opts.axis,
 		rows = core:signal(makeRows(60)),

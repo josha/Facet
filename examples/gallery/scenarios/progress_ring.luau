@@ -62,7 +62,7 @@ return {
 
 		local progress = scope:own(core:signal(0.25))
 
-		local ring = Facet.newProgressView(Facet, core, {
+		local ring = Facet.Controls.ProgressView(core, {
 			id = "Ring",
 			label = COPY.determinate,
 			value = progress,
@@ -77,14 +77,14 @@ return {
 			return string.format("%d%%", use(progress) * 100 + 0.5)
 		end))
 
-		local busy = Facet.newProgressView(Facet, core, {
+		local busy = Facet.Controls.ProgressView(core, {
 			id = "Busy",
 			label = COPY.indeterminate,
 			presentation = "circular",
 			motionClock = clock,
 			scope = scope,
 		})
-		local dots = Facet.newProgressView(Facet, core, {
+		local dots = Facet.Controls.ProgressView(core, {
 			id = "Dots",
 			label = COPY.spinner,
 			presentation = "spinner",

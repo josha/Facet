@@ -80,7 +80,7 @@ return {
 			})
 		end))
 
-		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
+		local list = ctx.Facet.Controls.VirtualList(core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)

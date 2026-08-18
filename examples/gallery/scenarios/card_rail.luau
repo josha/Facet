@@ -136,7 +136,7 @@ return {
 			return math.clamp(math.floor(w - left - right - PADDING * 2 - RAIL_SLACK), 96, 1600)
 		end))
 
-		local rail = Facet.newVirtualList(Facet, core, {
+		local rail = Facet.Controls.VirtualList(core, {
 			id = "Rail",
 			-- THE ONE FIELD THIS WHOLE FIXTURE EXISTS FOR
 			axis = "x",

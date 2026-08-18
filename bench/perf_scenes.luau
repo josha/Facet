@@ -451,7 +451,7 @@ table.insert(scenes, {
 			items[i] = { id = `racer{i}`, name = `Racer {i}`, detail = `Lap {i % 5 + 1} · P{i % 24 + 1}` }
 		end
 		local rows = core:signal(items)
-		local list = Facet.newVirtualList(Facet, core, {
+		local list = Facet.Controls.VirtualList(core, {
 			id = "Roster",
 			rows = rows,
 			key = function(item)
@@ -632,7 +632,7 @@ table.insert(scenes, {
 		end
 		markerData:set(marks)
 		local progress = core:signal(0)
-		local bar = Facet.newProgressView(Facet, core, { id = "Lap", value = progress })
+		local bar = Facet.Controls.ProgressView(core, { id = "Lap", value = progress })
 		local boosts = core:signal(0)
 		local actions = {}
 		for i = 1, 4 do
@@ -827,7 +827,7 @@ table.insert(scenes, {
 		local images = {}
 		local children = {}
 		for i = 1, 12 do
-			local img = Facet.newAsyncImage(Facet, state.core, {
+			local img = Facet.Controls.AsyncImage(state.core, {
 				id = `Av{i}`,
 				scope = state.scope,
 				provider = state.provider,
@@ -892,11 +892,10 @@ table.insert(scenes, {
 		local volume = core:signal(50)
 		local quality = core:signal(2)
 		local choice = core:signal("medium")
-		local slider =
-			Facet.newSlider(Facet, core, { id = "Vol", label = "Volume", value = volume, min = 0, max = 100 })
+		local slider = Facet.Controls.Slider(core, { id = "Vol", label = "Volume", value = volume, min = 0, max = 100 })
 		local stepper =
-			Facet.newStepper(Facet, core, { id = "Qual", label = "Quality", value = quality, min = 0, max = 4 })
-		local picker = Facet.newPicker(Facet, core, {
+			Facet.Controls.Stepper(core, { id = "Qual", label = "Quality", value = quality, min = 0, max = 4 })
+		local picker = Facet.Controls.Picker(core, {
 			id = "Detail",
 			label = "Detail",
 			options = {
@@ -906,8 +905,8 @@ table.insert(scenes, {
 			},
 			selected = choice,
 		})
-		local bar = Facet.newProgressView(Facet, core, { id = "Load", value = 0.4 })
-		local label = Facet.newLabel(Facet, core, { id = "Head", title = "Settings" })
+		local bar = Facet.Controls.ProgressView(core, { id = "Load", value = 0.4 })
+		local label = Facet.Controls.Label(core, { id = "Head", title = "Settings" })
 		local toggles = {}
 		for i = 1, 12 do
 			table.insert(toggles, UI.Toggle({ id = `Flag{i}`, label = `Flag {i}`, value = i % 2 == 0 }))
@@ -950,7 +949,7 @@ local THEME_PROBES = { "/Fixture/Head", "/Fixture/Row/Go", "/Fixture/Row/Flag", 
 
 local function themeFixture(profile: any)
 	local core, env, _sys, adapter, pres = newStack(profile)
-	local bar = Facet.newProgressView(Facet, core, { id = "Bar", value = 0.6 })
+	local bar = Facet.Controls.ProgressView(core, { id = "Bar", value = 0.6 })
 	pres.present(UI.Screen({
 		id = "Fixture",
 		padding = 8,
@@ -1158,7 +1157,7 @@ table.insert(scenes, {
 			items[i] = { id = `chip{i}`, name = `Racer {i}` }
 		end
 		local rows = core:signal(items)
-		local list = Facet.newVirtualList(Facet, core, {
+		local list = Facet.Controls.VirtualList(core, {
 			id = "Roster",
 			rows = rows,
 			key = function(item)
@@ -1340,7 +1339,7 @@ local function labList(core: any, pres: any, provider: any, items: { any }, view
 	-- budget taken from it was guarding the wrong thing. Sharing `compactFor` is the
 	-- whole point of sharing the row module.
 	local compact = perf_rows.compactFor(profile.viewport.w)
-	local list = Facet.newVirtualList(Facet, core, {
+	local list = Facet.Controls.VirtualList(core, {
 		id = "Rows",
 		rows = rowsSignal,
 		key = function(item: any)

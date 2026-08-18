@@ -95,7 +95,7 @@ a callback for each:
   Until you commit, the Result stays `—`.
 
 ```lua
-local field = Facet.newTextInput(Facet, core, {
+local field = Facet.Controls.TextInput(core, {
     id = "Fahrenheit",
     value = fahrenheitText,
     placeholder = "e.g. 212",
@@ -284,7 +284,7 @@ and owned by the example — whose glyphs are derived values over that track's
 rating signal:
 
 ```lua
-ratingControls[track.id] = Facet.newRating(Facet, core, {
+ratingControls[track.id] = Facet.Controls.Rating(core, {
 	id = "Rating", env = deps.env, value = ratings[track.id], count = 5,
 })
 ```

@@ -370,7 +370,7 @@ return {
 			end,
 			row = function(item, itemScope)
 				local actions = actionsFor(listModel, item.id)
-				local built = Facet.newRowActions(Facet, core, {
+				local built = Facet.Controls.RowActions(core, {
 					id = item.id,
 					-- restores the row's normal list-flow width — `content` is
 					-- itself `width = fill` with nothing to measure against once
@@ -416,7 +416,7 @@ return {
 		-- the row `onPrimaryAction` last opened (nil until one is)
 		local openedKey = scope:own(core:signal(nil :: string?))
 		local editingSignal = core:signal(false)
-		local tbl = Facet.newTable(Facet, core, {
+		local tbl = Facet.Controls.Table(core, {
 			id = "MailTable",
 			columns = {
 				{ id = "from", title = "From", width = { type = "fixed", px = 150 } },
@@ -571,7 +571,7 @@ return {
 		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
 		local vlistWindow = core:signal(336)
 
-		local vlist = Facet.newVirtualList(Facet, core, {
+		local vlist = Facet.Controls.VirtualList(core, {
 			id = "VList",
 			rows = vlModel.rows,
 			key = function(item: any)

@@ -304,7 +304,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 	-- ── refine modal ───────────────────────────────────────────────────────
 	local sortSignal = services.sort
 	local function presentRefine()
-		local picker = Facet.newPicker(Facet, core, {
+		local picker = Facet.Controls.Picker(core, {
 			id = "Sort",
 			label = Lnow("filter.sort"),
 			options = {
@@ -366,7 +366,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 
 	-- ── item card ──────────────────────────────────────────────────────────
 	local function itemCard(item: seedData.Item, itemScope: any)
-		local img = Facet.newAsyncImage(Facet, core, {
+		local img = Facet.Controls.AsyncImage(core, {
 			id = "Thumb",
 			scope = itemScope,
 			provider = provider,
@@ -394,7 +394,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 		end)
 		local verifiedLabel: any = nil
 		if item.verified then
-			local vl = Facet.newLabel(Facet, core, {
+			local vl = Facet.Controls.Label(core, {
 				id = "Verified",
 				title = Lnow("verified"),
 				icon = "wardrobe:verified",
@@ -951,7 +951,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 	})
 
 	-- ── chrome (segments + wallet) ─────────────────────────────────────────
-	local sectionPicker = Facet.newPicker(Facet, core, {
+	local sectionPicker = Facet.Controls.Picker(core, {
 		id = "Section",
 		options = {
 			{ value = "boutique", label = Lnow("section.boutique") },

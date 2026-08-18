@@ -31,12 +31,12 @@ return {
 		local volume = core:signal(40)
 		local nickname = core:signal("racer")
 
-		local field = Facet.newTextInput(Facet, core, {
+		local field = Facet.Controls.TextInput(core, {
 			id = "Nickname",
 			value = nickname,
 			placeholder = "Nickname",
 		})
-		local slider = Facet.newSlider(Facet, core, {
+		local slider = Facet.Controls.Slider(core, {
 			id = "Volume",
 			value = volume,
 			min = 0,

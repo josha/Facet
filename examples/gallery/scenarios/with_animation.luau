@@ -231,7 +231,7 @@ return {
 			end
 		end))
 
-		local motionPicker = Facet.newPicker(Facet, core, {
+		local motionPicker = Facet.Controls.Picker(core, {
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED, declared rather than adaptive: two short labels shown side
@@ -558,7 +558,7 @@ return {
 			},
 		})
 
-		local chargeBar = Facet.newProgressView(Facet, core, {
+		local chargeBar = Facet.Controls.ProgressView(core, {
 			id = "Charge",
 			label = COPY.chargeLabel,
 			value = charge,
@@ -582,13 +582,13 @@ return {
 		-- for as long as it exists, so `scope` is required exactly as it is for
 		-- newAsyncImage's provider handle: this scenario's scope already retires
 		-- everything else it built, and now retires these two cycles with it.
-		local busyBar = Facet.newProgressView(Facet, core, {
+		local busyBar = Facet.Controls.ProgressView(core, {
 			id = "Busy",
 			label = COPY.busyLabel,
 			motionClock = clock,
 			scope = scope,
 		})
-		local busySpinner = Facet.newProgressView(Facet, core, {
+		local busySpinner = Facet.Controls.ProgressView(core, {
 			id = "Working",
 			label = COPY.spinnerLabel,
 			presentation = "spinner",

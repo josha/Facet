@@ -69,7 +69,7 @@ return {
 		local advancedOpen = core:signal(false)
 		local progress = core:signal(0.35)
 
-		local stepper = Facet.newStepper(Facet, core, {
+		local stepper = Facet.Controls.Stepper(core, {
 			id = "Volume",
 			label = "Volume",
 			value = volume,
@@ -77,7 +77,7 @@ return {
 			max = 10,
 			step = 1,
 		})
-		local slider = Facet.newSlider(Facet, core, {
+		local slider = Facet.Controls.Slider(core, {
 			id = "Brightness",
 			label = "Brightness",
 			value = brightness,
@@ -85,7 +85,7 @@ return {
 			max = 100,
 			step = 5,
 		})
-		local picker = Facet.newPicker(Facet, core, {
+		local picker = Facet.Controls.Picker(core, {
 			id = "Quality",
 			label = "Quality",
 			options = {
@@ -96,14 +96,14 @@ return {
 			selected = quality,
 			sizeClass = conditions.sizeClass,
 		})
-		local progressView = Facet.newProgressView(Facet, core, {
+		local progressView = Facet.Controls.ProgressView(core, {
 			id = "Download",
 			label = "Download",
 			value = progress,
 			showValue = true,
 		})
-		local saveLabel = Facet.newLabel(Facet, core, { id = "SaveLabel", title = "Save changes" })
-		local disclosure = Facet.newDisclosureGroup(Facet, core, {
+		local saveLabel = Facet.Controls.Label(core, { id = "SaveLabel", title = "Save changes" })
+		local disclosure = Facet.Controls.DisclosureGroup(core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = advancedOpen,
@@ -148,7 +148,7 @@ return {
 			{ value = "compose", label = "Compose", icon = "edit" },
 			{ value = "more", label = "More", icon = "more" },
 		}
-		local navPill = Facet.newPicker(Facet, core, {
+		local navPill = Facet.Controls.Picker(core, {
 			id = "NavPill",
 			options = NAV_OPTIONS,
 			selected = navSection,
@@ -156,7 +156,7 @@ return {
 			iconOnly = true,
 			env = ctx.env,
 		})
-		local navRail = Facet.newPicker(Facet, core, {
+		local navRail = Facet.Controls.Picker(core, {
 			id = "NavRail",
 			options = NAV_OPTIONS,
 			selected = navSection,

@@ -223,7 +223,7 @@ function workbench.new(app: any): any
 
 	-- ---- the form ------------------------------------------------------------
 
-	local nameField = Facet.newTextInput(Facet, core, {
+	local nameField = Facet.Controls.TextInput(core, {
 		id = "Name",
 		value = nameValue,
 		placeholder = S.t("bench.name"),
@@ -247,7 +247,7 @@ function workbench.new(app: any): any
 			return math.clamp(attrs[axis] / use(peak), 0, 1)
 		end)
 		table.insert(gaugeMemos, ratio)
-		local gauge = Facet.newProgressView(Facet, core, {
+		local gauge = Facet.Controls.ProgressView(core, {
 			id = "Gauge" .. axis,
 			value = ratio,
 			min = 0,
@@ -323,21 +323,21 @@ function workbench.new(app: any): any
 		return options
 	end
 
-	local basePicker = Facet.newPopupButton(Facet, core, {
+	local basePicker = Facet.Controls.PopupButton(core, {
 		id = "Base",
 		options = ingredientOptions(data.bases :: any, false),
 		value = baseValue,
 		presentation = "automatic",
 		sizeClass = app.state.sizeClass,
 	})
-	local essencePicker = Facet.newPopupButton(Facet, core, {
+	local essencePicker = Facet.Controls.PopupButton(core, {
 		id = "Essence",
 		options = ingredientOptions(data.essences :: any, true),
 		value = essenceValue,
 		presentation = "automatic",
 		sizeClass = app.state.sizeClass,
 	})
-	local garnishPicker = Facet.newPopupButton(Facet, core, {
+	local garnishPicker = Facet.Controls.PopupButton(core, {
 		id = "Garnish",
 		options = ingredientOptions(data.garnishes :: any, true),
 		value = garnishValue,

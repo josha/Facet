@@ -104,8 +104,8 @@ return {
 			-- switch. Without `env` they would all take the pointer spacing and the
 			-- one thing this fixture exists to be looked at on would be missing.
 			spec.env = ctx.env
-			local picker = keep(Facet.newLevelPicker(Facet, core, spec))
-			local stepper = keep(Facet.newStepper(Facet, core, {
+			local picker = keep(Facet.Controls.LevelPicker(core, spec))
+			local stepper = keep(Facet.Controls.Stepper(core, {
 				id = `{id}Step`,
 				value = value,
 				min = if spec.allowZero == false then 1 else 0,

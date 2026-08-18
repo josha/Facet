@@ -625,7 +625,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local selected = core:signal("grid")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -710,7 +710,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		expect(w.adapter.node(PBAR).rect.y).toBe(b.y + 4)
 		-- and `inline` still means the ROW LIST it always meant: a distinct shape
 		local core = Facet.newCore()
-		local inline = Facet.newPicker(Facet, core, {
+		local inline = Facet.Controls.Picker(core, {
 			id = "P",
 			selected = core:signal("a"),
 			options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
@@ -743,7 +743,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 			for k, v in extra do
 				spec[k] = v
 			end
-			return Facet.newPicker(Facet, core, spec)
+			return Facet.Controls.Picker(core, spec)
 		end
 		local ok, err = pcall(build, { indicator = "glow" })
 		expect(ok).toBe(false)
@@ -820,7 +820,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 		local selected = core:signal("grid")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },

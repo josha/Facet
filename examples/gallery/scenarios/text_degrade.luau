@@ -162,7 +162,7 @@ return {
 			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
 		end))
 
-		local widthPicker = Facet.newPicker(Facet, core, {
+		local widthPicker = Facet.Controls.Picker(core, {
 			id = "Room",
 			label = COPY.widthLabel,
 			-- SEGMENTED, declared: four peers named for how much room there is,

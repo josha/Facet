@@ -438,8 +438,7 @@ describe("the bar's ornaments reserve the space they paint in", function()
 
 	it("the SOLVER clears the label, the readout and the rows above and below", function()
 		local core, env, adapter, _, pres = harness()
-		local p =
-			Facet.newProgressView(Facet, core, { id = "Load", label = "Download", value = 0.35, showValue = true })
+		local p = Facet.Controls.ProgressView(core, { id = "Load", label = "Download", value = 0.35, showValue = true })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -546,7 +545,7 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		d.metrics.controls.progress = { trackHeight = 40, rowMinHeight = 56 }
 		local pkg = themes.define(d)
 		assert(pkg ~= nil, "the deep-inset fixture must compile at a 40px track")
-		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.35, height = 12 })
+		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.35, height = 12 })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
@@ -567,7 +566,7 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		expect(string.find(reported.issue, "16px of border", 1, true) ~= nil).toBe(true)
 		expect(string.find(reported.issue, "12px", 1, true) ~= nil).toBe(true)
 		-- and a track that CAN afford its insets reports nothing
-		local ok = Facet.newProgressView(Facet, core, { id = "Fine", value = 0.35 })
+		local ok = Facet.Controls.ProgressView(core, { id = "Fine", value = 0.35 })
 		pres.present(UI.Screen({ id = "T", children = { ok.blueprint } })).controller.diagnostics()
 		pres.refresh()
 		p.dispose()
@@ -801,7 +800,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 			motionPolicy = core:signal("full"),
 		})
 		local scope = core:scope("spinner-paint")
-		local view = Facet.newProgressView(Facet, core, {
+		local view = Facet.Controls.ProgressView(core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
@@ -1251,7 +1250,7 @@ end)
 describe("the value controls declare their slots on the internal channel", function()
 	it("a ProgressView's track and fill reach adapter.create as hints", function()
 		local core, _, adapter, _, pres = harness()
-		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.4 })
+		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.4 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar").decorationHint.slot).toBe("barTrack")
@@ -1262,7 +1261,7 @@ describe("the value controls declare their slots on the internal channel", funct
 	it("the fill's solved rect is still the percent — geometry stays solver-owned", function()
 		local core, _, adapter, _, pres = harness()
 		local v = core:signal(0.25)
-		local p = Facet.newProgressView(Facet, core, { id = "Load", value = v })
+		local p = Facet.Controls.ProgressView(core, { id = "Load", value = v })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect
@@ -1275,7 +1274,7 @@ describe("the value controls declare their slots on the internal channel", funct
 
 	it("a Stepper's two affordances declare the plate slot", function()
 		local core, _, adapter, _, pres = harness()
-		local s = Facet.newStepper(Facet, core, { id = "Qty", value = core:signal(2), min = 0, max = 9 })
+		local s = Facet.Controls.Stepper(core, { id = "Qty", value = core:signal(2), min = 0, max = 9 })
 		pres.present(UI.Screen({ id = "S", children = { s.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Qty/Dec").decorationHint.slot).toBe("stepperPlate")
@@ -1338,7 +1337,7 @@ describe("the bar family's census falls on EVERY teardown path", function()
 		-- the SOLVER's number is what the presenter actually publishes for the
 		-- track, in unscaled px, and the fill box is derived from it verbatim
 		local core, _, adapter, _, pres = harness()
-		local p = Facet.newProgressView(Facet, core, { id = "Load", value = 0.5 })
+		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect

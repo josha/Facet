@@ -46,7 +46,14 @@ local CONTROL_TEMPLATE = [==[
 
 local %NAME% = {}
 
-function %NAME%.build(Facet: any, core: any, spec: any)
+export type Spec = {
+	id: string?,
+	-- TODO: the real spec keys. `Facet.Controls.%DISPLAY%` in src/init.luau
+	-- declares this type, so a caller gets argument checking, not `any`.
+	[string]: any,
+}
+
+function %NAME%.build(Facet: any, core: any, spec: Spec)
 	local UI = Facet.UI
 	-- the input-contribution seam is PUBLIC (Facet.contribution), so a control
 	-- built outside this repository attaches its bundle exactly like this one
@@ -339,7 +346,7 @@ local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.new%DISPLAY%(Facet, core, { id = "Ctl" }).blueprint
+			return Facet.Controls.%DISPLAY%(core, { id = "Ctl" }).blueprint
 		end,
 	},
 ]==]
@@ -349,10 +356,10 @@ local REGISTRY_ROW_TEMPLATE = [==[
 		name = "%DISPLAY%",
 		kind = "composite",
 		module = "src/controls/%NAME%.luau",
-		export = "new%DISPLAY%",
+		export = "Controls.%DISPLAY%",
 		spec = "tests/%NAME%.spec.luau",
 		conformance = "tests/%NAME%.spec.luau",
-		docsAnchor = "new%DISPLAY%",
+		docsAnchor = "Controls.%DISPLAY%",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -382,12 +389,16 @@ local REGISTRY_ROW_TEMPLATE = [==[
 
 local API_STUB_TEMPLATE = [==[
 
-### `new%DISPLAY%`
+### `Controls.%DISPLAY%`
 
-`Facet.new%DISPLAY%(Facet, core, spec) -> { blueprint, dump, dispose }` —
+`Facet.Controls.%DISPLAY%(core, spec) -> { blueprint, dump, dispose }` —
 TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
-anchor; the docs-accuracy review requires it to be REAL).]==]
+anchor; the docs-accuracy review requires it to be REAL).
+
+ADR-0037: a control created after 0.10.0 has ONE public spelling. There is no
+`Facet.new%DISPLAY%` — the nineteen that exist are the pre-ADR set, kept working
+and deprecated, and a new control is not born deprecated.]==]
 
 local function fill(template: string, name: string, display: string): string
 	local out = string.gsub(template, "%%NAME%%", name)
@@ -461,10 +472,23 @@ function scaffold.plan(kind: string, name: string): Plan
 				before = "scaffold: new control rows are appended above this line",
 				insert = fill(REGISTRY_ROW_TEMPLATE, name, display),
 			},
+			--[[ THE CANONICAL EXPORT (ADR-0037). Two edits, because the namespace
+				entry names the module twice — once to call it and once for the spec
+				type it declares — so the module needs a local. There is deliberately no
+				`new{display}` line: the nineteen old-form builders are the pre-ADR set,
+				deprecated in the ledger, and a control scaffolded today is not born
+				into a deprecated spelling. ]]
 			{
 				path = "src/init.luau",
-				before = "	-- async resources",
-				insert = `	new{display} = require("@self/controls/{name}").build,`,
+				before = "local asyncResources = ",
+				insert = `local {name} = require("@self/controls/{name}")`,
+			},
+			{
+				path = "src/init.luau",
+				before = "	AsyncImage = function(core: any, spec: any)",
+				insert = `	{display} = function(core: any, spec: {name}.Spec)\n`
+					.. `		return {name}.build(library, core, spec)\n`
+					.. `	end,`,
 			},
 			--[[ ...AND THE LARGE-TEXT SWEEP (MAINT-3/MAINT-29, 2026-08-17). Without
 				this row the scaffold's own output failed `LT8-COVER` the moment it

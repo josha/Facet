@@ -112,7 +112,7 @@ return {
 			list that starts too short can only grow. ]]
 		local viewportExtent = scope:own(core:signal(72))
 
-		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
+		local list = ctx.Facet.Controls.VirtualList(core, {
 			id = "Feed",
 			rows = rows,
 			key = function(item: any): string

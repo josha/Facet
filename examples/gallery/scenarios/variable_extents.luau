@@ -213,7 +213,7 @@ return {
 		local SEED_WINDOW = 72
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local list = ctx.Facet.newVirtualList(ctx.Facet, core, {
+		local list = ctx.Facet.Controls.VirtualList(core, {
 			id = "Feed",
 			rows = rows,
 			key = function(item: any): string

@@ -171,7 +171,7 @@ return {
 		end
 		lastRawOrder = orderOf(rawEntries:get())
 
-		local picker = Facet.newPicker(Facet, core, {
+		local picker = Facet.Controls.Picker(core, {
 			id = "Construction",
 			label = COPY.pick,
 			presentation = "segmented",

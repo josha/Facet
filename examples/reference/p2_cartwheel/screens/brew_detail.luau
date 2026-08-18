@@ -77,7 +77,7 @@ function brew_detail.new(app: any): any
 		return if use(expired) then "strong" else "caption"
 	end)
 
-	local bar = Facet.newProgressView(Facet, core, {
+	local bar = Facet.Controls.ProgressView(core, {
 		id = "Countdown",
 		value = countdownFraction,
 		min = 0,

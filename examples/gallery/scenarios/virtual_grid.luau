@@ -134,7 +134,7 @@ return {
 
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local grid = ctx.Facet.newVirtualGrid(ctx.Facet, core, {
+		local grid = ctx.Facet.Controls.VirtualGrid(core, {
 			id = "Cells",
 			items = items,
 			key = function(item: any): string

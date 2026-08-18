@@ -415,8 +415,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Slider: 44px track, 20px thumb, 6px rail, 16px label gap, 40px readout", function()
 		local core, _, _, adapter = controlWorld(function(core)
-			return Facet.newSlider(
-				Facet,
+			return Facet.Controls.Slider(
 				core,
 				{ id = "V", label = "Volume", value = core:signal(5), min = 0, max = 10 }
 			).blueprint
@@ -437,7 +436,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("ProgressView: 6px track, 20px row floor, 14px label text, 8px row gap", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.newProgressView(Facet, core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
+			return Facet.Controls.ProgressView(core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
 		end)
 		expect(adapter.node("/S/P/Bar").rect.h).toBe(6)
 		expect(adapter.node("/S/P").rect.h >= 20).toBe(true)
@@ -448,7 +447,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("PopupButton: 40px trigger, and 36/44/56 rows per presentation", function()
 		local _, _, adapter, presenter = presentedWorld(function(core)
-			return Facet.newPopupButton(Facet, core, {
+			return Facet.Controls.PopupButton(core, {
 				id = "M",
 				options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
 				value = core:signal("a"),
@@ -466,7 +465,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 	it("PopupButton inline rows are 44 and sheet rows are 56", function()
 		for presentation, height in { inline = 44, sheet = 56 } do
 			local _, _, adapter, presenter = presentedWorld(function(core)
-				return Facet.newPopupButton(Facet, core, {
+				return Facet.Controls.PopupButton(core, {
 					id = "M",
 					options = { { id = "a", label = "Alpha" } },
 					value = core:signal("a"),
@@ -481,7 +480,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("TextInput: 44px field, 28px clear button inset 8px from the right edge", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.newTextInput(Facet, core, {
+			return Facet.Controls.TextInput(core, {
 				id = "F",
 				value = core:signal("Ada"),
 				placeholder = "name",
@@ -508,7 +507,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Stepper: square 44px buttons, 32px readout, 8px row gap, 16px label", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.newStepper(Facet, core, {
+			return Facet.Controls.Stepper(core, {
 				id = "C",
 				label = "Count",
 				value = core:signal(3),
@@ -530,12 +529,12 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Chip, DisclosureGroup and Picker rows all sit on the 44px target floor", function()
 		local _, _, _, chip = controlWorld(function(core)
-			return Facet.newChip(Facet, core, { id = "C", label = "Tag", selected = core:signal(false) }).blueprint
+			return Facet.Controls.Chip(core, { id = "C", label = "Tag", selected = core:signal(false) }).blueprint
 		end)
 		expect(chip.node("/S/C").rect.h).toBe(46) -- the 44 floor plus the button's own text box
 
 		local _, _, _, group = controlWorld(function(core)
-			return Facet.newDisclosureGroup(Facet, core, {
+			return Facet.Controls.DisclosureGroup(core, {
 				id = "D",
 				label = "More",
 				expanded = core:signal(false),
@@ -547,7 +546,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 		expect(group.node("/S/D/Header").rect.h).toBe(46)
 
 		local _, _, _, picker = controlWorld(function(core)
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "Q",
 				label = "Quality",
 				options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
@@ -567,7 +566,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Label: 20px icon, 6px gap, 16px title", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.newLabel(Facet, core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
+			return Facet.Controls.Label(core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
 		end)
 		expect(adapter.node("/S/L/Icon").rect.w).toBe(20)
 		expect(adapter.node("/S/L/Icon").rect.h).toBe(20)
@@ -605,7 +604,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 			-- and ignored for the life of this test. The transport is driven through
 			-- `pendingRequests`/`complete`, never a `load` callback (ARCH-1).
 			local provider = Facet.newResourceProvider(core)
-			return Facet.newAsyncImage(Facet, core, {
+			return Facet.Controls.AsyncImage(core, {
 				id = "I",
 				provider = provider,
 				scope = core:scope("img"),
@@ -618,7 +617,7 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("Table: 28px header, 15px cell text, 2px row gap, 8px cell inset", function()
 		local _, _, _, adapter = world(function(core)
-			local control = Facet.newTable(Facet, core, {
+			local control = Facet.Controls.Table(core, {
 				id = "T",
 				rows = core:signal({ { id = "a", name = "Apex" } }),
 				key = function(row: any)

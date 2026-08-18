@@ -58,7 +58,7 @@ local function focusedPath(adapter: any, paths: { string }): string?
 end
 
 local function slider(core: any, id: string)
-	return Facet.newSlider(Facet, core, { id = id, value = core:signal(0.5), min = 0, max = 1, step = 0.1 })
+	return Facet.Controls.Slider(core, { id = id, value = core:signal(0.5), min = 0, max = 1, step = 0.1 })
 end
 
 local function button(id: string, extra: any?)
@@ -237,7 +237,7 @@ describe("every focusable Grip traverses in document position — no exceptions 
 	-- would be the same purpose-derived special case TDN-1 refused.
 	it("newRating's strip Grip traverses in document position too", function()
 		local core, _, _, pres = harness()
-		local rating = Facet.newRating(Facet, core, { id = "Stars", value = core:signal(3), count = 5 })
+		local rating = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3), count = 5 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("Before"), rating.blueprint, button("After") },

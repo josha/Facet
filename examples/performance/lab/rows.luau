@@ -346,7 +346,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		ctx.toggles[item.id] = toggled
 	end
 
-	local image = Facet.newAsyncImage(Facet, core, {
+	local image = Facet.Controls.AsyncImage(core, {
 		id = "Avatar",
 		scope = scope,
 		provider = ctx.provider,
@@ -377,7 +377,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 	--
 	-- The cell scope releases it, because `scope:own` accepts any table with a
 	-- `dispose()`. Recorded as PLN-4.
-	local stepper = scope:own(Facet.newStepper(Facet, core, {
+	local stepper = scope:own(Facet.Controls.Stepper(core, {
 		id = "Rate",
 		label = "Rate",
 		value = value,

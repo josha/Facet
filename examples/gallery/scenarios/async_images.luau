@@ -18,19 +18,19 @@ return {
 		local unbindTransport = ctx.bindResourceTransport(provider)
 
 		local imgs = {
-			ctx.Facet.newAsyncImage(ctx.Facet, core, {
+			ctx.Facet.Controls.AsyncImage(core, {
 				id = "AvatarRoblox",
 				scope = scope,
 				provider = provider,
 				key = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48",
 			}),
-			ctx.Facet.newAsyncImage(ctx.Facet, core, {
+			ctx.Facet.Controls.AsyncImage(core, {
 				id = "AvatarBuilderman",
 				scope = scope,
 				provider = provider,
 				key = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48",
 			}),
-			ctx.Facet.newAsyncImage(ctx.Facet, core, {
+			ctx.Facet.Controls.AsyncImage(core, {
 				id = "BadAsset",
 				scope = scope,
 				provider = provider,

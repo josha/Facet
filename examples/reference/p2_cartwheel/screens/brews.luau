@@ -149,7 +149,7 @@ function brews.new(app: any): any
 
 	-- ---- the toolbar ---------------------------------------------------------
 
-	local search = Facet.newTextInput(Facet, core, {
+	local search = Facet.Controls.TextInput(core, {
 		id = "Search",
 		value = query,
 		placeholder = S.t("brews.search"),
@@ -296,7 +296,7 @@ function brews.new(app: any): any
 		return S.t("status." .. item.status)
 	end
 
-	tableControl = Facet.newTable(Facet, core, {
+	tableControl = Facet.Controls.Table(core, {
 		id = "BrewTable",
 		rows = sorted,
 		key = function(item)

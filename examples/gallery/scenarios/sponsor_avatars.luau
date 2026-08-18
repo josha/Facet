@@ -132,7 +132,7 @@ return {
 		end))
 
 		local function composite(item: any, itemScope: any): any
-			local image = Facet.newAsyncImage(Facet, core, {
+			local image = Facet.Controls.AsyncImage(core, {
 				id = "Face",
 				scope = itemScope,
 				provider = provider,

@@ -62,7 +62,7 @@ function ledger.new(app: any): any
 		end
 	end
 
-	local picker = Facet.newPicker(Facet, core, {
+	local picker = Facet.Controls.Picker(core, {
 		id = "Timeframe",
 		options = optionLabels,
 		selected = timeframe,

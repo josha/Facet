@@ -614,6 +614,11 @@ require("./hud_paint_probe.spec")
 require("./hit_expander_z_band.spec")
 require("./tab_view.spec")
 require("./level_picker.spec")
+--[[ ADR-0037: `Facet.Controls.<Name>(core, spec)` — every one of the nineteen
+	composites built BOTH ways from the same spec and compared on what it
+	publishes, because an entry wired to the wrong builder (or to the right one
+	with the wrong library) still returns a perfectly plausible table ]]
+require("./controls_namespace.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

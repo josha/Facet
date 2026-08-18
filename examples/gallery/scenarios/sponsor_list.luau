@@ -298,7 +298,7 @@ return {
 		local selections: { string } = {}
 		local activations: { any } = {}
 
-		list = Facet.newVirtualList(Facet, core, {
+		list = Facet.Controls.VirtualList(core, {
 			id = "Rows",
 			rows = rows,
 			key = function(item: any)

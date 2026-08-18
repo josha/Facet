@@ -90,7 +90,7 @@ local function world(opts: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local tv = Facet.newTabView(Facet, core, built)
+	local tv = Facet.Controls.TabView(core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
 	pres.refresh()
 	return {
@@ -263,7 +263,7 @@ describe("D5: placement comes from the policy, and the strip is RE-HOMED not reb
 	it("an automatic placement with nothing to ask is an authoring error, not a guess", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newTabView(Facet, core, {
+			Facet.Controls.TabView(core, {
 				id = "X",
 				selection = core:signal("a"),
 				tabs = { { id = "a", content = body("a") } },
@@ -289,7 +289,7 @@ local function nestedWorld(opts: any?)
 	local innerSelection = core:signal("foryou")
 	local inner: any = nil
 	local innerBuilds = 0
-	local outer = Facet.newTabView(Facet, core, {
+	local outer = Facet.Controls.TabView(core, {
 		id = "App",
 		selection = outerSelection,
 		env = env,
@@ -301,7 +301,7 @@ local function nestedWorld(opts: any?)
 				-- tab's content factory, which is also where laziness puts it
 				content = function(tabScope: any)
 					innerBuilds += 1
-					inner = Facet.newTabView(Facet, core, {
+					inner = Facet.Controls.TabView(core, {
 						id = "Page",
 						selection = innerSelection,
 						env = env,
@@ -428,7 +428,7 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local boom = Facet.newTabView(Facet, core, {
+		local boom = Facet.Controls.TabView(core, {
 			id = "Boom",
 			selection = core:signal("a"),
 			env = env,
@@ -559,7 +559,7 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		local selection = core:signal("home")
 		local disposed = 0
 		local baseline: any = nil
-		local tv = Facet.newTabView(Facet, core, {
+		local tv = Facet.Controls.TabView(core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -635,7 +635,7 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		local selection = core:signal("home")
 		-- the caller's Signal, OUTSIDE the TabView, exactly as `selection` is
 		local draft = core:signal("half typed")
-		local tv = Facet.newTabView(Facet, core, {
+		local tv = Facet.Controls.TabView(core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -927,7 +927,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	it("an unknown key is an authoring error", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newTabView(Facet, core, {
+			Facet.Controls.TabView(core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -942,7 +942,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	it("`content` must be a FACTORY, and the refusal says why", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newTabView(Facet, core, {
+			Facet.Controls.TabView(core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -956,7 +956,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	it("two tabs may not share an id, because a tab id IS the selection value", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newTabView(Facet, core, {
+			Facet.Controls.TabView(core, {
 				id = "X",
 				selection = core:signal("a"),
 				placement = "topBar",
@@ -970,7 +970,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	it("`selection` must be a settable Signal the caller owns", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newTabView(Facet, core, {
+			Facet.Controls.TabView(core, {
 				id = "X",
 				selection = "home",
 				placement = "topBar",
@@ -999,7 +999,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 		-- baseline: a control that freed it would be freeing what it does not own
 		local selection = core:signal("a")
 		local baseline = core:counters()
-		local tv = Facet.newTabView(Facet, core, {
+		local tv = Facet.Controls.TabView(core, {
 			id = "X",
 			selection = selection,
 			placement = "sidebar",

@@ -337,7 +337,7 @@ return {
 				320px would be 40px each — so an autoscroll demonstration built on the
 				filling default would demonstrate nothing. A `topBar` already hugs; it is
 				written out here because this fixture's subject is what hugging costs. ]]
-			inner = Facet.newTabView(Facet, core, {
+			inner = Facet.Controls.TabView(core, {
 				id = "Page",
 				selection = page,
 				indicator = "pill",
@@ -493,7 +493,7 @@ return {
 			out because it is the thing being demonstrated: the policy reads space and
 			input, never a device name, and publishes its answer as a Readable so this
 			screen can print it rather than re-deriving the rule. ]]
-		outer = Facet.newTabView(Facet, core, {
+		outer = Facet.Controls.TabView(core, {
 			id = "App",
 			selection = section,
 			placement = "automatic",

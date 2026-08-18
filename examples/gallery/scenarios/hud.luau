@@ -1051,7 +1051,7 @@ return {
 				`shrinkWeight = 1` so it gives up pixels instead of lines (O-23). A
 				task row is therefore the control plus a mark and a reward, and the one
 				thing on it that can grow is the one thing that is allowed to. ]]
-			local view = Facet.newProgressView(Facet, core, {
+			local view = Facet.Controls.ProgressView(core, {
 				id = `Task{i}`,
 				value = scope:own(core:signal(0.2 * i)),
 			})
@@ -1130,14 +1130,14 @@ return {
 		-- the `numeral` role — the type role that exists for a figure that has to
 		-- read at a glance.
 		local roundLeft = scope:own(core:signal(0.62))
-		local timerRing = Facet.newProgressView(Facet, core, {
+		local timerRing = Facet.Controls.ProgressView(core, {
 			id = "TimerRing",
 			value = roundLeft,
 			presentation = "circular",
 		})
 
 		local health = scope:own(core:signal(0.84))
-		local healthBar = Facet.newProgressView(Facet, core, { id = "HealthBar", value = health })
+		local healthBar = Facet.Controls.ProgressView(core, { id = "HealthBar", value = health })
 
 		-- ---- the weapon rail -------------------------------------------------
 		local function weaponChip(id: string, name: string, ammo: string): any

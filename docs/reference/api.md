@@ -33,7 +33,7 @@ anything below, because they decide how a call is written:
 ### `VERSION`
 
 `Facet.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
-currently `0.9.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
+currently `0.10.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
 pre-1.0, a minor bump may change behavior with notice; a patch bump never
 does. The version lives only here; docs and tests read it from the source.
 
@@ -49,11 +49,14 @@ surface keeps working for at least one minor version after `since`, and every
 entry names its `replacement`.
 
 The current rows are `UI.Text.color` and `UI.Text.font` (schema-generated, since
-0.5.0), plus five declared entries: `newResourceProvider(opts.retryAttempts)` and
-`adaptive.conditions().contentWidth` (since 0.8.0), and
+0.5.0), plus twenty-four declared entries: `newResourceProvider(opts.retryAttempts)`
+and `adaptive.conditions().contentWidth` (since 0.8.0);
 `newVirtualList(spec.rowHeight)`, `newVirtualList(spec.viewportHeight)` and
 `screen_target.new(opts.isReducedMotion)` (since 0.9.0, removed no earlier than
-0.10.0). Each is marked deprecated where it is documented below.
+0.10.0); and the nineteen old-form composite builders `newTable` … `newAsyncImage`
+(since 0.10.0, removed no earlier than 0.12.0 — ADR-0037), each naming
+`Facet.Controls.<Name>(core, spec)`. Each is marked deprecated where it is
+documented below.
 
 One important exception to "keeps working": a property that **never** reached a
 render target was never working surface to preserve. Keeping it silently
@@ -2117,12 +2120,17 @@ appears. Spec-first is deliberate — the collection is the thing being produced
 
 ### `newAsyncImage`
 
-`Facet.newAsyncImage(Facet, core, spec) -> { blueprint, state, handle }` —
+`Facet.Controls.AsyncImage(core, spec) -> { blueprint, state, handle }` —
 an Image whose content arrives through the async resource provider
 (native-substrate NS-A14): `spec = { id, scope, provider, key, width?,
 height?, failureLabel?, retry?, dimmed? }`. Shows a placeholder surface while
 `pending`, the fetched content when `ready`, and a visible failure mark when
 `failed`.
+
+The two-argument spelling `Facet.newAsyncImage(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.AsyncImage` is a closure over the library, not a second
+implementation.
 
 `retry` passes a per-call-site retry policy (`{ count, delaySeconds?, giveUp? }`)
 straight through to `provider.acquire` — an avatar in a results list can afford
@@ -4123,14 +4131,52 @@ unchanged.
 
 ## Composite controls
 
+### `Controls`
+
+`Facet.Controls` is the namespace every composite control is created through
+(ADR-0037):
+
+```luau
+local tbl = Facet.Controls.Table(core, {
+	id = "Rows",
+	rows = rows,
+	key = function(row) return row.id end,
+	columns = { … },
+})
+```
+
+Nineteen entries, one per composite: `Controls.Table`, `Controls.Slider`,
+`Controls.Stepper`, `Controls.Picker`, `Controls.PopupButton`, `Controls.Menu`,
+`Controls.TabView`, `Controls.Label`, `Controls.Chip`, `Controls.Rating`,
+`Controls.TextInput`, `Controls.ProgressView`, `Controls.LevelPicker`,
+`Controls.DisclosureGroup`, `Controls.VirtualList`, `Controls.VirtualGrid`,
+`Controls.RowActions`, `Controls.Callout`, `Controls.AsyncImage`. Each takes
+`(core, spec)` and returns exactly what its `new<Name>` builder always returned
+— the namespace closes over the library, so the redundant first argument
+disappears. The table is frozen.
+
+The `new<Name>` spellings below all still work and are **deprecated** since
+0.10.0 (removal no earlier than 0.12.0). `Facet.UI.<Name> { … }` stays the
+blueprint-primitive vocabulary, and the eleven infrastructure constructors
+(`newCore`, `newEnvironment`, `newPresenter`, `newActionSystem`,
+`newFocusGraph`, `newDragRegistry`, `newDragSession`, `newDragVelocity`,
+`newResourceProvider`, `newAutoscroll`, `newRowActionsCoordinator`) do **not**
+move: they take no library argument, and their creation and ownership is the
+fact their names carry.
+
 ### `newTable`
 
-`Facet.newTable(Facet, core, spec) -> { blueprint, api, dump, dispose }` —
+`Facet.Controls.Table(core, spec) -> { blueprint, api, dump, dispose }` —
 the multi-column list control (SwiftUI-`Table`-shaped columns that own their
 cells; owner-held `sortOrder`; selection none/single/multi with the
 Apple-style focus/selection model; column resize via focusable grips;
 pointer-drag row reordering with ghost + drop indicator). See
 `src/controls/table.luau` for the full spec shape.
+
+The two-argument spelling `Facet.newTable(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Table` is a closure over the library, not a second
+implementation.
 
 `dump()` is the deterministic diagnostic summary, and it carries the live
 interaction state a bug report actually needs, not only the construction:
@@ -4372,7 +4418,7 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 
 ### `newVirtualList`
 
-`Facet.newVirtualList(Facet, core, spec) -> VirtualList` — keyed-row
+`Facet.Controls.VirtualList(core, spec) -> VirtualList` — keyed-row
 virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
@@ -4386,6 +4432,11 @@ blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
 dump(), dispose() }`. Item state lives in the item scope and dies when a row
 leaves the window — durable state belongs in your data model.
+
+The two-argument spelling `Facet.newVirtualList(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.VirtualList` is a closure over the library, not a second
+implementation.
 
 **`axis` is the direction the list runs**, `"y"` (a vertical list of rows, the
 default) or `"x"` (a sideways strip of items), and it is **construction-only** for
@@ -4712,7 +4763,12 @@ pointer-handler funnel this feature rides is its own future task.
 
 ### `newVirtualGrid`
 
-`Facet.newVirtualGrid(Facet, core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
+`Facet.Controls.VirtualGrid(core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
+
+The two-argument spelling `Facet.newVirtualGrid(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.VirtualGrid` is a closure over the library, not a second
+implementation.
 
 **The lazy grid** — SwiftUI's `LazyVGrid` and, on `axis = "x"`, its `LazyHGrid`.
 A collection laid out in `columns` lanes that builds and mounts only the
@@ -4724,7 +4780,7 @@ that "create items only as needed". See
 [`swiftui-parity.md`](swiftui-parity.md) §4.2.2 for the full argument.
 
 ```luau
-local grid = Facet.newVirtualGrid(Facet, core, {
+local grid = Facet.Controls.VirtualGrid(core, {
     id = "Wardrobe",
     items = catalog,                      -- Readable<{T}>
     key = function(item) return item.id end,
@@ -5168,7 +5224,7 @@ and `inspect().fallback` reports the degradation. Full walkthrough:
 rich-skinning surface is [`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md).
 ### `newPopupButton`
 
-`Facet.newPopupButton(Facet, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.Controls.PopupButton(core, spec) -> { blueprint, api, dump, dispose }`
 — a select/dropdown control. Closed, it is a single focusable button showing
 the currently-selected option's label. Activating it (tap, keyboard Return,
 gamepad ButtonA) opens a popup panel listing the options as activatable rows
@@ -5179,6 +5235,11 @@ Activating the trigger again, or the Cancel row, closes the popup without
 changing the selection. While open, the option rows are ordinary focusable
 buttons, so keyboard/gamepad users navigate them with the normal focus ring
 (Down/Up) and select with Activate; closed, only the trigger is focusable.
+
+The two-argument spelling `Facet.newPopupButton(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.PopupButton` is a closure over the library, not a second
+implementation.
 
 Spec: `{ id?, options: { { id: string, label: string } }, value:
 Signal<string> (the selected option id), onChange: ((id: string) -> ())?,
@@ -5209,7 +5270,7 @@ diagnostic summary (`{ schema, id, open, value, selectedLabel, options }`).
 
 ```lua
 local value = core:signal("normal")
-local difficulty = Facet.newPopupButton(Facet, core, {
+local difficulty = Facet.Controls.PopupButton(core, {
 	id = "Difficulty",
 	options = {
 		{ id = "easy", label = "Easy" },
@@ -5232,11 +5293,16 @@ pres.present(Facet.UI.Screen({ id = "S", children = { difficulty.blueprint } }),
 
 ### `newMenu`
 
-`Facet.newMenu(Facet, core, spec) -> { blueprint, api, presentation, dump, dispose }`
+`Facet.Controls.Menu(core, spec) -> { blueprint, api, presentation, dump, dispose }`
 — a freestanding **action menu**. Its items are *verbs*, not values: each one runs
 something when it is picked. That is the whole difference from `newPopupButton`,
 whose `value` is a `Signal<string>` a verb list cannot fill. It is what closes
 SwiftUI's `.contextMenu`.
+
+The two-argument spelling `Facet.newMenu(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Menu` is a closure over the library, not a second
+implementation.
 
 It attaches to **any** blueprint. `spec.trigger` is a node you authored; the
 control returns that same node carrying an input contribution, so nothing is
@@ -5297,7 +5363,7 @@ control is a **function** returning the resolved idiom. `dump()` returns
 diagnostics, text }`.
 
 ```lua
-local avatarMenu = Facet.newMenu(Facet, core, {
+local avatarMenu = Facet.Controls.Menu(core, {
 	id = "AvatarMenu",
 	trigger = Facet.UI.Button({ id = "More", label = "More", shape = "circle", icon = "more" }),
 	items = {
@@ -5324,10 +5390,15 @@ pres.present(Facet.UI.Screen({ id = "S", children = { avatarMenu.blueprint } }),
 
 ### `newCallout`
 
-`Facet.newCallout(Facet, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.Controls.Callout(core, spec) -> { blueprint, api, dump, dispose }`
 — the **app-pushed coach mark**: a styled plate with an arrow tail that the
 application raises from its own rules, pointing at the control it is about.
 SwiftUI's TipKit `popoverTip(_:arrowEdge:action:)`, not a tooltip.
+
+The two-argument spelling `Facet.newCallout(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Callout` is a closure over the library, not a second
+implementation.
 
 **It is not `help`, and the difference is the whole construct.** `help` is a prop,
 is PULLED by the player (a pointer dwell, a focus ring), and shows **nothing** on
@@ -5398,7 +5469,7 @@ same rules toasts already follow. `presenter.callouts()` reports what is showing
 and what is waiting.
 
 ```lua
-local tip = Facet.newCallout(Facet, core, {
+local tip = Facet.Controls.Callout(core, {
 	id = "PostAvatar",
 	anchor = Facet.UI.Button({ id = "Plus", label = "+", shape = "circle", icon = "add" }),
 	content = Facet.UI.VStack({
@@ -5426,13 +5497,18 @@ end
 
 ### `newStepper`
 
-`Facet.newStepper(Facet, core, spec) -> { blueprint, model, semanticText, dump, dispose }`
+`Facet.Controls.Stepper(core, spec) -> { blueprint, model, semanticText, dump, dispose }`
 — a labelled value with discrete decrement/increment affordances, composed from
 shipped primitives over the shared value model.
 
+The two-argument spelling `Facet.newStepper(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Stepper` is a closure over the library, not a second
+implementation.
+
 ```lua
 local volume = core:signal(5)
-local stepper = Facet.newStepper(Facet, core, {
+local stepper = Facet.Controls.Stepper(core, {
     id = "Volume", label = "Volume",
     value = volume,              -- OWNER-held settable Signal<number>
     min = 0, max = 10, step = 1, -- step defaults to 1
@@ -5455,10 +5531,15 @@ class, including Adjust.
 
 ### `newProgressView`
 
-`Facet.newProgressView(Facet, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
+`Facet.Controls.ProgressView(core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
 — progress, determinate or indeterminate, linear or circular. `spec = { id?,
 label?, value? (number | Readable), min? = 0, max? = 1, format?, showValue?,
 height?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
+
+The two-argument spelling `Facet.newProgressView(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.ProgressView` is a closure over the library, not a second
+implementation.
 
 **Indeterminate is selected by `value = nil`** — SwiftUI's own rule
 (`ProgressView()` with no value is indeterminate). There is deliberately no
@@ -5657,9 +5738,14 @@ and `animating`.
 
 ### `newLabel`
 
-`Facet.newLabel(Facet, core, spec) -> { blueprint, semanticText, dump, dispose }`
+`Facet.Controls.Label(core, spec) -> { blueprint, semanticText, dump, dispose }`
 — an icon + title pair. `spec = { id?, title (required), icon?, presentation?
 ("titleAndIcon" | "titleOnly" | "iconOnly"), iconSize?, textSize?, gap? }`.
+
+The two-argument spelling `Facet.newLabel(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Label` is a closure over the library, not a second
+implementation.
 
 `title` is **required** because it *is* the semantic text: `semanticText` is the title
 whatever the presentation, so an icon-only Label is never a control with no accessible
@@ -5672,11 +5758,16 @@ content) when it must be pressable, which keeps one activation surface.
 
 ### `newPicker`
 
-`Facet.newPicker(Facet, core, spec) -> { blueprint, presentation, dump, dispose }`
+`Facet.Controls.Picker(core, spec) -> { blueprint, presentation, dump, dispose }`
 — single selection from a small option set. `spec = { id?, label?, options ({ value,
 label, icon? }[]), selected (Signal), presentation? ("automatic" | "segmented" |
 "inline"), indicator? ("automatic" | "none" | "underline" | "pill"), axis? ("x" |
 "y"), iconOnly? (boolean), sizeClass?, env?, enabled?, onChange? }`.
+
+The two-argument spelling `Facet.newPicker(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Picker` is a closure over the library, not a second
+implementation.
 
 **A segmented picker used as a tab bar IS a `TabView`.** If the strip switches
 between *screens* rather than choosing a *value*, reach for `TabView`, which owns the
@@ -5750,7 +5841,7 @@ it** — one selection paint re-solved, rather than two paintings swapping.
 it leaves the pre-indicator control byte-identical.
 
 ```lua
-Facet.newPicker(Facet, core, {
+Facet.Controls.Picker(core, {
     id = "View",
     selected = view,
     options = { { value = "grid", label = "Grid" }, { value = "list", label = "List" } },
@@ -5827,15 +5918,20 @@ shape, and adding fields is not one.
 
 ### `newTabView`
 
-`Facet.newTabView(Facet, core, spec) -> { blueprint, strip placement, dump, dispose }`
+`Facet.Controls.TabView(core, spec) -> { blueprint, strip placement, dump, dispose }`
 — a tab bar and the pages behind it. `spec = { id?, selection (Signal), tabs ({ id,
 label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, conditions?, env?,
 enabled?, onChange? }`.
 
+The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.TabView` is a closure over the library, not a second
+implementation.
+
 ```lua
-local tabs = Facet.newTabView(Facet, core, {
+local tabs = Facet.Controls.TabView(core, {
     id = "App",
     selection = section,             -- YOUR Signal, holding a tab id
     conditions = Facet.adaptive.conditions(core, env, { scope = scope }),
@@ -5911,9 +6007,14 @@ owns whatever that tab's factory put on it. `selection` is yours.
 
 ### `newDisclosureGroup`
 
-`Facet.newDisclosureGroup(Facet, core, spec) -> { blueprint, bindFocus, dump, dispose }`
+`Facet.Controls.DisclosureGroup(core, spec) -> { blueprint, bindFocus, dump, dispose }`
 — a labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle? }`.
+
+The two-argument spelling `Facet.newDisclosureGroup(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not a second
+implementation.
 
 Content mounts through `UI.When`, so a collapsed group genuinely costs nothing (only
 structural regions may mount or unmount).
@@ -5930,13 +6031,18 @@ open across a remount.
 
 ### `newSlider`
 
-`Facet.newSlider(Facet, core, spec) -> { blueprint, model, semanticText, fillWidth, thumbOffset, onInteractionClassLost, dump, dispose }`
+`Facet.Controls.Slider(core, spec) -> { blueprint, model, semanticText, fillWidth, thumbOffset, onInteractionClassLost, dump, dispose }`
 — a continuous or stepped value along a track, sharing the value arithmetic with
 `newStepper`.
 
+The two-argument spelling `Facet.newSlider(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Slider` is a closure over the library, not a second
+implementation.
+
 ```lua
 local volume = core:signal(50)
-local slider = Facet.newSlider(Facet, core, {
+local slider = Facet.Controls.Slider(core, {
     id = "Vol", label = "Volume",
     value = volume,               -- OWNER-held settable Signal<number>
     min = 0, max = 100, step = 5, -- step nil = continuous
@@ -5993,13 +6099,18 @@ parent would resolve to zero and leave nothing to drag along.
 
 ### `newLevelPicker`
 
-`Facet.newLevelPicker(Facet, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
+`Facet.Controls.LevelPicker(core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
 — a run of `count` **discrete segments** that reads as one value: a graphics
 preset, a difficulty dial, a capacity meter, a rating. Zero is a real state.
 
+The two-argument spelling `Facet.newLevelPicker(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.LevelPicker` is a closure over the library, not a second
+implementation.
+
 ```lua
 local quality = core:signal(2)
-local picker = Facet.newLevelPicker(Facet, core, {
+local picker = Facet.Controls.LevelPicker(core, {
     id = "Balanced",
     value = quality,           -- OWNER-held settable Signal<number>
     count = 10,                -- the maximum; default 5
@@ -6094,7 +6205,7 @@ being painted, the other says what it means (`"2 of 10"`).
 
 ### `newRating`
 
-`Facet.newRating(Facet, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
+`Facet.Controls.Rating(core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
 — a short run of glyphs that reads as **one** value: a star rating, a difficulty
 dial, a five-point score. It is a **thin preset over `newLevelPicker`**:
 `count = 5`, `segment = "glyph"`, the star pair, and no tint. Everything below is
@@ -6103,9 +6214,14 @@ picker's `segmentSize` — so nothing that calls it needs to change. Reach for
 `newLevelPicker` when you want a different maximum, bars or images instead of
 glyphs, or a colour per half.
 
+The two-argument spelling `Facet.newRating(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Rating` is a closure over the library, not a second
+implementation.
+
 ```lua
 local score = core:signal(3)
-local rating = Facet.newRating(Facet, core, {
+local rating = Facet.Controls.Rating(core, {
     id = "Score",
     value = score,             -- OWNER-held settable Signal<number>
     count = 5,                 -- how many glyphs; default 5
@@ -6195,7 +6311,7 @@ unwinding a solve.
 
 ### `newTextInput`
 
-`Facet.newTextInput(Facet, core, spec) -> { blueprint, api, dump, dispose }`
+`Facet.Controls.TextInput(core, spec) -> { blueprint, api, dump, dispose }`
 — a single-line text field: a composite of the `UI.TextField` primitive and an
 optional trailing clear button. The OWNER holds the text in a `Signal<string>`;
 the control never creates it (state that must outlive the control belongs to
@@ -6206,6 +6322,11 @@ navigation while the field is focused; commit-on-Enter and focus-loss arrive
 from the engine through the render-adapter text seam. Cross-platform by
 construction: pointer, touch, keyboard, and gamepad each drive the same value
 model.
+
+The two-argument spelling `Facet.newTextInput(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.TextInput` is a closure over the library, not a second
+implementation.
 
 **Spec** `{ id, value, onChange?, onCommit?, placeholder?, disabled?,
 keyboardType?, submitLabel?, clearButton?, clearButtonMode?, maxLength?,
@@ -6311,7 +6432,7 @@ clearButtonMode, occlusionOffset, keyboardType, submitLabel }`.
 
 ```lua
 local name = core:signal("")
-local field = Facet.newTextInput(Facet, core, {
+local field = Facet.Controls.TextInput(core, {
 	id = "Name",
 	value = name,
 	placeholder = "Your name",
@@ -6333,13 +6454,18 @@ pres.present(Facet.UI.Screen({ id = "S", children = { field.blueprint } }), {
 ```
 ### `newChip`
 
-`Facet.newChip(Facet, core, spec) -> { blueprint, dump, dispose }` — a small
+`Facet.Controls.Chip(core, spec) -> { blueprint, dump, dispose }` — a small
 toggleable tag/filter pill. It renders as a single rounded label (a Button with
 `pill` corners) whose surface reflects a caller-owned selection: activating it
 (pointer tap, mouse click, keyboard Return, or gamepad ButtonA) flips the
 `selected` signal and calls the optional `onToggle`. Use it for filter rows,
 multi-select tags, and any place a compact on/off chip reads better than a
 full-width toggle row.
+
+The two-argument spelling `Facet.newChip(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.Chip` is a closure over the library, not a second
+implementation.
 
 Spec fields:
 
@@ -6380,7 +6506,7 @@ Invariants:
 
 ```lua
 local raining = core:signal(false)
-local chip = Facet.newChip(Facet, core, {
+local chip = Facet.Controls.Chip(core, {
 	id = "Rain",
 	label = "Rain",
 	selected = raining,
@@ -6391,7 +6517,7 @@ pres.present(Facet.UI.Screen({ id = "S", children = { chip.blueprint } }))
 ```
 ### `newRowActions`
 
-`Facet.newRowActions(Facet, core, spec) -> { blueprint, dump, dispose }` — a
+`Facet.Controls.RowActions(core, spec) -> { blueprint, dump, dispose }` — a
 swipeable action tray around an arbitrary row (iOS Mail-style leading/trailing
 actions: Delete, Flag, Mark Read, ...): the spec contract, a lazily-mounted
 tray on each edge, spring-animated reveal with proportional tray-button
@@ -6401,6 +6527,11 @@ Delete/Backspace and Shift+Return, gamepad ButtonX/A/B, and full-swipe commit
 and `_close` remain available as the programmatic entry points a caller (or
 the edit-mode minus, Task 9) can drive directly, animated exactly like a live
 gesture's release.
+
+The two-argument spelling `Facet.newRowActions(Facet, core, spec)` is **deprecated** since
+0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+control, and `Facet.Controls.RowActions` is a closure over the library, not a second
+implementation.
 
 A row with **no actions on either edge is a true inert passthrough**: `spec.content`
 mounts completely unwrapped (no extra node, no extra `Instance`) — the perf
@@ -6552,7 +6683,7 @@ Invariants:
   uncovered at a full reveal.
 
 ```lua
-local row = Facet.newRowActions(Facet, core, {
+local row = Facet.Controls.RowActions(core, {
 	id = "Row1",
 	content = Facet.UI.Text({ id = "Title", text = "Inbox message" }),
 	trailing = {
@@ -6588,7 +6719,7 @@ Return surface:
 local coordinator = Facet.newRowActionsCoordinator(core)
 local rows = {}
 for _, item in items do
-	table.insert(rows, Facet.newRowActions(Facet, core, {
+	table.insert(rows, Facet.Controls.RowActions(core, {
 		id = item.id,
 		content = rowContent(item),
 		trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() remove(item) end } },

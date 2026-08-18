@@ -53,13 +53,17 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 		local schema = require("../src/blueprint_schema") :: any
 		local generated = schema.deprecations()
 		local ledger = Facet.DEPRECATIONS :: { any }
-		-- FIVE declared entries: the two 0.8.0 rows, the two 0.9.0 VirtualList extent
-		-- renames that came with `axis` (an alias is only a deprecation if the ledger
-		-- says so — parity round 2 §2.3), and `screen_target.new(opts.isReducedMotion)`,
-		-- which was deprecated in prose in two places and declared in neither until
-		-- the Milestone-1 review (C3) — a deprecation with no `since` and no
-		-- `removeNoEarlierThan` is invisible to every upgrade check ADR-0011 defines
-		expect(#ledger).toBe(#generated + 5)
+		--[[ TWENTY-FOUR declared entries. FIVE predate this stage: the two 0.8.0 rows,
+			the two 0.9.0 VirtualList extent renames that came with `axis` (an alias is
+			only a deprecation if the ledger says so — parity round 2 §2.3), and
+			`screen_target.new(opts.isReducedMotion)`, which was deprecated in prose in
+			two places and declared in neither until the Milestone-1 review (C3) — a
+			deprecation with no `since` and no `removeNoEarlierThan` is invisible to
+			every upgrade check ADR-0011 defines. The other NINETEEN are ADR-0037's
+			old-form composite builders (`newTable` … `newAsyncImage`), each naming
+			`Facet.Controls.<Name>(core, spec)`; their content is owned by
+			tests/controls_namespace.spec.luau. ]]
+		expect(#ledger).toBe(#generated + 24)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)

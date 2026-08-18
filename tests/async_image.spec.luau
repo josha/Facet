@@ -22,7 +22,7 @@ local function slice(key: string)
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local provider = resources.newProvider(core)
 	local scope = core:scope()
-	local img = FacetRoot.newAsyncImage(FacetRoot, core, {
+	local img = FacetRoot.Controls.AsyncImage(core, {
 		id = "Avatar",
 		scope = scope,
 		provider = provider,

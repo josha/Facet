@@ -94,7 +94,7 @@ list, mechanically checked against the exports in both directions:
 ```lua
 local Facet = require(ReplicatedStorage.Facet)
 
-Facet.VERSION            -- "0.9.0"
+Facet.VERSION            -- "0.10.0"
 Facet.newCore()          -- create a reactive runtime
 Facet.UI                 -- the screen-description constructors (UI.Screen, UI.Text, ...)
 Facet.mount(...)         -- turn a description into a live node graph
@@ -102,12 +102,14 @@ Facet.newEnvironment(..) -- per-device facts (screen size, input type, ...)
 Facet.newActionSystem(.) -- the input pipeline
 Facet.newPresenter(...)  -- owns screens and modals on screen
 Facet.newFocusGraph(...) -- keyboard/gamepad focus and navigation
-Facet.newTable(...)      -- a data-table control
-Facet.newVirtualList(..) -- a large scrolling collection (either axis) that
+Facet.Controls           -- every composite control, created as
+                          --   Facet.Controls.<Name>(core, spec):
+Facet.Controls.Table(..)      -- a data-table control
+Facet.Controls.VirtualList(.) -- a large scrolling collection (either axis) that
                           --   only builds the visible items
-Facet.newPopupButton(..) -- a button that opens a popup of selectable options
-Facet.newTextInput(...)  -- a single-line text-entry control
-Facet.newChip(...)       -- a selectable filter/action pill
+Facet.Controls.PopupButton(.) -- a button that opens a popup of selectable options
+Facet.Controls.TextInput(..)  -- a single-line text-entry control
+Facet.Controls.Chip(...)      -- a selectable filter/action pill
 Facet.inputHint(...)     -- a reactive “Tap / Enter / A” affordance label
 Facet.newResourceProvider(.) -- async loading (images, remote data)
 Facet.adaptive           -- size/height/orientation facts as pure functions + Readables

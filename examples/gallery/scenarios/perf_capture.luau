@@ -75,7 +75,7 @@ return {
 			return if use(faultsSignal) then { type = "fixed", px = 2400 } else nil
 		end)
 
-		local progress = Facet.newProgressView(Facet, core, { id = "Lap", value = lap, label = "Lap" })
+		local progress = Facet.Controls.ProgressView(core, { id = "Lap", value = lap, label = "Lap" })
 
 		--[[ THE ROSTER ROW'S HEIGHT — a design FLOOR that grows with the text
 			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
@@ -110,7 +110,7 @@ return {
 			return math.max(ROSTER_ROW_FLOOR, content + 2 * ROSTER_ROW_PADDING)
 		end)
 
-		local list = Facet.newVirtualList(Facet, core, {
+		local list = Facet.Controls.VirtualList(core, {
 			id = "Roster",
 			rows = roster,
 			key = function(item)

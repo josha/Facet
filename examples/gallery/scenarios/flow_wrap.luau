@@ -141,7 +141,7 @@ return {
 			return if use(wrapping) then COPY.fitting else COPY.overflowing
 		end))
 
-		local alignPicker = Facet.newPicker(Facet, core, {
+		local alignPicker = Facet.Controls.Picker(core, {
 			id = "BlockAlign",
 			label = COPY.alignLabel,
 			-- SEGMENTED, declared: three peers, and the whole point is that they are

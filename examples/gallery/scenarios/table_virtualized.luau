@@ -167,7 +167,7 @@ return {
 			moves:set(moves:get() + 1)
 		end
 
-		local tbl = Facet.newTable(Facet, core, {
+		local tbl = Facet.Controls.Table(core, {
 			id = "Entrants",
 			rows = rows,
 			key = function(item: any)

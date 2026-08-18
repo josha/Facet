@@ -274,7 +274,7 @@ return {
 			return `{COPY.elapsed} {e} — {tw} — {sp}`
 		end))
 
-		local cooldownBar = Facet.newProgressView(Facet, core, {
+		local cooldownBar = Facet.Controls.ProgressView(core, {
 			id = "CooldownBar",
 			label = COPY.tweenLabel,
 			value = cooldown,
@@ -283,7 +283,7 @@ return {
 			showValue = true,
 			format = percent,
 		})
-		local springBar = Facet.newProgressView(Facet, core, {
+		local springBar = Facet.Controls.ProgressView(core, {
 			id = "SpringBar",
 			label = COPY.springLabel,
 			value = spring,
@@ -405,7 +405,7 @@ return {
 			end
 		end))
 
-		local motionPicker = Facet.newPicker(Facet, core, {
+		local motionPicker = Facet.Controls.Picker(core, {
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.

@@ -183,7 +183,7 @@ local FIXTURES: { Fixture } = {
 		id = "Slider",
 		class = "Slider",
 		build = function(core)
-			return Facet.newSlider(Facet, core, {
+			return Facet.Controls.Slider(core, {
 				id = "Ctl",
 				label = PSEUDO,
 				value = core:signal(0.5),
@@ -197,7 +197,7 @@ local FIXTURES: { Fixture } = {
 		id = "Stepper",
 		class = "Stepper",
 		build = function(core)
-			return Facet.newStepper(Facet, core, {
+			return Facet.Controls.Stepper(core, {
 				id = "Ctl",
 				label = PSEUDO,
 				value = core:signal(3),
@@ -211,7 +211,7 @@ local FIXTURES: { Fixture } = {
 		id = "Chip",
 		class = "Chip",
 		build = function(core)
-			return Facet.newChip(Facet, core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
+			return Facet.Controls.Chip(core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
 		end,
 	},
 	{
@@ -224,7 +224,7 @@ local FIXTURES: { Fixture } = {
 		id = "RowActions",
 		class = "RowActions",
 		build = function(core)
-			local ra = Facet.newRowActions(Facet, core, {
+			local ra = Facet.Controls.RowActions(core, {
 				id = "Ctl",
 				content = UI.Text({ id = "Title", text = "Row" }),
 				trailing = { { id = "delete", label = PSEUDO, onAction = function() end } },
@@ -237,7 +237,7 @@ local FIXTURES: { Fixture } = {
 		id = "PopupButton",
 		class = "PopupButton",
 		build = function(core)
-			return Facet.newPopupButton(Facet, core, {
+			return Facet.Controls.PopupButton(core, {
 				id = "Ctl",
 				value = core:signal("one"),
 				options = { { id = "one", label = PSEUDO }, { id = "two", label = lt.PSEUDO_SECONDARY } },
@@ -309,7 +309,7 @@ local FIXTURES: { Fixture } = {
 		id = "Rating",
 		class = "Rating",
 		build = function(core)
-			return Facet.newRating(Facet, core, { id = "Ctl", value = core:signal(3) }).blueprint
+			return Facet.Controls.Rating(core, { id = "Ctl", value = core:signal(3) }).blueprint
 		end,
 	},
 	{
@@ -322,8 +322,7 @@ local FIXTURES: { Fixture } = {
 		id = "LevelPicker",
 		class = "LevelPicker",
 		build = function(core)
-			return Facet.newLevelPicker(
-				Facet,
+			return Facet.Controls.LevelPicker(
 				core,
 				{ id = "Ctl", value = core:signal(4), count = 10, segment = "glyph" }
 			).blueprint
@@ -333,7 +332,7 @@ local FIXTURES: { Fixture } = {
 		id = "Picker",
 		class = "Picker",
 		build = function(core)
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
 				selected = core:signal("a"),
@@ -366,7 +365,7 @@ local FIXTURES: { Fixture } = {
 		id = "Picker-indicator",
 		class = "Picker",
 		build = function(core)
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "Ctl",
 				selected = core:signal("a"),
 				presentation = "segmented",
@@ -397,7 +396,7 @@ local FIXTURES: { Fixture } = {
 		id = "TabView",
 		class = "TabView",
 		build = function(core)
-			return Facet.newTabView(Facet, core, {
+			return Facet.Controls.TabView(core, {
 				id = "Ctl",
 				selection = core:signal("a"),
 				placement = "bottomBar",
@@ -431,7 +430,7 @@ local FIXTURES: { Fixture } = {
 		id = "DisclosureGroup",
 		class = "DisclosureGroup",
 		build = function(core)
-			return Facet.newDisclosureGroup(Facet, core, {
+			return Facet.Controls.DisclosureGroup(core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
 				expanded = core:signal(true),
@@ -445,21 +444,21 @@ local FIXTURES: { Fixture } = {
 		id = "ProgressView",
 		class = "ProgressView",
 		build = function(core)
-			return Facet.newProgressView(Facet, core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
+			return Facet.Controls.ProgressView(core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
 		end,
 	},
 	{
 		id = "Label",
 		class = "Label",
 		build = function(core)
-			return Facet.newLabel(Facet, core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
+			return Facet.Controls.Label(core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
 		end,
 	},
 	{
 		id = "TextInput",
 		class = "TextInput",
 		build = function(core, w)
-			return Facet.newTextInput(Facet, core, {
+			return Facet.Controls.TextInput(core, {
 				id = "Ctl",
 				value = core:signal(""),
 				placeholder = PSEUDO,
@@ -472,7 +471,7 @@ local FIXTURES: { Fixture } = {
 		id = "Table",
 		class = "Table",
 		build = function(core)
-			return Facet.newTable(Facet, core, {
+			return Facet.Controls.Table(core, {
 				id = "Ctl",
 				rows = core:signal({ { id = "a", name = PSEUDO }, { id = "b", name = GERMAN } }),
 				key = function(row: any)
@@ -516,7 +515,7 @@ local FIXTURES: { Fixture } = {
 		-- the unbroken name declares `disclose` and the row produces no finding —
 		-- the same fix the Table cannot express
 		build = function(core)
-			return Facet.newVirtualList(Facet, core, {
+			return Facet.Controls.VirtualList(core, {
 				id = "Ctl",
 				rows = core:signal({ { id = "a", label = PSEUDO }, { id = "b", label = GERMAN } }),
 				key = function(item: any)
@@ -542,7 +541,7 @@ local FIXTURES: { Fixture } = {
 		-- case a list cannot reach, and it is why this is a fixture rather than an
 		-- UNSWEEPABLE row.
 		build = function(core)
-			return Facet.newVirtualGrid(Facet, core, {
+			return Facet.Controls.VirtualGrid(core, {
 				id = "Ctl",
 				items = core:signal({
 					{ id = "a", label = PSEUDO },
@@ -568,7 +567,7 @@ local FIXTURES: { Fixture } = {
 		class = "AsyncImage",
 		build = function(core)
 			local provider = resources.newProvider(core)
-			return Facet.newAsyncImage(Facet, core, {
+			return Facet.Controls.AsyncImage(core, {
 				id = "Ctl",
 				provider = provider,
 				scope = core:scope("large-text-async"),

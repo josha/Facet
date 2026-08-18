@@ -208,7 +208,7 @@ return {
 			rows:set(out)
 		end
 
-		local tbl = Facet.newTable(Facet, core, {
+		local tbl = Facet.Controls.Table(core, {
 			id = "RunSheet",
 			rows = rows,
 			key = function(item: any)

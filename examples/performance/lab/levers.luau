@@ -530,7 +530,7 @@ function levers.install(deps: any)
 		local base = dataset.build({ count = EDIT_ROWS, seed = settings.seed, content = "normal" })
 		local armRows = armScope:own(core:signal(base))
 		local listH = math.max(100, viewportH())
-		local list = Facet.newVirtualList(Facet, core, {
+		local list = Facet.Controls.VirtualList(core, {
 			id = "EditRows",
 			rows = armRows,
 			key = function(item: any)

@@ -100,14 +100,14 @@ end
 local function formScreen(core: any, w: any): any
 	local name = core:signal("")
 	local volume = core:signal(0.5)
-	local field = Facet.newTextInput(Facet, core, {
+	local field = Facet.Controls.TextInput(core, {
 		id = "Name",
 		value = name,
 		placeholder = STATUS,
 		env = w.env,
 		actionSystem = w.system,
 	})
-	local slider = Facet.newSlider(Facet, core, {
+	local slider = Facet.Controls.Slider(core, {
 		id = "Volume",
 		label = STATUS,
 		value = volume,

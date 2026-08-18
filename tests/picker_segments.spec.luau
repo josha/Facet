@@ -59,7 +59,7 @@ local function world(spec: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local p = Facet.newPicker(Facet, core, built)
+	local p = Facet.Controls.Picker(core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 	pres.refresh()
 	return {
@@ -164,7 +164,7 @@ describe("D6: the segmented presentation ADOPTS the sliding indicator", function
 		expect(w.adapter.node(BAR) ~= nil).toBe(true)
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
 				selected = core:signal(1),
@@ -225,7 +225,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		local core = Facet.newCore()
 		for _, bad in { "", nil :: any } do
 			local ok, err = pcall(function()
-				return Facet.newPicker(Facet, core, {
+				return Facet.Controls.Picker(core, {
 					id = "X",
 					options = { { value = "a", label = bad, icon = "shop:bag" } },
 					selected = core:signal("a"),
@@ -239,7 +239,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	it("HIG: icons for ALL options in a group, or none — a half-iconned group is refused", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "X",
 				options = {
 					{ value = "a", label = "Alpha", icon = "shop:bag" },
@@ -251,7 +251,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "all options in a group, or none", 1, true) ~= nil).toBe(true)
 		-- ...and a group with NO icons at all is of course fine
-		local none = Facet.newPicker(Facet, core, {
+		local none = Facet.Controls.Picker(core, {
 			id = "Y",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 			selected = core:signal("a"),
@@ -263,7 +263,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	it("`iconOnly` with nothing to draw is refused rather than silently ignored", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			return Facet.newPicker(Facet, core, {
+			return Facet.Controls.Picker(core, {
 				id = "X",
 				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 				selected = core:signal("a"),
@@ -375,7 +375,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local sizeClass = core:signal("regular")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			selected = core:signal("grid"),
 			axis = "y",
@@ -427,7 +427,7 @@ describe("D6: the dump keeps schema /1 and stays deterministic", function()
 	it("dispose is registry-neutral with icons, a rail and an indicator all on", function()
 		local core = Facet.newCore()
 		local baseline = core:counters()
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "X",
 			options = ICONS,
 			selected = core:signal("grid"),
@@ -489,7 +489,7 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 			local adapter = fake_target.new()
 			local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 			sizing = core:signal("fill")
-			local p = Facet.newPicker(Facet, core, {
+			local p = Facet.Controls.Picker(core, {
 				id = "View",
 				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 				selected = core:signal("grid"),
@@ -516,7 +516,7 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 	it("an unknown `sizing` is an authoring error, not a silent fill", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
-			Facet.newPicker(Facet, core, {
+			Facet.Controls.Picker(core, {
 				id = "X",
 				options = { { value = "a", label = "A" } },
 				selected = core:signal("a"),
@@ -537,7 +537,7 @@ describe("D5 seam: `axis` is REACTIVE, because a placement flip is a re-solve", 
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local axis = core:signal("x")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 			selected = core:signal("grid"),
@@ -621,7 +621,7 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local count = core:signal("")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing", badge = count } },
 			selected = core:signal("grid"),
@@ -660,7 +660,7 @@ describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names t
 	it("a bound label satisfies the non-empty lint and is what dump() announces", function()
 		local core = Facet.newCore()
 		local name = core:signal("Listing")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			label = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = name } },
@@ -678,7 +678,7 @@ describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names t
 	it("a bound label that is EMPTY right now is still the authoring error it would be as a string", function()
 		local core = Facet.newCore()
 		local ok = pcall(function()
-			Facet.newPicker(Facet, core, {
+			Facet.Controls.Picker(core, {
 				id = "X",
 				options = { { value = "a", label = core:signal("") } },
 				selected = core:signal("a"),
@@ -737,7 +737,7 @@ describe("D5 found: a segmented strip navigates ACROSS on a pad, not down", func
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local axis = core:signal("x")
-		local p = Facet.newPicker(Facet, core, {
+		local p = Facet.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 			selected = core:signal("grid"),

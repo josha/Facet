@@ -173,7 +173,7 @@ local function mountStepper(specOverrides: any?)
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.newStepper(Facet, core, spec)
+	local control = Facet.Controls.Stepper(core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control
@@ -238,7 +238,7 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local value = core:signal(5)
-		local control = Facet.newStepper(Facet, core, {
+		local control = Facet.Controls.Stepper(core, {
 			id = "Volume",
 			label = "Volume",
 			value = value,
@@ -322,8 +322,7 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 	it("rejects a non-settable value instead of silently owning one", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.newStepper(
-				Facet,
+			return Facet.Controls.Stepper(
 				core,
 				{ id = "X", value = core:memo(function()
 					return 1
@@ -349,7 +348,7 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 		local pres = presenterLib.new(core, env, adapter, system)
 		local value = core:signal(5)
 		local baseline = core:counters()
-		local control = Facet.newStepper(Facet, core, {
+		local control = Facet.Controls.Stepper(core, {
 			id = "V",
 			label = "V",
 			value = value,
@@ -382,7 +381,7 @@ local function mountSlider(specOverrides: any?, fakeOpts: any?)
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.newSlider(Facet, core, spec)
+	local control = Facet.Controls.Slider(core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control, env
@@ -648,7 +647,7 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		expect(serde.encode("json", control.dump(), true)).toBe(serde.encode("json", control.dump(), true))
 		local baseline = core:counters()
 		local value2 = core:signal(1)
-		local second = Facet.newSlider(Facet, core, { id = "S2", value = value2, min = 0, max = 2 })
+		local second = Facet.Controls.Slider(core, { id = "S2", value = value2, min = 0, max = 2 })
 		second.dispose()
 		local after = core:counters()
 		expect(after.scopes).toBe(baseline.scopes)
@@ -668,7 +667,7 @@ describe("verifier V13: a disabled Slider leaves focus order", function()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local enabled = core:signal(false)
-		local control = Facet.newSlider(Facet, core, {
+		local control = Facet.Controls.Slider(core, {
 			id = "Vol",
 			label = "Vol",
 			value = core:signal(50),
@@ -791,7 +790,7 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local value = core:signal(6)
-		local stepper = Facet.newStepper(Facet, core, {
+		local stepper = Facet.Controls.Stepper(core, {
 			id = "Vol",
 			label = "Volume",
 			value = value,
@@ -822,7 +821,7 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local value = core:signal(9)
-		local stepper = Facet.newStepper(Facet, core, {
+		local stepper = Facet.Controls.Stepper(core, {
 			id = "Vol",
 			label = "Volume",
 			value = value,
@@ -876,7 +875,7 @@ describe("Slider: the decoration slot hint and the per-view override", function(
 		-- nothing generic can infer "this Box is a slider rail": `surface =
 		-- "control"` would have given it the BUTTON skin, a button plate
 		-- stretched into a groove
-		local control = Facet.newSlider(Facet, customFactory.new(), {
+		local control = Facet.Controls.Slider(customFactory.new(), {
 			id = "Vol",
 			value = customFactory.new():signal(50),
 			min = 0,
@@ -902,7 +901,7 @@ describe("Slider: the decoration slot hint and the per-view override", function(
 
 	it("a per-view thumbImage/trackImage rides the same channel", function()
 		local core = customFactory.new()
-		local control = Facet.newSlider(Facet, core, {
+		local control = Facet.Controls.Slider(core, {
 			id = "Vol",
 			value = core:signal(50),
 			min = 0,

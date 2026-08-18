@@ -187,7 +187,7 @@ describe("the tofu defect, closed at its source", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local expanded = core:signal(false)
-		local group = Facet.newDisclosureGroup(Facet, core, {
+		local group = Facet.Controls.DisclosureGroup(core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
@@ -222,7 +222,7 @@ describe("the tofu defect, closed at its source", function()
 		local adapter = fake_target.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
 		local expanded = core:signal(false)
-		local group = Facet.newDisclosureGroup(Facet, core, {
+		local group = Facet.Controls.DisclosureGroup(core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
@@ -276,7 +276,7 @@ describe("the icon request travels the internal hint channel", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local control = Facet.newStepper(Facet, core, {
+		local control = Facet.Controls.Stepper(core, {
 			id = "Qty",
 			label = "Qty",
 			value = core:signal(3),

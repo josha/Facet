@@ -30,7 +30,7 @@ function signup.new(app: any): any
 	self.watchword = watchword
 	self.fieldError = fieldError
 
-	local nameField = Facet.newTextInput(Facet, core, {
+	local nameField = Facet.Controls.TextInput(core, {
 		id = "GuildName",
 		value = guildName,
 		placeholder = S.t("guild.name"),
@@ -46,7 +46,7 @@ function signup.new(app: any): any
 		actionSystem = app.actionSystem,
 	})
 
-	local watchwordField = Facet.newTextInput(Facet, core, {
+	local watchwordField = Facet.Controls.TextInput(core, {
 		id = "Watchword",
 		value = watchword,
 		placeholder = S.t("guild.watchword"),

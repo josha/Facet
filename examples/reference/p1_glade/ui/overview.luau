@@ -375,7 +375,7 @@ end
 
 function overview.glades(ctx: any): any
 	local UI = ctx.UI
-	local search = ctx.Facet.newTextInput(ctx.Facet, ctx.core, {
+	local search = ctx.Facet.Controls.TextInput(ctx.core, {
 		id = "Search",
 		value = ctx.state.search,
 		placeholder = ctx.L("overview.search"),

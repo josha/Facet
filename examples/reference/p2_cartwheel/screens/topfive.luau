@@ -44,7 +44,7 @@ function topfive.new(app: any): any
 		return tostring(use(total))
 	end)
 
-	local picker = Facet.newPicker(Facet, core, {
+	local picker = Facet.Controls.Picker(core, {
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.day") },

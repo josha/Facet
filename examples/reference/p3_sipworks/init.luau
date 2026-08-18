@@ -256,7 +256,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	-- ---- shared controls (model-owned, so they outlive a shell rebuild) ----
-	local search = Facet.newTextInput(Facet, core, {
+	local search = Facet.Controls.TextInput(core, {
 		id = "Search",
 		value = state.search,
 		placeholder = app.text("search.placeholder"),
@@ -265,7 +265,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		actionSystem = actions,
 	})
 	app.search = search
-	local batch = Facet.newStepper(Facet, core, {
+	local batch = Facet.Controls.Stepper(core, {
 		id = "Batch",
 		label = "",
 		value = state.batch,

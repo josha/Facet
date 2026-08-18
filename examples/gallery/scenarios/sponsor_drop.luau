@@ -362,7 +362,7 @@ return {
 			})
 		end
 
-		list = Facet.newVirtualList(Facet, core, {
+		list = Facet.Controls.VirtualList(core, {
 			id = "Rows",
 			rows = rows,
 			key = function(item: any)

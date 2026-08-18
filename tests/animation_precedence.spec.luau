@@ -67,7 +67,7 @@ local function world(opts: any?)
 	}
 	local field: any = nil
 	if options.textInput ~= false then
-		field = Facet.newTextInput(Facet, core, {
+		field = Facet.Controls.TextInput(core, {
 			id = "Field",
 			value = core:signal("hi"),
 			env = env,

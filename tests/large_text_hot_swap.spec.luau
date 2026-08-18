@@ -40,7 +40,7 @@ local function busyScreen(core: any, w: any): any
 	for i = 1, 12 do
 		table.insert(rows, UI.Text({ id = `Row{i}`, text = `{i} — {STATUS}` }))
 	end
-	local field = Facet.newTextInput(Facet, core, {
+	local field = Facet.Controls.TextInput(core, {
 		id = "Name",
 		value = w.fieldValue,
 		placeholder = STATUS,

@@ -889,7 +889,7 @@ describe("rung 2: one grammar, one normalizer, both rungs", function()
 	it("a bad rung-2 map is an authoring error naming the prop", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.newSlider(Facet, core, {
+			return Facet.Controls.Slider(core, {
 				id = "Bad",
 				value = core:signal(1),
 				min = 0,
@@ -917,7 +917,7 @@ describe("rung 2: the per-state map REACHES the adapter", function()
 		for k, v in (specOverrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = Facet.newSlider(Facet, core, spec)
+		local control = Facet.Controls.Slider(core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return adapter, control

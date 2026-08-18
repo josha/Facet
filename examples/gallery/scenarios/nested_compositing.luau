@@ -185,7 +185,7 @@ return {
 			return if use(turned) then COPY.turnLabelOn else COPY.turnLabelOff
 		end))
 
-		local fadeSlider = Facet.newSlider(Facet, core, {
+		local fadeSlider = Facet.Controls.Slider(core, {
 			id = "FadeSlider",
 			label = COPY.fadeLabel,
 			value = fade,

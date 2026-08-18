@@ -24,7 +24,7 @@ return {
 		local rowBEnabled = core:signal(true)
 		local toggleOn = core:signal(true)
 		local fieldText = core:signal("styled")
-		local field = ctx.Facet.newTextInput(ctx.Facet, core, {
+		local field = ctx.Facet.Controls.TextInput(core, {
 			id = "Field",
 			value = fieldText,
 			placeholder = "type here",

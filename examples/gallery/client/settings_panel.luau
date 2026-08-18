@@ -183,7 +183,7 @@ function settings_panel.mount(opts: MountOpts): any
 		end
 	end))
 
-	local motionPicker = Facet.newPicker(Facet, core, {
+	local motionPicker = Facet.Controls.Picker(core, {
 		id = "MotionMode",
 		label = COPY.motion,
 		-- SEGMENTED, declared rather than adaptive: two short labels side by side

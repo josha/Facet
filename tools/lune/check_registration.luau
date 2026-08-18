@@ -222,6 +222,7 @@ function check_registration.check(opts: Opts?)
 	end
 
 	local apiMd = fs.readFile("docs/reference/api.md")
+	local liveFacet = require("../../src") :: any
 	local initSource = fs.readFile("src/init.luau")
 
 	-- ---- dump surface (ENF-1c) ----------------------------------------
@@ -281,8 +282,19 @@ function check_registration.check(opts: Opts?)
 			end
 		end
 		checkDumpSurface(entry)
-		if string.find(initSource, entry.export, 1, true) == nil then
-			problem(`control {entry.name}: export '{entry.export}' not found in src/init.luau`)
+		--[[ RESOLVED ON THE LIVE TABLE, NOT SEARCHED FOR IN THE SOURCE (ADR-0037).
+			A substring find in `src/init.luau` says a control is exported when the
+			name merely appears anywhere in the file — a comment, a deprecation row, a
+			require. It also cannot express a namespaced export at all, and after
+			ADR-0037 the canonical route to every composite IS namespaced
+			(`Controls.Table`). A dotted lookup on the required table answers the
+			question the field actually asks: is this reachable from `Facet`? ]]
+		local resolved: any = liveFacet
+		for segment in string.gmatch(entry.export, "[^.]+") do
+			resolved = if type(resolved) == "table" then resolved[segment] else nil
+		end
+		if resolved == nil then
+			problem(`control {entry.name}: export '{entry.export}' does not resolve on the Facet table`)
 		end
 		if string.find(apiMd, "`" .. entry.docsAnchor .. "`", 1, true) == nil then
 			problem(`control {entry.name}: docs anchor \`{entry.docsAnchor}\` not found in docs/reference/api.md`)
@@ -294,10 +306,21 @@ function check_registration.check(opts: Opts?)
 
 	-- ---- 2. API reference drift ---------------------------------------
 	local exports: { string } = {}
-	-- top-level Facet table keys
-	for key in string.gmatch(initSource, "\n\t(%w+) = ") do
-		table.insert(exports, key)
+	--[[ TOP-LEVEL KEYS FROM THE LIVE TABLE, NOT FROM THE SOURCE TEXT (ADR-0037).
+		This used to scrape `\n\t(%w+) = ` out of `src/init.luau`, which is every
+		one-tab `word = ` line in the file and not only the ones inside the `Facet`
+		literal. The moment `Facet.Controls` landed as a module-level table, its
+		nineteen entries were reported as undocumented TOP-LEVEL exports — a
+		checker's own heuristic manufacturing nineteen false failures. The live
+		table is the thing the rule is about, it is already required below for the
+		nested walk, and it cannot be fooled by indentation. ]]
+	local Facet = liveFacet
+	for key in Facet do
+		if type(key) == "string" then
+			table.insert(exports, key)
+		end
 	end
+	table.sort(exports)
 	-- UI.* constructors
 	local blueprintSource = fs.readFile("src/blueprint.luau")
 	for key in string.gmatch(blueprintSource, "function blueprint%.(%w+)") do
@@ -349,8 +372,6 @@ function check_registration.check(opts: Opts?)
 	for key, reason in options.extraNestedAllow or {} do
 		allow[key] = reason
 	end
-	local Facet = require("../../src") :: any
-
 	-- a qualified mention, with a right-hand boundary so `tokens.contrast` does
 	-- not get credit from `tokens.contrastRatio`
 	local function mentionsQualified(qualified: string): boolean

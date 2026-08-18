@@ -237,7 +237,7 @@ return {
 
 		local cards: { any } = {}
 		local function card(id: string, label: string, routes: string, triggers: { string }?, items: { any })
-			local control = Facet.newMenu(Facet, core, {
+			local control = Facet.Controls.Menu(core, {
 				id = id,
 				--[[ AN ORDINARY LABELLED BUTTON, and it carries NO `onActivate`. That
 					absence is load-bearing rather than an omission: the presenter's
@@ -360,7 +360,7 @@ return {
 			end
 		end
 
-		local idiomPicker = Facet.newPicker(Facet, core, {
+		local idiomPicker = Facet.Controls.Picker(core, {
 			id = "Idiom",
 			label = COPY.idiomTitle,
 			presentation = "segmented",

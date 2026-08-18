@@ -9,7 +9,7 @@ local Facet = require("../src")
 
 describe("Facet public surface", function()
 	it("loads headless under lune with the phase-1 API", function()
-		expect(Facet.VERSION).toBe("0.9.0") -- ADR-0011; bump alongside the ADR
+		expect(Facet.VERSION).toBe("0.10.0") -- ADR-0011; bump alongside the ADR
 		expect(type(Facet.newCore)).toBe("function")
 		expect(type(Facet.UI.Screen)).toBe("function")
 		expect(type(Facet.mount)).toBe("function")

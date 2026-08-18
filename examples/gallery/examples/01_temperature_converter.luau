@@ -95,7 +95,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- keyboardType is a DECLARED INTENT for the engine adapter (a hint it may
 	-- honor where a numeric keyboard exists — it is never a guarantee); the
 	-- validate hook is what actually enforces numeric input everywhere.
-	local field = Facet.newTextInput(Facet, core, {
+	local field = Facet.Controls.TextInput(core, {
 		id = "Fahrenheit",
 		value = fahrenheitText,
 		placeholder = "e.g. 212",

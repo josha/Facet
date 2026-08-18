@@ -1018,7 +1018,7 @@ custom control at rung 3. This section is the short version.
 **Rung 2, concretely.** `Slider` takes `thumbImage` and `trackImage`:
 
 ```lua
-local slider = Facet.newSlider(Facet, core, {
+local slider = Facet.Controls.Slider(core, {
     id = "Power", label = "Power", value = power, min = 0, max = 100,
     thumbImage = "rbxassetid://102024273231445",   -- THIS slider only
 })

@@ -38,7 +38,7 @@ return {
 		local count = core:signal(3)
 		local saved = core:signal(0)
 
-		local field = Facet.newTextInput(Facet, core, {
+		local field = Facet.Controls.TextInput(core, {
 			id = "Name",
 			value = fieldValue,
 			placeholder = "Name",
@@ -46,14 +46,14 @@ return {
 				commits:set(commits:get() + 1)
 			end,
 		})
-		local slider = Facet.newSlider(Facet, core, {
+		local slider = Facet.Controls.Slider(core, {
 			id = "Volume",
 			value = volume,
 			min = 0,
 			max = 1,
 			step = 0.1,
 		})
-		local stepper = Facet.newStepper(Facet, core, {
+		local stepper = Facet.Controls.Stepper(core, {
 			id = "Count",
 			value = count,
 			min = 0,

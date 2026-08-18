@@ -514,7 +514,7 @@ describe("a focused value control consumes its declared axis (DK-10/DK-11)", fun
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(0.5)
-		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -594,7 +594,7 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local count = core:signal(3)
-		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
+		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -698,7 +698,7 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(0.5)
-		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.Button({ id = "before", label = "before" }), slider.blueprint },
@@ -771,7 +771,7 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 	it("the track declares that the adapter must not paint a focused state", function()
 		local core = Facet.newCore()
 		local value = core:signal(0.5)
-		local slider = Facet.newSlider(Facet, core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local found = nil
 		local function walk(bp: any)
 			if bp.id == "Track" and bp.class == "Grip" then
@@ -795,7 +795,7 @@ describe("a Stepper is driven by Activate, not by the arrows (DK-10)", function(
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal(3)
-		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		-- focus lands on Dec first; Space decrements
@@ -817,7 +817,7 @@ describe("a Stepper is driven by Activate, not by the arrows (DK-10)", function(
 		local system = Facet.newActionSystem(core)
 		local pres = Facet.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
 		local value = core:signal(3)
-		local stepper = Facet.newStepper(Facet, core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		press(system, "Period")
@@ -837,7 +837,7 @@ describe("text editing owns Space and the arrows; Tab commits then advances (DK-
 		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local value = core:signal("hi")
 		local commits: { string } = {}
-		local field = Facet.newTextInput(Facet, core, {
+		local field = Facet.Controls.TextInput(core, {
 			id = "Name",
 			value = value,
 			onCommit = function(text: string)
@@ -1204,7 +1204,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		ever does, it belongs here too. ]]
 	it("a self-painted focus ring clears when the surface resigns", function()
 		local core, _, _, adapter, pres = harness()
-		local slider = Facet.newSlider(Facet, core, {
+		local slider = Facet.Controls.Slider(core, {
 			id = "Vol",
 			value = core:signal(0.5),
 			min = 0,
@@ -1300,7 +1300,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		because a passive context is disabled, which is luck rather than design. ]]
 	it("a resigned surface unbinds the Adjust keys it had claimed", function()
 		local core, _, _, adapter, pres = harness()
-		local slider = Facet.newSlider(Facet, core, {
+		local slider = Facet.Controls.Slider(core, {
 			id = "Vol",
 			value = core:signal(0.5),
 			min = 0,

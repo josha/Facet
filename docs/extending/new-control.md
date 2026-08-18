@@ -35,14 +35,23 @@ This stamps and REGISTERS everything so nothing can be forgotten:
 
 | File | What it is |
 |---|---|
-| `src/controls/<name>.luau` | the control source: `build(Facet, core, spec)` seam + `dump()` |
+| `src/controls/<name>.luau` | the control source: `build(Facet, core, spec)` seam, an exported `Spec` type, + `dump()` |
 | `tests/<name>.spec.luau` | spec file with one deliberately-failing TODO test |
 | `tests/run.luau` | your spec registered in the runner (edit applied) |
 | `tests/conformance/controls_registry.luau` | your registry row (edit applied) |
-| `src/init.luau` | `new<Name>` export (edit applied) |
+| `src/init.luau` | the module local **and** the `Facet.Controls.<Name>` entry (two edits applied) |
 | `docs/reference/api.md` | a TODO reference stub (edit applied) |
 
 Verify the red state: `./run-tests.sh` must now FAIL with your TODO test.
+
+**The call shape (ADR-0037).** Your control is created as
+`Facet.Controls.<Name>(core, spec)` and has exactly that one public spelling.
+`build(Facet, core, spec)` stays the module's internal seam — the namespace
+entry the scaffold writes into `src/init.luau` is what hands the library over,
+so a caller never writes it. The nineteen `Facet.new<Name>` builders that still
+exist are the pre-ADR set, kept working and declared in `Facet.DEPRECATIONS`;
+do **not** add a twentieth. `tools/check_call_shape_drift.py` refuses a new
+old-form call site anywhere in the maintained tree.
 
 ## 2. Design the control's contract (in the spec, first)
 

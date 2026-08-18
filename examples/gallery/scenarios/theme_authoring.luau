@@ -103,14 +103,14 @@ return {
 				}
 			end
 			local core = ctx.core
-			local themed = Facet.newSlider(Facet, core, {
+			local themed = Facet.Controls.Slider(core, {
 				id = "ThemedSlider",
 				label = "Theme",
 				value = core:signal(40),
 				min = 0,
 				max = 100,
 			})
-			local overridden = Facet.newSlider(Facet, core, {
+			local overridden = Facet.Controls.Slider(core, {
 				id = "ViewSlider",
 				label = "View",
 				value = core:signal(60),
@@ -120,7 +120,7 @@ return {
 				-- `asset` accepts (ADR-0020 R2), normalized by the same function
 				thumbImage = probe.thumbVariants,
 			})
-			local field = Facet.newTextInput(Facet, core, {
+			local field = Facet.Controls.TextInput(core, {
 				id = "ProbeField",
 				value = core:signal("edit me"),
 				placeholder = "layered field",
@@ -130,7 +130,7 @@ return {
 			-- that `:NonInteractable > .<layerTag>` matches a LAYER. The test package
 			-- supplies no `disabled` ART, which is the point — the accessibility floor
 			-- still applies over `default` (ADR-0020 R2).
-			local disabledField = Facet.newTextInput(Facet, core, {
+			local disabledField = Facet.Controls.TextInput(core, {
 				id = "DisabledField",
 				value = core:signal("disabled"),
 				disabled = true,
@@ -255,9 +255,9 @@ return {
 			-- "the caps never moved" would have been measuring text reflow. The
 			-- sweep has to isolate the CLIP; the readout is the adaptive fixture's
 			-- job and is proven there.
-			local bar = Facet.newProgressView(Facet, core, { id = "Load", label = "Health", value = values.progress })
+			local bar = Facet.Controls.ProgressView(core, { id = "Load", label = "Health", value = values.progress })
 			local steps =
-				Facet.newStepper(Facet, core, { id = "Qty", label = "Potions", value = values.count, min = 0, max = 9 })
+				Facet.Controls.Stepper(core, { id = "Qty", label = "Potions", value = values.count, min = 0, max = 9 })
 			values.controls = { bar, steps }
 			values.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "ValueProbe",

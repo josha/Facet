@@ -123,7 +123,7 @@ return {
 
 		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
-		local grid = ctx.Facet.newVirtualGrid(ctx.Facet, core, {
+		local grid = ctx.Facet.Controls.VirtualGrid(core, {
 			id = "Rail",
 			-- the one word that makes this fixture different from `virtual_grid`
 			axis = "x",

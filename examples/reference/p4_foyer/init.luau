@@ -131,7 +131,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 
 	-- ── shared pieces ──────────────────────────────────────────────────────
 	local function asyncImage(id: string, imgScope: any, key: string, width: any, height: any, radius: string?)
-		local img = Facet.newAsyncImage(Facet, core, {
+		local img = Facet.Controls.AsyncImage(core, {
 			id = id,
 			scope = imgScope,
 			provider = provider,
@@ -342,7 +342,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 
 	-- ── tile card (spec §6.4) ──────────────────────────────────────────────
 	local function tileCard(tile: seedData.Tile, itemScope: any)
-		local approval = Facet.newLabel(Facet, core, {
+		local approval = Facet.Controls.Label(core, {
 			id = "Approval",
 			title = tile.approval .. "%",
 			icon = "foyer:approval",
@@ -872,7 +872,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	end
 
 	-- ── top bar (spec §6.1) ────────────────────────────────────────────────
-	local searchField = owned(Facet.newTextInput(Facet, core, {
+	local searchField = owned(Facet.Controls.TextInput(core, {
 		id = "Search",
 		value = query,
 		placeholder = Lnow("search.ph"),
@@ -1031,7 +1031,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				end,
 		})
 	end
-	local nav = owned(Facet.newTabView(Facet, core, {
+	local nav = owned(Facet.Controls.TabView(core, {
 		id = "Nav",
 		selection = destination,
 		-- the conditions this screen already builds, passed in rather than rebuilt:

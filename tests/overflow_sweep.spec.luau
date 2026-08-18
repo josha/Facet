@@ -1708,7 +1708,7 @@ describe("overflow sweep: the widened breadth bites", function()
 		for i = 1, 4 do
 			table.insert(rows, { id = `r{i}` })
 		end
-		local list = Facet.newVirtualList(Facet, w.core, {
+		local list = Facet.Controls.VirtualList(w.core, {
 			id = "Lying",
 			rows = w.core:signal(rows),
 			key = function(item: any)

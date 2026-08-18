@@ -242,7 +242,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- is live by construction (no onChange plumbing needed). `clearButton`
 	-- shows a trailing ✕ only while the field is non-empty; activating it
 	-- empties `filterText` and the whole list returns.
-	local filterControl = Facet.newTextInput(Facet, core, {
+	local filterControl = Facet.Controls.TextInput(core, {
 		id = "Filter",
 		value = filterText,
 		placeholder = "Filter tracks",
@@ -273,7 +273,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- a control there would leak one control per call.
 	local ratingControls: { [string]: any } = {}
 	for _, track in TRACKS do
-		ratingControls[track.id] = Facet.newRating(Facet, core, {
+		ratingControls[track.id] = Facet.Controls.Rating(core, {
 			id = "Rating",
 			-- the live env, so the star run spaces itself for the input paradigm:
 			-- wider between marks under touch, tighter under a pointer
@@ -381,7 +381,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- Columns own their content: `value` renders a plain text cell; `cell`
 	-- renders any blueprint — here, the interactive star control. `rows` is the
 	-- DERIVED memo, so the table filters reactively.
-	local tbl = Facet.newTable(Facet, core, {
+	local tbl = Facet.Controls.Table(core, {
 		id = "Tracks",
 		columns = {
 			--[[ TWO `fill` COLUMNS THAT RESIZE, AND ONE FIXED ONE THAT REFUSES.

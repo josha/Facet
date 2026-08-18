@@ -54,7 +54,7 @@ end)
 -- the PUBLIC export, not an instance-path reach into src/controls (ADR-0011:
 -- a consumer goes through the Facet root plus the blessed client entry points;
 -- check_boundary now enforces it)
-local tbl = Facet.newTable(Facet, core, {
+local tbl = Facet.Controls.Table(core, {
 	id = "Racers",
 	columns = {
 		{

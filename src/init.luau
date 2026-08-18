@@ -18,9 +18,30 @@ local actionsLib = require("@self/input/actions")
 local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
+--[[ THE NINETEEN COMPOSITE CONTROLS (ADR-0037). Named locals rather than inline
+	`require(...)` expressions, because `Facet.Controls` below has to name each
+	module twice — once for the closure that calls it and once for the spec type
+	that closure declares — and a namespace whose entries are typed `any` would
+	give the author the completion list and take the argument checking away. ]]
 local tableControl = require("@self/controls/table")
 local virtualList = require("@self/controls/virtual_list")
 local virtualGrid = require("@self/controls/virtual_grid")
+local popupButton = require("@self/controls/popup_button")
+local menuControl = require("@self/controls/menu")
+local calloutControl = require("@self/controls/callout")
+local stepperControl = require("@self/controls/stepper")
+local sliderControl = require("@self/controls/slider")
+local ratingControl = require("@self/controls/rating")
+local progressView = require("@self/controls/progress_view")
+local labelControl = require("@self/controls/label")
+local pickerControl = require("@self/controls/picker")
+local tabView = require("@self/controls/tab_view")
+local disclosureGroup = require("@self/controls/disclosure_group")
+local textInput = require("@self/controls/text_input")
+local asyncImage = require("@self/controls/async_image")
+local chipControl = require("@self/controls/chip")
+local rowActions = require("@self/controls/row_actions")
+local levelPicker = require("@self/controls/level_picker")
 local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
@@ -112,6 +133,169 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		replacement = "viewportExtent",
 		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
 	},
+	--[[ THE NINETEEN OLD-FORM COMPOSITE BUILDERS (ADR-0037). Each still works and
+		still dispatches to the same builder — `Facet.Controls.<Name>` is a closure
+		over this library, not a reimplementation — so a caller that never edits is
+		never broken. What these rows add is the NOTICE: the removal cannot come
+		before 0.12.0, and every one of them names the exact replacement call, which
+		is what makes `tools/check_call_shape_drift.py` a rule rather than a taste.
+
+		The eleven infrastructure constructors (`newCore`, `newPresenter`,
+		`newActionSystem`, …) are deliberately ABSENT from this list: they take no
+		library argument, their creation and ownership IS the important fact, and the
+		ADR leaves them where they are. ]]
+	{
+		surface = "newTable",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Table(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newSlider",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Slider(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newStepper",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Stepper(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newPicker",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Picker(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newPopupButton",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.PopupButton(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newMenu",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Menu(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newTabView",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.TabView(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newLabel",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Label(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newChip",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Chip(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newRating",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Rating(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newTextInput",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.TextInput(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newProgressView",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.ProgressView(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newLevelPicker",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.LevelPicker(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newDisclosureGroup",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.DisclosureGroup(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newVirtualList",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.VirtualList(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newVirtualGrid",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.VirtualGrid(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newRowActions",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.RowActions(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newCallout",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.Callout(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
+	{
+		surface = "newAsyncImage",
+		since = "0.10.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Facet.Controls.AsyncImage(core, spec)",
+		note = "same builder, same spec table; the namespace closes over the library "
+			.. "so the redundant first argument disappears",
+	},
 }
 
 -- the ledger is the UNION of both halves, in a deterministic order: every
@@ -129,10 +313,99 @@ local function buildDeprecations(): { Deprecation }
 	return table.freeze(ledger)
 end
 
+--[[ COMPOSITE CONTROLS, WITHOUT THE LIBRARY'S NAME TWICE (ADR-0037).
+
+	`Facet.Controls.Table(core, spec)` made every author write `Facet` twice: the
+	first argument is the library handing itself to its own builder — boilerplate
+	that teaches nothing and that autocomplete cannot explain. This namespace
+	closes over the library once, so the redundant argument disappears and
+	`Facet.Controls.` completes to exactly the nineteen composites instead of the
+	forty-four mixed entries `Facet.` offers (nineteen controls and eleven
+	infrastructure constructors shared one top level).
+
+	WHY A NAMESPACE AND NOT `Facet.newTable(core, spec)`. The flat repair buys the
+	same authoring win at the same migration cost, but the same symbol would then
+	have two live arities during migration and the only way to keep old callers
+	working is sniffing whether argument 1 is the library — the "magic argument"
+	class the API constitution bans. New symbols overload nothing, so the old form
+	stays intact, unwarped, and mechanically detectable
+	(`tools/check_call_shape_drift.py`).
+
+	`library` is assigned immediately below the `Facet` literal. It is the same
+	table these builders were always handed; a local rather than a parameter only
+	because a closure cannot capture a local declared after it.
+]]
+local library: any = nil
+
+local Controls = table.freeze({
+	Table = function(core: any, spec: tableControl.Spec)
+		return tableControl.build(library, core, spec)
+	end,
+	Slider = function(core: any, spec: sliderControl.Spec)
+		return sliderControl.build(library, core, spec)
+	end,
+	Stepper = function(core: any, spec: stepperControl.Spec)
+		return stepperControl.build(library, core, spec)
+	end,
+	Picker = function(core: any, spec: pickerControl.Spec)
+		return pickerControl.build(library, core, spec)
+	end,
+	PopupButton = function(core: any, spec: popupButton.Spec)
+		return popupButton.build(library, core, spec)
+	end,
+	Menu = function(core: any, spec: menuControl.Spec)
+		return menuControl.build(library, core, spec)
+	end,
+	TabView = function(core: any, spec: tabView.Spec)
+		return tabView.build(library, core, spec)
+	end,
+	Label = function(core: any, spec: labelControl.Spec)
+		return labelControl.build(library, core, spec)
+	end,
+	Chip = function(core: any, spec: any)
+		return chipControl.build(library, core, spec)
+	end,
+	Rating = function(core: any, spec: ratingControl.Spec)
+		return ratingControl.build(library, core, spec)
+	end,
+	TextInput = function(core: any, spec: textInput.Spec)
+		return textInput.build(library, core, spec)
+	end,
+	ProgressView = function(core: any, spec: progressView.Spec)
+		return progressView.build(library, core, spec)
+	end,
+	LevelPicker = function(core: any, spec: levelPicker.Spec)
+		return levelPicker.build(library, core, spec)
+	end,
+	DisclosureGroup = function(core: any, spec: disclosureGroup.Spec)
+		return disclosureGroup.build(library, core, spec)
+	end,
+	VirtualList = function(core: any, spec: any)
+		return virtualList.build(library, core, spec)
+	end,
+	VirtualGrid = function(core: any, spec: any)
+		return virtualGrid.build(library, core, spec)
+	end,
+	RowActions = function(core: any, spec: rowActions.Spec)
+		return rowActions.build(library, core, spec)
+	end,
+	Callout = function(core: any, spec: calloutControl.Spec)
+		return calloutControl.build(library, core, spec)
+	end,
+	AsyncImage = function(core: any, spec: any)
+		return asyncImage.build(library, core, spec)
+	end,
+})
+
 local Facet = {
 	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
-	VERSION = "0.9.0",
+	VERSION = "0.10.0",
+
+	--[[ the composite-control namespace (ADR-0037). `Facet.Controls.Table(core,
+		spec)`; the nineteen `new<Control>` builders below keep working and are
+		declared in DEPRECATIONS with `Facet.Controls.<Name>` as the replacement. ]]
+	Controls = Controls,
 
 	-- deprecation ledger (ADR-0011): { surface, since, removeNoEarlierThan,
 	-- replacement, note? } per entry; a deprecated surface keeps working for
@@ -176,36 +449,36 @@ local Facet = {
 	-- its band, so there is one column arithmetic in the framework and not two
 	newVirtualGrid = virtualGrid.build,
 
-	newPopupButton = require("@self/controls/popup_button").build,
+	newPopupButton = popupButton.build,
 	-- ...and its sibling that is NOT a value picker: a menu of VERBS, attachable
 	-- to any blueprint, presented on the D1 anchored seam. It is what closes
 	-- `.contextMenu` — primary activate, right-click, touch long-press, a gamepad
 	-- button and the keyboard context key all open the same list.
-	newMenu = require("@self/controls/menu").build,
+	newMenu = menuControl.build,
 	-- ...and the APP-PUSHED coach mark (D3b): a plate with an arrow tail that the
 	-- app raises from eligibility rules, not a tooltip the player pulls (that is
 	-- `help`, a prop). It never blocks, at most one is ever on screen, and its
 	-- persistence is the CALLER'S — it reads a "has this been seen" Readable and
 	-- reports back once when it should be retired.
-	newCallout = require("@self/controls/callout").build,
+	newCallout = calloutControl.build,
 	-- value-control family (swiftui-parity-next investment 4): Stepper and Slider
 	-- are different affordances over ONE shared value model, so bounds, stepping,
 	-- rounding, formatting and semantic value text cannot disagree at the edges.
-	newStepper = require("@self/controls/stepper").build,
-	newSlider = require("@self/controls/slider").build,
+	newStepper = stepperControl.build,
+	newSlider = sliderControl.build,
 	-- ...and the small discrete one: a run of glyphs that reads as ONE value and
 	-- takes ONE focus stop, instead of the N buttons every app writes by hand
-	newRating = require("@self/controls/rating").build,
+	newRating = ratingControl.build,
 	-- display controls (swiftui-parity-next investment 7)
-	newProgressView = require("@self/controls/progress_view").build,
-	newLabel = require("@self/controls/label").build,
-	newPicker = require("@self/controls/picker").build,
+	newProgressView = progressView.build,
+	newLabel = labelControl.build,
+	newPicker = pickerControl.build,
 	-- ...and the construct that COMPOSES that strip: a tab bar plus the pages
 	-- behind it, placed by `adaptive.navPlacement` (navigation-and-menus D5)
-	newTabView = require("@self/controls/tab_view").build,
-	newDisclosureGroup = require("@self/controls/disclosure_group").build,
+	newTabView = tabView.build,
+	newDisclosureGroup = disclosureGroup.build,
 	valueModel = require("@self/controls/value_model"),
-	newTextInput = require("@self/controls/text_input").build,
+	newTextInput = textInput.build,
 
 	-- pure Path2D shape math for UI.Path (native-substrate NS-A7):
 	-- rings/arcs/needles as normalized control points, headlessly tested
@@ -215,7 +488,7 @@ local Facet = {
 	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
 
 	-- async image over the resource provider (native-substrate NS-A14)
-	newAsyncImage = require("@self/controls/async_image").build,
+	newAsyncImage = asyncImage.build,
 	-- pure drag-session model + native touch-gesture normalization/arbitration
 	-- (corrections addendum §1/§2): framework policy over engine-owned motion
 	newDragSession = require("@self/input/drag_session").new,
@@ -245,14 +518,14 @@ local Facet = {
 	-- what they mean, and `spatial.isFlat(pos)` is true for every event Facet
 	-- produces today.
 	spatial = require("@self/input/spatial"),
-	newChip = require("@self/controls/chip").build,
-	newRowActions = require("@self/controls/row_actions").build,
+	newChip = chipControl.build,
+	newRowActions = rowActions.build,
 	-- row-actions Task 7: at most one row open per shared list surface. A
 	-- VStack/ScrollView list creates its own and shares it across every
 	-- wrapped row's `coordinator` spec key; Table's own `rowActions` wiring
 	-- (Task 10) does this for its rows automatically.
-	newRowActionsCoordinator = require("@self/controls/row_actions").newCoordinator,
-	newLevelPicker = require("@self/controls/level_picker").build,
+	newRowActionsCoordinator = rowActions.newCoordinator,
+	newLevelPicker = levelPicker.build,
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 
@@ -370,5 +643,10 @@ local Facet = {
 		SCHEMA = themesPackage.SCHEMA,
 	},
 }
+
+--[[ ADR-0037: the `Controls` closures were built above the literal (a closure
+	cannot capture a local declared after it), so the library they hand to each
+	builder is bound here — the same table `Facet.new<Control>(Facet, …)` passes. ]]
+library = Facet
 
 return Facet

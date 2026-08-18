@@ -190,7 +190,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- "open this"; this says "which section am I in", which is a different
 	-- question and reads as one. It is also what makes both targets reachable
 	-- from ONE toggle key: press the key, then Tab/d-pad onto this.
-	local sectionPicker = Facet.newPicker(Facet, core, {
+	local sectionPicker = Facet.Controls.Picker(core, {
 		id = "Section",
 		label = COPY.section,
 		presentation = "segmented",

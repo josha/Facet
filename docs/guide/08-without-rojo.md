@@ -207,7 +207,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 **What you do give up** is workflow, and only workflow:
 
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
-  Pin a version by recording `Facet.VERSION` (currently `0.9.0`) somewhere you
+  Pin a version by recording `Facet.VERSION` (currently `0.10.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
   [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md).
 - **The headless test suite.** `./run-tests.sh` runs the whole suite under Lune

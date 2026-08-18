@@ -92,7 +92,7 @@ function gallery.new(app: any): any
 
 	-- ---- toolbar -------------------------------------------------------------
 
-	local layoutPicker = Facet.newPicker(Facet, core, {
+	local layoutPicker = Facet.Controls.Picker(core, {
 		id = "Layout",
 		label = S.t("gallery.layout"),
 		options = {
@@ -103,7 +103,7 @@ function gallery.new(app: any): any
 		sizeClass = app.state.sizeClass,
 	})
 
-	local sortMenu = Facet.newPopupButton(Facet, core, {
+	local sortMenu = Facet.Controls.PopupButton(core, {
 		id = "Sort",
 		options = {
 			{ id = "popularity", label = S.t("gallery.sortPopularity") },
@@ -114,7 +114,7 @@ function gallery.new(app: any): any
 		sizeClass = app.state.sizeClass,
 	})
 
-	local timeframePicker = Facet.newPicker(Facet, core, {
+	local timeframePicker = Facet.Controls.Picker(core, {
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.today") },
@@ -130,14 +130,14 @@ function gallery.new(app: any): any
 	for index, name in data.ATTRIBUTES :: any do
 		table.insert(axisOptions, { id = name, label = parts.attributeName(app, index) })
 	end
-	local axisMenu = Facet.newPopupButton(Facet, core, {
+	local axisMenu = Facet.Controls.PopupButton(core, {
 		id = "Axis",
 		options = axisOptions,
 		value = axisKey,
 		sizeClass = app.state.sizeClass,
 	})
 
-	local search = Facet.newTextInput(Facet, core, {
+	local search = Facet.Controls.TextInput(core, {
 		id = "Search",
 		value = query,
 		placeholder = S.t("gallery.search"),
@@ -309,7 +309,7 @@ function gallery.new(app: any): any
 
 	-- ---- the table form ------------------------------------------------------
 
-	local tableControl = Facet.newTable(Facet, core, {
+	local tableControl = Facet.Controls.Table(core, {
 		id = "PotionTable",
 		rows = rows,
 		key = function(item)

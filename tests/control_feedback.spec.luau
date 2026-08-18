@@ -422,7 +422,7 @@ describe("what a press emits", function()
 			table.insert(events, event)
 		end)
 		local on = core:signal(false)
-		local chip = Facet.newChip(Facet, core, { id = "C", label = "Wet", selected = on })
+		local chip = Facet.Controls.Chip(core, { id = "C", label = "Wet", selected = on })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.sensoryFeedback(chip.blueprint, { activation = "select" }) },
