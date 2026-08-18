@@ -1,4 +1,4 @@
-[REUSE-AUDIT]: 108 findings
+[REUSE-AUDIT]: 125 findings
 
 # Facet release-candidate reuse / duplication audit
 
@@ -17,11 +17,13 @@ Every line anchor below was verified with `grep -n` / `sed -n` against the worki
 
 ## Headline
 
-Seven findings are not "two copies of a helper" — they are **live divergences where a fix
-landed in one copy and not its siblings**:
+Nine findings are not "two copies of a helper" — they are **live divergences where a
+correct behavior exists in one copy and not its siblings**:
 
-| | What drifted | Anchor of the fixed copy | Anchors still carrying the old behavior |
+| | What drifted | Anchor of the correct copy | Anchors still carrying the old behavior |
 |---|---|---|---|
+| REUSE-109 | the per-frame drive steps the motion clock (`presenter.tick`), not just `refresh()` | `FacetSponsor/init.luau:1003` (`PreRender`) | `GaragePilotGui.luau:94-95`, `FacetRacerListGui.luau:73-85`, `FacetSettingsGui.luau:62,73,219,253` — all `Heartbeat` + `refresh()` only, so motion, toasts and transitions are frozen on three shipped surfaces. `presenter.tick` is never mentioned in `docs/guide/*.md` |
+| REUSE-110 | the player's own Reduce Motion setting reaches the UI | `shared/ReducedMotion.luau:29-34` (3 readers) | 44 raw `GuiService.ReducedMotionEnabled` reads across 14 client modules; `env:set("reducedMotion", …)` appears **zero** times, so Facet's own `motionPolicy` never sees the app preference |
 | REUSE-10 | scroll-anchor compares against the clamped memo instead of the raw engine mirror; a list scrolled to its end whose rows shrink writes nothing and shows blank space | `src/controls/table.luau:794-803` | `src/controls/virtual_list.luau:1097`, `src/controls/virtual_grid.luau:687` |
 | REUSE-56 | the `raised` shadow was retuned after a measured director round (0.55/12/y2 "near-invisible"); the light theme still carries 12/y2 | `src/tokens/default_style.luau:74-87` | `src/tokens/default_light_style.luau:51-59` |
 | REUSE-3 | segment-aligned path prefix (`/Menu` must not prefix `/MenuBar`) | `src/present/focus_map.luau:69-71` (exported, and imported by `presenter.luau:270`) | `src/present/presenter.luau:640`, `src/present/presenter.luau:3326` |
@@ -175,7 +177,23 @@ concrete recorded reason" **plus structural guards** — the guards do not exist
 | REUSE-107 | Two bench registries share three workload names | Low | medium | c |
 | REUSE-108 | `cloneRows` in a tutorial and in a fixture | Low | high | c |
 
-<!-- RR-SECTION -->
+| REUSE-109 | Facet client host bootstrap ×4; three of four freeze the motion clock | High | high | b |
+| REUSE-110 | Reduced motion has three authorities; the player's own setting reaches ~3 of ~44 sites | High | high | b |
+| REUSE-111 | Spring solver + motion-class registry duplicated wholesale in the game | High | high | a |
+| REUSE-112 | `AVG_GLYPH_FRACTION = 0.62` copied into the game 5× beside the real measurer | High | high | a |
+| REUSE-113 | Device-chrome facts re-derived 5× and watched 13× because they need a mounted surface | High | high | b |
+| REUSE-114 | The racer list exists three times, two finish latches, three badges | High | high | a+b |
+| REUSE-115 | 13 game modules own a per-frame loop across three different RunService signals | Medium | high | b |
+| REUSE-116 | Settings pair: ~130 lines of dock chrome duplicated, plus a positional binding | Medium | high | a+b |
+| REUSE-117 | Four surface-plate recipes, a triplicated ribbon, 15 corner-radius values | Medium | high | b |
+| REUSE-118 | Hand-rolled keyed reconciler + transient banner in the always-on HUD | Medium | high | a |
+| REUSE-119 | The Facet arm produces no UI sound and no haptics | Medium | high | a |
+| REUSE-120 | External-observable→Signal adapter ×3 shapes, no framework owner | Medium | medium | b |
+| REUSE-121 | Blueprint node identity is a hand-maintained path string; 17 `PATHS` tables | Medium | medium | b |
+| REUSE-122 | Cross-surface z-order has no owner; Facet roots default to the bottom | Medium | high | b |
+| REUSE-123 | Three input models the framework already extracted, still live in the game | Low | high | c |
+| REUSE-124 | Boot-readiness is a game-invented viewport spin loop | Low | high | b |
+| REUSE-125 | Studio-only preview modules ship to every production client | Low | high | b |
 
 ---
 
@@ -803,6 +821,104 @@ Byte-identical including the comment at `examples/gallery/client/demo_picker.lua
 
 ### Also checked in this area — not findings
 `tests/run.luau` / `run_fast.luau` / `run_one.luau` (`tiers.fullOrder()` parses `run.luau`, so the spec list has exactly one source of truth) · `tests/conformance/cli.luau` vs `corpus_cli.luau` (different suites, different artifacts; a shared runner would obscure which corpus a scorecard came from) · the tutorial examples' `{ title, build(Facet, core, deps) }` contract (a documented contract with 7 conforming implementations).
+
+## H. The RascalRally consumer — mechanisms the framework should own
+
+Wiring is clean: both Rojo projects mount the live framework source
+(`games/RascalRally/code/default.project.json:14-15` and
+`code/places/debug.project.json:14-15` → `GameStudio/ui/Facet/src` as
+`ReplicatedStorage.Facet`); `GameStudio/ui/LuauUI` no longer exists, and the only
+surviving `LuauUI` spellings are the deliberate pre-rename attribute fallbacks in
+`code/src/client/FacetFlags.luau:32-36`. Note there are **five** flags, not one:
+`sponsor` (`~= false`, Facet is the production default) and
+`settings`/`garagePilot`/`racerList`/`nativeStyle` (`== true`, opt-in — so for those
+three the *legacy* arm is what ships today).
+
+### REUSE-109 — Facet client host bootstrap ×4; three of four freeze the motion clock · High / high
+**Responsibility:** stand up a Facet surface on Roblox and drive it per frame.
+**Game sites, all hand-rolled and all deep-importing framework internals:** `client/GaragePilotGui.luau:24-27,35-46,94-96` · `client/FacetRacerListGui.luau:14-17,38-49,73-86` · `client/FacetSettingsGui.luau:34-37,78-90` (refresh at `:62,73,219,253`) · `client/FacetSponsor/init.luau:226-228,419-452,1001-1041`.
+**There is no framework host to reuse** — verified: no `Facet/src/client/init.luau`. The pieces are `src/client/roblox_env.luau:15`, `src/client/screen_target.luau:263`, `src/init.luau:151-157`, `src/client/motion_driver.luau:70-90`, `src/present/presenter.luau:3645` (`refresh`) and `:3957` (`tick`, which steps the motion clock at `:3970`).
+**Verified live consequence:** `presenter.tick` is called at **exactly one** place in the game — `FacetSponsor/init.luau:1003` (plus a one-off drain at `:2934`). `GaragePilotGui.luau:94-95`, `FacetRacerListGui.luau:73-85` and `FacetSettingsGui.luau:62,73,219,253` call **only `refresh()`**, so on those three surfaces the motion clock, the toast schedule and every transition are frozen. All three also use `Heartbeat`, which `src/client/motion_driver.luau:10` states is the wrong signal ("Heartbeat runs after render… adds a frame of latency"); only FacetSponsor uses `PreRender` (`:1037`) and documents why (`:996-999`).
+**The root cause is framework-side, and verified:** `docs/guide/03-getting-started.md:236-237,252-255` teaches exactly `RunService.Heartbeat:Connect(function() presenter.refresh() end)`, and **`presenter.tick` is never mentioned anywhere in `docs/guide/*.md`**. All three framework examples reproduce it — `examples/gallery/client/init.client.luau:715`, `examples/table_phaseb/client/init.client.luau:146`, `examples/performance/client/init.client.luau:221` — the last of which carries a comment at `:198` saying PreRender "is where it belongs (Heartbeat runs AFTER render…)" immediately above a `Heartbeat` connection.
+**(b) Extract** `Facet/src/client/init.luau`: `host.new({ nativeStyle?, style?, parent?, now? }) -> { core, env, presenter, adapter, inputSystem, dispose }`, binding env, building adapter + input system, and driving **both** `tick(dt)` and `refresh()` on one `PreRender` connection. Adopters: the four game sites, the three examples, and the guide. Fixing the guide without the host leaves four hand-rolled hosts free to drift again.
+
+### REUSE-110 — Reduced motion has three authorities; the player's setting reaches ~3 of ~44 sites · High / high
+**Three sources of one truth:** (1) raw `GuiService.ReducedMotionEnabled` — **44 reads across 14 client modules** (verified), always-on ones including `ItemFx.luau:412-414`, `ItemOutcomeFx.luau:495,523,567`, `KartStateFx.luau:65-67`, `ShowrunnerPillGui.luau:72-74`, `SocialBannerGui.luau:203`, and legacy-arm ones across `SponsorGesture`, `SponsorCelebration`, `SponsorRacerList`, `SponsorResults`, `SponsorGui`, `SponsorWidgetKit`, `SponsorController`. (2) `shared/ReducedMotion.luau:29-34` (explicit override > system), read at only `SponsorResults.luau:2176`, `SettingsGui.luau:86-88`, `FacetSettingsGui.luau:50-70`. (3) Facet's `env.derived.motionPolicy` (`src/env/environment.luau:193`, fed by `src/client/roblox_env.luau`), read at `FacetSponsor/OmenState.luau:615`, `StoryFlow.luau:667,691,708,743`, `ResultsScreen.luau:707`.
+**Verified consequence:** `env:set("reducedMotion", …)` appears **zero** times in the game. A player who enables Reduce Motion in the game's own Settings screen is honored by roughly three surfaces and ignored by the other forty-plus — including the entire production-default Facet Sponsor, whose motion policy reads the engine flag only.
+**(b) Extract** an app-preference hook on the framework's binding seam: `roblox_env.bind(env, { reducedMotion: (() -> boolean?)? })`, composed over the engine flag inside `pushAccessibility`. The game calls it once with `ReducedMotion.isEnabled`; the direct reads then retire onto `env.derived.motionPolicy`. The framework cannot own the game's settings store, but it must own the composition.
+
+### REUSE-111 — Spring solver and motion-class registry duplicated wholesale · High / high
+`games/RascalRally/code/src/shared/Spring.luau` vs `Facet/src/motion/spring.luau`: same `MAX_DT = 0.1` (`:42` vs `:39`), `MAX_SUBSTEP = 1/120` (`:43` vs `:40`), `DEFAULT_EPS = 1e-3` (`:51` vs `:46`), same semi-implicit Euler, near-verbatim headers. `client/SponsorMotion.luau:29-32` (`panel 1.0/0.35`, `card 1.0/0.28`, `pop 0.7/0.18`, `fade 1.0/0.5`) is byte-identical in value to `Facet/src/motion/classes.luau:47-52` (`container`, `object`, `reward`, `decay`) — two registries, one set of numbers, different names.
+**18 call sites, and not all legacy:** `ItemFx.luau:410,458,459` and `ShowrunnerPillGui.luau:174` are **always-on**; the remainder are the legacy Sponsor arm (`SponsorGui.luau:879,2087`, `SponsorRacerList.luau:1163`, `SponsorGesture.luau:232,1266-1268,1356-1357,1672-1673`, `SponsorResults.luau:1298,1528`, `SponsorCelebration.luau:534`).
+**(a) Reuse** `Facet.motion.newClock` + `resolveClass("object"|"reward"|…)` at the two always-on callers and in `SponsorMotion`. **(c)** for the legacy Sponsor call sites only — the authorized rollback arm per the root `CLAUDE.md`. `shared/Spring.luau` and `SponsorMotion.luau` become deletable once the always-on callers move.
+
+### REUSE-112 — `AVG_GLYPH_FRACTION = 0.62` copied into the game five times, beside the real measurer · High / high
+**Game copies:** `FacetSponsor/TableMetrics.luau:887` (plus a `LINE_HEIGHT_FACTOR` twin at `:1052`) · `FacetSponsor/StartCountdown.luau:76` · `FacetSponsor/RolePickScreen.luau:134` · `FacetSponsor/ResultsParts.luau:427` · a bare inline `0.62` at `ItemFx.luau:901`. Estimate call sites: `TableMetrics.luau:908,912,1021`, `StartCountdown.luau:98`, `RolePickScreen.luau:200,247,279`, `ResultsParts.luau:450,520,1096`, `ItemFx.luau:899-901`.
+**Framework:** the constant is `src/layout/text_metrics.luau:23,25`, and the real answer is `Facet.text.fit/size/facts/lineBox` (`src/layout/text_fit.luau:112,174,241,302`). `src/init.luau:308-325` states these were exported *specifically* to end this: "three private approximations of the same 0.62 fallback constant had grown in one game."
+**Sharpest anchor:** `ItemFx.luau:95` imports `Facet.text.size` and `ItemFx.luau:901` hand-estimates — two answers to "does this fit" in one file.
+**(a) Reuse** `Facet.text.size{…}` / `text.fit` at every site; where the caller wants "largest size that fits this box", that *is* `text_fit.fit`.
+
+### REUSE-113 — Device-chrome facts re-derived 5× and watched 13× · High / high
+**Value half** (`GetInsetArea(TopbarSafeInsets).Min − GetInsetArea(None).Min`): `ShowrunnerPillGui.luau:209-213` · `SponsorGui.luau:1022-1028` · `SettingsGui.luau:204-211` · `FacetSettingsGui.luau:179-185`, plus the `DeviceSafeInsets` sibling at `SponsorResults.luau:715-720`. **Already drifted:** `ShowrunnerPillGui.luau:209-213` computes only `clusterOffsetX` and never the Y offset the other three compute, so the objective chip is vertically misplaced on any device reporting a non-zero topbar-safe Y.
+**Change-signal half** (`camera:GetPropertyChangedSignal("ViewportSize"):Connect(relayout)` + manual disconnect), 13 independent copies: `DebugHud.luau:305` · `DriverHints.luau:186` · `FtueDriverFx.luau:143` · `ItemFx.luau:523` · `ItemOutcomeFx.luau:297` · `RaceHud.luau:275` · `SocialBannerGui.luau:140` · `SettingsGui.luau:225` · `FacetSettingsGui.luau:196` · `ShowrunnerPillGui.luau:188` · `SponsorResults.luau:507` · `SponsorFtue.luau:221` · `SponsorGui.luau:1181`.
+**The framework already owns both** — `src/client/roblox_env.luau:59-70` (the conversion) and `:181` (the signal), published as `topbarSafeInsets` / `platformChrome` (`src/env/environment.luau:47,305`). Proof the fact is correct and sufficient: `FacetSponsor/init.luau:1286-1305` documents migrating off its own hand-derivation onto `platformChrome`. The other five cannot follow because they are plain `ScreenGui`s with no env — the fact is only reachable through a mounted Facet surface.
+**(b) Expose the pure half core-free:** `src/client/screen_chrome.luau` gains `read() -> { viewport, band, insets, bandInsets }` and `observe(fn) -> () -> ()` over one shared connection set. Adopters: the 5 value sites and the 13 listener sites.
+
+### REUSE-114 — The racer list exists three times, with two finish latches and three badges · High / high
+**Latch:** `SponsorRacerList.luau:175,661,708-712` and `FacetSponsor/SemanticModel.luau:524,1030,1048-1051` each hand-roll `_finishedPlace` gated by `SponsorListModel.finishLatchArmed` — `SemanticModel.luau:1045` even cites the other copy by line. `FacetRacerListScreen.luau:34` + `FacetRacerListGui.luau:55` instead use `shared/FinishOrder`, which is also the *server's* authority (`shared/KartRaceScore.luau:163`). Three clients, two latch semantics, one of which disagrees with the server.
+**Badge:** a colour swatch (`SponsorRacerList.luau`), a family colour (`FacetSponsor/RacerList.luau:281`), and an avatar headshot via `rbxthumb` (`FacetRacerListScreen.luau:113-127`) whose comment at `:110-112` claims it matches "the old list's convention" — it does not.
+**Collection primitive:** `Facet.newTable` (`FacetRacerListScreen`) vs `Facet.newVirtualList` (`FacetSponsor/RacerList`) — which is also why REUSE-10's live anchor bug reaches this screen.
+**(a) for the latch** — both hand-rolls call `shared/FinishOrder`. This is correctly a *game* module: the framework must not learn about laps, so extracting it upward would be a dependency reversal. **(b) for the badge** — `Facet/src/controls/async_image.luau` already models pending/ready/failed for exactly this and **nothing in the game uses it**; publish the initial-fallback form as a documented recipe.
+
+### REUSE-115 — 13 game modules own a per-frame loop across three RunService signals · Medium / high
+`GaragePilotGui.luau:94` · `FacetRacerListGui.luau:73` · `FacetSponsor/init.luau:1037` · `SponsorFtue.luau:417` · `SponsorGesture.luau:123,640,1359,1700` · `ItemOutcomeFx.luau:315,323` · `InputBridge.luau:330` · `PredictProbe.luau:182` · `DbgMinNet.luau:61` · `MinClient.luau:437` · `AssistPilot.luau:155` · `ItemAudio.luau:667` · `init.client.luau:929` — a mix of `RenderStepped`, `Heartbeat` and `PreRender` for what is conceptually one UI frame.
+**(b)** folds into REUSE-109: one host, one `PreRender` connection, subscribers.
+
+### REUSE-116 — Settings pair: ~130 lines of dock chrome duplicated, plus a positional binding · Medium / high
+`FacetSettingsGui.luau:105-203` vs `SettingsGui.luau:117-234` — same `ScreenGui`, same `GearDockModel.placeLocal`, same inset belt, same rebind-camera dance; `FacetSettingsGui.luau:10-13` admits it ("IDENTICAL chrome, kept as plain instances").
+**Drift:** `FacetSettingsScreen.luau:43,48,51` binds `view.entries[1]` / `entries[2]` **by position** where `SettingsGui.luau:435,438` dispatches by `SettingsModel.ENTRY_REDUCED_MOTION` / `ENTRY_HOW_TO_PLAY` **by id** — inserting a settings row silently mislabels the Facet arm.
+**(a)** for the id binding (use the same constants — a game-owned module, correctly game-owned). **(b)** for the dock chrome: it is REUSE-113's `screen_chrome` seam plus `screen_target.new({ displayOrder })` from REUSE-122.
+
+### REUSE-117 — Four surface-plate recipes, a triplicated ribbon, 15 corner-radius values · Medium / high
+`DriverHints.luau:97-114` (radius `0.5`, `AutomaticSize.X`, 24px H pad, no V pad) vs `FtueDriverFx.luau:77-95` (radius `0.5`, fixed size, `PILL_PAD_X/Y` on all four sides) — same `Color3.fromRGB(10,10,16) -- surface-scrim` comment, same `Active/Selectable = false`, same "hidden until faded in", two sizing models. Third and fourth: `ShowrunnerPillGui.luau:91-116` (radius `0.28`, two `UIStroke`s) and `SocialBannerGui.luau:58-76` (radius `0.14`, one stroke, `ZIndex 35`). Client-wide there are **15 distinct `CornerRadius` values**.
+**The ribbon is triplicated and the source asks for the fix:** `SponsorFtue.luau:149-232` · `SocialBannerGui.luau:58-130` (its own header at `:7,13` calls itself "a FACTORED TWIN") · `FacetSponsor/MessageLayer.luau:15-22`, which documents the twin and explicitly requests this extraction.
+**The framework owns the vocabulary:** `src/tokens/tokens.luau:16-18` (`surface`/`surfaceStrong`/`accent`), `src/tokens/styling.luau:315-333` (`TINT_ROLES`, `hairline`), `styling.luau:104-105` (named radii).
+**(b) Promote** `MessageLayer.ribbon` into `src/controls/banner.luau` with `build({ form, head, sub, badge?, alignV })`; the four plate sites adopt `UI.Box{ surface = … }` plus a named radius token.
+
+### REUSE-118 — Hand-rolled keyed reconciler and transient banner in the always-on HUD · Medium / high
+`RaceHud.luau:540-620` is create-on-first-sight-by-key / tween-to-slot (`:555`) / remove-when-absent, repeated for minimap dots at `:653-695`; `SponsorRacerList.luau:200-310` is the same shape. Facet owns keyed reconciliation (`UI.ForEach`) and `src/render/transitions.luau`. `RaceHud.luau:591` (`AbsoluteSize.X < 200 → shortName`) is the `compactLabel` decision Facet owns at `src/blueprint.luau:339,1154`. `RaceHud.luau:470-496` is a hand-rolled transient banner whose own comment documents the exact bug ("the countdown died at 2") that `src/present/toast_schedule.luau:12-23`'s read-floor and supersede rules prevent mechanically.
+**(a) Reuse** across the board once `RaceHud` is ported. Recorded now because the always-on HUD is the surface a player sees every race.
+
+### REUSE-119 — The Facet arm produces no UI sound and no haptics · Medium / high
+14 `UiSound.haptic` sites live in the always-on and legacy arms (`ItemFx.luau:1069,1159,1277,1419`, `ItemOutcomeFx.luau:699,764`, `ShowrunnerPillGui.luau:308`, `SponsorResults.luau:2225,2493,2777`, `SponsorCelebration.luau:822,900`, `SponsorGui.luau:2074`, `DebugHud.luau:211`). **Zero `UiSound` calls exist anywhere under `client/FacetSponsor/`.** `FacetSponsor/init.luau:2251` does subscribe `handle.onFeedback`, but routes it only to `PlayFlow` counters and a log (`PlayFlow.luau:609-631`). Facet ships `src/client/haptics.luau` as the ready-made feedback→haptics adapter and the game never requires it.
+**(a) Reuse:** subscribe `presenter.onFeedback` → `UiSound.play/haptic` once in REUSE-109's host, and bind `Facet.client.haptics` for the button-press property route. The verbs already reach the seam; only the last hop is missing.
+
+### REUSE-120 — External-observable→Signal adapter ×3 shapes, no framework owner · Medium / medium
+`FacetSponsor/bridge.luau:53+` (one `core:signal` per external cell, one subscription, one `dispose`), plus two more shapes of the same idea at `FacetSponsor/FtueSource.luau:42-59` and `FacetSponsor/runtime.luau:69-93` (`lazyAttrReader`). `Facet.replication` (`src/replication/adapters.luau`) is revision/patch-based and solves a different problem.
+**(b) Extract** `Facet.fromExternal(core, { get, subscribe }) -> Readable` at the core layer — the `useSyncExternalStore` equivalent, scope-owned. Adopters: `bridge.luau`, `FtueSource.luau`, and the ~20 `GetAttributeChangedSignal` adapters in `SponsorController.luau` (33 sites), `SponsorResults.luau` (27), `ItemFx.luau` (17).
+
+### REUSE-121 — Blueprint node identity is a hand-maintained path string; 17 `PATHS` tables · Medium / medium
+`FacetSponsor/{ChipRow:50, MapCanvas:105, RacerList:97, HandDock:124, HudScreen:98,295, TableScreen:97, ResultsScreen:143, RolePickScreen:98, FollowScreen:56, MessageLayer:41, FtueLayer:33, BeatLayer:39, Ticker:48, OmenBillboard:123, StartCountdown:102}` plus `FacetSettingsScreen.luau:118` and `FacetSponsor/init.luau:2211`. These encode framework-owned structure — e.g. the `/then/` segment a `When` branch inserts (`MessageLayer.luau:44`). Facet's public surface is path-string-based throughout (`presenter.luau:2646,2820,2858`, `screenRectOf`) with no builder and no compile-time check.
+**(b) Extract** a `UI.path(...)` builder, or return a handle at declaration, so a structural rename is a compile error rather than a silently dead path. Confidence medium: this is a design change, not a mechanical extraction, and belongs in a decision packet rather than a cleanup.
+
+### REUSE-122 — Cross-surface z-order has no owner; Facet roots default to the bottom · Medium / high
+17 hand-made `ScreenGui`s in the client, with `DisplayOrder` as scattered magic numbers: `DbgMinNet.luau:32` (90) · `PredictProbe.luau:84` (95) · `DebugHud.luau:18` (100) · `FacetSettingsGui.luau:110` (100) · `SettingsGui.luau:122` (`gui.DisplayOrder + 1`) · `EffectGlow.luau:125`. Facet creates its roots with `DisplayOrder` **unset = 0** (`src/client/screen_target.luau:1000-1016`), `screen_target.new` has no `displayOrder` option (`:263`), and `adapter.setRootDisplayOrder` (`:2044`) is never called by the game — so every native game surface floats above every Facet surface by default.
+**(b) Add** `displayOrder` to `screen_target.Opts`, so the consumer can state the layering instead of discovering it.
+
+### REUSE-123 — Three input models the framework already extracted, still live in the game · Low / high — **keep separate (for now)**
+`shared/DragVelocity.luau` (whole file, `WINDOW_S = 0.1` at `:26`) vs `src/input/drag_velocity.luau:32`, exported as `Facet.newDragVelocity` (`src/init.luau:237`) — the framework copy adds finite guards (`:40-42,65-67`) the game copy lacks, so a NaN sample poisons the game's velocity straight into a spring. `SponsorGesture.luau:97-98` (`14`/`6` px) vs `src/input/interaction_tokens.luau:30-31`. `SponsorGesture.luau:723-830` vs `src/input/autoscroll.luau`, whose own header at `:37` cites `SponsorGesture:762-770` as its source. The sole caller of each is the legacy Sponsor arm (`SponsorGesture.luau:58,196`).
+**(c) Keep separate — an explicitly authorized policy:** the root `CLAUDE.md` states the legacy Sponsor modules stay shipped and untouched as the `UseLuauUISponsor = false` rollback arm. But the three *modules* are now dead-code-in-waiting: record in the migration doc that `shared/DragVelocity.luau` is deleted when the rollback arm retires, so the two 0.1 s windows cannot drift meanwhile.
+
+### REUSE-124 — Boot-readiness is a game-invented viewport spin loop · Low / high
+`init.client.luau:754-760` busy-waits on `RenderStepped` until `ViewportSize > 1×1`, because `environment.set` refuses a placeholder viewport while `roblox_env.bind` pushes one at bind time. The comment at `:744-753` reasons it out correctly, but this is framework knowledge living in a game file — and it guards only the FacetSponsor construction, not the three later Facet surfaces.
+**(b)** `roblox_env.bind` should defer its first push until the viewport is real, or expose `roblox_env.awaitViewport()`. Related to the 1×1 first-frame class the framework has already paid for once.
+
+### REUSE-125 — Studio-only preview modules ship to every production client · Low / high
+Both Rojo projects mount all of `src/` (139 modules), including `src/preview/device_profiles.luau`, `src/preview/matrix_rows.luau` (a Studio device-matrix selection policy, required only by `src/client/edit_preview.luau:21`) and `src/client/edit_preview.luau` itself. Nothing in the runtime graph reaches them.
+**(b)** either a production subtree, or a documented `globIgnorePaths` line in the framework's integration guide. A distribution question rather than a duplication one, recorded because it is the consumer boundary this audit covered.
+
+### What the consumer already does right — worth protecting
+`shared/HudZoneModel` is genuinely single-sourced across 12 modules; `shared/MinimapModel`'s projection math is shared rather than copied; `shared/GearDockModel` is shared across both settings arms; `FacetFlags.luau` puts each flag's *predicate* next to its name so no caller can write `== true` where `~= false` is meant; and the game carries ~40 `facet_*_contract.spec.luau` consumer contract tests among its 212 spec files.
 
 ## Also checked across `src/` — not findings
 
