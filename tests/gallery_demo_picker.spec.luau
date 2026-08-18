@@ -1218,3 +1218,77 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(string.find(source, "JSONEncode({ current = demos.current() })", 1, true)).toBeNil()
 	end)
 end)
+
+--[[ ── DIR-1: THE CHIP STRIP'S LEFT GUTTER ────────────────────────────────────
+	(director device round 2026-08-17: on a real phone in portrait (~393px) the
+	chip row's left border is clipped at the screen edge.)
+
+	THE MODEL IS INNOCENT, and this is the case that says so. The picker's own
+	`UI.Screen` declares `padding = "s"`, a theme-owned metric, so the solved left
+	edge should be that many pixels in — and measured at 393x759 with
+	`deviceSafeInsets.left = 0`, under EVERY shipped reference package, it is:
+	classic_desktop 4, compact_pointer 6, fantasy_ornate 8, fantasy_parchment 8,
+	glossy_mobile 10, glossy_touch 10, pixel_quest 8, scifi_hud 8 — each exactly
+	that package's `space.s`. The theme metric was the suspect worth checking
+	(a package can change what `"s"` resolves to), and it is not the cause.
+
+	So DIR-1 is adapter/device-side — the pixels between the solved rect and the
+	glass — and this spec's job is the OTHER half: to make sure the model never
+	becomes the cause without anyone noticing. It sweeps the whole corpus, derives
+	the expected gutter from each package's own snapshot rather than from a
+	constant, and fails on a zero. ]]
+describe("the showcase demo picker keeps a left gutter at phone width (DIR-1)", function()
+	local themeSnapshot = require("../src/themes/snapshot")
+	local theme_packages = require("../tools/lune/theme_packages")
+
+	local PHONE = { x = 0, y = 0, w = 393, h = 759 }
+
+	local function gutterUnder(packageName: string?): (number, number)
+		local w = pickerWorld(PHONE)
+		w.env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		w.env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local expected = 8
+		if packageName ~= nil then
+			local pkg = (require(`../examples/themes/{packageName}`) :: any).build(Facet.themes)
+			local snapshot = themeSnapshot.resolve(pkg, nil, {})
+			w.env:set("themeMetrics", snapshot)
+			expected = (snapshot :: any).space.s
+		end
+		local picker = demo_picker.mount({
+			Facet = Facet,
+			core = w.core,
+			env = w.env,
+			presenter = w.presenter,
+			mountDemo = function()
+				return nil
+			end,
+			warn = function() end,
+		})
+		for _ = 1, 3 do
+			w.presenter.refresh()
+		end
+		local dock = w.adapter.node("/ShowcaseDemos/Dock")
+		local panel = w.adapter.node("/ShowcaseDemos/Dock/Panel")
+		expect(`{tostring(packageName)}: dock mounted {tostring(dock ~= nil and panel ~= nil)}`).toBe(
+			`{tostring(packageName)}: dock mounted true`
+		)
+		picker.dispose()
+		return (panel :: any).rect.x, expected
+	end
+
+	it("the strip stands off the screen edge under EVERY shipped package", function()
+		for _, name in theme_packages.byRole("reference") do
+			local x, expected = gutterUnder(name)
+			-- a gutter at all — the symptom is a clipped border at x = 0
+			expect(`{name}: gutter positive {tostring(x > 0)}`).toBe(`{name}: gutter positive true`)
+			-- ...and it is the package's OWN spacing step, not a constant
+			expect(`{name}: gutter {x}`).toBe(`{name}: gutter {expected}`)
+		end
+	end)
+
+	it("with no package at all it is the default spacing step, never zero", function()
+		local x = gutterUnder(nil)
+		expect(x > 0).toBe(true)
+		expect(x).toBe(8)
+	end)
+end)

@@ -918,6 +918,29 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ NOT A CONTROL, and not an export either: `controls/table_columns.luau`
+			is the pure half of Table's column-width RESOLUTION — the DIR-4 clamp
+			that keeps committed resize widths from pushing a column off a narrower
+			viewport. It has a row here for the same reason `RowActionsSpec` does:
+			`check_registration` walks `src/controls/` and a module with no row is a
+			module nothing knows about. It was extracted the day it was written,
+			because writing it inside `newTable` put that file over the
+			200,000-char `Script.Source` WRITE cap
+			(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). ]]
+		name = "TableColumns",
+		kind = "composite",
+		module = "src/controls/table_columns.luau",
+		export = "newTable",
+		spec = "tests/table.spec.luau",
+		conformance = "tests/table.spec.luau",
+		docsAnchor = "newTable",
+		-- STATELESS MODULE: one pure function of its arguments, no instance.
+		dump = false,
+		reason = "stateless module: one pure width-resolution function of (columns, overrides, available), no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- `Facet.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
 		-- renders nothing and has no input surface — it is a one-slot registry of
 		-- "which row is currently open on this list surface", talking to rows only

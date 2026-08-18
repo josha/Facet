@@ -232,8 +232,15 @@ local screen = Facet.UI.Screen({
 
 presenter.present(screen)
 
--- drive one refresh per frame: this is what pushes dirty changes to the screen
-RunService.Heartbeat:Connect(function()
+-- ONE frame source, and it drives BOTH halves.
+--   tick(dt) advances the presenter's motion clock — every transition, every
+--            toast schedule, every spring and timer riding it.
+--   refresh() pushes the dirty changes of this frame to the screen (a no-op
+--            when nothing is dirty).
+-- PreRender rather than Heartbeat: Heartbeat runs AFTER render, which adds a
+-- frame of latency to everything the tick drives.
+RunService.PreRender:Connect(function(dt)
+    presenter.tick(dt)
     presenter.refresh()
 end)
 ```
@@ -249,11 +256,17 @@ ever matter between test and production:
 2. **`roblox_env.bind(env)`** connects the environment's fact keys to real engine
    values and keeps them live (it returns an unbind function to disconnect
    later). In the headless test the environment just used its defaults.
-3. **The per-frame `refresh()`.** As explained in
+3. **The per-frame `tick(dt)` + `refresh()`.** As explained in
    [chapter 2](02-architecture.md), changes accumulate in a dirty queue and are
-   applied when `refresh()` runs. On the client you call it once per frame from
-   `Heartbeat`. In a test you call it manually after changing state, then inspect
-   the result.
+   applied when `refresh()` runs. **`tick(dt)` is the other half and it is not
+   optional**: it is what advances the presenter's motion clock, so transitions,
+   toast expiry and every spring or timer on that clock only move on frames you
+   tick. A surface that drives `refresh` alone paints correctly and never
+   animates — and nothing reports it, because a frozen clock and a settled one
+   look identical. (This guide taught `refresh` alone until 2026-08-17, and three
+   shipped surfaces in Rascal Rally had frozen motion because of it.) In a test
+   you call both manually — `presenter.tick(1/60)` to advance time,
+   `presenter.refresh()` after changing state — then inspect the result.
 
 ## 3.5 Where does *semantic* state come from?
 

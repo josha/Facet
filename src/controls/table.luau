@@ -53,6 +53,10 @@ local row_actions = require("./row_actions")
 -- lock radius is the one authored fact that answers it. Same require, for the
 -- same reason, as `virtual_list.luau`'s host dispatcher.
 local row_actions_state = require("../input/row_actions_state")
+-- the column-width RESOLUTION rule (DIR-4): pure, one-way, and the reason it
+-- is its own file is that a clamp nobody can test in isolation is a clamp
+-- nobody can reason about at a viewport they do not have
+local table_columns = require("./table_columns")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -1177,6 +1181,15 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return (spec.cellFor :: any)(column.id, item)
 	end
 
+	-- AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE (DIR-4). The committed
+	-- px never move; what clamps is RESOLUTION. The rule is `table_columns`.
+	-- `availableContentWidth` is the POST-RESERVE content width `syncGeometry`
+	-- measures below; nil means "no measurement yet, do not clamp".
+	local availableContentWidth = scope:own(core:signal(nil :: number?))
+	local function fittedOverrides(overrides: { [string]: number }, available: number?): { [string]: number }
+		return table_columns.fitOverrides(columns, overrides, available)
+	end
+
 	local function resolveDim(column: Column, overrides: { [string]: number }): any
 		local override = overrides[column.id]
 		if override ~= nil then
@@ -1191,21 +1204,23 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return dim
 	end
 
+	--[[ ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS. The header
+		already tracked commits reactively; the CELLS took a plain value, which was
+		fine while the only input was a commit (a commit bumps `widthsVersion` and
+		remounts the rows anyway) and stopped being fine when resolution also
+		depended on the VIEWPORT (DIR-4) — a rotation must not remount every row,
+		and the two halves must never divide different widths between the same
+		columns. One memo is the only spelling in which they cannot disagree. ]]
+	local columnDims: { [string]: any } = {}
 	local function columnDim(column: Column): any
-		return resolveDim(column, widthOverrides:get())
-	end
-
-	-- header cells track resize commits reactively (width is a measure-dirty
-	-- dynamic prop): the header re-solves in place, no remount needed
-	local headerDims: { [string]: any } = {}
-	local function headerDim(column: Column): any
-		if headerDims[column.id] == nil then
-			headerDims[column.id] = scope:own(core:memo(function(use)
-				return resolveDim(column, use(widthOverrides))
+		if columnDims[column.id] == nil then
+			columnDims[column.id] = scope:own(core:memo(function(use)
+				return resolveDim(column, fittedOverrides(use(widthOverrides), use(availableContentWidth)))
 			end))
 		end
-		return headerDims[column.id]
+		return columnDims[column.id]
 	end
+	local headerDim = columnDim
 
 	-- per-row-key selected memos, each in its own child scope so removed
 	-- keys can be pruned (registry-neutral under row churn); row remounts
@@ -4012,6 +4027,19 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 						bodyBarInset:set(
 							if right == 0 and bottom == 0 then NO_BAR_GUTTER else { right = right, bottom = bottom }
 						)
+					end
+				end
+				-- THE POST-RESERVE CONTENT WIDTH (DIR-4): the body's solved width minus
+				-- the gutter its own scrollbar took is what the ROWS divide, and the
+				-- only honest number to measure committed widths against.
+				-- Equality-guarded like the gutter beside it, and for the same reason.
+				if root ~= nil then
+					local bodyRect = rectOf(root .. "/Main/Body")
+					if type(bodyRect) == "table" and type(bodyRect.w) == "number" and bodyRect.w > 0 then
+						local width = bodyRect.w - bodyBarInset:get().right
+						if availableContentWidth:get() ~= width then
+							availableContentWidth:set(width)
+						end
 					end
 				end
 			end,

@@ -438,6 +438,41 @@ describe("VirtualGrid: the scroll does not jump", function()
 		grid.dispose()
 	end)
 
+	--[[ THE END-OF-GRID SHRINK, ported from `controls/table.luau` with its fix
+		(reuse audit 2026-08-17). The anchor observer compared its target against
+		`clampedTop` — a MEMO over the index — instead of against `scrollTop`, the
+		raw engine mirror. Hard against the end of a grid whose lines then SHRINK,
+		the memo has already clamped itself to the new maximum while the engine's
+		real `CanvasPosition` is still far past the last line, so the two agree,
+		nothing is written, and the player is left looking at blank space. Measured
+		on the Table at 400 rows shrinking 43 -> 40px: 1,200px out of range. ]]
+	it("shrinking the lines at the END still corrects the ENGINE, not just the memo", function()
+		local core = Facet.newCore()
+		local grow = core:signal(28)
+		local grid = newGrid(core, {
+			items = core:signal(makeItems(400)),
+			columns = 4,
+			viewportExtent = 200,
+			itemExtent = function(_line: number, use: any): number
+				return 40 + use(grow)
+			end,
+		})
+		local ctrl = scrollStub()
+		grid.bindNativeScroll(ctrl, "/VG")
+		-- hard against the end: 100 lines at 68px, a 200px viewport
+		local content = 100 * 68
+		ctrl.scrollTo("/VG", { x = 0, y = content - 200 })
+		expect(grid.dump().scrollTop).toBe(content - 200)
+
+		-- every line shrinks back to 40px: the content is 4,000 and the engine is
+		-- 2,600px past the end of it
+		grow:set(0)
+		local corrected = ctrl.lastPos().y
+		expect(corrected <= 100 * 40 - 200 + 0.5).toBe(true)
+		expect(corrected < content - 200).toBe(true)
+		grid.dispose()
+	end)
+
 	it("when the COLUMN COUNT changes, the item at the top of the viewport stays at the top", function()
 		--[[ A GRID'S OWN DESTABILIZER, and the reason the anchor is on the ITEM
 			rather than on the line. A reflow moves every item to a different line,

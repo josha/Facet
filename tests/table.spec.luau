@@ -242,6 +242,103 @@ describe("Table: custom cells and resize model", function()
 		expect(adapter.node(cellPath(1, "razz", "laps")).rect.w).toBe(64)
 	end)
 
+	--[[ DIR-4 (director device round 2026-08-17): resize Name and Artist wide in
+		landscape, rotate to portrait — Rating was pushed off screen and the header
+		still read "Name 297px · Artist 168px" on a 393px viewport. `setColumnWidth`
+		commits an ABSOLUTE `{ type = "fixed", px }`, and a fixed dim has no relation
+		to the width it is laid out in, so a resized table was the one shape whose
+		columns could not answer a viewport change at all.
+
+		The rule is proved twice: as arithmetic on `controls/table_columns.luau`
+		(pure, so a rotation is three numbers), and end to end on the mounted table
+		at the two viewports the director used. ]]
+	it("committed overrides RESOLVE narrower when the viewport cannot hold them (DIR-4)", function()
+		local table_columns = require("../src/controls/table_columns")
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 60, resizable = true },
+			{ id = "rating", width = { type = "fixed", px = 96 } },
+		}
+		local committed = { name = 297, artist = 168 }
+
+		-- WIDE: everything fits, so the commitment is honoured to the pixel
+		local wide = table_columns.fitOverrides(columns, committed, 800)
+		expect(wide.name).toBe(297)
+		expect(wide.artist).toBe(168)
+
+		-- NARROW (the director's 393px phone, less the rating column): the
+		-- overridden pair scales, the locked column keeps its declared width, and
+		-- everything still fits
+		local narrow = table_columns.fitOverrides(columns, committed, 361)
+		expect(narrow.name < 297).toBe(true)
+		expect(narrow.artist < 168).toBe(true)
+		expect(narrow.name >= 80).toBe(true)
+		expect(narrow.artist >= 60).toBe(true)
+		expect(math.abs((narrow.name + narrow.artist + 96) - 361) < 0.001).toBe(true)
+		-- proportional to the room above each floor, so the wide column yields more
+		expect((297 - narrow.name) > (168 - narrow.artist)).toBe(true)
+
+		-- ...and the model never moved: widening restores the commitment exactly
+		expect(table_columns.fitOverrides(columns, committed, 800).name).toBe(297)
+		expect(committed.name).toBe(297)
+
+		-- FLOORS ARE FLOORS: when even the minimums do not fit, the clamp stops
+		local crushed = table_columns.fitOverrides(columns, committed, 100)
+		expect(crushed.name).toBe(80)
+		expect(crushed.artist).toBe(60)
+	end)
+
+	it("a non-resizable column is never clamped below its declared width (DIR-4)", function()
+		local table_columns = require("../src/controls/table_columns")
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 40, resizable = true },
+			{ id = "laps", width = { type = "fixed", px = 64 } },
+		}
+		-- an override on a LOCKED column cannot take it below what the author declared
+		local fitted = table_columns.fitOverrides(columns, { name = 300, laps = 200 }, 200)
+		expect(fitted.laps >= 64).toBe(true)
+		expect(fitted.name >= 40).toBe(true)
+	end)
+
+	it("the mounted table honours the clamp at a narrow viewport, and restores it (DIR-4)", function()
+		local _, adapter, pres, tbl, _rows, _handle, _system, env = world({
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					minWidth = 60,
+					resizable = true,
+				},
+				{ id = "laps", title = "Laps", width = { type = "fixed", px = 64 } },
+			},
+		})
+		tbl.api.setColumnWidth("name", 600)
+		pres.refresh()
+		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(600)
+
+		-- THE ROTATION: the 800px landscape window becomes a 393px portrait one
+		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 800 })
+		pres.refresh()
+		pres.refresh() -- the measurement lands on the solve, the clamp on the next
+		local clamped = adapter.node(cellPath(1, "razz", "name")).rect.w
+		expect(clamped < 600).toBe(true)
+		expect(clamped >= 60).toBe(true)
+		-- the LOCKED column is still on screen at its declared width
+		local laps = adapter.node(cellPath(1, "razz", "laps"))
+		expect(laps.rect.w).toBe(64)
+		expect(laps.rect.x + laps.rect.w <= 393 + 0.001).toBe(true)
+		-- ...and the header divides the SAME width as the cells
+		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(clamped)
+
+		-- ...and the commitment is intact: widening restores it to the pixel
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		pres.refresh()
+		pres.refresh()
+		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(600)
+		expect(tbl.api.columnWidthOverrides:get().name).toBe(600)
+	end)
+
 	it("remounted rows keep hits painted beneath cell content (deterministic z-order)", function()
 		-- the flat sibling render relies on paint order; creation order is NOT
 		-- deterministic across a structural sync, so z-order must be assigned

@@ -1092,9 +1092,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				return
 			end
 			local target = math.clamp(ix.offsetOf(index) + anchorDelta, 0, math.max(0, ix.content - viewportNow()))
+			--[[ AGAINST THE RAW MIRROR, NOT THE CLAMPED MEMO, and it is not a
+				nicety (ported from `controls/table.luau`, which measured it).
+				`clampedTop` is what the FRAMEWORK believes; `scrollTop` is where the
+				ENGINE actually is, and this observer's whole job is to move the
+				engine. Compared against the clamped value, a list scrolled hard
+				against its end whose items then SHRANK looks already-correct — the
+				memo clamps to the new maximum while the real `CanvasPosition` is still
+				a thousand pixels past the last item, so nothing is written and the
+				player is left staring at blank space. Measured on the Table: 400 rows
+				shrinking 43px -> 40px at the end of the list left the engine 1200px
+				out of range. ]]
 			-- the same round-to-nearest the slot guard uses: sub-pixel drift is not a
 			-- jump, and correcting it would fight the engine's own rounding forever
-			if math.abs(target - clampedTop:get()) < 0.5 then
+			if math.abs(target - scrollTop:get()) < 0.5 then
 				return
 			end
 			boundController.scrollTo(host, vec(target))

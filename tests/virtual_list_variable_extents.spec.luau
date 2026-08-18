@@ -326,6 +326,47 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 		list.dispose()
 	end)
 
+	--[[ THE END-OF-LIST SHRINK, which `controls/table.luau` measured and fixed and
+		this control did not have (reuse audit 2026-08-17). The anchor observer
+		compared its target against `clampedTop` — a MEMO over the index — instead
+		of against `scrollTop`, the raw engine mirror. Hard against the end of a
+		list whose items then SHRINK, the memo has already clamped itself to the new
+		maximum while the engine's real `CanvasPosition` is still far past the last
+		item, so the two agree, nothing is written, and the player is left looking
+		at blank space. Measured on the Table at 400 rows shrinking 43 -> 40px: the
+		engine sat 1,200px out of range.
+
+		The instrument is the SCROLL STUB, because the defect is exactly "no write
+		was made": `lastPos()` is what the framework actually told the engine. ]]
+	it("shrinking the items at the END of the list still corrects the ENGINE, not just the memo", function()
+		local core = Facet.newCore()
+		local rows = core:signal(makeRows(200))
+		local grow = core:signal(28)
+		local list = newList(core, {
+			rows = rows,
+			viewportExtent = 400,
+			itemExtent = function(_item: any, _index: number, use: any): number
+				return 56 + use(grow)
+			end,
+		})
+		local ctrl = scrollStub()
+		list.bindNativeScroll(ctrl, "/VL")
+		-- hard against the end: 200 items at 84px, a 400px viewport
+		local content = 200 * 84
+		ctrl.scrollTo("/VL", { x = 0, y = content - 400 })
+		expect(list.dump().scrollTop).toBe(content - 400)
+
+		-- every item shrinks back to 56px: the content is now 11,200 and the
+		-- engine is 5,600px past the end of it
+		grow:set(0)
+		local corrected = ctrl.lastPos().y
+		-- THE ASSERTION THE OLD COMPARISON FAILED: a write happened at all, and it
+		-- landed inside the new content
+		expect(corrected <= 200 * 56 - 400 + 0.5).toBe(true)
+		expect(corrected < content - 400).toBe(true)
+		list.dispose()
+	end)
+
 	it("the extents re-derive through `use`, and the canvas follows", function()
 		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))
