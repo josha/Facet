@@ -527,7 +527,12 @@ return {
 			local insets = (use(chromeFact) :: any).insets
 			local metrics = use(env:get("themeMetrics"))
 			local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
-			local gutter = if type(space.s) == "number" then space.s else 8
+			-- `space.gutter` and not `space.s` (DIR wave contract 6): the screen edge
+			-- is the one step in the scale with a physical floor under it, and this
+			-- fixture reading the raw small step is how a dense package put content
+			-- 4px from the glass. The snapshot derives it as `max(8, space.s)`, so a
+			-- package that breathes more still moves this with it.
+			local gutter = if type(space.gutter) == "number" then space.gutter else 8
 			return {
 				top = 0,
 				right = math.max(insets.right, gutter),

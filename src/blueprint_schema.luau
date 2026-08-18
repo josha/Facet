@@ -188,7 +188,11 @@ schema.TRANSITION_MIRROR = table.freeze(TRANSITION_MIRROR)
 -- (`canvasGroup = true`). The coordinator asserts it and names the fix.
 schema.TRANSITION_FADES = table.freeze({ fade = true, materialize = true })
 
-local SPACE_STEP_LIST = "xs | s | m | l | xl"
+-- DERIVED from the theme package's own vocabulary, never restated — for the same
+-- reason the role list below is, and it was a literal until the DIR wave added
+-- the derived `gutter` step and this message went stale in the same commit that
+-- made the step legal.
+local SPACE_STEP_LIST = table.concat(themePackage.SPACE_STEPS, " | ")
 -- DERIVED from the theme package's own vocabulary, never restated: a refusal
 -- that names a stale six-role set while the resolver accepts eight is exactly
 -- the "documentation states what ships" defect (constitution §14).

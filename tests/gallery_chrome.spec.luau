@@ -1063,9 +1063,33 @@ end)
 	change what `"s"` resolves to — and it is not the cause. DIR-1 is therefore
 	adapter/device-side: the pixels between the solved rect and the glass. What
 	this case does is make sure the MODEL never becomes the cause without anyone
-	noticing. ]]
+	noticing.
+
+	── AND THE FLOOR UNDER IT (DIR wave contract 6, 2026-08-18) ────────────────
+
+	"Positive" is not a gutter. The two numbers above that were UNDER 8 —
+	classic_desktop's 4 and compact_pointer's 6 — are the whole width a phone's
+	rounded corner and its glass bezel eat before a single pixel of a stroke is
+	visible, so a package could satisfy the case above and still hand the director
+	the clipped border he photographed.
+
+	THE STEP THE STRIP SPENDS IS `space.gutter` NOW, not `space.s`, and the case
+	below asserts BOTH ENDS of that seam: the metric (so a package that lowers it
+	fails here even on a screen this file never mounts) and the solved strip (so a
+	consumer that stops spending it fails the same case). Either half alone is a
+	check that proves half of what it claims.
+
+	`space.gutter` is DERIVED — a package's own `s`, floored at 8 — and the long
+	note in `src/themes/snapshot.luau` records why raising `space.s` instead was
+	measured and rejected: it re-widened every gap in the package and put four
+	unrelated showcase surfaces into overflow. It is a floor, not a replacement:
+	glossy_mobile and glossy_touch keep their 10. ]]
 describe("the showcase chip strip keeps a left gutter at phone width (DIR-1)", function()
 	local theme_packages = require("../tools/lune/theme_packages")
+	-- the smallest screen-edge gutter any shipped package may resolve to. 8px is
+	-- the step the neutral default already uses and the one the HUD's own
+	-- `screenPadding` falls back to when no package is installed.
+	local GUTTER_FLOOR = 8
 
 	local function gutterUnder(packageName: string?): (number, number)
 		local w = showcase({
@@ -1075,10 +1099,10 @@ describe("the showcase chip strip keeps a left gutter at phone width (DIR-1)", f
 			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
 		})
 		w.settle()
-		local expected = 8
+		local expected = GUTTER_FLOOR
 		if packageName ~= nil then
 			local snapshot = themes.resolve((require)(`../examples/themes/{packageName}`).build(themes), nil, {})
-			expected = (snapshot :: any).space.s
+			expected = (snapshot :: any).space.gutter
 		end
 		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
 		expect(`{tostring(packageName)}: strip mounted {tostring(chips ~= nil)}`).toBe(
@@ -1097,9 +1121,39 @@ describe("the showcase chip strip keeps a left gutter at phone width (DIR-1)", f
 		end
 	end)
 
+	it("...and no package's screen-edge step is under the 8px floor, in the metric OR on the glass", function()
+		-- the floor is read from the module that owns it, so raising the number
+		-- there without raising it here cannot leave this case asserting the old one
+		local snapshotModule = require("../src/themes/snapshot")
+		expect((snapshotModule :: any).SCREEN_GUTTER_FLOOR).toBe(GUTTER_FLOOR)
+		local under = 0
+		for _, name in theme_packages.byRole("reference") do
+			local snapshot = themes.resolve((require)(`../examples/themes/{name}`).build(themes), nil, {})
+			local step = (snapshot :: any).space.gutter
+			expect(`{name}: space.gutter {step} >= {GUTTER_FLOOR}: {tostring(step >= GUTTER_FLOOR)}`).toBe(
+				`{name}: space.gutter {step} >= {GUTTER_FLOOR}: true`
+			)
+			local x = gutterUnder(name)
+			expect(`{name}: solved gutter {x} >= {GUTTER_FLOOR}: {tostring(x >= GUTTER_FLOOR)}`).toBe(
+				`{name}: solved gutter {x} >= {GUTTER_FLOOR}: true`
+			)
+			-- ...and the floor really BINDS somewhere, or this whole case is a
+			-- tautology over a set of packages that all cleared it anyway
+			if (snapshot :: any).space.s < GUTTER_FLOOR then
+				under += 1
+				expect(`{name}: the floor raised it: {step > (snapshot :: any).space.s}`).toBe(
+					`{name}: the floor raised it: true`
+				)
+			end
+		end
+		expect(`packages whose own small step is under the floor: {under > 0}`).toBe(
+			"packages whose own small step is under the floor: true"
+		)
+	end)
+
 	it("with no package at all it is the default spacing step, never zero", function()
 		local x = gutterUnder(nil)
 		expect(x > 0).toBe(true)
-		expect(x).toBe(8)
+		expect(x).toBe(GUTTER_FLOOR)
 	end)
 end)

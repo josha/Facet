@@ -227,7 +227,17 @@ function showcase_chrome.mount(opts: MountOpts): any
 
 	local barScreen = UI.Screen({
 		id = "ShowcaseChrome",
-		padding = "s",
+		--[[ THE SCREEN EDGE IS `gutter`, NOT `s` (DIR-1, 2026-08-17 device round).
+			This strip is the one the director photographed with its left border
+			clipped at the glass, and it was standing off by whatever the active
+			package called a small gap — 4px under classic-desktop, 6px under
+			compact-pointer. `space.gutter` is that package's own step FLOORED at 8
+			(src/themes/snapshot.luau, "THE SCREEN-EDGE GUTTER, WITH A FLOOR"), so a
+			package that breathes more still does and no package can go under the
+			floor. The panel below spends the same step for the same reason; the
+			ScrollView inside it does NOT — that padding is between a card's edge and
+			its own rows, which is a spacing decision and stays `s`. ]]
+		padding = "gutter",
 		children = {
 			UI.Anchor({
 				id = "Dock",
@@ -262,7 +272,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- overflow turns scrolling on.
 	local panelScreen = UI.Screen({
 		id = "ShowcasePanel",
-		padding = "s",
+		-- the screen edge again (see `barScreen` above): `gutter`, floored at 8
+		padding = "gutter",
 		children = {
 			UI.Anchor({
 				id = "Dock",

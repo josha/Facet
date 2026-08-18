@@ -127,6 +127,21 @@ function package.deriveTypeRole(role: string, typography: any): any
 end
 
 package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
+--[[ ...AND THE STEPS A PACKAGE DOES NOT HAVE TO AUTHOR (DIR wave contract 6).
+
+	`gutter` is the SCREEN-EDGE step. It is derived in `themes/snapshot.resolve`
+	as `max(SCREEN_GUTTER_FLOOR, space.s)` — see the long note there for why a
+	screen edge has a physical floor that the rest of a spacing ladder does not —
+	and a package that authors one of its own still wins.
+
+	It is listed here, beside the required steps, because THIS list is what
+	`snapshot.isSpaceStep` and the blueprint boundary's refusal message are built
+	from. A step the resolver answers but the boundary refuses is the "the
+	documentation states what ships" defect the schema's own comment warns about,
+	one vocabulary down. Optional, so no package's compile changes and no content
+	stamp moves. ]]
+package.DERIVED_SPACE_STEPS = table.freeze({ "gutter" })
+package.SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl", "gutter" })
 package.REQUIRED_CONTROL_SIZES = table.freeze({ "compact", "regular", "large" })
 package.CONTROL_SIZE_FIELDS = table.freeze({ "height", "paddingX", "iconSize" })
 -- THE SLOT VOCABULARY IS chrome_slots'. It used to be restated here and the two

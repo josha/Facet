@@ -98,6 +98,13 @@ end
 -- naming it can never get nil back and silently draw a zero-size picture.
 local NEUTRAL_ICON_SIZES = table.freeze({ small = 16, medium = 20, large = 24 })
 
+-- THE SMALLEST SCREEN-EDGE GUTTER ANY PACKAGE MAY RESOLVE TO. 8px is the step
+-- the neutral scale already names `s`, and the floor under `space.gutter` in
+-- `resolve` — see the long note there for why this is a derived step rather than
+-- a raised `space.s`.
+local SCREEN_GUTTER_FLOOR = 8
+snapshot.SCREEN_GUTTER_FLOOR = SCREEN_GUTTER_FLOOR
+
 local function neutralDefinition(): any
 	local style = defaultStyle :: any
 	return {
@@ -749,6 +756,46 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		buttonFamily.height = out.targetSizes.minimum
 	end
 
+	--[[ 4a-ante. THE SCREEN-EDGE GUTTER, WITH A FLOOR (DIR wave contract 6,
+		2026-08-18; device round 2026-08-17 finding DIR-1).
+
+		THE STEP EVERY SURFACE WAS SPENDING WAS `space.s`, and a screen edge is not
+		a spacing decision — it is a physical one. `space.s` is what a package
+		chooses for "the small gap between two things"; a phone's rounded corner and
+		its bezel eat a fixed number of pixels whatever a package thinks a small gap
+		is. Under `classic_desktop` (`s = 4`) and `compact_pointer` (`s = 6`) the
+		showcase's own chip strip therefore stood 4px and 6px off the glass, and the
+		director photographed its left border clipped.
+
+		WHY THIS IS A DERIVED STEP AND NOT A RAISED `space.s` — MEASURED, not
+		preferred. Raising `classic_desktop.space.s` from 4 to 8 was tried first and
+		run through the whole suite: it re-widened every gap, every
+		`chromeInsets.selection` and every derived row gutter in the package, and
+		FOUR unrelated showcase surfaces (`sponsor_drop`, `row_actions`,
+		`p2_cartwheel`, `p4_foyer`) began overflowing their own boxes under
+		classic-desktop at the swept viewports. A dense desktop package's 4px gaps
+		between rows are correct; its 4px screen EDGE is not, and one token cannot
+		carry both answers.
+
+		So `gutter` is a sixth, DERIVED space step: a package's own `s` unless that
+		is under the floor. A package that breathes more keeps its own number
+		(glossy_mobile and glossy_touch stay at 10), and a package may author
+		`space.gutter` outright to say something different — an authored value still
+		wins, exactly as it does for `controls.rowActions.trayGap` below.
+
+		FILLED HERE, NOT IN THE NEUTRAL DEFINITION, for the reason every derived
+		metric under this comment carries: an authored `metrics.*` entry would move
+		the authored metrics — and therefore the CONTENT STAMP — of every package
+		derived from Studio Neutral, for a value no package wrote. It is above the
+		pixel-unit snap below, so a pixel package's gutter lands on its own grid.
+
+		The guard is `tests/gallery_chrome.spec.luau` ("no package's screen-edge
+		step is under the 8px floor"), which asserts the METRIC and the SOLVED strip
+		so neither half can drift away from the other. ]]
+	if type(out.space.gutter) ~= "number" then
+		out.space.gutter = math.max(SCREEN_GUTTER_FLOOR, out.space.s)
+	end
+
 	-- 4a-bis. THE ROW-ACTION TRAY'S OWN GUTTER (director device round 2026-08-12).
 	-- Two rounded tray plates drawn flush read as one merged slab, and mid-flight
 	-- the sliding row content merged with the first of them. The separation is a
@@ -1008,7 +1055,11 @@ function snapshot.isSpaceStep(name: any): boolean
 	if type(name) ~= "string" then
 		return false
 	end
-	for _, step in pkg.REQUIRED_SPACE_STEPS do
+	-- the RESOLVABLE vocabulary, which is the required steps plus the derived ones
+	-- (`gutter`): every one of these answers a number on every snapshot, and a
+	-- name a solve resolves but the blueprint boundary refuses would be a metric
+	-- nobody could spell
+	for _, step in pkg.SPACE_STEPS do
 		if step == name then
 			return true
 		end
