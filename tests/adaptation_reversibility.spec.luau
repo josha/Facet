@@ -340,6 +340,19 @@ local function contentUnder(w: any, root: string): ({ [string]: boolean }, numbe
 	return texts, bars
 end
 
+--[[ WAVE REVEAL SPLIT THE ROUTE IN TWO, and these two cases are the same claim
+	read against the right half of it. The claim has not moved: EVERYTHING THE
+	RICHEST FORM SHOWS MUST BE REACHABLE FROM WHATEVER IS ON SCREEN. What moved is
+	which surface answers.
+
+	A zone that stepped DOWN is still on screen, so it discloses its own richest
+	form where it stands: the census lists it as "Simplified — open to expand" and
+	the row opens THAT zone's plate, rather than pasting a second copy of the zone's
+	content into the sink (two disclosures of one thing drift the first time either
+	changes). A zone that was DROPPED has no form left to disclose from, so the sink
+	still carries its content inline. Both cases are driven here through the real
+	tap path, so "activating a row triggers the same disclosure" is proven rather
+	than asserted. ]]
 describe("the recovery route discloses the SAME content the richest form shows", function()
 	it("the task panel's rows reach the sink whole — names, rewards and bars, not a caption", function()
 		-- the RICH form, at a viewport with room for it
@@ -359,7 +372,12 @@ describe("the recovery route discloses the SAME content the richest form shows",
 		local opened = tight.built.steps.openOverflow()
 		tight.refresh()
 		expect(opened.open).toBe(true)
-		local panelTexts, panelBars = contentUnder(tight, "/HudOverflow")
+		--[[ THE CENSUS ROW, TAPPED. `Tasks` has stepped down rather than been
+			dropped, so the sink lists it as simplified and the row is the route: one
+			tap opens the zone's own plate, which is where its rich form lives. ]]
+		tight.adapter.tap("/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody/OverflowExpandTasks")
+		tight.refresh()
+		local panelTexts, panelBars = contentUnder(tight, "/Expand:Tasks")
 
 		local missing: { string } = {}
 		for text in richTexts do
@@ -373,7 +391,6 @@ describe("the recovery route discloses the SAME content the richest form shows",
 				.. `{if #missing > 0 then " (" .. table.concat(missing, ", ") .. ")" else ""}`
 		).toBe("strings the rich form shows and the route does not: 0")
 		expect(`progress bars on the route: {panelBars}`).toBe("progress bars on the route: 3")
-		tight.built.steps.closeOverflow()
 		tight.refresh()
 		tight.dispose()
 	end)
@@ -391,7 +408,9 @@ describe("the recovery route discloses the SAME content the richest form shows",
 		tight.refresh()
 		tight.built.steps.openOverflow()
 		tight.refresh()
-		local panelTexts = contentUnder(tight, "/HudOverflow")
+		tight.adapter.tap("/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody/OverflowExpandRail")
+		tight.refresh()
+		local panelTexts = contentUnder(tight, "/Expand:Rail")
 		local missing: { string } = {}
 		for text in richTexts do
 			if not panelTexts[text] then
@@ -403,7 +422,6 @@ describe("the recovery route discloses the SAME content the richest form shows",
 			`rail strings the route does not reach: {#missing}`
 				.. `{if #missing > 0 then " (" .. table.concat(missing, ", ") .. ")" else ""}`
 		).toBe("rail strings the route does not reach: 0")
-		tight.built.steps.closeOverflow()
 		tight.refresh()
 		tight.dispose()
 	end)

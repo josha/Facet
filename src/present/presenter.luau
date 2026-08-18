@@ -3361,6 +3361,36 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return anchoredSurfaces.dump()
 	end
 
+	--[[ OPEN A REGION'S EXPAND FROM SOMEWHERE ELSE (wave REVEAL).
+
+		A stepped-down region carries its own affordance and needs nothing from any
+		caller. This is for the SECOND route to the same disclosure: a screen's
+		overflow census lists what the screen has stopped showing, and a row for a
+		SIMPLIFIED region has to open the same plate the region's own affordance
+		opens — not a copy of it, and not the census's own idea of what that region
+		holds. Two plates for one region is how the two drift.
+
+		It takes the region's PATH, which is what the composition resolution already
+		names every region by (`resolution.regions[i].id`), so a census built from
+		the framework's own list has the argument in its hand. Returns the
+		presentation that opened ("anchored" | "sheet" | "custom") or nil when there
+		was nothing to open — a region at its richest form has nothing more to show,
+		and that is an answer rather than a failure.
+
+		The lookup is the shipped one: longest-prefix contribution dispatch, top of
+		the stack down, exactly as an Activate is routed. ]]
+	function self.expand(path: string): string?
+		for i = #stack, 1, -1 do
+			local handle = stack[i]
+			for _, c in contributionsForPath(handle.contributions or {}, path) do
+				if c.bundle.expandOpen ~= nil then
+					return c.bundle.expandOpen()
+				end
+			end
+		end
+		return nil
+	end
+
 	--[[ A CALLOUT'S TURN ON SCREEN (D3b). `spec` is
 		`{ id, build, priority?, key?, onShow?, onHide? }`, and `build()` returns the
 		panel blueprint and its anchor table when this request's turn comes — the

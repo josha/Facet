@@ -2367,6 +2367,63 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		  3. EVERY UNSHOWN REGION CARRIES A ROUTE. D7.1's whole contract: adaptation
 		     may change how much of something is shown and what it costs to reach it,
 		     never whether it can be reached at all. ]]
+	--[[ ── NO DEAD-END COMPACT (wave REVEAL) ─────────────────────────────────────
+		THE GUARANTEE: over the whole swept matrix, a region standing on a form below
+		its richest can always be asked for the rest FROM WHERE IT STANDS. It is the
+		other half of D7.1's "adaptation may change what it costs to reach something;
+		it may not change whether it can be reached at all" — D7.1 made the ROUTE a
+		declaration, and this asserts the route is on the screen.
+
+		THE ESCAPE IS AUTHORED AND EXEMPT, deliberately: `expand = "none"` is a
+		statement that there is nothing to disclose, or that the author is disclosing
+		it themselves, and a mechanism with no way to say that is a mechanism authors
+		route around. Every other stepped-down region must carry a STANDING affordance
+		— mounted, visible, non-zero, and at the target floor its own contract
+		declares, because a route the thumb cannot land on is a route on paper.
+
+		The rect it checks is the HIT rect, not the painted one: a chevron is a mark
+		and the 44px band around it is the shipped hit-expander's, so reading the
+		painted box would report every correct chevron as too small. ]]
+	local function deadEndViolations(w: any): { string }
+		local out: { string } = {}
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		if dump == nil then
+			return out
+		end
+		for _, r in dump.regions do
+			if (r.activeForm or 0) <= 1 then
+				continue -- at its richest, or dropped: neither is a stepped-down region
+			end
+			if r.expand == "none" then
+				continue -- the authored escape
+			end
+			if not r.expandable then
+				table.insert(
+					out,
+					string.format(
+						"%s is standing on form %d of its ladder with no route to the rest — a dead end",
+						r.id,
+						r.activeForm
+					)
+				)
+				continue
+			end
+			local path = `{r.id}/Expand`
+			local node = w.adapter.node(path)
+			local hit = w.adapter.hitRectOf(path)
+			local box = if hit ~= nil then hit else (if node ~= nil then node.rect else nil)
+			if node == nil or box == nil or w.adapter.visibleOf(path) == false then
+				table.insert(out, string.format("%s reports a route, and %s is not on the screen", r.id, path))
+			elseif box.w < 24 or box.h < 24 then
+				table.insert(
+					out,
+					string.format("%s's route is %.0fx%.0fpx — under the thumb's floor", r.id, box.w, box.h)
+				)
+			end
+		end
+		return out
+	end
+
 	local function giveWayViolations(w: any): { string }
 		local out: { string } = {}
 		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
@@ -2589,6 +2646,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 							for _, hit in giveWayViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
+							for _, hit in deadEndViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
 							for _, hit in valueTextViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
@@ -2623,6 +2683,74 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			end
 		)
 	end
+
+	--[[ THE DEAD-END GUARANTEE BITES, and it is checked the only way a guarantee
+		that currently reports ZERO can be: by breaking the thing it watches. A pass
+		over a matrix where nothing is wrong is indistinguishable from a pass over a
+		matrix nothing is looking at.
+
+		THREE PROBES, and the third is the one that matters. A stepped-down region
+		whose affordance is taken off the screen must be REPORTED (the route is on
+		paper). A stepped-down region whose resolution says there is no route at all
+		must be REPORTED (the mechanism was suppressed). And the SAME region, with
+		the authored escape declared, must be SILENT — because `expand = "none"` is a
+		statement and not an oversight, and a sweep that cannot tell those apart
+		would force every author to route around it. ]]
+	it("DEAD-END CONTROL: a suppressed route is reported, and the AUTHORED escape is not", function()
+		local view = VIEWS[1]
+		local chips = showcase_chips.rectFor(Facet, view, nil, nil, LARGEST)
+		local w = hudWorld(view, nil, LARGEST, chips, showcase_chips.reservationFor(chips))
+		expect(#deadEndViolations(w)).toBe(0)
+
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		local stepped: any = nil
+		for _, r in dump.regions do
+			if (r.activeForm or 0) > 1 and r.expandable and stepped == nil then
+				stepped = r
+			end
+		end
+		--[[ THE PREMISE, stated the way the give-way control states its own: without a
+			genuinely stepped-down region carrying a route, all three probes below are
+			assertions about an empty set. ]]
+		expect(`a region is genuinely stepped down with a route here: {stepped ~= nil}`).toBe(
+			"a region is genuinely stepped down with a route here: true"
+		)
+
+		-- (1) THE ROUTE IS ON PAPER: the affordance exists and is not on the screen
+		local affordance = w.adapter.node(`{stepped.id}/Expand`)
+		local wasVisible = affordance.visible
+		affordance.visible = false
+		local reported = false
+		for _, hit in deadEndViolations(w) do
+			if string.find(hit, "is not on the screen", 1, true) ~= nil then
+				reported = true
+			end
+		end
+		expect(`an affordance off the screen is reported: {reported}`).toBe(
+			"an affordance off the screen is reported: true"
+		)
+		affordance.visible = wasVisible
+		expect(`...and the untouched tree is silent again: {#deadEndViolations(w)}`).toBe(
+			"...and the untouched tree is silent again: 0"
+		)
+
+		-- (2) THE MECHANISM IS SUPPRESSED: the resolution reports no route at all
+		stepped.expandable = false
+		local suppressed = false
+		for _, hit in deadEndViolations(w) do
+			if string.find(hit, "with no route to the rest", 1, true) ~= nil then
+				suppressed = true
+			end
+		end
+		expect(`a stepped-down region with no route is reported: {suppressed}`).toBe(
+			"a stepped-down region with no route is reported: true"
+		)
+
+		-- (3) ...AND THE SAME STATE, DECLARED, IS EXEMPT. One field apart from the
+		-- case above, and it is the field that says a human decided.
+		stepped.expand = "none"
+		expect(`the authored escape is exempt: {#deadEndViolations(w)}`).toBe("the authored escape is exempt: 0")
+	end)
 
 	--[[ THE VALUE ORACLE BITES, and it is checked for the two ways it could be
 		decoration: a classification that names nothing on screen, and a check that

@@ -158,6 +158,11 @@ local COPY = {
 	-- the half the ladder line has no room for: the ladder decides WHICH zone gives
 	-- way, and this says what happens to what it gave up
 	overflowNote = "Nothing is deleted. A zone that gives way is listed here.",
+	--[[ THE ROW A SIMPLIFIED ZONE GETS (wave REVEAL). It is a ROW rather than the
+		zone's content, because a zone that stepped DOWN is still on screen and can
+		disclose its own richest form where it stands — this sink opens that same
+		plate rather than pasting a second copy of it here. ]]
+	overflowSimplified = "Simplified — open to expand",
 	overflowEmpty = "Nothing is hidden — every zone is showing everything it has.",
 	overflowClose = "Close",
 	feed = "Ravi eliminated Mo",
@@ -1364,12 +1369,33 @@ return {
 			rect, a form and a focus ring; the leaf is what this fixture named its
 			zones. Splitting it here rather than storing paths in `RECOVERED` keeps
 			the recovery table readable and independent of where the HUD is mounted. ]]
-		local function hiddenNow(): { { id: string, reason: string, route: string } }
+		--[[ ...AND WHETHER THE ZONE CAN SHOW IT ITSELF (wave REVEAL). `unshown` says
+			WHAT is missing and where it went; the region rows of the same dump say
+			whether the zone standing on screen can DISCLOSE it where it stands. The
+			two are joined here, once, by the path they are both keyed on — a census
+			that re-derived either half would be the second source of truth this seam
+			exists to remove.
+
+			The census is still ONE list and still the framework's. What changed is
+			that a SIMPLIFIED zone gets a row that opens the zone's own plate, while a
+			DROPPED zone — which has no form left on screen to disclose anything —
+			still has its content carried here. ]]
+		local function hiddenNow(): { { id: string, path: string, reason: string, route: string, expandable: boolean } }
 			local dump = state()
+			local expandable: { [string]: boolean } = {}
+			for _, row in (if dump ~= nil then dump.regions else nil) or {} do
+				expandable[row.id] = row.expandable == true
+			end
 			local out = {}
 			for _, entry in (if dump ~= nil then dump.unshown else nil) or {} do
 				local leaf = string.match(entry.id, "([^/]+)$") or entry.id
-				table.insert(out, { id = leaf, reason = entry.reason, route = entry.route })
+				table.insert(out, {
+					id = leaf,
+					path = entry.id,
+					reason = entry.reason,
+					route = entry.route,
+					expandable = expandable[entry.id] == true,
+				})
 			end
 			return out
 		end
@@ -1411,6 +1437,37 @@ return {
 				)
 			end
 			for _, entry in hidden do
+				--[[ A SIMPLIFIED ZONE IS A ROW, NOT A COPY (wave REVEAL). The zone is
+					standing on screen in a poorer form and the framework has already put an
+					affordance on it, so this sink's job is to SAY SO and to open that same
+					plate — `presenter.expand(path)` reaches the region's own contribution by
+					the same dispatch an Activate uses. Pasting the zone's rich form in here
+					instead would be a second disclosure of one thing, and the two would drift
+					the first time either changed.
+
+					A DROPPED zone still gets its content inline, and that asymmetry is the
+					whole point: dropped means there is no form left on screen to disclose
+					anything FROM. ]]
+				if entry.expandable then
+					table.insert(
+						rows,
+						UI.Button({
+							id = `OverflowExpand{entry.id}`,
+							label = `{entry.id} — {COPY.overflowSimplified}`,
+							surface = "chip",
+							textSize = "caption",
+							width = { type = "fill", weight = 1 },
+							onActivate = function()
+								local path = entry.path
+								closeOverflow()
+								if ctx.presenter ~= nil and ctx.presenter.expand ~= nil then
+									ctx.presenter.expand(path)
+								end
+							end,
+						})
+					)
+					continue
+				end
 				local build = RECOVERED[entry.id]
 				if build == nil then
 					continue

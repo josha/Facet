@@ -285,6 +285,14 @@ function region_expand.new(config: Config)
 		bindController = function(ctrl: any)
 			controller = ctrl
 		end,
+		--[[ THE SECOND ROUTE TO THE SAME PLATE. A screen's overflow census lists what
+			the screen has stopped showing, and its row for a SIMPLIFIED region opens
+			this — through `presenter.expand(regionPath)`, which finds this bundle by
+			the same longest-prefix dispatch an Activate uses. One region, one plate:
+			a census that built its own would be a second thing to keep in step. ]]
+		expandOpen = function(): string?
+			return self.open()
+		end,
 	}
 
 	return self

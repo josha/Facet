@@ -111,6 +111,13 @@ export type Bundle = {
 	-- control degrades to logical focus only — an enhancement seam, never a
 	-- dependency.
 	bindFocusGraph: ((focusGraph: any) -> ())?,
+	--[[ OPEN THIS SUBTREE'S EXPAND (wave REVEAL). Declared by `UI.Region` on a
+		region that collapses, and read by `presenter.expand(path)` — the seam a
+		screen's overflow census uses to open the SAME plate the region's own
+		affordance opens, rather than building a second one beside it. Returns the
+		presentation that opened, or nil when the region is at its richest form and
+		has nothing more to show. ]]
+	expandOpen: (() -> string?)?,
 	-- bindMotion (row-actions Task 4): hands the control the presenter's own
 	-- motion clock (`self.motionClock`, ADR-0022 Decision 1) — the one every
 	-- surface transition, toast schedule, and drag flight already rides —
