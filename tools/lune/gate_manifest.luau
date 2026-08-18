@@ -3916,16 +3916,16 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "rename-canonical-identity",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/rename/after-inventory.md && test -f "$f" && grep -qF "generated-output" "$f" && grep -qF "**0**" "$f" && test -f docs/adr/ADR-0036-facet-rename.md && test -f build/Facet.rbxm && test -f examples/places/Facet-Showcase.rbxl && python3 -c "import json;d=json.load(open(\'artifacts/release-candidate-review/rename/after-inventory.json\'));assert d[\'totals\'].get(\'generated-output\',0)==0,d[\'totals\']"',
 			evidence = "artifacts/release-candidate-review/rename/after-inventory.md",
-			note = "After history-preserving moves and content rewrite, Facet is the product, folder, ModuleScript, and public binding; generated outputs are rebuilt from renamed source; the after-count of the rename inventory shows old-name matches only in the approved exception set.",
+			note = "Facet is the product, folder, ModuleScript, and public binding after history-preserving moves (framework 44b9e62/a97336f/664d974, RascalRally b92b606); generated outputs were REBUILT from renamed source and carry zero old-brand bytes; the after-inventory accounts for every remaining old-name match with a reason, and every class outside frozen evidence is covered by the drift guard's allowlist. The rename ADR (docs/adr/ADR-0036-facet-rename.md) is the one maintained document naming both brands.",
 		},
 		{
 			name = "rename-drift-guard-bites",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = "python3 tools/check_brand_drift.py --skip-builds && python3 tools/check_brand_drift.py --selftest",
 			evidence = "artifacts/release-candidate-review/rename/drift-guard-proof.md",
-			note = "The case-insensitive old-name drift check across maintained and distributable trees, with its exact allowlist (one rename ADR, the external migration manifest, immutable raw evidence). Proof it FAILS on a planted old-name content line and a planted old-name path, then passes on the restored tree.",
+			note = "tools/check_brand_drift.py scans both repos' tracked trees (paths + contents), the current-facing studio surfaces, and — in its full mode, run at stage close — the serialized object names of every buildable project via built XML (a binary .rbxl is LZ4-chunked, so byte greps prove nothing; measured in the nested-tree round). The allowlist lives inside the guard with a reason and removal rule per entry. The selftest is the negative control the plan demands: it plants an old-name content line, an old-name path, and an allowlisted pattern outside its allowlisted file inside scanned directories, requires all three to redden the scan, then requires the restored tree to pass. This row runs the content scan plus the selftest on every gate run; the with-builds run is recorded in the evidence artifact.",
 		},
 		{
 			name = "clean-clone-runs-as-facet",
@@ -3944,9 +3944,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "step14-remote-packet",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/step14-remote-packet.md && test -f "$f" && grep -qF "github.com/josha/Facet" "$f" && grep -qF "Rollback" "$f" && grep -qF "git ls-remote" "$f" && [ "$(git remote get-url origin)" = "https://github.com/josha/LuauUI.git" ]',
 			evidence = "artifacts/release-candidate-review/step14-remote-packet.md",
-			note = "The exact local target and remote-change packet for the josha/LuauUI -> josha/Facet repository rename, prepared and verified without mutating the remote, publishing, or creating a package.",
+			note = "The exact local target and remote-change packet for renaming the GitHub repository to josha/Facet (the pre-rename URL is recorded inside the packet), prepared and verified without mutating the remote, publishing, or creating a package.",
 		},
 		{
 			name = "review-finding-ledger",
