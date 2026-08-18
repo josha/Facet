@@ -301,6 +301,51 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 		end)
 	end)
 
+	it("the release RE-READS: a host that took the property back keeps it (PLAT-22)", function()
+		--[[ The half of PLAT-22's contract that had ZERO coverage (review): deleting
+			the re-read guard left all seventeen cases green. The shape it protects is
+			a host game that turns the touch controls back on itself while a Facet
+			surface is exclusive — on release, restoring "the prior value" would take
+			them away again, from a property the framework no longer owns. ]]
+		withFakeGuiService(function(state)
+			-- the host already had the touch controls OFF, so `prior` is false and
+			-- "restore the prior value" and "leave it alone" are finally different
+			-- answers — with a boolean property they are indistinguishable any other
+			-- way, which is how this half went uncovered
+			state.value = false
+			local core = Facet.newCore()
+			local presenter, active = newPresenterStub(core)
+			local unbind = responder_effects.bind(core, presenter)
+			active:set(true)
+			expect(state.value).toBe(false)
+			expect(responder_effects.suppressionCount()).toBe(1)
+
+			-- the HOST turns them back on mid-suppression: the property is its
+			-- decision now, not ours
+			state.value = true
+			active:set(false)
+			-- ...and the release does NOT put its own stale `prior` back over it
+			expect(state.value).toBe(true)
+			expect(responder_effects.suppressionCount()).toBe(0)
+			unbind()
+		end)
+	end)
+
+	it("...and it still restores when the value IS the one we wrote (PLAT-22)", function()
+		-- the negative control for the case above: without it, "never restores"
+		-- would pass the same assertions
+		withFakeGuiService(function(state)
+			local core = Facet.newCore()
+			local presenter, active = newPresenterStub(core)
+			local unbind = responder_effects.bind(core, presenter)
+			active:set(true)
+			expect(state.value).toBe(false)
+			active:set(false)
+			expect(state.value).toBe(true)
+			unbind()
+		end)
+	end)
+
 	it("a write the engine accepts but does not APPLY is not counted as suppression", function()
 		local readOriginal = responder_effects.readTouchControls
 		local writeOriginal = responder_effects.writeTouchControls

@@ -197,14 +197,20 @@ describe("a touch capture belongs to the finger that opened it (PLAT-6)", functi
 	end)
 
 	it("the filter is touch-scoped, so a mouse drag is unaffected", function()
+		--[[ THE CONNECTIVE IS THE CONTRACT (review's mutation-confirmed gap). The
+			first version of this pin listed the three clauses and never checked how
+			they were JOINED, so an `or` -> `and` swap — which turns "touch only" into
+			"nothing drives any capture ever", disabling pointer capture wholesale —
+			passed unchanged. The whole predicate is pinned as one normalized string
+			instead: the three clauses and the two `or`s between them, in order. ]]
 		local predicate =
-			string.match(source, "local function fromThisPointer%(other: InputObject%): boolean(.-)\n\tend")
+			string.match(source, "local function fromThisPointer%(other: InputObject%): boolean(.-)\n\t\tend")
 		expect(predicate ~= nil).toBe(true)
-		expect(string.find(predicate :: string, "originatingTouch == nil", 1, true) ~= nil).toBe(true)
-		expect(string.find(predicate :: string, "other.UserInputType ~= Enum.UserInputType.Touch", 1, true) ~= nil).toBe(
-			true
+		local normalized = string.match(string.gsub(predicate :: string, "%s+", " "), "^%s*(.-)%s*$")
+		expect(normalized).toBe(
+			"return originatingTouch == nil or other.UserInputType ~= Enum.UserInputType.Touch "
+				.. "or other == originatingTouch"
 		)
-		expect(string.find(predicate :: string, "other == originatingTouch", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("BOTH global connections apply it, and they are the first thing each does", function()

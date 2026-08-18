@@ -178,6 +178,54 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 		expect(b.core:lastError()).toBeNil()
 	end)
 
+	it("...and the RELEASE site pays the same assert (ARCH-3)", function()
+		--[[ There are two `dragHeld` writes, and the first version of this case only
+			exercised the pickup: bypassing the assert on the `false` path alone left
+			the suite green (review's mutation-confirmed coverage gap). The clear is
+			the write that matters most — it is what puts the label back — and it goes
+			out from a different branch of the same observer. ]]
+		local authority = require("../src/render/authority")
+		local manifest = authority.manifest()
+		local b = rig()
+		b.registry.arm("/S/Board/Card")
+		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
+		expect(b.core:lastError()).toBeNil()
+
+		-- move the property mid-session, so ONLY the clear meets the changed
+		-- manifest — the pickup already happened under the shipping one
+		local restore = manifest.common.dragHeld
+		manifest.common.dragHeld = "style"
+		local ok = pcall(function()
+			b.registry.cancel("done")
+			for _ = 1, 240 do
+				b.pres.tick(1 / 60)
+				if b.core:lastError() ~= nil then
+					break
+				end
+			end
+			-- the clear was REFUSED, so the node is still wearing the held state
+			expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
+			expect(string.find(tostring(b.core:lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core:lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
+		end)
+		manifest.common.dragHeld = restore
+		expect(ok).toBe(true)
+
+		-- ...and the negative control: the same release under the shipping manifest
+		-- puts the label back and says nothing
+		local c = rig()
+		c.registry.arm("/S/Board/Card")
+		c.registry.cancel("done")
+		for _ = 1, 240 do
+			c.pres.tick(1 / 60)
+			if c.adapter.node("/S/Board/Card").props.dragHeld == false then
+				break
+			end
+		end
+		expect(c.adapter.node("/S/Board/Card").props.dragHeld).toBe(false)
+		expect(c.core:lastError()).toBeNil()
+	end)
+
 	it("the ghost layer mounts on pickup and is GONE after the flight (registry-neutral)", function()
 		local b = rig()
 		b.registry.arm("/S/Board/Card")

@@ -1041,3 +1041,65 @@ describe("showcase chrome (9): the sweep", function()
 		end
 	end)
 end)
+
+--[[ ── DIR-1: THE CHIP STRIP'S LEFT GUTTER, ON THE SURFACE THE DIRECTOR SAW ────
+	(device round 2026-08-17: on a real phone in portrait (~393px) the chip row's
+	left border is clipped at the screen edge.)
+
+	THE MODEL IS INNOCENT, and this is the case that says so — on the SHIPPED
+	composition. The first version of this guard mounted `demo_picker` WITHOUT
+	`composed`, which builds a standalone `UI.Screen({ id = "ShowcaseDemos" })`
+	that `demo_picker.luau` returns before ever constructing when the showcase
+	asks for `composed = true`. The strip the director photographed is laid out by
+	`showcase_chrome.luau` as `/ShowcaseChrome/Dock/Bar/Chips`, so the guard could
+	not have caught a regression in the surface that produced the report (review
+	finding NEW-6).
+
+	Measured here at 393x759 with touch capabilities, under every shipped
+	reference package, the strip stands off the edge by exactly that package's own
+	`space.s`: classic_desktop 4, compact_pointer 6, fantasy_ornate 8,
+	fantasy_parchment 8, glossy_mobile 10, glossy_touch 10, pixel_quest 8,
+	scifi_hud 8. The theme metric was the suspect worth checking — a package can
+	change what `"s"` resolves to — and it is not the cause. DIR-1 is therefore
+	adapter/device-side: the pixels between the solved rect and the glass. What
+	this case does is make sure the MODEL never becomes the cause without anyone
+	noticing. ]]
+describe("the showcase chip strip keeps a left gutter at phone width (DIR-1)", function()
+	local theme_packages = require("../tools/lune/theme_packages")
+
+	local function gutterUnder(packageName: string?): (number, number)
+		local w = showcase({
+			w = 393,
+			h = 759,
+			theme = packageName,
+			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
+		})
+		w.settle()
+		local expected = 8
+		if packageName ~= nil then
+			local snapshot = themes.resolve((require)(`../examples/themes/{packageName}`).build(themes), nil, {})
+			expected = (snapshot :: any).space.s
+		end
+		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+		expect(`{tostring(packageName)}: strip mounted {tostring(chips ~= nil)}`).toBe(
+			`{tostring(packageName)}: strip mounted true`
+		)
+		return (chips :: any).rect.x, expected
+	end
+
+	it("the strip stands off the screen edge under EVERY shipped package", function()
+		for _, name in theme_packages.byRole("reference") do
+			local x, expected = gutterUnder(name)
+			-- a gutter at all — the symptom is a clipped border at x = 0
+			expect(`{name}: gutter positive {tostring(x > 0)}`).toBe(`{name}: gutter positive true`)
+			-- ...and it is the package's OWN spacing step, not a constant
+			expect(`{name}: gutter {x}`).toBe(`{name}: gutter {expected}`)
+		end
+	end)
+
+	it("with no package at all it is the default spacing step, never zero", function()
+		local x = gutterUnder(nil)
+		expect(x > 0).toBe(true)
+		expect(x).toBe(8)
+	end)
+end)
