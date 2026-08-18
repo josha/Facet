@@ -10,6 +10,21 @@ behaviour with two plausible outcomes and a fallback for one of them.
 the sponsor/results overlays and the driving context only exist there). Rows 5 and
 6 are **Facet** (`examples/places/Facet-Showcase.rbxl` and one legacy-flag place).
 
+> **ROWS 1–4 NEED THE LEGACY SPONSOR ROLLBACK — set `UseFacetSponsor = false` on
+> the Workspace before Play.** `SponsorInputs` and `ResultsSkipInputs` are created
+> by `SponsorGesture` / `SponsorResults`, which are required by
+> `SponsorController` alone — the branch `init.client.luau` takes *only* when
+> `FacetFlags.sponsorOn()` is false. On the production default those contexts do
+> not exist at all: the Facet Sponsor presenter routes the same verbs through
+> Facet's own action system (cancel → the presenter's `Cancel` action into
+> `PlayFlow:handleCancel`; skip → `SkipCelebration` ← Space/ButtonX on the sponsor
+> pose context). Running rows 1–4 on the default build measures nothing, and the
+> counter-instrument below will simply find no context to watch.
+>
+> **Row 7 is the opposite — run it on the DEFAULT build.** It measures the driving
+> context and the touch buttons, which exist on both branches, and the relay it
+> checks is what production depends on.
+
 **Build first, both sides.** Every place in this repo was rebuilt on 2026-08-18 to
 carry `Workspace.PlayerScriptsUseInputActionSystem = "Enabled"`; Rascal Rally's two
 Rojo projects now declare it too. A stale `.rbxl` has the *old* input topology and
@@ -68,8 +83,8 @@ it. One name = single delivery. Two names = the double-fire is still live.
 
 ## 1. DF-1 — gamepad **B** while the sponsor table is up
 
-**Drive:** join as a sponsor so the view is `sponsor` (the director's table).
-Press **B** once, with nothing armed.
+**Drive (legacy rollback — `UseFacetSponsor = false`):** join as a sponsor so the
+view is `sponsor` (the director's table). Press **B** once, with nothing armed.
 
 **Read:** `_G.RRINPUT()`, and `DriveInputs.brake:GetState()` immediately after.
 
@@ -77,7 +92,9 @@ Press **B** once, with nothing armed.
 NOT appear in the log. Then leave the sponsor view (`view == "driving"`), press B
 again, and expect exactly `drive.brake`.
 
-**Model says:** SponsorInputs is priority 3000 `Sink = true`; DriveInputs is 1000.
+**Model says:** SponsorInputs is priority **1400** `Sink = true`; DriveInputs is
+1000 — and both sit below Facet's base screen priority (1500), so neither can
+sink a Facet-presented surface.
 The engine sinks *by KeyCode* for lower-priority contexts, so `brake` is never
 offered the press. If `brake` still fires, the engine's Sink is narrower than its
 own class reference states and the whole band scheme needs re-derivation —
@@ -85,8 +102,9 @@ report the reading, do not patch around it.
 
 ## 2. DF-2 / DF-3 — keyboard **Space** and gamepad **X** during the results tail
 
-**Drive:** finish a race and, while the skip chip is visible (the skip-enabled
-phase), press **Space** once; then **X** once.
+**Drive (legacy rollback — `UseFacetSponsor = false`):** finish a race and, while
+the skip chip is visible (the skip-enabled phase), press **Space** once; then
+**X** once.
 
 **Read:** `_G.RRINPUT()` after each, plus `DriveInputs.drift:GetState()` /
 `DriveInputs.item:GetState()`.
@@ -99,36 +117,37 @@ gone (`ResultsSkipInputs.Enabled == false`), press Space and X again while drivi
 and expect exactly `drive.drift` and `drive.item`. A sink that outlives its
 surface is a permanently deaf game, and this is the row that would catch it.
 
-## 3. DF-4 — gamepad **A** on a selected sponsor row (**the undocumented one**)
+## 3. DF-4 — gamepad **A** on a selected sponsor row (**open by decision**)
 
-This is the row with a real chance of a surprise. The other consumer of A on a
-sponsor surface is a **native `GuiButton.Activated`** fired because the row is
-`GuiService.SelectedObject` — that is not an `InputContext`, so no priority can
-arbitrate it. The wave's close is a **no-op `sponsorActivateGuard`** claiming A
-inside the sinking overlay, which removes the half that *can* be arbitrated.
+**This row got SIMPLER in fix round 1, because the guard was deleted.** The first
+cut claimed `ButtonA` with a no-op `sponsorActivateGuard` inside the sinking
+overlay so `drift` could not also fire. That guard is gone: under the re-banded
+scheme every RascalRally context sits below Facet's base screen priority, so a
+claim on A there can only reach DOWN — it takes A from this game's own driving
+and cannot protect a UI surface. There is therefore **no new behaviour to
+confirm** here, and nothing that could break row activation.
 
-**Drive:** in the sponsor view, navigate the racer list with the D-pad until a row
-is selected (`GuiService.SelectedObject ~= nil`), then press **A** once.
+**Drive (legacy Sponsor rollback only — set `UseFacetSponsor = false`):** in the
+sponsor view, navigate the racer list with the D-pad until a row is selected
+(`GuiService.SelectedObject ~= nil`), then press **A** once.
 
-**Read:** `_G.RRINPUT()`, `DriveInputs.drift:GetState()`, and **whether the row
-actually activated** (the card arms / the racer is picked — the visible outcome).
+**Read:** `_G.RRINPUT()`, `DriveInputs.drift:GetState()`, and whether the row
+activated.
 
-**Expect (the intended result):** `SponsorInputs.sponsorActivateGuard` in the log,
-`drift == false`, **and the row still activates**.
+**Expect (unchanged from before this wave):** `drive.drift` in the log **and**
+the row activates. Both consumers fire; the kart is parked while sponsoring, so
+the drift is inert. This is a **recorded residual on a frozen path**, not a
+regression — confirm it still looks exactly like the pre-wave build.
 
-**The failure mode to look for:** the row does **not** activate. That would mean an
-IAS sink also starves the engine's native selection activation — undocumented
-either way. If that happens, record it here and rebind the guard to something that
-is not the activation key, or drop the guard and accept DF-4 as a mitigated-only
-residual; do **not** leave a sponsor surface whose rows cannot be pressed.
-
-Also check the results screen the same way: with the results CTA selected, press A
-and confirm the CTA still confirms.
+**On the production path there is nothing to check:** the Facet Sponsor presenter
+owns `Activate` on that surface, the responder chain decides ButtonA (a passive
+surface leaves it to gameplay, an engaged one sinks it), and `dispatchActivate`
+collapses the cross-source echo. `SponsorInputs` does not exist there at all.
 
 ## 4. DF-5 — gamepad **Y**, with the camera context deliberately left ON
 
-**Drive:** enter the sponsor view, then in the command bar force
-`InputBridge`'s context back on:
+**Drive (legacy rollback — `UseFacetSponsor = false`):** enter the sponsor view,
+then in the command bar force `InputBridge`'s context back on:
 `game:GetService("Players").LocalPlayer.PlayerGui.TouchControls.ClientInputs.Enabled = true`.
 Press **Y** once.
 
@@ -236,6 +255,37 @@ the deleted hand-staging existed for:** press DRIFT, slide the finger **off** th
 button, lift. `drift` must return to `false`. (Staff fix 2026-04-07: *"the Released
 event will now fire"*. This is the row that confirms it on the device this game
 actually ships to.)
+
+**7c — THE TEARDOWN-MID-PRESS CASE (review finding N2). The deleted global
+`UserInputService.InputEnded` listener released the action no matter what
+happened to the button.** The engine fix that justifies its removal covers the
+pointer leaving the *bounds*; it says nothing about the surface being **torn down
+while the finger is still down**. `setSponsoring` / `setModalBlocked` flip
+`self._gui.Enabled = false`, and a player eliminated mid-corner enters the sponsor
+view with DRIFT held.
+
+**Drive:** hold the on-screen **DRIFT** button. While still holding it, force the
+teardown from the command bar:
+
+```lua
+-- client, while DRIFT is held
+game:GetService("Players").LocalPlayer.PlayerGui.TouchControls.Enabled = false
+```
+
+(or trigger it for real: get eliminated / enter the sponsor view mid-press.) Then
+**lift the finger**, re-enable the GUI, and read on the **server**:
+
+```lua
+print(game:GetService("Players"):GetPlayers()[1].DriveInputs.drift:GetState())
+```
+
+**Expect:** `false`. **If it reads `true`, the action has LATCHED ON in a
+server-created context** — the kart drifts forever — and the fix is to release the
+staged actions explicitly when the surface is disabled (a `setSponsoring` /
+`setModalBlocked` hook that Fires the affected actions false through their
+bindings, or a `Released`-on-disable check). This is the one deleted-listener
+behaviour the engine's 2026-04-07 fix does not cover, and it is not provable
+headless.
 
 Also confirm the buttons still do not take pad focus: with a gamepad connected the
 touch cluster is hidden entirely (`InputIdentity` gates it), and `Selectable` stays

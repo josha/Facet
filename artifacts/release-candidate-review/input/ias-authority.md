@@ -10,8 +10,9 @@ what changed, what deliberately did not, and what is still owed to a live engine
 | | |
 |---|---|
 | Framework | `GameStudio/ui/Facet` — suite **6412 passed** |
-| Consumer | `games/RascalRally/code` — suite **3410 passed** |
-| Baselines | 6407 / 3384 before this wave (+5 / +26) |
+| Consumer | `games/RascalRally/code` — suite **3416 passed** |
+| Baselines | 6407 / 3384 before this wave (+5 / +32) |
+| Fix round 1 | the band ceiling (below), the guard deleted, a cross-system model added |
 | Drift check | `tools/check_input_authority.py` — **8 allowlisted adapters, 6 ledger verbs, 0 new binders**; `--selftest` **8 cases green** |
 
 ---
@@ -138,23 +139,103 @@ maintained elsewhere, not arbitration.
 
 ### The scheme
 
-Declared once in `src/shared/InputActions.luau` (`CONTEXT_BANDS` × `CONTEXTS`)
+Declared once in `src/shared/InputActions.luau` (`CONTEXT_BANDS` x `CONTEXTS`)
 and read by every construction site, so the numbers on the live instances and the
 numbers the tests arbitrate are the same numbers:
 
 | Band | Priority | Sink | Contexts | Enabled |
 |---|---:|---|---|---|
-| `modal` | **3000** | **true** | `SponsorInputs`, `ResultsSkipInputs` | derived from surface visibility |
-| `hud` | 2000 | false | `ClientInputs` (camera toggle) | on except while sponsoring |
+| `overlay` | **1400** | **true** | `SponsorInputs`, `ResultsSkipInputs` | derived from surface visibility |
+| `hud` | 1200 | false | `ClientInputs` (camera toggle) | on except while sponsoring |
 | `gameplay` | 1000 | false | `DriveInputs` (server-created) | always |
 
 `InputActions.contextBand(name)` **errors** on an unknown name rather than
-defaulting — a typo'd context silently landing on the gameplay floor is the exact
+defaulting - a typo'd context silently landing on the gameplay floor is the exact
 class of miss the scheme exists to end.
 
-A modal band without a visibility source is a permanently deaf game, so
+An overlay band without a visibility source is a permanently deaf game, so
 `CONTEXTS` records the visibility rule beside the band and the spec asserts every
-modal entry has one.
+overlay entry has one.
+
+### THE CEILING IS FACET'S, NOT THE GAME'S (fix round 1)
+
+**The first cut of this table got the frame of reference wrong**, and the review
+caught it. These contexts do not live in the game's own arbitration space; they
+live in **one** space with Facet's, which publishes its bands at
+`src/present/presenter.luau:570-580`:
+
+| Facet band | | |
+|---:|---|---|
+| **1500** | `BASE_SCREEN_PRIORITY` | every presented Facet screen |
+| **2000** | *deliberately vacated* | Facet's own comment keeps it clear for "a game's gameplay sink", so its engaged band cannot tie one |
+| **3000** | `ENGAGED_BASE_PRIORITY` | an engaged/exclusive surface; **sinks** |
+| **3500+** | modals | +500 per stack depth |
+
+The first cut chose gameplay 1000 / hud 2000 / modal 3000. Two defects:
+
+- `modal = 3000` landed **exactly** on `ENGAGED_BASE_PRIORITY` - an equal-priority
+  tie, and the engine reference is explicit that *"contexts with the same priority
+  will receive the input."*
+- worse, it put a **sinking** context above every Facet base screen at 1500.
+  Measured in Facet's own IAS model: a 3000-band game context takes `Cancel` and
+  `Activate` away from a Facet-presented screen. Gamepad A stops confirming on a
+  Facet surface. **That is DF-1's failure mode rebuilt one layer up, by the fix
+  for DF-1.**
+- `hud = 2000` additionally squatted the band Facet's comment keeps clear.
+
+**The rule now, and it is a number a test asserts** -
+`InputActions.FACET_BASE_SCREEN_PRIORITY = 1500`:
+
+> **No context in this game may sit at or above 1500.** A game verb must never be
+> able to sink a UI surface it does not own. If one ever needs to, it is not a
+> game verb - it is a UI action, and it belongs in the Facet screen's own action
+> contribution.
+
+Every band is now strictly below it, and the driving floor is the same 1000 the
+engine's avatar default and Facet's own `SponsorPose` context already use.
+
+### GROUND TRUTH: which sponsor path these contexts belong to
+
+Load-bearing, because it decides what "route through Facet" can even mean here.
+
+`SponsorInputs` and `ResultsSkipInputs` are created by `SponsorGesture` /
+`SponsorResults`, which are required by **`SponsorController` alone** - the branch
+`init.client.luau` takes **only** when `FacetFlags.sponsorOn()` is false (the
+legacy rollback, kept shipped and frozen by the 2026-08-03 cutover ruling). The
+two presentations are mutually exclusive; the bootstrap's own comment says so.
+
+**On the production default those contexts do not exist**, and the Facet Sponsor
+presenter already routes both verbs through Facet's action system - which is
+exactly where a verb acting on a Facet-presented surface belongs:
+
+| verb | production default (Facet Sponsor) |
+|---|---|
+| sponsor cancel | the presenter's `Cancel` action (`ButtonB`), reaching the surface through `PlayFlow:handleCancel` (`FacetSponsor/init.luau:2015`) |
+| results skip | `SkipCelebration` on the sponsor pose context, bound `Space` / `ButtonX` -> `results.skipAll()` (`FacetSponsor/init.luau:875-882`) |
+
+So no key ever reaches both a Facet action and one of these IAS bindings. The
+legacy surfaces are hand-built `ScreenGui`s with no Facet screen contract to ride,
+which is why they are IAS bindings at all - and deleting them would remove
+pad/keyboard cancel and skip from a shipped rollback path with no replacement.
+**No new Facet seam was needed: the seam exists and the production path uses it.**
+
+### The guard is deleted (fix round 1)
+
+`sponsorActivateGuard` claimed `ButtonA` inside the sinking overlay to close DF-4.
+It is gone. Two reasons, the second load-bearing:
+
+1. A guard is a **claim on a key somebody else may need**. On the production path
+   `Activate` on ButtonA is the framework's, decided by the responder chain; a
+   game-side guard would be a second authority over a key the UI owns.
+2. Under the ceiling it could only ever reach **down**. Every context in this game
+   now sits below Facet's base screen, so a claim on A here cannot protect a Facet
+   surface - it can only take A away from the game's own driving.
+
+**DF-4 therefore stands on the legacy path exactly as it always did**: one A press
+reaches `drift` and the selected row's native `Activated`, mitigated by the kart
+being parked while sponsoring. Recorded as a residual on a frozen path, not
+papered over. On the Facet path it was never a defect - the responder chain
+decides ButtonA and `dispatchActivate` collapses the cross-source echo.
 
 ### The four pairs, each proved single-delivery
 
@@ -167,18 +248,14 @@ real bands.
 | **DF-1** | gamepad `B` | `sponsorCancel` (modal) vs `brake` (gameplay) | `sponsorCancel` alone while the overlay is up; `brake` alone while driving |
 | **DF-2** | keyboard `Space` | `resultsSkip` (modal) vs `drift` | `resultsSkip` alone while the skip window is open; `drift` alone once it shuts |
 | **DF-3** | gamepad `X` | `resultsSkip` vs `item` | same shape |
-| **DF-4** | gamepad `A` | `drift` vs the row's **native `Activated`** | the no-op guard alone; `drift` alone while driving |
+| **DF-4** | gamepad `A` | `drift` vs the row's **native `Activated`** | **open by decision** - see "the guard is deleted" above |
 | **DF-5** | gamepad `Y` | `cameraToggle` (hud) vs `sponsorMapToggle` (modal) | `sponsorMapToggle` alone — **even with the camera context left enabled** |
 
-**DF-4 needed more than a number, and here is why.** Its other consumer is a
-native `GuiButton.Activated` fired because the row is
-`GuiService.SelectedObject`. That is not an `InputContext`, so no priority can
-reach it. The structural close is a **no-op `sponsorActivateGuard`** action
-claiming `ButtonA` inside the sinking overlay, which removes the half that *can*
-be arbitrated and leaves exactly one consumer. This is the idiom Facet already
-uses for the identical problem — `presenter.luau`'s `GameplayGuard` ← `Space`,
-sinking the keyboard jump under a modal. The guard has **no handler**, asserted by
-source pin, because a guard that grew a verb would be a hidden action on A.
+**DF-4 is the one pair this wave does NOT close**, and that is the fix-round
+decision recorded above: the guard that closed it was itself a defect in the
+larger frame. Its other consumer is a native `GuiButton.Activated` off
+`GuiService.SelectedObject` - not an `InputContext`, so no priority can reach it -
+and it exists only on the frozen legacy path.
 
 **DF-5 was already "mitigated"** by disabling the camera context while sponsoring
 — a state flag on one of the two contenders, which reopened on any path that left
@@ -193,14 +270,39 @@ private copy, each restored:
 
 | mutation | result |
 |---|---|
-| control (unmutated) | 26 passed |
+| control (unmutated) | 32 passed |
 | `SponsorInputs` band → `hud` | 5 failed |
-| guard key moved off `ButtonA` | 1 failed |
 | `ResultsSkipInputs` drops its `Sink` write | 1 failed |
 | a hardcoded `.Priority = 3000` at a site | 1 failed |
 | back to `InputAction:Fire` at one call site | 1 failed |
 | `stageButton` reintroduced | 2 failed |
-| restored | 26 passed |
+| **`overlay` back to 3000 — the shipped defect** | **6 failed** |
+| **`hud` back to 2000 (Facet's reserved slot)** | **5 failed** |
+| **`sponsorActivateGuard` re-added** | **3 failed** |
+| **`overlay` stops sinking** | **7 failed** |
+| restored | 32 passed |
+
+### The cross-system model (fix round 1)
+
+The mutation table above is only worth its name if the model can *see* the whole
+client. The original `world()` built the game's four contexts and nothing else,
+so the 3000-band collision was invisible to it by construction — it stayed green
+through the defect, which is how it shipped.
+
+`tests/input_authority.spec.luau` now also builds a **real** `Facet.newPresenter`
+presenting a **real** screen, and the game's contexts, on **one shared action
+system**. Facet's priorities are not copied into the test: a thin recorder around
+`createContext` reads them back off the contexts the presenter actually made. Six
+cases:
+
+| case | asserts |
+|---|---|
+| the Facet screen outranks every game context | the ceiling, behaviourally, not by hardcoded number |
+| `ButtonA` with every game context live | the Facet screen's `Activate` still fires (**the review's blocking measurement**) |
+| `ButtonB` with every game context live | the Facet screen's `Cancel` still fires, *and* the overlay still beats the game's own brake |
+| `Space` with the results overlay up | `resultsSkip` fires, `drift` does not |
+| **MUTATION**: a game context re-banded to 3000 claiming `ButtonA` | the Facet screen is **starved** — the shipped defect, reproduced on demand |
+| the same context at the scheme's own 1400 band | it is **not** starved — the control that makes the mutation mean something |
 
 ## 4. Kept legacy calls — the allowlist and its impossibility citations
 
@@ -378,8 +480,9 @@ to drive, what to read, and the value predicted.
 | # | Question | Why headless cannot answer it | Row |
 |---|---|---|---|
 | **DF-7** | Does `PrimaryModifier` narrow what a sinking context **sinks**? | `Sink` is documented **by KeyCode**; `PrimaryModifier` gates whether a *binding triggers*. The two sentences do not compose, and both failure modes are silent. **No binding was changed.** | gate `df7-modifier-sink-measured` (**bare PENDING**), evidence `input/df7-measurement.md` |
-| DF-1..3, DF-5 | Does the engine's `Sink` behave as its own reference states? | The model mirrors the measured spike, but arbitration is re-verified with real injected input at engine gates (ADR-0004) | checklist §1, §2, §4 |
-| **DF-4** | Does an IAS sink **also** starve the engine's native selection `Activated`? | Undocumented. The guard removes the arbitrable half; whether the native half survives is engine-only | checklist §3 — includes the failure branch and its fallback |
+| DF-1..3, DF-5 | Does the engine's `Sink` behave as its own reference states? | The model mirrors the measured spike, but arbitration is re-verified with real injected input at engine gates (ADR-0004) | checklist §1, §2, §4 — **legacy rollback build** |
+| DF-4 | *(nothing new to confirm — the guard is deleted)* | The pair is unchanged from the pre-wave build, on a frozen path | checklist §3, now a "still looks like before" reading |
+| **N2** | Does the engine release a `UIButton`-bound action when the **`ScreenGui` is disabled mid-press**? | The 2026-04-07 staff fix covers the pointer leaving the *bounds*, not a teardown. `setSponsoring` disables the touch GUI while a finger may hold DRIFT; a latched `true` in a server-created action drifts forever | checklist §7c — **new in fix round 1** |
 | DF-9 | Is `disableLegacyControls()` inert in a flag-on place, and what does `cameraKeysContended()` answer there? | Requires a live client in each half of the place matrix | checklist §6 |
 | M-1 / M-2 relay | Does `InputBinding:Fire` / `InputBinding.UIButton` on a **server-created** action relay to the server under Server Authority? | The docs do not walk through a server-authoritative IAS pattern at all (staff acknowledged the gap, June 2026). `InputAction:Fire` was *proven* on this path; the replacements are documented but unproven **for SA** | checklist §7a, §7b — including the drag-off release the deleted staging existed for |
 
