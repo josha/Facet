@@ -28,6 +28,12 @@ require("./perf_lab.spec")
 -- truncated = false with its geometry unchanged
 require("./measure_memo.spec")
 require("./fine_grained_reactivity.spec")
+--[[ the reactive core's RECOVERY half (release-candidate review RR-1..RR-11):
+	whether a memo that failed, an effect that disposed itself, or a settle
+	callback that would not converge can ever be well again — plus the two
+	diagnostics (cycle path names, a disposal that strands subscribers) that had
+	nothing to act on ]]
+require("./reactive_recovery.spec")
 require("./instance_recycling.spec")
 require("./mount_unmount_soak.spec")
 -- ...and the THEMED half (L-28): park releases the chrome's path keys, adopt

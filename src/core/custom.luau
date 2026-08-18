@@ -37,6 +37,9 @@ type Node = {
 	failed: boolean, -- memo only
 	compute: ((use: Use) -> any)?,
 	deps: { [Node]: boolean }, -- memo only
+	-- memo only: the name of a dep that was DISPOSED while this node was still
+	-- subscribed to it, cleared by the next successful recompute (RR-7)
+	frozenBy: string?,
 	disposed: boolean,
 }
 
@@ -89,6 +92,39 @@ function Custom.new()
 		return result == true
 	end
 
+	--[[ A NODE'S DIAGNOSTIC NAME (RR-3, release-candidate review 2026-08-17).
+
+		`Node.name` was declared in the type and written NOWHERE, so every cycle
+		path printed `memo -> memo -> memo` and the one diagnostic that exists to
+		tell you WHICH memos closed the loop told you nothing. The name is DERIVED
+		rather than declared: a memo's compute function carries its own creation
+		site, which is the label a reader can act on, and taking it from the
+		function costs no widening of `core:memo`'s signature — no new public
+		member to document, register, and keep in parity for a string only a
+		failure ever reads.
+
+		Derived LAZILY and cached on the node, because a diagnostic is rare and
+		`debug.info` is not free: the healthy path pays one nil check. The source
+		is trimmed to its last path segment so the path reads as `memo@custom
+		.spec:214` rather than an absolute checkout path (a Roblox `debug.info`
+		source has no `/` in it and passes through unchanged). ]]
+	local function nodeName(node: Node): string
+		local cached = node.name
+		if cached ~= nil then
+			return cached
+		end
+		local label = node.kind
+		local fn = node.compute
+		if fn ~= nil then
+			local ok, source, line = pcall(debug.info, fn, "sl")
+			if ok and type(source) == "string" then
+				label = `{node.kind}@{string.match(source, "[^/]+$") or source}:{tostring(line)}`
+			end
+		end
+		node.name = label
+		return label
+	end
+
 	-- pull: (re)compute a stale memo; returns current value. Never throws to
 	-- the caller: compute errors, cycles, and illegal writes quarantine the
 	-- node (failed=true, old value kept) and record lastError.
@@ -99,9 +135,9 @@ function Custom.new()
 		if node.evaluating then
 			local path = {}
 			for _, n in evalStack do
-				table.insert(path, n.name or "memo")
+				table.insert(path, nodeName(n))
 			end
-			table.insert(path, node.name or "memo")
+			table.insert(path, nodeName(node))
 			error(`Facet cycle: {table.concat(path, " -> ")}`, 0)
 		end
 		if not node.stale then
@@ -132,11 +168,39 @@ function Custom.new()
 			end
 			node.stale = false
 			node.failed = false
+			node.frozenBy = nil -- it recomputed, so it is not frozen (RR-7)
 			node.value = result
 		else
-			node.stale = false -- avoid re-erroring every pull until next invalidation
 			node.failed = true
 			fail(tostring(result))
+			--[[ A FIRST-EVALUATION FAILURE USED TO BE PERMANENT (RR-1/RR-4).
+
+				The dependency swap above is success-only, which is right for a memo
+				that HAS succeeded once: its previous deps are the honest edge set and
+				a failed attempt must not narrow them. But a memo whose FIRST
+				evaluation throws has no previous deps, so the success-only swap left
+				it with an empty dep set — nothing in the graph could ever mark it
+				stale again, and with `stale = false` below it answered its cached
+				`nil` for the rest of the session. Every shape that reaches this
+				branch inherited it: a compute that throws (RR-1), and an illegal
+				write during a memo's first evaluation (RR-4), which is a THROW out of
+				`write` and therefore the same code path.
+
+				So on a first-evaluation failure the node subscribes to the deps `use`
+				DID reach before the throw: a change in any of them re-marks it stale
+				and the next pull retries. And when the throw came before any `use` at
+				all there is no edge that could ever invalidate it, so it stays STALE
+				— the next pull recomputes unconditionally, which is the only retry
+				available to a node with no inputs. ]]
+			if next(node.deps) == nil then
+				node.deps = newDeps
+				for dep in newDeps do
+					dep.subs[node] = true
+				end
+				node.stale = next(newDeps) == nil
+			else
+				node.stale = false -- avoid re-erroring every pull until next invalidation
+			end
 		end
 		return node.value
 	end
@@ -160,9 +224,19 @@ function Custom.new()
 		for dep in effect.deps do
 			dep.subs[effect] = nil
 		end
-		effect.deps = newDeps
-		for dep in newDeps do
-			dep.subs[effect] = true
+		if effect.disposed then
+			-- IT DISPOSED ITSELF DURING ITS OWN RUN (RR-2), or the scope that owns it
+			-- did. The dispose closure already unsubscribed the deps it could see, so
+			-- re-subscribing the deps THIS run collected would strand a record in
+			-- `dep.subs` that nothing will ever remove — the effect keeps being
+			-- collected and re-run forever while `counters().effects` reads clean,
+			-- which is the shape that makes the leak invisible.
+			effect.deps = {}
+		else
+			effect.deps = newDeps
+			for dep in newDeps do
+				dep.subs[effect] = true
+			end
 		end
 		inEffectRun = wasInEffectRun
 		if not ok then
@@ -369,9 +443,28 @@ function Custom.new()
 		settles = kept
 	end
 
+	--[[ A SETTLE CALLBACK IS NAMED THE SAME WAY A MEMO IS (RR-9). Settle records
+		hold a plain function, so the creation site of that function is the label —
+		the same derivation `nodeName` performs, against a record instead of a node. ]]
+	local function settleName(record: any): string
+		if record.name == nil then
+			local ok, source, line = pcall(debug.info, record.fn, "sl")
+			record.name = if ok and type(source) == "string"
+				then `settle@{string.match(source, "[^/]+$") or source}:{tostring(line)}`
+				else "settle"
+		end
+		return record.name
+	end
+
 	flushBody = function()
 		local rounds = 0
 		local capped = false
+		--[[ THE SETTLE CALLBACK THAT LAST WROTE IN THIS FLUSH (RR-9). A settle pass
+			only runs once propagation has quiesced, so a settle writer can only be
+			standing here when the flush had already gone quiet at least once — an
+			effect feedback loop never lets that happen and leaves this nil, which is
+			what keeps the pure-effect runaway's behaviour unchanged. ]]
+		local lastSettleWriter: any = nil
 		-- one wording for both feedback shapes: an effect that keeps writing and
 		-- a measure→publish cycle that will not settle are the same failure
 		local function overCap(): boolean
@@ -382,9 +475,24 @@ function Custom.new()
 			for _ in writeSet do
 				dropped += 1
 			end
-			fail(
+			local message =
 				`Facet: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect or settle feedback loop?); {dropped} pending signal write(s) discarded`
-			)
+			--[[ ...AND THE CALLBACK THAT DROVE IT IS QUARANTINED (RR-9). Without this
+				the same non-converging callback is re-run to the full cap on EVERY
+				later flush in the session: the cost is paid forever and the diagnostic
+				is indistinguishable from the first one. Quarantine is the memo idiom —
+				skipped, last state kept, one recorded error — and because the core
+				cannot see a settle's inputs the way it sees a memo's deps, the reset is
+				RE-REGISTRATION: dispose the handle and call `core:settle` again.
+
+				ONE message, not two: the cap error is the diagnostic every consumer
+				already greps for, and a second `fail` would overwrite it with a string
+				that no longer says what happened. ]]
+			if lastSettleWriter ~= nil and not lastSettleWriter.quarantined then
+				lastSettleWriter.quarantined = true
+				message ..= ` — settle callback '{settleName(lastSettleWriter)}' is QUARANTINED and will be ` .. `skipped until it is re-registered; a settle callback must converge, because it is re-run ` .. `until it writes nothing`
+			end
+			fail(message)
 			writeSet = {}
 			capped = true
 			return true
@@ -408,7 +516,7 @@ function Custom.new()
 			-- added mid-flush)
 			for i = 1, #settles do
 				local s = settles[i]
-				if s ~= nil and not s.disposed then
+				if s ~= nil and not s.disposed and not s.quarantined then
 					-- quarantined like every other user callback (§6.2): a throwing
 					-- settle records lastError and must never unwind the flush loop
 					-- and strand flushing=true
@@ -418,6 +526,7 @@ function Custom.new()
 					end
 					if next(writeSet) ~= nil then
 						wrote = true
+						lastSettleWriter = s
 						break
 					end
 				end
@@ -442,6 +551,17 @@ function Custom.new()
 					fail(tostring(err))
 				end
 			end
+			-- RR-7: a value that can never change again, being read. Reported ONCE —
+			-- this is a diagnostic, not a rate limiter, and the second read carries
+			-- no information the first did not.
+			local frozenBy = node.frozenBy
+			if frozenBy ~= nil then
+				node.frozenBy = nil
+				fail(
+					`Facet: '{nodeName(node)}' can no longer update — '{frozenBy}', which it was subscribed to, `
+						.. `was disposed while this node was still live; it will answer this value forever`
+				)
+			end
 			return node.value
 		end
 		function public.set(_self, value: any)
@@ -455,6 +575,32 @@ function Custom.new()
 			node.disposed = true
 			for dep in node.deps do
 				dep.subs[node] = nil
+			end
+			--[[ DISPOSAL IS ALSO A SEVERED EDGE (RR-7). Clearing `subs` is correct —
+				a disposed node must not keep its dependents alive — but every memo
+				subscribed here is now frozen at whatever value it last held, with no
+				diagnostic anywhere and no way to tell that state apart from "nothing
+				changed".
+
+				REPORTED WHEN IT IS READ, NOT WHEN IT IS SEVERED, and that is not a
+				softening — it is the only wording that is TRUE. An ordinary teardown
+				severs these edges constantly: a scope disposes what it owns in reverse
+				order, and cross-scope order is not promised, so a dep going first is
+				the normal case rather than the defect. Reporting at the disposal
+				reddened twelve unrelated specs that assert a clean `lastError` after a
+				surface tears down (measured, 2026-08-17) — a detector that fires on
+				every correct teardown detects nothing.
+
+				The defect is a memo that is READ after it stopped being able to
+				update. So the freeze is recorded on the subscriber, cleared by the
+				next successful recompute (a node with other live deps re-derives and
+				was never frozen), and reported the first time somebody reads a value
+				that can no longer change. A torn-down surface is never read again and
+				stays silent. ]]
+			for sub in node.subs do
+				if not (sub :: any).isEffect and not sub.disposed then
+					(sub :: Node).frozenBy = nodeName(node)
+				end
 			end
 			node.subs = {}
 			-- live observers die with their node: reclaim their registry slots
@@ -515,6 +661,7 @@ function Custom.new()
 				failed = false,
 				compute = nil,
 				deps = {},
+				frozenBy = nil,
 				disposed = false,
 			}
 			return makeReadable(node)
@@ -534,6 +681,7 @@ function Custom.new()
 				failed = false,
 				compute = compute,
 				deps = {},
+				frozenBy = nil,
 				disposed = false,
 			}
 			return makeReadable(node)
@@ -545,9 +693,13 @@ function Custom.new()
 			-- baseline the observer on the node's CURRENT value so only
 			-- future changes fire (memos evaluate now if never computed)
 			if node.kind == "memo" and node.stale then
-				local ok = pcall(pull, node)
+				-- RR-10: a cycle thrown out of `pull` was swallowed here, so the one
+				-- quarantine that has no other reporter (a cycle discovered by the
+				-- FIRST observer's baseline read) never reached `core:lastError()`.
+				local ok, err = pcall(pull, node)
 				if not ok then
 					node.failed = true
+					fail(tostring(err))
 				end
 			end
 			observerSeq += 1
