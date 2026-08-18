@@ -2199,3 +2199,336 @@ describe("overflow sweep: the theme ledger", function()
 		)
 	end)
 end)
+
+--[[ ── THE APP-CHROME AXIS, AND THE ORACLE THAT CAN SEE PAINT (DIR wave contract
+	5, 2026-08-18) ─────────────────────────────────────────────────────────────
+
+	WHAT THIS FILE WAS BLIND TO, in the words of the report that found it
+	(`artifacts/release-candidate-review/rename/dir-reproductions.md`): *"the themed
+	overflow sweep is blind because it runs the hud fixture without the showcase
+	chrome (no appChromeRects) and its oracle has no painted-text-fits / zero-box
+	check."* Two independent holes, and the director's phone walked through both.
+
+	HOLE 1 — A RESERVATION IS NOT THE CHROME. Every surface above is swept under
+	`SHOWCASE_TOP`, which is `coreSafeInsets.top`: a BOUNDING BOX saying "the top
+	120px of this screen are spoken for". The thing a screen actually collides with
+	is a ROW at one end of that band, and `appChromeRects` is the fact the live host
+	declares it through. A sweep that never declares it cannot see a HUD painting on
+	the app's own chips — 164 painted nodes across 21 (viewport, package) cells,
+	when the axis was first turned on.
+
+	THE ROW IS DERIVED, NEVER WRITTEN DOWN. `tests/lib/showcase_chips` mounts the
+	REAL `showcase_chrome` with the real composed pickers and reads its rect back
+	through `onChipsRect` — the same callback the shipped host reads it through. A
+	chip is a themed control, so its width decides which rung of the chrome's own
+	`ViewThatFits` ladder wins: the same package produces a 128px row on a 359px
+	phone and 452px on a 705px one, and classic_desktop produces 312 where
+	pixel_quest produces 440. A literal would have been wrong on 79 of the 81 cells.
+
+	HOLE 2 — THE SOLVER CANNOT SEE PAINT. Every assertion above reads
+	`controller.diagnostics()`, and the defects the director photographed file NO
+	diagnostic at all: a label truncating inside a box the ladder squeezed to 4px, a
+	`"Tasks 1/3"` painting inside a 48x0 box. Both are legal layouts by the solver's
+	own rules and both are unreadable.
+
+	SO THE ORACLE IS THE MEASURE, RERUN. For every visible text node it takes the
+	facts the solve PUBLISHED — the canonical font descriptor, the px size and (new
+	in this wave) the lineHeight factor — and rebuilds the box:
+
+	  * a zero-extent box with live text in it is a violation outright;
+	  * the DRAWN line box (`lines x size x lineHeight`, the solver's own
+	    arithmetic through `text_metrics.lineBoxPx`) must fit the box's height;
+	  * and where the solve says the string was NOT truncated, the styled bounds at
+	    the box's own width must fit it.
+
+	IT IS THE STYLED TYPOGRAPHY AND NOTHING ELSE. The instrument trap this round
+	fell into first is recorded in the reproductions file: a plain `FontFace` read
+	reports LegacyArial while `GetStyled("FontFace")` reports the package's
+	Fondamento, so an oracle that measured "the font" would have measured a face
+	nothing paints. `textFacts.font` is the descriptor the MEASURE used, which is
+	the descriptor the paint path resolves.
+
+	WHY `lineHeight` HAD TO JOIN THE FACTS. `font` and `size` alone cannot rebuild
+	the box: the shipped packages run from 1.15 to 1.25, so an oracle falling back
+	to the measurer's default factor is short by up to 8% per line — enough to
+	report a spill on a box the solver sized exactly right, which is a check that
+	manufactures its own findings. Calibrated over the whole cross product at +0 and
+	+14 before it was trusted: ZERO false positives.
+
+	NEGATIVE CONTROL. `artifacts/release-candidate-review/rename/dir-sweep-negative-control.md`
+	records this block run against the PRE-FIX tree in a temporary worktree, and
+	what it found there. ]]
+describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
+	local hud = require("../examples/gallery/scenarios/hud") :: any
+	local showcase_chips = require("./lib/showcase_chips")
+	local text_metrics = require("../src/layout/text_metrics")
+
+	-- the neutral pass plus the eight packages, in the same order the themed tier
+	-- above walks them
+	local CELLS: { { id: string?, snapshot: any } } = { { id = nil, snapshot = nil } }
+	for _, entry in PACKAGES do
+		table.insert(CELLS, { id = entry.id, snapshot = entry.snapshot })
+	end
+
+	local function hudWorld(view: any, snapshot: any?, offset: number, chips: any?, top: number): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+		env:set("coreSafeInsets", { top = top, bottom = 0, left = 0, right = 0 })
+		env:set("displaySize", view.displaySize)
+		env:set("preferredInput", view.input)
+		env:set("capabilities", CAPABILITIES[view.input])
+		env:set("preferredTextOffset", offset)
+		if chips ~= nil then
+			env:set("appChromeRects", { chips })
+		end
+		if snapshot ~= nil then
+			env:set("themeMetrics", snapshot)
+		end
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new();
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local handle: any = nil
+		local built = hud.build({
+			Facet = Facet,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			actionSystem = system,
+			record = function() end,
+			flags = {},
+			composition = function(path: string)
+				return if handle ~= nil then handle.controller.compositionAt(path) else nil
+			end,
+			bindResourceTransport = function()
+				return function() end
+			end,
+		})
+		handle = presenter.present(built.screen, built.present)
+		built.handle = handle
+		-- twice the usual settle: the give-way pass reads its own solved rects
+		-- through `onGeometry`, so the tree needs the frame that reacts to the frame
+		-- that measured (examples/gallery/scenarios/hud.luau, `chromeReach`)
+		for _ = 1, SETTLE_FRAMES * 2 do
+			presenter.refresh()
+		end
+		return { core = core, env = env, adapter = adapter, presenter = presenter, built = built }
+	end
+
+	-- every node the adapter would PAINT under the HUD, against the declared row
+	local function chromeCollisions(w: any, chip: any): { string }
+		local out: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/HudScreen/Hud/", 1, true) ~= 1 then
+				continue
+			end
+			local node = w.adapter.node(path)
+			local rect = if node ~= nil then node.rect else nil
+			if rect == nil or node.elided == true or rect.w <= 0 or rect.h <= 0 then
+				continue
+			end
+			if w.adapter.visibleOf(path) == false then
+				continue
+			end
+			local dx = math.min(rect.x + rect.w, chip.x + chip.w) - math.max(rect.x, chip.x)
+			local dy = math.min(rect.y + rect.h, chip.y + chip.h) - math.max(rect.y, chip.y)
+			if dx > 0.5 and dy > 0.5 then
+				table.insert(
+					out,
+					string.format(
+						"%s [%.0fx%.0f at %.0f,%.0f] paints %.0fx%.0fpx into the app's chrome",
+						path,
+						rect.w,
+						rect.h,
+						rect.x,
+						rect.y,
+						dx,
+						dy
+					)
+				)
+			end
+		end
+		return out
+	end
+
+	--[[ THE PAINTED-FITS ORACLE (see the header). Reruns the solve's own text
+		measure from the facts it published, and reports the three ways a box can be
+		one a player cannot read out of. ]]
+	local function paintedTextViolations(w: any): { string }
+		local out: { string } = {}
+		for path, facts in w.built.handle.controller.textAt() do
+			if w.adapter.visibleOf(path) == false then
+				continue
+			end
+			local node = w.adapter.node(path)
+			local rect = if node ~= nil then node.rect else nil
+			if rect == nil then
+				continue
+			end
+			local text = facts.text
+			if type(text) ~= "string" or text == "" then
+				continue
+			end
+			if rect.w <= 0.5 or rect.h <= 0.5 then
+				table.insert(
+					out,
+					string.format(
+						"%s: live text '%s' in a %.0fx%.0f box — nothing can be read out of it",
+						path,
+						text,
+						rect.w,
+						rect.h
+					)
+				)
+				continue
+			end
+			local drawn = text_metrics.lineBoxPx(facts.size, facts.lines or 1, facts.lineHeight)
+			if drawn > rect.h + 0.5 then
+				table.insert(
+					out,
+					string.format(
+						"%s: %d styled line(s) of '%s' need %.0fpx and the box is %.0fpx tall",
+						path,
+						facts.lines or 1,
+						text,
+						drawn,
+						rect.h
+					)
+				)
+			end
+			if facts.truncated ~= true then
+				local m = text_metrics.measure(text, facts.font, facts.size, rect.w, facts.lineHeight, facts.lineLimit)
+				if m.width > rect.w + 0.5 then
+					table.insert(
+						out,
+						string.format(
+							"%s: the styled bounds of '%s' are %.0fpx wide in a %.0fpx box, and the solve did not truncate it",
+							path,
+							text,
+							m.width,
+							rect.w
+						)
+					)
+				end
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	for _, view in VIEWS do
+		it(
+			`{view.id} ({view.w}x{view.h}): the HUD clears the showcase's chip row and every box holds its own text`,
+			function()
+				local problems: { string } = {}
+				local sawChrome = false
+				for _, cell in CELLS do
+					for _, offset in themedOffsets(view) do
+						local chips = showcase_chips.rectFor(Facet, view, cell.id, cell.snapshot, offset)
+						local top = showcase_chips.reservationFor(chips)
+						if chips ~= nil then
+							sawChrome = true
+						end
+						--[[ BOTH STRIP STATES. `ride` decides whether the HUD's topbar row
+							sits IN the platform's free band or below the whole reservation,
+							which moves every zone in the composition — and the director's
+							report was taken with the strip ON, the state this sweep had
+							never separated from the other. ]]
+						for _, riding in { true, false } do
+							local w = hudWorld(view, cell.snapshot, offset, chips, top)
+							if riding then
+								w.built.steps.rideStrip()
+							else
+								w.built.steps.leaveStrip()
+							end
+							for _ = 1, SETTLE_FRAMES * 2 do
+								w.presenter.refresh()
+							end
+							local suffix =
+								`\n      [package = {tostring(cell.id)}] [+{offset}] [strip = {tostring(riding)}]`
+							if chips ~= nil then
+								for _, hit in chromeCollisions(w, chips) do
+									table.insert(problems, `  {hit}{suffix}`)
+								end
+							end
+							for _, hit in paintedTextViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
+							--[[ ...AND THE SOLVER'S OWN FINDINGS, on the axis it was never
+								asked on. The generic sweep above runs this surface without the
+								chrome declared; declaring it changes the composition's whole
+								input, so a finding here is a finding nothing else could see. ]]
+							for _, finding in w.built.handle.controller.diagnostics() do
+								if finding.designed == true then
+									continue
+								end
+								table.insert(problems, `  {finding.node}: {finding.issue}{suffix}`)
+							end
+						end
+					end
+				end
+				--[[ THE AXIS HAS SOMETHING TO SAY. If the chrome never mounted, every
+					collision assertion above passed on a geometry with no chrome in it —
+					the "check that proves nothing" class one level up. ]]
+				expect(`{view.id}: the showcase chrome measured a row: {sawChrome}`).toBe(
+					`{view.id}: the showcase chrome measured a row: true`
+				)
+				if #problems > 0 then
+					error(
+						`{view.id} ({view.w}x{view.h}): {#problems} finding(s) under the showcase's own declared `
+							.. `chrome — the HUD painting on the app's chips, or text in a box that cannot hold `
+							.. `it (tests/overflow_sweep.spec.luau, "the HUD under the showcase's OWN `
+							.. `chrome"):\n{table.concat(problems, "\n")}`,
+						0
+					)
+				end
+			end
+		)
+	end
+
+	--[[ THE ORACLE BITES, proved by breaking the thing it watches rather than by
+		reading it. A box squeezed under one styled line of its own text has to be
+		REPORTED, and a box that holds its line has to be silent — otherwise the
+		nine cases above are nine ways of asserting nothing. ]]
+	it(
+		"ORACLE CONTROL: a plate squeezed under its own styled line is reported, and a plate that holds it is not",
+		function()
+			local view = VIEWS[1]
+			local chips = showcase_chips.rectFor(Facet, view, nil, nil, 0)
+			local w = hudWorld(view, nil, 0, chips, showcase_chips.reservationFor(chips))
+			expect(#paintedTextViolations(w)).toBe(0)
+
+			-- one real text node, squeezed to a box a styled line cannot be drawn in
+			local victim: string? = nil
+			for path, facts in w.built.handle.controller.textAt() do
+				if type(facts.text) == "string" and facts.text ~= "" and w.adapter.visibleOf(path) ~= false then
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil and node.rect.h > 1 then
+						victim = path
+						break
+					end
+				end
+			end
+			expect(`the control found a text node to squeeze: {victim ~= nil}`).toBe(
+				"the control found a text node to squeeze: true"
+			)
+			local node = w.adapter.node(victim :: string)
+			local was = node.rect
+			node.rect = { x = was.x, y = was.y, w = was.w, h = 0 }
+			local zeroBox = paintedTextViolations(w)
+			expect(`a zero-height box with live text is reported: {#zeroBox > 0}`).toBe(
+				"a zero-height box with live text is reported: true"
+			)
+			node.rect = { x = was.x, y = was.y, w = was.w, h = 1 }
+			expect(`...and so is a box one pixel under its own line: {#paintedTextViolations(w) > 0}`).toBe(
+				"...and so is a box one pixel under its own line: true"
+			)
+			node.rect = was
+			expect(`...and the untouched tree is silent again: {#paintedTextViolations(w)}`).toBe(
+				"...and the untouched tree is silent again: 0"
+			)
+		end
+	)
+end)

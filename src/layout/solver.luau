@@ -502,6 +502,7 @@ local function recordTextFacts(
 	clampedWidth: boolean,
 	font: string,
 	size: number,
+	lineHeight: number,
 	naturalWidth: number?,
 	wraps: boolean?
 )
@@ -523,6 +524,17 @@ local function recordTextFacts(
 		-- reader never has to re-derive the role ladder to know what was measured
 		font = font,
 		size = size,
+		--[[ ...AND THE LINE-HEIGHT FACTOR (DIR wave contract 5, 2026-08-18).
+			Additive, and it is what turns these facts from a description into a
+			REPRODUCIBLE MEASURE: `font` and `size` alone cannot rebuild the box,
+			because the line box is `ceil(lines * size * lineHeight)` and a package's
+			`lineHeight` runs from 1.15 to 1.25 across the eight shipped ones. A
+			painted-fits oracle that fell back to the measurer's default factor was
+			short by up to 8% per line — enough to report a spill on a box the solver
+			had sized exactly right, which is a check that manufactures its own
+			findings. Read straight off the same `textTypography` triple the measure
+			used, so the two cannot drift. ]]
+		lineHeight = lineHeight,
 		lines = m.lines,
 		naturalLines = m.naturalLines,
 		truncated = truncated,
@@ -1269,7 +1281,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				-- across both seams without a second rule.
 				local cm = text_metrics.measure(compact, font, size, math.huge, lineHeight)
 				ctx.compact[node.id] = true
-				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, naturalW, false)
+				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, lineHeight, naturalW, false)
 				return math.min(cm.width, availW) + pl + pr, cm.height + pt + pb
 			end
 			ctx.compact[node.id] = false
@@ -1284,10 +1296,10 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- while its one line wanted 340px in a 150px box, so `clippedEssential` — the
 		-- check whose whole job is "this label was cut" — could not see it.
 		if singleLine and availW ~= math.huge then
-			recordTextFacts(ctx, node, m, m.width > availW, font, size, naturalW, false)
+			recordTextFacts(ctx, node, m, m.width > availW, font, size, lineHeight, naturalW, false)
 			return math.min(m.width, availW) + pl + pr, m.height + pt + pb
 		end
-		recordTextFacts(ctx, node, m, false, font, size, naturalW, not singleLine)
+		recordTextFacts(ctx, node, m, false, font, size, lineHeight, naturalW, not singleLine)
 		return m.width + pl + pr, m.height + pt + pb
 	end
 
