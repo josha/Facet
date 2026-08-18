@@ -287,12 +287,31 @@ describe("ADR-0027 + director item 4: the APP's chrome is reserved per column", 
 	-- the band's second row, and nothing else
 	local CHIPS = { { x = 0, y = PLATFORM_TOP, w = 290, h = CHIP_STRIP } }
 
+	--[[ ...AND THE NARROWER ROW THE "LEVEL" CASE BELOW IS NOW DRIVEN AT (DIR wave
+		contract 2, 2026-08-18). `CHIPS` above is 290px wide, and this suite's
+		headless text measurement — an estimate, and a wider one than the device
+		reports — solves the centre column's clock at x 258..490 on this viewport. So
+		at 290 the clock's own box genuinely OVERLAPS the chip row by 32px, and the
+		case below used to assert that it sat there. It is not a case about a column
+		the chrome does not cover; it was a case about a column the chrome covers and
+		the old rule could not see (the majority rule measured 15% coverage and
+		reserved nothing).
+
+		240 is the widest row on this viewport that the centre column's content
+		really does clear, so the two cases below are the two SIDES of the rule,
+		measured rather than assumed: reach, and no reach. ]]
+	local CHIPS_CLEAR = { { x = 0, y = PLATFORM_TOP, w = 240, h = CHIP_STRIP } }
+
 	it("a column the chrome does not cover starts LEVEL with it, not below it", function()
-		local w = world(LANDSCAPE, CHIPS)
+		local w = world(LANDSCAPE, CHIPS_CLEAR)
 		local clock = rectOf(w, "/HudScreen/Hud/Clock")
 		local rounds = rectOf(w, "/HudScreen/Hud/Rounds")
 		local rail = rectOf(w, "/HudScreen/Hud/Rail")
 		expect(clock ~= nil).toBe(true)
+		-- ...and it really does not cover it: the clock's own box clears the row
+		expect(`the clock clears the chip row: {clock.x >= CHIPS_CLEAR[1].x + CHIPS_CLEAR[1].w}`).toBe(
+			"the clock clears the chip row: true"
+		)
 		-- the centre and right columns rise to the PLATFORM's band bottom...
 		expect(clock.y).toBe(PLATFORM_TOP)
 		expect(rail.y).toBe(PLATFORM_TOP)
@@ -300,6 +319,36 @@ describe("ADR-0027 + director item 4: the APP's chrome is reserved per column", 
 		expect(rounds.y >= PLATFORM_TOP + CHIP_STRIP).toBe(true)
 		-- which is the director's sentence, as an inequality
 		expect(clock.y < rounds.y).toBe(true)
+	end)
+
+	--[[ THE OTHER SIDE OF THE SAME RULE (contract 2). A column the chrome BARELY
+		clips — 15% of the centre lane at this viewport, which the majority rule
+		waved through — still gives way when the column's own content reaches into
+		the clipped part. This is the shape the director photographed on the right
+		column at 360x691 (the rail 28px inside the Settings chip), driven here on
+		the centre one because that is where this viewport puts it. ]]
+	it("...and a column the chrome barely clips still gives way when its CONTENT reaches in", function()
+		local w = world(LANDSCAPE, CHIPS)
+		local clock = rectOf(w, "/HudScreen/Hud/Clock")
+		expect(clock ~= nil).toBe(true)
+		--[[ THE PREMISE, ASSERTED: at this chip width the clock's own box really
+			does run into the row. Without this the case passes on a viewport where
+			nothing could ever have reached, which is the vacuity this file has had to
+			fix once already. ]]
+		local chip = CHIPS[1]
+		expect(`the clock's box reaches the row: {clock.x < chip.x + chip.w}`).toBe(
+			"the clock's box reaches the row: true"
+		)
+		-- so it wraps BELOW the row rather than painting on it
+		expect(`the centre column gave way: {clock.y >= chip.y + chip.h}`).toBe("the centre column gave way: true")
+		-- ...and the fraction the old rule measured is genuinely a MINORITY, so this
+		-- is not the majority rule passing under a new name
+		local band = math.max(0, LANDSCAPE.w - 16) / 3
+		local x0 = 8 + band
+		local covered = math.max(0, math.min(chip.x + chip.w, x0 + band) - math.max(chip.x, x0))
+		expect(`the chrome covers a MINORITY of the lane: {covered / band < 0.5}`).toBe(
+			"the chrome covers a MINORITY of the lane: true"
+		)
 	end)
 
 	it("NOTHING declared is byte-for-byte the bounding box this HUD always spent", function()
@@ -701,6 +750,429 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 		expect(`taller-form: Important form {squeezed.regionById.Important.form}`).toBe("taller-form: Important form 1")
 		expect(`taller-form: Expendable dropped {squeezed.regionById.Expendable.dropped}`).toBe(
 			"taller-form: Expendable dropped true"
+		)
+	end)
+end)
+
+--[[ ── DIR-5: THE FACTS DO NOT ARRIVE TOGETHER, AND THE DECISION MUST SETTLE ───
+	(director device round 2026-08-17, `artifacts/release-candidate-review/rename/
+	dir-reproductions.md` — rotating a 360x691 portrait to a 678x339 landscape left
+	the Feed zone at `y=-58..-58 x=8..8`, a 0x0 corpse at the inset corner, with the
+	debug plate reading *13 of 14 rows wanted · skipped: Feed*. A theme swap — a
+	full repaint plus fresh metrics — did NOT bring it back.)
+
+	WHY THE EXISTING CASES COULD NOT SEE IT. Every rotation case above publishes
+	the six platform facts inside ONE `env:batch`, which is a rotation no device
+	performs. `src/client/roblox_env.luau` publishes `viewportRect` the moment the
+	camera's `ViewportSize` moves, and each safe-area inset only once
+	`safe_insets`' belt agrees the area it read describes THAT viewport (the PLAT-3
+	belt, redone 2026-08-17: an area that has not moved with the viewport is HELD).
+	So on a real rotation the surface solves at least once against a new viewport
+	with the previous orientation's insets still standing. A corpus that only ever
+	batches is uniform along the axis the report is about — this file's own header
+	states that rule, and this is the second axis it applies to.
+
+	WHAT IS ASSERTED, and the three separate ways a decision can fail to settle:
+
+	  1. UNBATCHED == BATCHED. The six facts published one per tick, in the order
+	     the adapter delivers them, must settle on exactly the arrangement one
+	     batch produces — per zone, and Feed is named because Feed is the one the
+	     director lost.
+	  2. THE INTERMEDIATE STATE REALLY IS DIFFERENT. Asserted before (1) is
+	     trusted: with the viewport moved and the insets still stale, at least one
+	     zone must sit somewhere other than where it ends up. Without this the case
+	     is comparing a thing with itself, which is exactly how the batched
+	     rotation case was proved vacuous once already.
+	  3. A LATER REVISION OF ANY COMPOSITION INPUT RE-DECIDES. A theme swap and a
+	     late `appChromeRects` are the two revisions the report names, and each is
+	     compared against a tree MOUNTED in the destination state.
+
+	THE PLATFORM MODELLED HERE IS NOTCHED, and that is load-bearing. The `platform`
+	helper at the top of this file keeps every inset constant across the two
+	orientations, so five of its six facts do not move and an unbatched publish of
+	them is indistinguishable from a batched one. A phone with a cutout puts the
+	exclusion at the TOP in portrait and on the LATERAL edges in landscape, so all
+	six move — which is the only shape in which "the insets are still the previous
+	orientation's" means anything at all.
+
+	VERDICT: the shipped model already settles. This is recorded as a NULL RESULT
+	on the model rather than as a fix, and it is mutation-proved rather than
+	asserted: caching the app-chrome reservation against the viewport alone (so a
+	later inset revision cannot re-run it) reddens case (1) at both viewports and
+	leaves every batched case in this file green — which is precisely the
+	discrimination a batched-only corpus cannot make. The live divergence therefore
+	stays where the reproduction left it: in the real adapter's delivery, and in
+	the give-way pass the DIR wave's contracts 2 and 3 rebuilt. ]]
+describe("DIR-5: give-way decisions re-evaluate when the platform facts settle", function()
+	--[[ A NOTCHED PHONE. Portrait puts the cutout at the top, landscape on both
+		lateral edges — the asymmetry the device-emulator lesson records — so every
+		one of the six facts genuinely moves between the two orientations. ]]
+	local function notched(view: View): { [string]: any }
+		local landscape = view.w > view.h
+		local device = if landscape
+			then { top = 0, bottom = 21, left = 44, right = 44 }
+			else { top = 44, bottom = 21, left = 0, right = 0 }
+		return {
+			viewportRect = { x = 0, y = 0, w = view.w, h = view.h },
+			coreSafeInsets = {
+				top = SHOWCASE_TOP,
+				bottom = device.bottom,
+				left = device.left,
+				right = device.right,
+			},
+			deviceSafeInsets = device,
+			topbarSafeInsets = { top = 0, bottom = 0, left = device.left, right = device.right },
+			topbarInset = {
+				x = 164 + device.left,
+				y = 0,
+				w = math.max(0, view.w - 164 - device.left - device.right),
+				h = PLATFORM_TOP,
+			},
+			displaySize = "Medium",
+		}
+	end
+
+	--[[ THE ORDER THE ADAPTER DELIVERS THEM IN. `viewportRect` first, because
+		`roblox_env.pushViewportFacts` publishes it from the camera signal with
+		nothing to wait for; then `topbarInset`, which rides `GuiService`'s own
+		signal; then the three inset areas, each released by its own belt entry as it
+		catches up (`safe_insets.newBelt` — the three lag INDEPENDENTLY); then
+		`displaySize`, which is derived from the viewport the adapter already
+		published. Nothing here is a guess about ordering: it is the sequence
+		`tests/platform_env_binding.spec.luau` drives against the fake engine. ]]
+	local DEVICE_ORDER = {
+		"viewportRect",
+		"topbarInset",
+		"coreSafeInsets",
+		"deviceSafeInsets",
+		"topbarSafeInsets",
+		"displaySize",
+	}
+
+	local NOTCHED_PORTRAIT: View = { w = 360, h = 691 }
+	local NOTCHED_LANDSCAPE: View = { w = 678, h = 339 }
+	-- the showcase's chip row as the live session declares it
+	local CHIPS = { { x = 8, y = PLATFORM_TOP, w = 282, h = CHIP_STRIP } }
+
+	-- a world on the NOTCHED platform (the `world` helper at the top of this file
+	-- publishes the constant-inset one)
+	local function notchedWorld(view: View, chrome: { any }?): any
+		local w = world(view, chrome)
+		w.env:batch(function()
+			for k, v in notched(view) do
+				w.env:set(k, v)
+			end
+		end)
+		settle(w)
+		return w
+	end
+
+	--[[ THE DECISION, not just the geometry. `form` and `dropped` come from the
+		composition dump — they ARE the give-way pass's output — and the painted rect
+		rides beside them, because a zone that survives the ladder and then lands on
+		a 0x0 rect is the corpse the director photographed and the ladder alone
+		cannot report it. ]]
+	local function decision(w: any): { [string]: string }
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		local byId: { [string]: any } = {}
+		if dump ~= nil then
+			for _, r in dump.regions do
+				byId[r.id] = r
+			end
+		end
+		local out: { [string]: string } = {}
+		for _, path in ZONES do
+			local id = string.match(path, "([^/]+)$") :: string
+			local r = byId[`/HudScreen/Hud/{id}`]
+			local rect = rectOf(w, path)
+			out[id] = string.format(
+				"form=%s dropped=%s rect=%s",
+				tostring(r and r.form),
+				tostring(r and r.dropped),
+				if rect ~= nil then string.format("%.1fx%.1f@%.1f,%.1f", rect.w, rect.h, rect.x, rect.y) else "(none)"
+			)
+		end
+		return out
+	end
+
+	local function differences(a: { [string]: string }, b: { [string]: string }): number
+		local n = 0
+		for id, value in a do
+			if b[id] ~= value then
+				n += 1
+			end
+		end
+		return n
+	end
+
+	for _, pair in
+		{
+			{ from = NOTCHED_PORTRAIT, to = NOTCHED_LANDSCAPE, name = "portrait -> landscape" },
+			{ from = NOTCHED_LANDSCAPE, to = NOTCHED_PORTRAIT, name = "landscape -> portrait" },
+		}
+	do
+		it(`{pair.name}: the six facts UNBATCHED settle on the batched decision, zone for zone`, function()
+			-- the oracle: one batch, which is what every other rotation case in this
+			-- file drives
+			local batched = notchedWorld(pair.from, CHIPS)
+			batched.env:batch(function()
+				for k, v in notched(pair.to) do
+					batched.env:set(k, v)
+				end
+			end)
+			settle(batched)
+			local want = decision(batched)
+
+			-- ...and the device's own delivery: one fact per tick, in order
+			local live = notchedWorld(pair.from, CHIPS)
+			local facts = notched(pair.to)
+			local intermediate: { [string]: string }? = nil
+			for _, key in DEVICE_ORDER do
+				live.env:set(key, facts[key])
+				settle(live)
+				if key == "viewportRect" then
+					-- the state the belt actually produces: the new viewport standing
+					-- beside the PREVIOUS orientation's insets
+					intermediate = decision(live)
+				end
+			end
+			settle(live)
+
+			--[[ (2) THE INTERMEDIATE STATE IS A DIFFERENT SCREEN. Asserted first: if
+				the half-published tree already looked like the settled one, everything
+				below would pass on a surface that never had to settle at all. ]]
+			expect(`the half-published tree differs: {differences(intermediate :: any, want) > 0}`).toBe(
+				"the half-published tree differs: true"
+			)
+
+			-- (1) ...and the settled decision is the batched one, per zone
+			local got = decision(live)
+			for _, path in ZONES do
+				local id = string.match(path, "([^/]+)$") :: string
+				expect(`{id} {got[id]}`).toBe(`{id} {want[id]}`)
+			end
+			--[[ FEED BY NAME. It is the zone the director lost and the last one on the
+				left column's rank ladder, so it is the first thing an unsettled
+				decision drops — naming it means a future edit that re-broke exactly
+				this reads as "Feed" in the failure rather than as "zone 5 of 10". ]]
+			expect(`Feed {got.Feed}`).toBe(`Feed {want.Feed}`)
+			expect(`Feed is on screen at all: {string.find(got.Feed, "dropped=false", 1, true) ~= nil}`).toBe(
+				"Feed is on screen at all: true"
+			)
+		end)
+	end
+
+	--[[ (3a) A THEME SWAP RE-DECIDES. The director's own instrument: a full repaint
+		with fresh metrics did not bring Feed back on the device, which is what
+		"the decision latched" means from the outside. Here the swapped tree is
+		compared against one MOUNTED under the destination package — the only oracle
+		that can tell "re-decided correctly" from "did not move". ]]
+	it("a theme swap re-runs the give-way pass: swapped == mounted-there, both ways", function()
+		local ornate = Facet.themes.resolve((require)("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+		local neutral = Facet.themes.neutral()
+		for _, view in { NOTCHED_PORTRAIT, NOTCHED_LANDSCAPE } do
+			for _, step in { { from = neutral, to = ornate }, { from = ornate, to = neutral } } do
+				local fresh = notchedWorld(view, CHIPS)
+				fresh.env:set("themeMetrics", step.to)
+				settle(fresh)
+				local want = decision(fresh)
+
+				local swapped = notchedWorld(view, CHIPS)
+				swapped.env:set("themeMetrics", step.from)
+				settle(swapped)
+				local before = decision(swapped)
+				swapped.env:set("themeMetrics", step.to)
+				settle(swapped)
+				local got = decision(swapped)
+
+				-- the swap is a real change, or this proves nothing
+				expect(`{view.w}x{view.h}: the package moves the screen: {differences(before, want) > 0}`).toBe(
+					`{view.w}x{view.h}: the package moves the screen: true`
+				)
+				for id, value in want do
+					expect(`{view.w}x{view.h} {id} {got[id]}`).toBe(`{view.w}x{view.h} {id} {value}`)
+				end
+			end
+		end
+	end)
+
+	--[[ (3b) AND SO DOES A LATE `appChromeRects`. The showcase publishes its chip
+		row's rect from `onGeometry`, i.e. AFTER the chrome surface has solved — so
+		on the frame a demo mounts, and on the first frame after every rotation, the
+		HUD has already decided once with no app chrome declared at all. ]]
+	it("app chrome that arrives after the first solve re-runs the pass too", function()
+		--[[ NON-VACUITY IS COUNTED ACROSS THE PAIR, NOT DEMANDED AT EACH VIEWPORT.
+			With the showcase's own reservation already standing (`coreSafeInsets.top`
+			IS the whole 120px strip), declaring the chrome can only ever let a column
+			RISE — so on a viewport where every column's content reaches the row
+			anyway, declaring it is correctly a no-op, and demanding movement there
+			would be demanding the wrong answer. At least one of the two has to move,
+			or the case is comparing a thing with itself. ]]
+		local moved = 0
+		for _, view in { NOTCHED_PORTRAIT, NOTCHED_LANDSCAPE } do
+			local fresh = notchedWorld(view, CHIPS)
+			local want = decision(fresh)
+
+			local late = notchedWorld(view, nil)
+			local before = decision(late)
+			late.env:set("appChromeRects", CHIPS)
+			settle(late)
+			local got = decision(late)
+
+			if differences(before, want) > 0 then
+				moved += 1
+			end
+			for id, value in want do
+				expect(`{view.w}x{view.h} {id} {got[id]}`).toBe(`{view.w}x{view.h} {id} {value}`)
+			end
+		end
+		expect(`declaring the chrome moves at least one of the two screens: {moved > 0}`).toBe(
+			"declaring the chrome moves at least one of the two screens: true"
+		)
+	end)
+end)
+
+--[[ ── DIR-2/DIR-3: THE BESIDE-CHROME BAND GIVES WAY INSTEAD OF OVERLAPPING ────
+	(director device round 2026-08-17, fantasy-ornate, Grand Hall, topbar strip ON,
+	compact-phone-portrait 360x691 — `artifacts/release-candidate-review/rename/
+	dir-reproductions.md`: *"Weapon rail overlaps the showcase Settings chip: rail
+	x=262..352 y=0..119 vs chip x=196..290 y=8..75 (28px x-overlap)"*.)
+
+	THE MEASURED COLLISION SHAPE, and it is the one this case drives: the showcase's
+	chip row runs x 8..290 — 282px wide — the HUD's three columns are 114.7px each
+	under an 8px screen gutter, and the row therefore covers 97% of the left column,
+	100% of the centre and **46%** of the right one. The majority rule reserved
+	nothing for the right column; the rail is `end`-anchored and 80px wide, so it
+	solved flush against the screen gutter at x 272..352 and painted 28px inside a
+	chip row that ends at 290.
+
+	WHY IT IS PINNED AS ITS OWN CASE rather than left to the swept matrix: the
+	sweep derives its chip rects from the shipped chip specs, and the headless text
+	measure is a wider estimate than the device's, so the sweep's own rows land at
+	different widths per package. This case states the DEVICE's number, so a future
+	change that happens to move the sweep's derived geometry out of the collision
+	cannot quietly take this coverage with it.
+
+	THE ORACLE IS EVERY PAINTED NODE, not the zone rects: a zone whose own box
+	clears the row while a plate inside it does not is the same photograph. ]]
+describe("DIR-2: the beside-chrome band gives way at the measured collision shape", function()
+	local ORNATE = Facet.themes.resolve((require)("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+	-- the device's row, to the pixel (see the header)
+	local DEVICE_CHIPS = { { x = 8, y = PLATFORM_TOP, w = 282, h = CHIP_STRIP } }
+	local PHONE: View = { w = 360, h = 691 }
+
+	local function themedWorld(view: View, chrome: { any }?, snapshot: any?): any
+		local w = world(view, chrome)
+		if snapshot ~= nil then
+			w.env:set("themeMetrics", snapshot)
+		end
+		settle(w)
+		settle(w)
+		return w
+	end
+
+	-- every node the adapter would PAINT, against the declared chrome
+	local function paintedInsideChrome(w: any, chip: any): { string }
+		local hits: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/HudScreen/Hud/", 1, true) ~= 1 then
+				continue
+			end
+			local node = w.adapter.node(path)
+			local rect = if node ~= nil then node.rect else nil
+			if rect == nil or node.elided == true or rect.w <= 0 or rect.h <= 0 then
+				continue
+			end
+			if w.adapter.visibleOf(path) == false then
+				continue
+			end
+			local dx = math.min(rect.x + rect.w, chip.x + chip.w) - math.max(rect.x, chip.x)
+			local dy = math.min(rect.y + rect.h, chip.y + chip.h) - math.max(rect.y, chip.y)
+			if dx > 0.5 and dy > 0.5 then
+				table.insert(
+					hits,
+					string.format(
+						"%s [%.1fx%.1f at %.1f,%.1f] by %.1fx%.1fpx",
+						path,
+						rect.w,
+						rect.h,
+						rect.x,
+						rect.y,
+						dx,
+						dy
+					)
+				)
+			end
+		end
+		table.sort(hits)
+		return hits
+	end
+
+	it("360x691 under fantasy-ornate: NOTHING the HUD paints lands inside the chip row", function()
+		local w = themedWorld(PHONE, DEVICE_CHIPS, ORNATE)
+		--[[ THE PREMISE, ASSERTED BEFORE THE ORACLE IS TRUSTED. The chip row has to
+			cross the RIGHT lane — the one the report is about — and cross it by a
+			MINORITY, or this case is driving a geometry where the old rule would have
+			reserved anyway and it proves nothing about the change. ]]
+		local band = (PHONE.w - 16) / 3
+		local x0 = 8 + 2 * band
+		local chip = DEVICE_CHIPS[1]
+		local covered = math.max(0, math.min(chip.x + chip.w, x0 + band) - math.max(chip.x, x0))
+		expect(`the row crosses the right lane: {covered > 0}`).toBe("the row crosses the right lane: true")
+		expect(`...by a MINORITY of it: {covered / band < 0.5}`).toBe("...by a MINORITY of it: true")
+
+		local hits = paintedInsideChrome(w, chip)
+		expect(`painted inside the app's chrome:\n  {table.concat(hits, "\n  ")}`).toBe(
+			"painted inside the app's chrome:\n  "
+		)
+	end)
+
+	it("...and the right column WRAPPED BELOW the row rather than being deleted", function()
+		local w = themedWorld(PHONE, DEVICE_CHIPS, ORNATE)
+		local chip = DEVICE_CHIPS[1]
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		local byId: { [string]: any } = {}
+		for _, r in dump.regions do
+			byId[r.id] = r
+		end
+		--[[ GIVING WAY IS NOT DROPPING (contract 3). The rail is the zone that had
+			to move, and what "gave way" has to mean is that it is still on screen,
+			below the row — a column that answered the collision by deleting its
+			content would satisfy the oracle above and be a worse screen than the
+			overlap. ]]
+		local rail = byId["/HudScreen/Hud/Rail"]
+		expect(`the rail is mounted: {rail ~= nil and rail.mounted}`).toBe("the rail is mounted: true")
+		expect(`the rail was not dropped: {rail.dropped}`).toBe("the rail was not dropped: false")
+		expect(`the rail is below the chip row: {rail.rect.y >= chip.y + chip.h - 0.01}`).toBe(
+			"the rail is below the chip row: true"
+		)
+		-- ...and the reservation that put it there is the RIGHT column's, which is
+		-- the one the majority rule left at zero
+		local reserve = byId["/HudScreen/Hud/ChromeRight"]
+		expect(`the right column reserved: {reserve ~= nil and reserve.mounted and reserve.rect.h > 0}`).toBe(
+			"the right column reserved: true"
+		)
+	end)
+
+	--[[ THE CONTROL, and it is a control on the RULE rather than on the presence of
+		chrome. Declaring NOTHING is not the comparison to make: with nothing
+		declared every column falls back to the whole `coreSafeInsets.top` bounding
+		box, which is the same 62px, so the rail would sit at the same y for the
+		opposite reason and the case would pass on a fixture that had stopped reading
+		the rects entirely.
+
+		The honest control is the SAME chrome, narrowed until the right column's own
+		content clears it: 200px ends at x=208 and the rail's lane starts at 237, so
+		nothing in that column can reach. The rail must come back up. ]]
+	it("CONTROL: narrow the row until the right column clears it and the rail is level again", function()
+		local reaching = themedWorld(PHONE, DEVICE_CHIPS, ORNATE)
+		local clear = themedWorld(PHONE, { { x = 8, y = PLATFORM_TOP, w = 200, h = CHIP_STRIP } }, ORNATE)
+		local a = rectOf(reaching, "/HudScreen/Hud/Rail")
+		local b = rectOf(clear, "/HudScreen/Hud/Rail")
+		expect(a ~= nil and b ~= nil).toBe(true)
+		expect(`the reaching row pushed the rail down: {a.y > b.y}`).toBe("the reaching row pushed the rail down: true")
+		expect(`...and the cleared one leaves it level: {b.y}`).toBe(
+			`...and the cleared one leaves it level: {PLATFORM_TOP}`
 		)
 	end)
 end)

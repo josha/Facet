@@ -601,12 +601,151 @@ return {
 			covered and the round buttons landed UNDER the chips (measured, same
 			session).
 
-			Majority coverage is a judgement and it is stated as one. It is safe to
-			make because it is not the last line of defence: a zone whose content
+			Majority coverage is a judgement and it is stated as one. It WAS stated
+			as safe "because it is not the last line of defence: a zone whose content
 			reaches into the chrome anyway is a region painting outside its own box,
-			and `resolution.collisions` is the alarm that already names that
-			(ADR-0025 Decision 3). ]]
+			and `resolution.collisions` is the alarm that already names that". That
+			sentence was wrong, and the director's phone is where it was found:
+			`collisions` is about two REGIONS overlapping each other, and the app's
+			chrome is not a region — so nothing was watching, and the majority rule
+			shipped a HUD painting on the chips it was written to avoid.
+
+			── THE SECOND HALF, MEASURED (DIR wave contract 2, 2026-08-18) ──────────
+
+			Reproduced headlessly at 360x691 under fantasy-ornate with the showcase's
+			282px chip row declared: the columns are 114.7px each, so the row covers
+			97% of the left column, 100% of the centre and 46% of the RIGHT one. The
+			right column therefore reserved nothing — and the weapon rail is
+			`end`-anchored and 80px wide, so it solved at x 272..352 against a chip
+			row ending at 290. 28px of overlap, which is the director's photograph to
+			the pixel (`artifacts/release-candidate-review/rename/dir-reproductions.md`).
+			The same shape fires on 21 of the 81 (viewport x package) cells the
+			extended sweep now walks — 164 painted nodes inside the app's chrome.
+
+			ALL THREE COVERAGE-FRACTION RULES ARE PROVABLY WRONG, each on a case this
+			repository has measured, which is why the fix is not a fourth fraction:
+			  * ANY OVERLAP pushes the centre column down at 749x380 for 17px the
+			    centred clock never comes near — the director's own round-2 refusal;
+			  * MAJORITY misses the 46%-covered right column above;
+			  * THE ANCHOR POINT misses it too (the chips end at 290, the column's
+			    `end` anchor is 352, so the anchor is clear while the content is not)
+			    and it already failed once on the left column's padded start edge.
+			Every one of them is a guess about the WIDTH OF THE CONTENT, and the
+			content's width is a thing the composition MEASURES.
+
+			SO THE RULE READS THE MEASUREMENT. `chromeReach` below is sampled from the
+			solved rects through the presenter's `onGeometry` seam — the same seam the
+			paint probe already runs in, so there is no second clock and no second
+			connection — and it asks the only question that is actually decidable: does
+			any of this column's own regions occupy an X RANGE that a declared chrome
+			rect also occupies? If none does, no y can make them collide and the
+			column stays LEVEL with the chrome, which is the director's round-2 ask
+			preserved by construction. If one does, the column gives way: it reserves
+			the chrome's height and wraps below it, and whatever no longer fits goes
+			down the rank ladder to the ··· sink like every other zone that gives way.
+
+			IT CHASES ITS OWN TAIL UNLESS IT IS MADE MONOTONE, and that is a
+			MEASUREMENT rather than a worry. The first cut of this reasoned that a
+			region's x and width come from its lane while the reservation spends
+			height, so giving way moves a zone DOWN and never sideways and the sample
+			is a fixed point. That is true of the GEOMETRY and false of the LADDER:
+			the reservation shrinks the lane's budget, the budget steps a zone down to
+			a narrower form, the narrower form no longer reaches the chrome, the
+			reservation goes away, the richer form comes back — a 2-cycle. The
+			framework refused it outright, in its own words, on the first run of the
+			swept matrix:
+
+			    Facet renderer: a solve's geometry feedback did not converge in 8
+			    rounds (a consumer publishing a layout prop derived from the rect that
+			    prop moves?)
+
+			So the sample is MONOTONE WITHIN AN EPOCH. An epoch is the set of
+			composition INPUTS — viewport, declared chrome, theme metrics, text
+			preference, whether the HUD rides the band, whether the pseudo bar is open
+			— and inside one epoch the reach latch may only ever go from false to
+			true, which bounds the feedback at three rounds and makes the fixed point
+			the CONSERVATIVE one. Crossing an epoch clears it, so the pass re-decides
+			from nothing on every fact revision: this is a convergence device, never a
+			memory of a decision, and DIR-5's cases in
+			`tests/hud_chrome_rotation.spec.luau` are what hold it to that (a latch
+			that survived a theme swap or a rotation is exactly what the director
+			photographed, and those cases compare the settled tree against a FRESH
+			mount).
+
+			...and the majority rule stays as the FLOOR beneath the sample, so the
+			frame before any geometry exists is over-reserved rather than overlapping. ]]
 		local appChromeFact = env:get("appChromeRects")
+		--[[ WHICH COLUMN EACH ZONE BELONGS TO, in the order `columnReserve` indexes
+			them. Derived from the `group` each `UI.Region` below declares, and stated
+			once here because the sample runs per frame and a table built per frame on
+			the geometry seam is an allocation on the solve's own path. ]]
+		local COLUMN_ZONES: { { string } } = {
+			{ "Rounds", "Tasks", "Health", "Feed" },
+			{ "Clock" },
+			{ "Rail", "Readout", "Actions", "Weapon" },
+		}
+		--[[ THE EPOCH: every composition INPUT that can move a zone's width, as one
+			comparable token. Crossing it clears the reach latch below, which is what
+			separates "a device that keeps the pass converging" from "a decision that
+			latched" — the defect the director reported. `themeMetrics` is compared by
+			IDENTITY because a package swap hands the environment a whole new frozen
+			snapshot; every other term is a number the fact itself carries. ]]
+		local reachEpoch = scope:own(core:memo(function(use)
+			local vp = use(viewportFact) :: any
+			local declared = use(appChromeFact)
+			local parts = { `{vp.w}x{vp.h}`, tostring(use(riding)), tostring(use(urlBar)) }
+			table.insert(parts, tostring(use(env:get("preferredTextOffset"))))
+			table.insert(parts, tostring(use(env:get("themeMetrics"))))
+			if type(declared) == "table" then
+				for _, r in declared :: any do
+					if type(r) == "table" then
+						table.insert(parts, `{r.x},{r.y},{r.w},{r.h}`)
+					end
+				end
+			end
+			return table.concat(parts, "|")
+		end))
+		-- one boolean per column: does anything this column PAINTS share an x range
+		-- with the app's declared chrome? Nil-safe before the first solve, and
+		-- stamped with the epoch it was sampled under so a stale answer is ignored
+		-- rather than obeyed.
+		local chromeReach = scope:own(core:signal({ epoch = "", cols = { false, false, false } }))
+		local function sampleChromeReach(rectOf: (string) -> any)
+			local declared = appChromeFact:get()
+			local epoch = reachEpoch:get()
+			local held = chromeReach:get()
+			-- MONOTONE WITHIN THE EPOCH (see the long note above): carry the previous
+			-- answer forward only while the inputs have not moved, so the feedback
+			-- converges upward instead of oscillating; start from nothing when they
+			-- have, so nothing is ever remembered ACROSS a fact revision.
+			local carried = if held.epoch == epoch then held.cols else { false, false, false }
+			local next: { boolean } = { carried[1] == true, carried[2] == true, carried[3] == true }
+			if type(declared) == "table" then
+				for index, ids in COLUMN_ZONES do
+					for _, id in ids do
+						local r = rectOf(`{PROBE_HUD}/{id}`)
+						if type(r) ~= "table" or type(r.x) ~= "number" or type(r.w) ~= "number" or r.w <= 0 then
+							continue
+						end
+						for _, c in declared :: any do
+							if type(c) ~= "table" or type(c.x) ~= "number" or type(c.w) ~= "number" or c.w <= 0 then
+								continue
+							end
+							if math.min(r.x + r.w, c.x + c.w) - math.max(r.x, c.x) > 0.5 then
+								next[index] = true
+								break
+							end
+						end
+						if next[index] then
+							break
+						end
+					end
+				end
+			end
+			if held.epoch ~= epoch or held.cols[1] ~= next[1] or held.cols[2] ~= next[2] or held.cols[3] ~= next[3] then
+				chromeReach:set({ epoch = epoch, cols = next })
+			end
+		end
 		local function columnReserve(index: number, _anchor: string): any
 			return scope:own(core:memo(function(use)
 				local chrome = use(chromeFact) :: any
@@ -631,13 +770,30 @@ return {
 				local x0 = pad.left + (index - 1) * W / 3
 				local x1 = pad.left + index * W / 3
 				local span = math.max(1, x1 - x0)
+				--[[ THE SAMPLE, READ AS A FACT. `true` means this column's own solved
+					content shares an x range with the chrome, so no y that keeps it in
+					the band can be legal and the column must give way. It is read
+					REACTIVELY (`use`) rather than sampled here, which is what makes a
+					later revision of the app's chrome — or of anything that moves a
+					zone's width — re-run this decision instead of latching it (DIR-5,
+					tests/hud_chrome_rotation.spec.luau). ]]
+				local sample = use(chromeReach) :: any
+				local reaches = sample.epoch == use(reachEpoch) and sample.cols[index] == true
 				local bottom = spent
 				for _, r in declared :: any do
 					if type(r) ~= "table" then
 						continue
 					end
 					local covered = math.max(0, math.min(r.x + r.w, x1) - math.max(r.x, x0))
-					if covered / span > 0.5 then
+					--[[ MAJORITY COVERAGE IS THE FLOOR, THE SAMPLE IS THE REFINEMENT.
+						The fraction alone decides the frame BEFORE any geometry exists —
+						over-reserving a covered column rather than letting it overlap for
+						one frame — and from the first solve onward the measurement can
+						only ever ADD columns to it. A chrome rect this column's content
+						never touches, in a column the chrome barely clips, still reserves
+						nothing: that is the centre column at 749x380, and it is the case
+						the director asked for by name. ]]
+					if covered / span > 0.5 or (reaches and covered > 0) then
 						bottom = math.max(bottom, r.y + r.h)
 					end
 				end
@@ -2734,8 +2890,12 @@ return {
 				the sample runs in the runner, in the sweep and in the shipped showcase. ]]
 			present = {
 				rootPolicy = "edgeToEdge",
-				onGeometry = function(_rectOf: (string) -> any)
+				onGeometry = function(rectOf: (string) -> any)
 					probeSample()
+					-- ...and the give-way sample (contract 2): the one place this fixture
+					-- can see where its own zones actually LANDED, which is the only
+					-- honest input to "does this column reach into the app's chrome".
+					sampleChromeReach(rectOf)
 				end,
 			},
 			steps = {
