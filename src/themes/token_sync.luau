@@ -51,6 +51,17 @@
 local token_sync = {}
 
 token_sync.SCHEMA = "facet-theme-sync/1"
+-- The pre-rename spelling of the SAME schema. Studio dumps taken before the
+-- 2026-08-17 Facet rename are immutable evidence and carry it; a reader must
+-- still accept them, and nothing ever WRITES this one. Anything that is
+-- neither spelling is still refused, so this is the same check, not a weaker
+-- one. It is removable once no stored dump names it.
+token_sync.LEGACY_SCHEMA = "luauui-theme-sync/1"
+
+-- true when a stored dump declares a schema this build can read
+function token_sync.readableSchema(schema: any): boolean
+	return schema == nil or schema == token_sync.SCHEMA or schema == token_sync.LEGACY_SCHEMA
+end
 
 export type Record = {
 	path: string, -- snapshot path ("space.m", "type.body.font")

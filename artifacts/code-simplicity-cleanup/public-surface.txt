@@ -102,6 +102,7 @@ mount : function
 newActionSystem : function
 newAsyncImage : function
 newAutoscroll : function
+newCallout : function
 newChip : function
 newCore : function
 newDisclosureGroup : function
@@ -111,6 +112,8 @@ newDragVelocity : function
 newEnvironment : function
 newFocusGraph : function
 newLabel : function
+newLevelPicker : function
+newMenu : function
 newPicker : function
 newPopupButton : function
 newPresenter : function
@@ -121,6 +124,7 @@ newRowActions : function
 newRowActionsCoordinator : function
 newSlider : function
 newStepper : function
+newTabView : function
 newTable : function
 newTextInput : function
 newVirtualGrid : function

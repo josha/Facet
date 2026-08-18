@@ -145,6 +145,36 @@ local GENERATOR = "tools/lune/_theme_baseline"
 local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, why: string } } = {
 	{
 		fixture = "06_tile_game",
+		path = "/TileGame/Page/Title",
+		why = "THE EXAMPLE TITLES NAME THE FRAMEWORK, AND THE FRAMEWORK WAS RENAMED (2026-08-17, roadmap "
+			.. "Step 13). `LuauUI Tiles` -> `Facet Tiles`, `LuauUI Wordle` -> `Facet Wordle`, `LuauUI "
+			.. "Match-3` -> `Facet Match-3` — player-visible product text, on screen, in three tutorial "
+			.. "examples. `Facet` is six characters shorter than `LuauUI` at the same 24px title role, so "
+			.. "the measured title box narrows by exactly 15px in all three (179->164, 194->179, 209->194) "
+			.. "and the two CENTRED titles start 7px later (543->550, 98->105, 313->320) — half the width "
+			.. "they gave up, which is what centring a narrower box does and is the arithmetic that makes "
+			.. "this a text change rather than a layout change. NOTHING ELSE MOVES: the titles are hug-width "
+			.. "nodes in a column that fills, no sibling reads their width, height is 29 everywhere before "
+			.. "and after, and every other node in all three fixtures is byte-identical. IT IS PINNED AS AN "
+			.. "EXACT PATH, not a prefix, so the boards and racks under these pages keep their rect "
+			.. "coverage. The paired ALLOWED_PROP_DRIFT entry forgives the `text` token itself.",
+	},
+	{
+		fixture = "05_word_game",
+		path = "/Wordle/page/col/Title",
+		why = "the same 2026-08-17 rename as the 06_tile_game Title entry above: `LuauUI Wordle` -> "
+			.. "`Facet Wordle`, 194 -> 179 wide and 7px later at every viewport because the title is "
+			.. "centred. See that entry for the whole argument.",
+	},
+	{
+		fixture = "07_match3",
+		path = "/Match3/Page/Title",
+		why = "the same 2026-08-17 rename as the 06_tile_game Title entry above: `LuauUI Match-3` -> "
+			.. "`Facet Match-3`, 209 -> 194 wide, x unmoved because this title is start-aligned. See that "
+			.. "entry for the whole argument.",
+	},
+	{
+		fixture = "06_tile_game",
 		path = "/TileGame/Page/rack",
 		why = "THE RACK REPORTED A WIDTH IT NEVER DREW, and `02b9df1` (the column-major Grid refactor, "
 			.. "2026-08-15) stopped it: 358 -> 353 at 390x844, and nowhere else. `UI.Grid`'s measure summed the "
@@ -365,6 +395,23 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 }
 
 local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
+	{
+		path = "/TileGame/Page/Title",
+		why = "`text` only: `LuauUI Tiles` -> `Facet Tiles` (2026-08-17, the framework rename). The title "
+			.. "names the product on screen. Every other prop on the node — textFont, textSize, role — is "
+			.. "byte-identical, which is why this is a path entry and not a waived prefix; the rect it "
+			.. "consequently narrows by is characterized in ALLOWED_RECT_DRIFT under the same path.",
+	},
+	{
+		path = "/Wordle/page/col/Title",
+		why = "`text` only: `LuauUI Wordle` -> `Facet Wordle` (2026-08-17, the framework rename). Same shape "
+			.. "as the /TileGame/Page/Title entry above.",
+	},
+	{
+		path = "/Match3/Page/Title",
+		why = "`text` only: `LuauUI Match-3` -> `Facet Match-3` (2026-08-17, the framework rename). Same "
+			.. "shape as the /TileGame/Page/Title entry above.",
+	},
 	{
 		path = "/__popupcatcher__/catcher",
 		why = 'surface="" -> "plain", plus the resolved control textFont/textSize that any SURFACED Button '

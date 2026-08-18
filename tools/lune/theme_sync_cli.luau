@@ -74,8 +74,11 @@ local dump: any = serde.decode("json", fs.readFile(args.dump))
 if type(dump) ~= "table" or type(dump.tokens) ~= "table" then
 	fail(`dump '{args.dump}' is not a theme token dump (expected schema, package, theme and tokens fields)`)
 end
-if dump.schema ~= nil and dump.schema ~= token_sync.SCHEMA then
-	fail(`dump schema is '{tostring(dump.schema)}'; this build speaks '{token_sync.SCHEMA}'`)
+if not token_sync.readableSchema(dump.schema) then
+	fail(
+		`dump schema is '{tostring(dump.schema)}'; this build speaks '{token_sync.SCHEMA}' `
+			.. `(and still reads the pre-rename '{token_sync.LEGACY_SCHEMA}')`
+	)
 end
 
 local target = args.package or args.out

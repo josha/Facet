@@ -1432,7 +1432,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "old-settings-intact-and-default",
 			requirements = { "UI-AGENT-001" },
-			run = "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/init.client.luau",
+			run = "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'FacetFlags.settingsOn()' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/FacetFlags.luau",
 			note = "old Settings stays present and default (flag off) throughout Phase 4",
 		},
 		{
@@ -1593,7 +1593,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "ws4-game-table-surface",
 			requirements = { "UI-AGENT-001" },
-			run = "cd ../../../games/RascalRally/code && tools/suite_transcript.sh >/dev/null && tools/suite_transcript.sh | grep -q '✓.*renders every racer headerless, in rank order, with custom cells' && tools/suite_transcript.sh | grep -q '✓.*a position swap reorders rows without remounting them' && grep -q 'UseFacetRacerList' src/client/init.client.luau && test -f src/client/FacetRacerListScreen.luau && test -f ../../../GameStudio/ui/Facet/artifacts/studio/part2-racer-list.json",
+			run = "cd ../../../games/RascalRally/code && tools/suite_transcript.sh >/dev/null && tools/suite_transcript.sh | grep -q '✓.*renders every racer headerless, in rank order, with custom cells' && tools/suite_transcript.sh | grep -q '✓.*a position swap reorders rows without remounting them' && grep -q 'FacetFlags.racerListOn()' src/client/init.client.luau && grep -q 'UseFacetRacerList' src/client/FacetFlags.luau && test -f src/client/FacetRacerListScreen.luau && test -f ../../../GameStudio/ui/Facet/artifacts/studio/part2-racer-list.json",
 			evidence = "artifacts/studio/part2-racer-list.json",
 			note = "2026-07-19 commit 03e5541: racer list as the first Table consumer (headerless, reactive custom cells) behind UseFacetRacerList (default off, old SponsorRacerList untouched); game suite 2397; live drive in the REAL place against real RaceState (hidden-viewport rider)",
 		},
@@ -1725,7 +1725,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "old-settings-intact-and-default",
 			requirements = { "UI-AGENT-001" },
-			run = "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'settingsGui = SettingsGui.new(player)' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/init.client.luau",
+			run = "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'settingsGui = SettingsGui.new(player)' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'FacetFlags.settingsOn()' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/FacetFlags.luau",
 			note = "old file untouched; flag default-off keeps the old path; port constructs only on opt-in",
 		},
 		{

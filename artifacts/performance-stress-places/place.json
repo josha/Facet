@@ -1,14 +1,14 @@
 {
-  "schema": "luauui-perf-place/1",
+  "schema": "facet-perf-place/1",
   "status": "PASS",
   "project": "examples/performance.project.json",
-  "built": "examples/places/LuauUI-PerformanceLab.rbxl",
+  "built": "examples/places/Facet-PerformanceLab.rbxl",
   "rebuiltFromSource": true,
   "requiredInstances": 17,
   "versionMarkers": 5,
   "problems": [],
   "notes": [
     "scenario runner is mapped from the gallery (reused, not forked)",
-    "examples/places/LuauUI-PerformanceLab.rbxl: 2461595 bytes, binary place"
+    "examples/places/Facet-PerformanceLab.rbxl: 2468221 bytes, binary place"
   ]
 }
