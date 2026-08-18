@@ -113,7 +113,13 @@ function Custom.new()
 		if cached ~= nil then
 			return cached
 		end
-		local label = node.kind
+		-- A SIGNAL HAS NO COMPUTE TO READ A CREATION SITE OFF, so it is named by its
+		-- creation ORDER instead — `signal#12`. The bare kind was what shipped, and
+		-- RR-7's contract is "naming the disposed node": for a signal, which is
+		-- every case that diagnostic actually reaches, "signal" names nothing at
+		-- all. `seq` already exists (it is what gives a flush its total order), so
+		-- this costs one concatenation on a path only a failure walks.
+		local label = if node.seq ~= nil then `{node.kind}#{node.seq}` else node.kind
 		local fn = node.compute
 		if fn ~= nil then
 			local ok, source, line = pcall(debug.info, fn, "sl")
@@ -123,6 +129,25 @@ function Custom.new()
 		end
 		node.name = label
 		return label
+	end
+
+	--[[ THE FROZEN-VALUE REPORT (RR-7), from every read path there is.
+
+		Reported ONCE — this is a diagnostic, not a rate limiter, and the second
+		read carries no information the first did not — and only for a node that
+		genuinely has no live dep left (see the disposal site). Both the public
+		`get` and the internal `use` call it, because a memo consumed only through
+		another memo is the ordinary shape and was the case that stayed silent. ]]
+	local function reportFrozen(node: Node)
+		local frozenBy = node.frozenBy
+		if frozenBy == nil then
+			return
+		end
+		node.frozenBy = nil
+		fail(
+			`Facet: '{nodeName(node)}' can no longer update — '{frozenBy}', which it was subscribed to, `
+				.. `was disposed while this node was still live; it will answer this value forever`
+		)
 	end
 
 	-- pull: (re)compute a stale memo; returns current value. Never throws to
@@ -151,7 +176,15 @@ function Custom.new()
 		local use: Use = function(source: any): any
 			local dep = source._node :: Node
 			newDeps[dep] = true
-			return pull(dep)
+			local value = pull(dep)
+			-- RR-7's OTHER half (review NEW-4): a frozen memo consumed only
+			-- TRANSITIVELY — memos chaining into memos, the ordinary shape of a UI
+			-- graph — never reached `public.get` and served stale data forever with
+			-- `lastError` nil. A read is a read whoever makes it.
+			if dep.frozenBy ~= nil then
+				reportFrozen(dep)
+			end
+			return value
 		end :: any
 		local ok, result = pcall(node.compute :: any, use)
 		evaluatingMemo = wasEvaluatingMemo
@@ -459,11 +492,27 @@ function Custom.new()
 	flushBody = function()
 		local rounds = 0
 		local capped = false
-		--[[ THE SETTLE CALLBACK THAT LAST WROTE IN THIS FLUSH (RR-9). A settle pass
-			only runs once propagation has quiesced, so a settle writer can only be
-			standing here when the flush had already gone quiet at least once — an
-			effect feedback loop never lets that happen and leaves this nil, which is
-			what keeps the pure-effect runaway's behaviour unchanged. ]]
+		--[[ WHICH SETTLE CALLBACK IS ACTUALLY NON-CONVERGENT (RR-9, corrected after
+			review finding NEW-2).
+
+			The first version kept only "the settle that wrote last in this flush"
+			and quarantined it whenever the cap blew. That is wrong, and the header
+			it carried ("an effect feedback loop never lets that happen and leaves
+			this nil") was false: `overCap` is reached from TWO places — the
+			propagate-to-quiescence loop and the post-settle-pass check — so a cap
+			blown by an unrelated EFFECT runaway quarantined whichever settle had
+			legitimately published earlier in the same flush. That is precisely the
+			measure→publish→react shape the settle phase exists for, and the victim
+			would be `renderer.luau`'s geometry-feedback solve or its disarm, killed
+			for the rest of the surface's life by one cap hit anywhere.
+
+			THE DISCRIMINATOR IS PASSES, NOT WRITES. A converging settle writes at
+			most ONCE per flush — it publishes, the pass restarts, and on the restart
+			it has nothing to do. A non-converging one writes on EVERY pass. So the
+			count is per record per flush, and only a record above one is
+			quarantined; an innocent publisher that wrote once is never touched, no
+			matter what else blew the cap. ]]
+		local settleWrites: { [any]: number } = {}
 		local lastSettleWriter: any = nil
 		-- one wording for both feedback shapes: an effect that keeps writing and
 		-- a measure→publish cycle that will not settle are the same failure
@@ -488,7 +537,11 @@ function Custom.new()
 				ONE message, not two: the cap error is the diagnostic every consumer
 				already greps for, and a second `fail` would overwrite it with a string
 				that no longer says what happened. ]]
-			if lastSettleWriter ~= nil and not lastSettleWriter.quarantined then
+			if
+				lastSettleWriter ~= nil
+				and not lastSettleWriter.quarantined
+				and (settleWrites[lastSettleWriter] or 0) > 1
+			then
 				lastSettleWriter.quarantined = true
 				message ..= ` — settle callback '{settleName(lastSettleWriter)}' is QUARANTINED and will be ` .. `skipped until it is re-registered; a settle callback must converge, because it is re-run ` .. `until it writes nothing`
 			end
@@ -527,6 +580,7 @@ function Custom.new()
 					if next(writeSet) ~= nil then
 						wrote = true
 						lastSettleWriter = s
+						settleWrites[s] = (settleWrites[s] or 0) + 1
 						break
 					end
 				end
@@ -551,17 +605,8 @@ function Custom.new()
 					fail(tostring(err))
 				end
 			end
-			-- RR-7: a value that can never change again, being read. Reported ONCE —
-			-- this is a diagnostic, not a rate limiter, and the second read carries
-			-- no information the first did not.
-			local frozenBy = node.frozenBy
-			if frozenBy ~= nil then
-				node.frozenBy = nil
-				fail(
-					`Facet: '{nodeName(node)}' can no longer update — '{frozenBy}', which it was subscribed to, `
-						.. `was disposed while this node was still live; it will answer this value forever`
-				)
-			end
+			-- RR-7: a value that can never change again, being read
+			reportFrozen(node)
 			return node.value
 		end
 		function public.set(_self, value: any)
@@ -597,9 +642,34 @@ function Custom.new()
 				was never frozen), and reported the first time somebody reads a value
 				that can no longer change. A torn-down surface is never read again and
 				stays silent. ]]
+			--[[ ONLY A SUBSCRIBER THAT HAS NOTHING LEFT TO WAKE IT (review NEW-4).
+
+				The first version flagged EVERY subscriber, so a memo with other live
+				deps — the ordinary shape — was declared frozen on any read taken
+				before its next recompute, in a message that affirmatively says "it
+				will answer this value forever" about a node that updates on the very
+				next write. Worse, `fail()` is unconditional, so that false statement
+				OVERWROTE a real earlier error.
+
+				A memo is frozen when the edge that just went is its LAST one. Anything
+				else still has a way to be invalidated, and is not frozen by any
+				reading of the word. ]]
+			local disposedName: string? = nil
 			for sub in node.subs do
-				if not (sub :: any).isEffect and not sub.disposed then
-					(sub :: Node).frozenBy = nodeName(node)
+				if (sub :: any).isEffect or sub.disposed then
+					continue
+				end
+				local live = 0
+				for dep in (sub :: Node).deps do
+					if dep ~= node and not dep.disposed then
+						live += 1
+					end
+				end
+				if live == 0 then
+					if disposedName == nil then
+						disposedName = nodeName(node)
+					end
+					(sub :: Node).frozenBy = disposedName
 				end
 			end
 			node.subs = {}

@@ -247,10 +247,19 @@ describe("diagnostics name the nodes they are about (RR-3/RR-7)", function()
 		local err = tostring(core:lastError())
 		expect(string.find(err, "can no longer update", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, "memo@reactive_recovery", 1, true) ~= nil).toBe(true)
-		expect(string.find(err, "'signal'", 1, true) ~= nil).toBe(true)
+		-- the disposed node is NAMED, which for a signal means its creation order —
+		-- the bare kind named nothing, and a signal is every case this reaches
+		expect(string.match(err, "'signal#%d+'") ~= nil).toBe(true)
 	end)
 
-	it("a memo with another live dep re-derives and is never called frozen", function()
+	it("a memo with another live dep is never called frozen — READ BEFORE it recomputes", function()
+		--[[ THE ORDER IS THE TEST (review NEW-4). The first version of this case did
+			`a:dispose()`, then `b:set(20)`, then `sum:get()` — so the recompute
+			cleared the flag before any read, and the case certified the property only
+			in the ordering where it happened to hold. Read FIRST and the old detector
+			produced an affirmatively false message ("it will answer this value
+			forever") about a node that updates on the very next line, and overwrote
+			whatever real error was on the channel to say it. ]]
 		local core = Facet.newCore()
 		local a = core:signal(1)
 		local b = core:signal(10)
@@ -258,10 +267,64 @@ describe("diagnostics name the nodes they are about (RR-3/RR-7)", function()
 			return use(a) + use(b)
 		end)
 		expect(sum:get()).toBe(11)
+
 		a:dispose()
+		expect(core:lastError()).toBe(nil)
+		-- the read the old detector lied about
+		expect(sum:get()).toBe(11)
+		expect(core:lastError()).toBe(nil)
+		-- ...and it demonstrably DOES update, which is what makes the message false
 		b:set(20)
 		expect(sum:get()).toBe(21)
 		expect(core:lastError()).toBe(nil)
+	end)
+
+	it("a real error on the channel is not overwritten by a benign read (NEW-4)", function()
+		local core = Facet.newCore()
+		local a = core:signal(1)
+		local b = core:signal(10)
+		local sum = core:memo(function(use)
+			return use(a) + use(b)
+		end)
+		expect(sum:get()).toBe(11)
+		local boom = core:memo(function()
+			error("a genuine failure the operator needs to see", 0)
+		end)
+		expect(boom:get()).toBe(nil)
+		a:dispose()
+		expect(sum:get()).toBe(11)
+		expect(string.find(tostring(core:lastError()), "a genuine failure", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a memo frozen behind ANOTHER memo is reported on the transitive read (NEW-4)", function()
+		--[[ The false NEGATIVE, and the common case: memos chain into memos, so the
+			frozen one is usually consumed through `use()` and never through the
+			public `get`. The check lived only in `get`, so the ordinary shape served
+			stale data forever with `lastError` nil. ]]
+		local core = Facet.newCore()
+		local a = core:signal(1)
+		local inner = core:memo(function(use)
+			return use(a) * 2
+		end)
+		local outer = core:memo(function(use)
+			return use(inner) + 100
+		end)
+		expect(outer:get()).toBe(102)
+		a:dispose()
+		expect(core:lastError()).toBe(nil)
+
+		-- the ONLY read is transitive: `outer` is stale-free, so force a recompute
+		-- through a second live input rather than touching `inner` directly
+		local nudge = core:signal(0)
+		local reader = core:memo(function(use)
+			return use(inner) + use(nudge)
+		end)
+		expect(reader:get()).toBe(2)
+		local err = tostring(core:lastError())
+		expect(string.find(err, "can no longer update", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "memo@reactive_recovery", 1, true) ~= nil).toBe(true)
+		-- ...and the disposed SIGNAL is named distinguishably, not as its kind
+		expect(string.match(err, "'signal#%d+'") ~= nil).toBe(true)
 	end)
 
 	it("a clean disposal is silent", function()
@@ -319,6 +382,99 @@ describe("the flush's terminal contracts (RR-9/RR-10/RR-11)", function()
 		unrelated:set(1)
 		core:flush()
 		expect(passes).toBe(first)
+	end)
+
+	it("an INNOCENT settle survives a cap blown by an unrelated effect (NEW-2)", function()
+		--[[ The shape the first version of this quarantine broke. A settle that
+			publishes ONCE and converges is the measure→publish cycle the settle phase
+			exists for — and its legitimate publication is exactly what can arm a
+			runaway effect. Keeping only "who wrote last" quarantined the publisher;
+			the discriminator is how many PASSES it wrote on, because a converging
+			settle writes at most once per flush and a non-converging one writes on
+			every pass. In the framework itself the victim would have been
+			`renderer.luau`'s geometry-feedback solve, dead for the life of the
+			surface after one cap hit anywhere in the session. ]]
+		local core = Facet.newCore()
+		local measured = core:signal(0)
+		local published = core:signal(0)
+		local runaway = core:signal(0)
+		local settleRuns = 0
+		core:settle(function()
+			settleRuns += 1
+			-- publishes once per real change and then has nothing to do: converges
+			local want = measured:get() * 2
+			if published:get() ~= want then
+				published:set(want)
+			end
+		end)
+		-- an effect the publication wakes, and which then never stops writing —
+		-- unrelated to the settle's own convergence, but downstream of it
+		core:effect(function(use)
+			local seen = use(published)
+			local v = runaway:get()
+			if seen > 0 and v < 1e9 then
+				runaway:set(v + 1)
+			end
+		end)
+		core:effect(function(use)
+			local v = use(runaway)
+			if v > 0 and v < 1e9 then
+				runaway:set(v + 1)
+			end
+		end)
+
+		--[[ ONE top-level write. The settle publishes (once), the publication is
+			what ARMS the runaway effect, and the cap then blows inside the propagate
+			loop with the innocent publisher standing as "the settle that wrote last
+			in this flush". That ordering is the whole finding. ]]
+		measured:set(5)
+		expect(published:get()).toBe(10)
+		expect(string.find(tostring(core:lastError()), "iteration cap", 1, true) ~= nil).toBe(true)
+		-- THE ASSERTION: the innocent publisher was not blamed
+		expect(string.find(tostring(core:lastError()), "is QUARANTINED", 1, true)).toBe(nil)
+
+		-- ...and it still runs, and still publishes, on every later flush
+		local before = settleRuns
+		measured:set(7)
+		expect(settleRuns > before).toBe(true)
+		expect(published:get()).toBe(14)
+		local unrelated = core:signal(0)
+		unrelated:set(1)
+		core:flush()
+		expect(settleRuns > before + 1).toBe(true)
+	end)
+
+	it("a quarantined settle comes back when it is RE-REGISTERED (RR-9's stated exit)", function()
+		--[[ The contract's "until its inputs change" has no meaning for a callback
+			whose inputs the core cannot see, so the documented exit is
+			re-registration — and an exit nobody has exercised is an exit nobody
+			knows exists. This is that exercise. ]]
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local runs = 0
+		local dispose = core:settle(function()
+			runs += 1
+			s:set(s:get() + 1)
+		end)
+		s:set(1)
+		expect(string.find(tostring(core:lastError()), "is QUARANTINED", 1, true) ~= nil).toBe(true)
+		local afterQuarantine = runs
+		local other = core:signal(0)
+		other:set(1)
+		core:flush()
+		expect(runs).toBe(afterQuarantine) -- skipped, as quarantined means
+
+		-- RE-REGISTER: dispose the handle and settle again. The new record carries
+		-- no quarantine, so the callback is live again — and if its inputs really
+		-- did change it now converges instead of blowing the cap.
+		dispose()
+		local settled = 0
+		core:settle(function()
+			settled += 1
+		end)
+		other:set(2)
+		core:flush()
+		expect(settled > 0).toBe(true)
 	end)
 
 	it("a healthy settle keeps running after an unrelated one is quarantined", function()
