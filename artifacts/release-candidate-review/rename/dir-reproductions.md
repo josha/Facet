@@ -52,6 +52,27 @@ device-only difference (ScreenInsets/SafeAreaCompatibility never being set —
 PLAT-17 — is the standing suspect). Fix direction regardless: floor the
 screen-edge gutter at 8px under every package; device recheck after republish.
 
+## DIR-2 addendum — the text-overflow mechanism, pinned (A/B vs the pre-rename artifact)
+
+The pre-rename showcase artifact (extracted from git at `cc01667`) and the
+rebuilt Facet place were both driven on the same machine. Both carry the
+native-style attribute in the built place (`LuauUI_NativeStyle` /
+`Facet_NativeStyle = true` — set by the build tooling) and both paint the
+ornate font through StyleSheets: `GetStyled("FontFace")` = Fondamento while the
+plain `FontFace` property reads LegacyArial — the documented sheet-paint
+instrument trap, which this session initially fell into (recorded as an
+instrument lesson; the extended sweep's oracle must use STYLED reads).
+
+So there is NO font-application regression and no rename regression here. The
+real text-overflow mechanism, measured: plate/chip WIDTH math does not spend
+the effective styled typography — under fantasy-ornate the styled "Round 3 ·
+Capture" measures 70px and its plate solved 72px at landscape (1px slack; the
+narrower device portrait plate spills — the photographed overflow), the topbar
+objective chip's width-swap logic measures with neutral metrics, and the
+give-way squeeze produces degenerate boxes ("24/90" in 4px, "Tasks 1/3" in a
+48x0 box) instead of flooring/eliding. Engine `TextFits=false` on the styled
+font is the honest painted-overflow signal in every case.
+
 ## Fix contracts derived (queued for the DIR wave after R1 lands)
 
 1. Zone extent math consumes active-package chrome metrics (O-25 class).
@@ -67,3 +88,8 @@ screen-edge gutter at 8px under every package; device recheck after republish.
    pre-fix tree must FAIL the extended sweep.
 6. Gutter floor ≥ 8px per package (DIR-1) + explicit ScreenInsets decision
    (PLAT-17); DIR-1 device recheck after republish.
+7. Width/extent math for text-bearing plates and width-swapped labels measures
+   with the EFFECTIVE styled typography (themed font + size + lineHeight), and
+   the extended sweep asserts painted styled TextBounds fit inside the box
+   interior (chrome insets spent) per package per viewport — using GetStyled
+   reads, never plain property reads.
