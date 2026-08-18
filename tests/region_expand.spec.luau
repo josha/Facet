@@ -897,3 +897,161 @@ describe("EXPAND 9 — the whole loop, with no per-region code anywhere in the d
 		expect(w.pres.depth()).toBe(1)
 	end)
 end)
+
+-- ===== 5. THE FOCUS RING ===================================================
+-- The director's constraint is about GESTURES, and a gesture on a pad is a stop
+-- on a ring. Three things have to be true and none of them is about pixels: the
+-- stop exists only while a reduced form is standing, it never disturbs the order
+-- of the stops around it, and on a form that carries controls of its own it
+-- comes AFTER them.
+
+local function traversalPaths(w: any): { string }
+	local map = w.pres.focus.focusMap()
+	local out: { string } = {}
+	for _, entry in (if map ~= nil then map.traversal else nil) or {} do
+		table.insert(out, entry.path)
+	end
+	return out
+end
+
+local function indexOf(list: { string }, path: string): number?
+	for i, entry in list do
+		if entry == path then
+			return i
+		end
+	end
+	return nil
+end
+
+-- a screen with a stop BEFORE the region and a stop AFTER it, so "the ring was
+-- not disturbed" is a claim about neighbours rather than about a count
+local function ringScreen(interactive: boolean): any
+	local compact: any = if interactive
+		then UI.VStack({
+			id = "Compact",
+			width = { type = "fill", weight = 1 },
+			children = { UI.Button({ id = "Live", label = "live", onActivate = function() end }) },
+		})
+		else UI.Text({ id = "Compact", text = "2:14", textSize = 16 })
+	return UI.Screen({
+		id = "S",
+		width = { type = "fill", weight = 1 },
+		height = { type = "fill", weight = 1 },
+		children = {
+			UI.Composition({
+				id = "C",
+				arrangements = { "column" },
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				groups = { { id = "body", lane = "main", sizing = "fill" } },
+				children = {
+					UI.Region({
+						id = "Before",
+						group = "body",
+						rank = 1,
+						children = { UI.Button({ id = "First", label = "first", onActivate = function() end }) },
+					}),
+					UI.Region({
+						id = "Clock",
+						group = "body",
+						rank = 3,
+						recover = "overflow",
+						children = {
+							--[[ FOUR LINES, and the number is load-bearing: the interactive
+								compact form is a Button, a Button is at the 44px target floor, and
+								a ladder whose reduced rung is TALLER than its rich one never steps
+								down at all. The rich form has to be genuinely bigger than the
+								thing that replaces it or this fixture proves nothing. ]]
+							UI.VStack({
+								id = "Full",
+								children = {
+									UI.Text({ id = "Timer", text = "2:14", textSize = 16 }),
+									UI.Text({ id = "Scores", text = "12 - 9", textSize = 16 }),
+									UI.Text({ id = "Home", text = "Home 12", textSize = 16 }),
+									UI.Text({ id = "Away", text = "Away 9", textSize = 16 }),
+								},
+							}),
+							compact,
+						},
+					}),
+					UI.Region({
+						id = "After",
+						group = "body",
+						rank = 2,
+						children = { UI.Button({ id = "Last", label = "last", onActivate = function() end }) },
+					}),
+				},
+			}),
+		},
+	})
+end
+
+describe("EXPAND 10 — the stop exists only while a reduced form does, and never moves its neighbours", function()
+	it("a screen with room has no expand stop at all", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		local order = traversalPaths(w)
+		expect(indexOf(order, "/S/C/Clock/Expand")).toBeNil()
+		expect(indexOf(order, "/S/C/Before/First")).never().toBeNil()
+		expect(indexOf(order, "/S/C/After/Last")).never().toBeNil()
+	end)
+
+	it("stepped down, the stop appears ONCE and the neighbours keep their order", function()
+		local roomy = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		roomy.present(ringScreen(false), { initialFocus = "none" })
+		local before = traversalPaths(roomy)
+		local tight = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		tight.present(ringScreen(false), { initialFocus = "none" })
+		local after = traversalPaths(tight)
+		expect(tight.controller.compositionAt("/S/C").regions[2].activeForm).toBe(2)
+		expect(indexOf(after, "/S/C/Clock/Expand")).never().toBeNil()
+		-- exactly one
+		local count = 0
+		for _, path in after do
+			if path == "/S/C/Clock/Expand" then
+				count += 1
+			end
+		end
+		expect(count).toBe(1)
+		-- ...and the ring around it is the ring it was: same stops, same order
+		local function withoutExpand(list: { string }): string
+			local kept: { string } = {}
+			for _, path in list do
+				if path ~= "/S/C/Clock/Expand" then
+					table.insert(kept, path)
+				end
+			end
+			return table.concat(kept, " ")
+		end
+		expect(withoutExpand(after)).toBe(withoutExpand(before))
+	end)
+
+	it("on a form that carries a control, the expand stop comes AFTER the form's own", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(true), { initialFocus = "none" })
+		local order = traversalPaths(w)
+		local live = indexOf(order, "/S/C/Clock/Compact/Live")
+		local expand = indexOf(order, "/S/C/Clock/Expand")
+		expect(live).never().toBeNil()
+		expect(expand).never().toBeNil()
+		expect((expand :: number) > (live :: number)).toBe(true)
+	end)
+
+	it("gamepad A opens the plate and B returns focus to the stop that opened it", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+		-- the modal scope popped, and the presenter's own restore put the ring back
+		-- where the player left it
+		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+	end)
+end)
