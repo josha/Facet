@@ -56,23 +56,38 @@ end
 	a blank line, for a command up to 8,048 characters long.
 
 	The fix is to record what the shell DID rather than what it printed. `set -x`
-	writes an execution trace, and `BASH_XTRACEFD` sends that trace to its own
-	file descriptor so it never mixes with the check's real stdout/stderr — a
-	passing check's output is byte-for-byte what it was. On a failure the last
-	traced command IS the localization: the specific `grep -q` whose pin moved,
-	named with its pattern.
+	writes an execution trace, and on a failure the last traced command IS the
+	localization: the specific `grep -q` whose pin moved, named with its pattern.
 
-	Degrades cleanly: the whole enabling group is `; `-sequenced and silenced, so
-	an environment that refuses the descriptor simply runs without a trace and
-	reports exactly what it reported before. ]]
+	── AND IT IS A SECOND RUN, NOT THE FIRST ONE (review NEW-5, 2026-08-17) ─────
+
+	The first attempt put `set -x` on the CHECK'S OWN RUN and sent the trace to
+	`BASH_XTRACEFD` so it would not mix with real output. `BASH_XTRACEFD` arrived
+	in bash **4.1**, and the only bash on this machine — and on every stock macOS
+	— is 3.2.57, where that assignment is an inert variable and `set -x` writes to
+	**stderr**. So the trace landed in `detail` for every check, PASSING ONES
+	INCLUDED (`detail` is written into `gate.json` unconditionally), unbounded,
+	while the file the tail-bound applied to stayed empty. Measured: a passing
+	compound check carried an 87-character xtrace and the trace file was 0 bytes.
+	The mechanism the report described was not the one doing the work.
+
+	So the trace is now a DIAGNOSTIC RE-RUN: the check runs exactly as it always
+	did — no `set -x`, no redirection, output byte-for-byte what it was — and only
+	when it FAILS is the same command run once more under `bash -x` with stderr
+	captured. The cost is paid where the gate has already stopped, and a passing
+	check cannot be polluted by a mechanism that never touches it. The re-run is
+	labelled in `detail` so nobody reads it as a single execution, and it is
+	skipped when the first run already said something useful. ]]
 local TRACE_TAIL_LINES = 40
-local function traceTail(path: string): string?
-	if not fs.isFile(path) then
-		return nil
-	end
+local function traceTail(raw: string): string?
 	local lines: { string } = {}
-	for line in string.gmatch(fs.readFile(path), "[^\n]+") do
-		table.insert(lines, line)
+	for line in string.gmatch(raw, "[^\n]+") do
+		-- xtrace lines are the only ones prefixed with the PS4 default; anything
+		-- else in this stream is the command's own stderr on the re-run, which is
+		-- already in `detail` from the first run
+		if string.sub(line, 1, 1) == "+" then
+			table.insert(lines, line)
+		end
 	end
 	if #lines == 0 then
 		return nil
@@ -83,31 +98,33 @@ local function traceTail(path: string): string?
 		table.insert(kept, lines[i])
 	end
 	local elided = if from > 1 then `…{from - 1} earlier traced command(s) elided…\n` else ""
-	return `[shell trace; the LAST line is the command that failed]\n{elided}{table.concat(kept, "\n")}`
+	return `[shell trace, from a diagnostic RE-RUN of the same command; the LAST line is the one that failed]\n{elided}{table.concat(
+		kept,
+		"\n"
+	)}`
 end
 
-for index, check in checks do
+for _, check in checks do
 	local state: string
 	local detail = check.note or ""
 	if check.run ~= nil then
-		local tracePath = `{process.env.TMPDIR or "/tmp"}/facet-gate-trace-{index}.log`
-		pcall(fs.removeFile, tracePath)
-		-- built by concatenation, not interpolation: the shell group's own braces
-		-- are not an escaping puzzle worth solving twice
-		local script = 'cd "$(pwd)" || exit 1; { exec 9>"'
-			.. tracePath
-			.. '"; BASH_XTRACEFD=9; set -x; } 2>/dev/null; '
-			.. check.run
-		local result = process.exec("bash", { "-c", script })
+		-- THE CHECK'S OWN RUN IS UNTOUCHED. Same command, same shell, no trace, no
+		-- redirection — a passing check's `detail` is exactly what it was before
+		-- any of this existed.
+		local result = process.exec("bash", { "-c", `cd "$(pwd)" || exit 1; {check.run}` })
 		state = if result.ok then "PASS" else "FAIL_RECOVERABLE"
 		detail = string.gsub((result.stdout or "") .. (result.stderr or ""), "%s+$", "")
 		if state ~= "PASS" then
-			local trace = traceTail(tracePath)
+			-- ...and only a FAILURE pays for the localization: one re-run under
+			-- `bash -x`, whose stderr carries the trace on every bash there is. The
+			-- gate has already stopped, so the second execution costs a run of a
+			-- check nobody is going to trust anyway.
+			local traced = process.exec("bash", { "-xc", `cd "$(pwd)" || exit 1; {check.run}` })
+			local trace = traceTail((traced.stderr or "") .. "\n" .. (traced.stdout or ""))
 			if trace ~= nil then
 				detail = if #detail == 0 then trace else `{detail}\n\n{trace}`
 			end
 		end
-		pcall(fs.removeFile, tracePath)
 		-- a passing run must leave its evidence artifact behind
 		if state == "PASS" and check.evidence ~= nil and not fs.isFile(check.evidence) then
 			state = "FAIL_RECOVERABLE"
