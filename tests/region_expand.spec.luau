@@ -590,3 +590,310 @@ describe("EXPAND 7 — the affordance stands exactly while a reduced form does",
 		expect(tight.compositionAt("/S/C").regions[1].activeForm).toBe(2)
 	end)
 end)
+
+-- ===== 4. THE PRESENTATION =================================================
+-- What opens the plate, what closes it, and that nothing is left behind. The
+-- engine is a root leaf that requires nothing, so the first block drives it with
+-- two table doubles and no mount at all; the second closes the loop through the
+-- real presenter, a real tap and a real surface stack.
+
+local regionExpand = require("../src/region_expand")
+
+local PLATE = { w = 200, h = 60, sheet = false }
+
+--[[ A CONTROLLER DOUBLE. `compositionAt(path)` is the renderer's own published
+	resolution dump, keyed by the composition's path, and `rectOf` is the solved
+	rect — the two facts the engine reads and the only two. ]]
+local function fakeController(row: any, rect: any)
+	return {
+		compositionAt = function(path: string)
+			if path ~= "/S/C" then
+				return nil
+			end
+			return { regions = { row } }
+		end,
+		rectOf = function(_path: string)
+			return rect
+		end,
+	}
+end
+
+local function engineWith(row: any, rect: any, handler: (() -> ())?)
+	local presented: { any } = {}
+	local dismissed: { any } = {}
+	local engine = regionExpand.new({
+		id = "Clock",
+		panelOf = function(w: number)
+			return { class = "VStack", id = "ExpandPanel", plateWidth = w }
+		end,
+		sheetOf = function()
+			return { class = "Screen", id = "ExpandSheet" }
+		end,
+		handler = handler,
+	})
+	engine.contribution.bindController(fakeController(row, rect))
+	--[[ THE HANDLE CARRIES `onFeedback`, exactly as the presenter's does: it is how
+		a surface tells its owner about a teardown the owner did not drive (an
+		outside tap), and a double without it would let this engine pass a test the
+		Menu and row_actions each failed live. ]]
+	local function handleOf(kind: string, panel: any, opts: any)
+		local handle: any = { kind = kind, panel = panel, opts = opts, listeners = {} }
+		function handle.onFeedback(fn: (any) -> ())
+			table.insert(handle.listeners, fn)
+		end
+		function handle.fireDismiss()
+			for _, fn in handle.listeners do
+				fn({ type = "dismiss" })
+			end
+		end
+		return handle
+	end
+	engine.contribution.bindPresent(function(panel: any, opts: any)
+		local handle = handleOf("sheet", panel, opts)
+		table.insert(presented, handle)
+		return handle
+	end, function(handle: any)
+		table.insert(dismissed, handle)
+	end, function(panel: any, opts: any)
+		local handle = handleOf("anchored", panel, opts)
+		table.insert(presented, handle)
+		return handle
+	end)
+	engine.contribution.syncGeometry(function(_p: string)
+		return rect
+	end, { path = "/S/C/Clock" })
+	return engine, presented, dismissed
+end
+
+local STEPPED = { id = "/S/C/Clock", expandable = true, activeForm = 2, plate = PLATE }
+local RICHEST = { id = "/S/C/Clock", expandable = false, activeForm = 1 }
+local BOX = { x = 10, y = 20, w = 120, h = 30 }
+
+describe("EXPAND 8 — the plate, and every way out of it", function()
+	it("opens ANCHORED against the region's own rect, at the width the composition sized", function()
+		local engine, presented = engineWith(STEPPED, BOX)
+		expect(engine.open()).toBe("anchored")
+		expect(#presented).toBe(1)
+		expect(presented[1].kind).toBe("anchored")
+		expect(presented[1].panel.plateWidth).toBe(200)
+		expect(presented[1].opts.anchor.source.path).toBe("/S/C/Clock")
+	end)
+
+	it("falls back to the full-width SHEET where the richest form cannot meet its floor", function()
+		local engine, presented = engineWith({
+			id = "/S/C/Clock",
+			expandable = true,
+			activeForm = 2,
+			plate = { w = 84, h = 60, sheet = true },
+		}, BOX)
+		expect(engine.open()).toBe("sheet")
+		expect(presented[1].kind).toBe("sheet")
+		expect(presented[1].panel.id).toBe("ExpandSheet")
+	end)
+
+	it("opens NOTHING at the richest form — there is nothing more to show", function()
+		local engine, presented = engineWith(RICHEST, BOX)
+		expect(engine.open()).toBeNil()
+		expect(#presented).toBe(0)
+	end)
+
+	it("a second activation closes it, so the affordance is never inert under a thumb", function()
+		local engine, presented, dismissed = engineWith(STEPPED, BOX)
+		engine.open()
+		expect(engine.open()).toBeNil()
+		expect(#presented).toBe(1)
+		expect(#dismissed).toBe(1)
+		expect(engine.state()).toBe("closed")
+		expect(engine.teardowns()).toBe(1)
+	end)
+
+	it("an EPOCH change closes it: the rect it was opened against moved", function()
+		local engine, _, dismissed = engineWith(STEPPED, BOX)
+		engine.open()
+		engine.sync(function(_p: string)
+			-- the rotation: the same region, a different box
+			return { x = 200, y = 20, w = 120, h = 30 }
+		end, { path = "/S/C/Clock" })
+		expect(#dismissed).toBe(1)
+		expect(engine.state()).toBe("closed")
+	end)
+
+	it("...and so does the region GOING: a zero rect is a source that is not there", function()
+		local engine, _, dismissed = engineWith(STEPPED, BOX)
+		engine.open()
+		engine.sync(function(_p: string)
+			return { x = 0, y = 0, w = 0, h = 0 }
+		end, { path = "/S/C/Clock" })
+		expect(#dismissed).toBe(1)
+	end)
+
+	it("...and so does the region climbing back to its richest form under the plate", function()
+		local engine = regionExpand.new({
+			id = "Clock",
+			panelOf = function(_w: number)
+				return { class = "VStack" }
+			end,
+			sheetOf = function()
+				return { class = "Screen" }
+			end,
+		})
+		local row: any = { id = "/S/C/Clock", expandable = true, activeForm = 2, plate = PLATE }
+		local dismissed = 0
+		engine.contribution.bindController(fakeController(row, BOX))
+		engine.contribution.bindPresent(nil, function()
+			dismissed += 1
+		end, function()
+			return { kind = "anchored" }
+		end)
+		engine.contribution.syncGeometry(function()
+			return BOX
+		end, { path = "/S/C/Clock" })
+		engine.open()
+		row.expandable = false
+		row.activeForm = 1
+		engine.sync(function()
+			return BOX
+		end, { path = "/S/C/Clock" })
+		expect(dismissed).toBe(1)
+		expect(engine.teardowns()).toBe(1)
+	end)
+
+	it("a dismiss the PRESENTER drove is counted too, and the plate can open again", function()
+		local engine, presented, dismissed = engineWith(STEPPED, BOX)
+		engine.open()
+		expect(engine.teardowns()).toBe(0)
+		--[[ THE OUTSIDE TAP. The presenter's own teardown runs entirely inside its
+			outside-tap path and never through this engine's `close`, so without the
+			feedback listener the engine would hold a dead handle and refuse to open
+			ever again — the defect the Menu and row_actions each found live. ]]
+		presented[1].fireDismiss()
+		expect(engine.state()).toBe("closed")
+		expect(engine.teardowns()).toBe(1)
+		-- and it is NOT double-dismissed: the surface is already gone
+		expect(#dismissed).toBe(0)
+		expect(engine.open()).toBe("anchored")
+		expect(#presented).toBe(2)
+	end)
+
+	it("an authored handler REPLACES the presentation, and the framework presents nothing", function()
+		local ran = 0
+		local engine, presented = engineWith(STEPPED, BOX, function()
+			ran += 1
+		end)
+		expect(engine.open()).toBe("custom")
+		expect(ran).toBe(1)
+		expect(#presented).toBe(0)
+	end)
+
+	it("declares NO transition, so there is no travel to reduce", function()
+		local _, presented = engineWith(STEPPED, BOX)
+		local engine = regionExpand.new({
+			id = "Clock",
+			panelOf = function()
+				return {}
+			end,
+			sheetOf = function()
+				return {}
+			end,
+		})
+		engine.contribution.bindController(fakeController(STEPPED, BOX))
+		local opts: any = nil
+		engine.contribution.bindPresent(nil, function() end, function(_panel: any, o: any)
+			opts = o
+			return { kind = "anchored" }
+		end)
+		engine.contribution.syncGeometry(function()
+			return BOX
+		end, { path = "/S/C/Clock" })
+		engine.open()
+		expect(opts.transition).toBeNil()
+		expect(opts.modal).toBe(true)
+		expect(opts.scrim).toBe("none")
+		expect(opts.outsideTapCancel).toBe(true)
+		-- cancelPolicy is left at the presenter's default, which is what makes
+		-- Escape and gamepad ButtonB close the plate
+		expect(opts.cancelPolicy).toBeNil()
+		expect(#presented).toBe(0)
+	end)
+end)
+
+-- ===== 4b. THE WHOLE LOOP ==================================================
+-- Everything above tests one seam. This tests the claim: a screen that declares
+-- a collapsing region and NOTHING ELSE gets a working disclosure — the tap, the
+-- surface, the content, and the way back.
+
+local worldLib = require("./lib/world")
+
+local function hudScreen(): any
+	return UI.Screen({
+		id = "S",
+		width = { type = "fill", weight = 1 },
+		height = { type = "fill", weight = 1 },
+		children = {
+			UI.Composition({
+				id = "C",
+				arrangements = { "column" },
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				groups = { { id = "body", lane = "main", sizing = "fill" } },
+				children = {
+					UI.Region({
+						id = "Clock",
+						group = "body",
+						rank = 1,
+						recover = "overflow",
+						children = {
+							UI.VStack({
+								id = "Full",
+								children = {
+									UI.Text({ id = "Timer", text = "2:14", textSize = 16 }),
+									UI.Text({ id = "Scores", text = "12 - 9", textSize = 16 }),
+								},
+							}),
+							UI.Text({ id = "TimerOnly", text = "2:14", textSize = 16 }),
+						},
+					}),
+				},
+			}),
+		},
+	})
+end
+
+describe("EXPAND 9 — the whole loop, with no per-region code anywhere in the declaration", function()
+	it("a tap on the stepped-down region opens a plate carrying the richest form", function()
+		-- 30px of height: the two-line form cannot stand, the one-line one can
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
+		w.present(hudScreen(), { initialFocus = "none" })
+		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
+		expect(w.pres.depth()).toBe(1)
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		-- the plate carries the RICHEST form, by identity: the same nodes, on a
+		-- surface of their own
+		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Scores")).never().toBeNil()
+	end)
+
+	it("...and gamepad B closes it, because the plate is an ordinary presented surface", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
+		w.present(hudScreen(), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		-- Cancel through the real device path: the plate declares no cancel policy
+		-- of its own, so the presenter's default (`dismiss`) is what answers
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+
+	it("a screen with room opens nothing at all: the affordance is not even standing", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		w.present(hudScreen(), { initialFocus = "none" })
+		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(1)
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+end)
