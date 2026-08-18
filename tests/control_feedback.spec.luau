@@ -38,6 +38,7 @@ local customFactory = require("../src/core/custom")
 local mountLib = require("../src/mount")
 local feedbackLib = require("../src/present/feedback")
 local hapticsLib = require("../src/client/haptics")
+local sensoryProfile = require("../src/client/sensory_profile")
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
@@ -581,16 +582,32 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			inputService = false,
 			hapticService = false,
 			parent = false,
+			-- A CLIENT THAT CAN DO EVERYTHING, so a test that sees a preset is seeing
+			-- a DECISION rather than a fallback: both enums resolve and
+			-- `FloatCurveKey` builds, exactly as on a real client.
 			enums = {
-				HapticEffectType = { UIClick = "E:UIClick", UIHover = "E:UIHover", UINotification = "E:UINotification" },
+				HapticEffectType = {
+					Custom = "E:Custom",
+					UIClick = "E:UIClick",
+					UIHover = "E:UIHover",
+					UINotification = "E:UINotification",
+				},
+				KeyInterpolationMode = { Constant = "K:Constant", Linear = "K:Linear", Cubic = "K:Cubic" },
 			},
+			floatCurveKey = function(timeMs: number, intensity: number, mode: any): any
+				return { timeMs = timeMs, intensity = intensity, mode = mode }
+			end,
 			instanceNew = function(): any
 				local effect: any = {
 					Type = nil,
+					waveform = nil,
 					Play = function() end,
 					Stop = function() end,
 					Destroy = function() end,
 				}
+				function effect:SetWaveformKeys(keys: { any })
+					effect.waveform = keys
+				end
 				table.insert(built, effect)
 				return effect
 			end,
@@ -599,11 +616,20 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		return hap, built
 	end
 
-	it("an UNDECLARED button gets the press preset, exactly as before", function()
+	it("an UNDECLARED button gets the PRESS PHASE — Facet's own `contact` waveform", function()
+		-- it used to get the bare `UIClick` preset; since task 11 the undeclared
+		-- case is the phase, and the preset is only what a client that cannot build
+		-- a custom waveform falls back to
 		local button = fakeButton(nil)
 		local hap = adapterWith({ button })
 		expect(button.PressHapticEffect ~= nil).toBe(true)
-		expect(button.PressHapticEffect.Type).toBe("E:UIClick")
+		expect(button.PressHapticEffect.Type).toBe("E:Custom")
+		expect(button.PressHapticEffect.waveform).toEqual({
+			{ timeMs = 0, intensity = 0, mode = "K:Linear" },
+			{ timeMs = 6, intensity = 0.9, mode = "K:Cubic" },
+			{ timeMs = 30, intensity = 0, mode = "K:Linear" },
+		})
+		expect(hap.diagnostics().phases.press.fallbackActive).toBe(false)
 		hap.dispose()
 	end)
 
@@ -651,9 +677,20 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		hap.dispose()
 	end)
 
-	it("STILL PLAYS NOTHING for an activation: the engine owns the press route", function()
+	it("NEVER REPLAYS THE DOWN EDGE: an activation plays the RELEASE phase, not the press", function()
+		--[[ THIS ROW CHANGED WITH THE PHASE MODEL (task 11). It used to assert that
+			an activation event played NOTHING, because the only alternative then was
+			replaying the down edge the engine had already played through
+			`PressHapticEffect`. There are two edges now with two owners — the engine's
+			down and the bus's completed — so what must stay true is narrower and
+			stronger: the bus never touches the button's own effect. ]]
 		local button = fakeButton("commit")
-		local hap = adapterWith({ button })
+		local hap, built = adapterWith({ button })
+		local pressEffect = button.PressHapticEffect
+		local pressPlays = 0
+		pressEffect.Play = function()
+			pressPlays += 1
+		end
 		hap.bind({
 			onFeedback = function(fn: any): any
 				-- a control activation, the new `reason`
@@ -661,9 +698,10 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 				return function() end
 			end,
 		})
-		-- the button's PressHapticEffect is what plays; the adapter must not
-		-- double it from the bus
-		expect(hap.diagnostics().plays).toBe(0)
+		expect(pressPlays).toBe(0) -- the engine's instance, untouched
+		expect(hap.diagnostics().plays).toBe(1) -- ...and the completed edge answered
+		expect(hap.diagnostics().phases.release.plays).toBe(1)
+		expect(#built).toBe(2) -- the press preset, plus one pooled release effect
 		hap.dispose()
 	end)
 
@@ -775,8 +813,13 @@ describe("the showcase fixture drives the real thing", function()
 		-- the fixture may not require a client module, so its table is written out
 		-- — which is exactly the shape that drifts into fiction. This is the pin.
 		for _, row in scenario.sensation do
-			local expected = hapticsLib.pressEffectFor(row.verb)
+			local expected = sensoryProfile.label(hapticsLib.pressSpecFor(row.verb))
 			expect(`{row.verb}:{tostring(row.effect)}`).toBe(`{row.verb}:{tostring(expected)}`)
+		end
+		-- ...and the PHASE column too: three phases, three shipped waveform names
+		for _, row in scenario.phases do
+			local spec = (sensoryProfile.DEFAULTS :: any)[row.phase]
+			expect(`{row.phase}:{tostring(row.effect)}`).toBe(`{row.phase}:{tostring(sensoryProfile.label(spec))}`)
 		end
 		-- ...and it covers every verb the fixture can actually produce
 		for _, entry in scenario.declared do
@@ -960,7 +1003,11 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		for _, name in hapticsLib.EFFECT_TYPES do
 			set[name] = `Enum.HapticEffectType.{name}`
 		end
-		return { HapticEffectType = set }
+		local modes: any = {}
+		for _, name in sensoryProfile.MODES do
+			modes[name] = `Enum.KeyInterpolationMode.{name}`
+		end
+		return { HapticEffectType = set, KeyInterpolationMode = modes }
 	end
 
 	local function fakeInputService(pads: { any }): any
@@ -1012,9 +1059,12 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 			if opts.constructionError ~= nil then
 				error(opts.constructionError, 0)
 			end
-			local effect: any = { ClassName = className, Parent = nil, destroyed = false }
+			local effect: any = { ClassName = className, Parent = nil, destroyed = false, waveform = nil }
 			function effect:Play() end
 			function effect:Stop() end
+			function effect:SetWaveformKeys(keys: { any })
+				effect.waveform = keys
+			end
 			function effect:Destroy()
 				effect.destroyed = true
 				effect.Parent = nil
@@ -1040,6 +1090,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 				root = root,
 				options = {
 					instanceNew = instanceNew,
+					floatCurveKey = function(timeMs: number, intensity: number, mode: any): any
+						return { timeMs = timeMs, intensity = intensity, mode = mode }
+					end,
 					inputService = fakeInputService(opts.pads or {}),
 					hapticService = {
 						IsVibrationSupported = function(_self: any, _pad: any): any
@@ -1134,6 +1187,77 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		expect(`claims played:{string.find(line, "played", 1, true) ~= nil}`).toBe("claims played:false")
 		-- ...and it says who has to close the gap
 		expect(`asks for a human:{string.find(line, "human", 1, true) ~= nil}`).toBe("asks for a human:true")
+		built.dispose()
+	end)
+
+	--[[ ---- the calibration panel (task 11) ------------------------------------
+		Three phases fire at three different moments, so a device session has to be
+		able to judge them one at a time. Two of the three can be driven from a
+		control that reports nothing of its own; the third CANNOT be driven at all,
+		because the engine owns its moment — and a fixture that faked it would be
+		demonstrating itself rather than the framework. These cases hold both halves.
+	]]
+	it("the calibration rows drive the release and select phases ONE AT A TIME", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		local before = built.steps.readPulses()
+		expect(before.release).toBe(0)
+		expect(before.select).toBe(0)
+		built.steps.firePhase("release")
+		local afterRelease = built.steps.readPulses()
+		expect(`release={afterRelease.release} select={afterRelease.select}`).toBe("release=1 select=0")
+		built.steps.firePhase("select")
+		local afterSelect = built.steps.readPulses()
+		expect(`release={afterSelect.release} select={afterSelect.select}`).toBe("release=1 select=1")
+		built.dispose()
+	end)
+
+	it("`press` has no driver, and the counter says so instead of printing a zero", function()
+		-- THE HONESTY ROW. `phases.press.plays` is structurally always 0 — this
+		-- module never plays a button's own effect — so a panel that printed it as a
+		-- number would read as "the press never fired" when it means "nobody can
+		-- see". The line has to carry the sentence.
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		local before = built.steps.readPulses().line
+		built.steps.firePhase("press")
+		local after = built.steps.readPulses()
+		expect(after.line).toBe(before) -- nothing was faked
+		expect(`says who owns it:{string.find(after.line, "engine", 1, true) ~= nil}`).toBe("says who owns it:true")
+		built.dispose()
+	end)
+
+	it("the profile selector really re-installs, and SILENT plays nothing at all", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		-- FALLBACK: the two quiet phases share UIHover, which is the documented
+		-- limitation rather than a coincidence
+		built.steps.setProfile(scenario.profiles.fallback)
+		local fallback = built.steps.readPulses()
+		expect(`press={fallback.pressEffect} release={fallback.releaseEffect} select={fallback.selectEffect}`).toBe(
+			"press=UIClick release=UIHover select=UIHover"
+		)
+		built.steps.firePhase("release")
+		expect(built.steps.readPulses().release).toBe(1)
+		-- SILENT: still installed, still reporting, and playing nothing
+		built.steps.setProfile(scenario.profiles.silent)
+		built.steps.firePhase("release")
+		built.steps.firePhase("select")
+		local silent = built.steps.readPulses()
+		expect(`plays={silent.plays} press={tostring(silent.pressEffect)}`).toBe("plays=0 press=nil")
+		expect(built.hapticsAdapter() ~= nil).toBe(true)
+		-- ...and back to the Facet defaults, by name
+		built.steps.setProfile(scenario.profiles.defaults)
+		local defaults = built.steps.readPulses()
+		expect(`press={defaults.pressEffect} release={defaults.releaseEffect} select={defaults.selectEffect}`).toBe(
+			"press=contact release=settle select=tick"
+		)
 		built.dispose()
 	end)
 

@@ -43,6 +43,19 @@ local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_conten
 local profile = require(ReplicatedStorage.Facet.core.profile) :: any
 
 local native_list = require(script:WaitForChild("native_list")) :: any
+--[[ THE OPT-IN HAPTICS ADAPTER (task 11), handed to the lab through `ctx.lab` for
+	`select:haptics=on`. It is required HERE, with the other client entry points,
+	rather than inside `lab/init.luau`: that file is the scenario REGISTRY and its
+	module list is asserted against the built place by `tools/check_perf_place.py`,
+	and the adapter is not one of its modules — it is the framework's own client
+	adapter living in the replicated Facet tree. pcall'd, because a place built
+	without it must still open with the setting simply unavailable. ]]
+local hapticsModule: any = (function(): any
+	local ok, mod = pcall(function(): any
+		return require(ReplicatedStorage.Facet.client.haptics)
+	end)
+	return if ok then mod else nil
+end)()
 
 -- THE LAB TURNS THE SCOPES ON. They ship OFF (src/core/profile.luau): a framework that
 -- pcall-wraps every phase in production to instrument a session nobody is reading has
@@ -235,7 +248,11 @@ local api = runner.start({
 	actionSystem = system,
 	unbindEnv = unbindEnv,
 	host = host,
-	lab = registry.lab,
+	lab = (function(): any
+		local supplied = table.clone(registry.lab)
+		supplied.haptics = hapticsModule
+		return supplied
+	end)(),
 })
 
 workspace:SetAttribute("Facet_PerfLabReady", true)

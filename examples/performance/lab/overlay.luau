@@ -196,7 +196,10 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		})
 		else nil
 
-	local COUNTER_LINES = 6
+	-- SEVEN since task 11 (the haptics line). `perf_lab` asserts its published line
+	-- count against this number, so the two cannot drift apart silently — which is
+	-- the failure the fixed count exists to prevent in the first place.
+	local COUNTER_LINES = 7
 	local counterTexts = {}
 	for i = 1, COUNTER_LINES do
 		local line = core:memo(function(use)

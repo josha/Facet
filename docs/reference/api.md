@@ -7031,15 +7031,106 @@ sources, in `docs/research/2026-08-12-haptics-engine-facts.md`.
 ```lua
 local haptics = require(ReplicatedStorage.Facet.client.haptics)
 local hap = haptics.new({ enabled = playerSettings.haptics })
-hap.bind(presenter)            -- the verbs with no engine hook
-hap.attachButtons(screenGui)   -- the property route, for `activate`
+hap.bind(presenter)            -- the COMPLETED press, and every changed choice
+hap.attachButtons(screenGui)   -- the property route: the press going DOWN
 ```
 
 `bind(presenter) -> unbind`, `attachButtons(root) -> detach`,
 `setEnabled(on)`, `isEnabled()`, `support()`, `reprobe()`, `diagnostics()`,
-`dispose()`. `opts` is `{ enabled?, now?, adjustIntervalSeconds?, parent? }` plus
-four injection seams (`instanceNew`, `inputService`, `hapticService`, `enums`)
-that exist so the whole adapter is provable headless.
+`dispose()`. `opts` is `{ enabled?, profile?, now?, selectIntervalSeconds?,
+parent? }` plus five injection seams (`instanceNew`, `floatCurveKey`,
+`inputService`, `hapticService`, `enums`) that exist so the whole adapter is
+provable headless. `adjustIntervalSeconds` is still honoured as the pre-phase
+spelling of `selectIntervalSeconds`.
+
+##### The three phases
+
+Facet has three interaction phases, and each one has a **different owner of the
+moment it fires**. That is the whole shape of this adapter:
+
+| phase | the moment | owner | reaches it through |
+|---|---|---|---|
+| `press` | the press goes **down** | the **engine** | `GuiButton.PressHapticEffect` — a reference is handed over and never played from here. Reachable only from `decorate`, never from the bus. |
+| `release` | the press **completes** | the bus | the presenter stamps `reason = "activation"` on the event a control's activation raises, and that event exists **only** when the activation completed. |
+| `select` | a **choice changed** | the bus | the `select` / `adjust` verbs, whatever caused them. |
+
+**No double pulse, and the guard is structural.** The adapter used to drop every
+`reason = "activation"` event, because the only alternative was replaying the
+down edge the engine had already played. The two edges are now separate
+sensations with separate owners, so the rule is simply that the bus never plays
+the PRESS phase — which it cannot, because that phase is unreachable from
+`onEvent`.
+
+**A canceled press is silent structurally.** `GuiButton.Activated` does not fire
+for a press dragged away from, so the presenter emits no completion and this
+module is never asked. There is no cancellation branch in the file and there must
+not be one.
+
+**This adapter adds no input listener.** When a press begins, completes or is
+abandoned is decided once, in the presenter/responder path, for pointer, touch,
+keyboard and gamepad alike. `ContextActionService` never appears here;
+`UserInputService` appears only as the device probe's service name.
+
+##### `client.sensory_profile` — what each phase feels like
+
+Engine-free (a `WaveKey` is plain data; `FloatCurveKey` construction happens in
+the adapter), so the waveforms are pinnable on a host with no engine.
+
+```lua
+export type WaveKey = { timeMs: number, intensity: number, mode: "Constant" | "Linear" | "Cubic" }
+export type PhaseSpec =
+      { kind: "custom", name: string, keys: { WaveKey } }
+    | { kind: "preset", effect: string }   -- a HapticEffectType name
+    | { kind: "silent" }
+export type SensoryProfile = { press: PhaseSpec, release: PhaseSpec, select: PhaseSpec }
+```
+
+`DEFAULTS`, `FALLBACK`, `PHASES`, `MODES`, `EFFECT_TYPES`, `MIN_PEAK`,
+`MAX_DURATION_MS`, `resolve(partial) -> SensoryProfile`, `fallbackFor(phase)`,
+`key(spec)`, `label(spec)`.
+
+**The three shipped waveforms**, Facet's own, tuned for the role each phase
+plays:
+
+| phase | name | character | keys (`timeMs`, `intensity`, `mode`) |
+|---|---|---|---|
+| `press` | **contact** | one short, crisp tap when the action goes down | `{0, 0, Linear}` · `{6, 0.9, Cubic}` · `{30, 0, Linear}` |
+| `release` | **settle** | a lighter, rounder answer when the action completes | `{0, 0, Linear}` · `{10, 0.5, Cubic}` · `{34, 0, Linear}` |
+| `select` | **tick** | the smallest audible-to-the-hand step for a changed choice | `{0, 0, Linear}` · `{4, 0.35, Linear}` · `{16, 0, Linear}` |
+
+Every peak stays at or above `MIN_PEAK` (`0.3`) because Roblox records that
+intensity below `0.1` may not trigger anything on some clients — an authored
+subtlety under that floor is a silence that reports success. Every waveform is
+over inside `MAX_DURATION_MS` (`34`), so rapid interaction cannot overlap two
+pulses perceptibly. The tables are frozen all the way down.
+
+**Per-phase override and silence.** `profile` is a *partial* merged over the
+defaults; anything you do not name keeps Facet's:
+
+```lua
+haptics.new({
+    enabled = true,
+    profile = {
+        press = { kind = "custom", name = "thud", keys = { … } },
+        release = { kind = "preset", effect = "UIHover" },
+        select = { kind = "silent" },
+    },
+})
+```
+
+Validated at construction, so a misspelled phase, a `custom` with no keys, an
+unknown effect name, or `{ kind = "preset", effect = "Custom" }` is an error you
+read at the call site rather than a silence you discover on a device.
+
+**The fallback, and its limitation.** If a client cannot build a custom waveform,
+the phase falls back to a stock preset — never to a bare `Custom`:
+`press → UIClick`, `release → UIHover`, `select → UIHover`. Roblox ships exactly
+three UI presets and `UINotification` means "draw attention away from gameplay",
+which is neither a released button nor a changed choice — so **under fallback
+`release` and `select` are the same sensation**, distinct only by cause, while
+press keeps `UIClick`'s crisp character.
+`diagnostics().phases[phase].fallbackActive` reports it, and is set only once the
+preset has actually been built and handed back.
 
 **`HapticEffect`, never `HapticService:SetMotor`.** Roblox's own class reference
 says the service "has been superseded by `HapticEffect` … For new work, use
@@ -7047,11 +7138,17 @@ says the service "has been superseded by `HapticEffect` … For new work, use
 requirement are undocumented — a motor you cannot prove stops is a stuck-rumble
 bug with no test.
 
-**`activate` takes the property route.** `GuiButton.PressHapticEffect` is an
-assignable reference the *engine* fires, so `attachButtons` hands one over to
+**The press phase takes the property route.** `GuiButton.PressHapticEffect` is
+an assignable reference the *engine* fires, so `attachButtons` hands one over to
 every `GuiButton` under the root (now and later, via `DescendantAdded`) and this
-module never calls `Play()` on it. `HoverHapticEffect` is deliberately left
-unassigned. The bus subscription covers only the verbs with no engine hook.
+module never calls `Play()` on it. An **undeclared** control gets the press
+phase — Facet's `contact` waveform; a control that **declared** its own verb
+still gets that verb's mapped preset, so a Buy button and a Delete button feel
+different exactly as they did before phases existed. A **disabled** control
+(`Active == false`, or `Interactable == false` under native styling) is skipped,
+and one that *becomes* disabled has its reference cleared on the next sweep — a
+disabled affordance holding a press effect is a promise it does not keep.
+`HoverHapticEffect` is deliberately left unassigned.
 
 **The map is total over the closed twelve**, and five map to nothing —
 `activate` (the engine plays it), `arrive` (every chase settle; per-frame noise),
@@ -7059,20 +7156,45 @@ unassigned. The bus subscription covers only the verbs with no engine hook.
 (not player-caused). The silences are written out explicitly, so a thirteenth
 verb would surface as a visible gap rather than a silent drop.
 
-| Verb | Route | `HapticEffectType` |
+| Verb | Route | Sensation |
 |---|---|---|
-| `activate` | property (`PressHapticEffect`) | `UIClick` |
-| `select` · `pickup` · `commit` · `land` | bus | `UIClick` |
-| `adjust` | bus, **rate-limited** (default 60 ms; coalescing *drops*) | `UIHover` |
+| *(undeclared)* / `activate` | property (`PressHapticEffect`), **down edge** | the **press phase** — `contact` |
+| any felt verb, `reason = "activation"` | bus, **completed edge** | the **release phase** — `settle` |
+| `select` · `adjust` | bus, **rate-limited** (default 60 ms; coalescing *drops*) | the **select phase** — `tick` |
+| `pickup` · `commit` · `land` | bus | `UIClick` |
 | `reject` · `celebrate` | bus | `UINotification` |
-| `arrive` · `cancel` · `dismiss` · `supersede` | — | *deliberately none* |
+| `arrive` · `cancel` · `dismiss` · `supersede` | — | *deliberately none, on both edges* |
 
-Effects are **pooled**, one per mapped verb plus one for the press property, and
-never constructed per fire (Roblox documents a "fewer than 100 simultaneous
-effects" budget). The enum is resolved defensively **by name** before anything is
-constructed and **never falls back to `Custom`** — a `Custom` effect with no
-waveform is a guaranteed silent no-op. If the client cannot create the class at
-all (`support() == "absent"`) the attempt is made **once**, not per event.
+`select` and `adjust` are named in `haptics.PHASE_VERBS`: the select phase claims
+them whatever caused them, because a control declaring `activation = "select"` is
+saying that pressing it *is* a choice moving. Their `MAP` rows remain as the
+totality ledger — the map stays total over the twelve so a thirteenth verb
+surfaces in `unmappedVerbs()` — and as the preset for every verb the phases do
+not claim. **One limiter serves both**: two limiters would let a control
+alternating the pair (which a scrubbed picker does) pass both and fire at full
+rate.
+
+`haptics.pressSpecFor(verb, profile?) -> PhaseSpec?` is the pure resolver behind
+the property route: the press phase for an undeclared control, the verb's preset
+for a declared one, `nil` for `"none"` and for every verb the map silences. The
+same answer decides the **release** edge, so a control that is deliberately
+unfelt is unfelt on both.
+
+Effects are **pooled by sensation** — one Instance per distinct resolved
+`PhaseSpec` (keyed by `sensory_profile.key`), plus one per mapped verb the phases
+do not claim — and never constructed per fire (Roblox documents a "fewer than 100
+simultaneous effects" budget). Measured with Facet's defaults: **8** live
+Instances for every phase and every verb at once, flat across 40 rounds of
+firing. A custom effect gets `SetWaveformKeys` **exactly once, at build**.
+
+The enum is resolved defensively **by name** before anything is constructed and
+**never falls back to `Custom`** — a `Custom` effect with no waveform is a
+guaranteed silent no-op. A *deliberate* `Custom` is the opposite case and is
+safe: the waveform keys are built **first** and the Instance only afterwards, so
+a client that cannot make a `FloatCurveKey` never ends up holding a keyless one
+— it gets the phase's documented preset instead. If the client cannot create the
+class at all (`support() == "absent"`) the attempt is made **once**, not per
+event, and no later failure overwrites the engine's own words about why.
 
 **Every effect is `Stop()`ped *and* `Destroy()`ed** when it is released —
 `setEnabled(false)`, `dispose()`, and the shared press effect's teardown. A pooled
@@ -7117,19 +7239,34 @@ library opting in, and the panel says so on screen. Flipping it constructs
 three things happened — **Requested** / **This platform says no** / **Could not
 determine** — with `support()` printed verbatim beside the verdict. It says
 *requested*, never *played*, because whether a `HapticEffect` fired is not
-readable from game code. Note that `bind(presenter)` **alone** would play nothing
-on a screen of ordinary buttons: every event a press causes carries
-`reason = "activation"`, which this adapter drops on purpose because the engine
-plays it through the button's own property. `attachButtons` is the seam that
-makes a press felt. Procedure: `artifacts/navigation-and-menus/review-packet.md`
-row P8.
+readable from game code. Both seams matter: `attachButtons` makes the DOWN edge
+felt and `bind` makes the completed edge and every changed choice felt.
+
+The same fixture carries a **calibration panel**: one row per phase, a profile
+selector (Facet defaults | preset fallback | silent) and a live pulse counter.
+`Release` and `Select` are controls that declare `activation = "none"`, so each
+puts exactly one cause on the bus and is judged alone; `Press` has no driver and
+cannot have one, because the engine owns its moment — holding it and dragging off
+before release is also the cancellation proof. The counter prints what the
+adapter played per phase and says **in words** that the press count is the
+engine's and unreadable, rather than printing a `0` that would read as "it never
+fired". Procedure: `artifacts/navigation-and-menus/review-packet.md` row P8 and
+`artifacts/release-candidate-review/haptics/device-review-packet.md`.
+
+The performance lab takes `select:haptics=on` and adds a counter line
+(`haptics=on built=… pooled=… plays=… coalesced=…`). A whole dense-scroll pass
+with the adapter bound moves **no** haptic counter: it is event-driven, and a
+scroll produces no feedback verbs.
 
 **What is device-owed.** Roblox documents controllers on macOS 15+ as
-unsupported, so this repository's dev machine can only prove "never throws".
-Whether anything is *felt* on a gamepad, whether it is felt on a phone, and
-whether the player's own haptics setting silences it (`UserGameSettings.Haptic-
-Strength` is `RobloxScriptSecurity` on read — game code cannot see it) are three
-open `PENDING_PHYSICAL` rows.
+unsupported, so this repository's dev machine can only prove "never throws", and
+**Studio cannot feel anything** — the effects run locally there with no motor
+involved. Whether anything is *felt* on a gamepad, whether it is felt on a phone,
+whether the three waveforms are distinguishable and appropriate by hand, and
+whether the player's own haptics setting silences it
+(`UserGameSettings.HapticStrength` is `RobloxScriptSecurity` on read — game code
+cannot see it) are open `PENDING_DEVICE` rows recorded in
+`artifacts/release-candidate-review/haptics/defaults.md` §8.
 
 #### `client.gamepad_contention`
 

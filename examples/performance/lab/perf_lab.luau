@@ -430,9 +430,65 @@ return {
 			-- a first-class step so the instrument can be proven to bite in Studio,
 			-- not only in a test.
 			faultWindow = false,
+			--[[ THE HAPTICS ADAPTER (task 11), DEFAULT OFF like the adapter itself.
+				`select:haptics=on` binds the client adapter to this lab's presenter so a
+				capture can answer the one question a haptics adapter raises for a
+				performance lab: does it cost anything PER FRAME? It must not — it is
+				event-driven, one pooled Instance per distinct sensation and none built
+				per pulse — and the counter line below is what makes that a measurement
+				rather than a claim. THE WORKLOAD IS UNCHANGED either way: this adds a
+				subscriber, not a scenario. ]]
+			haptics = false,
 			warmupFrames = 30,
 			captureFrames = 120,
 		}
+
+		--[[ ---- the opt-in haptics subscriber (task 11) ---------------------
+			The MODULE arrives through `ctx.lab`, like every other sibling: the lab
+			never touches `script`, and a host that does not supply it simply cannot
+			turn the setting on (the counter line then says `unavailable`, which is a
+			fact about the HOST rather than about the adapter).
+
+			IT BINDS THE BUS AND NOTHING ELSE. `attachButtons` is the ENGINE property
+			route and needs a real Instance root; a headless lab has none, and the
+			question this lab exists to answer — per-frame cost — is a bus question.
+			Nothing here plays anything on its own. ]]
+		local hapticsModule: any = lab.haptics
+		local hapticsAdapter: any = nil
+		local unbindHaptics: (() -> ())? = nil
+
+		local function releaseHaptics()
+			if unbindHaptics ~= nil then
+				pcall(unbindHaptics)
+				unbindHaptics = nil
+			end
+			if hapticsAdapter ~= nil then
+				pcall(hapticsAdapter.dispose)
+				hapticsAdapter = nil
+			end
+		end
+
+		local function applyHaptics()
+			if settings.haptics ~= true or hapticsModule == nil then
+				releaseHaptics()
+				return
+			end
+			if hapticsAdapter ~= nil then
+				return
+			end
+			local ok, made = pcall(hapticsModule.new, { enabled = true })
+			if not ok or made == nil then
+				hapticsAdapter = nil
+				return
+			end
+			hapticsAdapter = made
+			if type(ctx.presenter) == "table" and type(ctx.presenter.onFeedback) == "function" then
+				local bound, unbind = pcall(hapticsAdapter.bind, ctx.presenter)
+				unbindHaptics = if bound then unbind else nil
+			end
+		end
+
+		labScope:own(releaseHaptics)
 
 		-- ---- live state ---------------------------------------------------
 		local mounted: any = nil -- the ONE mounted implementation
@@ -3105,7 +3161,7 @@ return {
 		-- why a newline-joined block is not an option). Publishing more than it can
 		-- show would silently drop the tail, which is the same invisible-content
 		-- failure in a different place.
-		local COUNTER_LINES = 6
+		local COUNTER_LINES = 7
 
 		-- the renderer's own structural counters, so "is recycling actually doing
 		-- anything" is a number in the capture rather than an inference from a timing
@@ -3115,6 +3171,29 @@ return {
 			end
 			local ok, s = pcall(mounted.controller.stats)
 			return if ok then s else nil
+		end
+
+		--[[ THE HAPTICS LINE (task 11). Three numbers and no adjectives:
+			CONSTRUCTIONS is the one that answers the per-frame-allocation question —
+			it must be flat across a whole dense scroll, because the adapter is
+			event-driven and pools one Instance per distinct sensation. POOLED is read
+			off the adapter's derived count (which counts the Instances that exist, not
+			a tally kept beside them), and PLAYS is how many pulses actually went out.
+
+			`off` and `unavailable` are separate words on purpose: one is a decision in
+			this session, the other is a fact about the host that supplied the lab. ]]
+		local function hapticsLine(): string
+			if hapticsModule == nil then
+				return "haptics=unavailable (this host supplied no adapter module)"
+			end
+			if hapticsAdapter == nil then
+				return "haptics=off"
+			end
+			local ok, d = pcall(hapticsAdapter.diagnostics)
+			if not ok or d == nil then
+				return "haptics=on (diagnostics unavailable)"
+			end
+			return `haptics=on built={d.constructions} pooled={d.pooled} plays={d.plays} coalesced={d.coalesced}`
 		end
 
 		local function refreshCounters()
@@ -3127,6 +3206,7 @@ return {
 				`guiObjects={tostring(instances.guiObjects)} screenGuis={tostring(instances.screenGuis)}`,
 				`scopes opens={scopes.opens} balanced={tostring(scopes.balanced)} engine={tostring(scopes.engine)}`,
 				`passes={#passLog} ramp={rampIndex} stopped={tostring(emergencyStopped)}`,
+				hapticsLine(),
 			}
 			assert(
 				#lines == COUNTER_LINES,
@@ -3410,6 +3490,9 @@ return {
 					settings.recycle = value == "on" or value == "true"
 				elseif key == "incremental" then
 					settings.incremental = value == "on" or value == "true"
+				elseif key == "haptics" then
+					settings.haptics = value == "on" or value == "true"
+					applyHaptics()
 				elseif key == "warmup" then
 					settings.warmupFrames = math.floor(tonumber(value) or 30)
 				elseif key == "frames" then
@@ -4426,6 +4509,14 @@ return {
 				end,
 				status = function(): string
 					return statusLine:get()
+				end,
+				-- THE COUNTER SET THE OVERLAY RENDERS, refreshed and handed back. It is
+				-- here for the same reason as everything else in this table: the panel
+				-- is the only place these numbers appear in a session, and a number only
+				-- a person can read is a number only a person can catch when it lies.
+				counterLines = function(): { string }
+					refreshCounters()
+					return counterLines:get()
 				end,
 			},
 			report = function()

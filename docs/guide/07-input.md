@@ -427,11 +427,104 @@ emits `activate`.
 One thing to be clear about: **Facet plays nothing.** It publishes the verb; a
 game decides whether that becomes a haptic pulse, a sound, or nothing at all —
 `src/client/haptics.luau` is an opt-in, **default-off** adapter you bind to the
-bus. Switch it on and it hands each button the Roblox haptic effect its declared
-verb maps to, and the *engine* plays it on the press. What "success" feels like
-is a game's identity, not a framework's — and whether a player wants to feel it
-at all is a setting your game owns, because Roblox does not let game code read
-the player's own haptics preference.
+bus. What "success" feels like is a game's identity, not a framework's — and
+whether a player wants to feel it at all is a setting your game owns, because
+Roblox does not let game code read the player's own haptics preference.
+
+### Turning verbs into something you can feel
+
+Two lines, and your game is the one that wrote them:
+
+```lua
+local haptics = require(ReplicatedStorage.Facet.client.haptics)
+local hap = haptics.new({ enabled = playerSettings.haptics })
+hap.bind(presenter)          -- what a completed press and a changed choice feel like
+hap.attachButtons(screenGui) -- what a press going DOWN feels like
+```
+
+**Three phases, and each one has a different owner of the moment.**
+
+| phase | the moment | who fires it |
+|---|---|---|
+| `press` | the press goes **down** | the **engine**, through the button's own `PressHapticEffect`. Facet hands over a reference and never plays it. |
+| `release` | the press **completes** | the bus — a press that was dragged away from never completes, so it is silent without a line of code saying so. |
+| `select` | a **choice changed** (`select` / `adjust`) | the bus, rate-limited: pulses closer together than the floor are **dropped**, not queued behind each other. |
+
+**The three default waveforms, by name.** They are Facet's own, tuned for the
+role each phase plays, and they live in `src/client/sensory_profile.luau` where
+you can read the exact numbers:
+
+* **`contact`** — one short, crisp tap when the action goes down.
+* **`settle`** — a lighter, rounder answer when the action completes. Deliberately
+  weaker and slower than `contact`: the down edge is the event the hand expects,
+  and an equal answer on the way up reads as a double tap rather than a reply.
+* **`tick`** — the smallest audible-to-the-hand step for a changed choice.
+
+Every peak stays at or above `0.3`, because Roblox records that intensities below
+`0.1` may not trigger anything at all on some clients — an authored subtlety
+under that floor is a silence that reports success. Every waveform is over inside
+34 ms, so rapid interaction cannot overlap two pulses perceptibly.
+
+**Change one phase without touching a control.** Pass a partial profile; anything
+you do not name keeps Facet's default:
+
+```lua
+haptics.new({
+    enabled = true,
+    profile = {
+        -- your own waveform for the down edge
+        press = { kind = "custom", name = "thud", keys = {
+            { timeMs = 0, intensity = 0, mode = "Linear" },
+            { timeMs = 8, intensity = 1, mode = "Cubic" },
+            { timeMs = 40, intensity = 0, mode = "Linear" },
+        } },
+        -- a stock Roblox preset for the completed edge
+        release = { kind = "preset", effect = "UIHover" },
+        -- and nothing at all for a changed choice
+        select = { kind = "silent" },
+    },
+})
+```
+
+A phase is one of exactly three shapes — `custom`, `preset`, `silent` — and the
+profile is validated when you construct the adapter, so a misspelled phase or a
+`custom` with no keys is an error you read at the call site rather than a silence
+you discover on a phone. `{ kind = "preset", effect = "Custom" }` is refused
+outright: a `Custom` effect with no waveform plays nothing while reporting
+success.
+
+**If a client cannot build a custom waveform**, the phase falls back to a stock
+preset — never to a bare `Custom`:
+
+| phase | fallback |
+|---|---|
+| `press` | `UIClick` |
+| `release` | `UIHover` |
+| `select` | `UIHover` |
+
+**The limitation is worth knowing before you rely on it:** Roblox ships exactly
+three UI presets, and `UINotification` means "draw attention away from
+gameplay" — which is neither a released button nor a changed choice. So under
+fallback **`release` and `select` are the same sensation**, distinct only by what
+caused them. `hap.diagnostics().phases[phase].fallbackActive` tells you when a
+phase is in that state.
+
+**Declared controls are unchanged.** A button that declared its own verb still
+gets that verb's preset for its press — a Buy button and a Delete button still
+feel different — and a control declared `"none"` (or one whose verb the adapter
+deliberately silences) is unfelt on **both** edges.
+
+**How you find out whether any of it worked.** You do not, from code. Roblox has
+no capability API for haptics, `HapticEffect` cannot be asked whether it fired,
+and the player's own haptics strength is unreadable from game code. `hap.support()`
+answers with a five-state lattice — `supported` / `unsupported` / `unknown` /
+`blocked` / `absent` — where `unknown` means "attempt it, expect nothing, publish
+no platform claim", and a phone is permanently `unknown` because there is no
+probe for one. **Studio cannot feel anything either**: the effects run locally
+there and no motor is involved, so a silent Studio session is not evidence of a
+problem. The one honest test is a hand on a device — the showcase's
+`sensory_feedback` demo carries a calibration panel with one row per phase and a
+live pulse counter for exactly that pass.
 
 ## 7.4 Troubleshooting and hard limits
 

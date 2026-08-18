@@ -1249,7 +1249,7 @@ input model has a **platform prerequisite** the framework cannot enforce — §7
 | Focus system (`@FocusState` ([SW-85]), `.focusSection` ([SW-86]), Tab order) | **Covered** — and wider than the model it copies: Apple ships `focusSection()` on **macOS and tvOS only** ([SW-86]), while Facet's grouped scopes are the same everywhere | `Facet.newFocusGraph`: flat and grouped scopes, per-group axis/wrap/entry/exit, directional navigation, and Tab/Shift+Tab traversal in true document order — which is deliberately a different order from the concatenated group arrays | `src/focus/focus_graph.luau`; `src/init.luau` |
 | Four-input + device-idiom conformance proof | **Covered** | **16 of 16** interactive controls prove reachability on mouse, touch, keyboard, and gamepad *and* prove the device-idiom axis, across 51 registered rows | `tests/conformance/controls_registry.luau`; `tools/lune/check_registration_cli` |
 | `.sensoryFeedback` — feedback tied to state changes ([SW-70]) | **Covered**, plus a per-control form Apple has no equivalent of | The change form: when the `trigger` Readable changes, `{ type = event, path }` is emitted on the presenter's feedback bus. The control form: `{ activation = verb }` names what THIS control's press means and replaces the `activate` the presenter would otherwise emit — cascading down the mounted tree, nearest declaration winning, so it reaches every composite control with no per-control plumbing. The taxonomy is **closed** for both, so an unregistered name is an authoring error listing the twelve valid ones plus `none`. **Facet itself still plays nothing** — but the declaration now reaches the engine, and the engine does. Detail in §7.1 | `src/blueprint.luau`; `src/present/feedback.luau`; `src/mount.luau`; `src/present/presenter.luau`; `tests/sensory_feedback.spec.luau`; `tests/control_feedback.spec.luau` |
-| Haptics playback | **Partial** — opt-in, **default off**, three device rows unprovable here | `src/client/haptics.luau`, an opt-in client adapter over `HapticEffect`. It plays a control's DECLARED verb through that button's own press-effect property, so a Buy button and a Cancel button feel different — and Facet still never calls `Play()` for a press. §7.1 | `src/client/haptics.luau`; `tests/haptics.spec.luau`; `tests/control_feedback.spec.luau` |
+| Haptics playback | **Partial** — opt-in, **default off**, the perception rows unprovable here | `src/client/haptics.luau`, an opt-in client adapter over `HapticEffect`, over a THREE-PHASE model: `press` (the down edge, the engine's, through the button's own press-effect property), `release` (the completed edge, the bus's) and `select` (a changed choice, rate-limited). A control's DECLARED verb still selects its own press sensation, so a Buy button and a Cancel button feel different, and Facet still never calls `Play()` for a press. The three default waveforms — `contact` / `settle` / `tick` — are ORIGINAL Facet designs: Apple publishes no waveform data for `SensoryFeedback` (named kinds and one `intensity` scalar only), so there is nothing to copy and no numeric comparison is possible in either direction; perceived similarity is a by-hand device judgement, recorded PENDING_DEVICE. §7.1 | `src/client/haptics.luau`; `src/client/sensory_profile.luau`; `tests/haptics.spec.luau`; `tests/sensory_profile.spec.luau`; `tests/control_feedback.spec.luau`; `artifacts/release-candidate-review/haptics/` |
 | Gesture value type (normalized `Gesture`) | **Partial** — real primitive, zero consumers | Kind, state, positions, translation, velocity, scale, rotation; all six gesture kinds connected; publicly exported. No control calls it | `src/input/touch_gestures.luau`; `src/init.luau` |
 | Gesture composition (`.simultaneously` ([SW-92]), `.sequenced` ([SW-93]), `.exclusively` ([SW-94])) | **Partial** | A ranked single-owner arbiter (pinch/rotate > pan > long-press > tap/swipe) with a begin/change/end ownership lifecycle. No simultaneous delivery and no chaining. Same "no consumers" caveat as above | `touch_gestures.newArbiter()` |
 | `DragGesture` → general drag & drop ([SW-95], [SW-96]) | **Partial**, materially deeper than SwiftUI's | Public `UI.draggable`/`UI.dropTarget` with a typed payload, tap-to-arm, per-input-class promotion thresholds. Three acquisition paths — Roblox's native `UIDragDetector`, a pointer-capture fallback, and a non-pointer arm→navigate→commit flow for keyboard and gamepad — funnel into **one** shared session lifecycle. Two facts about the other side: `draggable(_:)` is not offered on tvOS or watchOS at all, and the `dropDestination(for:action:isTargeted:)` overload was deprecated in the 27.0 releases in favour of a session-based one ([SW-95], [SW-96]) | `src/input/drag_contract.luau`; `src/input/drag_registry.luau`; [`ADR-0022`](../adr/ADR-0022-sponsor-framework-gaps.md) Decision 5 |
@@ -1397,14 +1397,48 @@ grep test over every file in the tree.
 
 ```lua
 local hap = haptics.new({ enabled = settings.haptics })  -- default false
-hap.bind(presenter)          -- the verbs with no engine hook
-hap.attachButtons(screenGui) -- the press route
+hap.bind(presenter)          -- the COMPLETED press, and every changed choice
+hap.attachButtons(screenGui) -- the press route: the press going DOWN
 ```
 
-The `activate` verb takes a **property route**: the adapter assigns a
+**THREE PHASES, THREE OWNERS OF THE MOMENT** (`src/client/sensory_profile.luau`
+holds the waveforms; the adapter is the only file that touches the engine):
+
+| phase | the moment | owner |
+|---|---|---|
+| `press` | the press goes **down** | the **engine**, through `GuiButton.PressHapticEffect` |
+| `release` | the press **completes** | the bus (`reason = "activation"`, which only a completed activation raises) |
+| `select` | a **choice changed** (`select` / `adjust`) | the bus, rate-limited, leading edge |
+
+The press phase takes a **property route**: the adapter assigns a
 `HapticEffect` reference to a button and the **engine** fires it, so "Facet
 plays nothing" stays literally rather than nearly true — a test pins that exactly
 one `:Play()` call site exists in the whole module, and it is the bus path.
+
+**THE THREE DEFAULT WAVEFORMS ARE ORIGINAL FACET DESIGNS.** `contact` (down),
+`settle` (completed), `tick` (changed choice) — exact keys in
+[`api.md`](api.md#clientsensory_profile--what-each-phase-feels-like) and in
+`artifacts/release-candidate-review/haptics/defaults.md`. They are tuned for the
+semantic role of each phase and for the two constraints Roblox actually
+documents: peaks stay at or above `0.3` because intensity below `0.1` may not
+trigger on some clients, and every waveform is over inside 34 ms so rapid
+interaction cannot overlap two pulses. **No other UI framework publishes waveform
+data for its semantic feedback** — Apple's `SensoryFeedback` exposes named kinds
+and one `intensity` scalar and nothing else (verified 2026-08-17), and raw
+waveform authoring lives in a separate framework its `.sensoryFeedback` modifier
+does not describe — so there was nothing to copy even in principle, and no
+numeric diff is possible in either direction. Whether Facet's three *feel* like
+anything a player has met elsewhere is a paired, by-hand judgement on one device,
+recorded as PENDING_DEVICE with its procedure in
+`artifacts/release-candidate-review/haptics/device-review-packet.md`.
+
+A game replaces a phase, swaps it for a stock preset, or silences it through one
+`profile` option, without touching a control. If a client cannot build a custom
+waveform the phase falls back to a preset — `press → UIClick`,
+`release → UIHover`, `select → UIHover` — and **that is a documented limitation
+rather than a coincidence**: Roblox ships exactly three UI presets and
+`UINotification` means "draw attention away from gameplay", so under fallback the
+two quiet phases are one sensation, distinct only by cause.
 
 **The per-control declaration reaches that route through an attribute.** The
 renderer publishes each activatable control's resolved verb to the adapter
@@ -1419,10 +1453,16 @@ pushed for every activatable node including the `nil`, because instance recyclin
 would otherwise let a commit button hand its sensation to whatever control adopts
 its object next.
 
-**Why that route, and not simply playing the bus event: a press would be felt
-twice.** The engine is already firing the button's own press effect, so the
-adapter drops every event stamped `reason = "activation"`, whatever verb it
-names.
+**Why that route, and not simply playing the bus event: the down edge would be
+felt twice.** The engine is already firing the button's own press effect on the
+way down, so the bus must never play the PRESS phase — and it structurally
+cannot, because that phase is reachable only from the decoration path. What the
+bus *does* play for an event stamped `reason = "activation"` is the **release**
+phase, because such an event exists only when the activation completed: the two
+edges are two moments with two owners, not one moment played twice. A press
+dragged away from raises no completion at all, so **the cancel case is silent
+structurally** — there is no cancellation branch in the module, and there must
+not be one.
 
 **What this cannot do, plainly.** Four things:
 
@@ -1447,14 +1487,19 @@ the same reason. The player-facing control for haptics is the adapter's own
 switch, which is why it is opt-in and default off.
 
 **Five of the twelve verbs map to nothing from the bus, deliberately**:
-`activate` (the engine fires it through the property route), `arrive` (fires on
-every chase settle — a haptic there is per-frame noise), `cancel` (the *absence*
-of feedback is the signal for "nothing happened"), and `dismiss` and `supersede`
-(not player-caused; buzzing at a self-retiring toast is a phantom). The map is
-asserted **total** over the taxonomy, explicit "no" included, so a future
-taxonomy addition shows up as a visible gap instead of a silent drop. `adjust` is
-**rate-limited** — sliders and steppers fire per tick, and unthrottled that is a
-buzzsaw that also blows the documented simultaneous-effect budget.
+`activate` (its two edges are the press and release PHASES, neither of which is a
+map row), `arrive` (fires on every chase settle — a haptic there is per-frame
+noise), `cancel` (the *absence* of feedback is the signal for "nothing
+happened"), and `dismiss` and `supersede` (not player-caused; buzzing at a
+self-retiring toast is a phantom). A control whose declared verb the map silences
+is unfelt on **both** edges. The map is asserted **total** over the taxonomy,
+explicit "no" included, so a future taxonomy addition shows up as a visible gap
+instead of a silent drop. `select` and `adjust` are the **select phase's**, and
+they share ONE limiter — sliders, steppers and scrubbed lists fire per tick, and
+unthrottled that is a buzzsaw that also blows the documented simultaneous-effect
+budget; two limiters would let a control alternating the pair pass both. The
+coalescing is **leading edge**: a suppressed pulse is dropped, never deferred,
+because a haptic that arrives after the gesture is a phantom.
 
 The capability probe is a **lattice**, not a boolean:
 `supported | unsupported | unknown | blocked | absent`, with **`unknown` the

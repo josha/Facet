@@ -11,6 +11,38 @@
 --   hap.bind(presenter)             -- the verbs with no engine hook
 --   hap.attachButtons(screenGui)    -- the property route: every button's press
 --
+-- THREE PHASES, THREE OWNERS OF THE MOMENT (`./sensory_profile.luau` holds the
+-- waveforms; this file is the only one that touches the engine).
+--
+--   press    the DOWN edge. THE ENGINE'S, through `GuiButton.PressHapticEffect`.
+--            An undeclared control now gets Facet's own `contact` waveform
+--            instead of a bare preset; a control that DECLARED a verb still gets
+--            that verb's mapped preset, exactly as it did before.
+--   release  the COMPLETED edge, and it is NEW. `GuiButton.Activated` fires only
+--            when a press completes on the control, and the presenter stamps
+--            `reason = "activation"` on the event it raises for it — so that
+--            event is the completed edge and it now plays `settle`. A press
+--            dragged away from never fires Activated, so THE CANCEL CASE IS
+--            SILENT STRUCTURALLY: there is no cancellation branch below, and
+--            there must not be one.
+--   select   a CHOICE CHANGED (`select` / `adjust`). Rate-limited, LEADING EDGE:
+--            a suppressed pulse is dropped, never deferred.
+--
+-- NO DOUBLE PULSE, and the guard is narrower than it used to be. The old rule
+-- DROPPED every `reason = "activation"` event, because the only alternative
+-- would have been replaying the down edge the engine had already played. The two
+-- edges are now separate sensations with separate owners, so the rule is simply
+-- that the bus never plays the PRESS phase — which it structurally cannot,
+-- because `phaseEffect("press")` is reachable only from `decorate`.
+--
+-- THIS MODULE ADDS NO INPUT LISTENER. When a press begins, completes or is
+-- abandoned is decided ONCE, in the presenter/responder path, for pointer, touch,
+-- keyboard and gamepad alike (including the echo collapse that makes a keyboard
+-- Activate and its engine echo one dispatch). `UserInputService` appears here
+-- exactly once, as the DEVICE PROBE's service name — a capability question, not
+-- an input one — and `ContextActionService` never appears at all. Pinned by
+-- tests/haptics.spec.luau.
+--
 -- EVERY ENGINE FACT BELOW IS MEASURED AND RECORDED, with sources, in
 -- docs/research/2026-08-12-haptics-engine-facts.md (live creator docs + the API
 -- dump for client 0.734.0.7340915, 2026-08-12). Read it before changing this
@@ -39,10 +71,15 @@
 --      shape docs/lessons/capability-probes-must-be-tri-state.md was written
 --      about, so `support()` is a five-state lattice and re-probes on device
 --      change instead of caching at boot.
---   4. `Custom` used as a fallback is a GUARANTEED SILENT NO-OP (a Custom effect
+--   4. `Custom` used as a FALLBACK is a GUARANTEED SILENT NO-OP (a Custom effect
 --      with no SetWaveformKeys plays nothing), and `UISelection` — the name the
 --      game side guessed once — is not a member at all. So the enum is resolved
---      defensively BY NAME, before anything is constructed, and never falls back.
+--      defensively BY NAME, before anything is constructed, and never falls back
+--      to `Custom`. A DELIBERATE Custom is the opposite case and is safe: the
+--      waveform keys are built FIRST and the Instance only afterwards, so a
+--      client that cannot make a `FloatCurveKey` never gets a keyless Custom —
+--      it gets the phase's documented preset (`sensory_profile.FALLBACK`), and
+--      `diagnostics().phases[phase].fallbackActive` says so.
 --      Confirmed live in Studio 2026-08-13: `Enum.HapticEffectType["UISelection"]`
 --      THROWS on index rather than answering nil, so the lookup must sit inside a
 --      pcall or a typo is a crash (artifacts/swiftui-parity-round2/
@@ -89,8 +126,14 @@
 -- is pcall-guarded.
 
 local feedbackLib = require("../present/feedback")
+local sensory_profile = require("./sensory_profile")
 
 local haptics = {}
+
+-- the typed profile, re-exported so a consumer that resolved only this module
+-- (the showcase fixture resolves it by instance path) can build a partial profile
+-- without a second resolution route
+haptics.sensoryProfile = sensory_profile
 
 -- ===== the mapping, TOTAL over the closed twelve ===========================
 -- `false` means DELIBERATELY SILENT, and it is written out rather than omitted:
@@ -125,22 +168,32 @@ local MAP: { [string]: string | false } = {
 }
 haptics.MAP = table.freeze(MAP)
 
--- `Enum.HapticEffectType`, all six members, none deprecated (API dump). Listed
--- so a mapped name is checkable against the real vocabulary without an engine.
-haptics.EFFECT_TYPES = table.freeze({
-	"Custom",
-	"UIHover",
-	"UIClick",
-	"UINotification",
-	"GameplayExplosion",
-	"GameplayCollision",
-})
+-- `Enum.HapticEffectType`, all six members, none deprecated (API dump). Owned by
+-- `sensory_profile` (which validates preset names against it) and re-exported
+-- here as the SAME table, so the two can never disagree.
+haptics.EFFECT_TYPES = sensory_profile.EFFECT_TYPES
 
--- what `GuiButton.PressHapticEffect` is set to for an UNDECLARED control: the
--- preset Roblox describes as "crisp … immediate feedback", which is what a plain
--- button press is. A control that declared its own verb gets that verb's effect
--- instead (see `pressEffectFor`).
-haptics.PRESS_EFFECT_TYPE = "UIClick"
+-- THE VERBS THE SELECT PHASE CLAIMS, and the precedence rule written down.
+-- `select` and `adjust` describe the same thing happening — a choice moved — so
+-- they play one pooled waveform behind one shared limiter, WHATEVER caused them.
+-- Their `MAP` rows above stay as written: the map is the TOTALITY ledger (a
+-- thirteenth verb must surface in `unmappedVerbs()`) and the preset for every
+-- verb the phases do not claim.
+haptics.PHASE_VERBS = table.freeze({ select = "select", adjust = "select" })
+
+-- one frozen preset spec per mapped verb, built once at load so the decorate path
+-- allocates nothing per button and the pool can be keyed by sensation
+local PRESET_SPECS: { [string]: any } = {}
+local PRESET_KEYS: { [string]: string } = {}
+for verb, effectType in MAP do
+	if type(effectType) == "string" then
+		local spec = table.freeze({ kind = "preset", effect = effectType })
+		PRESET_SPECS[verb] = spec
+		PRESET_KEYS[verb] = sensory_profile.key(spec :: any)
+	end
+end
+table.freeze(PRESET_SPECS)
+table.freeze(PRESET_KEYS)
 
 -- THE PER-CONTROL DECLARATION'S ARRIVAL POINT (director request 2026-08-13). The
 -- renderer publishes `UI.sensoryFeedback(bp, { activation = … })`'s resolved verb
@@ -151,21 +204,32 @@ haptics.PRESS_EFFECT_TYPE = "UIClick"
 -- a subscriber rather than a second consumer of framework internals.
 haptics.ACTIVATION_ATTRIBUTE = "Facet_ActivationFeedback"
 
--- the effect a button's press should play, given the verb the author declared on
--- it (nil = undeclared). Returns nil for a control that must be felt as nothing:
--- either the author said `none`, or the verb is one of the four the MAP silences
--- on purpose — a `cancel` that buzzes would contradict the reason `cancel` is
--- silent everywhere else.
-function haptics.pressEffectFor(verb: string?): string?
+--[[ WHAT A BUTTON'S PRESS SHOULD FEEL LIKE, given the verb the author declared on
+	it (nil = undeclared). Three answers, and the third is the one that matters:
+
+	  undeclared / `activate`   THE PRESS PHASE — Facet's own `contact` waveform by
+	                            default, or whatever the game's profile replaced it
+	                            with (including a silence).
+	  a declared verb           that verb's mapped preset, exactly as before this
+	                            module grew phases. A Buy button and a Delete
+	                            button still feel different, and they still feel
+	                            like what they always did.
+	  `none`, or a verb the MAP silences   NOTHING. A `cancel` that buzzes would
+	                            contradict the reason `cancel` is silent
+	                            everywhere else — and the same answer decides the
+	                            RELEASE edge, so such a control is unfelt on both.
+
+	PURE, and profile-aware: `profile` defaults to Facet's own, which is what makes
+	this callable from a test or a fixture with no adapter in hand. ]]
+function haptics.pressSpecFor(verb: string?, profile: sensory_profile.SensoryProfile?): sensory_profile.PhaseSpec?
 	if verb == nil or verb == "activate" then
-		return haptics.PRESS_EFFECT_TYPE
+		return (profile or sensory_profile.DEFAULTS).press
 	end
 	if verb == feedbackLib.ACTIVATION_SILENT then
 		return nil
 	end
-	local mapped = MAP[verb]
-	if type(mapped) == "string" then
-		return mapped
+	if type(MAP[verb]) == "string" then
+		return PRESET_SPECS[verb]
 	end
 	return nil
 end
@@ -204,16 +268,29 @@ export type Support = "supported" | "unsupported" | "unknown" | "blocked" | "abs
 export type Options = {
 	-- DEFAULT FALSE. Off means: no construction, no play, no device listener.
 	enabled: boolean?,
-	-- monotonic seconds, for the `adjust` rate limit (default os.clock)
+	-- A GAME'S OWN PROFILE, merged over `sensory_profile.DEFAULTS` PER PHASE. A
+	-- game replaces one phase, swaps it for a preset, or silences it
+	-- (`{ kind = "silent" }`) without touching a single control. Anything it does
+	-- not name keeps Facet's default. Validated at construction, so a typo is an
+	-- authoring error rather than a session-long silence.
+	profile: sensory_profile.PartialProfile?,
+	-- monotonic seconds, for the select-phase rate limit (default os.clock)
 	now: (() -> number)?,
-	-- the `adjust` floor. Sliders and steppers fire per tick; unthrottled that is
-	-- a buzzsaw AND a breach of the documented "fewer than 100 simultaneous
-	-- effects" budget. Coalescing DROPS — a swallowed tick is never replayed
-	-- late, because a haptic after the gesture is a phantom.
+	-- the SELECT PHASE floor. Sliders, steppers and scrubbed lists fire per tick;
+	-- unthrottled that is a buzzsaw AND a breach of the documented "fewer than 100
+	-- simultaneous effects" budget. Coalescing DROPS — a swallowed tick is never
+	-- replayed late, because a haptic after the gesture is a phantom.
+	selectIntervalSeconds: number?,
+	-- the pre-phase spelling of the same floor, when it governed `adjust` alone.
+	-- Still honoured so an existing caller keeps working; `selectIntervalSeconds`
+	-- wins if both are given.
 	adjustIntervalSeconds: number?,
 	-- injection seams (the reason any of this is provable headless). `false`
 	-- means "there is none", which is not the same as absent-and-unprobed.
 	instanceNew: ((className: string) -> any)?,
+	-- `FloatCurveKey.new(timeMs, intensity, Enum.KeyInterpolationMode)` — a
+	-- DATA TYPE constructor, not a service, so it needs its own seam
+	floatCurveKey: ((timeMs: number, intensity: number, mode: any) -> any)?,
 	inputService: any?,
 	hapticService: any?,
 	enums: any?,
@@ -221,6 +298,18 @@ export type Options = {
 	-- OFFICIAL SAMPLE — the docs state no parenting requirement, and this module
 	-- does not claim one. `false` parents nothing.
 	parent: any?,
+}
+
+-- PER PHASE, and honest about all three states. `effect` is the sensation this
+-- phase is CURRENTLY serving (a waveform's name, a preset's name, or nil for a
+-- silence or a phase nothing has needed yet); `fallbackActive` is true only once
+-- the phase has actually been served by its preset because the Custom route would
+-- not build here.
+export type PhaseDiagnostics = {
+	kind: string, -- "custom" | "preset" | "silent", as RESOLVED right now
+	effect: string?,
+	fallbackActive: boolean,
+	plays: number,
 }
 
 export type Diagnostics = {
@@ -235,10 +324,14 @@ export type Diagnostics = {
 	probes: number,
 	pooled: number,
 	decorated: number,
+	phases: { press: PhaseDiagnostics, release: PhaseDiagnostics, select: PhaseDiagnostics },
 	lastError: string?,
 }
 
-local DEFAULT_ADJUST_INTERVAL = 0.06
+-- 60 ms, comfortably past the >= 50 ms the design asks for and comfortably inside
+-- the 16 ms `tick` waveform, so two select pulses can never overlap.
+local DEFAULT_SELECT_INTERVAL = 0.06
+haptics.DEFAULT_SELECT_INTERVAL = DEFAULT_SELECT_INTERVAL
 
 -- a client that cannot create the class at all vs one that refused for another
 -- reason. The engine's own words are the discriminator and they are KEPT: the
@@ -258,23 +351,50 @@ end
 function haptics.new(opts: Options?): any
 	local options: Options = opts or {}
 	local now: () -> number = options.now or os.clock
-	local adjustInterval: number = options.adjustIntervalSeconds or DEFAULT_ADJUST_INTERVAL
+	local selectInterval: number = options.selectIntervalSeconds
+		or options.adjustIntervalSeconds
+		or DEFAULT_SELECT_INTERVAL
 	local parentOption = options.parent
+
+	--[[ THE PROFILE IS RESOLVED AND VALIDATED HERE, at construction, and never
+		again. A misspelled phase or a keyless Custom waveform is an authoring error
+		that throws in the caller's own frame; discovering it at the first pulse
+		would mean discovering it as a silence, on a device, with nothing to read. ]]
+	local resolvedProfile = sensory_profile.resolve(options.profile)
+	-- ...and the two derived tables the hot path reads instead of recomputing:
+	-- `sensory_profile.key` builds a string, and a string built per pulse is an
+	-- allocation per pulse, which is the one thing this module promises not to do.
+	local fallbackSpecs: { [string]: any } = {}
+	local phaseKey: { [string]: string } = {}
+	local fallbackKey: { [string]: string } = {}
+	local phaseFallback: { [string]: boolean } = {}
+	local phasePlays: { [string]: number } = {}
+	for _, phase in sensory_profile.PHASES do
+		fallbackSpecs[phase] = sensory_profile.fallbackFor(phase)
+		phaseKey[phase] = sensory_profile.key((resolvedProfile :: any)[phase])
+		fallbackKey[phase] = sensory_profile.key(fallbackSpecs[phase])
+		phaseFallback[phase] = false
+		phasePlays[phase] = 0
+	end
 
 	local enabled = options.enabled == true
 	local disposed = false
 
-	-- ONE effect per mapped verb, plus the button property route's own effects.
-	-- Never constructed per fire (the "fewer than 100 simultaneous effects"
+	-- ONE effect per mapped verb the phases do not claim, played BY NAME from the
+	-- bus. Never constructed per fire (the "fewer than 100 simultaneous effects"
 	-- budget).
 	local pool: { [string]: any } = {}
-	-- THE PRESS ROUTE'S POOL, keyed by EFFECT TYPE rather than by verb — the
-	-- opposite of `pool` above, deliberately. A page of forty buttons declaring
-	-- `commit`, `select` and `land` wants ONE UIClick instance shared by all
-	-- forty, because what a button hands the engine is a sensation, not a verb.
-	-- (`pool` stays verb-keyed: its entries are played by name from the bus, and
-	-- re-keying it would merge two effects an existing test counts separately.)
-	local pressEffects: { [string]: any } = {}
+	--[[ THE SENSATION POOL, keyed by `sensory_profile.key(spec)` rather than by verb
+		— the opposite of `pool` above, deliberately. A page of forty buttons
+		declaring `commit`, `select` and `land` wants ONE UIClick instance shared by
+		all forty, because what a button hands the engine is a sensation, not a verb;
+		and the three PHASES belong here for the same reason (two phases that resolve
+		to the same preset under fallback are one Instance, which is exactly the
+		limitation `sensory_profile.FALLBACK` documents).
+
+		(`pool` stays verb-keyed: its entries are played by name from the bus, and
+		re-keying it would merge two effects an existing test counts separately.) ]]
+	local sensations: { [string]: any } = {}
 
 	local deviceVerdict: Support = "unknown"
 	local constructionVerdict: Support? = nil
@@ -292,7 +412,7 @@ function haptics.new(opts: Options?): any
 		-- effects sat in Workspace.
 		lastError = nil :: string?,
 	}
-	local lastAdjustAt: number? = nil
+	local lastSelectAt: number? = nil
 
 	local subscriptions: { () -> () } = {}
 	local deviceConnections: { any } = {}
@@ -327,16 +447,20 @@ function haptics.new(opts: Options?): any
 	-- `Custom` (fact 4 in the header). A miss is counted and plays nothing —
 	-- silence a diagnostic can see beats a Custom effect that reports success and
 	-- produces no sensation.
-	local function resolveEffectType(name: string): any?
+	local function resolveEnum(enumName: string, memberName: string): any?
 		local source = if options.enums ~= nil then options.enums else nil
 		local value = guard(function(): any
 			local enums: any = if source ~= nil then source else Enum :: any
-			return enums.HapticEffectType[name]
+			return enums[enumName][memberName]
 		end)
 		if value == nil then
 			diag.enumMisses += 1
 		end
 		return value
+	end
+
+	local function resolveEffectType(name: string): any?
+		return resolveEnum("HapticEffectType", name)
 	end
 
 	local function resolveParent(): any?
@@ -420,12 +544,158 @@ function haptics.new(opts: Options?): any
 		end)
 	end
 
+	--[[ THE WAVEFORM, BUILT BEFORE THE INSTANCE — and the order is the whole
+		safety property. `SetWaveformKeys` takes an array of `FloatCurveKey`, each
+		constructed from a time in milliseconds, an intensity in [0, 1] and an
+		`Enum.KeyInterpolationMode`; a client that cannot make one would otherwise
+		leave us holding a `Custom` effect with no keys, which plays NOTHING while
+		reporting success. Building the keys first means such a client never gets
+		one: it gets the phase's documented preset instead. ]]
+	local function waveformKeys(spec: any): { any }?
+		local factory = options.floatCurveKey
+		local out: { any } = {}
+		for _, key in spec.keys do
+			local mode = resolveEnum("KeyInterpolationMode", key.mode)
+			if mode == nil then
+				return nil
+			end
+			local built = guard(function(): any
+				if factory ~= nil then
+					return factory(key.timeMs, key.intensity, mode)
+				end
+				return (FloatCurveKey :: any).new(key.timeMs, key.intensity, mode)
+			end)
+			if built == nil then
+				return nil
+			end
+			table.insert(out, built)
+		end
+		return out
+	end
+
+	-- ONE Instance from ONE resolved PhaseSpec, or nil. A `silent` spec builds
+	-- nothing at all — silence is not an effect that happens to be quiet.
+	local function buildFromSpec(spec: any): any?
+		if spec.kind == "silent" then
+			return nil
+		end
+		-- THE VERDICT IS ALREADY IN, and checking it HERE rather than only inside
+		-- `construct` matters for two reasons. A client that cannot create the class
+		-- would otherwise re-resolve `Enum.KeyInterpolationMode` and rebuild a key
+		-- list for every button of every sweep, forever; and the second of those
+		-- failed lookups would overwrite `lastError` — the engine's own words about
+		-- why the class could not be made — with a far less informative one. The
+		-- report is only as good as the message it keeps.
+		if constructionVerdict == "absent" then
+			return nil
+		end
+		if spec.kind == "preset" then
+			return construct(spec.effect)
+		end
+		local keys = waveformKeys(spec)
+		if keys == nil then
+			return nil
+		end
+		local effect = construct("Custom")
+		if effect == nil then
+			return nil
+		end
+		local keyed = guard(function()
+			effect:SetWaveformKeys(keys)
+			return true
+		end)
+		if keyed ~= true then
+			-- a Custom that would not take its waveform is a guaranteed silence:
+			-- put it away rather than pool it
+			retire(effect)
+			return nil
+		end
+		return effect
+	end
+
+	-- pooled BY SENSATION (see `sensations` above): two phases, or forty buttons,
+	-- that would feel identical share one Instance
+	local function pooledEffect(spec: any, key: string): any?
+		local existing = sensations[key]
+		if existing ~= nil then
+			return existing
+		end
+		local built = buildFromSpec(spec)
+		if built == nil then
+			return nil
+		end
+		sensations[key] = built
+		return built
+	end
+
+	--[[ THE PHASE'S LIVE EFFECT, with the one fallback this module allows.
+
+		LAZY, not eager: nothing is built until a phase is actually needed, which is
+		the same rule the verb pool has always followed and the reason an adapter
+		constructed enabled still builds nothing at boot. What the design asks for is
+		that a pulse ALLOCATES NOTHING and that the waveform is written exactly once
+		— both are properties of the pool, not of when it is filled.
+
+		`fallbackActive` is set only once the preset has ACTUALLY been built and
+		handed back. A phase whose Custom route failed AND whose preset route failed
+		is not "on fallback"; it is silent, and `support()`/`lastError` are where that
+		is explained. It is not reset by `setEnabled(false)`: whether this client can
+		make a `FloatCurveKey` is a fact about the client, not about the switch. ]]
+	local function phaseEffect(phase: string): any?
+		if not enabled or disposed then
+			return nil
+		end
+		local onFallback = phaseFallback[phase]
+		local spec = if onFallback then fallbackSpecs[phase] else (resolvedProfile :: any)[phase]
+		if spec.kind == "silent" then
+			return nil
+		end
+		local key = if onFallback then fallbackKey[phase] else phaseKey[phase]
+		local existing = sensations[key]
+		if existing ~= nil then
+			return existing
+		end
+		local built = buildFromSpec(spec)
+		if built ~= nil then
+			sensations[key] = built
+			return built
+		end
+		if onFallback or spec.kind ~= "custom" then
+			return nil
+		end
+		local viaPreset = pooledEffect(fallbackSpecs[phase], fallbackKey[phase])
+		if viaPreset == nil then
+			return nil
+		end
+		phaseFallback[phase] = true
+		return viaPreset
+	end
+
+	-- THE ONE `Play` CALL SITE IN THIS MODULE, and it is deliberately the only one:
+	-- a button's press effect is handed to the ENGINE and never played from here,
+	-- which is what keeps "Facet plays nothing" literally true (pinned structurally
+	-- by tests/haptics.spec.luau).
+	local function play(effect: any?): boolean
+		if effect == nil then
+			return false
+		end
+		local played = guard(function()
+			effect:Play()
+			return true
+		end)
+		if played == true then
+			diag.plays += 1
+			return true
+		end
+		return false
+	end
+
 	-- DERIVED, NEVER COUNTED. The counter this replaced read 0 while fifteen
 	-- effects sat in Workspace, because it was maintained beside the pool instead
 	-- of from it and never knew the press effect existed at all.
 	local function pooledCount(): number
 		local n = 0
-		for _ in pressEffects do
+		for _ in sensations do
 			n += 1
 		end
 		for _ in pool do
@@ -522,20 +792,21 @@ function haptics.new(opts: Options?): any
 	end
 
 	-- ===== the property route (`activate`, and every declared verb) =========
-	local function pressEffectHandle(effectTypeName: string): any?
+	-- THE ONLY CALLER OF THE PRESS PHASE. Nothing on the bus can reach it, which
+	-- is what makes "the bus never replays the down edge" structural rather than a
+	-- rule somebody has to keep remembering.
+	local function pressEffectHandle(verb: string?): any?
 		if not enabled then
 			return nil
 		end
-		local existing = pressEffects[effectTypeName]
-		if existing ~= nil then
-			return existing
+		if verb == nil or verb == "activate" then
+			return phaseEffect("press")
 		end
-		local built = construct(effectTypeName)
-		if built == nil then
+		local spec = PRESET_SPECS[verb]
+		if spec == nil then
 			return nil
 		end
-		pressEffects[effectTypeName] = built
-		return built
+		return pooledEffect(spec, PRESET_KEYS[verb])
 	end
 
 	local function isGuiButton(instance: any): boolean
@@ -543,6 +814,25 @@ function haptics.new(opts: Options?): any
 			return instance:IsA("GuiButton")
 		end)
 		return result == true
+	end
+
+	-- IS THIS CONTROL STILL AN AFFORDANCE? `enabled = false` on a Facet Button
+	-- writes `Active = false`, and under native styling `Interactable = false` as
+	-- well (src/client/screen_target.luau's `enabled` branch). A disabled control
+	-- holding a press effect is a promise it does not keep, so it is skipped — and
+	-- a control that BECOMES disabled has its reference cleared on the next sweep,
+	-- for the same reason `none` clears rather than skips.
+	local function isDisabled(instance: any): boolean
+		local active = guard(function(): any
+			return instance.Active
+		end)
+		if active == false then
+			return true
+		end
+		local interactable = guard(function(): any
+			return instance.Interactable
+		end)
+		return interactable == false
 	end
 
 	-- ASSIGN, NEVER PLAY. The engine owns the trigger for these two properties;
@@ -567,13 +857,15 @@ function haptics.new(opts: Options?): any
 		local declaredVerb = guard(function(): any
 			return instance:GetAttribute(haptics.ACTIVATION_ATTRIBUTE)
 		end)
-		local effectTypeName = haptics.pressEffectFor(if type(declaredVerb) == "string" then declaredVerb else nil)
-		if effectTypeName == nil then
-			-- DELIBERATELY UNFELT (`none`, or a verb the MAP silences). Clearing
-			-- rather than skipping: a button that was decorated and is now silent —
-			-- because the adapter re-swept, or because another writer set the
-			-- property — must actually lose its reference, or "none" would mean
-			-- "none unless somebody already said otherwise".
+		local verb: string? = if type(declaredVerb) == "string" then declaredVerb else nil
+		local spec = haptics.pressSpecFor(verb, resolvedProfile)
+		if spec == nil or (spec :: any).kind == "silent" or isDisabled(instance) then
+			-- DELIBERATELY UNFELT (`none`, a verb the MAP silences, a phase this
+			-- game silenced, or a control that is disabled). Clearing rather than
+			-- skipping: a button that was decorated and is now silent — because the
+			-- adapter re-swept, because it was disabled, or because another writer
+			-- set the property — must actually lose its reference, or "none" would
+			-- mean "none unless somebody already said otherwise".
 			guard(function()
 				instance.PressHapticEffect = nil
 				return nil
@@ -581,7 +873,7 @@ function haptics.new(opts: Options?): any
 			entry.decorated[instance] = nil
 			return
 		end
-		local effect = pressEffectHandle(effectTypeName)
+		local effect = pressEffectHandle(verb)
 		if effect == nil then
 			return
 		end
@@ -628,14 +920,16 @@ function haptics.new(opts: Options?): any
 	end
 
 	-- ...and the two moments the adapter genuinely stops: every root released, and
-	-- the shared effect destroyed rather than merely forgotten.
+	-- every pooled SENSATION destroyed rather than merely forgotten. The phase
+	-- effects live in the same pool as the press route's presets, so one loop puts
+	-- all of them away and nothing can be forgotten by being a different kind.
 	local function undecorateAll()
 		for _, entry in roots do
 			undecorateEntry(entry)
 		end
-		for name, effect in pressEffects do
+		for key, effect in sensations do
 			retire(effect)
-			pressEffects[name] = nil
+			sensations[key] = nil
 		end
 	end
 
@@ -674,16 +968,51 @@ function haptics.new(opts: Options?): any
 		if type(verb) ~= "string" then
 			return
 		end
-		-- A CONTROL ACTIVATION IS THE ENGINE'S TO PLAY, whatever verb the author
-		-- gave it. The presenter stamps `reason = "activation"` on every event a
-		-- press causes, and the press route has already handed that button its
-		-- effect through `GuiButton.PressHapticEffect` — so playing it here too
-		-- would be two pulses for one press. This replaces what used to be a
-		-- `MAP.activate = false` hole, which said the same thing but only for the
-		-- default verb: the moment a control could rename its activation, the hole
-		-- stopped covering the case it was cut for.
+		--[[ THE SELECT PHASE CLAIMS ITS TWO VERBS FIRST, whatever caused them. A
+			control whose author declared `activation = "select"` is saying that
+			pressing it IS a choice moving, and the honest answer to that is a tick
+			rather than the generic completed-press settle — the verb is the author's
+			statement of meaning, and it outranks the cause.
+
+			ONE LIMITER FOR THE PAIR, deliberately. Two limiters (one per verb) would
+			let a control alternating `select` and `adjust` — which a scrubbed picker
+			does — pass both and fire at full rate. Leading edge: a suppressed pulse
+			is DROPPED and never replayed, because a haptic that arrives after the
+			gesture is a phantom. ]]
+		if haptics.PHASE_VERBS[verb] ~= nil then
+			local at = now()
+			local previous = lastSelectAt
+			if previous ~= nil and (at - previous) < selectInterval then
+				diag.coalesced += 1
+				return
+			end
+			lastSelectAt = at
+			if play(phaseEffect("select")) then
+				phasePlays.select += 1
+			end
+			return
+		end
+		--[[ A COMPLETED ACTIVATION IS THE RELEASE PHASE'S. The presenter stamps
+			`reason = "activation"` on the event a control's own activation raises,
+			and that event exists only when the activation COMPLETED — the engine's
+			`GuiButton.Activated` does not fire for a press that was dragged away
+			from, and the presenter's echo window collapses the keyboard/gamepad pair
+			into one dispatch. So this is the up edge, the engine already played the
+			down edge through the button's own property, and there is no double pulse:
+			two moments, two sensations, two owners.
+
+			A control that is deliberately unfelt is unfelt on BOTH edges — the same
+			`pressSpecFor` answer that left its press property empty leaves its
+			completion silent, so a `cancel`-declared button cannot buzz on the way
+			up after refusing to on the way down. ]]
 		if event.reason == "activation" then
-			diag.ignored += 1
+			if haptics.pressSpecFor(verb, resolvedProfile) == nil then
+				diag.ignored += 1
+				return
+			end
+			if play(phaseEffect("release")) then
+				phasePlays.release += 1
+			end
 			return
 		end
 		local effectTypeName = MAP[verb]
@@ -696,26 +1025,7 @@ function haptics.new(opts: Options?): any
 			diag.ignored += 1
 			return
 		end
-		if verb == "adjust" then
-			local at = now()
-			local previous = lastAdjustAt
-			if previous ~= nil and (at - previous) < adjustInterval then
-				diag.coalesced += 1
-				return
-			end
-			lastAdjustAt = at
-		end
-		local effect = effectFor(verb, effectTypeName)
-		if effect == nil then
-			return
-		end
-		local played = guard(function()
-			effect:Play()
-			return true
-		end)
-		if played == true then
-			diag.plays += 1
-		end
+		play(effectFor(verb, effectTypeName))
 	end
 
 	-- bind(presenter) -> unbind. `presenter.onFeedback` is the primary seam (one
@@ -824,7 +1134,7 @@ function haptics.new(opts: Options?): any
 			-- settings toggle leaked up to eight of them per flip.
 			undecorateAll()
 			retirePool()
-			lastAdjustAt = nil
+			lastSelectAt = nil
 		end
 	end
 
@@ -846,10 +1156,31 @@ function haptics.new(opts: Options?): any
 		return adapter.support()
 	end
 
+	--[[ WHAT EACH PHASE IS CURRENTLY SERVING, derived at read time from the resolved
+		profile and the live fallback state — never a snapshot taken when something
+		was decided. `effect` is nil for a silence AND for a phase that resolved to
+		nothing buildable, which is why `kind` rides beside it: a reader can tell
+		"this game silenced it" from "this client could not". ]]
+	local function phaseDiagnostics(phase: string): PhaseDiagnostics
+		local onFallback = phaseFallback[phase]
+		local spec: any = if onFallback then fallbackSpecs[phase] else (resolvedProfile :: any)[phase]
+		return {
+			kind = spec.kind,
+			effect = sensory_profile.label(spec),
+			fallbackActive = onFallback,
+			plays = phasePlays[phase],
+		}
+	end
+
 	function adapter.diagnostics(): Diagnostics
 		return {
 			enabled = enabled,
 			support = adapter.support(),
+			phases = {
+				press = phaseDiagnostics("press"),
+				release = phaseDiagnostics("release"),
+				select = phaseDiagnostics("select"),
+			},
 			constructions = diag.constructions,
 			plays = diag.plays,
 			coalesced = diag.coalesced,

@@ -462,6 +462,10 @@ require("./feedback.spec")
 -- haptics adapter that is one possible SUBSCRIBER to it — Facet still plays
 -- nothing
 require("./sensory_feedback.spec")
+-- ...the three Facet waveforms themselves (`contact` / `settle` / `tick`), pinned
+-- byte-exactly because they ARE the product and no test can feel them, plus the
+-- per-phase override/silence rules and the preset fallback's limitation
+require("./sensory_profile.spec")
 require("./haptics.spec")
 -- ...and the PER-CONTROL form of the same modifier — UI.sensoryFeedback(bp,
 -- { activation = verb }) — which cascades down the mounted tree and replaces the

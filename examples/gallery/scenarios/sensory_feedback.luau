@@ -48,12 +48,21 @@
 	THE SWITCH IS THE DEMO'S DECISION, NOT THE LIBRARY'S, and the screen says so:
 	default-off is the framework's correct posture and does not move. `PlayHaptics`
 	constructs `haptics.new({ enabled = true })` and hands it the two seams a game
-	hands it — `bind(presenter)` and `attachButtons(root)`. THE SECOND ONE IS THE
-	ONE THAT MATTERS HERE: every event this surface produces carries
-	`reason = "activation"`, and the adapter deliberately drops those on the bus
-	because a control's press belongs to the ENGINE through
-	`GuiButton.PressHapticEffect`. A `bind` alone would have felt like nothing at
-	all — which is exactly what "wire up the haptics" would have produced.
+	hands it — `bind(presenter)` and `attachButtons(root)`. BOTH MATTER NOW: since
+	the phase model (task 11) a control activation has TWO felt moments with two
+	owners — the DOWN edge, which belongs to the ENGINE through
+	`GuiButton.PressHapticEffect` and arrives through `attachButtons`, and the
+	COMPLETED edge, which arrives on the bus through `bind`. Before that, every
+	event this surface produced carried `reason = "activation"` and the adapter
+	dropped all of them, so a `bind` alone felt like nothing at all — which is
+	exactly what "wire up the haptics" would have produced.
+
+	AND THE CALIBRATION PANEL IS WHERE THE THREE PHASES ARE JUDGED ONE AT A TIME.
+	Press / release / select fire at three different moments, and two of them can
+	be driven in isolation from a control that reports nothing of its own; the
+	third cannot be driven at all, because it is the engine's. The panel says which
+	is which, counts the pulses this adapter played, and stays honest about the one
+	it cannot count.
 
 	AND IT REPORTS A TRI-STATE, which is the part that matters most
 	(docs/lessons/capability-probes-must-be-tri-state.md). "Nothing happened" must
@@ -138,6 +147,27 @@ local COPY = {
 	unknownNoModule = "the haptics adapter could not be loaded on this host, so nothing was requested.",
 	supportPrefix = "support()",
 	decoratedSuffix = "buttons holding a press effect",
+	-- ===== the calibration panel (task 11) =================================
+	-- One row per PHASE, because the three fire at three different moments and a
+	-- device session has to be able to judge them one at a time. Every note is a
+	-- whole sentence for the pseudo-localization reason the header gives.
+	calibrationTitle = "Calibrate the three phases",
+	calibrationNote = "Turn the switch above on, then press each row and judge with your hand. Nothing here plays anything while it is off.",
+	calPress = "Press",
+	calPressNote = "The engine plays this one on the way DOWN, from the reference Facet handed the button — no game code fires it. The same press answers with the release waveform on the way UP, so hold it, drag off the button and let go to feel the down edge alone. That drag is also the cancellation proof: no completed activation, no sound.",
+	calRelease = "Release",
+	calReleaseNote = "A control that reports nothing of its own, driving one completed activation onto the bus: the release waveform, alone.",
+	calSelect = "Select",
+	calSelectNote = "One changed choice onto the bus: the select waveform, alone. Tap it fast — pulses closer together than the floor are DROPPED, never queued behind each other.",
+	profileTitle = "Which profile is installed",
+	profileDefaults = "Facet defaults",
+	profileFallback = "Preset fallback",
+	profileSilent = "Silent",
+	profileNote = "The same three phases, three ways: Facet's own waveforms, the platform presets a client that cannot build a custom waveform falls back to, or nothing at all. Switching re-installs the adapter.",
+	profileCurrentPrefix = "Installed",
+	pulsePrefix = "Pulses this adapter played",
+	pulsePressNote = "press: the engine's, and no game code can read whether it fired",
+	phasesTitle = "The three phases and their waveforms",
 	unknowableTitle = "What no game code can read",
 	unknowable = "Whether a HapticEffect actually fired, and the player's own haptics strength — UserGameSettings.HapticStrength is RobloxScriptSecurity on read. Neither is a thing this screen can honestly claim, in either direction.",
 }
@@ -152,15 +182,26 @@ local DECLARED: { { id: string, copyKey: string, activation: string? } } = {
 	{ id = "Plain", copyKey = "plain", activation = nil },
 }
 
--- the verbs this surface can produce, and what the shipped adapter maps each to.
--- WRITTEN OUT rather than derived, because a gallery fixture may not require a
--- client module — and pinned against `haptics.MAP` by the headless suite, which
--- is what keeps a written-out table honest.
+-- the verbs this surface can produce, and what a button declaring each one hands
+-- the ENGINE for its press. WRITTEN OUT rather than derived, because a gallery
+-- fixture may not require a client module — and pinned against
+-- `haptics.pressSpecFor` by the headless suite, which is what keeps a written-out
+-- table honest. `activate` (and an undeclared control) is the PRESS PHASE, which
+-- is Facet's own `contact` waveform rather than a platform preset.
 local SENSATION: { { verb: string, effect: string? } } = {
 	{ verb = "commit", effect = "UIClick" },
 	{ verb = "reject", effect = "UINotification" },
 	{ verb = "select", effect = "UIClick" },
-	{ verb = "activate", effect = "UIClick" },
+	{ verb = "activate", effect = "contact" },
+}
+
+-- THE THREE PHASES AND THEIR SHIPPED WAVEFORMS (`src/client/sensory_profile.luau`).
+-- Written out for the same reason and pinned the same way. `owner` is the half a
+-- reader cannot infer from the name: WHO decides the moment it fires.
+local PHASES: { { phase: string, effect: string, owner: string } } = {
+	{ phase = "press", effect = "contact", owner = "the engine, on the way down" },
+	{ phase = "release", effect = "settle", owner = "the bus, when the press completes" },
+	{ phase = "select", effect = "tick", owner = "the bus, when a choice changes" },
 }
 
 -- ===== the opt-in's plumbing (NM-G3) =======================================
@@ -174,6 +215,12 @@ local STATE_OFF = "off"
 local STATE_REQUESTED = "requested"
 local STATE_REFUSED = "refused"
 local STATE_UNDETERMINED = "undetermined"
+
+-- the three profiles the calibration panel can install, named so a caller cannot
+-- spell one of them differently
+local PROFILE_DEFAULTS = "defaults"
+local PROFILE_FALLBACK = "fallback"
+local PROFILE_SILENT = "silent"
 
 export type Facts = {
 	-- did the adapter MODULE load at all? A host where it did not is a fact about
@@ -313,6 +360,12 @@ return {
 	logLines = LOG_LINES,
 	declared = DECLARED,
 	sensation = SENSATION,
+	phases = PHASES,
+	profiles = table.freeze({
+		defaults = PROFILE_DEFAULTS,
+		fallback = PROFILE_FALLBACK,
+		silent = PROFILE_SILENT,
+	}),
 	build = function(ctx: any)
 		local Facet = ctx.Facet
 		local UI = Facet.UI
@@ -329,6 +382,13 @@ return {
 		local hapticsState = scope:own(core:signal(STATE_OFF))
 		local hapticsHeadline = scope:own(core:signal(COPY.stateOffHeadline))
 		local hapticsDetail = scope:own(core:signal(COPY.stateOff))
+
+		-- ===== the calibration panel (task 11) =============================
+		-- WHICH PROFILE, and what the adapter has actually played. Both are signals
+		-- the panel reads and the steps below publish, so a Studio session, a device
+		-- session and the headless suite all read the same numbers.
+		local profileChoice = scope:own(core:signal(PROFILE_DEFAULTS))
+		local pulseLine = scope:own(core:signal(`{COPY.pulsePrefix}: 0`))
 
 		-- the live adapter, and the two releases it handed back
 		local hap: any = nil
@@ -347,6 +407,34 @@ return {
 			because that is all it may ever be: it never changes the DECISION, only
 			where the facts come from. ]]
 		local scriptedEngine: any = nil
+
+		--[[ WHAT THE ADAPTER HAS PLAYED, per phase, read off its own diagnostics.
+
+			THE PRESS ROW IS DELIBERATELY NOT A NUMBER. Facet hands the button a
+			reference and the ENGINE fires it, so nothing in game code can count that
+			pulse or even know it happened — printing a 0 there would read as "the
+			press never fired" when what it means is "nobody can see". The sentence is
+			the honest instrument. ]]
+		local function publishPulses()
+			if teardown then
+				return
+			end
+			if hap == nil then
+				pulseLine:set(`{COPY.pulsePrefix}: 0 · {COPY.pulsePressNote}`)
+				return
+			end
+			local ok, diagnostics = pcall(hap.diagnostics)
+			if not ok or diagnostics == nil then
+				pulseLine:set(`{COPY.pulsePrefix}: 0 · {COPY.pulsePressNote}`)
+				return
+			end
+			local phases: any = diagnostics.phases or {}
+			local release = if phases.release ~= nil then phases.release.plays else 0
+			local select_ = if phases.select ~= nil then phases.select.plays else 0
+			pulseLine:set(
+				`{COPY.pulsePrefix}: {diagnostics.plays} · release {release} · select {select_} · {COPY.pulsePressNote}`
+			)
+		end
 
 		local function publish()
 			if teardown then
@@ -398,6 +486,35 @@ return {
 			moduleError = nil
 			installed = false
 			publish()
+			publishPulses()
+		end
+
+		--[[ THE THREE PROFILES, built from the adapter module's OWN
+			`sensory_profile` rather than from a copy of its numbers here. The fallback
+			arm names the presets `sensory_profile.FALLBACK` names — so if that
+			limitation ever changes, this panel changes with it instead of quietly
+			demonstrating the old one. ]]
+		local function profileOption(adapterModule: any): any?
+			local choice = profileChoice:get()
+			if choice == PROFILE_DEFAULTS then
+				return nil
+			end
+			local sp = adapterModule ~= nil and adapterModule.sensoryProfile or nil
+			if sp == nil then
+				return nil
+			end
+			if choice == PROFILE_SILENT then
+				return {
+					press = { kind = "silent" },
+					release = { kind = "silent" },
+					select = { kind = "silent" },
+				}
+			end
+			return {
+				press = { kind = "preset", effect = sp.FALLBACK.press },
+				release = { kind = "preset", effect = sp.FALLBACK.release },
+				select = { kind = "preset", effect = sp.FALLBACK.select },
+			}
 		end
 
 		local function install()
@@ -415,6 +532,9 @@ return {
 			end
 			local options: any = table.clone(given.options or {})
 			options.enabled = true
+			if options.profile == nil then
+				options.profile = profileOption(adapterModule)
+			end
 			local madeOk, made = pcall(adapterModule.new, options)
 			if not madeOk or made == nil then
 				-- a module that exists and will not construct is still a fact about
@@ -424,9 +544,10 @@ return {
 				return
 			end
 			hap = made
-			-- THE BUS SEAM, wired because a game wires it — and it plays nothing
-			-- for this surface on purpose: every event here is an `activation`,
-			-- and an activation belongs to the button's own press property.
+			-- THE BUS SEAM, wired because a game wires it. Since task 11 it is no
+			-- longer inert for this surface: an activation's DOWN edge still belongs
+			-- to the button's own press property, but its COMPLETED edge is the
+			-- release phase and arrives here.
 			local presenter = ctx.presenter
 			if presenter ~= nil and type(presenter.onFeedback) == "function" then
 				unbindHaptics = hap.bind(presenter)
@@ -440,6 +561,7 @@ return {
 				detachHaptics = hap.attachButtons(root)
 			end
 			publish()
+			publishPulses()
 		end
 
 		scope:own(core:observe(playHaptics, function(on: any)
@@ -493,6 +615,77 @@ return {
 		local counts = scope:own(core:memo(function(use)
 			return `{COPY.pressesPrefix}: {use(reported)}`
 		end))
+
+		--[[ ===== the calibration panel's three drivers ======================
+			The RELEASE and SELECT phases are the BUS's, so a control that reports
+			nothing of its own can put exactly one of their causes onto the bus and
+			nothing else — which is how each is judged alone. The PRESS phase has no
+			driver here and cannot have one: Facet hands the engine a reference and the
+			engine decides the moment. Pressing the row IS the driver. ]]
+		local function emit(event: any)
+			local presenter = ctx.presenter
+			if presenter == nil or type(presenter.emitFeedback) ~= "function" then
+				return
+			end
+			pcall(presenter.emitFeedback, event)
+			publishPulses()
+		end
+
+		local function fireRelease()
+			emit({ type = "activate", path = "/SensoryFeedback/Page/Calibration/CalRelease", reason = "activation" })
+		end
+
+		local function fireSelect()
+			emit({ type = "select", path = "/SensoryFeedback/Page/Calibration/CalSelect" })
+		end
+
+		local function chooseProfile(choice: string)
+			if profileChoice:get() == choice then
+				return
+			end
+			profileChoice:set(choice)
+			-- take effect NOW rather than at the next toggle: a selector that needs a
+			-- second gesture to mean anything is a selector a device pass mistrusts
+			if installed then
+				install()
+			end
+			publishPulses()
+		end
+
+		local profileLine = scope:own(core:memo(function(use)
+			local choice = use(profileChoice)
+			local label = COPY.profileDefaults
+			if choice == PROFILE_FALLBACK then
+				label = COPY.profileFallback
+			elseif choice == PROFILE_SILENT then
+				label = COPY.profileSilent
+			end
+			return `{COPY.profileCurrentPrefix}: {label}`
+		end))
+
+		local function profileButton(id: string, copyKey: string, choice: string): any
+			return UI.Button({
+				id = id,
+				label = COPY[copyKey],
+				surface = "chip",
+				onActivate = function()
+					chooseProfile(choice)
+				end,
+			})
+		end
+
+		local phaseRows: { any } = {}
+		for i, row in PHASES do
+			table.insert(
+				phaseRows,
+				UI.Text({
+					id = `Phase{i}`,
+					text = `{row.phase} → {row.effect} — {row.owner}`,
+					textSize = 12,
+					role = "secondary",
+				})
+			)
+		end
 
 		-- one button, declared or not. The ONLY difference between these five is
 		-- the modifier — same class, same surface, same label treatment.
@@ -653,6 +846,101 @@ return {
 								}),
 							},
 						}),
+						--[[ THE CALIBRATION PANEL (task 11). Three phases, judged one at
+							a time, plus the profile they are judged under and a count of
+							what actually went out.
+
+							THE ROWS WRAP AND THE NOTES ARE WHOLE SENTENCES, for the two
+							reasons the header gives: three chips at the Largest text
+							preference do not fit one line on a 320px phone, and a note
+							stitched from fragments expands in three places at once under
+							the pseudo-localizing pass. ]]
+						UI.VStack({
+							id = "Calibration",
+							surface = "control",
+							padding = 8,
+							gap = 6,
+							width = { type = "fill", weight = 1 },
+							children = {
+								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = 12 }),
+								UI.Text({
+									id = "CalNote",
+									text = COPY.calibrationNote,
+									textSize = 12,
+									role = "secondary",
+								}),
+								UI.Text({ id = "PhasesTitle", text = COPY.phasesTitle, textSize = 12 }),
+								UI.VStack({ id = "PhaseRows", gap = 2, children = phaseRows }),
+								-- PRESS has no handler and cannot have one: pressing it IS
+								-- the phase, because the engine owns the moment.
+								UI.HStack({
+									id = "CalRow",
+									wrap = true,
+									gap = 6,
+									children = {
+										UI.Button({ id = "CalPress", label = COPY.calPress, surface = "chip" }),
+										-- the two bus phases are driven from controls that
+										-- report NOTHING of their own, so each row puts exactly
+										-- one cause on the bus and nothing else
+										UI.sensoryFeedback(
+											UI.Button({
+												id = "CalRelease",
+												label = COPY.calRelease,
+												surface = "chip",
+												onActivate = fireRelease,
+											}),
+											{ activation = "none" }
+										),
+										UI.sensoryFeedback(
+											UI.Button({
+												id = "CalSelect",
+												label = COPY.calSelect,
+												surface = "chip",
+												onActivate = fireSelect,
+											}),
+											{ activation = "none" }
+										),
+									},
+								}),
+								UI.Text({
+									id = "CalPressNote",
+									text = COPY.calPressNote,
+									textSize = 12,
+									role = "secondary",
+								}),
+								UI.Text({
+									id = "CalReleaseNote",
+									text = COPY.calReleaseNote,
+									textSize = 12,
+									role = "secondary",
+								}),
+								UI.Text({
+									id = "CalSelectNote",
+									text = COPY.calSelectNote,
+									textSize = 12,
+									role = "secondary",
+								}),
+								UI.Text({ id = "ProfileTitle", text = COPY.profileTitle, textSize = 12 }),
+								UI.HStack({
+									id = "ProfileRow",
+									wrap = true,
+									gap = 6,
+									children = {
+										profileButton("ProfileDefaults", "profileDefaults", PROFILE_DEFAULTS),
+										profileButton("ProfileFallback", "profileFallback", PROFILE_FALLBACK),
+										profileButton("ProfileSilent", "profileSilent", PROFILE_SILENT),
+									},
+								}),
+								UI.Text({ id = "ProfileCurrent", text = profileLine, textSize = 12 }),
+								UI.Text({
+									id = "ProfileNote",
+									text = COPY.profileNote,
+									textSize = 12,
+									role = "secondary",
+								}),
+								UI.Text({ id = "PulseCount", text = pulseLine, textSize = 12 }),
+							},
+						}),
 					},
 				}),
 			},
@@ -669,6 +957,8 @@ return {
 			hapticsState = hapticsState,
 			hapticsHeadline = hapticsHeadline,
 			hapticsDetail = hapticsDetail,
+			profileChoice = profileChoice,
+			pulseLine = pulseLine,
 			-- the live adapter, or nil. A test counts INSTANCES through it rather
 			-- than believing this fixture's own account of them.
 			hapticsAdapter = function(): any
@@ -704,6 +994,36 @@ return {
 						detail = hapticsDetail:get(),
 						support = if hap ~= nil then hap.support() else nil,
 						decorated = if hap ~= nil then hap.diagnostics().decorated else 0,
+					}
+				end,
+				-- the calibration panel, driven BY NAME through the same functions the
+				-- three chips call — so a scripted sweep and a finger take one path
+				setProfile = function(choice: string)
+					chooseProfile(choice)
+					return { profile = profileChoice:get(), pulses = pulseLine:get() }
+				end,
+				firePhase = function(phase: string)
+					if phase == "release" then
+						fireRelease()
+					elseif phase == "select" then
+						fireSelect()
+					end
+					-- "press" is deliberately undrivable: it is the ENGINE's moment,
+					-- and a fixture that faked it would be demonstrating itself
+					return { phase = phase, pulses = pulseLine:get() }
+				end,
+				readPulses = function()
+					publishPulses()
+					local phases = if hap ~= nil then hap.diagnostics().phases else nil
+					return {
+						line = pulseLine:get(),
+						profile = profileChoice:get(),
+						plays = if hap ~= nil then hap.diagnostics().plays else 0,
+						release = if phases ~= nil then phases.release.plays else 0,
+						select = if phases ~= nil then phases.select.plays else 0,
+						pressEffect = if phases ~= nil then phases.press.effect else nil,
+						releaseEffect = if phases ~= nil then phases.release.effect else nil,
+						selectEffect = if phases ~= nil then phases.select.effect else nil,
 					}
 				end,
 			},

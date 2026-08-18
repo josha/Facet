@@ -25,6 +25,7 @@ local rowsLib = require("../examples/performance/lab/rows")
 local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
 local leversLib = require("../examples/performance/lab/levers")
+local hapticsLib = require("../src/client/haptics")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 -- the pass-level round-trip readout is only populated while phase scopes are
 -- recording, and scopes ship OFF (src/core/profile.luau) — so one case here
@@ -76,7 +77,17 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 		presenter = pres,
 		actionSystem = system,
 		host = host,
-		lab = { dataset = dataset, rows = rowsLib, capture = captureLib, overlay = overlayLib, levers = leversLib },
+		-- `haptics` is the opt-in client adapter the lab binds under
+		-- `select:haptics=on` (task 11). Supplied here exactly as the Studio host
+		-- supplies it, so the headless rig exercises the shipped route.
+		lab = {
+			dataset = dataset,
+			rows = rowsLib,
+			capture = captureLib,
+			overlay = overlayLib,
+			levers = leversLib,
+			haptics = hapticsLib,
+		},
 		labOptions = labOpts,
 		telemetry = {
 			clock = function()
@@ -380,6 +391,86 @@ describe("incremental layout Stage 1: boundary detection sizes the prize", funct
 		-- an ordinary layout edit does not redden this; what it protects is the claim
 		-- the plan rests on — that boundaries exist and isolate most of the tree.
 		expect(report.meanShareOfTree < 0.5).toBe(true)
+		built.dispose()
+	end)
+end)
+
+--[[ THE HAPTICS COUNTERS (task 11).
+
+	An adapter that turns feedback verbs into engine haptics is a new subscriber on
+	the presenter's bus, and a performance lab's job is to answer one question about
+	any new subscriber: does it cost anything PER FRAME? It must not — the adapter
+	is event-driven, pools one Instance per distinct sensation and builds none per
+	pulse — so the counter line exists to make that a measurement rather than a
+	claim, and these cases are what say the counter can see anything at all.
+
+	THE WORKLOAD IS IDENTICAL with the setting on or off: this adds a subscriber,
+	never a scenario.
+]]
+local function hapticsLine(built: any): string
+	for _, line in built.overlayControls.counterLines() do
+		if string.sub(line, 1, 8) == "haptics=" then
+			return line
+		end
+	end
+	return "(no haptics line)"
+end
+
+describe("perf lab: the haptics counters (task 11)", function()
+	it("is OFF by default, and the counter line says so rather than omitting itself", function()
+		local built = newHarness()
+		expect(#built.overlayControls.counterLines()).toBe(7)
+		expect(hapticsLine(built)).toBe("haptics=off")
+		built.dispose()
+	end)
+
+	it("a whole dense scroll with haptics ON moves NO haptic counter — it is event-driven", function()
+		--[[ WHAT THIS HOST CAN AND CANNOT MEASURE, stated so the zero is read
+			correctly. There is no `Instance` and no `Enum` under Lune, so the adapter
+			can never CONSTRUCT here and `built` would read 0 whatever it did; the
+			Instance-level pooling claim is proved against a scripted engine in
+			tests/haptics.spec.luau, where the fake counts them.
+
+			What THIS case proves is the other half, and it is the half the lab exists
+			for: a dense scroll produces no feedback verbs at all, so the adapter is
+			never even ASKED — `coalesced` and `plays` are both 0 across thirty scroll
+			steps. The positive control below is what stops that from being a zero
+			about a dead binding. ]]
+		local built = newHarness(nil, { w = 360, h = 691 })
+		built.steps.select(nil, "scenario=dense-scroll,rows=500,seed=1,haptics=on")
+		built.steps.mount()
+		built.steps.pass(nil, "scrollSteady=30")
+		expect(hapticsLine(built)).toBe("haptics=on built=0 pooled=0 plays=0 coalesced=0")
+		built.dispose()
+	end)
+
+	it("...and the SAME adapter hears a real verb, so the zero above is not a dead binding", function()
+		local built, ctx = newHarness(nil, { w = 360, h = 691 })
+		built.steps.select(nil, "scenario=dense-scroll,rows=500,seed=1,haptics=on")
+		built.steps.mount()
+		built.steps.pass(nil, "scrollSteady=30")
+		expect(hapticsLine(built)).toBe("haptics=on built=0 pooled=0 plays=0 coalesced=0")
+		-- TWO select verbs inside the rate-limit window. The coalescer runs BEFORE
+		-- anything is constructed, so it is the one counter this engine-less host can
+		-- move — and moving it proves the bus subscription is live.
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		expect(hapticsLine(built)).toBe("haptics=on built=0 pooled=0 plays=0 coalesced=1")
+		built.dispose()
+	end)
+
+	it("turning it back off disposes the adapter, and the line returns to `off`", function()
+		local built, ctx = newHarness(nil, { w = 360, h = 691 })
+		built.steps.select(nil, "scenario=dense-scroll,rows=200,seed=1,haptics=on")
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		expect(hapticsLine(built)).toBe("haptics=on built=0 pooled=0 plays=0 coalesced=1")
+		built.steps.select(nil, "haptics=off")
+		expect(hapticsLine(built)).toBe("haptics=off")
+		-- ...and a verb after the switch reaches nothing at all
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		ctx.presenter.emitFeedback({ type = "select", path = "/Perf/Probe" })
+		expect(hapticsLine(built)).toBe("haptics=off")
 		built.dispose()
 	end)
 end)
