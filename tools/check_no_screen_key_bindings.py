@@ -95,7 +95,16 @@ FORBIDDEN = ("KeyCode", "UserInputService", "ContextActionService")
 
 # The sanctioned seam, pinned by file and by number of binding SITES.
 BINDING_SITES = re.compile(r"keyCode *=")
-PINS = {"src/controls/row_actions.luau": 4, "src/controls/text_input.luau": 2}
+# menu.luau added 2026-08-18 (release-candidate review, controller ruling R10):
+# its two sites declare the platform-conventional menu keys (Menu, Shift+F10)
+# through the same contribution-scoped seam as the other pins. The bindings
+# shipped and were gated in the navigation-and-menus round; this pin records
+# that decision. The game director may veto in the Step 13 report review.
+PINS = {
+    "src/controls/row_actions.luau": 4,
+    "src/controls/text_input.luau": 2,
+    "src/controls/menu.luau": 3,
+}
 
 # The Studio fixture must CREATE no binding — it may only read one for its trace.
 FIXTURE_WIRING = re.compile(r"keyCode *=|createAction\(|\.bind\(")

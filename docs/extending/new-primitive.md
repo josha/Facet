@@ -7,6 +7,9 @@ needs none of this; if you can build it from what already exists, read
 framework grows a new kind of *box*, and every target has to know how to make
 one.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules every public addition must follow. This page assumes them.
+
 Until 2026-08-17 this path had no playbook — `new-control.md` deferred it to
 [`new-engine-feature.md`](new-engine-feature.md), which only covers adding a
 *property* or a *modifier* to a class that already exists — and no checker.
