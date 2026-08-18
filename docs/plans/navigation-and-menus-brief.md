@@ -55,7 +55,12 @@ with a closed spec (constitution §4 / ARCH-1), registered, themed off existing 
 reachable on every input class. D7 is a repair to shipped layout machinery plus the
 showcase that exposed it. D8 is a showcase consolidation needing no framework change.
 
-### D0 — Stop re-running the whole suite once per gate (do this FIRST)
+### D0 — Sweep economy and grep integrity (do this FIRST)
+
+Two halves: **D0.1** stops the sweep re-running the suite once per gate, and **D0.2** makes
+the one transcript it now keeps prove that the checks' greps still match something.
+
+#### D0.1 — Stop re-running the whole suite once per gate
 
 Director task, 2026-08-16: *"when we do test sweeps, it re-runs the whole suite per gate.
 that's inefficient. let's optimize this."* Correct, and the size of it is worth stating.
@@ -113,6 +118,55 @@ are the deliverable, not caveats on it:
    the sweep re-runs; mutate the transcript on disk, confirm the checks go red. The
    gate-integrity sweep's standing rule is that a check is worthless until a mutation has
    been seen to fail it — and a cache that never invalidates is the purest example of one.
+
+**D0.2 — and verify the greps still MATCH something, not just that they are anchored.**
+
+Director, 2026-08-16: *"Nothing verifies our test-greps still match anything — only that
+they're correctly anchored. Two consecutive stages have now found a rename by hand."*
+Exactly right, and it is the natural companion to the cache, because the blocker was
+always "you'd need a transcript" — D0.1 produces exactly one.
+
+`tools/check_manifest_integrity.py` enforces that every suite grep is anchored to the pass
+marker (`✓.*<case name>`), because `testkit` prints the case name on **both** outcomes so
+an unanchored grep proves registration, not success. That is a **syntactic** property. The
+script never runs the suite, so it cannot know whether the pattern still matches a line
+that exists. Rename a spec and the grep stays perfectly anchored and matches nothing — the
+gate does redden, but only when someone runs that gate, at 83 s a go. Hence: found by hand,
+twice.
+
+**Measured 2026-08-16 against green transcripts** (5618 passed / 3280 passed):
+
+| | |
+|---|---|
+| Suite grep patterns in the manifest | **990** (940 LuauUI, 50 Rascal Rally) |
+| **Patterns matching ZERO lines in a fully green run** | **13** |
+| Gates affected | `phase-2-settings-parity` (5), `phase-3-pilot` (6), `part-2-director` (2) |
+
+Spot-checked, they are a mix: some concepts survive under new case names ("zero factory
+reruns" is still printed, worded differently), while `kart card`, `racer headerless` and
+`reduced motion repaints` return nothing at all. **Fix the 13 as part of this deliverable**
+— re-point the renames, delete the ones whose case is genuinely gone — or the new check
+lands red on arrival.
+
+**Build it into `check_manifest_integrity.py`**, which already parses the manifest through
+Lune (never by regexing the Lua source — its own header explains why) and already walks
+every suite grep. Add a transcript-fed mode that reports each pattern matching no line.
+Three traps, all of which I hit while measuring this, so they are not hypothetical:
+
+1. **Use `grep -q`, not `grep -qE`.** The manifest uses BRE. Under ERE a pattern like
+   `traverse(+1)` is a different expression or a syntax error, and grep's exit 2 reads as
+   "no match". This alone inflated my first count from 13 to 95.
+2. **Route each pattern to the transcript its own capture came from, positionally.** A
+   check may capture `$out` from the LuauUI suite and *then* `cd` into Rascal Rally for a
+   later assertion; the mention of RascalRally anywhere in the run string is not the test.
+   The capture belongs to Rascal Rally only when a `cd .../RascalRally/code` precedes the
+   `out=` assignment. Getting this wrong reported 15 false positives in one check.
+3. **It must run fast and standalone.** It greps text and runs no suite, so it belongs in
+   the inner loop where a rename is caught in the commit that caused it — not only inside
+   a sweep.
+
+And the standing rule applies to this check like any other: **rename a case and watch the
+check go red** before believing it works.
 
 **Why first.** Every deliverable after this one runs gates, and D1-D8 will run many. Land
 D0 and the rest of the round costs minutes per sweep instead of hours; land it last and
@@ -506,7 +560,8 @@ it in any free lane rather than holding it behind D7.
 
 D0 leads because every stage below it runs gates, and today each gate re-runs an 83-second
 suite from scratch. Landing it first is the difference between a sweep costing minutes and
-costing hours, repeated once per stage.
+costing hours, repeated once per stage — and D0.2 then catches a renamed spec in the commit
+that renamed it, instead of three stages later by hand.
 
 D1 is the substrate for D2, D3a and D3b. D4 is the substrate for D5 and D6. **D7 comes
 last on purpose**: its terminal forms and overflow sink are built out of D1's anchored
@@ -573,7 +628,9 @@ would have shipped otherwise, so the net is a smaller bug surface, not a bigger 
    against both the API (no cap) and the HIG (one level).
 5. **D7 added**: fix the Screen-anchored HUD showcase, modifying the framework as
    needed. Elision must disclose rather than delete. See §2 D7.
-6. **D0 added** (and moved to the front): one suite run per sweep instead of 161. See §2 D0.
+6. **D0 added** (and moved to the front): one suite run per sweep instead of 161, plus a
+   check that the manifest's greps still MATCH and not merely that they are anchored.
+   13 patterns are stale today; fix them in the same stage. See §2 D0.
 7. **D8 added**: make the playlist table sortable and its columns resizable, then retire
    the standalone `table_columns` scenario. Both capabilities already ship, so this is an
    example task. It **overrules** a prior round's written decision not to merge them

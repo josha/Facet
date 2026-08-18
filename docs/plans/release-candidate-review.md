@@ -1,7 +1,7 @@
-# LuauUI release-candidate review and remediation
+# Facet release-candidate review, rename, and remediation
 
 **Date:** 2026-08-13  
-**Updated:** 2026-08-16
+**Updated:** 2026-08-17
 **Status:** Planned after the functional proof stages.
 
 ## Purpose
@@ -12,6 +12,13 @@ architecture, platform, API, documentation, and performance defects that the sta
 acceptance gates may have missed. It also prepares the code for future maintainers:
 a person or agent should be able to find the correct owner, add a feature through the
 established pattern, and prove the result without reconstructing project history.
+
+This stage also completes the framework's pre-public rename from **LuauUI** to
+**Facet**. Facet is the permanent product, package, module, documentation, and
+profiling identity. Use `Facet` for the product, repository, root folder, ModuleScript,
+and public Luau binding; use lowercase `facet` only where a tool requires a slug. The
+plain-language promise is “One interface, shaped for every player.” The old name is
+migration input, not a second brand.
 
 ## Review method
 
@@ -32,11 +39,65 @@ Review the full production surface and its blast radius:
   extension seams;
 - API consistency against the constitution, types, deprecations, examples, guides,
   generated references, and package boundaries;
-- performance cliffs, per-frame allocation/writes, resource leaks, and sibling
-  regressions.
+- performance cliffs in solving, updating, adapter commits, and rendering; per-frame
+  allocation/writes; resource leaks; and sibling regressions.
 
 Report every issue, including uncertain and low-severity ones. A declared missing
 feature is not a defect unless the current API or documentation claims it works.
+
+## Canonical identity: Facet
+
+Facet is the owner-selected name. Before mass edits, record a current collision and
+rights check for the GitHub target, Roblox/Creator Store and common Roblox package
+surfaces, major code hosts, and relevant trademark databases. A confirmed conflict
+blocks external release and produces evidence for the owner; the agent must not choose
+a different brand on its own.
+
+Freeze a machine-readable rename inventory before editing. Include every case and
+separator form of the old name in tracked paths and contents, generated outputs,
+Studio object names, Luau symbols and types, require paths, Rojo mappings, project and
+build files, test and gate IDs, artifact directories, environment/config names,
+profiler labels, telemetry and diagnostics, documentation links, agent registrations,
+skills, repository metadata, and Rascal Rally. Classify each match as current source,
+generated output, persistent/external identifier, immutable evidence, or Git/remote
+metadata. Count it before and after.
+
+Use history-preserving moves to rename `GameStudio/ui/LuauUI` to
+`GameStudio/ui/Facet` and every maintained file whose name contains the old brand,
+including this roadmap, agent stubs, Sponsor documents, example places, model/package
+outputs, and `skills/use-luauui`. Rename the required ModuleScript and public binding
+to `Facet`; canonical calls read `Facet.UI...`, `Facet.Controls...`, or another shape
+chosen by the naming ADR. Rebuild binary/generated outputs from renamed source. Do not
+patch serialized binaries or generated manifests by blind text replacement.
+
+Update both Rascal Rally Rojo projects, source imports, types, fixtures, tests, Studio
+labels, diagnostics, build mappings, and Sponsor code in the same change. Rename the
+production selector to a neutral or Facet name while preserving its exact default and
+the legacy Sponsor rollback. If any DataStore key, Attribute, analytics event, cloud
+asset, or other externally stored name can outlive this checkout, use one isolated
+dual-read/single-write migration manifest with an owner and removal trigger. Do not
+silently strand live data or keep the old brand as an ordinary alias.
+
+Update build, test, documentation, and artifact tools so a clean checkout at the new
+path works without symlinks or the old folder. Rename current profile scopes and
+scenario IDs so new captures say Facet; preserve old raw captures as historical
+evidence and label their framework version rather than rewriting them. Produce a
+temporary redirect/migration note only where an already-consumed external path needs
+it. The GitHub remote rename is a Step 14 owner-checkpoint action: this stage prepares
+and verifies the exact local target and remote-change packet but does not mutate the
+remote, publish, or create a package.
+
+Before the drift gate, rewrite this roadmap and later-stage plans so they use Facet and
+read the old remote URL only from the approved migration packet. The temporary rename
+instructions must not leave the retired brand scattered through maintained docs.
+
+After regeneration, run a case-insensitive old-name drift check across the maintained
+and distributable tree, including paths and relevant serialized object names. The only
+permitted matches are one short rename ADR, the explicit external migration manifest,
+and immutable raw evidence stored outside the release surface. Each exception needs a
+reason and removal rule. Prove the guard fails on temporary old-name content and an
+old-name path. A clean clone/build/test/Studio run from `GameStudio/ui/Facet` and both
+Rascal Rally projects must pass before broader remediation continues.
 
 ## Engineering quality and reuse
 
@@ -116,8 +177,11 @@ do not add a heuristic score that cannot explain how to fix a result.
 Run two disposable fresh-context exercises using only the maintained repository and
 its public contributor guidance:
 
-1. A fresh agent adds one small representative extension through the documented
-   scaffold/API path, with tests, registration, docs, Studio fixture, and cleanup.
+1. A fresh agent adds a `ColorWell`-style composite: a visible color bucket or swatch
+   opens a small palette picker when activated. It uses public Facet seams, every
+   supported input class, focus and dismissal, theme roles, accessibility, tests,
+   registration, a Studio fixture, and cleanup. A small fixed palette is enough; this
+   exercise must not grow into a production color-editor feature.
 2. A different fresh agent diagnoses and repairs a seeded bounded defect, identifies
    the correct owner, adds the smallest regression test, and runs the right gates.
 
@@ -126,6 +190,55 @@ real code, tools, tests, and guidance that the exercises reveal. Record wrong tu
 missing context, duplicated edits, internal imports, and unnecessary retries as
 maintainability findings. Fix them and rerun both exercises until each agent succeeds
 without conversation history or private hints.
+
+## Adding a control must be easy
+
+Rewrite `docs/extending/new-control.md` as an ELI5 path that both a Roblox developer
+and an agent can follow. Keep the first successful control small. Put deeper contract
+and conformance detail in a linked reference checklist so the first page does not read
+like an internal gate transcript. Explain, in order: choose primitive versus composite;
+name the control and spec; scaffold it; compose public primitives; bind caller-owned
+state; add input, focus, accessibility, theme, motion, and cleanup; register it once;
+write red-first tests; play it in Studio; update public docs; and run the right gate.
+Every command needs a plain explanation, expected result, and useful failure message.
+
+Make the scaffold produce the canonical current shape and update every necessary
+registry from one declared control record where practical. A contributor must not
+have to discover several parallel lists or copy an unrelated control. Preserve a
+small expert checklist for uncommon engine-backed, async, virtualized, or transient
+controls. Run the `ColorWell` exercise once as a fresh agent and once through a separate
+verifier that follows only the human-facing steps. Keep the guide, scaffold, fixture
+template, and improvements it reveals; do not ship the exercise as a public control
+unless it independently meets a real product need.
+
+## Public names and call shapes
+
+Reopen the public-name rules with real call sites and autocomplete in mind. Inventory
+every top-level export and group primitives, composites, services, pure helpers,
+controllers, and advanced namespaces. Start with awkward examples such as
+the old `LuauUI.newTable(LuauUI, core, spec)`. Judge discoverability, consistency,
+redundant arguments, lifecycle meaning, and how easily a new author predicts the next
+name.
+
+Do not add `Facet` to every item: the module already provides the namespace, so
+`Facet.FacetTable` repeats it. Test a role namespace such as
+`Facet.Controls.Table(core, spec)` as the leading candidate for built-in composite
+controls, while `Facet.UI.Button { ... }` remains a primitive and `newX` remains
+available where object creation and ownership are the important fact. This is a
+candidate, not a predetermined verdict. Compare it with a consistent flat alternative
+using representative screens, the extension exercise, autocomplete, types, and the
+cost of migration.
+
+Record one naming ADR and make the chosen surface coherent before distribution. Fix
+compatible problems now. For a rename, keep the old call working through the existing
+deprecation policy, make the new form canonical in types/docs/scaffolds/examples,
+prevent new old-form call sites, and update Rascal Rally in the same change. Do not
+keep two permanent first-class vocabularies or perform a cosmetic rename without a
+measurable authoring benefit.
+
+This is the later decision point for the larger naming proposals that the API-
+consistency stage intentionally deferred. It authorizes an evidence-backed compatible
+migration, not an unversioned breaking cleanup.
 
 ## Plain source comments
 
@@ -166,10 +279,10 @@ fix the code structure or comment instead of teaching repository folklore.
 ## Input architecture
 
 Use Roblox's [Input Action System](https://create.roblox.com/docs/input/input-action-system)
-(`InputContext`, `InputAction`, and `InputBinding`) as LuauUI's semantic input and
+(`InputContext`, `InputAction`, and `InputBinding`) as Facet's semantic input and
 command-binding authority. `InputActionService` is not an engine class; use the exact
 Roblox names in code and documentation. Enable `Workspace.PlayerScriptsUseInputActionSystem`
-in every supported project/place where LuauUI owns navigation actions.
+in every supported project/place where Facet owns navigation actions.
 
 Inventory every direct use of `ContextActionService`, `UserInputService`, raw key or
 button events, and parallel action routing in source, examples, tools, and Rascal
@@ -196,6 +309,61 @@ all supported keyboard, pointer/touch, and gamepad paths deliver one semantic ac
 text entry and gameplay keep their inputs; and no old and new path fires together.
 Use current official Roblox documentation and visible Studio evidence because this
 platform surface can change.
+
+## Sensory feedback and default haptic language
+
+Re-audit Facet's sensory-feedback declaration, event taxonomy, control phases, and
+client adapter against the current official
+[SwiftUI `SensoryFeedback`](https://developer.apple.com/documentation/swiftui/sensoryfeedback)
+semantics and Roblox's current
+[`HapticEffect`](https://create.roblox.com/docs/reference/engine/classes/HapticEffect)
+API. Record the comparison in `docs/reference/swiftui-parity.md`; maintained runtime
+code, tests, examples, and non-comparison documents must use Facet and Roblox terms.
+Apple does not publish reusable waveform values, so do not copy, reverse engineer, or
+claim an identical waveform. Match the semantic role and perceived character with an
+original Facet design.
+
+When a game enables Facet's haptics adapter, interactive controls must have three
+standard feedback phases:
+
+- **press:** one short, crisp contact when the primary action goes down;
+- **release:** one lighter, distinct response when that same action completes a valid
+  release; a canceled press must not sound like a successful release; and
+- **select:** one subtle tick when a choice or discrete value changes, not for passive
+  pointer hover or each rendered frame.
+
+Ship original, named default waveforms for these phases through Roblox
+`HapticEffectType.Custom` and `SetWaveformKeys`. Keep waveform data in one typed,
+documented sensory profile. A game can replace a phase, use a Roblox preset, or silence
+it without rewriting a control. If custom waveforms are unavailable or rejected, use
+a documented native-preset fallback that keeps the phases as distinct as the platform
+allows. Do not use the superseded `HapticService` playback API.
+
+Define phase timing once in the control/responder path for pointer, touch, keyboard,
+and gamepad. Use native button hooks and the Input Action System where they provide the
+needed lifecycle. Do not add a parallel raw-input router. Prevent a native button
+effect and feedback-bus event from playing the same phase twice. Repeat, drag-away,
+cancel, focus movement, rapid selection, disabled controls, remount, and input-method
+switches need explicit outcomes. Coalesce high-frequency value changes without a late
+or phantom pulse.
+
+Keep haptics game-opt-in and disabled until the game enables the adapter. Once enabled,
+the three phase defaults work without per-control declarations; the existing semantic
+modifier can override or silence them. Preserve honest supported, unsupported, and
+unknown reporting. Pool effects, allocate nothing per pulse, bound concurrent effects,
+and destroy every effect, property assignment, and connection on disable or teardown.
+Update all affected controls, the sensory demo, the authoring guide, API reference,
+Rascal Rally integration, and performance lab.
+
+Add red-first unit and real-adapter tests for exact waveform keys, phase order, one
+pulse per cause, cancellation, overrides, fallback, coalescing, pooling, and cleanup.
+Play a calibration surface in Studio across touch proxy, pointer, keyboard, and
+gamepad, but do not call Studio evidence a feel test. Prepare a paired physical-device
+review on an iPhone against a minimal native SwiftUI reference and also sample Android
+and gamepad hardware. Tune for comparable subtlety, duration, separation, and fatigue,
+not numeric imitation. Store device/build/settings and reviewer results. Until a human
+feels both on the same device, label perceived similarity `PENDING_DEVICE`, never
+`PASS`; this pending row must be visible in the Step 14 release packet.
 
 ## Public guide completeness
 
@@ -226,16 +394,16 @@ catalog and reference, and removed or renamed items cannot linger silently.
 
 ## Product-language independence
 
-LuauUI must explain itself in Roblox and LuauUI terms. It must not use another UI
+Facet must explain itself in Roblox and Facet terms. It must not use another UI
 framework, vendor, operating system, sample app, or trade dress as the name or the
 reason for a feature.
 
-Audit all maintained LuauUI source and comments, tests and tools, examples, filenames,
+Audit all maintained Facet source and comments, tests and tools, examples, filenames,
 identifiers, links, and documents. Remove references to Apple and SwiftUI products,
 platforms, samples, terminology, and websites from that surface. Use neutral names
-such as `compact touch`, `desktop pointer`, `glossy`, `flat`, or the exact LuauUI API
-name. Do not rename a stable LuauUI API only because another framework uses the same
-generic name. Follow the deprecation policy if a current LuauUI identifier itself
+such as `compact touch`, `desktop pointer`, `glossy`, `flat`, or the exact Facet API
+name. Do not rename a stable Facet API only because another framework uses the same
+generic name. Follow the deprecation policy if a current Facet identifier itself
 contains a vendor name.
 
 There are only two content exceptions:
@@ -243,7 +411,7 @@ There are only two content exceptions:
 1. `docs/reference/swiftui-parity.md` remains the dedicated comparison document.
 2. `docs/guide/**` can contain a short, clearly labeled comparison for readers who
    know another framework. The comparison must be factual and optional. It must not
-   define the LuauUI contract or replace a Roblox-first explanation.
+   define the Facet contract or replace a Roblox-first explanation.
 
 No other current document can link to or name that comparison. Current code,
 examples, tests, tools, filenames, gate names, scenarios, and comments must use
@@ -275,7 +443,7 @@ Use the official standard and FAQ as the source:
 
 Apply these rules:
 
-- Write for a Roblox developer who has no LuauUI history.
+- Write for a Roblox developer who has no Facet history.
 - Use one term for one concept. Define each necessary technical term at first use.
 - Use active voice and concrete verbs. Tell the reader who does the action.
 - Put one instruction in each numbered step and one main idea in each sentence.
@@ -297,6 +465,33 @@ with a brittle grammar score. A fresh Roblox author and a fresh agent must each 
 only the public docs to complete a small task and explain the relevant concept. Fix
 every failure caused by unclear wording or navigation.
 
+## Release performance requalification
+
+Refresh the existing performance-lab source and self-contained `.rbxl`; do not create
+a second lab unless measured isolation requires it. Verify its scenarios, native
+reference, deterministic reset, counters, profile labels, build command, and guide
+still match the current runtime. It must separately expose initial solve/layout,
+resize/text/theme reflow, fine-grained one-item updates, batched collection churn,
+steady scrolling, adapter commits/Instance writes, engine UI/render preparation, and
+idle/teardown. Keep workload size, content, visual fidelity, input, and accessibility
+constant between comparisons.
+
+Use Studio MCP plus the current Roblox performance-profiling/LibMP skill to run the
+lab, collect repeated MicroProfiler baselines, and inspect the named scopes. Separate
+reactive propagation, measurement/solve, arrangement, adapter commit, engine UI
+preparation/render, resources, and unrelated Studio cost. For each framework-owned hot
+spot, state a falsifiable cause, make the smallest safe optimization, rerun tests and
+the same captures, and compare distributions rather than one best frame. Check that a
+faster update does not make mount, layout, render, memory, cleanup, another theme, or
+Rascal Rally worse.
+
+Continue until no measured actionable framework bottleneck remains within the stage's
+behavior and compatibility constraints. Do not force a code change when the profile
+shows engine cost or noise. Record rejected and inconclusive attempts. Leave current
+place artifacts, capture files, derived summaries, reproducible settings, before/after
+results, and the next low-end Android capture instructions. Studio evidence supports
+optimization but does not prove physical-device performance.
+
 ## Remediation
 
 Fable owns diagnosis and disposition. Reproduce live-observable defects before fixing
@@ -314,19 +509,29 @@ public-contract findings cannot be waved through as notes.
 
 Register `release-candidate-review`. Run focused and full suites, fuzz/fault/soak and
 performance checks, registration/docs/boundary checks, reuse and input-authority
-guards, maintainer/scaffold/comment checks, the disposable exercise reports, affected
-prior gates, Rascal Rally consumer checks, and representative real-adapter Studio
-scenarios. Give independent architecture, reactive-runtime, Roblox-platform, and
-phase-gate reviewers the raw baseline, ledger, diff, and artifacts.
+guards, sensory waveform/phase checks, naming/deprecation checks, maintainer/scaffold/
+comment checks, the disposable exercise reports, performance-lab build/captures,
+affected prior gates, Rascal Rally consumer checks, and representative real-adapter
+Studio scenarios. Give independent
+architecture, reactive-runtime, Roblox-platform, performance, and phase-gate reviewers
+the raw baseline, ledger, diff, and artifacts.
 
 The gate passes when there are no unresolved confirmed blocker/high defects, every
-other finding has an explicit disposition, all fixes have regression evidence, the
+other finding has an explicit disposition, all fixes have regression evidence, Facet
+is the canonical identity throughout the renamed source/distribution/Rascal Rally
+trees, the old-name path/content negative controls pass with only approved migration
+and immutable-evidence exceptions, a clean build runs from `GameStudio/ui/Facet`, the
 categorized guide catalog and exhaustive API reference match the public surface and
 their drift checks pass, the platform-language scan and intentional-failure proof
 pass, every two-or-more similarity finding is consolidated or has a concrete recorded
 reason, Input Action System owns semantic commands with only proved/allowlisted legacy
 service exceptions, the maintainer map/playbooks/scaffolds match the cleaned code,
-plain source comments contain no unexplained agent or project shorthand, both
-fresh-context maintenance exercises pass, fresh readers can use the clear
-documentation, affected Studio behavior is proven, and prior behavior and performance
-remain intact. Do not publish or package a release in this stage.
+plain source comments contain no unexplained agent or project shorthand, the
+`ColorWell` authoring proof and both fresh-context maintenance exercises pass, the
+naming ADR is implemented with compatible migration, fresh readers can use the clear
+documentation, enabled haptics provide one configurable pooled press/release/select
+default with correct timing, fallback, and teardown, the rebuilt performance place and
+repeated Studio profiles prove every framework optimization without workload drift,
+affected Studio behavior is proven, and prior behavior and performance remain intact.
+Perceived waveform similarity can remain `PENDING_DEVICE` only with the complete
+paired-device packet above. Do not publish or package a release in this stage.

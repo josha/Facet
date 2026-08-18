@@ -6,6 +6,10 @@
 This is the entry point for LuauUI work. Running the prompts in order is intended to
 produce these outcomes:
 
+Steps before Step 13 use the current LuauUI path and name. Step 13 renames the complete
+framework and every current consumer to **Facet**, including this roadmap and its root
+directory. All later steps use Facet.
+
 1. LuauUI stops rebuilding Roblox capabilities that belong at the engine adapter.
 2. designers can restyle LuauUI screens through Roblox's Style Editor, while the
    headless solver remains deterministic;
@@ -35,20 +39,22 @@ produce these outcomes:
    inside Roblox and distinguish framework gaps from Roblox/Apple platform differences;
 14. a measured architecture decision determines whether declarative 3D should become
    a sibling system without forcing world objects into the 2D UI solver;
-15. a fresh Fable release review finds and remediates whole-framework defects, makes
-   the guide/API catalogs complete and plain, consolidates repeated mechanisms, makes
-   the Input Action System authoritative, refactors for predictable human/agent
-   maintenance, rewrites source comments in plain human language, and removes
-   vendor-framework language outside the two explicit comparison areas;
-16. the three tutorial games become clear, complete play loops; LuauUI gains a proved
+15. the framework and every current consumer become Facet; a fresh Fable release review
+   remediates whole-framework defects, makes the guide/API catalogs complete and plain,
+   consolidates repeated mechanisms, makes the Input Action System authoritative,
+   refactors for predictable human/agent maintenance, proves an ELI5 new-control path,
+   resolves public names, re-profiles and optimizes the current performance lab,
+   rewrites source comments in plain human language, and removes vendor-framework
+   language outside the two explicit comparison areas;
+16. the three tutorial games become clear, complete play loops; Facet gains a proved
    world-surface render target and walk-up terminal; and a curated set of showcase
    concepts ships as reusable, themeable, reduced-motion-aware standalone places with
    obsolete examples removed safely;
-17. the existing `josha/LuauUI` repository becomes an MIT-licensed, public-ready
-   source distribution with a clean branch tip, audited history, tested human/agent
-   onboarding, one stable Roblox Package asset, and a requirement-complete test/gate
-   graph that avoids repeating hours of identical work; and
-18. every LuauUI change keeps Rascal Rally's directly mounted consumer code, contract
+17. the existing repository is renamed `josha/Facet` and becomes an MIT-licensed,
+    public-ready source distribution with a clean branch tip, audited history, tested
+    human/agent onboarding, one stable Roblox Package asset, and a requirement-complete
+    test/gate graph that avoids repeating hours of identical work; and
+18. every Facet change keeps Rascal Rally's directly mounted consumer code, contract
    tests, build mappings, and affected Studio behavior synchronized in the same stage.
 
 Steps 1–2, 3.5, 5, 6, 7, 8.5, 11–13, and 14 are Fable-led because architecture,
@@ -206,9 +212,9 @@ Key corrections to the earlier roadmap:
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
 | 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
-| 13 | Fresh release-candidate and maintainability review | Findings resolved; future-agent exercises pass; code/comments are maintainable; reuse, IAS, catalogs, and language boundaries are proven |
-| 13.5 | Game, world-surface, and standalone polish | Three game loops and the walk-up terminal pass; curated standalones share source, theme/motion controls, builds, and Studio proof |
-| 14 | Public repo, Package, tests, and agent onboarding | Existing repo and Package are release-ready; each unique check runs once; fresh clone/agents pass; history/release surfaces are safe |
+| 13 | Facet rename, release-candidate, and maintainability review | Facet is canonical everywhere; findings resolve; control authoring/naming, sensory haptics, profiling, reuse, IAS, comments, and agent maintenance pass |
+| 13.5 | Facet game, world-surface, and standalone polish | Three game loops and the walk-up terminal pass; curated standalones share source, theme/motion controls, builds, and Studio proof |
+| 14 | Facet public repo, Package, tests, and agent onboarding | Existing repo is renamed and release-ready; each unique check runs once; Package, fresh clone/agents, history, and release surfaces pass |
 
 ### Milestone 1 — SwiftUI parity round 2 (in flight; NOT a numbered step)
 
@@ -1457,153 +1463,158 @@ Complete only with gate exit zero/artifact and a decisive recommendation; do not
 publish/deploy or silently begin the follow-on build.
 ```
 
-## Step 13 — Run a fresh Fable release-candidate review
+## Step 13 — Rename LuauUI to Facet and run a fresh release-candidate review
 
-This is the whole-framework adversarial pass requested before distribution. It first
-reviews from a frozen baseline without editing, then diagnoses and remediates confirmed
-defects. It also makes every human document clear and makes LuauUI describe itself in
-Roblox and LuauUI terms. It refactors code where needed so future humans and agents can
-extend it through obvious, tested paths, and it makes source comments understandable
-without internal shorthand. It consolidates repeated implementation and audits every
-legacy input-service call against the Input Action System. Missing wishlist features
-do not become bugs.
+This stage first renames the framework and all current consumers from LuauUI to Facet,
+then runs the whole-framework adversarial pass requested before distribution. It
+reviews from a frozen baseline, remediates confirmed defects, makes every human
+document clear, and describes Facet in Roblox terms. It gives humans and agents one
+obvious control-extension path, resolves the public call vocabulary, consolidates
+repeated implementation, makes Input Action System authoritative, and refreshes and
+profiles the performance lab. It also gives enabled controls distinct, configurable
+press, release, and selection haptics with a restrained default feel. Missing wishlist
+features do not become bugs.
 
 ### Fable-led goal prompt
 
 ```text
-/goal Run a fresh-context LuauUI release-candidate review. Fix confirmed defects,
-consolidate unjustified repeated mechanisms, make the Roblox Input Action System the
-semantic input authority, make the code easy for future humans/agents to extend,
-clarify source comments and human docs, and enforce the permitted comparison boundary.
+/goal Rename LuauUI to Facet and run its release review. Fix defects, make IAS
+authoritative, improve maintenance/API/performance, and ship polished sensory haptics.
 
-Use a fresh Fable 5 lead at highest effort; it owns diagnosis/integration and sends
-Opus 5 `xhigh` only fixes with decided cause, contract, test, and result.
+Use fresh Fable 5 at highest effort for decisions/integration; delegate decided fixes
+to Opus 5 `xhigh`. Read repo instructions and the binding release-review, API,
+performance, and execution plans.
 
-Read repository instructions, engineering/code-review guidance, current guide/API,
-and the release-review, API-consistency, and execution-contract plans.
+Freeze source/API, gate, lifecycle/performance, and Studio baselines; register the
+ledger. Record proof. Missing is a defect only if promised.
 
-The release plan binds. Freeze source/API, gates, lifecycle/perf, and Studio baselines;
-register its gate/ledger before edits. Record severity, confidence, evidence, callers,
-and smallest proof. Missing is a defect only when promised.
+Rename first with the plan's inventory and history-preserving moves. Source, paths,
+outputs, tools, Studio/profile labels, docs, agents, and both RascalRally projects
+become Facet. Preserve Sponsor default/legacy rollback.
+Isolate persistent-name migration; otherwise permit the old name only in the rename
+ADR/immutable evidence. Prove negative controls and a clean `GameStudio/ui/Facet` run.
+Prepare Step 14's remote packet; do not mutate the remote.
 
-Review the full surface per plan: architecture, ownership, errors, teardown, dead code,
-test seams, generated boundaries, comments, and hot-path cost. Reproduce live defects.
+Review architecture, ownership, errors, teardown, dead code, tests, comments, and hot
+paths. Reproduce defects. Consolidate repeated code under one narrow owner; separation
+needs a concrete reason. Give changes one owner/extension/proof path. Fix proved mixed
+responsibilities, parallel registries, implicit lifecycle, incomplete seams, brittle
+fixtures, and stale scaffolds. Keep RascalRally synchronized.
 
-Ledger every repeated implementation. Reuse its owner or extract one narrow typed
-mechanism, migrate callers, and delete duplicates. Separation needs a concrete
-semantic/lifecycle/dependency/clarity/cost reason. Prove and guard shared seams.
+Inventory legacy/raw/parallel input paths. `InputContext`/`InputAction`/`InputBinding`
+own routing/lifetime. Legacy calls need current impossibility proof, one allowlisted
+adapter, tests/teardown, and removal trigger. Ban consumer use and double firing.
 
-Make future changes have one obvious owner, extension path, and proof path. Create the
-plan's human maintainer map. Refactor mixed-responsibility modules, parallel registries,
-implicit lifecycle/dependencies, incomplete public seams, brittle fixtures, and stale
-scaffolds/playbooks when evidence shows friction; avoid speculative or navigation-only
-layers. Drift-check important boundaries and update RascalRally when affected.
+Audit sensory semantics against current official SwiftUI/Roblox docs. With Facet's
+game-opt-in adapter enabled, ship original configurable `Custom` defaults for press,
+release, and select with comparable subtle, distinct character—never copied or called
+identical. Define cross-input timing once; cancellation cannot resemble success.
+Prevent native/bus double pulses; prove override/silence, rate limit, preset fallback,
+pooling, zero per-pulse allocation, and teardown. Update controls, demo, docs, lab, and
+RascalRally. Add automated/Studio proof and paired iPhone plus Android/gamepad review;
+mark perceived similarity `PENDING_DEVICE` until same-device human comparison.
 
-Inventory all `ContextActionService`, `UserInputService`, raw-event, and parallel
-command paths. `InputContext`/`InputAction`/`InputBinding` own semantic routing,
-priority, sinking, and lifetime; enable `PlayerScriptsUseInputActionSystem`. A legacy
-call needs current proof IAS lacks the mechanism, one allowlisted adapter/diagnostic,
-injected fact, tests/teardown, and removal trigger. Ban direct consumer use. Prove all
-inputs yield one action without stealing text/gameplay input or double firing.
+Rebuild/drift-check guide/API catalogs and run the product-language negative control.
+Use ELI5 concepts with exact API terms. Comments explain responsibility, invariants,
+lifecycle, limits, or reasons—not agent shorthand/history.
 
-Rebuild the guide/API catalogs from current source and drift-check them. Execute the
-plan's language scan and failing control. Rewrite docs/comments in plain ELI5-style
-concepts while keeping exact API/Roblox/math terms. Comments explain responsibility,
-invariants, lifecycle, engine limits, or reasons—not agent shorthand or history.
-Move needed history to neutral ADRs/lessons; do not rename stable generic APIs.
+Make the control guide an ELI5 path and one-record scaffold. A fresh agent and human
+verifier build disposable `ColorWell` through public seams with full proof.
+Audit call shapes; trial `Facet.Controls.Table` against one flat option without
+repeating `Facet`. Record the ADR and migrate compatibly. Another fresh agent repairs a
+seeded defect. Keep real improvements; rerun without private hints.
 
-Run the plan's two disposable fresh-agent exercises: one adds a representative
-extension; another fixes a seeded defect. They use maintained guidance only. Do not
-merge artificial work. Fix every navigation, ownership, scaffold, test, comment, or
-verification failure they reveal and rerun until both succeed without private hints.
+Refresh the performance place. Use Studio MCP and MicroProfiler/LibMP for
+solve/layout, fine/bulk update, adapter/render, scroll, idle, and teardown baselines.
+Optimize measured Facet hot spots with falsifiable causes and identical comparisons;
+rerun tests/scenarios/RascalRally. Leave builds, captures, summaries, settings, and
+Android instructions current.
 
 Fix every blocker/high and safe maintenance issue; disposition the rest with owner,
-risk, reason, and trigger. Contracts cannot be waived. No parity feature, packaging,
-or unrelated polish.
-
-Run the plan's full test/gate/Studio/RascalRally matrix and independent reviews; fix
-requirement findings. Complete only with gate exit 0/artifact, all findings disposed,
-no blocker/high, reuse/IAS met, maintainer paths current, plain comments and both fresh
-agent tasks passing, and docs/behavior/performance green. Report evidence/pendings. Do
-not publish/package.
+risk, reason, and trigger. Run the test/gate/Studio/RascalRally matrix and fresh
+reviews. Complete only with gate exit 0/artifact, rename/drift proof, findings disposed,
+reuse/IAS/haptics met, current control/naming/maintainer paths, passing exercises, and
+green docs/behavior/profiles. Report evidence and physical pendings. No unrelated
+feature/package; do not publish/package or rename the remote.
 ```
 
-## Step 13.5 — Polish game tutorials and curated standalone examples
+## Step 13.5 — Polish Facet game tutorials and curated standalone examples
 
 This bounded Opus pass turns the three tutorial games into understandable play loops,
-ships one real walk-up `SurfaceGui` terminal, and promotes a small set of showcase
-concepts into publishable standalone places. It shares source and chrome with the
-showcase instead of creating example forks.
+makes the sensory demo useful when it opens, ships one real walk-up `SurfaceGui`
+terminal, and promotes a small set of showcase concepts into publishable standalone
+places. It shares source and chrome with the showcase instead of creating example
+forks.
 
 ### Opus 5 goal prompt
 
 ```text
-/goal Finish LuauUI's three tutorial games, add a real interactive UI surface in the
-3D world, and ship curated standalone examples. They must teach through believable
-play, share showcase source, support themes/reduced motion, and clean up safely.
+/goal Finish Facet's tutorial games and sensory demo, add 2D UI in the 3D world, and
+ship shared-source, adaptable standalones.
 
-Run Claude Opus 5 (`claude-opus-5`) with thinking at `xhigh`. Read repository
-instructions and `docs/plans/example-games-and-standalones.md` with its required links.
-That plan is binding. Register its gate pending, freeze registry/build identity, create
-its ledgers before edits, and preserve Step 13 guards.
+Run Claude Opus 5 (`claude-opus-5`) at `xhigh`. Read repo instructions and the binding
+`docs/plans/example-games-and-standalones.md` plus its links. Register the gate, freeze
+build identity, create its ledgers, and preserve Step 13 guards. Examples own rules/
+content; Facet owns reusable behavior/targets. Use public API, not substitutes. Every
+framework change synchronizes RascalRally and affected Step 13 evidence.
 
-Examples own rules/content/fixtures; LuauUI owns reusable UI behavior and targets.
-Use public API, not example substitutes. Every framework change synchronizes
-RascalRally and reruns affected Step 13 evidence.
+Word game: use a local, redistribution-compatible five-letter English dictionary with
+thousands of guesses and familiar solutions. Record provenance/license/build; no
+proprietary list/network. Prove acceptance, rejection, size, and cost. Keep
+all 30 cells plus empty/active/next cues visible under every theme/text size. Preserve
+the full accessible multi-input loop and restart; remove “tutorial word list.”
 
-Word game: use a local redistribution-compatible five-letter English dictionary with
-thousands of guesses plus familiar solutions. Record provenance/license/generation;
-no proprietary list or network. Prove words/nonwords/size/cost. Keep all 30 cells and
-empty/active/next cues visible under all themes/text sizes. Preserve the full loop,
-accessibility, inputs, and restart; remove “tutorial word list.”
+Tile game: build the plan's finite crossword loop: center-crossing first word,
+contiguous connected turns, dictionary Submit, score/refill, Undo, precise refusals,
+goal/turn limit, endings, and reset. Show decision state; play all major paths/inputs.
 
-Tile game: implement the plan's finite crossword loop: center-crossing first word,
-contiguous turns, later connectivity, dictionary Submit, scoring/refill, Undo, exact
-refusals, goal/turn limit, end states, and reset. Show all decision state; play the
-opening, refusals, completion, and all inputs.
-
-Match-3: stable tile identities; public `presenter.withAnimation` for surviving keyed
+Match-3: give tiles stable identities. Use public `presenter.withAnimation` for keyed
 movement and structural transitions for removal/entry. Sequence swap, invalid return,
-removal, gravity, refill, cascades, then unlock. Use only framework motion/completion;
-prove in-flight identity, reset/replay, teardown, and Full/Reduced outcome parity.
+removal, gravity, refill, cascades, then unlock. Prove in-flight identity, reset,
+teardown, and Full/Reduced result parity; create no example animation system.
 
-World terminal: add the plan's Outpost Power Terminal to the showcase and as a
-standalone, using the same declarative content. This is 2D LuauUI on a `SurfaceGui`,
-not declarative 3D or VR. Run the named Studio spike, then implement one public
-`surface_target` through the existing root/adapter seam. Prove fixed canvas mapping,
-client-owned `PlayerGui + Adornee + CanQuery` topology, `presentationSpace="world"`,
-StyleSheet/theme, clipping, legibility, occlusion, lifecycle, cost, and honest optional
-capabilities; replace stale future-target claims and update API/ADR/guide/checks.
+Sensory demo: fresh mount starts demo haptics on; toggle/status follow the intro and fit
+without scrolling across the size/Largest-text matrix. Through Step 13 public paths,
+label and play built-in press, release, and selection plus one distinct custom override;
+do not recreate defaults locally. A bounded visible log proves phase/order/cancel/no-op
+without claiming the motor fired. Across all inputs, prove default/custom identities,
+no duplicate pulse, install, off/on, remount, honest capability, and cleanup in tests/
+Studio. Facet remains game-opt-in.
 
-Use native `ProximityPrompt` for walk-up entry. Engage one LuauUI responder; direct
-pointer/touch presses and IAS-driven keyboard/gamepad focus must work. Cancel, Exit,
-leaving range, death, adornee/scenario removal, and teardown restore gameplay with no
-leak or wedged input. No CAS/UIS bindings. Keep UI client-side; server-validate shared
-world commands, including authority, rate, values, and distance.
+World terminal: add the plan's Outpost Power Terminal to showcase and standalone from
+one module. It is 2D Facet on `SurfaceGui`, not 3D/VR. Run the named Studio spike; add
+one public `surface_target` through the existing seam. Prove canvas mapping,
+client-owned `PlayerGui + Adornee + CanQuery`, world presentation, style, clipping,
+legibility, occlusion, lifecycle, cost, and honest capabilities. Update contracts/docs.
+
+Use native `ProximityPrompt` and one Facet responder. Support direct pointer/touch and
+IAS keyboard/gamepad focus. Cancel, Exit, range departure, death, removal, and teardown
+restore gameplay without leaks/stuck input. No CAS/UIS bindings. Keep UI client-side;
+server-validate shared-world intent, authority, rate, values, and distance.
 
 Keep seven tutorial places. Select five-to-seven existing showcase standalones plus
-the required terminal (six-to-eight total), covering the plan's families. Give each a
-task, first action, feedback, reset, and optional short lesson. One manifest
-must drive showcase entries, target/fixture metadata, projects, builds, docs, and drift
-tests. No forks/parallel lists. All places share theme control; motion places share
-Full/Reduced. Emit self-contained `.rbxl`; never publish.
+the terminal (six-to-eight total) covering the plan. Each needs a task, first action,
+feedback, reset, and optional lesson. One manifest drives showcase, fixtures, projects,
+builds, docs, and drift. No parallel lists. Share theme and applicable Full/Reduced
+controls. Emit self-contained `.rbxl`; do not publish.
 
-Delete only inventory-proved unused items; retire the plain settings demo only after
-replacement. PLAY all changed games, every standalone, and the terminal's walk-up/use/
-exit loop in Studio. Run the plan matrix, target negatives, suites, prior gates,
-builds, Step 13 guards, and RascalRally checks. Give fresh
-architecture/platform/phase reviewers raw evidence and resolve findings.
+Delete only inventory-proved unused items; retire plain settings only after its
+replacement. PLAY all changed games, the sensory default/off/on flow, every standalone,
+and terminal walk-up/use/exit in Studio. Run the plan matrix, target negatives, suites,
+prior gates/builds, Step 13 guards, and RascalRally checks. Give fresh architecture,
+platform, and phase reviewers evidence; resolve findings.
 
-Complete only with gate exit 0/artifact; three complete games; proved world target;
-shared manifest-built standalones; accurate docs/inventory; no workaround/dead item;
-and exact physical pendings. Report results/artifacts/deletions. Do not publish/package.
+Complete only with gate exit 0/artifact; complete games; sensory/world proof;
+manifest-built standalones; accurate docs/inventory; no workaround/dead item; and
+exact physical pendings. Report evidence/deletions. Do not publish/package.
 ```
 
 ## Step 14 — Prepare the existing repository for public distribution
 
-`josha/LuauUI` is the distribution repository. This stage gives its public branch a
-clean product/contributor structure, MIT licensing, provenance, and agent onboarding;
-it also creates one private, stable-ID Roblox Package with a guarded update workflow.
+The existing private `josha/LuauUI` repository becomes `josha/Facet` at one guarded
+owner checkpoint. This stage gives its public branch a clean product/contributor
+structure, MIT licensing, provenance, and agent onboarding; it also creates one private,
+stable-ID Facet Roblox Package with a guarded update workflow.
 It simplifies the hours-long gate system without losing requirements or negative
 controls. The Git repository remains canonical. The owner makes the repository and
 free Creator Store listing public only after reviewing the release packet.
@@ -1611,28 +1622,26 @@ free Creator Store listing public only after reviewing the release packet.
 ### Fable 5 goal prompt
 
 ```text
-/goal Prepare `josha/LuauUI` as the canonical MIT public-source distribution and
-create one verified private Roblox Package with a stable reusable ID. Keep the Git
-repo and Creator Store listing private.
+/goal Rename the existing private GitHub repository to `josha/Facet`, prepare it as the
+canonical MIT public-source distribution, and create one verified private Facet Roblox
+Package with a stable reusable ID. Keep the repo and Creator Store listing private.
 
-Run Fable 5 at highest effort; it owns judgments and delegates decided work to Opus 5
-at `xhigh`. Read repository instructions and the distribution plan first, then its
-named supporting plans; distribution binds. Register its gate pending; inspect
-remote/history/status; preserve user work and prior guards.
+Use Fable 5 at highest effort; it owns judgments and delegates decided work to Opus 5
+`xhigh`. Read repo instructions and the binding distribution plan/supporting links.
+Register its gate pending; inspect remote/history/status; preserve user work/guards.
 
-Git is canonical; the Package is derived. Use MIT with owner-approved copyright.
-Preserve third-party notices/rights; replace incompatible material safely or block.
+Git is canonical; the Package is derived. Apply MIT with approved copyright. Preserve
+third-party notices/rights; replace incompatible material safely or block.
 Never infer ownership or silently relicense.
 
-Restructure by public allowlist: required root/community/agent files, runtime, licensed
-dependencies, examples/docs, useful tests/builds, package tooling, and thin skill.
+Use a public allowlist: root/community/agent files, runtime/licensed dependencies,
+examples/docs, useful tests/builds, package tooling, and thin skill.
 Archive private material with checksums outside Git before removal. Audit Git objects
 and GitHub surfaces for secrets, game/private material, unclear rights, and bulk. If a
 purge is needed, build/test a clean candidate and owner migration/rollback packet only.
 
 Root `AGENTS.md` and the skill route API/theme/input/Studio/extension, package release,
-and RascalRally lockstep; forbid local substitutes. Prove fresh agents can build and
-diagnose using public material alone.
+and RascalRally lockstep. Prove fresh agents work from public material alone.
 
 Extend existing `tools/build_model.sh`; never create another model source. The Package
 contains runtime plus non-executable license/source metadata. Add commit/hash/VERSION,
@@ -1640,8 +1649,9 @@ semantic manifest, non-secret asset config, and receipt. One interface provides
 offline build/status/verify and guarded create/same-ID publish/rollback; relevant
 changes rebuild and drift-check locally and in PRs.
 
-Default to dry-run. Before cloud mutation, batch one owner checkpoint for creator,
-metadata, private/free-listing intent, and credential. Refuse duplicate creation.
+Default to dry-run. Before remote/cloud mutation, batch one owner checkpoint for the
+exact repo rename/GitHub authority and Package creator/metadata/listing/credential.
+Refuse duplicate creation.
 Mutation requires confirmation, exact clean commit, matching version/hash/owner/asset,
 green gates, and scoped environment/CI secret. Never expose secrets, use cookies/forks,
 or create a replacement ID.
@@ -1668,8 +1678,9 @@ release identity, not once per historical gate.
 Mutation-test guards; verify reproducible manifests, fresh clone/consumers, examples,
 suites/docs/adapters/prior requirements, and RascalRally sync. Complete only with gate
 exit 0, no must-purge item, private Package ID/update proof, fresh-agent success, and
-the owner visibility/listing/security/rollback packet. Do not push Git, change
-visibility, enable listing, publish a GitHub release, or rewrite/delete remote data.
+the owner visibility/listing/security/rollback packet. The one confirmed repository
+rename is in scope; do not push Git, change visibility, enable listing, publish a
+GitHub release, or rewrite/delete other remote data.
 ```
 
 ## Completion checklist for the whole roadmap
@@ -1693,7 +1704,7 @@ The roadmap has achieved its goals only when all of these are true:
 - Roblox preferred text is measured and painted exactly once, updates while mounted,
   and all four values preserve public-control layout, state, focus, and full access
   to essential text;
-- the production LuauUI Sponsor View remains readable, nonoverlapping, reachable,
+- the production Facet Sponsor View remains readable, nonoverlapping, reachable,
   and usable at `Largest` on compact mobile portrait and landscape, with any permitted
   truncation exposing its full value and any moving-text fallback bounded and
   reduced-motion-safe;
@@ -1712,7 +1723,7 @@ The roadmap has achieved its goals only when all of these are true:
   not local substitutes for framework controls, layouts, paradigms, input, focus,
   accessibility, or motion;
 - their ownership ledgers contain no unresolved workaround; reusable needs and public
-  contract defects are fixed and proven in LuauUI before consumers use them;
+  contract defects are fixed and proven in Facet before consumers use them;
 - the parallel game implementation passes its full parity matrix and physical-device
   gate;
 - the API constitution classifies every public item, explains intentional exceptions,
@@ -1730,21 +1741,39 @@ The roadmap has achieved its goals only when all of these are true:
   active, filled, and scored cell visible under all supported themes/text sizes;
 - the crossword tile game has valid placement/connection/submit/undo/scoring/end-state
   rules, and match-3 visibly animates stable tile swaps, removal, gravity, refill, and
-  cascades through LuauUI while Reduced motion preserves the result without travel;
+  cascades through Facet while Reduced motion preserves the result without travel;
+- the sensory demo opens with its demo-owned haptics request on and the toggle/status
+  visible at the top without scrolling across the size/Largest-text matrix; real
+  built-in press, release, and selection defaults plus one public custom waveform are
+  visibly demonstrable across inputs; off/on, remount, honest capability reporting,
+  phase timing, no duplicates, and teardown are proven without changing Facet's
+  library-level game-opt-in contract;
 - one checked-in manifest drives the showcase and six-to-eight curated standalone
   places, including the same walk-up world terminal in both; all share source and
   theme/motion chrome, rebuild self-contained, and have no obsolete or orphaned
   example output;
 - the three clean-room reference experiences run representative complete loops, and
-  their ledgers distinguish LuauUI gaps, game/Roblox-service work, and Apple-only host
+  their ledgers distinguish Facet gaps, game/Roblox-service work, and Apple-only host
   surfaces without copying Apple code or assets;
 - declarative 3D has a reviewed sibling-versus-extension decision and isolated spike;
   no spike or spatial-event contract is presented as production 3D/VR support;
 - the fresh release-candidate review has no unresolved confirmed blocker/high defect,
   and every remaining finding has an explicit evidence-backed disposition;
+- `GameStudio/ui/Facet`, its `Facet` ModuleScript/API, maintained filenames/content,
+  generated artifacts, Studio/profile labels, agent tooling, and RascalRally consumers
+  use Facet as the only current brand; old-name drift is limited to the approved rename
+  ADR, external migration manifest, and immutable historical evidence;
 - the maintainer guide, extension playbooks, scaffolds, ownership boundaries, tests,
   and gates agree on where each kind of change belongs; disposable fresh agents can
   add a representative extension and repair a seeded defect without private context;
+- the ELI5 new-control guide and one-record scaffold let a fresh agent and separate
+  human-guide verifier build the disposable palette-opening `ColorWell` through public
+  seams,
+  with input, focus, theme, accessibility, cleanup, tests, and Studio proof;
+- one naming ADR governs every public category; canonical names and call shapes are
+  predictable without repeating `Facet`, replaced control forms follow the deprecation
+  policy, and types, docs, scaffolds, examples, tests, and RascalRally use the chosen
+  surface;
 - maintained source comments explain responsibilities, invariants, lifecycle, engine
   constraints, and difficult logic in plain human language, with no unexplained
   agent-only shorthand, prompt/gate codes, or implementation diaries;
@@ -1754,7 +1783,15 @@ The roadmap has achieved its goals only when all of these are true:
 - the Input Action System owns semantic commands and contexts; each remaining direct
   `ContextActionService` or `UserInputService` use has current impossibility evidence,
   one allowlisted adapter/diagnostic owner, tests, teardown, and a removal trigger;
-- maintained LuauUI code, examples, and documentation contain no Apple/SwiftUI
+- when the game enables Facet's haptics adapter, controls receive original,
+  configurable press, release, and selection waveforms by default; cross-input phase
+  timing, cancellation, fallback, one-pulse behavior, pooling, and cleanup are proven,
+  while perceived similarity stays explicitly pending until paired physical review;
+- the rebuilt performance lab matches current source and repeated Studio MCP plus
+  MicroProfiler/LibMP captures separate solve/layout, fine and bulk update, adapter/
+  render, scroll, idle, and teardown cost; measured framework hot spots are optimized
+  or dispositioned without workload drift, and low-end Android proof stays honest;
+- maintained Facet code, examples, and documentation contain no Apple/SwiftUI
   references outside the dedicated parity document and optional, labeled guide
   comparisons; the exact-allowlist drift check proves the boundary;
 - the guide index names and categorizes every current public layout, control,
@@ -1764,15 +1801,16 @@ The roadmap has achieved its goals only when all of these are true:
 - human-readable documentation uses consistent terms, direct active sentences,
   defined technical words, short procedures, and no unexplained internal shorthand;
   fresh readers can complete the documented tasks without repository history;
-- the existing `josha/LuauUI` public-branch candidate is a clean, useful, reproducible
-  source distribution; MIT and third-party notices are accurate, a fresh clone works,
+- the existing repository is renamed `josha/Facet`, and its public-branch candidate is
+  a clean, useful, reproducible source distribution; MIT and third-party notices are
+  accurate, a fresh clone works,
   and the full-history/remote-surface audit has no unresolved must-purge item;
 - one private official Roblox Package has a stable recorded asset ID and creator,
   matches the checked source VERSION/tree/hash, installs and updates as a real Package
   in Studio, and can be rebuilt/status-checked offline and published to that same ID
   through one guarded release action; its free listing waits for the repository-public
   owner checklist;
-- its root `AGENTS.md` and thin `skills/use-luauui/SKILL.md` route agents to current
+- its root `AGENTS.md` and thin `skills/use-facet/SKILL.md` route agents to current
   public guidance without duplication, and fresh-agent build/extension tasks pass;
 - one living requirement graph drives structured results; the complete deterministic
   suite and every other expensive producer run once per exact release identity, stale
@@ -1780,10 +1818,10 @@ The roadmap has achieved its goals only when all of these are true:
   the headless release run meets the documented budget or owns each irreducible cost;
 - the remaining human and hardware work was presented as one instrumented review
   build and one ordered checklist rather than repeated ad hoc testing requests;
-- every LuauUI source/contract/default/behavior/asset/distribution change has a
+- every Facet source/contract/default/behavior/asset/distribution change has a
   RascalRally consumer-impact ledger, synchronized game integration or an explicit
   no-caller-change result, an updated game-side compatibility test, relevant game
   suite results, and an affected Studio canary where behavior is live;
-- legacy Sponsor Mode is still present as the `UseLuauUISponsor = false` rollback;
+- legacy Sponsor Mode is still present as the `UseFacetSponsor = false` rollback;
 - the 2026-08-03 cutover decision is recorded, and no legacy deletion occurs without
   a later explicit decision.

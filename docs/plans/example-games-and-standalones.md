@@ -6,11 +6,11 @@ preparation.
 
 ## Purpose
 
-Make the three tutorial games feel understandable and complete in play. Add one
-interactive LuauUI surface inside the 3D world. Turn a small, curated part of the
-showcase into standalone places that teach important LuauUI ideas through believable
-game screens. Remove obsolete example material after proving that nothing still uses
-it.
+Make the three tutorial games feel understandable and complete in play. Make the
+sensory-feedback demo useful as soon as it opens. Add one interactive LuauUI surface
+inside the 3D world. Turn a small, curated part of the showcase into standalone places
+that teach important LuauUI ideas through believable game screens. Remove obsolete
+example material after proving that nothing still uses it.
 
 This is a product pass, not a gallery rewrite. Reuse the exact tutorial and scenario
 modules that the showcase runs. Do not fork a second implementation for a standalone
@@ -117,6 +117,62 @@ but remove decorative travel and long chained flashes. Do not replace removed tr
 with another busy effect. Bound simultaneous moving/flashing tiles. Test intermediate
 motion evidence as well as endpoints, stable identity, interruption/reset, cascades,
 no lingering records, full/reduced parity, and unchanged deterministic replays.
+
+## Sensory-feedback demo
+
+Move the haptics control panel to the top of the scroll content, directly after the
+title and short introduction and before the controls it affects. The enabled toggle,
+its status, and the short explanation must be inside the initial viewport without
+scrolling on the automated compact portrait, short landscape, desktop, and ten-foot
+profiles, including Largest text. Prove this from rendered order and geometry, not
+source order alone.
+
+The demo's haptics toggle starts on at every fresh mount. This is a demo choice, not a
+change to Facet's game-opt-in haptics contract: the example explicitly requests and
+installs the adapter so pressing a sample control can demonstrate the feature
+immediately. If the host refuses haptics or support cannot be determined, leave the
+requested toggle on and report that result accurately. Never claim that a player felt
+a vibration when Roblox cannot expose that fact. Rewrite any “switch below” or
+“default off” demo copy so this distinction is clear.
+
+Turn the main lesson into four clearly labeled, playable comparisons that use the
+Step 13 public API:
+
+1. **Press:** an ordinary control with no local override demonstrates the built-in
+   contact waveform when the primary action goes down.
+2. **Release:** the same interaction makes its distinct built-in release phase clear
+   when a valid press ends. A canceled press must show the documented silent or cancel
+   outcome instead of pretending that activation succeeded.
+3. **Selection:** a real discrete choice or value control demonstrates the built-in
+   selection tick only when its selected value changes. Passive hover and a no-op
+   choice must not fire it.
+4. **Custom:** one control uses Facet's documented public override/profile seam to
+   play an obviously distinct, bounded custom waveform. The example must not construct
+   `HapticEffect` directly or reach into adapter internals.
+
+Use visible pressed/released/selected/custom state and a bounded event history so a
+player can understand which phase was requested without reading source and automated
+Studio proof can observe it without feeling the device. Show the active profile and
+whether each row uses a built-in default or the example's custom override. Do not
+confuse a visible request with proof that the motor fired. Keep the existing semantic
+feedback examples when they teach a different concept, but remove redundant map tables
+or copy that makes the four primary interactions hard to find.
+
+Turning the toggle off must detach and dispose the adapter and its effects. Turning it
+on again must install exactly one working adapter. Reopening or rebuilding the example
+must restore the on default; scenario changes and teardown must leave no adapter,
+effect, connection, or stale state. Add failing tests first for the initial value and
+install attempt, top-of-page geometry, honest requested/refused/undetermined states,
+the exact Step 13 default waveform/profile identities, press-before-release order,
+selection only on change, canceled/no-op silence, a distinct custom profile, off/on
+cycles, remount, and cleanup. Exercise every comparison through pointer/touch proxy,
+keyboard, and gamepad without duplicate pulses. Preserve separate tests that prove the
+Facet library does not enable haptics until a game opts in.
+
+Play a fresh launch and the off/on cycle in Studio with pointer/touch proxy, keyboard,
+and gamepad. Capture the first viewport with the toggle visibly on. Studio may prove
+the request, adapter, effect assignment, and status; actual physical sensation remains
+a named device-verification item.
 
 ## World terminal: two-dimensional UI on a 3D surface
 
@@ -255,6 +311,11 @@ The gate passes only when:
 - the tile game has a clear valid strategy, refusals, completion, and restart;
 - match-3 shows swap, invalid return, match removal, gravity, refill, and cascades in
   Full motion and preserves outcomes under Reduced;
+- the sensory demo opens with haptics requested on and its toggle/status visible at
+  the top without scrolling; its visible interactions demonstrate the real built-in
+  press, release, and selection defaults plus one public-API custom waveform; off/on,
+  remount, capability reporting, phase timing, no-duplicate behavior, and teardown
+  pass while Facet's library-level opt-in contract remains unchanged;
 - the same Outpost Power Terminal content works through the real client-owned
   `SurfaceGui` target in the showcase and standalone, all target-checklist rows have
   evidence, and gameplay control is restored on every exit/lifecycle path;

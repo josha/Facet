@@ -1,36 +1,37 @@
-# LuauUI public repository readiness
+# Facet public repository readiness
 
 **Status:** Planned after the release-candidate and example-product passes.
 
 ## Purpose
 
-Prepare the existing private GitHub repository, `josha/LuauUI`, to become LuauUI's
-canonical public source distribution. Users can install LuauUI from an ordinary Git
-clone/Rojo mapping, a source copy, or one official Roblox Package with a stable asset
-ID. The repository is the source of truth; the Package is a required, derived
-distribution artifact for creators who work mainly in Studio.
+Rename the existing private GitHub repository from `josha/LuauUI` to `josha/Facet` and
+prepare it as Facet's canonical public source distribution. Users can install Facet
+from an ordinary Git clone/Rojo mapping, a source copy, or one official Roblox Package
+with a stable asset ID. The repository is the source of truth; the Package is a
+required, derived distribution artifact for creators who work mainly in Studio.
 
-This stage changes the local repository into a public-ready project. It does not push,
-change repository visibility, publish a release, delete remote data, or rewrite remote
-history. After one explicit owner/credential checkpoint, it may create the private
-LuauUI Package asset and prove an update. The owner makes the repository public and
-enables the free Creator Store listing through the final release checklist.
+This stage changes the local repository into a public-ready project. After one explicit
+owner/credential checkpoint, it may rename the existing remote repository, create the
+private Facet Package asset, and prove an update. It does not push, change visibility,
+publish a release, delete other remote data, or rewrite history. The owner makes the
+repository public and enables the free Creator Store listing through the final checklist.
 
 ## Decisions
 
-- Use the existing `https://github.com/josha/LuauUI` repository. Do not create a
-  second distribution repository.
+- Rename the existing `https://github.com/josha/LuauUI` repository to
+  `https://github.com/josha/Facet`. Do not create a second distribution repository.
+  Verify GitHub's redirect, then update the local remote and every current link.
 - Keep Git source canonical. The Package contains the checked, generated
-  `build/LuauUI.rbxm` runtime tree plus non-executable license/source metadata, never
+  `build/Facet.rbxm` runtime tree plus non-executable license/source metadata, never
   hand-edited code, examples, tests, docs, or a parallel source copy.
-- Create exactly one official LuauUI Package asset and keep its stable asset ID in a
-  checked, non-secret distribution manifest. Updating LuauUI creates a new version of
+- Create exactly one official Facet Package asset and keep its stable asset ID in a
+  checked, non-secret distribution manifest. Updating Facet creates a new version of
   that asset; it must never silently create another asset.
 - Before first creation, ask once for the immutable Roblox owner type/ID and approval
   of the display name, description, private asset creation, and intended free Creator
   Store listing. Package ownership cannot be transferred; do not infer it from Git or
   local credentials. Store API keys only in the environment or protected secret store.
-- License original LuauUI work under the MIT License. Put the standard text in the
+- License original Facet work under the MIT License. Put the standard text in the
   root `LICENSE` file. Use an exact copyright-holder line that the owner has approved.
   Do not infer a legal identity from a Git username or commit address.
 - Keep each third-party work under its own license. Preserve the vendored Fusion MIT
@@ -41,7 +42,28 @@ enables the free Creator Store listing through the final release checklist.
   the owner a precise evidence packet. Do not silently relicense it.
 
 MIT is the selected project license, not a claim that every repository file was
-created by LuauUI. The provenance ledger defines each exception.
+created by Facet. The provenance ledger defines each exception.
+
+## Existing-repository rename
+
+Treat the remote rename as one guarded mutation, separate from the later visibility
+change. Before it, verify admin authority, the current repository's stable identity,
+the exact `josha/Facet` target is available, a recoverable local mirror exists, and
+Step 13's old-name drift gate is green. The owner checkpoint approves the exact old
+and new URLs, GitHub credential, effect on Pages and hosted Actions, and rollback.
+
+Follow current official GitHub rename guidance. GitHub normally redirects repository
+web and Git operations, but project Pages URLs need separate handling and calls to an
+Action hosted by the renamed repository do not redirect. Do not reuse the old
+repository name later because that removes its redirect. Inventory these consumers
+before mutation and block when one has no safe migration.
+
+After the rename, verify owner/repository ID, visibility, branches/tags, issues, wiki,
+stars, Actions/secrets/environments, rulesets, webhooks, Pages, releases, and redirects.
+Update the local `origin`, current links, badges, workflow references, package metadata,
+and release receipts to `josha/Facet`. Prove clone/fetch from the new URL and redirect
+behavior from the old URL without pushing. Record the before/after state and rollback
+instructions. Do not create a replacement repository.
 
 ## Public repository boundary
 
@@ -67,7 +89,7 @@ The public branch should have a familiar, shallow entry surface:
 - useful `tests/`, `bench/`, `tools/`, project files, and reproducible build inputs;
 - the package build/status/publish helper and non-secret asset manifest, but no keys or
   local credential files;
-- `skills/use-luauui/SKILL.md`; and
+- `skills/use-facet/SKILL.md`; and
 - `.github/` continuous-integration, pull-request, and issue templates that match the
   real local workflow.
 
@@ -108,7 +130,7 @@ performs the destructive remote operation.
 
 ## Documentation and installation
 
-The repository root must explain what LuauUI does, its supported Roblox environments,
+The repository root must explain what Facet does, its supported Roblox environments,
 current evidence limits, installation, a five-minute screen, examples, documentation
 map, development commands, versioning, compatibility, contribution policy, security
 reporting, and license. State the verified `SurfaceGui` scope precisely. Do not turn a
@@ -128,9 +150,9 @@ imports.
 ## Roblox Package release channel
 
 Extend the existing `tools/build_model.sh`; do not replace its Rojo mapping or create
-a second model builder. The artifact remains one `ModuleScript` named `LuauUI` with
+a second model builder. The artifact remains one `ModuleScript` named `Facet` with
 the supported runtime tree beneath it. Add release metadata that does not affect its
-public API: `LuauUI.VERSION`, source commit, normalized source-tree hash, and build
+public API: `Facet.VERSION`, source commit, normalized source-tree hash, and build
 schema. Include the full MIT notice and any notice required by material actually in
 the Package through a plainly named, non-executable child or equivalent metadata that
 survives insertion. Verify that every required runtime child is present and no test,
@@ -149,7 +171,7 @@ Provide one documented maintainer interface with at least these safe operations:
   an old tree as an undocumented new version.
 
 Build and verify are offline/default. Create/publish require an explicit confirmation
-flag, a clean approved source commit, matching `LuauUI.VERSION`, green release gates,
+flag, a clean approved source commit, matching `Facet.VERSION`, green release gates,
 the configured creator and asset, and a narrowly scoped Open Cloud credential supplied
 through an environment variable. Refuse a missing/mismatched owner, asset ID, version,
 hash, dirty source, stale build, failed moderation, in-flight operation, or cloud
@@ -284,17 +306,17 @@ must not remain an implementation diary.
 ## Agent onboarding kit
 
 Create root `AGENTS.md` as the portable baseline for agents that build with or change
-LuauUI. Keep it concise and link to public sources of truth. It must tell an agent:
+Facet. Keep it concise and link to public sources of truth. It must tell an agent:
 
 - where to find the quick start, capability catalog, API, examples, architecture,
   styling, input, device verification, accessibility, and extension guides;
 - how to choose public layouts and controls, bind state, style through native
-  StyleSheets and theme packages, and rely on LuauUI for adaptation, focus, input,
+  StyleSheets and theme packages, and rely on Facet for adaptation, focus, input,
   motion, scrolling, and lifecycle;
 - how to choose screen, billboard, or interactive world-surface presentation and find
   the walk-up-terminal recipe without implying declarative 3D or VR support;
 - how to keep domain state and content in a game while putting reusable mechanisms in
-  LuauUI;
+  Facet;
 - the build, test, documentation, Studio, and Rascal Rally consumer-lockstep workflow,
   including local package build/status for relevant changes and cloud publish only for
   an approved release;
@@ -304,8 +326,8 @@ LuauUI. Keep it concise and link to public sources of truth. It must tell an age
   focus, or layout systems, device-name branches, and game-local workarounds for a
   framework promise.
 
-Create a thin Agent Skills-compatible `skills/use-luauui/SKILL.md`. Trigger it for
-building, changing, debugging, styling, or testing Roblox UI with LuauUI. Include only
+Create a thin Agent Skills-compatible `skills/use-facet/SKILL.md`. Trigger it for
+building, changing, debugging, styling, or testing Roblox UI with Facet. Include only
 the essential workflow and route details to public guides. Keep frontmatter to `name`
 and `description` unless a supported host requires a thin adapter. Do not create a
 second manual. `AGENTS.md` must work when skill discovery is unavailable.
@@ -358,10 +380,11 @@ Produce one short packet with:
 - the exact copyright-holder line for confirmation if it was not already recorded;
 - repository description, topics, default branch, protection/ruleset, security, and
   community-profile settings to apply; and
-- an ordered publish-and-rollback checklist. It must include the visibility change,
-  verification of license detection and public CI, enabling the free Package listing,
-  verifying install/Get Latest, and rechecking protections that GitHub changes or
-  disables during a private-to-public conversion.
+- an ordered rename, publish, and rollback checklist. It must include the existing-
+  repository rename to `josha/Facet`, redirect/local-remote/link verification, the
+  visibility change, license detection and public CI, enabling the free Package
+  listing, install/Get Latest, and protections GitHub changes or disables during a
+  private-to-public conversion.
 
 After approval, make the existing repository public first, then enable the free
 Package listing. Tagged source archives or rebuilt `.rbxm` files can also be GitHub
@@ -369,6 +392,9 @@ Release assets. All are derived from Git; none becomes a second source of truth.
 
 ## Platform sources to recheck at execution
 
+- [GitHub repository renaming](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)
+  — permissions, redirects, local remote update, Pages, hosted Actions, and the old-name
+  reuse warning.
 - [Roblox Packages](https://create.roblox.com/docs/projects/assets/packages) — owner,
   `PackageLink`, publishing, Get Latest, AutoUpdate, modified-copy behavior, history,
   and permissions.
@@ -393,7 +419,8 @@ and a proved guarded update path, every living requirement maps to one current
 producer, the full suite/unique release producers run once per identity, old/new
 mutation verdicts agree, the headless budget is met or every irreducible excess is
 owned, and the owner packet is complete. The repository and Creator Store listing
-remain private. Pushing Git, changing visibility, enabling the listing, publishing a
-GitHub release, deleting remote data, or rewriting remote history are outside this
-gate. Creating and updating the one private Package is in scope only after the
-explicit owner checkpoint.
+remain private. The one confirmed rename of the existing repository and creation/
+update of the one private Package are in scope only after the explicit owner
+checkpoint. Pushing Git, changing visibility, enabling the listing, publishing a
+GitHub release, deleting other remote data, or rewriting remote history are outside
+this gate.
