@@ -21,16 +21,52 @@ local roblox_env = {}
 	exactly this reason, and the optional second argument is the seam the spec
 	drives: pass nothing on a client and the engine's own services are used. ]]
 local function engineServices(): any
+	local GuiService = game:GetService("GuiService")
 	return {
 		userInput = game:GetService("UserInputService"),
-		gui = game:GetService("GuiService"),
+		gui = GuiService,
 		text = game:GetService("TextService"),
 		world = workspace,
+		--[[ THE THREE INSET AREAS, AS PLAIN DATA (PLAT-3 redo, 2026-08-17).
+
+			`GetInsetArea` takes an `Enum.ScreenInsets` member and answers a `Rect`,
+			and BOTH are engine types — so the branch that reads them was
+			unreachable under Lune and the belt below had, measurably, no test that
+			executed it in situ at all. Unpacking here is what moves the engine's
+			half of this to the ONE place that is allowed to be engine-only and
+			leaves the judgement on plain tables, where a fake can deliver the shape
+			the finding is about: a stale area arriving beside a fresh viewport.
+
+			pcall-guarded per area, exactly as before: an engine without
+			`GetInsetArea` answers nil for all three and the legacy fallback below
+			stands. ]]
+		insetAreas = function(): { [string]: any }
+			local function area(name: string): any
+				local ok, rect = pcall(function()
+					return GuiService:GetInsetArea((Enum :: any).ScreenInsets[name])
+				end)
+				if not ok or typeof(rect) ~= "Rect" then
+					return nil
+				end
+				return { minX = rect.Min.X, minY = rect.Min.Y, maxX = rect.Max.X, maxY = rect.Max.Y }
+			end
+			return {
+				core = area("CoreUISafeInsets"),
+				device = area("DeviceSafeInsets"),
+				topbar = area("TopbarSafeInsets"),
+			}
+		end,
 	}
 end
 
 function roblox_env.bind(env: any, services: any?): () -> ()
 	local svc = services or engineServices()
+	local insetAreas: () -> { [string]: any } = svc.insetAreas or function()
+		return {}
+	end
+	-- one belt per binding: the three areas lag independently, so each carries
+	-- its own last-agreed pair (see safe_insets' header)
+	local insetBelt = safe_insets.newBelt()
 	local UserInputService = svc.userInput
 	local GuiService = svc.gui
 	local TextService = svc.text
@@ -54,41 +90,38 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		-- GetInsetArea falls back to the legacy top/bottom-only computation
 		-- (right stays 0 there — the documented pre-adoption limitation).
 		local viewport = { w = size.X, h = size.Y }
-		local function insetsFromArea(area: Rect): safe_insets.Insets
-			return safe_insets.fromArea(
-				{ minX = area.Min.X, minY = area.Min.Y, maxX = area.Max.X, maxY = area.Max.Y },
-				{ x = topInset.X, y = topInset.Y },
-				viewport
-			)
-		end
-		--[[ THE STALE-INSET BELT, AT THE PUBLISH SIDE (PLAT-3, 2026-08-17).
+		local guiInset = { x = topInset.X, y = topInset.Y }
+		local areas = insetAreas()
+		--[[ ── THE STALE-INSET BELT (PLAT-3; redone after review finding NEW-1) ──
 
-			`Camera.ViewportSize` and `GuiService:GetInsetArea` update on DIFFERENT
-			frames, so one pass through here can convert an inset measured against
-			the OLD viewport using the NEW one. `env:batch` makes the write atomic;
-			it cannot make the two engine reads agree. `src/env/environment.luau:354`
-			already carries this belt for `topbarSafeInsets` — measured there as a
-			portrait-measured `bottom = 794` read against a 393-tall landscape window
-			— but `coreSafeInsets` and `deviceSafeInsets` reach the solver as root
-			policy insets with no such check, so a rotation could publish an inset
-			that eats most of the surface and nothing republishes until the next
-			platform event.
+			`Camera.ViewportSize` and `GetInsetArea` update on DIFFERENT frames, so
+			one pass through here can convert an area measured against the OLD
+			viewport using the NEW one. `env:batch` makes the write atomic; it
+			cannot make the two engine reads agree.
 
-			Same test, one frame earlier: an edge inset that cannot fit inside the
-			viewport it is being published beside did not come from that viewport, so
-			it is DISCARDED and the last good value stands. Publishing zeroes instead
-			was rejected — on a notched device that is a wrong answer that looks
-			right, where the previous orientation's inset is at least the shape of a
-			real safe area. ]]
-		local okCore, coreArea = pcall(function()
-			return GuiService:GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets)
-		end)
-		if okCore and typeof(coreArea) == "Rect" then
-			local derived = insetsFromArea(coreArea)
-			if safe_insets.describesViewport(derived, viewport) then
-				env:set("coreSafeInsets", derived)
-			end
-		else
+			THE FIRST VERSION OF THIS BELT COULD NOT REFUSE ANYTHING, and the reason
+			is worth keeping: it tested the DERIVED INSET against the viewport that
+			derived it, and `fromArea` subtracts that same viewport, so the test
+			cancelled down to "does the area have positive extent". Measured over
+			this call shape, 48 cases, zero refusals — including a portrait area on
+			a landscape window publishing a `bottom` that reserved 96% of the axis.
+
+			The belt judges the AREA against the viewport instead, and it is
+			stateful because the disagreement only exists across passes: a safe area
+			ENCODES the window it was measured on, so an area byte-identical to the
+			previous pass's, arriving beside a viewport that CHANGED, is still
+			describing the previous viewport. A held pass publishes nothing and the
+			last good value stands — publishing zeroes was rejected, because on a
+			notched device that is a wrong answer that looks right. The next platform
+			event re-pushes and settles it (`TopbarInset`, `ViewportSize`,
+			`CurrentCamera` and `ViewportDisplaySize` all land here). ]]
+		local coreArea = areas.core
+		if coreArea ~= nil and insetBelt:judge("core", coreArea, guiInset, viewport) then
+			env:set("coreSafeInsets", safe_insets.fromArea(coreArea, guiInset, viewport))
+		elseif coreArea == nil then
+			-- an engine without `GetInsetArea` keeps the legacy top/bottom-only
+			-- computation (right stays 0 there — the documented pre-adoption
+			-- limitation). A HELD area is not this case: it keeps the last good.
 			env:set("coreSafeInsets", {
 				top = topInset.Y,
 				bottom = math.max(0, bottomInset.Y),
@@ -96,25 +129,19 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 				right = 0,
 			})
 		end
-		local okDevice, deviceArea = pcall(function()
-			return GuiService:GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets)
-		end)
-		if okDevice and typeof(deviceArea) == "Rect" then
-			local derived = insetsFromArea(deviceArea)
-			if safe_insets.describesViewport(derived, viewport) then
-				env:set("deviceSafeInsets", derived)
-			end
+		local deviceArea = areas.device
+		if deviceArea ~= nil and insetBelt:judge("device", deviceArea, guiInset, viewport) then
+			env:set("deviceSafeInsets", safe_insets.fromArea(deviceArea, guiInset, viewport))
 		end
 		-- ...and the TOPBAR-SAFE area, which is what makes `topbarInset` placeable:
 		-- that rect is stated relative to THIS area, not to the window, so its
-		-- window-space origin is `topbarSafeInsets.left/.top`. Same pcall belt and
-		-- the same conversion as the two above; an engine without `GetInsetArea`
-		-- keeps the zeroes, which are the desktop/no-notch answer.
-		local okTopbar, topbarArea = pcall(function()
-			return GuiService:GetInsetArea(Enum.ScreenInsets.TopbarSafeInsets)
-		end)
-		if okTopbar and typeof(topbarArea) == "Rect" then
-			env:set("topbarSafeInsets", insetsFromArea(topbarArea))
+		-- window-space origin is `topbarSafeInsets.left/.top`. It pays the same
+		-- belt as its two siblings — `environment.luau:354` carries a second,
+		-- consume-side belt for this one key, and a fact that never becomes
+		-- nonsense in the first place is strictly better than one caught later.
+		local topbarArea = areas.topbar
+		if topbarArea ~= nil and insetBelt:judge("topbar", topbarArea, guiInset, viewport) then
+			env:set("topbarSafeInsets", safe_insets.fromArea(topbarArea, guiInset, viewport))
 		end
 		local topbar = GuiService.TopbarInset
 		env:set("topbarInset", { x = topbar.Min.X, y = topbar.Min.Y, w = topbar.Width, h = topbar.Height })
