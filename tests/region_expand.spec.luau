@@ -1055,3 +1055,30 @@ describe("EXPAND 10 — the stop exists only while a reduced form does, and neve
 		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
 	end)
 end)
+
+describe("EXPAND 11 — a rotation under an open plate closes it, cleanly", function()
+	it("the box the plate was opened against moved, so the plate is not there either", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		--[[ THE ROTATION, as the live adapter publishes one: a viewport write, and
+			every solve that follows from it. Nothing here tells the plate to close —
+			the epoch check reads the region's rect on the presenter's own cadence and
+			finds a box that is not the one it was anchored to. ]]
+		--[[ THE WIDTH ALONE, and the choice is what makes this a proof of the epoch
+			check rather than of something else. A rotation that also gives the region
+			room to climb back to its richest form would close the plate through the
+			"nothing left to disclose" branch, and the rect-comparison could be deleted
+			without this case noticing. Same height, wider box: the region is still
+			stepped down, and the ONLY thing that changed is the box the plate was
+			anchored to. ]]
+		w.env:set("viewportRect", { x = 0, y = 0, w = 520, h = 150 })
+		w.pres.refresh()
+		expect(w.controller.compositionAt("/S/C").regions[2].activeForm).toBe(2)
+		expect(w.pres.depth()).toBe(1)
+		-- ...and the screen underneath is untouched: a dismissal, not a teardown
+		expect(w.adapter.node("/S/C/Before/First")).never().toBeNil()
+	end)
+end)

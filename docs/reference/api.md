@@ -2610,6 +2610,16 @@ Methods:
 - `presenter.presentAnchored(panel, opts) -> handle` — a surface placed against
   a **source view's screen rect** instead of a parent corner. See **Anchored
   surfaces** below.
+- `presenter.expand(regionPath) -> "anchored" | "sheet" | "custom" | nil` — open a
+  `UI.Region`'s expand from somewhere else. A stepped-down region carries its own
+  affordance and needs nothing from any caller; this is for the SECOND route to
+  the same disclosure — a screen's overflow census listing what it stopped showing
+  and offering a row for each SIMPLIFIED region. The argument is the path the
+  composition resolution already names every region by
+  (`resolution.regions[i].id`), and the lookup is the shipped longest-prefix
+  contribution dispatch, so it opens the plate the region already has rather than
+  a second one beside it. `nil` means there was nothing to open — a region at its
+  richest form has nothing more to show.
 - `presenter.anchoredSurfaces() -> { schema, count, surfaces, text }` — every
   live anchored surface with its resolved edge, whether it flipped, how far it
   shifted along that edge and what became of its tail (schema
