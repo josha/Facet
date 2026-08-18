@@ -2183,6 +2183,37 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	--[[ EVERYTHING THE EXPANDER OWES ITS HOST, in one place (review F1).
+
+		`FacetHitExpander` is a second, separate `GuiButton` — a sibling at
+		`hostZ - 1`, so the control keeps winning where the two overlap — and every
+		fact about the host that a consumer might read off a button has to be
+		carried to it explicitly. `Visible` and `ZIndex` already are, each at its own
+		seam. These two are the rest:
+
+		  the declared sensory verb   or a consumer reads the band as UNDECLARED and
+		                              gives it the generic press sensation, so a
+		                              control declared `none` is silent on its face
+		                              and felt in its band;
+		  Active / Interactable       or a DISABLED control's band still advertises a
+		                              press it will not deliver.
+
+		Read off the host rather than passed in, so there is one truth and this can
+		be called from any seam that changes either — and so a newly built expander
+		can seed itself from a host that was configured before it existed. ]]
+	local function mirrorToHitExpander(handle: any)
+		local expander = handle.hitExpander
+		local instance = handle.instance
+		if expander == nil or instance == nil then
+			return
+		end
+		pcall(function()
+			expander:SetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE, instance:GetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE))
+			expander.Active = instance.Active
+			expander.Interactable = instance.Interactable
+		end)
+	end
+
 	-- THE PER-CONTROL SENSORY VERB (director request 2026-08-13;
 	-- `src/render/target_contract.luau`'s `setActivationFeedback`). An ATTRIBUTE,
 	-- for the same reason `Facet_PaintClaims` is one: it is a fact about the node
@@ -2204,6 +2235,14 @@ function screen_target.new(opts: Opts?)
 		pcall(function()
 			instance:SetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE, verb)
 		end)
+		-- ...AND THE EXPANDER, for the same reason `Visible` and `ZIndex` are
+		-- carried explicitly (RS-A16-D1): it is a SIBLING, so nothing about the host
+		-- reaches it by parentage, and it is a `GuiButton` a haptics consumer will
+		-- sweep and decorate on its own. Left unmirrored it read as UNDECLARED — so
+		-- a control declared `none` was silent on its face and buzzed in the 44px
+		-- band outside it, which is exactly where a thumb lands on a small control
+		-- (release-candidate review F1).
+		mirrorToHitExpander(handle)
 	end
 
 	-- a hit rect needs a real object, so an elided node materialises here
@@ -2243,6 +2282,10 @@ function screen_target.new(opts: Opts?)
 				end
 			end)
 			handle.hitExpander = expander
+			-- born carrying its host's declared verb and disabled state, exactly as
+			-- it is born at its host's visibility: a control configured before its
+			-- expander existed must not get a band that disagrees with its face
+			mirrorToHitExpander(handle)
 			-- ...AND THE HOST'S POINTER GESTURE, for a control that has one (see
 			-- `beginPointerCapture`'s header). `Activated` alone covers the tappable
 			-- family only; a pointer zone's expander was inert without this, which is
@@ -3467,6 +3510,11 @@ function screen_target.new(opts: Opts?)
 					assertBespokePaint("TextTransparency")
 					instance.TextTransparency = if value == true then 0 else style.extra.disabledContentOpacity
 				end
+				-- the band goes with the face (review F1): a disabled control whose
+				-- 44px expander still advertises a press is a promise it does not
+				-- keep, and the expander is a sibling so nothing about `enabled`
+				-- reaches it by parentage
+				mirrorToHitExpander(handle)
 			end
 		elseif prop == "active" then
 			if instance:IsA("GuiObject") then

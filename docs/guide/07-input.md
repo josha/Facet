@@ -448,7 +448,22 @@ hap.attachButtons(screenGui) -- what a press going DOWN feels like
 |---|---|---|
 | `press` | the press goes **down** | the **engine**, through the button's own `PressHapticEffect`. Facet hands over a reference and never plays it. |
 | `release` | the press **completes** | the bus — a press that was dragged away from never completes, so it is silent without a line of code saying so. |
-| `select` | a **choice changed** (`select` / `adjust`) | the bus, rate-limited: pulses closer together than the floor are **dropped**, not queued behind each other. |
+| `select` | a **value changed** (`select` / `adjust`) | the bus, rate-limited: pulses closer together than the floor are **dropped**, not queued behind each other. |
+
+**The cause decides the phase, not the verb alone.** A verb says *what*
+happened; a completed press says *a control was pressed*. So a control that
+declares `activation = "select"` feels the **release** phase when you press it —
+a press completing is not a choice moving — and the **select** phase fires when
+its value actually changes. Such a control is handed no press effect at all: a
+choice has not moved yet when the finger lands.
+
+**A keyboard or gamepad press is one moment, not two.** The `Activate` action
+resolves on the key going *down*, so the completion arrives in the same instant
+the engine would play the press effect. For those input classes the bus
+contributes exactly **one** sensation — `release` — and anything else it would
+have played for that control in that instant is dropped. (What the engine does
+with its own press effect in that instant is the engine's, and undocumented; a
+device pass is the only thing that can answer it.)
 
 **The three default waveforms, by name.** They are Facet's own, tuned for the
 role each phase plays, and they live in `src/client/sensory_profile.luau` where
@@ -512,7 +527,26 @@ phase is in that state.
 **Declared controls are unchanged.** A button that declared its own verb still
 gets that verb's preset for its press — a Buy button and a Delete button still
 feel different — and a control declared `"none"` (or one whose verb the adapter
-deliberately silences) is unfelt on **both** edges.
+deliberately silences) is unfelt on **both** edges. That includes the invisible
+44px activation band a control smaller than the touch floor gets: the band
+carries the same declared verb and the same disabled state as the face, so a
+control you silenced does not buzz two millimetres outside itself.
+
+**If you declare both forms on one control, you get two sensations.** That is
+the honest answer, because two things happened:
+
+```lua
+-- a picker row that both changes a value AND is a control being pressed:
+-- `tick` when the value moves, `settle` when the press completes
+UI.sensoryFeedback(UI.sensoryFeedback(row, { trigger = choice, event = "select" }), { activation = "commit" })
+```
+
+To feel only the change, say that the control's own press means nothing — a
+sentence the vocabulary already has:
+
+```lua
+UI.sensoryFeedback(UI.sensoryFeedback(row, { trigger = choice, event = "select" }), { activation = "none" })
+```
 
 **How you find out whether any of it worked.** You do not, from code. Roblox has
 no capability API for haptics, `HapticEffect` cannot be asked whether it fired,

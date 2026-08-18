@@ -159,6 +159,14 @@ local COPY = {
 	calReleaseNote = "A control that reports nothing of its own, driving one completed activation onto the bus: the release waveform, alone.",
 	calSelect = "Select",
 	calSelectNote = "One changed choice onto the bus: the select waveform, alone. Tap it fast — pulses closer together than the floor are DROPPED, never queued behind each other.",
+	-- THE HONEST LABEL (review F6). The Release and Select rows put a cause on the
+	-- bus DIRECTLY so each waveform can be judged with nothing else in the way;
+	-- that isolation is bought by skipping the real cause. The Press row is a plain
+	-- control taking the real path end to end, so it is the row that proves the
+	-- wiring rather than the waveform — and the count beside it is read off the
+	-- BUS, not off the button's handler, or it would only prove the button works.
+	calSynthNote = "Release and Select put their cause on the bus directly, so each waveform can be judged with nothing else in the way. Press is the row that proves the wiring: it is an ordinary control, and the count below is what actually reached the bus.",
+	heardPrefix = "Completed presses heard on the bus",
 	profileTitle = "Which profile is installed",
 	profileDefaults = "Facet defaults",
 	profileFallback = "Preset fallback",
@@ -188,10 +196,15 @@ local DECLARED: { { id: string, copyKey: string, activation: string? } } = {
 -- `haptics.pressSpecFor` by the headless suite, which is what keeps a written-out
 -- table honest. `activate` (and an undeclared control) is the PRESS PHASE, which
 -- is Facet's own `contact` waveform rather than a platform preset.
-local SENSATION: { { verb: string, effect: string? } } = {
+--
+-- `select` HAS NO DOWN EDGE, and the `note` says why rather than letting an empty
+-- cell read as an oversight: a choice moves when the VALUE changes, so the tick
+-- belongs to the change and the press itself is answered by `settle` like any
+-- other completed press.
+local SENSATION: { { verb: string, effect: string?, note: string? } } = {
 	{ verb = "commit", effect = "UIClick" },
 	{ verb = "reject", effect = "UINotification" },
-	{ verb = "select", effect = "UIClick" },
+	{ verb = "select", effect = nil, note = "no down edge — the tick fires when the value changes" },
 	{ verb = "activate", effect = "contact" },
 }
 
@@ -432,7 +445,8 @@ return {
 			local release = if phases.release ~= nil then phases.release.plays else 0
 			local select_ = if phases.select ~= nil then phases.select.plays else 0
 			pulseLine:set(
-				`{COPY.pulsePrefix}: {diagnostics.plays} · release {release} · select {select_} · {COPY.pulsePressNote}`
+				`{COPY.pulsePrefix}: {diagnostics.plays} · release {release} · select {select_} · `
+					.. `{COPY.heardPrefix}: {reported:get()} · {COPY.pulsePressNote}`
 			)
 		end
 
@@ -609,6 +623,7 @@ return {
 				-- reader is looking, which makes it the moment to re-read; it costs
 				-- one early return while nothing is installed.
 				publish()
+				publishPulses()
 			end))
 		end
 
@@ -708,7 +723,7 @@ return {
 				sensationRows,
 				UI.Text({
 					id = `Sensation{i}`,
-					text = `{row.verb} → {row.effect or COPY.silent}`,
+					text = `{row.verb} → {row.effect or row.note or COPY.silent}`,
 					textSize = 12,
 					role = "secondary",
 				})
@@ -920,6 +935,12 @@ return {
 									textSize = 12,
 									role = "secondary",
 								}),
+								UI.Text({
+									id = "CalSynthNote",
+									text = COPY.calSynthNote,
+									textSize = 12,
+									role = "secondary",
+								}),
 								UI.Text({ id = "ProfileTitle", text = COPY.profileTitle, textSize = 12 }),
 								UI.HStack({
 									id = "ProfileRow",
@@ -1021,6 +1042,9 @@ return {
 						plays = if hap ~= nil then hap.diagnostics().plays else 0,
 						release = if phases ~= nil then phases.release.plays else 0,
 						select = if phases ~= nil then phases.select.plays else 0,
+						-- what actually reached the bus, so a device session can tell a
+						-- felt press from a wired one (review F6)
+						heard = reported:get(),
 						pressEffect = if phases ~= nil then phases.press.effect else nil,
 						releaseEffect = if phases ~= nil then phases.release.effect else nil,
 						selectEffect = if phases ~= nil then phases.select.effect else nil,

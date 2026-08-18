@@ -368,29 +368,59 @@ describe("haptics: the map is TOTAL over the twelve verbs", function()
 		expect(sensory_profile.FALLBACK.press).toBe("UIClick")
 	end)
 
-	it("the two verbs the SELECT phase claims are named, and the MAP still covers them", function()
-		-- PHASE_VERBS is the precedence rule written down: `select` and `adjust`
-		-- play the select phase whatever caused them, so their MAP rows are the
-		-- pre-phase record kept for TOTALITY (a thirteenth verb must still surface
-		-- as a gap) rather than a live preset choice.
+	it("the two verbs the SELECT phase claims have NO down edge of their own", function()
+		--[[ THE DOCTRINE, NOW HONOURED BY BOTH ROUTES (review F2). `select` and
+			`adjust` describe a CHOICE MOVING, and a choice moves when the value
+			changes — not when a finger goes down on the control that will change it.
+			So the select phase is reachable from the value-change event alone, and a
+			control that declared one of these two verbs is SILENT on its down edge
+			rather than being handed `MAP`'s preset.
+
+			Before this was fixed the property route ignored `PHASE_VERBS` entirely: a
+			select-declared control felt `UIClick` going down and `tick` coming up —
+			two sensations for one choice, and the opposite of what three documents
+			said. Their `MAP` rows stay as the TOTALITY ledger (a thirteenth verb must
+			still surface in `unmappedVerbs()`); they are no longer a press preset. ]]
 		expect(haptics.PHASE_VERBS).toEqual({ select = "select", adjust = "select" })
 		for verb in haptics.PHASE_VERBS do
 			expect(type(haptics.MAP[verb])).toBe("string")
 			expect(table.find(feedbackLib.TYPES, verb) ~= nil).toBe(true)
+			-- THE ASSERTION THE OLD COMMENT MISCHARACTERISED AND NEVER MADE
+			expect(`{verb} down edge:{tostring(haptics.pressSpecFor(verb))}`).toBe(`{verb} down edge:nil`)
+			-- ...and the control is still FELT: its completed edge is the release
+			-- phase's, which is a different question from what its press feels like
+			expect(`{verb} felt:{haptics.activationIsFelt(verb)}`).toBe(`{verb} felt:true`)
 		end
 	end)
 
-	it("`pressSpecFor` answers the three cases a control can be in", function()
+	it("`pressSpecFor` answers the four cases a control can be in", function()
 		-- undeclared / `activate` -> the PRESS PHASE; a declared verb -> its mapped
-		-- preset; `none` or a silenced verb -> nothing at all
+		-- preset; a verb the SELECT PHASE claims -> nothing on the down edge; `none`
+		-- or a silenced verb -> nothing at all, on either edge
 		expect(haptics.pressSpecFor(nil)).toEqual(sensory_profile.DEFAULTS.press)
 		expect(haptics.pressSpecFor("commit")).toEqual({ kind = "preset", effect = "UIClick" })
 		expect(haptics.pressSpecFor("reject")).toEqual({ kind = "preset", effect = "UINotification" })
+		expect(haptics.pressSpecFor("select")).toBeNil()
+		expect(haptics.pressSpecFor("adjust")).toBeNil()
 		expect(haptics.pressSpecFor(feedbackLib.ACTIVATION_SILENT)).toBeNil()
 		expect(haptics.pressSpecFor("cancel")).toBeNil()
 		-- and it honours a game's own profile for the undeclared case
 		local silenced = sensory_profile.resolve({ press = { kind = "silent" } })
 		expect(haptics.pressSpecFor(nil, silenced)).toEqual({ kind = "silent" })
+	end)
+
+	it("`activationIsFelt` is the OTHER question, and the two are not the same", function()
+		--[[ `pressSpecFor` answers "what does this control's DOWN edge feel like";
+			`activationIsFelt` answers "is this control felt AT ALL". They used to be
+			one function, which is exactly why the select phase's two verbs lost their
+			completed edge the moment their down edge was silenced. ]]
+		for _, verb in { "activate", "select", "adjust", "pickup", "commit", "reject", "land", "celebrate" } do
+			expect(`{verb}:{haptics.activationIsFelt(verb)}`).toBe(`{verb}:true`)
+		end
+		for _, verb in { "cancel", "arrive", "dismiss", "supersede", feedbackLib.ACTIVATION_SILENT } do
+			expect(`{verb}:{haptics.activationIsFelt(verb)}`).toBe(`{verb}:false`)
+		end
+		expect(haptics.activationIsFelt(nil)).toBe(true) -- undeclared is felt
 	end)
 end)
 
@@ -1184,6 +1214,132 @@ describe("haptics: the press phase is the ENGINE's, and it is the Facet waveform
 	end)
 end)
 
+--[[ ===== THE HIT EXPANDER IS A SECOND BUTTON, AND IT MUST FEEL LIKE THE FIRST
+	(review F1, HIGH).
+
+	A control whose solved rect falls under the touch floor gets a SECOND, separate
+	`GuiButton` — `FacetHitExpander`, a sibling at `hostZ - 1`
+	(`src/client/screen_target.luau`) — so a thumb landing in the 44px band outside
+	the painted rect still activates it. That expander is a `GuiButton` under the
+	attached root, so `attachButtons`'s sweep decorates it exactly like any other.
+
+	It therefore has to CARRY THE SAME FACTS as its host, or the band delivers a
+	different sensation from the face:
+
+	  · the author's declared verb (`Facet_ActivationFeedback`), or its absence;
+	  · the host's disabled state (`Active` / `Interactable`).
+
+	Before this was fixed it carried NEITHER. `setActivationFeedback` wrote to the
+	host instance only, so the expander read as UNDECLARED and got the press phase:
+	a control declared `none` buzzed in its band, a DISABLED control's band was
+	still felt, and a `commit` control felt one thing on its face and another two
+	millimetres outside it. The band is exactly where a thumb lands on a small
+	control, so this was the touch case, not an edge case.
+
+	TWO INSTRUMENTS, because the mirror and the reading live on opposite sides of
+	an engine boundary. Here: the adapter, given a correctly mirrored expander,
+	must treat it identically to its host — measured against a fake engine. In
+	`tests/control_feedback.spec.luau`: that `screen_target.luau` really performs
+	the mirror, at all three seams, pinned structurally (that file materialises
+	real Instances and cannot be required under Lune).
+]]
+describe("haptics: a hit expander feels EXACTLY like the control it belongs to", function()
+	-- the expander as `screen_target` now builds it: a sibling GuiButton carrying
+	-- its host's verb and its host's disabled state, and nothing else of its own
+	local function fakeExpander(host: any): any
+		local expander = fakeButton("FacetHitExpander")
+		expander.attribute = host.attribute
+		expander.Active = host.Active
+		expander.Interactable = host.Interactable
+		return expander
+	end
+
+	it("...for every verb an author can declare, including the undeclared default", function()
+		local adapter, _, log = rig({ enabled = true })
+		local pairs_: { { host: any, expander: any, verb: string? } } = {}
+		local children: { any } = {}
+		local verbs: { any } = { nil :: any }
+		for _, verb in feedbackLib.TYPES do
+			table.insert(verbs, verb)
+		end
+		table.insert(verbs, feedbackLib.ACTIVATION_SILENT)
+		for index, verb in verbs do
+			local host = fakeButton(`Host{index}`)
+			host.attribute = if verb == nil then nil else verb
+			local expander = fakeExpander(host)
+			table.insert(pairs_, { host = host, expander = expander, verb = verb })
+			table.insert(children, host)
+			table.insert(children, expander)
+		end
+		adapter.attachButtons(fakeRoot(children))
+		for _, entry in pairs_ do
+			local hostEffect = entry.host.PressHapticEffect
+			local bandEffect = entry.expander.PressHapticEffect
+			expect(`{tostring(entry.verb)} band matches face:{hostEffect == bandEffect}`).toBe(
+				`{tostring(entry.verb)} band matches face:true`
+			)
+		end
+		-- ...and the `none` pair is the one that used to buzz in its band: BOTH nil
+		local silent = pairs_[#pairs_]
+		expect(`{tostring(silent.host.PressHapticEffect)}/{tostring(silent.expander.PressHapticEffect)}`).toBe(
+			"nil/nil"
+		)
+		-- nothing was built twice: the band and the face SHARE one Instance
+		expect(log.constructions).toBe(adapter.diagnostics().pooled)
+	end)
+
+	it("a `select` control's band is as silent as its face", function()
+		-- the select phase has no down edge (review F2), so neither half of the
+		-- control has one — the band must not resurrect it
+		local adapter = rig({ enabled = true })
+		local host = fakeButton("Pick")
+		host.attribute = "select"
+		local expander = fakeExpander(host)
+		adapter.attachButtons(fakeRoot({ host, expander }))
+		expect(`{tostring(host.PressHapticEffect)}/{tostring(expander.PressHapticEffect)}`).toBe("nil/nil")
+	end)
+
+	it("a DISABLED host silences its band too", function()
+		local adapter = rig({ enabled = true })
+		local host = fakeButton("Off")
+		host.Active = false
+		local expander = fakeExpander(host)
+		adapter.attachButtons(fakeRoot({ host, expander }))
+		expect(`{tostring(host.PressHapticEffect)}/{tostring(expander.PressHapticEffect)}`).toBe("nil/nil")
+	end)
+
+	it("...and a host DISABLED AFTER decorate takes its band with it on the next sweep", function()
+		-- the mirror is maintained at the `enabled` seam, so by the time the adapter
+		-- re-reads, the expander already says what its host says
+		local adapter = rig({ enabled = true })
+		local host = fakeButton("Go")
+		local expander = fakeExpander(host)
+		adapter.attachButtons(fakeRoot({ host, expander }))
+		expect(`{host.PressHapticEffect ~= nil}/{expander.PressHapticEffect ~= nil}`).toBe("true/true")
+		host.Interactable = false
+		expander.Interactable = false -- what `setProp("enabled")` mirrors
+		adapter.setEnabled(false)
+		adapter.setEnabled(true)
+		expect(`{tostring(host.PressHapticEffect)}/{tostring(expander.PressHapticEffect)}`).toBe("nil/nil")
+		expect(adapter.diagnostics().decorated).toBe(0)
+	end)
+
+	it("an UNMIRRORED expander is the defect, and this is what it looked like", function()
+		--[[ THE NEGATIVE CONTROL. Without the mirror the expander reads as
+			undeclared and gets the press phase, which is precisely the reported bug:
+			a `none` control silent on its face and buzzing in its band. If the mirror
+			is ever dropped, the case above goes green only if this one also changes —
+			so the two together say the adapter is reading a fact, not inventing one. ]]
+		local adapter = rig({ enabled = true })
+		local host = fakeButton("Mute")
+		host.attribute = "none"
+		local stale = fakeButton("FacetHitExpander") -- carries nothing of its host
+		adapter.attachButtons(fakeRoot({ host, stale }))
+		expect(host.PressHapticEffect).toBeNil()
+		expect(stale.PressHapticEffect ~= nil).toBe(true)
+	end)
+end)
+
 describe("haptics: the release phase is the COMPLETED edge, and it is new", function()
 	it("a completed activation plays `settle` — once, on the pooled release effect", function()
 		local adapter, bus, log = rig({ enabled = true })
@@ -1295,6 +1451,149 @@ describe("haptics: the release phase is the COMPLETED edge, and it is new", func
 		end
 		expect(log.plays).toBe(0)
 		expect(log.constructions).toBe(before)
+	end)
+end)
+
+--[[ ===== THE CAUSE DECIDES THE PHASE, NOT THE VERB ALONE (review F2) ======
+	A verb says WHAT happened; `reason = "activation"` says a CONTROL WAS PRESSED.
+	Those are different questions and they used to fight: `select` and `adjust`
+	were routed to the select phase "whatever caused them", so a control declaring
+	`activation = "select"` ticked on the way up — while its down edge, which the
+	property route resolved from `MAP` and not from `PHASE_VERBS`, clicked. Two
+	sensations for one choice.
+
+	The rule now: a COMPLETED ACTIVATION is the release phase's, whatever verb it
+	names. The select phase is reachable from a VALUE CHANGE only — which is the
+	only event that means a choice actually moved.
+]]
+describe("haptics: an activation is the RELEASE phase's, whatever verb it names", function()
+	it("a select-declared control's completed press plays `settle`, not `tick`", function()
+		local adapter, bus, log = rig({ enabled = true })
+		bus.emit({ type = "select", path = "/S/Pick", reason = "activation" })
+		expect(log.plays).toBe(1)
+		expect(#log.effects).toBe(1)
+		expect(log.effects[1].waveform).toEqual({
+			{ timeMs = 0, intensity = 0, mode = "Enum.KeyInterpolationMode.Linear" },
+			{ timeMs = 10, intensity = 0.5, mode = "Enum.KeyInterpolationMode.Cubic" },
+			{ timeMs = 34, intensity = 0, mode = "Enum.KeyInterpolationMode.Linear" },
+		})
+		local phases = adapter.diagnostics().phases
+		expect(`release={phases.release.plays} select={phases.select.plays}`).toBe("release=1 select=0")
+	end)
+
+	it("...and the VALUE CHANGE for the same verb plays `tick` — the two are distinct", function()
+		local adapter, bus, log, clock = rig({ enabled = true })
+		bus.emit({ type = "select", path = "/S/Pick" }) -- no `reason`: a value moved
+		clock.advance(1)
+		bus.emit({ type = "adjust", path = "/S/Slider" })
+		local phases = adapter.diagnostics().phases
+		expect(`release={phases.release.plays} select={phases.select.plays}`).toBe("release=0 select=2")
+		expect(log.effects[1].waveform).toEqual({
+			{ timeMs = 0, intensity = 0, mode = "Enum.KeyInterpolationMode.Linear" },
+			{ timeMs = 4, intensity = 0.35, mode = "Enum.KeyInterpolationMode.Linear" },
+			{ timeMs = 16, intensity = 0, mode = "Enum.KeyInterpolationMode.Linear" },
+		})
+	end)
+
+	it("a select-declared button is handed NO press effect at all", function()
+		local adapter, _, log = rig({ enabled = true })
+		local pick, buy = fakeButton("Pick"), fakeButton("Buy")
+		pick.attribute, buy.attribute = "select", "commit"
+		adapter.attachButtons(fakeRoot({ pick, buy }))
+		expect(pick.PressHapticEffect).toBeNil()
+		expect(buy.PressHapticEffect ~= nil).toBeTruthy()
+		expect(log.constructions).toBe(1) -- only the commit preset was built
+	end)
+
+	it("a `none` control is still unfelt on BOTH edges — silencing did not move", function()
+		local adapter, bus, log = rig({ enabled = true })
+		local mute = fakeButton("Mute")
+		mute.attribute = "none"
+		adapter.attachButtons(fakeRoot({ mute }))
+		bus.emit({ type = "cancel", path = "/S/Mute", reason = "activation" })
+		expect(`decorated={mute.PressHapticEffect ~= nil} plays={log.plays}`).toBe("decorated=false plays=0")
+	end)
+end)
+
+--[[ ===== THE SAME-INSTANT COLLAPSE ==========================================
+	A POINTER press has two moments a hand can tell apart: the finger lands, then
+	the finger lifts. A KEYBOARD or GAMEPAD press does not. The IAS `Activate`
+	action resolves on the key going DOWN, so the presenter's completion event —
+	the one the release phase answers — is raised in the same instant the engine
+	would play the button's own press effect. Two sensations at one instant are not
+	two sensations; they are one blurred pulse.
+
+	So for an activation the presenter marks as non-pointer (`context.source ==
+	"action"`), the BUS contributes exactly ONE sensation, `settle`, and collapses
+	anything else it would have played for that path in the same instant.
+
+	WHAT THIS CANNOT DO, and the device packet says so: the engine's own `contact`
+	is the engine's. Whether it fires at all for a non-pointer press is
+	undocumented, and only a hand can answer it — which is why the packet's
+	keyboard and gamepad rows ask for exactly that.
+]]
+describe("haptics: press and completed-release in one instant collapse to one sensation", function()
+	it("a non-pointer activation plays `settle` ONCE, and nothing else in that instant", function()
+		local adapter, bus, log = rig({ enabled = true })
+		local action = { source = "action" }
+		bus.emit({ type = "activate", path = "/S/Go", reason = "activation", context = action })
+		-- ...and a value change for the SAME control in the SAME instant is the
+		-- other half of the same key press, not a second thing to feel
+		bus.emit({ type = "select", path = "/S/Go" })
+		expect(log.plays).toBe(1)
+		local phases = adapter.diagnostics().phases
+		expect(`release={phases.release.plays} select={phases.select.plays}`).toBe("release=1 select=0")
+		expect(adapter.diagnostics().collapsed).toBe(1)
+	end)
+
+	it("the collapse is ONE INSTANT wide — the next frame is a new gesture", function()
+		local adapter, bus, log, clock = rig({ enabled = true })
+		local action = { source = "action" }
+		bus.emit({ type = "activate", path = "/S/Go", reason = "activation", context = action })
+		clock.advance(0.02) -- past one 60 Hz frame
+		bus.emit({ type = "select", path = "/S/Go" })
+		expect(log.plays).toBe(2)
+		expect(adapter.diagnostics().collapsed).toBe(0)
+	end)
+
+	it("it is keyed to the PATH — another control pressed in the same frame is its own gesture", function()
+		local adapter, bus, log = rig({ enabled = true })
+		local action = { source = "action" }
+		bus.emit({ type = "activate", path = "/S/Go", reason = "activation", context = action })
+		bus.emit({ type = "activate", path = "/S/Other", reason = "activation", context = action })
+		expect(log.plays).toBe(2)
+		expect(adapter.diagnostics().collapsed).toBe(0)
+	end)
+
+	it("a POINTER press is NOT collapsed — its two moments are genuinely apart", function()
+		--[[ THE NEGATIVE CONTROL, and it is what stops the rule from swallowing the
+			ordinary case. A pointer gesture's down edge and completion are separated
+			by the human hand; collapsing them would silence the value change a tap on
+			a picker row causes. ]]
+		local adapter, bus, log = rig({ enabled = true })
+		local pointer = { source = "pointer", pointer = "touch" }
+		bus.emit({ type = "activate", path = "/S/Go", reason = "activation", context = pointer })
+		bus.emit({ type = "select", path = "/S/Go" })
+		expect(log.plays).toBe(2)
+		expect(adapter.diagnostics().collapsed).toBe(0)
+	end)
+
+	it("an echo that escaped the presenter's window is collapsed rather than replayed", function()
+		-- the presenter collapses the keyboard Activate and the engine's echoing
+		-- `Activated` inside ACTIVATE_ECHO_WINDOW; if one ever escaped, the hand
+		-- must still feel one press
+		local adapter, bus, log = rig({ enabled = true })
+		local action = { source = "action" }
+		for _ = 1, 4 do
+			bus.emit({ type = "activate", path = "/S/Go", reason = "activation", context = action })
+		end
+		expect(log.plays).toBe(1)
+		expect(adapter.diagnostics().collapsed).toBe(3)
+	end)
+
+	it("the window is named, and it is one frame at 60 Hz", function()
+		expect(haptics.SAME_INSTANT_SECONDS).toBeGreaterThan(0)
+		expect(haptics.SAME_INSTANT_SECONDS).toBeLessThanOrEqual(0.017)
 	end)
 end)
 

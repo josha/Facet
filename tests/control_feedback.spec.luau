@@ -749,6 +749,91 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		local body = fs.readFile("src/client/screen_target.luau")
 		expect(string.find(body, `"{hapticsLib.ACTIVATION_ATTRIBUTE}"`, 1, true) ~= nil).toBeTruthy()
 	end)
+
+	it("the HIT EXPANDER is handed the same three facts as its host (review F1)", function()
+		--[[ A control under the touch floor gets a SECOND `GuiButton` — a sibling
+			`FacetHitExpander` at `hostZ - 1` — and a haptics consumer sweeps it like
+			any other button. Left unmirrored it read as UNDECLARED and ENABLED, so a
+			control declared `none` was silent on its face and buzzed in the 44px band
+			outside it, and a disabled control's band was still felt. The band is
+			exactly where a thumb lands on a small control.
+
+			SOURCE IS THE INSTRUMENT HERE, and the limit is stated rather than hidden:
+			`screen_target.luau` calls `Instance.new` and cannot be required under
+			Lune, so what the mirror DOES is proved against a fake engine in
+			`tests/haptics.spec.luau` ("a hit expander feels EXACTLY like the control
+			it belongs to") and what is proved here is that this file really performs
+			it, at every seam that can change one of the three facts. Each assertion
+			names the seam, so a mirror deleted from one of them reddens on its own. ]]
+		local body = fs.readFile("src/client/screen_target.luau")
+		local function calls(after: string): number
+			local at = string.find(body, after, 1, true)
+			expect(`{after} exists:{at ~= nil}`).toBe(`{after} exists:true`)
+			local segment = string.sub(body, at :: number, (at :: number) + 1400)
+			local n = 0
+			for _ in string.gmatch(segment, "mirrorToHitExpander%(handle%)") do
+				n += 1
+			end
+			return n
+		end
+		-- the mirror itself carries all three facts, and reads them off the HOST
+		local mirror = string.find(body, "local function mirrorToHitExpander(handle: any)", 1, true)
+		expect(`defined:{mirror ~= nil}`).toBe("defined:true")
+		local mirrorBody = string.sub(body, mirror :: number, (mirror :: number) + 900)
+		for _, fact in
+			{
+				`expander:SetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE, instance:GetAttribute(`,
+				"expander.Active = instance.Active",
+				"expander.Interactable = instance.Interactable",
+			}
+		do
+			expect(`{fact}:{string.find(mirrorBody, fact, 1, true) ~= nil}`).toBe(`{fact}:true`)
+		end
+		-- ...and it is called from all three seams that can change one of them
+		expect(`verb seam:{calls("function adapter.setActivationFeedback(handle: any, verb: string?)") > 0}`).toBe(
+			"verb seam:true"
+		)
+		expect(`birth seam:{calls("handle.hitExpander = expander") > 0}`).toBe("birth seam:true")
+		expect(`enabled seam:{calls('elseif instance:IsA("TextButton") then') > 0}`).toBe("enabled seam:true")
+	end)
+
+	it("a sub-floor control really produces the population F1 is about", function()
+		--[[ THE EXPANDER EXISTS BECAUSE THE RENDERER ASKED FOR ONE. This is the case
+			`screen_target.luau`'s `setHitRect` serves: a control solved smaller than
+			the touch floor gets a hit rect pushed, and that push is what builds the
+			second button. Asserting the mirror without asserting the population would
+			be pinning a fix to a case nothing reaches.
+
+			Both facts the mirror needs are checked at the same seam: the hit rect IS
+			pushed for this control, and its declared verb IS published for it. ]]
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				(UI :: any).sensoryFeedback(
+					UI.Button({
+						id = "Tiny",
+						label = "x",
+						width = { type = "fixed", px = 18 },
+						height = { type = "fixed", px = 18 },
+					}),
+					{ activation = feedbackLib.ACTIVATION_SILENT }
+				),
+			},
+		}))
+		pres.refresh()
+		local rect = adapter.hitRectOf("/S/Tiny")
+		expect(`hit rect pushed:{rect ~= nil}`).toBe("hit rect pushed:true")
+		-- ...and it is genuinely BIGGER than the painted control, or there is no
+		-- band to feel anything in
+		expect(`band wider than face:{rect ~= nil and rect.w > 18}`).toBe("band wider than face:true")
+		expect(adapter.activationFeedbackOf("/S/Tiny")).toBe(feedbackLib.ACTIVATION_SILENT)
+	end)
 end)
 
 -- ===========================================================================
@@ -1231,6 +1316,30 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		built.dispose()
 	end)
 
+	it("a REAL press on the Press row proves the cause -> edge wiring, not just the waveform", function()
+		--[[ REVIEW F6. The Release and Select rows put their cause on the bus
+			directly, which is how each waveform gets judged with nothing else in the
+			way — but it means those two rows cannot say anything about whether a
+			genuine completed activation reaches the release phase. The Press row is an
+			ordinary control, so it can, and the panel now counts what reached the BUS
+			rather than what the button's own handler saw. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		local before = built.steps.readPulses()
+		expect(`heard={before.heard} release={before.release}`).toBe("heard=0 release=0")
+		w.adapter.tap("/SensoryFeedback/Page/Calibration/CalRow/CalPress")
+		local after = built.steps.readPulses()
+		-- ONE completed activation reached the bus, and ONE settle answered it
+		expect(`heard={after.heard} release={after.release} select={after.select}`).toBe("heard=1 release=1 select=0")
+		-- ...and the panel says so on screen, where a device session can read it
+		expect(`line names the count:{string.find(after.line, "bus: 1", 1, true) ~= nil}`).toBe(
+			"line names the count:true"
+		)
+		built.dispose()
+	end)
+
 	it("the profile selector really re-installs, and SILENT plays nothing at all", function()
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, built = mountDemo()
@@ -1387,5 +1496,141 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		expect(w.core:lastError()).toBeNil()
 		built.playHaptics:set(false)
 		built.dispose()
+	end)
+end)
+
+--[[ ===========================================================================
+	COMPOSING THE TWO FORMS — what a tap on such a control actually feels like
+	(release-candidate review F5).
+
+	`src/present/feedback.luau` advertises composing the CHANGE form and the
+	CONTROL form on one node: "a control that wants both (a press AND a value
+	change) then reads as two lines of the same declaration". Under the phase model
+	that composition raises TWO bus causes for one tap — the value moved, and the
+	press completed — and nothing in the round measured it. So this block does,
+	rather than reasoning about it.
+
+	THE OUTCOME IS ACCEPTED, NOT A DEFECT, and it is accepted for a reason the
+	measurement makes visible: the two sensations answer two different things that
+	genuinely both happened, and "one pulse per cause" is the contract, not "one
+	pulse per gesture". An author who wants one sensation says so in the same
+	declaration — `activation = "none"` beside the change form — and the second
+	case proves that escape hatch works.
+]]
+describe("control feedback: composing the change form and the control form", function()
+	local function world()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		local system = Facet.newActionSystem(core)
+		local target = fake_target.new()
+		local pres = Facet.newPresenter(core, env, target, system)
+		return core, target, pres
+	end
+
+	-- a haptics adapter on a client that can build every waveform, bound to the
+	-- presenter, so what a tap FEELS like is read off the phases rather than
+	-- inferred from the verbs on the bus
+	local function boundAdapter(pres: any): (any, { any })
+		local built: { any } = {}
+		local hap = hapticsLib.new({
+			enabled = true,
+			inputService = false,
+			hapticService = false,
+			parent = false,
+			enums = {
+				HapticEffectType = {
+					Custom = "E:Custom",
+					UIClick = "E:UIClick",
+					UIHover = "E:UIHover",
+					UINotification = "E:UINotification",
+				},
+				KeyInterpolationMode = { Constant = "K:Constant", Linear = "K:Linear", Cubic = "K:Cubic" },
+			},
+			floatCurveKey = function(timeMs: number, intensity: number, mode: any): any
+				return { timeMs = timeMs, intensity = intensity, mode = mode }
+			end,
+			instanceNew = function(): any
+				local effect: any = { Type = nil, played = 0 }
+				function effect:Play()
+					effect.played += 1
+				end
+				function effect:Stop() end
+				function effect:SetWaveformKeys() end
+				function effect:Destroy() end
+				table.insert(built, effect)
+				return effect
+			end,
+		})
+		hap.bind(pres)
+		return hap, built
+	end
+
+	it("a tap on a control declaring BOTH raises two causes, and both are felt", function()
+		local core, target, pres = world()
+		local hap = boundAdapter(pres)
+		local picked = core:signal(1)
+		local button = (UI :: any).sensoryFeedback(
+			(UI :: any).sensoryFeedback(
+				UI.Button({
+					id = "Both",
+					label = "Pick",
+					onActivate = function()
+						picked:set(picked:get() + 1)
+					end,
+				}),
+				{ trigger = picked, event = "select" }
+			),
+			{ activation = "commit" }
+		)
+		local verbs: { string } = {}
+		pres.onFeedback(function(event: any)
+			table.insert(verbs, `{event.type}:{tostring(event.reason)}`)
+		end)
+		pres.present(UI.Screen({ id = "S", children = { button } }))
+		pres.refresh()
+		target.tap("/S/Both")
+		-- TWO CAUSES, in the order the presenter raises them: the value moves inside
+		-- the control's own handler, then the activation completes
+		expect(table.concat(verbs, ",")).toBe("select:nil,commit:activation")
+		-- ...and two sensations, one per cause: the choice moving is a `tick`, the
+		-- press completing is a `settle`
+		local phases = hap.diagnostics().phases
+		expect(`select={phases.select.plays} release={phases.release.plays} press={phases.press.plays}`).toBe(
+			"select=1 release=1 press=0"
+		)
+		hap.dispose()
+	end)
+
+	it('...and `activation = "none"` beside it is the way to feel only the change', function()
+		--[[ THE ESCAPE HATCH, measured. An author who wants a picker row to tick and
+			nothing else says the control's own press means nothing — which is a
+			sentence the vocabulary already has, so no new API is needed and none was
+			added. ]]
+		local core, target, pres = world()
+		local hap = boundAdapter(pres)
+		local picked = core:signal(1)
+		local button = (UI :: any).sensoryFeedback(
+			(UI :: any).sensoryFeedback(
+				UI.Button({
+					id = "Quiet",
+					label = "Pick",
+					onActivate = function()
+						picked:set(picked:get() + 1)
+					end,
+				}),
+				{ trigger = picked, event = "select" }
+			),
+			{ activation = feedbackLib.ACTIVATION_SILENT }
+		)
+		pres.present(UI.Screen({ id = "S", children = { button } }))
+		pres.refresh()
+		target.tap("/S/Quiet")
+		local phases = hap.diagnostics().phases
+		expect(`select={phases.select.plays} release={phases.release.plays}`).toBe("select=1 release=0")
+		-- and the button carries no press effect either: unfelt on the down edge,
+		-- unfelt on the completed edge, felt only when the value moves
+		expect(hapticsLib.pressSpecFor(feedbackLib.ACTIVATION_SILENT)).toBeNil()
+		hap.dispose()
 	end)
 end)

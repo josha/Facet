@@ -173,13 +173,34 @@ haptics.MAP = table.freeze(MAP)
 -- here as the SAME table, so the two can never disagree.
 haptics.EFFECT_TYPES = sensory_profile.EFFECT_TYPES
 
--- THE VERBS THE SELECT PHASE CLAIMS, and the precedence rule written down.
--- `select` and `adjust` describe the same thing happening — a choice moved — so
--- they play one pooled waveform behind one shared limiter, WHATEVER caused them.
--- Their `MAP` rows above stay as written: the map is the TOTALITY ledger (a
--- thirteenth verb must surface in `unmappedVerbs()`) and the preset for every
--- verb the phases do not claim.
+--[[ THE VERBS THE SELECT PHASE CLAIMS, and the precedence rule written down.
+	`select` and `adjust` describe the same thing happening — A CHOICE MOVED — so
+	they play one pooled waveform behind one shared limiter.
+
+	A CHOICE MOVES WHEN THE VALUE CHANGES, not when a finger goes down on the
+	control that will change it. So these two verbs have NO down edge of their own:
+	`pressSpecFor` answers nil for both, a select-declared button is handed no
+	press effect, and the select phase is reachable from a VALUE-CHANGE event
+	only — an event carrying `reason = "activation"` is a completed press and
+	belongs to the release phase whatever verb it names.
+
+	(Review F2. Until it was fixed the property route resolved these two from
+	`MAP` and ignored this rule entirely, so a `select`-declared control clicked
+	going down and ticked coming up: two sensations for one choice, and the
+	opposite of what the module, `api.md` and the parity doc all said.)
+
+	Their `MAP` rows above stay as written, and are now purely the TOTALITY ledger
+	— a thirteenth verb must surface in `unmappedVerbs()` — plus the preset for
+	every verb the phases do not claim. ]]
 haptics.PHASE_VERBS = table.freeze({ select = "select", adjust = "select" })
+
+--[[ ONE FRAME AT 60 Hz. A POINTER press has two moments a hand can tell apart:
+	the finger lands, then it lifts. A KEYBOARD or GAMEPAD press does not — the IAS
+	`Activate` action resolves on the key going DOWN, so the completion event the
+	release phase answers is raised in the same instant the engine would play the
+	button's own press effect. Two sensations at one instant are not two
+	sensations; they are one blurred pulse. See `onEvent`. ]]
+haptics.SAME_INSTANT_SECONDS = 1 / 60
 
 -- one frozen preset spec per mapped verb, built once at load so the decorate path
 -- allocates nothing per button and the pool can be keyed by sensation
@@ -228,10 +249,36 @@ function haptics.pressSpecFor(verb: string?, profile: sensory_profile.SensoryPro
 	if verb == feedbackLib.ACTIVATION_SILENT then
 		return nil
 	end
+	-- THE SELECT PHASE'S TWO VERBS HAVE NO DOWN EDGE (see `PHASE_VERBS`). They are
+	-- still FELT — ask `activationIsFelt` — but what they are felt as is a choice
+	-- moving, and a choice has not moved yet when the finger lands.
+	if haptics.PHASE_VERBS[verb] ~= nil then
+		return nil
+	end
 	if type(MAP[verb]) == "string" then
 		return PRESET_SPECS[verb]
 	end
 	return nil
+end
+
+--[[ IS THIS CONTROL FELT AT ALL — a different question from what its DOWN edge
+	feels like, and the two must not share an answer. They did until review F2: the
+	release edge was gated on `pressSpecFor(verb) ~= nil`, so the moment the select
+	phase's verbs lost their down edge they would have lost their completed edge
+	too, silently.
+
+	`nil` (undeclared) and `activate` are felt; every verb the MAP maps is felt;
+	`none` and the four verbs the MAP deliberately silences are not — and a control
+	that is unfelt is unfelt on BOTH edges, which is the rule a `cancel` button
+	that refused to buzz going down must not break coming up. ]]
+function haptics.activationIsFelt(verb: string?): boolean
+	if verb == nil or verb == "activate" then
+		return true
+	end
+	if verb == feedbackLib.ACTIVATION_SILENT then
+		return false
+	end
+	return type(MAP[verb]) == "string"
 end
 
 -- verbs the taxonomy has and this map does not (must be empty)
@@ -318,6 +365,7 @@ export type Diagnostics = {
 	constructions: number,
 	plays: number,
 	coalesced: number,
+	collapsed: number,
 	ignored: number,
 	unmapped: number,
 	enumMisses: number,
@@ -402,6 +450,11 @@ function haptics.new(opts: Options?): any
 		constructions = 0,
 		plays = 0,
 		coalesced = 0,
+		-- bus causes dropped because another sensation for the same control had
+		-- already been felt in the same instant (see `onEvent`'s same-instant rule).
+		-- SEPARATE from `coalesced`, which is the select phase's rate limit: one is
+		-- "too soon after the last tick", the other is "this is the same gesture".
+		collapsed = 0,
 		ignored = 0,
 		unmapped = 0,
 		enumMisses = 0,
@@ -413,6 +466,11 @@ function haptics.new(opts: Options?): any
 		lastError = nil :: string?,
 	}
 	local lastSelectAt: number? = nil
+	-- the last non-pointer activation: WHICH control, and WHEN. Both, because the
+	-- collapse is per gesture — two different controls activated in one frame are
+	-- two gestures, and the same control activated a frame later is a second press.
+	local sameInstantPath: string? = nil
+	local sameInstantAt: number? = nil
 
 	local subscriptions: { () -> () } = {}
 	local deviceConnections: { any } = {}
@@ -968,17 +1026,78 @@ function haptics.new(opts: Options?): any
 		if type(verb) ~= "string" then
 			return
 		end
-		--[[ THE SELECT PHASE CLAIMS ITS TWO VERBS FIRST, whatever caused them. A
-			control whose author declared `activation = "select"` is saying that
-			pressing it IS a choice moving, and the honest answer to that is a tick
-			rather than the generic completed-press settle — the verb is the author's
-			statement of meaning, and it outranks the cause.
+		local path = if type(event.path) == "string" then event.path else nil
+		--[[ THE SAME-INSTANT COLLAPSE (review F4's keyboard/gamepad analysis).
 
-			ONE LIMITER FOR THE PAIR, deliberately. Two limiters (one per verb) would
-			let a control alternating `select` and `adjust` — which a scrubbed picker
-			does — pass both and fire at full rate. Leading edge: a suppressed pulse
-			is DROPPED and never replayed, because a haptic that arrives after the
-			gesture is a phantom. ]]
+			A POINTER press has two moments a hand can tell apart — the finger lands,
+			then it lifts — and they get two sensations: the engine's `contact` going
+			down and the bus's `settle` at the completion. A KEYBOARD or GAMEPAD press
+			has ONE moment: the IAS `Activate` action resolves on the key going down,
+			so the completion event is raised in the same instant the engine would
+			play the press effect. Two sensations at one instant are not two
+			sensations; they are one blurred pulse.
+
+			So for an activation the presenter marks as non-pointer, the BUS
+			contributes exactly ONE sensation — `settle`, the answer to a completed
+			action — and anything else it would have played for that same control in
+			that same instant is DROPPED. Dropped, never deferred: a haptic that
+			arrives after the gesture is a phantom, which is the same rule the select
+			limiter follows.
+
+			`context.source` is the presenter's own classification (`"action"` is the
+			IAS path, `"pointer"` is a real pointer gesture); this module reads it as
+			DATA and adds no listener of its own. What it cannot do is silence the
+			ENGINE's `contact` in that instant — that is the engine's, and whether it
+			fires at all for a non-pointer press is undocumented. The device packet's
+			keyboard and gamepad rows ask a hand. ]]
+		if path ~= nil and sameInstantPath == path and sameInstantAt ~= nil then
+			if (now() - sameInstantAt) < haptics.SAME_INSTANT_SECONDS then
+				diag.collapsed += 1
+				return
+			end
+			sameInstantPath, sameInstantAt = nil, nil
+		end
+		--[[ A COMPLETED ACTIVATION IS THE RELEASE PHASE'S, WHATEVER VERB IT NAMES.
+			The presenter stamps `reason = "activation"` on the event a control's own
+			activation raises, and that event exists only when the activation
+			COMPLETED — the engine's `GuiButton.Activated` does not fire for a press
+			that was dragged away from, and the presenter's echo window collapses the
+			keyboard/gamepad pair into one dispatch. So this is the up edge, the
+			engine already played the down edge through the button's own property, and
+			there is no double pulse: two moments, two sensations, two owners.
+
+			IT IS CHECKED BEFORE THE SELECT PHASE (review F2), and the order is the
+			rule: a verb says WHAT happened, `reason` says A CONTROL WAS PRESSED, and
+			a press completing is not a choice moving. A `select`-declared control
+			therefore feels `settle` when it is pressed and `tick` when its VALUE
+			changes — one sensation per thing that actually happened, instead of the
+			click-then-tick pair the two routes used to produce between them.
+
+			A control that is deliberately unfelt is unfelt on BOTH edges — `cancel`
+			and its three silent siblings, and anything declared `none` — so a button
+			that refused to buzz on the way down cannot buzz on the way up. ]]
+		if event.reason == "activation" then
+			if not haptics.activationIsFelt(verb) then
+				diag.ignored += 1
+				return
+			end
+			if play(phaseEffect("release")) then
+				phasePlays.release += 1
+			end
+			-- ARM THE COLLAPSE only for the input classes that need it. A pointer
+			-- gesture's two moments are genuinely apart, and collapsing them would
+			-- swallow the value change a tap on a picker row causes.
+			local context = event.context
+			if path ~= nil and type(context) == "table" and context.source == "action" then
+				sameInstantPath, sameInstantAt = path, now()
+			end
+			return
+		end
+		--[[ THE SELECT PHASE, reachable from a VALUE CHANGE only. ONE LIMITER FOR
+			THE PAIR, deliberately: two limiters (one per verb) would let a control
+			alternating `select` and `adjust` — which a scrubbed picker does — pass
+			both and fire at full rate. Leading edge: a suppressed pulse is DROPPED
+			and never replayed. ]]
 		if haptics.PHASE_VERBS[verb] ~= nil then
 			local at = now()
 			local previous = lastSelectAt
@@ -989,29 +1108,6 @@ function haptics.new(opts: Options?): any
 			lastSelectAt = at
 			if play(phaseEffect("select")) then
 				phasePlays.select += 1
-			end
-			return
-		end
-		--[[ A COMPLETED ACTIVATION IS THE RELEASE PHASE'S. The presenter stamps
-			`reason = "activation"` on the event a control's own activation raises,
-			and that event exists only when the activation COMPLETED — the engine's
-			`GuiButton.Activated` does not fire for a press that was dragged away
-			from, and the presenter's echo window collapses the keyboard/gamepad pair
-			into one dispatch. So this is the up edge, the engine already played the
-			down edge through the button's own property, and there is no double pulse:
-			two moments, two sensations, two owners.
-
-			A control that is deliberately unfelt is unfelt on BOTH edges — the same
-			`pressSpecFor` answer that left its press property empty leaves its
-			completion silent, so a `cancel`-declared button cannot buzz on the way
-			up after refusing to on the way down. ]]
-		if event.reason == "activation" then
-			if haptics.pressSpecFor(verb, resolvedProfile) == nil then
-				diag.ignored += 1
-				return
-			end
-			if play(phaseEffect("release")) then
-				phasePlays.release += 1
 			end
 			return
 		end
@@ -1135,6 +1231,7 @@ function haptics.new(opts: Options?): any
 			undecorateAll()
 			retirePool()
 			lastSelectAt = nil
+			sameInstantPath, sameInstantAt = nil, nil
 		end
 	end
 
@@ -1184,6 +1281,7 @@ function haptics.new(opts: Options?): any
 			constructions = diag.constructions,
 			plays = diag.plays,
 			coalesced = diag.coalesced,
+			collapsed = diag.collapsed,
 			ignored = diag.ignored,
 			unmapped = diag.unmapped,
 			enumMisses = diag.enumMisses,

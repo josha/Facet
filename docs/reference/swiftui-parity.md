@@ -1408,7 +1408,14 @@ holds the waveforms; the adapter is the only file that touches the engine):
 |---|---|---|
 | `press` | the press goes **down** | the **engine**, through `GuiButton.PressHapticEffect` |
 | `release` | the press **completes** | the bus (`reason = "activation"`, which only a completed activation raises) |
-| `select` | a **choice changed** (`select` / `adjust`) | the bus, rate-limited, leading edge |
+| `select` | a **value changed** (`select` / `adjust`, no activation) | the bus, rate-limited, leading edge |
+
+**The cause outranks the verb**, and on the input classes where the two edges
+collapse into one instant — keyboard and gamepad, where the IAS `Activate`
+action resolves on the key going *down* — the bus contributes exactly one
+sensation and drops the rest of that gesture. SwiftUI has no equivalent problem
+to solve because it publishes an intent and lets the platform decide the moment;
+Facet owns the moment on two of its three phases, so it owes the answer.
 
 The press phase takes a **property route**: the adapter assigns a
 `HapticEffect` reference to a button and the **engine** fires it, so "Facet

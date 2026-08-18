@@ -46,8 +46,23 @@ device judgement: see §8.
 | phase | the moment | who owns it | how it reaches the phase |
 |---|---|---|---|
 | `press` | the DOWN edge | **the engine** | `GuiButton.PressHapticEffect` — Facet hands over a reference and never calls `Play()` on it. Reachable only from `decorate`, never from the bus. |
-| `release` | the COMPLETED edge | **the bus** | the presenter stamps `reason = "activation"` on the event a control's own activation raises, and that event exists only when the activation completed. |
-| `select` | a CHOICE CHANGED | **the bus** | the `select` / `adjust` verbs, whatever caused them. |
+| `release` | the COMPLETED edge | **the bus** | the presenter stamps `reason = "activation"` on the event a control's own activation raises, and that event exists only when the activation completed. Checked **first**. |
+| `select` | a VALUE CHANGED | **the bus** | the `select` / `adjust` verbs on an event that is **not** an activation. |
+
+**THE CAUSE OUTRANKS THE VERB** (fix round 1, review F2). A verb says *what*
+happened; `reason = "activation"` says *a control was pressed*, and a press
+completing is not a choice moving. So a control declaring `activation = "select"`
+feels `settle` when pressed and `tick` when its value changes, and
+`pressSpecFor` answers `nil` for both of the select phase's verbs — they have no
+down edge, because a choice has not moved yet when the finger lands. Before the
+fix the property route ignored this entirely and such a control clicked going
+down and ticked coming up: two sensations for one choice, and the opposite of
+what the module and both reference docs said.
+
+`activationIsFelt(verb)` is the *other* question — is this control felt at all —
+and it is a separate function for exactly that reason: the release edge used to
+be gated on `pressSpecFor`, so silencing the select verbs' down edge would have
+silently cost them their completion too.
 
 The four input classes (pointer, touch, keyboard, gamepad) each resolve their
 activation **once**, in the presenter/responder path — including the
@@ -75,6 +90,33 @@ own `PressHapticEffect` instance at `played = 0` while `phases.release.plays`
 reads 6 (*"the bus NEVER replays the down edge"*). Mutating `phaseEffect("release")`
 to `phaseEffect("press")` reddens 10 cases.
 
+### 3a. The same-instant collapse (fix round 1, from review F4)
+
+A **pointer** press has two moments a hand can tell apart. A **keyboard or
+gamepad** press does not: the IAS `Activate` action resolves on the key going
+down, so the completion event is raised in the same instant the engine would play
+the button's own press effect. Two sensations at one instant are one blurred
+pulse.
+
+So for an activation the presenter marks non-pointer (`context.source ==
+"action"`), the bus contributes exactly **one** sensation — `settle` — and drops
+anything else it would have played for that path inside
+`SAME_INSTANT_SECONDS = 1/60`. Dropped, never deferred. `diagnostics().collapsed`
+counts it, separately from `coalesced`.
+
+Measured: a non-pointer activation followed by a same-instant value change for
+the same path → **1 play, 1 collapsed**; the same pair one frame apart → **2
+plays, 0 collapsed**; two *different* paths in one frame → **2 plays**; four
+echoed activations in one instant → **1 play, 3 collapsed**; and the negative
+control, a **pointer** activation followed by a value change → **2 plays, 0
+collapsed**, because a pointer gesture's two moments are genuinely apart and
+collapsing them would swallow the value change a tap on a picker row causes.
+
+**What this cannot do**, stated rather than implied: the engine's own `contact`
+in that instant is the engine's, and whether it fires at all for a non-pointer
+press is undocumented. Rows D8/D9 of the device packet are how that gets
+answered.
+
 ## 4. Cancellation — silent structurally, never special-cased
 
 `GuiButton.Activated` does not fire for a press that was dragged away from, so
@@ -85,9 +127,19 @@ decorated button, a down edge that the engine owns, `plays = 0`,
 special-cased a cancel would have to invent an event first.
 
 A control whose declared verb the MAP silences (`cancel`, `arrive`, `dismiss`,
-`supersede`) or that declared `none` is unfelt on **both** edges — the same
-`pressSpecFor` answer that leaves its press property empty leaves its completion
-silent.
+`supersede`) or that declared `none` is unfelt on **both** edges —
+`activationIsFelt` answers `false` for all five, so neither the press property nor
+the completed edge reaches a sensation.
+
+**And that includes the invisible tap band.** A control solved smaller than the
+touch floor gets a second `GuiButton` — `FacetHitExpander`, a sibling at
+`hostZ - 1` — which a haptics consumer sweeps like any other button. The Roblox
+adapter now mirrors the host's declared verb and its `Active` / `Interactable`
+onto it at all three seams that can change either (birth, `setActivationFeedback`,
+the `enabled` branch). Before the fix the band read as *undeclared and enabled*:
+a control declared `none` was silent on its face and buzzed two millimetres
+outside it, and a disabled control's band was still felt — on exactly the small
+controls where a thumb lands in the band rather than on the face.
 
 ## 5. Coalescing — leading edge, and it DROPS
 

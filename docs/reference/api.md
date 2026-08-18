@@ -7051,8 +7051,41 @@ moment it fires**. That is the whole shape of this adapter:
 | phase | the moment | owner | reaches it through |
 |---|---|---|---|
 | `press` | the press goes **down** | the **engine** | `GuiButton.PressHapticEffect` — a reference is handed over and never played from here. Reachable only from `decorate`, never from the bus. |
-| `release` | the press **completes** | the bus | the presenter stamps `reason = "activation"` on the event a control's activation raises, and that event exists **only** when the activation completed. |
-| `select` | a **choice changed** | the bus | the `select` / `adjust` verbs, whatever caused them. |
+| `release` | the press **completes** | the bus | the presenter stamps `reason = "activation"` on the event a control's activation raises, and that event exists **only** when the activation completed. Checked **first**, so a completed press is the release phase's whatever verb it names. |
+| `select` | a **value changed** | the bus | the `select` / `adjust` verbs on an event that is **not** an activation. |
+
+**The cause outranks the verb.** A verb says *what* happened; `reason =
+"activation"` says *a control was pressed*, and a press completing is not a
+choice moving. So a control declaring `activation = "select"` feels `settle`
+when it is pressed and `tick` when its value changes — one sensation per thing
+that actually happened. `pressSpecFor` answers `nil` for both of the select
+phase's verbs: they have no down edge, because a choice has not moved yet when
+the finger lands.
+
+`haptics.activationIsFelt(verb) -> boolean` is the *other* question — is this
+control felt at all — and it is deliberately a different function. They were one
+until the select phase's verbs lost their down edge, at which point sharing an
+answer would have silently cost those controls their completed edge too.
+
+##### The same-instant collapse
+
+A pointer press has two moments a hand can tell apart. A keyboard or gamepad
+press does not: the IAS `Activate` action resolves on the key going **down**, so
+the completion event is raised in the same instant the engine would play the
+button's own press effect. Two sensations at one instant are one blurred pulse.
+
+For an activation the presenter marks non-pointer (`context.source == "action"`),
+the bus therefore contributes exactly **one** sensation — `release` — and drops
+anything else it would have played for that path inside
+`haptics.SAME_INSTANT_SECONDS` (one frame at 60 Hz). Dropped, never deferred.
+`diagnostics().collapsed` counts it, separately from `coalesced` (the select
+phase's rate limit): one is *too soon after the last tick*, the other is *the
+same gesture*. A pointer activation is never collapsed — the negative control
+that keeps the rule from swallowing the ordinary case.
+
+What this cannot do is silence the engine's own press effect in that instant.
+Whether it fires at all for a non-pointer press is undocumented, and only a hand
+can answer it.
 
 **No double pulse, and the guard is structural.** The adapter used to drop every
 `reason = "activation"` event, because the only alternative was replaying the
@@ -7160,25 +7193,36 @@ verb would surface as a visible gap rather than a silent drop.
 |---|---|---|
 | *(undeclared)* / `activate` | property (`PressHapticEffect`), **down edge** | the **press phase** — `contact` |
 | any felt verb, `reason = "activation"` | bus, **completed edge** | the **release phase** — `settle` |
-| `select` · `adjust` | bus, **rate-limited** (default 60 ms; coalescing *drops*) | the **select phase** — `tick` |
+| `select` · `adjust`, **no** `reason` | bus, **rate-limited** (default 60 ms; coalescing *drops*) | the **select phase** — `tick` |
+| `select` · `adjust`, down edge | — | *none — a choice has not moved yet* |
 | `pickup` · `commit` · `land` | bus | `UIClick` |
 | `reject` · `celebrate` | bus | `UINotification` |
 | `arrive` · `cancel` · `dismiss` · `supersede` | — | *deliberately none, on both edges* |
 
-`select` and `adjust` are named in `haptics.PHASE_VERBS`: the select phase claims
-them whatever caused them, because a control declaring `activation = "select"` is
-saying that pressing it *is* a choice moving. Their `MAP` rows remain as the
-totality ledger — the map stays total over the twelve so a thirteenth verb
-surfaces in `unmappedVerbs()` — and as the preset for every verb the phases do
-not claim. **One limiter serves both**: two limiters would let a control
-alternating the pair (which a scrubbed picker does) pass both and fire at full
-rate.
+`select` and `adjust` are named in `haptics.PHASE_VERBS`. They have **no down
+edge**: the select phase is reachable from a value change only, so a
+select-declared button is handed no press effect and its completed press is
+answered by `settle` like any other. Their `MAP` rows are now purely the totality
+ledger — the map stays total over the twelve so a thirteenth verb surfaces in
+`unmappedVerbs()` — plus the preset for every verb the phases do not claim.
+**One limiter serves both**: two limiters would let a control alternating the
+pair (which a scrubbed picker does) pass both and fire at full rate.
 
 `haptics.pressSpecFor(verb, profile?) -> PhaseSpec?` is the pure resolver behind
 the property route: the press phase for an undeclared control, the verb's preset
-for a declared one, `nil` for `"none"` and for every verb the map silences. The
-same answer decides the **release** edge, so a control that is deliberately
-unfelt is unfelt on both.
+for a declared one, `nil` for the select phase's two verbs, and `nil` for
+`"none"` and for every verb the map silences.
+`haptics.activationIsFelt(verb) -> boolean` decides the **release** edge
+instead, so a control that is deliberately unfelt is unfelt on both while a
+select-declared one keeps its completion.
+
+**The invisible tap band feels the same as the face.** A control solved smaller
+than the touch floor gets a second `GuiButton` — `FacetHitExpander`, a sibling at
+`hostZ - 1` — and the Roblox adapter mirrors the host's declared verb and its
+`Active` / `Interactable` onto it at every seam that can change either. Without
+that mirror the band read as *undeclared and enabled*, so a control declared
+`none` buzzed two millimetres outside itself and a disabled control's band was
+still felt.
 
 Effects are **pooled by sensation** — one Instance per distinct resolved
 `PhaseSpec` (keyed by `sensory_profile.key`), plus one per mapped verb the phases
