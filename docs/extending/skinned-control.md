@@ -171,6 +171,17 @@ the folder: it belongs to a control, so `upload-manifest.json` carries
 4. **A contact sheet** under `source/preview/` so a lead can judge the art on
    disk without opening Studio.
 
+**THE MANIFEST IS THE REGISTRATION — there is no list to edit.** A manifest that
+declares `"control": "<YourControl>"` with `"package": null` registers the whole
+directory: `tools/lune/skinned_controls.luau` enumerates every such root, and
+`check_docs_cli` then requires each file the manifest's own `assets` table names,
+plus `provenance.md`, plus every generator under `source/`. Until 2026-08-17 that
+enforcement was hardcoded to `assets/themes/ornate-gauge`, so this section
+promised a contributor a check that only ever ran on the worked example
+(MAINT-8d). Get the manifest right and your art is protected; get it wrong — a
+missing `control`, a non-null `package` — and the directory is silently
+unenforced, which is why the field values above are not decoration.
+
 ### Design the art for the authority you actually have
 
 A control paints through the public `UI.Image`, which has **no `sliceCenter` and
@@ -273,8 +284,9 @@ lune run tools/lune/check_prop_parity_cli        # property views agree
 ```
 
 `check_docs_cli` enforces that this playbook exists, that the guide links it,
-that the rung-3 example still builds through `themes.checkCoverage`, and that its
-art, provenance and manifest exist and agree. Never edit the acceptance ledger or
+that the rung-3 example still builds through `themes.checkCoverage`, and that
+**every** skinned control's art, provenance and manifest exist and agree — yours
+included, derived from your manifest (§4). Never edit the acceptance ledger or
 the gate manifest; name them in your report instead.
 
 ## Common traps

@@ -365,3 +365,124 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 		end
 	end)
 end)
+
+--[[ THE PLAYBOOK'S OPTIONAL-METHOD ROSTER IS THE CONTRACT'S (MAINT-8b).
+
+	`docs/extending/new-render-target.md` transcribed the OPTIONAL list by hand —
+	23 names against the contract's 28 — and nothing cross-checked the doc against
+	the table it copies, so the drift was already three days old at freeze. The
+	consequence is not cosmetic: the doc's whole job is to tell a target author
+	which absences are legal degrades, and five methods the renderer feature-
+	detects were simply not in the list they were reading. ]]
+describe("the render-target playbook's OPTIONAL roster (MAINT-8b)", function()
+	local MARKER_OPEN = "<!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->"
+	local MARKER_CLOSE = "<!-- /OPTIONAL-METHODS -->"
+
+	local function documentedOptional(source: string): { [string]: boolean }
+		local from = string.find(source, MARKER_OPEN, 1, true)
+		local to = string.find(source, MARKER_CLOSE, 1, true)
+		assert(from ~= nil and to ~= nil, "new-render-target.md lost its OPTIONAL-METHODS markers")
+		local block = string.sub(source, (from :: number) + #MARKER_OPEN, (to :: number) - 1)
+		local out: { [string]: boolean } = {}
+		for name in string.gmatch(block, "`([%w_]+)`") do
+			out[name] = true
+		end
+		return out
+	end
+
+	it("names every OPTIONAL method the contract declares, and nothing else", function()
+		local documented = documentedOptional(fs.readFile("docs/extending/new-render-target.md"))
+		local declared: { [string]: boolean } = {}
+		for _, name in target_contract.OPTIONAL do
+			declared[name] = true
+			expect(`documented {name}: {tostring(documented[name] == true)}`).toBe(`documented {name}: true`)
+		end
+		for name in documented do
+			expect(`declared {name}: {tostring(declared[name] == true)}`).toBe(`declared {name}: true`)
+		end
+		-- the instrument is not vacuous: there really are that many
+		expect(#target_contract.OPTIONAL >= 25).toBe(true)
+	end)
+
+	it("BITES: a method added to the contract and not to the playbook fails", function()
+		local documented = documentedOptional(fs.readFile("docs/extending/new-render-target.md"))
+		-- the mutation the finding describes, in miniature
+		expect(documented.setSomethingBrandNew).toBe(nil)
+		local missing: { string } = {}
+		for _, name in { "setSomethingBrandNew", "setActivateHandler" } do
+			if not documented[name] then
+				table.insert(missing, name)
+			end
+		end
+		expect(missing).toEqual({ "setSomethingBrandNew" })
+	end)
+end)
+
+--[[ EVERY SKINNED CONTROL'S ART IS ENFORCED, NOT JUST THE WORKED EXAMPLE
+	(MAINT-8d). `docs/extending/skinned-control.md` promised a contributor that
+	`check_docs_cli` enforced their control's art, provenance and manifest; the
+	checker hardcoded `assets/themes/ornate-gauge`. The roster is derived from the
+	manifests now — a manifest with a `control` and a null `package` IS the
+	registration — so a second control is covered the moment it ships one. ]]
+describe("skinned-control asset roots are derived (MAINT-8d)", function()
+	local skinned_controls = require("../tools/lune/skinned_controls")
+
+	it("finds the shipped rung-3 control from its manifest, not from a path", function()
+		local roots = skinned_controls.roots()
+		expect(#roots >= 1).toBe(true)
+		local gauge: any = nil
+		for _, root in roots do
+			if root.control == "OrnateGauge" then
+				gauge = root
+			end
+		end
+		expect(gauge ~= nil).toBe(true)
+		expect(gauge.dir).toBe("assets/themes/ornate-gauge")
+		expect(gauge.controlModule).toBe("examples/themes/ornate_gauge.luau")
+		-- ...and the files come from the manifest's own assets table
+		local files: { [string]: boolean } = {}
+		for _, file in gauge.files do
+			files[file] = true
+		end
+		for _, file in
+			{
+				"assets/themes/ornate-gauge/gauge_face.png",
+				"assets/themes/ornate-gauge/gauge_needle.png",
+				"assets/themes/ornate-gauge/gauge_endcap.png",
+				"assets/themes/ornate-gauge/provenance.md",
+				"assets/themes/ornate-gauge/upload-manifest.json",
+				"assets/themes/ornate-gauge/source/generate_art.py",
+			}
+		do
+			expect(`{file}: {tostring(files[file] == true)}`).toBe(`{file}: true`)
+		end
+	end)
+
+	it("a THEME package's art is not mistaken for a control's", function()
+		for _, root in skinned_controls.roots() do
+			-- a package's manifest names a package; a control's names a control
+			expect(`{root.dir} control: {tostring(#root.control > 0)}`).toBe(`{root.dir} control: true`)
+			expect(root.dir ~= "assets/themes/fantasy-parchment").toBe(true)
+		end
+	end)
+
+	it("BITES: check_docs requires every file the manifest names", function()
+		local check_docs = require("../tools/lune/check_docs")
+		local gauge = skinned_controls.ownerOf("assets/themes/ornate-gauge/gauge_face.png")
+		expect(gauge ~= nil).toBe(true)
+		local result = check_docs.check({ missingFiles = { ["assets/themes/ornate-gauge/gauge_needle.png"] = true } })
+		expect(result.ok).toBe(false)
+		local named = false
+		for _, problem in result.problems do
+			local text = if type(problem) == "table"
+				then tostring(problem.what) .. tostring(problem.path)
+				else tostring(problem)
+			if string.find(text, "gauge_needle.png", 1, true) ~= nil then
+				named = true
+				-- the message names the OWNER it derived, not a hardcoded string
+				expect(string.find(text, "OrnateGauge", 1, true) ~= nil).toBe(true)
+			end
+		end
+		expect(named).toBe(true)
+	end)
+end)

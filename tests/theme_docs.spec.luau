@@ -251,7 +251,10 @@ describe("documentation gate: the rich-skinning surface and its docs agree", fun
 			local result = checker.check({ missingFiles = { [path] = true } })
 			expect(result.ok).toBe(false)
 			expect(problemsMentioning(result, path)).toBeGreaterThanOrEqual(1)
-			expect(problemsMentioning(result, "OrnateGauge (the rung-3 control's own art)")).toBeGreaterThanOrEqual(1)
+			-- the owner is DERIVED from the manifest now (MAINT-8d), so the message
+			-- names the control and the manifest that registered it rather than a
+			-- hardcoded phrase about the one worked example
+			expect(problemsMentioning(result, "OrnateGauge (a skinned control's own art")).toBeGreaterThanOrEqual(1)
 		end
 	end)
 

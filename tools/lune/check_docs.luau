@@ -350,20 +350,21 @@ local RICH_SCENARIO_STEPS = {
 	"gaugeCoverage",
 }
 
-local EXAMPLE_PACKAGES = {
-	"examples/themes/fantasy_parchment.luau",
-	"examples/themes/classic_desktop.luau",
-	"examples/themes/glossy_mobile.luau",
-	"examples/themes/scifi_hud.luau",
-	"examples/themes/custom_control.luau",
-	-- the rich-skinning corpus (ADR-0020): the centerpiece, the pixel package,
-	-- the platform pair, and the rung-3 CONTROL
-	"examples/themes/fantasy_ornate.luau",
-	"examples/themes/pixel_quest.luau",
-	"examples/themes/glossy_touch.luau",
-	"examples/themes/compact_pointer.luau",
-	RUNG3_EXAMPLE,
-}
+--[[ DERIVED FROM THE ONE ENUMERATOR (MAINT-8c). This was a hand list of ten
+	paths, one of six such lists, and none of them could see a package the others
+	had and it did not. `tools/lune/theme_packages.luau` declares each module's
+	role; the docs check covers everything a reader can be sent to — the shipping
+	reference corpus and the rung-3 controls — and deliberately not the refusal
+	FIXTURES, which exist to be broken and are installed by name. ]]
+local theme_packages = require("./theme_packages")
+-- the skinned-control asset roots, derived from their manifests (MAINT-8d)
+local skinned_controls = require("./skinned_controls")
+local EXAMPLE_PACKAGES: { string } = {}
+for _, role in { "reference", "control" } do
+	for _, name in theme_packages.byRole(role :: any) do
+		table.insert(EXAMPLE_PACKAGES, theme_packages.path(name))
+	end
+end
 
 local ASSET_FILES = {
 	ASSET_DIR .. "/parchment_panel.png",
@@ -371,15 +372,8 @@ local ASSET_FILES = {
 	ASSET_DIR .. "/parchment_field.png",
 	ASSET_DIR .. "/upload-manifest.json",
 	ASSET_DIR .. "/provenance.md",
-	-- the rung-3 CONTROL's own art. It is not a theme's art, and that is the
-	-- point: a contributed control ships pictures the way a third party would,
-	-- and owes the same provenance obligations for them.
-	RUNG3_ASSET_DIR .. "/gauge_face.png",
-	RUNG3_ASSET_DIR .. "/gauge_needle.png",
-	RUNG3_ASSET_DIR .. "/gauge_endcap.png",
-	RUNG3_ASSET_DIR .. "/source/generate_art.py",
-	RUNG3_ASSET_DIR .. "/upload-manifest.json",
-	RUNG3_ASSET_DIR .. "/provenance.md",
+	-- (a skinned CONTROL's own art is appended below, DERIVED from the manifests
+	-- rather than named here — see the loop after this table)
 	-- the FRAMEWORK's own set. `edit` is named explicitly because it is the one
 	-- semantic name this library invented, and the pencil is what a
 	-- `compactLabel = { icon = "edit" }` button draws; the chevron stands in for
@@ -391,6 +385,23 @@ local ASSET_FILES = {
 	ICON_ASSET_DIR .. "/provenance.md",
 	ICON_REGISTRY,
 }
+
+--[[ ...AND EVERY SKINNED CONTROL'S OWN ART, DERIVED (MAINT-8d, 2026-08-17).
+
+	The rung-3 control's six files used to be named here by hand, under a
+	hardcoded `assets/themes/ornate-gauge`, while `docs/extending/skinned-control.md`
+	promised a contributor that this checker enforced THEIR control's art,
+	provenance and manifest. It enforced exactly one control's, and the playbook
+	never said to come and edit this list.
+
+	`tools/lune/skinned_controls.luau` enumerates the roots instead: an asset
+	directory whose `upload-manifest.json` declares a `control` and a null
+	`package` IS a skinned control, which is what the shipped manifest already
+	says about itself. A second control is protected the moment it ships the
+	manifest it owes anyway. ]]
+for _, file in skinned_controls.files() do
+	table.insert(ASSET_FILES, file)
+end
 
 export type Opts = {
 	-- replace a file's contents (synthetic drift for the checker's own tests)
@@ -647,8 +658,9 @@ function check_docs.check(opts: Opts?)
 	end
 	for _, path in ASSET_FILES do
 		if not exists(path) then
-			local owner = if string.find(path, RUNG3_ASSET_DIR, 1, true) == 1
-				then "OrnateGauge (the rung-3 control's own art)"
+			local skinned = skinned_controls.ownerOf(path)
+			local owner = if skinned ~= nil
+				then `{skinned.control} (a skinned control's own art, declared by {skinned.manifestPath})`
 				else "Fantasy Parchment"
 			problem(
 				path,

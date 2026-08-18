@@ -40,15 +40,29 @@ specification:
 - **REQUIRED** — the six the renderer calls unconditionally. Missing one means
   the target cannot be mounted.
 - **OPTIONAL** — feature-detected with `~= nil`. Each absence is ONE named
-  degrade, never a crash: `setActivateHandler`, `setFocusVisual`, `enableHover`,
-  `enableDisclosure` (without it, no pointer-dwell/touch-long-press disclosure
-  engagement — focus-driven disclosure still works), `setZOrder`,
-  `setPointerHandlers`, `setTextInputHandlers`, `setScrollRegion`,
-  `setScrollPosition`, `observeScroll`, `getScrollPosition`, `setScrollHandler`,
-  `setEngineSelection`, `setVisible`, `setDragDetector`,
-  `setTouchGestureHandlers`, `setHitRect`, `measureTextWidths`,
-  `setRootVisible`, `setNativeTransitionsEnabled`, `setReducedMotion`,
-  `setRootDisplayOrder`, `setScrollIndicatorPolicy`.
+  degrade, never a crash. The list below is the one in
+  `src/render/target_contract.luau`, and a drift check in
+  `tests/render_target_contract.spec.luau` fails when the two disagree — it was
+  transcribed by hand until 2026-08-17 and had already fallen five names behind
+  (MAINT-8b), which is the same silent hole the contract itself exists to close.
+  Read the per-method consequence comments in that file; this is the roster, not
+  the specification.
+
+<!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->
+  `setActivateHandler`, `setFocusVisual`, `enableHover`, `enableDisclosure`,
+  `setScrollIndicatorPolicy`, `setZOrder`, `setPointerHandlers`,
+  `setTextInputHandlers`, `setScrollRegion`, `setScrollPosition`,
+  `observeScroll`, `setEngineSelection`, `setVisible`, `setDragDetector`,
+  `setTouchGestureHandlers`, `setSecondaryActivate`, `measureTextWidths`,
+  `setRootVisible`, `setHitRect`, `setActivationFeedback`,
+  `setScrollHandler`, `getScrollPosition`, `setNativeTransitionsEnabled`,
+  `setReducedMotion`, `setPreferredTransparency`, `stageHost`,
+  `foreignHost`, `setRootDisplayOrder`.
+<!-- /OPTIONAL-METHODS -->
+
+  `enableDisclosure`'s absence is the least obvious one: without it there is no
+  pointer-dwell / touch-long-press disclosure engagement, while focus-driven
+  disclosure still works.
   The two motion names are the two halves of one fact the renderer pushes from
   the environment: `setNativeTransitionsEnabled` reaches a StyleSheet's declared
   transitions, `setReducedMotion` reaches the target's own bespoke tweens.

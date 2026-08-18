@@ -37,17 +37,14 @@ local MODULES = {
 	glossy_touch = require("../examples/themes/glossy_touch"),
 	compact_pointer = require("../examples/themes/compact_pointer"),
 }
-local ORDER = {
-	"classic_desktop",
-	"glossy_mobile",
-	"scifi_hud",
-	"fantasy_parchment_stub",
-	"fantasy_parchment",
-	"fantasy_ornate",
-	"pixel_quest",
-	"glossy_touch",
-	"compact_pointer",
-}
+--[[ DERIVED, NOT RESTATED (MAINT-8c). This was the first of six independent
+	hand lists of the same corpus. `tools/lune/theme_packages.luau` is the one
+	enumerator now: it declares each module's ROLE, checks the roles against the
+	directory, and publishes the reference corpus in its order. The MODULES table
+	above still names its requires — Lune needs a literal path — so the case below
+	asserts the two agree, which is the drift a list cannot catch about itself. ]]
+local theme_packages = require("../tools/lune/theme_packages")
+local ORDER = theme_packages.REFERENCE_ORDER
 local customControl = require("../examples/themes/custom_control")
 -- the rung-3 worked example (ADR-0020 R8): a control with its OWN art and its
 -- own namespaced roles, checked from both directions
