@@ -1229,3 +1229,292 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 		)
 	end)
 end)
+
+--[[ ── H1: THE GIVE-WAY EPOCH KEY, ONE CASE PER TERM ─────────────────────────
+	(fresh-context review of the DIR wave, 2026-08-18, finding H1.)
+
+	THE WAVE SHIPPED A CROSS-FRAME FEEDBACK LOOP AND OFFERED THE WRONG GUARD. The
+	give-way reach is sampled from solved rects and held MONOTONE WITHIN AN EPOCH,
+	where the epoch is every composition input that can move a zone's width; the
+	report named the DIR-5 rotation cases above as the protection. The reviewer
+	deleted FIVE of the six terms from the key — `riding`, `urlBar`,
+	`preferredTextOffset`, `themeMetrics` and the declared chrome rects — and both
+	instruments stayed green (29 and 82 passed). The DIR-5 cases cannot see it for
+	a structural reason: their oracle and their subject BOTH cross a viewport
+	change, which resets the latch identically on each side, so they are blind to
+	every term except the one they vary.
+
+	THIS FAMILY IS THE GUARD THE KEY ACTUALLY NEEDS. One case per term: hold the
+	viewport fixed (except for the viewport term itself), change ONLY that input on
+	a live tree, and require the settled decision to equal a tree MOUNTED at that
+	state — the flipped-versus-fresh oracle, per term.
+
+	A FRESH MOUNT TAKES ITS STEP BEFORE THE FIRST SOLVE. `urlBar` and `riding` are
+	internal signals reached through the fixture's own steps, so a "fresh mount with
+	the bar open" means opening it before any `refresh` — taking it afterwards is
+	the A->B transition, i.e. the subject, and comparing the subject with itself is
+	the vacuity this file has had to fix once already.
+
+	── WHICH TERMS ARE LOAD-BEARING, MEASURED RATHER THAN ASSUMED ───────────────
+
+	The cells below are CONSTRUCTED, not guessed: for each term the two states'
+	unreserved column extents were measured and a chip rect placed so its right
+	edge falls between them — the column's content reaches the chrome in one state
+	and clears it in the other, with the chrome still clipping the column (so the
+	majority floor cannot mask the difference).
+
+	Four terms have such a cell and each one's deletion reddens exactly its own
+	case: **viewport, preferredTextOffset, themeMetrics, appChromeRects**.
+
+	TWO DO NOT, AND THAT IS A MEASUREMENT, NOT AN OMISSION. `riding` and `urlBar`
+	are searched over 7 viewports x 36 chip positions x 7 widths (1 764 cells each)
+	and produce NO cell where the settled decision diverges from a fresh mount when
+	their term is deleted from the key. The reason is a property of the design: the
+	latch is monotone UP within an epoch and it samples the FIRST, UNRESERVED
+	solve — and neither of these two terms moves any column's x extent on that
+	solve (`riding` moves the band vertically and nothing else; opening the bar
+	narrows a zone only AFTER the reserve it triggers has already been taken). A
+	term can therefore only be caught here if it changes what the first solve
+	measures. Both stay in the key: they are cheap, they are conservative, and
+	"I could not construct a case" is not a reason to remove a safety term. Their
+	cases below still assert the property, so the day either becomes load-bearing
+	the guard is already in place. ]]
+describe("H1: the give-way epoch key holds one term at a time", function()
+	local ORNATE_PKG = Facet.themes.resolve((require)("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+	local CLASSIC_PKG =
+		Facet.themes.resolve((require)("../examples/themes/classic_desktop").build(Facet.themes), nil, {})
+
+	--[[ A world at ONE state, with the fixture's own steps taken before the first
+		solve — see the header for why that is what "a fresh mount at this state"
+		has to mean for an internal signal. ]]
+	local function epochWorld(view: View, state: any): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+		env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
+		env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("topbarSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("topbarInset", { x = 164, y = 0, w = math.max(0, view.w - 164), h = PLATFORM_TOP })
+		env:set("displaySize", "Medium")
+		env:set("preferredInput", "Touch")
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		env:set("preferredTextOffset", state.offset or 0)
+		env:set("themeMetrics", state.snapshot or ORNATE_PKG)
+		env:set("appChromeRects", state.chips)
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new();
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local handle: any = nil
+		local built = hud.build({
+			Facet = Facet,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			actionSystem = system,
+			record = function() end,
+			flags = {},
+			composition = function(path: string)
+				return if handle ~= nil then handle.controller.compositionAt(path) else nil
+			end,
+			bindResourceTransport = function()
+				return function() end
+			end,
+		})
+		handle = presenter.present(built.screen, built.present)
+		built.handle = handle
+		if state.urlBar == true then
+			built.steps.openUrlBar()
+		end
+		if state.riding == false then
+			built.steps.leaveStrip()
+		end
+		local w = { core = core, env = env, adapter = adapter, presenter = presenter, built = built }
+		for _ = 1, 12 do
+			presenter.refresh()
+		end
+		return w
+	end
+
+	--[[ THE DECISION, and the RESERVES beside it. The three `Chrome*` regions ARE
+		the give-way pass's output — a stale latch shows up there first — and the
+		zone rects are what a player sees it as. ]]
+	local EPOCH_IDS = {
+		"Rounds",
+		"Tasks",
+		"Health",
+		"Feed",
+		"Clock",
+		"Rail",
+		"Readout",
+		"Actions",
+		"Weapon",
+		"ChromeLeft",
+		"ChromeTop",
+		"ChromeRight",
+	}
+	local function epochDecision(w: any): { [string]: string }
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		local byId: { [string]: any } = {}
+		if dump ~= nil then
+			for _, r in dump.regions do
+				byId[r.id] = r
+			end
+		end
+		local out: { [string]: string } = {}
+		for _, id in EPOCH_IDS do
+			local r = byId[`/HudScreen/Hud/{id}`]
+			out[id] = string.format(
+				"mounted=%s dropped=%s rect=%s",
+				tostring(r and r.mounted),
+				tostring(r and r.dropped),
+				if r ~= nil and r.rect ~= nil
+					then string.format("%.0fx%.0f@%.0f,%.0f", r.rect.w, r.rect.h, r.rect.x, r.rect.y)
+					else "(none)"
+			)
+		end
+		return out
+	end
+	local function unequal(a: { [string]: string }, b: { [string]: string }): number
+		local n = 0
+		for k, v in a do
+			if b[k] ~= v then
+				n += 1
+			end
+		end
+		return n
+	end
+
+	local CHIPS_AT = function(x: number, w: number)
+		return { { x = x, y = PLATFORM_TOP, w = w, h = CHIP_STRIP } }
+	end
+
+	--[[ ONE ROW PER TERM. `discriminating` records whether deleting this term from
+		the key reddens this case — measured, and the two `false` rows carry the
+		search that says so (see the header). ]]
+	local TERMS = {
+		{
+			term = "viewport",
+			discriminating = true,
+			view = { w = 360, h = 691 } :: View,
+			toView = { w = 749, h = 380 } :: View,
+			chips = CHIPS_AT(40, 220),
+			a = {},
+			b = {},
+		},
+		{
+			term = "preferredTextOffset",
+			discriminating = true,
+			view = { w = 360, h = 691 } :: View,
+			chips = CHIPS_AT(120, 154),
+			a = { offset = 0 },
+			b = { offset = 14 },
+		},
+		{
+			term = "themeMetrics",
+			discriminating = true,
+			view = { w = 360, h = 691 } :: View,
+			chips = CHIPS_AT(120, 127),
+			a = { snapshot = CLASSIC_PKG },
+			b = { snapshot = ORNATE_PKG },
+		},
+		{
+			term = "appChromeRects",
+			discriminating = true,
+			view = { w = 360, h = 691 } :: View,
+			chipsA = CHIPS_AT(240, 60),
+			chipsB = CHIPS_AT(240, 12),
+			a = {},
+			b = {},
+		},
+		{
+			term = "riding",
+			discriminating = false,
+			view = { w = 360, h = 691 } :: View,
+			chips = CHIPS_AT(120, 154),
+			a = { riding = true },
+			b = { riding = false },
+		},
+		{
+			term = "urlBar",
+			discriminating = false,
+			view = { w = 393, h = 759 } :: View,
+			chips = CHIPS_AT(262, 13),
+			a = { urlBar = false },
+			b = { urlBar = true },
+		},
+	}
+
+	for _, row in TERMS do
+		it(`{row.term}: changing only this input settles where a FRESH mount at that state lands`, function()
+			local function stateFor(side: string): any
+				local st: any = {}
+				for k, v in (if side == "a" then row.a else row.b) do
+					st[k] = v
+				end
+				st.chips = if side == "a" then (row.chipsA or row.chips) else (row.chipsB or row.chips)
+				return st
+			end
+			local freshView = (row :: any).toView or row.view
+			local fresh = epochWorld(freshView, stateFor("b"))
+			local want = epochDecision(fresh)
+
+			local live = epochWorld(row.view, stateFor("a"))
+			local before = epochDecision(live)
+
+			-- ONE input moves, and only one
+			if row.term == "viewport" then
+				local to = (row :: any).toView :: View
+				live.env:set("viewportRect", { x = 0, y = 0, w = to.w, h = to.h })
+				live.env:set("topbarInset", { x = 164, y = 0, w = math.max(0, to.w - 164), h = PLATFORM_TOP })
+			elseif row.term == "preferredTextOffset" then
+				live.env:set("preferredTextOffset", row.b.offset)
+			elseif row.term == "themeMetrics" then
+				live.env:set("themeMetrics", row.b.snapshot)
+			elseif row.term == "appChromeRects" then
+				live.env:set("appChromeRects", row.chipsB)
+			elseif row.term == "riding" then
+				live.built.steps.leaveStrip()
+			elseif row.term == "urlBar" then
+				live.built.steps.openUrlBar()
+			end
+			settle(live)
+			settle(live)
+			settle(live)
+			local got = epochDecision(live)
+
+			--[[ NON-VACUITY FIRST. The two states have to be different screens, or
+				every assertion below passes on a term that moves nothing and the family
+				becomes six ways of comparing a tree with itself. ]]
+			expect(`{row.term}: the two states are different screens: {unequal(before, want) > 0}`).toBe(
+				`{row.term}: the two states are different screens: true`
+			)
+
+			for _, id in EPOCH_IDS do
+				expect(`{row.term} {id} {got[id]}`).toBe(`{row.term} {id} {want[id]}`)
+			end
+		end)
+	end
+
+	--[[ THE FAMILY'S OWN COVERAGE CLAIM, made mechanical. The table above records
+		which terms a deletion can be caught by; this asserts the shape of that
+		record so a future edit cannot quietly add a term with no case, or mark an
+		unmeasured term as covered. ]]
+	it("COVERAGE: every term of the shipped epoch key has a case, and the key has no term without one", function()
+		local named: { [string]: boolean } = {}
+		local discriminating = 0
+		for _, row in TERMS do
+			named[row.term] = true
+			if row.discriminating then
+				discriminating += 1
+			end
+		end
+		-- the six terms `reachEpoch` actually concatenates
+		for _, term in { "viewport", "riding", "urlBar", "preferredTextOffset", "themeMetrics", "appChromeRects" } do
+			expect(`{term} has a case: {named[term] == true}`).toBe(`{term} has a case: true`)
+		end
+		expect(`terms with a case: {#TERMS}`).toBe("terms with a case: 6")
+		expect(`terms whose deletion is CAUGHT here: {discriminating}`).toBe("terms whose deletion is CAUGHT here: 4")
+	end)
+end)

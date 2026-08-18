@@ -786,6 +786,138 @@ describe("A-AL1: ViewThatFits", function()
 		)
 	end)
 
+	--[[ ── M1a: A NESTED LADDER'S REJECTED RUNG IS NOT THE OUTER LADDER'S CUT ────
+		(fresh-context review of the DIR wave, 2026-08-18.)
+
+		`ctx.fitCuts` is solve-wide and an enclosing `ViewThatFits` reads its DELTA
+		across the whole candidate subtree, so every rung an INNER ladder rejected
+		was being billed to the outer one. The A/B is the reviewer's, and its point
+		is that both trees paint exactly the same characters — only the inner
+		ladder's first, rejected rung differs:
+
+		  A: inner rung 1 is a word the inner offer cannot hold, so the inner ladder
+		     correctly takes its short rung;
+		  B: inner rung 1 already fits, so nothing is cut anywhere.
+
+		Before the fix the outer ladder kept its rich rung in B and dropped it in A.
+		A subtree CONTAINING a cut and a subtree that WILL PAINT one are different
+		facts, and only the second is a fit failure. ]]
+	local function nestedFits(innerRich: string): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.ViewThatFits({
+					id = "Outer",
+					children = {
+						-- the RICH rung: a fixed 40px box beside a ladder of its own
+						UI.HStack({
+							id = "Rich",
+							gap = 4,
+							children = {
+								UI.Box({ id = "Mark", width = fixed(20), height = fixed(20) }),
+								UI.ViewThatFits({
+									id = "Inner",
+									children = {
+										UI.Text({ id = "InnerRich", text = innerRich }),
+										UI.Text({ id = "InnerShort", text = "R3" }),
+									},
+									width = fixed(40),
+								}),
+							},
+						}),
+						UI.Text({ id = "Plain", text = "R3" }),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return adapter
+	end
+
+	it("M1a: a nested ladder that resolves internally costs the outer ladder nothing", function()
+		local cut = nestedFits("Reconfiguration")
+		local clean = nestedFits("R3")
+		--[[ THE PREMISE: the inner ladder really did reject its own rich rung in A
+			and really did not have to in B. Without this the case compares two trees
+			that took the same inner path and proves nothing about the leak. ]]
+		expect(`A: the inner ladder took its short rung: {cut.visibleOf("/S/Outer/Rich/Inner/InnerShort") ~= false}`).toBe(
+			"A: the inner ladder took its short rung: true"
+		)
+		expect(`B: the inner ladder kept its rich rung: {clean.visibleOf("/S/Outer/Rich/Inner/InnerRich") ~= false}`).toBe(
+			"B: the inner ladder kept its rich rung: true"
+		)
+		-- ...and BOTH outer ladders keep the rich rung, because both paint "R3"
+		expect(`B: the outer ladder kept its rich rung: {clean.visibleOf("/S/Outer/Rich") ~= false}`).toBe(
+			"B: the outer ladder kept its rich rung: true"
+		)
+		expect(`A: the outer ladder kept its rich rung too: {cut.visibleOf("/S/Outer/Rich") ~= false}`).toBe(
+			"A: the outer ladder kept its rich rung too: true"
+		)
+	end)
+
+	--[[ ── M1b: AN AUTHORED WIDTH IS AN INSTRUCTION, NOT A SHORTAGE ──────────────
+		Same review. `clampedWidth` is true whenever a measured line exceeds the
+		width the node will occupy — and when that width is the author's own
+		`{ type = "fixed" }`, nobody was short of anything. Measured by the reviewer
+		on a 400px screen with no pressure at all: a rung of
+		`HStack{ Box 20, Text(pinned 30) }` was refused and the plain fallback won.
+
+		The `truncated` VERDICT is deliberately untouched: an authored pin that cuts
+		a label is still a cut label and `clippedEssential` still says so. What
+		changes is only whether the LADDER treats it as a failure to fit. ]]
+	it("M1b: an author-pinned label's own width does not lose its rung", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.ViewThatFits({
+					id = "Fits",
+					children = {
+						UI.HStack({
+							id = "Rich",
+							gap = 4,
+							children = {
+								UI.Box({ id = "Mark", width = fixed(20), height = fixed(20) }),
+								UI.Text({ id = "Pinned", text = "Reconfiguration", width = fixed(30) }),
+							},
+						}),
+						UI.Text({ id = "Plain", text = "R3" }),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		--[[ THE PREMISE: there is no pressure at all — the rich rung measures well
+			inside a 400px screen — so anything that loses it lost it for the pin. ]]
+		local rich = adapter.node("/S/Fits/Rich")
+		expect(`the rich rung is nowhere near the offer: {rich ~= nil and rich.rect.w < 200}`).toBe(
+			"the rich rung is nowhere near the offer: true"
+		)
+		expect(`the author's pin kept its rung: {adapter.visibleOf("/S/Fits/Rich") ~= false}`).toBe(
+			"the author's pin kept its rung: true"
+		)
+		--[[ ...AND THE VERDICT IS STILL HONEST. The pin really does cut the label,
+			and the framework must still say so — the ladder ignoring it is a
+			DIFFERENT question from `clippedEssential` reporting it. ]]
+		local facts = controller.textAt("/S/Fits/Rich/Pinned")
+		expect(`the pinned label is still reported truncated: {facts ~= nil and facts.truncated}`).toBe(
+			"the pinned label is still reported truncated: true"
+		)
+	end)
+
 	--[[ THE CONTROL FOR THE CASE ABOVE: a candidate that genuinely fits still wins,
 		so the fix did not simply teach ViewThatFits to always take its fallback. ]]
 	it("DIR-7 control: a candidate that really does fit is still the one chosen", function()

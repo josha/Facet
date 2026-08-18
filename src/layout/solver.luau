@@ -513,6 +513,7 @@ local function recordTextFacts(
 	font: string,
 	size: number,
 	lineHeight: number,
+	authoredWidth: boolean,
 	naturalWidth: number?,
 	wraps: boolean?
 )
@@ -530,7 +531,18 @@ local function recordTextFacts(
 		obeying its own declaration was measured on the shipped corpus and it moves
 		`adaptive_controls` and `theme_authoring` onto rungs 24-138px taller than
 		their page, i.e. it trades a cut label for an overflowing screen. ]]
-	if clampedWidth and ctx.fitProbe then
+	--[[ ...AND AN AUTHORED WIDTH IS NOT THE BOX BEING TOO SMALL (M1b, review
+		2026-08-18). `clampedWidth` is true whenever the measured line exceeds the
+		width this node will occupy — and for a node whose own `width` is
+		`{ type = "fixed" }` that width is an INSTRUCTION, not a shortage. Measured
+		by the reviewer on a 400px screen with no pressure at all: a rung of
+		`HStack{ Box 20, Text(pinned 30) }` was refused and the plain fallback won,
+		because the author's own 30px pin read as a cut. `authoredWidth` is passed
+		from the one place that knows (`measureUncached`'s text branch computes
+		`availW` from that very dimension), so the two cannot drift. The `truncated`
+		VERDICT above is unchanged either way — an authored pin that cuts a label is
+		still a cut label, and `clippedEssential` still says so. ]]
+	if clampedWidth and ctx.fitProbe and not authoredWidth then
 		ctx.fitCuts += 1
 	end
 	local policy: string
@@ -797,9 +809,29 @@ local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: num
 	-- tall it is: see the note in the loop
 	local cutIndex: number? = nil
 	local cutHeight = 0
+	--[[ WHAT THIS LADDER OWES ITS CALLER (M1a, review 2026-08-18): the cuts of the
+		configuration it ACTUALLY CHOSE, and not one more.
+
+		`ctx.fitCuts` is solve-wide and an enclosing `ViewThatFits` reads its delta
+		across this whole subtree — so every rung this ladder REJECTED was being
+		billed to the ladder above it. A/B with identical painted content, only the
+		inner ladder's first rung differing: with an inner rung that is cut (and
+		correctly rejected in favour of an uncut one) the OUTER ladder dropped its
+		rich rung; with an inner first rung that fits, the outer kept it. Both trees
+		paint the same characters. The inner ladder did its job and the outer one was
+		charged for it.
+
+		So the counter is restored to its entry value and the chosen rung's own cuts
+		are added back. A nested ladder that resolves internally therefore costs its
+		parent nothing, while a chosen rung that really is cut still reports it —
+		which is the difference between "this subtree contains a cut" and "this
+		subtree WILL PAINT a cut", and only the second one is a fit failure. ]]
+	local entryCuts = ctx.fitCuts
+	local cutsOf: { [number]: number } = {}
 	for i = 1, #children - 1 do
 		local cutsBefore = ctx.fitCuts
 		local w, h = measure(ctx, children[i], availW, availH)
+		cutsOf[i] = ctx.fitCuts - cutsBefore
 		local fitsW = availW == math.huge or w <= availW
 		local fitsH = availH == math.huge or h <= availH
 		--[[ ...AND IT MAY NOT HAVE BEEN CUT TO GET THERE (DIR wave contract 7,
@@ -877,13 +909,19 @@ local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: num
 			If it costs MORE room, the cut candidate stands, which is byte-for-byte
 			what this ladder did before contract 7 — a cut label is a worse screen than
 			a full one and a better screen than one that does not fit. ]]
+		local cutsBefore = ctx.fitCuts
 		local w, h = measure(ctx, children[#children], availW, availH)
+		cutsOf[#children] = ctx.fitCuts - cutsBefore
 		local fitsW = availW == math.huge or w <= availW
 		local fitsH = availH == math.huge or h <= availH
 		if not (fitsW and fitsH and h <= cutHeight + 0.01) then
 			chosen = cutIndex :: number
 		end
 	end
+	-- ...and the ladder reports only what its winner will paint (see `entryCuts`).
+	-- The fallback rung is `nil` here whenever it was never probed, which is the
+	-- common path and correctly costs the caller nothing.
+	ctx.fitCuts = entryCuts + (cutsOf[chosen] or 0)
 	setFitProbe(ctx, wasProbing)
 	return chosen
 end
@@ -1289,6 +1327,10 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- it is the same offer-versus-occupied trap `contentSize` and `fits` above
 		-- each had to be fixed for).
 		local availW = if widthDim.type == "fixed" then (widthDim.px :: number) - pl - pr else innerMaxW
+		-- ...and whether that width was AUTHORED, which is what tells a clamp from a
+		-- shortage when `ViewThatFits` judges this node's candidate (M1b, see
+		-- `recordTextFacts`)
+		local authoredWidth = widthDim.type == "fixed"
 		-- typography comes from the active snapshot (see `textTypography` above for
 		-- the role ladder and why the descriptor rather than a bare family); the
 		-- client premeasure adapter resolves that descriptor to the engine face it
@@ -1388,7 +1430,18 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				-- across both seams without a second rule.
 				local cm = text_metrics.measure(compact, font, size, math.huge, lineHeight)
 				ctx.compact[node.id] = true
-				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, lineHeight, naturalW, false)
+				recordTextFacts(
+					ctx,
+					node,
+					cm,
+					cm.width > availW,
+					font,
+					size,
+					lineHeight,
+					authoredWidth,
+					naturalW,
+					false
+				)
 				return math.min(cm.width, availW) + pl + pr, cm.height + pt + pb
 			end
 			ctx.compact[node.id] = false
@@ -1403,10 +1456,10 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- while its one line wanted 340px in a 150px box, so `clippedEssential` — the
 		-- check whose whole job is "this label was cut" — could not see it.
 		if singleLine and availW ~= math.huge then
-			recordTextFacts(ctx, node, m, m.width > availW, font, size, lineHeight, naturalW, false)
+			recordTextFacts(ctx, node, m, m.width > availW, font, size, lineHeight, authoredWidth, naturalW, false)
 			return math.min(m.width, availW) + pl + pr, m.height + pt + pb
 		end
-		recordTextFacts(ctx, node, m, false, font, size, lineHeight, naturalW, not singleLine)
+		recordTextFacts(ctx, node, m, false, font, size, lineHeight, authoredWidth, naturalW, not singleLine)
 		return m.width + pl + pr, m.height + pt + pb
 	end
 

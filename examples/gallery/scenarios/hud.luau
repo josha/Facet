@@ -115,6 +115,22 @@ local COPY = {
 	reward3 = "+300",
 	tasksChip = "Tasks 1/3",
 	timer = "2:14",
+	--[[ THE TIMER'S OWN AUTHORED DEGRADE (controller ruling R9, 2026-08-18).
+
+		A VALUE MAY NOT BE ELLIPSIZED. The standing localization rule is "wrap or
+		auto-fit, never clip", and for text that carries a NUMBER rather than a name
+		the "auto-fit" half cannot be an ellipsis: `2:1…` is not a shortened round
+		timer, it is a WRONG one, and a player reading it is being lied to. Measured
+		before this landed: `TimerOnlyText` truncated at 114 of the swept cells.
+
+		So the value REFORMATS. `2m` is the same fact at lower precision — the
+		reading a watch face gives when the dial is small — and it is authored here
+		rather than derived, because how much precision a number may lose is a
+		DESIGN decision and not something a layout pass is entitled to guess. The
+		ladder that chooses between them is `UI.ViewThatFits`, which since the DIR
+		wave refuses a rung whose line the box would clamp, so the swap happens for
+		the same reason and through the same seam as the objective chip's. ]]
+	timerShort = "2m",
 	scoreHome = "12",
 	scoreAway = "9",
 	weapon1 = "Rifle",
@@ -365,7 +381,7 @@ local PROBE_ROWS: { { name: string, paths: { string } } } = {
 		name = "TimerText",
 		paths = {
 			PROBE_CLOCK .. "/TimerPod/TimerRow/TimerText",
-			PROBE_HUD .. "/Clock/TimerOnlyPod/TimerOnlyRow/TimerOnlyText",
+			PROBE_HUD .. "/Clock/TimerOnlyPod/TimerOnlyRow/TimerOnlyFit/TimerOnlyText",
 		},
 	},
 	{ name = "ScoreAway", paths = { PROBE_CLOCK .. "/ScoreAway/Plate" } },
@@ -422,10 +438,65 @@ local PROBE_QUERY: { string } = (function(): { string }
 	return list
 end)()
 
+--[[ ── WHICH TEXT ON THIS HUD CARRIES A VALUE (controller ruling R9, 2026-08-18)
+	──────────────────────────────────────────────────────────────────────────────
+
+	THE STANDING LOCALIZATION RULE IS "WRAP OR AUTO-FIT, NEVER CLIP", and applying
+	it to a HUD forces a distinction the rule itself does not make: **a name may
+	degrade, a number may not.**
+
+	  VALUE text is a reading — a timer, a score, an ammo count, a health figure, a
+	  reward. Cutting one does not shorten it, it CHANGES it: `2:1…` is not a
+	  shortened round timer and `24/9…` is not a shortened magazine. There is no
+	  ellipsis a player can read through, so a value never truncates: it either
+	  gets its box (the zone gives way and the value wraps below), or it REFORMATS
+	  through a degrade the author wrote (`2:14` -> `2m`), or the whole plate
+	  elides and the ··· sink carries it.
+
+	  LABEL text is a name or a sentence — a weapon, a task, a kill-feed line.
+	  Truncation loses detail a player can infer or reach; it is the rank ladder's
+	  ordinary degrade and it stays exactly as it was.
+
+	THIS TABLE IS THE CLASSIFICATION, and it is EXPORTED so the check and the
+	fixture cannot drift: `tests/overflow_sweep.spec.luau` reads it and fails on any
+	visible value node the solve reports as truncated. Entries are node IDS, matched
+	as the last segment of a solver path, because the path above them is the
+	ladder's business and changes with every form.
+
+	The census that produced it (9 viewports x 9 packages x 4 text preferences x
+	both strip states, chip row declared): ELEVEN nodes truncated, and exactly ONE
+	of them is a value — `TimerOnlyText`, at 114 cells. The other ten are weapon
+	names, task names, the kill-feed line and the weapon readout. ]]
+local VALUE_TEXT = table.freeze({
+	-- the round timer, in both of the clock's forms
+	"TimerText",
+	"TimerOnlyText",
+	"TimerOnlyShort",
+	-- the scores either side of it
+	"ScoreHomeT",
+	"ScoreAwayT",
+	-- health, as a figure, in both of the health zone's forms
+	"HealthNum",
+	"HealthOnlyT",
+	-- the ammo counts on the weapon rail (`24/90`, `7/21`, `--`)
+	"W1Ammo",
+	"W2Ammo",
+	"W3Ammo",
+	-- what each task pays
+	"Reward1",
+	"Reward2",
+	"Reward3",
+	-- ...and the frame readout, which is a measurement a developer reads exactly
+	"ReadoutText",
+})
+
 return {
 	title = "Screen-anchored HUD (ADR-0025)",
 	ledgerRows = {},
 	copy = COPY,
+	--[[ the R9 classification, exported for `tests/overflow_sweep.spec.luau`'s
+		value-text oracle — see `VALUE_TEXT` above for what earns a place on it ]]
+	valueText = VALUE_TEXT,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
 		local UI = Facet.UI
@@ -2634,7 +2705,24 @@ return {
 								align = "center",
 								padding = { top = 4, right = 12, bottom = 4, left = 12 },
 								children = {
-									UI.Text({ id = "TimerOnlyText", text = COPY.timer, textSize = "numeral" }),
+									--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
+										`COPY.timerShort` for why a timer is not allowed the
+										ellipsis every other string on this HUD may take. ]]
+									UI.ViewThatFits({
+										id = "TimerOnlyFit",
+										children = {
+											UI.Text({
+												id = "TimerOnlyText",
+												text = COPY.timer,
+												textSize = "numeral",
+											}),
+											UI.Text({
+												id = "TimerOnlyShort",
+												text = COPY.timerShort,
+												textSize = "numeral",
+											}),
+										},
+									}),
 								},
 							})
 						),

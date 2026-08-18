@@ -2382,7 +2382,31 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 					)
 				end
 			end
-			if r.dropped or r.elided then
+			--[[ TWO CORRECTIONS, BOTH FOUND BY A REVIEWER MUTATING THIS BLOCK (M2,
+				2026-08-18), and the second one is the more interesting.
+
+				IT READ THE WRONG FIELD. `node.text` is not a thing the target adapter
+				has: text lands in `node.props.text` (tests/lib/fake_target.luau:310,
+				`handle.props[prop] = value`). Probed over the whole HUD tree: ZERO
+				nodes carry a non-empty `node.text`, at any cell — so this guarantee
+				could not fire on any tree ever, and the wave reported its zero as a
+				measurement when it was a silence. Reading the field the adapter
+				actually populates is the fix.
+
+				AND IT ASKED THE WRONG QUESTION. Re-fielded and left as-is, it reports
+				THREE findings at 640x320 — `Clock` painting "2:14", `Rail` painting
+				"Rifle", `Tasks` painting "Win a round" — all from regions the
+				composition marks `elided`. In this vocabulary `elided` means "showing a
+				REDUCED FORM", not "removed" (composition.luau's D7.1 note: an elided
+				region declares a `recover` route precisely because it is still on
+				screen showing less). An elided region painting text is the ladder
+				working. `dropped` is the flag that means "there is no form standing",
+				and text under a dropped region is the corpse the director photographed.
+
+				So the guarantee is DROPPED-ONLY, and it is measured rather than
+				assumed: over the swept cells, regions genuinely go `dropped` (Feed and
+				Readout among them) and none of their subtrees paints a character. ]]
+			if r.dropped then
 				for _, path in w.adapter.paths() do
 					if string.find(path, r.id .. "/", 1, true) ~= 1 then
 						continue
@@ -2391,17 +2415,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 						continue
 					end
 					local node = w.adapter.node(path)
-					if node ~= nil and type(node.text) == "string" and node.text ~= "" then
-						table.insert(
-							out,
-							string.format(
-								"%s: %s is %s but still paints '%s'",
-								path,
-								r.id,
-								if r.dropped then "dropped" else "elided",
-								node.text
-							)
-						)
+					local text = if node ~= nil and type(node.props) == "table" then node.props.text else nil
+					if type(text) == "string" and text ~= "" then
+						table.insert(out, string.format("%s: %s is DROPPED but still paints '%s'", path, r.id, text))
 					end
 				end
 			end
@@ -2411,6 +2427,55 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 				table.insert(
 					out,
 					string.format("%s: %s with no route back to it", unshown.id, tostring(unshown.reason))
+				)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	--[[ ── A VALUE MAY NOT BE ELLIPSIZED (controller ruling R9, 2026-08-18) ─────
+
+		The standing localization rule is "wrap or auto-fit, never clip", and a HUD
+		forces a distinction it does not itself make: a NAME may degrade, a NUMBER
+		may not. `2:1…` is not a shortened round timer and `24/9…` is not a shortened
+		magazine — the ellipsis changes the reading rather than abbreviating it, and
+		there is nothing a player can infer through it.
+
+		The classification is the FIXTURE's (`hud.valueText`), read from the module
+		rather than restated here, so a new value readout joins this check by being
+		declared once. Entries are node ids matched as the last segment of a solver
+		path, because everything above them is the ladder's business.
+
+		This is deliberately STRICTER than `paintedTextViolations` below: that asks
+		whether a box can hold what it draws, and a truncating box legitimately can.
+		This asks whether the string was allowed to be cut at all. ]]
+	local VALUE_TEXT: { [string]: boolean } = {}
+	for _, id in (hud :: any).valueText do
+		VALUE_TEXT[id] = true
+	end
+
+	local function valueTextViolations(w: any): { string }
+		local out: { string } = {}
+		for path, facts in w.built.handle.controller.textAt() do
+			if w.adapter.visibleOf(path) == false then
+				continue
+			end
+			if string.find(path, "/HudScreen/Hud/", 1, true) ~= 1 then
+				continue
+			end
+			local id = string.match(path, "([^/]+)$")
+			if id == nil or not VALUE_TEXT[id] then
+				continue
+			end
+			if facts.truncated == true then
+				table.insert(
+					out,
+					string.format(
+						"%s: the VALUE '%s' was cut — a value reformats, elides or gets its box, it never ellipsizes (R9)",
+						path,
+						tostring(facts.text)
+					)
 				)
 			end
 		end
@@ -2524,6 +2589,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 							for _, hit in giveWayViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
+							for _, hit in valueTextViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
 							--[[ ...AND THE SOLVER'S OWN FINDINGS, on the axis it was never
 								asked on. The generic sweep above runs this surface without the
 								chrome declared; declaring it changes the composition's whole
@@ -2555,6 +2623,130 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			end
 		)
 	end
+
+	--[[ THE VALUE ORACLE BITES, and it is checked for the two ways it could be
+		decoration: a classification that names nothing on screen, and a check that
+		would stay silent on a cut value. ]]
+	it("VALUE CONTROL: the R9 classification reaches real nodes, and a cut value is reported", function()
+		local view = VIEWS[1]
+		local cell: any = nil
+		for _, entry in CELLS do
+			if entry.id == "fantasy-ornate" then
+				cell = entry
+			end
+		end
+		local chips = showcase_chips.rectFor(Facet, view, cell.id, cell.snapshot, 0)
+		local w = hudWorld(view, cell.snapshot, 0, chips, showcase_chips.reservationFor(chips))
+		expect(#valueTextViolations(w)).toBe(0)
+
+		--[[ THE CLASSIFICATION IS NOT A LIST OF NAMES NOBODY USES. Count the value
+			nodes this tree actually paints; a table whose ids match nothing would make
+			every assertion above pass on a check that looks at zero nodes. ]]
+		local seen = 0
+		local victim: string? = nil
+		for path in w.built.handle.controller.textAt() do
+			local id = string.match(path, "([^/]+)$")
+			if id ~= nil and VALUE_TEXT[id] and w.adapter.visibleOf(path) ~= false then
+				seen += 1
+				victim = victim or path
+			end
+		end
+		expect(`value nodes on screen: {seen > 0}`).toBe("value nodes on screen: true")
+
+		-- ...and a cut one is reported
+		local facts = w.built.handle.controller.textAt(victim :: string)
+		local was = facts.truncated
+		facts.truncated = true
+		local reported = false
+		for _, hit in valueTextViolations(w) do
+			if string.find(hit, "never ellipsizes (R9)", 1, true) ~= nil then
+				reported = true
+			end
+		end
+		expect(`a cut value is reported: {reported}`).toBe("a cut value is reported: true")
+		facts.truncated = was
+		expect(`...and the settled tree is silent again: {#valueTextViolations(w)}`).toBe(
+			"...and the settled tree is silent again: 0"
+		)
+	end)
+
+	--[[ THE GIVE-WAY ORACLE BITES TOO, and this case exists because the version of
+		it that shipped in the first DIR commit did NOT (M2). It read `node.text`, a
+		field the target adapter never writes, so it could not fire on any tree at
+		any cell and its zero was a silence reported as a measurement. A guarantee
+		with no control is the class this whole file was built to remove, one level
+		up — so the control is now permanent rather than a reviewer's one-off. ]]
+	it("GIVE-WAY CONTROL: a DROPPED region that paints a character is reported, and the settled tree is not", function()
+		--[[ THE CELL IS CHOSEN BECAUSE REGIONS GENUINELY DROP THERE, and which cells
+			those are is a measurement rather than a guess: over the whole swept cross
+			product, the narrow phone portrait at the Largest preference is where the
+			left column's ladder runs out — under glossy-mobile it drops Tasks, Health,
+			Feed and Readout, and the dropped subtree still carries 33 nodes with
+			solved rects. That is the corpse's habitat. ]]
+		local view = VIEWS[1]
+		local cell: any = nil
+		for _, entry in CELLS do
+			if entry.id == "glossy-mobile" then
+				cell = entry
+			end
+		end
+		expect(`the control's package is in the sweep: {cell ~= nil}`).toBe(
+			"the control's package is in the sweep: true"
+		)
+		local chips = showcase_chips.rectFor(Facet, view, cell.id, cell.snapshot, LARGEST)
+		local w = hudWorld(view, cell.snapshot, LARGEST, chips, showcase_chips.reservationFor(chips))
+		expect(#giveWayViolations(w)).toBe(0)
+
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		local droppedId: string? = nil
+		for _, r in dump.regions do
+			if r.dropped and droppedId == nil then
+				droppedId = r.id
+			end
+		end
+		--[[ THE PREMISE. Without a genuinely dropped region this control proves
+			nothing — and "nothing drops anywhere in this corpus" would itself be worth
+			knowing, because the dropped guarantee would then be asserted over a set of
+			trees that can never exercise it. ]]
+		expect(`a region is genuinely dropped at this cell: {droppedId ~= nil}`).toBe(
+			"a region is genuinely dropped at this cell: true"
+		)
+
+		--[[ MAKE IT PAINT. A dropped region keeps its mount and its subtree keeps its
+			solved rects, so the shape the director photographed is exactly this: a
+			node under a dropped region, visible, with a character in it. BOTH halves
+			are forced — the visibility and the text — because the guarantee is about
+			their conjunction and forcing one alone leaves the other unproven. ]]
+		local victim: string? = nil
+		local child: any = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, (droppedId :: string) .. "/", 1, true) == 1 then
+				child = w.adapter.node(path)
+				if child ~= nil then
+					victim = path
+					break
+				end
+			end
+		end
+		expect(`...and a descendant to paint through: {child ~= nil}`).toBe(
+			"...and a descendant to paint through: true"
+		)
+		local wasVisible, wasText = child.visible, child.props.text
+		child.visible, child.props.text = true, "Tasks 1/3"
+		local reported = false
+		for _, hit in giveWayViolations(w) do
+			if string.find(hit, "DROPPED but still paints 'Tasks 1/3'", 1, true) ~= nil then
+				reported = true
+			end
+		end
+		expect(`{victim} painting a character under a dropped region is reported: {reported}`).toBe(
+			`{victim} painting a character under a dropped region is reported: true`
+		)
+		child.visible, child.props.text = wasVisible, wasText
+		expect(`...and the untouched tree is silent again: {#giveWayViolations(w)}`).toBe(
+			"...and the untouched tree is silent again: 0"
+		)
+	end)
 
 	--[[ THE ORACLE BITES, proved by breaking the thing it watches rather than by
 		reading it. A box squeezed under one styled line of its own text has to be

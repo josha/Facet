@@ -128,21 +128,80 @@ whose one line has to be CLAMPED to its box no longer counts as fitting.
 At the default preference and in landscape the full `Round 3 · Capture` still
 shows — the fix must not have made the chip permanently short.
 
-## 5. What is knowingly NOT fixed, and should be read as-is
+## 5. Value text vs label text — the R9 classification (controller ruling, 2026-08-18)
 
-Under ornate at 360x691 these text nodes still truncate (measured headlessly at
-every text preference; they are lane-width truncations, not the swap defect):
+The standing localization rule is *"wrap or auto-fit, never clip"*. On a HUD that
+forces a distinction the rule does not itself make, and this is the ruling:
+
+- **VALUE text is a reading** — a timer, a score, an ammo count, a health figure,
+  a reward, a frame readout. Cutting one does not shorten it, it **changes** it:
+  `2:1…` is not a shortened round timer and `24/9…` is not a shortened magazine.
+  A value therefore **never truncates**. It gets its box (the zone gives way and
+  it wraps below), or it **reformats through an authored degrade** (`2:14` →
+  `2m`), or the whole plate elides and the ··· sink carries it.
+- **LABEL text is a name or a sentence** — a weapon, a task, a kill-feed line.
+  Truncation loses detail a player can infer or reach, and it stays the rank
+  ladder's ordinary degrade.
+
+The classification lives in the fixture (`examples/gallery/scenarios/hud.luau`,
+`VALUE_TEXT`, exported as `hud.valueText`) and
+`tests/overflow_sweep.spec.luau` reads it — so a new readout joins the check by
+being declared once, and the check and the screen cannot drift.
+
+### The census it was made from
+
+9 viewports x 9 packages x 4 text preferences x both strip states, chip row
+declared. **Eleven** nodes truncated; **one** of them was a value.
+
+| node | string | class | before | after |
+|---|---|---|---|---|
+| `Clock/TimerOnlyPod/…/TimerOnlyText` | `2:14` | **VALUE** | 114 cells cut | **0** — reformats to `2m` |
+| `Feed/FeedLine` | `Ravi eliminated Mo` | label | 138 | 138 (ladder degrade) |
+| `Tasks/TasksOne/…/TasksOneName` | `Win a round` | label | 178 | 178 |
+| `Tasks/TasksFull/…/TaskName1..3` | `Win a round` / `Land 25 hits` / `Open a crate` | label | 52 / 92 / 92 | unchanged |
+| `Rail/RailTall/W1..W3/…/WnName` | `Rifle` / `Pistol` / `Knife` | label | 48 / 48 / 28 | unchanged |
+| `Rail/W1c/…/W1cT` | `Rifle` | label | 83 | 83 |
+| `Weapon/WeaponText` | `Ranger rifle` | label | 73 | 73 |
+| `Strip/…/ObjectiveT` | `Round 3 · Capture` | label | cut at +10/+14 | **0** — swaps to `R3` (contract 7) |
+
+**Value nodes that never truncated and must not start**: `TimerText`,
+`ScoreHomeT`, `ScoreAwayT`, `HealthNum`, `HealthOnlyT`, `W1Ammo`, `W2Ammo`,
+`W3Ammo`, `Reward1`, `Reward2`, `Reward3`, `ReadoutText`. They are on the list so
+the rule is a rule rather than a record of what happened to break.
+
+**Total: 946 → 832 truncations, and every one that remains is label class.**
+
+### What to check in Studio
+
+Drive hud + ornate, portrait, strip ON, and raise the system text size to
+**Larger** and then **Largest**:
+
+- the round timer reads **`2m`**, never `2:1…`. At the default preference and in
+  landscape it reads the full `2:14`;
+- the ammo counts, the two scores, the health figure and the three `+50/+120/+300`
+  rewards are whole or absent — never ellipsized;
+- weapon and task names may still show an ellipsis. **That is the ruling working**,
+  not a defect: report them only if a name is unreadable rather than merely cut.
+
+## 6. What is knowingly NOT fixed, and should be read as-is
+
+Under ornate at 360x691 these text nodes still truncate — all **label** class, so
+under R9 they are the rank ladder degrading a 114px lane rather than defects:
 
 | node | string | preference |
 |---|---|---|
-| `Feed/FeedLine` | "Ravi eliminated Mo" | +0, +4 |
+| `Feed/FeedLine` | "Ravi eliminated Mo" | +0 (with the chip row declared) |
 | `Tasks/TasksOne/…/TasksOneName` | "Win a round" | +0, +4 |
-| `Clock/TimerOnlyPod/…/TimerOnlyText` | "2:14" | +10, +14 |
 | `Rail/W1c/…/W1cT` | "Rifle" | +10 |
 | `Weapon/WeaponText` | "Ranger rifle" | +10 |
 
-None of them is below a floor and none paints in a degenerate box; they are the
-rank ladder degrading a 114px lane. **A timer reading `2:1…` is the one worth a
-director ruling** — the honest repairs are a shorter form for the clock or a
-disclosure route, and both are design calls rather than defect fixes. Capture it
-and put it in front of the director rather than treating it as a pass/fail row.
+None is below a floor and none paints in a degenerate box.
+
+**The two rows that used to be here and are gone**: `Clock/…/TimerOnlyText`
+("2:14" at +10/+14) is fixed — the timer reformats to `2m` (§5) — and
+`Strip/…/ObjectiveT` swaps to `R3` (§4). The `2:1…` timer this section previously
+asked for a ruling on **got one**: R9, and it is implemented.
+
+`Feed/FeedLine`'s preference column is corrected from `+0, +4` to `+0`: with the
+chip row declared it fires at the default preference only (reviewer INFO, and
+re-measured here).
