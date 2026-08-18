@@ -25,6 +25,7 @@
 -- the two cancels cannot drift in feel.
 
 local specGuard = require("../spec_guard")
+local num = require("../num")
 
 local drag_velocity = {}
 
@@ -37,9 +38,7 @@ export type Opts = {
 	windowS: number?,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- CLOSED OPTS (constitution §4; ARCH-1): one tuning field, and therefore the
 -- easiest of all to misspell into the default.

@@ -68,11 +68,11 @@
 	is testable without an engine (`tests/hit_expander_overhang.spec.luau`).
 ]]
 
+local rectLib = require("../rect")
+
 local hit_lift = {}
 
-local function overlaps(a: any, b: any): boolean
-	return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
-end
+local overlaps = rectLib.overlaps
 
 export type Lift = {
 	any: boolean,

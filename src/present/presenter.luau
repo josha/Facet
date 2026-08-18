@@ -637,7 +637,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local ringVisible = graph.focusVisible:get() ~= false
 		for _, handle in stack do
 			local rootPath = "/" .. (handle.blueprint.id or "")
-			local owns = path ~= nil and string.sub(path, 1, #rootPath) == rootPath
+			--[[ SEGMENT-ALIGNED, because `/Menu` is a raw string prefix of
+				`/MenuBar/Save` and this decides which surface draws the ring (REUSE-3).
+				`isPathPrefix` is imported at the top of this file and was already the
+				right answer 370 lines above; this site wrote the unsafe form by hand. ]]
+			local owns = path ~= nil and isPathPrefix(rootPath, path :: string)
 			-- ...AND IT IS A CLAIM ABOUT WHO OWNS INPUT, SO A SURFACE THAT DOES NOT
 			-- OWN IT DRAWS NO RING (director playtest 2026-08-03 round 4: "when i hit
 			-- play and clicked on the world, the text field kept showing a focus ring
@@ -3321,7 +3325,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		for i = #stack, 1, -1 do
 			local handle = stack[i]
 			local rootPath = "/" .. (handle.blueprint.id or "")
-			if string.sub(path, 1, #rootPath) == rootPath then
+			--[[ SEGMENT-ALIGNED (REUSE-3). The raw `string.sub` form that stood here
+				made `/Menu` own every tap on `/MenuBar/…`: the search runs from the top
+				of the stack, so whichever of the two was presented LAST swallowed the
+				other's taps, dispatched them against a handle with no such node, and
+				the button did nothing at all. ]]
+			if isPathPrefix(rootPath, path) then
 				return handle
 			end
 		end

@@ -41,6 +41,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local value_model = require("./value_model")
 local specGuard = require("../spec_guard")
+local rectLib = require("../rect")
 
 local slider = {}
 
@@ -183,12 +184,7 @@ function slider.build(Facet: any, core: any, spec: Spec)
 	-- actually changes, so identity would also work — this does not depend on
 	-- that, because the day rectOf builds a fresh table the cost would appear as
 	-- a silent per-frame re-solve in every slider rather than as a failure.
-	local function rectEq(a: any, b: any): boolean
-		if a == nil or b == nil then
-			return a == b
-		end
-		return a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h
-	end
+	local rectEq = rectLib.equal
 	local trackRect = scope:own(core:signal(nil, rectEq))
 	-- the THUMB's solved rect, for the same reason. The offset math needs the
 	-- thumb's width to keep it inside the track, and that width is now a theme

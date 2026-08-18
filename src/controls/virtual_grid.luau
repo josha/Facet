@@ -216,6 +216,7 @@ local nativeScrollBinding = require("./native_scroll_binding")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local virtual_extents = require("../virtual_extents")
+local paths = require("../paths")
 
 local virtual_grid = {}
 
@@ -243,9 +244,7 @@ local SLOT_CONTENT_FROM = 2
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first
-local function patternEscape(s: string): string
-	return (s:gsub("%W", "%%%0"))
-end
+local patternEscape = paths.escape
 
 function virtual_grid.build(Facet: any, core: any, spec: any)
 	--[[ ── CONSTRUCTION-TIME REFUSALS ──────────────────────────────────────────

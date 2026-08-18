@@ -66,6 +66,10 @@ local shrinkLib = require("./shrink")
 -- `shrink`: it takes `GRID_DEPS` below, plus the two helpers declared too far down
 -- this file to sit in a load-time record, and holds no state of its own.
 local gridLib = require("./grid")
+local num = require("../num")
+-- bound at module scope: `solver.luau` records that a per-call allocation on
+-- the measure path is a bench regression this repository has already paid for
+local roundPx = num.roundPx
 
 export type Dim = {
 	type: string,
@@ -706,9 +710,9 @@ local function containerRelativeSize(d: Dim, container: number): number
 		local span = math.clamp(math.floor((d :: any).span or 1), 1, n)
 		local spacing = (d :: any).spacing or 0
 		local page = (container - spacing * (n - 1)) / n
-		return math.max(0, math.floor(page * span + spacing * (span - 1) + 0.5))
+		return math.max(0, roundPx(page * span + spacing * (span - 1)))
 	end
-	return math.max(0, math.floor(container * ((d :: any).fraction or 1) + 0.5))
+	return math.max(0, roundPx(container * ((d :: any).fraction or 1)))
 end
 
 local function resolveAxis(
@@ -745,7 +749,7 @@ local function resolveAxis(
 		end
 		-- optional pixel offset + clamp band: percent(1, offset=-32, max=340)
 		-- expresses "full width minus margins, capped" (Settings-panel shape)
-		local raw = math.floor(limit * (d.fraction :: number) + (d.offset or 0) + 0.5)
+		local raw = roundPx(limit * (d.fraction :: number) + (d.offset or 0))
 		return math.clamp(raw, d.min or 0, d.max or math.huge)
 	elseif d.type == "minMax" then
 		local base = d.preferred or contentFn()
@@ -2191,14 +2195,14 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			return c
 		end, ctx.containerH)
 		h = pairedExtent(hDim, maxH, h)
-		w = math.floor(h * (wDim.ratio :: number) + 0.5)
+		w = roundPx(h * (wDim.ratio :: number))
 	elseif hDim.type == "aspect" then
 		w = resolveAxis(ctx, node, wDim, maxW, function()
 			local c, _ = content()
 			return c
 		end, ctx.containerW)
 		w = pairedExtent(wDim, maxW, w)
-		h = math.floor(w / (hDim.ratio :: number) + 0.5)
+		h = roundPx(w / (hDim.ratio :: number))
 	else
 		w = resolveAxis(ctx, node, wDim, maxW, function()
 			local c, _ = content()
@@ -2254,7 +2258,7 @@ local function offsetPx(value: any, extent: number): number
 	end
 	local scale = if type(value.scale) == "number" then value.scale else 0
 	local offset = if type(value.offset) == "number" then value.offset else 0
-	return math.floor(scale * extent + offset + 0.5)
+	return roundPx(scale * extent + offset)
 end
 
 -- The extent a `fill` anchor child may take once its own offset is paid for.
@@ -2787,8 +2791,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				node = node.id,
 				issue = string.format(
 					"no declared arrangement is legal in %dx%d — showing '%s' as the declared fallback%s",
-					math.floor(innerW + 0.5),
-					math.floor(innerH + 0.5),
+					roundPx(innerW),
+					roundPx(innerH),
 					resolution.arrangement,
 					if why ~= nil then ` (last rejection: {why.rule} — {why.detail})` else ""
 				),
@@ -2926,8 +2930,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				diagnostic trustworthy as an OVERLAP signal across the device matrix. ]]
 			if ctx.hiddenDepth == 0 and node.overflow ~= "intentionalOverlap" and node.overflow ~= "clip" then
 				local cw, ch = measure(ctx, child, innerW, innerH)
-				local overW = if childFillW then 0 else math.floor(cw - innerW + 0.5)
-				local overH = if childFillH then 0 else math.floor(ch - innerH + 0.5)
+				local overW = if childFillW then 0 else roundPx(cw - innerW)
+				local overH = if childFillH then 0 else roundPx(ch - innerH)
 				--[[ ── THE LYING `itemExtent` (2026-08-13, game-director approved) ───────
 					A fixed-pitch list windows by `index × itemExtent`. That arithmetic is
 					O(1) and exact ONLY because the extent is one declared number — and the
@@ -2969,7 +2973,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					local measured = if axisIsX then cw else ch
 					-- the same round-to-nearest the overlap finding uses: a slot is
 					-- authored in whole px and sub-pixel measure noise is not a defect
-					local over = math.floor(measured - slot.extent + 0.5)
+					local over = roundPx(measured - slot.extent)
 					if over > 0 and not absorbsOverflow(child, axisIsX) then
 						table.insert(ctx.diagnostics, {
 							node = child.id,
@@ -3130,8 +3134,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			if dim(child, "h").type == "fill" then
 				h = offsetFill(innerH, oy, f[2])
 			end
-			local x = innerX + math.floor((innerW - w) * f[1] + 0.5) + ox
-			local y = innerY + math.floor((innerH - h) * f[2] + 0.5) + oy
+			local x = innerX + roundPx((innerW - w) * f[1]) + ox
+			local y = innerY + roundPx((innerH - h) * f[2]) + oy
 			arrange(ctx, child, { x = x, y = y, w = w, h = h }, out)
 		end
 		return
@@ -3604,16 +3608,16 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		if hDimC.type == "aspect" then
 			local ratio = hDimC.ratio :: number
 			if isH then -- width is the MAIN axis here
-				crossSize = math.floor(mainSize / ratio + 0.5)
+				crossSize = roundPx(mainSize / ratio)
 			else
-				mainSize = math.floor(crossSize / ratio + 0.5)
+				mainSize = roundPx(crossSize / ratio)
 			end
 		elseif wDimC.type == "aspect" then
 			local ratio = wDimC.ratio :: number
 			if isH then
-				mainSize = math.floor(crossSize * ratio + 0.5)
+				mainSize = roundPx(crossSize * ratio)
 			else
-				crossSize = math.floor(mainSize * ratio + 0.5)
+				crossSize = roundPx(mainSize * ratio)
 			end
 		end
 		-- THE CROP (see `clipMain` above). The PAINTED extent stops at the box edge;

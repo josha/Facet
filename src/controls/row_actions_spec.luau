@@ -31,6 +31,7 @@
 	split: its ~65 nested functions share ~60 mutable upvalues on purpose. ]]
 
 local specGuard = require("../spec_guard")
+local paths = require("../paths")
 
 local row_actions_spec = {}
 
@@ -50,9 +51,7 @@ local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
 -- a node id is interpolated into a Lua PATTERN below (handleActivate's path
 -- match), so its magic characters have to be escaped first — same helper,
 -- same reason, as popup_button.luau/table.luau/text_input.luau/virtual_list.luau.
-local function patternEscape(s: string): string
-	return (s:gsub("%W", "%%%0"))
-end
+local patternEscape = paths.escape
 
 -- Task 8: "is `path` inside `prefix`'s own subtree" — the same 2-line
 -- definition src/present/focus_map.luau and src/layout/text_audit.luau each
@@ -62,9 +61,7 @@ end
 -- subtree" (content, a revealed tray button, or an open menu row — not
 -- `content` alone; see `pathInsideRow`'s own comment in row_actions.luau for
 -- why) from the live path `bindFocusGraph` hands over.
-local function isPathPrefix(prefix: string, path: string): boolean
-	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
-end
+local isPathPrefix = paths.isPrefix
 
 local function trayId(edge: Edge): string
 	return if edge == "leading" then "TrayLeading" else "TrayTrailing"

@@ -39,6 +39,8 @@
 -- people learn to ignore.
 
 local specGuard = require("../spec_guard")
+local paths = require("../paths")
+local rectLib = require("../rect")
 
 local text_audit = {}
 
@@ -98,12 +100,7 @@ end
 -- is `prefix` this path, or an ancestor of it? Compared on the SEPARATOR so
 -- "/S/Row" never matches "/S/RowTwo" — the false-positive every prefix test in
 -- this repository has had to be fixed for at least once.
-local function isPathPrefix(prefix: string, path: string): boolean
-	if prefix == path then
-		return true
-	end
-	return string.sub(path, 1, #prefix + 1) == prefix .. "/"
-end
+local isPathPrefix = paths.isPrefix
 
 -- THE HIDDEN SET IS A SUBTREE, NOT A NODE. The solver marks the ROOT of an
 -- unchosen candidate (`entry.hidden`) and leaves its descendants their solved
@@ -139,11 +136,7 @@ local function rectOf(entry: any): Rect?
 end
 
 -- the overlap of two rects on each axis; negative or zero means "they do not"
-local function overlapOf(a: Rect, b: Rect): (number, number)
-	local ow = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
-	local oh = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
-	return ow, oh
-end
+local overlapOf = rectLib.intersection
 
 -- an allowlist entry is a path-PREFIX pair (either orientation) or a predicate.
 -- Prefixes, not exact paths, because the declaration an author can actually

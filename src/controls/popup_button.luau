@@ -17,14 +17,13 @@
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
 local specGuard = require("../spec_guard")
+local paths = require("../paths")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
 -- function of its argument and every `build()` used to allocate its own
 -- (Step 5.5 cleanup ledger C-06).
-local function patternEscape(s: string): string
-	return (s:gsub("%W", "%%%0"))
-end
+local patternEscape = paths.escape
 
 local popup_button = {}
 

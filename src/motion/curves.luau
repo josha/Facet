@@ -47,6 +47,9 @@
 -- surface, where `classes.luau`'s four shapes are decisions about physics that
 -- generalize. Registering a curve IS the act of choosing, once, with a name.
 
+local num = require("../num")
+local textDistance = require("../text_distance")
+
 local curves = {}
 
 export type Curve = {
@@ -102,9 +105,7 @@ local MAX_DURATION = 2
 curves.STYLES = table.freeze(STYLES)
 curves.DIRECTIONS = table.freeze(DIRECTIONS)
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- ===== the pure twin =======================================================
 -- Penner's canonical set, which is what `TweenService` implements. Every entry
@@ -217,32 +218,13 @@ end
 
 local registry: { [string]: Curve } = {}
 
--- Bounded Levenshtein, the same shape `classes.luau` uses (kept local for the
--- same reason: motion owes nothing to the blueprint layer).
-local function distance(a: string, b: string): number
-	local la, lb = #a, #b
-	if la == 0 then
-		return lb
-	end
-	if lb == 0 then
-		return la
-	end
-	local prev = table.create(lb + 1, 0)
-	local cur = table.create(lb + 1, 0)
-	for j = 0, lb do
-		prev[j + 1] = j
-	end
-	for i = 1, la do
-		cur[1] = i
-		local ca = string.byte(a, i)
-		for j = 1, lb do
-			local cost = if ca == string.byte(b, j) then 0 else 1
-			cur[j + 1] = math.min(cur[j] + 1, prev[j + 1] + 1, prev[j] + cost)
-		end
-		prev, cur = cur, prev
-	end
-	return prev[lb + 1]
-end
+-- The matrix lives in `src/text_distance.luau` (ARCH-17) — a leaf with no
+-- requires, so taking it costs `motion/` none of the independence the old "kept
+-- local" note was protecting. THE THRESHOLD STAYS HERE, at the call site below,
+-- because it is the half that was never agreed: this caller lowercases both
+-- sides and accepts `d <= max(2, floor(#name / 3))`, where `spec_guard` and
+-- `themes/package` accept 2 case-sensitively.
+local distance = textDistance.distance
 
 function curves.names(): { string }
 	local out: { string } = {}

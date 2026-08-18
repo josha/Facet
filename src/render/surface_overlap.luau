@@ -72,6 +72,12 @@
 	Depends on: nothing. Pure Luau; no engine, no core, no solver.
 ]]
 
+local rectLib = require("../rect")
+local num = require("../num")
+-- bound at module scope: `solver.luau` records that a per-call allocation on
+-- the measure path is a bench regression this repository has already paid for
+local roundPx = num.roundPx
+
 local surface_overlap = {}
 
 export type Rect = { x: number, y: number, w: number, h: number }
@@ -180,12 +186,7 @@ local function declared(a: Surface, b: Surface): boolean
 end
 surface_overlap.declared = declared
 
-local function contains(outer: Rect, inner: Rect): boolean
-	return outer.x <= inner.x
-		and outer.y <= inner.y
-		and outer.x + outer.w >= inner.x + inner.w
-		and outer.y + outer.h >= inner.y + inner.h
-end
+local contains = rectLib.contains
 
 --[[ scan(surfaces) -> { Overlap }
 
@@ -224,8 +225,7 @@ function surface_overlap.scan(surfaces: { Surface }): { Overlap }
 				continue
 			end
 			local ra, rb = a.rect :: Rect, b.rect :: Rect
-			local dx = math.min(ra.x + ra.w, rb.x + rb.w) - math.max(ra.x, rb.x)
-			local dy = math.min(ra.y + ra.h, rb.y + rb.h) - math.max(ra.y, rb.y)
+			local dx, dy = rectLib.intersection(ra, rb)
 			if dx > 0 and dy > 0 then
 				local covered: string? = nil
 				if contains(ra, rb) then
@@ -236,8 +236,8 @@ function surface_overlap.scan(surfaces: { Surface }): { Overlap }
 				table.insert(out, {
 					a = a.id,
 					b = b.id,
-					dx = math.floor(dx + 0.5),
-					dy = math.floor(dy + 0.5),
+					dx = roundPx(dx),
+					dy = roundPx(dy),
 					covered = covered,
 				})
 			end

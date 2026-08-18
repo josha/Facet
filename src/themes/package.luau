@@ -40,6 +40,8 @@ local chrome_slots = require("../tokens/chrome_slots")
 -- every icon sync and a later `local` would be a nil global read
 -- (docs/lessons/later-locals-are-not-upvalues.md).
 local standard_icons = require("./standard_icons")
+local num = require("../num")
+local textDistance = require("../text_distance")
 
 local package = {}
 
@@ -548,9 +550,7 @@ end
 
 -- ===== helpers =============================================================
 
-local function isFiniteNumber(v: any): boolean
-	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
+local isFiniteNumber = num.isFinite
 
 -- a { w, h } px size: a plaque's plate, a tile's repeat. Both are real geometry
 -- the adapter anchors from, so zero is as wrong as absent.
@@ -559,38 +559,17 @@ local function isPositiveSize(v: any): boolean
 end
 
 -- "did you mean" for an unknown key, cheap and bounded (Levenshtein <= 2)
+-- distance <= 2, case-SENSITIVE — the same policy `src/spec_guard.luau` states,
+-- and now the same arithmetic (ARCH-17). The separator differs on purpose: a
+-- theme property list reads as alternatives.
+local NEAREST_MAX_DISTANCE = 2
+
 local function nearest(bad: string, allowed: { [string]: boolean }): string?
-	local best, bestD: string?, number = nil, 3
-	for name in allowed do
-		local la, lb = #bad, #name
-		local prev = table.create(lb + 1, 0)
-		local cur = table.create(lb + 1, 0)
-		for j = 0, lb do
-			prev[j + 1] = j
-		end
-		for i = 1, la do
-			cur[1] = i
-			for j = 1, lb do
-				local cost = if string.byte(bad, i) == string.byte(name, j) then 0 else 1
-				cur[j + 1] = math.min(cur[j] + 1, prev[j + 1] + 1, prev[j] + cost)
-			end
-			prev, cur = cur, prev
-		end
-		local d = prev[lb + 1]
-		if d < bestD then
-			best, bestD = name, d
-		end
-	end
-	return best
+	return textDistance.nearest(bad, allowed, NEAREST_MAX_DISTANCE)
 end
 
 local function sortedNames(allowed: { [string]: boolean }): string
-	local out = {}
-	for name in allowed do
-		table.insert(out, name)
-	end
-	table.sort(out)
-	return table.concat(out, " | ")
+	return textDistance.listOf(allowed, " | ")
 end
 
 local function deepFreeze(t: any): any

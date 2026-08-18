@@ -13,6 +13,7 @@
 local specGuard = require("../spec_guard")
 
 local profile = require("../core/profile")
+local num = require("../num")
 
 local resources = {}
 
@@ -59,9 +60,7 @@ export type ProviderOpts = {
 	now: (() -> number)?, -- injected clock for spaced retries (default os.clock)
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function resolveRetry(spec: any, fallback: Retry?): Retry
 	local base: Retry = fallback or { count = 0, delaySeconds = 0, giveUp = false }

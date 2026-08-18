@@ -13,6 +13,7 @@
 -- changing, not hidden control state.
 
 local specGuard = require("../spec_guard")
+local num = require("../num")
 
 local value_model = {}
 
@@ -40,9 +41,7 @@ export type Model = {
 	atMax: (value: number) -> boolean,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- default formatting: integers print bare, fractions keep up to 2 decimals with
 -- trailing zeros trimmed, and negative zero prints as "0"

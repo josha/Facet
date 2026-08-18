@@ -18,6 +18,7 @@
 -- that vocabulary belongs to the focus map. No cycle — `focus_map` requires only the
 -- input contribution module.
 local focusMap = require("./focus_map")
+local rectLib = require("../rect")
 local FOCUSABLE = focusMap.FOCUSABLE
 
 -- ===== modal outside-tap: two-zone geometry (modal-dismissal spec) ==========
@@ -33,7 +34,7 @@ local CONTENT_PAINTED: { [string]: boolean } =
 -- target-forgiveness logic (spec §3.2).
 
 local function pointInRect(x: number, y: number, r: any): boolean
-	return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h
+	return rectLib.containsClosed(r, x, y)
 end
 
 local function inflate(r: any, m: number): any

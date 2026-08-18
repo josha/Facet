@@ -19,6 +19,7 @@
 -- beside the input system: a contribution's `focusGroups` is an INPUT to the focus map,
 -- so collecting contributions and deriving groups is one cluster or it is a cycle.
 local contribution = require("../input/contribution")
+local paths = require("../paths")
 
 local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 
@@ -66,9 +67,7 @@ end
 -- with a zero rect that the player cannot see.
 -- is `prefix` a PATH prefix of `path` (segment-aligned, so "/S/Name" prefixes
 -- "/S/Name/Field" but not "/S/NameX/...")
-local function isPathPrefix(prefix: string, path: string): boolean
-	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
-end
+local isPathPrefix = paths.isPrefix
 
 -- An order entry is a bare path OR the live-predicate form `{ id = path,
 -- focusable = () -> boolean }` (ADR-0022 Decision 5). Both have to be filterable,

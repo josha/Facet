@@ -71,6 +71,9 @@ local NO_DECORATION_CLASSES: { [string]: boolean } = { Stage = true, Foreign = t
 -- this file moved, and re-exported below because every consumer already reads
 -- them off `renderer`.
 local prop_channels = require("./prop_channels")
+local paths = require("../paths")
+local rectLib = require("../rect")
+local isPathPrefix = paths.isPrefix
 local BINDING_PROPS = prop_channels.BINDING_PROPS
 local STYLE_PROPS = prop_channels.STYLE_PROPS
 local emitsBinding = prop_channels.emitsBinding
@@ -381,10 +384,7 @@ function renderer.attach(
 	-- INSIDE it, and solved rects are not guaranteed integral.
 	local CLIP_EPSILON = 0.5
 	local function clipContains(outer: any, inner: any): boolean
-		return inner.x >= outer.x - CLIP_EPSILON
-			and inner.y >= outer.y - CLIP_EPSILON
-			and inner.x + inner.w <= outer.x + outer.w + CLIP_EPSILON
-			and inner.y + inner.h <= outer.y + outer.h + CLIP_EPSILON
+		return rectLib.contains(outer, inner, CLIP_EPSILON)
 	end
 	-- does this path escape ANY clip host above it? Nested hosts all count: a
 	-- list inside a clipped panel must crop against both.
@@ -435,7 +435,7 @@ function renderer.attach(
 		for _, retired in retiringRoots do
 			-- SEGMENT boundary, not a bare prefix (verifier P2-2): a retiring
 			-- "/S/Slot" must not exclude its live sibling "/S/SlotA"
-			if path == retired or string.sub(path, 1, #retired + 1) == retired .. "/" then
+			if isPathPrefix(retired, path) then
 				return false
 			end
 		end
@@ -2651,29 +2651,10 @@ function renderer.attach(
 		is a MISSED re-solve, not an extra one: the surface goes silently deaf to
 		one platform fact. Refusing the shape costs nothing today (no fact has a
 		table-valued field) and makes the conservative claim literally true. ]]
-	local function sameGeometryValue(a: any, b: any): boolean
-		if a == b then
-			return true
-		end
-		if type(a) ~= "table" or type(b) ~= "table" then
-			return false
-		end
-		for k, v in a do
-			-- a nested fact is refused, never half-compared (see above)
-			if type(v) == "table" then
-				return false
-			end
-			if b[k] ~= v then
-				return false
-			end
-		end
-		for k, v in b do
-			if a[k] ~= v then
-				return false
-			end
-		end
-		return true
-	end
+	-- ...and the comparison itself is `src/rect.luau`'s (REUSE-4): the same body
+	-- lived here and in `src/controls/selection_indicator.luau`, across a layer
+	-- boundary, with the indicator's copy carrying a comment naming this one.
+	local sameGeometryValue = rectLib.sameFlatValue
 
 	local GEOMETRY_KEYS = {
 		"viewportRect",
@@ -3489,7 +3470,7 @@ function renderer.attach(
 		local found: any = nil
 		local function walk(node: any)
 			local path = node.path
-			if skip ~= nil and (path == skip or string.sub(path, 1, #skip + 1) == skip .. "/") then
+			if skip ~= nil and isPathPrefix(skip, path) then
 				return -- the forwarding surface's own subtree is never a target
 			end
 			local tappable = TAPPABLE[node.class]
@@ -3634,7 +3615,7 @@ function renderer.attach(
 		for path, region in lastScrollRegions do
 			if region ~= nil and handles[path] ~= nil then
 				local rect = screenRectOf(path)
-				if rect ~= nil and x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+				if rect ~= nil and rectLib.containsClosed(rect, x, y) then
 					table.insert(chain, path)
 				end
 			end

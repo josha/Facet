@@ -116,6 +116,7 @@
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local rectLib = require("../rect")
 local themeSnapshot = require("../themes/snapshot")
 
 local selection_indicator = {}
@@ -247,34 +248,12 @@ function selection_indicator.resolveTransition(placed: boolean, selectionChanged
 	return if selectionChanged then "slide" else "place"
 end
 
--- BY-VALUE COMPARISON (renderer.luau:2778-2800's `sameGeometryValue`, kept
--- field-for-field). Identity short-circuits; otherwise every field is compared
--- in BOTH directions so a key present on one side only is a change; and any
--- table-valued field is REFUSED rather than compared by identity, because a
--- rebuilt-outer/reused-inner shape would otherwise report a false "unchanged"
--- and the indicator would go silently deaf to a real move.
-local function sameGeometry(a: any, b: any): boolean
-	if a == b then
-		return true
-	end
-	if type(a) ~= "table" or type(b) ~= "table" then
-		return false
-	end
-	for k, v in a do
-		if type(v) == "table" then
-			return false
-		end
-		if b[k] ~= v then
-			return false
-		end
-	end
-	for k, v in b do
-		if a[k] ~= v then
-			return false
-		end
-	end
-	return true
-end
+-- BY-VALUE COMPARISON, and the renderer's own (REUSE-4). This comment used to
+-- say "renderer.luau's `sameGeometryValue`, kept field-for-field" above a
+-- verbatim copy of it, across a layer boundary; `src/rect.luau` is the leaf both
+-- may require, and it states the reason the refusal of nested fields is
+-- load-bearing rather than defensive.
+local sameGeometry = rectLib.sameFlatValue
 
 selection_indicator.sameGeometry = sameGeometry
 

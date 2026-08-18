@@ -30,14 +30,14 @@
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local paths = require("../paths")
+local rectLib = require("../rect")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
 -- function of its argument and every `build()` used to allocate its own
 -- (Step 5.5 cleanup ledger C-06).
-local function patternEscape(s: string): string
-	return (s:gsub("%W", "%%%0"))
-end
+local patternEscape = paths.escape
 
 local text_input = {}
 
@@ -107,12 +107,7 @@ local function isReadable(v: any): boolean
 	return type(v) == "table" and (v.kind == "signal" or v.kind == "memo")
 end
 
-local function rectsEqual(a: any, b: any): boolean
-	if a == nil or b == nil then
-		return a == b
-	end
-	return a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h
-end
+local rectsEqual = rectLib.equal
 
 -- clamp `s` to at most `maxLen` Unicode scalars (grapheme-approximate; the
 -- engine reports whole graphemes so this matches at the value boundary)

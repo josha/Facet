@@ -30,6 +30,8 @@
 -- distance: a single distance spring desyncs when the axes carry different
 -- velocities.
 
+local num = require("../num")
+
 local spring = {}
 
 -- dt hygiene: a huge frame (tab-out, stall, a debugger pause) must never blow
@@ -72,9 +74,7 @@ export type Spring = {
 -- A non-finite value can never settle (NaN compares false against eps), so it
 -- would pin a driver awake forever writing NaN into a property — which blanks
 -- the surface permanently. Reject at the boundary and keep the last good state.
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function coeffs(dampingRatio: number, response: number): (number, number)
 	-- response must stay positive: a zero/negative response divides by zero.

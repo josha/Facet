@@ -52,6 +52,7 @@ local springLib = require("./spring")
 local classes = require("./classes")
 local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
+local num = require("../num")
 
 local motion = {}
 
@@ -161,9 +162,7 @@ type Driver = {
 	velocity: () -> number,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function newValue(
 	internals: Internals,

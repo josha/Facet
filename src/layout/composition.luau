@@ -101,6 +101,11 @@
 -- here is still a headless sweep.
 
 local textFit = require("./text_fit")
+local rectLib = require("../rect")
+local num = require("../num")
+-- bound at module scope: `solver.luau` records that a per-call allocation on
+-- the measure path is a bench regression this repository has already paid for
+local roundPx = num.roundPx
 
 local composition = {}
 
@@ -1220,9 +1225,9 @@ local function solveArrangement(
 		if slack < 0 then
 			widthFail = string.format(
 				"the hug lanes need %dpx plus %dpx of gaps but the composition was offered %dpx",
-				math.floor(hugTotal + 0.5),
-				math.floor(gapsW + 0.5),
-				math.floor(offerW + 0.5)
+				roundPx(hugTotal),
+				roundPx(gapsW),
+				roundPx(offerW)
 			)
 		end
 		for i in laneGroups do
@@ -1238,8 +1243,8 @@ local function solveArrangement(
 						"lane %d (%s) resolved to %dpx but its group declares a %dpx minimum",
 						i,
 						table.concat(laneAffinities[i], "+"),
-						math.floor(laneW[i] + 0.5),
-						math.floor(laneMinWidth[i] + 0.5)
+						roundPx(laneW[i]),
+						roundPx(laneMinWidth[i])
 					)
 				end
 			else
@@ -1685,8 +1690,8 @@ local function solveArrangement(
 								.. "it can step down or drop",
 							i,
 							table.concat(laneAffinities[i], "+"),
-							math.floor(p.laneW[i] + 0.5),
-							math.floor(p.laneW[i] + p.laneWide[i] + 0.5)
+							roundPx(p.laneW[i]),
+							roundPx(p.laneW[i] + p.laneWide[i])
 						)
 						break
 					end
@@ -1696,10 +1701,10 @@ local function solveArrangement(
 								.. "it can step down, drop or scroll",
 							i,
 							table.concat(laneAffinities[i], "+"),
-							math.floor(p.laneNeed[i] + 0.5),
-							math.floor(offerH + 0.5),
+							roundPx(p.laneNeed[i]),
+							roundPx(offerH),
 							if p.spanTotal > 0.5
-								then string.format(" (%dpx of it spanning rows)", math.floor(p.spanTotal + 0.5))
+								then string.format(" (%dpx of it spanning rows)", roundPx(p.spanTotal))
 								else ""
 						)
 						break
@@ -1710,8 +1715,8 @@ local function solveArrangement(
 				detail = string.format(
 					"the spanning rows need %dpx but the composition was offered %dpx, and no region in them "
 						.. "can step down or drop",
-					math.floor(p.spanTotal + 0.5),
-					math.floor(offerH + 0.5)
+					roundPx(p.spanTotal),
+					roundPx(offerH)
 				)
 			end
 			return {
@@ -1889,7 +1894,7 @@ local function solveArrangement(
 					local m = p.measured[r.id]
 					rw = math.min(if m ~= nil then m.w else rw, laneRect.w)
 					local f = if g.align == "center" then 0.5 elseif g.align == "end" then 1 else 0
-					rx = laneRect.x + math.floor((laneRect.w - rw) * f + 0.5)
+					rx = laneRect.x + roundPx((laneRect.w - rw) * f)
 				end
 				res.rect = { x = rx, y = ry, w = rw, h = h }
 				ry += h + gGap
@@ -1982,8 +1987,7 @@ local function solveArrangement(
 			for i = 1, #painted do
 				for j = i + 1, #painted do
 					local a, b = painted[i], painted[j]
-					local dx = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
-					local dy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+					local dx, dy = rectLib.intersection(a, b)
 					if dx > EPS and dy > EPS then
 						local first, second = a.id, b.id
 						-- the one painting outside its box is `a`; ties break by id, so the
@@ -1994,8 +1998,8 @@ local function solveArrangement(
 						table.insert(collisions, {
 							a = first,
 							b = second,
-							dx = math.floor(dx + 0.5),
-							dy = math.floor(dy + 0.5),
+							dx = roundPx(dx),
+							dy = roundPx(dy),
 						})
 					end
 				end
@@ -2175,10 +2179,10 @@ local function roundRect(r: Rect?): any
 		return nil
 	end
 	return {
-		x = math.floor(r.x + 0.5),
-		y = math.floor(r.y + 0.5),
-		w = math.floor(r.w + 0.5),
-		h = math.floor(r.h + 0.5),
+		x = roundPx(r.x),
+		y = roundPx(r.y),
+		w = roundPx(r.w),
+		h = roundPx(r.h),
 	}
 end
 
@@ -2215,7 +2219,7 @@ function composition.dump(resolution: Resolution): any
 			-- ADDITIVE (D7.1): `false` on every region that used to be dumped without
 			-- it, so a reader that never heard of elision reads what it always did
 			elided = r.elided == true,
-			floor = math.floor(r.floor + 0.5),
+			floor = roundPx(r.floor),
 			rect = roundRect(r.rect),
 		})
 	end
@@ -2236,8 +2240,8 @@ function composition.dump(resolution: Resolution): any
 		arrangement = resolution.arrangement,
 		legal = resolution.legal,
 		fallback = resolution.fallback,
-		offer = { w = math.floor(resolution.offer.w + 0.5), h = math.floor(resolution.offer.h + 0.5) },
-		used = { w = math.floor(resolution.used.w + 0.5), h = math.floor(resolution.used.h + 0.5) },
+		offer = { w = roundPx(resolution.offer.w), h = roundPx(resolution.offer.h) },
+		used = { w = roundPx(resolution.used.w), h = roundPx(resolution.used.h) },
 		scroller = resolution.scroller,
 		lanes = lanes,
 		-- ADDITIVE (2026-07-31): a declaration with no spanning group dumps `spans

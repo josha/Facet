@@ -52,6 +52,8 @@
 -- be a second mechanism answering the same question.
 
 local specGuard = require("../spec_guard")
+local num = require("../num")
+local rectLib = require("../rect")
 
 local autoscroll = {}
 
@@ -103,9 +105,7 @@ function autoscroll.bandForViewport(width: number, height: number): number
 	return if height > width then BAND_H.portrait else BAND_H.landscape
 end
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function number(value: any, fallback: number): number
 	return if isFinite(value) then value :: number else fallback
@@ -151,10 +151,7 @@ function autoscroll.new(opts: Opts?)
 		if pos == nil or rect == nil or not isFinite(pos.x) or not isFinite(pos.y) then
 			return nil, 0
 		end
-		if pos.x < rect.x or pos.x >= rect.x + rect.w then
-			return nil, 0
-		end
-		if pos.y < rect.y or pos.y >= rect.y + rect.h then
+		if not rectLib.containsHalfOpen(rect, pos.x, pos.y) then
 			return nil, 0
 		end
 		local depth = math.min(bandH, rect.h / 2)

@@ -33,6 +33,8 @@
 --   schedule.dismiss(id, reason?)
 --   schedule.counts()          -- { visible, queued, sequence }
 
+local num = require("../num")
+
 local toast_schedule = {}
 
 -- ui-designer spec §3.2, all designer-set framework defaults (disposition F1)
@@ -67,9 +69,7 @@ export type Opts = {
 	onChange: (() -> ())?,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function positive(value: any, fallback: number): number
 	return if isFinite(value) and (value :: number) >= 0 then value :: number else fallback

@@ -15,15 +15,14 @@
 -- that silently ignores half a camera is a black box nobody can debug.
 
 local spec_guard = require("../spec_guard")
+local num = require("../num")
 
 local stage_content = {}
 
 local CAMERA_KEYS: spec_guard.KeySet = table.freeze({ position = true, lookAt = true, fov = true })
 local LIGHTING_KEYS: spec_guard.KeySet = table.freeze({ ambient = true, lightColor = true, lightDirection = true })
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- a point or a direction: three finite numbers, frozen
 local function vec3(where: string, field: string, value: any): { x: number, y: number, z: number }

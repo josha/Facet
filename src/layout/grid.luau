@@ -74,6 +74,11 @@
 	and the compiler proves it.
 ]]
 
+local num = require("../num")
+-- bound at module scope: `solver.luau` records that a per-call allocation on
+-- the measure path is a bench regression this repository has already paid for
+local roundPx = num.roundPx
+
 local grid = {}
 
 -- What the plan needs from the solver, passed at every call. Typed `any` for the
@@ -333,7 +338,7 @@ local function gridFlowPlan(deps: Deps, ctx: any, node: any, innerW: number, inn
 			-- `w = laneH * ratio` — one statement, both modes.
 			if flowDim.type == "aspect" and cell.lane > 0 then
 				local ratio = flowDim.ratio :: number
-				painted = if isCol then math.floor(cell.lane * ratio + 0.5) else math.floor(cell.lane / ratio + 0.5)
+				painted = if isCol then roundPx(cell.lane * ratio) else roundPx(cell.lane / ratio)
 			end
 			cell.flow = painted
 		end
@@ -595,7 +600,7 @@ local function gridRowHeight(deps: Deps, ctx: any, row: any, plan: any, limitH: 
 		end
 		local _, h = deps.measure(ctx, cell, cellW, limitH)
 		if hDim.type == "aspect" and cellW > 0 then
-			h = math.floor(cellW / (hDim.ratio :: number) + 0.5)
+			h = roundPx(cellW / (hDim.ratio :: number))
 		end
 		rowH = math.max(rowH, h + mt + mb)
 		column += span
@@ -718,7 +723,7 @@ function grid.arrangeRow(
 		local cellH = if deps.dim(cell, "h").type == "fill" then availH else math.min(h, availH)
 		local hDimCell = deps.dim(cell, "h")
 		if hDimCell.type == "aspect" and cellW > 0 then
-			cellH = math.min(availH, math.floor(cellW / (hDimCell.ratio :: number) + 0.5))
+			cellH = math.min(availH, roundPx(cellW / (hDimCell.ratio :: number)))
 		end
 		place(ctx, cell, {
 			x = x + ml + alignOffset(cell.alignH, availW, cellW),

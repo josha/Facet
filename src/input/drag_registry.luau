@@ -45,6 +45,8 @@ local drag_session = require("./drag_session")
 local drag_velocity = require("./drag_velocity")
 local tokens = require("./interaction_tokens")
 local specGuard = require("../spec_guard")
+local num = require("../num")
+local rectLib = require("../rect")
 
 local drag_registry = {}
 
@@ -89,15 +91,13 @@ export type Verdict = {
 	mode: string, -- "pointer" | "armed"
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 local function centerOf(rect: any): (number?, number?)
 	if type(rect) ~= "table" or not isFinite(rect.x) or not isFinite(rect.y) then
 		return nil, nil
 	end
-	return rect.x + (rect.w or 0) / 2, rect.y + (rect.h or 0) / 2
+	return rectLib.centre(rect)
 end
 
 -- CLOSED OPTS (constitution §4; ARCH-1). Two of these ARE live predicates whose
@@ -238,7 +238,7 @@ function drag_registry.new(opts: Opts)
 		local found: string? = nil
 		for _, entry in list do
 			local rect = entry.rect
-			if x >= rect.x and x < rect.x + rect.w and y >= rect.y and y < rect.y + rect.h then
+			if rectLib.containsHalfOpen(rect, x, y) then
 				found = entry.id
 			end
 		end

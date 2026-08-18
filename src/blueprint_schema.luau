@@ -50,6 +50,7 @@ local themePackage = require("./themes/package")
 -- (styling.checkTint), read here for construction and by the adapter for a
 -- REACTIVE value at the write site, so the two can never diverge.
 local styling = require("./tokens/styling")
+local textDistance = require("./text_distance")
 
 local schema = {}
 
@@ -2479,31 +2480,12 @@ end
 
 -- ===== diagnostics =========================================================
 
--- Damerau-free Levenshtein, bounded: good enough to name the intended prop.
-local function distance(a: string, b: string): number
-	local la, lb = #a, #b
-	if la == 0 then
-		return lb
-	end
-	if lb == 0 then
-		return la
-	end
-	local prev = table.create(lb + 1, 0)
-	local cur = table.create(lb + 1, 0)
-	for j = 0, lb do
-		prev[j + 1] = j
-	end
-	for i = 1, la do
-		cur[1] = i
-		local ca = string.byte(a, i)
-		for j = 1, lb do
-			local cost = if ca == string.byte(b, j) then 0 else 1
-			cur[j + 1] = math.min(cur[j] + 1, prev[j + 1] + 1, prev[j] + cost)
-		end
-		prev, cur = cur, prev
-	end
-	return prev[lb + 1]
-end
+-- Damerau-free Levenshtein, bounded: good enough to name the intended prop. The
+-- matrix lives in `src/text_distance.luau` (ARCH-17). THE THRESHOLD STAYS HERE,
+-- at the call site below, because it is the half that was never agreed: this
+-- caller lowercases both sides and accepts `d <= max(2, floor(#name / 3))`,
+-- where `spec_guard` and `themes/package` accept 2 case-sensitively.
+local distance = textDistance.distance
 
 --[[ A REFUSED CAPABILITY SAYS SO AT THE POINT OF USE (ADR-0029, director round
 	2026-08-15).

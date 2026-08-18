@@ -30,6 +30,8 @@
 -- policy a spatial adapter will drive has to be testable without hardware, or
 -- the hardware becomes the only place the policy can be wrong.
 
+local num = require("../num")
+
 local spatial = {}
 
 export type Vec3 = { x: number, y: number, z: number }
@@ -69,9 +71,7 @@ export type Spatial = {
 spatial.PHASES = table.freeze({ began = true, changed = true, ended = true, cancelled = true, none = true })
 spatial.HANDEDNESS = table.freeze({ left = true, right = true, unknown = true })
 
-local function isFiniteNumber(v: any): boolean
-	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
+local isFiniteNumber = num.isFinite
 
 -- accept { x, y, z } or an engine Vector3-shaped { X, Y, Z }; reject anything
 -- that is not three finite numbers. nil-tolerant.

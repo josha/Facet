@@ -29,6 +29,9 @@
 -- All four are tunable ±30 % without re-gating, and re-registering a built-in
 -- name is the sanctioned way to tune one: the registry is the only dial.
 
+local num = require("../num")
+local textDistance = require("../text_distance")
+
 local classes = {}
 
 export type Class = {
@@ -61,37 +64,15 @@ local function seed()
 end
 seed()
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
--- Bounded Levenshtein: enough to name the class the author meant. Same shape as
--- the blueprint schema's property suggester (kept local — motion owes nothing
--- to the blueprint layer).
-local function distance(a: string, b: string): number
-	local la, lb = #a, #b
-	if la == 0 then
-		return lb
-	end
-	if lb == 0 then
-		return la
-	end
-	local prev = table.create(lb + 1, 0)
-	local cur = table.create(lb + 1, 0)
-	for j = 0, lb do
-		prev[j + 1] = j
-	end
-	for i = 1, la do
-		cur[1] = i
-		local ca = string.byte(a, i)
-		for j = 1, lb do
-			local cost = if ca == string.byte(b, j) then 0 else 1
-			cur[j + 1] = math.min(cur[j] + 1, prev[j + 1] + 1, prev[j] + cost)
-		end
-		prev, cur = cur, prev
-	end
-	return prev[lb + 1]
-end
+-- The matrix lives in `src/text_distance.luau` (ARCH-17) — a leaf with no
+-- requires, so taking it costs `motion/` none of the independence the old "kept
+-- local" note was protecting. THE THRESHOLD STAYS HERE, at the call site below,
+-- because it is the half that was never agreed: this caller lowercases both
+-- sides and accepts `d <= max(2, floor(#name / 3))`, where `spec_guard` and
+-- `themes/package` accept 2 case-sensitively.
+local distance = textDistance.distance
 
 -- registered class names, sorted (a stable list for error messages and docs)
 function classes.names(): { string }

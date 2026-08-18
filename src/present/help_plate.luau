@@ -59,6 +59,7 @@
 local blueprintLib = require("../blueprint")
 local focusMap = require("./focus_map")
 local themeSnapshot = require("../themes/snapshot")
+local paths = require("../paths")
 
 local help_plate = {}
 
@@ -77,12 +78,7 @@ local HELP_DWELL = 0.45
 -- clipping it. The inset is the spacing step, resolved live from the theme.
 local EDGE_INSET_METRIC = "s"
 
-local function isPathPrefix(prefix: string, path: string): boolean
-	if prefix == path then
-		return true
-	end
-	return string.sub(path, 1, #prefix + 1) == prefix .. "/"
-end
+local isPathPrefix = paths.isPrefix
 
 --[[ ctx — the by-reference presenter state this module reads and never owns:
 	  core, env          the injected reactive/fact seam

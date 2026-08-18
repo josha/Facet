@@ -17,6 +17,8 @@
 --
 -- Engine-free: the chase is a clock participant like any other motion.
 
+local num = require("../num")
+
 local chase = {}
 
 -- perceptual arrival radius in px (ui-designer spec §1.4 default, range [2–8])
@@ -43,9 +45,7 @@ export type Chase = {
 	isDone: (self: Chase) -> boolean,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 function chase.new(internals: any, opts: Opts): Chase
 	if type(opts) ~= "table" or opts.x == nil or opts.y == nil or type(opts.target) ~= "function" then

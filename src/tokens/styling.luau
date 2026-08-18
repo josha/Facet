@@ -17,6 +17,7 @@
 -- materializes UIShadow/UICorner instances behind capability detection.
 
 local default_style = require("./default_style")
+local num = require("../num")
 
 local styling = {}
 
@@ -168,9 +169,7 @@ styling.GRADIENT_ALPHA_MAX = 0.9
 local GRADIENT_MIN_STOPS = 2
 local GRADIENT_MAX_STOPS = 3
 
-local function isFinite(v: any): boolean
-	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- "#rrggbb" -> rgb 0..1, or nil when the string is not a hex literal. A hex
 -- colour is the DECLARED theming-exempt escape (ADR-0022 Decision 6): it says

@@ -36,6 +36,8 @@
 -- placed at the top of `native_style.materializeProp` (and beside the theme
 -- token writer, so a sequence-valued token reaches SetAttribute intact).
 
+local num = require("../num")
+
 local chrome_props = {}
 
 -- Engine datatype constructors. Present in Roblox, nil under Lune — see the
@@ -58,9 +60,7 @@ export type NumStop = { t: number, v: number }
 export type NumSeq = { kind: "numseq", stops: { NumStop } }
 export type UDim2Value = { kind: "udim2", xScale: number, xOffset: number, yScale: number, yOffset: number }
 
-local function isFinite(v: any): boolean
-	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
+local isFinite = num.isFinite
 
 -- rect(x0, y0, x1, y1): a `SliceCenter` in IMAGE pixels — the inner rectangle
 -- that stretches, with everything outside it held at its authored size.

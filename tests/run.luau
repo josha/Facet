@@ -619,6 +619,16 @@ require("./level_picker.spec")
 	publishes, because an entry wired to the wrong builder (or to the right one
 	with the wrong library) still returns a perfectly plausible table ]]
 require("./controls_namespace.spec")
+--[[ the three dependency-free leaves (num/paths/rect) plus the live defect they
+	closed: two presented screens named `Menu` and `MenuBar` routed each other's
+	taps, because the presenter imported the segment-aligned prefix test at line
+	270 and then wrote the raw `string.sub` form at 640 and 3326 ]]
+require("./leaf_helpers.spec")
+--[[ one bounded-Levenshtein matrix where five modules each had one, with each
+	caller's threshold kept explicit at its own boundary — the two policies
+	(case-sensitive <= 2; case-folded, length-scaled) disagreed and nobody had
+	ever decided that, so both are pinned rather than merged ]]
+require("./text_distance.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

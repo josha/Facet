@@ -34,47 +34,31 @@
 -- `known` is a SET (`{ [string]: true }`) rather than an array so a caller can
 -- build it once at module scope and freeze it; the sorted list is derived here.
 
+local textDistance = require("./text_distance")
+
 local spec_guard = {}
 
 export type KeySet = { [string]: boolean }
 
--- "did you mean" for an unknown key, cheap and bounded (Levenshtein <= 2).
--- Mirrors src/themes/package.luau's `nearest`; kept local because this module
--- must stay dependency-free (it is required from src/, controls, input,
--- present, render and async alike).
+--[[ "Did you mean" for an unknown key, cheap and bounded. THE THRESHOLD IS
+	WRITTEN HERE (ARCH-17): distance <= 2, case-SENSITIVE. It used to be implicit
+	in a `bestD = 3` initialiser inside a private copy of the matrix, which is how
+	this module and `src/themes/package.luau` came to agree while
+	`src/blueprint_schema.luau` and the two motion registries used a
+	length-scaled, case-folded threshold — five suggesters, two policies, one
+	framework, and no decision anywhere.
+
+	The old comment said the copy was "kept local because this module must stay
+	dependency-free". `src/text_distance.luau` requires nothing either, so nothing
+	is given up: a leaf may require a leaf. ]]
+local NEAREST_MAX_DISTANCE = 2
+
 local function nearest(bad: string, known: KeySet): string?
-	local best: string? = nil
-	local bestD = 3
-	for name in known do
-		local la, lb = #bad, #name
-		local prev = table.create(lb + 1, 0)
-		local cur = table.create(lb + 1, 0)
-		for j = 0, lb do
-			prev[j + 1] = j
-		end
-		for i = 1, la do
-			cur[1] = i
-			for j = 1, lb do
-				local cost = if string.byte(bad, i) == string.byte(name, j) then 0 else 1
-				cur[j + 1] = math.min(cur[j] + 1, prev[j + 1] + 1, prev[j] + cost)
-			end
-			prev, cur = cur, prev
-		end
-		local d = prev[lb + 1]
-		if d < bestD then
-			best, bestD = name, d
-		end
-	end
-	return best
+	return textDistance.nearest(bad, known, NEAREST_MAX_DISTANCE)
 end
 
 local function sortedNames(known: KeySet): string
-	local out: { string } = {}
-	for name in known do
-		table.insert(out, name)
-	end
-	table.sort(out)
-	return table.concat(out, ", ")
+	return textDistance.listOf(known)
 end
 
 -- assertKnownKeys(where, tbl, known, kind)

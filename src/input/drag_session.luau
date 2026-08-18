@@ -20,6 +20,7 @@
 --     update/drop/cancel/retarget are no-ops returning nil / an inert result.
 
 local specGuard = require("../spec_guard")
+local rectLib = require("../rect")
 
 local drag_session = {}
 
@@ -50,9 +51,7 @@ export type State = { active: boolean, hovered: string?, source: string }
 -- half-open containment [x, x+w) × [y, y+h): a point on the right/bottom edge
 -- belongs to the NEXT adjacent target, so tiled rects partition the plane with
 -- no double-hit ambiguity.
-local function inside(rect: Rect, x: number, y: number): boolean
-	return x >= rect.x and x < rect.x + rect.w and y >= rect.y and y < rect.y + rect.h
-end
+local inside = rectLib.containsHalfOpen
 
 -- CLOSED OPTS (constitution §4; ARCH-1). A misspelled `onPredict` is a drag that
 -- never previews its verdict, and nothing says so.

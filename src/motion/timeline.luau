@@ -24,6 +24,8 @@
 --
 -- Beats fire on clock steps; a beat at `at = 0` fires on the first step.
 
+local num = require("../num")
+
 local timeline = {}
 
 export type Beat = {
@@ -45,9 +47,7 @@ export type Timeline = {
 	elapsed: (self: Timeline) -> number,
 }
 
-local function isFinite(n: any): boolean
-	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
-end
+local isFinite = num.isFinite
 
 function timeline.new(internals: any, spec: Spec): Timeline
 	if type(spec) ~= "table" or type(spec.beats) ~= "table" then
