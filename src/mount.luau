@@ -304,6 +304,27 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				table.insert(order, key)
 			end
 			local changed = false
+			--[[ THE UNGUARDED ROW-FACTORY THROW (ARCH-1/ARCH-2, 2026-08-17).
+
+				With no ErrorBoundary above it a throwing `row` factory used to
+				unwind `apply` from the middle of the ADD phase, after the REMOVE
+				phase had already disposed the rows that left. What survived was a
+				`node.children` array still pointing at disposed rows, with no
+				`structure` dirty queued — and structuralSync only runs on a
+				`structure` entry, so the renderer kept those rows' Instances on
+				screen, frozen, for the rest of the session (ARCH-2).
+
+				The rebuild now COMPLETES. The throwing key is simply absent from
+				`itemsByKey`, so the rows that left stay gone, the children array is
+				rebuilt from the survivors in the new order, the `structure` dirty is
+				pushed, and the next update retries the row that threw. The error is
+				re-raised once the tree is consistent, so containment is exactly
+				where it was: the observer's quarantine records it on
+				`core:lastError` and the writer still returns.
+
+				With a boundary nothing changes — `guarded` trips it and `apply`
+				returns, leaving the fallback path it has always taken. ]]
+			local deferredError: any = nil
 			-- exits and enters run AFTER the children array is rebuilt, so a form
 			-- that completes on the spot (instant, reduced motion) removes a row the
 			-- rebuild has already placed rather than one it is about to
@@ -351,7 +372,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					-- the item scope rides along so row factories can own
 					-- item-scoped resources (async handles, per-row memos —
 					-- §10.3/§10.5); ignoring the second argument stays valid
-					local ok, mounted = guarded(boundary, function()
+					local produce = function()
 						return mountNode(
 							bp.props.row(wanted[key], itemScope),
 							rowPath,
@@ -360,9 +381,29 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 							boundary,
 							activation
 						)
-					end)
-					if not ok then
-						return -- the boundary swapped to its fallback
+					end
+					local mounted
+					if boundary ~= nil then
+						local ok, produced = guarded(boundary, produce)
+						if not ok then
+							return -- the boundary swapped to its fallback
+						end
+						mounted = produced
+					else
+						local ok, produced = pcall(produce)
+						if not ok then
+							-- skip THIS row and keep rebuilding (see the block above);
+							-- the partial subtree the factory managed to mount goes
+							-- with its scope so the counters stay honest
+							if not itemScope:isDisposed() then
+								itemScope:dispose()
+							end
+							if deferredError == nil then
+								deferredError = produced
+							end
+							continue
+						end
+						mounted = produced
 					end
 					node.itemsByKey[key] = {
 						scope = itemScope,
@@ -378,7 +419,12 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			-- order (a pure move changes children order, never remounts)
 			local newChildren = {}
 			for _, key in order do
-				table.insert(newChildren, node.itemsByKey[key].mounted)
+				-- a key whose factory threw has no entry (see `deferredError`); the
+				-- rebuild is over the SURVIVORS, in the new order
+				local entry = node.itemsByKey[key]
+				if entry ~= nil then
+					table.insert(newChildren, entry.mounted)
+				end
 			end
 			-- retiring rows keep their previous slot, clamped to the new length;
 			-- lowest recorded slot first so several exits stay in their old order
@@ -427,6 +473,11 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			for _, enter in enters do
 				coord.beginEnter(enter.node.path, enter.node, declared)
+			end
+			if deferredError ~= nil then
+				-- the tree is consistent now; hand the throw back to whoever opened
+				-- this pass so containment stays where it was
+				error(deferredError, 0)
 			end
 		end
 		scope:own(core:observe(bp.props.items, function(items)

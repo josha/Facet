@@ -202,6 +202,133 @@ describe("error boundaries (§17 Phase 4)", function()
 		pres.dismiss(handle)
 	end)
 
+	--[[ ARCH-1/ARCH-2 (release-candidate review, 2026-08-17). A `ForEach` row
+		factory that throws with NO boundary above it used to unwind `apply` from
+		the middle of the add phase — after the remove phase had disposed the rows
+		that left. `node.children` kept pointing at those disposed rows and no
+		`structure` dirty was pushed, so `structuralSync` (which only runs on a
+		`structure` entry) left their Instances on screen frozen for the session.
+		The three cases below are the whole contract: the survivors' tree is
+		consistent AND announced, the throwing key is retried on the next update,
+		and the boundary path is untouched. ]]
+	local function forEachFixture(core: any, boundary: boolean, throwOn: { [string]: boolean })
+		local cards = core:signal({ { id = "a" }, { id = "b" } })
+		local rows = UI.ForEach({
+			id = "Rows",
+			items = cards,
+			key = function(c: any)
+				return c.id
+			end,
+			row = function(c: any)
+				if throwOn[c.id] then
+					error(`row factory throws for {c.id}`, 0)
+				end
+				return UI.Text({ id = `Row-{c.id}`, text = c.id, textSize = 12 })
+			end,
+		})
+		local child = if boundary
+			then UI.ErrorBoundary({
+				id = "EB",
+				view = function()
+					return rows
+				end,
+				fallback = function()
+					return UI.Text({ id = "Fallback", text = "broken", textSize = 12 })
+				end,
+			})
+			else rows
+		local root = mountLib.mount(core, UI.Screen({ id = "S", children = { child } }))
+		return root, cards
+	end
+
+	local function childPaths(node: any): { string }
+		local out: { string } = {}
+		for _, ch in node.children do
+			table.insert(out, ch.path)
+		end
+		return out
+	end
+
+	local function findForEach(node: any): any
+		if node.class == "ForEach" then
+			return node
+		end
+		for _, ch in node.children or {} do
+			local found = findForEach(ch)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+
+	it("a throwing row factory outside a boundary leaves the surviving tree consistent (ARCH-1)", function()
+		local core = Facet.newCore()
+		local throwOn: { [string]: boolean } = {}
+		local root, cards = forEachFixture(core, false, throwOn)
+		local forEach = findForEach(root.node)
+		expect(#childPaths(forEach)).toBe(2)
+		expect(root.counters().mounted).toBe(4)
+		root.takeDirty()
+
+		throwOn.c = true
+		-- containment is unchanged: the writer returns, the core records it
+		local ok = pcall(function()
+			cards:set({ { id = "a" }, { id = "c" } })
+		end)
+		expect(ok).toBe(true)
+
+		-- b LEFT and stays gone; c never arrived; nothing disposed is still linked
+		expect(childPaths(forEach)).toEqual({ "/S/Rows/[a]/Row-a" })
+		expect(root.counters().mounted).toBe(3)
+		-- ...and the renderer is TOLD, or the Instances never come off screen
+		local dirty = root.takeDirty()
+		local structural = 0
+		for _, entry in dirty do
+			if entry.class == "structure" then
+				structural += 1
+			end
+		end
+		expect(structural >= 1).toBe(true)
+		expect(string.find(tostring(core:lastError()), "row factory throws for c", 1, true) ~= nil).toBe(true)
+		root.dispose()
+	end)
+
+	it("the row that threw is retried on the next update (ARCH-1)", function()
+		local core = Facet.newCore()
+		local throwOn: { [string]: boolean } = {}
+		local root, cards = forEachFixture(core, false, throwOn)
+		local forEach = findForEach(root.node)
+		throwOn.c = true
+		pcall(function()
+			cards:set({ { id = "a" }, { id = "c" } })
+		end)
+		throwOn.c = nil
+		cards:set({ { id = "a" }, { id = "c" } })
+		expect(childPaths(forEach)).toEqual({ "/S/Rows/[a]/Row-a", "/S/Rows/[c]/Row-c" })
+		expect(root.counters().mounted).toBe(4)
+		root.dispose()
+	end)
+
+	it("with a boundary the fallback path is unchanged (ARCH-1)", function()
+		local core = Facet.newCore()
+		local throwOn: { [string]: boolean } = {}
+		local root, cards = forEachFixture(core, true, throwOn)
+		throwOn.c = true
+		cards:set({ { id = "a" }, { id = "c" } })
+		local flat: { [string]: boolean } = {}
+		local function walk(node: any)
+			flat[node.path] = true
+			for _, ch in node.children or {} do
+				walk(ch)
+			end
+		end
+		walk(root.dump().tree)
+		expect(flat["/S/EB/fallback/Fallback"]).toBeTruthy()
+		expect(flat["/S/EB/view/Rows/[a]/Row-a"]).toBeFalsy()
+		root.dispose()
+	end)
+
 	it("outside a boundary the mount-time hard-error contract is unchanged", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(
