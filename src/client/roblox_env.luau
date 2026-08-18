@@ -4,19 +4,44 @@
 -- live. This is the ONE place allowed to read UserInputService/GuiService
 -- facts (UI-INPUT-001's platform-adapter rule). Returns an unbind function.
 
-local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
-local TextService = game:GetService("TextService")
-
 local preferred_text = require("./preferred_text")
+-- the pure inset arithmetic and its staleness test (PLAT-3): engine-free, so
+-- the conversion and the belt are provable without a rotating device
+local safe_insets = require("../env/safe_insets")
 
 local roblox_env = {}
 
-function roblox_env.bind(env: any): () -> ()
+--[[ THE SERVICES ARE RESOLVED AT BIND, NOT AT REQUIRE. They used to be three
+	module-scope `game:GetService` locals, which made the module engine-only to
+	REQUIRE — so the one file that decides what the framework believes about the
+	device could not be driven by a fake, and three shipped defects in it
+	(PLAT-1's never-made keyboard connection, PLAT-2's orphaned camera
+	connection, PLAT-3's stale-inset publish) had no headless instrument at all.
+	Resolving inside `bind` is the `text_premeasure` idiom, already used here for
+	exactly this reason, and the optional second argument is the seam the spec
+	drives: pass nothing on a client and the engine's own services are used. ]]
+local function engineServices(): any
+	return {
+		userInput = game:GetService("UserInputService"),
+		gui = game:GetService("GuiService"),
+		text = game:GetService("TextService"),
+		world = workspace,
+	}
+end
+
+function roblox_env.bind(env: any, services: any?): () -> ()
+	local svc = services or engineServices()
+	local UserInputService = svc.userInput
+	local GuiService = svc.gui
+	local TextService = svc.text
+	local world = svc.world
 	local connections: { RBXScriptConnection } = {}
-	local camera = workspace.CurrentCamera
+	local camera = world.CurrentCamera
 
 	local function pushViewportFacts()
+		if camera == nil then
+			return
+		end
 		local size = camera.ViewportSize
 		env:set("viewportRect", { x = 0, y = 0, w = size.X, h = size.Y })
 		local topInset, bottomInset = GuiService:GetGuiInset()
@@ -28,20 +53,41 @@ function roblox_env.bind(env: any): () -> ()
 		-- before deriving per-edge distances. pcall-guarded: an engine without
 		-- GetInsetArea falls back to the legacy top/bottom-only computation
 		-- (right stays 0 there — the documented pre-adoption limitation).
-		local function insetsFromArea(area: Rect): { top: number, bottom: number, left: number, right: number }
-			local ox, oy = topInset.X, topInset.Y
-			return {
-				top = math.max(0, area.Min.Y + oy),
-				left = math.max(0, area.Min.X + ox),
-				right = math.max(0, size.X - (area.Max.X + ox)),
-				bottom = math.max(0, size.Y - (area.Max.Y + oy)),
-			}
+		local viewport = { w = size.X, h = size.Y }
+		local function insetsFromArea(area: Rect): safe_insets.Insets
+			return safe_insets.fromArea(
+				{ minX = area.Min.X, minY = area.Min.Y, maxX = area.Max.X, maxY = area.Max.Y },
+				{ x = topInset.X, y = topInset.Y },
+				viewport
+			)
 		end
+		--[[ THE STALE-INSET BELT, AT THE PUBLISH SIDE (PLAT-3, 2026-08-17).
+
+			`Camera.ViewportSize` and `GuiService:GetInsetArea` update on DIFFERENT
+			frames, so one pass through here can convert an inset measured against
+			the OLD viewport using the NEW one. `env:batch` makes the write atomic;
+			it cannot make the two engine reads agree. `src/env/environment.luau:354`
+			already carries this belt for `topbarSafeInsets` — measured there as a
+			portrait-measured `bottom = 794` read against a 393-tall landscape window
+			— but `coreSafeInsets` and `deviceSafeInsets` reach the solver as root
+			policy insets with no such check, so a rotation could publish an inset
+			that eats most of the surface and nothing republishes until the next
+			platform event.
+
+			Same test, one frame earlier: an edge inset that cannot fit inside the
+			viewport it is being published beside did not come from that viewport, so
+			it is DISCARDED and the last good value stands. Publishing zeroes instead
+			was rejected — on a notched device that is a wrong answer that looks
+			right, where the previous orientation's inset is at least the shape of a
+			real safe area. ]]
 		local okCore, coreArea = pcall(function()
 			return GuiService:GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets)
 		end)
 		if okCore and typeof(coreArea) == "Rect" then
-			env:set("coreSafeInsets", insetsFromArea(coreArea))
+			local derived = insetsFromArea(coreArea)
+			if safe_insets.describesViewport(derived, viewport) then
+				env:set("coreSafeInsets", derived)
+			end
 		else
 			env:set("coreSafeInsets", {
 				top = topInset.Y,
@@ -54,7 +100,10 @@ function roblox_env.bind(env: any): () -> ()
 			return GuiService:GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets)
 		end)
 		if okDevice and typeof(deviceArea) == "Rect" then
-			env:set("deviceSafeInsets", insetsFromArea(deviceArea))
+			local derived = insetsFromArea(deviceArea)
+			if safe_insets.describesViewport(derived, viewport) then
+				env:set("deviceSafeInsets", derived)
+			end
 		end
 		-- ...and the TOPBAR-SAFE area, which is what makes `topbarInset` placeable:
 		-- that rect is stated relative to THIS area, not to the window, so its
@@ -177,7 +226,36 @@ function roblox_env.bind(env: any): () -> ()
 	pushInput()
 	pushAccessibility()
 
-	table.insert(connections, camera:GetPropertyChangedSignal("ViewportSize"):Connect(pushViewport))
+	--[[ THE CAMERA IS RE-RESOLVED, NOT CAPTURED ONCE (PLAT-2, 2026-08-17).
+
+		`workspace.CurrentCamera` was read at bind and never again, so a game that
+		replaces its camera — a cutscene rig, a spectator camera, a respawn — kept
+		this connection on the OLD camera's `ViewportSize` and `viewportRect` stopped
+		updating for the rest of the session. Every resize, rotation and window drag
+		after that point silently did nothing.
+
+		`CurrentCamera` carries a change signal, so the connection follows it: the
+		old one is disconnected, the new one is subscribed, and the facts are pushed
+		once against the camera that is actually rendering. ]]
+	local viewportConnection: any = nil
+	local function bindCamera()
+		if viewportConnection ~= nil then
+			viewportConnection:Disconnect()
+			viewportConnection = nil
+		end
+		camera = world.CurrentCamera
+		if camera ~= nil then
+			viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(pushViewport)
+		end
+	end
+	bindCamera()
+	table.insert(
+		connections,
+		world:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+			bindCamera()
+			pushViewport()
+		end)
+	)
 	table.insert(connections, GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(pushViewport))
 	do
 		-- docking a handheld to a TV flips this mid-session; guarded like the read
@@ -223,10 +301,32 @@ function roblox_env.bind(env: any): () -> ()
 			table.insert(connections, textSignal:Connect(pushAccessibility))
 		end
 	end
-	table.insert(
-		connections,
-		UserInputService.OnScreenKeyboardVisible
-				and UserInputService:GetPropertyChangedSignal("OnScreenKeyboardPosition"):Connect(function()
+	--[[ THE OCCLUSION CONNECTION WAS NEVER MADE (PLAT-1 / RR-6, 2026-08-17).
+
+		This read `UserInputService.OnScreenKeyboardVisible and <connect> or nil`.
+		The guard was meant to ask "does this engine HAVE the member" and instead
+		asked "is the on-screen keyboard up RIGHT NOW" — which at bind time, before
+		any text field exists, is always false. So the `and` short-circuited, the
+		`or nil` was inserted into `connections`, and `keyboardOcclusionRect` stayed
+		nil for the whole session: on a phone the keyboard never occluded anything
+		and nothing ever scrolled out from under it. The failure was silent in both
+		directions — `table.insert(t, nil)` appends nothing to complain about, and
+		every headless suite has no keyboard.
+
+		The guard now asks the question it meant to ask, once, on the MEMBER; the
+		callback keeps the live-value read where it belongs. An engine without the
+		property is cleanly skipped, and nothing nil-shaped reaches `connections`. ]]
+	do
+		local okMember, hasMember = pcall(function()
+			return (UserInputService :: any).OnScreenKeyboardVisible ~= nil
+		end)
+		local okSignal, keyboardSignal = pcall(function()
+			return UserInputService:GetPropertyChangedSignal("OnScreenKeyboardPosition")
+		end)
+		if okMember and hasMember == true and okSignal and keyboardSignal ~= nil then
+			table.insert(
+				connections,
+				keyboardSignal:Connect(function()
 					if UserInputService.OnScreenKeyboardVisible then
 						local pos = UserInputService.OnScreenKeyboardPosition
 						local size = UserInputService.OnScreenKeyboardSize
@@ -235,11 +335,16 @@ function roblox_env.bind(env: any): () -> ()
 						env:set("keyboardOcclusionRect", nil)
 					end
 				end)
-			or nil :: any
-	)
+			)
+		end
+	end
 
 	return function()
 		offsetController:dispose()
+		if viewportConnection ~= nil then
+			viewportConnection:Disconnect()
+			viewportConnection = nil
+		end
 		for _, connection in connections do
 			connection:Disconnect()
 		end

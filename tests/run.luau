@@ -34,6 +34,14 @@ require("./fine_grained_reactivity.spec")
 	diagnostics (cycle path names, a disposal that strands subscribers) that had
 	nothing to act on ]]
 require("./reactive_recovery.spec")
+--[[ the PLATFORM ADAPTER driven by a fake engine (release-candidate platform
+	review PLAT-1/RR-6, PLAT-2, PLAT-3): the connections `roblox_env.bind` claims
+	to make, and the safe-area arithmetic it publishes ]]
+require("./platform_env_binding.spec")
+--[[ ...and what the POINTER seam owns vs borrows (PLAT-4/5/6): the adapter-wide
+	menu connection a single root teardown used to kill, the host cursor every hint
+	clear used to erase, and the second finger that drove another finger's drag ]]
+require("./pointer_seam_ownership.spec")
 require("./instance_recycling.spec")
 require("./mount_unmount_soak.spec")
 -- ...and the THEMED half (L-28): park releases the chrome's path keys, adopt

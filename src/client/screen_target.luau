@@ -2119,6 +2119,7 @@ function screen_target.new(opts: Opts?)
 	local endCapture = pointer.endCapture
 	local capturedHandle = pointer.capturedHandle
 	local disposeGlobalPointerState = pointer.disposeGlobals
+	local releaseCursorHint = pointer.releaseCursorHint
 
 	-- ===== THE SCROLL SUBSYSTEM (src/client/screen_scroll_indicators) =====
 	--
@@ -3893,9 +3894,23 @@ function screen_target.new(opts: Opts?)
 		if captured ~= nil and (captured.instance :: Instance):IsDescendantOf(rootHandle.gui) then
 			endCapture("destroyed")
 		end
-		-- the menu connection and any leftover cursor hint are the POINTER seam's,
-		-- and they come down together
-		disposeGlobalPointerState()
+		--[[ THE CURSOR HINT IS THIS ROOT'S; THE MENU CONNECTION IS THE ADAPTER'S
+			(PLAT-4). An adapter hosts several roots at once — the presenter mounts
+			and retires a transient popup-catcher root reactively — so disconnecting
+			`GuiService.MenuOpened` here used to kill drag-abort-on-menu for every
+			OTHER live root the first time any root came down. The hint really does
+			go with the root (a hint set by a capture on a root that is being
+			destroyed is stale as of now); the connection goes with the LAST one. ]]
+		releaseCursorHint()
+		local remainingRoots = 0
+		for _, gui in themeRoots do
+			if gui ~= rootHandle.gui then
+				remainingRoots += 1
+			end
+		end
+		if remainingRoots == 0 then
+			disposeGlobalPointerState()
+		end
 		for path, node in instancesByPath do
 			if node:IsDescendantOf(rootHandle.gui) then
 				instancesByPath[path] = nil

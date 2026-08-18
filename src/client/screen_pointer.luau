@@ -37,25 +37,65 @@
 -- `disposeGlobals()` is destroyRoot's three-line teardown of the adapter-wide
 -- state — the menu connection and the cursor hint — which is this module's now.
 
-local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
+--[[ THE SERVICES ARE RESOLVED AT CONSTRUCTION, NOT AT REQUIRE. Module-scope
+	`game:GetService` locals made this file engine-only to REQUIRE, so the pointer
+	seam — the cursor, the capture, the menu abort — had no headless instrument of
+	any kind, and three shipped defects (PLAT-4's session-wide menu disconnect,
+	PLAT-5's cursor stomp, PLAT-6's second finger) could only be found by reading.
+	`ctx.services` is that instrument; a client passes nothing and gets the
+	engine's own services, exactly as before. ]]
+local function engineServices(): any
+	return {
+		userInput = game:GetService("UserInputService"),
+		gui = game:GetService("GuiService"),
+	}
+end
 
 local screen_pointer = {}
 
 function screen_pointer.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
+	local services = ctx.services or engineServices()
+	local UserInputService = services.userInput
+	local GuiService = services.gui
 	local adapter = {}
 
 	-- semantic cursor requests (ADR-0008): the framework names an intent
 	-- ("colResize"); this table maps it to uploaded cursor art. No first-party
 	-- cursor set exists — assets are a rider; an unmapped hint keeps the
 	-- default arrow but the seam (hover + capture persistence) is live.
-	local CURSOR_ART: { [string]: string } = {}
+	local CURSOR_ART: { [string]: string } = ctx.cursorArt or {}
 	local hoverHint: string? = nil
 	local captureHint: string? = nil
+	--[[ THE HOST'S CURSOR IS BORROWED, NOT OWNED (PLAT-5, 2026-08-17).
+
+		This used to write `UserInputService.MouseIcon = <art> or ""` on every hint
+		change — including every hint CLEAR and the whole-adapter teardown. `""` is
+		not "no request", it is "the default arrow", so a game that had set its own
+		crosshair lost it the first time a pointer left a Grip and never got it
+		back. And because `CURSOR_ART` is empty today (no first-party cursor set has
+		shipped — the seam is live, the assets are a rider), EVERY write this module
+		made was that stomp: it could only ever clear the host's cursor, never set
+		one of its own.
+
+		So the framework now borrows: the host's value is captured the first time
+		this module is actually about to overwrite it, and restored the moment it
+		has no request of its own — on hint clear, on capture end, and on teardown.
+		With no art mapped it writes nothing at all, which is the correct behaviour
+		for a subsystem that has nothing to say. ]]
+	local borrowedMouseIcon: string? = nil
 	local function applyCursor()
 		local hint = captureHint or hoverHint
-		UserInputService.MouseIcon = (hint and CURSOR_ART[hint]) or ""
+		local art = if hint ~= nil then CURSOR_ART[hint] else nil
+		if art ~= nil then
+			if borrowedMouseIcon == nil then
+				borrowedMouseIcon = UserInputService.MouseIcon
+			end
+			UserInputService.MouseIcon = art
+		elseif borrowedMouseIcon ~= nil then
+			UserInputService.MouseIcon = borrowedMouseIcon
+			borrowedMouseIcon = nil
+		end
 	end
 
 	--[[ THE ONE ACTIVATE META, built in ONE place ─────────────────────────────
@@ -333,9 +373,29 @@ function screen_pointer.new(ctx: any)
 		activeCapture = { handle = handle, connections = connections }
 		captureHint = handle.cursorHint
 		applyCursor()
+		--[[ THE CAPTURE BELONGS TO THE FINGER THAT OPENED IT (PLAT-6, 2026-08-17).
+
+			`UserInputService.InputChanged`/`InputEnded` are GLOBAL: with two fingers
+			down, the second one's moves drove the first one's drag and the second
+			one's lift ENDED it. The engine hands the same `InputObject` back for the
+			whole life of one touch, so identity is the filter — and it is applied to
+			TOUCH only, because a mouse drag legitimately mixes objects (the moves
+			arrive as `MouseMovement`, the release as `MouseButton1`, and they are
+			never the same object). ]]
+		local originatingTouch: InputObject? = if inputObject.UserInputType == Enum.UserInputType.Touch
+			then inputObject
+			else nil
+		local function fromThisPointer(other: InputObject): boolean
+			return originatingTouch == nil
+				or other.UserInputType ~= Enum.UserInputType.Touch
+				or other == originatingTouch
+		end
 		table.insert(
 			connections,
 			UserInputService.InputChanged:Connect(function(moveObject: InputObject)
+				if not fromThisPointer(moveObject) then
+					return
+				end
 				if
 					moveObject.UserInputType == Enum.UserInputType.MouseMovement
 					or moveObject.UserInputType == Enum.UserInputType.Touch
@@ -354,6 +414,9 @@ function screen_pointer.new(ctx: any)
 		table.insert(
 			connections,
 			UserInputService.InputEnded:Connect(function(endObject: InputObject)
+				if not fromThisPointer(endObject) then
+					return
+				end
 				if
 					endObject.UserInputType == Enum.UserInputType.MouseButton1
 					or endObject.UserInputType == Enum.UserInputType.Touch
@@ -442,10 +505,26 @@ function screen_pointer.new(ctx: any)
 	-- cursor hint left over. The hint is released REGARDLESS of whose capture set
 	-- it — a hint from a capture on another root is already stale as of this root's
 	-- teardown.
-	local function disposeGlobals()
-		menuConn:Disconnect()
+	--[[ TWO TEARDOWNS, NOT ONE (PLAT-4, 2026-08-17). `disposeGlobals` used to
+		disconnect the adapter-wide `MenuOpened` connection on ANY `destroyRoot`,
+		and an adapter hosts several roots at once — the presenter mounts and
+		retires a transient popup-catcher root reactively, so the FIRST such
+		retirement killed drag-abort-on-menu for every remaining root, for the rest
+		of the session. Escape cannot be intercepted, so the abort is the only thing
+		standing between an open CoreGui menu and a stuck drag behind it.
+
+		The CURSOR half is genuinely per-root and stays that way: a hint from a
+		capture on a root that is going away is stale the moment it goes. So the
+		host calls `releaseCursorHint` on every teardown and `disposeGlobals` only
+		when the last root goes. ]]
+	local function releaseCursorHint()
 		hoverHint = nil
 		applyCursor()
+	end
+	local function disposeGlobals()
+		menuConn:Disconnect()
+		captureHint = nil
+		releaseCursorHint()
 	end
 
 	return {
@@ -458,7 +537,9 @@ function screen_pointer.new(ctx: any)
 		endCapture = endCapture,
 		menuConn = menuConn,
 		capturedHandle = capturedHandle,
+		releaseCursorHint = releaseCursorHint,
 		disposeGlobals = disposeGlobals,
+		beginPointerCapture = beginPointerCapture,
 	}
 end
 
