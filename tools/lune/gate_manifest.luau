@@ -3879,6 +3879,175 @@ local manifest: { [string]: { Check } } = {
 			note = "THIS ROW PASSES WHEN THE REVIEW PACKET IS READY, NOT WHEN THE DEVICE PASS IS DONE, and the distinction is the whole point. Execution contract §8: complete every automatable row, then produce ONE review build and ONE packet so the irreducible physical and human work is a single focused pass rather than a discovery exercise. The packet names fourteen rows — eight PENDING_PHYSICAL (long-press, right-click, hover-dwell, gamepad menu/tab paging, the playlist divider under a finger, the tail and chip under an ornate theme, the level-picker bars, and P8's haptics) and six PENDING_HUMAN (does the indicator read as one object moving, does a Callout read as help or as an ad, is an icon-only 44px rail comfortable, is the HUD disclosure route discoverable, the H4a paint-probe readout, and do the three segment modes read as one control) — each with the scenario, the exact action, the expected result, and the negative control. P8 IS THE ONE ROW WHOSE CHECK READS THE ANSWER VOCABULARY RATHER THAN ONLY THE HEADING, and the reason is the finding it came from: the director felt no haptics because the demo never constructed the adapter, and the repair is worthless if its report collapses to a boolean. So the three sentences a device can produce — Requested, This platform says no, Could not determine — are greped individually. Two of three passing is exactly the failure docs/lessons/capability-probes-must-be-tri-state.md is about, and this repository has shipped that collapse twice. THE SECOND HALF OF THIS CHECK IS THE HONEST ONE: it re-reads the acceptance ledger and fails if NM-X1/X2/X3 stop being PENDING_PHYSICAL or NM-X4/X5 stop being PENDING_HUMAN. A row cannot pass through a different, easier row, and the failure mode this guards is a future stage quietly relabelling a device row as PASS_AUTOMATED because a headless proxy went green. WHY NOTHING CHEAPER CLOSES THE TEN: Studio cannot synthesize a real touch or gamepad input class; an injected pointer event arrives as `Touch` rather than `MouseButton1`, so filtering it wrong manufactures a false positive that AGREES WITH YOU; a script-fired binding proves the downstream action path and never native arbitration; and no frame count can judge whether a spring reads as one object moving. releaseBlocking = false because the packet being ready is not a release claim — the ten rows themselves still block release, and they live in the ledger where a reader will see them. WHAT THIS ROW DOES NOT CLAIM: that any of the ten has been run. It claims only that a person could run all ten in one sitting without reading a line of source.",
 		},
 	},
+	["release-candidate-review"] = {
+		-- Roadmap Step 13 (docs/plans/release-candidate-review.md, frozen fe920dc
+		-- 2026-08-17): the LuauUI -> Facet rename, the whole-framework release
+		-- review, Input Action System authority, the sensory-haptics defaults, the
+		-- documentation/product-language rebuild, the naming ADR, the disposable
+		-- fresh-context exercises, and performance requalification.
+		--
+		-- REGISTERED BEFORE THE FIRST IMPLEMENTATION EDIT. Per the manifest header
+		-- rule every check lands as a bare PENDING and earns a `run` only once its
+		-- implementation AND its evidence exist, so the gate cannot pass while the
+		-- work is only planned. Acceptance rows RC-* live in
+		-- artifacts/release-candidate-review/acceptance.md. Baselines frozen before
+		-- any edit live in artifacts/release-candidate-review/baseline/.
+		{
+			name = "baselines-frozen",
+			requirements = { "UI-AGENT-001" },
+			run = 'd=artifacts/release-candidate-review/baseline && test -f $d/suite-luauui.txt && grep -qF "6188 passed" $d/suite-luauui.txt && test -f $d/suite-rr.txt && grep -qF "3345 passed" $d/suite-rr.txt && test -f $d/public-surface.txt && grep -qF "VERSION 0.9.0" $d/public-surface.txt && test -f $d/perf.txt && grep -qF "perf: PASS" $d/perf.txt && test -f $d/rename-inventory-before.json && test -f $d/identity.md',
+			evidence = "artifacts/release-candidate-review/baseline/identity.md",
+			note = "The pre-edit freeze the plan requires: source identity (LuauUI fe920dc, RascalRally 02df98c), the full suites green at 6188 and 3345, the public surface dump at VERSION 0.9.0, the headless perf gate PASS (100 runs, 20 scenes), and the machine-readable rename inventory (1031 files carrying the old name, classified current-source / generated-output / immutable-evidence, with storage-flavoured lines listed for the dual-read migration decision). The Studio-scenario half of the freeze is its own row below because it needs a live Rojo-connected Studio session and must not be silently satisfied by headless artifacts.",
+		},
+		{
+			name = "studio-baseline-frozen",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/baseline/studio/README.md",
+			note = "Representative Studio scenarios captured against the pre-rename source: showcase preflight + device-matrix pass and a Rascal Rally canary, stored with preflight identity per the execution contract. Blocked on a live Rojo-connected Studio session; PENDING until the artifacts exist.",
+		},
+		{
+			name = "facet-collision-evidence",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/release-candidate-review/facet-collision-check.md && test -f "$f" && grep -qF "github.com/josha/Facet" "$f" && grep -qF "wally" "$f" && grep -qF "Blocking conflicts found: NO" "$f"',
+			evidence = "artifacts/release-candidate-review/facet-collision-check.md",
+			note = "The plan's collision and rights check for the owner-selected name, recorded 2026-08-17: the GitHub rename target github.com/josha/Facet is available (404); the one same-ecosystem exact-name hit is the dormant zero-adoption Wally package emdomanus/facet, flagged for the owner's eyes; npm/crates.io/PyPI exact-name packages are different ecosystems; USPTO automated access was blocked, and the searchable mirrors surfaced a crowded generic FACET software field but nothing squarely covering a UI development library. Evidence for the owner; the agent does not choose a different brand, and a confirmed conflict blocks external release, not this local rename.",
+		},
+		{
+			name = "rename-canonical-identity",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/rename/after-inventory.md",
+			note = "After history-preserving moves and content rewrite, Facet is the product, folder, ModuleScript, and public binding; generated outputs are rebuilt from renamed source; the after-count of the rename inventory shows old-name matches only in the approved exception set.",
+		},
+		{
+			name = "rename-drift-guard-bites",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/rename/drift-guard-proof.md",
+			note = "The case-insensitive old-name drift check across maintained and distributable trees, with its exact allowlist (one rename ADR, the external migration manifest, immutable raw evidence). Proof it FAILS on a planted old-name content line and a planted old-name path, then passes on the restored tree.",
+		},
+		{
+			name = "clean-clone-runs-as-facet",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/rename/clean-clone-proof.md",
+			note = "A clean checkout at GameStudio/ui/Facet builds and tests without symlinks or the old folder, and both Rascal Rally Rojo projects build and pass against it.",
+		},
+		{
+			name = "rr-consumer-sync",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/rename/rr-consumer-ledger.md",
+			note = "Both Rascal Rally projects, sources, types, fixtures, tests, Studio labels, and Sponsor code renamed in the same change; the production selector keeps its exact default and the legacy Sponsor rollback through the one isolated dual-read/single-write attribute migration manifest with owner and removal trigger.",
+		},
+		{
+			name = "step14-remote-packet",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/step14-remote-packet.md",
+			note = "The exact local target and remote-change packet for the josha/LuauUI -> josha/Facet repository rename, prepared and verified without mutating the remote, publishing, or creating a package.",
+		},
+		{
+			name = "review-finding-ledger",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/findings.md",
+			note = "The whole-framework fresh-context review ledger: every finding with severity and confidence; every confirmed blocker/high fixed and rerun; every other finding fixed or dispositioned with owner, risk, reason, and trigger. Requirement or public-contract findings cannot be waved through as notes.",
+		},
+		{
+			name = "reuse-consolidation",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/reuse-ledger.md",
+			note = "Every two-or-more similarity finding consolidated under one narrow owner, or kept separate with the concrete recorded reason the plan demands. 'They may diverge later' is not enough.",
+		},
+		{
+			name = "ias-owns-semantic-input",
+			requirements = { "UI-INPUT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/input/ias-authority.md",
+			note = "InputContext/InputAction/InputBinding own semantic routing and lifetime; the complete legacy-service inventory is classified; every surviving legacy call has a current impossibility proof, one allowlisted adapter, tests, teardown, and a removal trigger; drift checks reject new direct legacy bindings; no old and new path fires together.",
+		},
+		{
+			name = "haptics-defaults",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/haptics/defaults.md",
+			note = "With the game-opt-in adapter enabled: original named Custom waveforms for press, release, and select through HapticEffectType.Custom + SetWaveformKeys in one typed sensory profile; phase timing defined once across pointer/touch/keyboard/gamepad; cancellation distinct from success; no native/bus double pulse; override/silence, rate limit, preset fallback, pooling, zero per-pulse allocation, and teardown proved by red-first tests plus a Studio calibration surface.",
+		},
+		{
+			name = "haptics-device-similarity",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			releaseBlocking = false,
+			evidence = "artifacts/release-candidate-review/haptics/device-review-packet.md",
+			note = "Perceived similarity to the reference platform stays PENDING_DEVICE until a human compares both on the same physical device (paired iPhone vs native reference, plus Android and gamepad sampling). This row must be visible in the Step 14 release packet; Studio evidence may not close it.",
+		},
+		{
+			name = "guide-catalog-current",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/docs/catalog-rebuild.md",
+			note = "docs/guide/README.md rebuilt from current exports/schemas/registrations into a categorized catalog of every supported public capability; docs/reference/api.md exhaustive; the documentation/public-surface drift check extended so removed or renamed items cannot linger silently.",
+		},
+		{
+			name = "product-language-scan-bites",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/docs/product-language-proof.md",
+			note = "The case-insensitive vendor-language drift check with its exact two-exception allowlist (docs/reference/swiftui-parity.md and labeled docs/guide comparisons): proof it fails on one temporary violation, then passes on the restored tree.",
+		},
+		{
+			name = "comments-plain",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/docs/comment-audit.md",
+			note = "Maintained production code, tests, examples, and tools audited: comments explain responsibility, invariants, lifecycle, limits, or measured reasons in plain language; no agent shorthand, unexplained gate IDs, or implementation diaries; durable history moved to neutral ADRs or lessons.",
+		},
+		{
+			name = "new-control-path-proven",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/exercises/colorwell/README.md",
+			note = "docs/extending/new-control.md rewritten as the ELI5 path with a one-record scaffold; a fresh agent builds the disposable ColorWell through public seams with full proof, and a separate verifier follows only the human-facing steps. The exercise is not merged; improvements it reveals are.",
+		},
+		{
+			name = "seeded-defect-exercise",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/exercises/seeded-defect/README.md",
+			note = "A different fresh agent diagnoses and repairs a seeded bounded defect using only the maintained repository: correct owner found, smallest regression test added, right gates run. Rerun without private hints until it succeeds.",
+		},
+		{
+			name = "naming-adr-implemented",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "docs/adr/ADR-0033-public-call-shapes.md",
+			note = "The public call-shape decision: Facet.Controls.Table-style role namespace trialled against one consistent flat alternative on representative screens, autocomplete, types, and migration cost; one ADR recorded; the chosen surface made coherent through the existing deprecation policy with Rascal Rally updated in the same change.",
+		},
+		{
+			name = "perf-requalification",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/perf/requalification.md",
+			note = "The refreshed performance place rebuilt and verified; repeated Studio MCP MicroProfiler baselines for solve/layout, fine/bulk update, adapter/render, scroll, idle, and teardown; every framework-owned optimization has a falsifiable cause, identical-workload before/after distributions, and no regression in tests, other scenarios, or Rascal Rally; rejected and inconclusive attempts recorded; Android capture instructions current.",
+		},
+		{
+			name = "fresh-independent-reviews",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/reviews/README.md",
+			note = "Independent architecture, reactive-runtime, Roblox-platform, performance, and phase-gate reviewers given the raw baseline, ledger, diff, and artifacts; every requirement-affecting finding fixed or explicitly dispositioned.",
+		},
+		{
+			name = "suites-green-at-close",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/release-candidate-review/close-out.md",
+			note = "At close: both cached suite transcripts serve green for the renamed tree, affected prior gates rerun green, representative Studio scenarios preserve their baseline, and prior behavior and performance remain intact. Earns a run string only when the close-out artifact exists.",
+		},
+	},
 }
 
 return manifest
