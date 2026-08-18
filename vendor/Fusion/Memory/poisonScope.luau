@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	'Poisons' the given scope; if the scope is used again, then it will cause
 	the program to crash.
 ]]
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local External = require("../External")
 

@@ -10,7 +10,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	https://elttob.uk/Fusion/0.3/api-reference/animation/types/tween/
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local External = require("../External")
 -- Memory

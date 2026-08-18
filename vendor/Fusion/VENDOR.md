@@ -5,7 +5,7 @@
 
 ## Local patches (keep when updating)
 
-1. **Require transform** — every Roblox instance-path require (`require(script.Parent.X)`, `local Package = script.Parent` aliases) is rewritten to Luau require-by-string form (`./`, `../`, and `@self/` inside `init.luau`) so the source loads under both Lune and the engine. Mechanical transform: `scratchpad/transform_fusion.py` at vendor time; alias lines are commented `[LuauUI vendor patch]`.
+1. **Require transform** — every Roblox instance-path require (`require(script.Parent.X)`, `local Package = script.Parent` aliases) is rewritten to Luau require-by-string form (`./`, `../`, and `@self/` inside `init.luau`) so the source loads under both Lune and the engine. Mechanical transform: `scratchpad/transform_fusion.py` at vendor time; alias lines are commented `[Facet vendor patch]`.
 2. **`init.luau` scheduler guard** — `RobloxExternal` auto-bind is wrapped in `if game ~= nil` so requiring under Lune does not touch `RunService`. Headless hosts must bind `tests/lib/fusion_lune_external.luau` first.
 
 ## Headless limits

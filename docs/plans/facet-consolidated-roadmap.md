@@ -6,9 +6,9 @@
 This is the entry point for Facet work. Running the prompts in order is intended to
 produce these outcomes:
 
-Steps before Step 13 use the current Facet path and name. Step 13 renames the complete
-framework and every current consumer to **Facet**, including this roadmap and its root
-directory. All later steps use Facet.
+Steps before Step 13 were written under the framework's pre-rename name and root
+directory. Step 13 renames the complete framework and every current consumer to
+**Facet**, including this roadmap and its root directory. All later steps use Facet.
 
 1. Facet stops rebuilding Roblox capabilities that belong at the engine adapter.
 2. designers can restyle Facet screens through Roblox's Style Editor, while the
@@ -1463,12 +1463,12 @@ Complete only with gate exit zero/artifact and a decisive recommendation; do not
 publish/deploy or silently begin the follow-on build.
 ```
 
-## Step 13 — Rename Facet to Facet and run a fresh release-candidate review
+## Step 13 — Rename the framework to Facet and run a fresh release-candidate review
 
-This stage first renames the framework and all current consumers from Facet to Facet,
-then runs the whole-framework adversarial pass requested before distribution. It
-reviews from a frozen baseline, remediates confirmed defects, makes every human
-document clear, and describes Facet in Roblox terms. It gives humans and agents one
+This stage first renames the framework and all current consumers from the pre-rename
+name to Facet, then runs the whole-framework adversarial pass requested before
+distribution. It reviews from a frozen baseline, remediates confirmed defects, makes
+every human document clear, and describes Facet in Roblox terms. It gives humans and agents one
 obvious control-extension path, resolves the public call vocabulary, consolidates
 repeated implementation, makes Input Action System authoritative, and refreshes and
 profiles the performance lab. It also gives enabled controls distinct, configurable
@@ -1478,7 +1478,7 @@ features do not become bugs.
 ### Fable-led goal prompt
 
 ```text
-/goal Rename Facet to Facet and run its release review. Fix defects, make IAS
+/goal Rename the framework to Facet and run its release review. Fix defects, make IAS
 authoritative, improve maintenance/API/performance, and ship polished sensory haptics.
 
 Use fresh Fable 5 at highest effort for decisions/integration; delegate decided fixes
@@ -1611,12 +1611,13 @@ exact physical pendings. Report evidence/deletions. Do not publish/package.
 
 ## Step 14 — Prepare the existing repository for public distribution
 
-The existing private `josha/Facet` repository becomes `josha/Facet` at one guarded
-owner checkpoint. This stage gives its public branch a clean product/contributor
-structure, MIT licensing, provenance, and agent onboarding; it also creates one private,
-stable-ID Facet Roblox Package with a guarded update workflow.
-It simplifies the hours-long gate system without losing requirements or negative
-controls. The Git repository remains canonical. The owner makes the repository and
+The existing private repository — its pre-rename URL is recorded verbatim in
+`artifacts/release-candidate-review/step14-remote-packet.md` — becomes `josha/Facet`
+at one guarded owner checkpoint. This stage gives its public branch a clean
+product/contributor structure, MIT licensing, provenance, and agent onboarding; it
+also creates one private, stable-ID Facet Roblox Package with a guarded update
+workflow. It simplifies the hours-long gate system without losing requirements or
+negative controls. The Git repository remains canonical. The owner makes the repository and
 free Creator Store listing public only after reviewing the release packet.
 
 ### Fable 5 goal prompt

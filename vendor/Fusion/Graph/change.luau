@@ -11,7 +11,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	https://fluff.blog/2024/04/16/monotonic-painting.html
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local External = require("../External")
 local evaluate = require("../Graph/evaluate")

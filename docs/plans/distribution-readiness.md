@@ -4,11 +4,13 @@
 
 ## Purpose
 
-Rename the existing private GitHub repository from `josha/LuauUI` to `josha/Facet` and
-prepare it as Facet's canonical public source distribution. Users can install Facet
-from an ordinary Git clone/Rojo mapping, a source copy, or one official Roblox Package
-with a stable asset ID. The repository is the source of truth; the Package is a
-required, derived distribution artifact for creators who work mainly in Studio.
+Rename the existing private GitHub repository to `josha/Facet` — its pre-rename URL is
+recorded verbatim in `artifacts/release-candidate-review/step14-remote-packet.md`, the
+one maintained holder of that string outside frozen evidence — and prepare it as
+Facet's canonical public source distribution. Users can install Facet from an ordinary
+Git clone/Rojo mapping, a source copy, or one official Roblox Package with a stable
+asset ID. The repository is the source of truth; the Package is a required, derived
+distribution artifact for creators who work mainly in Studio.
 
 This stage changes the local repository into a public-ready project. After one explicit
 owner/credential checkpoint, it may rename the existing remote repository, create the
@@ -18,7 +20,8 @@ repository public and enables the free Creator Store listing through the final c
 
 ## Decisions
 
-- Rename the existing `https://github.com/josha/LuauUI` repository to
+- Rename the existing repository (pre-rename URL in
+  `artifacts/release-candidate-review/step14-remote-packet.md`) to
   `https://github.com/josha/Facet`. Do not create a second distribution repository.
   Verify GitHub's redirect, then update the local remote and every current link.
 - Keep Git source canonical. The Package contains the checked, generated

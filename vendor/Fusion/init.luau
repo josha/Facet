@@ -31,7 +31,7 @@ export type Use = Types.Use
 export type Value<T, S = T> = Types.Value<T, S>
 export type Version = Types.Version
 
--- [LuauUI vendor patch] only auto-bind the Roblox scheduler when running under
+-- [Facet vendor patch] only auto-bind the Roblox scheduler when running under
 -- the Roblox engine; under Lune the host must call External.setExternalProvider
 -- with a headless provider (tests/lib/fusion_lune_external.luau) before use.
 if game ~= nil then

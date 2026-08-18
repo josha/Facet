@@ -8,7 +8,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	allowing for flexible integration with schedulers and test mocks.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent
 local formatError = require("./Logging/formatError")
 local Types = require("./Types")
 

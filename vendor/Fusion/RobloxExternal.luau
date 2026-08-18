@@ -9,7 +9,7 @@
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent
 local External = require("./External")
 
 local RobloxExternal = {}

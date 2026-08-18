@@ -8,7 +8,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	attributes to instances
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 -- Memory
 local checkLifetime = require("../Memory/checkLifetime")

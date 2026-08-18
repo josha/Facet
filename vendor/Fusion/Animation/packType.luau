@@ -8,7 +8,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	If the type is not animatable, nil will be returned.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local Oklab = require("../Colour/Oklab")
 

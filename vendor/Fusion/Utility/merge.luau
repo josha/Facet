@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Attempts to merge a variadic number of tables together.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local External = require("../External")
 
 local function merge(

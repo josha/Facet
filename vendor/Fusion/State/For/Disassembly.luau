@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Breaks down an input table into reactive sub-objects for each pair.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent.Parent
 local Types = require("../../Types")
 local External = require("../../External")
 -- Graph

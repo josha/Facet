@@ -8,7 +8,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	calculates which value will be destroyed earlier or later, if it is possible
 	to infer this from their scopes.
 ]]
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local External = require("../External")
 

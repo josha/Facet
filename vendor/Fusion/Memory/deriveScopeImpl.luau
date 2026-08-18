@@ -10,7 +10,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	This is the internal version of the function, which does not implement
 	external debugging hooks.
 ]]
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local merge = require("../Utility/merge")
 local scopePool = require("../Memory/scopePool")

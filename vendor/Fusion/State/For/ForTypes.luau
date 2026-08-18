@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Stores types that are commonly used between For objects.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent.Parent
 local Types = require("../../Types")
 
 export type SubObject<S, KI, KO, VI, VO> = {

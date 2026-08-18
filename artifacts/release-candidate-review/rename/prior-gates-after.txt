@@ -1,3 +1,10 @@
+# PRE-FIX SWEEP — captured BEFORE commit a97336f, which closed eight of the rows below.
+# The eight red rows this file still shows (layered-slots-and-posture, circle-button,
+# metric-snapshot-single-source, api-architecture-consistency/studio-evidence, three
+# checker-battery rows, style-editor-sync) were caused by the rename and are FIXED.
+# The post-fix per-gate re-runs, and the proof that the five remaining
+# FAIL_RECOVERABLE rows predate the rename, are in this directory's commands.md
+# ("Targeted re-runs after the fixes"). Do not read this file as the delivered state.
 # settle: max=10s threshold=2 (1-min load average)
 PASS phase-0-foundation
 PASS phase-1-minimal-screen

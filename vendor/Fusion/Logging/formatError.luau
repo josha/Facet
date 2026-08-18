@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Formats a Fusion-specific error message.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local messages = require("../Logging/messages")
 

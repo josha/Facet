@@ -9,7 +9,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	returned for ratios below 0.5, and the second value for 0.5 and above.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Oklab = require("../Colour/Oklab")
 
 local function lerpType(

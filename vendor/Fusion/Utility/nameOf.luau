@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Returns the most specific custom name for the given object.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 -- Utility
 local nicknames = require("../Utility/nicknames")
 

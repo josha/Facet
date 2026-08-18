@@ -74,10 +74,19 @@ local dump: any = serde.decode("json", fs.readFile(args.dump))
 if type(dump) ~= "table" or type(dump.tokens) ~= "table" then
 	fail(`dump '{args.dump}' is not a theme token dump (expected schema, package, theme and tokens fields)`)
 end
-if not token_sync.readableSchema(dump.schema) then
+-- THE PRE-RENAME SPELLING OF THE SAME SCHEMA, AND IT LIVES HERE RATHER THAN IN
+-- src/. Studio dumps recorded before the 2026-08-17 Facet rename are immutable
+-- evidence and carry `luauui-theme-sync/1`; a READER must still accept them, but
+-- nothing ever writes it and no consumer of the library needs it — so keeping it
+-- in `src/themes/token_sync.luau` would have shipped an old-brand string inside
+-- build/Facet.rbxm for a dev-tool concern. Anything that is neither spelling is
+-- still refused, so this is the same check it always was. Removable once no
+-- stored dump names it.
+local LEGACY_SCHEMA = "luauui-theme-sync/1"
+if dump.schema ~= nil and dump.schema ~= token_sync.SCHEMA and dump.schema ~= LEGACY_SCHEMA then
 	fail(
 		`dump schema is '{tostring(dump.schema)}'; this build speaks '{token_sync.SCHEMA}' `
-			.. `(and still reads the pre-rename '{token_sync.LEGACY_SCHEMA}')`
+			.. `(and still reads the pre-rename '{LEGACY_SCHEMA}')`
 	)
 end
 

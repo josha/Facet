@@ -11,7 +11,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	functions are expected to be infallible and non-blocking.
 ]]
 
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent
 local Types = require("./Types")
 
 local currentProvider: Types.ExternalDebugger? = nil

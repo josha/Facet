@@ -13,7 +13,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	- a table with a `Destroy` or `destroy` function - will be called
 	- an array - `cleanup` will be called on each item
 ]]
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local External = require("../External")
 local scopePool = require("../Memory/scopePool")

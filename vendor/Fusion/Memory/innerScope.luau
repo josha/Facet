@@ -7,7 +7,7 @@ local task = nil -- Disable usage of Roblox's task scheduler
 	Derives a new scope that's destroyed exactly once, whether by the user or by
 	the scope that it's inside of.
 ]]
--- [LuauUI vendor patch] removed instance-path alias: local Package = script.Parent.Parent
+-- [Facet vendor patch] removed instance-path alias: local Package = script.Parent.Parent
 local Types = require("../Types")
 local ExternalDebug = require("../ExternalDebug")
 local deriveScopeImpl = require("../Memory/deriveScopeImpl")
