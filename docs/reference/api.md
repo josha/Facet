@@ -208,27 +208,35 @@ for that parent — a property that is accepted must do something.
 Three exports exist for tooling, tests and extension authors rather than for
 authoring a screen. They are public and covered by ADR-0011 like anything else.
 
-`Facet.UI.schema` is the property schema itself — eleven members:
+`Facet.UI.schema` is the property schema itself — fifteen members:
 
 | Member | Answers |
 |---|---|
-| `forClass(name) -> ClassSpec?` | one class's declaration (`props`, `container`, `structural`) |
-| `all() -> { [name]: ClassSpec }` | every class, keyed by name |
-| `classNames() -> { string }` | the class names, sorted |
-| `propNames(class) -> { string }` | one class's property names, sorted |
-| `sharedPropNames() -> { string }` | the properties declared `shared` (the table above) |
-| `checkValue(propSpec, value) -> (ok, problem?)` | the single value ruling every constructor and modifier runs |
-| `suggest(class, badKey) -> { string }` | the did-you-mean candidates for an unknown key |
-| `propDirty() -> { [prop]: { [class]: { dirtyClass } } }` | which update classes a reactive prop schedules (a fresh table per call) |
-| `deprecations() -> { Deprecation }` | the schema-generated half of `Facet.DEPRECATIONS` (a fresh table per call) |
-| `TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
-| `TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
+| `UI.schema.forClass(name) -> ClassSpec?` | one class's declaration (`props`, `container`, `structural`) |
+| `UI.schema.all() -> { [name]: ClassSpec }` | every class, keyed by name |
+| `UI.schema.classNames() -> { string }` | the class names, sorted |
+| `UI.schema.propNames(class) -> { string }` | one class's property names, sorted |
+| `UI.schema.sharedPropNames() -> { string }` | the properties declared `shared` (the table above) |
+| `UI.schema.checkValue(propSpec, value) -> (ok, problem?)` | the single value ruling every constructor and modifier runs |
+| `UI.schema.checkOpacity(value) -> (ok, problem?)` | the 0…1 opacity ruling, shared by the authored `opacity` prop and `withAnimation` |
+| `UI.schema.checkScaleFactor(value) -> (ok, problem?)` | the finite, non-negative scale ruling |
+| `UI.schema.checkDegrees(value) -> (ok, problem?)` | the finite-rotation ruling (degrees, unbounded by design — 720° is a legal spin) |
+| `UI.schema.refusal(class, prop, value, problem) -> string` | the ONE refusal wording every constructor, modifier and adapter raises, so a bad value reads the same wherever it is caught |
+| `UI.schema.suggest(class, badKey) -> { string }` | the did-you-mean candidates for an unknown key |
+| `UI.schema.propDirty() -> { [prop]: { [class]: { dirtyClass } } }` | which update classes a reactive prop schedules (a fresh table per call) |
+| `UI.schema.deprecations() -> { Deprecation }` | the schema-generated half of `Facet.DEPRECATIONS` (a fresh table per call) |
+| `UI.schema.TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
+| `UI.schema.TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
+
+The three `check*` value rulings and `refusal` are the pieces an out-of-repo
+control needs to refuse a bad prop the way the framework does — the same
+functions `UI.*` constructors run, not copies of them.
 
 **Stability.** The schema tables are **deeply frozen** — `all()` and `forClass()`
 hand back the live authority, so a writable copy would have been a way to
 disable framework validation process-wide. Read them; to annotate one, clone it.
 The shape of a `ClassSpec`/`PropSpec` is internal detail that may change in a
-minor; the eleven names and what they answer are the contract.
+minor; the fifteen names and what they answer are the contract.
 
 `Facet.UI.isReadable(value) -> boolean` is **the one public predicate** for "is
 this a Signal or a Memo". Reach for it instead of duck-typing `.get`.
@@ -2138,11 +2146,19 @@ requests via `ContentProvider:PreloadAsync` per-asset statuses.
 ### `pathShapes`
 
 `Facet.pathShapes` — pure, headlessly-tested shape math for `UI.Path`
-(`src/controls/path_shapes.luau`): `arc(startDeg, sweepDeg, { segments?,
-radius? })`, `ring({ radius? })`, `needle(angleDeg, { innerRadius?, radius? })`
-return normalized control points (unit box; tangents relative to each point;
-exact circular-arc bezier handles). Angles are screen-clockwise with 0° at
-12 o'clock. Segment counts assert the engine's 100-point limit.
+(`src/controls/path_shapes.luau`). Three generators and one limit:
+
+- `pathShapes.arc(startDeg, sweepDeg, { segments?, radius? })` — a circular arc.
+- `pathShapes.ring({ radius? })` — the closed circle, as four exact quadrants.
+- `pathShapes.needle(angleDeg, { innerRadius?, radius? })` — the gauge pointer:
+  a single radial segment from `innerRadius` to `radius` at `angleDeg`.
+- `pathShapes.MAX_CONTROL_POINTS` — the engine's own `Path2D` ceiling (100).
+  Every generator asserts against it rather than letting the engine truncate, so
+  a segment count that cannot be drawn is refused where it is authored.
+
+All three return normalized control points (unit box; tangents relative to each
+point; exact circular-arc bezier handles). Angles are screen-clockwise with 0°
+at 12 o'clock.
 
 ### Engine-selection bridge (a presentModal opt)
 
@@ -3837,11 +3853,14 @@ root = Facet.contribution.attach(root, {
 })
 ```
 
-`attach(rootBlueprint, bundle) -> Blueprint` returns a new frozen blueprint
-carrying the bundle on the internal `meta` channel (never in the public prop
-bag). `read(mountedNode) -> Bundle?` is the presenter's side and type-guards a
-non-table value to `nil`. Every field is optional; fill only what your control
-needs. See `docs/extending/new-control.md` step 3 and `Bundle` in
+`contribution.attach(rootBlueprint, bundle) -> Blueprint` returns a new frozen
+blueprint carrying the bundle on the internal `meta` channel (never in the
+public prop bag). `contribution.read(mountedNode) -> Bundle?` is the presenter's
+side and type-guards a non-table value to `nil`. `contribution.PROP` is the
+`meta` key the two share — exported so a tool that inspects a blueprint or a
+dump can find the bundle without hard-coding the string; a control author uses
+`attach`/`read` and never needs it. Every field is optional; fill only what your
+control needs. See `docs/extending/new-control.md` step 3 and `Bundle` in
 `src/input/contribution.luau` for the full field list.
 
 Invariant: when the bundle declares `handleActivate`, the inner focusable
@@ -4893,13 +4912,27 @@ call sites branch on.
 - `replication.collection(core, initialRevision, initialItems, requestResnapshot)`
   — keyed items with patch streams: `.binding`, `.revision()`,
   `.ingestPatch(revision, { set?, remove? }) -> "applied" | "stale" |
-  "duplicate" | "gap"`, and
-  `.ingestResnapshot(revision, items) -> "applied" | "stale"`.
+  "duplicate" | "gap"`, `.ingestResnapshot(revision, items) -> "applied" |
+  "stale"`, and `.gapDiagnostics() -> { awaiting, attempts, exhausted }`.
+
+  **`remove` is an ARRAY of keys**, `{ "a", "b" }` — never a set
+  (`{ a = true }`). A set-shaped `remove` is a hard error naming the shape,
+  because it cannot be told apart from an array on a numeric-keyed collection
+  and silently removing nothing while answering `"applied"` leaves the client
+  confidently wrong.
 
   A patch beyond the next revision is a **gap**: patching freezes and
-  `requestResnapshot(fromRevision)` is called once, with the client's CURRENT
+  `requestResnapshot(fromRevision)` is called with the client's CURRENT
   revision. A throwing `requestResnapshot` does not latch the gap — the next
   patch asks again, so a transient remote error cannot kill the collection.
+
+  **A LOST reply is retried, bounded.** The request is asked once per wait, and
+  the wait is measured in refused patches (this module has no scheduler — the
+  transport is yours) doubling between attempts: 4, 8, 16, 32. After five asks
+  it stops, and `gapDiagnostics().exhausted` is `true` — the explicit state to
+  surface as "reconnecting…" or "out of date" rather than a silently frozen
+  list. A resnapshot arriving at any point still heals it completely and resets
+  the diagnostics; the cap bounds the asking, never the recovery.
 
   `ingestResnapshot`'s acceptance rule depends on whether a gap is outstanding.
   **While awaiting, an equal revision is a legal re-base**: "nothing has changed
@@ -6848,7 +6881,7 @@ for the physical gate a support claim would have to pass first.
 
 ## Client entry points
 
-Everything above hangs off the `Facet` table. These nine modules do not: they
+Everything above hangs off the `Facet` table. These eleven modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
@@ -6857,10 +6890,12 @@ script requires each **directly**:
 local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
 ```
 
-**This list is the contract** (ADR-0011, constitution §12). These nine are
+**This list is the contract** (ADR-0011, constitution §12). These eleven are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
-outside the boundary rule.
+outside the boundary rule. `tools/lune/check_boundary.luau` holds the same list
+in code and is the authority — this section and the constitution are reconciled
+to it, never the other way round.
 
 #### `client.screen_target`
 
@@ -7095,6 +7130,67 @@ Whether anything is *felt* on a gamepad, whether it is felt on a phone, and
 whether the player's own haptics setting silences it (`UserGameSettings.Haptic-
 Strength` is `RobloxScriptSecurity` on read — game code cannot see it) are three
 open `PENDING_PHYSICAL` rows.
+
+#### `client.gamepad_contention`
+
+The engine's legacy control scripts hold gamepad `ButtonA` (as `jumpAction`) and
+the arrow keys (as `RbxCameraKeypress`) through ContextActionService at priority
+2000, and **no `InputContext` priority outranks a CAS binding** — the two are
+different arbitration spaces, measured live. This module is the seam for the two
+things a client can actually do about it, plus the probes that say whether it
+matters on the machine you are on.
+
+```lua
+local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention)
+if gamepad_contention.legacyStackActive() then
+    warn(gamepad_contention.describeContention())
+end
+```
+
+- `disableLegacyControls(playerModuleParent?) -> boolean` — **UI-ONLY PLACES
+  ONLY**; it turns off avatar input. Returns whether anything was actually
+  freed: it disables the whole control module if it can, else unbinds
+  `jumpAction` *and confirms the binding is gone* (an `UnbindAction` on an
+  unbound action only warns, so a `pcall` succeeding proves nothing).
+- `legacyStackActive() -> boolean`, `cameraKeysContended() -> boolean`,
+  `traversalKeyContended() -> boolean` — behavioural probes. They answer
+  different questions and one can be false while another is true; measured
+  2026-08-15, `RbxCameraKeypress` held the arrows in a session where
+  `jumpAction` was not bound at all.
+- `describeContention() -> string` — the whole recorded truth, for a log line or
+  a doctor check. The real fix for a shipping game is
+  `Workspace.PlayerScriptsUseInputActionSystem`, which is a Properties-panel flag
+  and not scriptable; this string says so.
+- `freedJumpAction(before, after) -> boolean` — the pure verdict the fallback
+  uses, exported so the rule is provable without a live ContextActionService.
+
+See [`../guide/07-input.md`](../guide/07-input.md) for the full story.
+
+#### `client.responder_effects`
+
+The presenter's first-responder model is engine-free and resolves through IAS
+priority and `Sink`. This is the one engine-level side effect it cannot perform
+itself: while an **exclusive** (sinking) Facet surface is up, Roblox's mobile
+touch controls must be hidden, or the thumbstick and jump button sit under your
+modal.
+
+```lua
+local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects)
+local unbind = responder_effects.bind(core, presenter)
+```
+
+`bind(core, presenter) -> unbind` observes `presenter.exclusiveSurfaceActive`
+and drives `GuiService.TouchControlsEnabled`, restoring the **prior** value on
+release and on unbind. The suppression is **refcounted at module scope**,
+because the engine property is one property: two binders share one suppression,
+and only the last release restores — a per-binder hold meant the second binder
+captured the already-suppressed value as "prior" and put the controls back
+hidden. A write the engine accepts without applying is not counted as a
+suppression (the acquire reads the property back).
+
+`suppressionCount() -> number` reports how many binders are holding, for
+diagnostics. `readTouchControls` / `writeTouchControls` are the injection seams
+the headless suite drives; production never passes them.
 
 ## Motion
 

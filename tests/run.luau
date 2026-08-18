@@ -42,6 +42,20 @@ require("./platform_env_binding.spec")
 	menu connection a single root teardown used to kill, the host cursor every hint
 	clear used to erase, and the second finger that drove another finger's drag ]]
 require("./pointer_seam_ownership.spec")
+--[[ ...and the ADAPTERS' recovery and honesty contracts (PLAT-7/9/11/21/22/24/
+	25/26): the resnapshot gap that could not come back, the remove shape that
+	removed nothing, the unbind that claimed a freedom it had not won, the shared
+	engine property two binders each thought they owned ]]
+require("./platform_adapters_recovery.spec")
+--[[ MAINT-5: adding a blueprint PRIMITIVE touches four registries nothing used
+	to compare — the schema, controls/contract, CLASS_TO_INSTANCE and the create()
+	branch on both targets. `tools/lune/check_primitives` compares them, and the
+	mutation cases here are what say it can still see each kind of drift ]]
+require("./primitive_registration.spec")
+--[[ MAINT-8c: six hand lists of examples/themes/ and nothing enumerated the
+	directory. One enumerator with declared roles, two consumers derived from it,
+	the rest drift-checked ]]
+require("./theme_package_enumeration.spec")
 require("./instance_recycling.spec")
 require("./mount_unmount_soak.spec")
 -- ...and the THEMED half (L-28): park releases the chrome's path keys, adopt

@@ -268,6 +268,15 @@ end
 -- The return is a best-belief signal, not an end-to-end proof: only a physical
 -- gamepad press can confirm ButtonA now reaches Activate (standing
 -- FAIL_ENVIRONMENT rider `physical-device-confirmation`).
+--[[ THE PURE HALF OF THE FALLBACK'S VERDICT (PLAT-21), so the rule is provable
+	without a live ContextActionService. Given the binding table before an unbind
+	attempt and after it, did the attempt free `jumpAction`? Both halves matter:
+	an action that was never bound was not freed by unbinding it, and an action
+	still present afterwards was not freed either. ]]
+function gamepad_contention.freedJumpAction(before: { [string]: any }, after: { [string]: any }): boolean
+	return before["jumpAction"] ~= nil and after["jumpAction"] == nil
+end
+
 function gamepad_contention.disableLegacyControls(playerModuleParent: any?): boolean
 	-- Primary: disable the whole control module. This is the correct move for a
 	-- UI-only place — it removes ALL of the control scripts' CAS bindings,
@@ -288,12 +297,26 @@ function gamepad_contention.disableLegacyControls(playerModuleParent: any?): boo
 	if disabled then
 		return true
 	end
-	-- Fallback: unbind jumpAction directly. Narrower — the rest of the control
-	-- module keeps running — but the specific ButtonA eater is gone.
-	local unbound = pcall(function()
-		game:GetService("ContextActionService"):UnbindAction("jumpAction")
+	--[[ Fallback: unbind jumpAction directly. Narrower — the rest of the control
+		module keeps running — but the specific ButtonA eater is gone.
+
+		AND ONLY IF SOMETHING WAS ACTUALLY FREED (PLAT-21). `UnbindAction` on an
+		action nobody bound WARNS and returns normally, so the `pcall` succeeded on
+		every live client and this answered "ButtonA is uncontended now" whether or
+		not a single binding had been removed — the one signal a bootstrap has that
+		the remedy worked was true unconditionally, which is worse than no signal.
+		The binding table is the fact, and it is already how `describeContention`
+		reads the same arbitration space. ]]
+	local ok, freed = pcall(function(): boolean
+		local ContextActionService = game:GetService("ContextActionService")
+		local before = ContextActionService:GetAllBoundActionInfo()
+		if before["jumpAction"] == nil then
+			return false
+		end
+		ContextActionService:UnbindAction("jumpAction")
+		return gamepad_contention.freedJumpAction(before, ContextActionService:GetAllBoundActionInfo())
 	end)
-	return unbound
+	return ok and freed
 end
 
 return gamepad_contention

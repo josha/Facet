@@ -7,15 +7,36 @@
 --     directly (bypasses arbitration) — same as the headless model;
 --   * arbitration (priority/Sink) is the ENGINE's job here — this adapter
 --     never re-implements it (ADR-0004 split harness);
---   * InputAction:Fire()/GetState() are deprecated — never used.
+--   * InputAction:Fire() is deprecated — never used. (`GetState()` is NOT
+--     marked deprecated in the engine reference; the earlier wording here
+--     claimed both were, corrected 2026-08-17 per PLAT-15.)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local roblox_input = {}
 
+--[[ THE CONTAINER WAIT IS BOUNDED (PLAT-11, 2026-08-17). This was a bare
+	`WaitForChild("PlayerScripts")` — unbounded, and unguarded — sitting on the
+	first line of the input adapter every client bootstrap calls. The identical
+	pattern in `gamepad_contention.luau:285` is already bounded, with the reason
+	written beside it: observed live 2026-07-21, a place that never inserts the
+	child yields the calling thread FOREVER (Roblox's infinite-yield warning is
+	the only symptom, and it is a warning nobody's boot sequence sees). A UI-only
+	place, a stripped test place, or a server-side require all reach it.
+
+	Bounded, and then LOUD: a `nil` host cannot build an InputContext, so
+	degrading silently would trade a hang for a system that accepts every bind
+	and drives nothing. The error names the container and the wait. ]]
+local PLAYER_SCRIPTS_WAIT_SECONDS = 5
+
 function roblox_input.newSystem(core: any)
-	local host = Players.LocalPlayer:WaitForChild("PlayerScripts")
+	local host = Players.LocalPlayer:WaitForChild("PlayerScripts", PLAYER_SCRIPTS_WAIT_SECONDS)
+	assert(
+		host ~= nil,
+		`Facet roblox_input: PlayerScripts did not appear within {PLAYER_SCRIPTS_WAIT_SECONDS}s — `
+			.. `newSystem() must be called from a LocalScript on a live client (see docs/guide/07-input.md)`
+	)
 	local system = {}
 
 	-- modifier state (Phase B parity with the headless system): read live from

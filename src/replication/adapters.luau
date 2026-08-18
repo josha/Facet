@@ -103,6 +103,60 @@ function adapters.collection(
 	local self = {}
 	self.binding = signal
 
+	--[[ A LOST RESNAPSHOT REPLY IS NO LONGER A PERMANENT WEDGE (PLAT-7).
+
+		The gap latch asked exactly once, on purpose: a resnapshot is expensive and
+		a patch stream can deliver dozens of refused patches while the reply is in
+		flight. But "asked once" and "asked once, ever" are different promises, and
+		this made the second one. A reply that is LOST rather than thrown — a
+		dropped remote, a server that restarted mid-request, a handler that
+		silently returned — left `awaitingResnapshot` latched with no retry and no
+		timeout: every later patch returned "gap" for the rest of the session and
+		the collection's binding froze at the revision it had. Nothing in the API
+		said so, and nothing could say so.
+
+		THE CLOCK IS THE PATCH STREAM, because this module has no other one. It is
+		engine-free and scheduler-free by design (the transport is the game's), so
+		a wall-clock backoff would mean inventing a scheduler seam for a retry.
+		Refused patches are a perfectly good tick: they are what a wedged
+		collection produces, they arrive at the stream's own rate, and a stream
+		that has stopped needs no retry. The FIRST wait is four refusals — long
+		enough that an in-flight reply is never raced (the existing contract, "a
+		gap asks once", holds for every healthy round trip) — and it DOUBLES from
+		there, so a busy stream cannot turn one gap into a request storm.
+
+		AND IT ENDS. After RESNAPSHOT_ATTEMPT_CAP asks the collection stops asking
+		and says so through `gapDiagnostics()` — an explicit terminal state a
+		consumer can surface ("reconnecting…" / "out of date") instead of a
+		silently stale list. A resnapshot that arrives later still recovers it
+		completely; the cap bounds the ASKING, never the healing. ]]
+	local RESNAPSHOT_ATTEMPT_CAP = 5
+	local RESNAPSHOT_FIRST_WAIT = 4 -- refused patches before the first retry
+	local resnapshotAttempts = 0
+	local refusalsSinceAsk = 0
+	local refusalsBeforeRetry = RESNAPSHOT_FIRST_WAIT
+	local exhausted = false
+
+	local function askForResnapshot()
+		resnapshotAttempts += 1
+		refusalsSinceAsk = 0
+		-- the flag is latched BEFORE the hook so a successful request is asked
+		-- exactly once per wait — but a hook that THREW never actually sent the
+		-- request, and the latch would then guarantee it is never sent again (the
+		-- collection dies on a transient remote error). Un-latch so the next patch
+		-- retries immediately, which is the pre-existing contract.
+		if not (pcall(requestResnapshot, revision)) then
+			awaitingResnapshot = false
+			resnapshotAttempts -= 1
+		end
+	end
+
+	-- the gap's live state, for a consumer that wants to say "reconnecting" or
+	-- "out of date" rather than showing a silently frozen list
+	function self.gapDiagnostics(): { awaiting: boolean, attempts: number, exhausted: boolean }
+		return { awaiting = awaitingResnapshot, attempts = resnapshotAttempts, exhausted = exhausted }
+	end
+
 	-- patch = { set: {[k]: v}?, remove: {k}? } at exactly revision+1.
 	-- returns "applied" | "stale" | "duplicate" | "gap"
 	function self.ingestPatch(newRevision: number, patch: any): string
@@ -112,13 +166,20 @@ function adapters.collection(
 		if awaitingResnapshot or newRevision > revision + 1 then
 			if not awaitingResnapshot then
 				awaitingResnapshot = true
-				-- QUARANTINED: the flag is latched BEFORE the hook so a
-				-- successful request is asked exactly once — but a hook that
-				-- THROWS never actually sent the request, and the latch would
-				-- then guarantee it is never sent again (the collection dies on
-				-- a transient remote error). Un-latch so the next patch retries.
-				if not (pcall(requestResnapshot, revision)) then
-					awaitingResnapshot = false
+				resnapshotAttempts = 0
+				refusalsSinceAsk = 0
+				refusalsBeforeRetry = RESNAPSHOT_FIRST_WAIT
+				exhausted = false
+				askForResnapshot()
+			elseif not exhausted then
+				refusalsSinceAsk += 1
+				if refusalsSinceAsk >= refusalsBeforeRetry then
+					if resnapshotAttempts >= RESNAPSHOT_ATTEMPT_CAP then
+						exhausted = true
+					else
+						refusalsBeforeRetry *= 2
+						askForResnapshot()
+					end
 				end
 			end
 			return "gap"
@@ -127,7 +188,29 @@ function adapters.collection(
 		for k, v in (patch.set or {}) :: { [any]: any } do
 			items[k] = v
 		end
-		for _, k in (patch.remove or {}) :: { any } do
+		--[[ `remove` IS AN ARRAY OF KEYS, AND SAYS SO (PLAT-25). A set-shaped
+			`{ [key] = true }` used to iterate zero times and remove nothing —
+			silently, with an "applied" verdict and a revision advance, which is the
+			worst possible answer for a replication seam because the client is now
+			CONFIDENTLY wrong. Accepting both shapes was rejected: on a numeric-keyed
+			collection `{ [1] = "x" }` is simultaneously a one-element array and a
+			set naming key 1, so the two cannot be told apart at all. Loud, then. ]]
+		local removals = patch.remove
+		if removals ~= nil then
+			local entries = 0
+			for _ in removals :: { [any]: any } do
+				entries += 1
+			end
+			if entries ~= #removals then
+				error(
+					`Facet replication: patch.remove must be an ARRAY of keys — got {entries} entr(ies) with `
+						.. `#remove = {#removals}. A set-shaped remove removes nothing, and cannot be told apart `
+						.. `from an array on a numeric-keyed collection.`,
+					0
+				)
+			end
+		end
+		for _, k in (removals or {}) :: { any } do
 			items[k] = nil
 		end
 		revision = newRevision
@@ -152,6 +235,10 @@ function adapters.collection(
 		end
 		revision = newRevision
 		awaitingResnapshot = false
+		resnapshotAttempts = 0
+		refusalsSinceAsk = 0
+		refusalsBeforeRetry = RESNAPSHOT_FIRST_WAIT
+		exhausted = false
 		signal:set(table.clone(items))
 		return "applied"
 	end

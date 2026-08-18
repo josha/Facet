@@ -1763,8 +1763,11 @@ function screen_target.new(opts: Opts?)
 	-- them with the engine's own bounds API off the render path and feeds the
 	-- widths back, which costs exactly one re-solve. Implementation and the
 	-- reasoning live in src/client/text_premeasure.
-	function adapter.measureTextWidths(requests: { any }, done: (results: { any }, final: boolean?) -> ())
-		text_premeasure.measure(requests, done)
+	-- ...and the CANCEL comes back with it (PLAT-12): a boot-window batch answers
+	-- twice, up to ~12 s apart, and a renderer torn down in between must not be
+	-- called back into a surface that no longer exists.
+	function adapter.measureTextWidths(requests: { any }, done: (results: { any }, final: boolean?) -> ()): () -> ()
+		return text_premeasure.measure(requests, done)
 	end
 
 	-- whole-surface visibility: the presenter's no-pop text gate mounts and

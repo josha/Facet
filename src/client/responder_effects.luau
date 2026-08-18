@@ -28,8 +28,10 @@
 
 local responder_effects = {}
 
--- read GuiService.TouchControlsEnabled, or nil off the live client
-local function readTouchControls(): boolean?
+-- read GuiService.TouchControlsEnabled, or nil off the live client. A module
+-- FIELD rather than a local so the headless suite can drive the refcount below
+-- against a fake property (the `preferred_text`/`text_premeasure` seam idiom).
+function responder_effects.readTouchControls(): boolean?
 	local ok, value = pcall(function(): boolean
 		return game:GetService("GuiService").TouchControlsEnabled
 	end)
@@ -39,11 +41,72 @@ local function readTouchControls(): boolean?
 	return nil
 end
 
--- write GuiService.TouchControlsEnabled; returns whether the write landed
-local function writeTouchControls(on: boolean): boolean
+-- attempt a write; returns whether the CALL succeeded (see `acquire` for why
+-- that is not the same as "the property took the value")
+function responder_effects.writeTouchControls(on: boolean): boolean
 	return (pcall(function()
 		game:GetService("GuiService").TouchControlsEnabled = on
 	end))
+end
+
+local function readTouchControls(): boolean?
+	return responder_effects.readTouchControls()
+end
+local function writeTouchControls(on: boolean): boolean
+	return responder_effects.writeTouchControls(on)
+end
+
+--[[ THE SUPPRESSION IS REFCOUNTED, BECAUSE THE PROPERTY IS SHARED (PLAT-22).
+
+	`GuiService.TouchControlsEnabled` is ONE engine property and `bind` can be
+	called more than once — a game with two Facet targets, or a rebind across a
+	scene change. Held per binder, the second binder read the value the FIRST one
+	had already suppressed, recorded `false` as "the prior value", and restored
+	the controls to HIDDEN when it released: the touch controls stayed gone for
+	the rest of the session with every binder believing it had put them back.
+
+	And pcall success is not proof a write landed — an engine that refuses the
+	assignment (or a platform where the property is inert) succeeds and keeps the
+	old value — so the acquire confirms by READING BACK, and the release re-reads
+	before restoring so a host that took the property back while we held it keeps
+	it. The count and the remembered value live at module scope because the thing
+	they describe does. ]]
+local suppressCount = 0
+local priorValue: boolean? = nil
+
+local function acquireSuppression(): boolean
+	if suppressCount == 0 then
+		priorValue = readTouchControls()
+		if not writeTouchControls(false) then
+			return false
+		end
+		local landed = readTouchControls()
+		if landed ~= nil and landed ~= false then
+			return false -- the call succeeded and the property did not move
+		end
+	end
+	suppressCount += 1
+	return true
+end
+
+local function releaseSuppression()
+	if suppressCount == 0 then
+		return
+	end
+	suppressCount -= 1
+	if suppressCount > 0 then
+		return
+	end
+	local current = readTouchControls()
+	if current == nil or current == false then
+		writeTouchControls(if priorValue == nil then true else priorValue)
+	end
+	priorValue = nil
+end
+
+-- diagnostics/tests: how many live binders are holding the suppression
+function responder_effects.suppressionCount(): number
+	return suppressCount
 end
 
 -- bind(core, presenter): observe the presenter's exclusive-surface readable and
@@ -51,21 +114,16 @@ end
 -- PRIOR value on release. Returns a disconnect function; call it to unbind and
 -- restore. Safe to call from any context (no-ops where there is no live client).
 function responder_effects.bind(core: any, presenter: any): () -> ()
-	local priorValue: boolean? = nil
+	-- this binder's OWN share of the module-level suppression, so a binder can
+	-- never take two references or release one it does not hold
 	local suppressing = false
 
 	local function apply(active: boolean)
 		if active and not suppressing then
-			-- entering exclusive: remember the prior value, then hide controls
-			priorValue = readTouchControls()
-			if writeTouchControls(false) then
-				suppressing = true
-			end
+			suppressing = acquireSuppression()
 		elseif not active and suppressing then
-			-- leaving exclusive: restore whatever was there before we hid them
-			writeTouchControls(if priorValue == nil then true else priorValue)
+			releaseSuppression()
 			suppressing = false
-			priorValue = nil
 		end
 	end
 
@@ -76,11 +134,11 @@ function responder_effects.bind(core: any, presenter: any): () -> ()
 		if type(disconnect) == "function" then
 			disconnect()
 		end
-		-- restore on unbind so we never leave the touch controls hidden
+		-- restore on unbind so we never leave the touch controls hidden — but only
+		-- once the LAST holder is gone
 		if suppressing then
-			writeTouchControls(if priorValue == nil then true else priorValue)
+			releaseSuppression()
 			suppressing = false
-			priorValue = nil
 		end
 	end
 end

@@ -148,8 +148,31 @@ end
 -- unwrapped: a single line's true advance width
 local UNWRAPPED = 100000
 
-local function boundsWidth(font: Font, size: number, text: string): number?
-	local params = Instance.new("GetTextBoundsParams")
+--[[ ONE PARAMS INSTANCE PER BATCH, DESTROYED WITH IT (PLAT-20, 2026-08-17).
+
+	`GetTextBoundsParams` is an INSTANCE, and this allocated a fresh one per
+	measured word and never destroyed any of them. A batch is the whole tree's
+	text vocabulary — hundreds of words on a real screen, several batches per
+	session, two calls per SPACE probe — so the transport's own measurement pass
+	was the largest instance churn in the framework, all of it garbage the moment
+	it was read. The object is a plain parameter carrier with no identity: every
+	field is overwritten before each read, so one per batch is exactly as correct
+	as one per word.
+
+	The factory is a module field rather than an inline `Instance.new` so the
+	headless suite can count the allocations — the claim being made here is a
+	COUNT, and a count with no instrument is a comment. ]]
+function text_premeasure.newBoundsParams(): any?
+	local ok, params = pcall(function()
+		return Instance.new("GetTextBoundsParams")
+	end)
+	return if ok then params else nil
+end
+
+local function boundsWidth(params: any, font: Font, size: number, text: string): number?
+	if params == nil then
+		return nil
+	end
 	params.Text = text
 	params.Font = font
 	params.Size = size
@@ -169,9 +192,9 @@ end
 -- advance the engine inserts between two words.
 local SPACE_PROBE_SPACED = "x x"
 local SPACE_PROBE_TIGHT = "xx"
-local function spaceWidth(font: Font, size: number): number?
-	local spaced = boundsWidth(font, size, SPACE_PROBE_SPACED)
-	local tight = boundsWidth(font, size, SPACE_PROBE_TIGHT)
+local function spaceWidth(params: any, font: Font, size: number): number?
+	local spaced = boundsWidth(params, font, size, SPACE_PROBE_SPACED)
+	local tight = boundsWidth(params, font, size, SPACE_PROBE_TIGHT)
 	if spaced == nil or tight == nil then
 		return nil
 	end
@@ -254,13 +277,24 @@ text_premeasure.corrections = {} :: { { font: string, size: number, word: string
 local settled = false
 local warming = false
 
+--[[ SCHEDULER SEAM, the `src/client/preferred_text.luau` idiom. `task` is a
+	Roblox global, and this module otherwise loads fine under Lune — its services
+	are resolved lazily — so routing the two background bodies through one
+	replaceable field is the whole difference between a transport that can be
+	DRIVEN headlessly and one that can only be read as text. It is what proves
+	PLAT-12's disposal token (queue the body, cancel, then run it: zero calls) and
+	PLAT-20's allocation count. Default is exactly what it was. ]]
+function text_premeasure.spawn(f: () -> ())
+	task.spawn(f)
+end
+
 -- idempotent; safe to call from anywhere, returns immediately
 function text_premeasure.warmUp()
 	if settled or warming then
 		return
 	end
 	warming = true
-	task.spawn(function()
+	text_premeasure.spawn(function()
 		local font = text_premeasure.fontFor("BuilderSans")
 		if font == nil then
 			settled = true -- nothing to settle against; batches keep verifying
@@ -269,14 +303,21 @@ function text_premeasure.warmUp()
 		warmFont("BuilderSans", font)
 		local started = os.clock()
 		local previous: number? = nil
+		-- one params instance for the whole stability probe, like a batch (PLAT-20)
+		local params = text_premeasure.newBoundsParams()
 		for _ = 1, text_premeasure.SETTLE_MAX_ATTEMPTS do
-			local width = boundsWidth(font, 100, STABILITY_PROBE)
+			local width = boundsWidth(params, font, 100, STABILITY_PROBE)
 			local agrees = width ~= nil and previous ~= nil and math.abs(width - previous) < 0.01
 			if agrees and (os.clock() - started) >= text_premeasure.SETTLE_MIN_ELAPSED then
 				break
 			end
 			previous = width
 			task.wait(text_premeasure.SETTLE_INTERVAL)
+		end
+		if params ~= nil then
+			pcall(function()
+				params:Destroy()
+			end)
 		end
 		settled = true
 	end)
@@ -297,6 +338,7 @@ end
 
 local function measureBatch(requests: { any }): { any }
 	local results: { any } = {}
+	local params = text_premeasure.newBoundsParams()
 	for _, request in requests do
 		-- `request.font` is the canonical descriptor the solver measured with
 		-- (ADR-0019 §6), so the engine measures the same face the theme declared
@@ -306,12 +348,17 @@ local function measureBatch(requests: { any }): { any }
 		if font ~= nil then
 			warmFont(request.font, font)
 			if request.word == " " then
-				width = spaceWidth(font, request.size)
+				width = spaceWidth(params, font, request.size)
 			else
-				width = boundsWidth(font, request.size, request.word)
+				width = boundsWidth(params, font, request.size, request.word)
 			end
 		end
 		table.insert(results, { font = request.font, size = request.size, word = request.word, width = width })
+	end
+	if params ~= nil then
+		pcall(function()
+			params:Destroy()
+		end)
 	end
 	return results
 end
@@ -325,12 +372,29 @@ end
 -- disagrees. The renderer treats a repeat call as an ordinary update (it
 -- re-solves only when a width actually changed), which is what makes the
 -- correction free to the caller.
-function text_premeasure.measure(requests: { any }, done: (results: { any }, final: boolean?) -> ())
-	task.spawn(function()
+--
+-- RETURNS A CANCEL FUNCTION (PLAT-12, 2026-08-17). The second `done` of a
+-- boot-window batch can arrive up to `SETTLE_INTERVAL * SETTLE_MAX_ATTEMPTS`
+-- later — ~12 s — and a renderer disposed in between was still called back,
+-- with an `env:set` and a `solveAndApply` on a controller that had torn its
+-- surface down. There is no cancelling an engine read that is already in
+-- flight, and nothing here pretends otherwise: what the token cancels is the
+-- DELIVERY. Calling it is idempotent and safe at any point; ignoring the return
+-- keeps the previous behaviour, which is what the `measureTextWidths` contract
+-- still promises an adapter that does not care.
+function text_premeasure.measure(requests: { any }, done: (results: { any }, final: boolean?) -> ()): () -> ()
+	local cancelled = false
+	local function deliver(results: { any }, final: boolean?)
+		if cancelled then
+			return
+		end
+		done(results, final)
+	end
+	text_premeasure.spawn(function()
 		-- the steady state, and the one a game should be in by the time any UI
 		-- is shown: the session has settled, so one measurement is the answer
 		if settled then
-			done(measureBatch(requests))
+			deliver(measureBatch(requests))
 			return
 		end
 
@@ -339,8 +403,11 @@ function text_premeasure.measure(requests: { any }, done: (results: { any }, fin
 		-- and a surface gated on exact text knows to keep waiting — then answer
 		-- again for real once the session settles.
 		local early = measureBatch(requests)
-		done(early, false)
+		deliver(early, false)
 		awaitSettled()
+		if cancelled then
+			return -- torn down while we waited: not even the re-measure is owed
+		end
 		local final = measureBatch(requests)
 		for i, entry in final do
 			local before = early[i]
@@ -354,8 +421,11 @@ function text_premeasure.measure(requests: { any }, done: (results: { any }, fin
 				})
 			end
 		end
-		done(final)
+		deliver(final)
 	end)
+	return function()
+		cancelled = true
+	end
 end
 
 return text_premeasure

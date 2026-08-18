@@ -282,22 +282,41 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	local tokens: { any } = (opts and opts.tokens) or {}
 	local mirrorsEnabled = (opts and opts.mirrors) ~= false
 
+	--[[ EVERY WRONG-SCHEMA SHEET FOUND IS DESTROYED, NOT JUST THE LAST ONE
+		(PLAT-24, 2026-08-17). The host search can look in TWO containers, and
+		`stale` was a single slot that the second lookup overwrote: a pre-schema
+		artifact sitting in ReplicatedStorage survived whenever the PlayerGui
+		lookup answered, keeping a sheet with this exact name and the wrong schema
+		alive next to the real one — the precise thing the schema check exists to
+		clear. Collected instead of assigned, and cleared once the host is
+		resolved, in BOTH lookup orders. ]]
+	local staleSheets: { StyleSheet } = {}
+	local function lookup(container: Instance): StyleSheet?
+		local found, staleOne = findSheet(container, model.schema, sheetName)
+		if staleOne ~= nil then
+			table.insert(staleSheets, staleOne)
+		end
+		return found
+	end
+
 	local host: Instance
 	local existing: StyleSheet?
-	local stale: StyleSheet? = nil
 	if opts and opts.host then
 		host = opts.host
-		existing, stale = findSheet(host, model.schema, sheetName)
+		existing = lookup(host)
 	else
-		existing, stale = findSheet(ReplicatedStorage, model.schema, sheetName)
+		existing = lookup(ReplicatedStorage)
 		if existing ~= nil then
 			host = ReplicatedStorage
 		elseif playerGui ~= nil then
 			host = playerGui
-			existing, stale = findSheet(playerGui, model.schema, sheetName)
+			existing = lookup(playerGui)
 		else
 			host = ReplicatedStorage
 		end
+	end
+	for _, artifact in staleSheets do
+		artifact:Destroy() -- pre-schema artifact (a StyleSheet, class-checked)
 	end
 	local sheet: StyleSheet
 	local seeded = false
@@ -367,31 +386,37 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 					child:Destroy()
 				end
 			end
-			for _, theme in model.themes do
-				local ts: StyleSheet? = nil
-				for _, child in sheet:GetChildren() do
-					if child:IsA("StyleSheet") and child.Name == "Theme " .. theme.name then
-						ts = child
-					end
-				end
-				if ts == nil then
-					local created = Instance.new("StyleSheet")
-					created.Name = "Theme " .. theme.name
-					created.Parent = sheet
-					ts = created
-				end
-				for tokenName, v in theme.tokens do
-					if (ts :: StyleSheet):GetAttribute(tokenName) == nil then
-						(ts :: StyleSheet):SetAttribute(tokenName, toTokenAttr(v))
-					end
-				end
-			end
 			buildRules(sheet)
 		end
-	else
-		if stale ~= nil then
-			stale:Destroy() -- pre-schema artifact (a StyleSheet, class-checked)
+		--[[ THE THEME CHILDREN ARE ENSURED ON EVERY EXISTING-SHEET PATH (PLAT-9,
+			2026-08-17). This loop used to live INSIDE the stamp-mismatch branch, so
+			it only ran when the model had evolved. A designer who deleted one
+			`Theme <name>` child from a sheet whose stamp still matched left the
+			sheet looking healthy and `setTheme` asserting `unknown theme '<name>'`
+			— a HARD ERROR out of mount, on a place that opens fine in Edit. A
+			missing theme child is a hole to fill, not a reason to refuse: recreate
+			it and backfill its tokens, which is seed-once either way (a token the
+			designer set is authored data and is never overwritten). ]]
+		for _, theme in model.themes do
+			local ts: StyleSheet? = nil
+			for _, child in sheet:GetChildren() do
+				if child:IsA("StyleSheet") and child.Name == "Theme " .. theme.name then
+					ts = child
+				end
+			end
+			if ts == nil then
+				local created = Instance.new("StyleSheet")
+				created.Name = "Theme " .. theme.name
+				created.Parent = sheet
+				ts = created
+			end
+			for tokenName, v in theme.tokens do
+				if (ts :: StyleSheet):GetAttribute(tokenName) == nil then
+					(ts :: StyleSheet):SetAttribute(tokenName, toTokenAttr(v))
+				end
+			end
 		end
+	else
 		seeded = true
 		sheet = Instance.new("StyleSheet")
 		sheet.Name = sheetName

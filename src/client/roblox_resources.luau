@@ -20,12 +20,47 @@
 -- completed value is the same string (ready-to-assign Image content), which
 -- keeps the provider's cache/LRU semantics engine-free.
 
-local ContentProvider = game:GetService("ContentProvider")
-local RunService = game:GetService("RunService")
+--[[ THE SERVICES ARE RESOLVED AT BIND, NOT AT REQUIRE, and the PRELOAD TARGET
+	is one of them (PLAT-26, 2026-08-17).
+
+	`PreloadAsync`'s typed signature is `{any}` and this passed it content
+	STRINGS. Every official sample passes INSTANCES, and the difference is not
+	cosmetic: an Instance names the property the engine should fetch for, which is
+	what makes the per-asset callback's status meaningful for anything but a bare
+	image id. So the adapter now builds the Instance — a throwaway `ImageLabel`
+	carrying the key, destroyed with the request — and the public API does not
+	move: a key is still the content string, and the completed value is still that
+	same string (ready to assign), which is what keeps the provider's cache and
+	LRU semantics engine-free.
+
+	The services (and the enum value the status is compared against) come through
+	one optional table so the transport can be DRIVEN headlessly. A client passes
+	nothing. ]]
+local function engineServices(): any
+	return {
+		contentProvider = game:GetService("ContentProvider"),
+		run = game:GetService("RunService"),
+		successStatus = Enum.AssetFetchStatus.Success,
+		spawn = function(f: () -> ())
+			task.spawn(f)
+		end,
+		newPreloadTarget = function(key: string): any
+			local label = Instance.new("ImageLabel")
+			label.Image = key
+			return label
+		end,
+	}
+end
 
 local roblox_resources = {}
 
-function roblox_resources.bind(provider: any): () -> ()
+function roblox_resources.bind(provider: any, services: any?): () -> ()
+	local svc = services or engineServices()
+	local ContentProvider = svc.contentProvider
+	local RunService = svc.run
+	local SUCCESS = svc.successStatus
+	local newPreloadTarget = svc.newPreloadTarget
+	local spawn = svc.spawn
 	local inFlight: { [string]: boolean } = {}
 	local unbound = false
 
@@ -35,18 +70,22 @@ function roblox_resources.bind(provider: any): () -> ()
 			return
 		end
 		inFlight[key] = true
-		task.spawn(function()
-			local finalStatus: Enum.AssetFetchStatus? = nil
+		spawn(function()
+			local finalStatus: any = nil
+			local target = newPreloadTarget(key)
 			local ok, err = pcall(function()
-				ContentProvider:PreloadAsync({ key }, function(_contentId: string, status: Enum.AssetFetchStatus)
+				ContentProvider:PreloadAsync({ target }, function(_contentId: string, status: any)
 					finalStatus = status
 				end)
+			end)
+			pcall(function()
+				target:Destroy()
 			end)
 			inFlight[key] = nil
 			if unbound then
 				return -- provider may already be disposed; drop silently
 			end
-			if ok and finalStatus == Enum.AssetFetchStatus.Success then
+			if ok and finalStatus == SUCCESS then
 				provider.complete(key, generation, key)
 			else
 				local message = if not ok then tostring(err) else "AssetFetchStatus." .. tostring(finalStatus)

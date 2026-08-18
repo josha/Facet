@@ -122,7 +122,14 @@ target_contract.OPTIONAL = {
 	-- yielding and answer through `done`. An adapter without it keeps the
 	-- headless estimator's conservative bound, which never under-reserves — the
 	-- first frame of an adapter WITH it is that same bound, by design.
-	"measureTextWidths", -- (requests: {{font,size,word}}, done({{font,size,word,width?}}, final?))
+	--
+	-- MAY RETURN A CANCEL FUNCTION (PLAT-12). An adapter that can answer LATE —
+	-- the Roblox one answers a boot-window batch twice, up to ~12 s apart —
+	-- returns a nullary function the renderer calls on dispose, after which the
+	-- adapter must not invoke `done` again. Optional: returning nothing keeps the
+	-- previous contract exactly, and the renderer's `disposed` guard still stands
+	-- behind it. It cancels the DELIVERY, never an engine read already in flight.
+	"measureTextWidths", -- (requests: {{font,size,word}}, done({{font,size,word,width?}}, final?)) -> (() -> ())?
 	-- whole-surface visibility. The presenter's no-pop text gate mounts and
 	-- solves a screen with its root hidden and reveals it once the text is
 	-- exact, so a player never sees the conservative boxes shrink. An adapter

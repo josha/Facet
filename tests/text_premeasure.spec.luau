@@ -489,6 +489,86 @@ describe("presenter: revealWhenTextExact", function()
 		text_metrics.resetMeasured()
 	end)
 
+	--[[ THE LIVE TRANSPORT'S OWN TWO CONTRACTS (PLAT-12, PLAT-20). Everything
+		above drives the renderer through a FAKE adapter, which is the right
+		instrument for the seam. These two are about `src/client/text_premeasure`
+		itself — the module loads headlessly on purpose (its services are resolved
+		lazily), so the disposal token and the params-allocation count can be
+		measured rather than described. ]]
+	it("a cancelled measure never calls `done` again (PLAT-12)", function()
+		local text_premeasure = require("../src/client/text_premeasure")
+		local original = text_premeasure.spawn
+		-- settle first, inline, so the batch below takes the one-answer path and
+		-- `awaitSettled` is never reached (headless it settles at once: `Font.new`
+		-- has no engine, so there is nothing to stabilise against)
+		text_premeasure.spawn = function(f: () -> ())
+			f()
+		end
+		text_premeasure.warmUp()
+
+		-- ...then QUEUE the body instead of running it, which is the shape the
+		-- finding is about: the answer arrives after the consumer is gone
+		local queued: { () -> () } = {}
+		text_premeasure.spawn = function(f: () -> ())
+			table.insert(queued, f)
+		end
+		local calls = 0
+		local cancel = text_premeasure.measure({ { font = "BuilderSans", size = 14, word = "hello" } }, function()
+			calls += 1
+		end)
+		expect(type(cancel)).toBe("function")
+		expect(#queued).toBe(1)
+		cancel()
+		queued[1]()
+		expect(calls).toBe(0)
+		-- ...and cancelling twice is safe
+		expect(pcall(cancel)).toBe(true)
+
+		-- the negative control: the same batch, NOT cancelled, does answer
+		table.clear(queued)
+		local liveCalls = 0
+		text_premeasure.measure({ { font = "BuilderSans", size = 14, word = "hello" } }, function()
+			liveCalls += 1
+		end)
+		queued[1]()
+		expect(liveCalls).toBe(1)
+		text_premeasure.spawn = original
+	end)
+
+	it("a measured batch allocates ONE GetTextBoundsParams, not one per word (PLAT-20)", function()
+		local text_premeasure = require("../src/client/text_premeasure")
+		local original = text_premeasure.newBoundsParams
+		local made = 0
+		local destroyed = 0
+		text_premeasure.newBoundsParams = function(): any
+			made += 1
+			local params: any = {}
+			function params.Destroy(_self)
+				destroyed += 1
+			end
+			return params
+		end
+		local originalSpawn = text_premeasure.spawn
+		text_premeasure.spawn = function(f: () -> ())
+			f()
+		end
+		local ok = pcall(function()
+			text_premeasure.measure({
+				{ font = "BuilderSans", size = 14, word = "alpha" },
+				{ font = "BuilderSans", size = 14, word = "beta" },
+				{ font = "BuilderSans", size = 14, word = " " },
+				{ font = "BuilderSans", size = 18, word = "gamma" },
+			}, function() end)()
+		end)
+		text_premeasure.newBoundsParams = original
+		text_premeasure.spawn = originalSpawn
+		expect(ok).toBe(true)
+		-- four words, one of them the two-probe SPACE — five bounds reads, one
+		-- instance, and it is destroyed with the batch
+		expect(made).toBe(1)
+		expect(destroyed).toBe(1)
+	end)
+
 	it("reveals immediately on an adapter with no premeasurement seam", function()
 		text_metrics.resetMeasured()
 		local core = customFactory.new()
