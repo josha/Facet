@@ -17,6 +17,7 @@
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 local paths = require("../paths")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
@@ -57,6 +58,11 @@ export type Spec = {
 	presentation: string?, -- automatic | menu | inline | sheet
 	sizeClass: any?, -- string | Readable<string>, e.g. adaptive.conditions().sizeClass
 	interactionClasses: any?, -- table | Readable<table>, e.g. env interactionClasses
+	--[[ the environment BOTH facts above come from, for a caller that would
+		otherwise wire two keys to say one thing (ADAPT-1). Omitted, an automatic
+		presentation finds the one this control's own core published — and refuses
+		to construct if there is none. ]]
+	env: any?,
 }
 
 -- THEME METRICS (ADR-0019 §2). This control's own trigger keeps its own metric;
@@ -81,6 +87,7 @@ local PRESENTATIONS: { [string]: boolean } = { automatic = true, menu = true, in
 -- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local POPUP_BUTTON_KEYS = specGuard.keySet({
+	"env",
 	"id",
 	"interactionClasses",
 	"onChange",
@@ -229,17 +236,45 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return fact
 	end
 
+	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM (ADAPT-1).
+
+		Both were spec keys and nothing else, so an automatic PopupButton with
+		neither took the pointer/large-screen answer silently — and the census found
+		all five shipped call sites wiring `sizeClass` and NONE wiring
+		`interactionClasses`, which is why "touch -> sheet", the reference
+		platform's own default, had never fired in any reference app. Authored keys
+		still win (a screen driving its own class from a Signal keeps working); when
+		an automatic presentation is missing either, the surface's environment
+		answers, and when there is no environment this control refuses to construct
+		the way `tab_view` does. ]]
+	local envForFacts: any = nil
+	local factsFrom = "spec"
+	if requestedPresentation == "automatic" and (spec.sizeClass == nil or spec.interactionClasses == nil) then
+		local env, source = surfaceEnv.resolve(
+			"newPopupButton",
+			id,
+			core,
+			spec.env,
+			"an automatic presentation adapts to the size class and the live interaction class"
+		)
+		envForFacts = env
+		factsFrom = source
+	end
+	local sizeClassSource: any = spec.sizeClass or (if envForFacts ~= nil then envForFacts:get("sizeClass") else nil)
+	local classesSource: any = spec.interactionClasses
+		or (if envForFacts ~= nil then envForFacts:get("interactionClasses") else nil)
+
 	-- resolved at BUILD of each panel, so reopening after a space or input-class
 	-- change picks the right idiom without the control holding stale state
 	local function presentationNow(): string
 		if requestedPresentation ~= "automatic" then
 			return requestedPresentation
 		end
-		local classes = readFact(spec.interactionClasses)
-		local touchLive = type(classes) == "table" and (classes :: any).touch == true
+		-- PRIMARY, not merely present (ADAPT-9): the one predicate, in the recipe
+		local touchLive = menuRecipe.touchPrimary(readFact(classesSource))
 		-- the SELECTABLE count, not the array length: a divider is a rule between
 		-- groups, and a menu does not become "long" because it was grouped
-		return menuRecipe.resolvePresentation(selectableCount, readFact(spec.sizeClass), touchLive)
+		return menuRecipe.resolvePresentation(selectableCount, readFact(sizeClassSource), touchLive)
 	end
 	api.presentation = presentationNow
 
@@ -341,6 +376,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		return {
 			schema = "facet-popup_button-dump/1",
+			-- where the adaptive facts came from: "spec" (authored) or "core" (the
+			-- surface's environment, with no wiring at all) — ADAPT-1
+			factsFrom = factsFrom,
 			id = id,
 			open = open:get(),
 			value = spec.value:get(),

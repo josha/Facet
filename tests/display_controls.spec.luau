@@ -371,6 +371,13 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
+		-- an automatic picker adapts, so it needs the surface's environment
+		-- (ADAPT-1). Built BEFORE the baseline, because the environment's own
+		-- signals are the surface's, not this control's — what must come back to
+		-- the baseline is what the PICKER added, including the subscription it
+		-- takes on the published size class.
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1024, h = 768 })
 		local baseline = core:counters()
 		local control = Facet.Controls.Picker(core, {
 			id = "X",
@@ -703,7 +710,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		env2:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter3 = fake_target.new()
 		local pres3 = presenterLib.new(core2, env2, adapter3, actionsLib.newSystem(core2))
-		local classes = core2:signal({ touch = false, pointer = true })
+		local classes = core2:signal({ touch = false, pointer = true, primary = "pointer" })
 		local c3 = Facet.Controls.PopupButton(core2, {
 			id = "Choice",
 			value = core2:signal("one"),
@@ -721,7 +728,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		pres3.refresh()
 		expect(c3.presentation()).toBe("menu")
 		local triggerBefore = adapter3.node("/S/Choice/Trigger")
-		classes:set({ touch = true, pointer = true })
+		classes:set({ touch = true, pointer = true, primary = "touch" }) -- the player picked the screen up (ADAPT-9: PRIMARY decides)
 		pres3.refresh()
 		expect(c3.presentation()).toBe("sheet")
 		-- the TRIGGER was not rebuilt: only the panel's presentation is adaptive

@@ -348,8 +348,19 @@ local FIXTURES: { Fixture } = {
 				indicator = "none",
 			}).blueprint
 		end,
-		allowClipped = { "/S/Ctl/Options" },
-		why = LT_GAPS.G4,
+		--[[ THE ALLOWLIST ENTRY IS GONE, AND THAT IS THE RESULT (ADAPT-1).
+			This fixture declared `allowClipped = { "/S/Ctl/Options" }` citing LT-G4
+			— an option label ellipsizing at the largest preference with no route to
+			the whole string. The picker's presentation is `automatic`, and until
+			2026-08-18 an automatic picker with no authored size class took the
+			large-screen answer forever, so the two options stayed side by side in a
+			compact sweep and the label had nowhere to go. Reading the size class the
+			surface already publishes, it REFLOWS to the row list instead — the LT-6
+			policy ("reflow before truncation") met by the control rather than
+			declared away. LT8-ALIVE, the check that every allowlist entry is a REAL
+			truncation, is what reported the entry had stopped catching anything.
+			`Picker-indicator` below declares `segmented`, so the gap itself still
+			has a witness. ]]
 	},
 	{
 		--[[ The D4 seam is a DECORATION over the option strip, so the thing a

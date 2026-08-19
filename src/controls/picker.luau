@@ -159,6 +159,7 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 
 local picker = {}
 
@@ -423,8 +424,31 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 
+	--[[ THE SIZE CLASS ARRIVES BY ITSELF (ADAPT-1, 2026-08-18).
+
+		`sizeClass` nil used to mean `readSizeClass` returned nil, which made the
+		COMPACT branch of `resolvePresentation` unreachable: an automatic picker
+		took the large-screen answer, on every device, forever, and said nothing.
+		Measured across `examples/`: not one of seventeen call sites used the
+		adaptive default and ten disabled it outright.
+
+		Now an automatic presentation with no authored class asks the environment —
+		the one the author passed, or the one this control's own core published
+		(`src/env/surface_env.luau`) — and REFUSES to construct when there is
+		none, in `tab_view`'s shape and for its reason: adaptation must not be able
+		to silently not happen. A control that must NOT adapt still says so the way
+		it always did, by declaring `presentation`. ]]
+	local sizeClassSource: any = spec.sizeClass
+	local sizeClassFrom = if spec.sizeClass ~= nil then "spec" else "none"
+	if requested == "automatic" and sizeClassSource == nil then
+		local env, source =
+			surfaceEnv.resolve("newPicker", id, core, spec.env, "an automatic presentation adapts to the size class")
+		sizeClassSource = env:get("sizeClass")
+		sizeClassFrom = source
+	end
+
 	local function readSizeClass(use: any?): string?
-		local sc = spec.sizeClass
+		local sc = sizeClassSource
 		if sc == nil then
 			return nil
 		end
@@ -689,6 +713,11 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			optionCount = #spec.options,
 			requestedPresentation = requested,
 			presentation = presentation:get(),
+			-- WHERE THE ADAPTIVE FACT CAME FROM (ADAPT-1): "spec" (the author wired
+			-- it), "core" (the surface's own environment answered, no wiring), or
+			-- "none" (a declared presentation, which consults no ladder at all). A
+			-- screen can be audited for adaptation it never had to author.
+			sizeClassFrom = sizeClassFrom,
 			axis = axis:get(),
 			-- THE FIELD THAT TELLS THE TWO "y" SHAPES APART. A vertical pill and an
 			-- inline row list both report `axis = "y"`; only this says which one is

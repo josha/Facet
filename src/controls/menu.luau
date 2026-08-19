@@ -54,6 +54,7 @@
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 local themePackage = require("../themes/package")
 
 local menu = {}
@@ -93,11 +94,16 @@ export type Spec = {
 	presentation: string?, -- automatic | menu | sheet
 	sizeClass: any?, -- string | Readable<string>
 	interactionClasses: any?, -- table | Readable<table>
+	--[[ the environment both facts above come from (ADAPT-1). Omitted, an
+		automatic presentation finds the one this control's own core published, and
+		refuses to construct when there is none. ]]
+	env: any?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }
 
 local MENU_KEYS = specGuard.keySet({
+	"env",
 	"id",
 	"interactionClasses",
 	"items",
@@ -348,15 +354,38 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		a keyboard being put down and re-presents. Read non-reactively (`:get()`) it
 		would have been correct at every open and stale for the whole time one was
 		up — the shape that makes a hot-switch defect device-only. ]]
+	--[[ THE FACTS, AND WHERE THEY COME FROM (ADAPT-1). Both were spec keys and
+		nothing else, and `interactionClasses` was wired at exactly ONE place in all
+		of `examples/` — so the touch->sheet rung, the reference platform's own
+		default, fired nowhere. Authored keys still win; otherwise the surface's own
+		environment answers, and a menu that can adapt but has no environment
+		refuses to construct rather than presenting a desktop plate to a thumb. ]]
+	local envForFacts: any = nil
+	local factsFrom = "spec"
+	if requestedPresentation == "automatic" and (spec.sizeClass == nil or spec.interactionClasses == nil) then
+		local env, source = surfaceEnv.resolve(
+			"newMenu",
+			id,
+			core,
+			spec.env,
+			"an automatic presentation adapts to the size class and the live interaction class"
+		)
+		envForFacts = env
+		factsFrom = source
+	end
+	local sizeClassSource: any = spec.sizeClass or (if envForFacts ~= nil then envForFacts:get("sizeClass") else nil)
+	local classesSource: any = spec.interactionClasses
+		or (if envForFacts ~= nil then envForFacts:get("interactionClasses") else nil)
+
 	local presentationMemo = scope:own(core:memo(function(use)
 		if requestedPresentation ~= "automatic" then
 			return requestedPresentation
 		end
-		local classes = useFact(use, spec.interactionClasses)
-		local touchLive = type(classes) == "table" and (classes :: any).touch == true
+		-- PRIMARY, not merely present (ADAPT-9): one predicate, in the recipe
+		local touchLive = menuRecipe.touchPrimary(useFact(use, classesSource))
 		local resolved = menuRecipe.resolvePresentation(
 			menuRecipe.actionableCount(spec.items),
-			useFact(use, spec.sizeClass),
+			useFact(use, sizeClassSource),
 			touchLive
 		)
 		return if resolved == "sheet" then "sheet" else "menu"
@@ -945,6 +974,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				.. `{#handles} surface(s)`
 		return {
 			schema = DUMP_SCHEMA,
+			-- "spec" (authored) or "core" (the surface's environment, no wiring) — ADAPT-1
+			factsFrom = factsFrom,
 			id = id,
 			open = isOpen:get(),
 			presentation = presentation,

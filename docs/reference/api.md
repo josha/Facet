@@ -5360,7 +5360,13 @@ implementation.
 Spec: `{ id?, options: { { id: string, label: string } }, value:
 Signal<string> (the selected option id), onChange: ((id: string) -> ())?,
 presentation: ("automatic" | "menu" | "inline" | "sheet")?, sizeClass:
-(string | Readable)?, interactionClasses: (table | Readable)? }`.
+(string | Readable)?, interactionClasses: (table | Readable)?, env: Environment? }`.
+**Both facts arrive by themselves** (ADAPT-1): an automatic presentation missing
+either reads the environment this control's core published — `env` is there for a
+control whose core is not the surface's — and refuses to construct when there is none.
+`dump().factsFrom` is `"spec"` or `"core"`. Until 2026-08-18 every shipped call site
+wired `sizeClass` and none wired `interactionClasses`, so the touch rung below never
+fired anywhere.
 Option `id`s must be path-safe (no `/`) and are asserted at build. `value` must
 be a **settable Signal you own** — a read-only Memo is refused at build, the way
 every sibling control refuses one, rather than crashing on the first selection.
@@ -5374,7 +5380,8 @@ Returns `{ blueprint, api, presentation, dump, dispose }`, where
 `api = { handleActivate(path, meta?) -> boolean, open(), close(), select(id),
 isOpen (Signal), presentation() }`. `presentation` here is a **function**
 returning the resolved idiom — `"menu"`, `"inline"` or `"sheet"` — chosen from
-the option count, the space class and whether touch is live: touch takes the
+the option count, the space class and whether touch is the PRIMARY class (a mouse on
+a touchscreen laptop still wins outright — ADAPT-9): touch-primary takes the
 sheet; a compact space with more than 6 options takes the sheet; 3 or fewer
 options outside a compact space go inline; everything else is a menu. (Note the
 sibling asymmetry: `newPicker`'s `presentation` is a Readable, not a function.
@@ -5430,7 +5437,10 @@ restore and tap-away catcher are the presenter's own.
 
 Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
 presentation: ("automatic" | "menu" | "sheet")?, sizeClass: (string | Readable)?,
-interactionClasses: (table | Readable)?, onOpen: (() -> ())?, onClose: (() -> ())? }`.
+interactionClasses: (table | Readable)?, env: Environment?, onOpen: (() -> ())?,
+onClose: (() -> ())? }`. Both adaptive facts arrive by themselves from the surface's
+environment when you pass neither, and an automatic menu with no environment anywhere
+refuses to construct (ADAPT-1); `dump().factsFrom` says which happened.
 
 An **`Item`** is exactly one of three shapes:
 
@@ -5891,10 +5901,18 @@ content subtree and its lifecycle, the placement that restructures the screen, a
 nesting. It composes this control for its own strip — the two are the same row, and
 that is deliberate. A picker chooses a value; a tab view chooses a page.
 
-**The presentation is adaptive, not a platform branch.** `"automatic"` (the default)
-picks from the option count and the space class you pass in — typically
-`Facet.adaptive.conditions(core, env).sizeClass`. The rule is small enough to
-state in full, and it is the whole rule — a device name appears nowhere:
+**The presentation is adaptive, not a platform branch — and the facts arrive by
+themselves.** `"automatic"` (the default) picks from the option count and the space
+class. You do **not** have to pass the class: an environment publishes itself against
+the core it was built on, and every control built on that core finds it, so a screen
+stood up with `Facet.client.host.new` adapts with no wiring at all (ADAPT-1). An
+authored `sizeClass` still wins where a screen drives its own. A picker asked for an
+automatic presentation with **no** environment anywhere **refuses to construct**,
+naming the host — because adaptation that silently does not happen is the defect this
+replaced: an unwired picker used to take the large-screen answer on every device,
+forever. `dump().sizeClassFrom` reports `"spec"`, `"core"` or `"none"` (a declared
+presentation consults no ladder). The rule is small enough to state in full, and it is
+the whole rule — a device name appears nowhere:
 
 | Condition (first match wins) | Presentation |
 |---|---|

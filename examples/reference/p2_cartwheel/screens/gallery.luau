@@ -103,6 +103,13 @@ function gallery.new(app: any): any
 		sizeClass = app.state.sizeClass,
 	})
 
+	--[[ NO FACTS WIRED, AND THAT IS THE POINT (ADAPT-1, 2026-08-18). This wired
+		`sizeClass` and — like all five PopupButton sites in this repository — never
+		wired `interactionClasses`, so `touchLive` was false forever and the
+		touch->SHEET rung, the reference platform's own default, fired nowhere. Both
+		facts now come from the surface's own environment, so a thumb gets the
+		bottom sheet with its larger rows and a mouse keeps the anchored plate. The
+		gallery's dump reports which one resolved, and the spec pins both. ]]
 	local sortMenu = Facet.Controls.PopupButton(core, {
 		id = "Sort",
 		options = {
@@ -111,7 +118,6 @@ function gallery.new(app: any): any
 			{ id = "attribute", label = S.t("gallery.sortAttribute") },
 		},
 		value = sortKey,
-		sizeClass = app.state.sizeClass,
 	})
 
 	local timeframePicker = Facet.Controls.Picker(core, {
@@ -130,11 +136,11 @@ function gallery.new(app: any): any
 	for index, name in data.ATTRIBUTES :: any do
 		table.insert(axisOptions, { id = name, label = parts.attributeName(app, index) })
 	end
+	-- the same, one screen over: the facts arrive with the surface (ADAPT-1)
 	local axisMenu = Facet.Controls.PopupButton(core, {
 		id = "Axis",
 		options = axisOptions,
 		value = axisKey,
-		sizeClass = app.state.sizeClass,
 	})
 
 	local search = Facet.Controls.TextInput(core, {
@@ -440,6 +446,10 @@ function gallery.new(app: any): any
 			query = query:get(),
 			selected = selected:get(),
 			order = order,
+			-- WHICH IDIOM THE UNWIRED POPUP RESOLVED (ADAPT-1): "menu" on a
+			-- pointer, "sheet" under a thumb — decided by the environment this
+			-- screen never had to pass in
+			sortPresentation = sortMenu.presentation(),
 		}
 	end
 

@@ -213,6 +213,8 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 
 	it("...and a DIVIDER starts a new group, so the two sides may differ", function()
 		local core = Facet.newCore()
+		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
+		Facet.newEnvironment(core)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -253,6 +255,8 @@ end)
 describe("D2 Menu: submenus nest without a cap, and say so past one level", function()
 	it("a three-level tree BUILDS, and depth >= 2 is diagnosed rather than refused", function()
 		local core = Facet.newCore()
+		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
+		Facet.newEnvironment(core)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -275,6 +279,8 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 
 	it("one level of submenu is silent — the diagnostic is advice, not noise", function()
 		local core = Facet.newCore()
+		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
+		Facet.newEnvironment(core)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -295,6 +301,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 
 	it("HIG: a group of more than about five items is diagnosed as wanting its own menu", function()
 		local core = Facet.newCore()
+		Facet.newEnvironment(core)
 		local many = {}
 		for i = 1, 6 do
 			table.insert(many, { id = `i{i}`, label = `Item {i}`, onSelect = function() end })
@@ -314,6 +321,8 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 
 	it("HIG: a destructive item that is not last is diagnosed", function()
 		local core = Facet.newCore()
+		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
+		Facet.newEnvironment(core)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -554,10 +563,27 @@ end)
 
 describe("D2 Menu: touch does not nest — the sheet replaces its contents", function()
 	it("touch resolves to `sheet` through the ONE shared rule, never a device name", function()
-		local w = world({ interactionClasses = { touch = true } })
+		local w = world({ interactionClasses = { touch = true, primary = "touch" } })
 		expect(w.control.presentation()).toBe("sheet")
-		local pointer = world({ interactionClasses = { pointer = true } })
+		local pointer = world({ interactionClasses = { pointer = true, primary = "pointer" } })
 		expect(pointer.control.presentation()).toBe("menu")
+	end)
+
+	--[[ ADAPT-9 — THE HYBRID THE OLD RULE GOT WRONG. The rung asked whether touch
+		was AVAILABLE, so a touchscreen laptop being driven with a mouse resolved a
+		bottom sheet — directly against the environment's own ruling ("A mouse still
+		wins outright, which keeps every desktop and every hybrid (touchscreen
+		laptop) exactly where it was"). The question is which class is PRIMARY, and
+		the same device answers both ways as the player switches. ]]
+	it("ADAPT-9: a hybrid follows its PRIMARY class, not merely what it has", function()
+		local mouseDriven = world({
+			interactionClasses = { touch = true, pointer = true, keyboard = true, primary = "pointer" },
+		})
+		expect(mouseDriven.control.presentation()).toBe("menu")
+		local thumbDriven = world({
+			interactionClasses = { touch = true, pointer = true, keyboard = true, primary = "touch" },
+		})
+		expect(thumbDriven.control.presentation()).toBe("sheet")
 	end)
 
 	it("under `sheet` a submenu REPLACES the sheet's contents and grows a Back row", function()
@@ -608,7 +634,7 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 
 	it("a live class flip while a submenu is open CARRIES the open path into the new presentation", function()
 		local core = Facet.newCore()
-		local classes = core:signal({ pointer = true })
+		local classes = core:signal({ pointer = true, primary = "pointer" })
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
@@ -633,7 +659,7 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 		expect(control.presentation()).toBe("menu")
 		expect(control.dump().surfaces).toBe(2)
 		-- the player put the mouse down and picked the screen up
-		classes:set({ touch = true })
+		classes:set({ touch = true, primary = "touch" })
 		pres.refresh()
 		expect(control.presentation()).toBe("sheet")
 		-- the CHAIN survived; only the idiom changed

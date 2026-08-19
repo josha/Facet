@@ -190,10 +190,11 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- "open this"; this says "which section am I in", which is a different
 	-- question and reads as one. It is also what makes both targets reachable
 	-- from ONE toggle key: press the key, then Tab/d-pad onto this.
+	-- the disable is gone (ADAPT-1 call-site review): two short labels resolve
+	-- segmented at every width anyway, so declaring it only hid the ladder
 	local sectionPicker = Facet.Controls.Picker(core, {
 		id = "Section",
 		label = COPY.section,
-		presentation = "segmented",
 		options = {
 			{ value = "demos", label = COPY.demos },
 			{ value = "settings", label = COPY.settings },

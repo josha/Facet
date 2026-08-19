@@ -132,6 +132,7 @@ local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
 local picker = require("./picker")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 
 local tab_view = {}
 
@@ -334,19 +335,30 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- never reaches it, so a page's own tabs cannot claim the app's home.
 	local policySource: any = nil
 	if requestedPlacement == "automatic" and not nested then
+		--[[ THE THIRD ROUTE (ADAPT-1, 2026-08-18): the surface's own environment.
+			This control has always REFUSED rather than guessed, which is the pattern
+			the rest of the framework has now adopted — but a refusal is only the
+			right answer when nothing can answer, and the core a TabView is built on
+			publishes its environment (`src/env/surface_env.luau`). So an automatic
+			placement now costs the author nothing on a real surface, and the refusal
+			below still fires for the case it was written for: a control with no
+			environment anywhere. ]]
+		local publishedEnv = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
 		if spec.conditions ~= nil then
 			policySource = spec.conditions.navPlacement
-		elseif spec.env ~= nil then
+		elseif publishedEnv ~= nil then
 			-- built here and OWNED here: `adaptive.conditions` creates thirteen
 			-- memos and a caller that rebuilds per mount without owning them leaks
 			-- thirteen per cycle (that function's own RR-8 note)
-			policySource = adaptive.conditions(core, spec.env, { scope = scope }).navPlacement
+			policySource = adaptive.conditions(core, publishedEnv, { scope = scope }).navPlacement
 		else
 			error(
 				`Facet newTabView('{id}'): an automatic placement reads \`adaptive.navPlacement\`, so it needs `
-					.. "either `conditions` (the table `Facet.adaptive.conditions(core, env)` returns — pass "
-					.. "yours so its thirteen memos are not built twice) or `env`. Or declare `placement` and "
-					.. "the policy is never consulted.",
+					.. "an environment. A surface stood up with `Facet.client.host.new` publishes one on the "
+					.. "core it builds and this control finds it with no wiring; otherwise pass `conditions` "
+					.. "(the table `Facet.adaptive.conditions(core, env)` returns — pass yours so its thirteen "
+					.. "memos are not built twice) or `env`. Or declare `placement` and the policy is never "
+					.. "consulted.",
 				0
 			)
 		end

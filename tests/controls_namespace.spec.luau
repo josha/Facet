@@ -88,6 +88,10 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 			id = "Mode",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 			selected = core:signal("a"),
+			-- an automatic presentation adapts, so it needs the arm's environment
+			-- (ADAPT-1) — and BOTH arms build one, which is what keeps the two
+			-- dumps comparable
+			env = Facet.newEnvironment(core),
 		}
 	end,
 	PopupButton = function(core)
@@ -95,13 +99,17 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 			id = "Choice",
 			value = core:signal("one"),
 			options = { { id = "one", label = "One" }, { id = "two", label = "Two" } },
+			-- an automatic presentation adapts, so it needs the arm's environment (ADAPT-1)
+			env = Facet.newEnvironment(core),
 		}
 	end,
-	Menu = function(_core)
+	Menu = function(core)
 		return {
 			id = "M",
 			trigger = UI.Button({ id = "MTrigger", label = "Open" }),
 			items = { { id = "rename", label = "Rename", onSelect = function() end } },
+			-- an automatic presentation adapts, so it needs the arm's environment (ADAPT-1)
+			env = Facet.newEnvironment(core),
 		}
 	end,
 	TabView = function(core)
@@ -130,7 +138,8 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 		return { id = "Stars", value = core:signal(3) }
 	end,
 	TextInput = function(core)
-		return { id = "Field", value = core:signal("hi") }
+		-- a field reads the surface's environment (ADAPT-1), and both arms build one
+		return { id = "Field", value = core:signal("hi"), env = Facet.newEnvironment(core) }
 	end,
 	ProgressView = function(_core)
 		return { id = "Load", value = 0.25, showValue = true }

@@ -250,7 +250,10 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "all options in a group, or none", 1, true) ~= nil).toBe(true)
-		-- ...and a group with NO icons at all is of course fine
+		-- ...and a group with NO icons at all is of course fine. It adapts, so it
+		-- reads the environment this core publishes (ADAPT-1); the refusal above
+		-- fires first because the icon rule is checked before any fact is asked for.
+		Facet.newEnvironment(core)
 		local none = Facet.Controls.Picker(core, {
 			id = "Y",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },

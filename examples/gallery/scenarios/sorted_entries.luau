@@ -171,10 +171,15 @@ return {
 		end
 		lastRawOrder = orderOf(rawEntries:get())
 
+		--[[ THE DISABLE IS GONE (ADAPT-1 call-site review, 2026-08-18). This
+			declared `presentation = "segmented"` with no reason beside it, which is
+			the shape the audit found ten times: a site that opted out of a ladder
+			that could not work anyway, because no fact ever reached it. Three short
+			labels still resolve segmented wherever there is room; on a compact
+			screen they now become the row list, which is what the ladder is for. ]]
 		local picker = Facet.Controls.Picker(core, {
 			id = "Construction",
 			label = COPY.pick,
-			presentation = "segmented",
 			options = {
 				{ value = "ascending", label = COPY.ascending },
 				{ value = "descending", label = COPY.descending },

@@ -661,6 +661,11 @@ require("./process_globals.spec")
 	themselves, and `presenter.luau` imported the published answer and then
 	shadowed it with a nested copy (REUSE-29) ]]
 require("./hidden_roots_owner.spec")
+--[[ ADAPT-1's standing guard: adaptation arrives by itself (an environment is
+	discoverable from the core it was built on, so a control asks instead of being
+	told), or the control refuses to construct and names the host that would have
+	supplied it. Every adaptive control the audit measured is pinned unwired ]]
+require("./adaptive_defaults.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

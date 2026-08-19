@@ -360,10 +360,12 @@ return {
 			end
 		end
 
+		-- it wired the size class AND declared the presentation, so the fact it
+		-- carried could never be consulted (ADAPT-1 call-site review). The class
+		-- stays — this screen drives it deliberately — and the ladder decides
 		local idiomPicker = Facet.Controls.Picker(core, {
 			id = "Idiom",
 			label = COPY.idiomTitle,
-			presentation = "segmented",
 			options = {
 				{ value = "auto", label = COPY.idiomAuto },
 				{ value = "panel", label = COPY.idiomPanel },

@@ -323,26 +323,30 @@ function workbench.new(app: any): any
 		return options
 	end
 
+	--[[ THE THREE INGREDIENT PICKERS NOW ADAPT WITHOUT BEING TOLD ANYTHING
+		(ADAPT-1, 2026-08-18). All three wired `sizeClass` and none wired
+		`interactionClasses`, which is why every one of them presented a floating
+		plate on a phone — the audit's exact words — where the reference platform's
+		default is a bottom sheet. `presentation = "automatic"` stays because it is
+		the interesting declaration: this control ASKS to adapt, and the facts come
+		from the surface it is standing on. ]]
 	local basePicker = Facet.Controls.PopupButton(core, {
 		id = "Base",
 		options = ingredientOptions(data.bases :: any, false),
 		value = baseValue,
 		presentation = "automatic",
-		sizeClass = app.state.sizeClass,
 	})
 	local essencePicker = Facet.Controls.PopupButton(core, {
 		id = "Essence",
 		options = ingredientOptions(data.essences :: any, true),
 		value = essenceValue,
 		presentation = "automatic",
-		sizeClass = app.state.sizeClass,
 	})
 	local garnishPicker = Facet.Controls.PopupButton(core, {
 		id = "Garnish",
 		options = ingredientOptions(data.garnishes :: any, true),
 		value = garnishValue,
 		presentation = "automatic",
-		sizeClass = app.state.sizeClass,
 	})
 
 	-- the three pickers, reachable by name: `api.select(id)` is the control's own

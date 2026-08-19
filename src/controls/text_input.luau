@@ -30,6 +30,7 @@
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 local paths = require("../paths")
 local rectLib = require("../rect")
 
@@ -171,6 +172,26 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		`TextInput '{id}': submitLabel must be one of default|done|go|next|search|send (got '{tostring(spec.submitLabel)}')`
 	)
 
+	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO (ADAPT-1). `env` was an optional key
+		and three behaviours were gated on it: the keep-visible offset that lifts
+		the field off the on-screen keyboard, the touch-at-edit-start snapshot, and
+		the dock-mid-edit commit. Without it `occlusionOffset` stayed 0 — measured:
+		the field sits UNDER the keyboard and nothing says so — which is the audit's
+		D-3 cell. The surface publishes its environment on the core this control was
+		built with, so it now arrives with no authoring; a field with no environment
+		anywhere refuses to construct, in `tab_view`'s shape, because a text field
+		that cannot see the keyboard is the one control whose silent degradation the
+		player meets first. ]]
+	local env = (
+		surfaceEnv.resolve(
+			"newTextInput",
+			id,
+			core,
+			spec.env,
+			"a text field lifts itself off the on-screen keyboard, and ends an edit when the editing surface goes away"
+		)
+	)
+
 	-- control-owned state (selection/value lives in the owner's signal)
 	local disposed = false
 	local editing = scope:own(core:signal(false))
@@ -235,10 +256,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		if not use(editing) then
 			return 0
 		end
-		if spec.env == nil then
-			return 0
-		end
-		local occ = use(spec.env:get("keyboardOcclusionRect"))
+		local occ = use(env:get("keyboardOcclusionRect"))
 		if type(occ) ~= "table" then
 			return 0
 		end
@@ -334,11 +352,8 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		-- snapshot whether touch was the live entry surface at edit-start, so a
 		-- later touch-loss (dock) can be told apart from a device that was never
 		-- part of this edit (hot-switch CANCEL gate, UI-PARADIGM-002)
-		touchLiveAtEditStart = false
-		if spec.env ~= nil then
-			local classes = spec.env:get("interactionClasses"):get()
-			touchLiveAtEditStart = type(classes) == "table" and classes.touch == true
-		end
+		local classes = env:get("interactionClasses"):get()
+		touchLiveAtEditStart = type(classes) == "table" and classes.touch == true
 		editing:set(true)
 		ensureEditContext()
 		if editContext ~= nil then
@@ -404,8 +419,8 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- context comes down (endEditing), navigation resumes, and the value model
 	-- keeps the last accepted text (never dropped). Keyed off the LIVE class set
 	-- (ADR-0015), never preferredInput alone.
-	if spec.env ~= nil then
-		scope:own(core:observe(spec.env:get("interactionClasses"), function(classes)
+	do
+		scope:own(core:observe(env:get("interactionClasses"), function(classes)
 			if type(classes) ~= "table" then
 				return
 			end

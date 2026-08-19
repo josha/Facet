@@ -8,6 +8,7 @@
 
 local adaptive = require("../layout/adaptive")
 local themeSnapshot = require("../themes/snapshot")
+local surfaceEnv = require("./surface_env")
 
 local environment = {}
 
@@ -622,6 +623,16 @@ function environment.new(core: any): Env
 		table.sort(out)
 		return out
 	end
+
+	--[[ …and this environment is now discoverable from its own CORE (ADAPT-1).
+		Every control is built on a core and every environment is built on a core,
+		and on a real surface they are the same one — so a control handed no
+		adaptive facts asks `surface_env.find(core)` instead of silently taking the
+		large-screen, pointer answer. Published here rather than in `client.host`
+		so that a headless world, an Edit-mode preview and a consumer's own
+		bootstrap all get the identical behaviour: the host is the blessed path,
+		not a special case. See `src/env/surface_env.luau` for the ambiguity rule. ]]
+	surfaceEnv.publish(core, env)
 
 	return env :: any
 end

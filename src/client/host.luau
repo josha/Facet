@@ -38,6 +38,24 @@
 	settled values, and they are quarantined: a throwing hook cannot starve its
 	siblings or escape into the render thread.
 
+	THE ADAPTIVE FACTS COME WITH THE HOST (ADAPT-1, 2026-08-18). `host.new` builds
+	the environment (step two of the six), and an environment publishes itself
+	against the core it was built on — so every control this host's presenter goes
+	on to mount finds the size class, the live interaction classes and the
+	keyboard-occlusion rect with NO authoring at all. That is the whole of the
+	audit's spine finding: adaptation used to be a fact the AUTHOR handed to each
+	control, silently taking the large-screen, pointer answer when nobody did, and
+	the census found zero of seventeen shipped `Picker` call sites relying on the
+	adaptive default. A hosted screen now gets the adaptive answer by standing up,
+	and a control that CANNOT get its facts says so at construction rather than
+	presenting the wrong idiom (`src/env/surface_env.luau`).
+
+	The publication lives in `environment.new`, not here, so a headless world, an
+	Edit-mode preview and a consumer's own bootstrap behave identically — this host
+	is the blessed path, not a privileged one. A consumer that supplies its own
+	core through `newCore` still gets it, because the environment this module
+	builds is built on THAT core.
+
 	NOTHING ENGINE-ONLY IS REQUIRED AT MODULE SCOPE, deliberately — the
 	`roblox_env.bind` / `text_premeasure.textService` idiom. `screen_target` and
 	`roblox_input` resolve inside `new`, so this module can be REQUIRED and driven

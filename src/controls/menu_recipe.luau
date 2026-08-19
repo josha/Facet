@@ -78,14 +78,28 @@ menu_recipe.DEPTH_ADVICE = 2
 
 --[[ ADAPTIVE PRESENTATION (acceptance row B-DSP3), RELOCATED FROM
 	`popup_button.resolvePresentation` UNCHANGED. The choice comes from the item
-	count, the available SPACE class, and whether touch is a LIVE interaction
-	class — never from a device name. Pure and exported so a caller can predict it.
+	count, the available SPACE class, and whether touch is the PRIMARY interaction
+	class (`touchPrimary` below — ADAPT-9: merely HAVING touch is what put a sheet
+	on a mouse-driven touchscreen laptop) — never from a device name. Pure and exported so a caller can predict it.
 
 	  menu    the floating panel. The desktop/pointer idiom.
 	  inline  rows in place, no separate panel surface. Good for a couple of
 	          options with room to show them.
 	  sheet   a bottom-anchored, full-width surface with larger rows. The touch
 	          idiom, and the fallback when a compact space cannot hold a long menu. ]]
+--[[ IS TOUCH THE PRIMARY WAY IN? (ADAPT-9, audit 2026-08-18.)
+
+	The rung below used to be asked with `classes.touch == true` at both call
+	sites — "touch is available at all" — which puts a SHEET on a touchscreen
+	laptop that is being driven with a mouse. `src/env/environment.luau` already
+	settled that argument for the whole framework: "A mouse still wins outright,
+	which keeps every desktop and every hybrid (touchscreen laptop) exactly where
+	it was." So the question is which class is PRIMARY, and it is asked here, once,
+	rather than spelled twice in two controls. ]]
+function menu_recipe.touchPrimary(classes: any): boolean
+	return type(classes) == "table" and (classes :: any).primary == "touch"
+end
+
 function menu_recipe.resolvePresentation(optionCount: number, sizeClass: string?, touchLive: boolean?): string
 	if touchLive == true then
 		return "sheet"

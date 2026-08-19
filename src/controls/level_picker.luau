@@ -63,6 +63,7 @@
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local surfaceEnv = require("../env/surface_env")
 
 local level_picker = {}
 
@@ -310,9 +311,24 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 	-- borrowing the page's spacing ladder. It is a METRIC NAME and `gap` is
 	-- reactive, so switching input class is a RE-SOLVE and never a rebuild: the
 	-- strip re-spaces under a live hot-switch with the value and the scrub intact.
-	local markGap = if cfg.env ~= nil
+	--[[ …and the environment ARRIVES BY ITSELF when the caller did not pass one
+		(ADAPT-1). The density above was `env`-gated and the key is optional, so the
+		measured default on a touch phone was the POINTER run — 5px between marks
+		where a finger gets 7 — on every call site that did not wire it (audit C-9).
+		The surface this control was built on publishes its environment on the core
+		(`src/env/surface_env.luau`), so asking costs the author nothing.
+
+		A CONTROL WITH NO ENVIRONMENT ANYWHERE STILL BUILDS, deliberately, and this
+		is the one place in this wave that does not refuse: the documented fallback
+		is the TIGHTER of the two runs — "the one that cannot overrun a cell sized
+		for the other" — so an unwired control is cramped, never broken, and the
+		same body builds `newRating`, whose spacing the audit never measured as a
+		paradigm failure. Refusing to construct a rating over 2px would be a bigger
+		change than the defect. ]]
+	local envForDensity = if cfg.env ~= nil then cfg.env else (surfaceEnv.find(core))
+	local markGap = if envForDensity ~= nil
 		then scope:own(core:memo(function(use)
-			local classes = use(cfg.env:get("interactionClasses"))
+			local classes = use(envForDensity:get("interactionClasses"))
 			return `iconRunGap.{cfg.sizeRole}.{if classes.touch == true then "touch" else "pointer"}`
 		end))
 		else `iconRunGap.{cfg.sizeRole}.pointer`
