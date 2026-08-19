@@ -4320,6 +4320,30 @@ sixty centimetres from a monitor is a near session, and what makes a row
 unreadable is three metres (ADAPT-10; before, a television got `pointer`, the
 densest row the framework ships).
 
+**Edit mode says so.** While `editing` is true, a SELECTABLE table paints a
+leading selection mark in the gutter its cells were already inset into — a filled
+or hollow circle reading off the same memo the row's `selected` prop reads, so
+the mark and the row's own treatment cannot disagree (ADAPT-27; before, the only
+change edit mode made to a non-reorderable selectable table was an invisible
+prop, and the sole cue was the toolbar label flipping Edit→Done). It is
+decoration, not a focus stop: the row's own `Hit` is the tap surface and its
+Activate is the verb. A **reorderable** table's gutter belongs to the ≡ handle
+instead — reorder is the capability edit mode exists for on touch and the handle
+is its only touch route — so a table that is both selectable and reorderable
+still shows only the row's painted selection. Two marks do not fit one 32px
+gutter, and moving the ≡ to the trailing edge is a layout change carried to the
+director rather than taken here.
+
+**The auto Edit/Done toggle.** It appears when edit mode is the ONLY route to a
+capability the table declares and the consumer has not taken `editing` over, and
+it is gated on the live interaction classes: touch, gamepad, **or a keyboard with
+no mouse on a reorderable table** (M-4; a keyboard-only session cannot drag a row
+with a pointer it does not have and grab mode refuses outside edit mode, so
+reorder degraded from authored-only to missing outright). The keyboard clause is
+narrow on purpose — reorder only, because a keyboard reaches selection by plain
+Return and multi-selection by Shift; and mouse-less only, because a keyboard
+beside a mouse is a desktop session that drags rows directly.
+
 **Selection, and what moves it.** A plain arrow or d-pad press moves the ring
 and REPLACES the selection — the Finder's model, and unchanged. Held modifiers
 change that on a keyboard: **Ctrl/Cmd** moves the ring and selects nothing (a

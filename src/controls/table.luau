@@ -981,12 +981,44 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- the union, plus the consumer's escape. ADD A CLAUSE, NEVER A SPECIAL CASE.
 	local autoEditRoute = spec.editing == nil and (reorderNeedsEditMode or touchSelectionNeedsEditMode)
 	local showAutoToggle = if autoEditRoute
-		then (if spec.env ~= nil
-			then scope:own(core:memo(function(use)
-				local classes = use(spec.env:get("interactionClasses"))
-				return classes.touch == true or classes.gamepad == true
-			end))
-			else scope:own(core:signal(true)))
+		then (
+			if spec.env ~= nil
+				then scope:own(core:memo(function(use)
+					local classes = use(spec.env:get("interactionClasses"))
+					--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
+					The union was `touch or gamepad`, on the argument written above: a
+					MOUSE user reaches both capabilities without edit mode, because they
+					drag rows directly and a plain click selects. A keyboard has neither
+					half of that. It cannot drag a row with a pointer it does not have,
+					and grab mode refuses outright unless `editing` is true — so on a
+					keyboard-only session reorder was AUTHORED-ONLY and degraded to
+					MISSING: the audit measured `Down x3 + Return -> reorders = 0`, and
+					the identical journey working the moment `api.editing` was forced.
+
+					NARROW ON PURPOSE, and both halves of the narrowing are load-bearing.
+					It is REORDER only, because a keyboard reaches selection by plain
+					Return and the modifiers reach the multi-selection (ADAPT-14) — edit
+					mode is not the only route to either. And it is POINTER-LESS only,
+					because a keyboard beside a mouse is a desktop session, and widening
+					this to "any keyboard" would put an Edit button on every desktop
+					table in the framework to serve a session that does not exist there. ]]
+					--[[ ...AND IT ASKS THE RAW CAPABILITY, not `classes.pointer`, because
+						the two answer different questions. `interactionClasses` has a
+						last-resort branch — a device with no mouse, no touch and no pad is
+						called pointer-primary rather than left with no primary at all — so
+						a keyboard-only session reads `pointer = true` by construction and
+						could never be told apart there. `capabilities.mouse` is the
+						physical fact, and it is the one this rule is about: is there
+						something that can drag a row. Absent capabilities default to a
+						mouse (`environment.luau`'s own `FACT_DEFAULTS`), so an env nobody
+						has told anything to is a desktop and shows nothing, as before. ]]
+					local caps = use(spec.env:get("capabilities"))
+					local hasMouse = if type(caps) == "table" then caps.mouse == true else true
+					local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
+					return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
+				end))
+				else scope:own(core:signal(true))
+		)
 		else scope:own(core:signal(false))
 	scope:own(core:observe(editingSignal, function(on)
 		if on ~= true then

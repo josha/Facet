@@ -704,6 +704,74 @@ function table_rows.new(deps: Deps)
 				children = cells,
 			}),
 		}
+		--[[ ── WHAT THE EDIT-MODE GUTTER HOLDS (ADAPT-27, 2026-08-18) ───────────────
+			THE GUTTER WAS ALWAYS RESERVED AND SOMETIMES EMPTY. `cellsEditPadding`
+			insets every row's cells by `HANDLE_GUTTER` whenever editing, reorderable
+			or not — so a SELECTABLE, non-reorderable table entered edit mode, moved
+			its cells 32px right, and put nothing there. The audit measured the
+			consequence: "the row mounts exactly `Row/Hit` + `Row/Cells` — no leading
+			circle, no checkbox, no gutter — the only change is the invisible
+			`selected` prop. The sole cue that the mode changed is the toolbar label
+			flipping Edit->Done."
+
+			A SELECTION MARK IS NOT A REORDER HANDLE, so it is its own zone with its
+			own id, and it is DECORATION: the row's `Hit` is the whole tap surface
+			already and a second focusable inside the row would put a stop on every
+			row of every editable table for a verb the row's own Activate performs.
+
+			THE ONE GUTTER, AND WHO GETS IT WHEN BOTH ARE TRUE. A reorderable table's
+			gutter belongs to the ≡, because reorder is the capability edit mode
+			exists for on touch and the handle is its only touch route; selection on
+			such a table stays on the row's own painted treatment. Two marks do not
+			fit 32px, and the alternative — moving the ≡ to the trailing edge, which
+			is where iOS puts it — is a layout change to every reorderable table
+			carrying its own path grammar and its own press-zone arithmetic
+			(`isHandleZonePress` reads the zone's leading edge). Recorded rather than
+			smuggled: a selectable AND reorderable table still paints no mark, which
+			is the residue of ADAPT-27 and is a director call about where the ≡ goes. ]]
+		if spec.reorderable ~= true and selectionMode ~= "none" then
+			table.insert(
+				rowChildren,
+				UI.When({
+					id = "EditWhen",
+					condition = editingSignal,
+					thenView = function()
+						local selected = selectedMemo(rowKey)
+						return UI.ZStack({
+							id = "SelectZone",
+							alignH = "start",
+							-- THE GUTTER STARTS AT THE CARD, NOT AT THE ROW — the same
+							-- measured inset the handle zone below pays, for the same
+							-- reason (director report 2026-07-28, defect 4)
+							margin = { left = ROW_ART.left },
+							width = { type = "fixed", px = HANDLE_GUTTER },
+							height = { type = "fill", weight = 1 },
+							children = {
+								UI.Text({
+									id = "SelectMark",
+									--[[ TWO GLYPHS, ONE NODE. A filled and a hollow circle
+										are the iOS list-edit vocabulary, and reading them off
+										the SAME memo the row's `selected` prop reads is what
+										stops the mark and the row's own treatment ever
+										disagreeing. ]]
+									text = itemScope:own(core:memo(function(use)
+										return if use(selected) then "◉" else "◯"
+									end)),
+									textSize = "control",
+									-- the GLYPH carries the state, not a colour: `content`
+									-- is the resting role and the only other legal one here
+									-- is `secondary`, which would recede an affordance the
+									-- mode exists to show
+									role = "content",
+									alignH = "center",
+									alignV = "center",
+								}),
+							},
+						})
+					end,
+				})
+			)
+		end
 		if spec.reorderable == true then
 			-- edit-mode reorder handle (touch-scroll design): a trailing ≡
 			-- grip; drags on it ALWAYS reorder, any pointer type

@@ -2815,3 +2815,161 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		expect(w.selected()).toEqual({ "r2" })
 	end)
 end)
+
+-- =============================================================================
+-- ADAPT-27 · edit mode painted no selection affordance
+-- M-4 · a keyboard-only session had no route into edit mode at all
+-- =============================================================================
+describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27, M-4)", function()
+	local function editWorld(opts: any?)
+		local options = opts or {}
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set(
+			"capabilities",
+			options.capabilities or { keyboard = true, mouse = false, touch = false, gamepad = false }
+		)
+		env:set("preferredInput", options.preferredInput or "KeyboardAndMouse")
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local reorders: { any } = {}
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(3)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = options.selection,
+				reorderable = options.reorderable,
+				onReorder = if options.reorderable
+					then function(keys: any, toIndex: number)
+						table.insert(reorders, { keys = keys, toIndex = toIndex })
+					end
+					else nil,
+				rowHeight = 40,
+				env = env,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any =
+			{ core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl, reorders = reorders }
+		w.handle = handle
+		function w.settle(frames: number?)
+			for _ = 1, frames or 4 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.press(key: string)
+			system.deviceKey(key, true)
+			system.deviceKey(key, false)
+			w.settle(2)
+		end
+		w.settle(2)
+		return w
+	end
+
+	local SELECT_MARK = "/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/SelectZone/SelectMark"
+
+	it(
+		"ADAPT-27: a selectable table paints a leading selection mark in edit mode, and it follows the selection",
+		function()
+			--[[ THE AUDIT'S MEASUREMENT (matrix L-5): "on a selectable, non-reorderable
+			table the row mounts exactly `Row/Hit` + `Row/Cells` — no leading circle,
+			no checkbox, no gutter — the only change is the invisible `selected` prop.
+			The sole cue that the mode changed is the toolbar label flipping
+			Edit->Done." The gutter was already RESERVED (`cellsEditPadding` insets
+			every row's cells by the handle gutter whenever editing, reorderable or
+			not); nothing was ever put in it. ]]
+			local w = editWorld({ selection = "multi" })
+			expect(w.adapter.node(SELECT_MARK)).toBeNil()
+			w.tbl.api.editing:set(true)
+			w.settle()
+			local mark = w.adapter.node(SELECT_MARK)
+			expect(mark).never().toBeNil()
+			local unselected = mark.props.text
+			-- ...and it is a SELECTION affordance rather than a mode badge: it changes
+			-- with the row it belongs to
+			w.tbl.api.select("r1", { mode = "replace" })
+			w.settle()
+			expect(w.adapter.node(SELECT_MARK).props.text).never().toBe(unselected)
+			w.tbl.api.clearSelection()
+			w.settle()
+			expect(w.adapter.node(SELECT_MARK).props.text).toBe(unselected)
+			-- leaving edit mode takes it away with the gutter it sits in
+			w.tbl.api.editing:set(false)
+			w.settle()
+			expect(w.adapter.node(SELECT_MARK)).toBeNil()
+		end
+	)
+
+	it("ADAPT-27: a table with NO selection grows no mark — the gutter is the handle's", function()
+		local w = editWorld({ reorderable = true })
+		w.tbl.api.editing:set(true)
+		w.settle()
+		expect(w.adapter.node(SELECT_MARK)).toBeNil()
+		-- the ≡ handle is what that gutter holds on a reorder-only table
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/HandleGlyph")).never().toBeNil()
+	end)
+
+	it("M-4: a KEYBOARD-only session gets the Edit toggle, and can reorder a row end to end", function()
+		--[[ THE AUDIT'S MEASUREMENT (matrix M-4): "no Edit toggle is mounted (the
+			auto-toggle union is touch OR gamepad) and the grab branch requires edit
+			mode, so Down x3 + Return -> reorders = 0. Forcing `api.editing:set(true)`
+			makes the identical journey work." A keyboard-only session cannot drag a
+			row with a pointer it does not have, and grab mode is edit-mode-only, so
+			reorder was AUTHORED-ONLY there and degraded to MISSING outright. ]]
+		local w = editWorld({ reorderable = true, selection = "single" })
+		local TOGGLE = "/S/T/Main/ToggleWhen/then/Toolbar/EditToggle"
+		expect(w.adapter.node(TOGGLE)).never().toBeNil()
+		expect(w.pres.focus.focused:get()).toBe(TOGGLE)
+		w.press("Return")
+		expect(w.tbl.api.editing:get()).toBe(true)
+		w.press("Down")
+		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		w.press("Return") -- grab
+		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		w.press("Down") -- step it one slot
+		expect(#w.reorders).toBe(1)
+		expect(w.reorders[1].toIndex).toBe(1)
+		w.press("Return") -- drop
+		expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+	end)
+
+	it("M-4: a MOUSE session still shows nothing — it drags rows directly", function()
+		--[[ The null hypothesis, and it is the reason the clause is narrow. A
+			pointer session reaches both edit-mode capabilities without the mode: it
+			drags a row directly and a plain click selects. Widening the toggle to
+			"any keyboard" would put an Edit button on every desktop table in the
+			framework to fix a session that does not exist there. ]]
+		local w = editWorld({
+			reorderable = true,
+			selection = "single",
+			capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
+		})
+		expect(w.adapter.node("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle")).toBeNil()
+	end)
+
+	it("M-4: a keyboard-only table that cannot reorder still shows nothing", function()
+		-- the union is over the capabilities edit mode is the ONLY route to, and a
+		-- selectable table with no primary action selects by plain Return already
+		local w = editWorld({ selection = "single" })
+		expect(w.adapter.node("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle")).toBeNil()
+	end)
+end)
