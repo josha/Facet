@@ -23,8 +23,9 @@
 	built on a core (`Facet.Controls.Picker(core, spec)`), and on any real surface
 	they are the SAME core — the reactive root that owns the whole surface. So an
 	environment publishes itself against its core here, and a control that was
-	handed no facts asks. Nothing global: the key is the caller's own core, the
-	table is weak on both halves, and two surfaces are two cores.
+	handed no facts asks. Nothing global at all: the registration lives ON the core
+	under one reserved key (see below), so two surfaces are two cores and a
+	collected surface takes its own answer with it.
 
 	WHY NOT A CONTRIBUTION SEAM. `src/input/contribution.luau` hands a control the
 	presenter's motion clock, focus graph and present functions at PRESENT time,
@@ -34,54 +35,122 @@
 	whether a present will ever come. Answering at construction means a control
 	either has its facts or says so, in the same breath, the way `tab_view` does.
 
-	AMBIGUITY IS REFUSED, NOT RESOLVED. A second environment on the same core
-	marks that core ambiguous and `find` returns nil with a reason, so the control
-	raises rather than picking one — a coin flip between two viewports is the
-	silent failure this module exists to end. Re-publishing the SAME environment
-	(a re-entrant constructor, a test rebuilding its world on a fresh core) is not
-	ambiguity and is not refused.
+	AMBIGUITY IS REFUSED, NOT RESOLVED — AND IT IS NOT PERMANENT. Two live
+	environments on one core make `find` answer nil with a reason, so the control
+	raises rather than picking one: a coin flip between two viewports is the silent
+	failure this module exists to end. Re-publishing the SAME environment (a
+	re-entrant constructor, a caller re-asserting a registration) is not ambiguity.
+	`unpublish` takes a registration back, so a surface that tears down — or a core
+	whose environment is rebuilt — returns to an unambiguous answer instead of being
+	bricked for the rest of the session.
 ]]
 
 local surfaceEnv = {}
 
--- weak on BOTH halves: a core that nothing else references must stay collectable,
--- and so must the environment it published (an entry here is a lookup table, never
--- an owner — §6.3, every resource has exactly one owner and it is not this).
-local published: { [any]: any } = setmetatable({}, { __mode = "kv" }) :: any
-local ambiguous: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+--[[ THE REGISTRATION LIVES ON THE CORE ITSELF — there is no module table at all.
+
+	THE FIRST VERSION was a module-level table, weak on both halves. That is the
+	right OWNERSHIP answer and the wrong LIFETIME one (re-review MEDIUM-3): a core
+	that outlived every other reference to its environment lost the fact at an
+	arbitrary collection, and every adaptive control built afterwards on that live
+	core hard-refused. The refusal message itself teaches the exposed pattern —
+	build a core, build an environment on it, build controls later — without saying
+	the environment has to be retained.
+
+	THE OBVIOUS REPAIR IS A TRAP, AND IT WAS MEASURED RATHER THAN ASSUMED. A strong
+	VALUE under a weak KEY does not behave like an ephemeron in Luau: a value that
+	references its own key keeps the entry alive. Probed three ways in this VM after
+	forcing collection by churning 40 x 20 000 tables through the allocator — a
+	weak-key table whose value points back at the key retained 1 of 1; the same
+	table with an unrelated value retained 0 of 1; and an environment DOES reference
+	its core (it is built from `core:signal`). So "strong value, weak key" would have
+	pinned every core and every environment ever created, for the process lifetime.
+
+	SO THE CORE HOLDS ITS OWN REGISTRATION, under one reserved key. The core is the
+	surface's reactive root, it is a plain unfrozen table, and every control on the
+	surface is built with it — so the fact is exactly as available as the thing that
+	owns the surface, and it dies with it because there is nothing else pointing at
+	either. No process-global store, nothing to collect, and no GC timing anywhere
+	in the answer.
+
+	A CORE THE FRAMEWORK CANNOT ANNOTATE (not a table, or frozen) simply has no
+	registration: `find` answers "none" and the control refuses with the message
+	that names `env`. That is the loud failure, not a silent bind to somebody else's
+	environment — and a frozen core cannot work today for reasons that have nothing
+	to do with this module.
+
+	A LIST, NOT A SLOT, so ambiguity is a COUNT rather than a latch. The first
+	version set a flag nothing could ever clear, which bricked every adaptive
+	control on a core whose environment was rebuilt — permanently, with a build
+	error. Holding the live registrations means `unpublish` restores the
+	unambiguous answer by arithmetic rather than by a second rule.
+]]
+local SLOT = "__facetSurfaceEnv"
+
+local function registrations(core: any): { any }?
+	if type(core) ~= "table" then
+		return nil
+	end
+	local live = rawget(core :: any, SLOT)
+	return if type(live) == "table" then live else nil
+end
 
 -- publish(core, env): the environment of THIS core, for controls built on it.
 -- Called by `environment.new`, so every environment — the client host's, a test
 -- world's, a consumer's own — is discoverable the same way and no consumer opts
--- in. A second, DIFFERENT environment on one core makes the answer ambiguous
--- rather than replacing it (see the header).
+-- in. Publishing the SAME environment twice is not ambiguity (a re-entrant
+-- constructor, a caller re-asserting the registration); a second, DIFFERENT one
+-- makes the answer ambiguous until one of them is unpublished.
 function surfaceEnv.publish(core: any, env: any)
-	if core == nil or env == nil then
+	if type(core) ~= "table" or env == nil or table.isfrozen(core :: any) then
 		return
 	end
-	local existing = published[core]
-	if existing ~= nil and existing ~= env then
-		ambiguous[core] = true
+	local live = registrations(core)
+	if live == nil then
+		rawset(core :: any, SLOT, { env })
 		return
 	end
-	published[core] = env
+	if table.find(live, env) ~= nil then
+		return
+	end
+	table.insert(live, env)
+end
+
+--[[ unpublish(core, env) -> boolean — this environment's surface is gone.
+
+	Returns whether an entry was removed, so a caller that releases twice (an
+	idempotent `dispose`) is a no-op rather than an error. The only shipped caller
+	is `client.host.new`'s teardown, which releases what the host BUILT; a consumer
+	standing surfaces up by hand releases by letting the CORE go, which takes the
+	registration with it because that is where it lives. ]]
+function surfaceEnv.unpublish(core: any, env: any): boolean
+	local live = registrations(core)
+	if live == nil or env == nil then
+		return false
+	end
+	local at = table.find(live, env)
+	if at == nil then
+		return false
+	end
+	table.remove(live, at)
+	if #live == 0 then
+		rawset(core :: any, SLOT, nil)
+	end
+	return true
 end
 
 -- find(core) -> env?, reason? — reason is "none" (nothing published) or
--- "ambiguous" (more than one environment on this core). Never raises: a caller
--- that can degrade (a headless unit mount) is a legal caller.
+-- "ambiguous" (more than one LIVE environment on this core). Never raises: a
+-- caller that can degrade (a headless unit mount) is a legal caller.
 function surfaceEnv.find(core: any): (any?, string?)
-	if core == nil then
+	local live = registrations(core)
+	if live == nil or #live == 0 then
 		return nil, "none"
 	end
-	if ambiguous[core] == true then
+	if #live > 1 then
 		return nil, "ambiguous"
 	end
-	local env = published[core]
-	if env == nil then
-		return nil, "none"
-	end
-	return env, nil
+	return live[1], nil
 end
 
 --[[ resolve(control, id, core, specEnv, need) -> env, source

@@ -30,6 +30,7 @@ local host = require("../src/client/host")
 local actionsLib = require("../src/input/actions")
 local surfaceEnv = require("../src/env/surface_env")
 local fake_target = require("./lib/fake_target")
+local fs = require("@lune/fs")
 local UI = Facet.UI
 
 local TOUCH = { touch = true, mouse = false, keyboard = false, gamepad = false }
@@ -95,6 +96,145 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		local s = surface(390, 844)
 		surfaceEnv.publish(s.core, s.env)
 		expect(surfaceEnv.find(s.core)).toBe(s.env)
+	end)
+
+	--[[ THE CORE'S LIFETIME IS THE FACT'S LIFETIME (re-review MEDIUM-3).
+
+		The registry was a module table weak on BOTH halves, so an ordinary bootstrap
+		— build a core, build an environment on it, build controls later — worked or
+		hard-erred depending on when the collector ran, because nothing but that
+		table held the environment.
+
+		The obvious repair (strong value, weak key) is a trap in this VM and the
+		probe below is why the registration moved onto the CORE instead: a
+		weak-keyed table whose value references its own key does not behave like an
+		ephemeron here, so "strong value" would have pinned every core and every
+		environment for the process lifetime. Both halves are asserted — the fact
+		survives collection, and the core does NOT.
+
+		THE INSTRUMENT: Luau's `collectgarbage` accepts only `"count"`, so collection
+		is forced the way the re-review forced it — churning enough short-lived
+		tables through the allocator that a weakly-held object would certainly have
+		gone. The control (`__mode = "kv"`) proves the churn really collects, so a
+		green result here is the design's doing and not the collector's laziness. ]]
+	--[[ CHURN, AND A CANARY THAT SAYS WHETHER IT WORKED. Luau's `collectgarbage`
+		accepts only `"count"`, so collection is forced by allocation pressure — and
+		whether that pressure actually collects depends on what else the VM is
+		holding, which differs between this file alone and the whole suite (measured:
+		these two cases collected standalone and did NOT under the full run). A probe
+		that asserts a collection it cannot compel is a flaky test, so the canary is
+		an entry that MUST die if anything died at all, and the case says so rather
+		than pretending. ]]
+	local function churnAndCanary(): boolean
+		local canary: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+		canary[{}] = true -- the key is unreachable the instant it is written
+		for _ = 1, 40 do
+			local waste = table.create(20000)
+			for i = 1, 20000 do
+				waste[i] = { i }
+			end
+		end
+		for _ in canary do
+			return false
+		end
+		return true
+	end
+
+	it("MEDIUM-3: an environment nothing else holds is still findable from its core", function()
+		local core = Facet.newCore()
+		-- every reference to the environment is dropped with the frame that built
+		-- it. A dead local still occupies its register until the frame goes, which
+		-- is how a probe like this lies, so it is a FUNCTION and not a `do` block
+		local function build()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		end
+		build()
+		churnAndCanary()
+
+		-- UNCONDITIONAL, because the answer no longer depends on the collector at
+		-- all: the registration is the core's own. Under the old weak-valued module
+		-- table this went nil whenever the collector ran, which is the defect.
+		local found, reason = surfaceEnv.find(core)
+		expect(`the fact survived: {found ~= nil} ({tostring(reason)})`).toBe("the fact survived: true (nil)")
+		-- ...and it is not merely findable, it still answers: a control builds
+		local picker = Facet.Controls.Picker(core, {
+			id = "P",
+			options = LONG_OPTIONS,
+			selected = core:signal("a"),
+		})
+		expect(picker.dump().presentation).toBe("inline")
+		expect(picker.dump().sizeClassFrom).toBe("core")
+		picker.dispose()
+	end)
+
+	it("MEDIUM-3: a core nothing else holds is collected, registration and all", function()
+		local probe: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+		local function build()
+			local core = Facet.newCore()
+			probe[core] = true
+			Facet.newEnvironment(core)
+		end
+		build()
+		local collected = churnAndCanary()
+		local retained = 0
+		for _ in probe do
+			retained += 1
+		end
+		-- THE HONEST FORM: when nothing was collected at all this case has nothing
+		-- to say, and says that instead of asserting a collection it did not get.
+		-- When the collector did run, the registration must have gone with its core
+		-- — which is the whole reason it lives there rather than in a module table.
+		local verdict = if not collected then "the collector did not run" else `cores retained: {retained}`
+		expect(verdict).toBe(if not collected then "the collector did not run" else "cores retained: 0")
+	end)
+
+	--[[ …AND THE MECHANISM, PINNED, because it is the reason the case above can
+		pass at all: the registration is a field ON THE CORE rather than an entry in
+		a module table, so there is no process-global store to leak and no weak-table
+		semantics in the answer. A reader who moves it back into a module table
+		reddens this. ]]
+	it("MEDIUM-3: the registration lives on the core, not in a module-level store", function()
+		local core = Facet.newCore()
+		expect(rawget(core :: any, "__facetSurfaceEnv")).toBeNil()
+		local env = Facet.newEnvironment(core)
+		local live = rawget(core :: any, "__facetSurfaceEnv")
+		expect(`the core holds its own registration: {type(live)}`).toBe("the core holds its own registration: table")
+		expect((live :: any)[1]).toBe(env)
+		surfaceEnv.unpublish(core, env)
+		expect(rawget(core :: any, "__facetSurfaceEnv")).toBeNil()
+	end)
+
+	--[[ …AND AMBIGUITY IS A COUNT, NOT A LATCH (re-review LOW-4). The first
+		version set a flag nothing could clear, so a core whose environment was
+		rebuilt — a hot reload, an Edit-mode preview stood back up — was bricked for
+		every adaptive control for the rest of the session, with a build error. ]]
+	it("MEDIUM-3: unpublishing one of two environments restores the unambiguous answer", function()
+		local core = Facet.newCore()
+		local first = Facet.newEnvironment(core)
+		first:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		local second = Facet.newEnvironment(core)
+		second:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
+		expect(select(2, surfaceEnv.find(core))).toBe("ambiguous")
+
+		expect(surfaceEnv.unpublish(core, first)).toBe(true)
+		expect(surfaceEnv.find(core)).toBe(second)
+		-- releasing the same registration twice is a no-op, so an idempotent
+		-- teardown may call it twice
+		expect(surfaceEnv.unpublish(core, first)).toBe(false)
+
+		local picker = Facet.Controls.Picker(core, {
+			id = "P",
+			options = LONG_OPTIONS,
+			selected = core:signal("a"),
+		})
+		expect(picker.dump().presentation).toBe("segmented") -- the SECOND environment's width
+		picker.dispose()
+
+		-- and releasing the survivor leaves nothing rather than a stale answer
+		expect(surfaceEnv.unpublish(core, second)).toBe(true)
+		local found, reason = surfaceEnv.find(core)
+		expect(`{tostring(found)} / {tostring(reason)}`).toBe("nil / none")
 	end)
 end)
 
@@ -383,6 +523,38 @@ describe("ADAPT-1: a control that cannot get its facts refuses, naming the host"
 end)
 
 describe("ADAPT-1: the client host is what makes this free on a real surface", function()
+	--[[ A DISPOSED HOST IS A SURFACE THAT NO LONGER EXISTS (re-review LOW-4), so
+		the registration goes with it — otherwise a core whose surface was torn down
+		and stood back up would be permanently ambiguous, which is the bricking case
+		the count-based registry exists to prevent. `dispose` releases what the host
+		BUILT, and the environment was step two of what it built. ]]
+	it("dispose releases the environment the host registered", function()
+		local adapter = fake_target.new()
+		local h = host.new({
+			newAdapter = function()
+				return adapter
+			end,
+			newInputSystem = function(core: any)
+				return actionsLib.newSystem(core)
+			end,
+			bindEnv = function(env: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+				return function() end
+			end,
+			connectFrame = function()
+				return function() end
+			end,
+		})
+		expect(surfaceEnv.find(h.core)).toBe(h.env)
+		h.dispose()
+		local found, reason = surfaceEnv.find(h.core)
+		expect(`{tostring(found)} / {tostring(reason)}`).toBe("nil / none")
+		-- ...so the same core can host a SECOND surface without being ambiguous
+		local second = Facet.newEnvironment(h.core)
+		second:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
+		expect(surfaceEnv.find(h.core)).toBe(second)
+	end)
+
 	it("a hosted screen's controls adapt with zero authoring", function()
 		local adapter = fake_target.new()
 		local frames: { (dt: number) -> () } = {}
@@ -432,5 +604,50 @@ describe("ADAPT-1: the client host is what makes this free on a real surface", f
 		picker.dispose()
 		popup.dispose()
 		h.dispose()
+	end)
+end)
+
+--[[ THE REFUSAL IS A BUILD ERROR, SO IT HAS TO BE WHERE THE READER IS.
+
+	Re-review MEDIUM-1: `newTextInput` refuses UNCONDITIONALLY without an
+	environment — it is the widest new build error this wave introduced, 26
+	constructions in this repository alone — and it was the one refusal `api.md`
+	was never updated for: the `env` bullet still read "when provided,
+	keyboard-occlusion keep-visible is active", which is a promise of graceful
+	degradation the control no longer keeps.
+
+	This is the guard rather than a one-off correction, because the class is
+	general: a control whose CONSTRUCTION can fail for want of the environment must
+	say so in its own section of the reference, where somebody reading before they
+	write is standing. It is the same shape as the deprecation-marking check in
+	`api_surface.spec` — a mechanical read of the reference, scoped to the section
+	the surface owns — and it reddens the moment a fifth control adopts the refusal
+	without documenting it. ]]
+describe("ADAPT-1: every control that can refuse for want of the environment says so in api.md", function()
+	local REFUSING = { "newPicker", "newPopupButton", "newMenu", "newTextInput" }
+
+	it("each control's own section names the refusal and the environment", function()
+		local text = fs.readFile("docs/reference/api.md")
+		-- the sections are `### \`newX\`` headings; a section runs to the next `### `
+		local sections: { [string]: string } = {}
+		local order: { { name: string, at: number } } = {}
+		for at, name in string.gmatch(text, "()### `(new%w+)`") do
+			table.insert(order, { name = name, at = at })
+		end
+		for index, entry in order do
+			local stop = if order[index + 1] ~= nil then order[index + 1].at - 1 else #text
+			sections[entry.name] = string.sub(text, entry.at, stop)
+		end
+		for _, name in REFUSING do
+			local section = sections[name]
+			expect(`{name} has a section in api.md: {section ~= nil}`).toBe(`{name} has a section in api.md: true`)
+			local body = string.lower(section :: string)
+			expect(`{name} names the refusal: {string.find(body, "refus", 1, true) ~= nil}`).toBe(
+				`{name} names the refusal: true`
+			)
+			expect(`{name} names the environment: {string.find(body, "environment", 1, true) ~= nil}`).toBe(
+				`{name} names the environment: true`
+			)
+		end
 	end)
 end)

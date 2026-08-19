@@ -97,7 +97,29 @@ menu_recipe.DEPTH_ADVICE = 2
 	it was." So the question is which class is PRIMARY, and it is asked here, once,
 	rather than spelled twice in two controls. ]]
 function menu_recipe.touchPrimary(classes: any): boolean
-	return type(classes) == "table" and (classes :: any).primary == "touch"
+	if type(classes) ~= "table" then
+		return false
+	end
+	local primary = (classes :: any).primary
+	if primary ~= nil then
+		return primary == "touch"
+	end
+	--[[ A TABLE THAT NEVER SAID WHICH CLASS IS PRIMARY (re-review MEDIUM-2).
+		`interactionClasses` is typed `table | Readable`, and a HAND-AUTHORED one —
+		a fixture, a consumer driving its own class set from a Signal — may carry
+		`touch = true` and no `primary` at all. Reading `primary` alone made that
+		table resolve a MENU where it used to resolve a sheet: a silent idiom
+		regression, which is the exact failure class this wave exists to end, arriving
+		through the fix for it.
+
+		So the fallback is EXPLICIT and it is the pre-ADAPT-9 meaning: a table with no
+		primary has said only "touch is live", and the only thing that can mean is the
+		answer it has always given. A REFUSAL was the other candidate and is wrong
+		here — it would turn a shape that worked yesterday into a build error, in a
+		control whose facts normally arrive from an environment that always declares
+		`primary`, so the loudness would land on the one caller who is not the problem.
+		Both shapes are specced (`menu.spec`, ADAPT-9). ]]
+	return (classes :: any).touch == true
 end
 
 function menu_recipe.resolvePresentation(optionCount: number, sizeClass: string?, touchLive: boolean?): string

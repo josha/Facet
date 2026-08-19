@@ -18,8 +18,11 @@ four is CONTESTED or DEFERRED below with the exact line it needed.
 ## 1. The cell-by-cell disposition
 
 **Counting rule:** one row per non-RIGHT cell of the audit's Part 2 tables — the same
-unit the audit counted (114 cells, 58 RIGHT). Every non-RIGHT cell appears; nothing is
-silently skipped. `RESOLVED` means the wave fixed it, `CONTESTED` means it is a real
+unit the audit counted (114 cells, 58 RIGHT, so **56 non-RIGHT**). Every non-RIGHT cell
+appears; nothing is silently skipped. **Two rows below are work items rather than
+cells** and are not counted as such (re-review, 2026-08-19): the ADAPT-9 hybrid row
+comes from Family G's *probe* table rather than its verdict table, and ADAPT-6 is a
+FINDING under Family F, whose five cells are counted on their own row. `RESOLVED` means the wave fixed it, `CONTESTED` means it is a real
 gap this wave may not close (with the reason), `DEFERRED` means it belongs to a
 director item, and `BY RULING` means the audit itself records a documented decision
 and the honest disposition is to leave it and cite the ruling.
@@ -152,15 +155,17 @@ and the honest disposition is to leave it and cite the ruling.
 
 | disposition | cells |
 |---|---|
-| **FIXED** | **15** |
-| RESOLVED before this wave (Family F + ADAPT-6) | 6 |
+| **FIXED** | **14 cells** (+1 work item: the ADAPT-9 hybrid row) |
+| RESOLVED before this wave | **5 cells** (Family F) (+1 work item: ADAPT-6) |
 | **CONTESTED** (with the exact blocker) | **21** |
 | **DEFERRED** (director items and their consequences) | 6 |
 | BY RULING / BY PARITY / BY ENGINE (documented decisions, no action) | 10 |
+| **total** | **56 cells**, which is 114 − 58 RIGHT |
 
-Of the 21 contested, **eleven are `table.luau`** (ADAPT-13, 14, 15, 19, 27, 11, 10,
-M-4, J-3, J-4 and the `fill`-column half of J-2) — the single highest-value unblock
-available to this project is that file's extraction.
+Of the 21 contested, **ten are `table.luau`** — ADAPT-13, 14, 15, 27, 11, 10, M-4,
+J-3, J-4, and J-2 (whose finding id is ADAPT-19: they are the SAME cell, counted once,
+corrected 2026-08-19 after the re-review found it listed twice). The single
+highest-value unblock available to this project is that file's extraction.
 
 ---
 
@@ -292,7 +297,9 @@ private exports (an rsync of the working tree; the RR export is the multi-repo s
 
 **Why these cells and not others.** §1 above closed with "of the 21 contested,
 ELEVEN are `table.luau` — the single highest-value unblock available to this project
-is that file's extraction." That extraction is the first half of this wave
+is that file's extraction." (The count §1 carries is now **ten**: ADAPT-19 and J-2 are
+one cell, corrected 2026-08-19 after the re-review found it listed twice. The argument
+is unchanged.) That extraction is the first half of this wave
 (`table_rows.luau`, then `table_header.luau` and `table_disclosure.luau` as the
 paradigm needed the room), and this addendum re-verdicts every cell it unblocked,
 plus the two director items that fall out of the collapse paradigm.

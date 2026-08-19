@@ -67,6 +67,7 @@ local specGuard = require("../spec_guard")
 local customCore = require("../core/custom")
 local environment = require("../env/environment")
 local presenterLib = require("../present/presenter")
+local surfaceEnv = require("../env/surface_env")
 
 local host = {}
 
@@ -195,6 +196,20 @@ function host.new(opts: Opts?): Host
 
 	local built: any = nil
 	local ok, err = pcall(function()
+		--[[ THE REGISTRATION IS THE FIRST THING ON THE STACK, so it is the LAST
+			thing released (re-review MEDIUM-3/LOW-4). `environment.new` above
+			published this environment against the core it was built on, which is what
+			lets every control this host mounts adapt with no wiring — and a host that
+			has been disposed is a surface that no longer exists, so leaving the entry
+			behind would make a core whose surface was torn down and stood back up
+			ambiguous forever. Releasing it LAST means nothing this host built is still
+			reading the environment when the registration goes.
+
+			On the failure path too: `unwind` runs the same stack, so a host that
+			throws halfway leaves no registration behind either. ]]
+		table.insert(undo, function()
+			surfaceEnv.unpublish(core, env)
+		end)
 		local unbindEnv = if o.bindEnv then o.bindEnv(env) else engineBindEnv(env)
 		table.insert(undo, unbindEnv)
 

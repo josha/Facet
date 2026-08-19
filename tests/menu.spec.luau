@@ -575,6 +575,23 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 		wins outright, which keeps every desktop and every hybrid (touchscreen
 		laptop) exactly where it was"). The question is which class is PRIMARY, and
 		the same device answers both ways as the player switches. ]]
+	--[[ MEDIUM-2 (re-review) — THE TABLE THAT NEVER DECLARED A PRIMARY.
+
+		`interactionClasses` is typed `table | Readable`, so a hand-authored one may
+		carry `touch = true` and nothing else — every fixture in this file did until
+		ADAPT-9 landed. Reading `primary` alone silently moved that shape from `sheet`
+		to `menu`. The fallback is explicit and is the old meaning; the case below is
+		the one that was red after ADAPT-9 and is the reason it exists. ]]
+	it("MEDIUM-2: a class table with no `primary` keeps its pre-ADAPT-9 answer", function()
+		local touchOnly = world({ interactionClasses = { touch = true } })
+		expect(touchOnly.control.presentation()).toBe("sheet")
+		local pointerOnly = world({ interactionClasses = { pointer = true } })
+		expect(pointerOnly.control.presentation()).toBe("menu")
+		-- ...and a DECLARED primary still outranks what the table merely has
+		local declaredPointer = world({ interactionClasses = { touch = true, primary = "pointer" } })
+		expect(declaredPointer.control.presentation()).toBe("menu")
+	end)
+
 	it("ADAPT-9: a hybrid follows its PRIMARY class, not merely what it has", function()
 		local mouseDriven = world({
 			interactionClasses = { touch = true, pointer = true, keyboard = true, primary = "pointer" },

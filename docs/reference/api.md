@@ -6592,7 +6592,8 @@ implementation.
 
 **Spec** `{ id, value, onChange?, onCommit?, placeholder?, disabled?,
 keyboardType?, submitLabel?, clearButton?, clearButtonMode?, maxLength?,
-validate?, env?, actionSystem? }`:
+validate?, env?, actionSystem? }` — `env` is optional to WRITE and required to
+EXIST: see its bullet below:
 
 - `id: string` — path-stable identity.
 - `value: Signal<string>` (required, owner-held) — the field text. Must be a
@@ -6653,8 +6654,21 @@ validate?, env?, actionSystem? }`:
   programmatic `.Text` write back through `onTextChanged`, so a non-idempotent
   normalizer (one whose output re-normalizes to something different) would not
   reach a fixed point and could loop; an idempotent one settles in one round.
-- `env: Environment?` — when provided, keyboard-occlusion keep-visible is
-  active (see invariants).
+- `env: Environment?` — **the field REFUSES to construct without an environment,
+  and unlike its three siblings the refusal is unconditional** (ADAPT-1,
+  2026-08-18). Omit the key and the control reads the environment its own core
+  published — a surface stood up with `Facet.client.host.new` publishes one, and a
+  headless caller gets the same from `Facet.newEnvironment(core)` — so on any real
+  surface this key is a convenience for a control whose core is not that surface's.
+  There is nothing to gate the refusal on, and that is the point: `newPicker`
+  refuses only for an *automatic* presentation because a declared one consults no
+  ladder, while every field's three environment reads are on the EDIT path
+  (`keyboardOcclusionRect` for keep-visible; `interactionClasses` for the
+  touch-at-edit-start snapshot and the dock-mid-edit commit) and every field can be
+  edited. Nor is there an honest default to degrade to, the way `newTable` degrades
+  to the neutral package: a field with no environment simply sits UNDER the
+  on-screen keyboard and says nothing, which is the defect this replaced. Keep-visible
+  behaviour itself is unchanged (see invariants).
 - `actionSystem?` — the action system to raise the text-entry sinking context
   in. Injected like `env`; without it the value model still works but keystroke
   sinking cannot engage. The presenter's action system is the right one to pass.
