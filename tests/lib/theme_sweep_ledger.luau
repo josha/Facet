@@ -1283,16 +1283,14 @@ theme_ledger.ROWS = {
 		packages = "glossy-touch,pixel-quest",
 		kind = "page-not-scrollable",
 	},
-	{
-		surface = "02_playlist_table",
-		variant = "-",
-		node = "/Playlist/Page/Tracks/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-rating/Rating",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 2,
-		since = 0,
-		packages = "fantasy-ornate",
-		kind = "layer-overlap",
-	},
+	-- CLOSED 2026-08-18 by ADAPT-18/19 (wave TABLE). This entry recorded the
+	-- playlist's five-star rating run overflowing its own cell by 2px under
+	-- Fantasy Ornate, from +0 — a `layer-overlap` on the one column whose content
+	-- is a fixed-width run of glyphs rather than text that can ellipsize. The
+	-- column now COLLAPSES at the viewports where it could not fit, so there is no
+	-- cell for the stars to overflow and the finding fires nowhere in the themed
+	-- passes. The rating is still reachable: the disclosure plate lists it per row.
+	-- Deleted rather than re-recorded, which is what this list is for.
 	{
 		--[[ THE KNOCK-ON FROM THE TEN ROWS ABOVE IT, and the only one there was. Pixel
 			Quest's fields grew from 44px to the 76px its own art needs, and this proof

@@ -299,3 +299,95 @@ describe("ten-foot default overscan margins (director live find: edge-flush UI o
 		expect(rect.w).toBe(1280 - 180)
 	end)
 end)
+
+--[[ ADAPT-10 · THE TELEVISION GOT THE DENSEST ROW THE FRAMEWORK SHIPS.
+
+	THE AUDIT'S MEASUREMENT (matrix ADAPT-10, high): `table.luau` asked
+	`if classes.touch then "touch" else "pointer"`, and a gamepad is neither — so
+	the ten-foot combo resolved `paradigm = pointer` and got the 36px row, at three
+	metres. `snapshot.luau` published exactly two rungs, `pointer` and `touch`, so
+	there was nothing else for the selection to reach even if it had looked.
+
+	IT BIT DURING THE ADAPT-FIX WAVE, on a shipped surface: making unauthored text
+	1.5x on a Large display put a 41px button inside Cartwheel's 36px brews-table
+	row, five pixels of overflow on all twenty-four visible rows at 1920x1080, and
+	the example had to absorb it with an authored `textSize`. That authored size is
+	deleted in the same commit as this rung.
+
+	THE AXIS IS DISTANCE, NOT THE PAD. A controller in your hands sixty centimetres
+	from a monitor is a NEAR session and gets the near ladder; what makes a row
+	unreadable is three metres, and `metrics.density` ("ten-foot" iff the display
+	class is Large) is the framework's one fact for it — the same fact ADAPT-23's
+	grid-lane cap already selects on. So the rung is `tenFoot` and a gamepad class
+	is not consulted at all, which is the honest reading of the defect the audit
+	measured rather than the one its title suggests. ]]
+describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects it", function()
+	local snapshot = require("../src/themes/snapshot")
+
+	it("the snapshot publishes THREE rungs, and the ten-foot floor is the largest", function()
+		local metrics = snapshot.neutral()
+		local family = (metrics.controls :: any).table
+		expect(type(family.rowHeight.pointer)).toBe("number")
+		expect(type(family.rowHeight.touch)).toBe("number")
+		expect(type(family.rowHeight.tenFoot)).toBe("number")
+		expect(family.rowHeight.tenFoot > family.rowHeight.pointer).toBe(true)
+		expect(family.rowHeight.tenFoot >= family.rowHeight.touch).toBe(true)
+		-- ...and the line count is the paradigm constant beside it, so the rung is
+		-- a description of a row rather than a pixel somebody liked
+		expect(type(family.rowLines.tenFoot)).toBe("number")
+	end)
+
+	it("a table on a Large display gets a TALLER row than the same table near", function()
+		local Facet = require("../src") :: any
+		local function rowHeight(displaySize: string?): number
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+			if displaySize ~= nil then
+				env:set("displaySize", displaySize)
+			end
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local tbl = Facet.Controls.Table(core, {
+				id = "T",
+				rows = core:signal({ { id = "a", name = "Aria" } }),
+				key = function(item: any)
+					return item.id
+				end,
+				columns = {
+					{
+						id = "name",
+						width = { type = "fill", weight = 1 },
+						value = function(item: any)
+							return item.name
+						end,
+					},
+				},
+				selection = "single",
+				env = env,
+			})
+			pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
+			pres.refresh()
+			local row = adapter.node("/S/T/Main/Body/Rows/[a@0]/Row")
+			expect(`row solved: {row ~= nil}`).toBe("row solved: true")
+			return row.rect.h
+		end
+		local near = rowHeight("Medium")
+		local tenFoot = rowHeight("Large")
+		expect(tenFoot > near).toBe(true)
+		-- the number the audit measured is the one that must not come back
+		expect(near).toBe(36)
+		expect(tenFoot > 36).toBe(true)
+	end)
+
+	it("a 41px control fits inside a ten-foot row — the defect that measured it", function()
+		--[[ Cartwheel's brews table reported 5px of overflow on all 24 visible rows
+			at 1920x1080 once unauthored text became 1.5x: a 41px button inside a 36px
+			row. The row is what was wrong, so the row is what this asserts — against
+			the same button height, at the same display class. ]]
+		local metrics = snapshot.neutral()
+		local family = (metrics.controls :: any).table
+		expect(family.rowHeight.tenFoot >= 41).toBe(true)
+	end)
+end)

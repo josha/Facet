@@ -42,6 +42,9 @@ local solverLib = require("../layout/solver")
 local textFit = require("../layout/text_fit")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
+-- ADAPT-1's channel: an environment publishes itself against the core it was
+-- built on, so a table nobody handed facts to can ask instead of guessing
+local surfaceEnv = require("../env/surface_env")
 local rowCapability = require("../row_capability")
 -- the running-offset index this control and `newVirtualList` now BOTH window and
 -- position by — see THE RUNNING-OFFSET INDEX below for why Table always takes the
@@ -471,7 +474,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		preference: the measure seam takes `max(typographyScale, typographyPaintScale)`
 		precisely because the paint seam carries no preference factor
 		(docs/plans/variable-item-extents.md, adopted 2026-08-15). ]]
-	local function rowBoxFor(classes: any, facts: any): any
+	local function rowBoxFor(classes: any, facts: any, distance: string?): any
 		local metrics: any = facts.metrics
 		local family: any = metrics.controls.table
 		--[[ ONE line of a cell. PER LINE and not ceiled once over the whole row on
@@ -481,8 +484,35 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local lineBox = textFit.lineBox({ facts = facts, size = family.cellTextSize, lines = 1 })
 		local padV = family.rowPadding
 		local artV = selectionArtV(metrics)
+		--[[ WHICH RUNG THIS SURFACE IS ON (ADAPT-10, 2026-08-18). It asked
+			`classes.touch` and nothing else, so a gamepad — which is neither touch
+			nor a mouse — fell through to `pointer` and a television got the DENSEST
+			row the framework ships, at three metres.
+
+			THE SECOND AXIS IS DISTANCE, NOT THE PAD. A controller in your hands
+			sixty centimetres from a monitor is a near session and wants the near
+			ladder; what makes a row unreadable is the three metres, and
+			`metrics.density` is the framework's one fact for that (it is
+			"ten-foot" exactly when the display class is Large). ADAPT-23's grid-lane
+			cap already selects on the same fact, so this adds no new vocabulary and
+			cannot disagree with it.
+
+			TOUCH WINS OVER DISTANCE where both are true, because a fingertip is a
+			physical floor and a viewing distance is a legibility one: a touchscreen
+			television needs the target size AND the two lines, and `touch` is the
+			taller of the two rungs in every legal package. ]]
 		local touch = if type(classes) == "table" and classes.touch == true then true else false
-		local paradigm = if touch then "touch" else "pointer"
+		--[[ THE DISTANCE COMES FROM THE ENVIRONMENT, NOT FROM THE SNAPSHOT, and that
+			is a correction rather than a preference. `metrics.density` reads the
+			display class too, but a headless surface's `themeMetrics` defaults to the
+			NEUTRAL package (`environment.luau`'s own default) whose density is "near"
+			until a live theme controller re-resolves it — the hazard the ADAPT-FIX
+			wave recorded against ADAPT-23's own use of that fact. `distanceProfile` is
+			derived straight off `displaySize` and is therefore true on every surface,
+			headless or not; the snapshot's own density is the fallback for a caller
+			holding no environment at all. ]]
+		local tenFoot = (distance or metrics.density) == "ten-foot"
+		local paradigm = if touch then "touch" elseif tenFoot then "tenFoot" else "pointer"
 		local floor = family.rowHeight[paradigm]
 		local height = math.max(floor, family.rowLines[paradigm] * lineBox + 2 * padV + artV)
 		return { height = height, lineBox = lineBox, padV = padV, artV = artV }
@@ -510,8 +540,29 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			and type(raw.type.body) == "table"
 		return if ok then raw else themeSnapshot.neutral()
 	end
+	--[[ THE ENVIRONMENT THIS TABLE ADAPTS TO (ADAPT-11, 2026-08-18). `spec.env`
+		wins when an author declares one; otherwise the table ASKS the core it was
+		built on, which is the same core the surface's environment published itself
+		against (`src/env/surface_env.luau`, the ADAPT-1 channel).
+
+		WHAT IT FIXES, measured: the row height defaulted to 36px on EVERY combo
+		including a compact touch phone, because an absent `spec.env` meant absent
+		`classes` meant the pointer paradigm. The engine still expands the hit rect
+		to 44, so the tap survived — and adjacent 44px expanders then OVERLAP on a
+		38px pitch, which is the same class of defect the audit measured on the menu
+		plate. The ladder was already right; nobody was climbing it.
+
+		IT DEGRADES RATHER THAN REFUSING, unlike `Picker` and `Menu` on the same
+		channel, and the difference is what the fact DECIDES. A picker with no size
+		class picks the wrong PRESENTATION and there is no honest default; a table
+		with no environment picks the neutral package at authored size, which is
+		what every headless mount in this suite has always solved and is a
+		legitimate answer for a control that must build under `mountLib.mount` with
+		no surface at all. `newLevelPicker` takes the same soft find for the same
+		reason. ]]
+	local surfaceEnvironment = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
 	local rowBox = scope:own(core:memo(function(use)
-		local env = spec.env
+		local env = surfaceEnvironment
 		if env == nil then
 			-- headless / no-environment consumers: the neutral package at authored
 			-- size and a pointer paradigm, which is what the suite has always solved
@@ -526,7 +577,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			scale = facts.scale,
 			offset = facts.offset,
 			metrics = metricsOr(facts.metrics),
-		})
+		}, use(env:get("distanceProfile")))
 	end))
 	-- THE one row-gap answer, in pixels, live. A metric NAME resolves against the
 	-- current snapshot on every read, so a theme swap moves the gutter without a

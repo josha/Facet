@@ -683,12 +683,31 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		local lineBox = math.ceil(cellSize * (out.type :: any).body.lineHeight)
 		-- the row's own vertical breathing room, one space step at each edge
 		local padV = (out.space :: any).xs
-		local lines = { pointer = 1, touch = 2 }
+		--[[ THREE RUNGS, AND THE THIRD IS DISTANCE (ADAPT-10, 2026-08-18). There
+			were two — `pointer` and `touch` — and a television resolved `pointer`,
+			the densest row the framework ships, at three metres. The audit measured
+			it as a 41px button inside a 36px row on a shipped example once the
+			ten-foot type floor reached unauthored text.
+
+			`tenFoot` HOLDS ONE LINE, like the pointer rung: at a Large display class
+			the line itself is already 1.5x, so a second line is not what a TV row
+			needs. What it needs is the FLOOR of a control you operate from a sofa,
+			and this framework already names that box — `controlSizes.large.height`,
+			the same rung a large button takes. Derived like its two neighbours, from
+			metrics the theme already owns, so a package that enlarges its controls
+			moves its distant rows with it and authors nothing.
+
+			THE ORDER IS A CONSEQUENCE, NOT A CHOICE: `large` > `minimum` > `compact`
+			in every legal package (a large control cannot be smaller than the touch
+			floor, which cannot be smaller than a compact row), so the ten-foot rung
+			is the tallest without this file asserting it. ]]
+		local lines = { pointer = 1, touch = 2, tenFoot = 1 }
 		tableFamily.rowLines = lines
 		tableFamily.rowPadding = padV
 		tableFamily.rowHeight = {
 			pointer = math.max((out.controlSizes :: any).compact.height, lines.pointer * lineBox + 2 * padV),
 			touch = math.max((out.targetSizes :: any).minimum, lines.touch * lineBox + 2 * padV),
+			tenFoot = math.max((out.controlSizes :: any).large.height, lines.tenFoot * lineBox + 2 * padV),
 		}
 	end
 

@@ -201,6 +201,75 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		expect(touchGap > pointerGap).toBe(true)
 	end)
 
+	it("Table: a row on a touch surface clears the target floor with no `env` key (ADAPT-11)", function()
+		--[[ THE AUDIT'S MEASUREMENT (matrix ADAPT-11, high): "Table row height
+			defaults to 36px on every combo, including compact touch portrait, because
+			`table.luau` returns `rowBoxFor(nil, ...)` when `spec.env` is absent, which
+			makes `classes` nil and the paradigm `pointer`. The engine hit rect is still
+			expanded to 44, so the tap survives — but adjacent 44px expanders then
+			OVERLAP on a 38px pitch, the same class of defect measured in the menu
+			plate." Wired, it was already correct: 44 on touch, 36 on pointer. The
+			ladder was right and nobody was climbing it. ]]
+		local function rowHeight(s: any): number
+			local tbl = Facet.Controls.Table(s.core, {
+				id = "T",
+				rows = s.core:signal({ { id = "a", name = "Aria" }, { id = "b", name = "Bo" } }),
+				key = function(item: any)
+					return item.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Name",
+						width = { type = "fill", weight = 1 },
+						value = function(item: any)
+							return item.name
+						end,
+					},
+				},
+				selection = "single",
+			})
+			s.pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
+			s.pres.refresh()
+			local row = s.adapter.node("/S/T/Main/Body/Rows/[a@0]/Row")
+			expect(`row solved: {row ~= nil}`).toBe("row solved: true")
+			return row.rect.h
+		end
+		local touch = rowHeight(surface(390, 844, TOUCH, "Touch"))
+		local pointer = rowHeight(surface(390, 844))
+		-- the theme's own touch floor is `targetSizes.minimum`, which is 44 and is
+		-- the number a fingertip is owed
+		expect(touch >= 44).toBe(true)
+		expect(touch > pointer).toBe(true)
+	end)
+
+	it("Table: an authored `env` still wins over the surface's, and a pinned height still wins over both", function()
+		-- the two escapes, because a channel that cannot be overridden is a channel
+		-- an author cannot reason about
+		local phone = surface(390, 844, TOUCH, "Touch")
+		local pinned = Facet.Controls.Table(phone.core, {
+			id = "P",
+			rows = phone.core:signal({ { id = "a", name = "Aria" } }),
+			key = function(item: any)
+				return item.id
+			end,
+			columns = {
+				{
+					id = "name",
+					width = { type = "fill", weight = 1 },
+					value = function(item: any)
+						return item.name
+					end,
+				},
+			},
+			rowHeight = 52,
+			selection = "single",
+		})
+		phone.pres.present(UI.Screen({ id = "S", children = { pinned.blueprint } }))
+		phone.pres.refresh()
+		expect(phone.adapter.node("/S/P/Main/Body/Rows/[a@0]/Row").rect.h).toBe(52)
+	end)
+
 	it("TextInput: the field lifts itself off the keyboard with no `env` key", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
 		local field = Facet.Controls.TextInput(phone.core, {

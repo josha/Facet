@@ -4300,6 +4300,26 @@ among the others, which is the ordinary flex-with-minimum negotiation. A
 of it: those columns consume nothing in this arithmetic and the fills go on
 dividing what is left.
 
+**Row height adapts by itself, on two axes.** Leave `rowHeight` out (the
+recommended shape) and the table derives it from the theme's own per-paradigm row
+description plus the live text facts. It asks the surface for the facts rather
+than waiting to be handed them — `spec.env` when an author declares one,
+otherwise the environment published against the core the control was built on
+(ADAPT-11; before, an unwired table resolved the POINTER rung on a touch phone,
+36px on a 44px floor, and adjacent hit expanders overlapped on a 38px pitch). A
+table with neither degrades to the neutral package at authored size, which is
+what a headless mount has always solved — it does not refuse, because unlike a
+picker's presentation there is an honest default.
+
+The ladder has **three** rungs: `pointer` (one line, floored at the theme's
+compact control height), `touch` (two lines, floored at `targetSizes.minimum`)
+and `tenFoot` (one line, floored at the theme's LARGE control height). The rung
+is chosen by touch first and then by DISTANCE — `distanceProfile`, derived
+straight off the display class, not by the presence of a gamepad: a controller
+sixty centimetres from a monitor is a near session, and what makes a row
+unreadable is three metres (ADAPT-10; before, a television got `pointer`, the
+densest row the framework ships).
+
 **Selection, and what moves it.** A plain arrow or d-pad press moves the ring
 and REPLACES the selection — the Finder's model, and unchanged. Held modifiers
 change that on a keyboard: **Ctrl/Cmd** moves the ring and selects nothing (a
