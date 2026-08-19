@@ -110,9 +110,9 @@ end
 -- hard-coded, exactly as the picker spec resolves its own option paths
 local HOME_OF: { [string]: string } = {
 	sidebar = "RailHome/then/Rail",
-	topBar = "TopHome/then/TopBand",
+	topBar = "TopHome/then/TopBandCenter/TopBand",
 	bottomBar = "BottomHome/then/BottomBand",
-	bottomBarCompact = "CompactHome/then/CompactBand",
+	bottomBarCompact = "CompactHome/then/CompactBandCenter/CompactBand",
 }
 local function stripPath(w: any, root: string?): string
 	local base = root or "/S/Tabs"
@@ -126,6 +126,90 @@ local function tabPath(w: any, n: number, root: string?): string
 	local leaf = if badged then `Opt{n}Cell/Opt{n}` else `Opt{n}`
 	return `{stripPath(w, root)}/{inner}/{leaf}`
 end
+
+--[[ ADAPT-4 — THE PLACEMENTS DOCUMENTED AS *CENTERED* WERE LEFT-ALIGNED.
+
+	`adaptive.luau` states it twice ("the SAME bottom bar in its reduced, inline,
+	CENTERED form"; "a CENTER-ALIGNED top tab bar that HUGS its content") and
+	api.md repeats it in two places, and this file declared no main-axis alignment
+	at all: measured on a television, a three-tab bar was a 193px cluster at x=90
+	with 1547px of empty band beside it. Three of the six combos were affected.
+
+	EVERY ASSERTION HERE IS A MEASURED GAP, never a property in a dump — the audit
+	names that specifically, because the naive fix (`alignH` on the strip inside
+	the stack) is ACCEPTED AND IGNORED, and a dump would have shown it faithfully. ]]
+describe("ADAPT-4: the centered homes are centered, and the overflowing one still scrolls", function()
+	--[[ THE GAP IS MEASURED FROM THE STRIP TO THE CONTROL'S OWN BOX, which is the
+		one frame that means the same thing before and after this fix. At the anchor
+		the scroller FILLED the band and the strip sat at its leading edge; the fix
+		hugs the scroller and centres it, so a case pinned to either node's path
+		would be measuring a structure rather than a placement. The strip is found
+		by id wherever it is mounted, so this reddens with a REAL number (0 against
+		1547 on a television) rather than with "no such path". ]]
+	local function stripGaps(w: any): (number, number, number)
+		local found: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Strip$") ~= nil then
+				found = path
+			end
+		end
+		expect(`the strip is mounted: {found ~= nil}`).toBe("the strip is mounted: true")
+		local strip = w.adapter.node(found :: string).rect
+		local root = w.adapter.node("/S/Tabs").rect
+		return strip.x - root.x, (root.x + root.w) - (strip.x + strip.w), strip.w
+	end
+
+	it("the ten-foot top bar is centered in its band, not parked in the corner", function()
+		local w = world({
+			viewport = { w = 1920, h = 1080 },
+			displaySize = "Large",
+			capabilities = { touch = false, mouse = false, keyboard = false, gamepad = true },
+			preferredInput = "Gamepad",
+		})
+		expect(w.tv.dump().placement).toBe("topBar")
+		local left, right, width = stripGaps(w)
+		expect(width < 1920 * 0.5).toBe(true) -- it HUGS, which is what makes the gap visible
+		-- an odd leftover cannot split evenly, so the tolerance is ONE pixel and
+		-- nothing more: 1547 against 0 is the defect this is watching for
+		expect(math.abs(left - right) <= 1).toBe(true)
+		expect(left > 0).toBe(true)
+	end)
+
+	it("the landscape phone's inline band is centered too", function()
+		local w = world({
+			viewport = { w = 844, h = 390 },
+			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
+			preferredInput = "Touch",
+		})
+		expect(w.tv.dump().placement).toBe("bottomBarCompact")
+		local left, right = stripGaps(w)
+		expect(math.abs(left - right) <= 1).toBe(true)
+		expect(left > 0).toBe(true)
+	end)
+
+	--[[ THE HALF THAT MAKES THE FIX SAFE. Centring is `hug` — the content's width
+		CAPPED AT THE OFFER — so a strip that does not fit takes the whole band and
+		scrolls, exactly as it did before. `content` would have centred an
+		overflowing strip out past both edges of the band, which is the trap the
+		framework's own zstack diagnostic catches. ]]
+	it("...and a strip that does NOT fit fills the band, scrolls, and overflows nothing", function()
+		-- the D5 overflow fixture, at its own declared placement: five long tabs on
+		-- a phone, which is the shape that made a scrolling strip necessary at all
+		local w = world({
+			viewport = PHONE,
+			placement = "topBar",
+			tabs = tabsOf({ "avatars", "body", "clothing", "accessories", "backgrounds" }),
+		})
+		expect(w.tv.dump().placement).toBe("topBar")
+		local band = w.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand").rect
+		local root = w.adapter.node("/S/Tabs").rect
+		expect(band.x).toBe(root.x) -- the scroller takes the whole band...
+		expect(band.w).toBe(root.w)
+		local _, _, stripWidth = stripGaps(w)
+		expect(stripWidth > band.w).toBe(true) -- ...and there is something to scroll
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+end)
 
 describe("D5: the strip IS a segmented picker, not a second option row", function()
 	it("mounts newPicker's own option row, with the D4 indicator on it", function()
@@ -351,7 +435,9 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		expect(inner.dump().nested).toBe(true)
 		-- and they really are in different homes on screen
 		expect(w.adapter.node("/S/App/BottomHome/then/BottomBand/Strip") ~= nil).toBe(true)
-		expect(w.adapter.node("/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBand/Strip") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip") ~= nil).toBe(
+			true
+		)
 	end)
 
 	it("...and it stays the top bar when the POLICY would have said sidebar", function()
@@ -372,8 +458,12 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		-- the outer strip is painted AFTER the content on a bottom bar, so it
 		-- reads after it — the shipped "reads where it is painted" rule
 		expect(#paths).toBe(5)
-		expect(paths[1]).toBe("/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBand/Strip/Indicator/Options/Opt1")
-		expect(paths[2]).toBe("/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBand/Strip/Indicator/Options/Opt2")
+		expect(paths[1]).toBe(
+			"/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt1"
+		)
+		expect(paths[2]).toBe(
+			"/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt2"
+		)
 		expect(paths[3]).toBe("/S/App/BottomHome/then/BottomBand/Strip/Indicator/Options/Opt1")
 		-- ONE flat order: neither TabView trapped focus inside itself, which is
 		-- what a `transientScope` would have done
@@ -674,7 +764,7 @@ describe("D5: an OVERFLOWING strip scrolls the selection into view", function()
 
 	it("the strip really is WIDER than its band — otherwise there is nothing to test", function()
 		local w = overflowing()
-		local band = w.adapter.node("/S/Tabs/TopHome/then/TopBand").rect
+		local band = w.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand").rect
 		local strip = w.adapter.node(stripPath(w)).rect
 		expect(strip.w > band.w).toBe(true)
 		expect(w.tv.dump().sizing).toBe("hug")
@@ -682,14 +772,14 @@ describe("D5: an OVERFLOWING strip scrolls the selection into view", function()
 
 	it("selecting an off-screen tab scrolls it into view", function()
 		local w = overflowing()
-		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBand").x).toBe(0)
+		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBandCenter/TopBand").x).toBe(0)
 		w.selection:set("backgrounds")
 		w.pres.refresh()
 		expect(w.tv.dump().reveals).toBe(1)
-		local offset = w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBand").x
+		local offset = w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBandCenter/TopBand").x
 		expect(offset > 0).toBe(true)
 		-- ...and the selected tab is now inside the band
-		local band = w.adapter.node("/S/Tabs/TopHome/then/TopBand").rect
+		local band = w.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand").rect
 		local tab = w.adapter.node(tabPath(w, 5)).rect
 		expect(tab.x - band.x - offset >= -0.001).toBe(true)
 		expect(tab.x + tab.w - band.x - offset <= band.w + 0.001).toBe(true)
@@ -700,7 +790,7 @@ describe("D5: an OVERFLOWING strip scrolls the selection into view", function()
 		w.selection:set("body")
 		w.pres.refresh()
 		expect(w.tv.dump().reveals).toBe(0)
-		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBand").x).toBe(0)
+		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBandCenter/TopBand").x).toBe(0)
 	end)
 
 	it("...and repeated refreshes on an unchanged selection issue no scroll either", function()
@@ -790,12 +880,12 @@ describe("D5: four inputs, one story", function()
 		-- host rather than anything this control re-implements. `driveScroll` is
 		-- the headless stand-in for the engine moving CanvasPosition, and the
 		-- framework sees the result.
-		local region = w.adapter.scrollRegionOf("/S/Tabs/TopHome/then/TopBand")
+		local region = w.adapter.scrollRegionOf("/S/Tabs/TopHome/then/TopBandCenter/TopBand")
 		expect(region.axis).toBe("x")
-		expect(region.contentW > w.adapter.node("/S/Tabs/TopHome/then/TopBand").rect.w).toBe(true)
-		w.adapter.driveScroll("/S/Tabs/TopHome/then/TopBand", { x = 40, y = 0 })
+		expect(region.contentW > w.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand").rect.w).toBe(true)
+		w.adapter.driveScroll("/S/Tabs/TopHome/then/TopBandCenter/TopBand", { x = 40, y = 0 })
 		w.pres.refresh()
-		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBand").x).toBe(40)
+		expect(w.adapter.scrollPositionOf("/S/Tabs/TopHome/then/TopBandCenter/TopBand").x).toBe(40)
 	end)
 
 	it("TabView touch affordance: the touch structural idiom (44px/naked-pan-scroll/edit-grip)", function()
@@ -822,7 +912,7 @@ describe("D5: four inputs, one story", function()
 			tabs = tabsOf({ "avatars", "body", "clothing", "accessories", "backgrounds" }),
 			placement = "topBar",
 		})
-		expect(over.adapter.node("/S/Tabs/TopHome/then/TopBand").class).toBe("ScrollView")
+		expect(over.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand").class).toBe("ScrollView")
 	end)
 
 	it("TabView keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate/Adjust)", function()

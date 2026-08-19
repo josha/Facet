@@ -640,7 +640,17 @@ local function isHorizontalRun(node: any): boolean
 	if node.class == "HStack" then
 		return true -- byte-identical to the rule that shipped
 	end
-	if node.class ~= "AdaptiveStack" then
+	--[[ …AND A SCROLLER THAT RUNS ACROSS (ADAPT-24, audit B-6). This matched
+		`AdaptiveStack` alone, so the framework's own recommended card rail
+		(`VirtualList{axis="x"}`, which declares its own group) navigated correctly
+		while the NAIVE rail — `UI.ScrollView{ axis = "x" }` with the cards inside
+		it — put them in a VERTICAL ring: DPadRight moved nothing and DPadDown
+		stepped along the rail, which is the exact defect the D5 round fixed one
+		predicate short. A scroll axis and a focus axis that disagree is a bug in
+		every case, so the class joins the rule rather than getting its own. The run
+		test below applies unchanged, which is what keeps a scroller holding one
+		stack of many focusables a CONTAINER rather than a run. ]]
+	if node.class ~= "AdaptiveStack" and node.class ~= "ScrollView" then
 		return false
 	end
 	local axis = node.props and node.props.axis

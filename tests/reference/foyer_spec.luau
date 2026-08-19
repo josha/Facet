@@ -60,9 +60,9 @@ local NAV = "/Foyer/Root/Nav"
 local HOME = NAV .. "/Content/Tab-home/then/HomeBody"
 local HOMES: { [string]: string } = {
 	sidebar = NAV .. "/RailHome/then/Rail",
-	topBar = NAV .. "/TopHome/then/TopBand",
+	topBar = NAV .. "/TopHome/then/TopBandCenter/TopBand",
 	bottomBar = NAV .. "/BottomHome/then/BottomBand",
-	bottomBarCompact = NAV .. "/CompactHome/then/CompactBand",
+	bottomBarCompact = NAV .. "/CompactHome/then/CompactBandCenter/CompactBand",
 }
 -- DESTINATIONS in declaration order: the strip gives its segments `Opt<n>` ids,
 -- and `newTabView` publishes nothing else a test could name them by

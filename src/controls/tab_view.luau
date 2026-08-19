@@ -191,6 +191,14 @@ local AUTOMATIC_INDICATOR = "underline"
 
 local FILL = table.freeze({ type = "fill", weight = 1 })
 local NATURAL = table.freeze({ type = "content" })
+--[[ THE CENTRED BAND'S TWO BOXES (ADAPT-4). `hug` is the word that makes one
+	declaration serve both halves of the promise: it is the content's own width
+	CAPPED AT THE OFFER, so a three-tab strip is 193px (and its ZStack parent
+	centres it) while an eight-tab strip caps at the band and scrolls. `content`
+	would have overflowed the ZStack — measured, with the framework's own
+	"overflows its zstack" diagnostic naming it — and `fill` inside a scroller on
+	its own axis takes the CONTENT width, so it centres nothing. ]]
+local BAND_CAPPED = table.freeze({ type = "hug" })
 
 -- CLOSED SPEC (constitution §4; ARCH-1). An unknown key is an authoring mistake,
 -- never a silent no-op.
@@ -502,16 +510,37 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			})
 		end,
 	})
+	--[[ THE TWO CENTRED HOMES (ADAPT-4, audit 2026-08-18). `adaptive.luau` states
+		the contract twice — `bottomBarCompact` is "the SAME bottom bar in its
+		reduced, inline, CENTERED form" and `topBar` is "a CENTER-ALIGNED top tab
+		bar that HUGS its content" — and api.md repeats it in two places. This file
+		declared no main-axis alignment at all, so on a television a three-tab bar
+		was a 193px cluster in the top-left corner with 1547px of empty band beside
+		it, and the same at every tablet and landscape-phone width.
+
+		THE NAIVE FIX IS ACCEPTED AND IGNORED, which is why the centring is a
+		ZStack: `alignH` is honoured for zstack children and a stack "never reads"
+		it (the framework diagnoses exactly that, and `level_picker.luau`'s own
+		2026-07-27 ruling records the same trap). The scroller keeps its id and its
+		job; the box around it is what decides where the slack goes. Proven by a
+		measured `leftGap == rightGap`, never by the property appearing in a dump. ]]
 	local topBand = UI.When({
 		id = "TopHome",
 		condition = isPlacement("topBar"),
 		thenView = function()
-			return UI.ScrollView({
-				id = "TopBand",
-				axis = "x",
+			return UI.ZStack({
+				id = "TopBandCenter",
 				width = FILL,
-				indicators = "none",
-				children = { strip.blueprint },
+				children = {
+					UI.ScrollView({
+						id = "TopBand",
+						axis = "x",
+						width = BAND_CAPPED,
+						alignH = "center",
+						indicators = "none",
+						children = { strip.blueprint },
+					}),
+				},
 			})
 		end,
 	})
@@ -530,12 +559,19 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		id = "CompactHome",
 		condition = isPlacement("bottomBarCompact"),
 		thenView = function()
-			return UI.ScrollView({
-				id = "CompactBand",
-				axis = "x",
+			return UI.ZStack({
+				id = "CompactBandCenter",
 				width = FILL,
-				indicators = "none",
-				children = { strip.blueprint },
+				children = {
+					UI.ScrollView({
+						id = "CompactBand",
+						axis = "x",
+						width = BAND_CAPPED,
+						alignH = "center",
+						indicators = "none",
+						children = { strip.blueprint },
+					}),
+				},
 			})
 		end,
 	})

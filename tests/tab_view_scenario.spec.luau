@@ -44,7 +44,7 @@ local BOTTOM = `{APP}/BottomHome/then/BottomBand/Strip/Indicator/Options`
 -- between the two levels; everything the fixture says about the pair lives one
 -- level further down, inside the selected PAGE's own scroller
 local PAGE = `{APP}/Content/Tab-pages/then/Page`
-local PAGE_BAND = `{PAGE}/TopHome/then/TopBand`
+local PAGE_BAND = `{PAGE}/TopHome/then/TopBandCenter/TopBand`
 local PAGE_OPTS = `{PAGE_BAND}/Strip/Indicator/Options`
 local function pageBody(tab: string): string
 	return `{PAGE}/Content/Tab-{tab}/then/PageBody`

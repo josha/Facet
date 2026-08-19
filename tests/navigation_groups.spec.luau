@@ -271,6 +271,89 @@ describe("navigation groups (§9.3)", function()
 		expect(adapter.node("/R/First").focused).toBe(true) -- ring visible NOW
 	end)
 
+	--[[ ADAPT-24 — A HORIZONTAL RAIL NAVIGATED VERTICALLY ON A PAD.
+
+		`focus_map.isHorizontalRun` matched `HStack` and `AdaptiveStack{axis="x"}`
+		and nothing else, so the recommended card rail (`VirtualList{axis="x"}`,
+		which declares its own group) worked while the NAIVE one — `UI.ScrollView{
+		axis = "x" }` with the cards inside it — put its cards in a VERTICAL ring:
+		DPadRight moved nothing and DPadDown stepped along the rail. The audit calls
+		it the exact defect class the D5 round fixed, one predicate short (B-6), and
+		the fix is the predicate, with the SAME "must actually be a run" test the
+		adaptive stack carries — a scroller holding one stack of many focusables is
+		a container, not a run. ]]
+	it("ADAPT-24: a horizontal ScrollView is a HORIZONTAL run, and a vertical one is not", function()
+		local Facet = require("../src") :: any
+		local fake_target = require("./lib/fake_target")
+		local focus_map = require("../src/present/focus_map")
+		local function railGroups(axis: string): { any }
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+			local cards: { any } = {}
+			for index = 1, 4 do
+				table.insert(
+					cards,
+					Facet.UI.Button({
+						id = `Card{index}`,
+						label = `Card {index}`,
+						width = { type = "fixed", px = 120 },
+						height = { type = "fixed", px = 90 },
+					})
+				)
+			end
+			local handle = pres.present(Facet.UI.Screen({
+				id = "S",
+				children = { Facet.UI.ScrollView({ id = "Rail", axis = axis, children = cards }) },
+			}))
+			pres.refresh()
+			return focus_map.autoGroups(handle.root.node)
+		end
+		local across = railGroups("x")
+		expect(#across).toBe(1)
+		expect(across[1].axis).toBe("horizontal")
+		expect(across[1].order[1]).toBe("/S/Rail/Card1")
+		expect(across[1].order[4]).toBe("/S/Rail/Card4")
+		-- the null hypothesis: a y-axis scroller is untouched, still vertical
+		local down = railGroups("y")
+		expect(#down).toBe(1)
+		expect(down[1].axis).toBe("vertical")
+	end)
+
+	it("ADAPT-24: ...but a scroller holding ONE stack of focusables is not a run", function()
+		local Facet = require("../src") :: any
+		local fake_target = require("./lib/fake_target")
+		local focus_map = require("../src/present/focus_map")
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local handle = pres.present(Facet.UI.Screen({
+			id = "S",
+			children = {
+				Facet.UI.ScrollView({
+					id = "Rail",
+					axis = "x",
+					children = {
+						Facet.UI.VStack({
+							id = "Column",
+							children = {
+								Facet.UI.Button({ id = "A", label = "A" }),
+								Facet.UI.Button({ id = "B", label = "B" }),
+							},
+						}),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		local groups = focus_map.autoGroups(handle.root.node)
+		expect(#groups).toBe(1)
+		-- the stack's own children are the run; the scroller is a container
+		expect(groups[1].axis).toBe("vertical")
+	end)
+
 	it("flat scopes keep the legacy ring semantics (navigate ±1, all wrap)", function()
 		local graph = newGraph()
 		graph.pushScope({ name = "flat", trap = false, order = { "/F/A", "/F/B" } })
