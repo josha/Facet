@@ -980,6 +980,38 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ NOT A CONTROL: `controls/table_disclosure.luau` is the route back to a
+			column the table COLLAPSED (ADAPT-18). It builds the plate's facts and its
+			content and hands both to `src/region_expand.luau`, which is the framework's
+			ONE disclosure presentation — the anchored panel, the sheet fallback and
+			all four dismissals are that file's, not this one's. It has a row here for
+			the same reason `TableColumns` and `TableRows` do: `check_registration`
+			walks `src/controls/` and a module with no row is a module nothing knows
+			about.
+
+			ITS FOUR-INPUT AND PARADIGM STORIES ARE `newTable`'s ROW, and they are
+			proven there: the chip is a Table focus stop with a 44px band, A/Return
+			open the plate, B and the plate's own Close leave it, and an outside tap
+			dismisses — `tests/table_input.spec.luau`'s ADAPT-18 family drives every
+			one through the real input seams, and `tests/overflow_sweep.spec.luau`
+			sweeps "a collapsed column with no route" across every shipped surface at
+			every viewport, text preference and package. ]]
+		name = "TableDisclosure",
+		kind = "composite",
+		module = "src/controls/table_disclosure.luau",
+		export = "Controls.Table",
+		spec = "tests/table_input.spec.luau",
+		conformance = "tests/table_input.spec.luau",
+		docsAnchor = "newTable",
+		-- NO INSTANCE: it returns `region_expand`'s engine, whose open/closed state
+		-- is on `newTable`'s own dump as `columnPlate` — which is where a report
+		-- reads it, beside the `hiddenColumns` that explain why it exists.
+		dump = false,
+		reason = "returns region_expand's engine and holds nothing else: newTable's dump carries the state (hiddenColumns + columnPlate), and the plate's own teardown count is region_expand's",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- `Facet.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
 		-- renders nothing and has no input surface — it is a one-slot registry of
 		-- "which row is currently open on this list surface", talking to rows only

@@ -69,6 +69,24 @@ export type Config = {
 	sheetOf: () -> any,
 	-- an authored handler REPLACES both presentations (`expand = function`)
 	handler: (() -> ())?,
+	--[[ WHERE THE FACTS COME FROM, when they are not the composition's (wave
+		TABLE, 2026-08-18). Everything below this line — the anchored plate, the
+		sheet fallback, the four dismissal routes, the toggle-on-second-press, the
+		epoch check and the teardown count — is about a DISCLOSURE, not about
+		`UI.Composition`. The only composition-specific thing in this file was
+		`facts()`, which reads the region's row out of the last resolution dump.
+
+		`newTable`'s column collapse is the second disclosure in the framework and
+		it is not a region at all: the facts are "are any columns collapsed", and
+		the plate's width is the table's own measured content width. Handing them in
+		is what let that feature reuse this whole file rather than grow a second
+		overlay beside it — which is the standing rule ("do not build a second
+		overlay system"), and it cost six lines.
+
+		Absent, the composition read below is used, byte-identical for every
+		`UI.Region`. The argument is the anchor path this engine is currently
+		tracking, so a caller keyed by path needs no state of its own. ]]
+	factsOf: ((anchorPath: string?) -> Facts?)?,
 }
 
 local function parentPath(path: string): string?
@@ -106,6 +124,11 @@ function region_expand.new(config: Config)
 		"is this stepped down" — that is the composition's ruling and there is
 		exactly one of it. ]]
 	local function facts(): Facts?
+		-- a caller that owns its own facts answers first, and never consults the
+		-- composition dump at all (see `Config.factsOf`)
+		if config.factsOf ~= nil then
+			return (config.factsOf :: any)(regionPath)
+		end
 		if controller == nil or controller.compositionAt == nil or regionPath == nil then
 			return nil
 		end

@@ -2099,3 +2099,356 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		expect(w.groupFor("r1").order).toEqual({ wrappedHit("r1") })
 	end)
 end)
+
+-- =============================================================================
+-- ADAPT-18 · COLUMN PRIORITY-COLLAPSE, and the disclosure that keeps it honest
+--
+-- THE DIRECTOR'S OWN DEVICE CASE is the first one below, verbatim from the DIR-4
+-- report that produced the resize clamp: resize Name and Artist wide in
+-- landscape, rotate to portrait — and Rating, which used to be PUSHED OFF SCREEN
+-- while the header went on claiming it was 96px wide, now COLLAPSES, says so, and
+-- comes back on the way home.
+--
+-- Every case here drives the real seams: a rotation is an `env` write, a tap is
+-- an adapter pointer, a pad is `system.deviceKey`. No `tbl.api.*` call decides an
+-- assertion.
+-- =============================================================================
+describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", function()
+	local CHIP = "/S/T/Main/MoreWhen/then/MoreBar/MoreChip"
+	local function head(id: string): string
+		return `/S/T/Main/Header/Head-{id}`
+	end
+	local function cell(key: string, id: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/Row/Cells/Cell-{id}`
+	end
+
+	local function collapseWorld(opts: any?)
+		local options = opts or {}
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 500 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local pres = Facet.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local sortOrder = core:signal(nil :: any)
+		local tbl = table_control.build(Facet, core, {
+			id = "T",
+			rows = core:signal(bigRows(3)),
+			key = function(r: any)
+				return r.id
+			end,
+			columns = options.columns or {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					minWidth = 200,
+					value = function(r: any)
+						return r.name
+					end,
+				},
+				{
+					id = "artist",
+					title = "Artist",
+					width = { type = "fill", weight = 1 },
+					minWidth = 160,
+					value = function(r: any)
+						return `Artist {r.laps}`
+					end,
+				},
+				{
+					id = "rating",
+					title = "Rating",
+					width = { type = "fixed", px = 96 },
+					value = function(r: any)
+						return tostring(r.laps)
+					end,
+				},
+			},
+			selection = "single",
+			rowHeight = 40,
+			sortOrder = sortOrder,
+			env = env,
+		})
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = { core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl }
+		w.handle = handle
+		w.sortOrder = sortOrder
+		function w.settle(frames: number?)
+			for _ = 1, frames or 6 do
+				clock.t += 1 / 60
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.resize(width: number, height: number)
+			env:set("viewportRect", { x = 0, y = 0, w = width, h = height })
+			w.settle()
+		end
+		function w.press(key: string)
+			system.deviceKey(key, true)
+			system.deviceKey(key, false)
+			w.settle(2)
+		end
+		function w.groupNames(): { string }
+			local out: { string } = {}
+			for _, group in handle.focusOrder().navigation do
+				table.insert(out, group.name)
+			end
+			return out
+		end
+		w.settle()
+		return w
+	end
+
+	-- a node is "on screen" when it has a real box inside the viewport; the defect
+	-- this feature replaces is a column whose box was fine and whose PIXELS were
+	-- 250px past the right edge
+	local function paintsWithin(w: any, path: string, viewportW: number): boolean
+		local node = w.adapter.node(path)
+		if node == nil or node.rect == nil then
+			return false
+		end
+		return node.rect.w > 0 and node.rect.x + node.rect.w <= viewportW + 0.5
+	end
+
+	it("THE DIRECTOR'S CASE: landscape holds three columns; portrait collapses Rating and says so", function()
+		local w = collapseWorld()
+		-- LANDSCAPE: all three stand, nothing is disclosed, and the band has no chip
+		expect(w.adapter.node(head("rating")).rect.w > 0).toBe(true)
+		expect(w.adapter.node(CHIP)).toBeNil()
+		expect(w.tbl.dump().hiddenColumns).toEqual({})
+
+		-- THE ROTATION: 900x500 landscape becomes a 393x800 portrait phone
+		w.resize(393, 800)
+		-- Rating is COLLAPSED — not pushed off screen, which is the defect
+		expect(w.tbl.dump().hiddenColumns).toEqual({ "rating" })
+		expect(w.adapter.node(head("rating")).rect.w).toBe(0)
+		expect(w.adapter.node(cell("r1", "rating")).rect.w).toBe(0)
+		-- ...and the two that stayed are ON SCREEN, at their declared floors
+		expect(paintsWithin(w, head("name"), 393)).toBe(true)
+		expect(paintsWithin(w, head("artist"), 393)).toBe(true)
+		expect(w.adapter.node(cell("r1", "name")).rect.w >= 200).toBe(true)
+
+		--[[ ...AND THE CELL IS HIDDEN, NOT MERELY NARROW. A zero-width box alone
+			would leave the collapsed value painting at the row's origin, still in the
+			focus order and still taking taps — which is the whole reason this is
+			spent as `hidden` rather than as a dim. The adapter records what the
+			renderer actually wrote, so this reads the engine's answer rather than
+			the blueprint's intent. ]]
+		expect(w.adapter.visibleOf(cell("r1", "rating"))).toBe(false)
+		expect(w.adapter.visibleOf(cell("r1", "name"))).never().toBe(false)
+		expect(w.adapter.visibleOf(head("rating"))).toBe(false)
+
+		-- THE DISCLOSURE IS PRESENT AND SAYS HOW MANY
+		local chip = w.adapter.node(CHIP)
+		expect(chip).never().toBeNil()
+		expect(chip.props.label).toBe("1 more")
+
+		-- WIDEN: it comes back, and the chip goes
+		w.resize(900, 500)
+		expect(w.tbl.dump().hiddenColumns).toEqual({})
+		expect(w.adapter.node(head("rating")).rect.w > 0).toBe(true)
+		expect(w.adapter.visibleOf(cell("r1", "rating"))).never().toBe(false)
+		expect(w.adapter.node(CHIP)).toBeNil()
+	end)
+
+	it("the collapse costs no selection and no focus — it is a hide, not a remount", function()
+		--[[ The property that made `hidden` the right primitive rather than
+			`UI.When`. A rotation on a phone is not a rare event, and a paradigm that
+			dropped the player's selection every time the device turned would be a
+			worse defect than the one it fixes. ]]
+		local w = collapseWorld()
+		w.pres.focus.focusOn(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)
+		w.settle()
+		w.tbl.api.select("r2", { mode = "replace" })
+		w.settle()
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+
+		w.resize(393, 800)
+		expect(w.tbl.dump().hiddenColumns).toEqual({ "rating" })
+		-- the selection and the ring are exactly where they were
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.pres.focus.focused:get()).toBe(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)
+		-- ...and the row was never rebuilt: its key still carries version 0
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)).never().toBeNil()
+
+		w.resize(900, 500)
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+	end)
+
+	it("a collapsed column leaves the focus ring and stops taking taps, subtree and all", function()
+		local w = collapseWorld({
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					minWidth = 200,
+					value = function(r: any)
+						return r.name
+					end,
+				},
+				{
+					id = "rating",
+					title = "Rating",
+					width = { type = "fixed", px = 120 },
+					minWidth = 120,
+					resizable = true,
+					value = function(r: any)
+						return tostring(r.laps)
+					end,
+				},
+			},
+		})
+		-- WIDE: the rating heading is a focus stop and a resize target
+		expect(w.handle.focusOrder().navigation[1].order).toEqual({
+			`{head("name")}/Column`,
+			`{head("rating")}/Column`,
+		})
+
+		w.resize(280, 800)
+		expect(w.tbl.dump().hiddenColumns).toEqual({ "rating" })
+		--[[ J-9: "focus never lands where the player cannot see". The audit measured
+			four DPadRight presses landing the ring on a column at x=640..720 on a
+			390px viewport, `focusVisible = true`, with nothing able to scroll it into
+			view. A hidden subtree leaves the ring, so there is nowhere for it to land. ]]
+		expect(w.handle.focusOrder().navigation[1].order).toEqual({ `{head("name")}/Column` })
+		-- ...and its resize grip's 44px hit expander goes with it, rather than
+		-- staying as a dead band on a column nobody can see
+		expect(w.tbl.api.adjustTargets(w.handle.root)[`{head("rating")}/Column`]).toBeNil()
+	end)
+
+	it("the disclosure chip is a focus stop of its own, and a PAD opens the plate", function()
+		local w = collapseWorld()
+		w.resize(393, 800)
+		-- its own group, between the headings and the rows
+		local names = w.groupNames()
+		expect(table.find(names, "columns-more") ~= nil).toBe(true)
+		expect(table.find(names, "columns-more") > table.find(names, "headers")).toBe(true)
+
+		w.pres.focus.focusOn(CHIP)
+		w.settle()
+		expect(w.pres.focus.focused:get()).toBe(CHIP)
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+
+		-- A OPENS
+		w.press("ButtonA")
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+		-- the plate lists the collapsed column, and every mounted row's value for it
+		local plateRow = `Row-rating-r2`
+		local found = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, plateRow, 1, true) ~= nil then
+				found = true
+			end
+		end
+		expect(found).toBe(true)
+
+		-- B CLOSES, and the ring comes back to the affordance that opened it
+		w.press("ButtonB")
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+		expect(w.pres.focus.focused:get()).toBe(CHIP)
+	end)
+
+	it("a TOUCH tap opens it, and a second tap closes it — the trap a disclosure must not become", function()
+		local w = collapseWorld()
+		w.resize(393, 800)
+		local chip = w.adapter.node(CHIP)
+		expect(chip).never().toBeNil()
+		--[[ THE 44px BAND, on the node a finger actually presses. The chip declares
+			a `minMax` FLOOR at the theme's own target minimum rather than a fixed
+			height, so this reads the box the player gets rather than the token the
+			author wrote. ]]
+		expect(chip.rect.h >= 44).toBe(true)
+		--[[ `touchTap`, not `tap`: the honest three-step order (InputBegan,
+			InputEnded, THEN Activated with a real `{ source = "pointer", pointer =
+			"touch" }`), which is the driver that can see a defect living in the order
+			or in the meta. ]]
+		w.adapter.touchTap(CHIP)
+		w.settle()
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+		-- a second press on the SAME affordance closes it: an affordance that opens
+		-- and then does nothing is how a disclosure becomes a trap on touch
+		w.adapter.touchTap(CHIP)
+		w.settle()
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+	end)
+
+	it("a MOUSE click opens it too, with the pointer meta a click actually carries", function()
+		local w = collapseWorld()
+		w.resize(393, 800)
+		expect(w.adapter.node(CHIP)).never().toBeNil()
+		w.adapter.tap(CHIP, { source = "pointer", pointer = "mouse" })
+		w.settle()
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+	end)
+
+	it("a KEYBOARD Return opens it, and the plate's own Close is the way out", function()
+		local w = collapseWorld()
+		w.resize(393, 800)
+		w.pres.focus.focusOn(CHIP)
+		w.settle()
+		w.press("Return")
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+		--[[ Escape is permanently the engine's (ADR-0013 justified exception), so a
+			modal's own close affordance IS the keyboard route out — the identical
+			affordance and the identical reason as `UI.Region`'s plate. ]]
+		local closePath: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/PlateClose", 1, true) ~= nil then
+				closePath = path
+			end
+		end
+		expect(closePath).never().toBeNil()
+		w.pres.focus.focusOn(closePath :: string)
+		w.settle()
+		w.press("Return")
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+	end)
+
+	it("a collapsed column's SORT is still selectable, from the plate", function()
+		local w = collapseWorld()
+		w.resize(393, 800)
+		expect(w.sortOrder:get()).toBeNil()
+		w.pres.focus.focusOn(CHIP)
+		w.settle()
+		w.press("Return")
+		local sortPath: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Sort-rating", 1, true) ~= nil then
+				sortPath = path
+			end
+		end
+		expect(sortPath).never().toBeNil()
+		w.pres.focus.focusOn(sortPath :: string)
+		w.settle()
+		w.press("Return")
+		-- the same `cycleSort` the heading would have called, on a column whose
+		-- heading is not on the screen
+		expect((w.sortOrder:get() or {}).column).toBe("rating")
+		expect((w.sortOrder:get() or {}).ascending).toBe(true)
+	end)
+
+	it("the plate closes by itself when the columns come back", function()
+		--[[ `region_expand`'s epoch check, doing the job it was written for: the
+			plate is anchored to the chip, and widening the table unmounts the chip.
+			A disclosure left standing over a table that is no longer disclosing
+			anything is the "plate pointing at a box that moved" case its own header
+			names. ]]
+		local w = collapseWorld()
+		w.resize(393, 800)
+		w.pres.focus.focusOn(CHIP)
+		w.settle()
+		w.press("Return")
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+		w.resize(900, 500)
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+	end)
+end)

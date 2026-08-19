@@ -4282,10 +4282,57 @@ implementation.
 `dump()` is the deterministic diagnostic summary, and it carries the live
 interaction state a bug report actually needs, not only the construction:
 `{ schema, id, columns, rowCount, selection, sortOrder, selectedKeys (sorted),
-grabbedKey, editing, scrollTop, dragging, reorderable, rootPath }`.
+grabbedKey, editing, scrollTop, dragging, reorderable, rootPath }`, plus
+`hiddenColumns` and `columnPlate` on a table that can collapse a column (see
+**Column priority-collapse** below).
 
 A column's `alignment` applies to its **header title** as well as its cells, so a
 numeric column's heading sits over its numbers rather than left of them.
+
+**`minWidth` is a floor on every dim kind, `fill` included.** It used to be spent
+only on a committed resize override and on a `percent` band — a `fill` column,
+which is the kind a responsive table uses for nearly every column, was divided
+strictly by weight and honoured no minimum at all, so a declared 120px could
+resolve to 73px with the cell text quietly ellipsizing. The table now pins any
+`fill` column whose share would fall under its floor and re-divides the rest
+among the others, which is the ordinary flex-with-minimum negotiation. A
+`content`/`hug` column's appetite is a measurement and is deliberately not part
+of it: those columns consume nothing in this arithmetic and the fills go on
+dividing what is left.
+
+**Column priority-collapse — `priority`.** When the visible columns cannot all
+meet their own floors, the table drops the lowest-priority column WHOLE instead
+of squeezing every column past its minimum, one at a time until the remainder
+fits.
+
+| field | type | meaning |
+|---|---|---|
+| `priority` | `number?` | `1` is the most important. Absent, a column's priority **is its declaration order**, so a table that never sets this collapses right-to-left — the ordering the author already wrote down. |
+| `priority` | `"always"` | a refusal, not a very high number: this column never collapses at any width. |
+
+Two more rules, neither of them a priority: **the first declared column never
+collapses** (it is the row's identity, and it is what the disclosure names each
+hidden value against), and **collapse only ever triggers where a floor was
+declared** — a table whose columns declare no `minWidth`, no `fixed` width and no
+`percent` has a demand of zero, and zero always fits, so nothing about it moves.
+
+A collapsed column keeps its node at zero width and takes the framework's own
+space-reserving hide (`hidden`): it leaves paint, focus order and hit-testing
+together with its whole subtree, including a resize grip's 44px hit expander. It
+is deliberately **not** a `UI.When` — nothing remounts, so a collapse and its
+reversal on the next rotation cost no selection, no focus ring and no live
+in-cell control, and the row/header path grammar is unchanged.
+
+**The disclosure.** The moment anything is collapsed the table grows one band
+carrying an `N more` chip: its own focus stop, a 44px band, and a plate listing
+each collapsed column with the value every mounted row has for it — identified by
+the first column, which is why the first column never goes. A collapsed column's
+**sort** is still selectable from that plate. The plate is
+`src/region_expand.luau`'s, whole — the same anchored panel, sheet fallback and
+four dismissal routes `UI.Region`'s own disclosure uses (outside tap, gamepad B,
+the panel's own Close for the keyboard, and the epoch check when the anchor moves
+or goes). `api.hiddenColumns` is a `Readable<{ string }>` of the collapsed ids in
+declaration order, for a screen that wants to say so in its own chrome.
 
 **`rowSelectable(item)` / `rowMovable(item)` / `rowDeletable(item)` — per-row
 capability opt-outs.** The same three predicates `newVirtualList` takes, from the

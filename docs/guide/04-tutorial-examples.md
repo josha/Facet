@@ -313,6 +313,44 @@ one; otherwise it falls through to a mounted control's contribution (here the
 Table, for row selection and header behavior) — so the star effect and the
 table's own behavior coexist with no consumer routing.
 
+### When the table is too narrow for its columns
+
+A phone in portrait is not a desktop with fewer pixels — a five-column table
+crammed into 393pt is five columns of nothing. So a Facet table that cannot fit
+every column's declared floor **collapses the lowest-priority column whole**
+rather than squeezing all of them past their minimums, and then says so.
+
+Two declarations decide it, and both are optional:
+
+```lua
+{ id = "name",   width = { type = "fill", weight = 3 }, minWidth = 90 },
+{ id = "artist", width = { type = "fill", weight = 2 }, minWidth = 72 },
+{ id = "rating", width = { type = "fixed", px = 144 } },
+```
+
+* **`minWidth` is the trigger.** It is now a floor on every dim kind, `fill`
+  included — before, a `fill` column was divided strictly by weight and a
+  declared minimum bought nothing. A table whose columns declare no floor at all
+  never collapses anything, because its demand is zero and zero always fits.
+* **`priority` is the order.** `priority = 1` is the most important; absent, a
+  column's priority is its declaration order, so the playlist above drops Rating
+  first because Rating is written last. `priority = "always"` is a refusal — this
+  column never goes, at any width. The **first** column never goes either: it is
+  the row's identity, and it is what the disclosure names each hidden value
+  against.
+
+Nothing is lost when a column collapses. The table grows an `N more` chip — its
+own focus stop, a 44px thumb band — whose plate lists each hidden column and
+every visible row's value for it, and a collapsed column's **sort** is still
+selectable from there. Widen the window and the column comes straight back: the
+collapse is a hide rather than a rebuild, so it costs no selection, no focus and
+no live control inside a cell.
+
+The playlist demonstrates all of it at 320x640: Rating collapses, the two text
+columns go from 30px and 14px of readable text to 66px each, and the width
+readout above the table changes from `Rating locked` to `Rating hidden ·
+1 hidden`. `api.hiddenColumns` is the Readable that line reads.
+
 ### Drag & drop
 
 Row reordering is built into the Table: `reorderable = true` plus an

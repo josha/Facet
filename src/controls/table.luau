@@ -61,6 +61,10 @@ local table_columns = require("./table_columns")
 -- on it, behind the parameter object that makes it one-way (its own header,
 -- and the SOURCE_CAP_LEDGER row that made this extraction a precondition)
 local table_rows = require("./table_rows")
+-- the hidden-column disclosure (ADAPT-18): the facts, the list and the sheet,
+-- over `src/region_expand.luau`'s own plate — one overlay system, one set of
+-- dismissals, one epoch check
+local table_disclosure = require("./table_disclosure")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -128,6 +132,19 @@ export type Column = {
 	-- column carrying `disclose = true` passes the declaration to both; a
 	-- custom `cell` blueprint declares it on its own Text instead.
 	disclose: boolean?,
+	--[[ WHICH COLUMN GOES FIRST WHEN THE TABLE IS TOO NARROW FOR ALL OF THEM
+		(ADAPT-18). `1` is the most important. Absent, a column's priority IS its
+		declaration order, so an author who never sets this gets the ordering they
+		already wrote; `"always"` is the opt-out for a column that must stand at
+		any width. The FIRST declared column never collapses either way — it is the
+		row's identity, and it is what the disclosure names each hidden value
+		against.
+
+		Collapse triggers only where a floor was declared (`minWidth`, a `fixed`
+		width, a `percent`), so a table whose columns declare none never collapses
+		anything. The whole rule, and why it is a hide rather than an unmount, is
+		`controls/table_columns.luau`'s COLUMN PRIORITY-COLLAPSE note. ]]
+	priority: (number | "always")?,
 }
 
 -- the column boundary's closed key set (§4 — refused, never swallowed);
@@ -270,6 +287,7 @@ local COLUMN_KEYS = specGuard.keySet({
 	"value",
 	"sortable",
 	"disclose",
+	"priority",
 })
 
 local TABLE_KEYS = specGuard.keySet({
@@ -1147,6 +1165,18 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			column.disclose == nil or type(column.disclose) == "boolean",
 			`Table '{tableId}': column '{tostring(column.id)}'.disclose expects boolean, got {typeof(column.disclose)}`
 		)
+		--[[ A CLOSED GRAMMAR, NOT A NUMBER-OR-ANYTHING (§4). `priority` has exactly
+			two legal shapes and a typo in either is an authoring mistake that would
+			otherwise degrade silently: a string that is not `"always"` would compare
+			as no priority at all and collapse the column in declaration order, which
+			is the opposite of what somebody writing `priority = "high"` means. ]]
+		assert(
+			column.priority == nil
+				or column.priority == "always"
+				or (type(column.priority) == "number" and column.priority == column.priority),
+			`Table '{tableId}': column '{tostring(column.id)}'.priority expects a number (1 = most important) `
+				.. `or "always" (never collapses), got {tostring(column.priority)}`
+		)
 		-- column ids become path segments (Cell-{id}, Head-{id}) — a "/" would
 		-- corrupt path routing everywhere downstream
 		assert(
@@ -1173,34 +1203,22 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- Nil means "no measurement yet, do not clamp".
 	local availableContentWidth = scope:own(core:signal(nil :: number?))
 	-- what the columns do NOT get: the row's own gap and card padding (NEW-3).
-	-- The rule is `table_columns.reserved`; the padding is theme metric NAMES
-	-- until a snapshot resolves it, so that half is resolved here, per solve.
-	local cellsReserved = scope:own(core:memo(function(use): number
+	-- The padding is theme metric NAMES until a snapshot resolves it, and a pure
+	-- rule cannot resolve them — so that half is resolved here, per solve, and
+	-- `table_columns.layout` takes the answer.
+	local cellSides = scope:own(core:memo(function(use): any
 		local env = spec.env
 		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-		return table_columns.reserved(spec.gap, #columns, themeSnapshot.resolveSides(snap, use(cellsEditPadding)))
+		return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
 	end))
-	local function fittedOverrides(
-		overrides: { [string]: number },
-		available: number?,
-		reserved: number?
-	): { [string]: number }
-		return table_columns.fitOverrides(columns, overrides, available, reserved)
-	end
-
-	local function resolveDim(column: Column, overrides: { [string]: number }): any
-		local override = overrides[column.id]
-		if override ~= nil then
-			return { type = "fixed", px = math.max(override, column.minWidth or 24) }
-		end
-		local dim = column.width
-		if dim.type == "percent" and column.minWidth then
-			local clone = table.clone(dim)
-			clone.min = column.minWidth
-			return clone
-		end
-		return dim
-	end
+	--[[ THE WHOLE BAND'S DIVISION, DECIDED ONCE (DIR-4's own principle, one rule
+		further on). `table_columns.layout` answers for EVERY column in one pass,
+		because a floor is a claim on a shared pool: a per-column `resolveDim` could
+		clamp an override but could never know whether the fill beside it had already
+		taken the room. ADAPT-19 is that gap — see the rule's own header. ]]
+	local columnLayout = scope:own(core:memo(function(use)
+		return table_columns.layout(columns, use(widthOverrides), use(availableContentWidth), spec.gap, use(cellSides))
+	end))
 
 	-- ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS (DIR-4): a
 	-- rotation must not remount every row, and the two halves must never divide
@@ -1210,13 +1228,97 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local function columnDim(column: Column): any
 		if columnDims[column.id] == nil then
 			columnDims[column.id] = scope:own(core:memo(function(use)
-				return resolveDim(
-					column,
-					fittedOverrides(use(widthOverrides), use(availableContentWidth), use(cellsReserved))
-				)
+				return (use(columnLayout) :: any).dims[column.id]
 			end))
 		end
 		return columnDims[column.id]
+	end
+	--[[ IS THIS COLUMN COLLAPSED (ADAPT-18) — and the answer is spent as `hidden`,
+		the framework's own SPACE-RESERVING HIDE, on the header cell and on every
+		row's cell for that column.
+
+		WHY `hidden` AND NOT `UI.When`. `When` removes the node, which is the right
+		primitive when the space should close up — and it is the wrong one here for
+		three separate reasons, each measured rather than assumed:
+
+		  · IT WOULD REMOUNT. A `When` flipping false destroys its subtree, so a
+		    collapse would drop the selection, the focus ring and any live control a
+		    consumer put in a cell — and a collapse that reverses on the next
+		    rotation would do it twice. `hidden` keeps the node, so the round trip
+		    costs nothing at all.
+		  · IT WOULD MOVE EVERY PATH. `When` mounts under `<id>/then/…`, so wrapping
+		    a header cell or a row cell would rewrite the path grammar that ~75
+		    assertions in this repository and one in the shipped game are written
+		    against. The feature is not worth the vocabulary.
+		  · `hidden` ALREADY DOES THE THREE THINGS COLLAPSE NEEDS, together and
+		    through one verdict: it leaves paint, it leaves focus order, and it stops
+		    taking taps, WITH ITS WHOLE SUBTREE (`blueprint_schema.luau`'s own note —
+		    one hidden verdict, one visibility walk, one hit-rect walk, one
+		    `hiddenRoots` the focus map filters on). That last clause is what removes
+		    the collapsed column's resize grip and its 44px hit expander, which a
+		    zero-width node alone would have left sitting there as a dead band.
+
+		The dim goes to zero in the same pass (`table_columns.layout`), so the
+		reserved box is a zero-width box and the surviving columns divide the whole
+		width. ]]
+	local columnHiddens: { [string]: any } = {}
+	local function columnHidden(column: Column): any
+		if columnHiddens[column.id] == nil then
+			columnHiddens[column.id] = scope:own(core:memo(function(use)
+				return (use(columnLayout) :: any).hiddenSet[column.id] == true
+			end))
+		end
+		return columnHiddens[column.id]
+	end
+	-- the collapsed ids in declaration order, and the count the chip says out loud
+	local hiddenColumns = scope:own(core:memo(function(use)
+		return (use(columnLayout) :: any).hidden
+	end, function(a: any, b: any): boolean
+		if a == nil or b == nil or #a ~= #b then
+			return false
+		end
+		for i = 1, #a do
+			if a[i] ~= b[i] then
+				return false
+			end
+		end
+		return true
+	end))
+	local anyColumnHidden = scope:own(core:memo(function(use)
+		return #(use(hiddenColumns) :: { string }) > 0
+	end))
+	local moreLabel = scope:own(core:memo(function(use)
+		return `{#(use(hiddenColumns) :: { string })} more`
+	end))
+	--[[ CAN THIS TABLE EVER COLLAPSE A COLUMN? Decided ONCE, at build, from the
+		declaration — so a table that cannot does not mount the disclosure band's
+		`When` at all, and pays literally nothing for the feature existing (the same
+		construction-only accounting `virtualized` uses two hundred lines above).
+
+		BOTH HALVES ARE REQUIRED and neither is enough alone: there has to be a
+		column that MAY go (not the first, not pinned `"always"`), and there has to
+		be a declared FLOOR somewhere for the demand to ever exceed the room. A
+		table of pure `fill` columns with no `minWidth` squeezes forever and never
+		reaches the rule at all. ]]
+	local canDiscloseColumns = (function(): boolean
+		local removable, floored = false, false
+		for index, column in columns do
+			if index > 1 and column.priority ~= "always" then
+				removable = true
+			end
+			local dim: any = column.width
+			if
+				column.minWidth ~= nil
+				or (type(dim) == "table" and (dim.type == "fixed" or dim.type == "percent" or dim.min ~= nil))
+			then
+				floored = true
+			end
+		end
+		return removable and floored
+	end)()
+	local columnById: { [string]: Column } = {}
+	for _, column in columns do
+		columnById[column.id] = column
 	end
 	local headerDim = columnDim
 
@@ -1477,7 +1579,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		drag geometry, the per-key selected memo). None of it is a private of this
 		closure the builder could have read for itself, which is what makes the
 		require one-directional: `table_rows` names `table.luau` nowhere. ]]
-	local rowBlueprint = table_rows.new({
+	local rowBuilder = table_rows.new({
 		Facet = Facet,
 		core = core,
 		UI = UI,
@@ -1506,13 +1608,15 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		rowHeightOf = rowHeightOf,
 		capFor = capFor,
 		columnDim = columnDim,
+		columnHidden = columnHidden,
 		selectedMemo = selectedMemo,
 		itemForKey = itemForKey,
 		applyDragPosition = applyDragPosition,
 		clearPointerDrag = clearPointerDrag,
 		liveDragRects = liveDragRects,
 		cancelDrag = cancelDrag,
-	}).blueprint
+	})
+	local rowBlueprint = rowBuilder.blueprint
 	--[[ A PRESS THE DIVIDER DID NOT TURN INTO A DRAG GOES TO THE HEADER UNDERNEATH
 		(director ruling 2026-08-14, option 1 of the four in
 		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
@@ -1809,6 +1913,9 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				UI.ZStack({
 					id = `Head-{column.id}`,
 					width = headerDim(column),
+					-- ADAPT-18: a collapsed column's heading leaves paint, focus and
+					-- hit-testing together, subtree and all (see `columnHidden`)
+					hidden = columnHidden(column),
 					-- A FLOOR, NOT A CAP (director 2026-08-06: "the edit button
 					-- overlaps the heading at largest text"; and the standing ask,
 					-- "if height is the issue why can't we make the whole table have
@@ -1857,6 +1964,57 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				-- body reserves the bar only while its rows overflow.
 				padding = headerPadding,
 				children = headerCells,
+			})
+		)
+	end
+	--[[ ── THE DISCLOSURE BAND (ADAPT-18) — "N more", and no dead ends ───────────
+		A column that collapsed took its values off the screen with it, and the
+		standing rule is that the framework then owes the reader a route back to
+		them. So the moment anything is collapsed the table grows one band carrying
+		one chip, and the chip opens the plate that lists what went.
+
+		A BAND OF ITS OWN, RATHER THAN A TRAILING HEADER CELL, for one reason worth
+		stating: a `header = false` table collapses exactly like a headered one (the
+		racer list and every borderless list in this repository are headerless), and
+		a chip that lived inside the header band would have left those tables with a
+		disclosure that could not mount. One shape, both tables.
+
+		IT COSTS NOTHING WHEN NOTHING IS HIDDEN. `UI.When` is the right primitive
+		HERE — where the space genuinely should close up and there is no state to
+		lose — which is the exact opposite of the collapsed CELLS beside it, and the
+		two notes together are the whole of when to reach for which. ]]
+	if canDiscloseColumns then
+		table.insert(
+			children,
+			UI.When({
+				id = "MoreWhen",
+				condition = anyColumnHidden,
+				thenView = function()
+					return UI.HStack({
+						id = "MoreBar",
+						width = { type = "fill", weight = 1 },
+						-- the same content edge the headings and the cells sit on
+						padding = bandPadding,
+						children = {
+							UI.Spacer({}),
+							UI.Button({
+								id = "MoreChip",
+								label = moreLabel,
+								surface = "chip",
+								textSize = "caption",
+								focusable = true,
+								--[[ A 44px BAND, DECLARED AS A FLOOR (`minMax`, never
+									`fixed`): the chip has to clear the target floor on a
+									thumb, and it has to be free to grow past it for a theme
+									whose chip art carries its own insets — the same
+									floor-not-cage ruling the Edit toggle beside it records.
+									The renderer's own `minHitSize` expander guarantees the
+									44 even where a package draws smaller. ]]
+								height = { type = "minMax", min = "targetSizes.minimum" },
+							}),
+						},
+					})
+				end,
 			})
 		)
 	end
@@ -2394,7 +2552,40 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		spec.sortOrder:set({ column = columnId, ascending = ascending })
 	end
 
+	--[[ THE HIDDEN-COLUMN DISCLOSURE is `controls/table_disclosure.luau` — the
+		facts the plate opens against, the list it shows, and the sheet it becomes.
+		The PLATE is `src/region_expand.luau`'s, whole: one overlay system, one set
+		of dismissals, one epoch check (the standing rule against building a second
+		one). Nil for a table that can never collapse a column, which then mounts no
+		band and holds no engine. ]]
+	local columnExpand = if canDiscloseColumns
+		then table_disclosure.new({
+			UI = UI,
+			tableId = tableId,
+			columns = columns,
+			columnById = columnById,
+			hiddenColumns = hiddenColumns,
+			windowedItems = windowedItems,
+			availableContentWidth = availableContentWidth,
+			viewportHeight = screenSeed,
+			keyOf = spec.key,
+			isSortable = isSortable,
+			cycleSort = cycleSort,
+			cellContent = rowBuilder.cellContent,
+		})
+		else nil
+	-- the chip's mounted path, for the anchor the plate opens against and for the
+	-- activate route below. One spelling, read by both.
+	local MORE_CHIP_SUFFIX = "/Main/MoreWhen/then/MoreBar/MoreChip"
+
 	function api.handleActivate(path: string, meta: any?): boolean
+		-- ADAPT-18: the disclosure chip opens (and, on a second press, closes) the
+		-- hidden-column plate. First, because it is neither a row nor a header and
+		-- its path can match no other rule below.
+		if columnExpand ~= nil and string.match(path, `/{tableIdPattern}{patternEscape(MORE_CHIP_SUFFIX)}$`) ~= nil then
+			columnExpand.open()
+			return true
+		end
 		-- the built-in Edit/Done toggle flips edit mode
 		if string.match(path, `/{tableIdPattern}/Main/ToggleWhen/then/Toolbar/EditToggle$`) ~= nil then
 			editingSignal:set(not editingSignal:get())
@@ -2738,6 +2929,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local rowsInOrder: { { key: string, order: { string } } } = {}
 		local rowByKey: { [string]: { key: string, order: { string } } } = {}
 		local togglePath: string? = nil
+		local chipPath: string? = nil
 		-- header nav paths per column (document/column order): the leading
 		-- horizontal "headers" group carries ONE stop per column — the column
 		-- handle. It used to carry two (the sort hit, then a 4px divider), which
@@ -2775,6 +2967,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local function walk(node: any)
 			if string.match(node.path or "", "/ToggleWhen/then/Toolbar/EditToggle$") ~= nil then
 				togglePath = node.path
+			end
+			-- ADAPT-18: the disclosure chip is a focus stop of its own, or the
+			-- collapsed columns are reachable by pointer only
+			if string.match(node.path or "", "/MoreWhen/then/MoreBar/MoreChip$") ~= nil then
+				chipPath = node.path
 			end
 			local headCol = string.match(node.path or "", "/Main/Header/Head%-(.-)/Column$")
 			if headCol ~= nil then
@@ -2837,6 +3034,16 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		end
 		if togglePath ~= nil then
 			table.insert(groups, { name = "toolbar", axis = "horizontal", entry = "first", order = { togglePath } })
+		end
+		--[[ ...AND THE DISCLOSURE CHIP, between the headings and the rows, which is
+			where it sits on screen. Its own group rather than a member of the header
+			ring: the header ring is one stop per COLUMN and Left/Right there acts on
+			columns, so splicing a chip into it would make the last Right off the
+			trailing heading land on something that is not a column. Down from the
+			headings reaches it and Down again reaches the rows, which is the reading
+			order. ]]
+		if chipPath ~= nil then
+			table.insert(groups, { name = "columns-more", axis = "horizontal", entry = "first", order = { chipPath } })
 		end
 		for _, entry in ordered do
 			table.insert(groups, {
@@ -3190,6 +3397,15 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		that needed it — it reads this Readable for its live width line — and
 		`docs/reference/api.md` §Table carries the contract. ]]
 	api.columnWidthOverrides = widthOverrides
+	--[[ THE COLLAPSED COLUMNS, AS A READABLE (ADAPT-18) — the same shape
+		`api.columnWidthOverrides`, `api.selectedColumn` and `api.grabbedKey` already
+		take, and for the same reason: a consumer that shows what the table is doing
+		needs to subscribe to it rather than poll. A collapse happens INSIDE the
+		control, on a measurement nobody handed it, and fires no callback — so
+		without this a screen's own census line could say "Rating locked" about a
+		column that is not on the screen at all. Declaration order, and empty for
+		every table that has collapsed nothing. ]]
+	api.hiddenColumns = hiddenColumns
 
 	-- the unbind a skipped subscription still owes its caller
 	local function NOOP() end
@@ -3323,6 +3539,13 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			scrollTop = scrollTop:get(),
 			dragging = dragging:get(),
 			reorderable = spec.reorderable == true,
+			--[[ ADAPT-18, and ONLY where the table can collapse at all — so every dump
+				this project has recorded is byte-identical (a nil field is an ABSENT
+				key, and `table.spec`'s determinism case compares the serialized dump).
+				What a bug report about a narrow table needs is which columns went and
+				whether the disclosure is standing. ]]
+			hiddenColumns = if canDiscloseColumns then hiddenColumns:get() else nil,
+			columnPlate = if columnExpand ~= nil then columnExpand.state() else nil,
 			rootPath = mountedRoot,
 			--[[ ONLY UNDER `virtualized`, so every dump this project has ever
 				recorded is byte-identical (a nil field is an ABSENT key, and
@@ -3449,6 +3672,16 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if root ~= nil then
 					mountedRoot = root
 					mirror.noticeMount(node, api.scrollPath())
+					--[[ ADAPT-18: the hidden-column plate's own epoch check, on the seam
+						it was designed for. It is handed the CHIP's path rather than a
+						node, because the chip is what the plate is anchored to and it is
+						the thing that goes when the last column comes back — at which
+						point `region_expand` reads a nil rect and closes, with no rule of
+						its own for "the columns un-collapsed". Two rect reads and no
+						writes while nothing is open. ]]
+					if columnExpand ~= nil then
+						columnExpand.sync(rectOf, { path = (root :: string) .. MORE_CHIP_SUFFIX })
+					end
 				end
 				if hasAlignedHeader and root ~= nil and renderController ~= nil then
 					local inset = renderController.scrollBarInsetOf(root .. "/Main/Body")
@@ -3477,6 +3710,14 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- the render controller: edge autoscroll has to steer a scroll host the
 			-- table may not own (a block table's page), and only the controller can
 			-- name it. Re-called on every structural sync; assignment is idempotent.
+			-- ADAPT-18: the hidden-column plate is presented by the PRESENTER, never
+			-- by a surface of this control's own — the same three functions
+			-- `UI.Region`'s plate takes, through the same seam
+			bindPresent = function(presentModal, dismiss, presentAnchored)
+				if columnExpand ~= nil then
+					columnExpand.contribution.bindPresent(presentModal, dismiss, presentAnchored)
+				end
+			end,
 			bindController = function(controller)
 				renderController = controller
 				-- ...and the scroll mirror's half of the same delivery (O-31): the
@@ -3508,6 +3749,12 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		api = api,
 		dump = dump,
 		dispose = function()
+			-- ADAPT-18: a table torn down with its column plate open would leave a
+			-- presented surface with nothing behind it (the same rule every other
+			-- presented affordance in this file follows)
+			if columnExpand ~= nil then
+				columnExpand.close()
+			end
 			-- Task 10: every row_actions instance is an INDEPENDENT
 			-- `core:scope()` root (see `rowActionsByKey`'s own comment) —
 			-- `scope:dispose()` below tears down everything Table itself

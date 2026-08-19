@@ -967,6 +967,10 @@ local UNSWEEPABLE: { [string]: string } = {
 	-- the RowActions row itself is swept and is the thing that mounts them.
 	TableColumns = "pure column-width arithmetic (the DIR-4 resize clamp) — no blueprint, nothing to mount or "
 		.. "measure. The columns it sizes are swept through the Table fixture, at every preference",
+	TableDisclosure = "the route back to a COLLAPSED column: it builds the plate's facts and content and hands "
+		.. "both to region_expand, which is the framework's one disclosure presentation. It mounts nothing on the "
+		.. "table itself — the `N more` chip is `newTable`'s own node and is swept through the Table fixture — and "
+		.. "the plate is a presented surface, which this sweep does not open",
 	TableRows = "the ROW half of Table (extracted 2026-08-18 for the same cap): it returns the very row blueprint "
 		.. "the Table fixture mounts — cells, hit, the edit-mode ≡ gutter and the row-actions wrap — so it is swept "
 		.. "THERE, at every preference and in both reference themes, rather than twice. A second fixture would "

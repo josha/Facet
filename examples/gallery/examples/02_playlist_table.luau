@@ -400,12 +400,24 @@ function example.build(Facet: any, core: any, deps: any)
 					absorbs the slack, so Rating stays welded to the trailing edge.
 					Same run at 800x600 with three: 16..216 / 216..640 / 640..784.
 
-					`minWidth` FLOORS A RESIZE, NOT THE LAYOUT — a fact worth knowing
-					before choosing these numbers. `resolveDim` applies `minWidth` to an
-					OVERRIDE (and to a `percent` band); a plain `fill` column is divided
-					by weight with no floor at all. So 90/72 is the narrowest a PLAYER
-					may drag these to, not the narrowest they are ever drawn. It is
-					explicit because the default is 24px, which is legible for nothing.
+					`minWidth` FLOORS THE LAYOUT NOW, NOT ONLY A RESIZE (ADAPT-19,
+					2026-08-18). This comment used to say the opposite, and it was
+					true: `resolveDim` spent `minWidth` on an OVERRIDE and on a
+					`percent` band, and a plain `fill` column was divided by weight
+					with no floor at all — so 90/72 was the narrowest a PLAYER could
+					drag these to, and not the narrowest they were ever drawn. The
+					solver still divides fill slack strictly by weight; the TABLE now
+					pins a column whose share would fall under its own floor and
+					re-divides the rest (`controls/table_columns.luau`).
+
+					SO THESE TWO NUMBERS ARE PROMISES THE TABLE KEEPS, and at a
+					viewport too narrow to keep all of them the Rating column
+					COLLAPSES rather than everything squeezing past its floor — with a
+					`1 more` chip that opens the plate carrying every row's rating.
+					The measurement is in `tests/playlist_columns.spec.luau`: at
+					320x640 in edit mode these went from 30px and 14px of text to 66px
+					of each. They are explicit because the default is 24px, which is
+					legible for nothing.
 				]]
 			{
 				id = "name",
@@ -469,12 +481,18 @@ function example.build(Facet: any, core: any, deps: any)
 			--   third FILL weight 2 (shipped)   name 46/30, artist 30/14         0 collapse diagnostics
 			--
 			-- So the fixed column collapsed the row's SUBJECT to nothing and the
-			-- fill column does not; the price is the ARTIST cell at 14px of text at
-			-- that one viewport in that one mode. That price is paid rather than
-			-- hidden: both text columns carry `disclose = true`, so a truncated
-			-- value is still reachable, and both truncate to ONE line rather than
-			-- wrapping into a row that cannot hold them. The numbers are pinned in
-			-- `tests/playlist_columns.spec.luau` so they cannot drift in silence.
+			-- fill column does not; the price WAS the ARTIST cell at 14px of text at
+			-- that one viewport in that one mode.
+			--
+			-- ...AND ON 2026-08-18 THAT PRICE STOPPED BEING PAID. ADAPT-19 made the
+			-- 90/72 floors above real, and ADAPT-18 answered the question that
+			-- creates: three floors plus this column's fixed 144 do not fit a 320px
+			-- row, so the RATING column collapses and the two text columns get 66px
+			-- of text each instead of 30 and 14. The rating is not lost — the header
+			-- band grows a `1 more` chip whose plate lists every row's rating, and
+			-- the width readout above the table says `Rating hidden`. The numbers
+			-- are re-pinned in `tests/playlist_columns.spec.luau` so they cannot
+			-- drift in silence.
 
 			-- THE RATING COLUMN, AND WHY ITS WIDTH IS A FIXED NUMBER --------------
 			-- FIXED, and it has to be for now. The director's 2026-07-27 note —
@@ -722,16 +740,35 @@ function example.build(Facet: any, core: any, deps: any)
 
 	local widthsText = core:memo(function(use)
 		local overrides = use(tbl.api.columnWidthOverrides) :: { [string]: number }
+		--[[ ...AND WHAT IS NOT ON THE SCREEN AT ALL (ADAPT-18, 2026-08-18). At the
+			narrow viewports this example is swept at, the Rating column now
+			COLLAPSES rather than squeezing its neighbours past their own floors —
+			and a census line that went on reporting "Rating locked" about a column
+			the player cannot see would be the exact class of lie this readout exists
+			to prevent (see the two bullets above). `api.hiddenColumns` is the
+			control's own published answer; the count is what the disclosure chip
+			beside the table says out loud. ]]
+		local hidden = use(tbl.api.hiddenColumns) :: { string }
+		local hiddenSet: { [string]: boolean } = {}
+		for _, id in hidden do
+			hiddenSet[id] = true
+		end
 		local parts = {}
 		for _, column in COLUMN_LABELS do
 			local id, label, resizable = column[1] :: string, column[2] :: string, column[3] :: boolean
 			local px = overrides[id]
-			-- the two NON-numeric states, and they are different facts: a resizable
-			-- column nobody has moved yet, and a column that refuses to move at all
-			local shown = if px ~= nil then `{math.floor(px + 0.5)}px` elseif resizable then "auto" else "locked"
+			-- the THREE non-numeric states, and they are different facts: a resizable
+			-- column nobody has moved yet, a column that refuses to move at all, and
+			-- a column that is not being shown
+			local shown = if hiddenSet[id]
+				then "hidden"
+				elseif px ~= nil then `{math.floor(px + 0.5)}px`
+				elseif resizable then "auto"
+				else "locked"
 			table.insert(parts, `{label} {shown}`)
 		end
-		return table.concat(parts, " · ")
+		local line = table.concat(parts, " · ")
+		return if #hidden > 0 then `{line} · {#hidden} hidden` else line
 	end)
 
 	local hintText = core:memo(function(use)

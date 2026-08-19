@@ -418,9 +418,23 @@ return {
 		local editingSignal = core:signal(false)
 		local tbl = Facet.Controls.Table(core, {
 			id = "MailTable",
+			--[[ THE SUBJECT'S FLOOR IS ONE THIS PANE CAN ACTUALLY PAY (ADAPT-19,
+				2026-08-18). It said `minWidth = 120`, and until a declared floor
+				became a floor that number bought nothing: the solver divides `fill`
+				slack by weight and honoured no minimum at all, so the subject cell
+				simply took whatever the fixed 150px sender left — about 100px at the
+				narrowest swept viewport.
+
+				Now the floor is spent, and 120 beside a FIXED 150 is 270px of demand
+				in a 320px pane that has less. The priority-collapse rule's only legal
+				move there is to remove the SUBJECT — the one column a mail row is
+				about — because the sender is column one and is the row's identity.
+				That is the rule working correctly on a declaration that was never
+				true. 90 is what this pane can promise beside its sender, so the
+				geometry is exactly what shipped and the promise is now honest. ]]
 			columns = {
 				{ id = "from", title = "From", width = { type = "fixed", px = 150 } },
-				{ id = "subject", title = "Subject", width = { type = "fill", weight = 1 }, minWidth = 120 },
+				{ id = "subject", title = "Subject", width = { type = "fill", weight = 1 }, minWidth = 90 },
 			},
 			rows = tableModel.rows,
 			key = function(item)

@@ -291,6 +291,200 @@ describe("Table: custom cells and resize model", function()
 		expect(crushed.artist).toBe(60)
 	end)
 
+	--[[ ADAPT-19 — A DECLARED COLUMN FLOOR IS A FLOOR, INCLUDING ON `fill`.
+		(`artifacts/release-candidate-review/adapt-audit/matrix.md` J-2, severity
+		highest: "at 390px a `minWidth = 120` column resolves to 73px and a
+		`minWidth = 100` column to 37px, and the cell text is truncated = true".)
+
+		THE DEFECT. `minWidth` was spent in exactly two places — an OVERRIDE's clamp
+		and a `percent` dim's `min` — and `fill`, which is the dim kind a responsive
+		table uses for nearly every column, was `return dim`, untouched. The solver
+		divides `fill` slack strictly by weight and honours no `min` on it at all
+		(`arrangeStack`'s fill block), so a floor declared on a fill column was a
+		property the framework accepted and never spent. It is also what made
+		ADAPT-18 invisible rather than merely unhandled: columns that shrink below
+		their own floors LOOK like a table that is coping.
+
+		THE RULE IS THE TABLE'S, NOT THE SOLVER'S, and deliberately: `table.luau`
+		already measures the post-reserve content width the rows divide, and already
+		resolves one dim per column against it. So the floor is applied where that
+		division happens — a fill column whose SHARE would fall under its floor is
+		pinned to the floor and leaves the slack pool, which is the ordinary
+		flex-with-minimum negotiation, run once, purely, on numbers.
+
+		WHAT IT DELIBERATELY DOES NOT DO: measure. A `content`/`hug` column's
+		appetite is a measurement, so it contributes nothing to the consumed width
+		here and the fills keep dividing what is left — the behaviour that ships
+		today, unchanged. ]]
+	it("a `fill` column's declared minWidth is a floor, and pinning it leaves the pool (ADAPT-19)", function()
+		local table_columns = require("../src/controls/table_columns")
+		--[[ EVERY COLUMN IS PINNED AGAINST COLLAPSE, so this case is about the FLOOR
+			alone: the first column never collapses and the other two say `"always"`,
+			which leaves the rule nothing it may remove. That is the honest way to
+			read ADAPT-19 on its own — ADAPT-18's own cases below let it fire. ]]
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 120 },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 100, priority = "always" },
+			{ id = "rating", width = { type = "fixed", px = 96 }, priority = "always" },
+		}
+		-- the audit measured this on a five-column table at 390px; the same
+		-- arithmetic, smaller: 300 wide with 96 already spoken for leaves 204 for
+		-- two fills that declared 220 between them, so both floors bind and the
+		-- table overflows HONESTLY rather than pretending 102 was 120
+		local narrow = table_columns.layout(columns, {}, 300, 0, nil)
+		expect(narrow.dims.name.type).toBe("fixed")
+		expect(narrow.dims.name.px).toBe(120)
+		expect(narrow.dims.artist.type).toBe("fixed")
+		expect(narrow.dims.artist.px).toBe(100)
+		-- ...and WIDE, nothing is pinned: a floor that binds at every width is a
+		-- fixed column wearing a fill's name
+		local wide = table_columns.layout(columns, {}, 900, 0, nil)
+		expect(wide.dims.name.type).toBe("fill")
+		expect(wide.dims.artist.type).toBe("fill")
+
+		-- THE ASYMMETRIC CASE, which is what "leaves the pool" means: one fill
+		-- clears its floor and the other does not, so the pinned one takes exactly
+		-- its floor and the survivor takes ALL the rest rather than half of it.
+		local mixed = table_columns.layout({
+			{ id = "name", width = { type = "fill", weight = 1 } },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 200 },
+		}, {}, 300, 0, nil)
+		expect(mixed.dims.artist.px).toBe(200)
+		expect(mixed.dims.name.type).toBe("fill")
+
+		-- NO MEASUREMENT YET IS NOT A NARROW VIEWPORT: the first frame resolves
+		-- what the author declared and the measurement corrects it, exactly as the
+		-- DIR-4 clamp already does
+		expect(table_columns.layout(columns, {}, nil, 0, nil).dims.name.type).toBe("fill")
+	end)
+
+	--[[ ADAPT-18 · COLUMN PRIORITY-COLLAPSE — the arithmetic.
+		(director-approved paradigm; audit J-1, severity highest.) The device case
+		and the disclosure live in `tests/table_input.spec.luau`, where they are
+		driven through the real input seams; these are the numbers underneath. ]]
+	it("the lowest-priority column collapses first, one at a time, until it fits (ADAPT-18)", function()
+		local table_columns = require("../src/controls/table_columns")
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 120 },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 100 },
+			{ id = "rating", width = { type = "fixed", px = 96 } },
+		}
+		-- WIDE: 316 of declared floor in 800 of room. Nothing goes.
+		expect(#table_columns.layout(columns, {}, 800, 0, nil).hidden).toBe(0)
+		-- 300: the floors want 316. The LAST-declared collapsible column goes, and
+		-- ONE is enough — the rule stops the moment the remainder fits rather than
+		-- clearing the deck.
+		local narrow = table_columns.layout(columns, {}, 300, 0, nil)
+		expect(#narrow.hidden).toBe(1)
+		expect(narrow.hidden[1]).toBe("rating")
+		expect(narrow.dims.rating.px).toBe(0)
+		-- 150: 220 still does not fit, so a SECOND column goes — and the first
+		-- declared one never does, whatever is left over
+		local crushed = table_columns.layout(columns, {}, 150, 0, nil)
+		expect(#crushed.hidden).toBe(2)
+		expect(crushed.hidden[1]).toBe("artist")
+		expect(crushed.hidden[2]).toBe("rating")
+		expect(crushed.hiddenSet.name).toBe(nil)
+		-- 10: the first column cannot fit its own floor and STILL does not go. A
+		-- table whose rows have no name is not a narrower table.
+		expect(table_columns.layout(columns, {}, 10, 0, nil).hiddenSet.name).toBe(nil)
+	end)
+
+	it("a declared `priority` overrides declaration order, and `always` is a refusal (ADAPT-18)", function()
+		local table_columns = require("../src/controls/table_columns")
+		--[[ `rating` is declared LAST and is the most important thing on the row
+			after the name; `artist` is declared second and is the first to go. The
+			ordering the author wrote down is not always the ordering they meant, which
+			is the whole reason the key exists. ]]
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 120 },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 100, priority = 9 },
+			{ id = "rating", width = { type = "fixed", px = 96 }, priority = 2 },
+		}
+		local narrow = table_columns.layout(columns, {}, 300, 0, nil)
+		expect(#narrow.hidden).toBe(1)
+		expect(narrow.hidden[1]).toBe("artist")
+
+		-- `"always"` is not a very high priority — it is a refusal, so no number
+		-- anywhere else can beat it and the table overflows rather than dropping it
+		local pinned = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 120 },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 100, priority = "always" },
+			{ id = "rating", width = { type = "fixed", px = 96 }, priority = "always" },
+		}
+		expect(#table_columns.layout(pinned, {}, 100, 0, nil).hidden).toBe(0)
+	end)
+
+	it("collapse re-evaluates in BOTH directions, and the model never moved (ADAPT-18)", function()
+		local table_columns = require("../src/controls/table_columns")
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 120 },
+			{ id = "artist", width = { type = "fill", weight = 1 }, minWidth = 100 },
+			{ id = "rating", width = { type = "fixed", px = 96 } },
+		}
+		expect(#table_columns.layout(columns, {}, 800, 0, nil).hidden).toBe(0)
+		expect(#table_columns.layout(columns, {}, 300, 0, nil).hidden).toBe(1)
+		-- ...and back. The rule is a pure function of the width, so widening cannot
+		-- leave a column behind: there is no state to get stuck.
+		expect(#table_columns.layout(columns, {}, 800, 0, nil).hidden).toBe(0)
+		-- an unmeasured width collapses NOTHING, so a first frame is never the
+		-- emptiest frame
+		expect(#table_columns.layout(columns, {}, nil, 0, nil).hidden).toBe(0)
+	end)
+
+	it("a table whose columns declare no floor never collapses anything (ADAPT-18)", function()
+		local table_columns = require("../src/controls/table_columns")
+		-- three pure fills with no `minWidth`: the demand is zero, zero always fits,
+		-- and every table shipping today that declares nothing behaves exactly as it
+		-- did. This is the case that makes the paradigm safe to turn on by default.
+		local columns = {
+			{ id = "a", width = { type = "fill", weight = 1 } },
+			{ id = "b", width = { type = "fill", weight = 1 } },
+			{ id = "c", width = { type = "fill", weight = 1 } },
+		}
+		expect(#table_columns.layout(columns, {}, 40, 0, nil).hidden).toBe(0)
+	end)
+
+	it("a COMMITTED override is clamped first and only then counted (ADAPT-18 x DIR-4)", function()
+		local table_columns = require("../src/controls/table_columns")
+		--[[ THE ORDER MATTERS AND IT IS THE BRIEF'S: the resize-override clamp that
+			already ships runs FIRST, so a player who dragged Name to 600px in
+			landscape does not lose the Rating column on rotation merely because a
+			stale commitment says 600. The clamp brings 600 back to what fits, and
+			only what is left over decides whether anything collapses. ]]
+		local columns = {
+			{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
+			{ id = "rating", width = { type = "fixed", px = 96 } },
+		}
+		local out = table_columns.layout(columns, { name = 600 }, 300, 0, nil)
+		expect(#out.hidden).toBe(0)
+		expect(out.dims.name.px <= 300 - 96).toBe(true)
+		expect(out.dims.name.px >= 80).toBe(true)
+	end)
+
+	it("the mounted table gives a fill column its floor rather than a weighted share (ADAPT-19)", function()
+		-- 3:1 weights on two fills whose floors BOTH fit: the light column's share
+		-- of a ~300px band is ~75px against a declared 100, so the floor has to
+		-- take it out of the pool and hand the remainder to its neighbour. Nothing
+		-- collapses here (the floors fit), which is what keeps this a floor case.
+		local _, adapter, pres, _tbl, _rows, _handle, _system, env = world({
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 3 }, minWidth = 120 },
+				{ id = "laps", title = "Laps", width = { type = "fill", weight = 1 }, minWidth = 100 },
+			},
+		})
+		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
+		pres.refresh()
+		pres.refresh() -- the measurement lands on the solve, the floor on the next
+		local laps = adapter.node(cellPath(0, "razz", "laps"))
+		local name = adapter.node(cellPath(0, "razz", "name"))
+		expect(laps ~= nil and name ~= nil).toBe(true)
+		expect(laps.rect.w >= 100).toBe(true)
+		-- ...and the pin did not turn the table into two equal columns: the survivor
+		-- takes what the pinned column left, which is the "leaves the pool" half
+		expect(name.rect.w > laps.rect.w).toBe(true)
+	end)
+
 	it("a non-resizable column is never clamped below its declared width (DIR-4)", function()
 		local table_columns = require("../src/controls/table_columns")
 		local columns = {

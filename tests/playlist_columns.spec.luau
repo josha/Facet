@@ -1189,13 +1189,35 @@ end)
 	So the hypothesis holds where it was posed — the fill column does not reproduce
 	the collapse, and the Name cell keeps 30px of text where the fixed one left it
 	none — and it costs the Artist column 14px of text at that one viewport in that
-	one mode. That number is pinned HERE rather than left in a report, because it is
-	the number that would drift silently if the Rating column's 144, the edit
-	gutters or the weights ever moved.
+	one mode.
 
-	The cost is survivable and it is not silent: both text columns carry
-	`disclose = true`, so a truncated value is still reachable, and both truncate to
-	ONE line rather than wrapping into a row that cannot hold them. ]]
+	── RE-MEASURED 2026-08-18, ADAPT-18/19, AND THE ANSWER CHANGED FOR THE BETTER ──
+
+	  | shape                          | Name cell/text | Artist cell/text | collapse diagnostics |
+	  |--------------------------------|----------------|------------------|----------------------|
+	  | third FILL w2, min 72 (shipped)| 132 / 66       | 88 / 66          | 0                    |
+
+	TWO RULES LANDED TOGETHER AND THIS IS WHERE THEY MEET. ADAPT-19 made a declared
+	`minWidth` a floor on a `fill` column, which it never was — so 90 and 72 stopped
+	being "the narrowest a PLAYER may drag these to" and became the narrowest they
+	are ever DRAWN. ADAPT-18 then answered the question that creates: 90 + 72 + the
+	Rating column's fixed 144 is more than a 320px row has, and rather than squeeze
+	all three past their own floors the table COLLAPSES the lowest-priority column
+	and says so. Rating is declared last and declares no `priority`, so Rating goes.
+
+	WHAT THE PLAYER GETS INSTEAD OF 30px AND 14px OF TEXT: 66px of each, on both
+	text columns, at the narrowest viewport this sweep covers — and a `1 more` chip
+	that opens the plate listing every row's rating. The paragraph this replaces
+	called 14px of Artist text "survivable"; it was survivable because it was
+	reachable through `disclose`, not because it was legible. It is no longer the
+	trade the shipped example makes.
+
+	The numbers are pinned HERE rather than left in a report, because they are what
+	would drift silently if the Rating column's 144, the edit gutters, the weights
+	or the collapse rule's own ordering ever moved. Both text columns still carry
+	`disclose = true`, so a value that truncates at a WIDER viewport is still
+	reachable, and both still truncate to ONE line rather than wrapping into a row
+	that cannot hold them. ]]
 describe("playlist columns: the 320x640 edit-mode measurement that kept the third column", function()
 	local function editModeCell(vw: number, vh: number, columnId: string): (number, number)
 		local core = Facet.newCore()
@@ -1226,7 +1248,52 @@ describe("playlist columns: the 320x640 edit-mode measurement that kept the thir
 	it("at the narrowest swept viewport, in edit mode, no cell collapses and the numbers are these", function()
 		local nameCell, nameText = editModeCell(320, 640, "name")
 		local artistCell, artistText = editModeCell(320, 640, "artist")
-		expect(`name:{nameCell}/{nameText} artist:{artistCell}/{artistText}`).toBe("name:46/30 artist:30/14")
+		expect(`name:{nameCell}/{nameText} artist:{artistCell}/{artistText}`).toBe("name:132/66 artist:88/66")
+	end)
+
+	it("...because the RATING column collapsed, and the table says so out loud (ADAPT-18)", function()
+		--[[ The other half of the numbers above, and the half a width measurement
+			cannot show: those two columns are wide because a third one LEFT. A pin on
+			the widths alone would go on passing if the collapse silently stopped
+			happening and the floors were being ignored again — which is exactly the
+			state ADAPT-19 found. ]]
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local built =
+			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+		pres.present(built.screen, built.present)
+		pres.refresh()
+		built.table_.api.editing:set(true)
+		pres.refresh()
+		expect(built.table_.api.hiddenColumns:get()).toEqual({ "rating" })
+		-- the disclosure is mounted, and the screen's own census line stopped
+		-- calling a column that is not on screen "locked"
+		local chip: string? = nil
+		for _, path in adapter.paths() do
+			if string.find(path, "/MoreWhen/then/MoreBar/MoreChip", 1, true) ~= nil then
+				chip = path
+			end
+		end
+		expect(chip).never().toBeNil()
+		expect(adapter.node(chip :: string).props.label).toBe("1 more")
+		local readout: string? = nil
+		for _, path in adapter.paths() do
+			local node = adapter.node(path)
+			if
+				node.class == "Text"
+				and type(node.props.text) == "string"
+				and string.find(node.props.text, "hidden")
+			then
+				readout = node.props.text
+			end
+		end
+		expect(readout).toBe("Name auto · Artist auto · Rating hidden · 1 hidden")
+		built.dispose()
 	end)
 
 	it("the solver files NO collapse diagnostic — which is the whole difference from the fixed column", function()

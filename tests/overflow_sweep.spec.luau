@@ -1266,6 +1266,89 @@ local VARIANTS: { [string]: { step: string, values: { string } } } = {
 -- instead of stopping at the first, because the set of views a screen fails at is
 -- what tells an author whether it is a width problem or a height problem — and the
 -- set of PREFERENCES tells them whether it is a text problem at all.
+--[[ ── A COLLAPSED COLUMN WITH NO ROUTE BACK (ADAPT-18, 2026-08-18) ───────────
+	THE PARADIGM AND ITS RIDER. A table too narrow for all its columns collapses
+	the lowest-priority one WHOLE rather than squeezing every column past its own
+	declared floor — and the standing no-dead-ends rule then says the framework
+	owes the reader a route to what it stopped showing. So a collapse without a
+	disclosure is not a smaller table, it is data the player cannot reach.
+
+	THE TWO FACTS ARE BOTH ALREADY ON THE ADAPTER, which is what lets this be a
+	sweep check rather than a per-control one: a collapsed column's cell is spent
+	as `hidden`, and the adapter records that as a real visibility write; the
+	disclosure is a mounted `MoreChip` under the same table root. Every viewport,
+	every text preference and every theme package this sweep already visits is a
+	width at which a table may cross the threshold, and the affordance has to be
+	there at all of them — which is exactly the coverage a control's own spec
+	cannot buy.
+
+	...AND WHY THE COMPLEMENT IS NOT CHECKED HERE. "A cell that CLIPPED instead of
+	collapsing" is the other half of the paradigm, and it was tried as a
+	truncation scan: it cannot be written honestly at this altitude, because the
+	fact that separates a defect from an ordinary long string is the column's
+	DECLARED FLOOR, and the sweep holds no control handle to read one. Measured
+	rather than assumed: a truncation scan reported the mail list's sender column
+	at 1920x1078 and the playlist's rating column at every viewport, neither of
+	which is narrow. The clipped-not-collapsed case reddens this sweep by the
+	route it already had, and did so in this very round — the moment a declared
+	`minWidth` became a floor, the shipped playlist filed 196 solver overflow
+	findings at compact until the collapse rule landed beside it. The floors are
+	pinned as arithmetic in `tests/table.spec.luau` instead, where the declaration
+	is in the same file as the assertion. ]]
+local function tableCellOf(path: string): (string?, string?)
+	local root, rest = string.match(path, "^(.-)/Main/Body/(.*)$")
+	if root == nil then
+		return nil, nil
+	end
+	return root, (string.match(rest :: string, "/Cells/Cell%-([^/]+)"))
+end
+
+local function collapsedDeadEnds(w: any): { string }
+	local collapsed: { [string]: { [string]: boolean } } = {}
+	for _, path in w.adapter.paths() do
+		local root, columnId = tableCellOf(path)
+		if root ~= nil and columnId ~= nil and w.adapter.visibleOf(path) == false then
+			local bucket = collapsed[root :: string] or {}
+			bucket[columnId :: string] = true
+			collapsed[root :: string] = bucket
+		end
+	end
+	if next(collapsed) == nil then
+		return {}
+	end
+	local out: { string } = {}
+	for root, columns in collapsed do
+		local ids: { string } = {}
+		for id in columns do
+			table.insert(ids, id)
+		end
+		table.sort(ids)
+		local chip = `{root}/Main/MoreWhen/then/MoreBar/MoreChip`
+		local node = w.adapter.node(chip)
+		local hit = if type(w.adapter.hitRectOf) == "function" then w.adapter.hitRectOf(chip) else nil
+		local box = if hit ~= nil then hit else (if node ~= nil then node.rect else nil)
+		if node == nil or box == nil or w.adapter.visibleOf(chip) == false then
+			table.insert(
+				out,
+				`{root}: column(s) {table.concat(ids, ", ")} collapsed and NO disclosure is on the screen — `
+					.. "a collapse without a route is data the player cannot reach (ADAPT-18)"
+			)
+		elseif box.w < 24 or box.h < 44 then
+			table.insert(
+				out,
+				string.format(
+					"%s: column(s) %s collapsed and the disclosure is %.0fx%.0fpx — under the 44px band it owes a thumb",
+					root,
+					table.concat(ids, ", "),
+					box.w,
+					box.h
+				)
+			)
+		end
+	end
+	return out
+end
+
 local function sweep(kind: string, name: string, mount: (any) -> any, localeMount: ((any) -> any)?)
 	local label = `{kind} '{name}'`
 	it(`{label}: the solver reports NOTHING at any swept viewport, at any text size`, function()
@@ -1294,6 +1377,12 @@ local function sweep(kind: string, name: string, mount: (any) -> any, localeMoun
 				end
 				if locale ~= nil then
 					suffix ..= `\n      [locale = {locale}]`
+				end
+				for _, hit in collapsedDeadEnds(w) do
+					table.insert(
+						problems,
+						`  {view.id} ({view.w}x{view.h}) @ preferredTextOffset +{offset}: {hit}{suffix}`
+					)
 				end
 				for _, finding in built.handle.controller.diagnostics() do
 					-- A FINDING THE FRAMEWORK MARKS AS DESIGNED IS NOT A DEFECT AND IS

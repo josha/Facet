@@ -181,13 +181,76 @@ describe("the row-builder seam: the shared WRITE surface, and the one-way requir
 
 	it("NEGATIVE CONTROL: the write scan sees each of the three write shapes", function()
 		local keys = { alpha = true, beta = true, gamma = true, delta = true }
-		local text = "\n\talpha.field = 1\n\tbeta[key] = 2\n\tgamma = 3\n\tlocal x = delta.field\n\tif delta == nil then\n"
+		local text =
+			"\n\talpha.field = 1\n\tbeta[key] = 2\n\tgamma = 3\n\tlocal x = delta.field\n\tif delta == nil then\n"
 		local seen = writesOf(text, keys)
 		expect(seen.alpha).toBe(true)
 		expect(seen.beta).toBe(true)
 		expect(seen.gamma).toBe(true)
 		-- a READ of a field, and an equality test, are not writes
 		expect(seen.delta).toBe(nil)
+	end)
+
+	it("the builder offers exactly the two entry points it declares", function()
+		--[[ The seam's SURFACE, pinned beside its dependency set. `blueprint` is the
+			`UI.ForEach` row function and is what the module exists for; `cellContent`
+			is the same cell-content priority ladder offered to the hidden-column
+			disclosure (ADAPT-18), which has to show the value the ROW would have
+			shown. A third name appearing here without a caller is a private that
+			leaked into the seam. ]]
+		local rows = require("../src/controls/table_rows")
+		local names: { string } = {}
+		for name in
+			rows.new({
+				Facet = {},
+				core = {},
+				UI = {},
+				spec = {},
+				tableId = "T",
+				columns = {},
+				api = {},
+				rowGesture = { drag = nil, suppressActivate = nil },
+				selectionMode = "none",
+				virtualized = false,
+				HANDLE_GUTTER = 32,
+				ROW_ART = {},
+				ALIGN_H = {},
+				ALIGN_V = {},
+				cellPadding = "s",
+				cellsEditPadding = {},
+				editingSignal = {},
+				selectedKeys = {},
+				dragging = {},
+				ghostText = {},
+				ghostCount = {},
+				rowBox = {},
+				layoutIndex = {},
+				rowActionsByKey = {},
+				rowActionsCoordinator = nil,
+				rowHeightOf = function()
+					return 0
+				end,
+				capFor = function()
+					return 1
+				end,
+				columnDim = function() end,
+				columnHidden = function() end,
+				selectedMemo = function() end,
+				itemForKey = function()
+					return nil
+				end,
+				applyDragPosition = function() end,
+				clearPointerDrag = function() end,
+				liveDragRects = function()
+					return nil, nil
+				end,
+				cancelDrag = function() end,
+			} :: any)
+		do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		expect(names).toEqual({ "blueprint", "cellContent" })
 	end)
 
 	it("the builder requires the control NOWHERE — the require is one-way", function()

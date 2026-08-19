@@ -121,6 +121,7 @@ export type Deps = {
 	rowHeightOf: (any, any?) -> number,
 	capFor: (any, number) -> number,
 	columnDim: (Column) -> any,
+	columnHidden: (Column) -> any,
 	selectedMemo: (string) -> any,
 	itemForKey: (string) -> any?,
 	applyDragPosition: ({ x: number, y: number }) -> (),
@@ -169,6 +170,7 @@ function table_rows.new(deps: Deps)
 	local rowHeightOf = deps.rowHeightOf
 	local capFor = deps.capFor
 	local columnDim = deps.columnDim
+	local columnHidden = deps.columnHidden
 	local selectedMemo = deps.selectedMemo
 	local itemForKey = deps.itemForKey
 	local applyDragPosition = deps.applyDragPosition
@@ -492,6 +494,12 @@ function table_rows.new(deps: Deps)
 				UI.ZStack({
 					id = `Cell-{column.id}`,
 					width = columnDim(column),
+					-- ADAPT-18: this column is collapsed at the current width, so the
+					-- cell keeps its (zero-width) box and its whole subtree leaves
+					-- paint, focus order and hit-testing at once. `table.luau`'s
+					-- `columnHidden` carries the reasoning and the three alternatives
+					-- it beats.
+					hidden = columnHidden(column),
 					height = { type = "fill", weight = 1 },
 					padding = { left = cellPadding, right = cellPadding },
 					alignV = ALIGN_V[alignment.v or "center"],
@@ -830,7 +838,15 @@ function table_rows.new(deps: Deps)
 		return rowActionsApi.blueprint
 	end
 
-	return { blueprint = rowBlueprint }
+	--[[ TWO ENTRY POINTS. `blueprint` is the `UI.ForEach` row function and is what
+		this module exists for; `cellContent` is the SAME cell-content priority rule
+		(`column.cell` -> `column.value` -> `spec.cellFor`) offered to the one other
+		caller that has to answer the same question — the hidden-column disclosure
+		plate (ADAPT-18), which shows a collapsed column's values and must show the
+		values the row itself would have. A second copy of that priority ladder in
+		`table.luau` is exactly the "two implementations that agree today" shape this
+		repository keeps finding at the bottom of its defects. ]]
+	return { blueprint = rowBlueprint, cellContent = cellContentFor }
 end
 
 return table_rows
