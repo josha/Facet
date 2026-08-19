@@ -1928,22 +1928,27 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 			distanceProfile = "ten-foot",
 			primary = "gamepad",
 		})).toBe("topBar")
-		-- tablet shape: roomy + touch + a display the engine calls Medium/Large
+		-- tablet shape: roomy + touch. The DISPLAY fact is not consulted (ADAPT-2)
 		expect(adaptive.navPlacement({
 			sizeClass = "wide",
 			heightClass = "tall",
 			primary = "touch",
 			displaySize = "Medium",
 		})).toBe("topBar")
-		-- touch WITHOUT a differentiating display fact: a roomy canvas the
-		-- DisplaySize cannot tell from a phone stays a phone -> bottom tabs
-		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "tall", primary = "touch" })).toBe("bottomBar")
+		--[[ RE-PINNED (ADAPT-2, audit 2026-08-18). Both rows below asserted
+			`bottomBar` and both were the DEFECT, not the rule: the engine calls a
+			tablet `DisplaySize.Small` ("Most tablet/mobile/handheld devices"), so the
+			tablet branch was reachable only by a touchscreen laptop and no tablet
+			could ever take the tablet paradigm. The discriminator is now the SHORT
+			SIDE — a roomy canvas that is roomy on BOTH axes is a tablet whichever way
+			it is held — which is what these two facts already say. ]]
+		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "tall", primary = "touch" })).toBe("topBar")
 		expect(adaptive.navPlacement({
 			sizeClass = "regular",
 			heightClass = "medium",
 			primary = "touch",
 			displaySize = "Small",
-		})).toBe("bottomBar")
+		})).toBe("topBar")
 		-- near-distance gamepad handheld (Small display): bottom tabs too
 		expect(adaptive.navPlacement({
 			sizeClass = "regular",
@@ -1970,6 +1975,39 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 		expect(adaptive.navPlacement({ sizeClass = "regular", heightClass = "medium" })).toBe("topBar")
 	end)
 
+	--[[ ADAPT-2 — A PORTRAIT TABLET IS THE CASE THE OBVIOUS FIX GETS WRONG.
+
+		The audit tested two candidates rather than one: "a tablet is `sizeClass ==
+		"wide"`" still fails a portrait tablet, because 768-810px of width lands in
+		`regular` — the same class as a landscape phone. The discriminator that
+		holds in BOTH orientations is the short side against the SAME 600px
+		breakpoint the classes already use, which is why this needs no new number
+		and no new fact: `sizeClass ~= "compact"` says the short side clears it when
+		the canvas is portrait, `heightClass ~= "short"` says it when the canvas is
+		landscape, and the policy has already answered both of those cases above by
+		the time it asks about the tablet. ]]
+	it("ADAPT-2: a tablet takes the tablet paradigm in BOTH orientations, a phone in neither", function()
+		local function placementFor(w: number, h: number, primary: string?, displaySize: string?): string
+			return adaptive.navPlacement({
+				sizeClass = adaptive.sizeClass(w),
+				heightClass = adaptive.heightClass(h),
+				primary = primary or "touch",
+				displaySize = displaySize,
+			})
+		end
+		-- every phone, both ways up, on the display fact the engine really sends
+		expect(placementFor(390, 844, "touch", "Small")).toBe("bottomBar")
+		expect(placementFor(844, 390, "touch", "Small")).toBe("bottomBarCompact")
+		expect(placementFor(932, 430, "touch", "Small")).toBe("bottomBarCompact")
+		-- ...and every tablet, both ways up, on the SAME display fact
+		expect(placementFor(1079, 809, "touch", "Small")).toBe("topBar")
+		expect(placementFor(810, 1080, "touch", "Small")).toBe("topBar") -- portrait
+		expect(placementFor(768, 1024, "touch", "Small")).toBe("topBar") -- the small one
+		-- the intuitive rule, shown failing: a portrait tablet is NOT `wide`
+		expect(adaptive.sizeClass(810)).toBe("regular")
+		expect(adaptive.sizeClass(844)).toBe("regular") -- and neither is a landscape phone
+	end)
+
 	it("reactive: the conditions memo re-resolves in place when facts move", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
@@ -1981,16 +2019,23 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 		-- rotate the same phone: inline bottom bar, no remount decision changes hands
 		env:set("viewportRect", { x = 0, y = 0, w = 691, h = 360 })
 		expect(c.navPlacement:get()).toBe("bottomBarCompact")
-		-- a tablet-shaped canvas on the same touch session, but the engine
-		-- calls the display SMALL (the default here is Medium, so the phone
-		-- fact is set explicitly): a panel the display fact cannot tell from a
-		-- phone keeps bottom tabs...
+		--[[ a tablet-shaped canvas on the same touch session, with the engine
+			calling the display SMALL — which is what the engine calls EVERY tablet
+			("Most tablet/mobile/handheld devices"), so this is the live tablet row
+			and not an edge case. RE-PINNED from `bottomBar` (ADAPT-2): the short
+			side is 810px, the canvas is roomy whichever way it is held, and the
+			display fact is no longer consulted at all. ]]
 		env:set("displaySize", "Small")
 		env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
-		expect(c.navPlacement:get()).toBe("bottomBar")
-		-- ...and gets the centered top bar once the display says otherwise
+		expect(c.navPlacement:get()).toBe("topBar")
+		-- ...and the same canvas is the same answer whatever the display says
 		env:set("displaySize", "Medium")
 		expect(c.navPlacement:get()).toBe("topBar")
+		-- rotate that tablet: still a tablet (the case `sizeClass` alone fails)
+		env:set("displaySize", "Small")
+		env:set("viewportRect", { x = 0, y = 0, w = 810, h = 1080 })
+		expect(c.navPlacement:get()).toBe("topBar")
+		env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
 		-- the same canvas on a pointer session: sidebar (display fact irrelevant)
 		env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = false })
 		env:set("preferredInput", "KeyboardAndMouse")

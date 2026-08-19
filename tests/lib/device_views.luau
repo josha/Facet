@@ -24,6 +24,18 @@ export type View = { id: string, w: number, h: number, displaySize: string, inpu
 local VIEWS: { View } = {
 	{ id = "compact-phone-portrait", w = 359, h = 718, displaySize = "Small", input = "Touch" },
 	{ id = "compact-phone-landscape", w = 705, h = 338, displaySize = "Small", input = "Touch" },
+	--[[ THE TABLET ROW, AND WHAT IT USED TO MEASURE (ADAPT-2, audit 2026-08-18).
+		`displaySize = "Small"` is correct and stays: Roblox documents
+		`Enum.DisplaySize.Small` as "Most tablet/mobile/handheld devices", so a real
+		tablet reports it and a row claiming `Medium` would assert a value the
+		engine never sends. Being right about the engine is exactly what made this
+		row invisible — until 2026-08-18 `adaptive.navPlacement` asked the display
+		fact whether a touch canvas was a tablet, so this row resolved the PHONE
+		bottom bar and every sweep that visited it measured a second phone. The
+		policy now asks the short side (809px here), so this row measures the tablet
+		paradigm it was always named for. Prior tablet-row evidence in this
+		repository's gate artifacts predates that and measured a phone-class
+		placement. ]]
 	{ id = "tablet-landscape", w = 1079, h = 809, displaySize = "Small", input = "Touch" },
 	{ id = "desktop-standard", w = 1232, h = 1067, displaySize = "Medium", input = "KeyboardAndMouse" },
 	{ id = "console-ten-foot", w = 1920, h = 1078, displaySize = "Large", input = "Gamepad" },

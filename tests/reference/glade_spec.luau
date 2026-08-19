@@ -698,7 +698,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		expect(inline.rect.w < 720 * 0.7).toBe(true)
 		expect(centered(inline, 720, 100)).toBe(true)
 
-		-- tablet shape (roomy + touch primary + a Medium display): the top bar
+		-- tablet shape (roomy short side + touch primary): the top bar
 		local tablet = world(1080, 810)
 		tablet.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		tablet.env:set("preferredInput", "Touch")
@@ -707,16 +707,19 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		expect(tablet.find("/SideRailWhen/then/NavRail")).toBeNil()
 		expect(tablet.find("/TabsFit")).toBeNil()
 
-		-- ...and a roomy canvas the DISPLAY fact cannot tell from a handheld
-		-- stays a bottom bar (the director's "when we cannot differentiate,
-		-- bottom tabs")
+		--[[ ...and the same canvas on the display fact the engine really sends for
+			a tablet (`Small` — "Most tablet/mobile/handheld devices") is the same
+			tablet and the same top bar. RE-PINNED from the bottom band (ADAPT-2,
+			audit 2026-08-18): a 1280x720 touch canvas has a 720px short side, and
+			asserting it stays a phone is how every prior tablet row came to measure
+			one. ]]
 		local small = world(1280, 720)
 		small.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		small.env:set("preferredInput", "Touch")
 		small.env:set("displaySize", "Small")
 		small.presenter.refresh()
-		expect(small.find("/BottomFullWhen/then/TabsFit") ~= nil).toBe(true)
-		expect(small.find("/TopBarWhen/then/TopBar")).toBeNil()
+		expect(small.find("/TopBarWhen/then/TopBar") ~= nil).toBe(true)
+		expect(small.find("/BottomFullWhen/then/TabsFit")).toBeNil()
 		expect(small.core:lastError()).toBeNil()
 	end)
 

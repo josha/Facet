@@ -194,7 +194,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		expect(land.node(HOMES.bottomBar)).toBeNil()
 		teardown(land)
 
-		-- tablet (roomy + touch + a Medium display): the top band, hugging
+		-- tablet (roomy short side + touch): the top band, hugging
 		local tablet = shaped({ x = 0, y = 0, w = 1080, h = 810 }, { capabilities = TOUCH, preferredInput = "Touch" })
 		local top = tablet.node(HOMES.topBar .. "/Strip")
 		expect(top ~= nil and top.rect ~= nil).toBe(true)
@@ -203,14 +203,19 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		expect(tablet.node(HOMES.bottomBar)).toBeNil()
 		teardown(tablet)
 
-		-- ...and a roomy canvas the DISPLAY fact cannot tell from a handheld
-		-- stays a bottom band ("when we cannot differentiate, bottom tabs")
+		--[[ ...and the SAME canvas with the display fact the engine really sends
+			for a tablet — `Small`, which Roblox documents as "Most tablet/mobile/
+			handheld devices" — is the same tablet and the same top band.
+			RE-PINNED from `bottomBar` (ADAPT-2, audit 2026-08-18): this row asserted
+			that a 1280x720 touch canvas stays a phone, which is how the tablet
+			column of every prior gate came to measure a phone. The short side is
+			720px; nothing about it is a handheld. ]]
 		local small = shaped(
 			{ x = 0, y = 0, w = 1280, h = 720 },
 			{ capabilities = TOUCH, preferredInput = "Touch", displaySize = "Small" }
 		)
-		expect(small.node(HOMES.bottomBar) ~= nil).toBe(true)
-		expect(small.node(HOMES.topBar)).toBeNil()
+		expect(small.node(HOMES.topBar) ~= nil).toBe(true)
+		expect(small.node(HOMES.bottomBar)).toBeNil()
 		expect(small.core:lastError()).toBeNil()
 		teardown(small)
 	end)

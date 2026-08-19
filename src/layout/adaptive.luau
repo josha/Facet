@@ -118,12 +118,15 @@ end
 --                                                    bar that HUGS its content
 --                                                    (never full width)
 --   pointer primary           -> "sidebar"           desktop shape
---   touch + Medium/Large disp -> "topBar"            tablet shape: the same
---                                                    centered top bar
---   touch/gamepad + Small     -> "bottomBar"         a roomy canvas the DISPLAY
---     (or unknown display)                           fact cannot tell from a
---                                                    phone/handheld stays one
---                                                    (director ruling: when we
+--   touch + roomy SHORT SIDE  -> "topBar"            tablet shape: the same
+--                                                    centered top bar. Roomy on
+--                                                    BOTH axes is what separates
+--                                                    a tablet from a phone, in
+--                                                    either orientation (ADAPT-2)
+--   touch + short side < 600  -> "bottomBar"         a phone, whichever way it
+--                                                    is held
+--   gamepad + Small display   -> "bottomBar"         the near-distance handheld
+--     (or unknown display)                           (director ruling: when we
 --                                                    cannot differentiate,
 --                                                    bottom tabs)
 --   anything else             -> "topBar"
@@ -132,10 +135,10 @@ end
 -- reference's own rule is a device-idiom branch (`.phone`), which this
 -- vocabulary bans; (size/height class, primary interaction class, engine
 -- display size) reproduces the same outcomes from facts a windowed pane also
--- answers honestly. Touch alone is NOT the top-bar indicator: a touch phone
--- and a touch tablet share the class, and the engine's DisplaySize is what
--- separates them. Pure, so the conditions memo and tests share one
--- implementation.
+-- answers honestly. Touch alone is NOT the top-bar indicator: a touch phone and
+-- a touch tablet share the class, and the SHORT SIDE is what separates them
+-- (ADAPT-2 — the engine's DisplaySize cannot: it calls every tablet `Small`).
+-- Pure, so the conditions memo and tests share one implementation.
 export type NavPlacementFacts = {
 	sizeClass: string,
 	heightClass: string,
@@ -156,12 +159,43 @@ function adaptive.navPlacement(facts: NavPlacementFacts): string
 	if facts.primary == "pointer" then
 		return "sidebar"
 	end
-	if facts.primary == "touch" or facts.primary == "gamepad" then
-		-- touch phones/tablets AND near-distance gamepad handhelds share this
-		-- rule (director refinement: "Small and joystick can vary — bottom
-		-- tabs are ok there"): the engine's DisplaySize separates the roomy
-		-- device from the handheld, and when it cannot, the bottom bar is the
-		-- safe home. A ten-foot gamepad never reaches here (caught above).
+	if facts.primary == "touch" then
+		--[[ THE TABLET TEST IS THE SHORT SIDE (ADAPT-2, audit 2026-08-18).
+
+			This asked the engine's DisplaySize, and the engine cannot answer it:
+			Roblox documents `Enum.DisplaySize.Small` as "Most tablet/mobile/handheld
+			devices", so every real tablet reported `Small` and took the PHONE bottom
+			bar, while the tablet branch was reachable only by a touchscreen laptop
+			whose player had last touched the glass. The tablet paradigm this policy
+			documents was unreachable on tablets, and the framework's own canonical
+			matrix said so all along — `tests/lib/device_views.luau`'s tablet row
+			declares `displaySize = "Small"`, correctly, which is what made it
+			invisible.
+
+			The discriminator that holds in BOTH orientations is the short side
+			against the SAME 600px breakpoint the size classes already use: every
+			phone is under it whichever way it is held (390x844 and 844x390 alike),
+			every tablet is over it (1079x809 and 810x1080 alike). The intuitive
+			version — "a tablet is `sizeClass == "wide"`" — fails a PORTRAIT tablet,
+			which is 768-810px wide and therefore lands in `regular` beside a
+			landscape phone.
+
+			It reads as two class comparisons rather than a `min(w, h)` because the
+			classes ARE that measurement, one axis each, against that same constant:
+			a compact width is a short side under 600 in portrait, a short height is
+			a short side under 600 in landscape. Both of those cases have already
+			returned above, which is the whole reason the rule can be stated here
+			without the raw numbers — and stating it explicitly is what keeps the
+			next reader from re-deriving it as "touch always tops out". ]]
+		local shortSideIsRoomy = facts.sizeClass ~= "compact" and facts.heightClass ~= "short"
+		return if shortSideIsRoomy then "topBar" else "bottomBar"
+	end
+	if facts.primary == "gamepad" then
+		-- the NEAR-DISTANCE gamepad handheld keeps the display-fact rule and the
+		-- director refinement behind it ("Small and joystick can vary — bottom tabs
+		-- are ok there"): a pad in the hands is not a tablet in the hands, and
+		-- nothing in ADAPT-2 measured one. A ten-foot pad never reaches here
+		-- (caught above).
 		local d = facts.displaySize
 		return if d == "Medium" or d == "Large" then "topBar" else "bottomBar"
 	end
