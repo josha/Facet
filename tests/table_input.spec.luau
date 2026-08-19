@@ -2452,3 +2452,366 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 		expect(w.tbl.dump().columnPlate).toBe("closed")
 	end)
 end)
+
+-- =============================================================================
+-- ADAPT-13 · a Table that declares only `rowActions` is unreachable off a pointer
+--
+-- THE AUDIT'S MEASUREMENT (matrix K-2, severity high): "The table has ZERO focus
+-- stops. Initial focus nil; twelve Down presses reach nil; Delete fired: 0;
+-- ButtonX menu: false." The row `Hit`'s `focusable` was
+-- `selectionMode ~= "none" or spec.reorderable == true`, and `rowActions` is in
+-- neither disjunct — so a table whose ONLY verbs are its row actions built no
+-- focus stop, the engine never built a key context for the row, and the Delete
+-- and menu bindings the wrapper carries had nothing to bind to. `api.md:4445`
+-- claimed the opposite in as many words ("Keyboard and gamepad Delete/menu bind
+-- per row through the wrapper itself ... with no separate Table wiring"), and
+-- `virtual_list.luau:1780-1792` had already diagnosed and closed the identical
+-- defect for lists.
+-- =============================================================================
+describe("table_input: a rowActions-only table is reachable on keyboard and gamepad (ADAPT-13)", function()
+	local function actionsOnlyWorld(opts: any?)
+		local options = opts or {}
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local pres = Facet.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local fired: { string } = {}
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(3)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				-- THE SHAPE THE AUDIT MEASURED: no selection, not reorderable, no
+				-- primary action. The row's only verbs are the ones its tray carries.
+				selection = options.selection,
+				rowHeight = 40,
+				env = env,
+				rowActions = function(item: any): any
+					local key = item.id
+					return {
+						trailing = {
+							{
+								id = "delete",
+								label = "Delete",
+								role = "destructive",
+								onAction = function()
+									table.insert(fired, `delete:{key}`)
+								end,
+							},
+						},
+					}
+				end,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = { core = core, adapter = adapter, pres = pres, system = system, tbl = tbl, fired = fired }
+		w.handle = handle
+		function w.settle(frames: number?)
+			for _ = 1, frames or 90 do
+				clock.t += 1 / 60
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.press(key: string)
+			system.deviceKey(key, true)
+			system.deviceKey(key, false)
+			w.settle(2)
+		end
+		w.settle(2)
+		return w
+	end
+
+	local function wrappedHitOf(key: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+	end
+
+	it("its rows are focus stops at all, which is the whole mechanism", function()
+		local w = actionsOnlyWorld()
+		-- the audit's own probe: initial focus, and the first row's group
+		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r1"))
+		local groups = w.handle.focusOrder().navigation
+		local rowGroups = 0
+		for _, group in groups do
+			if string.match(group.name, "^row:") ~= nil then
+				rowGroups += 1
+			end
+		end
+		expect(rowGroups).toBe(3)
+	end)
+
+	it("...so Delete on a focused row fires its destructive action (keyboard)", function()
+		local w = actionsOnlyWorld()
+		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r1"))
+		w.press("Down")
+		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r2"))
+		w.press("Delete")
+		w.settle()
+		expect(w.fired).toEqual({ "delete:r2" })
+	end)
+
+	it("...and a PAD reaches the same row and the same action", function()
+		local w = actionsOnlyWorld()
+		w.press("DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r2"))
+		w.press("ButtonX")
+		w.settle()
+		-- ButtonX opens the row's action MENU rather than firing; what this asserts
+		-- is that the press reached the row at all, which it could not before
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/RowActions-r2/Content/Row/Hit`)).never().toBeNil()
+	end)
+
+	it("NULL HYPOTHESIS: a table with no selection, no reorder AND no rowActions still has none", function()
+		--[[ The clause is a union over the verbs a row HAS, not a blanket "rows are
+			focusable". A table that is a read-only grid of text has nothing for a
+			focus stop to do, and giving it one would put a ring on every row of every
+			static table in the framework. ]]
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(3)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				rowHeight = 40,
+				env = env,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local rowGroups = 0
+		for _, group in handle.focusOrder().navigation do
+			if string.match(group.name, "^row:") ~= nil then
+				rowGroups += 1
+			end
+		end
+		expect(rowGroups).toBe(0)
+		tbl.dispose()
+	end)
+end)
+
+-- =============================================================================
+-- ADAPT-14 / ADAPT-15 · a multi-selection that survives the thing that moves it
+--
+-- THE TWO MEASUREMENTS (matrix L-6 and L-7, both high):
+--   · keyboard — "a single arrow press destroys any multi-selection: ctrl-clicks
+--     build [r1,r3], one Down -> [r4]. Ctrl+Down does not move without selecting.
+--     Shift+Down x2 does not extend." A plain arrow REPLACING is correct and is
+--     Apple's own model; what was missing is the two MODIFIED arrows, so a
+--     keyboard could build a multi-selection and had no way to keep it.
+--   · gamepad — "a pad can never hold two rows selected: A -> [r1], DPadDown ->
+--     [r2], A -> [r2]." A pad Activate carries `shift`/`toggle` read from a
+--     KEYBOARD-only modifier table, so every press lands in the replace branch;
+--     and moving the ring replaces as well, so even a toggle would be undone by
+--     the press that reaches the next row.
+--
+-- ONE RULE ANSWERS BOTH, and it is Apple's: EDIT MODE IS THE SELECTION MODE.
+-- Inside it, focus is a cursor and Activate is the verb; outside it, the
+-- modifiers decide. `table.luau`'s own primary-action block already quotes the
+-- rule ("On devices without an attached keyboard and mouse or trackpad, people
+-- can make multiple selections in lists only when edit mode is active") — this is
+-- that sentence reaching the code that moves focus.
+-- =============================================================================
+describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", function()
+	local function multiWorld(opts: any?)
+		local options = opts or {}
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local editing = core:signal(options.editing == true)
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(5)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = "multi",
+				rowHeight = 40,
+				env = env,
+				editing = editing,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			system = system,
+			tbl = tbl,
+			editing = editing,
+			handle = handle,
+		}
+		function w.settle(frames: number?)
+			for _ = 1, frames or 4 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.press(key: string)
+			system.deviceKey(key, true)
+			system.deviceKey(key, false)
+			w.settle(2)
+		end
+		function w.selected(): { string }
+			local out: { string } = {}
+			for key, on in tbl.api.selectedKeys:get() do
+				if on then
+					table.insert(out, key)
+				end
+			end
+			table.sort(out)
+			return out
+		end
+		w.settle(2)
+		return w
+	end
+
+	it("Ctrl+Down moves the ring and selects NOTHING — the focus cursor (ADAPT-14)", function()
+		local w = multiWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		-- a PLAIN arrow first, which is what puts a selection there to lose
+		w.press("Down")
+		expect(w.selected()).toEqual({ "r2" })
+		-- HOLD the modifier across the two presses, which is what a chord is
+		w.system.deviceKey("LeftControl", true)
+		w.press("Down")
+		w.press("Down")
+		w.system.deviceKey("LeftControl", false)
+		w.settle()
+		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		-- the ring travelled two rows and the selection did not move at all
+		expect(w.selected()).toEqual({ "r2" })
+	end)
+
+	it("Shift+Down EXTENDS from the anchor instead of replacing (ADAPT-14)", function()
+		local w = multiWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		w.press("Down")
+		expect(w.selected()).toEqual({ "r2" })
+		-- the anchor is the last non-range select, which is that plain arrow
+		w.system.deviceKey("LeftShift", true)
+		w.press("Down")
+		w.press("Down")
+		w.system.deviceKey("LeftShift", false)
+		w.settle()
+		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.selected()).toEqual({ "r2", "r3", "r4" })
+	end)
+
+	it("a PLAIN arrow still replaces — Apple's own model, unchanged", function()
+		--[[ The null hypothesis, and it matters: the defect here was never "an arrow
+			replaces", which is what the Finder does and what every table in this
+			framework has always done. It was that the two MODIFIED arrows had no
+			meaning at all, so a selection a player built by hand could not survive
+			the next press. ]]
+		local w = multiWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		w.press("Down")
+		expect(w.selected()).toEqual({ "r2" })
+	end)
+
+	it("a PAD holds two rows in edit mode: A toggles, and the ring does not undo it (ADAPT-15)", function()
+		local w = multiWorld({ editing = true })
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		-- EDIT MODE IS THE SELECTION MODE: entering the row does not select it, and
+		-- that is the half the pad was missing — a toggle undone by the very press
+		-- that reaches the next row is not a multi-selection.
+		expect(w.selected()).toEqual({})
+		w.press("ButtonA")
+		expect(w.selected()).toEqual({ "r1" })
+		w.press("DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.selected()).toEqual({ "r1" })
+		w.press("ButtonA")
+		expect(w.selected()).toEqual({ "r1", "r2" })
+		-- ...and A again on a selected row takes it back out, which is what makes
+		-- this a selection the player can steer rather than an accumulator
+		w.press("ButtonA")
+		expect(w.selected()).toEqual({ "r1" })
+	end)
+
+	it("a KEYBOARD Return does the identical thing in edit mode", function()
+		local w = multiWorld({ editing = true })
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		w.press("Return")
+		w.press("Down")
+		w.press("Return")
+		expect(w.selected()).toEqual({ "r1", "r2" })
+	end)
+
+	it("OUTSIDE edit mode the pad is unchanged: A on a row replaces", function()
+		-- the cost of the rule stated as a case: a pad still cannot build a
+		-- multi-selection without entering edit mode, which is exactly Apple's
+		-- documented trade and the reason the auto Edit/Done toggle shows for a
+		-- live gamepad class
+		local w = multiWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		w.press("ButtonA")
+		w.press("DPadDown")
+		w.press("ButtonA")
+		expect(w.selected()).toEqual({ "r2" })
+	end)
+end)

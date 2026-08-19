@@ -665,11 +665,29 @@ function table_rows.new(deps: Deps)
 				id = "Hit",
 				label = "",
 				selected = selectedMemo(rowKey),
-				-- reorderable rows must be focusable even with selection off:
-				-- gamepad/keyboard reorder is focus + grab (UI-PARADIGM-001),
-				-- and the auto Edit/Done toggle must never be a navigation
-				-- dead end (live-drive regression 2026-07-21)
-				focusable = selectionMode ~= "none" or spec.reorderable == true,
+				--[[ A UNION OVER THE VERBS THIS ROW HAS, and every clause is a verb
+					that would otherwise be unreachable off a pointer.
+
+					· SELECTION — the row's own primary stop.
+					· REORDER — gamepad/keyboard reorder is focus + grab
+					  (UI-PARADIGM-001), and the auto Edit/Done toggle must never be a
+					  navigation dead end (live-drive regression 2026-07-21).
+					· ROW ACTIONS (ADAPT-13, 2026-08-18) — and this one was MISSING,
+					  measured by the audit as "the table has ZERO focus stops: initial
+					  focus nil, twelve Down presses reach nil, Delete fired 0, ButtonX
+					  menu false". The focus stop IS the mechanism: with none, the engine
+					  builds no key context for the row, so the Delete and menu bindings
+					  the row-actions wrapper carries have nothing to bind to and the
+					  whole non-pointer route is dead. `api.md` claimed the opposite in
+					  as many words ("Keyboard and gamepad Delete/menu bind per row
+					  through the wrapper itself ... with no separate Table wiring"), and
+					  `virtual_list.luau`'s own key-context note had already diagnosed
+					  and closed the identical defect one control over.
+
+					IT IS A UNION AND NOT A BLANKET. A read-only table of text has no
+					verb for a ring to reach, and giving one a focus stop per row would
+					put a ring on every static grid in the framework. ]]
+				focusable = selectionMode ~= "none" or spec.reorderable == true or rowActionsResult ~= nil,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				onPointerDown = hitOnPointerDown,

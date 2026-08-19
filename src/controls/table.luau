@@ -896,6 +896,32 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		— so a mouse-only session shows nothing. Without an `env` the table cannot
 		know the input, so the toggle always shows.
 	]]
+	--[[ MAY A DEVICE ACTIVATE MEAN "SELECT" IN EDIT MODE? (ADAPT-15, and the ONE
+		place this fix is narrower than the rule behind it.)
+
+		Apple's rule is input-blind — "people can make multiple selections in lists
+		only when edit mode is active" — and this framework already applies it to
+		TOUCH: a tap in edit mode on a selectable table selects and never opens.
+		Extending it to devices is what makes a pad able to hold two rows at all.
+
+		IT IS NOT EXTENDED TO A TABLE THAT ALSO DECLARES `onPrimaryAction`, and the
+		reason is a shipped decision rather than a doubt: redteam item 3 (2026-08-13)
+		restored the device Activate on exactly that shape after edit mode had eaten
+		it, and `tests/table_input.spec.luau` pins Return and ButtonA OPENING a row
+		there. Flipping it would be a second answer to "what does A mean in edit
+		mode on a table with two verbs" — a product decision with a live guard
+		against it, not an audit fix. So the narrowing is recorded rather than
+		smuggled: a `multi` table that declares a primary action still cannot build
+		a multi-selection on a pad, which is the residue of ADAPT-15 and is carried
+		to the director.
+
+		BOTH HALVES READ THIS ONE PREDICATE — the Activate that toggles and the
+		focus move that leaves the selection alone — because either alone is worse
+		than neither: a toggle undone by the press that reaches the next row is not
+		a selection, and a focus move that stops selecting on a table whose Activate
+		still opens takes selection away without giving anything back. ]]
+	local deviceEditSelects = selectionMode == "multi" and spec.onPrimaryAction == nil
+
 	local reorderNeedsEditMode = spec.reorderable == true
 	local touchSelectionNeedsEditMode = selectionMode ~= "none" and spec.onPrimaryAction ~= nil
 	-- the union, plus the consumer's escape. ADD A CLAUSE, NEVER A SPECIAL CASE.
@@ -1024,6 +1050,20 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- own Body but a page it merely sits inside, and that page belongs to the
 	-- consumer's screen (device report 2026-07-29).
 	local renderController: any = nil
+	--[[ THE ACTION SYSTEM, for the ONE question a focus move has to ask (ADAPT-14):
+		is a modifier held. The presenter already reads `system.modifiers()` to fill
+		an Activate's meta; a focus move carries no meta at all, so the control asks
+		the same source directly. Bound through `bindActionSystem`, the shipped
+		auto-wiring seam — never handed over by a consumer. Absent (a bare mount in
+		a spec) means "no modifiers held", which is the unchanged behaviour. ]]
+	local actionSystem: any = nil
+	local function heldModifiers(): { shift: boolean, toggle: boolean }
+		if actionSystem == nil or type(actionSystem.modifiers) ~= "function" then
+			return { shift = false, toggle = false }
+		end
+		local held = actionSystem.modifiers()
+		return if type(held) == "table" then held else { shift = false, toggle = false }
+	end
 	--[[ ── THE BODY'S SCROLLBAR GUTTER, WHICH THE HEADER HAS TO PAY TOO ──────────
 		(director report 2026-08-14: "on desktop the scroll bar always overlaps
 		content"; and the correction that followed the vertical-only diagnosis, "it
@@ -2762,6 +2802,26 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		elseif meta.shift then
 			api.select(rowKey, { mode = "range" })
 		else
+			--[[ ...AND EDIT MODE IS WHERE A DEVICE BUILDS A MULTI-SELECTION
+				(ADAPT-15). A pad Activate arrives with `shift`/`toggle` read from a
+				KEYBOARD-only modifier table (`actions.luau`'s own `MODIFIER_GROUP` is
+				LeftShift/RightShift/Control/Meta), so it can never reach the two
+				branches above and always landed here, replacing — and an author could
+				declare `selection = "multi"` that no pad player could ever produce.
+				Rather than invent a bumper-as-modifier chord, this reuses the mode
+				Apple already puts a finger in and the auto Edit/Done toggle already
+				shows for a live gamepad class: in edit mode a device Activate TOGGLES,
+				and the focus move that reaches the next row leaves the selection alone
+				(`handleFocusMoved` above). The two halves are one rule.
+
+				`multi` only: in `single` mode `api.select` replaces whatever mode it
+				is handed, so a branch here would be a distinction with no difference.
+				The primary action does not fire either, for the same reason a touch
+				tap's does not in edit mode — edit mode is the selection mode. ]]
+			if deviceEditSelects and meta.source == "action" and editingSignal:get() then
+				api.select(rowKey, { mode = "toggle" })
+				return true
+			end
 			api.select(rowKey, { mode = "replace" })
 			-- A DEVICE Activate IS the primary action (Return / ButtonA on the
 			-- focused row); a MOUSE click only is when it completes a double click.
@@ -3305,7 +3365,37 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- in-cell control can step off-screen); selection follows only when set
 		scrollRowIntoView(path, rowKey)
 		if selectionMode ~= "none" then
-			api.select(rowKey, { mode = "replace" })
+			--[[ WHAT A FOCUS MOVE DOES TO A SELECTION (ADAPT-14/15, 2026-08-18).
+				This was `mode = "replace"`, unconditionally, and it is the line that
+				made a multi-selection impossible to hold on TWO inputs at once: a
+				keyboard could build one with Ctrl-clicks and lost it on the next
+				arrow, and a pad could never build one at all, because the press that
+				reached the next row undid the toggle that selected the last one.
+
+				THREE BRANCHES, AND THE FIRST IS APPLE'S OWN RULE. In EDIT MODE a
+				multi-select table's focus is a CURSOR and Activate is the verb —
+				"people can make multiple selections in lists only when edit mode is
+				active", which this file already quotes at THE PRIMARY ACTION and
+				which had never reached the code that moves focus. That one clause is
+				the whole gamepad story (ADAPT-15): a pad has no shift key, and the
+				mode it needs is one the auto Edit/Done toggle already puts in front
+				of it whenever a gamepad class is live.
+
+				OUTSIDE edit mode the MODIFIERS decide, exactly as they do on a click:
+				`toggle` (Ctrl/Cmd) moves the ring and selects nothing, `shift`
+				extends the range from the anchor, and neither is today's replace —
+				which is the Finder's model and is deliberately unchanged, because an
+				unmodified arrow replacing was never the defect. ]]
+			local held = heldModifiers()
+			if deviceEditSelects and editingSignal:get() then
+				-- the cursor: the ring travels, the selection is Activate's business
+			elseif held.toggle then
+				-- ...and the same cursor a keyboard asks for by hand
+			elseif held.shift then
+				api.select(rowKey, { mode = "range" })
+			else
+				api.select(rowKey, { mode = "replace" })
+			end
 		end
 		return true
 	end
@@ -3717,6 +3807,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if columnExpand ~= nil then
 					columnExpand.contribution.bindPresent(presentModal, dismiss, presentAnchored)
 				end
+			end,
+			-- ADAPT-14: the modifier state a focus move has to ask about, from the
+			-- same system the presenter fills an Activate's meta from
+			bindActionSystem = function(system)
+				actionSystem = system
 			end,
 			bindController = function(controller)
 				renderController = controller

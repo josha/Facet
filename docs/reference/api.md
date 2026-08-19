@@ -4300,6 +4300,24 @@ among the others, which is the ordinary flex-with-minimum negotiation. A
 of it: those columns consume nothing in this arithmetic and the fills go on
 dividing what is left.
 
+**Selection, and what moves it.** A plain arrow or d-pad press moves the ring
+and REPLACES the selection — the Finder's model, and unchanged. Held modifiers
+change that on a keyboard: **Ctrl/Cmd** moves the ring and selects nothing (a
+focus cursor), **Shift** extends the range from the anchor. A gamepad has no
+modifiers, so its route is the one Apple documents for a finger — **edit mode is
+the selection mode**: while `editing` is true on a `multi` table, a device
+Activate TOGGLES the focused row and moving the ring leaves the selection alone,
+which is what lets a pad hold two rows at once (ADAPT-14/15, 2026-08-18). The
+auto Edit/Done toggle already shows for a live gamepad class, so the mode is one
+press away.
+
+*The one narrowing, stated:* a `multi` table that ALSO declares
+`onPrimaryAction` keeps its shipped device behaviour — Return and ButtonA open
+the row in edit mode rather than toggling it — because that is a decision with a
+live RED-TEAM guard behind it (a device Activate must not be eaten by edit mode).
+On such a table a pad still cannot build a multi-selection; a keyboard can, with
+Shift.
+
 **Column priority-collapse — `priority`.** When the visible columns cannot all
 meet their own floors, the table drops the lowest-priority column WHOLE instead
 of squeezing every column past its minimum, one at a time until the remainder
@@ -4541,7 +4559,13 @@ control's own axis lock decides scroll-vs-reveal without a reorder branch —
 Table's touch reorder already rides the grab verbs, independent of this
 pointer path, the same split `newVirtualList` documents above). Keyboard and
 gamepad Delete/menu bind per row through the wrapper itself (Task 8/8b) with
-no separate Table wiring.
+no separate Table wiring — and that is true only because the ROW is a focus stop
+at all. `rowActions` joins `selection` and `reorderable` in the union that
+decides it (ADAPT-13, 2026-08-18); before that a table whose only verbs were its
+row actions had zero focus stops, so the engine built no key context for any row
+and both device bindings had nothing to bind to. A table with none of the three
+still has no focus stop per row, deliberately: a read-only grid of text has no
+verb for a ring to reach.
 
 *The iOS tap-to-close rule.* A tap that lands on a row's own content while
 THAT row's own tray is open closes the tray and does **not** select or
