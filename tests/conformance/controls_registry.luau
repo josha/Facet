@@ -941,6 +941,45 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ NOT A CONTROL, and not an export either: `controls/table_rows.luau` is
+			Table's ROW/CELL BUILDER — one row's whole mounted shape (`Row` hit,
+			cells, the edit-mode ≡ gutter, the row-actions wrap) and the pointer
+			handlers that begin on it, behind the parameter object that makes the
+			require one-way. It has a row here for the same reason `TableColumns`
+			does: `check_registration` walks `src/controls/` and a module with no row
+			is a module nothing knows about.
+
+			IT MOUNTS REAL INPUT AND STILL DECLARES `inputProofs = false`, which is
+			the `RowActionsReorder` precedent above and is the honest answer: this
+			module builds Table's row and hands every gesture straight back to
+			Table's own state machine (`api.handleActivate`, `cancelDrag`, the shared
+			`rowGesture` record). It has no verb of its own to reach, and no session
+			can put focus on it as a thing. Its four-input and PARADIGM stories ARE
+			Table's row's, proven cell by cell in the `Table` row at the top of this
+			file — which is what those proofs have always exercised, before and after
+			2026-08-18's extraction, because the row is byte-identical either way.
+
+			WHY IT LEFT `table.luau`: `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for
+			that file made the move a PRECONDITION of the next change of any size —
+			it was 1,236 characters from the 200,000-char `Script.Source` WRITE cap
+			(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). ]]
+		name = "TableRows",
+		kind = "composite",
+		module = "src/controls/table_rows.luau",
+		export = "Controls.Table",
+		spec = "tests/table.spec.luau",
+		conformance = "tests/table.spec.luau",
+		docsAnchor = "newTable",
+		-- NO INSTANCE OF ITS OWN: `new(deps)` returns one closure, and every piece
+		-- of state it touches is the table's — the shared `rowGesture` record, the
+		-- table's signals, the per-row `row_actions` handles Table itself owns and
+		-- prunes. Table's `dump()` is where a report reads all of it.
+		dump = false,
+		reason = "no instance: new(deps) returns one blueprint closure over state the TABLE owns (the shared rowGesture record, its signals, its row_actions handles) — newTable's own dump() is where a report reads it",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- `Facet.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
 		-- renders nothing and has no input surface — it is a one-slot registry of
 		-- "which row is currently open on this list surface", talking to rows only

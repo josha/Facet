@@ -141,6 +141,12 @@ require("./slice_mutation.spec")
 require("./focus_structural.spec")
 require("./table.spec")
 require("./table_virtualized.spec")
+--[[ the row/cell builder's SEAM (2026-08-18, SOURCE_CAP_LEDGER): the parameter
+	object that made `controls/table_rows.luau` one-way, pinned as a set
+	comparison — every fact READ off `deps` is DECLARED and PASSED, the shared
+	write surface is exactly the two mutable containers, and the require does not
+	come back. A parameter object rots silently; this is what notices ]]
+require("./table_rows_seam.spec")
 -- the header, its resize dividers and the owner-held sort, on the surface a
 -- player reaches them through: the shipped playlist tutorial. Was
 -- `table_columns.spec` against a fixture of its own until 2026-08-16, when the

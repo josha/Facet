@@ -967,6 +967,10 @@ local UNSWEEPABLE: { [string]: string } = {
 	-- the RowActions row itself is swept and is the thing that mounts them.
 	TableColumns = "pure column-width arithmetic (the DIR-4 resize clamp) — no blueprint, nothing to mount or "
 		.. "measure. The columns it sizes are swept through the Table fixture, at every preference",
+	TableRows = "the ROW half of Table (extracted 2026-08-18 for the same cap): it returns the very row blueprint "
+		.. "the Table fixture mounts — cells, hit, the edit-mode ≡ gutter and the row-actions wrap — so it is swept "
+		.. "THERE, at every preference and in both reference themes, rather than twice. A second fixture would "
+		.. "measure the same rows under a different name",
 	RowActionsSpec = "pure ActionSpec validation and leaf string/id helpers — no blueprint, nothing to mount or "
 		.. "measure. The tray buttons its output describes are swept through the RowActions fixture",
 	RowActionsCoordinator = "three closures over one plain local (which row is open) — no blueprint, nothing to "

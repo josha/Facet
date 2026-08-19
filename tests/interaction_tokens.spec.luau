@@ -63,12 +63,22 @@ describe("interaction tokens: promotion thresholds (SF-D3)", function()
 	it("Table's reorder threshold is now the TOKEN, not a private copy", function()
 		-- the migration's whole point: one grep finds every consumer. The control
 		-- source may not carry a bare numeric threshold any more.
+		--
+		-- THE CONTROL IS TWO FILES SINCE 2026-08-18 (the row/cell builder left for
+		-- `controls/table_rows.luau` — SOURCE_CAP_LEDGER), and the threshold went
+		-- with the gesture that reads it. Both are scanned, and the token call is
+		-- required in the PAIR rather than in a named half, so a later move of the
+		-- same seam cannot make this check pass by making its subject disappear —
+		-- while a re-introduced bare `6` in either file still fails.
 		local source = tableControl
 		expect(type(source.build)).toBe("function")
 		local fs = require("@lune/fs")
-		local text = fs.readFile("src/controls/table.luau")
-		expect(string.find(text, "DRAG_THRESHOLD = 6", 1, true)).toBe(nil)
-		expect(string.find(text, 'interactionTokens.promotionPx("pointer")', 1, true) ~= nil).toBe(true)
+		local control = fs.readFile("src/controls/table.luau")
+		local rows = fs.readFile("src/controls/table_rows.luau")
+		expect(string.find(control, "DRAG_THRESHOLD = 6", 1, true)).toBe(nil)
+		expect(string.find(rows, "DRAG_THRESHOLD = 6", 1, true)).toBe(nil)
+		local token = 'interactionTokens.promotionPx("pointer")'
+		expect(string.find(control, token, 1, true) ~= nil or string.find(rows, token, 1, true) ~= nil).toBe(true)
 	end)
 end)
 
