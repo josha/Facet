@@ -217,6 +217,79 @@ describe("UI.Grid column flow — the transpose of the one arithmetic", function
 		expect(rectStr(adapter, "/S/G/m4")).toBe("20,0,20,20")
 	end)
 
+	--[[ ADAPT-23 — THE SOLVER TAKES THE SAME CAP THE PREDICTOR DOES.
+
+		`adaptive.columnsFor` is documented as "the SAME arithmetic the solver's Grid
+		uses", and it was a second copy of it: the helper now caps the count at three
+		metres and the solver would have kept answering eleven, which is a worse
+		defect than the one being fixed — a predictor that lies about the grid beside
+		it. `gridLaneCount` calls the pure function, and the fact it passes is the
+		one the theme snapshot already carries (`density`, resolved from the display
+		class), so the two cannot diverge again.
+
+		The instrument is a snapshot resolved WITH the display fact, because that is
+		what a live client has (`theme_controller` passes `displaySize` on every
+		resolve); the neutral default carries no facts and reads `near`, which is
+		what makes the near-distance arm below a real control rather than a repeat. ]]
+	it("ADAPT-23: a ten-foot grid gets FEWER lanes than the same grid at near distance", function()
+		local themeSnapshot = require("../src/themes/snapshot")
+		local package = themeSnapshot.neutralPackage()
+		local function lanesAt(density: string?): number
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			env:set(
+				"themeMetrics",
+				themeSnapshot.resolve(
+					package,
+					nil,
+					{ displaySize = if density == "ten-foot" then "Large" else "Medium" }
+				)
+			)
+			local children = {}
+			for i = 1, 12 do
+				table.insert(children, UI.Box({ id = "c" .. i, width = FIXED(20), height = FIXED(20) }))
+			end
+			local screen = UI.Screen({
+				id = "S",
+				children = {
+					UI.Grid({
+						id = "G",
+						minColumnWidth = 160,
+						gap = 8,
+						rowGap = 8,
+						width = FIXED(1920),
+						height = FIXED(400),
+						children = children,
+					}),
+				},
+			})
+			local root = mountLib.mount(core, screen)
+			local adapter = fake_target.new()
+			local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+			controller.initialRender()
+			-- how many cells share the first line: the lane count, read off the paint
+			local firstY = rectOf(adapter, "/S/G/c1").y
+			local lanes = 0
+			for i = 1, 12 do
+				if rectOf(adapter, "/S/G/c" .. i).y == firstY then
+					lanes += 1
+				end
+			end
+			return lanes
+		end
+		local near = lanesAt("near")
+		local tenFoot = lanesAt("ten-foot")
+		expect(near).toBe(11)
+		expect(tenFoot).toBe(6)
+		-- ...and it is the same answer the PUBLIC predictor gives, which is the
+		-- whole point of the two sharing one implementation
+		local adaptive = require("../src/layout/adaptive")
+		expect(tenFoot).toBe(adaptive.columnsFor(1920, 160, 8, { distanceProfile = "ten-foot" }))
+		expect(near).toBe(adaptive.columnsFor(1920, 160, 8))
+	end)
+
 	--[[ ...and `minColumnWidth = "intrinsic"` MEASURES the lane axis, which is the
 		half a px literal cannot reach: a number is returned before any child is
 		measured, so only the intrinsic path can tell "the widest child" from "the

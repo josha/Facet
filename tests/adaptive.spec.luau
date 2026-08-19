@@ -52,6 +52,26 @@ describe("A-AL3: pure adaptive decisions (no device names)", function()
 		expect(adaptive.columnsFor(0, 90, 6)).toBe(1)
 	end)
 
+	--[[ ADAPT-23 — THE ONE FUNCTION THAT DECIDES DENSITY WAS THE ONE WITHOUT THE
+		CAP. `sizeClass` and `heightClass` both refuse the densest arrangement at
+		three metres and say why; `columnsFor` did not, so the framework's own
+		documented adaptive-grid route answered ELEVEN columns on a television
+		against NINE on a desktop — the module capping on the two functions that
+		describe and not on the one that decides. The cap is the same one, against
+		the same constant, and the lanes still divide the whole extent: fewer,
+		larger cards at distance, which is what the rule was always for. ]]
+	it("ADAPT-23: the ten-foot cap reaches the column count too", function()
+		-- the audit's own case, at 160px cards with an 8px gutter: a 1920 television
+		-- against a 1600 desktop, which is the pair it measured (11 against 9)
+		expect(adaptive.columnsFor(1920, 160, 8)).toBe(11)
+		expect(adaptive.columnsFor(1600, 160, 8)).toBe(9)
+		local tv = adaptive.columnsFor(1920, 160, 8, { distanceProfile = "ten-foot" })
+		expect(tv).toBe(adaptive.columnsFor(1000, 160, 8))
+		expect(tv < adaptive.columnsFor(1600, 160, 8)).toBe(true) -- LESS dense than a desktop
+		-- near distance is byte-identical to no opts at all
+		expect(adaptive.columnsFor(1920, 160, 8, { distanceProfile = "near" })).toBe(11)
+	end)
+
 	it("tolerates a nonsense width instead of producing a nonsense class", function()
 		expect(adaptive.sizeClass(0 / 0)).toBe("compact")
 		expect(adaptive.sizeClass(-50)).toBe("compact")

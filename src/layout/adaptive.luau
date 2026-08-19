@@ -225,15 +225,34 @@ function adaptive.axisFor(width: number, opts: AxisOpts?): string
 	return if safeWidth(width) >= threshold then "x" else "y"
 end
 
--- columnsFor(available, minColumnWidth, gap) -> integer >= 1.
--- The SAME arithmetic the solver's Grid uses for `minColumnWidth`, exported so a
--- screen can ask "how many columns will I get?" before laying anything out.
-function adaptive.columnsFor(available: number, minColumnWidth: number, gap: number?): number
+--[[ columnsFor(available, minColumnWidth, gap, opts?) -> integer >= 1.
+
+	The SAME arithmetic the solver's Grid uses for `minColumnWidth` — literally,
+	since `src/layout/grid.luau` calls this function rather than keeping a second
+	copy — exported so a screen can ask "how many columns will I get?" before
+	laying anything out.
+
+	THE TEN-FOOT CAP, AND WHY IT BELONGS HERE (ADAPT-23, audit 2026-08-18). Both
+	class functions above cap at distance for a stated reason: "a TV at 3 m must
+	not resolve the densest arrangement however wide it is". This one did not, so
+	the framework's own documented adaptive-grid route produced ELEVEN columns on a
+	television against nine on a desktop — density capped on the two functions that
+	DESCRIBE and uncapped on the one that DECIDES.
+
+	The cap is the same one, spelled with the same constant: at ten-foot the count
+	is taken against `BREAKPOINTS.wide` rather than the raw extent, exactly as
+	`sizeClass` answers `regular` for any width past it. The lanes still divide the
+	WHOLE extent, so a television gets fewer, larger cards — which is what the rule
+	was always about. No new number, and nothing to keep in sync. ]]
+function adaptive.columnsFor(available: number, minColumnWidth: number, gap: number?, opts: ClassOpts?): number
 	local g = if type(gap) == "number" and gap == gap then math.max(0, gap) else 0
 	local minW = safeWidth(minColumnWidth)
 	local avail = safeWidth(available)
 	if minW <= 0 then
 		return 1
+	end
+	if opts ~= nil and opts.distanceProfile == "ten-foot" then
+		avail = math.min(avail, adaptive.BREAKPOINTS.wide)
 	end
 	return math.max(1, math.floor((avail + g) / (minW + g)))
 end

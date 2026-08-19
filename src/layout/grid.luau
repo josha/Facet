@@ -74,6 +74,7 @@
 	and the compiler proves it.
 ]]
 
+local adaptive = require("./adaptive")
 local num = require("../num")
 -- bound at module scope: `solver.luau` records that a per-call allocation on
 -- the measure path is a bench regression this repository has already paid for
@@ -170,12 +171,24 @@ end
 -- An unbounded offer (`math.huge`, only reachable from measure) yields one lane:
 -- a lane count derived from an infinite extent is not a number anyone can use.
 -- `inner` is the LANE axis's inner extent, which the mode picks (`gridFlowPlan`).
-local function gridLaneCount(node: any, inner: number, gap: number, minCol: number?): number
+local function gridLaneCount(ctx: any, node: any, inner: number, gap: number, minCol: number?): number
 	if node.columns ~= nil then
 		return node.columns :: number
 	end
 	if minCol ~= nil and inner ~= math.huge then
-		return math.max(1, math.floor((inner + gap) / (minCol + gap)))
+		--[[ ONE IMPLEMENTATION OF THE LANE COUNT, and now it is literally one
+			(ADAPT-23). `adaptive.columnsFor` has always been documented as "the SAME
+			arithmetic the solver's Grid uses" and was a second copy of it, which is
+			how the two came to disagree about distance: the helper and the solver
+			both ignored the ten-foot density cap that `sizeClass`/`heightClass`
+			apply, so the framework's own adaptive-grid route gave a TELEVISION more
+			columns than a desktop. The cap lives in the pure function; this passes
+			the fact the theme snapshot already carries (`density`, resolved from the
+			display class), so predictor and solver cannot diverge again. ]]
+		local density = if type(ctx.metrics) == "table" then (ctx.metrics :: any).density else nil
+		return adaptive.columnsFor(inner, minCol, gap, {
+			distanceProfile = if density == "ten-foot" then "ten-foot" else nil,
+		})
 	end
 	return 1
 end
@@ -271,7 +284,7 @@ local function gridFlowPlan(deps: Deps, ctx: any, node: any, innerW: number, inn
 	local innerLane = if isCol then innerH else innerW
 	local innerFlow = if isCol then innerW else innerH
 	local minLane = gridLaneMin(deps, ctx, node, isCol)
-	local lanes = gridLaneCount(node, innerLane, gap, minLane)
+	local lanes = gridLaneCount(ctx, node, innerLane, gap, minLane)
 	-- THE LANE EXTENT, FLOORED, AND BOTH PASSES READ THIS ONE NUMBER. The clamp
 	-- keeps a gap/lane combination wider than the container from going negative
 	-- (phase-4 layout fuzz, seed 206612356). Measure used to sum the UNROUNDED
