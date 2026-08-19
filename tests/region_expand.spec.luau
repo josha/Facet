@@ -214,6 +214,34 @@ describe("EXPAND 2 — the plate is sized by the same pure pass, and says when i
 	end)
 end)
 
+describe("EXPAND 2b — `unshown` alone is not the census, and here is the state that proves it", function()
+	--[[ THE TRAP A CENSUS FALLS INTO (fix round 1, from the review's edge probe).
+		`unshown` lists what a screen has stopped SHOWING, and by construction it
+		excludes a `recover = "none"` region — the author has stated that every form
+		below the richest still shows everything that matters, so nothing is missing.
+		That is correct and it is not the whole census: such a region can still be
+		STANDING ON A REDUCED FORM, and a surface that prints "nothing is hidden" off
+		`#unshown == 0` alone will print it over one.
+
+		The two facts live on the same dump and a census must read both. The guide
+		says so; this pins the state that makes it true, so a consumer reading only
+		one half has a failing case to look at. ]]
+	it("a stepped-down region with a lossless ladder is invisible in `unshown` and visible in `activeForm`", function()
+		local res = composition.resolve(
+			decl({ { id = "Rounds", group = "body", rank = 1, forms = 2, recover = "none" } }),
+			{ w = 400, h = 30 },
+			{ measure = measureFrom({ Rounds = { { w = 200, h = 60 }, { w = 60, h = 20 } } }) }
+		)
+		local r = res.regionById.Rounds
+		expect(r.activeForm).toBe(2)
+		expect(r.elided).toBe(true)
+		expect(#res.unshown).toBe(0)
+		-- ...and it has no expand either, so the census row it needs is "simplified",
+		-- not "open to expand"
+		expect(r.expandable).toBe(false)
+	end)
+end)
+
 describe("EXPAND 3 — the dump carries the facts, and two calls are equal", function()
 	local SIZES = {
 		Clock = { { w = 200, h = 60 }, { w = 60, h = 20 } },
@@ -329,6 +357,41 @@ describe("EXPAND 4 — the authoring surface is one word, and it is refused wher
 				children = { textForm("Only") },
 			})
 		end).toThrow()
+	end)
+
+	--[[ THE CONTRADICTION IS REFUSED, NOT DEFAULTED AROUND (fix round 1). It used to
+		be a silent default: `recover = "none"` resolved `expand` to "none" and an
+		author who wrote `expand = "auto"` beside it was accepted in silence — which
+		also produced a census that could print "nothing is hidden" over a zone
+		standing on a reduced form with a live affordance on it. Two statements that
+		cannot both be true are an authoring error, and this boundary refuses those. ]]
+	it('an expand under recover = "none" is refused — the declaration contradicts itself', function()
+		local function withExpand(value: any): boolean
+			local ok = pcall(UI.Region, {
+				id = "Rounds",
+				group = "body",
+				rank = 1,
+				recover = "none",
+				expand = value,
+				children = { textForm("Wide"), textForm("Wrapped") },
+			})
+			return ok
+		end
+		expect(withExpand("auto")).toBe(false)
+		-- ...and "none" is refused too, exactly as the one-form region refuses every
+		-- value of a key that cannot mean anything there
+		expect(withExpand("none")).toBe(false)
+		expect(withExpand(function() end)).toBe(false)
+		-- SILENCE is still the right way to say it, and still resolves to "none"
+		local region = UI.Region({
+			id = "Rounds",
+			group = "body",
+			rank = 1,
+			recover = "none",
+			children = { textForm("Wide"), textForm("Wrapped") },
+		})
+		expect(region.props.expand.mode).toBe("none")
+		expect(#expandNodes(region)).toBe(0)
 	end)
 
 	it("an unknown expand mode is refused at the call site", function()
@@ -811,7 +874,8 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 		expect(opts.scrim).toBe("none")
 		expect(opts.outsideTapCancel).toBe(true)
 		-- cancelPolicy is left at the presenter's default, which is what makes
-		-- Escape and gamepad ButtonB close the plate
+		-- gamepad ButtonB closes the plate (Escape cannot be bound on this platform;
+		-- the keyboard route is the panel's own close affordance — EXPAND 12)
 		expect(opts.cancelPolicy).toBeNil()
 		expect(#presented).toBe(0)
 	end)

@@ -854,9 +854,16 @@ does — because one gesture may only have one meaning, and a compact form that
 already holds a button has spoken for the tap. The plate's width is the composition's
 own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
 plate, the same content is presented as a full-width sheet instead. Dismissal is the
-presented surface's: tap-away, Escape, gamepad B — and the plate closes itself when
-the rect it was opened against moves, resizes or goes (a rotation, a viewport change,
-a theme-metric change, or a re-solve that put the region back on its richest form).
+presented surface's: a tap outside, the plate's own **Close** control, and gamepad B —
+and the plate closes itself when the rect it was opened against moves, resizes or goes
+(a rotation, a viewport change, a theme-metric change, or a re-solve that put the region
+back on its richest form). **Escape is not one of the routes and cannot be**: it is
+permanently bound to the Roblox CoreGui menu and the engine refuses the binding
+(ADR-0013 §Justified exceptions), which is exactly why the framework puts a Close control
+in the panel — the plate is a modal, so its own ring is the whole keyboard story. That
+control is the panel's LAST child, so the presenter's existing rule (a modal focuses its
+first focusable) lands on the content's own control when form 1 has one and on the way out
+when it does not.
 
 **A form's minimum must carry the region's essential value.** The expand is for the
 REST. A ladder whose last rung drops the number the player actually needs has moved

@@ -395,6 +395,58 @@ describe("the recovery route discloses the SAME content the richest form shows",
 		tight.dispose()
 	end)
 
+	--[[ THE CENSUS'S EMPTY STATE IS A CLAIM, AND IT HAS TO BE TRUE (fix round 1).
+
+		"Nothing is hidden — every zone is showing everything it has" used to print
+		whenever `unshown` was empty, and `unshown` excludes a `recover = "none"`
+		route BY CONSTRUCTION. So a zone standing on a REDUCED form could be on the
+		screen while the sink said every zone was showing everything. The sink now
+		reads both halves of the same dump — what is missing (`unshown`) and what is
+		SIMPLIFIED (`activeForm > 1`) — and waits for both to be silent.
+
+		WHAT THIS CASE CAN AND CANNOT WITNESS, stated rather than implied: this
+		fixture has no multi-form `recover = "none"` region, so the state where the
+		two halves DISAGREE cannot be produced here — every stepped-down zone in this
+		HUD declares a route and is therefore already in `unshown`. That state is
+		pinned where it IS reachable (`tests/region_expand.spec.luau`, EXPAND 2b, at
+		the pure layer). What this pins is the sink's own behaviour in both
+		directions, which is what catches the empty state being deleted, inverted, or
+		printed unconditionally. ]]
+	it("the sink says 'nothing is hidden' only when the dump agrees, in both directions", function()
+		local EMPTY_LINE = "/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody/OverflowEmpty"
+		-- ROOMY: nothing dropped, nothing stepped down, and the line is there
+		local roomy = drive({ id = "tablet-landscape", w = 1079, h = 809, displaySize = "Small", input = "Touch" })
+		local dump = roomy.handle.controller.compositionAt("/HudScreen/Hud")
+		local stepped = 0
+		for _, r in dump.regions do
+			if (r.activeForm or 0) > 1 then
+				stepped += 1
+			end
+		end
+		expect(`roomy: unshown={#dump.unshown} stepped={stepped}`).toBe("roomy: unshown=0 stepped=0")
+		roomy.built.steps.openOverflow()
+		roomy.refresh()
+		expect(`roomy: the empty line is up={roomy.adapter.node(EMPTY_LINE) ~= nil}`).toBe(
+			"roomy: the empty line is up=true"
+		)
+		roomy.built.steps.closeOverflow()
+		roomy.refresh()
+		roomy.dispose()
+
+		-- TIGHT: zones have given way, so the claim is false and is not made
+		local tight = drive({ id = "narrow-landscape", w = 640, h = 320, displaySize = "Small", input = "Touch" })
+		tight.built.steps.openUrlBar()
+		tight.refresh()
+		tight.built.steps.openOverflow()
+		tight.refresh()
+		expect(`tight: the empty line is up={tight.adapter.node(EMPTY_LINE) ~= nil}`).toBe(
+			"tight: the empty line is up=false"
+		)
+		tight.built.steps.closeOverflow()
+		tight.refresh()
+		tight.dispose()
+	end)
+
 	it("...and the weapon rail's ammo counts reach it the same way", function()
 		local roomy = drive({ id = "compact-phone-portrait", w = 359, h = 718, displaySize = "Small", input = "Touch" })
 		local richTexts = contentUnder(roomy, "/HudScreen/Hud/Rail")

@@ -21,10 +21,14 @@
 	  * the DISMISSALS are the presented surface's own. The plate is presented
 	    `modal` with a fully transparent catching scrim, which is the Menu's own
 	    idiom, and that ONE decision buys three of the four routes the contract
-	    asks for: a tap outside dismisses (`outsideTapCancel`), Escape and gamepad
-	    B dismiss (the default `cancelPolicy`), and the focus scope is pushed and
-	    POPPED — so focus returns to the affordance that opened it without this
-	    file holding a path or a restore of its own;
+	    asks for: a tap outside dismisses (`outsideTapCancel`), gamepad B dismisses
+	    (the default `cancelPolicy`), and the focus scope is pushed and POPPED — so
+	    focus returns to the affordance that opened it without this file holding a
+	    path or a restore of its own. ESCAPE IS NOT ON THAT LIST AND CANNOT BE: it
+	    is permanently bound to the Roblox CoreGui menu and the engine refuses the
+	    binding (ADR-0013 §Justified exceptions), so the KEYBOARD route out is the
+	    close affordance `blueprint.luau` puts in the panel — a modal traps the
+	    ring, which is what makes the ring the whole keyboard story;
 	  * the SIZE is the composition's (`plate.w`), and whether a plate is possible
 	    at all is too (`plate.sheet`).
 
@@ -141,7 +145,8 @@ function region_expand.new(config: Config)
 		with `scrim = "none"` is the Menu's idiom: fully transparent, still catching,
 		so an outside tap closes the plate and never clicks through to the HUD
 		underneath. `cancelPolicy` is left at its default (`dismiss`), which is what
-		makes Escape and gamepad ButtonB close it. No `transition` is declared, so
+		makes gamepad ButtonB close it (Escape cannot be bound on this platform, so the
+		panel's own close affordance is the keyboard route). No `transition` is declared, so
 		the plate PLACES rather than travels — which is the reduced-motion answer by
 		construction rather than by a branch that only one player ever exercises. ]]
 	local function anchoredOpts(): any

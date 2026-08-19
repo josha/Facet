@@ -1422,7 +1422,23 @@ return {
 				}),
 			}
 			local hidden = hiddenNow()
-			if #hidden == 0 then
+			--[[ ...AND "NOTHING IS HIDDEN" MEANS NOTHING IS HIDDEN (fix round 1). The
+				line used to print whenever `unshown` was empty, and `unshown` excludes a
+				`recover = "none"` route by construction — so a zone standing on a REDUCED
+				form could be on the screen while this panel said every zone was showing
+				everything it has. The census reads both halves of the same dump: what is
+				missing (`unshown`) and what is SIMPLIFIED (`activeForm > 1`), and the
+				empty line waits for both to be silent. ]]
+			local steppedDown = 0
+			do
+				local dump = state()
+				for _, row in (if dump ~= nil then dump.regions else nil) or {} do
+					if (row.activeForm or 0) > 1 then
+						steppedDown += 1
+					end
+				end
+			end
+			if #hidden == 0 and steppedDown == 0 then
 				-- ...AND THE EMPTY STATE IS NOT AN EMPTY PANEL. A sink that opens onto
 				-- nothing reads as broken; a sink that says "nothing is hidden" is the
 				-- demonstration finishing its own sentence.

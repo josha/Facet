@@ -966,6 +966,28 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		richest still shows everything that matters"), and disclosing a form that
 		holds nothing more would be a plate that repeats the screen. ]]
 	local authoredExpand = (spec :: any).expand
+	--[[ ...AND A DECLARATION MAY NOT CONTRADICT ITSELF (fix round 1). This was a
+		silent default: `recover = "none"` resolved `expand` to "none", and an author
+		who wrote `expand = "auto"` beside it was accepted in silence — a region
+		simultaneously stating that nothing is missing and asking the framework to
+		disclose what is missing. It also produced a census that could print "nothing
+		is hidden" over a zone standing on a reduced form with a live affordance on
+		it, because `unshown` excludes a "none" route by construction.
+
+		Refused, in the same shape as the one-form refusal below: EVERY value of the
+		key, including "none", because a key that cannot mean anything here is
+		ceremony however it is spelled. Silence is still the way to say it. ]]
+	if authoredExpand ~= nil and spec.recover == "none" then
+		error(
+			`Facet UI.Region '{spec.id}' declares recover = "none" AND an expand — the two contradict `
+				.. 'each other. `recover = "none"` states that every form below the richest still shows '
+				.. "everything that matters, so there is nothing left for an expand to disclose (and "
+				.. "nothing to opt out of). Drop the expand, or state the route this region really has: "
+				.. 'recover = "self" (the reduced form IS the route — the framework builds it) or '
+				.. 'recover = "overflow" (the screen\'s overflow surface is)',
+			0
+		)
+	end
 	local expandHandler: (() -> ())? = nil
 	local expandMode: string
 	if authoredExpand == nil then

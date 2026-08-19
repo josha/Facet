@@ -416,9 +416,16 @@ Activating it presents the region's **richest form** — the same blueprint, by
 identity — in a transient plate at the region's own anchor, sized by the same
 solve that chose the ladder rung. Where the richest form cannot meet its floor in
 a plate, the identical content is presented as a full-width sheet instead. It
-closes on a tap outside, on Escape, on gamepad B, and by itself when the box it
-was opened against moves, resizes or goes (a rotation, a viewport change, a theme
-change, or a re-solve that put the region back at its richest form).
+closes on a tap outside, on its own **Close** control, on gamepad B, and by itself
+when the box it was opened against moves, resizes or goes (a rotation, a viewport
+change, a theme change, or a re-solve that put the region back at its richest
+form).
+
+The Close control is the framework's, not yours, and it is there because of the
+platform fact above: **Escape cannot be bound**, and a plate that traps focus — as
+it must, or its own contents are on nobody's ring — would otherwise have no
+keyboard exit at all. It is the panel's last child, so focus on open lands on your
+content's first control when form 1 has one, and on the way out when it does not.
 
 You can turn it off — `expand = "none"` says there is nothing to disclose or that
 you are disclosing it yourself — or replace it with a handler:

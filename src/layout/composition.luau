@@ -971,9 +971,19 @@ function composition.normalize(decl: any): Declaration
 			-- NIL on a one-form region and a string on every other, which is exactly
 			-- what the two rules above have already guaranteed
 			recover = r.recover,
-			-- ...and the expand is NEVER nil past here: "auto" is what silence means,
-			-- resolved once so no consumer has to know that (wave REVEAL)
-			expand = r.expand or "auto",
+			--[[ ...and the expand is NEVER nil past here, resolved once so no consumer
+				has to know the rule (wave REVEAL). "auto" is what silence means —
+				EXCEPT on a region whose author has already stated that nothing is
+				missing: `recover = "none"` is exactly that statement, and disclosing a
+				form that holds nothing more would be a plate repeating the screen.
+
+				THE BLUEPRINT BOUNDARY REFUSES the contradiction outright (an explicit
+				`expand` beside `recover = "none"`), and this is the same rule for the
+				half that never passes through a constructor: a declaration driven
+				straight from a test, or from `composition.resolve`, resolves the same
+				way it would have on a screen. Two boundaries stating one rule
+				differently is how a headless sweep stops predicting the device. ]]
+			expand = r.expand or (if r.recover == "none" then "none" else "auto"),
 			formInteractive = r.formInteractive,
 		})
 	end
