@@ -3109,10 +3109,26 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 					hit = UI.draggable(hit, {
 						payload = { kind = REORDER_KIND, key = entry.key, list = id },
 						dragMotion = if reorderMotion == "instant" then "object" else reorderMotion,
-						-- TOUCH DECLINES so the native ScrollingFrame keeps the pan
-						-- (fighting engine momentum scroll is never winnable). Touch
-						-- reaches reorder through the grab verbs — Table's precedent,
-						-- which shipped the same split for the same reason.
+						--[[ TOUCH DECLINES so the native ScrollingFrame keeps the pan
+							(fighting engine momentum scroll is never winnable).
+
+							THE SENTENCE THAT USED TO FOLLOW WAS FALSE, and it is corrected
+							rather than deleted because it is the whole finding (audit M-5 /
+							ADAPT-21, high): "touch reaches reorder through the grab verbs —
+							Table's precedent". Table's grab verb is a MOUNTED handle a finger
+							can press (the edit-mode ≡, shown for `classes.touch`); this
+							control's `toggleGrab` is a Luau function bound to no touch
+							gesture, so a touch-only player has NO route to reorder here at
+							all — measured: the body drag is declined, no `armOnTap` is
+							declared, there is no edit mode and no handle.
+
+							Building one is a product decision this wave did not have: the
+							drag contract states that `armOnTap` is opt-in because "what a tap
+							MEANS is the consumer's call", and turning it on by default would
+							change what a tap does on every reorderable list that ships. The
+							route an author has TODAY is that same declaration, or a mounted
+							handle of their own; the framework-side answer is queued with the
+							director's other paradigm calls. ]]
 						declineTouch = true,
 						--[[ A WINDOWED-OUT ROW IS NOT A REMOVED ROW. This list unmounts
 							rows it is still holding — that is what virtualization is — and

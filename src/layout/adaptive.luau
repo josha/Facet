@@ -113,7 +113,13 @@ end
 --                                                    thumb zone (phone portrait)
 --   short height              -> "bottomBarCompact"  the SAME bottom bar in its
 --                                                    reduced, inline, centered
---                                                    form (phone landscape)
+--                                                    form (phone landscape): it
+--                                                    HUGS its tabs instead of
+--                                                    dividing the width. Same
+--                                                    band height, same words —
+--                                                    a terser name is the
+--                                                    author's or the shrink
+--                                                    ladder's (ADAPT-30)
 --   ten-foot distance         -> "topBar"            a center-aligned top tab
 --                                                    bar that HUGS its content
 --                                                    (never full width)
