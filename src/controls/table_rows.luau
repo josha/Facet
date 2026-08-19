@@ -122,6 +122,9 @@ export type Deps = {
 	capFor: (any, number) -> number,
 	columnDim: (Column) -> any,
 	columnHidden: (Column) -> any,
+	-- is edit mode reachable at all on this table (the consumer holds the signal,
+	-- or the control auto-shows its toggle) — a build-time union
+	canEditMode: boolean,
 	selectedMemo: (string) -> any,
 	itemForKey: (string) -> any?,
 	applyDragPosition: ({ x: number, y: number }) -> (),
@@ -171,6 +174,7 @@ function table_rows.new(deps: Deps)
 	local capFor = deps.capFor
 	local columnDim = deps.columnDim
 	local columnHidden = deps.columnHidden
+	local canEditMode = deps.canEditMode
 	local selectedMemo = deps.selectedMemo
 	local itemForKey = deps.itemForKey
 	local applyDragPosition = deps.applyDragPosition
@@ -728,8 +732,22 @@ function table_rows.new(deps: Deps)
 			carrying its own path grammar and its own press-zone arithmetic
 			(`isHandleZonePress` reads the zone's leading edge). Recorded rather than
 			smuggled: a selectable AND reorderable table still paints no mark, which
-			is the residue of ADAPT-27 and is a director call about where the ≡ goes. ]]
-		if spec.reorderable ~= true and selectionMode ~= "none" then
+			is the residue of ADAPT-27 and is a director call about where the ≡ goes.
+
+			...AND IT MOUNTS ONLY WHERE EDIT MODE IS REACHABLE, which is not
+			fastidiousness — it is one engine Instance per ROW. `UI.When` is a
+			structural region and it materialises even while its branch is absent, so
+			an unconditional mark would have put a node on every row of every
+			selectable table in the library to serve a mode most of them have no
+			affordance for. `canEditMode` is the build-time union of the two routes
+			that exist: the consumer holds the signal (`spec.editing`), or the control
+			auto-shows the toggle (`autoEditRoute`). A table with neither can still be
+			driven into edit mode through the public `api.editing`, and gets the
+			gutter without the mark — the honest residue of the trade, and the
+			shipped racer list is the reason it is worth taking (it declares
+			`selection = "single"`, has no edit route at all, and its own package's
+			contract test caught the extra node). ]]
+		if spec.reorderable ~= true and selectionMode ~= "none" and canEditMode then
 			table.insert(
 				rowChildren,
 				UI.When({

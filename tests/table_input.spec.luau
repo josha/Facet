@@ -2855,6 +2855,9 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 					},
 				},
 				selection = options.selection,
+				-- an OWNER-HELD edit signal is one of the two routes into edit mode, and the
+				-- mark only mounts where a route exists (see the gate's own note)
+				editing = if options.ownEditing then core:signal(false) else nil,
 				reorderable = options.reorderable,
 				onReorder = if options.reorderable
 					then function(keys: any, toIndex: number)
@@ -2897,7 +2900,7 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 			Edit->Done." The gutter was already RESERVED (`cellsEditPadding` insets
 			every row's cells by the handle gutter whenever editing, reorderable or
 			not); nothing was ever put in it. ]]
-			local w = editWorld({ selection = "multi" })
+			local w = editWorld({ selection = "multi", ownEditing = true })
 			expect(w.adapter.node(SELECT_MARK)).toBeNil()
 			w.tbl.api.editing:set(true)
 			w.settle()
@@ -2920,12 +2923,27 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 	)
 
 	it("ADAPT-27: a table with NO selection grows no mark — the gutter is the handle's", function()
-		local w = editWorld({ reorderable = true })
+		local w = editWorld({ reorderable = true, ownEditing = true })
 		w.tbl.api.editing:set(true)
 		w.settle()
 		expect(w.adapter.node(SELECT_MARK)).toBeNil()
 		-- the ≡ handle is what that gutter holds on a reorder-only table
 		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/HandleGlyph")).never().toBeNil()
+	end)
+
+	it("ADAPT-27: a table with NO route into edit mode mounts no `When` at all — one node per ROW", function()
+		--[[ THE GATE, and it is about cost rather than tidiness. `UI.When` is a
+			structural region that materialises even while its branch is absent, so an
+			unconditional mark would put an engine node on every row of every
+			selectable table in the library to serve a mode most of them have no
+			affordance for. The shipped Rascal Rally racer list is exactly that shape
+			— `selection = "single"`, no owner signal, no auto toggle — and its own
+			package's contract test is what caught the extra node. ]]
+		local w = editWorld({ selection = "multi" })
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).toBeNil()
+		-- ...and a route that DOES exist mounts it
+		local owned = editWorld({ selection = "multi", ownEditing = true })
+		expect(owned.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).never().toBeNil()
 	end)
 
 	it("M-4: a KEYBOARD-only session gets the Edit toggle, and can reorder a row end to end", function()

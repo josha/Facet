@@ -1738,6 +1738,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		capFor = capFor,
 		columnDim = columnDim,
 		columnHidden = columnHidden,
+		canEditMode = spec.editing ~= nil or autoEditRoute,
 		selectedMemo = selectedMemo,
 		itemForKey = itemForKey,
 		applyDragPosition = applyDragPosition,
