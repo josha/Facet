@@ -326,7 +326,21 @@ local function activateEffect(handle: any, node: any, path: string?, meta: any?)
 			return
 		end
 	end
-	-- (4) no-op
+	--[[ (4) THE PUBLIC DRAG VERB'S PICKUP (ADAPT-16). An action-source Activate
+		that nobody above wanted, on a mounted `UI.draggable`, ARMS it — and the
+		next one commits it at the aim the focus ring has been feeding. The rule is
+		`newVirtualList`'s own ("a source with no consumer Activate arms on
+		Activate"), hoisted to the public verb, and it is asked LAST so that
+		"nobody wanted it" is structural rather than predicted: a node's own
+		`onActivate`, a Toggle's flip and every control contribution have already
+		declined. Before this, the whole arm->navigate->commit path existed, was
+		tested, and was bound to nothing on a pad or a keyboard. ]]
+	if handle.controller ~= nil and handle.controller.activateArms ~= nil then
+		if handle.controller.activateArms(path, meta) then
+			return
+		end
+	end
+	-- (5) no-op
 end
 
 -- Activate dispatch + the semantic `activate` event, which fires on the CAUSAL
@@ -3236,6 +3250,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				if c.bundle.handleCancel ~= nil and c.bundle.handleCancel(focused) then
 					return
 				end
+			end
+			--[[ A CARD THE GENERIC VERB PICKED UP IS PUT BACK DOWN (ADAPT-16). After
+				the contributions, because a control that owns its own grab owns its own
+				Cancel; before the surface branches, because a player holding something
+				means "put it down", not "close the screen". `cancelArmed` answers false
+				unless THIS seam armed the live session, so a VirtualList grab and every
+				existing modal/responder route are untouched. ]]
+			if controller.cancelArmed ~= nil and controller.cancelArmed("cancelVerb") then
+				return
 			end
 			-- cancelPolicy = "none": the SURFACE ignores Cancel (a mandatory modal
 			-- whose choice has no legal "not now"). Declared per surface, checked

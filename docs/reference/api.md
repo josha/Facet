@@ -7023,6 +7023,16 @@ the registry table as the path.
   `registry.commit()`, `registry.cancel(reason?)`. `armTo` aims the same session
   at the target's **centre**, so legality, enter/leave and the verdict are
   literally the pointer code path — there is no second policy path to drift.
+  **You do not have to call any of them for the default pickup** (ADAPT-16,
+  2026-08-18): a gamepad/keyboard Activate on a focused `UI.draggable` that
+  **nobody else wanted** arms it, the focus ring aims it (the presenter has always
+  fed `armTo` from focus), the next Activate commits at that aim, and Cancel
+  (ButtonB / the surface's cancel verb) puts it back down. "Nobody else wanted it"
+  is structural: the node's own `onActivate`, a Toggle's flip and every control
+  contribution are offered first, so a draggable that declares `onActivate` keeps
+  it — the same rule `newVirtualList` states as `grabOnActivate = reorderable and
+  onActivate == nil`. Only a session armed this way is committed or cancelled by
+  the generic verbs; a control's own grab stays its own.
 - Live geometry: `registry.refreshTargets()` re-resolves every target rect and
   re-runs the hover at the last pointer position. Call it in the same frame as a
   scroll write; the renderer already calls it after every re-solve.

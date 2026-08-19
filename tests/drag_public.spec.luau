@@ -851,6 +851,184 @@ describe("public drag: the non-pointer paradigm (SF-D4)", function()
 	end)
 end)
 
+--[[ ADAPT-16 — THE PUBLIC VERB'S PICKUP ON A PAD AND A KEYBOARD.
+
+	Every piece of arm->navigate->commit is proved above, called directly. The
+	audit's finding is that nothing CALLED it: with the card focused, ButtonA armed
+	nothing and Return armed nothing, and `grep` found no caller of `registry.arm`
+	anywhere in `src/present/`. The machinery was built, tested and bound to
+	nothing, so a keyboard-only or pad-only player could not pick a card up at all.
+
+	These cases drive the REAL keys through the REAL action system, and the board
+	is a focusable card (a `UI.Button` with no `onActivate`, which is the shape the
+	rule is about) on a screen that sinks navigation, so the presenter's own
+	Activate context is what hears the press. ]]
+local function padBoard()
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	local system = Facet.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local drops: { any } = {}
+	local activates = 0
+	local card = UI.draggable(
+		UI.Button({
+			id = "Card",
+			label = "Card",
+			anchor = "topLeft",
+			offsetX = 0,
+			offsetY = 0,
+			width = { type = "fixed", px = 100 },
+			height = { type = "fixed", px = 60 },
+		}),
+		{ payload = "card" }
+	)
+	local target = UI.dropTarget(
+		UI.Button({
+			id = "Slot",
+			label = "Slot",
+			anchor = "topLeft",
+			offsetX = 0,
+			offsetY = 200,
+			width = { type = "fixed", px = 200 },
+			height = { type = "fixed", px = 100 },
+		}),
+		{
+			onDrop = function(payload: any, info: any)
+				table.insert(drops, { payload = payload, info = info })
+			end,
+		}
+	)
+	local screen = UI.Screen({
+		id = "S",
+		children = {
+			UI.Anchor({
+				id = "Board",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = { card, target },
+			}),
+		},
+	})
+	local handle = pres.present(screen, { sinkNavigation = true })
+	pres.refresh()
+	local api: any = {
+		core = core,
+		pres = pres,
+		system = system,
+		handle = handle,
+		controller = handle.controller,
+		drops = drops,
+		registry = handle.controller.dragRegistry(),
+	}
+	function api.press(key: string)
+		system.deviceKey(key, true)
+		system.deviceKey(key, false)
+		pres.refresh()
+	end
+	function api.focus(path: string)
+		handle.controller.setFocusPath(path)
+		pres.refresh()
+	end
+	function api.activates(): number
+		return activates
+	end
+	function api.countActivate()
+		activates += 1
+	end
+	return api
+end
+
+describe("ADAPT-16: the public drag verb has a pad and keyboard pickup by default", function()
+	it("ButtonA on a focused card ARMS it, DPad aims it, ButtonA commits", function()
+		local b = padBoard()
+		b.focus("/S/Board/Card")
+		expect(b.registry.isActive()).toBe(false)
+		b.press("ButtonA")
+		expect(b.registry.mode()).toBe("armed")
+		-- the aim follows the ring, which is what the presenter has always done
+		-- for an already-armed session
+		b.press("DPadDown")
+		expect(b.registry.verdict:get().targetId).toBe("/S/Board/Slot")
+		b.press("ButtonA")
+		expect(#b.drops).toBe(1)
+		expect(b.drops[1].payload).toBe("card")
+		expect(b.drops[1].info.mode).toBe("armed")
+		expect(b.registry.isActive()).toBe(false)
+	end)
+
+	it("Return does the identical thing, because it is the same verb", function()
+		local b = padBoard()
+		b.focus("/S/Board/Card")
+		b.press("Return")
+		expect(b.registry.mode()).toBe("armed")
+		b.press("Down")
+		b.press("Return")
+		expect(#b.drops).toBe(1)
+	end)
+
+	it("ButtonB puts it back down, and the card is not dropped anywhere", function()
+		local b = padBoard()
+		b.focus("/S/Board/Card")
+		b.press("ButtonA")
+		expect(b.registry.mode()).toBe("armed")
+		b.press("ButtonB")
+		expect(b.registry.isActive()).toBe(false)
+		expect(#b.drops).toBe(0)
+	end)
+
+	--[[ THE RULE IS `newVirtualList`'S, AND THIS IS THE HALF THAT MAKES IT SAFE:
+		a source that declares its own Activate keeps it. Otherwise adding a drag
+		declaration to a button would silently steal the button's press. ]]
+	it("a card with its own onActivate keeps it — the consumer's verb wins", function()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local presses = 0
+		local card = UI.draggable(
+			UI.Button({
+				id = "Card",
+				label = "Card",
+				anchor = "topLeft",
+				offsetX = 0,
+				offsetY = 0,
+				width = { type = "fixed", px = 100 },
+				height = { type = "fixed", px = 60 },
+				onActivate = function()
+					presses += 1
+				end,
+			}),
+			{ payload = "card" }
+		)
+		local handle = pres.present(
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Board",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = { card },
+					}),
+				},
+			}),
+			{ sinkNavigation = true }
+		)
+		pres.refresh()
+		handle.controller.setFocusPath("/S/Board/Card")
+		pres.refresh()
+		system.deviceKey("ButtonA", true)
+		system.deviceKey("ButtonA", false)
+		pres.refresh()
+		expect(presses).toBe(1)
+		expect(handle.controller.dragRegistry().isActive()).toBe(false)
+	end)
+end)
+
 describe("public drag: the presentation collaborators", function()
 	it("a modal presented mid-drag CANCELS the session (F7)", function()
 		local b = board()

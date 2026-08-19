@@ -490,6 +490,78 @@ function renderer.attach(
 		end
 		return reg.arm(path) == true
 	end
+	--[[ AN ACTIVATE NOBODY ELSE WANTED, ON A DRAG SOURCE, IS THE PICKUP (ADAPT-16).
+
+		`drag_registry.luau`'s own header says "the non-pointer arm->navigate->commit
+		verbs all funnel into `beginSession`", and every piece of that path was
+		proven working when called directly — `arm`, `armTo`, `commit`. Nothing
+		called `arm`. The presenter only ever aimed an ALREADY-armed session, so the
+		public `UI.draggable` verb had no default gamepad or keyboard pickup at all:
+		with the card focused, ButtonA armed nothing and Return armed nothing (audit
+		M-9 / ADAPT-16, high).
+
+		THE RULE IS `newVirtualList`'S, HOISTED. That control already answers this
+		for its own rows — `grabOnActivate = reorderable and onActivate == nil`, "a
+		source with no consumer Activate arms on Activate" — and the reason the
+		public verb had none is that `renderer` excluded action-source activates
+		from the tap-arm path on the grounds that "they belong to the consumer's
+		`onActivate`; the armed paradigm already owns them". Nothing else owned
+		them, so they owned nothing.
+
+		"NO CONSUMER WANTED IT" IS DECIDED STRUCTURALLY, not predicted: the
+		presenter offers this LAST, after the node's own `onActivate`, after the
+		Toggle flip and after every contribution — so a `VirtualList` row, a Table
+		row and any control with its own Activate keep theirs untouched, and this
+		fires only on the Activates that would otherwise have been a no-op.
+
+		THE COMMIT IS ONLY EVER OURS. `armedHere` is set when THIS seam armed the
+		session, so a control-owned grab (a VirtualList row's) can never be
+		committed or cancelled by the generic path — its own contribution handles
+		both, and a session it armed is invisible here. ]]
+	local armedHere = false
+	local function armedBySeam(): boolean
+		local reg = dragRegistryInstance
+		if reg == nil or not reg.isActive() or reg.mode() ~= "armed" then
+			armedHere = false
+			return false
+		end
+		return armedHere
+	end
+	local function activateArms(path: string, meta: any?): boolean
+		-- POINTER activates never arm: a mouse lifts by travelling past the
+		-- promotion token and a tap has to stay a tap (`armOnTap` is the touch
+		-- paradigm's own opt-in, above). This is the non-pointer half only.
+		if type(meta) ~= "table" or meta.source ~= "action" then
+			return false
+		end
+		local reg = dragRegistryInstance
+		if reg == nil then
+			return false
+		end
+		if reg.isActive() then
+			-- the COMMIT half of arm->navigate->commit: the aim is wherever the
+			-- focus ring left it (the presenter's `armTo` follows focus), so the
+			-- drop lands on the thing the player is looking at
+			if not armedBySeam() then
+				return false
+			end
+			reg.commit()
+			armedHere = false
+			return true
+		end
+		local enabled = dragSourceEnabled[path]
+		if enabled ~= nil and not enabled() then
+			return false
+		end
+		-- `arm` refuses a path that is not a registered source, so this is also
+		-- the "is this a draggable?" test — one answer, in the registry
+		if reg.arm(path) ~= true then
+			return false
+		end
+		armedHere = true
+		return true
+	end
+
 	local TAP_ECHO_WINDOW = 0.05
 	local function dispatchNodeTapOnce(path: string): boolean
 		if not detectorTapGuard[path] then
@@ -3341,6 +3413,25 @@ function renderer.attach(
 	-- verdict never trails the scroll.
 	function controller.dragRegistry(): any
 		return dragRegistry()
+	end
+
+	--[[ THE LAST-RESORT ACTIVATE, and the Cancel that belongs with it (ADAPT-16).
+		The presenter calls `activateArms` after every other meaning of a press has
+		declined, and `cancelArmed` from its Cancel chain after the contributions
+		have had theirs — so B/Escape puts down a card the generic verb picked up,
+		and never a grab some control owns. Both answer false when there is nothing
+		of ours to act on, which is what keeps them out of every other route. ]]
+	function controller.activateArms(path: string, meta: any?): boolean
+		return activateArms(path, meta)
+	end
+
+	function controller.cancelArmed(reason: string?): boolean
+		if not armedBySeam() then
+			return false
+		end
+		dragRegistryInstance.cancel(reason or "cancelVerb")
+		armedHere = false
+		return true
 	end
 
 	-- Non-creating read of the registry. The presenter broadcasts "a surface just
