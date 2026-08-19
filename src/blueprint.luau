@@ -912,15 +912,35 @@ end
 
 	WHAT COUNTS AS CARRYING A MEANING is `class_contract.isInteractive`, read off
 	the registry every primitive already declares its focus role and its semantic
-	actions in — never a list of class names here. Content a `UI.When` or
-	`UI.ForEach` produces LAZILY is invisible to this walk (their views are
-	functions), so a form holding one is taken as interactive: the framework will
-	not claim a form is passive when it cannot see inside it, and the conservative
-	answer is the one that never doubles an activation surface. ]]
-local LAZY_CONTENT: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true }
+	actions in — never a list of class names here. Plus one closed set of classes
+	whose CONTENT the registry cannot describe, below.
+
+	THE FRAMEWORK WILL NOT CALL A FORM PASSIVE WHEN IT CANNOT SEE INSIDE IT, and
+	`UNSEEN_CONTENT` is that rule as a table. Three of its four entries are the
+	structural regions — a `UI.When`/`UI.ForEach`/`UI.ErrorBoundary` produces its
+	subtree LAZILY, from a function, so this walk sees an empty node where a Button
+	may stand a frame later.
+
+	THE FOURTH IS `UI.Foreign`, and it was missing until the wave's own review
+	found it (MEDIUM-2). A Foreign box reserves and clips a rect for a GuiObject
+	Facet does not wrap: the framework writes exactly one property on that instance
+	(its Parent), and the content's OWN engine input still works — its class
+	contract says both in as many words. A registry read therefore calls it
+	passive, and a passive form gets a full-cover activation surface laid over it.
+	This repository has measured what that does: "a GuiButton SINKS input"
+	(docs/lessons/roblox-input-goes-to-the-topmost-only.md), so the adopted
+	instance's own gestures would stop arriving. It is the one-gesture-two-meanings
+	collision the chevron exists to prevent, arriving through the one class that
+	cannot be inspected for it — and the principle for the treatment was already
+	written here, three lines up, for the lazy regions.
+
+	`UI.Stage` is deliberately NOT in the set. Its contract states it owns no input
+	— a stage is a picture, and interaction is composed AROUND it (a Grip sibling,
+	a Button overlay) — so covering one takes nothing away. ]]
+local UNSEEN_CONTENT: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true, Foreign = true }
 
 local function formCarriesMeaning(node: Blueprint): boolean
-	if classContract.isInteractive(node.class) or LAZY_CONTENT[node.class] then
+	if classContract.isInteractive(node.class) or UNSEEN_CONTENT[node.class] then
 		return true
 	end
 	for _, child in node.children or {} do

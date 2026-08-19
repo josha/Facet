@@ -412,6 +412,16 @@ it stands exactly while a reduced form stands:
   gesture, one meaning — a compact form that already holds a button has spoken for
   the tap.
 
+"Carries a control" is read off the class contract every primitive declares its
+focus role and semantic actions in — never a list of class names — plus the four
+classes whose *content* that registry cannot describe: `UI.When`, `UI.ForEach` and
+`UI.ErrorBoundary` (their subtrees are produced lazily, from a function) and
+`UI.Foreign` (an adopted engine instance whose own input still works). A form
+holding any of them takes the chevron: **the framework will not call a form passive
+when it cannot see inside it**, and the conservative answer is the one that never
+puts a second activation surface over live content. `UI.Stage` is not in that set —
+a stage owns no input by contract, so covering one takes nothing away.
+
 Activating it presents the region's **richest form** — the same blueprint, by
 identity — in a transient plate at the region's own anchor, sized by the same
 solve that chose the ladder rung. Where the richest form cannot meet its floor in

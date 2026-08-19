@@ -851,7 +851,10 @@ at construction from what the forms contain: a **cover** (the compact form's who
 box, `surface = "plain"`, painting nothing) when no form below the richest carries a
 focus stop or a semantic action, and a **chevron** beside the form when any of them
 does — because one gesture may only have one meaning, and a compact form that
-already holds a button has spoken for the tap. The plate's width is the composition's
+already holds a button has spoken for the tap. "Carries" is the class contract's
+answer plus the four classes whose content it cannot describe (`When`, `ForEach`,
+`ErrorBoundary`, `Foreign`): a form holding one of those takes the chevron, because
+the framework will not call a form passive when it cannot see inside it. The plate's width is the composition's
 own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
 plate, the same content is presented as a full-width sheet instead. Dismissal is the
 presented surface's: a tap outside, the plate's own **Close** control, and gamepad B —

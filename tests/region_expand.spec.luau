@@ -464,6 +464,37 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		expect(region.props.expand.interactive[2]).toBe(true)
 	end)
 
+	it("a UI.Foreign box owns its own gestures, so the cover never goes over one", function()
+		--[[ THE ONE CLASS DEFINED AS CONTENT THE FRAMEWORK HAS NEVER SEEN (review
+			MEDIUM-2). `UI.Foreign` reserves and clips a rect for a GuiObject Facet does
+			not wrap: the framework writes exactly one property on that instance (its
+			Parent) and the content's OWN engine input still works. Its class contract
+			says so in as many words.
+
+			So it takes no focus stop and declares no semantic action, and a registry
+			read alone therefore calls it PASSIVE — which used to mean a full-cover
+			activation surface laid over live content. This repository has measured what
+			that does: "a GuiButton SINKS input", so the adopted instance's own gestures
+			stop arriving. That is exactly the one-gesture-two-meanings collision the
+			chevron exists to prevent, arriving through the one class that cannot be
+			inspected for it.
+
+			`UI.Stage` is deliberately NOT in the same set: a stage is a picture whose
+			contract states it owns no input, and interaction is composed AROUND it. ]]
+		local region = UI.Region({
+			id = "Feed",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = {
+				textForm("Full"),
+				UI.VStack({ id = "Compact", children = { UI.Foreign({ id = "Adopted" }) } }),
+			},
+		})
+		expect(region.props.expand.interactive[2]).toBe(true)
+		expect(expandNodes(region)[1].props.expandTarget.role).toBe("chevron")
+	end)
+
 	it("content the framework CANNOT see is taken as interactive — a lazy region is never covered", function()
 		local region = UI.Region({
 			id = "Lazy",
