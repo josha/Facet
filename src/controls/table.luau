@@ -68,6 +68,9 @@ local table_rows = require("./table_rows")
 -- over `src/region_expand.luau`'s own plate — one overlay system, one set of
 -- dismissals, one epoch check
 local table_disclosure = require("./table_disclosure")
+-- the header band: the headings, the sort marks and the resize divider, behind
+-- the same parameter object `table_rows` uses (the ledger's own next seam)
+local table_header = require("./table_header")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -1049,7 +1052,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- Phase B resize drag: preview guide line state (commit happens on release)
 	local resizing = scope:own(core:signal(false))
 	local previewX = scope:own(core:signal(0))
-	local resizeDrag: any = nil
+	-- the divider drag's live state, in one record shared BY REFERENCE with
+	-- `controls/table_header.luau` (which starts every one of these gestures) —
+	-- the same spelling, for the same reason, as `rowGesture` above
+	local resizeGesture: table_header.ResizeGesture = { drag = nil }
 	-- Phase B row drag: drop indicator state; commits via spec.onReorder.
 	-- suppression is armed at the drag THRESHOLD (not on release) and keyed to
 	-- the origin row's path, so it neither depends on the engine's unspecified
@@ -1708,137 +1714,6 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		cancelDrag = cancelDrag,
 	})
 	local rowBlueprint = rowBuilder.blueprint
-	--[[ A PRESS THE DIVIDER DID NOT TURN INTO A DRAG GOES TO THE HEADER UNDERNEATH
-		(director ruling 2026-08-14, option 1 of the four in
-		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
-
-		THE MEASUREMENT: `contract.luau` gives `Grip` `minHitSize = 44`, so the
-		renderer asks the adapter for a 44x44 hit rect centred on this 8x28 divider
-		and the engine adapter realises it as a real `FacetHitExpander` TextButton.
-		That button sits ABOVE the header cell's own `Column` button, and a GuiButton
-		sinks `InputBegan` — so live, in the showcase, a click at (264,134) inside the
-		name header did NOTHING while the same click at (100,134) cycled the sort. A
-		26px dead band ran down the trailing edge of every resizable header cell.
-
-		THE REPAIR IS ONE MECHANISM FOR BOTH HALVES. The adapter now runs the grip's
-		own gesture from the expander too (`screen_target.beginPointerCapture`), so
-		the 44px band really is the drag target the floor always claimed to be; and a
-		press that never travels — which is what a TAP is — is handed on to whatever
-		the expander was covering, through the exact forwarding `row_actions` already
-		uses (`controller.tapAt`, ruling 6). Underneath is the cell's own `Column`
-		button, so the band sorts again.
-
-		WHICH `tapAt` FAMILY. Ruling 6 grew two: a tappable gets the activate dispatch,
-		a pointer zone gets its down/up pair replayed. The forward from here lands on
-		the header's `Column` Button, so it is the TAPPABLE family that runs — the
-		pointer-zone family is what stops the Grip forwarding to ITSELF, which is why
-		`skip` names it.
-
-		WHY THE PROMOTION GATE AND NOT "did the width change". A zero-travel press
-		used to commit `setColumnWidth(id, currentWidth)` — a phantom override on a
-		column nobody moved, which is how `auto` silently became a pinned number. The
-		gate is `interaction_tokens`', not a private one: a finger's resting jitter is
-		14px and a mouse's is 6, and this control already reads that table for its row
-		drag.
-
-		ponytail (inherited from ruling 6, and it applies here too): the forwarded
-		press has no PRESSED VISUAL — the header button under the finger does not
-		light up while held, because the engine never told it it was pressed. The
-		activation itself is exact. Upgrade path is the same one: forward the down/up
-		pair rather than the resolved tap. ]]
-	local function forwardUnclaimedGripTap(drag: any, pos: any)
-		local ctrl = renderController
-		if ctrl == nil or type(ctrl.tapAt) ~= "function" or drag.cellPath == nil then
-			return -- no presenter/controller (a bare mount in a spec): nothing to hand to
-		end
-		-- scoped to THIS header cell, and never back to the Grip that is forwarding
-		ctrl.tapAt(pos.x, pos.y, { within = drag.cellPath, skip = drag.gripPath })
-	end
-
-	-- resize grip (Phase B): a non-button, cursor-hinted pointer zone on the
-	-- right edge of a resizable header cell; drag previews a guide line and
-	-- commits through the Phase A model (setColumnWidth) on release
-	local function gripFor(column: Column): any
-		return UI.Grip({
-			id = "Grip",
-			cursorHint = "colResize",
-			-- POINTER ONLY NOW. The grip used to be focusable so a gamepad could
-			-- Adjust-resize from it, which meant two focus stops per column (sort
-			-- hit, then a 4px divider) and nothing that could ever mean "this
-			-- column". The column's focus stop is its HEADER; see `selectedColumn`.
-			focusable = false,
-			alignH = "end",
-			width = { type = "fixed", px = "s" },
-			height = { type = "fill", weight = 1 },
-			onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
-				local cellPath = string.match(path, "^(.*)/Grip$")
-				local rootPath = string.match(path, "^(.*)/Main/Header/")
-				local cellRect = cellPath and rectOf(cellPath)
-				local rootRect = rootPath and rectOf(rootPath)
-				if cellRect == nil or rootRect == nil then
-					return
-				end
-				resizeDrag = {
-					columnId = column.id,
-					startX = pos.x,
-					startY = pos.y,
-					-- the two paths a forwarded tap needs, captured while the press
-					-- that produced them is still in hand
-					gripPath = path,
-					cellPath = cellPath,
-					pointerType = pos.pointerType,
-					startWidth = cellRect.w,
-					relX = cellRect.x - rootRect.x,
-					minWidth = column.minWidth or 24,
-					width = cellRect.w,
-					-- NOTHING IS A RESIZE UNTIL IT TRAVELS (see the ruling above). The
-					-- guide line waits too: a band 44px wide that flashed a resize guide
-					-- under every press near a column edge is the dead zone's cosmetic
-					-- twin.
-					promoted = false,
-				}
-			end,
-			onPointerMove = function(_path: string, pos: any)
-				if resizeDrag == nil then
-					return
-				end
-				if not resizeDrag.promoted then
-					if
-						not interactionTokens.promoted(
-							pos.x - resizeDrag.startX,
-							pos.y - resizeDrag.startY,
-							resizeDrag.pointerType
-						)
-					then
-						return
-					end
-					resizeDrag.promoted = true
-					resizing:set(true)
-				end
-				resizeDrag.width = math.max(resizeDrag.minWidth, resizeDrag.startWidth + pos.x - resizeDrag.startX)
-				previewX:set(resizeDrag.relX + resizeDrag.width)
-			end,
-			onPointerUp = function(_path: string, pos: any)
-				if resizeDrag == nil then
-					return
-				end
-				local drag = resizeDrag
-				resizeDrag = nil
-				if not drag.promoted then
-					-- a TAP: it was never this zone's gesture, so it goes to whatever the
-					-- 44px hit expander was covering
-					forwardUnclaimedGripTap(drag, pos)
-					return
-				end
-				resizing:set(false)
-				api.setColumnWidth(drag.columnId, drag.width)
-			end,
-			onPointerCancel = function()
-				resizeDrag = nil
-				resizing:set(false)
-			end,
-		})
-	end
 
 	-- a column sorts when the owner holds a sortOrder binding AND the column
 	-- carries `value` (TableColumn(value:) semantics) or opts in via sortable
@@ -1874,189 +1749,34 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	end))
 
 	local children = {}
-	if spec.header ~= false then
-		local headerPadding = bandPadding
-		local headerCells = {}
-		for _, column in columns do
-			-- full-contrast title (the secondary tint was unreadable over
-			-- world backgrounds — director hand-test 2026-07-20), inset via
-			-- its own margin (the header cell stays unpadded so the resize
-			-- grip sits at the TRUE column boundary), centered like the cells
-			-- ...AND IT HONOURS THE COLUMN'S OWN ALIGNMENT (F-27), through the SAME
-			-- ALIGN_H mapping the cells use: a `alignment = { h = "trailing" }`
-			-- numeric column used to show a left-aligned heading over
-			-- right-aligned numbers — a partially-honoured property, which reads
-			-- as a layout bug rather than an unsupported option.
-			--
-			-- The alignment is spent as a TEXT alignment inside a title box that
-			-- fills the header cell minus the cell inset on both sides, rather
-			-- than as the cells' container `alignH`, for two reasons: the header
-			-- cell itself must stay unpadded (the resize grip sits at the TRUE
-			-- column boundary), and a ZStack child's FAR margin is not spent by
-			-- end-alignment — so a margin-inset hug title would have sat flush
-			-- against the column edge while its cells sat 8px in.
-			--
-			-- ...and a TRAILING title has to clear the sort mark, which lives at
-			-- the same edge of the same ZStack. `sortMarkMargin` is the theme's own
-			-- reserve for that glyph ("keeps the ▲/▼ clear"), so a sortable trailing
-			-- column spends it as the title's trailing inset instead of the cell
-			-- inset — measured, not by luck: at 8px the two were 1px apart under
-			-- Studio Neutral's 11px mark, which is a collision in any package whose
-			-- mark is wider.
-			--[[ ...AND THE RESERVE IS SPENT FOR EVERY SORTABLE TITLE, NOT ONLY A
-				TRAILING ONE, AND IT IS TWO TERMS RATHER THAN ONE (2026-08-15). The
-				solver fix that finally put the mark where it was always declared to go
-				(`alignH = "end"` + `margin.right`, arranged in the box it was GIVEN —
-				see the zstack branch of `arrange`) is what made both halves visible:
-
-				· ONE TERM RESERVES THE GAP, NOT THE GLYPH. `sortMarkMargin` is the
-				  mark's clearance from the column boundary, which it shares with the
-				  resize grip — so a title inset by it alone ends exactly where the mark
-				  ENDS, and overlaps the mark's whole width. The reserve is the sum:
-				  clearance + the glyph's own column. `sortMarkTextSize` is the measured
-				  upper bound on a one-character ▲/▼ (7 px drawn at 11 under Studio
-				  Neutral, 12 at 12 under Pixel Quest).
-				· THE ALIGNMENT DOES NOT DECIDE WHERE THE MARK IS. It always sits at the
-				  cell's trailing edge, so a LEADING title collides with it too — as soon
-				  as its text is long enough to reach that edge, which is the 1.4x
-				  localization case on every sortable column in the corpus. The old
-				  `alignment.h == "trailing"` gate only ever described which title was
-				  long enough to have been noticed.
-
-				It is spent whether or not THIS column is the sorted one, exactly as the
-				trailing case always was: a reserve that came and went with the mark
-				would re-flow every heading in the band on every sort. ]]
-			local headAlignment = column.alignment or {}
-			local titleTrailingInset = if isSortable(column)
-				then { "controls.table.sortMarkMargin", "controls.table.sortMarkTextSize" }
-				else cellPadding
-			local title = UI.Text({
-				id = "Title",
-				text = column.title or column.id,
-				textSize = "label",
-				width = { type = "fill", weight = 1 },
-				margin = { left = cellPadding, right = titleTrailingInset },
-				textAlign = ALIGN_H[headAlignment.h or "leading"],
-				-- ONE LINE, ALWAYS. A two-word title ("Track Name") that wrapped
-				-- would push the header band down by a whole line the moment a
-				-- column got narrow, and a heading that reflows out of alignment
-				-- with its own column is worse than an ellipsis. The band FLOORS at
-				-- `headerHeight` and grows to fit that one line (see the Head-<id>
-				-- box below), so a raised text preference makes the header taller
-				-- rather than making the title overflow it.
-				lineLimit = 1,
-				-- the column's disclosure declaration covers the title it caps
-				-- (Step 8.5 LT-G2)
-				disclose = if column.disclose == true then true else nil,
-			})
-			local headerChildren = {}
-			-- ONE FOCUS STOP PER COLUMN, AND IT IS THE HEADER (director 2026-07-29).
-			-- It mounts for a sortable column OR a resizable one, because both verbs
-			-- now come through the same selectable handle: a pointer TAP still sorts
-			-- (the universal convention, unchanged), while a device Activate selects
-			-- the column and hands Left/Right and Up/Down to it.
-			local columnHandle = isSortable(column) or column.resizable == true
-			if columnHandle then
-				-- the sort hit fills the header cell (under title/grip). Under
-				-- THE COLUMN HANDLE. It fills the header cell under the title and
-				-- the mark, and it is the column's single focus stop: it joins the
-				-- contributed "headers" NavigationGroup (buildFocusGroups) as a
-				-- leading horizontal group. A pointer tap on it sorts; a device
-				-- Activate selects the column (see handleActivate).
-				local columnId = column.id
-				table.insert(
-					headerChildren,
-					UI.Button({
-						id = "Column",
-						label = "",
-						focusable = true,
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-					})
-				)
-				table.insert(headerChildren, title)
-				if isSortable(column) then
-					table.insert(
-						headerChildren,
-						UI.Text({
-							id = "SortMark",
-							text = scope:own(core:memo(function(use)
-								local order = use(spec.sortOrder)
-								if order == nil or order.column ~= columnId then
-									return ""
-								end
-								return if order.ascending then "▲" else "▼"
-							end)),
-							textSize = "controls.table.sortMarkTextSize",
-							alignH = "end",
-							margin = { right = "controls.table.sortMarkMargin" },
-						})
-					)
-				end
-			else
-				table.insert(headerChildren, title)
-			end
-			if column.resizable == true then
-				table.insert(headerChildren, gripFor(column))
-			end
-			table.insert(
-				headerCells,
-				UI.ZStack({
-					id = `Head-{column.id}`,
-					width = headerDim(column),
-					-- ADAPT-18: a collapsed column's heading leaves paint, focus and
-					-- hit-testing together, subtree and all (see `columnHidden`)
-					hidden = columnHidden(column),
-					-- A FLOOR, NOT A CAP (director 2026-08-06: "the edit button
-					-- overlaps the heading at largest text"; and the standing ask,
-					-- "if height is the issue why can't we make the whole table have
-					-- more height as text size increases"). This was `fixed`, so at
-					-- the Largest text preference a ONE-LINE title measured 34px
-					-- inside a 28px box and painted straight out of it — over the
-					-- toolbar above and the first row below. The solver had been
-					-- saying so all along: `Head-<id>/Title` reported "overflows its
-					-- zstack by 0x6px ... give the box room — a `minMax` FLOOR rather
-					-- than a fixed CAP". This is that floor. The token is what a
-					-- header band should never be SHORTER than; the live text facts
-					-- decide how much taller it has to be, so the header grows with
-					-- the preference and the band below it moves down with it.
-					-- Same defect class as the row box (§3 of paradigm_table.spec):
-					-- a fixed px height against unfixed content.
-					height = { type = "minMax", min = "controls.table.headerHeight" },
-					alignV = "center",
-					children = headerChildren,
-				})
-			)
-		end
-		table.insert(
-			children,
-			UI.HStack({
-				id = "Header",
-				width = { type = "fill", weight = 1 },
-				gap = spec.gap or 0,
-				-- THE HEADER IS NOT A ROW, but its columns have to line up with the
-				-- rows' columns, so it pays the same horizontal reservation the row
-				-- art costs (see ROW_ART). It carries no card of its own and so no
-				-- vertical inset. Zero under every flat package.
-				--
-				-- ...AND THE SAME GLOW GUTTER THE ROWS' VIEWPORT PAYS (2026-07-27).
-				-- The rows live in a ScrollView, and a clipper insets its content by
-				-- at least `chromeBleed` or the package's shadow is cut at its edge.
-				-- The header is OUTSIDE that viewport, so without this it stayed put
-				-- while the rows moved in and the columns came apart by exactly the
-				-- bleed. A multi-metric side ADDS its entries on every solve, which
-				-- is what lets one declaration mean "clear the viewport's glow
-				-- gutter AND then the row card's carved border" — two gutters at two
-				-- nesting levels, so they genuinely stack.
-				--
-				-- ...AND THE SCROLLBAR GUTTER, the third term and the same argument a
-				-- third time (see THE BODY'S SCROLLBAR GUTTER). It is reactive
-				-- because it is a measurement of the body, not a theme metric: the
-				-- body reserves the bar only while its rows overflow.
-				padding = headerPadding,
-				children = headerCells,
-			})
-		)
+	--[[ THE HEADER BAND IS A SIBLING MODULE (2026-08-18) —
+		`controls/table_header.luau`, the seam this file's own SOURCE_CAP_LEDGER row
+		named and the trigger it set. The headings, their sort marks, the resize
+		divider and the tap that divider does not claim all live there; what stays
+		here is the resize MODEL they act on. `nil` for a `header = false` table,
+		which is most of the borderless lists in this library. ]]
+	local headerBand = table_header.band({
+		UI = UI,
+		spec = spec,
+		columns = columns,
+		resizeGesture = resizeGesture,
+		resizing = resizing,
+		previewX = previewX,
+		bandPadding = bandPadding,
+		cellPadding = cellPadding,
+		ALIGN_H = ALIGN_H,
+		headerDim = headerDim,
+		columnHidden = columnHidden,
+		isSortable = isSortable,
+		scope = scope,
+		core = core,
+		api = api,
+		controllerOf = function()
+			return renderController
+		end,
+	})
+	if headerBand ~= nil then
+		table.insert(children, headerBand)
 	end
 	--[[ ── THE DISCLOSURE BAND (ADAPT-18) — "N more", and no dead ends ───────────
 		A column that collapsed took its values off the screen with it, and the
@@ -3722,8 +3442,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if rowGesture.drag ~= nil and rowGesture.drag.active then
 					cancelDrag()
 				end
-				if resizeDrag ~= nil then
-					resizeDrag = nil
+				if resizeGesture.drag ~= nil then
+					resizeGesture.drag = nil
 					resizing:set(false)
 				end
 			end

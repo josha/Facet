@@ -980,6 +980,39 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ NOT A CONTROL: `controls/table_header.luau` is `newTable`'s header BAND —
+			the column headings, their sort marks and the resize divider between them,
+			plus the tap that divider does not claim. It has a row here for the same
+			reason `TableColumns`, `TableRows` and `TableDisclosure` do:
+			`check_registration` walks `src/controls/` and a module with no row is a
+			module nothing knows about.
+
+			IT BUILDS THE BAND AND STARTS THE GESTURE; the table decides what a width
+			MEANS (`setColumnWidth`, `stepColumnWidth`, the committed overrides all
+			stayed behind). Its four-input and PARADIGM stories are `newTable`'s
+			header, proven cell by cell in the `Table` row at the top of this file —
+			the mouse and touch grip drags, the keyboard `,`/`.` and the gamepad
+			bumper, the pad Activate that SELECTS a column, and the 44px divider band
+			with its forwarded tap.
+
+			WHY IT LEFT `table.luau`: `docs/handoff/SOURCE_CAP_LEDGER.md`'s row named
+			this exact seam and set its trigger, and the column-collapse paradigm put
+			that file back inside the 190,000-char warning band the same day. ]]
+		name = "TableHeader",
+		kind = "composite",
+		module = "src/controls/table_header.luau",
+		export = "Controls.Table",
+		spec = "tests/table_input.spec.luau",
+		conformance = "tests/playlist_columns.spec.luau",
+		docsAnchor = "newTable",
+		-- NO INSTANCE: `band(deps)` returns one blueprint and closes over state the
+		-- TABLE owns — the shared `resizeGesture` record, its signals, its api.
+		dump = false,
+		reason = "band(deps) returns one blueprint over state the TABLE owns (the shared resizeGesture record, resizing/previewX, the committed overrides) — newTable's own dump is where a report reads it",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		--[[ NOT A CONTROL: `controls/table_disclosure.luau` is the route back to a
 			column the table COLLAPSED (ADAPT-18). It builds the plate's facts and its
 			content and hands both to `src/region_expand.luau`, which is the framework's
