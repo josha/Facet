@@ -220,11 +220,19 @@ local function toLayoutNode(
 		-- ONE SPELLING OF "scale, then add the engine's additive offset"
 		-- (`text_metrics.reservedSize`), shared with the PUBLIC `Facet.text.lineBox`
 		-- so a consumer predicting a text box spends the seam's own arithmetic
-		-- instead of a hand copy. The scale asymmetry is the whole reason the two
-		-- branches differ and is now explicit: an INTRINSIC size never reaches paint
-		-- scaled, so it is reserved at scale 1.
+		-- instead of a hand copy.
+		--
+		-- BOTH BRANCHES SCALE (ADAPT-7, 2026-08-18). This branch used to reserve
+		-- at scale 1 and say so — "an INTRINSIC size never reaches paint scaled" —
+		-- which was true, symmetric with the paint seam, and the reason the defect
+		-- was invisible: nothing overflowed, so nothing complained, and a
+		-- television got near-distance type for every screen written the natural
+		-- way (`UI.Text{ text }`, `UI.Button{ label }`). The floor is a property of
+		-- the typography ROLE, and an unauthored node wears the class's intrinsic
+		-- one, so it takes the same multiplier. `renderer.applyTextScale` moves in
+		-- the same commit: measure/paint agreement is what must survive the fix.
 		if size == nil then
-			return text_metrics.reservedSize(metrics.type[fallbackRole].size, 1, prefOffset), role
+			return text_metrics.reservedSize(metrics.type[fallbackRole].size, textScale, prefOffset), role
 		end
 		return text_metrics.reservedSize(size, textScale, prefOffset), role
 	end

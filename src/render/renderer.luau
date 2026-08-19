@@ -1464,12 +1464,21 @@ function renderer.attach(
 			-- (it resolves through the same snapshot the measure seam used), while
 			-- an absent prop falls back to the class's own typography role
 			local raw = themeSnapshot.resolveSize(metrics, node.props and node.props.textSize)
-			local authored = raw ~= nil
 			if raw == nil and not (node.class == "Button" and #node.children > 0) then
 				raw = themeSnapshot.intrinsicTextSize(metrics, node.class)
 			end
 			if raw ~= nil and handles[node.path] ~= nil then
-				local scaled = if authored then raw * scale else raw
+				--[[ ONE LADDER, AUTHORED OR NOT (ADAPT-7, 2026-08-18). This read
+					`if authored then raw * scale else raw`, and the measure seam said the
+					same thing, so the two agreed and nothing clipped — which is precisely
+					why nobody saw that `UI.Text{ text }` painted 16px on a television
+					while `UI.Text{ textSize = "body" }` painted 24. The ten-foot floor is
+					a property of the ROLE ("body text must clear ~29pt at 3m", D.1), and
+					an unauthored node wears a role too (`INTRINSIC_TEXT_ROLE`), so it
+					takes the same multiplier. Scaling here alone would draw 27px inside a
+					box reserved for 18: `layout_node.textOf` moves in the same commit,
+					and measure/paint agreement is the property that had to survive. ]]
+				local scaled = raw * scale
 				if lastTextSize[node.path] ~= scaled then
 					authority.assertWrite(node.class, "textSize", "layout")
 					adapter.setProp(handles[node.path], "textSize", scaled, "layout")

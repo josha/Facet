@@ -348,10 +348,24 @@ function brews.new(app: any): any
 					-- solver reported 39px of overflow, then 9px with both compacted
 					-- to marks, and a column weight that fixes one viewport moves it
 					-- to another.
+					--[[ THE ROW'S VERB WEARS THE ROW'S OWN TYPE (ADAPT-7 / ADAPT-10,
+						2026-08-18). Unsized, this button takes the `control` role — 18px
+						near, and 27px once the ten-foot type floor reached unauthored text,
+						which is 41px of button inside a 36px row: the solver reported 5px
+						of overflow on all 24 visible rows at 1920x1080. The row height is
+						the thing that is wrong — a television gets the DENSEST table row
+						the framework ships (`controls.table.rowHeight.pointer`), because
+						the density ladder has no distance rung (audit finding ADAPT-10, a
+						framework fix this example may not make). `label` is the row's own
+						scale and rides the same floor at distance (14 -> 21), so the verb
+						grows WITH the row's text instead of past its box. Recorded here
+						rather than papered over, exactly like the popup-trigger mismatch
+						above. ]]
 					return UI.Button({
 						id = "Collect",
 						label = S.t("brews.collectShort"),
 						compactLabel = { icon = "checkmark" },
+						textSize = "label",
 						padding = "xs",
 						onActivate = function()
 							app.actions.collectBrews({ item.id })

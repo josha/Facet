@@ -85,6 +85,74 @@ describe("UI-PARADIGM-003: ten-foot text scaling at the paint seam (matrix D.1)"
 	end)
 end)
 
+--[[ ADAPT-7 — THE FLOOR HAS TO REACH THE TEXT NOBODY SIZED.
+
+	Every case above declares `textSize = 16`, which is the one branch that
+	worked: the paint seam scaled an AUTHORED size and left an intrinsic one at
+	its near-distance px, and the measure seam agreed with it. Measure and paint
+	agreeing is exactly why nothing overflowed and nothing showed — the audit's
+	own framing (`artifacts/release-candidate-review/adapt-audit/matrix.md`,
+	ADAPT-7, critical) — and a spec family that only ever asserts an authored
+	size cannot see it. So the instrument is fixed WITH the behaviour: the cases
+	below declare no size at all, which is how the guide, the tutorials and every
+	shipped screen write text.
+
+	The ladder is the class's own intrinsic typography role
+	(`snapshot.INTRINSIC_TEXT_ROLE`: Text/Toggle -> body, Button/TextField ->
+	control) — the same role the measure seam already resolved the FACE from — so
+	no new vocabulary and no per-class table: the floor applies to a role, and an
+	unauthored node wears one. ]]
+describe("ADAPT-7: the ten-foot type floor reaches UNAUTHORED text (matrix D.1)", function()
+	it("an unsized Text rides the body role: 16 near, 24 at ten-foot", function()
+		local _, _, _, near = attach("Medium", function()
+			return { UI.Text({ id = "T", text = "Race" }) }
+		end)
+		expect(near.node("/S/T").props.textSize).toBe(16)
+		local _, _, _, far = attach("Large", function()
+			return { UI.Text({ id = "T", text = "Race" }) }
+		end)
+		expect(far.node("/S/T").props.textSize).toBe(24) -- 16 * 1.5, the same floor
+	end)
+
+	it("an unsized Button label rides the control role, and a Toggle the body role", function()
+		local _, _, _, near = attach("Medium", function(core)
+			return {
+				UI.Button({ id = "B", label = "Play" }),
+				UI.Toggle({ id = "G", label = "Music", value = core:signal(false) }),
+			}
+		end)
+		local _, _, _, far = attach("Large", function(core)
+			return {
+				UI.Button({ id = "B", label = "Play" }),
+				UI.Toggle({ id = "G", label = "Music", value = core:signal(false) }),
+			}
+		end)
+		expect(far.node("/S/B").props.textSize).toBe(near.node("/S/B").props.textSize * 1.5)
+		expect(far.node("/S/G").props.textSize).toBe(near.node("/S/G").props.textSize * 1.5)
+	end)
+
+	--[[ THE PROPERTY THAT MUST SURVIVE THE FIX. The asymmetry was silent because
+		the two seams agreed; scaling paint alone would make a button label draw
+		27px inside a box reserved for 18. So the box grows too, and it grows on
+		the SAME flip. ]]
+	it("measure agrees: the unsized box grows on the flip, exactly as the sized one does", function()
+		local _, env, _, adapter = attach("Medium", function()
+			return { UI.Text({ id = "T", text = "Race" }) }
+		end)
+		local before = adapter.node("/S/T").rect
+		env:set("displaySize", "Large")
+		expect(adapter.node("/S/T").props.textSize).toBe(24)
+		expect(adapter.node("/S/T").rect.h > before.h).toBe(true)
+	end)
+
+	it("a near display is byte-identical: the floor is a ten-foot rung, not a rescale", function()
+		local _, _, _, adapter = attach("Medium", function()
+			return { UI.Text({ id = "T", text = "Race" }) }
+		end)
+		expect(adapter.node("/S/T").props.textSize).toBe(16)
+	end)
+end)
+
 describe("UI-PARADIGM-003: ten-foot focus strengthening (matrix D.4)", function()
 	it("focus visuals differ between a Large display and a Medium display", function()
 		local _, _, _, adapterBig, ctlBig = attach("Large", function()
