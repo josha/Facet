@@ -1008,6 +1008,41 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	local built: any = table.clone(spec :: any)
 	local engine: any = nil
 	if expandMode ~= "none" and declaredForms > 1 then
+		--[[ THE WAY OUT, AND IT IS THE FRAMEWORK'S OBLIGATION NOW (ADR-0013, fix
+			round 1). The plate is presented MODAL — that is what stops it stranding
+			its own contents — and a modal traps the ring. On this platform the ring is
+			then the ONLY keyboard route out: Escape is permanently bound to the Roblox
+			CoreGui menu and the engine's VirtualInput refuses it outright (ADR-0013
+			§Justified exceptions, verified live 2026-07-19), so `cancel.bind` binds
+			ButtonB and nothing else. Reproduced by the wave's own reviewer: focus the
+			affordance, press Return, and the traversal ring inside the plate is EMPTY.
+
+			ADR-0013 already names the answer — "a focusable close affordance inside the
+			modal … screens that present a modal should always include a visible close
+			affordance for exactly this reason" — and until this wave that obligation
+			fell on the screen author. It does not any more: the FRAMEWORK is the thing
+			presenting, and the plate's content is the author's form 1, which in the
+			director's own headline case (a clock) holds no focus stop at all. Adding
+			one to form 1 would not discharge it either — activating the author's own
+			control is the author's action, not a dismissal.
+
+			IT IS THE LAST CHILD, so the presenter's existing rule decides where focus
+			lands and no new option is invented: a modal defaults to its FIRST
+			focusable, which is the content's own control when form 1 has one and this
+			when it does not. ]]
+		local function closeAffordance(): Blueprint
+			return blueprint.Button({
+				id = "ExpandClose",
+				label = "Close",
+				-- the standard chip idiom, which is what every other dismissing
+				-- affordance in this repository's own fixtures wears
+				surface = "chip",
+				textSize = "caption",
+				onActivate = function()
+					engine.close()
+				end,
+			})
+		end
 		engine = regionExpand.new({
 			id = spec.id :: string,
 			--[[ THE PLATE'S CONTENT IS THE REGION'S OWN FORM 1, BY IDENTITY. Not a
@@ -1020,8 +1055,9 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					id = "ExpandPanel",
 					surface = "raised",
 					padding = "s",
+					gap = "xs",
 					width = { type = "fixed", px = plateW },
-					children = { forms[1] },
+					children = { forms[1], closeAffordance() },
 				})
 			end,
 			--[[ ...AND THE SAME CONTENT AS A FULL-WIDTH SHEET for the offer where a
@@ -1041,8 +1077,11 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 									anchor = "bottom",
 									surface = "raised",
 									padding = "m",
+									gap = "xs",
 									width = { type = "fill", weight = 1 },
-									children = { forms[1] },
+									-- the sheet is the same content in a different
+									-- presentation, so it carries the same way out
+									children = { forms[1], closeAffordance() },
 								}),
 							},
 						}),

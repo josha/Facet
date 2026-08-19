@@ -1082,3 +1082,195 @@ describe("EXPAND 11 — a rotation under an open plate closes it, cleanly", func
 		expect(w.adapter.node("/S/C/Before/First")).never().toBeNil()
 	end)
 end)
+
+-- ===== 6. THE WAY OUT, ON A KEYBOARD =======================================
+--[[ ADR-0013's modal obligation, and the wave that inherited it.
+
+	The plate is a MODAL — that is what stops it stranding its own contents (EXPAND
+	8's note). A modal traps the ring, and on this platform the ring is the ONLY
+	keyboard route out: Escape is permanently bound to the Roblox CoreGui menu and
+	the engine's VirtualInput refuses it outright (ADR-0013 §Justified exceptions,
+	verified live 2026-07-19), so `cancel.bind` binds ButtonB and nothing else.
+
+	ADR-0013 already names the answer — "a focusable close affordance inside the
+	modal … screens that present a modal should always include a visible close
+	affordance for exactly this reason" — and until this wave that obligation fell
+	on the screen author. It does not any more: the framework is the thing
+	presenting, and the plate's content is the author's form 1, which in the
+	director's own headline case (the clock) contains no focus stop at all. So the
+	obligation moved with the presentation, and the panel wrapper carries it.
+
+	IT IS THE LAST CHILD, so the presenter's existing rule decides where focus
+	lands with no new option: a modal defaults to its FIRST focusable, which is the
+	content's own control when form 1 has one and the Close when it does not. ]]
+
+describe("EXPAND 12 — a keyboard-only player can open the plate and close it again", function()
+	it("Return opens it, and the ring inside it is not empty", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		--[[ THE REVIEWER'S REPRODUCTION, INVERTED. Before the close control this read
+			`stops reachable while the plate is open: []` — a modal with an empty ring,
+			no bindable Escape and therefore no keyboard exit at all. ]]
+		local stops = traversalPaths(w)
+		expect(#stops > 0).toBe(true)
+		expect(string.sub(stops[1], 1, 13)).toBe("/Expand:Clock")
+	end)
+
+	it("...and Return on the focused close control closes it — no pad, no pointer", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		-- form 1 here is two lines of text and holds no control of its own, so the
+		-- modal's default (its FIRST focusable) IS the close affordance
+		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+		-- ...and the ring is back on the stop that opened it
+		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+	end)
+
+	it("Space activates it too, where the surface owns Space", function()
+		--[[ SPACE IS OPT-IN AND THAT IS NOT THIS WAVE'S DOING (Step 8): a surface
+			binds Tab and Space only with `keyboardNavigation`, because on a default
+			screen those keys belong to the avatar — with it implicitly on, Space jumped
+			the character while the UI had focus (director playtest 2026-08-03). So the
+			second keyboard verb is asserted where it genuinely exists, rather than
+			asserted into being on a surface that never claimed the key. ]]
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 390, h = 150 },
+			presenterOpts = { keyboardNavigation = true },
+		})
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Space")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		w.press("Space")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+
+	--[[ A screen whose RICHEST form carries a control of its own — which is the
+		case that decides where focus lands when the plate opens, and the one the
+		ring-order rule below is about. ]]
+	local function richControlScreen(): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								UI.VStack({
+									id = "Full",
+									children = {
+										UI.Text({ id = "Timer", text = "2:14", textSize = 16 }),
+										UI.Text({ id = "Scores", text = "12 - 9", textSize = 16 }),
+										UI.Button({ id = "Details", label = "details", onActivate = function() end }),
+									},
+								}),
+								UI.Text({ id = "Compact", text = "2:14", textSize = 16 }),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("the CONTENT keeps the first stop when it has one, and the close is reachable after it", function()
+		--[[ ADR-0013's rule followed rather than overridden: the close affordance is
+			the panel's LAST child, so a form 1 carrying its own control keeps the first
+			stop and the way out sits behind it. ]]
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 390, h = 40 },
+			presenterOpts = { keyboardNavigation = true },
+		})
+		w.present(richControlScreen(), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		local stops = traversalPaths(w)
+		expect(#stops).toBe(2)
+		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Details")
+		expect(stops[2]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		-- the modal's existing rule put focus on the CONTENT, not on the way out
+		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Details")
+		-- Tab to it and press Return: the whole keyboard route, driven
+		w.press("Tab")
+		w.pres.refresh()
+		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+
+	--[[ ...AND THE SHEET FALLBACK, MOUNTED — which also closes the wave's own open
+		concern 2 ("no mounted end-to-end sheet proof exists"). Form 1 here is 2000px
+		wide against a 390px viewport, so it cannot meet its floor in a plate at any
+		gutter and the composition says `sheet = true` at the same solve that chose
+		the rung. ]]
+	local function sheetScreen(): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = { fixedBox("Wide", 2000, 60), fixedBox("Compact", 60, 20) },
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("the SHEET fallback is a real surface, and it carries the same way out", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
+		w.present(sheetScreen(), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[1]
+		expect(row.activeForm).toBe(2)
+		expect(row.plate.sheet).toBe(true)
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		-- the same content, presented full width, with the same way out
+		expect(w.adapter.node("/ExpandSheet:Clock/Layer/ExpandSheet/Wide")).never().toBeNil()
+		expect(w.pres.focus.focused:get()).toBe("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandClose")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+end)
