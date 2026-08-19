@@ -4320,6 +4320,19 @@ sixty centimetres from a monitor is a near session, and what makes a row
 unreadable is three metres (ADAPT-10; before, a television got `pointer`, the
 densest row the framework ships).
 
+**A focused row discloses its own truncated cell.** The plate's rule is "the
+first truncated, disclosed Text at or under the FOCUSED path", which is dead for
+a table: the focus stop is the row's `Hit` — a full-bleed Button with no children
+— while the disclosed value is `Row/Cells/Cell-<id>/Value`, its SIBLING. So
+keyboard and gamepad had no truncation recovery at all, on the one combination
+(ten-foot) with no hover and no long press to fall back to. The control now
+answers a `discloseScope` contribution: a row hit (or its edit-mode grab handle)
+maps to that ROW, a heading's `Column` maps to that HEADING, and every other path
+answers nil and keeps the framework's default (ADAPT-20). It is a SCOPE and not a
+target — the presenter still runs its own walk inside it, so the hidden-candidate
+gate, the truncation test, the `disclose` declaration and the document order all
+still decide, and a control cannot nominate a label that is not truncated.
+
 **Edit mode says so.** While `editing` is true, a SELECTABLE table paints a
 leading selection mark in the gutter its cells were already inset into — a filled
 or hollow circle reading off the same memo the row's `selected` prop reads, so

@@ -2301,13 +2301,44 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 	end)
 
 	it("engaging the truncated disclosing cell presents its FULL value through the presenter", function()
-		local _, adapter, pres = discloseWorld(true)
-		pres._discloseLongPress("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		--[[ RE-POINTED 2026-08-19 (ADAPT-20). This used to drive the touch long
+			press onto a screen where nothing else had disclosed anything, and assert
+			the release took the plate away. Since the FOCUS route reaches a table row
+			(the row's `Hit` is the focus stop and the disclosed cell is its sibling —
+			`table.luau`'s own `discloseScope`), the first row is already disclosing by
+			the time this case runs, and the long press is correctly IDEMPOTENT on a
+			plate that is already answering for the same label. Both facts are asserted
+			rather than one of them being arranged away. ]]
+		local _, adapter, pres, _tbl, _rows, _handle, _system = discloseWorld(true)
+		local CELL = "/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value"
+		-- FOCUS already answered for it, which is ADAPT-20 and is what makes the
+		-- ten-foot combination reachable at all
+		expect(pres.disclosure().present).toBe(true)
+		expect(pres.disclosure().text).toBe(LONG)
+		expect(pres.disclosure().source).toBe("focus")
+
+		-- the long press on the same label is a no-op rather than a second plate
+		pres._discloseLongPress(CELL)
+		expect(pres.disclosure().present).toBe(true)
+		expect(pres.disclosure().text).toBe(LONG)
+
+		-- ...and the TOUCH route stands on its own: move the ring off every
+		-- disclosing label, then press and release
+		-- `bolt`'s name is short, so the row the ring lands on owes nothing
+		pres.focus.focusOn(rowHitPath(0, "bolt"))
+		for _ = 1, 40 do
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+		expect(pres.disclosure().present).toBe(false)
+		pres._discloseLongPress(CELL)
 		local d = pres.disclosure()
 		expect(d.present).toBe(true)
 		expect(d.text).toBe(LONG)
+		expect(d.source).toBe("touch")
 		pres._discloseLongPress(nil)
 		expect(pres.disclosure().present).toBe(false)
+		local _ = adapter
 	end)
 end)
 

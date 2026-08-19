@@ -3611,6 +3611,30 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 					columnExpand.contribution.bindPresent(presentModal, dismiss, presentAnchored)
 				end
 			end,
+			--[[ ADAPT-20: WHERE THIS CONTROL'S DISCLOSURE LIVES relative to its focus
+				stops. A row's focusable is its `Hit`, a full-bleed Button with no
+				children (it has to be: a Button's content may hold no focusable and a
+				rating cell is five of them), while the disclosed value is
+				`Row/Cells/Cell-<id>/Value` — its SIBLING. So the plate's own walk found
+				nothing at or under the focused node and truncation recovery was
+				structurally dead on keyboard and gamepad, which is the only pair of
+				inputs with no hover and no long press to fall back to.
+
+				TWO PATHS ARE RECOGNISED AND NOTHING ELSE IS. A row hit or its edit-mode
+				grab handle maps to that ROW (so the walk covers every cell in it, in
+				document order — the first truncated disclosed one wins, which for a
+				table is the identity column); a heading's `Column` button maps to the
+				HEADING (its own title carries the column's `disclose` declaration too).
+				Everything else answers nil and keeps the framework's default, because a
+				scope this control does not recognise is a scope it has no business
+				widening. ]]
+			discloseScope = function(path: string): string?
+				local row = string.match(derowActionsPath(path), `^(.*/{ROWS_REGION}/%[.-%])/Row/`)
+				if row ~= nil then
+					return `{row}/Row`
+				end
+				return (string.match(path, `^(.*/Main/Header/Head%-.-)/Column$`))
+			end,
 			-- ADAPT-14: the modifier state a focus move has to ask about, from the
 			-- same system the presenter fills an Activate's meta from
 			bindActionSystem = function(system)

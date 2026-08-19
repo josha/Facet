@@ -945,7 +945,23 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
 		end
-		local node = nodeAt(handle.root.node, path)
+		--[[ A CONTROL MAY WIDEN THE SCOPE TO ITS OWN ROW (ADAPT-20). The default is
+			"at or under the focused path", which is dead for any control whose focus
+			stop is a SIBLING of its disclosed label rather than its ancestor — a
+			Table's row `Hit` beside `Row/Cells/…`. The control answers for the paths
+			it recognises and nil for the rest; the walk below is unchanged, so the
+			hidden gate, the truncation test and the document order still decide. ]]
+		local scoped = path
+		for _, c in contributionsForPath(handle.contributions or {}, path) do
+			if c.bundle.discloseScope ~= nil then
+				local widened = c.bundle.discloseScope(path)
+				if type(widened) == "string" then
+					scoped = widened
+					break
+				end
+			end
+		end
+		local node = nodeAt(handle.root.node, scoped)
 		if node == nil then
 			return nil, nil
 		end

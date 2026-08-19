@@ -2973,3 +2973,182 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		expect(w.adapter.node("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle")).toBeNil()
 	end)
 end)
+
+-- =============================================================================
+-- ADAPT-20 / J-4 · truncation recovery was structurally dead on keyboard and pad
+--
+-- THE AUDIT'S MEASUREMENT (matrix J-4, severity highest): "hover on 4,6 ·
+-- long-press on 1,2,3 · pad/keyboard: none. The focus route is structurally dead
+-- for a Table: `disclosureTargetIn` walks the subtree of the FOCUSED node, but
+-- Table's focusable is `Row/Hit` while the disclosed text is
+-- `Row/Cells/Cell-name/Value` — a SIBLING. Positive control passes (a `disclose`
+-- Text inside a focused Button raises the plate); the identical declaration in a
+-- table row raises nothing. Same for the header title." And it is the ONLY
+-- recovery route at the ten-foot combination, where there is no hover and no
+-- long press at all.
+-- =============================================================================
+describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)", function()
+	local LONG = "Drift City Nights Extended Cut Remastered Anniversary Edition"
+
+	local function discloseWorld()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 420, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal({
+					{ id = "r1", name = LONG },
+					{ id = "r2", name = `Another {LONG}` },
+				}),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = `A very long column heading indeed for {LONG}`,
+						width = { type = "fill", weight = 1 },
+						minWidth = 40,
+						-- the column's own declaration: the table-authored value cell AND
+						-- the header title carry it (Step 8.5 LT-G2)
+						disclose = true,
+						sortable = true,
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = "single",
+				sortOrder = core:signal(nil :: any),
+				rowHeight = 40,
+				env = env,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = { core = core, adapter = adapter, pres = pres, system = system, tbl = tbl, handle = handle }
+		function w.settle(frames: number?)
+			for _ = 1, frames or 30 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.platePaths(): { string }
+			local out: { string } = {}
+			for _, path in adapter.paths() do
+				if string.find(path, "__disclose__", 1, true) ~= nil then
+					table.insert(out, path)
+				end
+			end
+			table.sort(out)
+			return out
+		end
+		function w.plateText(): string?
+			for _, path in w.platePaths() do
+				local node = adapter.node(path)
+				if node ~= nil and node.class == "Text" and type(node.props.text) == "string" then
+					return node.props.text
+				end
+			end
+			return nil
+		end
+		w.settle(4)
+		return w
+	end
+
+	it("the premise: the row's cell really is truncated and really is disclosed", function()
+		--[[ Without this the three cases below are assertions about an empty set —
+			the same premise check the sweep's own dead-end control states for itself. ]]
+		local w = discloseWorld()
+		local facts = w.handle.controller.textAt("/S/T/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name/Value")
+		expect(facts ~= nil).toBe(true)
+		expect(facts.truncated).toBe(true)
+		expect(facts.disclose).toBe(true)
+	end)
+
+	it("a KEYBOARD focus on the row raises the plate with the whole value", function()
+		local w = discloseWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		expect(#w.platePaths() > 0).toBe(true)
+		expect(w.plateText()).toBe(LONG)
+	end)
+
+	it("...and moving the ring to the next row re-answers for THAT row", function()
+		local w = discloseWorld()
+		w.pres.focus.focusOn(hit("r1"))
+		w.settle()
+		expect(w.plateText()).toBe(LONG)
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		w.settle()
+		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.plateText()).toBe(`Another {LONG}`)
+	end)
+
+	it("a focused HEADING discloses its own title, which is the other half of J-4", function()
+		local w = discloseWorld()
+		w.pres.focus.focusOn("/S/T/Main/Header/Head-name/Column")
+		w.settle()
+		expect(#w.platePaths() > 0).toBe(true)
+		expect(w.plateText()).toBe(`A very long column heading indeed for {LONG}`)
+	end)
+
+	it("NEGATIVE CONTROL: a row whose value FITS raises nothing", function()
+		--[[ The scope widening must not turn into "every focused row raises a
+			plate": the debt is owed by a TRUNCATED disclosed label and by nothing
+			else. ]]
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal({ { id = "r1", name = "Bo" } }),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Name",
+						width = { type = "fill", weight = 1 },
+						disclose = true,
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = "single",
+				rowHeight = 40,
+				env = env,
+			} :: any
+		)
+		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		pres.focus.focusOn(hit("r1"))
+		for _ = 1, 30 do
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+		local plates = 0
+		for _, path in adapter.paths() do
+			if string.find(path, "__disclose__", 1, true) ~= nil then
+				plates += 1
+			end
+		end
+		expect(plates).toBe(0)
+		tbl.dispose()
+	end)
+end)

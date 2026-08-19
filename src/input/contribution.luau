@@ -118,6 +118,34 @@ export type Bundle = {
 		presentation that opened, or nil when the region is at its richest form and
 		has nothing more to show. ]]
 	expandOpen: (() -> string?)?,
+	--[[ WHERE THE DISCLOSURE WALK SHOULD START, when the focused node is not where
+		the truncated text lives (ADAPT-20, 2026-08-18).
+
+		The plate's rule is "the first truncated, disclosed Text at or under the
+		FOCUSED path", and it is right for every control whose label is inside its
+		own focusable. It is structurally dead for a TABLE: the focus stop is the
+		row's `Hit` — a full-bleed Button with no children, because a Button's
+		content may hold no focusable and a rating cell is five of them — while the
+		disclosed value is `Row/Cells/Cell-<id>/Value`, a SIBLING. The audit
+		measured a positive control passing (a `disclose` Text inside a focused
+		Button raises the plate) and the identical declaration in a table row
+		raising nothing, on the one combination — ten-foot — where there is no hover
+		and no long press to fall back to.
+
+		WHY A SEAM AND NOT A WIDER WALK. "Walk the focused node's PARENT subtree"
+		would raise a plate for any disclosed sibling of any focusable in the
+		framework — a truncated caption beside a button, another row's cell inside a
+		shared wrapper — and the thing that knows which siblings belong to the
+		focused thing is the control. So the control answers, once, for a path it
+		recognises, and returns nil for every path it does not: a Table maps a row's
+		`Hit` to that row, and a heading's `Column` to that heading, and says nothing
+		about anything else.
+
+		THE ANSWER IS A SCOPE, NOT A TARGET. The presenter still runs its own walk
+		inside it, so the hidden-candidate gate, the truncation test, the disclose
+		declaration and the document order are all unchanged — a control cannot
+		nominate an untruncated label, and cannot skip the visibility rules. ]]
+	discloseScope: ((path: string) -> string?)?,
 	-- bindMotion (row-actions Task 4): hands the control the presenter's own
 	-- motion clock (`self.motionClock`, ADR-0022 Decision 1) — the one every
 	-- surface transition, toast schedule, and drag flight already rides —
