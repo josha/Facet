@@ -280,3 +280,88 @@ The audit's own sixteen rows stand. This wave adds five:
 5. **The tablet paradigm, on a tablet** (ADAPT-2). The whole point is that no tablet
    could reach it; the confirming instrument is a real tablet reporting
    `DisplaySize.Small` and getting the top bar.
+
+---
+
+# ADDENDUM — wave TABLE (2026-08-18/19): the thirteen cells `table.luau` was holding
+
+**Anchor:** framework `30cec7f` (suite 6579), RascalRally `5ce9d09` (suite 3419).
+**End state:** Facet **6633**, RascalRally **3425**, both green, both measured in
+private exports (an rsync of the working tree; the RR export is the multi-repo shape,
+`GameStudio/ui/Facet` beside `games/RascalRally/code`). Nothing was measured in-tree.
+
+**Why these cells and not others.** §1 above closed with "of the 21 contested,
+ELEVEN are `table.luau` — the single highest-value unblock available to this project
+is that file's extraction." That extraction is the first half of this wave
+(`table_rows.luau`, then `table_header.luau` and `table_disclosure.luau` as the
+paradigm needed the room), and this addendum re-verdicts every cell it unblocked,
+plus the two director items that fall out of the collapse paradigm.
+
+## The re-verdicts
+
+| cell | was | now | evidence |
+|---|---|---|---|
+| **J-1 / ADAPT-18** column collapse by priority | DEFERRED — director | **FIXED** | `Column.priority` (a number, `1` most important; `"always"` a refusal; absent = declaration order), the first column immune, the trigger a DECLARED floor. `table.spec` carries the arithmetic (order, both directions, the no-floor null hypothesis, the override-clamp-first interaction); `table_input.spec` carries the director's own device case — landscape → portrait collapses Rating with the disclosure present, NOT pushed off screen, and widening brings it back |
+| **J-2 / ADAPT-19** a `fill` column's `minWidth` is dropped | CONTESTED — `table.luau` | **FIXED** | the floor is spent where the width is divided: a fill whose share falls under it is pinned and leaves the pool. Shipped consequence, measured: the playlist at 320x640 in edit mode went from 30px and 14px of readable text to 66px of each |
+| **J-3** a wide table clips at compact with a y-only scroller | CONTESTED — `table.luau` | **FIXED, and it falls out of J-1 exactly as predicted** | a fixed column's floor IS its width, so the rule reaches an all-fixed table with no `minWidth` anywhere: `table.spec`'s J-3 case drops 720px of columns to what a 420px and then a 390px body can hold |
+| **J-9** focus lands on a clipped column | DEFERRED (falls out of J-1/J-3) | **FIXED** | a collapsed column takes the framework's space-reserving hide, which leaves the focus ring with its whole subtree — `table_input.spec` asserts the headers group loses the stop, and that the column's resize target goes with it |
+| **J-4 / ADAPT-20** truncation recovery dead on keyboard/pad | CONTESTED | **FIXED** | `contribution.discloseScope` — a control may widen the disclosure walk to its own row when the focus stop is a SIBLING of the disclosed label. It answers a SCOPE, not a target, so the presenter's hidden gate, truncation test and document order all still decide |
+| **K-2 / ADAPT-13** a `rowActions`-only Table has zero focus stops | CONTESTED — `table.luau` | **FIXED** | the audit's own one clause, plus the api.md sentence it makes true, plus a null hypothesis (a table with none of the three verbs still takes no focus stop per row) |
+| **L-5 / ADAPT-27** edit mode paints no selection affordance | CONTESTED — `table.luau` | **FIXED, with two named residues** | a leading mark in the gutter the cells were already inset into, reading the same memo the row's `selected` prop reads. RESIDUE 1: a table that is both selectable and reorderable still shows none — two marks do not fit one 32px gutter and moving the ≡ to the trailing edge is a layout change to every reorderable table. RESIDUE 2: the mark mounts only where edit mode is REACHABLE, because a `UI.When` materialises even while its branch is absent and an ungated mark is one engine node per ROW — **caught by RascalRally's own contract tests, not by ours** |
+| **L-6 / ADAPT-14** an arrow press destroys a multi-selection | CONTESTED — `table.luau` | **FIXED** | Ctrl/Cmd moves the ring and selects nothing, Shift extends from the anchor, a plain arrow still replaces (the Finder's model, and never the defect). The modifier state comes from `system.modifiers()` through `bindActionSystem`, the same source the presenter fills an Activate's meta from |
+| **L-7 / ADAPT-15** a pad can never hold two rows | CONTESTED — `table.luau` | **FIXED, narrowed** | the audit's own cheaper option: edit mode IS the selection mode, so a device Activate toggles and a focus move leaves the selection alone. NARROWED to tables with no `onPrimaryAction` — see below |
+| **M-4** keyboard-only Table reorder degrades | CONTESTED — `table.luau` | **FIXED** | the auto Edit/Done union gains a third clause: a keyboard with NO MOUSE on a reorderable table. Narrow twice over (reorder only; mouse-less only), with both narrowings as null-hypothesis cases |
+| **ADAPT-10** no gamepad rung in the density ladder | CONTESTED — `table.luau` | **FIXED, and the finding's title is corrected** | a third rung (`tenFoot`, one line, floored at the theme's LARGE control height) selected by DISTANCE rather than by the pad — a controller sixty centimetres from a monitor is a near session. Cartwheel's absorbing authored `textSize` is deleted in the same commit, which was §5's own test |
+| **ADAPT-11** table density is caller-wired | CONTESTED — `table.luau` | **FIXED** | `surface_env.find(core)` — the ADAPT-1 channel — with a DEGRADE rather than a refusal, because unlike a picker's presentation a table has an honest default (the neutral package at authored size) |
+| **the env default `themeMetrics` resolves with `facts = {}`** | CONTESTED, "and it now matters more" | **AVOIDED here, still open there** | this wave needed the same distance fact and read `env:get("distanceProfile")` instead of `metrics.density`, precisely because the latter answers "near" on any surface whose `themeMetrics` is still the default neutral package. ADAPT-23's solver-side cap still reads the snapshot fact and the hazard stands for it |
+
+## What is carried to the director rather than taken
+
+1. **ADAPT-15's remainder.** A `multi` table that ALSO declares `onPrimaryAction`
+   keeps its shipped device behaviour: Return and ButtonA OPEN the row in edit mode
+   rather than toggling it. That is not a doubt — it is RED-TEAM item 3 (2026-08-13),
+   which restored the device Activate on exactly that shape after edit mode had eaten
+   it, with two live cases pinning it. Flipping it is a second answer to "what does A
+   mean in edit mode on a table with two verbs", which is a product decision. On that
+   shape a pad still cannot build a multi-selection; a keyboard can, with Shift.
+2. **ADAPT-27's remainder.** Where the ≡ handle goes on a table that is both
+   selectable and reorderable. iOS puts the reorder grip trailing and the selection
+   circle leading; this framework puts the grip leading, and moving it carries its own
+   path grammar and its own press-zone arithmetic (`isHandleZonePress` reads the
+   zone's leading edge).
+3. **The batched Studio pass gains three rows**, on top of §7's five: the collapse
+   and its disclosure on a real phone rotation (the headless proof is the hidden
+   verdict and the chip's 44px band; whether a player reads "1 more" as "there is
+   more of this row" is the director's eye); the ten-foot row rung at 1920x1080 with
+   a pad, against the same Cartwheel table that measured the defect; and the
+   edit-mode selection mark under a skinned package, where the gutter it sits in is
+   carved rather than flat.
+
+## What the sweep learned, and what it deliberately did not
+
+`tests/overflow_sweep.spec.luau` gains **"a collapsed column with no route on the
+screen"**, checked on every swept surface at every viewport, text preference and
+theme package — the rider the paradigm ships with, and it bites (26 findings with
+the chip removed).
+
+The COMPLEMENT — "a cell that clipped instead of collapsing" — was attempted as a
+truncation scan and is **not honest at that altitude**, which is worth recording
+because it looks obvious: the fact that separates a defect from an ordinary long
+string is the column's DECLARED FLOOR, and the sweep holds no control handle to read
+one. Measured rather than assumed: the scan reported the mail list's sender column at
+1920x1078 and the playlist's rating column at every viewport, neither of which is
+narrow. That half reddens the sweep through the route it already had — proven in this
+round, in this order: honouring the floors alone put 196 solver overflow findings on
+the shipped playlist at compact, and the collapse rule is what answered them.
+
+## The extraction, since it was the point
+
+`src/controls/table.luau` 198,764 → 181,588 while GAINING a paradigm and six device
+fixes. Three seams left it: the row/cell builder (`table_rows.luau`, the seam the
+ledger had been holding the file for), the disclosure (`table_disclosure.luau`, taken
+the moment writing the plate in place put the file back inside the warning band), and
+the header band (`table_header.luau`, whose own trigger fired on the very next
+feature). `tests/table_rows_seam.spec.luau` mechanises the property that makes the
+first one safe — READ == DECLARED == PASSED as three set comparisons over the live
+sources, the shared write surface pinned by name, the require asserted not to come
+back — with three mutations confirmed to redden it.

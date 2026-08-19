@@ -432,6 +432,32 @@ describe("Table: custom cells and resize model", function()
 		expect(#table_columns.layout(columns, {}, nil, 0, nil).hidden).toBe(0)
 	end)
 
+	it("J-3: a WIDE ALL-FIXED table at compact collapses instead of clipping", function()
+		local table_columns = require("../src/controls/table_columns")
+		--[[ The audit's own J-3 shape: 720px of FIXED columns in a 390px body whose
+			scroll region is `axis = y` only. "The framework files the right diagnostic
+			twice — content overflows this hstack by 330px, wrap it in a ScrollView —
+			advice the control cannot take about its own header." A fixed column's
+			floor IS its width, so the rule reaches this shape without a `minWidth`
+			anywhere, and drops columns right to left until what is left fits. ]]
+		local columns = {
+			{ id = "name", width = { type = "fixed", px = 240 } },
+			{ id = "team", width = { type = "fixed", px = 160 } },
+			{ id = "best", width = { type = "fixed", px = 160 } },
+			{ id = "rating", width = { type = "fixed", px = 160 } },
+		}
+		expect(#table_columns.layout(columns, {}, 720, 0, nil).hidden).toBe(0)
+		-- 420: 240 + 160 fits and the last two do not, so exactly two go
+		local mid = table_columns.layout(columns, {}, 420, 0, nil)
+		expect(mid.hidden).toEqual({ "best", "rating" })
+		expect(mid.dims.name.px + mid.dims.team.px <= 420).toBe(true)
+		-- 390: not even two fit, so the rule keeps going until one does — and stops
+		-- at the row's identity, which never leaves however narrow it gets
+		local compact = table_columns.layout(columns, {}, 390, 0, nil)
+		expect(compact.hidden).toEqual({ "team", "best", "rating" })
+		expect(compact.dims.name.px <= 390).toBe(true)
+	end)
+
 	it("a table whose columns declare no floor never collapses anything (ADAPT-18)", function()
 		local table_columns = require("../src/controls/table_columns")
 		-- three pure fills with no `minWidth`: the demand is zero, zero always fits,
