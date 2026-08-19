@@ -1338,3 +1338,166 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		expect(w.pres.depth()).toBe(1)
 	end)
 end)
+
+-- ===== 7. THE TWO LINES NOTHING WATCHED ====================================
+--[[ Both of these were found by the wave's own reviewer, by MUTATION: delete the
+	line, run the whole suite, and see 6516/6516 still green. A line with a long
+	comment and no witness is a line the next reader has to take on faith, and this
+	repository's standing answer to that is a case that reddens.
+
+	They are pinned here rather than beside the code because the code is
+	`src/layout/solver.luau`, which is over its extraction trigger and closed to
+	growth. Neither fix needed a source change: both lines were correct and
+	unwatched, which the two cases below now say out loud. ]]
+
+describe("EXPAND 13 — the ladder chooses a rung against the width it will actually get", function()
+	--[[ THE MEASURE-SIDE RESERVE (mutation M2). `compositionResolution`'s measure
+		closure hands an interactive reduced form `availW - chevron`, so the rung the
+		ladder picks is picked against the width `arrange` will hand it. Delete that
+		subtraction and every fixed-size fixture in this suite stays green — because a
+		fixed box measures the same at any offer. It takes content whose HEIGHT
+		depends on its width to see the difference, which is what wrapping text is.
+
+		At this viewport the compact form's line fits on ONE line in the region's full
+		box and needs TWO in what is left beside the chevron. With the reserve the
+		composition reserves two lines and everything fits. Without it, the
+		composition reserves one, `arrange` hands the form the narrower box anyway,
+		the text wraps to two lines inside a box measured for one — and the solver
+		files it. ]]
+	local WRAPPING = "the quick brown fox jumps"
+
+	local function wrapScreen(): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								fixedBox("Full", 200, 200),
+								UI.VStack({
+									id = "Compact",
+									children = {
+										UI.Button({ id = "Live", label = "go", onActivate = function() end }),
+										UI.Text({ id = "Line", text = WRAPPING, textSize = 16 }),
+									},
+								}),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("a wrapping compact form is measured against the box the chevron leaves it", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 260, h = 100 } })
+		w.present(wrapScreen(), { initialFocus = "none" })
+		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
+		local line = w.adapter.node("/S/C/Clock/Compact/Line").rect
+		local region = w.adapter.node("/S/C/Clock").rect
+		local chevron = w.adapter.node("/S/C/Clock/Expand").rect
+		-- the premise: at this width the line genuinely wraps beside the chevron
+		expect(chevron.w > 0).toBe(true)
+		expect(line.h > 30).toBe(true)
+		-- ...and the region's box was measured for the wrapped form, not the flat one
+		expect(region.h >= line.h + chevron.h).toBe(true)
+		--[[ THE ASSERTION THAT BITES: the solver files nothing. Measured against the
+			un-reserved width, this same screen resolves the region 19px shorter and
+			the text paints outside the box it was granted — two findings. ]]
+		expect(#w.controller.diagnostics()).toBe(0)
+	end)
+end)
+
+describe("EXPAND 14 — a form that spliced itself away cannot be indexed, and is not", function()
+	--[[ THE COUNT-MISMATCH FALLBACK (mutation M9). `interactive` is indexed by the
+		DECLARED form; the ladder counts the MOUNTED ones. A form declared behind a
+		`UI.When` splices itself out of the mounted child list when its condition
+		reads false, and from that moment the two indexes name different things —
+		so the solver falls back to the affordance's ROLE, the conservative answer
+		computed at construction across the whole ladder.
+
+		Deleting that fallback and reading `record.interactive` straight through kept
+		the entire suite green, because no case had ever built the shape. This is that
+		shape: three declared forms with the RICHEST behind a gate. With the gate
+		closed the ladder walks two mounted rungs, lands on the second — which is the
+		declared THIRD form, the one carrying a live Button — and a straight-through
+		read would answer with the declared SECOND form's answer: passive, for a form
+		that holds a control. ]]
+	local function gatedScreen(gate: any): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								UI.When({
+									id = "Rich",
+									condition = gate,
+									thenView = function()
+										return fixedBox("RichBody", 200, 200)
+									end,
+								}),
+								fixedBox("Medium", 120, 60),
+								UI.VStack({
+									id = "Compact",
+									children = { UI.Button({ id = "Live", label = "go", onActivate = function() end }) },
+								}),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("with the richest form spliced away, the standing rung's own answer is reported", function()
+		local core = customFactory.new()
+		local gate = core:signal(false)
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 50 } })
+		w.present(gatedScreen(gate), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[1]
+		-- two mounted rungs, and the ladder is standing on the second: the form that
+		-- carries the Button
+		expect(row.activeForm).toBe(2)
+		expect(w.adapter.node("/S/C/Clock/Compact/Live").rect.h > 0).toBe(true)
+		--[[ A straight-through `record.interactive[2]` answers for the declared
+			SECOND form (the passive 120x60 box) and reports FALSE — a live control
+			described as a passive box, which is the one mistake this fact exists to
+			prevent. ]]
+		expect(row.formInteractive).toBe(true)
+	end)
+
+	it("...and with the gate open the indexes line up again, unchanged", function()
+		local core = customFactory.new()
+		local gate = core:signal(true)
+		local roomy = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 400 } })
+		roomy.present(gatedScreen(gate), { initialFocus = "none" })
+		local rich = roomy.controller.compositionAt("/S/C").regions[1]
+		expect(rich.activeForm).toBe(1)
+		expect(rich.expandable).toBe(false)
+	end)
+end)
