@@ -36,7 +36,7 @@ trigger.
 | R2 safe maintenance (tools/tests/docs) | MAINT-1 (warning band + headroom analysis), MAINT-3, MAINT-4, MAINT-5, MAINT-7, MAINT-8b, MAINT-8c, MAINT-8d, ARCH-7, gate.luau empty-detail half of MAINT-2 | DONE (review clean after fix round 1) |
 | R3 input authority | INPUT-90..93, INPUT-105, DF-1..4 (RR Priority/Sink scheme), DF-7, DF-9 + flag declarations, legacy-input drift check, allowlist | DISPATCHED |
 | R4 haptics | press/release/select Custom defaults + expander mirror + same-instant collapse | DONE (review clean after 2 rounds; PENDING_DEVICE rows remain by design) |
-| R5 naming + consolidation | ADR-0037 implementation; ARCH-17 (Levenshtein ×4); the reuse consolidations (headline: num/paths/rect leaf modules ~50 sites + latent prefix-test tap-routing bug; the framework client host closing four hand-rolled bootstraps; tests/lib/world.luau over 106 spec-local builders); dead-code batch (4 motion aliases, oracle_easing pointer, vendor bake-off decision) | QUEUED |
+| R5 naming + consolidation | ADR-0037 + tags + leaf modules + client host + world.luau + dead-code dispositions | DONE (review clean after fix round 1; 125-row reuse ledger structural) |
 | Docs wave | ARCH-4, ARCH-5, ARCH-6, ARCH-9, ARCH-21, ARCH-22, PLAT-15, PLAT-16, PLAT-23, MAINT docs items + T12 catalog/product-language/comments | QUEUED |
 | Perf wave | RR-5 (fresh-`{}` memo identity, 25 sites — measure first), RR-12, PLAT-20 + T15 requalification | QUEUED |
 
