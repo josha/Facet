@@ -58,7 +58,7 @@ published; publishing remains your manual click.
 | **R10** | menu.luau pinned as DK-16's third file (platform menu keys) | unpin + retest |
 | R11 | `luau-*` tags → `facet-*` outright (pre-public window, no alias) | alias pass |
 | R12 | world.luau: substrate + drift-hazard files only | broaden scope |
-| **R13** | ~~radii/strokes must-NOT-scale at ten-foot~~ **superseded in part by the director (2026-08-21): corner RADII scale in lockstep with metricScale via sheet generation (the exact seam R13 pointed at); STROKES still held at 1** | strokes half stays open (§13f hairline) |
+| **R13** | ~~radii/strokes must-NOT-scale at ten-foot~~ **fully superseded by the director (2026-08-21): radii AND strokes scale in lockstep with metricScale via sheet generation (the exact seam R13 pointed at)** | — |
 | **R14** | Ten-foot measure cap = 900px (tablet 600 × 1.5 proportion doctrine) | one-liner + re-verdict |
 | **R15** | Pre-release breaking changes ride unreleased 0.10.0 with an ADR-0040 record, no compat shims | shim work |
 | R16 | Vendor scope = link-reachable from the shipped doc surface | broaden scan |
@@ -75,10 +75,10 @@ published; publishing remains your manual click.
    as an example escape hatch.)
 2. **Native-style default flip** (`native_style.DEFAULT_ENABLED`): your call at
    the Step 14 checkpoint; the promotion tracker now names you as owner.
-3. **Should TV chrome radii/strokes scale?** (§13f) — **DECIDED for radii
-   (2026-08-21): they scale in lockstep with metricScale**, via sheet
-   generation; implementation round queued behind the native-default flip.
-   The hairline-stroke half stays open for the device eye.
+3. **Should TV chrome radii/strokes scale?** (§13f) — **DECIDED, both halves
+   (2026-08-21): radii and hairline strokes scale in lockstep with
+   metricScale**, via sheet generation; implementation round queued behind
+   the native-default flip.
 4. **Is 1.5× right at three metres?** (§13g) The zoomed console capture is
    banked; a different answer is one line at `themes.metricScale`.
 5. **Celebration-Space** design note (from the earlier waves) stands open.

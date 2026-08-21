@@ -1146,3 +1146,12 @@ STUDIO.md, root CLAUDE.md.
   (theme docs, ADR-0040 appends). The radii-lockstep round DISPATCHES ON ITS
   LANDING, not before — two writers appending to one ADR table is the
   conflict class the B-14 blank-line find just demonstrated.
+
+## 2026-08-21 (post-close 3) — hairlines join the lockstep
+
+- DIRECTOR: strokes scale too. R13 is now FULLY superseded — the whole paint
+  family (radii AND strokes) derives from metricScale through sheet
+  generation, so hairline 1 -> 1.5 at ten-foot and both move automatically
+  with any future scale tweak. The doctrine still holds: the painted literal
+  moves WITH the metric, measure and paint agree. §13f is fully decided; the
+  queued round's scope is radii + strokes together.
