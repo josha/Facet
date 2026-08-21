@@ -6233,11 +6233,18 @@ nesting. `dump().strip` is the picker's own dump, nested rather than paraphrased
 **Placement is a policy, not a device branch.** `"automatic"` reads
 `adaptive.navPlacement` — a compact width takes the thumb-zone `bottomBar`, a short
 height its centered `bottomBarCompact`, a pointer-primary desktop the `sidebar`, a
-tablet or a ten-foot screen the `topBar`. Pass `conditions` (the table
-`Facet.adaptive.conditions(core, env)` returns) so its thirteen memos are not built
-twice, or `env` and the control builds and owns them. A **declared** `placement` never
-consults the policy at all. The resolved answer is published as `api.placement`, so a
-screen with its own chrome to place — a search field that rides the bar, a wordmark
+tablet or a ten-foot screen the `topBar`. **The facts arrive by themselves, and an
+automatic placement that cannot find them REFUSES to construct** (ADAPT-1): the
+control reads the environment its own core published — a surface stood up with
+`Facet.client.host.new` publishes one, and a headless caller gets the same from
+`Facet.newEnvironment(core)` — so on a real surface neither key below is required.
+Pass `conditions` (the table `Facet.adaptive.conditions(core, env)` returns) so its
+thirteen memos are not built twice, or `env` and the control builds and owns them;
+with **no environment reachable at all** the construction raises, naming all three
+routes, because a tab bar that silently picked one home and kept it is the defect this
+refusal replaced. A **declared** `placement` never consults the policy at all — and
+therefore never refuses, whatever the surface can or cannot answer. The resolved
+answer is published as `api.placement`, so a screen with its own chrome to place — a search field that rides the bar, a wordmark
 that only belongs in the rail — reads one answer instead of re-deriving the rule.
 
 **Nesting: an inner TabView never claims the app-level placement.** A page's own top
