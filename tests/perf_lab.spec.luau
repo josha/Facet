@@ -2152,6 +2152,80 @@ describe("perf lab: the motion-flight pass profiles a withAnimation flight", fun
 	end)
 end)
 
+--[[ THE COUNTER CONTRACT, AND WHY IT IS ASSERTED AS A SET (wave T15, item 4).
+
+	The plan's "In-place controls" section lists what a session must be able to
+	read, and the lab has two readers of it: `steps.counters`, which a person or a
+	script reads live, and the exported CAPTURE ROW, which is the artifact every
+	comparison is made against. They were two separately written table literals,
+	and they had drifted — the renderer's structural counters were in the live one
+	and not in the row, and the haptics counters (which land on the overlay's own
+	line on every refresh) were in NEITHER, so the number that answers "does the
+	feedback adapter allocate per frame" was visible on screen and absent from the
+	evidence.
+
+	Asserting the two agree by SET rather than pinning a list is the point: a
+	counter added to one reader tomorrow fails here on the commit that adds it,
+	which a pinned list of today's names would not do.
+]]
+describe("perf lab: the live counters and the capture row read ONE block (T15)", function()
+	local function keysOf(t: any): { string }
+		local out: { string } = {}
+		for k in t do
+			table.insert(out, tostring(k))
+		end
+		table.sort(out)
+		return out
+	end
+
+	it("every counter the live read publishes is on the exported row, and vice versa", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=dense-scroll,rows=200,seed=1")
+		built.steps.mount()
+		built.steps.pass(nil, "scrollSteady=4")
+
+		local live = built.steps.counters()
+		-- the live read adds three of its OWN (the settings echo, the chrome-art
+		-- ledger and the pass log); everything else must be the shared block
+		live.settings = nil
+		live.chromeArt = nil
+		live.passes = nil
+
+		local exported = built.steps.export(nil, "1").row.counters
+		expect(table.concat(keysOf(live), ",")).toBe(table.concat(keysOf(exported), ","))
+		built.dispose()
+	end)
+
+	it("the block carries the counters the release waves landed, not the ones they replaced", function()
+		--[[ Named individually because a set comparison alone is satisfied by two
+			readers that are equally out of date. These three are the wave's own
+			charge: haptics (task 11, landed), the renderer's structural counters
+			(which carry `textMeasureBatches`), and the text premeasure queue. ]]
+		local built = newHarness()
+		built.steps.select(nil, "scenario=dense-scroll,rows=200,seed=1,haptics=on")
+		built.steps.mount()
+		local c = built.steps.counters()
+
+		expect(`haptics.state={c.haptics.state}`).toBe("haptics.state=on")
+		expect(`haptics.plays={c.haptics.plays}`).toBe("haptics.plays=0")
+		expect(`haptics.coalesced={c.haptics.coalesced}`).toBe("haptics.coalesced=0")
+		-- the renderer's own structural counters, and the text batch count inside them
+		expect(type(c.render)).toBe("table")
+		expect(type(c.render.solves)).toBe("number")
+		expect(type(c.render.textMeasureBatches)).toBe("number")
+		-- the premeasure queue: this host has no premeasure seam, and the block says
+		-- so EXPLICITLY rather than reporting a zero that would read as "nothing
+		-- outstanding" (the metric-ledger discipline, one layer out)
+		expect(type(c.text.measured)).toBe("boolean")
+		if c.text.measured then
+			expect(type(c.text.pending)).toBe("boolean")
+		else
+			expect(#tostring(c.text.reason) > 0).toBe(true)
+		end
+		built.dispose()
+	end)
+end)
+
 describe("the lab's registry satisfies the SHARED runner's contract", function()
 	--[[ WHY THIS EXISTS, AND WHAT IT COST NOT TO.
 

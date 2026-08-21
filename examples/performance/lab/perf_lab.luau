@@ -3182,18 +3182,84 @@ return {
 
 			`off` and `unavailable` are separate words on purpose: one is a decision in
 			this session, the other is a fact about the host that supplied the lab. ]]
-		local function hapticsLine(): string
+		local function hapticsCounters(): any
 			if hapticsModule == nil then
-				return "haptics=unavailable (this host supplied no adapter module)"
+				return { state = "unavailable", note = "this host supplied no adapter module" }
 			end
 			if hapticsAdapter == nil then
-				return "haptics=off"
+				return { state = "off" }
 			end
 			local ok, d = pcall(hapticsAdapter.diagnostics)
 			if not ok or d == nil then
+				return { state = "on", diagnostics = false }
+			end
+			return {
+				state = "on",
+				diagnostics = true,
+				constructions = d.constructions,
+				pooled = d.pooled,
+				plays = d.plays,
+				coalesced = d.coalesced,
+			}
+		end
+
+		local function hapticsLine(): string
+			local h = hapticsCounters()
+			if h.state == "unavailable" then
+				return `haptics=unavailable ({h.note})`
+			end
+			if h.state == "off" then
+				return "haptics=off"
+			end
+			if not h.diagnostics then
 				return "haptics=on (diagnostics unavailable)"
 			end
-			return `haptics=on built={d.constructions} pooled={d.pooled} plays={d.plays} coalesced={d.coalesced}`
+			return `haptics=on built={h.constructions} pooled={h.pooled} plays={h.plays} coalesced={h.coalesced}`
+		end
+
+		--[[ IS A TEXT PREMEASUREMENT STILL OUTSTANDING? The Step 8.5 gate rider asks a
+			capture for the text-measurement queue depth; what the shipped runtime
+			exposes is the boolean `controller.textPending()`, and the BATCH count rides
+			in `render.textMeasureBatches` below. A capture taken while a round is in
+			flight is measuring a surface that is still deciding its own type sizes, so
+			the number belongs on the row rather than in a person's memory. ]]
+		local function textCounters(): any
+			if mounted == nil or mounted.kind ~= "facet" or mounted.controller == nil then
+				return { measured = false, reason = "no Facet surface is mounted" }
+			end
+			local ok, pending = pcall(mounted.controller.textPending)
+			if not ok then
+				return { measured = false, reason = "this adapter has no premeasure seam" }
+			end
+			return { measured = true, pending = pending }
+		end
+
+		--[[ THE ONE COUNTER BLOCK, READ BY BOTH READERS (wave T15, item 4).
+
+			`steps.counters` and the exported CAPTURE ROW used to build this block
+			separately, and they had already drifted: the renderer's structural
+			counters were in one and not the other, and the haptics counters — which
+			land on the overlay line every refresh — were in neither, so the number
+			that answers "did the feedback adapter allocate per frame" could be read on
+			screen and never appeared in the artifact a capture cites. One function
+			now, so the drift cannot recur; `tests/perf_lab.spec.luau` asserts the two
+			readers publish the same key set. ]]
+		local function liveCounters(): any
+			return {
+				mountedRows = mountedRowCount(),
+				windowBound = windowBound(),
+				logicalRows = #rowsSignal:get(),
+				instances = telemetry.instances(),
+				connections = telemetry.connections(),
+				memory = telemetry.memory(),
+				core = core:counters(),
+				profiler = profile.counters(),
+				provider = provider.counters and provider.counters() or nil,
+				render = renderStats(),
+				haptics = hapticsCounters(),
+				text = textCounters(),
+				overlayMounted = overlayHandle ~= nil,
+			}
 		end
 
 		local function refreshCounters()
@@ -3800,31 +3866,21 @@ return {
 
 		steps.counters = function()
 			refreshCounters()
-			return {
-				settings = table.clone(settings),
-				mountedRows = mountedRowCount(),
-				windowBound = windowBound(),
-				logicalRows = #rowsSignal:get(),
-				instances = telemetry.instances(),
-				connections = telemetry.connections(),
-				memory = telemetry.memory(),
-				core = core:counters(),
-				profiler = profile.counters(),
-				provider = provider.counters and provider.counters() or nil,
-				render = renderStats(),
-				-- the chrome art ledger, including the LIFTED LABEL FIT check: a themed
-				-- control whose label was lifted into chrome-derived geometry the solver
-				-- never measured. Surfaced here because the layout audit cannot see that
-				-- seam — it lives past the solve, in the adapter.
-				chromeArt = (function(): any
-					if ctx.themeChrome == nil or ctx.themeChrome.artJudgement == nil then
-						return nil
-					end
-					local ok, art = pcall(ctx.themeChrome.artJudgement)
-					return if ok then art else nil
-				end)(),
-				passes = passLog,
-			}
+			local out = liveCounters()
+			out.settings = table.clone(settings)
+			-- the chrome art ledger, including the LIFTED LABEL FIT check: a themed
+			-- control whose label was lifted into chrome-derived geometry the solver
+			-- never measured. Surfaced here because the layout audit cannot see that
+			-- seam — it lives past the solve, in the adapter.
+			out.chromeArt = (function(): any
+				if ctx.themeChrome == nil or ctx.themeChrome.artJudgement == nil then
+					return nil
+				end
+				local ok, art = pcall(ctx.themeChrome.artJudgement)
+				return if ok then art else nil
+			end)()
+			out.passes = passLog
+			return out
 		end
 
 		-- The CAPTURE ROW (PL-9). Assembled here, judged by capture.problems, and
@@ -3875,17 +3931,7 @@ return {
 				profilerScopes = scopes.enabled and scopes.engine,
 				-- results
 				frame = frame,
-				counters = {
-					mountedRows = mountedRowCount(),
-					windowBound = windowBound(),
-					logicalRows = #rowsSignal:get(),
-					instances = telemetry.instances(),
-					connections = telemetry.connections(),
-					memory = telemetry.memory(),
-					core = core:counters(),
-					provider = provider.counters and provider.counters() or nil,
-					overlayMounted = overlayHandle ~= nil,
-				},
+				counters = liveCounters(),
 				scopes = scopes,
 				passes = passLog,
 				capturePath = hostFacts.capturePath or "not captured in this run",
