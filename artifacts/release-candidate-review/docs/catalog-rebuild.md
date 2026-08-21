@@ -28,8 +28,8 @@ rows: the catalog teaches the shape a new author should write, which is
 | `UI.*` members named | ~12 of 51 | 51 of 51 |
 | Top-level exports named | ~14 | all 30 non-deprecated |
 | Extension playbooks linked | 6 of 7 (`new-primitive` missing) | 7 of 7 |
-| Links into `docs/reference/api.md` | 3 | 71, every one anchor-checked |
-| Catalog entries a checker verifies | 0 | 107 |
+| Links into `docs/reference/api.md` | 2 bare mentions, 0 anchored | 89, every one anchor-checked |
+| catalog entries a checker verifies | 0 | 107 |
 | Stale entries removed | — | the spec-timing pointer into a retired plan document |
 
 The six categories are the ones the release plan names: layout and composition;
@@ -53,9 +53,22 @@ on its way out does not have to be advertised.
 | Direction | Failure it catches |
 |---|---|
 | a. every live capability is named | a shipped control the index does not mention |
-| b. every named capability still exists | a row for an export that has been removed |
+| b. every named capability still exists | a row for an export that has been removed — read from the capability COLUMN of every row, so a bare top-level name, a member of any namespace, and a `client.*` row are all judged |
 | c. every api.md link resolves | a catalog link to a heading api.md does not have |
 | d. every playbook is linked | an extension playbook nobody can find |
+
+### The three holes fix round 1 closed
+
+The first version of direction (b) scanned for a dotted `` `UI.x` ``/`` `Controls.x` ``
+token anywhere in the file. A *renamed* export was caught, because the new name
+goes missing under direction (a) — but a REMOVED top-level export, a member of
+any other namespace, and a `client.*` row each lingered with no error at all,
+which is about a third of the catalog's rows. The re-review planted all three.
+
+It now reads the capability COLUMN of each catalog row, which is the bound that
+lets it judge a bare name: `mount` in that column is a claim that `Facet.mount`
+exists, while `Instance` in the prose is not. All three plants redden, and all
+three are spec cases.
 
 ### Proof that it bites
 
@@ -74,7 +87,13 @@ api.md#no-such-heading link      -> ok: false, 1 problem:
     not a heading in that document
 unlinked new-primitive.md        -> ok: false, 1 problem:
     docs/guide/README.md: the extension-playbook list does not link new-primitive.md
+invented top-level `newSparkle`  -> ok: false, 1 problem  (fix round 1)
+invented `adaptive.nope`         -> ok: false, 1 problem  (fix round 1)
+invented `client.nope_target`    -> ok: false, 1 problem  (fix round 1)
 ```
+
+`docs/guide/README.md` also said "There are six playbooks" beside a list of
+seven, which this wave is what made seven. Corrected.
 
 The same four are cases in `tests/theme_docs.spec.luau`, so they run on every
 suite rather than on a command somebody remembers to type.

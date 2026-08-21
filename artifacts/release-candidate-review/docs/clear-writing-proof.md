@@ -62,7 +62,10 @@ acronym and a bare artifact row id were each reported; the restored tree is clea
 ## What it found, and what closing it changed
 
 The first run on the live tree reported **36 violations across 12 documents**.
-All 36 are closed.
+All are closed. Re-measured in fix round 1 by running the shipped checker against
+the BASE tree, which is the reproducible form of the claim: **38 violations
+across 13 documents**, and 0 at head. The wave's own count was taken mid-sweep
+and was two low; the substantive claim — all closed — holds either way.
 
 | Class | Count | How it was closed |
 |---|---|---|
