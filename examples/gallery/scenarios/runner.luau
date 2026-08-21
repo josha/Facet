@@ -51,7 +51,7 @@ local ENV_DERIVED_KEYS = {
 	"presentationProfile",
 }
 
-local function serializeValue(v: any): any
+local function serializeValue(v: any, seen: { [any]: boolean }?): any
 	local t = typeof(v)
 	if t == "Vector2" then
 		return { x = v.X, y = v.Y }
@@ -64,10 +64,20 @@ local function serializeValue(v: any): any
 	elseif t == "EnumItem" then
 		return tostring(v)
 	elseif t == "table" then
+		-- CYCLE GUARD (2026-08-21): a step that returns a self-referential table
+		-- used to chase this function into a stack overflow that killed the whole
+		-- api.step call — the serializer is a REPORTER, so a bad value must come
+		-- back named, never take the bridge down with it
+		local marks = seen or {}
+		if marks[v] then
+			return "<cycle>"
+		end
+		marks[v] = true
 		local out = {}
 		for k, vv in v do
-			out[tostring(k)] = serializeValue(vv)
+			out[tostring(k)] = serializeValue(vv, marks)
 		end
+		marks[v] = nil
 		return out
 	elseif t == "Instance" then
 		return v:GetFullName()

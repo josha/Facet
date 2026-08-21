@@ -1345,6 +1345,28 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		because the engine owns its moment — and a fixture that faked it would be
 		demonstrating itself rather than the framework. These cases hold both halves.
 	]]
+	it("every calibration step survives the RUNNER'S call shape — session first, payload second", function()
+		--[[ The live bridge invokes every step as `fn(session.built, payload)`
+			(runner.luau api.step), while this file used to call them payload-first —
+			two call shapes for one seam, and the green suite proved the shape the
+			bridge never uses. Found live 2026-08-21: `setPlayHaptics:true` left the
+			adapter OFF (the session table is not `true`), and `setProfile:crisp`
+			poisoned the profile signal with the session table, which the runner's
+			cycle-blind serializer then chased into a stack overflow. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local opt = built.steps.setPlayHaptics(built, "true")
+		expect(`scripted opt-in engaged: {opt.state ~= "off"} ({opt.state})`).toBe(
+			"scripted opt-in engaged: true (requested)"
+		)
+		local chosen = built.steps.setProfile(built, scenario.profiles.fallback)
+		expect(chosen.profile).toBe(scenario.profiles.fallback)
+		built.steps.firePhase(built, "release")
+		expect(built.steps.readPulses(built).release).toBe(1)
+		built.dispose()
+	end)
+
 	it("the calibration rows drive the release and select phases ONE AT A TIME", function()
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, built = mountDemo()
@@ -1353,10 +1375,10 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local before = built.steps.readPulses()
 		expect(before.release).toBe(0)
 		expect(before.select).toBe(0)
-		built.steps.firePhase("release")
+		built.steps.firePhase(nil, "release")
 		local afterRelease = built.steps.readPulses()
 		expect(`release={afterRelease.release} select={afterRelease.select}`).toBe("release=1 select=0")
-		built.steps.firePhase("select")
+		built.steps.firePhase(nil, "select")
 		local afterSelect = built.steps.readPulses()
 		expect(`release={afterSelect.release} select={afterSelect.select}`).toBe("release=1 select=1")
 		built.dispose()
@@ -1372,7 +1394,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		built.useScriptedEngine(engine.overrides)
 		built.playHaptics:set(true)
 		local before = built.steps.readPulses().line
-		built.steps.firePhase("press")
+		built.steps.firePhase(nil, "press")
 		local after = built.steps.readPulses()
 		expect(after.line).toBe(before) -- nothing was faked
 		expect(`says who owns it:{string.find(after.line, "engine", 1, true) ~= nil}`).toBe("says who owns it:true")
@@ -1410,22 +1432,22 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		built.playHaptics:set(true)
 		-- FALLBACK: the two quiet phases share UIHover, which is the documented
 		-- limitation rather than a coincidence
-		built.steps.setProfile(scenario.profiles.fallback)
+		built.steps.setProfile(nil, scenario.profiles.fallback)
 		local fallback = built.steps.readPulses()
 		expect(`press={fallback.pressEffect} release={fallback.releaseEffect} select={fallback.selectEffect}`).toBe(
 			"press=UIClick release=UIHover select=UIHover"
 		)
-		built.steps.firePhase("release")
+		built.steps.firePhase(nil, "release")
 		expect(built.steps.readPulses().release).toBe(1)
 		-- SILENT: still installed, still reporting, and playing nothing
-		built.steps.setProfile(scenario.profiles.silent)
-		built.steps.firePhase("release")
-		built.steps.firePhase("select")
+		built.steps.setProfile(nil, scenario.profiles.silent)
+		built.steps.firePhase(nil, "release")
+		built.steps.firePhase(nil, "select")
 		local silent = built.steps.readPulses()
 		expect(`plays={silent.plays} press={tostring(silent.pressEffect)}`).toBe("plays=0 press=nil")
 		expect(built.hapticsAdapter() ~= nil).toBe(true)
 		-- ...and back to the Facet defaults, by name
-		built.steps.setProfile(scenario.profiles.defaults)
+		built.steps.setProfile(nil, scenario.profiles.defaults)
 		local defaults = built.steps.readPulses()
 		expect(`press={defaults.pressEffect} release={defaults.releaseEffect} select={defaults.selectEffect}`).toBe(
 			"press=contact release=settle select=tick"

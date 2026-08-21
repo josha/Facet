@@ -999,8 +999,11 @@ return {
 				end,
 				-- the opt-in, driven by name. `on` flips the same signal the Toggle
 				-- writes, so a scripted device sweep and a finger take one path.
-				setPlayHaptics = function(on: boolean)
-					playHaptics:set(on == true)
+				-- (_session, payload): the runner's one true call shape — api.step
+				-- invokes `fn(session.built, payload)`, and a step that declared a
+				-- single parameter read the SESSION as its value (live find, 2026-08-21)
+				setPlayHaptics = function(_session, on: any)
+					playHaptics:set(on == true or on == "true")
 					return {
 						state = hapticsState:get(),
 						headline = hapticsHeadline:get(),
@@ -1019,11 +1022,11 @@ return {
 				end,
 				-- the calibration panel, driven BY NAME through the same functions the
 				-- three chips call — so a scripted sweep and a finger take one path
-				setProfile = function(choice: string)
-					chooseProfile(choice)
+				setProfile = function(_session, choice: string)
+					chooseProfile(tostring(choice))
 					return { profile = profileChoice:get(), pulses = pulseLine:get() }
 				end,
-				firePhase = function(phase: string)
+				firePhase = function(_session, phase: string)
 					if phase == "release" then
 						fireRelease()
 					elseif phase == "select" then
