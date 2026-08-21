@@ -256,7 +256,92 @@ proves the map points at them, and that a new playbook cannot ship unlinked.
 
 ---
 
-## 7. Files
+---
+
+## 7. Suites
+
+| Suite | Where | Result |
+|---|---|---|
+| Facet, argument-free | private `git archive 1f9510a` export, before any edit | **6821 passed**, exit 0 |
+| Facet, argument-free | private `git archive 661a4451b` export, this wave | **6841 passed**, exit 0 |
+| Rascal Rally, argument-free | private two-repo export: `fccf29d` beside Facet `d20bca8` | **3449 passed**, exit 0 |
+
+The framework moved by exactly **+20**, which is the twenty cases
+`tests/maintainer_map.spec.luau` registers. No other count moved, and none should
+have: this wave added one document, one checker, one command, one spec and one gate
+row, and changed no library source.
+
+**Rascal Rally needed no edit and got none.** Nothing under `src/` moved; no public
+contract, default, behavior, asset or distribution output changed. The consumer run
+above is the compatibility evidence the studio rule asks for — the live game builds
+and passes, unchanged, against this Facet commit.
+
+Everything was measured in private `git archive` exports rather than in the working
+tree, because a second agent is auditing this repository concurrently and its
+uncommitted work sits in the same tree.
+
+## 8. The gate row, run
+
+The row was not retyped. It was extracted from `tools/lune/gate_manifest.luau` by
+name and executed as shell inside the same export, which is the discipline the
+`naming-adr-implemented` row's note records after a hand-retyped copy of a run
+string passed while the real one matched nothing.
+
+```
+$ bash -c 'cd "$(pwd)" || exit 1; <the extracted run string>'
+check_maintainer_map: PASS (19 areas covering 28 src entries, 71 named specs,
+18 scenarios, 51 gate rows, 7 boundary rules, 20 public seams, 47 local links,
+7 playbooks linked)
+ROW EXIT=0
+```
+
+**One trap worth recording, because it cost a re-run.** The first attempt wrapped
+the same run string in a script with `set -euo pipefail` and got **exit 141**, which
+is `SIGPIPE`. Nothing was wrong with the row: `grep -q` exits the moment it matches,
+the `echo` feeding it dies of a broken pipe, and under `pipefail` that 141 becomes
+the pipeline's status. `tools/lune/gate.luau` runs a check as
+`bash -c 'cd "$(pwd)" || exit 1; <run>'` with no `pipefail`, which is why the same
+idiom is green in dozens of other rows. Verify a row the way the runner runs it, or
+the shell you added is the thing you measured.
+
+## 9. Checker battery
+
+Run in the working tree, read-only:
+
+| Check | Result |
+|---|---|
+| `check_maintainer_map_cli` and `--selftest` | PASS |
+| `check_doc_style.py` and `--selftest` | PASS, 23 documents (the map is the 23rd) |
+| `check_gate_pins.py` and `--selftest` | PASS, 242 pins |
+| `check_manifest_integrity.py` | PASS, 1518 suite greps, all anchored |
+| `check_boundary` | PASS, 155 src files, 413 consumer files |
+| `check_registration_cli` | PASS, 256 specs registered |
+| `check_docs_cli` | PASS |
+| `check_source_size.py` | PASS |
+| `check_library_purity.py` | PASS |
+| `check_input_authority.py` | PASS |
+| `stylua --check` on every touched Luau file | clean |
+
+**Three checks are red in this tree and none of them is this wave's.** Each was
+confirmed red at the baseline commit, before any edit here:
+
+- `check_comment_codes.py` — 6 orphan codes in `src/controls/virtual_grid.luau`,
+  `src/controls/virtual_window.luau` and `src/core/custom.luau` (`RR-5`, `RR-12`).
+  Reproduced red on a clean export of `1f9510a`. This wave touched no file in
+  `src/`.
+- `check_brand_drift.py` — 11 matches, all in `tools/microprofiler_aggregate.py`,
+  which is unmodified at the baseline commit.
+- `check_call_shape_drift.py` — 1 match in `tools/lune/_probe_t15_controls.luau`,
+  also unmodified at the baseline commit.
+
+All three belong to the concurrently running performance wave and are reported
+here rather than repaired, because repairing another agent's in-flight file is how
+two agents produce one broken commit.
+
+
+---
+
+## 10. Files
 
 | Path | What |
 |---|---|
