@@ -140,8 +140,9 @@ lune run tools/lune/check_maintainer_map_cli -- --selftest # prove each rule bit
 It fails when a new `src/` area is unmapped, when a claimed path does not exist,
 when the two tables disagree, when a named spec does not require the area it is
 filed under, when a scenario is unregistered, when a cited gate row or boundary
-rule is gone, when a link breaks, or when an extension playbook ships that the map
-never links. The selftest plants each of those faults into a copy of this file in a
+rule is gone, when the seam column advertises an export the library table no longer
+has, when a link breaks, or when an extension playbook ships that the map never
+links. The selftest plants each of those faults into a copy of this file in a
 scratch directory and requires each one to be reported, so the check has been
 watched failing before it is trusted. The same checker runs inside the suite as
 [`tests/maintainer_map.spec.luau`](../tests/maintainer_map.spec.luau), so drift

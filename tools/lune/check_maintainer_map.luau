@@ -34,6 +34,11 @@
 --      link carrying an anchor lands on a heading that document really has.
 --  10. EVERY PLAYBOOK IS REACHABLE. Every page under docs/extending is linked
 --      by the map, so a new extension path cannot ship unmapped.
+--  11. THE PUBLIC SEAM IS LIVE. Every `Facet.<name>` the seam column advertises
+--      is a field of the exported table, read from the table itself rather than
+--      from a parsed literal — the same source check_docs reads. This is the
+--      column a maintainer trusts most, so it is the one that must not be able
+--      to name a rename victim.
 --
 -- check(opts?) -> { ok, problems, counts }. `opts.mapPath` points the check at
 -- a COPY of the map, which is how the command-line selftest proves each rule
@@ -43,6 +48,12 @@
 -- --counts, --list).
 
 local fs = require("@lune/fs")
+
+--[[ THE LIVE LIBRARY TABLE, not a parsed literal. The seam column claims that a
+	name is public; the only honest source for "what is public" is the exported
+	table, so this module requires it the same way tools/lune/check_docs does. A
+	hand list here would be one more place a rename could fail to appear. ]]
+local liveFacet = require("../../src") :: any
 
 local check_maintainer_map = {}
 
@@ -82,6 +93,7 @@ export type Result = {
 		scenarios: number,
 		gateRows: number,
 		boundaryRules: number,
+		seams: number,
 		links: number,
 		playbooks: number,
 	},
@@ -240,6 +252,7 @@ function check_maintainer_map.check(opts: Opts?): Result
 		scenarios = 0,
 		gateRows = 0,
 		boundaryRules = 0,
+		seams = 0,
 		links = 0,
 		playbooks = 0,
 	}
@@ -302,6 +315,19 @@ function check_maintainer_map.check(opts: Opts?): Result
 			end
 			claimed[entry] = area
 			ownedBy[area][entry] = true
+		end
+
+		-- (11) the seam column advertises only names the library really exports
+		if #cells >= 4 then
+			for member in string.gmatch(cells[4], "`Facet%.([%w_]+)") do
+				counts.seams += 1
+				if liveFacet[member] == nil then
+					problem(
+						`the '{area}' row advertises the seam 'Facet.{member}', which the library does not export`,
+						"name the export the library really has, or delete the claim"
+					)
+				end
+			end
 		end
 	end
 	counts.areas = #areaOrder
@@ -620,6 +646,8 @@ check_maintainer_map.OBLIGATIONS = table.freeze({
 	"every quick answer links the page that carries the rest of the answer",
 	"every local markdown link resolves, and a link with an anchor lands on a heading that document has",
 	"every page under docs/extending is linked by the map",
+	"every Facet.<name> the public-seam column advertises is a field of the exported library table, read from "
+		.. "the table itself rather than from a parsed literal",
 })
 
 return check_maintainer_map

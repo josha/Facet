@@ -123,6 +123,9 @@ if wantSelftest then
 	run("a scenario that is not registered", function(text)
 		return (string.gsub(text, "| `safe_area` |", "| `no_such_scenario` |", 1))
 	end, "is not a module in examples/gallery/scenarios")
+	run("a public seam the library does not export", function(text)
+		return (string.gsub(text, "`Facet%.newFocusGraph`", "`Facet.newFocusGraphs`", 1))
+	end, "which the library does not export")
 
 	for _, name in fs.readDir(dir) do
 		fs.removeFile(`{dir}/{name}`)
@@ -138,6 +141,7 @@ if result.ok then
 		`check_maintainer_map: PASS ({result.counts.areas} areas covering {result.counts.srcEntries} src entries, `
 			.. `{result.counts.tests} named specs, {result.counts.scenarios} scenarios, `
 			.. `{result.counts.gateRows} gate rows, {result.counts.boundaryRules} boundary rules, `
+			.. `{result.counts.seams} public seams, `
 			.. `{result.counts.links} local links, {result.counts.playbooks} playbooks linked)`
 	)
 	process.exit(0)

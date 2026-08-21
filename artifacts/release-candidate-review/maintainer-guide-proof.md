@@ -47,6 +47,8 @@ Same nineteen areas, same order, enforced. Per area:
   checker accepts only in that exact form; an empty cell is a failure.
 - **gate** — 51 `stage/row` citations, each resolved against
   `tools/lune/gate_manifest.luau`.
+- **public seam** (table 1) — 20 `Facet.<name>` claims, each checked against the
+  live exported library table rather than a parsed literal.
 - **extend via** — the playbook, the scaffold command, or the constitution for an
   internal area. All seven shipped `docs/extending/` playbooks are linked.
 
@@ -88,7 +90,7 @@ pointing at the code that is already declared to be the authority.
 ## 3. The drift check
 
 `tools/lune/check_maintainer_map.luau` (module) and
-`tools/lune/check_maintainer_map_cli.luau` (command). Eleven obligations, printed
+`tools/lune/check_maintainer_map_cli.luau` (command). Twelve obligations, printed
 by `--list`:
 
 1. every top-level entry under `src/` (read from disk) is claimed by exactly one
@@ -103,7 +105,9 @@ by `--list`:
 8. every dependency rule cited by name is one `check_boundary` really reports;
 9. every quick answer links the page carrying the rest of the answer;
 10. every local link resolves, and an anchor lands on a heading that document has;
-11. every page under `docs/extending/` is linked by the map.
+11. every page under `docs/extending/` is linked by the map;
+12. every `Facet.<name>` the seam column advertises is a field of the exported
+    library table, read from the table itself.
 
 **Coverage is derived, never listed.** A spec covers an area when one of its own
 `require` calls names a module of that area — the require graph, one hop out of the
@@ -130,7 +134,8 @@ covering specs per area (the require graph, one hop out of each spec file):
 
 ```
 check_maintainer_map: PASS (19 areas covering 28 src entries, 71 named specs,
-18 scenarios, 51 gate rows, 7 boundary rules, 47 local links, 7 playbooks linked)
+18 scenarios, 51 gate rows, 7 boundary rules, 20 public seams, 47 local links,
+7 playbooks linked)
 ```
 
 ---
@@ -156,6 +161,7 @@ check_maintainer_map: selftest (a copy of the map, one planted fault each)
   a gate row that does not exist: reported
   a boundary rule nothing enforces: reported
   a scenario that is not registered: reported
+  a public seam the library does not export: reported
 check_maintainer_map: SELFTEST PASS — every planted fault was reported
 ```
 
@@ -170,7 +176,7 @@ docs/MAINTAINERS.md: src/env is not claimed by any area row
 The control matters as much as the plants: an unmutated copy passes, so the six
 reds are the faults and not the copying.
 
-### 4.2 The suite half — nineteen cases, nineteen faults
+### 4.2 The suite half — twenty cases, twenty faults
 
 `tests/maintainer_map.spec.luau`, registered in `tests/run.luau`, runs the same
 checker so drift fails the suite and not only a command someone remembered to type.
@@ -192,6 +198,7 @@ maintainer map: every row still points at the tree it describes
   ✓ reports an empty scenario cell that gives no reason
   ✓ reports a gate row the manifest does not have
   ✓ reports a gate stage the manifest does not have
+  ✓ reports a public seam the library has stopped exporting
   ✓ reports a boundary rule check_boundary does not enforce
   ✓ reports a link that resolves nowhere
   ✓ reports a link whose anchor is not a heading in the target
@@ -199,7 +206,7 @@ maintainer map: every row still points at the tree it describes
   ✓ reports a missing marker rather than silently checking nothing
   ✓ derives a per-area covering count from the require graph
 
-19 passed
+20 passed
 ```
 
 Every plant asserts it changed the text first (`the mutation changed nothing, so it
@@ -208,7 +215,8 @@ case that passes while testing an unmodified file.
 
 The count floors are the second half of the same argument: a gutted map cannot pass
 by describing nothing, so the spec pins floors on areas, claimed `src` entries,
-named specs, scenarios, gate rows, boundary rules, links and playbooks.
+named specs, scenarios, gate rows, boundary rules, public seams, links and
+playbooks.
 
 ---
 

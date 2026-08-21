@@ -57,6 +57,7 @@ describe("maintainer map: every row still points at the tree it describes", func
 		expect(counts.scenarios).toBeGreaterThanOrEqual(17)
 		expect(counts.gateRows).toBeGreaterThanOrEqual(40)
 		expect(counts.boundaryRules).toBeGreaterThanOrEqual(6)
+		expect(counts.seams).toBeGreaterThanOrEqual(18)
 		expect(counts.links).toBeGreaterThanOrEqual(30)
 		expect(counts.playbooks).toBeGreaterThanOrEqual(7)
 	end)
@@ -137,6 +138,12 @@ describe("maintainer map: every row still points at the tree it describes", func
 		expect(plant(function(text)
 			return (string.gsub(text, "`phase%-0%-foundation/conformance%-custom%-core`", "`no-such-stage/x`", 1))
 		end, "which tools/lune/gate_manifest.luau does not define")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("reports a public seam the library has stopped exporting", function()
+		expect(plant(function(text)
+			return (string.gsub(text, "`Facet%.newFocusGraph`", "`Facet.newFocusGraphs`", 1))
+		end, "which the library does not export")).toBeGreaterThanOrEqual(1)
 	end)
 
 	it("reports a boundary rule check_boundary does not enforce", function()
