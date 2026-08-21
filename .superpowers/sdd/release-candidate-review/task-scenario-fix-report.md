@@ -116,8 +116,10 @@ spec file that was not yet tracked. This commit repairs that.
 
 ## Evidence
 
-- Framework suite: **6721 passed, 0 failed** (baseline 6702 before this task —
-  +19 rows; that baseline already included INT-1's 6 rows).
+- Framework suite: **6721 passed, 0 failed** on the committed tree. This task's
+  spec contributes **18** of them (measured alone). Baseline was 6702 when this
+  work started — that already included INT-1's rows — so the remaining +1 came
+  from a concurrent commit (`0411973`), not from here.
 - Rascal Rally suite: **3431 passed, 0 failed** — unchanged, as expected:
   nothing under `src/` was touched, so the live consumer's contract is
   untouched. Re-measured after the fix.
