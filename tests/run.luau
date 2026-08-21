@@ -445,6 +445,9 @@ require("./theme_matrix_audit.spec")
 require("./theme_asset_judgement.spec")
 -- theme docs spec (docs package)
 require("./theme_docs.spec")
+-- the maintainer map (docs/MAINTAINERS.md): every production area still points at
+-- the src tree, the specs, the scenario, the gate row and the playbook it claims
+require("./maintainer_map.spec")
 -- sponsor-framework-gaps P1: the motion authority (ADR-0022 Decision 1) — pure
 -- solver, class registry, injectable clock, perceptual arrival, timelines, and
 -- the reduced-motion parity rules, all under a scripted clock

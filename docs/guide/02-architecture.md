@@ -25,9 +25,14 @@ All source lives under `src/`. Grouped by responsibility:
 | **env** | `env/environment.luau` | Per-device facts (screen size, safe areas, input capabilities and preference, display class, accessibility preferences) as observable values, plus derived policy — notably `interactionClasses` (the live set of input idioms the device offers right now) and `distanceProfile` (`near` vs `ten-foot` for TV-class displays). |
 | **async** | `async/resources.luau` | Bounded, cancellable async loading with a cache and stale-response rejection. |
 | **controls** | `controls/table.luau`, `controls/virtual_list.luau`, `class_contract.luau` | Composite controls built *out of* the primitive blueprints. |
-| **client** | `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau`, `client/haptics.luau`, `client/gamepad_contention.luau`, `client/responder_effects.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these **eleven** are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). The list in code is `tools/lune/check_boundary.luau`'s `BLESSED_CLIENT_MODULES`, and it is the authority. |
+| **client** | `client/host.luau`, `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau`, `client/haptics.luau`, `client/gamepad_contention.luau`, `client/responder_effects.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). The list in code is `tools/lune/check_boundary.luau`'s `BLESSED_CLIENT_MODULES`, and it is the authority; no document restates its size, because a restated count is a second list to keep. |
 
 Everything except the **client** group is engine-free and runs headless.
+
+This chapter explains the boundaries. [`../MAINTAINERS.md`](../MAINTAINERS.md) is
+the operational side of the same picture: for each area, the seam other code may
+reach, the covering specs, the Studio scenario, the gate row, and the playbook to
+follow when you extend it.
 
 ## 2.2 Data flow: from a replicated value to a rendered instance
 

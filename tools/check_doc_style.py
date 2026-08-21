@@ -51,7 +51,10 @@ SCANNED_DIRS = ("docs/guide", "docs/extending")
 # to be found by listing `docs/`. The README that closed that gap is the one
 # page most likely to be read and the one page least likely to be reviewed, so
 # it is held to the same clarity standard as the guide it points at.
-SCANNED_FILES = ("README.md",)
+# ...and the maintainer map, which sits beside the directories rather than in one
+# (release-candidate review row RC-11). It is the page a new owner reads before
+# touching anything, so it is held to the same clarity standard as the guide.
+SCANNED_FILES = ("README.md", "docs/MAINTAINERS.md")
 
 MAX_INSTRUCTION_WORDS = 20
 MAX_SENTENCE_WORDS = 25

@@ -17,6 +17,7 @@ every control it ships is reachable by pointer, touch, keyboard, and gamepad.
 | [`docs/guide/README.md`](docs/guide/README.md) | **Start here.** The guide, written for a Roblox developer who has never seen this repository, meant to be read in order. It carries the capability catalog: every public capability the library ships, one line each, linked to its reference entry. |
 | [`docs/reference/api.md`](docs/reference/api.md) | The exhaustive reference — every property, default, callback, and return value. |
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository has to follow. |
+| [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | The maintainer map: which area owns each job, what proves it, and where a control, layout, modifier, engine property, render target, input behavior, theme feature, example or test helper belongs. |
 | [`docs/extending/`](docs/extending/) | The playbooks, one per kind of addition: a control, a primitive, a theme, a skinned control, an engine feature, a render target, a platform mode. Each step has a command and a pass condition. |
 | [`docs/adr/`](docs/adr/) | The decision records: what was chosen, what was rejected, and why. |
 | [`docs/lessons/`](docs/lessons/) | Defects that cost real time, written up so the next person recognises the shape. |
