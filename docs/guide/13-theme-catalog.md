@@ -86,7 +86,7 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 
 | Package | Artifact | Themes | Character | Art | Size |
 |---|---|---|---|---|---|
-| *(built in)* **Studio Neutral** | — | Dark, Light | the flat default: 44 px rows, 16 px body, soft 8/12 px corners | none | — |
+| *(built in)* **Studio Neutral** | — | Dark, Light\* | the flat default: 44 px rows, 16 px body, soft 8/12 px corners | none | — |
 | **Classic Desktop** | `ClassicDesktop.rbxm` | Day, Night | dense workstation: 26 px rows, 13 px body, square corners, hairline strokes | none | 4.2 KB |
 | **Glossy Mobile** | `GlossyMobile.rbxm` | Daylight | roomy and rounded: 52 px rows, 18 px spacing step, 24 px panel radius, 48 px hit floor | none | 4.8 KB |
 | **Sci-Fi HUD** | `ScifiHud.rbxm` | Nightwatch | angular and cold: zero radii everywhere, 2 px strokes, Michroma display face | none | 5.4 KB |
@@ -95,6 +95,12 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 | **Pixel Quest** | `PixelQuest.rbxm` | Quest | pixel-art mode: every metric snapped to a 4 px grid, 4 px strokes, nearest-neighbour scaling | 20 images | 10.1 KB |
 | **Glossy Touch** | `GlossyTouch.rbxm` | Sky | the thumb-first skin: 44 px rows at every size class, 10/14 px radii, sliced plates | 14 images | 9.3 KB |
 | **Compact Pointer** | `CompactPointer.rbxm` | Aqua | the mouse-first partner to Glossy Touch: 24 px rows, 10 px spacing step, 13 px body | 12 images | 7.0 KB |
+
+\* Studio Neutral's *package* declares one theme, `Dark`. The Light variant is a
+second native sheet the screen target builds only when it is running the built-in
+style — a game package carries no light variant to derive one from, so a package
+that wants two lights declares two themes, the way Classic Desktop declares Day
+and Night.
 
 **Glossy Touch and Compact Pointer are a pair.** They exist to be handed to
 `selectBy` together, so one game wears the thumb-sized skin on a phone and the
