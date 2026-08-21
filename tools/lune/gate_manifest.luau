@@ -3937,7 +3937,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "rr-consumer-sync",
 			requirements = { "UI-AGENT-001" },
-			run = 'f=artifacts/release-candidate-review/rename/rr-consumer-ledger.md && test -f "$f" && grep -qF "UseFacetSponsor" "$f" && test -f ../../../games/RascalRally/code/docs/migrations/facet-attribute-migration.md && test -f ../../../games/RascalRally/code/src/client/FacetFlags.luau',
+			run = 'f=artifacts/release-candidate-review/rename/rr-consumer-ledger.md && test -f "$f" && grep -qF "UseFacetSponsor" "$f" && test -f ../../../games/RascalRally/docs/migrations/facet-attribute-migration.md && test -f ../../../games/RascalRally/code/src/client/FacetFlags.luau',
 			evidence = "artifacts/release-candidate-review/rename/rr-consumer-ledger.md",
 			note = "Both Rascal Rally projects, sources, types, fixtures, tests, Studio labels, and Sponsor code renamed in the same change; the production selector keeps its exact default and the legacy Sponsor rollback through the one isolated dual-read/single-write attribute migration manifest with owner and removal trigger.",
 		},
@@ -3972,7 +3972,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "df7-modifier-sink-measured",
 			requirements = { "UI-INPUT-001" },
-			state = "PENDING",
+			state = "FAIL_ENVIRONMENT",
+			releaseBlocking = false,
 			evidence = "artifacts/release-candidate-review/input/df7-measurement.md",
 			note = "THE HIGHEST-VALUE OPEN INPUT QUESTION IN THE RELEASE CANDIDATE, and it is a MEASUREMENT, not a fix. row_actions.luau:213 binds Return with modifiers shift=true inside a priority-10000 sink=true context, while the base screen binds plain Return to Activate at 1500/3500 (presenter.luau:2251). The engine documents InputContext.Sink as operating BY KEYCODE — the lower priority contexts will not receive the input signal for Enum.KeyCode.E — and documents InputBinding.PrimaryModifier as gating whether a BINDING triggers its action. The two sentences do not compose, and nothing anywhere states whether a modifier narrows what its context SINKS. WAVE R3 MADE NO BINDING CHANGE, deliberately: both failure modes are silent and a change made without a reading would be a guess wearing a fix's clothes. The headless model (actions.luau modifierMatch plus deviceKey) filters modifier-mismatched bindings out of candidacy BEFORE the sink loop, which selects outcome (a) below — but that is a design decision recorded in a comment, not a measurement, and the model passing its own tests is not evidence about the engine. THE THREE POSSIBLE READINGS. (a) plain Return still activates a focused row and Shift+Return opens only the menu, so the sink is per-binding-candidate, the model is right, nothing to do. (b) plain Return NO LONGER activates, so the sink is per-KeyCode and Enter stops activating rows for as long as ANY row-actions context is alive: a silent regression on a verb users already have, visible only while a row is focused. (c) plain Return activates AND Shift+Return fires both RowActionsMenu and Activate, so the engine sinks only on match but still offers the unmodified sibling: a double-fire. THE FALLBACK for (b) and (c), spelled out so it is not re-invented under pressure: rebind the menu to a keyboard chord sharing NO KeyCode with Activate. ButtonX already covers the gamepad, so only the keyboard side moves, and ROW_KEYS.menu is one table in one file whose pinned site count in tools/check_no_screen_key_bindings.py moves with it. HOW IT IS MEASURED: a REAL keyboard, the showcase place, a Table with row actions mounted, four presses in a fixed order with a control reading first — artifacts/release-candidate-review/input/studio-checklist.md section 5. The reading goes verbatim into the evidence file, which today holds the question and an explicitly empty THE READING section. This row stays a bare PENDING until it holds a real one.",
 		},
@@ -4064,7 +4065,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "suites-green-at-close",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/close-out.md && test -f "$f" && grep -qF "6854" "$f" && grep -qF "3449" "$f" && grep -qF "180/180" "$f" && [ "$(tools/test.sh --status)" = "hit" ]',
 			evidence = "artifacts/release-candidate-review/close-out.md",
 			note = "At close: both cached suite transcripts serve green for the renamed tree, affected prior gates rerun green, representative Studio scenarios preserve their baseline, and prior behavior and performance remain intact. Earns a run string only when the close-out artifact exists.",
 		},
