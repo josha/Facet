@@ -38,7 +38,7 @@ trigger.
 | R4 haptics | press/release/select Custom defaults + expander mirror + same-instant collapse | DONE (review clean after 2 rounds; PENDING_DEVICE rows remain by design) |
 | R5 naming + consolidation | ADR-0037 + tags + leaf modules + client host + world.luau + dead-code dispositions | DONE (review clean after fix round 1; 125-row reuse ledger structural) |
 | Docs wave | ARCH-4, ARCH-5, ARCH-6, ARCH-9, ARCH-21, ARCH-22, PLAT-15, PLAT-16, PLAT-23, MAINT docs items + T12 catalog/product-language/comments | QUEUED |
-| Perf wave | RR-5 (fresh-`{}` memo identity, 25 sites — measure first), RR-12, PLAT-20 + T15 requalification | QUEUED |
+| Perf wave | RR-5 (fresh-`{}` memo identity, 25 sites — measure first), RR-12, PLAT-20 + T15 requalification | HEADLESS HALF DONE (wave T15, `perf/requalification.md`). **RR-5**: the 25-site list was three consolidation waves stale and re-derived two ways to 38 sites (one of the 25 was `core:memo(` inside an error STRING). 4 FIXED with measurement, 2 CONTESTED (measured real, blocked by the `virtual_list.luau` / `table.luau` source-cap locks), 18 measured as noise, 14 unreachable by any scene — which is itself the finding, because no scene mounts a VirtualGrid or a RowActions tray. **RR-12**: measured, and a scene showed it — the one-observer notify fast path, `animation-interruption` −69%, `collection-mutation` −29%. **PLAT-20**: OPEN, unmeasurable headless (an Instance allocation with no `Instance` in the host); routed to the Studio capture rows. Studio + Android rows stay with the close-out. |
 
 ## Director device round (2026-08-17, physical phone, screenshots on file)
 
