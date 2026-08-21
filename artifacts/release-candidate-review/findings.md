@@ -54,6 +54,19 @@ The DIR wave closed clean (review + mutation-verified fix round); device confirm
 ornate-overflow fixes (O-23/O-25). The batched session re-publishes the rebuilt
 place and re-tests DIR-1/2/3/5 on device.
 
+## Interim-pass and late-wave findings (2026-08-20)
+
+- INT-1 (fixed, c247f1b): showcase demo host env — proxy-core delegation
+  blindness; host-path spec now sweeps all 36 demos.
+- INT-2 (open, diagnosis running): the §5 scenario surface boots silently
+  no-op in the current showcase; fix must include a loud-failure guard.
+- GAL-DD (open): with-animation + tab-view demos double-dispose at teardown
+  (found by the host-path sweep; does not affect mount) — owner: next
+  gallery-area writer round; risk: teardown counter corruption/throws.
+- TOOL-XA (open, LOW): check_input_authority standalone exit 0 while printing
+  selftest FAILED — gate rows compose it correctly; standalone callers cannot
+  trust the exit code. Owner: T16 triage.
+
 ## Dispositions recorded so far (owner · risk · reason · trigger)
 
 - MAINT-2 (gate-manifest restructure, 757 KB / 2,270 pins): the empty-failure-
