@@ -366,6 +366,32 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		expect(list.scrollTop:get()).toBe(1700)
 	end)
 
+	--[[ THE QUIET RAMP IS THE VELOCITY'S CLOCK, AND A SECOND FLICK IS WHERE THAT
+		STOPS BEING FREE. The ramp is re-seeded to 0 at every sample, so its value at
+		the next one IS the fraction of a window that has passed. Drop the re-seed and
+		the FIRST flick still measures correctly — the ramp happens to start at 0
+		because it was built a moment ago — while every flick AFTER a settle reads the
+		ramp resting at 1 and prices the whole gesture against a full window: a real
+		300 px/s flick degrades to about 40, falls under the 240 px/s floor, and
+		springs back instead of advancing. Silent, and green in every case that flicks
+		a list only once.
+
+		So this flicks TWICE. The first gesture is a nudge that settles (which is what
+		leaves the ramp at rest), and the second is the measurement. ]]
+	it("a flick AFTER a settle is still measured in seconds, not in whole windows", function()
+		local w, list = listWorld({ snap = "item" })
+		-- gesture one: a small drag that rounds back, leaving the ramp settled
+		driveTo(w, 40)
+		w.settle(40)
+		expect(list.scrollTop:get()).toBe(0)
+		-- gesture two: 5px per frame is exactly 300 px/s, comfortably over the flick
+		-- floor and comfortably UNDER it if the window is priced as a whole one
+		flick(w, 0, 25, 5)
+		expect(list._snapDebug().peak).toBeGreaterThanOrEqual(scroll_snap.FLICK_PX_S)
+		w.settle(40)
+		expect(list.scrollTop:get()).toBe(100)
+	end)
+
 	--[[ A WRITE THE FRAMEWORK MADE IS A REST, NOT A TRAVEL. Every internal scroll
 		write announces itself before it lands, so the echo cannot be measured as a
 		gesture the player never made — a keep-visible or an anchor correction read

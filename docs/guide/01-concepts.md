@@ -784,6 +784,15 @@ If you want to pin part of it, `cards` is the options table: `perView` fixes the
 count, `minWidth` moves the width at which a lane is dropped, `peek` overrides
 the sliver (`0` removes it). Anything you write there wins.
 
+**A rail that adapts needs the facts, and says so if it cannot find them.** A screen
+stood up with `Facet.client.host.new` publishes its environment for free, so the
+snippet above is all you write there. Building one by hand — a test, a tool, a
+bespoke bootstrap — means building the environment first
+(`local env = Facet.newEnvironment(core)`), or passing `env` to the rail, or pinning
+`cards = { perView = n }`, which asks for no facts at all. Leave all three out and
+the rail refuses to construct and names which of them to add: adaptation is not
+allowed to silently not happen.
+
 **Snapping is its own key, and it works without cards.** `snap = "item"` on any
 scrolling collection — a list, a rail, a grid on its scroll axis — means the
 offset settles onto an item boundary when the gesture stops, instead of resting

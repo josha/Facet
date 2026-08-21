@@ -271,8 +271,13 @@ describe("ADAPT-17: the shipped card rail switches paradigm with no per-screen c
 			local d = built.rail.dump()
 			local perView = d.cardsPerView
 			local spent = perView * d.itemExtent + (perView - 1) * d.rowGap
-			expect(`{case.view.w}: card box {spent} <= rail {d.viewportExtent}`).toBe(
-				`{case.view.w}: card box {spent} <= rail {d.viewportExtent}`
+			--[[ THE WIDTH AND THE RAIL IN ONE STRING, so a failure says which viewport
+				and by how much rather than "expected false to be true". It used to be
+				`expect(s).toBe(s)` over the same interpolation — a label that could not
+				fail, which is this repository's own "a check that proves nothing"
+				class. The comparison is in the string now. ]]
+			expect(`{case.view.w}: card box {spent} fits rail {d.viewportExtent}`).toBe(
+				`{case.view.w}: card box {spent} fits rail {math.max(spent, d.viewportExtent)}`
 			)
 			expect(spent).toBeLessThanOrEqual(d.viewportExtent)
 			expect(d.itemExtent).toBeGreaterThan(0)

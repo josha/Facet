@@ -496,9 +496,13 @@ feature is 9,320 of it. Two seams left in the same wave: `controls/card_rail.lua
 (the arrangement, one-way today — it reads nothing of the list and every input arrives
 through a parameter object) and the `snap` vocabulary/refusal/read, which went into
 `scroll_snap.modeReader` and is SHARED with the grid so two collections cannot drift
-into two refusal messages. The file is 190,348 with a new ledger row naming the hosted
-row-actions block (43,615 chars, 23%) as the next seam and its own 193,000 trigger;
-without the extractions it would have been 199,844, i.e. 156 characters from the cap.
+into two refusal messages. The file is **192,195** with a new ledger row naming the hosted
+row-actions block (43,615 chars, 23%) as the next seam and its own 193,000 trigger —
+**805 characters away, recorded as ARRIVED**; without the extractions it would have been
+201,691, i.e. PAST the cap. The row first recorded 190,348 and was wrong by 1,847, which
+is 92% of `check_source_size`'s allowance and therefore invisible to it: the wave's
+reviewer found it, and the row now carries the discipline that prevents it — measure
+LAST, after the final format pass.
 
 ## The re-verdicts
 
@@ -507,6 +511,16 @@ without the extractions it would have been 199,844, i.e. 156 characters from the
 | **B-7** paging / snapping (ADAPT-17) | MISSING (highest) | **FIXED** — `snap` on both collections, the paradigm on the rail, the fixture switching with no branch |
 | **B-8** page sizing | AUTHORED-ONLY, inert | **SUPERSEDED** — `containerRelativeFrame` still works and is still authored; a carousel no longer needs it |
 | **B-9** page-dot indicators | MISSING, blocked by B-7 | **DEFERRED — director**, unblocked. The peek is the shipped affordance; a dot strip is a second one with its own four-input reach story |
+
+...and the LAYOUT matrix's three cells for the same finding, which were measured
+against an anchor this wave had not yet landed at (`matrix-layout.md`, committed at
+`ce56ac6`): **ADAPT-17** (its own Part-1 carry-over), **F-5** (the compact-touch card
+carousel, "unreachable") and **ADAPT-L10** (the same, as a finding). All three are
+closed by `f3d2fe8` and are ANNOTATED in place rather than rewritten — that artifact's
+own preamble predicted it ("measured at the anchor and expected to be stale on
+arrival") and asked the controller to re-check rather than route. Its device row 7 —
+whether engine momentum was masking the gap — is the same question as this wave's
+Studio row 12a and is answered by it.
 
 ## Carried to the director
 
