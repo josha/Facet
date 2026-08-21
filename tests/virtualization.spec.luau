@@ -82,6 +82,133 @@ local function newList(core: any, opts: { rows: any, viewportHeight: number?, ov
 	})
 end
 
+--[[ THE LAZINESS INSTRUMENT (wave T15; M2-review finding A-H1).
+
+	`src/init.luau` requires fifteen of the nineteen composite controls at load and
+	defers four — `Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage` — into the
+	closure that builds them, so a game that builds none never compiles them
+	(mode-matched over paired rounds: 228 KB [131..313] of Lua heap). Two claims ride
+	on that and both need an instrument: WHICH four are deferred, and WHERE the load
+	happens — a construction seam, once, never inside a frame.
+
+	THE FIRST VERSION OF THIS PIN COULD NOT FAIL. It asserted
+	`rawequal(require(m), require(m))` across a scroll, which the module cache makes
+	true whether or not anything is deferred, and that `preload()` returned 4 twice,
+	which a body of `return 4` satisfies. Both mutations — re-eagerising the four,
+	and gutting `preload` — left the suite fully green. The lesson is that the module
+	cache defeats every identity-of-the-module test written from outside: a second
+	`require` is a table lookup, so "the module is the same object" is a fact about
+	the cache and never about this file.
+
+	SO THE INSTRUMENT WATCHES THE CALL, NOT THE CACHE. `src/init.luau` is loaded a
+	second time through `luau.load` with an environment whose `require` is a
+	recorder: it logs the path, delegates to the real `require` (which resolves from
+	the cache, so nothing is loaded twice and nothing is measured in time), and hands
+	the module back. Every `require` the file performs is then visible — at load, at
+	construction, or inside a frame — and the deferred SET is derived by subtracting
+	what the load asked for from what the source names, so a fifth deferral joins the
+	pin by itself instead of escaping a hand-written list.
+
+	WHAT IT DOES NOT SEE, stated so nobody reads it wider than it is: only requires
+	made BY `src/init.luau`. A control module's own internal requires run under the
+	real global and are invisible here — this pins the framework's own deferral seam,
+	which is the thing the four entries and `preload` are a claim about.
+
+	The sandboxed copy shares every dependency with the real one (the recorder
+	delegates to the same cached `require`), so `probe.module.newCore()`,
+	`probe.module.UI` and the real `mountLib` are the same modules the suite uses
+	everywhere else. ]]
+local fs = require("@lune/fs")
+local luau = require("@lune/luau")
+
+local INIT_SOURCE_PATH = "src/init.luau"
+
+type RequireCall = { path: string, module: any }
+
+local function loadInitUnderRecordingRequire(): any
+	local log: { RequireCall } = {}
+	local realRequire = require
+	local function recorder(path: string): any
+		--[[ `src/init.luau` requires ONLY through the `@self/` alias, which resolves
+			against ITS folder; from this spec that same folder is `../src/`. Any other
+			spelling would be silently mis-resolved, so it errors rather than guesses. ]]
+		local rel, replaced = string.gsub(path, "^@self/", "../src/")
+		assert(replaced == 1, `laziness recorder: unexpected require spelling '{path}'`)
+		local module = (realRequire :: any)(rel)
+		table.insert(log, { path = path, module = module })
+		return module
+	end
+
+	local chunk = luau.load(fs.readFile(INIT_SOURCE_PATH), {
+		debugName = INIT_SOURCE_PATH,
+		environment = { require = recorder } :: any,
+		injectGlobals = true,
+	})
+	local probe: any = {}
+	probe.module = (chunk :: any)()
+	probe.atLoad = {}
+	for _, call in log do
+		table.insert(probe.atLoad, call.path)
+	end
+
+	-- every `require` the file performs while `fn` runs, in order
+	function probe.record(fn: () -> ()): { RequireCall }
+		local from = #log
+		fn()
+		local out: { RequireCall } = {}
+		for i = from + 1, #log do
+			table.insert(out, log[i])
+		end
+		return out
+	end
+
+	-- the DEFERRED set, derived: every `@self/` module the source names, minus
+	-- every one the load actually asked for
+	function probe.deferred(): { string }
+		local atLoad: { [string]: boolean } = {}
+		for _, path in probe.atLoad do
+			atLoad[path] = true
+		end
+		local out: { string } = {}
+		local seen: { [string]: boolean } = {}
+		for path in string.gmatch(fs.readFile(INIT_SOURCE_PATH), 'require%("(@self/[^"]+)"%)') do
+			if not atLoad[path] and not seen[path] then
+				seen[path] = true
+				table.insert(out, path)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+	return probe
+end
+
+-- the recorded paths, sorted and joined, so a failure prints the whole set
+local function pathsOf(calls: { RequireCall }): string
+	local out: { string } = {}
+	for _, call in calls do
+		table.insert(out, call.path)
+	end
+	table.sort(out)
+	return table.concat(out, " ")
+end
+
+local function listSpec(probe: any, rows: any): any
+	return {
+		id = "VL",
+		rows = rows,
+		key = function(item: any)
+			return item.id
+		end,
+		rowHeight = 40,
+		viewportHeight = 400,
+		overscan = 2,
+		cell = function(item: any)
+			return probe.module.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+		end,
+	}
+end
+
 describe("virtualization: fixed-height keyed rows (§10.5)", function()
 	it("mounts a bounded window (visible + overscan), never the whole list", function()
 		local core = Facet.newCore()
@@ -170,55 +297,104 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 
 	--[[ A DEFERRED REQUIRE FIRES AT CONSTRUCTION, NEVER IN A FRAME (wave T15).
 
-		`src/init.luau` defers four composite controls — `Chip`, `VirtualList`,
-		`VirtualGrid`, `AsyncImage` — so a game that builds none never compiles them
-		(measured, mode-matched over 30 paired rounds: 228 KB [131..313] of Lua heap).
-		The rule that makes that safe is WHERE the load happens: a construction seam,
-		once, and never again. A lazy require that fired inside a scroll would be a
-		compile in the middle of a frame, which is the one thing this must never do.
+		Three pins over one instrument (`loadInitUnderRecordingRequire`, above): the
+		SET that is deferred, the SEAM the load happens at, and what `preload` does.
+		Each of them fails on the mutation it names — re-eagerising the four reddens
+		the first, moving a `require` into a scroll path reddens the second, and
+		gutting `preload`'s body reddens the third. ]]
+	it("requiring Facet loads the fifteen typed controls and defers exactly four (T15)", function()
+		local probe = loadInitUnderRecordingRequire()
 
-		The instrument is `require`'s own cache: the SECOND require of a module is a
-		table lookup and costs nothing measurable, so "the module was already loaded"
-		is checkable by timing a require against a known-cold one. Here the check is
-		structural instead, and stronger — the module is required BEFORE the scroll
-		and its identity compared after, so a reload of any kind would show as a
-		different table. Thirty scroll steps, a window slide, and a data edit later,
-		it is the same module object and the dirty log carries no structural work
-		beyond what the slide itself earns. ]]
-	it("no lazy require fires during dense-scroll steady state (T15)", function()
-		local Facet2 = require("../src") :: any
-		local core = Facet.newCore()
+		--[[ POSITIVE CONTROL, FIRST. A recorder wired to nothing would satisfy every
+			"was not required" assertion below for the wrong reason, which is precisely
+			the failure this pin replaces. Loading the file requires the fifteen typed
+			controls, and `Table` and `RowActions` are two of them. ]]
+		expect(#probe.atLoad >= 40).toBe(true)
+		expect(table.find(probe.atLoad, "@self/controls/table") ~= nil).toBe(true)
+		expect(table.find(probe.atLoad, "@self/controls/row_actions") ~= nil).toBe(true)
+
+		--[[ ...and the four that declare no spec type are absent from it. Derived
+			from the source rather than listed here, so the day a fifth control is
+			deferred this line moves with it instead of quietly not covering it. ]]
+		expect(table.concat(probe.deferred(), " ")).toBe(
+			"@self/controls/async_image @self/controls/chip "
+				.. "@self/controls/virtual_grid @self/controls/virtual_list"
+		)
+	end)
+
+	it("the deferred require fires at the construction seam and never in a frame (T15)", function()
+		local probe = loadInitUnderRecordingRequire()
+		local core = probe.module.newCore()
 		local rows = core:signal(makeRows(500))
-		-- the construction seam: this is where the deferred module loads
-		local list = newList(core, { rows = rows })
-		local afterConstruction = require("../src/controls/virtual_list")
-		local root = mountLib.mount(core, list.blueprint)
-		expect(type(afterConstruction)).toBe("table")
 
-		-- ...and now the steady state, which must load nothing at all
-		for i = 1, 30 do
-			list.scrollTop:set(i * 37)
-		end
-		local next = table.clone(rows:get() :: { any })
-		next[400] = { id = "r400", label = "edited off-window" }
-		rows:set(next)
+		-- THE SEAM: building the control is what loads it, and it loads nothing else
+		local list: any = nil
+		local atConstruction = probe.record(function()
+			list = probe.module.Controls.VirtualList(core, listSpec(probe, rows))
+		end)
+		expect(pathsOf(atConstruction)).toBe("@self/controls/virtual_list")
 
-		local stillSame = require("../src/controls/virtual_list")
-		expect(rawequal(stillSame, afterConstruction)).toBe(true)
-		-- the namespace entry resolves to the same module too, so the closure's own
-		-- `require` is hitting the cache rather than re-running the module
-		expect(rawequal(require("../src/controls/virtual_list"), afterConstruction)).toBe(true)
-		expect(type(Facet2.preload)).toBe("function")
+		-- mounting is construction too, and by now the module is already in hand
+		local root: any = nil
+		local atMount = probe.record(function()
+			root = mountLib.mount(core, list.blueprint)
+		end)
+		expect(pathsOf(atMount)).toBe("")
+
+		--[[ ...AND THE STEADY STATE, which must load nothing at all. Thirty scroll
+			steps, a window slide and an off-window data edit: a `require` moved into
+			any of those paths is a module compile in the middle of a frame, and it
+			would show up here as a path this list does not have. ]]
+		local inSteadyState = probe.record(function()
+			for i = 1, 30 do
+				list.scrollTop:set(i * 37)
+			end
+			local nextRows = table.clone(rows:get() :: { any })
+			nextRows[400] = { id = "r400", label = "edited off-window" }
+			rows:set(nextRows)
+		end)
+		expect(pathsOf(inSteadyState)).toBe("")
 		root.dispose()
 	end)
 
-	it("Facet.preload() force-loads the deferred four and is idempotent (T15)", function()
-		local Facet2 = require("../src") :: any
-		expect(Facet2.preload()).toBe(4)
-		-- twice is a table lookup, not a second load: same modules, same count
-		expect(Facet2.preload()).toBe(4)
-		local chip = require("../src/controls/chip")
-		expect(rawequal(require("../src/controls/chip"), chip)).toBe(true)
+	it("Facet.preload() force-loads exactly the deferred set, and twice is a cache hit (T15)", function()
+		local probe = loadInitUnderRecordingRequire()
+		local deferred = table.concat(probe.deferred(), " ")
+		expect(deferred).never().toBe("")
+
+		local reported: number = -1
+		local firstCall = probe.record(function()
+			reported = probe.module.preload()
+		end)
+		--[[ THE SET, NOT THE COUNT. `preload` has to ask for every path the Controls
+			table defers and for no other; a body that returns the right number without
+			requiring anything is the mutation this replaces. ]]
+		expect(pathsOf(firstCall)).toBe(deferred)
+		-- ...and the number it reports is the number it actually required
+		expect(reported).toBe(#firstCall)
+
+		--[[ THE MODULES IT LOADED ARE THE ONES THE CLOSURES USE — the half a count
+			cannot say. A `preload` naming a different spelling of the same file would
+			resolve to a different table, and this is where that shows. ]]
+		local preloadedList: any = nil
+		for _, call in firstCall do
+			if call.path == "@self/controls/virtual_list" then
+				preloadedList = call.module
+			end
+		end
+		local core = probe.module.newCore()
+		local built = probe.record(function()
+			probe.module.Controls.VirtualList(core, listSpec(probe, core:signal(makeRows(4))))
+		end)
+		expect(#built).toBe(1)
+		expect(rawequal(built[1].module, preloadedList)).toBe(true)
+
+		-- IDEMPOTENT: the second call asks the same four questions, `require`'s own
+		-- cache answers them, and the reported count does not drift
+		local secondCall = probe.record(function()
+			expect(probe.module.preload()).toBe(reported)
+		end)
+		expect(pathsOf(secondCall)).toBe(deferred)
 	end)
 
 	it("surviving rows keep their mounted identity across a window slide", function()
