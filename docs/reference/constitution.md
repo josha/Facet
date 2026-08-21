@@ -270,6 +270,16 @@ foreign names, it resolves or falls back visibly.
   `Facet.DEPRECATIONS` is the machine-readable ledger (schema-generated property
   entries plus declared entries), frozen; a deprecated surface keeps working for
   ≥ one MINOR unless it never worked (diagnosed-not-preserved).
+- **Pre-release clause (ADR-0040, controller ruling R15).** While a version is
+  UNRELEASED, a breaking change may land in it directly — provided it is recorded
+  in `docs/adr/ADR-0040-unreleased-breaking-changes.md`. **After a version's first
+  publish, the full ADR-0011 window applies with no exception.** The ledger cannot
+  see two of these on its own — a prop flipping to `required`, and a documented
+  default changing value, both generate no schema row — so `api_surface.spec` pins
+  the required set and every documented default *by value*, and reddens when either
+  moves without a record. A compatibility shim is not a substitute for the record,
+  and where the old behaviour was itself the defect (a silent default the fix
+  exists to remove) it is not an option at all.
 - Every public item has an api.md entry — signature, spec fields, return surface,
   invariants, example — written for a reader with no repo context.
   `check_registration` enforces heading-anchored coverage of top-level exports

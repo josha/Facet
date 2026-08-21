@@ -13,6 +13,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
+local public_shape = require("./lib/public_shape")
 
 describe("semantic versioning and deprecation (ADR-0011)", function()
 	it("VERSION is a plain semver MAJOR.MINOR.PATCH (scaffold suffixes are gone)", function()
@@ -183,5 +184,233 @@ describe("public type re-exports (F-28)", function()
 		-- reach src/client; the contract is pure types with no requires at all
 		local contractSource = fs.readFile("src/core/contract.luau")
 		expect(string.find(contractSource, "require(", 1, true)).toBeNil()
+	end)
+end)
+
+--[[ ═══ THE TWO SHAPE CHANGES A DEPRECATION LEDGER CANNOT SEE (ADR-0040) ═══════
+
+	Wave LAYOUT-FIX made `UI.AdaptiveStack.axis` REQUIRED and changed `UI.Grid`'s
+	undeclared lane default, and every gate in this repository stayed green over
+	both. Three mechanisms each had a reason not to fire:
+
+	  * `blueprint_schema.deprecations()` emits a row only for a prop carrying an
+	    explicit `deprecated` field — making one REQUIRED generates nothing;
+	  * the cases above enforce the LEDGER's schema, not the SCHEMA's shape;
+	  * `VERSION` had been frozen for seventy commits, so "nothing bumped" read as
+	    campaign practice rather than as an omission.
+
+	These three cases close it. They pin the two facts that turn working consumer
+	code into broken consumer code with no deprecation machinery involved — the set
+	of REQUIRED props, and the VALUE every documented default names — and the third
+	asserts that everything ADR-0040 records as breaking is really in those sets, so
+	the record and the schema cannot drift apart in either direction.
+
+	THE PIN IS A VALUE, NOT A DOC STRING, deliberately: `public_shape.defaultTokenOf`
+	lifts the value a doc names, so rewording a doc without changing its default
+	moves nothing. Nine of the ninety-seven state their default in prose and pin a
+	normalized window instead; that is stated in the extractor rather than hidden.
+
+	SHARED PROPS ARE PINNED ONCE. `gridSpan`, `layoutPriority`, `shrinkWeight` and
+	`distribute` are the same declaration on every class, and eighty rows repeating
+	four facts is a pin nobody would read or maintain.
+]]
+describe("the public SHAPE a breaking change moves (ADR-0040)", function()
+	-- every `Class.prop` carrying `required = true`, sorted. A prop joining or
+	-- leaving this list is a change to what a consumer must write.
+	local REQUIRED: { string } = {
+		"AdaptiveStack.axis",
+		"Button.label",
+		"Composition.arrangements",
+		"Composition.groups",
+		"ErrorBoundary.fallback",
+		"ErrorBoundary.view",
+		"ForEach.items",
+		"ForEach.key",
+		"ForEach.row",
+		"Path.points",
+		"Region.group",
+		"Region.rank",
+		"Text.text",
+		"Toggle.label",
+		"When.condition",
+		"When.thenView",
+	}
+
+	-- the value each documented default names, by `public_shape.defaultTokenOf`
+	local SHARED_DEFAULTS: { [string]: string } = {
+		["focusable"] = "focusable",
+		["gridSpan"] = "1",
+		["layoutPriority"] = "0",
+		["shrinkWeight"] = "0 = never, matching Roblox's `UIFlexMode.None`",
+		["traversalPriority"] = "0",
+	}
+	local CLASS_DEFAULTS: { [string]: string } = {
+		["AdaptiveStack.distribute"] = "`start`",
+		["Box.opacity"] = "prose: subtree: 1 = opaque (the default), 0 = invisible but",
+		["Button.compactLabel"] = "prose:he compact form ALWAYS (a default, not a degrade) —",
+		["Composition.groups"] = "prose:s ceiling on a fill lane; defaults at ten-foot to `ad",
+		["ForEach.transition"] = "the mirror of enter",
+		["Grid.flow"] = "cells wrap across the width, lines advance down",
+		["Grid.itemSizing"] = "natural",
+		["Grid.minColumnWidth"] = "prose: the widest child — the DEFAULT when neither this n",
+		["Grid.rowGap"] = "gap",
+		["Grip.focusVisual"] = "prose:'default' (adapter paints th",
+		["Grip.focusable"] = "prose:(Grips are unfocusable by default)",
+		["HStack.distribute"] = "`start`",
+		["Image.scaleMode"] = "prose: aspect ratio, the engine default)",
+		["Region.expand"] = "— the framework presents it in a transient plate at the region's anchor",
+		["Region.mayDrop"] = "false",
+		["Region.sizing"] = "hug",
+		["Region.weight"] = "1",
+		["Screen.distribute"] = "`start`",
+		["ScrollView.autoscroll"] = "on, inert unless a drag is in flight",
+		["ScrollView.axis"] = "y",
+		["ScrollView.indicators"] = "prose:croll indicators: 'auto' (default, session policy) or",
+		["Text.role"] = "prose:or 'content' (the resting default, worth naming so a ",
+		["VStack.distribute"] = "`start`",
+		["When.transition"] = "the mirror of enter",
+		["ZStack.opacity"] = "prose: subtree: 1 = opaque (the default), 0 = invisible but",
+	}
+
+	local RECORD = "docs/adr/ADR-0040-unreleased-breaking-changes.md"
+
+	local function liveShape(): ({ string }, { [string]: string }, { [string]: string })
+		local all = (Facet.UI.schema.all :: any)()
+		local classes: { string } = {}
+		for name in all do
+			table.insert(classes, name)
+		end
+		table.sort(classes)
+		local required: { string } = {}
+		local shared: { [string]: string } = {}
+		local perClass: { [string]: string } = {}
+		for _, class in classes do
+			local props: { string } = {}
+			for prop in (all[class] :: any).props do
+				table.insert(props, prop)
+			end
+			table.sort(props)
+			for _, prop in props do
+				local spec = (all[class] :: any).props[prop] :: any
+				if spec.required == true then
+					table.insert(required, `{class}.{prop}`)
+				end
+				local token = public_shape.defaultTokenOf(spec.doc)
+				if token ~= nil then
+					if spec.shared == true then
+						shared[prop] = token
+					else
+						perClass[`{class}.{prop}`] = token
+					end
+				end
+			end
+		end
+		return required, shared, perClass
+	end
+
+	-- what a failure has to say to be worth having: the surfaces that moved, and
+	-- the one place a deliberate move is recorded
+	local function diff(label: string, pinned: { [string]: string }, live: { [string]: string }): { string }
+		local out: { string } = {}
+		for key, token in live do
+			if pinned[key] == nil then
+				table.insert(out, `{label} GAINED a documented default: {key} = "{token}"`)
+			elseif pinned[key] ~= token then
+				table.insert(out, `{label} CHANGED its documented default: {key} "{pinned[key]}" -> "{token}"`)
+			end
+		end
+		for key, token in pinned do
+			if live[key] == nil then
+				table.insert(out, `{label} LOST its documented default: {key} was "{token}"`)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	it("no prop has flipped to REQUIRED without a record", function()
+		local required = liveShape()
+		local pinned: { [string]: boolean } = {}
+		for _, name in REQUIRED do
+			pinned[name] = true
+		end
+		local moved: { string } = {}
+		for _, name in required do
+			if not pinned[name] then
+				table.insert(moved, `{name} is now REQUIRED and was not`)
+			end
+		end
+		for _, name in REQUIRED do
+			local stillThere = false
+			for _, live in required do
+				if live == name then
+					stillThere = true
+				end
+			end
+			if not stillThere then
+				table.insert(moved, `{name} is no longer REQUIRED`)
+			end
+		end
+		table.sort(moved)
+		expect(
+			if #moved == 0
+				then "the required set is the pinned one"
+				else `{table.concat(moved, "; ")} — a required prop is a BREAKING change to what a consumer must write: record it in {RECORD} and update this pin in the same commit`
+		).toBe("the required set is the pinned one")
+	end)
+
+	it("no documented default has changed VALUE without a record", function()
+		local _, shared, perClass = liveShape()
+		local moved: { string } = {}
+		for _, entry in diff("a shared box/container prop", SHARED_DEFAULTS, shared) do
+			table.insert(moved, entry)
+		end
+		for _, entry in diff("a class prop", CLASS_DEFAULTS, perClass) do
+			table.insert(moved, entry)
+		end
+		table.sort(moved)
+		expect(
+			if #moved == 0
+				then "every documented default is the pinned value"
+				else `{table.concat(moved, "; ")} — a documented default is the contract a consumer reads: record it in {RECORD} and update this pin in the same commit`
+		).toBe("every documented default is the pinned value")
+	end)
+
+	it("every surface ADR-0040 records as breaking is really in the pinned shape", function()
+		--[[ THE HALF THAT MAKES THE OTHER TWO MORE THAN A SNAPSHOT. A pin agrees
+			with itself by construction; what it cannot say is whether the RECORD is
+			about the same surfaces. So the ADR's own two schema-shaped rows are read
+			back out of it and checked against the live schema — delete either from
+			the ADR and this reddens, which is the red-first this instrument was
+			asked for. ]]
+		local adr = fs.readFile(RECORD)
+		local missing: { string } = {}
+		-- B-1: the prop that flipped to required
+		if string.find(adr, "UI.AdaptiveStack.axis", 1, true) == nil then
+			table.insert(missing, "ADR-0040 does not record `UI.AdaptiveStack.axis` becoming required")
+		end
+		-- B-2: the default that changed value
+		if string.find(adr, "`UI.Grid` with neither `columns` nor `minColumnWidth`", 1, true) == nil then
+			table.insert(missing, "ADR-0040 does not record `UI.Grid`'s changed lane default")
+		end
+		-- ...and both must still be true of the SCHEMA, or the record is stale
+		local required, _, perClass = liveShape()
+		local axisRequired = false
+		for _, name in required do
+			if name == "AdaptiveStack.axis" then
+				axisRequired = true
+			end
+		end
+		if not axisRequired then
+			table.insert(missing, "ADR-0040 records `AdaptiveStack.axis` as required and the schema no longer says so")
+		end
+		if perClass["Grid.minColumnWidth"] == nil then
+			table.insert(missing, "ADR-0040 records `UI.Grid`'s lane default and the schema documents none")
+		end
+		-- ...and the ruling that authorises the policy is named
+		if string.find(adr, "may ride an unreleased version", 1, true) == nil then
+			table.insert(missing, "ADR-0040 no longer states the pre-release policy it is cited for")
+		end
+		expect(`unrecorded:{table.concat(missing, "; ")}`).toBe("unrecorded:")
 	end)
 end)

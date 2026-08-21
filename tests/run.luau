@@ -694,8 +694,15 @@ require("./adaptive_defaults.spec")
 require("./ten_foot_metrics.spec")
 --[[ ADAPT-1's shape one layer down (matrix-layout.md, wave LAYOUT-FIX): the
 	LAYOUT PRIMITIVES answer for themselves too. A Grid told nothing lanes itself
-	from the box it got, an AdaptiveStack told nothing either adapts or refuses,
-	and the default answer to overflow stops being "paint outside the box" ]]
+	from the box it got, an AdaptiveStack told nothing refuses rather than being a
+	permanent VStack, a row grid says when it squeezed past a declared width, and a
+	ten-foot Composition caps its content measure.
+
+	OVERFLOW'S DEFAULT IS UNCHANGED and this file is where that has to be said,
+	because the sentence here used to claim otherwise. ADAPT-L5 is CONTESTED: what
+	the spec guards is that the DIAGNOSIS is complete and identical at every combo,
+	which is the one property the always-on `overflow_sweep` cannot check because it
+	counts findings and never reads one. ]]
 require("./layout_defaults.spec")
 local ok = testkit.run()
 if not ok then
