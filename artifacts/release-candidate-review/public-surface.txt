@@ -160,6 +160,7 @@ pathShapes : table
   pathShapes.arc : function
   pathShapes.needle : function
   pathShapes.ring : function
+preload : function
 renderer : table
   renderer.BINDING_PROPS : table
   renderer.DIRECT_PROPS : table(frozen)
