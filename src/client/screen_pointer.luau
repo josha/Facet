@@ -40,8 +40,8 @@
 --[[ THE SERVICES ARE RESOLVED AT CONSTRUCTION, NOT AT REQUIRE. Module-scope
 	`game:GetService` locals made this file engine-only to REQUIRE, so the pointer
 	seam — the cursor, the capture, the menu abort — had no headless instrument of
-	any kind, and three shipped defects (PLAT-4's session-wide menu disconnect,
-	PLAT-5's cursor stomp, PLAT-6's second finger) could only be found by reading.
+	any kind, and three shipped defects (the session-wide menu disconnect,
+	the cursor stomp, the second finger) could only be found by reading.
 	`ctx.services` is that instrument; a client passes nothing and gets the
 	engine's own services, exactly as before. ]]
 local function engineServices(): any

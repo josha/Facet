@@ -307,7 +307,7 @@ function feedback.new(): Bus
 		for _, box in snapshot do
 			local fn = box.fn
 			if fn ~= nil then
-				-- QUARANTINED (verifier RR-12): one throwing subscriber must not
+				-- QUARANTINED: one throwing subscriber must not
 				-- starve its siblings or escape into the emitting control's causal
 				-- frame — the same rule the core applies to observers
 				local ok, err = pcall(fn, event)

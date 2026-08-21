@@ -1861,7 +1861,7 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
-	-- ===== TOGGLE IMAGE SLOTS (ADR-0020 R3 cap 10, ledger RS-A6) =============
+	-- ===== TOGGLE IMAGE SLOTS (ADR-0020 R3 cap 10) =============
 	--
 	-- The knob-and-track predates this stage and stays exactly where it was: the
 	-- `togglePalette` contract is the flat truth, the knob's TRAVEL is solver-free
@@ -1995,7 +1995,7 @@ function screen_chrome.new(ctx: Context)
 		return if #parts > 1 then table.concat(parts, "|") else ""
 	end
 
-	-- ===== rung-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4) ==================
+	-- ===== rung-2 PER-STATE ART (ADR-0020 R2) ==================
 	--
 	-- Rung 1 swaps a slot's picture with RULES, because the decoration carries
 	-- the package's tag. A rung-2 override is untagged ON PURPOSE — that is the
@@ -2400,7 +2400,7 @@ function screen_chrome.new(ctx: Context)
 		applySkinnedSuppression(instance, true)
 		syncChromeText(handle, deco :: ImageLabel, plan, 1)
 		syncChromeShadow(handle, slot, deco, chromeState.shadowFor(slot :: string))
-		-- rung-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4). An overridden
+		-- rung-2 PER-STATE ART (ADR-0020 R2). An overridden
 		-- decoration is deliberately untagged, so no rule can swap its picture:
 		-- the adapter watches the node's own states and writes the art itself.
 		syncOverrideVariants(handle, plan)

@@ -282,8 +282,8 @@ local warming = false
 	are resolved lazily — so routing the two background bodies through one
 	replaceable field is the whole difference between a transport that can be
 	DRIVEN headlessly and one that can only be read as text. It is what proves
-	PLAT-12's disposal token (queue the body, cancel, then run it: zero calls) and
-	PLAT-20's allocation count. Default is exactly what it was. ]]
+	the disposal token (queue the body, cancel, then run it: zero calls) and
+	the allocation count. Default is exactly what it was. ]]
 function text_premeasure.spawn(f: () -> ())
 	task.spawn(f)
 end

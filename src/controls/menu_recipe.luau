@@ -112,7 +112,7 @@ function menu_recipe.touchPrimary(classes: any): boolean
 		regression, which is the exact failure class this wave exists to end, arriving
 		through the fix for it.
 
-		So the fallback is EXPLICIT and it is the pre-ADAPT-9 meaning: a table with no
+		So the fallback is EXPLICIT and it is the older meaning: a table with no
 		primary has said only "touch is live", and the only thing that can mean is the
 		answer it has always given. A REFUSAL was the other candidate and is wrong
 		here — it would turn a shape that worked yesterday into a build error, in a

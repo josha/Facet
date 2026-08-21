@@ -160,7 +160,7 @@ end
 -- in artifacts/traversal-document-order/acceptance.md).
 --
 -- So the presenter hands the graph a RANK — a sort key over the members the scope
--- already has, never a second list of members (decision packet TDN-2). Two rules,
+-- already has, never a second list of members. Two rules,
 -- in this order:
 --
 --   1. `traversalPriority`, a sort TIER (default 0, negative earlier, later

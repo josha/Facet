@@ -204,7 +204,7 @@ function drag_contract.target(spec: TargetSpec): TargetSpec
 end
 
 -- A STRUCTURAL NODE CANNOT CARRY A DECLARATION (api-architecture-consistency
--- F-18 / ledger BP-F15). `When` / `ForEach` / `ErrorBoundary` mount as regions,
+-- F-18). `When` / `ForEach` / `ErrorBoundary` mount as regions,
 -- never as an instance, and the renderer registers a drag source inside the
 -- per-instance branch of `ensureTree` — which a structural node never reaches.
 -- So `UI.draggable(UI.When{ … }, …)` was accepted and INERT, which is a

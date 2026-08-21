@@ -41,8 +41,8 @@ local toast_schedule = {}
 local DEFAULT_MAX_VISIBLE = 3
 local DEFAULT_QUEUE_CAP = 8
 local DEFAULT_DURATION = 4
--- 1.5 → 2.5 at the SFH-3 human gate (the row that ratified the number invited
--- retuning it): at race-glance speed the detail line was gone before it was read
+-- 1.5 → 2.5 at the human review gate (the review that ratified the number
+-- invited retuning it): at race-glance speed the detail line was gone before it was read
 local DEFAULT_READ_FLOOR = 2.5
 
 export type Entry = {

@@ -697,7 +697,7 @@ describe("authored presentation E — an authored scale survives a press", funct
 		local source = adapter_source.live()
 		local from = string.find(source, "local function applyPresentationPaint(handle: any, t: any)", 1, true)
 		expect(from ~= nil).toBe(true)
-		local body = string.sub(source, from :: number, (from :: number) + 1200)
+		local body = adapter_source.bodyOf(source, "local function applyPresentationPaint(handle: any, t: any)")
 		-- recorded from the COMPOSED value the renderer sent, and cleared rather
 		-- than pinned to 1 when nothing is scaling
 		expect(

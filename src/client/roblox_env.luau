@@ -92,7 +92,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		local viewport = { w = size.X, h = size.Y }
 		local guiInset = { x = topInset.X, y = topInset.Y }
 		local areas = insetAreas()
-		--[[ ── THE STALE-INSET BELT (PLAT-3; redone after review finding NEW-1) ──
+		--[[ ── THE STALE-INSET BELT (redone after review ) ──
 
 			`Camera.ViewportSize` and `GetInsetArea` update on DIFFERENT frames, so
 			one pass through here can convert an area measured against the OLD
@@ -328,7 +328,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 			table.insert(connections, textSignal:Connect(pushAccessibility))
 		end
 	end
-	--[[ THE OCCLUSION CONNECTION WAS NEVER MADE (PLAT-1 / RR-6, 2026-08-17).
+	--[[ THE OCCLUSION CONNECTION WAS NEVER MADE (2026-08-17).
 
 		This read `UserInputService.OnScreenKeyboardVisible and <connect> or nil`.
 		The guard was meant to ask "does this engine HAVE the member" and instead

@@ -294,7 +294,7 @@ function drag_registry.new(opts: Opts)
 	-- motion clock finishes visually — the legacy-ratified split between "the
 	-- drag ended" and "the ghost is still flying home". Found by integration:
 	-- with a presenter-wired clock, a live-until-arrival session made every
-	-- terminal linger and double-fire (suite rows SF-D1/D5).
+	-- terminal linger and double-fire.
 	local detachedFlights: { [any]: boolean } = {}
 	local function writeProxyFor(record: any)
 		if record.proxyHandle == nil or proxyHost == nil then
@@ -589,7 +589,7 @@ function drag_registry.new(opts: Opts)
 		end
 		if live ~= nil and live.disposeHop ~= nil then
 			-- the armed hop springs die with the session: a terminal flight owns
-			-- the proxy from here (same ARCH-F1 rule as the chase handle)
+			-- the proxy from here (the same rule the chase handle follows)
 			live.disposeHop()
 			live.disposeHop = nil
 			live.hopX = nil
@@ -841,7 +841,7 @@ function drag_registry.new(opts: Opts)
 	-- (measured 2026-07-27: a detector on a GuiButton suppresses `.Activated` —
 	-- the fake mirror preserved it, which is why headless stayed green), so the
 	-- caller must dispatch the tap itself. Taps are never eaten, on every
-	-- acquisition path — that is SF-D3's live half.
+	-- acquisition path — that is the live half.
 	function registry.pointerUp(path: string, pos: any): string?
 		if disposed then
 			return nil
@@ -942,8 +942,8 @@ function drag_registry.new(opts: Opts)
 			return false
 		end
 		local began = beginSession(sourcePath, "armed", x :: number, y :: number, nil)
-		-- a parked ghost travels on the PICKUP, not on the first aim (row
-		-- SF-D14): the card leaving the dock is what says "you are holding it",
+		-- a parked ghost travels on the PICKUP, not on the first aim: the card
+		-- leaving the dock is what says "you are holding it",
 		-- and waiting for a focus move would leave a tap-armed card sitting in
 		-- its own slot looking un-picked-up.
 		if began and live ~= nil and live.decl.armStaging ~= nil then
@@ -977,7 +977,7 @@ function drag_registry.new(opts: Opts)
 		-- card that was never picked up. Aiming is logical and instant
 		-- (updateAtInternal below); the ghost SPRINGS after it.
 		--
-		-- ...UNLESS THE SOURCE PARKED IT (row SF-D14; RascalRally §11 D-2, the
+		-- ...UNLESS THE SOURCE PARKED IT (RascalRally §11 D-2, the
 		-- ratified "one fixed staging spot above the dock"). The aim, the verdict
 		-- and the commit flight are unchanged — only where the ghost WAITS moves,
 		-- so the row carries the aim and the card never sits on the name it is

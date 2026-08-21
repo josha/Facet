@@ -95,7 +95,7 @@ function table_columns.reserved(gap: any, columnCount: number, sides: any): numb
 	return total
 end
 
---[[ THE COLUMNS DO NOT GET THE WHOLE WIDTH (review NEW-3, 2026-08-17).
+--[[ THE COLUMNS DO NOT GET THE WHOLE WIDTH.
 
 	The cells live in an `HStack` with the table's own `gap` between them and the
 	row card's `padding` around them, and the first version of this clamp fitted
@@ -158,7 +158,7 @@ end
 --[[ ── WHAT EACH COLUMN ACTUALLY GETS ─────────────────────────────────────────
 	One rule, one pass, for the whole band — because the header and the cells
 	divide the SAME width and the only spelling in which they cannot disagree is
-	the one where the division happens once (`table.luau`'s own DIR-4 note).
+	the one where the division happens once (`table.luau`'s own resize note).
 
 	`layout` is the successor to `resolveDim`, which lived in `table.luau` and
 	answered per column with no idea what the others were doing. That was enough
@@ -188,7 +188,7 @@ end
 	they do today. The floors that ARE enforced are the ones the author declared
 	and the widths this rule can know: fixed, percent, overridden, and fill.
 ]]
---[[ ── ADAPT-18 · COLUMN PRIORITY-COLLAPSE ───────────────────────────────────
+--[[ ── COLUMN PRIORITY-COLLAPSE ──────────────────────────────────────────────
 	(director-approved paradigm; audit J-1, severity highest: "at 390px all five
 	columns stay mounted and divide the width".)
 
@@ -238,8 +238,8 @@ export type Layout = {
 
 local ZERO_WIDTH = table.freeze({ type = "fixed", px = 0 })
 
---[[ THE SUM IS COMPARED AGAINST ITSELF, SO IT NEEDS A TOLERANCE (review round 1,
-	HIGH-2, 2026-08-20).
+--[[ THE SUM IS COMPARED AGAINST ITSELF, SO IT NEEDS A TOLERANCE (review round
+	1, 2026-08-20).
 
 	`fitOverrides` above computes each fitted width as `px - take * (room_i /
 	slack)`, so whenever the clamp is active the fitted widths sum to
@@ -351,7 +351,7 @@ function table_columns.layout(
 	end
 	--[[ NO MEASUREMENT YET IS NOT A NARROW VIEWPORT. The first frame resolves what
 		the author declared and the measurement corrects it on the next — the same
-		one-re-solve shape the scrollbar gutter and the DIR-4 clamp already ride.
+		one-re-solve shape the scrollbar gutter and the resize clamp already ride.
 		Pinning against a width nobody measured would make every table's first frame
 		its narrowest, and collapsing against one would make it its emptiest. ]]
 	if available == nil then

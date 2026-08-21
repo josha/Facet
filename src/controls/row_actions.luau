@@ -1237,7 +1237,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		    BOTTOM at the trigger's top, i.e. FLIPPED above it.
 
 		The flipped form is a FRACTION of the anchor's inner height (`solver.luau`
-		`offsetPx`, ADR-0022 row SF-P5) precisely so this file never has to know
+		`offsetPx`, ADR-0022 ) precisely so this file never has to know
 		that height: a `bottomLeft` child lands at `(innerH - h) + oy`, so
 		`oy = trigger.y - innerH` puts its bottom edge exactly on the trigger's top
 		WITHOUT this file measuring the menu at all. Spelling it as a scale lets the

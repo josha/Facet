@@ -115,7 +115,7 @@ function Custom.new()
 		end
 		-- A SIGNAL HAS NO COMPUTE TO READ A CREATION SITE OFF, so it is named by its
 		-- creation ORDER instead — `signal#12`. The bare kind was what shipped, and
-		-- RR-7's contract is "naming the disposed node": for a signal, which is
+		-- the contract is "naming the disposed node": for a signal, which is
 		-- every case that diagnostic actually reaches, "signal" names nothing at
 		-- all. `seq` already exists (it is what gives a flush its total order), so
 		-- this costs one concatenation on a path only a failure walks.
@@ -177,7 +177,7 @@ function Custom.new()
 			local dep = source._node :: Node
 			newDeps[dep] = true
 			local value = pull(dep)
-			-- RR-7's OTHER half (review NEW-4): a frozen memo consumed only
+			-- the OTHER half: a frozen memo consumed only
 			-- TRANSITIVELY — memos chaining into memos, the ordinary shape of a UI
 			-- graph — never reached `public.get` and served stale data forever with
 			-- `lastError` nil. A read is a read whoever makes it.
@@ -493,7 +493,7 @@ function Custom.new()
 		local rounds = 0
 		local capped = false
 		--[[ WHICH SETTLE CALLBACK IS ACTUALLY NON-CONVERGENT (corrected after
-			review finding NEW-2).
+			review ).
 
 			The first version kept only "the settle that wrote last in this flush"
 			and quarantined it whenever the cap blew. That is wrong, and the header
@@ -642,7 +642,7 @@ function Custom.new()
 				was never frozen), and reported the first time somebody reads a value
 				that can no longer change. A torn-down surface is never read again and
 				stays silent. ]]
-			--[[ ONLY A SUBSCRIBER THAT HAS NOTHING LEFT TO WAKE IT (review NEW-4).
+			--[[ ONLY A SUBSCRIBER THAT HAS NOTHING LEFT TO WAKE IT.
 
 				The first version flagged EVERY subscriber, so a memo with other live
 				deps — the ordinary shape — was declared frozen on any read taken

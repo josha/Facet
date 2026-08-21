@@ -805,7 +805,7 @@ local BOX: { [string]: PropSpec } = {
 		doc = "normalized UIStroke declaration — produced by UI.stroke(bp, …) / UI.strokeData(…)",
 	}),
 	-- PAINT ORDER WITHIN THE PARENT'S STACKING SCOPE (ADR-0022 Decision 6, row
-	-- SF-P4). NOT reactive, exactly like `shape` and `compactLabel`: a lift is what
+	-- NOT reactive, exactly like `shape` and `compactLabel`: a lift is what
 	-- a node IS (a drag ghost, a toast), not a state it passes through — and a
 	-- reactive value would have to re-run the z walk, which only a structural sync
 	-- does, so it would be accepted and ignored.
@@ -1307,7 +1307,7 @@ local FOCUSABLE_OPT_OUT: PropSpec = p({
 --
 -- It does NOT touch the arrows: `navigateDirection` never reads the rank. The
 -- two verbs walk the same SET (constitution §9) and only the reading order
--- differs (decision packet TDN-2).
+-- differs.
 --
 -- CONSTRUCTION-ONLY, deliberately, while `focusable` beside it is reactive
 -- A traversal position answers what the node IS, not a question about
@@ -1973,7 +1973,7 @@ class("Image", {
 		surface = CONTAINER_LAYOUT.surface,
 		tint = TINT,
 		-- HOW THE PICTURE FILLS THE BOX THE SOLVER GAVE IT (ADR-0022 Decision 6, row
-		-- SF-P2). `slice` is deliberately absent: nine-slice geometry is theme-owned
+		-- `slice` is deliberately absent: nine-slice geometry is theme-owned
 		-- chrome (a recipe's sliceCenter/sliceScale), and an authored slice would be a
 		-- second authority over the same three engine properties.
 		scaleMode = p({
@@ -2486,7 +2486,7 @@ class("ErrorBoundary", {
 })
 
 -- ===== the authority tables are FROZEN =====================================
--- (api-architecture-consistency F-6 / ledger BP-F5.) `schema.all()` and
+-- (api-architecture-consistency F-6.) `schema.all()` and
 -- `schema.forClass()` are a documented tooling seam and they used to hand out
 -- the LIVE tables: `UI.schema.all().Text.props.text.required = false` disabled
 -- framework validation process-wide, and a well-meaning tool that annotated a

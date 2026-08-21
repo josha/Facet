@@ -111,7 +111,7 @@ export type AlignOffset = (align: string?, avail: number, size: number) -> numbe
 -- author involvement. A `fill`-width child cannot express an intrinsic minimum
 -- (it measures to whatever it is offered), so those are skipped; a grid of only
 -- fill children has no minimum to take and falls back to one lane, which since
--- ADAPT-L2 (below) is the only shape that still lands there.
+-- the single-lane case below is the only shape that still lands there.
 local INTRINSIC = "intrinsic"
 --[[ ...AND IT IS ALSO THE DEFAULT (audit Part 2 cell B-1, 2026-08-21).
 
@@ -205,7 +205,7 @@ local function gridLaneCount(ctx: any, node: any, inner: number, gap: number, mi
 	end
 	if minCol ~= nil and inner ~= math.huge then
 		--[[ ONE IMPLEMENTATION OF THE LANE COUNT, and now it is literally one
-			(ADAPT-23). `adaptive.columnsFor` has always been documented as "the SAME
+			. `adaptive.columnsFor` has always been documented as "the SAME
 			arithmetic the solver's Grid uses" and was a second copy of it, which is
 			how the two came to disagree about distance: the helper and the solver
 			both ignored the ten-foot density cap that `sizeClass`/`heightClass`

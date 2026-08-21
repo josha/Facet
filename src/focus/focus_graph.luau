@@ -92,7 +92,7 @@ export type FocusScope = {
 	-- because a trapped modal has nowhere else for Tab to go by construction.
 	traversalWrap: boolean?,
 	-- LINEAR TRAVERSAL ORDER, as a SORT KEY over the members this scope already
-	-- has — never a second list of members (decision packet TDN-2).
+	-- has — never a second list of members.
 	--
 	-- Constitution §9 requires that Navigate and Traverse walk one focus map, and
 	-- names the failure mode precisely: "a second order, derived from Instances or
@@ -196,7 +196,7 @@ function focus_graph.new(core: any)
 	-- target). Exempt from every focusability predicate while it is set.
 	local interactionId: string? = nil
 	--[[ ── FOCUS IS ALWAYS TRACKED; THE RING IS NOT ALWAYS DRAWN ────────────────
-		(device round 1, DB-3(b): "there is a random blue stripe to the left of the
+		(device round 1: "there is a random blue stripe to the left of the
 		racer" — a focus ring painted on a phone, where no keyboard focus exists.)
 
 		Focus IDENTITY is unconditional: a tap moves it (director
@@ -371,7 +371,7 @@ function focus_graph.new(core: any)
 		return nil, nil
 	end
 
-	-- THE SECOND READING (decision packet TDN-2). `allIds` answers WHO is in the
+	-- THE SECOND READING. `allIds` answers WHO is in the
 	-- scope; this answers what order the LINEAR verb reads them in. It takes the
 	-- member list as given and only reorders it, so traversal can never reach a
 	-- node the arrows cannot, nor miss one they can.
@@ -1005,7 +1005,7 @@ function focus_graph.new(core: any)
 				exists because a 1-D group has ONE navigable axis and this verb carries no
 				direction, so ±1 is pointed at whichever axis can answer it. The presenter
 				drives this from the VERTICAL arrow (`navigate(dir)`, the path a scope
-				takes when its groups arrived after the push — DB-4's flat-to-grouped
+				takes when its groups arrived after the push — the flat-to-grouped
 				upgrade), which is why a vertical grid's `horizontal` group would have sent a
 				DOWN press rightward. A 2-D group answers all four directions, so there is
 				nothing left to guess and the verb keeps its own reading: down/up. ]]
@@ -1094,7 +1094,7 @@ function focus_graph.new(core: any)
 		if i == nil then
 			-- Focus is outside this scope (or nil): traversal ENTERS rather than
 			-- no-ops — and it enters at the END IT CAME FROM (architecture review
-			-- ARCH-9). Tab lands on the first eligible node, Shift+Tab on the last;
+			-- Tab lands on the first eligible node, Shift+Tab on the last;
 			-- entering a scope backwards and landing on its first item reads as the
 			-- ring jumping past everything, which is the disorientation the
 			-- near-end entry rule exists to prevent everywhere else in this graph.

@@ -357,7 +357,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		elseif publishedEnv ~= nil then
 			-- built here and OWNED here: `adaptive.conditions` creates thirteen
 			-- memos and a caller that rebuilds per mount without owning them leaks
-			-- thirteen per cycle (that function's own RR-8 note)
+			-- thirteen per cycle (that function's own leak note says so)
 			policySource = adaptive.conditions(core, publishedEnv, { scope = scope }).navPlacement
 		else
 			error(

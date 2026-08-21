@@ -128,8 +128,8 @@ function help_plate.new(ctx: any)
 		-- A HIDDEN CANDIDATE HELPS NOBODY (the F-1 class): a losing ViewThatFits
 		-- candidate keeps its mount and its rects, and a plate raised for a control
 		-- that is nowhere on screen points at nothing.
-		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
-			(reuse audit REUSE-29). `focusMap.isHiddenPath` is the published answer and
+		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT".
+			`focusMap.isHiddenPath` is the published answer and
 			takes the SET `hiddenRoots()` already returns, so the array this used to
 			build was a conversion nobody needed. Hoisted once rather than re-read per
 			node: the walk visits every node in the subtree. ]]

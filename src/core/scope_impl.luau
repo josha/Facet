@@ -81,7 +81,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 	end
 
 	function Scope.child(self: any, label: string?): any
-		-- same boundary `own` enforces (verifier RR-6): a child born into a
+		-- same boundary `own` enforces: a child born into a
 		-- disposed scope would never be cleaned up by anyone
 		assert(not self.disposed, "cannot create a child of a disposed scope")
 		local child = newScope(label)
@@ -99,7 +99,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 		self.disposing = true
 		for i = #self.owned, 1, -1 do
 			local resource = self.owned[i]
-			-- QUARANTINED (verifier RR-4): a throwing cleanup must not abort the
+			-- QUARANTINED: a throwing cleanup must not abort the
 			-- walk (its siblings still release), must not leak the scope counter,
 			-- and must not strand `disposing` — which would silently re-open the
 			-- unbounded-owned-growth hole and make the NEXT dispose a false

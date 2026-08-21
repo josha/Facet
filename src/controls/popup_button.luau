@@ -377,7 +377,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return {
 			schema = "facet-popup_button-dump/1",
 			-- where the adaptive facts came from: "spec" (authored) or "core" (the
-			-- surface's environment, with no wiring at all) — ADAPT-1
+			-- surface's environment, with no wiring at all)
 			factsFrom = factsFrom,
 			id = id,
 			open = open:get(),

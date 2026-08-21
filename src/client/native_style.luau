@@ -388,8 +388,8 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 			end
 			buildRules(sheet)
 		end
-		--[[ THE THEME CHILDREN ARE ENSURED ON EVERY EXISTING-SHEET PATH (PLAT-9,
-			2026-08-17). This loop used to live INSIDE the stamp-mismatch branch, so
+		--[[ THE THEME CHILDREN ARE ENSURED ON EVERY EXISTING-SHEET PATH
+			(2026-08-17). This loop used to live INSIDE the stamp-mismatch branch, so
 			it only ran when the model had evolved. A designer who deleted one
 			`Theme <name>` child from a sheet whose stamp still matched left the
 			sheet looking healthy and `setTheme` asserting `unknown theme '<name>'`

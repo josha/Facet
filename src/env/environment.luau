@@ -185,8 +185,8 @@ function environment.new(core: any): Env
 	derived.typographyPaintScale = core:memo(function(use)
 		return themeSnapshot.typographyPaintScale(use(signals.displaySize))
 	end)
-	--[[ THE METRIC AUTHORITY, AS PRESENTED AT THIS DISPLAY CLASS (ADAPT-8,
-		director ruling 2026-08-20; ADAPT-L1, the Part-2 layout audit).
+	--[[ THE METRIC AUTHORITY, AS PRESENTED AT THIS DISPLAY CLASS (director
+		ruling 2026-08-20, from the Part-2 layout audit).
 
 		THE KEY IS READ HERE AND WRITTEN BELOW, and that is the point rather than a
 		trick. `themeMetrics` is a FACT because a theme controller must commit the
@@ -641,7 +641,7 @@ function environment.new(core: any): Env
 				return
 			end
 		end
-		--[[ THE METRIC FACT ALWAYS HOLDS AN AUTHORED BASE (ADAPT-8; refusal added in
+		--[[ THE METRIC FACT ALWAYS HOLDS AN AUTHORED BASE (refusal added in
 			fix round 1, 2026-08-21, from the wave's review).
 
 			A reader gets the distance-adapted form, so the commonest thing a caller

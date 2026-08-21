@@ -460,7 +460,7 @@ function actions.newSystem(core: any)
 		return #contexts
 	end
 
-	--[[ THE SESSION ENDS (ARCH-12; constitution §2 "who disposes it", §8).
+	--[[ THE SESSION ENDS (constitution §2 "who disposes it", §8).
 
 		This is a `newX` factory holding real per-session state — every context it
 		created, every action on them, and one core SIGNAL per action — and it had

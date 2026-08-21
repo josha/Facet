@@ -597,7 +597,7 @@ function table_rows.new(deps: Deps)
 
 					THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and
 					the first draft of it carried a premise that is simply false
-					(redteam NEW-2, 2026-08-13): "a real Activated always fires
+					: "a real Activated always fires
 					between a pointer-up and the next pointer-down, so a still-live
 					suppression can never legitimately survive to see another down."
 					TWO ACTIVATE PRODUCERS CARRY NO POINTER-DOWN AT ALL — an IAS
@@ -656,8 +656,8 @@ function table_rows.new(deps: Deps)
 			end
 			hitOnPointerCancel = function(path: string, reason: string?)
 				swipeGesture = nil
-				-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (redteam NEW-2,
-				-- 2026-08-13). The engine fires no `Activated` for a capture it
+				-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (2026-08-13). The engine
+				-- fires no `Activated` for a capture it
 				-- took away — the Roblox menu opening, this row unmounting, a
 				-- scroll stealing the gesture — so an arm left standing here has
 				-- nothing of its own left to swallow and would spend itself on
@@ -737,7 +737,7 @@ function table_rows.new(deps: Deps)
 			carrying its own path grammar and its own press-zone arithmetic
 			(`isHandleZonePress` reads the zone's leading edge). Recorded rather than
 			smuggled: a selectable AND reorderable table still paints no mark, which
-			is the residue of ADAPT-27 and is a director call about where the ≡ goes.
+			is a director call about where the ≡ goes, and is not settled here.
 
 			...AND IT MOUNTS ONLY WHERE EDIT MODE IS REACHABLE, which is not
 			fastidiousness — it is one engine Instance per ROW. `UI.When` is a

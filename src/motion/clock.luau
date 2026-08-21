@@ -57,16 +57,16 @@ export type Stats = {
 	-- ONE transaction per stepped frame, and never more: this is the instrument
 	-- that proves the commit phase batches. It equals `steps` on every healthy
 	-- frame, and is the RIGHT number rather than the equal one on a quarantined
-	-- frame — a `pre`/`advance` callback that throws (verifier RR-1) aborts the
+	-- frame — a `pre`/`advance` callback that throws aborts the
 	-- step before the commit phase, so that frame really did open no
 	-- transaction, and counting one would report a flush that never happened.
 	-- So the invariant is `transactions <= steps`, with equality exactly when no
 	-- frame aborted BEFORE the commit phase. Measured 2026-07-28 (Step 5.5,
-	-- verifier RR-1-R2): 30 steps under a persistently throwing live target -> 0
+	-- -R2): 30 steps under a persistently throwing live target -> 0
 	-- transactions.
 	--
 	-- NOT "equality exactly when lastError() is nil" (the earlier wording, falsified
-	-- by verifier RT-2): a POST-phase subscriber error — a throwing onSettle — is
+	-- by ): a POST-phase subscriber error — a throwing onSettle — is
 	-- quarantined by fireSettle and sets `lastError` while every frame still
 	-- commits, measured at steps 48 = transactions 48 with an error set. Only a
 	-- `pre`/`advance` throw costs a transaction, because only it aborts the step
@@ -196,7 +196,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		steps += 1
 		stepping = true
 
-		-- QUARANTINE, NEVER WEDGE (verifier RR-1). Every phase runs USER code —
+		-- QUARANTINE, NEVER WEDGE. Every phase runs USER code —
 		-- live-target functions, onSettle handlers, timeline beats — and an
 		-- escape from any of them used to strand `stepping = true`, turning every
 		-- later step into a no-op at the re-entrancy guard: a permanently frozen
@@ -245,7 +245,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		end
 		compact()
 		-- a dispose() that arrived MID-STEP (an onFeedback/onSettle handler tearing
-		-- down the owning surface — verifier RR-2) deferred to here, where the
+		-- down the owning surface) deferred to here, where the
 		-- phase loops no longer index the set it clears
 		if disposeRequested then
 			disposeRequested = false
@@ -253,7 +253,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		end
 	end
 
-	-- the last error a step quarantined, nil when healthy (RR-1's instrument —
+	-- the last error a step quarantined, nil when healthy (the instrument —
 	-- mirrors core:lastError so a wedged-motion report is diagnosable)
 	function self.lastError(_: any): string?
 		return lastStepError

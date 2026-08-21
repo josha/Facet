@@ -70,7 +70,8 @@ export type Ctx = {
 	--[[ THE TWO LIVE FACTS THE ARRANGEMENT READS, resolved by the HOST from its
 		own environment (see the header) and REQUIRED whenever `options.perView` is
 		absent — an adapting rail handed no facts would silently take the
-		large-screen answer, which is the whole of ADAPT-1. Readables, so a class
+		large-screen answer, which is the whole point of taking them from the
+		surface. Readables, so a class
 		flip or a distance change re-derives the arrangement in place. ]]
 	interactionClasses: any,
 	distanceProfile: any,

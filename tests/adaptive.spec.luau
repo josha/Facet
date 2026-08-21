@@ -1119,18 +1119,14 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 			COMMENTS inside the function are: a plain-language rewrite that grew
 			one comment by a few characters pushed `hitExpander` one character
 			past the 700 mark and reddened this case with nothing about the
-			behaviour changed. The window now ends where the next adapter method
-			begins, so only the function's own contents decide it. ]]
-		local function methodBody(name: string): string
-			local at = string.find(source, `function adapter.{name}`, 1, true)
-			expect(at ~= nil).toBe(true)
-			local nextAt = string.find(source, "\n\tfunction adapter.", (at :: number) + 1, true)
-			return string.sub(source, at :: number, if nextAt == nil then #source else nextAt)
-		end
-		local visibleBody = methodBody("setVisible")
+			behaviour changed. `adapter_source.bodyOf` ends the window where the
+			next sibling declaration begins, so only the function's own contents
+			decide it, and it is the ONE owner of that rule for every pin in this
+			file. ]]
+		local visibleBody = adapter_source.bodyOf(source, "function adapter.setVisible")
 		-- setVisible carries the expander with the control it belongs to
 		expect(string.find(visibleBody, "hitExpander", 1, true) ~= nil).toBe(true)
-		local hitBody = methodBody("setHitRect")
+		local hitBody = adapter_source.bodyOf(source, "function adapter.setHitRect")
 		-- a freshly created expander starts at its host's CURRENT visibility, so it
 		-- cannot flash live for a control that is already hidden
 		expect(string.find(hitBody, "expander.Visible = instance.Visible", 1, true) ~= nil).toBe(true)
@@ -1166,7 +1162,7 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		local atBuilder = string.find(source, "local function pointerActivateMeta", 1, true)
 		expect(atBuilder ~= nil).toBe(true)
 		expect(string.find(source, "local function pointerActivateMeta", (atBuilder :: number) + 1, true)).toBe(nil)
-		local builder = string.sub(source, atBuilder :: number, (atBuilder :: number) + 1400)
+		local builder = adapter_source.bodyOf(source, "local function pointerActivateMeta")
 		expect(string.find(builder, "Enum.UserInputType.Touch", 1, true) ~= nil).toBe(true)
 		expect(string.find(builder, 'pointer = "touch"', 1, true) ~= nil).toBe(true)
 		expect(string.find(builder, "pointer = pointer", 1, true) ~= nil).toBe(true)
@@ -1175,13 +1171,13 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- producer 1: the control's own GuiButton
 		local atHandler = string.find(source, "function adapter.setActivateHandler", 1, true)
 		expect(atHandler ~= nil).toBe(true)
-		local handlerBody = string.sub(source, atHandler :: number, (atHandler :: number) + 600)
+		local handlerBody = adapter_source.bodyOf(source, "function adapter.setActivateHandler")
 		expect(string.find(handlerBody, "fn(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(true)
 
 		-- producer 2: the minimum-target hit expander, from ITS OWN InputObject
 		local atExpander = string.find(source, "expander.Activated:Connect", 1, true)
 		expect(atExpander ~= nil).toBe(true)
-		local expanderBody = string.sub(source, atExpander :: number, (atExpander :: number) + 500)
+		local expanderBody = adapter_source.bodyOf(source, "expander.Activated:Connect")
 		expect(string.find(expanderBody, "function(inputObject: InputObject)", 1, true) ~= nil).toBe(true)
 		expect(string.find(expanderBody, "handle.activate(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(
 			true
@@ -1222,14 +1218,14 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- ...and exactly one place that connects it, used by both surfaces
 		local atConnect = string.find(source, "local function connectPointerBegan", 1, true)
 		expect(atConnect ~= nil).toBe(true)
-		local connectBody = string.sub(source, atConnect :: number, (atConnect :: number) + 400)
+		local connectBody = adapter_source.bodyOf(source, "local function connectPointerBegan")
 		expect(string.find(connectBody, "instance.InputBegan:Connect", 1, true) ~= nil).toBe(true)
 		expect(string.find(connectBody, "beginPointerCapture(handle, handlers, inputObject)", 1, true) ~= nil).toBe(
 			true
 		)
 		-- surface 1: the control's own instance
 		local atHandlers = string.find(source, "function adapter.setPointerHandlers", 1, true)
-		local handlersBody = string.sub(source, atHandlers :: number, (atHandlers :: number) + 900)
+		local handlersBody = adapter_source.bodyOf(source, "function adapter.setPointerHandlers")
 		expect(string.find(handlersBody, "connectPointerBegan(handle, instance, handlers)", 1, true) ~= nil).toBe(true)
 		-- surface 2: the expander, wired from WHICHEVER of the two seams runs first —
 		-- the renderer pushes hit geometry from the solve and handlers from the
@@ -1238,12 +1234,12 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 			true
 		)
 		local atHit = string.find(source, "function adapter.setHitRect", 1, true)
-		local hitBody = string.sub(source, atHit :: number, (atHit :: number) + 2600)
+		local hitBody = adapter_source.bodyOf(source, "function adapter.setHitRect")
 		expect(string.find(hitBody, "connectPointerBegan(handle, expander, handle.pointer)", 1, true) ~= nil).toBe(true)
 		-- ...and it comes down with the expander, in ONE teardown both call sites use
 		local atDrop = string.find(source, "local function dropHitExpander", 1, true)
 		expect(atDrop ~= nil).toBe(true)
-		local dropBody = string.sub(source, atDrop :: number, (atDrop :: number) + 400)
+		local dropBody = adapter_source.bodyOf(source, "local function dropHitExpander")
 		expect(string.find(dropBody, "handle.hitExpanderPointerConn:Disconnect()", 1, true) ~= nil).toBe(true)
 		expect(string.find(dropBody, "handle.hitExpander:Destroy()", 1, true) ~= nil).toBe(true)
 		-- no second, un-torn-down copy of the destroy
@@ -1288,14 +1284,14 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- the wanted rect is REMEMBERED on the handle, which is what makes a late
 		-- re-base possible at all
 		local atHit = string.find(source, "function adapter.setHitRect", 1, true)
-		local hitBody = string.sub(source, atHit :: number, (atHit :: number) + 2200)
+		local hitBody = adapter_source.bodyOf(source, "function adapter.setHitRect")
 		expect(string.find(hitBody, "handle.hitRectWant = rect", 1, true) ~= nil).toBe(true)
 		-- ...and z follows too: a structural sync re-assigns ZIndex without moving a
 		-- rect, and an expander that stopped being exactly one BEHIND its control
 		-- would start swallowing the control's own clicks
 		local atZ = string.find(source, "function adapter.setZOrder", 1, true)
 		expect(atZ ~= nil).toBe(true)
-		local zBody = string.sub(source, atZ :: number, (atZ :: number) + 500)
+		local zBody = adapter_source.bodyOf(source, "function adapter.setZOrder")
 		expect(string.find(zBody, "handle.hitExpander.ZIndex = z - 1", 1, true) ~= nil).toBe(true)
 	end)
 end)

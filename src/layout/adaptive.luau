@@ -200,7 +200,8 @@ function adaptive.navPlacement(facts: NavPlacementFacts): string
 		-- the NEAR-DISTANCE gamepad handheld keeps the display-fact rule and the
 		-- director refinement behind it ("Small and joystick can vary — bottom tabs
 		-- are ok there"): a pad in the hands is not a tablet in the hands, and
-		-- nothing in ADAPT-2 measured one. A ten-foot pad never reaches here
+		-- nothing in the adaptation audit measured one. A ten-foot pad never reaches
+		-- here
 		-- (caught above).
 		local d = facts.displaySize
 		return if d == "Medium" or d == "Large" then "topBar" else "bottomBar"
@@ -416,7 +417,7 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	local interactionClasses = env:get("interactionClasses")
 	local displaySize = env:get("displaySize")
 
-	-- OWNERSHIP (verifier RR-8): this function creates THIRTEEN memos (six until
+	-- OWNERSHIP: this function creates THIRTEEN memos (six until
 	-- ADR-0023 added the height half, twelve until navPlacement), and a caller that rebuilds per mount
 	-- without owning them leaks twelve per cycle — measured in the sponsor
 	-- fixtures under a long-lived core. Pass `opts.scope` and the memos die with

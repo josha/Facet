@@ -414,7 +414,7 @@ function virtual_reorder.new(deps: Deps)
 		})
 		if step.delta ~= 0 then
 			ctrl.scrollTo(host, vec(clampedTop:get() + step.delta))
-			-- THE FRAME-ACCURATE RE-RESOLVE (SF-L2's correctness core): the rects
+			-- THE FRAME-ACCURATE RE-RESOLVE (the correctness core): the rects
 			-- the session hit-tests against are the solver's, shifted by the LIVE
 			-- scroll offset — so re-running the hover immediately after the write,
 			-- in this same frame, is enough. A tick-based re-resolve lags about two

@@ -333,8 +333,8 @@ styling.TINT_ROLE_LIST = table.concat(TINT_ROLES, " | ")
 
 local TINT_KEYS: { [string]: boolean } = { role = true, blend = true, from = true, direct = true, transparency = true }
 
---[[ THE TINT'S OWN ALPHA (`transparency`, added 2026-07-31 — RascalRally row
-	OWN-D39, recorded 2026-07-30 as "if a SECOND consumer meets it, a tint alpha
+--[[ THE TINT'S OWN ALPHA (`transparency`, added 2026-07-31 — a Rascal Rally
+	ownership call recorded 2026-07-30 as "if a SECOND consumer meets it, a tint alpha
 	returns to the Facet roadmap rather than being re-composited per game").
 
 	The recorded workaround was to compute the COMPOSITE a legacy transparency

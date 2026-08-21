@@ -485,7 +485,7 @@ local Facet = {
 	pathShapes = require("@self/controls/path_shapes"),
 
 	--[[ THE CLOSED-KEY-SET GUARD, so an out-of-repo control can be as strict as an
-		in-repo one (ARCH-8; constitution §4).
+		in-repo one (constitution §4).
 
 		Twenty-two control modules in `src/` require this, and the extension
 		playbook (`docs/extending/new-control.md`) tells an author their control

@@ -482,7 +482,7 @@ export type ErrorBoundarySpec = {
 local PROP_DIRTY: { [string]: { [string]: { string } } } = schema.propDirty()
 
 -- FROZEN, because it is PUBLIC (api-architecture-consistency F-34 / ledger
--- BP-F17). `UI.PROP_DIRTY` is the live map `mount.luau` reads to decide which
+-- `UI.PROP_DIRTY` is the live map `mount.luau` reads to decide which
 -- dirty classes a reactive prop schedules, so an unfrozen handle on it is a
 -- mutable handle on mount-time subscription behaviour. mount only ever reads it.
 -- The innermost arrays come from the schema and are already frozen, so the walk
@@ -615,7 +615,7 @@ local function quoteList(names: { string }): string
 	return table.concat(parts, ", ")
 end
 
--- MODIFIER ATTRIBUTION (api-architecture-consistency F-7 / ledger BP-F4).
+-- MODIFIER ATTRIBUTION (api-architecture-consistency F-7).
 -- `withProps` runs a modifier's writes through the SAME validation a
 -- constructor uses, which is right — but the message it produced named only the
 -- class and the INTERNAL prop the modifier had chosen. `UI.alignment(when,
@@ -735,7 +735,7 @@ local function make(class: string, spec: any): Blueprint
 		end
 	end
 	-- `overflow = "clip"` IS a clip host (api-architecture-consistency F-19 /
-	-- ledger BP-F11). `overflow` was accepted on nine container classes and drove
+	-- `overflow` was accepted on nine container classes and drove
 	-- nothing at all — a second public spelling of `clipChildren` that did not do
 	-- the thing it names. It is normalized HERE, at construction, by the same
 	-- mechanism `UI.ScrollView` already uses to default the flag, so the solver
@@ -771,7 +771,7 @@ local function make(class: string, spec: any): Blueprint
 		)
 	end
 	-- IMMUTABLE ALL THE WAY DOWN (api-architecture-consistency F-22 / ledger
-	-- BP-F18). api.md says "blueprints are immutable plain tables" and the whole
+	-- api.md says "blueprints are immutable plain tables" and the whole
 	-- modifier-returns-a-new-blueprint contract rests on it, but the freeze was
 	-- one level deep: a shared template reused across rows could be mutated in
 	-- place through `bp.props` or `bp.children`. Every internal builder composes
@@ -1713,7 +1713,7 @@ function blueprint.strokeData(spec: any, style: any?): any
 	return stylingLib.normalizeStroke(spec, style)
 end
 
--- ...AND THE OTHER THREE (ledger BP-F7, disposition FIX F-39). The pulse idiom
+-- ...AND THE OTHER THREE (disposition FIX F-39). The pulse idiom
 -- above is documented as the way to animate authored paint, and it was reachable
 -- for exactly one of the four style modifiers: `shadow`, `gradient` and `corners`
 -- are all normalized-data props on the same schema, all read once by the adapter,
@@ -1835,7 +1835,7 @@ end
 -- Group semantics: the modifier set applies to EACH contained element.
 --
 -- THE SET IS THE WHOLE FAMILY, AND IT IS CLOSED (api-architecture-consistency
--- F-4 / ledger BP-F1). This used to read three keys and validate none, so
+-- F-4). This used to read three keys and validate none, so
 -- `stroke` — the fourth member of the style-modifier family — was silently
 -- dropped: an author reaching for the collection form of `UI.stroke` got no
 -- border on any element, with no error, while the singular form worked, so the
@@ -2185,7 +2185,7 @@ function blueprint.background(bp: Blueprint, content: Blueprint, align: string?)
 		local props: { [string]: any } = table.clone(content.props)
 		props.width = props.width or { type = "fill", weight = 1 }
 		props.height = props.height or { type = "fill", weight = 1 }
-		-- `meta` RIDES ALONG (api-architecture-consistency F-3 / ledger BP-F3).
+		-- `meta` RIDES ALONG (api-architecture-consistency F-3).
 		-- This rebuild is the only place in the layer that reconstructed a frozen
 		-- node without carrying the framework metadata channel, so a drag
 		-- declaration or an input contribution on the backing plate vanished

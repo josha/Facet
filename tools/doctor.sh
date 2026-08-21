@@ -9,7 +9,16 @@ cd "$(dirname "$0")/.."
 # so a project declaring it FAILED THE BUILD with "Unknown property" while the
 # pinned toolchain built it fine. Measured 2026-08-15.
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-mkdir -p artifacts
+# BOTH output directories, because BOTH are gitignored and this script writes
+# into both. `build/` used to be missing from this line, and the rojo-build row
+# below writes `-o build/Facet-Gallery.rbxl`: rojo does NOT create the parent
+# directory of its output, it exits 1 with "No such file or directory". So on a
+# CLEAN CHECKOUT the doctor's first REQUIRED failure was a missing folder,
+# reported as "rojo build examples/gallery.project.json failed" — which reads
+# like a broken project to the one person guaranteed to be reading it, someone
+# who has just cloned the repository. Measured independently by two fresh-context
+# agents, 2026-08-21.
+mkdir -p artifacts build
 
 fail=0
 checks=""

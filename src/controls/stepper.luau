@@ -78,7 +78,7 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 	local value = spec.value
 	-- a read-only Memo has kind "memo" and a :set that asserts, so a bare
 	-- "settable" duck-type check would pass and then blow up on the first press —
-	-- reject it at BUILD, exactly as TextInput does (ARCH-TI-1)
+	-- reject it at BUILD, exactly as TextInput does
 	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
 		error(
 			`Facet newStepper('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `

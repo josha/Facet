@@ -46,7 +46,7 @@
 	even though no item starts there: the last page shows the tail flush. Without
 	that rule a rail whose final boundary lies past `maxScroll` snaps to a clamped
 	target, reads back a different offset, and snaps again — the overscroll
-	oscillation the DIR-4 anchor discipline warns about, arriving through the fix
+	oscillation the anchor discipline warns about, arriving through the fix
 	for something else. Every candidate is clamped and the terminal is in the
 	candidate set, so a settle at the end resolves to the end and stops.
 

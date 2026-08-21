@@ -459,7 +459,7 @@ function roblox_input.newSystem(core: any)
 	end
 
 	--[[ THE SESSION ENDS, and this system's session owns ENGINE OBJECTS
-		(ARCH-12's engine twin; R5 review §3b-2). `src/input/actions.luau` — the
+		(the engine twin; R5 review §3b-2). `src/input/actions.luau` — the
 		headless system this one mirrors 1:1 — gained `dispose` in 0.10.0 and this
 		one had nothing, so `client.host` could not release it and a consumer
 		tearing a surface down left every `InputContext`, `InputAction` and

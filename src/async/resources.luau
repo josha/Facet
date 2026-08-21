@@ -129,7 +129,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 		giveUp = false,
 	})
 	-- keys that spent their retry budget: failed for the session, and an acquire
-	-- must not quietly start them over (SF-A2's "permanent-for-session give-up").
+	-- must not quietly start them over (the "permanent-for-session give-up").
 	-- `invalidate(key)` is the explicit reset.
 	local gaveUp: { [string]: any } = {}
 	local waiting: { Request } = {} -- spaced retries, waiting for their due time
@@ -561,7 +561,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 		return table.clone(counters)
 	end
 
-	--[[ THE SESSION ENDS (ARCH-13; constitution §2 "who disposes it", §8).
+	--[[ THE SESSION ENDS (constitution §2 "who disposes it", §8).
 
 		This is a `newX` factory holding the most state of anything on the public
 		surface — an LRU cache, the in-flight request table, the queue, the spaced

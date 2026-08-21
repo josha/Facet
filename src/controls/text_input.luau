@@ -155,7 +155,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- must be a SETTABLE signal: the control calls value:set on every accepted
 	-- edit, so a read-only Memo (kind "memo", whose :set asserts) would pass a
 	-- bare readable check and then error on the first keystroke — reject it at
-	-- BUILD (ARCH-TI-1)
+	-- BUILD
 	assert(
 		type(spec.value) == "table" and (spec.value :: any).kind == "signal",
 		`TextInput '{id}': value must be a settable Signal of the field text (owner-held); `
@@ -661,7 +661,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			-- drives keepVisibleOffset back to 0 while the memo and the
 			-- presenter's observer are still live, so disposing the control
 			-- mid-occlusion (screen still presented) never leaves the screen
-			-- root frozen shifted up (ARCH-TI-2). A no-op when not editing
+			-- root frozen shifted up. A no-op when not editing
 			-- (offset is already 0).
 			endEditing()
 			disposed = true

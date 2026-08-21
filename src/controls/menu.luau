@@ -974,7 +974,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				.. `{#handles} surface(s)`
 		return {
 			schema = DUMP_SCHEMA,
-			-- "spec" (authored) or "core" (the surface's environment, no wiring) — ADAPT-1
+			-- "spec" (authored) or "core" (the surface's environment, no wiring)
 			factsFrom = factsFrom,
 			id = id,
 			open = isOpen:get(),

@@ -290,8 +290,8 @@ function snapshot.typographyPaintScale(displaySize: any): number
 	return tenFootFloor(displaySize)
 end
 
---[[ metricScale(displaySize) -> the METRIC ladder's ten-foot factor (ADAPT-8,
-	director ruling 2026-08-20).
+--[[ metricScale(displaySize) -> the METRIC ladder's ten-foot factor (director
+	ruling 2026-08-20).
 
 	THE DIRECTOR RULED AGAINST TYPE-ONLY. The framework's ten-foot policy was four
 	rows — the type floor above, the sizeClass density cap, the focus
@@ -434,7 +434,7 @@ local DENSITY_LENGTH_SECTIONS: { [string]: boolean } = {
 	iconRunGap = true,
 }
 --[[ THE PAINT AUTHORITY BOUNDARY — why `radii` and `strokes` do NOT scale
-	(review NEW-1, fix round 1, 2026-08-21).
+	(fix round 1, 2026-08-21).
 
 	A corner radius and a stroke thickness are not resolved from this snapshot at
 	paint time. They come from a DIFFERENT authority: `ctx.style` — which is
@@ -665,7 +665,7 @@ end
 	THIS IS THE ONE APPLICATION SITE, and it is called from the environment's
 	`themeMetrics` memo — the same seam, over the same fact, that applies the type
 	floor through `typographyScale`/`typographyPaintScale`. That placement is
-	ADAPT-L1's fix, not an implementation detail: the density half used to ride
+	the fix, not an implementation detail: the density half used to ride
 	`resolve`'s recorded `density`, and the environment's default snapshot is
 	`neutral()`, resolved with no facts at all, so a television with no theme
 	package installed measured 10 grid lanes against a desktop's 9 while painting
@@ -1173,7 +1173,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 
 	--[[ 4a-ante. THE SCREEN-EDGE GUTTER, WITH A FLOOR (DIR wave contract 6,
-		2026-08-18; device round 2026-08-17 finding DIR-1).
+		2026-08-18; device round 2026-08-17 ).
 
 		THE STEP EVERY SURFACE WAS SPENDING WAS `space.s`, and a screen edge is not
 		a spacing decision — it is a physical one. `space.s` is what a package
@@ -1403,8 +1403,8 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 	out.overrides = applied
 
-	--[[ 6. THE PACKAGE'S OWN TEN-FOOT LADDER, carried but not applied (ADAPT-8,
-		contract 2). `metrics.tenFoot` is a map of dotted metric paths to ABSOLUTE
+	--[[ 6. THE PACKAGE'S OWN TEN-FOOT LADDER, carried but not applied (the
+		metric-ladder contract, clause 2). `metrics.tenFoot` is a map of dotted metric paths to ABSOLUTE
 		ten-foot pixel values — the same vocabulary `resolve`'s own `overrides`
 		parameter takes, deliberately, so a package author spells a television
 		metric the way they already spell a local one.

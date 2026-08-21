@@ -211,7 +211,7 @@ local function newValue(
 	-- The write gate compares against what the SIGNAL currently holds, not
 	-- against the last value motion wrote: an unmoved motion writes nothing (rest
 	-- costs zero), and a foreign write is corrected on the next frame the motion
-	-- is ACTIVE (verifier RR-9: a settled motion has left the clock, so a foreign
+	-- is ACTIVE (a settled motion has left the clock, so a foreign
 	-- write while at rest STANDS until something re-targets — the signal is the
 	-- consumer's to share; the gate exists so an active motion never yields to
 	-- one, not to police writes while asleep).
@@ -223,7 +223,7 @@ local function newValue(
 		end
 	end
 
-	-- QUARANTINE, NEVER STARVE (verifier RR-12-R1): settle fires once per
+	-- QUARANTINE, NEVER STARVE (-R1): settle fires once per
 	-- arrival, so a throwing subscriber must not cost the ones after it their
 	-- only notification. Each call is pcall'ed; errors land on clock:lastError().
 	local function fireSettle()
@@ -370,7 +370,7 @@ local function newValue(
 		local box: { fn: (() -> ())? } = { fn = fn }
 		table.insert(subs, box)
 		return function()
-			-- remove the box, not just its fn (verifier RR-10): a long-lived value
+			-- remove the box, not just its fn: a long-lived value
 			-- whose consumers churn subscriptions must not grow the list forever
 			box.fn = nil
 			local index = table.find(subs, box)

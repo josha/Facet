@@ -258,8 +258,8 @@ export type Opts = {
 	-- zero instances, so this is free to leave unset. The theme controller
 	-- swaps it at runtime through `adapter.setThemePackage`.
 	themePackage: any?,
-	--[[ WHERE THIS TARGET'S ROOTS SIT AGAINST THE GAME'S OWN `ScreenGui`s
-		(reuse audit REUSE-122). Every root this target creates gets this
+	--[[ WHERE THIS TARGET'S ROOTS SIT AGAINST THE GAME'S OWN `ScreenGui`s.
+		Every root this target creates gets this
 		`DisplayOrder`; the presenter still layers its OWN surfaces above one
 		another with `adapter.setRootDisplayOrder`, so this is the FLOOR the whole
 		target stands on, not a per-surface number.
@@ -1597,7 +1597,8 @@ function screen_target.new(opts: Opts?)
 		WHAT IT PROVES AND WHAT IT DOES NOT: everything downstream of the engine
 		edge (routing, policy, state, motion) is real evidence. Everything UPSTREAM
 		— that the engine really delivers a touch to that instance at all — is not,
-		and only a device pass can close it. DB-4 lived exactly there.
+		and only a device pass can close it. The device defect this note records
+		lived exactly there.
 
 		Returns false when the path has no activate handler, so a caller can tell
 		"nothing there" from "did nothing".
@@ -4005,7 +4006,7 @@ function screen_target.new(opts: Opts?)
 			endCapture("destroyed")
 		end
 		--[[ THE CURSOR HINT IS THIS ROOT'S; THE MENU CONNECTION IS THE ADAPTER'S
-			(PLAT-4). An adapter hosts several roots at once — the presenter mounts
+			. An adapter hosts several roots at once — the presenter mounts
 			and retires a transient popup-catcher root reactively — so disconnecting
 			`GuiService.MenuOpened` here used to kill drag-abort-on-menu for every
 			OTHER live root the first time any root came down. The hint really does

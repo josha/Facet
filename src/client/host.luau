@@ -196,7 +196,7 @@ function host.new(opts: Opts?): Host
 	local built: any = nil
 	local ok, err = pcall(function()
 		--[[ THE REGISTRATION IS THE FIRST THING ON THE STACK, so it is the LAST
-			thing released (re-review MEDIUM-3/LOW-4). `environment.new` above
+			thing released. `environment.new` above
 			published this environment against the core it was built on, which is what
 			lets every control this host mounts adapt with no wiring — and a host that
 			has been disposed is a surface that no longer exists, so leaving the entry
