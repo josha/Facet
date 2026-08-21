@@ -1017,3 +1017,29 @@ STUDIO.md, root CLAUDE.md.
 - Requalification §5 updated: the environment unblocked and the 13 rows ran;
   still open = .gprx dumps + Android. Review seats running: DIR4 (task-dir4-
   review) and m2fix (task-m2fix-review).
+
+## 2026-08-21 (cont. 4) — DIR4 review seat back; fix round 1 dispatched
+
+- DIR4 REVIEW (task-dir4-review.md): spec PASS, quality CHANGES REQUESTED,
+  2 MAJOR / 7 MINOR. Everything measured reproduced (suite arithmetic exact,
+  all 8 mutations + the reviewer's own, guard red at the parent, near rows
+  proven byte-identical at all three viewports, R1 null result confirmed,
+  sink per-key against eight unbound keys). The two MAJORs are the two
+  things the round REASONED instead of measured: (1) the layer-climb
+  mitigation's type(demoHandle)=="table" guard bites on NO real path
+  (demo_picker passes nil on failed mount; the certifying case hand-builds a
+  table no call site produces); (2) §5 re-asserts "nothing else binds either
+  key" for ButtonY while src/controls/menu.luau binds it sinking in the
+  shipped menu demo — one Y press at head opens the CHROME and eats the
+  framework's own menu verb.
+- RULING R20: ButtonY leaves the chrome toggle entirely. The bumpers are the
+  pad's chrome doors (R19) and make Y redundant there; the platform gives Y
+  to menus and the framework's menu verb claims it. Keyboard keeps Backquote.
+  TOGGLE_GAMEPAD removal rides R15 (unreleased inside 0.10.0). Cost if
+  wrong: a pad user who learned Y loses one habit; the bumpers are painted
+  on screen, the habit re-forms in one session.
+- Fix round 1 resumed on the same implementer: both MAJORs + five MINORs
+  (right-edge overscan inset — a real TV crops both sides; dead BAR_ID;
+  unpinned warn; loose isPanelPath; the R19 comment's false claim about
+  what Adjust keeps on a pad). Gate PASS frozen at 045de93 will be re-run
+  and re-frozen after the round lands.
