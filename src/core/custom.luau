@@ -332,6 +332,51 @@ function Custom.new()
 	-- added or disposed by a callback never corrupt this iteration
 	-- (verifier finding 6).
 	local function notify(node: Node)
+		--[[ THE ONE-OBSERVER PATH ALLOCATES NOTHING (review RR-12, measured wave T15).
+
+			The snapshot below exists for two reasons and one of them evaporates at a
+			fan-out of one. ORDER is the first: `node.observers` is a hash table, so
+			iteration order is not registration order and a sort is the only way to
+			make a flush reproducible — but a single observer has no order to
+			establish. SAFETY is the second and it survives, so it is kept here
+			explicitly: the record is read into a local BEFORE the callback runs, so
+			an observer that disposes itself or registers a sibling mid-callback
+			cannot be mutating a table this loop is walking.
+
+			A fan-out of one is not the rare case. It is the ordinary shape of a
+			mounted tree — one binding per property — which is why a table plus a
+			`table.sort` per notified node was the largest allocation in a flush.
+
+			MEASURED IN SCENES, not merely in a microbenchmark (tools/perf.sh p95,
+			five interleaved samples a side): `animation-interruption` 0.347 -> 0.106
+			ms, `collection-mutation` 1.214 -> 0.864, `hud-binding-storm` 0.220 ->
+			0.206. Every guarantee the snapshot gave is pinned at fan-out ONE in
+			tests/reactive_recovery.spec.luau (RR-12), each case proved to bite by
+			mutating this branch. ]]
+		local only: any = nil
+		local count = 0
+		for observer in node.observers do
+			count += 1
+			if count > 1 then
+				break
+			end
+			only = observer
+		end
+		if count == 0 then
+			return
+		end
+		if count == 1 then
+			local observer = only
+			if not observer.disposed and not safeEq(node, observer.lastSeen, node.value) then
+				observer.lastSeen = node.value
+				-- the same quarantine as the loop below, for the same reason
+				local ok, err = pcall(observer.fn, node.value)
+				if not ok then
+					fail(tostring(err))
+				end
+			end
+			return
+		end
 		local snapshot = {}
 		for observer in node.observers do
 			table.insert(snapshot, observer)

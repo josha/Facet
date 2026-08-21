@@ -518,3 +518,162 @@ describe("the flush's terminal contracts (RR-9/RR-10/RR-11)", function()
 		expect(string.find(tostring(core:lastError()), "100-round iteration cap", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+--[[ RR-12 — THE ONE-OBSERVER NOTIFY PATH.
+
+	The review priced per-flush allocation: a snapshot table and a `table.sort`
+	PER NOTIFIED NODE, three tables per round, a closure and a dependency set per
+	pull. Measured on this host, one flush is 0.0005 ms bare and 0.0508 ms with a
+	fan-out of fifty observed memos, and the allocation is a lower bound of about
+	half a kilobyte to four kilobytes depending on shape (Lune has no forced
+	collection, so a heap NET is worthless here — see tools/lune/bench.luau's
+	header; the estimator sums only POSITIVE gcinfo window deltas and therefore
+	under-reports).
+
+	The snapshot exists for one reason, recorded at the code: observers added or
+	disposed BY A CALLBACK must not corrupt the iteration, and the order must be
+	registration order. At a fan-out of ONE — which is the overwhelmingly common
+	shape in a mounted tree, one binding per property — there is no order to
+	establish and nothing to sort, and the snapshot buys only its own allocation.
+	So the fast path reads the single observer into a local and calls it with no
+	table and no sort.
+
+	MEASURED IN SCENES, which is the bar the wave's brief set for touching this at
+	all: perf.sh p95, five interleaved samples a side — `animation-interruption`
+	0.347 -> 0.106 ms (-69%), `collection-mutation` 1.214 -> 0.864 (-29%),
+	`hud-binding-storm` 0.220 -> 0.206 (-6%). `screen-lifecycle-churn` also fell
+	(3.11 -> 1.73 median) but that scene swings by more than the difference on
+	this host and is not claimed.
+
+	EVERY CASE BELOW IS AT FAN-OUT ONE ON PURPOSE, and the last one is the
+	crossover: it proves the snapshot path is still reached, so a fast path that
+	swallowed the general case would fail here rather than silently. ]]
+describe("the one-observer notify path keeps every snapshot guarantee (RR-12)", function()
+	it("an observer that disposes ITSELF mid-callback is not called again", function()
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local calls = 0
+		local stop: any = nil
+		stop = core:observe(s, function()
+			calls += 1
+			stop()
+		end)
+		s:set(1)
+		expect(calls).toBe(1)
+		s:set(2)
+		expect(calls).toBe(1)
+	end)
+
+	it("an observer that ADDS one mid-callback does not deliver to it in the same round", function()
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local seen: { string } = {}
+		core:observe(s, function(v: any)
+			table.insert(seen, `first:{v}`)
+			if #seen == 1 then
+				core:observe(s, function(w: any)
+					table.insert(seen, `second:{w}`)
+				end)
+			end
+		end)
+		s:set(1)
+		-- the newcomer was registered DURING this round and does not receive it
+		expect(table.concat(seen, ",")).toBe("first:1")
+		s:set(2)
+		-- ...and does receive the next one, in registration order behind the first
+		expect(table.concat(seen, ",")).toBe("first:1,first:2,second:2")
+	end)
+
+	it("a memo that RECOMPUTED to an equal value delivers nothing to its lone observer", function()
+		--[[ The eq check has to live at the OBSERVER, not only at the write: a
+			signal write already short-circuits on eq and never reaches `notify` at
+			all, so a case built on `s:set(7)` when s is 7 would pass with the check
+			deleted. The shape that reaches it is a MEMO with a value eq whose
+			dependency moved and whose result did not — which is the whole of RR-5
+			one layer down. ]]
+		local core = Facet.newCore()
+		local input = core:signal(1)
+		local computes = 0
+		local sameFields = function(a: any, b: any): boolean
+			return type(a) == "table" and type(b) == "table" and a.px == b.px
+		end
+		local dim = core:memo(function(use)
+			computes += 1
+			local _ = use(input)
+			return { type = "fixed", px = 40 }
+		end, sameFields)
+		local calls = 0
+		core:observe(dim, function()
+			calls += 1
+		end)
+		expect(computes).toBe(1)
+		input:set(2)
+		-- it DID recompute (so this is not a case about a memo that never ran)…
+		expect(computes).toBe(2)
+		-- …and delivered nothing, because the value it produced was equal
+		expect(calls).toBe(0)
+	end)
+
+	it("a THROWING lone observer is quarantined and still works on the next write", function()
+		--[[ The quarantine this pins is `propagateRound`'s own `pcall(notify, …)`,
+			not the one inside the loop — measured by mutation: deleting the fast
+			path's inner pcall changes nothing at fan-out one, because there is no
+			next observer for it to protect. What the fast path must not do is
+			bypass the outer one, and the failure mode if it did is not the error
+			message but the SECOND write: an escape out of `flush` strands
+			`flushing = true` and every later write in the session goes nowhere. ]]
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local calls = 0
+		core:observe(s, function()
+			calls += 1
+			if calls == 1 then
+				error("observer blew up", 0)
+			end
+		end)
+		s:set(1)
+		expect(calls).toBe(1)
+		expect(string.find(tostring(core:lastError()), "observer blew up", 1, true) ~= nil).toBe(true)
+		-- the flush did not wedge: the next write reaches the same observer
+		s:set(2)
+		expect(calls).toBe(2)
+	end)
+
+	it("at fan-out two, an observer DISPOSED by the one before it is not called", function()
+		--[[ Where the `disposed` flag is actually reachable, and therefore where it
+			has to be pinned. At fan-out one it is unreachable by construction — the
+			disposer removes the record from `node.observers` before the next round
+			can see it — so only the snapshot path, which captured the record before
+			the callback ran, can hold a stale one. ]]
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local seen: { string } = {}
+		local stopSecond: any = nil
+		core:observe(s, function()
+			table.insert(seen, "first")
+			stopSecond()
+		end)
+		stopSecond = core:observe(s, function()
+			table.insert(seen, "second")
+		end)
+		s:set(1)
+		expect(table.concat(seen, ",")).toBe("first")
+	end)
+
+	it("THE CROSSOVER: at fan-out two the order is registration order, not hash order", function()
+		--[[ The negative control for everything above. `node.observers` is a hash
+			table, so iteration order is not registration order and cannot be relied
+			on — that is what the sorted snapshot is for. Three observers registered
+			in a deliberately unhelpful order must still fire 1, 2, 3. ]]
+		local core = Facet.newCore()
+		local s = core:signal(0)
+		local order: { string } = {}
+		for _, name in { "a", "b", "c" } do
+			core:observe(s, function()
+				table.insert(order, name)
+			end)
+		end
+		s:set(1)
+		expect(table.concat(order, ",")).toBe("a,b,c")
+	end)
+end)
