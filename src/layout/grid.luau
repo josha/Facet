@@ -110,9 +110,37 @@ export type AlignOffset = (align: string?, avail: number, size: number) -> numbe
 -- It is recomputed on every solve, so a theme swap re-lays the grid out with no
 -- author involvement. A `fill`-width child cannot express an intrinsic minimum
 -- (it measures to whatever it is offered), so those are skipped; a grid of only
--- fill children falls back to the one-column default, exactly as an undeclared
--- minColumnWidth does.
+-- fill children has no minimum to take and falls back to one lane, which since
+-- ADAPT-L2 (below) is the only shape that still lands there.
 local INTRINSIC = "intrinsic"
+--[[ ...AND IT IS ALSO THE DEFAULT (ADAPT-L2, audit Part 2 cell B-1, 2026-08-21).
+
+	A `UI.Grid` that declared neither `columns` nor `minColumnWidth` used to get ONE
+	LANE at every width from a 390px phone to a 1920px television — "a column of
+	cards down the left edge", measured at all six combos. That is this library's
+	systemic defect shape one primitive over: an adaptive rule that is exported,
+	correct and unit-tested, and off unless the author names it (`0 of 35` shipped
+	`UI.Grid` call sites reached lanes reactively).
+
+	The default is now `"intrinsic"` — the route `docs/guide/05-styling.md` already
+	teaches — rather than a lane count or a device-pixel guess. That choice is what
+	keeps the fix from adding anything to the framework:
+
+	  * NO NEW NUMBER. A minimum in px is a claim about a font; the widest child's
+	    own measured extent is a fact the solve already has, so a theme swap
+	    re-lanes the grid with no author involved.
+	  * ONE ARITHMETIC, still. The default reaches `adaptive.columnsFor` through
+	    exactly the line the declared route reaches it through, so the ten-foot cap
+	    rides along for free and a television gets FEWER lanes than a desktop
+	    (measured: 5 against 9) instead of the one lane it used to share with a
+	    phone.
+	  * THE FALLBACK IS UNCHANGED. A grid of only `fill` children still has no
+	    intrinsic minimum to take, and still gets one lane.
+
+	AUTHORED ALWAYS WINS, both keys and both directions: `columns` short-circuits
+	`gridLaneCount` before this is asked at all, and a declared `minColumnWidth`
+	is returned above without measuring anything.
+]]
 -- `isCol` is the flow grid's ONE axis switch (see `gridFlowPlan`): the lane axis is
 -- the width under `flow = "row"` and the height under `flow = "column"`, so the
 -- intrinsic minimum is measured on whichever one the mode chose. The prop keeps the
@@ -122,7 +150,7 @@ local function gridLaneMin(deps: Deps, ctx: any, node: any, isCol: boolean): num
 	if type(declared) == "number" then
 		return declared
 	end
-	if declared ~= INTRINSIC then
+	if declared ~= nil and declared ~= INTRINSIC then
 		return nil
 	end
 	local widest = 0

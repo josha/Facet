@@ -937,6 +937,17 @@ from `minColumnWidth` against the available extent. `gap` spaces cells on both
 axes. Use it for uniform tiled layouts (icon grids, match-3 boards) where a
 stack's single axis is not enough.
 
+**Declaring neither is `minColumnWidth = "intrinsic"`** (ADAPT-L2, 2026-08-21): a
+grid told nothing lanes itself from the box it was actually offered, using the
+widest child's own measured extent as the lane minimum. It used to get ONE lane
+at every width — a column of cards down the left edge of a television — which is
+this library's recurring shape of an adaptive rule that is exported, correct and
+off by default. The default reaches `adaptive.columnsFor` through the same line
+the declared route reaches it through, so the ten-foot cap rides along and a
+1920px television gets FEWER lanes than a 1600px desktop. Authored always wins,
+both keys. A grid of only `fill` children has no intrinsic minimum to take and
+still gets one lane.
+
 `flow` is `"row"` (the default: cells wrap across the WIDTH and the lines advance
 DOWN — what this grid has always done) or `"column"` (cells wrap down the HEIGHT
 and the lines advance RIGHTWARD). It is CSS's `grid-auto-flow`, and it is one

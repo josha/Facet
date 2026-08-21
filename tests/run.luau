@@ -692,6 +692,11 @@ require("./adaptive_defaults.spec")
 	floor uses — so a television with no theme package installed measures capped
 	lanes and scaled metrics (ADAPT-L1) ]]
 require("./ten_foot_metrics.spec")
+--[[ ADAPT-1's shape one layer down (matrix-layout.md, wave LAYOUT-FIX): the
+	LAYOUT PRIMITIVES answer for themselves too. A Grid told nothing lanes itself
+	from the box it got, an AdaptiveStack told nothing either adapts or refuses,
+	and the default answer to overflow stops being "paint outside the box" ]]
+require("./layout_defaults.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

@@ -1511,12 +1511,20 @@ class("Grid", {
 			-- width under the active theme's font, recomputed every solve, so a
 			-- grid of labels re-columns itself on a theme swap instead of being
 			-- sized by a device-pixel guess that only suits one font.
+			--
+			-- ...AND IT IS THE DEFAULT (ADAPT-L2, 2026-08-21). Declaring neither
+			-- this nor `columns` used to mean ONE LANE at every width from a 390px
+			-- phone to a 1920px television. It now means this, which is the only
+			-- honest default available: a px minimum would be a guess about a font
+			-- and a lane count would be a guess about the box. See
+			-- `src/layout/grid.luau`'s `gridLaneMin`.
 			types = { "number", "string" },
 			enum = { "intrinsic" },
 			reactive = true,
 			dirty = { "measure" },
 			channel = "layout",
-			doc = 'derive the column count from this minimum cell width (px, or "intrinsic" for the widest child)',
+			doc = 'derive the column count from this minimum cell width (px, or "intrinsic" for the widest child '
+				.. "— the DEFAULT when neither this nor `columns` is declared)",
 		}),
 		itemSizing = p({
 			-- OPT-IN uniform cells (director ruling 2026-07-26). `natural` is the
