@@ -3540,11 +3540,42 @@ return {
 		-- `select:scenario=dense-scroll,rows=2000,seed=7,content=normal,theme=flat`
 		steps.select = function(_self: any, payload: string?)
 			local applied: { string } = {}
+			--[[ SHAPE FIRST, IN ITS OWN PASS, so a refusal leaves NOTHING applied. The
+				apply loop below writes each setting as it reads it, so validating
+				inline would refuse the third pair after the first two had already
+				landed — a caller told "no" and left holding half of what it asked
+				for. Two passes cost one extra walk of a string that is never longer
+				than a line. ]]
+			for pair in string.gmatch(payload or "", "[^,]+") do
+				if string.match(pair, "^%s*([%w_]+)%s*=%s*(.-)%s*$") == nil then
+					error(
+						`[perf lab] select: '{pair}' is not a \`key=value\` pair. Settings are `
+							.. "comma-separated `key=value` (`rows=2000,seed=1`); a `name:payload` "
+							.. "spelling is a STEP, not a setting — run it as one "
+							.. '(`step("cleanCapture", "on")`).',
+						0
+					)
+				end
+			end
 			for pair in string.gmatch(payload or "", "[^,]+") do
 				local key, value = string.match(pair, "^%s*([%w_]+)%s*=%s*(.-)%s*$")
-				if key == nil then
-					continue
-				end
+				--[[ AN UNPARSABLE PAIR IS REFUSED, NOT SKIPPED (T15 review).
+
+					This used to `continue`, and the silence was the defect. `select`
+					already refuses an unknown KEY by name — that care was undone one
+					line earlier by dropping anything that did not match `key=value` at
+					all, so a settings string with the wrong PUNCTUATION applied fewer
+					settings than it named and said nothing.
+
+					The shape that found it: `cleanCapture:on`. Clean capture is its own
+					STEP (`step("cleanCapture", "on")`), not a `select` key, and this
+					wave's own capture plan wrote it inside a settings string. Every row
+					of that plan would have been captured with the overlay still mounted
+					— a tree the Instance census counts and the frame pays for — and
+					every number compared against rows that did not have it. ]]
+				-- the shape pass above already refused anything unparsable; this is the
+				-- type checker's guard, not a second policy
+				assert(key ~= nil, "[perf lab] select: unreachable — the shape pass admitted a bad pair")
 				if key == "scenario" then
 					local w = WORKLOAD_BY_ID[value]
 					assert(

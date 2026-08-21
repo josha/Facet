@@ -63,14 +63,25 @@ the lazy-loading question is worth reopening.
 
 ## 3. The ordered capture list
 
-Each row: select, warm up, arm, drive, snapshot, export. `cleanCapture:on` for
-every row you intend to compare — a hidden overlay is still a mounted tree the
-census counts and the frame pays for.
+Each row: select, warm up, arm, drive, snapshot, export.
+
+**`cleanCapture` IS A STEP, NOT A SETTING**, and getting that wrong used to be
+silent. `steps.select` parses comma-separated `key=value` pairs; the first draft
+of this plan wrote `cleanCapture:on` inside the settings column, where the parser
+dropped it without a word — every row would have been captured with the overlay
+still mounted, which is a tree the Instance census counts and the frame pays for,
+while every row claimed otherwise. The parser now REFUSES an unparsable pair by
+name (T15 review), so the mistake cannot repeat silently. Run it on its own,
+before each row you intend to compare:
+
+```lua
+step("cleanCapture", "on")   -- NOT select("...,cleanCapture:on")
+```
 
 | # | workload | settings | warm-up | capture window | what the row is for |
 |---|---|---|---|---|---|
-| 1 | `idle-baseline` | `cleanCapture:on` | 60 frames | 60 frames idle | the floor. Every later number is read against it |
-| 2 | `dense-scroll` | `rows=2000,seed=1,content=normal,theme=flat,cleanCapture:on` | `pass:scrollSteady=30` | `pass:scrollSteady=60` | the principal workload, flat |
+| 1 | `idle-baseline` | `step("cleanCapture","on")` | 60 frames | 60 frames idle | the floor. Every later number is read against it |
+| 2 | `dense-scroll` | `rows=2000,seed=1,content=normal,theme=flat` + `step("cleanCapture","on")` | `pass:scrollSteady=30` | `pass:scrollSteady=60` | the principal workload, flat |
 | 3 | `dense-scroll-native` | same dataset, `impl=native` | `pass:scrollSteady=30` | `pass:scrollSteady=60` | the matched raw-Roblox reference. Exactly one implementation mounts |
 | 4 | `dense-scroll` | `theme=fantasy_ornate`, everything else identical | `pass:scrollSteady=30` | `pass:scrollSteady=60` | flat vs the most expensive shipped skin, same dataset and sequence |
 | 5 | `layout-style-churn` | default | `pass:preferenceSweep=1` | `pass:themeCost` | install / steady / teardown timed apart |
@@ -94,8 +105,26 @@ Read `step("counters")` at every row and put it beside the dump. What must hold:
 - `mountedRows` <= `windowBound`, always. A virtualized workload that mounts the
   whole collection fails the lab's own assertion at mount, so if you got this far
   it held — record it anyway, because the number is what makes the claim readable.
-- `render.solves` — **the counter this wave moved.** Rows 6, 8 and 10 should show
-  fewer solves than the 2026-08-15 captures for the same arm at the same n.
+- **the solve counters, and WHICH ONE depends on the row.** `counters().render`
+  exists only where the lab mounted the surface — the nine
+  `implementation = "facet"` / `"native"` rows. The eight workloads that mount
+  their own surface (`implementation = "none"`) have **no `render` block at all**,
+  and an earlier draft of this plan told you to read `render.solves` on six rows
+  where it is `nil` — including both rows that owe a re-capture. Read them from
+  the PASS DETAIL instead, which is where those workloads publish their own
+  arithmetic:
+
+  | row | where the solve/arrange counters are |
+  |---|---|
+  | 2, 3, 4, 5, 6, 11, 12, 13 | `counters().render` — `solves`, `partialSolves`, `lastArranged`, `lastMeasured`, `elided` |
+  | 7 `arrange-shapes` | pass detail: `arrangePerRep`, `measurePerRep`, `partialSolves`, `usPerArrangedNode` |
+  | 8 `edit-locality` | pass detail: `arrangePerEdit`, `measurePerEdit`, `partialSolvesPerEdit`, `mountPerEdit`, `lastSkipped` |
+  | 9 `host-move` | pass detail: `arrangePerRep`, `measurePerRep`, `commitPerRep`, `usPerLeaf` |
+  | 10 `variable-extents` | pass detail: `uniform.arrangePerGrow`, `uniformRepeat.arrangePerGrow`, `measuredRagged.arrangePerGrow` |
+  | 1 `idle-baseline` | neither, by design — it mounts nothing |
+
+  **Rows 8 and 10 are the two this wave changed**, so their per-edit and per-grow
+  arrange counts are what the before/after is read on.
 - `render.textMeasureBatches` — the text-measure batch count. Should be flat during
   a steady scroll.
 - `haptics` — `built`, `pooled`, `plays`, `coalesced`. **`built` must be flat across

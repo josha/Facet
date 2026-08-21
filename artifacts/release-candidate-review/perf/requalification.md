@@ -142,6 +142,15 @@ Recorded rather than attributed, because no single site owns it.
 | **UNMEASURED — no scene reaches them** | 14 | all four `virtual_grid` sites are now fixed regardless; the rest are `row_actions_root` ×2, `row_actions_trays` ×2, `progress_view` ×2, `table.luau:1815`, `virtual_list.luau:2446` and `:3485`, `environment.luau:508` |
 | **NOT A SITE** | 1 | `tokens/styling.luau:449` — `core:memo(` inside an error message |
 
+**THE TWO CONTESTED SITES HAVE AN OWNER AND A TRIGGER** (T15 review item 4; the
+director ruled on the lazy work in the same round). Owner: whoever next opens
+either file, because both are extraction-locked and the extraction is owed before
+any change of any size. Trigger: `virtual_list.luau:3234` rides the
+`virtual_list_hosted.luau` extraction its ledger row already names;
+`table.luau:1968` rides the next authorized change to `table.luau`, which this
+wave was explicitly forbidden. Neither is waiting on a decision — the fix is one
+argument in each and it is written down here — only on the lock.
+
 **The unmeasured 14 are a coverage finding, not a disposition.** No perf scene and
 no lab workload mounts a `VirtualGrid` or a `RowActions` tray, so a whole shipped
 control family is outside the measurement surface. The grid half of that was closed
@@ -304,104 +313,77 @@ The director's charge was to reduce Facet's memory requirements and ask whether
 the code can load pieces on demand. **The table of numbers is the deliverable that
 decides everything else**, so it is first.
 
-### Method
+### Method — and the correction the T15 review forced
 
-One subset per PROCESS (`require` is process-cached, so measuring two subsets in
-one VM measures the second against the first's leavings), nine repeats each,
-median reported. `gcinfo()` is the live-set probe and a REQUIRE is the one thing it
-reads honestly here: a required module is RETAINED, so the delta is live memory
-rather than garbage in flight. Floor is sampled after the harness and before the
-subject. Driver: `tools/lune/_probe_t15_mem_all.luau`.
+**The first version of this section was measured badly and its headline did not
+survive resampling.** It required one SUBSET per process, took a single `gcinfo()`
+immediately afterwards, and reported the median of nine. The review resampled the
+root row and found it **bimodal (2,574-2,816 KB)** — two collector phases, not two
+memory costs — and a difference read off one pair of such samples is a difference
+read off collector timing. Two things were wrong with it:
 
-### The table
+1. **the mark was taken without settling.** Lune has no forced collection, so a
+   `gcinfo()` taken the instant a require returns reports wherever the collector
+   happens to be. Every mark now follows an identical settle (allocate and drop a
+   fixed churn), which puts the collector in a comparable place for every arm.
+2. **subset arithmetic is not a deferral.** Requiring `controls/table` "alone with
+   its deps" charges it for the whole shared graph — blueprint, solver, renderer,
+   presenter — which `src/init.luau` loads anyway. That is what produced the
+   original 831 KB figure. The number that means anything is an A/B on the REAL
+   `src/init.luau`, one arm per file, which is what is reported below.
 
-| subset | live KB after require | share of root |
-|---|---|---|
-| **`require(Facet)` — the front door** | **2 797** | 100% |
-| the root MINUS the 19 composite controls | 1 966 | 70.3% |
-| …plus `ProgressView` only | 1 998 | 71.4% |
-| …plus the three Rascal Rally builds (`VirtualList`, `Table`, `ProgressView`) | 2 247 | 80.3% |
-| …plus `Table` only | 2 291 | 81.9% |
+Samples are still one process per run (`require` is process-cached). Arms are run
+INTERLEAVED, one sample each per round, so drift is shared; each arm's samples are
+then split into the two collector modes and compared LOW-MODE TO LOW-MODE, because
+comparing a settled sample against an unsettled one is the original mistake in a
+new place. Driver: `tools/lune/_probe_t15_lazy_all.luau`.
 
-**The whole saving is 831 KB (29.7%).** The biggest realistic subset — a game that
-builds three composites, which is what the one shipped consumer does — saves
-**550 KB (19.7%)**.
+### The measurement, n = 30 rounds per arm
 
-Inventory, each measured alone with its transitive deps:
+| arm | low mode | median KB | low-mode range | high mode (settle uncollected) |
+|---|---|---|---|---|
+| eager — today's `src/init.luau` | 19 of 30 | **2 763** | [2 666 .. 2 763] | 11 @ ~4 957 |
+| **shipped** — the four type-free entries deferred | 17 of 30 | **2 535** | [2 450 .. 2 535] | 13 @ ~4 832 |
+| ceiling — all nineteen deferred (types sacrificed) | 14 of 30 | **1 903** | [1 903 .. 1 904] | 16 @ ~4 181 |
 
-| module / group | live KB |
-|---|---|
-| `present/presenter` | 1 650 |
-| `render/renderer` | 1 018 |
-| `blueprint` | 832 |
-| `blueprint_schema` alone | 536 |
-| `layout/solver` | 638 |
-| `core/custom` + `env/environment` | 561 |
-| `themes/package` | 417 |
-| `themes/snapshot` | 299 |
-| `core/custom` alone | 53 |
-| `async/resources` | 53 |
-| `focus/focus_graph` | 38 |
-| `layout/text_metrics` | 27 |
-| `client/sensory_profile` | 23 |
-| `motion/classes`, `input/actions` | 23 each |
-| `input/spatial` | 19 |
-| `replication/adapters` | 17 |
-| `tokens/tokens` | 14 |
-| `themes/standard_icons` | 12 |
-| `controls/path_shapes` | 9 |
+**Mode-matched saving against the eager arm:**
 
-### What the measurement says, against what the brief guessed
+| arm | median saving | conservative range | require time (median) |
+|---|---|---|---|
+| **shipped (four deferred)** | **228 KB** | **[131 .. 313] KB** | 209 ms vs 227 ms |
+| ceiling (all nineteen) | 860 KB | [762 .. 860] KB | 157 ms vs 227 ms |
 
-The brief listed candidate seams "in measured-value order (do not assume this
-order)". Measured, the order is not close:
+The conservative range is worst-case against best-case across the two low modes,
+not a confidence interval: it is the range a resampler should expect to land in,
+which is the thing the first version of this section could not have said.
 
-| candidate | marginal cost ON TOP of the lazy floor | verdict |
-|---|---|---|
-| the 19 `Facet.Controls` entries | **831 KB** | the only one that pays |
-| `themes/package` | 0 KB | already pulled transitively by the floor |
-| `replication/adapters` | 11 KB | noise |
-| `input/spatial` | −15 KB (i.e. inside the ±15 KB run-to-run band) | noise |
-| `controls/path_shapes` | 7 KB | noise |
-| the whole drag/gesture family | 13 KB | noise |
-| theme packages beyond neutral | `fantasy_ornate`, the most ornate shipped package, is 68 KB and is NOT in the model at all (per-theme artifacts) | already deferred |
+### What shipped, and what the ceiling costs
 
-`themes/snapshot` (299 KB) cannot be deferred behind a namespace at all:
-`env/environment` requires it for `themeMetrics`. `blueprint_schema` (536 KB) is
-not a namespace boundary — it validates on every `UI.*` call, i.e. a hot path, which
-the brief's own rule excludes.
+Deferring **four** of the nineteen — `Chip`, `VirtualList`, `VirtualGrid`,
+`AsyncImage` — is worth **228 KB [131..313]** and costs no type at all, because
+those four already declare `spec: any` and therefore need nothing from their
+module at load. `Facet.preload()` force-loads them for a game that would rather
+pay at the loading screen.
 
-### The seam, the mechanism, and why it did not ship
+The other **632 KB** (860 minus 228) needs the fifteen entries that declare a real
+`Spec`, and **that is blocked on a language fact, now measured rather than
+assumed.** A module's exported types enter scope ONLY through a direct
+`local M = require(...)` binding. All four deferral spellings lose them —
+`type M = typeof(require(x))`, `local M = (nil :: any) :: typeof(require(x))`,
+`local M: typeof(require(x)) = (nil :: any)`, and
+`local M = if false then require(x) else (nil :: any)` — each answering
+`TypeError: Unknown type 'M.Spec'` under the pinned analyzer. So deferring those
+fifteen means widening their parameters to `any`, which is exactly the argument
+checking ADR-0037 exists to have bought, and `tools/check_types.py` now refuses
+it: the ceiling arm above runs green in the Luau suite and fails the type check
+naming all fifteen lost signatures.
 
-The mechanism works and its runtime half is proved. In Luau,
-
-```lua
-type TableModule = typeof(require("@self/controls/table"))
-```
-
-costs **0 KB and does not load the module** (measured), while
-`TableModule.Spec` remains available as a type. So each of the 19 `Facet.Controls`
-closures could keep its exact typed signature and move the `require` into its own
-body, with `require`'s own cache as the memoizer and the load happening at the
-control's first construction — a construction seam, never per frame. `src/init.luau`
-is the only file that would change; **no locked or off-limits file is involved.**
-
-**It is CONTESTED, on one thing: there is no instrument in this repository that
-can see the type half.** No Luau analyzer is in the toolchain — `rokit.toml` pins
-Rojo and nothing else, `luau-analyze` and `luau-lsp` are absent, and none of the 28
-gate rows typechecks. The entire justification for the idiom is "the nineteen typed
-signatures survive", and shipping a change whose only claim is one no check can
-falsify is the class this repository refuses. The runtime contracts would all be
-provable (the public-surface dump force-loads before dumping; `check_registration`
-/ `check_boundary` / `check_docs` force-load before walking; the deprecation ledger
-is untouched; `require`'s cache is process-level by design and two cores in one VM
-share it, which is what makes it a correct memoizer). The type contract would not be.
-
-**What unblocks it:** one gate row running a Luau analyzer over `src/`, which the
-repository should arguably have regardless — it is the only public contract with no
-mechanical guard at all. With that row, this is a one-file change worth 831 KB
-(29.7%) at require time, and `Facet.preload()` — one line, force-loading everything
-for the loading-screen moment — ships beside it.
+**The route to the remaining 632 KB** is therefore to move the fifteen `export
+type Spec` declarations into a module that costs nothing to load, so
+`src/init.luau` can keep a direct binding to the TYPES while the implementation
+stays deferred. That touches `table.luau` (off-limits this wave),
+`virtual_list.luau` and `row_actions.luau` (extraction-locked) plus twelve others,
+so it is a scoped follow-up rather than a change to `src/init.luau`.
 
 ### The honest caveats
 
@@ -441,9 +423,13 @@ as "the require graph is free". Three spec cases, two mutations proved to bite.
    that were fixed, they measure as real re-dirty work, and each is one argument
    long. `virtual_list.luau` is 7,813 characters from the write cap with its
    ledger trigger already fired; `table.luau` was off-limits to this wave.
-3. **The public type surface has no mechanical guard.** No analyzer, no gate row.
-   It blocked an 831 KB memory win in this wave and it will block the next thing
-   that depends on a type claim.
+3. **CLOSED IN THIS WAVE.** The public type surface had no mechanical guard at
+   all — no analyzer, no gate row — which is how an unverifiable claim about
+   `typeof(require(...))` reached a director ruling before anything could test
+   it. `luau-lsp` 1.69.0 is pinned in `rokit.toml` and `tools/check_types.py`
+   runs inside the `naming-adr-implemented` gate row. It earned its keep on the
+   first run: it falsified that idiom, and it is what refuses the remaining
+   632 KB until the fifteen spec types move.
 4. **The built place carries no stamp a reader can compare.** It was three days
    stale when this wave opened and only a rebuild revealed it. A `Facet_SourceStamp`
    attribute is already read by the capture facts; nothing writes it at build time.

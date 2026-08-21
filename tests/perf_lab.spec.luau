@@ -588,6 +588,43 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		built.dispose()
 	end)
 
+	it("a settings pair that is not `key=value` is REFUSED, not silently dropped", function()
+		--[[ THE SILENT-DROP CLASS (T15 review). `select` refuses an unknown KEY by
+			name, and that care was undone one line earlier: anything not matching
+			`key=value` was skipped without a word, so a settings string with the
+			wrong punctuation applied fewer settings than it named.
+
+			The shape that found it is the one asserted first. Clean capture is a
+			STEP, not a setting, and a capture plan that wrote `cleanCapture:on`
+			inside a settings string would have run every row with the overlay still
+			mounted — a tree the census counts and the frame pays for — while every
+			row claimed otherwise. The refusal names the offending text AND the
+			spelling that would have worked, because "invalid" alone would leave the
+			reader exactly where the silence did. ]]
+		local built = newHarness()
+		local ok1, err1 = pcall(function()
+			built.steps.select(nil, "rows=200,cleanCapture:on")
+		end)
+		expect(ok1).toBe(false)
+		expect(string.find(tostring(err1), "cleanCapture:on", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err1), "is a STEP", 1, true) ~= nil).toBe(true)
+
+		-- ...and the settings BEFORE the bad pair are not quietly kept either: the
+		-- call failed, so the caller must not be left with half of what it asked for
+		expect(built.steps.counters().settings.rows ~= 200).toBe(true)
+
+		-- a bare word with no `=` at all is the same refusal
+		local ok2 = pcall(function()
+			built.steps.select(nil, "turbo")
+		end)
+		expect(ok2).toBe(false)
+
+		-- and the legal spelling still works, so this is a refusal and not a wall
+		built.steps.select(nil, "rows=200,seed=3")
+		expect(built.steps.counters().settings.rows).toBe(200)
+		built.dispose()
+	end)
+
 	it("an unknown scenario and an unknown setting are both refused by name", function()
 		local built = newHarness()
 		local ok1, err1 = pcall(function()

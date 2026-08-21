@@ -35,6 +35,8 @@ local SUBSETS = {
 	"text-metrics",
 	"blueprint-schema-only",
 	"root-lazy-floor",
+	"root-eager-all19",
+	"root-defer-untyped4",
 	"lazy-floor-no-themepackage",
 	"lazy-floor-no-replication",
 	"lazy-floor-no-spatial",
