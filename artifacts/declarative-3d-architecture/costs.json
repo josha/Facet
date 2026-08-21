@@ -1,0 +1,69 @@
+{
+  "schema": "d3spike-costs/2",
+  "date": "2026-08-13",
+  "caveat": "desktop Studio Play Solo. Adapter-call COUNTS are the portable evidence (they are what the reactive layer causes at any device tier); wall-clock numbers are desktop-only context and are NOT a production performance claim. Device/performance proof is future evidence the ADR demands before production use.",
+  "provenance": "counts and timings are taken from the runner-emitted cost rows and probe details preserved verbatim in studio-raw-server.json / studio-raw-client.json (post-review session, 2026-08-13); this file arranges them per scenario and adds no numbers of its own beyond the stated derivations",
+  "rows": [
+    {
+      "name": "mount-100-item-keyed-collection",
+      "status": "MEASURED",
+      "instances_created": 101,
+      "adapter_prop_writes": 400,
+      "adapter_transform_writes": 101,
+      "adapter_connections": 0,
+      "wall_clock_seconds_desktop": 0.0025,
+      "detail": "1 Model + 100 Parts; 4 prop writes per part (shape/size/color/anchored) + 1 transform write per instance; zero connections — the reactive layer holds core observers, not Instance connections. The tree is built DETACHED and parented once by attach() (parent-last, official replication guidance), stamped before it ever replicates."
+    },
+    {
+      "name": "single-reactive-update",
+      "status": "MEASURED",
+      "adapter_prop_writes": 1,
+      "adapter_transform_writes": 0,
+      "wall_clock_seconds_desktop": 0.0000107,
+      "detail": "one hue signal set among 100 live items -> exactly one Color write through the adapter (~11 microseconds desktop, mount-graph of ~200 memos/observers live). Count-equality claims like this one are per-signal: cross-signal notify order inside one flush is unspecified (runtime review finding 3)"
+    },
+    {
+      "name": "keyed-remove-10-of-100",
+      "status": "MEASURED",
+      "instances_destroyed": 10,
+      "instances_created": 0,
+      "detail": "survivor Instance identity held (same refs before/after); removed items' scope-owned per-item resources die with them (runtime review finding 2 pattern, pinned headless by case 17)"
+    },
+    {
+      "name": "keyed-reorder-full-reversal",
+      "status": "MEASURED",
+      "instances_created": 0,
+      "instances_destroyed": 0,
+      "adapter_transform_writes": 0,
+      "detail": "identity-keyed placement makes reorder zero-churn BY CONSTRUCTION (placement derives from a per-item field, so array order cannot move anything — the live probe proves identity, not transform economy); order-derived placement writing only CHANGED transforms is exercised headlessly (spike-headless.txt case 8)"
+    },
+    {
+      "name": "welded-assembly-move-20-parts",
+      "status": "MEASURED",
+      "adapter_transform_writes": 1,
+      "adapter_pivot_writes": 0,
+      "instance_budget_note": "the 20-part welded assembly is 39 adapter-created instances (20 Parts + 19 WeldConstraints) — welds are counted in creates/liveInstances since the review round (platform finding 6); the weld idiom's instance budget is ~2x the part count",
+      "detail": "one Luau CFrame write on the root; the engine moved all 19 welded children (engine-truth verified by child Position delta)"
+    },
+    {
+      "name": "model-pivot-move-11-instances",
+      "status": "MEASURED",
+      "adapter_pivot_writes": 1,
+      "adapter_transform_writes": 0,
+      "detail": "one PivotTo; 10 anchored descendants moved natively (engine-truth verified). PivotTo is a LUAU-CALL-COUNT win only: the engine writes every descendant CFrame, and a server-side PivotTo on an N-part model replicates N CFrame changes (platform finding 8) — the ADR carries this framing"
+    },
+    {
+      "name": "client-mount-small-tree",
+      "status": "MEASURED",
+      "wall_clock_seconds_desktop": 0.00019,
+      "detail": "2-instance client-local decoration mount on the frame-throttled MCP client"
+    },
+    {
+      "name": "teardown",
+      "status": "MEASURED",
+      "live_instances_after": 0,
+      "live_connections_after": 0,
+      "detail": "controller.dispose() on a 10-item churned ForEach whose build owns a per-item signal+memo (the leak-capable shape, per runtime review finding 2), with half the items removed and one part externally destroyed first: adapter liveInstances/liveConnections to 0, core counters (signals/memos/observers/effects/scopes) back to pre-mount baseline"
+    }
+  ]
+}

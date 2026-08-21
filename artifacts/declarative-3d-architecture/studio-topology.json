@@ -1,0 +1,35 @@
+{
+  "schema": "d3spike-studio/2",
+  "date": "2026-08-13",
+  "session": "LuauUI-Showcase.rbxl, Studio Play Solo (Server + Client datamodels), MCP-driven; spike modules injected into the play session via the documented HttpService fallback — the saved place was never modified. SECOND full session: the first session's results were superseded after the review round changed the spike (scope-owned build resources, convergence re-check, rigidity refusal, parent-last attach, recursive destroy bookkeeping, weld counting); every row below is from the post-review code.",
+  "provenance": "probe rows below are copied VERBATIM from the runner JSON returns, preserved untouched in studio-raw-server.json / studio-raw-client.json / studio-raw-cross.json (phase-gate review finding 3: raw output separate from editorial). All emitting code is checked in: spikes/declarative-3d/studio/runner_server.luau (run + crossCheck), runner_client.luau.",
+  "honesty": [
+    "streaming-like-loss/reentry SIMULATES streaming's instance lifecycle (local parent-to-nil and back on the client, driving the official CollectionService added/removed signals); the host place has StreamingEnabled=false, so a real StreamingEnabled device pass remains future evidence the ADR demands before production use",
+    "the whole session runs SignalBehavior=Default (=Immediate): a Deferred-mode replay is OWED, not covered — Workspace.SignalBehavior is not reflection-accessible from this Studio's scripting context (read and write both refused, attempted 2026-08-13), so the replay needs a place built with the property set. Under Deferred, handlers resume after the change and an out/in pair within one resumption cycle collapses to one state read for a state-derived belt (platform review finding 3)",
+    "Play Solo is one process; replication topology claims are limited to what it proves (server-created instances visible to the client, client-created instances invisible to the server). It cannot prove cross-client timing, replication ordering, or arrival races — the no-double-build probe WAITS for the server root to replicate before cross-mounting, so it proves the in-view refusal, not an ordering guarantee. Team Test races are future evidence",
+    "the MCP-driven client datamodel is frame-throttled and renders nothing; every probe reads sim/instance state, never rendered output",
+    "the double-construction defense proven here is a check-first BELT plus stamped identity; the structural rule is home-partitioned id namespaces (server code owns server-homed ids, client code client-homed), because under streaming 'not found' means unknown, not absent — see spikes/declarative-3d/studio/topology.luau header"
+  ],
+  "finding": "MEASURED during this stage's one debugging round, THEN SCOPED BY THE PLATFORM REVIEW: under this place's Immediate signal mode, CollectionService:GetInstanceRemovedSignal fires while the instance still READS as in-game (inside the handler, Parent was still Workspace and IsDescendantOf(game) was true) — documented Immediate-mode semantics, NOT a universal engine fact; under Deferred, handlers resume after the change. The task.defer re-read belt is safe under both modes because it always reads settled state; the Deferred replay itself is owed evidence. Recorded in spikes/declarative-3d/studio/runner_client.luau and the ADR.",
+  "probes": [
+    { "probe": "server-root-once", "status": "PASS", "detail": "first mount refused=false, second refused=true, stamped count=1" },
+    { "probe": "keyed-collection-mount", "status": "PASS", "detail": "creates=101 liveInstances=101 (expected 101: 1 model + 100 parts)" },
+    { "probe": "single-update-bounded", "status": "PASS", "detail": "propWrites delta=1, transformWrites delta=0" },
+    { "probe": "keyed-remove-survivors", "status": "PASS", "detail": "destroys delta=10, creates delta=0, survivor identity held=true" },
+    { "probe": "keyed-reorder-zero-churn", "status": "PASS", "detail": "creates/destroys/transformWrites deltas=0/0/0" },
+    { "probe": "assembly-move-one-write", "status": "PASS", "detail": "transformWrites delta=1, pivotWrites delta=0" },
+    { "probe": "assembly-welded-ride-engine-truth", "status": "PASS", "detail": "welded child moved 0, 0, 40 for a (0,0,40) root move — ride=true (anchored root + WeldConstraint + unanchored children)" },
+    { "probe": "model-pivot-one-native-move", "status": "PASS", "detail": "pivotWrites delta=1, per-part transform writes delta=0, descendant rode=true" },
+    { "probe": "anchor-created", "status": "PASS", "detail": "server D3Anchor part tagged and placed" },
+    { "probe": "external-destroy-tolerated", "status": "PASS", "detail": "controller.dispose() after an external engine Destroy of a materialized part: ok=true err=nil" },
+    { "probe": "destroy-cleanup", "status": "PASS", "detail": "liveInstances=0 liveConnections=0 stampedRoots=0 coreCountersAtBaseline=true (10-item churned ForEach with scope-owned per-item signal+memo, half removed, one part externally destroyed, then disposed)" },
+    { "probe": "client-root-once", "status": "PASS", "detail": "first refused=false, second refused=true, stamped count=1" },
+    { "probe": "no-double-build", "status": "PASS", "detail": "server root replicated=true, client re-declaration refused=true, stamped count=1" },
+    { "probe": "client-decoration-bound", "status": "PASS", "detail": "anchor replicated=true, decoration count=1, mounts=1" },
+    { "probe": "streaming-like-loss", "status": "PASS", "detail": "decoration disposed on removal=true, stamped count after loss=0" },
+    { "probe": "streaming-like-reentry", "status": "PASS", "detail": "remounted=true, stamped count=1, total mounts=2 (expected 2)" },
+    { "probe": "streaming-like-second-cycle", "status": "PASS", "detail": "stamped count=1, mounts=3 (expected 3), live decoration instances=2 (expected 2: model + ring)" },
+    { "probe": "client-root-invisible-to-server", "status": "PASS", "detail": "server-side stamped count for client roots: cli-deco=0, cli-anchor-deco=0 (expected 0 and 0 — client-created instances never replicate)" },
+    { "probe": "server-roots-alive-on-server", "status": "PASS", "detail": "srv-main=1, srv-collection=1" }
+  ]
+}
