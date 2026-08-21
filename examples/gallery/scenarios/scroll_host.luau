@@ -62,7 +62,9 @@ return {
 				UI.Button({
 					id = "Focus" .. i,
 					label = "Focusable " .. i,
-					height = { type = "fixed", px = 44 },
+					-- the theme's own touch floor rather than the 44 it happens to be, so
+					-- the row adapts at distance (wave TEN-FOOT, 2026-08-20)
+					height = { type = "fixed", px = "targetSizes.minimum" },
 					width = { type = "fill", weight = 1 },
 				})
 			)

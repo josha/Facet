@@ -157,13 +157,70 @@ describe("hit-expander overhang: the table divider's floor is reachable", functi
 	end)
 end)
 
+--[[ THE NON-TABLE CASE MOVED SURFACES ON 2026-08-20 (wave TEN-FOOT, ADAPT-8),
+	for the reason the table case moved on 2026-08-16 and recorded above: it was
+	borrowing a demo screen for a property the demo never promised. The case needs
+	a stack of controls whose DECLARED box is under the hit floor;
+	`keyboard_navigation`'s rows were that only because the fixture spelled its
+	height as a literal `36`, and the ten-foot ladder is exactly what made that
+	literal wrong (at distance the scaled button padding filled the row and the
+	label had nowhere to draw). The fixture now takes the theme's compact rung as
+	a FLOOR and hugs its label to 46px — correct for the demo, and no longer
+	sub-floor, so this case would have passed with an empty loop.
+
+	Declared here instead, at the size the rule is about, so the property under
+	test is the fixture's own contract rather than a demo's incidental geometry. ]]
+local function subFloorList(rows: number): any
+	local children = {}
+	for i = 1, rows do
+		table.insert(
+			children,
+			UI.Button({
+				id = `Row{i}`,
+				label = `Row {i}`,
+				-- UNDER the 44px floor on purpose: this is the population the
+				-- overhang rule governs
+				height = { type = "fixed", px = 28 },
+				width = { type = "fixed", px = 120 },
+			})
+		)
+	end
+	return UI.Screen({
+		id = "SubFloor",
+		padding = 8,
+		children = { UI.VStack({ id = "List", gap = 0, children = children }) },
+	})
+end
+
+local function mountScreen(screen: any, w: number, h: number): World
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+	local system = Facet.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local handle = pres.present(screen)
+	pres.refresh()
+	return {
+		core = core,
+		env = env,
+		adapter = adapter,
+		pres = pres,
+		built = {
+			dispose = function()
+				handle.dismiss()
+			end,
+		},
+	}
+end
+
 describe("hit-expander overhang: a NON-table expander carried the same defect", function()
 	it("every sub-floor row outranks the row its floor reaches into", function()
-		local w = mount(keyboardScenario, 900, 900)
+		local w = mountScreen(subFloorList(12), 900, 900)
 		local checked = 0
 		for i = 1, 11 do
-			local row = w.adapter.node(`/KbdNav/Body/List/Row{i}`)
-			local below = w.adapter.node(`/KbdNav/Body/List/Row{i + 1}`)
+			local row = w.adapter.node(`/SubFloor/List/Row{i}`)
+			local below = w.adapter.node(`/SubFloor/List/Row{i + 1}`)
 			if row ~= nil and below ~= nil and row.hitRect ~= nil then
 				expect(`row{i}reaches:{overlaps(row.hitRect, below.rect)}`).toBe(`row{i}reaches:true`)
 				expect(`row{i}above:{row.z - 1 > below.z}`).toBe(`row{i}above:true`)
@@ -172,6 +229,30 @@ describe("hit-expander overhang: a NON-table expander carried the same defect", 
 		end
 		-- a fixture that stopped mounting its list would otherwise pass with an
 		-- empty loop
+		expect(`checked:{checked}`).toBe("checked:11")
+	end)
+
+	--[[ …AND AT TEN-FOOT THE SAME ROWS RANK BY THE SAME RULE AGAINST THE BIGGER
+		FLOOR (wave TEN-FOOT). The expander machinery reads the EFFECTIVE floor —
+		`layout_node.effectiveHitFloor` over `metrics.targetSizes.minimum` — so
+		there is one owner of the number and the overhang rule follows it up the
+		ladder without knowing the ladder exists. ]]
+	it("…and the rule holds against the ten-foot floor, on the same tree", function()
+		local w = mountScreen(subFloorList(12), 1920, 1080)
+		w.env:set("displaySize", "Large")
+		w.pres.refresh()
+		local first = w.adapter.node("/SubFloor/List/Row1")
+		expect(first).never().toBeNil()
+		expect(`hit:{first.hitRect.w}x{first.hitRect.h}`).toBe("hit:120x66")
+		local checked = 0
+		for i = 1, 11 do
+			local row = w.adapter.node(`/SubFloor/List/Row{i}`)
+			local below = w.adapter.node(`/SubFloor/List/Row{i + 1}`)
+			if row ~= nil and below ~= nil and row.hitRect ~= nil then
+				expect(`row{i}above:{row.z - 1 > below.z}`).toBe(`row{i}above:true`)
+				checked += 1
+			end
+		end
 		expect(`checked:{checked}`).toBe("checked:11")
 	end)
 end)

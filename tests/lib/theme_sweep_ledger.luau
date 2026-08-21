@@ -497,7 +497,8 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 52,
 		since = 0,
-		packages = "fantasy-ornate,glossy-touch,pixel-quest",
+		-- WIDENED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the 52px demo button is DELIBERATELY narrower than its label, and at ten-foot the scaled button padding (12 -> 18, twice) plus Compact Pointer's own 16px frame comes to exactly 52 — so two more packages now notice a yield the other three already reported. The art itself does not scale (see snapshot.densityClassOf), so this is the padding half, and the fixture keeps its literal on purpose: spending targetSizes.minimum here was measured WORSE (fantasy-parchment stopped fitting on a compact phone).
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
 	},
 	{
@@ -507,7 +508,8 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 52,
 		since = 0,
-		packages = "fantasy-ornate,glossy-touch,pixel-quest",
+		-- WIDENED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the 52px demo button is DELIBERATELY narrower than its label, and at ten-foot the scaled button padding (12 -> 18, twice) plus Compact Pointer's own 16px frame comes to exactly 52 — so two more packages now notice a yield the other three already reported. The art itself does not scale (see snapshot.densityClassOf), so this is the padding half, and the fixture keeps its literal on purpose: spending targetSizes.minimum here was measured WORSE (fantasy-parchment stopped fitting on a compact phone).
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
 	},
 	{
@@ -525,7 +527,8 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/DropLab/Main/ListZone/Rows/Canvas/W/[*]/Row/Card",
 		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 48,
+		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the hosted row's content scales with the ladder (66px slot, 72px content under Fantasy Ornate) while the art frame it must clear does not — the same 6px shortfall the near pass records at 48.
+		px = 72,
 		since = 0,
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
 		kind = "lying-itemExtent",
@@ -575,7 +578,8 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Glade/Shell/Middle/Panes/Section/Sections/Section_glades/then/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 44,
+		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
+		px = 68,
 		since = 0,
 		packages = "glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
@@ -705,7 +709,8 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/ScrollHost/FocusList/Focus*",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 44,
+		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the row's box now follows the theme's own touch floor (the fixture stopped spelling it as a 44), so at ten-foot under Pixel Quest it is 68 rather than 44. The px column records the BOX, not the shortfall, and the shortfall got SMALLER: 44 - 24 = 20px of room for a 32px frame at near, 68 - 40 = 28px at distance.
+		px = 68,
 		since = 0,
 		packages = "fantasy-ornate,pixel-quest",
 		kind = "theme-inset-yield",
@@ -759,16 +764,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
-	},
-	{
-		surface = "keyboard_navigation",
-		variant = "-",
-		node = "/KbdNav/Body/List/Row*",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 36,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
 	},
 	{
 		surface = "05_word_game",

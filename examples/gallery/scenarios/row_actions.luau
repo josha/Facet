@@ -581,7 +581,19 @@ return {
 			below, i.e. "the list is never shorter than one row" — and as the estimate an
 			unmeasured row starts at. ]]
 		local ROW_HEIGHT = 84
-		local VLIST_GAP = 8 -- VListPane's own "s" gap, between the hint and the list
+		--[[ VListPane's own `"s"` gap, between the hint and the list — READ FROM THE
+			LIVE SNAPSHOT, not copied as an 8 (wave TEN-FOOT, 2026-08-20). This was a
+			literal, and a literal copy of a theme metric is wrong the moment the
+			theme moves: at ten-foot `space.s` scales 8 -> 12, the window this
+			subtracts from was 4px too tall, and the list painted 4px past its own
+			pane on every console pass. The same class as the `336` window this file
+			already fixed above — "a constant that does not adapt is a constant that
+			is wrong on some real device". ]]
+		local function vlistGap(): number
+			local snap: any = ctx.env:get("themeMetrics"):get()
+			local step = if type(snap) == "table" and type(snap.space) == "table" then snap.space.s else nil
+			return if type(step) == "number" then step else 8
+		end
 		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
 		local vlistWindow = core:signal(336)
 
@@ -800,7 +812,7 @@ return {
 						return
 					end
 					local hint = rectOf(VLIST_PANE .. "/VListHint")
-					local spent = if hint ~= nil and type(hint.h) == "number" then hint.h + VLIST_GAP else 0
+					local spent = if hint ~= nil and type(hint.h) == "number" then hint.h + vlistGap() else 0
 					--[[ THE PANE IS THE WINDOW, WITH NO ROW-SIZED FLOOR UNDER IT.
 						This read `math.max(ROW_HEIGHT, …)` — "one row is the floor: a
 						one-row list is small, and it is ON SCREEN, which is the whole

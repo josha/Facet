@@ -65,7 +65,18 @@ return {
 		for i = 1, 12 do
 			table.insert(
 				rows,
-				UI.Button({ id = "Row" .. i, label = "Row " .. i, height = { type = "fixed", px = 36 } })
+				UI.Button({
+					id = "Row" .. i,
+					label = "Row " .. i,
+					--[[ A FLOOR, NOT A BOX (wave TEN-FOOT, 2026-08-20). This was a
+						literal `fixed 36`, which is Studio Neutral's compact rung spelled
+						as a number — so it neither followed a denser package down nor the
+						ten-foot ladder up, and at distance the scaled button padding
+						(12 -> 18, twice) filled the 36px row exactly and left the label
+						nowhere to draw. A row is "at least a compact control, and taller
+						if its own label needs it", which is what this says. ]]
+					height = { type = "minMax", min = "controlSizes.compact.height" },
+				})
 			)
 		end
 

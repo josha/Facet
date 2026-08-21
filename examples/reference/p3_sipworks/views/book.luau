@@ -357,7 +357,7 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 			}),
 			UI.Toggle({
 				id = "Got-" .. botanical.id,
-				width = metrics.fixed(metrics.gatherToggle),
+				width = metrics.fixed(metrics.gatherToggleAt(app)),
 				label = own(core:memo(function(use)
 					return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
 				end)),

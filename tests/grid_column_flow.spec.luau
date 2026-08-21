@@ -227,10 +227,15 @@ describe("UI.Grid column flow — the transpose of the one arithmetic", function
 		one the theme snapshot already carries (`density`, resolved from the display
 		class), so the two cannot diverge again.
 
-		The instrument is a snapshot resolved WITH the display fact, because that is
-		what a live client has (`theme_controller` passes `displaySize` on every
-		resolve); the neutral default carries no facts and reads `near`, which is
-		what makes the near-distance arm below a real control rather than a repeat. ]]
+		THE INSTRUMENT IS THE DISPLAY FACT ITSELF, re-pinned by wave TEN-FOOT
+		(ADAPT-8/ADAPT-L1, 2026-08-20). It used to be a snapshot resolved with
+		`displaySize = "Large"` and NO environment fact — which was the audit's own
+		finding one level down: the snapshot's recorded `density` was the only
+		channel, so this case passed while every real television, presented through
+		`Facet.newPresenter` with no theme controller, measured the NEAR lane count.
+		The distance policy is now applied at the environment's metric memo, so the
+		fact is what the case drives and the snapshot follows it. The near arm is
+		still a real control: the same tree, the same package, one fact different. ]]
 	it("ADAPT-23: a ten-foot grid gets FEWER lanes than the same grid at near distance", function()
 		local themeSnapshot = require("../src/themes/snapshot")
 		local package = themeSnapshot.neutralPackage()
@@ -239,14 +244,8 @@ describe("UI.Grid column flow — the transpose of the one arithmetic", function
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			env:set(
-				"themeMetrics",
-				themeSnapshot.resolve(
-					package,
-					nil,
-					{ displaySize = if density == "ten-foot" then "Large" else "Medium" }
-				)
-			)
+			env:set("displaySize", if density == "ten-foot" then "Large" else "Medium")
+			env:set("themeMetrics", themeSnapshot.resolve(package, nil, {}))
 			local children = {}
 			for i = 1, 12 do
 				table.insert(children, UI.Box({ id = "c" .. i, width = FIXED(20), height = FIXED(20) }))

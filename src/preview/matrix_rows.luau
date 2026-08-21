@@ -126,9 +126,20 @@ matrix_rows.ROWS = {
 		role = "console form at 1920×1080 (or the closest built-in preset) on a television-density panel",
 		orientation = "Default",
 		risk = "ten-foot sizing, focus visibility, and large-view composition",
-		-- the row is worth running only if the session really enters the
-		-- ten-foot presentation: Large display class is what drives the ×1.5 type
-		-- floor, the overscan margins and the strengthened focus visual
+		--[[ the row is worth running only if the session really enters the
+			ten-foot presentation: Large display class is what drives the ×1.5 type
+			floor, the ×1.5 METRIC ladder (ADAPT-8, director ruling 2026-08-20 —
+			control heights, spacing, icon sizes and the hit floor scale with the
+			type, so every text-to-control proportion at three metres equals its
+			near proportion), the overscan margins and the strengthened focus
+			visual.
+
+			WHAT THIS ROW'S CAPTURES ARE RE-BASELINED AGAINST (wave TEN-FOOT):
+			every console-row geometry pinned before 2026-08-20 was measured with
+			the metric ladder at 1.0, so a stored capture from that era is a
+			DIFFERENT layout, not a regression — the type is the same and the
+			chrome around it is half again as large. The floor a reviewer checks
+			at arm's length is 66 px, not 44. ]]
 		requires = { form = "Console", maxDpi = TV_MAX_DPI, displaySize = "Large" },
 		cannotProve = {
 			"gamepad DELIVERY, platform arbitration, or Button A contention (E4)",

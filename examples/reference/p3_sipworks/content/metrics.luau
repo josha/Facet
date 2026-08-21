@@ -81,6 +81,28 @@ metrics.wispCount = 8
 metrics.wispSize = 18
 metrics.wispTravel = 0.16 -- a fraction of the backdrop's height
 
+--[[ …AND IT FOLLOWS THE TEN-FOOT LADDER (wave TEN-FOOT, ADAPT-8, 2026-08-20).
+	The band is a cap on a CONTROL, and at ten-foot the control inside it grew:
+	`controls.toggle.trackWidth` and `trackInset` scale with the rest of the metric
+	ladder, so the toggle's own chrome reserved 108px of a 96px column and the
+	gathered label had exactly nothing to draw in — measured by the solver on all
+	four ten-foot rows of `tests/reference/sipworks_spec`.
+
+	`metricScale` is the factor the snapshot publishes for precisely this: a
+	consumer that must PREDICT geometry rather than resolve a metric name. (A name
+	would be better — a dim's `px` takes one and re-resolves it every solve — but
+	no single theme metric means "this band", and 96 is the sum of three.) The
+	near answer is byte-identical, because the factor is 1 at every near display. ]]
+function metrics.gatherToggleAt(app: any): number
+	local env = if type(app) == "table" then app.env else nil
+	if env == nil then
+		return metrics.gatherToggle
+	end
+	local snap: any = env:get("themeMetrics"):get()
+	local scale = if type(snap) == "table" and type(snap.metricScale) == "number" then snap.metricScale else 1
+	return metrics.gatherToggle * scale
+end
+
 function metrics.fixed(px: number): { [string]: any }
 	return { type = "fixed", px = px }
 end

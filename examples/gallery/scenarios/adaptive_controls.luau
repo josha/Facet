@@ -353,6 +353,13 @@ return {
 		-- row instead would have removed the only fixture that exercises it — and
 		-- there is no width that works either way, because four skinned buttons and
 		-- their gaps are 242px of pure border under Pixel Quest on a 288px phone.
+		--[[ DELIBERATELY NARROWER THAN THE LABEL NEEDS — that is the demonstration,
+			and it is why this stays a literal (wave TEN-FOOT, 2026-08-20). Spending
+			`targetSizes.minimum` here was tried and measured WORSE: at 44 the
+			fantasy-parchment frame no longer fitted on a compact phone either, so a
+			metric name traded one recorded theme-inset yield for a wider one. A
+			too-narrow button is more too-narrow at three metres; the theme ledger
+			records which packages notice. ]]
 		local compactWidth = { type = "fixed", px = 52 }
 		--
 		-- It rides THIS scenario because the five-view device matrix already drives
