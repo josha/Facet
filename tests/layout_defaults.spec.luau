@@ -304,3 +304,220 @@ describe("ADAPT-L4 — AdaptiveStack refuses rather than silently not adapting",
 		scope:dispose()
 	end)
 end)
+
+--[[ ═══ ADAPT-L3 · the adaptive axis is a SCREEN fact, and the band where that bites ═══
+
+	CONTESTED, and this block is the measurement that makes the contest checkable
+	rather than a paragraph. `conditions.axis` is `adaptive.axisFor(viewportWidth)`
+	— the RAW window — so a stack inside anything that got less than the window can
+	be told "row" for space it does not have. Reproduced below with nothing exotic:
+	a `Screen` with the theme's own 24px page margin.
+
+	WHY THE TWO CANDIDATE FIXES ARE BOTH OUT OF THIS WAVE'S REACH, stated here so
+	the next reader does not re-derive it:
+
+	  (a) "make `contentWidth` subtract the insets and leave `viewportWidth` raw" is
+	      refused by the framework's own deprecation ledger — `src/init.luau`
+	      DEPRECATED `adaptive.conditions().contentWidth` at 0.8.0 with the
+	      replacement `viewportWidth` and the note "alias; the value never
+	      subtracted insets". Giving a removed-by-0.9.0 alias new meaning is the
+	      opposite of what that row promised. It also would not close the case
+	      below, which is PADDING rather than an inset.
+	  (b) "let the stack resolve its axis from the box the solver proposed" is the
+	      honest fix and it is not one file. The axis is currently a PROP, and
+	      `present/focus_map.luau:640-665` reads that prop LIVE to decide whether a
+	      pad navigates the stack left/right or up/down — the D5 defect that had
+	      every segmented picker navigating vertically. An offer-derived axis is
+	      known only inside the solve, so it needs the solver to publish the
+	      resolved axis per node AND the focus derivation to read the solved fact
+	      instead of the prop, which crosses solver, renderer and presenter — all
+	      three extraction-locked.
+
+	So the band stays, and it is guarded: the framework is not silent about it, and
+	the case below is the red one waiting for (b).
+]]
+describe("ADAPT-L3 — the axis is the SCREEN's width, and the solver says so", function()
+	local adaptive = require("../src/layout/adaptive")
+
+	local function padded(width: number): (any, any, any)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = width, h = 800 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local scope = core:scope("adapt-l3")
+		local conditions = (adaptive :: any).conditions(core, env, { scope = scope })
+		local kids = {}
+		for i = 1, 3 do
+			kids[i] = UI.Box({ id = "K" .. i, width = FIXED(200), height = FIXED(44) })
+		end
+		local screen = UI.Screen({
+			id = "S",
+			padding = "l",
+			children = {
+				UI.AdaptiveStack({
+					id = "Bar",
+					axis = conditions.axis,
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					children = kids,
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return adapter, controller, scope
+	end
+
+	local function overflowFinding(controller: any): string?
+		for _, d in controller.diagnostics() do
+			if string.find(d.issue, "content overflows", 1, true) ~= nil then
+				return d.issue
+			end
+		end
+		return nil
+	end
+
+	it("the band exists and is exactly the offer's, not the window's", function()
+		-- 560: the window is under the threshold, so it is a column and fits
+		local _, below, s1 = padded(560)
+		expect(overflowFinding(below)).toBeNil()
+		s1:dispose()
+		-- 600-640: the WINDOW cleared the threshold and the CONTAINER did not
+		for _, width in { 600, 610, 640 } do
+			local _, inside, s2 = padded(width)
+			expect(overflowFinding(inside) ~= nil).toBe(true)
+			s2:dispose()
+		end
+		-- 680: the container clears it too, and the band closes
+		local _, above, s3 = padded(680)
+		expect(overflowFinding(above)).toBeNil()
+		s3:dispose()
+	end)
+
+	it("...and it is NOT silent — the finding names the container, the amount and both fixes", function()
+		local _, controller, scope = padded(610)
+		local issue = overflowFinding(controller) :: string
+		local missing: { string } = {}
+		for _, phrase in { "hstack", "54px", "paint outside its box", "ScrollView", "give it room" } do
+			if string.find(issue, phrase, 1, true) == nil then
+				table.insert(missing, phrase)
+			end
+		end
+		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
+		scope:dispose()
+	end)
+
+	it("the fact itself is honest about what it is: `viewportWidth` IS the raw window", function()
+		-- the module's own V16 note, pinned: a decision keyed on this is keyed on
+		-- the WINDOW. `contentWidth` is its deprecated alias and is the same number.
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		env:set("displaySize", "Large")
+		local scope = core:scope("adapt-l3-fact")
+		local conditions = (adaptive :: any).conditions(core, env, { scope = scope })
+		-- 90px of overscan per side is reserved at ten-foot and this number ignores it
+		expect(conditions.viewportWidth:get()).toBe(1920)
+		expect(conditions.contentWidth:get()).toBe(1920)
+		scope:dispose()
+	end)
+end)
+
+--[[ ═══ ADAPT-L8 · a GridRow squeezed past its declared widths and said nothing ═══
+
+	Two containers in one primitive family with OPPOSITE failure modes, and the
+	silent one was winning. At 320px three cells each declaring `width = fixed(200)`
+	came out 101px wide with ZERO solver findings (cell B-4, measured 200 -> 181 ->
+	148 -> 124 -> 101 across 1024/560/460/390/320), while the `UI.HStack` twin at
+	the same widths files a named finding every time.
+
+	The squeeze itself is RIGHT and stays: a row grid's naturals that do not fit
+	would paint outside the box, and reducing them proportionally is the same clamp
+	the flow grid makes one level up. What was wrong is that a declared `fixed(200)`
+	silently became 101 — the audit's own minimum was "at minimum the finding an
+	HStack files at the same width", and that is what this is.
+
+	ONE OWNER, as everywhere in this file: the squeeze is computed in
+	`gridColumnPlan`, which is the single function measure and arrange both read, so
+	the finding reports the plan's own number rather than a second arithmetic that
+	agrees today.
+]]
+describe("ADAPT-L8 — a row grid says when it squeezed its columns", function()
+	local function rowGrid(width: number): (any, any)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = width, h = 800 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local cells = {}
+		for i = 1, 3 do
+			cells[i] = UI.Text({ id = "C" .. i, text = "Cell " .. i, width = FIXED(200), height = FIXED(24) })
+		end
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Grid({
+					id = "G",
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					children = { UI.GridRow({ id = "Row", children = cells }) },
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return adapter, controller
+	end
+
+	local function squeezeFinding(controller: any): string?
+		for _, d in controller.diagnostics() do
+			if string.find(d.issue, "squeezed its columns", 1, true) ~= nil then
+				return d.issue
+			end
+		end
+		return nil
+	end
+
+	it("a squeeze is REPORTED, at every width the audit measured one", function()
+		-- 1024 and 700 hold the three 200px cells whole: no squeeze, no finding
+		for _, width in { 1024, 700 } do
+			local adapter, controller = rowGrid(width)
+			expect(adapter.node("/S/G/Row/C1").rect.w).toBe(200)
+			expect(squeezeFinding(controller)).toBeNil()
+		end
+		-- ...and below that the columns give, which is right, and is now said
+		for _, width in { 560, 460, 390, 320 } do
+			local adapter, controller = rowGrid(width)
+			expect(adapter.node("/S/G/Row/C1").rect.w).toBeLessThan(200)
+			expect(squeezeFinding(controller) ~= nil).toBe(true)
+		end
+	end)
+
+	it("...and the finding names the amount, the room, and the three ways out", function()
+		local _, controller = rowGrid(320)
+		local issue = squeezeFinding(controller) :: string
+		local missing: { string } = {}
+		-- 600px of naturals against 304px of room after two 8px gaps
+		for _, phrase in { "600px", "304px", "ScrollView", "give the grid room", "fewer columns" } do
+			if string.find(issue, phrase, 1, true) == nil then
+				table.insert(missing, phrase)
+			end
+		end
+		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
+	end)
+
+	it("THE GEOMETRY DID NOT MOVE: the squeeze is still the squeeze", function()
+		-- the clamp is right and this wave did not touch it — only the silence.
+		-- These are the audit's own measured numbers, so a "fix" that re-laid the
+		-- row out would fail here rather than pass quietly
+		local widths: { number } = {}
+		for _, vp in { 1024, 560, 460, 390, 320 } do
+			local adapter = rowGrid(vp)
+			table.insert(widths, adapter.node("/S/G/Row/C1").rect.w)
+		end
+		expect(table.concat(widths, ",")).toBe("200,181,148,124,101")
+	end)
+end)

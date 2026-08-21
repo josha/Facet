@@ -282,7 +282,7 @@ describe("row mode: a span covers columns, and widens none of them", function()
 end)
 
 describe("row mode never paints outside the box it was given", function()
-	it("columns wider than the grid are reduced proportionally rather than overflowing", function()
+	it("columns wider than the grid are reduced proportionally — and the grid SAYS so", function()
 		local r = solve({
 			kind = "grid",
 			id = "G",
@@ -296,6 +296,38 @@ describe("row mode never paints outside the box it was given", function()
 		-- floored per column -> 126 and 63, which fits with the gap
 		expect(box(r, "a")).toBe("a: 0,0 126x20")
 		expect(box(r, "b")).toBe("b: 136,0 63x20")
+		--[[ ...AND IT IS NOT SILENT ANY MORE (ADAPT-L8, 2026-08-21). The GEOMETRY
+			above is unchanged and stays unchanged — the clamp is right. What changed
+			is that a cell declaring `fixed(200)` and drawn at 126 used to produce
+			ZERO findings while the `UI.HStack` twin at the same widths files one
+			every time; two containers in one family with opposite failure modes, and
+			the audit called the silent one the worse of the two in both directions.
+
+			IT IS NARROWED TO A DECLARED `fixed` WIDTH, deliberately: a column whose
+			natural came from CONTENT reflows honestly when it is narrowed, which the
+			audit measured separately (cell B-5) and called RIGHT. ]]
+		expect(issues(r)).toBe(
+			"G: this row grid squeezed its columns by 110px to fit: their natural widths total 300px against "
+				.. "190px of room, so a cell that declared a fixed width is NOT drawn at it (give the grid room, "
+				.. "wrap it in a ScrollView, or declare fewer columns)"
+		)
+	end)
+
+	it("...and a row of CONTENT-sized cells narrows in silence, because that is honest", function()
+		-- the null hypothesis for the finding above, and the audit's own B-5: text
+		-- given a narrower column wraps rather than losing a promise
+		local r = solve({
+			kind = "grid",
+			id = "G",
+			width = fixed(200),
+			gap = 10,
+			children = {
+				row("r1", {
+					{ kind = "text", id = "a", text = "Total time elapsed" },
+					{ kind = "text", id = "b", text = "Total time elapsed" },
+				}),
+			},
+		}, 400, 200)
 		expect(issues(r)).toBe("")
 	end)
 end)

@@ -579,6 +579,12 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 	end
 	local widths: { number } = {}
 	local cols = 0
+	-- ADAPT-L8: does ANY cell declare a rigid px width? A column whose natural came
+	-- from CONTENT reflows honestly when it is narrowed — the audit's cell B-5
+	-- measured exactly that and called it RIGHT — so only a declared `fixed` is a
+	-- promise the squeeze below can break. Collected in the loop that already
+	-- visits every cell, so it costs a comparison and no second walk.
+	local anyRigid = false
 	for _, row in node.children or {} do
 		local column = 1
 		for _, cell in row.children or {} do
@@ -588,6 +594,9 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 				local _, mr, _, ml = deps.sides(cell.margin)
 				local w = deps.measure(ctx, cell, innerW, innerH)
 				widths[column] = math.max(widths[column] or 0, w + ml + mr)
+				if deps.dim(cell, "w").type == "fixed" then
+					anyRigid = true
+				end
 			end
 			column += span
 		end
@@ -605,7 +614,23 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 	-- the width actually available. It is the same clamp the flow grid's own
 	-- `math.max(0, ...)` makes, one level up: the grid reports and paints a box it
 	-- fits inside, and the cells keep their relative widths.
+	--
+	-- ...AND IT SAYS SO NOW (ADAPT-L8, audit Part 2 cell B-4, 2026-08-21). The
+	-- clamp is right; the SILENCE was not. Three cells each declaring
+	-- `width = fixed(200)` came out 101px wide at 320 with ZERO findings, while the
+	-- `UI.HStack` twin at the same widths files a named finding every time — two
+	-- containers in one primitive family with opposite failure modes, and the audit
+	-- called the silent one the worse of the two in both directions. A declared
+	-- fixed width that is not what gets drawn is exactly the class this library
+	-- files findings for.
+	--
+	-- THE PLAN CARRIES THE NUMBER rather than the arrange branch recomputing it:
+	-- this function is the ONE owner measure and arrange both read, so a second
+	-- copy of the arithmetic in the reporting path is the drift this file's whole
+	-- design exists to make unreachable. Arrange visits the grid once, which is
+	-- what makes "report it there" one message per solve.
 	local avail = innerW - gap * math.max(0, cols - 1)
+	local squeeze: { natural: number, room: number, by: number }? = nil
 	if innerW ~= math.huge and cols > 0 then
 		local total = 0
 		for i = 1, cols do
@@ -616,9 +641,12 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 			for i = 1, cols do
 				widths[i] = math.floor(widths[i] * scale)
 			end
+			if anyRigid then
+				squeeze = { natural = total, room = math.max(0, avail), by = total - math.max(0, avail) }
+			end
 		end
 	end
-	local value = { widths = widths, cols = cols, gap = gap }
+	local value = { widths = widths, cols = cols, gap = gap, squeeze = squeeze }
 	ctx.gridPlan[node.id] = { key = key, value = value }
 	return value
 end
@@ -825,6 +853,23 @@ function grid.arrange(
 		local rows = node.children or {}
 		local rowGap = gridRowGap(node)
 		local plan = gridColumnPlan(deps, ctx, node, innerW, innerH, gap)
+		-- ADAPT-L8: the columns gave, and a declared width that is not what gets
+		-- drawn is not something to find out from a screenshot. The number comes
+		-- off the plan (see `gridColumnPlan`), so there is no second arithmetic
+		-- here to drift from the one that did the squeezing.
+		if plan.squeeze ~= nil and ctx.hiddenDepth == 0 then
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = string.format(
+					"this row grid squeezed its columns by %dpx to fit: their natural widths total %dpx "
+						.. "against %dpx of room, so a cell that declared a fixed width is NOT drawn at it "
+						.. "(give the grid room, wrap it in a ScrollView, or declare fewer columns)",
+					plan.squeeze.by,
+					plan.squeeze.natural,
+					plan.squeeze.room
+				),
+			})
+		end
 		local y = innerY
 		for _, row in rows do
 			local rowH = gridRowHeight(deps, ctx, row, plan, innerH)
