@@ -216,6 +216,7 @@ replacement and their earliest removal version.
 | Capability | What it does | Reference |
 |---|---|---|
 | `newCore` | Creates the reactive runtime: signals, memos, effects, scopes. | [api](../reference/api.md#newcore) |
+| `preload` | Force-loads the four controls Facet defers, for the loading-screen moment. | [api](../reference/api.md#preload) |
 | `mount` | Turns a blueprint description into a live node graph. | [api](../reference/api.md#mount) |
 | `UI.When` | Shows one branch or the other, and disposes the branch it drops. | [api](../reference/api.md#when) |
 | `UI.ErrorBoundary` | Contains a failing subtree instead of losing the screen. | [api](../reference/api.md#errorboundary) |

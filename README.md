@@ -39,6 +39,22 @@ work, and the loop to prove a new check FAILS before you trust it. Neither
 `run_one` nor `--fast` can produce a suite verdict: only the argument-free run
 is green, and `tools/test.sh` refuses the other two transcripts.
 
+## Checking the types
+
+```sh
+python3 tools/check_types.py             # the public signatures still carry their types
+python3 tools/check_types.py --selftest  # ...and the check can still fail
+```
+
+Luau's own analyzer is pinned in `rokit.toml` (`luau-lsp`), so `rokit install`
+gets it. The check is deliberately narrow: it gates the diagnostics of two files
+— `src/init.luau` and the type witness in `tests/types/` — and ignores the rest
+of the require graph, which carries a few hundred pre-existing diagnostics that
+are somebody else's project. What it protects is the one contract no test can
+see: `Facet.Controls`'s nineteen entries still declare real spec types, so an
+author gets argument checking and not just a completion list. Run it after any
+change to `src/init.luau`.
+
 ## Checking the toolchain
 
 ```sh

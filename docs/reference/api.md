@@ -70,6 +70,29 @@ entries.
 
 ## Reactive core
 
+### `preload`
+
+`Facet.preload() -> number` — force-loads every module Facet defers, and returns
+how many it loaded. Call it once while a loading screen is up if you would rather
+pay the cost there than on the frame a player first opens a list.
+
+**You do not need this.** Four composite controls — `Chip`, `VirtualList`,
+`VirtualGrid` and `AsyncImage` — compile at their first construction rather than
+when you require Facet. Measured on the development host, mode-matched across 30
+paired samples: **228 KB** of Lua heap a game that builds none of them never
+pays. The load happens at a construction seam, never inside a frame's steady
+state, so scrolling and animation cannot trigger one. `preload` exists for the
+game that wants the cost accounted for at a moment of its own choosing.
+
+Calling it twice costs a table lookup: Luau's `require` cache is the memoizer.
+Calling it never is the supported default.
+
+```lua
+-- during your loading screen
+local loaded = Facet.preload()
+print(`Facet preloaded {loaded} deferred modules`)
+```
+
 ### `newCore`
 
 `Facet.newCore() -> Core` — creates an independent reactive core: the

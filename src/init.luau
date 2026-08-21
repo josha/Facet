@@ -22,10 +22,41 @@ local focusLib = require("@self/focus/focus_graph")
 	`require(...)` expressions, because `Facet.Controls` below has to name each
 	module twice — once for the closure that calls it and once for the spec type
 	that closure declares — and a namespace whose entries are typed `any` would
-	give the author the completion list and take the argument checking away. ]]
+	give the author the completion list and take the argument checking away.
+
+	FIFTEEN OF THEM ARE HERE AND FOUR ARE NOT, AND THE LINE BETWEEN THEM IS A
+	MEASURED ONE (wave T15, director's memory ruling 2026-08-21).
+
+	Requiring the whole framework retains ~2.80 MB of Lua heap, and the nineteen
+	composite controls are 831 KB of it — a game that never builds a Table pays
+	for one anyway. The obvious repair is to move each `require` into the closure
+	that needs it, with `require`'s own cache as the memoizer, so a control
+	compiles at its first construction and never before.
+
+	IT ONLY WORKS FOR FOUR OF THEM, AND THE REASON IS A LANGUAGE FACT THIS
+	REPOSITORY NOW HAS AN INSTRUMENT FOR. A module's EXPORTED TYPES enter scope
+	only through a direct `local M = require(...)` binding. Every deferral
+	spelling loses them — measured with the pinned analyzer, all four of
+	`type M = typeof(require(x))`, `local M = (nil :: any) :: typeof(require(x))`,
+	`local M: typeof(require(x)) = (nil :: any)` and
+	`local M = if false then require(x) else (nil :: any)` answer
+	`TypeError: Unknown type 'M.Spec'`. So for the fifteen entries that declare a
+	real `Spec`, deferring the require means widening the parameter to `any`,
+	which is precisely the argument checking ADR-0037 exists to have bought.
+
+	The four below already take `spec: any` — `Chip`, `VirtualList`, `VirtualGrid`
+	and `AsyncImage` were never given a published spec type — so they need nothing
+	from their module at load, and deferring them costs no type at all. Measured:
+	2,537 KB eager against 2,305 KB with these four deferred, i.e. **232 KB**, and
+	`tools/check_types.py` pins the set BOTH WAYS: an entry that loses its spec
+	type fails, and an entry that GAINS one fails too — which is the day the
+	require below has to come back to the top of this file, or the fifteen spec
+	types have to move to a module that costs nothing to load. That is the
+	remaining 599 KB and it is not a change to this file.
+
+	`Facet.preload()` at the bottom force-loads all four for a game that would
+	rather pay at the loading screen. ]]
 local tableControl = require("@self/controls/table")
-local virtualList = require("@self/controls/virtual_list")
-local virtualGrid = require("@self/controls/virtual_grid")
 local popupButton = require("@self/controls/popup_button")
 local menuControl = require("@self/controls/menu")
 local calloutControl = require("@self/controls/callout")
@@ -38,8 +69,6 @@ local pickerControl = require("@self/controls/picker")
 local tabView = require("@self/controls/tab_view")
 local disclosureGroup = require("@self/controls/disclosure_group")
 local textInput = require("@self/controls/text_input")
-local asyncImage = require("@self/controls/async_image")
-local chipControl = require("@self/controls/chip")
 local rowActions = require("@self/controls/row_actions")
 local levelPicker = require("@self/controls/level_picker")
 local asyncResources = require("@self/async/resources")
@@ -362,8 +391,10 @@ local Controls = table.freeze({
 	Label = function(core: any, spec: labelControl.Spec)
 		return labelControl.build(library, core, spec)
 	end,
+	-- DEFERRED (see the block header): this entry declares no spec type, so the
+	-- module is not needed until a Chip is actually built.
 	Chip = function(core: any, spec: any)
-		return chipControl.build(library, core, spec)
+		return require("@self/controls/chip").build(library, core, spec)
 	end,
 	Rating = function(core: any, spec: ratingControl.Spec)
 		return ratingControl.build(library, core, spec)
@@ -380,11 +411,15 @@ local Controls = table.freeze({
 	DisclosureGroup = function(core: any, spec: disclosureGroup.Spec)
 		return disclosureGroup.build(library, core, spec)
 	end,
+	-- DEFERRED (see the block header): this entry declares no spec type, so the
+	-- module is not needed until a VirtualList is actually built.
 	VirtualList = function(core: any, spec: any)
-		return virtualList.build(library, core, spec)
+		return require("@self/controls/virtual_list").build(library, core, spec)
 	end,
+	-- DEFERRED (see the block header): this entry declares no spec type, so the
+	-- module is not needed until a VirtualGrid is actually built.
 	VirtualGrid = function(core: any, spec: any)
-		return virtualGrid.build(library, core, spec)
+		return require("@self/controls/virtual_grid").build(library, core, spec)
 	end,
 	RowActions = function(core: any, spec: rowActions.Spec)
 		return rowActions.build(library, core, spec)
@@ -392,8 +427,10 @@ local Controls = table.freeze({
 	Callout = function(core: any, spec: calloutControl.Spec)
 		return calloutControl.build(library, core, spec)
 	end,
+	-- DEFERRED (see the block header): this entry declares no spec type, so the
+	-- module is not needed until an AsyncImage is actually built.
 	AsyncImage = function(core: any, spec: any)
-		return asyncImage.build(library, core, spec)
+		return require("@self/controls/async_image").build(library, core, spec)
 	end,
 })
 
@@ -406,6 +443,30 @@ local Facet = {
 		spec)`; the nineteen `new<Control>` builders below keep working and are
 		declared in DEPRECATIONS with `Facet.Controls.<Name>` as the replacement. ]]
 	Controls = Controls,
+
+	--[[ FORCE-LOAD EVERY DEFERRED MODULE, FOR THE LOADING-SCREEN MOMENT
+		(wave T15). Four composites compile at their first construction rather
+		than at `require` (see the Controls block header) — 232 KB of Lua heap a
+		game that builds none never pays. A game that would rather pay it while a
+		loading screen is up, instead of on the frame a player first opens a list,
+		calls this once and is done.
+
+		It is deliberately not clever: `require`'s own cache is the memoizer, so
+		calling it twice costs a table lookup, and calling it never is the
+		supported default. Returns the number of modules it loaded so a caller can
+		log the cost rather than guess at it. ]]
+	preload = function(): number
+		--[[ Written out rather than looped: Luau's require-by-string takes a
+			LITERAL, so a path in a loop variable is not requirable. Four lines is
+			also the honest length of this — the count below is the number of
+			deferred modules, and if a fifth is ever deferred both halves move
+			together in one edit. ]]
+		local _chip = require("@self/controls/chip")
+		local _list = require("@self/controls/virtual_list")
+		local _grid = require("@self/controls/virtual_grid")
+		local _image = require("@self/controls/async_image")
+		return 4
+	end,
 
 	-- deprecation ledger (ADR-0011): { surface, since, removeNoEarlierThan,
 	-- replacement, note? } per entry; a deprecated surface keeps working for
@@ -443,11 +504,15 @@ local Facet = {
 
 	-- composite controls (ADR-0007; VirtualList §10.5 first release)
 	newTable = tableControl.build,
-	newVirtualList = virtualList.build,
+	newVirtualList = function(lib: any, core: any, spec: any)
+		return require("@self/controls/virtual_list").build(lib, core, spec)
+	end,
 	-- the LAZY grid (parity §4.2.2): windows by LINE OF CELLS on the same
 	-- running-offset index `newVirtualList` uses, and mounts a real `UI.Grid` as
 	-- its band, so there is one column arithmetic in the framework and not two
-	newVirtualGrid = virtualGrid.build,
+	newVirtualGrid = function(lib: any, core: any, spec: any)
+		return require("@self/controls/virtual_grid").build(lib, core, spec)
+	end,
 
 	newPopupButton = popupButton.build,
 	-- ...and its sibling that is NOT a value picker: a menu of VERBS, attachable
@@ -503,7 +568,9 @@ local Facet = {
 	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
 
 	-- async image over the resource provider
-	newAsyncImage = asyncImage.build,
+	newAsyncImage = function(lib: any, core: any, spec: any)
+		return require("@self/controls/async_image").build(lib, core, spec)
+	end,
 	-- pure drag-session model + native touch-gesture normalization/arbitration
 	-- (corrections addendum §1/§2): framework policy over engine-owned motion
 	newDragSession = require("@self/input/drag_session").new,
@@ -533,7 +600,9 @@ local Facet = {
 	-- what they mean, and `spatial.isFlat(pos)` is true for every event Facet
 	-- produces today.
 	spatial = require("@self/input/spatial"),
-	newChip = chipControl.build,
+	newChip = function(lib: any, core: any, spec: any)
+		return require("@self/controls/chip").build(lib, core, spec)
+	end,
 	newRowActions = rowActions.build,
 	-- row-actions Task 7: at most one row open per shared list surface. A
 	-- VStack/ScrollView list creates its own and shares it across every

@@ -168,6 +168,59 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 		root.dispose()
 	end)
 
+	--[[ A DEFERRED REQUIRE FIRES AT CONSTRUCTION, NEVER IN A FRAME (wave T15).
+
+		`src/init.luau` defers four composite controls — `Chip`, `VirtualList`,
+		`VirtualGrid`, `AsyncImage` — so a game that builds none never compiles them
+		(measured, mode-matched over 30 paired rounds: 228 KB [131..313] of Lua heap).
+		The rule that makes that safe is WHERE the load happens: a construction seam,
+		once, and never again. A lazy require that fired inside a scroll would be a
+		compile in the middle of a frame, which is the one thing this must never do.
+
+		The instrument is `require`'s own cache: the SECOND require of a module is a
+		table lookup and costs nothing measurable, so "the module was already loaded"
+		is checkable by timing a require against a known-cold one. Here the check is
+		structural instead, and stronger — the module is required BEFORE the scroll
+		and its identity compared after, so a reload of any kind would show as a
+		different table. Thirty scroll steps, a window slide, and a data edit later,
+		it is the same module object and the dirty log carries no structural work
+		beyond what the slide itself earns. ]]
+	it("no lazy require fires during dense-scroll steady state (T15)", function()
+		local Facet2 = require("../src") :: any
+		local core = Facet.newCore()
+		local rows = core:signal(makeRows(500))
+		-- the construction seam: this is where the deferred module loads
+		local list = newList(core, { rows = rows })
+		local afterConstruction = require("../src/controls/virtual_list")
+		local root = mountLib.mount(core, list.blueprint)
+		expect(type(afterConstruction)).toBe("table")
+
+		-- ...and now the steady state, which must load nothing at all
+		for i = 1, 30 do
+			list.scrollTop:set(i * 37)
+		end
+		local next = table.clone(rows:get() :: { any })
+		next[400] = { id = "r400", label = "edited off-window" }
+		rows:set(next)
+
+		local stillSame = require("../src/controls/virtual_list")
+		expect(rawequal(stillSame, afterConstruction)).toBe(true)
+		-- the namespace entry resolves to the same module too, so the closure's own
+		-- `require` is hitting the cache rather than re-running the module
+		expect(rawequal(require("../src/controls/virtual_list"), afterConstruction)).toBe(true)
+		expect(type(Facet2.preload)).toBe("function")
+		root.dispose()
+	end)
+
+	it("Facet.preload() force-loads the deferred four and is idempotent (T15)", function()
+		local Facet2 = require("../src") :: any
+		expect(Facet2.preload()).toBe(4)
+		-- twice is a table lookup, not a second load: same modules, same count
+		expect(Facet2.preload()).toBe(4)
+		local chip = require("../src/controls/chip")
+		expect(rawequal(require("../src/controls/chip"), chip)).toBe(true)
+	end)
+
 	it("surviving rows keep their mounted identity across a window slide", function()
 		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))

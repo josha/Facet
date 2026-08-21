@@ -16,3 +16,4 @@
 # 7.7.0 it simply builds.
 [tools]
 rojo = "rojo-rbx/rojo@7.7.0"
+luau-lsp = "JohnnyMorganz/luau-lsp@1.69.0"
