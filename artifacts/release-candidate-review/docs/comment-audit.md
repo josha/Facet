@@ -78,25 +78,108 @@ a code that only resolves inside a private ledger.
 - **One ghost class was removed.** `src/themes/package.luau` pointed at
   `UI.Custom`, reserved and never shipped; `UI.Foreign` is the class that did.
 
-## What is left, and why — the honest disposition
+## The rule RC-18 is closed against
 
-**122 sites in 47 files.** 80 distinct codes, 51 of them appearing exactly once.
-The long tail is the point: no family is large enough to resolve mechanically,
-and each one needs a human to say what the code meant. The largest are `ADAPT-8`,
-`RR-1` and `TDN-2` at four sites each.
+The plan's bar is that a maintained source comment carries no **UNEXPLAINED**
+gate ID, finding code, phase label, evidence-row name or acronym. It is not that
+a code may never appear. A code that resolves is a citation; a code that resolves
+nowhere is folklore. So the checker classifies every site and the two classes
+carry different ceilings.
 
-They are dispositioned, not hidden: the ceiling is 122, so the count cannot grow,
-`--list` prints every one with its file and line, and the next comment pass has a
-worklist rather than a slogan.
+**RESOLVABLE** — the code has a referent a reader can reach, by one of four
+routes, and the checker reports which route per site so a reviewer can disagree
+with a site rather than with a number:
 
-**185 more in the five extraction-locked modules** (`table`, `virtual_list`,
-`solver`, `renderer`, `presenter`). Counted separately by the checker and
-reported on every run. Their sweep belongs to the extraction that holds them.
+1. `requirements.json` names the code;
+2. the same comment block cites an `ADR-nnnn` that exists as a file;
+3. the same comment block names a `docs/**` file that exists;
+4. the same comment block DEFINES the code in plain language, in the same breath
+   — `-- ADAPT-18: a collapsed column's heading leaves paint, focus and…`.
 
-**`RC-18` therefore stays `PENDING`.** The controller reverted it in `9401845`
-and this round does not ask for it back. A checker that counts codes cannot read
-a sentence, and 122 unexplained codes remain in maintained source. The row is a
-controller call once the residual is judged.
+**ORPHAN** — none of the four. The code is the whole explanation, and the
+explanation is not in the repository.
+
+**The block is the unit**, not the file and not the line: a code and the sentence
+that defines it belong to one thought, and a citation three paragraphs away is
+not one a reader connects.
+
+## Both counts
+
+| | base `5d97826` | wave T12 | fix round 1 | fix round 2 |
+|---|---|---|---|---|
+| private codes in maintained src/ comments | 531 | 405 | 122 | **25** |
+| …ORPHAN (resolve nowhere) | not classified | not classified | **87** | **0** |
+| …RESOLVABLE (a referent a reader can reach) | — | — | 35 | **25** |
+| files carrying one | 107 | 80 | 47 | 20 |
+
+**The orphan ceiling is 0 and is not a ratchet.** There is no allowance for a
+code that resolves nowhere, because that is the thing the rule prohibits. The
+**total ceiling is 25** and is a ratchet: resolvable sites may not grow either,
+so a new code has to displace an old one.
+
+The 25 that stay, by route:
+
+| Route | Sites |
+|---|---|
+| defined in its own comment block | 19 |
+| cites `ADR-0013` or `ADR-0019` | 4 |
+| names `docs/plans/performance-stress-places.md` | 1 |
+| names `docs/reference/api.md` | 1 |
+
+## How the 87 orphans were closed
+
+Two mechanical passes and thirty targeted rewrites, all comment-only:
+
+- **A parenthetical that was only the code** — ` (PLAT-9, 2026-08-17)`,
+  `(reuse audit REUSE-122)` — is deleted with the punctuation it carried.
+- **A code leading or trailing a parenthetical that carries more** loses the
+  code and keeps the rest: `(api-architecture-consistency F-7 / ledger BP-F4)`
+  became `(api-architecture-consistency F-7)`.
+- **A possessive** became the thing it owned: `PLAT-12's disposal token` →
+  `the disposal token`.
+- **A code carrying the sentence** was replaced by what it meant:
+  `which is the whole of ADAPT-1` → `which is the whole point of taking them
+  from the surface`; `DB-4 lived exactly there` → `the device defect this note
+  records lived exactly there`; `the pre-ADAPT-9 meaning` → `the older meaning`.
+- **A compound** lost its private half: `(ARCH-TI-1)` → nothing, because the
+  sentence beside it already said "reject it at BUILD, exactly as TextInput
+  does".
+
+Nothing was moved to an allowlist and no orphan was reclassified to make the
+number fall.
+
+## The extraction-locked five, still dispositioned
+
+185 sites, unchanged and untouched: **150 orphan, 35 resolvable**. The checker
+counts and prints them separately on every run, so their debt is visible rather
+than averaged into the maintained number. Their sweep belongs to the extraction
+that holds those files.
+
+## The selftest
+
+`python3 tools/check_comment_codes.py --selftest` plants the SAME code four
+ways and requires four different answers:
+
+```
+-- planted: this rule came from row TP-A12.            -> ORPHAN
+-- TP-A12: a column collapses before it clips.         -> RESOLVABLE (defined-in-block)
+-- planted TP-A12, and the reason is in ADR-0011.      -> RESOLVABLE (ADR-0011)
+-- ADR-0011, UI-INPUT-001, SW-141, UTF-8               -> not a private code at all
+local s = "not a comment: XX-9"                        -> not a comment
+```
+
+Then it requires the restored tree to have zero orphans and to be at or under
+the total ceiling.
+
+**`RC-18` is `PASS_AUTOMATED` from fix round 2.** The rule it is closed against
+is the one stated above — no UNEXPLAINED code — and both halves of that rule are
+checked on every run: zero orphans, and a ratcheted total of resolvable
+citations. It was `PENDING` through fix round 1 because 87 codes resolved
+nowhere; those are gone.
+
+What the row does NOT claim: that the prose is good. A checker that classifies
+codes cannot read a sentence. Comment QUALITY is judged by the fresh-reader
+exercises, which are `RC-17` and still open.
 
 ## Reader-facing defects the first wave introduced, and their repair
 

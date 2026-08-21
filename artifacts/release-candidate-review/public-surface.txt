@@ -78,12 +78,14 @@ adaptive : table
   adaptive.CARD_PEEK : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
   adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.LANE_MEASURE : number
   adaptive.axisFor : function
   adaptive.cardPeek : function
   adaptive.cardsPerView : function
   adaptive.columnsFor : function
   adaptive.conditions : function
   adaptive.heightClass : function
+  adaptive.laneMeasureFor : function
   adaptive.navPlacement : function
   adaptive.orientationFor : function
   adaptive.sizeClass : function
