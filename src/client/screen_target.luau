@@ -240,13 +240,15 @@ export type Opts = {
 	-- the native substrate/the native substrate: force setDragDetector to return nil so the
 	-- raw pointer-capture fallback is exercised separately (A/B evidence runs)
 	forceDragFallback: boolean?,
-	-- native-stylesheets stage (ledger the native stylesheets work, plan §7 Phase 2): OPT-IN native
-	-- paint. When set and the engine has StyleSheets, the adapter stops
+	-- native-stylesheets stage (plan §7 Phase 2): native paint, and THE DEFAULT
+	-- since 2026-08-21 (ADR-0040 B-15). When the engine has StyleSheets, the
+	-- adapter stops
 	-- explicit-writing every handed-off style property and instead CLASSIFIES
 	-- nodes (class + facet-* tags, sheet_model.classifyTags) under one
 	-- StyleLink per root; the DataModel sheet (seed-once, native_style.ensure)
-	-- owns fills, chrome, text paint, and interaction-state paint. Absent or
-	-- unsupported -> the explicit-write path below runs unchanged (the native stylesheets work
+	-- owns fills, chrome, text paint, and interaction-state paint. An explicit
+	-- `false` — or an engine without StyleSheets — takes the explicit-write path
+	-- below, unchanged (the native stylesheets work
 	-- fallback parity). `true` builds the built-in Dark+Light model; a table
 	-- passes { model | handle, host, theme }.
 	-- table form also takes `transitions = true` to opt into sheet transitions
@@ -326,17 +328,16 @@ function screen_target.new(opts: Opts?)
 	-- birth, to decide whether a new ScrollingFrame is born with its bar hidden.
 	local scrollIndicatorState = { policy = "always", reduced = false }
 
-	-- native-paint mode resolution: capability-probed and opt-in.
+	-- native-paint mode resolution: capability-probed, default-on since the
+	-- 2026-08-21 ruling (ADR-0040 B-15).
 	local nativeHandle: any = nil
 	do
-		local nativeOpt: any = opts and (opts :: any).nativeStyle
-		if nativeOpt == nil then
-			-- the one-toggle default (promotion plan): unset means "library
-			-- default", which is native_style.DEFAULT_ENABLED; an explicit
-			-- `false` is the per-target escape hatch either way
-			nativeOpt = native_style.DEFAULT_ENABLED
-		end
-		if nativeOpt ~= nil and nativeOpt ~= false and native_style.available() then
+		-- `resolveOpt` owns the default rule and is the only reader of the flag,
+		-- so it has a headless witness this closure could never have: unset means
+		-- the library default, an explicit `false` is the per-target escape hatch,
+		-- anything else passes through by identity.
+		local nativeOpt: any = native_style.resolveOpt(opts and (opts :: any).nativeStyle)
+		if nativeOpt ~= false and native_style.available() then
 			if type(nativeOpt) == "table" and nativeOpt.handle ~= nil then
 				nativeHandle = nativeOpt.handle
 			else

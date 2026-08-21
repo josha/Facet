@@ -28,16 +28,20 @@ local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
 -- NS-I2 fallback A/B driver: set workspace attribute Facet_ForceScrollFallback
 -- BEFORE running to exercise the clip-only ScrollView fallback in Studio
--- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10): Facet_NativeStyle=true
--- opts the target into sheet-owned paint; Facet_ForceStyleFallback wins over it
--- so the explicit-write path is exercised separately (never only headlessly)
+-- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10). The PRECEDENCE — forced
+-- fallback over an explicit opt-in over the library default — is a decision, not
+-- an expression: it lives in `paint_mode.luau` beside `boot_mode.luau`, for the
+-- same reason and with the same spec technique, because a LocalScript's argument
+-- list has no witness. Facet_NativeTransitions opts the sheet transitions in
+-- (progressive enhancement, default OFF until the NSS-P3 publish rider clears).
+local paint_mode = require(script:WaitForChild("paint_mode")) :: any
 local adapter = screen_target.new({
 	forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
-	-- Facet_NativeTransitions opts the sheet transitions in (progressive
-	-- enhancement, default OFF until the NSS-P3 publish rider clears)
-	nativeStyle = (workspace:GetAttribute("Facet_NativeStyle") == true and workspace:GetAttribute(
-		"Facet_ForceStyleFallback"
-	) ~= true) and { transitions = workspace:GetAttribute("Facet_NativeTransitions") == true } or false,
+	nativeStyle = paint_mode.decide({
+		native = workspace:GetAttribute("Facet_NativeStyle") == true,
+		fallback = workspace:GetAttribute("Facet_ForceStyleFallback") == true,
+		transitions = workspace:GetAttribute("Facet_NativeTransitions") == true,
+	}),
 })
 local system = roblox_input.newSystem(core)
 -- KEYBOARD NAVIGATION ON, BECAUSE THIS PLACE FREED THE KEY FOR IT

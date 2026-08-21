@@ -767,10 +767,11 @@ row and the running screen re-themes — the same `install` / `swapPackage` /
 you had to set before pressing Play. It is a *passive* surface, so it never
 steals focus from the fixture underneath it, and it re-themes itself along with
 everything else — if the picker still reads after a swap, the swap worked. Set
-the workspace attribute `Facet_ThemePicker = false` to hide it, and
-`Facet_NativeStyle = true` to see the *full* swap: on a target painting through
-the explicit-write path a swap moves metrics live but not the palette (§9.8), and
-the picker warns once when it finds itself there. The source is
+the workspace attribute `Facet_ThemePicker = false` to hide it. The place paints
+through the sheet by default, so the *full* swap is what you get; set
+`Facet_ForceStyleFallback = true` to see the other arm, where a swap moves
+metrics live but not the palette (§9.8) — the picker warns once when it finds
+itself there. The source is
 [`examples/gallery/client/theme_picker.luau`](../../examples/gallery/client/theme_picker.luau);
 it is an example, not library code, and it goes through the public surface only,
 so a game that wants one can copy the file.

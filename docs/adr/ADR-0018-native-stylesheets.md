@@ -1,6 +1,10 @@
 # ADR-0018 — Native StyleSheets as the runtime styling source of truth
 
-**Date:** 2026-07-24 · **Status:** Accepted (opt-in target capability) ·
+**Date:** 2026-07-24 · **Status:** Accepted — **the DEFAULT paint path since
+2026-08-21** (`native_style.DEFAULT_ENABLED = true`, game director's ruling,
+recorded as [ADR-0040](ADR-0040-unreleased-breaking-changes.md) row B-15). It
+shipped as an opt-in target capability, and the opt-OUT (`nativeStyle = false`)
+is what remains of that. ·
 **Plan:** `docs/plans/roblox-native-stylesheets.md` (Rev 2) governed by
 `docs/plans/roblox-native-audit-corrections.md` · **Evidence:**
 `artifacts/native-stylesheets/` (ledger + feasibility m1–m10 + adoption a1–a10)
@@ -10,7 +14,11 @@
 
 Adopt the plan's option (c), the **native-maximal hybrid**, behind an opt-in
 target capability (`screen_target.new({ nativeStyle = … })`, gallery A/B via
-`workspace` attributes `Facet_NativeStyle` / `Facet_ForceStyleFallback`):
+`workspace` attributes `Facet_NativeStyle` / `Facet_ForceStyleFallback`) —
+**since 2026-08-21 the opt is inverted**: a target that names no paint path takes
+the sheet, and `nativeStyle = false` is the per-target escape hatch. Everything
+below describes the path that is now the default; nothing about the mechanism
+changed with the flip:
 
 1. **The DataModel `StyleSheet` owns every proven styleable paint property** at
    an opted-in target: surface fills + transparency, corner/hairline chrome (as

@@ -42,9 +42,11 @@
   ],
   "refreshed": {
     "date": "2026-08-21",
-    "stage": "release-candidate review (final-review M5 closure)",
-    "note": "Tracker refreshed, not re-run: the 2026-07-24 rows above are the frozen capture (pre-rename names preserved as evidence). Current state: the sheet identity is FacetStyle/FacetTheme <pkg>; native paint shipped through the whole release campaign's themed sweeps and the 2026-08-21 live pass (style-editor-sync closed live with 99 tokens via the controller route). The default flip (native_style.DEFAULT_ENABLED) remains the OWNER'S product call at the Step 14 checkpoint, per the release review's disposition; stillRequired below stands until that ruling.",
-    "owner": "game director at the Step 14 checkpoint",
+    "stage": "release-candidate review \u2014 THE DECISION IS MADE",
+    "decision": "native_style.DEFAULT_ENABLED = true. The game director ruled on 2026-08-21 that Roblox native StyleSheets are Facet's DEFAULT paint path; the change is recorded as ADR-0040 row B-15 (the record is what makes a behaviour change legal on an unreleased 0.10.0) and pinned by tests/native_style_default.spec.luau. The per-target escape hatch is unchanged and still wins over everything: an explicit `nativeStyle = false`, and the gallery's Facet_ForceStyleFallback attribute, keep the explicit-write path \u2014 which stays a first-class tested path (NSS-A10 parity), not a corpse.",
+    "note": "Tracker refreshed, not re-run: the 2026-07-24 rows above are the frozen capture (pre-rename names preserved as evidence). Current state: the sheet identity is FacetStyle/FacetTheme <pkg>; native paint shipped through the whole release campaign's themed sweeps and the 2026-08-21 live pass (style-editor-sync closed live with 99 tokens via the controller route). WHAT THIS BLOCK USED TO SAY, and why the change is not a contradiction: the flip was 'the OWNER'S product call at the Step 14 checkpoint'. The owner has now made it, ahead of that checkpoint. `stillRequired` below is therefore no longer a gate ON the decision \u2014 it is the evidence Step 14's publish event collects about a default that is already live, and the rows are restated in that light.",
+    "owner": "game director \u2014 decision taken 2026-08-21",
+    "remaining": "Step 14 publish. The retail-client run and the 2-client Team Test are Studio-UI-driven and belong to the publish event itself; the RascalRally device pass now exercises the DEFAULT rather than a staged flag, because this game passes no `nativeStyle` opt at its four adapter sites (RR tests/facet_theme_paint_contract.spec.luau).",
     "trigger": "Step 14 distribution-readiness start"
   }
 }

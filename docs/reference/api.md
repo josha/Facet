@@ -7606,7 +7606,7 @@ releases the tree.
 | `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
 | `forceScrollFallback` | render `ScrollView` nodes as plain clip hosts with no engine scrolling — the A/B switch that exercises the fallback path deliberately |
 | `forceDragFallback` | make `setDragDetector` answer nil so the raw pointer-capture path runs instead |
-| `nativeStyle` | opt into native StyleSheet paint: `true` for the built-in Dark/Light model, or `{ model?, handle?, host?, theme?, transitions? }`. Absent or unsupported keeps the explicit-write path |
+| `nativeStyle` | the paint path. **Absent is native StyleSheet paint** — the library default since 2026-08-21 (`native_style.DEFAULT_ENABLED`, ADR-0040 B-15). `true` says the same thing explicitly; `{ model?, handle?, host?, theme?, transitions? }` configures it (`transitions` is still opt-in). **`false` is the opt-out**, per target, and wins over everything: it takes the explicit-write path, which is also where an engine without StyleSheets lands |
 | `themePackage` | the installed `ThemePackage` whose chrome recipes decide decoration slots; the theme controller swaps it at runtime |
 | `displayOrder` | the `DisplayOrder` every root this target creates gets — where the whole target sits against the game's own `ScreenGui`s. Absent means 0 (the engine's default), which is why a game's hand-made surfaces float above Facet's unless someone says otherwise. The presenter still layers its own surfaces above one another from this floor |
 

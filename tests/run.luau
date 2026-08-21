@@ -250,6 +250,10 @@ require("./sorted_entries.spec")
 require("./styling.spec")
 require("./sheet_model.spec")
 require("./native_style_scenario.spec")
+-- the DEFAULT paint path (ADR-0040 B-15, director ruling 2026-08-21): sheet
+-- paint is what a target with no `nativeStyle` opt takes, the explicit `false`
+-- escape hatch survives, and the gallery's A/B precedence survives with it.
+require("./native_style_default.spec")
 require("./api_surface.spec")
 require("./extension_checker.spec")
 require("./examples_gallery.spec")

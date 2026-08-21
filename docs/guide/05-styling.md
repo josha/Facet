@@ -227,16 +227,26 @@ edge adapter materialize it when — and only when — the platform can.
 
 Next: [chapter 6](06-client-server.md) covers talking to the server.
 
-## 5.7 Native stylesheets (opt-in): the Style Editor becomes the paint authority
+## 5.7 Native stylesheets (the default): the Style Editor is the paint authority
 
-Since the native-stylesheets stage (ADR-0018), a target can hand its paint to a
-Roblox `StyleSheet` living in the DataModel:
+Since the native-stylesheets stage (ADR-0018) a target can hand its paint to a
+Roblox `StyleSheet` living in the DataModel, and **since 2026-08-21 that is what
+it does unless you say otherwise** (`native_style.DEFAULT_ENABLED = true`, the
+game director's ruling; the change is recorded in
+[ADR-0040](../adr/ADR-0040-unreleased-breaking-changes.md) with the rest of the
+unreleased behaviour changes):
 
 ```lua
-local adapter = screen_target.new({ nativeStyle = true })
+local adapter = screen_target.new({})           -- sheet paint, the default
+local explicit = screen_target.new({ nativeStyle = true })   -- the same thing, said out loud
+local bespoke = screen_target.new({ nativeStyle = false })   -- THE OPT-OUT: explicit-write paint
 ```
 
-With the flag on (and the engine capability present), the adapter stops
+The opt-out is per target and wins over everything. Reach for it when you need
+the adapter to be the only writer of a property — a screen whose paint is driven
+from game state that no rule can select on, or an A/B against the sheet path.
+
+With the sheet path live (and the engine capability present), the adapter stops
 explicit-writing every handed-off paint property and instead **classifies**
 each instance — engine class plus `facet-*` CollectionService tags — under one
 `StyleLink` per screen. A generated sheet named **`FacetStyle`** (under
@@ -256,8 +266,11 @@ each instance — engine class plus `facet-*` CollectionService tags — under o
 - optional per-rule transitions (progressive enhancement; reduced motion
   strips them live).
 
-With the flag off — or on an engine without StyleSheets — the explicit-write
-path runs unchanged, byte-equal on every mapped property.
+With `nativeStyle = false` — or on an engine without StyleSheets — the
+explicit-write path runs unchanged, byte-equal on every mapped property. It is a
+first-class path, not a legacy one: the native-stylesheets adoption evidence
+measures the two against each other property by property, and the gallery's
+`Facet_ForceStyleFallback` attribute forces it live so both arms stay exercised.
 
 ### What a Style Editor edit does (read this before editing)
 

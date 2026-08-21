@@ -38,14 +38,44 @@ local text_premeasure = require("./text_premeasure")
 
 local native_style = {}
 
--- THE default-flip toggle (promotion plan, artifacts/native-stylesheets/
--- promotion-readiness.json): when a target passes NO `nativeStyle` opt,
--- screen_target consults this. Flip to `true` to make native paint the
--- default for every screen target once the retail-publish + Team-Test +
--- device rows close; per-target escape hatch stays `nativeStyle = false`.
--- Billboard targets and the edit preview pass their own explicit choice and
--- are unaffected by this flag.
-native_style.DEFAULT_ENABLED = false
+--[[ THE LIBRARY DEFAULT PAINT PATH. When a target passes NO `nativeStyle` opt,
+	this is the answer it gets.
+
+	FLIPPED TO `true` ON 2026-08-21 by the game director's ruling, recorded as
+	ADR-0040 row B-15 (the record is what makes a behaviour change legal on an
+	unreleased version). It was `false` for the whole native-stylesheets stage,
+	where sheet paint was opt-in per target while the promotion rows closed
+	(artifacts/native-stylesheets/promotion-readiness.json).
+
+	WHAT DOES NOT CHANGE. The per-target escape hatch is still an explicit
+	`nativeStyle = false`, and it still wins — `resolveOpt` below is the one place
+	that decides, so the explicit-write path stays a first-class path with one
+	branch rather than a corpse. Billboard targets and the Studio edit preview
+	pass their own explicit choice and are unaffected by this flag either way.
+]]
+native_style.DEFAULT_ENABLED = true
+
+--[[ The `nativeStyle` opt a target was constructed with -> the opt it acts on.
+	PURE, and the only reader of `DEFAULT_ENABLED` there is.
+
+	It exists because `screen_target.new` needs a LocalPlayer and a DataModel, so
+	a default decided inside it has no headless witness at all — which is how the
+	library's most consequential boolean came to have no spec. Three answers:
+
+	  * `nil` (no opt)      -> the library default;
+	  * `false`             -> `false`, the per-target escape hatch, untouched;
+	  * anything else       -> ITSELF, by identity — `true`, or the config table
+	                           whose `handle`/`model`/`host`/`theme`/`transitions`
+	                           the caller reads back off the object it passed.
+
+	It never answers `nil`, so the caller's whole condition is `~= false`.
+]]
+function native_style.resolveOpt(opt: any): any
+	if opt == nil then
+		return native_style.DEFAULT_ENABLED
+	end
+	return opt
+end
 
 -- distinct from the library ModuleScript tree (also commonly named "Facet"
 -- under ReplicatedStorage — live find 2026-07-24: a same-name lookup found the

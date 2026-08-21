@@ -382,8 +382,9 @@ function theme_picker.mount(opts: MountOpts): any
 	if controller.inspect().fallback then
 		warnFn(
 			"[Facet Gallery] theme picker: this target paints through the explicit-write path, so a swap moves "
-				.. "METRICS live but not the palette (ADR-0019). Set the workspace attribute Facet_NativeStyle = true "
-				.. "before Play to see the full transaction."
+				.. "METRICS live but not the palette (ADR-0019). Sheet paint is the library default, so something "
+				.. "opted OUT: clear the workspace attribute Facet_ForceStyleFallback before Play to see the full "
+				.. "transaction."
 		)
 	end
 
