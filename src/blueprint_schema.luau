@@ -1,5 +1,5 @@
 --!strict
--- Public property schema (swiftui-parity-next.md Milestone 0, investment 1):
+-- Public property schema (parity-next.md Milestone 0, investment 1):
 -- the SINGLE source of truth for what a public `UI.*` constructor accepts.
 --
 -- Before this module the blueprint layer accepted ANY key into a node's prop
@@ -722,7 +722,7 @@ local BOX: { [string]: PropSpec } = {
 	-- `layoutPriority` is one: it is a placement fact a container parent — here a
 	-- `UI.GridRow` — reads off its children, not a size this node has of its own.
 	--
-	-- A spanning cell contributes to NO single column's maximum (SwiftUI's rule: a
+	-- A spanning cell contributes to NO single column's maximum (a
 	-- span cannot widen one column on its own) and is fitted to the sum of the
 	-- columns it covers plus the gaps between them.
 	--
@@ -817,7 +817,7 @@ local BOX: { [string]: PropSpec } = {
 		doc = "paint-order override within the parent's stacking scope: siblings sort by (zIndex or 0, tree order), "
 			.. "and a node's whole subtree travels with it. Cross-surface lifting stays structural (overlay layers)",
 	}),
-	-- THE SPACE-RESERVING HIDE (parity round 3, item D; SwiftUI `hidden()`). The
+	-- THE SPACE-RESERVING HIDE. The
 	-- node keeps its solved box and stops being painted, focusable and tappable.
 	-- Neither of the two things Facet already had is this: `UI.When` REMOVES the
 	-- node so its siblings close up, and the engine's own `Visible = false` is
@@ -832,7 +832,7 @@ local BOX: { [string]: PropSpec } = {
 	-- channel would have been a parallel mechanism that focus and hit geometry did
 	-- not follow, which is precisely the defect RS-A16-D1 records.
 	--
-	-- Reactive, where Apple's modifier is unconditional ("Hides this view
+	-- Reactive, where the usual spelling is unconditional ("hides this view
 	-- unconditionally"; its answer for the conditional case is an `if`, which
 	-- removes the node from layout). Facet's `if` is `UI.When` and it removes the
 	-- node too — so without a bindable form the space-reserving case would have no
@@ -846,7 +846,7 @@ local BOX: { [string]: PropSpec } = {
 		doc = "true keeps this node's layout box and stops painting it — and it leaves focus order and stops "
 			.. "taking taps, with its whole subtree. Use UI.When instead when the space should close up",
 	}),
-	--[[ THE AUTHORED PRESENTATION PAIR (ADR-0026; SwiftUI `scaleEffect` /
+	--[[ THE AUTHORED PRESENTATION PAIR (ADR-0026; the `scaleEffect` /
 		`rotationEffect`). These are the FIRST authored props in the presentation
 		channel, and the channel name is the whole design: the renderer folds the
 		value into the presentation authority's own write. There is no
@@ -860,7 +860,7 @@ local BOX: { [string]: PropSpec } = {
 		is what makes nesting mean what it says.
 
 		NEITHER MOVES LAYOUT, hit geometry or focus — the solver never sees them and
-		Facet hit-tests solved rects. That is Apple's rule too, stated for both:
+		Facet hit-tests solved rects, which is the common rule for both:
 		`rotationEffect` "has no effect on the view's frame", and `scaleEffect`'s
 		dimensions "are considered to be unchanged by scaling the contents". To
 		change a box, change its `width`/`height`.
@@ -887,7 +887,7 @@ local BOX: { [string]: PropSpec } = {
 			.. "It changes nothing the solver sees — the hit target stays the unrotated box — and it ADDS "
 			.. "to any rotation the framework is applying",
 	}),
-	-- VIEW LIFETIME (parity round 3, item D; SwiftUI `onAppear`/`onDisappear`).
+	-- VIEW LIFETIME (the `onAppear`/`onDisappear` pair).
 	-- Mount scopes have owned this lifetime since the framework's first phase; what
 	-- was missing was the author-facing hook, so "fire analytics when the screen
 	-- opens" and "stop the engine sound when the panel closes" had no spelling.
@@ -1012,7 +1012,7 @@ local DISTRIBUTE: PropSpec = p({
 		.. "children did not take, so a `fill` child leaves it nothing — and says so in the diagnostics",
 })
 
--- FLOW-WRAP (docs/plans/swiftui-parity-round3.md item A) — Roblox's
+-- FLOW-WRAP (docs/plans/parity-round3.md item A) — Roblox's
 -- `UIListLayout.Wraps`, which Facet had no spelling for at all.
 --
 -- A PROP, NOT A CLASS, and the ladder decides it. Constitution §1 asks whether a
@@ -1075,7 +1075,7 @@ local TEXT_SIZE: PropSpec = p({
 		.. "Either form is scaled at BOTH the measure and paint seams",
 })
 
--- LINE LIMIT (SwiftUI `.lineLimit`, 2026-07-27). "This label gets at most N
+-- LINE LIMIT. "This label gets at most N
 -- lines"; the engine ellipsizes the rest (TextTruncate.AtEnd is already on for
 -- every text node) instead of the label growing its box.
 --
@@ -1156,15 +1156,14 @@ local REVEAL: PropSpec = p({
 		.. "ellipsis; reduced motion disables travel; the static disclosure plate stays its alternative)",
 })
 
---[[ HELP (navigation-and-menus D3a; SwiftUI `.help(_:)`, `UIToolTipInteraction`).
+--[[ HELP: one sentence about what a view DOES, pulled by the player.
 	One sentence about what this view does, PULLED BY THE PLAYER: the pointer
-	hovers it for a moment, or the keyboard/gamepad ring lands on it. Apple's own
-	scope, quoted 2026-08-16: help "configures the view's accessibility hint and
-	its help tag (also called a tooltip)", and the UIKit interaction "makes it
-	possible to show a tooltip WHEN HOVERING A POINTER over a view or control".
+	hovers it for a moment, or the keyboard/gamepad ring lands on it. The scope
+	is deliberately narrow: help sets a view's accessibility hint and its help
+	tag (also called a tooltip), and a tooltip appears WHEN A POINTER HOVERS.
 
 	ON TOUCH IT SHOWS NOTHING, AND THAT IS THE SPECIFICATION rather than a gap.
-	Apple binds no gesture to it on any platform, and Facet must not either: D2
+	No input class binds a gesture to help, and Facet must not either: D2
 	measured the long-press collision and left that gesture with the full-value
 	disclosure plate, which is the only touch route to a truncated label's value.
 	Two constructs fighting for one gesture on the one class where neither has an
@@ -1190,8 +1189,8 @@ local HELP: PropSpec = p({
 	-- api.md entries rather than in the shared box block every class inherits
 	channel = "semantic",
 	doc = "one sentence about what this view does, shown when a POINTER hovers it (after a dwell) or the "
-		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — Apple binds no gesture to help on "
-		.. "any platform, so it must never be the only route to something a player needs "
+		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — no input class binds a gesture "
+		.. "to help, so it must never be the only route to something a player needs "
 		.. "(`text_audit.helpRoutes`). The plate points at this view with an arrow tail. For an "
 		.. "app-PUSHED coach mark that appears on every input class, see `newCallout`",
 })
@@ -1220,7 +1219,7 @@ local CANVAS_GROUP: PropSpec = p({
 		.. "subtree's real parent — declare it only where a group fade is wanted",
 })
 
---[[ AUTHORED OPACITY (ADR-0026; SwiftUI `opacity(_:)`), and it lives on exactly
+--[[ AUTHORED OPACITY (ADR-0026), and it lives on exactly
 	the two classes `canvasGroup` does — because DECLARING IT IS DECLARING ONE.
 
 	A fade in this framework is a `CanvasGroup.GroupTransparency` fact and always
@@ -1231,7 +1230,7 @@ local CANVAS_GROUP: PropSpec = p({
 	concrete price is not hypothetical: `TextTransparency`'s rule is the disabled
 	state's, so a `UI.Text` that took an opacity would stop dimming when disabled,
 	forever. So a leaf is refused and the spelling is one wrap:
-	`UI.ZStack { opacity = 0.4, children = { … } }` — which is also SwiftUI's own
+	`UI.ZStack { opacity = 0.4, children = { … } }` — which is also the common
 	answer, and the reason `compositingGroup()` exists there.
 
 	It IMPLIES the group, so an author never writes `canvasGroup = true` beside
@@ -1239,7 +1238,7 @@ local CANVAS_GROUP: PropSpec = p({
 	prop does. Unlike `canvasGroup` it IS reactive — a constant fade would be a
 	theme decision, and the whole point is that it moves and animates.
 
-	COMPOSITION (ADR-0026 Decision 2, and Apple states this one): applying opacity
+	COMPOSITION (ADR-0026 Decision 2): applying opacity
 	to something already faded "multiplies the effect of the underlying opacity
 	transformation". So an authored 0.5 under a framework fade at 0.5 paints 0.25,
 	and a framework fade to nothing still reaches nothing. ]]
@@ -2008,7 +2007,7 @@ class("Button", {
 		}),
 		gap = GAP,
 		align = ALIGN,
-		-- THE CIRCLE BUTTON (feature round 2026-07-26; the iOS floating round
+		-- THE CIRCLE BUTTON (feature round 2026-07-26; the floating round
 		-- "..." action). `shape` is a closed set of two and defaults to the
 		-- rectangle every existing Button already is, so nothing that predates it
 		-- moves by a pixel. NOT reactive: a shape is what the control IS, not a

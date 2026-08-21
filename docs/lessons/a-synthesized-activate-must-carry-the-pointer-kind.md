@@ -30,7 +30,7 @@ with no adapter genuinely is the touch case. `src/controls/table.luau`:
 
 ```lua
 if meta == nil or meta.pointer == "touch" then
-    -- Apple's rule: a plain tap OPENS; edit mode is the selection mode
+    -- The convention: a plain tap OPENS; edit mode is the selection mode
 ```
 
 A meta that **exists but is silent** satisfies neither half, so it fell through to
@@ -42,7 +42,7 @@ action on a second press inside the 500 ms double-click window. Measured:
   player never asked for — the exact inverse of the additive rule edit mode
   promises, chosen by an omission three files away.
 * **Two overhang taps within 500 ms opened the row on touch.** That hands a phone
-  player a double-tap-to-open — the gesture the HIG reserves for zoom, and one the
+  player a double-tap-to-open — the gesture the touch conventions reserve for zoom, and one the
   Table's own registry comment records as "never a candidate".
 
 The original writeup called the exposure small, on the grounds that sibling row

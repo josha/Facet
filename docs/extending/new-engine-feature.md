@@ -31,8 +31,8 @@ Write down, with sources (creator docs / release post) and a live probe
 where possible: exact property names and TYPES (UDim vs UDim2 vs number —
 the UIShadow adoption caught two type errors in the design's own prose),
 value ranges and clamps, which instances it applies to, interaction hazards
-(e.g. alias-vs-individual-property mixing), performance guidance, and GA vs
-beta status. Record it as `docs/research/<date>-<feature>-engine-facts.md`.
+(for example, alias-versus-individual-property mixing), performance guidance,
+and whether the feature is released or still in beta. Record it as `docs/research/<date>-<feature>-engine-facts.md`.
 Run a Studio probe that round-trips every property and record the artifact under
 `artifacts/studio/`. If Studio is unavailable or its viewport/capture/input preflight
 fails, record `FAIL_ENVIRONMENT` and leave the engine-evidence row pending rather than

@@ -1,6 +1,6 @@
 --!strict
 -- Stepper: a labelled value with discrete decrement/increment affordances
--- (docs/plans/swiftui-parity-next.md investment 4; acceptance rows B-VAL1/B-VAL3).
+-- (docs/plans/parity-next.md investment 4; acceptance rows B-VAL1/B-VAL3).
 -- Composed from shipped primitives — an HStack of a label, a value readout, and
 -- two Buttons — over the SHARED value model (src/controls/value_model.luau), so
 -- bounds, stepping, rounding and formatting are the same arithmetic a Slider uses.
@@ -56,7 +56,7 @@ export type Spec = {
 	onChange: ((value: number) -> ())?,
 }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local STEPPER_KEYS = specGuard.keySet({
 	"enabled",

@@ -1,5 +1,5 @@
 --!strict
--- Drag-to-edge autoscroll (ADR-0022 Decision 5, row SF-L2). A PURE model: it
+-- Drag-to-edge autoscroll (ADR-0022 Decision 5). A PURE model: it
 -- owns the band/dwell/ramp/clamp policy and answers a scroll DELTA per frame.
 -- It never touches a scroll host, never reads a clock, and never re-solves
 -- anything — the host applies the delta through `controller.scrollTo` and then
@@ -117,7 +117,7 @@ local function easeOutQuad(k: number): number
 	return 1 - (1 - t) * (1 - t)
 end
 
--- CLOSED OPTS (constitution §4; ARCH-1). Every field here is a tuning number
+-- CLOSED OPTS (constitution §4). Every field here is a tuning number
 -- with a default, so a typo produced the default silently — the exact shape of
 -- "I changed the value and nothing happened".
 local AUTOSCROLL_OPTS_KEYS = specGuard.keySet({ "bandH", "dwellS", "exitEaseS", "rampS", "vMax", "vMin" })

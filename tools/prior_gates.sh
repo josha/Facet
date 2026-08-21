@@ -80,7 +80,7 @@ stage="${2:-code-simplicity-cleanup}"
 # record rather than hard-coded, so a newly registered gate is covered the day it
 # lands instead of the day someone remembers to edit this list.
 #
-# `mapfile` is bash 4+; macOS ships bash 3.2, so this reads into an array the
+# `mapfile` is bash 4+; this development platform ships bash 3.2, so this reads into an array the
 # portable way rather than failing at the shebang on the only machine that runs it.
 gates=()
 while IFS= read -r g; do

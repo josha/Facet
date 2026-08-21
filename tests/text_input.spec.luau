@@ -845,8 +845,8 @@ describe("TextInput: the clear chip sizes for its glyph, in every theme", functi
 end)
 
 -- ===========================================================================
--- clearButtonMode — UIKit's four answers, because they are the four real ones
--- (director request, 2026-07-27: "something akin to UIKit's
+-- clearButtonMode — the four conventional answers, because they are the four real ones
+-- (director request, 2026-07-27: "something akin to the conventional
 -- textField.clearButtonMode = .whileEditing")
 -- ===========================================================================
 describe("TextInput: clearButtonMode", function()

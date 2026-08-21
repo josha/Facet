@@ -1,10 +1,10 @@
 --!strict
 -- THE SEMANTIC FEEDBACK SEAM (ADR-0022 Decision 7; ui-designer spec §7;
--- acceptance row SF-F1). One per-presenter event bus, and one rule that matters
+-- the semantic feedback bus). One per-presenter event bus, and one rule that matters
 -- more than the bus: Facet PLAYS NOTHING. It never triggers a sound, a haptic or
 -- a particle — it says what happened, on the frame it happened, with enough
 -- context for a game to map it to its own assets and policy (corrections §13,
--- responsibility ledger RG-4).
+-- the responsibility ledger).
 --
 -- THE TAXONOMY IS CLOSED (spec §7 "closed initial taxonomy (v1)"). Growing it is a
 -- contract amendment with a gate, never an ad-hoc string at a call site, because
@@ -73,7 +73,7 @@ export type Bus = {
 }
 
 -- ===== THE AUTHORED DECLARATION: `UI.sensoryFeedback` ======================
--- (docs/plans/swiftui-parity-round2.md §3.3; SwiftUI's `.sensoryFeedback(_:
+-- (docs/plans/parity-round2.md §3.3; the `.sensoryFeedback(_:
 -- trigger:)`.) The modifier's CONTRACT lives here, next to the taxonomy, for the
 -- reason `drag_contract.luau` gives for its own: a declaration validated where
 -- the vocabulary is defined can never drift from it, and the alternative — a

@@ -53,7 +53,7 @@ export type Deps = {
 	textTypography: (ctx: any, node: any) -> (string, number, number),
 }
 
---[[ ===== THE SHRINK PASS (docs/plans/swiftui-parity-round2.md §2.4) ==========
+--[[ ===== THE SHRINK PASS (docs/plans/parity-round2.md §2.4) ==========
 
 	UNTIL THIS, THE SOLVER HAD NO SHRINK PASS AT ALL. `remaining = math.max(0,
 	availMain)` clamped the deficit away: `hug`/`content`/`fixed` children kept
@@ -61,7 +61,7 @@ export type Deps = {
 	its own box with only the overflow diagnostic to say so.
 
 	TWO INPUTS, TWO LEVELS OF ONE ALGORITHM. `layoutPriority` (default 0) is the
-	OUTER sort — tiers, consumed lowest-first, which is SwiftUI's model.
+	OUTER sort — tiers, consumed lowest-first.
 	`shrinkWeight` (default 0) is the INNER distribution — inside a tier the deficit
 	is split proportionally to `shrinkWeight x basis`, which is CSS's. Ordering
 	alone was not enough and the hole was on the DEFAULT path: with every child at

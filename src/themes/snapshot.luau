@@ -299,7 +299,7 @@ end
 	consequence honestly: control heights, paddings, icon sizes and the 44 px hit
 	floor on a television were byte-identical to a phone's, so a screen at three
 	metres grew its words inside chrome that had not moved. On ten-foot, controls,
-	spacing, icons and hit floors now scale with the type, tvOS-style.
+	spacing, icons and hit floors now scale with the type, ten-foot style.
 
 	IT IS `tenFootFloor`, NOT A SECOND CONSTANT, and that is the whole design.
 	The acceptance the director set is a PROPORTION EQUALITY — every
@@ -1217,7 +1217,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- the sliding row content merged with the first of them. The separation is a
 	-- SPACING decision, so it comes from the theme's own space scale rather than a
 	-- literal in the control — `space.xs`, the smallest step the scale names, which
-	-- is the hairline-to-4px gutter iOS/SwiftUI put between swipe actions.
+	-- is the hairline-to-4px gutter convention for swipe actions.
 	--
 	-- Filled in HERE, exactly as `controls.button.height` above and for the same
 	-- recorded reason: declaring it in the neutral DEFINITION would move the
@@ -1252,7 +1252,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		progressFamily.spinnerDotSize = out.space.s
 	end
 	-- ...and the CIRCULAR indicator (parity round 3 D2), filled here for the same
-	-- stamp reason. `space.l` because the HIG's only size guidance is "prefer an
+	-- stamp reason. `space.l` because the only size guidance is "prefer an
 	-- activity indicator when space is constrained" — so it is the small end of
 	-- the theme's own scale, not a number this control invented.
 	--

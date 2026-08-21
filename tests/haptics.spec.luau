@@ -1,6 +1,6 @@
 --!strict
 -- THE OPT-IN, DEFAULT-OFF HAPTICS ADAPTER (`src/client/haptics.luau`;
--- docs/plans/swiftui-parity-round2.md §3.3). It is a SUBSCRIBER to the semantic
+-- docs/plans/parity-round2.md §3.3). It is a SUBSCRIBER to the semantic
 -- feedback bus, not part of it: Facet still says what happened and plays
 -- nothing (`src/present/feedback.luau:4-5`), and this file proves the framework
 -- cannot reach it.
@@ -19,7 +19,7 @@
 --     resolved defensively by name and never falls back to it.
 --
 -- WHAT THIS FILE CANNOT PROVE, and does not claim to: that anything is FELT.
--- Roblox documents controllers on macOS 15+ as unsupported, so this machine
+-- Roblox documents this development platform's controllers as unsupported, so this machine
 -- cannot produce positive device evidence at all. Perceptible feedback on a
 -- gamepad, on a phone, and whether the player's own haptics setting silences it
 -- are three PENDING_PHYSICAL rows that only a device closes.

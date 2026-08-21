@@ -141,7 +141,7 @@ export type Deps = {
 -- for a single row — the same three fields `newRowActions` itself exposes
 -- besides `content`/`coordinator`/`env`/`editing` (Table supplies those
 -- four). Checked per row, at build, so a typo names the offending row rather
--- than surfacing as a silently-ignored option (constitution §4; ARCH-1).
+-- than surfacing as a silently-ignored option (constitution §4).
 local ROW_ACTIONS_RESULT_KEYS = specGuard.keySet({ "leading", "trailing", "fullSwipe" })
 
 --[[ ONE ENTRY POINT: `blueprint(entry, itemScope)`, the `UI.ForEach` row
@@ -310,7 +310,7 @@ function table_rows.new(deps: Deps)
 					startY = pos.y,
 					active = false,
 					-- THE LOOKUP, NOT THE ANSWER (device report 2026-07-28, gallery
-					-- example 02 on an iPhone 15 Pro: "when I pick up a row it
+					-- example 02 on a physical phone: "when I pick up a row it
 					-- doesn't always appear under my finger, the picked up chip
 					-- moves up as I scroll down"). These used to be the rects
 					-- themselves, read once here. A table can MOVE ON SCREEN
@@ -733,7 +733,7 @@ function table_rows.new(deps: Deps)
 			exists for on touch and the handle is its only touch route; selection on
 			such a table stays on the row's own painted treatment. Two marks do not
 			fit 32px, and the alternative — moving the ≡ to the trailing edge, which
-			is where iOS puts it — is a layout change to every reorderable table
+			is where the convention puts it — is a layout change to every reorderable table
 			carrying its own path grammar and its own press-zone arithmetic
 			(`isHandleZonePress` reads the zone's leading edge). Recorded rather than
 			smuggled: a selectable AND reorderable table still paints no mark, which
@@ -773,7 +773,7 @@ function table_rows.new(deps: Deps)
 								UI.Text({
 									id = "SelectMark",
 									--[[ TWO GLYPHS, ONE NODE. A filled and a hollow circle
-										are the iOS list-edit vocabulary, and reading them off
+										are the list-edit vocabulary, and reading them off
 										the SAME memo the row's `selected` prop reads is what
 										stops the mark and the row's own treatment ever
 										disagreeing. ]]
@@ -951,7 +951,7 @@ function table_rows.new(deps: Deps)
 		this module exists for; `cellContent` is the SAME cell-content priority rule
 		(`column.cell` -> `column.value` -> `spec.cellFor`) offered to the one other
 		caller that has to answer the same question — the hidden-column disclosure
-		plate (ADAPT-18), which shows a collapsed column's values and must show the
+		plate , which shows a collapsed column's values and must show the
 		values the row itself would have. A second copy of that priority ladder in
 		`table.luau` is exactly the "two implementations that agree today" shape this
 		repository keeps finding at the bottom of its defects. ]]

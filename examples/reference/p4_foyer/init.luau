@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Foyer" (RA-P4, swiftui-reference-app-validation).
+-- Reference proof "Foyer" (RA-P4, reference-app-validation).
 -- Clean-room discovery home surface built to specs/p4-foyer.md: nav rail ⇄
 -- bottom bar chrome around one never-remounting HomeBody, ViewThatFits search
 -- collapse, friends carousel, sectioned feed (uniform Grid + x-shelf), tile

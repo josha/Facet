@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Foyer" — E1 loop pins (RA-P4, swiftui-reference-app-validation).
+-- Reference proof "Foyer" — E1 loop pins (RA-P4, reference-app-validation).
 -- The representative loop, its rejection paths, reflow survival, locale swap,
 -- image transport states, and reset determinism — driven through the public
 -- presenter/adapter stack (fake target), never through test-only shortcuts:

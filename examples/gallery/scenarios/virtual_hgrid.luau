@@ -1,5 +1,5 @@
 --!strict
---[[ THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }` (SwiftUI's LazyHGrid).
+--[[ THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }`.
 
 	WHAT IS ON SCREEN. A rail of five thousand cells in a small number of ROWS,
 	scrolling sideways, with a live count of the ones the `cell` factory was ever

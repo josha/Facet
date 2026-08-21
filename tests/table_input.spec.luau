@@ -116,7 +116,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 		w.system.deviceKey("DPadDown", false)
 		expect(w.sortOrder:get().column).toBe("name")
 		expect(w.sortOrder:get().ascending).toBe(true)
-		-- again on the SAME column flips ascending (SwiftUI cycle)
+		-- again on the SAME column flips ascending (the standard cycle)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		expect(w.sortOrder:get().ascending).toBe(false)
@@ -439,7 +439,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- Apple model: follows
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- standard model: follows
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		expect(w.tbl.api.selectedKeys:get().r2).toBeNil() -- replaced
@@ -504,7 +504,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 end)
 
 -- =============================================================================
--- 5. A BLOCK TABLE INSIDE A SCROLLING PAGE (device report 2026-07-28, iPhone 15
+-- 5. A BLOCK TABLE INSIDE A SCROLLING PAGE (device report 2026-07-28, a
 --    Pro, gallery example 02 under Pixel Quest: "when I pick up a row it doesn't
 --    always appear under my finger — the picked up chip moves up as I scroll
 --    down").
@@ -1037,7 +1037,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			selection = o.selection or "single",
 			rowHeight = 40,
 			-- `reorderable` is what auto-shows the table's own Edit/Done toggle, and
-			-- edit mode is where touch selection lives under the Apple rule below —
+			-- edit mode is where touch selection lives under the standard rule below —
 			-- so the edit-mode cases need a table a phone player can actually put
 			-- INTO edit mode, through the control's own affordance.
 			reorderable = o.reorderable,
@@ -1138,17 +1138,14 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(#w.opened).toBe(0)
 	end)
 
-	-- ===== TOUCH: APPLE'S DOCUMENTED MODEL, NOT AN INVENTED ONE ==============
-	-- `contextMenu(forSelectionType:menu:primaryAction:)`, verbatim: "In iOS and
-	-- iPadOS, tapping on the row activates the primary action. To select a row
-	-- without performing an action, either enter edit mode or hold shift or
-	-- command on a keyboard while tapping the row." So a plain tap OPENS, and
-	-- EDIT MODE is where touch selection lives (`EditMode`: "On devices without
-	-- an attached keyboard and mouse or trackpad, people can make multiple
-	-- selections in lists only when edit mode is active"; HIG Lists and tables:
-	-- "In iOS and iPadOS, people must enter an edit mode before they can select
-	-- table items"). Both halves are cases below, because the price of the first
-	-- is only acceptable BECAUSE of the second.
+	-- ===== TOUCH: THE DOCUMENTED MODEL, NOT AN INVENTED ONE =================
+	-- On compact touch, tapping a row activates the primary action; selecting a
+	-- row without acting means entering edit mode, or holding a modifier on an
+	-- attached keyboard while tapping. So a plain tap OPENS, and EDIT MODE is
+	-- where touch selection lives: without an attached keyboard and pointer,
+	-- multi-selection in a list needs an explicit mode. Both halves are cases
+	-- below, because the price of the first is only acceptable BECAUSE of the
+	-- second.
 
 	it("Table touch: a plain single tap on a row activates it — the first tap, on any row", function()
 		local w = primaryWorld({ input = "touch" })
@@ -1170,10 +1167,10 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(#w.handle.controller.diagnostics()).toBe(0)
 	end)
 
-	-- THE PRICE OF THE APPLE RULE, PINNED RATHER THAN HIDDEN (see the note in
+	-- THE PRICE OF THAT RULE, PINNED RATHER THAN HIDDEN (see the note in
 	-- table.luau). With a primary action declared, touch loses tap-to-select in
-	-- normal mode ENTIRELY — including the SINGLE selection iOS 16+ would
-	-- otherwise allow by tap. Apple accepts that deliberately; so do we, and the
+	-- normal mode ENTIRELY — including the SINGLE selection a tap would
+	-- otherwise make. The convention accepts that deliberately; so do we, and the
 	-- corollary is written down beside the rule: a table whose dominant touch use
 	-- is SELECTING rather than OPENING should not declare `onPrimaryAction` at
 	-- all. The "and only on that table" half is the no-action case at the end of
@@ -1253,7 +1250,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 	-- phone if the phone player can REACH edit mode. The auto Edit/Done toggle used
 	-- to appear for `reorderable` tables and nothing else, which left a selectable,
 	-- primary-action, NON-reorderable table with no route at all: every tap opened,
-	-- and no affordance existed to stop them opening. Apple ships `EditButton` as a
+	-- and no affordance existed to stop them opening. The usual answer is an Edit button as a
 	-- standard control for exactly this reason. The predicate the toggle now uses —
 	-- "edit mode is the ONLY route to a capability this table declares, and the
 	-- consumer has not taken the signal over" — is stated in table.luau's header and
@@ -2637,7 +2634,7 @@ end)
 --   · keyboard — "a single arrow press destroys any multi-selection: ctrl-clicks
 --     build [r1,r3], one Down -> [r4]. Ctrl+Down does not move without selecting.
 --     Shift+Down x2 does not extend." A plain arrow REPLACING is correct and is
---     Apple's own model; what was missing is the two MODIFIED arrows, so a
+--     the standard model; what was missing is the two MODIFIED arrows, so a
 --     keyboard could build a multi-selection and had no way to keep it.
 --   · gamepad — "a pad can never hold two rows selected: A -> [r1], DPadDown ->
 --     [r2], A -> [r2]." A pad Activate carries `shift`/`toggle` read from a
@@ -2645,7 +2642,7 @@ end)
 --     and moving the ring replaces as well, so even a toggle would be undone by
 --     the press that reaches the next row.
 --
--- ONE RULE ANSWERS BOTH, and it is Apple's: EDIT MODE IS THE SELECTION MODE.
+-- ONE RULE ANSWERS BOTH: EDIT MODE IS THE SELECTION MODE.
 -- Inside it, focus is a cursor and Activate is the verb; outside it, the
 -- modifiers decide. `table.luau`'s own primary-action block already quotes the
 -- rule ("On devices without an attached keyboard and mouse or trackpad, people
@@ -2757,7 +2754,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		expect(w.selected()).toEqual({ "r2", "r3", "r4" })
 	end)
 
-	it("a PLAIN arrow still replaces — Apple's own model, unchanged", function()
+	it("a PLAIN arrow still replaces — the standard model, unchanged", function()
 		--[[ The null hypothesis, and it matters: the defect here was never "an arrow
 			replaces", which is what the Finder does and what every table in this
 			framework has always done. It was that the two MODIFIED arrows had no
@@ -2803,7 +2800,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 
 	it("OUTSIDE edit mode the pad is unchanged: A on a row replaces", function()
 		-- the cost of the rule stated as a case: a pad still cannot build a
-		-- multi-selection without entering edit mode, which is exactly Apple's
+		-- multi-selection without entering edit mode, which is exactly the
 		-- documented trade and the reason the auto Edit/Done toggle shows for a
 		-- live gamepad class
 		local w = multiWorld()

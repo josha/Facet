@@ -1,7 +1,7 @@
 --!strict
 -- ProgressView: linear progress, determinate and INDETERMINATE
--- (docs/plans/swiftui-parity-next.md investment 7; acceptance row B-DSP1;
--- swiftui-parity-round2.md §3.1). A track with a filled portion, over the SHARED
+-- (docs/plans/parity-next.md investment 7; acceptance row B-DSP1;
+-- parity-round2.md §3.1). A track with a filled portion, over the SHARED
 -- value model, so its clamping and formatting are the same arithmetic Slider and
 -- Stepper use.
 --
@@ -9,7 +9,7 @@
 -- no focus role and no semantic action, and it declares that explicitly rather
 -- than being silently absent from conformance.
 --
--- INDETERMINATE IS SELECTED BY `value = nil` — SwiftUI's own rule (`ProgressView()`
+-- INDETERMINATE IS SELECTED BY `value = nil` — a progress view with no value
 -- with no value is indeterminate). There is deliberately no second flag: a
 -- `indeterminate = true` beside a `value = 0.4` is a contradiction the framework
 -- would have to arbitrate, and the value already carries the answer. `min`/`max`/
@@ -83,12 +83,12 @@
 -- anyone else.
 --
 -- `showValue` IS REFUSED ON `circular` rather than rendered beside the ring.
--- Apple's centred-readout ring is `Gauge(.accessoryCircularCapacity)`, not
+-- The centred-readout ring belongs to a sizeable gauge, not
 -- `ProgressView`, and it is a complication-sized dial; this indicator is SMALL by
 -- construction (a theme metric off the `space` scale, with no per-call diameter
 -- to grow it), so a centred readout has no size it is guaranteed to fit inside
 -- and the bar's beside-the-track placement would silently be a different design
--- from the one Apple documents. Refused with both alternatives named.
+-- from the one the name implies. Refused with both alternatives named.
 --
 -- `height` IS THE BAR'S TRACK, AND ONLY THE BAR'S. A spinner has no track, and
 -- reinterpreting the number as the dot's size was the silent-reinterpretation
@@ -229,7 +229,7 @@ end
 export type Spec = {
 	id: string?,
 	-- nil (the whole key absent) = INDETERMINATE; a number or Readable<number> =
-	-- determinate. Construction-fixed, exactly as SwiftUI's two initializers are
+	-- determinate. Construction-fixed: the two modes are
 	-- two different views — a Readable that happens to yield nil is still a
 	-- determinate bar reading a broken value, never a mode switch.
 	value: any?, -- number | Readable<number> | nil
@@ -249,7 +249,7 @@ export type Spec = {
 	motionClock: any?,
 }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"format",
@@ -589,7 +589,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		-- one expression rather than a second shape.
 		local ringChildren: { any } = {}
 		if not indeterminate then
-			-- THE CAPACITY RING. Apple's determinate circular form is documented as
+			-- THE CAPACITY RING. The determinate circular form is usually documented as
 			-- "a closed ring that's partially filled in" — without the unfilled part
 			-- drawn, a 20% arc reads as a stroke fragment rather than as one fifth
 			-- of something. Static points and static paint: it binds nothing, never

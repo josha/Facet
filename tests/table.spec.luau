@@ -826,13 +826,13 @@ describe("Table: custom cells and resize model", function()
 	end)
 end)
 
-describe("Table: SwiftUI-shaped columns (director round 5)", function()
+describe("Table: column-owned columns (director round 5)", function()
 	it("per-column alignment positions cell content; vertical center is the default", function()
 		local _, adapter = world({
 			header = false,
 			columns = {
 				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
-				-- numeric column, SwiftUI-style trailing alignment
+				-- numeric column, modifier-style trailing alignment
 				{ id = "laps", title = "Laps", width = 64, alignment = { h = "trailing" } },
 			},
 		})
@@ -1112,7 +1112,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		pres.refresh()
 		expect(sortOrder:get().ascending).toBe(false)
 		expect(adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").props.text).toBe("▼")
-		-- SwiftUI semantics: the DATA OWNER applies the sort — rows untouched
+		-- The DATA OWNER applies the sort — rows untouched
 		expect(adapter.node(rowHitPath(0, "razz")).rect.y).toBe(razzYBefore)
 		-- non-sortable columns expose no sort hit
 		expect(adapter.node("/S/Racers/Main/Header/Head-name/Column")).toBe(nil)
@@ -1463,7 +1463,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 	end)
 end)
 
-describe("Table: Apple-model focus and selection (director round 2)", function()
+describe("Table: standard-model focus and selection (director round 2)", function()
 	it("clicking a row moves keyboard focus there", function()
 		local _, adapter, pres, tbl = world({ selection = "single" })
 		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column")
@@ -1474,7 +1474,7 @@ describe("Table: Apple-model focus and selection (director round 2)", function()
 		local _, _, _, _, _, _, system = nil, nil, nil, nil, nil, nil, nil
 	end)
 
-	it("arrow navigation moves the SELECTION with focus (Apple table model)", function()
+	it("arrow navigation moves the SELECTION with focus (the standard table model)", function()
 		local _, adapter, pres, tbl, _, _, system = world({ selection = "single" })
 		system.deviceKey("Down", true) -- off the column handle onto razz
 		system.deviceKey("Down", false)
@@ -1564,7 +1564,7 @@ describe("Table: modifier selection semantics (Phase B)", function()
 	end)
 
 	it("keyboard Activate honors held modifiers from the action system", function()
-		-- Apple model: arrows already REPLACE the selection as focus moves
+		-- standard model: arrows already REPLACE the selection as focus moves
 		-- (anchor follows), so keyboard ranges collapse to the focused row —
 		-- range extension is pointer territory (shift+arrows = reorder).
 		-- The seam to pin: held modifiers reach handleActivate for Return.
@@ -2095,7 +2095,7 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 		local _ = reorders
 	end)
 
-	it("focus moves anywhere INSIDE a row (stars included) re-select that row (Apple model)", function()
+	it("focus moves anywhere INSIDE a row (stars included) re-select that row (standard model)", function()
 		local _, adapter, pres, tbl = padWorld()
 		pres.refresh()
 		tbl.api.handleActivate(hit("r1"), { pointer = "mouse" })
@@ -3237,7 +3237,7 @@ describe("Table: row actions (Task 10)", function()
 	end)
 
 	it(
-		"iOS tap-to-close: a tap on a row's own content while ITS tray is open closes it — no select, no activate",
+		"tap-to-close: a tap on a row's own content while ITS tray is open closes it — no select, no activate",
 		function()
 			local w = raWorld({
 				header = false,

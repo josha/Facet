@@ -1,6 +1,6 @@
 --!strict
 --[[
-	ONE VIEWPORT CHANGE IS ONE SOLVE (docs/plans/swiftui-parity-round3.md, item E
+	ONE VIEWPORT CHANGE IS ONE SOLVE (docs/plans/parity-round3.md, item E
 	-- the measurement story).
 
 	L-27 recorded "one viewport change costs 5 solves and 2 structural syncs,

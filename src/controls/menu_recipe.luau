@@ -35,7 +35,7 @@
 	rather than a defect.
 
 	THE ONE ROW SHAPE THAT IS NOT THE SHIPPED ONE, AND WHY. A SUBMENU row has to
-	show a trailing chevron — HIG: *"A menu item indicates the presence of a
+	show a trailing chevron — the guidance: *"a menu item indicates the presence of a
 	submenu by displaying a symbol — like a chevron — after its label."* A `Button`
 	is a container (B-BTN1), so an accessory means moving the visible label into
 	content, exactly as `disclosure_group`'s header does for its caret: `label`
@@ -46,7 +46,7 @@
 	`row_actions` — which has no submenus — renders the identical tree it always
 	did.
 
-	THE TWO HIG LINTS LIVE HERE TOO, because they are properties of a menu's
+	THE TWO GUIDANCE LINTS LIVE HERE TOO, because they are properties of a menu's
 	ITEMS and both menus author items: icons are per-group all-or-nothing, and a
 	group of more than about five items wants its own menu.
 ]]
@@ -67,11 +67,11 @@ menu_recipe.INLINE_ROW_HEIGHT = "controlSizes.regular.height"
 -- the hairline of surface showing between two rows
 menu_recipe.ROW_GAP = "strokes.hairline"
 
--- HIG: "if a submenu contains more than about five items, consider creating a
+-- Guidance: "if a submenu contains more than about five items, consider creating a
 -- new menu". Advice, so it is a diagnostic rather than a refusal.
 menu_recipe.GROUP_SIZE_ADVICE = 5
--- HIG: "It can be difficult for people to reveal multiple levels of hierarchical
--- submenus, so it's generally best to restrict them to a single level." SwiftUI
+-- Guidance: "it can be difficult for people to reveal multiple levels of hierarchical
+-- submenus, so it's generally best to restrict them to a single level." Nothing
 -- documents no structural cap, so neither does this: depth is UNBOUNDED and a
 -- second level of nesting is diagnosed, never refused (director ruling §6.4).
 menu_recipe.DEPTH_ADVICE = 2
@@ -220,7 +220,7 @@ function menu_recipe.divider(UI: any, id: string): any
 	return UI.Divider({ id = id, width = { type = "fill", weight = 1 } })
 end
 
---[[ THE ICON LINT (HIG: "provide icons for all menu items in a group, or none of
+--[[ THE ICON LINT: "provide icons for all menu items in a group, or none of
 	them"). A GROUP is the run of action items between two dividers — which is what
 	makes this checkable at authoring time rather than a taste call: the author has
 	already said where the groups are. Returns the 1-based index of the first item
@@ -262,7 +262,7 @@ function menu_recipe.mixedIconGroup(items: { any }): number?
 	return verdict()
 end
 
---[[ THE GROUP-SIZE ADVICE (HIG: "if a submenu contains more than about five
+--[[ THE GROUP-SIZE ADVICE: "if a submenu contains more than about five
 	items, consider creating a new menu"). Counts ACTIONABLE items only — a
 	divider is the author grouping, not another thing to read — and answers with
 	the count so the diagnostic can name it. ]]

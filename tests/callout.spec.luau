@@ -4,7 +4,7 @@
 
 	`docs/plans/reference-media/2026-08-16-roblox-app-navigation/f1-avatar-editor.jpeg`
 	— the "Post Avatars to Marketplace" plate with an arrow tail pointing up at a
-	top-right `+`. It is NOT a tooltip. Apple's own separation, read 2026-08-16:
+	top-right `+`. It is NOT a tooltip. the standard separation, read 2026-08-16:
 	`.help(_:)` is player-pulled, pointer-only and invisible on touch, while
 	TipKit's `popoverTip(_:arrowEdge:action:)` "presents a popover tip on the
 	modified view… WHEN THE TIP BECOMES ELIGIBLE FOR DISPLAY". The app decides,
@@ -12,7 +12,7 @@
 	plates carry D1's tail since the 2026-08-16 device review — the stem says
 	which control the words are about, and never was the differentiator.)
 
-	Apple's warning ships with it, verbatim: *"Use tips sparingly… Don't use tips
+	the standing warning ships with it, verbatim: *"Use tips sparingly… Don't use tips
 	to guide people through your app, or for advertising and promotion purposes."*
 
 	FOUR CLAIMS THIS FILE EXISTS TO FAIL ON:
@@ -730,7 +730,7 @@ describe("D3b Callout: the dump, and the teardown", function()
 		end
 	end)
 
-	it("Apple's own warning ships with the documentation", function()
+	it("the standing warning ships with the documentation", function()
 		--[[ *"Use tips sparingly… Don't use tips to guide people through your app,
 			or for advertising and promotion purposes."* The brief asks for it
 			VERBATIM in the docs, which makes it a thing a check can hold. ]]

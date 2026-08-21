@@ -17,7 +17,7 @@
 -- Written as a CLEAN CONSUMER: `themes.define` + `themes.neutralPackage()` and
 -- nothing else. No internal require.
 --
--- ORIGINAL WORK, NO TRADE DRESS. "iOS-6-class" names a CATEGORY of chrome —
+-- ORIGINAL WORK, NO TRADE DRESS. "glossy touch-era" names a CATEGORY of chrome —
 -- glossy skeuomorphic touch controls, vertical gradients with a hard gloss step,
 -- gel highlights, capsule switches, 44px rows. The palette, the geometry, the
 -- gradient stops and the stripe period are invented in

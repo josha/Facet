@@ -80,13 +80,13 @@ describe("text_distance: the matrix five modules wrote by hand", function()
 
 	--[[ ENOUGH KEYS THAT HASH ORDER CANNOT PASS FOR SORTED ORDER. Three keys
 		were not: dropping the `table.sort` left the three-key case still reading
-		"apple, mango, zebra" by luck, so the mutation did not bite. A legal set
+		"apricot, mango, zebra" by luck, so the mutation did not bite. A legal set
 		printed in hash order is a different sentence on every run of a different
 		build, which is exactly what an error message may not be. ]]
 	it("listOf sorts, and the separator is the caller's sentence", function()
 		local set = {
 			zebra = true,
-			apple = true,
+			apricot = true,
 			mango = true,
 			kiwi = true,
 			fig = true,
@@ -94,8 +94,8 @@ describe("text_distance: the matrix five modules wrote by hand", function()
 			banana = true,
 			date = true,
 		}
-		expect(textDistance.listOf(set)).toBe("apple, banana, cherry, date, fig, kiwi, mango, zebra")
-		expect(textDistance.listOf(set, " | ")).toBe("apple | banana | cherry | date | fig | kiwi | mango | zebra")
+		expect(textDistance.listOf(set)).toBe("apricot, banana, cherry, date, fig, kiwi, mango, zebra")
+		expect(textDistance.listOf(set, " | ")).toBe("apricot | banana | cherry | date | fig | kiwi | mango | zebra")
 		expect(textDistance.listOf({})).toBe("")
 	end)
 end)

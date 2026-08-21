@@ -3,12 +3,12 @@
 	(navigation-and-menus D3; reference `f1-avatar-editor.jpeg`).
 
 	This screen exists because the two mechanisms it shows look almost identical
-	in a still frame and are opposites in every other respect. Apple keeps them
+	in a still frame and are opposites in every other respect. The conventions keep them
 	apart and so does Facet:
 
 	  · `help` — the player PULLS it. Rest a pointer on a control, or land the
 	    ring on it, and one sentence appears. On TOUCH nothing happens at all, by
-	    specification: Apple binds no gesture to help on any platform, and the one
+	    specification: no input class binds a gesture to help, and the one
 	    touch gesture that could carry it belongs to the full-value disclosure
 	    plate. So the same words are also printed on this screen, which is exactly
 	    the rule `text_audit.helpRoutes` enforces — help is never the only route.

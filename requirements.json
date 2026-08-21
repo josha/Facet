@@ -223,13 +223,13 @@
   {
    "id": "UI-PERF-002",
    "title": "Evidence-classed performance: every record names the instrument that produced it (lune | studio-emulated | desktop-retail | phone-physical | console-physical) and its evidence level; budgets derive from a measured baseline and a supported frame target; a device budget is never enforced from a non-device class",
-   "spec": "roadmap Step 4; swiftui-parity-next.md investment 10",
+   "spec": "roadmap Step 4; parity-next.md investment 10",
    "firstGate": "cross-platform-proof"
   },
   {
    "id": "UI-SPATIAL-001",
    "title": "Future spatial seam: presentation-space and spatial-pointing facts, optional ray/3D-hit/pose/handedness/phase/target on normalized events, and a declared future world render target \u2014 contracts only; no VR support claim without the named physical focus/hover/occlusion/comfort/cancellation/performance gate",
-   "spec": "docs/extending/new-platform-mode.md; swiftui-parity-next.md investment 10",
+   "spec": "docs/extending/new-platform-mode.md; parity-next.md investment 10",
    "firstGate": "cross-platform-proof"
   },
   {
@@ -306,7 +306,7 @@
   },
   {
    "id": "ROW-ACTIONS-001",
-   "title": "SwiftUI-parity row swipe actions: newRowActions/newRowActionsCoordinator plus Table's rowActions integration, full cross-input coverage (mouse/touch/keyboard/gamepad/edit-mode), destructive commits irrevocable once started, with the perf gate re-baselined to Task 11b's measured mount-dominated numbers",
+   "title": "Row swipe actions: newRowActions/newRowActionsCoordinator plus Table's rowActions integration, full cross-input coverage (mouse/touch/keyboard/gamepad/edit-mode), destructive commits irrevocable once started, with the perf gate re-baselined to Task 11b's measured mount-dominated numbers",
    "spec": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
    "firstGate": "row-actions"
   }

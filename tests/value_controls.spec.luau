@@ -1,5 +1,5 @@
 --!strict
--- Milestone B — the value-control family (docs/plans/swiftui-parity-next.md
+-- Milestone B — the value-control family (docs/plans/parity-next.md
 -- investment 4; acceptance rows B-VAL1 and B-VAL3).
 --
 -- B-VAL1 is the SHARED model: Slider and Stepper are different affordances over
@@ -852,7 +852,7 @@ end)
 --
 -- RUNG 1 is the theme: a package's sliderTrack/sliderThumb recipes skin every
 -- slider in the game. RUNG 2 is this — one view saying "not that one, THIS
--- picture", SwiftUI-style, which opts that node out of theme changes.
+-- picture", modifier-style, which opts that node out of theme changes.
 
 describe("Slider: the decoration slot hint and the per-view override", function()
 	local chrome_slots = require("../src/tokens/chrome_slots")

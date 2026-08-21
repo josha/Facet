@@ -783,7 +783,7 @@ function haptics.new(opts: Options?): any
 		-- NO PAD MEANS NO EVIDENCE, not "no haptics": the only probe on the
 		-- platform answers `false` for an absent gamepad exactly as it does for a
 		-- motorless one, and on touch there is no probe at all — the docs say only
-		-- "most" iPhone/Pixel/Galaxy devices have haptics, so a phone is
+		-- only "most" phones have haptics, so a phone is
 		-- permanently `unknown` and never `supported`.
 		if pads == nil or #pads == 0 then
 			deviceVerdict = "unknown"

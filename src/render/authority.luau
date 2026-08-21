@@ -7,7 +7,7 @@
 -- presentation (transient transform/opacity), host (a custom control's claims).
 --
 -- THIS FILE HAS ZERO REQUIRES, AND THAT IS WHY `themes/` MAY CONSULT IT
--- (ARCH-19, answered 0.10.0). The review read `src/themes/package.luau`'s
+-- (answered 0.10.0). The review read `src/themes/package.luau`'s
 -- require of this module as a layering inversion — the pure theme compiler
 -- reaching into the render layer. It is not one, for the same reason
 -- `src/spec_guard.luau` and `src/class_contract.luau` are legal from anywhere: a
@@ -24,11 +24,11 @@
 -- `themes/` exists.
 --
 -- `host` WENT LIVE WITH `UI.Foreign` (ADR-0034, 2026-08-15) and owns exactly one
--- entry: `Foreign.Parent`. It had been declared and unused since phase 3 —
--- architecture verifier ARCH-F8 confirmed the string appeared once in the whole
--- repo, its own type-union member — reserved for the custom-control escape hatch
--- (UI-EXT-001, "mounts raw Instances under explicit contract") that had never
--- shipped a blueprint class. It has now. The other four authorities answer "which
+-- entry: `Foreign.Parent`. It had been declared and unused for several
+-- milestones — the string appeared exactly once in the whole repository, as its
+-- own type-union member — reserved for the escape hatch that mounts raw
+-- Instances under an explicit contract, which had never shipped a blueprint
+-- class. It has now. The other four authorities answer "which
 -- Facet writer owns this property of a Facet instance"; `host` answers "what
 -- does the framework claim over an instance it does NOT own", and the whole point
 -- of the bounded escape hatch is that the answer is one property.

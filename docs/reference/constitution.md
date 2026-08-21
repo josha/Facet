@@ -309,7 +309,7 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 |---|---|---|
 | E-1 | `Image.scaleMode` ships `fill` and `crop` as synonyms | Roblox's `Crop` *is* the cover behavior other vocabularies call fill; both audiences find their word without a lookup. Declared in the schema and api.md |
 | E-2 | `focusable` is opt-OUT on `Button`/`Toggle`/`TextField`, opt-IN on `Grip` | each default matches the class's overwhelmingly common use; flipping either would make the common case noisy |
-| E-3 | `UI.styleGroup(spec, blueprints)` is spec-first | SwiftUI `Group` semantics: the collection is the subject being produced; `(bp, spec)` has no collection to be first |
+| E-3 | `UI.styleGroup(spec, blueprints)` is spec-first | Group semantics: the collection is the subject being produced; `(bp, spec)` has no collection to be first |
 | E-4 | `Screen` duplicates `VStack`'s schema | a Screen *means* presenter-root (safe-area resolved, fill-defaulted); the meaning, not the prop set, is the API |
 | E-5 | `Region` takes no BOX props | a Region IS its ranked forms; a width on it would be a second source of truth against the composition's own resolution |
 | E-6 | `ScrollView.axis` is construction-only while `AdaptiveStack.axis`/`Divider.axis` are reactive | a reactive engine scroll axis would rebuild native scroll state mid-gesture; `AdaptiveStack` exists to be the reactive flip |
@@ -324,7 +324,7 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 | E-15 | `text.measure` keeps its six-positional form (spec-table form added, canonical) | it is the solver's own hot seam, called thousands of times per solve; the positional form stays for the solver, the spec form is the public idiom |
 | E-16 | `replication` verbs: `ingest` / `ingestPatch` / `ingestResnapshot` | the three names encode *what arrives* (a whole state, a delta, a recovery), which call sites branch on; one overloaded verb would hide the protocol |
 | E-17 | `context.destroy()` (input contexts) keeps its name | grandfathered pre-1.0; renaming now costs every consumer more than the inconsistency does. PKT-2 proposes the 1.0 unification |
-| E-18 | `UI.offset(bp, x?, y?)`, `UI.aspectRatio(bp, ratio)`, `UI.alignment(bp, h?, v?)` take positional scalars, not a spec table | one or two numbers/words are the whole message; a spec table there is ceremony (SwiftUI spells these the same way). The sub-family is internally consistent and closed — a new modifier with ≥3 fields takes a spec table |
+| E-18 | `UI.offset(bp, x?, y?)`, `UI.aspectRatio(bp, ratio)`, `UI.alignment(bp, h?, v?)` take positional scalars, not a spec table | one or two numbers/words are the whole message; a spec table there is ceremony. The sub-family is internally consistent and closed — a new modifier with ≥3 fields takes a spec table |
 
 Candidates that were **not** granted exceptions and are queued as decision packets
 (rename/unification proposals with migration costs) live in

@@ -19,8 +19,9 @@ chapter — it is one file, and it is the whole answer.
 > **What is proven, and what is not.** Everything below is covered by the
 > headless suite and by the `theme_authoring` Studio scenario. The physical
 > phone pass, the human Style-Editor walkthrough, and low-end-device cost
-> remain open rows (`artifacts/theme-packages-and-skinning/review-packet.md`,
-> TP-P1–TP-P4). Do not quote theme-swap cost as device truth.
+> remain open rows in
+> `artifacts/theme-packages-and-skinning/review-packet.md`. Do not quote
+> theme-swap cost as device truth.
 
 **The canonical documentation check for this chapter:**
 
@@ -1002,7 +1003,7 @@ Low-end-device performance is not claimed by this stage.
 > thing, write a control. Each rung is a normal amount of work — you should
 > never feel you have to fight the framework to change one slider.
 
-This is SwiftUI's shape, and Facet copies it deliberately.
+The ladder is deliberate, and each rung is a place you are allowed to stop.
 
 | Rung | What you do | When |
 |---|---|---|

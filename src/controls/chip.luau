@@ -26,7 +26,7 @@ local specGuard = require("../spec_guard")
 
 local chip = {}
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local CHIP_KEYS = specGuard.keySet({
 	"id",

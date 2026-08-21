@@ -1,6 +1,6 @@
 --!strict
 -- `UI.sensoryFeedback(bp, { trigger, event })` — the authored half of the
--- semantic feedback seam (docs/plans/swiftui-parity-round2.md §3.3, SwiftUI's
+-- semantic feedback seam (docs/plans/parity-round2.md §3.3, the
 -- `.sensoryFeedback(_:trigger:)`).
 --
 -- What is guarded here:

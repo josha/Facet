@@ -1,5 +1,5 @@
 --!strict
--- Adaptive-layout decisions (docs/plans/swiftui-parity-next.md investment 5;
+-- Adaptive-layout decisions (docs/plans/parity-next.md investment 5;
 -- acceptance rows A-AL2/A-AL3).
 --
 -- Exposing size facts was not enough to deliver write-once UI: every screen
@@ -403,7 +403,7 @@ export type ConditionsOpts = {
 -- conditions(core, env, opts?) -> Conditions
 -- Readables the caller owns; they are memos over the environment, so they cost
 -- nothing until read and re-resolve in place when a fact changes.
--- CLOSED OPTS (constitution §4; ARCH-1). `scope` is the leak fix below, and a
+-- CLOSED OPTS (constitution §4). `scope` is the leak fix below, and a
 -- misspelled one leaks twelve memos per mount without a word.
 local CONDITIONS_OPTS_KEYS = specGuard.keySet({ "scope", "stackAbove" })
 

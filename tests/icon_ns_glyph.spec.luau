@@ -1,5 +1,5 @@
 --!strict
--- The NAMESPACED icon fallback rung (swiftui-reference-app-validation matrix,
+-- The NAMESPACED icon fallback rung (reference-app-validation matrix,
 -- 2026-08-08). api.md has promised since the circle button shipped that a
 -- namespaced `ns:name` icon draws "the framework's own ASCII-safe glyph for
 -- that name immediately, so the affordance is legible under every theme" — but

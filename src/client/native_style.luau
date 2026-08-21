@@ -9,7 +9,7 @@
 --                                 live here — a base-sheet attribute would
 --                                 defeat every derive, spike m5/m7)
 --
--- SEED-ONCE (§6.9 Fallback B, ledger NSS-A9): if a sheet with this schema
+-- SEED-ONCE: if a sheet with this schema
 -- already exists, its RULES and THEME TOKENS are left untouched — Style
 -- Editor paint edits are the designer's and persist in the place file. Only
 -- the layout-reference mirrors and the stamp are refreshed (generator-owned,

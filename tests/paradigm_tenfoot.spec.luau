@@ -263,7 +263,7 @@ describe("ten-foot focus lift is capped to bounds that fit the screen (director 
 end)
 
 describe("ten-foot default overscan margins (director live find: edge-flush UI on a TV-class display)", function()
-	it("effectiveOverscanInsets defaults to the tvOS-equivalent 60/90 under Large when none are authored", function()
+	it("effectiveOverscanInsets defaults to the ten-foot 60/90 under Large when none are authored", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0) -- near: no margins

@@ -29,7 +29,7 @@
 -- All four are tunable ±30 % without re-gating, and re-registering a built-in
 -- name is the sanctioned way to tune one: the registry is the only dial.
 
--- WHO OWNS THE REGISTRY (ARCH-24, stated 0.10.0). It is module-level and
+-- WHO OWNS THE REGISTRY (stated 0.10.0). It is module-level and
 -- therefore PROCESS-GLOBAL: every core and every surface in the VM shares one
 -- vocabulary. That is the DESIGN, not an oversight — a motion name is a design
 -- system decision and `registerClass` is the only dial, so a tuning pass has one

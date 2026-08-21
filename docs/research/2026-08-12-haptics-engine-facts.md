@@ -1,7 +1,7 @@
 # Roblox haptics — engine facts, 2026-08-12
 
 Measured against the live creator docs and the current API dump (client
-`0.734.0.7340915`) for SwiftUI-parity round 2 Phase 3, which adds one opt-in
+`0.734.0.7340915`) for parity round 2 Phase 3, which adds one opt-in
 client haptics adapter behind Facet's semantic feedback bus. Recorded here per
 constitution §12 ("engine facts are measured, then recorded, never assumed from
 memory") and `ENGINEERING.md` "platform-native first — verify, every time".
@@ -185,7 +185,7 @@ never falls back to `Custom`.
 
 ## Re-confirmation, live in Studio, 2026-08-14
 
-Standing rule 1 (`docs/plans/swiftui-parity-round3-brief.md`) requires checking
+Standing rule 1 (`docs/plans/parity-round3-brief.md`) requires checking
 the *current* platform rather than trusting a two-day-old note, so every fact
 above was re-asked of a running client — `0.734.0.7340915`, `Facet-Showcase`,
 Play mode, macOS. **Nothing had moved.** The creator docs for `HapticEffect`,

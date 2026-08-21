@@ -41,7 +41,7 @@ loaded module text, not guessed.
    the ~1.3 s dump window is guaranteed to land inside the workload you chose.
    `Run all` is for a correctness sweep, not for a capture.
 4. Let it settle a few laps (the status line counts them).
-5. **Ctrl+F6** (**Cmd+F6** on macOS) opens the MicroProfiler, **Ctrl+P** pauses it,
+5. **Ctrl+F6** (**Cmd+F6** where the keyboard has a Command key) opens the MicroProfiler, **Ctrl+P** pauses it,
    then **Dump → Dump in binary format**.
 6. Send the file. The workload identity is written into `workspace` attributes and
    warned to the console, so the capture no longer has to be identified by

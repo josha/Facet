@@ -1,5 +1,5 @@
 --!strict
---[[ RECTANGLE ALGEBRA, ONCE (reuse audit REUSE-4, REUSE-39).
+--[[ RECTANGLE ALGEBRA, ONCE (one home for the shared rectangle helpers).
 
 	Overlap, containment, point-in-rect, equality and rounding had fifteen-plus
 	bodies across `render/`, `layout/`, `present/`, `input/` and `controls/`, in

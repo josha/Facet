@@ -1,5 +1,5 @@
 --!strict
--- Shared value model for the value-control family (docs/plans/swiftui-parity-next.md
+-- Shared value model for the value-control family (docs/plans/parity-next.md
 -- investment 4; acceptance row B-VAL1). Slider and Stepper are different
 -- affordances over the SAME model, so bounds, stepping, rounding, formatting,
 -- disabled rules and semantic value text exist exactly once and cannot disagree
@@ -59,7 +59,7 @@ local function defaultFormat(v: number): string
 end
 value_model.defaultFormat = defaultFormat
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the four fields the model
+-- CLOSED SPEC (constitution §4). Exactly the four fields the model
 -- reads — a misspelled `step` is a control that silently went continuous.
 local VALUE_MODEL_KEYS = specGuard.keySet({ "format", "max", "min", "step" })
 

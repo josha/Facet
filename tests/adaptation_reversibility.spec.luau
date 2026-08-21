@@ -193,7 +193,7 @@ end
 	steals 67px and this fixture drops its own caption below 360px of viewport, so
 	only a height in the 360..427 band has the bar CROSS that floor: at 718 and 640
 	the caption survives the steal and at 338 and 320 it was already gone, so a
-	latched steal would be invisible at all four. 375 is an iPhone-class landscape
+	latched steal would be invisible at all four. 375 is an compact-phone-class landscape
 	and it is the one that can tell a stuck bar from a released one. (Mutation-
 	proved: latching `urlBarPx` on first open reddens the URL-bar case only once
 	this row is in the set.) ]]

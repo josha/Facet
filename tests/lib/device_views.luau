@@ -47,7 +47,7 @@ local VIEWS: { View } = {
 	-- 320px" — a sweep that only runs compact sizes teaches the wrong lesson about
 	-- what overflow is.
 	{ id = "desktop-studio-1320", w = 1320, h = 742, displaySize = "Medium", input = "KeyboardAndMouse" },
-	--[[ THE MODERN PHONE (O-19, added 2026-08-15). 390x844 is the iPhone-class
+	--[[ THE MODERN PHONE (O-19, added 2026-08-15). 390x844 is the compact-phone-class
 		portrait the round-3 ledger measured `p4_foyer`'s TopBar at: clean in English
 		at every preference, 33px over at +10 and 58px at +14 under the shipping 1.4x
 		`xa` locale. It is NOT redundant with the two narrow rows above — 320x640 is

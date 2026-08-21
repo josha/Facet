@@ -6,7 +6,7 @@ developer picking one has a real decision to make, and they differ enough that
 the decision matters — so this document is that comparison, capability by
 capability, with a citation on every claim about Fusion.
 
-It is a sibling of [`swiftui-parity.md`](swiftui-parity.md), which measures
+It is a sibling of [`the comparison document`](the comparison document), which measures
 Facet against the most complete declarative UI framework in wide production
 use. This one measures it against the framework it is actually competing with on
 this platform. Read that one for *how good is this, as a UI framework*. Read this
@@ -57,7 +57,7 @@ differences are largest.
 ### The four verdicts
 
 Each area below opens with plain framing, then a table, then the caveats that did
-not fit in a cell. The verdicts are the same four `swiftui-parity.md` uses, and
+not fit in a cell. The verdicts are the same four `the comparison document` uses, and
 they read in one direction — **what Facet's answer to a Fusion capability is**:
 
 | Verdict | Means |
@@ -78,11 +78,11 @@ document is not going to pretend it is.
 Claims about Facet are guarded by checkers (`check_docs`, `check_prop_parity`,
 `check_registration`, `check_surface_ledger`, `check_boundary`). Nothing guards
 the other side, which is the side the whole comparison rests on — and this
-project's own history is why that matters: `swiftui-parity.md` once carried ten
-uncited assertions about SwiftUI and a later citation pass found every one of
+project's own history is why that matters: `the comparison document` once carried ten
+uncited assertions about another framework and a later citation pass found every one of
 them wrong.
 
-So, following the §16 convention that `check_docs` enforces on the SwiftUI
+So, following the §16 convention that `check_docs` enforces on the comparison
 document:
 
 - **`[FU-nn]`** resolves in §8 to a page on `elttob.uk/Fusion`, the sentence the
@@ -203,7 +203,7 @@ That is a big thing to take on, and it needs to buy something. What it buys:
   and tells you nothing.
 - **The vocabulary is a strict superset** of `UIListLayout` + `UIFlexItem` in
   every respect but one deliberate divergence (declaration order is the only
-  order; there is no `LayoutOrder` analogue). `swiftui-parity.md` §4.1 has the
+  order; there is no `LayoutOrder` analogue). `the comparison document` §4.1 has the
   row-by-row scorecard.
 
 And what it costs: a great deal more machinery. The vendored Fusion 0.3 in this
@@ -616,13 +616,13 @@ that implies in both directions.
 Fusion has none, correctly and by design — its answer is that Roblox already
 ships layout, and the cookbook uses `UIListLayout` directly ([FU-14]). So this
 whole table is one-directional, and the fair reading is not "Facet wins" but
-"these are different products". `swiftui-parity.md` §4.1 is where Facet's layout
+"these are different products". `the comparison document` §4.1 is where Facet's layout
 vocabulary is scored against the native controls it replaces, which is the
 comparison a Fusion user actually cares about.
 
 | Fusion capability | Verdict | What Facet has | Evidence |
 |---|---|---|---|
-| Layout — anything at all | **No Fusion equivalent.** Fusion's documented API has three categories, State, Instances and Animation ([FU-13]); layout is `New "UIListLayout"` ([FU-14]) | A headless measure-then-arrange solver: weighted flex stacks, `distribute`, `layoutPriority` × `shrinkWeight`, per-child `lineAlign`, flow-wrap, three grid modes with row/column flow and spanning, `ViewThatFits`, `containerRelativeFrame`, safe areas, and `Composition`/`Region` ranked adaptive degradation | `src/layout/`; `swiftui-parity.md` §4 |
+| Layout — anything at all | **No Fusion equivalent.** Fusion's documented API has three categories, State, Instances and Animation ([FU-13]); layout is `New "UIListLayout"` ([FU-14]) | A headless measure-then-arrange solver: weighted flex stacks, `distribute`, `layoutPriority` × `shrinkWeight`, per-child `lineAlign`, flow-wrap, three grid modes with row/column flow and spanning, `ViewThatFits`, `containerRelativeFrame`, safe areas, and `Composition`/`Region` ranked adaptive degradation | `src/layout/`; `the comparison document` §4 |
 | — | **No Fusion equivalent** | **Layout complains.** Overflow, unbounded percent, unbounded containers, mixed grid children, inert placement props, HUD zone collisions and cross-surface overlap all arrive through `controller.diagnostics()` | `src/render/renderer.luau`; `src/layout/placement_audit.luau` |
 | — | **No Fusion equivalent** | **Incremental relayout.** One changed value re-solves only the subtree it can affect — measured 141 arranged nodes down to 8 | `tests/incremental_layout.spec.luau` |
 | — | **No Fusion equivalent** | **Layout is testable with no engine.** The solver is pure | `src/layout/solver.luau` |
@@ -634,7 +634,7 @@ comparison a Fusion user actually cares about.
 | `ForValues` — map over a table's values, leaving unchanged ones alone ([FU-11]) | **Covered** | `UI.ForEach { items, key, row }` — keyed structural diffing with adds, removes and moves only; duplicate keys are a hard error; a row removed and re-added mid-exit-transition resumes the same mounted subtree | `src/mount.luau`; `src/blueprint.luau` |
 | `ForKeys` / `ForPairs` — map over a **dictionary** ([FU-11]) | **Composable**, and the recipe has a trap | `ForEachSpec.items` is `Readable<{any}>` — an **array**. A dictionary must be flattened in a memo first, and the flattening must sort, because Luau's `pairs` order is not stable and an unsorted flatten silently makes your row order nondeterministic. There is no shipped helper. §5, G-3 | `src/blueprint.luau` (`ForEachSpec`) |
 | Per-item cleanup on removal (0.2's destructor argument; 0.3's inner scope) | **Covered** | `row(item, itemScope)` hands each item a real scope disposed when that item leaves | `src/blueprint.luau` |
-| — | **No Fusion equivalent** | **Virtualization.** `newVirtualList` (either axis), `newTable { virtualized = true }` and `newVirtualGrid` (either axis) window a collection to what the viewport touches, over one shared prefix-sum extent index. Measured: a lazy grid's mount is 54× cheaper than the eager one at 10,000 items, and a scroll frame is flat in N | `src/virtual_extents.luau`; `src/controls/`; `swiftui-parity.md` §4.2 |
+| — | **No Fusion equivalent** | **Virtualization.** `newVirtualList` (either axis), `newTable { virtualized = true }` and `newVirtualGrid` (either axis) window a collection to what the viewport touches, over one shared prefix-sum extent index. Measured: a lazy grid's mount is 54× cheaper than the eager one at 10,000 items, and a scroll frame is flat in N | `src/virtual_extents.luau`; `src/controls/`; `the comparison document` §4.2 |
 | — | **No Fusion equivalent** | **A rich collection control.** Columns, header, single/multi/range selection, reorder, per-row capability opt-outs, swipe actions | `src/controls/table.luau` |
 
 ### 4.5 Motion
@@ -1077,7 +1077,7 @@ them.
   and what it could not. Do not read them as a claim that Fusion's model cannot be
   wrapped better.
 - **No physical-device evidence exists for anything on Facet's side**, here or in
-  `swiftui-parity.md` §14.
+  `the comparison document` §14.
 
 ---
 
@@ -1130,7 +1130,7 @@ the vendored copy, never to a moving branch.
 
 ### 8.3 A note on re-checking
 
-Fusion's documentation is statically rendered, so unlike Apple's it can be
+Fusion's documentation is statically rendered, so unlike some vendors' it can be
 fetched and grepped directly — a quote below can be re-checked with an ordinary
 HTTP request. The source citations are the more durable half: pin the tag, read
 the file. If a quote in §8.1 no longer appears at its URL, the row above it that

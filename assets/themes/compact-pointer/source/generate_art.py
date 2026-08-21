@@ -3,7 +3,7 @@
 
 Original, repository-owned art: every texture below is generated procedurally by
 this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, and NO trade dress. The brief's reference ("macOS-class") names a
+assets, and NO trade dress. The brief's reference ("desktop-pointer-class") names a
 *category* of chrome — compact ~22 px pointer controls, near-flat surfaces,
 hairline borders, subtle top-lit gradients, cool greys — not any vendor's
 pixels: palette, geometry, gradient stops and border construction are invented

@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Wardrobe" — E1 loop pins (RA-P5, swiftui-reference-app-validation).
+-- Reference proof "Wardrobe" — E1 loop pins (RA-P5, reference-app-validation).
 -- Try-on/undo/redo history, the purchase lifecycle with scripted rejections,
 -- the stage seam (camera/lighting recorded on the headless host stub), the
 -- split ⇄ stacked Composition flip with state survival, locale swap, and reset

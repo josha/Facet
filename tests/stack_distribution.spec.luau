@@ -1,6 +1,6 @@
 --!strict
 --[[
-	THE STACK BRANCH GAINS THREE THINGS (docs/plans/swiftui-parity-round2.md §2.1,
+	THE STACK BRANCH GAINS THREE THINGS (docs/plans/parity-round2.md §2.1,
 	§2.4, §2.6). They are one coherent change to one branch, so they are one spec
 	file. Two of the three live in ARRANGE only; the shrink pass has a MEASURE half
 	as well, and which half a case is about is said case by case below.

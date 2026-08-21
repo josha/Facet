@@ -385,7 +385,7 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 		-- a decision modal that declines outside-dismiss is still a BARRIER — the
 		-- synthesized scrim catches and EATS the tap. The pre-spec behavior let an
 		-- outsideTapCancel=false outside tap fall through to the lower surface; the
-		-- spec closes that (Apple "other views disabled", Material scrim).
+		-- spec closes that (other views disabled, plus a scrim).
 		local core, _, adapter, _, pres = harness()
 		local baseHits: { string } = {}
 		local base = Facet.UI.Screen({

@@ -1,6 +1,6 @@
 --!strict
 -- Native-sheet MODEL builder (native-stylesheets stage; plan §6.1/§6.2, ledger
--- NSS-A1). PURE and engine-free: compiles Facet token styles into a
+-- the native-stylesheets stage). PURE and engine-free: compiles Facet token styles into a
 -- declarative StyleSheet model — token names, theme token sets, ordered rules,
 -- transitions, and layout-reference mirrors — that the client materializer
 -- (src/client/native_style.luau) turns into DataModel instances. Everything a

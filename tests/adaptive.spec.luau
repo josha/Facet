@@ -1,5 +1,5 @@
 --!strict
--- Milestone A — adaptive layout (docs/plans/swiftui-parity-next.md investment 5;
+-- Milestone A — adaptive layout (docs/plans/parity-next.md investment 5;
 -- acceptance rows A-AL1..A-AL3) and the axis-aware Divider (A-LV3).
 --
 -- The plan's rule: adaptation comes from available space, viewing distance, live
@@ -747,7 +747,7 @@ describe("A-AL1: ViewThatFits", function()
 
 		`fitProbe` is the seam that already exists for exactly this question — it is
 		on while a candidate is being judged, and its own comment says the candidate
-		is "judged at the size it would like, SwiftUI's ideal size". The clamp was the
+		is "judged at the size it would like, the ideal size". The clamp was the
 		one measure-side reduction it did not suppress.
 
 		THE VERDICTS ARE UNTOUCHED: `recordTextFacts` still runs before the return, so
@@ -1431,7 +1431,7 @@ end)
 
 -- ===========================================================================
 -- THE PRIMARY CLASS IS A CAPABILITY QUESTION BEFORE IT IS A PREFERENCE ONE
--- (device report 2026-07-29, iPhone 15 Pro).
+-- (device report 2026-07-29, a physical phone).
 --
 -- `UserInputService.PreferredInput` reports the most recently USED input, so on a
 -- phone that has not been touched yet it reads KeyboardAndMouse — the engine's

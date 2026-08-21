@@ -9,7 +9,7 @@
 -- which ROWS may take part.
 --
 -- WHY IT IS A MODULE AND NOT TWO COPIES. The family spans two controls, and
--- `docs/reference/swiftui-parity.md` §13 already carries "gesture machinery in
+-- The comparison document §13 already carries "gesture machinery in
 -- four implementations that duplicate state and math" as a confirmed defect. A
 -- capability gate whose two copies could disagree about what a thrown predicate
 -- means is that defect being re-committed while it is on the list. One
@@ -17,11 +17,11 @@
 --
 -- THREE RULES, each from a rule this repo already paid for:
 --
---   1. POSITIVE POLARITY. SwiftUI spells these `selectionDisabled` /
+--   1. POSITIVE POLARITY. The usual spelling is `selectionDisabled` /
 --      `deleteDisabled` / `moveDisabled` — negative, where true means OFF. Facet
 --      spells them positively, because `rowFocusable` already sits on the same
 --      spec tables meaning true = on, and `rowFocusable` beside `moveDisabled`
---      is a bug factory. The parity doc carries the inverse mapping so a SwiftUI
+--      is a bug factory. The comparison document carries the inverse mapping so a
 --      author is not left guessing.
 --
 --   2. A PREDICATE MAY ONLY SUBTRACT. It answers "may THIS ROW participate?",

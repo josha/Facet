@@ -11,7 +11,7 @@ parity-doc rewrite, and test-suite efficiency.
 1. Root `CLAUDE.md` — note the "Facet and Rascal Rally move together" rule; it binds every phase below.
 2. `GameStudio/ENGINEERING.md` and `GameStudio/MODELS.md`.
 3. `GameStudio/ui/Facet/docs/reference/swiftui-parity.md` — current parity inventory and its verdict taxonomy (Covered / Partial / Composable / Missing).
-4. `GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md` — the governing roadmap. This mission implements slices of investments 5, 6, 7, and 9 and closes gaps that doc already names (`withAnimation`, `layoutPriority`, container-relative conditions, sensory feedback).
+4. `GameStudio/ui/Facet/docs/plans/parity-next.md` — the governing roadmap. This mission implements slices of investments 5, 6, 7, and 9 and closes gaps that doc already names (`withAnimation`, `layoutPriority`, container-relative conditions, sensory feedback).
 5. `GameStudio/ui/Facet/docs/lessons/` — skim titles; read any that touch the solver, perf, or gates before the relevant phase.
 
 All framework work happens in `GameStudio/ui/Facet/`; consumer work in
@@ -81,7 +81,7 @@ The current-state claims below came from a scout pass; confirm each in source be
 - No `layoutPriority`, no `containerRelativeFrame` (only percent-of-parent dims), no Lazy stacks, no GridRow, no `withAnimation` (motion animates values, not property changes; structural transitions exist in `src/render/transitions.luau`).
 - Feedback bus taxonomy in `src/present/feedback.luau`.
 
-Then write `docs/plans/swiftui-parity-round2.md`: one short design section per
+Then write `docs/plans/parity-round2.md`: one short design section per
 phase. Have an opus subagent adversarially review the Phase 1 (`withAnimation`)
 design before any implementation.
 
@@ -144,7 +144,7 @@ Keep the verdict taxonomy and the honest-summary section. Every claim carries
 evidence (test file or source path). Explicitly record this round's decisions:
 no *Style protocols (native StyleSheets own paint), Lazy stacks are
 virtualization sugar, `sensoryFeedback` is a semantic bus event. Update the
-milestone/status table in `swiftui-parity-next.md` to match reality.
+milestone/status table in `parity-next.md` to match reality.
 
 ## Phase 6 — test-suite efficiency [M3]
 

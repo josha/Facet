@@ -9,7 +9,7 @@
 -- dismiss(handle) / back()      -> pops the top modal (Cancel routing)
 -- withAnimation(class, fn)      -> runs fn in its own transaction and forces its
 --   own commit, so the nodes fn MOVED are painted travelling from where they
---   used to be (docs/plans/swiftui-parity-round2.md §Phase 1). The verb lives
+--   used to be (docs/plans/parity-round2.md §Phase 1). The verb lives
 --   here because the clock, the controller scopes and `refresh` all do.
 
 local mountLib = require("../mount")
@@ -3780,7 +3780,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		helpPlate.revalidate()
 	end
 
-	-- ===== withAnimation (docs/plans/swiftui-parity-round2.md §Phase 1) =======
+	-- ===== withAnimation (docs/plans/parity-round2.md §Phase 1) ===============
 	--
 	-- `presenter.withAnimation("container", function() open:set(true) end)` — the
 	-- layout lands exactly and instantly as it always did, and every node whose box

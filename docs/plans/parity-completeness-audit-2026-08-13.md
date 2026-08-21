@@ -16,7 +16,7 @@ it. A SwiftUI capability that never entered the table is not Missing — it is
 governing roadmap concedes the bound explicitly:
 
 > "Its original 69-item count is a bounded catalog, not a percentage score for all
-> of SwiftUI." — `docs/plans/swiftui-parity-next.md:43-44`
+> of SwiftUI." — `docs/plans/parity-next.md:43-44`
 
 That concession lives in a *plan* file. The parity document itself never restates
 it (see §6, meta-finding 1). This audit measures what lies outside the bound.
@@ -276,7 +276,7 @@ Every scope caveat in the document is narrower than the promise:
 | `:1111-1121` "Things this pass could NOT verify" | three specific unverified *claims*; nothing about unconsidered *areas* |
 
 The one sentence that would fix it — "a bounded catalog, not a percentage score
-for all of SwiftUI" — exists, at `docs/plans/swiftui-parity-next.md:43-44`, in a
+for all of SwiftUI" — exists, at `docs/plans/parity-next.md:43-44`, in a
 file the parity document does not link.
 
 **The fix is two edits, and I have deliberately not made them:** a paragraph in §1

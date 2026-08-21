@@ -19,7 +19,7 @@ export type Column = {
 	[string]: any,
 }
 
---[[ ── AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE (DIR-4) ─────────
+--[[ ── AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE  ─────────
 	(director device round: resize Name and Artist wide in landscape, rotate to
 	portrait — Rating is pushed off screen and the header still reads
 	"Name 297px · Artist 168px" on a 393px viewport.)

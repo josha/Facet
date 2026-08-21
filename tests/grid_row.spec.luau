@@ -1,10 +1,10 @@
 --!strict
 --[[
-	THE ROW GRID (docs/plans/swiftui-parity-round2.md §2.2).
+	THE ROW GRID (docs/plans/parity-round2.md §2.2).
 
 	`UI.Grid` was one uniform FLOW grid: children wrap row-major into a column
 	count and every column is the same width, `colW = (innerW - gap x (cols - 1))
-	/ cols`. SwiftUI's `Grid`/`GridRow` pair is a different layout — each row
+	/ cols`. the `Grid`/`GridRow` pair is a different layout — each row
 	declares its cells in order and COLUMN n IS AS WIDE AS THE WIDEST NATURAL CELL
 	IN COLUMN n ACROSS EVERY ROW — and this stage adds it under the same name,
 	selected by the children rather than by a mode prop.
@@ -237,7 +237,7 @@ describe("row mode: a span covers columns, and widens none of them", function()
 		}, 300, 200)
 		-- columns come from row 2 alone: 50 and 40. The title is fitted to
 		-- 50 + 10 + 40 = 100 — NOT allowed to push column 1 out to 200, which is
-		-- SwiftUI's rule and the reason this case exists.
+		-- the standard rule and the reason this case exists.
 		expect(box(r, "title")).toBe("title: 0,0 100x20")
 		expect(box(r, "b")).toBe("b: 0,30 50x20")
 		expect(box(r, "c")).toBe("c: 60,30 40x20")

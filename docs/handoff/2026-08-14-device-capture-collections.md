@@ -29,7 +29,7 @@ and last but two in the cycler:
    screen repaints and the profiler has frames to sample — the two failures that
    made the 2026-08-13 captures unusable are both structurally impossible here.
 4. Let it run three or four laps (the status line counts them).
-5. **Ctrl+F6** (**Cmd+F6** on macOS) opens the MicroProfiler, **Ctrl+P** pauses,
+5. **Ctrl+F6** (**Cmd+F6** where the keyboard has a Command key) opens the MicroProfiler, **Ctrl+P** pauses,
    then **Dump → Dump in binary format**.
 6. Repeat for **`variable-extents`**.
 

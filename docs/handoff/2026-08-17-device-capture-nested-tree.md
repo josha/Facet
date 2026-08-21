@@ -101,7 +101,7 @@ why the lab refuses to run instead of running wrong.
    same failure mode that produced `asyncImage.html`'s twenty-nine
    byte-identical frames on 2026-08-15. Press Stop, re-cycle to `host-move`,
    and press Profile 1 again before spending a dump.
-4. Let it run 3–4 laps, then **Ctrl+F6** (**Cmd+F6** on macOS), **Ctrl+P** to
+4. Let it run 3–4 laps, then **Ctrl+F6** (**Cmd+F6** where the keyboard has a Command key), **Ctrl+P** to
    pause, then **Dump → Dump in binary format**.
 5. Press **Stop**. Press **Arm >** once — the status line reads
    `arm 2/5: hostedRepeat — press Profile 1`. Press **Profile 1**, dump again.

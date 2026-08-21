@@ -502,14 +502,14 @@ local function gridFlowStretch(deps: Deps, node: any, plan: any, innerFlow: numb
 	return grown
 end
 
---[[ ===== THE ROW GRID (docs/plans/swiftui-parity-round2.md §2.2) =============
+--[[ ===== THE ROW GRID (docs/plans/parity-round2.md §2.2) =============
 
 	`UI.Grid` is, and stays, a uniform FLOW grid: children wrap row-major into a
 	column count and every column is the same width. Everything above this block
 	is that grid, and every existing caller keeps it to the pixel.
 
 	A Grid whose children are all `gridrow` nodes is a different layout with the
-	same name — SwiftUI's `Grid`/`GridRow` pair. Each row declares its cells in
+	same name — the `Grid`/`GridRow` pair. Each row declares its cells in
 	order, and COLUMN n IS AS WIDE AS THE WIDEST NATURAL CELL IN COLUMN n ACROSS
 	EVERY ROW. That is the whole difference and it is why row mode needs a second
 	pass: the flow grid can size a column from the offer alone, this one cannot
@@ -523,7 +523,7 @@ end
 	one the tree had before `GridRow` existed, so nothing silently reflows — and
 	says so in the diagnostics.
 
-	A SPAN CANNOT WIDEN A COLUMN ON ITS OWN (SwiftUI's rule). A cell declaring
+	A SPAN CANNOT WIDEN A COLUMN ON ITS OWN. A cell declaring
 	`gridSpan = n` is left out of every column maximum and is then fitted to the
 	columns it covers plus the gaps between them, so a wide title across three
 	columns does not stretch column 1 under every row beneath it.

@@ -138,7 +138,8 @@ export type BoxProps = {
 	stroke: Bound<any>?,
 	-- paint-order override inside the parent's stacking scope; read once at mount
 	zIndex: number?,
-	-- SwiftUI's `hidden()`: keep the layout box, stop painting, leave focus order
+	-- The space-reserving hide — keep the layout box, stop painting, leave focus
+	-- order
 	-- and stop taking taps — with the whole subtree. `UI.When` is the other answer
 	-- (it removes the node and the space closes up)
 	hidden: Bound<boolean>?,
@@ -302,7 +303,7 @@ export type TextSpec = BoxProps & {
 	text: Bound<string | number>,
 	textSize: Bound<number | TypeRole>?,
 	textAlign: Bound<string>?,
-	-- at most this many lines (SwiftUI `.lineLimit`); beyond it the engine
+	-- at most this many lines; beyond the cap the engine
 	-- ellipsizes instead of the box growing. The owner's knowledge, not the
 	-- string's — see blueprint_schema's LINE_LIMIT for the ruling
 	lineLimit: Bound<number>?,
@@ -1579,12 +1580,12 @@ function blueprint.ForEach(spec: ForEachSpec): Blueprint
 	return make("ForEach", spec)
 end
 
--- SwiftUI-style style modifiers (§17 Phase 4 engine styling; UI-STYLE-001).
+-- Style modifiers: each wraps a blueprint and returns a new one.
 -- Each returns a NEW blueprint (blueprints are frozen/immutable) whose style
 -- props ride the STYLE authority: applied to a single element they style
 -- that element; applied to a container they style the container's own
 -- rendered surface; UI.styleGroup applies the modifier set to EVERY element
--- of a collection (SwiftUI Group semantics). Token names resolve against
+-- of a collection. Token names resolve against
 -- the active style (optional third argument; default: Studio Neutral).
 -- `modifier` is the UI.* name the AUTHOR typed (F-7). Every caller below passes
 -- its own, so an unknown-prop or wrong-type refusal names the call site as well
@@ -1759,13 +1760,13 @@ function blueprint.dropTarget(bp: Blueprint, spec: dragContract.TargetSpec): Blu
 end
 
 -- ===== sensory feedback (round 2 §3.3; the control form, round 3) ===========
--- UI.sensoryFeedback(bp, { trigger, event }) — SwiftUI's `.sensoryFeedback(_:
+-- UI.sensoryFeedback(bp, { trigger, event }) — the change form (`.sensoryFeedback(_:
 -- trigger:)`. When `trigger` changes, `{ type = event, path = <this node> }` is
 -- emitted on the presenter's feedback bus, synchronously, in the write that
 -- moved it.
 --
 -- UI.sensoryFeedback(bp, { activation = "commit" }) — the PER-CONTROL form,
--- which SwiftUI has no equivalent of. It names what THIS control's own press
+-- which has no equivalent in the change form. It names what THIS control's own press
 -- feels like, replacing the generic `activate` the presenter would otherwise
 -- emit, and it CASCADES: declared on a container it reaches every control
 -- inside, which is what lets it serve the ten composite controls without one
@@ -1773,7 +1774,7 @@ end
 -- deliberately unfelt. Resolution lives in `mount.luau`; the vocabulary and the
 -- reasoning live in `src/present/feedback.luau`.
 --
--- Facet STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). SwiftUI's
+-- Facet STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). The
 -- modifier names a HAPTIC (`.impact`, `.selection`); this one names a semantic
 -- verb from the closed twelve, and what — if anything — is played is the
 -- subscriber's ruling. `src/client/haptics.luau` is one opt-in, default-off
@@ -1935,7 +1936,7 @@ local function frameDim(exact: number?, min: number?, max: any, ideal: number?):
 end
 
 -- UI.frame(bp, spec) — exact size, or a min/preferred/max band. `maxWidth =
--- "infinity"` is SwiftUI's fill idiom.
+-- "infinity"` is the fill idiom.
 function blueprint.frame(bp: Blueprint, spec: FrameSpec): Blueprint
 	if type(spec) ~= "table" then
 		error(`Facet UI.frame: expected a spec table, got {typeof(spec)}`, 0)
@@ -1995,7 +1996,7 @@ end
 -- CONTAINER, not against the parent (§2.5).
 --
 -- THE WHOLE DISTINCTION IS THE RULER. `percent` already means "a fraction of what
--- my parent offered me", and that is the wrong number for the two shapes SwiftUI
+-- my parent offered me", and that is the wrong number for the two shapes this
 -- introduced this for: a card that should be half the SCROLLER's viewport however
 -- many wrappers sit between it and the scroller, and a carousel whose pages are
 -- exactly a third of the viewport each. The container is the nearest ancestor that
@@ -2005,7 +2006,7 @@ end
 --
 -- Two forms, and exactly one of them per call:
 --   { axis, fraction = 0.5 }                       half the container
---   { axis, count = 3, span = 1, spacing = 8 }     SwiftUI's paging arithmetic,
+--   { axis, count = 3, span = 1, spacing = 8 }     the paging arithmetic,
 --       size = (viewport - spacing x (count - 1)) / count x span + spacing x (span - 1)
 --
 -- A SPEC TABLE, not positional arguments: three-or-more fields is the constitution's

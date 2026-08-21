@@ -171,7 +171,7 @@ describe("input: modifier state (Phase B)", function()
 		expect(system.modifiers().shift).toBe(true)
 		system.deviceKey("LeftShift", false)
 		expect(system.modifiers().shift).toBe(false)
-		-- either control or meta reads as the toggle modifier (cmd on mac)
+		-- either control or meta reads as the toggle modifier
 		system.deviceKey("LeftControl", true)
 		expect(system.modifiers().toggle).toBe(true)
 		system.deviceKey("LeftControl", false)

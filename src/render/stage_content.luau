@@ -6,7 +6,7 @@
 -- (which turns the answers into CFrame/Color3/Vector3 writes on an owned Camera
 -- and the frame itself) and the headless recording twin the suite drives. A
 -- normalizer each adapter wrote for itself would be two rulings on one contract,
--- which is how "headless green, device wrong" ships (the SF-M9 lesson).
+-- which is how "headless green, device wrong" ships.
 --
 -- The boundary is deliberately ENGINE-TYPE-FREE: a point/direction is
 -- `{ x, y, z }` and a colour is `{ r, g, b }` in 0..1 — the same shape the theme

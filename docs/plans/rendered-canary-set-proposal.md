@@ -1,7 +1,7 @@
 # Proposal — a small rendered canary set in Studio
 
 **Status: PROPOSAL. Nothing here is built.** Written for
-[`swiftui-parity-round2.md`](swiftui-parity-round2.md) §Phase 6 step 4. It asks
+[`parity-round2.md`](parity-round2.md) §Phase 6 step 4. It asks
 for one decision: approve, shrink, or decline.
 
 ## The gap it closes

@@ -1,5 +1,5 @@
 --!strict
--- TextInput control (§17 Phase 5 expansion; NSTextField / SwiftUI TextField
+-- TextInput control (§17 Phase 5 expansion; the single-line text-field
 -- informed). A COMPOSITE over shipped primitives: a ZStack of the new
 -- `TextField` leaf primitive (the headless seam the engine maps to a TextBox)
 -- plus an optional trailing clear Button shown via the ONE structural seam
@@ -61,11 +61,11 @@ export type Spec = {
 	-- exception), carried as intent parity with keyboardType-as-data (ADR-0012).
 	submitLabel: ("default" | "done" | "go" | "next" | "search" | "send")?,
 	clearButton: boolean?, -- trailing × affordance; sugar for clearButtonMode = "always"
-	-- WHEN the trailing ✕ is offered, spelled as UIKit spells it
+	-- WHEN the trailing ✕ is offered, spelled the way the platform convention spells it
 	-- (`UITextField.clearButtonMode`), because that vocabulary already exists in
 	-- every designer's head and the four states are the four real answers:
 	--   "never"          no affordance at all (the default)
-	--   "whileEditing"   only while the field has focus — the iOS search-field
+	--   "whileEditing"   only while the field has focus — the search-field
 	--                    convention, and the one that stops a static list of
 	--                    filled fields from being a wall of ✕ glyphs
 	--   "unlessEditing"  only while it does NOT have focus (a settings row that
@@ -127,7 +127,7 @@ local function truncate(s: string, maxLen: number?): string
 	return string.sub(s, 1, endOffset - 1)
 end
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local TEXT_INPUT_KEYS = specGuard.keySet({
 	"actionSystem",
@@ -172,7 +172,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		`TextInput '{id}': submitLabel must be one of default|done|go|next|search|send (got '{tostring(spec.submitLabel)}')`
 	)
 
-	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO (ADAPT-1). `env` was an optional key
+	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO . `env` was an optional key
 		and three behaviours were gated on it: the keep-visible offset that lifts
 		the field off the on-screen keyboard, the touch-at-edit-start snapshot, and
 		the dock-mid-edit commit. Without it `occlusionOffset` stayed 0 — measured:
@@ -588,7 +588,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			-- CHIP, so it is not the field's own colour on the field's own
 			-- colour. With the default control surface this button was a plate
 			-- the same shade as the field it sits inside — invisible on an
-			-- iPhone 15 Pro, where the reporter could not find the clear
+			-- a physical phone, where the reporter could not find the clear
 			-- affordance at all while a filter was active.
 			surface = "chip",
 		})

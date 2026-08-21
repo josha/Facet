@@ -1,7 +1,7 @@
 --!strict
 --[[ SAFE-AREA INSET DERIVATION AND ITS STALENESS BELT — the pure half of the
-	platform adapter's `GuiService:GetInsetArea` handling (PLAT-3, redone
-	2026-08-17 after review finding NEW-1).
+	platform adapter's `GuiService:GetInsetArea` handling (redone 2026-08-17 after
+	a platform review).
 
 	`src/client/roblox_env.luau` is the one file allowed to read the engine's
 	inset services, and until this module existed the arithmetic that turns an

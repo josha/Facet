@@ -8,7 +8,7 @@
 	television were byte-identical to a phone's. The audit recorded that as a
 	SCOPE question rather than a defect (`adapt-audit/matrix.md` ADAPT-8) and put
 	it to the director, who ruled AGAINST type-only: on ten-foot the whole metric
-	ladder scales with the type, tvOS-style.
+	ladder scales with the type, ten-foot style.
 
 	THE FACTOR IS NOT A SECOND CONSTANT. It is `tenFootFloor` — the type floor's
 	own 1.5 — read through `snapshot.metricScale`, which is `typographyPaintScale`

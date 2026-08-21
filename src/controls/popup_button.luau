@@ -1,5 +1,5 @@
 --!strict
--- PopupButton control (ADR-0007 composite; NSPopUpButton / SwiftUI Menu-picker
+-- PopupButton control (ADR-0007 composite; the menu-picker
 -- informed). A COMPOSITE over shipped primitives: a single focusable Button
 -- (the "trigger") shows the currently-selected option's label; activating it
 -- opens a popup — a floating panel of activatable option rows plus a Cancel
@@ -59,7 +59,7 @@ export type Spec = {
 	sizeClass: any?, -- string | Readable<string>, e.g. adaptive.conditions().sizeClass
 	interactionClasses: any?, -- table | Readable<table>, e.g. env interactionClasses
 	--[[ the environment BOTH facts above come from, for a caller that would
-		otherwise wire two keys to say one thing (ADAPT-1). Omitted, an automatic
+		otherwise wire two keys to say one thing . Omitted, an automatic
 		presentation finds the one this control's own core published — and refuses
 		to construct if there is none. ]]
 	env: any?,
@@ -84,7 +84,7 @@ popup_button.resolvePresentation = menuRecipe.resolvePresentation
 
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, menu = true, inline = true, sheet = true }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"env",
@@ -137,7 +137,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		optionsById[option.id :: string] = option
 		selectableCount += 1
 	end
-	--[[ THE HIG'S ICON LINT, at authoring time (D2): "provide icons for all menu
+	--[[ THE ICON LINT, at authoring time (D2): "provide icons for all menu
 		items in a group, or none of them". A group is the run between two dividers,
 		which is why this is checkable at all — the author already said where the
 		groups are. A half-iconned group looks fine in the one fixture it was
@@ -147,7 +147,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		mixed == nil,
 		`PopupButton '{id}': the option group starting at index {tostring(mixed)} mixes options that declare an `
 			.. "icon with options that do not. Give every option in a group an icon, or none of them "
-			.. "(HIG: Menus). A divider = true option starts a new group."
+			.. "A divider = true option starts a new group."
 	)
 
 	-- open/closed is the control's only owned state; selection lives in `value`
@@ -236,7 +236,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return fact
 	end
 
-	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM (ADAPT-1).
+	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM .
 
 		Both were spec keys and nothing else, so an automatic PopupButton with
 		neither took the pointer/large-screen answer silently — and the census found

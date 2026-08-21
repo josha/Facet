@@ -220,7 +220,7 @@ require("./virtual_list_focus_policy.spec")
 require("./virtual_list_slot_guard.spec")
 require("./virtual_grid.spec")
 require("./virtual_grid_input.spec")
--- ...and the SIDEWAYS half, `newVirtualGrid { axis = "x" }` -- SwiftUI's `LazyHGrid`.
+-- ...and the SIDEWAYS half, `newVirtualGrid { axis = "x" }`.
 -- It exists because `UI.Grid` learned to wrap COLUMN-MAJOR (`grid_column_flow.spec`),
 -- so the horizontal band is a real `UI.Grid` with the lane formula EXECUTING, never a
 -- second lane arithmetic inside the control. Its ring transposes the OPPOSITE way from
@@ -310,7 +310,7 @@ require("./layout_vocabulary.spec")
 -- reserved) and `lineAlign` (§2.1, per-child cross-axis alignment — the
 -- `ItemLineAlignment` gap)
 require("./stack_distribution.spec")
--- §2.2 the ROW grid: `UI.GridRow` turns `UI.Grid` into SwiftUI's Grid/GridRow pair
+-- §2.2 the ROW grid: `UI.GridRow` turns `UI.Grid` into the Grid/GridRow pair
 -- (column n is the widest natural cell in column n across every row, `gridSpan`
 -- covers several columns and widens none of them), selected by the children — and
 -- the flow grid every existing caller has stays byte-identical, pinned first
@@ -472,7 +472,7 @@ require("./toast_presentation.spec")
 -- (ADR-0022 Decision 7, row SF-F1)
 require("./feedback.spec")
 -- the AUTHORED half of that seam: UI.sensoryFeedback(bp, { trigger, event })
--- (docs/plans/swiftui-parity-round2.md §3.3), and the opt-in, default-off client
+-- (docs/plans/parity-round2.md §3.3), and the opt-in, default-off client
 -- haptics adapter that is one possible SUBSCRIBER to it — Facet still plays
 -- nothing
 require("./sensory_feedback.spec")
@@ -483,7 +483,7 @@ require("./sensory_profile.spec")
 require("./haptics.spec")
 -- ...and the PER-CONTROL form of the same modifier — UI.sensoryFeedback(bp,
 -- { activation = verb }) — which cascades down the mounted tree and replaces the
--- verb a press emits (director request 2026-08-13; swiftui-parity.md §7.1)
+-- verb a press emits (director request 2026-08-13; the comparison document §7.1)
 require("./control_feedback.spec")
 -- bounded retry with a session give-up, the preload seam, and the AsyncImage dim
 -- treatment (ADR-0022 Decision 8, rows SF-A1..A3)
@@ -557,12 +557,12 @@ require("./spec_guard_sweep.spec")
 -- and the invariant that makes them a role rather than a `weight` prop — the
 -- descriptor the solver MEASURES with is the descriptor the adapter PAINTS
 require("./typography_weight_roles.spec")
--- swiftui-reference-app-validation: the five clean-room reference proofs
--- swiftui-parity round 2 Phase 1: presenter.withAnimation — the paint layer
+-- reference-app-validation: the five clean-room reference proofs
+-- parity round 2 Phase 1: presenter.withAnimation — the paint layer
 -- travels while the solver stays exact and instant
 require("./with_animation.spec")
 require("./animation_precedence.spec")
--- swiftui-parity round 3, ADR-0026: AUTHORED presentation — opacity/scale/
+-- parity round 3, ADR-0026: AUTHORED presentation — opacity/scale/
 -- rotation as a second TERM in the presentation channel rather than a second
 -- writer, and withAnimation reaching all three
 require("./authored_presentation.spec")
@@ -595,7 +595,7 @@ require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")
 require("./reference/foyer_spec")
 require("./reference/wardrobe_spec")
--- swiftui-parity round 2 Phase 6: the fast tier's guards — the tier is derived
+-- parity round 2 Phase 6: the fast tier's guards — the tier is derived
 -- from THIS file's require list, every exclusion must name a spec this file
 -- really runs, and the inner-loop runner has to keep announcing itself
 require("./tier.spec")

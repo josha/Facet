@@ -53,7 +53,7 @@ export type State = { active: boolean, hovered: string?, source: string }
 -- no double-hit ambiguity.
 local inside = rectLib.containsHalfOpen
 
--- CLOSED OPTS (constitution §4; ARCH-1). A misspelled `onPredict` is a drag that
+-- CLOSED OPTS (constitution §4). A misspelled `onPredict` is a drag that
 -- never previews its verdict, and nothing says so.
 local DRAG_SESSION_OPTS_KEYS = specGuard.keySet({ "onEnter", "onLeave", "onPredict", "payload", "source", "targets" })
 -- the target entries are the same boundary one level down: `accpets` reads as

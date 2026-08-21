@@ -297,9 +297,9 @@ Three groups recur in the column below and are worth naming once:
 | `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
-| `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. This is SwiftUI's `hidden()`, and it is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (Facet arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
-| `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. This is SwiftUI's `opacity(_:)`. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued ([ADR-0029](../adr/ADR-0029-leaf-opacity-refusal.md)): a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), exactly as Apple specifies, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
-| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — which is Apple's rule for `scaleEffect` too; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side |
+| `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. It is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (Facet arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
+| `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued ([ADR-0029](../adr/ADR-0029-leaf-opacity-refusal.md)): a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), by design, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
+| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — because a paint term never moves a measured box; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side |
 | `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
@@ -420,8 +420,8 @@ cross axis. Stack children never overlap along the stack axis.
 painting past its own box. It is a **prop, not a class**: a wrapping stack is the
 same stack in a second mode, so it keeps every other word it had, and it is
 reactive — `wrap = adaptive.conditions(…).compact` re-solves in place and never
-remounts a child. SwiftUI ships no flow layout at all (verified 2026-08-13), so
-this is native parity, not SwiftUI parity.
+remounts a child. No comparable declarative flow layout exists to copy
+(checked 2026-08-13), so this shape follows Roblox's own wrapping behaviour.
 
 It adds **no new alignment vocabulary**, because the engine's own rule was
 measured rather than guessed (Studio, 2026-08-13): the lines are packed with no
@@ -670,7 +670,7 @@ axis is live.
 `UI.ViewThatFits{ id?, children (required) }` — tries its children as candidate
 layouts in **declared preference order** and shows the first that fits, using the
 real measurement contract against the space *this container* actually received.
-The last candidate is the fallback when none fits (as in SwiftUI).
+The last candidate is the fallback when none fits.
 
 ```lua
 UI.ViewThatFits{ id = "Actions", children = {
@@ -684,14 +684,11 @@ is a second source of truth the author has to keep in sync with the content, and
 solver already knows what each candidate measures.
 
 **A candidate is judged at the size it would like, not at the size it could be
-squeezed into.** SwiftUI selects "the first child whose *ideal size* on the
-constrained axes fits within the proposed size", and an ideal size is what a view
-reports when nothing is proposed to it — so truncation, `lineLimit` and
-`minimumScaleFactor` are all invisible to the choice there. Facet's member of
-that family is `shrinkWeight`, and it is invisible here for the same reason: a
-candidate that only fits *after* being squeezed does not fit. Once a candidate has
-won it is laid out against the real offer and shrinks normally, exactly as
-SwiftUI hands its winner the parent's proposal. Picking is unshrunk; showing is
+squeezed into.** The choice reads each candidate's IDEAL size — what it
+measures when nothing is proposed to it — so shrink terms are invisible to the
+choice. Facet's member of that family is `shrinkWeight`: a candidate that only
+fits *after* being squeezed does not fit. Once a candidate has won it is laid out
+against the real offer and shrinks normally. Picking is unshrunk; showing is
 not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md` carries the
 measurement, the citations, and the one place Facet still differs on purpose.)
 
@@ -1050,8 +1047,8 @@ a full-width band: its identity, its children, and the paint a striped or carded
 row wants.
 
 **`gridSpan` on a cell**: how many of its row's columns that cell covers (default
-1). A spanning cell contributes to **no** single column's maximum — SwiftUI's own
-rule, so a span cannot widen one column on its own — and is then fitted to the
+1). A spanning cell contributes to **no** single column's maximum, so a span
+cannot widen one column on its own — and is then fitted to the
 sum of the columns it covers plus the gaps between them. Naturals that do not fit
 are reduced **proportionally** rather than overflowing, because the flow grid
 cannot overflow (its column width is derived from the offer) and a row grid under
@@ -1077,8 +1074,8 @@ and a binding can only resolve to a *value*: `nil` drops the prop rather than
 writing the default, so without a word for "resting" the round trip was one-way
 (both adapters now write both directions).
 
-**`lineLimit`** caps how many lines this label may occupy (SwiftUI's
-`.lineLimit`; a px number or a theme metric name, minimum 1). Beyond the cap the
+**`lineLimit`** caps how many lines this label may occupy (a px number or a
+theme metric name, minimum 1). Beyond the cap the
 engine ellipsizes — `TextTruncate.AtEnd` is set on every text node — instead of
 the box growing. Absent, a label is uncapped and takes as many lines as its
 string needs.
@@ -1107,12 +1104,12 @@ so declaring it costs nothing; **omitting** it on text that truncates is what th
 text audit reports as a clipped-essential finding. Binding a Readable here is
 refused with the rebuild idiom, exactly like `traversalPriority`.
 
-**`help`** (string, construction-only; SwiftUI's `.help(_:)`) is one sentence
+**`help`** (string, construction-only) is one sentence
 about what this view DOES, **pulled by the player**: a pointer resting on it for
 a dwell, or the keyboard/gamepad ring landing on it. See **Help** under
 `newPresenter` for the whole contract — including the part that is easy to get
-wrong. **On touch, nothing appears, and that is the specification.** Apple binds
-no gesture to help on any platform, and neither does Facet: touch long-press
+wrong. **On touch, nothing appears, and that is the specification.** No
+gesture is bound to help on any input class: touch long-press
 belongs to the full-value disclosure plate, which is the only touch route to a
 truncated label's own value. The consequence is a rule — `help` is never the only
 route to something a player needs — and `text_audit.helpRoutes` is the check that
@@ -1827,7 +1824,7 @@ down. Errors inside the fallback stay hard. See also
 
 ### `shadow`
 
-`UI.shadow(blueprint, presetOrParams, style?) -> Blueprint` — SwiftUI-style
+`UI.shadow(blueprint, presetOrParams, style?) -> Blueprint` — modifier-style
 modifier returning a NEW blueprint with an engine-true drop-shadow
 declaration (backed by the engine's `UIShadow` instance on capable clients;
 kept as pure style data headlessly). `presetOrParams` is a preset name from
@@ -2039,13 +2036,13 @@ eaten.
 forms**, discriminated by key set and never mixed. Both name a **semantic verb**
 from one closed vocabulary, and neither plays anything.
 
-**Form 1 — the change form**, `{ trigger, event }`. SwiftUI's
-`.sensoryFeedback(_:trigger:)`. When the `trigger` Readable **changes**, the
+**Form 1 — the change form**, `{ trigger, event }`. When the `trigger`
+Readable **changes**, the
 framework emits `{ type = event, path = <this node's mounted path>, surface =
 <the surface> }` on the presenter's feedback bus, synchronously, inside the write
 that moved it.
 
-**Form 2 — the control form**, `{ activation }`. No SwiftUI equivalent. It names
+**Form 2 — the control form**, `{ activation }`. It names
 what **this control's own press** means, and the presenter emits that verb in
 place of the `activate` it would otherwise emit, stamped `reason = "activation"`.
 
@@ -2060,8 +2057,8 @@ no honest reading. Declaring `activation` twice on one node is refused too — a
 control has one activation sensation, and a silent last-writer-wins would make
 the two orderings of the same two modifiers produce different results.
 
-**Facet plays nothing.** SwiftUI's modifier names a haptic; this one names a
-verb, and whether that becomes a rumble, a sound, a particle or nothing at all is
+**Facet plays nothing.** This modifier names a verb, not a device effect, and
+whether that verb becomes a rumble, a sound, a particle or nothing at all is
 the subscriber's ruling (`presenter.onFeedback` / `handle.onFeedback`).
 `src/client/haptics.luau` is one opt-in, default-off subscriber — see
 [Client entry points](#client-entry-points).
@@ -2124,7 +2121,7 @@ is 90 px wide.
 
 | Modifier | Signature | Effect |
 |---|---|---|
-| `frame` | `UI.frame(bp, spec)` | exact `width`/`height`, or a `minWidth`/`idealWidth`/`maxWidth` band (same for height). `maxWidth = "infinity"` is SwiftUI's fill idiom. An unknown field in `spec` is an error, not a no-op. |
+| `frame` | `UI.frame(bp, spec)` | exact `width`/`height`, or a `minWidth`/`idealWidth`/`maxWidth` band (same for height). `maxWidth = "infinity"` is the fill idiom. An unknown field in `spec` is an error, not a no-op. |
 | `padding` | `UI.padding(bp, sides)` | inner spacing; `sides` is a number or `{top?,right?,bottom?,left?}`. Valid on containers, `Button`/`Toggle`/`TextField`, and `Text` (whose measure adds it). On any other class it errors and tells you to wrap the node — it never silently does nothing. |
 | `offset` | `UI.offset(bp, x?, y?)` | arrange-only placement offset (no re-measure); meaningful for a child of `UI.Anchor` |
 | `aspectRatio` | `UI.aspectRatio(bp, ratio)` | derives the height from the resolved width (16:9 media). A non-positive ratio is an error. |
@@ -2182,8 +2179,8 @@ where the inner one never received a viewport offer — files a diagnostic on
 ### `styleGroup`
 
 `UI.styleGroup({ shadow?, gradient?, corners?, stroke? }, blueprints, style?) -> { Blueprint }` —
-applies the modifier set to EVERY element of a collection (SwiftUI `Group`
-semantics); returns the new array (use as a `children` list). All four style
+applies the modifier set to EVERY element of a collection; returns the new
+array (use as a `children` list). All four style
 modifiers are members, and the spec's key set is closed: an unknown key is a
 construction error naming the four, rather than a style that silently never
 appears. Spec-first is deliberate — the collection is the thing being produced
@@ -2513,10 +2510,10 @@ scopes that own the records, and `refresh` itself.
   one thing this can diff: the solver's rect, `x`/`y`/`w`/`h`. All four travel,
   on the same spring, so a panel finishes growing on the very frame the rows it
   displaced finish sliding. There is nothing else in the set: every other
-  property SwiftUI animates this way (opacity, rotation, scale, colour) is an
-  *authored paint* value, and Facet has no authored prop in the presentation
-  channel for one to be diffed from — see `swiftui-parity.md` §6's `opacity(_:)`
-  row for the authority decision that has to happen first.
+  property a presentation channel could otherwise animate (opacity, rotation,
+  scale, colour) is an *authored paint* value, and Facet has no authored prop in
+  the presentation channel for one to be diffed from. Paint authority has to be
+  decided first — see [ADR-0026](../adr/ADR-0026-authored-presentation-composition.md).
 - **A size delta does NOT reach into the subtree**, and this is the one rule to
   carry away. A position offset accumulates downward: Facet's instance tree is
   flat by default, so an ordinary container's move carries nothing inside it and
@@ -2531,7 +2528,7 @@ scopes that own the records, and `refresh` itself.
 - **The box's interior relayouts while it travels**, because it is a real engine
   `Size`: a wrapped label re-wraps at the intermediate width, a clip host crops
   at the intermediate height, a `canvasGroup` re-buffers each frame. That is what
-  animating a size means (SwiftUI's frame animation behaves the same way), but
+  animating a size means, but
   the `canvasGroup`/`Stage` case is the one with a real per-frame cost — the
   performance lab's `motion-flight` workload is where it gets measured.
 - **Hit geometry follows the painted position and the SOLVED size.** A shifted
@@ -2706,7 +2703,7 @@ Methods:
 - `presenter.depth() -> number`, `presenter.focus` (the focus graph).
 - **Focus identity vs the focus RING** (`presenter.focus.focusVisible`,
   `presenter.focus.setFocusOrigin(kind)`). Focus always moves — a tap moves it
-  (the Apple model), and every consumer that follows focus (a drag's aim,
+  wherever it lands, and every consumer that follows focus (a drag's aim,
   keep-visible, the engine-selection bridge) keeps working on touch. The RING is
   a different question — "where does the next Navigate go" — and a finger never
   asked it. So the graph records the ORIGIN of the last focus move: `"pointer"`
@@ -3178,12 +3175,10 @@ sentence about what a view DOES, and the player pulls it:
 | keyboard / gamepad | on focus, immediately | on blur |
 | **touch** | **nothing** | — |
 
-**Nothing on touch is the specification, not a gap.** Apple's `.help(_:)`
-"configures the view's accessibility hint and its help tag (also called a
-tooltip)" on the desktop platforms that have one, and the UIKit interaction
-"makes it possible to show a tooltip when hovering a pointer over a view or
-control". There is no long-press binding anywhere in Apple's API — and there is
-none here either, because touch long-press is the disclosure plate's, and that
+**Nothing on touch is the specification, not a gap.** Help is a hover and a
+focus-ring affordance: a pointer resting on a view, or a keyboard or gamepad ring
+landing on it. No input class binds it to a long press, and neither does Facet,
+because touch long-press is the disclosure plate's, and that
 plate is the only touch route to a truncated label's own value. Two constructs
 competing for one gesture on the only class where neither has an alternative is
 the defect this restraint avoids.
@@ -4306,9 +4301,9 @@ fact their names carry.
 ### `newTable`
 
 `Facet.Controls.Table(core, spec) -> { blueprint, api, dump, dispose }` —
-the multi-column list control (SwiftUI-`Table`-shaped columns that own their
-cells; owner-held `sortOrder`; selection none/single/multi with the
-Apple-style focus/selection model; column resize via focusable grips;
+the multi-column list control (columns own their cells; owner-held `sortOrder`;
+selection none/single/multi, where a click both moves focus and selects; column
+resize via focusable grips;
 pointer-drag row reordering with ghost + drop indicator). See
 `src/controls/table.luau` for the full spec shape.
 
@@ -4405,8 +4400,8 @@ beside a mouse is a desktop session that drags rows directly.
 and REPLACES the selection — the Finder's model, and unchanged. Held modifiers
 change that on a keyboard: **Ctrl/Cmd** moves the ring and selects nothing (a
 focus cursor), **Shift** extends the range from the anchor. A gamepad has no
-modifiers, so its route is the one Apple documents for a finger — **edit mode is
-the selection mode**: while `editing` is true on a `multi` table, a device
+modifiers, so its route is the finger's route — **edit mode is the selection
+mode**: while `editing` is true on a `multi` table, a device
 Activate TOGGLES the focused row and moving the ring leaves the selection alone,
 which is what lets a pad hold two rows at once (ADAPT-14/15, 2026-08-18). The
 auto Edit/Done toggle already shows for a live gamepad class, so the mode is one
@@ -4474,10 +4469,8 @@ the container capability it narrows (`rowSelectable` needs `selection`,
 destructive row action), absent means every row participates, and a predicate
 that throws **fails closed** — the row refuses, and the refusal is visible rather
 than a silently deleted row. Use them for "this list reorders, but the pinned row
-at the top stays put" and "these rows can be deleted, that one cannot". SwiftUI
-spells the family negatively (`selectionDisabled` / `moveDisabled` /
-`deleteDisabled`); the inverse mapping is in
-[`swiftui-parity.md`](swiftui-parity.md) §5.
+at the top stays put" and "these rows can be deleted, that one cannot". The
+family is spelled POSITIVELY here: `true` means the row may take part.
 
 **`onPrimaryAction(item, key)` — "open this row", the verb that is not
 selection.** Optional; absent, every gesture below behaves exactly as it does
@@ -4485,30 +4478,24 @@ without it. Reachable on all four inputs with no invented gesture:
 
 | Input | Gesture |
 |---|---|
-| Pointer | double-click (500 ms window, the shared Windows/macOS default) |
+| Pointer | double-click (500 ms window, the common desktop default) |
 | Keyboard | `Return` on the focused row |
 | Gamepad | **A** / Cross on the focused row |
 | Touch | a plain **single tap** on any row; **edit mode** is where touch selection lives instead |
 
-**The name is ours; the touch rule is Apple's.** SwiftUI has no `onPrimaryAction`
-symbol — it delivers this verb as the `primaryAction:` argument of
-`contextMenu(forSelectionType:menu:primaryAction:)`, and that API's
-documentation is the model implemented here, verbatim: *"In macOS, a single click
-on a row in a selectable container selects that row, and a double click performs
-the primary action. In iOS and iPadOS, tapping on the row activates the primary
-action. To select a row without performing an action, either enter edit mode or
-hold shift or command on a keyboard while tapping the row."* (The keyboard's
-`Return` is **not** parity — Apple documents no key for row activation. It is a
-reasonable convention, and matches `NSTableView` practice, but it is ours.)
+**The rule, in one paragraph.** On a desktop pointer a single click on a row
+selects it and a double click performs the primary action. On compact touch a
+plain tap performs the primary action, and selecting without acting means
+entering edit mode or holding a modifier on an attached keyboard. `Return` on the
+focused row is Facet's own keyboard convention; it follows desktop list practice
+and is not derived from any other framework.
 
 **Edit mode is the touch selection mode**, and it is the half that makes the
-first half affordable — `EditMode`: *"On devices without an attached keyboard and
-mouse or trackpad, people can make multiple selections in lists only when edit
-mode is active"*; the HIG's Lists and tables: *"In iOS and iPadOS, people must
-enter an edit mode before they can select table items."* So while `api.editing`
-is `true` a tap **toggles selection and never opens** — which hands back
-`multi`'s tap-to-**deselect** gesture in exactly the mode a player enters to
-manage selection.
+first half affordable. Without an attached keyboard and pointer, multi-selection
+in a list needs an explicit mode, so while `api.editing` is `true` a tap
+**toggles selection and never opens** — which hands back `multi`'s
+tap-to-**deselect** gesture in exactly the mode a player enters to manage
+selection.
 
 **Reaching edit mode is not left to the consumer.** The built-in Edit/Done toggle
 auto-shows whenever edit mode is the **only route to a capability the table
@@ -4522,27 +4509,22 @@ no route into edit mode at all, so its own `selection` was unreachable on touch 
 closed 2026-08-13. `spec.editing` / `api.editing` remains the seam for a consumer
 who wants to own the toggle.
 
-Auto-showing it is **ours, not Apple's**: SwiftUI's `EditButton` is placed by hand
-and Apple documents no condition on its appearance. What Apple conditions on
-declared capabilities is the *content* of edit mode (`EditMode`: a `List` whose
-`ForEach` carries `onDelete(perform:)`/`onMove(perform:)` "provides controls to
-delete or move list items while in edit mode"). The auto-show is what Facet's
-four-input reachability rule requires on top of that.
+Auto-showing the toggle is **Facet's own rule**. The common convention is that
+declared capabilities decide the *content* of edit mode — a list that declares
+delete or move offers those controls once the mode is on — while the button that
+enters the mode is placed by hand. Facet's four-input reachability rule needs the
+button to appear on its own, because a capability no input class can reach is not
+a shipped capability.
 
 **The cost is real, deliberate, and yours to weigh.** With a primary action
-declared, touch loses tap-to-select in **normal mode entirely** — including the
-single selection iOS 16+ would otherwise allow by tap (`List`: *"When people make
-a single selection by tapping or clicking, the selected cell changes its
-appearance… To enable multiple selections with tap gestures, put the list into
-edit mode"*). Declaring the action is precisely what makes a list retreat into
-edit mode for selection. Apple accepts that trade; so does this control. **The
-corollary:** if a table's dominant touch use is *selecting* rather than
-*opening*, the right call is to not declare `onPrimaryAction` on that table at
-all.
+declared, touch loses tap-to-select in **normal mode entirely**, including the
+single selection a tap would otherwise make. Declaring the action is precisely
+what makes a list retreat into edit mode for selection. **The corollary:** if a
+table's dominant touch use is *selecting* rather than *opening*, the right call
+is to not declare `onPrimaryAction` on that table at all.
 
-A double-*tap* was never a candidate, and that avoidance is documented too: the
-HIG's Gestures lists double tap as **zoom**, and watchOS warns explicitly that it
-conflicts with list navigation.
+A double-*tap* was never a candidate: the touch double tap is widely reserved for
+zoom, and it collides with list navigation on small screens.
 
 Two more consequences worth stating. A **modified** click (Shift / Cmd / Ctrl) is
 a selection gesture and never opens, on any input. And a touch tap that opens
@@ -4589,8 +4571,7 @@ widths; it moves for a pointer drag, a keyboard step and a gamepad bumper alike.
 It matters that it is a Readable rather than a getter: **a pointer drag commits
 inside the control and calls nothing back**, so a consumer polling was the only
 alternative. (It *was* a zero-arg getter until 2026-08-14; `columnWidthOverrides()`
-is now `columnWidthOverrides:get()`.) SwiftUI spells the same thing as a binding —
-[`TableColumn`](https://developer.apple.com/documentation/swiftui/tablecolumn).
+is now `columnWidthOverrides:get()`.)
 
 **Two things this reaches on a real device and one it does not**, measured
 2026-08-14 on `Facet-Showcase`'s `table_columns` fixture (retired 2026-08-16;
@@ -4680,12 +4661,12 @@ and both device bindings had nothing to bind to. A table with none of the three
 still has no focus stop per row, deliberately: a read-only grid of text has no
 verb for a ring to reach.
 
-*The iOS tap-to-close rule.* A tap that lands on a row's own content while
+*The tap-to-close rule.* A tap that lands on a row's own content while
 THAT row's own tray is open closes the tray and does **not** select or
 activate the row (a second, deliberate tap is what proceeds) — a tap
 elsewhere (another row, off the list) is unaffected. This was a RED-TEAM
 finding (the row activated AND stayed open); `tests/table.spec.luau`'s
-"iOS tap-to-close" case pins the fix.
+"tap-to-close" case pins the fix.
 
 *A swipe survives its own release.* A row's hit surface is a real engine
 `GuiButton`, so the pointer sequence that swipes it **also** fires that button's
@@ -4959,7 +4940,7 @@ and the same terminals.
 | `dropSurface` / `rowDropTarget(item)` | each row becomes a drop target. `rowDropTarget` returns `{ accepts, onDrop }` for that row; `onDrop(payload, info)` gets `info.key`, `info.item`, `info.index`. |
 | `rowActions(item)` | `(item) -> { leading?, trailing?, fullSwipe? }?` — **hosted row actions** (see below). Returning `nil` for an item leaves that row completely unwrapped. Refused together with `reorderable` (v1). |
 | `rowFocusable(item)` | the SF-L3 focus-skip predicate, evaluated at navigation time. |
-| `rowSelectable(item)` / `rowMovable(item)` / `rowDeletable(item)` | **per-row capability opt-outs** — SwiftUI's `selectionDisabled(_:)` / `moveDisabled(_:)` / `deleteDisabled(_:)` family, spelled **positively** (true = the row may take part) so they read the same way as `rowFocusable` beside them. Each answers "may THIS row do it?", never "can this container do it at all?" — so declaring one without the capability it narrows is a **construction error**: `rowSelectable` needs `selection`, `rowMovable` needs `reorderable` **and** `onReorder`, `rowDeletable` needs a destructive row action. Absent = every row participates, and the check is one `~= nil`, so adopting the family costs nothing. They **fail closed**: a predicate that throws refuses the capability, because a consumer bug that stubbornly refuses to move a row is visible and harmless while one that silently deletes a protected row is not. Only an explicit `false` refuses — returning `nil` from a forgotten branch keeps the permissive default, matching `rowFocusable`'s shipped reading. One implementation (`src/row_capability.luau`), two callers. |
+| `rowSelectable(item)` / `rowMovable(item)` / `rowDeletable(item)` | **per-row capability opt-outs**, spelled **positively** (true = the row may take part) so they read the same way as `rowFocusable` beside them. Each answers "may THIS row do it?", never "can this container do it at all?" — so declaring one without the capability it narrows is a **construction error**: `rowSelectable` needs `selection`, `rowMovable` needs `reorderable` **and** `onReorder`, `rowDeletable` needs a destructive row action. Absent = every row participates, and the check is one `~= nil`, so adopting the family costs nothing. They **fail closed**: a predicate that throws refuses the capability, because a consumer bug that stubbornly refuses to move a row is visible and harmless while one that silently deletes a protected row is not. Only an explicit `false` refuses — returning `nil` from a forgotten branch keeps the permissive default, matching `rowFocusable`'s shipped reading. One implementation (`src/row_capability.luau`), two callers. |
 | `focusPolicy` | `"key"` (default) or `"index"` — **when the ORDER changes under the player, does the cursor follow the ITEM or stay on the SLOT?** `"key"` is the pre-field control byte for byte: focus follows the item, so a list re-sorting every 250 ms walks the pad cursor up and down the rows on its own. `"index"` pins the slot: when a data update moves the focused item off the slot it was focused at, focus **retargets to whoever occupies that slot now**, clamped to the last slot if the list shrank. This is the answer a live standings list needs ("selection riding a racer's button visibly JUMPS slots on every overtake"). The retarget drives BOTH halves of focus — the logical `focusedKey` *and* the screen's focus graph, which the presenter hands the control through the contribution's `bindFocusGraph` — so there is one focus authority and no consumer-side re-pin loop. It is an **ordinary focus move**: keep-visible applies, and it never summons a focus ring the player put away (the ring-visibility origin is left alone). It **declines** in exactly two situations: while a drag session is live (a policy that re-aimed a gesture mid-flight would fight the player's hand), and when the slot's new occupant fails `rowFocusable` — parking the ring where Activate can do nothing is worse than the jump the policy prevents, so focus falls through to the item. Construction-only, and an illegal value is refused naming both. `dump()` reports `focusPolicy` and the live `pinnedSlot`. |
 | `navigation` | `{ name?, wrap?, containment?, entry?, exit? }` — overrides for the ONE navigation group this list contributes. Absent, the group is `vl:<id>`, vertical, `entry = "nearest"`, unwrapped and with no declared exits (unchanged). An unknown field is refused at construction. `list.focusGroupName` reports the resolved name so a **sibling** group can declare `exit = { down = list.focusGroupName }` without hardcoding the `vl:` convention. |
 | `autoscroll` | `false` to disable, or an options table. Defaults on whenever the list is reorderable or a drop surface. |
@@ -5095,14 +5076,11 @@ The two-argument spelling `Facet.newVirtualGrid(Facet, core, spec)` is **depreca
 control, and `Facet.Controls.VirtualGrid` is a closure over the library, not a second
 implementation.
 
-**The lazy grid** — SwiftUI's `LazyVGrid` and, on `axis = "x"`, its `LazyHGrid`.
-A collection laid out in `columns` lanes that builds and mounts only the
-**lines of cells the viewport touches**.
-`UI.Grid` is the eager half and is unchanged: it measures and arranges every
-cell, which is exactly what SwiftUI's non-lazy `Grid` does and says of itself
-(it "renders all of its child views immediately"); the lazy grids are the ones
-that "create items only as needed". See
-[`swiftui-parity.md`](swiftui-parity.md) §4.2.2 for the full argument.
+**The lazy grid.** A collection laid out in `columns` lanes that builds and
+mounts only the **lines of cells the viewport touches**. `UI.Grid` is the eager
+half and is unchanged: it measures and arranges every cell it is given. Reach for
+`UI.Grid` when the whole grid is meant to be measured together, and for
+`Controls.VirtualGrid` when the collection is longer than the viewport.
 
 ```luau
 local grid = Facet.Controls.VirtualGrid(core, {
@@ -5717,8 +5695,8 @@ pres.present(Facet.UI.Screen({ id = "S", children = { difficulty.blueprint } }),
 `Facet.Controls.Menu(core, spec) -> { blueprint, api, presentation, dump, dispose }`
 — a freestanding **action menu**. Its items are *verbs*, not values: each one runs
 something when it is picked. That is the whole difference from `newPopupButton`,
-whose `value` is a `Signal<string>` a verb list cannot fill. It is what closes
-SwiftUI's `.contextMenu`.
+whose `value` is a `Signal<string>` a verb list cannot fill. It is the control
+a right-click, a long press or the context key opens.
 
 The two-argument spelling `Facet.newMenu(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
@@ -5762,8 +5740,8 @@ context key, or Shift+F10) and `"gamepad"` (ButtonY). Dropping `"activate"`
 without declaring both `"keyboard"` and `"gamepad"` is refused: it would leave
 the menu unreachable on two input classes.
 
-**Submenus** nest with no structural cap, matching SwiftUI. Past one level
-`api.diagnostics()` reports the HIG's advice rather than refusing; it also
+**Submenus** nest with no structural cap. Past one level `api.diagnostics()`
+reports the depth as advice rather than refusing; it also
 reports a group of more than about five items and a destructive item that is not
 last. Under the `menu` presentation each level is its own panel anchored to its
 parent **row** (preferred edge trailing, flipping to leading at the screen edge).
@@ -5772,8 +5750,8 @@ grows a Back row instead of floating a second panel over the first. Cancel /
 gamepad B closes **one** level, a tap outside closes **all** of them, and
 Right/Left enter and leave a submenu in document order.
 
-Icons are a **per-group all-or-nothing** lint (HIG: *"provide icons for all menu
-items in a group, or none of them"*); a divider starts a new group. The row
+Icons are a **per-group all-or-nothing** lint — provide icons for every item in
+a group, or for none of them; a divider starts a new group. The row
 recipe, the row-height tokens and the presentation rule are shared with
 `newPopupButton` and `newRowActions`' action menu, so a theme that retunes the
 control-size ladder retunes all three.
@@ -5816,8 +5794,8 @@ pres.present(Facet.UI.Screen({ id = "S", children = { avatarMenu.blueprint } }),
 
 `Facet.Controls.Callout(core, spec) -> { blueprint, api, dump, dispose }`
 — the **app-pushed coach mark**: a styled plate with an arrow tail that the
-application raises from its own rules, pointing at the control it is about.
-SwiftUI's TipKit `popoverTip(_:arrowEdge:action:)`, not a tooltip.
+application raises from its own rules, pointing at the control it is about. It
+is a coach mark, not a tooltip.
 
 The two-argument spelling `Facet.newCallout(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
@@ -5832,8 +5810,8 @@ control the words are about and was never what told the two apart. Reach for
 `help` to answer "what does this do"; reach for a Callout to say "there is
 something here you have not found".
 
-> Apple's warning about the mechanism, and it is the design constraint rather
-> than a footnote — quoted verbatim, on one line, because
+> The standing warning about coach marks, and it is the design constraint
+> rather than a footnote — quoted verbatim, on one line, because
 > `tests/callout.spec.luau` holds this document to it:
 >
 > *"Use tips sparingly… Don't use tips to guide people through your app, or for advertising and promotion purposes."*
@@ -5965,14 +5943,14 @@ The two-argument spelling `Facet.newProgressView(Facet, core, spec)` is **deprec
 control, and `Facet.Controls.ProgressView` is a closure over the library, not a second
 implementation.
 
-**Indeterminate is selected by `value = nil`** — SwiftUI's own rule
-(`ProgressView()` with no value is indeterminate). There is deliberately no
+**Indeterminate is selected by `value = nil`**: a progress view with no value
+has nothing determinate to show. There is deliberately no
 second flag: an `indeterminate = true` sitting beside a `value = 0.4` is a
 contradiction the framework would have to arbitrate, and the value already
 carries the answer. Because `min`, `max`, `format` and `showValue` all describe a
 value, declaring one *without* a value is an authoring error rather than a silent
-no-op. The mode is construction-fixed, exactly as SwiftUI's two initializers are
-two different views.
+no-op. The mode is construction-fixed: determinate and indeterminate are two
+different controls, not two states of one.
 
 `presentation` picks the shape, and **the shape and the mode are two independent
 axes** — three shapes, two modes. Which cells are legal is a **capability
@@ -6003,8 +5981,8 @@ blueprint prop and no decoration slot**: the arc's paint identity is the Path's
 own `role` (`accent`, over a `secondary` capacity ring), and its size is the pair
 of optional theme metrics `controls.progress.circularSize` /
 `circularThickness` — small by default off the theme's own `space` scale, with no
-per-call diameter, because Apple's only size guidance here is "prefer an activity
-indicator when space is constrained". Two consequences worth knowing before you
+per-call diameter, because the ring exists for the case where space is
+constrained. Two consequences worth knowing before you
 reach for one: **it cannot fade** (`Path2D` has no `Transparency` — wrap it in
 your own `UI.ZStack({ canvasGroup = true })` if you need to), and a `UI.Path` that
 is not *fully* inside every clip host above it **does not paint at all** rather
@@ -6012,12 +5990,10 @@ than being cropped (`tests/path.spec.luau`, RS-PATHCLIP) — a stroke has no
 half-crop, so a ring in a scrolling list winks out at the edge instead of being
 sliced.
 
-**Do not read the circular ring as `ProgressView` parity.** On iOS/macOS/tvOS
-`ProgressView(value:).progressViewStyle(.circular)` is *indeterminate* — the
-determinate ring is a **`Gauge`** (`.accessoryCircularCapacity`, "a closed ring
-that's partially filled in"), which Facet does not otherwise ship. The
-indeterminate form is the `ProgressView` parity claim; the determinate one is the
-Gauge shape, offered on the same control because the arithmetic is identical.
+**The circular ring covers two shapes that are usually separate.** Elsewhere a
+circular progress view is *indeterminate* and a determinate ring is a gauge, a
+control Facet does not otherwise ship. Facet offers both on this one control
+because the arithmetic is identical.
 
 `"spinner"` is a ring of five pulsing dots and is **indeterminate only** — a
 determinate ring is `presentation = "circular"`, which the refusal now names. (It
@@ -6079,12 +6055,12 @@ every spinner should agree on belongs. This is the same rule as the `min` / `max
 mode is an authoring error, never a silent reinterpretation.
 
 **`showValue` is refused on `"circular"` for the same reason**, and it is the one
-place this control deliberately does *not* copy Apple. `.accessoryCircularCapacity`
-centres the value inside the ring — but that is a complication-sized dial, while
-this indicator is theme-sized and small with no per-call diameter to grow it, so a
-centred readout has no size it is guaranteed to fit inside; and putting it *beside*
-the ring, where the bar puts it, would ship a different design under Apple's
-description. Both alternatives are named in the refusal: compose your own
+place this control deliberately breaks with the usual gauge design. A gauge
+centres its value inside the ring, but that assumes a dial you can size. This
+indicator is theme-sized and small, with no per-call diameter to grow it, so a
+centred readout has no size it is guaranteed to fit inside — and putting the
+readout *beside* the ring, where the bar puts it, would ship a different design
+under the same name. Both alternatives are named in the refusal: compose your own
 `UI.Text` next to the control (what the gallery fixture does), or use the bar.
 
 `motionClock` is the surface's motion clock (`presenter.motionClock`), and only
@@ -6244,7 +6220,7 @@ Two rules are enforced at construction rather than left to be noticed on a scree
 
 - **`label` is required and non-empty on every option**, whatever is drawn. An icon
   with no name is unreadable to every non-visual consumer.
-- **Provide icons for all options in a group, or none of them** (HIG: Menus). A
+- **Provide icons for all options in a group, or none of them.** A
   half-iconned group looks fine at the one width it was authored at and wrong
   everywhere else, so it is an authoring error. `iconOnly` with no icons is refused
   for the same reason — there would be nothing to draw.
@@ -6256,8 +6232,8 @@ different construct and already owns that layout.
 
 `indicator = "automatic"` (default) `| "none" | "underline" | "pill"`. When it is on,
 the selection chip or bar **animates from the previously selected option's rect to the
-new one** instead of the fill cross-fading — Facet's answer to SwiftUI's
-`matchedGeometryEffect` for the selection case. The mechanism is internal
+new one** instead of the fill cross-fading, so the eye follows one moving mark
+rather than two fading ones. The mechanism is internal
 (`src/controls/selection_indicator.luau`); this property is the whole public
 surface, and `TabView` carries the same one.
 
@@ -6596,10 +6572,8 @@ asset of its own, so there is no default to fall back on.
 **`tint` is the continuous-colour channel, one value per half.** Each is an
 ordinary Facet tint — `{ role = …, blend = … }` (themable, preferred) or
 `{ direct = "#rrggbb" }` (declared theming-exempt) — and each is independently
-optional: omitting one leaves that half to the theme. It is the analogue of
-SwiftUI's `.symbolRenderingMode(.palette)` with the two-argument
-`.foregroundStyle`, which is how Apple colours a filled and an unfilled symbol
-differently.
+optional: omitting one leaves that half to the theme. This is how a filled mark
+and an unfilled one take different colours.
 
 A `bar` picker has **defaults** for both halves (`accent` filled, `control`
 empty) because a bar has no other way to say "filled". A `glyph` or `image`
@@ -6620,9 +6594,9 @@ class mid-drag reverts to the pre-scrub value. Drive it from your
 interaction-class watcher via `onInteractionClassLost(class)`.
 
 **The ± buttons are not part of this control.** Compose a `newStepper` beside it
-over the *same* Signal — Apple's own rule for the pair: "A stepper sits next to a
-field that displays its current value, because the stepper itself doesn't display
-a value." Building them in would put two more focus stops inside a control whose
+over the *same* Signal. A stepper sits NEXT TO the field that shows the current
+value, because the stepper does not display one itself. Building the buttons in
+would put two more focus stops inside a control whose
 whole claim is that it has one. `examples/gallery/scenarios/level_picker.luau`
 shows the composition.
 
@@ -6631,7 +6605,7 @@ shows the composition.
 measured, not chosen: it is the largest run at which every shipped theme package
 still solves each `bar` segment at least as wide as the narrowest mark that
 package draws (`iconSizes.small`), at 320x640 with the run spaced for touch. It
-is a diagnostic because you may have more room than a phone — Apple says the
+is a diagnostic because you may have more room than a phone — the
 same of the shape ("A large value range can make the segments of a discrete
 capacity indicator too small to be useful"), and says it as guidance rather than
 as a limit. The notes also ride `dump().diagnostics`.
@@ -6801,14 +6775,13 @@ EXIST: see its bullet below:
   the `×` empties the value (a user edit: fires `onChange`, does not commit);
   focus returns to the field as the vanished button's nearest survivor.
 - `clearButtonMode: "never" | "whileEditing" | "unlessEditing" | "always"` —
-  **when** the trailing `×` is offered, spelled as UIKit spells it
-  (`UITextField.clearButtonMode`), because that vocabulary is already in every
-  designer's head and the four states are the four real answers:
+  **when** the trailing `×` is offered. The four states are the four real
+  answers:
 
   | mode | offered |
   |---|---|
   | `"never"` (default) | no affordance at all |
-  | `"whileEditing"` | only while the field has focus — the iOS search-field convention, and the one that stops a list of filled fields being a wall of `×` glyphs |
+  | `"whileEditing"` | only while the field has focus — the search-field convention, and the one that stops a list of filled fields being a wall of `×` glyphs |
   | `"unlessEditing"` | only while it does *not* have focus — a settings row that offers "clear this" at rest and gets out of the way once you type |
   | `"always"` | whenever there is text to clear |
 
@@ -6971,8 +6944,8 @@ pres.present(Facet.UI.Screen({ id = "S", children = { chip.blueprint } }))
 ### `newRowActions`
 
 `Facet.Controls.RowActions(core, spec) -> { blueprint, dump, dispose }` — a
-swipeable action tray around an arbitrary row (iOS Mail-style leading/trailing
-actions: Delete, Flag, Mark Read, ...): the spec contract, a lazily-mounted
+swipeable action tray around an arbitrary row (leading and trailing verbs such
+as Delete, Flag, Mark Read): the spec contract, a lazily-mounted
 tray on each edge, spring-animated reveal with proportional tray-button
 growth, and the full cross-input gesture story — mouse drag, touch, keyboard
 Delete/Backspace and Shift+Return, gamepad ButtonX/A/B, and full-swipe commit
@@ -6998,7 +6971,7 @@ Spec fields:
 | `content` | `Blueprint` | **yes** | the wrapped row. Slides horizontally over a revealed tray; otherwise painted exactly as authored. |
 | `leading` | `{ ActionSpec }?` | no | actions revealed by swiping right (or opening edge `"leading"`). `nil` = no leading tray; an empty table `{}` is a spec error (use `nil` for "none"). |
 | `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
-| `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits that edge's FIRST action outright (iOS "swipe to delete"), per edge. Committing a **`role = "destructive"`** first action runs the slide-off + row-height-collapse sequence, fires `onAction` once, and leaves the row committed (a later gesture/tray-tap on it is a no-op — the owner is expected to remove it from the data model). Committing a **non-destructive** first action fires `onAction` immediately (the identical quarantined call a direct tray-button tap makes) and springs the row back to CLOSED — it never slides off-screen or collapses height, and stays fully interactive: SwiftUI parity for a full swipe on "Flag"/"Archive"/"Mark Read"-shaped actions, which must feel exactly like tapping that button in the revealed tray, not like a deletion (RED-TEAM finding, director-ruled). An edge with `fullSwipe = false` still opens/closes on a partial swipe; it can never commit past the tray. |
+| `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits that edge's FIRST action outright (swipe to delete), per edge. Committing a **`role = "destructive"`** first action runs the slide-off + row-height-collapse sequence, fires `onAction` once, and leaves the row committed (a later gesture/tray-tap on it is a no-op — the owner is expected to remove it from the data model). Committing a **non-destructive** first action fires `onAction` immediately (the identical quarantined call a direct tray-button tap makes) and springs the row back to CLOSED — it never slides off-screen or collapses height, and stays fully interactive: a full swipe on a "Flag", "Archive" or "Mark Read"-shaped action must feel exactly like tapping that button in the revealed tray, never like a deletion. An edge with `fullSwipe = false` still opens/closes on a partial swipe; it can never commit past the tray. |
 | `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. **When present, `id` becomes required** (see the `id` row above) — every row sharing one coordinator must carry its own unique `id`. |
 | `env` | `Environment?` | no | live theme reactivity for each tray button's reserved width (`buttonPad`, `buttonMinWidth`), the same `spec.env` precedent `newTable` already ships (a composite has no other line to the environment — font/size facts arrive fully resolved through `controller.textAt` instead; see the Invariants note below). Absent degrades to `themeSnapshot.neutral()`, exactly like `newTable`'s own fallback — the neutral package at authored size. |
 | `editing` | `Readable<boolean>?` | no | Task 9: the caller's own edit-mode signal (`newTable`'s own `spec.editing` is the shipped precedent for this exact shape, and Table's `rowActions` integration passes its own straight through). Present AND true, on a row that declares a `role = "destructive"` action anywhere: a leading minus button appears (see Task 9 below). Absent (the default), the minus never appears and this control costs nothing extra. Must be a Readable when present — a plain `true`/`false` literal is a build-time error. |
@@ -7092,7 +7065,7 @@ stays pinned at the left for the whole gesture. It is a normal, focusable `UI.Bu
 every other tray button above — no separate registry citation, since the
 reachability MECHANISM does not change) and does **not** delete directly:
 activating it calls the same `_open("trailing")` the public API exposes,
-revealing the trailing tray with the destructive action one tap away (iOS
+revealing the trailing tray with the destructive action one tap away (a
 two-step: reveal, then confirm). Activating it while the trailing tray is
 already open is a no-op. Absent `editing`, or a row with no destructive
 action anywhere, this feature costs nothing — no extra `Instance`, no extra
@@ -7166,7 +7139,7 @@ Return surface:
 |---|---|---|
 | `claim` | `(instance) -> ()` | called by a row itself (a gesture crossing the axis lock into horizontal, or its `_open`): closes whichever OTHER row is currently claimed (that row's own animated `_close` — a spring, or an instant snap under reduced motion / no bound motion clock), then claims `instance`. `instance` is the exact table `newRowActions` returned for that row — no separate id. |
 | `release` | `(instance) -> ()` | called by a row on every close and on `dispose()`. Idempotent: releasing an instance that does not currently hold the claim (or nothing is claimed) is a silent no-op. |
-| `bindScroll` | `(controller, path: string) -> (() -> ())` | wires `controller.observeScroll(path, ...)` (present-time, same idiom as `Table.bindNativeScroll`) so **any** scroll movement on that host — no distance/velocity threshold, matching iOS — closes whichever row is currently open. Returns the unsubscribe. |
+| `bindScroll` | `(controller, path: string) -> (() -> ())` | wires `controller.observeScroll(path, ...)` (present-time, same idiom as `Table.bindNativeScroll`) so **any** scroll movement on that host — no distance or velocity threshold — closes whichever row is currently open. Returns the unsubscribe. |
 
 ```lua
 local coordinator = Facet.newRowActionsCoordinator(core)
@@ -7945,8 +7918,9 @@ The performance lab takes `select:haptics=on` and adds a counter line
 with the adapter bound moves **no** haptic counter: it is event-driven, and a
 scroll produces no feedback verbs.
 
-**What is device-owed.** Roblox documents controllers on macOS 15+ as
-unsupported, so this repository's dev machine can only prove "never throws", and
+**What is device-owed.** Roblox documents this repository's own development
+platform as one where controller haptics are unsupported, so the dev machine can
+only prove "never throws", and
 **Studio cannot feel anything** — the effects run locally there with no motor
 involved. Whether anything is *felt* on a gamepad, whether it is felt on a phone,
 whether the three waveforms are distinguishable and appropriate by hand, and

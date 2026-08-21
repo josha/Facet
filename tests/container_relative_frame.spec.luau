@@ -1,6 +1,6 @@
 --!strict
 --[[
-	`containerRelativeFrame` (docs/plans/swiftui-parity-round2.md §2.5).
+	`containerRelativeFrame` (docs/plans/parity-round2.md §2.5).
 
 	THE WHOLE FEATURE IS A DIFFERENT RULER. `percent` has always meant "a fraction
 	of what my PARENT offered me" (`solver.luau` `resolveAxis`, the `percent`
@@ -181,7 +181,7 @@ describe("the container is the nearest viewport, not the parent", function()
 	end)
 end)
 
-describe("the paging form is SwiftUI's arithmetic", function()
+describe("the paging form is the standard arithmetic", function()
 	-- size = (viewport - spacing x (count - 1)) / count x span + spacing x (span - 1)
 	local function carousel(pages: { any }): any
 		return {

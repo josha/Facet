@@ -1,5 +1,5 @@
 --!strict
--- Property-parity checker (swiftui-parity-next.md Milestone 0, investment 1;
+-- Property-parity checker (parity-next.md Milestone 0, investment 1;
 -- acceptance row M0-A3). The public schema is the single source of truth for
 -- what a `UI.*` constructor accepts. Six OTHER views of the same property have
 -- to agree with it, and before this checker they could drift silently:

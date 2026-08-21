@@ -31,8 +31,8 @@
 	  gamepad    a bindable face button.
 
 	SUBMENUS ARE STRUCTURALLY UNBOUNDED AND DIAGNOSED AT DEPTH >= 2 (director
-	ruling 2026-08-16, brief §6.4). SwiftUI documents no cap — `Menu` nests inside
-	`Menu` arbitrarily — while the HIG says it is *"generally best to restrict
+	ruling 2026-08-16). No structural cap exists — a menu nests inside a menu
+	arbitrarily — while the interface guidance says it is *"generally best to restrict
 	them to a single level"*. An earlier draft capped at 2 and was wrong in both
 	directions: it forbade what the API allows and permitted twice what the
 	guidance advises. So nothing here refuses depth; `diagnostics()` names it.
@@ -44,7 +44,7 @@
 	live surface under `sheet` at any depth, and `dump().surfaces` is where a test
 	reads that rather than trusting the shape.
 
-	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. Apple: *"If all of a menu's
+	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. The guidance: *"if all of a menu's
 	items are unavailable, the menu itself needs to remain available so people can
 	open it and learn about the commands it contains."* Nothing here counts
 	enabled items before presenting; swallowing the trigger is the "silently does
@@ -94,7 +94,7 @@ export type Spec = {
 	presentation: string?, -- automatic | menu | sheet
 	sizeClass: any?, -- string | Readable<string>
 	interactionClasses: any?, -- table | Readable<table>
-	--[[ the environment both facts above come from (ADAPT-1). Omitted, an
+	--[[ the environment both facts above come from . Omitted, an
 		automatic presentation finds the one this control's own core published, and
 		refuses to construct when there is none. ]]
 	env: any?,
@@ -192,13 +192,13 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		if hasChildren then
 			--[[ DEPTH IS UNBOUNDED, AND SAID OUT LOUD AT >= 2. `depth` counts
 				submenu levels: a top-level submenu is 1, a submenu inside it is 2 —
-				which is the level the HIG asks authors to reconsider and the API
+				which is the level the interface guidance asks authors to reconsider and the API
 				permits. Nothing refuses it. ]]
 			if depth + 1 >= menuRecipe.DEPTH_ADVICE then
 				table.insert(
 					notes,
-					`submenu '{itemId}' nests {depth + 1} levels deep. SwiftUI sets no cap and neither does `
-						.. 'Facet, but the HIG advises a single level: "It can be difficult for people to '
+					`submenu '{itemId}' nests {depth + 1} levels deep. Facet sets no cap, but the `
+						.. 'interface guidance advises a single level: "it can be difficult for people to '
 						.. 'reveal multiple levels of hierarchical submenus."'
 				)
 			end
@@ -208,7 +208,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	if actionable == 0 then
 		error(`Facet newMenu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
 	end
-	--[[ THE ICON LINT (HIG: "provide icons for all menu items in a group, or none
+	--[[ THE ICON LINT: "provide icons for all menu items in a group, or none
 		of them"). A GROUP is the run between two dividers, which is what makes this
 		checkable at authoring time at all: the author has already said where the
 		groups are. This is what keeps the new `icon` field from being a
@@ -219,24 +219,24 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		error(
 			`Facet newMenu('{id}'): the {path} group starting at index {mixed} mixes items that declare an `
 				.. "icon with items that do not. Give every item in a group an icon, or none of them "
-				.. "(HIG: Menus). A divider starts a new group.",
+				.. "A divider starts a new group.",
 			0
 		)
 	end
-	-- ADVICE, not a refusal, exactly as the HIG frames it
+	-- ADVICE, not a refusal, exactly as the interface guidance frames it
 	if actionable > menuRecipe.GROUP_SIZE_ADVICE then
 		table.insert(
 			notes,
-			`{path} holds {actionable} items; the HIG advises that "if a submenu contains more than about `
+			`{path} holds {actionable} items; the interface guidance advises that "if a submenu contains more than about `
 				.. `{menuRecipe.GROUP_SIZE_ADVICE} items, consider creating a new menu".`
 		)
 	end
-	-- HIG (context menus): a destructive item belongs at the END, so a slip on
+	-- Context-menu guidance: a destructive item belongs at the END, so a slip on
 	-- the way down the list lands on something recoverable
 	if destructiveAt ~= nil and destructiveAt ~= #items then
 		table.insert(
 			notes,
-			`{path}[{destructiveAt}] is destructive but is not the last item; the HIG lists destructive `
+			`{path}[{destructiveAt}] is destructive but is not the last item; the interface guidance lists destructive `
 				.. "items at the end of the menu."
 		)
 	end
@@ -354,7 +354,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		a keyboard being put down and re-presents. Read non-reactively (`:get()`) it
 		would have been correct at every open and stale for the whole time one was
 		up — the shape that makes a hot-switch defect device-only. ]]
-	--[[ THE FACTS, AND WHERE THEY COME FROM (ADAPT-1). Both were spec keys and
+	--[[ THE FACTS, AND WHERE THEY COME FROM . Both were spec keys and
 		nothing else, and `interactionClasses` was wired at exactly ONE place in all
 		of `examples/` — so the touch->sheet rung, the reference platform's own
 		default, fired nowhere. Authored keys still win; otherwise the surface's own
@@ -788,7 +788,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		if rootPath == nil or needed == nil then
 			return false -- no presenter, or not mounted yet: nothing to present onto
 		end
-		--[[ NO ENABLED-ITEM COUNT HERE, AND THAT IS THE POINT. Apple: "If all of a
+		--[[ NO ENABLED-ITEM COUNT HERE, AND THAT IS THE POINT. The guidance: "if all of a
 			menu's items are unavailable, the menu itself needs to remain available so
 			people can open it and learn about the commands it contains." A trigger
 			that silently does nothing is the worst failure this control could have,

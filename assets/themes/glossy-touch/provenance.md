@@ -6,8 +6,8 @@
 
 Every texture in this directory is **original, repository-owned, procedurally
 generated art**. There is no external imagery, no third-party asset, and **no
-trade dress**. The charter's reference for this package ("iOS-6-class") names a
-*category* of chrome — glossy skeuomorphic touch controls, vertical gradients,
+trade dress**. The charter's reference for this package ("glossy touch-era")
+names a *category* of chrome — glossy skeuomorphic touch controls, vertical gradients,
 gel highlights, capsule switches, 44 px rows — not any vendor's pixels. The
 palette, geometry, gradient stops, gloss construction and stripe period below
 are all invented in `source/generate_art.py` and generated from the fixed seed
@@ -89,8 +89,8 @@ H−border)`, `SliceScale = 1`. `—` means a whole image (never sliced).
 ## The bar re-cut (director art round, 2026-07-25)
 
 The director reviewed the desktop row live and reported that the glossy
-download/progress bar "reads poorly against the quality bar of the compact /
-macOS-class reference imagery". Three defects, all geometry rather than taste,
+download/progress bar "reads poorly against the quality bar of the compact
+desktop-pointer reference imagery". Three defects, all geometry rather than taste,
 and all fixed in `generate_art.py` at the new seed `0x6E27`. Every other texture
 in this package regenerates byte-identically.
 

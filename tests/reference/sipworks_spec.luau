@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Sipworks" — E1 loop pins (swiftui-reference-app-validation).
+-- Reference proof "Sipworks" — E1 loop pins (reference-app-validation).
 --
 -- These are the RA-P3 representative loop's own assertions: every state
 -- transition the spec's §17 walks, both commerce outcomes and the guard, the

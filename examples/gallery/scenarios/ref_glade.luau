@@ -1,6 +1,6 @@
 --!strict
 -- Scenario 'ref_glade': reference proof "Glade" (RA-P1,
--- docs/plans/swiftui-reference-app-validation.md). THIN BY DESIGN: the proof
+-- docs/plans/reference-app-validation.md). THIN BY DESIGN: the proof
 -- module owns its blueprints, fake services, steps and report; this file only
 -- locates it through the runner-resolved folder (engine-free, path-free) and
 -- hands its build straight through — the same delegation shape scenario

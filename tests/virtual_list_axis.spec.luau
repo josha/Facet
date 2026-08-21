@@ -1,7 +1,7 @@
 --!strict
 --[[
 	`newVirtualList.axis` — THE SIDEWAYS VIRTUALIZER
-	(docs/plans/swiftui-parity-round2.md §2.3; game-director decision 2026-08-12).
+	(docs/plans/parity-round2.md §2.3; game-director decision 2026-08-12).
 
 	`newVirtualList` is the ONE lazy-collection surface in this framework — no
 	`LazyVStack`/`LazyHStack` constructor ships — and until now it was

@@ -363,7 +363,7 @@ unified collection substrate; **D is the only milestone whose exit condition is
 still structurally unmet**, and the thing standing in its way is a person with a
 phone, not more code.
 
-**What parity round 2 closed** (`swiftui-parity-round2.md`, merged as `a42ef97`
+**What parity round 2 closed** (`parity-round2.md`, merged as `a42ef97`
 and `be37e92`; suite 4534 green):
 
 | Gap this plan named | Closed by |

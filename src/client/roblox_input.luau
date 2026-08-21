@@ -7,16 +7,16 @@
 --     directly (bypasses arbitration) — same as the headless model;
 --   * arbitration (priority/Sink) is the ENGINE's job here — this adapter
 --     never re-implements it (ADR-0004 split harness);
---   * InputAction:Fire() is deprecated — never used. (`GetState()` is NOT
---     marked deprecated in the engine reference; the earlier wording here
---     claimed both were, corrected 2026-08-17 per PLAT-15.)
+--   * InputAction:Fire() is deprecated, so this adapter never calls it.
+--     `GetState()` is NOT deprecated — an earlier version of this comment said
+--     both were, which was wrong; the engine reference was re-read 2026-08-17.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local roblox_input = {}
 
---[[ THE CONTAINER WAIT IS BOUNDED (PLAT-11, 2026-08-17). This was a bare
+--[[ THE CONTAINER WAIT IS BOUNDED. This was a bare
 	`WaitForChild("PlayerScripts")` — unbounded, and unguarded — sitting on the
 	first line of the input adapter every client bootstrap calls. The identical
 	pattern in `gamepad_contention.luau:285` is already bounded, with the reason

@@ -57,7 +57,7 @@ local BINDING_PROPS: { [string]: boolean } = {
 
 -- style-authority hints (§7.3): surface/text roles + the Phase 4 shadow and
 -- corner modifier data. These are written at creation AND on every reactive
--- change. Milestone 0 (swiftui-parity-next investment 1) fixed the second
+-- change. The strict-authoring milestone fixed the second
 -- half: a bound `surface`/`role` dirtied "paint" and the refresh loop then
 -- dropped it because only BINDING_PROPS were re-applied, so a reactive style
 -- hint scheduled work the adapter never performed — the same silent-failure

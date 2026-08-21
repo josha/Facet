@@ -705,7 +705,7 @@ end)
 
 -- ===========================================================================
 -- THE PANEL HUGS ITS LIST, AND SCROLLS WHEN THE LIST IS TALLER THAN THE PHONE
--- (director round 10, found live 2026-07-26 on an iPhone)
+-- (director round 10, found live 2026-07-26 on a physical phone)
 --
 -- The composed panel was `fill` on both axes, which is "as big as the space"
 -- rather than "as big as the list". Under Studio Neutral the ten themes ended

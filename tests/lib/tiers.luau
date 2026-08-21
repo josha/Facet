@@ -32,7 +32,7 @@
 -- HOW THE EXCLUSIONS WERE CHOSEN: measured, not guessed, with
 -- `lune run tools/lune/time_specs` (three runs, per-spec spread median 2.3 %,
 -- against a whole-suite noise floor of 2.3 % over six unchanged runs — see
--- docs/plans/swiftui-parity-round2.md §Phase 6). They are the eleven costliest
+-- docs/plans/parity-round2.md §Phase 6). They are the eleven costliest
 -- files and nothing else: together 34.3 s of the 42.7 s suite. Every one of them
 -- is either a WORKLOAD (mounts thousands of rows, or one screen at a dozen
 -- viewports) or a SOURCE SCANNER (re-reads and re-lints a file tree per case) —

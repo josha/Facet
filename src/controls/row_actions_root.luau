@@ -100,7 +100,7 @@ function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
 	local destructiveEntry = p.destructiveEntry
 
 	-- ===== Task 9: the edit-mode leading minus =============================
-	-- iOS pattern: while editing AND a destructive action exists somewhere,
+	-- The edit-mode pattern: while editing AND a destructive action exists somewhere,
 	-- a small circular button sits in a LEADING gutter; tapping it opens the
 	-- trailing tray (the destructive action is a second tap away, never
 	-- direct). `UI.When` keyed on `editAffordanceShown` — the identical
@@ -155,7 +155,7 @@ function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
 	-- `role = "destructive"` reuses the ALREADY-shipped, already-tested
 	-- mapping instead: a solid danger-filled disc with an onDanger minus,
 	-- visually consistent with the trailing tray's own destructive button
-	-- one tap away — the closer real-iOS match besides.
+	-- one tap away — the closer match to the shipped convention besides.
 	return UI.When({
 		id = "EditAffordanceWhen",
 		condition = editAffordanceShown,

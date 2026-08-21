@@ -1,6 +1,6 @@
 # Decoration paints to the edges — and a policy string nothing reads is a lie
 
-**Found:** 2026-07-26, iPhone 15 Pro, showcase place.
+**Found:** 2026-07-26, a physical phone, showcase place.
 
 ## Two facts that belong together
 

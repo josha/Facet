@@ -751,7 +751,7 @@ return {
 
 		-- ----- the CIRCLE-BUTTON fixture (feature round 2026-07-26) ----------
 		--
-		-- `UI.Button{ shape = "circle" }` — the iOS floating round "…" action. A
+		-- `UI.Button{ shape = "circle" }` — the floating round "…" action. A
 		-- FIFTH screen, presented on demand, for the same reason the gauge has its
 		-- own: every claim here is a comparison of nodes that must differ in
 		-- exactly one way, and the adaptive fixture is too busy to read that in.

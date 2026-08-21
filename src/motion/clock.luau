@@ -16,7 +16,7 @@
 --
 -- REST COSTS ZERO. A settled motion detaches itself, so `activeCount()` returns
 -- to 0 and a step with nothing active returns before it opens a transaction:
--- dozens of resting springs contribute no work and no writes (SF-M8). Nothing
+-- dozens of resting springs contribute no work and no writes. Nothing
 -- else decides a motion is finished — each participant detaches itself.
 --
 -- Phase order inside a step, and why:
@@ -91,7 +91,7 @@ export type Clock = {
 	isDisposed: (self: Clock) -> boolean,
 }
 
--- CLOSED OPTS (constitution §4; ARCH-1). `motionPolicy` misspelled means reduced
+-- CLOSED OPTS (constitution §4). `motionPolicy` misspelled means reduced
 -- motion is never read and every accessibility toggle is ignored, silently.
 local CLOCK_OPTS_KEYS = specGuard.keySet({ "motionPolicy", "now" })
 

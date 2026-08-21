@@ -15,17 +15,17 @@ local scope_impl = {}
 --     with no owners at all. The parent's reverse walk instead skips an
 --     already-disposed child SILENTLY, because a child disposed early (a retired
 --     row, a completed exit) is ordinary ownership rather than the bug.
---     Verified 2026-07-28, verifiers RR-5-R1 and RT-1.
+--     Verified 2026-07-28 by a fresh-context review.
 --
 --     The previous wording here — "fires only for a scope with TWO owners" — was
---     false in both directions (verifier RT-1 / ARCH-2): measured, it fires for a
+--     false in both directions : measured, it fires for a
 --     scope with ZERO owners, which is exactly what the `double-dispose-detected`
 --     conformance check asserts, and it does NOT fire for a scope literally owned
 --     by two parents. That mattered because this header is deliberately the single
 --     home of the wording, so reconciling code to it would have deleted a detector
 --     two conformance checks depend on.
---   * CLEANUP ERROR — an owned cleanup THREW. The walk continues (quarantine,
---     verifier RR-4): one bad cleanup must not skip its siblings, leak the scope
+--   * CLEANUP ERROR — an owned cleanup THREW. The walk continues (quarantined):
+--     one bad cleanup must not skip its siblings, leak the scope
 --     counter, or strand the disposing flag.
 --
 -- THE WORDING LIVES HERE, with the semantics it describes (Step 5.5 cleanup

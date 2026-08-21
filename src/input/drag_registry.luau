@@ -1,5 +1,5 @@
 --!strict
--- The per-surface drag REGISTRY (ADR-0022 Decision 5, rows SF-D1/D2/D4/D5).
+-- The per-surface drag REGISTRY (ADR-0022 Decision 5).
 -- One object owns every live `UI.draggable` / `UI.dropTarget` on a surface and
 -- runs the single acquisition→session→terminal code path all four input classes
 -- share. The pure policy still lives in `drag_session` (legality, exactly-once
@@ -100,7 +100,7 @@ local function centerOf(rect: any): (number?, number?)
 	return rectLib.centre(rect)
 end
 
--- CLOSED OPTS (constitution §4; ARCH-1). Two of these ARE live predicates whose
+-- CLOSED OPTS (constitution §4). Two of these ARE live predicates whose
 -- absence means "always legal" (`isPathLive`, `isSourceEnabled`), so a typo here
 -- silently widens what a surface will accept — the worst direction to fail in.
 local DRAG_REGISTRY_OPTS_KEYS = specGuard.keySet({

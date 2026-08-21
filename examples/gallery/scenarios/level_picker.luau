@@ -15,7 +15,7 @@
 	number, and building ± in would put two more inside it (the paint, input and
 	semantics argument in `src/controls/rating.luau`'s header, which is why this
 	control exists in this shape). So each row here is a `newLevelPicker` and a
-	`newStepper` SHARING ONE SIGNAL — Apple's own composition rule for the pair:
+	`newStepper` SHARING ONE SIGNAL — the standard composition rule for the pair:
 	"A stepper sits next to a field that displays its current value, because the
 	stepper itself doesn't display a value." Press the stepper and the bars move;
 	drag the bars and the stepper's readout moves. Neither knows about the other.

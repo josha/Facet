@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Wardrobe" (RA-P5, swiftui-reference-app-validation).
+-- Reference proof "Wardrobe" (RA-P5, reference-app-validation).
 -- Clean-room avatar-editor surface built to specs/p5-wardrobe.md: one
 -- Composition (split ⇄ stacked by lane floor, never a device branch), a
 -- UI.Stage preview pane whose blocky mannequin the proof dresses through the

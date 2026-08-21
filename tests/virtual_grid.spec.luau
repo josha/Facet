@@ -1,10 +1,10 @@
 --!strict
 --[[
-	THE LAZY GRID — `newVirtualGrid`, SwiftUI's `LazyVGrid` ([SW-21]).
+	THE LAZY GRID — `newVirtualGrid`, the lazy grid ([SW-21]).
 
-	THE GAP THIS CLOSES (docs/reference/swiftui-parity.md §4.2, the
+	THE GAP THIS CLOSES (the comparison document §4.2, the
 	`LazyHGrid`/`LazyVGrid` row). Facet shipped only the EAGER half of the grid:
-	`UI.Grid` measures and arranges every cell, and SwiftUI's non-lazy `Grid` says
+	`UI.Grid` measures and arranges every cell, and an eager grid says
 	the same of itself — it "renders all of its child views immediately"
 	([SW-16]). The lazy grids are the ones that "create items only as needed"
 	([SW-21]), and nothing in Facet did.

@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Cartwheel" (RA-P2, swiftui-reference-app-validation).
+-- Reference proof "Cartwheel" (RA-P2, reference-app-validation).
 --
 -- A clean-room Facet reinterpretation of the BEHAVIOR of a dashboard-shaped
 -- operations app: adaptive split navigation, a four-card dashboard, an orders

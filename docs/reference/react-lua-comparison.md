@@ -6,8 +6,8 @@ its Universal App ([RL-23]). It is the only other declarative UI framework on
 this platform with a first-party publisher behind it, which makes it the most
 useful thing to hold Facet up against for a reader deciding what to build with.
 
-The companion document, [`swiftui-parity.md`](swiftui-parity.md), measures Facet
-against SwiftUI — the most complete declarative UI framework in wide production
+The companion document, [`the comparison document`](the comparison document), measures Facet
+against another declarative framework — the most complete one in wide production
 use. That is a *ceiling* comparison: what does a mature framework offer that we
 do not. This one is different. React-Lua and Facet are peers on the same engine,
 solving the same problem, and they **disagree** — about what a component is, who
@@ -41,7 +41,7 @@ asserts something about React-Lua's behaviour carries a bracketed id — `[RL-05
 the page or file was read.
 
 **The dates are load-bearing, and this project has been burned without them.**
-Three SwiftUI facts were once asserted from memory in this repository and all
+Three facts about that framework were once asserted from memory here and all
 three were wrong. So: nothing below is recalled. If you are reading this months
 later, open the URL. Source files move faster than docs — several rows below
 exist *because* React-Lua's documentation and its source disagree today.
@@ -65,7 +65,7 @@ Nothing in this document is sourced from the fork.
 
 ### What this document does not cover
 
-- **It is not a completeness audit.** `swiftui-parity.md` §1 measures its own
+- **It is not a completeness audit.** `the comparison document` §1 measures its own
   blind spots against a 365-group denominator. This document has no such
   denominator: React-Lua's API *is* React 17.0.1's API, and §4 reads it from the
   literal export table, but the capability areas in §4 were chosen for
@@ -933,7 +933,7 @@ cite source files, which is where they were read from.
 | Headless (no-engine) layout testing | **Absent** — layout is the engine's, so there is nothing to test without it | **Ships** — the solver has no engine types; layout is unit-tested in Lune | `src/layout/`, `tests/` |
 | Layout diagnostics | **Absent** | **Ships.** `controller.diagnostics()` reports overflow, unbounded percent, mixed grid children, inert placement props, HUD-zone collisions and cross-surface overlap | `src/render/renderer.luau` |
 | Incremental relayout | **N/A by design** (the engine relayouts) | **Ships.** A changed value re-solves only the smallest enclosing subtree; measured 141 arranged nodes down to 8 | `src/render/renderer.luau`, `tests/incremental_layout.spec.luau` |
-| Priority / degradation vocabulary | **Absent** — `UIFlexItem` is the engine's only dial | **Ships.** `layoutPriority` tiers × `shrinkWeight`, `ViewThatFits`, `UI.Composition`/`UI.Region` ranked region ladders, `containerRelativeFrame` | `src/layout/`, `swiftui-parity.md` §4 |
+| Priority / degradation vocabulary | **Absent** — `UIFlexItem` is the engine's only dial | **Ships.** `layoutPriority` tiers × `shrinkWeight`, `ViewThatFits`, `UI.Composition`/`UI.Region` ranked region ladders, `containerRelativeFrame` | `src/layout/`, `the comparison document` §4 |
 | Lazy / virtualized collections | **Composable** — you write the windowing | **Ships.** `newVirtualList`, `newTable{ virtualized = true }`, `newVirtualGrid` on both axes, sharing one prefix-sum extent index | `src/controls/`, `src/virtual_extents.luau` |
 
 ### 4.4 The engine boundary
@@ -1189,7 +1189,7 @@ an onboarding cost paid by people who cannot read the source.
 ### Rank 5 — Hot reload / an interactive authoring loop · **DEFER**
 
 **What it is.** `react-refresh` ships in React-Lua's monorepo ([RL-34]).
-`swiftui-parity.md` already scores the SwiftUI equivalent (`#Preview`) as Missing.
+the comparison ledger already scores the equivalent preview macro as Missing.
 
 **Cost.** Large and mostly outside the framework: it needs a Studio-side host
 that can tear down and rebuild a surface while preserving state, which is a
@@ -1356,7 +1356,7 @@ The five checkers were run live for this revision:
 
 ```bash
 lune run tools/lune/check_docs_cli          # PASS — 9 documents, 81 surface anchors,
-                                            #   137 SwiftUI citations, 64 local links
+                                            #   137 comparison citations, 64 local links
 lune run tools/lune/check_registration_cli  # PASS — 25 controls, 91 exports documented,
                                             #   203 specs registered, 16/16 four-input + paradigm
 lune run tools/lune/check_prop_parity_cli   # PASS — 26 classes, 643 properties, 680 typed fields
@@ -1365,7 +1365,7 @@ lune run tools/lune/check_boundary          # PASS — 122 src files, 398 consum
 ```
 
 This document is **not** among the nine `check_docs` reads, so no citation here is
-mechanically checked. That is the same limitation `swiftui-parity.md` §15 records
+mechanically checked. That is the same limitation `the comparison document` §15 records
 about its own prose, one level worse: there, table rows are enforced to carry a
 cited URL, quote and date. Here the §7 convention is followed by hand.
 
@@ -1393,7 +1393,7 @@ cited URL, quote and date. Here the §7 convention is followed by hand.
   `55 of 137` inert-container measurement is quoted verbatim from the source
   comment in `src/client/screen_target.luau`; the `~17×` incremental-layout and
   `−34 %` elision figures are the numbers
-  [`swiftui-parity.md`](swiftui-parity.md) §10 records, carried over rather than
+  [`the comparison document`](the comparison document) §10 records, carried over rather than
   re-measured. All are headless (evidence level E1) and none is a device claim.
 
 **On line numbers.** Evidence cells name files, not line numbers, for the reason

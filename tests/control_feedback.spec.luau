@@ -1,7 +1,7 @@
 --!strict
 -- THE PER-CONTROL SENSORY HOOK — `UI.sensoryFeedback(bp, { activation = verb })`
 -- (director request 2026-08-13: "when you press a button you get haptic
--- feedback"; docs/reference/swiftui-parity.md §7.1).
+-- feedback"; the comparison document §7.1).
 --
 -- Round 2 shipped the CHANGE form — `{ trigger, event }` — which needs a Readable
 -- and fires on its transitions. There was no way for a CONTROL to say "this is

@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'lifecycle_hidden' — THE SLOT THAT STAYS, and the events nobody can see.
 
-	`hidden`, `onAppear` and `onDisappear` shipped in SwiftUI-parity round 3 item
+	`hidden`, `onAppear` and `onDisappear` shipped in parity round 3 item
 	D (the completeness audit's #16 and #12). The standing obligation is that
 	every new public API appears in a gallery scenario the headless suite
 	executes, and this is that scenario.

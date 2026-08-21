@@ -6,7 +6,7 @@
 -- under-reserves. The engine premeasurement queue (TextService) lives behind
 -- the same interface in the Roblox platform adapter, NOT here.
 --
--- WHO OWNS THE TWO MUTABLE STORES (ARCH-23, stated 0.10.0; CORRECTED after the
+-- WHO OWNS THE TWO MUTABLE STORES (stated 0.10.0; CORRECTED after the
 -- R5 review measured the second half). `calibration` and `exactWidths` are
 -- module-level and therefore PROCESS-GLOBAL: every core and every surface in
 -- the VM shares them. They are NOT the same kind of thing, and the first
@@ -658,7 +658,7 @@ local MEASURE_SPEC_KEYS: { [string]: boolean } = {
 local MEASURE_SPEC_SHAPE = "a measure spec is { text, font, size, width, lineHeight?, maxLines? }"
 
 -- MIN-CONTENT WIDTH — the narrowest box this string can wrap into (solver shrink
--- pass, docs/plans/swiftui-parity-round2.md §2.4, the second rung of its floor
+-- pass, docs/plans/parity-round2.md §2.4, the second rung of its floor
 -- stack `minMax.min` -> a text node's minimum wrap width -> `0`).
 --
 -- WHY IT CANNOT BE ASKED WITH `measure`. `wrap` returns `math.min(widest,

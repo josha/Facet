@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'with_animation' — THE MOTION DEMO, AND THE ACCESSIBILITY CLAIM
 	IT EXISTS TO TEACH (game-director requirement 2026-08-12;
-	docs/plans/swiftui-parity-round2.md §Phase 4 "The motion demo and the global
+	docs/plans/parity-round2.md §Phase 4 "The motion demo and the global
 	reduced-motion toggle").
 
 	At least one showcase surface has to demonstrate animation, and has to let a
@@ -377,7 +377,7 @@ return {
 					AND THE BOX DOES NOT MOVE. Scale and rotation are paint: the
 					solver never sees them, so the badge's layout box, its tap target
 					and its focus position are the unrotated, unscaled ones. That is
-					Apple's rule for `scaleEffect`/`rotationEffect` too, and it is why
+					the standing rule for a paint-only scale or rotation, and it is why
 					the lane below it does not reflow when the badge turns.
 
 					THE BADGE IS 40px BECAUSE THE SWEEP SAID SO. The first draft made
@@ -444,7 +444,7 @@ return {
 					SO THE FADE MOVES UP ONE NODE and the leaves stay untouched. The
 					`ZStack` is a real `CanvasGroup`, its `GroupTransparency` is the
 					one alpha property no rule owns, and everything inside it is
-					composited at that alpha by the engine — which is also SwiftUI's
+					composited at that alpha by the engine — which is also the declarative
 					answer, and why `compositingGroup()` exists there.
 
 					THE LOCKED BUTTON IS THE POINT, not decoration. It is disabled,

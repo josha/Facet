@@ -1,18 +1,18 @@
 --!strict
 --[[
 	VIEW LIFECYCLE HOOKS and the SPACE-RESERVING HIDE
-	(docs/plans/swiftui-parity-round3.md, item D — the completeness audit's
+	(docs/plans/parity-round3.md, item D — the completeness audit's
 	ranked gaps #12 and #16).
 
 	Two shared box props, both of which the audit found Facet had no spelling
 	for at all:
 
-	  · `onAppear(path)` / `onDisappear(path)` — SwiftUI's `onAppear(perform:)`
+	  · `onAppear(path)` / `onDisappear(path)` — the `onAppear(perform:)` pair
 	    and `onDisappear(perform:)`. `grep -rn "onAppear" src/` returned ZERO
 	    hits before this change, even though mount scopes have owned the
 	    lifetime for a year: the tracking existed, the author-facing hook did
 	    not.
-	  · `hidden` — SwiftUI's `hidden()`: "invisible and can't receive or respond
+	  · `hidden` — the space-reserving hide: "invisible and can't receive or respond
 	    to interactions. However, they do remain in the view hierarchy and
 	    affect layout." NEITHER of Facet's two existing answers is that.
 	    `UI.When` REMOVES the node (the siblings close up), and the engine's own
@@ -46,7 +46,7 @@
 	    prop from `UI.When`. If a sibling moves, this is just a slower `When`.
 	  · "hidden takes the subtree"      -> a hidden container whose children
 	    still painted would be the defect, not the feature.
-	  · "hidden leaves focus order"     -> Apple's own sentence, and the half a
+	  · "hidden leaves focus order"     -> the standard wording, and the half a
 	    paint-only implementation silently omits: an invisible control that
 	    still takes Tab and still activates.
 	  · "hidden retracts the hit floor" -> RS-A16-D1's defect class exactly: a
@@ -113,7 +113,7 @@ describe("lifecycle hooks: the schema declaration", function()
 		expect(props.onAppear.reactive).toBe(false)
 		expect(props.onDisappear.reactive).toBe(false)
 		-- ...but `hidden` IS: the useful form is "reserve the slot until the
-		-- value arrives", and SwiftUI's own answer for the conditional case —
+		-- value arrives", and the standard answer for the conditional case —
 		-- an `if` statement — REMOVES the node from layout, which is what
 		-- Facet's `UI.When` already does.
 		expect(props.hidden.reactive).toBe(true)
@@ -170,7 +170,7 @@ describe("onAppear", function()
 	end)
 
 	it("fires AFTER the first layout solve — the callback can read its own rect", function()
-		-- THE ORDERING DECISION, asserted where it is observable. Apple's
+		-- THE ORDERING DECISION, asserted where it is observable. The standard
 		-- contract is that "the action closure completes before the first
 		-- rendered frame appears"; Facet draws nothing until the refresh
 		-- returns, so firing after the solve is still pre-first-frame AND hands
@@ -532,7 +532,7 @@ describe("hidden — the space-reserving hide", function()
 		expect(adapter.visibleOf("/S/W/then/L")).toBe(true)
 	end)
 
-	it("leaves focus order — Apple's 'can't receive or respond to interactions'", function()
+	it("leaves focus order — 'can't receive or respond to interactions'", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
@@ -561,7 +561,7 @@ describe("hidden — the space-reserving hide", function()
 		expect(controller.structureEpoch() > epoch).toBe(true)
 	end)
 
-	it("takes no tap — Apple's sentence is two halves and this is the second", function()
+	it("takes no tap — the sentence is two halves and this is the second", function()
 		-- the hit expander (below) is only the SUB-FLOOR case. A full-size button
 		-- inside a hidden subtree keeps a full-size box on purpose, so nothing about
 		-- its geometry stops the engine delivering an Activated to it.

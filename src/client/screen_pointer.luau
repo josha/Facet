@@ -114,7 +114,7 @@ function screen_pointer.new(ctx: any)
 		multi-select Table, three taps built a three-row selection and one tap in
 		the overhang REPLACE-selected and discarded it, and two overhang taps
 		inside the double-click window opened the row — handing a phone a
-		double-tap-to-open for a verb the gesture HIG reserves for zoom. The
+		double-tap-to-open for a verb the touch conventions reserve for zoom. The
 		expander is not a different KIND of activation, it is the same control
 		being pressed, so it now owes and sends the identical meta ("an adapter
 		that synthesizes an activate owes the same meta a real one carries").

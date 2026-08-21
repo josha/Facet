@@ -8,12 +8,12 @@
 	whole construct, and its restraint is the interesting part.
 
 	WHY IT SHOWS NOTHING ON TOUCH, AND WHY THAT IS THE SPECIFICATION.
-	Apple's `.help(_:)` "configures the view's accessibility hint and its help tag
-	(also called a tooltip) on the desktop platforms that have one", and the UIKit
+	Help configures a view's accessibility hint and its help tag (also called a
+	tooltip) on the platforms that have one, and the pointer
 	interaction
 	"makes it possible to show a tooltip WHEN HOVERING A POINTER over a view or
 	control" (both read 2026-08-16). On a touch phone nothing appears at all, and
-	Apple binds no gesture to it anywhere. Neither does this: the ONE touch
+	No input class binds a gesture to it. Neither does this: the ONE touch
 	gesture that could carry it — long-press — belongs to the full-value
 	disclosure plate, and D2 measured that before deciding. `UI.Text{ reveal =
 	"auto" }` is opt-in, `UI.Text`-only, one strip per presentation and disabled

@@ -68,7 +68,7 @@ dump has to be identified by forensics.
    **`arrange=24` is the number that matters before you spend a dump.** If it
    reads `arrange=0` or `arrange=1`, stop — the lap is inert and the capture
    would be worthless (that is exactly what happened to `asyncImage.html`).
-4. Let it run three or four laps, then **Ctrl+F6** (**Cmd+F6** on macOS),
+4. Let it run three or four laps, then **Ctrl+F6** (**Cmd+F6** where the keyboard has a Command key),
    **Ctrl+P** to pause, then **Dump → Dump in binary format**.
 5. Press **Stop**.
 6. Press **Arm >** three times — the status line should read

@@ -1,13 +1,13 @@
 --!strict
 --[[
-	FLOW-WRAP (docs/plans/swiftui-parity-round3.md, item A).
+	FLOW-WRAP (docs/plans/parity-round3.md, item A).
 
 	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` — Roblox's
 	`UIListLayout.Wraps`, which Facet had no spelling for at all. One PROP, one
 	new arrange branch, and NO new alignment vocabulary: the cross-axis rule was
 	measured live in Studio on 2026-08-13 and it is `align` for the block of lines
 	and `lineAlign` for an item inside its line — the two words Facet already
-	ships. SwiftUI has no flow layout to be parity with ([SW-10]-shaped absence,
+	ships. no comparable declarative flow layout exists to copy ([SW-10]-shaped absence,
 	verified 2026-08-13); the gap being closed is the NATIVE one.
 
 	WHAT EACH BLOCK WOULD CATCH, because a table of rects proves nothing alone:

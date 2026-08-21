@@ -25,9 +25,9 @@
 --
 -- SO THE ± BUTTONS IN THE REFERENCE SCREENSHOT ARE NOT PART OF THIS CONTROL
 -- (director ruling 2026-08-16). They are separate `newStepper`s sharing the same
--- Signal, which is Apple's own composition rule for the pair: "A stepper sits
+-- Signal, which is the standard composition rule for the pair: "a stepper sits
 -- next to a field that displays its current value, because the stepper itself
--- doesn't display a value" (HIG, Steppers). Building them in would put two more
+-- doesn't display a value". Building them in would put two more
 -- focus stops inside a control whose whole claim is that it has one, and would
 -- make the ± reachable only where a level picker is — the opposite of what a
 -- stepper is for. `examples/gallery/scenarios/level_picker.luau` shows the
@@ -121,8 +121,9 @@ local DEFAULT_BAR_TINT = table.freeze({
 })
 
 -- ===== THE HIGH-COUNT DIAGNOSTIC ============================================
--- Apple, HIG Gauges: "A large value range can make the segments of a discrete
--- capacity indicator too small to be useful." A DIAGNOSTIC and never a refusal —
+-- The standing guidance for a discrete gauge: "a large value range can make
+-- the segments of a discrete capacity indicator too small to be useful." A
+-- DIAGNOSTIC and never a refusal —
 -- the caller may have more room than a phone, and a framework that refused a
 -- count it has not measured against the caller's actual box would be overruling
 -- evidence it does not have.
@@ -184,7 +185,7 @@ export type Spec = {
 	onChange: ((value: number) -> ())?,
 }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op. Note
 -- `starSize` is deliberately absent: it is `newRating`'s spelling, and this
 -- control's is `segmentSize`, so the rename is a refusal that names the key
@@ -282,7 +283,7 @@ local function diagnoseCount(constructor: string, id: string, count: number, not
 		notes,
 		`Facet {constructor}('{id}'): count = {count} is above {level_picker.HIGH_COUNT}, the largest run every `
 			.. "shipped theme package still draws as a distinct segment on the narrowest viewport this framework "
-			.. 'sweeps. Apple says the same of this shape (HIG, Gauges): "A large value range can make the '
+			.. 'sweeps. The standing guidance for this shape says the same: "a large value range can make the '
 			.. 'segments of a discrete capacity indicator too small to be useful." This is a diagnostic and not '
 			.. "a refusal — you may have more room than a phone; check the strip on the narrowest screen you ship."
 	)
@@ -312,7 +313,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 	-- reactive, so switching input class is a RE-SOLVE and never a rebuild: the
 	-- strip re-spaces under a live hot-switch with the value and the scrub intact.
 	--[[ …and the environment ARRIVES BY ITSELF when the caller did not pass one
-		(ADAPT-1). The density above was `env`-gated and the key is optional, so the
+		. The density above was `env`-gated and the key is optional, so the
 		measured default on a touch phone was the POINTER run — 5px between marks
 		where a finger gets 7 — on every call site that did not wire it (audit C-9).
 		The surface this control was built on publishes its environment on the core

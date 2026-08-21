@@ -17,7 +17,7 @@
 -- commit, in which the solved rects are diffed against the last ones and the
 -- nodes that STARTED moving get a relative presentation record that flies them
 -- in from where they used to be. The solve stays exact and instant either way —
--- only the PAINT travels (docs/plans/swiftui-parity-round2.md §Phase 1).
+-- only the PAINT travels (docs/plans/parity-round2.md §Phase 1).
 
 local solver = require("../layout/solver")
 local profile = require("../core/profile")

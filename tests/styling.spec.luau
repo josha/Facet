@@ -1,9 +1,9 @@
 --!strict
 -- Phase 4 engine styling adoption (design §17 Phase 4; UI-STYLE-001,
 -- UI-FID-001): UIShadow + per-corner UICorner adopted through the token and
--- property-authority path as SwiftUI-style modifiers. UI.shadow / UI.corners
+-- property-authority path as modifier-style modifiers. UI.shadow / UI.corners
 -- apply to a single element or a container (styling the container's own
--- surface); UI.styleGroup applies to every element of a collection (SwiftUI
+-- surface); UI.styleGroup applies to every element of a collection (group
 -- Group semantics). Shadow params are engine-true per the verified platform
 -- facts (BlurRadius is a UDim {scale, offset}; Spread/Offset are UDim2
 -- shapes; ZIndex negative-only); corner styling emits EXACTLY ONE form per
@@ -134,7 +134,7 @@ describe("engine styling: shadows and per-corner rounding (§17)", function()
 		expect(ok).toBe(false)
 	end)
 
-	it("UI.styleGroup applies the modifier set to EACH element (SwiftUI Group semantics)", function()
+	it("UI.styleGroup applies the modifier set to EACH element (group semantics)", function()
 		local group = UI.styleGroup({ shadow = "raised", corners = 10 }, {
 			UI.Button({ id = "A", label = "A" }),
 			UI.Button({ id = "B", label = "B" }),

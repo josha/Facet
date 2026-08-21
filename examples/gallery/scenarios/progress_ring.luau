@@ -1,10 +1,10 @@
 --!strict
--- Scenario 'progress_ring' (SwiftUI-parity round 3, item D2): the CIRCULAR
+-- Scenario 'progress_ring' (parity round 3, item D2): the CIRCULAR
 -- progress indicator, BOTH forms, on the one surface where a player can see the
 -- difference between them.
 --
 --   * DETERMINATE — `presentation = "circular"` with a value. A ring that fills
---     to the value, over the unfilled capacity ring, exactly as Apple's
+--     to the value, over the unfilled capacity ring, exactly as the
 --     `Gauge(.accessoryCircularCapacity)` is documented ("a closed ring that's
 --     partially filled in"). Drive it with the steps; the arc is `arc(0, 360 * f)`.
 --   * INDETERMINATE — the same shape with no value: a fixed-sweep head whose
@@ -69,7 +69,7 @@ return {
 			presentation = "circular",
 		})
 		-- NO `showValue` HERE, and it would be refused if it were asked for: the
-		-- readout Apple centres inside a ring is `Gauge`, not `ProgressView`, and
+		-- readout usually centred inside a ring belongs to a gauge, not a progress view, and
 		-- this indicator is theme-sized and small. The percentage lives beside it
 		-- as its own `UI.Text`, which is exactly what the refusal tells an author
 		-- to do.

@@ -1,6 +1,6 @@
 --!strict
 -- Label: an icon + title pair with a semantic text fallback (docs/plans/
--- swiftui-parity-next.md investment 7; acceptance row B-DSP1).
+-- parity-next.md investment 7; acceptance row B-DSP1).
 --
 -- The point of the construct is the FALLBACK: when the icon cannot be shown —
 -- no asset, or an icon-only presentation at a size where a glyph alone is
@@ -29,7 +29,7 @@ export type Spec = {
 
 local PRESENTATIONS: { [string]: boolean } = { titleAndIcon = true, titleOnly = true, iconOnly = true }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local LABEL_KEYS = specGuard.keySet({
 	"gap",

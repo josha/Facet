@@ -1,5 +1,5 @@
 --!strict
--- THE CLOSED-KEY GUARD (constitution §4; architecture finding ARCH-1).
+-- THE CLOSED-KEY GUARD (constitution §4).
 --
 -- §4 states as shipped fact that "an unknown key ... is an immediate error —
 -- never a value that silently does nothing", and that the rule "applies to

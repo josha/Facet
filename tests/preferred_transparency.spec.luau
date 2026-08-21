@@ -229,7 +229,7 @@ describe("the refusals: what the preference deliberately does not touch", functi
 
 	--[[ A BORDER IS NOT A BACKGROUND. The hairline is a `UIStroke.Transparency` at
 		0.92 — a line drawn faintly over whatever it sits on. Solidifying it would be
-		a CONTRAST change (Apple's separate "Increase Contrast" preference, which
+		a CONTRAST change (the separate "increase contrast" preference, which
 		Roblox does not surface), and the setting the player moved is named Background
 		Transparency in the menu it lives in. ]]
 	it("the HAIRLINE is untouched — a stroke is a border, and the setting names backgrounds", function()

@@ -31,7 +31,7 @@ local rows = core:signal({
 })
 local reorderCount = 0
 
--- SwiftUI-shaped sort binding (director round 5): the OWNER holds the order
+-- Owner-held sort binding (director round 5): the OWNER holds the order
 -- and applies it — the table only cycles the signal from header taps
 local sortOrder = core:signal(nil :: any)
 core:observe(sortOrder, function(order)

@@ -14,11 +14,11 @@ not a phone result, and no amount of it ever becomes one.
 
 | Class | Instrument | What it proves | What it cannot |
 |---|---|---|---|
-| `lune` (E1) | `tools/perf.sh`, headless on your development machine | deterministic regressions in Facet's own decision and commit cost | engine frame work, paint cost, any device claim |
-| `studio-emulated` (E3) | a Roblox Studio Play session with a simulated device | the integrated adapter's real Instances, connections and frame work **on your host** | low-end CPU/GPU, memory pressure, thermals, battery |
-| `desktop-retail` (E4) | the retail Roblox client on your desktop | non-Studio client behaviour and desktop frame work | mobile or console hardware |
-| `phone-physical` (E4) | the weakest supported physical Android device | the supported device floor | console behaviour, subjective feel |
-| `console-physical` (E4) | the supported console / ten-foot path | gamepad delivery, overscan, console frame work | mobile behaviour, subjective feel |
+| `lune` (headless) | `tools/perf.sh`, headless on your development machine | deterministic regressions in Facet's own decision and commit cost | engine frame work, paint cost, any device claim |
+| `studio-emulated` (Studio) | a Roblox Studio Play session with a simulated device | the integrated adapter's real Instances, connections and frame work **on your host** | low-end CPU/GPU, memory pressure, thermals, battery |
+| `desktop-retail` (device) | the retail Roblox client on your desktop | non-Studio client behaviour and desktop frame work | mobile or console hardware |
+| `phone-physical` (device) | the weakest supported physical Android device | the supported device floor | console behaviour, subjective feel |
+| `console-physical` (device) | the supported console / ten-foot path | gamepad delivery, overscan, console frame work | mobile behaviour, subjective feel |
 
 Every performance record carries exactly one of these. `bench/perf_runner.luau`
 emits only `lune` — that is a constant, not a parameter, because there is no
@@ -150,7 +150,8 @@ observable input events** to the running client, apart from one early press that
 did. The obvious hypothesis — that creating a fresh instance per call breaks
 delivery — was tested and eliminated: one cached instance behaves the same. The
 cause is not established. So this stage's native-input traces came from the
-Studio MCP injector, every row says so in `input.path`, and no row claims
+Studio Model Context Protocol (MCP) injector, every row says so in
+`input.path`, and no row claims
 VirtualInput drove it.
 
 Whichever injector you use, two rules keep it honest:
@@ -242,7 +243,8 @@ cost a round to find:
 **Driving it without a pointer.** The place publishes
 `workspace.FacetShowcaseAPI` (`list`, `current`, `showNext`) as
 BindableFunctions, the same shape the scenario runner uses and for the same
-reason: the Studio MCP's `execute_luau` runs in a different Luau VM than the
+reason: the Studio MCP's `execute_luau` runs in a different Luau virtual
+machine (VM) from the
 client LocalScript, so `_G` does not cross but the DataModel does.
 
 `current` and `showNext` both answer `{ current, mounted, ok }`: `current` is the
@@ -286,5 +288,6 @@ Roblox exposes several frame quantities and they are not interchangeable:
 
 `Stats.FrameTime` and the Heartbeat interval did not always agree across these
 captures. Nothing here adjudicates that, so each row records the ratio it
-measured rather than a story about it. **Never add M1 to M2**: one is whole-frame
+measured rather than a story about it. **Never add the two together**: one is
+whole-frame
 work on a fast host, the other is Facet's share of one client's work.

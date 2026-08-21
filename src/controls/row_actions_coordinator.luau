@@ -86,7 +86,7 @@ function row_actions_coordinator.new(core: any): any
 	end
 
 	-- ANY scroll movement closes the open row — no distance/velocity
-	-- threshold, matching iOS. A thin pass-through onto
+	-- threshold. A thin pass-through onto
 	-- `controller.observeScroll` (table.luau:2178's own native-scroll-mirror
 	-- call, the shipped precedent for a control binding this after present());
 	-- returns the same unsubscribe `observeScroll` itself returns, so the

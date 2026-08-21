@@ -3,7 +3,7 @@
 
 Original, repository-owned art: every texture below is generated procedurally by
 this script from the fixed seed `SEED` — no external imagery, no third-party
-assets, and NO trade dress. The brief's reference ("iOS-6-class") names a
+assets, and NO trade dress. The brief's reference ("glossy touch-era") names a
 *category* of chrome — glossy skeuomorphic touch controls, vertical gradients,
 gel highlights, 44px rows — not any vendor's pixels: the palette, geometry,
 gradient stops and highlight construction below are all invented here.

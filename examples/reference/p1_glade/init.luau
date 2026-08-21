@@ -1,6 +1,6 @@
 --!strict
 -- ============================================================================
--- Reference proof "Glade" (RA-P1, swiftui-reference-app-validation).
+-- Reference proof "Glade" (RA-P1, reference-app-validation).
 -- ============================================================================
 --
 -- A clean-room reinterpretation of the behavioral reference as an original

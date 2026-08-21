@@ -45,7 +45,7 @@ end
 if result.ok then
 	print(
 		`check_docs: PASS ({result.counts.documents} documents, {result.counts.anchors} surface anchors, `
-			.. `{result.counts.citations} SwiftUI citations, `
+			.. `{result.counts.citations} comparison citations, `
 			.. `{result.counts.links} local links, {result.counts.themeExports} themes exports documented, `
 			.. `{result.counts.scenarioSteps} scenario steps, {result.counts.examplePackages} example packages, `
 			.. `{result.counts.assets} asset files, {result.counts.forbiddenPhrases} stale phrases absent)`

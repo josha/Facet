@@ -4,8 +4,8 @@
 
 Every texture in this directory is **original, repository-owned, procedurally
 generated art**. There is no external imagery, no third-party asset, and **no
-trade dress**. The charter's reference for this package ("macOS-class") names a
-*category* of chrome — compact ~22 px pointer controls, near-flat surfaces, 1 px
+trade dress**. The charter's reference for this package
+("desktop-pointer-class") names a *category* of chrome — compact ~22 px pointer controls, near-flat surfaces, 1 px
 hairline borders, subtle top-lit gradients, cool greys — not any vendor's
 pixels. Palette, geometry, gradient stops and border construction are invented
 in `source/generate_art.py` and generated from the fixed seed `0xC0DE`.

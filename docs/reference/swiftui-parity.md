@@ -554,7 +554,7 @@ only the smallest enclosing subtree it can affect, not the whole tree.
   memo's cache key, the
   incremental-arrange reuse skip and the placement-prop audit are each unsound
   without. The trigger and the full argument are in
-  `docs/plans/swiftui-parity-round3.md`.
+  `docs/plans/parity-round3.md`.
 
 ### 4.1 Stacks vs Roblox's own flex controls — where Facet is a superset, and where it is not
 

@@ -32,7 +32,7 @@ local chrome_slots = {}
 chrome_slots.TAGS = table.freeze({
 	slotPrefix = "facet-chrome-", -- + panel|control|field|selection|divider|scrollbar|sliderTrack|sliderThumb|badge
 	fallback = "facet-chrome-fallback",
-	-- THE MUTE, SPLIT OFF THE FALLBACK (RS-A16-D5, 2026-07-26). `fallback` above
+	-- THE MUTE, SPLIT OFF THE FALLBACK (2026-07-26). `fallback` above
 	-- says "this slot is drawing its declared native treatment"; it carries the
 	-- FILL. This one says "and this particular art instance must not draw over
 	-- it", and it carries the hide (`ImageTransparency = 1`) and nothing else.
@@ -228,7 +228,7 @@ chrome_slots.SLOTS = table.freeze({
 	-- the plate behind a stepper's glyph (the glyph itself becomes an icon
 	-- request — ADR-0020 R4). Whole image: a plate is a fixed-size token.
 	"stepperPlate",
-	-- the iOS-6 sliding switch. The track stretches, the knob does not; the
+	-- the classic sliding switch. The track stretches, the knob does not; the
 	-- Step 3.5 `togglePalette` contract stays the flat truth for both, so
 	-- neither carries own-paint rules (see OWN_PAINT_SLOTS).
 	"toggleTrack",

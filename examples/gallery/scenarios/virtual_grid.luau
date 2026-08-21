@@ -2,7 +2,7 @@
 --[[ Scenario 'virtual_grid' — FIVE THOUSAND CELLS, AND THE COUNT OF THE ONES
 	THAT WERE EVER BUILT.
 
-	`Facet.newVirtualGrid` is SwiftUI's `LazyVGrid` ([SW-21]): a grid that mounts
+	`Facet.newVirtualGrid` is the lazy grid: a grid that mounts
 	only the LINES OF CELLS the viewport touches. The standing obligation is that
 	every new public API appears in a gallery scenario the headless suite executes,
 	and this is that scenario.

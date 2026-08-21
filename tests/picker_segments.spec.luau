@@ -236,7 +236,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		end
 	end)
 
-	it("HIG: icons for ALL options in a group, or none — a half-iconned group is refused", function()
+	it("Guidance: icons for ALL options in a group, or none — a half-iconned group is refused", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			return Facet.Controls.Picker(core, {

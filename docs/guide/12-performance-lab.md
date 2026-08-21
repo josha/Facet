@@ -39,7 +39,8 @@ dependency.
 
 **One honest limit on "self-contained".** The doctor proves the place carries no
 universe/place id, no developer path and no plugin. It does **not** prove every asset
-id in it is publicly readable: the place maps `examples/themes/`, and PL-6 needs the
+id in it is publicly readable: the place maps `examples/themes/`, and the ornate
+workload needs the
 ornate package, which declares 34 `rbxassetid://` images; `src/themes/standard_icons`
 binds eleven more. The row images are `rbxthumb://type=AvatarHeadShot&id=<UserId>&w=48&h=48`,
 which are generated from a UserId and need no upload or permission — but the theme
@@ -68,7 +69,8 @@ While developing the lab itself, serve the sources instead of rebuilding:
 lune run tools/lune/studio_sync perf        # NOT the default gallery tree — see below
 ```
 
-then run `tools/studio/inject.luau` through the Studio MCP in the **Edit** datamodel.
+then run `tools/studio/inject.luau` through the Studio Model Context Protocol
+(MCP) server, in the **Edit** datamodel.
 `perf` mode matters: the gallery and the lab both mount at
 `ReplicatedStorage.FacetScenarios` (the lab *reuses* the gallery's runner rather than
 forking it), so serving both at once would put two different `init.luau` files at the
@@ -138,7 +140,7 @@ re-bases any number above them. Both take a `frames/reps` payload —
 `pass:tableUnified=30/40` — because their headline quantities are p50s and an
 operator who cannot raise n cannot get out of a wide control band. Their control
 bands, deltas and the MicroProfiler pass over them are
-`artifacts/performance-stress-places/optimization-log.md` **L-33**; the device
+`artifacts/performance-stress-places/optimization-log.md`; the device
 recipe is `docs/handoff/2026-08-14-device-capture-collections.md`.
 
 ### One button: Run all
@@ -235,7 +237,7 @@ outside the set, and a headless case proves the emitted label count does not sca
 with row count.
 
 **Interactively**, press <kbd>Ctrl</kbd>+<kbd>F6</kbd> in Studio (<kbd>Cmd</kbd>+
-<kbd>F6</kbd> on macOS) to open the MicroProfiler, then pause it (<kbd>Ctrl</kbd>+
+<kbd>F6</kbd> where the keyboard has a Command key) to open the MicroProfiler, then pause it (<kbd>Ctrl</kbd>+
 <kbd>P</kbd>) on an interesting frame. The `Facet/*` bars sit under the script scope.
 
 **Programmatically**, through the Studio MCP or the command bar — this is how the
@@ -366,7 +368,8 @@ named the wrong artifact format.**
 **Until that row exists**, the honest statement is *automation complete, low-end
 performance not proven*. `bench/perf_budgets.json` already declares a
 `phone-physical` budget with `measured: false`, and `perf_runner.checkBudgets`
-refuses to satisfy it from host rows. Filling it in is what closes PL-P1/PL-P2.
+refuses to satisfy it from host rows. Filling it in is what closes the two
+open device rows in the lab's review packet.
 
 ---
 
@@ -386,7 +389,7 @@ work. The reference also has no focus graph, no theme authority, no async resour
 lifecycle, no preferred-text reflow or disclosure, no adaptive composition and no
 hit-target floor. Some of that 4× is buying those; how much is the open question, and
 it is escalated with numbers in
-`artifacts/performance-stress-places/decisions.md` (PLN-5) rather than guessed at.
+`artifacts/performance-stress-places/decisions.md` rather than guessed at.
 
 ## 12.6 Compare two captures
 

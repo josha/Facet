@@ -38,12 +38,12 @@ describe("showcase catalogue", function()
 		expect(demos[2].kind).toBe("fixture")
 		expect(demos[2].module).toBe("row_actions")
 		expect(demos[1].kind).toBe("fixture")
-		-- ...then the two SwiftUI-parity round 2 fixtures, ahead of the tutorials
+		-- ...then the two parity round 2 fixtures, ahead of the tutorials
 		-- for the same reason the first two lead: each is the only hands-on proof
 		-- of an API a still screenshot cannot show (a sideways virtualizer has to
 		-- be flung; a motion policy has to be watched). They are the surfaces the
 		-- Showcase rule exists for — content that is not reachable in-experience
-		-- is not shipped (docs/plans/swiftui-parity-round2-brief.md).
+		-- is not shipped (docs/plans/parity-round2-brief.md).
 		expect(demos[3].id).toBe("card-rail")
 		expect(demos[3].kind).toBe("fixture")
 		expect(demos[3].module).toBe("card_rail")
@@ -365,7 +365,7 @@ end)
 -- `BAR_HEIGHT = 62` used to BE the reservation: the strip's 8px top padding plus
 -- the taller chip's 46px, measured once under Studio Neutral. A chip is a themed
 -- control, so that number was only ever right for the package it was measured
--- under — and under Pixel Quest, on an iPhone, the chip grew past the strip and
+-- under — and under Pixel Quest, on a physical phone, the chip grew past the strip and
 -- its plate painted over the top of the demo's own page title.
 --
 -- These solve the REAL composed chip row (the shape init.client builds) under the

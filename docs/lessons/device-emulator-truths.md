@@ -1,4 +1,4 @@
-# Device-emulator truths (2026-07-20, Studio iPhone 13 Pro emulator, both orientations)
+# Device-emulator truths (2026-07-20, Studio compact-phone emulator, both orientations)
 
 Probed live with ScreenInsets probe guis (CoreUISafeInsets / DeviceSafeInsets /
 None / IgnoreGuiInset). Evidence: artifacts/studio/part2-device-emulator.json.

@@ -7,8 +7,8 @@
 -- from `UI.ViewThatFits` (the container's real measured space). Every Milestone B
 -- control appears, so a single matrix sweep covers them all.
 --
--- ...AND, SINCE SwiftUI-PARITY ROUND 2, THE LAYOUT VOCABULARY THAT ROUND ADDED
--- (`docs/plans/swiftui-parity-round2.md` §2.1/2.2/2.4/2.5/2.6, §3.3). The plan
+-- ...AND, SINCE parity round 2, THE LAYOUT VOCABULARY THAT ROUND ADDED
+-- (`docs/plans/parity-round2.md` §2.1/2.2/2.4/2.5/2.6, §3.3). The plan
 -- names this fixture as the natural home for the ADAPTIVE members of that
 -- vocabulary, and the reason is the same one that put the compact-label ladder
 -- here: this is the surface the five-view device matrix and the always-on
@@ -514,7 +514,7 @@ return {
 		-- natural cell per column across every row rather than one shared width, and
 		-- the two `Spec*Key` cells line up under each other however long their values
 		-- are. The header cell spans both columns and contributes to neither
-		-- column's maximum, which is SwiftUI's rule.
+		-- column's maximum.
 		local function specCell(id: string, text: string, extra: { [string]: any }?)
 			local props: { [string]: any } = { id = id, text = text, textSize = 12 }
 			for key, value in extra or {} do

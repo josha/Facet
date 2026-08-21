@@ -1,5 +1,5 @@
 --!strict
--- Milestone A — the everyday layout vocabulary (docs/plans/swiftui-parity-next.md
+-- Milestone A — the everyday layout vocabulary (docs/plans/parity-next.md
 -- investment 6; acceptance rows A-LV1..A-LV4).
 --
 -- A-LV1 was found LIVE before it was found headlessly: an authoring fixture in
@@ -245,7 +245,7 @@ describe("A-LV2: frame", function()
 		expect(adapter.node("/S/T").rect.w <= 260).toBe(true)
 	end)
 
-	it('`maxWidth = "infinity"` fills the available space, like SwiftUI', function()
+	it('`maxWidth = "infinity"` fills the available space, like a declarative fill', function()
 		local bp = UI.Screen({
 			id = "S",
 			children = { UI.frame(UI.Box({ id = "B" }), { maxWidth = "infinity", height = 20 }) },
@@ -437,7 +437,7 @@ describe("A-LV2: overlay and background", function()
 
 	it("the background layer FILLS what it is backing", function()
 		-- RS-A16-D2's second half, found by the headless matrix audit. A background
-		-- is the SwiftUI modifier: it backs the thing it is behind. A ZStack child
+		-- is the background modifier: it backs the thing it is behind. A ZStack child
 		-- keeps its content size unless it declares `fill`, so a plate with no dims
 		-- of its own solved to 0x0 — invisible, and worse than invisible once a
 		-- package skins it: the adapter anchors a `corners` ornament to each corner
@@ -1132,11 +1132,11 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 	end)
 
 	it("(b) shrinkWeight DOES NOT change which ViewThatFits candidate wins, at ANY width", function()
-		--[[ THE RULING (2026-08-14, director: "follow swiftui's behavior"), and the
+		--[[ THE RULING (2026-08-14, director: "follow the declarative behaviour"), and the
 			evidence it was decided on — `docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`,
 			which carries the citations.
 
-			Apple's own reference sentence for `ViewThatFits` is:
+			The reference sentence for a fit-picking container is:
 
 			    "It selects the first child whose IDEAL SIZE on the constrained axes
 			     fits within the proposed size."
@@ -1156,7 +1156,7 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 
 			THE OTHER HALF OF THE CONTRACT IS THE CASE BELOW: the candidate that WINS
 			is then laid out against the real offer and shrinks normally, which is
-			SwiftUI's second sentence — the winner receives its parent's proposal, not
+			The second sentence — the winner receives its parent's proposal, not
 			an unspecified one. Picking is unshrunk; showing is not. ]]
 		local function winnerAt(width: number, withShrink: boolean): string
 			local sw = if withShrink then 1 else nil
@@ -1199,7 +1199,7 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 	end)
 
 	it("(c) ...and the candidate that WINS is still shrunk to the offer it is given", function()
-		--[[ The second half of SwiftUI's contract, and the reason (b) is a rule about
+		--[[ The second half of that contract, and the reason (b) is a rule about
 			the CHOICE rather than a switch that turns the feature off: the chosen
 			child is laid out against the proposal `ViewThatFits` itself received.
 

@@ -2,8 +2,8 @@
 
 > ## ⚠️ Facet requires the Input Action System
 >
-> Facet's input layer is built on Roblox's **Input Action System** (IAS:
-> `InputContext` / `InputAction` / `InputBinding`), and nothing else. It never
+> Facet's input layer is built on Roblox's **Input Action System** (IAS)
+> — `InputContext`, `InputAction` and `InputBinding` — and nothing else. It never
 > reaches into `ContextActionService`. That is a deliberate architecture choice
 > ([`ADR-0004`](../adr/ADR-0004-input-verification-scope.md)) — arbitration is the engine's
 > job, and a UI framework that quietly outbid a game's own bindings would be
@@ -42,7 +42,8 @@
 >   so your UI's gamepad Activate goes silently dead (D-pad still works, which
 >   is what makes it confusing).
 > - **The arrow keys `Left` and `Right` never arrive**, because the default
->   camera binds them as `RbxCameraKeypress` at CAS priority 2000 and sinks
+>   camera binds them as `RbxCameraKeypress` at ContextActionService (CAS)
+>   priority 2000 and sinks
 >   them. Any Facet surface that navigates or adjusts on the horizontal arrows
 >   simply does nothing.
 >
@@ -196,7 +197,7 @@ holds keyboard focus the engine marks keyboard input `gameProcessed` and fires n
 developer Input Action binding at all, so Tab inside a focused field currently does
 *nothing*: it does not type a tab character, does not bypass validation, and does
 not advance — measured live, recorded in
-`artifacts/desktop-keyboard-navigation/decisions.md` (DKN-2). Commit with `Return`
+`artifacts/desktop-keyboard-navigation/decisions.md`. Commit with `Return`
 and then Tab. The commit-then-advance behavior engages with no code change the day
 the engine delivers the key.
 
@@ -212,7 +213,7 @@ One honest caveat about *when* the fact changes: it is fed by
 plug event, and Roblox publishes no keyboard-connected signal to observe. The
 framework's response to the fact changing is proven; whether a mid-session USB
 plug on a real client moves that fact at all is a physical row
-(`artifacts/desktop-keyboard-navigation/review-packet.md`, DK-P2).
+(`artifacts/desktop-keyboard-navigation/review-packet.md`).
 
 ### The paradigm axis: not just *reachable*, but the right *shape*
 
@@ -383,7 +384,7 @@ four input classes, so a mouse-only control cannot land.
 ## 7.3 The responder chain: UI in a game with an avatar
 
 In a real game the avatar owns the controls by default, and UI must *take* them
-politely and *give them back* — the Roblox analog of Apple's responder chain
+politely and *give them back*. Facet calls this the responder chain
 ([`ADR-0014`](../adr/ADR-0014-first-responder.md)). With the IAS flag on (the
 warning at the top), avatar input and UI input arbitrate in the same system, by
 `InputContext` priority + Sink, and the presenter manages that for you through

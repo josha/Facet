@@ -19,7 +19,7 @@ export type Profile = {
 	facts: { [string]: any },
 }
 
--- Ground truth (measured 2026-07-20, Studio iPhone 13 Pro emulator, both
+-- Ground truth (measured 2026-07-20, Studio compact-phone emulator, both
 -- orientations): the engine CAMERA viewport already excludes the notch and
 -- home-indicator zones — Camera.ViewportSize IS the device-safe canvas — so
 -- profiles must NOT model lateral/bottom safe areas as in-canvas insets.
@@ -46,14 +46,14 @@ local PROFILES: { [string]: Profile } = {
 	phone = {
 		-- notched phone, PORTRAIT — the hard case (director 2026-07-20)
 		name = "phone",
-		title = "Phone portrait (iPhone 13 Pro, 389×762 camera)",
+		title = "Phone portrait (389×762 camera)",
 		viewport = { w = 389, h = 762 },
 		insets = { top = 58, bottom = 0, left = 0, right = 0 },
 		facts = TOUCH_FACTS,
 	},
 	phoneLandscape = {
 		name = "phoneLandscape",
-		title = "Phone landscape (iPhone 13 Pro, 749×368 camera)",
+		title = "Phone landscape (749×368 camera)",
 		viewport = { w = 749, h = 368 },
 		insets = { top = 58, bottom = 0, left = 0, right = 0 },
 		facts = TOUCH_FACTS,
@@ -84,7 +84,7 @@ local PROFILES: { [string]: Profile } = {
 		-- Studio emulator's camera PRE-EXCLUDES the notch (measured
 		-- docs/lessons/device-emulator-truths.md), so this profile exists to
 		-- exercise the deviceSafeContent solver path headlessly with REAL-shaped
-		-- device insets (iOS landscape: notch side + home indicator). A physical
+		-- device insets (phone landscape: notch side + home indicator). A physical
 		-- device confirms the live values (ledger row NS-P2).
 		name = "phoneNotchLandscape",
 		title = "Phone landscape w/ device-safe insets (synthetic notch 47px + home 21px)",
@@ -101,7 +101,7 @@ local PROFILES: { [string]: Profile } = {
 	console = {
 		-- console 10-foot (input-paradigms expansion): 1080p TV canvas,
 		-- gamepad-primary, Large display class. Overscan margins are the
-		-- tvOS-equivalent safe-area numbers from the 10-foot research
+		-- ten-foot safe-area numbers from the research
 		-- (60pt top/bottom, 90pt left/right at 1080p) — TVs clip edges, so
 		-- the ten-foot presentation insets content on all four sides
 		-- (distinct from the mobile notch, which the camera pre-excludes).

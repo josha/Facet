@@ -104,7 +104,7 @@ function presentation_channel.new(deps: {
 	-- value, or one contributor moving alone is swallowed by the other's cache
 	local lastComposedTransform: { [string]: any } = {}
 	local lastComposedAlpha: { [string]: number } = {}
-	-- ===== `withAnimation` RECORDS (docs/plans/swiftui-parity-round2.md §Phase 1,
+	-- ===== `withAnimation` RECORDS (docs/plans/parity-round2.md §Phase 1,
 	-- "Blocker 3") ===========================================================
 	-- A record is the RELATIVE delta a path is currently flying, installed only at
 	-- an animation ROOT. Both halves of the presentation channel already accumulate

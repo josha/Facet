@@ -35,11 +35,11 @@
 --                          drop line appear; releasing commits the new order
 --                          through onReorder and THIS example re-orders its
 --                          own data (the table never mutates your rows)
---   * the PRIMARY ACTION — `onPrimaryAction` (SwiftUI parity round 2 §3.4):
+--   * the PRIMARY ACTION — `onPrimaryAction` (parity round 2 §3.4):
 --                          "play this track", the verb that is NOT selection.
 --                          Double-click on a mouse, Return on a keyboard, A /
 --                          Cross on a gamepad, a single tap on touch
---   * SWIPE ACTIONS      — `rowActions` on BOTH edges (the iOS Mail idiom):
+--   * SWIPE ACTIONS      — `rowActions` on BOTH edges (the mail-list idiom):
 --                          swipe a row left for Remove, right for Top. They work
 --                          OUTSIDE edit mode and are a DIFFERENT mechanism from
 --                          edit mode's own per-row controls; edit mode then also
@@ -114,7 +114,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- table stops having to overload the first to express the second.
 	local nowPlaying = core:signal(nil :: string?)
 	-- THE SORT BINDING, and the Table never touches the data through it
-	-- (`spec.sortOrder`, SwiftUI's `Table(sortOrder:)`): tapping a sortable heading
+	-- (`spec.sortOrder` is owner-held): tapping a sortable heading
 	-- CYCLES this signal — new column → ascending, same column → flip — and that is
 	-- the whole of the control's involvement. Re-sorting is the owner's job, which
 	-- is this file's job, which is why the derivation chain below exists.
@@ -579,16 +579,16 @@ function example.build(Facet: any, core: any, deps: any)
 		-- this row" — here, play this track. The Table reaches it on all four
 		-- inputs with no gesture this example has to invent: double-click on a
 		-- mouse, Return on a keyboard, A / Cross on a gamepad, and a PLAIN SINGLE
-		-- TAP on touch — the first tap, on any row, selected or not. That is
-		-- Apple's own documented rule ("In iOS and iPadOS, tapping on the row
-		-- activates the primary action"), not a divergence; a double-tap is a
-		-- ZOOM gesture on a phone, which is why nobody uses it to open things.
+		-- TAP on touch — the first tap, on any row, selected or not. That is the
+		-- documented convention for a compact touch list, not a divergence; a
+		-- double tap is a ZOOM gesture on a phone, which is why nobody uses it
+		-- to open things.
 		--
 		-- THE PRICE, AND THIS EXAMPLE PAYS IT: once a table declares a primary
 		-- action, a normal-mode touch tap no longer selects at all — it opens,
 		-- and leaves any existing selection exactly alone. Touch selection moves
 		-- into EDIT MODE, which is also where multi's tap-to-DESELECT lives. That
-		-- is the same trade Apple makes deliberately.
+		-- is the same trade the convention makes deliberately.
 		--
 		-- THE COROLLARY, which matters more than the rule: if a table's dominant
 		-- touch use is SELECTING rather than opening, do not declare a primary
@@ -604,30 +604,28 @@ function example.build(Facet: any, core: any, deps: any)
 		-- automatically get an Edit/Done toggle (reordering by handle) while
 		-- mouse users keep direct row drags and wheel scrolling
 		env = deps and deps.env,
-		-- SWIPE ACTIONS, ON BOTH EDGES (`spec.rowActions`; SwiftUI's
-		-- `swipeActions(edge:allowsFullSwipe:content:)` — §16 [SW-37]).
+		-- SWIPE ACTIONS, ON BOTH EDGES (`spec.rowActions`).
 		--
 		-- THIS IS NOT EDIT MODE, AND THAT IS THE POINT. Edit mode is a MODE you
 		-- enter with the Edit button, and while it is on, rows grow a ≡ reorder
 		-- handle and taps select. Swipe actions are a per-row GESTURE that works
 		-- with the table sitting in its NORMAL state — no mode, no button, no
-		-- selection change. Apple separates the two the same way: as of the
-		-- 2026-08-13 citation pass, the `swipeActions` page says nothing about
-		-- edit mode and the `EditMode`/`EditButton` pages say nothing about
-		-- swiping. So this is a SECOND route to Remove, not a replacement for
+		-- selection change. The convention separates the two the same way: as of
+		-- the 2026-08-13 citation pass, the swipe-actions documentation says
+		-- nothing about edit mode and the edit-mode documentation says nothing
+		-- about swiping. So this is a SECOND route to Remove, not a replacement for
 		-- edit mode's ⊖ — which is exactly why `table.luau`'s auto-Edit predicate
 		-- deliberately does NOT count `rowActions` as an edit-mode-only
 		-- capability (see THE AUTO EDIT/DONE TOGGLE there).
 		--
-		-- WHICH EDGE GETS WHAT. Apple's default edge is trailing — "The default
-		-- is `HorizontalEdge.trailing`" ([SW-37]) — and that is where a
+		-- WHICH EDGE GETS WHAT. The default edge is TRAILING, and that is where a
 		-- destructive action belongs, so Remove is trailing and Top is leading.
 		--
 		-- FULL SWIPE, PER EDGE. "By default, the user can perform the first
 		-- action for a given swipe direction with a full swipe... You can opt out
 		-- of this behavior for an edge by setting the `allowsFullSwipe` parameter
 		-- to `false`. For example, you can disable the full swipe on the leading
-		-- edge" ([SW-37]). We take Apple's own worked example: a full trailing
+		-- edge". We take the standard worked example: a full trailing
 		-- swipe removes the track outright, and a full leading swipe does NOT
 		-- silently re-order the playlist — Top stays reveal-then-tap.
 		--
@@ -674,7 +672,7 @@ function example.build(Facet: any, core: any, deps: any)
 		-- The drop contract: `keys` are the dragged rows in document order and
 		-- `toIndex` is the insertion slot among the rows NOT being dragged.
 		-- REORDER-UNDER-FILTER RULE: reordering is DISABLED while a filter is
-		-- active (the iTunes / SwiftUI convention). The visible rows are a
+		-- active (the standard media-library convention). The visible rows are a
 		-- SUBSET of the real order, so a drop's meaning against the hidden rows
 		-- is ambiguous — rather than guess, we refuse the move and leave the
 		-- base order untouched. Clear the filter to rearrange. When unfiltered,

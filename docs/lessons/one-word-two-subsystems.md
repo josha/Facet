@@ -1,6 +1,6 @@
 # One word, two subsystems — and only one of them was listening
 
-**Found:** 2026-07-26, iPhone 15 Pro, showcase place. **Cost:** two director
+**Found:** 2026-07-26, a physical phone, showcase place. **Cost:** two director
 rounds and a defect that looked like a *theme* bug in two unrelated themes.
 
 ## The symptom

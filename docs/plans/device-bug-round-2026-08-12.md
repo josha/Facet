@@ -7,7 +7,7 @@ applicable, never in the example place** — a showcase screen papering over a
 framework defect is the defect shipping to every consumer instead.
 
 This is an additional phase of the SwiftUI-parity round 2 mission
-([`swiftui-parity-round2.md`](swiftui-parity-round2.md)) and it closes with the
+([`parity-round2.md`](parity-round2.md)) and it closes with the
 same obligations: suite green, mutation-proved checks, the showcase `.rbxl`
 rebuilt and committed, and a device canary through the in-experience picker.
 
@@ -207,7 +207,7 @@ a size only one of them visits cannot exist.
 > rather than the ten-foot row alone, and `p4_foyer`'s `FeedPage` now collapses on
 > `padding 8 + 8` (the padding halved since), which bought back the 705x338 cell
 > at +0 and nothing else. Full table and verdicts:
-> `docs/plans/swiftui-parity-round3.md`, "The overflow sweep asks about every
+> `docs/plans/parity-round3.md`, "The overflow sweep asks about every
 > finding".
 
 Non-main-axis findings the same sweep surfaces, enumerated over all 37 surfaces x

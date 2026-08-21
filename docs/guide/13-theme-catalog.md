@@ -266,7 +266,7 @@ that shows up in a frame time rather than a file size, and it is measured rather
 than estimated.
 
 > **Pending — the memory table.** The per-package instance and heap figures belong
-> in the T15 performance wave's measured table, alongside the install and swap
+> in the release performance wave's measured table, alongside the install and swap
 > timings. Until that wave lands, this section states the shape of the cost and
 > deliberately quotes no number for it: an estimate here would be an unsupported
 > claim, which is exactly what the distribution plan forbids. The instrument

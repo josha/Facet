@@ -1,11 +1,11 @@
 # SwiftUI parity round 3 — design
 
 The build plan for the mission stated in
-[`swiftui-parity-round3-brief.md`](swiftui-parity-round3-brief.md). **The brief is
+[`parity-round3-brief.md`](parity-round3-brief.md). **The brief is
 binding; this document is the design it asked for** — one section per phase, plus
 the Phase 0 map every later section rests on.
 
-Round 2's design document is [`swiftui-parity-round2.md`](swiftui-parity-round2.md);
+Round 2's design document is [`parity-round2.md`](parity-round2.md);
 where this document repeats one of its facts, it is because a round-3 decision
 turns on it, not as a summary.
 
@@ -598,7 +598,7 @@ and `a7-path.json`:
 | **device cost** | ❌ **never checked.** Desktop Studio only, and the arc was only ever stepped discretely — **never updated at frame rate** |
 
 And the repo already says so in its own words —
-`swiftui-parity-next.md:349`: *"`Gauge` remains unbuilt (the `Path2D` spike bar
+`parity-next.md:349`: *"`Gauge` remains unbuilt (the `Path2D` spike bar
 was never met)."* **The two unmet halves are exactly the two D2 depends on.**
 
 ### So the clipping half was closed before writing any code

@@ -1,6 +1,6 @@
 --!strict
 --[[ THE CARD PARADIGM'S ARRANGEMENT — how many cards belong in view, and
-	therefore how wide one card is (ADAPT-17, director ruling 2026-08-18).
+	therefore how wide one card is (director ruling 2026-08-18).
 
 	WHAT IT IS FOR. `newVirtualList`'s `itemExtent` takes four forms that all answer
 	"how big is one item" with a number the AUTHOR knows. A card rail's answer is
@@ -37,7 +37,7 @@
 	so the NEXT card surface reaches it without copying a constant out of a control.
 	This module decides only when to ASK, and what the author said instead.
 
-	THE REFUSAL BELONGS TO THE CONTROL, NOT TO THIS MODULE (ADAPT-1). A rail that
+	THE REFUSAL BELONGS TO THE CONTROL, NOT TO THIS MODULE . A rail that
 	declares no `cards.perView` adapts, so it needs an environment and must REFUSE
 	to construct without one — `tab_view`'s shape and `tab_view`'s reason:
 	adaptation must not be able to silently not happen. But the message names the

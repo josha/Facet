@@ -76,8 +76,8 @@ both weights. Author either one to override it — see
 You do not have to write a token schema to get a good-looking interface. Facet
 ships one, **Studio Neutral** (`src/tokens/default_style.luau`), and the client
 render target uses it automatically when you do not pass your own. Its brief was
-"if Apple made a game UI system — minimal but polished, affordances always clear,
-professional and neutral, renders quickly." Concretely:
+"a game UI system that is minimal but polished, with affordances always clear,
+professional and neutral, and quick to render." Concretely:
 
 - one cool near-black surface ramp with a single restrained blue accent;
 - hairline strokes instead of heavy borders; generous corner radii;
@@ -175,8 +175,7 @@ build error.
 ### `UI.styleGroup({ shadow?, corners? }, blueprints, style?)`
 
 Applies the same shadow and/or corner modifiers to *every* blueprint in a list at
-once (the equivalent of SwiftUI's `Group`). It returns a new list of styled
-blueprints.
+once. It returns a new list of styled blueprints.
 
 ```lua
 local styled = UI.styleGroup({ corners = "control" }, {

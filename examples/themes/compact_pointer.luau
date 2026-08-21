@@ -6,7 +6,7 @@
 -- Written as a CLEAN CONSUMER: `themes.define` + `themes.neutralPackage()` and
 -- nothing else. No internal require.
 --
--- ORIGINAL WORK, NO TRADE DRESS. "macOS-class" names a CATEGORY of chrome —
+-- ORIGINAL WORK, NO TRADE DRESS. "desktop-pointer-class" names a CATEGORY of chrome —
 -- compact ~22px pointer controls, near-flat surfaces, 1px hairline borders,
 -- subtle top-lit gradients, cool greys. Palette, geometry, gradient stops and
 -- border construction are invented in

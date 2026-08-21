@@ -313,15 +313,14 @@ platform surface can change.
 ## Sensory feedback and default haptic language
 
 Re-audit Facet's sensory-feedback declaration, event taxonomy, control phases, and
-client adapter against the current official
-[SwiftUI `SensoryFeedback`](https://developer.apple.com/documentation/swiftui/sensoryfeedback)
-semantics and Roblox's current
+client adapter against the reference framework's semantic-feedback surface (cited in
+the comparison document) and Roblox's current
 [`HapticEffect`](https://create.roblox.com/docs/reference/engine/classes/HapticEffect)
-API. Record the comparison in `docs/reference/swiftui-parity.md`; maintained runtime
-code, tests, examples, and non-comparison documents must use Facet and Roblox terms.
-Apple does not publish reusable waveform values, so do not copy, reverse engineer, or
-claim an identical waveform. Match the semantic role and perceived character with an
-original Facet design.
+API. Record the comparison in the comparison document; maintained runtime code,
+tests, examples, and non-comparison documents must use Facet and Roblox terms. No
+reusable waveform values are published, so do not copy, reverse engineer, or claim an
+identical waveform. Match the semantic role and perceived character with an original
+Facet design.
 
 When a game enables Facet's haptics adapter, interactive controls must have three
 standard feedback phases:
@@ -359,7 +358,7 @@ Add red-first unit and real-adapter tests for exact waveform keys, phase order, 
 pulse per cause, cancellation, overrides, fallback, coalescing, pooling, and cleanup.
 Play a calibration surface in Studio across touch proxy, pointer, keyboard, and
 gamepad, but do not call Studio evidence a feel test. Prepare a paired physical-device
-review on an iPhone against a minimal native SwiftUI reference and also sample Android
+review on a phone against a minimal native reference build, and also sample Android
 and gamepad hardware. Tune for comparable subtlety, duration, separation, and fatigue,
 not numeric imitation. Store device/build/settings and reviewer results. Until a human
 feels both on the same device, label perceived similarity `PENDING_DEVICE`, never
@@ -399,16 +398,17 @@ framework, vendor, operating system, sample app, or trade dress as the name or t
 reason for a feature.
 
 Audit all maintained Facet source and comments, tests and tools, examples, filenames,
-identifiers, links, and documents. Remove references to Apple and SwiftUI products,
-platforms, samples, terminology, and websites from that surface. Use neutral names
-such as `compact touch`, `desktop pointer`, `glossy`, `flat`, or the exact Facet API
-name. Do not rename a stable Facet API only because another framework uses the same
+identifiers, links, and documents. The prohibited vendor, framework, platform, sample
+and domain names are the match list inside `tools/check_brand_drift.py`, which is the
+only place they may live; ADR-0036 and ADR-0038 record the naming decisions. Remove
+those references from the maintained surface. Use neutral names such as
+`compact touch`, `desktop pointer`, `glossy`, `flat`, or the exact Facet API name. Do not rename a stable Facet API only because another framework uses the same
 generic name. Follow the deprecation policy if a current Facet identifier itself
 contains a vendor name.
 
 There are only two content exceptions:
 
-1. `docs/reference/swiftui-parity.md` remains the dedicated comparison document.
+1. the comparison document remains the dedicated comparison document.
 2. `docs/guide/**` can contain a short, clearly labeled comparison for readers who
    know another framework. The comparison must be factual and optional. It must not
    define the Facet contract or replace a Roblox-first explanation.

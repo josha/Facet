@@ -78,7 +78,7 @@ Run: `python3 tools/check_no_screen_key_bindings.py` from the repo root
 `strip_luau_comments` is importable: two other gate checks carry the same
 one-line-comment-only filter over Luau source and therefore the same latent
 defect — `tools/lune/gate_manifest.luau`'s `layout-purity` (line-comment filter
-over `src/layout/`) and `swiftui-reference-app-validation`'s
+over `src/layout/`) and `reference-app-validation`'s
 `responsibility-ledger` (over `examples/reference/`). They are reported, not
 silently rewritten; fixing them is their own change.
 """

@@ -2107,7 +2107,7 @@ return {
 		--[[ THE UNIFIED COLLECTION, PRICED: windowing + multi-selection + reordering
 			in ONE container (`newTable{ virtualized = true }`, 2026-08-14).
 
-			`docs/reference/swiftui-parity.md` §13 carried "no container unifying
+			The comparison document §13 carried "no container unifying
 			virtualization + reorder + selection" as a durable gap, and closing it
 			created a path nothing in this lab touches: every windowing number here
 			was taken on `newVirtualList`, whose rows carry no columns, no header, no
@@ -3966,7 +3966,8 @@ return {
 				completedWholeSweep = ranAll and failed == 0,
 				results = results,
 				stopped = emergencyStopped,
-				dumpNext = "Ctrl+F6 (Cmd+F6 on macOS) opens the MicroProfiler, Ctrl+P pauses it, then "
+				dumpNext = "Ctrl+F6 (Cmd+F6 where the keyboard has a Command key) opens the MicroProfiler, "
+					.. "Ctrl+P pauses it, then "
 					.. "Dump -> Dump in binary format. See docs/guide/12-performance-lab.md 12.4.",
 			}
 		end
@@ -4254,7 +4255,8 @@ return {
 				-- scopes were off, never that the lap did nothing
 				lapWork = lapWork,
 				note = "ONE pass on a loop, so a ~1s MicroProfiler window cannot miss it and cannot "
-					.. "drift into a later pass. Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 on macOS), "
+					.. "drift into a later pass. Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 where the "
+					.. "keyboard has a Command key), "
 					.. "Ctrl+P to pause, then Dump -> Dump in binary format.",
 			}
 		end

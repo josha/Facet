@@ -880,7 +880,7 @@ local function toLayoutNode(
 				It is wrong for `shape = "circle"`, whose entire contract is a TRUE disc
 				the author never computes: the diameter and the picture come from two
 				INDEPENDENT theme metrics (a control metric and `iconSizes`) and nothing
-				made them agree. Measured live in the showcase HUD, 2026-08-15, iPhone
+				made them agree. Measured live in the showcase HUD, 2026-08-15, on a
 				16 Pro landscape, across all nine shipped packages: classic-desktop is a
 				22px disc holding a 20px picture (91%) and fantasy-ornate a 38px disc
 				holding a 32px one (84%) — at which point the glyph runs to the rim and

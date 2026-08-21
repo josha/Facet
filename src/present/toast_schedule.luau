@@ -1,6 +1,6 @@
 --!strict
 -- THE TOAST SCHEDULER (ADR-0022 Decision 4; ui-designer spec §3.2; acceptance row
--- SF-T2). A pure model: no blueprint, no adapter, no engine, no wall clock — the
+-- A pure model: no blueprint, no adapter, no engine, no wall clock — the
 -- presenter is a thin driver over it, so every rule below is provable headlessly
 -- under an injected `now()` and stays provable when the presentation changes.
 --
@@ -24,7 +24,7 @@
 --
 -- Time only ever enters through `now()`, and nothing here reads a clock of its
 -- own. Every mutating call resolves the schedule synchronously, so an `onDismiss`
--- fires on the frame its cause resolved (the causal-frame rule, SF-F1).
+-- fires on the frame its cause resolved (the causal-frame rule).
 --
 --   local schedule = toast_schedule.new({ now = fn, onDismiss = fn, ... })
 --   schedule.push({ key?, priority?, duration?, readFloor?, data }) -> id

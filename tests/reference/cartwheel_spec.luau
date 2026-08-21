@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Cartwheel" — E1 loop pins (swiftui-reference-app-validation).
+-- Reference proof "Cartwheel" — E1 loop pins (reference-app-validation).
 --
 -- WHAT THIS FILE IS FOR. The proof's whole representative loop (RA-P2) has to be
 -- drivable headlessly through the public controller/presenter API, and every

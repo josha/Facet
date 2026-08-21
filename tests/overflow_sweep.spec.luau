@@ -76,7 +76,7 @@
 -- is measured in `tests/lib/tiers.luau` rather than restated here.) 42 surfaces x
 -- 8 viewports x 4
 -- preferences is a 4x multiplier on an always-on check, so the shape was measured
--- before it was chosen (`docs/plans/swiftui-parity-round3.md`, the accessibility
+-- before it was chosen (`docs/plans/parity-round3.md`, the accessibility
 -- section):
 --   * re-mounting each surface once per preference: 3339ms (+2.5s on the suite);
 --   * MOUNTING ONCE AND SWINGING THE PREFERENCE LIVE: 2126ms (+1.27s, ~+2.7%),
@@ -295,7 +295,7 @@ local SCENARIOS = {
 	"composition",
 	"keyboard_navigation",
 	"row_actions",
-	-- SwiftUI-parity round 2's two new showcase surfaces. Both are reached
+	-- parity round 2's two new showcase surfaces. Both are reached
 	-- through the demo picker, so both are swept under the same chrome
 	-- reservation as every other one: `card_rail` derives its rail width from
 	-- the live viewport (a constant painted a rail off the right edge of a 320px
@@ -731,7 +731,7 @@ end
 	  virtual_list_native /VLNative          the page overruns and all 24 labels
 	    stay in the band — the list's own window scrolls to them
 
-	`kind` is the triage class (docs/plans/swiftui-parity-round3.md carries the
+	`kind` is the triage class (docs/plans/parity-round3.md carries the
 	full list with the per-view/per-preference detail):
 	  * fixed-px-vs-text  — a px extent fixed against content that is not fixed
 	                        (`docs/lessons/facet-fixed-px-heights.md`)

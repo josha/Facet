@@ -1,5 +1,5 @@
 --!strict
--- THE CIRCULAR PROGRESS INDICATOR, BOTH FORMS (swiftui-parity round 3, item D2).
+-- THE CIRCULAR PROGRESS INDICATOR, BOTH FORMS (parity round 3, item D2).
 --
 -- `presentation = "circular"` is the one shape in the family that accepts BOTH
 -- modes, and both are the SAME function of ONE scalar:

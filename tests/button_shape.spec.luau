@@ -1,7 +1,7 @@
 --!strict
 -- THE CIRCLE BUTTON (`UI.Button{ shape = "circle" }`, feature round 2026-07-26).
 --
--- The director's reference is the iOS floating round "…" action, and the whole
+-- The director's reference is the floating round "…" action, and the whole
 -- promise is that an author declares a SHAPE and never computes a size, a
 -- radius, or a square. Four things therefore have to be true, and each is
 -- asserted at the layer it can actually be wrong at:
@@ -342,7 +342,7 @@ describe("circle Button geometry: a true 1:1 box from the control metric", funct
 		A circle's diameter and its icon's box are TWO INDEPENDENT theme metrics —
 		`controls.button.height` (or whatever control metric the author named) and
 		`iconSizes[role]` — and nothing made them agree. Measured live in the
-		showcase HUD on 2026-08-15, iPhone 16 Pro landscape, every shipped package:
+		showcase HUD on 2026-08-15, a compact phone in landscape, every shipped package:
 
 		  classic-desktop  22px disc / 20px picture  (91%)
 		  compact-pointer  22px disc

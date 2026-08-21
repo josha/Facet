@@ -1,13 +1,13 @@
 --!strict
---[[ THE LAZY GRID — SwiftUI's `LazyVGrid`, on the substrate that already exists.
+--[[ THE LAZY GRID, on the substrate that already exists.
 
 	WHAT IT IS. A collection laid out in `columns` lanes that mounts only the
 	LINES OF CELLS the viewport touches. `UI.Grid` is the eager half and stays
 	exactly what it is: it measures and arranges every cell, which is what
-	SwiftUI's non-lazy `Grid` does too and says of itself — it "renders all of its
+	An eager grid does too — it renders all of its
 	child views immediately" (parity §16 [SW-16]). The lazy grids are the ones
 	that "create items only as needed" ([SW-21]), and until this module nothing in
-	Facet did. `docs/reference/swiftui-parity.md` §4.2.2 has the full argument.
+	Facet did.
 
 	build(Facet, core, spec) -> {
 	  blueprint, focusGroupName (the contributed group's name),
@@ -114,7 +114,7 @@
 
 	── TWO AXES: `LazyVGrid` AND `LazyHGrid`, ON THE SAME ARITHMETIC ────────────
 
-	`axis = "y"` (default) is SwiftUI's `LazyVGrid` — lanes across the width, lines
+	`axis = "y"` (default) is the VERTICAL grid — lanes across the width, lines
 	advancing down. `axis = "x"` is `LazyHGrid` — lanes down the height, lines
 	advancing rightward.
 
@@ -256,7 +256,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		guard so they explain themselves instead of being reported as unknown keys. ]]
 	if spec ~= nil and spec.axis ~= nil and spec.axis ~= "y" and spec.axis ~= "x" then
 		error(
-			`newVirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (SwiftUI's LazyVGrid — lanes `
+			`newVirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (the vertical grid — lanes `
 				.. 'across the width, lines advancing down; the default) or "x" (LazyHGrid — lanes down the height, '
 				.. "lines advancing rightward). It is CONSTRUCTION-ONLY, exactly as `ScrollView.axis` is: a reactive "
 				.. "scroll axis would rebuild the engine's native scroll state mid-gesture.",
@@ -346,7 +346,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	assert(
 		lanesIsLive or validLanes(lanesSpec),
 		`VirtualGrid.columns must be an integer >= 1, or a Readable of one — got {tostring(lanesSpec)}. It is the `
-			.. "CROSS-axis lane count (SwiftUI's `columns:` on LazyVGrid), and it is the number the mounted band's "
+			.. "CROSS-axis lane count, and it is the number the mounted band's "
 			.. "UI.Grid is given, so a fraction or a zero has no reading as a column count."
 	)
 	local function lanesNow(): number

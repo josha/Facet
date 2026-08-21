@@ -1,6 +1,6 @@
 --!strict
--- PreferredTextSize offset seam (large-text-accessibility LT-1/LT-3; decision
--- LTN-1, artifacts/large-text-accessibility/probe/preference-probe.json).
+-- PreferredTextSize offset seam (the large-text accessibility work; the
+-- measured offsets are in artifacts/large-text-accessibility/probe/preference-probe.json).
 --
 -- The engine applies the player's text-size preference as a FIXED PIXEL OFFSET
 -- on every text node at draw time — measured live 2026-08-03: Medium=0, Large=4,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reference-proof place builder (swiftui-reference-app-validation): emits one
+# Reference-proof place builder (reference-app-validation): emits one
 # ready-to-open .rbxl per clean-room reference proof. Each place maps the full
 # gallery surface (src, scenarios, reference modules, themes, bootstrap) and
 # pre-sets the Workspace attribute Facet_Scenario so the place boots straight

@@ -1,8 +1,8 @@
 --!strict
 --[[ Scenario 'card_rail' — THE SIDEWAYS VIRTUALIZER, as a surface you can hold.
 
-	`newVirtualList` gained `axis = "x"` in SwiftUI-parity round 2
-	(docs/plans/swiftui-parity-round2.md §2.3; game-director decision
+	`newVirtualList` gained `axis = "x"` in parity round 2
+	(docs/plans/parity-round2.md §2.3; game-director decision
 	2026-08-12). The standing obligation is that every new public API appears in
 	a gallery scenario the headless suite executes, and this is that scenario for
 	the horizontal axis — 400 cards on ONE row, ~4 mounted, stepped Left/Right by

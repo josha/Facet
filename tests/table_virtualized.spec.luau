@@ -2,7 +2,7 @@
 --[[
 	`newTable{ virtualized = true }` — THE UNIFIED COLLECTION.
 
-	WHAT THIS CLOSES. `docs/reference/swiftui-parity.md` §13 carried "No container
+	WHAT THIS CLOSES. The comparison document §13 carried "No container
 	unifying virtualization + reorder + selection" as a durable gap, and §4.2
 	recorded `newTable` virtualization as BLOCKED behind variable item extents
 	*because* Table ships `rowHeight(item)` and `index x pitch` cannot express a

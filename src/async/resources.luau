@@ -30,7 +30,7 @@ type Request = {
 	dueAt: number?, -- a spaced retry waits here, out of the transport's sight
 }
 
--- BOUNDED RETRY (ADR-0022 Decision 8, row SF-A2). `count` extra attempts after the
+-- BOUNDED RETRY (ADR-0022 Decision 8). `count` extra attempts after the
 -- first failure, spaced by `delaySeconds` of INJECTED time — the provider is pure
 -- and non-yielding, so a delay is a due time the caller's `tick` crosses, never a
 -- `task.delay`. `giveUp` is what makes the retry BOUNDED: when the budget is spent
@@ -100,7 +100,7 @@ local function requireNonNegativeNumber(value: any, name: string)
 	end
 end
 
--- CLOSED OPTS (constitution §4; ARCH-1). A misspelled `maxConcurent` used to cap
+-- CLOSED OPTS (constitution §4). A misspelled `maxConcurent` used to cap
 -- nothing and a misspelled `retry` bought no give-up, both silently.
 local PROVIDER_OPTS_KEYS = specGuard.keySet({ "cacheBudget", "maxConcurrent", "now", "retry", "retryAttempts" })
 local RETRY_OPTS_KEYS = specGuard.keySet({ "count", "delaySeconds", "giveUp" })
@@ -295,7 +295,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 		if cache[key] ~= nil then
 			touchLru(key)
 		elseif gaveUp[key] ~= nil then
-			-- PERMANENT FOR THE SESSION (SF-A2): no request, no wave, no work. The
+			-- PERMANENT FOR THE SESSION (per call site): no request, no wave, no work. The
 			-- state signal already reads "failed"; `invalidate(key)` is the reset.
 		else
 			local request = requests[key]
@@ -440,7 +440,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			end
 			retireRequest(request)
 			-- the budget is spent. A DECLARED retry policy gives up permanently for the
-			-- session (SF-A2); the legacy `retryAttempts` spelling keeps its old
+			-- session (per call site); the legacy `retryAttempts` spelling keeps its old
 			-- promise, where a later acquire simply asks again.
 			if policy.giveUp then
 				gaveUp[key] = tostring(message)

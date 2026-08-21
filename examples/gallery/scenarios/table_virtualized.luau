@@ -2,7 +2,7 @@
 --[[ Scenario 'table_virtualized' — THE UNIFIED COLLECTION: one container that
 	windows, selects and reorders at the same time.
 
-	`docs/reference/swiftui-parity.md` §13 carried "No container unifying
+	The comparison document §13 carried "No container unifying
 	virtualization + reorder + selection" as a durable gap. `newTable` had the
 	reordering, the multi-selection, the columns and the header and mounted EVERY
 	row; `newVirtualList` had the windowing. `newTable{ virtualized = true }`

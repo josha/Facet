@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'row_capabilities' — THE ROWS THAT SAY NO.
 
-	`rowSelectable`, `rowMovable` and `rowDeletable` shipped in SwiftUI-parity
+	`rowSelectable`, `rowMovable` and `rowDeletable` shipped in parity
 	round 3 item C (director ruling 2026-08-13: build all three). They are the
 	per-row half of three capabilities the CONTAINER declares — this table is
 	selectable, reorderable and carries a destructive row action, and three of its
@@ -261,7 +261,7 @@ return {
 			onReorder = reorder,
 			--[[ THE THREE PREDICATES. Positive polarity — `true` (or a forgotten
 				branch returning nil) means "this row may take part"; only an
-				explicit `false` refuses. SwiftUI spells the same family negatively
+				explicit `false` refuses. The usual spelling for this family is negative
 				(`selectionDisabled`/`moveDisabled`/`deleteDisabled`), and the parity
 				doc carries the inverse mapping. ]]
 			rowSelectable = function(item: any): boolean

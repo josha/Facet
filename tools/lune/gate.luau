@@ -63,7 +63,7 @@ end
 
 	The first attempt put `set -x` on the CHECK'S OWN RUN and sent the trace to
 	`BASH_XTRACEFD` so it would not mix with real output. `BASH_XTRACEFD` arrived
-	in bash **4.1**, and the only bash on this machine — and on every stock macOS
+	in bash **4.1**, and the only bash on this machine — and on every stock desktop
 	— is 3.2.57, where that assignment is an inert variable and `set -x` writes to
 	**stderr**. So the trace landed in `detail` for every check, PASSING ONES
 	INCLUDED (`detail` is written into `gate.json` unconditionally), unbounded,

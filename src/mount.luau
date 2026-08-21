@@ -24,7 +24,7 @@ type Blueprint = blueprintLib.Blueprint
 
 local DIRTY_CLASSES = { "paint", "measure", "arrange", "structure", "navigation", "semantics" }
 
--- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3, row SF-M6). An optional
+-- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3). An optional
 -- collaborator — supplied by the render/presenter layer, scripted in headless
 -- tests — that turns a structural REMOVAL into a RETIREMENT: the subtree stays in
 -- `children`, is marked `retiring` (so the presenter's focus walk and the tap
@@ -66,7 +66,7 @@ export type MountOpts = {
 
 local mountLib = {}
 
--- CLOSED OPTS (constitution §4; ARCH-1). `scope` misspelled means the mount owns
+-- CLOSED OPTS (constitution §4). `scope` misspelled means the mount owns
 -- its own root scope and the caller's dispose frees nothing.
 local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions", "feedback" })
 

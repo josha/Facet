@@ -1,7 +1,6 @@
 --!strict
 --[[ THE CLIENT HOST — one blessed way to stand a Facet surface up on Roblox and
-	drive it (reuse audit REUSE-109/115; ARCH boundary list; api.md §Client entry
-	points).
+	drive it (api.md §Client entry points).
 
 	WHAT WAS WRONG. Standing up a surface takes six steps in a fixed order — a
 	core, an environment, the environment BOUND to the engine, a render target, an
@@ -34,7 +33,7 @@
 	outside the motion clock itself — a second RunService connection in a consumer
 	is the bug class this prevents", and the audit counted thirteen game modules
 	across three different RunService signals for what is conceptually one UI
-	frame (REUSE-115). Hooks run after the motion step, so they read this frame's
+	frame. Hooks run after the motion step, so they read this frame's
 	settled values, and they are quarantined: a throwing hook cannot starve its
 	siblings or escape into the render thread.
 

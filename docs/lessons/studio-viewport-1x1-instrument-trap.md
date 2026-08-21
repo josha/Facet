@@ -4,7 +4,7 @@ Observed 2026-07-19 (Phase 1 gallery verification): a Play Solo session in a Stu
 
 **Rule:** before trusting Studio-side interaction or visual checks, read `workspace.CurrentCamera.ViewportSize` first; if it is 1x1, the session cannot receive injected input or produce captures — record FAIL_ENVIRONMENT and either re-run when the viewport is visible or fall back to engine-Scriptable InputBinding:Fire() traces (which DO work viewport-less, and drive the real action pipeline).
 
-**Recovery that works (2026-07-24).** Reproduced again with a new symptom worth recording: the EDIT datamodel still reported the last good size (1233x1067) while the CLIENT datamodel reported `1, 1`, and `System Events` listed **no windows** for the `RobloxStudio` process — the window was minimized or on another macOS Space. These did NOT restore it:
+**Recovery that works (2026-07-24).** Reproduced again with a new symptom worth recording: the EDIT datamodel still reported the last good size (1233x1067) while the CLIENT datamodel reported `1, 1`, and `System Events` listed **no windows** for the `RobloxStudio` process — the window was minimized or on another desktop workspace. These did NOT restore it:
 
 - `osascript ... tell application "Roblox Studio" to activate`
 - `osascript ... tell process "RobloxStudio" to set frontmost to true`

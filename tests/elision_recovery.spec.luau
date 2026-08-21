@@ -670,7 +670,7 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 	--[[ D7.5 — THE URL BAR IS TWO FACTS AND USED TO BE ONE NUMBER.
 		`URL_BAR_PX = 200` was "a fact about the SCREENSHOT" and did both jobs: the
 		height the chrome steals and the height the pseudo bar is drawn at. Measured
-		against a real browser instead (Chrome 151 on macOS, a local page reporting
+		against a real browser instead (Chrome 151 on the development desktop, a local page reporting
 		`outerHeight - innerHeight`): 143px for a normal window, 67px for a popup with
 		a location bar and no tab strip. The fixture models the 67 — a tab strip does
 		not APPEAR, and what appears and disappears is the whole event this toggle is

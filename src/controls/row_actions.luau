@@ -253,7 +253,7 @@ export type Spec = {
 		`nil` (the default) means "every destructive action commits", which is what
 		makes this cost nothing for every caller that never wires it. ]]
 	deletable: (() -> boolean)?,
-	-- Task 9 (iOS edit-mode leading minus). PUBLIC, not `_editing`: `table.luau`'s
+	-- Task 9 (the edit-mode leading minus). PUBLIC, not `_editing`: `table.luau`'s
 	-- own `editing` spec key (Spec.editing there, "owner-held edit-mode signal")
 	-- is the shipped precedent for a Readable-valued spec key living in the
 	-- open, undecorated namespace — Table (Task 10) passes its OWN `editing`
@@ -411,7 +411,7 @@ export type HostedEngine = {
 	outsideDismiss: any,
 }
 
--- CLOSED SPEC (constitution §4; ARCH-1).
+-- CLOSED SPEC (constitution §4).
 local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"id",
 	"content",
@@ -820,7 +820,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		`use()` it; the two are written together, always, in the same call — set on
 		`doCommitAction`'s destructive branch, cleared wherever `committed` is.
 
-		NOTE FOR THE DIRECTOR GATE: `iOS.mov` does something different and richer
+		NOTE FOR THE REVIEW GATE: the reference capture does something different and richer
 		here — the destructive plate EXPANDS to fill the row and the row leaves over
 		it, so nothing has to vanish. That is a real feature (a per-plate stretch
 		past the band width) rather than a bug fix, it is a feel decision, and it is
@@ -1111,7 +1111,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- fully mounted underneath, unable to ever open or commit again.
 	--
 	-- REDTEAM FIX (item 1, BLOCKER; final-review-findings.md; director
-	-- ruling — a STARTED destructive commit is IRREVOCABLE, iOS-style: it
+	-- ruling — a STARTED destructive commit is IRREVOCABLE: it
 	-- completes — slide-off, collapse, fire exactly once — regardless of
 	-- close()/claim/scroll/outside-tap/Cancel arriving mid-flight). Split
 	-- into two functions rather than one more `if committed then` patch at
@@ -1447,7 +1447,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if action.role == "destructive" and spec.deletable ~= nil and spec.deletable() == false then
 			return false
 		end
-		-- REDTEAM FIX (item 4, MAJOR — director ruling, SwiftUI behavior): a
+		-- Review fix (item 4, MAJOR): a
 		-- full swipe commits differently by role. A DESTRUCTIVE first action
 		-- keeps the full slide-off + collapse sequence below unchanged. A
 		-- NON-destructive first action fires immediately (quarantined, the
@@ -1524,7 +1524,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			plain `onSettle`, which motion.luau fires from its `post()` phase,
 			after the write and outside the commit, exactly as this code always did.
 
-			It is also the better animation. iOS collapses the row WHILE it slides;
+			It is also the better animation. The usual treatment collapses the row WHILE it slides;
 			the gap closing is what tells you the deletion took. Nothing about the
 			C8a ruling changes: the tray still unmounts the instant the commit
 			starts (`committingSig`), and the row's paint is still not put back
@@ -2974,12 +2974,12 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- taps the minus and expects the row to go.
 			--
 			-- It used to REVEAL the tray instead, and the comment here
-			-- justified that as "the iOS pattern". That justification did not
-			-- survive being checked: Apple documents the control's APPEARANCE
-			-- (`UITableViewCell.EditingStyle.delete` — "a red circle
-			-- enclosing a minus sign") and documents that edit mode "provides
-			-- controls to delete or move list items", but documents NO
-			-- behaviour for tapping it. It was an uncited recollection.
+			-- justified that as "the platform pattern". That justification did
+			-- not survive being checked: the documented rules cover the
+			-- control's APPEARANCE (a red circle enclosing a minus sign) and
+			-- say that edit mode "provides controls to delete or move list
+			-- items", but document NO behaviour for tapping it. It was an
+			-- uncited recollection.
 			--
 			-- What made the report legitimate rather than a misunderstanding
 			-- is one line further down this file: the minus borrows the

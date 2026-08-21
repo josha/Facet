@@ -1,6 +1,6 @@
 --!strict
 --[[
-	SILENTLY-INERT PLACEMENT PROPS (docs/plans/swiftui-parity-round2.md §2.1).
+	SILENTLY-INERT PLACEMENT PROPS (docs/plans/parity-round2.md §2.1).
 
 	`anchor`, `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign`, `gridSpan`,
 	`layoutPriority` and `shrinkWeight` are shared BOX props — legal on every node

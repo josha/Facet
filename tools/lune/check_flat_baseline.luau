@@ -50,7 +50,7 @@
 --
 -- Record: artifacts/example-quality-pass/flat-baseline-rebaseline.json.
 --
--- ...AND THE BASELINE WAS NOT MOVED AGAIN (2026-08-13, swiftui-parity round 2).
+-- ...AND THE BASELINE WAS NOT MOVED AGAIN (2026-08-13, parity round 2).
 -- That round left 379 example deltas here, and the temptation was to re-pin the
 -- example fixtures a second time on the same reasoning. It was declined: 357 of
 -- the 379 are ONE inserted line's worth of translation in `02_playlist_table`, 22
@@ -316,7 +316,7 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, w
 	{
 		fixture = "02_playlist_table",
 		prefix = "/Playlist/Page/Hint",
-		why = 'THE HINT NAMES THE SWIPE NOW (director device round 2026-08-13, finding 2: "on iOS with touch '
+		why = 'THE HINT NAMES THE SWIPE NOW (director device round 2026-08-13, finding 2: "on a touch phone '
 			.. "you can swipe a row (either side) to get the edit controls even if the table isn't in edit "
 			.. 'mode -- we lost that"). The example gained `rowActions` on BOTH edges, so the one line of '
 			.. "on-screen teaching this page has had to say so; it used to name only the drag-reorder. "
@@ -353,7 +353,7 @@ local ALLOWED_Y_SHIFT: { { fixture: string, prefix: string, why: string } } = {
 	{
 		fixture = "02_playlist_table",
 		prefix = "/Playlist/Page/Tracks",
-		why = "the example gained a NOW-PLAYING line above the table (swiftui-parity round 2, Phase 3: the "
+		why = "the example gained a NOW-PLAYING line above the table (parity round 2, Phase 3: the "
 			.. 'Table primary action had no visible result, so the tutorial\'s "open a row" gesture proved '
 			.. "nothing on screen). It is one `label`-sized secondary Text between the hint and the table, and "
 			.. "every node in the page ScrollView below it moves down by exactly its height plus the page gap "
@@ -442,7 +442,7 @@ local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 	},
 	{
 		path = "/Vocabulary/Name/ClearWhen/then/Clear",
-		why = 'surface="" -> chip: from the same iPhone 15 Pro pass. With the default control surface the '
+		why = 'surface="" -> chip: from the same a physical phone pass. With the default control surface the '
 			.. "clear button was a plate the same shade as the field it sits inside, and the reporter could "
 			.. "not find the clear affordance at all while a filter was active. A chip is the smallest "
 			.. "surface that reads as a separate thing on top of a field. "
@@ -502,7 +502,7 @@ local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	},
 	{
 		path = "/Playlist/Page/NowPlaying",
-		why = "the table's primary action had no VISIBLE RESULT (swiftui-parity round 2, Phase 3). The "
+		why = "the table's primary action had no VISIBLE RESULT (parity round 2, Phase 3). The "
 			.. 'tutorial tells the reader to "open a row", and opening one changed a signal nothing on screen '
 			.. "read — so the gesture proved nothing to a player and nothing to a screenshot. One `label`-sized "
 			.. "secondary Text between the hint and the table now says what is playing. Its only geometric "

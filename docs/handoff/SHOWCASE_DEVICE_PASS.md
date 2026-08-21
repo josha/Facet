@@ -10,7 +10,7 @@ Read this, then `docs/guide/11-device-verification.md` §"The hands-on place".
 ## 0. The one-paragraph state
 
 The showcase place (one publishable `.rbxl` where the demo AND the theme are
-switchable in game) exists and works. A director pass on a **physical iPhone 15
+switchable in game) exists and works. A director pass on a **physical phone 15
 Pro** found nine defects across rounds 1–2 and **six more in round 3**; all are
 fixed in the tree and the suite is green at **2058**. Round 3's six turned out to
 be **seven framework defects and one missing control** — almost nothing was an
@@ -236,13 +236,13 @@ Two judgement calls worth keeping:
 - **The glow is a canvas allowance, not layout margin.** Reserving it as margin
   would also have fixed it, and would have been wrong: a glow is *meant* to
   overlap its neighbours, and reserving 24px in every direction would space every
-  themed screen out. This is the iOS `contentInset` shape — the layout does not
+  themed screen out. This is the `contentInset` shape — the layout does not
   move, the paint becomes reachable.
 - **`hug` resolves before `fill`.** "What I need" is answered first; "whatever is
   over" gets the remainder. That is the order the fill distribution already
   assumed.
 
-Also this round: `clearButtonMode` (UIKit's four modes) on `newTextInput`; the
+Also this round: `clearButtonMode` (the four conventional modes) on `newTextInput`; the
 clear chip capped at the field height (Pixel Quest grew it to 52 inside a 44px
 field); the Rating's star moved from `iconSizes.medium` to `small` after
 measuring all nine packages (at `medium` the strip was 164–176px inside a 132px
@@ -708,7 +708,7 @@ id, not on the screen root — which is exactly why they anchor that way.
 
 ## 3m. Round 9 (2026-07-27): two overflows with one cause — a pixel count nobody could re-measure
 
-Two reports off a real iPhone, plus one standing ask, and all three are the same
+Two reports off a real phone, plus one standing ask, and all three are the same
 mistake in three places: **a height fixed once, in pixels, against content that
 is not fixed.**
 
@@ -736,7 +736,7 @@ contents spill. `Spec.rowHeight` is now optional and `02_playlist_table` no
 longer sets it.
 
 **And cells can no longer outgrow their row, at all.** New public prop
-`Text.lineLimit` (SwiftUI's name) caps the *reserved* box at N lines — which is
+`Text.lineLimit` caps the *reserved* box at N lines — which is
 what finally gives the adapter's long-standing `TextTruncate.AtEnd` something to
 truncate against. `Table` derives the cap from whichever height won, so a pinned
 `rowHeight` is capped to *its* row too. One honest limit: a pin below one line of
@@ -822,7 +822,7 @@ node is both card and scroller. `docs/lessons/a-scroll-container-clips-to-itself
 
 ### 4.4 Two surfaces cannot measure each other
 
-The chips were held apart by a hard-coded `offsetX`. Real iPhone text is wider
+The chips were held apart by a hard-coded `offsetX`. Real phone text is wider
 than the guess. **An offset between two things that cannot see each other is a
 guess about every font on every device.** Compose them into one solver instead.
 

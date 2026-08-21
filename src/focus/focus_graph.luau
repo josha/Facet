@@ -23,7 +23,7 @@
 -- byte-identically to a graph that never heard of the second axis
 -- (tests/focus_grid_axis.spec.luau, "NULL HYPOTHESIS").
 --
--- FOCUS-SKIP (ADR-0022 Decision 5, row SF-L3). An order entry may be written as
+-- FOCUS-SKIP (ADR-0022 Decision 5). An order entry may be written as
 -- `{ id = path, focusable = () -> boolean }` instead of a bare path string.
 -- The predicate is evaluated AT NAVIGATION TIME, never cached, so a row that
 -- becomes ineligible while something is armed drops out of the ring on the very
@@ -199,7 +199,7 @@ function focus_graph.new(core: any)
 		(device round 1, DB-3(b): "there is a random blue stripe to the left of the
 		racer" — a focus ring painted on a phone, where no keyboard focus exists.)
 
-		Focus IDENTITY is unconditional: a tap moves it (the Apple model, director
+		Focus IDENTITY is unconditional: a tap moves it (director
 		round 2) so navigation continues from what the player touched, and every
 		consumer that follows focus — the drag aim, keep-visible, the selection
 		bridge — keeps working on touch exactly as it does on a pad. What a tap
@@ -1283,7 +1283,7 @@ function focus_graph.new(core: any)
 		end
 	end
 
-	-- pointer-driven focus (Apple model, director round 2): clicking a
+	-- pointer-driven focus (director round 2): clicking a
 	--[[ ── FOCUS MAP INSPECTION ─────────────────────────────────────────────────
 		Both readings of one scope's focus map, as data, for the surface-level
 		`handle.focusOrder()` dump.

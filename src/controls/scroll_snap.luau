@@ -1,6 +1,6 @@
 --!strict
 --[[ SCROLL SNAPPING — where a scrolling collection is allowed to come to REST
-	(ADAPT-17, director ruling 2026-08-18).
+	(director ruling 2026-08-18).
 
 	WHAT WAS MISSING. The adapt audit parked the shipped card rail mid-card (x=77
 	on a 140px pitch), let it settle for thirty frames, and read x=77 back: nothing

@@ -8,7 +8,7 @@
 -- undefined combinations (percent on an unbounded axis; aspect on both axes).
 --
 -- A stack's MAIN axis negotiates in three steps, in this order (round-2 parity,
--- docs/plans/swiftui-parity-round2.md §2.4/§2.6): children are measured, then a
+-- docs/plans/parity-round2.md §2.4/§2.6): children are measured, then a
 -- DEFICIT is absorbed by the shrink pass (`layoutPriority` tiers x `shrinkWeight`
 -- proportions, both inert by default), then a SURPLUS goes to `fill` children,
 -- and only what fill did not take is spread by `distribute`. The first two steps
@@ -321,7 +321,7 @@ local function dim(node: Node, axis: string): Dim
 	return (if axis == "w" then node.width else node.height) or CONTENT
 end
 
--- Spacer's default (swiftui-parity-next investment 6): a bare Spacer takes the
+-- Spacer's default (parity-next investment 6): a bare Spacer takes the
 -- leftover space along its STACK's main axis, exactly like SwiftUI's. Before
 -- this, every use needed an explicit `{ type = "fill" }` on the right axis, and
 -- writing it on the wrong axis produced a silent zero. An explicit dimension
@@ -1232,7 +1232,7 @@ local function restoreScope(ctx: Ctx, w: number, h: number, key: string)
 	ctx.containerW, ctx.containerH, ctx.scopeKey = w, h, key
 end
 
---[[ ===== FLOW-WRAP (docs/plans/swiftui-parity-round3.md, item A) =============
+--[[ ===== FLOW-WRAP (docs/plans/parity-round3.md, item A) =============
 
 	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` reach this file as the
 	kinds `hwrap` / `vwrap`: Roblox's `UIListLayout.Wraps`, which Facet had no

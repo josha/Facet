@@ -1,6 +1,6 @@
 --!strict
 -- DisclosureGroup: a labelled header that expands and collapses its content
--- (docs/plans/swiftui-parity-next.md investment 7; acceptance row B-DSP2).
+-- (docs/plans/parity-next.md investment 7; acceptance row B-DSP2).
 --
 -- The row the plan singles out is FOCUS: "DisclosureGroup with correct focus
 -- updates". Collapsing while focus sits inside the content would leave focus on an
@@ -31,7 +31,7 @@ export type Spec = {
 	onToggle: ((expanded: boolean) -> ())?,
 }
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"content",

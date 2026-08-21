@@ -1,6 +1,6 @@
 --!strict
--- The PUBLIC drag/drop declaration channel (ADR-0022 Decision 5, rows SF-D1 /
--- SF-D5). `UI.draggable(bp, …)` and `UI.dropTarget(bp, …)` are blueprint
+-- The PUBLIC drag/drop declaration channel (ADR-0022 Decision 5).
+-- `UI.draggable(bp, …)` and `UI.dropTarget(bp, …)` are blueprint
 -- modifiers like `UI.corners` — they return a new frozen blueprint carrying a
 -- validated declaration, and the renderer wires the acquisition when the node
 -- mounts.

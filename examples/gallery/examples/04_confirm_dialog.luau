@@ -65,7 +65,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- prompt and its two buttons floated loose over whatever was behind them with
 	-- no boundary at all, and "Delete" — a destructive, irreversible action — sat
 	-- unframed on top of the very screen it was about to change. Found on an
-	-- iPhone 15 Pro; in Studio over a plain baseplate it had looked merely plain.
+	-- a physical phone; in Studio over a plain baseplate it had looked merely plain.
 	--
 	-- ...AND THE CENTRING HAS TO BE ON A ZSTACK (example-quality-pass, measured
 	-- 2026-08-06). `alignH`/`alignV` are documented as alignment inside a ZSTACK

@@ -603,7 +603,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.dragLeft("r2", 80)
 		expect(w.debug().engagedKey).toBe("r2")
 		-- ANY scroll movement closes the open row (row_actions.newCoordinator's
-		-- own bindScroll rule, iOS parity) — driven here through the engine
+		-- own bindScroll rule, touch parity) — driven here through the engine
 		-- CanvasPosition mirror, exactly as a finger fling would
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 25 })
 		w.settle()
@@ -1086,7 +1086,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 			to read `…node(rowPath("r2")).presentationOffset.x).toBe(0)` with the
 			comment "r2 is flat again" — and that WAS the shipped behavior, recorded
 			as a defect in both `virtual_list.luau`'s own slide-seam comment
-			("Device-pass rider: iOS animates the previously-open row closed under it;
+			("Device-pass rider: the reference animates the previously-open row closed under it;
 			hosted mode jumps it") and in `docs/plans/table-hosted-row-actions-stage2.md`
 			§"three open hosted-mode defects", item 2 — "a visible regression on a
 			shipped Table surface, not a theoretical one", because Table animates it
@@ -1265,7 +1265,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 	end)
 
 	it("(v3) a tap on the OPEN row's own slid content closes it, and fires no activate", function()
-		-- iOS parity: with a tray open, a tap on the row means "put it away" and
+		-- touch parity: with a tray open, a tap on the row means "put it away" and
 		-- means only that — the alternative is swipe-then-tap opening whatever the
 		-- row's own `onActivate` opens.
 		local fired: { string } = {}
@@ -2567,7 +2567,7 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 	for _, case in RELEASE_CASES do
 		local pointerType, order = case.pointerType, case.order
 		it(case.title, function()
-			-- TRAILING (Apple's default edge)
+			-- TRAILING (the default edge)
 			local fired: { string } = {}
 			local w = world({ rowActions = bothEdges(fired) })
 			expect(w.debug().engagedKey).toBeNil()

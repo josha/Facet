@@ -1,5 +1,5 @@
 --!strict
--- Picker: single-selection from a small option set (docs/plans/swiftui-parity-next.md
+-- Picker: single-selection from a small option set (docs/plans/parity-next.md
 -- investment 7; acceptance row B-DSP2). Two presentations over ONE selection model:
 --
 --   segmented — options side by side, always visible. Good for 2–4 short options.
@@ -96,7 +96,7 @@
 --
 -- It is a GROUP decision, not a per-option one, for the same reason the tray
 -- ruling gives: a per-segment verdict makes one plate wear a glyph while its
--- neighbour wears a word. The HIG says the same thing about menus — "provide
+-- neighbour wears a word. The menu guidance says the same — "provide
 -- icons for all menu items in a group, or none of them" — so a half-iconned
 -- group is an authoring ERROR here, not a look somebody has to notice.
 --
@@ -256,7 +256,7 @@ function picker.resolvePresentation(optionCount: number, sizeClass: string?, lon
 	return "segmented"
 end
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local PICKER_KEYS = specGuard.keySet({
 	"axis",
@@ -407,7 +407,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	if iconCount > 0 and iconCount < #spec.options then
 		error(
 			`Facet newPicker('{id}'): {iconCount} of {#spec.options} options carry an \`icon\`. Provide icons for `
-				.. "all options in a group, or none of them (HIG: Menus) — a half-iconned group reads as a "
+				.. "all options in a group, or none of them — a half-iconned group reads as a "
 				.. "mistake at every width except the one it was authored at.",
 			0
 		)
@@ -713,7 +713,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			optionCount = #spec.options,
 			requestedPresentation = requested,
 			presentation = presentation:get(),
-			-- WHERE THE ADAPTIVE FACT CAME FROM (ADAPT-1): "spec" (the author wired
+			-- WHERE THE ADAPTIVE FACT CAME FROM : "spec" (the author wired
 			-- it), "core" (the surface's own environment answered, no wiring), or
 			-- "none" (a declared presentation, which consults no ladder at all). A
 			-- screen can be audited for adaptation it never had to author.

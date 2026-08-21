@@ -264,7 +264,7 @@ function environment.new(core: any): Env
 	end)
 	-- effectiveOverscanInsets (director live find, Xbox emulator 2026-07-21):
 	-- a TV-class display must never render edge-flush, so when the display is
-	-- Large and no margins were AUTHORED the tvOS-equivalent defaults apply
+	-- Large and no margins were AUTHORED the ten-foot defaults apply
 	-- (60 top/bottom, 90 left/right at 1080p — the console-profile numbers).
 	-- Authored values always win; the "none" sentinel opts out entirely.
 	derived.effectiveOverscanInsets = core:memo(function(use)
@@ -542,7 +542,7 @@ function environment.new(core: any): Env
 			classes.primary = "gamepad"
 		else
 			-- A PREFERENCE THE PLAYER HAS NOT EXPRESSED YET CANNOT OUTVOTE WHAT THE
-			-- DEVICE PHYSICALLY IS (device report 2026-07-29, iPhone 15 Pro).
+			-- DEVICE PHYSICALLY IS (physical-phone device report, 2026-07-29).
 			--
 			-- `UserInputService.PreferredInput` reports the most recently USED input,
 			-- so a phone nobody has touched yet reads KeyboardAndMouse — the engine's
@@ -735,7 +735,7 @@ function environment.new(core: any): Env
 		return out
 	end
 
-	--[[ …and this environment is now discoverable from its own CORE (ADAPT-1).
+	--[[ …and this environment is now discoverable from its own CORE .
 		Every control is built on a core and every environment is built on a core,
 		and on a real surface they are the same one — so a control handed no
 		adaptive facts asks `surface_env.find(core)` instead of silently taking the

@@ -116,7 +116,7 @@ Problem (seen in the playlist place, landscape): a touch drag on a row starts
 drag-reorder, so there is no gesture left to scroll — and the flat renderer
 does not yet scroll/clip in-engine at all (recorded device-emulator truth).
 
-Apple's resolution (SwiftUI List / HIG): scroll owns the naked vertical pan
+The standard resolution: scroll owns the naked vertical pan
 on touch; reordering is entered explicitly — edit mode with trailing ≡ drag
 handles (`.onMove` + EditButton), or long-press lift (`draggable`). Mouse
 pointers keep direct drag because the wheel handles scrolling.
@@ -355,7 +355,7 @@ makes the lane's arithmetic honest, the report makes a wrong declaration loud.
 
 ## OWED (2026-08-15) — the round buttons' touch expander overhangs the app's chrome by 4px
 
-Measured live, Studio, iPhone 16 Pro landscape 749x380, showcase place, URL bar
+Measured live, Studio, a compact phone in landscape 749x380, showcase place, URL bar
 open: the two `FacetHitExpander` TextButtons behind the HUD's round buttons sit
 at y 50..94 against a chip row ending at y=54 — **4px of touch band, 40-44px
 wide, inside the app's own chrome**. Nothing is PAINTED there (the discs

@@ -6,8 +6,7 @@
 	Prop->dirty maps live in `blueprint.luau`; property authorities in
 	`render/authority.luau`.
 
-	IT LIVED AT `src/controls/contract.luau` AND WAS NEITHER (ARCH-10/ARCH-11,
-	moved 0.10.0). Its rows are Screen, VStack, Text, Grip, ScrollView — the
+	IT LIVED AT `src/controls/contract.luau` AND WAS NEITHER (moved 0.10.0). Its rows are Screen, VStack, Text, Grip, ScrollView — the
 	PRIMITIVES a composite control is built out of, not the composites — so its
 	old name misled every reader who opened it expecting Table and Slider. And
 	`src/render/layout_node.luau` required it, which made `render/` depend on
@@ -30,7 +29,7 @@
 	also why no CONTEST was needed: the brief said "or the location that makes the
 	layering true", so a root leaf was authorised from the start.
 
-	minHitSize is ENFORCED (B-BTN3, swiftui-parity-next investment 3): after every
+	minHitSize is ENFORCED: after every
 	solve the renderer compares each declared class's solved rect against this
 	floor and pushes an expanded HIT rect through the adapter's `setHitRect` seam,
 	which the engine adapter realises as a transparent expander behind the
@@ -58,7 +57,7 @@ local CONTROLS: { [string]: ControlContract } = {
 	Box = { focusRole = "none", actions = {}, accessibility = "decorative/custom rect" },
 	Text = { focusRole = "none", actions = {}, accessibility = "static or bound text; wraps; never truncates silently" },
 	Image = { focusRole = "none", actions = {}, accessibility = "decorative unless labeled" },
-	-- Milestone 0 (swiftui-parity-next investment 1) completed the registry:
+	-- The strict-authoring milestone completed the registry:
 	-- every public UI.* constructor now declares a contract. Structural and
 	-- layout nodes are legitimately non-interactive, but they must not be
 	-- INVISIBLE to conformance — an unlisted primitive is a primitive nothing

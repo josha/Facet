@@ -8,7 +8,7 @@
 	across the whole of `r3-segmented-control.mov`, visible and unchanged while the
 	player operates the controls beneath it.
 
-	IT IS NOT A TOOLTIP, AND THE DIFFERENCE IS THE WHOLE DELIVERABLE. Apple's own
+	IT IS NOT A TOOLTIP, AND THE DIFFERENCE IS THE WHOLE DELIVERABLE. The
 	separation, read 2026-08-16: `.help(_:)` is PLAYER-PULLED, pointer-hover-only
 	and shows nothing on touch (`UI.Button{ help = … }`, D3a); TipKit's
 	`popoverTip(_:arrowEdge:action:)` "presents a popover tip on the modified view…
@@ -19,7 +19,7 @@
 	tail since the 2026-08-16 device review — a stem says which control the words
 	are about, which is a question both plates leave open without one.)
 
-	APPLE'S WARNING SHIPS WITH IT, verbatim, because it is the design constraint
+	THE STANDING WARNING SHIPS WITH IT, verbatim, because it is the design constraint
 	and not a footnote: *"Use tips sparingly… Don't use tips to guide people
 	through your app, or for advertising and promotion purposes."*
 

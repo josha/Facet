@@ -1,6 +1,6 @@
 --!strict
 -- "Studio Neutral" — Facet's built-in default style (director brief
--- 2026-07-19: "if Apple made a game UI system — minimal but polished,
+-- 2026-07-19: "a game UI system that is minimal but polished,
 -- affordances always clear, professional/neutral, renders quickly, motion in
 -- key areas by default"). Design principles:
 --   * one dark neutral surface ramp with a slight cool cast; ONE restrained

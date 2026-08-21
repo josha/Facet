@@ -1,6 +1,6 @@
 # A scroll container clips to itself — so the surface goes ON it, not around it
 
-**Found:** 2026-07-26, iPhone 15 Pro, showcase place. **Cost:** three wrong shapes
+**Found:** 2026-07-26, a physical phone, showcase place. **Cost:** three wrong shapes
 before the right one, two of them shipped to a device and photographed.
 
 ## The symptom
@@ -8,7 +8,7 @@ before the right one, two of them shipped to a device and photographed.
 A themed picker panel opened as a rounded card. A hard rectangle sliced a row of
 theme chips in half; the card's own rounded corner continued *past* the cut; and
 the scrollbar floated at the far right of the screen with no visible relationship
-to the card. The director's words were "an Apple UI designer would not approve of
+to the card. The director's words were "a professional UI designer would not approve of
 this", and they were right.
 
 ## The three shapes, in the order they were written

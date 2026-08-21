@@ -45,14 +45,13 @@
 	composites multiply their alphas. Anything else makes nesting non-associative —
 	a subtree scaled 2x inside a container scaled 2x has to read 4x.
 
-	Opacity is also the one Apple writes down, and Facet took the rule from there:
-	applying `opacity(_:)` to a view "that has already had its opacity transformed…
-	multiplies the effect of the underlying opacity transformation"
-	(developer.apple.com/documentation/swiftui/view/opacity(_:), read 2026-08-14;
-	cited as [SW-141] in docs/reference/swiftui-parity.md §16).
+	Opacity is the one term with a written-down rule elsewhere, and Facet took
+	that rule: applying an opacity to a view that has already had its opacity
+	transformed MULTIPLIES the effect of the underlying transformation. The
+	citation lives in the comparison document (§16, read 2026-08-14).
 
-	UNITS. Roblox's channel is TRANSPARENCY — 0 opaque, 1 invisible. SwiftUI's
-	authored value is OPACITY — 1 opaque. `composeAlpha` is the multiply written in
+	UNITS. Roblox's channel is TRANSPARENCY — 0 opaque, 1 invisible. The authored
+	value is OPACITY — 1 opaque. `composeAlpha` is the multiply written in
 	the units the engine takes, and the two never mix anywhere else.
 
 	WHAT DOES NOT COMPOSE HERE. The channel also carries `x`, `y`, `w`, `h` — a
@@ -183,7 +182,7 @@ end
 
 	    T_effective = 1 - (1 - T_channel) x opacity_authored
 
-	which is `opacity_effective = opacity_channel x opacity_authored` — Apple's
+	which is `opacity_effective = opacity_channel x opacity_authored` — the same
 	multiply, written the way `GroupTransparency` takes it. A framework fade to
 	nothing (T_channel = 1) stays invisible whatever the author declared; an
 	author's 50% stays 50% of whatever the framework is currently painting.

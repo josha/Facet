@@ -37,7 +37,7 @@
 	    double tap, a fast list scrub — must not overlap two pulses perceptibly.
 
 	NOTHING HERE IS COPIED FROM ANOTHER PLATFORM. No other UI framework publishes
-	waveform data for its semantic feedback (Apple's `SensoryFeedback` exposes
+	waveform data for its semantic feedback (the comparable surface exposes
 	named kinds and a single `intensity` scalar and nothing else), so there is
 	nothing to copy even in principle. Whether these FEEL like anything a player
 	has met elsewhere is a judgement only a hand on a device can make, and it is

@@ -3,7 +3,7 @@
 -- pipeline into CoreGui during Edit, with device-profile presets.
 --
 -- Install: copy this file into your local Studio plugins folder
---   macOS: ~/Documents/Roblox/Plugins/   (restart Studio to load)
+--   Desktop: ~/Documents/Roblox/Plugins/   (restart Studio to load)
 -- Requirements in the open place:
 --   * a `Facet` ModuleScript tree anywhere under ReplicatedStorage (Rojo sync
 --     or injected — the plugin finds it recursively);

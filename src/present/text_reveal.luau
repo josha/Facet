@@ -18,7 +18,7 @@
 
 	THE ONE CROSS-FEATURE RULE, and the reason `plateShows` is a dependency
 	rather than a copy: the reader's own STATIC ask outranks the ambient travel.
-	A live LTN-4 disclosure plate for the same label retires the strip; the
+	A live disclosure plate for the same label retires the strip; the
 	plate is the full-value path under reduced motion too.
 
 	`new(ctx)` returns the four entry points presenter.new bound before the move:

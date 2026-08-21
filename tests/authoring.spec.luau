@@ -1,5 +1,5 @@
 --!strict
--- Milestone 0 — trustworthy authoring (docs/plans/swiftui-parity-next.md
+-- Milestone 0 — trustworthy authoring (docs/plans/parity-next.md
 -- investment 1; acceptance rows M0-A1..A7).
 --
 -- Before this milestone the blueprint layer accepted ANY key into a node's

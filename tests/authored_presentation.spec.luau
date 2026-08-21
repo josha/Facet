@@ -14,7 +14,7 @@
 
 	  A. AUTHORING — the props exist, they are reactive, and the refusals are
 	     loud (a leaf cannot fade; a scale of zero is not a small view).
-	  B. COMPOSITION — the arithmetic Apple states ([SW-141]): opacity and scale
+	  B. COMPOSITION — the arithmetic the comparison document cites ([SW-141]): opacity and scale
 	     MULTIPLY, rotation ADDS, and clearing one contributor leaves the other
 	     standing rather than snapping the node to identity.
 	  C. ANIMATION — all three travel on the SAME progress spring the position

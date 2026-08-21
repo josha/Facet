@@ -1,7 +1,7 @@
 # SwiftUI parity round 2 — design
 
 The build plan for the mission stated in
-[`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md). The brief is
+[`parity-round2-brief.md`](parity-round2-brief.md). The brief is
 binding; this document is the design it asked for — one section per phase, plus
 the Phase 0 map that every later section rests on.
 
@@ -1767,7 +1767,7 @@ decisions explicitly:
   `alignmentGuide` gaps (§2.1) as named, deliberate non-deliveries.
 
 Update the milestone/status table in
-[`swiftui-parity-next.md`](swiftui-parity-next.md) to match reality.
+[`parity-next.md`](parity-next.md) to match reality.
 
 ---
 

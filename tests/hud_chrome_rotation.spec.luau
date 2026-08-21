@@ -7,7 +7,7 @@
 -- The report was *"i started in portrait and rotated to landscape"*, and the
 -- hypothesis handed to this task was that the zone layout was being computed
 -- against the PRE-ROTATION viewport. It is not — measured live in Studio on
--- 2026-08-15 (iPhone 16 Pro, showcase place, demo picker), a tree rotated
+-- 2026-08-15 (a compact phone, showcase place, demo picker), a tree rotated
 -- portrait -> landscape lands NODE FOR NODE where a tree mounted fresh at the
 -- landscape viewport lands. The hypothesis is dead and the measurement is
 -- recorded in this file rather than in a chat message.
@@ -213,7 +213,7 @@ end)
 	column reads as sliced at the screen edge.
 
 	MEASURED, and the geometry is not what it looks like. Driven live in Studio
-	through a PARALLEL real-engine mount (the demo picker is broken today), iPhone
+	through a PARALLEL real-engine mount (the demo picker is broken today), a
 	16 Pro portrait: EVERY right-anchored node's `AbsolutePosition.X +
 	AbsoluteSize.X` is 401.0 against a 401px canvas — over by 0.0px, with zero
 	composition collisions and the three lanes at x 0/134/267 w 134. Nothing

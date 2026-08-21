@@ -1,5 +1,5 @@
 --!strict
--- Roblox resource transport (native-substrate NS-A13; CLIENT-ONLY): the
+-- Roblox resource transport (CLIENT-ONLY): the
 -- adapter-owned transport the engine-free provider (src/async/resources.luau)
 -- was designed for. Drains provider.pendingRequests() and fulfils each key
 -- with ContentProvider:PreloadAsync, answering provider.complete/fail with the
@@ -21,7 +21,7 @@
 -- keeps the provider's cache/LRU semantics engine-free.
 
 --[[ THE SERVICES ARE RESOLVED AT BIND, NOT AT REQUIRE, and the PRELOAD TARGET
-	is one of them (PLAT-26, 2026-08-17).
+	is one of them (2026-08-17).
 
 	`PreloadAsync`'s typed signature is `{any}` and this passed it content
 	STRINGS. Every official sample passes INSTANCES, and the difference is not

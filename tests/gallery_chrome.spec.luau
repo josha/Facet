@@ -1,6 +1,6 @@
 --!strict
 --[[ THE SHOWCASE CHROME — FOUR-INPUT REACHABILITY, THE SETTINGS SURFACE, AND
-	THE SWEEP THAT COVERS BOTH (SwiftUI-parity round 3, item E rows 4 and 11).
+	THE SWEEP THAT COVERS BOTH (parity round 3, item E rows 4 and 11).
 
 	WHY THIS FILE IS DIFFERENT FROM ITS TWO NEIGHBOURS. `gallery_demo_picker.spec`
 	and `gallery_theme_picker.spec` assert the PURE halves of their modules plus

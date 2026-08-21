@@ -15,7 +15,7 @@ local customFactory = require("../src/core/custom")
 
 describe("Preview: device profiles", function()
 	it("ships presets matching the measured device truths", function()
-		-- ground truth 2026-07-20, Studio iPhone 13 Pro emulator: the engine
+		-- ground truth 2026-07-20, Studio compact-phone emulator: the engine
 		-- CAMERA already excludes the notch and home-bar zones (portrait
 		-- camera 389x762 of a 389x843 device; landscape 749x368 of 843x389);
 		-- the ONLY in-canvas reserved region is the 58px CoreGui topbar

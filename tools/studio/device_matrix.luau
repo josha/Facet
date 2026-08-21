@@ -512,7 +512,7 @@ local function selectRow(): any
 
 		-- TWO DIFFERENT DENSITIES. GetPixelDensityAsync returns the EFFECTIVE
 		-- density (catalog dpi / ResolutionScale: 501/4 = 125.25 on the phone,
-		-- 264/2 = 132 on the iPad), while the selection policy filtered the pool
+		-- 264/2 = 132 on the tablet), while the selection policy filtered the pool
 		-- on the CATALOG density. Testing the live number against the same
 		-- thresholds would silently compare two quantities. The requirement check
 		-- gets the catalog value it was written for; the live one is recorded

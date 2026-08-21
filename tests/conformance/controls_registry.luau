@@ -119,7 +119,7 @@ local registry: { Entry } = {
 		-- `onPrimaryAction` (parity round 2 §3.4) is a SECOND interactive verb on
 		-- the same rows — "open this", as distinct from "select this" — so it
 		-- carries its own device-true case in every one of the four classes.
-		-- Touch follows Apple's documented model rather than the pointer one: a
+		-- Touch follows the documented convention rather than the pointer one: a
 		-- plain SINGLE TAP activates, and EDIT MODE is the touch selection mode
 		-- (`contextMenu(forSelectionType:menu:primaryAction:)` + `EditMode`; a
 		-- double-TAP is documented as ZOOM and was never a candidate). All THREE
@@ -1245,7 +1245,7 @@ local registry: { Entry } = {
 		conformance = "tests/virtual_grid_input.spec.luau",
 		docsAnchor = "newVirtualGrid",
 		dumpFunction = "function grid.dump",
-		--[[ THE LAZY GRID (SwiftUI's `LazyVGrid`). Its reachability story is a
+		--[[ THE LAZY GRID. Its reachability story is a
 			scrolling collection's — the engine ScrollingFrame owns pointer/touch
 			scroll, the contributed group owns the ring — but its PARADIGM story has
 			one claim `newVirtualList` cannot make and this row exists to pin: DOWN

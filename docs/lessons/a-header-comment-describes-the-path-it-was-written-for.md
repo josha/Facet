@@ -26,7 +26,7 @@ on its own. The showcase does not use it. `examples/gallery/client/init.client.l
 
 > ONE CHROME SURFACE, LAID OUT BY THE SOLVER. The two chips used to be two
 > presented surfaces held apart by a hard-coded offset, because neither could
-> measure the other. On a real iPhone 15 Pro the text renders wider than the
+> measure the other. On a real a physical phone the text renders wider than the
 > offset assumed and they OVERLAPPED — twice reported from a device.
 
 Both comments are accurate. Read in the wrong order, they describe two different

@@ -10,7 +10,7 @@
 	cases rather than a smoke test:
 
 	  * a submenu nests with NO structural cap and says so at depth >= 2. A hard
-	    cap forbids what SwiftUI allows; no diagnostic permits twice what the HIG
+	    cap forbids what the guidance allows; no diagnostic permits twice what the interface guidance
 	    advises. Both halves have to be asserted, in one case.
 	  * `children` AND `onSelect` on one item is a REFUSAL, not a precedence rule.
 	  * a menu whose every item is disabled STILL OPENS.
@@ -191,7 +191,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 		expect(string.find(tostring(err), "silently do nothing", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("HIG: icons for ALL items in a group, or none — a half-iconned group is refused", function()
+	it("Guidance: icons for ALL items in a group, or none — a half-iconned group is refused", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
@@ -271,7 +271,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 		expect(items[1].kind).toBe("submenu")
 		expect(items[1].children[2].kind).toBe("submenu")
 		expect(items[1].children[2].children[1].id).toBe("clothing")
-		-- ...AND DIAGNOSED: SwiftUI caps nothing, the HIG advises one level
+		-- ...AND DIAGNOSED: nothing caps the depth, the interface guidance advises one level
 		local notes = table.concat(control.api.diagnostics(), " | ")
 		expect(string.find(notes, "nests 2 levels deep", 1, true) ~= nil).toBe(true)
 		expect(string.find(notes, "single level", 1, true) ~= nil).toBe(true)
@@ -299,7 +299,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 		expect(#control.api.diagnostics()).toBe(0)
 	end)
 
-	it("HIG: a group of more than about five items is diagnosed as wanting its own menu", function()
+	it("Guidance: a group of more than about five items is diagnosed as wanting its own menu", function()
 		local core = Facet.newCore()
 		Facet.newEnvironment(core)
 		local many = {}
@@ -319,7 +319,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 		expect(string.find(notes, "consider creating a new menu", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("HIG: a destructive item that is not last is diagnosed", function()
+	it("Guidance: a destructive item that is not last is diagnosed", function()
 		local core = Facet.newCore()
 		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
 		Facet.newEnvironment(core)
@@ -450,7 +450,7 @@ end)
 
 describe("D2 Menu: a menu whose every item is disabled still OPENS", function()
 	it("a wholly unavailable menu opens rather than swallowing its trigger", function()
-		--[[ Apple: "If all of a menu's items are unavailable, the menu itself needs
+		--[[ The guidance: "if all of a menu's items are unavailable, the menu itself needs
 			to remain available so people can open it and learn about the commands it
 			contains." A trigger that silently does nothing cannot be told apart from a
 			dead button, which is why this is a case and not a comment. ]]

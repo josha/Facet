@@ -191,7 +191,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		C8a's third part: "...and the next row doesn't animate vertically smoothly").
 
 		Nothing animated the rows BELOW a deleted one — they teleported up by one row
-		height on the commit frame. The fix is the ordinary SwiftUI pattern and it is
+		height on the commit frame. The fix is the ordinary declarative pattern and it is
 		the SCREEN's, not the composite's: this fixture commits its deletion inside
 		`presenter.withAnimation("container", ...)` (`animateReflow` in
 		examples/gallery/scenarios/row_actions.luau), because the screen is what has
@@ -533,7 +533,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 	end)
 
 	--[[ THE TOUCH REVEAL, ON THE SHAPE THE DIRECTOR REPORTED ─────────────────
-		Director device round 2026-08-13, finding 2: "on iOS with touch you can
+		Director device round 2026-08-13, finding 2: "on a touch phone you can
 		swipe a row (either side) to get the edit controls even if the table
 		isn't in edit mode — we lost that."
 
@@ -613,7 +613,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 	for _, case in RELEASE_ACTIVATE_CASES do
 		local pointerType, activate = case.pointerType, case.activate
 		it(case.title, function()
-			-- TRAILING (Apple's default edge)
+			-- TRAILING (the default edge)
 			local world = tableWorld()
 			-- the preconditions this case is ABOUT, asserted rather than assumed
 			expect(world.built.report().tableEditing).toBe(false)
@@ -662,7 +662,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 
 	--[[ THE OTHER HALF OF THE SAME RULE: the suppression is ONE activate wide.
 		A swipe swallows its own release artifact and nothing else — the tap that
-		follows it is a genuine tap and must reach the control (iOS: it closes the
+		follows it is a genuine tap and must reach the control (it closes the
 		open tray). A suppression that outlived its gesture would look exactly like
 		the fix from every angle this file otherwise checks. ]]
 	--[[ ...AND A GESTURE THAT PRODUCES NO ACTIVATE AT ALL LEAVES NOTHING ARMED.

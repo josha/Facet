@@ -1,5 +1,5 @@
 --!strict
--- Milestone B — completing Button as the base control (docs/plans/swiftui-parity-next.md
+-- Milestone B — completing Button as the base control (docs/plans/parity-next.md
 -- investment 3; acceptance rows B-BTN1..B-BTN4).
 --
 -- The plan's rule for a finished control: "a control is unfinished until its

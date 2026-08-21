@@ -164,7 +164,7 @@ local DEFAULT_INSET = "space.xs"
 -- an underline stays square by default because that is what r2 and f1 draw.
 local DEFAULT_PILL_CORNER = "pill"
 
--- CLOSED SPEC (constitution §4; ARCH-1). An unknown key is an authoring
+-- CLOSED SPEC (constitution §4). An unknown key is an authoring
 -- mistake, never a silent no-op.
 local INDICATOR_KEYS = specGuard.keySet({
 	"axis",

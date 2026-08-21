@@ -1,4 +1,4 @@
-# Facet consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
+# Facet consolidated roadmap — Roblox-native, declarative, device-profiled, Sponsor-proven
 
 **Date:** 2026-08-13
 **Updated:** 2026-08-16
@@ -35,8 +35,8 @@ directory. Step 13 renames the complete framework and every current consumer to
    Studio and on the supported low-end Android floor;
 12. every tutorial example is visibly instructive, playable, consistently styled, and
    verified through the real Roblox adapter.
-13. three clean-room, SwiftUI-scale reference experiences show what Facet can build
-   inside Roblox and distinguish framework gaps from Roblox/Apple platform differences;
+13. three clean-room, production-scale reference experiences show what Facet can build
+   inside Roblox and distinguish framework gaps from host-platform differences;
 14. a measured architecture decision determines whether declarative 3D should become
    a sibling system without forcing world objects into the 2D UI solver;
 15. the framework and every current consumer become Facet; a fresh Fable release review
@@ -107,8 +107,8 @@ These documents govern the work:
    scrolling, virtualization, text, focus, safe-area, resource, and adapter audit.
 4. [`roblox-native-stylesheets.md`](roblox-native-stylesheets.md) — native styling
    architecture and phased migration.
-5. [`swiftui-parity-next.md`](swiftui-parity-next.md) and
-   [`../reference/swiftui-parity.md`](../reference/swiftui-parity.md) — common
+5. [`parity-next.md`](parity-next.md) and
+   [`../reference/the comparison document`](../reference/the comparison document) — common
    controls/layout priorities, agent-safe authoring, performance proof, future
    platform seam, and the selected parity ledger.
 6. [`theme-packages-and-skinning.md`](theme-packages-and-skinning.md) — versioned
@@ -133,7 +133,7 @@ These documents govern the work:
    device profiling lab, workloads, MicroProfiler protocol, and optimization loop.
 15. [`example-quality-pass.md`](example-quality-pass.md) — tutorial gameplay,
     teaching, styling, input, and Studio-evidence requirements.
-16. [`swiftui-reference-app-validation.md`](swiftui-reference-app-validation.md) —
+16. [`reference-app-validation.md`](reference-app-validation.md) —
     official-sample feature ledgers and three clean-room Roblox proof experiences.
 17. [`declarative-3d-architecture.md`](declarative-3d-architecture.md) — decision and
     isolated spike for a possible sibling declarative world system.
@@ -149,8 +149,8 @@ These documents govern the work:
 21. [`studio-device-verification.md`](studio-device-verification.md) — the
     scriptable five-view Studio matrix, VirtualInput rules, multiplayer-test use,
     and evidence that still requires physical hardware.
-22. [`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md) and
-    [`swiftui-parity-round2.md`](swiftui-parity-round2.md) — the Milestone 1 work
+22. [`parity-round2-brief.md`](parity-round2-brief.md) and
+    [`parity-round2.md`](parity-round2.md) — the Milestone 1 work
     below: the brief is the binding scope, the design is the per-phase build plan.
 23. [`device-bug-round-2026-08-12.md`](device-bug-round-2026-08-12.md) — Milestone
     1's device phase, and the ledger of what it left owed.
@@ -210,13 +210,13 @@ Key corrections to the earlier roadmap:
 | 8.5 | Large-text accessibility | Native text preference is exact and live; public UI and Sponsor View reflow without inaccessible content on compact mobile |
 | 9 | Publish-ready Facet performance lab | Deterministic Studio/device profiles and matched native baseline; low-end Android row honest |
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
-| 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
+| 11 | Production-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
 | 13 | Facet rename, release-candidate, and maintainability review | Facet is canonical everywhere; findings resolve; control authoring/naming, sensory haptics, profiling, reuse, IAS, comments, and agent maintenance pass |
 | 13.5 | Facet game, world-surface, and standalone polish | Three game loops and the walk-up terminal pass; curated standalones share source, theme/motion controls, builds, and Studio proof |
 | 14 | Facet public repo, Package, tests, and agent onboarding | Existing repo is renamed and release-ready; each unique check runs once; Package, fresh clone/agents, history, and release surfaces pass |
 
-### Milestone 1 — SwiftUI parity round 2 (in flight; NOT a numbered step)
+### Milestone 1 — parity round 2 (in flight; NOT a numbered step)
 
 The work that followed Step 11 is a mission of its own rather than a new step, and
 it is registered here because this file is the execution entry point and an
@@ -224,8 +224,8 @@ unregistered plan is a plan nobody reads.
 
 | Plan | What it governs | State |
 |---|---|---|
-| [`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md) | The binding scope | — |
-| [`swiftui-parity-round2.md`](swiftui-parity-round2.md) | The design: Phases 0–6, grouped **M1** = 1–2, **M2** = 3–4, **M3** = 5–6 | Phases 0–6 built; gate stage `swiftui-parity-round2` registered 2026-08-13 |
+| [`parity-round2-brief.md`](parity-round2-brief.md) | The binding scope | — |
+| [`parity-round2.md`](parity-round2.md) | The design: Phases 0–6, grouped **M1** = 1–2, **M2** = 3–4, **M3** = 5–6 | Phases 0–6 built; gate stage `swiftui-parity-round2` registered 2026-08-13 |
 | [`device-bug-round-2026-08-12.md`](device-bug-round-2026-08-12.md) | The device phase: nine director findings in three causes | Groups B and C closed; the TD-13/TD-14 re-record **owed** |
 | [`unfulfilled-placement-intents.md`](unfulfilled-placement-intents.md) | The director's queue from the §2.1 placement audit | Awaiting per-row rulings |
 
@@ -278,7 +278,7 @@ Step 5.5 is deliberately before game integration. Step 7 then freezes the API ru
 before Step 8 adds keyboard behavior. Step 8.5 makes large text a live layout and
 product requirement before Steps 9 and 10 exercise the resulting surface through
 performance and tutorial product passes. Step 11 tests broader application
-composition without treating Apple-only host surfaces as framework gaps. Step 12's
+composition without treating host-only platform surfaces as framework gaps. Step 12's
 declarative Part/Model decision stays separate from the two-dimensional `SurfaceGui`
 target required in Step 13.5. The fresh review in Step 13 precedes that bounded
 game/standalone pass. Step 13.5 must rerun affected release-review rows when it adds
@@ -459,8 +459,8 @@ only materially unresolved architecture/product choices with an evidence-backed
 decision packet for Fable 5 or the user.
 
 Read:
-- GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md
-- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/docs/plans/parity-next.md
+- GameStudio/ui/Facet/the comparison document
 - GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
 - GameStudio/ui/Facet/docs/plans/studio-device-verification.md
 - GameStudio/ui/Facet/docs/plans/roblox-native-audit-corrections.md
@@ -507,7 +507,7 @@ explicitly pending when Studio cannot prove them.
 Verify focused and full tests, authoring errors/types, hit floors, disabled/bounds
 behavior, lifecycle neutrality, adaptive/accessibility variants, screenshots plus
 geometry/state traces, API/registration drift, and required fresh-context review.
-Fix findings and rerun affected slices. Document intentional SwiftUI differences.
+Fix findings and rerun affected slices. Document intentional differences from the reference framework.
 Headless/conformance green alone is not completion.
 ```
 
@@ -617,9 +617,9 @@ decision packets.
 Read:
 - GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
 - GameStudio/ui/Facet/docs/plans/studio-device-verification.md
-- GameStudio/ui/Facet/docs/plans/swiftui-parity-next.md
+- GameStudio/ui/Facet/docs/plans/parity-next.md
 - GameStudio/ui/Facet/docs/plans/theme-packages-and-skinning.md
-- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/the comparison document
 - GameStudio/ui/Facet/bench/
 - GameStudio/ui/Facet/tools/lune/perf.luau
 - GameStudio/ui/Facet/src/preview/device_profiles.luau
@@ -829,7 +829,7 @@ Do not edit vendor, generated output, or historical artifacts. Make only the
 execution contract's required RascalRally consumer/test updates; do not change game
 behavior. Preserve exports/deprecation timing, authority, scopes, error
 containment, headless/adapter seams, accessibility/input, completed theme and Sponsor
-mechanisms, and intentional SwiftUI differences. Add no dependency, flag,
+mechanisms, and intentional differences from the reference framework. Add no dependency, flag,
 compatibility layer, speculative abstraction, broad rename/reformat, or feature.
 Never weaken tests, gates, workloads, or physical requirements. Do not target line
 counts. Update touched docs, comments, and registrations.
@@ -1032,7 +1032,7 @@ Read:
 - GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
 - GameStudio/ui/Facet/docs/plans/studio-device-verification.md
 - GameStudio/ui/Facet/docs/reference/api.md
-- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/the comparison document
 - GameStudio/ui/Facet/src/focus/
 - GameStudio/ui/Facet/src/input/
 - GameStudio/ui/Facet/src/present/presenter.luau
@@ -1325,19 +1325,19 @@ check, correct 03/05, played/fixed 06/07, standalone rebuilds, green existing ga
 resolved reviews, and accurate docs. Report results, artifacts, and pending rows.
 ```
 
-## Step 11 — Validate three SwiftUI-scale apps with clean-room Roblox proofs
+## Step 11 — Validate three production-scale apps with clean-room Roblox proofs
 
 **DONE**
 
 This stage answers a narrower, more useful question than “does Facet have every
-SwiftUI type?” It builds representative in-experience loops and distinguishes real
-framework gaps from Roblox service work and Apple-only host operating-system surfaces.
+declarative type?” It builds representative in-experience loops and distinguishes real
+framework gaps from Roblox service work and host-only operating-system surfaces.
 
 ### Fable-led goal prompt
 
 ```text
 /goal Determine and prove how well Facet can build the in-experience behavior of
-Apple's Backyard Birds, Food Truck, and Fruta samples as adaptive Roblox experiences.
+three published sample applications as adaptive Roblox experiences.
 
 Lead with Claude Fable 5 at its highest practical effort. Fable owns sample
 interpretation, product/UI architecture, framework-versus-platform classification,
@@ -1346,12 +1346,12 @@ build-ready proof specs. After shared decisions are fixed, dispatch at most thre
 disjoint sample packages to Claude Opus 5 (`claude-opus-5`) at `xhigh`.
 
 Read:
-- GameStudio/ui/Facet/docs/plans/swiftui-reference-app-validation.md
+- GameStudio/ui/Facet/docs/plans/reference-app-validation.md
 - GameStudio/ui/Facet/docs/plans/api-architecture-consistency.md
 - GameStudio/ui/Facet/docs/plans/agent-execution-contract.md
 - GameStudio/ui/Facet/docs/plans/studio-device-verification.md
 - GameStudio/ui/Facet/docs/plans/large-text-accessibility.md
-- GameStudio/ui/Facet/docs/reference/swiftui-parity.md
+- GameStudio/ui/Facet/the comparison document
 - GameStudio/ui/Facet/docs/reference/api.md
 - GameStudio/specialists/UI_DESIGNER.md
 - GameStudio/specialists/ROBLOX.md
@@ -1361,9 +1361,9 @@ loops across supported layouts/inputs, and a complete feature ledger says what i
 available, composable, a Facet gap, a Roblox-service adaptation, or unavailable as a
 Roblox host surface.
 
-At stage start, inspect the current official Apple pages and downloadable source;
+At stage start, inspect the current official vendor pages and downloadable source;
 record source dates and actual behavior. Use them only as references. Create original
-names, copy, data, and visual assets; copy no Apple code, art, trade dress, or product
+names, copy, data, and visual assets; copy no third-party code, art, trade dress, or product
 identity.
 
 Build the three plan-defined loops: garden resources/detail/purchase-shaped flow;
@@ -1373,7 +1373,7 @@ compact entry flow sharing the full components. Use deterministic fake services�
 real purchase, player-data write, private service, or required network. Map the real
 Roblox service a production game would own.
 
-Separate Facet UI behavior, game/service behavior, and Apple host-OS behavior.
+Separate Facet UI behavior, game/service behavior, and host-operating-system behavior.
 Widgets, App Clips, Live Activities, Dynamic Island, WeatherKit, and similar surfaces
 with no experience API are platform differences, not framework failures. Do not fake
 them and claim parity.
@@ -1385,7 +1385,7 @@ defects in Facet with API/tests/docs/live proof; never use raw GuiObjects, local
 listeners, parallel focus/layout, or device-name branches. Turn a large missing
 subsystem into an evidence-backed follow-on proposal rather than hiding it locally.
 
-Register `swiftui-reference-app-validation`. Treat execution/device contracts as
+Register `reference-app-validation`. Treat execution/device contracts as
 binding. Build self-contained places/scenarios and play each loop across the five
 views, public theme swaps, preferred text, reduced motion, localization, and relevant
 keyboard/pointer/touch-shaped/gamepad-shaped rows. Pair captures with geometry,
@@ -1505,13 +1505,13 @@ Inventory legacy/raw/parallel input paths. `InputContext`/`InputAction`/`InputBi
 own routing/lifetime. Legacy calls need current impossibility proof, one allowlisted
 adapter, tests/teardown, and removal trigger. Ban consumer use and double firing.
 
-Audit sensory semantics against current official SwiftUI/Roblox docs. With Facet's
+Audit sensory semantics against the reference framework's and Roblox's current docs. With Facet's
 game-opt-in adapter enabled, ship original configurable `Custom` defaults for press,
 release, and select with comparable subtle, distinct character—never copied or called
 identical. Define cross-input timing once; cancellation cannot resemble success.
 Prevent native/bus double pulses; prove override/silence, rate limit, preset fallback,
 pooling, zero per-pulse allocation, and teardown. Update controls, demo, docs, lab, and
-RascalRally. Add automated/Studio proof and paired iPhone plus Android/gamepad review;
+RascalRally. Add automated/Studio proof and paired phone plus Android/gamepad review;
 mark perceived similarity `PENDING_DEVICE` until same-device human comparison.
 
 Rebuild/drift-check guide/API catalogs and run the product-language negative control.
@@ -1754,8 +1754,8 @@ The roadmap has achieved its goals only when all of these are true:
   theme/motion chrome, rebuild self-contained, and have no obsolete or orphaned
   example output;
 - the three clean-room reference experiences run representative complete loops, and
-  their ledgers distinguish Facet gaps, game/Roblox-service work, and Apple-only host
-  surfaces without copying Apple code or assets;
+  their ledgers distinguish Facet gaps, game/Roblox-service work, and host-only
+  platform surfaces without copying third-party code or assets;
 - declarative 3D has a reviewed sibling-versus-extension decision and isolated spike;
   no spike or spatial-event contract is presented as production 3D/VR support;
 - the fresh release-candidate review has no unresolved confirmed blocker/high defect,
@@ -1792,7 +1792,7 @@ The roadmap has achieved its goals only when all of these are true:
   MicroProfiler/LibMP captures separate solve/layout, fine and bulk update, adapter/
   render, scroll, idle, and teardown cost; measured framework hot spots are optimized
   or dispositioned without workload drift, and low-end Android proof stays honest;
-- maintained Facet code, examples, and documentation contain no Apple/SwiftUI
+- maintained Facet code, examples, and documentation contain no third-party vendor or framework
   references outside the dedicated parity document and optional, labeled guide
   comparisons; the exact-allowlist drift check proves the boundary;
 - the guide index names and categorizes every current public layout, control,

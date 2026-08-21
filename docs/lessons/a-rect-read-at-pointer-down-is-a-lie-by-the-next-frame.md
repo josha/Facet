@@ -1,6 +1,6 @@
 # A rect read at pointer-down is a lie by the next frame — and the wrong SPACE from the start
 
-**Found:** 2026-07-29, from a device report (iPhone 15 Pro, gallery example 02 under
+**Found:** 2026-07-29, from a device report (a physical phone, gallery example 02 under
 Pixel Quest): *"When I go to edit mode and pick up a row, it doesn't always appear
 under my finger — the picked up chip moves up as I scroll down."*
 

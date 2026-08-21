@@ -1,6 +1,6 @@
 # ADR-0015 — Interaction classes: affordances derive from the live capability set + preferredInput, never preferredInput alone
 
-Date: 2026-07-21 · Status: **Accepted** · Spec: input-paradigms expansion (prompt.md "Expansion: input paradigms"), design §8/§9 · Research: [`2026-07-21-preferredinput-gamepad-research.md`](../research/2026-07-21-preferredinput-gamepad-research.md), [`2026-07-21-swiftui-affordance-research.md`](../research/2026-07-21-swiftui-affordance-research.md)
+Date: 2026-07-21 · Status: **Accepted** · Spec: input-paradigms expansion (prompt.md "Expansion: input paradigms"), design §8/§9 · Research: [`2026-07-21-preferredinput-gamepad-research.md`](../research/2026-07-21-preferredinput-gamepad-research.md), [`2026-07-21-affordance-research.md`](../research/2026-07-21-affordance-research.md)
 
 ## Context
 

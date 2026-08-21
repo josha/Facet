@@ -223,7 +223,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
-	-- REDTEAM ITEM 4 (MAJOR — director ruling, SwiftUI behavior): the
+	-- REDTEAM ITEM 4 (MAJOR — director ruling): the
 	-- slide-off + height-collapse sequence is DESTRUCTIVE-only (see the
 	-- "non-destructive" test below for the sibling behavior a `normal`-role
 	-- first action gets instead). Explicit `role = "destructive"` here (it
@@ -323,7 +323,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(#w.fired).toBe(1)
 	end)
 
-	-- the sibling half of the SwiftUI ruling: a NON-destructive first action
+	-- the sibling half of that ruling: a NON-destructive first action
 	-- fires immediately and the row springs back to CLOSED — never sliding
 	-- off-screen, never collapsing height at all, exactly like tapping that
 	-- same button directly in the revealed tray (row_actions.spec.luau's own
@@ -1206,7 +1206,7 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 
 		-- a minimal stub controller — this proves `bindScroll` itself wires
 		-- `controller.observeScroll` and reacts to ANY invocation (no
-		-- distance/velocity threshold, matching iOS); ScrollView's own real
+		-- distance/velocity threshold); ScrollView's own real
 		-- delivery of `observeScroll` is native_scroll.spec.luau's proof, and
 		-- the VStack world below drives it through a REAL ScrollView too.
 		local observer: ((pos: { x: number, y: number }) -> ())? = nil
@@ -3012,7 +3012,7 @@ end)
 
 -- ===========================================================================
 -- FINAL FIX WAVE, item 1 (BLOCKER; .superpowers/sdd/row-actions-implementation/
--- final-review-findings.md). Director ruling (iOS/SwiftUI-faithful): a STARTED
+-- final-review-findings.md). Director ruling: a STARTED
 -- destructive commit is IRREVOCABLE — it completes (slide-off, collapse, fire
 -- exactly once) regardless of close()/a sibling's coordinator claim/scroll/an
 -- outside tap/Cancel arriving mid-flight. `_commitFirst` starts the SAME chain

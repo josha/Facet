@@ -1,7 +1,7 @@
 # Unfulfilled placement intents — the director's queue
 
 **Opened 2026-08-13, by the §2.1 silently-inert-placement-prop audit**
-([`swiftui-parity-round2.md` §2.1](swiftui-parity-round2.md#21-stacks-parity-audit--done-and-it-found-a-defect-class)).
+([`parity-round2.md` §2.1](parity-round2.md#21-stacks-parity-audit--done-and-it-found-a-defect-class)).
 
 `anchor`, `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign`, `gridSpan` and —
 since the Milestone-1 architecture review (C2) — `layoutPriority` and

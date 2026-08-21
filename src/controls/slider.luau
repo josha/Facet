@@ -1,6 +1,6 @@
 --!strict
 -- Slider: a continuous (or stepped) value along a track (docs/plans/
--- swiftui-parity-next.md investment 4; acceptance rows B-VAL1/B-VAL2/B-VAL3).
+-- parity-next.md investment 4; acceptance rows B-VAL1/B-VAL2/B-VAL3).
 -- Shares the value arithmetic with Stepper through src/controls/value_model.luau,
 -- so the two cannot disagree at the bounds.
 --
@@ -35,7 +35,7 @@
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local chrome_slots = require("../tokens/chrome_slots")
--- the RUNG-2 prop normalizer. Required directly (not through the public
+-- the rung-2 (per-view override) prop normalizer. Required directly (not through the public
 -- `Facet.themes` table) so the schema this control validates against is
 -- literally the schema `themes.define` validates recipes against.
 local themePackage = require("../themes/package")
@@ -119,7 +119,7 @@ local function hintFor(id: string, slot: string, prop: string, value: any): chro
 	return { slot = slot, imageVariants = variant }
 end
 
--- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local SLIDER_KEYS = specGuard.keySet({
 	"enabled",

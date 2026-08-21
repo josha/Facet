@@ -115,7 +115,7 @@ them without complaint, and gives them *stably* — so a "wait until it stops
 changing" gate passes straight through the bad window. The shipped adapter
 therefore re-reads every batch 1.5s later and corrects anything that moved
 (`src/client/text_premeasure.luau`). Assume your engine has the same hazard
-until you have disproved it on the running target, not in a REPL.
+until you have disproved it on the running target, not in a command line.
 
 Two more things that are easy to get wrong: a lone space does not survive into
 text bounds, so derive the space advance as `bounds("x x") - bounds("xx")`;
@@ -148,5 +148,5 @@ one file's handler switch and knows nothing about yours. A green parity run is
 therefore not evidence about your target. The prop set your adapter must handle
 is `renderer.EMITTED_PROPS`; pin it yourself the way
 `tests/render_target_contract.spec.luau` does ("every prop the renderer can emit
-is handled"), because a target that silently ignores a written prop is the SF-M9
-defect class — green headless, dead on the device.
+is handled"), because a target that silently ignores a written prop is green
+headless and dead on the device.

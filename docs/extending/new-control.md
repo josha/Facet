@@ -137,7 +137,7 @@ reason (missing behavior, not typos).
 is about `UI.*` specs; it says nothing about the table a consumer hands
 `newGauge(core, spec)`, and until 0.10.0 there was no public route to enforce
 that half — which meant the strictness this playbook asks for stopped at the
-repository boundary (ARCH-8). Use `Facet.specGuard`, which is the same
+repository boundary. Use `Facet.specGuard`, which is the same
 implementation the twenty-two in-repo controls use:
 
 ```lua

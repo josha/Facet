@@ -1,5 +1,5 @@
 --!strict
--- Release-velocity tracker (ADR-0022 Decision 5, row SF-D2). A rolling,
+-- Release-velocity tracker (ADR-0022 Decision 5). A rolling,
 -- TIME-WINDOWED sample buffer whose estimate is first-vs-last across the
 -- retained window.
 --
@@ -40,7 +40,7 @@ export type Opts = {
 
 local isFinite = num.isFinite
 
--- CLOSED OPTS (constitution §4; ARCH-1): one tuning field, and therefore the
+-- CLOSED OPTS (constitution §4): one tuning field, and therefore the
 -- easiest of all to misspell into the default.
 local DRAG_VELOCITY_OPTS_KEYS = specGuard.keySet({ "windowS" })
 

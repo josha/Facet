@@ -4,7 +4,7 @@
 -- OPTIONAL (feature-detected with `~= nil`; each absence is one named degrade)
 -- and THEME (the five `theme_controller` reaches for — without them a target
 -- cannot take a theme package). The lists are the CONTRACT, so a name the
--- framework calls must appear on one of them: nine did not (SEAM-20), which let
+-- framework calls must appear on one of them: nine did not, which let
 -- an adapter pass `check` with `#optionalAbsent == 0` and still ship with no
 -- hit-target floor, no wheel scrolling, no display order and no theming at all.
 -- Headless conformance
@@ -25,7 +25,7 @@ local target_contract = {}
 -- `setProp` DISPATCHES ON A NAME, and the set of names is part of this contract:
 -- `renderer.EMITTED_PROPS` declares every one the renderer can write and
 -- tests/render_target_contract.spec.luau pins it against both adapters' handler
--- lists. A target that silently ignores a written prop is the SF-M9 defect class
+-- lists. A target that silently ignores a written prop is the defect class that is green headless and dead on the device
 -- (docs/lessons/fake-adapter-records-what-live-adapter-ignores.md).
 target_contract.REQUIRED = {
 	"createRoot", -- (screenId) -> rootHandle

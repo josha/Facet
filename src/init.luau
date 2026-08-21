@@ -91,7 +91,7 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		note = "alias; the value never subtracted insets",
 	},
 	--[[ THE TWO EXTENT NAMES VirtualList RENAMED WHEN IT GAINED A SECOND AXIS
-		(docs/plans/swiftui-parity-round2.md §2.3). Both still WORK — that is what
+		(docs/plans/parity-round2.md §2.3). Both still WORK — that is what
 		these rows say — and a caller passing the old spelling on a vertical list
 		needs no edit at all. They are deprecated rather than kept because a
 		`rowHeight` on `axis = "x"` names a height that is really a width, and the
@@ -461,7 +461,7 @@ local Facet = {
 	-- persistence is the CALLER'S — it reads a "has this been seen" Readable and
 	-- reports back once when it should be retired.
 	newCallout = calloutControl.build,
-	-- value-control family (swiftui-parity-next investment 4): Stepper and Slider
+	-- value-control family: Stepper and Slider
 	-- are different affordances over ONE shared value model, so bounds, stepping,
 	-- rounding, formatting and semantic value text cannot disagree at the edges.
 	newStepper = stepperControl.build,
@@ -469,7 +469,7 @@ local Facet = {
 	-- ...and the small discrete one: a run of glyphs that reads as ONE value and
 	-- takes ONE focus stop, instead of the N buttons every app writes by hand
 	newRating = ratingControl.build,
-	-- display controls (swiftui-parity-next investment 7)
+	-- display controls
 	newProgressView = progressView.build,
 	newLabel = labelControl.build,
 	newPicker = pickerControl.build,
@@ -502,7 +502,7 @@ local Facet = {
 	-- row actions: pure swipe state verdicts (axis lock, rubber-band, settle)
 	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
 
-	-- async image over the resource provider (native-substrate NS-A14)
+	-- async image over the resource provider
 	newAsyncImage = asyncImage.build,
 	-- pure drag-session model + native touch-gesture normalization/arbitration
 	-- (corrections addendum §1/§2): framework policy over engine-owned motion
@@ -586,7 +586,7 @@ local Facet = {
 		newValueReveal = require("@self/motion/value_reveal").new,
 	},
 
-	-- adaptive-layout decisions (swiftui-parity-next investment 5): the PURE
+	-- adaptive-layout decisions: the PURE
 	-- breakpoint/axis/column functions plus `conditions(core, env)`, which
 	-- returns Readables a screen binds so adaptation never becomes a
 	-- device-name branch. Bind `conditions(...).axis` to UI.AdaptiveStack.

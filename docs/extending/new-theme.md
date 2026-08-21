@@ -319,7 +319,7 @@ closed vocabulary:
   the control, so the fill, the radius and the hairline it sits on stop drawing.
   A `native` slot keeps all three. Do not reintroduce a plate in a new surface
   branch — the adapter re-suppresses after `applySurface` for exactly that reason.
-- **The text lift is mandatory where it applies** (TP-M8): under `Sibling`
+- **The text lift is mandatory where it applies**: under `Sibling`
   z-behavior a full-bleed child covers its parent's engine-drawn text at any
   ZIndex, so a text-bearing skinned node — `TextButton`, `TextBox` **and**
   `TextLabel`, which is what a badge is — gets one managed `FacetChromeText`
@@ -406,8 +406,8 @@ Roblox painted, sliced, measured, or hit-tested anything.
 4. Follow [`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md)
    for the evidence ladder, and keep physical-touch, true-gamepad, human-judgment
    and low-end-performance rows explicitly **pending** — they are tracked in
-   `artifacts/theme-packages-and-skinning/review-packet.md` (TP-P1–TP-P4), not
-   closed by a Studio run.
+   `artifacts/theme-packages-and-skinning/review-packet.md`, and a Studio run
+   does not close them.
 
 ## 8. Registration and gate obligations
 
@@ -441,8 +441,8 @@ action that fixes it. There are no generated blocks in this document set, so
 
 The acceptance ledger
 (`artifacts/theme-packages-and-skinning/acceptance-ledger.md`) and the gate
-manifest (`tools/lune/gate_manifest.luau`) already carry this stage's rows —
-TP-A1…TP-A14 and the matching gate checks. **Name them in your report; never
+manifest (`tools/lune/gate_manifest.luau`) already carry this stage's acceptance
+rows and the matching gate checks. **Name them in your report; never
 edit them.** The gate's pass rule counts human-signoff placeholders (`PENDING`
 with no run command) as failures by design, so the gate command may exit nonzero
 even when your work is perfect. Your bar: every check that was PASS before your

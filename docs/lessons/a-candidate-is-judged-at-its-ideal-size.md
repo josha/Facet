@@ -1,6 +1,6 @@
 # A candidate is judged at its ideal size, not at the size it could be squeezed into
 
-**2026-08-14 · `ViewThatFits` × `shrinkWeight` · ruling 2, director: "follow swiftui's behavior"**
+**2026-08-14 · `ViewThatFits` × `shrinkWeight` · ruling 2, director: "follow the declarative behaviour"**
 
 ## The symptom
 
@@ -19,18 +19,18 @@ absorb its own deficit **report the squeezed extent** rather than the natural
 one. So a candidate that did not fit reported a number that did, `fitsW` went
 true, and it won.
 
-This also falsified a sentence already shipped in `docs/plans/swiftui-parity-round2.md`
+This also falsified a sentence already shipped in `docs/plans/parity-round2.md`
 §2.4: that `ViewThatFits` "picks its candidate before any of this and is
 therefore unaffected". True of the arrange-only shrink it was written for; false
 from the day the measure-side mirror landed.
 
-## What SwiftUI actually does — the evidence
+## What the reference framework actually does — the evidence
 
-The ruling was "follow SwiftUI", so the first job was finding out what SwiftUI
+The ruling was to follow that framework, so the first job was finding out what it
 does rather than assuming it.
 
-**Apple's own reference** for `ViewThatFits`
-(<https://developer.apple.com/documentation/swiftui/viewthatfits>):
+**The vendor's own reference** for `ViewThatFits`
+(cited in the comparison document, §16):
 
 > "ViewThatFits evaluates its child views in the order you provide them to the
 > initializer. It selects the first child whose **ideal size** on the constrained
@@ -62,11 +62,11 @@ doesn't fit."* — which is already this framework's rule 8.
 size, every mechanism that makes a view *smaller than its ideal* is invisible to
 the choice: text truncation, `lineLimit`, `minimumScaleFactor`. This is the
 famous `ViewThatFits`-with-`Text` gotcha — the whole reason articles exist
-teaching a hidden-measurement workaround for it. SwiftUI does **not** consider
+teaching a hidden-measurement workaround for it. That framework does **not** consider
 "but it would fit if it truncated".
 
 `shrinkWeight` is this framework's member of exactly that family: a declared
-willingness to be compressed below the natural size. So SwiftUI's answer to the
+willingness to be compressed below the natural size. So its answer to the
 ruling is unambiguous, and it happens to agree with the recommendation that was
 offered as a hypothesis: **measure candidates unshrunk**.
 
@@ -79,14 +79,14 @@ the same offer and must not share a memo entry with the real measure.
 
 Picking is unshrunk; showing is not. The probe is off again before the winning
 candidate is measured and arranged, so the winner still receives the real offer
-and compresses normally — SwiftUI's second half.
+and compresses normally — the second half of that rule.
 
 ## Where this framework still differs, on purpose
 
 `chosenCandidate` measures candidates against **the container's own definite
 box** (a finite offer), not against an unspecified proposal. So a wrapping `Text`
 inside a candidate reports a *wrapped* width — never wider than the box — and the
-candidate is rejected on its **height** instead of its width. SwiftUI would
+candidate is rejected on its **height** instead of its width. That framework would
 reject it on width.
 
 The two end up rejecting the same candidates in the shapes that ship, and the

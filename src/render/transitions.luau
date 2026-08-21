@@ -1,6 +1,6 @@
 --!strict
 -- The structural-transition COORDINATOR (ADR-0022 Decision 3; ui-designer spec
--- §2.1; acceptance row SF-M6). It is the mount layer's `transitions` collaborator,
+-- §2.1). It is the mount layer's `transitions` collaborator,
 -- implemented over exactly two things: the motion clock (P1) and the renderer's
 -- per-node presentation channel (P2).
 --

@@ -1,5 +1,5 @@
 --!strict
--- Input hint helper (ADR-0013 WP-4; ui_todo §0). A minimal, documented framework
+-- Input hint helper (ADR-0013). A minimal, documented framework
 -- affordance so a consumer surfaces the CORRECT affordance label for an action
 -- ("Enter" on keyboard, "A" on gamepad, "Tap" on touch) with no hand-built memo.
 --
@@ -48,7 +48,7 @@ export type Opts = {
 	scope: any?, -- owns the returned memo, like `adaptive.conditions`
 }
 
--- CLOSED OPTS (constitution §4; ARCH-1): the unknown VALUE was already refused
+-- CLOSED OPTS (constitution §4): the unknown VALUE was already refused
 -- loudly below; the unknown KEY was not, so `{ Style = "phrase" }` fell through
 -- to the default with the same silence the value check exists to remove.
 local HINT_OPTS_KEYS = specGuard.keySet({ "scope", "style" })

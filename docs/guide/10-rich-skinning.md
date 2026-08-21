@@ -7,9 +7,17 @@ track *and* fill are images, a switch whose ON state is a different picture, a
 pixel-art skin that stays nearest-neighbour crisp, and one view tree that
 re-skins itself when the player docks a phone to a monitor.
 
-It is also the chapter about **how far you have to climb**. Facet copies
-SwiftUI's customization ladder, and the point of a ladder is that you stop at the
-rung that solves your problem:
+It is also the chapter about **how far you have to climb**. Customization is a
+ladder, and the point of a ladder is that you stop at the rung that solves your
+problem:
+
+<!-- comparison:begin -->
+> **If you already know SwiftUI** (optional, and not part of the contract): the
+> three rungs below line up with theme, view modifier, and custom view. Rung 1
+> is a theme package, rung 2 is a per-view override, and rung 3 is a control you
+> write yourself.
+<!-- comparison:end -->
+
 
 | Rung | What you do | When | Where it is taught |
 |---|---|---|---|
@@ -31,7 +39,7 @@ examples are real files you can read beside this page:
 > the headless suite and by the `theme_authoring` Studio scenario, and every
 > visual claim was read back off a running session. The physical phone pass and
 > the director's readability review remain open rows
-> (`artifacts/rich-skinning-v2/review-packet.md`, RS-P1–RS-P4). Cost numbers are
+> in `artifacts/rich-skinning-v2/review-packet.md`. Cost numbers are
 > Studio-derated. Do not quote them as device truth.
 
 **The canonical documentation check for this chapter:**
@@ -267,7 +275,8 @@ drift into different grammars.
 the package already emitted: measured live, the new art paints on the first
 styled frame with `AbsoluteSize` byte-stable. Variant assets join the package's
 preload seam, and `PreloadAsync` is the default policy — Studio cannot reproduce
-a retail cold CDN, so the belt-and-braces preload stays rather than being
+a retail cold content delivery network (CDN), so the preload stays rather than
+being
 optimized away on evidence that does not exist.
 
 ## 10.3 Bars: a track, a clipped fill, and ornaments that never move

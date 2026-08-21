@@ -67,7 +67,7 @@ local ORDER = {
 	-- `newRowActions`/Table `rowActions` — a hand-wrapped ScrollView>VStack
 	-- list sharing one coordinator, plus a reorderable/editable Table
 	"row_actions",
-	-- roadmap Step 11 (swiftui-reference-app-validation): the five clean-room
+	-- roadmap Step 11 (reference-app-validation): the five clean-room
 	-- reference proofs, one scenario per proof, each a thin delegation to its
 	-- examples/reference module (see ref_*.luau headers)
 	"ref_glade",
@@ -75,7 +75,7 @@ local ORDER = {
 	"ref_sipworks",
 	"ref_foyer",
 	"ref_wardrobe",
-	-- SwiftUI-parity round 2 (docs/plans/swiftui-parity-round2.md): the two
+	-- parity round 2 (docs/plans/parity-round2.md): the two
 	-- surfaces that carry this round's new public API into a place a player can
 	-- actually reach. `card_rail` is `newVirtualList`'s horizontal axis (§2.3);
 	-- `with_animation` is `presenter.withAnimation` plus the Full/Reduced control
@@ -83,7 +83,7 @@ local ORDER = {
 	-- they are pickable in-experience and not only by workspace attribute.
 	"card_rail",
 	"with_animation",
-	-- SwiftUI-parity round 3 (docs/plans/swiftui-parity-round3.md item D2): the
+	-- parity round 3 (docs/plans/parity-round3.md item D2): the
 	-- circular progress indicator in BOTH forms — a determinate ring driven by the
 	-- steps and an indeterminate one rotating on the surface's own clock — beside
 	-- the five-dot spinner it does not replace. Also in `demo_picker.DEMOS`.
@@ -159,7 +159,7 @@ local ORDER = {
 	-- screenshot's exact event can be watched degrading instead of colliding. Also
 	-- in `demo_picker.DEMOS`.
 	"hud",
-	-- ...and `newVirtualGrid`, SwiftUI's `LazyVGrid`: five thousand cells with a
+	-- ...and `newVirtualGrid`, the lazy grid: five thousand cells with a
 	-- live count of the ones the `cell` factory was ever asked for. A lazy grid
 	-- and an eager one paint the same first screen, so the demonstration is a
 	-- NUMBER — and the lane chips reflow every item onto a different line without

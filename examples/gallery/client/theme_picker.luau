@@ -733,7 +733,7 @@ function theme_picker.mount(opts: MountOpts): any
 
 	-- COMPOSED: the host is building ONE chrome surface and wants the pieces, not
 	-- a presented overlay. Two chips in two surfaces cannot measure each other,
-	-- so keeping them apart meant a hard-coded offset — and on a real iPhone the
+	-- so keeping them apart meant a hard-coded offset — and on a real phone the
 	-- text is wider than the offset assumed and the chips overlapped. Handing the
 	-- pieces to one solver makes overlap structurally impossible.
 	if opts.composed == true then

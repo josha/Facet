@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Sipworks" (RA-P3, swiftui-reference-app-validation).
+-- Reference proof "Sipworks" (RA-P3, reference-app-validation).
 --
 -- A clean-room Facet reinterpretation of a craft TEA HOUSE: browse house
 -- blends, inspect botanicals, order a pour, earn Steam Stamps, unlock the Blend

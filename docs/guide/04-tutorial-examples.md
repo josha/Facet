@@ -268,8 +268,8 @@ activating it empties `filterText` and the whole list returns.
 
 ### Reordering while filtered
 
-Reordering is **disabled while a filter is active** — the iTunes / SwiftUI
-convention. The visible rows are a *subset* of the real order, so where a drop
+Reordering is **disabled while a filter is active**, which is the standard
+media-library convention. The visible rows are a *subset* of the real order, so where a drop
 lands relative to the hidden rows is ambiguous; rather than guess, the
 `onReorder` handler refuses the move while `filterText` is non-empty and leaves
 the base order untouched. Clear the filter to rearrange. When unfiltered, the
@@ -399,18 +399,17 @@ end
 *mode* you enter with the Edit button, and while it is on, rows grow a ≡ reorder
 handle and taps select. Swipe actions are a per-row *gesture* that works with the
 table sitting in its normal state — no mode, no button, no selection change.
-SwiftUI draws the same line: its `swipeActions` documentation never mentions edit
-mode, and its `EditMode`/`EditButton` documentation never mentions swiping.
+The convention draws the same line: swipe-action documentation never mentions
+edit mode, and edit-mode documentation never mentions swiping.
 
-**Which edge gets what.** Apple's default edge is trailing ("The default is
-`HorizontalEdge.trailing`", [SW-37]), and that is where a destructive action
-belongs — so Remove is trailing and Top is leading. Within an edge, actions
+**Which edge gets what.** The default edge is trailing, and that is where a
+destructive action belongs, so Remove is trailing and Top is leading. Within an edge, actions
 appear in the order you list them, starting from the swipe's originating edge.
 
 **Full swipe is per edge.** By default a full swipe performs the first action for
-that direction, and you opt an edge out with `allowsFullSwipe: false` — Apple's
-own worked example disables it on the leading edge, and this example does the
-same. So a full swipe *left* removes the track outright; a full swipe *right*
+that direction, and you opt an edge out with `allowsFullSwipe: false`. The
+standard worked example disables it on the leading edge, and this example does
+the same. So a full swipe *left* removes the track outright; a full swipe *right*
 only reveals Top, which still needs a tap.
 
 **It composes with the primary action rather than fighting it.** A tap plays the

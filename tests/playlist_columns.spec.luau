@@ -25,7 +25,7 @@
 	THIS FILE ASKS THE QUESTIONS A MOUNTED SURFACE MAKES ASKABLE:
 
 	  · IS THE HEADER VISIBLE — a non-zero title box per column, not merely a node
-	    at a path. `docs/plans/swiftui-parity-round3-brief.md` records the class:
+	    at a path. `docs/plans/parity-round3-brief.md` records the class:
 	    a losing `ViewThatFits` candidate stays mounted with its text intact at
 	    0x0, so presence is not visibility.
 	  · IS IT REACHABLE WITH NO CONSUMER WIRING. The tutorial passes NO present()
@@ -349,7 +349,7 @@ end)
 
 --[[ ── THE SORT, AND WHAT IT COMPOSES WITH ──────────────────────────────────────
 
-	The Table NEVER sorts the data (`spec.sortOrder`, SwiftUI `Table(sortOrder:)`):
+	The Table NEVER sorts the data (`spec.sortOrder`, owner-held):
 	tapping a sortable heading cycles an owner-held Signal and the owner re-sorts.
 	So every case here is about the OWNER's derivation, and the interesting part is
 	that the playlist has three ways to change the same list — a filter, a sort, and

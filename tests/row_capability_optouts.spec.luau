@@ -3,8 +3,8 @@
 -- across BOTH collection controls (parity round 3, item C; game-director ruling
 -- 2026-08-13 to ship all three).
 --
--- WHAT THESE ARE. SwiftUI ships `selectionDisabled(_:)` (iOS 17), `deleteDisabled(_:)`
--- and `moveDisabled(_:)` (both iOS 13) as modifiers you attach to a ROW VIEW, taking an
+-- WHAT THESE ARE. The usual spelling ships `selectionDisabled(_:)`, `deleteDisabled(_:)`
+-- and `moveDisabled(_:)` as modifiers you attach to a ROW VIEW, taking an
 -- ordinary boolean computed from the item. Facet has no per-row-view modifier
 -- vocabulary, so the faithful translation is a spec-level per-row closure — which is
 -- already this codebase's idiom for exactly this shape five times over (`rowFocusable`,
@@ -12,7 +12,7 @@
 --
 -- THREE RULES THESE ARE HELD TO, each from a rule the repo already paid for:
 --
---   1. POSITIVE POLARITY. SwiftUI's names are negative (`…Disabled`, true = off);
+--   1. POSITIVE POLARITY. those names are negative (`…Disabled`, true = off);
 --      `rowFocusable` already sits on the same spec table meaning true = on. Shipping
 --      `rowFocusable` and `moveDisabled` two lines apart would be a bug factory. The
 --      parity doc states the inverse mapping instead.
@@ -299,7 +299,7 @@ describe("row capability opt-outs — Table", function()
 	end)
 
 	it("a pinned row is not a DESTINATION either: a movable row cannot displace it", function()
-		-- moveDisabled's source-vs-destination question is one Apple does not
+		-- moveDisabled's source-vs-destination question is one the source convention does not
 		-- document (its page is an abstract and a declaration, no discussion).
 		-- Facet decides: a pinned row holds its INDEX, so a move that would
 		-- shift it is refused. Otherwise "pinned" would mean "cannot be dragged

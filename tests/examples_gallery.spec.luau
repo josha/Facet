@@ -11,10 +11,10 @@
 -- headless FakeTarget adapter, then exercise its primary interaction end to
 -- end — and assert the reactive core stayed error-free throughout.
 --
--- ...AND, SINCE SwiftUI-PARITY ROUND 2, THE GALLERY FIXTURES THAT CARRY A NEW
+-- ...AND, SINCE parity round 2, THE GALLERY FIXTURES THAT CARRY A NEW
 -- PUBLIC API (the last two sections of this file). The standing obligation is
 -- that "every new public API appears in at least one gallery scenario that
--- `examples_gallery.spec` runs headlessly" (docs/plans/swiftui-parity-round2-brief.md,
+-- `examples_gallery.spec` runs headlessly" (docs/plans/parity-round2-brief.md,
 -- §"Standing quality bar"), and this is the file that obligation NAMES — so a
 -- fixture whose whole job is to be that proof is executed here, beside the
 -- tutorials, rather than in a spec nobody thought to look in. Those sections
@@ -330,32 +330,35 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		presenter.dismiss(handle)
 	end)
 
-	it("reordering is DISABLED while a filter is active (iTunes/SwiftUI): the base order is preserved", function()
-		local core, adapter, presenter, built, handle = playlistWorld()
-		local baseBefore = {}
-		for _, track in built.baseRows:get() do
-			table.insert(baseBefore, track.id)
+	it(
+		"reordering is DISABLED while a filter is active (the media-library convention): the base order is preserved",
+		function()
+			local core, adapter, presenter, built, handle = playlistWorld()
+			local baseBefore = {}
+			for _, track in built.baseRows:get() do
+				table.insert(baseBefore, track.id)
+			end
+			typeFilter(adapter, "a") -- a filter is now active (several rows match)
+			presenter.refresh()
+			-- attempt a drag reorder of the first visible row down past the second
+			local visible = built.rows:get()
+			local firstRect = adapter.node(rowHit(visible[1].id)).rect
+			local secondRect = adapter.node(rowHit(visible[2].id)).rect
+			adapter.pointerDown(rowHit(visible[1].id), 100, firstRect.y + 5)
+			adapter.pointerMove(100, secondRect.y + secondRect.h - 2)
+			presenter.refresh()
+			adapter.pointerUp(100, secondRect.y + secondRect.h - 2)
+			presenter.refresh()
+			-- the underlying base order is UNCHANGED (the move was refused under filter)
+			local baseAfter = {}
+			for _, track in built.baseRows:get() do
+				table.insert(baseAfter, track.id)
+			end
+			expect(table.concat(baseAfter, ",")).toBe(table.concat(baseBefore, ","))
+			expect(core:lastError()).toBeNil()
+			presenter.dismiss(handle)
 		end
-		typeFilter(adapter, "a") -- a filter is now active (several rows match)
-		presenter.refresh()
-		-- attempt a drag reorder of the first visible row down past the second
-		local visible = built.rows:get()
-		local firstRect = adapter.node(rowHit(visible[1].id)).rect
-		local secondRect = adapter.node(rowHit(visible[2].id)).rect
-		adapter.pointerDown(rowHit(visible[1].id), 100, firstRect.y + 5)
-		adapter.pointerMove(100, secondRect.y + secondRect.h - 2)
-		presenter.refresh()
-		adapter.pointerUp(100, secondRect.y + secondRect.h - 2)
-		presenter.refresh()
-		-- the underlying base order is UNCHANGED (the move was refused under filter)
-		local baseAfter = {}
-		for _, track in built.baseRows:get() do
-			table.insert(baseAfter, track.id)
-		end
-		expect(table.concat(baseAfter, ",")).toBe(table.concat(baseBefore, ","))
-		expect(core:lastError()).toBeNil()
-		presenter.dismiss(handle)
-	end)
+	)
 
 	it("per-input activation: keyboard/gamepad Activate on the focused filter field enters edit mode", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
@@ -549,8 +552,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	end)
 
 	-- RE-POINTED 2026-08-13 with Table's touch contract. This example declares
-	-- `onPrimaryAction`, so under Apple's documented rule a plain tap OPENS a row
-	-- and EDIT MODE is where touch selection lives (`EditMode`; HIG Lists and
+	-- `onPrimaryAction`, so under the documented convention a plain tap OPENS a row
+	-- and EDIT MODE is where touch selection lives (edit mode; the list guidance and
 	-- tables). The old body drove `adapter.tap` with NO meta — the table's
 	-- unknown-device fallback, which is the touch idiom — and asserted additive
 	-- selection; that is now the edit-mode gesture, so the case drives the
@@ -662,7 +665,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(built.nowPlaying:get()).toBeNil()
 	end)
 
-	it("onPrimaryAction: on TOUCH the FIRST plain tap plays the track (Apple's iOS/iPadOS rule)", function()
+	it("onPrimaryAction: on TOUCH the FIRST plain tap plays the track (the compact-touch rule)", function()
 		local _, adapter, presenter, built, _, clock = playingWorld()
 		local key = built.rows:get()[3].id
 		local name = built.rows:get()[3].name
@@ -671,7 +674,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(built.nowPlaying:get()).toBe(name)
 		-- THE PRICE THIS EXAMPLE PAYS, ON THE RECORD: a normal-mode tap does not
 		-- select at all any more — selection retreats into edit mode, which is
-		-- exactly what Apple documents once a primary action is declared
+		-- exactly what the convention documents once a primary action is declared
 		expect(adapter.node(rowHit(key)).props.selected).toBeFalsy()
 		-- and touch activation is a MODE, not a measurement: a second tap after an
 		-- arbitrarily long pause plays it again rather than doing something else
@@ -1100,7 +1103,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- =======================================================================
 	--
 	-- FINDING 1 ("the Edit button doesn't actually make rows editable") and
-	-- FINDING 2 ("on iOS you can swipe a row either side to get the edit
+	-- FINDING 2 ("on a touch phone you can swipe a row either side to get the edit
 	-- controls even if the table isn't in edit mode — we lost that").
 	--
 	-- The framework half of BOTH was measured and found intact: on the live
@@ -1117,7 +1120,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- sets `preferredInput = "Touch"` on the harness's DEFAULT capabilities,
 	-- which are `{ keyboard = true, mouse = true, touch = false }` — so what
 	-- they actually drive is a HYBRID (`interactionClasses.pointer == true`),
-	-- and the one class a real iPhone does not have is the one they all kept.
+	-- and the one class a real phone does not have is the one they all kept.
 	-- Three table decisions branch on `classes.pointer`, so "the suite is green
 	-- on touch" was never the same sentence as "this works on a phone".
 	local function phoneWorld(vw: number?, vh: number?)
@@ -1292,7 +1295,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 		-- A FULL swipe, deliberately past the commit threshold a trailing swipe
 		-- would fire on. The leading edge OPTS OUT of full-swipe commit
-		-- (`fullSwipe = { leading = false, trailing = true }`, Apple's own worked
+		-- (`fullSwipe = { leading = false, trailing = true }`, the standard worked
 		-- example — §16 [SW-37]), so this must REVEAL and commit nothing. A 30%
 		-- swipe would have passed whether the opt-out existed or not.
 		swipeRow(world, key, 0.9)
@@ -1360,7 +1363,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- Why the old behaviour read as a bug rather than a design: the ⊖ borrows
 	-- the destructive action's accessible label, so it announced itself as
 	-- "Remove" and then removed nothing. The source justified the two-step as
-	-- "the iOS pattern"; Apple documents the control's appearance and edit
+	-- "the platform pattern"; the documented rules cover the control's appearance and edit
 	-- mode's purpose but documents NO tap behaviour, so that was an uncited
 	-- recollection (standing rule 7).
 	it("edit mode ADDS the ⊖, and tapping it REMOVES the row (the director's device scenario)", function()
@@ -1677,7 +1680,7 @@ describe("examples/gallery 04: settings sync", function()
 		presenter.dismiss(handle)
 	end)
 
-	-- DEVICE FINDING, iPhone 15 Pro, 2026-07-26: "I can toggle music on but not
+	-- DEVICE FINDING, a physical phone, 2026-07-26: "I can toggle music on but not
 	-- off." `mutation.send` ERRORS while a request is in flight, so the control
 	-- worked exactly once and then threw. The example now refuses the second
 	-- change IN THE EXAMPLE and says why on screen — a tutorial must not throw at
@@ -2065,7 +2068,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 end)
 
 -- ===========================================================================
--- THE ROUND-2 SHOWCASE FIXTURES (docs/plans/swiftui-parity-round2.md).
+-- THE ROUND-2 SHOWCASE FIXTURES (docs/plans/parity-round2.md).
 --
 -- Two gallery scenarios, each the ONE hands-on proof of a public API this round
 -- added, and each registered in `demo_picker.DEMOS` so a player reaches it from

@@ -1,5 +1,5 @@
 --!strict
---[[ THE HIDDEN-COLUMN DISCLOSURE for `controls/table.luau` (ADAPT-18).
+--[[ THE HIDDEN-COLUMN DISCLOSURE for `controls/table.luau` .
 
 	A column that collapsed took its values off the screen with it, and the
 	standing no-dead-ends rule says the framework then owes the reader a route
@@ -73,7 +73,7 @@ function table_disclosure.new(deps: Deps): any
 	local cycleSort = deps.cycleSort
 	local cellContent = deps.cellContent
 
-	--[[ ── WHAT A COLLAPSED COLUMN'S VALUES ARE REACHED THROUGH (ADAPT-18) ───────
+	--[[ ── WHAT A COLLAPSED COLUMN'S VALUES ARE REACHED THROUGH  ───────
 		THE PLATE IS THE REVEAL WAVE'S, WHOLE. `src/region_expand.luau` already owns
 		what a disclosure is: an anchored panel with a full-width sheet fallback, a
 		modal transparent scrim so an outside tap dismisses, gamepad B through the

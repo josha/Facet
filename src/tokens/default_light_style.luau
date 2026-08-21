@@ -1,5 +1,5 @@
 --!strict
--- "Studio Neutral — Light" (native-stylesheets stage, ledger NSS-A1/A6): the
+-- "Studio Neutral — Light" (the native-stylesheets stage): the
 -- built-in second theme proving runtime theming through StyleDerive swaps.
 -- Same restrained-professional principles as default_style (the dark floor),
 -- inverted: near-white cool surface ramp, the SAME brand accent, dark content.

@@ -1,5 +1,5 @@
 --!strict
--- Shared interaction tokens (ADR-0022 Decision 5, row SF-D3). ONE place where
+-- Shared interaction tokens (ADR-0022 Decision 5). ONE place where
 -- the numbers that decide "was that a tap or a drag?" live, keyed by INPUT
 -- CLASS rather than by consumer.
 --
@@ -29,7 +29,7 @@ local interaction_tokens = {}
 local DRAG_PROMOTION_PX: { [string]: number } = {
 	pointer = 6,
 	touch = 14,
-	-- non-gestural acquisition: armed by verb, never by travel (SF-D4)
+	-- non-gestural acquisition: armed by verb, never by travel
 	keyboard = 0,
 	gamepad = 0,
 }

@@ -52,7 +52,7 @@ function with_animation.new(ctx: any)
 	local motionClock = ctx.motionClock
 	local api = {}
 
-	-- ===== withAnimation (docs/plans/swiftui-parity-round2.md §Phase 1) =======
+	-- ===== withAnimation (docs/plans/parity-round2.md §Phase 1) =======
 	--
 	-- `presenter.withAnimation("container", function() open:set(true) end)` — the
 	-- layout lands exactly and instantly as it always did, and every node whose box

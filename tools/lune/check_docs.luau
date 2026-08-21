@@ -19,10 +19,11 @@
 --   7. stale language: the styling guide may not still call the package
 --      contract unshipped;
 --   8. every scenario step the guide teaches still exists in the scenario;
---   9. every row of docs/reference/swiftui-parity.md that asserts something
---      about SwiftUI carries a citation id, and every id resolves to a §16 row
---      with an Apple URL, a verbatim quote (or an explicit "Apple documents no
---      behaviour here") and the date the page was read;
+--   9. the comparison document (the one file allowed to name another
+--      framework) backs every claim about that framework: each verdict row
+--      carries a citation id, and every id resolves to a §16 row with the
+--      vendor's page URL, a verbatim quote (or the document's own words for a
+--      page that says nothing) and the date it was read;
 --  10. the guide index catalogs the live public surface: it names every member
 --      of the UI and Controls namespaces and every non-retired export, names
 --      nothing that has stopped existing, links only api.md headings that
@@ -298,40 +299,46 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	},
 }
 
--- ---- SwiftUI citations (parity round 2, 2026-08-13) -----------------------
+-- ---- THE COMPARISON DOCUMENT'S CITATION GATE ------------------------------
 --
--- The parity document's whole value is a comparison, and until this check only
--- HALF of it was guarded. Claims about Facet are reconciled against the build
--- by this checker, check_prop_parity and check_registration; claims about
--- SwiftUI were guarded by nothing, and a citation pass found ten of them wrong
--- -- an API named after a symbol that does not exist (`gridCellUnsizedAxis`), a
--- sizing rule attributed to Apple that Apple never documents, two Xcode
--- features attributed to the wrong release. Every one had stood uncited, which
--- is why nobody had opened the page.
+-- One document in this repository compares Facet with another user-interface
+-- framework, and it is the only one allowed to name it. Its whole value is that
+-- comparison, and half of it used to be unguarded: claims about Facet are
+-- reconciled against the build by this checker, check_prop_parity and
+-- check_registration, while claims about the OTHER framework rested on memory.
+-- A citation pass found ten of them wrong, including a symbol that does not
+-- exist and a sizing rule attributed to a page that never states it. Every one
+-- had stood uncited, which is why nobody had opened the page.
 --
--- So: a row in a VERDICT table that asserts something with the word "SwiftUI" in
--- it must carry a citation id, and every id must resolve to a §16 row carrying a
--- developer.apple.com URL, a quoted sentence (or an explicit statement that
--- Apple documents nothing), and an ISO date. This cannot check that a quote is
--- TRUE -- only a human opening the URL does that -- but it stops a new uncited
--- assertion landing, which is the failure mode that produced all ten.
+-- So: a row in a VERDICT table that asserts something about that framework must
+-- carry a citation id, and every id must resolve to a §16 row carrying the
+-- vendor's own documentation URL, a quoted sentence (or the document's fixed
+-- words for a page that states nothing) and an ISO date. This cannot check that
+-- a quote is TRUE -- only a human opening the URL does that -- but it stops a
+-- new uncited assertion landing, which is the failure mode that produced all
+-- ten.
+--
+-- The vendor words below are match data for that one document, the same way the
+-- patterns in tools/check_brand_drift.py are match data for the rule that keeps
+-- them out of every other file.
 --
 -- Deliberately narrow, because a noisy checker gets disabled: it fires only on a
 -- table row, only in a table whose header says "Verdict", and only when the row
--- literally says "SwiftUI". Prose is not covered.
+-- names the compared framework. Prose is not covered.
 local PARITY = "docs/reference/swiftui-parity.md"
 local CITE_DATE = "2026%-08%-13"
 local NO_BEHAVIOUR = "Apple documents no behaviour here"
 
--- Rows that assert something about SwiftUI and carry no citation, with the
+-- Rows that assert something about the compared framework and carry no
+-- citation, with the
 -- reason. An exemption is a debt, not a permission: the checker fails when one
 -- stops matching (the row went away) AND when the exempt row starts carrying a
 -- citation (the debt was paid), so neither entry can rot here unnoticed.
 local CITATION_EXEMPT: { { match: string, why: string } } = {
 	{
 		match = "`Table.onPrimaryAction`",
-		why = "owned by the concurrently running Table task on 2026-08-13; the row quotes Apple's "
-			.. "contextMenu(forSelectionType:menu:primaryAction:) discussion inline but does not link it",
+		why = "owned by a concurrent Table task on 2026-08-13; the row quotes the vendor's context-menu "
+			.. "discussion inline but does not link it",
 	},
 	{
 		match = "Per-row capability opt-outs",
@@ -818,11 +825,12 @@ function check_docs.check(opts: Opts?)
 		end
 		-- ...and the pending cost row stays PENDING rather than quietly acquiring
 		-- an invented number (the distribution plan's unsupported-claim rule)
-		if not contains(catalogSource, "T15") then
+		if not contains(catalogSource, "release performance wave") then
 			problem(
 				CATALOG,
 				"the per-package memory table is not yet measured and the catalog no longer says so",
-				"keep the T15 placeholder until that wave lands, or replace it with the measured table"
+				"keep the pending-measurement note until the release performance wave lands, or replace it "
+					.. "with the measured table"
 			)
 		end
 	end
@@ -919,14 +927,10 @@ function check_docs.check(opts: Opts?)
 		end
 	end
 
-	-- ---- 9. every SwiftUI behavioural claim carries a live citation ---------
+	-- ---- 9. every claim about the compared framework carries a citation -----
 	local parity = read(PARITY)
 	if parity == nil then
-		problem(
-			PARITY,
-			"the SwiftUI parity document is missing",
-			"restore docs/reference/swiftui-parity.md, or drop section 9 of this checker with it"
-		)
+		problem(PARITY, "the comparison document is missing", "restore it, or drop section 9 of this checker with it")
 	else
 		local lines: { string } = {}
 		for line in string.gmatch(parity :: string .. "\n", "([^\n]*)\n") do
@@ -993,7 +997,7 @@ function check_docs.check(opts: Opts?)
 			end
 		end
 
-		-- 9c. a verdict row that says "SwiftUI" carries a citation
+		-- 9c. a verdict row naming the compared framework carries a citation
 		local exemptSeen: { [number]: boolean } = {}
 		local inVerdictTable = false
 		for index, line in lines do
@@ -1029,9 +1033,9 @@ function check_docs.check(opts: Opts?)
 			elseif not cited then
 				problem(
 					PARITY,
-					`line {index} asserts something about SwiftUI with no citation`,
-					"add a [SW-nn] id and its §16 row (Apple's page, the sentence quoted verbatim, the date "
-						.. "read), or reword the row so it stops making a claim about SwiftUI"
+					`line {index} asserts something about the compared framework with no citation`,
+					"add a [SW-nn] id and its §16 row (the vendor's page, the sentence quoted verbatim, the "
+						.. "date read), or reword the row so it stops making that claim"
 				)
 			end
 		end
@@ -1050,7 +1054,7 @@ function check_docs.check(opts: Opts?)
 			{
 				{ term = "## 16. Citations", why = "the citation table §§3-11 resolve their ids against" },
 				{ term = CITE_DATE:gsub("%%", ""), why = "the date every citation in this pass was read on" },
-				{ term = NO_BEHAVIOUR, why = "the words this document uses when Apple documents nothing" },
+				{ term = NO_BEHAVIOUR, why = "the words this document uses for a page that states nothing" },
 			}
 		do
 			anchorsChecked += 1
@@ -1240,22 +1244,24 @@ check_docs.OBLIGATIONS = table.freeze({
 	"every local markdown link in the two new documents resolves to a real path",
 	'docs/guide/05-styling.md no longer claims the package contract is unshipped ("The planned Step 3.5 adds", '
 		.. '"The current native Dark/Light themes are palette themes.", "remain reference-only in this version", '
-		.. '"Current theme limit and the planned package contract"), and swiftui-parity.md no longer says there is '
-		.. "no public reusable theme-package API",
+		.. '"Current theme limit and the planned package contract"), and the comparison document no longer says '
+		.. "there is no public reusable theme-package API",
 	"every theme_authoring scenario step the guide teaches exists in the scenario, and every step in the checker's "
 		.. "list is taught by the guide",
-	-- ---- SwiftUI citations (parity round 2) --------------------------------
-	"every row of a VERDICT table in docs/reference/swiftui-parity.md that asserts something about SwiftUI carries "
-		.. "a [SW-nn] citation id (or is one of the named, self-expiring exemptions in CITATION_EXEMPT)",
-	"every [SW-nn] id cited in the parity document resolves to a §16 row, every §16 row is cited by something, and "
-		.. 'each one carries a developer.apple.com URL, a quoted sentence (or the words "Apple documents no '
-		.. 'behaviour here") and an ISO date — the citation cannot be checked for truth, only for existence',
+	-- ---- the comparison document's citation gate ---------------------------
+	"every VERDICT-table row of the comparison document that asserts something about the compared framework "
+		.. "carries a [SW-nn] citation id (or is one of the named, self-expiring exemptions in CITATION_EXEMPT)",
+	"every [SW-nn] id cited in the comparison document resolves to a §16 row, every §16 row is cited by "
+		.. "something, and each one carries the vendor's documentation URL, a quoted sentence (or the document's "
+		.. "fixed words for a silent page) and an ISO date — the citation cannot be checked for truth, only for "
+		.. "existence",
 	-- ---- the theme catalog (wave THEME-UNBUNDLE) ---------------------------
 	"docs/guide/README.md links 13-theme-catalog.md and that catalog exists",
 	"docs/guide/13-theme-catalog.md names every SHIPPABLE package's build/themes/<Name>.rbxm and no artifact "
 		.. "tools/build_themes.sh does not build (both derived from tools/lune/theme_packages.luau), still carries "
 		.. "the install route (tools/build_themes.sh, theme_controller.install, the no-Rojo ReplicatedStorage "
-		.. "path), and still marks the per-package memory table as owed to the T15 wave rather than inventing a "
+		.. "path), and still marks the per-package memory table as owed to the release performance wave rather "
+		.. "than inventing a "
 		.. "number",
 	"docs/reference/api.md cross-references the theme catalog from the theme-controller section",
 	-- ---- rich skinning v2 (ADR-0020 R8, ledger row RS-A15) -----------------

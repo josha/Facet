@@ -1,6 +1,6 @@
 --!strict
--- `presenter.withAnimation(class, fn)` — SwiftUI-parity round 2, Phase 1
--- (docs/plans/swiftui-parity-round2.md §Phase 1). State changes applied inside
+-- `presenter.withAnimation(class, fn)` — parity round 2, Phase 1
+-- (docs/plans/parity-round2.md §Phase 1). State changes applied inside
 -- `fn` animate their visual consequences.
 --
 -- THE ONE INVARIANT EVERY CASE HERE DEFENDS: the solver stays exact and instant.
@@ -591,7 +591,7 @@ end)
 --[[ SIZE — the round-2 deferral, closed (docs/plans/with-animation-size.md).
 	Round 2 shipped position only and recorded five mechanisms as the reason.
 	Four of them describe what animating a size MEANS (content relayouts inside
-	a box that is changing size — which is what SwiftUI does too); the fifth,
+	a box that is changing size — which is the standard behaviour); the fifth,
 	"an interpolated size re-fits icon art and re-scales Path2D points every
 	frame of the flight", was already false when it was written: the shipped
 	POSITION animation calls `applyRect` on every handle in the animated subtree

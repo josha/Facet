@@ -5,7 +5,7 @@
 -- facts (UI-INPUT-001's platform-adapter rule). Returns an unbind function.
 
 local preferred_text = require("./preferred_text")
--- the pure inset arithmetic and its staleness test (PLAT-3): engine-free, so
+-- the pure inset arithmetic and its staleness test : engine-free, so
 -- the conversion and the belt are provable without a rotating device
 local safe_insets = require("../env/safe_insets")
 
@@ -15,8 +15,8 @@ local roblox_env = {}
 	module-scope `game:GetService` locals, which made the module engine-only to
 	REQUIRE — so the one file that decides what the framework believes about the
 	device could not be driven by a fake, and three shipped defects in it
-	(PLAT-1's never-made keyboard connection, PLAT-2's orphaned camera
-	connection, PLAT-3's stale-inset publish) had no headless instrument at all.
+	— a keyboard connection that was never made, an orphaned camera connection
+	and a stale-inset publish — had no headless instrument at all.
 	Resolving inside `bind` is the `text_premeasure` idiom, already used here for
 	exactly this reason, and the optional second argument is the seam the spec
 	drives: pass nothing on a client and the engine's own services are used. ]]
@@ -27,7 +27,7 @@ local function engineServices(): any
 		gui = GuiService,
 		text = game:GetService("TextService"),
 		world = workspace,
-		--[[ THE THREE INSET AREAS, AS PLAIN DATA (PLAT-3 redo, 2026-08-17).
+		--[[ THE THREE INSET AREAS, AS PLAIN DATA (re-measured 2026-08-17).
 
 			`GetInsetArea` takes an `Enum.ScreenInsets` member and answers a `Rect`,
 			and BOTH are engine types — so the branch that reads them was
@@ -169,7 +169,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 
 	-- sticky within the session: actual gamepad input is proof the class is
 	-- live even when detection lags or fails (GamepadEnabled=false with a
-	-- working pad is a documented engine failure class — Studio/macOS HID
+	-- working pad is a documented engine failure class — Studio HID
 	-- forwarding, controller-emulator slot shift; ADR-0015)
 	local sawGamepadInput = false
 

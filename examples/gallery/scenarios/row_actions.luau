@@ -1,7 +1,7 @@
 --!strict
 -- Scenario 'row_actions' (roadmap Task 11, docs/plans/row-actions-
 -- implementation.md; hosted mode: docs/plans/row-actions-hosted-mode-design.
--- md). A mail-style list: the SwiftUI-parity swipe-actions gallery fixture, in
+-- md). A mail-style list: the parity swipe-actions gallery fixture, in
 -- the three shapes a game actually builds a list with.
 --
 -- THREE SURFACES, one shared mail model per surface (independent state, so
@@ -28,7 +28,7 @@
 -- Actions (same shape on both surfaces): trailing = Delete (destructive) +
 -- Flag; leading = Mark Read. `fullSwipe = true` on both edges, so a full
 -- swipe commits the edge's first action (Delete on the right, Mark Read on
--- the left) — the SwiftUI behavior this whole feature exists to match.
+-- the left) — the behaviour this whole feature exists to match.
 --
 -- DRIVE SURFACE. Every interaction a real player has is also a scripted
 -- STATE/ACTION driver here (never counterfeited hardware input, exactly like
@@ -137,8 +137,8 @@ local function newMailModel(core: any, reflow: ((fn: () -> ()) -> ())?)
 		animating is what happens to every row BELOW it, which simply teleported up
 		by one row height on the commit frame. That is not a row-actions defect —
 		the composite has no idea the owner's data changed — it is the ordinary
-		SwiftUI pattern, and `presenter.withAnimation(class, fn)` is what shipped
-		for it in this same mission (docs/plans/swiftui-parity-round2.md §Phase 1).
+		declarative pattern, and `presenter.withAnimation(class, fn)` is what shipped
+		for it in this same mission (docs/plans/parity-round2.md §Phase 1).
 		The deletion is committed HERE, by the screen, which is the object that has
 		the presenter, so there is no new plumbing at all.
 
@@ -456,7 +456,7 @@ return {
 			-- Selecting a row and OPENING it are different things, and this surface
 			-- is where you can feel the difference: click a row once and it is
 			-- selected, DOUBLE-click (or Return / ButtonA on the focused row, or —
-			-- on touch — a PLAIN SINGLE TAP, Apple's own rule) and it opens, which
+			-- on touch — a PLAIN SINGLE TAP) and it opens, which
 			-- here means "read it". On touch, selection moves into edit mode. The tray
 			-- gestures are untouched: a tap that closes an open tray is consumed
 			-- before this ever runs, so swiping never opens a message by accident.

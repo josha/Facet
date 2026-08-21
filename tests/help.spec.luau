@@ -2,14 +2,13 @@
 --[[ D3a — `help`: PLAYER-PULLED, AND NOTHING ON TOUCH
 	(navigation-and-menus brief §2 D3, director ruling 2026-08-16 §6.2).
 
-	Apple separates two mechanisms this round's first draft conflated, and this
-	file is the first half. `.help(_:)` "configures the view's accessibility hint
-	and its help tag (also called a tooltip) in macOS or visionOS", and
-	`UIToolTipInteraction` "makes it possible to show a tooltip WHEN HOVERING A
-	POINTER over a view or control". On a touch phone nothing appears, and there
-	is NO LONG-PRESS BINDING ANYWHERE IN APPLE'S API. The auto-popping plate in
-	the reference screenshot is the OTHER mechanism — a TipKit coach mark — and
-	it is `tests/callout.spec.luau`.
+	Two mechanisms this round's first draft conflated are separate, and this file
+	is the first half. Help configures a view's accessibility hint and its help
+	tag (also called a tooltip) on the platforms that have one, and a tooltip
+	appears WHEN A POINTER HOVERS over a view or control. On a touch phone
+	nothing appears, and NO INPUT CLASS BINDS A LONG PRESS TO IT. The auto-popping
+	plate in the reference screenshot is the OTHER mechanism — an app-pushed coach
+	mark — and it is `tests/callout.spec.luau`.
 
 	  | class            | show                       | hide                     |
 	  |------------------|----------------------------|--------------------------|

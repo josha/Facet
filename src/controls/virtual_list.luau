@@ -7,7 +7,7 @@
 -- content geometry and the windowing decision — the exact split the native
 -- plan §4/§6 draws (geometry headless, scroll physics at the edge).
 --
---[[ TWO AXES, ONE VIRTUALIZER (spec: docs/plans/swiftui-parity-round2.md §2.3;
+--[[ TWO AXES, ONE VIRTUALIZER (spec: docs/plans/parity-round2.md §2.3;
 	game-director decision 2026-08-12). `spec.axis` is `"y"` (a vertical list of
 	rows — the DEFAULT, and what every existing caller builds) or `"x"` (a
 	sideways strip of items). It is CONSTRUCTION-ONLY for the same reason

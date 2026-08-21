@@ -1,5 +1,5 @@
 --!strict
---[[ NODE-PATH STRING WORK, ONCE (reuse audit REUSE-3, REUSE-6).
+--[[ NODE-PATH STRING WORK, ONCE (one home for the shared path helpers).
 
 	A Facet node's identity is a `/`-joined path, and two questions get asked
 	about one constantly: "is this path inside that subtree?" and "how do I put

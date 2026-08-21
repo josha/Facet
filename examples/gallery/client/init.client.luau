@@ -270,7 +270,7 @@ if bootDecision.mode == "showcase" then
 	-- against Studio Neutral ("the taller chip's measured 46px, plus padding"). A
 	-- chip is a THEMED control whose height is its theme's chrome plus its label at
 	-- the player's own text size, so the literal was only ever right for the theme
-	-- and the device it was measured on: under Pixel Quest, on an iPhone, the chip
+	-- and the device it was measured on: under Pixel Quest, on a phone, the chip
 	-- came out taller than the strip that was supposed to hold it and its plate
 	-- painted over the top of the demo's own page title (device report 2026-07-27).
 	-- The file's standing excuse — "a literal because two separate surfaces cannot
@@ -623,7 +623,7 @@ if bootDecision.mode == "showcase" then
 	-- What survives from the composed-chrome round is the reason it exists: the
 	-- two chips are laid out by ONE solver, so they can never overlap the way two
 	-- separately-presented surfaces held apart by a hard-coded offset did on a
-	-- real iPhone 15 Pro. What changed is that the open PANEL is its own surface,
+	-- real phone. What changed is that the open PANEL is its own surface,
 	-- which is what lets the strip sit permanently underneath the demos.
 	local showcasePicker: any = nil
 	local demos: any = nil

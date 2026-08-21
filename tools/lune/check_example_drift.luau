@@ -43,7 +43,7 @@ local checker = {}
 -- lint enforces is the plan's claim about EXAMPLES: "content/domain logic plus
 -- declarative Facet composition".
 local SCANNED_DIR = "examples/gallery/examples"
--- swiftui-reference-app-validation: the five clean-room proofs are held to the
+-- reference-app-validation: the five clean-room proofs are held to the
 -- same authority rules as the tutorials. Scanned recursively (proof folders
 -- carry content/ and services/ subtrees).
 local REFERENCE_DIR = "examples/reference"
@@ -159,7 +159,7 @@ local REACHAROUND_RULES: { { pattern: string, what: string } } = {
 -- substring of the offending source line, so the reason lives in one reviewable
 -- place instead of being scattered through the examples as suppression comments.
 local ALLOWLIST: { { file: string, match: string, why: string } } = {
-	-- ── swiftui-reference-app-validation proofs ────────────────────────────
+	-- ── reference-app-validation proofs ────────────────────────────
 	-- The specs proposed proof theme metrics (metrics.foyer.*, metrics.wardrobe.*);
 	-- the stage ruling (package-briefs.md) is NO new theme tokens, so these are
 	-- structural constants at their one definition site, each with its reason.

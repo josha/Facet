@@ -1,12 +1,12 @@
 --!strict
---[[ THE ENVIRONMENT A CONTROL FINDS WHEN NOBODY HANDED IT ONE (ADAPT-1).
+--[[ THE ENVIRONMENT A CONTROL FINDS WHEN NOBODY HANDED IT ONE .
 
 	WHAT WAS WRONG. Adaptation was a fact the AUTHOR had to hand to the control,
 	and it failed SILENTLY. `picker.resolvePresentation(4, nil, 14)` returns
 	"segmented" — four long labels crammed on a phone — where the same call with a
 	size class returns "inline"; `menu_recipe.resolvePresentation` never reaches
 	its touch->sheet rung without a live interaction class. The audit
-	(`artifacts/release-candidate-review/adapt-audit/matrix.md`, ADAPT-1, critical)
+	(`artifacts/release-candidate-review/adapt-audit/matrix.md`)
 	counted the consequence: of seventeen `Picker` call sites in `examples/`, eight
 	wire the fact, ten disable adaptation outright, and ZERO rely on the adaptive
 	default. A ladder that is exported, pure and unit-tested was chosen by no

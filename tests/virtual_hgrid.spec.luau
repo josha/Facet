@@ -1,6 +1,6 @@
 --!strict
 --[[
-	THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }`, SwiftUI's `LazyHGrid`.
+	THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }`.
 
 	THE REFUSAL THIS REPLACES, verbatim from the shipped control: *"there is no
 	LazyHGrid here yet. A grid's line holds `columns` cells, and `UI.Grid` wraps

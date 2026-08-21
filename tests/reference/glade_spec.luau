@@ -1,5 +1,5 @@
 --!strict
--- Reference proof "Glade" — E1 loop pins (swiftui-reference-app-validation).
+-- Reference proof "Glade" — E1 loop pins (reference-app-validation).
 --
 -- These are the headless half of RA-P1: every state transition the representative
 -- loop passes through, both commerce outcomes, the drain/low/empty derivations,

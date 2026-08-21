@@ -251,7 +251,7 @@ local COPY = {
 	an absurd box: measured at 749x380 the bar came out 733x158, 42% of the
 	viewport, a near-empty slab with one line of grey text adrift in it.
 
-	RE-MEASURED AGAINST A REAL BROWSER, 2026-08-16 — Chrome 151.0.0.0 on macOS
+	RE-MEASURED AGAINST A REAL BROWSER, 2026-08-16 — Chrome 151.0.0.0 on the
 	(this machine), a local page reporting its own `outerHeight - innerHeight`:
 
 	  | window                                    | outer | inner | chrome |
@@ -578,7 +578,7 @@ return {
 			laterally — the engine pre-excludes the notch from the camera rather than
 			reporting it as an in-canvas inset (docs/lessons/device-emulator-truths).
 			So every right-anchored zone was laid out flush against the camera's own
-			edge. Measured live through a parallel real-engine mount, iPhone 16 Pro
+			edge. Measured live through a parallel real-engine mount, a compact phone
 			portrait: every right-anchored node's right edge is 401.0 against a 401px
 			canvas — over by 0.0px, nothing overflowing, zero collisions — and a
 			rounded control whose rim ends exactly on the boundary reads as one that
@@ -626,7 +626,7 @@ return {
 			row PLUS the demo picker's own 62px chip strip. One full-width 120px row
 			is 32% of a 380px landscape phone, so the top-centre cluster landed a third
 			of the way down the screen and the "upper right" cluster with it. Measured
-			live 2026-08-15, iPhone 16 Pro landscape (749x380): clock at y=120, i.e.
+			live 2026-08-15, compact phone landscape (749x380): clock at y=120, i.e.
 			32% down, identical whether the tree was mounted there or rotated into it.
 
 			The row is now the band the PLATFORM actually owns, and the app's own
@@ -666,7 +666,7 @@ return {
 		--[[ A COLUMN RESERVES WHEN THE CHROME COVERS MOST OF IT, not when it clips
 			the far end.
 
-			Measured live 2026-08-15, iPhone 16 Pro landscape (749x380): the
+			Measured live 2026-08-15, compact phone landscape (749x380): the
 			showcase's two chips run x 8..267 and the HUD's columns are 250px each, so
 			the row covers 97% of the left column and 7% of the centre one. A rule
 			that reserved on ANY overlap would push the centre column down for 17px

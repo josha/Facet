@@ -90,7 +90,7 @@ exposed them is the reason this brief leads with rules rather than features.
 it lands.** It is a real arrange branch: line breaking, per-line cross extent,
 and a cross-axis line-distribution rule Roblox does not define — so we must.
 Interacts with incremental layout, instance recycling and virtualization, each
-with live budgets. See `swiftui-parity-round2.md` §2.7.
+with live budgets. See `parity-round2.md` §2.7.
 
 **B. The custom `Layout` protocol — evaluate first, then decide.** Ranked
 mid-list in the completeness audit but with leverage far above its rank: it
@@ -131,7 +131,7 @@ grow (§3.1: No new styling system)"*. Correct under round 2's constraint. But
 two sanctioned vehicles already exist and it did not reach for either:
 
 - **`Path2D`** — `UI.Path` and `src/controls/path_shapes.luau` ship, and
-  `swiftui-parity-next.md` investment 7 already names this exact case: *"`Gauge`
+  `parity-next.md` investment 7 already names this exact case: *"`Gauge`
   and radial progress on `Path2D` only after the path spike proves authored
   curves, clipping, layering, and device cost."* The spike has happened.
 - **Rotation is already a presentation-channel property** — the transform
@@ -196,7 +196,7 @@ suite and `swiftui-reference-app-validation` is a registered gate stage; the
 five places are built by `tools/build_places.sh`. Any change ships with its
 specs, its rebuilt place, and the showcase rule in full.
 
-**E. Owed from round 2** — the full list is in `swiftui-parity-round2.md` and
+**E. Owed from round 2** — the full list is in `parity-round2.md` and
 `device-bug-round-2026-08-12.md`; the load-bearing ones: the Studio device
 canary on the rebuilt showcase; the `traversal-document-order` re-record (that
 gate is honestly RED); the chrome restructure (chrome is unreachable without a

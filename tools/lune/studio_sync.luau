@@ -87,7 +87,7 @@ else
 	addTree("examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
 	addTree("examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 	addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
-	-- swiftui-reference-app-validation: the five clean-room reference proofs,
+	-- reference-app-validation: the five clean-room reference proofs,
 	-- mirrored from gallery.project.json's FacetReference mapping
 	addTree("examples/reference", "ReplicatedStorage.FacetReference", "Folder")
 end

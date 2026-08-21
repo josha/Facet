@@ -5,7 +5,7 @@
 	A coach mark that pops itself is only ever welcome one at a time. Two plates
 	over one screen, each pointing somewhere with an arrow, is not twice the
 	guidance — it is a screen a player has to dismantle before they can use it.
-	Apple says the same thing about the mechanism this reproduces: *"Use tips
+	The standing guidance for this mechanism says the same: *"use tips
 	sparingly… Don't use tips to guide people through your app, or for advertising
 	and promotion purposes."*
 
@@ -49,7 +49,7 @@ local DUMP_SCHEMA = "facet-callout-queue-dump/1"
 -- the scheduler wants a finite number.
 local NEVER_TIMES_OUT = 1e9
 -- a queue of guidance nobody asked for is worse than a queue of messages. Four
--- is generous for a mechanism Apple asks you to use sparingly.
+-- is generous for a mechanism the guidance asks you to use sparingly.
 local QUEUE_CAP = 4
 
 local REQUEST_KEYS = specGuard.keySet({ "build", "id", "key", "onHide", "onShow", "priority" })

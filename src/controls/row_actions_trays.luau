@@ -149,7 +149,7 @@ function row_actions_trays.build(p: Params): { any }
 			`offset` the slide itself uses — no second spring, no per-button spring —
 			so it "stretches in" from 0 toward its (live) natural width as `|offset|`
 			approaches `trayWidth` (docs/plans/row-actions-implementation.md Task 4:
-			"SwiftUI feel").
+			"parity feel").
 
 			THE FALLBACK IS "NO MOTION AUTHORITY", NOT "NO SPRING YET" (device bug
 			round 2026-08-12, findings C9a and C8b — the SAME line caused both).

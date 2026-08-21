@@ -305,15 +305,17 @@ describe("documentation gate: the rich-skinning surface and its docs agree", fun
 end)
 
 -- ---------------------------------------------------------------------------
--- THE SWIFTUI CITATION GATE (parity round 2, 2026-08-13)
+-- THE COMPARISON DOCUMENT'S CITATION GATE
 --
--- Claims about OUR side are reconciled against the build by three checkers.
--- Claims about APPLE's side were guarded by nothing until this one, and a
--- citation pass found ten of them wrong — including an API we had named after
--- `gridCellUnsizedAxis`, a SwiftUI symbol that does not exist. Every wrong claim
--- had stood uncited. So the rule is mechanical: a verdict row that says
--- "SwiftUI" carries a citation id, and an id resolves to a §16 row with a page,
--- a verbatim quote and a date.
+-- One document compares Facet with another user-interface framework, and it is
+-- the only file in this repository allowed to name that framework. Claims about
+-- OUR side are reconciled against the build by three checkers. Claims about the
+-- other framework rested on memory until this gate, and a citation pass found
+-- ten of them wrong, including a symbol that does not exist. Every wrong claim
+-- had stood uncited. So the rule is mechanical: a verdict row naming that
+-- framework carries a citation id, and an id resolves to a §16 row with a page,
+-- a verbatim quote and a date. The vendor words in the fixtures below are match
+-- data for that one document.
 --
 -- The rule cannot check that a quote is TRUE. That is the point of the shape of
 -- these tests: each one proves the checker refuses a *missing* citation, never
@@ -355,8 +357,8 @@ local function parityFixture(claimRows: string, citationRows: string): string
 	}, "\n")
 end
 
-describe("documentation gate: every claim about SwiftUI carries a citation", function()
-	it("the live parity document passes, and cites a substantial body of Apple pages", function()
+describe("documentation gate: every claim about the compared framework is cited", function()
+	it("the live comparison document passes, and cites a substantial body of pages", function()
 		local result = checker.check()
 		if not result.ok then
 			error("check_docs problems:\n  " .. table.concat(result.problems, "\n  "))
@@ -375,13 +377,13 @@ describe("documentation gate: every claim about SwiftUI carries a citation", fun
 		expect(result.counts.citations).toBe(1)
 	end)
 
-	it("fails when a verdict row asserts something about SwiftUI with no citation", function()
+	it("fails when a verdict row asserts something uncited about the compared framework", function()
 		local uncited = "| `Grid` — SwiftUI sizes a column to its widest cell | **Covered** | ours | — |"
 		local result = checker.check({
 			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW .. "\n" .. uncited, GOOD_CITATION) },
 		})
 		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "asserts something about SwiftUI with no citation")).toBe(1)
+		expect(problemsMentioning(result, "asserts something about the compared framework with no citation")).toBe(1)
 	end)
 
 	it("fails when a cited id has no §16 row to resolve against", function()
@@ -403,7 +405,7 @@ describe("documentation gate: every claim about SwiftUI carries a citation", fun
 		expect(problemsMentioning(result, "SW-77 is defined in §16 but nothing cites it")).toBe(1)
 	end)
 
-	it("fails when a citation carries no Apple URL, no quote, or no date", function()
+	it("fails when a citation carries no vendor URL, no quote, or no date", function()
 		local cases = {
 			{
 				citation = "| **SW-01** | `zIndex(_:)` | \u{201C}Controls the display order of overlapping views.\u{201D} "
@@ -476,7 +478,7 @@ describe("documentation gate: every claim about SwiftUI carries a citation", fun
 
 	it("names the citation obligations in the CLI's --list output", function()
 		local joined = table.concat(checker.OBLIGATIONS, "\n")
-		for _, needle in { "[SW-nn]", "swiftui-parity.md", "Apple documents no", "CITATION_EXEMPT" } do
+		for _, needle in { "[SW-nn]", "comparison document", "fixed words for a silent page", "CITATION_EXEMPT" } do
 			expect(string.find(joined, needle, 1, true) ~= nil).toBe(true)
 		end
 	end)

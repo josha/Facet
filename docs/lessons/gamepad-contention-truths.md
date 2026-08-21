@@ -69,7 +69,7 @@ requirement, not a suggestion, because no priority number is an alternative.
 - **Real game** (player is walking/driving/aiming): **never** disable avatar
   input. Set `PlayerScriptsUseInputActionSystem = true` (truth 2) so avatar input
   joins IAS, then let UI-vs-gameplay contention resolve through InputContext
-  priority + Sink — a focus-aware first-responder model (Apple responder-chain
+  priority + Sink — a focus-aware first-responder model (responder-chain
   analog): an *engaged* Facet surface (modal, or a screen the player entered)
   sinks its context above the avatar contexts; a passive HUD binds nothing
   gameplay-contended. The framework-level engagement model is being designed

@@ -1,5 +1,5 @@
 --!strict
--- Pure Path2D shape math (native-substrate NS-A7; spike m5-path2d.json).
+-- Pure Path2D shape math (measured against Path2D in Studio).
 -- Produces NORMALIZED control points (unit box, center 0.5/0.5, radius 0.5)
 -- for the UI.Path primitive; the Roblox adapter scales them into the solved
 -- rect and feeds Path2D:SetControlPoints. Everything here is deterministic

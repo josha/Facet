@@ -306,7 +306,7 @@ describe("RowActions control", function()
 	-- "grew wide enough" from "clipped/reflowed" is `lines == 1`: this
 	-- composite's contract (`buttonMinWidth` is a floor a button WIDENS past,
 	-- Task 2/docs/reference/api.md `newRowActions`) promises a tray action
-	-- reads as ONE line, never wraps — the iOS pattern this control follows
+	-- reads as ONE line, never wraps — the platform pattern this control follows
 	-- never reflows an action label. Backed by an independent measurement
 	-- (the solver's own `text_metrics.measure`, at the button's REAL font/
 	-- size) proving the box is wide enough for the natural one-line width.
@@ -896,7 +896,7 @@ describe("RowActions control", function()
 		end
 	)
 
-	-- 9. TASK 9: EDIT-MODE DELETE AFFORDANCE (iOS leading minus) --------------
+	-- 9. TASK 9: EDIT-MODE DELETE AFFORDANCE (leading minus) --------------
 	it("rejects an editing value that is not a Readable", function()
 		local core = Facet.newCore()
 		local ok, err = pcall(function()
@@ -956,15 +956,15 @@ describe("RowActions control", function()
 	-- RE-DECIDED 2026-08-13 (game-director ruling, round 3 item C), NOT
 	-- re-baselined. This case and the leading-only one below previously
 	-- asserted the OPPOSITE — that the minus reveals the tray and fires
-	-- nothing — and they asserted it as CORRECT, citing "the iOS pattern".
+	-- nothing — and they asserted it as CORRECT, citing "the platform pattern".
 	--
 	-- Two things changed the ruling. (1) The device report: a player in edit
 	-- mode taps the minus and expects the row to go. (2) The justification did
-	-- not survive checking — Apple documents the control's APPEARANCE
+	-- not survive checking — the documented rules cover the control's APPEARANCE
 	-- (`UITableViewCell.EditingStyle.delete`, "a red circle enclosing a minus
 	-- sign") and documents that edit mode "provides controls to delete or move
 	-- list items", but documents NO behaviour for tapping it. The source
-	-- comment's "the iOS pattern" was an uncited recollection, and round 2 was
+	-- comment's "the platform pattern" was an uncited recollection, and round 2 was
 	-- wrong three times that way.
 	--
 	-- What made the report legitimate rather than a misunderstanding: the

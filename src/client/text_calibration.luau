@@ -1,5 +1,5 @@
 --!strict
--- Engine text calibration (native-substrate NS-A10, UI-FID-001; CLIENT-ONLY):
+-- Engine text calibration (CLIENT-ONLY):
 -- measures a reference corpus with TextService:GetTextBoundsAsync (which is
 -- PreferredTextSize-INDEPENDENT — measured 2026-08-03, Step 8.5 probe; the
 -- 2026-07-23 "honors the preference" grounding was wrong, so the fraction

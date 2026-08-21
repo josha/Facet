@@ -1,6 +1,6 @@
 # A fixed box cannot hold a theme's frame
 
-**Found:** 2026-07-26, iPhone 15 Pro, showcase place. **Cost:** two controls
+**Found:** 2026-07-26, a physical phone, showcase place. **Cost:** two controls
 shipped with labels the theme quietly ate.
 
 ## The symptom

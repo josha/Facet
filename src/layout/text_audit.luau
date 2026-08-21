@@ -1,6 +1,6 @@
 --!strict
 -- LARGE-TEXT AUTHORING SAFETY (docs/plans/large-text-accessibility.md
--- "Diagnostics and authoring safety"; LTN-4/LTN-5). Six pure checks over a
+-- "Diagnostics and authoring safety"). Six pure checks over a
 -- solve result, each answering one question a screenshot cannot:
 --
 --   overlaps          do painted siblings collide?
@@ -312,7 +312,7 @@ end
 	`clippedEssential`.
 
 	`help` (navigation-and-menus D3a) shows NOTHING on touch, by specification:
-	Apple binds no gesture to it on any platform, and D2 left the one candidate
+	No input class binds a gesture to it, and D2 left the one candidate
 	gesture with the full-value disclosure plate. That is only defensible while
 	`help` is never the only route to something a player needs, so this is that
 	claim made mechanical. It asks TWO questions, and keeps them separate on

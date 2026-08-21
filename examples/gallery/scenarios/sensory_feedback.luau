@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'sensory_feedback' — WHAT DOES PRESSING THIS FEEL LIKE?
 
-	The per-control sensory hook shipped in SwiftUI-parity round 3 from a direct
+	The per-control sensory hook shipped in parity round 3 from a direct
 	director request: *"should we have sensory feedback per control so that when
 	you press a button, for example, you get haptic feedback?"* Every gap closure
 	ships its showcase fixture, and this is that fixture.

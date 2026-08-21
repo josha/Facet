@@ -12,7 +12,7 @@ Observed live 2026-07-21 (input-paradigms defect trace, `02_playlist_table.rbxl`
    fire (which is why past binding drives worked), but `UserInputService.
    PreferredInput` flips toward **KeyboardAndMouse**, never Gamepad, and
    `GamepadEnabled` stays false.
-3. A **physical** pad is frequently not forwarded by Studio on macOS at all
+3. A **physical** pad is frequently not forwarded by Studio on this development platform at all
    (`GamepadEnabled=false`, `GetConnectedGamepads()` empty) — documented
    DevForum bug class, compounded by the Controller-Emulator beta occupying the
    `Gamepad1` slot. Sourced:

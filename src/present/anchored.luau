@@ -116,7 +116,7 @@ local DUMP_SCHEMA = "facet-anchored-dump/1"
 
 -- THEME METRICS (ADR-0019 §2), never bare pixels. The gap is the small spacing
 -- step; the tail is one medium step square, which is 16px under Studio Neutral
--- and therefore an 11.3px protrusion — the size Apple's own popover arrow is.
+-- and therefore an 11.3px protrusion, which is the usual popover-arrow size.
 -- The corner keep-out is the panel radius, so a tail can never grow out of a
 -- rounded corner however the theme rounds them.
 local DEFAULT_GAP = "s"

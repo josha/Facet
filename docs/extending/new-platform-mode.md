@@ -12,7 +12,7 @@ Read [`../reference/constitution.md`](../reference/constitution.md) first — th
 rules your addition must follow.
 
 Read
-[`../plans/swiftui-parity-next.md`](../plans/swiftui-parity-next.md) before using this
+[`../plans/parity-next.md`](../plans/parity-next.md) before using this
 playbook. Its cross-platform proof and future-platform milestone governs this work.
 
 ## The spatial gate — what exists, and what a support claim would cost

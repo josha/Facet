@@ -1,7 +1,7 @@
 --!strict
 --[[ Scenario 'flow_wrap' — THE ROW THAT RUNS OUT OF ROOM, and what it does then.
 
-	`wrap` shipped in SwiftUI-parity round 3 item A: Roblox's
+	`wrap` shipped in parity round 3 item A: Roblox's
 	`UIListLayout.Wraps`, which Facet had no spelling for at all. The standing
 	obligation is that every new public API appears in a gallery scenario the
 	headless suite executes, and this is that scenario.

@@ -33,7 +33,7 @@ out of how Facet draws (below).
 
 ## Judging the round-2 deferral
 
-`swiftui-parity-round2.md` §"Size is NOT animated this round" recorded five
+`parity-round2.md` §"Size is NOT animated this round" recorded five
 mechanisms. Judged one at a time, against source, on 2026-08-13/14.
 
 | # | Recorded mechanism | Verdict |

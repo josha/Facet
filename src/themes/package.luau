@@ -231,9 +231,9 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- while no package's authored metrics — and therefore no package's content
 	-- stamp — move for a value nobody wrote.
 	-- ...plus the CIRCULAR indicator's diameter and stroke (parity round 3 D2),
-	-- which are optional for the same reason and take the identical route. Apple
+	-- which are optional for the same reason and take the identical route. The
 	-- publishes no numeric size for a circular progress view; the only sentence
-	-- the HIG gives is "prefer an activity indicator when space is constrained",
+	-- guidance is "prefer an activity indicator when space is constrained",
 	-- so the size is small-by-default from the theme's own `space` scale rather
 	-- than a number invented here — and `circularThickness` is filled AGAINST the
 	-- resolved size, because a stroke wider than the box's own inset paints
@@ -466,7 +466,7 @@ local STYLE_FIELDS: { [string]: boolean } = { themes = true, defaultTheme = true
 -- A theme rule may write ONLY the native paint set (Step 2's nativeSheetOwned)
 -- and, inside a chrome recipe, the decoration child's image properties
 -- (feasibility m2). Everything else belongs to the solver, a data binding, the
--- presentation transform, or a UI.Custom host — and the ENGINE will not police
+-- presentation transform, or a `UI.Foreign` host — and the ENGINE will not police
 -- it: an explicit write silently defeats a StyleRule and fires no signal, so a
 -- themed `Size` would break layout with no error anywhere. That is why this
 -- runs at COMPILE time.

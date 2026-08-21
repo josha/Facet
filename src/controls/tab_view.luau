@@ -200,7 +200,7 @@ local NATURAL = table.freeze({ type = "content" })
 	its own axis takes the CONTENT width, so it centres nothing. ]]
 local BAND_CAPPED = table.freeze({ type = "hug" })
 
--- CLOSED SPEC (constitution §4; ARCH-1). An unknown key is an authoring mistake,
+-- CLOSED SPEC (constitution §4). An unknown key is an authoring mistake,
 -- never a silent no-op.
 local TABVIEW_KEYS = specGuard.keySet({
 	"conditions",

@@ -5,8 +5,8 @@
 -- (which builds the description below from a real Instance and then makes the
 -- ONE write it is allowed to make) and the headless recording twin the suite
 -- drives. A refusal ladder each adapter wrote for itself would be two rulings on
--- one contract, which is how "headless green, device wrong" ships (the SF-M9
--- lesson; `stage_content.luau` exists for exactly the same reason and this
+-- one contract, which is how "headless green, device wrong" ships
+-- (`stage_content.luau` exists for exactly the same reason and this
 -- module is deliberately its shape).
 --
 -- WHAT IS PURE HERE AND WHAT IS NOT. The ADMISSION LADDER is pure: given a

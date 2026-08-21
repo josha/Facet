@@ -23,7 +23,7 @@ local styling = {}
 
 local CORNER_KEYS = { "topLeft", "topRight", "bottomLeft", "bottomRight" }
 
--- CLOSED KEY SETS (api-architecture-consistency F-5 / ledger BP-F2).
+-- CLOSED KEY SETS (the API-consistency stage).
 -- `normalizeStroke` and `checkTint` refuse an unknown field; `normalizeShadow`
 -- and `normalizeGradient` did not, so `UI.gradient(bp, { colors = {…},
 -- roation = 45 })` constructed happily with the default 90° rotation. That is

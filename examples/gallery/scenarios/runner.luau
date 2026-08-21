@@ -230,7 +230,7 @@ function Runner.start(deps: { [string]: any })
 	local identityIds: { [Instance]: string } = setmetatable({}, { __mode = "k" }) :: any
 	local identityCounter = 0
 
-	-- Shared stage-content materializer (swiftui-reference-app-validation): the
+	-- Shared stage-content materializer (reference-app-validation): the
 	-- one engine-side seam that turns a proof's plain-table stage content into
 	-- Parts/camera/lighting through the public stage host. Used by the
 	-- post-present pass below and by ctx.stage.apply (live re-dress).
@@ -476,7 +476,7 @@ function Runner.start(deps: { [string]: any })
 			-- examples/gallery/examples headlessly, so finding them is runner work
 			-- and the `examples` scenario stays path-free.
 			exampleModules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetExamples"),
-			-- THE REFERENCE PROOF MODULES (swiftui-reference-app-validation):
+			-- THE REFERENCE PROOF MODULES (reference-app-validation):
 			-- ModuleScripts under ReplicatedStorage.FacetReference here, files
 			-- under examples/reference/ headlessly — resolved by the runner for the
 			-- same reason as the tutorial examples above, so the ref_* scenarios
@@ -1186,7 +1186,7 @@ function Runner.start(deps: { [string]: any })
 				game:GetService("ContextActionService"):UnbindAction("RbxCameraKeypress")
 			end)
 		end
-		-- STAGE CONTENT, MATERIALIZED BY THE RUNNER (swiftui-reference-app-validation).
+		-- STAGE CONTENT, MATERIALIZED BY THE RUNNER (reference-app-validation).
 		-- A reference proof stays engine-free, so its 3D stage content arrives as
 		-- DATA: `built.stageContent = { [nodePath] = { camera?, lighting?, parts? } }`
 		-- ({ shape, size = {x,y,z}, color = {r,g,b}, cframe = { pos, lookAt? },
@@ -1397,7 +1397,7 @@ function Runner.start(deps: { [string]: any })
 		-- the per-text-node facts of the last solve (font, lines, truncated,
 		-- disclose/reveal, policy) so an instrument judging TextFits can tell a
 		-- DECLARED truncation-with-disclosure from a genuine unfit finding
-		-- (swiftui-reference-app-validation matrix, 2026-08-08)
+		-- (reference-app-validation matrix, 2026-08-08)
 		local textPolicies: any = nil
 		do
 			local handle = session.built and session.built.handle

@@ -1,5 +1,5 @@
 --!strict
---[[ NUMBER PREDICATES, ONCE (reuse audit REUSE-1, REUSE-39).
+--[[ NUMBER PREDICATES, ONCE (one home for a shared predicate).
 
 	`isFinite` existed SEVENTEEN times, byte-identical, across `async/`,
 	`controls/`, `input/`, `motion/`, `present/`, `render/`, `themes/` and

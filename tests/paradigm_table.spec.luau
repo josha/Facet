@@ -675,7 +675,7 @@ end)
 -- =============================================================================
 -- 3. THE ROW BOX: PARADIGM-ADAPTIVE HEIGHT + THE CELL LINE CAP
 --
--- Device report 2026-07-27 (iPhone, Glossy Touch and Pixel Quest, the showcase's
+-- Device report 2026-07-27 (a physical phone, Glossy Touch and Pixel Quest, the showcase's
 -- playlist): a `rowHeight = 48` row with an UNCAPPED text cell. "Drift City
 -- Nights" wrapped to three lines in the width a phone leaves the name column,
 -- measured 54px, and painted through the rows either side of it. It did not

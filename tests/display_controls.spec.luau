@@ -1,5 +1,5 @@
 --!strict
--- Milestone B — display and selection controls (docs/plans/swiftui-parity-next.md
+-- Milestone B — display and selection controls (docs/plans/parity-next.md
 -- investment 7; acceptance rows B-DSP1 and B-DSP2).
 --
 -- These four share the rules the earlier rows established: paint is style-owned
@@ -813,7 +813,7 @@ describe("label: the title reads centred in its own box (director review 2026-07
 end)
 
 -- =============================================================================
--- INDETERMINATE PROGRESS AND THE SPINNER (swiftui-parity-round2.md §3.1)
+-- INDETERMINATE PROGRESS AND THE SPINNER (parity-round2.md §3.1)
 --
 -- Two things are proved here that nothing else can prove:
 --   1. the DETERMINATE path is untouched — same node tree, same geometry, same
@@ -1470,11 +1470,11 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	end)
 
 	it("refuses `showValue` on a circular indicator rather than putting it beside the ring", function()
-		-- Apple centres the readout INSIDE the ring — and that is `Gauge`
+		-- A centred readout INSIDE the ring belongs to a gauge
 		-- (`.accessoryCircularCapacity`), a complication-sized dial. This indicator
 		-- is small by construction (a theme metric, no per-call diameter), so a
 		-- centred readout has no size it is guaranteed to fit inside, and rendering
-		-- it BESIDE the ring would be a different design shipped under Apple's name.
+		-- it BESIDE the ring would be a different design shipped under the same name.
 		-- Refused, with both alternatives named.
 		local core = customFactory.new()
 		local ok, err = pcall(function()

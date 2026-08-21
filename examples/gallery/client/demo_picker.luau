@@ -41,7 +41,7 @@ demo_picker.ATTRIBUTE = "Facet_DemoPicker"
 -- padding + the taller chip's measured 46px + 8px of slack — measured once, under
 -- Studio Neutral, on one machine. A chip is a THEMED control: its height is its
 -- package's chrome plus its label at the player's own text size. Under Pixel
--- Quest, on an iPhone, the chip came out taller than the strip meant to hold it
+-- Quest, on a physical phone, the chip came out taller than the strip meant to hold it
 -- and painted over the top of the demo's own page title (device report
 -- 2026-07-27) — the same failure the 40 before it had, one theme later.
 --
@@ -735,7 +735,7 @@ function demo_picker.mount(opts: MountOpts): any
 	-- reach it. Landscape is far worse: 700px of list in 235px of room.
 	--
 	-- NINE IS THAT MEASUREMENT'S COUNT, NOT TODAY'S. The catalogue stands at
-	-- ELEVEN since the SwiftUI-parity round-2 fixtures joined it, which moves the
+	-- ELEVEN since the parity round-2 fixtures joined it, which moves the
 	-- margin the wrong way — and is exactly why the fix had to be a cap rather
 	-- than a taller literal. Adding a demo does not send anyone back to re-measure
 	-- this number; that is the property the cap bought.

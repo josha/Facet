@@ -11,7 +11,7 @@
 -- latency to every visual the tick drives (the same reasoning as the adapter's
 -- input paths; see APPLE_UI_MOTION_SKILL §11 for the platform rule).
 --
--- TWO THINGS THE CALLER OWNS (platform verifier PLAT-6):
+-- TWO THINGS THE CALLER OWNS (measured on a real client):
 --   1. THE UNBIND. Nothing here watches presenter lifetime — disposing a
 --      presenter does not disconnect its binding, and `bound` keys presenters
 --      strongly, so a discarded unbind keeps ticking (and retaining) a surface

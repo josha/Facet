@@ -142,7 +142,8 @@ end to end.
 >
 > Facet's input layer is built entirely on the Input Action System and never
 > reaches into `ContextActionService`. Roblox's *own* scripts do, and with this
-> box unticked they hold keys outside IAS where no Facet binding can reach
+> box unticked they hold keys outside the Input Action System, where no Facet
+> binding can reach
 > them: the default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
 > priority 2000, sinking), and the legacy control scripts keep gamepad
 > `ButtonA`. Screens built on this page still *render* perfectly — the input

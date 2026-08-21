@@ -1,5 +1,5 @@
 --!strict
---[[ "DID YOU MEAN …?", ONCE (architecture review ARCH-17; reuse audit REUSE-5).
+--[[ "DID YOU MEAN …?", ONCE (one home for the suggestion helper).
 
 	Five modules carried a bounded Levenshtein matrix — `src/spec_guard.luau`,
 	`src/themes/package.luau`, `src/blueprint_schema.luau`, `src/motion/classes.luau`
