@@ -91,7 +91,10 @@
 	    alphabet. Backquote is in none of those sets and is not in Roblox's
 	    hard-reserved set (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`) — it is the
 	    conventional console/menu key on a desktop keyboard.
-	  * GAMEPAD — **ButtonY**. `ButtonA` is Activate and is eaten unconditionally
+	  * GAMEPAD — **ButtonY** for the toggle, and **ButtonL1 / ButtonR1** for the
+	    two sections directly (director round 3, 2026-08-21: the chips sit at the
+	    two top corners, so the two shoulders match them by POSITION — left opens
+	    the demo list, right opens settings). See `SECTION_GAMEPAD` below. `ButtonA` is Activate and is eaten unconditionally
 	    by the legacy `jumpAction` (docs/lessons/gamepad-contention-truths.md
 	    truth 1); `ButtonB` is Cancel; `ButtonX` is the row-actions menu;
 	    `ButtonStart`/`ButtonSelect` are the platform's own menu buttons and are
@@ -121,6 +124,19 @@ showcase_chrome.COPY = table.freeze({
 -- the test's opinion, not the binding's).
 showcase_chrome.TOGGLE_KEYBOARD = "Backquote"
 showcase_chrome.TOGGLE_GAMEPAD = "ButtonY"
+--[[ THE PAD'S TWO DOORS (director round 3, 2026-08-21). The chips sit at the two
+	top corners of the strip, so the two SHOULDER buttons match them by position:
+	the left one opens the demo list, the right one opens settings. A player holding
+	a pad reaches the thing on the left with the button on the left.
+
+	WHY NOT MORE OF THE TOGGLE KEY. `ButtonY` toggles the chrome and leaves the
+	SECTION to whatever it was, which is one press to open and a second to choose —
+	fine for a keyboard where the section switch is a Tab away, and one press too
+	many on a pad. These two are the same verb with a destination attached, bound
+	on the same non-sinking context (they claim two buttons nothing else in the
+	place binds) and entering through the same `requestFromNavigation`, so the
+	focus ring is visible on the frame the panel opens. ]]
+showcase_chrome.SECTION_GAMEPAD = table.freeze({ demos = "ButtonL1", settings = "ButtonR1" })
 -- strictly above the engaged band (`presenter.luau` ENGAGED_BASE_PRIORITY =
 -- 3000) so an engaged panel can never sink its own way out
 showcase_chrome.TOGGLE_PRIORITY = 3500
@@ -450,6 +466,43 @@ function showcase_chrome.mount(opts: MountOpts): any
 		end)
 	end
 
+	--[[ AN OPEN PANEL GOES BACK ON TOP WHEN THE DEMO UNDER IT CHANGES (director
+		round 3, 2026-08-21).
+
+		THE RULE IT SERVES: a transient opened from a control appears OVER the live
+		screen, and the live screen stays visible behind it. THE MECHANISM IT
+		REPAIRS: cross-surface z is PRESENT ORDER — the presenter hands each
+		presented surface the next slot in its band — and a demo swap DISMISSES AND
+		RE-PRESENTS the demo, so the demo climbs past a panel that was presented
+		before it. Measured on `tests/gallery_chrome.spec.luau`'s harness: six swaps
+		put the demo at displayOrder 11000 against the panel's 10400, i.e. the list
+		the player is reading ends up underneath the screen they are reading it over.
+
+		RE-PRESENT RATHER THAN RAISE, which is the same trade the demo picker's own
+		overlay already makes ("rebuilding it is cheaper than teaching the presenter
+		a raise operation for one example's benefit"). `closing` guards the responder
+		watch so this dismissal is bookkeeping rather than the player leaving. ]]
+	local function raisePanel()
+		if panelHandle == nil then
+			return
+		end
+		closing = true
+		if panelWatch ~= nil then
+			panelWatch()
+			panelWatch = nil
+		end
+		presenter.dismiss(panelHandle)
+		panelHandle = nil
+		closing = false
+		openPanel()
+	end
+	if opts.demos ~= nil and opts.demos.watchRaise ~= nil then
+		-- AFTER the demo is presented, never on the selection signal: the picker
+		-- sets `selection` and mounts on the same call, so a watcher on the signal
+		-- would raise the panel and then watch the demo land on top of it.
+		scope:own(opts.demos.watchRaise(raisePanel))
+	end
+
 	-- apply(command) -> run a ToggleCommand. One place, so a chip press, the
 	-- toggle key and the scriptable drive cannot drift apart.
 	local function apply(command: ToggleCommand)
@@ -492,6 +545,20 @@ function showcase_chrome.mount(opts: MountOpts): any
 	toggleAction.onPressed(function()
 		self.requestFromNavigation(nil)
 	end)
+	--[[ ONE ACTION PER DESTINATION, on the same context. `request` runs the same
+		`toggle` command the chips do, so pressing the shoulder of the section that is
+		already showing CLOSES it (one button, one place, both directions) and
+		pressing the other one SWITCHES without closing — which is what "two buttons,
+		two destinations" has to mean for the pair to be worth two buttons. ]]
+	local sectionActions: { any } = {}
+	for _, kindName in { "demos", "settings" } do
+		local action = toggleContext.createAction(`Activate{kindName}`, "Bool")
+		action.bind({ keyCode = showcase_chrome.SECTION_GAMEPAD[kindName] })
+		action.onPressed(function()
+			self.requestFromNavigation(kindName)
+		end)
+		table.insert(sectionActions, action)
+	end
 
 	-- THE DEMO CHIP SAYS "Close" WHILE ITS OWN SECTION IS SHOWING, and only then:
 	-- panel presence is one fact here, so the picker's own flag is derived from

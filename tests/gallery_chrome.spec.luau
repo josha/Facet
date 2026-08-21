@@ -1157,3 +1157,113 @@ describe("the showcase chip strip keeps a left gutter at phone width (DIR-1)", f
 		expect(x).toBe(GUTTER_FLOOR)
 	end)
 end)
+
+-- ===========================================================================
+-- (10) THE DIRECTOR'S RULE, ON THIS SURFACE: an open panel stays OVER the demo,
+--      and the two shoulder buttons are the pad's way in.
+-- ===========================================================================
+
+--[[ WHAT THE LIVE SESSION SHOWED (director, 2026-08-21): the demo picker open
+	with the entire screen behind it a flat opaque fill — the mounted demo gone.
+
+	THE MECHANISM, measured here. Cross-surface z is PRESENT ORDER: the presenter
+	hands each presented surface the next slot in its band (`displayLayer += 100`)
+	and the showcase leans on that — the backdrop is presented once, first, and
+	"never raised, and that is the mechanism". What the arrangement does not
+	survive is a surface being RE-presented underneath a live one: every demo swap
+	dismisses and re-presents the demo, so the demo climbs, and after a handful of
+	swaps it stands ABOVE a panel that was presented before it. Measured on this
+	harness before the fix: six swaps put the demo at 11000 against the panel's
+	10400.
+
+	The panel is the transient and the demo is the live screen, so the panel is
+	what must be raised — it re-presents itself when the demo underneath it
+	changes, which is the same "re-present rather than teach the presenter a raise
+	operation" trade the picker's own overlay already makes. ]]
+describe("showcase chrome (10): the open panel stays over the demo", function()
+	it("a demo swap under an open panel leaves the panel on top", function()
+		local w = showcase()
+		w.chrome.request("demos")
+		w.settle()
+		local panelBefore = w.adapter.rootDisplayOrder("ShowcasePanel")
+		expect(`the panel is above the demo when it opens: {panelBefore > w.adapter.rootDisplayOrder("Demo")}`).toBe(
+			"the panel is above the demo when it opens: true"
+		)
+		for _ = 1, 6 do
+			w.demos.showNext(1)
+			w.settle()
+		end
+		local panel = w.adapter.rootDisplayOrder("ShowcasePanel")
+		local demo = w.adapter.rootDisplayOrder("Demo")
+		expect(`panel {panel} over demo {demo}: {panel > demo}`).toBe(`panel {panel} over demo {demo}: true`)
+		-- ...and it is still the same open panel, not a second one
+		expect(w.chrome.isOpen()).toBe(true)
+	end)
+
+	it("...and the panel it re-presents is still the panel: focus and section survive", function()
+		local w = showcase()
+		w.chrome.request("settings")
+		w.settle()
+		w.demos.showNext(1)
+		w.settle()
+		expect(w.chrome.kind:get()).toBe("settings")
+		local focused = w.pres.focus.focused:get()
+		expect(`focus is inside the panel: {isPrefix("/ShowcasePanel", focused)}`).toBe(
+			"focus is inside the panel: true"
+		)
+	end)
+end)
+
+--[[ THE PAD'S WAY IN (director, 2026-08-21). The chips sit at the two top
+	corners of the strip, so the two shoulder buttons match them by POSITION:
+	ButtonL1 opens the demo list, ButtonR1 opens settings. It is the same seam the
+	`ButtonY` toggle already uses — one action-system context, one bound key each,
+	no raw input anywhere — and the same `requestFromNavigation` entry, so the
+	focus ring is visible on the frame the panel opens. ]]
+describe("showcase chrome (11): the two shoulder buttons open the two sections", function()
+	it("ButtonL1 opens the demo list, with focus inside it", function()
+		local w = showcase()
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(true)
+		expect(w.chrome.kind:get()).toBe("demos")
+		expect(`focus landed in the panel: {isPrefix("/ShowcasePanel", w.pres.focus.focused:get())}`).toBe(
+			"focus landed in the panel: true"
+		)
+	end)
+
+	it("ButtonR1 opens settings, from closed AND from the other section", function()
+		local w = showcase()
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		w.settle()
+		expect(w.chrome.kind:get()).toBe("settings")
+		expect(w.chrome.isOpen()).toBe(true)
+		-- ...and the other shoulder SWITCHES rather than closing: two buttons, two
+		-- destinations, no state to remember
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(w.chrome.kind:get()).toBe("demos")
+		expect(w.chrome.isOpen()).toBe(true)
+	end)
+
+	it("the same shoulder closes what it opened, and B closes it too", function()
+		local w = showcase()
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(true)
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(false)
+
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(true)
+		press(w.system, "ButtonB")
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(false)
+		-- the ring goes back to the screen the player was on
+		expect(`focus returned to the demo: {isPrefix("/Demo", w.pres.focus.focused:get())}`).toBe(
+			"focus returned to the demo: true"
+		)
+	end)
+end)

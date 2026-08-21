@@ -265,6 +265,11 @@ require("./gallery_demo_host.spec")
 -- source text, the two-chip ViewThatFits ladder, and the persistent
 -- Full | Reduced motion setting the reduced-motion axis of a device canary needs
 require("./gallery_chrome.spec")
+-- THE DIRECTOR'S STANDING RULE (round 3, 2026-08-21): a transient opened from a
+-- control appears OVER the live screen and the live screen stays visible behind
+-- it — asserted over the whole anchored-surface family, plus the theme's own
+-- scrim being translucent by contract
+require("./transient_over_live.spec")
 -- ...and WHICH of those surfaces a place boots at all (2026-08-20): the §5
 -- scenario/example selectors outrank the demo shell, and a selector that cannot
 -- be honoured warns instead of booting something that looks like a passing run

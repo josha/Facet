@@ -574,6 +574,9 @@ function demo_picker.mount(opts: MountOpts): any
 	-- call time (docs/lessons/later-locals-are-not-upvalues.md; this file was the
 	-- lesson's next victim).
 	local raise: () -> ()
+	-- everyone who has to go back on top after a demo mounts, in registration
+	-- order. The host's own `onRaise` option runs first and is unchanged.
+	local raiseListeners: { () -> () } = {}
 
 	local function disposeMounted()
 		mountedId = nil
@@ -779,14 +782,25 @@ function demo_picker.mount(opts: MountOpts): any
 	})
 
 	if opts.composed == true then
-		-- IN COMPOSED MODE THIS PICKER OWNS NO SURFACE, so "raise" means "ask the
-		-- host to put its chrome back on top" — the demo it just mounted was
-		-- presented after the chrome and therefore draws over it. `show` calls
-		-- this, and `raise` is a forward-declared local: leaving it nil here
-		-- would make the first demo swap a nil call.
+		--[[ IN COMPOSED MODE THIS PICKER OWNS NO SURFACE, so "raise" means "ask the
+			host to put its chrome back on top" — the demo it just mounted was
+			presented after the chrome and therefore draws over it. `show` calls this,
+			and `raise` is a forward-declared local: leaving it nil here would make the
+			first demo swap a nil call.
+
+			IT IS A LIST NOW, NOT ONE CALLBACK (director round 3, 2026-08-21). The host
+			option is the theme picker's; the CHROME needs the same signal for its open
+			panel, and it is constructed after this picker, so it cannot be an option.
+			A panel that is not raised is a transient the live screen climbs over — the
+			z-order the whole arrangement leans on is PRESENT ORDER, and a demo swap
+			re-presents the demo. Measured: six swaps put the demo at displayOrder
+			11000 against a panel presented at 10400. ]]
 		raise = function()
 			if opts.onRaise ~= nil then
 				opts.onRaise()
+			end
+			for _, listener in raiseListeners do
+				pcall(listener)
 			end
 		end
 		return {
@@ -796,6 +810,19 @@ function demo_picker.mount(opts: MountOpts): any
 			rows = rowsStack,
 			open = open,
 			selection = selection,
+			--[[ REGISTER TO GO BACK ON TOP. Returns its own unsubscribe, so a caller
+				with a scope owns it the way it owns an observer. Called AFTER the demo
+				is mounted and presented, which is the only moment at which "put me
+				back on top" means anything. ]]
+			watchRaise = function(fn: () -> ()): () -> ()
+				table.insert(raiseListeners, fn)
+				return function()
+					local index = table.find(raiseListeners, fn)
+					if index ~= nil then
+						table.remove(raiseListeners, index)
+					end
+				end
+			end,
 			-- the host mounts the first demo itself once its chrome is up: this
 			-- picker no longer owns a surface to raise above it
 			show = show,
