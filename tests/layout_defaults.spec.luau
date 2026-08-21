@@ -521,3 +521,166 @@ describe("ADAPT-L8 — a row grid says when it squeezed its columns", function()
 		expect(table.concat(widths, ",")).toBe("200,181,148,124,101")
 	end)
 end)
+
+--[[ ═══ ADAPT-L5 · the default answer to overflow, measured at all six combos ═══
+
+	CONTESTED as a DEFAULT, guarded as a DIAGNOSIS. The audit reached this from
+	three directions — a row of fixed boxes 274px over at compact, a Spacer layout
+	whose two ends alone exceed the width, and a twenty-row page 792-1362px over at
+	every combo — and got the same outcome each time: the content is placed past the
+	edge, nothing clips it, and a finding is filed on a channel that must be asked.
+
+	WHAT THIS WAVE COULD NOT DO, per cell and with the reason, because "we did not
+	get to it" and "it is not one file" are different sentences:
+
+	  * F-1's expected answer is an IMPLICIT SCROLL HOST for a page taller than its
+	    box. `render/renderer.luau:1483` keys the engine scroll host on
+	    `node.class == "ScrollView"`, not on the solved kind — so a `kind = "scroll"`
+	    written at the measure seam would get a scroller's LAYOUT and no scrolling,
+	    which is strictly worse than today. Renderer and solver, both locked.
+	  * A-8/F-2's expected answer is `wrap` BOUND BY DEFAULT on a stack that does
+	    not fit. `wrap` decides the solver KIND (`hstack` vs `hwrap`) at the measure
+	    seam, and `hwrap` has no shrink pair by design — so wrapping by default would
+	    silently disable the shrink cascade on every stack that has one, which is
+	    the "silent re-flow of shipped screens" the solver's own overflow comment
+	    has always refused to be.
+	  * F-4's expected MINIMUM — "the solver's finding should escalate" — is the
+	    half that is already shipped, and it is worth saying so rather than
+	    re-building it: `tests/overflow_sweep.spec.luau` asks EVERY showcase surface
+	    at nine viewports, four text preferences and the themed and locale tiers, on
+	    every `./run-tests.sh`, with nobody deciding to run it.
+
+	So what is left for this file is the part the sweep structurally cannot say: that
+	the DIAGNOSIS itself is complete and identical at every combo, on all three of
+	the audit's shapes. A finding that named the container on a phone and not on a
+	television would be a hole the sweep could not see, because the sweep only ever
+	counts findings.
+]]
+describe("ADAPT-L5 — overflow is not silent, and says the same thing at every combo", function()
+	local function findings(controller: any): { string }
+		local out: { string } = {}
+		for _, d in controller.diagnostics() do
+			table.insert(out, d.issue)
+		end
+		return out
+	end
+
+	local function mount(screen: any, combo: Combo): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = combo.w, h = combo.h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("displaySize", combo.display)
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return controller
+	end
+
+	-- the audit's shape 3: twenty 80px rows on a page with no scroller
+	local function tallPage(): any
+		local rows = {}
+		for i = 1, 20 do
+			rows[i] = UI.Box({ id = "R" .. i, width = { type = "fill", weight = 1 }, height = FIXED(80) })
+		end
+		return UI.Screen({
+			id = "S",
+			children = { UI.VStack({ id = "Col", width = { type = "fill", weight = 1 }, children = rows }) },
+		})
+	end
+
+	-- the audit's shape 1: four 160px boxes in a row
+	local function fixedRow(): any
+		local kids = {}
+		for i = 1, 4 do
+			kids[i] = UI.Box({ id = "K" .. i, width = FIXED(160), height = FIXED(44) })
+		end
+		return UI.Screen({
+			id = "S",
+			children = { UI.HStack({ id = "Row", width = { type = "fill", weight = 1 }, children = kids }) },
+		})
+	end
+
+	-- the audit's shape 2: [200][Spacer][200], whose ends alone exceed a phone
+	local function spacerRow(): any
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({
+					id = "Row",
+					width = { type = "fill", weight = 1 },
+					children = {
+						UI.Box({ id = "A", width = FIXED(200), height = FIXED(44) }),
+						UI.Spacer({ id = "Sp" }),
+						UI.Box({ id = "B", width = FIXED(200), height = FIXED(44) }),
+					},
+				}),
+			},
+		})
+	end
+
+	it("a page taller than its box is DIAGNOSED at every one of the six combos", function()
+		local silent: { string } = {}
+		for _, combo in COMBOS do
+			local issues = findings(mount(tallPage(), combo))
+			local named = false
+			for _, issue in issues do
+				if string.find(issue, "content overflows this vstack", 1, true) ~= nil then
+					named = true
+				end
+			end
+			if not named then
+				table.insert(silent, combo.name)
+			end
+		end
+		expect(`silent:{table.concat(silent, ",")}`).toBe("silent:")
+	end)
+
+	it("...and so is a fixed row, and a Spacer row whose ends alone do not fit", function()
+		-- both at the compact phone the audit measured them on
+		local compact = COMBOS[1]
+		local row = findings(mount(fixedRow(), compact))
+		local spacer = findings(mount(spacerRow(), compact))
+		expect(#row >= 1).toBe(true)
+		expect(#spacer >= 1).toBe(true)
+		expect(string.find(row[1], "content overflows this hstack", 1, true) ~= nil).toBe(true)
+		expect(string.find(spacer[1], "content overflows this hstack", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("THE DIAGNOSIS IS COMPLETE at every combo: container, axis, amount, both fixes", function()
+		-- the property the always-on sweep structurally cannot check, because it
+		-- COUNTS findings rather than reading them: a message that named the
+		-- container on a phone and not on a television is a hole nothing else sees
+		local incomplete: { string } = {}
+		for _, combo in COMBOS do
+			local issues = findings(mount(tallPage(), combo))
+			for _, issue in issues do
+				if string.find(issue, "content overflows this vstack", 1, true) ~= nil then
+					for _, phrase in { "on the main axis", "paint outside its box", "ScrollView", "give it room" } do
+						if string.find(issue, phrase, 1, true) == nil then
+							table.insert(incomplete, `{combo.name}:{phrase}`)
+						end
+					end
+					-- ...and it carries a real pixel count, not a placeholder
+					if string.match(issue, "by (%d+)px") == nil then
+						table.insert(incomplete, `{combo.name}:px`)
+					end
+				end
+			end
+		end
+		expect(`incomplete:{table.concat(incomplete, ",")}`).toBe("incomplete:")
+	end)
+
+	it("CLIPPING IS NEVER THE ANSWER: nothing was quietly made a clip host", function()
+		-- the standing rule, pinned where the wave that could have broken it lives.
+		-- `ScrollView` is the one container that clips by default; a plain stack
+		-- that overflows must not acquire `clipChildren` behind the author's back
+		local col = UI.VStack({ id = "Col", children = {} })
+		expect(col.props.clipChildren).toBeNil()
+		local row = UI.HStack({ id = "Row", children = {} })
+		expect(row.props.clipChildren).toBeNil()
+		-- ...and the one word that DOES make a clip host still does
+		expect(UI.VStack({ id = "V", overflow = "clip", children = {} }).props.clipChildren).toBe(true)
+	end)
+end)
