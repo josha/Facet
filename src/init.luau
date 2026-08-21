@@ -51,7 +51,8 @@ local focusLib = require("@self/focus/focus_graph")
 	The four below already take `spec: any` — `Chip`, `VirtualList`, `VirtualGrid`
 	and `AsyncImage` were never given a published spec type — so they need nothing
 	from their module at load, and deferring them costs no type at all. Measured
-	mode-matched over paired rounds: 2,763 KB eager against 2,535 KB with these
+	over repeated separate-process rounds paired by index (and independently
+	re-reproduced at review): 2,763 KB eager against 2,535 KB with these
 	four deferred, i.e. **228 KB [131..313]**, and `tools/check_types.py` pins the
 	set BOTH WAYS: an entry that loses its spec type fails, and an entry that
 	GAINS one fails too — which is the day the require below has to come back to

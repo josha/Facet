@@ -1700,6 +1700,10 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 				)
 
 				-- (b) the HIT floor covers no INTERACTIVE node, by either of its rects
+				-- the hitRectOf arm is FORWARD protection: in today's fixtures every
+				-- author node's hit rect is nil (re-review NEW-M2), so the arm is
+				-- unexercised until the first author-side hit floor exists — kept
+				-- because the rule is about both rects, not about these fixtures
 				for _, authorRect in { n.rect, w.adapter.hitRectOf(path) } do
 					local ox, oy = overlapOf(markHit, authorRect)
 					if ox > 0.5 and oy > 0.5 then
@@ -1793,7 +1797,10 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			source and compared against the declared paint-inert set. A new write of
 			any kind lands here before it lands on a screen. ]]
 		local written: { [string]: boolean } = {}
-		for prop in string.gmatch(live, "xpander%.([%a]+)%s*=[^=]") do
+		for prop in string.gmatch(live, "xpander%.([%w]+)%s*=[^=]") do
+			-- %w, not %a (re-review NEW-H1): a letters-only class made every
+			-- digit-suffixed property invisible — BackgroundColor3 painted the
+			-- expander solid red inside a fully green suite
 			written[prop] = true
 		end
 		local INERT = {

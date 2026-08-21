@@ -87,7 +87,8 @@ end
 	`src/init.luau` requires fifteen of the nineteen composite controls at load and
 	defers four — `Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage` — into the
 	closure that builds them, so a game that builds none never compiles them
-	(mode-matched over paired rounds: 228 KB [131..313] of Lua heap). Two claims ride
+	(repeated separate-process rounds paired by index, re-reproduced at review:
+	228 KB [131..313] of Lua heap). Two claims ride
 	on that and both need an instrument: WHICH four are deferred, and WHERE the load
 	happens — a construction seam, once, never inside a frame.
 

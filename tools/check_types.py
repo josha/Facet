@@ -21,7 +21,7 @@ subset arithmetic and was retracted with it
 WHAT SHIPPED, and what it is worth: the FOUR entries that were already declared
 `spec: any` (`Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage`) need nothing from
 their module at load, so their requires moved into their closures — **228 KB
-[131..313]** of Lua heap, mode-matched. The other **632 KB** stays on the table
+[131..313]** of Lua heap (paired-by-index rounds, re-reproduced at review). The other **632 KB** stays on the table
 until the fifteen `export type Spec` declarations move to a module that costs
 nothing to load, because deferring those fifteen means widening them to `any`.
 
