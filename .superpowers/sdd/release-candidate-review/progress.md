@@ -1043,3 +1043,20 @@ STUDIO.md, root CLAUDE.md.
   unpinned warn; loose isPanelPath; the R19 comment's false claim about
   what Adjust keeps on a pad). Gate PASS frozen at 045de93 will be re-run
   and re-frozen after the round lands.
+
+## 2026-08-21 (cont. 5) — m2fix re-review back; NEW-H1 fixed inline
+
+- M2FIX RE-REVIEW (task-m2fix-review.md): ALL FOUR findings CLOSED + the
+  ledger extra, every reproduction message-for-message, suite arithmetic
+  confirmed 6881->6883 by direct parent measurement. NEW-H1 (HIGH): the
+  paint-inert guard's %a class could not see digit-suffixed properties —
+  BackgroundColor3 painted the expander RED inside a green suite. Fixed
+  INLINE by the controller (e79312c, one character class + the reviewer's
+  exact mutation proven red naming the property) — inline because the fix
+  was smaller than a dispatch and the re-review supplied the oracle.
+  NEW-M1 (three fresh sites re-asserting A-M2's not-run procedure) reworded;
+  NEW-M2 (dead hitRectOf arm) named as forward protection. Report-prose
+  count slips: 9a5ea84's "69->70" is 68->69 and "grep -c supersed 0->5"
+  measures 2/8 — corrected here, the report left as written. LOWs booked.
+- Review records force-added (b00053a): the four review seats' files are now
+  fresh-clone-readable alongside the reports.
