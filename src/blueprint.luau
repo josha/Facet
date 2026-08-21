@@ -895,21 +895,38 @@ end
 	ordering the director's constraint asks for and which no code here has to
 	arrange.
 
-	ITS ROLE IS DECIDED HERE, AT CONSTRUCTION, from what the forms CONTAIN:
+	IT IS A CHEVRON — A MARK BESIDE THE FORM — AND NEVER A SURFACE OVER IT.
 
-	  "cover"    no form below the richest carries a focus stop or a semantic
-	             action, so the whole compact form can BE the target. The button is
-	             `surface = "plain"` (no plate) and holds one empty Box, because a
-	             Button with no children draws its own label and the label here is
-	             for a screen reader, not for the screen.
-	  "chevron"  some form below the richest does carry one. Its meanings are left
-	             alone and the affordance becomes a mark beside it — a separate tap
-	             target, its own focus stop, the standard 44px floor from the
-	             Button contract.
+	The first cut had two roles. A form carrying no control of its own got a
+	"cover": a full-size activation surface laid over it, so the WHOLE compact form
+	was the target (the director's approved gesture). A DEVICE ROUND KILLED IT
+	(2026-08-21, emulated portrait 360x691): every stepped-down zone on the HUD
+	demo rendered as an EMPTY PILL — the timer, the tasks chip and the health pod
+	were rounded boxes with nothing in them, which is the precise opposite of the
+	constraint the feature was approved under.
 
-	MIXED LADDERS TAKE THE CHEVRON. A three-form region whose middle rung is
-	passive and whose last rung holds a button gets one affordance, and it is the
-	non-colliding one: "never overload a control" outranks "cover what you can".
+	NO MODEL-SIDE INSTRUMENT COULD SEE IT, and that is the part worth keeping. At
+	that viewport every one of those Text nodes had a real rect and `visible =
+	true`; the composition dump, the value-text oracle and the overflow sweep all
+	agreed the screen was fine. What the framework had done was put its OWN
+	instance on top of them — a full-size TextButton plus a 44px hit band over a
+	23px pill (measured z: cover 116, band 115, the pill's text 113) — and "it is
+	transparent, so it is harmless" is a claim about the ENGINE that no headless
+	check in this repository makes or can make.
+
+	So the role is gone and the rule that replaces it is structural: THE FRAMEWORK
+	PUTS NOTHING OF ITS OWN ABOVE THE AUTHOR'S CONTENT. A mark beside the form
+	cannot occlude a pixel the author drew, whatever the engine does with
+	transparency, stacking contexts, hit expanders or instance recycling — and the
+	form's own measure reserves the width it stands in, so it does not crowd the
+	content either.
+
+	`expandTarget.role` survives as a one-value set rather than being deleted: the
+	prop is public, the solver reads it to tell an affordance from a form, and a
+	closed set with one member is how the second one comes back if the director
+	restores the whole-form gesture (which needs the affordance placed BELOW the
+	form — the solver's lookup is the LAST child by identity, so that is an
+	extraction-gated change, not a prop change).
 
 	WHAT COUNTS AS CARRYING A MEANING is `class_contract.isInteractive`, read off
 	the registry every primitive already declares its focus role and its semantic
@@ -1073,6 +1090,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			lands and no new option is invented: a modal defaults to its FIRST
 			focusable, which is the content's own control when form 1 has one and this
 			when it does not. ]]
+		--[[ AN ICON, NOT A WORD (director device round, 2026-08-21). The plate is
+			small and its way out is a standard affordance, so it wears the standard
+			mark: the framework's own ASCII-safe `close` glyph, carried on its own node
+			beside the semantic NAME — which is what lets a package paint art over it
+			and what keeps a control from ever naming an asset.
+
+			THE LABEL STAYS A WORD. `label = "Close"` is what a screen reader says and
+			what the contract requires of every Button; the glyph is what the screen
+			shows. Nothing about the focus stop, the activation verbs or the 44px hit
+			band moves — an icon chip is the same control wearing a different face. ]]
 		local function closeAffordance(): Blueprint
 			return blueprint.Button({
 				id = "ExpandClose",
@@ -1080,10 +1107,20 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				-- the standard chip idiom, which is what every other dismissing
 				-- affordance in this repository's own fixtures wears
 				surface = "chip",
-				textSize = "caption",
+				textSize = "control",
 				onActivate = function()
 					engine.close()
 				end,
+				children = {
+					chromeSlots.attachHint(
+						blueprint.Text({
+							id = "CloseMark",
+							text = themePackage.iconGlyph("close") or "x",
+							textSize = "control",
+						}),
+						{ icon = "close" }
+					),
+				},
 			})
 		end
 		engine = regionExpand.new({
@@ -1093,13 +1130,36 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				mounts, so the disclosure cannot show less than the thing it is
 				disclosing and cannot drift from it as the screen changes. The width is
 				the composition's own `plate.w`. ]]
-			panelOf = function(plateW: number): Blueprint
+			--[[ THE WIDTH IS THE COMPOSITION'S, WITH ONE CORRECTION THE COMPOSITION
+				CANNOT MAKE (director device round, 2026-08-21: the task plate truncated
+				its own rows to "Win a…").
+
+				`plate.w` is `min(natural, viewport - gutters)`, and `natural` is what
+				the measure seam answers — which for a form that declared `width = fill`
+				is its CONTENT, not what it asked for. The task panel measured 184 where
+				328 was available, and its rows then shrank to fit a plate that was
+				smaller than the plate could have been. A fill form has already said it
+				wants the whole offer, so on the plate it gets the whole plate: the cap
+				(`plate.max`), which is the same viewport-minus-gutters number the
+				composition capped against.
+
+				IT IS DECIDED HERE because this is the only layer that can see it: the
+				measure seam reports a size and cannot report an intent, and the pure
+				module holds no blueprints. The declaration does. ]]
+			panelOf = function(plate: any): Blueprint
+				local declaredW = (forms[1].props or {}).width
+				local fills = type(declaredW) == "table" and (declaredW :: any).type == "fill"
+				local width = if fills
+						and type(plate.max) == "number"
+						and plate.max > plate.w
+					then plate.max
+					else plate.w
 				return blueprint.VStack({
 					id = "ExpandPanel",
 					surface = "raised",
 					padding = "s",
 					gap = "xs",
-					width = { type = "fixed", px = plateW },
+					width = { type = "fixed", px = width },
 					children = { forms[1], closeAffordance() },
 				})
 			end,
@@ -1133,31 +1193,19 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			end,
 			handler = expandHandler,
 		})
-		local role = if anyReducedFormCarriesMeaning then "chevron" else "cover"
-		local mark: Blueprint
-		if role == "chevron" then
-			-- the caret is its own node carrying the semantic NAME beside the ASCII
-			-- character, exactly as the disclosure group's is: a package that ships
-			-- art for `chevron.trailing` paints it over the glyph, and a control never
-			-- names an asset
-			mark = chromeSlots.attachHint(
-				blueprint.Text({
-					id = "Caret",
-					text = themePackage.iconGlyph("chevron.trailing") or ">",
-					textSize = "control",
-				}),
-				{ icon = "chevron.trailing" }
-			)
-		else
-			-- a Button with NO children draws its own label, and this label is for a
-			-- screen reader rather than for the screen — so it gets an empty box to
-			-- make it a content button that paints nothing
-			mark = blueprint.Box({
-				id = "Zone",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
-			})
-		end
+		local role = "chevron"
+		-- the caret is its own node carrying the semantic NAME beside the ASCII
+		-- character, exactly as the disclosure group's is: a package that ships art
+		-- for `chevron.trailing` paints it over the glyph, and a control never names
+		-- an asset
+		local mark: Blueprint = chromeSlots.attachHint(
+			blueprint.Text({
+				id = "Caret",
+				text = themePackage.iconGlyph("chevron.trailing") or ">",
+				textSize = "control",
+			}),
+			{ icon = "chevron.trailing" }
+		)
 		local children = table.clone(forms)
 		table.insert(
 			children,

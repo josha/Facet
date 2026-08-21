@@ -237,13 +237,19 @@ function table_disclosure.new(deps: Deps): any
 			local width = if type(measured) == "number" and measured > 0 then math.min(measured, 360) else 280
 			return { expandable = true, activeForm = 1, plate = { w = width, h = 0, sheet = width < 240 } }
 		end,
-		panelOf = function(plateW: number): any
+		--[[ THE PLATE RECORD, not a bare width (wave REVEAL fix round 2). The engine
+			now hands over the whole record — `{ w, h, sheet, max }` — because the
+			region case has a correction to make that the pure pass cannot: a form
+			declaring `width = fill` measures its CONTENT and has actually asked for
+			the offer, so it takes `max` instead. This panel's body is a hugging list
+			of column rows, so `w` is what it wants and its geometry is unchanged. ]]
+		panelOf = function(plate: any): any
 			return UI.VStack({
 				id = "ColumnsPanel",
 				surface = "raised",
 				padding = "s",
 				gap = "xs",
-				width = { type = "fixed", px = plateW },
+				width = { type = "fixed", px = plate.w },
 				children = { columnPlateBody() },
 			})
 		end,

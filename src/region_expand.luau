@@ -62,8 +62,11 @@ export type Config = {
 	-- the region's authored id, for the surface name and every diagnostic
 	id: string,
 	-- the plate's CONTENT at a resolved width: the region's own form 1, wrapped by
-	-- the caller (which is the only layer that may build blueprints)
-	panelOf: (number) -> any,
+	-- the caller (which is the only layer that may build blueprints). It takes the
+	-- whole `plate` record — the width AND the cap it was measured against — because
+	-- the caller has one correction to make that the pure pass cannot (see its own
+	-- note in `blueprint.luau`)
+	panelOf: (any) -> any,
 	-- the same content as a full-width sheet SCREEN, for the offer where the plate
 	-- cannot meet its floor
 	sheetOf: () -> any,
@@ -183,9 +186,24 @@ function region_expand.new(config: Config)
 				edge = "bottom",
 				align = "start",
 				gap = "s",
-				tail = true,
+				--[[ NO TAIL (director device round, 2026-08-21: "the plate alone on a
+					blank background"). The wedge and its seam are the only nodes this
+					overlay contributes that paint OPAQUELY by design — the seam is a
+					`surface = "base"` band carrying a reconstructed `surfaceStrong` tint —
+					and this feature anchors plates to zone pills pressed against the
+					screen edges, which is the geometry the shipped tailed surfaces (a
+					toolbar button, a disc in the middle of a strip) never gave the
+					placement machinery. A disclosure that opens at its own region does
+					not need an arrow to say where it came from; nothing that can paint
+					over the screen is worth that.
+
+					`rootPolicy` is not passed either: `presentAnchored` forces
+					`edgeToEdge` for every anchored surface (anchored.luau), so declaring
+					it here said nothing and read like a choice. What remains is exactly
+					the Menu's shipped option set — the one anchored modal this
+					repository has already proven on a device. ]]
+				tail = false,
 			},
-			rootPolicy = "edgeToEdge",
 		}
 	end
 
@@ -223,7 +241,7 @@ function region_expand.new(config: Config)
 			if presentAnchoredFn == nil or regionPath == nil then
 				return nil
 			end
-			handle = (presentAnchoredFn :: any)(config.panelOf(plate.w), anchoredOpts())
+			handle = (presentAnchoredFn :: any)(config.panelOf(plate), anchoredOpts())
 			mode = "anchored"
 		end
 		if handle ~= nil then

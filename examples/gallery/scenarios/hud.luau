@@ -131,6 +131,8 @@ local COPY = {
 		wave refuses a rung whose line the box would clamp, so the swap happens for
 		the same reason and through the same seam as the objective chip's. ]]
 	timerShort = "2m",
+	-- ...and the rung below it, for the narrowest column at the largest text
+	timerTiny = "2",
 	scoreHome = "12",
 	scoreAway = "9",
 	weapon1 = "Rifle",
@@ -360,12 +362,20 @@ local PROBE_ROWS: { { name: string, paths: { string } } } = {
 			PROBE_HUD .. "/Rounds/RoundStrip/R3",
 		},
 	},
+	--[[ ALL THREE ROWS NAME THE NODE THAT PAINTS, which the third one stopped doing
+		when the chip went back to being a `pill` (wave REVEAL): `TasksChip` became
+		the glass WRAPPER — a bare ZStack with no surface of its own — and its plate
+		moved to `TasksChip/Plate` beside its two siblings. The probe kept asking the
+		wrapper whether it was painting, and a node with no paint to give answers no
+		FOREVER: `1 of 11 NOT PAINTED` on the director's device round, latched, with
+		nothing wrong on the screen. An instrument that reports a defect its own
+		subject cannot avoid is worse than no instrument. ]]
 	{
 		name = "Tasks",
 		paths = {
 			PROBE_HUD .. "/Tasks/TasksFull/Plate",
 			PROBE_HUD .. "/Tasks/TasksOne/Plate",
-			PROBE_HUD .. "/Tasks/TasksChip",
+			PROBE_HUD .. "/Tasks/TasksChip/Plate",
 		},
 	},
 	{
@@ -1002,7 +1012,14 @@ return {
 				"pill",
 				UI.HStack({
 					id = id .. "Row",
-					padding = { top = 4, right = 10, bottom = 4, left = 10 },
+					--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
+						gutter yields before its VALUE does: the expand mark now stands beside
+						these pills inside the same third of the screen, and at the largest
+						text preference on a 320px phone those six px per side were the
+						difference between `84` fitting and `84` being cut. R9 decides the
+						order — a value reformats, and when there is nothing left to reformat,
+						the box around it gives way before the number does. ]]
+					padding = { top = 4, right = 4, bottom = 4, left = 4 },
 					align = "center",
 					children = { UI.Text({ id = id .. "T", text = text, textSize = size }) },
 				})
@@ -2764,7 +2781,8 @@ return {
 								id = "TimerOnlyRow",
 								gap = 6,
 								align = "center",
-								padding = { top = 4, right = 12, bottom = 4, left = 12 },
+								-- the same ruling as `pill`'s gutter above, for the same reason
+								padding = { top = 4, right = 4, bottom = 4, left = 4 },
 								children = {
 									--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
 										`COPY.timerShort` for why a timer is not allowed the
@@ -2780,6 +2798,24 @@ return {
 											UI.Text({
 												id = "TimerOnlyShort",
 												text = COPY.timerShort,
+												textSize = "numeral",
+											}),
+											--[[ A THIRD RUNG, AND THE WAVE IS WHY (2026-08-21). The
+												expand mark now stands beside this pod inside the same
+												third of the screen, and at the LARGEST text preference on
+												a 320px phone even `2m` no longer fits what that leaves —
+												measured, and reported by the value sweep, which refuses a
+												cut value at any size.
+
+												`2` is the same fact at the next precision down, which is
+												the ladder R9 prescribes: a value REFORMATS rather than
+												ellipsizing, and it keeps reformatting until it fits or
+												the zone gives way. It reads as "two minutes left" on a
+												dial with room for one character, and it is still a
+												NUMBER — which `2:1…` never was. ]]
+											UI.Text({
+												id = "TimerOnlyTiny",
+												text = COPY.timerTiny,
 												textSize = "numeral",
 											}),
 										},

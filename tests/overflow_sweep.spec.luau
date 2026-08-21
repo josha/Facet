@@ -2575,6 +2575,72 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
+	--[[ ── A COLLAPSE THAT SHOWS NOTHING (director device round, 2026-08-21) ──────
+		THE GUARANTEE: a region standing on a form below its richest still PAINTS ITS
+		ESSENTIAL VALUE. Not "has a rect", not "is not hidden" — paints a character.
+
+		THIS IS THE INSTRUMENT HOLE THE ROUND FOUND. Three stepped-down zones
+		rendered as empty pills on a device, and every check in this file was green,
+		because they all ask questions about boxes: the value oracle checks that a
+		VALUE is not truncated, and an empty box has no value in it to truncate; the
+		give-way check asks whether a region cleared its floor, and an empty pill
+		clears every floor there is. "Showing less" was policed in every direction
+		except showing NOTHING.
+
+		WHAT IT CANNOT DO, said plainly: this reads the framework's model, and the
+		device defect was an ENGINE-side occlusion the model could not see. It would
+		not have caught that one. What it catches is the whole family the model CAN
+		see — a ladder rung that is decorative, a form whose text is gated off, a
+		compact form squeezed to nothing — and it is the standing fence under the
+		structural fix (the framework no longer places anything over author content),
+		so a future affordance that eats its region's content reddens here. ]]
+	local function emptyCollapseViolations(w: any): { string }
+		local out: { string } = {}
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		if dump == nil then
+			return out
+		end
+		for _, r in dump.regions do
+			if (r.activeForm or 0) <= 1 or r.dropped then
+				continue
+			end
+			local painted, sample = 0, nil
+			for _, path in w.adapter.paths() do
+				if string.find(path, r.id .. "/", 1, true) ~= 1 then
+					continue
+				end
+				if w.adapter.visibleOf(path) == false then
+					continue
+				end
+				local node = w.adapter.node(path)
+				local rect = if node ~= nil then node.rect else nil
+				local props = if node ~= nil and type(node.props) == "table" then node.props else {}
+				local text = props.text
+				--[[ CONTENT, NOT CHARACTERS. The first cut counted text only and
+					immediately reported `Actions` — a column of icon discs whose value IS
+					the marks on them (a circle Button draws the semantic glyph itself and
+					deliberately does not draw its label). An image and an icon are things
+					on the screen exactly as a word is; what this check is about is a form
+					that shows NOTHING. ]]
+				local marked = type(props.icon) == "string" or type(props.image) == "string"
+				local shows = marked or (type(text) == "string" and text ~= "")
+				if shows and rect ~= nil and rect.w > 0 and rect.h > 0 then
+					--[[ THE AFFORDANCE'S OWN GLYPH IS NOT THE REGION'S VALUE. A chevron
+						is a character in a box with a rect, so counting it would let a zone
+						pass this check by showing nothing but the way out of itself. ]]
+					if string.find(path, "/Expand/", 1, true) == nil then
+						painted += 1
+						sample = sample or (if type(text) == "string" then text else tostring(props.icon))
+					end
+				end
+			end
+			if painted == 0 then
+				table.insert(out, string.format("%s stands on form %d and shows nothing at all", r.id, r.activeForm))
+			end
+		end
+		return out
+	end
+
 	local function giveWayViolations(w: any): { string }
 		local out: { string } = {}
 		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
@@ -2798,6 +2864,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 								table.insert(problems, `  {hit}{suffix}`)
 							end
 							for _, hit in deadEndViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
+							for _, hit in emptyCollapseViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
 							for _, hit in valueTextViolations(w) do

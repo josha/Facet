@@ -299,7 +299,7 @@ export type RegionResolution = {
 	formInteractive: boolean,
 	expand: string,
 	expandable: boolean,
-	plate: { w: number, h: number, sheet: boolean }?,
+	plate: { w: number, h: number, sheet: boolean, max: number }?,
 }
 
 --[[ ONE ENTRY PER THING THE SCREEN HAS STOPPED SHOWING (D7.1) — the seam.
@@ -2397,7 +2397,14 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			local maxW = math.max(0, offerW - gutter * 2)
 			local maxH = math.max(0, offerH - gutter * 2)
 			local w, h = ctx.measure(r.id, 1, maxW, maxH)
-			res.plate = { w = math.min(w, maxW), h = h, sheet = roundPx(w) > roundPx(maxW) }
+			--[[ `max` IS THE CAP THIS MEASURE WAS TAKEN AGAINST (fix round 2), reported
+				beside the answer because the caller has a correction to make that this
+				module cannot: a form declaring `width = fill` measures its CONTENT here
+				and has actually asked for the whole offer, and only the layer holding
+				the declaration can tell those apart. Without the cap it would have to
+				re-derive the gutter arithmetic, which is the second source of truth
+				this seam exists to prevent. ]]
+			res.plate = { w = math.min(w, maxW), h = h, sheet = roundPx(w) > roundPx(maxW), max = maxW }
 		end
 	end
 
@@ -2531,7 +2538,12 @@ function composition.dump(resolution: Resolution): any
 			expand = r.expand or "auto",
 			expandable = r.expandable == true,
 			plate = if r.plate ~= nil
-				then { w = roundPx(r.plate.w), h = roundPx(r.plate.h), sheet = r.plate.sheet }
+				then {
+					w = roundPx(r.plate.w),
+					h = roundPx(r.plate.h),
+					sheet = r.plate.sheet,
+					max = roundPx(r.plate.max),
+				}
 				else nil,
 		})
 	end

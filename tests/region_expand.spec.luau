@@ -419,11 +419,14 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		})
 		local aff = expandNodes(region)[1]
 		expect(aff.props.surface).toBe("plain")
-		-- the record the solver reads: form 2 contributes nothing to focus or action,
-		-- so the affordance is the form's own box rather than a mark beside it
+		-- the FACT is still reported — form 2 contributes nothing to focus or action
 		expect(region.props.expand.interactive[2]).toBe(false)
-		expect(aff.props.expandTarget.role).toBe("cover")
-		expect(childrenOf(aff)[1].id).toBe("Zone")
+		--[[ ...and the affordance is a mark BESIDE it all the same (device round,
+			2026-08-21). It used to be a surface OVER it, which is what rendered three
+			stepped-down pills empty; a passive form is now told apart from an
+			interactive one by nothing the player can see, and that is the point. ]]
+		expect(aff.props.expandTarget.role).toBe("chevron")
+		expect(childrenOf(aff)[1].id).toBe("Caret")
 	end)
 
 	it("an INTERACTIVE form keeps its own meanings and gets a chevron beside it", function()
@@ -644,16 +647,17 @@ describe("EXPAND 7 — the affordance stands exactly while a reduced form does",
 		expect(controller.hiddenRoots()["/S/C/Clock/Expand"]).toBe(true)
 	end)
 
-	it("stepped down, a PASSIVE form is covered by it exactly", function()
+	it("stepped down, a PASSIVE form keeps its whole box and the mark stands beside it", function()
 		local adapter, controller = mountedAt(400, 30, { expand = nil })
 		expect(controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
 		local region = adapter.node("/S/C/Clock").rect
 		local affordance = adapter.node("/S/C/Clock/Expand").rect
-		expect(affordance.x).toBe(region.x)
-		expect(affordance.y).toBe(region.y)
-		expect(affordance.w).toBe(region.w)
-		expect(affordance.h).toBe(region.h)
+		local form = adapter.node("/S/C/Clock/Compact").rect
 		expect(controller.hiddenRoots()["/S/C/Clock/Expand"]).toBe(nil)
+		-- BESIDE, at the trailing edge, with the form's own box untouched by it
+		expect(affordance.x + affordance.w).toBe(region.x + region.w)
+		expect(form.x + form.w <= affordance.x).toBe(true)
+		expect(form.w > 0).toBe(true)
 	end)
 
 	it("stepped down, an INTERACTIVE form keeps its box and the chevron takes the trailing edge", function()
@@ -693,7 +697,7 @@ end)
 
 local regionExpand = require("../src/region_expand")
 
-local PLATE = { w = 200, h = 60, sheet = false }
+local PLATE = { w = 200, h = 60, sheet = false, max = 320 }
 
 --[[ A CONTROLLER DOUBLE. `compositionAt(path)` is the renderer's own published
 	resolution dump, keyed by the composition's path, and `rectOf` is the solved
@@ -717,8 +721,8 @@ local function engineWith(row: any, rect: any, handler: (() -> ())?)
 	local dismissed: { any } = {}
 	local engine = regionExpand.new({
 		id = "Clock",
-		panelOf = function(w: number)
-			return { class = "VStack", id = "ExpandPanel", plateWidth = w }
+		panelOf = function(plate: any)
+			return { class = "VStack", id = "ExpandPanel", plateWidth = plate.w, plateCap = plate.max }
 		end,
 		sheetOf = function()
 			return { class = "Screen", id = "ExpandSheet" }
@@ -778,7 +782,7 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 			id = "/S/C/Clock",
 			expandable = true,
 			activeForm = 2,
-			plate = { w = 84, h = 60, sheet = true },
+			plate = { w = 84, h = 60, sheet = true, max = 84 },
 		}, BOX)
 		expect(engine.open()).toBe("sheet")
 		expect(presented[1].kind).toBe("sheet")
@@ -824,7 +828,7 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 	it("...and so does the region climbing back to its richest form under the plate", function()
 		local engine = regionExpand.new({
 			id = "Clock",
-			panelOf = function(_w: number)
+			panelOf = function(_plate: any)
 				return { class = "VStack" }
 			end,
 			sheetOf = function()
@@ -883,7 +887,7 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 		local _, presented = engineWith(STEPPED, BOX)
 		local engine = regionExpand.new({
 			id = "Clock",
-			panelOf = function()
+			panelOf = function(_plate: any)
 				return {}
 			end,
 			sheetOf = function()
@@ -999,6 +1003,26 @@ end)
 -- stop exists only while a reduced form is standing, it never disturbs the order
 -- of the stops around it, and on a form that carries controls of its own it
 -- comes AFTER them.
+
+-- the mounted CHILD IDS of a node, in the order the renderer walks them: the
+-- instrument that says which of two siblings paints over the other
+local function childIdsOf(w: any, parent: string): { string }
+	local out: { string } = {}
+	for _, path in w.adapter.paths() do
+		local rest = string.match(path, `^{parent}/([^/]+)$`)
+		if rest ~= nil then
+			table.insert(out, { id = rest, z = w.adapter.node(path).z or 0 })
+		end
+	end
+	table.sort(out :: any, function(a: any, b: any)
+		return a.z < b.z
+	end)
+	local ids: { string } = {}
+	for _, entry in out :: any do
+		table.insert(ids, entry.id)
+	end
+	return ids
+end
 
 local function traversalPaths(w: any): { string }
 	local map = w.pres.focus.focusMap()
@@ -1530,5 +1554,284 @@ describe("EXPAND 14 — a form that spliced itself away cannot be indexed, and i
 		local rich = roomy.controller.compositionAt("/S/C").regions[1]
 		expect(rich.activeForm).toBe(1)
 		expect(rich.expandable).toBe(false)
+	end)
+end)
+
+-- ===== 8. THE DEVICE ROUND'S THREE DEFECTS =================================
+--[[ A director device round (2026-08-21, emulated portrait 360x691, the HUD
+	demo) found three things no headless instrument in this repository could see,
+	and the first is the one that matters: EVERY STEPPED-DOWN ZONE RENDERED AS AN
+	EMPTY PILL. The timer, the tasks chip and the health pod were rounded boxes
+	with nothing in them — which is the exact opposite of the constraint the
+	feature was approved under ("key information stays visible in the collapse").
+
+	WHY NOTHING CAUGHT IT. The model was healthy at that viewport: every one of
+	those Text nodes had a real rect and `visible = true`, so the value-text
+	oracle, the overflow sweep and the composition dump all agreed the screen was
+	fine. The framework had put its own instance ON TOP of them — a full-size
+	activation surface plus a 44px hit band over a 23px pill — and "it is
+	transparent, so it is harmless" is a claim about the ENGINE that no model-side
+	check makes or can make.
+
+	So the rule below is not a paint assertion, because a paint assertion is
+	exactly what this repository cannot make headlessly. It is a STRUCTURAL one,
+	and it is stronger: THE FRAMEWORK PUTS NOTHING OF ITS OWN ABOVE THE AUTHOR'S
+	CONTENT. A cover affordance is declared FIRST — beneath the form it serves —
+	so there is no z at which any of its instances can occlude anything, whatever
+	the engine does with transparency, stacking contexts or hit expanders.
+
+	SO THE COVER ROLE IS RETIRED. Every expand affordance is now a CHEVRON: a mark
+	BESIDE the form, in width the form's own measure reserved for it, never a
+	surface over it. The framework's own instances are then geometrically incapable
+	of covering a pixel the author drew, whatever the engine does with
+	transparency, stacking contexts, hit expanders or instance recycling.
+
+	WHAT IT COSTS, stated where the next reader will look: the director approved
+	"the WHOLE compact form is the reveal target" for a passive form, and that
+	gesture is gone with the surface that provided it. Restoring it means placing
+	the affordance BELOW the form, which the solver's affordance lookup (the LAST
+	child, by identity) cannot express — an extraction-gated change this round is
+	not allowed to make. The trade is a smaller target against a pill that renders
+	its value; the director's own approval constraint decides it. ]]
+
+describe("EXPAND 15 — the framework paints nothing over the author's content", function()
+	it("a passive form gets a chevron BESIDE it, not a surface OVER it", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		expect(w.controller.compositionAt("/S/C").regions[2].activeForm).toBe(2)
+		local mark = w.adapter.node("/S/C/Clock/Expand")
+		local form = w.adapter.node("/S/C/Clock/Compact")
+		expect(mark).never().toBeNil()
+		-- BESIDE: the form ends where the mark begins, and they share no pixel
+		expect(form.rect.x + form.rect.w <= mark.rect.x).toBe(true)
+		expect(mark.rect.w > 0).toBe(true)
+	end)
+
+	it("no framework instance covers any node of the standing form, at any depth", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		local mark = w.adapter.node("/S/C/Clock/Expand")
+		--[[ THE STRUCTURAL RULE, checked as geometry rather than as paint: no
+			instance the framework synthesized intersects a node the author declared.
+			A paint assertion is what this repository cannot make headlessly — which
+			is how an overlay that "was transparent" shipped over three pills. ]]
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/S/C/Clock/Compact", 1, true) == 1 then
+				local n = w.adapter.node(path)
+				if n.rect.w > 0 and n.rect.h > 0 then
+					local ox = math.min(n.rect.x + n.rect.w, mark.rect.x + mark.rect.w)
+						- math.max(n.rect.x, mark.rect.x)
+					local oy = math.min(n.rect.y + n.rect.h, mark.rect.y + mark.rect.h)
+						- math.max(n.rect.y, mark.rect.y)
+					expect(`{path} overlaps the affordance: {ox > 0.5 and oy > 0.5}`).toBe(
+						`{path} overlaps the affordance: false`
+					)
+				end
+			end
+		end
+	end)
+
+	it("every affordance is a chevron now — the record says so, and there is one role", function()
+		local passive = UI.Region({
+			id = "Clock",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = { textForm("Full"), textForm("Tiny") },
+		})
+		expect(expandNodes(passive)[1].props.expandTarget.role).toBe("chevron")
+		expect(childrenOf(expandNodes(passive)[1])[1].id).toBe("Caret")
+	end)
+end)
+
+describe("EXPAND 16 — the plate opens OVER a live screen, and hands it back", function()
+	--[[ The second of the device round's three findings: opening the plate left the
+		plate alone on a blank background. The base must stay PAINTED — the director
+		allows it to be non-interactive under the focus trap, and nothing more.
+
+		WHAT THIS CASE IS, said honestly: a regression FENCE, not the proof that the
+		device symptom is gone. It passes at HEAD and passed before the fix, because
+		the model kept every base node visible at the failing viewport — the symptom
+		lives somewhere only a Play session can see. What it does is make the
+		CONTRACT executable: the day a change to this feature hides, resizes or
+		unmounts a base node while a plate is up, this reddens instead of waiting for
+		another device round. The fix that ships beside it is the removal of the only
+		node this overlay contributed that paints opaquely by design (the tail's
+		seam band). ]]
+	it("every base node keeps its rect and its visibility while the plate is up", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		local before: { [string]: any } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/S/", 1, true) == 1 then
+				local n = w.adapter.node(path)
+				if n ~= nil and n.rect ~= nil then
+					before[path] = { v = w.adapter.visibleOf(path), w = n.rect.w, h = n.rect.h, x = n.rect.x }
+				end
+			end
+		end
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		local checked = 0
+		for path, was in before do
+			local n = w.adapter.node(path)
+			expect(`{path} still mounted: {n ~= nil}`).toBe(`{path} still mounted: true`)
+			expect(`{path} still visible: {w.adapter.visibleOf(path)}`).toBe(`{path} still visible: {was.v}`)
+			expect(`{path} same box: {n.rect.w}x{n.rect.h}@{n.rect.x}`).toBe(`{path} same box: {was.w}x{was.h}@{was.x}`)
+			checked += 1
+		end
+		-- the fence is only a fence if it walked a screen
+		expect(checked > 8).toBe(true)
+	end)
+
+	it("...and the plate contributes no opaque node of its own: no tail, no seam", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		--[[ THE WEDGE AND ITS SEAM are the only nodes an anchored surface paints
+			opaquely by construction (a `raised` wedge and a `base` band carrying a
+			reconstructed tint). This feature anchors plates to zone pills pressed
+			against the screen edges — geometry the shipped tailed surfaces never gave
+			the placement machinery — so it takes neither. ]]
+		expect(w.adapter.node("/Expand:Clock/Layer/Tail")).toBeNil()
+		expect(w.adapter.node("/Expand:Clock/Layer/TailSeam")).toBeNil()
+		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")).never().toBeNil()
+	end)
+
+	it("the base is interactive again the moment the plate goes", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+		-- the affordance takes a tap again, which it could not while the modal held
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+	end)
+end)
+
+describe("EXPAND 17 — the way out wears a mark, and keeps its word", function()
+	it("the close affordance is an icon chip: a glyph on screen, a word for a reader", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		local close = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		expect(close).never().toBeNil()
+		--[[ THE WORD IS NOT DRAWN, and this is the framework's own rule doing it: a
+			CONTENT button's label is semantics, so the renderer writes "" as its text
+			(B-BTN1) and the content is what shows. The label itself — `"Close"`, what
+			a screen reader says — is a construction fact this seam cannot report,
+			because no adapter channel carries it; `blueprint.Button` refuses a Button
+			without one, and the value is one grep from here. What IS assertable is
+			that the screen shows a MARK and not a word, which is the change. ]]
+		expect(close.props.label).toBe("")
+		local mark = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose/CloseMark")
+		expect(mark).never().toBeNil()
+		expect(type(mark.props.text)).toBe("string")
+		expect(#mark.props.text > 0).toBe(true)
+		-- the standard icon-chip idiom: the chip surface, and the glyph carrying its
+		-- semantic NAME so a package's own art paints over it
+		expect(close.props.surface).toBe("chip")
+	end)
+
+	it("...and it is still the same control: one focus stop, the standard band, Return closes", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		local stops = traversalPaths(w)
+		expect(#stops).toBe(1)
+		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		--[[ THE EFFECTIVE BAND, which is the hit rect where the control is under the
+			floor and the painted rect where it is already over it — an expander is
+			only built for the first case, so reading `hitRectOf` alone would report a
+			generously-sized chip as having no band at all. ]]
+		local closePath = "/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose"
+		local band = w.adapter.hitRectOf(closePath) or w.adapter.node(closePath).rect
+		expect(`{band.w}x{band.h} clears the floor: {band.w >= 44 and band.h >= 44}`).toBe(
+			`{band.w}x{band.h} clears the floor: true`
+		)
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(1)
+	end)
+end)
+
+describe("EXPAND 18 — a plate does not truncate what it was opened to show", function()
+	--[[ The device round's fold-in: the task plate rendered "Win a…" at three rows.
+		`plate.w` is `min(natural, viewport - gutters)` and `natural` is whatever the
+		measure seam answers — which for a form that declared `width = fill` is its
+		CONTENT, not what it asked for. The panel then squeezed rows that had room to
+		spare. A fill form gets the cap. ]]
+	local function fillFormScreen(): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Tasks",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								UI.VStack({
+									id = "Full",
+									width = { type = "fill", weight = 1 },
+									children = {
+										UI.Text({ id = "Row1", text = "Win a round", textSize = 16 }),
+										UI.Text({ id = "Row2", text = "Land 25 hits", textSize = 16 }),
+										UI.Text({ id = "Row3", text = "Open a crate", textSize = 16 }),
+									},
+								}),
+								UI.Text({ id = "Compact", text = "Tasks 1/3", textSize = 16 }),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("a fill-width richest form gets the whole plate, not its own content width", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 40 } })
+		w.present(fillFormScreen(), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[1]
+		expect(row.activeForm).toBe(2)
+		-- the composition reports BOTH numbers: what the form measured, and the cap
+		-- it was measured against
+		expect(row.plate.max > row.plate.w).toBe(true)
+		w.adapter.tap("/S/C/Tasks/Expand")
+		w.pres.refresh()
+		local panel = w.adapter.node("/Expand:Tasks/Layer/Surface/ExpandPanel")
+		expect(panel).never().toBeNil()
+		expect(panel.rect.w).toBe(row.plate.max)
+	end)
+
+	it("...and a HUGGING richest form still gets exactly what it measured", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+		w.present(ringScreen(false), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[2]
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		local panel = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")
+		expect(panel.rect.w).toBe(row.plate.w)
+		expect(row.plate.w < row.plate.max).toBe(true)
 	end)
 end)

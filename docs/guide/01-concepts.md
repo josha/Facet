@@ -402,32 +402,39 @@ exists to remove.
 below its richest gets one **expand** affordance, appended as its last child, and
 it stands exactly while a reduced form stands:
 
-- when no reduced form carries a control of its own, the affordance **covers** the
-  compact form — the whole thing is the target, the gesture a player would have
-  tried anyway. One focus stop, at the target floor, "expands to full &lt;region
-  id&gt;" to a screen reader;
-- when a reduced form does carry one (a button, a toggle, a field, a scroller),
-  that control keeps its meaning and the affordance becomes a **chevron** beside
-  it, with its own tap target and its own focus stop **after** the form's own. One
-  gesture, one meaning — a compact form that already holds a button has spoken for
-  the tap.
+The affordance is a **chevron**: a mark BESIDE the compact form, in width the
+form's own measure reserved for it, with its own tap target at the standard floor
+and its own focus stop **after** the form's own stops. It is never a surface over
+the form. One gesture, one meaning — a compact form that already holds a button
+has spoken for the tap, and a form that holds nothing keeps every pixel it painted.
 
-"Carries a control" is read off the class contract every primitive declares its
-focus role and semantic actions in — never a list of class names — plus the four
-classes whose *content* that registry cannot describe: `UI.When`, `UI.ForEach` and
-`UI.ErrorBoundary` (their subtrees are produced lazily, from a function) and
-`UI.Foreign` (an adopted engine instance whose own input still works). A form
-holding any of them takes the chevron: **the framework will not call a form passive
-when it cannot see inside it**, and the conservative answer is the one that never
-puts a second activation surface over live content. `UI.Stage` is not in that set —
-a stage owns no input by contract, so covering one takes nothing away.
+> **It used to cover.** A form carrying no control of its own got a full-size
+> activation surface instead, so the whole compact form was the target. A device
+> round (2026-08-21) killed that: every stepped-down zone on the HUD demo rendered
+> as an **empty pill**, and no headless instrument in this repository could see it
+> — the model had a rect and `visible = true` for every one of those labels. What
+> the framework had done was put its own instance on top of them, and "it is
+> transparent, so it is harmless" is a claim about the ENGINE that nothing here
+> makes or can make. The rule that replaced it is structural: **the framework
+> puts nothing of its own above your content.**
+
+The resolution still reports `formInteractive` — whether the standing form
+contributes a focus stop or a semantic action — read off the class contract every
+primitive declares its focus role and semantic actions in, never a list of class
+names, plus the four classes whose *content* that registry cannot describe:
+`UI.When`, `UI.ForEach` and `UI.ErrorBoundary` (their subtrees are produced lazily,
+from a function) and `UI.Foreign` (an adopted engine instance whose own input still
+works). **The framework will not call a form passive when it cannot see inside it.**
+The fact is worth reading — it is what tells you whether the player has two things
+to press in that box — even though both answers now get the same mark.
 
 Activating it presents the region's **richest form** — the same blueprint, by
 identity — in a transient plate at the region's own anchor, sized by the same
 solve that chose the ladder rung. Where the richest form cannot meet its floor in
 a plate, the identical content is presented as a full-width sheet instead. It
-closes on a tap outside, on its own **Close** control, on gamepad B, and by itself
-when the box it was opened against moves, resizes or goes (a rotation, a viewport
+closes on a tap outside, on its own **Close** control (an icon chip carrying the
+standard close mark; its accessibility name stays the word "Close"), on gamepad B,
+and by itself when the box it was opened against moves, resizes or goes (a rotation, a viewport
 change, a theme change, or a re-solve that put the region back at its richest
 form).
 
