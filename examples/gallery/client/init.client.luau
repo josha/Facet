@@ -192,6 +192,31 @@ end)
 -- was cut off. The problem was never the font, it was VARIANCE, and no average
 -- can bound a specific short string.
 
+-- ===== WHICH SURFACE THIS PLACE BOOTS =====================================
+--
+-- Four surfaces share this one LocalScript, and which of them runs used to be
+-- decided by the ORDER of three `if` blocks a hundred lines apart. That order
+-- was wrong in the one place a device pass opens: the showcase branch came
+-- first, `tools/build_places.sh` bakes `Facet_Showcase = true` into the showcase
+-- place, and so the §5 verification selectors below it were unreachable there —
+-- setting `Facet_Scenario` produced no `workspace.FacetScenarioAPI`, no error
+-- and no warning, just the ordinary showcase boot line (found live 2026-08-20).
+--
+-- The decision is now taken ONCE, up here, by a pure module a spec can drive
+-- (`boot_mode.luau`, `tests/gallery_boot_mode.spec.luau`). Its two rules: a
+-- verification selector OUTRANKS the demo shell, and a selector that was set and
+-- cannot be honoured WARNS with the reason instead of quietly booting something
+-- that would look like a passing run.
+local boot_mode = require(script:WaitForChild("boot_mode")) :: any
+local bootDecision = boot_mode.decide({
+	showcase = workspace:GetAttribute("Facet_Showcase"),
+	scenario = workspace:GetAttribute("Facet_Scenario"),
+	example = workspace:GetAttribute("Facet_Example"),
+})
+for _, refusal in bootDecision.refusals do
+	warn(refusal)
+end
+
 -- ===== SHOWCASE MODE (the hands-on device place) ==========================
 --
 -- One place you publish once and open on a phone, a tablet, a desktop and a
@@ -202,8 +227,9 @@ end)
 --
 -- The showcase place sets `Facet_Showcase = true` in its own Rojo project
 -- (tools/build_places.sh), so nobody has to touch an attribute; the branch is
--- inert in every other place.
-if workspace:GetAttribute("Facet_Showcase") == true then
+-- inert in every other place — and it yields to a §5 selector when one is set,
+-- which is what makes the showcase place drivable without editing its build.
+if bootDecision.mode == "showcase" then
 	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
 	local demo_host = require(script:WaitForChild("demo_host")) :: any
 	local settings_panel = require(script:WaitForChild("settings_panel")) :: any
@@ -829,8 +855,20 @@ end
 -- BEFORE running to mount that deterministic fixture instead of the demo.
 -- The runner exposes _G.FacetScenario (list/steps/step/report/reset) for the
 -- Studio MCP and stamps Facet_ScenarioReady/Facet_ScenarioState attributes.
-local scenarioName = workspace:GetAttribute("Facet_Scenario")
-if type(scenarioName) == "string" and scenarioName ~= "" then
+--
+-- EVERY WAY THIS CAN FAIL SAYS SO. The folder is not replicated, the name is not
+-- registered, the runner throws on the way up: each of those leaves a driver
+-- polling `Facet_ScenarioReady` forever, and an ABSENT attribute cannot be told
+-- apart from "still booting". So a refusal warns with its reason AND stamps
+-- `Facet_ScenarioState`, and a throw is re-raised after the stamp rather than
+-- swallowed — a verification surface that no-ops quietly is worse than one that
+-- errors, because the run it produces still looks like evidence.
+local function refuseScenario(reason: string)
+	workspace:SetAttribute("Facet_ScenarioState", boot_mode.refusedState(reason))
+	warn(boot_mode.refusal("Facet_Scenario", reason))
+end
+if bootDecision.mode == "scenario" then
+	local scenarioName = bootDecision.scenario :: string
 	local registryModule = ReplicatedStorage:WaitForChild("FacetScenarios", 10)
 	if registryModule ~= nil then
 		local registry = require(registryModule) :: any
@@ -845,7 +883,7 @@ if type(scenarioName) == "string" and scenarioName ~= "" then
 			pres.tick(dt)
 			pres.refresh()
 		end)
-		local api = runner.start({
+		local started, result = pcall(runner.start, {
 			Facet = Facet,
 			registry = registry,
 			scenarioName = scenarioName,
@@ -856,10 +894,22 @@ if type(scenarioName) == "string" and scenarioName ~= "" then
 			actionSystem = system,
 			unbindEnv = unbindEnv,
 		})
-		local _keep = { scenarioHeartbeat, api, unbindResponderEffects }
+		if not started then
+			-- the runner stamps its OWN state for the failures it can name (an
+			-- unregistered scenario); this covers the ones it cannot, and then puts
+			-- the error back so the console goes red too. A pcall that SWALLOWED
+			-- this would reproduce the very defect this branch was rewired to fix.
+			scenarioHeartbeat:Disconnect()
+			if workspace:GetAttribute("Facet_ScenarioState") == nil then
+				workspace:SetAttribute("Facet_ScenarioState", boot_mode.refusedState("start-failed"))
+			end
+			warn(boot_mode.refusal("Facet_Scenario", `mounting '{scenarioName}' threw: {tostring(result)}`))
+			error(result, 0)
+		end
+		local _keep = { scenarioHeartbeat, result, unbindResponderEffects }
 		return
 	else
-		warn("[Facet Scenario] FacetScenarios not present in ReplicatedStorage; falling through to demo")
+		refuseScenario("FacetScenarios is not replicated into this place, so no scenario can be mounted")
 	end
 end
 
@@ -870,23 +920,25 @@ end
 -- walks through — they run here as written.
 -- only places that SET the attribute wait for the examples folder; the plain
 -- settings-demo place must not stall on a folder it never mapped
-local selectedExample = workspace:GetAttribute("Facet_Example")
-local EXAMPLES = if selectedExample ~= nil
+local EXAMPLES = if bootDecision.mode == "example"
 	then ReplicatedStorage:WaitForChild("FacetExamples", 10)
 	else ReplicatedStorage:FindFirstChild("FacetExamples")
-local EXAMPLE_MODULES = {
-	"01_temperature_converter",
-	"02_playlist_table",
-	"03_settings_sync",
-	"04_confirm_dialog",
-	"05_word_game",
-	"06_tile_game",
-	"07_match3",
-}
-local selected = selectedExample
-if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES ~= nil then
-	local exampleModule = EXAMPLES:FindFirstChild(EXAMPLE_MODULES[selected])
-	if exampleModule ~= nil then
+if bootDecision.mode == "example" then
+	local selected = bootDecision.example :: number
+	-- the SAME silent-failure rule as the scenario branch above: an example that
+	-- was asked for and cannot be found says which piece is missing, rather than
+	-- dropping through to a settings demo that looks like the example booted
+	local exampleModule = if EXAMPLES ~= nil then EXAMPLES:FindFirstChild(bootDecision.exampleModule :: string) else nil
+	if exampleModule == nil then
+		warn(
+			boot_mode.refusal(
+				"Facet_Example",
+				if EXAMPLES == nil
+					then "FacetExamples is not replicated into this place"
+					else `FacetExamples has no module named '{bootDecision.exampleModule}'`
+			)
+		)
+	else
 		local example = require(exampleModule) :: any
 		local built = example.build(Facet, core, {
 			env = env,

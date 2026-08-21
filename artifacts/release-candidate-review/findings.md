@@ -58,8 +58,19 @@ place and re-tests DIR-1/2/3/5 on device.
 
 - INT-1 (fixed, c247f1b): showcase demo host env — proxy-core delegation
   blindness; host-path spec now sweeps all 36 demos.
-- INT-2 (open, diagnosis running): the §5 scenario surface boots silently
-  no-op in the current showcase; fix must include a loud-failure guard.
+- INT-2 (fixed): the §5 scenario surface boots a silent no-op in the current
+  showcase. NOT a scenario-host defect — a BOOT-ORDER one, present since the
+  first commit: `init.client.luau` read `Facet_Showcase` and `return`ed 30,668
+  characters above where it would have read `Facet_Scenario`, and
+  `build_places.sh` bakes that attribute into the showcase place. Measured
+  read-only in the open Edit session (showcase read at char 10,684, scenario at
+  41,352, both attributes set, place stamped `5da7cba+dirty 2026-08-18`); the
+  rename wave had briefly made the baked OLD-name attribute stop matching the
+  branch, which is why the 2026-08-17 canary passed and the 08-18 rebuild ended
+  it. Fix: `examples/gallery/client/boot_mode.luau` decides once, §5 selectors
+  outrank the demo shell, and every unhonourable selector warns with its reason
+  and stamps `Facet_ScenarioState`. `tests/gallery_boot_mode.spec.luau`, 18
+  rows, 7 mutations bite.
 - GAL-DD (open): with-animation + tab-view demos double-dispose at teardown
   (found by the host-path sweep; does not affect mount) — owner: next
   gallery-area writer round; risk: teardown counter corruption/throws.
