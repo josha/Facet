@@ -1060,3 +1060,18 @@ STUDIO.md, root CLAUDE.md.
   measures 2/8 — corrected here, the report left as written. LOWs booked.
 - Review records force-added (b00053a): the four review seats' files are now
   fresh-clone-readable alongside the reports.
+
+## 2026-08-21 (cont. 6) — DIR4 fix round 1 landed + live check
+
+- FIX ROUND 1 LANDED (f19b6cb + 1e76d5d; suite 6892 = 6883 + 9): MAJOR-1
+  guard fires on the real failed-mount path (fabricated-handle harness and
+  the raise export that fed it DELETED); R20 implemented — ButtonY gone from
+  the chrome (TOGGLE_GAMEPAD deleted under R15, ADR-0040 B-14), case 16
+  proves one Y = one menu against the REAL menu scenario; overscan moved to
+  the Dock anchor's padding so all four edges inset at once — the fill
+  offer was ~90px too wide before; warn pinned; N3 bottom-edge recorded as
+  an explicit null (top-anchored bar, unobservable). Scoped re-review
+  dispatched (task-dir4-fix1-rereview).
+- LIVE CHECK (stamp 8bbb1c49-6912872, console row): chips (102,72), right
+  edge 1818 = 1920-102 — symmetric, both edges inside the band (was 1908);
+  boot print now says "Backquote on a keyboard, ButtonL1/ButtonR1 on a pad".
