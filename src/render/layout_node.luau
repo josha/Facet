@@ -41,6 +41,10 @@ local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
 local controlContract = require("../class_contract")
 local schema = require("../blueprint_schema")
+-- the ARRANGEMENT facts (breakpoints, card widths, the content lane's measure):
+-- pure numbers a package cannot move, read here so the display class and the
+-- declaration meet in one place. See `adaptive.LANE_MEASURE`.
+local adaptive = require("../layout/adaptive")
 
 local layout_node = {}
 
@@ -422,6 +426,36 @@ local function toLayoutNode(
 			-- that group sat flush against each other. Accepted-and-ignored, found
 			-- consuming the mechanism (RascalRally S16 v2, 2026-07-31).
 			copy.gap = themeSnapshot.resolveNumber(metrics, g.gap)
+			--[[ THE TEN-FOOT MEASURE, DEFAULTED (B-6e, controller ruling R14,
+				2026-08-21). A `Composition` at ten-foot used to resolve the DESKTOP
+				answer with more pixels — the same arrangement with the content lane
+				simply wider (1316px measured, against the regular-touch tablet's
+				600 that the paradigm matrix verified RIGHT). `sizeClass`,
+				`heightClass` and `columnsFor` all cap at distance; the arrangement
+				that decides the MEASURE did not, and its two knobs (`maxMeasure`,
+				and now the group's own `maxWidth`) sat unset on every shipped site.
+
+				THE NUMBER IS DERIVED, NOT CHOSEN: `adaptive.LANE_MEASURE` (the
+				tablet measure) times `metrics.metricScale` (ADR-0039's
+				`tenFootFloor`, the one factor behind every ten-foot number in this
+				framework). 600 x 1.5 = 900, with neither number written twice, so a
+				re-ruled measure is one edit in `adaptive.laneMeasureFor` and a named
+				sweep goes red.
+
+				AUTHORED WINS, per the package-authority precedent, in both
+				spellings: a group that declares its own `maxWidth`, or a
+				composition that declares `maxMeasure`, has made the measure
+				decision and gets no default beside it. Only a `fill` group is
+				asked — a hug lane's width IS its content and has no share to cap.
+
+				THIS IS THE SEAM because it is where the display class and the
+				declaration are already both in hand: the same loop that resolves
+				every other theme-owned number on the group, on every solve. ]]
+			if copy.maxWidth == nil and (g.sizing == "fill") and props.maxMeasure == nil then
+				copy.maxWidth = adaptive.laneMeasureFor((metrics :: any).metricScale)
+			else
+				copy.maxWidth = themeSnapshot.resolveNumber(metrics, g.maxWidth)
+			end
 			table.insert(groups, copy)
 		end
 		layoutNode.composition = {
@@ -430,6 +464,27 @@ local function toLayoutNode(
 			laneGap = themeSnapshot.resolveNumber(metrics, props.laneGap),
 			groupGap = themeSnapshot.resolveNumber(metrics, props.groupGap),
 			maxMeasure = themeSnapshot.resolveNumber(metrics, props.maxMeasure),
+			--[[ THE TEN-FOOT MEASURE, DEFAULTED (B-6e, controller ruling R14,
+				2026-08-21). A `Composition` at ten-foot used to resolve the DESKTOP
+				answer with more pixels — the same arrangement with the content lane
+				simply wider (1316px measured, against the regular-touch tablet's
+				600 that the paradigm matrix verified RIGHT). `sizeClass`,
+				`heightClass` and `columnsFor` all cap at distance; the arrangement
+				that decides the MEASURE did not, and `maxMeasure` sat unset on
+				every shipped site.
+
+				The ruled number is 900 and it is DERIVED rather than chosen:
+				`adaptive.LANE_MEASURE` (the tablet measure) times
+				`metrics.metricScale` (ADR-0039's `tenFootFloor`, the one factor
+				behind every ten-foot number). Neither is written twice, so a
+				re-ruled measure is one edit in `adaptive.laneMeasureFor`.
+
+				AUTHORED WINS, per the package-authority precedent: a composition
+				that declared `maxMeasure` has made the measure decision itself and
+				gets no default beside it. This is the seam because it is where the
+				display class and the declaration are both already in hand — the
+				same place `maxMeasure`'s own metric name is resolved to px. ]]
+			measureCap = if props.maxMeasure ~= nil then nil else adaptive.laneMeasureFor((metrics :: any).metricScale),
 		}
 	elseif class == "Region" then
 		layoutNode.region = {

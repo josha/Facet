@@ -291,6 +291,40 @@ end
 adaptive.CARD_MIN_WIDTH = 200
 adaptive.CARD_PEEK = table.freeze({ fraction = 0.1, min = 24, max = 56 })
 
+--[[ ── THE CONTENT LANE'S MEASURE (B-6e, controller ruling R14, 2026-08-21) ────
+	The reading width of a `Composition`'s content lane, and the same KIND of fact
+	as `CARD_MIN_WIDTH` above: an arrangement decision, not a theme metric, so it
+	lives here where a caller can predict it and a package cannot move it.
+
+	WHY IT EXISTS. `sizeClass`, `heightClass` and `columnsFor` all cap at distance;
+	the arrangement that decides the MEASURE did not, so a television resolved the
+	DESKTOP answer with more pixels — the same `threeLane` with the main lane
+	simply wider (1316px measured, against the regular-touch tablet's 600). At
+	three metres that is a line nobody can track back to its own start.
+
+	THE BASE IS THE TABLET MEASURE, which the layout paradigm matrix verified RIGHT
+	at 600px (cell B-6c, regular touch, 1024x768). The ten-foot answer is that
+	measure times the DISTANCE FACTOR, which is `themes.snapshot.metricScale` —
+	`tenFootFloor`, the one constant ADR-0039 put behind every ten-foot number, and
+	it arrives as an argument rather than being restated here. So the ruled 900 is
+	600 x 1.5 with neither number written twice, and a re-ruled measure is ONE
+	EDIT: this constant, or the factor, and the sweep that names it goes red.
+
+	NIL AT NEAR DISTANCE, deliberately: this is a distance rule, and a cap that
+	also fired on a wide desktop would be a WIDTH rule wearing a distance rule's
+	name. Every near combo keeps the measure it has. ]]
+adaptive.LANE_MEASURE = 600
+
+-- laneMeasureFor(metricScale) -> px cap, or nil where distance asks for none.
+-- `metricScale` is `themes.snapshot.metricScale(displaySize)`: 1 near, 1.5 at
+-- ten-foot. Anything that is not a number above 1 means "no cap".
+function adaptive.laneMeasureFor(metricScale: number?): number?
+	if type(metricScale) ~= "number" or metricScale ~= metricScale or metricScale <= 1 then
+		return nil
+	end
+	return math.floor(adaptive.LANE_MEASURE * metricScale)
+end
+
 export type CardOpts = {
 	-- is TOUCH the primary way in (never merely "touch is available" — ADAPT-9)
 	touchPrimary: boolean?,

@@ -295,9 +295,38 @@ function gallery.new(app: any): any
 		cellById[potion.id] = gridCells[index]
 	end
 
+	--[[ THE TILE MINIMUM SCALES WITH THE TILE (B-6e's consequence, 2026-08-21).
+
+		`metrics.tileMin` is 96 device px and everything INSIDE a tile is a theme
+		metric, so on a Large display the mark grew to 72px and the button's padding
+		to 18 a side — 108px of content asking for a 96px minimum — while the column
+		minimum stayed exactly where a phone left it. That is
+		`docs/lessons/facet-fixed-px-heights.md`'s class read across the distance
+		axis: a fixed px number holding content that is not fixed.
+
+		It went unreported until the framework capped the ten-foot content lane
+		(controller ruling R14): the lane went from 1292px to 900, the columns
+		narrowed with it, and the tile finally ran 7px past its own box on all 17
+		visible cells. The cap did not cause this — it stopped the extra pixels from
+		hiding it, which is what the always-on overflow sweep is for.
+
+		So the minimum takes the same factor its contents take: the environment's own
+		`metricScale` (ADR-0039's one ten-foot number). At near distance it is 1 and
+		this is byte-identical to the literal it replaces. ]]
+	-- OWNED (RR-8): a memo the screen builds per mount and nobody disposes is one
+	-- leaked memo per build cycle, which `cartwheel_spec`'s registry-neutrality
+	-- case counts. `app.scope` is the app's own, and it caught this immediately.
+	local tileMin = app.scope:own(core:memo(function(use)
+		local m = use(app.env:get("themeMetrics"))
+		local scale = if type(m) == "table" and type((m :: any).metricScale) == "number"
+			then (m :: any).metricScale
+			else 1
+		return math.floor(metrics.tileMin * scale)
+	end))
+
 	local gridForm = UI.Grid({
 		id = "Tiles",
-		minColumnWidth = metrics.tileMin,
+		minColumnWidth = tileMin,
 		gap = "m",
 		children = {
 			UI.ForEach({

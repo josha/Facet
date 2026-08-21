@@ -185,7 +185,7 @@ prop. (a) is one memo; (b) removes the class of defect.
 | **B-6b** | at compact touch landscape | `threeLane`, lead 200 · main 420 · trail 200 | the short, wide offer | **RIGHT** |
 | **B-6c** | at regular touch tablet | `threeLane`, main 600 | `threeLane` | **RIGHT** |
 | **B-6d** | at desktop pointer | `threeLane`, main 1176 | `threeLane` | **RIGHT** |
-| **B-6e** | **at ten-foot gamepad** | `threeLane`, **main lane 1316 px wide**, `fallback = false`. Identical to the desktop answer with more pixels | a distance profile should cap the measure the way `sizeClass`, `heightClass` and (in the pure function) `columnsFor` all do. `maxMeasure` and the per-arrangement `eligible` gate both exist and are both unset by default | **AUTHORED-ONLY** |
+| **B-6e** | **at ten-foot gamepad** | `threeLane`, **main lane 1316 px wide**, `fallback = false`. Identical to the desktop answer with more pixels | a distance profile should cap the measure the way `sizeClass`, `heightClass` and (in the pure function) `columnsFor` all do. `maxMeasure` and the per-arrangement `eligible` gate both exist and are both unset by default | **AUTHORED-ONLY** — **RE-VERDICTED 2026-08-21: RIGHT, with citation.** Controller ruling R14: the measure caps at ten-foot to **900 = the regular-touch tablet measure (600, cell B-6c) x the 1.5 distance factor**, the same proportion-equality doctrine every ten-foot number rides. Shipped as the DEFAULT on a `fill` group's new `maxWidth`; authored `maxWidth`/`maxMeasure` win. The lane re-absorbs what it can and the band centres. Director veto open at batched §13h (wave LAYOUT-FIX) |
 | **B-6f** | at hybrid | `threeLane`, main 856 | `threeLane` | **RIGHT** |
 | **B-7** | can a `Composition` be silently non-adaptive? | **no** — `arrangements` and `groups` are `required = true` (`blueprint_schema.luau:1607-1626`), and every one of the 8 shipped sites declares 2–3 rungs. Nothing is reactive on the class, deliberately: *"a Composition decides FOR the author from the box it was given"* (`blueprint_schema.luau:1597-1602`) | exactly this — it is the one primitive in the family that cannot fail the way A-2 fails | **RIGHT** |
 
@@ -359,13 +359,14 @@ once per affected combo-group.
 count AT THE ANCHOR and is not rewritten. Since it was taken, three WRONG cells have
 been re-verdicted RIGHT in place above (A-2, B-1, B-4) and one AUTHORED-ONLY cell
 (B-3) is answered by B-1's fix — on top of the two TEN-FOOT re-verdicts (B-2e, E-3)
-and CAROUSEL's (F-5) already annotated. Seven of the nineteen non-RIGHT cells are
-therefore closed, so read against the annotations the live score is **49 RIGHT of
-61**. The twelve still open are dispositioned one by one in the LAYOUT-FIX addendum
-to `fixes.md`: eleven CONTESTED — eight of them behind an extraction-locked file,
-two genuinely new capability, and exactly one (B-6e) behind nothing but a
-director's number — plus F-4, whose own stated minimum ("the solver's finding
-should escalate") turns out to be shipped already in `overflow_sweep.spec`.
+and CAROUSEL's (F-5) already annotated. EIGHT of the nineteen non-RIGHT cells are
+therefore closed, so read against the annotations the live score is **50 RIGHT of
+61**. The eleven still open are dispositioned one by one in the LAYOUT-FIX addendum
+to `fixes.md`: ten CONTESTED — eight of them behind an extraction-locked file and
+two genuinely new capability — plus F-4, whose own stated minimum ("the solver's
+finding should escalate") turns out to be shipped already in `overflow_sweep.spec`.
+The one cell that was blocked by nothing but a number, B-6e, was ruled on
+2026-08-21 (controller ruling R14) and shipped in the same wave.
 
 | verdict | cells | share |
 |---|---|---|
@@ -420,6 +421,7 @@ large-screen answer.
 | **ADAPT-L7** | the default root policy ignores `deviceSafeInsets`, so a default surface places content **under a physical cutout** unless the author picks `deviceSafeContent` — which is a per-edge superset and could not shrink anyone's content rect | **medium-high** | medium (see device list #1) |
 | **ADAPT-L8** — annotation, appended 2026-08-21 | **FIXED by wave LAYOUT-FIX at the minimum this row named** — "the finding an `HStack` files at the same width". The clamp itself was right and is unchanged; only the silence is gone. Narrowed to a column holding a DECLARED `fixed` width, because the always-on sweep answered the first version within one run: a shipped spec table squeezes 168px at 320x640 under `+14` and every cell in it is content text that wraps, which cell B-5 had already measured and called RIGHT | — |
 | **ADAPT-L8** | `GridRow` **silently squeezes past declared fixed cell widths** at compact (200 px → 101 px at 320) with **zero** diagnostics — the opposite failure mode from `HStack`'s, in the same primitive family | **medium** | high |
+| **B-6e** — annotation, appended 2026-08-21 | **FIXED by wave LAYOUT-FIX under controller ruling R14.** This row's expected column asked for a distance cap "the way `sizeClass`, `heightClass` and `columnsFor` all do", and that is exactly what landed, including the derivation: the number is `adaptive.LANE_MEASURE` (600, this matrix's own verified-RIGHT tablet measure at B-6c) times `themes.snapshot.metricScale` (ADR-0039's one `tenFootFloor`), so 900 is written nowhere and a re-ruling is one line. The row named `maxMeasure` and `eligible` as the two unset knobs; the honest seam turned out to be neither — `maxMeasure` caps the whole BOX and would have narrowed the hug lanes with it, so the fill group gained `maxWidth`, `minWidth`'s exact twin, and the ten-foot value is its default. **The cap found a live defect on the way in**: Cartwheel's potion tiles had a fixed 96px column minimum holding contents that scale 1.5x at distance, and the extra lane width had been hiding it | — |
 | **ADAPT-L9** — annotation, appended 2026-08-20 | **FIXED by wave TEN-FOOT.** The row measured `gap = "m"` at 16 px on a 390 px phone and 16 px at ten-foot 1920×1080; it is 16 and **24** now, and the case that says so drives it through a real solve rather than through the snapshot. The row's own framing was exactly right — "the specific missing rung behind Part 1's ADAPT-8 director call" — and the director ruled BUILD | — |
 | **ADAPT-L9** | spacing tokens are combo-invariant: a television lays out on a 390 px phone's 24 px page margin and 16 px gutter while its type is already 1.5× larger. The specific missing rung behind Part 1's ADAPT-8 director call | **medium** | high |
 | **ADAPT-L10** | no scroll snapping at HEAD, so the compact-touch card-carousel paradigm is unreachable even by an author (Part 1's ADAPT-17, re-confirmed) | **medium** | high |

@@ -568,7 +568,7 @@ RIGHT, so **19 non-RIGHT**. Every one appears.
 | **B-2e** the ten-foot lane cap (ADAPT-L1) | WRONG → **re-verdicted RIGHT** | **RESOLVED BEFORE THIS WAVE** | wave TEN-FOOT; re-measured here on the default path at 5 lanes against a desktop's 9 |
 | **B-3** 0 of 35 `Grid` sites bind lanes reactively | AUTHORED-ONLY | **RESOLVED by ADAPT-L2** | There is nothing left to bind: the default now answers. §2 re-verdicts all 35 |
 | **B-4** `GridRow` squeezes past declared fixed widths in silence (ADAPT-L8) | WRONG (medium) | **FIXED** | The squeeze is REPORTED, narrowed to a declared `fixed` width. Geometry unchanged and re-pinned at the audit's own five numbers |
-| **B-6e** ten-foot `Composition` main lane is 1316px | AUTHORED-ONLY | **CONTESTED — director** | The only cell here NOT blocked by a lock, and it is worth saying so. The mechanism is one line: `render/layout_node.luau:432` already resolves `maxMeasure` and could default it from the distance fact the metrics now carry. What is missing is the NUMBER, and "how wide may a content lane be at three metres" is a legibility judgement, not an arithmetic one — the audit's own device rows 3 and 4, and the precedent is ADAPT-8, which the director ruled on rather than an implementer choosing. `adaptive.BREAKPOINTS.wide` is the candidate that adds no new number; adopting it moves every ten-foot composition and every five-view gate artifact, which is a product change this wave was not asked to make |
+| **B-6e** ten-foot `Composition` main lane is 1316px | AUTHORED-ONLY | **RULED, THEN FIXED** (controller ruling R14, 2026-08-21 — see §7) | This row was written CONTESTED, as the one cell blocked by nothing but a number. The number was ruled mid-wave: **900 = the regular-touch tablet measure (600, cell B-6c) x the 1.5 distance factor**, the same proportion-equality doctrine every ten-foot number rides, and derived rather than chosen so a re-ruling is one line. Shipped as the DEFAULT on a `fill` group's new `maxWidth`, with a director veto open at batched §13h |
 | **C-1** ZStack children default to the top-left corner (ADAPT-L11) | WRONG (medium) | **CONTESTED** | The default is in the solver's zstack arrange (`solver.luau:3029`, locked) and moving it re-places children on 148 shipped `ZStack` sites. The audit's own device row 10 asks the director whether it reads as a mistake at all |
 | **C-3** no compact answer for overlaid content | MISSING | **CONTESTED** | Part 1's ADAPT-25 seen from the layout side, and contested there for the same reason: there is no `UI.Sheet` and `presentModal` has no size-driven form. A new presentation primitive, not a connection |
 | **D-3** a `ViewThatFits` ladder never steps down for typography when the cross axis is free (ADAPT-L12) | WRONG (medium) | **CONTESTED** | `solver.chosenCandidate` (locked), and the audit is explicit that this is not a bug in contract 7 but "the boundary of what a width-plus-cut test can see". Closing it means a NEW fit criterion — a height budget a rung can fail — which is new machinery with its own authoring surface |
@@ -584,17 +584,17 @@ RIGHT, so **19 non-RIGHT**. Every one appears.
 
 | disposition | cells |
 |---|---|
-| **FIXED** | **4** (A-2, B-1, B-3, B-4) |
+| **FIXED** | **5** (A-2, B-1, B-3, B-4, B-6e) |
 | RESOLVED before this wave (TEN-FOOT, CAROUSEL) | 3 (B-2e, E-3, F-5) |
 | ALREADY SHIPPED (the cell's own stated minimum) | 1 (F-4) |
-| **CONTESTED** (with the exact blocker) | **11** |
+| **CONTESTED** (with the exact blocker) | **10** |
 | **total** | **19 cells**, which is 61 − 42 RIGHT |
 
-Of the eleven contested, **eight are blocked by an extraction-locked file** —
+Of the ten contested, **eight are blocked by an extraction-locked file** —
 `solver.luau` (A-4, A-5, C-1, D-3, F-1, F-2), `renderer.luau` (F-1, G-4, G-5) and
 `presenter.luau` (A-5, G-4). Two are genuinely new capability (C-3, D-3's height
-budget). **Exactly one — B-6e — is blocked by nothing but a director's number**,
-and it is the cheapest unblocked item on this list at one line.
+budget). The eleventh — B-6e — was the one blocked by nothing but a director's
+number, and that number arrived mid-wave (§7).
 
 ## 2. The 35 `UI.Grid` sites, re-verdicted
 
@@ -670,10 +670,10 @@ most. `8fd4779` is the correction and says so.
 
 ## 6. Carried to the director
 
-1. **B-6e's number.** How wide may a `Composition`'s main lane be at three metres?
-   One line implements whatever the answer is; `BREAKPOINTS.wide` is the candidate
-   that introduces no new number, and adopting it moves every ten-foot composition
-   and every five-view gate artifact.
+1. **B-6e's number is RULED and SHIPPED** (R14) — see §7. What is carried is the
+   director's veto on it, booked as batched Studio row §13h: whether a 900px line
+   reads as one line at three metres, and whether the slack the cap frees reads as
+   deliberate margin or as a screen that failed to fill.
 2. **ADAPT-L5's direction, now that the corpus has voted.** §3 above says pages
    overflow and rows do not. If the implicit page scroll host is wanted, it is
    renderer work behind the `rect_pass` extraction that row already owes.
@@ -682,3 +682,49 @@ most. `8fd4779` is the correction and says so.
    default, plus a director's eye on 148 sites), and G-4/G-5 (the root policy's
    inset source and a title-safe full-bleed word) are each one small change behind
    one big lock.
+
+## 7. B-6e, ruled and shipped (controller ruling R14, 2026-08-21)
+
+**The ruling.** The `Composition` content-lane measure caps at ten-foot to **900px
+= the regular-touch tablet measure (600 — this matrix's own verified-RIGHT B-6c)
+times the 1.5 distance factor**. Same proportion-equality doctrine as every other
+ten-foot number (ADR-0039), and the director's veto is open at batched §13h.
+
+**It is DERIVED, which is the half that makes a re-ruling cheap.** `900` appears
+nowhere: `adaptive.LANE_MEASURE` is 600 and the factor is read from
+`themes.snapshot.metricScale`, the one `tenFootFloor` behind the type ladder, the
+metric ladder and the hit floor. A re-ruled measure is one edit and a red spec row
+naming the new number.
+
+**The seam is NOT the one the audit named, and the correction matters.** The row
+nominated `maxMeasure` and the per-arrangement `eligible` gate. `maxMeasure` caps
+the whole BOX and every lane then divides what is left — so capping at 900 would
+have narrowed the HUG lanes with it, giving the content lane 452px, which is
+*narrower than the tablet's* and the opposite of the intent. The measure is a
+property of a `fill` lane, so the fill group gained **`maxWidth`**, `minWidth`'s
+exact twin, and the ruled value is its ten-foot default. Authored wins in both
+spellings (a group's own `maxWidth`, or `maxMeasure` on the composition), each
+proved by a mutation.
+
+**What the cap frees, the arrangement re-absorbs, and what is left centres the
+band.** Other fill lanes water-fill up to their own caps; a `threeLane` with one
+fill lane has nothing to re-absorb it, so the 196px on each side becomes the
+centring offset the resolution already carried for `maxMeasure`. Parking a capped
+band against the left edge would have been a worse answer than the one it replaced.
+
+**The consequence found rather than claimed, again, and again by the sweep.**
+Narrowing the ten-foot lane made Cartwheel's potion tiles overflow by 7px on all 17
+visible cells — and the cause was NOT the cap. `metrics.tileMin` is a literal 96
+device px while everything inside a tile is a theme metric, so at ten-foot the mark
+grew to 72 and the button's padding to 18 a side: 108px of content asking for a
+96px minimum. That is `docs/lessons/facet-fixed-px-heights.md`'s class read across
+the DISTANCE axis, it had been there since the display class was added, and the
+extra lane width was hiding it. The fixture now takes the same `metricScale` its
+contents take — byte-identical at near distance — and says so at the call site.
+
+**Rascal Rally moves, deliberately, and only at ten-foot.** `ResultsBody` is the one
+`UI.Composition` the game ships and it declared a television display class three
+commits before this wave. Its field lane goes 992 -> 900 on a television and is
+byte-identical on every near viewport, both asserted at the same 1920x1080 rect so
+the two cases differ in exactly one fact. Disabling the framework default reddens
+the ten-foot case and leaves the near case green.

@@ -1647,7 +1647,9 @@ class("Composition", {
 			channel = "layout",
 			required = true,
 			doc = "the groups a lane holds: { id, lane (affinity), sizing = hug|fill, weight?, "
-				.. "place = start|center|end|0..1, minWidth? (px or metric name), gap? }",
+				.. "place = start|center|end|0..1, minWidth? (px or metric name), maxWidth? (px or "
+				.. "metric name — the MEASURE's ceiling on a fill lane; defaults at ten-foot to "
+				.. "`adaptive.LANE_MEASURE x metricScale`), gap? }",
 		}),
 		laneGap = p({
 			types = { "number", "metric" },

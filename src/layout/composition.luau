@@ -143,6 +143,22 @@ export type GroupDecl = {
 	-- the right edge on the round where the middle column has nothing to say.
 	holdsLane: boolean?,
 	minWidth: number?, -- resolved px; a fill lane under this is illegal
+	--[[ THE MEASURE'S CEILING, and the exact twin of `minWidth` above it (B-6e,
+		controller ruling R14, 2026-08-21). A `fill` group's lane width is a SHARE of
+		the slack, so on a very wide offer it is simply whatever is left — which at
+		three metres is a reading line nobody can track back to its own start: the
+		layout paradigm matrix measured a ten-foot main lane at 1316px against the
+		regular-touch tablet's 600.
+
+		`maxWidth` caps that share. What it frees is offered to the OTHER fill lanes,
+		and what none of them will take becomes the resolution's centring offset
+		rather than being spent on width.
+
+		IT IS NOT `maxMeasure`. That caps the whole BOX — "full width, but no wider
+		than this" — and every lane then divides what is left, hug lanes included.
+		This caps THE MEASURE: the reading width of one fill lane, with the hug lanes
+		left exactly the widths their content asked for. ]]
+	maxWidth: number?, -- resolved px; a fill lane never exceeds this
 	gap: number?, -- between this group's regions
 }
 
@@ -200,6 +216,21 @@ export type Declaration = {
 	laneGap: number?, -- between lanes
 	groupGap: number?, -- between groups inside a lane
 	maxMeasure: number?, -- cap both axes of the box we resolve in, and centre
+	--[[ THE CONTENT LANE'S OWN CAP (B-6e, controller ruling R14, 2026-08-21), and
+		it is a DIFFERENT question from `maxMeasure` rather than a second spelling
+		of it. `maxMeasure` caps the BOX — "full width, but no wider than this" —
+		and every lane divides what is left. `measureCap` caps THE MEASURE: the
+		reading width of a `fill` lane, which is the number a player's eye actually
+		tracks, and it leaves the hug lanes exactly the widths their content asked
+		for.
+
+		It is not a public prop. It arrives already in px from the caller that
+		knows the display class (`render/layout_node.luau`, from
+		`adaptive.laneMeasureFor(metrics.metricScale)`), the same way `floorOf` and
+		`expandGutter` arrive as numbers with the theme's NAMES left outside this
+		module. An author who declared `maxMeasure` has made the measure decision
+		themselves and no default is set beside it. ]]
+	measureCap: number?,
 }
 
 export type Offer = { w: number, h: number }
@@ -510,6 +541,7 @@ end
 local FLOOR_KEYS: { [string]: boolean } = { lines = true, role = true, targets = true }
 local GROUP_KEYS: { [string]: boolean } = {
 	id = true,
+	maxWidth = true,
 	lane = true,
 	span = true,
 	sizing = true,
@@ -748,7 +780,7 @@ function composition.normalize(decl: any): Declaration
 			-- as the composition (no `minWidth` to fail, no fill share to weigh) and
 			-- as tall as its content (no slack to place in). Slack belongs to the
 			-- lane band, which is rule 6.
-			for _, field in { "sizing", "minWidth", "place", "weight", "align" } do
+			for _, field in { "sizing", "minWidth", "maxWidth", "place", "weight", "align" } do
 				if (g :: any)[field] ~= nil and not (field == "sizing" and g.sizing == "hug") then
 					fail(
 						`group '{g.id}' spans, so '{field}' means nothing to it — a spanning row is the `
@@ -762,6 +794,17 @@ function composition.normalize(decl: any): Declaration
 				`group '{g.id}' needs a lane affinity (the name an arrangement's lanes absorb) or `
 					.. 'span = "above" | "below" (its own full-width row in every arrangement)'
 			)
+		end
+		if g.maxWidth ~= nil and type(g.maxWidth) ~= "string" then
+			if type(g.maxWidth) ~= "number" or g.maxWidth ~= g.maxWidth or g.maxWidth <= 0 then
+				fail(`group '{g.id}' maxWidth is a positive px cap on a fill lane's reading width`)
+			end
+			if type(g.minWidth) == "number" and (g.maxWidth :: number) < (g.minWidth :: number) then
+				fail(
+					`group '{g.id}' declares maxWidth {g.maxWidth} below its own minWidth {g.minWidth} — `
+						.. "a lane cannot be both illegal under one number and capped beneath it"
+				)
+			end
 		end
 		local sizing = g.sizing or "hug"
 		if not SIZINGS[sizing] then
@@ -818,6 +861,9 @@ function composition.normalize(decl: any): Declaration
 			-- the whole of this feature's off-path cost was one always-present key.
 			holdsLane = if g.holdsLane == true then true else nil,
 			minWidth = g.minWidth,
+			-- nil when it was not declared, for the reason `holdsLane` states above:
+			-- an always-present key costs +2.5% per resolve, measured
+			maxWidth = g.maxWidth,
 			gap = g.gap,
 		}
 		byGroup[g.id] = norm
@@ -1023,6 +1069,10 @@ function composition.normalize(decl: any): Declaration
 	if maxMeasure ~= nil and type(maxMeasure) ~= "string" and (type(maxMeasure) ~= "number" or maxMeasure <= 0) then
 		fail("`maxMeasure` is a positive px cap on both axes of the box the composition resolves in")
 	end
+	local measureCap = (decl :: any).measureCap
+	if measureCap ~= nil and (type(measureCap) ~= "number" or measureCap ~= measureCap or measureCap <= 0) then
+		fail("`measureCap` is a positive px cap on the reading width of a `fill` lane")
+	end
 
 	local normalized: any = {
 		__normalized = true,
@@ -1033,6 +1083,7 @@ function composition.normalize(decl: any): Declaration
 		laneGap = (decl :: any).laneGap,
 		groupGap = (decl :: any).groupGap,
 		maxMeasure = maxMeasure,
+		measureCap = measureCap,
 	}
 	return table.freeze(normalized) :: Declaration
 end
@@ -1059,6 +1110,7 @@ type Attempt = {
 	rule: string?,
 	detail: string?,
 	collisions: { { a: string, b: string, dx: number, dy: number } }?,
+	capped: boolean?,
 	used: { w: number, h: number },
 	lanes: { any },
 	spans: { any },
@@ -1107,9 +1159,14 @@ local function solveArrangement(
 		groupOf[g.id] = g
 	end
 	local groupMinWidth: { [string]: number } = {}
+	local groupMaxWidth: { [string]: number? } = {}
 	local groupGapOf: { [string]: number } = {}
 	for _, g in decl.groups do
 		groupMinWidth[g.id] = px(g.minWidth) or 0
+		-- B-6e: the measure's ceiling. `px` degrades an unresolved metric NAME to
+		-- "no cap" exactly as `minWidth` degrades to "no minimum" — a string in an
+		-- arithmetic slot must never reach a layout pass.
+		groupMaxWidth[g.id] = px((g :: any).maxWidth)
 		groupGapOf[g.id] = px(g.gap) or 0
 	end
 
@@ -1215,6 +1272,7 @@ local function solveArrangement(
 		floor: { [string]: number },
 		groupNeed: { [string]: number },
 		usedW: number,
+		capped: boolean?,
 	}
 
 	-- regions whose form filled the offer inside a HUG lane (see the note in
@@ -1310,6 +1368,8 @@ local function solveArrangement(
 		end
 
 		local laneW: { number } = {}
+		-- which fill lanes have reached `measureCap` and are out of the water-fill
+		local laneCapped: { [number]: boolean } = {}
 		local widthFail: string? = nil
 		local slack = offerW - hugTotal - gapsW
 		--[[ FRACTIONAL FILL SHARES ARE A KNOWN, SCOPED DEFECT — not fixed here.
@@ -1333,14 +1393,89 @@ local function solveArrangement(
 				roundPx(offerW)
 			)
 		end
+		--[[ THE MEASURE CAP, AND THE SLACK IT FREES (B-6e, ruling R14, 2026-08-21).
+
+			A `fill` lane's width is a SHARE of the slack, and a share of a
+			television is a reading line nobody can track back to its own start:
+			the audit measured a ten-foot main lane at 1316px against the
+			regular-touch tablet's 600, which is the desktop answer with more
+			pixels rather than a distance answer at all.
+
+			`measureCap` caps that share. What it frees is offered back to the
+			OTHER fill lanes — "the lanes re-absorb the slack per the arrangement's
+			own rules" — by water-filling: every uncapped fill lane divides the
+			freed width by its own weight, bounded by the cap in its turn, until
+			nothing is left to give or every lane is at the cap. Bounded by the
+			lane count, so an arrangement of N lanes costs at most N passes.
+
+			WHAT IS STILL LEFT OVER IS NOT SPENT ON WIDTH. It becomes the centring
+			offset the resolution already carries for `maxMeasure` (see `resolve`),
+			because widening a lane past the ruled measure is the thing the cap
+			exists to prevent, and parking a capped band against the left edge is a
+			worse answer than the one it replaced. ]]
+		-- A LANE'S CAP IS THE TIGHTEST ITS OWN FILL GROUPS ASKED FOR. Groups share a
+		-- lane's width, so two caps in one lane are one lane cap, and the smaller is
+		-- the only reading that honours both.
+		local laneCap: { [number]: number } = {}
+		for i, ids in laneGroups do
+			for _, gid in ids do
+				local g = groupOf[gid]
+				local cap = if g ~= nil and g.sizing == "fill" then groupMaxWidth[gid] else nil
+				if cap ~= nil then
+					laneCap[i] = if laneCap[i] == nil then cap else math.min(laneCap[i], cap)
+				end
+			end
+		end
+		local anyCap = next(laneCap) ~= nil
+		local function fillShares(pool: number)
+			local remaining = math.max(0, pool)
+			local openWeight = fillWeightTotal
+			for _ = 1, #laneGroups do
+				if remaining <= 0 or openWeight <= 0 then
+					break
+				end
+				local spent, closedWeight = 0, 0
+				for i in laneGroups do
+					if not active[i] or laneFill[i] <= 0 or laneCapped[i] then
+						continue
+					end
+					local cap = laneCap[i]
+					local share = (laneW[i] or 0) + remaining * (laneFill[i] / openWeight)
+					if cap ~= nil and share > cap then
+						spent += cap - (laneW[i] or 0)
+						laneW[i] = cap
+						laneCapped[i] = true
+						closedWeight += laneFill[i]
+					else
+						spent += share - (laneW[i] or 0)
+						laneW[i] = share
+					end
+				end
+				remaining -= spent
+				openWeight -= closedWeight
+				if closedWeight <= 0 then
+					break
+				end
+			end
+		end
 		for i in laneGroups do
 			if not active[i] then
 				laneW[i] = 0
 				continue
 			end
 			if laneFill[i] > 0 and fillWeightTotal > 0 then
-				local share = math.max(0, slack) * (laneFill[i] / fillWeightTotal)
-				laneW[i] = math.max(share, 0)
+				laneW[i] = 0
+			else
+				laneW[i] = laneIntrinsic[i]
+			end
+		end
+		fillShares(slack)
+		for i in laneGroups do
+			if not active[i] then
+				continue
+			end
+			if laneFill[i] > 0 and fillWeightTotal > 0 then
+				laneW[i] = math.max(laneW[i], 0)
 				if widthFail == nil and laneW[i] < laneMinWidth[i] then
 					widthFail = string.format(
 						"lane %d (%s) resolved to %dpx but its group declares a %dpx minimum",
@@ -1350,8 +1485,6 @@ local function solveArrangement(
 						roundPx(laneMinWidth[i])
 					)
 				end
-			else
-				laneW[i] = laneIntrinsic[i]
 			end
 		end
 		-- THE SPANNING BAND, before the lanes: a span row is the composition's full
@@ -1537,6 +1670,10 @@ local function solveArrangement(
 			floor = floors,
 			groupNeed = groupNeed,
 			usedW = usedW,
+			-- B-6e: did a lane cap actually bite in this attempt? `resolve` centres
+			-- on it, and asking the ATTEMPT rather than re-deriving from the
+			-- declaration is what keeps one owner for the arithmetic.
+			capped = anyCap,
 			spanNeed = spanNeed,
 			spanY = spanY,
 			spanActive = spanActive,
@@ -2133,6 +2270,9 @@ local function solveArrangement(
 		collisions = collisions,
 		-- the flow's own extent: every spanning band plus the tallest lane
 		used = { w = p.usedW, h = p.spanTotal + laneUsedH },
+		-- B-6e: did a lane cap bite? `resolve` centres the band on it, and asking
+		-- the pass rather than re-deriving from the declaration keeps one owner
+		capped = p.capped,
 		lanes = lanes,
 		spans = spans,
 		groups = groups,
@@ -2271,6 +2411,21 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			table.insert(unshown, { id = r.id, reason = "dropped", route = "overflow" })
 		elseif res.elided and r.recover ~= nil and r.recover ~= "none" then
 			table.insert(unshown, { id = r.id, reason = "elided", route = r.recover :: string })
+		end
+	end
+
+	--[[ A CAPPED MEASURE IS CENTRED, not parked against the left edge (B-6e,
+		ruling R14). `maxMeasure` already promises "cap and centre", and the lane
+		cap is the same promise made about the measure rather than about the box —
+		so it reaches the SAME offset the resolution already carries, computed from
+		what the chosen arrangement actually used. It fires only when the band came
+		out narrower than its offer, which on every near combo it does not: the cap
+		is nil there, the fill lanes spend the whole slack, and `originX` keeps the
+		value `maxMeasure` gave it (usually 0). ]]
+	if attempt ~= nil and (attempt :: any).capped == true then
+		local used = if type(attempt.used) == "table" then attempt.used.w else nil
+		if type(used) == "number" and used == used and used < offerW then
+			originX += math.floor((offerW - used) / 2)
 		end
 	end
 

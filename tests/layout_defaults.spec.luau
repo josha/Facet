@@ -684,3 +684,181 @@ describe("ADAPT-L5 — overflow is not silent, and says the same thing at every 
 		expect(UI.VStack({ id = "V", overflow = "clip", children = {} }).props.clipChildren).toBe(true)
 	end)
 end)
+
+--[[ ═══ B-6e · the ten-foot measure, ruled (controller ruling R14, 2026-08-21) ═══
+
+	A `Composition` at ten-foot resolved the DESKTOP answer with more pixels: the
+	same `threeLane`, with the main lane simply wider — 1316px in the audit's own
+	reproduction, against the regular-touch tablet's 600 (cell B-6c, verified
+	RIGHT). `sizeClass`, `heightClass` and `columnsFor` all cap at distance; the
+	arrangement that decides the MEASURE — the reading width of the content lane —
+	did not, and `maxMeasure` sat unset on every shipped site.
+
+	THE NUMBER IS RULED AND IT IS DERIVED, not chosen: **900 = 600 x 1.5**, the
+	tablet measure times the ten-foot distance factor. That is the same
+	proportion-equality doctrine every ten-foot number in this framework rides
+	(ADR-0039): the factor is `themes.snapshot.metricScale`'s own `tenFootFloor`,
+	read rather than restated, and the base is `adaptive.LANE_MEASURE`. Neither
+	number is duplicated, so a re-ruled measure is one line here and a named sweep.
+
+	IT IS A DEFAULT AND AUTHORED WINS. A composition that declares `maxMeasure` has
+	made the measure decision itself and is not second-guessed — the package
+	authority precedent, applied to an arrangement fact.
+]]
+describe("B-6e — the ten-foot Composition measure caps at the ruled 900", function()
+	local FILL = { type = "fill", weight = 1 }
+
+	local function compositionScreen(maxMeasure: number?, mainMaxWidth: number?): any
+		local props: { [string]: any } = {
+			id = "Sum",
+			arrangements = { "threeLane", "twoLane", "column" },
+			laneGap = "m",
+			groupGap = "s",
+			width = FILL,
+			height = FILL,
+			groups = {
+				{ id = "lead", lane = "lead", sizing = "hug", place = "center" },
+				{
+					id = "main",
+					lane = "main",
+					sizing = "fill",
+					weight = 1,
+					minWidth = 240,
+					maxWidth = mainMaxWidth,
+				},
+				{ id = "trail", lane = "trail", sizing = "hug", place = "center" },
+			},
+			children = {
+				UI.Region({
+					id = "Hero",
+					group = "lead",
+					rank = 3,
+					children = { UI.Box({ id = "HeroBox", width = FIXED(200), height = FIXED(120) }) },
+				}),
+				UI.Region({
+					id = "Field",
+					group = "main",
+					rank = 2,
+					sizing = "fill",
+					children = { UI.Box({ id = "FieldBox", width = FILL, height = FIXED(300) }) },
+				}),
+				UI.Region({
+					id = "Ctas",
+					group = "trail",
+					rank = 1,
+					children = { UI.Box({ id = "CtaBox", width = FIXED(200), height = FIXED(80) }) },
+				}),
+			},
+		}
+		if maxMeasure ~= nil then
+			props.maxMeasure = maxMeasure
+		end
+		return UI.Screen({ id = "S", children = { UI.Composition(props) } })
+	end
+
+	local function resolveAt(combo: Combo, maxMeasure: number?): (any, any)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = combo.w, h = combo.h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("displaySize", combo.display)
+		local root = mountLib.mount(core, compositionScreen(maxMeasure))
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+		controller.initialRender()
+		return adapter, controller.compositionAt("/S/Sum")
+	end
+
+	local function mainLane(resolution: any): number
+		for _, lane in resolution.lanes do
+			-- the dump flattens a lane's affinity list to a joined string
+			local affinities = if type(lane.affinities) == "table"
+				then table.concat(lane.affinities, "+")
+				else tostring(lane.affinities)
+			if affinities == "main" then
+				return lane.rect.w
+			end
+		end
+		return -1
+	end
+
+	it("the ten-foot main lane is 900, where it was the desktop answer with more pixels", function()
+		local _, tenFoot = resolveAt(COMBOS[5])
+		expect(tenFoot.arrangement).toBe("threeLane")
+		expect(mainLane(tenFoot)).toBe(900)
+	end)
+
+	it("...and the derivation holds: it IS the tablet measure times the distance factor", function()
+		-- the acceptance is a PROPORTION, not a literal — the same shape ADR-0039
+		-- set for every other ten-foot number. If the tablet measure moves, or the
+		-- factor is re-ruled, this stays true and the literal above is the one edit
+		local adaptive = require("../src/layout/adaptive")
+		local snapshot = require("../src/themes/snapshot")
+		expect((adaptive :: any).LANE_MEASURE * snapshot.metricScale("Large")).toBe(900)
+		-- ...and a near display takes no cap at all, which is what keeps every
+		-- other combo byte-identical
+		expect((adaptive :: any).laneMeasureFor(snapshot.metricScale("Medium"))).toBeNil()
+	end)
+
+	it("THE OTHER FIVE COMBOS DO NOT MOVE", function()
+		-- the null hypothesis, and the reason this is a distance rule rather than a
+		-- width rule: a 1600px desktop keeps the 1168px measure it had. The compact
+		-- phone has no main lane to report (it resolves `column`), and saying so is
+		-- the point — a cap that reached it would be a width rule wearing a
+		-- distance rule's name
+		local widths: { string } = {}
+		for index, combo in COMBOS do
+			if index == 5 then
+				continue
+			end
+			local _, resolution = resolveAt(combo)
+			table.insert(widths, `{resolution.arrangement}:{mainLane(resolution)}`)
+		end
+		expect(table.concat(widths, " ")).toBe("column:-1 threeLane:412 threeLane:592 threeLane:1168 threeLane:848")
+	end)
+
+	it("the lanes re-absorb the slack and the band is CENTRED, not parked left", function()
+		-- 200 lead + 24 + 900 main + 24 + 200 trail = 1348 inside a 1740 content
+		-- box, so 196px of slack on each side. A capped measure that left the band
+		-- against the left edge would be a worse answer than the one it replaced
+		local adapter, tenFoot = resolveAt(COMBOS[5])
+		local hero = adapter.node("/S/Sum/Hero").rect
+		local ctas = adapter.node("/S/Sum/Ctas").rect
+		local screen = adapter.node("/S/Sum").rect
+		local leftGap = hero.x - screen.x
+		local rightGap = (screen.x + screen.w) - (ctas.x + ctas.w)
+		expect(`{leftGap}/{rightGap}`).toBe("196/196")
+		expect(tenFoot.used.w).toBe(1348)
+	end)
+
+	it("AUTHORED WINS: a declared `maxMeasure` is not second-guessed at ten-foot", function()
+		--[[ the package-authority precedent. A composition that named its own
+			measure has made the decision, and the default does not fire beside it.
+
+			THE NUMBER HAS TO BE ABOVE THE CAP OR THE CASE PROVES NOTHING, which is
+			what a mutation found rather than a reading: at `maxMeasure = 1200` the
+			box leaves the main lane 752px, which is under 900, so the default would
+			have been inert there and the case stayed green with `authored wins`
+			deleted. 1600 leaves 1152 — a number only reachable if the default is
+			genuinely off. ]]
+		local _, authored = resolveAt(COMBOS[5], 1600)
+		-- 1600 box - 200 lead - 200 trail - 48 of gaps = 1152, not the ruled 900
+		expect(mainLane(authored)).toBe(1152)
+	end)
+
+	it("...and so does a group that declares its own `maxWidth`, in both directions", function()
+		-- the second authored spelling, and the one an author reaches for when a
+		-- single lane wants a measure of its own. Tighter than the ruled default:
+		local tighter = compositionScreen(nil, 700)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("displaySize", "Large")
+		local root = mountLib.mount(core, tighter)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+		controller.initialRender()
+		expect(mainLane(controller.compositionAt("/S/Sum"))).toBe(700)
+	end)
+end)

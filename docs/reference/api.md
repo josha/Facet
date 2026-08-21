@@ -759,11 +759,25 @@ UI.Composition{
   reports `fallback = true` plus a solver finding marked `designed = true` —
   the composition saying which rung it landed on, not a defect
   (see [Findings that are not defects](#findings-that-are-not-defects)).
-- **`groups`** — `{ id, lane | span, sizing = "hug"|"fill", weight?, place, minWidth?, gap? }`.
+- **`groups`** — `{ id, lane | span, sizing = "hug"|"fill", weight?, place, minWidth?, maxWidth?, gap? }`.
   `lane` is the affinity an arrangement's lanes absorb; `place` is `"start"` ·
   `"center"` · `"end"` or a fraction (the thumb-arc idiom is `0.66`); `minWidth`
   is a px number **or a theme metric name**, resolved every solve, and a `fill`
   lane below it makes that arrangement illegal.
+  **`maxWidth`** is `minWidth`'s twin and applies to a `fill` group only: a fill
+  lane's width is a SHARE of the slack, so on a very wide offer it is simply
+  whatever is left. `maxWidth` caps that share — the MEASURE, as distinct from
+  `maxMeasure`, which caps the whole box and lets every lane divide what is left.
+  What the cap frees is offered to the other fill lanes, and what none of them
+  takes centres the band rather than being spent on width.
+  **It defaults at ten-foot**, and the default is derived rather than chosen:
+  `adaptive.LANE_MEASURE x metricScale` = **600 x 1.5 = 900**, the regular-touch
+  tablet measure times ADR-0039's one distance factor. Before it, a television
+  resolved the DESKTOP answer with more pixels — the same arrangement with the
+  content lane simply wider (1316px measured), which at three metres is a reading
+  line nobody can track back to its own start (B-6e, controller ruling R14).
+  Authored wins in both spellings: declare `maxWidth` here, or `maxMeasure` on the
+  composition, and no default is set beside it.
 - **`span = "above" | "below"`** — the group is **not in the lane vocabulary at
   all**: it is its own row, the composition's **full width**, in that position
   relative to the band of lanes, **in every arrangement**. That is what a
@@ -3828,6 +3842,8 @@ headlessly testable):
 | `adaptive.cardPeek(available, perView)` | the sliver of the NEXT card a one-up rail shows — the affordance that there *is* more. `0` for any `perView > 1` (a multi-up rail is already showing the next card), otherwise a tenth of `available` clamped into `CARD_PEEK` |
 | `adaptive.CARD_MIN_WIDTH` | `200` — the narrowest a card may be squeezed to before a rail drops a lane, as data |
 | `adaptive.CARD_PEEK` | `{ fraction = 0.1, min = 24, max = 56 }` as data. Proportional so the peek scales with the rail, floored so a thumb reads it as a card edge rather than a border, capped before it looks like a second column that got cut off. These are **arrangement** facts and deliberately not theme metrics: a package decides how a card is painted, never how many of them a phone shows |
+| `adaptive.LANE_MEASURE` | `600` — the reading width of a `UI.Composition`'s content lane at regular-touch distance, as data. It is the tablet measure the layout paradigm matrix verified RIGHT (cell B-6c, 1024x768), and it is the BASE the ten-foot cap is derived from rather than a second number beside it |
+| `adaptive.laneMeasureFor(metricScale)` | the measure cap a display class asks for, or **nil** where distance asks for none. `metricScale` is `themes.snapshot.metricScale(displaySize)` — 1 near, 1.5 at ten-foot (ADR-0039's one `tenFootFloor`), so the ruled ten-foot measure is `600 x 1.5 = 900` with neither number written twice. `UI.Composition` defaults every `fill` group's `maxWidth` from it, and a group that declares its own — or a composition that declares `maxMeasure` — wins outright. Nil at near distance is the whole reason a 1600px desktop keeps the measure it had: this is a DISTANCE rule, and a cap that also fired on a wide desktop would be a width rule wearing a distance rule's name (B-6e, controller ruling R14) |
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
