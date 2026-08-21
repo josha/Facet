@@ -27,6 +27,7 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
+local stdio = require("@lune/stdio")
 
 local Facet = require("../../src") :: any
 local theme_packages = require("./theme_packages")
@@ -44,9 +45,34 @@ end
 local mode = argv[1]
 local outDir = argv[2] or "build/themes"
 
-local function fail(message: string): never
+--[[ REFUSE LOUDLY, AND LEAVE NOTHING BEHIND.
+
+	THE MESSAGE COMES FIRST, and that ordering is the whole repair. This function
+	read `process.exit(1)` and THEN `error(message)`; `process.exit` does not
+	return, so every diagnostic in this file was dead code and a real refusal
+	exited 1 with NO OUTPUT AT ALL. `tools/build_themes.sh` propagated the status
+	under `set -e` and printed nothing either, so an author who added a package
+	and forgot its `require` got a silent failing build and a guess. Found in
+	review, 2026-08-21 — the loud-failure doctrine this framework applies to its
+	public API applies to its own tools.
+
+	AND THE PARTIAL BUILD GOES WITH IT. The shell builds every `.rbxm` BEFORE
+	this file compiles the packages, so a module refused here already has an
+	artifact sitting in `build/themes/` that nobody may ship. A refusal that
+	leaves a plausible-looking file on disk is worse than no refusal at all: the
+	next reader finds `ScifiHud.rbxm`, sees a recent timestamp, and believes it.
+	Callers pass the paths their failure invalidates — always the offending
+	artifact, and the manifest, which would otherwise describe a build that was
+	rejected. Nothing is deleted that the caller did not name. ]]
+local function fail(message: string, ...: string): never
+	stdio.ewrite(`theme_artifacts: {message}\n`)
+	for _, path in { ... } do
+		if fs.isFile(path) then
+			fs.removeFile(path)
+			stdio.ewrite(`theme_artifacts: removed {path} — a refused build must not leave an artifact behind\n`)
+		end
+	end
 	process.exit(1)
-	error(message)
 end
 
 if mode == "list" then
@@ -77,19 +103,26 @@ local MODULES: { [string]: any } = {
 	compact_pointer = require("../../examples/themes/compact_pointer"),
 }
 
+local manifestPath = `{outDir}/manifest.json`
+local function artifactPath(name: string): string
+	return `{outDir}/{theme_packages.artifactName(name)}.rbxm`
+end
+
 local shippable = theme_packages.shippable()
 for _, name in shippable do
 	if MODULES[name] == nil then
 		fail(
-			`tools/lune/theme_artifacts: '{name}' is shippable but this file does not require it. `
+			`'{name}' is shippable but tools/lune/theme_artifacts.luau does not require it. `
 				.. `Add it to MODULES (Lune needs a literal path) — the builder emits an artifact for every `
-				.. `shippable package and the manifest has to describe all of them.`
+				.. `shippable package and the manifest has to describe all of them.`,
+			artifactPath(name),
+			manifestPath
 		)
 	end
 end
 for name in MODULES do
 	if theme_packages.NOT_SHIPPABLE[name] ~= nil or theme_packages.ROLES[name] == nil then
-		fail(`tools/lune/theme_artifacts: MODULES names '{name}', which is not a shippable package`)
+		fail(`MODULES names '{name}', which is not a shippable package`, artifactPath(name), manifestPath)
 	end
 end
 
@@ -107,7 +140,11 @@ for _, name in shippable do
 	local pkg, report = module.build(themes)
 	if pkg == nil then
 		local first = report and report.errors and report.errors[1]
-		fail(`{name} failed its own package gate: {first and first.field} — {first and first.message}`)
+		fail(
+			`{name} failed its own package gate: {first and first.field} — {first and first.message}`,
+			artifactPath(name),
+			manifestPath
+		)
 	end
 
 	local themeNames: { string } = {}
@@ -144,7 +181,11 @@ for _, name in shippable do
 	})
 
 	if pkg.identity.version == nil or pkg.identity.schemaVersion == nil then
-		fail(`{name}: the artifact would ship without its stamp (identity.version / identity.schemaVersion)`)
+		fail(
+			`{name}: the artifact would ship without its stamp (identity.version / identity.schemaVersion)`,
+			artifactPath(name),
+			manifestPath
+		)
 	end
 end
 
@@ -152,7 +193,7 @@ if not fs.isDir(outDir) then
 	fs.writeDir(outDir)
 end
 fs.writeFile(
-	`{outDir}/manifest.json`,
+	manifestPath,
 	serde.encode("json", {
 		schema = "facet-theme-artifacts/1",
 		facetVersion = Facet.VERSION,
@@ -160,5 +201,5 @@ fs.writeFile(
 		packages = entries,
 	}, true)
 )
-print(`wrote {outDir}/manifest.json ({#entries} packages, theme schema {themes.SCHEMA})`)
+print(`wrote {manifestPath} ({#entries} packages, theme schema {themes.SCHEMA})`)
 return nil

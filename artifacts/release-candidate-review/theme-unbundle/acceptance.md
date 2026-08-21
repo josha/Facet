@@ -37,7 +37,7 @@ of them; the catalog tells a consumer which one to take and what it costs.
 
 | Row | Driver run in this wave | Result |
 |---|---|---|
-| TU-1 | `tools/build_themes.sh` | 8 artifacts, 63,119 bytes, + `build/themes/manifest.json` — `artifacts.md` |
+| TU-1 | `tools/build_themes.sh` | 8 artifacts, 64,119 bytes, + `build/themes/manifest.json` — `artifacts.md` |
 | TU-2 | `lune run tests/theme_package_enumeration.spec` (via the suite) | 12 cases (was 7); 5 new, 3 of them negative controls, each mutation-proved |
 | TU-3 | `python3 tools/check_theme_artifacts.py` | 8 artifacts, 137 checks, green |
 | TU-4 | same probe, ten-foot rows | every package's ladder follows `themes.metricScale` within its own pixel grid; pin count matches the manifest |

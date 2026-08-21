@@ -20,8 +20,12 @@ Measured 2026-08-21, Facet 0.10.0, theme schema `facet-theme/1`:
 | `glossy_touch` | `GlossyTouch.rbxm` | `glossy-touch` | 1.0.0 | Sky | palette, metrics, font, assets | 14 | 9,315 |
 | `pixel_quest` | `PixelQuest.rbxm` | `pixel-quest` | 1.0.0 | Quest | palette, metrics, assets | 20 | 10,107 |
 | `scifi_hud` | `ScifiHud.rbxm` | `scifi-hud` | 1.0.0 | Nightwatch | palette, metrics, font | 0 | 5,373 |
-Eight artifacts, 63,119 bytes total. Every one is a single `ModuleScript` named
-for the artifact, with no children — asserted, because a package that grew
+Eight artifacts, **64,119 bytes** total — the sum of the `bytes` column above,
+which `check_theme_artifacts` re-derives from disk and compares against the
+manifest on every run, so the row numbers cannot drift from the files. (The first
+version of this line said 63,119: hand-added prose beside eight machine-measured
+figures, wrong by 1,000, caught in review. The per-package numbers were right.)
+Every artifact is a single `ModuleScript` named for the artifact, with no children — asserted, because a package that grew
 runtime data beside its module would otherwise ship half of itself in silence.
 
 ## What is NOT shippable, and why
@@ -110,3 +114,62 @@ a reported failure like any other.
 The fourth is a `metrics.tenFoot` path naming no metric: a declaration that
 compiles clean and only fails when the artifact is INSTALLED, which is exactly
 the class an artifact-level check exists to catch.
+
+---
+
+## Round 2 (review, 2026-08-21): the builder refused in silence
+
+`theme_artifacts.luau`'s `fail()` read `process.exit(1)` and THEN `error(message)`.
+`process.exit` does not return, so **every diagnostic in that file was dead code**:
+a real refusal exited 1 with no output, `tools/build_themes.sh` propagated the
+status under `set -e` and printed nothing either, and an author who added a
+package and forgot its `require` got a silent failing build and a guess. The
+loud-failure doctrine this framework enforces on its public API had not been
+applied to its own tools.
+
+It also left a PARTIAL BUILD behind. The shell builds every `.rbxm` before this
+file compiles the packages, so a refused module already had an artifact on disk —
+and the previous run's `manifest.json` survived beside it, describing a build that
+had just been rejected. A refusal that leaves a plausible-looking file is worse
+than no refusal: the next reader finds the file, sees a recent timestamp, and
+believes it.
+
+Fixed: the message goes to **stderr first**, then each path the caller names as
+invalidated is removed (always the offending artifact and the manifest; nothing
+the caller did not name), then the process exits 1.
+
+### The same mutation, before and after
+
+The mutation is the reviewer's: drop `scifi_hud` from `MODULES` while it is still
+shippable, then run `tools/build_themes.sh`.
+
+**Before the fix** (the reviewed code, restored to run this):
+
+    exit code: 1
+    stderr:   []
+    left on disk: ScifiHud.rbxm PRESENT (unshippable), manifest.json PRESENT (stale)
+
+**After the fix:**
+
+    exit code: 1
+    stderr:
+      theme_artifacts: 'scifi_hud' is shippable but tools/lune/theme_artifacts.luau does not
+        require it. Add it to MODULES (Lune needs a literal path) — the builder emits an
+        artifact for every shippable package and the manifest has to describe all of them.
+      theme_artifacts: removed build/themes/ScifiHud.rbxm — a refused build must not leave
+        an artifact behind
+      theme_artifacts: removed build/themes/manifest.json — a refused build must not leave
+        an artifact behind
+    left on disk: ScifiHud.rbxm REMOVED, manifest.json REMOVED
+
+A second branch was run too, because a cleanup proved on one path is a cleanup
+proved on one path — `MODULES` naming a non-shippable module (`layered_test`):
+
+    exit code: 1
+      theme_artifacts: MODULES names 'layered_test', which is not a shippable package
+      theme_artifacts: removed build/themes/manifest.json — a refused build must not leave
+        an artifact behind
+
+`LayeredTest.rbxm` was never built, so nothing was deleted for it — the removal
+loop is guarded by `fs.isFile`, which is what keeps a refusal from inventing a
+deletion.
