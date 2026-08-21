@@ -256,11 +256,19 @@ require("./examples_gallery.spec")
 require("./gallery_theme_picker.spec")
 -- the showcase demo picker: one published place, switchable in-game
 require("./gallery_demo_picker.spec")
+-- ...and the showcase HOST PATH the picker feeds (2026-08-20): every demo mounted
+-- through the shipped per-demo core proxy, which is where two adaptive controls
+-- died live under a green suite because every other spec builds a bare core
+require("./gallery_demo_host.spec")
 -- ...and the CHROME around it (parity round 3, item E rows 4 and 11): four-input
 -- reachability driven through the real key/pad path rather than asserted from
 -- source text, the two-chip ViewThatFits ladder, and the persistent
 -- Full | Reduced motion setting the reduced-motion axis of a device canary needs
 require("./gallery_chrome.spec")
+-- ...and WHICH of those surfaces a place boots at all (2026-08-20): the §5
+-- scenario/example selectors outrank the demo shell, and a selector that cannot
+-- be honoured warns instead of booting something that looks like a passing run
+require("./gallery_boot_mode.spec")
 require("./examples_games.spec")
 -- the word game's PURE rules and state machine (roadmap Step 10, EQ-9): the
 -- two-pass letter budget across every duplicate shape, refusals that do not

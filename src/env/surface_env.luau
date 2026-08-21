@@ -35,6 +35,13 @@
 	whether a present will ever come. Answering at construction means a control
 	either has its facts or says so, in the same breath, the way `tab_view` does.
 
+	A CORE THAT DELEGATES ANSWERS WITH WHAT IT DELEGATES TO. A host is free to hand
+	a control a PROXY of its core — the showcase does, so that everything a demo
+	allocates is owned by a scope it can dispose — and such a proxy is the core for
+	every other purpose. The registration is READ through an ordinary index for
+	exactly that reason and WRITTEN raw, so there is still one owner and one
+	registration; `visible` below carries the measurement that bought the rule.
+
 	AMBIGUITY IS REFUSED, NOT RESOLVED — AND IT IS NOT PERMANENT. Two live
 	environments on one core make `find` answer nil with a reason, so the control
 	raises rather than picking one: a coin flip between two viewports is the silent
@@ -87,11 +94,54 @@ local surfaceEnv = {}
 ]]
 local SLOT = "__facetSurfaceEnv"
 
+--[[ THE REGISTRATIONS THIS CORE OWNS — a RAW read, and only the owner may write.
+	`publish` and `unpublish` go through here, so a registration always lands on,
+	and leaves, the exact table it was made against. ]]
 local function registrations(core: any): { any }?
 	if type(core) ~= "table" then
 		return nil
 	end
 	local live = rawget(core :: any, SLOT)
+	return if type(live) == "table" then live else nil
+end
+
+--[[ ...AND THE REGISTRATIONS THIS CORE CAN SEE, which is not the same question and
+	cost two shipped demos to learn (live Studio session, 2026-08-20).
+
+	A HOST MAY HAND A CONTROL A CORE THAT DELEGATES. The showcase gives every demo a
+	PROXY of its one core so that everything the demo allocates is owned by a
+	per-demo scope it can dispose (`examples/gallery/client/demo_host.luau`); the
+	proxy forwards every method, so it IS the core for every purpose a control has —
+	`core:signal`, `core:memo`, `core:scope` all work through it. Then `find` asked
+	`rawget`, saw nothing, and every adaptive control built on a demo core refused to
+	construct: `card-rail` and `sorted-entries` both failed to mount in the shipped
+	showcase while the whole suite was green, because every spec builds a bare core
+	and nothing exercised the path where the fact has to travel one hop.
+
+	SO THE READ IS AN ORDINARY INDEX. A core that delegates answers with what it
+	delegates to, which is what "the facts arrive by themselves" has to mean for any
+	host that wraps a core rather than passing it. Nothing is copied and nothing is
+	republished: there is still exactly ONE registration, on the core the environment
+	was built against, and disposal and ambiguity stay answerable in one place.
+
+	A NEARER REGISTRATION WINS, by the same arithmetic that makes it work at all: a
+	proxy that published its own is read before the one it delegates to, exactly as a
+	local shadows what it closes over.
+
+	IT IS PCALLED because an index is a call now. A proxy free to compute `__index`
+	is free to raise on a key it does not know, and a core the framework cannot
+	interrogate has no registration — the same answer it already gives for a frozen
+	or non-table core. It must never be the thing that takes a construction down. ]]
+local function visible(core: any): { any }?
+	if type(core) ~= "table" then
+		return nil
+	end
+	local ok, live = pcall(function()
+		return (core :: any)[SLOT]
+	end)
+	if not ok then
+		return nil
+	end
 	return if type(live) == "table" then live else nil
 end
 
@@ -143,7 +193,9 @@ end
 -- "ambiguous" (more than one LIVE environment on this core). Never raises: a
 -- caller that can degrade (a headless unit mount) is a legal caller.
 function surfaceEnv.find(core: any): (any?, string?)
-	local live = registrations(core)
+	-- what this core can SEE, not only what it owns: a delegating core (a host's
+	-- per-demo proxy) answers with its owner's environment. See `visible` above.
+	local live = visible(core)
 	if live == nil or #live == 0 then
 		return nil, "none"
 	end

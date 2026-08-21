@@ -205,6 +205,7 @@ end)
 -- inert in every other place.
 if workspace:GetAttribute("Facet_Showcase") == true then
 	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
+	local demo_host = require(script:WaitForChild("demo_host")) :: any
 	local settings_panel = require(script:WaitForChild("settings_panel")) :: any
 	local showcase_chrome = require(script:WaitForChild("showcase_chrome")) :: any
 
@@ -294,38 +295,14 @@ if workspace:GetAttribute("Facet_Showcase") == true then
 		then require(scenariosFolder:WaitForChild("foreign_instances")) :: any
 		else nil
 
-	-- EVERY DEMO GETS ITS OWN SCOPE, AND THE HOST INSTALLS IT.
-	--
-	-- Ownership in this core is EXPLICIT (`scope:own`) — there is no ambient
-	-- scope a signal joins by being created — and the tutorial examples create
-	-- signals and memos straight on the core they are handed and return no
-	-- `dispose`. So dismissing their screens reclaimed the Instances and left
-	-- their reactive state behind: after eight swaps, eight demos' worth of
-	-- signals were still live on the shared core.
-	--
-	-- The fix belongs HERE, not in the examples: the examples are what the guide
-	-- walks through line by line, and a showcase requirement has no business
-	-- changing them. They take the core as an argument, so the host hands them a
-	-- proxy whose allocating methods own into a per-demo scope. Disposing that
-	-- scope reclaims everything the demo made, whatever it made it with.
+	--[[ EVERY DEMO GETS ITS OWN SCOPE, AND THE HOST INSTALLS IT. The proxy that
+		does it is `demo_host.scopedCore`, whose header carries the reasoning and the
+		live defect that made it a module rather than a local here: it is the one
+		piece of this mount path a headless spec can drive, and
+		`tests/gallery_demo_host.spec.luau` drives THAT one rather than a copy of it
+		that could drift. ]]
 	local function scopedCore(scope: any): any
-		return setmetatable({}, {
-			__index = function(_, key: string)
-				local value = (core :: any)[key]
-				if type(value) ~= "function" then
-					return value
-				end
-				-- the allocating surface: what these return is what leaks
-				if key == "signal" or key == "memo" or key == "observe" or key == "effect" or key == "scope" then
-					return function(_self, ...)
-						return scope:own(value(core, ...))
-					end
-				end
-				return function(_self, ...)
-					return value(core, ...)
-				end
-			end,
-		})
+		return demo_host.scopedCore(core, scope)
 	end
 
 	-- HOW A DEMO MOUNTS is the host's job, because the two contracts differ:
