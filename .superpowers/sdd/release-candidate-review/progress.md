@@ -1095,3 +1095,14 @@ STUDIO.md, root CLAUDE.md.
   heading) noted, not chased.
 - The DIR3/DIR4 arc is CLOSED: 48b6e7b -> review (3 MAJOR) -> 68f813e
   -> review (2 MAJOR) -> f19b6cb -> re-review ALL ADDRESSED.
+
+## 2026-08-21 — CAMPAIGN CLOSED
+
+- Final gate: PASS re-confirmed at the closing tree, byte-identical to the
+  frozen gate.json (23 PASS, 2 FAIL_ENVIRONMENT device rows, non-blocking
+  by design). Suites 6892 / 3449.
+- Final report to the director committed:
+  artifacts/release-candidate-review/final-report.md — twenty rulings +
+  J-2 for veto, six open design calls, the device-half packet, the
+  extraction charter, the Step 14 pointer. Publishing stays the director's
+  manual click. Nothing pushed, published, or packaged.
