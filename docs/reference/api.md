@@ -2815,6 +2815,29 @@ Methods:
   `.responder` (a `Readable<"passive" | "engaged">`), `.engage()`, `.resign()`,
   `.focusOrder()` (the focus-map inspection dump, below).
 
+### The standing rule: a transient opens OVER the live screen, and the live screen stays visible
+
+A menu, a popup, a picker panel, a callout, an expand plate — the whole
+transient family — opens **on top of** the screen that is already there, and
+that screen **stays visible behind it**. A full-screen opaque fill behind a
+transient is banned. Framework-side this is guarded for every construct that
+synthesizes one (`tests/transient_over_live.spec.luau`); an app that presents its
+own transients owes the same rule, and two mechanics decide whether it keeps it:
+
+- **Cross-surface z is PRESENT ORDER within a band.** `displayLayer` goes up 100
+  per present and back to zero only when the stack EMPTIES. So a base screen that
+  is dismissed and re-presented — a screen swap, a re-mount — climbs **above** a
+  transient that was presented before it, and the player ends up reading a panel
+  that is now underneath the screen they opened it over. There is no
+  `presenter.raise(handle)` today: an app whose live screen re-presents under a
+  live transient must re-present the transient afterwards, and can tell whether it
+  needs to by comparing the two handles' `.displayOrder`.
+- **Every present spends a slot.** A re-present to restore ordering therefore
+  costs a second slot per swap. `SURFACE_LAYER.toast` is +10000 above the base
+  band, so a long-lived session that swaps screens under an open transient reaches
+  it in roughly half as many swaps as one that does not. Prefer closing the
+  transient to re-presenting it in a loop.
+
 Options — the key set is closed, and an unknown one is refused at present time:
 `onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,

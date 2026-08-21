@@ -298,7 +298,19 @@ if bootDecision.mode == "showcase" then
 		-- clear of the chips instead of flush against them
 		local metrics = env:get("themeMetrics"):get()
 		local slack = if type(metrics) == "table" then metrics.space.s else 8
-		local want = demo_picker.barReservation(coreTop, chipsBottom:get(), slack)
+		--[[ THE TEN-FOOT MARGIN IS SPENT ONCE (director round 4, 2026-08-21). The
+			chips now sit inside the overscan insets on a television (`showcase_chrome`
+			§"AND IN PAST THE TELEVISION'S BEZEL"), so their measured bottom edge
+			already carries the margin — and `renderer.luau` adds the SAME margin to
+			every content surface on top of whatever this publishes. Reserving the raw
+			number would open a sixty-pixel dead band under the strip. Zero on every
+			near display, where the renderer adds nothing. ]]
+		local overscanTop = showcase_chrome.overscanEdge(
+			env:get("distanceProfile"):get(),
+			env:get("effectiveOverscanInsets"):get(),
+			"top"
+		)
+		local want = demo_picker.barReservation(coreTop, chipsBottom:get(), slack, overscanTop)
 		local live = env:get("coreSafeInsets"):get()
 		local other = if type(live) == "table" then live else {}
 		if type(live) == "table" and live.top == want then

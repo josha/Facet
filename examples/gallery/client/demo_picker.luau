@@ -64,12 +64,25 @@ demo_picker.BAR_HEIGHT = 62
 -- be a loop; this one is a fixed point on the first frame it has geometry for.
 --
 -- nil `chipsBottom` = no geometry yet: the floor stands.
-function demo_picker.barReservation(coreTop: number, chipsBottom: number?, slack: number): number
+--
+--[[ `overscanTop` IS SUBTRACTED, AND THAT IS NOT A FUDGE (director round 4,
+	2026-08-21). This value is published as `coreSafeInsets.top`, and on a ten-foot
+	display `renderer.luau` ADDS `effectiveOverscanInsets.top` to the core insets
+	before it solves any content surface. The chip row now sits inside that same
+	margin (`showcase_chrome`'s `barTop`), so its measured bottom edge already
+	contains the overscan — reserving the raw number would spend it twice and open
+	a sixty-pixel dead band between the chips and the demo. Measured at
+	1920x1080 Large: demo top 149 either way, where the naive arithmetic gives 209.
+
+	Zero on every non-ten-foot row, where the renderer adds nothing, so the five
+	view matrix is byte-identical. ]]
+function demo_picker.barReservation(coreTop: number, chipsBottom: number?, slack: number, overscanTop: number?): number
 	local floor = coreTop + demo_picker.BAR_HEIGHT
 	if chipsBottom == nil then
 		return floor
 	end
-	return math.max(floor, chipsBottom + slack)
+	local over = if type(overscanTop) == "number" and overscanTop > 0 then overscanTop else 0
+	return math.max(floor, math.max(0, chipsBottom - over) + slack)
 end
 -- THE LABEL IS CLIPPED, NOT THE BOX — same reasoning as theme_picker's
 -- CHIP_LABEL_CHARS, and the same first wrong answer: constraining the box made
@@ -576,7 +589,7 @@ function demo_picker.mount(opts: MountOpts): any
 	local raise: () -> ()
 	-- everyone who has to go back on top after a demo mounts, in registration
 	-- order. The host's own `onRaise` option runs first and is unchanged.
-	local raiseListeners: { () -> () } = {}
+	local raiseListeners: { (demoHandle: any?) -> () } = {}
 
 	local function disposeMounted()
 		mountedId = nil
@@ -799,8 +812,24 @@ function demo_picker.mount(opts: MountOpts): any
 			if opts.onRaise ~= nil then
 				opts.onRaise()
 			end
+			--[[ THE HANDLE RIDES ALONG, and the error does not vanish (review
+				MINOR-2). A listener is told WHICH demo handle it is being raised over,
+				so a surface that is already above it can decline to spend a present
+				(`showcase_chrome`'s raisePanel: the presenter's `displayLayer` counter
+				only goes up). `mounted` is nil when the mount failed, which is exactly
+				the case where nothing climbed and nothing needs raising.
+
+				`pcall` stays — one broken listener must not take the rest of the
+				chrome down with it — but the error is REPORTED now, through the same
+				`warn` seam the mount failure two screens up already uses. A protected
+				call that drops what it caught is a listener that silently stops
+				working. ]]
+			local handle = if mounted ~= nil then mounted.handle else nil
 			for _, listener in raiseListeners do
-				pcall(listener)
+				local ok, err = pcall(listener, handle)
+				if not ok then
+					(opts.warn or print)(`[Facet Showcase] a raise listener failed: {tostring(err)}`)
+				end
 			end
 		end
 		return {
@@ -814,7 +843,7 @@ function demo_picker.mount(opts: MountOpts): any
 				with a scope owns it the way it owns an observer. Called AFTER the demo
 				is mounted and presented, which is the only moment at which "put me
 				back on top" means anything. ]]
-			watchRaise = function(fn: () -> ()): () -> ()
+			watchRaise = function(fn: (demoHandle: any?) -> ()): () -> ()
 				table.insert(raiseListeners, fn)
 				return function()
 					local index = table.find(raiseListeners, fn)

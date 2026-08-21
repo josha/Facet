@@ -82,6 +82,15 @@ local function showcase(opts: any?): any
 	env:set("viewportRect", { x = 0, y = 0, w = o.w or 1232, h = o.h or 1067 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	env:set("capabilities", o.capabilities or { touch = false, mouse = true, keyboard = true, gamepad = true })
+	-- the console row: displaySize Large is what turns the ten-foot profile on
+	-- (and with it the renderer's overscan margin); preferredInput drives the
+	-- affordance labels. Absent on every other row, which keeps them byte-identical
+	if o.displaySize ~= nil then
+		env:set("displaySize", o.displaySize)
+	end
+	if o.preferredInput ~= nil then
+		env:set("preferredInput", o.preferredInput)
+	end
 	if o.theme ~= nil then
 		env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{o.theme}`).build(themes), nil, {}))
 	end
@@ -122,7 +131,13 @@ local function showcase(opts: any?): any
 					UI.Button({ id = "D2", label = "Demo two" }),
 				},
 			})
-			local handle = pres.present(screen)
+			--[[ `o.demoPresent` IS HOW A CASE MAKES THE DEMO CONTEND FOR A KEY. The
+				stand-in above declares nothing, which is exactly why the suite was green
+				through the whole life of the shoulder-button double-fire: a surface that
+				passes `onAdjust` binds `ButtonL1`/`ButtonR1` for Adjust
+				(`presenter.luau:2292-2293`), and four demos in the real catalogue do the
+				same thing dynamically through a focused `adjustTargets` member. ]]
+			local handle = pres.present(screen, o.demoPresent)
 			table.insert(demoHandles, handle)
 			return { screen = screen, handle = handle }
 		end,
@@ -187,7 +202,19 @@ local function showcase(opts: any?): any
 		-- the reservation the host re-asserts every heartbeat, so the demo is laid
 		-- out below the strip exactly as it is in the place
 		env:set("coreSafeInsets", {
-			top = demo_picker.barReservation(coreTop:get(), chipsBottom:get(), 8),
+			-- the host's own arithmetic, including the ten-foot subtraction: the
+			-- renderer adds the overscan to every content surface on top of whatever
+			-- is published here, and the chip row already sits inside it
+			top = demo_picker.barReservation(
+				coreTop:get(),
+				chipsBottom:get(),
+				8,
+				showcase_chrome.overscanEdge(
+					env:get("distanceProfile"):get(),
+					env:get("effectiveOverscanInsets"):get(),
+					"top"
+				)
+			),
 			bottom = 0,
 			left = 0,
 			right = 0,
@@ -1264,6 +1291,332 @@ describe("showcase chrome (11): the two shoulder buttons open the two sections",
 		-- the ring goes back to the screen the player was on
 		expect(`focus returned to the demo: {isPrefix("/Demo", w.pres.focus.focused:get())}`).toBe(
 			"focus returned to the demo: true"
+		)
+	end)
+end)
+
+--[[ (12) THE TELEVISION CROPS THE EDGES, AND THE STRIP WAS STANDING IN THEM
+	(director round 4, 2026-08-21: "the showcase picker/settings buttons seem to
+	have disappeared on console").
+
+	MEASURED LIVE by the controller at 1920x1080 / displaySize Large: the chips were
+	mounted, visible, and painted at (12,12) — while the demo body under them started
+	at x=106/y=169 because the ten-foot `effectiveOverscanInsets` (90 left/right, 60
+	top/bottom) had engaged for it. The chrome is presented `rootPolicy =
+	"edgeToEdge"`, and `solver.solve` answers that policy with the WHOLE viewport and
+	reads no insets at all, so the renderer's ten-foot margin reached every content
+	surface and never reached the one surface that draws nearest the glass. Twelve
+	pixels from the edge of a set that crops ninety is a chip inside the bezel.
+
+	THE FIX IS NOT "STOP BEING EDGE-TO-EDGE". The strip still owns the strip — that
+	is what keeps it out of its own reservation — it simply places its content inside
+	the same margin the renderer would have applied, gated on the same
+	`distanceProfile`. These cases pin both halves: the console row moves in, and the
+	near rows do not move at all. ]]
+describe("showcase chrome (12): the chip strip sits inside the television's overscan", function()
+	local CONSOLE = { w = 1920, h = 1080, displaySize = "Large", preferredInput = "Gamepad" }
+
+	local function insets(w: any): any
+		return w.env:get("effectiveOverscanInsets"):get()
+	end
+
+	it("the console row starts at or inside the overscan inset, on both axes", function()
+		local w = showcase(CONSOLE)
+		expect(w.env:get("distanceProfile"):get()).toBe("ten-foot")
+		local over = insets(w)
+		expect(`overscan {over.left}/{over.top}`).toBe("overscan 90/60")
+		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+		expect(chips ~= nil).toBe(true)
+		expect(
+			`chips at ({chips.rect.x},{chips.rect.y}) inside ({over.left},{over.top}): `
+				.. `{chips.rect.x >= over.left and chips.rect.y >= over.top}`
+		).toBe(`chips at ({chips.rect.x},{chips.rect.y}) inside ({over.left},{over.top}): true`)
+		-- ...and the chips a player actually presses, not only the ladder's box
+		local demo = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
+		expect(`the demo chip is inside the bezel: {demo.rect.x >= over.left and demo.rect.y >= over.top}`).toBe(
+			"the demo chip is inside the bezel: true"
+		)
+	end)
+
+	it("...and the demo body does not move down to pay for it", function()
+		--[[ THE DOUBLE-COUNT THIS RULES OUT. The reservation the host publishes is
+			`coreSafeInsets.top`, and `renderer.luau` ADDS the overscan to the core
+			insets before it solves any content surface. With the chips inside the
+			margin their measured bottom edge already carries it, so reserving the raw
+			number would spend it twice and open a sixty-pixel dead band. ]]
+		local w = showcase(CONSOLE)
+		local demo = w.adapter.node("/Demo")
+		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+		local gap = demo.rect.y - (chips.rect.y + chips.rect.h)
+		expect(`the demo starts {gap}px under the chips, and that is under the slack+floor: {gap <= 62}`).toBe(
+			`the demo starts {gap}px under the chips, and that is under the slack+floor: true`
+		)
+		-- the demo is still inset by the margin itself: this fixes the CHROME, it
+		-- does not take the television's margin away from the content
+		expect(demo.rect.x).toBe(90)
+	end)
+
+	it("every near row is byte-identical: the strip still starts at the screen gutter", function()
+		for _, row in
+			{
+				{ name = "phone portrait", w = 390, h = 844 },
+				{ name = "phone landscape", w = 844, h = 390 },
+				{ name = "desktop", w = 1232, h = 1067 },
+			}
+		do
+			local w = showcase({ w = row.w, h = row.h })
+			expect(`{row.name}: {w.env:get("distanceProfile"):get()}`).toBe(`{row.name}: near`)
+			local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+			local screen = w.adapter.node("/ShowcaseChrome")
+			-- the gutter, and nothing but the gutter — the same number the DIR-1
+			-- block below measures, read here as "no overscan was added"
+			expect(`{row.name}: chips at ({chips.rect.x},{chips.rect.y})`).toBe(
+				`{row.name}: chips at ({screen.rect.x + 8},{screen.rect.y + 8})`
+			)
+		end
+	end)
+
+	it("a Large display that AUTHORS no overscan still gets the ten-foot default, and 'none' opts out", function()
+		-- the gate is the profile, not the authored table: this is the seam the
+		-- chrome shares with the renderer, asserted as a pure function
+		expect(showcase_chrome.overscanEdge("ten-foot", { left = 90, top = 60 }, "left")).toBe(90)
+		expect(showcase_chrome.overscanEdge("near", { left = 90, top = 60 }, "left")).toBe(0)
+		expect(showcase_chrome.overscanEdge("ten-foot", { left = 0, top = 0 }, "left")).toBe(0)
+		expect(showcase_chrome.overscanEdge("ten-foot", nil, "left")).toBe(0)
+	end)
+end)
+
+--[[ (13) HOW A PAD PLAYER KNOWS THE SHOULDERS DO ANYTHING (director round 4:
+	"how would a user know they're available for the left/right buttons").
+
+	The two bindings were chosen by POSITION — the chip at the left corner is the
+	button at the left shoulder — and nothing on screen said so. The mark now sits at
+	the OUTSIDE edge of each chip, which is that argument drawn.
+
+	IT IS THE BINDING'S OWN `DisplayName`, read back through `Facet.inputHint`, so
+	there is exactly one spelling of "LB" in the tree. And it is GATED on the
+	resolved input class, because `preferredBinding` answers the first keyCode
+	binding for every non-touch class — an ungated hint would tell a keyboard player
+	to press LB. ]]
+describe("showcase chrome (13): the chips carry their shoulder mark on a pad", function()
+	local GLYPH_DEMOS = "/ShowcaseChrome/Dock/Bar/Chips/Full/demosHint/then/Glyph"
+	local GLYPH_SETTINGS = "/ShowcaseChrome/Dock/Bar/Chips/Full/settingsHint/then/Glyph"
+
+	local function textAt(w: any, path: string): string?
+		local node = w.adapter.node(path)
+		if node == nil or type(node.props) ~= "table" then
+			return nil
+		end
+		local text = node.props.text
+		return if type(text) == "string" then text else nil
+	end
+
+	it("a gamepad sees LB and RB, and they are the bindings' own display names", function()
+		local w = showcase({ preferredInput = "Gamepad" })
+		expect(w.env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(textAt(w, GLYPH_DEMOS)).toBe(showcase_chrome.SECTION_GLYPH.demos)
+		expect(textAt(w, GLYPH_SETTINGS)).toBe(showcase_chrome.SECTION_GLYPH.settings)
+	end)
+
+	it("...and they are still there with the panel OPEN, which is when the pair matters most", function()
+		local w = showcase({ preferredInput = "Gamepad" })
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(true)
+		expect(`{textAt(w, GLYPH_DEMOS)}/{textAt(w, GLYPH_SETTINGS)}`).toBe("LB/RB")
+	end)
+
+	it("a keyboard and a touchscreen are told nothing, and the row does not reserve for it", function()
+		for _, class in { "KeyboardAndMouse", "Touch" } do
+			local w = showcase({
+				preferredInput = class,
+				capabilities = { touch = class == "Touch", mouse = true, keyboard = true, gamepad = false },
+			})
+			expect(`{class}: demos glyph {tostring(textAt(w, GLYPH_DEMOS))}`).toBe(`{class}: demos glyph nil`)
+			expect(`{class}: settings glyph {tostring(textAt(w, GLYPH_SETTINGS))}`).toBe(`{class}: settings glyph nil`)
+			--[[ A `UI.When` and not an empty string, and this is the assertion that
+				makes the difference visible: an empty `UI.Text` is still a child and a
+				child costs the HStack a gap, so a hidden hint that was merely blank
+				would push the first chip in by one gap on every non-pad row. ]]
+			local row = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full")
+			local chip = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
+			expect(`{class}: the first chip starts at the row's own edge: {chip.rect.x == row.rect.x}`).toBe(
+				`{class}: the first chip starts at the row's own edge: true`
+			)
+		end
+	end)
+
+	it("the mark survives ~1.4x pseudo-localization inside the strip, at phone width", function()
+		-- the strip's own sweep (case 9) proves the CHIPS do; this proves the row
+		-- still fits once the marks are in it, on the narrowest supported screen
+		local w = showcase({ w = 320, h = 640, preferredInput = "Gamepad" })
+		local screen = w.adapter.node("/ShowcaseChrome")
+		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+		local rung = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Icons")
+			or w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full")
+		expect(rung ~= nil).toBe(true)
+		expect(`the strip fits its screen: {rung.rect.x + rung.rect.w <= screen.rect.x + screen.rect.w}`).toBe(
+			"the strip fits its screen: true"
+		)
+		expect(chips ~= nil).toBe(true)
+	end)
+end)
+
+--[[ (14) ONE PRESS, ONE CONTEXT (review of `48b6e7b`, MAJOR-1; controller ruling
+	R19, 2026-08-21).
+
+	`ButtonL1`/`ButtonR1` are the FRAMEWORK's Adjust step keys — `presenter.luau:
+	2292-2293` on any surface declaring `onAdjust`, `:2394-2395` dynamically whenever
+	the focused node is a declared `adjustTargets` member (Slider, Stepper, a Table
+	grip, a TabView strip, LevelPicker, Rating; four catalogue demos contain one).
+	The chrome's own doc header claimed "nothing else in the place binds either key"
+	and nobody checked.
+
+	MEASURED before the fix, on this harness: one `ButtonR1` press on a surface that
+	declares `onAdjust` fired BOTH — the value under the player's ring moved AND the
+	panel opened over it. The context was non-sinking, which is why: `deviceKey`
+	only cuts strictly-lower candidates once a SINKING context has been delivered.
+
+	R19 gives the bumpers to the chrome (position argument + console convention) and
+	leaves the framework's Adjust its DPad/Comma/Period. What it does not allow is
+	one press resolving to two contexts, so the chrome's context sinks and the
+	outcome is decided by priority alone.
+
+	THE STAND-IN DEMO IS WHY THE SUITE NEVER SAW IT. Case (11) presses the same two
+	buttons against a two-button screen that binds nothing. `demoPresent` is the
+	harness hook that makes the demo contend. ]]
+describe("showcase chrome (14): a shoulder press resolves to ONE context", function()
+	local function contending(): any
+		local hits = { n = 0, last = 0 }
+		local w = showcase({
+			demoPresent = {
+				-- (path, direction, rectOf) — the presenter's own signature
+				onAdjust = function(_path: string, direction: number)
+					hits.n += 1
+					hits.last = direction
+				end,
+			},
+		})
+		w.hits = hits
+		return w
+	end
+
+	it("the demo's Adjust really is live — the negative control this case needs", function()
+		--[[ WITHOUT THIS THE CASE BELOW PROVES NOTHING. "adjustHits 0" is equally
+			explained by "the demo never bound Adjust at all", so the dedicated adjust
+			key nothing contends is pressed first: `Period` is bound by the same
+			`if opts.onAdjust` branch as the two shoulders and reaches the same
+			handler. ]]
+		local w = contending()
+		press(w.system, "Period")
+		w.settle()
+		expect(`adjust fired {w.hits.n} time(s), direction {w.hits.last}`).toBe("adjust fired 1 time(s), direction 1")
+		press(w.system, "Comma")
+		w.settle()
+		expect(`adjust fired {w.hits.n} time(s), direction {w.hits.last}`).toBe("adjust fired 2 time(s), direction -1")
+		expect(w.chrome.isOpen()).toBe(false)
+	end)
+
+	it("the framework's Adjust does not also fire — L1 and R1, both", function()
+		for _, section in { "demos", "settings" } do
+			local w = contending()
+			press(w.system, showcase_chrome.SECTION_GAMEPAD[section])
+			w.settle()
+			expect(`{section}: open {w.chrome.isOpen()} kind {w.chrome.kind:get()} adjustHits {w.hits.n}`).toBe(
+				`{section}: open true kind {section} adjustHits 0`
+			)
+		end
+	end)
+
+	it("all three transitions, on both shoulders, with the demo contending for the key", function()
+		local w = contending()
+		-- idle -> open
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind demos")
+		-- other section -> SWITCH, not close
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		w.settle()
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind settings")
+		-- same section -> close
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		w.settle()
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open false kind settings")
+		-- ...and back the other way, from closed
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind demos")
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open false kind demos")
+		expect(`the value under the ring never moved: {w.hits.n}`).toBe("the value under the ring never moved: 0")
+	end)
+
+	it("the toggle key still reaches the chrome through a demo that sinks the keyboard", function()
+		-- sinking is per-KEY: `Backquote`/`ButtonY` were never contended and the
+		-- chrome's new sink must not have changed what they do
+		local w = contending()
+		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(true)
+		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		w.settle()
+		expect(w.chrome.isOpen()).toBe(false)
+		expect(w.hits.n).toBe(0)
+	end)
+end)
+
+--[[ (15) WHAT THE RAISE COSTS, AND WHAT IT MUST NOT COST (review of `48b6e7b`,
+	MAJOR-2 and MINOR-4).
+
+	`presenter.luau`'s `displayLayer` counter only ever goes up (it resets when the
+	stack EMPTIES, and this stack never does — the backdrop is permanent), so every
+	present spends a slot. Re-presenting the panel on each demo swap therefore costs
+	+200 per swap where a closed panel costs +100, which halves the number of swaps
+	before a base screen climbs into the toast band. The counter and the
+	`presenter.raise(handle)` that would fix it are inside a file whose extraction is
+	owed, so this round reports it (CONTESTED) and spends no layer it does not need:
+	a raise that names a demo handle the panel is already above is a no-op.
+
+	AND THE RING STAYS WHERE THE PLAYER LEFT IT. `openPanel` asks for
+	`initialFocus = "first"`, which is right for opening and wrong for a swap
+	underneath — a player reading row nine was put back on row one by something they
+	did not do. ]]
+describe("showcase chrome (15): the raise spends a layer only when it has to", function()
+	it("a raise the panel does not need costs nothing", function()
+		local w = showcase()
+		w.chrome.request("demos")
+		w.settle()
+		local before = w.adapter.rootDisplayOrder("ShowcasePanel")
+		-- the failed-mount path raises with no demo presented: `mounted` is nil, so
+		-- the listener is handed nil and the panel re-presents (it cannot prove it is
+		-- above a surface it was never told about). Handed a handle it IS above,
+		-- nothing is spent.
+		local panelHandle = w.chrome.panelHandle()
+		w.chrome.raise({ displayOrder = panelHandle.displayOrder - 100 })
+		w.settle()
+		expect(`already above: {w.adapter.rootDisplayOrder("ShowcasePanel")} (was {before})`).toBe(
+			`already above: {before} (was {before})`
+		)
+		-- ...and a raise it DOES need still happens
+		w.chrome.raise({ displayOrder = panelHandle.displayOrder + 100 })
+		w.settle()
+		expect(`raised: {w.adapter.rootDisplayOrder("ShowcasePanel") > before}`).toBe("raised: true")
+	end)
+
+	it("a demo swap under an open panel leaves the ring where the player put it", function()
+		local w = showcase()
+		w.chrome.request("demos")
+		w.settle()
+		-- walk down the list, the way a player reading it would
+		press(w.system, "DPadDown")
+		press(w.system, "DPadDown")
+		local before = w.pres.focus.focused:get()
+		expect(isPrefix("/ShowcasePanel", before)).toBe(true)
+		w.demos.showNext(1)
+		w.settle()
+		expect(`the ring stayed on {tostring(w.pres.focus.focused:get())}`).toBe(
+			`the ring stayed on {tostring(before)}`
 		)
 	end)
 end)

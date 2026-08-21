@@ -103,9 +103,41 @@
 
 	The context sits at priority 3500 — above the engaged band (3000) — so the
 	toggle key can still be pressed while the panel it opened is engaged and
-	sinking. Sinking is per-KEY (`actions.luau` `deviceKey` only cuts candidates
-	for the same key code), so this steals nothing from anything: no other
-	context in the place binds either key. ]]
+	sinking.
+
+	=== 5. AND IT SINKS, BECAUSE TWO OF ITS FOUR KEYS ARE THE FRAMEWORK'S ===
+
+	The first version of §4 said "no other context in the place binds either key",
+	and for `Backquote`/`ButtonY` that is still true. For the two SHOULDERS it was
+	never true and nobody checked: `presenter.luau:2292-2293` binds
+	`ButtonL1`/`ButtonR1` to **Adjust** on any surface that declares `onAdjust`,
+	and `:2394-2395` binds the same pair dynamically whenever the focused node is a
+	declared `adjustTargets` member — Slider, Stepper, a Table column grip, a
+	TabView strip, LevelPicker, Rating. Four demos in the catalogue contain one.
+
+	MEASURED (review of `48b6e7b`, reproduced here headlessly): on a surface that
+	declares `onAdjust`, ONE `ButtonR1` press fired BOTH — the value under the
+	player's ring moved AND the panel opened over it. The context was non-sinking,
+	so this was never a priority defect; it was the claim above being false.
+
+	RULING R19 (controller, 2026-08-21): the bumpers belong to the chrome sections.
+	The director asked for the two top-corner buttons by position and the console
+	convention (section switching on the shoulders) agrees; the framework's Adjust
+	keeps DPad / Comma / Period, and losing bumper-step while this chrome is
+	mounted is an accepted per-APP arbitration outcome. What is NOT acceptable is
+	one press resolving to two contexts, so this context now SINKS: `deviceKey`
+	cuts every strictly-lower candidate for the same key code once a sinking
+	context has been delivered, which makes the outcome ONE action, decided by
+	priority, deterministically. Sinking is per-KEY, so `Backquote`/`ButtonY`
+	consume nothing that was ever bound elsewhere.
+
+	THE ONE REMAINING TIE. `presenter.luau`'s first modal sits at
+	`topModalPriority() + 500` = 3500 — the same number as this context — and the
+	engine's own rule is "contexts with the same priority will receive the input"
+	(artifacts/release-candidate-review/input/ias-inventory.md §A.2). A modal demo
+	with a focused adjust target would therefore still double-fire. Recorded rather
+	than fixed: moving this number is a framework-wide re-banding, not an example's
+	call. ]]
 
 local showcase_chrome = {}
 
@@ -133,10 +165,44 @@ showcase_chrome.TOGGLE_GAMEPAD = "ButtonY"
 	SECTION to whatever it was, which is one press to open and a second to choose —
 	fine for a keyboard where the section switch is a Tab away, and one press too
 	many on a pad. These two are the same verb with a destination attached, bound
-	on the same non-sinking context (they claim two buttons nothing else in the
-	place binds) and entering through the same `requestFromNavigation`, so the
-	focus ring is visible on the frame the panel opens. ]]
+	on the same SINKING context (§5: the framework's own Adjust binds this pair, so
+	the contention is real and is resolved by priority) and entering through the
+	same `requestFromNavigation`, so the focus ring is visible on the frame the
+	panel opens. ]]
 showcase_chrome.SECTION_GAMEPAD = table.freeze({ demos = "ButtonL1", settings = "ButtonR1" })
+--[[ WHAT THE PLAYER IS TOLD, and why it is a `displayName` rather than a string
+	beside the chip. `InputBinding.DisplayName` is the framework's own hint seam —
+	`Facet.inputHint(core, env, action)` reads exactly this and re-labels with no
+	remount when the input class flips — so declaring the glyph on the BINDING is
+	what keeps the affordance and the binding from ever disagreeing. Roblox's
+	default pad art is Xbox-style, which is where LB/RB come from; a platform-aware
+	spelling changes this table and the chips follow. ]]
+showcase_chrome.SECTION_GLYPH = table.freeze({ demos = "LB", settings = "RB" })
+-- the two surface ids, named once: `raisePanel` matches focus paths against the
+-- panel's, and a literal in two places is a rename waiting to go half-done
+showcase_chrome.BAR_ID = "ShowcaseChrome"
+showcase_chrome.PANEL_ID = "ShowcasePanel"
+
+--[[ overscanEdge(distanceProfile, insets, edge) -> the margin the RENDERER will
+	apply on this display, in pixels.
+
+	PURE, AND TAKING TWO VALUES RATHER THAN AN ENVIRONMENT, because it has two
+	callers who read the environment differently: this module reads it inside a
+	memo (`use`), and the host reads it once per heartbeat (`:get`). A helper that
+	took the environment would have to pick one and the other would be a second
+	copy of the rule.
+
+	THE GATE IS `distanceProfile`. `renderer.luau` applies `effectiveOverscanInsets`
+	only while the profile is "ten-foot"; a game may AUTHOR overscan on a near
+	display and the renderer still ignores it, so reading the insets alone would
+	inset the chrome on a surface whose content was never inset. ]]
+function showcase_chrome.overscanEdge(distanceProfile: any, insets: any, edge: string): number
+	if distanceProfile ~= "ten-foot" then
+		return 0
+	end
+	local v = if type(insets) == "table" then (insets :: any)[edge] else nil
+	return if type(v) == "number" and v == v and v > 0 then v else 0
+end
 -- strictly above the engaged band (`presenter.luau` ENGAGED_BASE_PRIORITY =
 -- 3000) so an engaged panel can never sink its own way out
 showcase_chrome.TOGGLE_PRIORITY = 3500
@@ -200,6 +266,98 @@ function showcase_chrome.mount(opts: MountOpts): any
 	local open = scope:own(core:signal(false))
 
 	local self: any = {}
+	local PANEL_ID = showcase_chrome.PANEL_ID
+
+	-- ===== the toggle context ===============================================
+	-- BUILT BEFORE THE STRIP, because the strip DRAWS these bindings: the shoulder
+	-- glyph beside each chip is `Facet.inputHint` reading the binding's own
+	-- `DisplayName`, so the action has to exist before the blueprint that labels
+	-- it. Every handler below reaches `self` at call time, so nothing here depends
+	-- on the rest of `mount` having run.
+	local toggleContext = opts.actionSystem.createContext({
+		name = "ShowcaseChromeToggle",
+		priority = showcase_chrome.TOGGLE_PRIORITY,
+		-- SINKING (§5, ruling R19). `ButtonL1`/`ButtonR1` are the framework's own
+		-- Adjust step keys, so a press with an adjustable focused used to fire this
+		-- AND move the value under the ring. One press must resolve to one context:
+		-- `deviceKey` cuts every strictly-lower candidate for the same key code
+		-- once a sinking context has been delivered. Per-KEY, so the two toggle
+		-- keys consume nothing that was ever bound elsewhere.
+		sink = true,
+	})
+	-- the CLOSED vocabulary (constitution §9): "activate the chrome". No new verb.
+	local toggleAction = toggleContext.createAction("Activate", "Bool")
+	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_KEYBOARD })
+	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_GAMEPAD })
+	toggleAction.onPressed(function()
+		self.requestFromNavigation(nil)
+	end)
+	--[[ ONE ACTION PER DESTINATION, on the same context. `request` runs the same
+		`toggle` command the chips do, so pressing the shoulder of the section that is
+		already showing CLOSES it (one button, one place, both directions) and
+		pressing the other one SWITCHES without closing — which is what "two buttons,
+		two destinations" has to mean for the pair to be worth two buttons. ]]
+	local sectionAction: { [string]: any } = {}
+	for _, kindName in showcase_chrome.KINDS do
+		local action = toggleContext.createAction(`Activate{kindName}`, "Bool")
+		action.bind({
+			keyCode = showcase_chrome.SECTION_GAMEPAD[kindName],
+			-- what the chip says out loud; see SECTION_GLYPH
+			displayName = showcase_chrome.SECTION_GLYPH[kindName],
+		})
+		action.onPressed(function()
+			self.requestFromNavigation(kindName)
+		end)
+		sectionAction[kindName] = action
+	end
+
+	--[[ THE SHOULDER GLYPH BESIDE THE CHIP (director round 4, 2026-08-21: "how
+		would a user know they're available for the left/right buttons").
+
+		A pad player is told the same way a console dashboard tells them — the button
+		mark sits beside the thing it opens, LB at the outside edge of the left chip
+		and RB at the outside edge of the right one, which is the POSITION argument
+		the two bindings were chosen on, drawn.
+
+		THE LABEL IS THE BINDING'S OWN. `Facet.inputHint` resolves the action's
+		preferred binding for the live input class and returns its `DisplayName`, so
+		there is no second copy of "LB" anywhere and a re-spelling changes one table.
+		The GATE is separate and explicit: `preferredBinding` answers the first
+		keyCode binding for every non-touch class, so without it a keyboard would be
+		told to press LB. `effectiveInput` is the RESOLVED class (a pad nobody has
+		touched yet still reports KeyboardAndMouse), which is the same fact
+		`inputHint` itself reads.
+
+		A `UI.When` and not an empty string: an empty `UI.Text` is still a child, and
+		a child costs the HStack a gap. Non-pad rows measure byte-identically. ]]
+	local gamepadActive = scope:own(core:memo(function(use)
+		return use(opts.env:get("effectiveInput")) == "Gamepad"
+	end))
+	local hintLabel: { [string]: any } = {}
+	for _, kindName in showcase_chrome.KINDS do
+		hintLabel[kindName] = Facet.inputHint(core, opts.env, sectionAction[kindName], { scope = scope })
+	end
+	-- A FUNCTION, not a shared node: the two ViewThatFits rungs are two trees and
+	-- must never share a node table (the picker's own `buildRows` says why).
+	local function shoulderHint(kindName: string): any
+		local text = hintLabel[kindName]
+		return UI.When({
+			id = `{kindName}Hint`,
+			condition = gamepadActive,
+			thenView = function()
+				return UI.Text({
+					id = "Glyph",
+					text = text,
+					-- caption + secondary is the framework's own "this is an aside"
+					-- pair (settings_panel's own notes use it). It WRAPS rather than
+					-- clips like every other player-facing string here, so a locale
+					-- that spells the button longer stays readable.
+					textSize = "caption",
+					role = "secondary",
+				})
+			end,
+		})
+	end
 
 	-- ===== the panel's own section switch ===================================
 	-- A SEGMENTED PICKER, not a second pair of chips. The strip's chips SAY
@@ -218,6 +376,36 @@ function showcase_chrome.mount(opts: MountOpts): any
 		selected = kind,
 	})
 
+	--[[ THE TEN-FOOT MARGIN, AS TWO NUMBERS AND NOT A TABLE.
+
+		`effectiveOverscanInsets` is a fresh table on every read, so a memo returning
+		it (or a slice of it) hands its readers a new identity every time and
+		re-arranges a strip nothing moved. Two scalar memos compare by VALUE, which
+		is what a reactive `offsetX`/`offsetY` needs.
+
+		THE GATE IS `distanceProfile`, NOT THE INSETS THEMSELVES. `renderer.luau`
+		applies the overscan only while the profile is "ten-foot"; a game may AUTHOR
+		`overscanInsets` on a near display and the renderer will still ignore them,
+		so reading the insets alone here would inset the strip on a surface whose
+		content was never inset — the exact double-standard this fixes, mirrored. ]]
+	local function overscanEdge(edge: string): any
+		return scope:own(core:memo(function(use)
+			return showcase_chrome.overscanEdge(
+				use(opts.env:get("distanceProfile")),
+				use(opts.env:get("effectiveOverscanInsets")),
+				edge
+			)
+		end))
+	end
+	local overscanLeft = overscanEdge("left")
+	local overscanTop = overscanEdge("top")
+	-- the topbar inset and the bezel are both reasons the strip starts lower, and
+	-- they ADD: the Roblox buttons sit inside the displayed area, not outside it
+	local barTop = scope:own(core:memo(function(use)
+		local top = use(opts.coreTop)
+		return (if type(top) == "number" then top else 0) + use(overscanTop)
+	end))
+
 	-- ===== the strip ========================================================
 	-- CONTENT, NOT HUG, on both rungs (the p4_foyer trap): `hug` caps at the
 	-- offer, so a hug row can never report that it does not fit and the ladder
@@ -231,13 +419,23 @@ function showcase_chrome.mount(opts: MountOpts): any
 				id = "Full",
 				gap = "s",
 				width = NATURAL,
-				children = { opts.demos.chip, opts.settings.chip },
+				children = {
+					shoulderHint("demos"),
+					opts.demos.chip,
+					opts.settings.chip,
+					shoulderHint("settings"),
+				},
 			}),
 			UI.HStack({
 				id = "Icons",
 				gap = "s",
 				width = NATURAL,
-				children = { opts.demos.iconChip, opts.settings.iconChip },
+				children = {
+					shoulderHint("demos"),
+					opts.demos.iconChip,
+					opts.settings.iconChip,
+					shoulderHint("settings"),
+				},
 			}),
 		},
 	})
@@ -267,7 +465,26 @@ function showcase_chrome.mount(opts: MountOpts): any
 						-- PUSHED DOWN PAST THE ROBLOX BUTTONS, not lifted into a
 						-- reserved strip: the bar is presented edge-to-edge because
 						-- it OWNS the strip.
-						offsetY = opts.coreTop,
+						--
+						-- ...AND IN PAST THE TELEVISION'S BEZEL (director round 4,
+						-- 2026-08-21: "the picker/settings buttons seem to have
+						-- disappeared on console"). `rootPolicy = "edgeToEdge"` is
+						-- honoured by the SOLVER, which takes the whole viewport and
+						-- reads no insets at all — so the renderer's ten-foot margin
+						-- (`renderer.luau`: distanceProfile == "ten-foot" adds
+						-- `effectiveOverscanInsets` to the content rect) reached every
+						-- content surface and never reached this one. Measured headlessly
+						-- at 1920x1080 / displaySize Large: the demo body started at
+						-- (90,149) and the chips at (12,12) — twelve pixels in from a
+						-- glass edge a real television crops by ninety.
+						--
+						-- The strip still OWNS the strip; owning it never included the
+						-- part of the panel the set does not display. These are the SAME
+						-- insets the renderer applies, gated on the SAME
+						-- `distanceProfile`, so every non-ten-foot row is arithmetic with
+						-- zero in it and does not move by a pixel.
+						offsetX = overscanLeft,
+						offsetY = barTop,
 						width = { type = "fill", weight = 1 },
 						children = { chipRow },
 					}),
@@ -288,7 +505,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- stops at its last row, and the thirteen-demo list lets the cap bite so the
 	-- overflow turns scrolling on.
 	local panelScreen = UI.Screen({
-		id = "ShowcasePanel",
+		id = PANEL_ID,
 		-- the screen edge again (see `barScreen` above): `gutter`, floored at 8
 		padding = "gutter",
 		children = {
@@ -417,6 +634,41 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- chips the last time this was routed by path matching.
 	}
 
+	--[[ WHERE THE RING GOES BACK, after a raise re-presents the panel under a
+		player who was reading it. Set by `raisePanel` and consumed by the first
+		`onGeometry` the fresh panel reports.
+
+		WHY NOT JUST `focusOn` AFTER `present`. The panel's rows live behind
+		`UI.When`s, and a `When` materializes on the next SOLVE — so a path captured
+		before the dismiss does not exist yet on the line after the present, and the
+		call is a silent no-op. `onGeometry` is the presenter's own "this surface has
+		been laid out" seam (the chip strip already reserves its strip through it),
+		which is the first moment the question can be answered. If the row is gone
+		(the section changed under it), the fresh panel's own `initialFocus = "first"`
+		is the right answer and stands. ]]
+	local pendingFocus: string? = nil
+	--[[ ...AND WHERE IT WAS, WHICH HAS TO BE REMEMBERED RATHER THAN READ.
+
+		Measured: by the time a raise runs, the live focus is already the NEW demo's
+		first stop — `show()` dismisses the old demo, presents the new one (which
+		pushes a scope and takes entry focus) and only THEN calls its raise
+		listeners. Reading `focused` inside `raisePanel` therefore reads the demo,
+		never the row the player was on.
+
+		So the panel's own ring position is tracked while it is up. Cleared when the
+		panel closes, so a fresh open never inherits a stale row. ]]
+	local lastPanelFocus: string? = nil
+	-- how many laid-out frames the restore may spend before it stops trying
+	local pendingFocusTries = 0
+	local function isPanelPath(path: any): boolean
+		return type(path) == "string" and string.sub(path, 1, #PANEL_ID + 1) == `/{PANEL_ID}`
+	end
+	scope:own(core:observe(presenter.focus.focused, function(path: any)
+		if isPanelPath(path) then
+			lastPanelFocus = path
+		end
+	end))
+
 	local function closePanel()
 		if panelHandle == nil then
 			return
@@ -429,6 +681,10 @@ function showcase_chrome.mount(opts: MountOpts): any
 		presenter.dismiss(panelHandle)
 		panelHandle = nil
 		closing = false
+		-- a fresh open starts at the panel's own first stop, never on a row the
+		-- player was reading last time
+		lastPanelFocus = nil
+		pendingFocus = nil
 		open:set(false)
 	end
 
@@ -449,6 +705,28 @@ function showcase_chrome.mount(opts: MountOpts): any
 			-- because the player just asked for it. `"first"` is what makes a
 			-- keyboard or a pad land somewhere on the frame it opens.
 			initialFocus = "first",
+			onGeometry = function(rectOf: (string) -> any)
+				local want = pendingFocus
+				if want == nil then
+					return
+				end
+				--[[ A BUDGET, BECAUSE `initialFocus` LANDS AFTER THIS. Measured: the
+					first geometry callback arrives before the presenter has placed the
+					fresh surface's entry focus, so a single `focusOn` here is overwritten
+					by "first" a moment later. The restore therefore re-asserts until the
+					ring IS where the player left it, and gives up after a few frames so a
+					row that will never come back cannot fight the player forever. ]]
+				pendingFocusTries -= 1
+				if pendingFocusTries <= 0 or type(rectOf(want)) ~= "table" then
+					pendingFocus = nil
+					return
+				end
+				if presenter.focus.focused:get() == want then
+					pendingFocus = nil
+					return
+				end
+				presenter.focus.focusOn(want)
+			end,
 		})
 		-- ...and this is the call the whole item turns on. Nothing in `src/` ever
 		-- makes it outside the tap handler, so without it Tab and Space are never
@@ -481,11 +759,53 @@ function showcase_chrome.mount(opts: MountOpts): any
 		RE-PRESENT RATHER THAN RAISE, which is the same trade the demo picker's own
 		overlay already makes ("rebuilding it is cheaper than teaching the presenter
 		a raise operation for one example's benefit"). `closing` guards the responder
-		watch so this dismissal is bookkeeping rather than the player leaving. ]]
-	local function raisePanel()
+		watch so this dismissal is bookkeeping rather than the player leaving.
+
+		=== AND IT COSTS A LAYER, WHICH IS THE HAZARD IT COMPENSATES FOR ===
+
+		`presenter.luau`'s `displayLayer` counter goes UP 100 per present and back to
+		zero only when the stack EMPTIES — and this stack never empties, because the
+		backdrop is permanent. So a swap under an OPEN panel costs +200 (the demo's
+		present and this one) where a swap under a closed panel costs +100. Measured
+		over 100 swaps: 30300 against 20400. `SURFACE_LAYER.toast` is 20000 and
+		`dragProxy` is 30000, so an open panel HALVES the horizon at which a base
+		screen starts painting over toasts (~48 swaps rather than ~96).
+
+		CONTESTED, AND HERE IS WHY IT IS NOT FIXED HERE. The counter, and the
+		`presenter.raise(handle)` this whole comment is a workaround for, live inside
+		`src/present/presenter.luau`, whose extraction is OWED before any edit
+		(`docs/handoff/SOURCE_CAP_LEDGER.md`). No public seam re-bands a live
+		surface: `handle.displayOrder` is documented and READABLE, and nothing
+		writes it. What an app CAN do is not spend a layer it does not need, which is
+		the guard below — the demo handle rides in on the raise, and a panel already
+		above it is left exactly where it is (the failed-mount path raises without
+		presenting anything, and that raise is now free).
+
+		THE FOCUS SURVIVES THE RE-PRESENT (review MINOR-4). `openPanel` asks for
+		`initialFocus = "first"`, which is right for OPENING and wrong for a demo
+		swap underneath: a player reading row nine of the list would be put back on
+		row one by something they did not do. The path is re-focused afterwards when
+		it still exists, and falls back to the fresh panel's own first stop when it
+		does not. ]]
+	local function raisePanel(demoHandle: any?)
 		if panelHandle == nil then
 			return
 		end
+		--[[ ALREADY ON TOP: SPEND NOTHING. `handle.displayOrder` is the presenter's
+			documented cross-surface z, so "is the panel above the screen it was opened
+			over" is a read rather than an inference. Compared only when the raiser
+			says WHICH screen it means; a raise with no handle re-presents, because a
+			panel cannot prove it is above a surface it was never told about. ]]
+		if
+			type(demoHandle) == "table"
+			and type(demoHandle.displayOrder) == "number"
+			and type(panelHandle.displayOrder) == "number"
+			and panelHandle.displayOrder > demoHandle.displayOrder
+		then
+			return
+		end
+		pendingFocus = lastPanelFocus
+		pendingFocusTries = 4
 		closing = true
 		if panelWatch ~= nil then
 			panelWatch()
@@ -529,37 +849,6 @@ function showcase_chrome.mount(opts: MountOpts): any
 		self.request(want)
 	end
 
-	-- ===== the toggle context ===============================================
-	local toggleContext = opts.actionSystem.createContext({
-		name = "ShowcaseChromeToggle",
-		priority = showcase_chrome.TOGGLE_PRIORITY,
-		-- NOT sinking: it binds two keys nothing else in the place binds, so
-		-- there is nothing to consume and a sink would only be a claim it cannot
-		-- justify.
-		sink = false,
-	})
-	-- the CLOSED vocabulary (constitution §9): "activate the chrome". No new verb.
-	local toggleAction = toggleContext.createAction("Activate", "Bool")
-	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_KEYBOARD })
-	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_GAMEPAD })
-	toggleAction.onPressed(function()
-		self.requestFromNavigation(nil)
-	end)
-	--[[ ONE ACTION PER DESTINATION, on the same context. `request` runs the same
-		`toggle` command the chips do, so pressing the shoulder of the section that is
-		already showing CLOSES it (one button, one place, both directions) and
-		pressing the other one SWITCHES without closing — which is what "two buttons,
-		two destinations" has to mean for the pair to be worth two buttons. ]]
-	local sectionActions: { any } = {}
-	for _, kindName in { "demos", "settings" } do
-		local action = toggleContext.createAction(`Activate{kindName}`, "Bool")
-		action.bind({ keyCode = showcase_chrome.SECTION_GAMEPAD[kindName] })
-		action.onPressed(function()
-			self.requestFromNavigation(kindName)
-		end)
-		table.insert(sectionActions, action)
-	end
-
 	-- THE DEMO CHIP SAYS "Close" WHILE ITS OWN SECTION IS SHOWING, and only then:
 	-- panel presence is one fact here, so the picker's own flag is derived from
 	-- it rather than being a second copy that can disagree. Writing it back (as
@@ -590,6 +879,9 @@ function showcase_chrome.mount(opts: MountOpts): any
 	function self.isOpen(): boolean
 		return panelHandle ~= nil
 	end
+	-- the raise, driven: the picker calls this through `watchRaise` and a spec
+	-- calls it directly to prove what a raise does and does not spend
+	self.raise = raisePanel
 	function self.close()
 		closePanel()
 	end
