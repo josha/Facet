@@ -22,7 +22,11 @@
 --   9. every row of docs/reference/swiftui-parity.md that asserts something
 --      about SwiftUI carries a citation id, and every id resolves to a §16 row
 --      with an Apple URL, a verbatim quote (or an explicit "Apple documents no
---      behaviour here") and the date the page was read.
+--      behaviour here") and the date the page was read;
+--  10. the guide index catalogs the live public surface: it names every member
+--      of the UI and Controls namespaces and every non-retired export, names
+--      nothing that has stopped existing, links only api.md headings that
+--      exist, and links every extension playbook.
 --
 -- check(opts?) -> { ok, problems, counts }. `opts` injects synthetic drift for
 -- the checker's own tests (tests/theme_docs.spec.luau) — the same shape
@@ -32,6 +36,15 @@
 -- explanation, so the CLI's --write has nothing to regenerate and says so.
 
 local fs = require("@lune/fs")
+
+--[[ THE LIVE LIBRARY TABLE, not a parsed literal.
+
+	The capability catalog below asks "does the guide index name everything the
+	library exports". The only honest source for "everything the library
+	exports" is the exported table itself, so this module requires it the same
+	way tools/lune/check_registration does. A hand list here would be one more
+	place a new export could fail to appear. ]]
+local liveFacet = require("../../src") :: any
 
 local check_docs = {}
 
@@ -1051,11 +1064,143 @@ function check_docs.check(opts: Opts?)
 		end
 	end
 
+	--[[ ---- 10. THE CAPABILITY CATALOG -------------------------------------
+		The guide index is where a new author discovers what the library can do.
+		So it must name every capability that currently ships, and it must not
+		advertise anything that does not. Four directions are checked:
+
+		  a. every live public capability is named in the index;
+		  b. every capability name the index prints still resolves on the
+		     `Facet` table (a removed or renamed item cannot linger);
+		  c. every API-reference link the index makes lands on a heading that
+		     api.md really has;
+		  d. every extension playbook under docs/extending/ is linked.
+
+		Surfaces on their way out are skipped, read from `Facet.DEPRECATIONS`:
+		an alias with a replacement is not something the index has to teach.
+		`UI` and `Controls` are namespaces whose MEMBERS are the capabilities,
+		so the members carry the obligation and the bare namespace name does
+		not. ]]
+	local catalogEntries = 0
+	if index ~= nil then
+		local text = index :: string
+
+		local retired: { [string]: boolean } = {}
+		for _, entry in liveFacet.DEPRECATIONS :: { any } do
+			retired[tostring(entry.surface)] = true
+		end
+
+		local function named(token: string): boolean
+			return contains(text, "`" .. token .. "`") or contains(text, "`Facet." .. token .. "`")
+		end
+
+		local function mustName(token: string, why: string)
+			catalogEntries += 1
+			if not named(token) then
+				problem(
+					GUIDE_INDEX,
+					`the capability catalog does not name '{token}' ({why})`,
+					`add a catalog row naming \`{token}\` and linking its docs/reference/api.md section, or `
+						.. "retire the export through Facet.DEPRECATIONS if it is going away"
+				)
+			end
+		end
+
+		local namespaces = { "UI", "Controls" }
+		for _, key in namespaces do
+			local namespace = liveFacet[key]
+			if type(namespace) == "table" then
+				local members: { string } = {}
+				for member in namespace do
+					table.insert(members, tostring(member))
+				end
+				table.sort(members)
+				for _, member in members do
+					mustName(`{key}.{member}`, `a member of the {key} namespace`)
+				end
+			end
+		end
+
+		local topLevel: { string } = {}
+		for key in liveFacet do
+			table.insert(topLevel, tostring(key))
+		end
+		table.sort(topLevel)
+		for _, key in topLevel do
+			if retired[key] or table.find(namespaces, key) ~= nil then
+				continue
+			end
+			mustName(key, "a public export of the Facet table")
+		end
+
+		-- b. nothing the index advertises may have disappeared
+		for token in string.gmatch(text, "`([%w_]+%.[%w_]+)`") do
+			local namespace, member = string.match(token, "^([%w_]+)%.([%w_]+)$")
+			if namespace ~= nil and table.find(namespaces, namespace :: string) ~= nil then
+				local live = liveFacet[namespace]
+				if type(live) ~= "table" or live[member] == nil then
+					problem(
+						GUIDE_INDEX,
+						`the capability catalog names '{token}', which the library no longer exports`,
+						"delete the catalog row, or restore the export"
+					)
+				end
+			end
+		end
+
+		-- c. every API-reference link resolves to a real heading
+		if api ~= nil then
+			local seen: { [string]: number } = {}
+			local anchors: { [string]: boolean } = {}
+			for line in string.gmatch(api :: string, "[^\n]+") do
+				local heading = string.match(line, "^#+%s+(.-)%s*$")
+				if heading ~= nil then
+					local slug = string.lower(heading)
+					slug = string.gsub(slug, "[`*]", "")
+					slug = string.gsub(slug, "[^%w%s_-]", "")
+					slug = string.gsub(slug, "%s", "-")
+					local count = seen[slug] or 0
+					anchors[if count == 0 then slug else `{slug}-{count}`] = true
+					seen[slug] = count + 1
+				end
+			end
+			for anchor in string.gmatch(text, "%(%.%./reference/api%.md#([%w_-]+)%)") do
+				linksChecked += 1
+				if not anchors[anchor] then
+					problem(
+						GUIDE_INDEX,
+						`links docs/reference/api.md#{anchor}, which is not a heading in that document`,
+						"point the catalog row at the heading api.md really has, or add the missing section"
+					)
+				end
+			end
+		end
+
+		-- d. every extension playbook is reachable from the index
+		if fs.isDir("docs/extending") then
+			local playbooks = fs.readDir("docs/extending")
+			table.sort(playbooks)
+			for _, entry in playbooks do
+				if string.match(entry, "%.md$") ~= nil then
+					catalogEntries += 1
+					if not contains(text, `../extending/{entry}`) then
+						problem(
+							GUIDE_INDEX,
+							`the extension-playbook list does not link {entry}`,
+							`add a bullet linking [\`{string.gsub(entry, "%.md$", "")}\`](../extending/{entry})`
+						)
+					end
+				end
+			end
+		end
+	end
+
 	return {
 		ok = #problems == 0,
 		problems = problems,
 		counts = {
 			documents = 9,
+			catalogEntries = catalogEntries,
 			anchors = anchorsChecked,
 			citations = citationsChecked,
 			links = linksChecked,
@@ -1136,6 +1281,12 @@ check_docs.OBLIGATIONS = table.freeze({
 		.. "list is taught by the chapter",
 	"every document that restates Facet.VERSION in prose (api.md, guide 08, guide README, ADR-0011) names the "
 		.. "version src/init.luau actually exports",
+	-- ---- the capability catalog (wave T12) ---------------------------------
+	"docs/guide/README.md names every member of the UI and Controls namespaces and every non-retired export of "
+		.. "the live Facet table, read from the exported table itself rather than from a hand list",
+	"docs/guide/README.md advertises no UI.* or Controls.* capability the library has stopped exporting",
+	"every docs/reference/api.md link the guide index makes lands on a heading that document really has",
+	"docs/guide/README.md links every extension playbook under docs/extending/",
 })
 
 return check_docs

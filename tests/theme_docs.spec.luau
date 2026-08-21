@@ -481,3 +481,61 @@ describe("documentation gate: every claim about SwiftUI carries a citation", fun
 		end
 	end)
 end)
+
+--[[ THE CAPABILITY CATALOG (wave T12).
+
+	docs/guide/README.md is where a Roblox developer who has never seen this
+	repository finds out what the library can do. The plan's "public guide
+	completeness" rule says that index must name every capability that ships and
+	nothing that does not, so the checker compares it against the LIVE exported
+	table rather than against prose. These cases prove all four directions bite:
+	a missing capability, an invented one, a broken API-reference link, and an
+	unlinked extension playbook. ]]
+local fs = require("@lune/fs")
+
+local INDEX = "docs/guide/README.md"
+
+describe("the guide index catalogs the live public surface", function()
+	local index = fs.readFile(INDEX)
+
+	it("counts a catalog entry for every namespace member, export and playbook", function()
+		local result = checker.check()
+		expect(result.ok).toBe(true)
+		-- floor, not a pin: 19 controls + 51 UI members + the top-level exports
+		-- + the seven extension playbooks. A gutted check cannot pass by
+		-- checking nothing.
+		expect(result.counts.catalogEntries).toBeGreaterThanOrEqual(100)
+	end)
+
+	it("fails when the catalog stops naming a shipped control", function()
+		local dropped = string.gsub(index, "| `Controls%.Chip` |[^\n]*\n", "", 1)
+		expect(dropped ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = dropped } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "does not name 'Controls.Chip'")).toBe(1)
+	end)
+
+	it("fails when the catalog advertises something the library does not export", function()
+		local invented = string.gsub(index, "| `UI%.Screen` |", "| `UI.Sparkle` | `UI.Screen` |", 1)
+		expect(invented ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = invented } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "names 'UI.Sparkle', which the library no longer exports")).toBe(1)
+	end)
+
+	it("fails when a catalog row links an API-reference heading that does not exist", function()
+		local broken = string.gsub(index, "api%.md#screen%)", "api.md#no-such-heading)", 1)
+		expect(broken ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = broken } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "api.md#no-such-heading, which is not a heading")).toBe(1)
+	end)
+
+	it("fails when an extension playbook is not linked from the index", function()
+		local unlinked = string.gsub(index, "%.%./extending/new%-primitive%.md", "../extending/nope.md", 1)
+		expect(unlinked ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = unlinked } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "does not link new-primitive.md")).toBe(1)
+	end)
+end)
