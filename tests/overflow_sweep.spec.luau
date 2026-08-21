@@ -1303,6 +1303,45 @@ local function tableCellOf(path: string): (string?, string?)
 	return root, (string.match(rest :: string, "/Cells/Cell%-([^/]+)"))
 end
 
+--[[ ── THE STATE THE RIDER COULD NOT REACH (review round 1, HIGH-1) ───────────
+	The dead-end walk below is only worth what the sweep can DRIVE it into. Its
+	first cut visited authored surfaces only, so it could see a collapse a
+	DECLARATION caused and never one a PLAYER caused — and the defect it was
+	written to catch lived exactly there: a table declaring no floor at all
+	collapses once a width has been committed, because a committed override is a
+	`fixed` dim and a `fixed` dim is a floor.
+
+	SO THE SWEEP COMMITS ONE. `Head-<id>/Grip` is the shipped divider and the
+	gesture below is the shipped one — press, travel past the promotion gate,
+	release — the same route `playlist_columns.spec` drives for the same control.
+	Every resizable divider is dragged WIDE, which is the direction that
+	manufactures the demand. ]]
+local RESIZE_PROBE_VIEW = "narrow-portrait"
+
+local function commitWideResizes(w: any): number
+	local grips: { string } = {}
+	for _, path in w.adapter.paths() do
+		if string.match(path, "/Main/Header/Head%-[^/]+/Grip$") ~= nil then
+			table.insert(grips, path)
+		end
+	end
+	table.sort(grips)
+	local committed = 0
+	for _, path in grips do
+		local grip = w.adapter.node(path)
+		if grip ~= nil and grip.rect ~= nil and grip.rect.w > 0 then
+			local x, y = grip.rect.x + grip.rect.w, grip.rect.y + 2
+			w.adapter.pointerDown(path, x, y)
+			-- past the pointer promotion gate, and wide enough that the committed
+			-- width is more than the viewport can divide
+			w.adapter.pointerMove(x + 240, y)
+			w.adapter.pointerUp(x + 240, y)
+			committed += 1
+		end
+	end
+	return committed
+end
+
 local function collapsedDeadEnds(w: any): { string }
 	local collapsed: { [string]: { [string]: boolean } } = {}
 	for _, path in w.adapter.paths() do
@@ -1383,6 +1422,28 @@ local function sweep(kind: string, name: string, mount: (any) -> any, localeMoun
 						problems,
 						`  {view.id} ({view.w}x{view.h}) @ preferredTextOffset +{offset}: {hit}{suffix}`
 					)
+				end
+				--[[ ...AND THE SAME WALK AFTER A PLAYER HAS RESIZED (review round 1,
+					HIGH-1). Only at the narrowest view, only at the default preference
+					and only on the neutral pass — the check is an INVARIANT ("a collapse
+					has a route back"), not a measurement, so a second cell buys another
+					chance at the same boolean while costing a real solve on a sweep that
+					already runs 88 themed passes per surface. It builds a THROWAWAY
+					mount, so the surface every other check reads is untouched. ]]
+				if view.id == RESIZE_PROBE_VIEW and offset == 0 and package == nil and locale == nil then
+					local rw = world(view)
+					local rbuilt = mount(rw)
+					settle(rw.presenter)
+					if commitWideResizes(rw) > 0 then
+						settle(rw.presenter)
+						for _, hit in collapsedDeadEnds(rw) do
+							table.insert(
+								problems,
+								`  {view.id} ({view.w}x{view.h}) AFTER A COMMITTED COLUMN RESIZE: {hit}`
+							)
+						end
+					end
+					local _ = rbuilt
 				end
 				for _, finding in built.handle.controller.diagnostics() do
 					-- A FINDING THE FRAMEWORK MARKS AS DESIGNED IS NOT A DEFECT AND IS

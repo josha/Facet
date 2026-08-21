@@ -328,10 +328,15 @@ Two declarations decide it, and both are optional:
 { id = "rating", width = { type = "fixed", px = 144 } },
 ```
 
-* **`minWidth` is the trigger.** It is now a floor on every dim kind, `fill`
-  included — before, a `fill` column was divided strictly by weight and a
-  declared minimum bought nothing. A table whose columns declare no floor at all
-  never collapses anything, because its demand is zero and zero always fits.
+* **A floor is the trigger, wherever it comes from.** `minWidth` is now a floor
+  on every dim kind, `fill` included — before, a `fill` column was divided
+  strictly by weight and a declared minimum bought nothing. A `fixed` width and a
+  `percent` are floors too, and so is any column the PLAYER has resized, because
+  a committed width resolves to a `fixed` dim. A table that declares nothing and
+  has never been resized has a demand of zero and collapses nothing; a resizable
+  one is a single divider drag away from having a floor it never wrote. Either
+  way the disclosure follows the collapse — they read the same state, so there is
+  no shape where a column can go without the `N more` chip going with it.
 * **`priority` is the order.** `priority = 1` is the most important; absent, a
   column's priority is its declaration order, so the playlist above drops Rating
   first because Rating is written last. `priority = "always"` is a refusal — this

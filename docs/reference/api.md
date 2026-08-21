@@ -4333,8 +4333,14 @@ target — the presenter still runs its own walk inside it, so the hidden-candid
 gate, the truncation test, the `disclose` declaration and the document order all
 still decide, and a control cannot nominate a label that is not truncated.
 
-**Edit mode says so.** While `editing` is true, a SELECTABLE table paints a
-leading selection mark in the gutter its cells were already inset into — a filled
+**Edit mode says so** — where the table can reach edit mode at all. The whole
+edit-mode presentation, the gutter AND its contents, is gated on that being true:
+the consumer holds `editing`, or the control auto-shows its Edit/Done toggle. A
+table that declares neither can still be driven through the public `api.editing`,
+and gets a mode that is visually inert — no gutter, no mark — rather than a 32px
+inset with nothing in it. While `editing` is true on a table that CAN reach it, a
+SELECTABLE table paints a leading selection mark in the gutter its cells are
+inset into — a filled
 or hollow circle reading off the same memo the row's `selected` prop reads, so
 the mark and the row's own treatment cannot disagree (ADAPT-27; before, the only
 change edit mode made to a non-reorderable selectable table was an invisible
@@ -4387,9 +4393,21 @@ fits.
 
 Two more rules, neither of them a priority: **the first declared column never
 collapses** (it is the row's identity, and it is what the disclosure names each
-hidden value against), and **collapse only ever triggers where a floor was
-declared** — a table whose columns declare no `minWidth`, no `fixed` width and no
-`percent` has a demand of zero, and zero always fits, so nothing about it moves.
+hidden value against), and **collapse triggers on a FLOOR, wherever the floor
+comes from**. A column declaring `minWidth`, a `fixed` width or a `percent` has
+one; so does any column the player has RESIZED, because a committed override
+resolves to a `fixed` dim and a fixed dim is a floor (with an undeclared 24px
+minimum under it). A table that declares nothing and has never been resized has a
+demand of zero, and zero always fits — but "declares nothing" is not the whole
+sentence, and a resizable table is one committed width away from having a floor
+it never wrote.
+
+**The disclosure and the collapse read ONE state**, which is what makes the
+sentence above safe to depend on: `hidden` is the whole predicate, and the `N
+more` band, the plate and `dump().hiddenColumns` are all conditioned on it.
+There is no second, build-time answer to "can this table collapse" that could
+disagree with the rule at solve time — an earlier cut of this feature had one,
+and on a resized table it deleted a column with no chip and no report.
 
 A collapsed column keeps its node at zero width and takes the framework's own
 space-reserving hide (`hidden`): it leaves paint, focus order and hit-testing

@@ -125,6 +125,10 @@ export type Deps = {
 	-- is edit mode reachable at all on this table (the consumer holds the signal,
 	-- or the control auto-shows its toggle) — a build-time union
 	canEditMode: boolean,
+	-- the ONE environment `table.luau` resolved (`spec.env`, else the one
+	-- published against the core): a wrapped row's tray must not resolve its
+	-- metrics against a different one than the row box did (ISSUE-4)
+	surfaceEnvironment: any,
 	selectedMemo: (string) -> any,
 	itemForKey: (string) -> any?,
 	applyDragPosition: ({ x: number, y: number }) -> (),
@@ -175,6 +179,7 @@ function table_rows.new(deps: Deps)
 	local columnDim = deps.columnDim
 	local columnHidden = deps.columnHidden
 	local canEditMode = deps.canEditMode
+	local surfaceEnvironment = deps.surfaceEnvironment
 	local selectedMemo = deps.selectedMemo
 	local itemForKey = deps.itemForKey
 	local applyDragPosition = deps.applyDragPosition
@@ -908,7 +913,7 @@ function table_rows.new(deps: Deps)
 			-- leading minus (row_actions' own) and the reorder ≡ handle
 			-- (Table's own, in EditWhen above) at once while editing.
 			editing = editingSignal,
-			env = spec.env,
+			env = surfaceEnvironment,
 			-- `rowDeletable`, threaded across `spec.rowActions`' own callback
 			-- boundary (director ruling, parity round 3): row_actions has no notion
 			-- of an item, so THIS side — which owns both the item and the predicate

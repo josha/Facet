@@ -410,6 +410,78 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		expect(phone.adapter.node("/S/P/Main/Body/Rows/[a@0]/Row").rect.h).toBe(52)
 	end)
 
+	it("Table: the row box and the COLUMN RESERVATION read one environment (R1-I4)", function()
+		--[[ REVIEW ROUND 1, ISSUE-4. ADAPT-11 adopted the implicit environment at
+			ONE of seven read sites. The dangerous half was `cellSides`, which feeds
+			`reserved` -> `room` in `table_columns.layout`: an unwired table took its
+			ROW HEIGHT from the live theme and its COLUMN RESERVATION from the neutral
+			snapshot. Before the collapse paradigm that mismatch cost a few pixels of
+			override width; after it, it decides WHICH COLUMN IS REMOVED.
+
+			THE OBSERVABLE IS THE COLLAPSE THRESHOLD, because that is where the
+			reservation actually lands. `reserved` is the row card's own padding, and
+			Pixel Quest carves 16px a side where the built-in neutral snapshot carves
+			nothing — so on a carved surface a two-column table with 100px floors runs
+			out of room 32px EARLIER. Nothing here reaches into a private: the widest
+			viewport at which a column disappears is a number the player could count.
+
+			MEASURED: carved 231, flat 199 — the 32px the package reserves, exactly. A
+			table reading two environments answered 199 while its rows were sized for
+			the carved package. ]]
+		local pixelQuest = require("../examples/themes/pixel_quest")
+		local function collapseThreshold(themed: boolean): number
+			local s = surface(400, 600, TOUCH, "Touch")
+			if themed then
+				s.env:set("themeMetrics", Facet.themes.resolve(pixelQuest.build(Facet.themes), nil, {}))
+			end
+			local tbl = Facet.Controls.Table(s.core, {
+				id = "T",
+				rows = s.core:signal({ { id = "a", name = "Aria" } }),
+				key = function(item: any)
+					return item.id
+				end,
+				columns = {
+					{
+						id = "one",
+						width = { type = "fill", weight = 1 },
+						minWidth = 100,
+						value = function(item: any)
+							return item.name
+						end,
+					},
+					{
+						id = "two",
+						width = { type = "fill", weight = 1 },
+						minWidth = 100,
+						value = function(item: any)
+							return item.name
+						end,
+					},
+				},
+				selection = "single",
+			})
+			s.pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
+			s.pres.refresh()
+			for width = 400, 120, -1 do
+				s.env:set("viewportRect", { x = 0, y = 0, w = width, h = 600 })
+				for _ = 1, 3 do
+					s.pres.tick(1 / 60)
+					s.pres.refresh()
+				end
+				if #tbl.dump().hiddenColumns > 0 then
+					return width
+				end
+			end
+			return -1
+		end
+		local carved = collapseThreshold(true)
+		local flat = collapseThreshold(false)
+		expect(`carved {carved} vs flat {flat}`).toBe("carved 231 vs flat 199")
+		-- ...and the difference IS the package's own reservation rather than a
+		-- number that happens to differ
+		expect(`difference: {carved - flat}`).toBe("difference: 32")
+	end)
+
 	it("TextInput: the field lifts itself off the keyboard with no `env` key", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
 		local field = Facet.Controls.TextInput(phone.core, {
@@ -624,29 +696,153 @@ end)
 	the surface owns — and it reddens the moment a fifth control adopts the refusal
 	without documenting it. ]]
 describe("ADAPT-1: every control that can refuse for want of the environment says so in api.md", function()
-	local REFUSING = { "newPicker", "newPopupButton", "newMenu", "newTextInput" }
+	--[[ THE LIST IS DISCOVERED, NOT TYPED (re-review round 2, MEDIUM-1 residual).
 
-	it("each control's own section names the refusal and the environment", function()
-		local text = fs.readFile("docs/reference/api.md")
-		-- the sections are `### \`newX\`` headings; a section runs to the next `### `
+		The first version of this guard enumerated four names by hand, which is the
+		one thing a guard against "somebody forgot" must not do: it checked the four
+		an author remembered and was blind to the fifth. `newTabView` had refused for
+		want of an environment since `44a495f` — under the exact criterion this
+		block's own title states — with an api.md section that named neither the
+		refusal nor the environment, and the guard could not see it.
+
+		So the input is the SOURCE. A control refuses for want of the environment in
+		exactly one of two shapes today, and both are read out of `src/controls/`:
+
+		  1. it calls the shared refusal helper, `surfaceEnv.resolve("newX", …)`,
+		     whose message always names the environment and the host — the picker,
+		     popup button, menu and text field;
+		  2. it raises its own construction error in the framework's uniform
+		     `Facet newX('<id>'): …` shape, with an environment named inside it —
+		     `newTabView`, which predates the helper and keeps its own message
+		     because it has three routes to report rather than two.
+
+		Shape 2 is matched through a WINDOW of characters after the error prefix,
+		the same technique `api_surface.spec`'s deprecation-marking check uses on
+		lines: a construction error that refuses for want of a fact has to NAME that
+		fact to be worth raising, so "an environment is mentioned inside the message"
+		is the property, not a spelling. Measured across all 33 control modules the
+		two predicates find exactly five controls and no false positives.
+
+		Both halves have a bite-check below: a synthetic module that refuses is
+		discovered, and a doc section removed from the text is reported. ]]
+	local REFUSAL_WINDOW = 500
+
+	-- the control names a single source refuses under, by the two shapes above
+	local function refusalsIn(source: string): { [string]: boolean }
+		local found: { [string]: boolean } = {}
+		for name in string.gmatch(source, 'surfaceEnv%.resolve%(%s*"(new%w+)"') do
+			found[name] = true
+		end
+		for at, name in string.gmatch(source, "()Facet (new%w+)%('") do
+			local window = string.sub(source, math.max(1, at - 200), at + REFUSAL_WINDOW)
+			if string.find(window, "environment", 1, true) ~= nil then
+				found[name] = true
+			end
+		end
+		return found
+	end
+
+	local function refusingControls(): { string }
+		local names: { [string]: boolean } = {}
+		for _, entry in fs.readDir("src/controls") do
+			if string.match(entry, "%.luau$") == nil then
+				continue
+			end
+			for name in refusalsIn(fs.readFile(`src/controls/{entry}`)) do
+				names[name] = true
+			end
+		end
+		local out: { string } = {}
+		for name in names do
+			table.insert(out, name)
+		end
+		table.sort(out)
+		return out
+	end
+
+	-- api.md's `### \`newX\`` sections, each running to the next heading
+	local function sectionsOf(apiText: string): { [string]: string }
 		local sections: { [string]: string } = {}
 		local order: { { name: string, at: number } } = {}
-		for at, name in string.gmatch(text, "()### `(new%w+)`") do
+		for at, name in string.gmatch(apiText, "()### `(new%w+)`") do
 			table.insert(order, { name = name, at = at })
 		end
 		for index, entry in order do
-			local stop = if order[index + 1] ~= nil then order[index + 1].at - 1 else #text
-			sections[entry.name] = string.sub(text, entry.at, stop)
+			local stop = if order[index + 1] ~= nil then order[index + 1].at - 1 else #apiText
+			sections[entry.name] = string.sub(apiText, entry.at, stop)
 		end
-		for _, name in REFUSING do
+		return sections
+	end
+
+	-- the controls whose own section fails to name BOTH the refusal and the fact
+	local function undocumented(apiText: string, names: { string }): { string }
+		local sections = sectionsOf(apiText)
+		local missing: { string } = {}
+		for _, name in names do
 			local section = sections[name]
-			expect(`{name} has a section in api.md: {section ~= nil}`).toBe(`{name} has a section in api.md: true`)
-			local body = string.lower(section :: string)
-			expect(`{name} names the refusal: {string.find(body, "refus", 1, true) ~= nil}`).toBe(
-				`{name} names the refusal: true`
-			)
-			expect(`{name} names the environment: {string.find(body, "environment", 1, true) ~= nil}`).toBe(
-				`{name} names the environment: true`
+			local body = if section ~= nil then string.lower(section) else ""
+			if
+				section == nil
+				or string.find(body, "refus", 1, true) == nil
+				or string.find(body, "environment", 1, true) == nil
+			then
+				table.insert(missing, name)
+			end
+		end
+		return missing
+	end
+
+	it("the refusing controls are read out of the sources, and there are six today", function()
+		-- `newVirtualList` joined them in the CAROUSEL wave: `itemExtent = "cards"`
+		-- with no authored `cards.perView` arranges the rail from the live
+		-- interaction class and the space it got, so it refuses without an
+		-- environment rather than silently taking the large-screen answer.
+		expect(table.concat(refusingControls(), " ")).toBe(
+			"newMenu newPicker newPopupButton newTabView newTextInput newVirtualList"
+		)
+	end)
+
+	--[[ BITE-CHECK ON THE DISCOVERY HALF: a module written in either shape is
+		found. Without this, a scanner that had quietly stopped matching (a rename of
+		the helper, a reformatting of the error prefix) would report an EMPTY list and
+		the guard below would pass by having nothing to check. ]]
+	it("a control that refuses in either shape is discovered by the scan itself", function()
+		local viaHelper = [[
+			local env = surfaceEnv.resolve("newSynthetic", id, core, spec.env, "it adapts")
+		]]
+		local viaOwnError = [[
+			error(`Facet newOther('{id}'): an automatic thing reads a policy, so it needs an environment.`, 0)
+		]]
+		local silent = [[
+			error(`Facet newQuiet('{id}'): \`options\` must be a non-empty array`, 0)
+		]]
+		expect(refusalsIn(viaHelper).newSynthetic).toBe(true)
+		expect(refusalsIn(viaOwnError).newOther).toBe(true)
+		-- ...and a construction error that is NOT about the environment is not one
+		expect(refusalsIn(silent).newQuiet).toBeNil()
+	end)
+
+	it("each discovered control's own section names the refusal and the environment", function()
+		local text = fs.readFile("docs/reference/api.md")
+		local missing = undocumented(text, refusingControls())
+		expect(`undocumented refusals in api.md: {table.concat(missing, ", ")}`).toBe(
+			"undocumented refusals in api.md: "
+		)
+	end)
+
+	--[[ BITE-CHECK ON THE DOCUMENTATION HALF, run against the REAL text with one
+		section cut out of it in memory — so this cannot pass by the check having
+		stopped looking, and no file is written to prove it. ]]
+	it("removing a control's section from api.md is reported", function()
+		local text = fs.readFile("docs/reference/api.md")
+		local sections = sectionsOf(text)
+		for _, name in refusingControls() do
+			local section = sections[name]
+			expect(`{name} has a section: {section ~= nil}`).toBe(`{name} has a section: true`)
+			local without =
+				string.gsub(text, string.gsub(section :: string, "[%%%[%]%(%)%.%+%-%*%?%^%$]", "%%%1"), "", 1)
+			expect(`{name} removed is reported: {table.concat(undocumented(without, { name }), ",")}`).toBe(
+				`{name} removed is reported: {name}`
 			)
 		end
 	end)

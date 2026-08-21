@@ -238,6 +238,31 @@ export type Layout = {
 
 local ZERO_WIDTH = table.freeze({ type = "fixed", px = 0 })
 
+--[[ THE SUM IS COMPARED AGAINST ITSELF, SO IT NEEDS A TOLERANCE (review round 1,
+	HIGH-2, 2026-08-20).
+
+	`fitOverrides` above computes each fitted width as `px - take * (room_i /
+	slack)`, so whenever the clamp is active the fitted widths sum to
+	`available - reserved` BY CONSTRUCTION. The collapse loop then re-sums those
+	same numbers with a left fold and asks whether they fit — and IEEE
+	accumulation lands the re-sum epsilon OVER its own target, so an exact
+	`demand <= room` reads "does not fit" and deletes a column whose widths
+	demonstrably do. Measured: floors 100 and 90, overrides 377 and 304, at
+	`available = 241` the fitted pair is 128.77189409368637 + 112.22810590631366
+	= 241.00000000000003, and the trailing column vanished — over a contiguous
+	band of 53 widths out of 1,011.
+
+	WHY 1e-6 AND NOT `composition.luau`'s 0.5. That neighbour is a POLICY — how
+	much overflow a lane will tolerate before it steps a region down — and half a
+	paint unit is the right size for a policy. This is not a policy: it is the
+	distance a number travels by being added up twice, about 1e-13 here, and the
+	tolerance says only "a sum is allowed to equal itself". Six orders of
+	magnitude below the paint unit it can never forgive a real overflow, and
+	seven above the noise it always forgives the arithmetic. The null hypothesis
+	rides with it in `table.spec`: one pixel under the floors' own sum, the rule
+	still fires. ]]
+local FIT_EPSILON = 1e-6
+
 -- may this column ever collapse? The row's identity may not, and neither may a
 -- column whose author pinned it.
 local function collapsible(column: Column, index: number): boolean
@@ -355,7 +380,7 @@ function table_columns.layout(
 				end
 			end
 		end
-		if demand <= room or victim == nil then
+		if demand <= room + FIT_EPSILON or victim == nil then
 			break
 		end
 		local gone = (victim :: Column).id

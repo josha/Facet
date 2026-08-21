@@ -458,6 +458,57 @@ describe("Table: custom cells and resize model", function()
 		expect(compact.dims.name.px <= 390).toBe(true)
 	end)
 
+	it("a sum that equals `room` FITS — the collapse test is not an exact float compare (R1-H2)", function()
+		local table_columns = require("../src/controls/table_columns")
+		--[[ REVIEW ROUND 1, HIGH-2. `fitOverrides` computes each fitted width as
+			`px - take * (room_i / slack)`, so whenever the clamp is active the fitted
+			widths sum to `available - reserved` BY CONSTRUCTION. `layout` then re-sums
+			those same numbers with a left fold and asked `demand <= room` EXACTLY —
+			and IEEE accumulation lands the re-sum epsilon over its own target, so the
+			loop reads "does not fit" and deletes a column whose widths demonstrably
+			do.
+
+			The reviewer's own reproduction, verbatim: two `fill` columns with floors
+			100 and 90, committed overrides 377 and 304, available 241.
+
+			    fitOverrides -> 128.77189409368637 + 112.22810590631366
+			                  = 241.00000000000003
+			    layout()     -> hidden = b
+
+			Measured across the band: 53 of the 1,011 widths in 190..1200 collapsed a
+			column whose floors fit. Player-visible as "drag two dividers wide, narrow
+			the window, and over a contiguous stripe of widths the trailing column
+			vanishes" — where this module's own DIR-4 contract says the clamp absorbs
+			it. ]]
+		local columns = {
+			{ id = "a", width = { type = "fill", weight = 1 }, minWidth = 100, resizable = true },
+			{ id = "b", width = { type = "fill", weight = 1 }, minWidth = 90, resizable = true },
+		}
+		local overrides = { a = 377, b = 304 }
+		-- the exact width the reviewer measured: the fitted pair sums to 241 + 3e-14
+		expect(#table_columns.layout(columns, overrides, 241, 0, nil).hidden).toBe(0)
+		-- ...and the neighbouring case they also measured, where the floors fit with
+		-- three whole pixels to spare
+		expect(#table_columns.layout(columns, overrides, 193, 0, nil).hidden).toBe(0)
+
+		--[[ THE WHOLE BAND, not the two widths that happened to be reported. A
+			regression here is a STRIPE of widths rather than a point, so the guard is
+			a stripe too: every width from the floors' own sum upward must keep both
+			columns, because the clamp's whole contract is that it absorbs the
+			difference down to the floors. ]]
+		local collapsedAbove = {}
+		for width = 190, 1200 do
+			if #table_columns.layout(columns, overrides, width, 0, nil).hidden > 0 then
+				table.insert(collapsedAbove, width)
+			end
+		end
+		expect(`collapsed above the floors: {#collapsedAbove}`).toBe("collapsed above the floors: 0")
+
+		-- ...and the NULL HYPOTHESIS, so the tolerance cannot become "never
+		-- collapse": one pixel under the floors' own sum, the rule still fires
+		expect(#table_columns.layout(columns, overrides, 189, 0, nil).hidden).toBe(1)
+	end)
+
 	it("a table whose columns declare no floor never collapses anything (ADAPT-18)", function()
 		local table_columns = require("../src/controls/table_columns")
 		-- three pure fills with no `minWidth`: the demand is zero, zero always fits,

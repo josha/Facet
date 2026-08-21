@@ -2946,6 +2946,40 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		expect(owned.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).never().toBeNil()
 	end)
 
+	it("R1-I5: the gutter and the mark are ONE gate — a routeless table insets nothing", function()
+		--[[ REVIEW ROUND 1, ISSUE-5. The mark was gated on `canEditMode`; the GUTTER
+			it sits in was not. `api.editing` is public, so a consumer could drive a
+			table with no declared edit route into edit mode and get the 32px inset
+			with nothing in it — which is the ADAPT-27 defect verbatim ("moved its
+			cells 32px right and put nothing there"), reintroduced by the gate that
+			fixed it. The reviewer measured `cell x 0 -> 32, EditWhen: ABSENT` on
+			every capability set.
+
+			WHICH WAY IT WAS FIXED, AND WHY. Edit mode is a MODE WITH CONTENT: the ≡
+			handle, the selection mark, the row-actions minus. A table with no route
+			into it has no content for it, so spending its gutter was the bug — not
+			the missing mark. Both now read one predicate, so the inset appears
+			exactly where something appears in it. A consumer driving `api.editing` on
+			a table that declares no edit capability gets a mode that is visually
+			inert, which is honest and is stated in api.md. ]]
+		local w = editWorld({ selection = "multi" })
+		local CELL = "/S/T/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name"
+		local before = w.adapter.node(CELL).rect.x
+		w.tbl.api.editing:set(true)
+		w.settle()
+		expect(`routeless inset: {w.adapter.node(CELL).rect.x - before}`).toBe("routeless inset: 0")
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).toBeNil()
+
+		--[[ ...AND A TABLE THAT HAS A ROUTE STILL PAYS IT, which is the half that
+			keeps this from being "delete the gutter". Same spec, same width, one
+			declaration different. ]]
+		local routed = editWorld({ selection = "multi", ownEditing = true })
+		local routedBefore = routed.adapter.node(CELL).rect.x
+		routed.tbl.api.editing:set(true)
+		routed.settle()
+		expect(`routed inset: {routed.adapter.node(CELL).rect.x - routedBefore > 0}`).toBe("routed inset: true")
+	end)
+
 	it("M-4: a KEYBOARD-only session gets the Edit toggle, and can reorder a row end to end", function()
 		--[[ THE AUDIT'S MEASUREMENT (matrix M-4): "no Edit toggle is mounted (the
 			auto-toggle union is touch OR gamepad) and the grab branch requires edit
@@ -3168,5 +3202,211 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 		end
 		expect(plates).toBe(0)
 		tbl.dispose()
+	end)
+end)
+
+-- =============================================================================
+-- REVIEW ROUND 1, HIGH-1 · the collapse and its disclosure must read ONE state
+--
+-- THE REVIEWER'S MEASUREMENT, verbatim: a MOUNTED table of three `fill` columns,
+-- `resizable = true`, with NO `minWidth`, NO `fixed` and NO `percent` anywhere —
+-- the exact shape four artifacts of this wave called "demand is zero, and zero
+-- always fits". Commit a width on each through the shipped resize path, then
+-- sweep the viewport:
+--
+--     122 of 371 viewport widths COLLAPSE column c   (first 91px, last 458px)
+--     a MoreChip mounted at ANY of them?  false
+--     dump().hiddenColumns                nil
+--
+-- A column deleted from the screen with no chip, no plate, no dump field and
+-- nothing in the census line — the precise dead end the paradigm's own header
+-- forbids.
+--
+-- TWO PREDICATES WERE THE DEFECT. `canDiscloseColumns` scanned the DECLARED
+-- widths at build time; the collapse reads a runtime floor that a committed
+-- override manufactures (`dimOf` turns any override into a `fixed` dim, and
+-- `floorOf` reads a `fixed` dim as a hard floor). The gate could not see what
+-- the rule could. There is now ONE state — `columnLayout.hidden` — and the band,
+-- the plate and the dump all read it.
+-- =============================================================================
+describe("table_input: whatever can collapse can be disclosed (R1-H1)", function()
+	local function resizableWorld()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 460, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(
+			Facet,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(2)),
+				key = function(r: any)
+					return r.id
+				end,
+				--[[ NO FLOOR IS DECLARED ANYWHERE. Three `fill` columns, every one
+				resizable, exactly as the reviewer built it. ]]
+				columns = {
+					{
+						id = "a",
+						title = "A",
+						width = { type = "fill", weight = 1 },
+						resizable = true,
+						value = function(r: any)
+							return r.name
+						end,
+					},
+					{
+						id = "b",
+						title = "B",
+						width = { type = "fill", weight = 1 },
+						resizable = true,
+						value = function(r: any)
+							return tostring(r.laps)
+						end,
+					},
+					{
+						id = "c",
+						title = "C",
+						width = { type = "fill", weight = 1 },
+						resizable = true,
+						value = function(r: any)
+							return r.id
+						end,
+					},
+				},
+				selection = "single",
+				rowHeight = 40,
+				env = env,
+			} :: any
+		)
+		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = { core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl }
+		w.handle = handle
+		function w.settle(frames: number?)
+			for _ = 1, frames or 4 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.resize(width: number)
+			env:set("viewportRect", { x = 0, y = 0, w = width, h = 600 })
+			w.settle()
+		end
+		w.settle()
+		return w
+	end
+
+	local CHIP = "/S/T/Main/MoreWhen/then/MoreBar/MoreChip"
+
+	it("THE REVIEWER'S SWEEP: every collapsed width carries the chip and the dump record", function()
+		local w = resizableWorld()
+		-- the shipped DIR-4 resize path, on a table that declared no floor at all
+		w.tbl.api.setColumnWidth("a", 150)
+		w.tbl.api.setColumnWidth("b", 150)
+		w.tbl.api.setColumnWidth("c", 150)
+		w.settle()
+
+		--[[ THE GROUND TRUTH IS THE SCREEN, NOT THE DUMP. A dump field that is
+			gated off is exactly the defect, so counting collapses BY the dump would
+			have made this case assert an empty set — which is what the wave's own
+			scope claim predicted. The adapter's own visibility write is what the
+			player gets: a collapsed column's heading leaves paint with its whole
+			subtree. ]]
+		local collapsedWidths, silentChip, silentDump = 0, 0, 0
+		local firstSilent: number? = nil
+		for width = 20, 460 do
+			w.resize(width)
+			local gone = false
+			for _, id in { "a", "b", "c" } do
+				if w.adapter.visibleOf(`/S/T/Main/Header/Head-{id}`) == false then
+					gone = true
+				end
+			end
+			if gone then
+				collapsedWidths += 1
+				-- the invariant, at every single width: something is hidden, so the
+				-- affordance that leads back to it is on the screen...
+				if w.adapter.node(CHIP) == nil then
+					silentChip += 1
+					firstSilent = firstSilent or width
+				end
+				-- ...and a bug report can see it
+				local hidden = w.tbl.dump().hiddenColumns
+				if hidden == nil or #hidden == 0 then
+					silentDump += 1
+				end
+			end
+		end
+		--[[ THE PREMISE FIRST. Without it this whole case is an assertion about an
+			empty set — and an empty set is exactly what the wave's own scope claim
+			predicted here.
+
+			THE BAND IS NARROWER THAN THE REVIEWER'S 122 OF 371, AND THAT IS THE
+			EPSILON FIX BESIDE THIS ONE. Their own reading was that the exact float
+			compare "is what makes the band 122 widths wide instead of a handful";
+			with it fixed, what remains is the handful — 71 content widths, driven by
+			`overrideFloor`'s undeclared 24px default, which is a floor the author
+			never wrote and the collapse rule reads as one. So the number is not
+			pinned; what is pinned is that the state is REACHED, and that nothing
+			about it is silent when it is. ]]
+		expect(`collapsed widths > 20: {collapsedWidths > 20}`).toBe("collapsed widths > 20: true")
+		expect(`silent collapses: {silentChip} (first at {tostring(firstSilent)})`).toBe(
+			"silent collapses: 0 (first at nil)"
+		)
+		expect(`unreported collapses: {silentDump}`).toBe("unreported collapses: 0")
+	end)
+
+	it("...and the dump reports the collapse on a table that declared no floor", function()
+		local w = resizableWorld()
+		-- before any resize this table cannot collapse, and says so with an EMPTY
+		-- list rather than with nothing at all — a nil field is not an answer
+		expect(w.tbl.dump().hiddenColumns).toEqual({})
+		w.tbl.api.setColumnWidth("a", 150)
+		w.tbl.api.setColumnWidth("b", 150)
+		w.tbl.api.setColumnWidth("c", 150)
+		-- inside the band the reviewer's shape actually reaches: three undeclared
+		-- 24px floors do not fit a 60px content width
+		w.resize(60)
+		expect(#w.tbl.dump().hiddenColumns > 0).toBe(true)
+		expect(w.tbl.dump().columnPlate).toBe("closed")
+	end)
+
+	it("...and the plate OPENS on that table, which is the route the chip promises", function()
+		local w = resizableWorld()
+		w.tbl.api.setColumnWidth("a", 150)
+		w.tbl.api.setColumnWidth("b", 150)
+		w.tbl.api.setColumnWidth("c", 150)
+		w.resize(60)
+		local chip = w.adapter.node(CHIP)
+		expect(chip).never().toBeNil()
+		expect(chip.rect.h >= 44).toBe(true)
+		w.adapter.touchTap(CHIP)
+		w.settle(30)
+		expect(w.tbl.dump().columnPlate).never().toBe("closed")
+		-- the hidden column's own value is in it, for the row that is on screen
+		local found = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "Row-c-r1", 1, true) ~= nil then
+				found = true
+			end
+		end
+		expect(found).toBe(true)
+	end)
+
+	it("NULL HYPOTHESIS: an unresized table with no declared floor still collapses nothing", function()
+		--[[ The scope claim, corrected rather than abandoned: a table that declares
+			no floor AND has had no width committed still has a demand of zero, and
+			zero still fits. What changed is that "declares no floor" stopped being the
+			whole sentence. ]]
+		local w = resizableWorld()
+		for _, width in { 460, 300, 200, 120, 90 } do
+			w.resize(width)
+			expect(`{width}: {#w.tbl.dump().hiddenColumns}`).toBe(`{width}: 0`)
+		end
+		expect(w.adapter.node(CHIP)).toBeNil()
 	end)
 end)

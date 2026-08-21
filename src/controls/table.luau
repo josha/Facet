@@ -563,6 +563,22 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		legitimate answer for a control that must build under `mountLib.mount` with
 		no surface at all. `newLevelPicker` takes the same soft find for the same
 		reason. ]]
+	--[[ ...AND IT IS THE ONLY ENVIRONMENT THIS FILE READS (review round 1,
+		ISSUE-4, 2026-08-20). The first cut of ADAPT-11 adopted the implicit
+		environment at ONE of seven read sites, and the split was not cosmetic: the
+		row height came from the live theme while the column RESERVATION
+		(`cellSides`) still came from `spec.env`, so an unwired table took its row
+		box from one source and its `reserved` — which feeds `room`, which decides
+		WHICH COLUMN IS REMOVED FROM THE SCREEN — from the other. Before the
+		collapse paradigm that mismatch cost a few pixels of override width; after
+		it, it picks a different column. `screenSeed` reading `spec.env` had a
+		second consequence of its own: it answered 0, so the disclosure plate's list
+		cap answered `{ type = "content" }` and an unwired surface got an uncapped
+		plate.
+
+		Every site below now reads this local, and `tests/adaptive_defaults.spec`
+		pins the pair that could disagree (row height and column reservation) on one
+		unwired surface. ]]
 	local surfaceEnvironment = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
 	local rowBox = scope:own(core:memo(function(use)
 		local env = surfaceEnvironment
@@ -593,7 +609,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		if type(declared) ~= "string" then
 			return 0
 		end
-		local env = spec.env
+		local env = surfaceEnvironment
 		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
 		return themeSnapshot.resolveNumber(snap, declared) or 0
 	end))
@@ -793,7 +809,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		the seed is 0, which is the old behaviour and is what the convergence case
 		below pins. ]]
 	local function screenSeed(): number
-		local env = spec.env
+		local env = surfaceEnvironment
 		if env == nil then
 			return 0
 		end
@@ -980,11 +996,30 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local touchSelectionNeedsEditMode = selectionMode ~= "none" and spec.onPrimaryAction ~= nil
 	-- the union, plus the consumer's escape. ADD A CLAUSE, NEVER A SPECIAL CASE.
 	local autoEditRoute = spec.editing == nil and (reorderNeedsEditMode or touchSelectionNeedsEditMode)
+	--[[ IS EDIT MODE REACHABLE ON THIS TABLE AT ALL — and it gates the WHOLE
+		edit-mode presentation, gutter and content together (review round 1,
+		ISSUE-5, 2026-08-20).
+
+		THE DEFECT IT CLOSES. The selection mark was gated on this predicate and the
+		GUTTER it sits in was not, so a consumer driving the public `api.editing` on
+		a table with no declared edit route got the 32px inset with nothing in it —
+		which is the ADAPT-27 measurement verbatim ("moved its cells 32px right and
+		put nothing there"), reintroduced by the gate that fixed it.
+
+		WHICH WAY IT WAS FIXED, AND WHY THIS WAY. Edit mode is a MODE WITH CONTENT:
+		the ≡ handle, the selection mark, the row-actions minus. A table with no
+		route into it has no content for it, so spending its gutter was the bug —
+		not the missing mark. Ungating the mark instead would have put one engine
+		node on every row of every selectable table in the library, which is the
+		cost RascalRally's own contract tests caught the first time. A consumer who
+		drives `api.editing` on a table that declares no edit capability now gets a
+		mode that is visually inert, which is honest, cheap and stated in api.md. ]]
+	local canEditMode = spec.editing ~= nil or autoEditRoute
 	local showAutoToggle = if autoEditRoute
 		then (
-			if spec.env ~= nil
+			if surfaceEnvironment ~= nil
 				then scope:own(core:memo(function(use)
-					local classes = use(spec.env:get("interactionClasses"))
+					local classes = use(surfaceEnvironment:get("interactionClasses"))
 					--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
 					The union was `touch or gamepad`, on the argument written above: a
 					MOUSE user reaches both capabilities without edit mode, because they
@@ -1012,7 +1047,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 						something that can drag a row. Absent capabilities default to a
 						mouse (`environment.luau`'s own `FACT_DEFAULTS`), so an env nobody
 						has told anything to is a desktop and shows nothing, as before. ]]
-					local caps = use(spec.env:get("capabilities"))
+					local caps = use(surfaceEnvironment:get("capabilities"))
 					local hasMouse = if type(caps) == "table" then caps.mouse == true else true
 					local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
 					return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
@@ -1059,7 +1094,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		left = "chromeInsets.selection.left",
 	}
 	local cellsEditPadding = scope:own(core:memo(function(use)
-		if not use(editingSignal) then
+		-- ...AND ONLY WHERE EDIT MODE HAS SOMETHING TO PUT IN THE GUTTER (ISSUE-5):
+		-- `canEditMode` gates the inset and its content together, so a table that
+		-- cannot reach the mode never insets for it. See that predicate's own note.
+		if not use(editingSignal) or not canEditMode then
 			return ROW_ART
 		end
 		-- edit mode adds the leading ≡ gutter ON TOP of the art's own inset.
@@ -1336,7 +1374,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- rule cannot resolve them — so that half is resolved here, per solve, and
 	-- `table_columns.layout` takes the answer.
 	local cellSides = scope:own(core:memo(function(use): any
-		local env = spec.env
+		local env = surfaceEnvironment
 		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
 		return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
 	end))
@@ -1419,32 +1457,38 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local moreLabel = scope:own(core:memo(function(use)
 		return `{#(use(hiddenColumns) :: { string })} more`
 	end))
-	--[[ CAN THIS TABLE EVER COLLAPSE A COLUMN? Decided ONCE, at build, from the
-		declaration — so a table that cannot does not mount the disclosure band's
-		`When` at all, and pays literally nothing for the feature existing (the same
-		construction-only accounting `virtualized` uses two hundred lines above).
+	--[[ ── ONE STATE DECIDES BOTH THE COLLAPSE AND ITS DISCLOSURE ────────────────
+		(review round 1, HIGH-1, 2026-08-20 — and this replaces a build-time
+		`canDiscloseColumns` predicate that scanned the DECLARED widths.)
 
-		BOTH HALVES ARE REQUIRED and neither is enough alone: there has to be a
-		column that MAY go (not the first, not pinned `"always"`), and there has to
-		be a declared FLOOR somewhere for the demand to ever exceed the room. A
-		table of pure `fill` columns with no `minWidth` squeezes forever and never
-		reaches the rule at all. ]]
-	local canDiscloseColumns = (function(): boolean
-		local removable, floored = false, false
-		for index, column in columns do
-			if index > 1 and column.priority ~= "always" then
-				removable = true
-			end
-			local dim: any = column.width
-			if
-				column.minWidth ~= nil
-				or (type(dim) == "table" and (dim.type == "fixed" or dim.type == "percent" or dim.min ~= nil))
-			then
-				floored = true
-			end
-		end
-		return removable and floored
-	end)()
+		THE DEFECT THAT PREDICATE WAS. It answered "can this table ever collapse a
+		column" by reading `minWidth`/`fixed`/`percent` off the spec, once, at
+		construction — and gated the disclosure band and the whole plate engine on
+		the answer. The COLLAPSE reads something else: a floor, at solve time, which
+		a committed resize MANUFACTURES (`table_columns.dimOf` turns any override
+		into a `fixed` dim, and `floorOf` reads a `fixed` dim as a hard floor —
+		floored by `overrideFloor`'s undeclared 24px default). So the gate could not
+		see what the rule could, and on the most ordinary table there is — `fill`
+		columns, `resizable = true`, nothing declared — one `setColumnWidth` and a
+		narrow viewport deleted a column with no chip, no plate, no `dump()` field
+		and nothing in the census line. Measured by the reviewer as 122 of 371 swept
+		widths, and still 52 of them after the epsilon fix beside this one.
+
+		THE CONTRACT NOW: wherever a collapse is reachable, so is the way back —
+		and the way that is guaranteed rather than argued is for both to read THE
+		SAME STATE. `columnLayout.hidden` is that state; `anyColumnHidden` is the
+		band's condition, `hiddenColumns` is the plate's content and the dump's
+		field, and there is no second predicate anywhere that could disagree with
+		it.
+
+		WHAT IT COSTS, stated because the predicate it replaces existed to save it:
+		one `UI.When` node per TABLE (never per row — that distinction is what the
+		edit-mode mark's own gate is about), plus one `region_expand` engine, which
+		is a table of closures and mounts nothing until it opens. `Main` already
+		carries three unconditional `When`s of exactly this shape (`ResizeWhen`,
+		`DropWhen`, `GhostWhen`), so this is the file's own cost model rather than a
+		new one — and it buys an invariant that a build-time scan cannot state at
+		all. ]]
 	local columnById: { [string]: Column } = {}
 	for _, column in columns do
 		columnById[column.id] = column
@@ -1738,7 +1782,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		capFor = capFor,
 		columnDim = columnDim,
 		columnHidden = columnHidden,
-		canEditMode = spec.editing ~= nil or autoEditRoute,
+		canEditMode = canEditMode,
+		-- the SAME environment every other read site takes (ISSUE-4): a wrapped
+		-- row's tray metrics must not resolve against a different one
+		surfaceEnvironment = surfaceEnvironment,
 		selectedMemo = selectedMemo,
 		itemForKey = itemForKey,
 		applyDragPosition = applyDragPosition,
@@ -1827,7 +1874,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		HERE — where the space genuinely should close up and there is no state to
 		lose — which is the exact opposite of the collapsed CELLS beside it, and the
 		two notes together are the whole of when to reach for which. ]]
-	if canDiscloseColumns then
+	do
 		table.insert(
 			children,
 			UI.When({
@@ -2402,22 +2449,20 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		of dismissals, one epoch check (the standing rule against building a second
 		one). Nil for a table that can never collapse a column, which then mounts no
 		band and holds no engine. ]]
-	local columnExpand = if canDiscloseColumns
-		then table_disclosure.new({
-			UI = UI,
-			tableId = tableId,
-			columns = columns,
-			columnById = columnById,
-			hiddenColumns = hiddenColumns,
-			windowedItems = windowedItems,
-			availableContentWidth = availableContentWidth,
-			viewportHeight = screenSeed,
-			keyOf = spec.key,
-			isSortable = isSortable,
-			cycleSort = cycleSort,
-			cellContent = rowBuilder.cellContent,
-		})
-		else nil
+	local columnExpand = table_disclosure.new({
+		UI = UI,
+		tableId = tableId,
+		columns = columns,
+		columnById = columnById,
+		hiddenColumns = hiddenColumns,
+		windowedItems = windowedItems,
+		availableContentWidth = availableContentWidth,
+		viewportHeight = screenSeed,
+		keyOf = spec.key,
+		isSortable = isSortable,
+		cycleSort = cycleSort,
+		cellContent = rowBuilder.cellContent,
+	})
 	-- the chip's mounted path, for the anchor the plate opens against and for the
 	-- activate route below. One spelling, read by both.
 	local MORE_CHIP_SUFFIX = "/Main/MoreWhen/then/MoreBar/MoreChip"
@@ -3438,7 +3483,12 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				key, and `table.spec`'s determinism case compares the serialized dump).
 				What a bug report about a narrow table needs is which columns went and
 				whether the disclosure is standing. ]]
-			hiddenColumns = if canDiscloseColumns then hiddenColumns:get() else nil,
+			--[[ ALWAYS PRESENT, and an EMPTY LIST is the answer for a table that has
+				collapsed nothing (review round 1, HIGH-1). It used to be gated on the
+				same build-time predicate the band was, so the one shape that could
+				collapse silently also reported nothing — a bug report about a
+				vanished column got a nil field. A nil is not an answer here. ]]
+			hiddenColumns = hiddenColumns:get(),
 			columnPlate = if columnExpand ~= nil then columnExpand.state() else nil,
 			rootPath = mountedRoot,
 			--[[ ONLY UNDER `virtualized`, so every dump this project has ever
@@ -3462,8 +3512,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- idiom (grab keeps following Navigate; scroll offset survives; edit-mode
 	-- persists while touch or gamepad stays live). Keyed off the LIVE
 	-- interaction-class set (ADR-0015), never preferredInput alone.
-	if spec.env ~= nil then
-		scope:own(core:observe(spec.env:get("interactionClasses"), function(classes)
+	if surfaceEnvironment ~= nil then
+		scope:own(core:observe(surfaceEnvironment:get("interactionClasses"), function(classes)
 			if type(classes) ~= "table" then
 				return
 			end
