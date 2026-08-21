@@ -142,7 +142,17 @@ local GENERATOR = "tools/lune/_theme_baseline"
 -- there the prefix would spend the children's rect coverage to buy nothing. The
 -- rack entry below is exactly that shape: seven tiles byte-identical, one
 -- container 5px narrower.
-local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, why: string } } = {
+--
+-- AN ENTRY MAY ALSO NAME ONE `viewport`, and should whenever the fact it forgives
+-- happened at one of the three (2026-08-21). It is the same argument one axis
+-- over: an adaptive decision that fires only on a phone leaves the tablet and the
+-- desktop renders of that node byte-identical, and a waiver that does not say so
+-- spends their rect coverage to buy nothing. The four PopupButton entries below
+-- are exactly that shape — 8 fields moved at 390x844 and ZERO at 820x1180 or
+-- 1280x720, and with the scope written down a later change to the popup's
+-- large-screen answer still fails here. Omitting it keeps the older meaning
+-- (every viewport), so no existing entry changes.
+local ALLOWED_RECT_DRIFT: { { fixture: string, viewport: string?, prefix: string?, path: string?, why: string } } = {
 	{
 		fixture = "06_tile_game",
 		path = "/TileGame/Page/Title",
@@ -335,6 +345,59 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, w
 			.. "rows instead of one: at 390x844 the block grows 46 -> 154 and the New-board button below it "
 			.. "moves down by exactly that 108. Unmoved on tablet and desktop, where the Grid is still a row.",
 	},
+	{
+		fixture = "control-vocabulary",
+		viewport = "phone-portrait",
+		path = "/Vocabulary/Mode/PopupWhen/then/Popup",
+		why = "THE POPUP ON A PHONE STOPPED TAKING THE LARGE-SCREEN ANSWER (`44a495f`, 2026-08-18, ADAPT-1 — "
+			.. '"adaptation stops being a fact the author has to remember to hand over"). `menu_recipe.'
+			.. "resolvePresentation` has always read a size class, and an automatic `PopupButton` had no way "
+			.. "to get one unless the CALL SITE passed it: this fixture passes none, so `sizeClass` was nil at "
+			.. 'all three viewports and the `optionCount <= 3 and sizeClass ~= "compact"` rung answered '
+			.. "`inline` on a 390px phone exactly as it did on a 1280px desktop. ADAPT-1 lets the control ask "
+			.. "its surface environment instead, so the phone now resolves `compact` and takes the `menu` rung. "
+			.. "THE ARITHMETIC IS THE WHOLE DELTA, and it is the row height changing kind: `rowHeightFor("
+			.. '"inline")` is `controlSizes.regular.height` (44, the touch floor) and `rowHeightFor("menu")` is '
+			.. "`controlSizes.compact.height` (36). Three rows and two `strokes.hairline` gaps: 3*44 + 2 = 134 "
+			.. "before, 3*36 + 2 = 110 after. The panel's x, y and width are byte-identical (16,659 358 wide) "
+			.. "because it is still a topLeft anchor under the same trigger — a `sheet` would have moved it to "
+			.. "the bottom edge, and this is deliberately NOT that rung (`touchPrimary` is false in a headless "
+			.. "FakeTarget). TABLET AND DESKTOP ARE BYTE-IDENTICAL at 134 and still `inline`, which is the "
+			.. "evidence that this is the size-class rung firing and not a metric that moved: measured by "
+			.. "regenerating this dump at `44a495f^` and at `44a495f`, where EXACTLY these 8 fields differ "
+			.. "across the whole 24-render corpus and nothing else does. Pinned as an EXACT path, with one "
+			.. "entry per node, so the rest of the vocabulary keeps its rect coverage.",
+	},
+	{
+		fixture = "control-vocabulary",
+		viewport = "phone-portrait",
+		path = "/Vocabulary/Mode/PopupWhen/then/Popup/Opt-a",
+		why = "the same `44a495f` ADAPT-1 rung as the `/Popup` entry above, at the row level: 358x44 -> 358x36 "
+			.. "(`controlSizes.regular.height` -> `controlSizes.compact.height`) at 390x844 only, y unmoved at "
+			.. "659 because it is the first row. THE HIT RECT IS THE OTHER HALF AND IT IS THE REASSURING HALF: "
+			.. "nil -> 16,655 358x44. A 36px row is under the 44px touch floor, so the renderer gives it the "
+			.. "minimum-target hit expander it gives every sub-floor control (src/render/hit_lift.luau), "
+			.. "centred — 659 - (44-36)/2 = 655. The TAP TARGET IS THEREFORE UNCHANGED AT 44px; what shrank is "
+			.. "the paint. Tablet and desktop keep 44 with no expander, as before.",
+	},
+	{
+		fixture = "control-vocabulary",
+		viewport = "phone-portrait",
+		path = "/Vocabulary/Mode/PopupWhen/then/Popup/Opt-b",
+		why = "the same `44a495f` row-height change as the Opt-a entry above: 358x44 -> 358x36, and y 704 -> "
+			.. "696 because the row above it is 8px shorter (659 + 36 + 1 hairline = 696; it was 659 + 44 + 1 "
+			.. "= 704). Hit rect nil -> 16,692 358x44, the same centred minimum-target expander.",
+	},
+	{
+		fixture = "control-vocabulary",
+		viewport = "phone-portrait",
+		path = "/Vocabulary/Mode/PopupWhen/then/Popup/Cancel",
+		why = "the same `44a495f` row-height change again, on the row the popup always keeps: 358x44 -> "
+			.. "358x36, y 749 -> 733 (696 + 36 + 1 = 733; it was 704 + 44 + 1 = 749) — two 8px rows above it, "
+			.. "so it moves by 16. Hit rect nil -> 16,729 358x44. The Cancel row is NOT removed by the menu "
+			.. "rung (popup_button.luau says why), which is what keeps the panel three rows tall on both "
+			.. "sides of this delta.",
+	},
 }
 
 -- A PURE VERTICAL TRANSLATION, WHICH IS NOT THE SAME WAIVER AS "rects may drift
@@ -394,7 +457,11 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 	},
 }
 
-local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
+-- `viewport` is optional here for the same reason it is optional in
+-- ALLOWED_RECT_DRIFT (2026-08-21): an adaptive decision that fires on one form
+-- factor leaves the other two byte-identical, and naming the one it moved keeps
+-- their prop coverage. Omitted means every viewport, so no existing entry moves.
+local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } = {
 	{
 		path = "/TileGame/Page/Title",
 		why = "`text` only: `LuauUI Tiles` -> `Facet Tiles` (2026-08-17, the framework rename). The title "
@@ -477,6 +544,18 @@ local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 		why = "label U+2212 -> '-': R4's fallback-glyph table is ASCII by construction, because a package may "
 			.. "name any font and the framework cannot know which characters that font contains. Decision "
 			.. "packet in artifacts/rich-skinning-v2/review-packet.md; RS-P1 capture 9b.",
+	},
+	{
+		path = "/Vocabulary/Mode/PopupWhen/then/Popup",
+		viewport = "phone-portrait",
+		why = "surface=control -> surface=raised, at 390x844 ONLY: the paired half of this node's "
+			.. "ALLOWED_RECT_DRIFT entry (`44a495f`, 2026-08-18, ADAPT-1). `popup_button.luau` declares "
+			.. '`surface = if presentation == "inline" then "control" else "raised"` — an inline list is part '
+			.. "of the trigger's own surface and takes the control role, a floating one is a raised panel. So "
+			.. "this token is not an independent decision: it is the SAME size-class rung that changed the row "
+			.. "heights, reported on the panel. It is the only prop on the node, and the node's tablet and "
+			.. "desktop rows still read `surface=control` in the same dump, which is what says the phone "
+			.. "changed presentation rather than the popup changing its paint everywhere.",
 	},
 	{
 		path = "/Vocabulary/More/Header",
@@ -732,6 +811,17 @@ local function reasonFor(list: { { path: string, why: string } }, path: string):
 	return nil
 end
 
+-- ALLOWED_PROP_DRIFT's own lookup, because its entries may name a viewport and
+-- `reasonFor` above is shared with ALLOWED_NEW_NODES, whose entries cannot.
+local function propDriftReason(path: string, viewport: string): string?
+	for _, entry in ALLOWED_PROP_DRIFT do
+		if entry.path == path and (entry.viewport == nil or entry.viewport == viewport) then
+			return entry.why
+		end
+	end
+	return nil
+end
+
 -- "<x>,<y> <w>x<h>" -> four numbers, or nil for anything else (the dump writes the
 -- string "nil" for a node with no hit rect, and a rect that appears on one side
 -- only is a change this must NOT quietly call a translation).
@@ -768,7 +858,8 @@ end
 if process.args[1] == "--list" then
 	print("check_flat_baseline: characterized deltas vs " .. BASELINE_3_5)
 	for _, entry in ALLOWED_PROP_DRIFT do
-		print(`  prop  {entry.path}\n        {entry.why}`)
+		local scope = if entry.viewport ~= nil then ` ({entry.viewport} only)` else ""
+		print(`  prop  {entry.path}{scope}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_NEW_NODES do
 		print(`  new   {entry.path}\n        {entry.why}`)
@@ -778,9 +869,9 @@ if process.args[1] == "--list" then
 		print(`  added prop {entry.prop} {scope}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_RECT_DRIFT do
-		print(
-			`  rect  {entry.fixture} {entry.path or entry.prefix}{if entry.path ~= nil then " (this node only)" else ""}\n        {entry.why}`
-		)
+		local scope = if entry.path ~= nil then " (this node only" else " (subtree"
+		scope ..= if entry.viewport ~= nil then `, {entry.viewport} only)` else ")"
+		print(`  rect  {entry.fixture} {entry.path or entry.prefix}{scope}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_Y_SHIFT do
 		print(`  y-shift {entry.fixture} {entry.prefix} (one uniform dy, x/w/h byte-identical)\n        {entry.why}`)
@@ -861,6 +952,10 @@ for key, node in now do
 		local scoped = if entry.path ~= nil
 			then node.path == entry.path
 			else string.find(node.path, entry.prefix :: string, 1, true) == 1
+		-- an entry with no `viewport` keeps the older meaning: every viewport
+		if entry.viewport ~= nil and entry.viewport ~= viewport then
+			scoped = false
+		end
 		if string.find(key, entry.fixture, 1, true) ~= nil and scoped then
 			rectDriftAllowed = true
 			break
@@ -893,7 +988,7 @@ for key, node in now do
 		end
 	end
 	local nowProps = withoutAddedProps(was.props, node.props)
-	if was.props ~= nowProps and reasonFor(ALLOWED_PROP_DRIFT, node.path) == nil then
+	if was.props ~= nowProps and propDriftReason(node.path, viewport) == nil then
 		table.insert(problems, `{key}: props changed '{was.props}' -> '{node.props}' and is not characterized`)
 	end
 end
