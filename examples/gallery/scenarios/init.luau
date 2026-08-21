@@ -267,6 +267,7 @@ local ORDER = {
 	-- from its own plate — the pre-ADR-0032 defect, reproduced on purpose as the
 	-- control). Also in `demo_picker.DEMOS`.
 	"nested_compositing",
+	-- scaffold: new control scenarios are appended above this line
 }
 
 local scenarios = {}

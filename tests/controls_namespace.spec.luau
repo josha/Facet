@@ -54,6 +54,26 @@ local NAMES = {
 	"AsyncImage",
 }
 
+--[[ ...AND THE CONTROLS BORN AFTER THE ADR, which are a DIFFERENT list on
+	purpose, and empty until the first one lands.
+
+	ADR-0037 gives a control created after 0.10.0 exactly ONE public spelling.
+	There is no `Facet.new<Name>` for it, so it has no old form to compare against
+	and no deprecation row to carry — a new control is not born deprecated. That
+	is why it cannot simply join `NAMES` above: the two cases below `NAMES` feeds
+	are both ABOUT the old form, and a twentieth name in that list would fail them
+	for existing rather than for being wrong.
+
+	It still belongs to the namespace, and the exhaustive case below still refuses
+	anything that is in NEITHER list, which is the property that case exists for.
+	`tools/lune/scaffold` appends here from the one declared control record, so a
+	control author never meets this file as a red test with no instruction
+	(measured 2026-08-21: a fresh-context agent found this list by its failure
+	message and had to guess whether editing it was allowed). ]]
+local POST_ADR_NAMES: { string } = {
+	-- scaffold: new control names are appended above this line
+}
+
 -- One minimal, VALID spec per control, built fresh for each arm so the two
 -- builders cannot share mutable state. `core` is the arm's own core.
 local FIXTURES: { [string]: (core: any) -> any } = {
@@ -216,6 +236,14 @@ describe("ADR-0037: the Controls namespace", function()
 		expect(type(Facet.Controls)).toBe("table")
 		local declared: { [string]: boolean } = {}
 		for _, name in NAMES do
+			declared[name] = true
+			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
+		end
+		-- ...plus the post-ADR additions, named just as explicitly. The claim is
+		-- "nothing is in this namespace that no list admits to", not "the namespace
+		-- never grows": a control added to `src/init.luau` and to neither list still
+		-- reddens this case, which is the mutation that matters.
+		for _, name in POST_ADR_NAMES do
 			declared[name] = true
 			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
 		end

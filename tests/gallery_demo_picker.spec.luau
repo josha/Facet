@@ -1045,6 +1045,10 @@ local DEMO_ROOT: { [string]: string } = {
 	["tab-view"] = "TabViewDemo",
 	-- ADR-0032: the nested-instance-tree compositing showcase
 	["nested-tree"] = "NestedCompositing",
+	-- scaffold: new control roots are appended above this line. A scaffolded
+	-- scenario names its root screen after the control, so the stamped row is the
+	-- control's own display name and the author only revisits it if the fixture's
+	-- root screen is later renamed.
 	["ex01"] = "TempConverter",
 	["ex02"] = "Playlist",
 	["ex03"] = "Settings",

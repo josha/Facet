@@ -414,6 +414,10 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "nested_compositing",
 	},
+	-- scaffold: new control demos are appended above this line. Fixtures lead the
+	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
+	-- control lands at the end of the fixture run rather than in the middle of a
+	-- reading order.
 	{
 		id = "ex01",
 		title = "Temperature converter",

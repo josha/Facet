@@ -456,6 +456,7 @@ local SCENARIOS = {
 	-- swept cross product is the direct test of whether that packaging holds at
 	-- every viewport, at every preference, mid-turn as well as at rest
 	"nested_compositing",
+	-- scaffold: new control scenarios are appended above this line
 }
 
 local EXAMPLES = {

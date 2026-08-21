@@ -510,6 +510,236 @@ describe("extension scaffold", function()
 		local _ = typeClose
 	end)
 
+	--[[ THE SIX REGISTRATIONS THAT WERE NOBODY'S TO REMEMBER (2026-08-21).
+
+		Measured, not imagined: a fresh-context agent contributed a real control
+		through this scaffold with no other help, and found EVERY one of the six
+		registrations below by meeting a red test — never by reading. One of them
+		(the guide's capability-catalog row) reddened four documentation-gate cases
+		at once, and `docs/extending/new-control.md` asked for four of the others in
+		nine words ("Add it to an instrumented gallery fixture").
+
+		These cases hold the plan to the whole list, and the case after them holds
+		the ANCHORS to the live files — because a plan that names a file it cannot
+		actually edit is a scaffold that fails in the author's working tree rather
+		than here. ]]
+	it("stamps EVERY registration a twentieth control needs, from the one declared name", function()
+		local plan = scaffold.plan("control", "probe_widget")
+		local files: { [string]: boolean } = {}
+		for _, file in plan.files do
+			files[file.path] = true
+		end
+		local edits: { [string]: boolean } = {}
+		for _, edit in plan.edits do
+			edits[edit.path] = true
+		end
+
+		-- the gallery scenario is a FILE, because standing rule 4 wants a surface a
+		-- person can open, not a name in a list
+		expect(`scenario stamped: {files["examples/gallery/scenarios/probe_widget.luau"] == true}`).toBe(
+			"scenario stamped: true"
+		)
+		for _, path in
+			{
+				-- the six that were discovered one red test at a time
+				"docs/guide/README.md",
+				"tests/controls_namespace.spec.luau",
+				"examples/gallery/scenarios/init.luau",
+				"tests/overflow_sweep.spec.luau",
+				"examples/gallery/client/demo_picker.luau",
+				"tests/gallery_demo_picker.spec.luau",
+				-- ...beside the ones that were already stamped
+				"tests/run.luau",
+				"tests/conformance/controls_registry.luau",
+				"src/init.luau",
+				"tests/lib/large_text_fixtures.luau",
+				"docs/reference/api.md",
+			}
+		do
+			expect(`{path} registered: {edits[path] == true}`).toBe(`{path} registered: true`)
+		end
+
+		-- and the two catalogue count pins move with it
+		expect(#plan.bumps).toBe(2)
+		for _, bump in plan.bumps do
+			expect(bump.path).toBe("tests/gallery_demo_picker.spec.luau")
+			expect(`guard names the control: {string.find(bump.guard, "probe-widget", 1, true) ~= nil}`).toBe(
+				"guard names the control: true"
+			)
+		end
+	end)
+
+	it("every late-registration anchor is REAL: each edit applies to the shipped file, twice safely", function()
+		local fs = require("@lune/fs")
+		local plan = scaffold.plan("control", "probe_widget")
+		local LATE = {
+			["docs/guide/README.md"] = "`Controls.ProbeWidget`",
+			["tests/controls_namespace.spec.luau"] = '"ProbeWidget",',
+			["examples/gallery/scenarios/init.luau"] = '"probe_widget",',
+			["tests/overflow_sweep.spec.luau"] = '"probe_widget",',
+			["examples/gallery/client/demo_picker.luau"] = 'id = "probe-widget"',
+			["tests/gallery_demo_picker.spec.luau"] = '["probe-widget"] = "ProbeWidget"',
+		}
+		local checked = 0
+		for _, edit in plan.edits do
+			local needle = LATE[edit.path]
+			if needle == nil then
+				continue
+			end
+			checked += 1
+			local source = fs.readFile(edit.path)
+			-- the anchor exists in the SHIPPED file (applyEdit asserts when it does not)
+			local applied = scaffold.applyEdit(source, edit)
+			expect(`{edit.path} landed: {string.find(applied, needle, 1, true) ~= nil}`).toBe(
+				`{edit.path} landed: true`
+			)
+			expect(`{edit.path} idempotent: {scaffold.applyEdit(applied, edit) == applied}`).toBe(
+				`{edit.path} idempotent: true`
+			)
+		end
+		expect(checked).toBe(6)
+	end)
+
+	it("the scenario, the demo, and the pinned root all name the SAME surface", function()
+		-- three files, one name. A demo whose module does not exist fails to mount
+		-- on the device in front of whoever is holding it; a demo with no pinned
+		-- root is advanced through and never actually looked at.
+		local plan = scaffold.plan("control", "probe_widget")
+		local scenario = nil
+		for _, file in plan.files do
+			if file.path == "examples/gallery/scenarios/probe_widget.luau" then
+				scenario = file.content
+			end
+		end
+		expect(scenario ~= nil).toBeTruthy()
+		-- the scenario's ROOT SCREEN is the control's display name...
+		expect(`root screen: {string.find(scenario :: string, 'id = "ProbeWidget"', 1, true) ~= nil}`).toBe(
+			"root screen: true"
+		)
+		-- ...and it mounts the control through its ONE public spelling (ADR-0037)
+		expect(`public spelling: {string.find(scenario :: string, "ctx.Facet.Controls.ProbeWidget(", 1, true) ~= nil}`).toBe(
+			"public spelling: true"
+		)
+
+		local demoRow, rootRow, catalogRow = nil, nil, nil
+		for _, edit in plan.edits do
+			if edit.path == "examples/gallery/client/demo_picker.luau" then
+				demoRow = edit.insert
+			elseif edit.path == "tests/gallery_demo_picker.spec.luau" then
+				rootRow = edit.insert
+			elseif edit.path == "docs/guide/README.md" then
+				catalogRow = edit.insert
+			end
+		end
+		expect(`demo module: {string.find(demoRow :: string, 'module = "probe_widget"', 1, true) ~= nil}`).toBe(
+			"demo module: true"
+		)
+		expect(`root pinned: {string.find(rootRow :: string, '["probe-widget"] = "ProbeWidget"', 1, true) ~= nil}`).toBe(
+			"root pinned: true"
+		)
+
+		-- THE BLURB CEILING IS A DEVICE FACT, not a style preference: 82 characters
+		-- is the longest blurb a device pass has ever read on a 360px phone
+		-- (tests/gallery_demo_picker.spec). A scaffold that stamps a longer one
+		-- hands its author a red test it wrote itself.
+		local blurb = string.match(demoRow :: string, 'blurb = "([^"]+)"')
+		expect(blurb ~= nil).toBeTruthy()
+		expect(`blurb {utf8.len(blurb :: string)} chars, over 82? {(utf8.len(blurb :: string) :: number) > 82}`).toBe(
+			`blurb {utf8.len(blurb :: string)} chars, over 82? false`
+		)
+
+		-- the catalog row's api.md link must land on the heading the api.md stub
+		-- writes, or `check_docs` reports a guide link to nothing
+		expect(
+			`catalog anchor: {string.find(catalogRow :: string, "(../reference/api.md#controlsprobewidget)", 1, true) ~= nil}`
+		).toBe("catalog anchor: true")
+	end)
+
+	--[[ THE ONE EDIT SHAPE A PLAIN INSERT CANNOT EXPRESS. Two spec files pin
+		catalogue SIZES as literals, deliberately — a ratchet is how this repository
+		makes a catalogue change a decision rather than an accident. A scaffold run
+		IS that decision, so the tool moves the number; the ratchet keeps biting for
+		every hand edit that is not a scaffold run. ]]
+	it("applyBump moves every occurrence of a count pin, exactly once", function()
+		local source = table.concat({
+			"expect(#demos).toBe(36)",
+			"-- prose that says toBe( without a number",
+			"expect(fixtures).toBe(29)",
+			"expect(fixtures).toBe(29)",
+			'["nested-tree"] = "NestedCompositing",',
+		}, "\n")
+		local bump = {
+			path = "x",
+			prefix = "expect(fixtures).toBe(",
+			suffix = ")",
+			guard = '["probe-widget"] = "ProbeWidget",',
+		}
+		local once = scaffold.applyBump(source, bump)
+		expect(`both moved: {select(2, string.gsub(once, "expect%(fixtures%)%.toBe%(30%)", ""))}`).toBe("both moved: 2")
+		-- the OTHER pin is untouched: a bump is about one pin, not about numbers
+		expect(`other pin held: {string.find(once, "expect(#demos).toBe(36)", 1, true) ~= nil}`).toBe(
+			"other pin held: true"
+		)
+
+		-- GUARDED, because a bump has no idempotence of its own. The guard is a row
+		-- the same scaffold run inserts into the same file, which is why the CLI
+		-- applies every bump BEFORE any edit.
+		local guarded = once .. '\n["probe-widget"] = "ProbeWidget",'
+		expect(scaffold.applyBump(guarded, bump)).toBe(guarded)
+
+		-- and a pin that moved or was renamed is an ERROR, not a silent no-op: a
+		-- count pin that quietly moved nowhere leaves a red test behind a scaffold
+		-- that reported success
+		expect(function()
+			scaffold.applyBump("nothing to see here", bump)
+		end).toThrow()
+	end)
+
+	--[[ THE TOOL MUST NOT HAND ITS AUTHOR A FAILURE IT WROTE ITSELF.
+
+		Two of these arrived on the first end-to-end run of the extended scaffold
+		(2026-08-21) and both were pre-existing: a stray blank line and a stamped
+		`it(` line 102 characters wide, so a freshly scaffolded control failed
+		`stylua --check` before its author had typed anything — the same shape as
+		MAINT-3's `textSize`, which used to fail this scaffold's own theme-drift
+		pass condition, and as the LT8-CTL truncation the stamped `disclose = true`
+		now prevents.
+
+		The formatter itself is not runnable from here, so the guard is the RULE
+		the formatter enforces: the default 120-column budget, measured with a tab
+		counted as the default indent width of four. A LONG control name is used on
+		purpose, because the overflow is a function of the name and a short one
+		proves nothing. ]]
+	it("the stamped output is formatter-clean: no line over 120 columns, no double blank line", function()
+		local plan = scaffold.plan("control", "extremely_long_probe_name")
+		local INDENT_WIDTH = 4
+		local COLUMN_WIDTH = 120
+		local problems: { string } = {}
+		local checked = 0
+		for _, file in plan.files do
+			checked += 1
+			local blanks = 0
+			for index, line in string.split(file.content, "\n") do
+				local width = #line + (select(2, string.gsub(line, "\t", "")) * (INDENT_WIDTH - 1))
+				if width > COLUMN_WIDTH then
+					table.insert(
+						problems,
+						`{file.path}:{index} is {width} columns wide (stylua wraps past {COLUMN_WIDTH})`
+					)
+				end
+				blanks = if line == "" then blanks + 1 else 0
+				if blanks == 2 then
+					table.insert(
+						problems,
+						`{file.path}:{index} is the second blank line in a row (stylua collapses it)`
+					)
+				end
+			end
+		end
+		expect(checked).toBe(3)
+		expect(table.concat(problems, "; ")).toBe("")
+	end)
+
 	it("rejects unknown kinds and unsafe names", function()
 		expect(function()
 			scaffold.plan("wizard", "x")
