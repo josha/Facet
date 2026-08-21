@@ -332,7 +332,10 @@ function Custom.new()
 	-- added or disposed by a callback never corrupt this iteration
 	-- (verifier finding 6).
 	local function notify(node: Node)
-		--[[ THE ONE-OBSERVER PATH ALLOCATES NOTHING (review RR-12, measured wave T15).
+		--[[ THE ONE-OBSERVER PATH ALLOCATES NOTHING. The reactive review found
+			every flush allocating unavoidably — a snapshot table and a
+			`table.sort` per notified node, three tables per propagation round, and a
+			closure plus a dependency set per pull (measured wave T15).
 
 			The snapshot below exists for two reasons and one of them evaporates at a
 			fan-out of one. ORDER is the first: `node.observers` is a hash table, so
@@ -351,7 +354,7 @@ function Custom.new()
 			five interleaved samples a side): `animation-interruption` 0.347 -> 0.106
 			ms, `collection-mutation` 1.214 -> 0.864, `hud-binding-storm` 0.220 ->
 			0.206. Every guarantee the snapshot gave is pinned at fan-out ONE in
-			tests/reactive_recovery.spec.luau (RR-12), each case proved to bite by
+			tests/reactive_recovery.spec.luau, each case proved to bite by
 			mutating this branch. ]]
 		local only: any = nil
 		local count = 0

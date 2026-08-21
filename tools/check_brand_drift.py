@@ -341,6 +341,10 @@ VENDOR_ALLOWLIST = [
     ("docs/INVENTORY.md", GATE_IDS,
      "an earned gate id, which is also the name of its frozen artifacts/ directory",
      "Step 14 gate/evidence archive"),
+    ("docs/MAINTAINERS.md", GATE_IDS,
+     "the maintainer map's `gates` column cites earned gate ids by their real names, "
+     "the same reason INVENTORY.md and prior_gates.sh carry this entry",
+     "Step 14 gate/evidence archive"),
     ("tools/prior_gates.sh", GATE_IDS,
      "an earned gate id, which is also the name of its frozen artifacts/ directory",
      "Step 14 gate/evidence archive"),
@@ -452,6 +456,20 @@ RR_DOC_HISTORY = ("docs/missions/", "docs/playtests/", "docs/DECISIONS.md")
 
 # (path-prefix-or-exact, pattern-that-may-match, reason, removal rule)
 ALLOWLIST = [
+    #[[ THE DECODER OF FROZEN EVIDENCE (wave T15). Every MicroProfiler dump this
+    #   project has ever taken predates the rename and literally CONTAINS the
+    #   string `LuauUI/arrange`; a capture is immutable evidence and its scope
+    #   names are part of what it recorded. A decoder that may not name them
+    #   cannot read them — which is not hypothetical: with a hard-coded `Facet/`
+    #   filter this tool printed an empty table for the whole corpus, and an empty
+    #   table reads as "the framework did no work". Scoped to the one PREFIX
+    #   string rather than to BRAND across the file, so an ordinary old-brand
+    #   mention here is still caught. ]]
+    ("tools/microprofiler_aggregate.py", re.compile(r"LuauUI/"),
+     "the pre-rename scope prefix is DATA about stored captures, not a name this "
+     "tool wears; both prefixes are decoded and the legacy one is announced",
+     "when no capture predating the rename is still cited as evidence — i.e. after "
+     "the device rows are re-taken on a Facet-named place"),
     ("docs/adr/ADR-0036-facet-rename.md", BRAND,
      "the rename ADR is the one document that names both brands",
      "permanent (ADRs are history)"),

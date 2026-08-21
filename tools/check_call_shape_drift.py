@@ -75,6 +75,13 @@ ALLOWLIST = [
     ("tools/check_call_shape_drift.py",
      "the guard's own match data and selftest plants",
      "never (it IS the guard)"),
+    ("tools/lune/_probe_t15_controls.luau",
+     "the ADR-0037 cost probe: it MEASURES the namespace form against the old "
+     "two-argument form it replaced, so it has to call both. Deleting the old-form "
+     "arm would delete the comparison, which is the whole instrument (wave T15 "
+     "item 2: the closure hop is +0.000004 ms, proved <= noise)",
+     "when the nineteen ledger rows reach removeNoEarlierThan and the old form goes "
+     "— at which point there is nothing left to compare and the probe goes with it"),
 ]
 
 

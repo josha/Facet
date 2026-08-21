@@ -322,7 +322,8 @@ function virtual_window.new(deps: Deps)
 		the full virtual extent and the renderer pushes it as CanvasSize (native §6).
 		Rows mount only in the window, but the canvas always spans the whole list.
 
-		BY VALUE, NOT BY IDENTITY (review RR-5, measured wave T15). A table literal
+		BY VALUE, NOT BY IDENTITY (the reactive review's fresh-table finding,
+		measured wave T15). A table literal
 		is never identity-equal to the one before it, so with the default eq this
 		memo notified on EVERY layout-index recompute — including the ordinary case
 		where the index was rebuilt and the total extent did not move: an edit to a

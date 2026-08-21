@@ -221,7 +221,9 @@ local paths = require("../paths")
 -- record — the renderer's `sameGeometryValue`, the selection indicator's
 -- `sameGeometry` and `virtual_window`'s canvas Dim are all already this
 -- function. Used below as the memo eq for every flat geometry record a cell or
--- the canvas republishes (review RR-5).
+-- the canvas republishes. The reactive review's finding is that a memo
+-- returning a fresh table under the default identity eq notifies on every
+-- recompute, re-dirtying measure and arrange for a value that did not change.
 local rect = require("../rect")
 
 local virtual_grid = {}
@@ -525,7 +527,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local scrollTop = scope:own(core:signal(0))
 
-	--[[ BY VALUE, NOT BY IDENTITY (review RR-5). A table literal is never
+	--[[ BY VALUE, NOT BY IDENTITY. The reactive review found that a
+		memo returning a fresh table under the default identity eq notifies on every
+		recompute, re-dirtying measure and arrange for an unchanged value. A table
+		literal is never
 		identity-equal to the one before it, so with the default eq this notified on
 		every layout-index recompute — including the ordinary case where the index
 		was rebuilt and the total extent did not move (an edit to a cell nobody is
@@ -839,7 +844,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						width = fill(),
 						height = fill(),
 					})
-					-- BY VALUE (review RR-5), for `canvasDim`'s reason one level down:
+					-- BY VALUE, for `canvasDim`'s reason one level down: a fresh
+					-- table under identity eq re-dirties a consumer for a value
+					-- that did not change:
 					-- a line's extent is republished whenever the index recomputes,
 					-- and a fresh literal made every windowed cell measure-dirty for a
 					-- number that had not moved.
