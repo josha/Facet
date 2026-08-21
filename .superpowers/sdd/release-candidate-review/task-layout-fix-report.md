@@ -1,0 +1,285 @@
+# Wave LAYOUT-FIX — report
+
+**Status: COMPLETE, with four fixes shipped and eleven cells CONTESTED with evidence.**
+
+**Anchors:** framework `fd59cae` (suite 6750), RascalRally `655cbd7` (suite 3437).
+**End state:** Facet **6781 passed, 0 failed**; RascalRally **3443 passed, 0 failed**.
+Both measured in private exports (rsync of the working tree; the RR export in the
+multi-repo shape, `GameStudio/ui/Facet` beside `games/RascalRally/code`). Nothing was
+measured in-tree. Wave THEME-UNBUNDLE was live on the same working tree throughout,
+so every commit went through `tools/commit_isolated.py` and both tails include a
+handful of their cases.
+
+---
+
+## Per-item outcomes
+
+### 1. ADAPT-L2 (critical) — Grid gets real lane defaults · **FIXED**
+
+`gridLaneCount` returned `1` whenever neither `columns` nor `minColumnWidth` was
+declared — one lane at every width from a 390px phone to a 1920px television. The
+default is now **`minColumnWidth = "intrinsic"`**, which is the route
+`docs/guide/05-styling.md` already teaches, and that choice is the whole reason the
+fix adds nothing to the framework:
+
+- **no new number** — a px minimum is a guess about a font, a lane count a guess
+  about the box; the widest child's own measured extent is a fact the solve has;
+- **one arithmetic** — the default reaches `adaptive.columnsFor` through exactly the
+  line the declared route reaches it through, so wave TEN-FOOT's distance cap rides
+  along for free: **a 1920 television measures 5 lanes against a 1600 desktop's 9**,
+  where both used to measure one;
+- **the fallback is unchanged** — a grid of only `fill` children has no intrinsic
+  minimum and still gets one lane (green before and after).
+
+Measured at the audit's own six combos: **2 / 4 / 6 / 9 / 5 / 7**, identical to the
+declared `minColumnWidth = 160` answer. Eight of the eleven new cases were red at the
+anchor; the three that were green are the authored-wins guards and the null
+hypothesis, and must stay green.
+
+**The 35-site re-verdict: nothing was dropped, and that is the outcome rather than a
+shortfall.** A brace-matched census reproduces the audit's 35 exactly (31 + 4). Every
+`columns = N` site is a semantically fixed lane count (a Wordle board, a tile rack, a
+match-3 board, a five-seal run, `level_picker`'s `columns = count` — which exists so
+the marks shrink together rather than starving the tail, and says so at the call
+site); every `minColumnWidth = <px>` site is a deliberate device-pixel decision for a
+dense readout; the six explicit `"intrinsic"` sites are left standing so the enum
+value stays exercised in a shipped surface. **No site was hand-computing lanes to
+dodge the old default** — the corpus had authored around it with reasons, which is
+precisely the AUTHORED-ONLY shape cell B-3 recorded. A critical default change with a
+blast radius of **zero shipped call sites**. The one site declaring neither
+(`adaptive_controls.luau:525`) is a GridRow-mode grid, which the flow plan's lane
+count is never asked of.
+
+### 2. ADAPT-L3 (high) — the container-honest axis · **CONTESTED, measured and guarded**
+
+Reproduced first: a `Screen` with the theme's own 24px page margin overflows at
+600 / 610 / 640 and is clean at 560 and 680 — the audit's band exactly.
+
+Both candidate fixes are out of reach, and the reasons are in the spec file rather
+than only here:
+
+- **(a) "make `contentWidth` subtract the insets"** is refused by the framework's own
+  deprecation ledger. `src/init.luau` **already deprecated
+  `adaptive.conditions().contentWidth` at 0.8.0**, replacement `viewportWidth`, note
+  *"alias; the value never subtracted insets"* — giving a removed-by-0.9.0 alias new
+  meaning contradicts a published promise. It also would not close the audit's own
+  reproduction, which is page PADDING and not an inset. (This is a stronger reason
+  than the recorded decline wave ADAPT-FIX cited, and it is new evidence.)
+- **(b) "let the stack resolve its axis from the box the solver proposed"** is the
+  honest fix and it is not one file. The axis is a PROP, and
+  `present/focus_map.luau:640-665` reads that prop **live** to decide whether a pad
+  navigates the stack left/right or up/down — the D5 defect that had every segmented
+  picker navigating vertically. A solved axis would have to reach the focus
+  derivation through solver → renderer → presenter, all three extraction-locked.
+
+Guarded instead: the band exists where it should, closes where it should, and the
+framework is never silent inside it (the finding names the container, the amount and
+both fixes — weakening one phrase of the solver's message reddens the case).
+
+### 3. ADAPT-L4 (high) — AdaptiveStack stops being a silent permanent VStack · **FIXED**
+
+`axis` is now `required = true`. The refusal names the fact
+(`Facet.adaptive.conditions(core, env).axis`), the host that supplies it with no
+wiring (`Facet.client.host.new`) and both unconditional classes (`UI.VStack` /
+`UI.HStack`) — `tab_view`'s shape, which this framework has now adopted seven times.
+A default of `"y"` on this class bought nothing `UI.VStack` did not already buy.
+
+The three shipped fixtures (`canvas_group` once, `nested_compositing` twice) now bind
+the surface's own axis on the scope that already owns their memos, so their comment —
+*"side by side where there is room, a column where there is not"* — is TRUE: measured
+a column at 320 and a row at 1280.
+
+**Two registries the change touched, both found by the suite rather than by reading:**
+`tools/lune/check_primitives` needs a `MINIMAL_PROPS` entry for any class with a
+required prop (the checker said so and named the doc), and
+`tests/stack_distribution.spec` was constructing a bare one in its `distribute`
+class-set case, where a second refusal firing first would have made it answer the
+wrong question.
+
+**The brief's second branch is not buildable and is contested:** "omitted axis +
+facts present = the documented adaptive default" has no meaning at blueprint
+construction, which has no core and no environment. The offer-derived default is
+ADAPT-L3's fix (b), behind the same three locked files.
+
+### 4. ADAPT-L5 (high) — overflow's default answer · **CONTESTED per cell, guarded**
+
+Per-cell, with the exact blocker (all three also recorded in the spec file):
+
+- **F-1** wants an implicit scroll host. `render/renderer.luau:1483` keys the engine
+  scroll host on `node.class == "ScrollView"`, **not on the solved kind** — so
+  writing `kind = "scroll"` at the measure seam (the one seam this wave could reach)
+  would buy a scroller's LAYOUT with no scrolling, strictly worse than today.
+- **A-8 / F-2** want `wrap` bound by default. `wrap` decides the solver KIND
+  (`hstack` vs `hwrap`) at the measure seam, and a wrapping stack **has no shrink
+  pair by design** — so wrapping by default would silently disable the shrink cascade
+  on every stack that has one, which is exactly the "silent re-flow of shipped
+  screens" the solver's own overflow comment refuses to be.
+- **F-4's stated minimum — "the solver's finding should escalate" — is ALREADY
+  SHIPPED.** `tests/overflow_sweep.spec.luau` asks every showcase surface at nine
+  viewports, four text preferences and the themed and locale tiers on every
+  `./run-tests.sh`. Re-deriving it would have been the more expensive mistake, so it
+  is recorded rather than rebuilt.
+
+**What was built instead is the one property that sweep structurally cannot check:**
+it *counts* findings and never *reads* one, so a message that named the container on
+a phone and not on a television would be a hole nothing in the repository could see.
+All three of the audit's reproductions are pinned, and the page shape is asserted at
+all six combos for a diagnosis carrying the container, the axis, a real pixel count
+and both fixes. The standing rule is pinned beside them — **clipping is never the
+answer**: a plain stack that overflows must not acquire `clipChildren` behind the
+author's back, and the one word that does make a clip host still does.
+
+### 5. The remaining WRONG / AUTHORED-ONLY / MISSING cells · **triaged, one FIXED**
+
+**ADAPT-L8 (B-4) FIXED** — a `GridRow` squeezed three `fixed(200)` cells to 101px at
+320 with **zero** findings, while the `HStack` twin files one every time. The squeeze
+is now reported. The geometry is unchanged and re-pinned at the audit's own five
+numbers (200 / 181 / 148 / 124 / 101), so a "fix" that re-laid the row out fails here
+rather than passing quietly. One owner: the amount is recorded by `gridColumnPlan` —
+the single function measure and arrange both read — and the arrange branch reports the
+plan's own number.
+
+The full 19-row disposition table is in the **LAYOUT-FIX addendum to
+`artifacts/release-candidate-review/adapt-audit/fixes.md`**. The headline from it:
+**eight of the eleven contested cells are behind an extraction-locked file**, two are
+genuinely new capability (C-3's sheet presentation, D-3's height-budget fit
+criterion), and **exactly one — B-6e, the ten-foot `Composition` measure — is blocked
+by nothing but a director's number.** Its mechanism is one line
+(`render/layout_node.luau:432` already resolves `maxMeasure` and could default it from
+the distance fact the metrics now carry); what is missing is *how wide a content lane
+may be at three metres*, which is a legibility judgement with the ADAPT-8 precedent
+saying the director rules on it.
+
+### 6. Corpus follow-through · **re-verdicted; the corpus disagrees with the worry**
+
+The audit counted **38** three-plus-child `HStack`s with no wrap. Re-censused at
+**21** by a stricter rule (direct `UI.*` children only; the audit's own note says six
+more build children dynamically) — the number is not the finding either way.
+
+**The finding is that the row shape is not where the corpus bleeds.** Of the always-on
+sweep's 17 standing waivers — every one measured cosmetic under the director's
+2026-08-15 ruling — **exactly ONE is an `hstack` overflow** and **SIX are
+`content overflows this vstack`**, i.e. a page taller than its box with nothing to
+scroll it. Rows are not what overflow here; **pages are.** That is direct evidence for
+ADAPT-L5's direction (b) being worth the renderer work when F-1 is unblocked, and
+against direction (a) being worth its shrink-cascade cost. **No fixture was found
+misteaching, so none was edited.** The sweeps were not extended: each fixed cell's
+guard lives in `tests/layout_defaults.spec.luau` and bites (below).
+
+---
+
+## Cell-disposition counts
+
+61 cells, 42 RIGHT at the anchor, **19 non-RIGHT** — every one dispositioned:
+
+| disposition | cells |
+|---|---|
+| **FIXED by this wave** | **4** — A-2 (ADAPT-L4), B-1 (ADAPT-L2), B-3, B-4 (ADAPT-L8) |
+| RESOLVED before this wave | 3 — B-2e, E-3 (wave TEN-FOOT), F-5 (wave CAROUSEL) |
+| ALREADY SHIPPED at the cell's own stated minimum | 1 — F-4 |
+| **CONTESTED with the exact blocker** | **11** — A-4, A-5, A-8, B-6e, C-1, C-3, D-3, F-1, F-2, G-4, G-5 |
+| total | **19** |
+
+Live score against the matrix: **49 RIGHT of 61** (annotated in place in
+`matrix-layout.md`; its anchor counts table is noted, not rewritten).
+
+---
+
+## Commits
+
+**Facet** (`fd59cae` → `e65cc83`; the interleaved `da50128`, `8a1faf8`, `7096274`,
+`90d5885`, `a04be05`, `ddebd97` are wave THEME-UNBUNDLE's, not mine):
+
+| commit | what |
+|---|---|
+| `91a474d` | the grid was told nothing and answered one, from a phone to a television (ADAPT-L2) |
+| `ed825da` | a class named AdaptiveStack could be built unable to adapt, and three fixtures were (ADAPT-L4) |
+| `8fd4779` | the refusal's one load-bearing line was the one line without the marker on it (the correction below) |
+| `021a896` | the row grid was the quiet one, and quiet was the worse of the two failures (ADAPT-L8 + ADAPT-L3's guard) |
+| `8e69648` | overflow's default is contested, so what it SAYS is now guarded instead (ADAPT-L5) |
+| `e65cc83` | the layout matrix's own rows, re-verdicted where this wave landed (addendum + annotations) |
+
+**RascalRally** (`655cbd7` → `1888cd6`; `e4f02a2` is THEME-UNBUNDLE's):
+
+| commit | what |
+|---|---|
+| `d708d26` | the grid this game never told anything now answers from the box it got |
+| `1888cd6` | the framework can refuse an AdaptiveStack now, and this game's one live stack was ready |
+
+Both game-side commits are required by the move-together rule and both are red
+against the framework at its pre-fix commit. Nothing in Rascal Rally moved: its two
+live grids already name `minColumnWidth = "intrinsic"` and its one live
+`AdaptiveStack` already binds `axis = opts.splitAxis` — both now read out of the
+source rather than trusted to memory, so the day a binding is dropped the test reddens
+instead of a live results screen failing to boot.
+
+---
+
+## Suite tails
+
+```
+Facet          6781 passed          (anchor fd59cae: 6750)
+RascalRally    3443 passed          (anchor 655cbd7: 3437)
+```
+
+Gates re-run green on the final tree: `check_prop_parity` (27 classes, 673
+properties), `check_docs` (9 documents), `check_registration` (38 controls, 255 specs),
+`check_surface_ledger`, `check_boundary` (155 src files), `check_manifest_integrity`
+(1503 suite greps, all anchored), `check_source_size` (PASS; `grid.luau` 39,799 →
+43,899, nowhere near the band), `stylua --check src tests tools bench examples`.
+
+**Bite-checks** (each mutation confirmed to redden, measured rather than assumed):
+
+| guard | mutation |
+|---|---|
+| ADAPT-L2's six combo cases + the equality case + the TV-under-desktop case | restoring `return nil` for an absent `minColumnWidth` → 8 red (they were red at the anchor by construction) |
+| ADAPT-L2's authored-wins pair and fill-only null hypothesis | green before and after, by design |
+| ADAPT-L4's refusal + phrase check | red at the anchor; removing `required = true` reddens both |
+| ADAPT-L4's two null hypotheses | green before and after, by design |
+| ADAPT-L8's report | `if false and plan.squeeze ~= nil` → 2 red here, 1 red in `grid_row.spec` |
+| ADAPT-L8's rigid-width narrowing | forcing `anyRigid = true` → the content-cell null hypothesis reddens |
+| ADAPT-L3's "not silent" case | weakening one phrase of the solver's overflow message → red |
+| ADAPT-L5's completeness case | same mutation → red |
+| RR's two ADAPT-L2 cases | reverting the framework default → both red |
+
+---
+
+## Concerns
+
+1. **`commit_isolated.py` dropped the one line that mattered, and HEAD was red for a
+   commit.** ADAPT-L4 landed without `required = true`: markers match HUNKS, and
+   `+\t\t\trequired = true,` is its own hunk three lines from the twelve lines of prose
+   that carried the marker. The `api.md` signature change dropped the same way, in the
+   same call. `8fd4779` is the correction and states the discipline: **read the `drop`
+   list, not the `KEEP` list** — the `KEEP` list is the one an author scans because it
+   is the one they wrote, and a one-line mechanical change is exactly the shape that
+   carries no prose and therefore no marker. Recorded in the addendum's §5 too.
+
+2. **B-6e is the cheapest unblocked item in the whole matrix and it needs a director,
+   not an implementer.** One line, no lock, no new machinery — and a number that is a
+   legibility judgement at three metres. `adaptive.BREAKPOINTS.wide` is the candidate
+   that adds no new number, but adopting it moves every ten-foot composition and every
+   five-view gate artifact, which is a product change this wave was not asked to make.
+
+3. **ADAPT-L5's remaining work is one renderer change behind one big lock, and the
+   corpus now says which change.** Six of seventeen waivers are page-not-scrollable
+   and one is a row. The implicit page scroll host (direction b) is the fix the
+   evidence supports; it needs `renderer.luau`'s scroll-host decision to read the
+   solved kind rather than `node.class`, which sits behind the `rect_pass` extraction
+   that row already owes.
+
+4. **The ADAPT-L3 bundle is bigger than the audit's "one memo" estimate.** The audit
+   offered `contentWidth` as one memo; the deprecation ledger closes that door
+   outright, and the surviving fix drags `focus_map`'s live axis read with it. Anyone
+   scoping it should budget solver + renderer + presenter + focus derivation, not one
+   file.
+
+5. **Not measurable headlessly, unchanged from the audit's own list:** whether a
+   5-lane television grid reads correctly at 3 m (device rows 3/4), whether the
+   `GridRow` squeeze finding's threshold matches what a player sees at 320 (row 9),
+   and whether the axis band at 600–640 is visible on a device (row 5). No Studio
+   session was run — the brief forbade it.
+
+6. **The suite tails include wave THEME-UNBUNDLE's in-flight cases** (six on the Facet
+   side, one on the RR side, identified by diffing case names against the anchor
+   transcript). Both waves were green independently at every point I measured.
