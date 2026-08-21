@@ -92,6 +92,15 @@ The public branch should have a familiar, shallow entry surface:
 - useful `tests/`, `bench/`, `tools/`, project files, and reproducible build inputs;
 - the package build/status/publish helper and non-secret asset manifest, but no keys or
   local credential files;
+- the **distribution outputs**, which are two artifact families rather than one:
+  `build/Facet.rbxm` (the library — `src/` plus Studio Neutral, and no reference theme
+  package, which `tools/check_library_purity.py` enforces) and one
+  `build/themes/<Name>.rbxm` per shippable reference theme package, built by
+  `tools/build_themes.sh` beside its manifest. A consumer takes the library, then picks
+  a skin; `docs/guide/13-theme-catalog.md` is the catalog and
+  `tools/check_theme_artifacts.py` is the proof each artifact installs on its own. The
+  Roblox Package release channel below covers the library artifact; whether the theme
+  artifacts become Packages of their own is an owner decision, not an assumption;
 - `skills/use-facet/SKILL.md`; and
 - `.github/` continuous-integration, pull-request, and issue templates that match the
   real local workflow.

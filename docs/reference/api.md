@@ -5599,6 +5599,15 @@ applies from construction (`inspect().style` feeds `screen_target.new({ style })
 and `inspect().fallback` reports the degradation. Full walkthrough:
 [`../guide/09-custom-themes.md`](../guide/09-custom-themes.md); the
 rich-skinning surface is [`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md).
+
+**Before writing one, check the shelf.** Studio Neutral is built into the library
+and eight ready-made packages ship as separate artifacts — one `.rbxm` each under
+`build/themes/`, built by `tools/build_themes.sh` and installed through exactly
+the `install` call above.
+[`../guide/13-theme-catalog.md`](../guide/13-theme-catalog.md) is the catalog:
+what each one looks like, what it does to your metrics, and what it costs. The
+library itself names none of them — `build/Facet.rbxm` carries `src/` and the
+`studio-neutral` package alone, which `tools/check_library_purity.py` enforces.
 ### `newPopupButton`
 
 `Facet.Controls.PopupButton(core, spec) -> { blueprint, api, dump, dispose }`

@@ -69,6 +69,14 @@ whenever `src/` or `Facet.VERSION` changes. The build ignores `**/*.spec.luau`,
 so a spec file colocated with source can never ship inside the model (the library
 keeps its tests in `tests/`, so today nothing is dropped).
 
+**The model is the library alone.** It carries `src/` and Studio Neutral, the
+theme Facet wears out of the box; it does not carry any of the eight optional
+theme packages. Each of those is its own model file — `build/themes/<Name>.rbxm`,
+built by `tools/build_themes.sh` — and installs the same way: drag it into
+`ReplicatedStorage` beside `Facet` and require it. See
+[13 — The theme catalog](13-theme-catalog.md) for what each one looks like, one
+install call, and what it costs.
+
 ## 8.3 Option B — lift the library out of a shipped example place
 
 Every file in `examples/places/*.rbxl` — and `build/Facet-Gallery.rbxl` — already

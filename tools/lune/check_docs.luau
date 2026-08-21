@@ -53,6 +53,16 @@ local MANIFEST = ASSET_DIR .. "/upload-manifest.json"
 -- rung-3 example ships ART, so it owes the same provenance obligations a theme
 -- package's art does. Same drift-alarm discipline: few anchors, each one
 -- load-bearing, each naming a shipped thing that would be silently lost.
+--[[ ---- the theme CATALOG (wave THEME-UNBUNDLE, 2026-08-21) ----------------
+	The eight reference packages became separate distribution artifacts
+	(`tools/build_themes.sh` -> `build/themes/<Name>.rbxm`), so a consumer's first
+	theme question stopped being "how do I write one" and became "which one do I
+	take". The catalog answers it, and the obligations below are the ones a
+	catalog rots by failing: a package that ships and is not listed, a listed
+	package that no longer ships, and an install route nobody can follow.
+	The per-package list is DERIVED from the enumerator rather than typed here. ]]
+local CATALOG = "docs/guide/13-theme-catalog.md"
+
 local RICH_GUIDE = "docs/guide/10-rich-skinning.md"
 local RUNG3_PLAYBOOK = "docs/extending/skinned-control.md"
 local RUNG3_EXAMPLE = "examples/themes/ornate_gauge.luau"
@@ -539,11 +549,16 @@ function check_docs.check(opts: Opts?)
 		"the rung-3 (custom skinned control) playbook is missing",
 		"restore docs/extending/skinned-control.md (the contributor playbook required by ADR-0020 R8)"
 	)
+	local catalog = requireFile(
+		CATALOG,
+		"the theme catalog is missing",
+		"restore docs/guide/13-theme-catalog.md (the shelf of installable packages, wave THEME-UNBUNDLE)"
+	)
 	local index = read(GUIDE_INDEX)
 	if index == nil then
 		problem(GUIDE_INDEX, "the guide index is missing", "restore docs/guide/README.md")
 	else
-		for _, chapter in { "09-custom-themes.md", "10-rich-skinning.md" } do
+		for _, chapter in { "09-custom-themes.md", "10-rich-skinning.md", "13-theme-catalog.md" } do
 			if not contains(index, chapter) then
 				problem(
 					GUIDE_INDEX,
@@ -718,6 +733,7 @@ function check_docs.check(opts: Opts?)
 			{ path = PLAYBOOK, source = playbook },
 			{ path = RICH_GUIDE, source = richGuide },
 			{ path = RUNG3_PLAYBOOK, source = rung3 },
+			{ path = CATALOG, source = catalog },
 		}
 	do
 		if entry.source == nil then
@@ -739,6 +755,71 @@ function check_docs.check(opts: Opts?)
 				)
 			end
 		end
+	end
+
+	--[[ ---- 6b. THE CATALOG LISTS EXACTLY WHAT SHIPS ------------------------
+
+		Derived from `tools/lune/theme_packages.luau`, never from a list typed
+		here — a catalog checked against a second hand list is two lists drifting
+		in step. Both directions matter and they fail differently: a shippable
+		package the catalog omits is a product a consumer cannot find, and a
+		catalog entry for a module that is no longer shippable is an install
+		instruction that ends in a file nobody built.
+
+		The artifact FILENAME is what is matched, because that is the thing a
+		consumer types after dragging the model in. A display name alone would
+		pass on a catalog that lost every install route. ]]
+	if catalog ~= nil then
+		local catalogSource: string = catalog
+		for _, name in theme_packages.shippable() do
+			local artifact = `{theme_packages.artifactName(name)}.rbxm`
+			if not contains(catalogSource, artifact) then
+				problem(
+					CATALOG,
+					`'{name}' ships as build/themes/{artifact} and the catalog never names it`,
+					`add its entry (one-screenshot description, character, install, cost) — tools/build_themes.sh `
+						.. `builds it whether or not this page mentions it`
+				)
+			end
+		end
+		for name in theme_packages.NOT_SHIPPABLE do
+			local artifact = `{theme_packages.artifactName(name)}.rbxm`
+			if contains(catalogSource, artifact) then
+				problem(
+					CATALOG,
+					`the catalog offers build/themes/{artifact}, which tools/build_themes.sh does not build `
+						.. `('{name}' is excluded — see NOT_SHIPPABLE)`,
+					"remove the entry, or make the module shippable in tools/lune/theme_packages.luau"
+				)
+			end
+		end
+		-- the install route itself: an artifact list with no way in is a menu
+		for _, anchor in { "tools/build_themes.sh", "theme_controller.install", "ReplicatedStorage" } do
+			if not contains(catalogSource, anchor) then
+				problem(
+					CATALOG,
+					`the catalog no longer names '{anchor}', so it cannot be followed`,
+					"restore the build command, the install call and the no-Rojo route"
+				)
+			end
+		end
+		-- ...and the pending cost row stays PENDING rather than quietly acquiring
+		-- an invented number (the distribution plan's unsupported-claim rule)
+		if not contains(catalogSource, "T15") then
+			problem(
+				CATALOG,
+				"the per-package memory table is not yet measured and the catalog no longer says so",
+				"keep the T15 placeholder until that wave lands, or replace it with the measured table"
+			)
+		end
+	end
+	if api ~= nil and not contains(api :: string, "13-theme-catalog.md") then
+		problem(
+			API,
+			"the API reference does not cross-reference the theme catalog",
+			`link {CATALOG} from the theme-controller section — a consumer reading install() is one sentence `
+				.. "away from discovering they need write no theme at all"
+		)
 	end
 
 	-- ---- 7. stale language --------------------------------------------------
@@ -1024,6 +1105,14 @@ check_docs.OBLIGATIONS = table.freeze({
 	"every [SW-nn] id cited in the parity document resolves to a §16 row, every §16 row is cited by something, and "
 		.. 'each one carries a developer.apple.com URL, a quoted sentence (or the words "Apple documents no '
 		.. 'behaviour here") and an ISO date — the citation cannot be checked for truth, only for existence',
+	-- ---- the theme catalog (wave THEME-UNBUNDLE) ---------------------------
+	"docs/guide/README.md links 13-theme-catalog.md and that catalog exists",
+	"docs/guide/13-theme-catalog.md names every SHIPPABLE package's build/themes/<Name>.rbxm and no artifact "
+		.. "tools/build_themes.sh does not build (both derived from tools/lune/theme_packages.luau), still carries "
+		.. "the install route (tools/build_themes.sh, theme_controller.install, the no-Rojo ReplicatedStorage "
+		.. "path), and still marks the per-package memory table as owed to the T15 wave rather than inventing a "
+		.. "number",
+	"docs/reference/api.md cross-references the theme catalog from the theme-controller section",
 	-- ---- rich skinning v2 (ADR-0020 R8, ledger row RS-A15) -----------------
 	"docs/guide/README.md links 10-rich-skinning.md and that guide exists",
 	"docs/extending/skinned-control.md (the rung-3 playbook) exists",
