@@ -299,6 +299,18 @@ environment, not on readiness: the plan, the place check, and the instruments
 were all verified current in this stage. Owner: the director opens the lab place
 (or the next session starts with it open); the plan is then runnable as written.
 
+**2026-08-21, later the same day: the environment unblocked and the rows ran.**
+The director opened the lab place; all 13 capture rows were driven at
+desktop-standard 1280×720 with the profiler armed and staleness-asserted, landed
+byte-for-byte through the studio_sync bridge (`studio/rc-requal-row01..13-*.json`
++ `rc-requal-moduleload.json`, `check_perf_captures` PASS), and summarized in
+`artifacts/performance-stress-places/studio-capture-2026-08-21.md`. The
+FAIL_ENVIRONMENT disposition above is kept as the record of the blocked hours;
+what REMAINS open after the capture: the `.gprx` binary dumps (no scripted
+dump-to-file exists — LibMP live aggregation is recorded in their place) and the
+low-end Android device row (§12.5), which is still the only instrument that can
+close the device budgets.
+
 ---
 
 ## 6. What stays open — the controller's and the device's rows

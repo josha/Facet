@@ -997,3 +997,23 @@ STUDIO.md, root CLAUDE.md.
   every context/binding correct) — so the old session's "R1 dead" was almost
   certainly flaky injection delivery, not code; raw-delivery rows moved to
   the device packet where E4 already places them.
+
+## 2026-08-21 (cont. 3) — m2fix landed
+
+- M2FIX LANDED (1f0b99d..1f9e32c + report 5e8c1d9; suite 6883 = DIR4's 6881
+  + 2): A-H1 closed by watching the CALL, not the cache (src/init.luau
+  re-loaded under an interposed require; deferred set DERIVED from
+  source-minus-load-log; P1 3 red / P2 1 red / P3 seam pin red); A-H2 purged
+  at all six sites plus two the review missed, retracted numbers NAMED as
+  retracted; B-H1 fence reads both rects screen-wide under R18 with the
+  passive-overlap assertion non-vacuous and a three-half paint-inert guard;
+  A-M1 made true (SUPERSEDED table + banner). EXTRA: surface-ledger-complete
+  had been RED since 8202a9d (preload shipped with no ledger row) — repaired.
+  Its measurement lesson: in a shared tree a baseline pins by CONTENT
+  (revert the other agent's paths inside the same snapshot), never by timing.
+- Booked to triage: solver-side hit-floor reserve (fixture-only ban today),
+  presenter.raise/displayLayer seam, modal-ties-3500 (DIRECTOR CALL), the
+  831-literal gate idea, locked-module comment debt.
+- Requalification §5 updated: the environment unblocked and the 13 rows ran;
+  still open = .gprx dumps + Android. Review seats running: DIR4 (task-dir4-
+  review) and m2fix (task-m2fix-review).
