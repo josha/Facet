@@ -1399,8 +1399,8 @@ end)
 	binding for every non-touch class — an ungated hint would tell a keyboard player
 	to press LB. ]]
 describe("showcase chrome (13): the chips carry their shoulder mark on a pad", function()
-	local GLYPH_DEMOS = "/ShowcaseChrome/Dock/Bar/Chips/Full/demosHint/then/Glyph"
-	local GLYPH_SETTINGS = "/ShowcaseChrome/Dock/Bar/Chips/Full/settingsHint/then/Glyph"
+	local GLYPH_DEMOS = "/ShowcaseChrome/Dock/Bar/Chips/Full/DemosHint/then/Glyph"
+	local GLYPH_SETTINGS = "/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsHint/then/Glyph"
 
 	local function textAt(w: any, path: string): string?
 		local node = w.adapter.node(path)

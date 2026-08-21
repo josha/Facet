@@ -341,8 +341,10 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- must never share a node table (the picker's own `buildRows` says why).
 	local function shoulderHint(kindName: string): any
 		local text = hintLabel[kindName]
+		-- `DemosHint` / `SettingsHint`: PascalCase like every other id on this
+		-- surface, because a node path is read by a device sweep
 		return UI.When({
-			id = `{kindName}Hint`,
+			id = `{string.upper(string.sub(kindName, 1, 1))}{string.sub(kindName, 2)}Hint`,
 			condition = gamepadActive,
 			thenView = function()
 				return UI.Text({
