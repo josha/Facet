@@ -57,9 +57,12 @@ taken once on purpose: a mark re-taken on a warm heap answers a different questi
 under the same name. If you need a second reading, restart Play.
 
 Record it against the headless numbers in `requalification.md` §7 — the headless
-figure for `require(Facet)` is **~2.80 MB of Lua heap, of which the nineteen
-composite controls are 831 KB**. Studio's number is the one that decides whether
-the lazy-loading question is worth reopening.
+figure for `require(Facet)` is **~2.76 MB of Lua heap (low-mode median 2,763 KB)**,
+of which the four deferred composites are **228 KB [131..313]** and all nineteen
+would be **860 KB [762..860]**. (An earlier draft of this line said 831 KB; that
+was subset arithmetic and §7 retracted it — do not record against it.) Studio's
+number is the one that decides whether the lazy-loading question is worth
+reopening.
 
 ## 3. The ordered capture list
 

@@ -1,19 +1,38 @@
 #!/usr/bin/env python3
-"""Gate check: `Facet.Controls`'s nineteen signatures still carry their types.
+"""Gate check: `Facet.Controls`'s fifteen typed signatures still carry their types.
 
-WHY THIS EXISTS. `src/init.luau` defers each control's `require` into the closure
-that needs it — a game that never builds a Table never compiles one — and keeps
-the parameter types through `typeof(require(...))`, which is a TYPE-level
-expression the runtime erases. Measured, that idiom is worth 831 KB of Lua heap
-at require time (artifacts/release-candidate-review/perf/requalification.md §7).
+WHY THIS EXISTS. Fifteen of the nineteen `Facet.Controls` entries declare a real
+`spec` type, and they can only do it by holding a direct `local M = require(...)`
+binding at the top of `src/init.luau` — so those fifteen requires are EAGER and
+load-bearing for the types, and nothing else.
 
-Its entire justification is "the nineteen typed signatures survive", and until the
+THE IDIOM THAT WOULD HAVE BOUGHT BOTH DOES NOT EXIST. An earlier draft of this
+file claimed the requires were deferred into their closures with the parameter
+types kept through `typeof(require(...))`, worth 831 KB. Both halves were
+falsified by this check's own first run: a module's EXPORTED types enter scope
+ONLY through a direct binding, and all four deferral spellings —
+`type M = typeof(require(x))`, `local M = (nil :: any) :: typeof(require(x))`,
+`local M: typeof(require(x)) = (nil :: any)`, and
+`local M = if false then require(x) else (nil :: any)` — answer
+`TypeError: Unknown type 'M.Spec'` under the pinned analyzer. The 831 KB was
+subset arithmetic and was retracted with it
+(artifacts/release-candidate-review/perf/requalification.md §7).
+
+WHAT SHIPPED, and what it is worth: the FOUR entries that were already declared
+`spec: any` (`Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage`) need nothing from
+their module at load, so their requires moved into their closures — **228 KB
+[131..313]** of Lua heap, mode-matched. The other **632 KB** stays on the table
+until the fifteen `export type Spec` declarations move to a module that costs
+nothing to load, because deferring those fifteen means widening them to `any`.
+
+Its entire justification is "the fifteen typed signatures survive", and until the
 analyzer was pinned into `rokit.toml` (wave T15) nothing in this repository could
 see a type. A change whose only claim is one no check can falsify is exactly what
-this file stops: if the idiom ever silently degrades to `spec: any`, the authoring
-experience the naming ADR bought disappears with no other symptom at all — the
-suite stays green, the surface dump stays byte-identical, and autocomplete quietly
-stops checking arguments.
+this file stops: if one of the fifteen ever silently degrades to `spec: any` —
+which is exactly what deferring its require would do — the authoring experience
+the naming ADR bought disappears with no other symptom at all: the suite stays
+green, the surface dump stays byte-identical, and autocomplete quietly stops
+checking arguments.
 
 IT IS NOT A LINT REGIME, ON PURPOSE. `luau-lsp analyze` walks the whole require
 graph and this tree carries roughly 245 pre-existing diagnostics in modules
@@ -179,7 +198,9 @@ def run():
             problems.append(
                 f"`Facet.Controls.{name}` is DECLARED with a spec type but the analyzer "
                 "accepted a number for it — the signature is not reaching the type checker "
-                "(this is what a lazy require without `typeof(require(...))` looks like)"
+                "(this is what deferring that control's `require` looks like: a module's "
+                "exported types do not survive any deferral spelling, so the parameter has "
+                "nowhere left to get its type from)"
             )
         if not typed and rejected:
             problems.append(
@@ -214,8 +235,8 @@ def selftest():
         code, _ = run()
         results.append(("unmutated", code == 0, "PASS expected"))
 
-        # M1 — a Controls signature widened to `any`, which is exactly what a lazy
-        # require written WITHOUT the `typeof(require(...))` idiom produces.
+        # M1 — a Controls signature widened to `any`, which is exactly what
+        # deferring that control's `require` into its closure would produce.
         s = backups[INIT].replace(
             "Table = function(core: any, spec: tableControl.Spec)",
             "Table = function(core: any, spec: any)",
@@ -271,7 +292,7 @@ def selftest():
         print(f"  [{'ok' if bit else 'MISS'}] {label} ({want})")
     if ok:
         print(
-            "  M1 is the lazy-require-without-`typeof` shape, M2 is a signature given the wrong\n"
+            "  M1 is the shape a DEFERRED require leaves behind, M2 is a signature given the wrong\n"
             "  type, M3 is the witness itself decaying. The negative probe covers the direction\n"
             "  none of them do: it is GENERATED from `src/init.luau`'s own entry list, so it\n"
             "  cannot shrink while the namespace does not."

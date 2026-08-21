@@ -27,8 +27,11 @@ end
 --[[ THE MODULE-LOAD MEMORY MARKS (director's memory ask, wave T15).
 
 	Facet's `require` graph is not free: measured headless, a `require` of the root
-	retains ~2.8 MB of Lua heap, and the nineteen composite controls are 831 KB of
-	it (artifacts/release-candidate-review/perf/requalification.md §7). Headless is
+	retains ~2.76 MB of Lua heap, of which the four DEFERRED composites are 228 KB
+	[131..313] and all nineteen would be 860 KB [762..860]
+	(artifacts/release-candidate-review/perf/requalification.md §7 — an earlier
+	draft of this comment said 831 KB, which was subset arithmetic and is
+	retracted). Headless is
 	the wrong host to make that claim on, though — it has no engine, no
 	ModuleScript instances and a different collector — so the number a decision
 	should rest on is the one this place reads on the CLIENT.

@@ -1,12 +1,18 @@
 --!strict
 --[[ THE TYPE WITNESS for `Facet.Controls` (wave T15, director ruling 2026-08-21).
 
-	WHAT THIS FILE IS FOR. `src/init.luau` defers each control's `require` into the
-	closure that needs it and keeps the parameter type through
-	`typeof(require(...))` — an idiom whose ENTIRE justification is "the nineteen
-	typed signatures survive". Nothing in this repository could see a type until
-	the analyzer was pinned, so that justification was a claim no check could
-	falsify. This file is the half of the instrument the analyzer reads.
+	WHAT THIS FILE IS FOR. `src/init.luau` holds a direct `local M = require(...)`
+	binding for fifteen of the nineteen controls, because that is the ONLY spelling
+	through which a module's exported `Spec` type enters scope. The idiom that
+	would have deferred those requires AND kept the types —
+	`typeof(require(...))` — does not work: every deferral spelling was measured
+	against the pinned analyzer and answers `TypeError: Unknown type 'M.Spec'`
+	(artifacts/release-candidate-review/perf/requalification.md §7). So those
+	fifteen eager requires are load-bearing for the types and nothing else, and
+	their ENTIRE justification is "the fifteen typed signatures survive". Nothing
+	in this repository could see a type until the analyzer was pinned, so that
+	justification was a claim no check could falsify. This file is the half of the
+	instrument the analyzer reads.
 
 	IT IS RUN BY `tools/check_types.py`, NOT BY THE LUAU SUITE. It is never
 	executed: every value in it is `(nil :: any)`. Running it would index nil on

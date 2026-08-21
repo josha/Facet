@@ -27,11 +27,15 @@ local focusLib = require("@self/focus/focus_graph")
 	FIFTEEN OF THEM ARE HERE AND FOUR ARE NOT, AND THE LINE BETWEEN THEM IS A
 	MEASURED ONE (wave T15, director's memory ruling 2026-08-21).
 
-	Requiring the whole framework retains ~2.80 MB of Lua heap, and the nineteen
-	composite controls are 831 KB of it — a game that never builds a Table pays
-	for one anyway. The obvious repair is to move each `require` into the closure
-	that needs it, with `require`'s own cache as the memoizer, so a control
-	compiles at its first construction and never before.
+	Requiring the whole framework retains ~2.76 MB of Lua heap (low-mode median
+	2,763 KB), and deferring all nineteen composite controls would give back
+	**860 KB [762..860]** of it — a game that never builds a Table pays for one
+	anyway. The obvious repair is to move each `require` into the closure that
+	needs it, with `require`'s own cache as the memoizer, so a control compiles at
+	its first construction and never before. (An EARLIER version of this comment
+	claimed 831 KB. That figure was subset arithmetic — each control charged for
+	the shared graph this file loads regardless — and it was retracted with the
+	rest of §7; the numbers here are the A/B on this file.)
 
 	IT ONLY WORKS FOR FOUR OF THEM, AND THE REASON IS A LANGUAGE FACT THIS
 	REPOSITORY NOW HAS AN INSTRUMENT FOR. A module's EXPORTED TYPES enter scope
@@ -46,13 +50,14 @@ local focusLib = require("@self/focus/focus_graph")
 
 	The four below already take `spec: any` — `Chip`, `VirtualList`, `VirtualGrid`
 	and `AsyncImage` were never given a published spec type — so they need nothing
-	from their module at load, and deferring them costs no type at all. Measured:
-	2,537 KB eager against 2,305 KB with these four deferred, i.e. **232 KB**, and
-	`tools/check_types.py` pins the set BOTH WAYS: an entry that loses its spec
-	type fails, and an entry that GAINS one fails too — which is the day the
-	require below has to come back to the top of this file, or the fifteen spec
-	types have to move to a module that costs nothing to load. That is the
-	remaining 599 KB and it is not a change to this file.
+	from their module at load, and deferring them costs no type at all. Measured
+	mode-matched over paired rounds: 2,763 KB eager against 2,535 KB with these
+	four deferred, i.e. **228 KB [131..313]**, and `tools/check_types.py` pins the
+	set BOTH WAYS: an entry that loses its spec type fails, and an entry that
+	GAINS one fails too — which is the day the require below has to come back to
+	the top of this file, or the fifteen spec types have to move to a module that
+	costs nothing to load. That is the remaining **632 KB** and it is not a change
+	to this file.
 
 	`Facet.preload()` at the bottom force-loads all four for a game that would
 	rather pay at the loading screen. ]]
@@ -446,8 +451,8 @@ local Facet = {
 
 	--[[ FORCE-LOAD EVERY DEFERRED MODULE, FOR THE LOADING-SCREEN MOMENT
 		(wave T15). Four composites compile at their first construction rather
-		than at `require` (see the Controls block header) — 232 KB of Lua heap a
-		game that builds none never pays. A game that would rather pay it while a
+		than at `require` (see the Controls block header) — 228 KB [131..313] of Lua
+		heap a game that builds none never pays. A game that would rather pay it while a
 		loading screen is up, instead of on the frame a player first opens a list,
 		calls this once and is done.
 
