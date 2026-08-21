@@ -493,7 +493,7 @@ function Custom.new()
 		local rounds = 0
 		local capped = false
 		--[[ WHICH SETTLE CALLBACK IS ACTUALLY NON-CONVERGENT (corrected after
-			review ).
+			review).
 
 			The first version kept only "the settle that wrote last in this flush"
 			and quarantined it whenever the cap blew. That is wrong, and the header

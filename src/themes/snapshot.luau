@@ -1173,7 +1173,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 
 	--[[ 4a-ante. THE SCREEN-EDGE GUTTER, WITH A FLOOR (DIR wave contract 6,
-		2026-08-18; device round 2026-08-17 ).
+		2026-08-18; device round 2026-08-17).
 
 		THE STEP EVERY SURFACE WAS SPENDING WAS `space.s`, and a screen edge is not
 		a spacing decision — it is a physical one. `space.s` is what a package

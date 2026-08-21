@@ -4005,8 +4005,8 @@ function screen_target.new(opts: Opts?)
 		if captured ~= nil and (captured.instance :: Instance):IsDescendantOf(rootHandle.gui) then
 			endCapture("destroyed")
 		end
-		--[[ THE CURSOR HINT IS THIS ROOT'S; THE MENU CONNECTION IS THE ADAPTER'S
-			. An adapter hosts several roots at once — the presenter mounts
+		--[[ THE CURSOR HINT IS THIS ROOT'S; THE MENU CONNECTION IS THE ADAPTER'S.
+			An adapter hosts several roots at once — the presenter mounts
 			and retires a transient popup-catcher root reactively — so disconnecting
 			`GuiService.MenuOpened` here used to kill drag-abort-on-menu for every
 			OTHER live root the first time any root came down. The hint really does

@@ -92,7 +92,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		local viewport = { w = size.X, h = size.Y }
 		local guiInset = { x = topInset.X, y = topInset.Y }
 		local areas = insetAreas()
-		--[[ ── THE STALE-INSET BELT (redone after review ) ──
+		--[[ ── THE STALE-INSET BELT (redone after review) ──
 
 			`Camera.ViewportSize` and `GetInsetArea` update on DIFFERENT frames, so
 			one pass through here can convert an area measured against the OLD

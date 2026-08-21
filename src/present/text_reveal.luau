@@ -130,8 +130,8 @@ function textReveal.new(ctx: any)
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
 		end
-		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
-			. `focusMap.isHiddenPath` is the published answer and
+		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT".
+			`focusMap.isHiddenPath` is the published answer and
 			takes the SET `hiddenRoots()` already returns, so the array this used to
 			build was a conversion nobody needed. Hoisted once rather than re-read per
 			node: the walk visits every node in the subtree. ]]

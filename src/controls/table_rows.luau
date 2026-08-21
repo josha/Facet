@@ -596,8 +596,8 @@ function table_rows.new(deps: Deps)
 					the button — leaves the arm below with nothing left to clear it.
 
 					THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and
-					the first draft of it carried a premise that is simply false
-					: "a real Activated always fires
+					the first draft of it carried a premise that is simply false:
+					"a real Activated always fires
 					between a pointer-up and the next pointer-down, so a still-live
 					suppression can never legitimately survive to see another down."
 					TWO ACTIVATE PRODUCERS CARRY NO POINTER-DOWN AT ALL — an IAS

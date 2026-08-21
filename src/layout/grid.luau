@@ -204,8 +204,8 @@ local function gridLaneCount(ctx: any, node: any, inner: number, gap: number, mi
 		return node.columns :: number
 	end
 	if minCol ~= nil and inner ~= math.huge then
-		--[[ ONE IMPLEMENTATION OF THE LANE COUNT, and now it is literally one
-			. `adaptive.columnsFor` has always been documented as "the SAME
+		--[[ ONE IMPLEMENTATION OF THE LANE COUNT, and now it is literally one.
+			`adaptive.columnsFor` has always been documented as "the SAME
 			arithmetic the solver's Grid uses" and was a second copy of it, which is
 			how the two came to disagree about distance: the helper and the solver
 			both ignored the ten-foot density cap that `sizeClass`/`heightClass`

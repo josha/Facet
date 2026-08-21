@@ -3,11 +3,10 @@
 
 	WHAT IT IS. A collection laid out in `columns` lanes that mounts only the
 	LINES OF CELLS the viewport touches. `UI.Grid` is the eager half and stays
-	exactly what it is: it measures and arranges every cell, which is what
-	An eager grid does too — it renders all of its
-	child views immediately" (parity §16 [SW-16]). The lazy grids are the ones
-	that "create items only as needed" ([SW-21]), and until this module nothing in
-	Facet did.
+	exactly what it is: it measures and arranges every cell it is given. An eager
+	grid renders all of its children immediately; a lazy grid creates items only
+	as needed, and until this module nothing in Facet did. The comparison document
+	carries the citations ([SW-16], [SW-21]).
 
 	build(Facet, core, spec) -> {
 	  blueprint, focusGroupName (the contributed group's name),
