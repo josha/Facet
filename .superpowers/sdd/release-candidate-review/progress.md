@@ -1184,3 +1184,29 @@ STUDIO.md, root CLAUDE.md.
   in its report (the controller appends — two writers on one table is the
   B-14 class). Native-flip round still in flight; radii+strokes lockstep
   round queued behind it; DIR5 told to keep clear of the flip's files.
+
+## 2026-08-21 (post-close 5) — the flip landed; canary PASS; two seats + one round out
+
+- NATIVE-DEFAULT FLIP LANDED (Facet c1120fc + 50887a8, RR 5dff3de; suites
+  6905/3460, +13/+11 all its own): DEFAULT_ENABLED=true through a new pure
+  resolveOpt seam (its headline: NOTHING pinned the old default — the flag
+  had two source lines and no spec; now 8+ pins). Real defect exposed and
+  fixed red-first: the edit-preview exemption existed only in a comment —
+  the flip would have seeded a persistent FacetStyle sheet into the EDIT
+  DataModel on place save. RR: tri-state nativeStyleOpt() preserves
+  UseFacetNativeStyle=false as the rollback (the ==true collapse would have
+  silently deleted it) — controller RATIFIES as R21 (mirrors the Sponsor
+  cutover precedent; reverting is one function + four sites). Cost of the
+  flip in the near-cap file: screen_target +108 chars, 686 from trigger,
+  ledger row re-recorded. Follow-up BOOKED: the perf lab measures the
+  NON-default path now — re-baseline owed (t16).
+- LIVE CANARY PASS (stamp 4c64d676-6918299, desktop row, zero attributes):
+  3 StyleLinks, FacetStyle+FacetTheme sheets installed, sample plate
+  GetStyled (0.16,0.18,0.23) differs from plain (0.64,...) — the sheet owns
+  the paint by DEFAULT. Suspected regression ("Ed"/"Ed..." buttons) A/B'd
+  against ForceStyleFallback: IDENTICAL on both paths — it is the
+  compact-label demo exhibiting truncation, not a defect. RR Studio canary
+  under the new default still owed (needs the RR place open — director's
+  packet).
+- Dispatched: the radii+strokes lockstep round (queued behind the flip, now
+  live) and the flip's review seat. DIR5 still running.
