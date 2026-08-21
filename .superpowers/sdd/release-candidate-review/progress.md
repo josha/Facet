@@ -1,0 +1,958 @@
+# SDD ledger — plan: docs/plans/release-candidate-review.md
+
+Mission: LuauUI → Facet rename + release-candidate review (roadmap Step 13).
+Controller: Fable 5 (fresh session, satisfies plan's fresh-lead rule).
+Repos: LuauUI = GameStudio/ui/LuauUI (git, main, origin github.com/josha/LuauUI);
+RascalRally = games/RascalRally/code (git, main, clean at 02df98c).
+Binding docs read: release-candidate-review.md, api-architecture-consistency.md,
+performance-stress-places.md, agent-execution-contract.md, distribution-readiness.md,
+STUDIO.md, root CLAUDE.md.
+
+## Pre-flight conflict scan
+
+| Check | What I compared | Found |
+|---|---|---|
+| Worktree rule vs repo convention | SDD "never on main" vs repo gate system + docs/lessons worktree-cannot-run-gates + rename moves the repo dir itself | Conflict — ruled R1 |
+| Dirty tree vs freeze | 6 modified docs/plans files (user's mission edits) vs "freeze source identity before editing" | Conflict — ruled R2 |
+| skills/use-luauui rename input | Plan lists it; find shows it does not exist anywhere | N/A — ruled R3 |
+| Studio-baseline freeze vs Studio availability | Plan: freeze Studio scenarios before editing; user reports showcase open but Rojo not serving/connected | Sequencing — ruled R4 |
+| Fresh-lead rule | Plan wants a Fable 5 lead that did not implement prior stages; this session is fresh post-/clear | Satisfied |
+| Sponsor selector rename vs cutover memory | Plan: rename selector, preserve exact default + legacy rollback; memory: UseLuauUISponsor=false is authorized legacy rollback | Compatible — inventory must classify the flag (persistent vs code-only) before rename |
+| Haptics plan vs Roblox API | Plan requires HapticEffectType.Custom + SetWaveformKeys; must verify against current official docs at execution (platform can change) | To verify in T11 |
+| Step 14 boundary | Release plan forbids remote mutation/publish; distribution-readiness defines the packet | Consistent — packet only |
+
+## Rulings
+
+- R1: Work in-place on main in both repos. Why: the repo's gate system cannot run in
+  worktrees (docs/lessons), every prior stage committed to main, and the rename moves
+  the repo directory itself. Cost if wrong: noisy main history; mitigated by frequent
+  green-suite commits.
+- R2: Commit the user's six modified docs/plans files as the plan-freeze commit before
+  any baseline. Why: they are the binding mission text; freezing a dirty tree is
+  worse. Cost if wrong: none material (docs only, revertable).
+- R3: `skills/use-luauui` does not exist; nothing to rename. Step 14 will create
+  skills/use-facet. Recorded as N/A, not a defect (missing is a defect only if
+  promised as shipped).
+- R4: Reorder within the freeze: headless baselines, collision check, inventory, and
+  gate registration proceed now; Studio baseline captured as soon as the user connects
+  Rojo; no mass source edits before the Studio baseline exists. Cost if wrong: delay only.
+
+## Task list (dependency order)
+
+- T1 Freeze & register: plan-freeze commit; record HEADs; full suites (LuauUI + RR);
+  public API dump; lifecycle/perf headless baselines; register release-candidate-review
+  gate + acceptance ledger; Studio baseline scenarios (blocked on Rojo connect).
+- T2 Facet collision/rights check (GitHub target, Roblox surfaces, code hosts,
+  trademark) — evidence only, no brand decision by agent.
+- T3 Machine-readable rename inventory, all name forms, classified + counted.
+- T4 Rename execution in LuauUI repo (git mv, contents, ModuleScript/binding, outer
+  dir move, rebuilt generated outputs, profile labels).
+- T5 RascalRally sync (both Rojo projects, sources, types, fixtures, tests, Studio
+  labels, Sponsor selector rename preserving exact default + legacy rollback).
+- T6 Old-name drift guard + negative controls; rewrite plans to Facet; rename ADR.
+- T7 Clean clone/build/test/Studio from GameStudio/ui/Facet + both RR projects.
+- T8 Step 14 remote-change packet (no remote mutation).
+- T9 Whole-framework review sweep → finding ledger (arch, reuse, maintainability,
+  ownership, errors, teardown, dead code, tests, comments, hot paths).
+- T10 Input Action System authority: inventory, migration, allowlisted adapters,
+  drift checks, no double firing.
+- T11 Sensory haptics: audit vs current SwiftUI/Roblox docs; original Custom
+  press/release/select defaults; timing/cancellation; pooling/teardown; tests;
+  demo/docs/lab/RR; PENDING_DEVICE packet.
+- T12 Docs: rebuild guide catalog + API reference drift; product-language scan +
+  negative control; clear-writing pass; comment audit.
+- T13 ELI5 new-control guide + scaffold; ColorWell fresh-agent + human-verifier
+  exercises; seeded-defect exercise; rerun until clean without hints.
+- T14 Naming ADR: Facet.Controls.Table vs one flat alternative; compatible migration.
+- T15 Performance requalification: lab refresh, Studio MCP/MicroProfiler baselines,
+  measured optimizations, artifacts current.
+- T16 Remediation closeout: fix blockers/highs, disposition rest, full gate matrix,
+  fresh independent reviews, final evidence report.
+
+## Progress
+- T1 complete: baselines frozen (suites 6188/3345 green, surface v0.9.0, perf PASS,
+  inventory 1031 files, Studio showcase sweep 36/36 + theme swap) at commits fe920dc,
+  230f864. Gate + RC acceptance ledger registered; rows baselines-frozen,
+  facet-collision-evidence, studio-baseline-frozen PASS; rest honestly PENDING.
+- T2 complete: collision check recorded — NO blocking conflicts; github.com/josha/Facet
+  free; dormant wally package emdomanus/facet flagged for owner.
+- Ruling R5: RR Studio canary is captured in the same session that verifies the
+  RR-side rename (not pre-frozen) — RR source is untouched until then; anchor is the
+  same-session before/after. Cost if wrong: weaker RR pre/post anchor; mitigated by
+  RR suite 3345 + fixture dumps.
+- T3 complete: rename-inventory-before.json (1031 files; 10788 current-source
+  matches; 94 storage-flavoured lines; five UseLuauUI* workspace attributes → dual-read
+  migration; LuauUI_Source* stamps rename outright).
+- T4+T5 implemented (Opus): framework 2a1823a..a97336f (44b9e62 rename, a97336f gate
+  sweep), RR 02df98c..b92b606. Suites 6188 / 3374 (3345+29 migration) green; surface
+  byte-identical; generated outputs rebuilt (old-name generated matches 0). Report:
+  task-4-report.md. DONE_WITH_CONCERNS ×7. Task review dispatched (fresh Opus).
+- Controller Studio canary of renamed tree: gallery injected into open session
+  (320 nodes, 0 refused), [Facet Gallery] running 0.9.0, FacetScenarioAPI live,
+  adaptive_controls report clean, capture matches baseline board. Evidence:
+  artifacts/release-candidate-review/rename/studio-canary.md (uncommitted until
+  review lands).
+- Ruling J-1: vendor `[LuauUI vendor patch]` markers (60) → rename to `[Facet vendor
+  patch]` + VENDOR.md quote; they are OUR annotations. Cost if wrong: vendor churn.
+- Ruling J-2: `git rm --cached` the two tracked __pycache__ .pyc files (embed old
+  path; bytecode should not be tracked). Cost if wrong: none (regenerated).
+- Ruling R6: distribution-readiness.md references the Step 14 packet for the
+  pre-rename URL instead of carrying the literal; the packet (artifacts/**) is the
+  one holder. Cost if wrong: doc indirection.
+- Ruling R7: T6 (drift guard install + rename ADR + packet install + negative
+  controls + gate rows) executed by controller — the design IS the controller's
+  rulings, drafts already written; final whole-branch review audits it. Deviation
+  from dispatch-per-task recorded deliberately. Cost if wrong: unreviewed until
+  final review.
+- RC-21 acceptance row + gate note reference ADR-0033 for the naming ADR but 0033
+  is taken (time-based easing); naming ADR will be ADR-0037. Fix the two references
+  when T14 lands.
+- T4 review round 1: SPEC FAIL / QUALITY APPROVED, 0C/3I/10M (task-4-review.md).
+  Fix round 1 dispatched to original implementer: I-1..I-3, M-3, M-5, M-7, rulings
+  J-1/J-2/R6. FAIL_RECOVERABLE dispositions independently re-measured REAL by
+  reviewer.
+- T4 minors (deferred): M-1 ALLOWED_PROP_DRIFT path-blanket vs text-only reasons
+  (make prop entries key-scoped — T9 remediation candidate); M-2 report factual
+  slips (8 not 9 call sites; row names; 20/10 not 19/11); M-4 one RR rename needs
+  -M40% for --follow (stylua re-wrap same commit); M-6 mechanically re-branded
+  historical anecdotes (prior_gates.sh:57, gate_manifest:3900); M-10 three
+  different-counts read as contradictory (report 11 / inventory 13 / file 16).
+- M-8 (controller-owned): Studio still holds pre-rename showcase file via .lock —
+  the rebuilt Facet-Showcase.rbxl has never been opened; fold into RC-6/RC-2-after
+  and the one batched user ask.
+- Forward note (T6/T12): docs/plans/release-candidate-review.md is itself a
+  maintained doc that names both brands and the vendor terms (its instructions).
+  Per the plan's own rule, once consumed those sections are rewritten to reference
+  the rename ADR / the guard's private list, so the final maintained-tree scans
+  pass. Handle at T6 (brand) and T12 (vendor).
+- Fix round 1 returned: all 10 ADDRESSED, framework 664d974, suites 6188/3374 cold
+  green, surface byte-identical, src+vendor+model zero old-brand. Controller
+  committed packet+canary at 871cd30. Scoped re-review dispatched (sonnet).
+- Guard calibration from after-inventory: scan vendor now (clean); RR docs walk
+  recursively excluding missions/+playtests/ with DECISIONS.md allowlisted
+  (append-only); add check_flat_baseline.luau (quotes frozen 0.6.0 titles) and
+  theme_sync_cli.luau (frozen dump stamps); drop token_sync + edge_case_hardening +
+  distribution-readiness entries (clean now).
+- Task 4+5: complete (framework 2a1823a..664d974 + controller 871cd30, RR
+  02df98c..b92b606, review clean after fix round 1/5; re-review independently
+  reproduced every measurement).
+- T6 complete (controller per R7): check_brand_drift.py installed — full scan PASS
+  incl. built-XML serialized names; selftest negative controls all bite;
+  ADR-0036-facet-rename.md landed; step14 packet completed with read-only remote
+  facts (repo id 1320732857, private, no Pages, 0 workflows, target 404); gate rows
+  rename-canonical-identity, rename-drift-guard-bites, step14-remote-packet PASS.
+  RC-4/RC-5/RC-8 PASS_AUTOMATED.
+- T7 complete: clean-clone proof (0 symlinks, 6188 cold green, showcase builds
+  2,957,478 bytes) — RC-6 PASS_AUTOMATED, gate row PASS (c7090bb).
+- T14 decision made + ADR-0037 landed: Facet.Controls.<Name>(core, spec) for the
+  19 composite controls; newX stays for the 11 infrastructure constructors; flat
+  alternative rejected on arity-sniffing grounds; 317+32 call sites measured;
+  deprecations since=0.10.0. Implementation goes in the post-review wave.
+- Verifier stubs (facet-*) cannot write files — corrected all three mid-flight to
+  return reports as text; general-purpose reviewers unaffected. Lesson for stubs.
+- ARCH-1/2 REPRODUCED (controller probe, probe_arch1.luau): keys {a,b}->{a,c}
+  with c's factory throwing, no boundary: set() returns OK (error swallowed to
+  core:lastError), mounted 4->3 (b disposed), children still lists disposed
+  /S/Rows/[b]/Row-b, c absent, 0 dirty entries. Severity CONFIRMED High
+  (tree corruption + silent swallow). Follow-up at fix time: is the rebuild
+  effect quarantined afterward (does the NEXT set() rebuild at all)?
+- Reviews stored: architecture (26: 2H/11M/13L), reactive (15: 2H/4M/9L),
+  platform (26: 3H/9M/14L). RR-6 == PLAT-1 (independent convergence, OSK
+  occlusion never connected on device).
+- IAS inventory landed (input/ias-inventory.md, INPUT-1..116): class-1 must-migrate
+  = 5 (RR InputAction:Fire x4 -> Scriptable InputBinding:Fire; INPUT-105 manual
+  GuiButton staging -> InputBinding.UIButton, its engine-bug rationale fixed
+  2026-04-07); DF-1..4 root cause = RR contexts carry no Priority/Sink (DF-6);
+  DF-7 Facet row_actions Shift+Return vs plain Return — PrimaryModifier x Sink
+  engine interaction UNDOCUMENTED, no gate row measures it (needs E2/E3 or a
+  binding redesign); DF-9 disableLegacyControls repair possibly obsolete under
+  the flag but the BUILT places lack the flag; flag missing from 5 project
+  surfaces incl. built Facet-Showcase + both RR projects; stale
+  gamepad_contention comment ("not rojo-reflectable") is half-false and likely
+  why. ARCH-1 recovery probed: next good update rebuilds (not a permanent
+  wedge); severity stays High.
+- Interim from the maintainability/dead-code seat (its own fork consolidation):
+  4 dead public motion aliases (resolveClass/isRegisteredClass/resetClasses/
+  resolveCurve — zero call sites); vendor/Fusion + fusion_adapter + imperative
+  vestigial bake-off artifacts kept alive only by a historical gate (product
+  decision: retire or document); native_style DEFAULT_ENABLED=false promotion
+  tracker stale since 2026-07-24 (4 unchecked stillRequired, no owner); stale
+  gate pointer to nonexistent tools/lune/oracle_easing.luau; NO genuine dead
+  duplicates among 9 investigated pairs (all documented 200k-cap splits or
+  deliberate); screen_target opts.isReducedMotion deprecated closure flagged.
+  Tasks 3+4 (deferred-features + stale probes) still pending from its fork.
+- Maintainability audit landed: 41 findings (1 Blocker: renderer 350 chars from
+  200k cap, no warning band; 12 High incl. gate-manifest empty failure detail,
+  scaffold emits theme-drift-rejected output, 6 hand-maintained theme lists).
+- findings.md (RC-9 ledger) committed at a8b0a26 with wave assignment + initial
+  dispositions (gate restructure → Step 14 owner; renderer extraction → seam
+  analysis first; luau-* tags → R5; native-style default → owner checkpoint;
+  vendor bake-off → R5 recommendation keep+signpost).
+- Wave R1+R2 DISPATCHED (Opus, 35 decided contracts, BASE a8b0a26).
+- R3 brief written (task-r3-brief.md): RR Scriptable-binding migration, UIButton
+  staging replacement, Priority/Sink scheme (modal 3000 sink, HUD 2000, gameplay
+  1000), DF-7 measured-not-guessed (bare-PENDING gate row + studio checklist),
+  flag into 5 project surfaces + rebuilds, DF-9 inert-under-flag, new
+  check_input_authority.py with inventory-derived allowlist + selftest.
+- Reuse audit still running; R4 haptics queued behind R1 (single tree-writer).
+- Reuse audit final landed + committed (cc4a9cd, 125 findings). R1 addendum sent
+  (items 36 VirtualList/Grid clamped-anchor port of the table fix; 37 RR
+  presenter.tick drive + guide correction). Controller rule: never amend while
+  an implementer is active (checked reflog; tip was mine alone this time).
+- Review wave COMPLETE: 6/6 seats. Totals: ARCH 26, RR 15, PLAT 26, MAINT 41,
+  REUSE 125, INPUT 116 rows + 9 DF risks.
+- DIRECTOR ROUND (physical device screenshots, 2026-08-17): DIR-1 left edge 1px
+  cutoff on the demo chip row (callout demo, ~393px portrait, "compact desktop");
+  DIR-2 themed HUD plates: text overflows plate boxes (ornate themes); DIR-3
+  themed HUD plates overcrowd/overlap each other + topbar (theme chrome extents
+  not in HUD layout math); DIR-4 playlist table: resize columns in landscape ->
+  rotate portrait -> Rating column gone (header says "Rating locked", Artist
+  clipped at right edge); DIR-5 HUD portrait->landscape loses left content,
+  URL-bar toggle resets it (arrangement latch not recomputed on orientation
+  change — recurrence-shaped: the band-collapse family from the nested-tree
+  round). Reproduce before fixing; build under test on device uncertain
+  (published place may predate rename) — reproduce against current tree.
+- Director confirmed the phone build = publish just before the rename (includes
+  the 2026-08-15 O-23/O-25 fixes) → DIR-2/3 are REAL ON CURRENT CODE and the
+  themed overflow sweep is blind to them. Gallery reproduction attempt: only
+  theme_authoring consumes flags.themePackage; the hud scenario cannot be themed
+  in the gallery runner — the showcase shell (global theme picker) is required.
+  Live session DID confirm: no settled text misfits in hud at 749x380 unthemed;
+  mid-motion TextFits=false readings are animation transients (instrument note).
+  → The batched Studio ask fires NOW: open the rebuilt Facet-Showcase.rbxl.
+- Controller opened Facet-Showcase.rbxl itself (`open` cmd; user away). Post-rename
+  36/36 sweep on the REBUILT artifact green. DIR-2/3 REPRODUCED (rail-over-chip
+  28px overlap, zero-height "Tasks 1/3" box, ammo in 3-4px boxes; sweep blind:
+  no appChromeRects axis, no painted-fits oracle). DIR-5 REPRODUCED live
+  (emulator rotation: Feed 0x0 at inset corner, "skipped: Feed"; theme swap does
+  NOT repair → decision latch over transient facts; model spec green only under
+  single-batch facts). DIR-1 NOT reproduced in emulation (min gutter 4px under
+  classic-desktop; PLAT-17 suspect; gutter-floor fix regardless). Six fix
+  contracts recorded in rename/dir-reproductions.md → DIR wave after R1.
+- DIR-2 text-overflow mechanism PINNED via A/B (pre-rename artifact from git vs
+  rebuilt Facet place, same machine): both paint Fondamento via SHEETS
+  (GetStyled shows it; plain FontFace reads LegacyArial — fell into the
+  documented plain-read trap mid-diagnosis, corrected). NO font-application or
+  rename regression. Real mechanism: width math ignores styled typography +
+  give-way squeezes below floors (4px ammo, 48x0 Tasks). Contract 7 added
+  (styled-measure everywhere + GetStyled-based sweep oracle). Both extra Studio
+  instances stopped (pre-rename scratch instance left open, harmless).
+- R1+R2 complete: 36/39 fixed, RR-11 + PLAT-8 contested with measured
+  refutations (rounds<=CAP checked post-increment = exactly 100; bridge cleared
+  by controller.dispose since NS-A12), DIR-1 model-innocent (per-package x =
+  space.s 4..10) -> device-side + gutter-floor fix stays in DIR wave. Suites
+  6270 (+82 accounted) / 3375. Renderer got prop_channels.luau extracted (was
+  350 from cap); table.luau now 1,418 chars headroom — next-extraction trigger
+  = next mission touching it. Commits 436e945..7456794 + RR 64949c8.
+  Adjudication: accept both refutations pending scoped re-review verification;
+  RR-11 pin + PLAT-8 disposal-path check named as re-review items.
+- Perf gate PASS post-R1 (byte-identical artifact, no commit needed). R1 scoped
+  review dispatched (Opus, read-only). R4 haptics dispatched (writer). DIR wave
+  brief written (7 contracts incl. worktree negative-control for the extended
+  sweep). Ruling R8: no ScreenInsets/SafeAreaCompatibility property flips
+  mid-stage — E2 probe + decision packet for the device round instead; gutter
+  floor ≥8px lands as a metrics change. Cost if wrong: DIR-1's device clip
+  persists one round longer; mitigated by the 8px floor.
+- Writer queue: R4 haptics (running) -> DIR wave -> R3 input -> R5 naming/
+  consolidation -> docs wave (T12) -> T13 exercises -> T15 perf requalification
+  -> T16 close.
+- R1 scoped review: SPEC FAIL / QUALITY GOOD. 32 ADDRESSED, 4 PARTIAL (6,7,27,38),
+  1 NOT ADDRESSED (item 10 — describesViewport judges an inset with the viewport
+  that derived it: belt cannot refuse; 48-case sweep 0 refusals, worst accepted
+  inset reserves 96% of an axis; spec certifies a shape roblox_env.bind never
+  produces), 2 CONTESTED-ACCEPTED upheld (+RR-11 upheld). New breakage: 11
+  (2 HIGH) + 4 mutation-confirmed coverage gaps — details in task-r1-review.md.
+  Suite counts independently confirmed on a clean git-archive export (6270/3375).
+  Fix round 1 for the wave queued BEHIND the running haptics writer (single-writer
+  discipline); item 10 redo is the round's head item (DIR-5 foundation).
+- Instrument trap recorded (R1 reviewer, measured): two concurrent
+  `lune run tests/run` processes sharing ONE working tree fabricate failures
+  (phantom syntax error in async_image.luau; phantom doc-drift failures) that
+  vanish on a solitary rerun. All final numbers were re-measured in a private
+  git-archive export. Standing rule for this stage: concurrent suite runs get
+  their own export or wait; memory candidate at close.
+- R4 haptics DONE: framework 0d3169e (6338, +68), RR 4e58424 (3383, +8).
+  Adjudications: lazy pooling ACCEPTED (observable contracts intact; protects
+  pinned blocked/boot behaviors); select-verb-first routing ACCEPTED (one-line
+  flip if director disagrees); MAP.select/adjust dead-data note -> docs wave;
+  RR haptics live-by-default on the game's existing UiSound switch — product
+  note for the director (player-facing toggle = one-line follow-up).
+  PENDING_DEVICE stands for feel. R4 review dispatched (isolated-export rule);
+  R1 fix round 1 resumed concurrently (disjoint files).
+- R4 review: SPEC PASS / QUALITY STRONG; 1H/5M/10L. F1 HIGH: FacetHitExpander
+  (sibling GuiButton, screen_target:2213) never gets setActivationFeedback nor
+  host Active state -> none-declared controls buzz in the tap band; disabled
+  skip defeated for sub-44px controls; zero expander coverage in haptics specs.
+  F2: pressSpecFor("select") returns UIClick preset -> select controls feel
+  UIClick down + tick up, contradicting the round's own PHASE_VERBS doctrine.
+  F4: device packet confounded (no isolation instruction; no keyboard/gamepad
+  rows where down/complete coincide). F3: RR binds 1 of 4 presenters.
+  CONTRACTS DECIDED for fix round: expander mirrors host verb+disabled state
+  (identical sensation incl. silence); pressSpecFor("select") -> nil (select
+  feels ONLY tick); same-frame press+release collapse plays only settle
+  (non-pointer activation); packet gains isolation gesture + input-class rows;
+  RR binds all four presenters. Queued behind R1 fix round (writer discipline).
+  10 LOW -> deferred minors ledger.
+- R1 fix round 1: ALL ADDRESSED per implementer (6351/3383 in private export;
+  belt discriminator = byte-identical area beside changed viewport; quarantine
+  keys on settle passes; gate trace failure-only bash-3.2 path). Commits
+  6ccd7b2..05eafa8. Scoped re-review dispatched (sonnet). CARRY: table.luau at
+  1,236 from cap — ledger trigger updated: builder extraction PRECEDES the next
+  change that touches it (binding constraint for R5/naming + any later wave).
+  theme_drift lint --[[ ]] blindspot fixed en route.
+- R4 haptics fix round dispatched (writer): F1 expander mirror, F2 select-down
+  silent, same-instant collapse rule, F4 packet rebuild, F3 all four RR
+  presenters, remaining MEDIUMs. Told to STOP if table.luau needed.
+- Wave R1+R2: COMPLETE (framework a8b0a26..05eafa8, RR 64949c8; review clean
+  after fix round 1/5; re-reviewer re-ran mutations red; 0 new breakage).
+  All Blocker/High from the review wave now fixed except those owned by later
+  waves per findings.md dispositions.
+- Haptics fix round 1 landed (3b8bfce / RR 1759409): F1-F6 fixed/measured,
+  engine-side same-instant suppression honestly CONTESTED-ACCEPTED (undocumented
+  engine behavior -> device rows D8/D9 with decided fallback: withhold press
+  effects per input class if two pulses). Suite endpoint independently verified
+  6372 in my own export. Re-review dispatched (sonnet). DIR wave dispatched
+  (writer, Opus; table.luau off-limits; belt-aware contract 4).
+- Haptics fix1 re-review: F1-F6 ADDRESSED, 0 new breakage, suites confirmed —
+  EXCEPT F1 residual: enabled-seam mirror sits inside `elseif
+  instance:IsA("TextButton")`, so TextField hosts with expanders skip disabled
+  mirroring on that seam (narrower recurrence, untested). Haptics ROUND 2 queued
+  (one item: mirror on every expander-capable host class + covering spec) —
+  runs after DIR (screen_target single-writer). R4 stays open until then.
+- DIR wave COMPLETE (d47f6d9..e60d30a, 6394/3384): contracts 2,3,4,5,6 DONE
+  (band give-way via onGeometry monotone-in-epoch; disclosure guaranteed; settle
+  null-result mutation-proved; extended sweep neg-control 6-failed/95-collisions
+  pre-fix -> 82 passed; gutter via derived space.gutter=max(8,space.s) after
+  measuring space.s bump broke 4 surfaces). Contract 1 CONTESTED-with-measurement
+  (no region below floor; ornate chromeOutsets.panel=20 is DECLARED art overhang)
+  — TextFits half open as a 269-truncation census. Contract 7: my stated
+  mechanism refuted; real defect = clamped labels never report past the offer so
+  ViewThatFits always picked rung 1; fixed narrowly, LT6-LADDERNEG rebuilt.
+- Ruling R9 (standing-rule application, no user needed): VALUE-bearing text
+  (timer/ammo/scores) may never truncate — the localization-safe rule "wrap/
+  auto-fit, never clip" governs; lanes elide-with-disclosure instead. LABEL text
+  may degrade via the ladder. The 269-census gets classified value-vs-label and
+  value cases fixed; goes into the DIR fix round (or its own item if re-review
+  is clean). Cost if wrong: HUD lanes elide more often under ornate.
+- Device-pass additions: adaptive_controls at 640x320/Largest (contract-7 solver
+  change); rotation Feed-returns check; chromeOutsets rect-only collision blind
+  spot noted.
+- Haptics round 2 landed (d2a9c47, 6396/3384): F1 residual fixed via DERIVED
+  condition (hitExpander-presence guard, no class list — Grip was also outside
+  the gate); screen_target crossed the 190k warning band and correctly owed a
+  SOURCE_CAP_LEDGER row (the R2 mechanism biting as designed). Scoped re-review
+  dispatched; R4 closes on its verdict. DIR review still running.
+- DIR review: ACCEPT WITH FOLLOW-UPS; refutations upheld; negative control
+  reproduced from scratch; whole-corpus ViewThatFits differential = exactly one
+  node changed rung. Fix round 1 dispatched: H1 per-term epoch staleness specs
+  (delete-each-term mutation matrix), M1 nested-ladder/authored-width cut rules,
+  M2 honest paint assertion, R9 value-vs-label census classification with zero
+  value-text truncations. LOWs ledgered: epoch omits platformChrome (0 decision
+  divergence measured), fixture-owned give-way dies silently without onGeometry,
+  extra feedback solve per epoch change, solver +7,954 chars w/ stale ledger row
+  (fold into fix round? left to implementer's ledger duty), `local next` shadow.
+- Wave R4 (haptics): COMPLETE (0d3169e, 3b8bfce, d2a9c47 / RR 4e58424, 1759409;
+  review clean after 2 rounds; PENDING_DEVICE + engine-half CONTESTED-ACCEPTED
+  remain as designed device rows). Evidence nit ledgered: round-2 commit claimed
+  the parallel-list mutation reddens both pins; re-reviewer reproduced it
+  reddening only the new pin (non-functional — coverage held by the new pin).
+- Batched Studio pass shopping list (runs after R3 + rebuilds): rebuild places,
+  reopen showcase; haptics calibration drive + sub-44px none-control expander
+  check; DIR checklist (ornate hud numbers, rotation Feed-returns, zero
+  value-text truncations); adaptive_controls 640x320/Largest; DF-7 modifier-sink
+  measurement; DF-1..4 RR arbitration + RR canary + flag-gated surfaces ON.
+- DIR fix round 1 landed (6424c5c, 6407/3384): H1 per-term epoch guards (4/6
+  caught, riding/urlBar measured-uncatchable across 1,764 cells each + COVERAGE
+  pin), M1 both halves, M2 restated dropped-only with self-mutating control,
+  R9 timer->"2m" via ViewThatFits (946->832, all remaining label-class),
+  solver warning-band row forced by the guard. Re-review dispatched (sonnet).
+- R3 input-authority wave DISPATCHED (writer, Opus) in parallel — disjoint
+  files (input/RR vs hud/solver). If a DIR round 2 triggers, it queues behind
+  R3 (no two writers on overlapping files).
+- Wave DIR: COMPLETE (3b8bfce..6424c5c, review clean after fix round 1;
+  re-reviewer reproduced all 8 mutations exactly; 0 new breakage; 6407/3384).
+  All DIR-1..5 fixes merged with guards; device confirmations pend in the
+  batched Studio/phone pass.
+- R3 landed (38500c8 / RR 2f3185a, 6412/3410): all 8 items, class-1
+  must-migrate 5->0, arbitration bands + 26-case spec + 6 mutations, drift
+  guard live on the gate row, flag 8/8 + 15 places rebuilt, DF-7 honest
+  PENDING row. R3 review dispatched (Opus, hardest on the staging deletion).
+- Ruling R10: menu.luau pinned as DK-16's third file (2 sites, platform menu
+  keys, shipped+gated in navigation round) — director veto open in the final
+  report. step8-debt gate regen running in background.
+- Rulings R11 (luau-* tags -> facet-* outright, pre-public window), R12
+  (world.luau: substrate + drift-hazard files only). R5 brief written; queues
+  behind R3 review verdict + any R3 fix round.
+- R3 concern noted for the Studio pass: both RR migrations swapped a proven
+  ServerAdapter call for a documented one — checklist §7 reads the server side;
+  if red on device, touch driving/assists are dead (E3 check mandatory).
+- R10 integration fixes: menu pin corrected to OCCURRENCES (3, two on one line —
+  the check's own line-vs-occurrence lesson re-learned by the controller);
+  stale /tmp/facet_prior_gates.lock from my timed-out background run cleared
+  (the documented orphan trap); new-primitive.md gained its constitution link
+  (surface-ledger check). Both gates re-running in background (holds the tree;
+  R3 fix round queued behind it).
+- R3 review: ACCEPT WITH ONE BLOCKING FIX — RR modal band 3000 == Facet
+  ENGAGED_BASE_PRIORITY on the same client: ButtonB double-fires
+  sponsorCancel + Facet.Cancel; the no-op guard sinks ButtonA away from Facet
+  base (1500) incl. results CTAs. Controller fix direction (not a renumber):
+  game actions on Facet-presented surfaces route THROUGH Facet's action system
+  (the mission's own no-parallel-paths rule); RR contexts keep world/gameplay
+  actions only; cross-system spec builds Facet + RR contexts together.
+- Prior-gate sweep (16 gates): TWO real reds, both pre-existing + dispositioned:
+  (1) input-adaptation-audit::examples-no-input-boilerplate — red since mission
+  baseline; the failing clause is the advanced-API grep over tutorial examples;
+  route: T12/T13 wave (fix the example or extend the row's allowlist with a
+  reason). (2) theme-packages-and-skinning::style-editor-sync — sheet dump
+  predates the progress-ring tokens (sheet nil vs committed 30/3/9); route:
+  fresh Studio sheet capture in the batched pass (the tool's suggested reverse
+  reconcile would delete three GOOD tokens — do not run it). All other rows
+  green or honest FAIL_ENVIRONMENT physical pendings. Load-noise rows cleared
+  on the quiet rerun; Studio relaunch killed again.
+- R3 fix round 1 landed (c12d2cf / RR 53b4544, 6412/3416): items 1-2 CONTESTED
+  with strong evidence (legacy-rollback-only contexts, mutually exclusive with
+  the Facet presenter; Facet already owns both verbs on default path) —
+  controller ACCEPTS pending re-review confirmation; structural ceiling
+  delivered instead (FACET_BASE_SCREEN_PRIORITY=1500 asserted; overlay 1400+
+  Sink / hud 1200 / gameplay 1000; guard deleted; 4 scheme mutations bite).
+  NEW pre-existing finding: FacetSponsor pose context SkipCelebration Space at
+  1000-no-sink beside drift Space (DF-2 shape, DELIBERATE for racers per
+  PRESENT_OPTS_RACER) — routed to the DESIGN review at close (game-design call,
+  not a framework defect). R10 batch committed (ceb6db2). Re-review dispatched.
+- Wave R3: COMPLETE (38500c8, c12d2cf / RR 2f3185a, 53b4544; review clean after
+  fix round 1; contested items upheld with byte-checked evidence; 6412/3416).
+  RC-12 PASS_AUTOMATED. Riders for R5: modal->overlay comment leftover
+  (InputActions.luau:91-93) + R3 round-1's three trivials.
+- DIRECTOR-APPROVED product addition (UI-SPEC verdict: Option A, 2026-08-18):
+  reveal-richest-form on stepped-down composition regions. Constraints from the
+  director: gamepad first-class; ONE GESTURE ONE MEANING (actionable compact
+  forms get a separate chevron affordance, never overloaded controls); minimum
+  form always carries the zone's essential value. Brief: task-reveal-brief.md;
+  queued after R5 (presenter.luau overlap).
+- DIRECTOR-ORDERED audit added (2026-08-18): ADAPT-AUDIT — the default-paradigm
+  matrix (size-class x input combos vs expected paradigms; reference-platform
+  tie-breakers allowed INSIDE the audit artifact + parity doc only; ten-foot/
+  gamepad resolved via tvOS conventions per director). Brief:
+  task-adapt-audit-brief.md. Queue position: audit seat runs read-only in
+  parallel once R5 lands; its WRONG/MISSING findings get a fix wave before
+  close; not-headless rows join the batched Studio/device pass. Updated queue:
+  R5 (running) -> REVEAL (approved) -> ADAPT-AUDIT (parallel read-only) ->
+  adapt fixes -> T12 docs -> T13 exercises -> T15 perf -> batched pass -> T16.
+- R5 original seat died 4x on 529 Overloaded (giant replayed transcript likely
+  aggravating). §1 (8691380 Controls namespace) + §2 (36d1883 tag rename)
+  committed; §3a partial UNCOMMITTED in tree; no report file. FRESH seat
+  dispatched: verify §1/§2 (incl. RR half of §1), adopt-or-redo §3a, finish
+  §3b-§5 + riders. Lesson: after 2 consecutive 529 deaths, hand off to a fresh
+  small-context seat with the report file as the bridge instead of resuming.
+- Controller triage during the 529 outage: §1 VERIFIED (surface dump: VERSION
+  0.10.0 + Controls table(frozen)); §2 VERIFIED (drift selftest catches a
+  planted luau-* tag; luau-analyze/luau-lsp exempt). In-flight uncommitted work
+  is FURTHER than reported: all four leaf modules exist (num/paths/rect +
+  text_distance = §3d started), leaf_helpers.spec.luau new, 38 consumers
+  migrated (net -100 lines), fast tier GREEN 5810 exit 0. Verdict: ADOPTABLE —
+  resuming seat adopts, adds missing red-first evidence, commits §3a+§3d,
+  continues. Scratch tests/_r5_one.luau to be removed before commit.
+- Wave R5 COMPLETE (fresh seat; framework 8691380..d6c5b3c4, RR b9a7466,
+  6a12637e, 927b8047; suites 6467/3417; surface diff = exactly the four
+  permitted classes + specGuard). Contested items ACCEPTED: isRegisteredClass
+  has a SHIPPED RR consumer (single-repo audit blind spot — lesson), authority
+  read-only-to-refuse is not an inversion, class_contract at src/ root (solver
+  also consumes), ARCH-18 recorded w/ trigger, REUSE-3 latent site honest.
+  Process notes banked: zsh no-word-split broke commit_isolated (fixed 3ca4b51),
+  git checkout -- destroyed two WT files mid-mutation-battery (reconstructed).
+- THREE seats dispatched: R5 review (Opus, exports), REVEAL build (writer,
+  canonical shapes), ADAPT-AUDIT (anchored d6c5b3c4, live-tree artifact only).
+- R5 review: ACCEPT WITH FIXES — BLOCKER: reuse-ledger.md omits 109/125
+  findings (incl. 9 of 12 brief-named keep-separates) while claiming
+  completeness; REUSE-29 (in §3a scope) still unfixed at presenter.luau:949;
+  RC-10 flipped on the faulty artifact (controller un-flipped it immediately);
+  gate row blind (five fixed greps). 13 MAJOR: stylua red at
+  gate_manifest:4032 executed clause; call-shape drift check line-based;
+  host.new leaks adapter/input/presenter on failure AND dispose; ARCH-10/11
+  justification false (solver never required class_contract); +4 world.luau
+  unreproducible counts; +others in task-r5-review.md. R5 fix round queued
+  BEHIND the REVEAL writer (presenter.luau collision).
+- Wave REVEAL COMPLETE (66153fa..12476bf / RR 849d766; 6516/3418; expand knob
+  renamed in time; RR results screen declined via expand="none" with positive
+  control — a real consumer catch; modal-plate + recover="none" contested rows
+  accepted pending review). REVEAL review dispatched (Opus). R5 fix round
+  resumed (writer): honest 125-finding ledger + REUSE-29 + 13 majors incl.
+  stylua gate clause, lexical call-shape check, host.new undo coverage,
+  ARCH-10/11 justification correction. Device rows for the batched pass: sheet
+  fallback e2e, Tasks-zone reshape, chevron arm's-length legibility.
+- AWAITING DIRECTOR: ADAPT-17 (build snapping?), ADAPT-18 (table collapse after
+  extraction?), ADAPT-8 (ten-foot metric ladder now or triggered follow-up?).
+  In-stage ADAPT-FIX brief to be written once R5-fix lands (shares files).
+- REVEAL review: CHANGES REQUESTED. HIGH-1 (reproduced): keyboard-only player
+  cannot close the expand plate (Escape engine-reserved per ADR-0013 D1; empty
+  ring; only pad B / mouse tap exit) — the wave moved modal PRESENTING into the
+  framework without moving ADR-0013's focusable-close obligation; fix lives in
+  ExpandPanel. Also: docs claim "Escape dismisses" while guide:256 says Escape
+  cannot be bound (api.md:857, 01-concepts.md:419); M2 + M9 mutations vacuous
+  across 6516 cases; CONTESTED-2 to become a refusal; census "nothing is
+  hidden" edge over a stepped-down region. Esc-row verdict itself: NOT
+  ADDRESSED-as-impossible (correct per platform). REVEAL fix round queued
+  behind R5-fix (presenter overlap). Teardown 30-cycle zero-delta and the RR
+  single-consumer proof both independently verified.
+- R5 fix round 1 landed (7199318, 6534/3418): honest 125-row ledger +
+  structural completeness checker (delete-a-row flips the gate — measured),
+  REUSE-29 was FOUR copies, host teardown gained real dispose paths, RC-10
+  legitimately PASS_AUTOMATED. CARRY: solver.luau 3,834 past its own extraction
+  trigger (REVEAL growth) — extraction-first now binds solver like table.
+  Re-review dispatched (sonnet). REVEAL fix round resumed (writer): keyboard-
+  closable ExpandPanel (ADR-0013 obligation), docs truth on dismissal, refusal
+  not default, two vacuous mutations, census edge.
+- Wave R5: COMPLETE (framework 8691380..7199318, RR b9a7466/6a12637e/927b8047/
+  849d766-adjacent; review clean after fix round 1; re-reviewer confirmed all
+  items by measurement incl. delete-a-row gate flip; 0 new breakage; 6534/3418).
+  Facet.Controls canonical at 0.10.0; facet-* tags; leaf modules; client host
+  blessed; honest 125-row reuse ledger; RC-10 + RC-21 legitimately closed.
+- REVEAL fix round complete at six items (4c79e1a, 5552272, a182648, d783648 /
+  RR ddc4de4; 6546/3418): keyboard Close as last child riding ADR-0013's rule;
+  docs dismissal truth; refusal semantics (caught pure-vs-host default split +
+  RR blanket opt-out build error); M2/M9 bite without touching closed files;
+  UNSEEN_CONTENT set named for its rule with Stage exclusion reasoned. Scoped
+  re-review dispatched (sonnet). ADAPT-FIX wave dispatched (writer, Opus).
+- Wave REVEAL: COMPLETE (66153fa..d783648 / RR 849d766, ddc4de4; review clean
+  after fix round 1; re-reviewer confirmed all items with exact mutation
+  isolation; 0 new breakage; 6546/3418). Director's expand feature shipped:
+  keyboard-closable, one-gesture-one-meaning, key-info-in-collapse, census
+  truthful. Device rows (sheet e2e, chevron legibility, Tasks reshape) join
+  the batched pass.
+- DIRECTOR RULINGS on the three paradigm calls (2026-08-18): ADAPT-17 BUILD
+  (snap on the scroll substrate + compact card default); ADAPT-18 BUILD (table
+  extraction first, then priority-collapse with the no-dead-ends disclosure);
+  ADAPT-8 FULL APPLE-TV-STYLE SCALING (director overrode the keep-type-only
+  recommendation — factor 1.5 matching the type floor, proportion-equality as
+  the falsifiable acceptance, runs LAST to re-pin console geometry once).
+  Briefs written: task-table-brief.md, task-carousel-brief.md,
+  task-tenfoot-brief.md. Writer order: ADAPT-FIX (running) -> TABLE ->
+  CAROUSEL -> TEN-FOOT -> T12 docs -> T13 exercises -> T15 perf -> batched
+  pass -> T16 close.
+- ADAPT-FIX COMPLETE (a4b17ff..30cec7f / RR 5ce9d09; 6579/3419): 15 cells
+  fixed (touch->sheet fires in Cartwheel; short-side tablet classing; ten-foot
+  unauthored text; pad/keyboard reorder), 21 contested (11 = table.luau),
+  6 deferred. Concern flagged for review: surface_env weak registry =
+  ARCH-24-class side effect on environment.new. Review dispatched (Opus,
+  hardest on the registry). TABLE wave dispatched (writer) with the addendum
+  absorbing the 11 table-blocked cells incl. ADAPT-10/13/14/15.
+- ADAPT-FIX review: all items ADDRESSED/CONTESTED-ACCEPTED; 0 HIGH, 3 MEDIUM,
+  5 LOW. Registry sound (0 retained after GC) but two internal rules to fix:
+  values strong/keys weak, and ambiguity needs unpublish. Head MEDIUM:
+  newTextInput hard-refuses unconditionally while api.md:6528 still promises
+  optional env + graceful degradation (26 constructions). ADAPT-FIX fix round
+  (3 MEDIUM + registry rules + counting errors; LOWs ledgered) queued BEHIND
+  the running TABLE wave, before CAROUSEL. Writer order now: TABLE ->
+  ADAPT-FIX-r1 -> CAROUSEL -> TEN-FOOT -> T12 -> T13 -> T15 -> batched pass
+  -> T16.
+- TABLE wave COMPLETE (9f8459d..0f20133 / RR 4026b9f, 468552f; 6633/3425):
+  extraction unlocked the "no seam" file (two reassigned upvalues -> one
+  record), FOUND+FIXED a live swipe-release bug in its own moved code (19-red),
+  headroom 1,236 -> 18,412 with two more seams (disclosure, header) fired by
+  their own triggers; collapse = hidden-not-When (no dead band, state survives
+  rotation), disclosure reuses region_expand whole; 12 ADAPT cells fixed.
+  CAP LOCKS NOW: renderer (1,018 from cap, rect_pass extraction owed FIRST),
+  presenter (discloseScope seam owed), solver (owed). Review dispatched;
+  ADAPT-FIX round 1 dispatched (small writer).
+- DIRECTOR QUEUE (for the final report unless reviews escalate): TABLE's two
+  carried narrowings (ADAPT-15 primary-action tables; ADAPT-27 handle
+  placement) + the collapse-default product note (two shipped surfaces moved).
+- ADAPT-FIX round 1 landed (2e347d6, 6640/3425): api.md refusal guard became
+  structural (caught a fifth control); touchPrimary explicit fallback; registry
+  moved ONTO the core after MEASURING the reviewer's weak-key/strong-value
+  suggestion as a trap (env references core -> would pin everything); ambiguity
+  a count + unpublish + host releases-last. Re-review dispatched (sonnet).
+  CAROUSEL wave dispatched (writer) with all three cap-locks stated.
+- TABLE review: CHANGES REQUIRED. Stage 1 extraction clean (byte-identity
+  mechanical, 17/18 mutations bite). HIGH-1: collapse vs disclosure on
+  DIFFERENT predicates -> silent column deletion (122/371 widths after one
+  resize on a no-floors table; no chip/plate/dump). HIGH-2: exact float compare
+  collapses fitting columns (53/1,011). MEDIUMs: ADAPT-11 env split decides
+  which column dies; edit-mode mark doc/gate mismatch; ledger mis-attribution.
+  Two candidates REFUTED with measurements (recorded, not repeated). Fix round
+  1 resumed (table files only; carousel writer active on disjoint scroll files).
+- 2026-08-20: weekly-limit outage over (user re-logged). All three seats
+  resumed: TABLE fix round (table files), CAROUSEL (scroll/rail files, from
+  scratch — died pre-work), adapt-fix re-review (2e347d6). User reports
+  Facet-Showcase open in Studio, Rojo not connected — fine: the MCP bridge
+  injects directly; the batched Studio pass runs in that session once TABLE-fix
+  + CAROUSEL + TEN-FOOT land and places rebuild.
+- Adapt-fix re-review: all items ADDRESSED except MEDIUM-1 residual (guard is
+  a hardcoded 4-name list; newTabView refuses undocumented). Trap-reproduction
+  independently CONFIRMED (weak-key tables are not ephemerons in this VM —
+  durable platform fact). One-item round 2 dispatched (guard becomes
+  structural + newTabView doc). RR suite pins to 468552f now (3425).
+- DIRECTOR DIRECTIVE (2026-08-20): reduce memory via lazy loading where
+  possible. Folded into T15 as workstream 7 (measure-first: require-graph
+  memory table decides; lazy namespace boundaries only; surface-dump/checker/
+  no-hitch contracts named; Facet.preload() escape hatch; honest-win rule).
+- DIRECTOR DIRECTIVE (2026-08-20): themes out of the library, pickable per
+  game. Verified already structurally true (model = src only; packages in
+  examples/themes; src mentions are comments). THEME-UNBUNDLE brief written:
+  per-theme build artifacts + self-containment proof + library-purity guard +
+  docs catalog (T15 fills cost lines) + RR compat check. Queue position: after
+  TEN-FOOT, beside T12. Updated writer order: TABLE-fix (running) -> CAROUSEL
+  (running) -> adapt-guard round (running) -> TEN-FOOT -> THEME-UNBUNDLE ->
+  T12 -> T13 -> T15 -> batched pass -> T16.
+- TABLE fix round 1 landed (4979023 / RR 5f955ef; 6650/3425 in exports):
+  HIGH-1 = predicate DELETED, one state, sweep 122-silent -> 52 collapse /
+  0 silent / 0 unreported, rider reaches via the shipped divider gesture;
+  HIGH-2 epsilon (not composition's EPS — different meaning, recorded);
+  ADAPT-11 seven reads unified (231-vs-199 bite); mark fixed by GATING THE
+  GUTTER (mode-with-content reasoning); ledger honest per commit. NEW DEBT:
+  table.luau 189,197 — 188k trigger fired; disclosure-state seam (~4KB) owed
+  before next change. ISSUE-6 (LOW) noted as HIGH-1's shape one level down
+  (clamp vs collapse floor functions) — now VISIBLE not silent; fold with the
+  next table touch after its extraction. Re-review dispatched (sonnet).
+- DIRECTOR CHECK (2026-08-20): were layout primitives audited as paradigms?
+  Honest answer NO — the 12 families were interaction-centric; stacks/grids/
+  ZStack/ViewThatFits/spacing/scroll-as-layout only incidentally covered.
+  Supplemental audit seat dispatched (Part 2: matrix-layout.md, 7 row
+  families, same method/anchoring). Its WRONG/MISSING cells join the adapt-fix
+  disposition flow before close.
+- Adapt-guard round 2 DONE (e25ad06 + the guard half swept into 4979023 by the
+  concurrent stager — attribution noted, content correct): guard derives from
+  the two refusal shapes across 33 modules (5 found, 0 false positives, bite-
+  checks in memory); newTabView documented. In-tree 1-red = the guard catching
+  newVirtualList pre-registered ahead of its source — routed to the carousel
+  writer to close either way. Adapt-fix wave now fully closed pending that.
+- Open seats: TABLE-fix re-review, CAROUSEL build, layout-primitive audit
+  supplement. Then TEN-FOOT -> THEME-UNBUNDLE -> T12 -> T13 -> T15 -> batched
+  pass -> T16.
+- Part-2 layout audit landed (matrix-layout.md, 61 cells: 42R/11W/5A/3M):
+  ADAPT-L1 critical (ADAPT-23 fix inert on default path — folded into TEN-FOOT
+  as its first proof cell); ADAPT-L2 critical (Grid = 1 lane everywhere);
+  L3 viewport-not-container axis; L4 silent permanent VStack; L5 overflow
+  default = paint outside. LAYOUT-FIX brief written (runs after TEN-FOOT;
+  L10 snapping stays with carousel). Updated queue: TABLE-fix re-review +
+  CAROUSEL (running) -> TEN-FOOT -> LAYOUT-FIX + THEME-UNBUNDLE -> T12 ->
+  T13 -> T15 -> batched pass -> T16.
+- Wave TABLE: COMPLETE (9f8459d..4979023 / RR 4026b9f, 468552f, 5f955ef;
+  review clean after fix round 1; re-reviewer confirmed all five items with
+  exact mutation reproductions — the 53/1,011 phantom-collapse revert, the
+  231-vs-199 env case, the forced-false sweep bite). The re-review's "2 new
+  breakage" = the known cross-wave staging tangle: newTabView doc closed by
+  e25ad06; newVirtualList expectation closes with the carousel wave (routed).
+  Director's column-collapse paradigm shipped with zero dead ends.
+  Remaining table debts: the fired 188k trigger (disclosure-state seam ~4KB,
+  extraction-first) + ISSUE-6 shared floor function — both fold into the next
+  table touch.
+- INTERIM STUDIO PASS (director-ordered, live session, tree at ce56ac6):
+  injection clean (336 nodes, 0 refused — the extractions paid off). FOUND:
+  INT-1 card-rail + sorted-entries FAIL TO MOUNT live (showcase demo host
+  publishes no env; refusals fire as designed; headless green because no spec
+  exercised the HOST path) — routed to carousel writer with red-first host-path
+  spec demanded. INT-2 the §5 scenario surface REGRESSED silently (attribute-
+  driven FacetScenarioAPI no longer boots; worked 08-17) — investigation +
+  fix + silent-failure guard dispatched. VERIFIED LIVE: 34/36 demos mount;
+  ten-foot type floor 1.5x exact at console row (16->24, 22->33). BLOCKED
+  live: input injection lacks capability in this VM (known XP-B3) + scenario
+  surface down -> table-collapse/expand/carousel interaction rows move to the
+  batched pass AFTER INT-2's fix restores the driver's scenario route.
+  Carousel review seat running in parallel.
+- CAROUSEL review: ACCEPT (both layers measured; one-clock confirmed; anchor
+  composition refuted-then-verified; contest upheld with a rigor caveat). Its
+  fixes folded into the writer's live round: virtual_list ledger STALE by
+  1,847 (real 192,195; 805 from trigger — extraction-first if host fix grows
+  it), velocity-detector coverage case, 1 MEDIUM, matrix-row OVERTAKEN
+  annotations. New standing note: check_input_authority standalone exit-0-
+  while-selftest-FAILED (pre-existing, ledgered for T16 triage).
+- CAROUSEL wave: COMPLETE (f3d2fe8, c247f1b, 0411973 / RR a90a6f6; review
+  ACCEPT + fixes folded; 6719/3431). INT-1 root cause: demo PROXY core +
+  rawget-blind registry lookup (sorted-entries broken since ADAPT-1; card-rail
+  second casualty) — fix: find() reads through the index, delegation answers;
+  host-path spec sweeps all 36 with negative control. virtual_list trigger
+  ARRIVED (805 away) — extraction-first binds it (4th locked file). Discipline
+  recorded: measure ledger sizes LAST. Bycatch (unowned, real): with-animation
+  + tab-view DOUBLE-DISPOSE at teardown → findings ledger for the next
+  gallery-area round. c247f1b swept a concurrent tests/run.luau hunk (benign,
+  disclosed; that commit alone couldn't run the suite — noted for history).
+- INTERIM PASS CLOSED (interim-studio-pass.md committed): 36/36 live, §5
+  surface alive + negative control, precedence live, ten-foot floor 1.5x
+  exact, three emulator rows driven. Owed to batched pass: ex02 resize step
+  (prep), expand keyboard walk, carousel §12a-c, device half. INT-2's live
+  canary DONE (was the diagnosis seat's owed item). Next writer: TEN-FOOT.
+- TEN-FOOT COMPLETE (35f7348, 2e2d6d7, fd59cae / RR 655cbd7; 6750/3437):
+  ladder at the themeMetrics memo seam — ZERO locked files touched; ADAPT-L1
+  proof cell (5 vs 9 lanes); metricScale IS tenFootFloor (identity asserted);
+  densityClassOf structural classifier; hit floor 66 one-owner; 20 re-pins;
+  ADR-0039. CONTESTED (accepted, director queue): table minWidth author-
+  literals don't follow the ladder — needs table.luau extraction-first, its
+  own wave post-stage or in T16 triage. ADAPT-8 human half = batched §13 rows
+  (1.5 at 3m is the director's eye; one-line change + named sweep if re-ruled).
+  Two instrument catches recorded (art geometry must not scale; throwing memo
+  = silently deaf surface).
+- THEME-UNBUNDLE COMPLETE (da50128..a04be05 / RR e4f02a2; 6766/3440): 8
+  artifacts (4.2K..14.7K — real cost numbers for the catalog), purity guard
+  caught 2 live library defects (slug example + a refusal pointing consumers
+  at examples/themes — both rewritten not allowlisted), enumerator-derived
+  everything, RR names-none guard. CONTESTED accepted: no package declares
+  metrics.tenFoot yet (derived ladder proved; declaration path via negative
+  control). NEW OPEN: check_flat_baseline red at fd59cae (9 popup-surface
+  problems, inherited — owner TBD after LAYOUT-FIX lands, likely their
+  neighborhood). Self-containment check homeless → Step 14 gate note. Review
+  dispatched (sonnet).
+- TEN-FOOT review: ACCEPT WITH FINDINGS (mechanism real; seam blob-verified;
+  L1 red-at-anchor reproduced; minWidth contest UPHELD). Fix round dispatched:
+  vacuous deaf-surface guard (reviewer verified the one-liner), radii/strokes
+  RECLASSIFIED must-not-scale (ruling R13: metric agrees with the paint
+  authority; TV-radii question = batched §13 director-eye row), identity spec
+  honest, env.get normalization pin must bite + derivative double-apply blunted.
+  2 LOWs + informational ledgered.
+- Wave THEME-UNBUNDLE: FULLY CLOSED (…a04be05, ddebd97; review ACCEPT + round-2
+  transcripts recorded both-ways in artifacts.md — accepted without a third
+  seat). Silent-refusal was worse than reviewed (pre-check stale artifacts);
+  now loud + named cleanup. Suites 6781/3443 at ddebd97 with concurrent
+  LAYOUT-FIX commits (ed825da, 8fd4779, 021a896, 8e69648 / RR 1888cd6)
+  accounted; awaiting the LAYOUT-FIX report notification.
+- LAYOUT-FIX COMPLETE (91a474d..a6a4c0a / RR d708d26, 1888cd6; 6781/3443):
+  ADAPT-L2 Grid lanes FIXED via minColumnWidth="intrinsic" default (TV 5 vs
+  desktop 9 from one line of existing machinery); L4 axis required, fixture
+  comments now true; L3/L5 CONTESTED with killing evidence (contentWidth
+  deprecated-for-cause; focus_map live axis read; hwrap no shrink pair) +
+  guards for every reproduction; corpus re-verdict: pages bleed, not rows.
+  Live score 49/61 RIGHT. Ruling R14: B-6e ten-foot measure cap = 900
+  (tablet 600 x 1.5 proportion doctrine), director veto in batched §13 —
+  one-liner dispatched to the wave writer. Review dispatched (Opus). The
+  8 extraction-locked contests = the post-stage extraction wave's charter
+  (disposition owner recorded at T16). commit_isolated lesson #2: read the
+  DROP list (markers match hunks; a bare load-bearing line vanishes).
+- TEN-FOOT fix round landed (c4a751e / RR b3bcbae; 6785/3443): deaf-guard
+  marker-per-case (bites alone); radii/strokes must-not-scale under the new
+  doctrine "a metric may only scale where the framework owns the paint"
+  (DENSITY_PAINT_SECTIONS); adapted-write REFUSED (no lossy third answer),
+  red-first on 44->66->99; identity = value-agreement over the whole closed
+  domain. Director taste number banked for the batched pass: table row 84px at
+  console vs 36 desktop / 44 touch. Re-review dispatched (sonnet). Remaining
+  seats: layout-fix review, B-6e, tenfoot re-review -> then T12 docs.
+- Wave TEN-FOOT: FULLY CLOSED (35f7348..fd59cae + c4a751e / RR 655cbd7,
+  b3bcbae; review + fix round + re-review all clean; 6785/3443; five locked
+  files blob-verified untouched across the whole wave). The director's
+  Apple-TV ruling is shipped: full metric ladder, 66px targets, 5-lane cap,
+  900px measure (R14), paint-ownership doctrine, device-eye rows staged.
+- LAYOUT-FIX review: ACCEPT + policy catch (2 breaking changes unrecorded;
+  instruments structurally blind to required-flips). Ruling R15: pre-release
+  breaking changes ride the unreleased 0.10.0 with an ADR record (ADR-0040) +
+  the instrument closes (required-flip/default-change detection) + constitution
+  §14 pre-release clause; NO compat shim (refuse-don't-guess stands). Fix
+  round folded into the writer's B-6e work. Director veto on R15 in the final
+  report.
+- LAYOUT-FIX fix round + B-6e landed (fa5f21a..5d97826 / RR 57bbdc8;
+  6794/3446): maxWidth as minWidth's twin (the audit's maxMeasure seam was
+  WRONG — 452px trap caught); Cartwheel fixed-px-at-distance latent defect
+  fixed; ADR-0040 (13 breaking surfaces, R15) + required-flip/default-change
+  instruments (6 mutations); constitution §14 pre-release clause. Re-review
+  dispatched (sonnet). T12 DOCS WAVE dispatched (writer, Opus) with the full
+  post-wave state distilled. ADR-0040 carries the 0.10.0-boundary question to
+  the director's final report.
+- Wave LAYOUT-FIX: FULLY CLOSED (91a474d..5d97826 / RR d708d26, 1888cd6,
+  57bbdc8; review + fix round + re-review clean; 6794/3446; locked files
+  byte-identical across the whole range). LOWs ledgered for T16: ADR-0040's
+  B-1 record-check string non-unique (prose duplicate); two stale count lines
+  in the report file. ALL PARADIGM WAVES NOW CLOSED (adapt-fix, table,
+  carousel, ten-foot, layout-fix, theme-unbundle, reveal). Remaining: T12
+  (running) -> T13 exercises -> T15 perf/memory -> batched pass -> T16.
+- T12 COMPLETE (25b838b..2b05191 / RR fccf29d; 6799/3449; vendor 724->0 in
+  scope with selftest; catalog 107 derived; comments 88->29; writing checker
+  36->0). Review dispatched. T13 EXERCISES LIVE: clone A (ColorWell fresh
+  author, zero mission context), clone B (seeded defect: FIT_EPSILON reverted
+  to 0 + its one covering case removed — suite green 6798 in clone, tree
+  clean, defect uncovered and player-observable; agent must repro, own, fix,
+  regress, gate). Verifier seat follows A's report. Exercises do NOT merge;
+  journals drive real improvements.
+- RC-20 PASS: seeded-defect exercise DONE by a zero-context agent — repro
+  53/551 widths, correct owner, one-line fix matching the docstring's own
+  argument, stripe regression + null hypothesis, proportionate checks, clean
+  commit via commit_isolated. Friction harvest (for the improvements round):
+  no root README; doctor.sh false-alarms on clean checkouts (build/ never
+  created); no single-spec runner; stale "~42s" suite timing; no proportionate
+  verification bar for small fixes; framework-standalone verification impossible
+  (RR shell-outs) — the last is Step 14's standalone-consumer concern, recorded.
+- T12 review: CHANGES REQUESTED (instruments bite; scope drawn by directory
+  not reachability; comment numbers irreproducible; RC-18 un-flipped by
+  controller at 9401845; 19 reader-facing mechanical-strip defects). Ruling
+  R16: vendor scope = link-reachable from the shipped doc surface (one owner:
+  check_docs' link graph); linked ADRs teach in Facet/Roblox terms, history
+  notwithstanding. Fix round dispatched to the T12 writer. LazyVGrid/
+  contextMenu occurrences to be classified prose-vs-identifier (identifier
+  renames CONTESTED to the deprecation policy, not this round).
+- T12 fix round 1 landed (1482571, 69ae4ee; 6803/3449): reachability scope
+  (56/17 exact match to review; ADR-0014 defines first responder in Facet
+  terms; depth-1 recorded with the transitive alternative measured); zero
+  vendor identifiers among exports (verified against the surface dump);
+  comments 531->122 ratcheted; pin verifier committed (237); prop_parity
+  comment-blindness FIXED not dodged; 19 defects closed. Ruling R17 (RC-18
+  closure rule): the bar is UNEXPLAINED shorthand — round 2 dispatched:
+  resolvable-vs-orphan classifier, orphans -> 0, resolvable stay as citations,
+  ratchet on orphans; + disarm the ten remaining fixed-char comment slices.
+- RC-19 first half PASS: ColorWell DONE by a zero-context agent (6837 green in
+  clone, all gates clean, hardening gate byte-identical; two named exceptions
+  both REAL repo defects: the 19-pin contradiction + no live Studio for its
+  checkout). Friction harvest x5 (19-pin, six unlisted registrations, 44px doc
+  trap, two undocumented truths, fast-loop discoverability). IMPROVEMENTS
+  ROUND dispatched (both journals; 8 decided contracts incl. derive-the-pin,
+  scaffold-stamps-all, root README, doctor fix). After it lands: the
+  human-verifier seat re-walks the improved guide (plan's rerun-until-clean),
+  then T15 perf/memory.
+- T12 round 2 landed (d2d53bd, c1a243d, 931393c; 6803/3449): orphans 87->0
+  (ceiling 0, not a ratchet — "what the rule prohibits"), resolvable 25 with
+  per-site routes, locked-185 separated; slice trap disarmed everywhere via
+  the one owner (adapter_source.bodyOf); RC-18 PASS_AUTOMATED on the R17 rule;
+  its own gate row caught as unrunnable shell (backtick substitution) by
+  execute-not-inspect. Comment trajectory: 531 -> 25 across the campaign.
+  T12 re-review dispatched (sonnet). Improvements round still running.
+- Improvements round COMPLETE (8ed3cb8, ce40a79, d8aa27e; 6808/3449 + all
+  checkers green): 19-pin derives; scaffold stamps all six registrations
+  (end-to-end run: zero undocumented failures — its own two output defects
+  found+fixed); root README (with check_doc_style extended to scan it); doctor
+  fixed (swept into d2d53bd, disclosed); fast loop taught; four contested
+  calls recorded. FINAL EXERCISE SEAT dispatched: human-facing verifier walks
+  the improved guide in fresh clone exC (protocol per step). T15 PERF/MEMORY
+  dispatched (writer, Opus — the last build wave). T12 re-review fork still
+  out.
+- T12: FULLY CLOSED (all rounds + re-review + micro-round; 4d1f285; orphaned
+  punctuation probe widened with base-control). Controller follow-through on
+  the micro-round's residual: the two declarative-3d spike evidence JSONs were
+  IGNORED by the blanket artifacts/**/*.json rule while four gate pins target
+  them — force-added (commit above); pin count now clone-stable. Process
+  failure recorded from the round: checkout-revert erased hand edits mid-batch
+  (nine of ten accidentally survived via later passes) — verify-per-edit, not
+  per-batch, after any revert.
+- Human-verifier walk DONE (exC protocol: 7 steps, 5 MATCH / 3 MISMATCH /
+  2 UNCLEAR): eleven-vs-ten count; the specGuard example HANGS in-repo
+  (circular require — dangerous); "double-fires" is false (real behavior:
+  node handler silently shadows the bundle handler — intent TBD); gate-
+  cascade guidance gap. Final guide round dispatched (incl. loud-failure
+  guard for the hang if cheap; activate-precedence intent verdict or
+  CONTESTED). RC-19 closes when this lands.
+- T13 EXERCISES: FULLY CLOSED (4167ff4). RC-17/19/20 PASS_AUTOMATED; exercise
+  artifacts installed (journals + verifier protocol + READMEs); gate rows
+  earned run strings (their PASS lands on the batched pass's full gate rerun —
+  quick rerun timed out cold). REMAINING GAP: RC-11 maintainer map — fold into
+  the batched-pass prep round alongside T15's close (small: derive the
+  area->owner/seam/tests/gate/extension table from the now-clean structure).
+  Board: T15 (running) -> RC-11 round -> batched Studio pass -> T16 close-out.
+- T15 COMPLETE (1bde05e..1f9510a; 6821/3449; perf PASS; surface byte-identical):
+  memory table (require = 2,797 KB; lazy Controls = -831 KB / -29.7%; RR
+  subset -550 KB); lazy NOT shipped — no type analyzer instrument, disposition
+  owner+trigger (analyzer gate row; DIRECTOR CALL at close: add luau analyzer
+  to toolchain?). RR-5 re-derived 38 sites: 4 fixed / 2 locked / 18 noise /
+  14 unmeasured (no VirtualGrid/RowActions scene — recorded). Instrument
+  catches: aggregator read all owned dumps as EMPTY (Facet/-filter, fixed +
+  selftest); place 3 days stale; haptics counters absent from capture rows;
+  three workloads lost from the guide. PLAT-20 stays OPEN (headless-blind).
+  T15 review + RC-11 maintainer-map round dispatched in parallel.
+- DIRECTOR RULING (2026-08-21): "Luau already has a type solver" — the T15
+  contested blocker is a toolchain pin, not a gap. Round dispatched: pin
+  luau-lsp/luau-analyze via rokit, witness type-check over the 19 Controls
+  signatures (red-first both directions), SHIP lazy Controls (-831 KB) with
+  surface-dump byte-identity + no-hitch spec + Facet.preload() + realized
+  memory table + RR lockstep evidence.
+- DIRECTOR DEVICE ROUND 2 (2026-08-21, expand feature live): DIR2-1 stepped-
+  down pills paint EMPTY (violates the approval's key-info constraint; the
+  value-text oracle is structurally blind to an empty box — instrument fix
+  demanded with the fixture's own NOT PAINTED counter wired in); DIR2-2 the
+  plate HIDES the whole base screen (contract: over the live screen, rest
+  visible); DIR2-3 Close -> X icon (a11y label stays verbal); + plate under-
+  offers width (task labels truncate in the RICH form). Priority round
+  dispatched to the reveal implementer; batched pass re-verifies live.
+- T15 review: CHANGES REQUESTED — 3 red release-gate checks the wave introduced
+  and its report omitted (hand-picked verification tail; the citation rule
+  caught its own successor wave); memory headline overstated (bimodal; mode-
+  matched 600-795 KB); capture-plan parser silently drops cleanCapture; 6/13
+  rows name a nonexistent counter. ALL folded into the running lazy-ship round
+  (same agent). Standing rule from this: a wave's verification tail = the gate
+  rows, never a hand-picked list.
+- RC-11 CLOSED (b5bad08..425e5dd; 6841/3449): docs/MAINTAINERS.md 19 areas /
+  28 src entries, all columns derived-from-source, 12-obligation drift check
+  (7 scratch + 20 in-memory plants), gate row maintainer-map-current exit 0;
+  found+fixed the eleven-vs-twelve blessed-modules doc defect. Its three
+  contested reds correctly attributed to T15 (already in the lazy round's
+  fold-in). Two instrument traps recorded (SIGPIPE-141 under pipefail;
+  grep -qF line-wrap pins). REMAINING SEATS: expand-defect round, lazy-ship
+  round -> batched Studio pass -> T16.
+- DIRECTOR ORDER (2026-08-21): final visual + synthetic-input sweep confirmed
+  and EXTENDED as batched-plan §14 (36 demos x 5 views scripted oracles;
+  rotation round-trips; theme axis; semantic drives via scenario steps with
+  honest evidence-class labels; capture packet for the director's eye).
+- DIRECTOR (2026-08-21): eyeball confirmation made explicit — §14f two-layer:
+  controller reviews EVERY capture visually during the pass (green oracles
+  notwithstanding), director's organized eye pass is the binding gate;
+  eye-vs-oracle disagreement = an oracle finding too.
+- DIRECTOR ROUND 2 fixes landed (9a32399; 6851/3449): DIR2-1 root cause = the
+  framework's own transparent cover ABOVE author content (z measured 116/115
+  vs text 113) — cover role RETIRED structurally (nothing-above-author rule;
+  chevron-beside only); NOT-PAINTED readout was a stale probe row; DIR2-3 X
+  icon chip (a11y label verbal); plate under-offer fixed (184->328, second
+  consumer lockstep). DIR2-2 base-disappear NOT reproduced headlessly — tail
+  seam band (the only opaque candidate) removed + EXPAND 16 fence; STAYS OPEN
+  until the batched pass verifies live. BLOCKED to the extraction charter:
+  mark-yields-to-value (2 lines in locked solver). New sweep oracle:
+  emptyCollapseViolations (blank chip reddens 5 cells; honestly states its
+  engine-side blindness).
+- DIRECTOR ROUND 3 (2026-08-21, live showcase): DIR3-1 transient surfaces from
+  buttons must appear OVER the live screen — FRAMEWORK RULE per director
+  ("seen a couple times"); opaque full-screen backdrops behind transients
+  banned, scrims translucent by token contract; guard across the anchored
+  family with opaque-mutation red. DIR3-2 showcase chrome gamepad access:
+  L1 = demo picker, R1 = settings, focus in, B out. Dispatched to the
+  anchored-surface implementer. Controller fixed own two gate-row defects
+  (migration-doc path; unanchored suite grep -> cache-status check).
+- LEDGER CATCH-UP (final review M1 — the missing entries): lazy-Controls ship
+  landed (45fc2c6..8202a9d: luau-lsp@1.69.0 pinned, check_types witness over
+  19 signatures red/green both ways, 4-entry defer shipped for 228 KB
+  [131..313] with the 860 KB ceiling on the extraction charter, three red
+  gates repaired, capture-plan parser refuses unparsable pairs); acceptance
+  catch-up commits (af2c806, fe4da14); five-red-gates repair (12ae6d5,
+  ea4e342, c54a1c7); places rebuilt (7e34ce1); batched pass executed
+  (close-out.md, 0c14f07); style-editor-sync closed live (b832793); director
+  round 3 dispatched (DIR3-1 transient-over-screen framework rule, DIR3-2
+  L1/R1 chrome access).
+- FINAL REVIEW verdict NOT-READY (final-review.md): H1 fixed-in-crossing
+  (path + grep, committed); H2 = the Studio profiling captures silently
+  dropped from close-out while the gate row passed on file existence —
+  closure in progress (lab telemetry captures + honest gprx disposition);
+  M-items being closed in this batch; the M2 missing review seat dispatched.
+
+## 2026-08-21 (cont.) — final-review closure batch + DIR4
+
+- M3 t16-triage.md written (5656ade); M4 DIR2/DIR3/DIR4 rows in findings.md; M5
+  promotion tracker refreshed with owner+trigger (130dcae); L2 reviews/README
+  seat note. M2 seat dispatched and RETURNED: Round A (lazy ship) APPROVE WITH
+  FINDINGS (2H/5M/6L), Round B (DIR2 fixes) APPROVE WITH FINDINGS (1H/1M/2L),
+  suites reproduced at both endpoints, all claimed mutations bite. The two
+  load-bearing HIGHs: A-H1 both laziness pins pass with the mechanism deleted;
+  B-H1 the hit expander's 44px floor reaches 12x20px over author content and
+  EXPAND 15 reads rect, never hitRect. Fix round dispatched (task-m2fix:
+  A-H1, A-H2 stale-831KB/idiom purge, B-H1, A-M1). Ruling R18: the hit-expander
+  floor is EXEMPT over passive content (F1 accessibility floor, platform
+  convention), BANNED over interactive content; the fence reads hitRects with
+  exactly that split, plus a paint-inertness pin (no slot tags, no paint
+  claims) — "transparent so harmless" stays refused. Cost if wrong: a passive
+  overlap that turns out to paint; the pin is what catches it.
+- H2 disposition: FAIL_ENVIRONMENT, recorded in requalification.md §5 and the
+  perf-requalification gate note corrected (it claimed captures never taken);
+  run string now checks the honest markers. The MCP session cannot open a
+  different .rbxl — the 13-row plan is runnable the moment a human opens the
+  lab place. Asked the director (they are live at the machine today).
+- M6 executed live on the console-ten-foot row (stamp 8d1aa6f6-6889795,
+  injected at HEAD after starting studio_sync): §13a ladder (spaceM 24,
+  controlHeight 66, ×1.5), §13c overscan once (eff 90/60, authored 0), §13d
+  4 lanes @404 vs desktop 4 @289 + table 84px rung, §13e GetStyled stroke 1 /
+  scrim 0.45 / capsule unscaled. Item 5 haptics calibration: adapter refuses
+  honestly on macOS (decorated 12), per-phase counters move, fallback
+  reachable, Custom effects built. FOUND+FIXED en route (3ad40b0): the
+  scenario runner's fn(session,payload) call shape vs the sensory scenario's
+  one-parameter steps — the whole scripted calibration route was dead while
+  its spec (payload-first calls) stayed green; serializer cycle guard added
+  (a poisoned signal stack-overflowed api.step). Suite 6865.
+- DIR3 live check: L1 opens the panel over the live screen with the scrim
+  between ✓; R1 dead live (presenter Adjust binds L1/R1 for adjustTargets;
+  the chrome's "no other context binds either key" comment is false); B is
+  CoreGui-bound, injection refuses it. DIR4 (director live report: chips
+  vanish on console + shoulder discoverability): root cause measured — chrome
+  edge-to-edge at (12,12) vs body overscan-inset x=106; TV bezel eats the
+  chips. DIR4 implementer dispatched (overscan-aware chrome, gamepad shoulder
+  glyphs, R1 contention fix); told mid-flight to use commit_isolated (two
+  writers now share the tree).
+- DIR3 review seat dispatched (task-reveal-review.md) — running.

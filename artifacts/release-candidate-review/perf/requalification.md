@@ -290,6 +290,15 @@ none, the spelled-out count is real). Three mutations bite.
 
 **No capture was taken.** Studio is the controller's.
 
+**2026-08-21 disposition (final-review H2): FAIL_ENVIRONMENT.** The controller's
+Studio session can only drive the place that is already open (Facet-Showcase);
+opening `examples/places/Facet-PerformanceLab.rbxl` is a human step the MCP has
+no tool for. So every row in `capture-plan.md` — the 13 capture rows, the
+MicroProfiler dumps, and the §2 module-load memory read — is blocked on
+environment, not on readiness: the plan, the place check, and the instruments
+were all verified current in this stage. Owner: the director opens the lab place
+(or the next session starts with it open); the plan is then runnable as written.
+
 ---
 
 ## 6. What stays open — the controller's and the device's rows

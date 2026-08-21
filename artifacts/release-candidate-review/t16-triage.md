@@ -22,3 +22,4 @@ distribution stage.
 | Plan text "rename from Facet to Facet" historical reading (L4) | final review | Deliberate (R6/R16 scrubbed the literal); ADR-0036 holds the history · no action |
 | reviews/README missing perf/phase-gate seat rows (L2) | final review | Corrected in this commit — see README note: the perf seat = task-15-review; the phase-gate function = the per-wave scoped re-reviews + this final seat |
 | RC-19 point-wise close (L1) | final review | Accepted: both agents succeeded first-pass; the verifier walk covered the human path; a full re-walk is charter-optional |
+| M2-review MEDIUMs/LOWs (A-M1..M5, A-L1..L6, B-M1, B-L1/L2) | task-m2-review.md | The three HIGHs + A-M1 are a dispatched fix round (task-m2fix); the rest ride this table · respective area owners · next touch; A-M5 (comments-plain zero headroom) joins the extraction charter rider |

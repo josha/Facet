@@ -4051,9 +4051,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "perf-requalification",
 			requirements = { "UI-AGENT-001" },
-			run = 'f=artifacts/release-candidate-review/perf/requalification.md && test -f "$f" && test -f artifacts/release-candidate-review/perf/capture-plan.md && grep -qF "Studio" "$f"',
+			run = 'f=artifacts/release-candidate-review/perf/requalification.md && test -f "$f" && test -f artifacts/release-candidate-review/perf/capture-plan.md && grep -qF "No capture was taken" "$f" && grep -qF "FAIL_ENVIRONMENT" "$f" && grep -qF "verified before this plan was written" artifacts/release-candidate-review/perf/capture-plan.md',
 			evidence = "artifacts/release-candidate-review/perf/requalification.md",
-			note = "The refreshed performance place rebuilt and verified; repeated Studio MCP MicroProfiler baselines for solve/layout, fine/bulk update, adapter/render, scroll, idle, and teardown; every framework-owned optimization has a falsifiable cause, identical-workload before/after distributions, and no regression in tests, other scenarios, or Rascal Rally; rejected and inconclusive attempts recorded; Android capture instructions current.",
+			note = "WHAT THIS ROW ACTUALLY HOLDS (corrected 2026-08-21, final-review H2 — the earlier note claimed Studio MicroProfiler baselines that were never taken): the HEADLESS requalification is complete (place rebuilt and verified from current source, every workload boots/resets/reproduces its seed, scope wrapper balanced on every exit path, the aggregate tool decodes both scope-name eras, capture metadata refuses incomplete rows), and the Studio capture PROCEDURE is verified current with the 13-row plan ready to run. The Studio rows THEMSELVES are FAIL_ENVIRONMENT in this stage: the PerformanceLab place cannot be opened by the MCP session (only the already-open showcase is reachable; opening a .rbxl is a human step), so the MicroProfiler dumps, the capture rows, and the module-load memory read all wait on a session with that place open — requalification.md §5/§6 name them and the run string checks the honest markers, not the aspiration. The low-end Android capture stays the device instrument (bench/perf_budgets.json still declares measured:false on all three device budgets).",
 		},
 		{
 			name = "fresh-independent-reviews",
