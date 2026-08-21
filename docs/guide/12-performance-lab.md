@@ -116,7 +116,7 @@ step("run")                    -- the scenario's declared pass sequence
 print(HttpService:JSONEncode(step("export:1")))
 ```
 
-### The fourteen workloads
+### The seventeen workloads
 
 | id | question it answers |
 |---|---|
@@ -133,10 +133,20 @@ print(HttpService:JSONEncode(step("export:1")))
 | `sensory-cascade` | what the per-control sensory cascade costs a tree that declares nothing |
 | `variable-extents` | what a variable-extent window costs against the uniform arithmetic it replaces |
 | `table-unified` | what virtualization, multi-selection and reordering cost in ONE container |
+| `arrange-shapes` | WHICH tree shape makes `arrange` expensive, and whether the cost is flat per node |
+| `edit-locality` | does an edit that changes nothing visible still re-solve, and does incremental layout bite on a collection edit |
+| `host-move` | do a container's engine writes collapse inside a real instance host, and is that a frame-time win |
 | `lifecycle-soak` | do Instances, connections, memory or stale work trend upward |
 
-The last two mount their own surfaces (`implementation = "none"`), so neither
-re-bases any number above them. Both take a `frames/reps` payload —
+**The three before the soak are the NAMED LEVERS** (`levers.luau`), each aimed at
+a cost a device capture ranked and no workload reached: `arrange` itself was the
+top cost in all four captures of 2026-08-15, incremental layout had only ever
+been measured on a resize, and ADR-0032's write collapse had never been priced as
+frame time. One lap is one ARM, so a 60-frame dump can hold the comparison it was
+taken for — `pass:flat=60`, then `pass:fill=60`.
+
+`variable-extents` and `table-unified` mount their own surfaces
+(`implementation = "none"`), so neither re-bases any number above them. Both take a `frames/reps` payload —
 `pass:tableUnified=30/40` — because their headline quantities are p50s and an
 operator who cannot raise n cannot get out of a wide control band. Their control
 bands, deltas and the MicroProfiler pass over them are
@@ -149,23 +159,23 @@ The panel's top row is always on screen, whatever the panel is capped at, and ho
 everything a profiling session needs:
 
 ```
-◀   dense-scroll   3/14   ▶   ▶ Run all
-DONE 14/14 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
+◀   dense-scroll   3/17   ▶   ▶ Run all
+DONE 17/17 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
 ```
 
-- **◀ / ▶** step through the fourteen workloads and wrap at both ends. Each step unmounts,
+- **◀ / ▶** step through the seventeen workloads and wrap at both ends. Each step unmounts,
   selects and remounts, so the label and what is running can never disagree. The chip
   list further down jumps straight to one.
 - **▶ Run all** runs every workload in order, back to back, in its own thread so the
   panel keeps repainting and **Stop** stays pressable. The status line counts
-  `running 4/9 · collection-churn` as it goes.
+  `running 4/17 · collection-churn` as it goes.
 - At the end the sweep unmounts everything and the status line tells you what to press.
   Arm the MicroProfiler first and one dump covers the whole sweep with every
   `Facet/*` phase scope in it.
 
 **A workload that fails does not end the sweep.** Its error is recorded in the result
 row and shown on the status line, and the remaining workloads still run — so one
-scenario that cannot mount in this environment costs you one result, not eight.
+scenario that cannot mount in this environment costs you one result, not sixteen.
 
 `steps.sequence` is the same thing from a driver, and returns
 `{ran, planned, failed, completedWholeSweep, results, dumpNext}`.

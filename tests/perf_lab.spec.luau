@@ -2168,6 +2168,90 @@ end)
 	counter added to one reader tomorrow fails here on the commit that adds it,
 	which a pinned list of today's names would not do.
 ]]
+--[[ THE GUIDE'S WORKLOAD TABLE IS THE REGISTRY'S, OR IT IS FICTION (wave T15).
+
+	`docs/guide/12-performance-lab.md` is what an operator reads before spending a
+	MicroProfiler session, and it said "the fourteen workloads" while the registry
+	declared seventeen — `arrange-shapes`, `edit-locality` and `host-move`, the
+	three NAMED LEVERS, were invisible to anyone who learned the lab from its own
+	chapter. They are the levers aimed at the top cost in every device capture
+	taken, so the three missing rows were the three most worth running.
+
+	Nothing could have caught it: the count was prose, the table was hand-written,
+	and both were correct on the day they were typed. This case is the mechanism —
+	every declared id must appear in the chapter's table, the chapter must claim no
+	id the registry does not have, and the spelled-out COUNT in the heading has to
+	be the real one, because a stale number beside a correct table is how a reader
+	learns to distrust both.
+]]
+describe("perf lab: the guide's workload table matches the registry (T15)", function()
+	local fsLib = require("@lune/fs")
+	local GUIDE = "docs/guide/12-performance-lab.md"
+	local WORDS = {
+		[9] = "nine",
+		[10] = "ten",
+		[11] = "eleven",
+		[12] = "twelve",
+		[13] = "thirteen",
+		[14] = "fourteen",
+		[15] = "fifteen",
+		[16] = "sixteen",
+		[17] = "seventeen",
+		[18] = "eighteen",
+		[19] = "nineteen",
+		[20] = "twenty",
+	}
+
+	it("every declared workload has a row in the chapter, and the chapter invents none", function()
+		local built = newHarness()
+		local declared = built.steps.workloads()
+		built.dispose()
+		local guide = fsLib.readFile(GUIDE)
+
+		local missing: { string } = {}
+		for _, id in declared.order do
+			if string.find(guide, `| \`{id}\` |`, 1, true) == nil then
+				table.insert(missing, id)
+			end
+		end
+		expect(`missing from the guide: {table.concat(missing, ", ")}`).toBe("missing from the guide: ")
+
+		--[[ ...and the other direction, so a workload REMOVED from the registry does
+			not go on being documented. Scanned inside the WORKLOAD SECTION only: the
+			chapter has other id-shaped tables (the five evidence classes among them),
+			and a check that read every table in the file would report `phone-physical`
+			as an undeclared workload — which is a false alarm, and a guard that cries
+			wolf is a guard people route around. ]]
+		local known: { [string]: boolean } = {}
+		for _, id in declared.order do
+			known[id] = true
+		end
+		local sectionStart = string.find(guide, "### The ", 1, true)
+		expect(`the workload section exists: {sectionStart ~= nil}`).toBe("the workload section exists: true")
+		local sectionEnd = string.find(guide, "\n### ", (sectionStart :: number) + 8, true) or #guide
+		local section = string.sub(guide, sectionStart :: number, sectionEnd)
+		local invented: { string } = {}
+		for id in string.gmatch(section, "\n| `([a-z%-]+)` | [a-z]") do
+			if not known[id] then
+				table.insert(invented, id)
+			end
+		end
+		table.sort(invented)
+		expect(`documented but not declared: {table.concat(invented, ", ")}`).toBe("documented but not declared: ")
+	end)
+
+	it("the spelled-out count in the heading is the real one", function()
+		local built = newHarness()
+		local n = #built.steps.workloads().order
+		built.dispose()
+		local word = WORDS[n]
+		expect(`a word for {n}: {tostring(word)}`).toBe(`a word for {n}: {tostring(word)}`)
+		expect(word ~= nil).toBe(true)
+		local guide = fsLib.readFile(GUIDE)
+		expect(`heading: {string.find(guide, `### The {word} workloads`, 1, true) ~= nil}`).toBe("heading: true")
+	end)
+end)
+
 describe("perf lab: the live counters and the capture row read ONE block (T15)", function()
 	local function keysOf(t: any): { string }
 		local out: { string } = {}
