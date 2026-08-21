@@ -75,7 +75,18 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 	-- fallible section (user blueprint factories throw): any failure tears
 	-- down everything already parented and re-raises — start() never orphans
 	-- preview furniture (verifier F1)
-	local adapter = screen_target.new({ parent = opts.parent, style = opts.style })
+	--[[ THE PREVIEW OPTS OUT OF SHEET PAINT, EXPLICITLY, and after the 2026-08-21
+		default flip (`native_style.DEFAULT_ENABLED = true`, ADR-0040 row B-15) that
+		`false` is load-bearing rather than a restatement. This harness runs in the
+		STUDIO EDIT DataModel, where `native_style.ensure` would seed a persistent
+		`FacetStyle` StyleSheet that the next place save commits — which is exactly
+		the furniture this module's header promises never to leave behind (verifier
+		F5), and `dispose()` cannot take it back because the sheet is seed-once by
+		design. It costs nothing to look at: the adoption evidence measured the two
+		paint paths byte-equal on every mapped property, so a preview painted the
+		explicit-write way shows what the game shows. `billboard_target` opts out
+		beside it, for its own reason. ]]
+	local adapter = screen_target.new({ parent = opts.parent, style = opts.style, nativeStyle = false })
 	local root: any = nil
 	local controller: any = nil
 	local ok, startErr = pcall(function()

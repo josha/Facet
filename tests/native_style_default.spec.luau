@@ -96,6 +96,32 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		expect(string.find(source, "nativeOpt = native_style.DEFAULT_ENABLED", 1, true)).toBeNil()
 	end)
 
+	--[[ WHO THE DEFAULT DOES NOT SWEEP, and this case is here because the flag's
+		own comment claimed two exemptions and the code only had one.
+
+		`billboard_target` has always passed an explicit `false` — the billboard
+		contract stays conservative until an integrated billboard drive proves the
+		path. `edit_preview` did NOT, and the difference matters in a way a
+		screenshot cannot show: the preview runs in the STUDIO EDIT DataModel, where
+		`native_style.ensure` would seed a persistent `FacetStyle` StyleSheet that
+		the next place save commits. That module's own header is emphatic about
+		never committing preview furniture into a place file (verifier F5), and the
+		flag's comment recorded the intent that the preview be unaffected — so the
+		flip made the intent true rather than discovering it in a diff. It costs
+		nothing visually: the adoption evidence measured the two paths byte-equal
+		on every mapped property, so the preview shows what the game shows either
+		way, and the one that writes nothing into the place is the one to take. ]]
+	it("the two exemptions really pass an explicit choice, so the default cannot sweep them", function()
+		local silent: { string } = {}
+		for _, path in { "src/client/billboard_target.luau", "src/client/edit_preview.luau" } do
+			local source = fs.readFile(path)
+			if string.find(source, "nativeStyle = false", 1, true) == nil then
+				table.insert(silent, `{path} names no explicit \`nativeStyle = false\``)
+			end
+		end
+		expect(`swept:{table.concat(silent, "; ")}`).toBe("swept:")
+	end)
+
 	it("the flip is RECORDED in ADR-0040, which is what makes it legal", function()
 		local adr = fs.readFile(RECORD)
 		local missing: { string } = {}
