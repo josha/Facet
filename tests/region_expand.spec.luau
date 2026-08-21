@@ -922,6 +922,9 @@ end)
 -- surface, the content, and the way back.
 
 local worldLib = require("./lib/world")
+local adapter_source = require("./lib/adapter_source")
+local sheet_model = require("../src/tokens/sheet_model")
+local default_style = require("../src/tokens/default_style")
 
 local function hudScreen(): any
 	return UI.Screen({
@@ -1594,6 +1597,34 @@ end)
 	not allowed to make. The trade is a smaller target against a pill that renders
 	its value; the director's own approval constraint decides it. ]]
 
+--[[ EXPAND 15's helpers: what the fake target calls an INTERACTIVE node, and the
+	overlap of two rects. Both are used by the hit-floor sweep below. ]]
+local INTERACTIVE_SEAMS = {
+	"onActivate",
+	"secondaryActivate",
+	"pointer",
+	"dragDetector",
+	"touchGestures",
+	"scrollHandler",
+	"discloseZone",
+}
+
+local function interactiveNode(n: any): boolean
+	for _, seam in INTERACTIVE_SEAMS do
+		if n[seam] ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+local function overlapOf(a: any, b: any): (number, number)
+	if a == nil or b == nil then
+		return 0, 0
+	end
+	return math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x), math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+end
+
 describe("EXPAND 15 — the framework paints nothing over the author's content", function()
 	it("a passive form gets a chevron BESIDE it, not a surface OVER it", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
@@ -1607,28 +1638,227 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 		expect(mark.rect.w > 0).toBe(true)
 	end)
 
-	it("no framework instance covers any node of the standing form, at any depth", function()
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
-		w.present(ringScreen(false), { initialFocus = "none" })
-		local mark = w.adapter.node("/S/C/Clock/Expand")
+	it("no framework instance covers any node of the screen, painted OR reachable (R18)", function()
 		--[[ THE STRUCTURAL RULE, checked as geometry rather than as paint: no
 			instance the framework synthesized intersects a node the author declared.
 			A paint assertion is what this repository cannot make headlessly — which
-			is how an overlay that "was transparent" shipped over three pills. ]]
-		for _, path in w.adapter.paths() do
-			if string.find(path, "/S/C/Clock/Compact", 1, true) == 1 then
+			is how an overlay that "was transparent" shipped over three pills.
+
+			IT NOW READS BOTH OF THE MARK'S RECTS, and the second one is why this case
+			was rewritten (M2 review, B-H1). The first version compared author rects
+			against `mark.rect` — 20x22 — and never against `mark.hitRect`, the 44x44
+			touch floor the renderer asks for and the adapter realizes as a real
+			`FacetHitExpander` TextButton. With a fill-width compact form that floor
+			reaches 12px back over the author's own node, and the file stayed green:
+			the same shape as the original defect, a framework-owned instance over
+			author content that every model-side check called fine.
+
+			THE CONTROLLER'S RULING (R18, 2026-08-21) SPLITS THE RULE BY WHAT IS
+			UNDERNEATH. The 44px floor is EXEMPT over PASSIVE content: 44px is the F1
+			accessibility floor and the platform convention every OS ships — an
+			enlarged tap target is allowed to extend over adjacent non-interactive
+			content, and clamping it to the mark's reserved 20px column would put a
+			below-floor target on the one thing on the row that exists to be tapped.
+			It is BANNED over INTERACTIVE content: two overlapping actionable targets
+			is the tap-ambiguity defect class, because the engine delivers input to the
+			topmost object only and the player cannot see which one won.
+
+			So: the PAINTED rect must touch nothing at all, and the HIT rect must
+			touch no interactive node — against that node's own rect or its own floor.
+			Passive overlaps are counted rather than forbidden, and the count is
+			asserted non-zero, so the exemption stays a measured fact rather than a
+			sentence nothing exercises. ]]
+		local MARK = "/S/C/Clock/Expand"
+		local passiveOverlaps = 0
+		for _, interactive in { false, true } do
+			local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+			w.present(ringScreen(interactive), { initialFocus = "none" })
+			local mark = w.adapter.node(MARK)
+			local markHit = w.adapter.hitRectOf(MARK)
+			--[[ THE INSTRUMENT IS NOT VACUOUS: the floor exists, and it is bigger than
+				the rect the old version of this case measured. Without these two lines
+				a sweep against a nil hit rect would pass every assertion below. ]]
+			expect(markHit).never().toBeNil()
+			expect(markHit.w >= 44 and markHit.h >= 44).toBe(true)
+			expect(markHit.w > mark.rect.w and markHit.h > mark.rect.h).toBe(true)
+
+			for _, path in w.adapter.paths() do
+				-- the mark's own subtree is the framework's, and its ANCESTORS contain
+				-- it by construction: neither is author content the mark sits over
+				if string.find(path, MARK, 1, true) == 1 or string.find(MARK, path, 1, true) == 1 then
+					continue
+				end
 				local n = w.adapter.node(path)
-				if n.rect.w > 0 and n.rect.h > 0 then
-					local ox = math.min(n.rect.x + n.rect.w, mark.rect.x + mark.rect.w)
-						- math.max(n.rect.x, mark.rect.x)
-					local oy = math.min(n.rect.y + n.rect.h, mark.rect.y + mark.rect.h)
-						- math.max(n.rect.y, mark.rect.y)
-					expect(`{path} overlaps the affordance: {ox > 0.5 and oy > 0.5}`).toBe(
-						`{path} overlaps the affordance: false`
+				if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
+					continue
+				end
+
+				-- (a) the PAINTED rect covers nothing, passive or interactive
+				local px, py = overlapOf(mark.rect, n.rect)
+				expect(`{path} under the affordance's painted rect: {px > 0.5 and py > 0.5}`).toBe(
+					`{path} under the affordance's painted rect: false`
+				)
+
+				-- (b) the HIT floor covers no INTERACTIVE node, by either of its rects
+				for _, authorRect in { n.rect, w.adapter.hitRectOf(path) } do
+					local ox, oy = overlapOf(markHit, authorRect)
+					if ox > 0.5 and oy > 0.5 then
+						if interactiveNode(n) then
+							expect(`{path} under the mark's 44px floor by {ox}x{oy}: FORBIDDEN (R18)`).toBe(
+								`{path} under the mark's 44px floor by {ox}x{oy}: allowed (R18)`
+							)
+						else
+							passiveOverlaps += 1
+						end
+					end
+				end
+			end
+		end
+		-- the exemption is exercised: a fill-width compact form DOES sit under the
+		-- floor, which is the counterexample the M2 review measured
+		expect(passiveOverlaps >= 1).toBe(true)
+	end)
+
+	it("the hit expander is paint-INERT by construction, not by transparency (R18)", function()
+		--[[ THE OTHER HALF OF B-H1, AND THE ONE THIS REPOSITORY'S OWN DOCTRINE
+			DEMANDS. The `cover` role was retired on the ruling that "it is
+			transparent, so it is harmless" is a claim about the ENGINE that nothing
+			here makes or can make — and the object that argument still applied to, the
+			`FacetHitExpander` sitting in the same z band the device round measured,
+			was left in place unexamined.
+
+			SO THE CLAIM IS MADE STRUCTURALLY INSTEAD, in three halves that do not rely
+			on a transparency value being obeyed:
+
+			  1. it is born writing nothing that paints — `Text = ""`,
+			     `BackgroundTransparency = 1`, `AutoButtonColor = false`,
+			     `BorderSizePixel = 0`;
+			  2. NO PAINT CHANNEL EVER REACHES IT. Every fill, corner, stroke and state
+			     in a Facet sheet hangs off a `facet-*` CLASS selector applied through
+			     `CollectionService:AddTag` in `syncTags`, and an explicit paint
+			     hand-off is recorded in the `Facet_PaintClaims` attribute. The expander
+			     is `Instance.new`'d in `setHitRect` and enters neither path, so the
+			     whole tag-driven vocabulary cannot address it. The property set the
+			     adapter writes to it, anywhere, is enumerated and pinned;
+			  3. ...and the rules that CAN still reach it — the bare CLASS selectors,
+			     which need no tag — are enumerated out of the built sheet and shown to
+			     deposit no paint on an empty-text, fully-transparent button.
+
+			`src/client/screen_target.luau` is inside the source-cap band, so this is
+			read as text rather than driven: the adapter cannot load headlessly anyway
+			(`tests/lib/adapter_source.luau`). ]]
+		local live = adapter_source.live()
+		local body = adapter_source.bodyOf(live, "function adapter.setHitRect(handle: any, rect: any)")
+		expect(#body > 0).toBe(true)
+		for _, written in
+			{
+				'expander.Name = "FacetHitExpander"',
+				'expander.Text = ""',
+				"expander.BackgroundTransparency = 1",
+				"expander.AutoButtonColor = false",
+				"expander.BorderSizePixel = 0",
+			}
+		do
+			expect(`setHitRect writes '{written}': {string.find(body, written, 1, true) ~= nil}`).toBe(
+				`setHitRect writes '{written}': true`
+			)
+		end
+
+		--[[ NO TAG AND NO CLAIM, ANYWHERE IN THE ADAPTER. A line that mentions an
+			expander and a paint channel in the same breath is the mutation this
+			refuses — `CollectionService:AddTag(expander, ...)` is the one the review
+			named. Read across every part of the live adapter, not just this
+			function. ]]
+		local PAINT_CHANNELS = { "AddTag", "CollectionService", "CLAIM_ATTRIBUTE", "claimPaint", "syncTags" }
+		local offenders: { string } = {}
+		for line in string.gmatch(live, "[^\n]+") do
+			if string.find(line, "xpander", 1, true) == nil then
+				continue
+			end
+			-- a comment is prose, not a write
+			if string.match(line, "^%s*%-%-") ~= nil then
+				continue
+			end
+			for _, channel in PAINT_CHANNELS do
+				if string.find(line, channel, 1, true) ~= nil then
+					table.insert(offenders, `{channel}: {string.match(line, "^%s*(.-)%s*$")}`)
+				end
+			end
+		end
+		expect(`paint channels reaching the hit expander: {table.concat(offenders, " | ")}`).toBe(
+			"paint channels reaching the hit expander: "
+		)
+
+		--[[ EVERY PROPERTY THE ADAPTER WRITES TO AN EXPANDER, enumerated from the
+			source and compared against the declared paint-inert set. A new write of
+			any kind lands here before it lands on a screen. ]]
+		local written: { [string]: boolean } = {}
+		for prop in string.gmatch(live, "xpander%.([%a]+)%s*=[^=]") do
+			written[prop] = true
+		end
+		local INERT = {
+			-- identity, geometry and z: nothing that deposits a pixel
+			Name = true,
+			Parent = true,
+			Position = true,
+			Size = true,
+			ZIndex = true,
+			Visible = true,
+			-- the two that COULD paint, and the values they are given are why this
+			-- object is inert: no text and no background
+			Text = true,
+			BackgroundTransparency = true,
+			-- input/appearance suppressors
+			AutoButtonColor = true,
+			BorderSizePixel = true,
+			Selectable = true,
+			Active = true,
+			Interactable = true,
+		}
+		local unexpected: { string } = {}
+		for prop in written do
+			if not INERT[prop] then
+				table.insert(unexpected, prop)
+			end
+		end
+		table.sort(unexpected)
+		expect(`expander properties outside the paint-inert set: {table.concat(unexpected, ",")}`).toBe(
+			"expander properties outside the paint-inert set: "
+		)
+		-- ...and the enumeration found the two that matter, so it is not empty
+		expect(written.BackgroundTransparency).toBe(true)
+		expect(written.Text).toBe(true)
+
+		--[[ THE SHEET'S OWN REACH. A rule whose selector carries a CLASS token
+			(`.facet-…`) cannot match an instance with no tags, and a pseudo-element
+			rule addresses a child modifier this instance does not have. What is left
+			is the bare class selectors, and they are enumerated by name: any new
+			`TextButton` rule that paints reddens this line rather than a screen. ]]
+		local model = sheet_model.build({ themes = { { name = "Dark", style = default_style } } })
+		local reachable: { string } = {}
+		for _, rule in model.rules do
+			local selector = rule.selector
+			if string.find(selector, ".", 1, true) ~= nil or string.find(selector, "::", 1, true) ~= nil then
+				continue
+			end
+			if string.find(selector, "TextButton", 1, true) == nil then
+				continue
+			end
+			for prop, value in rule.props do
+				table.insert(reachable, `{rule.name}/{prop}`)
+				if prop == "BackgroundTransparency" then
+					-- the one property that could fill the 44x44 band, declared away
+					expect(`{rule.name} BackgroundTransparency: {value.value}`).toBe(
+						`{rule.name} BackgroundTransparency: 1`
 					)
 				end
 			end
 		end
+		table.sort(reachable)
+		expect(table.concat(reachable, " ")).toBe(
+			"Button default/BackgroundTransparency Button text default/FontFace "
+				.. "Button text default/TextColor3 Disabled button/TextTransparency"
+		)
 	end)
 
 	it("every affordance is a chevron now — the record says so, and there is one role", function()
