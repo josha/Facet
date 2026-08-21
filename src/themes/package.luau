@@ -1221,7 +1221,10 @@ function package.define(def: any): (any, any)
 			end
 		end
 	end
-	need("identity.id", identity.id, 'a stable slug, e.g. "fantasy-parchment"')
+	-- the example slug is DELIBERATELY GENERIC. This message ships inside the
+	-- library, and a consumer reading it may have installed no optional package at
+	-- all, so naming one would advertise an artifact they do not have.
+	need("identity.id", identity.id, 'a stable slug, e.g. "my-game-theme"')
 	need("identity.displayName", identity.displayName, "the name a designer sees in the Style Editor")
 	need("identity.version", identity.version, 'a semver string, e.g. "1.0.0"')
 	if identity.schemaVersion ~= nil and identity.schemaVersion ~= package.SCHEMA then
@@ -2095,10 +2098,14 @@ function package.define(def: any): (any, any)
 				`{field}.kind`,
 				"the barFill slot cannot take a layered recipe: a bar's fill is clipped whole art inside the "
 					.. "adapter's percent window (rs-m4), not a layer stack, so declared layers would PAINT NOTHING",
+				-- THE FIX, NOT A TOUR. This sentence used to send the reader to a
+				-- reference package by filename; those live in optional artifacts a
+				-- consumer may never have installed, so the message now states the
+				-- move itself. The precedent it named is `glossy_touch`, whose stripe
+				-- tile rides the track over a plain sliced fill.
 				"put the decorative layers on `barTrack` (which is a normal decorated node and hosts a stack) and "
-					.. 'keep barFill = { kind = "nineSlice", asset = … } — the `glossy-touch` package '
-					.. "(examples/themes/glossy_touch.luau) is the shipped precedent: its stripe tile rides the "
-					.. "TRACK, over a plain sliced fill"
+					.. 'keep barFill = { kind = "nineSlice", asset = … }: a tile, a frame or a highlight over the '
+					.. "TROUGH is a track layer, and the fill stays whole art the percent window clips"
 			)
 		end
 		if recipe.asset ~= nil then

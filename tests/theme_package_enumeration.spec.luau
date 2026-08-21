@@ -35,6 +35,21 @@ local CONSUMERS = {
 	"docs/extending/new-theme.md",
 }
 
+--[[ THE EIGHT, WRITTEN OUT. `shippable()` derives its answer from the directory,
+	so a case that re-derived it would agree with any answer the code gave — this
+	list is the independent statement of which packages a player may install, and
+	the two are compared. ]]
+local EXPECTED_SHIPPABLE = {
+	"classic_desktop",
+	"glossy_mobile",
+	"scifi_hud",
+	"fantasy_parchment",
+	"fantasy_ornate",
+	"pixel_quest",
+	"glossy_touch",
+	"compact_pointer",
+}
+
 local function namesMentionedIn(path: string): { [string]: boolean }
 	local source = fs.readFile(path)
 	local out: { [string]: boolean } = {}
@@ -84,6 +99,44 @@ describe("the theme-package directory has ONE enumerator (MAINT-8c)", function()
 		end
 	end)
 
+	--[[ THE DISTRIBUTION AXIS (wave THEME-UNBUNDLE). `tools/build_themes.sh` builds
+		one artifact per SHIPPABLE package, and shippable is a different question from
+		the ROLE — `fantasy_parchment_stub` is a reference package for corpus purposes
+		and must never reach a player, because three of its four variants are broken on
+		purpose. The partition is what the builder reads, so it is checked here rather
+		than restated in the shell script. ]]
+	it("the shippable set is the eight player-facing packages, derived from the directory", function()
+		local shippable = theme_packages.shippable()
+		expect(#shippable).toBe(8)
+		local named: { [string]: boolean } = {}
+		for _, name in shippable do
+			named[name] = true
+		end
+		for _, name in EXPECTED_SHIPPABLE do
+			expect(`{name} ships: {tostring(named[name] == true)}`).toBe(`{name} ships: true`)
+		end
+		-- ...and the exclusions are exactly the rest of the directory: the partition
+		-- is TOTAL, so a new module cannot default into "shippable" by omission
+		local excluded = 0
+		for _ in theme_packages.NOT_SHIPPABLE do
+			excluded += 1
+		end
+		expect(#shippable + excluded).toBe(#theme_packages.files())
+	end)
+
+	it("the artifact name is derived from the module name, PascalCase", function()
+		expect(theme_packages.artifactName("fantasy_ornate")).toBe("FantasyOrnate")
+		expect(theme_packages.artifactName("classic_desktop")).toBe("ClassicDesktop")
+		expect(theme_packages.artifactName("scifi_hud")).toBe("ScifiHud")
+		-- distinct artifacts, so no two packages can collide on one .rbxm filename
+		local seen: { [string]: string } = {}
+		for _, name in theme_packages.shippable() do
+			local artifact = theme_packages.artifactName(name)
+			expect(`{artifact} claimed by {seen[artifact] or name}`).toBe(`{artifact} claimed by {name}`)
+			seen[artifact] = name
+		end
+	end)
+
 	-- NEGATIVE PROOFS
 	it("catches a NEW module nobody declared a role for", function()
 		local result = theme_packages.check({ "brand_new_package" })
@@ -101,6 +154,58 @@ describe("the theme-package directory has ONE enumerator (MAINT-8c)", function()
 		local named = false
 		for _, problem in result.problems do
 			if string.find(problem, "a_package_that_moved", 1, true) ~= nil then
+				named = true
+			end
+		end
+		expect(named).toBe(true)
+	end)
+
+	it("catches an exclusion whose module was renamed away", function()
+		local excluded = theme_packages.NOT_SHIPPABLE
+		excluded.a_fixture_that_moved = "a reason long enough to satisfy the reason rule below it, and no more"
+		local result = theme_packages.check()
+		excluded.a_fixture_that_moved = nil
+		expect(result.ok).toBe(false)
+		local named = false
+		for _, problem in result.problems do
+			if string.find(problem, "excludes 'a_fixture_that_moved'", 1, true) ~= nil then
+				named = true
+			end
+		end
+		expect(named).toBe(true)
+	end)
+
+	it("catches an exclusion with no usable reason — silence is not a decision", function()
+		local excluded = theme_packages.NOT_SHIPPABLE
+		local was = excluded.layered_test
+		excluded.layered_test = "test"
+		local result = theme_packages.check()
+		excluded.layered_test = was
+		expect(result.ok).toBe(false)
+		local named = false
+		for _, problem in result.problems do
+			if string.find(problem, "needs a REASON", 1, true) ~= nil then
+				named = true
+			end
+		end
+		expect(named).toBe(true)
+	end)
+
+	it("catches a would-be shippable package that is not a reference package", function()
+		local roles = theme_packages.ROLES
+		local was = roles.custom_control
+		local excluded = theme_packages.NOT_SHIPPABLE
+		local reason = excluded.custom_control
+		-- drop the exclusion: `custom_control` becomes shippable by omission, which
+		-- is exactly the mistake the partition exists to make loud
+		excluded.custom_control = nil
+		local result = theme_packages.check()
+		excluded.custom_control = reason
+		roles.custom_control = was
+		expect(result.ok).toBe(false)
+		local named = false
+		for _, problem in result.problems do
+			if string.find(problem, "is shippable but its role is", 1, true) ~= nil then
 				named = true
 			end
 		end

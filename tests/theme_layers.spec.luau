@@ -670,7 +670,16 @@ describe("themes.define: every layer rejection names the field, the rule and the
 		expect(string.find(entry.message, "clipped", 1, true) ~= nil).toBe(true)
 		expect(string.find(entry.message, "PAINT NOTHING", 1, true) ~= nil).toBe(true)
 		expect(string.find(entry.fix, "barTrack", 1, true) ~= nil).toBe(true)
-		expect(string.find(entry.fix, "glossy-touch", 1, true) ~= nil).toBe(true)
+		--[[ THE FIX STATES THE MOVE, IT DOES NOT NAME A PACKAGE (wave
+			THEME-UNBUNDLE). This used to assert the message named `glossy-touch` as
+			the shipped precedent. The reference packages are OPTIONAL artifacts now
+			(build/themes/<Name>.rbxm, docs/guide/13-theme-catalog.md) and a
+			consumer reading this diagnostic may have installed none of them, so a
+			message naming one advertises a file they do not have.
+			`tools/check_library_purity.py` is the guard; this is the suite's echo of
+			it at the one message that carried the defect. ]]
+		expect(string.find(entry.fix, "nineSlice", 1, true) ~= nil).toBe(true)
+		expect(string.find(entry.fix, "glossy-touch", 1, true) == nil).toBe(true)
 		-- ...and the sibling bar slots that DO host a stack still compile, so the
 		-- rejection is a fact about the clipped fill and not about bars
 		local track = layered({ { kind = "fill", asset = "plate" } }, "barTrack")

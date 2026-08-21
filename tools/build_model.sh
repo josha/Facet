@@ -3,8 +3,11 @@
 # ModuleScript named Facet with the whole src/ tree beneath it. This is the
 # artifact a consumer WITHOUT Rojo drags into ReplicatedStorage
 # (docs/guide/08-without-rojo.md). Rebuild it whenever src/ or VERSION changes.
-# Usage: tools/build_model.sh          (from anywhere)
-# Output: build/Facet.rbxm
+# Usage: tools/build_model.sh [output]  (from anywhere)
+# Output: build/Facet.rbxm, or `output` when one is given — the SAME project
+#   mapping either way. `tools/check_library_purity.py` passes a temporary
+#   `.rbxmx` so it can read the model's scripts as text; a second Rojo mapping
+#   living inside that check would prove the check rather than the artifact.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo
@@ -25,6 +28,8 @@ cat >"$project" <<'JSON'
 JSON
 trap 'rm -f "$project"' EXIT
 
-rojo build "$project" -o build/Facet.rbxm
+out="${1:-build/Facet.rbxm}"
+mkdir -p "$(dirname "$out")"
+rojo build "$project" -o "$out"
 version=$(grep -m1 'VERSION = ' src/init.luau | sed -E 's/.*"([^"]+)".*/\1/')
-echo "built build/Facet.rbxm (Facet $version, $(find src -name '*.luau' | wc -l | tr -d ' ') modules)"
+echo "built $out (Facet $version, $(find src -name '*.luau' | wc -l | tr -d ' ') modules)"
