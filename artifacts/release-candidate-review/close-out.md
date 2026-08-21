@@ -12,6 +12,7 @@ the served tree.
 | §14b rotation round-trip (hud, portrait->landscape->portrait) | Every zone present both ways; **back-to-portrait byte-identical to the original portrait**; Feed alive in landscape (DIR-5 closed live) |
 | DIR2-1 pills paint | Clock "2:14 ›", Health "84 ›", Tasks "Tasks 1/3 ›", Feed line — values + chevrons, "11 of 11 painting" (capture `pass_hud_portrait_neutral`, controller-eyeballed) |
 | §14c theme axis (fantasy-ornate portrait: hud, all-controls, ex02, callout, menu) | One finding: the menu demo's blocked card sits 23px below the fold under ornate metrics on a non-scrolling page — a live instance of the audit's CONTESTED overflow-default cell (renderer-extraction charter), recorded not re-fixed. hud ornate portrait captured (`pass_hud_portrait_ornate`, eyeballed: DIR-2/DIR-3 cured; eye-note: ammo values snug against the declared crown-art overhang — director's call) |
+| DIR4 live verify (console row, stamp e35325e0-6907328) | Chips INSIDE the safe band at (102,72) vs (12,12) before — the body stays at its overscan inset (no double-inset dead band); LB/RB glyphs painted beside their chips under gamepad (18px text = 12 × the 1.5 ladder); the full section state machine proven at the action layer: switch demos↔settings without closing, same-shoulder closes, either shoulder opens from closed — all six transitions. Raw key→IAS delivery could NOT be exercised this session (every injected key including Backquote failed to deliver — a session-level condition; the instance census shows all contexts/bindings correct and sink=true live), so raw shoulder delivery joins the device packet, where the matrix row's E4 already places it |
 | §13a ladder live (console row, Large) | themeMetrics live: density ten-foot, spaceM **24**, controlHeight **66**, typographyScale 1.5, distanceProfile ten-foot; engine paint agrees (chips 146/117×69, controls 66-69px tall) |
 | §13c overscan composes once | env: authored overscanInsets 0, **effectiveOverscanInsets 90/60/90/60** — applied once, never 135/90 |
 | §13d lane cap + row rung (console vs desktop) | virtual_grid: console 1920px = **4 lanes @404** (scaled minColumnWidth; naive would pack ~6 @287), desktop 1280px = 4 @289, gap 18→27 = ×1.5 proportion held; table_virtualized console rows take the **84px distance rung** |
@@ -44,6 +45,10 @@ FAIL_ENVIRONMENT/non-blocking) and this file's own row.
 Republish the rebuilt showcase (manual), then: the DIR device recheck (themed
 HUD, rotation, chip edge), the expand-plate click + X close feel, carousel
 flick/peek, adaptive_controls at Largest, the haptics paired-iPhone packet,
+the shoulder raw-delivery re-check on a real pad (L1/R1 open/switch/close the
+showcase sections; the old-session "R1 dead" observation was never reproduced by
+anything headless and both bindings are provably live — one press must do ONE
+thing), ButtonB closing the panel (CoreGui-bound, injection refuses it),
 DF-7 with a real keyboard, RR sponsor cancel/skip on pad + touch driving §7c
 server reads, and the ten-foot 1.5x judgment on a real television if
 available. Every row's exact procedure is in

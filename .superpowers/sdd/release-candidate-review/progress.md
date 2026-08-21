@@ -956,3 +956,44 @@ STUDIO.md, root CLAUDE.md.
   glyphs, R1 contention fix); told mid-flight to use commit_isolated (two
   writers now share the tree).
 - DIR3 review seat dispatched (task-reveal-review.md) — running.
+
+## 2026-08-21 (cont. 2) — H2 captured; DIR4 landed + verified live
+
+- H2 EXECUTED: the director opened the lab place. All 13 capture-plan rows
+  driven at desktop-standard 1280x720 (the lab REFUSED the host's native 1920
+  width — Large classing made 77px rows in 60px slots; that refusal is the
+  lab working), profiler armed and staleness-asserted, rows landed byte-for-
+  byte via the studio_sync bridge + check_perf_captures PASS (9de8bfd, force-
+  added past the blanket ignore). Headlines: edit-locality arrangePerEdit=1 /
+  partialSolvesPerEdit=1 (RR-5 live on engine); variable-extents
+  arrangePerGrow=1 all arms; host-move hosted 9.82 vs unhosted 12.86 us/leaf
+  (ADR-0032 answered in the win column); soak core counters byte-identical
+  x12; require(Facet) 4.7MB Studio heap vs 2.8 headless; haptics counter flat
+  across a scroll. NOT captured: .gprx binary dumps (no scripted route; LibMP
+  live aggregation recorded instead) and the Android device row. LESSON: the
+  lab keeps only the LAST export row — save each row through the bridge AT
+  drive time, or you re-drive everything (I re-drove; deterministic seeds).
+- Gate-row case bug found+fixed (158ba46): my perf-requalification grep used
+  lowercase "verified" vs the file's "Verified" — check_gate_pins caught it,
+  and it was ALSO the comments-plain red (that row runs check_gate_pins).
+- DIR4 LANDED (68f813e, 67256d2, 3f6ea5e; suite 6881 = 6865+16, all its own):
+  overscan chrome (root cause: solver answers edgeToEdge with the raw viewport
+  and reads no insets — renderer computed and DISCARDED the ten-foot margin
+  for that surface), LB/RB hints via displayName->Facet.inputHint (no new
+  API), double-fire fixed via sink=true per R19. ITS NULL RESULT: the brief's
+  "R1 loses the contention" premise was WRONG — headless, chrome wins both
+  keys at 3500; the reproducible defect was the double-fire. MAJOR-2
+  mitigation shipped (skip re-present when already above), full fix CONTESTED
+  into the presenter extraction; MAJOR-3 guard now RED at the parent commit
+  (the definition of a guard that works). CONTESTED-2: first modal ties 3500,
+  a modal demo with focused adjust target still double-fires — framework
+  re-banding call, queued for the director report.
+- DIR4 VERIFIED LIVE (fresh showcase session, injected clean-HEAD export
+  e35325e0-6907328): chips (102,72) inside the safe band, glyphs painted and
+  ladder-consistent, all six section-state transitions proven at the ACTION
+  layer (InputAction:Fire press/release pairs — Fire(true) without Fire(false)
+  is a held edge and later fires are ignored; instrument note). Raw injected
+  input did not deliver AT ALL this session (Backquote included; census shows
+  every context/binding correct) — so the old session's "R1 dead" was almost
+  certainly flaky injection delivery, not code; raw-delivery rows moved to
+  the device packet where E4 already places them.
