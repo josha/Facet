@@ -1595,6 +1595,7 @@ class("AdaptiveStack", {
 		axis = p({
 			types = { "string" },
 			reactive = true,
+			required = true,
 			dirty = { "measure" },
 			enum = { "y", "x" },
 			channel = "layout",

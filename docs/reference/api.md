@@ -636,7 +636,7 @@ its own floored control.
 
 ### `AdaptiveStack`
 
-`UI.AdaptiveStack{ id?, axis?, gap?, align?, distribute?, padding?, surface?, children? }` — a
+`UI.AdaptiveStack{ id?, axis, gap?, align?, distribute?, padding?, surface?, children? }` — a
 stack whose **`axis` is a reactive prop**. Bind it and a viewport, orientation, or
 display-class change re-solves the stack in place:
 
