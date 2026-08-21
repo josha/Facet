@@ -102,9 +102,9 @@ and the honest disposition is to leave it and cite the ruling.
 | B-3 `columnsFor` uncapped at ten-foot (ADAPT-23) | WRONG (high) | **FIXED** | `adaptive.spec` "ADAPT-23: the ten-foot cap reaches the column count too" **and** `grid_column_flow.spec` "a ten-foot grid gets FEWER lanes than the same grid at near distance", which also asserts predictor and solver return the SAME number |
 | B-4 `VirtualGrid` requires `columns` | AUTHORED-ONLY | **BY RULING** | A documented refusal WITH a route (`minColumnWidth` is refused by name, pointing at `columnsFor`) |
 | B-6 `ScrollView{axis="x"}` navigates vertically (ADAPT-24) | WRONG (high) | **FIXED** | `navigation_groups.spec` "a horizontal ScrollView is a HORIZONTAL run, and a vertical one is not", plus the container null-hypothesis case |
-| B-7 no scroll snapping anywhere (ADAPT-17) | MISSING (highest) | **DEFERRED — director** | Out of scope by the brief |
-| B-8 `containerRelativeFrame` page sizing | AUTHORED-ONLY | **BY PARITY** | Correct and matching; inert as a carousel until B-7 |
-| B-9 no page-dot indicators | MISSING | **DEFERRED** | Follows B-7 |
+| B-7 no scroll snapping anywhere (ADAPT-17) | MISSING (highest) | **FIXED — wave CAROUSEL** | See the CAROUSEL addendum below |
+| B-8 `containerRelativeFrame` page sizing | AUTHORED-ONLY | **SUPERSEDED — wave CAROUSEL** | Still correct and still authored, but a carousel no longer needs it: `itemExtent = "cards"` sizes the page from the arrangement, and the rail is the surface that carries it |
+| B-9 no page-dot indicators | MISSING | **DEFERRED — director** | No longer blocked by B-7. The peek IS the shipped affordance (the audit's own words for it), and a dot strip is a second one with its own reach story on four inputs; carried to the director rather than assumed |
 | B-12 Tab does not traverse a rail | AUTHORED-ONLY, deliberate | **BY RULING** | Director playtest ruling 2026-08-03 ("the keys it claims are the ones an avatar is already using") |
 
 ### Family J · Tables
@@ -372,3 +372,150 @@ feature). `tests/table_rows_seam.spec.luau` mechanises the property that makes t
 first one safe — READ == DECLARED == PASSED as three set comparisons over the live
 sources, the shared write surface pinned by name, the require asserted not to come
 back — with three mutations confirmed to redden it.
+
+---
+
+# ADDENDUM — wave CAROUSEL (2026-08-20): the cell that failed the director's own example
+
+**Anchor:** framework `e25ad06`, RascalRally `5f955ef`.
+**End state:** Facet **6696**, RascalRally **3431**, both green, both measured in
+private exports (an rsync of the working tree; the RR export in the multi-repo shape,
+`GameStudio/ui/Facet` beside `games/RascalRally/code`). Nothing measured in-tree.
+
+**What B-7 actually was.** Not a missing option — a missing SUBSTRATE. The audit
+parked the shipped rail mid-card (x=77 on a 140px pitch), settled thirty frames and
+read x=77 back; no `snap`, `paging` or `scrollTarget` symbol existed anywhere in
+`src/`, so the compact carousel could not be built by anyone, and B-8's page sizing
+and B-9's dots were both inert behind it. It is the one cell in the whole matrix the
+director's own worked example fails on outright.
+
+## Layer 1 — `snap` on the scroll substrate
+
+`snap = "none" | "item"` on `newVirtualList` and `newVirtualGrid`, live (a string or
+a Readable), refused by value at construction. `src/controls/scroll_snap.luau` holds
+both halves: a pure `resolve(...)` over an extent index, and the small settle machine
+that decides when to ask.
+
+**The engine gives neither a snap nor a release event**, which shaped everything:
+
+* "the gesture released" is not observable — "the offset stopped changing" is, so the
+  detector is a quiet window (0.12 s) re-armed by every mirror sample;
+* "release velocity" is not observable — the peak SPEED across the travel is, from the
+  samples themselves, and it is timed by the quiet ramp itself (a linear 0→1 glide, so
+  the seconds between two samples are `ramp × QUIET_S`) rather than by a second time
+  source. One clock drives detection, timing and travel, which is why a scripted
+  `pres.tick(dt)` replays a flick exactly;
+* **no second scroll driver and no input listener.** The samples arrive on the
+  `CanvasPosition` mirror the collections already keep, and every write goes through
+  `controller.scrollTo` — the framework's one programmatic scroll write.
+
+**One extent source.** The boundaries are `index.offsetOf(i)` from the SAME
+`virtual_extents` index the windowing divides by, so variable-extent rows snap to
+their measured boundaries with no parallel arithmetic to drift.
+
+**The three bounds the brief asked for, and what each cost.**
+
+* *A flick advances.* Round-to-nearest alone makes a short, fast flick undo itself;
+  above 240 px/s a travel may not land short of the next boundary in its direction. A
+  slow drag keeps round-to-nearest, which is what lets a player change their mind.
+* *An item taller than the viewport disables snap for that settle* — both the item the
+  offset is inside and the one it would land on are asked. Content access beats
+  alignment, the localization rule applied to the scroll axis.
+* *The end is a resting place.* `maxScroll` is a member of the candidate set, not a
+  clamp artefact: any rail whose viewport is not a whole number of pitches — every
+  one-up rail with a peek — has a last page no boundary can express, and without the
+  terminal a settle 5px short is dragged 95px back forever. A flick was given an
+  exemption from that rule and then had it taken back: to be pulled back to the end a
+  flick would have to leave it at speed and travel less than half a card, which is not
+  a gesture a hand can make, and **a rule for a case nobody can reach is a rule
+  nothing can check** — it was measured as a vacuous mutation before it was deleted.
+
+**Reduced motion and idle cost are the motion authority's, not a second policy.** The
+travel is a `clock:spring` of the default `decorative` kind, so reduced motion places
+the offset at the terminus and announces the same arrival on the same frame; both
+motion values are settled at rest and a settled value has left the clock, so a
+snapping list nobody is touching runs zero per-frame work (asserted against
+`clock:activeCount()` and the clock's own write counter).
+
+**Keep-visible, `scrollTo` and focus traversal land ON a boundary**, by rounding the
+solver's minimal answer outward in the direction the scroll is already going — the
+plain answer still decides whether to move at all and which way.
+
+**Every framework-issued write announces a REST first** (keep-visible, the programmatic
+scroll, and the variable-extent anchor correction). Read as a travel, an anchor
+correction looks like a flick of exactly its own size and advances a card nobody
+swiped.
+
+## Layer 2 — the compact card paradigm
+
+`itemExtent = "cards"` is a fifth extent form beside `"measured"`, and it is the only
+one that answers "how big is one item" with an ARRANGEMENT. `cards` is its options
+table (`perView` / `minWidth` / `peek`) and is refused without it, the same relation
+`estimatedItemExtent` has with `"measured"`.
+
+* **compact + touch-primary → one card per view, a peek of the next, `snap = "item"`.**
+  The peek is the affordance that there is more (the audit's own words in B-9); the
+  snap default follows the ARRANGEMENT, not a second decision — a rail that resolved
+  one card is a pager and pages snap.
+* **regular and wide → a multi-up rail, snap unset** unless authored.
+* **Authored always wins**, both keys, in both directions.
+* The rung is asked of the RAIL'S OWN EXTENT, not the screen's `sizeClass` (a rail in
+  a sidebar on a 1600px desktop has 300px), and of `touchPrimary` rather than
+  `classes.touch` (ADAPT-9's ruling, through the one function that owns it).
+* The thresholds are `adaptive.CARD_MIN_WIDTH` / `adaptive.CARD_PEEK` with
+  `adaptive.cardsPerView` / `adaptive.cardPeek` beside `columnsFor`: pure, exported,
+  predictable, and reachable by the next card surface without copying a number out of
+  a control. They are arrangement facts, not theme metrics — a package decides how a
+  card is painted, never how many of them a phone shows.
+* **ADAPT-1 discipline, including the refusal.** A rail that leaves `perView` to the
+  facts refuses to construct without an environment, in `tab_view`'s shape;
+  `newVirtualList` is the sixth control the api.md refusal guard now finds, and its
+  section names both the refusal and the environment. A rail that pins `perView` asks
+  nothing.
+
+**The fixture proves it with no branch.** `examples/gallery/scenarios/card_rail.luau`
+lost its `ITEM_EXTENT = 132` constant and declares `itemExtent = "cards"`; a spec
+reads the source back and fails on `sizeClass`, `interactionClasses` or `ITEM_EXTENT`
+appearing in it. At 390 touch it is one card and snapping; at 1232 it is five and not.
+The gallery's own pins moved from the constant to `rail.dump().itemExtent` — the rule
+that file already kept for its rail width, applied to the card width.
+
+## The paradigm-matrix conformance
+
+`tests/paradigm_cards.spec.luau` derives the set of scrolling collections that can
+hold a card set from the SOURCE — every control whose closed key set accepts `snap` —
+and fails when one of them has no declared compact answer. A deliberate refusal is an
+answer (VirtualGrid's `columns` is required, with a route, and the row asserts that is
+still true); what is refused is SILENCE, because silence is exactly how the
+large-screen arrangement ships everywhere.
+
+## Extraction, since the file was the constraint
+
+`virtual_list.luau` was 181,028 — 18,972 from the 200,000-char write cap — and this
+feature is 9,320 of it. Two seams left in the same wave: `controls/card_rail.luau`
+(the arrangement, one-way today — it reads nothing of the list and every input arrives
+through a parameter object) and the `snap` vocabulary/refusal/read, which went into
+`scroll_snap.modeReader` and is SHARED with the grid so two collections cannot drift
+into two refusal messages. The file is 190,348 with a new ledger row naming the hosted
+row-actions block (43,615 chars, 23%) as the next seam and its own 193,000 trigger;
+without the extractions it would have been 199,844, i.e. 156 characters from the cap.
+
+## The re-verdicts
+
+| cell | was | now |
+|---|---|---|
+| **B-7** paging / snapping (ADAPT-17) | MISSING (highest) | **FIXED** — `snap` on both collections, the paradigm on the rail, the fixture switching with no branch |
+| **B-8** page sizing | AUTHORED-ONLY, inert | **SUPERSEDED** — `containerRelativeFrame` still works and is still authored; a carousel no longer needs it |
+| **B-9** page-dot indicators | MISSING, blocked by B-7 | **DEFERRED — director**, unblocked. The peek is the shipped affordance; a dot strip is a second one with its own four-input reach story |
+
+## Carried to the director
+
+1. **B-9's dots.** Unblocked and deliberately not taken: the peek is an affordance the
+   framework can prove; a dot strip is a control, and a control needs a reach story on
+   pointer, touch, keyboard and pad before it ships. One director call decides whether
+   a peeking carousel wants dots at all.
+2. **`snap` on a plain `UI.ScrollView` is CONTESTED**, not built — see the report's
+   contested section. The route that exists today (`Controls.VirtualList{ axis = "x" }`)
+   is the shape B-5 already calls right and ADAPT-24 made pad-navigable.
+3. **0.12 s and 240 px/s are numbers a thumb can disagree with.** Headlessly they are
+   only self-consistent. Three Studio rows are booked (§7 row 12).

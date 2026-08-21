@@ -2207,7 +2207,15 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 	local module = require("../examples/gallery/scenarios/card_rail") :: any
 	local RAIL = "/CardRail/Page/RailPane/Rail"
 	local CANVAS = RAIL .. "/Canvas"
-	local ITEM_EXTENT, CARD_GAP, CARDS = 132, 8, 400
+	local CARD_GAP, CARDS = 8, 400
+	--[[ THE CARD WIDTH IS THE PARADIGM'S ANSWER, NOT THIS FILE'S (ADAPT-17). It was
+		a pinned 132 until the rail started deriving it from how many cards belong in
+		view — so every number below is read off the control that resolved it, which
+		is the same rule this fixture's own `report()` already keeps for the rail
+		width. A pin here would test the constant, not the rail. ]]
+	local function cardExtent(built: any): number
+		return built.rail.dump().itemExtent
+	end
 
 	local function railWorld(view: any)
 		local w = fixtureWorld(view)
@@ -2235,7 +2243,7 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 		expect(canvas ~= nil).toBe(true)
 		-- N items span N*extent + (N-1)*gap along the SCROLL axis, and that axis is
 		-- x here: a vertical virtualizer would have put this number on the height
-		expect(canvas.rect.w).toBe(CARDS * ITEM_EXTENT + (CARDS - 1) * CARD_GAP)
+		expect(canvas.rect.w).toBe(CARDS * cardExtent(built) + (CARDS - 1) * CARD_GAP)
 		expect(canvas.rect.h <= w.adapter.node(RAIL).rect.h).toBe(true)
 		-- ...and only a window of it exists
 		local mounted = built.steps.mountedCount()
@@ -2342,7 +2350,7 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 		-- field and is public API
 		expect(built.rail.scrollTop:get()).toBe(1400)
 		expect(built.rail.debugWindow().c1).toBe(nil)
-		local index = math.floor(1400 / (ITEM_EXTENT + CARD_GAP)) + 1
+		local index = math.floor(1400 / (cardExtent(built) + CARD_GAP)) + 1
 		expect(built.rail.debugWindow()[`c{index}`]).toBe(true)
 		-- a Y scroll is not this list's axis and must not move its window
 		w.adapter.driveScroll(RAIL, { x = 1400, y = 900 })
@@ -2359,9 +2367,9 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 		w.presenter.refresh()
 		local left = built.rail.scrollTop:get()
 		expect(left > 0).toBe(true)
-		local last = (CARDS - 1) * (ITEM_EXTENT + CARD_GAP)
+		local last = (CARDS - 1) * (cardExtent(built) + CARD_GAP)
 		expect(last >= left).toBe(true)
-		expect(last + ITEM_EXTENT <= left + built.report().viewportExtent + 1).toBe(true)
+		expect(last + cardExtent(built) <= left + built.report().viewportExtent + 1).toBe(true)
 		expect(built.rail.debugWindow()[`c{CARDS}`]).toBe(true)
 		built.dispose()
 	end)

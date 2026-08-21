@@ -999,6 +999,16 @@ local UNSWEEPABLE: { [string]: string } = {
 	VirtualWindow = "the WINDOWING arithmetic of VirtualList: a running-offset index and the memos over it — no "
 		.. "blueprint, nothing to mount or measure. The rows it windows are swept through the VirtualList "
 		.. "fixture, at every preference, and the measured-extent form is what that sweep re-measures",
+	CardRail = "the card arrangement (ADAPT-17, 2026-08-18): it answers how many cards belong in view and how "
+		.. "wide one is — numbers, not boxes. It builds no blueprint and paints no text, so there is nothing for a "
+		.. "text-preference sweep to overlap, clip or push under a hit floor. The cards it sizes ARE swept, through "
+		.. "the VirtualList fixture at every preference, and the plate inside one is an ordinary text box there",
+	ScrollSnap = "the settle arithmetic (ADAPT-17, 2026-08-18): it answers where a scroll offset should come to "
+		.. "rest and animates it there — a number, not a box. It builds no blueprint and paints nothing, so there "
+		.. "is nothing for a text-preference sweep to overlap, clip or push under a hit floor. What the preference "
+		.. "DOES move is the extents it snaps to, and those come from the host's own index: the rows are swept "
+		.. "through the VirtualList and VirtualGrid fixtures at every preference, and the variable-extent case is "
+		.. "exactly what that sweep re-measures",
 	NativeScrollBinding = "the engine scroll mirror's arbitration (O-31, 2026-08-15): it decides WHEN a mirror "
 		.. "is installed and hands every caller one stop function — no blueprint, no text, nothing to mount or "
 		.. "measure. The collections whose scroll it arbitrates are swept through the VirtualList, VirtualGrid "

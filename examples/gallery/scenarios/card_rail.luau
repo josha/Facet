@@ -21,7 +21,13 @@
 	    deprecated `rowHeight`/`viewportHeight` aliases would be lying names on
 	    this list, so this fixture uses the canonical pair exclusively — a
 	    vertical caller passing the old names is the case
-	    `scenarios/virtual_list_native.luau` still covers, deliberately.
+	    `scenarios/virtual_list_native.luau` still covers, deliberately;
+	  · and the CARD PARADIGM (ADAPT-17): `itemExtent = "cards"` makes this the
+	    surface where "a swipeable one-up carousel on a phone, a multi-up rail on
+	    a desktop" is a DECLARATION rather than a screen-level branch. Pick this
+	    demo on a phone and one card fills the rail with the next one peeking;
+	    pick it on a desktop and five sit side by side. Nothing in this file
+	    knows which of those is happening.
 
 	NO ROW ACTIONS HERE, AND THAT IS NOT AN OVERSIGHT. `rowActions` is REFUSED at
 	construction on a horizontal list: a tray is opened by a sideways swipe, and
@@ -58,11 +64,14 @@
 ]]
 
 local CARD_COUNT = 400
--- A card's WIDTH (the main axis here). Wide enough for a two-line plate at the
--- shipped text sizes, narrow enough that the narrowest supported viewport
--- (320px, less its chrome) still shows two whole cards and part of a third —
--- a rail that shows exactly one card teaches nothing about windowing.
-local ITEM_EXTENT = 132
+--[[ A CARD'S WIDTH IS NOT A CONSTANT ANY MORE (ADAPT-17, 2026-08-18). It used to
+	be 132px — "wide enough for a two-line plate, narrow enough that a 320px phone
+	still shows two whole cards and part of a third" — which is a sentence about
+	one viewport, written by hand, and therefore wrong on every other one. The rail
+	declares `itemExtent = "cards"` instead and the FRAMEWORK sizes the plate from
+	how many should be in view here: one card and a peek of the next on a compact
+	touch phone, a multi-up rail on anything larger. There is no size branch in
+	this file, and that is the point of the declaration. ]]
 local CARD_GAP = 8
 -- THE PLATE'S OWN TERMS, named once because `cardHeight` below sums exactly
 -- these and the blueprint spends exactly these — the row-height lesson's rule
@@ -144,12 +153,18 @@ return {
 			key = function(item: any)
 				return item.id
 			end,
-			-- the axis-neutral names: on this list they mean WIDTH, and the
-			-- deprecated `rowHeight`/`viewportHeight` spellings would be lies
-			itemExtent = ITEM_EXTENT,
+			--[[ THE CARD PARADIGM (ADAPT-17). `"cards"` is the axis-neutral extent
+				form that answers "how big is one item" with an ARRANGEMENT instead of a
+				number: the rail asks the space it actually got and the live interaction
+				class, resolves one card per view (plus a peek) on a compact touch
+				surface and a multi-up rail everywhere else, and turns `snap` on for
+				the one-up case because a one-card view is a page. Nothing here
+				declares a width, a breakpoint or a device. ]]
+			itemExtent = "cards",
 			viewportExtent = viewportExtent,
 			-- a gap is a gap on either axis: here it is the horizontal gutter
-			-- between card slots, and the card itself stays ITEM_EXTENT wide
+			-- between card slots, and the paradigm above spends it when it decides
+			-- how wide one card is
 			rowGap = CARD_GAP,
 			overscan = 2,
 			selection = "single",
@@ -164,7 +179,7 @@ return {
 					children = {
 						-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
 						-- COPY note above, which is why neither of these strings is in
-						-- that table). A card is ITEM_EXTENT wide on every viewport, so
+						-- that table). Every card in a rail is the same width, so
 						-- a long name has nowhere to grow sideways and its only other
 						-- option is to reflow — and a plate that grows a line taller
 						-- than its neighbours is not a rail. Ellipsis is the contract
@@ -307,7 +322,13 @@ return {
 			-- re-deriving the arithmetic it already publishes
 			rail = rail,
 			cardCount = CARD_COUNT,
-			itemExtent = ITEM_EXTENT,
+			-- THE CONTROL'S OWN NUMBER, for the same reason `report()` reads
+			-- `viewportExtent` off the list rather than off this file's memo: the
+			-- card width is resolved by the paradigm now, so a constant here would
+			-- answer for a size nothing is using.
+			itemExtent = function()
+				return rail.dump().itemExtent
+			end,
 
 			steps = {
 				-- keep-visible on the X axis: computes the canvas target and issues

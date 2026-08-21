@@ -748,6 +748,65 @@ quietly window against heights that are no longer true. When the extents do move
 the list keeps the post that was under the top edge under the top edge, so
 changing text size does not lose the player's place.
 
+### Cards and rails: one card per swipe on a phone, a row of them on a desktop
+
+A set of cards is the most-reached-for thing in a game menu — liveries, tracks,
+loadouts — and it is the one arrangement whose *right answer changes with the
+screen*. On a phone you want one card filling the view, with a sliver of the next
+one showing so the player knows to swipe. On a tablet or a desktop you want four
+of them side by side, because there is room and because scrolling past one card
+at a time would be tedious. Written by hand that is a size branch in every screen
+that shows cards, and the branch is where it goes stale.
+
+Declare the *arrangement* instead of the width:
+
+```luau
+local rail = Facet.Controls.VirtualList(core, {
+    id = "Liveries",
+    axis = "x",                 -- a rail runs sideways
+    rows = liveries,
+    key = function(item) return item.id end,
+    itemExtent = "cards",       -- how many belong in view, not how wide one is
+    viewportExtent = railWidth, -- the space this rail actually got
+    rowGap = 8,
+    cell = function(item) return LiveryCard(item) end,
+})
+```
+
+That is the whole difference. On a compact, touch-driven surface the rail
+resolves **one card per view with a peek of the next**, and turns snapping on,
+because a one-card view is a page. On anything larger it resolves a **multi-up
+rail** with snapping off. Nothing above mentions a width, a breakpoint or a
+device, and the same control changes its mind in place when the space does — a
+rotation re-arranges it with no remount and no lost scroll position.
+
+If you want to pin part of it, `cards` is the options table: `perView` fixes the
+count, `minWidth` moves the width at which a lane is dropped, `peek` overrides
+the sliver (`0` removes it). Anything you write there wins.
+
+**Snapping is its own key, and it works without cards.** `snap = "item"` on any
+scrolling collection — a list, a rail, a grid on its scroll axis — means the
+offset settles onto an item boundary when the gesture stops, instead of resting
+wherever the momentum ran out:
+
+```luau
+snap = "item",  -- "none" is the default
+```
+
+A quick flick always advances at least one item in the direction it went, so a
+short swipe cannot undo itself; a slow drag that did not clear an item's midpoint
+falls back where it came from, so a half-swipe is a way to change your mind. The
+end of the list is a resting place of its own, so the last card can sit flush
+against the edge. Keyboard and gamepad traversal land on boundaries too, and so
+does a programmatic `scrollTo`. If a player has turned reduced motion on, the
+offset is *placed* rather than travelled — same landing place, no flight.
+
+Two things snapping deliberately does **not** do. It never snaps while an item is
+taller than the viewport: you cannot align something the player is still reading
+past, so alignment gives way to content, the same way a long label reflows before
+it truncates. And it costs nothing when nothing is happening — a snapping list
+sitting still runs no per-frame work at all.
+
 ### Hiding something without moving everything else: `hidden`
 
 There are two different meanings of "make this go away", and mixing them up is

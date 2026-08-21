@@ -263,6 +263,78 @@ function adaptive.columnsFor(available: number, minColumnWidth: number, gap: num
 	return math.max(1, math.floor((avail + g) / (minW + g)))
 end
 
+--[[ ── THE CARD RAIL'S ARRANGEMENT (ADAPT-17, director ruling 2026-08-18) ──────
+	"How many cards belong in view here" is the same KIND of question as "how many
+	columns" and "which way does this bar stack", so it lives beside them: pure,
+	over numbers, exported so a caller can predict it, and with the thresholds
+	named ONCE rather than in whichever control asked.
+
+	THESE ARE ARRANGEMENT FACTS, NOT THEME METRICS, which is why they are constants
+	here and not entries in the theme snapshot — the same standing this module's
+	`BREAKPOINTS` have. A theme decides how a card is PAINTED; how many of them a
+	surface shows is a decision about the space and the way the player is driving
+	it, and a package that could change it could turn a phone carousel into a
+	three-up grid nobody could read. A rail that wants a different answer says so
+	with `cards.perView` / `cards.minWidth`, which is an authoring decision, in the
+	place authoring decisions are made.
+
+	CARD_MIN_WIDTH is the narrowest a card may be squeezed to before the rail drops
+	a lane: a two-line plate at the shipped body size, its padding, and enough width
+	left that a name is not an ellipsis on arrival.
+
+	CARD_PEEK is the sliver of the NEXT card a one-up rail shows, and it is the
+	whole affordance that there IS more — the audit's own words for the carousel
+	shape ("a peeking carousel whose affordance IS the half-visible next tile",
+	cell B-9). Proportional so it scales with the rail, floored so a thumb reads it
+	as a card edge rather than a border, capped before it starts to look like a
+	second column that got cut off. ]]
+adaptive.CARD_MIN_WIDTH = 200
+adaptive.CARD_PEEK = table.freeze({ fraction = 0.1, min = 24, max = 56 })
+
+export type CardOpts = {
+	-- is TOUCH the primary way in (never merely "touch is available" — ADAPT-9)
+	touchPrimary: boolean?,
+	-- the gutter between card slots, which the lane arithmetic has to spend
+	gap: number?,
+	-- the floor a lane is dropped at; defaults to CARD_MIN_WIDTH
+	minWidth: number?,
+	distanceProfile: string?,
+}
+
+--[[ cardsPerView(available, opts?) -> integer >= 1
+
+	THE ONE RUNG THAT IS NOT ARITHMETIC: a compact, touch-driven surface gets ONE
+	card, even when two would fit. That is the director's example stated exactly —
+	"a swipeable single-view carousel on a phone" — and it is the only place the
+	answer is not simply "as many as fit". Everything else asks `columnsFor`, the
+	same function `UI.Grid` uses, so a rail and a grid at the same width with the
+	same floor never disagree. ]]
+function adaptive.cardsPerView(available: number, opts: CardOpts?): number
+	local o: CardOpts = opts or {}
+	local width = safeWidth(available)
+	local classOpts: ClassOpts = { distanceProfile = o.distanceProfile }
+	if o.touchPrimary == true and adaptive.sizeClass(width, classOpts) == "compact" then
+		return 1
+	end
+	local minWidth = if type(o.minWidth) == "number" and (o.minWidth :: number) > 0
+		then o.minWidth :: number
+		else adaptive.CARD_MIN_WIDTH
+	return math.max(1, adaptive.columnsFor(width, minWidth, o.gap, classOpts))
+end
+
+--[[ cardPeek(available, perView) -> px
+
+	ZERO ABOVE ONE CARD, always: a multi-up rail already shows the next card, and
+	spending a peek there would just make every card narrower for no affordance
+	that was missing. ]]
+function adaptive.cardPeek(available: number, perView: number): number
+	if type(perView) ~= "number" or perView > 1 then
+		return 0
+	end
+	local peek = adaptive.CARD_PEEK
+	return math.clamp(math.floor(safeWidth(available) * peek.fraction), peek.min, peek.max)
+end
+
 export type Conditions = {
 	sizeClass: any, -- Readable<"compact" | "regular" | "wide">
 	isCompact: any, -- Readable<boolean>

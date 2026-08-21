@@ -212,6 +212,7 @@
 ]]
 
 local contribution = require("../input/contribution")
+local scrollSnap = require("./scroll_snap")
 local nativeScrollBinding = require("./native_scroll_binding")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
@@ -233,6 +234,8 @@ local VIRTUAL_GRID_KEYS = specGuard.keySet({
 	"onActivate",
 	"overscan",
 	"rowGap",
+	-- where this grid may come to REST on its scroll axis: "none" (default) | "item"
+	"snap",
 	"viewportExtent",
 	"width",
 })
@@ -534,6 +537,41 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return math.max(0, layoutNow().content - viewportNow())
 	end
 
+	--[[ ── SNAPPING ON THE SCROLL AXIS (ADAPT-17) ────────────────────────────────
+		The machine, its design and its measurements are `controls/scroll_snap.luau`;
+		this is the same four wires `newVirtualList` has, over a LINE index instead
+		of a row index. A grid's boundaries are its LINES — the lane axis is
+		perpendicular to the scroll and has nothing to rest on — so `snap = "item"`
+		here means "settle on a line", which for a one-lane grid is the same
+		sentence a list makes.
+
+		Live, and refused by value, exactly as the list's is. ]]
+	-- the vocabulary, the refusal and the read are the shared ones
+	local snapModeIn = scrollSnap.modeReader("VirtualGrid", spec.snap)
+	local function snapModeNow(): string
+		return snapModeIn(nil)
+	end
+	local snapEngine = scrollSnap.new({
+		core = core,
+		scope = scope,
+		index = layoutNow,
+		viewport = viewportNow,
+		mode = snapModeNow,
+		write = function(offset: number)
+			local host = boundScrollPath or mountedScrollPath
+			if boundController ~= nil and host ~= nil then
+				boundController.scrollTo(host, vec(math.clamp(offset, 0, maxTop())))
+			end
+		end,
+	})
+	scope:own(snapEngine.dispose)
+	-- the framework moved the scroll: announce it, then write it (see the list's
+	-- `writeScroll` for why the announcement is not optional)
+	local function writeScroll(controller: any, host: string, offset: number)
+		snapEngine.rest(offset)
+		controller.scrollTo(host, vec(offset))
+	end
+
 	--[[ ── THE WINDOW: LINES FROM THE INDEX, CELLS BY DIVISION ─────────────────
 		TWO memos over ONE computation, and the split is load-bearing rather than
 		tidy. `windowItems` is handed to a `UI.ForEach`, which iterates the table it
@@ -593,13 +631,18 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	-- gutter would scroll a line that is already fully readable.
 	local function keepVisibleTarget(line: number): number?
 		local ix = layoutNow()
-		return solverLib.keepVisibleOffset(
+		local plain = solverLib.keepVisibleOffset(
 			ix.offsetOf(line),
 			ix.extentOf(line),
 			clampedTop:get(),
 			viewportNow(),
 			ix.content
 		)
+		-- ...and ON a boundary when this grid snaps, for the list's reason
+		if snapModeNow() ~= "item" then
+			return plain
+		end
+		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:get(), line, plain)
 	end
 
 	local function lineOf(index: number): number
@@ -622,9 +665,23 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	local function scrollTo(controller: any, offset: number)
 		local ctrl = controller or boundController
 		local path = boundScrollPath or mountedScrollPath
-		if ctrl ~= nil and path ~= nil then
-			ctrl.scrollTo(path, vec(math.clamp(offset, 0, maxTop())))
+		if ctrl == nil or path == nil then
+			return
 		end
+		local wanted = math.clamp(offset, 0, maxTop())
+		if snapModeNow() == "item" then
+			local landed = scrollSnap.resolve({
+				index = layoutNow(),
+				viewport = viewportNow(),
+				offset = wanted,
+				origin = wanted,
+				peak = 0,
+			})
+			if landed ~= nil then
+				wanted = landed
+			end
+		end
+		writeScroll(ctrl, path, wanted)
 	end
 
 	--[[ REACH AN ITEM THAT HAS NO PATH AT ALL. Its cell is not mounted, so there is
@@ -697,7 +754,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		if math.abs(target - scrollTop:get()) < 0.5 then
 			return
 		end
-		boundController.scrollTo(host, vec(target))
+		-- ...and it is a REST, not a gesture: read as a travel, an anchor correction
+		-- would look like a flick of exactly its own size (ADAPT-17)
+		writeScroll(boundController, host, target)
 	end))
 
 	-- ── the blueprint ───────────────────────────────────────────────────────
@@ -985,7 +1044,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		still never moved. ]]
 	local mirror = nativeScrollBinding.new(function(controller: any, path: string): () -> ()
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
-			scrollTop:set(mainOf(pos))
+			local offset = mainOf(pos)
+			scrollTop:set(offset)
+			snapEngine.sample(offset)
 		end)
 		boundController = controller
 		boundScrollPath = path
@@ -1003,6 +1064,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		handleActivate = handleActivate,
 		bindController = function(controller: any)
 			mirror.noticeController(controller)
+		end,
+		-- the snap machine's frame source, and the only thing this control wants a
+		-- motion clock for (settle detection is a question about frames)
+		bindMotion = function(clock: any)
+			snapEngine.bindMotion(clock)
 		end,
 		-- the grid's root IS its ScrollView, so the mounted node's own path is the
 		-- path to observe. Re-asserted only when the MOUNT changes, never per frame.

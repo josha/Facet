@@ -3806,6 +3806,10 @@ headlessly testable):
 | `adaptive.heightClass(height, opts?)` | `"short"` (< 600) / `"medium"` (< 1000) / `"tall"`. `opts.distanceProfile = "ten-foot"` caps at `"medium"`, for the same reason the width cap exists: `tall` is the densest vertical arrangement. Degrades to `"short"` on nil/NaN |
 | `adaptive.orientationFor(width, height)` | `"landscape"` / `"portrait"` / `"square"` — a **shape** fact, not a device fact: a windowed pane on a desktop is portrait and must be treated as one |
 | `adaptive.navPlacement(facts)` | `"bottomBar"` / `"bottomBarCompact"` / `"topBar"` / `"sidebar"` — THE app-level tab/sidebar placement policy (director rulings 2026-08-09, aligned to the platform tab-bar guidance): compact width → a full-width bottom tab bar in the thumb zone; short height → the same bar in its reduced INLINE form (CENTERED and hugging its tabs rather than dividing the width — a landscape phone. The band's HEIGHT is the same 46px and the labels are the same words: a terser thumb-zone name is the author's, through `Option.label` as a Readable — the reference shells carry a second localized string for exactly this — or the shrink ladder's own `compactLabel` when the words stop fitting. ADAPT-30: this line used to promise "short labels, tighter band", which never shipped); ten-foot → a center-aligned top tab bar that HUGS its content, never full width; pointer-primary → a sidebar (desktop shape); touch-primary with a roomy SHORT SIDE (both classes above their 600px breakpoint) → the same centered top bar (tablet shape, either orientation — ADAPT-2); touch-primary with a short side under it → bottom tabs (a phone, whichever way it is held); gamepad-primary with a `Medium`/`Large` DisplaySize → the top bar, with a `Small` or unknown display → bottom tabs (the near-distance handheld — when we cannot differentiate, bottom tabs). `facts = { sizeClass, heightClass, distanceProfile?, primary?, displaySize? }` — shape, input and display facts only, never a device idiom (touch ALONE is not the top-bar indicator: a touch phone and a touch tablet share the class, and the SHORT SIDE is what separates them — the engine's DisplaySize cannot, because it calls every tablet `Small`). Every placement must remain gamepad-traversable — enter, through, away, and ButtonA activation — which the reference proofs pin per home. Pure, so the `conditions` memo and tests share one implementation |
+| `adaptive.cardsPerView(available, opts?)` | how many whole cards belong in view across `available` px. One rung is not arithmetic: `opts.touchPrimary` on a `compact` width answers **1** — the swipeable one-up carousel — even where two would fit; everything else is `columnsFor(available, opts.minWidth or CARD_MIN_WIDTH, opts.gap)`, so a rail and a `UI.Grid` at the same width with the same floor never disagree. `opts = { touchPrimary?, gap?, minWidth?, distanceProfile? }`. `Controls.VirtualList{ itemExtent = "cards" }` is the consumer, and `cards.perView` overrides it outright |
+| `adaptive.cardPeek(available, perView)` | the sliver of the NEXT card a one-up rail shows — the affordance that there *is* more. `0` for any `perView > 1` (a multi-up rail is already showing the next card), otherwise a tenth of `available` clamped into `CARD_PEEK` |
+| `adaptive.CARD_MIN_WIDTH` | `200` — the narrowest a card may be squeezed to before a rail drops a lane, as data |
+| `adaptive.CARD_PEEK` | `{ fraction = 0.1, min = 24, max = 56 }` as data. Proportional so the peek scales with the rail, floored so a thumb reads it as a card edge rather than a border, capped before it looks like a second column that got cut off. These are **arrangement** facts and deliberately not theme metrics: a package decides how a card is painted, never how many of them a phone shows |
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
@@ -4669,8 +4673,10 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, (item, index, use) -> px, or "measured"),
-estimatedItemExtent? (px or Readable<number> — required with "measured", refused otherwise), rowGap? (px or
+string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, (item, index, use) -> px, "measured", or
+"cards"), estimatedItemExtent? (px or Readable<number> — required with "measured", refused otherwise),
+cards? ({ perView?, minWidth?, peek? } — the card paradigm's options, refused without itemExtent = "cards"),
+snap? ("none" default | "item", or a Readable of one), rowGap? (px or
 Readable<number>), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
 onActivate? ((item, meta) -> ()) }` — plus the collection fields tabled below.
@@ -4696,6 +4702,44 @@ axis-restricted, and each says so at construction: **`width` is an `axis = "y"`
 field** (there it is the CROSS axis; on `axis = "x"` the width *is*
 `viewportExtent`), and **`rowActions` is vertical-only**, because a tray's reveal
 and a horizontal list's own scroll would be the same sideways swipe.
+
+**`snap` says where the list may come to REST.** `"none"` (the default, and what
+every list did before 0.11.0) lands wherever the engine's momentum left it;
+`"item"` settles the offset onto an item boundary after the gesture stops. Roblox
+has no native snapping and reports no gesture release, so the framework watches the
+`CanvasPosition` mirror it already keeps: an offset that has held still for one
+quiet window is a release, and the peak speed across the travel is what separates a
+flick — which always advances at least one item in the direction it went — from a
+nudge, which rounds back to the nearest boundary. The boundaries are the ones the
+window itself divides by, so a variable-extent list snaps to its *measured* rows.
+Three rules bound it: the end of the list is a resting place of its own (the last
+page shows the tail flush and never oscillates), an item taller than the viewport
+disables snapping for that settle (content access beats alignment), and
+keep-visible, `scrollTo` and focus traversal all land on a boundary rather than
+near one. Under reduced motion the offset is *placed* rather than travelled, with
+zero flight. A snapping list that nobody is touching does no per-frame work at all.
+
+**`itemExtent = "cards"` is the compact card paradigm**, and it is the one form
+that answers "how big is one item" with an *arrangement* instead of a number. The
+rail asks the space it actually got and the live interaction class: a compact,
+touch-driven surface resolves **one card per view with a peek of the next** — the
+affordance that there is more — and turns `snap` on, because a one-card view is a
+page; anything larger resolves a **multi-up rail** with snapping off. Nothing you
+write mentions a width, a breakpoint or a device, and the same control changes
+paradigm in place when the space does.
+
+`cards` is that paradigm's options table and is **refused without it** (a field
+that drives nothing is not accepted and ignored): `perView` pins the count,
+`minWidth` moves the floor at which a lane is dropped, `peek` overrides the peek
+(`0` removes it). An authored `perView` — or an authored `snap` — always wins.
+
+A rail that leaves `perView` to the facts is adapting, so it needs an environment,
+and it **refuses to construct** without one rather than silently taking the
+large-screen arrangement (the same rule and the same message `newTabView` and
+`newPicker` use). A surface stood up with `Facet.client.host.new` publishes its
+environment for free; a headless caller builds one with
+`Facet.newEnvironment(core)` or passes `env`; and a rail that must *not* adapt says
+so by declaring `cards.perView`, which asks the environment nothing.
 
 **`rowHeight` and `viewportHeight` are DEPRECATED aliases** of `itemExtent` and
 `viewportExtent` (since 0.9.0, removed no earlier than 0.10.0 — see
@@ -5037,6 +5081,7 @@ local grid = Facet.Controls.VirtualGrid(core, {
     viewportExtent = 480,
     gap = 8,                              -- between cells ACROSS a line
     rowGap = 8,                           -- between LINES
+    snap = "item",                        -- optional: settle on a LINE boundary
     cell = function(item, ctx)            -- ctx = { scope, index, line, lane }
         return Facet.UI.Text({ id = "Name", text = item.name })
     end,
@@ -5063,6 +5108,14 @@ transform rather than windowing. And the mounted band **is a real `UI.Grid`**,
 so the column width is `floor((innerW − gap × (columns − 1)) / columns)` because
 that is the flow grid's own formula executing — not a copy of it. A short last
 line keeps its column width and stays left-aligned for the same reason.
+
+**`snap` is the same option `newVirtualList` documents**, in line units: `"none"`
+(default) or `"item"`, which here means *settle on a line boundary* — the lane axis
+is perpendicular to the scroll and has nothing to rest on. The machinery, the flick
+rule, the end-of-list rule and the reduced-motion placement are all shared; see
+`newVirtualList`'s `snap`. A grid's lane count stays `columns`, declared: the
+adaptive card paradigm (`itemExtent = "cards"`) lives on the horizontal list,
+because a card rail is a list.
 
 **`axis` is `"y"` (default) or `"x"`, and it is construction-only** — the same
 rule `ScrollView.axis` follows, because a reactive scroll axis would rebuild the

@@ -336,6 +336,65 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ THE CARD PARADIGM'S ARRANGEMENT, for `newVirtualList`'s
+			`itemExtent = "cards"` (ADAPT-17, audit cells B-1/B-7/B-8). NOT a control:
+			it builds no blueprint and mounts nothing. It answers one question — how
+			many cards belong in view here, and therefore how wide one card is —
+			validates the `cards` options table, and raises the ADAPT-1 refusal on the
+			host's behalf when a rail that adapts has no environment to adapt from.
+			The thresholds it decides with are `layout/adaptive.luau`'s, exported and
+			pure, so the next card surface reaches them without copying a number out
+			of a control.
+
+			Its four-input story is its host's: the arrangement it picks is the one
+			`newVirtualList` then paints, scrolls, snaps and traverses, and every case
+			proving that is cited on that row. ]]
+		name = "CardRail",
+		kind = "composite",
+		module = "src/controls/card_rail.luau",
+		export = "Controls.VirtualList",
+		spec = "tests/paradigm_cards.spec.luau",
+		conformance = "tests/paradigm_cards.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NOTHING DURABLE TO REPORT: the arrangement is a pure function of the live
+		-- viewport, gap and interaction class, and the host publishes the resolved
+		-- answer on its own dump() as `cardsPerView` and `itemExtent` — which is
+		-- where a "why is this rail two-up" bug report already looks.
+		dump = false,
+		reason = "a pure arrangement decision with no state of its own: the resolved answer (cardsPerView, itemExtent) is published by the host control's dump(), which is where a bug report about it already looks",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		--[[ THE SNAP MACHINE, shared by `newVirtualList` and `newVirtualGrid`
+			(ADAPT-17, audit cell B-7). NOT a control: it mounts nothing, holds no
+			blueprint and owns no scroll driver. It answers one arithmetic question —
+			given where a scroll came to rest, where the travel started and how fast it
+			went, which offset should it hold — and runs the small state machine that
+			decides WHEN to ask, on the presenter's motion clock. The host writes; this
+			only says where.
+
+			Its four-input story is its two hosts': every touch flick, wheel settle,
+			keyboard keep-visible and pad traversal it acts on arrives through their
+			own mirrors, and the cases proving each are cited on their rows. ]]
+		name = "ScrollSnap",
+		kind = "composite",
+		module = "src/controls/scroll_snap.luau",
+		export = "Controls.VirtualList",
+		spec = "tests/scroll_snap.spec.luau",
+		conformance = "tests/paradigm_cards.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NO INSTANCE AND NO PERSISTENT STATE: what it holds is one travel's origin
+		-- and peak, both of which are consumed at the settle they describe, and the
+		-- consequence — where the scroller came to rest — is reported by the host
+		-- control's own dump() (`scrollTop`, `snap`, `cardsPerView`). `debug()` is
+		-- the test-only reader, deliberately not a dump surface.
+		dump = false,
+		reason = "arithmetic and one settle's transient state: the only durable consequence is the offset the host control already reports through its own dump() (scrollTop, snap, cardsPerView)",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- THE ENGINE SCROLL MIRROR'S ARBITRATION, shared by VirtualList,
 		-- VirtualGrid (both axes) and Table (O-31, 2026-08-15). NOT a control: it
 		-- mounts nothing, holds no reactive node and knows nothing about scrolling

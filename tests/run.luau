@@ -485,6 +485,13 @@ require("./async_completeness.spec")
 require("./interaction_tokens.spec")
 -- the pure drag-to-edge autoscroll model under a scripted clock (SF-L2)
 require("./autoscroll.spec")
+-- scroll SNAPPING (ADAPT-17, audit cell B-7): the pure resolver in numbers, and
+-- the wired list/grid driven through the engine mirror on a scripted clock
+require("./scroll_snap.spec")
+-- ...and the PARADIGM it exists for (ADAPT-17, cells B-1/B-7/B-8): the compact
+-- card rail, defaulted from the facts the host already flows, plus the structural
+-- check that a future card surface cannot be silent about compact
+require("./paradigm_cards.spec")
 -- the public drag/drop contract, driven through the REAL acquisition paths
 -- (SF-D1..SF-D5, findings F5/F7)
 require("./drag_public.spec")

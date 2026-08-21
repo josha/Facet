@@ -268,8 +268,11 @@
 -- the raw-handler funnel is its own task (Table does it with
 -- `row_actions.composeWithReorder`, over a hit it owns outright).
 
+local cardRail = require("./card_rail")
 local contribution = require("../input/contribution")
+local surfaceEnv = require("../env/surface_env")
 local nativeScrollBinding = require("./native_scroll_binding")
+local scrollSnap = require("./scroll_snap")
 local row_actions = require("./row_actions")
 local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
@@ -383,6 +386,9 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"autoscroll",
 	-- the scroll axis, construction-only ("y" default | "x")
 	"axis",
+	-- THE CARD PARADIGM'S OPTIONS, and only meaningful with `itemExtent = "cards"`
+	-- (the sibling relationship `estimatedItemExtent` has with `"measured"`)
+	"cards",
 	"cell",
 	"dropSurface",
 	"env",
@@ -422,6 +428,8 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"rows",
 	"selection",
 	"selectionPaint",
+	-- where this list is allowed to come to REST: "none" (default) | "item"
+	"snap",
 	"viewportExtent",
 	"viewportHeight", -- deprecated alias of viewportExtent (ADR-0011)
 	"width",
@@ -560,6 +568,30 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		`"measured"` windows each row at what its CELL MEASURES; `estimatedItemExtent`
 		covers rows nobody has seen yet. See THE MEASUREMENT SEAM below. ]]
 	local itemExtentIsMeasured = itemExtentSpec == "measured"
+	--[[ ...AND A FIFTH: `"cards"` — THE COMPACT CARD PARADIGM (ADAPT-17, director
+		ruling 2026-08-18).
+
+		The four forms above all answer "how big is one item" with a number the
+		AUTHOR knows. A card rail's answer is not a number at all, it is an
+		ARRANGEMENT: *how many cards should be in view here*, which is a question
+		about the space this rail actually got and about how the player is driving
+		it. On a compact touch surface the answer is one card with a peek of the
+		next — the affordance that there IS more — and every other combination wants
+		a multi-up rail. The audit measured what asking the author instead costs:
+		a card set is one column at all six combos and the compact carousel does not
+		exist even as an authored route (matrix B-1/B-7).
+
+		SO THE EXTENT IS DERIVED, AND `cards` IS ITS OPTIONS TABLE — exactly the
+		relationship `estimatedItemExtent` has with `"measured"` one screen down.
+		Absent, the arrangement comes from the facts alone. `cards.perView` pins the
+		count; `cards.minWidth` moves the floor a lane is dropped at; `cards.peek`
+		overrides (or with 0, removes) the peek. Authored always wins — see
+		`cardsPerViewIn` below.
+
+		IT IS STILL THE UNIFORM ARITHMETIC. Every card in a rail is the same width,
+		so this windows by index x pitch like a number does; what is live is the
+		number itself. ]]
+	local itemExtentIsCards = itemExtentSpec == "cards"
 	--[[ BOTH NON-UNIFORM FORMS RUN THE SAME ARITHMETIC — `virtual_extents.variable`,
 		Stage 1's prefix sum. That is why Stage 2 is small: the index takes an array
 		of numbers and does not care who computed them. Every windowing branch below
@@ -568,6 +600,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	assert(
 		itemExtentIsPerItem
 			or itemExtentIsMeasured
+			or itemExtentIsCards
 			or itemExtentIsLive
 			or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
 		"VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
@@ -575,7 +608,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			.. 'size along the list\'s own axis (its height on axis="y", its width on axis="x"). A number or Readable '
 			.. "is UNIFORM and windows by index × pitch; a function is a PER-ITEM extent and windows by a "
 			.. 'running-offset index; "measured" windows each row at what its cell MEASURES and takes an '
-			.. "estimatedItemExtent for the rows nobody has seen yet. Read live facts (the preferred-text offset, "
+			.. 'estimatedItemExtent for the rows nobody has seen yet; "cards" derives ONE card\'s size from how many '
+			.. "should be in view, which on a compact touch surface is one plus a peek of the next. Read live facts "
+			.. "(the preferred-text offset, "
 			.. "the theme metrics) through the function's third argument `use`, or the extents will not re-derive "
 			.. "when they move."
 	)
@@ -605,6 +640,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				.. 'accepted and then ignored. Declare itemExtent = "measured", or drop estimatedItemExtent.'
 		)
 	end
+	-- THE CARD PARADIGM'S OPTIONS, validated by the module that owns the decision
+	-- (`controls/card_rail.luau`), so the refusals and the arrangement cannot drift
+	-- apart. `cards` without `itemExtent = "cards"` is refused there by name.
+	cardRail.assertOptions("newVirtualList", spec.cards, itemExtentIsCards)
 	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
 		the reason the row height is one number: the windowing arithmetic is
 		index x pitch. `newTable` has always had this field
@@ -814,13 +853,101 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		return if isX then cross else main
 	end
 
+	local function rowGapNow(): number
+		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
+	end
+	local function rowGapIn(use: any): number
+		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
+	end
+	--[[ ── THE CARD ARRANGEMENT (`itemExtent = "cards"`) ─────────────────────────
+		One decision with three overrides, and it lives in `controls/card_rail.luau`
+		— its header carries the reasoning, the refusal and the reason it is a module
+		rather than a block here. Built only when the form is declared, so a list
+		that is not a card rail allocates nothing and asks the environment nothing.
+
+		THE ARRANGEMENT IS READ THROUGH `itemExtentIn`/`itemExtentNow` BELOW like
+		every other extent form, which is what keeps it on the UNIFORM windowing
+		path: every card in a rail is the same width, so `index x pitch` is exact.
+		What is live is the number. ]]
+	--[[ THE FACTS ARRIVE BY THEMSELVES, AND THE REFUSAL IS THIS CONTROL'S
+		(ADAPT-1). An adaptive rail — `itemExtent = "cards"` with no authored
+		`cards.perView` — reads the live interaction class and the viewing distance,
+		so it asks the environment the author passed or the one this control's own
+		core published, and REFUSES to construct when there is none, in `tab_view`'s
+		shape and for its reason. The refusal is raised HERE rather than inside
+		`card_rail.luau` because the message names this control and because that is
+		where the guard that checks every refusal is documented looks
+		(`tests/adaptive_defaults.spec.luau`). A rail that pins `cards.perView` asks
+		nothing and is never refused. ]]
+	local cardArrangement: any = nil
+	if itemExtentIsCards then
+		local cardsEnv: any = nil
+		if type(spec.cards) ~= "table" or (spec.cards :: any).perView == nil then
+			cardsEnv = surfaceEnv.resolve(
+				"newVirtualList",
+				id,
+				core,
+				spec.env,
+				'itemExtent = "cards" arranges the rail from the live interaction class and the space it was given'
+			)
+		end
+		cardArrangement = cardRail.new({
+			control = "newVirtualList",
+			options = spec.cards,
+			interactionClasses = if cardsEnv ~= nil then cardsEnv:get("interactionClasses") else nil,
+			distanceProfile = if cardsEnv ~= nil then cardsEnv:get("distanceProfile") else nil,
+			viewportIn = viewportIn,
+			viewportNow = viewportNow,
+			gapIn = rowGapIn,
+			gapNow = rowGapNow,
+		})
+	end
+	local function cardsPerViewIn(use: any?): number
+		return (cardArrangement :: any).perView(use)
+	end
+	local function cardExtentIn(use: any?): number
+		return (cardArrangement :: any).extent(use)
+	end
+	--[[ ── WHERE THIS LIST MAY COME TO REST (`snap`) ─────────────────────────────
+		"none" (the default, and every list that shipped before this) lands wherever
+		the engine's momentum left it. "item" lands on an item boundary — the
+		substrate the compact card paradigm is built on, and useful on its own for
+		any collection whose items are pages rather than lines. The vocabulary, the
+		refusal and the read are `controls/scroll_snap.luau`'s, shared with
+		`newVirtualGrid`.
+
+		LIVE, because the paradigm it serves is: a rotation moves a rail from
+		compact to regular and the answer changes with it, in place, with no
+		remount.
+
+		THE DEFAULT COMES FROM THE ARRANGEMENT, not from a second decision. A rail
+		that resolved ONE card per view is a pager and pages snap; the same rail two
+		cards wide is a rail and does not. An authored `snap` outranks that, in
+		either direction, which is what makes the paradigm a default rather than a
+		policy. ]]
+	local snapModeIn = scrollSnap.modeReader(
+		"VirtualList",
+		spec.snap,
+		if itemExtentIsCards
+			then function(use: any?): string
+				return if cardsPerViewIn(use) <= 1 then "item" else scrollSnap.DEFAULT_MODE
+			end
+			else nil
+	)
+
 	-- THE UNIFORM EXTENT — read ONLY on the uniform path (`itemExtentIsVariable`
 	-- false). Every variable-mode number comes off the running-offset index
 	-- instead; see `layoutIndex` below.
 	local function itemExtentNow(): number
+		if itemExtentIsCards then
+			return cardExtentIn(nil)
+		end
 		return if itemExtentIsLive then (itemExtentSpec :: any):get() else itemExtentSpec
 	end
 	local function itemExtentIn(use: any): number
+		if itemExtentIsCards then
+			return cardExtentIn(use)
+		end
 		return if itemExtentIsLive then use(itemExtentSpec) else itemExtentSpec
 	end
 	-- ...and the MEASURED path's stand-in for a row nobody has seen. Live for the
@@ -831,12 +958,6 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	end
 	local function estimateNow(): number
 		return if estimateIsLive then (estimateSpec :: any):get() else estimateSpec
-	end
-	local function rowGapNow(): number
-		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
-	end
-	local function rowGapIn(use: any): number
-		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
 	end
 	--[[ THE PITCH: one slot, gutter included. Nothing that describes the ROW is on
 		it (see the header).
@@ -1031,6 +1152,49 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		focusedKey:set(neighbor)
 	end))
 
+	--[[ ── SNAPPING (ADAPT-17) ────────────────────────────────────────────────────
+		The machine is `controls/scroll_snap.luau` — its header carries the design
+		and the measurements. This is only the wiring, and there are exactly four
+		wires:
+
+		  · every offset the ENGINE reports goes in as a SAMPLE (the mirror below);
+		  · every offset the FRAMEWORK writes goes in as a REST, so the echo of our
+		    own keep-visible or anchor correction is never mistaken for a gesture
+		    the player did not make;
+		  · the presenter's motion clock arrives through the contribution's
+		    `bindMotion` and is the only frame source involved;
+		  · the answer is written through `boundController.scrollTo` — the same
+		    single programmatic scroll write everything else here uses.
+
+		THE INDEX AND THE VIEWPORT ARE READ AT SETTLE TIME, never captured: a
+		rotation or a text-size change moves both between one sample and the next,
+		and the boundaries have to be the ones the WINDOW is using right now. ]]
+	local snapEngine = scrollSnap.new({
+		core = core,
+		scope = listScope,
+		index = layoutNow,
+		viewport = viewportNow,
+		mode = function(): string
+			return snapModeIn(nil)
+		end,
+		write = function(offset: number)
+			local host = boundScrollPath or mountedScrollPath
+			if boundController ~= nil and host ~= nil then
+				boundController.scrollTo(
+					host,
+					vec(math.clamp(offset, 0, math.max(0, layoutNow().content - viewportNow())))
+				)
+			end
+		end,
+	})
+	listScope:own(snapEngine.dispose)
+	-- THE FRAMEWORK MOVED THE SCROLL: announce it, then write it. Every internal
+	-- caller goes through here so no site can forget the first half.
+	local function writeScroll(controller: any, host: string, offset: number)
+		snapEngine.rest(offset)
+		controller.scrollTo(host, vec(offset))
+	end
+
 	--[[ ── SCROLL ANCHORING (variable item extents, 2026-08-14) ───────────────────
 		A LIST WHOSE ROWS RESIZE UNDER THE PLAYER MUST NOT JUMP. `scrollTop` is a
 		PIXEL offset into the canvas, so the moment every row grows — the player
@@ -1107,7 +1271,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			if math.abs(target - scrollTop:get()) < 0.5 then
 				return
 			end
-			boundController.scrollTo(host, vec(target))
+			--[[ ...AND IT IS A REST, NOT A GESTURE (ADAPT-17). The extents moved
+				under the player and this puts the same content back under their eye;
+				read as a travel it would look like a flick of exactly the correction's
+				size and advance a card nobody swiped. ]]
+			writeScroll(boundController, host, target)
 		end))
 	end
 
@@ -1132,13 +1300,26 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- visible ROW, and demanding the trailing gutter too would scroll a row that
 	-- is already fully readable.
 	local function keepVisibleTarget(index: number): number?
-		return solverLib.keepVisibleOffset(
-			layoutNow().offsetOf(index),
-			layoutNow().extentOf(index),
+		local ix = layoutNow()
+		local plain = solverLib.keepVisibleOffset(
+			ix.offsetOf(index),
+			ix.extentOf(index),
 			clampedTop:get(),
 			viewportNow(),
-			layoutNow().content
+			ix.content
 		)
+		--[[ ...AND ON A BOUNDARY when this list snaps (ADAPT-17). The clamp above
+			is the MINIMUM scroll that makes the row whole, and under `snap = "item"`
+			that is usually not a place the list is allowed to rest — so the row
+			would land mid-page and the next settle would move it again. Rounding it
+			outward keeps the row whole AND leaves the scroller at rest, which is
+			what "a focused item sits ON a boundary, not near one" means. Not a
+			second arithmetic: the plain answer still decides whether to move at all
+			and in which direction. ]]
+		if snapModeIn(nil) ~= "item" then
+			return plain
+		end
+		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:get(), index, plain)
 	end
 
 	local function focusKey(key: string): string?
@@ -1153,7 +1334,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		-- Unbound: a no-op (a standalone control with no engine to scroll).
 		local target = keepVisibleTarget(index)
 		if target ~= nil and boundController ~= nil and boundScrollPath ~= nil then
-			boundController.scrollTo(boundScrollPath, vec(target))
+			writeScroll(boundController, boundScrollPath, target)
 			-- EVERY scroll write moves the drop targets, and a live session must
 			-- see that on the same frame — the identical rule edge autoscroll
 			-- follows, applied to the keep-visible write. Without it a keyboard or
@@ -2926,7 +3107,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		outside a presenter genuinely cannot answer it. ]]
 	local mirror = nativeScrollBinding.new(function(controller: any, path: string): () -> ()
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
-			scrollTop:set(mainOf(pos))
+			local offset = mainOf(pos)
+			scrollTop:set(offset)
+			-- ...and the SNAP machine's one input (ADAPT-17): every offset the engine
+			-- reports, including the ones this control's own writes echo back — the
+			-- machine tells those apart, this seam does not have to.
+			snapEngine.sample(offset)
 		end)
 		boundController = controller
 		boundScrollPath = path
@@ -2969,9 +3155,27 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	local function scrollTo(controller: any, offset: number)
 		local ctrl = controller or boundController
 		local path = boundScrollPath or mountedScrollPath
-		if ctrl ~= nil and path ~= nil then
-			ctrl.scrollTo(path, vec(math.clamp(offset, 0, maxTop())))
+		if ctrl == nil or path == nil then
+			return
 		end
+		local wanted = math.clamp(offset, 0, maxTop())
+		--[[ A PROGRAMMATIC SCROLL HONOURS SNAP (ADAPT-17). "Scroll to 640" on a
+			list whose resting places are every 100px means the nearest of those, or
+			the caller has moved the list somewhere it will immediately leave. The
+			request still decides WHICH boundary; snapping only rounds it. ]]
+		if snapModeIn(nil) == "item" then
+			local landed = scrollSnap.resolve({
+				index = layoutNow(),
+				viewport = viewportNow(),
+				offset = wanted,
+				origin = wanted,
+				peak = 0,
+			})
+			if landed ~= nil then
+				wanted = landed
+			end
+		end
+		writeScroll(ctrl, path, wanted)
 	end
 
 	-- one row's "am I the selected one" fact, owned by the row's own scope so it
@@ -3493,20 +3697,30 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			end
 		end
 	end
-	if hostedEnabled then
+	--[[ THE MOTION CLOCK, WANTED BY TWO THINGS NOW. It was a hosted-row-actions
+		relay only; snapping needs it too, and for a more basic reason — settle
+		detection is a question about FRAMES, and the clock is this framework's one
+		sanctioned frame source. Declared unconditionally so a plain snapping list
+		is wired the same way a hosted one is, and so the two can never diverge into
+		two `bindMotion`s. ]]
+	bundle.bindMotion = function(clock: any, now: (() -> number)?)
+		snapEngine.bindMotion(clock)
+		if not hostedEnabled then
+			return
+		end
 		--[[ THE RELAY (see `hostedEngineFor`). Every one of these is a handoff
 			the presenter makes to a mounted contribution — and a hosted engine is
 			deliberately node-less, so the LIST's contribution takes delivery and
 			passes it on: to every engine that already exists now, and to every
 			engine built later, at its own construction. Held in the locals above
 			so the two paths can never diverge. ]]
-		bundle.bindMotion = function(clock: any, now: (() -> number)?)
-			hostedMotionClock = clock
-			hostedNow = now
-			for _, engine in hostedEngines do
-				engine.bindMotion(clock, now)
-			end
+		hostedMotionClock = clock
+		hostedNow = now
+		for _, engine in hostedEngines do
+			engine.bindMotion(clock, now)
 		end
+	end
+	if hostedEnabled then
 		bundle.bindActionSystem = function(actionSystem: any)
 			hostedActionSystem = actionSystem
 			for _, engine in hostedEngines do
@@ -3662,6 +3876,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			armedKey = armedKey:get(),
 			dropIndex = dropIndex:get(),
 			selection = selectionMode,
+			--[[ WHERE THIS LIST MAY REST, and — on a card rail — the arrangement that
+				decided it. `snap` is the RESOLVED mode, never the declaration, because
+				the whole point of the paradigm default is that nobody declared it. ]]
+			snap = snapModeIn(nil),
+			cardsPerView = if itemExtentIsCards then cardsPerViewIn(nil) else nil,
 			-- the policy AND the slot it is holding: the two facts a "why did the
 			-- ring move" bug report needs (`pinnedSlot` is nil under "key")
 			focusPolicy = focusPolicy,
@@ -3689,6 +3908,16 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		not state a consumer should be reacting to (`engagedKey` is published as a
 		signal on the list for that). Answers on a plain list too, so a test can
 		assert "nothing hosted" without branching. ]]
+	--[[ TEST-ONLY, like `_hostedDebug` below and for the same reason: these are
+		the snap machine's TRAVEL state — where this travel began and how fast it has
+		gone — and they exist so a spec can assert the one property no player-visible
+		outcome can distinguish on its own, that a write the FRAMEWORK made is
+		announced as a rest rather than absorbed as a gesture. A consumer has no
+		business reacting to them; the resolved mode and the resting offset are on
+		`dump()`, which is the diagnostic a consumer may ship. ]]
+	function list._snapDebug(): { [string]: any }
+		return snapEngine.debug()
+	end
 	function list._hostedDebug(): { engineCount: number, engagedKey: string? }
 		local count = 0
 		for _ in hostedEngines do
