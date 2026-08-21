@@ -36,6 +36,10 @@
 	changed. ]]
 
 local virtual_extents = require("../virtual_extents")
+-- `rect.sameFlatValue`: the framework's one field-for-field equality for a FLAT
+-- record. Used here as the canvas Dim's memo eq (see `canvasDim`); the renderer
+-- and the selection indicator already share it for the same reason.
+local rect = require("../rect")
 
 local virtual_window = {}
 
@@ -313,13 +317,31 @@ function virtual_window.new(deps: Deps)
 		return px
 	end
 
-	-- the full virtual extent as a live fixed Dim: the ScrollView's single Canvas
-	-- child is this big ALONG THE SCROLL AXIS, so the solver's scroll-axis sum ==
-	-- the full virtual extent and the renderer pushes it as CanvasSize (native §6).
-	-- Rows mount only in the window, but the canvas always spans the whole list.
+	--[[ the full virtual extent as a live fixed Dim: the ScrollView's single Canvas
+		child is this big ALONG THE SCROLL AXIS, so the solver's scroll-axis sum ==
+		the full virtual extent and the renderer pushes it as CanvasSize (native §6).
+		Rows mount only in the window, but the canvas always spans the whole list.
+
+		BY VALUE, NOT BY IDENTITY (review RR-5, measured wave T15). A table literal
+		is never identity-equal to the one before it, so with the default eq this
+		memo notified on EVERY layout-index recompute — including the ordinary case
+		where the index was rebuilt and the total extent did not move: an edit to a
+		row nobody is looking at in a list whose length did not change. Downstream
+		that is a measure dirty on the canvas and a whole re-solve of the surface.
+
+		Measured, forty iterations of the perf lab's own collection churn: 41 solves
+		against 1, the forty extra ones producing zero rect writes and zero prop
+		writes. Three lab workloads moved with it (`variable-extents` 294 -> 246,
+		`edit-locality` 131 -> 83, `collection-churn` 30 -> 25).
+
+		`rect.sameFlatValue` is the framework's one flat-record equality — the
+		renderer's `sameGeometryValue` and `selection_indicator`'s `sameGeometry` are
+		already the same function — and it REFUSES a nested field rather than
+		half-comparing it, which is exactly right for a Dim: `fixed` carries a
+		number, and any richer Dim shape reports "changed" and propagates. ]]
 	local canvasDim = listScope:own(core:memo(function(use)
 		return { type = "fixed", px = use(layoutIndex).content }
-	end))
+	end, rect.sameFlatValue))
 
 	-- scroll clamped into the content band, so garbage/overshoot mirror values
 	-- cannot mount phantom windows

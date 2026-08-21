@@ -123,6 +123,51 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 		root.dispose()
 	end)
 
+	--[[ AN OFF-WINDOW EDIT THAT MOVES NOTHING MUST DIRTY NOTHING (review RR-5,
+		measured wave T15).
+
+		The review's claim was general — "memos returning a fresh table with default
+		identity eq notify on every recompute, re-dirtying measure/arrange for
+		unchanged values, 25 sites" — and the measurement found exactly one shipped
+		memo where it costs a re-solve rather than nothing: the virtual canvas Dim.
+		It is `{ type = "fixed", px = index.content }`, rebuilt whenever the layout
+		index recomputes, and a table literal is never identity-equal to the previous
+		one — so an edit to a row nobody is looking at, in a list whose LENGTH did not
+		change, republished a Dim holding the same number and the surface re-solved.
+
+		Measured before the fix (tools/lune/_probe_t15_rr5, 40 iterations of the
+		perf lab's own collection churn): 41 solves against 1, all forty of the extra
+		ones producing zero rect writes and zero prop writes. Three more lab
+		workloads moved with it — `variable-extents` 294 -> 246, `edit-locality`
+		131 -> 83 (its partial solves 53 -> 29), `collection-churn` 30 -> 25.
+
+		The window's KEY SEQUENCE is deliberately left alone here (the edit is at row
+		50 of 100 with a viewport of ten), so nothing structural is expected either —
+		and asserting both is what stops a future "fix" that buys the arrange back by
+		making the window deaf. ]]
+	it("an off-window edit that changes no key and no extent dirties NOTHING (RR-5)", function()
+		local core = Facet.newCore()
+		local items = makeRows(100)
+		local rows = core:signal(items)
+		local list = newList(core, { rows = rows })
+		local root = mountLib.mount(core, list.blueprint)
+		root.takeDirty()
+
+		-- row 50 is far outside the mounted window (10 visible + 2 overscan), and
+		-- the list keeps its length, so the canvas extent is the number it already
+		-- was. Same key, new payload: the only honest "nothing moved" edit.
+		local next = table.clone(items)
+		next[50] = { id = "r50", label = "Row 50 (edited off-window)" }
+		rows:set(next)
+
+		local dirty: { string } = {}
+		for _, entry in root.takeDirty() do
+			table.insert(dirty, entry.class)
+		end
+		expect(table.concat(dirty, ",")).toBe("")
+		root.dispose()
+	end)
+
 	it("surviving rows keep their mounted identity across a window slide", function()
 		local core = Facet.newCore()
 		local rows = core:signal(makeRows(100))

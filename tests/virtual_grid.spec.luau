@@ -612,3 +612,50 @@ describe("VirtualGrid: the engine owns the offset, the framework owns the window
 		w.grid.dispose()
 	end)
 end)
+
+--[[ ── D. AN OFF-WINDOW EDIT THAT MOVES NOTHING MUST DIRTY NOTHING ─────────── ]]
+
+describe("VirtualGrid: the canvas Dim is compared by VALUE (review RR-5)", function()
+	it("an off-window edit that changes no key and no extent dirties NOTHING", function()
+		--[[ THE SAME CONSTRUCT, THE SAME QUESTION, ASKED OF THE GRID.
+
+			`newVirtualList`'s canvas Dim (`src/controls/virtual_window.luau`) was the
+			one memo the T15 measurement caught costing a real re-solve: it is
+			`{ type = "fixed", px = index.content }`, a table literal is never
+			identity-equal to the one before it, and so a list whose LENGTH did not
+			change re-published the same number and the surface re-solved. The grid
+			declares the identical memo in the identical role, and no perf scene or lab
+			workload mounts a grid — so the measurement that fixed the list could not
+			see this one at all. A churn-counter case IS the measurement.
+
+			Read it as two-sided. Nothing about the edit can move: item 200 of 400 is
+			far outside the mounted band, the key is the same, and the count is the
+			same so the canvas extent is the number it already was. If a future change
+			buys the arrange back by making the window deaf to a real edit, the
+			laziness cases above are what fail. ]]
+		local core = Facet.newCore()
+		local items = makeItems(400)
+		local signal = core:signal(items)
+		local grid = newGrid(core, {
+			items = signal,
+			columns = 4,
+			itemExtent = 40,
+			viewportExtent = 200,
+			overscan = 2,
+		})
+		local root = mountLib.mount(core, grid.blueprint)
+		root.takeDirty()
+
+		local next = table.clone(items)
+		next[200] = { id = "i200", label = "Item 200 (edited off-window)" }
+		signal:set(next)
+
+		local dirty: { string } = {}
+		for _, entry in root.takeDirty() do
+			table.insert(dirty, entry.class)
+		end
+		expect(table.concat(dirty, ",")).toBe("")
+		root.dispose()
+		grid.dispose()
+	end)
+end)

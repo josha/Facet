@@ -217,6 +217,12 @@ local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local virtual_extents = require("../virtual_extents")
 local paths = require("../paths")
+-- `rect.sameFlatValue`: the framework's one field-for-field equality for a FLAT
+-- record — the renderer's `sameGeometryValue`, the selection indicator's
+-- `sameGeometry` and `virtual_window`'s canvas Dim are all already this
+-- function. Used below as the memo eq for every flat geometry record a cell or
+-- the canvas republishes (review RR-5).
+local rect = require("../rect")
 
 local virtual_grid = {}
 
@@ -519,9 +525,18 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local scrollTop = scope:own(core:signal(0))
 
+	--[[ BY VALUE, NOT BY IDENTITY (review RR-5). A table literal is never
+		identity-equal to the one before it, so with the default eq this notified on
+		every layout-index recompute — including the ordinary case where the index
+		was rebuilt and the total extent did not move (an edit to a cell nobody is
+		looking at, in a grid whose item count did not change). Downstream that is a
+		measure dirty on the canvas and a whole re-solve of the surface. The
+		equivalent memo in `virtual_window.luau` was measured at 41 solves against 1
+		over forty churn iterations; no perf scene mounts a grid, so the case in
+		`tests/virtual_grid.spec.luau` is this one's measurement. ]]
 	local canvasDim = scope:own(core:memo(function(use)
 		return { type = "fixed", px = use(layoutIndex).content }
-	end))
+	end, rect.sameFlatValue))
 
 	local clampedTop = scope:own(core:memo(function(use)
 		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
@@ -824,9 +839,13 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						width = fill(),
 						height = fill(),
 					})
+					-- BY VALUE (review RR-5), for `canvasDim`'s reason one level down:
+					-- a line's extent is republished whenever the index recomputes,
+					-- and a fresh literal made every windowed cell measure-dirty for a
+					-- number that had not moved.
 					local extentDim = itemScope:own(core:memo(function(use)
 						return { type = "fixed", px = use(cellExtent) }
-					end))
+					end, rect.sameFlatValue))
 					return UI.ZStack({
 						id = "Cell",
 						-- the cell is its LINE's extent along the scroll axis and fills
@@ -837,6 +856,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						-- what this cell was PROMISED to be: the solver compares its
 						-- content's own measure against the declaration and names both
 						-- numbers when the promise is not kept
+						-- ...and the promise beside it, by value for the same reason
 						virtualSlot = itemScope:own(core:memo(function(use)
 							return {
 								list = id,
@@ -844,7 +864,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 								extent = use(cellExtent),
 								contentFrom = SLOT_CONTENT_FROM,
 							}
-						end)),
+						end, rect.sameFlatValue)),
 						children = {
 							hit,
 							spec.cell(entry.item, {
