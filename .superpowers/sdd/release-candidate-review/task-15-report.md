@@ -210,3 +210,179 @@ check_source_size      PASS — 6 modules in the band, all with ledger rows
    verified afterwards and none carries the other agent's work. I stopped using
    `git stash` for A/B arms after one shared-index run hung, and used file copies
    instead.
+
+---
+
+# Addendum — the director's lazy-loading ruling, and the T15 review
+
+**Status: EXECUTED, with one finding that reverses part of the ruling's premise
+and one that reverses part of my own report.** The analyzer the director ordered
+pinned is what produced both.
+
+## Analyzer chosen + version
+
+**`luau-lsp@1.69.0`** (JohnnyMorganz/luau-lsp, `analyze` mode), pinned in
+`rokit.toml` beside Rojo. It installs and runs on this platform today; upstream
+`luau-analyze` was not needed. **No Roblox definitions file**: the library imports
+no engine globals at its own boundary, so `--platform standard` types the whole
+require graph, and keeping it out is what stops this becoming a lint regime.
+0.16 s over `src/init.luau`.
+
+## The witness check, red and green
+
+`tools/check_types.py` gates the diagnostics of **two** target files —
+`src/init.luau` and `tests/types/controls_witness.luau`, which exercises all 19
+`Facet.Controls` signatures — and **ignores the 246 pre-existing diagnostics in
+the require graph** by design.
+
+Two halves, neither sufficient alone. The **positive witness** hands each entry a
+local declared with the control module's own `Spec`, so a wrong or narrowed
+parameter type reddens. The **generated negative probe** hands each entry a
+number: the 15 typed entries must reject it, and the 4 that take `any` today
+(`Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage`) are pinned by name so the set
+cannot grow.
+
+```
+check_types: PASS — 19 Controls entries (15 typed, 4 declared `any`);
+             2 target files carry 0 diagnostics; 246 graph diagnostics ignored
+
+check_types --selftest: PASS
+  [ok] unmutated                                  (PASS expected)
+  [ok] M1 Controls.Table widened to `any`         (FAIL expected)  <- the lazy-without-types shape
+  [ok] M2 Controls.Slider given the wrong Spec    (FAIL expected)
+  [ok] M3 witness stops using a real Spec         (FAIL expected)  <- via the unused-local lint
+```
+
+**M1 is the director's second red-first case and it bites on the real thing**: the
+all-nineteen arm runs **green in the Luau suite** and fails this check naming all
+15 lost signatures. Nothing else in the repository can see that.
+
+### What the instrument falsified
+
+`typeof(require(x))` does **not** carry a module's exported types. Measured, all
+four spellings answer `TypeError: Unknown type 'M.Spec'`:
+
+| spelling | result |
+|---|---|
+| `type M = typeof(require(x))` | `Unknown type 'M.Spec'` |
+| `local M = (nil :: any) :: typeof(require(x))` | `Unknown type 'M.Spec'` |
+| `local M: typeof(require(x)) = (nil :: any)` | `Unknown type 'M.Spec'` |
+| `local M = if false then require(x) else (nil :: any)` | `Unknown type 'M.Spec'` |
+| `local M = require(x)` (the eager control) | clean |
+
+Only a direct `require` binding brings exported types into scope. So 15 of the 19
+cannot be deferred from `src/init.luau` alone without widening to `any`.
+
+## Realized memory numbers
+
+**The 831 KB headline in §7 was wrong and is corrected.** It was subset
+arithmetic — each control charged for the shared dependency graph `src/init.luau`
+loads anyway — and the review showed the root row is bimodal (2,574–2,816 KB),
+i.e. collector phase rather than memory. Every mark now follows an identical
+settle; arms run interleaved; each arm's samples split into its two collector
+modes and compared low-mode to low-mode.
+
+**n = 30 rounds per arm:**
+
+| arm | low mode | median | low-mode range |
+|---|---|---|---|
+| eager (today) | 19/30 | 2 763 KB | [2 666 .. 2 763] |
+| **shipped — 4 deferred** | 17/30 | **2 535 KB** | [2 450 .. 2 535] |
+| ceiling — all 19 (types sacrificed) | 14/30 | 1 903 KB | [1 903 .. 1 904] |
+
+| | median saving | conservative range | require time |
+|---|---|---|---|
+| **shipped** | **228 KB** | **[131 .. 313] KB** | 209 ms vs 227 ms |
+| ceiling | 860 KB | [762 .. 860] KB | 157 ms vs 227 ms |
+
+After first mount, the deferred module loads at the construction seam; `preload()`
+force-loads all four and returns 4. The remaining **632 KB** needs the 15 `export
+type Spec` declarations moved to a module that costs nothing to load — which
+touches `table.luau` (off-limits), `virtual_list.luau` and `row_actions.luau`
+(locked) plus twelve others, so it is a scoped follow-up, not a change to
+`src/init.luau`.
+
+**Public surface, proved in two parts because the claim is in two parts:** the
+lazy mechanism alone is **byte-identical** to the frozen dump; `preload` then adds
+**exactly one line** (`preload : function`), documented in the api reference and
+the capability catalog — both guards refused it until it was.
+
+## The review's three red rows — all mine, all green
+
+The reviewer's core point stands and I have taken it: my verification tail was a
+hand-picked list, not the gate-row set.
+
+| row | cause | fix |
+|---|---|---|
+| comments-plain | 6 `RR-5`/`RR-12` codes I wrote resolved nowhere | each site now STATES the finding in plain language; the bare codes are gone (they also broke the 25-code ratchet) |
+| product-language | 11 `LuauUI/` strings in `microprofiler_aggregate.py` — correctly there | allowlisted with reason + trigger, scoped to the PREFIX so ordinary old-brand text in that tool is still caught |
+| call-shape drift | `_probe_t15_controls.luau` calls the retiring form — because it MEASURES it | allowlisted with the same discipline the compatibility spec has |
+
+A **fourth** turned up only because I extracted the gate row's shell text and ran
+it: the maintainer map that landed alongside this wave cites earned gate ids
+(`swiftui-parity-round4`) and lacked the `GATE_IDS` entry six other files already
+carry. Added.
+
+```
+naming-adr-implemented (extracted and run verbatim)  exit=0
+```
+
+## Capture plan
+
+- **`cleanCapture` was silently dropped.** It is a STEP, not a `select` setting,
+  and `steps.select` skipped unparsable pairs without a word — so every planned
+  row would have captured with the overlay mounted while claiming otherwise. The
+  parser now **refuses** an unparsable pair by name and suggests the legal
+  spelling, **in its own pass before anything is applied** (the first cut left
+  `rows` written and the spec caught it). Plan respelled.
+- **`render.solves` is `nil` on 8 of 17 workloads** — every `implementation =
+  "none"` row, including both that owe a re-capture. Those publish their own
+  arithmetic in the pass detail; the plan now names the real fields per row, read
+  off the live registry (`arrangePerEdit` / `partialSolvesPerEdit`,
+  `uniform.arrangePerGrow`, `arrangePerRep` / `usPerArrangedNode`, …).
+
+## Rascal Rally
+
+Five paired rounds through the real sponsor boot:
+
+| | eager | shipped | delta |
+|---|---|---|---|
+| require heap | 2 662 KB | 2 531 KB | −131 KB |
+| require time | 232 ms | 209 ms | −23 ms |
+| boot (present + 8 frames) | 45.1 ms | 58.6 ms | **+13.5 ms** |
+| require + boot | 277 ms | 268 ms | −9 ms |
+
+The cost **moved** to first construction rather than appearing; both halves happen
+inside the game's loading sequence and the total falls slightly. Suite **3449**
+green against the shipped Facet, no game edit, and `preload()` is there if the
+game would rather pay at require after all.
+
+## Tails
+
+```
+./run-tests.sh (isolated clone of HEAD + my files)   6844 passed
+RascalRally ./run-tests.sh                           3449 passed
+check_types / --selftest                             PASS / PASS
+naming-adr-implemented row, verbatim                 exit 0
+check_comment_codes    PASS — 0 orphans, 25 codes (ceiling 25)
+check_brand_drift      PASS + SELFTEST PASS
+check_call_shape_drift PASS + SELFTEST PASS
+public surface         lazy alone BYTE-IDENTICAL; +1 line with preload
+check_registration     PASS (100 exports documented)
+check_docs             PASS
+tools/perf.sh          PASS (100 runs, 20 scenes)
+stylua --check         PASS
+```
+
+**Verification note:** another agent's in-flight edits to `src/blueprint.luau`
+and two specs were red in the shared tree throughout. Every number above was taken
+in an isolated clone of HEAD carrying only my files, which is how I know which
+failures were mine — and is the practice I should have been using from the start.
+
+## Commits (addendum)
+
+| sha | subject |
+|---|---|
+| `45fc2c6` | the analyzer's first act was to falsify the idiom that summoned it |
+| `e3aeda4` | three red gate rows my own report called green, and the guard entries they wanted |
+| `84b38bb` | a settings string that meant less than it said, and a plan that read a nil counter |
