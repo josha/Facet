@@ -4001,7 +4001,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "product-language-scan-bites",
 			requirements = { "UI-AGENT-001" },
-			run = 'python3 tools/check_brand_drift.py --selftest && python3 tools/check_brand_drift.py && f=artifacts/release-candidate-review/docs/product-language-proof.md && test -f "$f" && grep -qF "0 outside the recorded allowlist" "$f" && grep -qF "comparison:begin" "$f" && grep -qF "the same word inside a marked block deliberately not" "$f" && grep -c "comparison:begin" docs/guide/10-rich-skinning.md >/dev/null',
+			run = 'python3 tools/check_brand_drift.py --selftest && python3 tools/check_brand_drift.py && f=artifacts/release-candidate-review/docs/product-language-proof.md && test -f "$f" && grep -qF "0 outside the recorded allowlist" "$f" && grep -qF "comparison:begin" "$f" && grep -qF "marked block deliberately not" "$f" && grep -c "comparison:begin" docs/guide/10-rich-skinning.md >/dev/null',
 			evidence = "artifacts/release-candidate-review/docs/product-language-proof.md",
 			note = "The case-insensitive vendor-language drift check with its exact two-exception allowlist (the comparison document and labeled docs/guide comparisons): proof it fails on one temporary violation, then passes on the restored tree.",
 		},
