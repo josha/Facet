@@ -3551,7 +3551,7 @@ as the core does.
 | `displaySize` | `"Small" \| "Medium" \| "Large"` (the engine's viewport display class) |
 | `overscanInsets` | authored TV overscan margins, or the string `"none"` to opt out |
 | `presentationSpace` | `"screen" \| "billboard" \| "world"` — where this surface is presented |
-| `themeMetrics` | the frozen `ThemeSnapshot`; the single atomic metric commit point |
+| `themeMetrics` | the frozen `ThemeSnapshot`; the single atomic metric commit point. **What you SET is the authored ladder; what you READ is that ladder with the display class's distance policy applied** — the same key, one seam, and the identity on every near display (the very table you committed, not a copy). On a `Large` display the read carries `density = "ten-foot"`, `metricScale = 1.5` and the scaled ladder. See "The ten-foot metric ladder" below |
 
 Derived policy (memoized, read-only):
 
@@ -3559,6 +3559,7 @@ Derived policy (memoized, read-only):
 |---|---|
 | `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 on a `Large` display |
 | `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 on `Large`, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
+| `themeMetrics` (derived half) | the metric authority as PRESENTED at this display class — `themes.forDisplay(<the committed snapshot>, displaySize)`. Listed under the facts above because it is the same key; listed here because reading it is a derived read. It is the ONE place the ten-foot metric ladder is applied |
 | `effectiveTransparency` | `preferredTransparency` clamped to 0–1 — the player's **Background Transparency** setting. The framework paints with it: the one see-through background it owns (the `scrim` surface, which is the modal backdrop and anything a consumer declares `surface = "scrim"`) is composed `themeDim × effectiveTransparency`, in both paint modes. An authored `opacity`, the disabled dim, hairlines and shadows are deliberately untouched — [ADR-0035](../adr/ADR-0035-preferred-transparency.md) |
 | `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` on a `Large` display |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
@@ -5463,6 +5464,56 @@ face in both weights and authors nothing. Author either role to win outright.
 The derivation runs in `themes.resolve`, never in a package's authored metrics,
 so no package's content `stamp` moved when the roles were added. The same two
 sizes are derived by `tokens.compile` for a game's own token schema.
+
+#### The ten-foot metric ladder
+
+`themes.metricScale(displaySize) -> number` is the ten-foot **metric** factor:
+`1.5` on a `Large` display, `1` everywhere else. It is deliberately the *same*
+number `typographyPaintScale` returns — one constant, two ladders — because the
+acceptance the ladder is held to is a **proportion equality**: every
+text-to-control proportion at ten-foot equals its near proportion. A 16 px label
+in a 44 px control at arm's length is a 24 px label in a 66 px control across a
+room, and nothing outgrows its chrome.
+
+`themes.forDisplay(snapshot, displaySize) -> snapshot` applies it. Pure, total,
+idempotent, reversible, and **the identity at every near display** — the same
+table, not a copy, so no near-distance geometry moves by a pixel. You rarely call
+it: the environment's `themeMetrics` read calls it for you, from the live
+`displaySize` fact, which is what makes the ladder reach a television with no
+theme controller installed. `themes.baseOf(snapshot)` recovers the authored ladder
+a distance-adapted snapshot was derived from (`env:set("themeMetrics", …)` calls
+it, so a read-hold-write round trip can never compose the transform onto its own
+output).
+
+An adapted snapshot publishes two extra facts: `density` (`"ten-foot"` /
+`"near"`, now taken from the live display class rather than from the facts the
+snapshot was resolved with) and `metricScale` (the factor that was applied — the
+number a consumer predicting its own geometry should spend).
+
+**What scales**: `space`, `radii`, `strokes`, `targetSizes`, `iconSizes`,
+`iconRunGap`, `controlSizes` and every control-family length, plus the authored
+half of a slot `inset`. **What does not**: the type ramp (`typographyPaintScale`
+already scales it at the measure and paint seams — scaling it here would be the
+double application), `motion` (durations are time-true at every distance; reduced
+motion is unaffected), counts and ratios, the player's own `preferredText` inputs,
+a pixel package's `pixelUnit`, the overscan margins (a display fact, applied once
+and composed with the safe insets rather than multiplied), and **art geometry** —
+`chromeInsets`, `chromeOutsets` and `chromeBleed` describe pixels the engine
+paints at the size the recipe declares, so reserving 1.5× of an unscaled border
+would be a reservation for pixels that do not exist. A control-family metric is
+treated as a length unless its name says otherwise (`*TextSize`, `*Lines`,
+`*Count`, `*Duration`, `*Seconds`, `*Ratio`, `*Fraction`, `*Scale`, `*Opacity`,
+`*Weight`); `themes.densityClassOf(path)` is the published classification, and
+the suite fails on a numeric metric it does not classify.
+
+**A package may state its own ladder.** `metrics.tenFoot` is a map of dotted
+metric paths to **absolute** pixel values at distance —
+`tenFoot = { ["space.m"] = 40, ["targetSizes.minimum"] = 80 }` — the same
+vocabulary `themes.resolve`'s `overrides` parameter takes. Authored beats derived,
+the rule `space.gutter` already spends: the derived 1.5 fills in wherever a
+package is silent. A path that names no metric in that package's own snapshot is
+refused at resolve time, and a declaration still may not defeat the accessibility
+target floor.
 
 `themes.neutral()` is the Studio Neutral snapshot (the `themeMetrics` default;
 its values are the literals the framework shipped before packages existed).

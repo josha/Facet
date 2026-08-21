@@ -290,6 +290,32 @@ function snapshot.typographyPaintScale(displaySize: any): number
 	return tenFootFloor(displaySize)
 end
 
+--[[ metricScale(displaySize) -> the METRIC ladder's ten-foot factor (ADAPT-8,
+	director ruling 2026-08-20).
+
+	THE DIRECTOR RULED AGAINST TYPE-ONLY. The framework's ten-foot policy was four
+	rows — the type floor above, the sizeClass density cap, the focus
+	strengthening and the overscan margins — and the audit measured the
+	consequence honestly: control heights, paddings, icon sizes and the 44 px hit
+	floor on a television were byte-identical to a phone's, so a screen at three
+	metres grew its words inside chrome that had not moved. On ten-foot, controls,
+	spacing, icons and hit floors now scale with the type, tvOS-style.
+
+	IT IS `tenFootFloor`, NOT A SECOND CONSTANT, and that is the whole design.
+	The acceptance the director set is a PROPORTION EQUALITY — every
+	text-to-control proportion at ten-foot equals its near proportion — and two
+	constants that agree today are exactly how a 16-in-44 becomes a 24-in-60. One
+	function, two ladders, and `tests/ten_foot_metrics.spec.luau` asserts the
+	identity rather than the number.
+
+	WHY A SEPARATE NAME AT ALL, when the body is one call: the two ladders are
+	different DECISIONS that happen to share a factor. A caller reading
+	`typographyPaintScale` to size a button would be spending the type seam's
+	answer on chrome, and the day a director splits them the split has a seam. ]]
+function snapshot.metricScale(displaySize: any): number
+	return tenFootFloor(displaySize)
+end
+
 --[[ reserveScale(typographyScale, typographyPaintScale) -> what a MEASURE
 	reserves at, given the two SCALES (rather than the facts behind them).
 
@@ -367,6 +393,334 @@ local function writePath(tree: any, path: string, value: any): boolean
 	return true
 end
 
+-- does this dotted path name something in the tree? The read-only half of
+-- `writePath`, so a package's ten-foot declaration is validated against the
+-- snapshot it will be applied to rather than against a hand-kept name list.
+local function hasPath(tree: any, path: string): boolean
+	local node: any = tree
+	local seen = false
+	for part in string.gmatch(path, "[^%.]+") do
+		if type(node) ~= "table" then
+			return false
+		end
+		node = node[part]
+		seen = true
+	end
+	return seen and type(node) == "number"
+end
+
+-- ===== the ten-foot metric ladder ==========================================
+--[[ WHICH PUBLISHED NUMBERS ARE LENGTHS (ADAPT-8, director ruling 2026-08-20).
+
+	The ten-foot factor multiplies LENGTHS and nothing else, and "and nothing
+	else" is the hard half: a snapshot publishes durations in seconds, line
+	heights as ratios, line COUNTS, the player's own text preference and the type
+	ladder the type floor already scales at the measure seam. An "every number"
+	rule turns a 0.12 s fade into 0.18 s and paints text at 2.25x.
+
+	SO EVERY NUMERIC LEAF IS CLASSIFIED BY ITS PATH, and the classification is
+	published (`snapshot.densityClassOf`) because two readers need it: the
+	transform below, and `tests/ten_foot_metrics.spec.luau`, which walks every
+	shipped configuration and FAILS on a leaf that classifies to nothing. An
+	unclassified metric is EXEMPT at runtime — the safe direction, because a new
+	duration silently multiplied is worse than a new length silently not — and a
+	test failure at the commit that introduces it. ]]
+
+-- flat sections where every leaf is a length
+local DENSITY_LENGTH_SECTIONS: { [string]: boolean } = {
+	space = true,
+	radii = true,
+	strokes = true,
+	targetSizes = true,
+	iconSizes = true,
+	iconRunGap = true,
+}
+--[[ ART GEOMETRY IS NOT A METRIC LADDER, and this is the sharpest line in the
+	classification. `chromeInsets`, `chromeOutsets` and `chromeBleed` describe
+	PIXELS THE ENGINE ACTUALLY PAINTS: a nine-slice recipe's border is drawn at
+	`SliceCenter`/`SliceScale`, both authored by the package and neither varied by
+	display class, and a shadow's blur radius is a declared px figure the engine
+	renders unchanged. Reserving 1.5x of a border that is still 16 px wide is a
+	reservation for pixels that do not exist — the exact inverse of the
+	"painted at a size nobody measured" defect this framework already names, and
+	the reason a reservation must always be the number the paint will be.
+
+	A package that wants a heavier frame at three metres ships heavier art (or a
+	different `sliceScale`); it does not get one by arithmetic here. ]]
+local DENSITY_ART_SECTIONS: { [string]: boolean } = { chromeInsets = true, chromeOutsets = true }
+--[[ sections that are NOT metric ladders at all:
+	 `type`       the TYPE ladder — `typographyPaintScale` scales it at the
+	              renderer's measure/paint seams, so scaling it here is the
+	              2.25x double-application defect (and `lineHeight` is a ratio);
+	 `motion`     seconds. Motion stays TIME-TRUE at every distance, and
+	              reduced-motion is untouched;
+	 `preferredText` the player's own reservation inputs, applied once at the
+	              measure seam — the same double-application rule as `type`;
+	 `overrides`  a RECORD of what a caller overrode, not a live metric (the
+	              metric itself sits in its own section and scales there);
+	 `tenFoot`    a package's ABSOLUTE ten-foot declarations (see below);
+	 `identity`   package/theme/stamp. ]]
+local DENSITY_EXEMPT_SECTIONS: { [string]: boolean } = {
+	type = true,
+	motion = true,
+	preferredText = true,
+	overrides = true,
+	tenFoot = true,
+	identity = true,
+}
+-- whole-package scalars. `chromeBleed` is art (the deepest shadow reach any slot
+-- declares), so it is exempt for the reason above.
+local DENSITY_LENGTH_SCALARS: { [string]: boolean } = {}
+local DENSITY_EXEMPT_SCALARS: { [string]: boolean } = {
+	pixelUnit = true,
+	metricScale = true,
+	chromeBleed = true,
+}
+-- `controlSizes` entries: the three px fields, and nothing a future field adds
+-- until it is named here
+local CONTROL_SIZE_LENGTHS: { [string]: boolean } = { height = true, paddingX = true, iconSize = true }
+--[[ A CONTROL-FAMILY METRIC IS A LENGTH UNLESS ITS NAME SAYS OTHERWISE. The
+	family tables are open — a package may author `controls.<family>.<anything>` —
+	so the rule has to be a default plus a vocabulary rather than a list nobody
+	will maintain. Each suffix carries its reason:
+	  `*TextSize`   a TYPE size living inside a control family
+	                (`controls.table.cellTextSize` is the trap: it reaches the
+	                same `typographyPaintScale` seam every other type size does);
+	  `*Lines`/`*Count`  a count of things, not a measure of them;
+	  `*Duration`/`*Seconds`  time;
+	  `*Ratio`/`*Fraction`/`*Scale`/`*Opacity`/`*Weight`  dimensionless. ]]
+local CONTROL_NON_LENGTH_SUFFIXES = {
+	"TextSize",
+	"Lines",
+	"Count",
+	"Duration",
+	"Seconds",
+	"Ratio",
+	"Fraction",
+	"Scale",
+	"Opacity",
+	"Weight",
+}
+--[[ …and the one control metric whose snap direction is DOWN. A Path2D stroke is
+	centred on its curve, so the ring's thickness is a BUDGET against the box
+	(`resolve` computes it as `(1 - CIRCULAR_RADIUS)` of the diameter and
+	pre-snaps it down for exactly this reason); snapping a scaled budget UP onto a
+	pixel package's grid paints outside the box the solver measured. ]]
+local CONTROL_BUDGET_KEYS: { [string]: boolean } = { circularThickness = true }
+
+local function endsWith(s: string, suffix: string): boolean
+	return #s >= #suffix and string.sub(s, -#suffix) == suffix
+end
+
+--[[ densityClassOf(path) -> "scale" | "scaleDown" | "exempt" | nil.
+	`nil` means "nobody has said", which the transform treats as exempt and the
+	spec treats as a failure. ]]
+function snapshot.densityClassOf(path: any): string?
+	if type(path) ~= "string" then
+		return nil
+	end
+	local parts: { string } = {}
+	for part in string.gmatch(path, "[^%.]+") do
+		table.insert(parts, part)
+	end
+	if #parts == 0 then
+		return nil
+	end
+	local root = parts[1]
+	if #parts == 1 then
+		if DENSITY_LENGTH_SCALARS[root] then
+			return "scale"
+		end
+		return if DENSITY_EXEMPT_SCALARS[root] then "exempt" else nil
+	end
+	if DENSITY_LENGTH_SECTIONS[root] then
+		return "scale"
+	end
+	if DENSITY_EXEMPT_SECTIONS[root] or DENSITY_ART_SECTIONS[root] then
+		return "exempt"
+	end
+	--[[ A SLOT INSET IS A COMPOSITE, and the framework already publishes the
+		split. `resolve` adds a recipe's `contentInsets` onto the slot's AUTHORED
+		inset and records the art half separately in `chromeInsets`, so the honest
+		transform scales the authored half and leaves the art half where the paint
+		will be:  (inset - art) * factor + art.  A flat package's art half is zero,
+		so its slot padding scales outright; an ornate package's frame stays the
+		thickness it is drawn at. Applied in `forDisplay`'s named step, because it
+		is the one leaf whose new value is not a function of its own old one. ]]
+	if root == "insets" then
+		return "scaleAuthored"
+	end
+	if root == "controlSizes" then
+		return if CONTROL_SIZE_LENGTHS[parts[#parts]] then "scale" else nil
+	end
+	if root == "controls" then
+		-- the vocabulary is checked on EVERY segment below the family, not only on
+		-- the leaf: `controls.table.rowLines.pointer` is a count one level down
+		for i = 2, #parts do
+			for _, suffix in CONTROL_NON_LENGTH_SUFFIXES do
+				if endsWith(parts[i], suffix) then
+					return "exempt"
+				end
+			end
+		end
+		return if CONTROL_BUDGET_KEYS[parts[#parts]] then "scaleDown" else "scale"
+	end
+	return nil
+end
+
+--[[ THE BASE A DISTANCE-ADAPTED SNAPSHOT WAS DERIVED FROM.
+
+	Recorded in a weak-keyed side table rather than as a field, so a snapshot's
+	own shape — what a dump serializes, what `isMetricPath` can spell, what a
+	sheet export walks — is byte-identical to what it was before this feature.
+	The entry lives exactly as long as the adapted snapshot that keys it.
+
+	It exists so the transform is applied FROM THE BASE, always, and never
+	composed onto its own output. That is what makes a display-class change
+	reversible without drift: a pixel package snaps its lengths onto an integer
+	grid, so 44 -> 66 -> 68 -> 45.33 is what a ratio-composed round trip would
+	do, while a re-derivation from the base is exact in both directions. ]]
+local densityBases: any = setmetatable({}, { __mode = "k" })
+-- per-base memo of the adapted forms, keyed by factor. A snapshot is frozen, so
+-- an adapted form can never go stale for a given base.
+local densityCache: any = setmetatable({}, { __mode = "k" })
+
+function snapshot.baseOf(snap: any): any
+	if type(snap) ~= "table" then
+		return snap
+	end
+	local base = densityBases[snap]
+	return if base ~= nil then base else snap
+end
+
+local function scaleInto(node: any, out: any, prefix: string, factor: number, unit: number?)
+	for key, value in node do
+		local path = if prefix == "" then tostring(key) else `{prefix}.{tostring(key)}`
+		if type(value) == "number" then
+			local class = snapshot.densityClassOf(path)
+			if class == "scale" then
+				local scaled = value * factor
+				out[key] = if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else scaled
+			elseif class == "scaleDown" then
+				local scaled = value * factor
+				out[key] = if unit ~= nil
+					then math.max(unit :: number, math.floor(scaled / (unit :: number)) * (unit :: number))
+					else scaled
+			else
+				out[key] = value
+			end
+		elseif type(value) == "table" then
+			local child: any = {}
+			out[key] = child
+			scaleInto(value, child, path, factor, unit)
+		else
+			out[key] = value
+		end
+	end
+end
+
+local function deepFreeze(t: any): any
+	for _, v in t do
+		if type(v) == "table" and not table.isfrozen(v) then
+			deepFreeze(v)
+		end
+	end
+	return table.freeze(t)
+end
+
+--[[ forDisplay(snapshot, displaySize) -> the snapshot AS PRESENTED at that
+	display class. Pure, total, idempotent and reversible.
+
+	THIS IS THE ONE APPLICATION SITE, and it is called from the environment's
+	`themeMetrics` memo — the same seam, over the same fact, that applies the type
+	floor through `typographyScale`/`typographyPaintScale`. That placement is
+	ADAPT-L1's fix, not an implementation detail: the density half used to ride
+	`resolve`'s recorded `density`, and the environment's default snapshot is
+	`neutral()`, resolved with no facts at all, so a television with no theme
+	package installed measured 10 grid lanes against a desktop's 9 while painting
+	1.5x type into them. Display facts must flow without a theme opt-in, and the
+	environment is where display facts live.
+
+	`resolve` therefore still records `density` and still re-applies nothing — the
+	snapshot remains the AUTHORED authority, which is what lets this function
+	derive both directions from it.
+
+	AT A NEAR DISPLAY THIS IS THE IDENTITY — the same table, not a copy — so no
+	near-distance geometry moves by a pixel and no allocation happens on the path
+	every phone, tablet and desktop takes. ]]
+function snapshot.forDisplay(snap: any, displaySize: any): any
+	if type(snap) ~= "table" then
+		return snap
+	end
+	local base = snapshot.baseOf(snap)
+	local factor = snapshot.metricScale(displaySize)
+	local density = if displaySize == "Large" then "ten-foot" else "near"
+	if factor == 1 and base.density == density then
+		return base
+	end
+	local cached = densityCache[base]
+	if cached ~= nil and cached[factor] ~= nil then
+		return cached[factor]
+	end
+	local unit: number? = if type(base.pixelUnit) == "number" then base.pixelUnit else nil
+	local out: any = {}
+	scaleInto(base, out, "", factor, unit)
+	--[[ the composite step: a slot inset's AUTHORED half scales, its ART half
+		stays the thickness the engine draws (see `densityClassOf`'s `insets` note).
+
+		TYPE-GUARDED, like every seam that reads the `themeMetrics` fact (§8.2: a
+		broken adapter fact must never leak past the seam that read it). This
+		function runs inside the environment's memo, and a memo that THROWS makes
+		the key read `nil` — which is a mounted surface going silently deaf, not an
+		error anybody sees. A snapshot-shaped argument takes the step; anything else
+		is scaled leaf-by-leaf and passed on for `currentMetrics` to reject. ]]
+	if type(out.insets) == "table" and type(base.chromeInsets) == "table" then
+		for slot, sides in out.insets do
+			if type(sides) ~= "table" then
+				continue
+			end
+			local art: any = (base.chromeInsets :: any)[slot]
+			for side, px in sides do
+				if type(px) ~= "number" then
+					continue
+				end
+				local artPx = if type(art) == "table" and type(art[side]) == "number" then art[side] else 0
+				local scaled = (px - artPx) * factor + artPx
+				sides[side] = if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else scaled
+			end
+		end
+	end
+	--[[ 2. AUTHORED BEATS DERIVED — the rule `space.gutter` already spends. A
+		package that wants a bespoke television ladder declares
+		`metrics.tenFoot = { ["space.m"] = 40, … }` and owns the consequence; the
+		derived scale slots in wherever it is silent. The values are ABSOLUTE
+		ten-foot pixels, not multipliers, for the same reason an override is: a
+		number a package wrote is a number a package meant. ]]
+	if factor ~= 1 and type(base.tenFoot) == "table" then
+		for path, value in base.tenFoot do
+			local px = if unit ~= nil and type(value) == "number"
+				then pkg.snapToPixelUnit(value, unit :: number)
+				else value
+			writePath(out, path, px)
+		end
+		-- …and a declaration may not defeat the accessibility floor, exactly as an
+		-- override may not (`resolve` step 5)
+		if type(out.targetSizes) == "table" and type(out.targetSizes.minimum) == "number" then
+			out.targetSizes.minimum = math.max(pkg.MIN_TARGET_SIZE, out.targetSizes.minimum)
+		end
+	end
+	out.density = density
+	out.metricScale = factor
+	local frozen = deepFreeze(out)
+	densityBases[frozen] = base
+	if cached == nil then
+		cached = {}
+		densityCache[base] = cached
+	end
+	cached[factor] = frozen
+	return frozen
+end
+
 -- resolve(package, themeName, facts, overrides?) -> frozen ThemeSnapshot.
 --
 -- Composition happens EXACTLY ONCE, in ADR-0019 §2 order:
@@ -376,12 +730,14 @@ end
 --   4. accessibility and minimum-hit-target floors (clamp UP, never down);
 --   5. explicit local overrides.
 --
--- Steps 2 and 3 deliberately do NOT scale anything here. The environment already
--- composes the ten-foot type floor into `typographyScale`/`typographyPaintScale`
--- and the preferred-text offset into the renderer's measure seam; applying them
--- again in the snapshot would DOUBLE them. The snapshot therefore carries the
--- AUTHORED values plus the facts that produced it, and the existing scale seams
--- keep multiplying at measure and paint.
+-- Steps 2 and 3 deliberately do NOT scale anything here, and that is still true
+-- after ADR-0039 gave the ten-foot ladder a METRIC half. The environment composes
+-- the ten-foot type floor into `typographyScale`/`typographyPaintScale`, the
+-- preferred-text offset into the renderer's measure seam, and the ten-foot METRIC
+-- factor into its own `themeMetrics` read (`snapshot.forDisplay`); applying any of
+-- them again here would DOUBLE them. The snapshot therefore carries the AUTHORED
+-- values plus the facts that produced it, and the existing seams keep multiplying
+-- at measure, at paint and at the metric read.
 function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overrides: { [string]: any }?): any
 	assert(
 		type(package) == "table" and package.schema == pkg.SCHEMA,
@@ -741,7 +1097,17 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- RESOLVED metrics, so it has to see the snapped numbers)
 	out.chromeOutsets = {}
 
-	-- 2. display/density policy: recorded, never re-applied (see the note above)
+	--[[ 2. display/density policy: recorded, never re-applied (see the note above).
+		WHAT "RE-APPLIED" NOW MEANS (ADR-0039). The director's ten-foot ruling gave
+		this fact a consequence — the whole metric ladder scales by 1.5 at a Large
+		display — and it is applied in `snapshot.forDisplay`, called from the
+		ENVIRONMENT's `themeMetrics` memo over the LIVE display fact, never here.
+		That is not tidiness: a snapshot's facts are whatever it happened to be
+		resolved with, and the environment's default snapshot is `neutral()`,
+		resolved with no facts at all, so a television with no theme controller
+		installed would carry `near` forever (ADAPT-L1). The value below stays as
+		the record of THIS resolve, which is what a caller holding only a snapshot
+		and no environment reads (`text_fit.facts({ metrics = … })`). ]]
 	out.density = if f.displaySize == "Large" then "ten-foot" else "near"
 	-- 3. preferred-text reservation inputs: carried for inspection, applied once
 	-- at the renderer's measure seam
@@ -1005,6 +1371,48 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		out.targetSizes.minimum = math.max(pkg.MIN_TARGET_SIZE, out.targetSizes.minimum)
 	end
 	out.overrides = applied
+
+	--[[ 6. THE PACKAGE'S OWN TEN-FOOT LADDER, carried but not applied (ADAPT-8,
+		contract 2). `metrics.tenFoot` is a map of dotted metric paths to ABSOLUTE
+		ten-foot pixel values — the same vocabulary `resolve`'s own `overrides`
+		parameter takes, deliberately, so a package author spells a television
+		metric the way they already spell a local one.
+
+		VALIDATED HERE, against THIS package's finished snapshot rather than against
+		neutral: a path is checked for existing and for naming a NUMBER, so a typo
+		("space.enormous") is an authoring error at resolve time instead of a silent
+		no-op on a television nobody in the studio owns. It is checked after the
+		floors, the pixel snap and the overrides for the same reason `writePath`
+		runs there — those are the numbers the declaration replaces.
+
+		APPLIED in `forDisplay`, which is the only place a ten-foot value means
+		anything; a near display never reads this table. `resolve` goes on recording
+		display facts and re-applying none of them. ]]
+	local declared: any = {}
+	if type(metrics.tenFoot) == "table" then
+		local paths: { string } = {}
+		for path in metrics.tenFoot :: any do
+			table.insert(paths, tostring(path))
+		end
+		table.sort(paths)
+		for _, path in paths do
+			local value = (metrics.tenFoot :: any)[path]
+			assert(
+				hasPath(out, path),
+				`themes.resolve: metrics.tenFoot['{path}'] names no metric in this package's snapshot `
+					.. `(use a dotted path such as "space.m" or "targetSizes.minimum")`
+			)
+			assert(
+				type(value) == "number" and value == value,
+				`themes.resolve: metrics.tenFoot['{path}'] must be a number of pixels at ten-foot distance`
+			)
+			declared[path] = value
+		end
+	end
+	out.tenFoot = declared
+	-- the factor THIS snapshot carries. An authored base is always 1: it is the
+	-- near ladder, and `forDisplay` is what publishes 1.5.
+	out.metricScale = 1
 
 	out.identity = {
 		packageId = package.identity.id,

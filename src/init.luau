@@ -648,6 +648,18 @@ local Facet = {
 		-- the compiled Studio Neutral package: pass it as `base` to start from
 		-- the library's own theme and override only what you mean to change
 		neutralPackage = themesSnapshot.neutralPackage,
+		--[[ THE TEN-FOOT METRIC LADDER (ADAPT-8, director ruling 2026-08-20). The
+			environment applies `forDisplay` for you at its `themeMetrics` read, so a
+			consumer almost never calls these — they are public because a consumer
+			who PREDICTS geometry (rather than resolving a metric name) needs the
+			same factor the framework spends, and because `baseOf` is what makes a
+			read-hold-write round trip of the metric fact exact. `densityClassOf`
+			is the published classification: which numeric metric paths the ladder
+			moves, and which it deliberately leaves alone. ]]
+		metricScale = themesSnapshot.metricScale,
+		forDisplay = themesSnapshot.forDisplay,
+		baseOf = themesSnapshot.baseOf,
+		densityClassOf = themesSnapshot.densityClassOf,
 		-- the §4 legal-property linter, exported so a materializer or an
 		-- authoring tool rules on a property exactly as compilation does
 		lintProperty = themesPackage.lintProperty,

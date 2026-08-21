@@ -687,6 +687,11 @@ require("./hidden_roots_owner.spec")
 	told), or the control refuses to construct and names the host that would have
 	supplied it. Every adaptive control the audit measured is pinned unwired ]]
 require("./adaptive_defaults.spec")
+--[[ the director's ten-foot ruling (ADAPT-8): the whole metric ladder scales by
+	the TYPE floor's own factor, applied at the same environment seam the type
+	floor uses — so a television with no theme package installed measures capped
+	lanes and scaled metrics (ADAPT-L1) ]]
+require("./ten_foot_metrics.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

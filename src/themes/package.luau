@@ -340,6 +340,19 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 	-- icons has no sizes to declare either, and every package published before
 	-- this stage has neither.
 	iconSizes = true,
+	--[[ A BESPOKE TEN-FOOT LADDER (ADAPT-8, director ruling 2026-08-20). Optional,
+		and empty for every package shipped before this stage — which is why no
+		package's authored metrics, and therefore no package's content STAMP, moves
+		for this section existing.
+
+		A map of dotted metric paths to ABSOLUTE ten-foot pixel values
+		(`{ ["space.m"] = 40 }`), i.e. exactly the vocabulary `themes.resolve`'s
+		`overrides` parameter takes. AUTHORED BEATS DERIVED, the rule `space.gutter`
+		already spends: the framework's derived 1.5x ladder slots in wherever a
+		package is silent, and a package that means something else about a
+		television says so here and owns it. The paths are validated against the
+		package's own resolved snapshot in `themes/snapshot.resolve`. ]]
+	tenFoot = true,
 }
 local TYPOGRAPHY_FIELDS: { [string]: boolean } = { font = true, size = true, lineHeight = true }
 local FONT_FIELDS: { [string]: boolean } = { family = true, weight = true, style = true }
@@ -1571,6 +1584,42 @@ function package.define(def: any): (any, any)
 						`metrics.iconSizes.{tostring(role)}`,
 						`iconSizes.{tostring(role)} must be a positive number (got {tostring(value)})`,
 						"icons resize with the snapshot, so this is the px an icon in that role draws at"
+					)
+				end
+			end
+		end
+	end
+
+	--[[ THE BESPOKE TEN-FOOT LADDER (ADAPT-8). Optional, and validated in two
+		halves for two different audiences: the SHAPE here, at define time, where an
+		author gets a report; the PATHS in `themes/snapshot.resolve`, which is the
+		only place the finished snapshot exists to check a name against. Splitting
+		it that way is what lets the path check be exact — validated against the
+		package's OWN metrics rather than against neutral's vocabulary — instead of
+		a keyword list this file would have to keep in step. ]]
+	if metrics.tenFoot ~= nil then
+		if type(metrics.tenFoot) ~= "table" then
+			reject(
+				"unknownField",
+				"metrics.tenFoot",
+				"tenFoot must be a table of dotted metric paths",
+				'e.g. tenFoot = \\{ ["space.m"] = 40, ["targetSizes.minimum"] = 80 }'
+			)
+		else
+			for path, value in metrics.tenFoot do
+				if type(path) ~= "string" or string.match(path, "^[%w_]+[%w_%.]*$") == nil then
+					reject(
+						"unknownField",
+						`metrics.tenFoot.{tostring(path)}`,
+						`'{tostring(path)}' is not a dotted metric path`,
+						'e.g. ["controls.slider.thumbSize"] = 30'
+					)
+				elseif not isFiniteNumber(value) or value <= 0 then
+					reject(
+						"missingRole",
+						`metrics.tenFoot.{tostring(path)}`,
+						`tenFoot['{tostring(path)}'] must be a positive number (got {tostring(value)})`,
+						"the value is the ABSOLUTE pixel measure at ten-foot distance, not a multiplier"
 					)
 				end
 			end

@@ -278,20 +278,46 @@ edited when its on-screen keyboard docks ends through the normal commit-or-rever
 path (never silently dropping typed text). You never write any of this — it is
 the control's contract.
 
-**Ten-foot (console on a TV).** When the display is large the environment reports
-`distanceProfile == "ten-foot"` (keyed on `displaySize == "Large"`, *not* on the
-input device — a keyboard on a TV still earns it). The presentation applies
-**overscan-safe margins**, **reduced density** (a wide viewport resolves to the
-`regular` arrangement — fewer, bigger targets), and a **strengthened focus state**
-(a thicker ring plus a slight scale, so focus reads across a room instead of as a
-hairline). It also intends to add an authored viewing-distance type floor. The
-current 0.4 adapter composes that floor with a custom preferred-text scale, but
-Roblox may already apply the player's preferred text size. That behavior is under
-the native-text evidence gate: the final rule must apply the Roblox preference once
-and the authored distance treatment once, with measured and painted bounds agreeing.
-Do not rely on the old “preference × 1.5” formula as a settled contract. (TV-*remote*
-input — a D-pad-only constrained gamepad — is a separate, deferred concern; it
-reuses this same ten-foot profile and is never a fifth device class.)
+**Ten-foot (a screen across the room).** When the display class is large the
+environment reports `distanceProfile == "ten-foot"` (keyed on `displaySize ==
+"Large"`, *not* on the input device — a keyboard on a TV still earns it). Four
+things change, and they compose rather than multiply:
+
+- **The whole size ladder scales by 1.5.** Type first — body text must clear
+  roughly 29 pt at three metres — and, since the same factor drives both, control
+  heights, paddings and gaps, icon sizes, corner radii and the minimum
+  focus-target size along with it. The 44 px target floor is 66 px at distance.
+  The factor is deliberately one number for both ladders, so **every
+  text-to-control proportion at ten-foot equals its near proportion**: a 16 px
+  label in a 44 px control is a 24 px label in a 66 px control, and nothing
+  outgrows the chrome around it.
+- **Overscan-safe margins** are inset on all four sides (a television clips its
+  own edges). These are a *display* fact, not a size-ladder metric, so they are
+  applied once and are **not** scaled by the factor above.
+- **Reduced density**: a wide viewport resolves to the `regular` arrangement and
+  a `minColumnWidth` grid takes its lane count against the `wide` breakpoint
+  rather than the raw extent — fewer, larger targets, never more of them than a
+  desktop gets.
+- **A strengthened focus state** (a thicker ring plus a slight scale, so focus
+  reads across a room instead of as a hairline).
+
+None of this needs an opt-in. The display facts flow through the environment, so
+a surface presented with no theme package installed still measures capped lanes
+and scaled metrics. What the *player's* own text preference does is unchanged
+and independent: the engine applies it as an additive offset at draw time and the
+framework reserves for it at measure time, so the preference and the distance
+treatment are each applied exactly once.
+
+**A theme may state its own ten-foot ladder.** The 1.5 is *derived* — it fills in
+wherever a package is silent. A package that means something specific about a
+television declares `metrics.tenFoot` (dotted metric paths to absolute pixel
+values at distance) and owns those numbers outright, exactly as an authored
+`space.gutter` beats the derived one. Art geometry is never scaled: a nine-slice
+border is painted at the size its recipe declares, so the reservation for it stays
+the number the paint will be.
+
+(TV-*remote* input — a D-pad-only constrained gamepad — is a separate, deferred
+concern; it reuses this same ten-foot profile and is never a fifth device class.)
 
 **How a control declares its paradigm behavior.** All of the above rides the same
 input-contribution bundle a composite attaches to its root (ADR-0013). Alongside

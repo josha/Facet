@@ -172,6 +172,35 @@ function environment.new(core: any): Env
 	derived.typographyPaintScale = core:memo(function(use)
 		return themeSnapshot.typographyPaintScale(use(signals.displaySize))
 	end)
+	--[[ THE METRIC AUTHORITY, AS PRESENTED AT THIS DISPLAY CLASS (ADAPT-8,
+		director ruling 2026-08-20; ADAPT-L1, the Part-2 layout audit).
+
+		THE KEY IS READ HERE AND WRITTEN BELOW, and that is the point rather than a
+		trick. `themeMetrics` is a FACT because a theme controller must commit the
+		snapshot and the native derive swap in one invocation — that has not
+		changed, and `env:set("themeMetrics", …)` still writes the same signal. What
+		a reader gets is that fact with the DISTANCE POLICY applied, which is
+		exactly what a reader of `typographyScale` has always got: the two ten-foot
+		ladders are now applied at one seam, over one fact, by one function.
+
+		WHY IT HAD TO MOVE HERE. The type floor reached a television because it is
+		derived from the live `displaySize` fact. The metric half rode the SNAPSHOT's
+		recorded `density`, and the default snapshot is `themes.neutral()` — resolved
+		with no facts at all — while a theme controller is an opt-in install. So a
+		TV presented through plain `Facet.newPresenter` measured ten grid lanes
+		against a desktop's nine and painted 1.5x type into them: the worst of both.
+		Display facts must flow without a theme opt-in, and display facts live here.
+
+		IT IS THE IDENTITY AT A NEAR DISPLAY — the same table, not a copy — so every
+		phone, tablet and desktop reads exactly the snapshot that was committed and
+		no near-distance geometry moves by a pixel.
+
+		WHAT IS SET IS ALWAYS THE AUTHORED BASE (see `env.set`), so the round trip a
+		controller makes — read the pre-install snapshot, hold it, write it back on
+		uninstall — cannot compose the transform onto its own output. ]]
+	derived.themeMetrics = core:memo(function(use)
+		return themeSnapshot.forDisplay(use(signals.themeMetrics), use(signals.displaySize))
+	end)
 	derived.effectiveTransparency = core:memo(function(use)
 		local raw = use(signals.preferredTransparency)
 		if type(raw) ~= "number" or raw ~= raw then
@@ -554,8 +583,26 @@ function environment.new(core: any): Env
 
 	local env = {}
 
+	--[[ EXACTLY ONE KEY IS PUBLISHED BOTH WAYS, and the derived form is the one a
+		reader gets. `themeMetrics` is a settable fact (a theme swap is one atomic
+		commit) whose READ carries the distance policy — see the memo above. The
+		overlap is asserted rather than assumed: a second shadowed key would be a
+		fact somebody could set and never read back, which is the kind of thing that
+		is discovered months later on a television. ]]
+	local shadowed: { string } = {}
+	for key in derived do
+		if signals[key] ~= nil then
+			table.insert(shadowed, key)
+		end
+	end
+	assert(
+		#shadowed == 1 and shadowed[1] == "themeMetrics",
+		`environment: exactly one fact may be shadowed by a derived key of the same name (themeMetrics, the `
+			.. `distance-adapted metric authority); found {#shadowed}: {table.concat(shadowed, ", ")}`
+	)
+
 	function env.get(_self, key: string): any
-		local readable = signals[key] or derived[key]
+		local readable = derived[key] or signals[key]
 		assert(readable ~= nil, `unknown environment key '{key}'`)
 		return readable
 	end
@@ -580,6 +627,16 @@ function environment.new(core: any): Env
 			if w == nil or h == nil or w ~= w or h ~= h or w <= 1 or h <= 1 then
 				return
 			end
+		end
+		--[[ THE METRIC FACT ALWAYS HOLDS AN AUTHORED BASE (ADAPT-8). A reader gets
+			the distance-adapted form, so the commonest thing a caller can do with
+			this key — read it, hold it, write it back later (which is exactly what
+			`theme_controller` does across an install/uninstall) — would otherwise
+			hand the transform its own output. Normalising on the WRITE makes "the
+			fact is the authored ladder" an invariant instead of a discipline, and it
+			is the identity for every snapshot that was never adapted. ]]
+		if key == "themeMetrics" then
+			value = themeSnapshot.baseOf(value)
 		end
 		signal:set(value)
 	end
@@ -614,11 +671,17 @@ function environment.new(core: any): Env
 
 	function env.keys(_self): { string }
 		local out = {}
+		local seen: { [string]: boolean } = {}
 		for k in signals do
+			seen[k] = true
 			table.insert(out, k)
 		end
+		-- the shadowed key is ONE key, not two: it is listed once, exactly as a
+		-- consumer experiences it (asserted above)
 		for k in derived do
-			table.insert(out, k)
+			if not seen[k] then
+				table.insert(out, k)
+			end
 		end
 		table.sort(out)
 		return out

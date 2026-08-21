@@ -74,9 +74,13 @@ UI : table
 VERSION : string
 adaptive : table
   adaptive.BREAKPOINTS : table(frozen)
+  adaptive.CARD_MIN_WIDTH : number
+  adaptive.CARD_PEEK : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
   adaptive.HEIGHT_BREAKPOINTS : table(frozen)
   adaptive.axisFor : function
+  adaptive.cardPeek : function
+  adaptive.cardsPerView : function
   adaptive.columnsFor : function
   adaptive.conditions : function
   adaptive.heightClass : function
@@ -185,9 +189,13 @@ text : table
   text.size : function
 themes : table
   themes.SCHEMA : string
+  themes.baseOf : function
   themes.checkCoverage : function
   themes.define : function
+  themes.densityClassOf : function
+  themes.forDisplay : function
   themes.lintProperty : function
+  themes.metricScale : function
   themes.neutral : function
   themes.neutralPackage : function
   themes.resolve : function
