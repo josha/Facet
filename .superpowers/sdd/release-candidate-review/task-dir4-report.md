@@ -263,3 +263,110 @@ the consumer scanned.
 6. Two repo checks are **environmentally** unrunnable inside a `git archive` export —
    `check_comment_codes` (needs `git ls-files`) and `check_input_authority` (walks a
    relative path to the consumer). Both were run in the real tree instead and both pass.
+
+---
+
+# Fix round 1 — corrections and additions (2026-08-21)
+
+Everything above is left exactly as it was written, including the two sentences the
+DIR4 review proved false. This section is the correction; nothing above was edited.
+
+**Suite 6892** (baseline 6883 at the fix round's HEAD; +9 = the nine new cases).
+Commits: see the fix-round table at the end of this section.
+
+## CORRECTION 1 — "MAJOR-2 … It bites on the failed-mount path" was FALSE
+
+The report's MAJOR-2 section says the shipped guard bit on the failed mount. It did
+not, and the review is right about why: the guard led with
+`type(demoHandle) == "table"`, and `demo_picker`'s `raise()` passes
+`mounted.handle`, which is **nil** on exactly that path — so the one case the guard
+was claimed to save was the one case it could not fire on. The other branch
+(`panelHandle.displayOrder > demoHandle.displayOrder`) is unreachable in this
+example, because a successful swap has just presented the demo. The mitigation was
+inert, and the shipped hazard note said the same false thing.
+
+**Fixed.** The guard is now `if demoHandle == nil then return end` — nothing was
+presented, a dismissal does not move `displayLayer`, so nothing climbed and the
+re-present is provably waste. The unreachable comparison is deleted rather than kept
+with an excuse. The hazard note in `showcase_chrome.luau` is rewritten to claim only
+what happens.
+
+**And the fixture was worse than the code.** Case (15) drove
+`chrome.raise({ displayOrder = … })`, a table no call site can produce — a check
+that proves nothing, certifying dead code. It is replaced by a **driven** failed
+mount (`showcase{ failMount = flag }` makes `mountDemo` throw, exactly as a missing
+scenario module does live), plus its control: a successful swap still spends a slot.
+`self.raise` was only ever exported for that fixture and is gone with it.
+
+## CORRECTION 2 — §5's rebuilt audit re-asserted the same false claim, one key over
+
+The report presented §5 as the corrected audit. It said "for `Backquote`/`ButtonY`
+that is still true" — and `src/controls/menu.luau:70-76` declares
+`TRIGGER_KEYS.gamepad = ButtonY`, bound at `:884-899` on a **sinking** context at
+priority 1200 for every `Menu` control with an action system. The catalogue ships
+the `menu` demo. So the chrome at 3500 was deleting the pad route that demo exists
+to demonstrate — the identical failure the round diagnosed for the bumpers, written
+into the paragraph that corrected it, because the harness's stand-in demo binds
+nothing and I did not go and look.
+
+**RULING R20 (controller, 2026-08-21): the chrome toggle drops `ButtonY` entirely.**
+The bumpers are already the pad's two doors (R19), so a pad toggle is redundant; the
+platform convention gives the right face button to menus and context actions; the
+framework's own menu verb claims it. Keyboard keeps `Backquote`.
+`showcase_chrome.TOGGLE_GAMEPAD` is **deleted**, not nil'd — a consumer printing the
+chrome's key map from it would otherwise print a route that no longer exists. It
+shipped un-released inside `0.10.0`, so the removal rides R15 and is recorded as
+**ADR-0040 row B-14**.
+
+§5 is now an audit as a **table of what was actually read**, per key, with the
+measurement beside each. The plan doc that first chose `ButtonY`
+(`docs/plans/parity-round3.md`) carries a SUPERSEDED note on its gamepad row rather
+than being rewritten.
+
+## CORRECTION 3 — R19's stated price was wrong (review MINOR-3), and the director should see it
+
+§5 and the DIR4 commit message both said the framework's Adjust "keeps DPad / Comma
+/ Period". That holds only for a control that declares `adjustAxis` (Slider,
+LevelPicker), whose D-pad pair moves to `AdjustAxis`. For a **legacy**-state adjust
+target on a screen with horizontal navigation, `presenter.luau:2398-2402` returns
+after binding **Comma, Period, ButtonL1, ButtonR1 and nothing else** — and the first
+two are keyboard keys. So on a pad, once this chrome takes the bumpers, a TabView
+strip and a Table column grip keep **no Adjust route at all**. That is the
+`tab-view` and `table-virtualized` demos, and `tests/tab_view.spec.luau` asserts the
+shoulders as the pad's paging affordance.
+
+R19 authorises the trade and this round does not reopen it — but the price is higher
+than the sentence the ruling was taken against, it is stated accurately in §5 now,
+and **the director should see it**. It is a showcase-only cost: a game embedding
+Facet chooses its own chrome keys.
+
+## The five MINORs
+
+| review # | what | disposition |
+|---|---|---|
+| MINOR-5 | the ten-foot fix insets two edges of four | **fixed** — and re-shaped: the overscan moved off the Bar's two `offset*` props onto the `Dock` anchor's `padding`, which insets every edge at once, composes with the screen's own `gutter`, and makes `width = fill` fill the VISIBLE width so the `ViewThatFits` ladder's offer is honest. New case (17); mutation drops `right` and it reddens. **The `bottom` edge is a recorded null** — the bar is top-anchored and hugs, so mutating it to 0 reddens nothing; declared anyway so the answer cannot be half-applied a second time, and the spec says exactly that |
+| MINOR-1 | dead `BAR_ID` | **fixed** — deleted. It is the `sectionActions` defect re-created in the same commit that removed it; the bar's id appears once in the file |
+| MINOR-4 | the `warn` fix is unpinned | **fixed** — the harness gained a capturing `warnSink` (it passed a swallowing `warn`, which is why it was unpinned), and case (18) drives one throwing listener: exactly one report line, the chrome survives, `core:lastError()` nil. Mutation re-swallows and it reddens |
+| MINOR-7 | loose `isPanelPath` prefix | **fixed** — matches the root exactly or requires the `/`. **Knowingly unpinned**: there is no second `/ShowcasePanel*` surface in the place, and fabricating one to pin it would be the same class of fixture this round just deleted |
+| MINOR-3 | R19's price | **fixed** in §5 — see CORRECTION 3 |
+| MINOR-2 | the `api.md` heading splits `present`'s docs | **fixed** — the standing-rule section moved below the closed-option-key block, where it no longer reads as owning it |
+| MINOR-6 | CONTESTED-2 filed as though no app-side option exists | **fixed** — §5 now records the `TOGGLE_PRIORITY = 3501` option, and why it was declined: it breaks the FIRST modal's tie in the chrome's favour and leaves the second (4000) winning, so the rule becomes "the chrome wins one modal depth and loses the next", which is worse to explain than the tie. The honest fix is a band with room in it |
+
+Nothing was skipped.
+
+## Fix-round mutations (all bite)
+
+| # | mutation | reddens |
+|---|---|---|
+| N1 | the raise guard neutered | (15) failed mount |
+| N2 | the chrome re-binds `ButtonY` | (7) contended keys, (16) ×2 — including the REAL `menu` fixture |
+| N3 | overscan padding drops `bottom` | **nothing** — the recorded null, disclosed in the spec |
+| N3b | overscan padding drops `right` | (17) ×2 |
+| N4 | the raise listener re-swallows its error | (18) |
+| N5 | `demo_picker` stops passing the handle | (15) failed mount — the contract, not just the guard |
+
+## What is still owed after this round
+
+Unchanged from Concerns 1-4 above, plus: the modal/chrome tie (CONTESTED-2) is live
+and now has its declined option on the record; and the pad's `ButtonY` route through
+`newMenu` should be exercised on the device pass alongside the two shoulders.
