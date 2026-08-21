@@ -51,6 +51,14 @@ local function checkFile(filePath: string)
 		local resolvedBase: string
 		if string.sub(target, 1, 6) == "@self/" then
 			resolvedBase = if isInit then dir .. "/" .. string.sub(target, 7) else dir .. "/" .. string.sub(target, 7)
+		elseif target == "@self" then
+			--[[ THE SAME ROOT, SPELLED THE OTHER WAY (rule (d) below). Bare
+				`@self` is Lune's alias for the containing library's root, and this
+				walk only ever visits `src/`, so that root is `src` whatever
+				directory the file sits in. Only `src/init.luau` uses the `@self/`
+				form today, which is why the prefix branch above resolves it against
+				`dir` and has never had to answer this question. ]]
+			resolvedBase = "src"
 		elseif string.sub(target, 1, 1) == "@" then
 			continue -- runtime alias (@lune etc.)
 		else
@@ -59,6 +67,29 @@ local function checkFile(filePath: string)
 			resolvedBase = base .. "/" .. target
 		end
 		local resolved = normalize(resolvedBase)
+		--[[ (d) NOTHING UNDER src/ MAY REQUIRE THE LIBRARY ROOT (2026-08-21).
+
+			`src/init.luau` requires every control module near its top and only
+			assembles its exports ~470 lines later, so a module it pulls in that
+			requires the root back is a cycle — and Lune does not report a cycle.
+			It HANGS: no output, no stack, no timeout, forever. Measured with a
+			two-module cycle and killed at 15 seconds with an empty transcript.
+
+			That is the worst failure this repository can hand a newcomer, and it
+			handed one exactly that: `docs/extending/new-control.md` showed
+			`Facet.specGuard.<...>` at module scope as the in-repo pattern, a
+			fresh-context author wrote it literally, and `lune run tests/run_one`
+			hung with nothing to pull on. All 24 shipped controls reach the same
+			implementation through `require("../spec_guard")`.
+
+			So the guard is STATIC. The hang happens inside Lune's own resolver
+			before a single line of ours runs, so no runtime check in `spec_guard`
+			or `init` can ever see it — but the require is right there in the
+			source, and a checker that already walks every require can refuse it
+			by name in under a second. ]]
+		if resolved == "src" then
+			table.insert(violations, { file = filePath, target = resolved, rule = "src-module-requires-library-root" })
+		end
 		if not insideClient and string.match(resolved, "^src/client/") then
 			table.insert(violations, { file = filePath, target = resolved, rule = "non-client-requires-client" })
 		end

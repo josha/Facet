@@ -71,7 +71,7 @@ discover one red test at a time, and the guide-catalog row alone reddened four
 documentation-gate cases whose obligation no playbook stated. They are stamped
 now from the one name you typed.
 
-Verify the red state: `./run-tests.sh` must now fail with the ELEVEN stamped
+Verify the red state: `./run-tests.sh` must now fail with the TEN stamped
 cases and nothing else. Every other check in the suite was green before the
 scaffold ran and must still be green after it. **If anything else is red, that
 is a defect in the scaffold — report it rather than working around it.**
@@ -83,7 +83,7 @@ check that names it if you forget:
 
 | Yours to write | What tells you |
 |---|---|
-| the eleven stamped cases | `./run-tests.sh` — they `error("unimplemented")` on purpose |
+| the ten stamped cases | `./run-tests.sh` — they `error("unimplemented")` on purpose |
 | the real `docs/reference/api.md` entry | a human reviewer. The anchor satisfies `check_registration`; only a person can see that the entry is real |
 | the catalog row's one-line description, the demo's title and blurb | a human reviewer, plus `tests/gallery_demo_picker.spec` on a blurb longer than the 82 characters a device pass has read |
 | the scenario's `steps` and `report` | a human reviewer, and §6 below: a fixture with no steps cannot be driven |
@@ -198,23 +198,52 @@ any of it.
 
 **Your OWN spec is strict too, with the framework's own guard.** The rule below
 is about `UI.*` specs; it says nothing about the table a consumer hands
-`newGauge(core, spec)`, and until 0.10.0 there was no public route to enforce
-that half — which meant the strictness this playbook asks for stopped at the
-repository boundary. Use `Facet.specGuard`, which is the same
-implementation the twenty-two in-repo controls use:
+`Facet.Controls.Gauge(core, spec)`, and until 0.10.0 there was no public route to
+enforce that half — which meant the strictness this playbook asks for stopped at
+the repository boundary.
+
+**Inside this repository — which is where you are — require the submodule
+directly.** All 24 shipped controls do exactly this, and so should yours:
 
 ```lua
-local SPEC_KEYS = Facet.specGuard.keySet({ "id", "value", "onChange" })
+local specGuard = require("../spec_guard")
 
-function gauge.build(core, spec)
+-- CLOSED SPEC (constitution §4): exactly the fields this control reads.
+local GAUGE_KEYS = specGuard.keySet({ "id", "value", "onChange" })
+
+function gauge.build(Facet: any, core: any, spec: any)
     -- `where` is the PUBLIC name an author typed, so the error is greppable from
     -- the call site; `kind` is "spec" or "opts"
-    Facet.specGuard.assertKnownKeys("newGauge", spec, SPEC_KEYS, "spec")
+    specGuard.assertKnownKeys("Controls.Gauge", spec, GAUGE_KEYS, "spec")
 ```
 
-A misspelled key then gets the same sentence every Facet boundary produces: the
-key that was wrong, a "Did you mean" when one is close, and the whole legal set.
-See [api.md §`specGuard`](../reference/api.md#specguard).
+Note the seam: `build(Facet, core, spec)`, three arguments, as
+[§1's call-shape paragraph](#1-scaffold-the-skeleton) describes and as the
+scaffold stamps it. `src/controls/chip.luau` is the smallest worked example.
+
+> **Do NOT reach the guard through the library root from inside `src/controls/`.**
+> `local Facet = require("../")` — or `require("@self")` — at module scope is a
+> CIRCULAR REQUIRE: `src/init.luau` requires every control module near its top and
+> only assembles `Facet.specGuard` some four hundred lines later. Lune does not
+> report the cycle. **It hangs** — no output, no stack, no timeout — so
+> `lune run tests/run_one <name>` sits there forever with nothing to pull on. A
+> fresh-context author lost a session to exactly this. `lune run
+> tools/lune/check_boundary` names the file and the rule
+> (`src-module-requires-library-root`) in under a second, and 19 gate rows run it.
+
+**Out of this repository** — a control shipped in a game, or in a package that
+consumes Facet — there is no `../spec_guard` to require, so reach the same
+implementation through the public surface instead. There is no cycle there,
+because the library is fully loaded before your module runs:
+
+```lua
+local Facet = require(ReplicatedStorage.Facet)
+local GAUGE_KEYS = Facet.specGuard.keySet({ "id", "value", "onChange" })
+```
+
+Either way a misspelled key gets the same sentence every Facet boundary
+produces: the key that was wrong, a "Did you mean" when one is close, and the
+whole legal set. See [api.md §`specGuard`](../reference/api.md#specguard).
 
 **Authoring is strict.** Every `UI.*` spec is validated against
 `src/blueprint_schema.luau` at construction: an unknown key, a wrongly typed
@@ -265,10 +294,30 @@ Rules the reviewers will hold you to:
 - **Three load-bearing facts** (dry-run findings 2026-07-21 — previously only
   learnable from the exemplar sources):
   1. **One activation site.** When your bundle declares `handleActivate`, the
-     inner focusable primitives must carry **no** `onActivate` prop — the
-     presenter dispatches a tap/A/Return to the node's own `onActivate` FIRST
-     and then to the longest-prefix contribution, so declaring both
-     double-fires the verb.
+     inner focusable primitives must carry **no** `onActivate` prop. Activate
+     dispatch is an ordered cascade with an early return
+     (`activateEffect`, `src/present/presenter.luau`): a consumer's
+     `opts.onActivate` override, then the node's own `onActivate`, then a
+     `Toggle`'s auto-flip, then the longest-prefix contribution's
+     `handleActivate`, then the drag verb's pickup. **The first one that answers
+     ends the dispatch.**
+
+     So declaring both does not double-fire the verb — it does something
+     quieter and worse: **the node's `onActivate` wins and your bundle's
+     `handleActivate` is never called at all, silently.** Measured 2026-08-21 on
+     all four input classes (pointer tap, touch tap, focus+Return, focus+ButtonA)
+     with both handlers instrumented: the node handler fired once every time, the
+     bundle handler zero times, and a control arm with no node `onActivate` fired
+     the bundle handler — so the zero is shadowing, not a dead harness. (This
+     playbook claimed "double-fires" until then; the symptom it warned about was
+     the opposite of the real one, and the real one is harder to notice.)
+
+     The silence is deliberate rather than an oversight, and it has to be: a
+     composite may legitimately give ONE inner node its own `onActivate` while
+     its bundle handles the rest, and the framework cannot tell that apart from a
+     mistake without calling the handler it is trying not to call. The discipline
+     is yours — **one activation site per path** — and the check is your own
+     four-input cases, which fail if the wrong handler runs.
   2. **The 44 px touch floor is a contract you must declare, not one the
      solver enforces.** A bare focusable primitive renders at its content
      height; give your control's hit surface an explicit
@@ -320,6 +369,22 @@ lune run tools/lune/check_registration_cli       # must exit 0: registration com
 lune run tools/lune/check_prop_parity_cli        # must exit 0: property views agree
 lune run tools/lune/gate phase-4-hardening       # must not REGRESS (see below)
 ```
+
+**"In order" is load-bearing — do not run the gate until the suite is green.**
+Many gate rows prove themselves by grepping a passing line out of a full-suite
+transcript (`tools/suite_transcript.sh`, which the rows shell into). A red suite
+therefore has no such line for ANY of them, so every transcript-dependent row
+flips at once, whatever its subject. Measured 2026-08-21 against a stashed clean
+baseline: with four affordance stubs still unimplemented, **seven rows that were
+PASS at baseline went FAIL_RECOVERABLE.** One of them, `library-suite-green`,
+failed for the honest reason — it runs `tools/test.sh`. The other six had nothing
+to do with the change and failed only for the missing line:
+`virtualization-hardening`, `navigation-groups`, `semver-and-deprecation`,
+`error-boundaries`, `maintainability-playbooks-and-checker` and
+`documentation-and-examples`. None of the seven is a PENDING placeholder; they
+are real checks reading an absent transcript. That cascade is not a regression
+you caused and it tells you nothing — get `./run-tests.sh` to exit 0 first, then
+read the gate.
 
 The registration checker now enforces the four-input bar: it **fails a
 mouse-only control**. Every interactive control (a focusable leaf, or a
