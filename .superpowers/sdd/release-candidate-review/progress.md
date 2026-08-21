@@ -1125,3 +1125,24 @@ STUDIO.md, root CLAUDE.md.
   mission, not a change now.
 - Q6 version: stays 0.10.0; publish boundary = Step 14's publish click
   (recorded in ADR-0040 under "Answered by the director").
+
+## 2026-08-21 (post-close 2) — Q3 decided: radii scale in LOCKSTEP
+
+- DIRECTOR DECISION (Q3, seen on the live A/B capture): TV corner rounding
+  scales with the SAME factor as everything else, and stays derived from
+  metricScale so a future scale tweak moves both together. This supersedes
+  the RADII half of ruling R13; the doctrine survives intact — "a metric may
+  only scale where the framework owns the paint" — because the implementation
+  is exactly the sheet-GENERATION path the R13 pointer named
+  (DENSITY_PAINT_SECTIONS in src/themes/snapshot.luau): the painted literal
+  moves WITH the metric, so measure and paint keep agreeing. STROKES stay
+  held at 1 (the director spoke to rounding only; the hairline half of §13f
+  stays an open eye/device question).
+- The A/B itself was produced by editing the LIVE theme sheet's Radii_*
+  attributes in Play (12/8 -> 18/12, instant repaint, restored after) — proof
+  the seam already exists and the lockstep change is sheet-derivation work,
+  not new machinery. Captures committed (2be1490).
+- SEQUENCING: the native-default flip round is mid-flight in adjacent files
+  (theme docs, ADR-0040 appends). The radii-lockstep round DISPATCHES ON ITS
+  LANDING, not before — two writers appending to one ADR table is the
+  conflict class the B-14 blank-line find just demonstrated.
