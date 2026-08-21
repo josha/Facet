@@ -1075,3 +1075,23 @@ STUDIO.md, root CLAUDE.md.
 - LIVE CHECK (stamp 8bbb1c49-6912872, console row): chips (102,72), right
   edge 1818 = 1920-102 — symmetric, both edges inside the band (was 1908);
   boot print now says "Backquote on a keyboard, ButtonL1/ButtonR1 on a pad".
+
+## 2026-08-21 (cont. 7) — fix-round re-review: ALL ADDRESSED; loop closed
+
+- RE-REVIEW (task-dir4-fix1-rereview.md): ALL FINDINGS ADDRESSED. Both
+  MAJORs verified at the measurement level (guard 10400->10400 on the real
+  failed mount with both contract directions pinned; §5's history
+  reconstructed on the head tree — double-fire, then deletion; overflow
+  delta exactly 90; near rows byte-identical in a 68-node x 4-viewport
+  dump; suite 6883->6892 = exactly 9 added lines). Its three MINORs fixed
+  INLINE by the controller: the blank line that severed ADR-0040's B-14
+  from its own table (the artifact R20's legality rests on — one
+  character), the two stale key-count comments in showcase_chrome, and the
+  hazard note's 20400-that-measures-20300. MINOR-3 correction FOR THE
+  RECORD: the fix round's mutation ledger mis-attributes two rows — N2
+  reddens case (4) (there is no (7)) and N5 as written reddens (15)'s
+  success control + three (10)-family cases; the report stays as written,
+  this entry is the correction. Nits (case-17 tablet row, "five MINORs"
+  heading) noted, not chased.
+- The DIR3/DIR4 arc is CLOSED: 48b6e7b -> review (3 MAJOR) -> 68f813e
+  -> review (2 MAJOR) -> f19b6cb -> re-review ALL ADDRESSED.

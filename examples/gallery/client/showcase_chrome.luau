@@ -75,7 +75,7 @@
 	never tell a `ViewThatFits` that it does not fit — the ladder would silently
 	pin its first candidate and the labels would truncate anyway.
 
-	=== 4. THE BINDINGS, AND WHY THESE TWO KEYS ===
+	=== 4. THE BINDINGS, AND WHY THESE THREE KEYS ===
 
 	The vocabulary is closed (`constitution.md` §9: "a new verb is an ADR, not a
 	new binding at a call site"), so this binds no new verb: the chrome's own
@@ -327,8 +327,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- Adjust step keys, so a press with an adjustable focused used to fire this
 		-- AND move the value under the ring. One press must resolve to one context:
 		-- `deviceKey` cuts every strictly-lower candidate for the same key code
-		-- once a sinking context has been delivered. Per-KEY, so the two toggle
-		-- keys consume nothing that was ever bound elsewhere.
+		-- once a sinking context has been delivered. Per-KEY, so the toggle key
+		-- consumes nothing that was ever bound elsewhere.
 		sink = true,
 	})
 	-- the CLOSED vocabulary (constitution §9): "activate the chrome". No new verb.
@@ -833,7 +833,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 		zero only when the stack EMPTIES — and this stack never empties, because the
 		backdrop is permanent. So a swap under an OPEN panel costs +200 (the demo's
 		present and this one) where a swap under a closed panel costs +100. Measured
-		over 100 swaps: 30300 against 20400. `SURFACE_LAYER.toast` is 20000 and
+		over 100 swaps: 30300 against 20300. `SURFACE_LAYER.toast` is 20000 and
 		`dragProxy` is 30000, so an open panel HALVES the horizon at which a base
 		screen starts painting over toasts (~48 swaps rather than ~96).
 
