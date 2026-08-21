@@ -430,3 +430,148 @@ answered where the slack is spent, not by widening the lane again.
    content that scales at distance is not unique to that fixture; the sweep only
    reports it once the surrounding slack stops covering it. Anyone auditing the
    ten-foot corpus should grep for fixed px minimums beside theme-metric content.
+
+
+---
+
+# ADDENDUM — fix round 1 (review ACCEPT; controller ruling R15)
+
+**Outcome: all four items ADDRESSED.** Facet **6794**, RascalRally **3446**, both
+green, both re-verified from clean `git archive HEAD` exports in the multi-repo
+shape. All gates green.
+
+## Item 1 — the policy gap · **ADDRESSED (record + instrument + constitution)**
+
+**(a) The record: [ADR-0040](../../../docs/adr/ADR-0040-unreleased-breaking-changes.md).**
+Ruling R15 written down: a breaking change **may** ride an unreleased version if it
+is recorded, and **after a version's first publish the full ADR-0011 window applies
+with no exception**. No compat shim, and the ADR argues why rather than asserting
+it: both of this wave's changes exist *because* a silent default was the defect, so
+a flag preserving the old behaviour would re-ship the exact silence
+refuse-don't-guess was adopted to end.
+
+**The campaign sweep found thirteen breaking surfaces riding 0.10.0**, each with
+where it is already measured: B-1/B-2 (this wave's two), **B-3 the six
+refuse-without-env controls one line each** — `newPicker`, `newMenu`,
+`newPopupButton`, `newTabView`, `newTextInput`, `newVirtualList`, enumerated by
+running `adaptive_defaults.spec`'s own source-derived refusal predicate rather than
+by hand — plus the tablet nav placement, the ten-foot column cap, unauthored
+ten-foot type, the whole metric ladder, the Composition measure, the table's column
+collapse and its selection keys, the horizontal rail's focus axis, the centred
+bands, and the rename/call-shape pair (which already had ADRs and is the shape the
+rest should have had).
+
+**The sweep is signed as a reading, not a proof.** It was built from the campaign's
+artifacts against the seventy commits since the `0.10.0` bump; a behaviour change
+with no artifact and an unremarkable subject line would not appear in it. That
+limitation is stated in the ADR, and it is exactly why (b) is the half that matters.
+
+**(b) The instrument: `tests/lib/public_shape.luau` + three cases in
+`api_surface.spec`.** The two facts a deprecation ledger structurally cannot see are
+now pinned: the **REQUIRED set** by name (16 entries), and **every documented
+default BY VALUE** (5 shared box props pinned once, 25 class props by `Class.prop`).
+A third case reads the ADR's own two schema-shaped rows back out of the file and
+checks them against the live schema, so the record and the schema cannot drift apart
+in either direction.
+
+**Six mutations, all measured:**
+
+| mutation | result |
+|---|---|
+| delete `UI.AdaptiveStack.axis` from the ADR | record case reddens |
+| delete the `UI.Grid` lane-default row from the ADR | record case reddens |
+| revert `required = true` in the schema | required pin **and** record case redden |
+| flip a NEW prop (`Grid.flow`) to required | required pin reddens, naming it |
+| change a documented default's value (`Grid.itemSizing` natural → uniform) | default pin reddens, naming old → new |
+| remove the Grid lane-default doc clause | default pin **and** record case redden |
+
+**Two findings from building it.** The extractor's first version searched
+case-sensitively for `"efault"` and therefore missed `UI.Grid`'s own doc — which
+says "the **DEFAULT** when neither this nor `columns` is declared", the exact change
+it exists to catch. Found by generating the pin and reading it, not by reasoning
+about it. And the four shared box props are the same declaration on twenty classes,
+so 80 of the 97 documented defaults were four facts repeated; they are pinned once,
+which is what makes the pin a thing a person will maintain.
+
+**The pin is a VALUE, not a doc string**, so rewording a doc without changing its
+default moves nothing. Nine of the 97 state their default in prose and pin a
+normalized window instead — stated in the extractor rather than hidden.
+
+**(c) Constitution §14** gains the pre-release clause, naming ADR-0040 for the
+reasoning and the table, and stating the shim rule.
+
+## Item 2 — the two defects the review found · **ADDRESSED**
+
+Defect 1 is Item 1 above (the policy gap). Defect 2 is Item 3 below. Both are
+red-first in the sense available to each: Defect 1's instrument is proved by six
+mutations; Defect 2 is a false claim in a comment, whose "red-first" is the review's
+own reading of it against the code.
+
+## Item 3 — `tests/run.luau`'s false claim · **ADDRESSED**
+
+The registration comment said *"the default answer to overflow stops being 'paint
+outside the box'"*. ADAPT-L5 is **CONTESTED** and the default is unchanged — the
+spec file's own header was scrupulous about this and only the registration line
+overstated. Constitution §14: *a claim the code does not honor is a defect of the
+same severity as the reverse*. It now names what is guarded (the diagnosis's
+completeness at every combo, the one property the always-on sweep cannot check) and
+says outright that overflow's default is unchanged.
+
+## Item 4 — the four accuracy corrections · **ADDRESSED**
+
+Two are corrected by **naming the disagreement** rather than by swapping one
+unverified number for another:
+
+| # | was | now |
+|---|---|---|
+| 3 | "35 Grid sites (31 + 4), bit for bit" | reproduced the audit's *method*, prose included. A comment-aware recount gives **32** by my method, **33** by the reviewer's; the audit's extra 2-3 are doc-comment mentions. Disposition identical under all three |
+| 4 | "the rest are zstack overlaps and two collapsed content boxes" | accounted for 7 of 10; now accounts for all ten (5 layer-overlap, 3 fixed-px-vs-text, 2 collapsed). And the six unscrollable pages are counted by `kind` while named by signature — **by signature there are nine** `content overflows this vstack` against one hstack, so the section's direction is *stronger* under either reading. Both countings now labelled |
+| 5 | suite attribution +25/+6 | **+26/+5**. Mine came from diffing case NAMES, which mis-attributes a name ambiguous between two concurrent waves; running the suite at each interleave boundary is the method that answers it. The RR split (+5/+1) was right |
+| 6 | "148 shipped ZStack sites" | inherited from the audit, never re-measured. **141** by my method, **139** by the reviewer's. The C-1 contest does not turn on it |
+
+## B-6e (from the earlier addendum) · **FIXED**
+
+Ruled mid-wave (R14) and shipped: the ten-foot content measure caps at
+**900 = `adaptive.LANE_MEASURE` (600) × `metricScale` (1.5)**, on a `fill` group's
+new `maxWidth`; authored wins in both spellings; the freed slack centres the band.
+The audit's named seam (`maxMeasure`) was **wrong** and following it literally would
+have given the content lane 452px — narrower than the tablet measure the ruling
+derives from. It exposed a latent defect on the way in (Cartwheel's literal 96px
+tile minimum holding contents that scale 1.5× at distance), and one of its own cases
+was vacuous when written until a mutation found it. Full detail in the previous
+addendum. Director veto booked at batched §13h.
+
+## Commits
+
+| repo | commit | what |
+|---|---|---|
+| Facet | `fa5f21a` | the television resolved the desktop arrangement with more pixels, and 900 is the ruling (B-6e) |
+| Facet | `3892fee` | the report's one director-blocked cell was ruled while the wave was still open |
+| Facet | `9fb4314` | two breaking changes rode an unreleased version, and nothing in the repo could say so (items 1, 2, 3) |
+| Facet | `590754e` | four numbers in the wave's own record were larger than what they measured (item 4) |
+| RascalRally | `57bbdc8` | this game's results lane is 992 on a monitor and 900 on a television now (B-6e) |
+
+## Suite tails
+
+```
+Facet          6794 passed          (wave anchor fd59cae: 6750)
+RascalRally    3446 passed          (wave anchor 655cbd7: 3437)
+```
+
+Gates green on the final tree: `check_prop_parity`, `check_docs`,
+`check_registration`, `check_surface_ledger`, `check_boundary`, `check_primitives`,
+`check_source_size`, `check_manifest_integrity`, `stylua --check`.
+
+## Concerns
+
+1. **The new pins will collide with other waves, and that is the design.** A wave
+   that changes a documented default now has to say so in the same commit. The pin
+   is deliberately narrow (an extracted *value*, not the doc string) to keep the
+   friction proportional to the change.
+2. **ADR-0040's sweep is a reading.** Thirteen surfaces is what the campaign's own
+   artifacts and seventy commit subjects yielded. A fourteenth with no artifact
+   would not be in it, and only the instrument protects the future.
+3. **The publish boundary is now load-bearing policy and is not yet an event.**
+   ADR-0040 carries it to the director: whether seventy commits of accumulated
+   public behaviour change still belong inside `0.10.0`, or whether a `0.11.0` bump
+   with that table as its changelog is the honest release.
