@@ -137,6 +137,19 @@ local FACT_DEFAULTS: { [string]: any } = {
 	themeMetrics = themeSnapshot.neutral(),
 }
 
+--[[ the same shape `theme_controller` uses: `warn` is a Roblox global and a Lune
+	script has none, so a headless run prints rather than failing on a nil call. ]]
+local function defaultWarn(message: string)
+	if type(warn) == "function" then
+		(warn :: any)(message)
+	else
+		print(message)
+	end
+end
+-- reported ONCE per session: a consumer that writes a derived snapshot writes it on
+-- every theme commit, and a warning per commit is a log nobody reads
+local warnedDerivedMetricWrite = false
+
 function environment.new(core: any): Env
 	local signals: { [string]: any } = {}
 	local derived: { [string]: any } = {}
@@ -628,15 +641,50 @@ function environment.new(core: any): Env
 				return
 			end
 		end
-		--[[ THE METRIC FACT ALWAYS HOLDS AN AUTHORED BASE (ADAPT-8). A reader gets
-			the distance-adapted form, so the commonest thing a caller can do with
-			this key — read it, hold it, write it back later (which is exactly what
-			`theme_controller` does across an install/uninstall) — would otherwise
-			hand the transform its own output. Normalising on the WRITE makes "the
-			fact is the authored ladder" an invariant instead of a discipline, and it
-			is the identity for every snapshot that was never adapted. ]]
+		--[[ THE METRIC FACT ALWAYS HOLDS AN AUTHORED BASE (ADAPT-8; refusal added in
+			fix round 1, 2026-08-21, from the wave's review).
+
+			A reader gets the distance-adapted form, so the commonest thing a caller
+			can do with this key — read it, hold it, write it back later, which is
+			exactly what `theme_controller` does across an install/uninstall — would
+			otherwise hand the transform its own output. `baseOf` recovers the authored
+			ladder, and for an exact round trip that is the whole story.
+
+			BUT `baseOf` IS AN IDENTITY MAP, so it answers for the table `forDisplay`
+			produced and for nothing else. A caller that reads the authority, COPIES
+			it and writes the copy back used to get the transform applied TWICE —
+			measured by the reviewer at `targetSizes.minimum` 44 -> 66 -> 99 and
+			`space.m` 16 -> 24 -> 36. The information to catch it was already on the
+			table and unread: an adapted snapshot carries `metricScale ~= 1`.
+
+			So a value that still looks adapted after the recovery is REFUSED: the
+			fact keeps its last real value and warns once, exactly as the viewport
+			refusal above does and for the same reason — there is no third answer the
+			framework can compute. Writing it as a base double-applies; un-scaling it
+			by division is lossy on any package that declares a pixel grid, which would
+			break the exact reversibility the whole transform is built for.
+
+			THE REFUSAL IS ALSO WHAT MAKES THE RECOVERY LOAD-BEARING. Before it, the
+			`baseOf` line was invisible to every test — `forDisplay` calls `baseOf`
+			itself at read time, so deleting the line changed nothing observable and
+			the ADR credited it with a guarantee nothing held. Now deleting it sends a
+			legitimate round trip into the refusal, and the round-trip case reddens. ]]
 		if key == "themeMetrics" then
 			value = themeSnapshot.baseOf(value)
+			local scale = if type(value) == "table" then (value :: any).metricScale else nil
+			if type(scale) == "number" and scale ~= 1 then
+				if not warnedDerivedMetricWrite then
+					warnedDerivedMetricWrite = true
+					defaultWarn(
+						"Facet environment: refused a write of a DISTANCE-ADAPTED ThemeSnapshot to 'themeMetrics' "
+							.. `(metricScale = {scale}). This key holds the AUTHORED metric ladder; the distance policy `
+							.. "is applied when it is READ, so writing an adapted snapshot back would apply it twice. "
+							.. "Write `Facet.themes.baseOf(snapshot)` — or the snapshot `themes.resolve` returned — "
+							.. "instead. The fact keeps its previous value; this is reported once."
+					)
+				end
+				return
+			end
 		end
 		signal:set(value)
 	end

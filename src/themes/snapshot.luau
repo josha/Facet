@@ -429,12 +429,43 @@ end
 -- flat sections where every leaf is a length
 local DENSITY_LENGTH_SECTIONS: { [string]: boolean } = {
 	space = true,
-	radii = true,
-	strokes = true,
 	targetSizes = true,
 	iconSizes = true,
 	iconRunGap = true,
 }
+--[[ THE PAINT AUTHORITY BOUNDARY — why `radii` and `strokes` do NOT scale
+	(review NEW-1, fix round 1, 2026-08-21).
+
+	A corner radius and a stroke thickness are not resolved from this snapshot at
+	paint time. They come from a DIFFERENT authority: `ctx.style` — which is
+	`tokens/default_style.luau` on the default path and the package's own authored
+	`metrics` on the themed one — and `tokens/sheet_model.buildPackage` bakes them
+	into StyleSheet rules as LITERALS ("Corner radii and stroke thickness are baked
+	into rules as literals", its own comment). That channel never passes through
+	`forDisplay` and cannot: a StyleSheet is generated once per package and applies
+	to every surface on the client, whatever display class each one is on.
+
+	So scaling them here does not make a television's corners rounder. It makes the
+	MEASURED corner disagree with the PAINTED one — measured 12 painted against 18
+	measured on the default package, 10 against 15 under Fantasy Ornate. And the
+	disagreement is load-bearing rather than cosmetic: `present/anchored.luau`
+	shapes a callout's tail from `radii.panel` and its seam from `strokes.hairline`,
+	`render/layout_node.luau` spends the hairline as a real reservation, and
+	`controls/menu_recipe.luau` spends it as a row gap. A tail shaped for an 18 px
+	corner against a panel the engine draws with a 12 px one is the tooltip-seam
+	defect this framework has already been bitten by once, and no headless
+	instrument can see it (`fake_target` paints no `UICorner`/`UIStroke`).
+
+	THE RULE THIS EXPRESSES: a metric may only scale where the framework OWNS the
+	paint. Where a second authority paints the number, the metric must agree with
+	what that authority will draw.
+
+	IF THE DIRECTOR LATER WANTS TV CORNERS AND STROKES TO SCALE, this comment is
+	the pointer: it is sheet-GENERATION work (a per-display-class sheet, or a
+	distance-aware rule set), not a reclassification here — moving these two back
+	into the list above without that work re-opens exactly the disagreement above.
+	The question is booked as a director-eye row in the batched Studio pass. ]]
+local DENSITY_PAINT_SECTIONS: { [string]: boolean } = { radii = true, strokes = true }
 --[[ ART GEOMETRY IS NOT A METRIC LADDER, and this is the sharpest line in the
 	classification. `chromeInsets`, `chromeOutsets` and `chromeBleed` describe
 	PIXELS THE ENGINE ACTUALLY PAINTS: a nine-slice recipe's border is drawn at
@@ -536,7 +567,7 @@ function snapshot.densityClassOf(path: any): string?
 	if DENSITY_LENGTH_SECTIONS[root] then
 		return "scale"
 	end
-	if DENSITY_EXEMPT_SECTIONS[root] or DENSITY_ART_SECTIONS[root] then
+	if DENSITY_EXEMPT_SECTIONS[root] or DENSITY_ART_SECTIONS[root] or DENSITY_PAINT_SECTIONS[root] then
 		return "exempt"
 	end
 	--[[ A SLOT INSET IS A COMPOSITE, and the framework already publishes the

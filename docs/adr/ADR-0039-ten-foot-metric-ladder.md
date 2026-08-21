@@ -43,7 +43,7 @@ The body of the function is one call to the same private constant, deliberately:
 constants that agree today are exactly how a 16-in-44 becomes a 24-in-60 the week
 somebody tunes one of them.
 
-That identity is what makes the acceptance **falsifiable rather than eyeballed**, and
+That sharing is what makes the acceptance **falsifiable rather than eyeballed**, and
 the director set the acceptance in those terms:
 
 > every text-to-control proportion at ten-foot equals its near proportion.
@@ -59,6 +59,16 @@ a "TV needs bigger buttons" instinct reaches for): any factor other than the typ
 breaks the equality above, and the equality is the only property of this feature that
 a headless test can hold. A director who later wants a different chrome factor has a
 named seam to change (`metricScale`) and an acceptance that will go red and say so.
+
+**What the guard actually is** (corrected in fix round 1, from the wave's review).
+The spec asserts that the two functions **agree on every value `displaySize` can
+take** — the closed engine domain plus absence plus garbage — not that they are the
+same function. They are deliberately two functions: sharing a factor is not sharing a
+decision, and a caller reading the type seam's answer to size a button is spending the
+wrong one. So `rawequal` on the two is false by design, and the property worth
+guarding is agreement rather than identity. The reviewer confirmed the divergence this
+Decision exists to prevent IS caught: tuning `tenFootFloor` while `metricScale` holds
+its own literal reddens sixteen cases, including the proportion equality itself.
 
 ## Decision 2 — it is applied in the environment, not in the snapshot
 
@@ -80,13 +90,34 @@ without a theme opt-in, and display facts live in the environment.
 
 The consequence for the key's contract, stated plainly because it is the one
 surprising thing here: **what you set on `themeMetrics` is the authored ladder; what
-you read is that ladder with the distance policy applied.** `env:set` normalises
-through `themes.baseOf` so the fact always holds a base, and the transform is always
-derived FROM the base rather than composed onto its own output — which is what makes
-a display-class change exactly reversible even for a pixel package, whose lengths
-snap onto an integer grid in both directions. At every near display the read is the
-**identity**: the same table, not a copy, so nothing near moves by a pixel and the
-common path allocates nothing.
+you read is that ladder with the distance policy applied.**
+
+The transform is always derived FROM the base rather than composed onto its own
+output, and that is what makes a display-class change exactly reversible even for a
+pixel package, whose lengths snap onto an integer grid in both directions. `forDisplay`
+recovers the base itself, which is the line that guarantees it. **`env:set`'s
+normalisation is a second, different guarantee** (the first draft of this ADR credited
+it with the reversibility, which the wave's reviewer correctly measured as wrong —
+deleting it changed nothing observable): it keeps the FACT holding an authored ladder,
+which matters in the one shape where recovering and refusing diverge — a value read,
+held across a swap to another package, and written back, i.e. exactly what
+`theme_controller` does on uninstall.
+
+And since `themes.baseOf` is an **identity** map, a caller that copies a read and
+writes the copy back has lost the link. That used to apply the transform twice
+(`targetSizes.minimum` 44 → 66 → 99). Such a write is now **refused**, warning once
+and leaving the fact's last real value standing: writing it as a base double-applies,
+and un-scaling by division is lossy on a pixel grid, so there is no third answer the
+framework can compute exactly.
+
+At a near display the read is the **identity** — the same table, not a copy — for
+every snapshot resolved with no display facts, which is every snapshot on the default
+path and every one a theme controller commits on a near client. So nothing near moves
+by a pixel and the common path allocates nothing. (A snapshot resolved *with*
+`displaySize = "Large"` and then read on a near display is the one exception: it
+returns a corrected copy with `density` flipped to `"near"`. The numbers are right;
+it is not the identity, because the live display class outranks the facts a snapshot
+happened to be resolved with.)
 
 ## Decision 3 — what does not scale, and why each one is out
 
@@ -103,6 +134,23 @@ common path allocates nothing.
   fact, composed with the safe insets by the renderer. They compose; they must never
   multiply, or a console surface silently insets 135 px where two rows each thought
   they were the only one.
+- **Corner radii and stroke thicknesses** (added by fix round 1, 2026-08-21, from the
+  wave's review — NEW-1). These were in the scaled set when this ADR was first
+  written, and that was wrong for a reason the wave had no instrument to see:
+  they are not resolved from this snapshot at paint time. They come from `ctx.style`
+  — `tokens/default_style.luau` on the default path, the package's authored metrics on
+  the themed one — and `sheet_model.buildPackage` bakes them into StyleSheet rules as
+  **literals**, a channel that never passes through `forDisplay` and cannot (one sheet
+  per package serves every surface on the client, whatever display class each is on).
+  So scaling them did not make a television's corners rounder; it made the MEASURED
+  corner disagree with the PAINTED one — 12 painted against 18 measured on the default
+  package, 10 against 15 under Fantasy Ornate, 14 against 21 under Glossy Touch — and
+  the disagreement is load-bearing: `present/anchored.luau` shapes a callout tail from
+  `radii.panel` and its seam from `strokes.hairline`. **The general rule this states:
+  a metric may only scale where the framework OWNS the paint.** If the director later
+  wants TV corners and strokes to scale, that is sheet-GENERATION work (a
+  distance-aware rule set), not a reclassification — booked as a director-eye row in
+  the batched Studio pass.
 - **Art geometry** — `chromeInsets`, `chromeOutsets`, `chromeBleed`. This is the
   sharpest line in the classification and the one that took a measurement to find. A
   nine-slice border is drawn at `SliceCenter`/`SliceScale`, both authored by the
@@ -119,6 +167,17 @@ common path allocates nothing.
 An unclassified numeric metric is **exempt at runtime** — the safe direction, because
 a new duration silently multiplied is worse than a new length silently not — and a
 **suite failure**, so the gap is loud exactly once, at the commit that introduces it.
+
+**One section is the exception, and it is the open one** (review NEW-4, recorded
+2026-08-21). `controls.<family>.*` is an open namespace a package may author freely,
+so it cannot be a list; it is a default of `scale` plus a suffix vocabulary of
+non-lengths (`*TextSize`, `*Lines`, `*Count`, `*Duration`, `*Seconds`, `*Ratio`,
+`*Fraction`, `*Scale`, `*Opacity`, `*Weight`). A future `controls.card.shadowBlur`
+would therefore classify as `scale` and be multiplied, while the completeness rule
+stays green because it *is* classified — and it would contradict the art reasoning
+above, where a shadow's reach is exempt. All 46 current control-family leaves across
+the nine shipped configurations are genuine lengths, so there is no live defect; a
+new control metric that is not a length must be named so the vocabulary sees it.
 
 ## Decision 4 — authored beats derived
 

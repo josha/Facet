@@ -129,14 +129,44 @@ end
 describe("ten-foot metrics — the factor", function()
 	--[[ ONE constant, two ladders. If these ever disagree the type outgrows its
 		chrome, which is the exact failure the director's proportion-equality
-		acceptance exists to make impossible. ]]
-	it("the metric factor IS the type floor's factor", function()
+		acceptance exists to make impossible.
+
+		WHAT THIS ASSERTS, SAID EXACTLY (fix round 1, review §3). It is VALUE
+		AGREEMENT over the WHOLE DOMAIN of the fact, not function identity — and it
+		cannot be function identity, because the two names are deliberately two
+		functions: `metricScale` and `typographyPaintScale` are different DECISIONS
+		that happen to share a factor, and a caller reading the type seam's answer to
+		size a button would be spending the wrong one. `rawequal` on the two values is
+		therefore false by design.
+
+		The strength comes from EXHAUSTION instead. `displaySize` is a closed engine
+		fact (`GuiService.ViewportDisplaySize` — Small | Medium | Large), so the three
+		legal values plus absence plus garbage IS the entire domain, and the loop below
+		covers all of it rather than sampling it. A one-sided drift is caught wherever
+		it could occur.
+
+		The reviewer measured the residual honestly and it stands: giving `metricScale`
+		its own `1.5` literal keeps this green, because at that instant the two still
+		agree. What that mutation breaks is the FUTURE, and the compound mutation
+		proves the future is guarded — tune `tenFootFloor` to 1.6 while `metricScale`
+		holds its own literal and this case goes red along with the proportion sweep,
+		which is the divergence the design exists to prevent. ]]
+	it("the metric factor agrees with the type floor's factor on every display class", function()
+		-- the closed domain of the fact, plus the two shapes a broken adapter can push
+		local DOMAIN = { "Small", "Medium", "Large", nil :: any, 42 :: any, "Enormous" :: any }
+		local checked = 0
+		for i = 1, 6 do
+			local value = DOMAIN[i]
+			expect(`ds={tostring(value)} metric={snapshot.metricScale(value)}`).toBe(
+				`ds={tostring(value)} metric={snapshot.typographyPaintScale(value)}`
+			)
+			checked += 1
+		end
+		expect(`checked:{checked}`).toBe("checked:6")
+		-- ...and the factor itself is the director's 1.5, on the one class that earns it
 		expect(snapshot.metricScale("Large")).toBe(1.5)
-		expect(snapshot.metricScale("Large")).toBe(snapshot.typographyPaintScale("Large"))
 		expect(snapshot.metricScale("Medium")).toBe(1)
-		expect(snapshot.metricScale("Small")).toBe(1)
 		expect(snapshot.metricScale(nil)).toBe(1)
-		expect(snapshot.metricScale("Medium")).toBe(snapshot.typographyPaintScale("Medium"))
 	end)
 end)
 
@@ -166,8 +196,42 @@ describe("ten-foot metrics — proportion equality across the control set", func
 				checked += 1
 			end
 		end
-		-- a sweep that swept nothing passes vacuously
-		expect(checked > 350).toBeTruthy()
+		--[[ A SWEEP THAT SWEPT NOTHING PASSES VACUOUSLY, and the floor is RE-PINNED
+			(fix round 1, 2026-08-21): `radii.*` and `strokes.*` left the scaled class
+			for the paint-authority reason recorded in `snapshot.densityClassOf`, which
+			took 38 leaves out of this arm. The floor is set just under the true count
+			so that a class moving out of `scale` unnoticed cannot hide here — the
+			must-not-scale arm below is what pins the two that moved. ]]
+		expect(`checked:{checked > 550}`).toBe("checked:true")
+	end)
+
+	--[[ …AND THE TWO FAMILIES THAT MUST NOT MOVE, pinned positively rather than by
+		their absence from the arm above (review NEW-1, fix round 1).
+
+		A corner radius and a stroke thickness are painted from a SECOND authority —
+		`ctx.style` and the StyleSheet rules `sheet_model.buildPackage` bakes them
+		into as literals — and that channel never passes through `forDisplay`. So a
+		scaled radius here would be a number the framework MEASURES and the engine
+		never PAINTS: `present/anchored.luau` would shape a callout tail for an 18px
+		corner against a panel drawn with a 12px one. Measured 12-vs-18 (default),
+		10-vs-15 (fantasy_ornate), 14-vs-21 (glossy_touch) before this was fixed.
+
+		The rule: a metric may only scale where the framework OWNS the paint. ]]
+	it("a radius and a stroke are painted by another authority, so they do not scale", function()
+		local checked = 0
+		for _, cfg in configurations() do
+			local near, tenFoot = pair(cfg.package)
+			for _, section in { "radii", "strokes" } do
+				for key, value in (near :: any)[section] do
+					expect(`{cfg.name}.{section}.{key}={(tenFoot :: any)[section][key]}`).toBe(
+						`{cfg.name}.{section}.{key}={value}`
+					)
+					expect(snapshot.densityClassOf(`{section}.{key}`)).toBe("exempt")
+					checked += 1
+				end
+			end
+		end
+		expect(`checked:{checked}`).toBe("checked:38")
 	end)
 
 	--[[ …AND THE COMPOSITE ARM. A slot inset is the package's authored padding
@@ -857,12 +921,107 @@ describe("ten-foot metrics — the transform is total", function()
 		`tests/geometry_solve_coalescing.spec` sets on purpose) made the whole key
 		nil. ]]
 	it("a garbage metrics fact is passed through, never thrown on", function()
+		--[[ EVERY CASE CARRIES A MARKER, AND THE MARKER IS THE ASSERTION (fix round 1,
+			review NEW-3). The first cut of this case pushed four garbage tables through
+			ONE environment and asserted only `type(read) == "table"` and
+			`read.density == "ten-foot"` — which is exactly what a STALE read satisfies.
+			The reviewer reverted the §8.2 type guard, measured the memo throwing, saw
+			the surface read back the FIRST case's output forever, and the whole suite
+			stayed green: the wave's own headline defect, guarded by a case that could
+			not see it.
+
+			A stale read is indistinguishable from a fresh one when you only assert the
+			shape, so each case now carries a value nothing else in the loop has and the
+			assertion is that THAT value came back. A fresh environment per case would
+			work too; the marker is cheaper and it also proves the memo re-derived
+			rather than merely not-crashing. ]]
+		local CASES = {
+			{ marker = "nested-table-and-a-numeric-density", nested = { a = 1 }, density = 1 },
+			{ marker = "insets-is-a-number", insets = 7 },
+			{ marker = "empty" },
+			{ marker = "targetSizes-is-a-string", targetSizes = "no" },
+			{ marker = "chromeInsets-is-a-string", insets = { panel = { top = 4 } }, chromeInsets = "no" },
+			{ marker = "insets-slot-is-a-number", insets = { panel = 3 } },
+			{ marker = "inset-side-is-a-string", insets = { panel = { top = "x" } }, chromeInsets = {} },
+		}
 		local _, env = bareSurface(1920, 1080, "Large")
-		for _, garbage in { { nested = { a = 1 }, density = 1 }, { insets = 7 }, {}, { targetSizes = "no" } } do
+		for _, garbage in CASES do
 			env:set("themeMetrics", garbage)
 			local read = env:get("themeMetrics"):get()
 			expect(type(read)).toBe("table")
+			-- THE FRESHNESS ASSERTION: a memo that threw on this value would leave the
+			-- previous case's output standing, and this is what says so
+			expect(`{garbage.marker} -> {tostring((read :: any).marker)}`).toBe(`{garbage.marker} -> {garbage.marker}`)
 			expect(read.density).toBe("ten-foot")
+		end
+	end)
+
+	--[[ A DERIVATIVE OF A DISTANCE-ADAPTED READ IS NOT A BASE, AND THE WRITE SAYS SO
+		(fix round 1, review NEW-2 / Residual A).
+
+		`baseOf` recovers the authored ladder from a weak-keyed IDENTITY map, so it
+		answers for the exact table `forDisplay` produced and for nothing else. A
+		caller that reads the metric authority, COPIES it, and writes the copy back
+		therefore handed the transform its own output: the reviewer measured
+		`targetSizes.minimum` 44 -> 66 -> **99** and `space.m` 16 -> 24 -> **36**.
+
+		The information to catch it was already on the table and unread: an adapted
+		snapshot carries `metricScale ~= 1`. So the write recovers the base when it
+		can and REFUSES when it cannot — the fact keeps its last real value and warns
+		once, exactly as the viewport refusal above it does, because there is no third
+		answer the framework can compute: writing it as a base double-applies, and
+		un-scaling it by division is lossy on any package with a pixel grid.
+
+		THE REFUSAL IS ALSO WHAT MAKES THE RECOVERY LOAD-BEARING. Deleting the
+		`baseOf` line now reddens the round-trip case below rather than being
+		invisible: a legitimate exact round trip would fall through to the refusal. ]]
+	it("a derivative of a distance-adapted read is refused, never applied twice", function()
+		local _, env = bareSurface(1920, 1080, "Large")
+		local authored = snapshot.resolve(snapshot.neutralPackage(), nil, {})
+		env:set("themeMetrics", authored)
+		local read1 = env:get("themeMetrics"):get()
+		expect(read1.targetSizes.minimum).toBe(66)
+		expect(read1.space.m).toBe(24)
+
+		-- a shallow clone: the same numbers, none of the identity
+		local copy: any = {}
+		for k, v in read1 do
+			copy[k] = v
+		end
+		expect(rawequal(snapshot.baseOf(copy), copy)).toBeTruthy() -- the link IS gone
+		env:set("themeMetrics", copy)
+
+		local read2 = env:get("themeMetrics"):get()
+		expect(read2.targetSizes.minimum).toBe(66) -- NOT 99
+		expect(read2.space.m).toBe(24) -- NOT 36
+		expect(read2.metricScale).toBe(1.5)
+		-- the fact kept its last real value, so the authored ladder is still there
+		env:set("displaySize", "Medium")
+		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+	end)
+
+	--[[ …AND A SNAPSHOT NOBODY ADAPTED IS STILL WRITABLE. The refusal keys on the
+		one fact only `forDisplay` writes (`metricScale ~= 1`), so an authored ladder,
+		a hand-built table and a garbage fact all pass through it untouched — the
+		refusal must not become a general gate on the metric fact. ]]
+	it("…and the refusal keys on the adapted shape alone", function()
+		local authored = snapshot.resolve(packageNamed("classic_desktop"), nil, {})
+		local _, env = bareSurface(1600, 900, "Medium")
+		-- an authored ladder at a near display is the IDENTITY, refusal or no refusal
+		env:set("themeMetrics", authored)
+		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+		-- ...and a table nobody adapted still lands, whatever else is wrong with it
+		for _, value in
+			{
+				{ marker = "hand-built", space = { m = 3 } } :: any,
+				{ marker = "claims-a-neutral-scale", metricScale = 1, space = { m = 5 } } :: any,
+			}
+		do
+			env:set("themeMetrics", value)
+			local read = env:get("themeMetrics"):get()
+			expect(`{value.marker} -> {tostring(read.marker)}`).toBe(`{value.marker} -> {value.marker}`)
+			-- it reached the read UNSCALED: the refusal is not a general gate
+			expect(read.space.m).toBe(value.space.m)
 		end
 	end)
 
@@ -881,5 +1040,35 @@ describe("ten-foot metrics — the transform is total", function()
 		expect(rawequal(snapshot.baseOf(env:get("themeMetrics"):get()), authored)).toBeTruthy()
 		env:set("displaySize", "Medium")
 		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+	end)
+
+	--[[ THE PRODUCTION ROUND TRIP, AND THE ONE SHAPE THAT MAKES THE WRITE-SIDE
+		RECOVERY LOAD-BEARING (fix round 1).
+
+		`theme_controller` reads the pre-install snapshot, holds it across an install
+		that commits a DIFFERENT package, and writes it back on uninstall. That is the
+		only shape in which recovering the base and refusing an adapted write DIVERGE:
+		refusing keeps whatever the fact holds now (package B), recovering restores
+		what the caller actually asked for (package A). Every simpler round trip
+		converges on the same value, which is precisely why the reviewer could delete
+		the recovery line and watch both suites stay green. ]]
+	it("a read held across a theme swap restores ITS package, not the incumbent", function()
+		local _, env = bareSurface(1920, 1080, "Large")
+		local packageA = snapshot.resolve(packageNamed("classic_desktop"), nil, {})
+		local packageB = snapshot.resolve(packageNamed("glossy_touch"), nil, {})
+		expect(packageA.space.m).never().toBe(packageB.space.m)
+
+		env:set("themeMetrics", packageA)
+		local heldFromA = env:get("themeMetrics"):get() -- the ADAPTED form, as a reader gets it
+		expect(heldFromA.metricScale).toBe(1.5)
+
+		env:set("themeMetrics", packageB)
+		expect(env:get("themeMetrics"):get().space.m).toBe(packageB.space.m * 1.5)
+
+		-- uninstall: write the held value back. It is adapted, and its base must win
+		env:set("themeMetrics", heldFromA)
+		expect(env:get("themeMetrics"):get().space.m).toBe(packageA.space.m * 1.5)
+		env:set("displaySize", "Medium")
+		expect(rawequal(env:get("themeMetrics"):get(), packageA)).toBeTruthy()
 	end)
 end)

@@ -5507,9 +5507,15 @@ An adapted snapshot publishes two extra facts: `density` (`"ten-foot"` /
 snapshot was resolved with) and `metricScale` (the factor that was applied — the
 number a consumer predicting its own geometry should spend).
 
-**What scales**: `space`, `radii`, `strokes`, `targetSizes`, `iconSizes`,
-`iconRunGap`, `controlSizes` and every control-family length, plus the authored
-half of a slot `inset`. **What does not**: the type ramp (`typographyPaintScale`
+**What scales**: `space`, `targetSizes`, `iconSizes`, `iconRunGap`, `controlSizes`
+and every control-family length, plus the authored half of a slot `inset`.
+**What does not**: `radii` and `strokes` — a corner radius and a stroke thickness are
+painted from a **second authority** (`ctx.style`, and the StyleSheet rules
+`sheet_model.buildPackage` bakes them into as literals), and that channel never passes
+through `forDisplay`; scaling the metric would make the number the framework MEASURES
+disagree with the one the engine PAINTS, which is what shapes a callout tail for an
+18 px corner against a panel drawn with a 12 px one. **A metric may only scale where
+the framework owns the paint.** Also: the type ramp (`typographyPaintScale`
 already scales it at the measure and paint seams — scaling it here would be the
 double application), `motion` (durations are time-true at every distance; reduced
 motion is unaffected), counts and ratios, the player's own `preferredText` inputs,
