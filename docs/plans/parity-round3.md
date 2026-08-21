@@ -1470,6 +1470,15 @@ leaves.
 | keyboard | **`Backquote`** | `Escape` is engine-reserved, so there is no keyboard Cancel and the same key must toggle. `Tab` is `Traverse` (and CoreGui-contended), `Space`/`Return` are `Activate`, the arrows are `Navigate`, and a letter is contended by `05_word_game`, which reads the whole alphabet. Backquote is in none of those sets and is not in Roblox's hard-reserved set (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`) |
 | gamepad | **`ButtonY`** | `ButtonA` is `Activate` and is eaten unconditionally by the legacy `jumpAction` (`gamepad-contention-truths.md` truth 1); `ButtonB` is `Cancel`; `ButtonX` is the row-actions menu; `ButtonStart`/`ButtonSelect` are the platform's own menu buttons, and claiming those is the trade that lesson refuses. ButtonY is the one face button no verb in this framework claims |
 
+> **SUPERSEDED, gamepad row only — controller ruling R20, 2026-08-21.** The last
+> sentence above is false and was never measured: `newMenu` claims `ButtonY` as its
+> gamepad trigger (`src/controls/menu.luau` `TRIGGER_KEYS.gamepad`, a sinking context
+> at priority 1200), and the catalogue ships the `menu` demo. **The chrome no longer
+> binds any face button.** The pad reaches it through the two shoulders
+> (`SECTION_GAMEPAD`, ruling R19), which the chips advertise with an LB/RB glyph;
+> the keyboard row stands. See `examples/gallery/client/showcase_chrome.luau` §5 and
+> ADR-0040 row B-14.
+
 The context sits at **priority 3500**, strictly above the engaged band's 3000, so
 the toggle key still works while the panel it opened is engaged and sinking.
 Sinking is per-**key** (`actions.luau`'s `deviceKey` only cuts candidates for the
@@ -1569,7 +1578,9 @@ through a `copy` override the surface itself accepts.
   `Backquote` reach IAS (injected keys are known-unreliable for some classes —
   `engine-input-truths-phaseb.md` items 3–5), and does a physical `ButtonY` fire
   `Activate` end-to-end (the standing `physical-device-confirmation` rider —
-  a real pad button cannot be pressed headlessly or by injection).
+  a real pad button cannot be pressed headlessly or by injection). *(R20,
+  2026-08-21: the `ButtonY` half of this question is retired — the chrome binds no
+  face button now. The live question is the two shoulders instead.)*
 - The panel's **section switch** is a second rendering of the same two targets
   that the strip's chips name. It reads as *which section* against the chips'
   *open this*, and it is what makes one toggle key serve two targets, but it is a

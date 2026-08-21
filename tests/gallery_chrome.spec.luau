@@ -17,7 +17,9 @@
 	presenter. Nothing here reads source text.
 
 	THE DEFECT IT CLOSES, as measured before the fix:
-	  · Backquote and ButtonY were bound to nothing anywhere in the place;
+	  · Backquote and the pad's chrome route were bound to nothing anywhere in the
+	    place (the pad's route was `ButtonY` then and is the two shoulders now —
+	    ruling R20 gave `ButtonY` back to `menu.luau`, see case (16));
 	  · the chrome presented `responder = "passive"`, whose nav context is created
 	    DISABLED, and the only `engage()` call in `src/` is inside the presenter's
 	    TAP handler — so a keyboard and a pad could never make the chrome first
@@ -39,6 +41,9 @@ local demo_picker = require("../examples/gallery/client/demo_picker")
 local theme_picker = require("../examples/gallery/client/theme_picker")
 local settings_panel = require("../examples/gallery/client/settings_panel")
 local showcase_chrome = require("../examples/gallery/client/showcase_chrome")
+-- the FRAMEWORK's own menu verb, read rather than copied: a case that types its
+-- own key code proves the test's opinion, not the binding's
+local menu = require("../src/controls/menu")
 local themes = Facet.themes
 
 -- the reference packages the showcase actually replicates, minus the
@@ -121,6 +126,36 @@ local function showcase(opts: any?): any
 		presenter = pres,
 		composed = true,
 		mountDemo = function(demo: any)
+			--[[ `o.failMount` IS THE FAILED-MOUNT PATH, DRIVEN. `demo_picker.show`
+				runs this under `pcall`, and when it throws the picker leaves `mounted`
+				nil and calls its raise listeners with NO handle — the one production
+				path on which nothing was presented, so nothing climbed. A case that
+				hands `raise` a table it built itself pins a branch no call site can
+				reach (DIR4 review MAJOR-1); this is the flag that makes the real one
+				reachable from a spec. ]]
+			if o.failMount ~= nil and o.failMount.on then
+				error("this mount was made to fail", 0)
+			end
+			--[[ `o.buildDemo` MOUNTS A REAL SCENARIO INSTEAD OF THE STAND-IN. The
+				two-button screen below binds nothing, which is exactly the harness
+				blindness that hid the shoulder double-fire and then hid `ButtonY`
+				against `menu.luau` one round later. A case that needs the catalogue's
+				own contention builds the catalogue's own surface. ]]
+			if o.buildDemo ~= nil then
+				local built = o.buildDemo(demo, {
+					Facet = Facet,
+					core = core,
+					env = env,
+					adapter = adapter,
+					presenter = pres,
+					actionSystem = system,
+				})
+				local h = pres.present(built.screen, built.present)
+				table.insert(demoHandles, h)
+				built.handle = h
+				o.builtDemo = built
+				return built
+			end
 			local screen = UI.Screen({
 				id = "Demo",
 				padding = 8,
@@ -152,7 +187,13 @@ local function showcase(opts: any?): any
 				settings.apply()
 			end
 		end,
-		warn = function() end,
+		-- `o.warnSink` CAPTURES what the picker reports. The default swallows, which
+		-- is why the MINOR-2 `warn` fix landed unpinned (DIR4 review MINOR-4).
+		warn = function(line: string)
+			if o.warnSink ~= nil then
+				table.insert(o.warnSink, line)
+			end
+		end,
 	})
 
 	local picker = theme_picker.mount({
@@ -233,6 +274,7 @@ local function showcase(opts: any?): any
 		chrome = chrome,
 		chipsBottom = chipsBottom,
 		demoHandles = demoHandles,
+		opts = o,
 		settle = function()
 			for _ = 1, 3 do
 				pres.refresh()
@@ -286,8 +328,8 @@ end)
 --      settings button aren't reachable with the dpad".
 --
 --      The four-input block below this one proves every ROUTE INTO the chrome
---      that the chrome itself declares — a toggle key on the keyboard, ButtonY
---      on the pad — and every one of them starts by pressing that toggle. Not
+--      that the chrome itself declares — a toggle key on the keyboard, a
+--      shoulder on the pad — and every one of them starts by pressing it. Not
 --      one of them asks the question a player asks first, which is "what does
 --      the d-pad do", and the answer was NOTHING: the strip is presented before
 --      the demo so the demo owns the scope, `navigateDirection` reads the top
@@ -496,10 +538,16 @@ end)
 -- ===========================================================================
 describe("showcase chrome (2): a gamepad alone can change demo and change theme", function()
 	local PAD = { touch = false, mouse = false, keyboard = false, gamepad = true }
+	--[[ THE PAD'S WAY IN IS A SHOULDER, and only a shoulder (ruling R20,
+		2026-08-21). These cases used to press `TOGGLE_GAMEPAD`, which named `ButtonY`
+		— the FRAMEWORK's own menu verb (`menu.luau:70-76`), which the chrome gave
+		back. `SECTION_GAMEPAD.demos` is the route the chips now advertise with a
+		glyph, so it is the route a pad-only player is actually told about. ]]
+	local PAD_IN = showcase_chrome.SECTION_GAMEPAD.demos
 
-	it("the pad's toggle button opens the panel and engages it — with no keyboard anywhere", function()
+	it("the pad's shoulder opens the panel and engages it — with no keyboard anywhere", function()
 		local w = showcase({ capabilities = PAD })
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, PAD_IN)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
 		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
@@ -508,7 +556,7 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 
 	it("the d-pad walks the panel and ButtonA changes the demo", function()
 		local w = showcase({ capabilities = PAD })
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, PAD_IN)
 		w.settle()
 		local before = w.demos.current()
 		local landed = false
@@ -534,7 +582,7 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 
 	it("ButtonB (Cancel) resigns the panel, which takes it down and returns the demo", function()
 		local w = showcase({ capabilities = PAD })
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, PAD_IN)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
 		press(w.system, "ButtonB")
@@ -546,7 +594,7 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 	it("the motion setting is reachable and changeable with a pad alone", function()
 		local w = showcase({ capabilities = PAD })
 		expect(w.env:get("reducedMotion"):get() == true).toBe(false)
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, PAD_IN)
 		w.settle()
 		-- section switch -> Settings, then onto the motion picker's Reduced option.
 		--
@@ -669,10 +717,15 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 		expect(`one Tab moved {moved} step(s)`).toBe("one Tab moved 1 step(s)")
 	end)
 
-	it("the toggle context binds exactly the two documented keys, and nothing a demo uses", function()
+	it("the toggle context binds exactly the three documented keys, and nothing a demo uses", function()
 		local w = showcase()
-		-- a stand-in for everything the framework and the demos bind: if the
-		-- chrome's own context claimed any of these, this would fire
+		--[[ A STAND-IN FOR EVERYTHING THE FRAMEWORK AND THE DEMOS BIND: if the
+			chrome's own context claimed any of these, this would fire.
+
+			`ButtonY` IS IN THIS LIST NOW (ruling R20, 2026-08-21). It was the pad's
+			toggle for three weeks, and it is `menu.luau`'s gamepad trigger — see case
+			(16), which drives the menu verb itself rather than asserting the absence
+			from over here. ]]
 		local contended = {
 			"Tab",
 			"Space",
@@ -684,6 +737,7 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 			"ButtonA",
 			"ButtonB",
 			"ButtonX",
+			"ButtonY",
 			"DPadUp",
 			"DPadDown",
 		}
@@ -694,13 +748,17 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 				`{key} toggled the chrome: false`
 			)
 		end
-		-- ...and the two that DO
+		-- ...and the three that DO: one keyboard toggle, two pad section doors
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		expect(w.chrome.isOpen()).toBe(true)
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		expect(w.chrome.isOpen()).toBe(false)
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		expect(w.chrome.isOpen()).toBe(true)
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		expect(`still open, other section: {w.chrome.isOpen()} {w.chrome.kind:get()}`).toBe(
+			"still open, other section: true settings"
+		)
 	end)
 
 	it("the toggle still works while the panel it opened is engaged and sinking", function()
@@ -1244,7 +1302,7 @@ end)
 --[[ THE PAD'S WAY IN (director, 2026-08-21). The chips sit at the two top
 	corners of the strip, so the two shoulder buttons match them by POSITION:
 	ButtonL1 opens the demo list, ButtonR1 opens settings. It is the same seam the
-	`ButtonY` toggle already uses — one action-system context, one bound key each,
+	`Backquote` toggle already uses — one action-system context, one bound key each,
 	no raw input anywhere — and the same `requestFromNavigation` entry, so the
 	focus ring is visible on the frame the panel opens. ]]
 describe("showcase chrome (11): the two shoulder buttons open the two sections", function()
@@ -1553,13 +1611,13 @@ describe("showcase chrome (14): a shoulder press resolves to ONE context", funct
 	end)
 
 	it("the toggle key still reaches the chrome through a demo that sinks the keyboard", function()
-		-- sinking is per-KEY: `Backquote`/`ButtonY` were never contended and the
-		-- chrome's new sink must not have changed what they do
+		-- sinking is per-KEY: `Backquote` is contended by nothing (the audit in §5)
+		-- and the chrome's sink must not have changed what it does
 		local w = contending()
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
+		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(false)
 		expect(w.hits.n).toBe(0)
@@ -1583,23 +1641,42 @@ end)
 	underneath — a player reading row nine was put back on row one by something they
 	did not do. ]]
 describe("showcase chrome (15): the raise spends a layer only when it has to", function()
-	it("a raise the panel does not need costs nothing", function()
-		local w = showcase()
+	it("a FAILED MOUNT raises for free — the one path on which nothing climbed", function()
+		--[[ DRIVEN THROUGH THE REAL CALL SITE (DIR4 review MAJOR-1). The first
+			version of this case handed `raise` a hand-built `{ displayOrder = … }`
+			table, which no call site in the example can produce: `demo_picker`'s
+			`raise()` passes `mounted.handle`, and `mounted` is nil exactly when the
+			mount threw. That made the shipped guard bite on nothing while the source
+			comment and the report both said it bit here.
+
+			WHY THIS PATH IS FREE. `show()` dismisses the old demo and then fails to
+			present a new one — and a dismissal does not move `displayLayer`, only a
+			present does. So nothing climbed over the panel, and re-presenting it
+			would spend a slot to restore an order that never changed. ]]
+		local flag = { on = false }
+		local w = showcase({ failMount = flag })
 		w.chrome.request("demos")
 		w.settle()
 		local before = w.adapter.rootDisplayOrder("ShowcasePanel")
-		-- the failed-mount path raises with no demo presented: `mounted` is nil, so
-		-- the listener is handed nil and the panel re-presents (it cannot prove it is
-		-- above a surface it was never told about). Handed a handle it IS above,
-		-- nothing is spent.
-		local panelHandle = w.chrome.panelHandle()
-		w.chrome.raise({ displayOrder = panelHandle.displayOrder - 100 })
+		flag.on = true
+		local mounted = w.demos.showNext(1)
 		w.settle()
-		expect(`already above: {w.adapter.rootDisplayOrder("ShowcasePanel")} (was {before})`).toBe(
-			`already above: {before} (was {before})`
+		expect(`the mount failed as intended: {mounted}`).toBe("the mount failed as intended: false")
+		expect(`the panel is still up: {w.chrome.isOpen()}`).toBe("the panel is still up: true")
+		expect(`no layer spent: {w.adapter.rootDisplayOrder("ShowcasePanel")} (was {before})`).toBe(
+			`no layer spent: {before} (was {before})`
 		)
-		-- ...and a raise it DOES need still happens
-		w.chrome.raise({ displayOrder = panelHandle.displayOrder + 100 })
+	end)
+
+	it("...and a SUCCESSFUL swap still spends one, because the demo really did climb", function()
+		-- the control: without it, "no layer spent" is equally explained by "the
+		-- raise never runs at all"
+		local flag = { on = false }
+		local w = showcase({ failMount = flag })
+		w.chrome.request("demos")
+		w.settle()
+		local before = w.adapter.rootDisplayOrder("ShowcasePanel")
+		w.demos.showNext(1)
 		w.settle()
 		expect(`raised: {w.adapter.rootDisplayOrder("ShowcasePanel") > before}`).toBe("raised: true")
 	end)
@@ -1618,5 +1695,197 @@ describe("showcase chrome (15): the raise spends a layer only when it has to", f
 		expect(`the ring stayed on {tostring(w.pres.focus.focused:get())}`).toBe(
 			`the ring stayed on {tostring(before)}`
 		)
+	end)
+end)
+
+--[[ (16) THE PAD'S MENU VERB IS NOT THE CHROME'S (DIR4 review MAJOR-2; ruling
+	R20, controller, 2026-08-21).
+
+	§5 of `showcase_chrome.luau` was rewritten last round to correct a false
+	arbitration claim about the two shoulders — and re-asserted the SAME false claim
+	one pair of keys over: "for `Backquote`/`ButtonY` that is still true".
+	`src/controls/menu.luau:70-76` declares `TRIGGER_KEYS.gamepad = ButtonY` and
+	`:884-899` binds it on a SINKING context at priority 1200 for every `Menu`
+	control that has an action system — and the catalogue ships the `menu` demo,
+	whose entire subject is "one list of verbs, five ways in".
+
+	MEASURED with the real fixture mounted, one `ButtonY`: before ruling R20 the
+	chrome ate the menu's trigger (chrome at 3500, sinking since the shoulder fix)
+	and the pad route the demo exists to show could not be demonstrated at all.
+
+	RULING R20: the chrome toggle DROPS `ButtonY`. The bumpers are the pad's chrome
+	doors (R19) and make a pad toggle redundant; the platform convention gives the
+	right face button to menus and context actions; and the framework's own menu
+	verb now claims it. The keyboard keeps `Backquote`, which nothing contends.
+
+	THE STAND-IN CASE IS FIRST ON PURPOSE. It registers a context with `menu.luau`'s
+	OWN priority and sink and binds `menu.TRIGGER_KEYS.gamepad`, which is the ten
+	line instrument the round should have had: the harness's stand-in demo binds
+	nothing, and that blindness is what hid this defect and the shoulder one before
+	it. The real fixture follows as the end-to-end control. ]]
+describe("showcase chrome (16): ButtonY belongs to the menu verb, not the chrome", function()
+	local function menuTriggerStandIn(w: any): any
+		local fired = { n = 0 }
+		local ctx = w.system.createContext({
+			name = "MenuTriggerStandIn",
+			priority = menu.TRIGGER_KEY_PRIORITY,
+			sink = true,
+		})
+		local action = ctx.createAction("MenuOpen", "Bool")
+		for _, binding in menu.TRIGGER_KEYS.gamepad do
+			action.bind(binding)
+		end
+		action.onPressed(function()
+			fired.n += 1
+		end)
+		return fired
+	end
+
+	it("a context bound exactly as menu.luau binds it still receives ButtonY", function()
+		local w = showcase()
+		local fired = menuTriggerStandIn(w)
+		press(w.system, "ButtonY")
+		w.settle()
+		expect(`the menu verb fired {fired.n} time(s); chrome open {w.chrome.isOpen()}`).toBe(
+			"the menu verb fired 1 time(s); chrome open false"
+		)
+	end)
+
+	it("...and the real `menu` scenario opens its card, with the chrome untouched", function()
+		local w = showcase({
+			buildDemo = function(_demo: any, ctx: any)
+				return (require)("../examples/gallery/scenarios/menu").build(ctx)
+			end,
+		})
+		w.settle()
+		local built = w.opts.builtDemo
+		expect(built ~= nil).toBe(true)
+		local function openCount(): number
+			local n = 0
+			for _, card in built.report().cards do
+				if card.open then
+					n += 1
+				end
+			end
+			return n
+		end
+		expect(openCount()).toBe(0)
+		press(w.system, "ButtonY")
+		w.settle()
+		expect(`ButtonY opened {openCount()} menu(s); chrome open {w.chrome.isOpen()}`).toBe(
+			"ButtonY opened 1 menu(s); chrome open false"
+		)
+	end)
+
+	it("the pad still has its two chrome doors with the menu demo on screen", function()
+		local w = showcase({
+			buildDemo = function(_demo: any, ctx: any)
+				return (require)("../examples/gallery/scenarios/menu").build(ctx)
+			end,
+		})
+		w.settle()
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
+		w.settle()
+		expect(`L1: open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("L1: open true kind demos")
+		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
+		w.settle()
+		expect(`R1: open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("R1: open true kind settings")
+	end)
+
+	it("the export says so: there is no gamepad toggle key to name", function()
+		-- the constant is gone rather than left pointing at a key the chrome no
+		-- longer binds, so a consumer printing the chrome's keys cannot print a lie
+		expect(showcase_chrome.TOGGLE_GAMEPAD).toBeNil()
+		expect(showcase_chrome.TOGGLE_KEYBOARD).toBe("Backquote")
+	end)
+end)
+
+--[[ (17) THE STRIP'S RIGHT EDGE IS INSIDE THE BEZEL TOO (DIR4 review MINOR-5).
+
+	Last round inset the chrome's LEFT and TOP on a ten-foot display and left the
+	other two edges at the screen gutter: measured at 1920x1080 / Large, the bar was
+	`x102 y72 w1806`, so its right edge sat at 1908 on a set that crops 90. Nothing
+	is right-aligned in the strip today so nothing was hidden — but the
+	`ViewThatFits` ladder was choosing its rung against an offer ~90px wider than
+	the visible width, which is the "painted at a size nobody measured" class one
+	step removed, and any future right-hand chrome would land behind the glass.
+
+	All four edges now, from the one predicate, so the answer cannot be
+	half-applied again. ]]
+describe("showcase chrome (17): every edge of the strip clears the overscan", function()
+	local CONSOLE = { w = 1920, h = 1080, displaySize = "Large", preferredInput = "Gamepad" }
+
+	--[[ THE BOTTOM EDGE IS A RECORDED NULL, and saying so is the point. The bar is
+		anchored `topLeft` and hugs, so nothing it contains can reach the bottom
+		inset: mutating the padding's `bottom` to 0 reddens NOTHING in this suite
+		(measured). It is still declared, because the predicate answers all four
+		edges and a half-applied answer is the defect this case exists for — the
+		next affordance anchored `bottomLeft` is then correct by construction rather
+		than by a second round of this. The three edges below that CAN be observed
+		are observed, and `right` is the one that was actually wrong. ]]
+	it("the bar's box is inside the safe rectangle on all four edges", function()
+		local w = showcase(CONSOLE)
+		local over = w.env:get("effectiveOverscanInsets"):get()
+		local vp = w.env:get("viewportRect"):get()
+		local bar = w.adapter.node("/ShowcaseChrome/Dock/Bar")
+		expect(bar ~= nil).toBe(true)
+		local right = bar.rect.x + bar.rect.w
+		local bottom = bar.rect.y + bar.rect.h
+		expect(
+			`left {bar.rect.x >= over.left} top {bar.rect.y >= over.top} `
+				.. `right {right <= vp.w - over.right} bottom {bottom <= vp.h - over.bottom}`
+		).toBe("left true top true right true bottom true")
+	end)
+
+	it("...and the ladder is offered the VISIBLE width, not the panel's", function()
+		local w = showcase(CONSOLE)
+		local over = w.env:get("effectiveOverscanInsets"):get()
+		local vp = w.env:get("viewportRect"):get()
+		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
+		-- the `ViewThatFits` row is `fill`, so its width IS the offer the ladder
+		-- measures its rungs against
+		expect(
+			`the offer is {chips.rect.w}, the visible width is at most {vp.w - over.left - over.right}: `
+				.. `{chips.rect.w <= vp.w - over.left - over.right}`
+		).toBe(`the offer is {chips.rect.w}, the visible width is at most {vp.w - over.left - over.right}: true`)
+	end)
+
+	it("the near rows are untouched: no edge moved on a display that crops nothing", function()
+		for _, row in { { name = "phone", w = 390, h = 844 }, { name = "desktop", w = 1232, h = 1067 } } do
+			local w = showcase({ w = row.w, h = row.h })
+			local bar = w.adapter.node("/ShowcaseChrome/Dock/Bar")
+			local screen = w.adapter.node("/ShowcaseChrome")
+			expect(`{row.name}: bar at ({bar.rect.x},{bar.rect.y}) w{bar.rect.w}`).toBe(
+				`{row.name}: bar at ({screen.rect.x + 8},{screen.rect.y + 8}) w{row.w - 16}`
+			)
+		end
+	end)
+end)
+
+--[[ (18) THE RAISE LISTENER REPORTS WHAT IT CATCHES (DIR4 review MINOR-4).
+
+	`demo_picker.raise` runs each listener under `pcall` so one broken listener
+	cannot take the chrome down with it, and last round it started reporting the
+	error through the module's own `warn` seam instead of dropping it. The harness
+	passed `warn = function() end`, so the suite would not have noticed the report
+	line being deleted the next day — a fix nothing pins is a fix with a shelf
+	life. ]]
+describe("showcase chrome (18): a broken raise listener is reported, not swallowed", function()
+	it("one throwing listener produces one report line, and the chrome survives", function()
+		local lines: { string } = {}
+		local w = showcase({ warnSink = lines })
+		w.chrome.request("demos")
+		w.settle()
+		local stop = w.demos.watchRaise(function()
+			error("this listener is broken", 0)
+		end)
+		w.demos.showNext(1)
+		w.settle()
+		stop()
+		expect(#lines).toBe(1)
+		expect(`reported: {string.find(lines[1], "a raise listener failed", 1, true) ~= nil}`).toBe("reported: true")
+		-- ...and the chrome's OWN listener, registered first, still ran
+		expect(`the panel is still up and on top: {w.chrome.isOpen()}`).toBe("the panel is still up and on top: true")
+		expect(`no error reached the core: {tostring(w.core:lastError())}`).toBe("no error reached the core: nil")
 	end)
 end)

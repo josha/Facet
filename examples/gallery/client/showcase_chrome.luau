@@ -91,53 +91,90 @@
 	    alphabet. Backquote is in none of those sets and is not in Roblox's
 	    hard-reserved set (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`) — it is the
 	    conventional console/menu key on a desktop keyboard.
-	  * GAMEPAD — **ButtonY** for the toggle, and **ButtonL1 / ButtonR1** for the
-	    two sections directly (director round 3, 2026-08-21: the chips sit at the
-	    two top corners, so the two shoulders match them by POSITION — left opens
-	    the demo list, right opens settings). See `SECTION_GAMEPAD` below. `ButtonA` is Activate and is eaten unconditionally
-	    by the legacy `jumpAction` (docs/lessons/gamepad-contention-truths.md
-	    truth 1); `ButtonB` is Cancel; `ButtonX` is the row-actions menu;
-	    `ButtonStart`/`ButtonSelect` are the platform's own menu buttons and are
-	    exactly the trade the gamepad-contention lesson refuses to make. ButtonY
-	    is the one face button no verb in this framework claims.
+	  * GAMEPAD — **ButtonL1 / ButtonR1**, and NO face button at all (director
+	    round 3, 2026-08-21: the chips sit at the two top corners, so the two
+	    shoulders match them by POSITION — left opens the demo list, right opens
+	    settings). See `SECTION_GAMEPAD` below. Every face button is spoken for:
+	    `ButtonA` is Activate and is eaten unconditionally by the legacy
+	    `jumpAction` (docs/lessons/gamepad-contention-truths.md truth 1); `ButtonB`
+	    is Cancel; `ButtonX` is the row-actions menu; `ButtonY` is the FRAMEWORK's
+	    menu verb (§5); `ButtonStart`/`ButtonSelect` are the platform's own menu
+	    buttons and are exactly the trade the gamepad-contention lesson refuses to
+	    make.
 
 	The context sits at priority 3500 — above the engaged band (3000) — so the
 	toggle key can still be pressed while the panel it opened is engaged and
 	sinking.
 
-	=== 5. AND IT SINKS, BECAUSE TWO OF ITS FOUR KEYS ARE THE FRAMEWORK'S ===
+	=== 5. THE AUDIT, MEASURED — AND WHAT IT COST TWICE ===
 
-	The first version of §4 said "no other context in the place binds either key",
-	and for `Backquote`/`ButtonY` that is still true. For the two SHOULDERS it was
-	never true and nobody checked: `presenter.luau:2292-2293` binds
-	`ButtonL1`/`ButtonR1` to **Adjust** on any surface that declares `onAdjust`,
-	and `:2394-2395` binds the same pair dynamically whenever the focused node is a
-	declared `adjustTargets` member — Slider, Stepper, a Table column grip, a
-	TabView strip, LevelPicker, Rating. Four demos in the catalogue contain one.
+	The first version of §4 said "no other context in the place binds either key".
+	It was false for the two SHOULDERS, and the paragraph written to correct that
+	re-asserted it for `ButtonY` — same sentence, same absence of a measurement,
+	one round apart. So this is the audit as a TABLE of what was actually read,
+	rather than a claim:
 
-	MEASURED (review of `48b6e7b`, reproduced here headlessly): on a surface that
-	declares `onAdjust`, ONE `ButtonR1` press fired BOTH — the value under the
-	player's ring moved AND the panel opened over it. The context was non-sinking,
-	so this was never a priority defect; it was the claim above being false.
+	  * `Backquote` — grep of `src/`, `examples/` and `tests/`: bound nowhere else.
+	    Kept.
+	  * `ButtonL1` / `ButtonR1` — `presenter.luau:2292-2293` binds them to
+	    **Adjust** on any surface that declares `onAdjust`, and `:2394-2395` binds
+	    the same pair dynamically whenever the focused node is a declared
+	    `adjustTargets` member (Slider, Stepper, a Table column grip, a TabView
+	    strip, LevelPicker, Rating — four catalogue demos contain one). CONTENDED.
+	  * `ButtonY` — `menu.luau:70-76` declares `TRIGGER_KEYS.gamepad = ButtonY`,
+	    and `:884-899` binds it on a **sinking** context at `TRIGGER_KEY_PRIORITY`
+	    1200 for every `Menu` control that has an action system. The catalogue
+	    ships the `menu` demo, whose whole subject is "one list of verbs, five ways
+	    in". CONTENDED — and taken by a context at 3500, the chrome would have
+	    silently deleted the pad route that demo exists to show.
 
-	RULING R19 (controller, 2026-08-21): the bumpers belong to the chrome sections.
-	The director asked for the two top-corner buttons by position and the console
-	convention (section switching on the shoulders) agrees; the framework's Adjust
-	keeps DPad / Comma / Period, and losing bumper-step while this chrome is
-	mounted is an accepted per-APP arbitration outcome. What is NOT acceptable is
-	one press resolving to two contexts, so this context now SINKS: `deviceKey`
-	cuts every strictly-lower candidate for the same key code once a sinking
-	context has been delivered, which makes the outcome ONE action, decided by
-	priority, deterministically. Sinking is per-KEY, so `Backquote`/`ButtonY`
-	consume nothing that was ever bound elsewhere.
+	MEASURED, both halves. On a surface declaring `onAdjust`, ONE `ButtonR1` press
+	fired BOTH — the value under the ring moved AND the panel opened over it (the
+	context was non-sinking, so this was never a priority defect; it was the claim
+	being false). And with the real `menu` fixture mounted, one `ButtonY` press
+	opened the menu AND the chrome at 48b6e7b, then opened only the chrome once
+	this context began to sink.
+
+	RULING R19 (controller, 2026-08-21) — the bumpers belong to the chrome
+	sections. The director asked for the two top-corner buttons by position and the
+	console convention (section switching on the shoulders) agrees. What is NOT
+	acceptable is one press resolving to two contexts, so this context SINKS:
+	`deviceKey` cuts every strictly-lower candidate for the same key code once a
+	sinking context has been delivered, which makes the outcome ONE action, decided
+	by priority, deterministically. Sinking is per-KEY, so `Backquote` consumes
+	nothing that was ever bound elsewhere.
+
+	WHAT R19 REALLY COSTS, stated accurately (DIR4 review MINOR-3 — the first
+	version of this paragraph said "the framework's Adjust keeps DPad / Comma /
+	Period", and that is only true for some controls). A control that declares
+	`adjustAxis` (Slider, LevelPicker) keeps the D-pad pair, which moves to
+	`AdjustAxis`. A **legacy**-state adjust target on a screen with horizontal
+	navigation does not: `presenter.luau:2398-2402` returns after binding only
+	Comma / Period / ButtonL1 / ButtonR1, so once this chrome takes the bumpers a
+	PAD PLAYER KEEPS NOTHING there — Comma and Period are keyboard keys. That is
+	TabView and Table, i.e. the `tab-view` and `table-virtualized` demos, and
+	`tests/tab_view.spec.luau` asserts the shoulders as the pad's paging
+	affordance. R19 authorises the trade; this is its real price, and it is the
+	showcase's price only — a game embedding Facet binds its own chrome keys.
+
+	RULING R20 (controller, 2026-08-21) — the chrome toggle DROPS `ButtonY`
+	entirely. The bumpers are already the pad's two doors, which makes a pad toggle
+	redundant; the platform convention gives the right face button to menus and
+	context actions; and the framework's own menu verb claims it. There is no
+	gamepad toggle key, and `TOGGLE_GAMEPAD` is gone rather than left naming a
+	binding that no longer exists.
 
 	THE ONE REMAINING TIE. `presenter.luau`'s first modal sits at
 	`topModalPriority() + 500` = 3500 — the same number as this context — and the
 	engine's own rule is "contexts with the same priority will receive the input"
 	(artifacts/release-candidate-review/input/ias-inventory.md §A.2). A modal demo
-	with a focused adjust target would therefore still double-fire. Recorded rather
-	than fixed: moving this number is a framework-wide re-banding, not an example's
-	call. ]]
+	with a focused adjust target would therefore still double-fire. NOT fixed here,
+	and the option that was weighed and declined: `TOGGLE_PRIORITY = 3501` is the
+	example's own constant and would break the first-modal tie in the chrome's
+	favour without touching a framework band — but it leaves the SECOND modal
+	(4000) winning, so the rule would be "the chrome wins one modal depth and loses
+	the next", which is a worse thing to have to explain than the tie. The honest
+	fix is a band with room in it, and that is a framework re-banding. ]]
 
 local showcase_chrome = {}
 
@@ -151,21 +188,29 @@ showcase_chrome.COPY = table.freeze({
 	settings = "Settings",
 })
 
--- THE TOGGLE KEYS, exported so the spec drives the same strings the bindings
--- carry rather than a copy of them (a test that types its own key code proves
--- the test's opinion, not the binding's).
+--[[ THE TOGGLE KEY, exported so the spec drives the same string the binding
+	carries rather than a copy of it (a test that types its own key code proves the
+	test's opinion, not the binding's).
+
+	THERE IS NO `TOGGLE_GAMEPAD` (ruling R20, 2026-08-21). It named `ButtonY` for
+	three weeks, and `ButtonY` is `menu.luau`'s gamepad trigger — see §5. The
+	constant is DELETED rather than nil'd or left pointing at a key this module no
+	longer binds, because a consumer printing "chrome toggle: X / Y" from it would
+	otherwise print a route that does not exist. It shipped un-released inside
+	0.10.0, so its removal rides R15 (breaking changes ride the unreleased version)
+	and is recorded there; the pad's route is `SECTION_GAMEPAD` below. ]]
 showcase_chrome.TOGGLE_KEYBOARD = "Backquote"
-showcase_chrome.TOGGLE_GAMEPAD = "ButtonY"
 --[[ THE PAD'S TWO DOORS (director round 3, 2026-08-21). The chips sit at the two
 	top corners of the strip, so the two SHOULDER buttons match them by position:
 	the left one opens the demo list, the right one opens settings. A player holding
 	a pad reaches the thing on the left with the button on the left.
 
-	WHY NOT MORE OF THE TOGGLE KEY. `ButtonY` toggles the chrome and leaves the
+	AND THEY ARE THE PAD'S ONLY ROUTE (R20). A face-button toggle would leave the
 	SECTION to whatever it was, which is one press to open and a second to choose —
-	fine for a keyboard where the section switch is a Tab away, and one press too
-	many on a pad. These two are the same verb with a destination attached, bound
-	on the same SINKING context (§5: the framework's own Adjust binds this pair, so
+	fine on a keyboard where the section switch is a Tab away, one press too many on
+	a pad, and moot now that the only free face button turned out to belong to the
+	framework's menu verb. These two are the same verb with a destination attached,
+	bound on a SINKING context (§5: the framework's own Adjust binds this pair, so
 	the contention is real and is resolved by priority) and entering through the
 	same `requestFromNavigation`, so the focus ring is visible on the frame the
 	panel opens. ]]
@@ -178,9 +223,10 @@ showcase_chrome.SECTION_GAMEPAD = table.freeze({ demos = "ButtonL1", settings = 
 	default pad art is Xbox-style, which is where LB/RB come from; a platform-aware
 	spelling changes this table and the chips follow. ]]
 showcase_chrome.SECTION_GLYPH = table.freeze({ demos = "LB", settings = "RB" })
--- the two surface ids, named once: `raisePanel` matches focus paths against the
--- panel's, and a literal in two places is a rename waiting to go half-done
-showcase_chrome.BAR_ID = "ShowcaseChrome"
+-- the panel's surface id, named once: `raisePanel` matches focus paths against
+-- it and the screen declares it. THE BAR HAS NO SUCH CONSTANT — its id appears
+-- exactly once in this file, and a named constant with one reader is the dead
+-- `sectionActions` table this module already removed (DIR4 review MINOR-1).
 showcase_chrome.PANEL_ID = "ShowcasePanel"
 
 --[[ overscanEdge(distanceProfile, insets, edge) -> the margin the RENDERER will
@@ -287,8 +333,9 @@ function showcase_chrome.mount(opts: MountOpts): any
 	})
 	-- the CLOSED vocabulary (constitution §9): "activate the chrome". No new verb.
 	local toggleAction = toggleContext.createAction("Activate", "Bool")
+	-- ONE KEY. The pad reaches the chrome through the two shoulders below, never
+	-- through a face button (R20, §5).
 	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_KEYBOARD })
-	toggleAction.bind({ keyCode = showcase_chrome.TOGGLE_GAMEPAD })
 	toggleAction.onPressed(function()
 		self.requestFromNavigation(nil)
 	end)
@@ -378,34 +425,42 @@ function showcase_chrome.mount(opts: MountOpts): any
 		selected = kind,
 	})
 
-	--[[ THE TEN-FOOT MARGIN, AS TWO NUMBERS AND NOT A TABLE.
+	--[[ THE TEN-FOOT MARGIN, ON ALL FOUR EDGES (DIR4 review MINOR-5).
 
-		`effectiveOverscanInsets` is a fresh table on every read, so a memo returning
-		it (or a slice of it) hands its readers a new identity every time and
-		re-arranges a strip nothing moved. Two scalar memos compare by VALUE, which
-		is what a reactive `offsetX`/`offsetY` needs.
+		The first version inset LEFT and TOP and left the other two at the screen
+		gutter, which measured `x102 y72 w1806` at 1920x1080 — a right edge at 1908
+		on a set that crops 90. Nothing in the strip is right-aligned today so
+		nothing was hidden, but the `ViewThatFits` ladder was choosing its rung
+		against an offer ~90px wider than the visible width, which is
+		"painted at a size nobody measured" one step removed, and any future
+		right-hand chrome would land behind the glass.
+
+		SO IT IS THE DOCK'S PADDING, NOT THE BAR'S OFFSETS. A padding insets the
+		anchor box on every edge at once, so the answer cannot be half-applied again
+		the way two offsets could; it composes with the screen's own `gutter` padding
+		rather than replacing it; and `width = fill` inside it now fills the VISIBLE
+		width, which is what makes the ladder's offer honest.
+
+		ONE MEMO, RE-USED — not a fresh table per read. `effectiveOverscanInsets` is
+		itself a fresh table on every recompute, so this memo is written to recompute
+		only when the two facts it reads change (a memo caches its value between
+		dependency changes) and every reader then sees one identity per change rather
+		than one per read.
 
 		THE GATE IS `distanceProfile`, NOT THE INSETS THEMSELVES. `renderer.luau`
 		applies the overscan only while the profile is "ten-foot"; a game may AUTHOR
 		`overscanInsets` on a near display and the renderer will still ignore them,
 		so reading the insets alone here would inset the strip on a surface whose
 		content was never inset — the exact double-standard this fixes, mirrored. ]]
-	local function overscanEdge(edge: string): any
-		return scope:own(core:memo(function(use)
-			return showcase_chrome.overscanEdge(
-				use(opts.env:get("distanceProfile")),
-				use(opts.env:get("effectiveOverscanInsets")),
-				edge
-			)
-		end))
-	end
-	local overscanLeft = overscanEdge("left")
-	local overscanTop = overscanEdge("top")
-	-- the topbar inset and the bezel are both reasons the strip starts lower, and
-	-- they ADD: the Roblox buttons sit inside the displayed area, not outside it
-	local barTop = scope:own(core:memo(function(use)
-		local top = use(opts.coreTop)
-		return (if type(top) == "number" then top else 0) + use(overscanTop)
+	local overscanPadding = scope:own(core:memo(function(use)
+		local profile = use(opts.env:get("distanceProfile"))
+		local insets = use(opts.env:get("effectiveOverscanInsets"))
+		return {
+			top = showcase_chrome.overscanEdge(profile, insets, "top"),
+			bottom = showcase_chrome.overscanEdge(profile, insets, "bottom"),
+			left = showcase_chrome.overscanEdge(profile, insets, "left"),
+			right = showcase_chrome.overscanEdge(profile, insets, "right"),
+		}
 	end))
 
 	-- ===== the strip ========================================================
@@ -458,6 +513,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 		children = {
 			UI.Anchor({
 				id = "Dock",
+				padding = overscanPadding,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
@@ -468,25 +524,23 @@ function showcase_chrome.mount(opts: MountOpts): any
 						-- reserved strip: the bar is presented edge-to-edge because
 						-- it OWNS the strip.
 						--
-						-- ...AND IN PAST THE TELEVISION'S BEZEL (director round 4,
-						-- 2026-08-21: "the picker/settings buttons seem to have
-						-- disappeared on console"). `rootPolicy = "edgeToEdge"` is
-						-- honoured by the SOLVER, which takes the whole viewport and
-						-- reads no insets at all — so the renderer's ten-foot margin
-						-- (`renderer.luau`: distanceProfile == "ten-foot" adds
+						-- THE BEZEL IS THE DOCK'S PADDING, one level up (director
+						-- round 4, 2026-08-21: "the picker/settings buttons seem to
+						-- have disappeared on console"). `rootPolicy = "edgeToEdge"`
+						-- is honoured by the SOLVER, which takes the whole viewport
+						-- and reads no insets at all — so the renderer's ten-foot
+						-- margin (`renderer.luau`: distanceProfile == "ten-foot" adds
 						-- `effectiveOverscanInsets` to the content rect) reached every
-						-- content surface and never reached this one. Measured headlessly
-						-- at 1920x1080 / displaySize Large: the demo body started at
-						-- (90,149) and the chips at (12,12) — twelve pixels in from a
-						-- glass edge a real television crops by ninety.
+						-- content surface and never reached this one. Measured at
+						-- 1920x1080 / Large: the demo body started at (90,149) and the
+						-- chips at (12,12) — twelve pixels in from a glass edge a real
+						-- television crops by ninety.
 						--
 						-- The strip still OWNS the strip; owning it never included the
-						-- part of the panel the set does not display. These are the SAME
-						-- insets the renderer applies, gated on the SAME
-						-- `distanceProfile`, so every non-ten-foot row is arithmetic with
-						-- zero in it and does not move by a pixel.
-						offsetX = overscanLeft,
-						offsetY = barTop,
+						-- part of the panel the set does not display. What is left
+						-- here is the topbar alone, because the Roblox buttons sit
+						-- INSIDE the displayed area and the bezel is outside it.
+						offsetY = opts.coreTop,
 						width = { type = "fill", weight = 1 },
 						children = { chipRow },
 					}),
@@ -581,7 +635,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 			demo. What was missing is that "buried" meant UNREACHABLE: every navigation
 			verb reads the top scope alone, so a d-pad pressed against a demo walked
 			that demo's own ring forever and the two chips were reachable by pointer
-			and by ButtonY — a button nothing on the screen names.
+			and by a toggle button nothing on the screen named (`ButtonY` then; the
+			shoulders now, and they SAY so — see the glyph beside each chip).
 
 			`focusChrome` is the framework capability that closes it (presenter
 			PresentOpts; `FocusScope.chrome`): the strip's focusables are ADOPTED into
@@ -590,9 +645,10 @@ function showcase_chrome.mount(opts: MountOpts): any
 			pressing DOWN leaves them again. The demo still OWNS the scope, still takes
 			entry focus, and a modal still suspends the whole thing.
 
-			It does NOT replace the toggle key. Backquote/ButtonY is the shortcut that
-			opens the panel from anywhere including inside a scrolled list; this is the
-			route a player finds without being told one exists. ]]
+			It does NOT replace the shortcuts. Backquote on a keyboard, and the two
+			shoulders on a pad, open the panel from anywhere including inside a
+			scrolled list; this is the route a player finds without being told one
+			exists. ]]
 		focusChrome = "top",
 		-- the bar owns the strip it draws in, so it is not inset by it
 		rootPolicy = "edgeToEdge",
@@ -662,8 +718,16 @@ function showcase_chrome.mount(opts: MountOpts): any
 	local lastPanelFocus: string? = nil
 	-- how many laid-out frames the restore may spend before it stops trying
 	local pendingFocusTries = 0
+	--[[ A PREFIX TEST NEEDS ITS SEPARATOR (DIR4 review MINOR-7). Without it
+		`/ShowcasePanelX/Row` reads as "mine", which is wrong in the one function
+		whose whole job is deciding ownership — the spec file's own `isPrefix` helper
+		has always checked for it. Harmless with one such surface; wrong as written. ]]
+	local PANEL_ROOT = `/{PANEL_ID}`
 	local function isPanelPath(path: any): boolean
-		return type(path) == "string" and string.sub(path, 1, #PANEL_ID + 1) == `/{PANEL_ID}`
+		if type(path) ~= "string" then
+			return false
+		end
+		return path == PANEL_ROOT or string.sub(path, 1, #PANEL_ROOT + 1) == `{PANEL_ROOT}/`
 	end
 	scope:own(core:observe(presenter.focus.focused, function(path: any)
 		if isPanelPath(path) then
@@ -779,9 +843,12 @@ function showcase_chrome.mount(opts: MountOpts): any
 		(`docs/handoff/SOURCE_CAP_LEDGER.md`). No public seam re-bands a live
 		surface: `handle.displayOrder` is documented and READABLE, and nothing
 		writes it. What an app CAN do is not spend a layer it does not need, which is
-		the guard below — the demo handle rides in on the raise, and a panel already
-		above it is left exactly where it is (the failed-mount path raises without
-		presenting anything, and that raise is now free).
+		the guard below — the demo handle rides in on the raise, and a raise that
+		names NO handle (the failed-mount path, where `show()` dismissed the old
+		demo and presented nothing) costs nothing, because a dismissal does not move
+		the counter and so nothing climbed. That is the only saving available to an
+		app here, and it is the only one claimed: a successful swap really has
+		climbed and really does cost the second slot.
 
 		THE FOCUS SURVIVES THE RE-PRESENT (review MINOR-4). `openPanel` asks for
 		`initialFocus = "first"`, which is right for OPENING and wrong for a demo
@@ -793,17 +860,26 @@ function showcase_chrome.mount(opts: MountOpts): any
 		if panelHandle == nil then
 			return
 		end
-		--[[ ALREADY ON TOP: SPEND NOTHING. `handle.displayOrder` is the presenter's
-			documented cross-surface z, so "is the panel above the screen it was opened
-			over" is a read rather than an inference. Compared only when the raiser
-			says WHICH screen it means; a raise with no handle re-presents, because a
-			panel cannot prove it is above a surface it was never told about. ]]
-		if
-			type(demoHandle) == "table"
-			and type(demoHandle.displayOrder) == "number"
-			and type(panelHandle.displayOrder) == "number"
-			and panelHandle.displayOrder > demoHandle.displayOrder
-		then
+		--[[ NOTHING WAS PRESENTED, SO NOTHING CLIMBED: SPEND NOTHING.
+
+			THE CONTRACT. A raiser hands over the handle of the screen it just
+			presented, and `nil` means it presented NONE. `demo_picker`'s `raise()`
+			passes `mounted.handle`, and `mounted` is nil exactly when `mountDemo`
+			threw — the failed-mount path, where `show()` has dismissed the old demo
+			and put nothing in its place. A dismissal does not move `displayLayer`;
+			only a present does. So on that path the panel is provably still where it
+			was, above what is left, and re-presenting it would spend a slot to restore
+			an order that never changed.
+
+			AND THE OTHER PATH IS NOT WORTH A BRANCH (DIR4 review MAJOR-1). The first
+			version of this guard compared `panelHandle.displayOrder >
+			demoHandle.displayOrder` and shipped a comment claiming it saved the failed
+			mount — while the `type(demoHandle) == "table"` test it led with made that
+			the one case it could NOT fire on. The comparison is unreachable in this
+			example anyway: a successful swap has just presented the demo, so the demo
+			is above by construction, every time. Dead code with a fixture certifying it
+			is worse than no guard, so it is gone and this is the whole condition. ]]
+		if demoHandle == nil then
 			return
 		end
 		pendingFocus = lastPanelFocus
@@ -881,9 +957,6 @@ function showcase_chrome.mount(opts: MountOpts): any
 	function self.isOpen(): boolean
 		return panelHandle ~= nil
 	end
-	-- the raise, driven: the picker calls this through `watchRaise` and a spec
-	-- calls it directly to prove what a raise does and does not spend
-	self.raise = raisePanel
 	function self.close()
 		closePanel()
 	end

@@ -856,7 +856,8 @@ if bootDecision.mode == "showcase" then
 	print(
 		`[Facet Showcase] {Facet.VERSION} — {#demo_picker.list()} demos, theme picker {if showcasePicker ~= nil
 			then "on"
-			else "unavailable"}; chrome toggle: {showcase_chrome.TOGGLE_KEYBOARD} / {showcase_chrome.TOGGLE_GAMEPAD}`
+			else "unavailable"}; chrome: {showcase_chrome.TOGGLE_KEYBOARD} on a keyboard, `
+			.. `{showcase_chrome.SECTION_GAMEPAD.demos}/{showcase_chrome.SECTION_GAMEPAD.settings} on a pad`
 	)
 	local _keep = { showcaseHeartbeat, demos, showcasePicker, settings, chrome, unbindEnv, unbindResponderEffects }
 	return
