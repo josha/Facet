@@ -37,7 +37,14 @@ anchor; the three that were green are the authored-wins guards and the null
 hypothesis, and must stay green.
 
 **The 35-site re-verdict: nothing was dropped, and that is the outcome rather than a
-shortfall.** A brace-matched census reproduces the audit's 35 exactly (31 + 4). Every
+shortfall.** A brace-matched census reproduces the audit's 35 exactly (31 + 4) — but
+that figure counts PROSE, and the correction is on the record: a COMMENT-AWARE
+recount finds **32** real construction sites by my method (30 examples + 2 src) and
+**33** by the reviewer's, the difference being where each of us draws the line on a
+call spanning a comment boundary. The audit's 35 includes two or three mentions
+inside doc comments (`virtual_grid.luau:96` and `:144`, `05_word_game.luau:28`).
+Neither number is load-bearing and the conclusion is identical under all three.
+Every
 `columns = N` site is a semantically fixed lane count (a Wordle board, a tile rack, a
 match-3 board, a five-seal run, `level_picker`'s `columns = count` — which exists so
 the marks shrink together rather than starving the tail, and says so at the call
@@ -280,9 +287,14 @@ properties), `check_docs` (9 documents), `check_registration` (38 controls, 255 
    and whether the axis band at 600–640 is visible on a device (row 5). No Studio
    session was run — the brief forbade it.
 
-6. **The suite tails include wave THEME-UNBUNDLE's in-flight cases** (six on the Facet
-   side, one on the RR side, identified by diffing case names against the anchor
-   transcript). Both waves were green independently at every point I measured.
+6. **The suite tails include wave THEME-UNBUNDLE's in-flight cases**, and my
+   attribution was off by one in each direction. Measured per interleave boundary by
+   the reviewer and reproduced here: **this wave +26, THEME-UNBUNDLE +5** (11 + 4 + 7
+   + 4 = 26; 6750 + 26 + 5 = 6781). My report said +25/+6, from diffing case NAMES
+   rather than running the suite at each boundary — a method that mis-attributes a
+   case whose name is ambiguous between the two waves. The RR split (**wave +5,
+   concurrent +1**) was right. Both waves were green independently at every point
+   either of us measured.
 
 
 ---

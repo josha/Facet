@@ -569,7 +569,7 @@ RIGHT, so **19 non-RIGHT**. Every one appears.
 | **B-3** 0 of 35 `Grid` sites bind lanes reactively | AUTHORED-ONLY | **RESOLVED by ADAPT-L2** | There is nothing left to bind: the default now answers. §2 re-verdicts all 35 |
 | **B-4** `GridRow` squeezes past declared fixed widths in silence (ADAPT-L8) | WRONG (medium) | **FIXED** | The squeeze is REPORTED, narrowed to a declared `fixed` width. Geometry unchanged and re-pinned at the audit's own five numbers |
 | **B-6e** ten-foot `Composition` main lane is 1316px | AUTHORED-ONLY | **RULED, THEN FIXED** (controller ruling R14, 2026-08-21 — see §7) | This row was written CONTESTED, as the one cell blocked by nothing but a number. The number was ruled mid-wave: **900 = the regular-touch tablet measure (600, cell B-6c) x the 1.5 distance factor**, the same proportion-equality doctrine every ten-foot number rides, and derived rather than chosen so a re-ruling is one line. Shipped as the DEFAULT on a `fill` group's new `maxWidth`, with a director veto open at batched §13h |
-| **C-1** ZStack children default to the top-left corner (ADAPT-L11) | WRONG (medium) | **CONTESTED** | The default is in the solver's zstack arrange (`solver.luau:3029`, locked) and moving it re-places children on 148 shipped `ZStack` sites. The audit's own device row 10 asks the director whether it reads as a mistake at all |
+| **C-1** ZStack children default to the top-left corner (ADAPT-L11) | WRONG (medium) | **CONTESTED** | The default is in the solver's zstack arrange (`solver.luau:3029`, locked) and moving it re-places children on ~140 shipped `ZStack` sites (the 148 first written here is the audit's inherited figure; a comment-aware recount measures 141 by my method and 139 by the reviewer's — immaterial to the contest, and corrected rather than left). The audit's own device row 10 asks the director whether it reads as a mistake at all |
 | **C-3** no compact answer for overlaid content | MISSING | **CONTESTED** | Part 1's ADAPT-25 seen from the layout side, and contested there for the same reason: there is no `UI.Sheet` and `presentModal` has no size-driven form. A new presentation primitive, not a connection |
 | **D-3** a `ViewThatFits` ladder never steps down for typography when the cross axis is free (ADAPT-L12) | WRONG (medium) | **CONTESTED** | `solver.chosenCandidate` (locked), and the audit is explicit that this is not a bug in contract 7 but "the boundary of what a width-plus-cut test can see". Closing it means a NEW fit criterion — a height budget a rung can fail — which is new machinery with its own authoring surface |
 | **E-3** spacing tokens are combo-invariant (ADAPT-L9) | WRONG → **re-verdicted RIGHT** | **RESOLVED BEFORE THIS WAVE** | wave TEN-FOOT |
@@ -599,7 +599,7 @@ number, and that number arrived mid-wave (§7).
 ## 2. The 35 `UI.Grid` sites, re-verdicted
 
 A brace-matched census of every `UI.Grid{…}` call site in `examples/` and `src/`
-(31 + 4, which is the audit's own 35, bit for bit):
+(31 + 4, which reproduces the audit's own 35 — see the correction below):
 
 | what it declares | sites | verdict |
 |---|---|---|
@@ -607,6 +607,16 @@ A brace-matched census of every `UI.Grid{…}` call site in `examples/` and `src
 | `minColumnWidth = <px>` | 17 | **stay authored.** Dense readouts and avatar/chip strips whose minimum is a deliberate device-pixel decision (48, 56, 72, 90, 96, 104…) |
 | `minColumnWidth = "intrinsic"` | 6 | **stay authored, and are now a restatement of the default.** Left standing on purpose: they are what keeps the enum value exercised in a shipped surface, and none of them has "the default lanes itself" as its point |
 | neither | 1 in `examples/`, 1 comment in `src/` | **unaffected.** The single real site (`adaptive_controls.luau:525` `Specs`) is a GRIDROW-mode grid, and the flow plan's lane count is never asked of one |
+
+**Correction to the count, 2026-08-21 (fix round 1).** "31 + 4 = the audit's 35, bit
+for bit" reproduced the audit's number by reproducing its METHOD, prose mentions
+included. A comment-aware recount finds **32** real `UI.Grid` construction sites by
+my method (30 examples + 2 src) and **33** by the wave reviewer's, the difference
+being where each draws the line on a call that spans a comment boundary; the audit's
+extra two or three are mentions inside doc comments (`virtual_grid.luau:96` and
+`:144`, `05_word_game.luau:28`). The disposition above is identical under all three
+counts, which is why the number was never load-bearing — and why it is corrected
+here rather than swapped for another unverified one.
 
 **Nothing was dropped, and that is the honest outcome rather than a shortfall.** The
 brief's rule was "sites that hand-computed lanes to dodge the default drop the
@@ -631,7 +641,17 @@ director's 2026-08-15 ruling, and their classes are the re-verdict:
 - **exactly ONE is an `hstack` overflow** (`p2_cartwheel`'s `OpenPotions` rack);
 - **six are `content overflows this vstack`** — a PAGE taller than its box with
   nothing to scroll it;
-- the rest are zstack overlaps and two collapsed content boxes.
+- five are zstack layer overlaps, three are the fixed-px-vs-text class, and two are
+  collapsed content boxes — which accounts for all ten of the remainder. (The first
+  draft of this list said "the rest are zstack overlaps and two collapsed content
+  boxes" and covered seven of ten, omitting the three `fixed-px-vs-text` rows.)
+
+**One labelling note, because the two counts are taken differently.** The six above
+are counted by the waiver's `kind` field (`page-not-scrollable`), while the sentence
+names them by their finding SIGNATURE. By signature alone there are **nine**
+`content overflows this vstack` waivers against the one hstack — so the direction
+this section draws is stronger under either reading, not weaker, and the number is
+labelled here rather than left to be discovered.
 
 So the row-shaped worry behind fix direction (a) — bind `wrap` by default — is
 answered by the corpus itself: rows are not what overflow. **Pages are.** That is
