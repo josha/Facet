@@ -394,6 +394,88 @@ stays deferred. That touches `table.luau` (off-limits this wave),
 `virtual_list.luau` and `row_actions.luau` (extraction-locked) plus twelve others,
 so it is a scoped follow-up rather than a change to `src/init.luau`.
 
+### SUPERSEDED — the original subset table, and the ranking that came off it
+
+**Every figure below is RETRACTED as a saving.** It is kept, and kept here rather
+than in a commit message, for one reason: its RANKING is what found the four
+type-free entries and killed the dead candidates, and a ranking survives the
+arithmetic error that killed the numbers. Nothing in this block may be quoted as
+a saving, a share or a headline; the numbers that mean something are in
+"The measurement" above.
+
+*(Restored 2026-08-21, M2-review finding A-M1. `84b38bb`'s message said the table
+was "kept and marked SUPERSEDED"; it was deleted instead. This is the claim being
+made true rather than a new measurement — no sample was re-taken.)*
+
+**Method as it was run (also superseded).** One subset per PROCESS (`require` is
+process-cached, so measuring two subsets in one VM measures the second against the
+first's leavings), nine repeats each, median reported, `gcinfo()` sampled the
+instant the require returned. Driver: `tools/lune/_probe_t15_mem_all.luau`. The two
+defects are named in "Method — and the correction the T15 review forced" above:
+no settle before the mark, and subset arithmetic charging each control for the
+shared graph `src/init.luau` loads anyway.
+
+| subset | live KB after require | share of root | SUPERSEDED |
+|---|---|---|---|
+| **`require(Facet)` — the front door** | **2 797** | 100% | bimodal sample; the A/B low-mode median is 2 763 |
+| the root MINUS the 19 composite controls | 1 966 | 70.3% | subset arithmetic — the real ceiling is 1 903 |
+| …plus `ProgressView` only | 1 998 | 71.4% | subset arithmetic |
+| …plus the three Rascal Rally builds (`VirtualList`, `Table`, `ProgressView`) | 2 247 | 80.3% | subset arithmetic |
+| …plus `Table` only | 2 291 | 81.9% | subset arithmetic |
+
+The headline read off that table — "the whole saving is 831 KB (29.7%)", and
+"550 KB (19.7%)" for the three-composite consumer — is the retracted number. The
+A/B on the real file says 228 KB [131..313] shipped and 860 KB [762..860] at the
+ceiling.
+
+Inventory, each measured alone with its transitive deps. **Superseded as costs**
+(same subset arithmetic), kept as an ORDER — which is the half that was load-
+bearing, because it is what said the nineteen controls were the only candidate
+worth writing a change for:
+
+| module / group | live KB (SUPERSEDED) |
+|---|---|
+| `present/presenter` | 1 650 |
+| `render/renderer` | 1 018 |
+| `blueprint` | 832 |
+| `layout/solver` | 638 |
+| `core/custom` + `env/environment` | 561 |
+| `blueprint_schema` alone | 536 |
+| `themes/package` | 417 |
+| `themes/snapshot` | 299 |
+| `core/custom` alone | 53 |
+| `async/resources` | 53 |
+| `focus/focus_graph` | 38 |
+| `layout/text_metrics` | 27 |
+| `client/sensory_profile` | 23 |
+| `motion/classes`, `input/actions` | 23 each |
+| `input/spatial` | 19 |
+| `replication/adapters` | 17 |
+| `tokens/tokens` | 14 |
+| `themes/standard_icons` | 12 |
+| `controls/path_shapes` | 9 |
+
+**The candidate ranking, against what the brief guessed.** The brief listed
+candidate seams "in measured-value order (do not assume this order)". The KB
+column is superseded; the verdict column is not, and it is what closed six of the
+seven candidates:
+
+| candidate | marginal cost ON TOP of the lazy floor (SUPERSEDED) | verdict (STANDS) |
+|---|---|---|
+| the 19 `Facet.Controls` entries | 831 KB | the only one that pays — re-measured as 860 KB [762..860] at the ceiling |
+| `themes/package` | 0 KB | already pulled transitively by the floor |
+| `replication/adapters` | 11 KB | noise |
+| `input/spatial` | −15 KB (i.e. inside the ±15 KB run-to-run band) | noise |
+| `controls/path_shapes` | 7 KB | noise |
+| the whole drag/gesture family | 13 KB | noise |
+| theme packages beyond neutral | `fantasy_ornate`, the most ornate shipped package, is 68 KB and is NOT in the model at all (per-theme artifacts) | already deferred |
+
+Two structural facts from the same pass, which no re-measurement touches:
+`themes/snapshot` cannot be deferred behind a namespace at all — `env/environment`
+requires it for `themeMetrics` — and `blueprint_schema` is not a namespace
+boundary, because it validates on every `UI.*` call, i.e. a hot path the brief's
+own rule excludes.
+
 ### The honest caveats
 
 - **Instance-tree memory is engine-owned and unaffected.** Under Rojo every control

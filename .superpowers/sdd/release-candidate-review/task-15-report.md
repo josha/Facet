@@ -76,6 +76,16 @@ structure did not ship, for one reason stated in full in §7 of the artifact.
 
 ## The memory table — headline
 
+> **RETRACTED 2026-08-21 (M2-review finding A-M1).** Every number in this section
+> is SUPERSEDED and none of it is a saving. It was measured one subset per process
+> with no settle before the mark, so the root row is bimodal (collector phase, not
+> memory), and the subset arithmetic charges each control for the shared graph
+> `src/init.luau` loads anyway. The A/B on the real file says **228 KB [131..313]**
+> shipped and **860 KB [762..860]** at the ceiling —
+> `artifacts/release-candidate-review/perf/requalification.md` §7, which now also
+> carries this table under its own SUPERSEDED heading with the ranking that
+> survived. Kept here unedited because it is what this report said on the day.
+
 Live Lua heap retained after `require`, one subset per process, 9 repeats, median.
 
 | subset | KB | vs root |
