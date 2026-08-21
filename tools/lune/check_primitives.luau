@@ -103,6 +103,11 @@ local MINIMAL_PROPS: { [string]: { [string]: any } } = {
 		},
 	},
 	ViewThatFits = { children = { UI.Box({ id = "Candidate" }) } },
+	-- ADAPT-L4: `axis` is REQUIRED on this class rather than defaulting to `"y"`,
+	-- because a class named for adapting must not be able to silently not adapt.
+	-- A literal is the right probe here — the checker is asking whether the class
+	-- reaches a render handle, not whether the fact is reactive.
+	AdaptiveStack = { axis = "x" },
 }
 
 -- can the headless target actually create this class? Mounts one node of it and

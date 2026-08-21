@@ -92,6 +92,12 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("canvas-group")
+		-- ADAPT-L4: the comparison below claims to go side by side where there is
+		-- room, and until 2026-08-21 it never did — `UI.AdaptiveStack` defaulted to
+		-- a column and stayed one on a television. The axis is the surface's own
+		-- fact now; the class refuses to construct without it. `scope` owns the
+		-- memos `conditions` builds (RR-8), so they die with the fixture.
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		local opacity = scope:own(core:signal(STOPS[3]))
 		local showFading = scope:own(core:signal(false))
@@ -227,6 +233,7 @@ return {
 						-- and a 320px phone cannot hold two 132px plates in one line
 						UI.AdaptiveStack({
 							id = "Panels",
+							axis = conditions.axis,
 							gap = 8,
 							width = { type = "fill", weight = 1 },
 							children = {

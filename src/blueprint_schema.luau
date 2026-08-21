@@ -1580,13 +1580,28 @@ class("AdaptiveStack", {
 		-- UI.VStack for UI.HStack through a `When` would remount every child and
 		-- lose their state on a viewport flip; a bound axis re-solves in place
 		-- (acceptance row A-AL2). Bind it to `adaptive.conditions(...).axis`.
+		--
+		-- ...AND IT IS REQUIRED (ADAPT-L4, audit Part 2 cell A-2, 2026-08-21). It
+		-- used to default to `"y"`, which made `UI.AdaptiveStack{}` a PERMANENT
+		-- VSTACK at every combo — measured a column at all six, 1920px television
+		-- included — and three shipped fixtures declared it exactly that way under
+		-- a comment saying "side by side where there is room, a column where there
+		-- is not". A class named for adapting must not be able to silently not
+		-- adapt, and a default of `"y"` on THIS class buys nothing an author could
+		-- not already buy with `UI.VStack`. So it takes `tab_view`'s treatment
+		-- (`controls/tab_view.luau`, the in-repo precedent this framework has now
+		-- adopted six times over): the absent fact is a construction refusal that
+		-- names the fact, the host that publishes it, and the way out.
 		axis = p({
 			types = { "string" },
 			reactive = true,
 			dirty = { "measure" },
 			enum = { "y", "x" },
 			channel = "layout",
-			doc = 'stack axis: "y" (default) or "x" — reactive, and a flip never remounts a child',
+			doc = 'stack axis: "y" or "x" — REQUIRED, and reactive so a flip never remounts a child. Bind it '
+				.. "to `Facet.adaptive.conditions(core, env).axis`, which a surface stood up with "
+				.. "`Facet.client.host.new` supplies with no wiring; an unconditional column is `UI.VStack` "
+				.. "and an unconditional row is `UI.HStack`",
 		}),
 	}),
 })

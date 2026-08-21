@@ -1048,7 +1048,14 @@ describe("the props are public, strict, and reach the solver", function()
 	it("`distribute` is accepted on Screen, VStack, HStack and AdaptiveStack — and nowhere else", function()
 		for _, ctor in { "Screen", "VStack", "HStack", "AdaptiveStack" } do
 			expect(pcall(function()
-				(UI :: any)[ctor]({ id = "X", distribute = "center", children = {} })
+				-- ADAPT-L4: `axis` is REQUIRED on `AdaptiveStack` now, so the probe
+				-- declares it. This case is about `distribute`'s class set, and a
+				-- second refusal firing first would make it answer the wrong question.
+				local props: { [string]: any } = { id = "X", distribute = "center", children = {} }
+				if ctor == "AdaptiveStack" then
+					props.axis = "x"
+				end
+				(UI :: any)[ctor](props)
 			end)).toBe(true)
 		end
 		expect(pcall(function()

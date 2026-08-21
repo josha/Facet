@@ -654,7 +654,13 @@ class with a bound axis makes the flip a re-solve — the specs assert zero fact
 reruns, zero creates, and zero removes across an axis change. `gap` is reactive for
 the same reason, so spacing can adapt without a rebuild.
 
-`axis` is `"y"` (default) or `"x"`; anything else fails at construction.
+`axis` is `"y"` or `"x"` and is **required**; anything else fails at construction.
+It used to default to `"y"`, which meant `UI.AdaptiveStack{}` was a permanent
+`VStack` at every viewport — a column of panels on a 1920px television, silently
+(ADAPT-L4). A class named for adapting must not be able to not adapt, so the
+absent fact now takes `tab_view`'s treatment: a construction refusal naming the
+fact, the host that publishes it, and the way out. An unconditional column is
+`UI.VStack`; an unconditional row is `UI.HStack`.
 `distribute` is the same main-axis distribution `VStack` / `HStack` carry, and it
 follows the axis: the leftover it spreads is always the leftover on whichever
 axis is live.

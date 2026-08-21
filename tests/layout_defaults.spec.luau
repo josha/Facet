@@ -188,3 +188,119 @@ describe("ADAPT-L2 — Grid lanes itself from the space it got", function()
 		expect(laneCount(render(screen, COMBOS[4]), "/S/G/C", 6)).toBe(1)
 	end)
 end)
+
+--[[ ═══ ADAPT-L4 · a class named AdaptiveStack cannot silently not adapt ═══════
+
+	`axis` defaulted to `"y"`, so `UI.AdaptiveStack{}` was a PERMANENT VSTACK at
+	every combo — measured 160x200 at all six, 1920px television included (cell
+	A-2). Three shipped fixtures declared it with a comment saying "side by side
+	where there is room, a column where there is not" and never went side by side.
+
+	The remedy is this framework's own, and it is older than the audit:
+	`tab_view.luau:344-350` REFUSES to construct when its adaptive fact is absent,
+	naming the host that would have supplied it. `axis` is now REQUIRED, and its
+	refusal names both routes — the reactive fact for a stack that adapts, and
+	`UI.VStack` for an author who simply wants a column. A default of `"y"` on
+	THIS class buys nothing that `UI.VStack` did not already buy.
+]]
+describe("ADAPT-L4 — AdaptiveStack refuses rather than silently not adapting", function()
+	it("a bare AdaptiveStack REFUSES to construct", function()
+		expect(function()
+			UI.AdaptiveStack({ id = "Panels", gap = 8, children = { UI.Box({ id = "A" }) } })
+		end).toThrow()
+	end)
+
+	it("...and the refusal names the host, the fact, and the unconditional class", function()
+		local ok, err = pcall(function()
+			UI.AdaptiveStack({ id = "Panels", gap = 8, children = { UI.Box({ id = "A" }) } })
+		end)
+		expect(ok).toBe(false)
+		local message = tostring(err)
+		local missing: { string } = {}
+		-- the fix, the host that publishes it, and the way out for an author who
+		-- wanted a column all along — the same three the tab_view refusal carries
+		for _, phrase in { "AdaptiveStack.axis is required", "adaptive.conditions", "client.host.new", "UI.VStack" } do
+			if string.find(message, phrase, 1, true) == nil then
+				table.insert(missing, phrase)
+			end
+		end
+		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
+	end)
+
+	it("THE NULL HYPOTHESIS: a bound axis constructs and still flips in place", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local scope = core:scope("adapt-l4")
+		local conditions = (require("../src/layout/adaptive") :: any).conditions(core, env, { scope = scope })
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.AdaptiveStack({
+					id = "Bar",
+					axis = conditions.axis,
+					gap = 8,
+					children = {
+						UI.Box({ id = "A", width = FIXED(60), height = FIXED(20) }),
+						UI.Box({
+							id = "B",
+							width = FIXED(60),
+							height = FIXED(20),
+						}),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local column = adapter.node("/S/Bar/B").rect
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 800 })
+		controller.refresh()
+		local row = adapter.node("/S/Bar/B").rect
+		-- a column puts B under A; a row puts it beside it. The class's whole
+		-- promise is that this is a re-solve, so the node is the same node
+		expect(`{column.x},{column.y} -> {row.x},{row.y}`).toBe("0,28 -> 68,0")
+		scope:dispose()
+	end)
+
+	it("the comment three fixtures carried is TRUE now: 320px is a column, 1280px a row", function()
+		-- the audit's own reproduction: two 132px plates cannot share a 320px line,
+		-- and the fixtures said so in a comment while stacking forever
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local scope = core:scope("adapt-l4-fixture")
+		local conditions = (require("../src/layout/adaptive") :: any).conditions(core, env, { scope = scope })
+		local function panels(): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.AdaptiveStack({
+						id = "Panels",
+						axis = conditions.axis,
+						gap = 8,
+						width = { type = "fill", weight = 1 },
+						children = {
+							UI.Box({ id = "One", width = FIXED(132), height = FIXED(60) }),
+							UI.Box({ id = "Many", width = FIXED(132), height = FIXED(60) }),
+						},
+					}),
+				},
+			})
+		end
+		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
+		local root = mountLib.mount(core, panels())
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		expect(adapter.node("/S/Panels/Many").rect.y).toBe(68)
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
+		controller.refresh()
+		-- ...and on a wide surface they are the comparison the comment promised
+		expect(adapter.node("/S/Panels/Many").rect.y).toBe(0)
+		scope:dispose()
+	end)
+end)

@@ -161,6 +161,12 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("nested-compositing")
+		-- ADAPT-L4: both comparisons below say "side by side where there is room, a
+		-- column where there is not", and until 2026-08-21 neither ever went side by
+		-- side — `UI.AdaptiveStack` defaulted to a column forever. The axis is the
+		-- surface's own fact now, and the class refuses without it. `scope` owns the
+		-- memos `conditions` builds (RR-8).
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		-- ── the two drivers, shared by both halves of each comparison ────────
 		local fade = scope:own(core:signal(FADE_DEFAULT))
@@ -358,6 +364,7 @@ return {
 								-- are visible at once
 								UI.AdaptiveStack({
 									id = "Panels",
+									axis = conditions.axis,
 									gap = 8,
 									width = { type = "fill", weight = 1 },
 									children = {
@@ -384,6 +391,7 @@ return {
 								UI.Text({ id = "TurnStatus", text = turnStatus, textSize = 12, role = "secondary" }),
 								UI.AdaptiveStack({
 									id = "Panels",
+									axis = conditions.axis,
 									gap = 8,
 									width = { type = "fill", weight = 1 },
 									children = {
