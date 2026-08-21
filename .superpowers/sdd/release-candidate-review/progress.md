@@ -1155,3 +1155,32 @@ STUDIO.md, root CLAUDE.md.
   with any future scale tweak. The doctrine still holds: the painted literal
   moves WITH the metric, measure and paint agree. §13f is fully decided; the
   queued round's scope is radii + strokes together.
+
+## 2026-08-21 (post-close 4) — DIR5: the expand feature, four ways, MEASURED first
+
+- Director round 5 (live, hud demo): (1) the expand arrow should not exist
+  for passive content — whole-pill tappable, arrow only when the host is
+  itself actionable; (2) the opaque-popup bug is BACK (third report);
+  (3) the "9" overflows the plate; (4) the in-panel X is rejected — wants
+  the floating circular corner close (reference image); (5, mid-turn) LB/RB
+  hints only when gamepad is the PRIMARY input, not merely connected.
+- CONTROLLER FORENSICS BEFORE DISPATCH (the DIR4 lesson: verify the premise):
+  phone row, hud demo, expand opened via coordinate click (instance-path
+  click fails on flat-tree names with '/'). MEASURED: (2)'s root is the
+  scrim CATCHER — /__scrim__/catcher full-viewport with GetStyled
+  BackgroundTransparency = 0, OPAQUE, while roots/orders are CORRECT
+  (12000/42050/42100) and PreferredTransparency=1; the 0.45 scrim token
+  never reaches this catcher, and popup_catcher_paint.spec is green over it
+  (check-that-proves-nothing, again, on the twin path its own comment
+  names). (3) is two measured defects: ExpandPanel 135w with content
+  spanning 159..294 vs right edge 286 (one missing inset), and the
+  COLLAPSED "12"/"9" texts solving width 0 while visible (text bleeds;
+  "2:14" solves 29 beside them). (5)'s mechanism: PreferredInput reads
+  Gamepad with an idle pad plugged in (3 pads connected, primary class
+  "pointer") — the DIR4 hint gate keys on the wrong fact. Also flagged:
+  Facet_PaintProbe root at 20100 mounted during the hud demo — fixture or
+  teardown leak, the round verifies.
+- DIR5 implementer dispatched with the numbers; ADR-0040 row text comes back
+  in its report (the controller appends — two writers on one table is the
+  B-14 class). Native-flip round still in flight; radii+strokes lockstep
+  round queued behind it; DIR5 told to keep clear of the flip's files.
