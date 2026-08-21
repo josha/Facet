@@ -2224,6 +2224,54 @@ describe("perf lab: the live counters and the capture row read ONE block (T15)",
 		end
 		built.dispose()
 	end)
+
+	it("the module-load marks come from the HOST, and a host with none says so", function()
+		--[[ The director's memory ask needs a client number, and only the bootstrap
+			can take the "before `require(Facet)`" mark — this VM's Facet was required
+			before the harness existed. So the counter reads the host's seam, and the
+			case is two-sided: a host with no marks must produce an explicit
+			`measured = false` with a reason (never a zero, which would read as "the
+			require graph is free"), and a host WITH marks must have its third mark —
+			the one only the lab can take, after the first workload mounts — filled in.
+
+			The stand-in below supplies the same two fields the real bootstrap does. It
+			is the seam, not a shortcut: `examples/performance/client/init.client.luau`
+			is engine code no headless suite can run, and what is checkable here is
+			that the lab reads the seam correctly and completes it. ]]
+		local blind = newHarness()
+		blind.steps.select(nil, "scenario=dense-scroll,rows=100,seed=1")
+		blind.steps.mount()
+		local c0 = blind.steps.counters()
+		expect(`measured={c0.moduleLoad.measured}`).toBe("measured=false")
+		expect(#tostring(c0.moduleLoad.reason) > 0).toBe(true)
+		blind.dispose()
+
+		local heap = 1000
+		local built = newHarness({
+			heapKb = function(): number
+				heap += 250
+				return heap
+			end,
+			heapMarks = function(): any
+				return { measured = true, beforeRequireKb = 400, afterRequireKb = 1000, requireCostKb = 600 }
+			end,
+		})
+		built.steps.select(nil, "scenario=dense-scroll,rows=100,seed=1")
+		local before = built.steps.counters().moduleLoad
+		-- nothing has mounted, so the lab's own mark is honestly absent
+		expect(`preMount={tostring(before.afterFirstMountKb)}`).toBe("preMount=nil")
+		built.steps.mount()
+		local after = built.steps.counters().moduleLoad
+		expect(`require={after.requireCostKb}`).toBe("require=600")
+		expect(`firstMount={after.firstMountCostKb}`).toBe("firstMount=250")
+		-- ...and the mark is taken ONCE: a second mount must not re-take it on a warm
+		-- heap, which would answer a different question under the same name
+		built.steps.reset()
+		built.steps.select(nil, "scenario=dense-scroll,rows=100,seed=1")
+		built.steps.mount()
+		expect(`firstMountAgain={built.steps.counters().moduleLoad.firstMountCostKb}`).toBe("firstMountAgain=250")
+		built.dispose()
+	end)
 end)
 
 describe("the lab's registry satisfies the SHARED runner's contract", function()

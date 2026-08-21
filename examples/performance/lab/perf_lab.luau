@@ -455,6 +455,13 @@ return {
 			Nothing here plays anything on its own. ]]
 		local hapticsModule: any = lab.haptics
 		local hapticsAdapter: any = nil
+		--[[ THE THIRD MODULE-LOAD MARK (director's memory ask, wave T15). The host
+			takes the first two — heap before and after `require(Facet)` — because only
+			the bootstrap has a "before". This one is taken after the FIRST workload
+			mounts, and only the first: "what does requiring Facet cost" and "what does
+			a surface cost on top of it" are different questions, and a mark re-taken
+			on every mount would answer the second one about a warm heap. ]]
+		local heapAfterFirstMountKb: number? = nil
 		local unbindHaptics: (() -> ())? = nil
 
 		local function releaseHaptics()
@@ -909,6 +916,10 @@ return {
 			if problem ~= nil then
 				unmount()
 				error(problem, 0)
+			end
+			if heapAfterFirstMountKb == nil and host.heapKb ~= nil then
+				local ok, kb = pcall(host.heapKb)
+				heapAfterFirstMountKb = if ok then kb else nil
 			end
 			return {
 				mounted = settings.implementation,
@@ -3234,6 +3245,32 @@ return {
 			return { measured = true, pending = pending }
 		end
 
+		--[[ WHAT THE REQUIRE GRAPH COST THIS SESSION (director's memory ask, wave T15).
+
+			Three marks, from two owners: the host's two (heap before and after
+			`require(Facet)`, which only the bootstrap can take) and the lab's one
+			(after the first workload mounts). A host that supplies no marks — the
+			headless harness, which has no engine and a different collector — says so
+			explicitly rather than reporting zeros that would read as "free". ]]
+		local function moduleLoadCounters(): any
+			if host.heapMarks == nil then
+				return {
+					measured = false,
+					reason = "this host takes no heap marks (a headless VM's heap is not this place's subject)",
+				}
+			end
+			local ok, marks = pcall(host.heapMarks)
+			if not ok or type(marks) ~= "table" then
+				return { measured = false, reason = "the host's heap marks were unreadable" }
+			end
+			local out = table.clone(marks)
+			out.afterFirstMountKb = heapAfterFirstMountKb
+			out.firstMountCostKb = if heapAfterFirstMountKb ~= nil and marks.afterRequireKb ~= nil
+				then heapAfterFirstMountKb - marks.afterRequireKb
+				else nil
+			return out
+		end
+
 		--[[ THE ONE COUNTER BLOCK, READ BY BOTH READERS (wave T15, item 4).
 
 			`steps.counters` and the exported CAPTURE ROW used to build this block
@@ -3258,6 +3295,7 @@ return {
 				render = renderStats(),
 				haptics = hapticsCounters(),
 				text = textCounters(),
+				moduleLoad = moduleLoadCounters(),
 				overlayMounted = overlayHandle ~= nil,
 			}
 		end

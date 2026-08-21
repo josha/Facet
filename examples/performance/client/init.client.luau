@@ -24,6 +24,26 @@ if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
 
+--[[ THE MODULE-LOAD MEMORY MARKS (director's memory ask, wave T15).
+
+	Facet's `require` graph is not free: measured headless, a `require` of the root
+	retains ~2.8 MB of Lua heap, and the nineteen composite controls are 831 KB of
+	it (artifacts/release-candidate-review/perf/requalification.md §7). Headless is
+	the wrong host to make that claim on, though — it has no engine, no
+	ModuleScript instances and a different collector — so the number a decision
+	should rest on is the one this place reads on the CLIENT.
+
+	Three marks, and the first one has to be taken HERE, above the requires: once
+	`require(Facet)` has run there is no way back to a before. `collectgarbage`
+	accepts "count" on the Roblox VM and returns kilobytes of Lua heap; it is the
+	same quantity `Stats` reports as LuaHeap, read without a service round trip.
+
+	THE THIRD MARK IS THE LAB'S, not this file's — it is taken after the first
+	workload mounts, because "what does requiring Facet cost" and "what does the
+	first surface cost on top of it" are different questions and a single number
+	answers neither. ]]
+local heapBeforeRequireKb = collectgarbage("count")
+
 local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -97,9 +117,30 @@ local function isoNow(): string
 	return if ok then tostring(stamp) else "unknown"
 end
 
+local heapAfterRequireKb = collectgarbage("count")
+
 local host = {
 	profile = profile,
 	nativeList = native_list,
+
+	-- the Lua heap, live, so the lab can take its own third mark after the first
+	-- workload mounts without knowing how this VM spells it
+	heapKb = function(): number
+		return collectgarbage("count")
+	end,
+
+	--[[ What requiring Facet cost THIS client, in kilobytes of Lua heap. Both marks
+		come from this file because only this file has a "before" — and both are
+		reported rather than only their difference, so a reader can tell a small
+		delta on a loaded heap from a small delta on an empty one. ]]
+	heapMarks = function(): any
+		return {
+			measured = true,
+			beforeRequireKb = heapBeforeRequireKb,
+			afterRequireKb = heapAfterRequireKb,
+			requireCostKb = heapAfterRequireKb - heapBeforeRequireKb,
+		}
+	end,
 
 	-- Preload the deterministic image set so the WARM pass measures steady-state
 	-- framework cost rather than network and decode. Returns how many contents
