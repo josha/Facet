@@ -137,3 +137,8 @@ the reasoning and the table.
    is the alternative, and it is a release decision rather than an implementer's.
 2. **The publish boundary is the only thing that makes this policy safe**, so it needs
    to be a real event with a name. After it, ADR-0011's window applies unqualified.
+
+**Answered by the director, 2026-08-21:** question 1 — the release stays `0.10.0`
+(there are zero outside users, so a bump would signal nothing to no one). Question
+2 — the publish boundary is Step 14's publish event, the director's own manual
+click; ADR-0011's window applies unqualified from that moment.

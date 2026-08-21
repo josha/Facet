@@ -1106,3 +1106,22 @@ STUDIO.md, root CLAUDE.md.
   J-2 for veto, six open design calls, the device-half packet, the
   extraction charter, the Step 14 pointer. Publishing stays the director's
   manual click. Nothing pushed, published, or packaged.
+
+## 2026-08-21 (post-close) — director's answers to the six open calls
+
+- Q1 modal-tie: SHIP AS-IS, re-spacing rides the extraction charter (decided).
+- Q2 native-style default: STYLE SHEETS BECOME THE DEFAULT — implementation
+  round dispatched (Facet flip + RR lockstep per the constitution; ADR-0040
+  row under R15; Facet_ForceStyleFallback keeps the explicit-write path
+  testable).
+- Q3 TV radii + Q4 metric 1.5x: fresh ladder-era console capture delivered
+  (tools/studio/capture_viewport.sh — the durable-capture instrument; the
+  first attempt was a full-screen grab that caught the director's own inbox
+  and a doc draft, DISCARDED unsent — single-window capture is the only safe
+  form). Q4 provisionally: 1.5 stays. Q3 awaits the director's eye.
+- Q5 celebration-Space: CONFIRMED intended for racers. Future condition
+  recorded in RR docs: in a real multiplayer match the skip should likely
+  require EVERYONE to hit Space (or not exist) — a design note for the MP
+  mission, not a change now.
+- Q6 version: stays 0.10.0; publish boundary = Step 14's publish click
+  (recorded in ADR-0040 under "Answered by the director").
