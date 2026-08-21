@@ -50,7 +50,7 @@ trigger.
 | DIR-4 | Column resize in landscape, rotate portrait → Rating column gone | CONFIRMED in code: resolveDim makes overrides absolute fixed px, no re-clamp on viewport shrink (table.luau:1180) | R1 item 38 (clamp contract decided) |
 | DIR-5 | Portrait→landscape loses LEFT HUD content; URL-bar toggle restores | Model-level rotation is proven equal to a fresh mount by tests/hud_chrome_rotation.spec.luau (green), so the live symptom matches PLAT-3's stale-inset race in the real adapter (bogus insets published right after rotation; any later re-arrangement repairs) | PLAT-3 fix in R1 item 10 + rotation row in the batched device checklist |
 
-The DIR wave closed clean (review + mutation-verified fix round); device confirmations ride the batched pass. The published-place question is resolved: the phone build may predate the 2026-08-15
+The DIR wave closed clean (review + mutation-verified fix round); device confirmations ride the batched pass. DIR2 (expand live round): DIR2-1 empty pills FIXED (cover retired structurally), DIR2-3 X icon FIXED, plate width FIXED; DIR2-2 base-disappear cause removed + fence, OPEN pending the device click (owner: device packet). DIR3 (round 3): DIR3-1 transient-over-screen framework rule + DIR3-2 chrome shoulder access — in flight at close, review seat assigned (M2). The published-place question is resolved: the phone build may predate the 2026-08-15
 ornate-overflow fixes (O-23/O-25). The batched session re-publishes the rebuilt
 place and re-tests DIR-1/2/3/5 on device.
 

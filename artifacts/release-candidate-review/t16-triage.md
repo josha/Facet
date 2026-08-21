@@ -1,0 +1,24 @@
+# T16 deferred-minors triage (final review M3) — 2026-08-21
+
+Every LOW/minor the campaign ledgered, with its disposition. Owner "extraction
+charter" = the post-stage refactor mission the SOURCE_CAP_LEDGER seams define;
+owner "device packet" = the director's device pass; owner "Step 14" = the
+distribution stage.
+
+| Item | From | Disposition · owner · trigger |
+|---|---|---|
+| TOOL-XA check_input_authority standalone exit-0/selftest-FAILED | interim | Fix with the next tools round · extraction charter rider · first tools edit |
+| R4 haptics 10 LOWs (F7-F16) | task-11-review | Recorded in the review file · haptics owner · next haptics change |
+| DIR/TEN-FOOT/LAYOUT-FIX LOW lists | their reviews | Recorded per file · respective area owners · next touch of each area |
+| Table minWidth-vs-ladder contest | TEN-FOOT | Needs table_columns + ladder plumbing · extraction charter (table seam) · charter start |
+| Mark-yields-to-value (2 lines, solver) | DIR2 fixes | BLOCKED on solver lock · extraction charter (solver seam) · charter start |
+| ADAPT 8 extraction-locked cells + L-F overflow default (incl. the live ornate menu-card instance from the batched pass) | audits | Extraction charter · charter start |
+| GAL-DD with-animation/tab-view double-dispose | host-path sweep | OWNER SET (was vague, final review L5): the extraction charter's gallery rider; trigger = charter start or any gallery fixture edit, whichever first |
+| ADR-0040 B-1 record-string non-unique; two stale report count lines | layout re-review | Cosmetic, recorded · charter rider |
+| ClassicDesktop gutter device recheck (DIR-1) | DIR wave | Device packet |
+| ADAPT-8 human half (1.5 at 3m), radii-on-TV question (§13f) | TEN-FOOT | Device packet (director's eye) |
+| Scenario registry lacks an `expand` step (L3 owner) | interim pass | OWNER SET: extraction charter's gallery rider; enables scripted expand rows next pass |
+| Attribute-migration manifest outside the code repo (L6) | final review | Step 14's repository-boundary work decides its home; RR comments cite it by path either way |
+| Plan text "rename from Facet to Facet" historical reading (L4) | final review | Deliberate (R6/R16 scrubbed the literal); ADR-0036 holds the history · no action |
+| reviews/README missing perf/phase-gate seat rows (L2) | final review | Corrected in this commit — see README note: the perf seat = task-15-review; the phase-gate function = the per-wave scoped re-reviews + this final seat |
+| RC-19 point-wise close (L1) | final review | Accepted: both agents succeeded first-pass; the verifier walk covered the human path; a full re-walk is charter-optional |

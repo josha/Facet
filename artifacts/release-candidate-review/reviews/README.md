@@ -14,6 +14,10 @@ carries an explicit disposition in `../findings.md`. The stage's review record:
 | Input inventory | ../input/ias-inventory.md | 116 rows | 9 DF risks | R3 + fix round (ceiling scheme); DF-7 measured row in the batched pass |
 | Layout paradigms | ../adapt-audit/matrix.md + matrix-layout.md | 114+61 cells | — | ADAPT waves + fixes.md addenda; open cells dispositioned with blockers named |
 
+The performance seat is `../../.superpowers`-side (task-15-review) with its
+measured re-reproductions; the phase-gate function was served by the per-wave
+scoped re-reviews plus the final whole-campaign seat (final-review.md).
+
 Per-wave task reviews and scoped re-reviews (rename, R1, haptics, DIR, R3, R5,
 REVEAL, ADAPT-FIX, TABLE, CAROUSEL, TEN-FOOT, LAYOUT-FIX, THEME-UNBUNDLE, T12,
 T15, RC-11) live in the stage workspace with their reports; every wave closed
