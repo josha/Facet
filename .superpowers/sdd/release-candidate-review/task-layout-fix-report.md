@@ -1,9 +1,9 @@
 # Wave LAYOUT-FIX — report
 
-**Status: COMPLETE, with four fixes shipped and eleven cells CONTESTED with evidence.**
+**Status: COMPLETE, with five fixes shipped and ten cells CONTESTED with evidence.**
 
 **Anchors:** framework `fd59cae` (suite 6750), RascalRally `655cbd7` (suite 3437).
-**End state:** Facet **6781 passed, 0 failed**; RascalRally **3443 passed, 0 failed**.
+**End state:** Facet **6791 passed, 0 failed**; RascalRally **3446 passed, 0 failed**.
 Both measured in private exports (rsync of the working tree; the RR export in the
 multi-repo shape, `GameStudio/ui/Facet` beside `games/RascalRally/code`). Nothing was
 measured in-tree. Wave THEME-UNBUNDLE was live on the same working tree throughout,
@@ -283,3 +283,138 @@ properties), `check_docs` (9 documents), `check_registration` (38 controls, 255 
 6. **The suite tails include wave THEME-UNBUNDLE's in-flight cases** (six on the Facet
    side, one on the RR side, identified by diffing case names against the anchor
    transcript). Both waves were green independently at every point I measured.
+
+
+---
+
+# ADDENDUM — B-6e, ruled mid-wave and shipped (controller ruling R14)
+
+**Outcome: FIXED.** The cell this report had dispositioned as *"the one blocked by
+nothing but a director's number"* was ruled while the wave was open, and the ruling
+landed in the same wave.
+
+## What the ruling was, and what it cost
+
+The `Composition` content-lane measure caps at ten-foot to **900px = the
+regular-touch tablet measure (600, the matrix's own verified-RIGHT B-6c) x the 1.5
+distance factor** — the proportion-equality doctrine every ten-foot number rides
+(ADR-0039). Before it, a television resolved the DESKTOP arrangement with more
+pixels: measured 1292px in the wave's reproduction against the tablet's 600.
+
+**It is DERIVED, which is what makes a re-ruling cheap.** `900` is written nowhere:
+`adaptive.LANE_MEASURE` is 600 and the factor is read from
+`themes.snapshot.metricScale` — the one `tenFootFloor` behind the type ladder, the
+metric ladder and the hit floor. A re-ruled measure is one edit plus a red
+`layout_defaults.spec` row naming the new number, and the derivation itself is a
+case (`LANE_MEASURE * metricScale("Large") == 900`) rather than a comment.
+
+**THE SEAM IS NOT THE ONE THE AUDIT NAMED, and the correction is the substance of
+the work.** The cell nominated `maxMeasure`. That caps the whole BOX and every lane
+then divides what is left — so capping at 900 would have narrowed the HUG lanes
+with it and handed the content lane **452px, narrower than the tablet's** and the
+exact opposite of the intent. A measure is a property of a `fill` lane, so the fill
+group gained **`maxWidth`**: `minWidth`'s exact twin, validated against it
+(a `maxWidth` under its own `minWidth` is a construction error), documented beside
+it in api.md and the schema, and carried as nil-when-absent for the +2.5%-per-resolve
+reason the neighbouring `holdsLane` field already records. The ruled value is its
+ten-foot default.
+
+**What the cap frees, the lanes re-absorb; what is left centres the band.** Other
+fill lanes water-fill up to their own caps (bounded by the lane count). A
+`threeLane` with one fill lane has nothing to re-absorb it, so the 196px a side
+becomes the centring offset the resolution already carried for `maxMeasure`.
+Parking a capped band against the left edge would be a worse answer than the one it
+replaced, and the case asserts `leftGap == rightGap == 196`.
+
+**Authored wins in both spellings**, each mutation-proved separately.
+
+## The consequence found rather than claimed — and the sweep found it again
+
+Narrowing the ten-foot lane made Cartwheel's potion tiles overflow by 7px on all 17
+visible cells. **The cap did not cause it.** `metrics.tileMin` is a literal 96
+device px while everything inside a tile is a theme metric, so at distance the mark
+grew to 72 and the button's padding to 18 a side — 108px of content asking for a
+96px minimum. That is `docs/lessons/facet-fixed-px-heights.md`'s class read across
+the DISTANCE axis; it had been latent since the display class was added, and the
+extra lane width was hiding it. The fixture now takes the same `metricScale` its
+contents take (byte-identical at near distance) and says so at the call site. The
+registry-neutrality case then caught the memo I had left unowned, in the same run.
+
+## Cell-disposition counts, updated
+
+| disposition | cells |
+|---|---|
+| **FIXED by this wave** | **5** — A-2, B-1, B-3, B-4, **B-6e** |
+| RESOLVED before this wave | 3 |
+| ALREADY SHIPPED at the cell's own stated minimum | 1 |
+| **CONTESTED with the exact blocker** | **10** |
+| total | **19** |
+
+Live score against the matrix: **50 RIGHT of 61**. Of the ten contested, **eight are
+behind an extraction-locked file** and two are genuinely new capability — so the
+matrix is now waiting on three files rather than on any decision.
+
+## Commits
+
+| repo | commit | what |
+|---|---|---|
+| Facet | `fa5f21a` | the television resolved the desktop arrangement with more pixels, and 900 is the ruling |
+| RascalRally | `57bbdc8` | this game's results lane is 992 on a monitor and 900 on a television now |
+
+RascalRally moves, deliberately and only at ten-foot: `ResultsBody` — its one
+`UI.Composition`, production default since the Sponsor cutover, and a surface that
+only reached the ten-foot branch three commits ago — goes **992 → 900** on a
+television and is byte-identical on every near viewport. Both asserted at the same
+1920x1080 rect so the pair differs in exactly one fact.
+
+## Suite tails
+
+```
+Facet          6791 passed          (before this item: 6781)
+RascalRally    3446 passed          (before this item: 3443)
+```
+
+Both re-verified from clean `git archive HEAD` exports in the multi-repo shape.
+Gates green: `check_prop_parity`, `check_docs`, `check_registration`,
+`check_surface_ledger`, `check_boundary`, `check_source_size`,
+`check_manifest_integrity`, `stylua --check`.
+
+**Bite-checks** (five, each measured):
+
+| guard | mutation |
+|---|---|
+| the ten-foot lane is 900 / the derivation / the centring | `LANE_MEASURE` 600 → 700 → 3 red |
+| the same three | the default never fires (`if false`) → 2 red, and the five-combo null hypothesis stays green |
+| authored `maxMeasure` wins | drop the `props.maxMeasure == nil` clause → red |
+| authored group `maxWidth` wins | drop the `copy.maxWidth == nil` clause → red |
+| RR's pair | disable the framework default → the ten-foot case reds, the near case stays green |
+
+**One of these cases was vacuous when written and a mutation is what found it.** The
+authored-wins case first used `maxMeasure = 1200`, which leaves the main lane 752px
+— under the 900 cap, so the default would have been inert there and the case stayed
+green with `authored wins` deleted. It uses 1600 now (main lane 1152), a number only
+reachable if the default is genuinely off.
+
+## Director veto
+
+Booked as **batched Studio row §13h**, written as a new sub-row rather than folded
+into the ADAPT-8 rows because none of 13a–g asks about LINE LENGTH — they are about
+how big a thing is, and this is about how far the eye travels before it comes back.
+It names the two judgements: whether a 900px line reads as one line at three metres,
+and whether the 196px of freed slack per side reads as deliberate margin or as a
+screen that failed to fill — with the note that the second is a PLACEMENT question
+answered where the slack is spent, not by widening the lane again.
+
+## Concerns
+
+1. **The audit's named seam was wrong, and following it literally would have made
+   the cell worse** (452px). Worth carrying: an audit's "smallest fix" names a
+   mechanism from the outside, and `maxMeasure` vs `maxWidth` is a box-versus-lane
+   distinction only visible from inside `solveArrangement`.
+2. **RascalRally's shipped results screen genuinely re-measures at ten-foot.** It is
+   intended and it is asserted, but it is a real product change on a live surface
+   and the director's eye at §13h is what confirms it.
+3. **Cartwheel's tile minimum was one of a class.** A literal px number holding
+   content that scales at distance is not unique to that fixture; the sweep only
+   reports it once the surrounding slack stops covering it. Anyone auditing the
+   ten-foot corpus should grep for fixed px minimums beside theme-metric content.
