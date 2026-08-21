@@ -4022,16 +4022,16 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "new-control-path-proven",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/release-candidate-review/exercises/colorwell && test -f $d/README.md && test -f $d/journal.md && test -f $d/verifier-protocol.md && grep -qF "6837" $d/README.md && grep -qF "NOT merged" $d/README.md',
 			evidence = "artifacts/release-candidate-review/exercises/colorwell/README.md",
-			note = "docs/extending/new-control.md rewritten as the ELI5 path with a one-record scaffold; a fresh agent builds the disposable ColorWell through public seams with full proof, and a separate verifier follows only the human-facing steps. The exercise is not merged; improvements it reveals are.",
+			note = "RC-19 closed 2026-08-21: a zero-context agent built the disposable ColorWell through public seams (6837 green in its clone, hardening gate byte-identical) and a separate verifier walked only the human-facing steps (7-step protocol). Neither artifact merged; the harvest did — the derived count pin, the all-registrations scaffold, the require-cycle static guard, the true activate-precedence rule, the root README. The two live-Studio rows the exercise recorded ride the batched pass.",
 		},
 		{
 			name = "seeded-defect-exercise",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/release-candidate-review/exercises/seeded-defect && test -f $d/README.md && test -f $d/journal.md && grep -qF "53/551" $d/README.md && grep -qF "NOT merged" $d/README.md',
 			evidence = "artifacts/release-candidate-review/exercises/seeded-defect/README.md",
-			note = "A different fresh agent diagnoses and repairs a seeded bounded defect using only the maintained repository: correct owner found, smallest regression test added, right gates run. Rerun without private hints until it succeeds.",
+			note = "RC-20 closed 2026-08-21: the controller seeded FIT_EPSILON=0 minus its covering case in a clone; a zero-context agent reproduced (53/551 widths), found the owner, fixed per the docstring's own argument, wrote a stripe regression with a null hypothesis, and ran a proportionate check set. The seed never touched the live tree; the friction harvest merged.",
 		},
 		{
 			name = "naming-adr-implemented",
