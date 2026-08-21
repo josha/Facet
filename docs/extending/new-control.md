@@ -21,9 +21,24 @@ rules your addition must follow.
   [`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md).
 - Test-first is not optional: the scaffold stamps a FAILING spec on purpose.
   Never mark done while `./run-tests.sh` is red.
+- **The fast loop is `lune run tests/run_one <spec-name>`** — one spec file,
+  seconds instead of minutes. Use it while you write, and use it to watch a new
+  case FAIL before you trust it. It cannot produce a suite verdict, so the full
+  `./run-tests.sh` still decides green.
 - Never edit `tools/lune/gate_manifest.luau` or `phases.json` for a control;
   the existing gate checks pick your work up through the suite and the
   registration checker.
+
+  That rule was false in one place until 2026-08-21, and it is worth knowing why
+  it is true now. The `naming-adr-implemented` gate row pinned the size of the
+  `Facet.Controls` namespace as a literal, so a twentieth control turned a
+  passing check red — and the one-character repair was the exact edit this rule
+  forbids. The row now DERIVES that number from the controls registry. A control
+  registered the way this playbook describes moves both sides of the comparison
+  and the row keeps passing, while a namespace entry with no registry row still
+  reddens it, which is what the check was for. **If you ever meet a gate row that
+  a correctly registered control cannot satisfy, that is a defect in the row.
+  Report it; do not edit it, and do not work around it.**
 
 ## 1. Scaffold the skeleton
 
@@ -31,18 +46,50 @@ rules your addition must follow.
 lune run tools/lune/scaffold_cli control <lower_snake_name>
 ```
 
-This stamps and REGISTERS everything so nothing can be forgotten:
+This stamps and REGISTERS everything, so that nothing can be forgotten. Three
+files written, eleven edited:
 
-| File | What it is |
+| File | What the scaffold does |
 |---|---|
-| `src/controls/<name>.luau` | the control source: `build(Facet, core, spec)` seam, an exported `Spec` type, + `dump()` |
-| `tests/<name>.spec.luau` | spec file with one deliberately-failing TODO test |
-| `tests/run.luau` | your spec registered in the runner (edit applied) |
-| `tests/conformance/controls_registry.luau` | your registry row (edit applied) |
-| `src/init.luau` | the module local **and** the `Facet.Controls.<Name>` entry (two edits applied) |
-| `docs/reference/api.md` | a TODO reference stub (edit applied) |
+| `src/controls/<name>.luau` | writes the control source: the `build(Facet, core, spec)` seam, an exported `Spec` type, the input-contribution skeleton, and `dump()` |
+| `tests/<name>.spec.luau` | writes the spec: one failing TODO case, four failing input-class cases, four failing affordance cases, one hot-switch case |
+| `examples/gallery/scenarios/<name>.luau` | writes the gallery scenario — the surface a person opens on a device |
+| `tests/run.luau` | registers your spec in the runner |
+| `tests/conformance/controls_registry.luau` | writes your registry row, with `inputProofs` and `affordanceProofs` citing the stamped case names |
+| `src/init.luau` | the module local **and** the `Facet.Controls.<Name>` entry (two edits) |
+| `tests/lib/large_text_fixtures.luau` | registers a large-text fixture, so the accessibility sweep measures the control from its first commit |
+| `docs/reference/api.md` | appends the reference stub, at the anchor the registration checker requires |
+| `docs/guide/README.md` | adds the capability-catalog row, linked to that api.md anchor |
+| `tests/controls_namespace.spec.luau` | adds your name to `POST_ADR_NAMES`, the namespace allowlist |
+| `examples/gallery/scenarios/init.luau` | registers the scenario in `ORDER`, so the runner and the showcase can reach it |
+| `tests/overflow_sweep.spec.luau` | adds the scenario to `SCENARIOS`, so it is swept at every viewport, text size, and theme |
+| `examples/gallery/client/demo_picker.luau` | adds the demo, so a player can select it in the showcase place |
+| `tests/gallery_demo_picker.spec.luau` | pins the demo's root screen and moves the two catalogue count pins |
 
-Verify the red state: `./run-tests.sh` must now FAIL with your TODO test.
+The last six rows were, until 2026-08-21, six edits a control author had to
+discover one red test at a time, and the guide-catalog row alone reddened four
+documentation-gate cases whose obligation no playbook stated. They are stamped
+now from the one name you typed.
+
+Verify the red state: `./run-tests.sh` must now fail with the ELEVEN stamped
+cases and nothing else. Every other check in the suite was green before the
+scaffold ran and must still be green after it. **If anything else is red, that
+is a defect in the scaffold — report it rather than working around it.**
+
+### What the scaffold cannot stamp, and what tells you so
+
+Everything above is registered but STUBBED. These are yours, and each one has a
+check that names it if you forget:
+
+| Yours to write | What tells you |
+|---|---|
+| the eleven stamped cases | `./run-tests.sh` — they `error("unimplemented")` on purpose |
+| the real `docs/reference/api.md` entry | a human reviewer. The anchor satisfies `check_registration`; only a person can see that the entry is real |
+| the catalog row's one-line description, the demo's title and blurb | a human reviewer, plus `tests/gallery_demo_picker.spec` on a blurb longer than the 82 characters a device pass has read |
+| the scenario's `steps` and `report` | a human reviewer, and §6 below: a fixture with no steps cannot be driven |
+| a `PROOF_GAPS` or `AFFORDANCE_GAPS` entry, when a class genuinely has no device-true case | `lune run tools/lune/check_registration_cli`, which names the control and the class |
+| a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
+| a guide paragraph, when the control introduces a new CONCEPT | a human reviewer. The catalog row is mandatory; a concept paragraph is a judgement |
 
 **The call shape (ADR-0037).** Your control is created as
 `Facet.Controls.<Name>(core, spec)` and has exactly that one public spelling.
@@ -56,9 +103,23 @@ old-form call site anywhere in the maintained tree.
 ## 2. Design the control's contract (in the spec, first)
 
 Replace the TODO test with failing tests for the control's real behavior.
+
+**Build your world with `tests/lib/world.luau`, not by hand.** One call —
+`local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })` — hands
+back the core, the environment, the adapter, the action system, and the
+presenter, in one order. Roughly eighty older spec files still build those five
+themselves, and `tests/world_substrate.spec.luau` holds that number so it can
+only fall: the next spec file that ADDS a hand-rolled builder is asked, by name,
+to migrate instead. A new control's spec is a new spec file, so this is you.
+
+The house style for the control contract below is
+[`tests/level_picker.spec.luau`](../../tests/level_picker.spec.luau) — a whole
+composite control, every input class, registry neutrality — and
+[`tests/paradigm_table.spec.luau`](../../tests/paradigm_table.spec.luau) for the
+paradigm axis and the hot-switch transitions. Both are on the substrate.
+
 Cover, at minimum (this is the control contract the conformance culture
-expects — see `tests/table.spec.luau` and `tests/virtualization.spec.luau`
-for the house style):
+expects):
 
 1. **Build + render**: `build` returns `{ blueprint, dump, dispose }`; the
    blueprint mounts and renders headlessly (mount → `renderer.attach` over
@@ -128,10 +189,12 @@ for the house style):
    the long-lived harness singletons (environment, action system, presenter)
    — they intentionally allocate for the client's lifetime and have no
    dispose seam; only YOUR control must be neutral (see
-   `tests/table.spec.luau` for the house pattern).
+   `tests/level_picker.spec.luau` for the house pattern).
 
-Run `./run-tests.sh` after writing them: they must fail for the RIGHT
-reason (missing behavior, not typos).
+Run `lune run tests/run_one <name>` after writing them — seconds, and it is the
+only way to see each case fail for the RIGHT reason (missing behavior, not a
+typo) while the file is still changing. Run `./run-tests.sh` before you believe
+any of it.
 
 **Your OWN spec is strict too, with the framework's own guard.** The rule below
 is about `UI.*` specs; it says nothing about the table a consumer hands
@@ -209,9 +272,15 @@ Rules the reviewers will hold you to:
   2. **The 44 px touch floor is a contract you must declare, not one the
      solver enforces.** A bare focusable primitive renders at its content
      height; give your control's hit surface an explicit
-     `height = { type = "minMax", min = 44 }` (or equivalent) and assert the
+     `height = { type = "minMax", min = "targetSizes.minimum" }` and assert the
      rendered rect in your touch-affordance case, or a sub-44px control will
-     pass a careless test.
+     pass a careless test. **Name the token, never the number.** A bare `44`
+     here is a theme-owned metric written into a control, and
+     `tools/lune/check_theme_drift` rejects a numeric `min` anywhere under
+     `src/controls/` — so the literal this step printed until 2026-08-21 was
+     advice no author could actually ship. The token resolves to the same floor
+     and moves with the theme package. `src/controls/chip.luau` and
+     `src/controls/picker.luau` are the worked spellings.
   3. **`pres.refresh()` before reading rendered props.** Binding writes flush
      to the adapter on refresh; a spec that asserts an adapter prop right
      after an interaction reads stale state without it.
@@ -219,9 +288,10 @@ Rules the reviewers will hold you to:
   right scope (item scopes for per-row resources).
 - Keep `dump()` truthful as the state grows.
 
-Loop `./run-tests.sh` until green. The suite total must be strictly larger
-than before your work (`tools/test.sh <expected-min>` proves it; an
-unregistered spec is a silent zero).
+Loop `lune run tests/run_one <name>` while you implement, then `./run-tests.sh`
+until green. The suite total must be strictly larger than before your work
+(`tools/test.sh <expected-min>` proves it; an unregistered spec is a silent
+zero).
 
 ## 4. Documentation
 
@@ -288,8 +358,16 @@ Instances correctly.
 
 Before calling a player-visible control complete:
 
-1. Add it to an instrumented gallery fixture with deterministic state and reset
-   controls.
+1. Grow the gallery scenario the scaffold stamped
+   (`examples/gallery/scenarios/<name>.luau`) into a real instrumented fixture:
+   deterministic state, one named `step` per verb, and a `reset`. Its four
+   registrations — the scenario `ORDER`, the overflow sweep, the demo picker,
+   and the pinned root screen — are already in place, and that is the whole of
+   the repository's standing rule for a showcase surface: *registered in
+   `scenarios/init.luau` ORDER and `demo_picker.DEMOS`, swept by
+   `tests/overflow_sweep.spec.luau` at all viewports, and verified across every
+   shipped theme.* What is still yours is the part a tool cannot write: the
+   state and the steps that let a person drive the control.
 2. Pass the Studio preflight in the Facet execution contract, including a visible
    viewport, current source, working capture, and a raw-input canary.
 3. Drive the mounted control through every Studio-observable native path. Pair the

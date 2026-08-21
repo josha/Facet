@@ -280,14 +280,32 @@ Agents doing roadmap or extension work must follow the
 which claims need headless, live Studio, physical-device, or human evidence, and
 it stops "the suite is green" from standing in for a running Roblox UI check.
 
+**A small fix is not a stage, and does not owe a stage's evidence.** That
+contract is written for roadmap stages: its acceptance ledger, its evidence
+bundle, and its consumer-lockstep section all assume one, and reading it before
+a one-line repair leaves you with no row that says "this is the whole bar". So
+here is the whole bar for a small fix. **The covering spec first**, written to
+fail, and seen to fail for the reason you expect — `lune run tests/run_one` is
+that loop. **Then the full suite**, green, with a total no smaller than before.
+**Then `stylua --check src tests tools bench examples`.** **Then the checks that
+name your area**: `tools/doctor.sh`, plus the `tools/check_*` script that owns
+the file you touched, plus `python3 tools/check_source_size.py` for any source
+edit. That is four things, and it is enough.
+
+What is owed BEYOND that is decided by what your change can be SEEN to do, never
+by how many lines it is. A change a player can look at or press owes the live
+Roblox gate in the relevant playbook's §6, however small it is. A change to
+arithmetic that no pixel depends on owes none of it, however large.
+
 ## Verifying the library works
 
 The full test suite is pure Luau and runs headless:
 
 ```sh
-./run-tests.sh          # THE SUITE — every spec file (~42 s). The gate default.
-./run-tests.sh --fast   # inner loop only: the same list minus the eleven
-                        # measured-slowest files (~8 s, 19 % of the suite).
+./run-tests.sh                        # THE SUITE — every spec file. The gate default.
+./run-tests.sh --fast                 # inner loop: the same list minus the eleven
+                                      # measured-slowest files.
+lune run tests/run_one <spec-name>    # ONE spec file, for the edit-and-run loop.
 ```
 
 **Only the argument-free run counts as green.** The fast tier
@@ -295,6 +313,20 @@ The full test suite is pure Luau and runs headless:
 `FACET-FAST-TIER` banner at both ends, and `tools/test.sh` fails on that
 transcript rather than recording it as a suite result. Nothing is skipped or
 deleted: every excluded file runs in full on `./run-tests.sh`.
+
+**`run_one` is the loop to work in.** It takes a spec name without its suffix,
+so `lune run tests/run_one table` runs `tests/table.spec.luau` and nothing else.
+It is also how you watch a new check FAIL before you trust it, which this
+repository asks for every time: a check never seen to fail is decoration, and
+proving that through the whole suite is expensive enough that it gets skipped.
+Like the fast tier, it cannot produce a suite verdict — nothing reads its output
+but you.
+
+Sizes, measured on one developer machine on 2026-08-21: the suite takes about
+three and a half minutes, the fast tier about forty seconds, and a single spec
+file a few seconds. Read the ratios rather than the seconds — the absolute
+numbers move with the machine and with every stage that adds cases, and the
+command below re-measures them where you are.
 
 To re-measure which files are the expensive ones:
 

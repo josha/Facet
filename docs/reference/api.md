@@ -1208,7 +1208,20 @@ name the wrong node.
 **Custom content.** A Button takes `children`, which render inside the ONE
 activation surface. `label` stays **required** even for an icon-only button — it is
 the semantic label — and when content is present the button paints no text of its
-own, so the label never shows through beneath the content. A focusable in the
+own, so the label never shows through beneath the content.
+
+> **Know what "semantic label" reaches, and what it does not.** For a button with
+> children the renderer writes `label = ""` to the adapter, and for an icon button
+> it writes the drawn glyph; the string you typed is consumed by the solver's
+> measurement and by the focus story, and Facet has **no accessibility channel
+> behind it** — no assistive-technology name is published to the engine from this
+> prop, on any target this library ships. So a `label` is not a substitute for
+> drawing the word. **If a player has to know what a button does, draw it**: give
+> the content its own text, or put a `Facet.newLabel` in `children`. The `label`
+> stays required and stays worth writing — it is what a dump, a bug report and a
+> focus trace call the node — but it is not a route to the player. This is a
+> framework gap recorded honestly rather than a design; it is the platform-wide
+> `Button.label` question, and closing it is a future engine-facing change. A focusable in the
 content (`Button`, `Toggle`, `TextField`, or a focusable `Grip`) is **rejected at
 construction**, naming the offending node: it would create a second focus site and
 double-fire Activate, which only misbehaves under keyboard and gamepad navigation
@@ -1310,8 +1323,11 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   its own ASCII-safe glyph for that name immediately, so the affordance is legible
   under *every* theme, and a package that ships art for the name has the adapter
   paint the picture over it, tinted by that asset's `tintRole`. With an `icon` the
-  `label` stays the **semantic name** and is not drawn — so an icon button still
-  has a real accessible name. `icon` is circle-only; for an icon *beside* a title,
+  `label` stays the **semantic name** and is not drawn — which names the node for a
+  dump, a bug report and a focus trace, and reaches the player through nothing (see
+  the accessibility note under **Custom content** above). `icon` is circle-only; a
+  glyph a player must be able to identify needs a word drawn beside it, not only a
+  `label`. For an icon *beside* a title,
   put a `Facet.newLabel` in the button's `children`.
 - **Paint costs a flat theme nothing.** The pill radius and the rim are phantom
   `::UICorner` / `::UIStroke` rules on the `facet-shape-circle` tag (the same radii
@@ -3503,7 +3519,18 @@ optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
   space dismisses too (the two-zone model without making the control a modal).
 - `transientScope = { active: Readable<boolean>, rootPath? }` — while `active`,
   focus is trapped within `rootPath` (default: the control root) and restored to
-  the pre-activation path on deactivation.
+  the pre-activation path on deactivation. **It flattens navigation inside the
+  trap**, and that is worth knowing before you design the surface: the trap is a
+  FLAT focus scope over `rootPath`'s subtree, so while it is up the trapped
+  nodes walk in document order on one axis. A `UI.Grid` inside a transient
+  surface therefore does not get the per-lane navigation the same grid gets on
+  an ordinary screen. Everything stays reachable; the lane movement does not
+  exist while the trap is up. There is a second reason a late grid gets no lanes
+  and it compounds this one: `presenter.present` chooses its navigation
+  derivation ONCE, from the tree as it stands at present time, and only a late
+  `focusGroups` CONTRIBUTION upgrades it afterwards — so a `UI.When` that opens
+  a grid cannot acquire grid navigation later either. Decide between the trap
+  and two-dimensional movement deliberately; you cannot have both today.
 
 PopupButton is the worked example (outside-tap dismiss, ButtonB close, focus
 trap-and-restore) without engaging the modal machinery.

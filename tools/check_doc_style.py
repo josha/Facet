@@ -45,6 +45,14 @@ REPO = os.path.dirname(HERE)
 # Every document a Roblox developer is expected to read cover to cover.
 SCANNED_DIRS = ("docs/guide", "docs/extending")
 
+# ...and the front door, which is not in a directory of its own. Two
+# fresh-context agents opened this repository on 2026-08-21 and both reported
+# the same first friction: `cat README.md` failed, and the real entry point had
+# to be found by listing `docs/`. The README that closed that gap is the one
+# page most likely to be read and the one page least likely to be reviewed, so
+# it is held to the same clarity standard as the guide it points at.
+SCANNED_FILES = ("README.md",)
+
 MAX_INSTRUCTION_WORDS = 20
 MAX_SENTENCE_WORDS = 25
 
@@ -114,6 +122,13 @@ def documents():
         for name in sorted(os.listdir(root)):
             if name.endswith(".md"):
                 found.append(os.path.join(rel, name))
+    # ...and the individual files, which SCANNED_DIRS cannot express: the loop
+    # above requires a directory and SILENTLY SKIPS anything that is not one, so
+    # a file name added there would have been scanned by nothing while looking
+    # exactly like it was covered.
+    for rel in SCANNED_FILES:
+        if os.path.isfile(os.path.join(REPO, rel)):
+            found.append(rel)
     return found
 
 
