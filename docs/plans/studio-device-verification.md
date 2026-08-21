@@ -199,7 +199,7 @@ low-end Android result.
 | 8.5 | Sweep all four preference values through deterministic fixtures; run `Medium` and `Largest` on compact phone portrait/landscape plus the 667x375 Sponsor fixture, hot-change the mounted tree, and pair paint/measure/geometry/composition/focus/scroll/full-value-access evidence. Probe the real read-only player setting separately; emulation does not close physical Largest-text rows |
 | 9 | Use the matrix to prove performance-lab layout, scenario controls, and repeatability; never treat it as the low-end Android performance gate |
 | 10 | Batch all seven examples under both materially different theme packages across the five view rows, then drive the canonical keyboard/pointer gameplay paths with `VirtualInput`; keep touch/gamepad rows separate |
-| 11 | Run each clean-room reference loop on the applicable five views and prove reflow, theme, state/focus survival, and supported input paths; Apple host-OS features are ledger rows, not simulator fixtures |
+| 11 | Run each clean-room reference loop on the applicable five views and prove reflow, theme, state/focus survival, and supported input paths; host-operating-system features are ledger rows, not simulator fixtures |
 | 12 | Use Studio for server/client topology, Instance/lifecycle, streaming-like, failure, and cost evidence; the five-view UI matrix applies only if the spike includes a player-facing Facet surface |
 | 13 | Rerun representative matrix scenarios for every runtime-affecting finding/fix and compare them with the frozen baseline |
 | 14 | Run the standalone consumer from the clean source export and prove mount, theme, adaptation, input, geometry, and teardown without monorepo imports; Package publishing is irrelevant to this row |

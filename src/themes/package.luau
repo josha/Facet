@@ -241,7 +241,7 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	progress = table.freeze({ "spinnerDotSize", "circularSize", "circularThickness" }),
 })
 
--- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (RS-A16-D3).
+-- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (rich-skinning v2).
 -- A slot in this table can have its content box checked at COMPILE time: the
 -- framework knows how tall the rail it decorates will be, because the same
 -- definition declares it. Every other slot's extent depends on the live solve
@@ -340,7 +340,7 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 	-- icons has no sizes to declare either, and every package published before
 	-- this stage has neither.
 	iconSizes = true,
-	--[[ A BESPOKE TEN-FOOT LADDER (ADAPT-8, director ruling 2026-08-20). Optional,
+	--[[ A BESPOKE TEN-FOOT LADDER (director ruling 2026-08-20). Optional,
 		and empty for every package shipped before this stage — which is why no
 		package's authored metrics, and therefore no package's content STAMP, moves
 		for this section existing.
@@ -573,7 +573,7 @@ end
 
 -- "did you mean" for an unknown key, cheap and bounded (Levenshtein <= 2)
 -- distance <= 2, case-SENSITIVE — the same policy `src/spec_guard.luau` states,
--- and now the same arithmetic (ARCH-17). The separator differs on purpose: a
+-- and now the same arithmetic. The separator differs on purpose: a
 -- theme property list reads as alternatives.
 local NEAREST_MAX_DISTANCE = 2
 
@@ -1593,7 +1593,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	--[[ THE BESPOKE TEN-FOOT LADDER (ADAPT-8). Optional, and validated in two
+	--[[ THE BESPOKE TEN-FOOT LADDER. Optional, and validated in two
 		halves for two different audiences: the SHAPE here, at define time, where an
 		author gets a report; the PATHS in `themes/snapshot.resolve`, which is the
 		only place the finished snapshot exists to check a name against. Splitting
@@ -2705,7 +2705,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	-- (6a) INSETS THAT LEAVE NO CONTENT BOX (RS-A16-D3, found live under
+	-- (6a) INSETS THAT LEAVE NO CONTENT BOX (the rich-skinning v2 decision, found live under
 	-- pixel-quest). A value display's host extent is a METRIC the package itself
 	-- resolves, so "these insets leave nothing inside" is knowable at COMPILE
 	-- time — and it has to be caught somewhere, because the consequence is

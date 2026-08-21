@@ -319,7 +319,7 @@ describe("scenario 'menu': the list, and what the framework says about it", func
 		expect(string.find(w.built.report().state, "depth 1") ~= nil).toBe(true)
 	end)
 
-	--[[ THE REFUSAL WITH A CARD OF ITS OWN. The guidance: "if all of a menu's items are
+	--[[ THE REFUSAL WITH A CARD OF ITS OWN. The guidance: if all of a menu's items are
 		unavailable, the menu itself needs to remain available so people can open it
 		and learn about the commands it contains." A trigger that swallowed itself
 		here would be indistinguishable from a dead button on a device. ]]

@@ -415,7 +415,7 @@ maintainability grounds, not on this limit.
   method, no render-seam change. `scale`/`rotation` gain reach on containers that become
   hosts — a behaviour change for a prop combination that today produces a visibly wrong
   result, which is why it ships before release rather than after.
-- **`api.md`, `swiftui-parity.md` and ADR-0029's refusal message describe a narrower world
+- **`api.md`, the comparison document and ADR-0029's refusal message describe a narrower world
   than will be true.** ADR-0029's message tells an author that a subtree fade needs a
   `UI.ZStack` wrap. That stays correct for `opacity` (it is still the only class that can
   BE a `CanvasGroup`), but the `scale`/`rotation` half of the same message — *"need no

@@ -175,31 +175,37 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		return { s = s, grid = grid, handle = handle }
 	end
 
-	it("VirtualGrid (LazyVGrid, axis y): an engine scroll slides the window — NO bindNativeScroll call", function()
-		local w = gridWorld("y")
-		expect(w.grid.debugWindow().i1).toBe(true)
-		w.s.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
-		w.s.pres.refresh()
-		expect(w.grid.scrollTop:get()).toBe(400)
-		expect(w.grid.debugWindow().i1).toBe(nil)
-		expect(w.grid.debugWindow().i41).toBe(true)
-	end)
+	it(
+		"VirtualGrid (vertical grid, axis y): an engine scroll slides the window — NO bindNativeScroll call",
+		function()
+			local w = gridWorld("y")
+			expect(w.grid.debugWindow().i1).toBe(true)
+			w.s.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
+			w.s.pres.refresh()
+			expect(w.grid.scrollTop:get()).toBe(400)
+			expect(w.grid.debugWindow().i1).toBe(nil)
+			expect(w.grid.debugWindow().i41).toBe(true)
+		end
+	)
 
-	it("VirtualGrid (LazyHGrid, axis x): an engine scroll slides the window — NO bindNativeScroll call", function()
-		--[[ THE HORIZONTAL GRID IS NOT A SEPARATE CONTROL AND THAT IS THE POINT.
+	it(
+		"VirtualGrid (sideways grid, axis x): an engine scroll slides the window — NO bindNativeScroll call",
+		function()
+			--[[ THE HORIZONTAL GRID IS NOT A SEPARATE CONTROL AND THAT IS THE POINT.
 			`newVirtualHGrid` is `newVirtualGrid{ axis = "x" }` on the same arithmetic
 			(`virtual_grid.luau` "TWO AXES ... ON THE SAME ARITHMETIC"), so the brief's
 			third control is this case: the mirror has to read the CanvasPosition
 			component along the control's OWN axis, and an auto-bind that hard-coded
 			`pos.y` would pass every case above and fail exactly here. ]]
-		local w = gridWorld("x")
-		expect(w.grid.debugWindow().i1).toBe(true)
-		w.s.adapter.driveScroll("/S/VG", { x = 400, y = 0 })
-		w.s.pres.refresh()
-		expect(w.grid.scrollTop:get()).toBe(400)
-		expect(w.grid.debugWindow().i1).toBe(nil)
-		expect(w.grid.debugWindow().i41).toBe(true)
-	end)
+			local w = gridWorld("x")
+			expect(w.grid.debugWindow().i1).toBe(true)
+			w.s.adapter.driveScroll("/S/VG", { x = 400, y = 0 })
+			w.s.pres.refresh()
+			expect(w.grid.scrollTop:get()).toBe(400)
+			expect(w.grid.debugWindow().i1).toBe(nil)
+			expect(w.grid.debugWindow().i41).toBe(true)
+		end
+	)
 
 	local function tableWorld(opts: any?)
 		local options = opts or {}

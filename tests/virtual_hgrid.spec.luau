@@ -3,7 +3,7 @@
 	THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }`.
 
 	THE REFUSAL THIS REPLACES, verbatim from the shipped control: *"there is no
-	LazyHGrid here yet. A grid's line holds `columns` cells, and `UI.Grid` wraps
+	sideways grid here yet. A grid's line holds `columns` cells, and `UI.Grid` wraps
 	row-major ONLY: there is no column-major mode to give a horizontal grid its
 	lanes, and hand-rolling one would be a second column arithmetic beside the flow
 	grid's."* That was never a refusal of principle — it was a missing capability,

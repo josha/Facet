@@ -267,7 +267,7 @@ function virtual_window.new(deps: Deps)
 				contentFrom = SLOT_CONTENT_FROM,
 			}
 		end))
-	--[[ scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
+	--[[ scrollTop: the engine CanvasPosition MIRROR (the native substrate). Fed
 		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
 
 		IT IS THE OFFSET ON THE LIST'S OWN AXIS — `CanvasPosition.Y` on

@@ -248,7 +248,7 @@ function selection_indicator.resolveTransition(placed: boolean, selectionChanged
 	return if selectionChanged then "slide" else "place"
 end
 
--- BY-VALUE COMPARISON, and the renderer's own (REUSE-4). This comment used to
+-- BY-VALUE COMPARISON, and the renderer's own. This comment used to
 -- say "renderer.luau's `sameGeometryValue`, kept field-for-field" above a
 -- verbatim copy of it, across a layer boundary; `src/rect.luau` is the leaf both
 -- may require, and it states the reason the refusal of nested fields is

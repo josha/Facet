@@ -148,7 +148,7 @@ end
 -- unwrapped: a single line's true advance width
 local UNWRAPPED = 100000
 
---[[ ONE PARAMS INSTANCE PER BATCH, DESTROYED WITH IT (PLAT-20, 2026-08-17).
+--[[ ONE PARAMS INSTANCE PER BATCH, DESTROYED WITH IT (2026-08-17).
 
 	`GetTextBoundsParams` is an INSTANCE, and this allocated a fresh one per
 	measured word and never destroyed any of them. A batch is the whole tree's
@@ -303,7 +303,7 @@ function text_premeasure.warmUp()
 		warmFont("BuilderSans", font)
 		local started = os.clock()
 		local previous: number? = nil
-		-- one params instance for the whole stability probe, like a batch (PLAT-20)
+		-- one params instance for the whole stability probe, like a batch
 		local params = text_premeasure.newBoundsParams()
 		for _ = 1, text_premeasure.SETTLE_MAX_ATTEMPTS do
 			local width = boundsWidth(params, font, 100, STABILITY_PROBE)
@@ -373,7 +373,7 @@ end
 -- re-solves only when a width actually changed), which is what makes the
 -- correction free to the caller.
 --
--- RETURNS A CANCEL FUNCTION (PLAT-12, 2026-08-17). The second `done` of a
+-- RETURNS A CANCEL FUNCTION (2026-08-17). The second `done` of a
 -- boot-window batch can arrive up to `SETTLE_INTERVAL * SETTLE_MAX_ATTEMPTS`
 -- later — ~12 s — and a renderer disposed in between was still called back,
 -- with an `env:set` and a `solveAndApply` on a controller that had torn its

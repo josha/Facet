@@ -292,7 +292,7 @@ function table_header.band(deps: Deps): any
 			-- rather than making the title overflow it.
 			lineLimit = 1,
 			-- the column's disclosure declaration covers the title it caps
-			-- (Step 8.5 LT-G2)
+			-- (Step 8.5 large-text accessibility)
 			disclose = if column.disclose == true then true else nil,
 		})
 		local headerChildren = {}

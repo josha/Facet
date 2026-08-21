@@ -640,7 +640,7 @@ local function isHorizontalRun(node: any): boolean
 	if node.class == "HStack" then
 		return true -- byte-identical to the rule that shipped
 	end
-	--[[ …AND A SCROLLER THAT RUNS ACROSS (ADAPT-24, audit B-6). This matched
+	--[[ …AND A SCROLLER THAT RUNS ACROSS (audit B-6). This matched
 		`AdaptiveStack` alone, so the framework's own recommended card rail
 		(`VirtualList{axis="x"}`, which declares its own group) navigated correctly
 		while the NAIVE rail — `UI.ScrollView{ axis = "x" }` with the cards inside

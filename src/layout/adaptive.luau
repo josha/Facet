@@ -119,7 +119,7 @@ end
 --                                                    band height, same words —
 --                                                    a terser name is the
 --                                                    author's or the shrink
---                                                    ladder's (ADAPT-30)
+--                                                    ladder's
 --   ten-foot distance         -> "topBar"            a center-aligned top tab
 --                                                    bar that HUGS its content
 --                                                    (never full width)
@@ -128,7 +128,7 @@ end
 --                                                    centered top bar. Roomy on
 --                                                    BOTH axes is what separates
 --                                                    a tablet from a phone, in
---                                                    either orientation (ADAPT-2)
+--                                                    either orientation
 --   touch + short side < 600  -> "bottomBar"         a phone, whichever way it
 --                                                    is held
 --   gamepad + Small display   -> "bottomBar"         the near-distance handheld
@@ -166,7 +166,7 @@ function adaptive.navPlacement(facts: NavPlacementFacts): string
 		return "sidebar"
 	end
 	if facts.primary == "touch" then
-		--[[ THE TABLET TEST IS THE SHORT SIDE (ADAPT-2, audit 2026-08-18).
+		--[[ THE TABLET TEST IS THE SHORT SIDE (audit 2026-08-18).
 
 			This asked the engine's DisplaySize, and the engine cannot answer it:
 			Roblox documents `Enum.DisplaySize.Small` as "Most tablet/mobile/handheld
@@ -238,7 +238,7 @@ end
 	copy — exported so a screen can ask "how many columns will I get?" before
 	laying anything out.
 
-	THE TEN-FOOT CAP, AND WHY IT BELONGS HERE (ADAPT-23, audit 2026-08-18). Both
+	THE TEN-FOOT CAP, AND WHY IT BELONGS HERE (audit 2026-08-18). Both
 	class functions above cap at distance for a stated reason: "a TV at 3 m must
 	not resolve the densest arrangement however wide it is". This one did not, so
 	the framework's own documented adaptive-grid route produced ELEVEN columns on a
@@ -263,7 +263,7 @@ function adaptive.columnsFor(available: number, minColumnWidth: number, gap: num
 	return math.max(1, math.floor((avail + g) / (minW + g)))
 end
 
---[[ ── THE CARD RAIL'S ARRANGEMENT (ADAPT-17, director ruling 2026-08-18) ──────
+--[[ ── THE CARD RAIL'S ARRANGEMENT (director ruling 2026-08-18) ──────
 	"How many cards belong in view here" is the same KIND of question as "how many
 	columns" and "which way does this bar stack", so it lives beside them: pure,
 	over numbers, exported so a caller can predict it, and with the thresholds
@@ -326,7 +326,7 @@ function adaptive.laneMeasureFor(metricScale: number?): number?
 end
 
 export type CardOpts = {
-	-- is TOUCH the primary way in (never merely "touch is available" — ADAPT-9)
+	-- is TOUCH the primary way in (never merely "touch is available")
 	touchPrimary: boolean?,
 	-- the gutter between card slots, which the lane arithmetic has to spend
 	gap: number?,

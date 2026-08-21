@@ -395,7 +395,7 @@ function actions.newSystem(core: any)
 				-- Direction1D via composite key mapping; key-up returns to 0
 				value = if isDown then candidate.binding.direction or 0 else 0
 			end
-			-- binding-scoped pressed stamp (Task 8b fix round 2, MAJOR-1):
+			-- binding-scoped pressed stamp (Task 8b fix round 2):
 			-- set on an ACTUAL delivery, not mere candidacy — a candidate cut
 			-- off by `consumedPriority`'s break above never reaches here and
 			-- is correctly never stamped. Cleared on the matching release's

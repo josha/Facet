@@ -103,7 +103,7 @@ function adapters.collection(
 	local self = {}
 	self.binding = signal
 
-	--[[ A LOST RESNAPSHOT REPLY IS NO LONGER A PERMANENT WEDGE (PLAT-7).
+	--[[ A LOST RESNAPSHOT REPLY IS NO LONGER A PERMANENT WEDGE.
 
 		The gap latch asked exactly once, on purpose: a resnapshot is expensive and
 		a patch stream can deliver dozens of refused patches while the reply is in
@@ -188,7 +188,7 @@ function adapters.collection(
 		for k, v in (patch.set or {}) :: { [any]: any } do
 			items[k] = v
 		end
-		--[[ `remove` IS AN ARRAY OF KEYS, AND SAYS SO (PLAT-25). A set-shaped
+		--[[ `remove` IS AN ARRAY OF KEYS, AND SAYS SO. A set-shaped
 			`{ [key] = true }` used to iterate zero times and remove nothing —
 			silently, with an "applied" verdict and a revision advance, which is the
 			worst possible answer for a replication seam because the client is now

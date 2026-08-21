@@ -48,7 +48,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		padding = "layout",
 		clipChildren = "layout",
 		zIndex = "layout",
-		-- native scroll host (NS-A2, verifier F2): the canvas EXTENT is layout-
+		-- native scroll host (verifier F2): the canvas EXTENT is layout-
 		-- derived render geometry (solver contentSize+padding) with exactly one
 		-- writer (renderer scroll-region push). CanvasPosition is deliberately
 		-- NOT in the manifest: the ENGINE co-authors it (user scrolling) and the
@@ -169,7 +169,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- single engine write is how the picture fills a box the solver already sized.
 	Image = { image = "binding", tint = "binding", scaleMode = "style" },
 	Grip = { cursorHint = "binding" },
-	-- Path (native-substrate NS-A7): reactive stroke geometry/config are
+	-- Path (the native substrate): reactive stroke geometry/config are
 	-- binding-authored; stroke color rides the style role hint — or, for a value a
 	-- finite role cannot express, the continuous `tint` channel
 	Path = { points = "binding", thickness = "binding", closed = "binding", tint = "binding" },
@@ -196,7 +196,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		thing, declared here by name, so the disclaimer is auditable rather than
 		asserted. `host` has been declared and unused since phase 3, reserved for
 		UI-EXT-001 ("escape hatch: mounts raw Instances under explicit contract")
-		and dispositioned as dead in the Step 5.5 cleanup ledger (ARCH-F8). This is
+		and dispositioned as dead in the Step 5.5 cleanup ledger. This is
 		that seam, and the reservation turns out to need exactly one entry. ]]
 	Foreign = { Parent = "host" },
 }
@@ -226,7 +226,7 @@ function authority.manifest()
 	return MANIFEST
 end
 
--- Native-stylesheet ownership (native-stylesheets stage, ledger NSS-I2): when
+-- Native-stylesheet ownership (native-stylesheets stage, ledger the native stylesheets work): when
 -- a target opts into native paint (screen_target `nativeStyle`), these ENGINE
 -- properties transfer from adapter explicit-writes to the DataModel sheet.
 -- The adapter must not write them in native mode — an explicit write silently

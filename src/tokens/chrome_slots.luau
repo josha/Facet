@@ -48,7 +48,7 @@ chrome_slots.TAGS = table.freeze({
 	-- (`state.isArtMuted`). Broken art draws nothing, so leaving it enabled costs
 	-- no pixels and buys back the recovery signal.
 	mute = "facet-chrome-mute",
-	-- the chrome text lift (TP-M8): the managed label above a text-bearing
+	-- the chrome text lift: the managed label above a text-bearing
 	-- node's decoration; its paint rides `.facet-chrome-text` rules
 	text = "facet-chrome-text",
 	-- a TextBox yielding its chrome while the engine caret needs the parent
@@ -575,7 +575,7 @@ end
 --   hint = { slot = "sliderThumb", image = "rbxassetid://..."? }
 --
 -- `slot` names the decoration slot this node belongs to and beats classification.
--- `image` is the RUNG-2 per-view override (a local value that leaves theme
+-- `image` is the rung-2 per-view override (a local value that leaves theme
 -- ownership for this node — see `planFor`).
 chrome_slots.META_KEY = "decoration"
 
@@ -682,7 +682,7 @@ function chrome_slots.iconBoxPx(wantPx: number, rectW: number?, rectH: number?, 
 	return math.max(1, math.floor(px))
 end
 
--- `imageVariants` is the RUNG-2 per-state map, already normalized by the
+-- `imageVariants` is the rung-2 per-state map, already normalized by the
 -- control through `themes.normalizeVariant` (ADR-0020 R2 — one grammar for both
 -- rungs). It travels the same internal channel `image` does.
 -- `icon` is the SEMANTIC ICON REQUEST (ADR-0020 R4): a meaning, never an asset
@@ -896,7 +896,7 @@ end
 
 export type Plan = {
 	slot: string,
-	-- nil ONLY for a RUNG-2 per-view override: an untagged decoration is
+	-- nil ONLY for a rung-2 per-view override: an untagged decoration is
 	-- deliberately outside the sheet's ownership (see below)
 	tag: string?,
 	assetName: string,
@@ -920,7 +920,7 @@ export type Plan = {
 	transparency: number,
 }
 
--- a per-view override: the RUNG-2 rung of the customization ladder.
+-- a per-view override: the rung-2 rung of the customization ladder.
 --
 -- `imageVariants` is the SAME normalized shape `themes.normalizeVariant` writes
 -- for a recipe (ADR-0020 R2: one grammar, one normalizer, both rungs) — the
@@ -1077,7 +1077,7 @@ function chrome_slots.planFor(package: any, slot: string, override: Override?): 
 			sliced = false,
 			sliceCenter = nil,
 			sliceScale = 1,
-			-- RUNG-2 PER-STATE ART. The decoration is untagged on purpose, so no
+			-- rung-2 PER-STATE ART. The decoration is untagged on purpose, so no
 			-- rule can reach it and the adapter applies these itself on the state
 			-- flips it already observes (see screen_target's override state watch).
 			variants = localVariants,
@@ -1170,7 +1170,7 @@ export type StackPlan = {
 	-- edge, so the solved rectangle is not the painted one. Published here — and
 	-- in the census — so an ancestor that clips is a compile-visible fact rather
 	-- than a runtime surprise, and RESERVED from the same numbers by the
-	-- snapshot's `chromeOutsets` (RS-A16-D2).
+	-- snapshot's `chromeOutsets` (rich-skinning v2).
 	overhang: { top: number, right: number, bottom: number, left: number },
 }
 
@@ -1256,7 +1256,7 @@ function chrome_slots.layerPlanFor(package: any, slot: string): StackPlan?
 		})
 		-- WHAT THIS LAYER PAINTS OUTSIDE THE RECT, derived from the boxes the
 		-- adapter will actually materialize rather than from one kind's field
-		-- (RS-A16-D2). The plaque's `overhang` is still the only non-zero answer
+		-- (rich-skinning v2). The plaque's `overhang` is still the only non-zero answer
 		-- in v1 — `layerBoxes` anchors it at the parent's top edge and offsets it
 		-- by -overhang — but the derivation is per KIND, so a kind whose
 		-- vocabulary later paints outside its host reserves without a second
@@ -1487,7 +1487,7 @@ function chrome_slots.layerBoxes(layer: LayerPlan): { LayerBox }
 	return { box("", index, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0) }
 end
 
--- ===== WHAT A LAYER PAINTS OUTSIDE ITS HOST (RS-A16-D2) ====================
+-- ===== WHAT A LAYER PAINTS OUTSIDE ITS HOST (rich-skinning v2) ====================
 --
 -- The defect this closes: a plaque's `overhang` was validated, materialized,
 -- published in `census.overhang` — and reserved by nobody, so the ornate
@@ -1905,7 +1905,7 @@ chrome_slots.TOGGLE_PARTS = table.freeze({ toggleTrack = "Track", toggleKnob = "
 -- the chrome group the per-state art rules are emitted in VARIANT_STATES order,
 -- which puts `error` after `selected`.
 --
--- It exists because a RUNG-2 override is deliberately untagged (no rule can
+-- It exists because a rung-2 override is deliberately untagged (no rule can
 -- reach it), so the adapter picks its state art by hand — and a hand-picked
 -- order that disagreed with the cascade would make one Slider behave unlike its
 -- themed neighbour in exactly the states this stage exists to prove.
@@ -1960,7 +1960,7 @@ end
 -- STACK paints outside its rect. The census publishes these same per-slot
 -- numbers for inspection (`census.overhang`) and the snapshot reserves them
 -- (`chromeOutsets`): ONE table, read twice, which is what makes
--- "painted-published-and-never-reserved" structurally impossible (RS-A16-D2).
+-- "painted-published-and-never-reserved" structurally impossible (rich-skinning v2).
 function chrome_slots.outwardExtents(
 	package: any
 ): { [string]: { top: number, right: number, bottom: number, left: number } }
@@ -2254,7 +2254,7 @@ function chrome_slots.focusShadowSpec(recipe: any, strong: boolean): any
 	}
 end
 
--- ===== IS THIS ART EVIDENCE ABOUT LOADING? (RS-A16-D5) =====================
+-- ===== IS THIS ART EVIDENCE ABOUT LOADING? (rich-skinning v2) =====================
 --
 -- `ImageLabel` has no `LoadingImageFailed` (native-substrate spike m10): a decode
 -- SUCCESS arrives as an `IsLoaded` property change and a FAILURE arrives as
@@ -2277,7 +2277,7 @@ end
 --                     sheet being linked, in which every decoration is tagged,
 --                     rule-owned and therefore blank (2026-07-25)
 --   clipped           CLIPPED ENTIRELY AWAY by an ancestor `ClipsDescendants`
---                     host — a ScrollView's off-window rows (RS-A16-D5,
+--                     host — a ScrollView's off-window rows (the rich-skinning v2 decision,
 --                     2026-07-26). Off-window art is Visible, opaque, sized and
 --                     sourced, so the first four clauses all pass, and the timer
 --                     condemned the shared asset for every ON-screen consumer
@@ -2302,7 +2302,7 @@ export type ArtFacts = {
 	image: string,
 	-- true when the transparency above is the FALLBACK's own hide rather than the
 	-- package's intent: same verdict, different reason, and the difference is what
-	-- RS-A16-D5's recoverability half turns on
+	-- the rich-skinning v2 decision's recoverability half turns on
 	mutedByFallback: boolean?,
 	rect: ArtRect,
 	-- one rect per ancestor whose `ClipsDescendants` is true, in any order
@@ -2354,7 +2354,7 @@ export type Census = {
 	-- package pays zero shadows" is a measurement rather than a claim
 	shadows: number,
 	shadowsPerSlot: { [string]: number },
-	-- LAYER COST (ADR-0020 R1, ledger RS-A17). A layered slot creates N
+	-- LAYER COST (ADR-0020 R1, ledger rich-skinning v2). A layered slot creates N
 	-- decoration instances instead of one, so "an ornate package is expensive"
 	-- has to be a counted number per KIND rather than an impression. Flat and
 	-- nine-slice packages leave both empty.
@@ -2391,12 +2391,12 @@ export type State = {
 	noteCanvasMask: (on: boolean) -> (),
 	setAssetLoaded: (assetName: string, ok: boolean) -> boolean,
 	-- the TARGET'S OWN grace-deadline verdict, as opposed to the authoritative
-	-- report a resource provider pushes through setAssetLoaded (RS-A16-D5)
+	-- report a resource provider pushes through setAssetLoaded (rich-skinning v2)
 	observeAssetFailed: (assetName: string) -> boolean,
 	everLoaded: (assetName: string) -> boolean,
 	isAssetFailed: (assetName: string) -> boolean,
 	isFallback: (slot: string) -> boolean,
-	-- may THIS art instance draw while its slot is in fallback? (RS-A16-D5)
+	-- may THIS art instance draw while its slot is in fallback? (rich-skinning v2)
 	isArtMuted: (slot: string, assetName: string?, artDecoded: boolean?) -> boolean,
 	census: () -> Census,
 }
@@ -2410,7 +2410,7 @@ function chrome_slots.newState(package: any?): State
 	local canvasMasks = 0
 	local failed: { [string]: boolean } = {}
 	-- every asset this target has ever seen decode, under the package now
-	-- installed (cleared with the ledger on a package swap — RS-A16-D5)
+	-- installed (cleared with the ledger on a package swap — the rich-skinning v2 decision)
 	local loadedEver: { [string]: boolean } = {}
 	-- bumped by exactly the facts a node's chrome PLAN can change under while the
 	-- node itself is untouched: a package swap and an asset-ledger movement
@@ -2558,7 +2558,7 @@ function chrome_slots.newState(package: any?): State
 		local was = failed[assetName] == true
 		local now = not ok
 		if ok then
-			-- POSITIVE DECODE EVIDENCE IS DURABLE (RS-A16-D5). A picture the engine
+			-- POSITIVE DECODE EVIDENCE IS DURABLE (rich-skinning v2). A picture the engine
 			-- has decoded once is resident for the session, so a later silence from
 			-- some drawn instance is never evidence that the ASSET is broken.
 			loadedEver[assetName] = true
@@ -2571,7 +2571,7 @@ function chrome_slots.newState(package: any?): State
 		return true
 	end
 
-	-- THE NO-OSCILLATION SEAM (RS-A16-D5). Two sources answer "is this asset
+	-- THE NO-OSCILLATION SEAM (rich-skinning v2). Two sources answer "is this asset
 	-- broken": the app's resource provider, which is authoritative and keeps the
 	-- unconditional `setAssetLoaded` above, and the target's own grace deadline,
 	-- which infers failure from SILENCE and comes through here. The inferred
@@ -2598,7 +2598,7 @@ function chrome_slots.newState(package: any?): State
 		return failed[assetName] == true
 	end
 
-	-- WHICH ART HIDES UNDER A FALLBACK (RS-A16-D5). The mute exists so a stack
+	-- WHICH ART HIDES UNDER A FALLBACK (rich-skinning v2). The mute exists so a stack
 	-- whose frame is broken does not half-paint its healthy tile ladder over the
 	-- declared native fill — it is about the SIBLINGS. Applied to the condemned
 	-- asset's own UNDECODED art it does real damage: a fully transparent image is

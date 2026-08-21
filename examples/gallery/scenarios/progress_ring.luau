@@ -5,7 +5,7 @@
 --
 --   * DETERMINATE — `presentation = "circular"` with a value. A ring that fills
 --     to the value, over the unfilled capacity ring, exactly as the
---     `Gauge(.accessoryCircularCapacity)` is documented ("a closed ring that's
+--     a capacity gauge is documented ("a closed ring that's
 --     partially filled in"). Drive it with the steps; the arc is `arc(0, 360 * f)`.
 --   * INDETERMINATE — the same shape with no value: a fixed-sweep head whose
 --     START ANGLE advances with the phase, so the ring rotates without any

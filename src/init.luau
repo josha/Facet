@@ -452,7 +452,7 @@ local Facet = {
 	newPopupButton = popupButton.build,
 	-- ...and its sibling that is NOT a value picker: a menu of VERBS, attachable
 	-- to any blueprint, presented on the D1 anchored seam. It is what closes
-	-- `.contextMenu` — primary activate, right-click, touch long-press, a gamepad
+	-- the context-menu construct — primary activate, right-click, touch long-press, a gamepad
 	-- button and the keyboard context key all open the same list.
 	newMenu = menuControl.build,
 	-- ...and the APP-PUSHED coach mark (D3b): a plate with an arrow tail that the
@@ -480,7 +480,7 @@ local Facet = {
 	valueModel = require("@self/controls/value_model"),
 	newTextInput = textInput.build,
 
-	-- pure Path2D shape math for UI.Path (native-substrate NS-A7):
+	-- pure Path2D shape math for UI.Path (the native substrate):
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
 
@@ -648,7 +648,7 @@ local Facet = {
 		-- the compiled Studio Neutral package: pass it as `base` to start from
 		-- the library's own theme and override only what you mean to change
 		neutralPackage = themesSnapshot.neutralPackage,
-		--[[ THE TEN-FOOT METRIC LADDER (ADAPT-8, director ruling 2026-08-20). The
+		--[[ THE TEN-FOOT METRIC LADDER (director ruling 2026-08-20). The
 			environment applies `forDisplay` for you at its `themeMetrics` read, so a
 			consumer almost never calls these — they are public because a consumer
 			who PREDICTS geometry (rather than resolving a metric name) needs the

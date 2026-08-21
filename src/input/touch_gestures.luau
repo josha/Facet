@@ -53,7 +53,7 @@ local STATE_MAP: { [string]: string } = {
 
 -- extract a name from an Enum-like value: a raw string, an { Name = ... } table
 -- (our test fakes), or a real `EnumItem` — which, like `Vector2`, is USERDATA
--- rather than a table (SEAM-3). Read through the same guarded door: anything
+-- rather than a table. Read through the same guarded door: anything
 -- without a string `.Name` is simply nameless. nil-tolerant.
 local function nameOf(v: any): string?
 	local kind = type(v)
@@ -79,7 +79,7 @@ end
 -- normalize a Vector2-like: engine {X=,Y=}, our test {x=,y=}, or a real Vector2.
 -- Missing components read as 0; a nil input returns nil (optional field absent).
 --
--- A REAL `Vector2` IS USERDATA, not a table (SEAM-3). A table-only reader was
+-- A REAL `Vector2` IS USERDATA, not a table. A table-only reader was
 -- green against every headless `{X=,Y=}` fixture and returned an empty positions
 -- list for every touch a device actually delivered — the "headless shape is not
 -- the engine shape" defect class. So a non-table value object is read through the
@@ -202,7 +202,7 @@ export type Arbiter = {
 
 -- `opts` is RESERVED: the arbitration policy (RANK above) is fixed, and there is
 -- no option today that changes it. An accepted-and-ignored table is the silent
--- failure class (SEAM-4) — an author biasing pinch over pan with
+-- failure class — an author biasing pinch over pan with
 -- `newArbiter({ rank = ... })` would get exactly the default behaviour and no
 -- word about it. So the parameter stays in the signature (the shape is where a
 -- future option lands) and a NON-EMPTY table is refused at construction, naming

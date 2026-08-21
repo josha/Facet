@@ -42,7 +42,7 @@ local BINDING_PROPS: { [string]: boolean } = {
 	editing = true,
 	maxLength = true,
 	keyboardType = true,
-	-- Path (native-substrate NS-A7): reactive stroke geometry/config — a bound
+	-- Path (the native substrate): reactive stroke geometry/config — a bound
 	-- progress arc updates points as a paint-only prop write (never a re-solve)
 	points = true,
 	thickness = true,
@@ -144,7 +144,7 @@ prop_channels.BINDING_PROPS = BINDING_PROPS
 -- `toLayoutNode`). The binding dispatch below is keyed on the prop NAME, so a
 -- Divider tried to write it too and hit the authority wall: `UI.Divider{
 -- thickness = … }` errored at first render for EVERY value, and always had —
--- found while giving both props the metric grammar (BP-F12). The name is
+-- found while giving both props the metric grammar. The name is
 -- therefore restricted to the class that actually emits it; everything else
 -- stays loud (an undeclared write is still an assertWrite error).
 local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
@@ -163,7 +163,7 @@ end
 -- one rides. The two channel tables above cover most of them; these are the
 -- writes that go out through their own seam instead, so the set is complete.
 --
--- WHY THIS EXISTS (found defect SF-M9, 2026-07-27 audit). `FakeTarget.setProp`
+-- WHY THIS EXISTS (found defect the headless-green/device-wrong class, 2026-07-27 audit). `FakeTarget.setProp`
 -- recorded any prop generically, so a headless suite proved a channel the LIVE
 -- adapter had no branch for: the keyboard keep-visible transform was written,
 -- recorded, asserted green — and never landed on a device for as long as the

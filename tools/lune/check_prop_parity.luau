@@ -141,7 +141,57 @@ local function splitTopLevelIntersection(expr: string): { string }
 	return parts
 end
 
-local function recordFields(record: string): { string }
+--[[ COMMENTS ARE NOT FIELDS, AND THE SCANNER USED TO THINK THEY WERE.
+
+	`recordFields` walks a type body character by character looking for
+	`name:`. A comment inside that body is ordinary text to it, so a plain-language
+	line of the natural shape `term: explanation` became a phantom field on the
+	type — and, because a record type is shared, on every type that intersects it.
+	Measured: rewriting one comment inside `BoxProps` to read
+	`-- the space-reserving hide: keep the layout box` invented a field named
+	`hide` on TWENTY-TWO spec types and turned the suite red on all of them, none
+	of which was the file that had been edited.
+
+	So comments are stripped first: a block comment runs to its closer, and a line
+	comment runs to the end of its line. A `--` inside a string is not a comment, so the strip tracks quotes,
+	which matters because a default value in a type body can be a string. ]]
+local function stripComments(record: string): string
+	local out: { string } = {}
+	local i = 1
+	local quote: string? = nil
+	while i <= #record do
+		local c = string.sub(record, i, i)
+		if quote ~= nil then
+			table.insert(out, c)
+			if c == "\\" then
+				table.insert(out, string.sub(record, i + 1, i + 1))
+				i += 2
+				continue
+			end
+			if c == quote then
+				quote = nil
+			end
+			i += 1
+		elseif c == '"' or c == "'" then
+			quote = c
+			table.insert(out, c)
+			i += 1
+		elseif string.sub(record, i, i + 3) == "--[[" then
+			local close = string.find(record, "]]", i + 4, true)
+			i = if close == nil then #record + 1 else close + 2
+		elseif string.sub(record, i, i + 1) == "--" then
+			local newline = string.find(record, "\n", i, true)
+			i = if newline == nil then #record + 1 else newline
+		else
+			table.insert(out, c)
+			i += 1
+		end
+	end
+	return table.concat(out)
+end
+
+local function recordFields(source: string): { string }
+	local record = stripComments(source)
 	local fields: { string } = {}
 	local depth = 0
 	local i = 1
@@ -260,6 +310,8 @@ end
 export type Options = {
 	-- synthetic drift for the checker's own tests
 	dropDocsFor: string?, -- "Class.prop"
+	-- replace src/blueprint.luau's text (the comment-vs-field regression test)
+	blueprintOverride: string?,
 	dropBindingProp: string?,
 	-- view 7: inject a bogus `BINDING_PROP_CLASSES` entry, "prop=Class"
 	bindingPropClass: string?,
@@ -302,7 +354,7 @@ function checker.check(opts: Options?)
 		table.insert(problems, msg)
 	end
 
-	local blueprintSource = fs.readFile(SRC_BLUEPRINT)
+	local blueprintSource = options.blueprintOverride or fs.readFile(SRC_BLUEPRINT)
 	local rendererParts: { string } = {}
 	for _, path in renderModules() do
 		table.insert(rendererParts, fs.readFile(path))

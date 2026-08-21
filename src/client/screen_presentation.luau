@@ -51,7 +51,7 @@
 
 local screen_presentation = {}
 
--- Path2D control-point application (NS-A7; spike m5-path2d.json): normalized
+-- Path2D control-point application (the native substrate; spike m5-path2d.json): normalized
 -- points (unit box, tangents relative to the point) scale into the CURRENT
 -- solved rect. Engine truths: max 100 control points; no Transparency
 -- property; left tangent = incoming handle, right = outgoing.
@@ -182,7 +182,7 @@ function screen_presentation.new(ctx: any)
 	end
 	-- the effective-target expander (B-BTN3) lives beside its control, so it must be
 	-- re-based from the SAME clip-host origin — and re-based AGAIN whenever that
-	-- origin arrives or moves. RS-A16-D1b (found live 2026-07-26): the renderer pushes
+	-- origin arrives or moves. rich-skinning v2-D1b (found live 2026-07-26): the renderer pushes
 	-- hit rects BEFORE the commit that writes rects, so on a fresh build an instance host's
 	-- rect is not yet current when the expander is first placed, and the renderer's
 	-- own cache (which stores only the WANTED rect) never asks again. Measured after a
@@ -397,7 +397,7 @@ function screen_presentation.new(ctx: any)
 		-- 2026-07-28). No-op for every node carrying no icon art.
 		refitIconArt(handle)
 		if handle.path2d ~= nil then
-			-- normalized control points re-scale with the solved rect (NS-A7)
+			-- normalized control points re-scale with the solved rect
 			applyPathPoints(handle)
 		end
 	end
@@ -489,7 +489,7 @@ function screen_presentation.new(ctx: any)
 		instance.Rotation = rotation
 	end
 
-	-- THE `transform` PROP, whole (ADR-0022 Decision 2; fixes SF-M9 — this branch
+	-- THE `transform` PROP, whole (ADR-0022 Decision 2; fixes the headless-green/device-wrong class — this branch
 	-- simply did not exist, so every keep-visible shift was a headless green that
 	-- never moved a device). It lives here rather than in the host's setProp because
 	-- it is the ONE writer of `presentationCount`, which a number cannot share by

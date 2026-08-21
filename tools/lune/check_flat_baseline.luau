@@ -442,7 +442,7 @@ local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 	},
 	{
 		path = "/Vocabulary/Name/ClearWhen/then/Clear",
-		why = 'surface="" -> chip: from the same a physical phone pass. With the default control surface the '
+		why = 'surface="" -> chip: from the same physical-phone pass. With the default control surface the '
 			.. "clear button was a plate the same shade as the field it sits inside, and the reporter could "
 			.. "not find the clear affordance at all while a filter was active. A chip is the smallest "
 			.. "surface that reads as a separate thing on top of a field. "

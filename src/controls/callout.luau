@@ -10,8 +10,8 @@
 
 	IT IS NOT A TOOLTIP, AND THE DIFFERENCE IS THE WHOLE DELIVERABLE. The
 	separation, read 2026-08-16: `.help(_:)` is PLAYER-PULLED, pointer-hover-only
-	and shows nothing on touch (`UI.Button{ help = … }`, D3a); TipKit's
-	`popoverTip(_:arrowEdge:action:)` "presents a popover tip on the modified view…
+	and shows nothing on touch (`UI.Button{ help = … }`, D3a); the coach-mark construct's
+	the coach-mark construct "presents a popover tip on the modified view…
 	WHEN THE TIP BECOMES ELIGIBLE FOR DISPLAY". The app decides, from rules. It
 	appears on every input class, and it retires permanently. So they are two
 	constructs, and conflating them is what would have made `help` fight D2's Menu
@@ -184,7 +184,7 @@ function callout.build(Facet: any, core: any, spec: Spec)
 
 	local api = {} :: any
 
-	--[[ ELIGIBILITY — TipKit's actual contribution, and the only rules that are
+	--[[ ELIGIBILITY — the coach-mark construct's actual contribution, and the only rules that are
 		this construct's rather than the placement's:
 		  * show once per player      (`seen`, the caller's record)
 		  * or only after N sessions  (`sessions` + `afterSessions`)
@@ -352,7 +352,7 @@ function callout.build(Facet: any, core: any, spec: Spec)
 		`[gen-2]/…` and the focus-driven help plate, re-presented against a path that
 		did not exist yet, was placed at the viewport origin on top of the button it
 		belonged under. The right shape is a screen whose furniture never moves and
-		coach marks that re-arm in place, which is TipKit's own model
+		coach marks that re-arm in place, which is the coach-mark model
 		(`Tips.resetDatastore()`): the tips reset, the app does not.
 
 		ORDER MATTERS AND IS THE CALLER'S: clear the persisted facts FIRST. `seen`

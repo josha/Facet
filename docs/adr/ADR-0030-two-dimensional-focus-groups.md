@@ -167,9 +167,9 @@ two apart would have reproduced the same blindness for the arrows.
 has only one navigable axis and the verb carries no direction* — a guess, made necessary by a
 missing fact. The presenter drives it from the **vertical** arrow (`presenter.luau:2836`, the path a
 scope takes when its groups arrived after the push — DB-4's flat-to-grouped upgrade), so on a
-LazyVGrid's `horizontal` group that guess sent a DOWN press rightward, and only the intercept was
+a vertical grid's `horizontal` group that guess sent a DOWN press rightward, and only the intercept was
 hiding it. A 2-D group answers all four directions, so the guess is retired for it and the verb
-keeps its own reading: down/up. On a LazyHGrid "down" is the lane axis and the same verb steps one
+keeps its own reading: down/up. On a sideways grid "down" is the lane axis and the same verb steps one
 cell, which is correct there too.
 
 ## The alternative that was closest — per-line groups linked by exits

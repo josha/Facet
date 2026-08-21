@@ -47,7 +47,7 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- "attempt to index nil" on the user's first tap and a read-only Memo as
 	-- "cannot set a memo" from deep inside core — both unattributable. Same
 	-- check, same wording, as Stepper/Slider/Rating/Picker/DisclosureGroup/
-	-- TextInput (CTRL-03).
+	-- TextInput.
 	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
 		error(
 			`Facet newChip('{id}'): \`selected\` must be a SETTABLE Signal<boolean> the caller owns `

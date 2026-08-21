@@ -532,7 +532,7 @@ end)
 -- THE HIGH-COUNT DIAGNOSTIC, AND THE MEASUREMENT ITS NUMBER COMES FROM
 --
 -- the gauge guidance: "A large value range can make the segments of a discrete
--- capacity indicator too small to be useful." A DIAGNOSTIC and never a refusal —
+-- capacity indicator too small to be useful. A DIAGNOSTIC and never a refusal —
 -- the caller may have more room than a phone, and refusing a count the caller
 -- can afford would be the framework overruling a measurement it has not taken.
 -- ===========================================================================

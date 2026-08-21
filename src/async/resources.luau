@@ -487,7 +487,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 		syncCounters()
 	end
 
-	-- PRELOAD (SF-A3): warm a declared imminent identity set so a debuting badge
+	-- PRELOAD: warm a declared imminent identity set so a debuting badge
 	-- skips the placeholder flash. It is an ACQUIRE without a view — the same
 	-- requests, the same concurrency window, the same generations — so the
 	-- logical-cancel contract is unchanged: `release()` prevents work that has not

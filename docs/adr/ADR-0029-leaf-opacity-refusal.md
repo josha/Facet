@@ -26,7 +26,7 @@ concretely, *"a `UI.Text` with an opacity would stop dimming when disabled, fore
 
 The director's question is the right one, and it is not answered by that sentence.
 ADR-0026's own rule for the group case is **compose, don't own**: the framework's
-value and the author's value meet at one write site and multiply. Apple states the
+value and the author's value meet at one write site and multiply. The cited source states the
 same rule for nesting ([SW-141]). So: can `TextTransparency` carry an authored term
 composed against the sheet's value at the one write site, exactly the way
 `GroupTransparency` carries one composed against the channel value?

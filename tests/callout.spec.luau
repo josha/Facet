@@ -6,7 +6,7 @@
 	— the "Post Avatars to Marketplace" plate with an arrow tail pointing up at a
 	top-right `+`. It is NOT a tooltip. the standard separation, read 2026-08-16:
 	`.help(_:)` is player-pulled, pointer-only and invisible on touch, while
-	TipKit's `popoverTip(_:arrowEdge:action:)` "presents a popover tip on the
+	the coach-mark construct "presents a popover tip on the
 	modified view… WHEN THE TIP BECOMES ELIGIBLE FOR DISPLAY". The app decides,
 	from rules; it appears on every input class; it retires permanently. (Both
 	plates carry D1's tail since the 2026-08-16 device review — the stem says

@@ -10,9 +10,11 @@ swallow the player's movement/jump input wholesale. The UI-only-place hammer —
 `gamepad_contention.disableLegacyControls()` / `PlayerModule:GetControls():Disable()`
 — turns avatar input OFF, which is correct only for a place that is nothing but UI
 (the gallery). A real game keeps the avatar controls and must instead let a
-surface become **first responder** — the Roblox analog of Apple's responder chain
-— through *arbitration*, so it handles events before the avatar only while it is
-actually engaged, and yields otherwise.
+surface become **first responder** through *arbitration*, so it handles events
+before the avatar only while it is actually engaged, and yields otherwise. FIRST
+RESPONDER is Facet's name for exactly that: the one surface that gets an input
+event first, held only while the surface is engaged and given back the moment it
+is not.
 
 The bounded platform research (commissioned by the director, persisted verbatim
 under `docs/research/`) established the load-bearing facts this ADR must follow.

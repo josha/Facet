@@ -54,7 +54,7 @@
 	     The numbers the vertical fixture prints on its cells are in the status line
 	     instead, where one box holds them and the solver sizes that box.
 
-	     WHAT THIS IS NOT: a claim that a `LazyHGrid` cannot hold text. It is a
+	     WHAT THIS IS NOT: a claim that a sideways grid cannot hold text. It is a
 	     claim that a cell whose LANE is a division of an unknown height must either
 	     hold something that cannot overflow, or MEASURE — and the measuring route
 	     already exists one control over (`newVirtualList { itemExtent = "measured" }`).

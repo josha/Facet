@@ -7,7 +7,7 @@ scale get owned/influenced by facet? it seems like we should be able to animate 
 **Companions:** ADR-0022 Decision 2 (the presentation channel, and the `canvasGroup` fade rule),
 ADR-0018 / ADR-0019 §4 (native stylesheet ownership and the five-name authority vocabulary),
 ADR-0020 R8 (composition when a rule and a real child both paint),
-`docs/reference/swiftui-parity.md` §6 (`opacity(_:)`), §8.1 (`withAnimation`).
+the comparison document §6 (`opacity(_:)`), §8.1 (`withAnimation`).
 
 ## Context — the gap, and why two prior missions declined it
 
@@ -30,8 +30,8 @@ reason is worth restating exactly, because it is what this ADR has to answer:
   the one write site — which then has to reconcile with `withAnimation`'s records and with the
   native sheet's ownership of `BackgroundTransparency` / `TextTransparency`.
 
-Apple states the rule such a composition has to honour, and it is the only one of the three
-properties for which Apple states it at all. Read from the JSON twin on 2026-08-14 (the §16 route
+The cited source states the rule such a composition has to honour, and it is the only one of
+the three properties for which it is stated at all. Read from the JSON twin on 2026-08-14 (the §16 route
 for a page that renders client-side) and quoted verbatim: applying `opacity(_:)` to a view *"that
 has already had its opacity transformed, the modifier **multiplies** the effect of the underlying
 opacity transformation"* ([SW-141]).
@@ -73,10 +73,10 @@ non-associative — a subtree scaled 2× inside a container scaled 2× has to re
 not mean scale.
 
 Opacity is the one row where the answer is not merely geometric taste, and it is also the one row
-Apple writes down: *"multiplies the effect of the underlying opacity transformation"* ([SW-141]).
+the cited source writes down: *"multiplies the effect of the underlying opacity transformation"* ([SW-141]).
 
 **In engine units.** Roblox's channel is *transparency*, where `0` is opaque and `1` is invisible;
-SwiftUI's authored value is *opacity*, where `1` is opaque. The renderer therefore composes:
+The authored value is *opacity*, where `1` is opaque. The renderer therefore composes:
 
 ```
 T_effective  =  1 − (1 − T_presentation) × opacity_authored
@@ -131,7 +131,7 @@ it was faded. Refusing the leaf keeps the sheet whole.
 
 The refusal is a **construction error** — `UI.Text { opacity = 0.4 }` reports an unknown property
 with the class's valid list — and the spelling an author wants is one wrap:
-`UI.ZStack { opacity = 0.4, children = { text } }`. That is SwiftUI's own answer too: without a
+`UI.ZStack { opacity = 0.4, children = { text } }`. That is the standard answer too: without a
 compositing group, ancestor opacity applies per-descendant, which is why `compositingGroup()` exists
 and what its page describes it as buying ([SW-133]).
 
@@ -213,7 +213,8 @@ decision written down as the brief requires:
 - **A fade** lands **instantly** at its destination alpha. The end state carries every fact; the
   travel was pure continuity, which is the `decorative` class (ADR-0022 Decision 1). Nothing is
   hidden, so information parity holds trivially.
-- **A scale** lands **instantly**, and is deliberately **not substituted by a cross-fade**. The HIG
+- **A scale** lands **instantly**, and is deliberately **not substituted by a cross-fade**. The
+  motion guidance
   reflex of preferring a cross-fade to a zoom exists because the zoom *is* the motion; deleting it
   outright is strictly less motion than replacing it with a different animation. A framework that
   answered a suppressed scale with a new fade would be adding motion in the name of reducing it.
@@ -256,7 +257,7 @@ shape here:
   recycling. Named here rather than discovered later: put an authored rotation on a virtualized
   list's rows and those rows stop being pooled.
 - **Scale and rotation move no layout, no hit geometry and no focus.** Facet hit-tests solver
-  rects, so a rotated button's tap target is its unrotated box. This matches Apple, who is explicit
+  rects, so a rotated button's tap target is its unrotated box. The cited source is explicit
   for both: `rotationEffect` *"has no effect on the view's frame"* ([SW-146]) and `scaleEffect`'s
   dimensions *"are considered to be unchanged by scaling the contents"* ([SW-147]).
 - **~~OWED~~ FIXED 2026-08-14: an authored `scale` on a `Button` now survives a press.** The engine
@@ -288,7 +289,7 @@ shape here:
   adapter file can load under Lune, so the pin is what that family of pins always is, and it proves
   exactly what this defect was: an absolute literal where a variable belonged. Five mutations
   (each site reverted in turn, plus pinning the record to `1` instead of clearing it) each redden a
-  named case. `api.md`'s `scale` row and `swiftui-parity.md`'s `scaleEffect` row now describe the
+  named case. `api.md`'s `scale` row and the comparison document's `scaleEffect` row now describe the
   behaviour instead of the workaround.
 - **`opacity` is not offered on a leaf** (Decision 4). The spelling is one `UI.ZStack` wrap, and the
   parity doc, `api.md` and the guide all say so in the same words.

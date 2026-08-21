@@ -92,7 +92,7 @@ describe("showcase catalogue", function()
 		-- leaves nothing to absorb the remainder; the playlist has three now, so the
 		-- header, the dividers and the width readout ship on the tutorial (`ex02`).
 		-- ...and SEVENTEEN since `newVirtualGrid` (2026-08-15): `virtual-grid`, the
-		-- lazy grid's own surface. A `LazyVGrid` over five thousand cells and an
+		-- lazy grid's own surface. A a vertical grid over five thousand cells and an
 		-- eager grid over five thousand cells paint the same first screen, so the
 		-- count of cells the factory was ever asked for is the only place the
 		-- feature is visible — and the lane chips are the only way to watch a reflow

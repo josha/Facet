@@ -206,7 +206,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 
 		local function setBranch(on: boolean)
 			if on and retiring ~= nil then
-				-- RE-ENTRY MID-EXIT (SF-M6): the same mounted subtree comes back —
+				-- RE-ENTRY MID-EXIT: the same mounted subtree comes back —
 				-- same node table, same instances, same factoryRuns, same scope. The
 				-- coordinator reverses from the current presentation values, so a
 				-- smooth reversal falls out of the model instead of being a case.
@@ -304,7 +304,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				table.insert(order, key)
 			end
 			local changed = false
-			--[[ THE UNGUARDED ROW-FACTORY THROW (ARCH-1/ARCH-2, 2026-08-17).
+			--[[ THE UNGUARDED ROW-FACTORY THROW (2026-08-17).
 
 				With no ErrorBoundary above it a throwing `row` factory used to
 				unwind `apply` from the middle of the ADD phase, after the REMOVE
@@ -312,7 +312,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				`node.children` array still pointing at disposed rows, with no
 				`structure` dirty queued — and structuralSync only runs on a
 				`structure` entry, so the renderer kept those rows' Instances on
-				screen, frozen, for the rest of the session (ARCH-2).
+				screen, frozen, for the rest of the session.
 
 				The rebuild now COMPLETES. The throwing key is simply absent from
 				`itemsByKey`, so the rows that left stay gone, the children array is

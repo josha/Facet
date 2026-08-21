@@ -37,7 +37,7 @@
 	so the NEXT card surface reaches it without copying a constant out of a control.
 	This module decides only when to ASK, and what the author said instead.
 
-	THE REFUSAL BELONGS TO THE CONTROL, NOT TO THIS MODULE . A rail that
+	THE REFUSAL BELONGS TO THE CONTROL, NOT TO THIS MODULE. A rail that
 	declares no `cards.perView` adapts, so it needs an environment and must REFUSE
 	to construct without one — `tab_view`'s shape and `tab_view`'s reason:
 	adaptation must not be able to silently not happen. But the message names the
@@ -175,7 +175,7 @@ function card_rail.new(ctx: Ctx): Arrangement
 		because it arrives through `distanceProfile` rather than through the width.
 
 		`touchPrimary`, NOT `classes.touch`: merely HAVING touch is what put a sheet
-		on a mouse-driven touchscreen laptop (ADAPT-9), and the framework settled
+		on a mouse-driven touchscreen laptop, and the framework settled
 		that argument once, in `menu_recipe.touchPrimary`. ]]
 	function self.perView(use: any?): number
 		if options.perView ~= nil then

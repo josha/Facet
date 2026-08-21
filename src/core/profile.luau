@@ -98,7 +98,7 @@ local profileend: (() -> ())? = if type(dbg.profileend) == "function" then dbg.p
 -- opening scopes it can never close is strictly worse than not opening them.
 local hasEngine = profilebegin ~= nil and profileend ~= nil
 
--- OFF BY DEFAULT (Roblox-platform review 2026-08-04, MAJOR-2). It was `true`, which
+-- OFF BY DEFAULT (Roblox-platform review 2026-08-04). It was `true`, which
 -- on the engine meant `active` was true for EVERY consumer — so every `mount`,
 -- `commit`, `measure`, `arrange`, `react`, `mutate` and `resource` body ran under the
 -- `pcall` below and re-raised at level 0. Two costs, both paid permanently by games
@@ -229,13 +229,13 @@ function profile.span<T>(key: string, fn: () -> T): T
 	if depth > maxDepth then
 		maxDepth = depth
 	end
-	-- A THROWING HOOK MUST NOT STRAND THE ACCOUNTING (reactive-runtime review, RR-2).
+	-- A THROWING HOOK MUST NOT STRAND THE ACCOUNTING (reactive-runtime review).
 	-- The engine's own `debug.profilebegin` does not throw, but `setHooks` accepts an
 	-- arbitrary pair and the lab installs one. An exception escaping `open` used to
 	-- leave `depth` at 1 and `opens > closes` forever — and, one layer up, it escaped
 	-- `flush`'s `profile.span("react", ...)` before `flushing = false` could run,
 	-- silently killing the core for the rest of the session with no error recorded
-	-- (RR-1). Both hooks are therefore protected: a broken instrument may lose its own
+	-- Both hooks are therefore protected: a broken instrument may lose its own
 	-- measurement, it may not take the framework down with it.
 	local open = profilebegin :: (string) -> ()
 	local close = profileend :: () -> ()

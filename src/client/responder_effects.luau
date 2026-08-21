@@ -56,7 +56,7 @@ local function writeTouchControls(on: boolean): boolean
 	return responder_effects.writeTouchControls(on)
 end
 
---[[ THE SUPPRESSION IS REFCOUNTED, BECAUSE THE PROPERTY IS SHARED (PLAT-22).
+--[[ THE SUPPRESSION IS REFCOUNTED, BECAUSE THE PROPERTY IS SHARED.
 
 	`GuiService.TouchControlsEnabled` is ONE engine property and `bind` can be
 	called more than once — a game with two Facet targets, or a rebind across a

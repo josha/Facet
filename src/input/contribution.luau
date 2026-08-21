@@ -119,7 +119,7 @@ export type Bundle = {
 		has nothing more to show. ]]
 	expandOpen: (() -> string?)?,
 	--[[ WHERE THE DISCLOSURE WALK SHOULD START, when the focused node is not where
-		the truncated text lives (ADAPT-20, 2026-08-18).
+		the truncated text lives (2026-08-18).
 
 		The plate's rule is "the first truncated, disclosed Text at or under the
 		FOCUSED path", and it is right for every control whose label is inside its

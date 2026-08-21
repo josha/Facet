@@ -386,6 +386,35 @@ describe("M0-A3: one reconciled property model", function()
 		expect(result.counts.classes >= 19).toBe(true)
 	end)
 
+	--[[ A COMMENT IS NOT A FIELD, AND THE SCANNER USED TO THINK IT WAS.
+
+		`recordFields` walks a type body looking for `name:`, and a comment inside
+		that body was ordinary text to it. A plain-language line of the natural
+		shape `term: explanation` therefore invented a field on the type — and on
+		every type that intersects it. Measured once for real: one reworded comment
+		inside `BoxProps` invented `hide` on twenty-two spec types.
+
+		This plants that exact shape and requires the checker to stay green. It
+		reads the real file so the fixture cannot drift away from the type it is
+		about. ]]
+	it("a plain-language comment inside a record type is not read as a field", function()
+		local source = require("@lune/fs").readFile("src/blueprint.luau")
+		local anchor = "export type BoxProps = {"
+		expect(string.find(source, anchor, 1, true) ~= nil).toBe(true)
+		local planted = string.gsub(
+			source,
+			anchor,
+			anchor .. "\n\t-- the space-reserving hide: keep the layout box, stop painting",
+			1
+		)
+		expect(planted ~= source).toBe(true)
+		local result = propParity.check({ blueprintOverride = planted })
+		if not result.ok then
+			error("a comment invented a field: " .. table.concat(result.problems, " | "))
+		end
+		expect(result.ok).toBe(true)
+	end)
+
 	it("it detects an undocumented property", function()
 		local result = propParity.check({ dropDocsFor = "Grid.columns" })
 		expect(result.ok).toBe(false)

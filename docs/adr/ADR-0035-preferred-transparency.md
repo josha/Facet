@@ -73,7 +73,7 @@ patch.
 | not touched | why |
 |---|---|
 | `disabledContentOpacity` (0.4) | **Semantic.** The alpha *is* the disabled state. Making it opaque deletes an accessibility affordance in the name of an accessibility preference — and it is `TextTransparency`/`ImageTransparency`, straight into ADR-0029's measured trap. |
-| `hairlineOpacity` (0.92) | **A border is not a background.** It is a `UIStroke.Transparency` — a line drawn faintly *over* what it sits on. Solidifying it is a contrast change (Apple's separate *Increase Contrast*, which Roblox does not surface), and the player moved a setting named Background Transparency. |
+| `hairlineOpacity` (0.92) | **A border is not a background.** It is a `UIStroke.Transparency` — a line drawn faintly *over* what it sits on. Solidifying it is a contrast change (the separate *Increase Contrast*, which Roblox does not surface), and the player moved a setting named Background Transparency. |
 | shadows (0.35–0.75) and the focus glow (0.25) | A shadow that is opaque is a black box, and a glow that is opaque is a rectangle. The alpha there is the mark's identity, not a backdrop something shows through. |
 | every background already at `0` or `1` | `0` is unchanged by any multiply; `1` would be **revealed** by one. |
 | authored `opacity` / `withAnimation`'s `o` term / transition fades | Decision 2. |
@@ -231,7 +231,7 @@ fact is production code.
 
 - **The one accessibility preference Facet read and did not honour is honoured**, in
   both paint modes, on framework furniture and on any consumer node that declares
-  `surface = "scrim"`. `swiftui-parity.md`'s `accessibilityReduceTransparency` row
+  `surface = "scrim"`. The comparison document's `accessibilityReduceTransparency` row
   moves from *Partial* to covered.
 - **A default session paints byte-identically to before.** The preference defaults to
   1 and the composition's identity at 1 is the theme's own number, so nothing repaints

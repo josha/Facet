@@ -1137,12 +1137,46 @@ function check_docs.check(opts: Opts?)
 			mustName(key, "a public export of the Facet table")
 		end
 
-		-- b. nothing the index advertises may have disappeared
-		for token in string.gmatch(text, "`([%w_]+%.[%w_]+)`") do
-			local namespace, member = string.match(token, "^([%w_]+)%.([%w_]+)$")
-			if namespace ~= nil and table.find(namespaces, namespace :: string) ~= nil then
-				local live = liveFacet[namespace]
-				if type(live) ~= "table" or live[member] == nil then
+		--[[ b. NOTHING THE INDEX ADVERTISES MAY HAVE DISAPPEARED, and the check
+			reads the CAPABILITY COLUMN of every catalog row rather than every
+			backtick in the file. That bound is what lets it judge a BARE name:
+			the first cell of a row is a capability, so `mount` there is a claim
+			that `Facet.mount` exists, while `Instance` in the prose is not.
+
+			Four shapes resolve, and anything else in that column is a claim
+			about a surface that is not there:
+			  `UI.x` / `Controls.x`   a member of a live namespace table
+			  `<ns>.x`                a member of any other live namespace
+			  `client.x`              a client module, which is NOT on the Facet
+			                          table and is checked against src/client/
+			  `x`                     a top-level export ]]
+		local inCatalog = false
+		local rowIndex = 0
+		for line in string.gmatch(text, "[^\n]+") do
+			rowIndex += 1
+			if string.match(line, "^## ") ~= nil then
+				inCatalog = string.find(line, "capability catalog", 1, true) ~= nil
+				continue
+			end
+			if not inCatalog or string.sub(line, 1, 1) ~= "|" then
+				continue
+			end
+			local cell = string.match(line, "^|([^|]*)|")
+			if cell == nil or string.match(cell, "^[%s:%-]*$") ~= nil then
+				continue
+			end
+			for token in string.gmatch(cell, "`([%w_%.]+)`") do
+				local namespace, member = string.match(token, "^([%w_]+)%.([%w_]+)$")
+				local ok
+				if namespace == nil then
+					ok = liveFacet[token] ~= nil
+				elseif namespace == "client" then
+					ok = fs.isFile(`src/client/{member}.luau`)
+				else
+					local live = liveFacet[namespace]
+					ok = type(live) == "table" and live[member] ~= nil
+				end
+				if not ok then
 					problem(
 						GUIDE_INDEX,
 						`the capability catalog names '{token}', which the library no longer exports`,
@@ -1290,7 +1324,9 @@ check_docs.OBLIGATIONS = table.freeze({
 	-- ---- the capability catalog (wave T12) ---------------------------------
 	"docs/guide/README.md names every member of the UI and Controls namespaces and every non-retired export of "
 		.. "the live Facet table, read from the exported table itself rather than from a hand list",
-	"docs/guide/README.md advertises no UI.* or Controls.* capability the library has stopped exporting",
+	"docs/guide/README.md advertises no capability the library has stopped exporting — read from the "
+		.. "capability COLUMN of every catalog row, so a bare top-level export, a member of any namespace "
+		.. "and a client.* module row are each judged, not only a dotted UI.*/Controls.* token",
 	"every docs/reference/api.md link the guide index makes lands on a heading that document really has",
 	"docs/guide/README.md links every extension playbook under docs/extending/",
 })

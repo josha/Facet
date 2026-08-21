@@ -1112,14 +1112,25 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- never outlive or out-rank a hidden host is an ADAPTER property, asserted at
 		-- the source anchors (screen_target.luau is engine-only)
 		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
-		local atVisible = string.find(source, "function adapter.setVisible", 1, true)
-		expect(atVisible ~= nil).toBe(true)
-		local visibleBody = string.sub(source, atVisible :: number, (atVisible :: number) + 700)
+		--[[ THE WINDOW IS THE FUNCTION, NOT A CHARACTER COUNT.
+
+			These two anchors used to slice a fixed 700 and 2200 characters after
+			the declaration. That makes the assertion depend on how long the
+			COMMENTS inside the function are: a plain-language rewrite that grew
+			one comment by a few characters pushed `hitExpander` one character
+			past the 700 mark and reddened this case with nothing about the
+			behaviour changed. The window now ends where the next adapter method
+			begins, so only the function's own contents decide it. ]]
+		local function methodBody(name: string): string
+			local at = string.find(source, `function adapter.{name}`, 1, true)
+			expect(at ~= nil).toBe(true)
+			local nextAt = string.find(source, "\n\tfunction adapter.", (at :: number) + 1, true)
+			return string.sub(source, at :: number, if nextAt == nil then #source else nextAt)
+		end
+		local visibleBody = methodBody("setVisible")
 		-- setVisible carries the expander with the control it belongs to
 		expect(string.find(visibleBody, "hitExpander", 1, true) ~= nil).toBe(true)
-		local atHit = string.find(source, "function adapter.setHitRect", 1, true)
-		expect(atHit ~= nil).toBe(true)
-		local hitBody = string.sub(source, atHit :: number, (atHit :: number) + 2200)
+		local hitBody = methodBody("setHitRect")
 		-- a freshly created expander starts at its host's CURRENT visibility, so it
 		-- cannot flash live for a control that is already hidden
 		expect(string.find(hitBody, "expander.Visible = instance.Visible", 1, true) ~= nil).toBe(true)

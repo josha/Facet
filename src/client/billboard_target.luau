@@ -47,7 +47,7 @@ function billboard_target.new(opts: Opts)
 		isReducedMotion = opts.isReducedMotion,
 		-- native ScrollingFrame hosts stay OFF billboards until their canvas
 		-- coordinate mapping and input are proven on a live billboard drive
-		-- (native-substrate corrections §13 / ledger NS-A5 note); the clip-only
+		-- (native-substrate corrections §13 / the native-substrate ledger); the clip-only
 		-- fallback is the billboard contract for now
 		forceScrollFallback = true,
 		-- native PAINT on billboards is probe-viable (promotion-readiness.json:

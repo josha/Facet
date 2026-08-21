@@ -164,7 +164,7 @@ export type Model = {
 	-- thickness) so a live metric edit can repaint them (ADR-0019 §3)
 	metricRuleProps: { { path: string, rule: string, prop: string, form: string } }?,
 	-- buildPackage only: what this package's skin COSTS, counted at compile
-	-- (ADR-0020 process rulings; ledger RS-A17). Zero in every field for a flat
+	-- (ADR-0020 process rulings; ledger rich-skinning v2). Zero in every field for a flat
 	-- package, which is what makes "flat pays nothing" a measurement.
 	census: ModelCensus?,
 }
@@ -192,7 +192,7 @@ export type ModelCensus = {
 }
 
 -- classifyTags: the PURE hint->tag mapping the native adapter applies with
--- CollectionService (Phase 2, ledger NSS-A2/NSS-A5). Headlessly tested so the
+-- CollectionService (Phase 2, ledger the native stylesheets work/the native stylesheets work). Headlessly tested so the
 -- classification decisions never depend on an engine. `plain` and `scrim`
 -- surfaces suppress interaction chrome exactly like the bespoke path
 -- (suppressStates); `plain` carries no surface tag at all (chrome-less).
@@ -587,7 +587,7 @@ end
 
 -- ===========================================================================
 -- THE VALUE-CONTROL OWN-PAINT FAMILY — ONE EMITTER, BOTH BUILDERS
--- (RS-A16-D4, found live 2026-07-26)
+-- (rich-skinning v2)
 -- ===========================================================================
 --
 -- These four surfaces (`chrome_slots.OWN_PAINT_SLOTS`: a slider's rail and
@@ -974,7 +974,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		end
 	end
 
-	-- VALUE-CONTROL CHROME: ITS OWN PAINT (RS-A16-D4). The same three rules per
+	-- VALUE-CONTROL CHROME: ITS OWN PAINT (rich-skinning v2). The same three rules per
 	-- slot the package builder emits, from the same shared emitter, at the same
 	-- cascade position: after every surface fill it must beat, and before the
 	-- scrim and the `Grip focus` accent that must still beat IT.
@@ -1042,7 +1042,7 @@ function sheet_model.build(opts: BuildOpts): Model
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
-	-- reason a flat package does: the RUNG-2 per-view override (a Slider's
+	-- reason a flat package does: the rung-2 per-view override (a Slider's
 	-- `thumbImage`) skins a node with NO package installed at all, and a node that
 	-- earns `facet-skinned-<slot>` with no rule to match it keeps a solid plate
 	-- showing through every transparent pixel of the author's own art.
@@ -1739,7 +1739,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 
 	-- ----- v2 census + the pixel stamp (ADR-0020 R1/R2/R5/R9) --------------
-	-- RS-A17 reads these: cost honesty is a counted number per kind, not an
+	-- rich-skinning v2 reads these: cost honesty is a counted number per kind, not an
 	-- impression. A flat package leaves every ART number at zero; the one number
 	-- it does not is `suppressionRules`, which carries the value family's
 	-- pre-armed 4x3 baseline (director round 5 — see the OWN_PAINT loop in the
@@ -1837,7 +1837,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				continue -- the resting rule already paints it
 			end
 			-- counted per DISTINCT non-default asset: this is the extra art a
-			-- per-state map costs the preload seam, which is the number RS-A17
+			-- per-state map costs the preload seam, which is the number rich-skinning v2
 			-- wants and the base art is not part of
 			noteVariantAsset(entry.contentId)
 			local spec = VARIANT_RULES[state]
@@ -1869,7 +1869,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		end
 		suppressed[slot] = true
 		-- the same three rules `build`'s base seed pre-arms, from the same shared
-		-- emitter (RS-A16-D4): a package sheet and the base sheet must suppress a
+		-- emitter (rich-skinning v2): a package sheet and the base sheet must suppress a
 		-- skinned value slot identically or a rung-2 override reads differently
 		-- depending on whether a package happens to be installed
 		emitSlotSuppression(slot, function(rule: Rule)
@@ -1897,7 +1897,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 	-- ...and the tinted fill, in the SAME cascade position the legacy builder gives
 	-- it (see that rule, and TAGS.tintFill). A floor only one builder emits is a
-	-- floor that vanishes the moment a player picks a package — RS-A16-D4's defect,
+	-- floor that vanishes the moment a player picks a package — the rich-skinning v2 decision's defect,
 	-- one rule over.
 	emit("base", { name = "Tint fill", selector = `.{T.tintFill}`, props = { BackgroundTransparency = num(0) } })
 	emit("base", {
@@ -2064,7 +2064,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- not the package skins the slot), SOLID by construction, and drawing their
 	-- colour from the SAME `SLOT_FILL_TOKEN` map the asset-failure fallback uses,
 	-- so a slot's flat appearance is one decision rather than two that drift.
-	-- Emitted for every package including the flat ones — and, since RS-A16-D4,
+	-- Emitted for every package including the flat ones — and, since the rich-skinning v2 decision,
 	-- by `build`'s base seed through this same shared emitter, because a value
 	-- control has to be visible under Studio Neutral too and that is the one path
 	-- this loop used not to reach.
@@ -2245,7 +2245,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				BackgroundTransparency = num(0),
 			},
 		})
-		-- THE HIDE IS A SECOND TAG (RS-A16-D5). The fill above lands on every art
+		-- THE HIDE IS A SECOND TAG (rich-skinning v2). The fill above lands on every art
 		-- instance of a fallen-back slot; the hide lands only on the ones whose own
 		-- asset is NOT the failed one, because `ImageTransparency = 1` is the
 		-- engine's "do not decode" signal and using it on the condemned art
@@ -2372,7 +2372,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			-- the declared native fallback. The ladder hides; the BACK layer carries
 			-- the native paint, because a stack that half-paints reads as a broken
 			-- skin rather than a degraded one. THE HIDE IS THE SECOND TAG
-			-- (RS-A16-D5): "hide the healthy siblings" is exactly what this rule is
+			-- (rich-skinning v2): "hide the healthy siblings" is exactly what this rule is
 			-- for, and the broken layer — which draws nothing anyway — keeps its art
 			-- rules so its `IsLoaded` can still report a recovery.
 			local fallbackProps: { [string]: RuleProp } = {}
@@ -2461,7 +2461,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			transitions = { ImageColor3 = "fast" },
 		})
 	end
-	-- the chrome TEXT LIFT (TP-M8, ADR-0019 integration rulings): a text-bearing
+	-- the chrome TEXT LIFT (ADR-0019 integration rulings): a text-bearing
 	-- node under nine-slice chrome paints its label on a managed
 	-- `.facet-chrome-text` child ABOVE the decoration (under Sibling z-behavior a
 	-- child covers the parent's own engine-drawn text at any ZIndex). The lifted
@@ -2700,7 +2700,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			-- `Chrome — <slot> fallback hide` hides the art of a fallen-back
 			-- slot (`ImageTransparency = 1`) while `Chrome — <slot> fallback`
 			-- repaints the declared native fill underneath — one rule until
-			-- RS-A16-D5 split the hide onto its own tag. Both ride the CHROME
+			-- the rich-skinning v2 decision split the hide onto its own tag. Both ride the CHROME
 			-- group, and the disabled rule
 			-- immediately above rides the DISABLED group — and the cascade is
 			-- Priority first, then insertion order, with NO selector specificity
@@ -2715,7 +2715,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			-- a fallback node" is not expressible — and re-asserting the hide
 			-- above the state rules is the same shape the fallback rule already
 			-- uses to beat the resting art. It carries the HIDE and nothing else,
-			-- so it moved onto the mute tag with it (RS-A16-D5): art whose OWN asset
+			-- so it moved onto the mute tag with it (rich-skinning v2): art whose OWN asset
 			-- failed is not hidden, and a disabled node must not re-reveal art that a
 			-- healthy-sibling mute is hiding;
 			-- the fill and the corner are the chrome-group rule's and nothing

@@ -45,7 +45,7 @@ target_contract.OPTIONAL = {
 	-- its hover fill; an adapter without it degrades (no hover preview), never
 	-- crashes — nothing essential lives behind hover.
 	"enableHover", -- (handle)                        [pointer hover state]
-	-- full-value disclosure engagement zones (Step 8.5, LTN-4): the renderer
+	-- full-value disclosure engagement zones (Step 8.5): the renderer
 	-- calls this for a `disclose` text node, per input class that is live
 	-- (hover half on pointer, long-press half on touch; calls MERGE per half so
 	-- a class arriving mid-session retrofits the missing half). WITHOUT IT: no
@@ -80,7 +80,7 @@ target_contract.OPTIONAL = {
 	-- read-only field; the CaptureFocus/ReleaseFocus and .Text/.PlaceholderText
 	-- writes ride the ordinary setProp path (editing/text/placeholder bindings).
 	"setTextInputHandlers", -- (handle, { onTextChanged, onFocusGained, onFocusLost })
-	-- native scroll host (native-substrate NS-A2): a scroll node's SOLVED
+	-- native scroll host (the native substrate): a scroll node's SOLVED
 	-- content extent maps to the engine canvas (CanvasSize); the ENGINE owns
 	-- the live offset (physics, bars, momentum) and reports it via
 	-- observeScroll; setScrollPosition is the framework's programmatic
@@ -90,23 +90,23 @@ target_contract.OPTIONAL = {
 	"setScrollRegion", -- (handle, { axis, contentW, contentH } | nil)
 	"setScrollPosition", -- (handle, { x, y })
 	"observeScroll", -- (handle, fn({x,y})) -> unsubscribe
-	-- engine-selection bridge (native-substrate NS-A12): the renderer calls
+	-- engine-selection bridge (the native substrate): the renderer calls
 	-- this ONLY for a surface presented with engineSelectionBridge=true (a
 	-- modal). handle=nil clears. Adapters without it degrade to Facet's own
 	-- focus visual — the bridge is an experiment until physical-pad proof.
 	"setEngineSelection", -- (handle | nil)
-	-- native drag acquisition (NS-A5): UIDragDetector in CustomOffset mode
+	-- native drag acquisition: UIDragDetector in CustomOffset mode
 	-- (Position authority stays with the renderer). Returns a detach function,
 	-- or nil when the engine lacks the class / fallback is forced — consumers
 	-- then use setPointerHandlers (the raw capture seam, ADR-0008).
 	"setVisible", -- (handle, visible: boolean); hidden subtrees (losing ViewThatFits candidates) must not paint
 	"setDragDetector", -- (handle, {onStart,onContinue(pos, totalOffset),onEnd}) -> detach | nil; totalOffset = CUMULATIVE DragUDim2 since DragStart, never a per-frame delta (verifier F5)
-	-- native touch gestures (NS-A6): engine-recognized events normalized into
+	-- native touch gestures: engine-recognized events normalized into
 	-- src/input/touch_gestures value objects. Connection-level; firing needs
-	-- real touch (physical row NS-P2).
+	-- real touch (physical row the native substrate).
 	"setTouchGestureHandlers", -- (handle, onGesture) -> disconnect
 	-- the pointer's SECONDARY button (navigation-and-menus D2): the trigger half
-	-- of `.contextMenu` on a mouse. The primary button is already the semantic
+	-- of the context-menu construct on a mouse. The primary button is already the semantic
 	-- Activate (`setActivateHandler`), and a right-click is a DIFFERENT verb, so
 	-- it needs its own channel rather than a meta flag on the same one. It
 	-- OBSERVES, exactly as the disclosure zones do — the node underneath keeps
@@ -123,7 +123,7 @@ target_contract.OPTIONAL = {
 	-- headless estimator's conservative bound, which never under-reserves — the
 	-- first frame of an adapter WITH it is that same bound, by design.
 	--
-	-- MAY RETURN A CANCEL FUNCTION (PLAT-12). An adapter that can answer LATE —
+	-- MAY RETURN A CANCEL FUNCTION. An adapter that can answer LATE —
 	-- the Roblox one answers a boot-window batch twice, up to ~12 s apart —
 	-- returns a nullary function the renderer calls on dispose, after which the
 	-- adapter must not invoke `done` again. Optional: returning nothing keeps the
@@ -136,7 +136,7 @@ target_contract.OPTIONAL = {
 	-- without it simply is not gateable — the surface shows immediately, which
 	-- is today's behaviour and always correct, just occasionally jumpy.
 	"setRootVisible", -- (rootHandle, visible: boolean)
-	-- ── the five the RENDERER also feature-detects (SEAM-20) ───────────────
+	-- ── the five the RENDERER also feature-detects ───────────────
 	-- They were called and undeclared, which made `check` answer a question
 	-- narrower than the seam: an adapter could pass with `#optionalAbsent == 0`
 	-- and still silently drop five channels. Each line names what degrades.
@@ -268,7 +268,7 @@ target_contract.THEME = {
 }
 
 -- ...and exactly one THEME name is a GROWTH seam rather than a prerequisite
--- (ARCH-5). ADR-0019's integration ruling is explicit — the controller "calls
+-- ADR-0019's integration ruling is explicit — the controller "calls
 -- `adapter.setThemeStyle(style)` on every commit for ANY TARGET THAT GROWS THE
 -- SEAM" — so a target without it is still fully themeable (ScreenTarget is, and
 -- is the shipping path); it simply takes its palette at construction. It is

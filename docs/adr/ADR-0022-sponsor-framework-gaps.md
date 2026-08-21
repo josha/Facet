@@ -120,8 +120,8 @@ renderer/presenter layer, scripted in headless tests):
   and animate to rest through the same coordinator.
 - Declaration: `UI.When { transition = { enter, exit, class? } }`, same on
   `ForEach`, `PresentOpts.transition`, and toasts. Vocabulary: `fade`,
-  `slide-up/down/left/right`, `materialize` (scale 0.96→1 + fade, per the Apple
-  skill); enter/exit default to symmetric forms. RM: exit = instant or short fade;
+  `slide-up/down/left/right`, `materialize` (scale 0.96→1 + fade, per the motion
+  reference); enter/exit default to symmetric forms. RM: exit = instant or short fade;
   never a dropped beat.
 - Exiting stack items hold their slot until removal (no layout morph); overlay/
   ZStack/Anchor hosts (toasts, captions, ghosts) reflow nothing — the recommended

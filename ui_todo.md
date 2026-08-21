@@ -118,7 +118,7 @@ does not yet scroll/clip in-engine at all (recorded device-emulator truth).
 
 The standard resolution: scroll owns the naked vertical pan
 on touch; reordering is entered explicitly — edit mode with trailing ≡ drag
-handles (`.onMove` + EditButton), or long-press lift (`draggable`). Mouse
+handles (an explicit move affordance plus an Edit button), or long-press lift (`draggable`). Mouse
 pointers keep direct drag because the wheel handles scrolling.
 
 Proposed for Facet (3 pieces):

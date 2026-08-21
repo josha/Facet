@@ -1471,7 +1471,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 
 	it("refuses `showValue` on a circular indicator rather than putting it beside the ring", function()
 		-- A centred readout INSIDE the ring belongs to a gauge
-		-- (`.accessoryCircularCapacity`), a complication-sized dial. This indicator
+		-- (a capacity gauge), a complication-sized dial. This indicator
 		-- is small by construction (a theme metric, no per-call diameter), so a
 		-- centred readout has no size it is guaranteed to fit inside, and rendering
 		-- it BESIDE the ring would be a different design shipped under the same name.

@@ -121,8 +121,8 @@ local DEFAULT_BAR_TINT = table.freeze({
 })
 
 -- ===== THE HIGH-COUNT DIAGNOSTIC ============================================
--- The standing guidance for a discrete gauge: "a large value range can make
--- the segments of a discrete capacity indicator too small to be useful." A
+-- The standing guidance for a discrete gauge: a large value range can make
+-- the segments of a discrete capacity indicator too small to be useful. A
 -- DIAGNOSTIC and never a refusal —
 -- the caller may have more room than a phone, and a framework that refused a
 -- count it has not measured against the caller's actual box would be overruling
@@ -283,8 +283,8 @@ local function diagnoseCount(constructor: string, id: string, count: number, not
 		notes,
 		`Facet {constructor}('{id}'): count = {count} is above {level_picker.HIGH_COUNT}, the largest run every `
 			.. "shipped theme package still draws as a distinct segment on the narrowest viewport this framework "
-			.. 'sweeps. The standing guidance for this shape says the same: "a large value range can make the '
-			.. 'segments of a discrete capacity indicator too small to be useful." This is a diagnostic and not '
+			.. "sweeps. The standing guidance for this shape says the same: a large value range can make the "
+			.. "segments of a discrete capacity indicator too small to be useful. This is a diagnostic and not "
 			.. "a refusal — you may have more room than a phone; check the strip on the narrowest screen you ship."
 	)
 end

@@ -62,7 +62,7 @@ change without notice. Games must not require library-internal modules.
   decision the ledger holds rather than one this version takes. Nothing is
   removed here.
 - Previous: **0.9.0** — row-actions (docs/plans/row-actions.md,
-  docs/plans/row-actions-implementation.md): SwiftUI-parity swipe actions.
+  docs/plans/row-actions-implementation.md): row swipe actions.
   `newRowActions` (a swipeable leading/trailing action tray around an
   arbitrary row: spring reveal, proportional tray-button growth, full-swipe
   commit, an edit-mode leading minus) and `newRowActionsCoordinator` (one-open
@@ -147,7 +147,7 @@ change without notice. Games must not require library-internal modules.
   and the Style Editor sync workflow (`theme_sync_cli`). Additive MINOR: every
   existing screen renders byte-identically under the default Studio Neutral
   snapshot (proven by the checked-in baseline dump comparison).
-- Earlier: **0.5.0** — Milestone 0 of the SwiftUI-parity plan: strict
+- Earlier: **0.5.0** — Milestone 0 of the parity plan: strict
   public authoring. Construction is validated against
   `src/blueprint_schema.luau`, so an unknown, wrongly typed, missing-required,
   or never-implemented property is now an immediate error instead of a value

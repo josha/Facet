@@ -487,7 +487,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		return true
 	end,
-	-- A FRACTION OF THE PARENT (ADR-0022 Decision 6, row SF-P5): an anchor offset
+	-- A FRACTION OF THE PARENT (ADR-0022 Decision 6): an anchor offset
 	-- may be a share of the anchor's inner extent plus a pixel adjustment, which is
 	-- what a marker overlay needs — a minimap dot's u,v is a fraction, and it must
 	-- update in the ARRANGE pass without a re-measure or a remount.
@@ -793,7 +793,7 @@ local BOX: { [string]: PropSpec } = {
 		channel = "style",
 		doc = "normalized per-corner rounding — produced by UI.corners(bp, …)",
 	}),
-	-- the AUTHORED STROKE (ADR-0022 Decision 6, row SF-P3). Same shape, same
+	-- the AUTHORED STROKE (ADR-0022 Decision 6). Same shape, same
 	-- authority and same reactive story as the three modifiers above: bind the whole
 	-- prop to a memo of `UI.strokeData(…)` to pulse a thickness or an alpha.
 	stroke = p({
@@ -830,7 +830,7 @@ local BOX: { [string]: PropSpec } = {
 	-- prop into that SAME set. One hidden verdict, one visibility walk, one hit-rect
 	-- walk, one `hiddenRoots` the focus map already filters on — a second, paint-only
 	-- channel would have been a parallel mechanism that focus and hit geometry did
-	-- not follow, which is precisely the defect RS-A16-D1 records.
+	-- not follow, which is precisely the defect the rich-skinning v2 decision set records.
 	--
 	-- Reactive, where the usual spelling is unconditional ("hides this view
 	-- unconditionally"; its answer for the conditional case is an `if`, which
@@ -1100,7 +1100,7 @@ local LINE_LIMIT: PropSpec = p({
 		.. "truncates with an ellipsis rather than the box growing. Absent = uncapped",
 })
 
--- FULL-VALUE DISCLOSURE (large-text-accessibility LTN-4, 2026-08-03). The plan's
+-- FULL-VALUE DISCLOSURE (large-text accessibility, 2026-08-03). The plan's
 -- overflow ladder permits truncation only for bounded SECONDARY or IDENTITY text,
 -- and only when the full string stays reachable. `disclose` is the declaration of
 -- that permission-plus-debt: this label may ellipsize, and when it does the
@@ -1128,13 +1128,13 @@ local DISCLOSE: PropSpec = p({
 		.. "(hover dwell, focus, long-press) presents the full string. Inert while the text fits",
 })
 
--- THE AUTO REVEAL (director ruling 2026-08-04, superseding LTN-2's "no marquee"
+-- THE AUTO REVEAL (director ruling 2026-08-04, superseding large-text accessibility's "no marquee"
 -- for surfaces that DECLARE it; the plan's overflow rung 4, its full constraint
 -- list binding). `reveal = "auto"` says: this bounded one-line text, when it
 -- truncates, auto-scrolls its whole value — the presenter slides the full string
 -- through the box after a quiet delay, pausing at the ends, and rests in the
 -- engine's own ellipsis between cycles. It is ALSO a disclosure source (the
--- LTN-4 plate is its static full-value alternative), reduced motion disables the
+-- large-text accessibility plate is its static full-value alternative), reduced motion disables the
 -- travel entirely, and at most one strip runs per presentation
 -- (`text_audit.movingText`).
 --
@@ -1173,7 +1173,7 @@ local REVEAL: PropSpec = p({
 
 	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops ITSELF,
 	from eligibility rules, appears on every input class and retires permanently is
-	`Facet.newCallout` (TipKit's `popoverTip`), not this. Both plates point with
+	`Facet.newCallout` (the coach-mark construct), not this. Both plates point with
 	D1's arrow tail — the stem says which control the words are about, and was
 	never what told the two apart.
 
@@ -1253,7 +1253,7 @@ local OPACITY: PropSpec = p({
 		.. "framework is running on the same node, and animates through presenter.withAnimation",
 })
 
--- THE STRUCTURAL-TRANSITION DECLARATION (ADR-0022 Decision 3, row SF-M6). A
+-- THE STRUCTURAL-TRANSITION DECLARATION (ADR-0022 Decision 3). A
 -- structural region declares how its branch/rows come and go; the mount layer
 -- RETIRES a departing subtree (it stays mounted, turns non-interactive, and
 -- disposes when the exit completes) instead of disposing it on the spot.
@@ -1271,7 +1271,7 @@ local TRANSITION: PropSpec = p({
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })
 
--- THE CONTINUOUS-COLOUR CHANNEL (ADR-0022 Decision 6, rows SF-P1/SF-P2). Offered
+-- THE CONTINUOUS-COLOUR CHANNEL (ADR-0022 Decision 6). Offered
 -- on the four classes that HAVE one paint channel of their own — Box's fill,
 -- Text's glyphs, Image's multiply, Path's stroke — and nowhere else: a control
 -- paints from its role and its states, and a continuous colour on one would be a
@@ -1310,7 +1310,7 @@ local FOCUSABLE_OPT_OUT: PropSpec = p({
 -- differs (decision packet TDN-2).
 --
 -- CONSTRUCTION-ONLY, deliberately, while `focusable` beside it is reactive
--- (TDN-3): a traversal position answers what the node IS, not a question about
+-- A traversal position answers what the node IS, not a question about
 -- state, and no shipped control needs to move one at runtime. Binding a Readable
 -- here is an immediate refusal naming the rebuild idiom (§4), never a silently
 -- ignored value. Widening to reactive later is compatible; narrowing would not be.
@@ -1511,7 +1511,7 @@ class("Grid", {
 			-- grid of labels re-columns itself on a theme swap instead of being
 			-- sized by a device-pixel guess that only suits one font.
 			--
-			-- ...AND IT IS THE DEFAULT (ADAPT-L2, 2026-08-21). Declaring neither
+			-- ...AND IT IS THE DEFAULT (2026-08-21). Declaring neither
 			-- this nor `columns` used to mean ONE LANE at every width from a 390px
 			-- phone to a 1920px television. It now means this, which is the only
 			-- honest default available: a px minimum would be a guess about a font
@@ -1580,7 +1580,7 @@ class("AdaptiveStack", {
 		-- lose their state on a viewport flip; a bound axis re-solves in place
 		-- (acceptance row A-AL2). Bind it to `adaptive.conditions(...).axis`.
 		--
-		-- ...AND IT IS REQUIRED (ADAPT-L4, audit Part 2 cell A-2, 2026-08-21). It
+		-- ...AND IT IS REQUIRED (audit Part 2 cell A-2, 2026-08-21). It
 		-- used to default to `"y"`, which made `UI.AdaptiveStack{}` a PERMANENT
 		-- VSTACK at every combo — measured a column at all six, 1920px television
 		-- included — and three shipped fixtures declared it exactly that way under
@@ -1803,7 +1803,7 @@ class("Divider", {
 			channel = "layout",
 			doc = 'explicit orientation — "y" spans horizontally, "x" spans vertically; inferred from the parent stack when absent',
 		}),
-		-- THEME-OWNED LIKE EVERY OTHER NUMBER OF ITS KIND (BP-F12). The default
+		-- THEME-OWNED LIKE EVERY OTHER NUMBER OF ITS KIND. The default
 		-- IS a metric (`metrics.strokes.hairline`, resolved by the renderer), so
 		-- refusing the metric NAME made this the one theme-owned number an author
 		-- could not track — and the doc claimed a literal default it never had.
@@ -2162,7 +2162,7 @@ class("Toggle", {
 		-- the Toggle's label is drawn ONE LINE with an end ellipsis by measured
 		-- design (director finding 13: wrap + press-scale = mid-word breaks), so
 		-- where a compact width truncates it the full value must stay reachable —
-		-- the same disclosure contract a Text carries (Step 8.5 LT-G1/LTN-5)
+		-- the same disclosure contract a Text carries (Step 8.5 large-text accessibility)
 		disclose = DISCLOSE,
 		help = HELP,
 		onActivate = p({
@@ -2383,7 +2383,7 @@ class("Path", {
 			doc = "normalized Path2D control points from Facet.pathShapes",
 		}),
 		thickness = p({
-			-- same ruling as Divider.thickness (BP-F12): a theme-owned number
+			-- same ruling as Divider.thickness: a theme-owned number
 			-- accepts the theme's own vocabulary
 			types = { "number", "metric" },
 			reactive = true,
@@ -2590,7 +2590,7 @@ end
 -- ===== diagnostics =========================================================
 
 -- Damerau-free Levenshtein, bounded: good enough to name the intended prop. The
--- matrix lives in `src/text_distance.luau` (ARCH-17). THE THRESHOLD STAYS HERE,
+-- matrix lives in `src/text_distance.luau`. THE THRESHOLD STAYS HERE,
 -- at the call site below, because it is the half that was never agreed: this
 -- caller lowercases both sides and accepts `d <= max(2, floor(#name / 3))`,
 -- where `spec_guard` and `themes/package` accept 2 case-sensitively.
@@ -2715,7 +2715,7 @@ end
 
 -- suggest(class, badProp) -> "did you mean 'x' or 'y'?" style list (may be empty)
 --
--- THE TWO RESERVED KEYS ARE CANDIDATES TOO (BP-F14). `id` and `children` live
+-- THE TWO RESERVED KEYS ARE CANDIDATES TOO. `id` and `children` live
 -- OUTSIDE `spec.props` — `make` handles both before the schema lookup — so the
 -- two most-typed keys in the layer were the two the suggester could not help
 -- with: `UI.Text{ idd = … }` and `UI.VStack{ childern = … }` listed every valid

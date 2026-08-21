@@ -282,7 +282,7 @@ function text_audit.clippedEssential(rects: { [string]: any }, opts: any?): { Fi
 		if type(facts) ~= "table" or facts.truncated ~= true then
 			continue
 		end
-		-- a declared full-value path satisfies the ladder: the LTN-4 plate
+		-- a declared full-value path satisfies the ladder: the large-text accessibility plate
 		-- (`disclose`) or the auto reveal's travel (`reveal`, 2026-08-04)
 		if facts.disclose == true or facts.reveal == true or allowed(path) or isHidden(roots, path) then
 			continue
@@ -480,7 +480,7 @@ end
 	At most `max` (default 1) moving text surfaces may run in the active
 	presentation. Trivial by design: the counter is the presenter's, this is only
 	the rule, and having the rule pure is what stops a future engaged reveal from
-	proliferating silently (LTN-2 shipped a STATIC disclosure precisely so the
+	proliferating silently (large-text accessibility shipped a STATIC disclosure precisely so the
 	count is zero today).
 ]]
 function text_audit.movingText(count: number, max: number?): { Finding }

@@ -29,7 +29,7 @@ This project binds itself to the four measured offsets `{0, 4, 10, 14}` and to a
 
 ## The two recorded candidate designs, read against that measurement
 
-`docs/reference/swiftui-parity.md` §4.2 records both, with what each gives up.
+The comparison document §4.2 records both, with what each gives up.
 Neither survives contact unchanged, and the reason is a constraint neither of
 them was written against.
 

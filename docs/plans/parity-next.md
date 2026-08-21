@@ -1,4 +1,4 @@
-# Plan: the next work toward SwiftUI-quality authoring on Roblox
+# Plan: the next work toward best-in-class declarative authoring on Roblox
 
 **Status:** Written 2026-07-24 as a revised proposal; **status table refreshed
 against shipped reality 2026-08-13** (see "Where this stands today" and the
@@ -10,8 +10,7 @@ milestone table at the end). This plan changes no runtime code.
 > It was written on 2026-07-24 and several of its findings — "no `ViewThatFits`,
 > adaptive stack, or custom-layout protocol", "the current primitive calculates
 > overflow but does not provide native scrolling" — describe a build that no
-> longer exists. The current inventory is
-> [`../reference/swiftui-parity.md`](../reference/swiftui-parity.md), rewritten
+> longer exists. The current inventory is the comparison document, rewritten
 > 2026-08-13 with a citation on every verdict. The ten investments and the
 > priority rules are still the governing plan; only the *state* claims are
 > historical.
@@ -23,8 +22,9 @@ framework to make it usable, appropriate, and efficient on phones, tablets,
 desktop computers, and television/console setups. A future spatial target should
 fit the same model without forcing every game screen to be rewritten.
 
-That goal is larger than matching a list of SwiftUI type names. The useful parts of
-SwiftUI are the authoring guarantees around the controls:
+That goal is larger than matching a list of another framework's type names. The
+useful parts of a mature declarative framework are the authoring guarantees
+around the controls:
 
 - common layouts and controls are easy to express;
 - state, identity, environment, focus, and presentation compose predictably;
@@ -32,16 +32,15 @@ SwiftUI are the authoring guarantees around the controls:
 - a view can adapt to available space without duplicating the whole screen;
 - previews and diagnostics make mistakes visible before release.
 
-Facet adds Roblox-specific guarantees SwiftUI does not need: semantic Input Action
+Facet adds Roblox-specific guarantees a desktop framework does not need: semantic Input Action
 System integration, simultaneous input classes, ten-foot presentation, server-owned
 state adapters, headless deterministic tests, and world-space render targets.
 
 ## Audit verdict
 
-The detailed inventory in
-[`../reference/swiftui-parity.md`](../reference/swiftui-parity.md) is substantially
-correct about the currently exported controls and layouts. Its original 69-item
-count is a bounded catalog, not a percentage score for all of SwiftUI. The 2026
+The detailed inventory in the comparison document is substantially correct about
+the currently exported controls and layouts. Its original 69-item count is a
+bounded catalog, not a percentage score for a whole framework. The 2026
 validation adds several conclusions that change the work order:
 
 1. **Authoring safety is a release feature.** Blueprint constructors accept unknown
@@ -56,7 +55,7 @@ validation adds several conclusions that change the work order:
    carry their own scrolling behavior.
 4. **Roblox-native styling replaces the proposed custom style-protocol priority.**
    Native StyleSheets, state selectors, tags, and the Style Editor should cover the
-   common restyling need. A SwiftUI-like rendering-replacement protocol should be
+   common restyling need. A rendering-replacement protocol should be
    added later only for behavior native styling cannot express. Step 2 established
    native paint and palette themes, but not metric-aware or asset-backed theme
    packages; that cross-cutting gap follows the Step 3 control vocabulary.
@@ -70,18 +69,16 @@ validation adds several conclusions that change the work order:
    fault tests, fuzzers, and gates are a real advantage. They do not yet compensate
    for weak public types, silent properties, stale guide examples, or incomplete
    conformance registration.
-7. **SwiftUI moved further in 2026.** General container reordering, generalized
+7. **The reference framework moved further in 2026.** General container reordering, generalized
    swipe actions, gesture-source and velocity APIs, key-press handling, stronger
    focus interaction, sensory feedback, and spatial event data now belong in the
    comparison. They reinforce the need for reusable semantic interaction layers
    instead of control-specific input code.
 
 Official comparison sources:
-[SwiftUI overview](https://developer.apple.com/documentation/swiftui),
-[SwiftUI June 2026 updates](https://developer.apple.com/documentation/updates/swiftui),
-[SwiftUI layout fundamentals](https://developer.apple.com/documentation/swiftui/layout-fundamentals),
-[SwiftUI gestures](https://developer.apple.com/documentation/swiftui/gestures), and
-[SwiftUI accessibility fundamentals](https://developer.apple.com/documentation/swiftui/accessibility-fundamentals).
+the reference framework's overview, its June 2026 updates, and its layout,
+gesture and accessibility fundamentals pages. The comparison document carries
+those citations with the date each page was read.
 
 ## Priority rules
 
@@ -227,7 +224,7 @@ a separate visual-state system for these controls.
 
 ### 8. Generalize collection interaction
 
-SwiftUI's current direction is instructive: reordering and swipe actions apply to
+The reference framework's current direction is instructive: reordering and swipe actions apply to
 containers, not only one List type. Facet should similarly provide reusable pieces:
 
 - one virtualized, selectable, reorderable collection substrate;
@@ -380,10 +377,10 @@ and `be37e92`; suite 4534 green):
 
 - **No `*Style` protocols, ever** — investment 4's "Roblox-native styling replaces
   the proposed custom style-protocol priority" is now a settled architectural
-  position, not a sequencing choice. The mapping a SwiftUI author needs is in
+  position, not a sequencing choice. The mapping an incoming author needs is in
   §6.1 of the parity doc.
 - **No `LazyVStack`/`LazyHStack` names.** `newVirtualList` is the one lazy
-  collection surface and gained both axes; a constructor wearing SwiftUI's name
+  collection surface and gained both axes; a constructor wearing another framework's name
   over a uniform-extent requirement would be a parity claim the code does not
   honour.
 - **`sensoryFeedback` emits; it never plays.** The adapter is the game's opt-in.

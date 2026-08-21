@@ -5,7 +5,7 @@
 -- facts (UI-INPUT-001's platform-adapter rule). Returns an unbind function.
 
 local preferred_text = require("./preferred_text")
--- the pure inset arithmetic and its staleness test : engine-free, so
+-- the pure inset arithmetic and its staleness test: engine-free, so
 -- the conversion and the belt are provable without a rotating device
 local safe_insets = require("../env/safe_insets")
 
@@ -82,7 +82,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		env:set("viewportRect", { x = 0, y = 0, w = size.X, h = size.Y })
 		local topInset, bottomInset = GuiService:GetGuiInset()
 		-- Four-edge inset facts via the modern GuiService:GetInsetArea (native-
-		-- substrate NS-A1; spike m8-safe-area.json). The returned Rect is in the
+		-- substrate; spike m8-safe-area.json). The returned Rect is in the
 		-- SAME inset-subtracted space AbsolutePosition uses (engine truth: the
 		-- desktop CoreUISafeInsets rect reads (0,0)->(w,h-58) while the window
 		-- is h tall), so convert to window space by adding the legacy gui inset
@@ -188,7 +188,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		end)
 	end
 
-	-- PREFERRED TEXT SIZE (Step 8.5, decision LTN-1; probe artifact
+	-- PREFERRED TEXT SIZE (Step 8.5, the large-text decision; probe artifact
 	-- artifacts/large-text-accessibility/probe/preference-probe.json): the
 	-- engine paints every text node at TextSize + a per-preference constant
 	-- pixel offset (measured Medium=0 / Large=4 / Larger=10 / Largest=14,
@@ -253,7 +253,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 	pushInput()
 	pushAccessibility()
 
-	--[[ THE CAMERA IS RE-RESOLVED, NOT CAPTURED ONCE (PLAT-2, 2026-08-17).
+	--[[ THE CAMERA IS RE-RESOLVED, NOT CAPTURED ONCE (2026-08-17).
 
 		`workspace.CurrentCamera` was read at bind and never again, so a game that
 		replaces its camera — a cutscene rig, a spectator camera, a respawn — kept

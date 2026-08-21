@@ -106,7 +106,7 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 	-- always the title, whatever the presentation — and a READABLE, like the
 	-- four siblings that publish one (ProgressView, Stepper, Slider, Rating), so
 	-- an accessibility/readout layer can be written ONCE for the family
-	-- (CTRL-06). The title is construction-fixed here, so this is a static memo:
+	-- The title is construction-fixed here, so this is a static memo:
 	-- it is owned by the control scope and dies with dispose().
 	api.semanticText = scope:own(core:memo(function()
 		return spec.title

@@ -343,7 +343,7 @@ function virtual_reorder.new(deps: Deps)
 		end
 	end
 
-	-- ===== autoscroll (SF-L2) ================================================
+	-- ===== autoscroll ================================================
 	local autoscrollEnabled = if spec.autoscroll ~= nil then spec.autoscroll ~= false else rowsAreTargets
 	local autoscrollModel = if autoscrollEnabled
 		then autoscrollLib.new(if type(spec.autoscroll) == "table" then spec.autoscroll else nil)

@@ -308,7 +308,7 @@ export type TextSpec = BoxProps & {
 	-- string's — see blueprint_schema's LINE_LIMIT for the ruling
 	lineLimit: Bound<number>?,
 	-- bounded secondary/identity text whose full value must stay reachable once it
-	-- truncates (LTN-4). Construction-only, so never a `Bound<…>`
+	-- truncates. Construction-only, so never a `Bound<…>`
 	disclose: boolean?,
 	-- "auto": when this one-line text truncates, the presenter auto-scrolls its
 	-- whole value through the box (director 2026-08-04; the plan's rung-4
@@ -800,7 +800,7 @@ function blueprint.ZStack(spec: ZStackSpec): Blueprint
 	return make("ZStack", spec)
 end
 function blueprint.ScrollView(spec: ScrollViewSpec?): Blueprint
-	-- native-substrate NS-A2: a scroll region is ALWAYS a clip host — on the
+	-- the native substrate: a scroll region is ALWAYS a clip host — on the
 	-- native path the adapter mounts it as a ScrollingFrame (engine scroll +
 	-- clip); on the fallback path the same declaration still crops overflow
 	-- through the proven Frame+ClipsDescendants clip-host mechanism.
@@ -1691,7 +1691,7 @@ function blueprint.corners(bp: Blueprint, spec: any, style: any?): Blueprint
 end
 
 -- UI.stroke(bp, { thickness?, color?, transparency? }, style?) — a reactive
--- authored border (ADR-0022 Decision 6, row SF-P3). Defaults are the theme's
+-- authored border (ADR-0022 Decision 6). Defaults are the theme's
 -- hairline, so `UI.stroke(bp, {})` is the hairline the adapter already draws on a
 -- raised panel. The adapter materializes ONE bespoke `FacetStroke` child and
 -- reuses it, exactly as `UI.gradient` does — so no reactive update and no theme
@@ -1737,7 +1737,7 @@ function blueprint.cornersData(spec: any, style: any?): any
 	return stylingLib.normalizeCorners(spec, style)
 end
 
--- ===== drag and drop (ADR-0022 Decision 5; SF-D1/SF-D5) =====================
+-- ===== drag and drop (ADR-0022 Decision 5) =====================
 -- UI.draggable(bp, { payload, dragMotion?, proxy?, onCommitProxy?, grabAnchor?,
 -- declineTouch?, recycled?, promotionPx? }) and UI.dropTarget(bp, { accepts?, onDrop,
 -- onEnter?, onLeave? })
@@ -2169,7 +2169,7 @@ function blueprint.overlay(bp: Blueprint, content: Blueprint, align: string?): B
 	return layered(bp, content, "overlay", false, align)
 end
 
--- A BACKGROUND BACKS THE THING IT IS BEHIND (RS-A16-D2's second half, found by
+-- A BACKGROUND BACKS THE THING IT IS BEHIND (the rich-skinning v2 decision set's second half, found by
 -- the headless matrix audit). The layer therefore FILLS the wrapper unless it
 -- declares dimensions of its own: a ZStack child keeps its content size, so a
 -- plate written as `UI.background(tile, UI.Box({ surface = "control" }))` solved

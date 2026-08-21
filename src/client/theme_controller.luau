@@ -65,7 +65,7 @@ theme_controller.CAPABILITIES = table.freeze({
 	themeMetrics = "the ThemeSnapshot metric authority (always available)",
 	-- native StyleSheet paint: a per-package sheet linked at the target root
 	nativeStyleSheets = "native StyleSheet paint on a target that owns its root",
-	-- opt-in sheet property transitions (progressive enhancement, NSS-P3 rider)
+	-- opt-in sheet property transitions (progressive enhancement, the native stylesheets work rider)
 	styleTransitions = "native paint transitions (opt in per target)",
 })
 
@@ -460,7 +460,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		themeMetrics = true,
 		nativeStyleSheets = mode == "native",
 		-- transitions are PROGRESSIVE ENHANCEMENT and default OFF (their publish
-		-- status is the open NSS-P3 rider), so the engine merely being present is
+		-- status is the open the native stylesheets work rider), so the engine merely being present is
 		-- not provision: a target provides them only when it OPTED IN. Reporting
 		-- them as provided on every native target meant a package that REQUIRES
 		-- transitions installed happily onto a target that would never run one.
@@ -1127,7 +1127,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	-- install/lazy preload seam; PreloadAsync belt-and-braces by default". The
 	-- package half of that shipped — `chrome_slots.assetsToPreload` is real and
 	-- specced — but NOTHING ever asked for the list, so the shipped default was
-	-- no preload at all and RS-A17's preload numbers were list lengths (platform
+	-- no preload at all and rich-skinning v2's preload numbers were list lengths (platform
 	-- verifier F2).
 	--
 	-- It is an OPTS SEAM, not an unconditional fetch: this module is engine-free

@@ -1,5 +1,5 @@
 --!strict
---[[ THE ENVIRONMENT A CONTROL FINDS WHEN NOBODY HANDED IT ONE .
+--[[ THE ENVIRONMENT A CONTROL FINDS WHEN NOBODY HANDED IT ONE.
 
 	WHAT WAS WRONG. Adaptation was a fact the AUTHOR had to hand to the control,
 	and it failed SILENTLY. `picker.resolvePresentation(4, nil, 14)` returns

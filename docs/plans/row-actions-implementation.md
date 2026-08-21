@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** SwiftUI-parity swipe actions for rows — a general `newRowActions` composite (swipe reveals leading/trailing action buttons on springs, full swipe commits the first action), wired into Table with full cross-input coverage (touch, mouse, keyboard, gamepad, edit mode), then a full refresh of `docs/reference/swiftui-parity.md`.
+**Goal:** row swipe actions — a general `newRowActions` composite (swipe reveals leading/trailing action buttons on springs, full swipe commits the first action), wired into Table with full cross-input coverage (touch, mouse, keyboard, gamepad, edit mode), then a full refresh of the comparison document.
 
 **Architecture:** A pure decision module (`row_actions_state.luau`) owns all thresholds/verdicts; a composite (`row_actions.luau`) owns blueprints, springs, input entry points, and the contribution bundle (outside-dismiss, action bindings); Table wraps each row and composes pointer handlers with reorder via an axis lock. Spec: `docs/plans/row-actions.md`.
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Repo: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet` (git branch `sponsor/director-round-2026-08-04`; commit only your own files, other uncommitted work exists — including `docs/reference/swiftui-parity.md`, do not clobber it).
+- Repo: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet` (git branch `sponsor/director-round-2026-08-04`; commit only your own files, other uncommitted work exists — including the comparison document, do not clobber it).
 - Run one spec: `lune run tests/run -- tests/<name>.spec.luau`. Full suite: `./run-tests.sh`. Gates: `tools/gate.sh <gate-name>`.
 - Suite-grep gate checks MUST use Form A: `out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*<test name>"` — never pipe the suite straight into grep (masks exit code).
 - Specs are validated at build: `specGuard.assertKnownKeys(where, spec, KEYS, "spec")` with `specGuard.keySet({...})`; unknown keys are errors; empty action list `{}` is an error (use nil).
@@ -61,7 +61,7 @@ type Verdict = {
 }
 ```
 
-Sign convention: positive offset = content pushed right = **leading** tray revealed; negative = **trailing**. `settle` picks: commit when the edge allows fullSwipe and `|projected| >= COMMIT_FRACTION * rowWidth` (projected = offset + velocityX * VELOCITY_PROJECT_S); else open (`target = ±trayWidth`) when `|projected| >= OPEN_FRACTION * trayWidth`; else closed (`target = 0`). An edge with zero tray width never opens (clamp rubber-bands immediately). `clampDrag` past the tray width without fullSwipe compresses: `trayWidth + (raw - trayWidth) * RESISTANCE`; with fullSwipe it tracks the finger linearly (SwiftUI stretch).
+Sign convention: positive offset = content pushed right = **leading** tray revealed; negative = **trailing**. `settle` picks: commit when the edge allows fullSwipe and `|projected| >= COMMIT_FRACTION * rowWidth` (projected = offset + velocityX * VELOCITY_PROJECT_S); else open (`target = ±trayWidth`) when `|projected| >= OPEN_FRACTION * trayWidth`; else closed (`target = 0`). An edge with zero tray width never opens (clamp rubber-bands immediately). `clampDrag` past the tray width without fullSwipe compresses: `trayWidth + (raw - trayWidth) * RESISTANCE`; with fullSwipe it tracks the finger linearly (a linear stretch).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -364,7 +364,7 @@ git commit -m "feat(row-actions): newRowActions composite — spec, trays, stati
 - Consumes: presenter's motion clock. The composite receives it the way drag_registry does (`presenter.luau:461-462` creates `self.motionClock`); trace how a composite reaches it — expected path: the presenter/contribution seam. If composites cannot reach the presenter clock today, add an optional `motion` field to the contribution bundle mirroring how `bindActionSystem` is delivered, and have the presenter supply `motionClock` on attach. Keep the fallback: no clock (bare mount in a unit test) = snap to target.
 - Produces: `_open/_close` now animate; `_settleTo(verdict)` for Task 5.
 
-Behavior: one spring drives `offset` (`motionClock:spring(0, "object")` — match the class name drag flight uses at `drag_registry.luau:376`). `core:observe(spring, ...)` writes `applyOffset(spring:get())` (dispose pattern: `drag_registry.luau:388-396`). Tray buttons resize proportionally: each button's width = `trayFraction * |offset| / trayWidth`, so buttons "stretch in" with the reveal (SwiftUI feel) — derive per-button width from the same observed value, no second spring. Reduced motion: springs already snap under reduced policy (decorative default) — assert it, don't special-case it.
+Behavior: one spring drives `offset` (`motionClock:spring(0, "object")` — match the class name drag flight uses at `drag_registry.luau:376`). `core:observe(spring, ...)` writes `applyOffset(spring:get())` (dispose pattern: `drag_registry.luau:388-396`). Tray buttons resize proportionally: each button's width = `trayFraction * |offset| / trayWidth`, so buttons "stretch in" with the reveal (the parity feel) — derive per-button width from the same observed value, no second spring. Reduced motion: springs already snap under reduced policy (decorative default) — assert it, don't special-case it.
 
 > **This paragraph was the spec, and the shipped code did not honour it for a
 > DRAG.** The proportional branch was gated on the reveal spring existing, and a
@@ -495,7 +495,7 @@ it("menu traps focus while open (transientScope)", ...)
 - Modify: `src/controls/row_actions.luau` (accept an internal `editing: Readable<boolean>?` seam field)
 - Test: extend `tests/row_actions.spec.luau`
 
-Behavior (iOS pattern): while `editing` is true and the row has a destructive action, a leading minus button (diameter `controls.rowActions.editAffordance`, `danger` glyph on `surfaceStrong`) appears via `UI.When` — same conditional-mount pattern as Table's handle (`table.luau:1079-1122`). Activating it opens the trailing tray with the destructive action emphasized (just `_open("trailing")` — the tray already paints destructive in danger). It does NOT delete directly (matches iOS: minus reveals Delete, a second tap confirms).
+Behavior (the edit-mode pattern): while `editing` is true and the row has a destructive action, a leading minus button (diameter `controls.rowActions.editAffordance`, `danger` glyph on `surfaceStrong`) appears via `UI.When` — same conditional-mount pattern as Table's handle (`table.luau:1079-1122`). Activating it opens the trailing tray with the destructive action emphasized (just `_open("trailing")` — the tray already paints destructive in danger). It does NOT delete directly (the two-step: minus reveals Delete, a second tap confirms).
 
 - [ ] **Step 1: Failing tests:** minus absent when not editing / absent when no destructive action / tap opens trailing tray.
 - [ ] **Step 2–4: FAIL → implement → PASS + suite. Step 5: Commit** `feat(row-actions): edit-mode delete affordance`
@@ -591,16 +591,16 @@ Per the root constitution: Facet changes ship with Rascal Rally consumer work in
 
 ---
 
-### Task 14: Full swiftui-parity re-audit
+### Task 14: Full parity re-audit
 
 **Files:**
-- Modify: `docs/reference/swiftui-parity.md` — **it has uncommitted local edits; `git diff docs/reference/swiftui-parity.md` FIRST and reconcile, never clobber.**
+- Modify: the comparison document — **it has uncommitted local edits; `git diff` the comparison document.md` FIRST and reconcile, never clobber.**
 
 - [ ] **Step 1: Read the current doc + its uncommitted diff; inventory its item list and section structure.**
-- [ ] **Step 2: Dispatch fresh-context subagents, one per area (state/reactivity, layout, controls, styling/theming, input/accessibility, motion, performance, tooling/preview), each given: the area's old audit verdicts, the current SwiftUI (June 2026/Xcode 27) baseline for that area (WebSearch as needed), and instructions to re-verdict every item against today's Facet citing file/test evidence — no verdict without a citation. Fresh context is the point: old judgments must not survive by inertia.**
-- [ ] **Step 3: Synthesize into the doc: new validation date (today), per-area verdict tables, an explicit "changed since 2026-07-22" section, the swipeActions row flipped to covered citing `newRowActions` + `tests/row_actions*.spec.luau`, Facet version updated (0.5.0 → the Task-12 version).**
+- [ ] **Step 2: Dispatch fresh-context subagents, one per area (state/reactivity, layout, controls, styling/theming, input/accessibility, motion, performance, tooling/preview), each given: the area's old audit verdicts, the reference framework's current (June 2026) baseline for that area (WebSearch as needed), and instructions to re-verdict every item against today's Facet citing file/test evidence — no verdict without a citation. Fresh context is the point: old judgments must not survive by inertia.**
+- [ ] **Step 3: Synthesize into the doc: new validation date (today), per-area verdict tables, an explicit "changed since 2026-07-22" section, the swipe actions row flipped to covered citing `newRowActions` + `tests/row_actions*.spec.luau`, Facet version updated (0.5.0 → the Task-12 version).**
 - [ ] **Step 4: One fresh-context reviewer subagent reads only the final doc for internal consistency and unsupported claims; fix findings.**
-- [ ] **Step 5: Commit** `docs: full swiftui-parity re-audit against v0.<N> (row actions shipped)`
+- [ ] **Step 5: Commit** `docs: full parity re-audit against v0.<N> (row actions shipped)`
 
 ---
 

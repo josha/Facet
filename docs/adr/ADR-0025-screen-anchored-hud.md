@@ -37,12 +37,11 @@ structural, not a bug.**
   `src/blueprint_schema.luau` `anchor`), so **pinning was already expressible** through `UI.Anchor`.
 - **But anchored siblings do not reserve space from each other.** `UI.Anchor` places every child
   against the same box independently; nothing in the solver forbids two of them growing into one
-  another. That is exactly the screenshot, and it is the same bargain SwiftUI makes: a `ZStack` "is
-  a view that overlays its subviews, aligning them in both axes"
-  ([ZStack](https://developer.apple.com/documentation/swiftui/zstack), read 2026-08-14), and
-  `overlay(alignment:)` "layers the views that you specify in front of this view"
-  ([overlay(alignment:content:)](https://developer.apple.com/documentation/swiftui/view/overlay(alignment:content:)),
-  read 2026-08-14). *Overlay* is the word. Neither framework's corner vocabulary reserves anything.
+  another. That is exactly the screenshot, and it is the same bargain any overlay stack
+  makes: such a stack overlays its subviews and aligns them on both axes, and
+  and an overlay modifier layers the views you name in front of the view it is
+  attached to (the comparison document carries the citation and the date it was
+  read). *Overlay* is the word, and no corner vocabulary reserves anything.
 - The viewport change itself is handled correctly already — a URL bar shrinking the height moves
   `viewportRect` and the surface re-solves once (optimization log L-29). **The re-layout fires. The
   layout simply has no rule that forbids collision.**

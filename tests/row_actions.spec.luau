@@ -961,7 +961,7 @@ describe("RowActions control", function()
 	-- Two things changed the ruling. (1) The device report: a player in edit
 	-- mode taps the minus and expects the row to go. (2) The justification did
 	-- not survive checking — the documented rules cover the control's APPEARANCE
-	-- (`UITableViewCell.EditingStyle.delete`, "a red circle enclosing a minus
+	-- (the documented delete affordance, "a red circle enclosing a minus
 	-- sign") and documents that edit mode "provides controls to delete or move
 	-- list items", but documents NO behaviour for tapping it. The source
 	-- comment's "the platform pattern" was an uncited recollection, and round 2 was

@@ -240,7 +240,7 @@ library safe to require from server or shared code. See
 ## Extension playbooks
 
 Facet is designed so a new maintainer can extend it without relying on unstated
-repository history. There are six playbooks, one per kind of change. Each ships
+repository history. There are seven playbooks, one per kind of change. Each ships
 scaffolds, deliberately failing tests, registration checks, deterministic state
 dumps, four-input proofs, lifecycle checks, and documentation gates.
 

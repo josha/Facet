@@ -26,6 +26,11 @@ What it must never reject: code blocks, inline code, tables' cell contents,
 links, and exact API, Roblox-class, path, or command names. Fenced blocks and
 inline code spans are removed before any rule looks at a line.
 
+One deliberate exception to "must not reject links": a link's TARGET is removed,
+but its LABEL is kept and scanned, because the label is the text a reader sees.
+`[TP-A97](../artifacts/x.md)` therefore fails rule 3 — the shorthand is on the
+page whatever it points at.
+
 Usage:  python3 tools/check_doc_style.py [--selftest] [--warnings]
 Exit 0 = clean; 1 = a FAIL-class violation; 2 = environment failure.
 """

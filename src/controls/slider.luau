@@ -152,7 +152,7 @@ function slider.build(Facet: any, core: any, spec: Spec)
 	end
 	local model = value_model.new({ min = spec.min, max = spec.max, step = spec.step, format = spec.format })
 	local tapToPosition = spec.tapToPosition ~= false
-	-- RUNG-2 OVERRIDES, normalized ONCE at build: a bad per-state map names the
+	-- rung-2 OVERRIDES, normalized ONCE at build: a bad per-state map names the
 	-- prop here instead of quietly painting `default` in every state forever.
 	local trackOverride = hintFor(id, "sliderTrack", "trackImage", spec.trackImage)
 	local thumbOverride = hintFor(id, "sliderThumb", "thumbImage", spec.thumbImage)

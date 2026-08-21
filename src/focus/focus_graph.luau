@@ -60,8 +60,8 @@ export type NavigationGroup = {
 	--[[ THE SECOND AXIS (ADR-0030). An integer >= 1 declaring that this group's
 		`order` is LINES of `columns` LANES, row-major, in document order — which is
 		exactly what a lazy grid's mounted band already is. `axis` then names the
-		LANE direction (a LazyVGrid's lanes run across, so it declares "horizontal";
-		a LazyHGrid's run down, so it declares "vertical"), and the perpendicular
+		LANE direction (a vertical grid's lanes run across, so it declares "horizontal";
+		a sideways grid's run down, so it declares "vertical"), and the perpendicular
 		direction moves ±`columns`: one whole line, keeping the lane.
 
 		THE INVARIANT: the order is a COMPLETE rectangle and only the LAST line may
@@ -966,7 +966,7 @@ function focus_graph.new(core: any)
 		end
 		local order = (group :: NavigationGroup).order
 		local n = #order
-		-- step along the axis, SKIPPING ineligible entries (SF-L3)
+		-- step along the axis, SKIPPING ineligible entries
 		local j = i + axisDelta
 		while j >= 1 and j <= n do
 			if isFocusable(scope, order[j]) then
@@ -1006,7 +1006,7 @@ function focus_graph.new(core: any)
 				direction, so ±1 is pointed at whichever axis can answer it. The presenter
 				drives this from the VERTICAL arrow (`navigate(dir)`, the path a scope
 				takes when its groups arrived after the push — DB-4's flat-to-grouped
-				upgrade), which is why a LazyVGrid's `horizontal` group would have sent a
+				upgrade), which is why a vertical grid's `horizontal` group would have sent a
 				DOWN press rightward. A 2-D group answers all four directions, so there is
 				nothing left to guess and the verb keeps its own reading: down/up. ]]
 			local twoDimensional = group ~= nil and laneCount(group) ~= nil
@@ -1040,7 +1040,7 @@ function focus_graph.new(core: any)
 		local n = #order
 		-- the first probe honours the caller's delta; the rest advance one slot
 		-- at a time in the same direction, so skipping never turns a ±1 step into
-		-- a ±2 one (SF-L3)
+		-- a ±2 one
 		local step = if delta >= 0 then 1 else -1
 		local k = i + delta
 		for _ = 1, n do
@@ -1128,7 +1128,7 @@ function focus_graph.new(core: any)
 	-- reorder/churn — gamepad support 2026-07-20): keeps focus when it
 	-- survives the new map, else enters the first group.
 	--
-	-- A FLAT scope is UPGRADED rather than refused (device round 1, DB-4). A
+	-- A FLAT scope is UPGRADED rather than refused (device round 1). A
 	-- surface whose only group-declaring control lives inside a `UI.When` is
 	-- flat at present time and grouped the moment that region opens; refusing
 	-- the upgrade left it navigating a flat ring for the rest of its life, with
@@ -1377,7 +1377,7 @@ function focus_graph.new(core: any)
 		return true
 	end
 
-	-- ===== active-interaction exemption (SF-L3) ===========================
+	-- ===== active-interaction exemption ===========================
 	-- The node an in-progress interaction is aiming at keeps its focusability
 	-- for as long as the interaction lives. Calling this again MOVES the
 	-- exemption (a drag's hovered target changes as the player navigates); the

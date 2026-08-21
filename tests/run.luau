@@ -319,7 +319,7 @@ require("./grid_row.spec")
 -- arithmetic, not a second one. The solver's flow grid is written in LANE/FLOW
 -- terms and binds those two words to width/height exactly twice, so a column-flow
 -- grid is provably the TRANSPOSE of the row-flow grid it mirrors (this spec's
--- central case). It is what a `LazyHGrid`'s mounted band can be
+-- central case). It is what a sideways grid's mounted band can be
 require("./grid_column_flow.spec")
 -- round 3 item A: FLOW-WRAP. `UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }`
 -- — Roblox's `UIListLayout.Wraps`, which Facet had no spelling for. One prop, one
@@ -604,7 +604,7 @@ require("./selection_indicator.spec")
 -- the vertical rail, and the indicator adopted as the segmented default
 require("./picker_segments.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
--- submenus that nest without a cap, and the five triggers that close `.contextMenu`
+-- submenus that nest without a cap, and the five triggers that close the context-menu construct
 require("./menu.spec")
 --[[ ...and the two SHOWCASE SURFACES D2 and D5 shipped WITHOUT. Both constructs
 	landed with spec fixtures only, so the director could load the showcase on a

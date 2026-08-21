@@ -136,7 +136,7 @@ function screen_paint.new(ctx: any)
 		return activeTheme() or { colors = style.colors, extra = style.extra }
 	end
 
-	-- THE CONTINUOUS-COLOUR WRITE (ADR-0022 Decision 6, rows SF-P1/SF-P2).
+	-- THE CONTINUOUS-COLOUR WRITE (ADR-0022 Decision 6).
 	--
 	-- One engine property per class — the one paint channel that class owns — and
 	-- each is claimed before it is written (see claimPaint): the sheet cannot express
@@ -633,7 +633,7 @@ function screen_paint.new(ctx: any)
 	-- surface roles for containers/rows (style authority; opted in via the
 	-- blueprint `surface` prop): raised | control | scrim
 	--
-	-- NATIVE MODE (NSS-A2): the surface hint becomes a tag, never a write —
+	-- NATIVE MODE: the surface hint becomes a tag, never a write —
 	-- the sheet's surface rules own fills/transparency and its ::UICorner/
 	-- ::UIStroke rules CREATE the phantom chrome (spike m2: materializing a
 	-- real modifier instance here would silently defeat those rules).

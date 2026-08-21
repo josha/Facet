@@ -41,7 +41,7 @@ local spec_guard = {}
 export type KeySet = { [string]: boolean }
 
 --[[ "Did you mean" for an unknown key, cheap and bounded. THE THRESHOLD IS
-	WRITTEN HERE (ARCH-17): distance <= 2, case-SENSITIVE. It used to be implicit
+	WRITTEN HERE: distance <= 2, case-SENSITIVE. It used to be implicit
 	in a `bestD = 3` initialiser inside a private copy of the matrix, which is how
 	this module and `src/themes/package.luau` came to agree while
 	`src/blueprint_schema.luau` and the two motion registries used a

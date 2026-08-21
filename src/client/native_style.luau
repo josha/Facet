@@ -227,7 +227,7 @@ export type Handle = {
 export type EnsureOpts = {
 	host: Instance?, -- explicit override of both lookup and creation host
 	-- transitions are PROGRESSIVE ENHANCEMENT and default OFF (platform
-	-- verifier 2026-07-24: publish status is the open NSS-P3 rider; the
+	-- verifier 2026-07-24: publish status is the open the native stylesheets work rider; the
 	-- instant-change path is today's look). Opt in explicitly per target.
 	transitionsEnabled: boolean?,
 	theme: string?, -- initial theme; default model.defaultTheme
@@ -283,7 +283,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	local mirrorsEnabled = (opts and opts.mirrors) ~= false
 
 	--[[ EVERY WRONG-SCHEMA SHEET FOUND IS DESTROYED, NOT JUST THE LAST ONE
-		(PLAT-24, 2026-08-17). The host search can look in TWO containers, and
+		(2026-08-17). The host search can look in TWO containers, and
 		`stale` was a single slot that the second lookup overwrote: a pre-schema
 		artifact sitting in ReplicatedStorage survived whenever the PlayerGui
 		lookup answered, keeping a sheet with this exact name and the wrong schema
@@ -488,7 +488,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	-- reducedMotion wiring (renderer) calls setTransitionsEnabled(true) when
 	-- RM turns off, which must NOT enable transitions on a target that never
 	-- opted in. Calls are pcall-guarded: SetPropertyTransitions publishability
-	-- is the NSS-P3 rider, and a missing/errored method must degrade to the
+	-- is the native stylesheets work rider, and a missing/errored method must degrade to the
 	-- instant path, never fail the mount.
 	local transitionsOptedIn = (opts and opts.transitionsEnabled) == true
 	local function setTransitionsEnabled(on: boolean)

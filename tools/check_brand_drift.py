@@ -114,7 +114,32 @@ VENDOR = re.compile(
     re.IGNORECASE,
 )
 
-VENDOR_PROFILE = (VENDOR,)
+#[[ THE OTHER FRAMEWORK'S TYPE NAMES. `VENDOR` matches the vendor, its
+#   operating systems, its sample applications and its domains. It matches no
+#   TYPE names, and a reference page that explains a Facet property by naming
+#   another framework's type is the prohibition verbatim — so these are matched
+#   too.
+#
+#   CASE-SENSITIVE, and that is load-bearing. `UI.sensoryFeedback` and
+#   `Controls.ProgressView` are Facet's own exports; the plan says not to rename
+#   a stable Facet API because another framework uses the same generic name, so
+#   `ViewThatFits` and `ProgressView` are deliberately absent. So is
+#   `SensoryFeedback`: Facet spells its own `UI.sensoryFeedback` that way in
+#   mounted-node ids, so the type name and a Facet identifier collide outright.
+#
+#   Every name below was checked against `lune run tools/lune/_probe_public_surface`
+#   on 2026-08-21: none of them is a Facet export. A name that later BECOMES one
+#   must come off this list rather than be worked around. ]]
+VENDOR_TYPES = re.compile(
+    r"\b(?:LazyVGrid|LazyHGrid|matchedGeometryEffect|EditButton|EditMode"
+    r"|TableColumn|TableColumnAlignment|TimelineView|PhaseAnimator"
+    r"|KeyPathComparator|swipeActions|symbolRenderingMode|foregroundStyle"
+    r"|accessoryCircularCapacity|popoverTip|TipKit|UITableViewCell|NSTableView"
+    r"|NSPopUpButton|NSTextField|UITextField|UIToolTipInteraction)\b"
+    r"|\.contextMenu\b"
+)
+
+VENDOR_PROFILE = (VENDOR, VENDOR_TYPES)
 
 # The earned gate ids that carry a retired stage name. Each is also a directory
 # under artifacts/, which is frozen evidence and never rewritten.
@@ -158,13 +183,119 @@ VENDOR_HISTORY = (
 
 # ...and the documents inside those directories that ARE maintained,
 # current-facing product surface. A reader is sent to each of these by a
-# shipped document, so each must read in Facet and Roblox terms.
+# shipped document, so each must read in Facet and Roblox terms. This list is
+# the floor: REACHABILITY (below) carves back in anything a shipped page links.
 VENDOR_HISTORY_MAINTAINED = (
     "docs/plans/release-candidate-review.md",
     "docs/plans/agent-execution-contract.md",
     "docs/plans/facet-consolidated-roadmap.md",
     "docs/research/2026-08-12-haptics-engine-facts.md",
 )
+
+#[[ ---- SCOPE BY REACHABILITY, NOT BY DIRECTORY -----------------------------
+#   A directory is a filing decision; what the rule is about is whether a
+#   READER is sent somewhere. A dated record nobody links is an archive. A
+#   dated record a shipped page links is that page's continuation, and the rule
+#   applies to it however it is filed — including an ADR, because "history" is
+#   not a licence for a linked document to teach a Facet concept in another
+#   vendor's terms.
+#
+#   THE SHIPPED SURFACE is the set of documents a Roblox developer is told to
+#   read. Anything it links, by markdown link, by written path, or by ADR
+#   number, is IN SCOPE at depth REACHABLE_DEPTH.
+#
+#   DEPTH IS 1, and that is a decision rather than a limitation. One click from
+#   a shipped page is still that page recommending a document. Several clicks
+#   through a roadmap hub reaches every plan the project has ever written,
+#   which is the archive the exclusion exists for. The measured size of the
+#   wider set is recorded in the wave's evidence file so the number is known
+#   rather than assumed.
+#
+#   The comparison document is a LEAF: it is content exception 1, and following
+#   its outbound links would drag its own sources into the shipped surface. ]]
+SHIPPED_SURFACE = (
+    "docs/guide/",
+    "docs/extending/",
+    "docs/reference/api.md",
+    "docs/reference/constitution.md",
+)
+REACHABLE_DEPTH = 1
+
+_MD_LINK = re.compile(r"\]\(([^)\s#]+)")
+_WRITTEN_PATH = re.compile(r"(?:\.\./|docs/)[A-Za-z0-9_./-]+\.md")
+_ADR_REF = re.compile(r"\bADR-(\d{4})\b")
+_reachable_cache = None
+
+
+def _adr_files():
+    root = os.path.join(REPO, "docs", "adr")
+    found = {}
+    if os.path.isdir(root):
+        for name in os.listdir(root):
+            match = re.match(r"ADR-(\d{4}).*\.md$", name)
+            if match is not None:
+                found[match.group(1)] = f"docs/adr/{name}"
+    return found
+
+
+def _references(rel, adrs):
+    """Every document this one sends a reader to, however it spells the link."""
+    try:
+        with open(os.path.join(REPO, rel), encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return set()
+    out = set()
+    here = os.path.dirname(rel)
+    for match in _MD_LINK.finditer(text):
+        target = match.group(1)
+        if not target.startswith(("http", "mailto:")):
+            out.add(os.path.normpath(os.path.join(here, target)))
+    for match in _WRITTEN_PATH.finditer(text):
+        target = match.group(0)
+        out.add(os.path.normpath(os.path.join(here, target) if target.startswith("../") else target))
+    for match in _ADR_REF.finditer(text):
+        if match.group(1) in adrs:
+            out.add(adrs[match.group(1)])
+    return {p.replace("\\", "/") for p in out}
+
+
+def reachable_documents():
+    """The documents the shipped surface sends a reader to, cached."""
+    global _reachable_cache
+    if _reachable_cache is not None:
+        return _reachable_cache
+    adrs = _adr_files()
+    # walked from disk, not from git: a shipped chapter that is not committed
+    # yet is still a page a reader is sent to, and the selftest depends on it
+    frontier = []
+    for entry in SHIPPED_SURFACE:
+        root = os.path.join(REPO, entry)
+        if os.path.isfile(root):
+            frontier.append(entry)
+            continue
+        if not os.path.isdir(root):
+            continue
+        for name in sorted(os.listdir(root)):
+            if name.endswith(".md"):
+                frontier.append(entry.rstrip("/") + "/" + name)
+    seen = set(frontier)
+    for _ in range(REACHABLE_DEPTH):
+        nxt = []
+        for rel in frontier:
+            if rel == PARITY_DOC:
+                continue
+            for target in _references(rel, adrs):
+                if not target.endswith(".md") or target.startswith("artifacts/"):
+                    continue
+                if not os.path.isfile(os.path.join(REPO, target)):
+                    continue
+                if target not in seen:
+                    seen.add(target)
+                    nxt.append(target)
+        frontier = nxt
+    _reachable_cache = seen
+    return seen
 
 # (path-prefix-or-exact, pattern-that-may-match, reason, removal rule) — same
 # shape as ALLOWLIST, applied only to the vendor profile.
@@ -250,9 +381,19 @@ VENDOR_ALLOWLIST = [
     #   document exists to hold; paraphrasing it would make the quotation
     #   false. Only the device/OS half of the profile is excused here, so a
     #   framework or vendor name in that file is still caught. ]]
+    #[[ SCOPED TO THE QUOTATION, NOT TO THE FILE (re-review §2). The first
+    #   version of this entry was file-scoped, so its stated reason — "verbatim
+    #   quotations" — also excused four lines of the author's OWN prose about
+    #   the machine the probe ran on. Those four are rewritten; the pattern now
+    #   requires the device name to sit inside quotation marks, which is what a
+    #   quotation is. ]]
     ("docs/research/2026-08-12-haptics-engine-facts.md",
-     re.compile(r"\bios\b|\biphone\b|\bmac\s?os\b|\bmac\b|\bipad\b", re.I),
-     "verbatim quotations of Roblox's own haptics device-support matrix",
+     re.compile(r"(?:[\"\u201c\u201d][^\"\u201c\u201d]*|^>\s)"
+                r".*?(?:\bios\b|\biphone\b|\bmac\s?os\b|\bmac\b|\bipad\b)",
+                re.I),
+     "verbatim quotations of Roblox's own haptics device-support matrix; the device name has "
+     "to be inside the quotation marks, or on a blockquote line, which is how a quotation "
+     "that wraps is written in markdown",
      "when Roblox restates that matrix without naming those devices"),
     #[[ THE ENGINE'S OWN DEVICE CATALOG. Roblox Studio's device emulator ships a
     #   catalog of real hardware profiles, and two kinds of test hold those
@@ -432,16 +573,27 @@ def allow(scope_path, line_text, pattern, allowlist):
             # The BRAND shortcut is deliberately not extended to the tag half:
             # "this file may name the old product" is not "this file may keep a
             # `luau-*` theme tag".
-            if pat.search(line_text) or (pat is BRAND and pattern is BRAND):
+            # An entry written against VENDOR excuses the whole vendor profile:
+            # "this file may carry the other framework's language" is one fact,
+            # and its type names are that language too.
+            if pat.search(line_text) \
+               or (pat is BRAND and pattern is BRAND) \
+               or (pat is VENDOR and pattern is VENDOR_TYPES):
                 return True
     return False
 
 
 def vendor_history_skips(scope_path):
-    """A dated record, and not one of the maintained documents inside one."""
+    """A dated record nobody sends a reader to.
+
+    Three ways to stay in scope: the path is not a dated record at all; it is
+    named in VENDOR_HISTORY_MAINTAINED; or a shipped document links it.
+    """
     if scope_path in VENDOR_HISTORY_MAINTAINED:
         return False
-    return any(scope_path.startswith(prefix) for prefix, _reason, _removal in VENDOR_HISTORY)
+    if not any(scope_path.startswith(prefix) for prefix, _reason, _removal in VENDOR_HISTORY):
+        return False
+    return scope_path not in reachable_documents()
 
 
 def scan_file(abs_path, scope_path, hits, profile=BRAND_PROFILE, allowlist=ALLOWLIST):
@@ -623,8 +775,9 @@ def selftest():
           "pattern each caught, `luau-analyze`/`luau-lsp` deliberately not; "
           "rule 2: a planted vendor word in src/ and one in docs/guide outside "
           "a marked block each caught, the same word inside a marked block "
-          "deliberately not, an over-long and an unclosed block each caught; "
-          "restored tree clean")
+          "deliberately not, an over-long and an unclosed block each caught, "
+          "and an unlinked dated record went IN scope the moment a shipped page "
+          "linked it; restored tree clean")
     return 0
 
 
@@ -659,6 +812,29 @@ def selftest_vendor():
             scan_file(path, scope, found, VENDOR_PROFILE, VENDOR_ALLOWLIST)
             return found
 
+        #[[ THE REACHABILITY ARM. A dated record nobody links is out of scope; the
+        #   same file becomes IN scope the moment a shipped page links it, and
+        #   nothing about the file itself changes. Both halves are driven here,
+        #   because a scope rule nobody has watched switch is a scope rule
+        #   nobody knows the shape of. ]]
+        global _reachable_cache
+        _reachable_cache = None
+        unlinked = "docs/plans/reachability_probe_tmp.md"
+        with open(os.path.join(REPO, unlinked), "w") as f:
+            f.write("# probe\n\nThis reads like SwiftUI on iOS.\n")
+        probes = probes + (os.path.join(REPO, unlinked),)
+        before = vendor_history_skips(unlinked)
+        guide = os.path.join(REPO, "docs", "guide", "reachability_probe_tmp.md")
+        with open(guide, "w") as f:
+            f.write(f"# probe\n\nSee [the plan](../plans/reachability_probe_tmp.md).\n")
+        probes = probes + (guide,)
+        _reachable_cache = None
+        after = vendor_history_skips(unlinked)
+        if not before or after:
+            print("check_brand_drift: SELFTEST FAIL (rule 2) — reachability did not decide "
+                  f"scope: unlinked skipped={before}, linked skipped={after}")
+            return 1
+
         caught_src = scan(src_probe, "src/vendor_probe_tmp.luau")
         caught_guide = scan(guide_probe, "docs/guide/vendor_probe_tmp.md")
         inside_block = scan(marked_probe, "docs/guide/marked_probe_tmp.md")
@@ -682,6 +858,7 @@ def selftest_vendor():
         for path in probes:
             if os.path.exists(path):
                 os.unlink(path)
+        _reachable_cache = None
     return 0
 
 

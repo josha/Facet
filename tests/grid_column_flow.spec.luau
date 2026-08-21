@@ -6,7 +6,7 @@
 	named in its `axis = "x"` refusal: the lazy grid's whole design is that the
 	mounted band IS a real `UI.Grid`, so the lane formula EXECUTES rather than
 	being copied into the control. Without a column-major mode there was nothing
-	for a `LazyHGrid`'s band to be, and hand-rolling one would have been the second
+	for a sideways grid's band to be, and hand-rolling one would have been the second
 	column arithmetic the design exists to avoid.
 
 	`flow = "column"` is that mode. The solver's flow grid is written once, in

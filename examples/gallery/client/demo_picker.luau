@@ -238,7 +238,7 @@ demo_picker.DEMOS = {
 	-- moved onto the playlist tutorial (`ex02` below), which now carries the
 	-- resizable header, the live width readout and the selected-column hint.
 	-- ...and the lazy grid, for the reason every fixture here is listed: a
-	-- `LazyVGrid` over five thousand cells and an eager grid over five thousand
+	-- a vertical grid over five thousand cells and an eager grid over five thousand
 	-- cells paint the same first screen, so the only place the feature exists is
 	-- the count of cells that were ever built — and the lane chips move every item
 	-- to a different line without moving the one under your eye.
@@ -249,7 +249,7 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "virtual_grid",
 	},
-	-- ...and the same control turned a quarter turn onto the x axis (LazyHGrid). The
+	-- ...and the same control turned a quarter turn onto the x axis (sideways grid). The
 	-- picker carries both because the difference is not a value you can read off a
 	-- status line: the lanes run DOWN, the lines advance RIGHTWARD, and the
 	-- keyboard ring steps a cell with Down and a whole line with Right.

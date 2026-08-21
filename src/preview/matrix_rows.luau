@@ -128,7 +128,7 @@ matrix_rows.ROWS = {
 		risk = "ten-foot sizing, focus visibility, and large-view composition",
 		--[[ the row is worth running only if the session really enters the
 			ten-foot presentation: Large display class is what drives the ×1.5 type
-			floor, the ×1.5 METRIC ladder (ADAPT-8, director ruling 2026-08-20 —
+			floor, the ×1.5 METRIC ladder (director ruling 2026-08-20 —
 			control heights, spacing, icon sizes and the hit floor scale with the
 			type, so every text-to-control proportion at three metres equals its
 			near proportion), the overscan margins and the strengthened focus
@@ -280,7 +280,7 @@ function matrix_rows.resolve(catalog: { CatalogEntry }, rowId: string, pinned: C
 		-- narrowest first; among equal minor axes the SMALLEST TOTAL CANVAS,
 		-- because that is the tightest layout. This deliberately selects by
 		-- canvas, not by how weak the hardware is: the weakest-device question
-		-- is a physical row (XP-P1) that no emulator can answer.
+		-- is a physical row that no emulator can answer.
 		for _, e in ranked(pool, { minorAxis, area }) do
 			table.insert(candidates, {
 				entry = e,

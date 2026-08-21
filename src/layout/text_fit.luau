@@ -53,7 +53,7 @@ export type FitSpec = {
 	-- the floor has a box that is too small, which is a LAYOUT decision (drop it,
 	-- step it down) rather than something to solve by painting unreadably.
 	floor: number?,
-	-- THE PAINT-TIME ADDITIVE OFFSET (Step 8.5, LTN-1): the engine paints every
+	-- THE PAINT-TIME ADDITIVE OFFSET (Step 8.5): the engine paints every
 	-- text node at `TextSize + offset(preference)`, so a size chosen to fit a
 	-- box WITHOUT the offset overflows it the moment the player raises their
 	-- text preference — measured live: the production role-pick CTA ellipsized

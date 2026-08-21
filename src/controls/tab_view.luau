@@ -191,7 +191,7 @@ local AUTOMATIC_INDICATOR = "underline"
 
 local FILL = table.freeze({ type = "fill", weight = 1 })
 local NATURAL = table.freeze({ type = "content" })
---[[ THE CENTRED BAND'S TWO BOXES (ADAPT-4). `hug` is the word that makes one
+--[[ THE CENTRED BAND'S TWO BOXES. `hug` is the word that makes one
 	declaration serve both halves of the promise: it is the content's own width
 	CAPPED AT THE OFFER, so a three-tab strip is 193px (and its ZStack parent
 	centres it) while an eight-tab strip caps at the band and scrolls. `content`
@@ -343,7 +343,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- never reaches it, so a page's own tabs cannot claim the app's home.
 	local policySource: any = nil
 	if requestedPlacement == "automatic" and not nested then
-		--[[ THE THIRD ROUTE (ADAPT-1, 2026-08-18): the surface's own environment.
+		--[[ THE THIRD ROUTE (2026-08-18): the surface's own environment.
 			This control has always REFUSED rather than guessed, which is the pattern
 			the rest of the framework has now adopted — but a refusal is only the
 			right answer when nothing can answer, and the core a TabView is built on
@@ -510,7 +510,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			})
 		end,
 	})
-	--[[ THE TWO CENTRED HOMES (ADAPT-4, audit 2026-08-18). `adaptive.luau` states
+	--[[ THE TWO CENTRED HOMES (audit 2026-08-18). `adaptive.luau` states
 		the contract twice — `bottomBarCompact` is "the SAME bottom bar in its
 		reduced, inline, CENTERED form" and `topBar` is "a CENTER-ALIGNED top tab
 		bar that HUGS its content" — and api.md repeats it in two places. This file

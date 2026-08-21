@@ -67,7 +67,7 @@ function screen_pointer.new(ctx: any)
 	local CURSOR_ART: { [string]: string } = ctx.cursorArt or {}
 	local hoverHint: string? = nil
 	local captureHint: string? = nil
-	--[[ THE HOST'S CURSOR IS BORROWED, NOT OWNED (PLAT-5, 2026-08-17).
+	--[[ THE HOST'S CURSOR IS BORROWED, NOT OWNED (2026-08-17).
 
 		This used to write `UserInputService.MouseIcon = <art> or ""` on every hint
 		change — including every hint CLEAR and the whole-adapter teardown. `""` is
@@ -373,7 +373,7 @@ function screen_pointer.new(ctx: any)
 		activeCapture = { handle = handle, connections = connections }
 		captureHint = handle.cursorHint
 		applyCursor()
-		--[[ THE CAPTURE BELONGS TO THE FINGER THAT OPENED IT (PLAT-6, 2026-08-17).
+		--[[ THE CAPTURE BELONGS TO THE FINGER THAT OPENED IT (2026-08-17).
 
 			`UserInputService.InputChanged`/`InputEnded` are GLOBAL: with two fingers
 			down, the second one's moves drove the first one's drag and the second
@@ -505,7 +505,7 @@ function screen_pointer.new(ctx: any)
 	-- cursor hint left over. The hint is released REGARDLESS of whose capture set
 	-- it — a hint from a capture on another root is already stale as of this root's
 	-- teardown.
-	--[[ TWO TEARDOWNS, NOT ONE (PLAT-4, 2026-08-17). `disposeGlobals` used to
+	--[[ TWO TEARDOWNS, NOT ONE (2026-08-17). `disposeGlobals` used to
 		disconnect the adapter-wide `MenuOpened` connection on ANY `destroyRoot`,
 		and an adapter hosts several roots at once — the presenter mounts and
 		retires a transient popup-catcher root reactively, so the FIRST such

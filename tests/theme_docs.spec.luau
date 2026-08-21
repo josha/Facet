@@ -525,6 +525,36 @@ describe("the guide index catalogs the live public surface", function()
 		expect(problemsMentioning(result, "names 'UI.Sparkle', which the library no longer exports")).toBe(1)
 	end)
 
+	--[[ THE THREE HOLES THE RE-REVIEW FOUND. Direction (b) used to scan for a
+		dotted `UI.x`/`Controls.x` token anywhere in the file, so an invented
+		TOP-LEVEL export, an invented member of any OTHER namespace, and an
+		invented `client.*` row all lingered with no error. It now reads the
+		capability COLUMN of every catalog row, which is the bound that lets it
+		judge a bare name as a claim rather than as prose. ]]
+	it("fails when the catalog invents a top-level export", function()
+		local invented = string.gsub(index, "| `mount` |", "| `newSparkle` | `mount` |", 1)
+		expect(invented ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = invented } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "names 'newSparkle', which the library no longer exports")).toBe(1)
+	end)
+
+	it("fails when the catalog invents a member of a namespace that is not UI or Controls", function()
+		local invented = string.gsub(index, "| `adaptive` |", "| `adaptive.nope` | `adaptive` |", 1)
+		expect(invented ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = invented } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "names 'adaptive.nope', which the library no longer exports")).toBe(1)
+	end)
+
+	it("fails when the catalog invents a client module row", function()
+		local invented = string.gsub(index, "| `client%.host` |", "| `client.nope_target` | `client.host` |", 1)
+		expect(invented ~= index).toBe(true)
+		local result = checker.check({ fileOverrides = { [INDEX] = invented } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "names 'client.nope_target', which the library no longer exports")).toBe(1)
+	end)
+
 	it("fails when a catalog row links an API-reference heading that does not exist", function()
 		local broken = string.gsub(index, "api%.md#screen%)", "api.md#no-such-heading)", 1)
 		expect(broken ~= index).toBe(true)

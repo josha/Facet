@@ -33,7 +33,7 @@ already half again as large.
 
 **The director ruled on 2026-08-20, against the audit's own keep-type-only
 recommendation:** on ten-foot, controls, spacing, icons and hit floors scale with the
-type, tvOS-style.
+type, ten-foot style.
 
 ## Decision 1 — one factor, and the equality it buys
 

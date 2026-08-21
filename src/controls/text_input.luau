@@ -62,7 +62,7 @@ export type Spec = {
 	submitLabel: ("default" | "done" | "go" | "next" | "search" | "send")?,
 	clearButton: boolean?, -- trailing × affordance; sugar for clearButtonMode = "always"
 	-- WHEN the trailing ✕ is offered, spelled the way the platform convention spells it
-	-- (`UITextField.clearButtonMode`), because that vocabulary already exists in
+	-- (the conventional clear-button modes), because that vocabulary already exists in
 	-- every designer's head and the four states are the four real answers:
 	--   "never"          no affordance at all (the default)
 	--   "whileEditing"   only while the field has focus — the search-field
@@ -172,7 +172,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		`TextInput '{id}': submitLabel must be one of default|done|go|next|search|send (got '{tostring(spec.submitLabel)}')`
 	)
 
-	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO . `env` was an optional key
+	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO. `env` was an optional key
 		and three behaviours were gated on it: the keep-visible offset that lifts
 		the field off the on-screen keyboard, the touch-at-edit-start snapshot, and
 		the dock-mid-edit commit. Without it `occlusionOffset` stayed 0 — measured:
@@ -480,7 +480,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
-	-- TAB LEAVES THROUGH THE COMMIT PATH (roadmap Step 8, DK-12). Desktop Tab out
+	-- TAB LEAVES THROUGH THE COMMIT PATH (roadmap Step 8). Desktop Tab out
 	-- of a text field means "I am done with this field" — so it runs the SAME
 	-- commit the Return key and a focus loss run (defensive re-validate, then
 	-- `onCommit`), ends the edit, and returns false so the presenter advances the

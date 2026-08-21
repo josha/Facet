@@ -1,6 +1,6 @@
 --!strict
 --[[ MENU — a freestanding action menu attachable to ANY blueprint
-	(navigation-and-menus brief §2 D2). This is what closes `.contextMenu`.
+	(navigation-and-menus brief §2 D2). This is what closes the context-menu construct.
 
 	ITEMS ARE VERBS, NOT VALUES, and that is the whole reason this is a control
 	rather than a property on `newPopupButton`. That control's `value` is a
@@ -32,8 +32,8 @@
 
 	SUBMENUS ARE STRUCTURALLY UNBOUNDED AND DIAGNOSED AT DEPTH >= 2 (director
 	ruling 2026-08-16). No structural cap exists — a menu nests inside a menu
-	arbitrarily — while the interface guidance says it is *"generally best to restrict
-	them to a single level"*. An earlier draft capped at 2 and was wrong in both
+	arbitrarily — while the interface guidance says it is generally best to restrict
+	them to a single level. An earlier draft capped at 2 and was wrong in both
 	directions: it forbade what the API allows and permitted twice what the
 	guidance advises. So nothing here refuses depth; `diagnostics()` names it.
 
@@ -44,7 +44,7 @@
 	live surface under `sheet` at any depth, and `dump().surfaces` is where a test
 	reads that rather than trusting the shape.
 
-	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. The guidance: *"if all of a menu's
+	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. The guidance: if all of a menu's
 	items are unavailable, the menu itself needs to remain available so people can
 	open it and learn about the commands it contains."* Nothing here counts
 	enabled items before presenting; swallowing the trigger is the "silently does
@@ -94,7 +94,7 @@ export type Spec = {
 	presentation: string?, -- automatic | menu | sheet
 	sizeClass: any?, -- string | Readable<string>
 	interactionClasses: any?, -- table | Readable<table>
-	--[[ the environment both facts above come from . Omitted, an
+	--[[ the environment both facts above come from. Omitted, an
 		automatic presentation finds the one this control's own core published, and
 		refuses to construct when there is none. ]]
 	env: any?,
@@ -198,7 +198,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 				table.insert(
 					notes,
 					`submenu '{itemId}' nests {depth + 1} levels deep. Facet sets no cap, but the `
-						.. 'interface guidance advises a single level: "it can be difficult for people to '
+						.. "interface guidance advises a single level: it can be difficult for people to "
 						.. 'reveal multiple levels of hierarchical submenus."'
 				)
 			end
@@ -208,7 +208,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	if actionable == 0 then
 		error(`Facet newMenu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
 	end
-	--[[ THE ICON LINT: "provide icons for all menu items in a group, or none
+	--[[ THE ICON LINT: provide icons for all menu items in a group, or none
 		of them"). A GROUP is the run between two dividers, which is what makes this
 		checkable at authoring time at all: the author has already said where the
 		groups are. This is what keeps the new `icon` field from being a
@@ -227,7 +227,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	if actionable > menuRecipe.GROUP_SIZE_ADVICE then
 		table.insert(
 			notes,
-			`{path} holds {actionable} items; the interface guidance advises that "if a submenu contains more than about `
+			`{path} holds {actionable} items; the interface guidance advises that if a submenu contains more than about `
 				.. `{menuRecipe.GROUP_SIZE_ADVICE} items, consider creating a new menu".`
 		)
 	end
@@ -354,7 +354,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		a keyboard being put down and re-presents. Read non-reactively (`:get()`) it
 		would have been correct at every open and stale for the whole time one was
 		up — the shape that makes a hot-switch defect device-only. ]]
-	--[[ THE FACTS, AND WHERE THEY COME FROM . Both were spec keys and
+	--[[ THE FACTS, AND WHERE THEY COME FROM. Both were spec keys and
 		nothing else, and `interactionClasses` was wired at exactly ONE place in all
 		of `examples/` — so the touch->sheet rung, the reference platform's own
 		default, fired nowhere. Authored keys still win; otherwise the surface's own
@@ -381,7 +381,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		if requestedPresentation ~= "automatic" then
 			return requestedPresentation
 		end
-		-- PRIMARY, not merely present (ADAPT-9): one predicate, in the recipe
+		-- PRIMARY, not merely present: one predicate, in the recipe
 		local touchLive = menuRecipe.touchPrimary(useFact(use, classesSource))
 		local resolved = menuRecipe.resolvePresentation(
 			menuRecipe.actionableCount(spec.items),

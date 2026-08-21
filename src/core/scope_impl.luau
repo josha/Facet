@@ -18,7 +18,7 @@ local scope_impl = {}
 --     Verified 2026-07-28 by a fresh-context review.
 --
 --     The previous wording here — "fires only for a scope with TWO owners" — was
---     false in both directions : measured, it fires for a
+--     false in both directions: measured, it fires for a
 --     scope with ZERO owners, which is exactly what the `double-dispose-detected`
 --     conformance check asserts, and it does NOT fire for a scope literally owned
 --     by two parents. That mattered because this header is deliberately the single

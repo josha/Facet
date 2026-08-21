@@ -15,7 +15,7 @@
 	    NUMBER. The `cell` factory increments a counter and the status line reports
 	    "cells built: N of 5000" beside the mounted-window size, which is the only
 	    place the feature exists. Fling the grid to the bottom and N moves by tens
-	    while the collection is five thousand; that difference IS `LazyVGrid`.
+	    while the collection is five thousand; that difference IS a vertical grid.
 	  · THE REFLOW KEEPS THE PLAYER'S PLACE. The lane chips rewrite `columns`
 	    live, and a lane-count change moves EVERY item to a different line — a
 	    grid's own destabilizer, which `newVirtualList` never has because there an

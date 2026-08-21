@@ -60,7 +60,7 @@ function textReveal.new(ctx: any)
 
 	--[[ ════════════════════ THE AUTO REVEAL (marquee) ════════════════════
 
-		Director ruling 2026-08-04, superseding LTN-2's "no marquee shipped" for
+		Director ruling 2026-08-04, superseding large-text accessibility's "no marquee shipped" for
 		surfaces that DECLARE it: a `UI.Text{ reveal = "auto" }` that TRUNCATED
 		auto-scrolls its whole value. The plan's rung-4 constraint list binds:
 
@@ -78,7 +78,7 @@ function textReveal.new(ctx: any)
 		  and the return ends back in the ellipsis rest.
 		· STATIC ALTERNATIVE — a reveal node is ALSO a disclosure source (the
 		  renderer wires the same engagement zones), so hover dwell / long-press
-		  raise the LTN-4 plate; a live plate for this label OUTRANKS the travel.
+		  raise the large-text accessibility plate; a live plate for this label OUTRANKS the travel.
 		· REDUCED MOTION — travel never starts, and a mid-flight flip retires the
 		  strip on the next tick. The plate remains the full-value path.
 		· AT MOST ONE — one strip across every surface; `self.movingText()` feeds
@@ -207,7 +207,7 @@ function textReveal.new(ctx: any)
 			return false -- nothing hidden to reveal (a stale verdict; the verify path retires it)
 		end
 		-- facts.size is the MEASURED size, which already carries the preference
-		-- offset (LTN-1: the offset applies once, at the measure seam) — the strip
+		-- offset (large-text accessibility: the offset applies once, at the measure seam) — the strip
 		-- declares the pre-offset size so the engine lands on the same paint
 		local offsetFact = env:get("preferredTextOffset"):get()
 		local offset = if type(offsetFact) == "number" then math.clamp(offsetFact, 0, 32) else 0

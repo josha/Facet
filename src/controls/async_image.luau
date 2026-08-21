@@ -1,5 +1,5 @@
 --!strict
--- AsyncImage composite : an Image whose content
+-- AsyncImage composite: an Image whose content
 -- arrives through the async resource provider — placeholder while pending,
 -- the fetched content when ready, and a visible failure state when the
 -- transport reports failure. Engine-free: the provider supplies state/value
@@ -69,7 +69,7 @@ function async_image.build(Facet: any, core: any, spec: any)
 	local width = spec.width or { type = "fixed", px = "controls.image.defaultSize" }
 	local height = spec.height or { type = "fixed", px = "controls.image.defaultSize" }
 
-	-- retry counts and spacing are a CALL-SITE decision (RL-19): an avatar in a
+	-- retry counts and spacing are a CALL-SITE decision: an avatar in a
 	-- results list can afford two spaced attempts; a decorative badge cannot.
 	local handle =
 		spec.provider.acquire(spec.scope, spec.key, if spec.retry ~= nil then { retry = spec.retry } else nil)

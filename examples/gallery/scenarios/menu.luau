@@ -51,7 +51,7 @@
 	    tell the two apart without looking.
 
 	AND ONE CARD EXISTS FOR A REFUSAL: a menu whose every item is disabled still
-	OPENS. The guidance: "if all of a menu's items are unavailable, the menu itself needs
+	OPENS. The guidance: if all of a menu's items are unavailable, the menu itself needs
 	to remain available so people can open it and learn about the commands it
 	contains." A trigger that silently does nothing cannot be told from a dead
 	button, which is why it gets a card of its own rather than a line in a doc.
@@ -159,14 +159,14 @@ return {
 			plain data with no state on it, so every card can hand the control its own
 			fresh table off one definition. `f1`'s own verbs.
 
-			THE ICON RULE IS PER GROUP AND ALL-OR-NOTHING ("provide icons for all
-			menu items in a group, or none of them"), and a divider is what starts a
+			THE ICON RULE IS PER GROUP AND ALL-OR-NOTHING (provide icons for all
+			menu items in a group, or none of them), and a divider is what starts a
 			new group — so the three items above the rule all carry one, the two below
 			it both carry one, and the submenu levels carry none. Get it wrong and the
 			control REFUSES rather than drawing a ragged column.
 
 			FIVE ACTIONABLE ITEMS AT THE TOP LEVEL, WHICH IS THE CEILING AND IS
-			DELIBERATE. The other standing advice — "if a submenu contains more than
+			DELIBERATE. The other standing advice — if a submenu contains more than
 			about five items, consider creating a new menu" — is diagnosed per LEVEL
 			rather than per group, so a sixth verb here would put a second line in the
 			readout below that this fixture never meant to demonstrate. The list is

@@ -97,7 +97,7 @@
 -- It is a GROUP decision, not a per-option one, for the same reason the tray
 -- ruling gives: a per-segment verdict makes one plate wear a glyph while its
 -- neighbour wears a word. The menu guidance says the same — "provide
--- icons for all menu items in a group, or none of them" — so a half-iconned
+-- icons for all menu items in a group, or none of them — so a half-iconned
 -- group is an authoring ERROR here, not a look somebody has to notice.
 --
 -- `label` stays REQUIRED and non-empty whatever is drawn: it is the semantic
@@ -424,7 +424,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 
-	--[[ THE SIZE CLASS ARRIVES BY ITSELF (ADAPT-1, 2026-08-18).
+	--[[ THE SIZE CLASS ARRIVES BY ITSELF (2026-08-18).
 
 		`sizeClass` nil used to mean `readSizeClass` returned nil, which made the
 		COMPACT branch of `resolvePresentation` unreachable: an automatic picker
@@ -713,7 +713,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			optionCount = #spec.options,
 			requestedPresentation = requested,
 			presentation = presentation:get(),
-			-- WHERE THE ADAPTIVE FACT CAME FROM : "spec" (the author wired
+			-- WHERE THE ADAPTIVE FACT CAME FROM: "spec" (the author wired
 			-- it), "core" (the surface's own environment answered, no wiring), or
 			-- "none" (a declared presentation, which consults no ladder at all). A
 			-- screen can be audited for adaptation it never had to author.

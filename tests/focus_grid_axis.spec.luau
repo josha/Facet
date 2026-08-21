@@ -41,8 +41,8 @@ local function cells(count: number): { string }
 end
 
 -- one scope holding one 2-D group. `axis` is the LANE axis, exactly as the grids
--- declare it: "horizontal" is a LazyVGrid (lanes across, lines down), "vertical"
--- is a LazyHGrid (lanes down, lines rightward).
+-- declare it: "horizontal" is a vertical grid (lanes across, lines down), "vertical"
+-- is a sideways grid (lanes down, lines rightward).
 local function gridScope(count: number, columns: number, axis: string?, extra: any?): any
 	local core = customFactory.new()
 	local graph = focus_graph.new(core)
@@ -62,7 +62,7 @@ end
 -- ===========================================================================
 describe("focus graph: a 2-D group answers the perpendicular direction itself", function()
 	it("the perpendicular direction moves a whole LINE, not one cell", function()
-		-- 12 cells, 4 lanes: the LazyVGrid shape. Down from c1 must be c5.
+		-- 12 cells, 4 lanes: the vertical grid shape. Down from c1 must be c5.
 		local graph = gridScope(12, 4)
 		expect(graph.focused:get()).toBe("c1")
 		graph.navigateDirection("down")
@@ -90,7 +90,7 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 	end)
 
 	it("TRANSPOSE: on a `vertical` lane axis the LINE move is Right/Left", function()
-		-- the LazyHGrid. Lanes run DOWN, lines advance RIGHTWARD, so the group's own
+		-- the sideways grid. Lanes run DOWN, lines advance RIGHTWARD, so the group's own
 		-- axis takes Down/Up and the perpendicular pair is Right/Left. The two grids
 		-- differ only in this direction pair, which is the whole reason the mechanism
 		-- is one field rather than two intercepts.
@@ -108,7 +108,7 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 			from the VERTICAL arrow on a scope whose groups arrived after the push
 			(`replaceGroups` upgrading a flat scope — device round 1, DB-4). For a 1-D
 			group it maps ±1 onto that group's only navigable axis, which for a
-			LazyVGrid's `horizontal` group would send a DOWN press RIGHTWARD. A 2-D
+			a vertical grid's `horizontal` group would send a DOWN press RIGHTWARD. A 2-D
 			group has both axes, so the mapping stops guessing and the verb keeps its
 			own reading: down/up. ]]
 		local vgrid = gridScope(12, 4, "horizontal")

@@ -81,7 +81,7 @@ text_metrics.LINE_HEIGHT_FACTOR = LINE_HEIGHT_FACTOR
 	THE SIZE THE MEASURE SEAM ASKS FOR. `measureScale` multiplies (an authored
 	size also reaches paint, so both seams scale it) and `offset` is ADDITIVE and
 	applied AFTER — the engine paints every text node at `TextSize + offset(the
-	player's PreferredTextSize)` at draw time (LTN-1), so folding the preference
+	player's PreferredTextSize)` at draw time, so folding the preference
 	into the scale is the double-application defect. Order matters and this is the
 	order: scale, then add.
 
@@ -142,7 +142,7 @@ end
 
 text_metrics.canonicalFont = canonicalFont
 
--- Engine calibration (UI-FID-001, native-substrate NS-A10): the Roblox
+-- Engine calibration (UI-FID-001, the native substrate): the Roblox
 -- adapter (src/client/text_calibration.luau) measures a reference corpus with
 -- the engine text-bounds API and feeds a per-font average-glyph fraction
 -- back here, TIGHTENING the conservative default. Pure data: tests pin it and

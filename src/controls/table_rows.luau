@@ -127,7 +127,7 @@ export type Deps = {
 	canEditMode: boolean,
 	-- the ONE environment `table.luau` resolved (`spec.env`, else the one
 	-- published against the core): a wrapped row's tray must not resolve its
-	-- metrics against a different one than the row box did (ISSUE-4)
+	-- metrics against a different one than the row box did
 	surfaceEnvironment: any,
 	selectedMemo: (string) -> any,
 	itemForKey: (string) -> any?,
@@ -215,7 +215,7 @@ function table_rows.new(deps: Deps)
 		return (spec.cellFor :: any)(column.id, item)
 	end
 
-	-- press→drag promotion, from the SHARED token table (ADR-0022 D5, SF-D3) —
+	-- press→drag promotion, from the SHARED token table (ADR-0022 D5) —
 	-- the value is the same 6 px this control has always used, sourced from the
 	-- one place a device round retunes it. The POINTER token is the right one
 	-- here even on a touch device: the row body declines the capture on touch
@@ -681,7 +681,7 @@ function table_rows.new(deps: Deps)
 					· REORDER — gamepad/keyboard reorder is focus + grab
 					  (UI-PARADIGM-001), and the auto Edit/Done toggle must never be a
 					  navigation dead end (live-drive regression 2026-07-21).
-					· ROW ACTIONS (ADAPT-13, 2026-08-18) — and this one was MISSING,
+					· ROW ACTIONS (2026-08-18) — and this one was MISSING,
 					  measured by the audit as "the table has ZERO focus stops: initial
 					  focus nil, twelve Down presses reach nil, Delete fired 0, ButtonX
 					  menu false". The focus stop IS the mechanism: with none, the engine
@@ -713,7 +713,7 @@ function table_rows.new(deps: Deps)
 				children = cells,
 			}),
 		}
-		--[[ ── WHAT THE EDIT-MODE GUTTER HOLDS (ADAPT-27, 2026-08-18) ───────────────
+		--[[ ── WHAT THE EDIT-MODE GUTTER HOLDS (2026-08-18) ───────────────
 			THE GUTTER WAS ALWAYS RESERVED AND SOMETIMES EMPTY. `cellsEditPadding`
 			insets every row's cells by `HANDLE_GUTTER` whenever editing, reorderable
 			or not — so a SELECTABLE, non-reorderable table entered edit mode, moved
@@ -951,7 +951,7 @@ function table_rows.new(deps: Deps)
 		this module exists for; `cellContent` is the SAME cell-content priority rule
 		(`column.cell` -> `column.value` -> `spec.cellFor`) offered to the one other
 		caller that has to answer the same question — the hidden-column disclosure
-		plate , which shows a collapsed column's values and must show the
+		plate, which shows a collapsed column's values and must show the
 		values the row itself would have. A second copy of that priority ladder in
 		`table.luau` is exactly the "two implementations that agree today" shape this
 		repository keeps finding at the bottom of its defects. ]]

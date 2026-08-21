@@ -204,7 +204,7 @@ function screen_chrome.new(ctx: Context)
 		return chrome_slots.resolveSlot(chromeState.package(), slot)
 	end
 
-	-- the RUNG-2 per-view override carried on the same hint (nil when absent)
+	-- the rung-2 per-view override carried on the same hint (nil when absent)
 	local function chromeOverrideOf(handle: any): any
 		local hint = handle.decorationHint
 		if type(hint) ~= "table" then
@@ -221,7 +221,7 @@ function screen_chrome.new(ctx: Context)
 	end
 
 	-- explicit-write half of the fallback flip (fallback mode only). `muted` is a
-	-- SECOND axis, not a synonym for `on` (RS-A16-D5): the art of the asset that
+	-- SECOND axis, not a synonym for `on` (rich-skinning v2): the art of the asset that
 	-- was condemned keeps drawing over the declared native fill, so its `IsLoaded`
 	-- can still report a recovery. It draws nothing while the asset really is
 	-- broken, which is why that costs no pixels.
@@ -802,7 +802,7 @@ function screen_chrome.new(ctx: Context)
 		for _, handle in handlesByPath do
 			-- a LAYERED node has no `handle.chrome` at all; without this half a
 			-- broken layer would never reach its fallback rules. NOR DOES A BAR
-			-- (RS-A16-D5): its art is the adapter-owned fill and ornaments, so a
+			-- (rich-skinning v2): its art is the adapter-owned fill and ornaments, so a
 			-- ledger change reached a bar's parts only if something else happened to
 			-- re-sync that node — which is also the path a RECOVERY has to travel.
 			if
@@ -822,7 +822,7 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
-	-- THE TWO FALLBACK TAGS, in ONE place (RS-A16-D5). `fallback` says "this slot
+	-- THE TWO FALLBACK TAGS, in ONE place (rich-skinning v2). `fallback` says "this slot
 	-- is drawing its declared native treatment" and carries the FILL; `mute` says
 	-- "and this art instance must not draw over it" and carries the hide. They
 	-- differ on exactly one instance: the art whose OWN asset was condemned keeps
@@ -927,7 +927,7 @@ function screen_chrome.new(ctx: Context)
 				end
 			end
 		end)
-		-- THE DEADLINE DEFERS, IT DOES NOT SKIP (RS-A16-D5). Art the engine was
+		-- THE DEADLINE DEFERS, IT DOES NOT SKIP (rich-skinning v2). Art the engine was
 		-- never asked to decode is not evidence about its asset — but it is not a
 		-- verdict of "healthy" either. A ScrollView's off-window rows would
 		-- otherwise never be judged at all, so a package whose art really is broken
@@ -980,7 +980,7 @@ function screen_chrome.new(ctx: Context)
 		task.delay(CHROME_ASSET_GRACE_SECONDS, judge)
 	end
 
-	-- THE JUDGEMENT, AS A DEV INSTRUMENT (RS-A16-D5). `chromeCensus` publishes
+	-- THE JUDGEMENT, AS A DEV INSTRUMENT (rich-skinning v2). `chromeCensus` publishes
 	-- which assets this target has CONDEMNED; this publishes whether the engine
 	-- was ever asked to decode the art that condemned them, over every art
 	-- instance the target owns — the exact population whose silence can reach the
@@ -1519,7 +1519,7 @@ function screen_chrome.new(ctx: Context)
 	local function syncChromeStackFallback(handle: any, slot: string)
 		for _, entry in handle.chromeStack or {} do
 			local child = entry.instance
-			-- per LAYER, not per stack (RS-A16-D5): the broken layer keeps its art
+			-- per LAYER, not per stack (rich-skinning v2): the broken layer keeps its art
 			-- (it draws nothing and is the only instrument that can report its own
 			-- recovery); every healthy sibling hides, which is what the mute is for
 			local want, muted, changed = syncChromeFallbackTags(child, slot, entry.layer.assetName, true)
@@ -1995,7 +1995,7 @@ function screen_chrome.new(ctx: Context)
 		return if #parts > 1 then table.concat(parts, "|") else ""
 	end
 
-	-- ===== RUNG-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4) ==================
+	-- ===== rung-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4) ==================
 	--
 	-- Rung 1 swaps a slot's picture with RULES, because the decoration carries
 	-- the package's tag. A rung-2 override is untagged ON PURPOSE — that is the
@@ -2146,7 +2146,7 @@ function screen_chrome.new(ctx: Context)
 		local override = chromeOverrideOf(handle)
 		local plan = if slot ~= nil then chromeState.planFor(slot, override) else nil
 		-- A LAYERED recipe (planFor returns nil for one, which is what keeps every
-		-- flat and nine-slice package byte-identical). A RUNG-2 override beats it:
+		-- flat and nine-slice package byte-identical). A rung-2 override beats it:
 		-- an explicit local value opts this node out of the theme, ladder included.
 		local stack = if slot ~= nil and not (plan ~= nil and plan.localOverride)
 			then chromeState.layerPlanFor(slot)
@@ -2400,12 +2400,12 @@ function screen_chrome.new(ctx: Context)
 		applySkinnedSuppression(instance, true)
 		syncChromeText(handle, deco :: ImageLabel, plan, 1)
 		syncChromeShadow(handle, slot, deco, chromeState.shadowFor(slot :: string))
-		-- RUNG-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4). An overridden
+		-- rung-2 PER-STATE ART (ADR-0020 R2, ledger RS-A4). An overridden
 		-- decoration is deliberately untagged, so no rule can swap its picture:
 		-- the adapter watches the node's own states and writes the art itself.
 		syncOverrideVariants(handle, plan)
 		local decoration = deco :: ImageLabel
-		-- a RUNG-2 override is untagged by design (no rule may reach its picture),
+		-- a rung-2 override is untagged by design (no rule may reach its picture),
 		-- so it takes neither fallback tag
 		local wantFallback, muted, changed =
 			syncChromeFallbackTags(decoration, slot :: string, plan.assetName, not plan.localOverride)

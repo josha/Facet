@@ -37,7 +37,7 @@
 	settled values, and they are quarantined: a throwing hook cannot starve its
 	siblings or escape into the render thread.
 
-	THE ADAPTIVE FACTS COME WITH THE HOST (ADAPT-1, 2026-08-18). `host.new` builds
+	THE ADAPTIVE FACTS COME WITH THE HOST (2026-08-18). `host.new` builds
 	the environment (step two of the six), and an environment publishes itself
 	against the core it was built on — so every control this host's presenter goes
 	on to mount finds the size class, the live interaction classes and the
@@ -80,7 +80,7 @@ export type Opts = {
 	parent: Instance?,
 	autoLocalize: boolean?,
 	themePackage: any?,
-	--[[ WHERE THIS SURFACE SITS AGAINST THE GAME'S OWN `ScreenGui`s (REUSE-122).
+	--[[ WHERE THIS SURFACE SITS AGAINST THE GAME'S OWN `ScreenGui`s.
 		Facet roots were created with `DisplayOrder` unset — which is 0, and the
 		audit found seventeen hand-made game `ScreenGui`s carrying scattered
 		numbers between 90 and 100, so every native surface floated above every

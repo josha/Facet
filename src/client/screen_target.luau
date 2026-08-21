@@ -96,7 +96,7 @@ local function fontFaceFor(descriptor: any): Font?
 	return text_premeasure.fontFor(descriptor.fontKey)
 end
 
--- authored `scaleMode` -> engine ScaleType (ADR-0022 Decision 6, row SF-P2).
+-- authored `scaleMode` -> engine ScaleType (ADR-0022 Decision 6).
 --
 -- `fill` and `crop` BOTH map to Crop, and that is deliberate rather than a
 -- collision: Roblox's `Crop` IS the cover behaviour every other UI vocabulary
@@ -127,12 +127,12 @@ local CLASS_TO_INSTANCE: { [string]: string } = {
 	Toggle = "TextButton",
 	Image = "ImageLabel",
 	TextField = "TextBox", -- §17 Phase 5 (UI.TextInput): the only engine text-entry instance
-	ScrollView = "ScrollingFrame", -- native scroll host (NS-A2); opts.forceScrollFallback keeps a Frame
+	ScrollView = "ScrollingFrame", -- native scroll host; opts.forceScrollFallback keeps a Frame
 	-- the engine-content box (ViewportFrame adoption 2026-08-08): a GuiObject that
 	-- renders its own scene. The adapter also creates and owns the WorldModel the
 	-- content lives in and the Camera the frame renders through — see buildHandle.
 	Stage = "ViewportFrame",
-	-- Path (NS-A7) renders as a transparent Frame holder + child Path2D
+	-- Path renders as a transparent Frame holder + child Path2D
 	-- containers and everything else render as Frames
 }
 
@@ -232,25 +232,25 @@ export type Opts = {
 	-- flat instance rendering, so BillboardTarget swaps ONLY the root — the
 	-- factory returns { gui = <the container all nodes parent under> }
 	rootFactory: ((screenId: string) -> { gui: Instance })?,
-	-- native-substrate NS-A2/NS-I2: render ScrollView nodes as plain Frame clip
+	-- the native substrate/the native substrate: render ScrollView nodes as plain Frame clip
 	-- hosts (no engine scrolling). Billboard targets set this until proven;
 	-- the gallery sets it from the Facet_ForceScrollFallback attribute so the
 	-- fallback path is exercised separately in Studio (never only headlessly).
 	forceScrollFallback: boolean?,
-	-- native-substrate NS-A5/NS-I2: force setDragDetector to return nil so the
+	-- the native substrate/the native substrate: force setDragDetector to return nil so the
 	-- raw pointer-capture fallback is exercised separately (A/B evidence runs)
 	forceDragFallback: boolean?,
-	-- native-stylesheets stage (ledger NSS-A2, plan §7 Phase 2): OPT-IN native
+	-- native-stylesheets stage (ledger the native stylesheets work, plan §7 Phase 2): OPT-IN native
 	-- paint. When set and the engine has StyleSheets, the adapter stops
 	-- explicit-writing every handed-off style property and instead CLASSIFIES
 	-- nodes (class + facet-* tags, sheet_model.classifyTags) under one
 	-- StyleLink per root; the DataModel sheet (seed-once, native_style.ensure)
 	-- owns fills, chrome, text paint, and interaction-state paint. Absent or
-	-- unsupported -> the explicit-write path below runs unchanged (NSS-A10
+	-- unsupported -> the explicit-write path below runs unchanged (the native stylesheets work
 	-- fallback parity). `true` builds the built-in Dark+Light model; a table
 	-- passes { model | handle, host, theme }.
 	-- table form also takes `transitions = true` to opt into sheet transitions
-	-- (progressive enhancement; default OFF until the NSS-P3 publish rider clears)
+	-- (progressive enhancement; default OFF until the native stylesheets work publish rider clears)
 	nativeStyle: (boolean | { model: any?, handle: any?, host: Instance?, theme: string?, transitions: boolean? })?,
 	-- theme-packages stage (ADR-0019 §5): the installed ThemePackage whose
 	-- chrome recipes decide DECORATION SLOTS. A package whose slots are all
@@ -326,7 +326,7 @@ function screen_target.new(opts: Opts?)
 	-- birth, to decide whether a new ScrollingFrame is born with its bar hidden.
 	local scrollIndicatorState = { policy = "always", reduced = false }
 
-	-- native-paint mode resolution (NSS-A2): capability-probed and opt-in.
+	-- native-paint mode resolution: capability-probed and opt-in.
 	local nativeHandle: any = nil
 	do
 		local nativeOpt: any = opts and (opts :: any).nativeStyle
@@ -351,7 +351,7 @@ function screen_target.new(opts: Opts?)
 					end
 					model = sheet_model.build({ themes = themes })
 				end
-				-- transitions are progressive-enhancement OPT-IN (NSS-P3 rider:
+				-- transitions are progressive-enhancement OPT-IN (the native stylesheets work rider:
 				-- publish status unconfirmed; default = instant change), and
 				-- reduced motion always wins over the opt. This is CONSTRUCTION
 				-- time, before the renderer has pushed anything, so it can only
@@ -459,7 +459,7 @@ function screen_target.new(opts: Opts?)
 		end)
 	end
 
-	-- CENTRAL native-authority gate (arch verifier 2026-07-24, NSS-I2): every
+	-- CENTRAL native-authority gate (arch verifier 2026-07-24): every
 	-- bespoke paint path calls this before writing a sheet-ownable engine
 	-- property. In native mode such a write would silently and permanently
 	-- defeat the rule (spike m10) — so a missed `if not nativeMode` guard is a
@@ -1018,7 +1018,7 @@ function screen_target.new(opts: Opts?)
 		gui.ResetOnSpawn = false
 		gui.IgnoreGuiInset = true
 		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		-- the target's floor against the game's own ScreenGuis (REUSE-122); the
+		-- the target's floor against the game's own ScreenGuis; the
 		-- presenter still stacks its surfaces above one another from here
 		if baseDisplayOrder ~= nil then
 			gui.DisplayOrder = baseDisplayOrder
@@ -1213,7 +1213,7 @@ function screen_target.new(opts: Opts?)
 			instanceClass = "Frame"
 		end
 		if class == "ScrollView" and opts ~= nil and opts.forceScrollFallback == true then
-			-- fallback path (NS-A2/NS-I2): identical clip-host behavior with no
+			-- fallback path: identical clip-host behavior with no
 			-- engine scrolling — billboard targets keep this until their
 			-- coordinate mapping is proven; also the A/B driver for evidence
 			instanceClass = "Frame"
@@ -1228,7 +1228,7 @@ function screen_target.new(opts: Opts?)
 			instance.BackgroundTransparency = 1
 		end
 		if instance:IsA("ScrollingFrame") then
-			-- native scroll host (NS-A2; spike m1/m2): the solver owns content
+			-- native scroll host (the native substrate; spike m1/m2): the solver owns content
 			-- geometry, so the canvas NEVER auto-sizes; the engine owns the
 			-- offset, physics, and bars. Region extent arrives via
 			-- setScrollRegion once solved.
@@ -1247,7 +1247,7 @@ function screen_target.new(opts: Opts?)
 			end
 			instance.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
 			instance.ScrollingDirection = Enum.ScrollingDirection.Y
-			instance.Selectable = false -- selection policy (NS-A11): never selectable by default
+			instance.Selectable = false -- selection policy: never selectable by default
 		end
 		local handle = { instance = instance, path = path, class = class }
 		if instance:IsA("CanvasGroup") then
@@ -1348,7 +1348,7 @@ function screen_target.new(opts: Opts?)
 			handle.foreignBox = true
 		end
 		if class == "Path" then
-			-- stroked-path leaf (NS-A7): engine Path2D strokes inside a
+			-- stroked-path leaf: engine Path2D strokes inside a
 			-- transparent holder; color comes from the style role hint
 			local path2d = Instance.new("Path2D")
 			path2d.Name = "Stroke"
@@ -1767,7 +1767,7 @@ function screen_target.new(opts: Opts?)
 				--[[ BUILD THE DESCRIPTION THE PURE LADDER JUDGES. Only an engine can
 					answer these, which is the whole reason the ladder takes facts
 					rather than an Instance — the headless twin states the same five
-					and both adapters then refuse identically (the SF-M9 discipline).
+					and both adapters then refuse identically (the headless-green/device-wrong class discipline).
 
 					`alive` is the interesting one: Roblox offers no `IsDestroyed`, and
 					a destroyed instance accepts every write except a non-nil Parent
@@ -1810,7 +1810,7 @@ function screen_target.new(opts: Opts?)
 	-- them with the engine's own bounds API off the render path and feeds the
 	-- widths back, which costs exactly one re-solve. Implementation and the
 	-- reasoning live in src/client/text_premeasure.
-	-- ...and the CANCEL comes back with it (PLAT-12): a boot-window batch answers
+	-- ...and the CANCEL comes back with it: a boot-window batch answers
 	-- twice, up to ~12 s apart, and a renderer torn down in between must not be
 	-- called back into a surface that no longer exists.
 	function adapter.measureTextWidths(requests: { any }, done: (results: { any }, final: boolean?) -> ()): () -> ()
@@ -1824,7 +1824,7 @@ function screen_target.new(opts: Opts?)
 		rootHandle.gui.Enabled = visible
 	end
 
-	-- native-style introspection + control surface (ledger NSS-A2/A6/A7; the
+	-- native-style introspection + control surface (ledger the native stylesheets work/A6/A7; the
 	-- scenario runner reads/drives these for the evidence artifacts)
 	function adapter.nativeStyleInfo(): any
 		if not nativeMode then
@@ -1989,7 +1989,7 @@ function screen_target.new(opts: Opts?)
 		return true
 	end
 
-	-- THE DECODE JUDGEMENT (RS-A16-D5), beside the census it explains: for every
+	-- THE DECODE JUDGEMENT (rich-skinning v2), beside the census it explains: for every
 	-- art instance this target owns, was the engine ever asked to decode it? An
 	-- undecoded image the target may NOT judge is one the player cannot see (hidden,
 	-- muted by a fallback, unsized, unsourced, or clipped entirely away by a scroll
@@ -2019,7 +2019,7 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		census.actualShadows = actualShadows
-		-- LAYER COST IN DATAMODEL UNITS (ledger RS-A17). `census.layers` counts
+		-- LAYER COST IN DATAMODEL UNITS (ledger rich-skinning v2). `census.layers` counts
 		-- declared LAYERS — the authoring unit, directly comparable with
 		-- chrome_slots.censusOf — while a `corners` layer is four ornaments and an
 		-- `edges` layer one rail per side. Both numbers are published because both
@@ -2083,7 +2083,7 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		census.actualFocusGlows = actualFocusGlows
-		-- lifted labels are decoration cost too (TP-M8): counted so the
+		-- lifted labels are decoration cost too: counted so the
 		-- flat-theme-zero and ornate-theme-exactly-N propositions stay honest
 		census.textLifts = chrome.textLifts()
 		return census
@@ -2173,7 +2173,7 @@ function screen_target.new(opts: Opts?)
 
 	-- ===== THE SCROLL SUBSYSTEM (src/client/screen_scroll_indicators) =====
 	--
-	-- native scroll host seam (native-substrate NS-A2; spikes m1/m2): the
+	-- native scroll host seam (the native substrate; spikes m1/m2): the
 	-- solver's content extent becomes the engine canvas; the ENGINE owns the
 	-- live offset (wheel, touch momentum, elastic, bars); observeScroll reports
 	-- engine-driven CanvasPosition changes back to the framework (windowing);
@@ -2218,7 +2218,7 @@ function screen_target.new(opts: Opts?)
 			return
 		end
 		handle.instance.Visible = visible
-		-- RS-A16-D1: the expander is a SIBLING of its control (it has to be, so the
+		-- the rich-skinning v2 decision: the expander is a SIBLING of its control (it has to be, so the
 		-- control keeps winning where they overlap), which means the host's Visible
 		-- does not reach it by parentage. Carry it explicitly: an activation surface
 		-- must never outlive the visibility of the thing it activates. This is the
@@ -2283,7 +2283,7 @@ function screen_target.new(opts: Opts?)
 			instance:SetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE, verb)
 		end)
 		-- ...AND THE EXPANDER, for the same reason `Visible` and `ZIndex` are
-		-- carried explicitly (RS-A16-D1): it is a SIBLING, so nothing about the host
+		-- carried explicitly (rich-skinning v2): it is a SIBLING, so nothing about the host
 		-- reaches it by parentage, and it is a `GuiButton` a haptics consumer will
 		-- sweep and decorate on its own. Left unmirrored it read as UNDECLARED — so
 		-- a control declared `none` was silent on its face and buzzed in the 44px
@@ -2313,7 +2313,7 @@ function screen_target.new(opts: Opts?)
 			expander.Selectable = false -- Facet's focus graph owns focus, not this
 			expander.ZIndex = instance.ZIndex - 1
 			-- born at the host's CURRENT visibility, so it cannot flash live for a
-			-- control that is already hidden (RS-A16-D1)
+			-- control that is already hidden (rich-skinning v2)
 			expander.Visible = instance.Visible
 			expander.Parent = instance.Parent
 			-- the SAME meta a press on the control itself carries, from its own
@@ -2346,7 +2346,7 @@ function screen_target.new(opts: Opts?)
 		-- relative to that host, so using the raw rect put the invisible activation
 		-- surface off by the host origin for every sub-floor control inside a
 		-- ScrollView, a clipped container, or a popup panel. It is the SHARED
-		-- placement path (RS-A16-D1b) so a host rect that arrives after this call
+		-- placement path (rich-skinning v2) so a host rect that arrives after this call
 		-- re-bases the expander with the control instead of leaving it behind.
 		applyHitExpander(handle)
 	end
@@ -2400,7 +2400,7 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- native drag acquisition (native-substrate NS-A5; spike m3-dragdetector):
+	-- native drag acquisition (the native substrate; spike m3-dragdetector):
 	-- attaches a UIDragDetector in CustomOffset mode so the DETECTOR never
 	-- writes Position (Facet's renderer keeps that authority — the default
 	-- Offset mode would fight it, measured in the spike). The engine owns
@@ -2477,7 +2477,7 @@ function screen_target.new(opts: Opts?)
 	end
 
 	--[[ THE POINTER'S SECONDARY BUTTON (navigation-and-menus D2) — the mouse half
-		of `.contextMenu`. `InputBegan` on the node's own instance, filtered to
+		of the context-menu construct. `InputBegan` on the node's own instance, filtered to
 		`MouseButton2`, which is the one input type the framework's primary-activate
 		path never claims: `setActivateHandler` rides `Activated`, and a
 		`GuiButton`'s `Activated` fires for the PRIMARY button and touch only, so
@@ -2489,7 +2489,7 @@ function screen_target.new(opts: Opts?)
 
 		`gameProcessedEvent` is deliberately NOT consulted — this connection is on
 		the GuiObject itself, so the engine already decided the press landed here.
-		Physical proof is a PENDING_PHYSICAL row (NM-X2): Studio's injected pointer
+		Physical proof is a PENDING_PHYSICAL row: Studio's injected pointer
 		arrives as `Touch`, not `MouseButton2`, so a headless or emulator pass can
 		prove the wiring and never the arbitration. ]]
 	function adapter.setSecondaryActivate(handle: any, fn: () -> ()): () -> ()
@@ -2507,11 +2507,11 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- native touch gestures (native-substrate NS-A6; corrections §2): the
+	-- native touch gestures (the native substrate; corrections §2): the
 	-- ENGINE recognizes; Facet normalizes into stable value objects
 	-- (src/input/touch_gestures) and composes/arbitrates purely. Connection is
 	-- proven headless+Studio; FIRING requires real touch (VIM touch injection
-	-- is RobloxScript-locked; emulator not MCP-drivable) — ledger row NS-P2.
+	-- is RobloxScript-locked; emulator not MCP-drivable) — ledger row the native substrate.
 	function adapter.setTouchGestureHandlers(handle: any, onGesture: (gesture: any) -> ()): () -> ()
 		local instance = handle.instance
 		if not instance:IsA("GuiObject") then
@@ -2557,7 +2557,7 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- engine-selection bridge (native-substrate NS-A12; spike m9): mirrors the
+	-- engine-selection bridge (the native substrate; spike m9): mirrors the
 	-- LOGICAL focus to GuiService.SelectedObject for an OPTED-IN modal only
 	-- (the renderer gates the calls). Measured constraints honored here: the
 	-- mirrored instance must be Selectable=true while selected (the engine
@@ -2567,7 +2567,7 @@ function screen_target.new(opts: Opts?)
 	-- restore the ORIGINAL Selectable when the mirror moves off an instance
 	-- (verifier F3: TextFields are intrinsically Selectable for native A-press
 	-- capture — hardcoding false would silently strip that). NOTE for the
-	-- physical row NS-P1: intrinsically-Selectable instances (TextField) give
+	-- physical intrinsically-Selectable instances (TextField) give
 	-- the engine's own navigator a second target while bridged — the pad test
 	-- must watch for engine self-navigation onto them (review packet).
 	local bridgeSelected: { handle: any, wasSelectable: boolean }? = nil
@@ -2678,7 +2678,7 @@ function screen_target.new(opts: Opts?)
 	function adapter.enableHover(handle: any)
 		local instance = handle.instance
 		if nativeMode then
-			-- native (NSS-A4): the pointer-live decision becomes a TAG — hover
+			-- native: the pointer-live decision becomes a TAG — hover
 			-- rules are compound-gated on it (.facet-pointer-live:Hover), so the
 			-- sheet can only paint hover where the renderer declared a live
 			-- pointer class. No connection is allocated; the engine owns the
@@ -2700,7 +2700,7 @@ function screen_target.new(opts: Opts?)
 		end)
 	end
 
-	-- FULL-VALUE DISCLOSURE ENGAGEMENT (Step 8.5, LTN-4). The disclosed Text
+	-- FULL-VALUE DISCLOSURE ENGAGEMENT (Step 8.5). The disclosed Text
 	-- node itself is the zone: MouseEnter/Leave feed the presenter's hover dwell,
 	-- and a stationary touch held past the threshold feeds its long-press seam.
 	-- Enter/Leave fire on any visible GuiObject regardless of Active, so the
@@ -3113,7 +3113,7 @@ function screen_target.new(opts: Opts?)
 				assertBespokePaint("TextColor3")
 				instance.TextColor3 = if value == "secondary" then COLOR.contentSecondary else COLOR.content
 			elseif handle.path2d ~= nil then
-				-- Path stroke color rides the style role hint (NS-A7): never a raw
+				-- Path stroke color rides the style role hint: never a raw
 				-- color from screen code — and, since 2026-08-14, never the palette
 				-- this target was CONSTRUCTED with either. A Path2D is adapter-owned
 				-- paint in every mode (no rule can select one), so the role resolves
@@ -3331,7 +3331,7 @@ function screen_target.new(opts: Opts?)
 				end
 			end
 		elseif prop == "transform" then
-			-- THE PRESENTATION TRANSFORM (ADR-0022 Decision 2; fixes SF-M9 — this
+			-- THE PRESENTATION TRANSFORM (ADR-0022 Decision 2; fixes the headless-green/device-wrong class — this
 			-- branch simply did not exist, so every keep-visible shift was a headless
 			-- green that never moved a device). The whole body is
 			-- `screen_presentation.setTransform`, because it is the one writer of that
@@ -3521,11 +3521,11 @@ function screen_target.new(opts: Opts?)
 			end
 			if instance:IsA("TextButton") then
 				handle.isSelected = value == true
-				-- a RUNG-2 map may declare `selected` art; nothing else repaints an
+				-- a rung-2 map may declare `selected` art; nothing else repaints an
 				-- untagged decoration
 				applyOverrideVariantArt(handle)
 				if nativeMode then
-					-- native (NSS-A5): the tag flip IS the state change — the
+					-- native: the tag flip IS the state change — the
 					-- "Selected row" rule paints it (and transitions animate it)
 					syncTags(handle)
 				elseif handle.applyRestingFill ~= nil then
@@ -3605,7 +3605,7 @@ function screen_target.new(opts: Opts?)
 		local instance = handle.instance
 		if instance:IsA("GuiObject") then
 			instance.ZIndex = z
-			-- the expander must stay exactly one BEHIND its control (RS-A16-D1b:
+			-- the expander must stay exactly one BEHIND its control (rich-skinning v2-D1b:
 			-- the two must never disagree). A structural sync can re-assign z
 			-- without moving any rect, so the mirror belongs here too.
 			if handle.hitExpander ~= nil then

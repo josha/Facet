@@ -4,13 +4,13 @@ Date: 2026-07-21 · Status: **Accepted** · Spec: input-paradigms expansion (pro
 
 ## Context
 
-**The live defect (director, 2026-07-21).** On a Mac running Studio with a physical
+**The live defect (director, 2026-07-21).** On a desktop running Studio with a physical
 gamepad, gallery example 02 showed no Edit button, though the auto Edit/Done machinery
 was green engine-free. The live trace (Studio MCP, same day) verified every layer:
 `UserInputService:GetPropertyChangedSignal("PreferredInput")` fires, `roblox_env.bind`
 pushes the fact, the Table memo re-evaluates, the `When` mounts/unmounts, and the
 adapter renders — both directions. The failing layer is the **engine fact itself**:
-commissioned platform research established that Studio on macOS frequently does not
+commissioned platform research established that Studio on that desktop frequently does not
 forward physical HID gamepads at all (`GamepadEnabled == false`, `GetConnectedGamepads()`
 empty — documented DevForum bug class, compounded by the Controller-Emulator occupying
 the `Gamepad1` slot), so `PreferredInput` *could not* report `Gamepad` in that session.
@@ -23,8 +23,8 @@ single value while real devices are multi-modal: a handheld has touch + gamepad 
 once; docking adds mouse/keyboard mid-session; a desktop with a pad connected is both a
 pointer and a gamepad machine. Any affordance keyed on `preferredInput` alone
 (`table.luau` pre-fix: `preferredInput ~= "KeyboardAndMouse"`) disappears for every
-class the single value does not name — exactly the SwiftUI lesson that multiple input
-modes coexist and arrive mid-session (research §10).
+class the single value does not name. Multiple input modes coexist and arrive
+mid-session (research §10).
 
 ## Decision
 
@@ -52,7 +52,8 @@ modes coexist and arrive mid-session (research §10).
 
 - The director's repro is fixed on every path the engine can report at all: pad
   detected (capability fact), pad producing input while undetected (sticky fallback),
-  or preference correctly flipped (primary). The one unfixable path — Studio/macOS not
+  or preference correctly flipped (primary). The one unfixable path — Studio on this
+desktop not
   forwarding the pad AND no gamepad input reaching the engine — is an engine limitation
   upstream of Luau; physical-device confirmation remains the standing pending release
   item (retail client / console).
@@ -72,6 +73,7 @@ modes coexist and arrive mid-session (research §10).
   last-input heuristics for *presentation*; the failure here is structural gating, not
   the preference signal itself. Last-input is used only as a sticky liveness proof.
 - **Always showing the Edit toggle** — rejected: a pure mouse world genuinely never
-  needs it (wheel scrolls, rows drag directly — SwiftUI/macOS idiom, research §1/§8),
+  needs it (wheel scrolls, rows drag directly — the desktop-pointer idiom,
+  research §1/§8),
   and the env-less fallback (`spec.env == nil` → always show) already covers consumers
   who cannot know better.

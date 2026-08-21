@@ -59,7 +59,7 @@ export type Spec = {
 	sizeClass: any?, -- string | Readable<string>, e.g. adaptive.conditions().sizeClass
 	interactionClasses: any?, -- table | Readable<table>, e.g. env interactionClasses
 	--[[ the environment BOTH facts above come from, for a caller that would
-		otherwise wire two keys to say one thing . Omitted, an automatic
+		otherwise wire two keys to say one thing. Omitted, an automatic
 		presentation finds the one this control's own core published — and refuses
 		to construct if there is none. ]]
 	env: any?,
@@ -106,7 +106,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	assert(type(spec.options) == "table" and #spec.options > 0, `PopupButton '{id}': options must be a non-empty array`)
 	-- a read-only Memo has kind "memo" and a :set that asserts, so accepting one
 	-- here deferred the crash to the user's FIRST selection (`select()` writes
-	-- `value`) — reject it at BUILD, exactly as the six siblings do (CTRL-01)
+	-- `value`) — reject it at BUILD, exactly as the six siblings do
 	if type(spec.value) ~= "table" or (spec.value :: any).kind ~= "signal" then
 		error(
 			`Facet newPopupButton('{id}'): \`value\` must be a SETTABLE Signal<string> the caller owns `
@@ -137,8 +137,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		optionsById[option.id :: string] = option
 		selectableCount += 1
 	end
-	--[[ THE ICON LINT, at authoring time (D2): "provide icons for all menu
-		items in a group, or none of them". A group is the run between two dividers,
+	--[[ THE ICON LINT, at authoring time (D2): provide icons for all menu
+		items in a group, or none of them. A group is the run between two dividers,
 		which is why this is checkable at all — the author already said where the
 		groups are. A half-iconned group looks fine in the one fixture it was
 		authored in and reads as a rendering bug everywhere else. ]]
@@ -236,7 +236,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return fact
 	end
 
-	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM .
+	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM.
 
 		Both were spec keys and nothing else, so an automatic PopupButton with
 		neither took the pointer/large-screen answer silently — and the census found
@@ -270,7 +270,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		if requestedPresentation ~= "automatic" then
 			return requestedPresentation
 		end
-		-- PRIMARY, not merely present (ADAPT-9): the one predicate, in the recipe
+		-- PRIMARY, not merely present: the one predicate, in the recipe
 		local touchLive = menuRecipe.touchPrimary(readFact(classesSource))
 		-- the SELECTABLE count, not the array length: a divider is a rule between
 		-- groups, and a menu does not become "long" because it was grouped

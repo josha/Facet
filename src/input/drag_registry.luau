@@ -76,7 +76,7 @@ export type Opts = {
 	-- THE HOST'S TWO LIVE PREDICATES (api-architecture-consistency F-29). Both are
 	-- read below and neither was declared. `isPathLive`: a retiring subtree paints
 	-- its exit but is not a drag surface, answered per path at RESOLUTION time
-	-- (ARCH-F2). `isSourceEnabled`: whether a source is currently enabled, a live
+	-- `isSourceEnabled`: whether a source is currently enabled, a live
 	-- prop read (P2-3). Absent = always live / always enabled, which is what a
 	-- standalone registry wants.
 	isPathLive: ((path: string) -> boolean)?,
@@ -325,7 +325,7 @@ function drag_registry.new(opts: Opts)
 	end
 
 	local function hideProxyFor(record: any)
-		-- the CHASE dies first (ARCH-F1): its judge closure holds the shared
+		-- the CHASE dies first: its judge closure holds the shared
 		-- presenter clock, so a flight whose springs were disposed but whose
 		-- chase survived would step the clock forever without ever settling
 		if record.chaseHandle ~= nil then
@@ -455,7 +455,7 @@ function drag_registry.new(opts: Opts)
 	local function beginSession(sourcePath: string, mode: string, x: number, y: number, pointerType: string?)
 		local decl = sources[sourcePath]
 		if decl == nil or not pathLive(sourcePath) then
-			-- a retiring source cannot begin a gesture (ARCH-F2): it is painting
+			-- a retiring source cannot begin a gesture: it is painting
 			-- its exit and about to be disposed
 			return false
 		end
@@ -603,7 +603,7 @@ function drag_registry.new(opts: Opts)
 			return { kind = "rejected" }
 		end
 		local session = live
-		-- READ THE VELOCITY BEFORE ANY STATE RESET (SF-D2): the buffer that
+		-- READ THE VELOCITY BEFORE ANY STATE RESET: the buffer that
 		-- describes the gesture is the first thing a reset would throw away.
 		local vx, vy = 0, 0
 		if gestural then
@@ -931,7 +931,7 @@ function drag_registry.new(opts: Opts)
 		end
 	end
 
-	-- ===== non-pointer paradigm: arm → navigate → commit (SF-D4) ==========
+	-- ===== non-pointer paradigm: arm → navigate → commit ==========
 	function registry.arm(sourcePath: string): boolean
 		if disposed or live ~= nil or sources[sourcePath] == nil then
 			return false
@@ -963,7 +963,7 @@ function drag_registry.new(opts: Opts)
 			return false
 		end
 		if not pathLive(targetPath) then
-			-- a RETIRING target is not aimable (ARCH-F2): the armed paradigm must
+			-- a RETIRING target is not aimable: the armed paradigm must
 			-- skip it exactly as resolution excludes it
 			return false
 		end
@@ -1157,7 +1157,7 @@ function drag_registry.new(opts: Opts)
 			live.session:cancel("dispose")
 		end
 		-- detached flights die with the registry: their springs and ghost handles
-		-- must not outlive the surface (registry-neutral teardown, SF-C1)
+		-- must not outlive the surface (registry-neutral teardown)
 		for record in detachedFlights do
 			record.flightDone = true
 			hideProxyFor(record)

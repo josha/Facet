@@ -62,7 +62,7 @@ time. A group therefore declares **either** `lane` (an affinity an arrangement a
 `arrangements` from a list of lanes to a list of rows of lanes — is more powerful and answers a
 question nobody asked: it makes every arrangement re-declare where the band goes, which is precisely
 the thing a spanning band must not be free to disagree about (it is the element whose whole job is to
-be in the same place in every resolution — Apple principle 4, *Familiarity*, and §S16.10's rule for
+be in the same place in every resolution — the *familiarity* principle, and §S16.10's rule for
 Skip). It would also oblige the three shipped preset NAMES to grow variants for any surface that
 spans, which is a screen's code living in the library. The group flag says the one true thing —
 *this band is not in the lane vocabulary* — and inherits every other group rule unchanged.

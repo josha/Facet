@@ -121,7 +121,7 @@ local registry: { Entry } = {
 		-- carries its own device-true case in every one of the four classes.
 		-- Touch follows the documented convention rather than the pointer one: a
 		-- plain SINGLE TAP activates, and EDIT MODE is the touch selection mode
-		-- (`contextMenu(forSelectionType:menu:primaryAction:)` + `EditMode`; a
+		-- (`the item-based context menu` + edit mode; a
 		-- double-TAP is documented as ZOOM and was never a candidate). All THREE
 		-- halves are cited below — the tap case is the activation reachability
 		-- proof, the edit-mode case is the price and the escape, and the third is
@@ -1357,7 +1357,7 @@ local registry: { Entry } = {
 		-- not values — which is why it is a control of its own rather than a
 		-- property on PopupButton, whose `value` is a `Signal<string>` a verb list
 		-- cannot fill. Attaches to ANY blueprint, presents on D1's anchored seam,
-		-- and closes `.contextMenu` by consuming the normalized gesture layer that
+		-- and closes the context-menu construct by consuming the normalized gesture layer that
 		-- shipped with nothing reading it.
 		name = "Menu",
 		kind = "composite",
@@ -1415,8 +1415,7 @@ local registry: { Entry } = {
 		},
 	},
 	{
-		-- The APP-PUSHED coach mark (navigation-and-menus D3b) — TipKit's
-		-- `popoverTip`, not a tooltip. A tooltip is player-PULLED, pointer-only and
+		-- The APP-PUSHED coach mark (navigation-and-menus D3b), not a tooltip. A tooltip is player-PULLED, pointer-only and
 		-- invisible on touch, and it is a PROP (`help`) rather than a control; this
 		-- is the other mechanism, raised by the app from eligibility rules, shown on
 		-- every input class, carrying D1's arrow tail. It is a control rather than a

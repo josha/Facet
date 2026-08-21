@@ -344,7 +344,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		if disposed then
 			return
 		end
-		-- mid-step disposal defers to the step's own tail (RR-2): clearing
+		-- mid-step disposal defers to the step's own tail: clearing
 		-- `active` while the phase loops index it crashed out of presenter.tick
 		if stepping then
 			disposeRequested = true

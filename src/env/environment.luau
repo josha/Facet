@@ -75,7 +75,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 	capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
 	reducedMotion = false,
 	preferredTextSize = 1, -- multiplicative reservation seam (tests/dev profiles)
-	-- ADDITIVE preference reservation (Step 8.5, decision LTN-1): the ENGINE
+	-- ADDITIVE preference reservation (Step 8.5, decision large-text accessibility): the ENGINE
 	-- paints every text node at TextSize + a per-preference constant pixel
 	-- offset — measured live 2026-08-03 as Medium=0 / Large=4 / Larger=10 /
 	-- Largest=14, uniform across font, weight and size (probe artifact:
@@ -174,7 +174,7 @@ function environment.new(core: any): Env
 	derived.typographyScale = core:memo(function(use)
 		return themeSnapshot.typographyScale(use(signals.displaySize), use(signals.preferredTextSize))
 	end)
-	-- PAINT-seam scale (NS-A9; MODEL CORRECTED by Step 8.5, LTN-1): the engine
+	-- PAINT-seam scale (the native substrate; MODEL CORRECTED by Step 8.5): the engine
 	-- applies the player's PreferredTextSize as an ADDITIVE px offset at draw
 	-- time, so Facet must not fold the preference into the painted TextSize —
 	-- that is the double-application defect. Paint carries ONLY authored scale
@@ -735,7 +735,7 @@ function environment.new(core: any): Env
 		return out
 	end
 
-	--[[ …and this environment is now discoverable from its own CORE .
+	--[[ …and this environment is now discoverable from its own CORE.
 		Every control is built on a core and every environment is built on a core,
 		and on a real surface they are the same one — so a control handed no
 		adaptive facts asks `surface_env.find(core)` instead of silently taking the

@@ -121,7 +121,7 @@ native paint via the `facet-slot-*` family and value-control gradients stay a co
 themselves become icon requests (R4).
 
 **Toggle**: slots `toggleTrack` (nine-slice) + `toggleKnob` (whole image), per-state variants
-on BOTH (the iOS-6 sliding switch). Knob TRAVEL stays solver-owned; art never moves geometry
+on BOTH (the classic sliding switch). Knob TRAVEL stays solver-owned; art never moves geometry
 (rs-m6 invariant + compile-time inset parity). The Step 3.5 `togglePalette` contract is
 untouched and remains the flat/fallback truth — a package without toggle slots gets exactly
 today's palette-true toggle.

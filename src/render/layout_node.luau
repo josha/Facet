@@ -153,7 +153,7 @@ end
 -- and is thereby explicitly theme-independent.
 -- a label with no whitespace: one word, and therefore nothing the engine may
 -- legally break. Numbers count as words. See the Button branch below.
--- AN OFFSET MAY BE A FRACTION OF THE PARENT (ADR-0022 Decision 6, row SF-P5). A
+-- AN OFFSET MAY BE A FRACTION OF THE PARENT (ADR-0022 Decision 6). A
 -- number or a metric name resolves to px here, exactly as it always did; the
 -- `{ scale, offset }` form CANNOT — the extent it is a fraction of is only known
 -- at arrange — so it passes through as data with its px part resolved, and the
@@ -181,7 +181,7 @@ end
 -- enlarge a touch target, never shrink one below what the control declared.
 --
 -- ONE reading, two readers: `toLayoutNode` carries it into the solve so the
--- result can name its interactive rects (LTN-4 diagnostics), and `pushHitRects`
+-- result can name its interactive rects (large-text accessibility diagnostics), and `pushHitRects`
 -- spends the same number as real hit geometry. They were two copies of this
 -- arithmetic for exactly one commit.
 local function effectiveHitFloor(class: string, metrics: any): number?
@@ -226,7 +226,7 @@ local function toLayoutNode(
 		-- so a consumer predicting a text box spends the seam's own arithmetic
 		-- instead of a hand copy.
 		--
-		-- BOTH BRANCHES SCALE (ADAPT-7, 2026-08-18). This branch used to reserve
+		-- BOTH BRANCHES SCALE (2026-08-18). This branch used to reserve
 		-- at scale 1 and say so — "an INTRINSIC size never reaches paint scaled" —
 		-- which was true, symmetric with the paint seam, and the reason the defect
 		-- was invisible: nothing overflowed, so nothing complained, and a
@@ -397,7 +397,7 @@ local function toLayoutNode(
 		-- virtualSlot`). A plain carried fact like `distribute`: nothing here
 		-- resolves it, because every field is already a px number or a name.
 		virtualSlot = props.virtualSlot,
-		-- THE EFFECTIVE TARGET FLOOR, CARRIED INTO THE SOLVE (LTN-4 diagnostics).
+		-- THE EFFECTIVE TARGET FLOOR, CARRIED INTO THE SOLVE (large-text accessibility diagnostics).
 		-- Declared by the control contract, clamped UP by the theme — the identical
 		-- pair `pushHitRects` spends below, read here so the SOLVE RESULT can say
 		-- which rects belong to something the player is meant to hit. It changes no
@@ -516,7 +516,7 @@ local function toLayoutNode(
 		-- already set on every text node — instead of the label growing its box and
 		-- painting through whatever contains it.
 		layoutNode.lineLimit = themeSnapshot.resolveNumber(metrics, props.lineLimit)
-		-- FULL-VALUE DISCLOSURE (LTN-4). Construction-only, so it is read straight
+		-- FULL-VALUE DISCLOSURE. Construction-only, so it is read straight
 		-- off the prop bag; it changes no geometry and exists on the layout node
 		-- solely so the solve result can report truncation and permission together.
 		layoutNode.disclose = if props.disclose == true then true else nil
@@ -616,7 +616,7 @@ local function toLayoutNode(
 		-- affordance (`extra.pressedScale` = 0.985) shrinks the box on every
 		-- single flip.
 		layoutNode.singleLine = true
-		-- FULL-VALUE DISCLOSURE for the one-line label (Step 8.5 LT-G1/LTN-5):
+		-- FULL-VALUE DISCLOSURE for the one-line label (Step 8.5 large-text accessibility):
 		-- the single-line form is measured, signed design — so where a compact
 		-- width truncates it, `disclose` is the declared full-value path, riding
 		-- the same textFacts channel a Text's does
@@ -656,7 +656,7 @@ local function toLayoutNode(
 		-- vertical one. Explicit axis wins; otherwise inherit the parent stack's.
 		local axis = props.axis or parentAxis or "y"
 		-- the default hairline is the theme's stroke weight, not a literal 1 — and
-		-- an AUTHORED thickness may name a metric too (BP-F12): it is the same
+		-- an AUTHORED thickness may name a metric too: it is the same
 		-- theme-owned number, so it takes the theme's own vocabulary through the
 		-- same resolution `gap`/`lineLimit` use. An unresolvable name cannot reach
 		-- here (the schema refuses it at construction) but still falls back.
@@ -798,7 +798,7 @@ local function toLayoutNode(
 			}
 			-- carry WHERE the padding came from, so the solver's collapsed
 			-- content-box diagnostic can name the slot rather than only the node
-			-- (RS-A16-D3)
+			-- (rich-skinning v2)
 			layoutNode.chromeSlot = slot
 			-- ...and WHETHER it had to be given back, so the repair is reported
 			-- rather than silent. Repaired is not the same as fine: a control too

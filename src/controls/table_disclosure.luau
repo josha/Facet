@@ -1,5 +1,5 @@
 --!strict
---[[ THE HIDDEN-COLUMN DISCLOSURE for `controls/table.luau` .
+--[[ THE HIDDEN-COLUMN DISCLOSURE for `controls/table.luau`.
 
 	A column that collapsed took its values off the screen with it, and the
 	standing no-dead-ends rule says the framework then owes the reader a route

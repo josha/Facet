@@ -42,7 +42,7 @@ export type SourceSpec = {
 	-- what the proxy does on a LEGAL drop: "destroy" (default) or "flyToTarget"
 	-- (an `object`-class flight chasing the live target, `land` on arrival)
 	onCommitProxy: string?,
-	-- ARMED-MODE GHOST PARKING (row SF-D14). By default the armed ghost RIDES
+	-- ARMED-MODE GHOST PARKING. By default the armed ghost RIDES
 	-- THE AIM: `armTo` springs it onto the target being aimed at, which is what
 	-- makes a keyboard/pad pickup visibly different from no pickup at all.
 	-- Declare this and it springs ONCE to the window-space point this returns
@@ -64,7 +64,7 @@ export type SourceSpec = {
 	-- A, Return) keep flowing to onActivate — the armed paradigm already owns
 	-- them. Default false: what a tap MEANS is the consumer's call.
 	armOnTap: boolean?,
-	-- ACQUISITION, refusable WITHOUT disabling the control (row SF-D6). A
+	-- ACQUISITION, refusable WITHOUT disabling the control. A
 	-- `Bound<boolean>`: while it reads false this source arms nothing and promotes
 	-- nothing, while the node stays enabled, hit-testable and activatable — which
 	-- is what a control that must EXPLAIN why it cannot be picked up needs

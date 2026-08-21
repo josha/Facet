@@ -71,7 +71,7 @@ function screen_scroll_indicators.new(ctx: any)
 	-- fade generation per host: a newer show/fade supersedes an in-flight one
 	local indicatorFadeToken = {} :: { [any]: number }
 
-	-- native scroll host seam (native-substrate NS-A2; spikes m1/m2): the
+	-- native scroll host seam (the native substrate; spikes m1/m2): the
 	-- solver's content extent becomes the engine canvas; the ENGINE owns the
 	-- live offset (wheel, touch momentum, elastic, bars); observeScroll reports
 	-- engine-driven CanvasPosition changes back to the framework (windowing);

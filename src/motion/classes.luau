@@ -83,7 +83,7 @@ seed()
 
 local isFinite = num.isFinite
 
--- The matrix lives in `src/text_distance.luau` (ARCH-17) — a leaf with no
+-- The matrix lives in `src/text_distance.luau` — a leaf with no
 -- requires, so taking it costs `motion/` none of the independence the old "kept
 -- local" note was protecting. THE THRESHOLD STAYS HERE, at the call site below,
 -- because it is the half that was never agreed: this caller lowercases both

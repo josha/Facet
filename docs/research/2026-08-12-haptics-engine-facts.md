@@ -129,9 +129,9 @@ events "only fire when the Roblox client window is in focus".
 | Keep "less than 100 simultaneous haptic effects" | beta announcement FAQ | pool one effect per mapped verb; never `Instance.new` per fire |
 | "haptic intensity below 0.1 may not trigger any haptic effects" on some clients | full-release announcement | a custom waveform must not author keys under 0.1 and call it subtle |
 | Effects run locally in Studio (edit, play, local server); later fixed for Team Test and Virtual Cursor | beta + full release | you can construct and fire without throwing; you cannot feel it |
-| **"All game controllers connected to MacOS 15+"** unsupported | full-release announcement | **this repo's dev machine is darwin** — no Studio canary here can ever be positive evidence, and a silent run must not be recorded as "haptics do not work" |
+| **"All game controllers connected to MacOS 15+"** unsupported | full-release announcement | **this repository's development machine is one of the unsupported hosts** — no Studio canary here can ever be positive evidence, and a silent run must not be recorded as "haptics do not work" |
 | Controllers on phones, VR on PC, Android ≤ 11 unsupported | both announcements | degrade silently; `unknown`, not a bug |
-| iPhone + voice chat inconsistent | full-release known issues | a missed phone tick is not necessarily an adapter defect |
+| phone + voice chat inconsistent | full-release known issues | a missed phone tick is not necessarily an adapter defect |
 
 ## 8. The player's preference exists and the game cannot read it
 
@@ -188,7 +188,7 @@ never falls back to `Custom`.
 Standing rule 1 (`docs/plans/parity-round3-brief.md`) requires checking
 the *current* platform rather than trusting a two-day-old note, so every fact
 above was re-asked of a running client — `0.734.0.7340915`, `Facet-Showcase`,
-Play mode, macOS. **Nothing had moved.** The creator docs for `HapticEffect`,
+Play mode, on the development desktop. **Nothing had moved.** The creator docs for `HapticEffect`,
 `GuiButton` and the two announcement threads are byte-identical in substance; the
 newest platform change anywhere in this area is still the November 2025 `Ended`
 update.
@@ -250,6 +250,6 @@ Wiring `Activated` on a decorated button raised no error.
 
 **What is still unprovable here.** Nothing was *felt*. The full-release
 announcement lists "all game controllers connected to MacOS 15+" as unsupported
-and this machine is macOS with no pad attached, so a silent run is expected and
+and this machine is one of them, with no pad attached, so a silent run is expected and
 must never be recorded as "haptics do not work". The three `PENDING_PHYSICAL`
 rows stand.

@@ -38,7 +38,7 @@ type Node = {
 	compute: ((use: Use) -> any)?,
 	deps: { [Node]: boolean }, -- memo only
 	-- memo only: the name of a dep that was DISPOSED while this node was still
-	-- subscribed to it, cleared by the next successful recompute (RR-7)
+	-- subscribed to it, cleared by the next successful recompute
 	frozenBy: string?,
 	disposed: boolean,
 }
@@ -92,7 +92,7 @@ function Custom.new()
 		return result == true
 	end
 
-	--[[ A NODE'S DIAGNOSTIC NAME (RR-3, release-candidate review 2026-08-17).
+	--[[ A NODE'S DIAGNOSTIC NAME (release-candidate review 2026-08-17).
 
 		`Node.name` was declared in the type and written NOWHERE, so every cycle
 		path printed `memo -> memo -> memo` and the one diagnostic that exists to
@@ -131,7 +131,7 @@ function Custom.new()
 		return label
 	end
 
-	--[[ THE FROZEN-VALUE REPORT (RR-7), from every read path there is.
+	--[[ THE FROZEN-VALUE REPORT, from every read path there is.
 
 		Reported ONCE — this is a diagnostic, not a rate limiter, and the second
 		read carries no information the first did not — and only for a node that
@@ -201,12 +201,12 @@ function Custom.new()
 			end
 			node.stale = false
 			node.failed = false
-			node.frozenBy = nil -- it recomputed, so it is not frozen (RR-7)
+			node.frozenBy = nil -- it recomputed, so it is not frozen
 			node.value = result
 		else
 			node.failed = true
 			fail(tostring(result))
-			--[[ A FIRST-EVALUATION FAILURE USED TO BE PERMANENT (RR-1/RR-4).
+			--[[ A FIRST-EVALUATION FAILURE USED TO BE PERMANENT.
 
 				The dependency swap above is success-only, which is right for a memo
 				that HAS succeeded once: its previous deps are the honest edge set and
@@ -215,8 +215,8 @@ function Custom.new()
 				it with an empty dep set — nothing in the graph could ever mark it
 				stale again, and with `stale = false` below it answered its cached
 				`nil` for the rest of the session. Every shape that reaches this
-				branch inherited it: a compute that throws (RR-1), and an illegal
-				write during a memo's first evaluation (RR-4), which is a THROW out of
+				branch inherited it: a compute that throws, and an illegal
+				write during a memo's first evaluation, which is a THROW out of
 				`write` and therefore the same code path.
 
 				So on a first-evaluation failure the node subscribes to the deps `use`
@@ -258,7 +258,7 @@ function Custom.new()
 			dep.subs[effect] = nil
 		end
 		if effect.disposed then
-			-- IT DISPOSED ITSELF DURING ITS OWN RUN (RR-2), or the scope that owns it
+			-- IT DISPOSED ITSELF DURING ITS OWN RUN, or the scope that owns it
 			-- did. The dispose closure already unsubscribed the deps it could see, so
 			-- re-subscribing the deps THIS run collected would strand a record in
 			-- `dep.subs` that nothing will ever remove — the effect keeps being
@@ -476,7 +476,7 @@ function Custom.new()
 		settles = kept
 	end
 
-	--[[ A SETTLE CALLBACK IS NAMED THE SAME WAY A MEMO IS (RR-9). Settle records
+	--[[ A SETTLE CALLBACK IS NAMED THE SAME WAY A MEMO IS. Settle records
 		hold a plain function, so the creation site of that function is the label —
 		the same derivation `nodeName` performs, against a record instead of a node. ]]
 	local function settleName(record: any): string
@@ -492,7 +492,7 @@ function Custom.new()
 	flushBody = function()
 		local rounds = 0
 		local capped = false
-		--[[ WHICH SETTLE CALLBACK IS ACTUALLY NON-CONVERGENT (RR-9, corrected after
+		--[[ WHICH SETTLE CALLBACK IS ACTUALLY NON-CONVERGENT (corrected after
 			review finding NEW-2).
 
 			The first version kept only "the settle that wrote last in this flush"
@@ -526,7 +526,7 @@ function Custom.new()
 			end
 			local message =
 				`Facet: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect or settle feedback loop?); {dropped} pending signal write(s) discarded`
-			--[[ ...AND THE CALLBACK THAT DROVE IT IS QUARANTINED (RR-9). Without this
+			--[[ ...AND THE CALLBACK THAT DROVE IT IS QUARANTINED. Without this
 				the same non-converging callback is re-run to the full cap on EVERY
 				later flush in the session: the cost is paid forever and the diagnostic
 				is indistinguishable from the first one. Quarantine is the memo idiom —
@@ -621,7 +621,7 @@ function Custom.new()
 			for dep in node.deps do
 				dep.subs[node] = nil
 			end
-			--[[ DISPOSAL IS ALSO A SEVERED EDGE (RR-7). Clearing `subs` is correct —
+			--[[ DISPOSAL IS ALSO A SEVERED EDGE. Clearing `subs` is correct —
 				a disposed node must not keep its dependents alive — but every memo
 				subscribed here is now frozen at whatever value it last held, with no
 				diagnostic anywhere and no way to tell that state apart from "nothing

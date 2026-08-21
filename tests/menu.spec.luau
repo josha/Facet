@@ -4,7 +4,7 @@
 	A freestanding ACTION menu: items are VERBS, not values. It attaches to any
 	blueprint, presents on D1's anchored seam, renders its rows from the ONE
 	shared recipe, and opens on all five triggers — which together are what close
-	`.contextMenu`, listed Missing until this stage.
+	the context-menu construct, listed Missing until this stage.
 
 	Six things here are the ones a lower-level test cannot see, so they get named
 	cases rather than a smoke test:
@@ -450,7 +450,7 @@ end)
 
 describe("D2 Menu: a menu whose every item is disabled still OPENS", function()
 	it("a wholly unavailable menu opens rather than swallowing its trigger", function()
-		--[[ The guidance: "if all of a menu's items are unavailable, the menu itself needs
+		--[[ The guidance: if all of a menu's items are unavailable, the menu itself needs
 			to remain available so people can open it and learn about the commands it
 			contains." A trigger that silently does nothing cannot be told apart from a
 			dead button, which is why this is a case and not a comment. ]]

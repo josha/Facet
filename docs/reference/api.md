@@ -4204,8 +4204,8 @@ modal scopes trap and restore the previous focus on pop.
 **A group can be a RECTANGLE: `columns`** (ADR-0030). An integer ≥ 1 declaring
 that this group's `order` is **LINES of `columns` LANES**, row-major, in document
 order — which is exactly what a lazy grid's mounted band is. `axis` then names the
-**lane** direction (a `LazyVGrid`'s lanes run across, so it declares
-`"horizontal"`; a `LazyHGrid`'s run down, so `"vertical"`), and the direction
+**lane** direction (a vertical grid's lanes run across, so it declares
+`"horizontal"`; a sideways grid's run down, so `"vertical"`), and the direction
 perpendicular to it moves **±`columns`** — one whole line, keeping the lane —
 instead of falling straight out of the group. Anything that is not an integer ≥ 1
 is ignored and the group stays one-dimensional.
@@ -5087,7 +5087,7 @@ local grid = Facet.Controls.VirtualGrid(core, {
     id = "Wardrobe",
     items = catalog,                      -- Readable<{T}>
     key = function(item) return item.id end,
-    axis = "y",                           -- "y" (default, LazyVGrid) | "x" (LazyHGrid)
+    axis = "y",                           -- "y" (default, vertical grid) | "x" (sideways grid)
     columns = 4,                          -- integer >= 1, or Readable<integer>
     itemExtent = 96,                      -- ONE LINE OF CELLS' extent
     viewportExtent = 480,
@@ -5831,7 +5831,7 @@ and holds more than one line, and a string-only tip could not express it.
 invalidate(reason?), rearm(), state() -> "waiting" | "queued" | "showing" |
 "retired", isShowing: Signal, retired: Signal }`.
 
-**Eligibility** is TipKit's actual contribution, and every rule is a READ of
+**Eligibility** is the coach-mark construct's actual contribution, and every rule is a READ of
 something the caller owns: `seen` (show once per player), `sessions` +
 `afterSessions` (only after N sessions), `featureUsed` (only until the feature is
 used). **Invalidation** is permanent: the tip dies when its feature is used, when
@@ -5846,7 +5846,7 @@ outside the framework. A callout declared without `onRetire` is an authoring
 error, because a coach mark nobody can persist is one that comes back every
 session.
 
-**`rearm()` is the caller's word that the session is over** — TipKit's
+**`rearm()` is the caller's word that the session is over** — the coach-mark construct's
 `Tips.resetDatastore()`, not a way to argue with a live retirement. Nothing inside
 the construct can un-retire itself and no `present()` can reach past the latch;
 only the app, which owns the record, may say the session it persisted for has

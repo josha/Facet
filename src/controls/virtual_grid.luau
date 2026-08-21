@@ -18,7 +18,7 @@
 	  debugWindow() -> { [key]: true }, dump(), dispose()
 	}
 	spec: { id?, items (Readable {T}), key (T) -> string,
-	  axis? ("y" default = LazyVGrid | "x" = LazyHGrid; construction-only),
+	  axis? ("y" default = vertical grid | "x" = sideways grid; construction-only),
 	  columns (integer >= 1, or Readable<integer> — the CROSS-axis lane count),
 	  itemExtent (px number | Readable<number> | (line, use) -> px — ONE LINE OF
 	    CELLS' size along the scroll axis, NOT one cell's),
@@ -112,10 +112,10 @@
 	   shift every following cell into the wrong lane. The wrapper is what makes
 	   "one item, one grid child" true by construction rather than by convention.
 
-	── TWO AXES: `LazyVGrid` AND `LazyHGrid`, ON THE SAME ARITHMETIC ────────────
+	── TWO AXES: a vertical grid AND a sideways grid, ON THE SAME ARITHMETIC ────────────
 
 	`axis = "y"` (default) is the VERTICAL grid — lanes across the width, lines
-	advancing down. `axis = "x"` is `LazyHGrid` — lanes down the height, lines
+	advancing down. `axis = "x"` is a sideways grid — lanes down the height, lines
 	advancing rightward.
 
 	THIS USED TO BE A REFUSAL, AND WHAT LIFTED IT WAS NOT IN THIS FILE. The refusal
@@ -257,7 +257,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	if spec ~= nil and spec.axis ~= nil and spec.axis ~= "y" and spec.axis ~= "x" then
 		error(
 			`newVirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (the vertical grid — lanes `
-				.. 'across the width, lines advancing down; the default) or "x" (LazyHGrid — lanes down the height, '
+				.. 'across the width, lines advancing down; the default) or "x" (sideways grid — lanes down the height, '
 				.. "lines advancing rightward). It is CONSTRUCTION-ONLY, exactly as `ScrollView.axis` is: a reactive "
 				.. "scroll axis would rebuild the engine's native scroll state mid-gesture.",
 			0
@@ -537,7 +537,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return math.max(0, layoutNow().content - viewportNow())
 	end
 
-	--[[ ── SNAPPING ON THE SCROLL AXIS (ADAPT-17) ────────────────────────────────
+	--[[ ── SNAPPING ON THE SCROLL AXIS ────────────────────────────────
 		The machine, its design and its measurements are `controls/scroll_snap.luau`;
 		this is the same four wires `newVirtualList` has, over a LINE index instead
 		of a row index. A grid's boundaries are its LINES — the lane axis is
@@ -755,7 +755,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			return
 		end
 		-- ...and it is a REST, not a gesture: read as a travel, an anchor correction
-		-- would look like a flick of exactly its own size (ADAPT-17)
+		-- would look like a flick of exactly its own size
 		writeScroll(boundController, host, target)
 	end))
 
@@ -771,7 +771,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		offsetY = if isX then nil else bandOffset,
 		--[[ AND THIS ONE LINE IS THE WHOLE OF THE HORIZONTAL GRID'S LAYOUT. Under
 			`flow = "column"` the flow grid divides its lanes down the HEIGHT and
-			advances its lines rightward, which is exactly what a `LazyHGrid` band is
+			advances its lines rightward, which is exactly what a sideways grid band is
 			— so the lane extent is `floor((innerH - gap * (lanes - 1)) / lanes)`
 			because that formula is EXECUTING, not because a copy of it agrees today.
 			`columns` is the lane count in both directions and needs no translation.
@@ -1038,8 +1038,8 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		the arbitration is the shared one — `native_scroll_binding.luau`'s header
 		carries the measurement, the mount-identity rule and the opt-out reasoning.
 
-		`mainOf(pos)` is what makes ONE mirror serve BOTH axes: a `LazyHGrid`
-		(`axis = "x"`) reads the canvas x where a `LazyVGrid` reads the y, so an
+		`mainOf(pos)` is what makes ONE mirror serve BOTH axes: a sideways grid
+		(`axis = "x"`) reads the canvas x where a vertical grid reads the y, so an
 		auto-bind that hard-coded `pos.y` would have shipped a horizontal grid that
 		still never moved. ]]
 	local mirror = nativeScrollBinding.new(function(controller: any, path: string): () -> ()

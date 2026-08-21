@@ -166,7 +166,7 @@ local ORDER = {
 	-- moving the cell under the player's eye, which is the destabilizer only a
 	-- grid has. Also in `demo_picker.DEMOS`.
 	"virtual_grid",
-	-- ...and the SIDEWAYS half, newVirtualGrid on the x axis (LazyHGrid). It is
+	-- ...and the SIDEWAYS half, newVirtualGrid on the x axis (sideways grid). It is
 	-- its own fixture rather than a step on the one above because the two axes do
 	-- not differ in a value: they differ in which axis the LANES divide and which
 	-- way the RING walks, and both are things you look at. Down steps a cell here

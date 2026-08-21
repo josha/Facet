@@ -113,7 +113,7 @@ export type AlignOffset = (align: string?, avail: number, size: number) -> numbe
 -- fill children has no minimum to take and falls back to one lane, which since
 -- ADAPT-L2 (below) is the only shape that still lands there.
 local INTRINSIC = "intrinsic"
---[[ ...AND IT IS ALSO THE DEFAULT (ADAPT-L2, audit Part 2 cell B-1, 2026-08-21).
+--[[ ...AND IT IS ALSO THE DEFAULT (audit Part 2 cell B-1, 2026-08-21).
 
 	A `UI.Grid` that declared neither `columns` nor `minColumnWidth` used to get ONE
 	LANE at every width from a 390px phone to a 1920px television — "a column of
@@ -275,7 +275,7 @@ end
 	WHY THAT MATTERS BEYOND TIDINESS. `newVirtualGrid`'s design decision is that the
 	mounted band IS a real `UI.Grid`, so the lane formula EXECUTES rather than being
 	copied into the control where it would agree today and drift tomorrow. Without a
-	column-major mode a `LazyHGrid` had no band to be, which is exactly what that
+	column-major mode a sideways grid had no band to be, which is exactly what that
 	control's `axis = "x"` refusal said (`src/controls/virtual_grid.luau`).
 
 	THE PLAN IS THE ONE THING BOTH PASSES READ. Measure and arrange used to run two
@@ -615,7 +615,7 @@ local function gridColumnPlan(deps: Deps, ctx: any, node: any, innerW: number, i
 	-- `math.max(0, ...)` makes, one level up: the grid reports and paints a box it
 	-- fits inside, and the cells keep their relative widths.
 	--
-	-- ...AND IT SAYS SO NOW (ADAPT-L8, audit Part 2 cell B-4, 2026-08-21). The
+	-- ...AND IT SAYS SO NOW (audit Part 2 cell B-4, 2026-08-21). The
 	-- clamp is right; the SILENCE was not. Three cells each declaring
 	-- `width = fixed(200)` came out 101px wide at 320 with ZERO findings, while the
 	-- `UI.HStack` twin at the same widths files a named finding every time — two

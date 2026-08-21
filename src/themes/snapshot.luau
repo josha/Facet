@@ -282,7 +282,7 @@ function snapshot.typographyScale(displaySize: any, preferredTextSize: any): num
 	return base * tenFootFloor(displaySize)
 end
 
---[[ typographyPaintScale(displaySize) -> the PAINT-seam scale (NS-A9, LTN-1).
+--[[ typographyPaintScale(displaySize) -> the PAINT-seam scale (large-text accessibility).
 	The engine applies the player's PreferredTextSize itself, as an ADDITIVE px
 	offset at draw time, so paint must carry ONLY authored scale — folding the
 	preference in here is the double-application defect. ]]
@@ -410,7 +410,7 @@ local function hasPath(tree: any, path: string): boolean
 end
 
 -- ===== the ten-foot metric ladder ==========================================
---[[ WHICH PUBLISHED NUMBERS ARE LENGTHS (ADAPT-8, director ruling 2026-08-20).
+--[[ WHICH PUBLISHED NUMBERS ARE LENGTHS (director ruling 2026-08-20).
 
 	The ten-foot factor multiplies LENGTHS and nothing else, and "and nothing
 	else" is the hard half: a snapshot publishes durations in seconds, line
@@ -1070,7 +1070,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		local lineBox = math.ceil(cellSize * (out.type :: any).body.lineHeight)
 		-- the row's own vertical breathing room, one space step at each edge
 		local padV = (out.space :: any).xs
-		--[[ THREE RUNGS, AND THE THIRD IS DISTANCE (ADAPT-10, 2026-08-18). There
+		--[[ THREE RUNGS, AND THE THIRD IS DISTANCE (2026-08-18). There
 			were two — `pointer` and `touch` — and a television resolved `pointer`,
 			the densest row the framework ships, at three metres. The audit measured
 			it as a 41px button inside a 36px row on a shipped example once the
@@ -1113,7 +1113,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- this reserves OUTWARD, as the node's margin, and the renderer adds exactly
 	-- one of them at each seam.
 	--
-	-- EVERY SLOT FAMILY THAT PAINTS OUTSIDE ITS RECT (RS-A16-D2, found live: the
+	-- EVERY SLOT FAMILY THAT PAINTS OUTSIDE ITS RECT (the rich-skinning v2 decision, found live: the
 	-- ornate plaque's declared `overhang` was validated, painted and censused
 	-- while this table had a single writer — the bar branch — so the nameplate
 	-- painted through the label of the row above it, 792 px2 at desktop). Both
@@ -1136,7 +1136,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		That is not tidiness: a snapshot's facts are whatever it happened to be
 		resolved with, and the environment's default snapshot is `neutral()`,
 		resolved with no facts at all, so a television with no theme controller
-		installed would carry `near` forever (ADAPT-L1). The value below stays as
+		installed would carry `near` forever. The value below stays as
 		the record of THIS resolve, which is what a caller holding only a snapshot
 		and no environment reads (`text_fit.facts({ metrics = … })`). ]]
 	out.density = if f.displaySize == "Large" then "ten-foot" else "near"
@@ -1338,7 +1338,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 
 	-- 4c. THE OUTWARD RESERVATIONS, one writer for every slot family (director fix
-	-- round 2026-07-25 for the bar; RS-A16-D2 for the layer stacks). Both are
+	-- round 2026-07-25 for the bar; the rich-skinning v2 decision for the layer stacks). Both are
 	-- derived from the boxes the adapter materializes and both are measured
 	-- against RESOLVED metrics — which is why this runs here, after 4b snapped
 	-- them, rather than beside `chromeInsets`.

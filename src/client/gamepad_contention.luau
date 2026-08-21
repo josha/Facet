@@ -326,7 +326,7 @@ end
 -- SCOPE note in the module header and docs/guide/07-input.md). Call it once from
 -- a UI-only place's client bootstrap.
 --
--- IT IS A NO-OP WHERE IAS ALREADY OWNS THE PLAYER SCRIPTS (DF-9, 2026-08-18).
+-- IT IS A NO-OP WHERE IAS ALREADY OWNS THE PLAYER SCRIPTS (2026-08-18).
 -- The `jumpAction` measurement this remedy is built on was taken 2026-07-20,
 -- BEFORE any Facet place declared `Workspace.PlayerScriptsUseInputActionSystem`.
 -- Under that flag the player scripts ARE IAS contexts: there is no CAS
@@ -360,7 +360,7 @@ end
 -- The return is a best-belief signal, not an end-to-end proof: only a physical
 -- gamepad press can confirm ButtonA now reaches Activate (standing
 -- FAIL_ENVIRONMENT rider `physical-device-confirmation`).
---[[ THE PURE HALF OF THE FALLBACK'S VERDICT (PLAT-21), so the rule is provable
+--[[ THE PURE HALF OF THE FALLBACK'S VERDICT, so the rule is provable
 	without a live ContextActionService. Given the binding table before an unbind
 	attempt and after it, did the attempt free `jumpAction`? Both halves matter:
 	an action that was never bound was not freed by unbinding it, and an action
@@ -398,7 +398,7 @@ function gamepad_contention.disableLegacyControls(playerModuleParent: any?, play
 	--[[ Fallback: unbind jumpAction directly. Narrower — the rest of the control
 		module keeps running — but the specific ButtonA eater is gone.
 
-		AND ONLY IF SOMETHING WAS ACTUALLY FREED (PLAT-21). `UnbindAction` on an
+		AND ONLY IF SOMETHING WAS ACTUALLY FREED. `UnbindAction` on an
 		action nobody bound WARNS and returns normally, so the `pcall` succeeded on
 		every live client and this answered "ButtonA is uncontended now" whether or
 		not a single binding had been removed — the one signal a bootstrap has that

@@ -131,7 +131,7 @@ return {
 			SO NOTHING ON THIS SCREEN IS REBUILT. The two anchors are permanent
 			furniture, built once, at paths that never move; the session state is the two
 			CONSTRUCTS, and `api.rearm()` is the framework's word for "the session the
-			app persisted for is over" (TipKit's `Tips.resetDatastore()`). The reset
+			app persisted for is over" (the coach-mark datastore reset). The reset
 			clears the save file and re-arms them in place. ]]
 		local generation = scope:own(core:signal(1))
 
