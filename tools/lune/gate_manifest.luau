@@ -3937,7 +3937,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "rr-consumer-sync",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/rename/rr-consumer-ledger.md && test -f "$f" && grep -qF "UseFacetSponsor" "$f" && test -f ../../../games/RascalRally/code/docs/migrations/facet-attribute-migration.md && test -f ../../../games/RascalRally/code/src/client/FacetFlags.luau',
 			evidence = "artifacts/release-candidate-review/rename/rr-consumer-ledger.md",
 			note = "Both Rascal Rally projects, sources, types, fixtures, tests, Studio labels, and Sponsor code renamed in the same change; the production selector keeps its exact default and the legacy Sponsor rollback through the one isolated dual-read/single-write attribute migration manifest with owner and removal trigger.",
 		},
@@ -3951,7 +3951,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "review-finding-ledger",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/findings.md && test -f "$f" && grep -qF "Wave assignment" "$f" && grep -qF "Dispositions" "$f" && grep -qF "REUSE-1..125" "$f"',
 			evidence = "artifacts/release-candidate-review/findings.md",
 			note = "The whole-framework fresh-context review ledger: every finding with severity and confidence; every confirmed blocker/high fixed and rerun; every other finding fixed or dispositioned with owner, risk, reason, and trigger. Requirement or public-contract findings cannot be waved through as notes.",
 		},
@@ -3979,14 +3979,14 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "haptics-defaults",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/haptics/defaults.md && test -f "$f" && grep -qF "contact" "$f" && grep -qF "settle" "$f" && grep -qF "tick" "$f" && test -f src/client/sensory_profile.luau',
 			evidence = "artifacts/release-candidate-review/haptics/defaults.md",
 			note = "With the game-opt-in adapter enabled: original named Custom waveforms for press, release, and select through HapticEffectType.Custom + SetWaveformKeys in one typed sensory profile; phase timing defined once across pointer/touch/keyboard/gamepad; cancellation distinct from success; no native/bus double pulse; override/silence, rate limit, preset fallback, pooling, zero per-pulse allocation, and teardown proved by red-first tests plus a Studio calibration surface.",
 		},
 		{
 			name = "haptics-device-similarity",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			state = "FAIL_ENVIRONMENT",
 			releaseBlocking = false,
 			evidence = "artifacts/release-candidate-review/haptics/device-review-packet.md",
 			note = "Perceived similarity to the reference platform stays PENDING_DEVICE until a human compares both on the same physical device (a paired phone-versus-native-reference comparison, plus Android and gamepad sampling). This row must be visible in the Step 14 release packet; Studio evidence may not close it.",
@@ -4050,14 +4050,14 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "perf-requalification",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/perf/requalification.md && test -f "$f" && test -f artifacts/release-candidate-review/perf/capture-plan.md && grep -qF "Studio" "$f"',
 			evidence = "artifacts/release-candidate-review/perf/requalification.md",
 			note = "The refreshed performance place rebuilt and verified; repeated Studio MCP MicroProfiler baselines for solve/layout, fine/bulk update, adapter/render, scroll, idle, and teardown; every framework-owned optimization has a falsifiable cause, identical-workload before/after distributions, and no regression in tests, other scenarios, or Rascal Rally; rejected and inconclusive attempts recorded; Android capture instructions current.",
 		},
 		{
 			name = "fresh-independent-reviews",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/release-candidate-review/reviews && test -f $d/README.md && test -f $d/architecture.md && test -f $d/reactive-runtime.md && test -f $d/roblox-platform.md && test -f $d/maintainability.md && test -f $d/reuse.md && grep -qF "dispositioned" $d/README.md',
 			evidence = "artifacts/release-candidate-review/reviews/README.md",
 			note = "Independent architecture, reactive-runtime, Roblox-platform, performance, and phase-gate reviewers given the raw baseline, ledger, diff, and artifacts; every requirement-affecting finding fixed or explicitly dispositioned.",
 		},
