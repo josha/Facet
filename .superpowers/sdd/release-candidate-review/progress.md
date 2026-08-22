@@ -1348,3 +1348,19 @@ STUDIO.md, root CLAUDE.md.
   extraction is owed by the NEXT round that opens the file (the lockstep
   round cut its own comments twice to land under). Live density-change
   repaint gap (Studio-only) recorded as a deliberate not-taken.
+
+## 2026-08-21 (post-close 12) — flip fix round landed
+
+- FLIP FIX LANDED (b52d220, RR 1509383; isolated 6949 +10; RR 3461 with the
+  honest −4): MAJOR-1 answered by EXTRACTION — native_style.paintPlan is the
+  whole decision, pure, engine facts as parameters, motion fact as a
+  function (call-count pinned); the consumer pin is five SHAPE checks and
+  the opt-read-count lock (plan.opt is resolved; the raw opt is
+  unrecoverable). Reviewer's exact bypass now reds naming three pins;
+  flip-back reds 4 (was 2); the fifth-site RR bypass reds. nativeStyleOn
+  DELETED; sweep gate is a floor. BONUS: screen_target −278 chars (was 8
+  from the trigger, now 286 below). Its LOW-5 note is a live cross-round
+  lesson: its host.luau hunk got swept into the lockstep round's c4d0591 —
+  content correct, but the exact accident commit_isolated exists to prevent,
+  running the other way. Re-review seat dispatched. Two INFO policy notes
+  booked to triage (showcase's hardcoded true; host.Opts boolean? typing).
