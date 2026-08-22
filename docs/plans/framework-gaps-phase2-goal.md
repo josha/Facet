@@ -1,4 +1,4 @@
-# /goal — Facet phase 2: close the six framework capability gaps
+# /goal — Facet phase 2: close ALL the framework capability gaps
 
 You are the controller for a directed mission on the Facet UI framework.
 Primary repo: `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet`
@@ -14,9 +14,27 @@ prior campaign's ledger — rulings R1–R23 and ADR-0040 rows B-1..B-19 bind yo
 ADR-0041 binds hit floors; the release stays version 0.10.0 and pre-release
 breaking changes ride it WITH an ADR-0040 row each, ruling R15).
 
-## The six gaps (director-picked, 2026-08-22)
+## The scope (director order, 2026-08-22): ALL 34 gaps
 
-Chat numbering, mapped to `framework-gaps.md` sections:
+`artifacts/release-candidate-review/framework-gaps.md` is the complete binding
+list — 11 gaps in detail plus 23 in brief, distilled from 97 consumer sites.
+**Every one of the 34 ends this mission in exactly one of two states:**
+
+1. **BUILT** — the default. Shipped API, ADR'd, taught, consumers migrated.
+2. **DISPOSED with measurement** — only where building is genuinely wrong
+   (the audit over-reached, the gap dissolved under a sibling gap's fix, or
+   the honest API is worse than the workaround). A disposition requires the
+   same evidence bar a build does — measured, red-first where a claim is
+   testable — and every disposition lands on the director's veto list in the
+   final report. "It was hard" is not a disposition.
+
+Work in waves: the six below FIRST (director-ranked, highest pain), then the
+remaining five detailed gaps (§3, §5, §6, §7, §11 of `framework-gaps.md`),
+then the 23 in-brief ones — batching coupled gaps into shared rounds where one
+seam answers several (the audit marks the couplings). Expect several of the 23
+to dissolve into the detailed fixes; prove it per gap, never assume it.
+
+The first six, chat numbering mapped to `framework-gaps.md` sections:
 
 1. **App-namespace theme metrics** (audit §1): a game must be able to declare
    `metrics.<app>.*` entries that ride the theme system — validated, dumped,
@@ -56,13 +74,17 @@ Chat numbering, mapped to `framework-gaps.md` sections:
    value-identity is a scale-1.0 guarantee — check coupled constants at the
    ten-foot rung, the lint's coupledConstants detector names them).
 
-Optional seventh if trivial after the six: the focus-ring thickness metric
-(`t16-triage.md` row — two packages have a 4px ring against 3px reserved room;
-layout cannot see the ring's size). If it is not trivial, leave it booked.
+The focus-ring thickness metric (`t16-triage.md` row — two packages have a 4px
+ring against 3px reserved room; layout cannot see the ring's size) joins the
+list as gap 35 — same two-state rule.
 
 ## How to run it
 
-- Subagent-driven: one implementer round per gap (or honestly-coupled pairs),
+- This is a CAMPAIGN, not a round: keep the ledger discipline the prior
+  campaign proved (a progress ledger under `.superpowers/sdd/<mission>/`,
+  every ruling recorded with cost-if-wrong, per-wave closure entries) — with
+  34+ gaps you WILL be compacted mid-mission, and the ledger is what survives.
+- Subagent-driven: one implementer round per gap (or honestly-coupled groups),
   fresh-context review after each, scoped re-reviews on fix rounds — the SDD
   flow in `.claude`/superpowers. Every round red-first; every claimed mutation
   proven to bite; suites measured ONLY in content-pinned copies via
@@ -91,5 +113,7 @@ layout cannot see the ring's size). If it is not trivial, leave it booked.
 - Do NOT publish, push, or package anything; publishing is the director's
   manual click. Never edit the frozen 0.6.0 flat baseline; additive vocabulary
   changes go through `ALLOWED_ADDED_SUBKEYS` with a mutation proof.
-- Report to the director at the end: per-gap outcomes, every ruling made (with
-  cost-if-wrong), suite tails both repos, and what the device half owes.
+- Report to the director at the end: a per-gap table (all 35: BUILT or
+  DISPOSED-with-evidence), every ruling made (with cost-if-wrong), every
+  disposition for veto, suite tails both repos, and what the device half owes.
+  Interim reports at each wave boundary so the director can redirect early.
