@@ -1710,3 +1710,23 @@ STUDIO.md, root CLAUDE.md.
   two rounds now share commit_walks.luau (plate-B extending the rule to
   the close class) — marker-tight hunks, re-read before edit, never
   revert the unfamiliar.
+
+## 2026-08-21 (post-close 29) — the director's purity question becomes an audit
+
+- DIRECTOR (architecture): worried a fix implied showcase code was
+  calculating its own width — "showcase code should not be doing layout
+  solving... conceptually akin to SwiftUI... anything we need to cleanup
+  to use the framework right (or that needs to move to the framework)?"
+  CLARIFIED: the overspill bug was FRAMEWORK code (region_expand's own
+  hug), not showcase — now by-construction in the solver. But the
+  question stands on the record's own evidence: fixture pixel literals
+  fixed piecemeal all campaign (336 window, vlistGap 8, ROW_HEIGHT),
+  hand-computed lanes (ADAPT-L2 residue), the hud fixture's zone
+  bookkeeping and reach epoch, estimatedItemExtent-as-number.
+- DECLARATIVE-PURITY AUDIT DISPATCHED (read-only, classification only):
+  every consumer-side layout-ish site in examples/** + RR's Facet
+  consumers → DELETE (framework answers; cite the seam) / MOVE (real
+  capability gap; name the home) / DECLARATIVE-OK / PROBE-EXEMPT, with
+  the §"what the framework teaches wrong" section for APIs that make the
+  imperative path easier than the declarative one (design findings). The
+  director sees the matrix before anything changes.
