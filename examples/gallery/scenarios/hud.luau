@@ -197,6 +197,9 @@ local COPY = {
 		characters against 100). The fuller sentence lives on the panel the ··· opens,
 		which is the one place on this screen that has room for it. ]]
 	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. ··· has the rest.",
+	-- PROBE-EXEMPT: the paint probe's own strings — INSTRUMENT, NOT EXAMPLE. These
+	-- are read off a phone in a bug report, not by a player, which is why the block
+	-- below deliberately breaks this file's own localization discipline.
 	--[[ THE PAINT PROBE'S OWN WORDS (NM-H4a). Sentences only — the NODE NAMES it
 		lists are identifiers of source nodes, the way a build sha is, and
 		translating them would break the one thing the reader has to type back into
@@ -313,6 +316,10 @@ local GLASS = 0.28
 -- on a screen shorter than this the explanation yields to the thing it explains.
 local CAPTION_FLOOR = 360
 
+-- PROBE-EXEMPT BEGIN: the paint probe's watch list — INSTRUMENT, NOT EXAMPLE.
+-- Hard-coded mounted PATHS into this file's own tree, in document order,
+-- because the defect the probe hunts is about document order. An example never
+-- writes another node's path down; this one has to.
 --[[ ══ THE PAINT PROBE'S WATCH LIST (NM-H4a) ══════════════════════════
 	Fourteen rows, IN DOCUMENT ORDER, spanning the boundary the reported failure
 	stops at. The director's photograph (`h.jpeg`, 2026-08-16) shows a contiguous
@@ -452,6 +459,7 @@ local PROBE_QUERY: { string } = (function(): { string }
 	end
 	return list
 end)()
+-- PROBE-EXEMPT END
 
 --[[ ── WHICH TEXT ON THIS HUD CARRIES A VALUE (controller ruling R9, 2026-08-18)
 	──────────────────────────────────────────────────────────────────────────────
@@ -1614,6 +1622,14 @@ return {
 			overflowOpen:set(true)
 		end
 
+		-- PROBE-EXEMPT BEGIN: the paint probe's own surface — INSTRUMENT, NOT EXAMPLE.
+		-- Roughly 800 of this file's lines are the device-defect instrument described
+		-- in the banner below, and they live inside the exemplar's `build` because the
+		-- thing they watch is this exemplar. Nothing between here and `raiseProbe()` is
+		-- a pattern to copy: it reads the ENGINE side through `adapter` seams on
+		-- purpose, spends measured pixels against this HUD's own rail on purpose, and
+		-- exists to disagree with the framework's model. The teaching half of this file
+		-- is everything OUTSIDE this region.
 		--[[ ══ THE PAINT PROBE, ON A SURFACE OF ITS OWN (NM-H4a) ══════════════
 
 			WHAT IT IS FOR. A device-only defect no instrument in this repository can
@@ -2381,12 +2397,24 @@ return {
 											},
 										}),
 										--[[ a plate a thumb can read without covering the screen it is
-											describing. WIDENED from 168 (director, 2026-08-17): at 168 the
-											skipped list truncated to `ScoreHome · TimerRing…` and the line
-											that names the defect never reached the photograph. 208 is still
-											under a third of the narrowest landscape window this fixture
-											declares, and the plate sits in the one band that is empty in
-											both of the director's captures. ]]
+											describing.
+
+											THE COMMENT USED TO NAME TWO NUMBERS THIS LINE HAS NEVER HELD,
+											and the correction is the point (declarative purity audit §10,
+											2026-08-22). It read "WIDENED from 168 (director, 2026-08-17):
+											at 168 the skipped list truncated… 208 is still under a third of
+											the narrowest landscape window" — against code that says 164. The
+											widening happened and was then narrowed again by the same
+											round's right-inset measurement (the `padding` above: the plate
+											and the 104px rail clear each other only at this pair), and the
+											prose was left describing the intermediate step.
+
+											WHAT 164 IS: the widest plate that clears the action rail's
+											measured 104px inset on the narrowest landscape window this
+											fixture declares, which is the constraint that actually decided
+											it. `tests/hud_paint_probe.spec` holds the PROPERTY in both
+											orientations rather than either number, so the pair may be
+											re-measured without this comment going stale a second time. ]]
 										{ type = "fixed", px = 164 }
 									),
 								},
@@ -2421,6 +2449,7 @@ return {
 			end
 		end
 		raiseProbe()
+		-- PROBE-EXEMPT END
 
 		--[[ THE SECOND CLOCK, AND IT IS PART OF THE HONESTY (2026-08-16).
 			`present.onGeometry` below fires from the HUD's OWN solve — which is the

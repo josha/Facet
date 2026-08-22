@@ -133,6 +133,13 @@ return {
 		end
 		local rows = scope:own(core:signal(cards))
 
+		-- PROBE-EXEMPT BEGIN: a HAND-DERIVED viewport, and a gap rather than a lesson.
+		-- `newVirtualList.viewportExtent` is asserted REQUIRED with no self-measuring
+		-- form, so this memo re-derives from raw env facts what the framework already
+		-- has: it subtracts `coreSafeInsets`, the Screen's padding and a scrollbar
+		-- guess by hand. The idiom a reader should copy does not exist yet
+		-- (`viewportExtent = "auto"`, purity audit MOVE §4); this is the careful
+		-- version of doing without it, not a pattern.
 		-- THE RAIL'S WIDTH IS A LIVE NUMBER (see the header). `newVirtualList`
 		-- takes a Readable<number> for `viewportExtent`, so a rotation re-derives
 		-- the window in place with no reset and no remount.
@@ -144,6 +151,7 @@ return {
 			local right = if type(insets) == "table" and type(insets.right) == "number" then insets.right else 0
 			return math.clamp(math.floor(w - left - right - PADDING * 2 - RAIL_SLACK), 96, 1600)
 		end))
+		-- PROBE-EXEMPT END
 
 		local rail = Facet.Controls.VirtualList(core, {
 			id = "Rail",

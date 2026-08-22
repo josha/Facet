@@ -1,4 +1,7 @@
 --!strict
+-- PROBE-EXEMPT: deterministic workload data for the benchmark — INSTRUMENT, NOT
+-- EXAMPLE.
+--
 -- The performance lab's DETERMINISTIC DATASET (roadmap Step 9, acceptance PL-2/PL-12).
 --
 -- ONE definition of "the dense list", shared by the Roblox place and the headless

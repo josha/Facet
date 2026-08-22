@@ -82,6 +82,19 @@ rows.DEFAULT_CONTROL_HEIGHT = 46
 rows.LIST_CHROME_H = 58
 rows.COMPACT_CONTROLS_WIDTH = 264
 
+-- PROBE-EXEMPT BEGIN: HAND-MEASURED EXTENT ARITHMETIC — INSTRUMENT, NOT EXAMPLE.
+--
+-- Everything from here to `rows.heightFor`'s `end` predicts a row's height in
+-- the consumer, from the theme's chrome insets, the display scale and the
+-- accessibility text preference, with numbers measured against a live engine.
+-- THE IDIOM IS `itemExtent = "measured"`, and `variable_extents.luau` is the
+-- scenario that teaches it: a list that measures its rows needs none of this.
+--
+-- This lab is the deliberate exception, because a benchmark whose slot height is
+-- decided by measurement is measuring the measurement. api.md names that
+-- exception; the three comment blocks below are the record of getting the
+-- prediction wrong three times (the type scale, then the theme, then the text
+-- preference), which is exactly the cost the idiom exists to remove.
 -- The row height for an arrangement AT THE LIVE TYPE SCALE. A VirtualList is a
 -- FIXED-height windowing list, so the height and the arrangement must be one decision
 -- — two would be the split brain `ctx.compact` exists elsewhere in this framework to
@@ -243,6 +256,7 @@ function rows.heightFor(
 	-- offset 0 — so the preference joins the max() rather than being added after it
 	return rows.ROW_PADDING_V + math.ceil(math.max(rows.IMAGE_SIZE, rows.TEXT_BLOCK * s + preferred)) + themed
 end
+-- PROBE-EXEMPT END
 
 -- THE ONE ARRANGEMENT DECISION, from a measured width rather than a device size class.
 -- The framework's `isCompact` flips at 600px, which is the right boundary for a screen

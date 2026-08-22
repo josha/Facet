@@ -1,4 +1,10 @@
 --!strict
+-- PROBE-EXEMPT: the performance lab's harness — INSTRUMENT, NOT EXAMPLE. It
+-- mounts workloads, counts instances, drives scripted flings and prices them.
+-- Where it predicts geometry by hand it does so because measuring would be
+-- measuring the measurement (see `rows.luau`'s own marked region); an app
+-- declares `itemExtent = "measured"` and lets the framework answer.
+--
 -- Scenario 'perf_lab' — the performance lab (roadmap Step 9,
 -- docs/plans/performance-stress-places.md; acceptance rows PL-2..PL-11, PL-17).
 --

@@ -1,4 +1,9 @@
 --!strict
+-- PROBE-EXEMPT: a benchmark WORKLOAD and its dev control surface — INSTRUMENT,
+-- NOT EXAMPLE. Everything here exists to make a named cost measurable, so it
+-- optimizes for a stable, repeatable tree rather than for the way an app should
+-- be written. The gallery scenarios are the teaching surface.
+--
 -- THE TWO NAMED LEVERS, GIVEN A WORKLOAD (2026-08-15).
 --
 -- `artifacts/performance-stress-places/device-capture-2026-08-15.md` §7 ranks two

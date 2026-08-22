@@ -1,4 +1,9 @@
 --!strict
+-- PROBE-EXEMPT: the lab's own launcher/status surface — INSTRUMENT, NOT EXAMPLE.
+-- It reports the numbers a benchmark run produces and is DISMISSED for a clean
+-- capture; it is a development control panel, and its shape answers to the run
+-- rather than to a player.
+--
 -- The performance lab's LAUNCHER / STATUS OVERLAY (roadmap Step 9, PL-10).
 --
 -- It is a development control surface, not a demo: selectors, run controls, the

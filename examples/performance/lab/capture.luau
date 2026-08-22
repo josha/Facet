@@ -1,4 +1,7 @@
 --!strict
+-- PROBE-EXEMPT: capture plumbing for the performance ledger — INSTRUMENT, NOT
+-- EXAMPLE.
+--
 -- The performance lab's CAPTURE ROW (roadmap Step 9, acceptance PL-9; PLN-3).
 --
 -- A frame time with no conditions attached is not evidence — it cannot be

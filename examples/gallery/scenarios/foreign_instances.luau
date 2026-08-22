@@ -1,4 +1,9 @@
 --!strict
+-- PROBE-EXEMPT: this whole file is the ENGINE-SIDE materializer — INSTRUMENT,
+-- NOT EXAMPLE. It is the corpus's only concentration of direct `Instance.new`
+-- and raw geometry writes, and that is its SUBJECT: `foreign_content.luau` is
+-- the scenario a reader copies, and it declares these panes as data.
+--
 -- THE FOREIGN-CONTENT MATERIALIZER (UI.Foreign, ADR-0034).
 --
 -- An ENGINE-SIDE sibling of `runner.luau`, deliberately NOT a scenario: scenario
