@@ -1861,3 +1861,22 @@ STUDIO.md, root CLAUDE.md.
   current truth naming the ruling; REAL loss → stop and report). The
   final RC gate re-run waits on this — its prior-gates sweep must be
   honest first.
+
+## 2026-08-22 (cont.) — the sweep review lands the exact warned class
+
+- SWEEP REVIEW (c4aa319): PASS WITH FINDINGS, 1H/3M/4L; the value-identity
+  proof verified COMPLETE (353/353 exact, share re-derived to the digit).
+  THE HIGH is the brief's own warned class, found in the blind spot: two
+  padding=4→"xs" swaps in the perf lab's rows fixture — identical at
+  neutral, +2px each at the 1.5× ladder, overshooting slots 77→81/60 and
+  82→86/80 at Large — in one of SIX literal-commit files outside the
+  always-on sweep's coverage, beside a PROBE-EXEMPT raw constant that
+  predicts the slot (with a comment listing three prior stale-prediction
+  incidents). GENERALIZATION, now doctrine: the lint's pixel-identity is
+  a SCALE-1.0 guarantee; a swap coupled to an adjacent raw constant
+  de-calibrates at distance. Fix round resumed (instance both-ways
+  choice + the class rule + the six-file ten-foot table + the foreign-
+  seam mechanical pin). MED-1's two remaining proves-nothing calls
+  (check_docs vs cli in d3b/d6; bare theme_drift in
+  controls-semantic-roles) routed to the repin round already holding
+  those rows.
