@@ -60,9 +60,53 @@ rows.OVERSCAN = 2
 -- reservation and the list's own padding.
 rows.ONE_LINE_MIN_WIDTH = 720
 
--- The fixed (non-text) part of a row: 8px of padding above and below. It does not
--- move with the type scale, so it is not scaled.
+--[[ THE FIXED (NON-TEXT) PART OF A ROW, AND IT IS NOT ONE NUMBER ANY MORE.
+
+	16 IS STILL THE NEUTRAL ANSWER, byte for byte, and every calibration in this
+	file and its spec is unmoved. What changed on 2026-08-22 is that the number is
+	now DECOMPOSED, because half of it moved and the other half did not:
+
+	  * the row's OWN padding, both sides — the `Row` stack below declares
+	    `padding = ROW_PADDING_STEP`, and since the declarative-purity sweep that is
+	    a theme TOKEN rather than a literal 4. A token rides the ten-foot ladder:
+	    `space.xs` resolves 4 at arm's length and **6** on a television. The row
+	    therefore spends 8 px of padding near and 12 px across the room.
+	  * the HEADROOM this constant has carried since Step 9. `padding` has been 4 for
+	    the whole life of the file while this comment said "8px above and below", so
+	    16 was always 8 px of over-reserve on top of the row's real 8. Over is the
+	    correct direction (see `PREFERRED_PX_PER_LINE`'s block below, which argues the
+	    same thing from measurement), so the headroom is KEPT — but it is named now
+	    instead of hiding inside a number that reads as a measurement.
+
+	WHY THIS IS NOT COSMETIC. `heightFor` is the DECLARED extent for a fixed-pitch
+	`newVirtualList`, and a predictor that does not spend what the row spends
+	de-calibrates the moment the two disagree. It disagreed: measured at
+	1920x1078 / `displaySize = Large`, the row's content grew 77 -> 81 px against an
+	unmoved 60 px slot the instant `padding = 4` became `padding = "xs"`. That is a
+	fourth entry in the list of prediction failures the blocks below record, and the
+	only structural fix is the one taken here — the predictor resolves the SAME token
+	off the SAME snapshot the call site already hands it.
+
+	READ BY PLAIN TABLE ACCESS, exactly as `themeInset` reads `chromeInsets`: this
+	module has no requires by contract, and `space` is a published snapshot section
+	the distance transform scales (`snapshot.DENSITY_LENGTH_SECTIONS`). ]]
+rows.ROW_PADDING_STEP = "xs"
+rows.ROW_PADDING_STEP_NEUTRAL = 4
+rows.ROW_PADDING_HEADROOM = 8
+-- the NEUTRAL answer, kept under its old name so a reader (and a grep) still finds
+-- it: 2 x 4 + 8. `rowPaddingV(nil)` returns exactly this.
 rows.ROW_PADDING_V = 16
+
+-- the row's fixed vertical charge under the snapshot the row is actually painted
+-- with. `nil` (the bare/flat path) answers `ROW_PADDING_V`, so the flat identity
+-- this file's spec pins is untouched.
+function rows.rowPaddingV(snapshot: any?): number
+	local space = if type(snapshot) == "table" then snapshot.space else nil
+	local step = if type(space) == "table" and type(space.xs) == "number"
+		then space.xs
+		else rows.ROW_PADDING_STEP_NEUTRAL
+	return 2 * step + rows.ROW_PADDING_HEADROOM
+end
 -- The TEXT-DRIVEN content of each arrangement at type scale 1.0, measured. The
 -- one-line form's text block is shorter than the avatar, so at scale 1 the image is
 -- what sets the height — which is why the constant reads as 40 rather than 29.
@@ -250,11 +294,11 @@ function rows.heightFor(
 		-- the extra line the split arrangement adds carries one control's height plus
 		-- the gap above it
 		local extra = if isSplit then rows.controlHeight(snapshot) + rows.COMPACT_LINE_GAP else 0
-		return rows.ROW_PADDING_V + math.ceil(rows.COMPACT_TEXT_BLOCK * s) + themed + extra + preferred
+		return rows.rowPaddingV(snapshot) + math.ceil(rows.COMPACT_TEXT_BLOCK * s) + themed + extra + preferred
 	end
 	-- the one-line form's text can now EXCEED the avatar, which it never could at
 	-- offset 0 — so the preference joins the max() rather than being added after it
-	return rows.ROW_PADDING_V + math.ceil(math.max(rows.IMAGE_SIZE, rows.TEXT_BLOCK * s + preferred)) + themed
+	return rows.rowPaddingV(snapshot) + math.ceil(math.max(rows.IMAGE_SIZE, rows.TEXT_BLOCK * s + preferred)) + themed
 end
 -- PROBE-EXEMPT END
 
@@ -493,7 +537,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		return UI.VStack({
 			id = "Row",
 			gap = rows.COMPACT_LINE_GAP,
-			padding = "xs",
+			padding = rows.ROW_PADDING_STEP,
 			width = { type = "fill", weight = 1 },
 			children = lines,
 		})
@@ -502,7 +546,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 	return UI.HStack({
 		id = "Row",
 		gap = "s",
-		padding = "xs",
+		padding = rows.ROW_PADDING_STEP,
 		width = { type = "fill", weight = 1 },
 		children = { image.blueprint, labels, toggle, stepper.blueprint, open },
 	})

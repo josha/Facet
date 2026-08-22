@@ -548,7 +548,16 @@ function levers.install(deps: any)
 			cell = function(item: any)
 				return U.VStack({
 					id = "Row",
-					padding = "xs",
+					-- THEME-OPT-OUT: this padding is the second half of `itemExtent = 28`
+					-- above. A virtualized list's declared extent is a PROMISE about what
+					-- the cell measures, and a theme name rides the distance ladder while
+					-- a literal 28 does not: measured at 1920x1078 / `displaySize = Large`,
+					-- naming this grew the row 30 -> 34px against that unmoved 28px slot
+					-- (review 2026-08-22, HIGH-1, second instance). A lever's cell is a
+					-- deliberately cheap, deliberately IDENTICAL leaf — a stable tree is
+					-- its whole subject — so the literal is what belongs here, and the
+					-- lint's coupling detector reports this file for exactly that reason.
+					padding = 4,
 					gap = 2,
 					width = { type = "fill", weight = 1 },
 					children = {
