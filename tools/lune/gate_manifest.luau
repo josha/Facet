@@ -2179,7 +2179,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "docs-and-adr",
 			requirements = { "UI-STYLE-001" },
-			run = 'test -f docs/adr/ADR-0018-native-stylesheets.md && grep -q "seed-once" docs/adr/ADR-0018-native-stylesheets.md && grep -q "Native stylesheets (opt-in)" docs/guide/05-styling.md && grep -q "reference only" docs/guide/05-styling.md && grep -q "sheet_model" src/tokens/tokens.luau && ! grep -q "generation is deferred" src/tokens/tokens.luau',
+			run = 'test -f docs/adr/ADR-0018-native-stylesheets.md && grep -q "seed-once" docs/adr/ADR-0018-native-stylesheets.md && grep -q "Native stylesheets (the default)" docs/guide/05-styling.md && grep -q "reference only" docs/guide/05-styling.md && grep -q "sheet_model" src/tokens/tokens.luau && ! grep -q "generation is deferred" src/tokens/tokens.luau',
 			evidence = "docs/adr/ADR-0018-native-stylesheets.md",
 			note = "ADR-0018 records the decision + engine truths; the styling guide labels which Style Editor edits are immediate vs reference-only/source-owned; the tokens.luau deferral note lifted",
 		},
