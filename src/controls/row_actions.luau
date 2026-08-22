@@ -3547,7 +3547,6 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			no consumer, and stage 4's consumer (Table) holds an engine per actionable
 			row already. ]]
 		api.editAffordanceView = editAffordanceView
-		api.editGutterPx = editGutterPx
 		api.syncGeometry = contributionFields.syncGeometry
 		api.bindMotion = contributionFields.bindMotion
 		api.bindController = contributionFields.bindController
@@ -3567,6 +3566,24 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		api.commitDestructive = commitDestructive
 		api.toggleMenu = toggleMenu
 	end
+	--[[ THE EDIT GUTTER IS PUBLISHED IN BOTH MODES (bug FIX-SHOW C, 2026-08-22),
+		and it used to be published only from inside the hosted block above. The
+		asymmetry looked right and was not: a HOSTED host spends this number itself,
+		as its own row content's left padding, so it obviously needs to read it — but
+		a WRAP host, where the composite spends the number on the caller's behalf,
+		may still have OTHER CHROME OUTSIDE THE COMPOSITE that has to reserve the
+		identical amount. `newTable` does: its heading band sits outside every row,
+		so a wrapped row's cells moved 36px in while the header stayed put, and the
+		columns came apart the instant edit mode opened.
+
+		There was no second route to the number — `controls.rowActions.rowGutter` is
+		not exported from `row_actions_metrics.luau` — and re-deriving the sum in the
+		table would be a second implementation of a number this file already owns,
+		which is how the two would come apart again on the next metric change. So the
+		field simply becomes readable in both modes: it is a READ of state this
+		engine already computed, nil unless the row can ever show the minus, and
+		nothing in either mode behaves differently for its being legible. ]]
+	api.editGutterPx = editGutterPx
 	return api
 end
 

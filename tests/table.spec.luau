@@ -193,19 +193,42 @@ describe("Table: layout", function()
 		expectAligned(adapter, cellPath(0, "razz", "name"))
 	end)
 
-	--[[ THE THIRD ARM — a row WRAPPED by `row_actions` for its destructive action —
-		is NOT here, and its absence is the finding rather than an oversight. That
-		row's content carries a SECOND leading gutter, the composite's own ⊖, and the
-		composite publishes the number (`api.editGutterPx`) only in HOSTED mode: in
-		the WRAP mode Table uses, the field is assigned inside
-		`row_actions.luau`'s `if isHosted then` block and there is no other route to
-		it. `headerPadding` above is already written to spend it — `rowEditGutter`
-		reads whatever `table_rows`' `noteEditGutter` is handed — so the case lands
-		with the one-line publication and needs nothing else. Measured red today at
-		800px with two columns: header x=32 w=704 against a cell at x=68 w=668.
-		Blocked this round because `src/controls/row_actions.luau` belongs to another
-		lane; the case and its evidence are in
+	--[[ THE THIRD ARM — a row WRAPPED by `row_actions` for its destructive action.
+		That row's content carries a SECOND leading gutter, the composite's own ⊖,
+		which `row_actions_root` spends as the LEFT PADDING of the row content it was
+		handed. The heading band sits outside every row, so it has to add that number
+		too, and `headerPadding` was ALREADY WRITTEN to — `rowEditGutter` reads
+		whatever `table_rows`' `noteEditGutter` is handed.
+
+		WHAT WAS MISSING WAS ONE ASSIGNMENT, and it is why this arm was carried as a
+		blocked note for one round rather than as a fix: the composite published
+		`api.editGutterPx` only from inside its `if isHosted then` block, so in the
+		WRAP mode Table uses the field was nil and `noteEditGutter` returned at its
+		first line. There was no second route to the number —
+		`controls.rowActions.rowGutter` is not exported from
+		`row_actions_metrics.luau` — and re-deriving the sum in the table would have
+		been a second implementation of a number the composite already owns, which is
+		exactly how the two come apart again.
+
+		Measured red before the publication, at 800px with two columns: header
+		x=32 w=704 against a cell at x=68 w=668 — 36px, which is
+		`controls.rowActions.editAffordance` (28) plus
+		`controls.rowActions.rowGutter` (8). Live evidence and the full packet are in
 		`artifacts/framework-gaps-phase2/bugC-wrapped-row-blocked.txt`. ]]
+	it("columns stay aligned in edit mode: the ≡ gutter AND the row-actions ⊖", function()
+		local _, adapter = editAlignmentWorld({
+			reorderable = true,
+			onReorder = function() end,
+			rowActions = function()
+				return {
+					trailing = {
+						{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+					},
+				}
+			end,
+		})
+		expectAligned(adapter, "/S/Racers/Main/Body/Rows/[razz@0]/RowActions-razz/Content/Row/Cells/Cell-name")
+	end)
 
 	it("variable row heights position rows correctly", function()
 		local _, adapter = world({
