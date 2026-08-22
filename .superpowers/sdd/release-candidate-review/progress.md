@@ -1522,3 +1522,26 @@ STUDIO.md, root CLAUDE.md.
   cap, the closest in the repo), the ledger's rect_pass prescription, with
   the H1 tap-theft clamp as its Phase B (960+828 px² red probe). Plate-B
   review seat next.
+
+## 2026-08-21 (post-close 20) — the RR reds RETRACTED; mkpair lands; flip round 2
+
+- RR BISECT VERDICT: the two "large-text reds" were FABRICATED by a
+  mis-pinned pair — the overflow-guard round's Facet sha was HEAD at its
+  START (4f86ac5), one commit BEFORE the input-primacy fix its RR side
+  requires; the tripwire fired exactly as designed. The accused specs NEVER
+  failed (green at 20 Facet pins; both current pairs 7000/0 and 3465/0).
+  Erratum inserted in the overflow-guard report (d0e554e). The instrument
+  lessons, kept: a difference measurement cannot see a common-mode defect
+  (both arms carried the same stale framework — pin the ABSOLUTE, not the
+  delta); a matching failure COUNT is not identification — read the ✗
+  lines.
+- MKPAIR LANDED (tools/mkpair.sh, selftested): both repos archived at refs
+  resolved AT CALL TIME, resolved pins written INTO the pair as artifacts
+  (PIN_FACET/PIN_RR). Third bite of the day was the last.
+- FLIP RE-REVIEW: APPROVE with findings — the substitution class survives
+  one level down (a value substituted into the seam's own argument stays
+  green at the identical count; the RR floor binds the reader's NAME not
+  the tri-state). Fix round 2 resumed with the reviewer's own endgame:
+  paintPlan takes the opts TABLE + .nativeStyle read-count ZERO in the
+  target — nothing left to substitute; the RR sweep refuses tri-state
+  collapse and derives its site list. Report overclaims to be corrected.
