@@ -60,7 +60,8 @@ local commit_walks = {}
 	ADR-0041).
 
 	`own` is the rect the node paints, `want` is the floor it would like, and
-	`blockers` are the rects of every node OUTSIDE it that can sink a press. The
+	`blockers` are the rects the caller decided may stop it — for a cover, every
+	AUTHOR-declared node that can sink a press (ruling R23). The
 	answer is `want`, given back one side at a time, each side stopping at the first
 	blocker in its way and never shrinking past `own`.
 
@@ -539,26 +540,44 @@ function commit_walks.new(ctx: CommitCtx)
 			local target = if props ~= nil then props.expandTarget else nil
 			return type(target) == "table" and target.role == "cover"
 		end
-		--[[ EVERY RECT A PRESS COULD LAND ON. `inputSinks` is the same structural
-			census the overhang lift resolves against — which paths can actually SINK a
-			press — collected on the live-path walk, so this costs one pass over that
-			set per STANDING COVER and nothing at all on every other node.
+		--[[ EVERY RECT A PRESS MEANT FOR THE AUTHOR COULD LAND ON — and only those
+			(ruling R23, 2026-08-21). `inputSinks` is the same structural census the
+			overhang lift resolves against, collected on the live-path walk, so this
+			costs one pass over that set per STANDING COVER and nothing at all on every
+			other node. Its VALUE is what R23 turns on: `true` for a sinker the author
+			declared, `false` for one the framework synthesized.
+
+			WHY THE FRAMEWORK MAY NOT BLOCK ITSELF. R18 ruled the AUTHOR-content
+			question — a framework floor landing on the player's own controls is the
+			one-gesture-two-meanings collision, and that is the DIR5 theft this rule
+			exists to close. It was never asked whether the framework should surrender
+			the F1 accessibility floor to its OWN affordance, and `hit_lift`'s doctrine
+			already answers the same question the other way: "expander-vs-expander is
+			left to the existing host z order… another expander's invisible rect never
+			[creates a lift]". A cover paints not one pixel; two of them overlapping is
+			an ordering question the z walk already decides, not an ambiguity the
+			player can see.
+
+			MEASURED, WHICH IS WHY THIS IS A RULING AND NOT A PREFERENCE. Counting the
+			framework's own affordances as blockers put 43 of the 381 route boxes in
+			the suite's own swept matrix under the touch floor and retracted 32 covers
+			outright, the smallest route landing at 25px — one pixel above
+			`overflow_sweep`'s dead-end bar, i.e. a silent accessibility regression
+			that nothing would have reported.
 
 			IT NEEDS NO "NOT MY OWN REGION" FILTER, and one was written and then
 			removed because no mutation could redden it (2026-08-21). R18 exempts the
 			floor inside its own region, and the geometry already delivers that: every
 			side's test skips a blocker on the far side of the edge it is moving, so a
 			blocker CONTAINED in the node's own rect — which is what a region's own
-			standing form is, and what the cover itself is — skips on all four sides by
-			construction. A filter that restates a fact the arithmetic already
-			guarantees is a filter the next reader trusts instead of the arithmetic.
+			standing form is — skips on all four sides by construction.
 
 			A HIDDEN NODE CANNOT BE PRESSED, and `solverHidden` was written by the
 			visibility walk that runs immediately before this one. ]]
-		local function pressableRects(): { any }
+		local function authorPressableRects(): { any }
 			local out: { any } = {}
-			for path in inputSinks do
-				if solverHidden[path] == true then
+			for path, authored in inputSinks do
+				if authored ~= true or solverHidden[path] == true then
 					continue
 				end
 				local other = rects[path]
@@ -591,7 +610,7 @@ function commit_walks.new(ctx: CommitCtx)
 							h = h,
 						}
 						if isCover(node) then
-							want = commit_walks.growWithin(r, want, pressableRects())
+							want = commit_walks.growWithin(r, want, authorPressableRects())
 							-- grown back to the box it already paints, there is
 							-- nothing to advertise: the Button's own rect IS the
 							-- region, so an expander here would be a transparent
@@ -608,9 +627,6 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			-- the box a child's floor may not leave. A node the solve did not reach
-			-- passes its own ancestor's down rather than nil, which widens the bound
-			-- rather than removing it.
 			for _, child in node.children do
 				pushHitRects(child, isHidden)
 			end

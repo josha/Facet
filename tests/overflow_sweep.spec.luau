@@ -2914,6 +2914,162 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
+	--[[ ── THE ROUTE FLOOR, ACROSS THE WHOLE MATRIX (ruling R23) ────────────────
+		THE GUARANTEE: a stepped-down region's route may fall below the effective
+		touch floor ONLY where an AUTHOR-declared pressable rect is in the way of the
+		side it needed to grow into. The framework's own synthesized affordances may
+		overlap each other and arbitrate by the existing paint order, exactly as
+		`render/hit_lift.luau`'s doctrine already says of expander-vs-expander.
+
+		WHY IT LIVES HERE RATHER THAN BESIDE THE RULE. `tests/hit_floor_region_clamp`
+		pins the rule on ONE fixture at ONE viewport with ONE package, and that is
+		how the rule shipped over-applied: the first blocker set counted the
+		framework's own routes, and on this matrix — viewport x package x preference
+		x strip state — it put **43 of 381 route boxes under the floor**, retracted
+		**32** covers outright and produced a **25px** route, one pixel above the
+		dead-end bar below. Nothing in the suite could say so, because nothing swept
+		the routes. This does.
+
+		THE ORACLE IS INDEPENDENT OF THE RULE. It re-derives the wished-for floor
+		from the route's own rect and the theme's own minimum, then asks — per SIDE,
+		with the same two exclusions any such test must make (the other axis must
+		overlap, and a rect on the far side of the edge being moved is not in its
+		way) — whether an author node was there. It never calls `growWithin`.
+
+		Accumulated across the swept `it`s above and asserted once below, which is
+		how this file already proves its theme axis and its waiver registry: a claim
+		about the WHOLE matrix has to be read after the whole matrix has run. ]]
+	local layoutNodeFloor = require("../src/render/layout_node")
+	local routeCensus = {
+		swept = 0,
+		subFloor = 0,
+		authorExplained = 0,
+		frameworkCut = {} :: { string },
+		unexplained = {} :: { string },
+		smallest = math.huge,
+	}
+
+	local function collectRouteFloors(w: any, suffix: string)
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		if dump == nil then
+			return
+		end
+		local metrics = w.env:get("themeMetrics"):get()
+		local floor = layoutNodeFloor.effectiveHitFloor("Button", metrics)
+		if floor == nil then
+			return
+		end
+		-- the routes the composition itself declares: those paths, and only those,
+		-- are the affordances the FRAMEWORK synthesized
+		local routes: { [string]: boolean } = {}
+		for _, r in dump.regions do
+			routes[`{r.id}/Expand`] = true
+		end
+		for _, r in dump.regions do
+			if (r.activeForm or 0) <= 1 or r.expand == "none" or not r.expandable then
+				continue
+			end
+			local path = `{r.id}/Expand`
+			local node = w.adapter.node(path)
+			if node == nil or node.rect == nil or node.rect.w <= 0 or node.rect.h <= 0 then
+				continue
+			end
+			local own = node.rect
+			local hit = w.adapter.hitRectOf(path)
+			local box = if hit ~= nil then hit else own
+			routeCensus.swept += 1
+			routeCensus.smallest = math.min(routeCensus.smallest, math.min(box.w, box.h))
+			if box.w >= floor and box.h >= floor then
+				continue
+			end
+			routeCensus.subFloor += 1
+			-- the floor this route asked for, before anything stopped it
+			local fw, fh = math.max(own.w, floor), math.max(own.h, floor)
+			local want = {
+				x = own.x - math.floor((fw - own.w) / 2),
+				y = own.y - math.floor((fh - own.h) / 2),
+				w = fw,
+				h = fh,
+			}
+			-- every visible pressable rect outside this region, split by who
+			-- declared it
+			local author: { any } = {}
+			local framework: { any } = {}
+			for _, other in w.adapter.paths() do
+				if string.find(other, r.id, 1, true) == 1 then
+					continue
+				end
+				local n = w.adapter.node(other)
+				if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
+					continue
+				end
+				if w.adapter.visibleOf(other) == false then
+					continue
+				end
+				if not (n.class == "Button" or n.class == "Toggle" or n.class == "TextField" or n.class == "Grip") then
+					continue
+				end
+				table.insert(if routes[other] == true then framework else author, n.rect)
+			end
+			local function inTheWay(side: string, rects: { any }): boolean
+				for _, b in rects do
+					if side == "top" or side == "bottom" then
+						if b.x >= own.x + own.w or b.x + b.w <= own.x then
+							continue
+						end
+						if side == "top" then
+							if b.y < own.y and b.y + b.h > want.y then
+								return true
+							end
+						elseif b.y + b.h > own.y + own.h and b.y < want.y + want.h then
+							return true
+						end
+					else
+						if b.y >= own.y + own.h or b.y + b.h <= own.y then
+							continue
+						end
+						if side == "left" then
+							if b.x < own.x and b.x + b.w > want.x then
+								return true
+							end
+						elseif b.x + b.w > own.x + own.w and b.x < want.x + want.w then
+							return true
+						end
+					end
+				end
+				return false
+			end
+			local explained = true
+			for _, side in { "top", "bottom", "left", "right" } do
+				local asked, got
+				if side == "top" then
+					asked, got = own.y - want.y, own.y - box.y
+				elseif side == "bottom" then
+					asked, got = (want.y + want.h) - (own.y + own.h), (box.y + box.h) - (own.y + own.h)
+				elseif side == "left" then
+					asked, got = own.x - want.x, own.x - box.x
+				else
+					asked, got = (want.x + want.w) - (own.x + own.w), (box.x + box.w) - (own.x + own.w)
+				end
+				if asked <= 0 or got >= asked - 0.01 then
+					continue
+				end
+				if inTheWay(side, author) then
+					continue
+				end
+				explained = false
+				local where = `{path} {side} {box.w}x{box.h} floor {floor}{suffix}`
+				table.insert(
+					if inTheWay(side, framework) then routeCensus.frameworkCut else routeCensus.unexplained,
+					where
+				)
+			end
+			if explained then
+				routeCensus.authorExplained += 1
+			end
+		end
+	end
+
 	for _, view in VIEWS do
 		it(
 			`{view.id} ({view.w}x{view.h}): the HUD clears the showcase's chip row and every box holds its own text`,
@@ -2955,6 +3111,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 							for _, hit in giveWayViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
+							collectRouteFloors(w, suffix)
 							for _, hit in deadEndViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
@@ -2995,6 +3152,34 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			end
 		)
 	end
+
+	it("R23: no route falls below the touch floor except where an AUTHOR node is in the way", function()
+		--[[ THE INVARIANT, and it is the whole of the ruling. A framework affordance
+			never takes the accessibility floor off another one; an author's control
+			does, and must, because two live targets for one gesture is the collision
+			R18 banned and the player cannot see which won.
+
+			MEASURED AT THE FIX (2026-08-21, R23): 381 route boxes swept, 38 below the
+			floor and every one of them cut by an author node, 0 by a framework route,
+			smallest route 35px. Before the ruling the same sweep read 43 / 23 / 20 /
+			25px. The sub-floor COUNT is deliberately not pinned — a theme or fixture
+			edit moves it and it is not what this case is about — but the two lists
+			below are pinned EMPTY, and they are what a blocker-set change moves. ]]
+		expect(table.concat(routeCensus.frameworkCut, "\n  ")).toBe("")
+		expect(table.concat(routeCensus.unexplained, "\n  ")).toBe("")
+		--[[ ...AND THE SWEEP RAN. Two empty lists are also what a matrix that never
+			mounted produces, which is the trap every set assertion in this file
+			carries. The census pin is the same discipline the cap ledger uses on a
+			file size: when the matrix legitimately changes, this number changes with
+			it and the next author re-reads the case rather than deleting it. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 381")
+		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
+			the two lists above are empty for the wrong reason: the per-side oracle
+			would never run. This is the case's own positive control. ]]
+		expect(
+			`sub-floor routes, all author-cut: {routeCensus.subFloor > 0 and routeCensus.subFloor == routeCensus.authorExplained}`
+		).toBe("sub-floor routes, all author-cut: true")
+	end)
 
 	--[[ THE STATES THE HUD CAN BE OPENED INTO, DRIVEN (overflow guard layer 3).
 

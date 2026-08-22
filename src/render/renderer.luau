@@ -272,6 +272,9 @@ function renderer.attach(
 	-- which is what keeps a `zIndex` scope intact), and the census of what can
 	-- actually SINK a press
 	local parentNodeOf: { [string]: any } = {}
+	-- path -> TRUE when this input sinker is the author's, FALSE when it is one
+	-- the framework synthesized (ruling R23; the walk that builds it says why).
+	-- Both are keys: iterate for "any sinker", read the value for "the author's".
 	local inputSinks: { [string]: boolean } = {}
 	local hitLift = hit_lift.new()
 	-- assigned below, where the z walk is defined: the solve re-runs it when the
@@ -1484,12 +1487,25 @@ function renderer.attach(
 			pathNodes[node.path] = true
 			pathNodeCount += 1
 		end
-		-- ...and the census the overhang lift resolves against (`hit_lift`):
-		-- which paths can actually SINK a press. Collected on this walk for the same
-		-- reason the two above are — it is free here, and a whole-tree search per
-		-- expander otherwise.
+		--[[ ...and the census the overhang lift resolves against (`hit_lift`):
+			which paths can actually SINK a press. Collected on this walk for the same
+			reason the two above are — it is free here, and a whole-tree search per
+			expander otherwise.
+
+			THE VALUE SAYS WHO DECLARED IT, and it is not decoration (ruling R23,
+			2026-08-21). `hit_lift` wants EVERY sinker and iterates the keys; the
+			hit-floor walk wants only the ones the AUTHOR declared, because the
+			framework may not take the accessibility floor off its own synthesized
+			affordance — the same line `hit_lift`'s own doctrine already draws when it
+			refuses to lift one expander over another. A framework affordance is a KEY
+			WITH A FALSE VALUE, so never write `if inputSinks[path] then`: ask
+			`inputSinks[path] == true` for "the author's", or iterate for "any". ]]
 		if INPUT_SINKING[node.class] or (node.props ~= nil and node.props.active == true) then
-			inputSinks[node.path] = true
+			-- framework-declared today means the ONE prop the schema documents that
+			-- way (`expandTarget`, the region's expand affordance, which authors
+			-- never write). A second synthesized affordance joins by being named
+			-- here, and R23 is the ruling that decides whether it should.
+			inputSinks[node.path] = node.props == nil or node.props.expandTarget == nil
 		end
 		local nextHost = if node.class == "ScrollView" then node.path else host
 		-- a ScrollView is a clip host by construction (the adapter mounts a real

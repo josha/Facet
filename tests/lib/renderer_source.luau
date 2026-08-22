@@ -24,6 +24,15 @@
 	quietly stop seeing the code they name, which is the failure this file exists
 	to prevent. `tests/lib/adapter_source.luau` is the same instrument for the
 	engine adapter, and says the same thing.
+
+	AND THE PROSE ABOVE IS NOW CHECKED AGAINST THE LIST BELOW (review MEDIUM-4,
+	2026-08-21). The commit-walk split rewrote that paragraph to name five modules
+	and added only one of them to `PARTS`; `rect_pass.luau` had never been in it.
+	No pin went blind — that file writes no `adapter.setProp(` at all — but a hand
+	list beside a paragraph that describes it is the exact shape
+	`tools/lune/check_prop_parity.luau` records going stale "the next time a split
+	landed". `tests/commit_walks_seam.spec.luau` now asserts every
+	`render/<module>.luau` this header names is a part, so the two cannot drift.
 ]]
 local fs = require("@lune/fs")
 
@@ -42,6 +51,12 @@ local PARTS = {
 		`tests/button_shape.spec`'s "the renderer really carries it across" pin
 		looking at the `textWrapped` write it names, which moved with the walk. ]]
 	"src/render/commit_walks.luau",
+	--[[ ...and the ORDERED RECT APPLY, which this header has named since the
+		commit-walk split and this list did not carry until the review found the gap.
+		It holds no `adapter.setProp(` and no `setRect(` outside its own `applyOne`,
+		so no existing pin's count moves — it is added because a part missing from an
+		instrument is only ever discovered by the pin that needed it. ]]
+	"src/render/rect_pass.luau",
 }
 
 local renderer_source = {}

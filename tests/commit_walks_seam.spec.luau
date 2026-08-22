@@ -466,4 +466,36 @@ describe("the commit-walk seam: the renderer's source-scanning pins still see th
 		local all = require("./lib/renderer_source").all()
 		expect(string.find(all, 'adapter.setProp(handle, "textWrapped", wraps, "layout")', 1, true) ~= nil).toBe(true)
 	end)
+
+	it("...and every module its own header NAMES is a part", function()
+		--[[ THE HAND LIST BESIDE THE PARAGRAPH THAT DESCRIBES IT (review MEDIUM-4).
+			The commit-walk split rewrote that header to name five modules the renderer
+			has shed and added one of them to `PARTS`; `rect_pass.luau` had never been
+			in it, and nothing could say so. The prose is the claim, the list is the
+			instrument, and a claim an instrument does not implement is how a pin
+			quietly stops seeing the code it names — which is the one failure this file
+			exists to prevent. ]]
+		local fs2 = require("@lune/fs")
+		local source = fs2.readFile("tests/lib/renderer_source.luau")
+		local parts: { [string]: boolean } = {}
+		for _, path in require("./lib/renderer_source").PARTS do
+			parts[path] = true
+		end
+		local named: { string } = {}
+		for path in string.gmatch(source, "`(render/[%a_][%w_]*%.luau)`") do
+			local full = `src/{path}`
+			if not parts[full] then
+				table.insert(named, full)
+			end
+		end
+		table.sort(named)
+		expect(table.concat(named, " ")).toBe("")
+		-- ...and the scan found names at all, rather than passing on a header that
+		-- stopped naming anything
+		local count = 0
+		for _ in string.gmatch(source, "`(render/[%a_][%w_]*%.luau)`") do
+			count += 1
+		end
+		expect(count >= 5).toBe(true)
+	end)
 end)
