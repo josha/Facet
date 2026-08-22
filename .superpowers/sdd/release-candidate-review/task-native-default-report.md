@@ -109,7 +109,8 @@ Boots and copy corrected:
 * **ADR-0018** — status line and Decision preamble record that the opt is
   inverted; nothing about the mechanism changed.
 * **performance lab** — keeps its explicit `false` **on purpose** and now says
-  why: every budget and capture in `artifacts/perf/` was measured with the
+  why: every budget (`bench/perf_budgets.json`) and capture
+  (`artifacts/performance-stress-places/`) was measured with the
   adapter as the only writer of every paint property. Taking the sheet path there
   would move instance counts and paint timings under numbers recorded against the
   other painter. Flagged as a follow-up in §7, not changed.
@@ -140,11 +141,17 @@ and the edit preview — and the code only had one. `billboard_target` has alway
 passed an explicit `nativeStyle = false`; `edit_preview.luau` passed nothing, so
 the flip swept it.
 
-That is not cosmetic. The preview harness runs in the **Studio Edit DataModel**,
-where `native_style.ensure` seeds a persistent `FacetStyle` StyleSheet that the
-next place save commits — the exact furniture that module's header promises never
-to leave behind (verifier F5) — and `dispose()` cannot take it back, because the
-sheet is seed-once by design. It costs nothing to look at: the two paint paths
+That is not cosmetic, and the review found it worse than stated here. The preview
+harness runs in the **Studio Edit DataModel**, where `native_style.ensure` seeds a
+persistent `FacetStyle` StyleSheet that the next place save commits — the exact
+furniture that module's header promises never to leave behind (verifier F5).
+*(Corrected in fix round 1: this said `dispose()` "cannot take it back because the
+sheet is seed-once". The simpler and stronger truth is that `dispose` **never
+looks in the container the sheet lands in** — it destroys `controller`, `root` and
+the `deco` ScreenGui, all of which live under `opts.parent`, while
+`native_style.ensure` seeds to `ReplicatedStorage` in Edit BY DESIGN, so the sheet
+is outside everything `dispose` can reach. The exemption is the only thing standing
+between the flip and permanent furniture in a designer's place file.)* It costs nothing to look at: the two paint paths
 were measured byte-equal on every mapped property, so a preview painted the
 explicit-write way shows what the game shows.
 
@@ -237,16 +244,22 @@ capture is now more representative, since it documents the shipped path.
 
 1. **A place saved with `UseFacetNativeStyle = false` will now paint bespoke in
    Rascal Rally.** Before this task it would have painted bespoke too, so this is
-   preservation rather than a change — but the same-session Studio canary should
-   **check that attribute before concluding anything from the screenshots**. No
-   RR place file or project JSON sets it, so the expected canary state is sheet
-   paint.
+   preservation rather than a change — but the canary must **read that attribute
+   before concluding anything from the screenshots**, and that is REQUIRED rather
+   than advisory. *(Corrected in fix round 1, review MEDIUM-2: this originally
+   said "no RR place file or project JSON sets it — confirmed". The project JSONs
+   and every text source are genuinely clean, but `code/places/` holds two BINARY
+   places, `DebugGraybox-v1.rbxl` and `DebugPlace-v1.rbxl`, and a `.rbxl`
+   LZ4-compresses in chunks, so no byte scan can see an attribute name in one.
+   The honest statement is: no TEXT place source sets it; the two `.rbxl` places
+   are unverifiable from disk and must be read in Studio.)*
 2. **The tri-state (§6) is my judgement, not the director's ruling.** It is one
    function and four call sites; reverting to the boolean is mechanical if the
    controller would rather the flag simply become inert.
 3. **The performance lab still measures the non-default path.** Deliberate and now
    documented, but it means the perf budgets no longer describe what ships. A
-   re-baseline of `artifacts/perf/` on the sheet path is a real follow-up — out of
+   re-baseline of `bench/perf_budgets.json` + `artifacts/performance-stress-places/`
+   on the sheet path is a real follow-up — out of
    scope here because it invalidates every recorded number.
 4. **`screen_target.luau` is 686 characters from its extraction trigger.** The
    flip's edit went the right way (a seam left, not a line added), but the next
@@ -255,3 +268,171 @@ capture is now more representative, since it documents the shipped path.
 
 **Nothing was CONTESTED.** No locked file (`renderer`, `presenter`, `solver`,
 `virtual_list`, `table`) was touched, and none needed to be.
+
+
+---
+
+# Fix round 1 — review dispositions
+
+**Review:** `task-native-default-review.md`, APPROVE with findings (0 BLOCKER, 1
+MAJOR, 2 MEDIUM, 6 LOW, 2 INFO). Every finding is answered below; three are
+report-only corrections, applied in place above and marked as such.
+
+| | Facet | Rascal Rally |
+|---|---|---|
+| commit | `b52d220` | `1509383` |
+| suite | **6949** in an isolated export of Facet HEAD `462a1ca` + this round's files only (HEAD alone: 6939, so **+10**) | **3461** (baseline at RR HEAD `4e271c3` with the same Facet: 3465, so **−4**) |
+| `screen_target.luau` | **193,992 → 193,714 chars (−278)** | — |
+
+**Why the Facet number is measured in an isolated export.** Two other rounds have
+uncommitted work in the shared tree. A full working-tree run is **6973 passed, 0
+red**, but `stylua --check` and `check_theme_artifacts` fail there on the DIR5
+round's untracked `tests/lib/overflow_guard.luau` — `tests/lib/world.luau` requires
+it and the theme probe copies only tracked files. So every number and guard result
+below comes from `git archive HEAD` + this round's five files, which contains
+nothing of either concurrent round and reproduces exactly.
+
+**The Rascal Rally −4 is arithmetic, not a loss:** five generated `== true` matrix
+cases that a flag which is no longer a `== true` predicate does not earn, plus two
+new cases, minus the retained-boolean case that was deleted with the function it
+tested.
+
+## MAJOR-1 — the seam pin was a source grep, and a bypass reverted the flip green
+
+**Fixed by extraction, per the reviewer's own recommendation (a).**
+`native_style.paintPlan(opt, isReducedMotion, available)` is now the whole
+decision: the default, the capability gate, the escape hatch, the host/theme the
+sheet is seeded with, and the transitions seed with reduced motion overriding it.
+It is pure — the engine probe and the motion fact are **parameters**, which is the
+only reason the *accepting* half of every branch is testable at all, since
+`available()` answers `false` off-engine. Ten cases now drive branches that lived
+un-witnessed inside a closure nothing can require headlessly.
+
+The motion fact is passed as a **function**, not a boolean, so a target that opted
+out never calls a consumer's deprecated motion closure — pinned by a case that
+counts the calls.
+
+**What the plan deliberately does not carry: `handle` and `model`.** Those are the
+caller's own objects rather than decisions, and the target reads them off
+`plan.opt` where it builds the sheet, beside the style and display facts only it
+has. A plan field no production line reads is a surface kept alive for a test —
+which is precisely the defect this same review found on the Rascal Rally side, so
+shipping one here would have been answering MEDIUM-1 by committing it.
+
+**The consumer is pinned by SHAPE, not by substring** — five checks in one case:
+exactly one `paintPlan` call; exactly one read of the opt off `opts` (matched as
+`%.nativeStyle[^%w_]` so `adapter.nativeStyleInfo` cannot count); zero capability
+probes in the target; zero mentions of the flag; and `if plan.native then` as the
+branch. The second is the lock: a re-derivation needs the **raw** opt, there is
+exactly one legal place to get it, and `plan.opt` is the **resolved** opt, from
+which "was one passed" cannot be recovered — an absent opt and an explicit `true`
+are the same value by the time the target sees one.
+
+**Mutation evidence.**
+
+*The reviewer's exact bypass* (call `paintPlan` into `_ignored`, re-derive the
+pre-flip rule underneath):
+
+```
+✗ `screen_target` OBEYS the plan: one call, one opt read, no probe, no second rule
+    expected consumer off contract:the opt is read 2 time(s) off opts, not once;
+    the target still probes the capability itself — that gate belongs to the plan;
+    the native branch is not `if plan.native then` — the plan is computed and ignored
+1 failed, 6934 passed
+```
+
+Three of the five pins trip, in one message that names each. Previously: **6905
+passed, 0 failed.**
+
+*`DEFAULT_ENABLED` flipped back to `false`, full suite* — **4 failed** where the
+review measured 2, and two of the four are now plan-level rather than
+pure-function-level:
+
+```
+✗ the default IS sheet paint — the flag itself, read off the module
+✗ NO opt resolves to the library default, rather than to `false`
+✗ NO opt plans SHEET PAINT — the default, decided here and nowhere else
+✗ the plan carries the RESOLVED opt, and it cannot say whether one was passed
+```
+
+**And it paid for itself on a near-cap file.** The concurrent paint-family round
+left `screen_target.luau` **8 characters** from its 194,000 extraction trigger.
+One call and one test replacing a resolve, a two-clause gate and a three-line
+transitions expression gave **278 characters** back: 193,992 → 193,714, now 286
+below the trigger. The `SOURCE_CAP_LEDGER` row is re-recorded, and says plainly
+that the seam which answered this review is *not* the seam that row is about — the
+vocabulary module is still owed.
+
+## MEDIUM-1 — a fifth adapter site collapsing the tri-state passed green
+
+**Both mechanisms closed.**
+
+1. The sweep's gate was `nativeStyle%a*%(`, which accepts `nativeStyleOn(`. It now
+   names **`nativeStyleOpt`**, which turns the hardcoded four-site list beside it
+   from a ceiling into a floor: it binds every site that will ever exist.
+2. **`nativeStyleOn()` is deleted**, not documented as test-only. It had no
+   production caller at all and survived to satisfy one row of the rename matrix;
+   the reviewer used it exactly as a future author would. The matrix row now names
+   `nativeStyleOpt` and the `== true` loop skips it the way it already skips the
+   Sponsor's `~= false` — the flag is not a predicate any more. A case asserts the
+   **definition** is gone (not the name: the module header still tells the story of
+   why, and that prose is the point rather than a leak).
+
+**Mutation evidence.** The reviewer's fifth site, re-applied verbatim:
+
+* before: **3465 passed, 0 red** (the hole, reproduced first as an A-side);
+* after: **1 failed** — `✗ a tinted plate with no surface still has a FILL under
+  native stylesheets`, `4 of 5 nativeStyle sites gated`.
+
+## MEDIUM-2 — the `.rbxl` precondition was not confirmed
+
+**Report corrected in place** (concern #1 above), and the mitigation upgraded from
+advisory to **required**: no text place source sets the attribute; the two binary
+places cannot be scanned from disk and must be read in Studio as the first step of
+the owed canary.
+
+## The six LOWs
+
+| # | disposition |
+|---|---|
+| LOW-1 | **Fixed.** The exemption pin was a whole-file substring search that a comment satisfied (the reviewer deleted the argument, left `-- previously passed nativeStyle = false here`, and the preview went back to seeding a persistent sheet with the case green). The match is now anchored to `screen_target%.new%(%s*%b{}` — the constructor's own argument list. |
+| LOW-2 | **Fixed.** `artifacts/perf/` does not exist; the source comment and both mentions in this report now name `bench/perf_budgets.json` and `artifacts/performance-stress-places/`. |
+| LOW-3 | **Fixed.** `RascalRally/src/client/init.client.luau` — the boot file that constructs all four adapters — still said "absent = the library default (currently bespoke paint)". It states the new polarity and the tri-state. |
+| LOW-4 | **Fixed.** The `stillRequired` device row said the flag was "staged"; it is restated to say the device pass now exercises the shipped default, and to read `UseFacetNativeStyle` first. |
+| LOW-5 | **Fixed — and it landed in someone else's commit.** The `host.Opts.nativeStyle` doc now states the default and the opt-out. Worth recording: the edit was swept into the paint-family round's `c4d0591` before I committed. The content is correct and shipped, but it is the exact accident `commit_isolated` exists to prevent, running in the other direction. The typing note (`host.Opts` types the field `boolean?`, so the table form cannot reach `screen_target` through `host`) is pre-existing and **not fixed** — it is a public-surface change that wants its own decision. |
+| LOW-6 | **Fixed.** `readFlag` answers with the Facet-era name whenever it is non-nil, so `UseFacetNativeStyle = "yes"` beside a real `UseLuauUINativeStyle = false` resolved to "no opt" → **sheet paint**, discarding a deliberate rollback. A vote must be a **boolean** before it can win: `voteOf` reads each name and a non-boolean at the new name now falls through to the old one. A real boolean at the new name still wins. Four assertions, including garbage at both names. |
+
+## Not fixed, with reasons
+
+* **INFO-1 (`examples/table_phaseb` is a bare `host.new()`)** — record only, per the
+  reviewer's own disposition. It is the correct outcome for an example; it is now
+  named here so the consumer enumeration is complete.
+* **INFO-2 (the showcase place hardcodes `Facet_NativeStyle: true`)** — record only.
+  Dropping the attribute from `showcase.project.json` and `tools/build_places.sh`
+  would make the published place demonstrate the default, and I think it should
+  before any device row is claimed from a showcase build — but what the published
+  showcase carries is device-evidence policy and the controller's call, not an
+  implementer's.
+* **The stale transitions comment in `screen_target.new`.** Eight lines above the
+  `ensure` call still explain reasoning that now lives in `paintPlan`. Left in
+  place deliberately: it sits inside the concurrent paint-family round's diff
+  context, and rewriting it would have merged my hunk with theirs in a shared tree.
+  Worth a two-line trim once that round lands.
+
+## Guards (isolated export)
+
+`check_theme_artifacts`, `check_library_purity`, `check_types`,
+`check_source_size`, `check_doc_style`, `check_example_drift_cli`,
+`check_docs_cli`, `stylua --check src tests tools examples` — **all PASS**.
+`check_brand_drift` and `check_flat_baseline` need a git index / a gitignored dump
+and were run in the shared tree at the previous round; neither is touched by any
+change here.
+
+## Concurrent-round hygiene
+
+Two other rounds were live in Facet and one in Rascal Rally. Nothing of theirs was
+committed here: every `screen_target.luau` edit was placed to keep ≥7 unchanged
+lines from the paint-family round's hunks so git could not merge them, verified
+with `--dry-run` before committing, and `tests/run.luau`, `src/layout/solver.luau`,
+`src/themes/snapshot.luau`, `tests/facet_composition_collision_contract.spec.luau`
+and the rest were left untouched.
