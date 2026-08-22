@@ -129,10 +129,11 @@ export type RendererAttachOpts = {
 	-- a pointer tap on a mounted path. `meta` carries the tap's geometry
 	-- (`x`/`y`) for the outside-tap policy, and `via` for a detector-driven tap.
 	onNodeTap: ((path: string, meta: any?) -> ())?,
-	-- OPT-IN mirror of logical focus to engine selection (NS-A12); the presenter
+	-- OPT-IN mirror of logical focus to the engine's own selection; the presenter
 	-- sets it for modal/exclusive surfaces only
 	engineSelectionBridge: boolean?,
-	-- FULL-VALUE DISCLOSURE engagement (Step 8.5, LTN-4): pointer enter/leave
+	-- FULL-VALUE DISCLOSURE engagement — the large-text round's cut-label seam:
+	-- pointer enter/leave
 	-- and touch long-press on a `disclose` Text, delivered as (path | nil). The
 	-- presenter routes these to its `_discloseHover`/`_discloseLongPress`
 	-- engine-adapter seams; hand-attached surfaces may omit both (no zones are
@@ -169,7 +170,7 @@ function renderer.attach(
 		and `meta` is where the outside-tap geometry (`x`/`y`) and `via` live. ]]
 	opts: RendererAttachOpts?
 )
-	-- ...AND THE DECLARED TYPE IS ALSO CLOSED (constitution §4; ARCH-1). F-29 made
+	-- ...AND THE DECLARED TYPE IS ALSO CLOSED (constitution §4). F-29 made
 	-- the three fields honest; this makes a fourth, misspelled one loud instead of
 	-- inert — the same rule `rootPolicy`'s own value check applies one level up.
 	specGuard.assertKnownKeys("renderer.attach", opts, ATTACH_OPTS_KEYS, "opts")
@@ -238,7 +239,7 @@ function renderer.attach(
 	-- tree, so no ancestor's clip crops it: inside a scrolling list a WINDOWED
 	-- row sitting outside the viewport still painted its ring — a family-hued
 	-- arc floating on empty plate, unattached to any row (Sponsor review round
-	-- 1, F1; `PS-T1-facet-max-iphone16-landscape.png`, the ring of the row one
+	-- 1, F1; the parallel-Sponsor landscape capture, the ring of the row one
 	-- pitch BELOW the last visible one). Every sibling in that row cropped
 	-- correctly, which is the tell: the defect is the primitive, not the layout.
 	--
@@ -412,7 +413,7 @@ function renderer.attach(
 	-- the LIVE rect lookup and the paint-order walk (`lastZ`, declared below and
 	-- read through a closure) so a drop verdict is always about the geometry and
 	-- the stacking the player is actually looking at.
-	-- RETIRING SUBTREES ARE NOT DRAG SURFACES (ARCH-F2): the mount layer keeps a
+	-- RETIRING SUBTREES ARE NOT DRAG SURFACES: the mount layer keeps a
 	-- retiring subtree in `children` so its exit can paint, but ADR-0022 D3 says
 	-- it "turns non-interactive" — for drag that must mean RESOLUTION-time
 	-- exclusion rather than registration churn, so a re-entry mid-exit is
@@ -448,7 +449,8 @@ function renderer.attach(
 	-- per-path live-enabled reads for drag SOURCES (P2-3); populated at wiring,
 	-- cleared with the wiring's unbind
 	local dragSourceEnabled: { [string]: () -> boolean } = {}
-	-- ONE ACTIVATION PER PRESS (PLAT-1): a node carrying both a drag detector and
+	-- ONE ACTIVATION PER PRESS, the platform verifier's ruling: a node carrying
+	-- both a drag detector and
 	-- a native Activated can hear the same press twice (the detector's release
 	-- synthesis for classes where the engine consumes the click; the native event
 	-- for classes where it does not — gamepad A is documented to deliver it).
@@ -491,7 +493,8 @@ function renderer.attach(
 		end
 		return reg.arm(path) == true
 	end
-	--[[ AN ACTIVATE NOBODY ELSE WANTED, ON A DRAG SOURCE, IS THE PICKUP (ADAPT-16).
+	--[[ AN ACTIVATE NOBODY ELSE WANTED, ON A DRAG SOURCE, IS THE PICKUP — the
+			keyboard-and-pad drag adaptation.
 
 		`drag_registry.luau`'s own header says "the non-pointer arm->navigate->commit
 		verbs all funnel into `beginSession`", and every piece of that path was
@@ -499,7 +502,7 @@ function renderer.attach(
 		called `arm`. The presenter only ever aimed an ALREADY-armed session, so the
 		public `UI.draggable` verb had no default gamepad or keyboard pickup at all:
 		with the card focused, ButtonA armed nothing and Return armed nothing (audit
-		M-9 / ADAPT-16, high).
+		the adaptation review's high-severity finding M-9).
 
 		THE RULE IS `newVirtualList`'S, HOISTED. That control already answers this
 		for its own rows — `grabOnActivate = reorderable and onActivate == nil`, "a
@@ -587,7 +590,7 @@ function renderer.attach(
 				zOf = function(path: string): number?
 					return lastZ[path]
 				end,
-				-- ARCH-F2: a retiring subtree is not a drag surface — resolution-time
+				-- A RETIRING SUBTREE IS NOT A DRAG SURFACE — resolution-time
 				-- exclusion, reversal-safe by construction
 				isPathLive = isPathLive,
 				-- P2-3: disabled sources acquire nothing, read live per acquisition
@@ -604,7 +607,8 @@ function renderer.attach(
 			-- publishes which path a live session is carrying; the adapter's
 			-- `dragHeld` state empties that node's label through the same tag+rule
 			-- channel `selected` paints by. Framework guarantee — no consumer code.
-			--[[ THROUGH THE MANIFEST, LIKE EVERY OTHER RENDERER WRITE (ARCH-3).
+			--[[ THROUGH THE MANIFEST, LIKE EVERY OTHER RENDERER WRITE — the architecture
+		review's channel rule.
 				These two were the only `adapter.setProp` calls in this file that
 				skipped `authority.assertWrite`, which is the single sentence
 				constitution §11 makes about the renderer ("asserts every write").
@@ -709,7 +713,8 @@ function renderer.attach(
 	-- an adaptive screen nobody can debug.
 	local lastCompositions: { [string]: any } = {}
 	-- ...and the last solve's per-text-node measurement facts, by node path
-	-- (LTN-4). Same channel, same reason: "this label was cut" is a solve output,
+	-- the large-text round's cut verdict. Same channel, same reason: "this label
+	-- was cut" is a solve output,
 	-- and the presenter's disclosure affordance and the text audit both need it
 	-- from the ONE authority that decided it rather than by re-measuring.
 	local lastTextFacts: { [string]: any } = {}
@@ -718,7 +723,8 @@ function renderer.attach(
 	-- comes back (measured OR refused) is recorded in text_metrics and can
 	-- never be requested again, so this set is the only loop guard needed.
 	local textInFlight: { [string]: boolean } = {}
-	-- the live premeasurement deliveries this surface has outstanding (PLAT-12)
+	-- the live premeasurement deliveries this surface has outstanding, cancelled on
+	-- teardown so a late answer cannot reach a dismissed surface
 	local textMeasureCancels: { () -> () } = {}
 	local disposed = false
 	-- paths whose subtree the solver hid this pass (losing ViewThatFits candidates)
@@ -861,7 +867,7 @@ function renderer.attach(
 			-- semantic glyph. Same seam the measure pass reads (renderer.drawnButtonText).
 			value = renderer.drawnButtonText(node.props)
 		elseif prop == "thickness" and type(value) == "string" then
-			-- A PATH'S STROKE WEIGHT MAY NAME A METRIC (BP-F12), like the Divider's.
+			-- A PATH'S STROKE WEIGHT MAY NAME A METRIC, like the Divider's.
 			-- The adapter writes engine pixels, so the name resolves here against
 			-- the live snapshot — the same resolution point every other theme-owned
 			-- number uses.
@@ -1138,7 +1144,8 @@ function renderer.attach(
 			-- (handheld -> TV dock) re-scales paint to match the re-solved layout.
 			-- pointer taps flow through the adapter into the same semantic
 			-- activate path as focus+Activate (touch parity). Routed through the
-			-- per-press dedupe (PLAT-1): when a node ALSO carries a drag detector,
+			-- per-press dedupe, the platform verifier's one-activation rule: when a node
+			-- ALSO carries a drag detector,
 			-- some input classes deliver both this native Activated AND the
 			-- detector's release — one press, one activation, first signal wins.
 			local onNodeTap = opts and opts.onNodeTap
@@ -1178,7 +1185,7 @@ function renderer.attach(
 			then
 				adapter.enableHover(handles[node.path])
 			end
-			-- FULL-VALUE DISCLOSURE engagement zones (Step 8.5, LTN-4): a Text
+			-- FULL-VALUE DISCLOSURE engagement zones, from the large-text round: a Text
 			-- that declares `disclose` gets pointer enter/leave and touch
 			-- long-press observation on its own instance, routed to the
 			-- presenter's engagement seams. Wired at mount like enableHover (the
@@ -1186,7 +1193,7 @@ function renderer.attach(
 			-- and only OBSERVED: the label still sinks nothing. Whether a plate
 			-- actually appears stays the presenter's call (it re-checks live
 			-- truncation facts on every engagement).
-			-- class-agnostic like the presenter's walker (LT-G1): a Toggle's
+			-- class-agnostic like the presenter's walker: a Toggle's
 			-- one-line label declares disclose the same way a Text does
 			-- ...and a `reveal` node gets the SAME zones: the static plate is the
 			-- auto reveal's declared full-value alternative (director 2026-08-04)
@@ -1239,7 +1246,7 @@ function renderer.attach(
 					if declNode.props ~= nil and declNode.props.enabled == false then
 						return false
 					end
-					-- the DECLARATION's own gate (SF-D6): a source may refuse to be
+					-- the DECLARATION's own gate, from the drag design: a source may refuse to be
 					-- picked up while the control stays enabled and activatable, so a
 					-- blocked affordance can still explain itself on a tap
 					if declEnabled == nil then
@@ -1268,21 +1275,22 @@ function renderer.attach(
 				local tapClass = node.class
 				local tapNode = node
 				handlers.onEnd = function(pos: any)
-					-- SF-D3's LIVE half (found 2026-07-27 by a real injected click):
+					-- the drag design's pointer-capture rule, LIVE half (found 2026-07-27 by a
+					-- real injected click):
 					-- the engine's UIDragDetector CONSUMES the click, so a release
 					-- under the promotion token never reaches `.Activated`. The
 					-- registry answers "tap" for exactly that case and the tap is
 					-- dispatched through the SAME node-tap path a native tap takes —
 					-- same policy checks, same semantic activate, never eaten.
 					--
-					-- BOUNDED AGAINST DOUBLE-FIRE (platform verifier PLAT-1): on some
+					-- BOUNDED AGAINST DOUBLE-FIRE, the platform verifier's rule: on some
 					-- input classes the engine delivers `Activated` even WITH a
 					-- detector (gamepad A on a selected button is documented to), so
 					-- both paths route through dispatchNodeTapOnce — whichever signal
 					-- arrives first wins the press, the second inside the window is
 					-- the same press echoing, never a second activation. And the
 					-- synthesized tap honors the same gate the native path does
-					-- (PLAT-3): a disabled node taps nothing.
+					-- as the platform verifier requires: a disabled node taps nothing.
 					local outcome = rawEnd(pos)
 					local onNodeTap = opts and opts.onNodeTap
 					if
@@ -1314,7 +1322,7 @@ function renderer.attach(
 			-- capture-based down/move/up through the adapter; handlers receive
 			-- the node path and the renderer's rect lookup for drag math.
 			--
-			-- THAT LOOKUP IS `screenRectOf`, NOT `rectOf` (ESC-2, forced closed by
+			-- THAT LOOKUP IS `screenRectOf`, NOT `rectOf` (forced closed by
 			-- the device report of 2026-07-28 — gallery example 02 on an iPhone 15
 			-- Pro: "when I pick up a row it doesn't always appear under my finger,
 			-- the picked up chip moves up as I scroll down"). The whole reason a
@@ -1325,7 +1333,7 @@ function renderer.attach(
 			-- does not move while the page does, and every verdict was wrong by the
 			-- page's scroll offset.
 			--
-			-- ESC-2 was deferred on "no current consumer drags mid-slide", which
+			-- It was deferred on "no current consumer drags mid-slide", which
 			-- weighed only the PRESENTATION half of the shift and missed the SCROLL
 			-- half — which a shipped example lives in. Handlers that use rects as
 			-- pure DIFFERENCES (Table's resize guide) or read only w/h are
@@ -1692,7 +1700,7 @@ function renderer.attach(
 		local solvedEverything = true
 		local vp = env:get("viewportRect"):get()
 		local insets = env:get("coreSafeInsets"):get()
-		-- deviceSafeContent (native-substrate NS-A1): the notch/rounded-corner
+		-- deviceSafeContent, from the native-substrate round: the notch/rounded-corner
 		-- device insets are a SEPARATE fact from the CoreGui insets; a screen
 		-- opting into deviceSafeContent clears BOTH, so the content rect insets
 		-- by the per-edge maximum. coreSafeContent (default) keeps the historic
@@ -1722,7 +1730,8 @@ function renderer.attach(
 				}
 			end
 		end
-		-- split text-scale seams (NS-A9): MEASURE reserves the engine-scaled
+		-- split text-scale seams, from the native-substrate round: MEASURE reserves
+		-- the engine-scaled
 		-- bounds (typographyScale includes the player preference); PAINT writes
 		-- only authored scale — the engine applies the preference itself at
 		-- draw time (double-application fix, corrections §9). The RESERVATION
@@ -1901,7 +1910,8 @@ function renderer.attach(
 			-- measurement behind it, and the deferred re-base that goes with it.
 			rectPass.apply(root.node, result.rects)
 
-			-- NATIVE SCROLL REGIONS (native-substrate NS-A2): the canvas the adapter is
+			-- NATIVE SCROLL REGIONS, from the native-substrate round: the canvas the
+			-- adapter is
 			-- told about, plus the per-host autoscroll and indicator declarations that
 			-- ride the same walk. `render/commit_walks` carries the rule and the two live
 			-- findings behind it (the theme's own chrome reservation, the shadow bleed).
@@ -1978,7 +1988,7 @@ function renderer.attach(
 							solveAndApply()
 						end
 					end)
-					-- PLAT-12: a boot-window batch answers TWICE, up to ~12 s apart.
+					-- A BOOT-WINDOW BATCH ANSWERS TWICE, up to ~12 s apart.
 					-- `disposed` already gates the re-solve; this stops the delivery
 					-- itself, so a torn-down surface is not called back at all.
 					if type(cancelMeasure) == "function" then
@@ -2080,7 +2090,7 @@ function renderer.attach(
 	-- declared up with `rectOf`, because the drag registry reads it as the
 	-- paint-order tie-break for overlapping drop targets.
 	-- AUTHORED PAINT ORDER, WITHIN THE PARENT'S STACKING SCOPE (ADR-0022 Decision
-	-- 6, row SF-P4). Siblings are visited in `(zIndex or 0, declaration order)`
+	-- 6). Siblings are visited in `(zIndex or 0, declaration order)`
 	-- order, so a lifted node — a drag ghost, a toast — paints above the siblings it
 	-- was declared before, and its whole SUBTREE travels with it because the walk
 	-- is depth-first over one counter. Nothing crosses a scope: a child's counter is
@@ -2196,7 +2206,7 @@ function renderer.attach(
 		local _t0 = os.clock()
 		ensureTree(root.node)
 		local _t1 = os.clock()
-		collectRetiringRoots() -- ARCH-F2: retire begin/cancel both push structure
+		collectRetiringRoots() -- retire begin/cancel both push structure
 		-- mounted identity may have changed under any path (a When branch, a ForEach
 		-- row, a re-created ViewThatFits candidate), so the presentation channel's
 		-- node memo is dropped wholesale rather than patched per path
@@ -2398,7 +2408,8 @@ function renderer.attach(
 		is a MISSED re-solve, not an extra one: the surface goes silently deaf to
 		one platform fact. Refusing the shape costs nothing today (no fact has a
 		table-valued field) and makes the conservative claim literally true. ]]
-	-- ...and the comparison itself is `src/rect.luau`'s (REUSE-4): the same body
+	-- ...and the comparison itself is `src/rect.luau`'s, from the reuse audit: the
+	-- same body
 	-- lived here and in `src/controls/selection_indicator.luau`, across a layer
 	-- boundary, with the indicator's copy carrying a comment naming this one.
 	local sameGeometryValue = rectLib.sameFlatValue
@@ -2734,21 +2745,23 @@ function renderer.attach(
 	-- `visible` (optional, default true) is the RING's own answer, separate from
 	-- the focus path: a pointer/touch-driven focus move tracks focus, drives the
 	-- selection bridge and moves the aim, and paints nothing (focus_graph's
-	-- `focusVisible`; device round 1, DB-3(b)). Absent = today's behaviour, so
+	-- `focusVisible`; device round 1's second focus finding). Absent = today's
+	-- behaviour, so
 	-- every existing caller is unchanged.
 	function controller.setFocusPath(path: string?, visible: boolean?)
 		local wantRing = visible ~= false
 		if path == focusedPath and wantRing == focusRingVisible then
 			return
 		end
-		-- engine-selection bridge (NS-A12): OPT-IN mirror of logical focus to
+		-- engine-selection bridge, from the native-substrate round: OPT-IN mirror of
+		-- logical focus to
 		-- engine selection while this surface owns UI input. Measured engine
 		-- constraints (spike m9): the mirrored instance must be Selectable
 		-- (non-selectable targets get warned about and REASSIGNED); expect
 		-- native autoscroll inside scroll hosts; offscreen selection is NOT
 		-- auto-cleared. Facet focus identity stays authoritative — this is a
 		-- render output, cleared on dispose. Feature-detected + flag-gated:
-		-- passive surfaces never reach here with the flag set (NS-A11).
+		-- passive surfaces never reach here with the flag set.
 		if bridgeEngaged and adapter.setEngineSelection ~= nil then
 			adapter.setEngineSelection(if path ~= nil then handles[path] else nil)
 		end
@@ -2872,7 +2885,7 @@ function renderer.attach(
 	--[[ REDUCED MOTION IS A LIVE FACT, AND IT REACHES THE TARGET FROM HERE — both
 		halves of a target's motion, through one observation of one env key.
 
-		`setNativeTransitionsEnabled` is the SHEET half (native-stylesheets NSS-A7):
+		`setNativeTransitionsEnabled` is the SHEET half, from the native-stylesheet round:
 		when the target runs sheet-owned paint, the adapter strips/restores the
 		sheet's declared transitions on the fly (SetPropertyTransitions({}) — the
 		proven instant path, spike m9).
@@ -2981,7 +2994,7 @@ function renderer.attach(
 	-- it by CanvasPosition — and which a live presentation transform has moved away
 	-- from on screen. Anything comparing a rect against a POINTER (drop hit-tests,
 	-- autoscroll bands) must use this one, or it targets the wrong row the moment
-	-- the list is scrolled or the surface is shifted (PLAT-4).
+	-- the list is scrolled or the surface is shifted.
 	controller.screenRectOf = screenRectOf
 
 	--[[ THE SCROLLBAR GUTTER A HOST SPENT, for a node that must align ACROSS it.
@@ -3006,7 +3019,8 @@ function renderer.attach(
 	-- field stays above the on-screen keyboard. Presentation authority (never
 	-- layout): it shifts what is painted without re-solving. dy=0 restores.
 	local lastOffsetY: number? = nil
-	-- programmatic scroll (native-substrate NS-A2): the framework's ONLY scroll
+	-- programmatic scroll, from the native-substrate round: the framework's ONLY
+	-- scroll
 	-- write — keep-visible and scroll-to-row compute a target and set it here;
 	-- the engine owns everything between offsets. Degrades to a no-op on a
 	-- scroll-less adapter (fallback path stays clip-only).
@@ -3044,7 +3058,7 @@ function renderer.attach(
 
 	-- CONTEXT GESTURES ON A MOUNTED NODE (D2 Menu). The two engine channels a
 	-- context trigger needs and no control can reach: the NORMALIZED touch
-	-- gesture stream (NS-A6, shipped with nothing consuming it as a trigger) and
+	-- gesture stream (shipped with nothing consuming it as a trigger) and
 	-- the pointer's SECONDARY button. Same nilable contract as
 	-- attachDragDetector — an adapter or engine without either simply never
 	-- fires, and a Menu's other three triggers still open it.
@@ -3081,7 +3095,8 @@ function renderer.attach(
 		return dragRegistry()
 	end
 
-	--[[ THE LAST-RESORT ACTIVATE, and the Cancel that belongs with it (ADAPT-16).
+	--[[ THE LAST-RESORT ACTIVATE, and the Cancel that belongs with it — the
+		keyboard-and-pad drag adaptation again.
 		The presenter calls `activateArms` after every other meaning of a press has
 		declined, and `cancelArmed` from its Cancel chain after the contributions
 		have had theirs — so B/Escape puts down a card the generic verb picked up,
@@ -3518,7 +3533,7 @@ function renderer.attach(
 	controller.disarmAnimation = channel.disarmAnimation
 	controller.animationRecordCount = channel.animationRecordCount
 
-	-- keep-visible, REIMPLEMENTED OVER THE PER-NODE CHANNEL (fixes SF-M9). The
+	-- keep-visible, REIMPLEMENTED OVER THE PER-NODE CHANNEL. The
 	-- root node IS the surface, so its transform is the whole-surface shift the
 	-- keyboard case needs; `dy = 0` writes the zero transform rather than clearing,
 	-- because "restored" is a value the presenter's own tests read back.
@@ -3577,7 +3592,8 @@ function renderer.attach(
 		if handle == nil then
 			return nil
 		end
-		--[[ THE `host` AUTHORITY IS ASSERTED HERE TOO (ARCH-25). "The renderer
+		--[[ THE `host` AUTHORITY IS ASSERTED HERE TOO, as the architecture review
+		asked. "The renderer
 			asserts every write" was true of four of the five authorities: the only
 			`host` assert in the framework lived in the ENGINE ADAPTER
 			(`screen_target`'s `adopt`), so a second render target — the whole point
@@ -3736,7 +3752,7 @@ function renderer.attach(
 	end
 
 	-- textAt(path) -> the last solve's measurement facts for that text node, or
-	-- nil. Omit the path for every one of them, keyed by path (LTN-4). Same shape
+	-- nil. Omit the path for every one of them, keyed by path. Same shape
 	-- and same copy discipline as `compositionAt`: font, size, lines,
 	-- naturalLines, truncated, lineLimit, disclose, policy, text.
 	function controller.textAt(path: string?): any
@@ -3789,7 +3805,7 @@ function renderer.attach(
 		-- cross-surface registry before anything else, so a teardown that throws
 		-- later cannot leave a ghost overlapping the screen (ADR-0028)
 		unregisterSurface()
-		-- the selection bridge always clears on teardown (NS-A12): a dismissed
+		-- the selection bridge always clears on teardown: a dismissed
 		-- modal must never leave the engine pointing at a destroyed instance
 		if bridgeEngaged and adapter.setEngineSelection ~= nil then
 			adapter.setEngineSelection(nil)

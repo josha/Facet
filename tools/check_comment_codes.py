@@ -69,7 +69,6 @@ SCANNED = ("src",)
 EXTRACTION_LOCKED = (
     "src/controls/table.luau",
     "src/controls/virtual_list.luau",
-    "src/render/renderer.luau",
     "src/present/presenter.luau",
 )
 
