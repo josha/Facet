@@ -1764,3 +1764,25 @@ STUDIO.md, root CLAUDE.md.
   blocking the close's floor, the close stops blocking other framework
   floors. Replay is two scripted steps; a bounded watch will fire on the
   file's release. c6f313f (report only).
+
+## 2026-08-21 (post-close 32) — the purity verdict: not imperative, UN-NAMED
+
+- PURITY AUDIT RETURNED (2c5451e; 165 files/~70k lines + 43 RR clients):
+  the director's strict fear is UNFOUNDED — 5 imperative geometry writes
+  in the whole corpus. The real disease: spending un-named numbers (539
+  raw literals on theme-owned props — 40% of the TEACHING corpus vs 22%
+  in the shipping game, the inverse of reference material) and
+  re-deriving a missing layer of nouns (97 sites → 34 capability gaps;
+  the metric-ladder app-namespace gap rediscovered FOUR times
+  independently; RR holds four hand-rolled text-fit copies, THREE WRONG;
+  gap=6 wanted 61 times across 25 files while the framework routes
+  around its own missing step privately). ROOT CAUSE IS ONE LINE:
+  check_theme_drift deliberately exempts examples/ — right for a game,
+  wrong for teaching. 7 live defects found by a style audit (incl.
+  reduced-motion ignored by the wardrobe turntable; RR Ticker/FollowScreen
+  overlap at large text).
+- PHASE 1 DISPATCHED (mechanical only): flip the lint (examples covered,
+  probe-list + games exempt), sweep the 539 + floors + minColumnWidth +
+  deprecated sites, fix the 7 defects red-first, mark the 13 mistakable
+  probes. The 34 MOVE gaps + gap-6 are the DIRECTOR'S pick list —
+  presented with the matrix; phase 2 waits on his word.
