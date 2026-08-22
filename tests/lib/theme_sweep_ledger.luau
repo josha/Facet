@@ -576,7 +576,11 @@ theme_ledger.ROWS = {
 	{
 		surface = "p1_glade",
 		variant = "-",
-		node = "/Glade/Shell/Middle/Panes/Section/Sections/Section_glades/then/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
+		-- RE-RECORDED by framework-gaps-phase2 §6 (2026-08-22): the shell is
+		-- `newTabView` now, so a section body is a TAB's content rather than one of
+		-- four `When`s in a ZStack. Same node, same finding, same box — the path is
+		-- the only thing that moved.
+		node = "/Glade/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
 		sig = "the 'X' chrome contentInsets could not be",
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
 		px = 68,

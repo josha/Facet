@@ -724,308 +724,182 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end))
 
 	-- ---- the shell ----------------------------------------------------------
-	-- ONE tree, and the nav has FOUR HOMES chosen by `adaptive.navPlacement`
-	-- (director ruling 2026-08-09, the same policy the Sipworks proof adopts):
+	-- ONE construct, and it is the framework's. `Facet.Controls.TabView` owns the
+	-- four homes `adaptive.navPlacement` chooses between (director ruling
+	-- 2026-08-09, the same policy the Sipworks proof adopts):
 	--
-	--   sidebar          desktop shape — the vertical rail, wordmark at its head,
-	--                    full section names
-	--   topBar           tablet / ten-foot shape — CENTER-ALIGNED and hugging its
-	--                    four tabs, never stretched edge to edge; full names,
-	--                    stepping down to the terse ones by fit
-	--   bottomBar        phone portrait — the thumb-zone band, TERSE names, a
-	--                    centered natural-width cluster first
-	--   bottomBarCompact phone landscape — the same terse band, tighter
+	--   sidebar          desktop shape — the vertical rail, WORDMARK AT ITS HEAD
+	--   topBar           tablet / ten-foot shape — centre-aligned, hugging its tabs
+	--   bottomBar        phone portrait — the thumb-zone band
+	--   bottomBarCompact phone landscape — the same band, centred and tighter
 	--
-	-- Both bottom bars declare the same honest step-down: the centered cluster,
-	-- then a full-width shared row once extreme text can no longer fit the
-	-- cluster in the band.
+	-- WHAT THIS PROOF STOPPED CARRYING (framework-gaps-phase2 §6). The wordmark was
+	-- the reason this file could not adopt the construct: four placement memos,
+	-- four hand-built bars, two `ViewThatFits` ladders and a per-section selection
+	-- memo, all so one brand mark could sit at the top of ONE of the four homes.
+	-- `accessories.head` is that slot, and everything else here became the
+	-- control's own policy — which is the point of migrating. A ruling about a tab
+	-- bar now lands in one place instead of five, and the examples directory stops
+	-- teaching the same thing two contradictory ways.
 	--
-	-- The placement is a CONDITION, not a fit. The rail used to be a Composition
-	-- Region whose arrangement decided where it went, and a Region steps down by
-	-- FAILURE rather than by policy — so the shape a phone got was whatever
-	-- happened to fit, and a ten-foot screen got the densest thing that fitted,
-	-- which is the opposite of what a TV wants. `navPlacement` answers from shape,
-	-- input class and display facts (never a device name), and `When` mounts the
-	-- one home it names; the CONTENT of a bar still degrades by fit.
+	-- THE TERSE VOCABULARY SURVIVES AS A BOUND LABEL rather than a second bar
+	-- (director refinement 2026-08-09: "I see a lot of cutoff text"). A thumb-zone
+	-- tab takes the short localized string and every roomier home takes the full
+	-- one; because `Option.label` is a Readable, the flip follows a live rotation
+	-- and a live locale change alike, which a construction-time `compactLabel`
+	-- could not.
 	local placement = conditions.navPlacement
-	local navSidebar = scope:own(core:memo(function(use)
-		return use(placement) == "sidebar"
+	local terse = scope:own(core:memo(function(use)
+		local home = use(placement)
+		return home == "bottomBar" or home == "bottomBarCompact"
 	end))
-	local navTop = scope:own(core:memo(function(use)
-		return use(placement) == "topBar"
+	--[[ ...AND THE TERSE FORM COMES WITH THE TERSE TREATMENT, which is the other
+		half of the same director call: a thumb-zone tab is caption-sized, which is
+		what a tab bar is everywhere and what keeps four names off the ellipsis on a
+		320px phone. MEASURED, not assumed — at body size the band truncated three of
+		its four tabs at 320px, which is the very report ("I see a lot of cutoff
+		text") this vocabulary answers. The sidebar and the top bar keep the body
+		size, so this rides the same `terse` fact the words do. ]]
+	local navTextSize = scope:own(core:memo(function(use)
+		return if use(terse) then "caption" else "body"
 	end))
-	local navBottomFull = scope:own(core:memo(function(use)
-		return use(placement) == "bottomBar"
-	end))
-	local navBottomCompact = scope:own(core:memo(function(use)
-		return use(placement) == "bottomBarCompact"
-	end))
 
-	local FILL = { type = "fill", weight = 1 }
-	local HUG = { type = "content" }
+	--[[ THE TWO CONTENT PANES still adapt by MEASUREMENT, which is what a
+		Composition is for: the detail lane sits beside the section when both clear
+		their floors, folds under it when they do not, and drops entirely when even
+		that will not fit. It is now the SELECTED TAB's content rather than a ZStack
+		of four `When`s, so exactly one section subtree exists at a time.
 
-	-- one selection memo per section, shared by every home (the homes are
-	-- mutually exclusive, so a section's four buttons are never on screen at
-	-- once, but they must all read the SAME signal)
-	local sectionSelected: { [string]: any } = {}
-	for _, id in SECTIONS do
-		sectionSelected[id] = scope:own(core:memo(function(use)
-			return use(state.section) == id
-		end))
-	end
+		THE LANE IS BUILT ONCE AND CAPTURED, never rebuilt per tab: `detail.lane`
+		owns a memo on this screen's scope, and a factory that rebuilt it would hand
+		that scope a fresh one on every switch (the wings' disposer lesson). The
+		section BODY is still built per entry, exactly as the old `When` built it. ]]
+	local detailLane = detailUI.lane(ctx)
 
-	-- `width = nil` lets a button hug its own label (the sidebar and the
-	-- centered clusters); `FILL` shares the band equally (the full-width rows,
-	-- where four natural label widths overflow a 360px phone by 22px — the
-	-- solver said so on every solve before equal-weight tabs landed).
-	local function railButtons(short: boolean, width: any?): { any }
-		local out: { any } = {}
-		for _, id in SECTIONS do
-			table.insert(
-				out,
-				UI.Button({
-					-- the terse form comes with the terse TREATMENT: a thumb-zone tab
-					-- is caption-sized in tighter chrome, which is what a tab bar is
-					-- everywhere, and what keeps four tabs off the ellipsis on a
-					-- 320px phone. The sidebar and the top bar keep the body size.
-					textSize = if short then "caption" else nil,
-					padding = if short then "xs" else nil,
-					-- NO `compactLabel`, and that is a finding rather than an
-					-- omission: a compact form is construction-only (it is what a
-					-- control HAS), so it cannot follow the live locale flip this
-					-- proof's loop drives. The terse form is a second LOCALIZED
-					-- string instead.
-					id = "Nav_" .. id,
-					label = L("section." .. id .. (if short then ".short" else "")),
-					selected = sectionSelected[id],
-					width = width,
-					onActivate = function()
-						nav.selectSection(id)
-					end,
-				})
-			)
-		end
-		return out
-	end
-
-	local function tabRow(id: string, opts: { natural: boolean, short: boolean, gap: string, pad: any }): any
-		return UI.HStack({
-			id = id,
-			gap = opts.gap,
-			padding = opts.pad,
-			-- NO `align` on the natural-width rows: a container's own `align` is
-			-- ALSO read by its PARENT as cross-axis alignment (framework finding
-			-- 15), so "stretch" here would defeat the centering wrapper and
-			-- stretch the cluster back to full width.
-			align = if opts.natural then nil else "stretch",
-			-- CONTENT, not hug, on the MEASURED candidates: `hug` CAPS at the
-			-- offer, so a hug row can never tell a ViewThatFits that it does not
-			-- fit — the ladder silently pins its first candidate and the tabs
-			-- truncate ("a lot of cutoff text", director live report 2026-08-09).
-			-- `content` is the uncapped natural width, which is what a fit CHOICE
-			-- needs; the chosen row is then centered by its wrapper, never
-			-- stretched.
-			width = if opts.natural then HUG else FILL,
-			children = railButtons(opts.short, if opts.natural then HUG else FILL),
-		})
-	end
-
-	local function sideRail(): any
-		return UI.VStack({
-			id = "NavRail",
-			gap = "s",
-			padding = "s",
-			align = "stretch",
-			width = HUG,
-			height = FILL,
-			children = {
-				UI.Text({ id = "Wordmark", text = L("app.title"), textSize = "title", lineLimit = 1 }),
-				UI.VStack({
-					id = "Links",
-					gap = "s",
-					align = "stretch",
-					width = HUG,
-					children = railButtons(false, nil),
-				}),
+	local function sectionPane(id: string, build: (any) -> any): any
+		--[[ THE PANE IS THE TAB'S FADE GROUP, and it is the SAME canvasGroup budget
+			this proof always spent — it moved OUT of the section plate rather than
+			joining it. A fade is `GroupTransparency`, which needs a group at the node
+			the transition applies to, and under the construct that node is the tab's
+			whole content rather than one section body. The plate below keeps its
+			clip through `overflow = "clip"`, which is a clip host in its own right
+			(blueprint F-19) and costs no second buffer. ]]
+		local pane = UI.Composition({
+			id = "Panes",
+			arrangements = {
+				{ name = "detailBeside", lanes = { { "main" }, { "trail" } } },
+				{ name = "detailBelow", lanes = { { "main", "trail" } } },
 			},
-		})
-	end
-
-	-- CENTERED AND HUGGING: the tablet/ten-foot band is the full width of the
-	-- screen and the tab cluster sits in the middle of it. The wordmark stays in
-	-- the rail form alone — a brand mark beside a centered cluster is the one
-	-- thing that pushes the cluster off centre at the expansion locale. This home
-	-- has room for the full names, so it carries the honest full → terse ladder.
-	local function topBar(): any
-		return UI.VStack({
-			id = "TopBar",
-			align = "center",
-			width = FILL,
+			laneGap = "m",
+			groupGap = "m",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			groups = {
+				{ id = "content", lane = "main", sizing = "fill", minWidth = METRICS.shellContentMin },
+				{ id = "detail", lane = "trail", sizing = "hug" },
+			},
+			-- DECLARATION ORDER IS FOCUS ORDER, and it is the same in every
+			-- arrangement: search → cards → detail (spec §4's tab order). The nav is
+			-- not one of these regions, so it reads in the ring where it is PAINTED —
+			-- the leading rail before the content, the bottom bar after it — and that
+			-- rule is now the construct's rather than this file's.
 			children = {
-				UI.ViewThatFits({
-					id = "TopTabsFit",
+				UI.Region({
+					id = "Section",
+					group = "content",
+					rank = 1,
+					sizing = "fill",
+					mayScroll = true,
+					floor = { lines = 3 },
 					children = {
-						tabRow("TopTabsFull", { natural = true, short = false, gap = "s", pad = "s" }),
-						tabRow("TopTabsShort", { natural = true, short = true, gap = "s", pad = "s" }),
+						UI.ZStack({
+							id = "Body_" .. id,
+							-- A SECTION PLATE CLIPS, AND SAYS SO — and `overflow = "clip"` is
+							-- itself a clip host, so the plate keeps clipping while the one
+							-- canvasGroup this pane spends sits where the fade needs it.
+							overflow = "clip",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = { build(ctx) },
+						}),
 					},
 				}),
-			},
-		})
-	end
-
-	-- BOTH BOTTOM BARS SPEAK THE TERSE VOCABULARY (director refinement
-	-- 2026-08-09: "consider when to use the compact representation — I see a lot
-	-- of cutoff text"). Full names belong to the homes with room; a thumb-zone
-	-- tab bar takes the terse localized strings by construction, so nothing
-	-- ellipsizes in the normal range at all. What remains is the honest
-	-- extreme-text step-down: a CENTERED natural-width cluster first, then the
-	-- full-width shared band once 1.4x copy at the largest text preference can no
-	-- longer fit the cluster in the band.
-	local function bottomBar(compactForm: boolean): any
-		-- THE TWO BOTTOM SHAPES SPEND THEIR SCARCE AXIS DIFFERENTLY. A portrait
-		-- phone is width-poor and height-rich, so the band keeps a comfortable
-		-- vertical rhythm and gives every horizontal pixel to the labels; a
-		-- landscape phone is the mirror (313 safe px of height), so the band goes
-		-- tight on BOTH axes. Horizontal `xs` on either is what keeps four terse
-		-- names off the ellipsis on a 320px phone.
-		local pad: any = if compactForm then "xs" else { left = "xs", right = "xs", top = "s", bottom = "s" }
-		local ids = if compactForm
-			then { fit = "TabsCompactFit", center = "TabsCompactCenter", row = "TabsCompact", wide = "TabsCompactWide" }
-			else { fit = "TabsFit", center = "TabsShortCenter", row = "TabsShort", wide = "TabsShortWide" }
-		return UI.ViewThatFits({
-			id = ids.fit,
-			width = FILL,
-			children = {
-				UI.VStack({
-					id = ids.center,
-					align = "center",
-					width = FILL,
-					children = { tabRow(ids.row, { natural = true, short = true, gap = "xs", pad = pad }) },
+				UI.Region({
+					id = "Detail",
+					group = "detail",
+					rank = 2,
+					children = { detailLane },
 				}),
-				tabRow(ids.wide, { natural = false, short = true, gap = "xs", pad = pad }),
 			},
+		})
+		return UI.ZStack({
+			id = "Pane_" .. id,
+			canvasGroup = true,
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = { pane },
 		})
 	end
 
-	local function sectionBody(id: string, build: (any) -> any): any
-		local visible = scope:own(core:memo(function(use)
-			return use(state.section) == id
-		end))
-		return UI.When({
-			id = "Section_" .. id,
-			condition = visible,
-			transition = { enter = "fade", class = "container" },
-			thenView = function(): any
-				return UI.ZStack({
-					id = "Body_" .. id,
-					canvasGroup = true,
-					-- A SECTION PLATE CLIPS, AND SAYS SO: a `canvasGroup` clips its
-					-- subtree by engine rule, and the declaration keeps the solver's
-					-- model agreeing with what the engine already does.
-					overflow = "clip",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = { build(ctx) },
-				})
+	local SECTION_BUILD: { [string]: (any) -> any } = {
+		glades = overviewUI.glades,
+		wisps = overviewUI.wisps,
+		flora = overviewUI.flora,
+		keeper = keeperUI.section,
+	}
+	local navTabs: { any } = {}
+	for _, id in SECTIONS do
+		local section = id
+		table.insert(navTabs, {
+			id = section,
+			label = scope:own(core:memo(function(use)
+				local _ = use(locale)
+				return Lnow("section." .. section .. (if use(terse) then ".short" else ""))
+			end)),
+			content = function()
+				return sectionPane(section, SECTION_BUILD[section])
 			end,
 		})
 	end
 
-	-- The two CONTENT panes still adapt by measurement, which is what a
-	-- Composition is for: the detail lane sits beside the section when both
-	-- clear their floors, folds under it when they do not, and drops entirely
-	-- when even that will not fit.
-	local panes = UI.Composition({
-		id = "Panes",
-		arrangements = {
-			{ name = "detailBeside", lanes = { { "main" }, { "trail" } } },
-			{ name = "detailBelow", lanes = { { "main", "trail" } } },
+	local navBar = scope:own(Facet.Controls.TabView(core, {
+		id = "Nav",
+		-- the proof's own section Signal, unchanged: everything that must survive a
+		-- tab switch is owned OUTSIDE the construct, and this is the first one
+		selection = state.section,
+		-- the conditions this screen already built, passed in rather than rebuilt:
+		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- answers to one question
+		conditions = conditions,
+		env = env,
+		--[[ NATURAL-WIDTH SEGMENTS IN EVERY HOME, which is the shape this proof's
+			bars have always taken: a centred cluster that hugs its four words, never
+			a full-width row of equal targets. It is a LOCALIZATION decision rather
+			than a taste one — four localized names divided equally across a 320px
+			phone truncate three of the four at the +4 text preference (measured),
+			and this proof's whole nav vocabulary exists to answer exactly that
+			report. A hugging band centres, and scrolls when it cannot fit. ]]
+		sizing = "hug",
+		textSize = navTextSize,
+		-- the enter fade the four hand-built section hosts each declared
+		transition = { enter = "fade", class = "container" },
+		tabs = navTabs,
+		accessories = {
+			--[[ THE WORDMARK, and the reason this proof could not adopt the construct
+				before §6. It belongs to the RAIL FORM ALONE — a brand mark beside a
+				centred cluster is the one thing that pushes the cluster off centre at
+				the expansion locale — and `head` is hosted by exactly that home, so
+				the placement decides it instead of a fifth memo in this file. ]]
+			head = function()
+				return UI.Text({ id = "Wordmark", text = L("app.title"), textSize = "title", lineLimit = 1 })
+			end,
 		},
-		laneGap = "m",
-		groupGap = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
-		groups = {
-			{ id = "content", lane = "main", sizing = "fill", minWidth = METRICS.shellContentMin },
-			{ id = "detail", lane = "trail", sizing = "hug" },
-		},
-		-- DECLARATION ORDER IS FOCUS ORDER, and it is the same in every
-		-- arrangement: search → cards → detail (spec §4's tab order). The nav is
-		-- no longer one of these regions, so it reads in the ring where it is
-		-- PAINTED — the leading rail before the content, the bottom bar after it.
-		children = {
-			UI.Region({
-				id = "Section",
-				group = "content",
-				rank = 1,
-				sizing = "fill",
-				mayScroll = true,
-				floor = { lines = 3 },
-				children = {
-					UI.ZStack({
-						id = "Sections",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-						children = {
-							sectionBody("glades", overviewUI.glades),
-							sectionBody("wisps", overviewUI.wisps),
-							sectionBody("flora", overviewUI.flora),
-							sectionBody("keeper", keeperUI.section),
-						},
-					}),
-				},
-			}),
-			UI.Region({
-				id = "Detail",
-				group = "detail",
-				rank = 2,
-				children = { detailUI.lane(ctx) },
-			}),
-		},
-	})
+	}))
 
-	-- The scaffold: one band above, one band below, the rail inside the middle
-	-- row. Exactly one of the four Whens is live at a time (the placements are
-	-- mutually exclusive) and none of them declares a transition, so a section
-	-- button is never mounted in two homes at once.
 	local screen = UI.Screen({
 		id = "Glade",
 		surface = "base",
-		children = {
-			UI.VStack({
-				id = "Shell",
-				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
-				children = {
-					UI.When({ id = "TopBarWhen", condition = navTop, thenView = topBar }),
-					UI.HStack({
-						id = "Middle",
-						gap = "m",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-						children = {
-							UI.When({ id = "SideRailWhen", condition = navSidebar, thenView = sideRail }),
-							panes,
-						},
-					}),
-					UI.When({
-						id = "BottomFullWhen",
-						condition = navBottomFull,
-						thenView = function()
-							return bottomBar(false)
-						end,
-					}),
-					UI.When({
-						id = "BottomCompactWhen",
-						condition = navBottomCompact,
-						thenView = function()
-							return bottomBar(true)
-						end,
-					}),
-				},
-			}),
-		},
+		children = { navBar.blueprint },
 	})
 
 	-- ---- the frame tick -----------------------------------------------------

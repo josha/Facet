@@ -111,6 +111,50 @@ local function world(width: number?, height: number?): any
 	return self
 end
 
+--[[ THE NAV, AFTER §6. The shell is `Facet.Controls.TabView` now
+	(framework-gaps-phase2 §6, the accessory-slot round): a section's button is a
+	SEGMENT of the construct's one strip rather than a `Nav_<section>` Button this
+	proof declared four times over. Two things follow, and both are why these are
+	helpers rather than literals:
+
+	  * the segment's own id is the strip's (`Opt<n>`), so a section is addressed
+	    by its INDEX in the proof's own `SECTIONS` order — the one part of the nav
+	    this file still owns;
+	  * the path ABOVE it is the placement policy's business and changes with the
+	    home, so every case below resolves a tail rather than a full path. ]]
+local SECTION_ORDER = { "glades", "wisps", "flora", "keeper" }
+local function navTail(section: string): string
+	for index, name in SECTION_ORDER do
+		if name == section then
+			return `/Strip/Indicator/Options/Opt{index}`
+		end
+	end
+	error(`no such section '{section}'`, 2)
+end
+-- ...and the reverse, for the ring walks: which section a focused path IS, or nil
+local function navSection(path: string): string?
+	if string.find(path, "/Nav/", 1, true) == nil or string.find(path, "/Strip/", 1, true) == nil then
+		return nil
+	end
+	for index, name in SECTION_ORDER do
+		local tail = `/Opt{index}`
+		if string.sub(path, -#tail) == tail then
+			return name
+		end
+	end
+	return nil
+end
+local function isNavPath(path: string): boolean
+	return navSection(path) ~= nil
+end
+-- the four homes the construct mounts its strip in, by tail
+local RAIL = "/Nav/RailHome/then/RailShell/Rail"
+local TOP_BAND = "/Nav/TopHome/then/TopBandCenter/TopBand"
+-- the thumb-zone band is the CENTRED, hugging shape this proof declares
+-- (`sizing = "hug"`), not the framework's default full-width one
+local BOTTOM_BAND = "/Nav/BottomHome/then/BottomBandCenter/BottomBand"
+local COMPACT_BAND = "/Nav/CompactHome/then/CompactBandCenter/CompactBand"
+
 -- resolve a purchase command without also advancing thirty frames of motion
 local function settle(w: any)
 	w.built.api.advance(seedData.COMMAND_SECONDS + 0.01)
@@ -124,7 +168,7 @@ describe("Glade reference proof — module contract", function()
 
 	it("mounts headlessly through the public presenter with no core error", function()
 		local w = world()
-		expect(w.find("/Glade/Shell") ~= nil).toBe(true)
+		expect(w.find("/Glade/Nav") ~= nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()
 		expect(w.report().proof).toBe("p1_glade")
 		expect(w.report().seed).toBe(seedData.WORLD)
@@ -262,7 +306,7 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 		-- GEOMETRY, not an arrangement NAME: the detail pane is mounted BESIDE the
 		-- section content (its box starts to the right of the section's, and both
 		-- share the row), which is what "the shell's own lane" means on screen
-		local sections = w.node("/Panes/Section/Sections")
+		local sections = w.node("/Panes/Section/Body_glades")
 		local pane = w.node("/DetailLane/[mossholm]/Pane")
 		expect(sections ~= nil and sections.rect ~= nil).toBe(true)
 		expect(pane ~= nil and pane.rect ~= nil).toBe(true)
@@ -438,7 +482,7 @@ end)
 describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", function()
 	it("buying a tier removes it from the offer and toasts the new standing", function()
 		local w = world()
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/OpenCharm")
 		expect(w.find("/BuyCharm_ember") ~= nil).toBe(true)
 		w.tap("/BuyCharm_ember")
@@ -455,7 +499,7 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 
 	it("the scripted `owned` rejection shows its own copy and the retry then confirms", function()
 		local w = world()
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/OpenCharm")
 		w.tap("/BuyCharm_ember")
 		settle(w)
@@ -482,7 +526,7 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 
 	it("Lumen drops the Frostwisp gate AND opens its early arrival window", function()
 		local w = world()
-		w.tap("/Nav_wisps")
+		w.tap(navTail("wisps"))
 		expect(w.find("/WispCard_frostwisp/Body/Gate/then/LumenOnly") ~= nil).toBe(true)
 		-- the seeded Frostwisp window starts at 480s, or 60s for a Lumen keeper
 		w.built.api.advance(100)
@@ -509,7 +553,7 @@ end)
 describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)", function()
 	it("a visitor row opens the wisp modal, which offers the charm while gated", function()
 		local w = world()
-		w.tap("/Nav_wisps")
+		w.tap(navTail("wisps"))
 		w.tap("/WispCard_frostwisp")
 		expect(w.report().surfaces[1]).toBe("wisp")
 		expect(w.find("/LumenGate/then/GateGroup/GateBody/SeeCharm") ~= nil).toBe(true)
@@ -528,7 +572,7 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 
 	it("restore runs the same three-phase command and toasts on confirm", function()
 		local w = world()
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		expect(w.node("/Restore").props.label).toBe("Restore provisions")
 		w.tap("/Restore")
 		expect(w.node("/Restore").props.label).toBe("Confirming…")
@@ -547,7 +591,7 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 
 	it("the edit form commits on Done and discards on Cancel", function()
 		local w = world()
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/EditKeeper")
 		expect(w.report().surfaces[1]).toBe("edit")
 		w.built.api.state.draftName:set("Alder of Stillpond")
@@ -565,7 +609,7 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 		local w = world()
 		w.built.api.commerce.buyCharm("lumen")
 		settle(w)
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/FreshStart")
 		expect(w.find("/KeepGlades") ~= nil).toBe(true)
 		w.tap("/KeepGlades")
@@ -594,7 +638,7 @@ describe("Glade: determinism — same seed, same steps, same dump", function()
 		settle(w)
 		w.tap("/Close")
 		w.tap("/Done")
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/OpenCharm")
 		w.tap("/BuyCharm_ember")
 		settle(w)
@@ -672,29 +716,29 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 	it("navPlacement gives every canvas its home: sidebar / bottom tabs / inline tabs / top tabs", function()
 		-- pointer desktop (the headless default input): the vertical rail, no band
 		local w = world(1400, 900)
-		expect(w.find("/SideRailWhen/then/NavRail") ~= nil).toBe(true)
-		expect(w.find("/TabsFit")).toBeNil()
-		expect(w.find("/TopBarWhen/then/TopBar")).toBeNil()
-		local rail = w.node("/SideRailWhen/then/NavRail")
-		local links = w.node("/NavRail/Links")
+		expect(w.find(RAIL) ~= nil).toBe(true)
+		expect(w.find(BOTTOM_BAND)).toBeNil()
+		expect(w.find(TOP_BAND)).toBeNil()
+		local rail = w.node(RAIL)
+		local links = w.node(RAIL .. "/Strip")
 		-- VERTICAL: the four tabs stack, so the group is taller than one tab
-		expect(links.rect.h > w.node("/Links/Nav_glades").rect.h * 3).toBe(true)
+		expect(links.rect.h > w.node(navTail("glades")).rect.h * 3).toBe(true)
 		expect(rail.rect.x < 1400 * 0.2).toBe(true)
 
 		-- phone portrait: the thumb-zone band, rail gone
 		local phone = world(390, 844)
-		expect(phone.find("/SideRailWhen/then/NavRail")).toBeNil()
-		expect(phone.find("/BottomFullWhen/then/TabsFit") ~= nil).toBe(true)
-		local band = phone.node("/TabsFit/TabsShortCenter/TabsShort")
+		expect(phone.find(RAIL)).toBeNil()
+		expect(phone.find(BOTTOM_BAND) ~= nil).toBe(true)
+		local band = phone.node(BOTTOM_BAND .. "/Strip")
 		expect(band ~= nil and band.rect.w > 0).toBe(true)
 		expect(centered(band, 390, 60)).toBe(true)
 
 		-- phone landscape (roomy width, SHORT height): the inline form — a
 		-- CENTERED cluster that hugs its tabs, never a full-width stretch
 		local land = world(720, 360)
-		local inline = land.node("/TabsCompactFit/TabsCompactCenter/TabsCompact")
+		local inline = land.node(COMPACT_BAND .. "/Strip")
 		expect(inline ~= nil and inline.rect ~= nil).toBe(true)
-		expect(land.find("/TabsFit")).toBeNil()
+		expect(land.find(BOTTOM_BAND)).toBeNil()
 		expect(inline.rect.w < 720 * 0.7).toBe(true)
 		expect(centered(inline, 720, 100)).toBe(true)
 
@@ -703,9 +747,9 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		tablet.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		tablet.env:set("preferredInput", "Touch")
 		tablet.presenter.refresh()
-		expect(tablet.find("/TopBarWhen/then/TopBar") ~= nil).toBe(true)
-		expect(tablet.find("/SideRailWhen/then/NavRail")).toBeNil()
-		expect(tablet.find("/TabsFit")).toBeNil()
+		expect(tablet.find(TOP_BAND) ~= nil).toBe(true)
+		expect(tablet.find(RAIL)).toBeNil()
+		expect(tablet.find(BOTTOM_BAND)).toBeNil()
 
 		--[[ ...and the same canvas on the display fact the engine really sends for
 			a tablet (`Small` — "Most tablet/mobile/handheld devices") is the same
@@ -718,8 +762,8 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		small.env:set("preferredInput", "Touch")
 		small.env:set("displaySize", "Small")
 		small.presenter.refresh()
-		expect(small.find("/TopBarWhen/then/TopBar") ~= nil).toBe(true)
-		expect(small.find("/BottomFullWhen/then/TabsFit")).toBeNil()
+		expect(small.find(TOP_BAND) ~= nil).toBe(true)
+		expect(small.find(BOTTOM_BAND)).toBeNil()
 		expect(small.core:lastError()).toBeNil()
 	end)
 
@@ -728,7 +772,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		w.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		w.env:set("preferredInput", "Touch")
 		w.presenter.refresh()
-		local row = w.node("/TopTabsFit/TopTabsFull") or w.node("/TopTabsFit/TopTabsShort")
+		local row = w.node(TOP_BAND .. "/Strip")
 		expect(row ~= nil and row.rect ~= nil).toBe(true)
 		-- hugging: decisively narrower than the band it sits in...
 		expect(row.rect.w < 1080 * 0.7).toBe(true)
@@ -743,9 +787,9 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		-- GEOMETRY of the placement scaffold, in both bottom shapes.
 		for _, canvas in { { 390, 844 }, { 720, 360 } } do
 			local w = world(canvas[1], canvas[2])
-			local middle = w.node("/Glade/Shell/Middle")
-			local tabs = w.node("/TabsFit/TabsShortCenter/TabsShort")
-				or w.node("/TabsCompactFit/TabsCompactCenter/TabsCompact")
+			-- the construct's own content region is what the band must sit below
+			local middle = w.node("/Nav/Content")
+			local tabs = w.node(BOTTOM_BAND .. "/Strip") or w.node(COMPACT_BAND .. "/Strip")
 			expect(middle ~= nil and middle.rect ~= nil).toBe(true)
 			expect(tabs ~= nil and tabs.rect ~= nil).toBe(true)
 			expect(tabs.rect.y >= middle.rect.y + middle.rect.h - 1).toBe(true)
@@ -755,8 +799,8 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 
 	it("no VISIBLE bottom tab is cut off in the normal text range", function()
 		-- THE POINT OF THE TERSE VOCABULARY (director 2026-08-09: "I see a lot of
-		-- cutoff text"). A losing ViewThatFits candidate still publishes text
-		-- facts — facts survive hiding — so the pin reads only what is on screen.
+		-- cutoff text"). Facts survive hiding, so the pin still reads only what is
+		-- on screen — and after §6 the tabs it reads are the construct's segments.
 		local canvases = { { 320, 640 }, { 360, 691 }, { 390, 844 }, { 480, 800 }, { 678, 339 }, { 720, 360 } }
 		local cut: { string } = {}
 		for _, canvas in canvases do
@@ -774,12 +818,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 					return true
 				end
 				for path, facts in w.handle.controller.textAt() do
-					if
-						facts.truncated == true
-						and string.find(path, "/Nav_", 1, true) ~= nil
-						and string.find(path, "Tabs", 1, true) ~= nil
-						and onScreen(path)
-					then
+					if facts.truncated == true and isNavPath(path) and onScreen(path) then
 						table.insert(cut, `{canvas[1]}x{canvas[2]} +{offset} {facts.text}`)
 					end
 				end
@@ -789,36 +828,43 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		expect(table.concat(cut, ", ")).toBe("")
 	end)
 
-	it("the bar's ladder is REAL: extreme text moves the tabs off the centered cluster", function()
-		-- the negative control for the case above — the step-down has to be
-		-- reachable, or "nothing is cut off" only proves the first rung was pinned
-		local w = world(390, 844)
-		local centre = w.node("/TabsFit/TabsShortCenter/TabsShort")
-		expect(centre ~= nil and centre.rect.w > 0).toBe(true)
-		expect((w.node("/TabsFit/TabsShortWide") :: any).rect.w).toBe(0)
-		w.built.steps.setLocale(nil, "xa")
-		w.env:set("preferredTextOffset", 14)
-		w.presenter.refresh()
-		-- the natural-width cluster no longer fits the band, so the declared
-		-- full-width fallback takes over
-		expect((w.node("/TabsFit/TabsShortCenter/TabsShort") :: any).rect.w).toBe(0)
-		expect((w.node("/TabsFit/TabsShortWide") :: any).rect.w > 0).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+	--[[ THE NEGATIVE CONTROL FOR THE CASE ABOVE, re-aimed by §6. The step-down has
+		to be REACHABLE or "nothing is cut off" only proves that the first rung was
+		pinned — but the step-down is no longer a ViewThatFits between two bars this
+		proof authored. It is the TERSE VOCABULARY itself, carried as a bound
+		`Option.label`: a thumb-zone home takes the short localized string and every
+		roomier home takes the full one. So the control is that the two homes really
+		do read different words, on the same world, from the same strip. ]]
+	it("the terse vocabulary is REAL: the thumb-zone band reads a different word than the rail", function()
+		local phone = world(390, 844)
+		local desk = world(1400, 900)
+		-- `keeper` is the section whose short form is a DIFFERENT word ("You"); the
+		-- other three read the same in both vocabularies on purpose
+		local phoneLabel = phone.node(navTail("keeper")).props.label
+		local deskLabel = desk.node(navTail("keeper")).props.label
+		expect(tostring(phoneLabel) ~= "").toBe(true)
+		expect(tostring(phoneLabel) ~= tostring(deskLabel)).toBe(true)
+		-- ...and the SAME world flips it live, which a construction-time compact
+		-- form could not have done
+		desk.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		desk.presenter.refresh()
+		expect(tostring(desk.node(navTail("keeper")).props.label)).toBe(tostring(phoneLabel))
+		expect(desk.core:lastError()).toBeNil()
 	end)
 
 	it("a live resize moves the nav between homes and the world survives the move", function()
 		local w = world(1400, 900)
 		local card = w.find("/GladeCard_mossholm")
-		w.tap("/Nav_wisps")
-		expect(w.find("/SideRailWhen/then/NavRail") ~= nil).toBe(true)
+		w.tap(navTail("wisps"))
+		expect(w.find(RAIL) ~= nil).toBe(true)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		w.presenter.refresh()
 		-- the rail is gone, the band is up, and the SECTION the player chose came
 		-- with it — a placement change is a re-solve of the same world
-		expect(w.find("/SideRailWhen/then/NavRail")).toBeNil()
-		expect(w.find("/TabsFit/TabsShortCenter/TabsShort") ~= nil).toBe(true)
+		expect(w.find(RAIL)).toBeNil()
+		expect(w.find(BOTTOM_BAND .. "/Strip") ~= nil).toBe(true)
 		expect(w.report().section).toBe("wisps")
-		w.tap("/Nav_glades")
+		w.tap(navTail("glades"))
 		expect(w.report().section).toBe("glades")
 		-- the CONTENT never remounted across the move
 		expect(w.find("/GladeCard_mossholm")).toBe(card)
@@ -829,7 +875,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		for _, size in { { 1400, 900 }, { 390, 844 }, { 720, 360 } } do
 			local w = world(size[1], size[2])
 			for _, section in { "wisps", "flora", "keeper", "glades" } do
-				w.tap("/Nav_" .. section)
+				w.tap(navTail(section))
 				expect(w.report().section).toBe(section)
 			end
 		end
@@ -841,8 +887,8 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		-- are reachable, which is what makes the declared fallback honest.
 		local wide = world(1400, 900)
 		wide.tap("/GladeCard_mossholm")
-		expect(wide.handle.controller.compositionAt("/Glade/Shell/Middle/Panes").arrangement).toBe("detailBeside")
-		local sections = wide.node("/Panes/Section/Sections")
+		expect(wide.handle.controller.compositionAt(wide.find("/Panes") :: string).arrangement).toBe("detailBeside")
+		local sections = wide.node("/Panes/Section/Body_glades")
 		local pane = wide.node("/DetailLane/[mossholm]/Pane")
 		expect(pane.rect.x >= sections.rect.x + sections.rect.w - 1).toBe(true)
 
@@ -850,11 +896,11 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		-- longer sit side by side, so the detail folds UNDER the section
 		local narrow = world(620, 900)
 		narrow.tap("/GladeCard_mossholm")
-		local resolved = narrow.handle.controller.compositionAt("/Glade/Shell/Middle/Panes")
+		local resolved = narrow.handle.controller.compositionAt(narrow.find("/Panes") :: string)
 		expect(resolved.arrangement).toBe("detailBelow")
 		-- reached by being LEGAL, not by exhausting the list
 		expect(resolved.fallback).toBe(false)
-		local nSections = narrow.node("/Panes/Section/Sections")
+		local nSections = narrow.node("/Panes/Section/Body_glades")
 		local nPane = narrow.node("/DetailLane/[mossholm]/Pane")
 		expect(nPane.rect.w > 0).toBe(true)
 		expect(nPane.rect.y >= nSections.rect.y + nSections.rect.h - 1).toBe(true)
@@ -885,7 +931,7 @@ describe("Glade: focus and reachability (spec §4, §14)", function()
 				if firstCardAt == nil and string.find(entry.path, "GladeCard_mossholm", 1, true) ~= nil then
 					firstCardAt = index
 				end
-				if navAt == nil and string.find(entry.path, "/Nav_glades", 1, true) ~= nil then
+				if navAt == nil and navSection(entry.path) == "glades" then
 					navAt = index
 				end
 			end
@@ -936,7 +982,7 @@ describe("Glade: focus and reachability (spec §4, §14)", function()
 
 	it("the charm sheet opens on the recommended tier, and never on a card that is gone", function()
 		local w = world()
-		w.tap("/Nav_keeper")
+		w.tap(navTail("keeper"))
 		w.tap("/OpenCharm")
 		expect(string.find(tostring(w.presenter.focus.focused:get()), "BuyCharm_ember", 1, true) ~= nil).toBe(true)
 		w.tap("/BuyCharm_ember")
@@ -996,7 +1042,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		for _, section in { "glades", "wisps", "flora", "keeper" } do
 			local hit = false
 			for path in seen do
-				if string.find(path, "Nav_" .. section, 1, true) ~= nil then
+				if navSection(path) == section then
 					hit = true
 				end
 			end
@@ -1005,13 +1051,13 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		-- (away) the ring holds MORE than the bar: content stops exist too
 		local outside = false
 		for path in seen do
-			if string.find(path, "/Nav_", 1, true) == nil then
+			if not isNavPath(path) then
 				outside = true
 			end
 		end
 		expect(outside).toBe(true)
 		-- (action) activating a tab through the engine's own activation path works
-		w.tap("/Nav_wisps")
+		w.tap(navTail("wisps"))
 		expect(w.report().section).toBe("wisps")
 		expect(w.core:lastError()).toBeNil()
 	end
@@ -1036,7 +1082,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		w.env:set("preferredInput", "Gamepad")
 		w.env:set("displaySize", "Large")
 		w.presenter.refresh()
-		expect(w.find("/TopBarWhen/then/TopBar") ~= nil).toBe(true)
+		expect(w.find(TOP_BAND) ~= nil).toBe(true)
 		local function pad(key: string)
 			w.system.deviceKey(key, true)
 			w.system.deviceKey(key, false)
@@ -1049,11 +1095,11 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		-- real walk UP out of the content and into the band above it
 		expect(string.find(focused(), "GladeCard_", 1, true) ~= nil).toBe(true)
 		local guard = 0
-		while string.find(focused(), "/Nav_", 1, true) == nil and guard < 12 do
+		while not isNavPath(focused()) and guard < 12 do
 			pad("DPadUp")
 			guard += 1
 		end
-		expect(string.find(focused(), "/Nav_", 1, true) ~= nil).toBe(true)
+		expect(isNavPath(focused())).toBe(true)
 		-- (through) a pad enters a band wherever it is spatially NEAREST, so the
 		-- walk goes to the leading edge first and then all the way across, with
 		-- the step counts taken from the tab it actually landed on — a walk that
@@ -1061,7 +1107,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		local ORDER = { "glades", "wisps", "flora", "keeper" }
 		local function tabAt(): number?
 			for index, section in ORDER do
-				if string.find(focused(), "Nav_" .. section, 1, true) ~= nil then
+				if navSection(focused()) == section then
 					return index
 				end
 			end
@@ -1083,7 +1129,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		for _, section in ORDER do
 			local hit = false
 			for path in seen do
-				if string.find(path, "Nav_" .. section, 1, true) ~= nil then
+				if navSection(path) == section then
 					hit = true
 				end
 			end
@@ -1091,10 +1137,10 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		end
 		-- (away) DPadDown leaves the band for the content below it
 		pad("DPadDown")
-		expect(string.find(focused(), "/Nav_", 1, true) == nil).toBe(true)
+		expect(isNavPath(focused())).toBe(false)
 		-- (action) walk back up and press A on whatever tab took focus
 		local back = 0
-		while string.find(focused(), "/Nav_", 1, true) == nil and back < 20 do
+		while not isNavPath(focused()) and back < 20 do
 			pad("DPadUp")
 			back += 1
 		end
@@ -1392,7 +1438,7 @@ describe("Glade: the scenario surface", function()
 
 	it("Flora is browse-only: cards with a name and a species line, and no modal", function()
 		local w = world()
-		w.tap("/Nav_flora")
+		w.tap(navTail("flora"))
 		expect(w.find("/FloraCard_mosscap") ~= nil).toBe(true)
 		expect(w.textOf("/FloraCard_dewfern/Name")).toBe("Dewfern")
 		expect(w.textOf("/FloraCard_dewfern/Species")).toBe("Shade fern — catches the morning")
