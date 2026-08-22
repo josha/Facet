@@ -1290,3 +1290,14 @@ STUDIO.md, root CLAUDE.md.
   (re-recorded by the paint-lockstep round mid-flight) calls that round's
   ADR row "B-16" — but B-16 is DIR5's appended row. The lockstep round's
   row must land as B-17; renumber at append time.
+
+## 2026-08-21 (post-close 9) — plate design decided: OPTION B
+
+- Director picked B (corner disc on symmetric padding, upper-right settled).
+  Build round dispatched on the designer's spec (task-plate-design-spec.md,
+  every metric a token derivation): uniform space.m padding, disc centered
+  on the corner via space.xs + disc/2, incursion proven padding-only with
+  the m*sqrt(2) > disc/2 argument kept as a spec assertion, all DIR5
+  behavior preserved. Told to treat solver as locked (the split round owns
+  it) and keep clear of the hud scenario file (overflow-guard may declare
+  states there). Live verify mine at landing.
