@@ -307,6 +307,16 @@ so `tests/lib/tiers.luau`'s recorded 16,342 ms needs no re-record.
 
 `stylua --check` clean on all nine touched files.
 
+### Commits
+
+| sha | what |
+|---|---|
+| `19dc1cb` | the guard, the waiver registry, the spec, the world wiring, the state walk, the HUD's `states`, the runner's `states`/`openState`/`expand`, the Studio driver's oracle + `states` mode, and this report |
+| `3183740` | the repair: six lines of another round's `tests/run.luau` edit that rode in on my hunk, handed back (see §8.6) |
+
+**The committed tree was run, not just the working tree:**
+`git archive 3183740` into a private copy → **6982 passed, 0 failed**.
+
 ---
 
 ## 7. The RascalRally seam (checked, no churn manufactured)
@@ -364,7 +374,21 @@ this task's claim true.
    `fake_target.setScrollRegion`'s own comment warns about. It surfaced here as
    19 hit-target findings and was correctly ruled not-paint, but the underlying
    fixture/engine divergence is real and is a separate mission.
-6. **`tests/run.luau` is a shared file this round.** Another round added
-   `require("./measure_facts_seam.spec")` to it mid-task; the commit was made
-   with `tools/commit_isolated.py` and marker-scoped hunks so only the
-   overflow-guard require was taken.
+6. **`commit_isolated`'s one documented hole was hit for real, and is recorded
+   rather than smoothed over.** The tool diffs at `-U1` to keep the marker window
+   narrow, and its header says plainly that when two agents are inside the same
+   few lines nothing short of a worktree separates them. That happened: the
+   extraction round's `require("./containment_diagnostic.spec")` landed six lines
+   above mine in `tests/run.luau`, INSIDE that one-line window, so the marker
+   filter took the whole hunk and `19dc1cb` shipped a require for a file that is
+   still untracked — HEAD did not load. Caught by the discipline that exists for
+   it: the post-commit verification run of the COMMITTED tree, not of the working
+   tree. Repaired in `3183740` by removing only those six lines through the same
+   private-index/CAS mechanism, leaving the working tree untouched so the
+   extraction round still holds its edit and its file and can commit both
+   together. Verified after the repair: **6982 passed, 0 failed**, with the
+   no-waiver-rot case last in the run, as designed.
+7. **The lesson, generalised:** `git show <mine> -- <shared file>` after the
+   commit, and a suite run of the COMMITTED tree, are the only things that can
+   see this class. A dry-run's KEEP/drop list cannot — it reported one clean
+   `KEEP` for the hunk that contained somebody else's line.
