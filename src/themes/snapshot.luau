@@ -463,12 +463,76 @@ local function checkAppNode(node: any, prefix: string)
 	end
 end
 
+--[[ EVERY LIVE ENVIRONMENT'S GENERATION SIGNAL, weakly.
+
+	`forDisplay` refreshing a stale base is only HALF the answer, and the half that
+	is easy to mistake for the whole one. An environment MEMOIZES its `themeMetrics`
+	read, and a memo re-runs only when a signal it `use()`d changed — so a
+	declaration made after the first read invalidated nothing, the memo served its
+	warm value, and `px = "app.…"` went on resolving to nil. Every ten-foot test in
+	this repo masked it, because setting `displaySize` invalidates that memo for an
+	unrelated reason and the declaration rode in on that. The live target was
+	`examples/gallery`: one environment per place at boot and a runtime picker
+	between five proofs, each declaring its group long after the first read.
+
+	So a declaration is a REACTIVE fact. `environment.new` registers one signal
+	here and `use()`s it inside the memo — a DEPENDENCY, not a value. Weak keys, so
+	a discarded environment's signal collects and this table never pins a core
+	alive; a signal is a table, which is what makes it a legal weak key. ]]
+local appGenerationSignals: any = setmetatable({}, { __mode = "k" })
+
+--[[ observeAppDeclarations(signal): `signal:set(generation)` on every real
+	change to the app namespace. The environment is the only caller; it is public
+	because a consumer that builds its own metric memo needs the same edge. ]]
+function snapshot.observeAppDeclarations(signal: any)
+	assert(
+		type(signal) == "table" and type(signal.set) == "function",
+		"themes.observeAppDeclarations: expected a settable signal"
+	)
+	appGenerationSignals[signal] = true
+	return signal
+end
+
+-- the current declaration generation — the number the signal above carries
+function snapshot.appGeneration(): number
+	return declaredAppGeneration
+end
+
+-- deep VALUE equality over a declaration group (numbers and nested tables only,
+-- which is all `checkAppNode` lets through)
+local function sameAppGroup(a: any, b: any): boolean
+	if a == nil or b == nil then
+		return a == b
+	end
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	for key, value in a do
+		if not sameAppGroup(value, (b :: any)[key]) then
+			return false
+		end
+	end
+	for key in b do
+		if (a :: any)[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
 --[[ declareApp(namespace, metrics) -> the whole frozen `app` section.
 
 	`metrics = nil` RETIRES that group, which is how a test puts the process back
 	the way it found it. Returns the whole section rather than the group, because
 	the whole section is what `isMetricPath` spells against and what a caller
-	inspecting the namespace wants to see. ]]
+	inspecting the namespace wants to see.
+
+	AN IDENTICAL RE-DECLARATION IS NOT A CHANGE, and the short-circuit is not
+	tidiness. `TableMetrics.installTypeRamp` and `ResultsParts.declareMetrics`
+	re-declare the same constant table on every presenter build; without this, each
+	build bumps the generation, drops the neutral memo, forces every snapshot
+	behind it to re-resolve and re-runs every `themeMetrics` memo in the process —
+	churn for a value nobody moved. ]]
 function snapshot.declareApp(namespace: any, metrics: any): any
 	assert(
 		isAppSegment(namespace),
@@ -483,6 +547,12 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	if metrics ~= nil then
 		checkAppNode(metrics, `{namespace}.`)
 	end
+	-- VALIDATE FIRST, THEN COMPARE: a malformed re-declaration is an authoring
+	-- error whether or not it happens to match, and refusing it is the only way
+	-- the author hears about it
+	if sameAppGroup(declaredApp[namespace], metrics) then
+		return declaredApp
+	end
 	local next_: any = {}
 	for group, entries in declaredApp do
 		next_[group] = entries
@@ -493,6 +563,11 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	-- the neutral snapshot is what `isMetricPath` spells names against, so it
 	-- cannot outlive the vocabulary it was resolved with
 	neutralCache = nil
+	-- …and every live environment's metric memo has to be told, or it serves the
+	-- warm value it computed before the vocabulary existed (see the note above)
+	for signal in appGenerationSignals do
+		signal:set(declaredAppGeneration)
+	end
 	return declaredApp
 end
 
@@ -848,6 +923,31 @@ local function withCurrentApp(base: any): any
 		end
 	end
 	fill(declaredApp, merged)
+	--[[ …AND WHAT ARRIVED LATE TAKES THE PACKAGE'S GRID, exactly as `resolve` step
+		4b puts an authored app length on it. Only the leaves this merge ADDED can
+		be off the grid — everything the base already carried was snapped when it
+		was resolved — and only the ones the ladder calls a length: snapping a 0.52
+		map fraction onto a 4px unit is 4, which is not a smaller number, it is a
+		corrupt solve. Without this a pixel package's late-declared metric measured
+		off a different coordinate system from its neighbours at near distance and
+		back on it at ten-foot, which is the measure/paint disagreement in miniature. ]]
+	local unit: any = if type(base.pixelUnit) == "number" then base.pixelUnit else nil
+	if unit ~= nil then
+		local function snapLate(node: any, from: any, prefix: string)
+			for key, value in node do
+				local path = `{prefix}{tostring(key)}`
+				if type(value) == "table" then
+					snapLate(value, if type(from) == "table" then (from :: any)[key] else nil, `{path}.`)
+				elseif type(value) == "number" and (type(from) ~= "table" or (from :: any)[key] == nil) then
+					local class = snapshot.densityClassOf(`app.{path}`)
+					if class == "scale" or class == "scaleWhole" then
+						node[key] = pkg.snapToPixelUnit(value, unit :: number)
+					end
+				end
+			end
+		end
+		snapLate(merged, base.app, "")
+	end
 	local out: any = {}
 	for key, value in base do
 		out[key] = value

@@ -268,6 +268,82 @@ describe("app metrics: every package carries them", function()
 	end)
 end)
 
+--[[ THE DECLARATION IS A REACTIVE FACT, and this file is where that is proved.
+
+	`forDisplay` refreshing a stale BASE is only half the answer, and the half that
+	is easy to mistake for the whole one. The environment MEMOIZES its
+	`themeMetrics` read, and a memo re-runs only when a signal it `use()`d changed
+	— so a declaration made after the first read invalidated nothing, the memo
+	served its warm value, and `px = "app.x"` went on resolving to nil. Every
+	ten-foot test in this repo MASKED it, because setting `displaySize` invalidates
+	the memo for an unrelated reason and the declaration rode in on that.
+
+	The live target was `examples/gallery`: one environment per place at boot, a
+	runtime picker between five proofs, and each proof declaring its group on the
+	build AFTER the environment had long since been read. ]]
+describe("app metrics: a declaration reaches a warm environment", function()
+	it("a group declared AFTER the first read is spellable on the next one", function()
+		local core = (Facet :: any).newCore()
+		local env = (Facet :: any).newEnvironment(core)
+		-- WARM THE MEMO FIRST — that is the whole point of the case
+		local before: any = env:get("themeMetrics"):get()
+		expect(before.app.late).toBe(nil)
+
+		themes.declareApp("late", { tileMin = 96 })
+		--[[ …and NOTHING ELSE IS TOUCHED. No `displaySize`, no viewport, no theme
+			commit: if the memo needs an unrelated fact to change before it will see
+			the declaration, this line is the one that fails. ]]
+		local after: any = env:get("themeMetrics"):get()
+		expect(after.app.late.tileMin).toBe(96)
+		expect(snapshot.resolveNumber(after, "app.late.tileMin")).toBe(96)
+
+		-- a SECOND declaration on the same warm environment lands too
+		themes.declareApp("later", { chartH = 160 })
+		local third: any = env:get("themeMetrics"):get()
+		expect(third.app.late.tileMin).toBe(96)
+		expect(third.app.later.chartH).toBe(160)
+
+		-- …and the distance transform still applies to what arrived late
+		env:set("displaySize", "Large")
+		expect(env:get("themeMetrics"):get().app.late.tileMin).toBe(144)
+
+		themes.declareApp("late", nil)
+		themes.declareApp("later", nil)
+	end)
+
+	--[[ RETIRING A GROUP IS A CHANGE TOO, and a warm memo has to see that one for
+		the same reason: a name that is no longer declared must stop being served as
+		if the process still owned it. ]]
+	it("retiring a group reaches a warm environment as well", function()
+		local core = (Facet :: any).newCore()
+		local env = (Facet :: any).newEnvironment(core)
+		themes.declareApp("transient", { tileMin = 96 })
+		expect((env:get("themeMetrics"):get() :: any).app.transient.tileMin).toBe(96)
+		themes.declareApp("transient", nil)
+		-- the base keeps what it already published (a still-mounted screen's
+		-- dimension must not vanish), but a FRESH resolve no longer carries it
+		expect(snapshot.resolve(snapshot.neutralPackage(), nil, {}).app.transient).toBe(nil)
+		expect(snapshot.isMetricPath("app.transient.tileMin")).toBe(false)
+	end)
+
+	--[[ AN IDENTICAL RE-DECLARATION IS NOT A CHANGE. `installTypeRamp` and
+		`ResultsParts.declareMetrics` re-declare the same table on every presenter
+		build, and a generation bump per build drops the neutral memo, re-resolves
+		every snapshot behind it and re-runs every `themeMetrics` memo in the
+		process — churn for a value nobody moved. ]]
+	it("re-declaring the same values is a no-op", function()
+		local values = { tileMin = 96, group = { chartH = 160 } }
+		themes.declareApp("stable", values)
+		local first = snapshot.neutral()
+		themes.declareApp("stable", { tileMin = 96, group = { chartH = 160 } })
+		expect(rawequal(snapshot.neutral(), first)).toBe(true)
+		-- …but a real change is still a change
+		themes.declareApp("stable", { tileMin = 97, group = { chartH = 160 } })
+		expect(rawequal(snapshot.neutral(), first)).toBe(false)
+		themes.declareApp("stable", nil)
+	end)
+end)
+
 describe("app metrics: the ten-foot ladder", function()
 	--[[ THE HALF THE HAND-ROLLED SHIMS GOT WRONG. `p2_cartwheel` multiplied ONE
 		of its four structural numbers by `metricScale` and left `chartH`, `heroH`
@@ -397,6 +473,27 @@ describe("app metrics: a theme owns them like every other metric", function()
 			expect(snap.app.proof.chartH % unit).toBe(0)
 			expect(snap.app.proof.sponsor.mapFraction.landscape).toBe(0.52)
 			expect(snap.app.proof.sponsor.listRowCount).toBe(8)
+		end)
+	end)
+
+	--[[ …AND SO DOES A GROUP THAT ARRIVED LATE. Only the leaves the refresh ADDS
+		can be off the grid — everything the base already carried was snapped when it
+		was resolved — and a late one that skipped the snap would measure off a
+		different coordinate system from its neighbours at near distance and back on
+		it at ten-foot. A non-length is left exactly where it is: snapping a 0.52 map
+		fraction onto a 4px unit is 4. ]]
+	it("a group declared AFTER a pixel package resolved is snapped onto its grid too", function()
+		local quest = (require)("../examples/themes/pixel_quest").build(themes)
+		local stale = snapshot.resolve(quest, nil, {})
+		local unit = stale.pixelUnit
+		expect(type(unit)).toBe("number")
+		withApp({ tileMin = 97, splitRatio = 0.52 }, function()
+			local presented = snapshot.forDisplay(stale, "Medium")
+			expect(presented.app.proof.tileMin % unit).toBe(0)
+			expect(presented.app.proof.tileMin >= 97).toBe(true)
+			-- `splitRatio`, not `ratioOfSplit`: the vocabulary is a SUFFIX check on each
+			-- segment, so where the word sits in the name is the whole difference
+			expect(presented.app.proof.splitRatio).toBe(0.52)
 		end)
 	end)
 end)

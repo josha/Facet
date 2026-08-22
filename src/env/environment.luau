@@ -170,6 +170,27 @@ function environment.new(core: any): Env
 	-- keys with nil defaults still need signals
 	signals.keyboardOcclusionRect = signals.keyboardOcclusionRect or core:signal(nil)
 
+	--[[ THE APP-DECLARATION EDGE (ADR-0042). NOT a fact — deliberately outside
+		`signals`, so the fact vocabulary `env:get`/`env:set` police is unchanged and
+		nothing can write it.
+
+		It exists because the `themeMetrics` memo below MEMOIZES, and a memo re-runs
+		only when a signal it `use()`d changed. An app declares its `app.*` namespace
+		at boot, often after this environment has already been read once — and
+		without an edge to invalidate on, that read's warm value is served forever:
+		`px = "app.…"` resolves to nil, and a metric name that resolves to nothing is
+		a missing DIMENSION rather than an error, so the band silently measures zero.
+		Every ten-foot test in the framework masked it, because setting `displaySize`
+		invalidates this memo for an unrelated reason and the declaration rode in on
+		that. `examples/gallery` is the live target: one environment per place at
+		boot and a runtime picker between five proofs.
+
+		`themes.declareApp` sets it on every REAL change (an identical re-declaration
+		is a no-op there), and the registry it joins is weak-keyed, so a discarded
+		environment's signal collects rather than pinning this core alive. ]]
+	local appGeneration = core:signal(themeSnapshot.appGeneration())
+	themeSnapshot.observeAppDeclarations(appGeneration)
+
 	-- derived policy (§8.2): memos subscribe only to their fact keys.
 	-- Derived values CLAMP garbage platform facts into their legal domain —
 	-- a broken adapter fact must never leak a negative text scale or a
@@ -222,6 +243,10 @@ function environment.new(core: any): Env
 		controller makes — read the pre-install snapshot, hold it, write it back on
 		uninstall — cannot compose the transform onto its own output. ]]
 	derived.themeMetrics = core:memo(function(use)
+		-- A DEPENDENCY, NOT A VALUE: the number is never read, only subscribed to,
+		-- so a declaration made after this memo went warm invalidates it (see the
+		-- note beside `appGeneration` above)
+		use(appGeneration)
 		local committed = use(signals.themeMetrics)
 		--[[ NOBODY HAS COMMITTED A THEME HERE, so the metric authority is the
 			framework's own default — read it LIVE rather than replaying the object
