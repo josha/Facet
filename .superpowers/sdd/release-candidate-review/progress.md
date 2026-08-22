@@ -1437,3 +1437,20 @@ STUDIO.md, root CLAUDE.md.
   session); world-vs-sweep scrollBarThickness divergence booked; RR
   harness does not share tests/lib/world — one-line follow-up is an RR
   decision, booked.
+
+## 2026-08-21 (post-close 16) — the director answers: STEADY. Reconciliation.
+
+- The opaque background was STEADY (director confirmed), which settles the
+  two rounds' mechanism dispute: the pre-fix state was REAL and persistent
+  (controller measured GetStyled = 0 seconds after open, PreferredTransparency
+  = 1), the DIR5 role change removed it (controller measured 0.45 after),
+  and the ~3-frame styling-application window is a SEPARATE minor item —
+  NOT the explanation for what the director saw. The fix round's retraction
+  over-corrected: its "plain resolves to 1" measurement is about a node a
+  CLASS RULE reaches; the pre-fix catcher earned NO tag, no rule matched,
+  and an unmatched Frame paints its instance default — BackgroundTransparency
+  0, opaque, steadily. Both rounds held half the truth: DIR5's product fix
+  was right, the fix round's window discovery is real but answers a
+  different (minor) question. The create-window flash stays on the charter
+  at LOW priority. If a fourth report ever comes, the written discriminator
+  (duration + the artifact's probes) applies.

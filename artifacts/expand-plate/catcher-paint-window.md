@@ -77,3 +77,15 @@ each has a fence:
 **If the popup is reported opaque a fourth time, the discriminator is duration**: a
 reading taken 10+ frames after the plate opened that still says 0 is the unlinked
 root; one taken immediately is this window. Take both.
+
+---
+
+**Controller reconciliation, 2026-08-21 (after the director confirmed the
+observed state was STEADY):** the styling-application window documented above
+is real but is NOT what the director reported three times. The pre-fix steady
+opaque came from the catcher earning no tag at all — an unmatched Frame paints
+its instance default (BackgroundTransparency 0), which no sheet rule ever
+corrected. The "plain resolves to 1" refutation measured a node a class rule
+REACHES; the pre-fix catcher was not one. The scrim-role fix is therefore both
+the product decision AND the mechanism fix. The window remains a separate
+low-priority item (the create flash).
