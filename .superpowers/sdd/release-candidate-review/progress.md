@@ -1848,3 +1848,16 @@ STUDIO.md, root CLAUDE.md.
   pins pass; the navigation-and-menus gate re-running as proof. The
   sweep review seat dispatched — the final seat. Then: full RC gate
   re-run, the wrap, memory.
+
+## 2026-08-22 — the day's churn reaches the old gate's pins
+
+- The re-pointed d3a-help row PASSES with the cli form. But the
+  navigation-and-menus gate is FAIL_RECOVERABLE on six rows — the
+  d0-greps-still-match meta-row failing is the tell: ~30 post-close
+  commits (chrome rounds, R20's ButtonY removal, picker paint, the
+  purity sweep) drifted the older gate's pinned transcript lines. Repin
+  round dispatched with the three-way classification (rename → re-pin
+  after verifying the property; superseded-by-ruling → rewrite to the
+  current truth naming the ruling; REAL loss → stop and report). The
+  final RC gate re-run waits on this — its prior-gates sweep must be
+  honest first.
