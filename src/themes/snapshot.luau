@@ -812,7 +812,16 @@ local appRefreshed: any = setmetatable({}, { __mode = "k" })
 	a name nobody spells any more is harmless, and dropping it would make a
 	still-mounted screen's dimension vanish. ]]
 local function withCurrentApp(base: any): any
-	if type(base) ~= "table" or appGenerations[base] == declaredAppGeneration then
+	local generation = if type(base) == "table" then appGenerations[base] else nil
+	--[[ ONLY A SNAPSHOT `resolve` PRODUCED IS REFRESHED, and the guard is load
+		bearing twice. `forDisplay` is TOTAL — it takes whatever the `themeMetrics`
+		fact holds, including a hand-built metrics table from a fixture or a broken
+		adapter (its header's type-guard note) — and such a table has no generation,
+		never had an `app` section, and is still OWNED BY ITS CALLER: freezing the
+		subtables it shares with a refreshed copy would silently make the caller's
+		own data immutable. It also keeps the steady-state path to one weak lookup
+		for the tables that are not ours to touch. ]]
+	if generation == nil or generation == declaredAppGeneration then
 		return base
 	end
 	--[[ KEYED BY GENERATION, not merely by base. Found live: the showcase mounts
@@ -843,8 +852,10 @@ local function withCurrentApp(base: any): any
 	for key, value in base do
 		out[key] = value
 	end
-	out.app = merged
-	local frozen = deepFreeze(out)
+	out.app = deepFreeze(merged)
+	-- every other branch came off a frozen snapshot, so ONE freeze finishes it —
+	-- and nothing shared with the base is written to
+	local frozen = table.freeze(out)
 	appGenerations[frozen] = declaredAppGeneration
 	appRefreshed[base] = { generation = declaredAppGeneration, snapshot = frozen }
 	return frozen

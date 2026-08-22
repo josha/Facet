@@ -224,6 +224,30 @@ describe("app metrics: every package carries them", function()
 		end)
 	end)
 
+	--[[ …AND IT LEAVES A TABLE THAT IS NOT OURS ALONE. `forDisplay` is TOTAL: it
+		takes whatever the `themeMetrics` fact holds, and a fixture (or a broken
+		adapter) can hand it a plain metrics-shaped table its caller still owns and
+		still mutates. Refreshing that would freeze the subtables the copy shares
+		with it — the caller's own data, silently immutable. Only a snapshot
+		`themes.resolve` produced carries a declaration generation, and only those
+		are refreshed. ]]
+	it("a hand-built metrics table is passed through untouched", function()
+		local handBuilt: any = { density = "near", space = { m = 12 }, targetSizes = { minimum = 44 } }
+		withApp(PROOF, function()
+			-- the near path is the identity it always was, and NOT because it was
+			-- refreshed into a frozen copy of itself
+			expect(rawequal(snapshot.forDisplay(handBuilt, "Medium"), handBuilt)).toBe(true)
+			expect(table.isfrozen(handBuilt.space)).toBe(false)
+			-- …and the distant form scales its leaves without freezing the original
+			local far = snapshot.forDisplay(handBuilt, "Large")
+			expect(far.space.m).toBe(18)
+			expect(far.app).toBe(nil)
+			expect(table.isfrozen(handBuilt.space)).toBe(false)
+			handBuilt.space.m = 16 -- still the caller's to write
+			expect(handBuilt.space.m).toBe(16)
+		end)
+	end)
+
 	--[[ …AND THE REFRESH IS KEYED BY VOCABULARY, NOT MERELY BY SNAPSHOT. Found
 		live in the overflow sweep, which resolves its eight package snapshots once
 		at module load and then mounts five proofs against them: the first proof
