@@ -38,12 +38,41 @@
 --     spacing-and-type class specifically, and the hit-target floor and the
 --     `minColumnWidth` classes are swept by name rather than by grep;
 --   * it only fires when a theme NAME RESOLVES TO EXACTLY THAT NUMBER on the
---     neutral snapshot. `gap = 8` is a violation because `"s"` is 8 and the
---     rewrite cannot move one pixel; `gap = 6` is not, because no space step is
---     6 and there is nothing to rewrite it to (the framework concedes this in
---     `snapshot.luau`'s own `label = { gap = 6 }`). That is not a loophole, it
---     is a pending finding: the day the spacing scale grows a rung for 6, this
---     lint starts failing all sixty of those sites for free.
+--     neutral snapshot. `gap = 8` is a violation because `"s"` is 8; `gap = 6`
+--     is not, because no space step is 6 and there is nothing to rewrite it to
+--     (the framework concedes this in `snapshot.luau`'s own
+--     `label = { gap = 6 }`). That is not a loophole, it is a pending finding:
+--     the day the spacing scale grows a rung for 6, this lint starts failing all
+--     sixty of those sites for free.
+--
+-- WHAT "THE REWRITE CANNOT MOVE ONE PIXEL" ACTUALLY GUARANTEES, stated exactly
+-- because the first version of this file overstated it and shipped a regression
+-- for the difference (review 2026-08-22, HIGH-1). **It is a Studio-Neutral,
+-- scale-1.0 guarantee and nothing more.** A NAME is resolved per solve against
+-- the ACTIVE snapshot, and a distance-adapted snapshot scales the whole `space`
+-- section: `"xs"` is 4 at arm's length and 6 on a television. So naming a literal
+-- is pixel-identical at the rung this lint checks it on, and DELIBERATELY not at
+-- every other rung — that is the feature, not a caveat.
+--
+-- IT BECOMES A DEFECT IN ONE SHAPE, AND THE SHAPE IS DETECTABLE. If the file
+-- ALSO predicts a box from a raw constant — a hand-written extent, a slot pitch,
+-- a reserved band — then naming the literal moves one side of that arithmetic and
+-- leaves the other where it was. Measured instance: the perf lab's row spent
+-- `padding = 4`, its slot was predicted from `ROW_PADDING_V = 16`, and the swap
+-- grew the row 77 -> 81 px on a 1920x1078 television against an unmoved 60 px
+-- slot. So `coupledConstants` below reads every example file for raw numeric
+-- constants with a spacing/size name that appear in arithmetic, and a finding in
+-- such a file is reported with the COUPLING MESSAGE instead of the plain one:
+-- it names the constants, and it offers the two honest exits (resolve the
+-- constant from the same snapshot, or keep the literal with a marker).
+--
+-- WHY REPORTED RATHER THAN REFUSED. Refusing to demand a swap in a coupled file
+-- would silence the lint across nine files that today carry ~30 correctly named
+-- sites — trading a loud, informative demand for no demand at all. The proven
+-- failure was not that the swap happened; it was that nobody was told the file
+-- predicts its own geometry. So the demand stays and the telling is what was
+-- missing. The coupled SET is pinned by `tests/theme_drift.spec.luau`, so a file
+-- entering or leaving it is visible in review rather than silent.
 --
 -- The vocabulary is READ FROM THE FRAMEWORK (`themes/snapshot` + `themes/package`),
 -- never restated, so a package that re-ladders its type scale re-ladders this
@@ -133,6 +162,79 @@ local PROBE_LINE_MARKER = "PROBE%-EXEMPT:%s*(.+)$"
 local PROBE_BEGIN_MARKER = "PROBE%-EXEMPT BEGIN:%s*(.+)$"
 local PROBE_END_MARKER = "PROBE%-EXEMPT END"
 
+--[[ THE COUPLING DETECTOR (review 2026-08-22, HIGH-1).
+
+	A file that PREDICTS a box from a raw constant is a file where naming a literal
+	moves one side of an arithmetic identity and not the other. The shape is
+	textual and cheap to see: a raw numeric constant whose NAME is about space or
+	size, used in arithmetic somewhere in the same file.
+
+	The name list is the framework scope's own `CONSTANT_WORDS` plus the three
+	words the extent-prediction idiom actually uses (`EXTENT`, `PITCH`, `BLOCK`),
+	which is what makes the perf lab's `TEXT_BLOCK` and `EXTENT_GAP` visible. ]]
+local COUPLING_WORDS = {
+	"HEIGHT",
+	"WIDTH",
+	"SIZE",
+	"GAP",
+	"INSET",
+	"MARGIN",
+	"PADDING",
+	"RADIUS",
+	"FLOOR",
+	"THUMB",
+	"TRACK",
+	"EXTENT",
+	"PITCH",
+	"BLOCK",
+}
+
+-- A DECLARED EXTENT IS A PREDICTION TOO, and it needs no name to be one. A
+-- virtualized list's `itemExtent` / `viewportExtent` / `estimatedItemExtent` given
+-- as a raw NUMBER is a promise about what the cell measures, checked by the solver
+-- rather than derived from it — so a token inside that cell moves one side of the
+-- promise and not the other. Found the hard way: `levers.luau` declares
+-- `itemExtent = 28` inline, carries no named constant at all, and its row still
+-- grew 30 -> 34px on a television when its padding became a name.
+local DECLARED_EXTENTS = { "itemExtent", "viewportExtent", "estimatedItemExtent" }
+
+-- the raw constants a file declares AND spends in arithmetic, plus any raw
+-- declared extent, sorted. Empty for a file that declares its geometry and lets
+-- the solver do the rest.
+local function coupledConstants(source: string): { string }
+	local declared: { [string]: boolean } = {}
+	for line in string.gmatch(source .. "\n", "([^\n]*)\n") do
+		local name = string.match(line, "^%s*local%s+([%u][%u%d_]*)%s*=%s*%-?%d")
+			or string.match(line, "^%s*[%w_.]*%.([%u][%u%d_]*)%s*=%s*%-?%d")
+		if name ~= nil then
+			for _, word in COUPLING_WORDS do
+				if string.find(name, word, 1, true) ~= nil then
+					declared[name] = true
+					break
+				end
+			end
+		end
+	end
+	local out: { string } = {}
+	for _, prop in DECLARED_EXTENTS do
+		if string.find(source, `{prop}%s*=%s*%-?%d`) ~= nil then
+			table.insert(out, `{prop}=<literal>`)
+		end
+	end
+	for name in declared do
+		-- `NAME <op>` or `<op> [prefix.]NAME` — the dotted form matters, because a
+		-- module constant is spent as `rows.TEXT_BLOCK * s`
+		if
+			string.find(source, `[^%w]{name}%s*[%-%+%*/]`) ~= nil
+			or string.find(source, `[%-%+%*/]%s*[%w_]*%.?{name}[^%w]`) ~= nil
+		then
+			table.insert(out, name)
+		end
+	end
+	table.sort(out)
+	return out
+end
+
 -- THE THREE PROP FAMILIES THE AUDIT MEASURED, and the vocabulary each one
 -- names. `textSize` takes a typography ROLE; the spacing family takes a space
 -- STEP. Zero stays legal for the spacing family for the same reason it does in
@@ -221,10 +323,53 @@ local ALLOWLIST: { { file: string, match: string, why: string } } = {
 	},
 }
 
--- lines that are pure comments or inside a block comment carry no code
+-- lines that are pure comments carry no code
 local function isComment(line: string): boolean
 	local trimmed = string.match(line, "^%s*(.-)%s*$") :: string
 	return string.sub(trimmed, 1, 2) == "--"
+end
+
+-- ...AND SO DO THE LINES INSIDE A LONG COMMENT, which `isComment` alone cannot
+-- see: only the OPENING line starts with a dash pair, and every continuation
+-- line after it looks like code. This repository writes most of its prose in long
+-- comments, so the blind spot is wide — and it bit immediately: the review fix
+-- that wrote the words `padding = 4` into a long comment in `rows.luau` was
+-- reported as a violation of itself.
+--
+-- `blockCommentScanner()` returns a per-line predicate that tracks long-comment
+-- nesting LEVEL (the equals-signs form), so a level marker in this file's own
+-- prose cannot close a block it did not open. It is deliberately NOT applied to
+-- the framework scope: that scope's counts are pinned by four mutation cases and
+-- by `prior_gates`, and its files carry no long-comment literals today — changing
+-- its arithmetic here would be a second, unmeasured change riding a fix.
+local function blockCommentScanner(): (string) -> boolean
+	local level: string? = nil
+	return function(line: string): boolean
+		local wasOpen = level ~= nil
+		local cursor = 1
+		while cursor <= #line do
+			if level == nil then
+				local openStart, openEnd, eq = string.find(line, "%-%-%[(=*)%[", cursor)
+				if openStart == nil then
+					break
+				end
+				level = eq :: string
+				cursor = (openEnd :: number) + 1
+			else
+				local closeStart, closeEnd = string.find(line, `]{level}]`, cursor, true)
+				if closeStart == nil then
+					break
+				end
+				level = nil
+				cursor = (closeEnd :: number) + 1
+			end
+		end
+		-- a line that OPENS a block still has code before the `--[[`, and a line
+		-- that CLOSES one still has code after the `]]` — but neither shape carries
+		-- a metric assignment in this corpus, and treating both as comment is the
+		-- conservative direction for a lint that DEMANDS an edit.
+		return wasOpen or level ~= nil
+	end
 end
 
 -- the example corpus is ~70,000 lines and `check()` is called once per mutation
@@ -298,7 +443,14 @@ export type Options = {
 	probeExemptFiles: { { file: string, why: string } }?,
 }
 
-export type Violation = { file: string, line: number, scope: string, what: string, text: string }
+export type Violation = {
+	file: string,
+	line: number,
+	scope: string,
+	what: string,
+	text: string,
+	coupled: { string }?,
+}
 
 function checker.check(opts: Options?)
 	local options = opts or {}
@@ -323,6 +475,8 @@ function checker.check(opts: Options?)
 	local optedOut = 0
 	local probeSuppressed = 0
 	local probeFiles = 0
+	local coupledFiles = 0
+	local coupledFindings = 0
 
 	local probeList = options.probeExemptFiles or PROBE_EXEMPT_FILES
 
@@ -388,6 +542,10 @@ function checker.check(opts: Options?)
 	for _, file in exampleFiles() do
 		local source = sourceOf(file)
 		local exempt = probeExemptEntry(probeList, file)
+		local coupled = coupledConstants(source)
+		if #coupled > 0 then
+			coupledFiles += 1
+		end
 		local lineNumber = 0
 		local inProbeRegion = false
 		local openedAt: number? = nil
@@ -400,9 +558,13 @@ function checker.check(opts: Options?)
 		-- cannot silently go on excusing every number under it.
 		local pendingOptOut: string? = nil
 		local pendingProbe: string? = nil
+		local inLongComment = blockCommentScanner()
 		for line in string.gmatch(source .. "\n", "([^\n]*)\n") do
 			lineNumber += 1
 			exampleLines += 1
+			if inLongComment(line) then
+				continue
+			end
 			if markerReason(line, PROBE_BEGIN_MARKER) ~= nil then
 				inProbeRegion = true
 				openedAt = lineNumber
@@ -459,10 +621,14 @@ function checker.check(opts: Options?)
 				continue
 			end
 			for _, hit in found do
+				if #coupled > 0 then
+					coupledFindings += 1
+				end
 				table.insert(violations, {
 					file = file,
 					line = lineNumber,
 					scope = "example",
+					coupled = coupled,
 					what = `{hit.what} = {tostring(hit.value)}, which "{hit.name}" already names`,
 					text = string.match(line, "^%s*(.-)%s*$") :: string,
 				})
@@ -504,7 +670,24 @@ function checker.check(opts: Options?)
 
 	local problems: { string } = {}
 	for _, v in violations do
-		if v.scope == "example" then
+		if v.scope == "example" and v.coupled ~= nil and #(v.coupled :: { string }) > 0 then
+			--[[ THE COUPLED MESSAGE. Naming this literal is pixel-identical at Studio
+				Neutral and DELIBERATELY not at every rung — a name rides the ten-foot
+				ladder. This file also predicts a box from raw constants, so a bare swap
+				moves one side of that arithmetic and leaves the other where it was. ]]
+			table.insert(
+				problems,
+				`{v.file}:{v.line}: [example, COUPLED] {v.what} — "{v.text}". Naming it is `
+					.. `pixel-identical at Studio Neutral ONLY: a theme name rides the distance ladder `
+					.. `("xs" is 4 at arm's length and 6 on a television), and THIS FILE PREDICTS `
+					.. `GEOMETRY FROM RAW CONSTANTS ({table.concat(v.coupled :: { string }, ", ")}), which `
+					.. `do not. Swapping without moving the predictor de-calibrates it — measured, the `
+					.. `perf lab's row grew 77 -> 81px against an unmoved 60px slot that way. So either `
+					.. `resolve the constant from the same snapshot the row is painted with (see `
+					.. `\`rows.rowPaddingV\`), or keep the literal with "-- THEME-OPT-OUT: <reason>" `
+					.. `naming the arithmetic it belongs to.`
+			)
+		elseif v.scope == "example" then
 			table.insert(
 				problems,
 				`{v.file}:{v.line}: [example] {v.what} — "{v.text}". The teaching corpus spells a `
@@ -538,6 +721,8 @@ function checker.check(opts: Options?)
 			optedOut = optedOut,
 			probeSuppressed = probeSuppressed,
 			probeExemptFiles = probeFiles,
+			coupledFiles = coupledFiles,
+			coupledFindings = coupledFindings,
 		},
 	}
 end
@@ -545,5 +730,8 @@ end
 checker.ALLOWLIST = ALLOWLIST
 checker.PROBE_EXEMPT_FILES = PROBE_EXEMPT_FILES
 checker.NAMES_FOR = NAMES_FOR
+checker.coupledConstants = coupledConstants
+checker.exampleFiles = exampleFiles
+checker.COUPLING_WORDS = COUPLING_WORDS
 
 return checker

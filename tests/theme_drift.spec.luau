@@ -8,6 +8,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local fs = require("@lune/fs")
 local drift = require("../tools/lune/check_theme_drift")
 
 describe("no reusable framework control hardcodes a theme-owned metric", function()
@@ -328,6 +329,105 @@ describe("the teaching corpus spells the values the theme system already names",
 		-- and the guard is live: with the shipped list the corpus is clean, which is
 		-- only true because each listed file carries the marker its reader needs
 		expect(#exampleViolations(drift.check())).toBe(0)
+	end)
+
+	--[[ THE COUPLING CLASS (review 2026-08-22, HIGH-1).
+
+		"The rewrite cannot move one pixel" is a STUDIO-NEUTRAL, SCALE-1.0 guarantee
+		and nothing more: a name resolves per solve against the ACTIVE snapshot, and a
+		distance-adapted one scales the whole `space` section, so `"xs"` is 4 at arm's
+		length and 6 on a television. That is the feature. It becomes a DEFECT in one
+		shape — when the same file also predicts a box from a raw constant, so naming
+		the literal moves one side of an arithmetic identity and leaves the other. The
+		proven instance: the perf lab's row spent `padding = 4`, its slot was predicted
+		from `ROW_PADDING_V = 16`, and the swap grew the row 77 -> 81px on a 1920x1078
+		television against an unmoved 60px slot.
+
+		So a finding in a coupled file is REPORTED DIFFERENTLY rather than refused —
+		refusing would silence the lint across nine files that today carry correctly
+		named sites, and the failure was never that the swap happened, it was that
+		nobody was told the file predicts its own geometry. ]]
+	it("a finding in a file that predicts geometry from raw constants says so, and names them", function()
+		-- `card_rail` declares `CARD_PADDING` / `PADDING` and spends them in arithmetic
+		local coupledFile = "examples/gallery/scenarios/card_rail.luau"
+		expect(`{coupledFile} is coupled: {#drift.coupledConstants(fs.readFile(coupledFile)) > 0}`).toBe(
+			`{coupledFile} is coupled: true`
+		)
+		local before = #inFile(drift.check(), coupledFile)
+		local result = drift.check({ injectFile = coupledFile, injectLine = "local x = UI.HStack({ gap = 8 })" })
+		local mine = inFile(result, coupledFile)
+		expect(#mine - before).toBe(1)
+		local planted = mine[#mine]
+		expect(`coupling recorded: {planted.coupled ~= nil and #planted.coupled > 0}`).toBe("coupling recorded: true")
+		local message: string? = nil
+		for _, problem in result.problems do
+			if string.find(problem, coupledFile, 1, true) ~= nil then
+				message = problem
+			end
+		end
+		expect(message ~= nil).toBe(true)
+		-- the message names the class, the ladder, the constants and BOTH exits
+		for _, phrase in { "COUPLED", "Studio Neutral ONLY", "CARD_PADDING", "THEME-OPT-OUT", "rowPaddingV" } do
+			expect(`the coupled message says '{phrase}': {string.find(message :: string, phrase, 1, true) ~= nil}`).toBe(
+				`the coupled message says '{phrase}': true`
+			)
+		end
+	end)
+
+	it("...and an UNCOUPLED file gets the plain message, so the distinction is real", function()
+		-- `flow_wrap` declares no raw geometry constant it spends in arithmetic
+		expect(`{EXAMPLE} is coupled: {#drift.coupledConstants(fs.readFile(EXAMPLE)) > 0}`).toBe(
+			`{EXAMPLE} is coupled: false`
+		)
+		local result = drift.check({ injectFile = EXAMPLE, injectLine = "local x = UI.HStack({ gap = 8 })" })
+		local message: string? = nil
+		for _, problem in result.problems do
+			if string.find(problem, EXAMPLE, 1, true) ~= nil then
+				message = problem
+			end
+		end
+		expect(message ~= nil).toBe(true)
+		expect(string.find(message :: string, "COUPLED", 1, true) == nil).toBe(true)
+	end)
+
+	--[[ THE COUPLED SET IS PINNED, so a file entering or leaving it is visible in
+		review rather than silent. This is the same discipline the route census in
+		`overflow_sweep.spec` uses: when the corpus legitimately changes, this list
+		changes with it and the next author RE-READS the case rather than deleting it. ]]
+	it("the coupled set is exactly these files — a new one is a decision, not a diff", function()
+		local names: { string } = {}
+		for _, file in drift.exampleFiles() do
+			local coupled = drift.coupledConstants(fs.readFile(file))
+			if #coupled > 0 then
+				table.insert(names, `{file} [{table.concat(coupled, " ")}]`)
+			end
+		end
+		table.sort(names)
+		expect(table.concat(names, "\n")).toBe(table.concat({
+			"examples/gallery/client/demo_picker.luau [BAR_HEIGHT]",
+			"examples/gallery/client/theme_picker.luau [BAR_HEIGHT]",
+			"examples/gallery/scenarios/card_rail.luau [CARD_PADDING CARD_ROW_GAP PADDING]",
+			"examples/gallery/scenarios/hud.luau [HUD_FLOOR_PX]",
+			"examples/gallery/scenarios/perf_capture.luau [ROSTER_ROW_PADDING viewportExtent=<literal>]",
+			"examples/gallery/scenarios/virtual_hgrid.luau [LINE_GAP]",
+			"examples/performance/lab/levers.luau [itemExtent=<literal>]",
+			"examples/performance/lab/perf_lab.luau [EXTENT_GAP EXTENT_LINE_H EXTENT_PAD SCREEN_GAP SCREEN_PADDING]",
+			"examples/performance/lab/rows.luau [COMPACT_CONTROLS_WIDTH COMPACT_LINE_GAP COMPACT_TEXT_BLOCK "
+				.. "ROW_GAP ROW_PADDING_HEADROOM TEXT_BLOCK]",
+			"examples/reference/p2_cartwheel/screens/plaza.luau [ORBIT_RADIUS]",
+		}, "\n"))
+	end)
+
+	--[[ THE LINT NO LONGER READS ITS OWN PROSE. Only the OPENING line of a long
+		comment starts with a dash pair, so every continuation line used to look like
+		code — and this repository writes most of its prose in long comments. It bit
+		the moment the HIGH-1 fix wrote `padding = 4` into one. ]]
+	it("a metric assignment inside a LONG comment is not a violation", function()
+		expect(#plantedDelta("--[[ the old\npadding = 8\nliteral lived here ]]")).toBe(0)
+		-- ...and the block really closes: the line AFTER it is still checked
+		expect(#plantedDelta("--[[ prose ]]\nlocal x = UI.HStack({ gap = 8 })")).toBe(1)
+		-- ...and a LEVEL MARKER cannot be closed by the wrong level
+		expect(#plantedDelta("--[=[ prose ]]\npadding = 16\nstill inside ]=]")).toBe(0)
 	end)
 
 	it("the naming vocabulary is READ FROM THE FRAMEWORK, not restated here", function()
