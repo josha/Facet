@@ -1880,3 +1880,27 @@ STUDIO.md, root CLAUDE.md.
   (check_docs vs cli in d3b/d6; bare theme_drift in
   controls-semantic-roles) routed to the repin round already holding
   those rows.
+
+## 2026-08-22 (cont. 2) — the drift class closes, and finds its own second instance
+
+- SWEEP FIX LANDED (f64230b/a8c5b39/779f590 + report, RR 7db53a8;
+  7062/0, 3470/0 at pins): the INSTANCE fixed the honest way — the lab's
+  slot math now reads env:get("themeMetrics") like its content does, so
+  the pre-sweep relationship is restored EXACTLY (neutral byte-identical;
+  the residual 17px over is pre-existing ladder math, booked). The CLASS
+  detector (coupledConstants: named-constant arithmetic AND raw inline
+  extents) found a SECOND instance the review missed (levers.luau's
+  inline itemExtent=28, row 30→34 — opted out with the reason: a stable
+  tree is that probe's subject). The lint header now states the truth —
+  pixel-identity is a Studio-Neutral scale-1.0 guarantee — and REPORTS
+  coupling rather than refusing (35 of 365 red-first findings were in
+  coupled files; refusing would silence ten correct files). A bonus lint
+  defect closed en route (long-comment nesting made the lint report its
+  own fix's prose; red-first unchanged at 365 proves no pre-sweep finding
+  was inside one). The six-file ten-foot table shipped; a81beb2's
+  coverage overclaim retracted in the report. MED-2's foreign seam got a
+  real schema validator biting on the shipped descriptors; MED-3's
+  witness found at 599×700 red against the SHIPPED pre-fix source.
+- Housekeeping: the committed gate_manifest carries a stylua diff (the
+  controller's cli-swap edit) — routed to the repin round holding the
+  file, with the re-verify order stated (format, THEN integrity+pins).
