@@ -433,3 +433,377 @@ separate greps.
    rows to carry a true instance census.
 4. **A device-matrix run** to confirm `judgedTrees > 0` now, which is the first
    honest matrix result since the rename.
+
+---
+
+# Fix round 1 — the four Important findings, and the four minors
+
+Appended 2026-08-22, after "Approved with findings". Everything below is
+additional to the record above; where it CORRECTS something above, it says so.
+
+## Important 1 — `check_brand_drift` was RED and absent from my gate table
+
+**True, and the omission is the worse half.** I ran twelve gates and did not run
+this one, so the table above is incomplete rather than wrong — which is the kind
+of gap that makes a gate table untrustworthy. It is in the table now, and seven
+of the eleven violations were this round's prose.
+
+**Fixed by allowlisting, not by rewording**, because the checker's own doctrine
+(the ADR-0038 and `gate_manifest` entries) is that *a comment which may not name
+the retired vocabulary cannot record that it moved* — and every one of those
+seven lines exists precisely to record which rename broke what.
+
+Four entries, all against ONE new narrow pattern, `RENAME_ARROW`: a retired name,
+an arrow, the current name. **Scoped to the sentence, not to the file**, which is
+the R5 review §2-1 lesson these entries would otherwise have repeated. Proved
+non-tautological by planting an ordinary `LuauUI` mention in `tests/run.luau`
+and watching the checker fail on it:
+
+```
+check_brand_drift: FAIL — 1 old-brand match(es) outside the allowlist:
+  tests/run.luau:74: -- PLANTED: an ordinary LuauUI mention, nothing to do with a rename
+```
+
+...then PASS with it removed. Two more entries cover the new handoff register
+(one for the rename arrow, one for its citation of the pre-rename capture
+`pl9-row3-luauui-1.json` by its real filename).
+
+**A trap worth recording: `check_brand_drift` reads `git ls-files`,** exactly
+like `check_comment_codes`, so `src/render/tag_sync.luau` was INVISIBLE to it
+while untracked and would have gone red on the commit that added it. I
+pre-flighted every new/edited file by importing the checker and calling
+`scan_file` directly, which is how those entries exist before the commit rather
+than after it. The other four hits (`virtual_list_hosted.luau`, "iOS parity")
+were another lane's and are untouched.
+
+## Important 2 — no automated behavioural regression for tag removal
+
+**The strongest finding of the review, and it was right.** What shipped was a
+source scan plus a hand-driven Studio artifact; neither would fail if the
+predicate regressed in a way the text still satisfied.
+
+The reviewer's diagnosis was the important part: **`tests/lib/fake_target.luau`
+modelled no tags at all.** Tags are the ONLY channel by which Facet's surfaces,
+states and roles reach native paint, and the headless twin had no witness for
+any of it — which is why a dead removal loop survived 7,116 green cases and had
+to be found by looking at a screen.
+
+**What I built, and one correction to the prescription.** The review said
+"extract it beside `ownsTag` in `screen_vocabulary`". That module CANNOT be
+required headlessly — it touches `Enum.TextXAlignment` at module scope, so a
+spec loading it dies with `attempt to index nil with 'TextXAlignment'` (measured,
+not assumed), and a ruling only the engine-side adapter can execute is a ruling
+no spec can drive. So the pure half went one level out instead, into
+**`src/render/tag_sync.luau`** — no requires at all — beside `render/authority`,
+`render/stage_content` and `render/foreign_content`, which exist for exactly this
+reason ("the PURE rulings the seam is made of ... shared with the headless twin
+so the two adapters cannot disagree"). `TAG_PREFIX`/`ownsTag` moved OUT of
+`screen_vocabulary` with it; there is no second copy anywhere.
+
+It carries `PREFIX`, `owns(tag)` and `diff(current, desired) -> {add, remove}`,
+and the adapter's `syncTags` is now:
+
+```lua
+local plan = tag_sync.diff(CollectionService:GetTags(instance), desired)
+for _, tag in plan.remove do CollectionService:RemoveTag(instance, tag) end
+for _, tag in plan.add do CollectionService:AddTag(instance, tag) end
+```
+
+which is also one fewer engine round-trip per tag (the old add loop asked
+`HasTag` per desired tag; the plan already knows).
+
+**`fake_target` gained the tag mirror.** The DECISION is not mirrored — both
+targets call the same module — only the narrow bookkeeping around it: the
+class default a `Button`/`Toggle` takes at create, and the three prop writes that
+re-classify (`surface`, `role`, `selected`, mirroring
+`screen_paint.applySurfaceNative` and `setProp`'s own branches). It is
+deliberately not the adapter's whole classification surface, it says so in the
+file, and a state it does not model produces no tag rather than a wrong one.
+`adapter.tagsOf(path)` is the reader.
+
+**RED-FIRST, twice.** First against the fake as it was:
+
+```
+tag_sync: mounted, state changed, tag removed
+  ✗ a Button that stops being selected LOSES facet-selected
+      tests/tag_sync.spec:104: attempt to call a nil value      <- there is no tagsOf
+  ✗ a segment declared surface=plain ends up with NO tags — Bugs A and B
+  ✗ a surface change swaps the surface tag rather than accumulating one
+  ✗ a destructive Button returning to the default role LOSES the role tag
+4 failed, 3 passed
+```
+
+Then, with the mirror in place and green, the mutation that matters — the ADR-0038
+defect restored inside `tag_sync.owns` (`#tag_sync.PREFIX` -> `5`):
+
+```
+  ✗ owns a tag by the LENGTH OF ITS OWN PREFIX ...       expected false to be true
+  ✗ a state change produces a REMOVAL ...                expected false to be true
+  ✗ never removes a tag the game owns                    expected  to be facet-selected
+  ✗ a Button that stops being selected LOSES facet-selected      expected true to be false
+  ✗ a segment declared surface=plain ends up with NO tags — Bugs A and B
+        expected facet-interactive,facet-surface-control to be
+  ✗ a surface change swaps the surface tag rather than accumulating one
+  ✗ a destructive Button returning to the default role LOSES the role tag
+7 failed, 0 passed
+```
+
+Every case bites, and the `surface=plain` message is the shipped defect in one
+line: `facet-interactive,facet-surface-control` where the answer is nothing at
+all. `tests/tag_sync.spec.luau`, 7 cases, registered in `tests/run.luau`.
+
+**Three existing specs bound a text window on the removal loop's own `for`** and
+had to move to the new terminator (`local plan = tag_sync.diff(`):
+`theme_layer_application.spec` (found by the suite, not by me guessing),
+`native_style_scenario.spec` (two sites) and `theme_value_displays.spec`. Each is
+the same region it always was.
+
+## Important 3 — the owed work filed in the repo, and the artifacts marked
+
+**`docs/handoff/SCREEN-X-OWED-LIVE-WORK.md`** — in the house style, with all four
+items (tab-view on glass; the showcase sweep; the perf-lab re-capture; the
+device-matrix run), the commands, what to compare against, and a closing section
+of what is already done so nobody redoes it.
+
+**The captures are marked in band.** All thirteen
+`artifacts/performance-stress-places/studio/rc-requal-row*.json` rows — not the
+seven I reported, THIRTEEN: every row reports `guiObjects 0 / screenGuis 0`, and
+the seven with `Facet_PerfWorkload` in `foreign.roots` are merely the ones where
+it is provable rather than the only ones affected. That is a correction to my
+first report, which under-counted by calling the provable subset the whole set.
+Each row now carries two ADDITIVE keys — `censusCorrection` (what is invalid, what
+still stands, where the fix is) and `censusCorrectionCertainty` (`PROVEN` vs
+`UNVERIFIABLE`, per row). **Nothing measured was altered and nothing was
+reformatted**: the keys are spliced after the opening brace, so the diff is
+`13 files changed, 13 insertions(+), 13 deletions(-)` and every other byte is the
+byte that was captured. `check_perf_captures`, `check_perf_metrics` and
+`check_perf_gate_evidence studio` all still pass.
+
+`artifacts/performance-stress-places/studio-capture-2026-08-21.md` gains a
+correction block above its headline table, and its row-01 `0 GuiObjects` headline
+is struck through in place. The point the block makes is the one the reviewer was
+after: the zero *might* also be true for an idle baseline, and **nothing in the
+document could tell you which** — that is the defect, not the number.
+
+## Important 4 — the capture survey, completed, and it changed my answer
+
+My "none required" argument covered goldens and gate pins and never looked at the
+pictures. Doing so falsified my own reasoning.
+
+**The reasoning I had was wrong in a specific way.** I would have argued that a
+static or first-mount capture is safe because the defect only bites after a state
+change. It does not: a `Button` takes `facet-surface-control` as its CLASS
+DEFAULT at create, so an authored `surface = "plain"` is a tag REMOVAL **on the
+first mount**. `picker.luau:552` declares exactly that on every segment whenever
+an indicator slides, and `automatic` resolves to `pill` for every non-inline
+picker. So a first-mount capture of any sliding picker carries the defect.
+
+**Four captures do.** `tv_corners_rounded.png`, `tv_corners_zoom_compare.png`,
+`tv-paint-final-2026-08-21.png`, `console-tenfoot-2026-08-21.png`: the Quality
+segmented picker shows three identical opaque plates and no pill, the icon-segment
+row and the vertical rail the same — while `tv-paint-final`'s own caption reads
+*"Selected: browse — the pill and the rail share this one signal"* — and the
+All controls / Settings tab strip shows two plates and no underline. It is the
+`tab-view` defect, in a frame nobody was looking at it in.
+
+**ADR-0040 row B-17 is NOT invalidated, and I checked rather than assumed.** Its
+claim is radii 12→18 on `panel` and 8→12 on `control` plus strokes 1→1.5, and
+those numbers are read off the settings PANEL and the `–`/`+` stepper CONTROLS —
+surfaces whose tags are class defaults nothing ever asked to remove, so an
+additive-only bug cannot touch them. The row keeps its evidence and gains one
+clause pointing at the correction; the IMAGES need a re-capture, booked as item 4
+of the handoff register.
+
+The other ten are unaffected, argued per family in
+`artifacts/release-candidate-review/captures/CENSUS-AND-TAG-CORRECTIONS-2026-08-22.md`:
+the `bugAB-*` pair IS the defect's evidence and stays exactly as it is; the
+`bugC-*` pair measures a pixel gutter no tag decides; the five `plate_design`/
+`plate-b-live` frames contain no picker, tab strip or selection indicator at all,
+so the only visible consequence of a failed removal has nothing to hide behind;
+and `rr-canary-2026-08-22.png` was taken for zero-box TEXT geometry. No image was
+edited — they are dated evidence — and the note travels beside them.
+
+## Minor 5 — the method form `x:sub(1, N)`
+
+**Covered, not just stated.** The scanner reads four spellings now
+(`string.sub(...)` and `x:sub(...)`, each in either operand order). The two live
+sites (`roblox_env.luau:413` `"Gamepad"`, `studio_sync.luau:184` `"/file/"`) are
+correct and are now counted rather than invisible. The mirrored method pattern
+needed a full receiver class (`[%w_%.%[%]%(%)]*`) rather than the single character
+the forward form gets away with — caught by the negative control expecting six
+considered comparisons and getting five.
+
+## Minor 6 — the comment skip was line-comments only
+
+**Fixed, and it was not hypothetical.** The moment the ruling moved into
+`src/render/tag_sync.luau`, whose header QUOTES `string.sub(tag, 1, 5) == "facet-"`
+to explain the defect, the live scan reported the module's own explanation as a
+violation:
+
+```
+✗ no comparison in src/, tools/ or examples/ counts differently from its own literal
+    expected violations:
+    src/render/tag_sync.luau:16 compares 5 characters against "facet-" (#6) to be violations:
+```
+
+`codeOf(line, inBlock)` now strips long-bracket comments across lines, levels
+included (`--[=[`). A `--` inside a string literal is still not handled; that is
+stated in the spec's header as a hole with a number beside it rather than a
+silent gap. The negative control gained a two-line block comment quoting the bad
+form in both spellings, and asserts neither is counted.
+
+**And a small self-inflicted lesson**: my first draft of that header contained
+the literal `]]` inside its own `--[[` block and closed the comment early.
+Fifty parse errors, one cause.
+
+## Minor 7 — commit `a4e3224`'s message quotes superseded numbers
+
+**Correct, and the correction belongs here because a commit message cannot be
+rewritten.** `a4e3224`'s body says "Facet 7114 passed before and after,
+RascalRally 3470 before and after". Those are the numbers from my FIRST
+neutrality arm — a pair pinned at `15fe21d` with the extraction applied by hand —
+which I then superseded with the rigorous form: two `mkpair` pairs at `a4e3224^`
+and `a4e3224`, **7116/7116 and 3481/3481, verdict lists byte-identical**. The
+claim ("zero verdict changes") is unchanged and both arms support it; only the
+absolute counts moved, because other lanes landed commits between the two
+measurements. **The report above is authoritative; the commit body is stale on
+those two numbers.**
+
+## Minor 8 — Concern #1 under-counted the relocation's cost
+
+**Correct, and the relocation happened this round anyway, so the concern is
+closed rather than corrected.** I wrote that moving the predicate to its proper
+home would cost "a one-line relocation plus one require"; the reviewer counted
+three spec pins reading the adapter source. The real count came in higher still:
+moving it to `render/tag_sync` touched **two adapter files, four spec files**
+(`prefix_tests` ×3 pins, plus the three window-terminator specs above) **and the
+ledger row**. The lesson is the reviewer's, not mine: a predicate read as TEXT by
+source-scanning pins is never a one-line move, and estimating it as one is how a
+"cheap follow-up" becomes a round.
+
+It is also now in a BETTER home than the one I named: `sheet_model` would have
+been the tag authority but is `src/tokens/`, another lane's this round, and
+`render/` is where this repository already puts a pure ruling two adapters share.
+
+## Files changed in this round
+
+`src/render/tag_sync.luau` (new), `src/client/screen_target.luau`,
+`src/client/screen_vocabulary.luau`, `tests/lib/fake_target.luau`,
+`tests/tag_sync.spec.luau` (new), `tests/prefix_tests.spec.luau`,
+`tests/run.luau`, `tests/theme_layer_application.spec.luau`,
+`tests/native_style_scenario.spec.luau`, `tests/theme_value_displays.spec.luau`,
+`tools/check_brand_drift.py`, `docs/handoff/SCREEN-X-OWED-LIVE-WORK.md` (new),
+`docs/handoff/SOURCE_CAP_LEDGER.md`,
+`docs/adr/ADR-0040-unreleased-breaking-changes.md`,
+`artifacts/release-candidate-review/captures/CENSUS-AND-TAG-CORRECTIONS-2026-08-22.md`
+(new), `artifacts/performance-stress-places/studio-capture-2026-08-21.md`,
+`artifacts/performance-stress-places/studio/rc-requal-row01..13-*.json`.
+
+## The ledger row went BACK into the band, on purpose
+
+`src/client/screen_target.luau` **189,985 -> 190,181**, 181 characters over the
+190,000 line, because the require and its three-line comment came back in when
+the ruling left. **I did not trim the comment to get under it.** The band is not
+a failure state — it is a requirement to hold a current seam analysis and a live
+trigger, and this row holds both, re-read twice in one round. Trimming an
+explanation to move a byte counter is the behaviour the ledger's own header warns
+about. The row moved back to "The band" with that entry; the trigger stays
+192,000, 1,819 characters away.
+
+## Gate results — the full table this time, `check_brand_drift` included
+
+Run in the working tree after both fix-round commits landed:
+
+| check | result |
+|---|---|
+| `tools/check_brand_drift.py` | **PASS** — the gate that was red, with four sentence-scoped entries and a planted-mention proof that they are not file-wide |
+| `tools/check_source_size.py` | **PASS** — `screen_target.luau` 190,181, inside the band with a re-read row; nothing at or over the cap |
+| `tools/check_gate_pins.py` | **PASS** — 260 file pins, 487 run strings parse |
+| `tools/check_comment_codes.py` | **PASS** — 0 orphans (ceiling 0), 25 resolvable (ceiling 25); re-run AFTER the commit, because `git ls-files` cannot see a new module before it lands |
+| `tools/check_library_purity.py` | **PASS** |
+| `tools/check_input_authority.py` | **PASS** |
+| `tools/check_doc_style.py` | **PASS** — 23 documents |
+| `tools/check_perf_captures.py` | **PASS** — 31 rows admissible, with the correction keys in place |
+| `tools/check_perf_metrics.py` | **PASS** — 100 headless records carry all 7 metric rows |
+| `tools/check_perf_gate_evidence.py studio` | **PASS** — preflight clean, capture admissible |
+| `lune run tools/lune/check_boundary` | **PASS** — 163 src files (the new module counted), 413 consumer files |
+| `lune run tools/lune/check_docs` | **PASS** |
+| `lune run tools/lune/check_primitives` | **PASS** |
+| `lune run tools/lune/check_prop_parity` | **PASS** |
+| `lune run tools/lune/check_surface_ledger` | **PASS** |
+| `lune run tools/lune/check_theme_drift_cli` | **PASS** |
+| `lune run tools/lune/check_flat_baseline` | **PASS** — 1461 flat nodes byte-compared, no new deltas |
+| `stylua --check` | clean on every file this round touched |
+
+`tools/check_manifest_integrity.py --transcript` is reported with the suite
+numbers below, since it runs the suite.
+
+## Self-review of the fix round
+
+1. *Is `render/tag_sync` the right home, or did I just pick the first loadable
+   place?* `sheet_model` mints the tags and would be the authority, but it is
+   `src/tokens/` — another lane's this round — and `render/` is where this
+   repository already keeps a pure ruling two adapters share
+   (`stage_content`, `foreign_content`, both with headers saying exactly that).
+   It is the idiomatic home, not the convenient one.
+2. *Does the fake's tag mirror re-create the lockstep problem the defect came
+   from?* Partly, and it is bounded on purpose: the DECISION is shared code, so
+   the two adapters cannot disagree about a sync. What is duplicated is the
+   state map, four lines of it, declared in one block with a comment naming what
+   it does not cover. A wider mirror would be a second classification engine.
+3. *Is the mutation proof honest?* It restores the exact historical defect inside
+   the shipped predicate and all seven cases fail, including the three pure ones.
+   The failure text on `surface=plain` reproduces the shipped symptom verbatim.
+4. *Did I widen the scanner enough?* Four spellings, both comment kinds. The
+   remaining hole (a `--` inside a string literal) is stated in the spec header
+   with the anti-vacuity count that would move if it ever mattered.
+5. *Anything I still would not sign?* The four ten-foot captures are annotated
+   rather than re-taken, because re-taking them needs a console session. That is
+   flagged, not resolved.
+
+## Concerns carried forward from this round
+
+1. **The four ten-foot captures still show the defect.** Annotated in band and
+   booked as handoff item 4; ADR-0040 B-17's decision is unaffected and says so.
+2. **`screen_target.luau` is back inside the warning band** at 190,181, with the
+   row re-read and the trigger at 192,000.
+3. **`fake_target`'s tag mirror covers four classification inputs**, not the
+   twenty-odd `classifyTags` accepts. A future defect in, say, the toggle or
+   error tag has no headless witness yet — the shape is now there to extend.
+4. **`tag_sync` is required by `fake_target`**, so a test-lib and a shipped
+   module now share a file. That is the point, and it is also the first time the
+   headless twin depends on `src/render/` for a DECISION rather than a type.
+
+## Suite tails, BOTH repositories — the fix round
+
+Content-pinned `mkpair` pair, `PIN_FACET 37b69f9e7791…` (the second fix-round
+commit) / `PIN_RR 248b881a2afa…`:
+
+```
+GameStudio/ui/Facet      $ ./run-tests.sh      -> 7168 passed, 0 failed   (exit 0)
+games/RascalRally/code   $ lune run tests/run  -> 3486 passed, 0 failed   (exit 0)
+```
+
+The RascalRally number is the one that matters most this round: **24 RR spec
+files require Facet's `tests/lib/fake_target`**, which is the file that gained
+the tag mirror, so RR's suite is a real lockstep check on that change rather
+than a formality.
+
+`tools/check_manifest_integrity.py --transcript` was run separately against the
+working tree and reports **1518 suite greps, all anchored to the pass marker;
+1518 matched a green transcript** — an independent confirmation, because that
+tool re-derives the verdict and REFUSES a red, short, truncated or fast-tier
+transcript. The transcript it validated carries the same 7168.
+
+For reference, the clean tree immediately BEFORE the fix round (`e514ebc`, in
+its own pair) was **7155 passed, 0 failed**; the +13 is the new
+`tag_sync.spec` (7) plus the extra cases the four other lanes landed in the same
+window. `prefix_tests.spec` stayed at 4 (one case gained assertions rather than
+splitting).
+
+**A measurement note worth keeping.** Four other agents were running full
+suites on this machine concurrently (load average 7-8, one run 43 minutes long),
+which stretched a ~90-second suite past 25 minutes and killed two harness-managed
+runs outright. Nothing about the verdicts changed — the pair is content-pinned —
+but "the suite hung" was the wrong first read of a machine that was simply
+oversubscribed, and I made it twice before checking `ps`.
