@@ -918,11 +918,18 @@ back on its richest form). **Escape is not one of the routes and cannot be**: it
 permanently bound to the Roblox CoreGui menu and the engine refuses the binding
 (ADR-0013 §Justified exceptions), which is exactly why the framework puts a Close control
 in the panel — the plate is a modal, so its own ring is the whole keyboard story. It is a
-**circular icon button pinned to the plate's top-right corner, half on and half off it**;
-the plate's own right padding is the disc's metric, so framework chrome sits on the
-plate's padding and never over your content, and the straddle is a margin on the plate
-rather than an offset on the disc — the panel's box therefore CONTAINS the disc, which is
-what keeps the anchored placement's safe-area clamp able to see it. It is the panel's LAST
+**circular icon button CENTRED ON the plate's top-right corner, half on and half off it**.
+The plate's padding is uniform — one spacing token on all four sides, so your content sits
+centred in its own frame and nothing in its flow is reserved for the close — and the disc's
+straddle is derived from the disc itself (`space.xs + disc/2`), which puts its centre exactly
+on the corner at every theme ladder. Framework chrome therefore sits on the plate's padding
+and never over your content: the disc reaches `disc/2` inward from the corner while your
+content box's nearest point is `padding x sqrt(2)` away, so the guarantee a theme package has
+to keep is `controlSizes.compact.height <= 2 x sqrt(2) x space.m` (36 <= 45.2 by default), and
+the build asserts it for every shipped package. The straddle is a margin on the plate rather
+than an offset on the disc — the panel's box therefore CONTAINS the disc, which is what keeps
+the anchored placement's safe-area clamp able to see it, and the plate itself is capped at the
+allowance the composition measured it against, so the panel can never paint past the gutter. It is the panel's LAST
 child, so the presenter's existing rule (a modal focuses its first focusable) lands on the
 content's own control when form 1 has one and on the way out when it does not.
 

@@ -56,7 +56,13 @@
 
 local region_expand = {}
 
-export type Plate = { w: number, h: number, sheet: boolean }
+--[[ The plate box the composition sized, and the two numbers the DECLARATION
+	needs that it cannot spell for itself: `max`, the widest the box may be
+	declared (the panel's allowance minus its straddle), and `discHalf`, half the
+	close disc — the offset a disc centred on the plate's corner sits at, which the
+	metric vocabulary can sum and negate but not halve. Both are resolved by the
+	solver against the live snapshot and travel with the size they belong to. ]]
+export type Plate = { w: number, h: number, sheet: boolean, max: number?, discHalf: number? }
 export type Facts = { expandable: boolean, activeForm: number, plate: Plate? }
 
 export type Config = {
@@ -184,12 +190,22 @@ function region_expand.new(config: Config)
 		`GuiService.PreferredTransparency = 1`, so it was neither a stacking bug nor
 		the accessibility case.
 
-		THE MECHANISM IS WHAT THE ROLE OWNS. `scrim = "none"` mounts the catcher as
-		`surface = "plain"`, and `plain` is the SUPPRESSED surface: it earns no
-		`facet-surface-*` tag, so nothing in the sheet's vocabulary can address it and
-		its transparency is whatever the CLASS DEFAULT rule happens to leave — a value
-		this file neither states nor owns, on the one node in the framework that
-		covers the entire screen. `scrim` is the opposite: the role carries the
+		THE MECHANISM, RESTATED PRECISELY (`artifacts/expand-plate/catcher-paint-window.md`
+		plus its controller reconciliation, 2026-08-21). This paragraph used to say
+		that `plain`'s transparency is "whatever the CLASS DEFAULT rule happens to
+		leave", and that is one step off: `scrim = "none"` mounts the catcher as
+		`surface = "plain"`, the SUPPRESSED surface, which earns NO `facet-surface-*`
+		tag at all — so no sheet rule matches the node, and an unmatched Frame paints
+		its INSTANCE default, `BackgroundTransparency = 0`. Not a rule leaving a
+		value: no rule, on the one node in the framework that covers the entire
+		screen. (The artifact's "a plain catcher resolves to 1" measured a node a
+		bare-CLASS rule reaches — a TextButton — which the catcher Frame is not. The
+		artifact's other finding stands on its own: `GetStyled` reports the class
+		default for ~3 frames after any node is created, for every role equally, so a
+		reading taken at open time is inside that window. That is a separate, still
+		open create-flash item, not this defect.)
+
+		AND THE PRODUCT ARGUMENT IS THE SAME ONE EITHER WAY: `scrim` carries the
 		theme's own `scrimOpacity` through `sheet_model.SCRIM_RULE`, it is the ONE
 		rule the player's `PreferredTransparency` composes against (ADR-0035,
 		`PREFERENCE_RULE_PROPS`), and a package that ships an opaque one is caught by

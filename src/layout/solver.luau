@@ -942,6 +942,12 @@ local function compositionResolution(ctx: Ctx, node: Node, innerW: number, inner
 			two readings of one intention. ]]
 		expandPlateInset = expandPlate.insetX(ctx.metrics),
 		expandPlateStraddle = expandPlate.straddleX(ctx.metrics),
+		--[[ ...AND THE ONE NUMBER THE DECLARATION CANNOT SPELL (plate design B).
+			The metric vocabulary sums names and negates them; it cannot HALVE one,
+			and half the disc is exactly the offset a disc CENTRED ON A CORNER sits
+			at. It rides back out on the plate record beside `max`, so the
+			declaration spends the same resolution the cap above reserved. ]]
+		expandPlateDiscHalf = expandPlate.discHalf(ctx.metrics),
 	}
 	local offerW = if innerW == math.huge then COMPOSITION_UNBOUNDED else innerW
 	local offerH = if innerH == math.huge then COMPOSITION_UNBOUNDED else innerH

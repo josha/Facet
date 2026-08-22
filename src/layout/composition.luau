@@ -246,6 +246,9 @@ export type ResolveCtx = {
 		plate may use the whole offer, which is what a pure test means when it says
 		nothing. ]]
 	expandGutter: number?,
+	expandPlateInset: number?,
+	expandPlateStraddle: number?,
+	expandPlateDiscHalf: number?,
 	-- the AUTHORED floor in px, when the declaration expressed one. Absent, a
 	-- region's floor is its minimum-viable form's own measured height, which is
 	-- the honest default: the smallest thing the author was willing to show.
@@ -2394,6 +2397,14 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 	local plateStraddle = if type((ctx :: any).expandPlateStraddle) == "number"
 		then (ctx :: any).expandPlateStraddle :: number
 		else 0
+	--[[ HALF THE CLOSE DISC, carried straight back out on the plate record: the
+		declaration's straddle margin is `CLOSE_INSET + this`, and the metric
+		vocabulary it is written in cannot halve a name. This module neither
+		resolves it nor spends it — it is the courier, exactly as it is for
+		`max`. ]]
+	local plateDiscHalf = if type((ctx :: any).expandPlateDiscHalf) == "number"
+		then (ctx :: any).expandPlateDiscHalf :: number
+		else 0
 	for _, r in d.regions do
 		local res = byId[r.id]
 		if res == nil then
@@ -2436,7 +2447,13 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 				the same defect one level up. `sheet` still asks the honest question —
 				did form 1 fit the box it will actually get? — which is the CONTENT
 				cap, `maxW`. ]]
-			res.plate = { w = math.min(w, maxW), h = h, sheet = roundPx(w) > roundPx(maxW), max = plateMax }
+			res.plate = {
+				w = math.min(w, maxW),
+				h = h,
+				sheet = roundPx(w) > roundPx(maxW),
+				max = plateMax,
+				discHalf = plateDiscHalf,
+			}
 		end
 	end
 
@@ -2575,6 +2592,14 @@ function composition.dump(resolution: Resolution): any
 					h = roundPx(r.plate.h),
 					sheet = r.plate.sheet,
 					max = roundPx(r.plate.max),
+					--[[ THE ONE FIELD THIS DUMP DOES NOT ROUND, and the reason is what
+						the field is: it is a HALF by definition — the offset a disc
+						centred on the plate's corner sits at — so rounding it is
+						precisely the operation that would move the disc off the corner
+						on a package whose compact control size is odd. Every other
+						number here is a box a reader compares against a pixel grid;
+						this one is an arithmetic term the declaration adds. ]]
+					discHalf = r.plate.discHalf,
 				}
 				else nil,
 		})

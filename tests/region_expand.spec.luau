@@ -271,6 +271,11 @@ end)
 -- assertion here reads the declaration the mount would have received.
 
 local UI = require("../src/blueprint")
+-- the plate's chrome, read from the ONE place that declares it: a spec that
+-- restated `space.m` here would be the second copy the module exists to remove
+local Facet = require("../src")
+local themeSnapshot = require("../src/themes/snapshot")
+local expandPlate = require("../src/layout/expand_plate")
 local customFactory = require("../src/core/custom")
 
 local function childrenOf(node: any): { any }
@@ -504,6 +509,48 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		})
 		expect(region.props.expand.interactive[2]).toBe(true)
 		expect(expandNodes(region)[1].props.expandTarget.role).toBe("chevron")
+	end)
+
+	it("a Box that declares `active` SINKS input, so it takes the chevron too", function()
+		--[[ REVIEW M3, and it is `UI.Foreign`'s mechanism arriving through the
+			framework's own vocabulary rather than through a class. `active` is a
+			public Box prop documented as "engine `Active` flag — an input-sinking
+			panel (modal backdrops)", and the adapter writes exactly that
+			(`screen_target.luau`, `instance.Active = value == true`). `Box` is in the
+			passive class set, so a reduced form holding one was classified passive,
+			got a cover UNDERNEATH it, and the Active Frame above sank the press: the
+			cover is unreachable over that rect.
+
+			An author asking the adapter to sink input has declared an actionable host
+			by this framework's own definition, so the affordance is a chevron BESIDE
+			it — which is the disambiguation the arrow exists for. It is read off the
+			PROP rather than the class, because the class is right about a plain Box
+			and this is a Box that has said otherwise. ]]
+		local region = UI.Region({
+			id = "Backdrop",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = {
+				textForm("Full"),
+				UI.VStack({ id = "Compact", children = { UI.Box({ id = "Sink", active = true }) } }),
+			},
+		})
+		expect(region.props.expand.interactive[2]).toBe(true)
+		expect(expandNodes(region)[1].props.expandTarget.role).toBe("chevron")
+		-- ...and `active = false` (or absent) is still an ordinary passive Box
+		local plain = UI.Region({
+			id = "Plain",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = {
+				textForm("Full"),
+				UI.VStack({ id = "Compact", children = { UI.Box({ id = "Sink", active = false }) } }),
+			},
+		})
+		expect(plain.props.expand.interactive[2]).toBe(false)
+		expect(expandNodes(plain)[1].props.expandTarget.role).toBe("cover")
 	end)
 
 	it("content the framework CANNOT see is taken as interactive — a lazy region is never covered", function()
@@ -1470,6 +1517,45 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 		})
 	end
 
+	-- ...and the same region with a form that WRAPS instead of declaring a width:
+	-- the arm whose measured answer and whose hugged content are two different
+	-- numbers, which is the whole of review H2
+	local function wrapScreen(text: string): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								UI.VStack({
+									id = "Full",
+									children = {
+										UI.Text({ id = "R1", text = text, textSize = 16 }),
+										UI.Text({ id = "R2", text = text, textSize = 16 }),
+										UI.Text({ id = "R3", text = text, textSize = 16 }),
+									},
+								}),
+								UI.Text({ id = "Tiny", text = "2:14", textSize = 16 }),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
 	it("a form INSIDE the chrome band cannot mount a panel wider than the allowance", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
 		w.present(bandScreen(320), { initialFocus = "none" })
@@ -1477,7 +1563,13 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 		expect(row.activeForm).toBe(2)
 		-- `plate.max` is the widest the plate BOX may be declared: the allowance
 		-- minus the straddle its own margin will add back on the way out
-		expect(row.plate.max).toBe(ALLOWANCE - 16)
+		--[[ RE-VERDICTED (plate design B, 2026-08-21): the straddle was `space.m`
+			(16, a number unrelated to the disc it carried) and is now the disc's own
+			derivation, `space.xs + disc/2` (22). Read from the module that DECLARES
+			it rather than restated, so the cap and this line can never be two
+			readings of one intention. ]]
+		local straddle = expandPlate.straddleX(w.env:get("themeMetrics"):get())
+		expect(row.plate.max).toBe(ALLOWANCE - straddle)
 		w.pres.focus.focusOn("/S/C/Clock/Expand")
 		w.press("Return")
 		w.pres.refresh()
@@ -1495,6 +1587,53 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 			)
 		else
 			expect(sheet).never().toBeNil()
+		end
+	end)
+
+	it("a WRAPPING form cannot hug past the cap either — the panel the review found off-screen", function()
+		--[[ REVIEW H2. The band above is the FIXED-width arm: a form that declares
+			its own width is measured, capped, and either fits or goes to the sheet.
+			A WRAPPING form takes neither route. `measure` answers the WRAPPED width,
+			which is always <= the cap, so `sheet` is false — and then the plate HUGS,
+			and a hug is the CONTENT's width, which is not the number that was
+			measured. Measured at 390 before this fix: three text rows hugged to 374
+			against a 342 cap, panel 8..398, with 8 of the close disc's 36px off the
+			screen; at a 20px safe inset the whole disc was outside the safe area.
+
+			The clamp cannot save it and that is the load-bearing half: the anchored
+			placement REPOSITIONS a surface, it does not shrink one, so a panel wider
+			than the space is pinned at the near edge and the far edge runs. The plate
+			carries the cap itself now (`minMax`), so the hug is bounded before the
+			clamp is ever asked. ]]
+		for _, insets in { { left = 0, right = 0 }, { left = 20, right = 20 } } do
+			local w = worldLib.new({
+				viewport = { x = 0, y = 0, w = 390, h = 30 },
+				safeInsets = { top = 0, bottom = 0, left = insets.left, right = insets.right },
+			})
+			w.present(wrapScreen(string.rep("a", 40)), { initialFocus = "none" })
+			local row = w.controller.compositionAt("/S/C").regions[1]
+			expect(row.activeForm).toBe(2)
+			w.pres.focus.focusOn("/S/C/Clock/Expand")
+			w.press("Return")
+			w.pres.refresh()
+			local panel = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")
+			local disc = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+			expect(panel).never().toBeNil()
+			expect(disc).never().toBeNil()
+			--[[ THE SAFE AREA, NOT THE VIEWPORT, and at zero insets they are the same
+				box — so one arm states the rule and the other exercises the inset the
+				review measured the disc entirely outside of. ]]
+			local safeL, safeR = insets.left, 390 - insets.right
+			expect(
+				`insets {insets.left}: panel {panel.rect.x}..{panel.rect.x + panel.rect.w} inside {safeL}..{safeR}: {panel.rect.x >= safeL and panel.rect.x + panel.rect.w <= safeR}`
+			).toBe(
+				`insets {insets.left}: panel {panel.rect.x}..{panel.rect.x + panel.rect.w} inside {safeL}..{safeR}: true`
+			)
+			expect(
+				`insets {insets.left}: disc {disc.rect.x}..{disc.rect.x + disc.rect.w} inside {safeL}..{safeR}: {disc.rect.x >= safeL and disc.rect.x + disc.rect.w <= safeR}`
+			).toBe(
+				`insets {insets.left}: disc {disc.rect.x}..{disc.rect.x + disc.rect.w} inside {safeL}..{safeR}: true`
+			)
 		end
 	end)
 
@@ -1908,23 +2047,42 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 							  on: two targets for the same content, and the player cannot see
 							  which one won.
 
-							  ACROSS REGIONS it is the ordinary hit-expander OVERHANG, and
-							  this framework already has a measured, shipped ruling on it:
-							  `src/render/hit_lift.luau` lifts the host past every sinking
-							  sibling its floor reaches into, because a floor that advertises a
-							  band it cannot deliver is the defect (a 44px divider that
-							  delivered 26px, and the outer 18px sorted a column the player
-							  never touched). So what this case asserts is that the lift
-							  HAPPENED — the band is deliverable — rather than re-litigating
-							  which of the two rulings wins. An overhang with no lift is an
-							  advertised dead band and reddens here. ]]
+							  ACROSS REGIONS IT IS AN EXPOSURE, AND THIS CASE NO LONGER
+							  RATIFIES IT (review H1, 2026-08-21). The previous version
+							  asserted that the framework OUTRANKED the neighbour — "the band
+							  is deliverable" — which made the case green *because* a press in
+							  the bottom 12px of the region above, across its full width,
+							  opened this plate instead of pressing the button the player
+							  aimed at. Nothing in the suite could redden on it.
+
+							  THE MEASUREMENT THAT CORRECTS THE REVIEW'S MECHANISM. The
+							  review attributed the outranking to `render/hit_lift.luau`.
+							  Measured here at 390x150, with the lift's constraint set for
+							  this host EMPTIED: the z values do not move (First 5, After's
+							  Last 8, Clock 9, its cover 11). The composition arranges its
+							  regions by RANK — Before 1, After 2, Clock 3 — and paint order
+							  follows the ARRANGED order, so the Clock branch is already
+							  above both neighbours before any lift is considered. The lift
+							  never fires for a cover.
+
+							  SO THE HONEST RULE IS A BOUND, NOT A DELIVERY CLAIM. A cover is
+							  the region's whole box, so a floor larger than that box leaves
+							  the region on the axis it is short on, by exactly half the
+							  shortfall each way — and NOTHING BEYOND THAT. That is what is
+							  asserted: the overhang is the floor's own arithmetic and cannot
+							  grow. Removing it altogether is a clamp in the renderer's floor
+							  pass (`pushHitRects` inflates around the solved rect with no
+							  knowledge of the node), which is behind the source-cap lock —
+							  named in this round's report, owed with that file's extraction. ]]
 						local ownRegion = string.find(path, "/S/C/Clock/", 1, true) == 1
 						expect(`{path} under the floor is in the affordance's own region: {ownRegion}`).toBe(
 							`{path} under the floor is in the affordance's own region: false`
 						)
-						expect(`{path} under the floor, and the overhang lift delivered it: {not below}`).toBe(
-							`{path} under the floor, and the overhang lift delivered it: true`
-						)
+						local overhangY = (markHit.h - mark.rect.h) / 2
+						local _, oy = overlapOf(markHit, n.rect)
+						expect(
+							`{path} overhang {oy} within the floor's own shortfall {overhangY}: {oy <= overhangY + 0.5}`
+						).toBe(`{path} overhang {oy} within the floor's own shortfall {overhangY}: true`)
 						overhangs += 1
 					end
 				end
@@ -2190,68 +2348,197 @@ describe("EXPAND 16 — the plate opens OVER a live screen, and hands it back", 
 	end)
 end)
 
-describe("EXPAND 17 — the way out is a corner disc, and keeps its word", function()
-	it("the close affordance is a circular icon at the plate's TOP-RIGHT, half off its corner", function()
-		--[[ DIR5: the in-flow 44x46 chip at the panel's bottom-left — "the giant X"
-			— is replaced by a disc pinned at the plate's top-right corner and
-			overlapping its edge (director's reference image). ]]
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", function()
+	--[[ PLATE DESIGN B (director choice 2026-08-21,
+		`.superpowers/sdd/release-candidate-review/task-plate-design-spec.md`).
+
+		What it replaces, measured on a phone at 360x691: the plate reserved the
+		close disc's own metric (36) as its RIGHT padding while its left was
+		`space.s` (8), so a 36px dead band trailed the content — and then pushed the
+		disc `space.m` (16) outside the box on both axes, a number unrelated to the
+		disc's size, so the disc was neither on the corner nor in the panel. The eye
+		read three chips hugging one corner of a panel bigger than its content, plus
+		a satellite.
+
+		Option B keeps the corner disc the director's reference showed and fixes
+		both causes at once:
+
+		  · the padding is UNIFORM (`space.m` on all four sides), so the close
+		    reserves nothing in content flow and the content sits dead centre of its
+		    own frame;
+		  · the straddle is DERIVED FROM THE DISC — `space.xs + disc/2` — so the
+		    disc's centre and the plate's corner are the same point by construction
+		    at every theme ladder, rather than two numbers that happen to be close.
+
+		All three cases below read the geometry the adapter was told, at both rungs
+		of the ten-foot ladder, and none of them names a pixel this framework did
+		not derive from a token. ]]
+	local PANEL = "/Expand:Clock/Layer/Surface/ExpandPanel"
+
+	-- the plate, its disc and the panel that holds both, at one display class
+	local function plateAt(displaySize: string?): any
+		local opts: any = { viewport = { x = 0, y = 0, w = 390, h = 150 } }
+		if displaySize ~= nil then
+			opts.displaySize = displaySize
+			opts.viewport = { x = 0, y = 0, w = 1200, h = 150 }
+		end
+		local w = worldLib.new(opts)
 		w.present(ringScreen(false), { initialFocus = "none" })
 		w.adapter.tap("/S/C/Clock/Expand")
 		w.pres.refresh()
-		local PANEL = "/Expand:Clock/Layer/Surface/ExpandPanel"
-		local close = w.adapter.node(`{PANEL}/ExpandClose`)
-		local plate = w.adapter.node(`{PANEL}/ExpandPlate`)
-		local panel = w.adapter.node(PANEL)
-		expect(close).never().toBeNil()
-		expect(plate).never().toBeNil()
-		--[[ THE WORD IS NOT DRAWN, and this is the framework's own rule doing it: a
-			CONTENT button's label is semantics, so the renderer writes "" as its text
-			(B-BTN1) and the content is what shows. The label itself — `"Close"`, what
-			a screen reader says — is a construction fact this seam cannot report,
-			because no adapter channel carries it; `blueprint.Button` refuses a Button
-			without one, and the value is one grep from here. ]]
-		expect(close.props.label).never().toBe("Close")
-		expect(#close.props.label <= 2).toBe(true)
-		-- a DISC carrying a SEMANTIC ICON NAME, which is the framework's one icon
-		-- affordance that never names an asset
-		expect(close.props.shape).toBe("circle")
-		expect(close.props.icon).toBe("close")
-		expect(close.props.surface).toBe("chip")
-		expect(close.rect.w).toBe(close.rect.h)
-		--[[ ON THE CORNER, HALF IN AND HALF OUT — stated as the four inequalities
-			that make it that rather than as a pixel count, so a theme with a bigger
-			disc or a wider straddle still passes: the disc's right/top edges are the
-			PANEL's, its left/bottom edges are inside the PLATE, and the plate's own
-			right/top edges fall strictly inside the disc. ]]
-		expect(`disc right on the panel edge: {close.rect.x + close.rect.w}`).toBe(
-			`disc right on the panel edge: {panel.rect.x + panel.rect.w}`
-		)
-		expect(`disc top on the panel edge: {close.rect.y}`).toBe(`disc top on the panel edge: {panel.rect.y}`)
-		local straddlesX = close.rect.x < plate.rect.x + plate.rect.w
-			and plate.rect.x + plate.rect.w < close.rect.x + close.rect.w
-		local straddlesY = close.rect.y < plate.rect.y and plate.rect.y < close.rect.y + close.rect.h
-		expect(`straddles the corner: {straddlesX and straddlesY}`).toBe("straddles the corner: true")
-		--[[ R18 — AND IT COVERS NO AUTHOR CONTENT. The plate's right padding is the
-			disc's own metric, so the content box ends where the disc begins: this is a
-			construction, not a number that happens to work, and the sweep is over
-			every author node on the plate. ]]
-		local covered: { string } = {}
-		for _, path in w.adapter.paths() do
-			if string.find(path, `{PANEL}/ExpandPlate/`, 1, true) ~= 1 then
-				continue
+		return {
+			w = w,
+			panel = w.adapter.node(PANEL),
+			plate = w.adapter.node(`{PANEL}/ExpandPlate`),
+			close = w.adapter.node(`{PANEL}/ExpandClose`),
+			content = w.adapter.node(`{PANEL}/ExpandPlate/Full`),
+			metrics = w.env:get("themeMetrics"):get(),
+		}
+	end
+
+	it("the plate's padding is UNIFORM — one token on all four sides, no reserved band", function()
+		for _, displaySize in { "Medium", "Large" } do
+			local g = plateAt(displaySize)
+			local pad = themeSnapshot.resolveNumber(g.metrics, expandPlate.PADDING.top)
+			expect(g.plate).never().toBeNil()
+			expect(g.content).never().toBeNil()
+			--[[ FOUR INSETS, ONE NUMBER, and the number is the token's own
+				resolution at this rung — not a literal, and not three sides checked
+				against a fourth. The trailing side is the one the shipped design got
+				wrong (it was the disc's 36), so it is stated first. ]]
+			local insets = {
+				`leading {g.content.rect.x - g.plate.rect.x}`,
+				`trailing {g.plate.rect.x + g.plate.rect.w - (g.content.rect.x + g.content.rect.w)}`,
+				`top {g.content.rect.y - g.plate.rect.y}`,
+				`bottom {g.plate.rect.y + g.plate.rect.h - (g.content.rect.y + g.content.rect.h)}`,
+			}
+			expect(`{displaySize}: {table.concat(insets, " ")}`).toBe(
+				`{displaySize}: leading {pad} trailing {pad} top {pad} bottom {pad}`
+			)
+		end
+	end)
+
+	it("the disc's CENTRE is the plate's corner, and the panel still contains the disc", function()
+		for _, displaySize in { "Medium", "Large" } do
+			local g = plateAt(displaySize)
+			local close, plate, panel = g.close, g.plate, g.panel
+			expect(close).never().toBeNil()
+			-- a DISC carrying a SEMANTIC ICON NAME, which is the framework's one icon
+			-- affordance that never names an asset
+			expect(close.props.shape).toBe("circle")
+			expect(close.props.icon).toBe("close")
+			expect(close.props.surface).toBe("chip")
+			expect(close.rect.w).toBe(close.rect.h)
+			expect(close.rect.h).toBe(themeSnapshot.resolveNumber(g.metrics, expandPlate.CLOSE_DISC))
+			--[[ THE CONSTRUCTION, STATED AS THE EQUALITY IT IS. The disc's centre
+				offset from the panel's top-trailing corner is `CLOSE_INSET + disc/2`;
+				the plate's corner offset from that same corner IS its margin, which is
+				written as those two terms. Equal by construction — so this reads them
+				as points and compares them, which is the only form in which a tuned
+				number could not pass. ]]
+			expect(`{displaySize}: disc centre {close.rect.x + close.rect.w / 2},{close.rect.y + close.rect.h / 2}`).toBe(
+				`{displaySize}: disc centre {plate.rect.x + plate.rect.w},{plate.rect.y}`
+			)
+			--[[ ...AND THE SURFACE BOX STILL CONTAINS IT, which is what the
+				safe-area clamp clamps: `present/anchored` knows only the surface's
+				box, so a disc outside it could be pushed off-screen at the edge. The
+				inset is the token, so a package with a bigger `space.xs` moves the
+				disc in rather than out. ]]
+			local inset = themeSnapshot.resolveNumber(g.metrics, expandPlate.CLOSE_INSET)
+			expect(
+				`{displaySize}: disc inset from the panel {panel.rect.x + panel.rect.w - (close.rect.x + close.rect.w)},{close.rect.y - panel.rect.y}`
+			).toBe(`{displaySize}: disc inset from the panel {inset},{inset}`)
+		end
+	end)
+
+	it("R18 — the disc's incursion lands on the plate's PADDING and never on content", function()
+		--[[ THE FENCE IS A CIRCLE, and that is the honest instrument rather than a
+			convenience: `shape = "circle"` paints a disc, and the one part of its
+			bounding BOX that paints nothing is exactly the corner that reaches
+			furthest into the plate. A box-overlap sweep would therefore report an
+			incursion of 2x2 px that no player can see, and — worse — would go green
+			on a package whose disc genuinely covered a word diagonally.
+
+			So the rule is stated as the distance it actually is: from the disc's
+			centre to the nearest point of every author rect on the plate, against
+			the disc's radius. ]]
+		local function distanceToRect(cx: number, cy: number, r: any): number
+			local dx = math.max(r.x - cx, 0, cx - (r.x + r.w))
+			local dy = math.max(r.y - cy, 0, cy - (r.y + r.h))
+			return math.sqrt(dx * dx + dy * dy)
+		end
+		for _, displaySize in { "Medium", "Large" } do
+			local g = plateAt(displaySize)
+			local cx = g.close.rect.x + g.close.rect.w / 2
+			local cy = g.close.rect.y + g.close.rect.h / 2
+			local radius = g.close.rect.w / 2
+			local covered: { string } = {}
+			local swept = 0
+			for _, path in g.w.adapter.paths() do
+				if string.find(path, `{PANEL}/ExpandPlate/`, 1, true) ~= 1 then
+					continue
+				end
+				local n = g.w.adapter.node(path)
+				if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
+					continue
+				end
+				swept += 1
+				if distanceToRect(cx, cy, n.rect) < radius - 0.5 then
+					table.insert(covered, `{path} at {distanceToRect(cx, cy, n.rect)} < {radius}`)
+				end
 			end
-			local n = w.adapter.node(path)
-			if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
-				continue
-			end
-			local ox, oy = overlapOf(close.rect, n.rect)
-			if ox > 0.5 and oy > 0.5 then
-				table.insert(covered, path)
+			table.sort(covered)
+			-- a sweep that swept nothing proves nothing
+			expect(`{displaySize}: swept {swept > 0}`).toBe(`{displaySize}: swept true`)
+			expect(`{displaySize}: {table.concat(covered, " ; ")}`).toBe(`{displaySize}: `)
+		end
+	end)
+
+	it("...and the guarantee is a TOKEN inequality, so a package that breaks it goes red here", function()
+		--[[ WHY THE THREE CASES ABOVE ARE NOT ENOUGH. They measure the DEFAULT
+			package on two rungs. The construction's promise is bigger: the disc
+			reaches `disc/2` in from the plate's corner and the content box's nearest
+			point is the padded corner, `padding * sqrt(2)` away, so R18 holds for
+			every package satisfying
+
+			    controlSizes.compact.height <= 2 * sqrt(2) * space.m
+
+			(36 <= 45.2 on the neutral snapshot). It is the theme-authoring rule that
+			the geometry above is only one instance of, and it is checked on every
+			package this repository ships, at both rungs of the ladder — a package
+			with a fatter disc or a thinner plate padding reddens HERE, with the two
+			distances named, instead of painting a disc over a word on a device. ]]
+		local packages = { "studio_neutral" }
+		for _, name in
+			{
+				"glossy_mobile",
+				"glossy_touch",
+				"pixel_quest",
+				"fantasy_ornate",
+				"scifi_hud",
+				"compact_pointer",
+				"classic_desktop",
+				"fantasy_parchment",
+			}
+		do
+			table.insert(packages, name)
+		end
+		local checked = 0
+		for _, name in packages do
+			local package = if name == "studio_neutral"
+				then themeSnapshot.neutralPackage()
+				else (require)(`../examples/themes/{name}`).build(Facet.themes)
+			local base = themeSnapshot.resolve(package, nil, {})
+			for _, class in { "Medium", "Large" } do
+				local snap = themeSnapshot.forDisplay(base, class)
+				local nearest, reach = expandPlate.r18Clearance(snap)
+				expect(`{name}/{class}: padding corner {nearest} > disc reach {reach}: {nearest > reach}`).toBe(
+					`{name}/{class}: padding corner {nearest} > disc reach {reach}: true`
+				)
+				checked += 1
 			end
 		end
-		table.sort(covered)
-		expect(table.concat(covered, " ; ")).toBe("")
+		expect(`checked {checked}`).toBe("checked 18")
 	end)
 
 	it("...and it is still the same control: one focus stop, the standard band, Return closes", function()
@@ -2262,12 +2549,21 @@ describe("EXPAND 17 — the way out is a corner disc, and keeps its word", funct
 		w.pres.refresh()
 		local stops = traversalPaths(w)
 		expect(#stops).toBe(1)
-		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		expect(stops[1]).toBe(`{PANEL}/ExpandClose`)
+		--[[ THE WORD IS NOT DRAWN, and this is the framework's own rule doing it: a
+			CONTENT button's label is semantics, so the renderer writes "" as its text
+			(B-BTN1) and the content is what shows. The label itself — `"Close"`, what
+			a screen reader says — is a construction fact this seam cannot report,
+			because no adapter channel carries it; `blueprint.Button` refuses a Button
+			without one, and the value is one grep from here. ]]
+		local close = w.adapter.node(`{PANEL}/ExpandClose`)
+		expect(close.props.label).never().toBe("Close")
+		expect(#close.props.label <= 2).toBe(true)
 		--[[ THE EFFECTIVE BAND, which is the hit rect where the control is under the
 			floor and the painted rect where it is already over it — an expander is
 			only built for the first case, so reading `hitRectOf` alone would report a
 			generously-sized chip as having no band at all. ]]
-		local closePath = "/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose"
+		local closePath = `{PANEL}/ExpandClose`
 		local band = w.adapter.hitRectOf(closePath) or w.adapter.node(closePath).rect
 		expect(`{band.w}x{band.h} clears the floor: {band.w >= 44 and band.h >= 44}`).toBe(
 			`{band.w}x{band.h} clears the floor: true`

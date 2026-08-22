@@ -986,6 +986,19 @@ local function formCarriesMeaning(node: Blueprint): boolean
 	if classContract.isInteractive(node.class) or UNSEEN_CONTENT[node.class] then
 		return true
 	end
+	--[[ ...AND THE PROP THAT SAYS IT WITHOUT BEING A CLASS (review M3). `active` is
+		public on `UI.Box` and documented as the engine's `Active` flag — "an
+		input-sinking panel (modal backdrops)" — and the adapter writes exactly that.
+		`Box` is in the passive class set, so a reduced form holding one was called
+		passive, got a cover UNDERNEATH it, and the Active Frame above sank the
+		press: the cover is unreachable over that rect. It is the identical failure
+		`UI.Foreign` was added to `UNSEEN_CONTENT` for, arriving through the
+		framework's own vocabulary instead of through a class, so it takes the same
+		answer — the chevron BESIDE the form. Read off the PROP, because the class is
+		right about a plain Box and this is a Box that has said otherwise. ]]
+	if (node.props or {}).active == true then
+		return true
+	end
 	for _, child in node.children or {} do
 		if formCarriesMeaning(child) then
 			return true
@@ -1133,14 +1146,24 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			ONE of width/height, the other following — so the size is stated once, as a
 			METRIC NAME, and a package that thinks a compact control is 48px gets a
 			48px disc with no arithmetic here. ]]
-		local CLOSE_DISC = expandPlate.PADDING.right
-		--[[ HALF-IN, HALF-OUT, IN THE PANEL'S OWN BOX. The straddle is a MARGIN on the
-			plate rather than an offset on the disc, and that is the whole reason the
-			disc cannot fall off the screen: the panel's box grows by the straddle, so
-			the anchored placement's safe-area clamp — which knows only the surface's
-			box — is already clamping a box that CONTAINS the disc. An offset disc would
-			paint outside every rect the placement can see. ]]
-		local CLOSE_STRADDLE = expandPlate.STRADDLE
+		local CLOSE_DISC = expandPlate.CLOSE_DISC
+		--[[ CENTRED ON THE CORNER, HALF IN AND HALF OUT (plate design B, director
+			choice 2026-08-21). The straddle is a MARGIN on the plate rather than an
+			offset on the disc, and that is the whole reason the disc cannot fall off
+			the screen: the panel's box grows by the straddle, so the anchored
+			placement's safe-area clamp — which knows only the surface's box — is
+			already clamping a box that CONTAINS the disc. An offset disc would paint
+			outside every rect the placement can see.
+
+			WHAT THE MARGIN IS, exactly: the disc's own inset from the panel's corner
+			plus HALF THE DISC. The disc's centre is `CLOSE_INSET + disc/2` in from
+			that corner and the plate's corner IS its margin, so the two are the same
+			point by construction rather than by tuning — at any theme ladder. The
+			half arrives as a resolved number on the plate record (`discHalf`),
+			because the metric vocabulary sums names and negates them but cannot
+			halve one; the inset half stays a live token name, so a ladder change
+			moves the disc and the plate's corner together. ]]
+		local CLOSE_INSET = expandPlate.CLOSE_INSET
 		local function closeAffordance(): Blueprint
 			return blueprint.Button({
 				id = "ExpandClose",
@@ -1155,6 +1178,11 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				-- layers its children over its whole box and reads exactly these two
 				alignH = "end",
 				alignV = "start",
+				-- inset from the panel's own corner, which is the room the focus ring
+				-- draws in (4 >= the 2px ring near, 6 >= 4 at ten-foot). The plate's
+				-- margin is this PLUS half the disc, so the disc's centre and the
+				-- plate's corner are one point
+				margin = { top = CLOSE_INSET, right = CLOSE_INSET, bottom = 0, left = 0 },
 				onActivate = function()
 					engine.close()
 				end,
@@ -1222,22 +1250,49 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			panelOf = function(plate: any): Blueprint
 				local declaredW = (forms[1].props or {}).width
 				local fills = type(declaredW) == "table" and (declaredW :: any).type == "fill"
+				local capped = type(plate.max) == "number"
+				--[[ THE PLATE NEVER EXCEEDS THE CAP IT WAS CHOSEN AGAINST (review H2).
+					A hug is the CONTENT's width, and a wrapping form's content is not
+					the width the measure seam reported: measured at a 390 viewport, a
+					three-row text form hugged to 374 against a 342 cap and the panel
+					ran 8px off the screen — with the framework's own Close the part
+					hanging off, and at a 20px safe inset the whole disc outside the
+					safe area. The clamp cannot save it: `present/anchored` REPOSITIONS
+					a surface, it does not shrink one, so a panel wider than the space
+					is pinned at the near edge and the far edge runs.
+
+					`minMax` is the hug with that cap written down — the content size,
+					clamped. `plate.max` is already the PANEL's allowance minus the
+					straddle (`layout/composition.luau`), so a plate at the cap makes a
+					panel exactly at the allowance and never past it, at every content
+					width and both safe-inset arms. ]]
 				local width = if fills
-						and type(plate.max) == "number"
+						and capped
 						and plate.max > plate.w
 					then { type = "fixed", px = plate.max }
+					elseif capped then { type = "minMax", max = plate.max }
 					else { type = "hug" }
+				--[[ HALF THE DISC, resolved by the solver against the live snapshot and
+					carried here on the record. Absent — a pure test that hands the
+					composition a bare `measure` — it is 0 and the disc sits inside the
+					plate's corner instead of on it, which is the arithmetic that
+					shipped before this seam existed rather than a mystery offset. ]]
+				local discHalf = if type(plate.discHalf) == "number" then plate.discHalf else 0
+				local straddle = { CLOSE_INSET, discHalf }
 				--[[ THE PANEL IS A ZSTACK, and the two children are the whole design: the
 					author's form on a raised plate, and the framework's disc layered over
 					the plate's top-right corner.
 
 					R18 — THE FRAMEWORK'S CHROME MAY SIT ON THE PLATE'S OWN PADDING AND
-					NOWHERE ELSE. The plate's RIGHT padding is the disc's own metric, so the
-					content box ends exactly where the disc begins: the disc's left edge is
-					`panel - disc`, the content's right edge is `panel - straddle - disc`,
-					and the difference is the straddle, which is never negative. That holds
-					for any theme ladder and any content, which is what makes it a
-					construction rather than a number that happens to work. ]]
+					NOWHERE ELSE — IS AN INEQUALITY NOW, NOT A RESERVATION. The plate's
+					padding is UNIFORM, so nothing in the content's flow is set aside for
+					chrome and the content sits dead centre of its own frame; the disc
+					reaches `disc/2` in from the plate's corner and the content box's
+					nearest point is the padded corner, `padding * sqrt(2)` away. The
+					guarantee is therefore `controlSizes.compact.height <= 2 * sqrt(2) *
+					space.m` (36 <= 45.2 near, 54 <= 67.9 at ten-foot — both sides scale
+					together), and `expand_plate.r18Clearance` is that pair of distances
+					with a spec case over every shipped package on it. ]]
 				return blueprint.ZStack({
 					id = "ExpandPanel",
 					children = {
@@ -1245,13 +1300,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 							id = "ExpandPlate",
 							surface = "raised",
 							--[[ THE PLATE'S INSETS ARE THE DECLARATION THE CAP RESERVED
-								(`layout/expand_plate.luau`). Not a copy of it and not a
-								second reading of the same tokens: the composition's content
-								cap is `expand_plate.chromeX` of these exact three names, so
-								a package with fatter padding moves BOTH numbers at once and
-								there is no width at which they can disagree. ]]
+								(`layout/expand_plate.luau`), and they are UNIFORM: one
+								token on all four sides, so the close reserves nothing in
+								content flow and there is no trailing dead band. Not a copy
+								of the cap and not a second reading of the same tokens — the
+								composition's content cap is `expand_plate.insetX` of these
+								exact names, so a package with fatter padding moves BOTH
+								numbers at once and there is no width at which they can
+								disagree. ]]
 							padding = expandPlate.PADDING,
-							margin = { top = CLOSE_STRADDLE, right = CLOSE_STRADDLE, bottom = 0, left = 0 },
+							margin = { top = straddle, right = straddle, bottom = 0, left = 0 },
 							gap = "xs",
 							width = width,
 							children = { forms[1] },
