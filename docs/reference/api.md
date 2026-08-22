@@ -5847,12 +5847,22 @@ nothing while the band silently measures zero. The edge is internal
 load-bearing: it is what makes anyone *ask* for the refreshed answer.
 
 **Call `declareApp` at boot, from ordinary code** — never from inside a memo or
-effect body. It writes reactive state, so the core refuses a write made during an
-evaluation and the call raises. The framework does not hide that: the vocabulary
-still lands, every observer that *can* be told is told before the error is
-re-raised, and any observer that missed it is caught up by the next `declareApp`
-— including the identical retry. Loud and recoverable, rather than a namespace
-that answers `isMetricPath` while one environment stays blind.
+effect body. It writes reactive state, and the core refuses a write made during an
+evaluation.
+
+**That failure is quiet, so read this before you get it wrong.** A *direct* call
+raises. A call from *inside a memo* does not reach you: the reactive core
+`pcall`s a memo's compute, so the memo is **quarantined** (it keeps its old value
+and answers without erroring) and the only artifact is **`core:lastError()`**. By
+then the vocabulary is live — `isMetricPath` answers `true` — while an environment
+that missed its notification still resolves those names to nothing.
+
+What the framework guarantees instead of noise: every observer that *can* be told
+**is** told before the failure is reported (so one bad observer never blinds the
+others), and any observer that missed it is **caught up by the next `declareApp`**
+— including the identical retry, and including a declaration for an unrelated
+group. So the mistake is recoverable rather than terminal; it is not
+self-announcing. Declare at boot and it never arises.
 
 **A theme may move them.** A package's `metrics.app` is its answer for an app
 number, exactly as `metrics.space` is its answer for a spacing step:

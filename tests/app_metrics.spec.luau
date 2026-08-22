@@ -329,72 +329,168 @@ describe("app metrics: a declaration reaches a warm environment", function()
 	--[[ A DECLARATION THAT FAILS TO PUBLISH MUST NOT STRAND THE VOCABULARY.
 
 		`declareApp` WRITES reactive state, so calling it from inside a memo or
-		effect body raises — and it raises AFTER the namespace, the generation and
-		the dropped neutral memo have all been applied, but BEFORE (or part-way
-		through) telling the environments. Left alone that is the silent-zero class
-		through a new door, and the value-equality short-circuit makes it PERMANENT:
-		the obvious retry with the same table is a no-op, so the environment stays
-		blind forever while `isMetricPath` cheerfully answers true.
+		effect body fails — and it fails AFTER the namespace, the generation and the
+		dropped neutral memo have all been applied, but BEFORE (or part-way through)
+		telling the environments. Left alone that is the silent-zero class through a
+		new door, and the value-equality short-circuit makes it PERMANENT: the
+		obvious retry with the same table is a no-op, so the environment stays blind
+		forever while `isMetricPath` cheerfully answers true.
 
-		Two properties close it, and this case is both halves:
+		Two properties close it:
 		  1. a failing observer never costs a WORKING one its notification — every
-		     signal is offered the generation before the first failure is re-raised;
+		     signal is offered the generation before the first failure is reported;
 		  2. the publish is SELF-HEALING — any signal whose value trails the
 		     generation is caught up on the next `declareApp`, including the
 		     short-circuited identical retry.
-		And the failure is LOUD either way: `declareApp` re-raises. ]]
-	it("a failing observer does not strand the declaration, and does not silence it", function()
+
+		WHAT IS *NOT* TRUE, and was claimed here until a reviewer drove the real
+		path: this is not "loud". At the throw point that actually occurs — inside a
+		memo — `core:memo`'s pull `pcall`s the compute, so the failure QUARANTINES
+		the memo and lands on `core:lastError()`; it never reaches the author's call
+		site. The direct call below raises because a direct call is not inside a
+		pull. Both shapes are cases here, and the third one is the real one. ]]
+
+	--[[ AN OBSERVER REGISTERED BY A CASE OUTLIVES THE CASE. The registry is
+		process-wide, so an exploding stand-in left behind by an early `expect`
+		failure makes EVERY later `declareApp` in the run fail — one genuine red
+		becomes a dozen, and the genuine one is no longer the first. Protected tail,
+		original error re-raised: the same shape the Rascal Rally contract spec uses
+		on its presenter. ]]
+	local function withObservers(observers: { any }, groups: { string }, body: () -> ())
+		local unsubscribes: { () -> () } = {}
+		for _, observer in observers do
+			table.insert(unsubscribes, snapshot.observeAppDeclarations(observer))
+		end
+		local ok, err = pcall(body)
+		-- THE GROUPS COME BACK IN THE PROTECTED TAIL TOO, not after it. A retire
+		-- written below the body never runs when the body fails, and the next case
+		-- then inherits a group it never declared — which is how the first draft of
+		-- these very cases produced a second, fictional red.
+		for _, unsubscribe in unsubscribes do
+			pcall(unsubscribe)
+		end
+		for _, group in groups do
+			pcall(themes.declareApp, group, nil)
+		end
+		if not ok then
+			error(err, 0)
+		end
+	end
+
+	local function explodingObserver(): any
+		local observer: any = { calls = 0 }
+		function observer:set()
+			self.calls += 1
+			error("writing state during memo evaluation", 0)
+		end
+		return observer
+	end
+
+	local function recordingObserver(): any
+		local observer: any = { value = -1 }
+		function observer:set(v: number)
+			self.value = v
+		end
+		function observer:get(): number
+			return self.value
+		end
+		return observer
+	end
+
+	--[[ TWO EXPLODERS, NOT ONE, AND THAT IS THE WHOLE POINT OF THE SHAPE.
+
+		With ONE exploder and one working signal, "every signal is offered the
+		generation before the first failure is reported" has a COIN-FLIP guard: the
+		registry is a weak table and iterates in arbitrary order, so a
+		stop-at-first-failure implementation passes whenever the exploder happens to
+		sort last. Measured by a reviewer: green in 4 of 8 runs.
+
+		With TWO, the earlier one can never be the last one — so a loop that stops at
+		the first failure must always miss a call, whatever the order. The assertion
+		is on the CALL COUNTS, which is the property, rather than on a downstream
+		value that only sometimes reflects it. ]]
+	it("every observer is offered the generation, even when an earlier one fails", function()
+		local first, second, recorder = explodingObserver(), explodingObserver(), recordingObserver()
+		withObservers({ first, second, recorder }, { "probe" }, function()
+			pcall(themes.declareApp, "probe", { tileMin = 96 })
+			-- THE PROPERTY, stated as the property: BOTH were offered it. Not a call
+			-- COUNT — the sweep runs twice per changing declaration (the heal at the
+			-- top and the publish at the end), and pinning that number would be
+			-- asserting an implementation detail instead of the guarantee.
+			expect(`both={first.calls > 0 and second.calls > 0}`).toBe("both=true")
+			expect(recorder.value).toBe(snapshot.appGeneration())
+		end)
+	end)
+
+	it("a DIRECT call re-raises, and the vocabulary is live either way", function()
 		local core = (Facet :: any).newCore()
 		local env = (Facet :: any).newEnvironment(core)
 		expect((env:get("themeMetrics"):get() :: any).app.probe).toBe(nil) -- warm it
 
-		-- the throw point, stood in for: a signal that refuses every write, exactly
-		-- as the reactive core refuses one made during a memo evaluation
-		local exploding = {
-			set = function()
-				error("writing state during memo evaluation", 0)
-			end,
-		}
-		local unsubscribe = snapshot.observeAppDeclarations(exploding)
+		withObservers({ explodingObserver() }, { "probe" }, function()
+			-- a DIRECT call is not inside a memo pull, so this one really does raise
+			expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
+			-- …and the environment that CAN hear it still did
+			expect((env:get("themeMetrics"):get() :: any).app.probe.tileMin).toBe(96)
+			expect(snapshot.isMetricPath("app.probe.tileMin")).toBe(true)
+			-- the retry the short-circuit would eat is still reported
+			expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
+		end)
+	end)
 
-		-- LOUD, not silent
-		expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
-		-- …and the environment that CAN hear it still did: a failing observer never
-		-- costs a working one its notification, whatever order the registry iterates
-		expect((env:get("themeMetrics"):get() :: any).app.probe.tileMin).toBe(96)
-		expect(snapshot.isMetricPath("app.probe.tileMin")).toBe(true)
+	--[[ THE REAL THROW POINT, DRIVEN THROUGH THE REAL PATH.
 
-		-- …and the retry an author reaches for — the SAME table, which the
-		-- value-equality short-circuit would otherwise eat — is still refused rather
-		-- than quietly succeeding while one environment stays blind
-		expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
+		This is the shape the documentation used to describe wrongly. A `declareApp`
+		made from inside a memo body does NOT reach the author: `pull` `pcall`s the
+		compute, so the memo is QUARANTINED (it keeps its old value and answers
+		without erroring) and the only artifact is `core:lastError()`. The
+		environment that missed its notification stays blind — until any later
+		`declareApp` heals it, which is what makes the mistake recoverable instead of
+		terminal. ]]
+	it("a declaration made inside a memo is quarantined, recorded, and healed later", function()
+		local core = (Facet :: any).newCore()
+		local env = (Facet :: any).newEnvironment(core)
+		expect((env:get("themeMetrics"):get() :: any).app.inmemo).toBe(nil) -- warm it
 
-		unsubscribe()
-		themes.declareApp("probe", nil)
+		local memo = core:memo(function()
+			themes.declareApp("inmemo", { tileMin = 96 })
+			return "computed"
+		end)
+		-- the memo answers, and NOTHING is raised at the read
+		local ok, value = pcall(function()
+			return memo:get()
+		end)
+		expect(ok).toBe(true)
+		expect(value).toBe(nil) -- quarantined on its first evaluation: no value was kept
+		-- the ONE artifact
+		expect(type(core:lastError())).toBe("string")
+		expect(string.find(tostring(core:lastError()), "memo evaluation", 1, true) ~= nil).toBe(true)
+
+		-- the vocabulary IS live — which is exactly why the environment being blind
+		-- would be silent rather than obvious
+		expect(snapshot.isMetricPath("app.inmemo.tileMin")).toBe(true)
+
+		-- …and ANY later declaration heals the environment that missed it
+		themes.declareApp("healer", { chartH = 160 })
+		expect((env:get("themeMetrics"):get() :: any).app.inmemo.tileMin).toBe(96)
+
+		memo:dispose()
+		themes.declareApp("inmemo", nil)
+		themes.declareApp("healer", nil)
 	end)
 
 	it("a signal whose value trails the generation is caught up by the next declaration", function()
-		-- a recording stand-in for an environment that missed its notification
-		local trailing: any = { value = -1 }
-		function trailing:set(v: number)
-			self.value = v
-		end
-		function trailing:get(): number
-			return self.value
-		end
-		local unsubscribe = snapshot.observeAppDeclarations(trailing)
+		local trailing = recordingObserver()
+		withObservers({ trailing }, { "heal" }, function()
+			themes.declareApp("heal", { tileMin = 96 })
+			expect(trailing.value).toBe(snapshot.appGeneration())
 
-		themes.declareApp("heal", { tileMin = 96 })
-		expect(trailing.value).toBe(snapshot.appGeneration())
-
-		-- strand it by hand, then make the IDENTICAL re-declaration the short-circuit
-		-- eats — the heal has to happen before the short-circuit returns
-		trailing.value = -1
-		themes.declareApp("heal", { tileMin = 96 })
-		expect(trailing.value).toBe(snapshot.appGeneration())
-
-		unsubscribe()
-		themes.declareApp("heal", nil)
+			-- strand it by hand, then make the IDENTICAL re-declaration the
+			-- short-circuit eats — the heal has to happen before the early return
+			trailing.value = -1
+			themes.declareApp("heal", { tileMin = 96 })
+			expect(trailing.value).toBe(snapshot.appGeneration())
+		end)
 	end)
 
 	--[[ AN IDENTICAL RE-DECLARATION IS NOT A CHANGE. `installTypeRamp` and

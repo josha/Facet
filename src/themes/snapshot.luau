@@ -519,10 +519,13 @@ end
 	TWO PROPERTIES, AND EACH ONE CLOSES A REAL HOLE.
 
 	IT OFFERS THE GENERATION TO EVERY SIGNAL BEFORE ANYONE HEARS ABOUT A FAILURE.
-	`declareApp` WRITES reactive state, so a call made from inside a memo or effect
-	body raises — and a loop that stopped at the first raise would leave the
-	environments after it in the iteration order (which is arbitrary) blind, for a
-	reason having nothing to do with them.
+	`declareApp` WRITES reactive state, so a `set` can fail — and a loop that
+	stopped at the first failure would leave the environments after it in the
+	iteration order (which is ARBITRARY: this is a weak table) blind, for a reason
+	having nothing to do with them. That arbitrariness is also why the guard case
+	registers TWO failing observers: with one, a stop-at-first-failure bug passes
+	whenever it happens to sort last (measured green in 4 runs of 8), and with two
+	the earlier can never be the last.
 
 	AND IT ONLY WRITES A SIGNAL THAT TRAILS, which is what makes the publish
 	SELF-HEALING. The namespace, the generation and the dropped neutral memo are
@@ -580,11 +583,25 @@ end
 
 	CALL IT AT BOOT, FROM ORDINARY CODE — never from inside a memo, an effect body
 	or anything else the reactive core is evaluating. It WRITES reactive state (the
-	generation every environment's metric memo subscribes to), and the core refuses
-	a write made during an evaluation, so a declaration made from in there raises.
-	It raises AFTER the vocabulary is live and BEFORE it is published, which is why
-	the publish below is self-healing and this paragraph exists rather than a
-	comment saying "don't".
+	generation every environment's metric memo subscribes to) and the core refuses
+	a write made during an evaluation.
+
+	AND THAT FAILURE IS QUIET, WHICH IS THE REASON THIS PARAGRAPH IS LONG. An
+	earlier draft of this comment said the call "raises" — it does when you call it
+	DIRECTLY, and that is not the shape that happens. Inside a memo, `core`'s
+	`pull` `pcall`s the compute (`core/custom.luau`: "Never throws to the caller:
+	compute errors, cycles, and illegal writes quarantine the node"), so what you
+	actually get is: the memo QUARANTINED with its old value, `m:get()` answering
+	as if nothing happened, and ONE artifact — `core:lastError()`.
+
+	The vocabulary is live by then (the namespace, the generation and the dropped
+	neutral memo are applied before the publish), so an environment that missed its
+	notification is blind while `isMetricPath` answers true. That is why the publish
+	below is SELF-HEALING rather than merely careful: it is the only thing standing
+	between a mistake nobody can see and a permanently wrong surface. Any later
+	`declareApp` — including one for an unrelated group — catches the stranded
+	observer up. Guard: `tests/app_metrics.spec.luau`, "a declaration made inside a
+	memo is quarantined, recorded, and healed later".
 
 	AN IDENTICAL RE-DECLARATION IS NOT A CHANGE, and the short-circuit is not
 	tidiness. `TableMetrics.installTypeRamp` and `ResultsParts.declareMetrics`
@@ -634,10 +651,13 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	--[[ …and every live environment's metric memo has to be told, or it serves the
 		warm value it computed before the vocabulary existed (see the note above).
 
-		THE FAILURE IS RE-RAISED, LOUDLY, and the state stays applied: the next
-		`declareApp` — including the identical retry — heals whoever missed it. A
-		swallowed failure here would be the silent zero this whole channel exists to
-		remove, wearing the fix's own clothes. ]]
+		THE FAILURE IS REPORTED — re-raised to a DIRECT caller, and recorded on
+		`core:lastError()` when the call came from inside a memo (see `declareApp`'s
+		header: the core quarantines rather than propagates, so "loud" is only true
+		of the direct shape). Either way the state stays applied and the next
+		`declareApp` — including the identical retry — heals whoever missed it.
+		Swallowing it here would leave the quarantined shape with NO artifact at
+		all. ]]
 	local failure = publishAppGeneration()
 	if failure ~= nil then
 		error(failure, 0)

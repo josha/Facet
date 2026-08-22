@@ -246,17 +246,41 @@ caught it is why this paragraph is worded as a warning:
    environment" — it declares AFTER a read on the SAME environment and touches
    nothing else, which is the only shape that can fail.
 
-**Publishing is self-healing, and the failure is loud.** `declareApp` writes
-reactive state, so a call made from inside a memo or effect body raises — *after*
-the namespace, the generation and the dropped neutral memo are applied and
-*before* (or part-way through) the notification. Two properties stop that becoming
-a permanent silent zero: every registered signal is offered the generation before
-the first failure is re-raised (so a failing observer never costs a working one
-its notification, whatever order the weak registry iterates), and only a signal
-that TRAILS is written — which lets the top of the next `declareApp`, including
-the identical retry the value-equality short-circuit would otherwise eat, catch it
-up. **Call `declareApp` at boot, from ordinary code**; the framework refuses to
-hide it when you do not.
+**Publishing is self-healing, and the failure is QUIET — not loud.** An earlier
+draft of this section claimed the opposite, and the claim was false at the throw
+point that actually occurs; a reviewer drove the real path and it is corrected
+here rather than quietly reworded, because the difference decides how a reader
+budgets their attention.
+
+`declareApp` writes reactive state, and the core refuses a write made during an
+evaluation. A **direct** call raises. A call from **inside a memo** does not reach
+the author at all: the core `pcall`s a memo's compute (`core/custom.luau` —
+"Never throws to the caller: compute errors, cycles, and illegal writes quarantine
+the node"), so the memo is quarantined with its old value, `get()` answers as if
+nothing happened, and the ONE artifact is `core:lastError()`. By then the
+vocabulary is live — `isMetricPath` answers true — while an environment that
+missed its notification resolves those names to nothing.
+
+Two properties stop that becoming a *permanent* silent zero rather than a
+momentary one: every registered signal is offered the generation before the first
+failure is reported (so a failing observer never costs a working one its
+notification, whatever order the weak registry iterates — the guard registers TWO
+failing observers, because with one, a stop-at-first-failure bug passes whenever
+it sorts last: measured green in 4 runs of 8), and only a signal that TRAILS is
+written, which lets the top of the next `declareApp` — including the identical
+retry the value-equality short-circuit would otherwise eat, and including a
+declaration for an unrelated group — catch it up.
+
+So: **call `declareApp` at boot, from ordinary code.** The framework makes the
+mistake *recoverable*, not *self-announcing*. Guard:
+`tests/app_metrics.spec.luau`, "a declaration made inside a memo is quarantined,
+recorded, and healed later".
+
+**Booked, not done**: whether an illegal write during a memo evaluation deserves
+a real diagnostic rather than a `lastError` entry is a question about
+`core/custom.luau`'s `fail()`, which is outside this decision's lane. If the
+answer is yes, it is one change in one place and every quarantined-write shape in
+the framework benefits, not only this one.
 
 `observeAppDeclarations` and `appGeneration` are **internal**, not exported on
 `Facet.themes` and not classified as public surface. The registry is weak, so an
