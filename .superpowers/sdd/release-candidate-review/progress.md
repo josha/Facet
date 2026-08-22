@@ -1301,3 +1301,25 @@ STUDIO.md, root CLAUDE.md.
   behavior preserved. Told to treat solver as locked (the split round owns
   it) and keep clear of the hud scenario file (overflow-guard may declare
   states there). Live verify mine at landing.
+
+## 2026-08-21 (post-close 10) — DIR5 review: CHANGES REQUESTED, split two ways
+
+- DIR5 REVIEW (task-dir5-review.md): 0 critical / 2 HIGH / 4 MEDIUM / 6 LOW;
+  every number reproduced; the load-bearing tree-vs-paint-order reasoning
+  CONFIRMED. H1: the cover's full-width 44px floor + hit_lift steals a 12px
+  band from NEIGHBOR buttons (26% of each, measured; 0 at the parent) and
+  EXPAND 15 asserts the lift as desired so the suite cannot redden. H2: the
+  hugging plate exceeds the viewport (panel 8..398 on 390; the close disc
+  outside the safe area under 20px insets) — the clamp repositions, it
+  cannot shrink. M: the scrim fix WORKS (live 0.45) but its mechanism story
+  is contradicted by its own oracle and other scrim="none" catchers were
+  left unswept; formCarriesMeaning misses UI.Box{active=true}; the
+  GetLastInputType primacy fix flaps without the INPUT-100/101 deadzone.
+- ROUTING (avoid a three-way collision in region_expand): H1 + H2 +
+  formCarriesMeaning FOLDED INTO the plate-B build round (already in those
+  files — the plate gains a bounded width, the floor clamps to its region,
+  EXPAND 15 learns to redden on outside-region overlap); the input deadzone
+  + scrim-class sweep resumed on the DIR5 implementer (roblox_env +
+  catchers, files nobody else holds). B-16 amended by the controller
+  ("UNDER every form WITHIN ITS OWN REGION" + correction note). The
+  cover-on-device evidence row joins the director packet.
