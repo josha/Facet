@@ -386,11 +386,13 @@ function shell.build(app: any): any
 		-- the enter fade the four section hosts each declared
 		transition = { enter = "fade" },
 		tabs = tabs,
+		-- NO TRANSACTION HERE, deliberately: the control already wraps its own write
+		-- and this callback in ONE turn (see `newPicker`), which is what makes the
+		-- snap-back invisible. Spelling a second one would teach a ceremony the
+		-- framework guarantees.
 		onChange = function(id: string)
-			core:transaction(function()
-				app.commands.selectSection(id)
-				intent:set(app.state.section:get())
-			end)
+			app.commands.selectSection(id)
+			intent:set(app.state.section:get())
 		end,
 		accessories = {
 			--[[ THE TOP BAND'S TRAILING EDGE. The construct parks this at the band's
