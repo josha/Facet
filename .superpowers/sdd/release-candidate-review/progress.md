@@ -1689,3 +1689,24 @@ STUDIO.md, root CLAUDE.md.
   one-line sheet fix + the fence learns the sheet, the close joins the
   grow-until-pressable class (commit_walks is unlocked now), the ring
   inequality against the real authority.
+
+## 2026-08-21 (post-close 28) — R23: the floor stops for the author, not for itself
+
+- RENDERER REVIEW (cff4bb8): ACCEPT WITH FIXES — behavior identity and the
+  brief-refusal reproduced independently (the hard clamp costs all three
+  shipped covers their floor, reddening overflow_sweep on exactly the five
+  named viewports). MAJOR-1: at matrix scale the grow rule over-applies —
+  42/382 route boxes under the floor (min 25px), 32 covers retracted, and
+  55 of 110 cuts are framework-vs-framework — a question R18 never ruled
+  and hit_lift's own doctrine answers the other way.
+- RULING R23: the floor stops ONLY at author-interactive rects (the theft
+  class); framework affordances overlap each other and arbitrate by the
+  existing z/hit_lift order, per that doctrine's own words. Fix round
+  resumed with the review's matrix instrument as the oracle and the blast
+  radius PINNED at matrix scale (never again asserted on one fixture).
+  Also: ADR-0041's 8 dangling citations get a real file or a re-point;
+  "three days" corrected to the measured 3h10m; B-19's blast-radius
+  sentence to be re-edited from the corrected text. Coordination noted:
+  two rounds now share commit_walks.luau (plate-B extending the rule to
+  the close class) — marker-tight hunks, re-read before edit, never
+  revert the unfamiliar.
