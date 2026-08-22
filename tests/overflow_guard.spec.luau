@@ -414,3 +414,166 @@ describe("overflow guard: the waiver registry cannot rot", function()
 		expect(#unused).toBe(0)
 	end)
 end)
+
+--[[ THE COMPOSITION-REGION CLASS, TRIAGED AND PINNED (follow-up, 2026-08-21).
+
+	THE HANDOVER. The solver-split round (`435dade`), while scoping its own
+	settle-time containment diagnostic, counted a class it did not ship: **a
+	composition REGION placed below its composition's own content box, 312 times
+	suite-wide** on `/HudScreen/Hud/*`, `/CompositionScreen/.../Summary/*` and
+	`/S/C/*`, overhangs 2-235px. Its report booked it and routed it here, on the
+	grounds that the collision finding compares regions against EACH OTHER and
+	never against the box, and that the adapter-side harness can see paint.
+
+	REPRODUCED EXACTLY — 312, with the same probe placed at the composition's own
+	arrange branch — AND THE VERDICT IS: **DELIBERATE, and already reported.**
+	The measurement is what decides it, in four parts:
+
+	  1. **312 of 312 carry `fallback = true`. Not one is a legal composition.**
+	     The fallback is the framework's own declaration that NOTHING FITS: it is
+	     the one finding in this framework marked `designed = true`, it fires once
+	     per solve on the composition itself, and it names the offer and the last
+	     rejection ("no declared arrangement is legal in 304x0 — showing 'hud' as
+	     the declared fallback (last rejection: overflow — lane 1 (left) needs
+	     78px...)"). A second, per-region telling of that would be the same
+	     duplication the solver round rejected 4,103 main-axis rows for — and it
+	     would contradict the `designed` verdict at the same time.
+	  2. **312 of 312 are the BOTTOM edge.** There is no horizontal instance,
+	     because `placed.rect` is the SLOT the partition allotted and the partition
+	     is clamped to the box. Only the fallback column's tail runs past it.
+	  3. **A LEGAL composition cannot do it**, and that is a measured structural
+	     fact rather than an empirical absence — the two cases below are exactly
+	     that boundary: at hero 400 the three-lane arrangement is legal and every
+	     region is inside the box; at hero 420, twenty pixels later, the
+	     arrangement is REJECTED and the fallback places its regions outside. The
+	     legality check bounds vertical fit, so "a region left the box" and "the
+	     composition fell back" are the same event.
+	  4. **Where it fires, nothing escapes paint.** On the worst cell in the suite
+	     (narrow-portrait 320x640, `preferredTextOffset` +14, Pixel Quest, strip
+	     down) the composition is offered **304x0** and yet: zero region-vs-region
+	     collisions, no region outside the SCREEN, and this guard reports zero. The
+	     underlying pressure is the fixture's own and is already documented in
+	     `examples/gallery/scenarios/hud.luau` — the demo carries two developer
+	     `UI.Toggle`s (`Drivers`) on the same Screen as the HUD, they wrap to two
+	     lines at that size under that package, and hud.luau's own comment records
+	     "This Screen has UNDER 8px of headroom at 320x640 with
+	     preferredTextOffset = +14".
+
+	SO THE GUARD STAYS SILENT ON IT, DELIBERATELY, the way `anchor` and `zstack`
+	are deliberately unpoliced one layer down (`layout/placement_audit.luau`) — and
+	the silence is PINNED HERE rather than merely decided, because a class that is
+	countable but invisible is exactly how this one reached a second round. These
+	two cases fail if any part of the verdict stops being true: if a legal
+	composition ever places a region outside its box, if the fallback stops filing
+	its `designed` finding, or if the fallback's geometry ever escapes a panel. ]]
+describe("overflow guard: a composition region outside its box IS the declared fallback", function()
+	local function box(id: string, w: number, h: number): any
+		return UI.Box({
+			id = id,
+			surface = "control",
+			width = { type = "fixed", px = w },
+			height = { type = "fixed", px = h },
+		})
+	end
+
+	--[[ 700x400, and the ONE variable is the lead region's height. The three-lane
+		arrangement is legal while the tallest form fits the box and is rejected the
+		moment it does not, which is the boundary these two cases sit either side
+		of. ]]
+	local function screenWith(heroH: number): any
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "threeLane", "column" },
+					laneGap = 12,
+					groupGap = 8,
+					width = { type = "fixed", px = 700 },
+					height = { type = "fixed", px = 400 },
+					groups = {
+						{ id = "ceremony", lane = "lead", sizing = "hug", place = "center" },
+						{ id = "field", lane = "main", sizing = "fill", minWidth = 200 },
+						{ id = "next", lane = "trail", sizing = "hug", place = "end" },
+					},
+					children = {
+						UI.Region({
+							id = "Hero",
+							group = "ceremony",
+							rank = 3,
+							children = { box("HeroFull", 150, heroH) },
+						}),
+						UI.Region({
+							id = "Field",
+							group = "field",
+							rank = 2,
+							sizing = "fill",
+							floor = { lines = 1 },
+							children = { box("FieldBody", 200, 60) },
+						}),
+						UI.Region({ id = "Ctas", group = "next", rank = 1, children = { box("CtaRow", 120, 60) } }),
+					},
+				}),
+			},
+		})
+	end
+
+	-- how far each mounted region's rect falls below the composition's own box
+	local function belowBox(w: any): { [string]: number }
+		local comp = w.adapter.node("/S/C").rect
+		local out: { [string]: number } = {}
+		for _, path in w.adapter.paths() do
+			local n = w.adapter.node(path)
+			if n ~= nil and n.class == "Region" and n.rect ~= nil and n.visible ~= false then
+				out[path] = (n.rect.y + n.rect.h) - (comp.y + comp.h)
+			end
+		end
+		return out
+	end
+
+	local function mount(heroH: number): any
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 900, h = 700 },
+			overflowGuardOff = OFF,
+		})
+		w.present(screenWith(heroH))
+		w.settle(2)
+		return w
+	end
+
+	it("A LEGAL composition keeps every region inside its own box — the property, positive", function()
+		local w = mount(400)
+		expect(w.controller.compositionAt("/S/C").fallback).toBe(false)
+		for path, below in belowBox(w) do
+			expect(`{path} below by {below}`).toBe(`{path} below by 0`)
+		end
+		expect(#overflow_guard.violations(w.adapter)).toBe(0)
+	end)
+
+	it("...and twenty pixels later NOTHING is legal, so the regions leave the box AND the framework says so", function()
+		local w = mount(420)
+		local dump = w.controller.compositionAt("/S/C")
+		-- the class, reproduced in miniature: the same bottom-edge escape the 312
+		-- are, on a composition that has run out of legal arrangements
+		expect(dump.fallback).toBe(true)
+		local below = belowBox(w)
+		expect(below["/S/C/Hero"]).toBeCloseTo(20, 0.5)
+		expect(below["/S/C/Ctas"]).toBeGreaterThan(0)
+
+		--[[ AND THIS IS WHY THERE IS NO SECOND FINDING: the framework has already
+			filed one, on the composition, marked `designed`, naming the offer it could
+			not satisfy. Re-reporting it once per region would say the same thing three
+			more times and call the framework's own designed behaviour a defect. ]]
+		local designed = 0
+		for _, finding in w.controller.diagnostics() do
+			if finding.node == "/S/C" and finding.designed == true then
+				expect(string.find(finding.issue, "no declared arrangement is legal", 1, true)).toBe(1)
+				designed += 1
+			end
+		end
+		expect(designed).toBe(1)
+
+		-- ...and no PAINT escapes: the fallback is a layout verdict, not a leak
+		expect(#overflow_guard.violations(w.adapter)).toBe(0)
+	end)
+end)

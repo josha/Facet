@@ -29,7 +29,7 @@
 	exception. The registry stays because the day one does, the alternative is a
 	suppression somebody writes into the oracle.
 
-	THE THREE THINGS THAT ARE NOT HERE, stated so a reader does not go looking:
+	THE FOUR THINGS THAT ARE NOT HERE, stated so a reader does not go looking:
 
 	  * the R18 hit-expander floor. A sub-44px control's expanded target really
 	    does exceed its own visual box, and it really does exceed its parent's —
@@ -43,6 +43,13 @@
 	    (`presentedPosition`, ADR-0022 Decision 2). A travelling node is inside its
 	    box as far as this census is concerned, which is the honest answer: the
 	    layout is what is being judged.
+	  * a COMPOSITION REGION below its composition's box (the class the
+	    solver-split round routed here, 2026-08-21). Not waived because it is not
+	    a violation this guard files at all: a composition is deliberately not a
+	    containment boundary, for the measured reason written in
+	    `overflow_guard.luau` — 312 of 312 occurrences are the declared FALLBACK,
+	    which the framework already reports as `designed = true`. A waiver would
+	    have hidden a class; a stated rule with two cases behind it does not.
 	  * the region-expand plate's CORNER CLOSE DISC (DIR5 item 4). This one was
 	    expected to need a waiver and MEASURED NOT TO, which is the ruling's own
 	    construction proving itself: "the straddle is a MARGIN on the plate rather

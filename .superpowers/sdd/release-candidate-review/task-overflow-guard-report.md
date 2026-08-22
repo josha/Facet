@@ -404,3 +404,125 @@ this task's claim true.
    commit, and a suite run of the COMMITTED tree, are the only things that can
    see this class. A dry-run's KEEP/drop list cannot — it reported one clean
    `KEEP` for the hunk that contained somebody else's line.
+
+---
+
+## 9. Follow-up triage — the composition-region class (312), routed here by the solver-split round
+
+**Handover.** `435dade`'s report (concern 2) counted, while scoping its own
+settle-time containment diagnostic, a class it deliberately did not ship: **a
+composition REGION placed below its composition's own content box, 312 times
+suite-wide** — `/HudScreen/Hud/*`, `/CompositionScreen/.../Summary/*`, `/S/C/*`,
+overhangs 2–235px — on the grounds that the collision finding compares regions
+against EACH OTHER and never against the box.
+
+### The count: 312, reproduced exactly
+
+Same probe, same place — the composition's own arrange branch in
+`src/layout/solver.luau`, comparing each `placed.rect` against the composition's
+content box — installed in a content-pinned private copy and run over the whole
+suite:
+
+```
+TOTAL 312   fallback=true 312   fallback=false 0
+-- by composition --
+    107  /CompositionScreen/Body/OfferFrame/Summary
+    197  /HudScreen/Hud
+      8  /S/C
+```
+
+Not corrected. **312.**
+
+### VERDICT: deliberate composition behaviour — it is the declared FALLBACK, and the framework already reports it
+
+Four measurements decide it, and each is a different way the verdict could have
+gone the other way:
+
+1. **312 of 312 carry `fallback = true`; zero are a legal composition.** The
+   fallback is the framework's own statement that nothing fits — the one finding
+   in this framework marked `designed = true` — filed once per solve on the
+   composition, naming the offer and the last rejection: *"no declared
+   arrangement is legal in 304x0 — showing 'hud' as the declared fallback (last
+   rejection: overflow — lane 1 (left) needs 78px but the composition was
+   offered…)"*. A per-region re-telling would be the same duplication the solver
+   round rejected 4,103 main-axis rows for, and would call the framework's own
+   `designed` verdict a defect in the same breath.
+2. **312 of 312 are the BOTTOM edge.** There is no horizontal instance and cannot
+   be: `placed.rect` is the SLOT the partition allotted and the partition is
+   clamped to the box. Only the fallback column's tail runs past it. (Measured
+   directly: a trail region declared 800 and 1200px wide in a 700px composition
+   produces no horizontal escape at all — its *content* overflows its slot, which
+   is a different question already answered by the inner stack's own overflow
+   finding and by this guard's panel/clip containment.)
+3. **A LEGAL composition cannot produce one**, and this is structural rather than
+   incidental. Measured at the boundary on a 700x400 composition: a lead form
+   **400** tall keeps `threeLane` legal and every region inside the box; **420**
+   — twenty pixels later — has the arrangement REJECTED and the fallback places
+   `Hero` 20px, `Field` 48px and `Ctas` 116px below the box. The legality check
+   bounds vertical fit, so *"a region left the box"* and *"the composition fell
+   back"* are the same event.
+4. **Where it fires, nothing escapes paint.** On the worst cell in the suite —
+   narrow-portrait 320x640, `preferredTextOffset` +14, Pixel Quest, strip down —
+   the composition is offered **304x0**, and: **0** region-vs-region collisions,
+   **0** regions outside the screen, **0** violations from this guard. The three
+   surviving regions land inside 320x640.
+
+**The underlying pressure is fixture-side and the fixture already documents it.**
+`/HudScreen` carries the HUD composition (`fill`) beside `Drivers`, two developer
+`UI.Toggle`s that WRAP to two lines (168px) at that size under that package;
+with the showcase's 120px chip reservation the `fill` composition is left zero
+height. `examples/gallery/scenarios/hud.luau`'s own comment already records it:
+*"This Screen has UNDER 8px of headroom at 320x640 with preferredTextOffset =
++14"*. **No fix taken**: there is no small fixture-side change here — buying the
+HUD headroom means changing what the demo demonstrates — and the framework's
+report of the state is already correct, specific and marked designed.
+
+### What shipped instead: a documented negative rule, and two cases that pin it
+
+A composition is **deliberately not a containment boundary** in
+`tests/lib/overflow_guard.luau`, the way `anchor` and `zstack` are deliberately
+unpoliced one layer down. The reason and its measurement are written into the
+module's boundary docstring and into `tests/lib/overflow_waivers.luau`'s
+"things that are not here" list — **not** as a waiver, because a waiver would
+have hidden a class where a stated rule explains it.
+
+And the verdict is pinned by two cases in `tests/overflow_guard.spec.luau`, so
+the class can never again be countable-but-invisible:
+
+* *"A LEGAL composition keeps every region inside its own box"* — the property,
+  positive, at hero 400;
+* *"...and twenty pixels later NOTHING is legal, so the regions leave the box AND
+  the framework says so"* — the class reproduced in miniature at hero 420, with
+  the `designed = true` fallback finding asserted by name and this guard asserted
+  silent.
+
+**Three mutations bite, one red each** (17 cases in the file):
+
+| # | mutation | result |
+|---|---|---|
+| C-M1 | the positive case is handed the fallback height (its property goes vacuous) | **1 red** |
+| C-M2 | the fallback finding stops being marked `designed` | **1 red** |
+| C-M3 | a `Composition` becomes a containment boundary in the guard | **1 red** |
+
+### Suite
+
+Content-pinned at `233de1a`, same archive both runs:
+
+```
+baseline                       7000 passed, 0 failed
+with the two pinning cases     7002 passed, 0 failed
+```
+
+**RascalRally**, mirrored tree at the same Facet HEAD, paired:
+
+```
+before   3465 passed, 0 failed
+after    3465 passed, 0 failed
+```
+
+**And a correction to §6, made rather than left standing:** the two RR failures
+that section records as pre-existing at Facet HEAD (`facet_large_text_sweep`,
+`facet_large_text_results`) are **gone** — RR is 3465/0 at the current HEAD. They
+were the concurrent solver/paint rounds mid-flight, exactly as §6 attributed
+them, and those rounds have since landed. The attribution was right; the number
+in §6 is a snapshot of a tree that no longer exists.

@@ -69,6 +69,22 @@
 	native path clears `nativeSurface` with it, so the node carries no fill at
 	all. Treating one as a boundary would invent an edge the player cannot see.
 
+	A COMPOSITION IS NOT A BOUNDARY, AND THAT IS A MEASURED RULE RATHER THAN AN
+	OVERSIGHT (follow-up triage, 2026-08-21). The solver-split round counted 312
+	cases suite-wide of a REGION placed below its composition's own content box and
+	routed the class here. Reproduced exactly, and every one of the 312 carries
+	`fallback = true` — the composition's own declaration that no arrangement is
+	legal, which it already files once per solve, on itself, marked
+	`designed = true`, naming the offer it could not satisfy. All 312 are the
+	BOTTOM edge (the slot partition is clamped to the box, so nothing escapes
+	sideways), a LEGAL composition cannot produce one (measured at the boundary:
+	the arrangement is rejected the moment a form outgrows the box), and where it
+	fires nothing escapes paint — on the worst cell in the suite the composition is
+	offered 304x0 and this guard, the collision finding and the off-screen check
+	are all silent. Policing it would re-tell an existing finding and call the
+	framework's own designed behaviour a defect. Pinned by two cases in
+	`tests/overflow_guard.spec.luau` so the verdict cannot rot into an omission.
+
 	── WHAT PAINTS ──────────────────────────────────────────────────────────────
 
 	A node is judged when it puts something on glass: a non-empty Text, an Image
