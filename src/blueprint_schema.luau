@@ -316,8 +316,8 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			return false, 'a target such as { role = "cover" }'
 		end
 		local r = v :: any
-		if r.role ~= "cover" and r.role ~= "chevron" then
-			return false, '`role` must be "cover" or "chevron"'
+		if r.role ~= "cover" and r.role ~= "chevron" and r.role ~= "close" then
+			return false, '`role` must be "cover", "chevron" or "close"'
 		end
 		return true
 	end,
@@ -2091,9 +2091,12 @@ class("Button", {
 			types = { "expandTarget" },
 			reactive = false,
 			channel = "layout",
-			doc = 'framework-declared: this button is a region\'s expand affordance. { role = "cover" } '
+			doc = 'framework-declared: this button is a region\'s expand chrome. { role = "cover" } '
 				.. 'covers the compact form (which carries no controls of its own); { role = "chevron" } '
-				.. "sits beside it. Authors declare `UI.Region{ expand = … }`, never this",
+				.. 'sits beside it; { role = "close" } is the plate\'s own way out. Authors declare '
+				.. "`UI.Region{ expand = … }`, never this. The three share one consequence — a floor "
+				.. "the framework asks for on its OWN chrome grows only until it meets something "
+				.. "pressable (`render/commit_walks.growWithin`)",
 		}),
 		onActivate = p({
 			types = { "function" },

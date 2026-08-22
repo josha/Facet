@@ -283,77 +283,56 @@ reaches. The sheet arm additionally asserts TANGENCY rather than mere clearance 
 nearest == radius, not `>=` — because the sheet's reserve is exact by construction and a
 `>=` there would have gone green on the 4px incursion.
 
-## MEDIUM-2 — the 9x9: BUILT AND MEASURED, LANDING IN THE FOLLOW-UP COMMIT
+## MEDIUM-2 — the 9x9: FIXED, in its own commit, after the round it shared a file with
 
-**Held out of the tree, and the hold was TESTED rather than assumed.** The fix edits
-`render/commit_walks.luau`, and the renderer round is mid-flight in that same file with
-ruling R23 (its `pressableRects` is already renamed `authorPressableRects` in the shared
-working tree, and `tests/commit_walks_seam.spec.luau` with it). My change was applied to
-the live file and the isolation checked before committing anything: **both of my hunks —
-the predicate at `@@ -534,31 @@` and the call site at `@@ -590,12 @@` — carry that
-round's uncommitted R23 work as well**, because my one changed line sits directly above
-their renamed one and git cannot split them. `commit_isolated`'s marker filter would have
-swept their work into my commit, which is the precise accident that tool exists to
-prevent. The edit was reverted byte-for-byte (`md5 d4c5818f…` before and after) and the
-two files it depends on restored to HEAD.
+**It waited, and the wait is the point.** The fix edits `render/commit_walks.luau`, which
+the renderer round held for its R23 ruling. Applying it early was TRIED and REFUSED: both
+of my hunks carried that round's uncommitted rename (`pressableRects` ->
+`authorPressableRects`) because my one changed line sits directly above theirs and git
+cannot split them, so `commit_isolated`'s marker filter would have swept their work into
+my commit. The edit was reverted byte-for-byte (`md5 d4c5818f...` before and after), the
+hold was recorded with its proof, the replay was rehearsed against their in-flight state,
+and it landed on `16f5434` once R23 was in — unchanged, every anchor still valid.
 
-**It is READY, not merely planned.** `scratchpad/fix1_B.py` applies it to whatever that
-round leaves behind — it anchors on the `isCover` definition and its single call site and
-touches nothing between them, so their rename survives untouched. Everything below is
-built, green (7038 passed against a 7036 baseline) and mutation-tested against `20148ef`.
-Landing it needs one of: this round resumed after the renderer round commits, or that
-round taking the predicate widening into its own commit. **Nothing of it is in the tree
-today, so the 9x9 is still live** — deliberately, rather than at the cost of another
-round's work.
+**The defect.** The close disc's 44px effective target reaches past the plate's padding
+and into the content box — 6px at Medium, 9px at ten-foot, because the floor scales
+(66/2 = 33) as the padding does (24) and the difference grows. Over text that is legal:
+R18 exempts the floor over PASSIVE content. Over an author's CONTROL it is banned, and
+that is what it landed on.
 
-**AND THE REPLAY IS VALIDATED AGAINST THE ROUND IT IS WAITING FOR.** The held fix was
-applied to a private export of HEAD carrying that round's in-flight R23 files
-(`commit_walks.luau`, `renderer.luau`, `commit_walks_seam.spec.luau`) — the state it will
-actually land on top of, not the state it was written against:
+**The fix is the mechanism that already shipped, widened by one predicate.**
+`commit_walks.growWithin` grows a floor one side at a time and stops at the first
+pressable thing; it was scoped `role == "cover"`, so it never reached the close. The
+honest scope is "did the framework synthesize this node" — the ruling is about what a
+floor LANDS ON, not about which node asked for it — so the close declares
+`expandTarget = { role = "close" }` and the predicate is cover-or-close. A `chevron` is
+deliberately excluded: it reserves its own column out of the form's measure, so its floor
+overlaps nothing it did not already own. Reserving extra plate padding at ten-foot was
+rejected: it would move the content box for every plate to answer a case that exists only
+when an author puts a control in one corner.
 
-* every anchor survives their rewrite (the script touches only the `isCover` definition
-  and its single call site, and their `authorPressableRects` rename lives between them);
-* **red-first still holds under R23**: the hit-floor case is 1 failed / 77 passed without
-  the source half, and **78 passed** with it;
-* the two rules COMPOSE the right way round. R23 narrows which rects may stop a floor
-  (author-declared sinks only); this widens which hosts are stopped by them (the whole
-  synthesized-chrome class). The author Button that the close's floor used to take 36 and
-  81 px2 from is author-declared, so it still blocks — and the close, being framework,
-  stops blocking other framework floors, which is R23's own ruling.
+**AND IT COMPOSES WITH R23 THE RIGHT WAY ROUND**, which was the open question the
+rehearsal answered. R23 narrows WHICH RECTS may stop a floor (author-declared sinks only);
+this widens WHICH HOSTS are stopped by them. The author Button is author-declared, so it
+still blocks; the close, being framework, stops blocking other framework floors — R23's
+own ruling.
 
-**Also NOT landed with it, for the same reason:** `expandTarget`'s third role in
-`blueprint_schema.luau` and the `{ role = "close" }` declaration on the close affordance.
-They are inert without the predicate — accepted and doing nothing, which the constitution
-forbids — so they travel with it rather than ahead of it.
-
-The review is right that this was a finding rather than a footnote, and right that the
-blocked argument had expired. `render/commit_walks.growWithin` (ADR-0041) is exactly the
-mechanism — a floor that grows one side at a time and stops at the first pressable thing
-— and it was scoped `role == "cover"`, so it never reached the close.
-
-**Chosen fix: widen the scope, not reserve extra padding.** The close disc is framework
-chrome exactly as a cover is, and R18's ruling is about what a floor LANDS ON, not about
-which node asked for it — so the predicate is now "did the framework synthesize this
-node", spelled as `expandTarget.role == "cover" or == "close"`, with the close declaring
-`expandTarget = { role = "close" }`. A `chevron` is deliberately excluded: it reserves
-its own column out of the form's measure, so its floor overlaps nothing it did not
-already own. Reserving extra plate padding at ten-foot was rejected — it would move the
-content box for every plate to answer a case that only exists when an author puts a
-control in one corner, and it would leave the same overlap on any package whose ladder
-put the floor further in.
-
-Measured over an author Button in the plate's top-trailing corner:
+Measured on `16f5434`, an author Button in the plate's top-trailing corner:
 
 | rung | close hit rect before | overlap before | after | overlap after | disc's own box |
 |---|---|---|---|---|---|
-| Medium | 44x44 | **36 px2** | **40x40** | **4 px2** | 4 px2 |
-| Large | 66x66 | **81 px2** | **60x60** | **9 px2** | 9 px2 |
+| Medium | `125,0 44x44` | **36 px2** | `129,0 40x40` | **4 px2** | 4 px2 |
+| Large | `325,0 66x66` | **81 px2** | `331,0 60x60` | **9 px2** | 9 px2 |
 
-**The residue is not the floor's.** A hit rect is a RECTANGLE and the disc is a CIRCLE,
-so the disc's own box already reaches `discHalf - padding` into the content box at its
-corner (2px near, 3px at Large) while the painted circle clears it. The new case asserts
-the honest rule — the floor grants nothing over the control that the disc's own box did
-not already have — and the paint half is the circle fence above.
+**The residue is not the floor's.** A hit rect is a RECTANGLE and the disc is a CIRCLE, so
+the disc's own box already reaches `discHalf - padding` into the content box at its corner
+(2px near, 3px at Large) while the painted circle clears it. The case asserts the honest
+rule — the floor grants nothing over the control that the disc's own box did not already
+have — and the paint half stays with the circle fence.
+
+Red-first on `16f5434`: **1 failed, 77 passed** without the source half, **78 passed** with
+it. Suite 7039 -> 7040. Mutations: the close's role removed -> 1 red; the predicate back to
+cover-only -> 1 red. Both land on this case and no other.
 
 ## MEDIUM-1 — `active` only saw the literal: FIXED
 

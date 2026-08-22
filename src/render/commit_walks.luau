@@ -535,10 +535,27 @@ function commit_walks.new(ctx: CommitCtx)
 			move every z below every cover and put the reservation back on history.
 			This decision reads THIS SOLVE's rects and the structural sink census, and
 			never `lastHitRects` — it is a function of the frame, not of its history. ]]
-		local function isCover(node: any): boolean
+		--[[ EVERY NODE THE FRAMEWORK SYNTHESIZED FOR ITSELF, which is the honest
+			scope of the rule above rather than the one case that commissioned it
+			(plate-B fix round 1, its review's MEDIUM-2). A cover is a region's whole
+			box and a `close` is the plate's own way out; both are chrome no author
+			declared, and the ruling this implements is about what a floor LANDS ON,
+			not about which of the two asked for it. Measured before the widening: the
+			close's 44px band took 6x6 px at Medium and 9x9 at Large from an author
+			Button in the plate's top-trailing corner, with the close on top — two
+			actionable targets for one gesture.
+
+			A `chevron` is deliberately NOT here: it reserves its own column out of
+			the form's measure, so its floor overlaps nothing it did not already own,
+			and growing it would be arithmetic with no case behind it. ]]
+		local function isFrameworkChrome(node: any): boolean
 			local props = node.props
 			local target = if props ~= nil then props.expandTarget else nil
-			return type(target) == "table" and target.role == "cover"
+			if type(target) ~= "table" then
+				return false
+			end
+			local role = (target :: any).role
+			return role == "cover" or role == "close"
 		end
 		--[[ EVERY RECT A PRESS MEANT FOR THE AUTHOR COULD LAND ON — and only those
 			(ruling R23, 2026-08-21). `inputSinks` is the same structural census the
@@ -609,12 +626,11 @@ function commit_walks.new(ctx: CommitCtx)
 							w = w,
 							h = h,
 						}
-						if isCover(node) then
+						if isFrameworkChrome(node) then
 							want = commit_walks.growWithin(r, want, authorPressableRects())
 							-- grown back to the box it already paints, there is
-							-- nothing to advertise: the Button's own rect IS the
-							-- region, so an expander here would be a transparent
-							-- duplicate of it
+							-- nothing to advertise: an expander the size of its own
+							-- host is a transparent duplicate of it
 							if want.w <= r.w and want.h <= r.h then
 								want = nil
 							end

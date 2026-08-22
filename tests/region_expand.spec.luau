@@ -2676,6 +2676,127 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 		end
 	end)
 
+	it("...and the disc's HIT floor takes nothing from an interactive control on the plate", function()
+		--[[ REVIEW MEDIUM-2, and it is the OTHER rect. The case above measures PAINT
+			(a circle against author rects); the 44px effective target is a second
+			rect the framework asks for, and on the default package it reaches 6px
+			(Medium) / 9px (Large) PAST the padding and into the content box. Over
+			text that is legal — R18 exempts the floor over PASSIVE content, which is
+			the F1 accessibility floor every platform ships. Over an INTERACTIVE
+			control it is banned: two actionable targets for one gesture, the
+			framework's on top, and the player cannot see which won.
+
+			The mechanism that answers it already shipped for the region cover
+			(`render/commit_walks.growWithin`, ADR-0041): a floor that grows one side
+			at a time and stops at the first pressable thing. This round widened its
+			scope from `role == "cover"` to the framework's whole synthesized chrome,
+			so the close disc is bounded by the same rule. Measured before: 6x6 = 36
+			px2 at Medium and 9x9 = 81 px2 at Large, over an author Button in the
+			plate's top-trailing corner, with the close on top. ]]
+		local function cornerScreen(): any
+			return UI.Screen({
+				id = "S",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Composition({
+						id = "C",
+						arrangements = { "column" },
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						groups = { { id = "body", lane = "main", sizing = "fill" } },
+						children = {
+							UI.Region({
+								id = "Clock",
+								group = "body",
+								rank = 1,
+								recover = "overflow",
+								children = {
+									UI.VStack({
+										id = "Full",
+										children = {
+											--[[ THE AUTHOR'S OWN CONTROL, IN THE CORNER THE
+												CLOSE'S FLOOR REACHES INTO — and it has to be the
+												LAST child of a row for that, because the plate
+												hugs: a control that is merely first in a column
+												sits at the LEADING edge and the floor never comes
+												near it (measured: right edge 71 against a band
+												starting at 78, which is why the first draft of
+												this case passed vacuously). ]]
+											UI.HStack({
+												id = "Row",
+												children = {
+													UI.Text({ id = "Body", text = "12 - 9", textSize = 16 }),
+													UI.Button({
+														id = "Corner",
+														label = "go",
+														onActivate = function() end,
+													}),
+												},
+											}),
+											UI.Text({ id = "Below", text = "2:14", textSize = 16 }),
+										},
+									}),
+									UI.Text({ id = "Compact", text = "2:14", textSize = 16 }),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+		for _, displaySize in { "Medium", "Large" } do
+			local opts: any = { viewport = { x = 0, y = 0, w = 390, h = 40 } }
+			if displaySize == "Large" then
+				opts.displaySize = "Large"
+				opts.viewport = { x = 0, y = 0, w = 1200, h = 40 }
+			end
+			local w = worldLib.new(opts)
+			w.present(cornerScreen(), { initialFocus = "none" })
+			w.adapter.tap("/S/C/Clock/Expand")
+			w.pres.refresh()
+			local closePath = `{PANEL}/ExpandClose`
+			local band = w.adapter.hitRectOf(closePath) or w.adapter.node(closePath).rect
+			local corner = w.adapter.node(`{PANEL}/ExpandPlate/Full/Row/Corner`)
+			expect(`{displaySize}: corner control mounted {corner ~= nil}`).toBe(
+				`{displaySize}: corner control mounted true`
+			)
+			--[[ NON-VACUOUS: without the clamp the floor is bigger than the disc on
+				both axes, which is the only state in which it could reach anything. ]]
+			local painted = w.adapter.node(closePath).rect
+			expect(`{displaySize}: floor asked for more than the disc {band.w >= painted.w and band.h >= painted.h}`).toBe(
+				`{displaySize}: floor asked for more than the disc true`
+			)
+			local function areaOver(a: any, b: any): number
+				local ox = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+				local oy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+				return if ox > 0 and oy > 0 then ox * oy else 0
+			end
+			--[[ THE RULE IS THAT THE FLOOR GRANTS NOTHING OVER THE CONTROL, not that
+				nothing overlaps it at all — and the difference is a fact about the
+				engine rather than about this design. A hit rect is a RECTANGLE and the
+				disc is a CIRCLE, so the disc's own box already reaches
+				`discHalf - padding` into the content box at its corner (2px near, 3px
+				at Large) while the painted circle clears it by the case above. That
+				residue belongs to the disc's own box and no floor can give it back;
+				what the floor may not do is ADD to it. Measured before the widening:
+				36 px2 at Medium and 81 px2 at Large against a disc-box residue of 4 and
+				9 — the floor was contributing 32 and 72 px2 of its own. ]]
+			local disc = w.adapter.node(closePath).rect
+			expect(
+				`{displaySize}: floor over the control {areaOver(band, corner.rect)} px2, disc's own box {areaOver(
+					disc,
+					corner.rect
+				)} px2`
+			).toBe(
+				`{displaySize}: floor over the control {areaOver(disc, corner.rect)} px2, disc's own box {areaOver(
+					disc,
+					corner.rect
+				)} px2`
+			)
+		end
+	end)
+
 	it("...and the guarantee is a TOKEN inequality, so a package that breaks it goes red here", function()
 		--[[ WHY THE THREE CASES ABOVE ARE NOT ENOUGH. They measure the DEFAULT
 			package on two rungs. The construction's promise is bigger: the disc

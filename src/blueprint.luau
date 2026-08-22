@@ -1192,6 +1192,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				-- draws in. The plate's margin is this PLUS half the disc, so the disc's
 				-- centre and the plate's corner are one point
 				margin = { top = CLOSE_INSET, right = CLOSE_INSET, bottom = 0, left = 0 },
+				--[[ FRAMEWORK CHROME, DECLARED AS SUCH (plate-B fix round 1, its
+					review's MEDIUM-2). The role is not read by the solver's region
+					branch — that branch finds the affordance as a REGION's last child,
+					and this button is a child of the plate's panel — it is read by the
+					renderer's floor pass, which grows a floor only until it meets
+					something pressable for every node the framework synthesized.
+					Without it the close's 44px band reached 6px (near) / 9px
+					(ten-foot) into the plate's content box and outranked an author
+					control sitting in that corner. ]]
+				expandTarget = { role = "close" },
 				onActivate = function()
 					engine.close()
 				end,
