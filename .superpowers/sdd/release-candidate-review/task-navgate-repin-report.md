@@ -11,6 +11,7 @@ reported under class (c)**.
 | `84bf1fb` | two gate instruments that could not see their own blind spots | 2 |
 | `d7d97bf` | five gate rows that had stopped asking, and the one export nobody filed | 5 |
 | `a762cd9` | the four re-pointed rows say, in place, which ruling moved the world | 1 |
+| `8594ef1` | three gate clauses that ran a module and called it a check | 2 |
 
 `d3a-help` was not touched. Each re-pointed row records its own supersession in
 its manifest `note` (`a762cd9`), so the next reader does not have to find this
@@ -218,6 +219,50 @@ replanted:
 `--selftest` gains the dropped-quote case and passes. Live:
 `check_gate_pins: PASS — 260 gate file pins match the tree, and all 487 run
 strings parse`.
+
+---
+
+## 7. Scope addendum — three clauses that ran a module and called it a check
+
+Purity-sweep review MED-1, folded in mid-round. `lune run tools/lune/check_docs`
+and `lune run tools/lune/check_theme_drift` name modules that end in
+`return checker`: lune builds the module, returns it, and exits 0 whatever the
+tree says. `check_theme_drift_cli`'s own header already records that trap for its
+own file — these were the three call sites still standing in it.
+
+**Measured, not reasoned about**, in a content-pinned copy (`tools/mkpair.sh`,
+`PIN_FACET 1c0103b`), so no live file was ever mutated:
+
+| Mutation planted in the pinned copy | Clause | Result |
+|---|---|---|
+| `docs/reference/api.md` drops one public export (`themes.paintForDisplay`) | `lune run tools/lune/check_docs` | **exit 0**, 0 bytes |
+| " | `lune run tools/lune/check_docs_cli` | exit 1, names the undocumented export |
+| `textSize = 17` in `src/controls/chip.luau` | `test -f tools/lune/check_theme_drift.luau` | **exit 0** ← what the row did |
+| " | `lune run tools/lune/check_theme_drift` | **exit 0**, 0 bytes |
+| " | `lune run tools/lune/check_theme_drift_cli` | exit 1, names `chip.luau:25` |
+
+A note on the first mutation, because it nearly produced a false green: renaming
+`paintForDisplay` to `paintForDisplayXX` did **not** redden the cli — the
+documentation anchor is a substring match, so the mutated name still contained
+the real one. The mutation only bites when the replacement shares no prefix. A
+mutation that does not bite is not evidence, and this one had to be redesigned
+before it was.
+
+Swapped:
+
+- `d3b-callout` and `d6-segmented` → `lune run tools/lune/check_docs_cli`;
+- `controls-semantic-roles` (gate `theme-packages-and-skinning`) →
+  `lune run tools/lune/check_theme_drift_cli`.
+
+The third is the worst of the three and its note now says so: the row asserted
+that the **linter file exists** while its headline claim is that the lint fired
+on 21 real violations. A control hardcoding a theme-owned metric tomorrow would
+not have reddened it. `controls-semantic-roles` runs the lint for the first time
+as of this round.
+
+All three rows re-run green on their own run strings (52, 52 and 4 clauses),
+`check_manifest_integrity` (both modes) and `check_gate_pins` are clean, and the
+navigation-and-menus gate re-runs PASS 14/14 after the swap.
 
 ---
 
