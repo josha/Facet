@@ -723,6 +723,15 @@ local Facet = {
 		-- the compiled Studio Neutral package: pass it as `base` to start from
 		-- the library's own theme and override only what you mean to change
 		neutralPackage = themesSnapshot.neutralPackage,
+		--[[ THE APP NAMESPACE (ADR-0042). One call at app boot reserves the `app.*`
+			names your own structural numbers live under — `declareApp{ tileMin = 96 }`
+			— and from then on `px = "app.tileMin"` is spellable everywhere
+			`px = "iconSizes.large"` is: validated at construction, resolved on every
+			package, moved by `metrics.app` when a theme wants a different answer, and
+			carried up the ten-foot ladder like any other length. `appMetrics()` reads
+			the declaration back, frozen. ]]
+		declareApp = themesSnapshot.declareApp,
+		appMetrics = themesSnapshot.appMetrics,
 		--[[ THE TEN-FOOT METRIC LADDER (director ruling 2026-08-20). The
 			environment applies `forDisplay` for you at its `themeMetrics` read, so a
 			consumer almost never calls these — they are public because a consumer

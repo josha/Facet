@@ -728,6 +728,12 @@ require("./adaptive_defaults.spec")
 	floor uses — so a television with no theme package installed measures capped
 	lanes and scaled metrics (ADAPT-L1) ]]
 require("./ten_foot_metrics.spec")
+--[[ …and the channel that lets an APP put its own structural numbers on that
+	same ladder (ADR-0042, framework-gaps-phase2 gap 1): a reserved `app.*`
+	namespace an app declares once, that `isMetricPath` accepts, a package may
+	move, and the distance transform walks — replacing four independently
+	rediscovered shims that kept ~100 numbers outside every theme ]]
+require("./app_metrics.spec")
 --[[ ADAPT-1's shape one layer down (matrix-layout.md, wave LAYOUT-FIX): the
 	LAYOUT PRIMITIVES answer for themselves too. A Grid told nothing lanes itself
 	from the box it got, an AdaptiveStack told nothing refuses rather than being a

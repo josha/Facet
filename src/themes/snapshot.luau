@@ -367,6 +367,101 @@ local function frozenClone(t: any): any
 	return table.freeze(out)
 end
 
+-- ===== the app namespace (ADR-0042) ========================================
+--[[ A RESERVED `app.*` SECTION AN APPLICATION DECLARES ONCE.
+
+	WHAT IT IS FOR. An app's own structural numbers — a tile minimum, a chart
+	band, a dock height, a racer row — are not spacing steps, not control metrics
+	and not type sizes, and before this section there was nowhere for them: a
+	metric NAME is validated against the neutral snapshot, so a name no shipped
+	package declares is a construction error. Four consumers rediscovered that
+	independently and each wrote the same shim (`gap1-audit.md`), which put ~100
+	numbers outside every theme, outside a package swap, and — the half that
+	actually broke — outside the ten-foot ladder, so two of them re-implemented
+	the distance transform by hand and one applied it to a single number out of
+	four.
+
+	WHY IT IS A DECLARATION AND NOT A PACKAGE SECTION ALONE. `isMetricPath` runs
+	at CONSTRUCTION, inside `blueprint_schema`, with no snapshot in scope — that
+	is the whole point of it, a typo caught when the form is built rather than
+	becoming a nil size on the first solve of a themed screen. So the vocabulary
+	an app adds has to be knowable without a snapshot, and a proof that must mount
+	under Studio Neutral AND Fantasy Parchment with no source edit cannot carry
+	its numbers on either package. One process-wide declaration answers both: the
+	app OWNS the names, every resolved snapshot carries them, and a PACKAGE may
+	MOVE any of them (`metrics.app`) exactly as it moves `space.m`.
+
+	IT IS THE ONE MUTABLE MODULE-LEVEL FACT IN THIS FILE, and it is fenced:
+	`declareApp` validates, freezes and drops the neutral memo, so `neutral()`
+	and every later `resolve` see the same namespace and no snapshot is ever
+	half-declared. Declaring is an app-BOOT act — before the first form is built
+	— and re-declaring is legal (a test restores the previous namespace) because
+	the alternative is a global nobody can put back. ]]
+local declaredApp: any = table.freeze({})
+-- …and the memo `declareApp` has to drop, declared here because the declaration
+-- is what decides which names `neutral()` can spell (`snapshot.neutral` below is
+-- its only other writer)
+local neutralCache: any = nil
+
+-- a legal app metric segment: an identifier, because a '.' would make the dotted
+-- path ambiguous and anything else cannot be spelled in a metric reference
+local function isAppSegment(name: any): boolean
+	return type(name) == "string" and string.match(name, "^[%a_][%w_]*$") ~= nil
+end
+
+local function checkAppNode(node: any, prefix: string)
+	for key, value in node do
+		assert(
+			isAppSegment(key),
+			`themes.declareApp: '{prefix}{tostring(key)}' is not a legal metric name `
+				.. `(letters, digits and underscore, starting with a letter or underscore)`
+		)
+		local path = `{prefix}{key}`
+		if type(value) == "table" then
+			checkAppNode(value, `{path}.`)
+		else
+			assert(
+				type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge,
+				`themes.declareApp: 'app.{path}' must be a finite number (got {tostring(value)})`
+			)
+		end
+	end
+end
+
+--[[ declareApp(metrics) -> the frozen namespace.
+
+	`nil` clears it. Returns what was installed so a caller can hold the frozen
+	table (a test restores the previous one; an app has no reason to). ]]
+function snapshot.declareApp(metrics: any): any
+	assert(
+		metrics == nil or type(metrics) == "table",
+		`themes.declareApp: expected a table of app metrics, got {type(metrics)}`
+	)
+	local declaration = if metrics == nil then {} else metrics
+	checkAppNode(declaration, "")
+	declaredApp = frozenClone(declaration)
+	-- the neutral snapshot is what `isMetricPath` spells names against, so it
+	-- cannot outlive the vocabulary it was resolved with
+	neutralCache = nil
+	return declaredApp
+end
+
+-- the declared namespace, frozen. `{}` until an app declares one.
+function snapshot.appMetrics(): any
+	return declaredApp
+end
+
+-- a MUTABLE deep copy of the declaration. `resolve` publishes it and then writes
+-- a package's `metrics.app`, the pixel snap and the overrides into it, so the
+-- copy has to be writable all the way down.
+local function appBase(node: any): any
+	local copy: any = {}
+	for k, v in node do
+		copy[k] = if type(v) == "table" then appBase(v) else v
+	end
+	return copy
+end
+
 -- write `value` at a dotted path inside a mutable metric tree; returns false when
 -- the path names nothing (an override for a metric that does not exist is an
 -- authoring error, not a silent no-op)
@@ -598,6 +693,31 @@ function snapshot.densityClassOf(path: any): string?
 			end
 		end
 		return if CONTROL_BUDGET_KEYS[parts[#parts]] then "scaleDown" else "scale"
+	end
+	--[[ THE APP NAMESPACE TAKES `controls`' RULE, WORD FOR WORD (ADR-0042). Both
+		sections are OPEN — an app authors `app.<anything>` the way a package
+		authors `controls.<family>.<anything>` — so the classification has to be a
+		default plus a vocabulary rather than a list nobody outside this repo could
+		maintain. The default is LENGTH because that is what an app declares here:
+		the four shims this section replaced held tile minimums, chart bands, row
+		heights and dock bands, and every one of them was a length that failed to
+		scale on a television.
+
+		The escape is the SAME suffix vocabulary, checked on every segment, and it
+		earns its keep immediately: a `mapFraction` multiplied by 1.5 is 0.78 of a
+		viewport, a `listRowCount` of 8 becomes 12, a `toastDurationSeconds` of 2.5
+		becomes 3.75, and a `rowNameTextSize` scaled here is the 2.25x double
+		application the type floor already guards at the measure seam. One
+		vocabulary, so an app author who has read `controls` has read this. ]]
+	if root == "app" then
+		for i = 2, #parts do
+			for _, suffix in CONTROL_NON_LENGTH_SUFFIXES do
+				if endsWith(parts[i], suffix) then
+					return "exempt"
+				end
+			end
+		end
+		return "scale"
 	end
 	return nil
 end
@@ -963,6 +1083,47 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 	for slot, entry in metrics.insets do
 		out.insets[slot] = { top = entry.top, right = entry.right, bottom = entry.bottom, left = entry.left }
+	end
+	--[[ 1b. THE APP NAMESPACE (ADR-0042). The APP owns the names — it declared
+		them once, before anything mounted — and every package publishes them, so a
+		proof that has to run under Studio Neutral and under Fantasy Parchment keeps
+		its geometry either way. A package may then MOVE any of them: `metrics.app`
+		is a THEME's answer for an app number, exactly as `metrics.space.m` is its
+		answer for a spacing step.
+
+		REFUSE, DON'T GUESS, on the package side. A package that names an app metric
+		the app never declared is authoring against a namespace it does not own, and
+		the failure mode of accepting it is the worst one available: a number that
+		silently never moves, on a surface nobody thought to check. Validated HERE
+		rather than in `themes.define` for `metrics.tenFoot`'s reason — the
+		declaration is a runtime fact and `define` may legitimately run before an app
+		has made it. ]]
+	out.app = appBase(declaredApp)
+	if type(metrics.app) == "table" then
+		local paths: { string } = {}
+		local function collect(node: any, prefix: string)
+			for key, value in node do
+				local path = `{prefix}{tostring(key)}`
+				if type(value) == "table" then
+					collect(value, `{path}.`)
+				else
+					table.insert(paths, path)
+				end
+			end
+		end
+		collect(metrics.app, "")
+		table.sort(paths)
+		for _, path in paths do
+			local value: any = metrics.app
+			for part in string.gmatch(path, "[^%.]+") do
+				value = value[part]
+			end
+			assert(
+				writePath(out.app, path, value),
+				`themes.resolve: metrics.app['{path}'] names no app metric this app declared `
+					.. `(themes.declareApp reserves the names a package may move)`
+			)
+		end
 	end
 	-- every v1 slot always has an inset entry, even when the package declared
 	-- none: the optional-inset slots (ADR-0019 fix round) default to zero, and a
@@ -1437,6 +1598,31 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		for _, role in out.type do
 			role.size = snap(role.size)
 		end
+		--[[ …AND THE APP SECTION, BY CLASSIFICATION (ADR-0042). It is the one
+			section here whose leaves are not all lengths — an app declares fractions,
+			counts and seconds beside its boxes — so this walk asks
+			`densityClassOf` rather than snapping everything it finds. Snapping a
+			0.52 map fraction onto a 4px grid is 4, which is not a smaller number,
+			it is a corrupt solve.
+
+			IT MATTERS EVEN THOUGH `forDisplay` SNAPS AGAIN: `forDisplay` scales from
+			this snapshot, so an app length that skipped the grid here would be the
+			one number in the package measured off it, and the near answer would
+			disagree with the distant one about which coordinate system it is on. ]]
+		local function snapApp(node: any, prefix: string)
+			for key, value in node do
+				local path = `{prefix}{tostring(key)}`
+				if type(value) == "table" then
+					snapApp(value, `{path}.`)
+				elseif type(value) == "number" then
+					local class = snapshot.densityClassOf(`app.{path}`)
+					if class == "scale" or class == "scaleWhole" then
+						node[key] = snap(value)
+					end
+				end
+			end
+		end
+		snapApp(out.app, "")
 		-- published so the adapter can stamp Pixelated on the images it creates
 		-- OUTSIDE the sheet (icons), and so a dump can assert the unit that
 		-- produced these numbers rather than inferring it
@@ -1559,8 +1745,6 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	}
 	return frozenClone(out)
 end
-
-local neutralCache: any = nil
 
 -- the snapshot every screen gets for free: Studio Neutral, no facts, no
 -- overrides. Values are byte-identical to the literals the framework shipped

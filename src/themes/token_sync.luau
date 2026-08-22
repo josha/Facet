@@ -189,6 +189,26 @@ function token_sync.recordsFromMetrics(metrics: any): { Record }
 			end
 		end
 	end
+	--[[ …AND THE APP SECTION (ADR-0042), which is the one section with no fixed
+		depth: an app groups its own vocabulary (`app.sponsor.rowHeight.landscape`)
+		and the ten-foot classification reads every segment, so the dump has to
+		carry the whole path rather than a two-level flattening. Emitted only for
+		what a PACKAGE authored — the app's own declaration is not the theme's data
+		and a dump that carried it would round-trip an app number into a package
+		that never moved it. ]]
+	local function appRecords(node: any, prefix: string)
+		for _, key in sortedKeys(node) do
+			local v = (node :: any)[key]
+			if type(v) == "number" then
+				table.insert(out, numberRecord(`{prefix}{key}`, v))
+			elseif type(v) == "table" then
+				appRecords(v, `{prefix}{key}.`)
+			end
+		end
+	end
+	if type((metrics :: any).app) == "table" then
+		appRecords((metrics :: any).app, "app.")
+	end
 	table.sort(out, function(a, b)
 		return a.path < b.path
 	end)

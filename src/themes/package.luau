@@ -353,6 +353,18 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 		television says so here and owns it. The paths are validated against the
 		package's own resolved snapshot in `themes/snapshot.resolve`. ]]
 	tenFoot = true,
+	--[[ A THEME'S ANSWER FOR AN APP METRIC (ADR-0042). Optional, and empty for
+		every package shipped before this stage — so no package's authored metrics,
+		and therefore no package's content STAMP, moves for this section existing.
+
+		The APP owns the `app.*` vocabulary (`themes.declareApp`, one call at boot);
+		this section is how a THEME moves one of those numbers, exactly as
+		`metrics.space` moves a spacing step. The SHAPE is checked in `define`
+		— legal identifiers, finite numbers, any depth — and the NAMES in
+		`themes/snapshot.resolve`, against the live declaration, for
+		`metrics.tenFoot`'s reason: the declaration is a runtime fact and a package
+		may legitimately be defined before an app has made it. ]]
+	app = true,
 }
 local TYPOGRAPHY_FIELDS: { [string]: boolean } = { font = true, size = true, lineHeight = true }
 local FONT_FIELDS: { [string]: boolean } = { family = true, weight = true, style = true }
@@ -1626,6 +1638,41 @@ function package.define(def: any): (any, any)
 					)
 				end
 			end
+		end
+	end
+
+	--[[ THE APP SECTION'S SHAPE (ADR-0042). Nested to any depth, because the
+		vocabulary is the app's and a flat one would force
+		`sponsorRowHeightLandscape` on a namespace whose whole point is that it
+		groups — and the ten-foot classification reads every SEGMENT, so the group
+		names are load-bearing. Every key an identifier (a '.' would make the dotted
+		path ambiguous); every leaf a finite number. ]]
+	if metrics.app ~= nil then
+		if type(metrics.app) ~= "table" then
+			reject("unknownField", "metrics.app", "app must be a table of app metrics", "e.g. app = { tileMin = 96 }")
+		else
+			local function checkApp(node: any, prefix: string)
+				for key, value in node do
+					if type(key) ~= "string" or string.match(key, "^[%a_][%w_]*$") == nil then
+						reject(
+							"unknownField",
+							`metrics.app.{prefix}{tostring(key)}`,
+							`'{tostring(key)}' is not a legal app metric name`,
+							"letters, digits and underscore, starting with a letter or underscore"
+						)
+					elseif type(value) == "table" then
+						checkApp(value, `{prefix}{key}.`)
+					elseif not isFiniteNumber(value) then
+						reject(
+							"missingRole",
+							`metrics.app.{prefix}{tostring(key)}`,
+							`app.{prefix}{tostring(key)} must be a finite number (got {tostring(value)})`,
+							"an app metric is a number the theme may move, e.g. tileMin = 96"
+						)
+					end
+				end
+			end
+			checkApp(metrics.app, "")
 		end
 	end
 
