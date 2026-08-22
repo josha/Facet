@@ -1985,6 +1985,17 @@ Normalized style data is read once at construction, so a Signal *inside* the spe
 is refused there and the error names this fix: bind the whole `stroke` prop
 instead.
 
+**A token survives normalization.** A radius or thickness written as a **name**
+(`"pill"`, `"panel"`, `"hairline"`, or the absent thickness, whose default *is*
+`strokes.hairline`) is resolved to a number here — against the style you passed,
+or the library's own if you passed none — and the name is kept beside it under
+`tokens`. The painter re-resolves it against the style the render target was
+built with, which at the ten-foot display class is the derived one, so a capsule
+authored in a control factory rounds by the same factor as everything else on a
+television. A **literal** carries no token and never moves: 6 px is 6 px at every
+distance. Consumers that only read the number (a lint, a dump, a test target)
+keep reading exactly what they read before.
+
 ```lua
 UI.Box({
     id = "Row",

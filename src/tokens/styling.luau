@@ -111,10 +111,38 @@ end
 
 -- normalizeCorners(spec, style?) -> { form = "uniform", radius } |
 --   { form = "perCorner", topLeft, topRight, bottomLeft, bottomRight }
+--[[ THE TOKEN SURVIVES AUTHORING (paint-family lockstep, fix round 2,
+	2026-08-21, found on a live console row at stamp b62ac109).
+
+	A radius NAME is a request to the ACTIVE theme, and this function runs at
+	AUTHORING time — inside a control factory, with no display class and usually
+	no style at all, so `default_style` answers and the near number is frozen into
+	the blueprint. That is how a television painted three 999 capsules while the
+	sheet beside them carried the derived 18: the number never asked the target's
+	style.
+
+	So the normalized data carries the NAME beside the number, and the painter
+	re-resolves it against the style it paints with (`styling.paintCorners`,
+	spent by `client/screen_paint`). It is the idiom the framework already uses
+	for every other themed number — `gap = "m"` reaches the solver as a name, and
+	`Divider.thickness` reaches the renderer as one.
+
+	THE NUMBER STAYS, deliberately: `render/style_lint`, a dump, a fake target and
+	every existing consumer read `corners.radius`, and an author who wrote a
+	LITERAL gets no token and never moves. ]]
+local function tokenOf(value: any): string?
+	return if type(value) == "string" then value else nil
+end
+
 function styling.normalizeCorners(spec: any, style: any?): any
 	local activeStyle: any = style or default_style
 	if type(spec) == "number" or type(spec) == "string" then
-		return table.freeze({ form = "uniform", radius = resolveRadius(spec, activeStyle) })
+		local token = tokenOf(spec)
+		return table.freeze({
+			form = "uniform",
+			radius = resolveRadius(spec, activeStyle),
+			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
+		})
 	end
 	assert(type(spec) == "table", "corners spec must be a radius, a token name, or a per-corner table")
 	local hasAlias = spec.radius ~= nil
@@ -129,13 +157,25 @@ function styling.normalizeCorners(spec: any, style: any?): any
 		"corner styling emits exactly one form per node: use radius OR per-corner keys, never both (engine alias-mixing hazard)"
 	)
 	if hasAlias then
-		return table.freeze({ form = "uniform", radius = resolveRadius(spec.radius, activeStyle) })
+		local token = tokenOf(spec.radius)
+		return table.freeze({
+			form = "uniform",
+			radius = resolveRadius(spec.radius, activeStyle),
+			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
+		})
 	end
 	assert(hasCorner, "corners table must set radius or at least one corner")
 	local out: any = { form = "perCorner" }
+	local tokens: any = nil
 	for _, key in CORNER_KEYS do
 		out[key] = if spec[key] ~= nil then resolveRadius(spec[key], activeStyle) else 0
+		local token = tokenOf(spec[key])
+		if token ~= nil then
+			tokens = tokens or {}
+			tokens[key] = token
+		end
 	end
+	out.tokens = if tokens ~= nil then table.freeze(tokens) else nil
 	return table.freeze(out)
 end
 
@@ -453,6 +493,12 @@ function styling.normalizeStroke(spec: any, style: any?): any
 		end
 	end
 	local thickness: any = (spec :: any).thickness
+	--[[ AN ABSENT THICKNESS IS A TOKEN TOO. This field's own documentation says
+		the default is "the theme's `strokes.hairline`" — a themed number, and so a
+		number that has to follow the display class like every other. Naming it
+		here is what lets `paintStroke` re-derive it; before this, the commonest
+		stroke in the framework (`UI.stroke(bp, {})`) froze the near hairline. ]]
+	local thicknessToken: string? = if thickness == nil then "hairline" else tokenOf(thickness)
 	if thickness == nil then
 		thickness = activeStyle.strokes.hairline
 	elseif type(thickness) == "string" then
@@ -501,7 +547,63 @@ function styling.normalizeStroke(spec: any, style: any?): any
 		thickness = thickness,
 		color = table.freeze({ r = color.r, g = color.g, b = color.b }),
 		transparency = transparency,
+		tokens = if thicknessToken ~= nil then table.freeze({ thickness = thicknessToken }) else nil,
 	})
+end
+
+--[[ ===== THE PAINT-TIME RESOLVERS =========================================
+
+	`paintCorners(corners, style)` / `paintStroke(stroke, style)` — the second
+	door of the paint family, and the only place an authored TOKEN becomes the
+	pixel the engine draws. `client/screen_paint` spends both, with the style its
+	target was built with, which since the paint-family lockstep round is the
+	style AS DERIVED for the display class.
+
+	PURE, AND THAT IS THE POINT (the `native_style.paintPlan` lesson, three days
+	old): the painter is an engine file no headless world can require, so the
+	decision it spends lives here where `tests/ten_foot_metrics.spec.luau` can
+	call it at both distances.
+
+	TOTAL, AND IDENTITY-PRESERVING. No token, no style, a style with no `radii`,
+	a token the theme does not carry — every one of those returns the authored
+	number, and returns the SAME TABLE rather than a copy, so the near path
+	allocates nothing and a consumer holding the data by identity keeps holding
+	it. ]]
+local function resolvedFrom(style: any, section: string, token: string): number?
+	local group = if type(style) == "table" then (style :: any)[section] else nil
+	local value = if type(group) == "table" then group[token] else nil
+	if type(value) ~= "number" then
+		-- `"focusRing"` is the documented ALIAS onto `extra.focusRingThickness`
+		-- (see the note in `normalizeStroke`), so it resolves here too
+		if section == "strokes" and token == "focusRing" and type(style) == "table" then
+			local extra = (style :: any).extra
+			value = if type(extra) == "table" then extra.focusRingThickness else nil
+		end
+	end
+	return if type(value) == "number" then value else nil
+end
+
+local function paintResolve(data: any, style: any, section: string): any
+	if type(data) ~= "table" or type(data.tokens) ~= "table" then
+		return data
+	end
+	local out: any = nil
+	for key, token in data.tokens do
+		local resolved = if type(token) == "string" then resolvedFrom(style, section, token) else nil
+		if resolved ~= nil and resolved ~= data[key] then
+			out = out or table.clone(data)
+			out[key] = resolved
+		end
+	end
+	return if out ~= nil then table.freeze(out) else data
+end
+
+function styling.paintCorners(corners: any, style: any?): any
+	return paintResolve(corners, style, "radii")
+end
+
+function styling.paintStroke(stroke: any, style: any?): any
+	return paintResolve(stroke, style, "strokes")
 end
 
 return styling

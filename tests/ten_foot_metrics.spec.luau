@@ -1620,3 +1620,187 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 		)
 	end)
 end)
+
+--[[ THE SECOND DOOR — an authored radius TOKEN (fix round 2, 2026-08-21, after
+	a second live console verify at stamp b62ac109).
+
+	WHAT THE GLASS SAID. With the constructor census green and the gallery wired,
+	the sheet rule `.facet-surface-raised::UICorner` carried the derived `0, 18` —
+	and three live `UICorner` instances on the same screen still read `0, 999`.
+	They are the segmented picker's decoration (`/S/View/Indicator/Layer/Bar`),
+	and they are painted from the node's own `corners` prop rather than from a
+	sheet rule or a surface role.
+
+	THE MECHANISM. `UI.corners(bp, "pill")` resolves the token AT AUTHORING TIME:
+	`styling.normalizeCorners` falls back to `tokens/default_style` when no style
+	is handed to it — which is every call in `src/controls`, in `present/`, and in
+	any consumer's code — and freezes the near number (999) into the blueprint.
+	The render target's `ctx.style` was derived correctly; this number never asked
+	it. So the paint family had TWO doors and round one closed one of them.
+
+	THE FIX IS THE FRAMEWORK'S OWN IDIOM: a NAME reaches paint as a name. It is
+	what `gap = "m"` already does (the solver resolves it against the live
+	`themeMetrics`) and what `Divider.thickness` already does (a metric name the
+	renderer resolves). So the normalized data now CARRIES the token beside the
+	number, and the painter resolves it against the style it was built with —
+	which, since round one, is the derived one. The authored number stays as the
+	fallback for any consumer that cannot resolve a name (a dump, a lint, a
+	fake target), so nothing that reads `corners.radius` today changes shape.
+
+	AND IT IS RESOLVED BY A PURE FUNCTION, `styling.paintCorners`/`paintStroke`,
+	for the reason `native_style.paintPlan` was extracted three days ago: the
+	painter is an engine file no headless world can mount, so the decision it
+	spends has to live where a test can call it. ]]
+describe("ten-foot metrics — the second door: an authored token", function()
+	local styling = require("../src/tokens/styling") :: any
+
+	local function styleAt(displaySize: string?): any
+		return snapshot.paintForDisplay(default_style, displaySize)
+	end
+
+	--[[ THE DOOR CENSUS. Round one enumerated the CONSTRUCTORS; this enumerates
+		the STYLE SOURCES — every module that can turn a paint-family token into a
+		number. There are exactly two kinds and both are named here: the modules
+		that read `tokens/default_style` at all, and the two appliers that write the
+		engine property. A new reader of the raw token module is the shape of this
+		defect, so it must be added here with a reason before it can be green. ]]
+	it("every module that can turn a paint token into a number is named, and both doors derive", function()
+		local fs = require("@lune/fs")
+		--[[ path -> why this module may read the AUTHORED token module directly.
+			`default_style` is the near ladder, always: a module that reads it and
+			paints from it without passing `paintForDisplay` is the defect this
+			census exists to catch. ]]
+		local ALLOWED: { [string]: string } = {
+			["src/tokens/styling.luau"] = "the authoring-time fallback — it now CARRIES the token so paint re-derives",
+			["src/themes/snapshot.luau"] = "the neutral package's own authored base, and the thing that derives",
+			["src/client/screen_target.luau"] = "the identity check that decides whether the built-in Light theme ships",
+			["src/client/theme_controller.luau"] = "the `extra` merge a partial package theme fills from",
+		}
+		local unnamed: { string } = {}
+		local seen = 0
+		local function walk(dir: string)
+			for _, entry in fs.readDir(dir) do
+				local path = `{dir}/{entry}`
+				if fs.isDir(path) then
+					walk(path)
+				elseif string.sub(entry, -5) == ".luau" then
+					local source = fs.readFile(path)
+					if
+						string.find(source, 'require("./default_style")', 1, true) ~= nil
+						or string.find(source, 'require("../tokens/default_style")', 1, true) ~= nil
+					then
+						seen += 1
+						if ALLOWED[path] == nil then
+							table.insert(unnamed, path)
+						end
+					end
+				end
+			end
+		end
+		walk("src")
+		table.sort(unnamed)
+		expect(`unnamed readers of the authored token module: {table.concat(unnamed, ", ")}`).toBe(
+			"unnamed readers of the authored token module: "
+		)
+		expect(`readers found: {seen}`).toBe("readers found: 4")
+
+		-- …and the second door's painter really goes through the shared resolver
+		local paint = fs.readFile("src/client/screen_paint.luau")
+		expect(string.find(paint, "styling.paintCorners(", 1, true) ~= nil).toBe(true)
+		expect(string.find(paint, "styling.paintStroke(", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ A NAME SURVIVES AUTHORING. The number beside it is the near value, and it
+		stays — a lint, a dump and a fake target all read it — but the NAME is what
+		the painter spends. ]]
+	it("normalized corner and stroke data carry the token they were authored with", function()
+		local pill = UI.cornersData("pill")
+		expect(`{pill.form}/{pill.radius}/{pill.tokens.radius}`).toBe("uniform/999/pill")
+		-- a literal is a literal: nothing to re-derive, and no token carried
+		local literal = UI.cornersData(6)
+		expect(`{literal.radius}/{tostring(literal.tokens)}`).toBe("6/nil")
+		-- per corner, token by token
+		local mixed = UI.cornersData({ topLeft = "panel", topRight = 4, bottomLeft = "control", bottomRight = 0 })
+		expect(`{mixed.topLeft}/{mixed.topRight}/{mixed.bottomLeft}`).toBe("12/4/8")
+		expect(`{mixed.tokens.topLeft}/{tostring(mixed.tokens.topRight)}/{mixed.tokens.bottomLeft}`).toBe(
+			"panel/nil/control"
+		)
+		--[[ AN ABSENT STROKE THICKNESS IS A TOKEN TOO, and this is the case a
+			reviewer would miss: `UI.stroke(bp, {})` documents its default as "the
+			theme's `strokes.hairline`", so the number it froze was a theme number
+			nobody named. It is named now. ]]
+		expect(`{UI.strokeData({}).thickness}/{UI.strokeData({}).tokens.thickness}`).toBe("1/hairline")
+		expect(`{UI.strokeData({ thickness = "hairline" }).tokens.thickness}`).toBe("hairline")
+		expect(`{tostring(UI.strokeData({ thickness = 3 }).tokens)}`).toBe("nil")
+	end)
+
+	--[[ THE RESOLVERS, PURE, AT BOTH DISTANCES. This is what the painter spends,
+		so this is where the ten-foot number is actually decided. ]]
+	it("the paint resolver re-derives a token against the style it paints with", function()
+		local near, tv = styleAt("Medium"), styleAt("Large")
+		local pill = UI.cornersData("pill")
+		expect(`near {styling.paintCorners(pill, near).radius}`).toBe("near 999")
+		expect(`ten-foot {styling.paintCorners(pill, tv).radius}`).toBe("ten-foot 1499")
+		local panel = UI.cornersData("panel")
+		expect(`{styling.paintCorners(panel, near).radius} -> {styling.paintCorners(panel, tv).radius}`).toBe(
+			"12 -> 18"
+		)
+		-- a LITERAL never moves: an author who wrote 6 px meant 6 px at every distance
+		local literal = UI.cornersData(6)
+		expect(`{styling.paintCorners(literal, tv).radius}`).toBe("6")
+		-- per-corner, mixed: the two tokens move and the two literals do not
+		local mixed = UI.cornersData({ topLeft = "panel", topRight = 4, bottomLeft = "control", bottomRight = 0 })
+		local painted = styling.paintCorners(mixed, tv)
+		expect(`{painted.topLeft}/{painted.topRight}/{painted.bottomLeft}/{painted.bottomRight}`).toBe("18/4/12/0")
+		-- …and the stroke half: a hairline is 1.5 px at three metres
+		expect(`{styling.paintStroke(UI.strokeData({}), tv).thickness}`).toBe("1.5")
+		expect(`{styling.paintStroke(UI.strokeData({}), near).thickness}`).toBe("1")
+		expect(`{styling.paintStroke(UI.strokeData({ thickness = 3 }), tv).thickness}`).toBe("3")
+		-- the resolvers are TOTAL: garbage in is the authored number back, never a throw
+		expect(`{styling.paintCorners(pill, nil).radius}`).toBe("999")
+		expect(`{styling.paintCorners(pill, { radii = {} }).radius}`).toBe("999")
+	end)
+
+	--[[ THE SURFACE THE LIVE ROW READ, MOUNTED AT LARGE — the arm that answers
+		"which framework surface is actually exercised at ten-foot by a test".
+		The segmented picker's sliding indicator is the control whose three
+		`UICorner`s read `0, 999` on the console; this mounts THAT control at
+		`displaySize = "Large"` and follows its `corners` prop all the way to the
+		number the painter would write. ]]
+	it("the segmented picker's indicator paints the ten-foot capsule at Large", function()
+		local function pickerWorld(displaySize: string): any
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			env:set("displaySize", displaySize)
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local picker = Facet.Controls.Picker(core, {
+				id = "View",
+				selected = core:signal("grid"),
+				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+				presentation = "segmented",
+				indicator = "pill",
+				env = env,
+			})
+			pres.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+			pres.refresh()
+			return adapter
+		end
+		for _, case in { { size = "Medium", want = 999 }, { size = "Large", want = 1499 } } do
+			local adapter = pickerWorld(case.size :: string)
+			local bar = adapter.node("/S/View/Indicator/Layer/Bar")
+			expect(`{case.size}: bar mounted {bar ~= nil}`).toBe(`{case.size}: bar mounted true`)
+			local corners = (bar :: any).props.corners
+			-- the AUTHORING number is the near one at both distances — that is the
+			-- defect's own fingerprint, and it is why the token has to survive
+			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 999`)
+			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token pill`)
+			-- …and what the painter writes, through the style the target derives
+			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).radius
+			expect(`{case.size}: painted {painted}`).toBe(`{case.size}: painted {case.want}`)
+		end
+	end)
+end)

@@ -54,6 +54,9 @@ local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 
 local sheet_model = require("../tokens/sheet_model")
+-- the paint-time half of the paint family: an authored radius/stroke TOKEN is
+-- re-derived here against this target's own (display-adapted) style
+local styling = require("../tokens/styling")
 local chrome_slots = require("../tokens/chrome_slots")
 local themeSnapshot = require("../themes/snapshot")
 local authority = require("../render/authority")
@@ -393,9 +396,11 @@ function screen_paint.new(ctx: any)
 			live.Name = authority.INSTANCE_NAMES.stroke
 			handle.strokeInstance = live
 		end
-		live.Color = toColor3(stroke.color)
-		live.Transparency = stroke.transparency
-		live.Thickness = stroke.thickness
+		-- …and the same door for an authored stroke's thickness
+		local painted = styling.paintStroke(stroke, style)
+		live.Color = toColor3(painted.color)
+		live.Transparency = painted.transparency
+		live.Thickness = painted.thickness
 		-- Border, ALWAYS: ApplyStrokeMode defaults to Contextual, which on a text
 		-- node strokes the GLYPHS instead of the box (the same engine truth the
 		-- phantom stroke rules carry)
@@ -575,10 +580,12 @@ function screen_paint.new(ctx: any)
 
 	-- normalized UI.corners data -> ONE UICorner in exactly ONE form
 	-- (uniform alias or four per-corner radii — never both; engine hazard)
-	local function applyCorners(instance: Instance, corners: any)
+	local function applyCorners(instance: Instance, cornersData: any)
 		if not instance:IsA("GuiObject") then
 			return
 		end
+		-- the AUTHORED token re-derived for this target's distance (fix round 2)
+		local corners = styling.paintCorners(cornersData, style)
 		local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 		if corners.form == "uniform" then
 			uiCorner.CornerRadius = UDim.new(0, corners.radius)
