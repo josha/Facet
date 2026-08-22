@@ -428,3 +428,123 @@ token, so `tokens.radius = "pill"` with a 999 paint means the painter's style is
 underived (door 1), and a missing `tokens` means an authoring path that bypassed
 `styling.normalize*` entirely, which would be a third door and nothing in this
 repository has one today.
+
+---
+
+# Gate round — the seven deltas were one delta, and the font block was never a finding
+
+**Status: the four rows that shared one cause are GREEN, plus two adjacent ones.**
+Commit `97bd808ba`.
+
+## The 7-delta characterization
+
+The check reports **one problem per node plus one for the dump**, and it prints
+the WHOLE prop string on either side of a mismatch. So the seven decompose as
+**six node deltas** (`/Vocabulary/Tag` — the `control-vocabulary` Chip — at three
+viewports × two states) **plus one reproducibility line**, and each node delta
+carries four prop changes of which **only one was uncharacterized**:
+
+| # | delta | commit | ruling | paint at flat/neutral |
+|---|---|---|---|---|
+| 1 | the stored dump is not reproducible from the tree | — | the citable-artifact rule (category 1 in the checker's own header): `CURRENT` exists to be current | regenerated through its documented generator; `BASELINE_3_5` untouched |
+| 2–7 | `/Vocabulary/Tag` props changed, ×6 (desktop/phone-portrait/tablet × nodes/opened) | — | one node, six report lines | — |
+| ↳ `textSize=18` | the director fix round, **2026-07-25** | the class's intrinsic typography role reaches PAINT | **deliberately changed** 16→18; already characterized (`ALLOWED_ADDED_PROPS.textSize`) |
+| ↳ `textFont={…BuilderSans#Regular#Normal…}` | **`a2361f5`**, 2026-08-02 (parity F2) | the role's FACE reaches paint beside its size | **identical** — every pre-existing role resolves to the face the adapter hardcoded; already characterized |
+| ↳ `textWrapped=false` | **`fb76787`**, 2026-08-14 (ruling 5) | the wrap verdict reaches paint | **identical** — `false` IS the engine default; the value is pinned so a `true` fails; already characterized |
+| ↳ `corners={…,tokens={...}}` | **`41e68298e`**, 2026-08-21 (this family, door 2) | ADR-0039 Decision 3a / ADR-0040 **B-17** | **identical** — proven below. **THE ONLY UNCHARACTERIZED ONE** |
+
+**Attribution was probed, not inferred**: the dump was regenerated at each
+candidate commit and its parent. At `41e68298e~1` the node reads
+`corners={form=uniform,radius=999}` and at `41e68298e` it reads
+`…,tokens={...}` — with the font block present on **both** sides. At `a2361f5~1`
+there is no `textFont` and at `a2361f5` there is. So the font block is 2026-08-02's
+and the sub-key is mine; the sweep's reading of "`corners.tokens` **plus** a
+text-font block" was the report's formatting, not two open findings.
+
+## The paint proof (claim is bytes, not record shapes)
+
+```
+regenerated dump                       e4bf27df405a8e88eea8d41c243050ceea669bbf462f7f50f74b0cd7e5e7e13a
+regenerated dump, `,tokens={...}` cut  ccbaa828e8c52e9c319bbf2f35ff04b9b26ca2a0277e992498445080214190c1
+the dump RS-A1 last cited              ccbaa828e8c52e9c319bbf2f35ff04b9b26ca2a0277e992498445080214190c1
+```
+
+Across 24 renders, 8 fixtures and 1461 flat nodes the round added **exactly six**
+sub-keys and moved **no other byte**. At the flat/neutral class `paintCorners`
+re-resolves `"pill"` to the 999 already there and returns the same table — the
+re-derivation is the identity. Nothing was proven un-provable, so nothing was
+stopped on.
+
+## What was changed, and what was deliberately not
+
+* **`ALLOWED_ADDED_SUBKEYS`** (new, in `check_flat_baseline`): a RULE, because
+  this is a seam-level correction landing on every node of a kind — the form the
+  file's own header prescribes. It removes exactly `,<subkey>={...}` from the prop
+  that declares it and compares the remainder byte for byte. `stroke.tokens` is
+  listed beside `corners.tokens` because they are one decision.
+* **Mutation-proven**: with `radii.pill` moved 999 → 1000, the check still FAILS
+  and names both numbers. A characterization, not a waiver.
+* **`BASELINE_3_5` was NOT re-pinned** — declined a third time, on the file's own
+  recorded reasoning. What was regenerated is `CURRENT`
+  (`artifacts/rich-skinning-v2/rows/neutral-render-dump.json`, gitignored,
+  regenerable) through `tools/lune/_theme_baseline`, and the citable record
+  `rs-a1-image-is-element.json` now carries the new sha, the regenerate date and
+  the paint-identity proof.
+* **`font-aware-measurement` re-pinned honestly**: `fontKey` left
+  `src/layout/solver.luau` in **`f0fc77e`** (the measure-facts extraction) — the
+  string moved, the capability did not. The row now pins the fact where it lives
+  (`src/layout/measure_facts.luau`) **and** the solver's binding
+  (`require("./measure_facts")`), so the re-pin cannot be spent to make a real
+  removal quiet. Not this family's regression; repaired rather than passed on.
+
+## Per-gate outcomes (real checkout, not a copy)
+
+| gate | row | verdict |
+|---|---|---|
+| `swiftui-parity-round2` | `checker-battery` | **PASS** |
+| `swiftui-parity-round3` | `checker-battery` | **PASS** |
+| `swiftui-parity-round4` | `checker-battery` | **PASS** |
+| `rich-skinning-v2` | `layered-slots-and-posture` | **PASS** |
+| `rich-skinning-v2` | `circle-button` (same cause, not in the brief) | **PASS** |
+| `theme-packages-and-skinning` | `metric-snapshot-single-source` | **PASS** |
+| `theme-packages-and-skinning` | `font-aware-measurement` | **PASS** (after the re-pin) |
+
+`check_flat_baseline` itself: **PASS — 1461 flat nodes byte-compared; 13
+characterized prop deltas, 5 new nodes, 4 added prop keys, 2 added sub-keys, 17
+rect-drift scopes, 2 class substitutions.**
+
+**Every one of the five gates now has exactly one recoverable row left:
+`prior-gates-unregressed`** — and its recorded detail names the cause: *"another
+sweep holds /tmp/facet_prior_gates.lock — refusing to start a second"*. That lock
+was **orphaned by my own parallel gate runs** (the standing lesson: a backgrounded
+sweep orphans the lock, and it refuses silently). Cleared, and the gate re-run
+serially with the lock free — result appended below. The remaining
+`FAIL_ENVIRONMENT` rows (`physical-and-human-rows`, `studio-device-canary`,
+`studio-and-device-evidence`) are declared device rows, non-blocking by design.
+
+**A measurement caution worth recording**: gates run in a `/private/tmp` copy
+produce FALSE reds on `rascalrally-consumer` and `game-suite-untouched`, because
+both `cd ../../../games/RascalRally/code`. Both PASS in the real checkout. A gate
+row that leaves the repository can only be judged where the repository is.
+
+## Not mine — diagnosed, not touched
+
+* **`native-stylesheets` / `docs-and-adr`** — fails on
+  `grep -q "Native stylesheets (opt-in)" docs/guide/05-styling.md`. **`c1120fc`**
+  (the native-paint default flip, ADR-0040 **B-15**) renamed that heading to
+  *"5.7 Native stylesheets (the default): the Style Editor is the paint
+  authority"*. The row's pin is stale by that round's own decision. **Owner: the
+  native-default flip family.** The other five clauses of the row pass.
+* **`api-architecture-consistency` / `studio-evidence`** — its whole run string is
+  `python3 tools/check_perf_gate_evidence.py studio`, which **passes at this
+  HEAD**: *"studio: preflight clean, fault proven live, capture admissible, images
+  on disk"*. Whatever it wanted has since been supplied; it needs a re-run, not a
+  fix.
+
+## Suite tail
+
+Content-pinned clean export of HEAD `97bd808ba`
+(`403228067146048c1ef3f9f667768daef7de6d90a4893d285c8fdf52f61ea272`):
+**7062 passed, 0 failed.** `stylua --check src tests tools examples` clean;
+`check_manifest_integrity` 1518 suite greps all anchored; `check_gate_pins` PASS
+(260 file pins, 487 run strings parse); `check_doc_style` PASS.
