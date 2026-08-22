@@ -1804,3 +1804,22 @@ STUDIO.md, root CLAUDE.md.
 - Renderer R23 landed as 16f5434 (its report notification pending);
   purity sweep phase 1 running. Remaining after those: final live
   verification pass + the consolidated day wrap.
+
+## 2026-08-21 (post-close 34) — R23 report in; the last guard red repaired
+
+- RENDERER FIX ROUND REPORT (16f5434; 7039/0 its own, 7040/0 at HEAD with
+  the plate landing composed cleanly on top): R23 implemented at the
+  CENSUS (inputSinks records who declared each sinker; hit_lift keeps
+  every key, the floor walk reads the value — one census, no second
+  table). Matrix after: 381 routes, 38 sub-floor ALL author-cut, 0
+  framework-attributable, smallest 35px (was 25), DIR5 stays 0 px².
+  The blast-radius pin derives attribution INDEPENDENTLY of the rule it
+  audits and reddens in both directions. ADR-0041 written (8 citations
+  resolve); B-19 corrected in place by the round itself; "three days" →
+  the measured 3h10m. Its routed note strengthens the booked solver
+  reserve: with it, R23 stops firing on shipped screens entirely.
+- check_theme_artifacts repaired by the controller (its COPIED_FILES
+  tuple gains the two files every fixture world now requires since the
+  containment invariant became default-on). All guards green at HEAD.
+- Remaining: the purity sweep (running), then the final live pass + gate
+  re-run + the consolidated wrap.
