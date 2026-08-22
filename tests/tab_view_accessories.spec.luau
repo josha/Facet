@@ -32,7 +32,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local tab_view = require("../src/controls/tab_view")
-local fake_target = require("./lib/fake_target")
+-- the shared headless world (REUSE-88 / R12): this file was the next one to add a
+-- builder, so it is the next one migrated rather than the 79th to hand-roll six
+-- pieces in the order `Facet.newPresenter` happens to take
+local worldLib = require("./lib/world")
 
 local UI = Facet.UI
 
@@ -63,25 +66,20 @@ end
 local function world(opts: any?)
 	local options = opts or {}
 	local view = options.viewport or DESKTOP
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	if options.capabilities ~= nil then
-		env:set("capabilities", options.capabilities)
-	end
-	env:set("preferredInput", options.preferredInput or "KeyboardAndMouse")
-	if options.displaySize ~= nil then
-		env:set("displaySize", options.displaySize)
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local selection = core:signal(options.initial or "home")
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		capabilities = options.capabilities,
+		-- the headless default is a pointer desktop, which is what makes DESKTOP
+		-- resolve `sidebar` without a case having to say so
+		preferredInput = options.preferredInput or "KeyboardAndMouse",
+		displaySize = options.displaySize,
+	})
+	local selection = w.core:signal(options.initial or "home")
 	local built: any = {
 		id = "Tabs",
 		selection = selection,
-		env = env,
+		env = w.env,
 		tabs = options.tabs or tabsOf({ "home", "feed", "me" }),
 	}
 	for _, key in { "placement", "accessories", "sizing", "indicator" } do
@@ -89,14 +87,13 @@ local function world(opts: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local tv = Facet.Controls.TabView(core, built)
-	local handle = pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
-	pres.refresh()
+	local tv = Facet.Controls.TabView(w.core, built)
+	local handle = w.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
 	return {
-		core = core,
-		env = env,
-		adapter = adapter,
-		pres = pres,
+		core = w.core,
+		env = w.env,
+		adapter = w.adapter,
+		pres = w.pres,
 		handle = handle,
 		tv = tv,
 		selection = selection,
@@ -422,13 +419,11 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 	--[[ NESTING IS A DECLARED PLACEMENT BY ANOTHER ROUTE: an inner TabView always
 		resolves `topBar`, so a rail slot on one can never mount either. ]]
 	it("a NESTED TabView refuses a rail slot, because nesting always resolves topBar", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = PHONE.w, h = PHONE.h },
+			safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		})
+		local core, env = w.core, w.env
 		local outerSelection = core:signal("page")
 		local innerSelection = core:signal("one")
 		local innerError: string? = nil
@@ -458,8 +453,7 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 				},
 			},
 		})
-		pres.present(UI.Screen({ id = "S", children = { outer.blueprint } }), { sinkNavigation = true })
-		pres.refresh()
+		w.present(UI.Screen({ id = "S", children = { outer.blueprint } }), { sinkNavigation = true })
 		expect(`the inner refused: {innerError ~= nil}`).toBe("the inner refused: true")
 		expect(string.find(string.lower(innerError :: string), "nested", 1, true) ~= nil).toBe(true)
 		expect(string.find(string.lower(innerError :: string), "sidebar", 1, true) ~= nil).toBe(true)
