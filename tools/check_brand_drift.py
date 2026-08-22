@@ -434,8 +434,6 @@ VENDOR_ALLOWLIST = [
      "when the table extraction lands"),
     ("src/layout/solver.luau", VENDOR,
      "extraction-locked: same rule", "when the solver extraction lands"),
-    ("src/render/renderer.luau", VENDOR,
-     "extraction-locked: same rule", "when the renderer extraction lands"),
     ("src/present/presenter.luau", VENDOR,
      "extraction-locked: same rule", "when the presenter extraction lands"),
     ("src/controls/virtual_list.luau", VENDOR,

@@ -742,19 +742,20 @@ function renderer.attach(
 	-- already installed.
 	local structureEpoch = 0
 	local hiddenRoots: { [string]: boolean } = {}
-	-- AUTHORED `hidden` (round 3, item D; SwiftUI `hidden()`), kept as its own tiny
+	-- AUTHORED `hidden` (round 3, item D), kept as its own tiny
 	-- set and MERGED into the solver's hidden verdict on every solve. One set means
 	-- the prop inherits, with no second implementation: the paint walk, the hit-rect
 	-- retraction, the `hiddenRoots` the focus map filters on, and the structure-epoch
 	-- bump that makes the focus map notice. Maintained at mount, at removal, and on
 	-- the prop's own dirty — never by a whole-tree scan per solve.
 	local authoredHidden: { [string]: boolean } = {}
-	-- VIEW LIFETIME HOOKS (round 3, item D; SwiftUI `onAppear`/`onDisappear`).
+	-- VIEW LIFETIME HOOKS (round 3, item D): `onAppear` and `onDisappear`.
 	--
 	-- Both are queued rather than called where they are discovered, and the ordering
 	-- is the capability rather than an implementation detail:
 	--   * appear drains AFTER the frame's solve, so the callback can read its own
-	--     rect. Apple's contract is that the closure "completes before the first
+	--     rect. The contract the declarative UI convention sets is that the
+	--     closure "completes before the first
 	--     rendered frame appears" — nothing here has reached a screen when it runs,
 	--     because the whole refresh is one synchronous call.
 	--   * disappear drains AFTER the removal sweep, so the handle is already gone and
@@ -1152,9 +1153,10 @@ function renderer.attach(
 			if onNodeTap ~= nil and TAPPABLE[node.class] and adapter.setActivateHandler ~= nil then
 				local path = node.path
 				adapter.setActivateHandler(handles[path], function(meta: any?)
-					-- A HIDDEN NODE RESPONDS TO NOTHING (round 3, item D). Apple's
-					-- `hidden()` is explicit that a hidden view "can't receive or
-					-- respond to interactions", and this is the one gate that has to
+					-- A HIDDEN NODE RESPONDS TO NOTHING (round 3, item D). The
+					-- convention this prop is named for is explicit that a hidden view
+					-- "can't receive or respond to interactions", and this is the one
+					-- gate that has to
 					-- hold it: `solverHidden` is the MERGED verdict the visibility walk
 					-- writes for every node, so the same line covers an authored
 					-- `hidden` and a losing `ViewThatFits` candidate. The candidate case
@@ -1198,7 +1200,7 @@ function renderer.attach(
 			-- ...and a `reveal` node gets the SAME zones: the static plate is the
 			-- auto reveal's declared full-value alternative (director 2026-08-04)
 			-- ...and a `help` node (D3a) joins the HOVER half and ONLY that half:
-			-- Apple binds no gesture to help, and the press stayed with the plate
+			-- the convention binds no gesture to help, and the press stayed with the plate
 			local discloses = (node.props or {}).disclose == true or (node.props or {}).reveal ~= nil
 			if (discloses or (node.props or {}).help ~= nil) and adapter.enableDisclosure ~= nil then
 				local hoverCb = opts and (opts :: any).onDiscloseHover
@@ -1323,8 +1325,8 @@ function renderer.attach(
 			-- the node path and the renderer's rect lookup for drag math.
 			--
 			-- THAT LOOKUP IS `screenRectOf`, NOT `rectOf` (forced closed by
-			-- the device report of 2026-07-28 — gallery example 02 on an iPhone 15
-			-- Pro: "when I pick up a row it doesn't always appear under my finger,
+			-- the device report of 2026-07-28 — gallery example 02 on a 6.1-inch
+			-- phone: "when I pick up a row it doesn't always appear under my finger,
 			-- the picked up chip moves up as I scroll down"). The whole reason a
 			-- handler is handed a rect is to compare it against `pos`, and `pos` is
 			-- always WINDOW space. A solved rect inside a scroll host is CANVAS

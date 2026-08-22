@@ -115,7 +115,8 @@ local function dim(node: any, axis: string): Dim
 end
 
 -- Spacer's default (parity-next investment 6): a bare Spacer takes the
--- leftover space along its STACK's main axis, exactly like SwiftUI's. Before
+-- leftover space along its STACK's main axis, as the declarative-layout
+-- convention it is named for does. Before
 -- this, every use needed an explicit `{ type = "fill" }` on the right axis, and
 -- writing it on the wrong axis produced a silent zero. An explicit dimension
 -- still wins, and a Spacer outside a stack stays inert (a ZStack/Anchor has no

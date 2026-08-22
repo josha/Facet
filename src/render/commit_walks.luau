@@ -663,8 +663,9 @@ function commit_walks.new(ctx: CommitCtx)
 					-- as layout margin would be the other way to fix it and it would
 					-- be wrong — a glow is meant to overlap its neighbours, and
 					-- reserving it would space every themed screen out by 24px in
-					-- every direction. A canvas allowance is the iOS `contentInset`
-					-- shape: the layout does not move, the paint becomes reachable.
+					-- every direction. A canvas allowance is the scroll-inset shape every
+					-- platform ships: the layout does not move, the paint becomes
+					-- reachable.
 					-- Zero for every package that declares no shadow.
 					local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
 					local region = {
