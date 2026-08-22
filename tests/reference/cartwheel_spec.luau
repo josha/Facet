@@ -613,6 +613,63 @@ describe("Cartwheel — the dashboard reacts to an arrival", function()
 	end)
 end)
 
+--[[ THE TALLY'S NUDGE IS A DECLARATION, NOT A PER-FRAME WRITE (purity audit
+	DELETE §5, 2026-08-21).
+
+	`scale` is a documented reactive prop on every rendered class
+	(`blueprint_schema.luau`), and this footer was driving it with a
+	`setPresentationTransform` call on EVERY tick — including the resting frames,
+	where it wrote `nil` over and over. The neighbouring `celebration.luau` genuinely
+	has to go imperative, because a TRANSLATION has no declarative twin yet; that
+	established idiom then propagated onto a case that never needed it, and this
+	corpus is what a reader copies from.
+
+	BOTH DIRECTIONS: the app must make NO imperative transform write for that path,
+	AND the nudge must still be painted — "no writes" is also what a dead pulse
+	produces. ]]
+describe("Cartwheel — the tally's pulse is declared, not written per frame", function()
+	it("drives no imperative transform for the footer, and still paints the nudge", function()
+		local world = makeWorld()
+		local footer = world.built.screens.dashboard.footerPath
+
+		-- SPY on the one seam the imperative form used. `app.controller()` hands
+		-- back a stable table, so a wrapper here sees every call the app makes.
+		local controller = world.built.handle.controller
+		local writes = 0
+		local realWrite = controller.setPresentationTransform
+		controller.setPresentationTransform = function(path: string, value: any)
+			if path == footer then
+				writes += 1
+			end
+			return realWrite(path, value)
+		end
+
+		world.built.steps.advance(world.built, "10")
+		world.presenter.refresh()
+		local peak = 1
+		local last = 1
+		for _ = 1, 60 do
+			world.presenter.tick(1 / 60)
+			world.presenter.refresh()
+			local node = world.adapter.node(footer)
+			local transform = if node ~= nil then node.props.transform else nil
+			local scale = if type(transform) == "table" and type(transform.scale) == "number"
+				then transform.scale
+				else 1
+			peak = math.max(peak, scale)
+			last = scale
+		end
+		expect(`imperative transform writes on the footer: {writes}`).toBe(
+			"imperative transform writes on the footer: 0"
+		)
+		-- ...and the nudge is REAL: the declared scale rises above rest while the
+		-- arrival's spring is running, and comes back to exactly 1 once it settles
+		expect(`the nudge peaked above rest: {peak > 1.01}`).toBe("the nudge peaked above rest: true")
+		expect(`and settled back to rest: {last == 1}`).toBe("and settled back to rest: true")
+		closeWorld(world)
+	end)
+end)
+
 --[[ ADAPT-1 — THE RUNG THAT HAD NEVER FIRED, IN A SHIPPED APP.
 
 	The audit's census: all five `PopupButton` call sites in this repository wired

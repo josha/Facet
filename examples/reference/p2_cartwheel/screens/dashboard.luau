@@ -76,20 +76,25 @@ function dashboard.new(app: any): any
 		pulse:setTarget(0)
 	end)
 
-	-- the presentation-channel half of the pulse: a scale nudge on the footer,
-	-- written through the ONE motion write surface (never a solver property)
-	app.onTick(function()
-		local controller = app.controller()
-		if controller == nil then
-			return
-		end
-		local amount = pulse:get()
-		if amount <= 0.001 then
-			controller.setPresentationTransform(self.footerPath, nil)
-		else
-			controller.setPresentationTransform(self.footerPath, { x = 0, y = 0, scale = 1 + 0.06 * amount })
-		end
-	end)
+	--[[ the presentation-channel half of the pulse: a scale nudge on the footer,
+		DECLARED on the node rather than written at it.
+
+		This used to be an `app.onTick` calling `setPresentationTransform` every
+		frame — including the resting frames, where it wrote `nil` over and over.
+		`scale` is a reactive prop on every rendered class (blueprint_schema), it is
+		paint-only (the solver never sees it, so the box, the hit target and the
+		focus order are the unscaled ones), and it MULTIPLIES with any scale the
+		framework is applying — which is exactly what a nudge on top of a press dip
+		wants. A MotionValue IS a `Readable<number>`, so one memo over the spring is
+		the whole binding.
+
+		`celebration.luau` next door is still imperative and correctly so: it moves
+		a TRANSLATION, and `offset` takes numbers rather than Readables, so it has
+		no declarative twin to reach for. That is the difference worth copying —
+		reach for the write when there is no prop, not because a sibling did. ]]
+	local tallyScale = app.scope:own(core:memo(function(use)
+		return 1 + 0.06 * use(pulse)
+	end))
 
 	local tallyText = core:memo(function(use)
 		local first = (use(recent) :: any)[1]
@@ -318,6 +323,7 @@ function dashboard.new(app: any): any
 				text = tallyText,
 				textSize = "caption",
 				role = tallyRole,
+				scale = tallyScale,
 			}),
 		},
 	})

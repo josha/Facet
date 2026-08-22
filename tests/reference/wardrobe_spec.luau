@@ -100,6 +100,39 @@ describe("Wardrobe proof — mount, stage seam, arrangement (RA-P5)", function()
 		teardown(w)
 	end)
 
+	--[[ THE TURNTABLE OBEYS THE ACCESSIBILITY SETTING (purity audit DELETE §5,
+		2026-08-21). `env:get(key)` returns the READABLE, never the value — see
+		`src/env/environment.luau`'s `env.get` — so `env:get("reducedMotion") == true`
+		compares a table to a boolean and is permanently FALSE. The stage spun on
+		regardless of the player's setting, and `--!strict` could not see it because
+		`env.get` is typed `any`. `p2_cartwheel` does the same read correctly through
+		`use(env:get("motionPolicy")) == "reduced"`.
+
+		BOTH DIRECTIONS, because "the yaw did not move" is also what a broken tick
+		produces. ]]
+	it("REDUCED MOTION STOPS THE TURNTABLE — and motion allowed still turns it", function()
+		local still = makeWorld()
+		still.env:set("reducedMotion", true)
+		local stillBefore = still.built._internals.signals.yaw:get()
+		for _ = 1, 5 do
+			still.presenter.tick(0.1)
+		end
+		expect(`yaw moved under reduced motion: {still.built._internals.signals.yaw:get() ~= stillBefore}`).toBe(
+			"yaw moved under reduced motion: false"
+		)
+		teardown(still)
+
+		local moving = makeWorld()
+		local movingBefore = moving.built._internals.signals.yaw:get()
+		for _ = 1, 5 do
+			moving.presenter.tick(0.1)
+		end
+		expect(`yaw moved with motion allowed: {moving.built._internals.signals.yaw:get() ~= movingBefore}`).toBe(
+			"yaw moved with motion allowed: true"
+		)
+		teardown(moving)
+	end)
+
 	it("wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip", function()
 		local w = makeWorld(1400)
 		local comp = w.handle.controller.compositionAt(BODY)
@@ -280,6 +313,44 @@ describe("Wardrobe proof — filters, sections, locale, determinism", function()
 		w.built.steps.locale(nil, "xa")
 		w.presenter.refresh()
 		expect(string.find(tostring(w.adapter.node(buy :: string).props.label), "%[") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	--[[ ...AND IT REACHES THE SECTION NAMES TOO (purity audit DELETE §5,
+		2026-08-21). They were the ONE piece of chrome in this proof that ignored
+		its own locale loop: the segmented picker's option labels were resolved with
+		`Lnow` at BUILD time, so a flip moved every other string on screen and left
+		the three section words in English. `p4_foyer` records the contract they were
+		missing — "a picker option label may be a Readable" — and its own wings are
+		`L(...)` memos for exactly this reason. ]]
+	it("the locale swap reaches the SECTION PICKER's option labels too", function()
+		local w = makeWorld()
+		local function sectionWords(): string
+			local seen: { string } = {}
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				local props = if node ~= nil then node.props else nil
+				if props == nil then
+					continue
+				end
+				for _, value in { props.label, props.text } do
+					local text = tostring(value)
+					if text == "Boutique" or string.find(text, "Ɓøůţíƣůé", 1, true) ~= nil then
+						table.insert(seen, if text == "Boutique" then "en" else "xa")
+					end
+				end
+			end
+			table.sort(seen)
+			return table.concat(seen, ",")
+		end
+		expect(`section label locales before the flip: {sectionWords()}`).toBe(
+			"section label locales before the flip: en"
+		)
+		w.built.steps.locale(nil, "xa")
+		w.presenter.refresh()
+		expect(`section label locales after the flip: {sectionWords()}`).toBe(
+			"section label locales after the flip: xa"
+		)
 		teardown(w)
 	end)
 

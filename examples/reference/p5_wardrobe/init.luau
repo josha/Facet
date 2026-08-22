@@ -953,10 +953,16 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 	-- ── chrome (segments + wallet) ─────────────────────────────────────────
 	local sectionPicker = Facet.Controls.Picker(core, {
 		id = "Section",
+		-- `L`, NOT `Lnow`: a Picker option label may be a Readable (the contract
+		-- `p4_foyer` records for its own wings), and these three are the app's
+		-- PERSISTENT chrome — built once and never rebuilt, so a build-time string
+		-- froze them at the boot locale while every other word on screen followed
+		-- the flip. The refine sheet below can keep `Lnow` because it is rebuilt on
+		-- every present; this picker is not.
 		options = {
-			{ value = "boutique", label = Lnow("section.boutique") },
-			{ value = "outfits", label = Lnow("section.outfits") },
-			{ value = "profile", label = Lnow("section.profile") },
+			{ value = "boutique", label = L("section.boutique") },
+			{ value = "outfits", label = L("section.outfits") },
+			{ value = "profile", label = L("section.profile") },
 		},
 		selected = section,
 		presentation = "automatic",
@@ -1143,9 +1149,16 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 	scope:own(core:observe(yaw, function()
 		pushCamera()
 	end))
+	-- THE FACT IS A READABLE, AND ITS VALUE IS WHAT THIS COMPARES. `env:get(key)`
+	-- hands back the Readable, never its value, so `env:get("reducedMotion") ==
+	-- true` compares a table to a boolean and is permanently false — which is how
+	-- this turntable spun through the accessibility setting until 2026-08-21.
+	-- Read once here and sampled per tick, so a player who turns the setting on
+	-- mid-session stops the stage on the next frame.
+	local reducedMotion = env:get("reducedMotion")
 	scope:own(presenter.onTick(function(dt: number)
 		settleImages()
-		local reduced = env:get("reducedMotion") == true
+		local reduced = reducedMotion:get() == true
 		if autoRotate:get() and not reduced then
 			yaw:set((yaw:get() + dt * 12) % 360)
 		end

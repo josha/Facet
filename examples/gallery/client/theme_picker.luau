@@ -519,8 +519,23 @@ function theme_picker.mount(opts: MountOpts): any
 		local entry = theme_picker.find(entries, use(selection).packageId)
 		local name = if entry ~= nil then entry.displayName else "—"
 		if isCollapsible then
-			-- collapsed, the chip is one of two in a shared strip: drop the
-			-- "Theme:" prefix and clip the name (see CHIP_LABEL_CHARS)
+			-- Collapsed, the chip drops the "Theme:" prefix. Whether it also CLIPS
+			-- depends on what is above it, and it used to ask the wrong question
+			-- (purity audit DELETE §5, 2026-08-21): this gated on `collapsible`
+			-- while its sibling `demo_picker` gates the identical clip on
+			-- `composed`, and the showcase mounts BOTH flags — so in the shipped
+			-- chrome the demo chip handed the `UI.ViewThatFits` ladder its real
+			-- title and this one handed it a pre-truncated string. A ladder cannot
+			-- step a label it was never given, which made the clip defeat the very
+			-- mechanism `[SHOWCASE-CHROME]: CONCERNS 16` replaced it with.
+			--
+			-- COMPOSED: hand over the whole name and let the ladder measure.
+			-- STANDALONE: keep the clip byte-for-byte — that path draws its own chip
+			-- into its own 62px strip with no ladder above it, and the eight
+			-- single-example places' geometry assertions are written against it.
+			if opts.composed == true then
+				return name
+			end
 			return theme_picker.clip(name, theme_picker.CHIP_LABEL_CHARS)
 		end
 		return `Theme: {name}`

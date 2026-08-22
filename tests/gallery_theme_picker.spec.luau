@@ -308,6 +308,36 @@ describe("theme picker: composed pieces carry their own handlers", function()
 		return nil
 	end
 
+	--[[ THE CHIP THE SHOWCASE ACTUALLY SHIPS IS NOT CLIPPED (purity audit DELETE
+		§5, 2026-08-21). The 14-character clip gated on `collapsible`, while its
+		sibling `demo_picker` gates the identical clip on `composed` — and the
+		showcase mounts `mountThemePicker(true, true)`, so the two chips standing
+		side by side in one strip disagreed: the demo chip handed its real title to
+		the composed chrome's `UI.ViewThatFits` ladder and the theme chip handed it
+		a pre-truncated string. A ladder cannot step a label it was never given, so
+		the clip was defeating the mechanism `[SHOWCASE-CHROME]: CONCERNS 16`
+		replaced the clip WITH. The standalone collapsed chip keeps the clip
+		byte-for-byte, and its own cases below are what says so. ]]
+	it("the COMPOSED chip hands the ladder the whole name, exactly as the demo chip does", function()
+		local m = composed()
+		-- pick a package whose name is long enough that the clip WOULD have bitten,
+		-- so this case cannot pass because nothing was there to truncate
+		local long: any = nil
+		for _, entry in m.entries do
+			if #entry.displayName > theme_picker.CHIP_LABEL_CHARS then
+				long = entry
+				break
+			end
+		end
+		expect(`a name longer than the clip exists: {long ~= nil}`).toBe("a name longer than the clip exists: true")
+		findByIdPrefix(m.panel, `P_{long.id}`).props.onActivate()
+		expect(m.open:get()).toBe(false) -- so the chip is showing the NAME, not "Theme ×"
+		local text = tostring(m.chip.props.label:get())
+		expect(`chip shows the whole name: {text == long.displayName}`).toBe("chip shows the whole name: true")
+		expect(`chip is clipped: {string.find(text, "…", 1, true) ~= nil}`).toBe("chip is clipped: false")
+		m.dispose()
+	end)
+
 	it("hands back a chip whose activation is on the chip itself", function()
 		local m = composed()
 		local handler = m.chip.props.onActivate
