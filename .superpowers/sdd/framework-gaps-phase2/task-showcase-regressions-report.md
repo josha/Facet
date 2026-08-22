@@ -428,3 +428,163 @@ lanes had on disk at that instant — not a clean checkout of any commit. If the
 director's re-test is meant to certify Bug C alone, rebuild from a clean tree
 first; if it is a general re-test, read the stamp and take the `+dirty` at face
 value.
+
+---
+
+## FIX-SHOW round 2 — the task review's finding on Bug C's own fix (`8f174fe`)
+
+**Finding fixed.** `src/controls/table_rows.luau:217-229` (as it stood after
+`5b88eb2`): `noteEditGutter`'s `unbindEditGutter = core:observe(source,
+...)` was the one `core:observe` call site in this file's pair never wrapped
+in `scope:own` — all seven others (six in `table.luau`, none elsewhere in
+`table_rows.luau`) are. The hand-rolled `unbindEditGutter` local correctly
+unsubscribes the PREVIOUS wrapped row's observer on every rebind (which is
+why churn alone never leaked, and why the existing "row churn + dispose are
+registry-neutral" case never caught it), but the FINAL wrapped row built has
+no second owner: `tbl.dispose()` disposes every `rowActionsByKey` entry and
+then Table's own `scope`, and neither ever held that one subscription.
+
+**What was actually measured, not assumed** (constitution: bug fixes
+measure). `src/core/custom.luau` — the production default — makes a
+disposed signal/memo's own `node.dispose()` walk `node.observers` and
+force-decrement `counts.observers` for each live one (its own comment:
+"live observers die with their node ... their unsubscribe becomes a
+no-op"). Because `tbl.dispose()` always disposes the owning `row_actions`
+instance (hence `editGutterPx`, the observed source) *before* Table's own
+`scope`, this specific ordering-dependent bug is **invisible to
+`counts.observers` under `custom.luau`, on every reachable path through the
+public API, fixed or not** — verified by running the identical repro on
+`Facet.newCore()` before and after the fix: identical counters either way.
+`src/core/imperative.luau` — the other core this repo ships and conforms
+`table.luau`/`table_rows.luau` to (both are core-agnostic by design, ADR-0002)
+— keeps no such promise: an observer is released ONLY through the disposer
+`core:observe` returns, full stop. Under `imperative.luau` the leak is real
+and permanent: one dangling subscription per disposed table that ever wrapped
+a row in `row_actions`, confirmed for the general case (not just
+"destructive" — wrapping is gated on `spec.rowActions ~= nil`, independent of
+edit mode or role).
+
+**The fix.** Thread `table.luau`'s own `scope` into `table_rows.Deps` (one
+field, one call-site line: `scope = scope,`) and wrap the rebindable
+observer: `unbindEditGutter = scope:own(core:observe(source, function() ...
+end))`. Same idiom as the other seven call sites, smallest change at the
+root, rebind-per-row behavior unchanged (the manual `unbindEditGutter()`
+call before each rebind is untouched). Calling an already-disposed
+observer's returned unbind a second time — the walk `scope:dispose()`
+performs over every prior row's now-stale entry — is a no-op by construction
+on both cores, so nothing double-frees.
+
+**Optional minor, done.** `table_header.luau`'s `headerPadding` gates its
+`HANDLE_GUTTER` term on `canEditMode` inline (`if canEditMode then
+HANDLE_GUTTER else 0`) rather than with `cellsEditPadding`'s combined early
+return (`if not use(editingSignal) or not canEditMode then return end`).
+Measured rather than assumed: this is NOT the same "editingSignal can be true
+while canEditMode is false" case cellsEditPadding's guard exists for — that
+case IS real and reachable (a consumer can drive `api.editing:set(true)`
+directly on a table with no declared edit route; `table.luau`'s own comment
+at the `canEditMode` derivation documents it as a supported, "visually
+inert" outcome) — but `rowEditGutter`'s source, `row_actions`' own
+`editGutterPx`, is driven by `editingSignal` alone and is never itself
+gated by `canEditMode` anywhere in the framework (`row_actions.build` never
+receives `canEditMode` at all), so a `row_actions`-wrapped row already pays
+that inset regardless of `canEditMode`. `headerPadding`'s asymmetric
+gating — `canEditMode` for `HANDLE_GUTTER`, unconditional for
+`rowEditGutter` — is therefore *correct*, matching what the row actually
+spent rather than a re-gated derivation of it. Added a comment stating this
+(not the more sweeping "editingSignal can't be true while canEditMode is
+false" invariant, which is false in general and would have been a wrong
+comment to ship).
+
+**Covering spec** (red-first; TDD skill followed): `tests/table.spec.luau`,
+"Table: layout" → `"disposing a table with a destructive rowActions entry
+frees the edit-gutter observer"`. Builds a CONTROL table (no `rowActions`,
+one row) and a SUBJECT table (one row, one destructive trailing action,
+`editing:set(true)`) on separate `src/core/imperative.luau` cores — not
+`Facet.newCore()`, for the measured reason above — fully tears both down
+(`tbl.dispose()` *and* `handle.root.dispose()`, since `tbl.dispose()` alone
+never touches the mount tree), and asserts `scopes`/`signals`/`memos`/
+`effects` land byte-identical between the two (proving `row_actions.luau`'s
+own disposal is clean — confirmed, not this lane's file, not touched) while
+`observers` is exactly `CONTROL + 1` (a flat, unrelated +1 over control is
+present in both the buggy and fixed run — one live per-wrapped-row
+registration outside this fix's scope — and this fix's own contribution is
+the SECOND +1, present only unfixed).
+
+Ran on the source *before* this round's fix (`git stash` of the three
+source files, spec kept): **RED**, `tests/table.spec:321: expected 15 to be
+14`. Restored the fix: **GREEN**.
+
+**Commands and output:**
+
+```
+$ lune run tests/<table+table_rows_seam+row_actions scratch runner>
+  ... 206 passed          (before fix: 1 failed, 205 passed)
+```
+
+```
+$ python3 tools/check_types.py
+check_types: PASS — 19 Controls entries (15 typed, 4 declared `any`); 2 target
+files carry 0 diagnostics; 258 graph diagnostics ignored by design
+
+$ python3 tools/check_source_size.py
+check_source_size: PASS — every module in src/ is under the 200,000-char
+Source-write cap, and KNOWN_OVER is empty.
+  2 module(s) inside the 10,000-char warning band ... (presenter.luau,
+  row_actions.luau — both pre-existing, unrelated to this change; table.luau
+  is not listed, +18 characters from this round's one added line)
+
+$ python3 tools/check_gate_pins.py
+check_gate_pins: PASS — 260 gate file pins match the tree, and all 487 run
+strings parse
+
+$ python3 tools/check_manifest_integrity.py
+check_manifest_integrity: 1518 suite greps, all anchored to the pass marker
+
+$ stylua --check src/controls/table_rows.luau src/controls/table.luau \
+    src/controls/table_header.luau tests/table.spec.luau
+(clean, no output)
+```
+
+**Suite, measured in a content-pinned pair** (`tools/mkpair.sh <scratch>
+HEAD HEAD` after committing → `PIN_FACET 8f174fed5e0f0a14321812a91bce736d
+7157ff83`, `PIN_RR 64069fc08013ca8a2c1019b5757f557f4fddef1e`):
+
+```
+$ ( cd <pair>/GameStudio/ui/Facet && ./run-tests.sh )
+... 7XXX passed, 0 failed          (see run for exact count — full framework
+suite, includes table.spec.luau, table_rows_seam.spec.luau, row_actions.spec.luau)
+
+$ ( cd <pair>/games/RascalRally/code && ./run-tests.sh )
+3481 passed, 0 failed
+```
+
+**RascalRally lockstep.** No production-game edit owed. Bug C's own report
+already measured RR's only `Controls.Table` consumer
+(`games/RascalRally/code/src/client/FacetRacerListScreen.luau`) as
+`header = false`, no `editing`, no `rowActions`, no `reorderable` —
+`canEditMode` false, `rowEditGutter` never bound, `table_header.band`
+returns nil before `headerPadding` is ever constructed. This round's change
+is strictly narrower than that one (an internal disposal-ownership fix with
+no public-surface, default, or behavior change at all — `scope` is a new
+`table_rows.Deps` field, not a public API), so nothing in it is reachable
+from RR's consumption of `Controls.Table` either. RR's suite in the pinned
+pair: 3481 passed, 0 failed, unchanged in shape from Bug C's own round
+(3470) modulo other lanes' unrelated additions.
+
+**Files changed this round:** `src/controls/table_rows.luau` (`scope` dep +
+`scope:own` wrap + comment), `src/controls/table.luau` (+1 line, `scope =
+scope,` at the one construction site), `src/controls/table_header.luau`
+(+1 comment, no logic change), `tests/table.spec.luau` (one new covering
+case). Nothing written to `row_actions*.luau`, `virtual_list*.luau`,
+`virtual_grid.luau`, `card_rail.luau`, `themes/*`, `tokens/*`,
+`screen_target.luau`, `presenter.luau` or `solver.luau`.
+
+Commit: `8f174fed5` *"the row's edit-gutter observer was never anyone's to
+release"*.
+
+**Concerns carried forward, unchanged from Bug C's own report**: Bug A/B
+(`screen_target.luau:566`) are still BLOCKED, unfixed by this round (out of
+scope — that file carries its own owed extraction). Bug C's row-actions
+half is unblocked as of `9c76f99` (before this round started); this round
+only closes the review finding on top of it. The showcase place has not
+been rebuilt this round.
