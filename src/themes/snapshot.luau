@@ -815,9 +815,15 @@ local function withCurrentApp(base: any): any
 	if type(base) ~= "table" or appGenerations[base] == declaredAppGeneration then
 		return base
 	end
+	--[[ KEYED BY GENERATION, not merely by base. Found live: the showcase mounts
+		several proofs, so `p2_cartwheel` declares (generation N), a stale base is
+		refreshed and cached, and then `p3_sipworks` declares (N+1) — and every read
+		of that base got the cached N form back, which knows `app.cartwheel` and has
+		never heard of `app.sip`. A cache that cannot say which vocabulary it holds
+		is a stale answer with a fast path in front of it. ]]
 	local cached = appRefreshed[base]
-	if cached ~= nil then
-		return cached
+	if cached ~= nil and cached.generation == declaredAppGeneration then
+		return cached.snapshot
 	end
 	local merged: any = appBase(if type(base.app) == "table" then base.app else {})
 	local function fill(node: any, into: any)
@@ -840,7 +846,7 @@ local function withCurrentApp(base: any): any
 	out.app = merged
 	local frozen = deepFreeze(out)
 	appGenerations[frozen] = declaredAppGeneration
-	appRefreshed[base] = frozen
+	appRefreshed[base] = { generation = declaredAppGeneration, snapshot = frozen }
 	return frozen
 end
 -- per-base memo of the adapted forms, keyed by factor. A snapshot is frozen, so

@@ -4,7 +4,7 @@
 -- BOTH entry flows, which is what makes the compact-link entry a different
 -- SHELL rather than a second app (spec §11).
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local artContent = require("../content/art")
 
 local parts = {}
@@ -22,13 +22,13 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 	local UI = app.UI
 	local options = opts or {}
 	local a = artContent.of(kind, id)
-	local box = options.width or metrics.fill
+	local box = options.width or dims.fill
 	local height = options.height or box
 	local children: { any } = {
 		UI.Box({
 			id = "Plate",
-			width = metrics.fill,
-			height = metrics.fill,
+			width = dims.fill,
+			height = dims.fill,
 			tint = { role = a.role, blend = a.blend },
 			corners = UI.cornersData("control"),
 			stroke = UI.strokeData({}),
@@ -41,8 +41,8 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 				id = "Art",
 				image = a.image,
 				scaleMode = "crop",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				corners = UI.cornersData("control"),
 			})
 		)
@@ -98,10 +98,10 @@ function parts.flipPlate(app: any, spec: any): any
 		return use(progress) < 0.5
 	end))
 	local frontWidth = app.own(core:memo(function(use)
-		return metrics.percent(math.max(0.02, 1 - 2 * use(progress)))
+		return dims.percent(math.max(0.02, 1 - 2 * use(progress)))
 	end))
 	local backWidth = app.own(core:memo(function(use)
-		return metrics.percent(math.max(0.02, 2 * use(progress) - 1))
+		return dims.percent(math.max(0.02, 2 * use(progress) - 1))
 	end))
 
 	return UI.ZStack({
@@ -118,7 +118,7 @@ function parts.flipPlate(app: any, spec: any): any
 					return UI.ZStack({
 						id = "FrontFace",
 						width = frontWidth,
-						height = metrics.fill,
+						height = dims.fill,
 						alignH = "center",
 						alignV = "center",
 						children = { spec.front() },
@@ -132,7 +132,7 @@ function parts.flipPlate(app: any, spec: any): any
 					return UI.ZStack({
 						id = "BackFace",
 						width = backWidth,
-						height = metrics.fill,
+						height = dims.fill,
 						alignH = "center",
 						alignV = "center",
 						children = { spec.back() },
@@ -156,18 +156,30 @@ end
 -- form that terminates.
 -- ---------------------------------------------------------------------------
 
+--[[ THE TWO §12 NUMBERS THAT ARE NOT DIMENSIONS (ADR-0042).
+
+	A wisp COUNT is a loop bound and a wisp TRAVEL is a spring target — Luau
+	numbers, not box dimensions, so neither can be spelled as a `px`. They are
+	still declared in the proof's own `app.sip` namespace, because the spec lists
+	them with the rest of §12 and one home is the point; `app.metric` reads them
+	off the live snapshot instead of restating them here.
+
+	AND THE LADDER LEAVES THEM ALONE, which is why their names read the way they
+	do: `wispCount` and `wispTravelFraction` each end in a segment the ten-foot
+	classification knows is not a length, so a television gets eight wisps drifting
+	0.16 of the backdrop — not twelve drifting 0.24. ]]
 function parts.steamBackdrop(app: any, id: string): any
 	local UI = app.UI
 	local wisps: { any } = {}
 	local rng = app.seed
 	local reduced = app.motionPolicy() == "reduced"
-	for i = 1, metrics.wispCount do
+	for i = 1, app.metric("wispCount", 8) do
 		-- a tiny deterministic hash, so the drift is seeded and never random
 		rng = (rng * 1103515245 + 12345) % 2147483648
 		local x = 0.06 + ((rng // 97) % 88) / 100
 		rng = (rng * 1103515245 + 12345) % 2147483648
 		local rest = 0.1 + ((rng // 89) % 80) / 100
-		local travel = metrics.wispTravel
+		local travel = app.metric("wispTravelFraction", 0.16)
 
 		local offset: any
 		if reduced or app.clockMotion == nil then
@@ -193,14 +205,14 @@ function parts.steamBackdrop(app: any, id: string): any
 				anchor = "topLeft",
 				offsetX = { scale = x },
 				offsetY = offset,
-				width = metrics.fixed(metrics.wispSize),
-				height = metrics.fixed(metrics.wispSize),
+				width = dims.fixed("app.sip.wispSize"),
+				height = dims.fixed("app.sip.wispSize"),
 				corners = UI.cornersData("pill"),
 				tint = { role = "contentSecondary", blend = 0.18 },
 			})
 		)
 	end
-	return UI.Anchor({ id = id, width = metrics.fill, height = metrics.fill, children = wisps })
+	return UI.Anchor({ id = id, width = dims.fill, height = dims.fill, children = wisps })
 end
 
 -- ---------------------------------------------------------------------------
@@ -214,13 +226,13 @@ function parts.factRow(app: any, id: string, label: any, value: any): any
 		id = id,
 		gap = "xs",
 		align = "center",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			UI.Text({
 				id = "Label",
 				text = label,
 				textSize = "body",
-				width = metrics.fill,
+				width = dims.fill,
 				lineLimit = 2,
 				disclose = true,
 			}),

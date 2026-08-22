@@ -223,6 +223,25 @@ describe("app metrics: every package carries them", function()
 			expect(rawequal(snapshot.forDisplay(fresh, "Medium"), fresh)).toBe(true)
 		end)
 	end)
+
+	--[[ …AND THE REFRESH IS KEYED BY VOCABULARY, NOT MERELY BY SNAPSHOT. Found
+		live in the overflow sweep, which resolves its eight package snapshots once
+		at module load and then mounts five proofs against them: the first proof
+		declared, a stale base was refreshed and cached, the second proof declared —
+		and every read of that base got the FIRST refresh back, which had never heard
+		of the second group. A cache that cannot say which vocabulary it holds is a
+		stale answer with a fast path in front of it. ]]
+	it("a base refreshed for one group is refreshed again for the next", function()
+		local stale = snapshot.resolve(snapshot.neutralPackage(), nil, {})
+		themes.declareApp("alpha", { tileMin = 96 })
+		expect(snapshot.forDisplay(stale, "Medium").app.alpha.tileMin).toBe(96)
+		themes.declareApp("beta", { tileMin = 200 })
+		local both = snapshot.forDisplay(stale, "Medium")
+		expect(both.app.alpha.tileMin).toBe(96)
+		expect(both.app.beta.tileMin).toBe(200)
+		themes.declareApp("alpha", nil)
+		themes.declareApp("beta", nil)
+	end)
 end)
 
 describe("app metrics: the ten-foot ladder", function()

@@ -7,7 +7,7 @@
 -- because a compact variant that re-implemented any of it would be a second
 -- card to keep true.
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local artContent = require("../content/art")
 local parts = require("./parts")
 local rewardsService = require("../services/rewards")
@@ -20,7 +20,7 @@ function rewardsView.card(app: any, opts: any): any
 	local i18n = app.services.i18n
 	local rewards = app.services.rewards
 	local compact = (opts or {}).compact == true
-	local sealSize = if compact then metrics.sealCompact else metrics.seal
+	local sealName = if compact then "sealCompact" else "seal"
 	-- A SEAL GROWS WITH THE READER. The cell is a fixed round token and its mark
 	-- is drawn text, so at the largest text preference the glyph was taller than
 	-- the box (the solver reported a 14px overflow). The box now composes the
@@ -28,7 +28,7 @@ function rewardsView.card(app: any, opts: any): any
 	-- row does, instead of clipping a letter.
 	local sealBox = app.own(core:memo(function(use)
 		if app.env == nil then
-			return metrics.fixed(sealSize)
+			return dims.fixed(`app.sip.{sealName}`)
 		end
 		--[[ ...and the ten-foot type scale, for the same reason: the mark is drawn
 			text and the box has to hold it at whatever scale the seat distance asks.
@@ -48,7 +48,10 @@ function rewardsView.card(app: any, opts: any): any
 			`size * scale + offset`, and for a token that must not clip its glyph, over
 			is the safe side. ]]
 		local facts = app.Facet.text.facts({ env = app.env, use = use })
-		return metrics.fixed(math.ceil((sealSize + facts.offset) * facts.scale))
+		-- the seal's own diameter is a declared app metric, read as a NUMBER here
+		-- because this composes it with the reader's reservation (ADR-0042)
+		local sealSize = app.metric(sealName, if compact then 32 else 44, use)
+		return dims.fixed(math.ceil((sealSize + facts.offset) * facts.scale))
 	end))
 
 	local cells: { any } = {}
@@ -77,8 +80,8 @@ function rewardsView.card(app: any, opts: any): any
 					-- form, not only in colour
 					UI.Box({
 						id = "Ring",
-						width = metrics.fill,
-						height = metrics.fill,
+						width = dims.fill,
+						height = dims.fill,
 						corners = UI.cornersData("pill"),
 						stroke = UI.strokeData({}),
 					}),
@@ -89,8 +92,8 @@ function rewardsView.card(app: any, opts: any): any
 							return UI.ZStack({
 								id = "Seal",
 								canvasGroup = true,
-								width = metrics.fill,
-								height = metrics.fill,
+								width = dims.fill,
+								height = dims.fill,
 								alignH = "center",
 								alignV = "center",
 								children = {
@@ -133,7 +136,7 @@ function rewardsView.card(app: any, opts: any): any
 				end),
 				role = "secondary",
 				textSize = "caption",
-				width = metrics.fill,
+				width = dims.fill,
 			})
 		)
 		table.insert(
@@ -157,7 +160,7 @@ function rewardsView.card(app: any, opts: any): any
 		padding = if compact then "s" else "m",
 		gap = if compact then "xs" else "s",
 		align = "center",
-		width = metrics.fill,
+		width = dims.fill,
 		children = children,
 	})
 end
@@ -173,8 +176,8 @@ function rewardsView.modal(app: any): any
 			UI.ZStack({
 				id = "Body",
 				canvasGroup = true,
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
@@ -186,14 +189,14 @@ function rewardsView.modal(app: any): any
 					UI.ScrollView({
 						id = "PanelScroll",
 						axis = "y",
-						width = metrics.percentMax(0.92, metrics.cardW),
-						height = metrics.percent(0.95),
+						width = dims.percentMax(0.92, "app.sip.cardW"),
+						height = dims.percent(0.95),
 						children = {
 							UI.VStack({
 								id = "Panel",
 								gap = "m",
 								align = "center",
-								width = metrics.fill,
+								width = dims.fill,
 								children = {
 									rewardsView.card(app, { compact = false }),
 									UI.Button({

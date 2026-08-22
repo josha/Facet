@@ -7,7 +7,7 @@
 -- with the same `materialize` transition every other insert uses — the animated
 -- reveal is the list doing its job, not a bespoke sequence.
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local parts = require("./parts")
 
 local book = {}
@@ -49,7 +49,7 @@ function book.unlockCard(app: any): any
 			return UI.ZStack({
 				id = "UnlockBox",
 				canvasGroup = true,
-				width = metrics.fill,
+				width = dims.fill,
 				children = {
 					UI.VStack({
 						id = "Card",
@@ -57,12 +57,12 @@ function book.unlockCard(app: any): any
 						corners = UI.cornersData("panel"),
 						stroke = UI.strokeData({}),
 						gap = 0,
-						width = metrics.fill,
+						width = dims.fill,
 						children = {
 							parts.artPlate(app, "blend", "amber-harvest", {
 								id = "Cover",
-								width = metrics.fill,
-								height = metrics.aspect(2.4),
+								width = dims.fill,
+								height = dims.aspect(2.4),
 								markSize = "title",
 							}),
 							UI.VStack({
@@ -72,7 +72,7 @@ function book.unlockCard(app: any): any
 								surface = "raised",
 								padding = "m",
 								gap = "xs",
-								width = metrics.fill,
+								width = dims.fill,
 								children = {
 									UI.Text({
 										id = "Name",
@@ -86,7 +86,7 @@ function book.unlockCard(app: any): any
 										textSize = "body",
 										lineLimit = 2,
 										disclose = true,
-										width = metrics.fill,
+										width = dims.fill,
 									}),
 									-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
 									-- IS MOUNTED (spec §10): a price nobody knows yet
@@ -113,7 +113,7 @@ function book.unlockCard(app: any): any
 												enabled = buyEnabled,
 												surface = "accent",
 												corners = UI.cornersData("pill"),
-												width = metrics.fill,
+												width = dims.fill,
 												onActivate = function()
 													app.commands.buyBlendBook()
 												end,
@@ -189,22 +189,22 @@ function book.recipeView(app: any, opts: any): any
 			textSize = "heading",
 			lineLimit = 1,
 			disclose = true,
-			width = metrics.minMax(metrics.tileArt, metrics.tileArt, metrics.listPaneMax),
+			width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 		})
 	)
 
 	return UI.VStack({
 		id = options.id or "Recipe",
 		gap = "s",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = {
 			UI.HStack({
 				id = "TopBar",
 				padding = "m",
 				gap = "s",
 				align = "center",
-				width = metrics.fill,
+				width = dims.fill,
 				children = topBar,
 			}),
 			UI.ScrollView({
@@ -212,13 +212,13 @@ function book.recipeView(app: any, opts: any): any
 				axis = "y",
 				gap = "m",
 				padding = "m",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				children = {
 					UI.ZStack({
 						id = "Hero",
-						width = metrics.fill,
-						height = metrics.aspect(1.5),
+						width = dims.fill,
+						height = dims.aspect(1.5),
 						children = {
 							UI.ForEach({
 								id = "HeroArt",
@@ -229,8 +229,8 @@ function book.recipeView(app: any, opts: any): any
 								row = function(blendId: string)
 									return parts.artPlate(app, "blend", blendId, {
 										id = "Plate",
-										width = metrics.fill,
-										height = metrics.fill,
+										width = dims.fill,
+										height = dims.fill,
 										markSize = "title",
 									})
 								end,
@@ -240,8 +240,8 @@ function book.recipeView(app: any, opts: any): any
 							-- keeps its whole box
 							UI.Anchor({
 								id = "BatchAnchor",
-								width = metrics.fill,
-								height = metrics.fill,
+								width = dims.fill,
+								height = dims.fill,
 								children = {
 									UI.ZStack({
 										id = "BatchHost",
@@ -261,12 +261,12 @@ function book.recipeView(app: any, opts: any): any
 						id = "Heading",
 						text = app.text("ingredients.recipe"),
 						textSize = "heading",
-						width = metrics.minMax(metrics.tileArt, metrics.tileArt, metrics.listPaneMax),
+						width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 					}),
 					UI.VStack({
 						id = "Measures",
 						gap = "xs",
-						width = metrics.fill,
+						width = dims.fill,
 						children = {
 							UI.ForEach({
 								id = "Rows",
@@ -324,11 +324,11 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 		gap = "xs",
 		padding = "s",
 		align = "center",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			parts.artPlate(app, "botanical", botanical.id, {
-				width = metrics.fixed(metrics.rowArt),
-				height = metrics.fixed(metrics.rowArt),
+				width = dims.fixed("app.sip.rowArt"),
+				height = dims.fixed("app.sip.rowArt"),
 			}),
 			-- A FLOOR, NOT A FILL. A `fill` child still MEASURES its content, so a
 			-- capped-but-long localized name kept the row 70px wider than the pane
@@ -338,7 +338,7 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 			UI.VStack({
 				id = "Lines",
 				gap = "xs",
-				width = metrics.minMax(metrics.tileArt, metrics.tileArt, metrics.listPaneMax),
+				width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 				children = {
 					UI.Text({ id = "Name", text = name, textSize = "strong", lineLimit = 1, disclose = true }),
 					-- a measured quantity is ONE short token; capping it keeps the row
@@ -351,13 +351,13 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 						textSize = "caption",
 						lineLimit = 1,
 						disclose = true,
-						width = metrics.fill,
+						width = dims.fill,
 					}),
 				},
 			}),
 			UI.Toggle({
 				id = "Got-" .. botanical.id,
-				width = metrics.fixed(metrics.gatherToggleAt(app)),
+				width = dims.fixed("app.sip.gatherToggle"),
 				label = own(core:memo(function(use)
 					return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
 				end)),

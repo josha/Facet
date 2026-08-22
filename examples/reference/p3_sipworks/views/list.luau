@@ -12,7 +12,7 @@
 -- visible-control adaptation of the reference's swipe action (ledger §A) — no
 -- swipe gesture is built, on any input class.
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local parts = require("./parts")
 
 local list = {}
@@ -60,7 +60,7 @@ function list.blendRow(app: any, blendId: string, itemScope: any, opts: any): an
 			id = "Open",
 			label = title,
 			selected = selected,
-			width = metrics.fill,
+			width = dims.fill,
 			padding = "s",
 			gap = "m",
 			align = "center",
@@ -69,13 +69,13 @@ function list.blendRow(app: any, blendId: string, itemScope: any, opts: any): an
 			end,
 			children = {
 				parts.artPlate(app, "blend", blendId, {
-					width = metrics.fixed(metrics.rowArt),
-					height = metrics.fixed(metrics.rowArt),
+					width = dims.fixed("app.sip.rowArt"),
+					height = dims.fixed("app.sip.rowArt"),
 				}),
 				UI.VStack({
 					id = "Lines",
 					gap = "xs",
-					width = metrics.fill,
+					width = dims.fill,
 					children = {
 						UI.Text({ id = "Title", text = title, textSize = "strong", lineLimit = 1, disclose = true }),
 						UI.Text({
@@ -113,9 +113,9 @@ function list.blendRow(app: any, blendId: string, itemScope: any, opts: any): an
 		-- other node, naming this fix)
 		id = "Row-" .. blendId,
 		canvasGroup = true,
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
-			UI.HStack({ id = "Line", gap = "s", align = "center", width = metrics.fill, children = children }),
+			UI.HStack({ id = "Line", gap = "s", align = "center", width = dims.fill, children = children }),
 		},
 	})
 end
@@ -184,7 +184,7 @@ function list.searchBar(app: any): any
 	return UI.VStack({
 		id = "SearchBar",
 		gap = "xs",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			field.blueprint,
 			UI.When({
@@ -195,12 +195,12 @@ function list.searchBar(app: any): any
 					return UI.ZStack({
 						id = "SuggestBox",
 						canvasGroup = true,
-						width = metrics.fill,
+						width = dims.fill,
 						children = {
 							UI.VStack({
 								id = "SuggestList",
 								gap = "xs",
-								width = metrics.fill,
+								width = dims.fill,
 								surface = "raised",
 								padding = "xs",
 								children = {
@@ -226,7 +226,7 @@ function list.searchBar(app: any): any
 											return UI.Button({
 												id = "Suggest-" .. botanicalId,
 												label = label,
-												width = metrics.fill,
+												width = dims.fill,
 												onActivate = function()
 													app.commands.acceptSuggestion(botanicalId)
 												end,
@@ -275,8 +275,8 @@ function list.blendList(app: any, spec: any): any
 		id = spec.id,
 		axis = "y",
 		gap = "xs",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = children,
 	})
 end

@@ -22,7 +22,7 @@
 --     pocket still sits at the FOOT of the sidebar, pushed there by a spacer
 --     that only exists in the regular arrangement.
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local listView = require("./list")
 local detailView = require("./detail")
 local bookView = require("./book")
@@ -58,7 +58,7 @@ local function navButton(app: any, section: string, opts: { short: boolean, hug:
 		id = "Nav-" .. section,
 		label = app.text(SECTION_LABEL[section] .. (if opts.short then ".short" else "")),
 		selected = selected,
-		width = if opts.hug == true then nil else metrics.fill,
+		width = if opts.hug == true then nil else dims.fill,
 		onActivate = function()
 			app.commands.selectSection(section)
 		end,
@@ -85,7 +85,7 @@ local function sideRail(app: any): any
 	for _, section in SECTIONS do
 		if section == "stamps" then
 			-- the pocket is pushed to the FOOT of the sidebar
-			table.insert(children, UI.Spacer({ id = "PocketGap", height = metrics.fill }))
+			table.insert(children, UI.Spacer({ id = "PocketGap", height = dims.fill }))
 		end
 		table.insert(children, navButton(app, section, { short = false }))
 	end
@@ -94,8 +94,8 @@ local function sideRail(app: any): any
 		gap = "s",
 		padding = "s",
 		align = "stretch",
-		width = metrics.minMax(metrics.navRailMin, metrics.navRailMin, metrics.navRailMax),
-		height = metrics.fill,
+		width = dims.minMax("app.sip.navRailMin", "app.sip.navRailMin", "app.sip.navRailMax"),
+		height = dims.fill,
 		children = children,
 	})
 end
@@ -121,7 +121,7 @@ local function tabRow(app: any, id: string, opts: { short: boolean, hug: boolean
 		-- truncated ("a lot of cutoff text", director live report). `content`
 		-- is the uncapped natural width, which is what a fit CHOICE needs;
 		-- the chosen row is then centered by its wrapper and never stretched.
-		width = if opts.hug == true then { type = "content" } else metrics.fill,
+		width = if opts.hug == true then { type = "content" } else dims.fill,
 		children = children,
 	})
 end
@@ -138,12 +138,12 @@ local function bottomBar(app: any, compactForm: boolean): any
 		-- degradation rule every other bar form declares).
 		return UI.ViewThatFits({
 			id = "TabsCompactFit",
-			width = metrics.fill,
+			width = dims.fill,
 			children = {
 				UI.VStack({
 					id = "TabsCompactCenter",
 					align = "center",
-					width = metrics.fill,
+					width = dims.fill,
 					children = {
 						tabRow(app, "TabsCompact", { short = true, hug = true, pad = "xs" }),
 					},
@@ -161,12 +161,12 @@ local function bottomBar(app: any, compactForm: boolean): any
 	-- then the full-width shared band at the 1.4x locale + largest preference.
 	return UI.ViewThatFits({
 		id = "TabsFit",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			UI.VStack({
 				id = "TabsShortCenter",
 				align = "center",
-				width = metrics.fill,
+				width = dims.fill,
 				children = { tabRow(app, "TabsShort", { short = true, hug = true, pad = "s" }) },
 			}),
 			tabRow(app, "TabsShortWide", { short = true, pad = "s" }),
@@ -181,12 +181,12 @@ local function topBar(app: any): any
 	-- the band's trailing edge — the tablet tab-bar shape the guidance draws
 	return UI.ZStack({
 		id = "TopBar",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			UI.VStack({
 				id = "TopTabsCenter",
 				align = "center",
-				width = metrics.fill,
+				width = dims.fill,
 				children = {
 					UI.ViewThatFits({
 						id = "TopTabsFit",
@@ -204,11 +204,11 @@ local function topBar(app: any): any
 					return UI.VStack({
 						id = "TopSearchSlot",
 						align = "end",
-						width = metrics.fill,
+						width = dims.fill,
 						children = {
 							UI.VStack({
 								id = "TopSearchBox",
-								width = metrics.minMax(160, 200, 260),
+								width = dims.minMax(160, 200, 260),
 								children = { listView.searchBar(app) },
 							}),
 						},
@@ -226,9 +226,9 @@ end
 local function paneWidth(app: any): any
 	return app.own(app.core:memo(function(use)
 		if not use(app.paneSplit) then
-			return metrics.fill
+			return dims.fill
 		end
-		return metrics.minMax(metrics.listPaneMin, metrics.listPaneMin, metrics.listPaneMax)
+		return dims.minMax("app.sip.listPaneMin", "app.sip.listPaneMin", "app.sip.listPaneMax")
 	end))
 end
 
@@ -247,14 +247,14 @@ local function detailPane(app: any, kind: string): any
 	return UI.HStack({
 		id = "DetailPane",
 		gap = "m",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = {
 			UI.Divider({ id = "Rule" }),
 			UI.ZStack({
 				id = "PaneBody",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
@@ -329,8 +329,8 @@ local function listSection(app: any, kind: string): any
 			body,
 			UI.ZStack({
 				id = "ListArea",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
@@ -343,8 +343,8 @@ local function listSection(app: any, kind: string): any
 							return UI.ZStack({
 								id = "EmptyBox",
 								canvasGroup = true,
-								width = metrics.fill,
-								height = metrics.fill,
+								width = dims.fill,
+								height = dims.fill,
 								alignH = "center",
 								alignV = "center",
 								children = {
@@ -385,14 +385,14 @@ local function listSection(app: any, kind: string): any
 	return UI.HStack({
 		id = "Panes",
 		gap = "m",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = {
 			UI.VStack({
 				id = "ListPane",
 				gap = "s",
 				width = paneWidth(app),
-				height = metrics.fill,
+				height = dims.fill,
 				children = body,
 			}),
 			UI.When({
@@ -413,14 +413,14 @@ local function stampsSection(app: any): any
 		axis = "y",
 		gap = "m",
 		padding = "m",
-		width = metrics.fill,
-		height = metrics.percent(1),
+		width = dims.fill,
+		height = dims.percent(1),
 		children = {
 			UI.ZStack({
 				-- HUGS, never fills: a `fill` height inside a y-scroller measures
 				-- against a canvas that is itself derived from the content
 				id = "Backdrop",
-				width = metrics.fill,
+				width = dims.fill,
 				alignH = "center",
 				alignV = "start",
 				children = {
@@ -450,8 +450,8 @@ local function content(app: any): any
 					return UI.ZStack({
 						id = "Body",
 						canvasGroup = true,
-						width = metrics.fill,
-						height = metrics.fill,
+						width = dims.fill,
+						height = dims.fill,
 						children = {
 							if this == "stamps" then stampsSection(app) else listSection(app, this),
 						},
@@ -464,8 +464,8 @@ local function content(app: any): any
 		id = "Content",
 		gap = "s",
 		padding = "s",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = children,
 	})
 end
@@ -510,8 +510,8 @@ function shell.build(app: any): any
 			UI.VStack({
 				id = "Shell",
 				gap = "s",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				children = {
 					UI.When({
 						id = "TopBarWhen",
@@ -523,8 +523,8 @@ function shell.build(app: any): any
 					UI.HStack({
 						id = "Middle",
 						gap = "m",
-						width = metrics.fill,
-						height = metrics.fill,
+						width = dims.fill,
+						height = dims.fill,
 						children = {
 							UI.When({
 								id = "SideRailWhen",
@@ -543,7 +543,7 @@ function shell.build(app: any): any
 							return UI.VStack({
 								id = "Dock",
 								gap = "xs",
-								width = metrics.fill,
+								width = dims.fill,
 								children = {
 									-- THE TAB-BAR ACCESSORY: the search field rides
 									-- directly above the bottom tab bar (the guidance's
@@ -554,7 +554,7 @@ function shell.build(app: any): any
 										thenView = function()
 											return UI.VStack({
 												id = "Accessory",
-												width = metrics.fill,
+												width = dims.fill,
 												padding = "xs",
 												children = { listView.searchBar(app) },
 											})

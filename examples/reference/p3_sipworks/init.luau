@@ -25,7 +25,7 @@
 --     in-flight order survives.
 -- Both paths call the same factories; see `entry_compact.luau`.
 
-local metrics = require("@self/content/metrics")
+local dims = require("@self/content/dims")
 local strings = require("@self/content/strings")
 local fakeclock = require("@self/services/clock")
 local catalogService = require("@self/services/catalog")
@@ -70,8 +70,110 @@ local function factOf(deps: any, key: string): any
 	return nil
 end
 
+--[[ THE PROOF'S OWN STRUCTURAL NUMBERS (spec §4/§12, ADR-0042).
+
+	These lived in `content/metrics.luau` under a comment naming exactly what they
+	wanted to be: *"The spec states these as dotted theme-metric names
+	(`metrics.sip.rowArt`). They cannot be."* They can now. `themes.declareApp`
+	reserves the `app.sip.*` group, so every one of them is a metric NAME at every
+	call site — re-resolved on every solve, movable by a package, and carried up
+	the ten-foot ladder by the framework.
+
+	THAT LAST HALF IS THE FIX. Exactly ONE of these numbers used to climb the
+	ladder: `gatherToggleAt` multiplied the gathered check's column by
+	`metricScale` by hand, and its own comment said a name would be better. The row
+	thumbnail, the tile art, the card, the header art, the panes and the action
+	band stayed where a phone left them, so at three metres a 60px thumbnail sat in
+	a row whose every theme-owned neighbour had grown by half. One declaration
+	replaces the helper and reaches all of them.
+
+	AND THE TWO THAT ARE NOT LENGTHS SAY SO IN THEIR NAMES. `wispCount` and
+	`wispTravelFraction` each end in a segment the ten-foot classification knows is
+	not a measure, so a television gets eight wisps drifting 0.16 of the backdrop
+	rather than twelve drifting 0.24 — the same open-section vocabulary
+	`controls.*` spends.
+
+	DECLARED AT BUILD, BEFORE THE FIRST FORM: a metric name is validated at
+	CONSTRUCTION, so the names have to exist before any view builds a blueprint. ]]
+local APP_METRICS = {
+	-- §4's table, verbatim
+	rowArt = 60, -- list-row thumbnail (square)
+	tileArt = 96, -- botanical tile art
+	cardW = 360, -- botanical card
+	cardH = 460,
+	headerArtW = 220, -- wide-header image
+	headerArtH = 250,
+	listPaneMin = 320, -- regular/wide list pane
+	listPaneMax = 420,
+	seal = 44, -- stamp-seal cell
+	sealCompact = 32,
+	orderCard = 300, -- order-placed flip disc (1:1)
+	ctaBand = 64, -- bottom action band height
+	-- ...and its CEILING. A band is a FLOOR, not a fixed height (a theme's
+	-- `control` chrome reserves its own content insets, and Fantasy Parchment's
+	-- 20px per side left the CTA's label a 12px box at a pinned 64), so the
+	-- declaration states a minimum and a cap. Three times the floor, spelled as
+	-- its own name because the metric vocabulary sums names and negates them but
+	-- does not multiply one — and a cap a theme cannot move is not a theme number.
+	ctaBandMax = 192,
+
+	--[[ `headerTextMin` is what makes the wide header candidate LOSE on a phone: a
+		`fill` child inside a `ViewThatFits` candidate always fits (the candidate
+		takes whatever it is offered), so the wide card states a real width for its
+		text column instead. 260 + 220 + two `l` insets measures ~520, which is wider
+		than any compact viewport and narrower than a tablet pane. It is a FIXED
+		width and not a band on purpose: with a `minMax` the candidate measured its
+		height at one width and was arranged at another, and the card ended 96px
+		shorter than the text inside it (the solver's overflow diagnostic, desktop). ]]
+	headerTextMin = 260,
+	--[[ THE ARRANGEMENT FLIP, and why these two numbers are what they are.
+
+		A group's `minWidth` is what makes the sidebar arrangement illegal on a phone
+		(rule 2), and the flip therefore lands at `navRailMin + laneGap +
+		contentLaneMin`. But a group minWidth is global to the DECLARATION, not to an
+		arrangement — so the column fallback is judged against the same numbers, and a
+		content minimum wider than the narrowest supported viewport makes even the
+		fallback illegal ("no declared arrangement is legal in 320x640", which the
+		solver's own diagnostic reported at the first sweep).
+
+		So: `contentLaneMin` stays under the narrowest device row (320) and the rail
+		carries the rest of the threshold. 260 + 12 + 300 = 572 — measured, not
+		guessed, and close under the framework's own compact/regular boundary. ]]
+	contentLaneMin = 300,
+	navRailMin = 260,
+	-- ...and the rail's CAP. A hug lane is as wide as its content, so at a 1.4x
+	-- locale and the largest text preference the rail grew past 400px and squeezed
+	-- the two panes beside it until the recipe pane was 114px narrower than its own
+	-- row. A rail is a rail: it states its band and the labels adapt inside it.
+	navRailMax = 300,
+	--[[ THE TWO-PANE THRESHOLD, and why it is not the compact boundary. The list
+		pane declares a 320px floor and the detail pane needs a readable column beside
+		it, so a two-pane split costs ~640px of CONTENT lane — and in the sidebar
+		arrangement the rail has already taken 260 of the window. Below this width the
+		section is a single list and the detail is a pushed surface, which is the same
+		answer a phone gets. Measured against the solver's own overflow diagnostic at
+		600x800 and 640x320, where a split lane overflowed by 28px and 5px. ]]
+	twoPaneMin = 900,
+	--[[ the gathered check's own column: a `Toggle` draws its label on ONE line, so
+		a long localized label ("Gathered: Lemongrass", 1.4x) pushed the recipe row
+		92px past its box. The column is capped and the label declares `disclose`,
+		which is the framework's own answer for bounded identity text.
+
+		IT USED TO CARRY THE PROOF'S ONE HAND-ROLLED TEN-FOOT TRANSFORM
+		(`gatherToggleAt`), because at ten-foot `controls.toggle.trackWidth` and
+		`trackInset` grew and the toggle's chrome reserved 108px of a 96px column.
+		It is a NAME now, so the ladder reaches it the same way it reaches its
+		neighbours — and reaches its neighbours at all. ]]
+	gatherToggle = 96,
+	-- the ambient steam backdrop (§12): eight wisps, and how far one drifts
+	wispCount = 8,
+	wispSize = 18,
+	wispTravelFraction = 0.16, -- a fraction of the backdrop's height
+}
+
 function Sipworks.build(Facet: any, core: any, deps: any): any
 	local UI = Facet.UI
+	Facet.themes.declareApp("sip", APP_METRICS)
 	local presenter = deps.presenter
 	local env = deps.env
 	local actions = deps.actionSystem
@@ -162,6 +264,24 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		i18n = i18n,
 	}
 	app.cond = Facet.adaptive.conditions(core, env, { scope = scope })
+	--[[ AN `app.sip.*` NUMBER, for the four places a Luau NUMBER is what is needed
+		rather than a dimension: a comparison, an arithmetic term, a loop bound and a
+		spring target. Everywhere else the name is spelled straight into the `px`
+		and the framework re-resolves it every solve.
+
+		`use` when there is one, so a reader inside a memo re-derives on a theme swap
+		and on a display-class change; a plain read otherwise. The fallback is the
+		framework's answer to a snapshot that predates the declaration and never
+		fires in practice (`themes.declareApp` runs at the top of `build`) — it is
+		here because a metric read that can answer nil is a number that silently
+		becomes zero, which is the class this whole channel exists to remove. ]]
+	function app.metric(name: string, fallback: number, use: any?): number
+		local signal = if env ~= nil then env:get("themeMetrics") else nil
+		local snap: any = if signal == nil then nil elseif use ~= nil then use(signal) else signal:get()
+		local sip = if type(snap) == "table" and type(snap.app) == "table" then snap.app.sip else nil
+		local value = if type(sip) == "table" then sip[name] else nil
+		return if type(value) == "number" then value else fallback
+	end
 	-- "NOT COMPACT", not "isRegular". `isRegular` is the middle class only, so a
 	-- desktop (`wide`) reads false on it — the two-pane layout would have been
 	-- absent on the widest screen there is. The shell asks the question it
@@ -175,7 +295,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- 600 and at 640x320 the split overflowed its lane, which the solver's
 	-- overflow diagnostic reported before any screenshot could have.
 	app.paneSplit = core:memo(function(use)
-		return use(app.cond.viewportWidth) >= metrics.twoPaneMin
+		return use(app.cond.viewportWidth) >= app.metric("twoPaneMin", 900, use)
 	end)
 	scope:own(function()
 		app.notCompact:dispose()

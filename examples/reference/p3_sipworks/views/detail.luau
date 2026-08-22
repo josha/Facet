@@ -7,7 +7,7 @@
 -- rebuilding it — which is what keeps the scroll offset and the focus ring
 -- where the player left them.
 
-local metrics = require("../content/metrics")
+local dims = require("../content/dims")
 local parts = require("./parts")
 local listView = require("./list")
 local rewardsService = require("../services/rewards")
@@ -54,7 +54,7 @@ local function descriptionRuns(app: any, id: string): any
 	return UI.VStack({
 		id = id,
 		gap = "xs",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			UI.ForEach({
 				id = "Runs",
@@ -70,7 +70,7 @@ local function descriptionRuns(app: any, id: string): any
 						id = "Run",
 						text = run.text,
 						textSize = if run.emphasis then "strong" else "body",
-						width = metrics.fill,
+						width = dims.fill,
 					})
 				end,
 			}),
@@ -105,7 +105,7 @@ local function header(app: any): any
 			padding = "l",
 			width = width,
 			children = {
-				UI.Text({ id = "Title", text = title, textSize = "title", width = metrics.fill }),
+				UI.Text({ id = "Title", text = title, textSize = "title", width = dims.fill }),
 				descriptionRuns(app, "Description" .. id),
 				UI.Text({ id = "Caffeine", text = caffeine, role = "secondary", textSize = "caption" }),
 			},
@@ -151,7 +151,7 @@ local function header(app: any): any
 				gap = "m",
 				align = "center",
 				children = {
-					texts("WideText", metrics.fixed(metrics.headerTextMin)),
+					texts("WideText", dims.fixed("app.sip.headerTextMin")),
 					-- the art matches the CARD's height rather than pinning it: a
 					-- fixed-height plate beside a text column that grows (a longer
 					-- description, a bigger type preference, a 1.4x locale) is the
@@ -159,9 +159,9 @@ local function header(app: any): any
 					-- diagnostic caught exactly that at desktop width.
 					UI.ZStack({
 						id = "WideArt",
-						width = metrics.fixed(metrics.headerArtW),
-						height = metrics.fill,
-						children = { art("WideArtFor", metrics.fill, metrics.fill) },
+						width = dims.fixed("app.sip.headerArtW"),
+						height = dims.fill,
+						children = { art("WideArtFor", dims.fill, dims.fill) },
 					}),
 				},
 			}),
@@ -169,15 +169,15 @@ local function header(app: any): any
 			UI.VStack({
 				id = "FullBleed",
 				gap = "s",
-				width = metrics.fill,
+				width = dims.fill,
 				children = {
 					UI.ZStack({
 						id = "BleedArt",
-						width = metrics.fill,
-						height = metrics.aspect(1.2),
-						children = { art("BleedArtFor", metrics.fill, metrics.fill) },
+						width = dims.fill,
+						height = dims.aspect(1.2),
+						children = { art("BleedArtFor", dims.fill, dims.fill) },
 					}),
-					texts("BleedText", metrics.fill),
+					texts("BleedText", dims.fill),
 				},
 			}),
 		},
@@ -205,7 +205,7 @@ local function botanicalGrid(app: any): any
 	return UI.VStack({
 		id = "Botanicals",
 		gap = "s",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			-- a floor rather than a natural width, for the reason the recipe's own
 			-- heading carries the same shape
@@ -213,7 +213,7 @@ local function botanicalGrid(app: any): any
 				id = "Heading",
 				text = app.text("ingredients.menu"),
 				textSize = "heading",
-				width = metrics.minMax(metrics.tileArt, metrics.tileArt, metrics.listPaneMax),
+				width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 			}),
 			UI.Grid({
 				id = "Tiles",
@@ -225,7 +225,7 @@ local function botanicalGrid(app: any): any
 				minColumnWidth = "intrinsic",
 				itemSizing = "uniform",
 				gap = "m",
-				width = metrics.fill,
+				width = dims.fill,
 				children = {
 					UI.ForEach({
 						id = "Cells",
@@ -265,11 +265,11 @@ local function botanicalGrid(app: any): any
 										id = "Cell",
 										gap = "xs",
 										align = "center",
-										width = metrics.fixed(metrics.tileArt),
+										width = dims.fixed("app.sip.tileArt"),
 										children = {
 											parts.artPlate(app, "botanical", botanicalId, {
-												width = metrics.fill,
-												height = metrics.fixed(metrics.tileArt),
+												width = dims.fill,
+												height = dims.fixed("app.sip.tileArt"),
 											}),
 											-- the label takes the CELL's width rather than
 											-- stating one of its own, so a long localized
@@ -282,7 +282,7 @@ local function botanicalGrid(app: any): any
 												lineLimit = 1,
 												disclose = true,
 												textAlign = "center",
-												width = metrics.fill,
+												width = dims.fill,
 											}),
 										},
 									}),
@@ -333,7 +333,7 @@ local function ctaBand(app: any): any
 	return UI.VStack({
 		id = "Cta",
 		gap = "xs",
-		width = metrics.fill,
+		width = dims.fill,
 		children = {
 			UI.Divider({ id = "Rule" }),
 			UI.When({
@@ -344,7 +344,7 @@ local function ctaBand(app: any): any
 					return UI.ZStack({
 						id = "NoticeBox",
 						canvasGroup = true,
-						width = metrics.fill,
+						width = dims.fill,
 						children = {
 							UI.Text({
 								id = "Notice",
@@ -352,7 +352,7 @@ local function ctaBand(app: any): any
 								surface = "chip",
 								role = "secondary",
 								textSize = "caption",
-								width = metrics.fill,
+								width = dims.fill,
 							}),
 						},
 					})
@@ -362,13 +362,16 @@ local function ctaBand(app: any): any
 				id = "Band",
 				padding = "s",
 				align = "center",
-				width = metrics.fill,
+				width = dims.fill,
 				-- A FLOOR, NOT A FIXED BAND. A theme's `control` chrome reserves its
 				-- own content insets (Fantasy Parchment's are 20px per side), and a
 				-- band pinned at 64px left the CTA's label a 12px box to draw in —
 				-- the solver said so in as many words. The band states its minimum
 				-- and grows with whatever the installed package needs.
-				height = metrics.atLeast(metrics.ctaBand, 3 * metrics.ctaBand),
+				-- the cap is its own NAME rather than `3 *` the floor: the metric
+				-- vocabulary sums names and negates them, it does not multiply one,
+				-- and a cap a theme cannot move is not a theme number (ADR-0042)
+				height = dims.atLeast("app.sip.ctaBand", "app.sip.ctaBandMax"),
 				-- the "bar material" adaptation: a stated raised plate
 				surface = "raised",
 				children = {
@@ -378,7 +381,7 @@ local function ctaBand(app: any): any
 						enabled = enabled,
 						surface = "accent",
 						corners = UI.cornersData("pill"),
-						width = metrics.fill,
+						width = dims.fill,
 						onActivate = function()
 							app.commands.orderCta()
 						end,
@@ -412,7 +415,7 @@ function detail.body(app: any, opts: any): any
 			})
 		)
 	end
-	table.insert(topBar, UI.Spacer({ id = "Gap", width = metrics.fill }))
+	table.insert(topBar, UI.Spacer({ id = "Gap", width = dims.fill }))
 	if app.entry == "full" then
 		table.insert(topBar, detail.favoriteSlot(app))
 	end
@@ -420,22 +423,22 @@ function detail.body(app: any, opts: any): any
 	return UI.VStack({
 		id = options.id or "Detail",
 		gap = "s",
-		width = metrics.fill,
-		height = metrics.fill,
+		width = dims.fill,
+		height = dims.fill,
 		children = {
-			UI.HStack({ id = "TopBar", padding = "m", align = "center", width = metrics.fill, children = topBar }),
+			UI.HStack({ id = "TopBar", padding = "m", align = "center", width = dims.fill, children = topBar }),
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				gap = "m",
 				padding = "m",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				children = {
 					UI.VStack({
 						id = "Content",
 						gap = "m",
-						width = metrics.fill,
+						width = dims.fill,
 						children = { header(app), botanicalGrid(app) },
 					}),
 				},
@@ -486,13 +489,13 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 			gap = "s",
 			padding = "m",
 			align = "center",
-			width = metrics.fill,
-			height = metrics.fill,
+			width = dims.fill,
+			height = dims.fill,
 			children = {
 				parts.artPlate(app, "botanical", botanicalId, {
 					id = "CardArt",
-					width = metrics.fill,
-					height = metrics.fill,
+					width = dims.fill,
+					height = dims.fill,
 					markSize = "title",
 				}),
 				UI.Text({ id = "Name", text = name, textSize = "title", textAlign = "center", lineLimit = 2 }),
@@ -571,13 +574,13 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 		-- and it is never called a blur anywhere in this proof.
 		return UI.ZStack({
 			id = "Back",
-			width = metrics.fill,
-			height = metrics.fill,
+			width = dims.fill,
+			height = dims.fill,
 			children = {
 				UI.Box({
 					id = "Plate",
-					width = metrics.fill,
-					height = metrics.fill,
+					width = dims.fill,
+					height = dims.fill,
 					surface = "raised",
 					tint = { role = "surfaceStrong", blend = 1, transparency = 0.1 },
 				}),
@@ -593,8 +596,8 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 					axis = "y",
 					gap = "s",
 					padding = "s",
-					width = metrics.percent(1),
-					height = metrics.percent(1),
+					width = dims.percent(1),
+					height = dims.percent(1),
 					children = rows,
 				}),
 			},
@@ -608,15 +611,15 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 			UI.ZStack({
 				id = "Body",
 				canvasGroup = true,
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
 					UI.ZStack({
 						id = "Card",
-						width = metrics.percentMax(0.92, metrics.cardW),
-						height = metrics.percentMax(0.9, metrics.cardH),
+						width = dims.percentMax(0.92, "app.sip.cardW"),
+						height = dims.percentMax(0.9, "app.sip.cardH"),
 						surface = "raised",
 						corners = UI.cornersData("panel"),
 						shadow = UI.shadowData("overlay"),
@@ -624,8 +627,8 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 							parts.flipPlate(app, {
 								id = "Flip",
 								progress = progress,
-								width = metrics.fill,
-								height = metrics.fill,
+								width = dims.fill,
+								height = dims.fill,
 								front = frontFace,
 								back = backFace,
 							}),
@@ -651,8 +654,8 @@ function detail.guardAlert(app: any, reasonKey: string): any
 			UI.ZStack({
 				id = "Body",
 				canvasGroup = true,
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
@@ -663,8 +666,8 @@ function detail.guardAlert(app: any, reasonKey: string): any
 					UI.ScrollView({
 						id = "AlertScroll",
 						axis = "y",
-						width = metrics.percentMax(0.92, metrics.cardW),
-						height = metrics.percent(0.9),
+						width = dims.percentMax(0.92, "app.sip.cardW"),
+						height = dims.percent(0.9),
 						children = {
 							UI.VStack({
 								id = "Alert",
@@ -673,7 +676,7 @@ function detail.guardAlert(app: any, reasonKey: string): any
 								padding = "m",
 								gap = "s",
 								align = "center",
-								width = metrics.fill,
+								width = dims.fill,
 								children = {
 									UI.Text({
 										id = "Title",
@@ -685,7 +688,7 @@ function detail.guardAlert(app: any, reasonKey: string): any
 										text = app.text(body),
 										role = "secondary",
 										textSize = "body",
-										width = metrics.fill,
+										width = dims.fill,
 									}),
 									UI.Button({
 										id = "GuardOK",
@@ -728,8 +731,8 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 			gap = "s",
 			padding = "m",
 			align = "center",
-			width = metrics.fill,
-			height = metrics.fill,
+			width = dims.fill,
+			height = dims.fill,
 			children = {
 				UI.Text({
 					id = "Heading",
@@ -738,7 +741,7 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 					textAlign = "center",
 					lineLimit = 2,
 					disclose = true,
-					width = metrics.fill,
+					width = dims.fill,
 				}),
 				UI.Text({
 					id = "Body",
@@ -748,7 +751,7 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 					textAlign = "center",
 					lineLimit = 3,
 					disclose = true,
-					width = metrics.fill,
+					width = dims.fill,
 				}),
 			},
 		})
@@ -761,38 +764,38 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 			UI.ZStack({
 				id = "Body",
 				canvasGroup = true,
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 				children = {
 					parts.artPlate(app, "blend", blendId, {
 						id = "Backdrop",
-						width = metrics.fill,
-						height = metrics.fill,
+						width = dims.fill,
+						height = dims.fill,
 						markSize = "title",
 					}),
 					-- the veil: a stated translucent plate over the art, never a blur
 					UI.Box({
 						id = "Veil",
-						width = metrics.fill,
-						height = metrics.fill,
+						width = dims.fill,
+						height = dims.fill,
 						tint = { role = "surface", blend = 1, transparency = 0.35 },
 					}),
 					UI.ZStack({
 						id = "Disc",
 						-- a share of the viewport, capped at the spec's disc, and
 						-- 1:1 by derivation rather than by two numbers agreeing
-						width = metrics.percentMax(0.8, metrics.orderCard),
-						height = metrics.aspect(1),
+						width = dims.percentMax(0.8, "app.sip.orderCard"),
+						height = dims.aspect(1),
 						surface = "raised",
 						corners = UI.cornersData("pill"),
 						children = {
 							parts.flipPlate(app, {
 								id = "Flip",
 								progress = progress,
-								width = metrics.fill,
-								height = metrics.fill,
+								width = dims.fill,
+								height = dims.fill,
 								front = function()
 									return face("Waiting", "placed.thanks", app.text("placed.notify"))
 								end,

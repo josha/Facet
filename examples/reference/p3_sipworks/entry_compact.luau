@@ -19,7 +19,7 @@
 -- rewards context here, so the CTA is always pay-shaped). Stamps still accrue
 -- silently in RewardsService, exactly as the spec says.
 
-local metrics = require("./content/metrics")
+local dims = require("./content/dims")
 local listView = require("./views/list")
 
 local entryCompact = {}
@@ -41,8 +41,8 @@ function entryCompact.build(app: any): any
 				id = "Menu",
 				gap = "s",
 				padding = "s",
-				width = metrics.fill,
-				height = metrics.fill,
+				width = dims.fill,
+				height = dims.fill,
 				children = {
 					listView.searchBar(app),
 					listView.blendList(app, {

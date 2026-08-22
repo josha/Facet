@@ -1201,6 +1201,42 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		w.built.dispose()
 	end)
 
+	--[[ ONE LADDER, NOT ONE NUMBER'S LADDER (ADR-0042).
+
+		This proof owned its structural numbers as literals in
+		`content/metrics.luau`, and exactly ONE of them climbed the ten-foot ladder:
+		`gatherToggleAt` multiplied the gathered check's column by `metricScale` by
+		hand, with a comment saying what it wanted instead — *"a name would be
+		better — a dim's `px` takes one and re-resolves it every solve"*. The row
+		thumbnail, the tile art, the card, the header art, the panes and the action
+		band all stayed where a phone left them, so at three metres a 60px thumbnail
+		sat in a row whose every theme-owned neighbour had grown by half.
+
+		They are `app.sip.*` now, so the framework climbs it for all of them at
+		once, and the toggle's hand transform is deleted rather than copied
+		twenty-four times. ]]
+	it("every structural number takes the ten-foot factor, not just the one with a helper", function()
+		local w = world()
+		w.env:set("displaySize", "Large")
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		w.presenter.refresh()
+		local snap: any = w.env:get("themeMetrics"):get()
+		local sip = snap.app.sip
+		expect(sip.rowArt).toBe(90) -- 60 * 1.5
+		expect(sip.tileArt).toBe(144) -- 96
+		expect(sip.cardW).toBe(540) -- 360
+		expect(sip.ctaBand).toBe(96) -- 64
+		expect(sip.gatherToggle).toBe(144) -- 96, the one that already had a helper
+		--[[ …and the two that are NOT lengths stay exactly where they are. A count
+			of eight wisps is not twelve wisps at three metres, and a travel of 0.16
+			of the backdrop's height is not 0.24 of it. The names carry that: the
+			ten-foot classification reads every segment of an `app.*` path with the
+			same vocabulary `controls.*` spends. ]]
+		expect(sip.wispCount).toBe(8)
+		expect(sip.wispTravelFraction).toBe(0.16)
+		w.built.dispose()
+	end)
+
 	it("top tabs, driven as a PAD drives them: DPad across, ButtonA to act, DPad away", function()
 		-- this world has NO keyboard (capabilities.keyboard = false), so Tab is
 		-- honestly inert; the pad path is DPad navigation + ButtonA activation
