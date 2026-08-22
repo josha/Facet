@@ -471,7 +471,7 @@ function screen_target.new(opts: Opts?)
 			typeRole = handle.typeRole,
 		})
 		for _, tag in CollectionService:GetTags(instance) do
-			if string.sub(tag, 1, 5) == "facet-" and desired[tag] ~= true then
+			if screen_vocabulary.ownsTag(tag) and desired[tag] ~= true then
 				CollectionService:RemoveTag(instance, tag)
 			end
 		end

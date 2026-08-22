@@ -60,6 +60,13 @@ require("./platform_adapters_recovery.spec")
 	branch on both targets. `tools/lune/check_primitives` compares them, and the
 	mutation cases here are what say it can still see each kind of drift ]]
 require("./primitive_registration.spec")
+--[[ SCREEN-X: a prefix test that compares a different number of characters
+	than its own literal is a CONSTANT, so the branch behind it is dead and
+	nothing says so. ADR-0038's two renames (`luau-` -> `facet-`, five characters
+	to six; `LuauUI` -> `Facet`, six to five) left three of them — the adapter's
+	tag-REMOVAL loop among them. Scanned repository-wide, with the scanner's own
+	negative control, and the adapter's tag ownership pinned as ONE named fact ]]
+require("./prefix_tests.spec")
 --[[ MAINT-8c: six hand lists of examples/themes/ and nothing enumerated the
 	directory. One enumerator with declared roles, two consumers derived from it,
 	the rest drift-checked ]]

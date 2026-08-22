@@ -28,6 +28,13 @@ local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
+--[[ WHAT A FACET-OWNED ROOT IS NAMED. The adapter names every ScreenGui it
+	creates `Facet_<screen id>` (`screen_target`; a billboard root is
+	`Facet_BB_<id>`, which this prefix also covers). Named once, and every test
+	for it reads its LENGTH off the literal — see the M3 census below for what a
+	hand-counted six cost when ADR-0038 shortened the literal to five. ]]
+local FACET_ROOT_PREFIX = "Facet_"
+
 local ENV_FACT_KEYS = {
 	"viewportRect",
 	"deviceSafeInsets",
@@ -684,7 +691,13 @@ function Runner.start(deps: { [string]: any })
 						if not gui:IsA("ScreenGui") then
 							continue
 						end
-						local mine = string.sub(gui.Name, 1, 6) == "Facet"
+						-- THE LENGTH IS READ OFF THE LITERAL (SCREEN-X, 2026-08-22).
+						-- This compared SIX characters against `"Facet"`, which is
+						-- five, so `mine` was constantly false: Facet's own
+						-- `Facet_<id>` roots were filed under `foreign` and this
+						-- census reported ZERO GuiObjects for the framework. Seven
+						-- RC-requalification capture rows carry that zero.
+						local mine = string.sub(gui.Name, 1, #FACET_ROOT_PREFIX) == FACET_ROOT_PREFIX
 						local count = 0
 						for _, inst in gui:GetDescendants() do
 							if inst:IsA("GuiObject") then

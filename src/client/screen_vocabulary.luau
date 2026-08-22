@@ -36,6 +36,31 @@ local text_premeasure = require("./text_premeasure")
 
 local screen_vocabulary = {}
 
+--[[ THE CLASSIFICATION-TAG PREFIX, AND THE ONLY TEST FOR IT (ADR-0038).
+
+	`sheet_model.classifyTags` MINTS every `facet-*` tag and the adapter's
+	`syncTags` is the only thing that takes one off, so the two have to agree
+	about what "one of ours" means. They stopped agreeing the day ADR-0038
+	renamed the tags `luau-*` -> `facet-*`: the sweep rewrote 395 literals and
+	left every LENGTH, and `"luau-"` is five characters where `"facet-"` is six.
+	`string.sub(tag, 1, 5)` is `"facet"`, which is never `"facet-"`, so the
+	removal half of `syncTags` became DEAD CODE and every classification tag a
+	node ever wore stayed on it for life — a picker segment set to
+	`surface = "plain"` kept `facet-surface-control` and the sheet painted an
+	opaque plate over the tab indicator behind it.
+
+	So the length is READ OFF THE LITERAL and both live here, spelled once. A
+	future rename can change the string and cannot desynchronise the number,
+	which is the same idiom `screen_chrome`'s icon-tag loop uses for
+	`chrome_slots.ICON_TAG_PREFIX`. `tests/prefix_tests.spec.luau` scans the whole
+	repository for the shape and carries the negative control that proves the
+	scan bites. ]]
+local TAG_PREFIX = "facet-"
+
+local function ownsTag(tag: string): boolean
+	return string.sub(tag, 1, #TAG_PREFIX) == TAG_PREFIX
+end
+
 -- `textAlign` (director review 2026-07-24). Absent means Left, which is what the
 -- adapter hard-coded before the prop existed, so every existing screen is
 -- unchanged.
@@ -147,6 +172,8 @@ local function toColor3(c: any): Color3
 	return Color3.new(c.r, c.g, c.b)
 end
 
+screen_vocabulary.TAG_PREFIX = TAG_PREFIX
+screen_vocabulary.ownsTag = ownsTag
 screen_vocabulary.CLASS_TO_INSTANCE = CLASS_TO_INSTANCE
 screen_vocabulary.TEXT_ALIGN_MAP = TEXT_ALIGN_MAP
 screen_vocabulary.SCALE_MODE_ENGINE = SCALE_MODE_ENGINE

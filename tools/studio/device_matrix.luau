@@ -790,10 +790,18 @@ local function observe(): any
 	-- The discriminator is the tree ROOT: a Facet surface's ScreenGui is named
 	-- `Facet_<screen id>` by the adapter, and its descendants carry the flat
 	-- `/path` names. Anything else in PlayerGui belongs to the platform.
+	--[[ THE LENGTH IS READ OFF THE LITERAL (SCREEN-X, 2026-08-22). This test used
+		to compare SIX characters against `"Facet"`, which is five, so it was
+		constant: every tree was skipped, `judgedTrees` was always 0, and the
+		anti-vacuity clause below turned the whole matrix row red rather than
+		letting it pass over an empty set. ADR-0038 renamed the roots
+		`LuauUI_<id>` -> `Facet_<id>` and the six-character `"LuauUI"` test kept
+		its six. `tests/prefix_tests.spec.luau` scans for the shape now. ]]
+	local ROOT_PREFIX = "Facet_"
 	local judgedTrees = 0
 	local skippedTrees = {}
 	for _, tree in report.instanceTrees or {} do
-		if type(tree.root) ~= "string" or string.sub(tree.root, 1, 6) ~= "Facet" then
+		if type(tree.root) ~= "string" or string.sub(tree.root, 1, #ROOT_PREFIX) ~= ROOT_PREFIX then
 			table.insert(skippedTrees, tostring(tree.root))
 			continue
 		end
