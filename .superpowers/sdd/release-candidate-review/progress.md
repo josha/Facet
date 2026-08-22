@@ -1730,3 +1730,24 @@ STUDIO.md, root CLAUDE.md.
   the §"what the framework teaches wrong" section for APIs that make the
   imperative path easier than the declarative one (design findings). The
   director sees the matrix before anything changes.
+
+## 2026-08-21 (post-close 30) — the sheet is tangent again; a hold done right
+
+- PLATE-B FIX ROUND LANDED (fcc0f7f + f54281b; 7037/0, RR 3466/0 identical
+  at measurement-time pins): the sheet disc back to EXACT tangency
+  (14→18 / 21→27 measured with the reviewer's instrument); the real
+  defect — the fence's blind spot — closed with one r18Sweep over BOTH
+  presentations, the sheet arm asserting TANGENCY not clearance (a >=
+  would have stayed green on the 4px incursion). `active` handles every
+  reactive spelling; the circle-vs-box argument kept only its true half;
+  the ring-room ratchet asserted BOTH directions against style.extra (the
+  binding package headroom 0.63px/0.31px — geometry unchanged because
+  raising the inset would move the director-settled corner).
+- THE HOLD: the 9×9 fix (widen growWithin to the whole synthesized-chrome
+  class, close included) is BUILT, GREEN, MUTATION-TESTED, and NOT LANDED
+  — applying it entangled the renderer round's uncommitted R23 rename in
+  the same hunks (proven with git diff, reverted byte-for-byte, md5
+  matched). Replay script at scratchpad/fix1_B.py anchored on parts
+  neither round moves. **EXPLICIT HANDOFF: when the renderer R23 round
+  lands, resume the plate agent to replay and land the held fix — the
+  9×9 is live until then, deliberately.**
