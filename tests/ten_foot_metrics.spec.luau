@@ -1461,6 +1461,35 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 			.toBe(sheet_model.buildPackage(snapshot.neutralPackage()).stamp)
 	end)
 
+	--[[ THE BESPOKE HALF, BEHAVIOURALLY. `theme_controller.styleFor` is the
+		compiled style a target that grows the `setThemeStyle` seam is handed, and
+		it is the shape the fallback (explicit-write) paint path spends: if it kept
+		the authored radius while the sheet moved, the rollback flag would paint a
+		phone's corners on a television. Pinned per distance rather than by source,
+		because this one is a pure function a headless world can call. ]]
+	it("the compiled style a themed target is handed carries the same paint family", function()
+		local theme_controller = require("../src/client/theme_controller") :: any
+		for _, cfg in configurations() do
+			local unit = snapshot.resolve(cfg.package, nil, {}).pixelUnit
+			for _, displaySize in { "Medium", "Large" } do
+				local style = theme_controller.styleFor(cfg.package, nil, displaySize)
+				local paint = snapshot.paintForDisplay(cfg.package.metrics, displaySize, unit)
+				expect(`{cfg.name}@{displaySize} style.radii.panel={style.radii.panel}`).toBe(
+					`{cfg.name}@{displaySize} style.radii.panel={paint.radii.panel}`
+				)
+				expect(`{cfg.name}@{displaySize} style.strokes.hairline={style.strokes.hairline}`).toBe(
+					`{cfg.name}@{displaySize} style.strokes.hairline={paint.strokes.hairline}`
+				)
+			end
+		end
+		-- the numbers, so an all-nil agreement is impossible
+		local near = theme_controller.styleFor(snapshot.neutralPackage(), nil, "Medium")
+		local tv = theme_controller.styleFor(snapshot.neutralPackage(), nil, "Large")
+		expect(`{near.radii.panel}/{near.strokes.hairline} -> {tv.radii.panel}/{tv.strokes.hairline}`).toBe(
+			"12/1 -> 18/1.5"
+		)
+	end)
+
 	--[[ AND THE WIRE ITSELF. The two paint authorities are engine files no
 		headless world can mount, so the seam is asserted at the source: the target
 		derives its `ctx.style` through the one function and hands the same class to
