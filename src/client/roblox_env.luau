@@ -416,7 +416,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 			end
 		end)
 	)
-	--[[ ── THE DELIBERATE STREAM (INPUT-100/101: the engine's last-input summary is unusable for primacy without a deadzone, so primacy reads the raw stream and only DELIBERATE events count; see `pushInput`) ──────────────────
+	--[[ ── THE DELIBERATE STREAM. INPUT-100: the engine's last-input summary is unusable for primacy without a deadzone. INPUT-101: primacy reads the raw stream and only DELIBERATE events count. See `pushInput`. ──────────────────
 		A press is deliberate by definition, so `InputBegan` is taken at face value —
 		including for a gamepad, where `InputBegan` can only be a BUTTON (sticks and
 		triggers arrive on `InputChanged`). Mouse MOVEMENT never reaches this branch
