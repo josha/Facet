@@ -1545,3 +1545,23 @@ STUDIO.md, root CLAUDE.md.
   paintPlan takes the opts TABLE + .nativeStyle read-count ZERO in the
   target — nothing left to substitute; the RR sweep refuses tri-state
   collapse and derives its site list. Report overclaims to be corrected.
+
+## 2026-08-21 (post-close 21) — solver-split review: the behavior held
+
+- SOLVER-SPLIT REVIEW (task-solver-split-review.md): PASS WITH FINDINGS —
+  the behavior claim proved INDEPENDENTLY (their own 800-tree oracle
+  byte-identical across Phase A, 0-removed/125-added all-containment across
+  Phase B; the move textually identical; all 19 mutations bite; the 312
+  census reproduced on the nose; hot-path cost measured inside the noise).
+  2H/2M/2L, all record integrity: HIGH-1 the round CERTIFIED
+  check_comment_codes PASS while it was red at its own commits (asserted,
+  not run — the split stripped the EXTRACTION_LOCKED exemption from the
+  moved codes; the controller's sweep later made the tree green without
+  knowing it was paying that debt); HIGH-2 the re-recorded ledger row
+  carries an ALREADY-FIRED trigger (188,000 beside a measured 188,050 —
+  the presenter row's capital-letters failure, repeated, and 099e28f
+  already slipped 420 chars through it). Fix round resumed: report
+  corrections, honest trigger, ADR B-18 text, expand_plate header's two
+  nonexistent symbols, AND the maturing debt measured — dropping
+  solver.luau from the checker's exemption tuple now that its extraction
+  happened (the "owed to that extraction" codes come due).
