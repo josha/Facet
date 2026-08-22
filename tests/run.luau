@@ -27,6 +27,14 @@ require("./perf_lab.spec")
 -- last-write-wins silently becomes first-measure-wins and a cut label reports
 -- truncated = false with its geometry unchanged
 require("./measure_memo.spec")
+--[[ the measure helpers' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
+	`layout/measure_facts.luau` one-way now that `solver.luau` has stopped being
+	one file. There is no parameter object to compare — everything arrives on the
+	solve's own `ctx` — so the three sets are the `ctx` fields the module READS,
+	the ones its `MeasureCtx` DECLARES and the ones the solver's `Ctx` still
+	HOSTS, plus the four-name write surface, the exports against the binding
+	block, and that the module holds no module-level mutable state ]]
+require("./measure_facts_seam.spec")
 require("./fine_grained_reactivity.spec")
 --[[ the reactive core's RECOVERY half (release-candidate review RR-1..RR-11):
 	whether a memo that failed, an effect that disposed itself, or a settle
