@@ -1228,10 +1228,7 @@ describe("screen_target: the toggle's art rides the instances that already exist
 		local apply = section("local function applyToggleValue", "local palette = togglePalette()")
 		expect(has(apply, "syncTags(handle)")).toBe(true)
 		expect(
-			has(
-				section("local function syncTags", "for _, tag in CollectionService:GetTags(instance) do"),
-				"toggleOn = handle.toggleOn == true"
-			)
+			has(section("local function syncTags", "local plan = tag_sync.diff("), "toggleOn = handle.toggleOn == true")
 		).toBe(true)
 	end)
 

@@ -76,6 +76,11 @@ require("./primitive_registration.spec")
 	tag-REMOVAL loop among them. Scanned repository-wide, with the scanner's own
 	negative control, and the adapter's tag ownership pinned as ONE named fact ]]
 require("./prefix_tests.spec")
+--[[ ...and the BEHAVIOUR that lint stands in for: mount a Button, change its
+	state, and assert the classification tag came OFF. The decision is
+	`render/tag_sync`, a pure module both targets call; `fake_target` gained the
+	narrow tag mirror it never had, which is why the defect was invisible ]]
+require("./tag_sync.spec")
 --[[ MAINT-8c: six hand lists of examples/themes/ and nothing enumerated the
 	directory. One enumerator with declared roles, two consumers derived from it,
 	the rest drift-checked ]]

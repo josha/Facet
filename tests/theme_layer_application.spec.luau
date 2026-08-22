@@ -656,7 +656,11 @@ end)
 -- ===== 3. every node-side tag rides the desired set ========================
 
 describe("the decorated node's tags survive the syncTags diff", function()
-	local tags = section("local function syncTags(handle: any)", "for _, tag in CollectionService:GetTags")
+	-- the classification block, from the declaration to the point the desired set is
+	-- finished. The old terminator was the removal loop's own `for`; that loop is
+	-- now one call to `render/tag_sync.diff` (SCREEN-X, 2026-08-22), so the bound
+	-- moves to the call and the window is the same region it always was.
+	local tags = section("local function syncTags(handle: any)", "local plan = tag_sync.diff(")
 
 	it("the stack yield rides it (it is on the NODE, not the decoration)", function()
 		expect(string.find(tags, "chromeYield = handle.chromeYield == true", 1, true) ~= nil).toBe(true)

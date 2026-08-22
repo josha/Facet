@@ -51,6 +51,10 @@ local screen_presentation = require("./screen_presentation")
 local screen_pointer = require("./screen_pointer")
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
+-- ...and the classification-tag seam's PURE ruling: who owns a `facet-*` tag,
+-- and what one sync adds and removes. Shared with the headless twin, and — unlike
+-- the dead removal loop ADR-0038 left here — loadable by a spec.
+local tag_sync = require("../render/tag_sync")
 -- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
 -- the dead-handle refusal). Shared with the headless twin so the two adapters
 -- cannot disagree about what the seam accepts.
@@ -470,15 +474,12 @@ function screen_target.new(opts: Opts?)
 			-- class default.
 			typeRole = handle.typeRole,
 		})
-		for _, tag in CollectionService:GetTags(instance) do
-			if screen_vocabulary.ownsTag(tag) and desired[tag] ~= true then
-				CollectionService:RemoveTag(instance, tag)
-			end
+		local plan = tag_sync.diff(CollectionService:GetTags(instance), desired)
+		for _, tag in plan.remove do
+			CollectionService:RemoveTag(instance, tag)
 		end
-		for tag in desired do
-			if not CollectionService:HasTag(instance, tag) then
-				CollectionService:AddTag(instance, tag)
-			end
+		for _, tag in plan.add do
+			CollectionService:AddTag(instance, tag)
 		end
 	end
 

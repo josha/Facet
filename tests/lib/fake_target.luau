@@ -11,6 +11,7 @@ local default_style = require("../../src/tokens/default_style")
 -- framework (ADR-0022 Decision 6).
 local sheet_model = require("../../src/tokens/sheet_model")
 -- ...and the PURE rulings the stage content seam is made of, for the same reason
+local tag_sync = require("../../src/render/tag_sync")
 local stage_content = require("../../src/render/stage_content")
 -- ...and the foreign-content seam's ruling ladder (ADR-0034), for the same
 -- reason: the refusals a caller sees are one function, not one per adapter
@@ -233,6 +234,63 @@ function fake_target.new(opts: Opts?)
 
 	local adapter = {}
 
+	--[[ THE CLASSIFICATION-TAG MIRROR (SCREEN-X, 2026-08-22).
+
+		WHY IT EXISTS. Tags are the ONLY channel by which Facet's surfaces, states
+		and roles reach native paint, and this fake modelled none of them — which
+		is why a dead tag-REMOVAL loop shipped for four days under 7,116 green
+		cases and had to be found by looking at a screen (ADR-0038; the removal
+		test compared five characters against a six-character literal).
+
+		WHAT IS SHARED AND WHAT IS MIRRORED. The DECISION is not copied: `owns` and
+		`diff` are `src/render/tag_sync.luau`, the same pure module the live
+		adapter calls, so the two targets cannot disagree about what a sync does.
+		What is mirrored is the narrow bookkeeping around it — which classification
+		state a create and three prop writes leave behind — and it is deliberately
+		NOT the adapter's whole classification surface. It covers the family the
+		sticky-tag defect was about (surface, selected, role, and the interactive
+		default a Button/Toggle takes at create); a state this map does not model
+		simply produces no tag here, which is a gap a reader can see rather than a
+		lie. Keep it in lockstep with `screen_target`'s `syncTags` inputs and
+		`screen_paint.applySurfaceNative`, exactly as `SCALE_MODE_ENGINE_NAME` is
+		kept in lockstep with the adapter's own map. ]]
+	local function syncFakeTags(handle: any)
+		local state = handle.tagState
+		if state == nil then
+			return
+		end
+		local desired = sheet_model.classifyTags({
+			surface = state.surface,
+			selected = state.selected == true,
+			interactive = state.interactive == true,
+			buttonRole = state.buttonRole,
+		})
+		local plan = tag_sync.diff(handle.tags or {}, desired)
+		local live: { [string]: boolean } = {}
+		for _, tag in handle.tags or {} do
+			live[tag] = true
+		end
+		for _, tag in plan.remove do
+			live[tag] = nil
+		end
+		for _, tag in plan.add do
+			live[tag] = true
+		end
+		local out: { string } = {}
+		for tag in live do
+			table.insert(out, tag)
+		end
+		table.sort(out)
+		handle.tags = out
+	end
+
+	-- the tags a node wears right now, sorted. `{}` for a node this mirror does
+	-- not classify (everything that is not an interactive leaf).
+	function adapter.tagsOf(path: string): { string }
+		local node = nodes[path]
+		return if node ~= nil and node.tags ~= nil then node.tags else {}
+	end
+
 	function adapter.createRoot(screenId: string): any
 		rootCount += 1
 		table.insert(ops, `createRoot {screenId}`)
@@ -313,6 +371,13 @@ function fake_target.new(opts: Opts?)
 			root = rootHandle,
 			decorationHint = decorationHint,
 		}
+		if class == "Button" or class == "Toggle" then
+			-- the class default the live adapter takes at CREATE: control chrome plus
+			-- interaction states, both from the sheet (screen_target's create branch)
+			node.tagState = { surface = "control", interactive = true }
+			node.tags = {}
+			syncFakeTags(node)
+		end
 		if createOpts ~= nil and createOpts.canvasGroup == true then
 			node.canvasGroupInstance = { className = "CanvasGroup", groupTransparency = 0 }
 			-- a fade group is a REAL PARENT from birth: its subtree renders into the
@@ -472,6 +537,32 @@ function fake_target.new(opts: Opts?)
 		end
 		handle.props[prop] = value
 		table.insert(ops, `prop {handle.path}.{prop}={tostring(value)}`)
+		if handle.tagState ~= nil then
+			--[[ the three writes that re-classify, mirroring the live adapter's own
+				handle bookkeeping: `screen_paint.applySurfaceNative` (a `plain` or
+				`scrim` surface CLEARS the surface tag and stops advertising
+				interaction), `setProp`'s `role` branch (`default` means no role tag)
+				and its `selected` branch. ]]
+			local state = handle.tagState
+			local touched = false
+			if prop == "surface" then
+				local name = if type(value) == "string" then value else nil
+				state.surface = if name == "plain" then nil else name
+				state.interactive = name ~= "plain"
+					and name ~= "scrim"
+					and (handle.class == "Button" or handle.class == "Toggle")
+				touched = true
+			elseif prop == "role" then
+				state.buttonRole = if value == "default" or value == nil then nil else tostring(value)
+				touched = true
+			elseif prop == "selected" then
+				state.selected = value == true
+				touched = true
+			end
+			if touched then
+				syncFakeTags(handle)
+			end
+		end
 		if prop == "clipChildren" and value == true then
 			-- an authored clip host, registered at the PROP WRITE exactly as the live
 			-- adapter does. The renderer writes this before it recurses into the

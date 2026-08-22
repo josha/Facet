@@ -45,6 +45,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 local sheet_model = require("../src/tokens/sheet_model")
+local tag_sync = require("../src/render/tag_sync")
 
 -- `tests/` is deliberately absent: a spec is where a synthetic violation is
 -- SUPPOSED to appear (the negative control below writes one), and a scanner that
@@ -60,53 +61,100 @@ type Violation = {
 
 --[[ THE SCAN, over one file's text.
 
-	Both orders are read (`sub(...) == "x"` and `"x" == sub(...)`), because a
-	rule that only sees one of them teaches people to write the other.
+	FOUR SPELLINGS ARE READ, because a rule that only sees one of them teaches
+	people to write another: `string.sub(s, 1, N)` and the method form
+	`s:sub(1, N)` (two live sites use it — `roblox_env`'s `"Gamepad"` and
+	`studio_sync`'s `"/file/"`, both correct), each compared in either operand
+	order.
+
+	COMMENTS ARE PROSE AND ARE SKIPPED — BLOCK COMMENTS TOO. That half was
+	learned the same day it was written: `src/render/tag_sync.luau`'s header
+	QUOTES the defective line inside a long-bracket block comment to explain it,
+	and a line-comment-only skip reported the module's own explanation as the
+	defect it was explaining. Long-bracket levels (`--[=[`) are handled; a `--` inside a
+	string literal is not, which is a stated hole rather than a hidden one — no
+	file in the tree has one today and the anti-vacuity count below would move if
+	that changed.
 
 	A literal containing a BACKSLASH is skipped and COUNTED: `"\n"` is two
 	characters of source and one byte of string, so `#literal` measured on the
 	source text would be a false accusation. The count is asserted below, so the
 	day one appears it is a visible number rather than a silent hole.
 ]]
+local PATTERNS = {
+	'string%.sub%(.-,%s*1,%s*(%d+)%)%s*[=~]=%s*"(.-)"',
+	'[%w_%.%]%)]:sub%(%s*1,%s*(%d+)%)%s*[=~]=%s*"(.-)"',
+}
+local MIRRORED = {
+	'"(.-)"%s*[=~]=%s*string%.sub%(.-,%s*1,%s*(%d+)%)',
+	-- the receiver is a whole identifier chain here, not one character: unlike the
+	-- forward form there is nothing after it for the matcher to scan back from
+	'"(.-)"%s*[=~]=%s*[%w_%.%[%]%(%)]*:sub%(%s*1,%s*(%d+)%)',
+}
+
+-- the line with every comment removed. `inBlock` is the long-comment level
+-- carried in from the previous line, or nil.
+local function codeOf(line: string, inBlock: string?): (string, string?)
+	local code, pos, level = "", 1, inBlock
+	while pos <= #line do
+		if level ~= nil then
+			local closeAt, closeEnd = string.find(line, "]" .. level .. "]", pos, true)
+			if closeAt == nil then
+				return code, level
+			end
+			pos = (closeEnd :: number) + 1
+			level = nil
+		else
+			local openAt, openEnd, eqs = string.find(line, "%-%-%[(=*)%[", pos)
+			local lineAt = string.find(line, "--", pos, true)
+			if openAt ~= nil and (lineAt == nil or openAt <= lineAt) then
+				code ..= string.sub(line, pos, (openAt :: number) - 1)
+				pos = (openEnd :: number) + 1
+				level = eqs
+			elseif lineAt ~= nil then
+				code ..= string.sub(line, pos, (lineAt :: number) - 1)
+				return code, nil
+			else
+				code ..= string.sub(line, pos)
+				return code, nil
+			end
+		end
+	end
+	return code, level
+end
+
 local function scan(text: string, file: string): ({ Violation }, number, number)
 	local violations: { Violation } = {}
 	local considered, skippedEscapes = 0, 0
 	local lineNo = 0
+	local inBlock: string? = nil
 	for line in string.gmatch(text .. "\n", "(.-)\n") do
 		lineNo += 1
-		local trimmed = string.match(line, "^%s*(.-)%s*$") or line
-		-- a comment is prose: it may legitimately quote a wrong example (this
-		-- file's own header does)
-		if string.sub(trimmed, 1, 2) ~= "--" then
-			for compared, literal in string.gmatch(line, 'string%.sub%(.-,%s*1,%s*(%d+)%)%s*[=~]=%s*"(.-)"') do
-				if string.find(literal, "\\", 1, true) ~= nil then
-					skippedEscapes += 1
-				else
-					considered += 1
-					if #literal ~= tonumber(compared) then
-						table.insert(violations, {
-							file = file,
-							line = lineNo,
-							compared = tonumber(compared) :: number,
-							literal = literal,
-						})
-					end
-				end
+		local code: string
+		code, inBlock = codeOf(line, inBlock)
+		local function record(compared: string, literal: string)
+			if string.find(literal, "\\", 1, true) ~= nil then
+				skippedEscapes += 1
+				return
 			end
-			for literal, compared in string.gmatch(line, '"(.-)"%s*[=~]=%s*string%.sub%(.-,%s*1,%s*(%d+)%)') do
-				if string.find(literal, "\\", 1, true) ~= nil then
-					skippedEscapes += 1
-				else
-					considered += 1
-					if #literal ~= tonumber(compared) then
-						table.insert(violations, {
-							file = file,
-							line = lineNo,
-							compared = tonumber(compared) :: number,
-							literal = literal,
-						})
-					end
-				end
+			considered += 1
+			if #literal ~= tonumber(compared) then
+				table.insert(violations, {
+					file = file,
+					line = lineNo,
+					compared = tonumber(compared) :: number,
+					literal = literal,
+				})
+			end
+		end
+		for _, pattern in PATTERNS do
+			for compared, literal in string.gmatch(code, pattern) do
+				record(compared, literal)
+			end
+		end
+		for _, pattern in MIRRORED do
+			for literal, compared in string.gmatch(code, pattern) do
+				record(compared, literal)
 			end
 		end
 	end
@@ -162,35 +210,50 @@ describe("a prefix test cannot disagree with the prefix it tests (ADR-0038 fallo
 		expect(`violations:\n{table.concat(report, "\n")}`).toBe("violations:\n")
 	end)
 
-	it("the scan BITES — a synthetic mismatch is reported with both numbers", function()
-		-- The rule this file exists for, injected: the exact line ADR-0038's sweep
-		-- left behind, plus its mirror, plus two CORRECT neighbours that must not
-		-- be reported.
+	it("the scan BITES — every spelling, and prose in neither kind of comment", function()
+		-- The rule this file exists for, injected in all four spellings, with two
+		-- CORRECT neighbours that must not be reported and two comment forms that
+		-- must not be either. The block-comment lines are the ones that matter:
+		-- the module this defect now lives in quotes the bad line to explain it.
 		local synthetic = table.concat({
 			'if string.sub(tag, 1, 5) == "facet-" then',
 			'if "Facet" ~= string.sub(tree.root, 1, 6) then',
+			'if name:sub(1, 4) == "Gamepad" then',
+			'if "/file/" == path:sub(1, 3) then',
 			'if string.sub(target, 1, 6) == "@self/" then',
-			'-- string.sub(tag, 1, 5) == "facet-" is quoted PROSE and must not count',
+			'-- string.sub(tag, 1, 9) == "facet-" is quoted PROSE and must not count',
+			'--[[ ...nor must a BLOCK comment quoting string.sub(tag, 1, 9) == "facet-"',
+			'\tacross two lines: x:sub(1, 9) == "facet-" ]]',
+			'if path:sub(1, 6) == "/file/" then',
 		}, "\n")
 		local found, considered, skipped = scan(synthetic, "synthetic")
-		expect(considered).toBe(3)
+		-- four bad, two good, nothing from either comment
+		expect(considered).toBe(6)
 		expect(skipped).toBe(0)
-		expect(#found).toBe(2)
+		expect(#found).toBe(4)
 		expect(`{found[1].line}:{found[1].compared}:{found[1].literal}`).toBe("1:5:facet-")
 		expect(`{found[2].line}:{found[2].compared}:{found[2].literal}`).toBe("2:6:Facet")
+		expect(`{found[3].line}:{found[3].compared}:{found[3].literal}`).toBe("3:4:Gamepad")
+		expect(`{found[4].line}:{found[4].compared}:{found[4].literal}`).toBe("4:3:/file/")
 	end)
 end)
 
 describe("the adapter's facet-* tag ownership is one named fact (SCREEN-X)", function()
-	it("the removal loop asks a NAMED prefix and derives the length from it", function()
+	it("the removal loop DELEGATES — the adapter hand-rolls no prefix test at all", function()
+		--[[ The decision moved OUT of the adapter entirely (`render/tag_sync`), so
+			what this pin asks of the adapter is that it holds no second copy: the
+			live source calls the shared plan and spells no `facet-` prefix
+			comparison of its own. The predicate itself is behaviour, not text, and
+			`tests/tag_sync.spec.luau` drives it. ]]
 		local source = adapter_source.live()
-		local prefix = string.match(source, 'local TAG_PREFIX = "([^"]+)"')
-		expect(`the adapter names its tag prefix: {prefix ~= nil}`).toBe("the adapter names its tag prefix: true")
-		expect(prefix).toBe("facet-")
-		-- the length is READ OFF the literal, so the two can never disagree again
-		expect(string.find(source, "string.sub(tag, 1, #TAG_PREFIX) == TAG_PREFIX", 1, true) ~= nil).toBe(true)
-		-- ...and the hand-counted form is gone from the whole adapter
+		expect(string.find(source, "tag_sync.diff(CollectionService:GetTags(instance), desired)", 1, true) ~= nil).toBe(
+			true
+		)
 		expect(string.find(source, 'string.sub(tag, 1, 5) == "facet-"', 1, true) ~= nil).toBe(false)
+		-- no hand-rolled prefix test of ANY length survives in the adapter
+		expect(string.match(source, 'string%.sub%(tag,%s*1,%s*%d+%)%s*[=~]=%s*"facet') == nil).toBe(true)
+		-- ...and the shared ruling is the one it reaches for
+		expect(tag_sync.PREFIX).toBe("facet-")
 	end)
 
 	it("every tag the classifier can mint is one that predicate claims", function()
@@ -200,8 +263,7 @@ describe("the adapter's facet-* tag ownership is one named fact (SCREEN-X)", fun
 			route. Driven over the real classifier rather than over `TAGS`, because
 			the composed tags (`facet-surface-<name>`, `facet-type-<role>`) are
 			built at classification time and are exactly the ones that went sticky. ]]
-		local prefix = string.match(adapter_source.live(), 'local TAG_PREFIX = "([^"]+)"') :: string
-		expect(type(prefix)).toBe("string")
+		local prefix = tag_sync.PREFIX
 
 		local dressed = sheet_model.classifyTags({
 			surface = "control",

@@ -84,6 +84,14 @@ TAG = re.compile(r"\bluau-(?!lsp\b|analyze\b|execution-session\b"
                  r"|require-by-string-init-self)")
 
 # every pattern the old-brand profile matches, in report order
+#[[ A RENAME STATEMENT: the retired name, an arrow, the current name. Narrow on
+#   purpose — it excuses a sentence that RECORDS the rename, never a file that
+#   merely mentions the old brand (SCREEN-X, 2026-08-22). ]]
+RENAME_ARROW = re.compile(
+    r"[`\"]?(?:luau-\*?|LuauUI(?:_<id>)?)[`\"]?\s*->\s*[`\"]?(?:facet-|Facet)",
+    re.IGNORECASE,
+)
+
 BRAND_PROFILE = (BRAND, TAG)
 
 #[[ ---- RULE 2: THE VENDOR PROFILE ----------------------------------------
@@ -512,6 +520,42 @@ ALLOWLIST = [
      "the same note quotes this checker's own BRAND pattern to explain why 346 surviving "
      "tags were structurally invisible to it",
      "permanent (same reason)"),
+    #[[ THE RENAME ARROW (SCREEN-X, 2026-08-22). ADR-0038's two renames left three
+    #   prefix tests comparing the wrong number of characters — `luau-` is five
+    #   where `facet-` is six, and `LuauUI` is six where `Facet` is five — and the
+    #   worst of them made the adapter's tag-REMOVAL loop dead code for four days.
+    #   The fix, the module it lives in, its spec and its registration all have to
+    #   say WHICH rename did it and in WHICH direction, and a comment that may not
+    #   name the retired vocabulary cannot record that it moved: that is the same
+    #   judgement the ADR-0038 and gate_manifest entries above already make.
+    #
+    #   SCOPED TO THE ARROW, NOT TO THE FILE (the R5 review §2-1 lesson, which
+    #   these two would otherwise repeat): the patterns match only a rename
+    #   statement — the retired name, an arrow, the current name — so an ordinary
+    #   old-brand mention anywhere else in any of these four files is still caught.
+    #   Proved by planting one and watching the checker fail. ]]
+    ("src/render/tag_sync.luau", RENAME_ARROW,
+     "the ruling's header names the rename that broke it, in the direction it went",
+     "when ADR-0038 is old enough that the defect needs no explanation — i.e. never, "
+     "while the module's job is to make that defect unrepeatable"),
+    ("tests/prefix_tests.spec.luau", RENAME_ARROW,
+     "the scanner's header states the defect class it exists for, with both renames",
+     "same"),
+    ("tests/run.luau", RENAME_ARROW,
+     "the spec's registration blurb says what it guards and why there were three",
+     "same"),
+    ("tools/studio/device_matrix.luau", RENAME_ARROW,
+     "the root filter's comment records that its six-character test outlived the "
+     "five-character literal ADR-0038 gave it",
+     "same"),
+    ("docs/handoff/SCREEN-X-OWED-LIVE-WORK.md", RENAME_ARROW,
+     "the owed-work register has to say which rename broke what, in both directions",
+     "when all four owed items are closed and the register is archived"),
+    ("docs/handoff/SCREEN-X-OWED-LIVE-WORK.md",
+     re.compile(r"pl9-row3-luauui-1\.json"),
+     "cites the PRE-RENAME capture by its real filename as the control to compare a "
+     "re-capture against; a citation that renames its source cannot be followed",
+     "when that capture is superseded by a Facet-named re-capture"),
     ("tools/check_perf_gate_evidence.py", BRAND,
      "reads frozen capture artifacts whose schema strings predate the rename",
      "when those capture schemas are re-recorded under Facet"),

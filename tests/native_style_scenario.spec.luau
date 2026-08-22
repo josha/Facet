@@ -246,7 +246,7 @@ describe("screen_target: the image IS the button (source contract)", function()
 	it("the skinned-slot tag rides the SAME desired set syncTags diffs against", function()
 		-- syncTags removes every facet-* tag not in the desired set, so a tag added
 		-- anywhere else would be stripped on the next classification pass
-		local tags = section("local function syncTags(handle: any)", "for _, tag in CollectionService:GetTags")
+		local tags = section("local function syncTags(handle: any)", "local plan = tag_sync.diff(")
 		expect(string.find(tags, "skinnedSlot = handle.chromeSlot", 1, true) ~= nil).toBe(true)
 	end)
 
@@ -436,7 +436,7 @@ describe("screen_target: a value control's own paint (source contract)", functio
 	end
 
 	it("the slot identity tag rides the desired set, independent of skinning", function()
-		local tags = section("local function syncTags(handle: any)", "for _, tag in CollectionService:GetTags")
+		local tags = section("local function syncTags(handle: any)", "local plan = tag_sync.diff(")
 		expect(string.find(tags, "slotHint = if type(handle.decorationHint)", 1, true) ~= nil).toBe(true)
 	end)
 
