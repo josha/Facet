@@ -150,13 +150,25 @@ return {
 			return math.max(metrics.targetSizes.minimum or 44, content + padV + marginV)
 		end))
 
-		-- THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
-		-- Readable viewport height, so this is a memo over the environment's own
-		-- viewport rect and a rotation (or a split-screen resize) re-derives the
-		-- window in place — no reset, and the painted box and the windowing
-		-- arithmetic read the same number. A build-time pixel here was the same
-		-- fixed-px-vs-live-facts defect the derived row height above exists to avoid,
-		-- one level up.
+		--[[ THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
+			Readable viewport height, so this is a memo over the environment's own
+			viewport rect and a rotation (or a split-screen resize) re-derives the
+			window in place — no reset, and the painted box and the windowing
+			arithmetic read the same number. A build-time pixel here was the same
+			fixed-px-vs-live-facts defect the derived row height above exists to avoid,
+			one level up.
+
+			AND IT IS NOT `viewportExtent = "auto"`, WHICH IS A FACT ABOUT THIS
+			FIXTURE'S TREE RATHER THAN AN OVERSIGHT (purity audit §4, 2026-08-22).
+			`"auto"` takes `fill` along the scroll axis and measures what the solver
+			gave it, and its one requirement is an ancestor that hands the list a
+			DEFINITE extent there. This list sits inside `Body`, a y-scrolling page:
+			its content box is unbounded on y by construction, so a `fill` child of it
+			has nothing definite to fill and the measurement would be a number about
+			the canvas rather than about the window. `scenarios/sponsor_drop.luau` and
+			`scenarios/row_actions.luau` both migrated in the same round because their
+			lists sit in panes with definite heights. The clamp stays here, and the
+			sentence above is why. ]]
 		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760

@@ -4811,14 +4811,18 @@ entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
 string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, (item, index, use) -> px, "measured", or
 "cards"), estimatedItemExtent? (px or Readable<number> — required with "measured", refused otherwise),
 cards? ({ perView?, minWidth?, peek? } — the card paradigm's options, refused without itemExtent = "cards"),
-snap? ("none" default | "item", or a Readable of one), rowGap? (px or
-Readable<number>), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
+snap? ("none" default | "item", or a Readable of one), rowGap? (px, a theme metric
+name, or a Readable of either), viewportExtent (px, Readable<number>, or "auto"),
+crossExtent? ("hug" | "measured"), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
 onActivate? ((item, meta) -> ()) }` — plus the collection fields tabled below.
 Returns `{
 blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
-dump(), dispose() }`. Item state lives in the item scope and dies when a row
+dump(), dispose() }`, plus `viewportExtent` / `crossExtent` as
+`Readable<number>` **only when the list was asked to measure them** (see
+"Self-measuring extents" below) — a list that declared its own numbers publishes
+neither, because it already has them. Item state lives in the item scope and dies when a row
 leaves the window — durable state belongs in your data model.
 
 The two-argument spelling `Facet.newVirtualList(Facet, core, spec)` is **deprecated** since
@@ -4875,6 +4879,48 @@ large-screen arrangement (the same rule and the same message `newTabView` and
 environment for free; a headless caller builds one with
 `Facet.newEnvironment(core)` or passes `env`; and a rail that must *not* adapt says
 so by declaring `cards.perView`, which asks the environment nothing.
+
+<a id="self-measuring-extents"></a>
+**A collection can measure the box it was given, on either axis.** Handing in a
+number is the fast path when you already know it; predicting one you do not know
+is the defect family the variable-extents mission was about, and it has a
+signature: a memo that subtracts safe insets, a Screen's padding and a scrollbar
+guess from the raw viewport rect, or a `math.clamp(math.floor(h * 0.5), 160, 420)`
+standing in for a layout the caller does not own.
+
+* **`viewportExtent = "auto"`** — the collection takes `fill` along its own axis
+  and windows against what the solver gave it, reported through the presenter's
+  per-refresh geometry pass. It **converges in one step and stops**: the host's
+  size is decided by what CONTAINS it and never by what is inside it, so
+  measuring cannot change what was measured, and an equality guard means a
+  settled tree writes nothing. The frame before a measurement exists is seeded
+  from the **screen**, which is an upper bound on any box inside it — so the
+  first frame over-fills (a strict superset of what the viewport touches) rather
+  than mounting three rows and popping. Available on `newVirtualList` and
+  `newVirtualGrid`.
+  **The one requirement**: an ancestor that hands the collection a DEFINITE
+  extent along that axis. A `fill` inside a box that HUGS has nothing to measure,
+  and neither does a `fill` inside a scrolling page's own content — put the
+  collection in a pane whose extent the layout decides, which is what you were
+  doing by hand anyway.
+* **`crossExtent = "hug"`** (list only) — the axis the list does not scroll sizes
+  to its CONTENT instead of filling: the host, its canvas and every row take
+  `content` across, so a sideways rail is exactly as tall as its card. This is
+  the answer when `fill` is a promise the box will be big enough and it is not —
+  a rail whose page is short clips its cards rather than growing, and the caller
+  ends up summing the card's padding, its line boxes, the theme's chrome inset
+  and outset, and a slack constant for the scrollbar, every one of which the
+  solver already knows.
+* **`crossExtent = "measured"`** (list only) — it still fills, and the solved
+  extent is reported. Use it when you need the number rather than a different
+  size.
+
+Both forms publish their number on the returned table as a
+`Readable<number>` — `list.viewportExtent`, `list.crossExtent`,
+`grid.viewportExtent` — so a consumer reads the box the collection was actually
+given instead of re-deriving it. **A collection that declared its own numbers
+publishes neither**, because it already has them and a second copy would be the
+same number twice.
 
 **`rowHeight` and `viewportHeight` are DEPRECATED aliases** of `itemExtent` and
 `viewportExtent` (since 0.9.0, removed no earlier than 0.10.0 — see
@@ -5051,8 +5097,9 @@ and the same terminals.
 |---|---|
 | `itemExtent` | a number, a **`Readable<number>`**, a **function `(item, index, use) -> px`**, or the word **`"measured"`**: one item's size along the list's own axis. The first two are UNIFORM (windowed by index×pitch); the function is a DECLARED per-item extent (windowed by a running-offset prefix sum) and must read live facts through its `use` argument; `"measured"` declares nothing and windows each row at what its own cell measured. See [variable item extents](#variable-item-extents) and [measured item extents](#measured-item-extents) above. (`rowHeight` is its deprecated alias, above — and it reaches the same four forms.) |
 | `estimatedItemExtent` | a number or a **`Readable<number>`** — the size an UNSEEN row is windowed at until it has been on screen once. **Required** with `itemExtent = "measured"` and **refused** on every other form, where every row in the data already has an answer and this field would be accepted and then ignored. Over-reserve slightly; see [measured item extents](#measured-item-extents). |
-| `rowGap` | the gutter **between item slots**, a non-negative number **or a `Readable<number>`**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list — unlike `itemExtent`, the gutter has no per-item form, because a gap that differs per row is a property of the ROWS and belongs in their extents. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
-| `viewportExtent` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. (`viewportHeight` is its deprecated alias, above.) |
+| `rowGap` | the gutter **between item slots**, a non-negative number, a **theme metric name** (`"xs"`..`"xl"`, or a dotted path such as `"controls.table.rowGap"`), **or a `Readable` of either**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). A name resolves against the **live snapshot on every read**, so a theme swap moves the gutter with no rebuild — the same contract [`newTable.rowGap`](#newtable) has carried since it was found that a gap used in ARITHMETIC could not take one. A name that resolves **nowhere** is REFUSED at construction, by name: `rowGap = "6"` is a number somebody quoted, and a gutter of zero looks exactly like a gutter nobody asked for. (`newTable` falls back to `0` there instead; the collections deliberately do not.) The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list — unlike `itemExtent`, the gutter has no per-item form, because a gap that differs per row is a property of the ROWS and belongs in their extents. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
+| `viewportExtent` | a number, a **`Readable<number>`**, or the word **`"auto"`** — the host's size along the list's own axis. A `Readable` is for a consumer that already knows the number and wants both readers of it to track: the painted host box and the windowing arithmetic. `"auto"` is for one that does not: see [Self-measuring extents](#self-measuring-extents) below. A build-time pixel goes stale the moment the device rotates. (`viewportHeight` is its deprecated alias, above.) |
+| `crossExtent` | absent (the default), `"hug"` or `"measured"` — where the axis the list does **not** scroll gets its extent. Absent it FILLS, which is what every list did before this field existed. See [Self-measuring extents](#self-measuring-extents). It is a **list** field and not a grid one: a grid's lane width is derived FROM its cross extent, so a hugging grid would be asking its lanes how wide they are in order to know how wide its lanes are. |
 | `selection` | `"none"` (default) or `"single"`. Activate selects the row from **every** paradigm (tap / Return / ButtonA). `selectedKey` is a Signal; `list.select(key)` / `list.clearSelection()` drive it; `onSelect(item, key)` reports it. Selection **prunes with the data** and survives a re-sort that keeps the row. The selected row also carries the **native `selected` state** on its own hit node (Table parity), so the theme paints it (`controlSelected`) and a cell never has to spend an elevation role saying "chosen". |
 | `selectionPaint` | `"native"` (default) or `"none"`. `"none"` keeps the selection — `selectedKey`, `onSelect` and the ring all stay — and drops only the row's native `selected` state, for a list whose "chosen" is carried somewhere that is not the row (the standings list whose selected racer is the one the camera is watching). `selection = "none"` cannot express that: it deletes the selection itself. |
 | `reorderable` + `onReorder(key, toIndex)` | rows become draggable. `toIndex` is the **1-based index the row will occupy in the resulting order**; a drop that reproduces the current order emits nothing. Order is owner state: the list renders what it is handed. |
@@ -5261,6 +5308,8 @@ and turns a quarter turn:
 |---|---|---|
 | `itemExtent` | one line's HEIGHT | one line's WIDTH |
 | `viewportExtent` | the host's height | the host's width |
+| `viewportExtent = "auto"` | measured off the solved host, both axes — see [Self-measuring extents](#self-measuring-extents) | same |
+| `rowGap` / `gap` | px, a theme metric name, or a `Readable` of either — same contract as [`newVirtualList.rowGap`](#newvirtuallist) | same |
 | `width` | the cross-axis Dim | **refused** — there the width IS the scroll axis; the cross axis is the height and it FILLS, so wrap the strip in a box of the height you want |
 | the mounted band | `UI.Grid` | `UI.Grid { flow = "column" }` |
 | the focus group's axis | `horizontal` | `vertical` |

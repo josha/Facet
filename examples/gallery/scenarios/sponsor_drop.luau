@@ -207,12 +207,30 @@ return {
 			return math.max(metrics.targetSizes.minimum or 44, lineBox + 2 * (metrics.space.s or 8))
 		end))
 
-		-- THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
-		-- Readable viewport height, so the window is a memo over the environment's
-		-- own viewport rect: a rotation or a split-screen resize re-derives it in
-		-- place, and the painted box and the windowing arithmetic read the same
-		-- number. A build-time pixel was the fixed-px-vs-live-facts defect class one
-		-- level up from the row height.
+		--[[ THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
+			Readable viewport height, so the window is a memo over the environment's
+			own viewport rect: a rotation or a split-screen resize re-derives it in
+			place, and the painted box and the windowing arithmetic read the same
+			number. A build-time pixel was the fixed-px-vs-live-facts defect class one
+			level up from the row height.
+
+			AND IT IS NOT `viewportExtent = "auto"` (purity audit §4, 2026-08-22),
+			WHICH IS A FINDING ABOUT WHEN "auto" IS THE WRONG ANSWER RATHER THAN AN
+			OVERSIGHT. The migration was made and reverted on measurement. This lab's
+			premise is a canvas end the drag can REACH: the autoscroll arm drives into
+			the bottom band for 1.2 s and the chevron arm then asserts the canvas
+			CLAMPED and came back to 0 in the 1.2 s that follows. Both only hold while
+			the overflow is SMALL, and `FULL_COUNT = 12` at a 44 px row is calibrated
+			against a window this clamp caps at 420. `"auto"` hands the list the pane
+			the layout actually decided — measured 673 px in this suite's own
+			900x760 world — so twelve rows fit inside it and the drag reached the
+			bottom band with nothing to scroll, while a count big enough to overflow
+			any pane puts the canvas end out of the ramp's reach in 1.2 s. The
+			calibration is between the ROW COUNT and the WINDOW, and a bounded window
+			is what makes it hold at every viewport this suite sweeps.
+			`scenarios/row_actions.luau` and `scenarios/card_rail.luau` migrated in
+			the same round because neither has a number calibrated against its own
+			window. ]]
 		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760
