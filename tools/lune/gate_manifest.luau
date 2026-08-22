@@ -2416,9 +2416,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "font-aware-measurement",
 			requirements = { "UI-FID-001", "UI-LAYOUT-001" },
-			run = 'grep -q "fontKey" src/layout/solver.luau && grep -q "buildPackage" src/client/theme_controller.luau && grep -q "Fondamento" artifacts/theme-packages-and-skinning/b-a5-font-measurement.json && grep -q "TextFits true" artifacts/theme-packages-and-skinning/b-a5-font-measurement.json',
+			run = 'grep -q "fontKey" src/layout/measure_facts.luau && grep -q \'require("./measure_facts")\' src/layout/solver.luau && grep -q "buildPackage" src/client/theme_controller.luau && grep -q "Fondamento" artifacts/theme-packages-and-skinning/b-a5-font-measurement.json && grep -q "TextFits true" artifacts/theme-packages-and-skinning/b-a5-font-measurement.json',
 			evidence = "artifacts/theme-packages-and-skinning/b-a5-font-measurement.json",
-			note = "TP-A5: descriptor-keyed measurement; the legacy-builder font split was found LIVE (exact-Fondamento boxes clipping BuilderSans glyphs) and fixed; all five rows unclipped incl. preferred-text and ten-foot",
+			note = 'TP-A5: descriptor-keyed measurement; the legacy-builder font split was found LIVE (exact-Fondamento boxes clipping BuilderSans glyphs) and fixed; all five rows unclipped incl. preferred-text and ten-foot. RE-PINNED 2026-08-22 (paint-family lockstep gate repair): `fontKey` left `src/layout/solver.luau` in `f0fc77e` — the measure-facts extraction — and this row went red on the STRING having moved while the capability had not. It now pins the fact where it lives (`src/layout/measure_facts.luau`) AND the solver\'s own binding to it (`require("./measure_facts")`), so a re-pin cannot be spent to make a real removal quiet: deleting the seam reddens this row exactly as deleting the key does. The lesson this row is the third instance of: a pinned grep measures where a string is, not whether a binding exists',
 		},
 		{
 			name = "style-editor-sync",

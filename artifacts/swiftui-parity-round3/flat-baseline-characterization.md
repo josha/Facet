@@ -240,3 +240,69 @@ the more alarming one and it was **false**. It was checked before it was written
 
 Fix: one narrow negation in `.gitignore` with its reason inline (409 KB, once), and the
 sibling regenerable dump stays ignored on purpose.
+
+---
+
+## 2026-08-22 — the fourth member of the family: `corners.tokens` / `stroke.tokens`
+
+The prior-gates sweep reported **seven problems** on this check and named a
+`/Vocabulary/Tag` node that had grown `corners.tokens` *and a whole text-font
+block* against the frozen 0.6.0 render. **Six of the seven were one delta, and
+the font block was not a delta at all** — it has been characterized since
+2026-08-02. The report prints the WHOLE prop string on either side of a mismatch,
+so three already-forgiven keys were reading as new findings beside the one that
+was not.
+
+**What each delta actually is, tied to its commit** (probed by regenerating the
+dump at each commit and its parent, never by reading a message):
+
+| delta on `/Vocabulary/Tag` | commit | ruling | paint at flat/neutral |
+|---|---|---|---|
+| `textSize=18` | the director fix round, 2026-07-25 | the class's intrinsic typography role reaches PAINT | **deliberately changed** (16 → 18): a sanctioned correction, already characterized as `ALLOWED_ADDED_PROPS.textSize` |
+| `textFont={…BuilderSans#Regular#Normal…}` | `a2361f5`, 2026-08-02 (parity F2) | the role's FACE reaches paint beside its size | **identical**: every pre-existing role resolves to the face the adapter hardcoded |
+| `textWrapped=false` | `fb76787`, 2026-08-14 (ruling 5) | the wrap verdict reaches paint | **identical**: `false` IS the engine default; the value is pinned so a `true` (a write restoring the default) fails |
+| `corners.tokens={…}` | `41e68298e`, 2026-08-21 (paint-family lockstep, door 2) | ADR-0039 Decision 3a / ADR-0040 B-17 — an authored radius NAME survives normalization so the painter can re-derive it at the display class | **identical**, proven below |
+
+Confirmed by probe, not by inference: at `41e68298e~1` the node reads
+`corners={form=uniform,radius=999}` and at `41e68298e` it reads
+`corners={form=uniform,radius=999,tokens={...}}`, with the font block present on
+BOTH sides — so the tokens sub-key is this round's and the font block is not.
+
+### The paint-identity proof
+
+The claim is about painted bytes, not record shapes, so it is measured on the
+whole dump rather than on the node the report happened to name:
+
+```
+regenerated dump                       e4bf27df405a8e88eea8d41c243050ceea669bbf462f7f50f74b0cd7e5e7e13a
+regenerated dump, `,tokens={...}` cut  ccbaa828e8c52e9c319bbf2f35ff04b9b26ca2a0277e992498445080214190c1
+the dump RS-A1 last cited              ccbaa828e8c52e9c319bbf2f35ff04b9b26ca2a0277e992498445080214190c1
+```
+
+Across 24 renders, 8 fixtures and 1461 flat nodes the round added **exactly six**
+sub-keys — the Chip at three viewports in two states — and moved **no other
+byte**. At the flat/neutral display class `paintCorners` re-resolves `"pill"` to
+the 999 that is already there and returns the SAME TABLE, so the re-derivation is
+the identity and every flat node paints what it painted at 0.6.0.
+
+### The form the entry takes, and why
+
+`ALLOWED_ADDED_PROPS` could not carry it: `corners` is not a NEW key, its VALUE
+changed. A per-path `ALLOWED_PROP_DRIFT` entry would have been one entry per node
+with an authored corner. This file's own rule decides it — *a per-path list is
+right when a decision moves ONE node; a rule is right when a seam-level correction
+lands on every node of a kind at once* — so the new `ALLOWED_ADDED_SUBKEYS`
+removes exactly `,<subkey>={...}` from the prop that declares it and compares the
+**remainder byte for byte**. `stroke.tokens` is listed beside `corners.tokens`
+because they are one decision.
+
+**Mutated to prove it forgives only what it says.** With `radii.pill` moved
+999 → 1000 in `default_style`, the check FAILS with the old and new numbers in the
+message (`radius=999` → `radius=1000`) — the sub-key is stripped, the radius is
+not. A characterization, not a waiver.
+
+**`BASELINE_3_5` was NOT re-pinned** — declined a third time, for the reason this
+file gives twice already. What was regenerated is `CURRENT`
+(`artifacts/rich-skinning-v2/rows/neutral-render-dump.json`), the gitignored,
+citable artifact whose only job is to be current, through its documented
+generator.

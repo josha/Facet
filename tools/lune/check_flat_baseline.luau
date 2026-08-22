@@ -748,6 +748,82 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, why: string } } = {
 -- is this key's APPEARANCE characterized, at this value? An entry with no `value`
 -- forgives the key whatever it carries; an entry WITH one forgives that value and
 -- nothing else, so a wrong value stays a failure on the node it landed on.
+--[[ …AND THE SAME RULE ONE LEVEL DOWN: a characterized SUB-KEY inside a prop
+	the baseline already carried.
+
+	`ALLOWED_ADDED_PROPS` above forgives a KEY that newly appears on a node. It
+	cannot forgive `corners={form=uniform,radius=999}` becoming
+	`corners={form=uniform,radius=999,tokens={...}}`, because `corners` is not a
+	new key — its VALUE changed — and that is a per-path prop delta, of which
+	there would be one per node with an authored corner in the whole render.
+
+	WHICH FORM IS RIGHT IS THE QUESTION THIS FILE ALREADY ANSWERED (see the
+	ALLOWED_ADDED_PROPS paragraph in the header): a per-path list is right when a
+	decision moves ONE node, and a RULE is right when a seam-level correction
+	lands on every node of a kind at once. The paint-family lockstep round is the
+	second kind — every node that authors a radius or a stroke BY NAME carries the
+	name now — so it is a rule, and it is the fourth member of the family the
+	header's `textSize`/`textFont`/`textWrapped` paragraph describes.
+
+	WHAT IT MAY AND MAY NOT FORGIVE, and this is the whole strength of the entry:
+	it removes exactly `,<subkey>={...}` from that one prop's value and then
+	compares the REMAINDER byte for byte. So the sub-key may appear; every other
+	character of the value — including the painted `radius=999` itself — must be
+	identical to the 0.6.0 render. A radius that actually moved fails here with
+	the old and new numbers in the message, which is what makes this a
+	characterization rather than a waiver. ]]
+local ALLOWED_ADDED_SUBKEYS: { { prop: string, subkey: string, why: string } } = {
+	{
+		prop = "corners",
+		subkey = "tokens",
+		why = "the authored radius TOKEN survives normalization (`41e68298e`, 2026-08-21, the paint-family "
+			.. 'lockstep round\'s second door; ADR-0039 Decision 3a, ADR-0040 row B-17). `UI.corners(bp, "pill")` '
+			.. "used to resolve the name where it was WRITTEN — inside a control factory, with no style and no "
+			.. "display class — and freeze the near number into the blueprint, so a television painted a 999 "
+			.. "capsule while the sheet rule beside it carried the derived 18 (measured live, console row "
+			.. "b62ac109). The name now travels beside the number and the painter re-resolves it against the "
+			.. "style its target was built with. THE INVARIANT THIS ENTRY PINS: at the flat/neutral display "
+			.. "class the re-resolution is the IDENTITY — `paintCorners` returns the same table when the token "
+			.. "resolves to the number already there — so every flat node paints the byte it painted at 0.6.0, "
+			.. "and the `radius=` beside the new sub-key is compared as strictly as it ever was. What the "
+			.. "sub-key records is WHICH token the node was authored with, which is new information rather than "
+			.. "a new appearance.",
+	},
+	{
+		prop = "stroke",
+		subkey = "tokens",
+		why = "the same correction on the stroke half, in the same commit: a thickness authored as a NAME — or "
+			.. "ABSENT, whose documented default IS the theme's `strokes.hairline` — carries the name to paint. "
+			.. "Listed beside `corners` rather than waiting for a node to need it, because the two are one "
+			.. "decision and a rule that covers half of it would send the other half through a per-path list.",
+	},
+}
+
+--[[ the prop string with each characterized SUB-KEY addition removed from the
+	prop that declares it. Removal is exact and shallow — `_theme_baseline`'s
+	`fmt` renders a nested table as `{...}`, so the sub-key's own content is not
+	in this dump and cannot be compared here (it is pinned in
+	`tests/ten_foot_metrics.spec.luau`, at both display classes). Everything else
+	in the value survives to the byte comparison. ]]
+local function withoutAddedSubkeys(was: string?, now: string?): string?
+	if now == nil or now == "" or was == nil then
+		return now
+	end
+	local out = now
+	for _, entry in ALLOWED_ADDED_SUBKEYS do
+		-- only when the BASELINE carried the prop: a wholly new prop is the other
+		-- list's business, and must not be smuggled in through this one
+		if string.find(was, `{entry.prop}=`, 1, true) == nil then
+			continue
+		end
+		-- concatenated rather than interpolated: `{` opens an expression inside a
+		-- Luau interpolated string, and this pattern is mostly braces
+		out = string.gsub(out, "," .. entry.subkey .. "={%.%.%.}", "")
+		out = string.gsub(out, entry.subkey .. "={%.%.%.},", "")
+	end
+	return out
+end
+
 local function addedPropAllowed(prop: string, value: string): boolean
 	for _, entry in ALLOWED_ADDED_PROPS do
 		if entry.prop == prop then
@@ -868,6 +944,11 @@ if process.args[1] == "--list" then
 		local scope = if entry.value ~= nil then `(any node, ONLY as "{entry.value}")` else "(any node, any value)"
 		print(`  added prop {entry.prop} {scope}\n        {entry.why}`)
 	end
+	for _, entry in ALLOWED_ADDED_SUBKEYS do
+		print(
+			`  added subkey {entry.prop}.{entry.subkey} (any node that already carried {entry.prop})\n        {entry.why}`
+		)
+	end
 	for _, entry in ALLOWED_RECT_DRIFT do
 		local scope = if entry.path ~= nil then " (this node only" else " (subtree"
 		scope ..= if entry.viewport ~= nil then `, {entry.viewport} only)` else ")"
@@ -987,7 +1068,7 @@ for key, node in now do
 			table.insert(problems, `{key}: {field} changed '{was[field]}' -> '{node[field]}' (never allowed)`)
 		end
 	end
-	local nowProps = withoutAddedProps(was.props, node.props)
+	local nowProps = withoutAddedSubkeys(was.props, withoutAddedProps(was.props, node.props))
 	if was.props ~= nowProps and propDriftReason(node.path, viewport) == nil then
 		table.insert(problems, `{key}: props changed '{was.props}' -> '{node.props}' and is not characterized`)
 	end
@@ -1044,6 +1125,7 @@ print(
 	`check_flat_baseline: PASS ({checked} flat nodes byte-compared against {BASELINE_3_5}; `
 		.. `{#ALLOWED_PROP_DRIFT} characterized prop deltas, {#ALLOWED_NEW_NODES} characterized new nodes, `
 		.. `{#ALLOWED_ADDED_PROPS} characterized added prop keys, `
+		.. `{#ALLOWED_ADDED_SUBKEYS} characterized added sub-keys, `
 		-- SAY WHAT WAS ALLOWED, NOT WHAT IS EXPECTED. This line read "0
 		-- rect/hit/class changes" unconditionally, which would have gone on
 		-- saying so beside a characterized rect delta — a true-sounding sentence
