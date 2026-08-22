@@ -7,7 +7,7 @@
 	creates a require BACK and the two files become one file with a slash in the
 	middle. `table_rows_seam.spec` mechanised that for a parameter object;
 	`measure_facts_seam.spec` mechanised it for a seam that had none. THIS ONE HAS
-	A PARAMETER OBJECT AND TWENTY FIELDS IN IT, and eight of those fields are
+	A PARAMETER OBJECT AND TWENTY-ONE FIELDS IN IT, and eight of those fields are
 	MUTABLE RECORDS the renderer keeps writing to after the walks have read them.
 	So the property is the three set comparisons plus one this repository has not
 	had to state before: what the two files SHARE, by name, and who is answerable
@@ -196,7 +196,7 @@ describe("the commit-walk seam: READ == DECLARED == PASSED", function()
 		expect(#missingFrom(reads, typeFields(walks, "CommitCtx"))).toBe(0)
 		-- ...and the set is not empty, which is the trap a set comparison invites:
 		-- two empty sets are equal
-		expect(#sorted(reads)).toBe(20)
+		expect(#sorted(reads)).toBe(21)
 	end)
 
 	it("every field `CommitCtx` declares is one the module actually reads", function()
@@ -306,7 +306,7 @@ describe("the commit-walk seam: the mutable-upvalue test itself", function()
 	local walks = fs.readFile(WALKS_PATH)
 
 	it("every name that crosses is declared ONCE by the renderer and never reassigned", function()
-		--[[ THE LEDGER'S RULE, APPLIED TO THE TWENTY NAMES RATHER THAN ASSERTED
+		--[[ THE LEDGER'S RULE, APPLIED TO THE TWENTY-ONE NAMES RATHER THAN ASSERTED
 			ABOUT THE BLOCK. A reassigned local cannot be shared by reference at all —
 			the callee keeps the OLD value and the two halves silently disagree — which
 			is why `table.luau` had to turn two reassigned scalars into one record and
@@ -369,7 +369,7 @@ describe("the commit-walk seam: the mutable-upvalue test itself", function()
 	it("NEGATIVE CONTROL: a reassignment is reported and a table-constructor entry is not", function()
 		local reassigned = "\nlocal alpha = {}\n\talpha = {}\n"
 		expect(#assignmentsOutsideDeclaration(reassigned, "alpha")).toBe(1)
-		-- the twenty live spellings of `handles = handles,` inside a constructor
+		-- the live spellings of `handles = handles,` inside a constructor
 		local constructorEntry = "\nlocal alpha = {}\n\tfoo({\n\t\talpha = alpha,\n\t})\n"
 		expect(#assignmentsOutsideDeclaration(constructorEntry, "alpha")).toBe(0)
 		expect(declarationsOf(reassigned, "alpha")).toBe(1)
