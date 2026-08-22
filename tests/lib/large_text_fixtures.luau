@@ -1008,6 +1008,10 @@ local UNSWEEPABLE: { [string]: string } = {
 	VirtualWindow = "the WINDOWING arithmetic of VirtualList: a running-offset index and the memos over it — no "
 		.. "blueprint, nothing to mount or measure. The rows it windows are swept through the VirtualList "
 		.. "fixture, at every preference, and the measured-extent form is what that sweep re-measures",
+	GapMetric = "the gap vocabulary (purity audit §5, 2026-08-22): it answers what a gutter may be and resolves "
+		.. "a theme metric name to pixels — a number, not a box. It builds no blueprint and paints no text, so "
+		.. "there is nothing for a text-preference sweep to overlap, clip or push under a hit floor. The gutters "
+		.. "it resolves ARE swept, through the VirtualList and VirtualGrid fixtures at every preference",
 	CardRail = "the card arrangement (ADAPT-17, 2026-08-18): it answers how many cards belong in view and how "
 		.. "wide one is — numbers, not boxes. It builds no blueprint and paints no text, so there is nothing for a "
 		.. "text-preference sweep to overlap, clip or push under a hit floor. The cards it sizes ARE swept, through "

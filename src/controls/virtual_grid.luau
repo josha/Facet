@@ -211,7 +211,9 @@
 ]]
 
 local contribution = require("../input/contribution")
+local gapMetric = require("./gap_metric")
 local scrollSnap = require("./scroll_snap")
+local surfaceEnv = require("../env/surface_env")
 local nativeScrollBinding = require("./native_scroll_binding")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
@@ -388,37 +390,84 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return if extentIsLive then use(extentSpec) else extentSpec
 	end
 
-	local rowGapSpec: any = if spec.rowGap ~= nil then spec.rowGap else 0
-	local rowGapIsLive = type(rowGapSpec) == "table" and type(rowGapSpec.get) == "function"
-	assert(
-		rowGapIsLive or (type(rowGapSpec) == "number" and rowGapSpec == rowGapSpec and rowGapSpec >= 0),
-		"VirtualGrid.rowGap must be a non-negative number or a Readable<number>: the gutter between LINES. It is "
-			.. "the index's gap, so the canvas, the window and the mounted band all read the same number."
-	)
-	local function rowGapIn(use: any): number
-		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
-	end
-	local function rowGapNow(): number
-		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
-	end
-
-	local gapSpec: any = if spec.gap ~= nil then spec.gap else 0
-	assert(
-		type(gapSpec) == "number" and gapSpec == gapSpec and gapSpec >= 0,
-		"VirtualGrid.gap must be a non-negative number: the space between cells ACROSS a line. It is handed "
-			.. "straight to the mounted band's UI.Grid, whose column width is derived from it."
-	)
+	--[[ THE TWO GUTTERS, EACH A NUMBER, A THEME METRIC NAME OR A `Readable` OF
+		EITHER (purity audit §5, 2026-08-22) — `newTable.rowGap`'s contract, with the
+		vocabulary, the refusal and the live read in `controls/gap_metric.luau` so a
+		grid and a list cannot drift into two answers about what a gutter may be.
+		`gap` refused even a `Readable` before this, which is why the audit named it
+		separately: a grid whose cross gutter tracked anything at all was
+		unexpressible. The surface environment is what a NAME resolves against; nil
+		is a headless grid and resolves against the neutral package. ]]
+	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
+	local rowGapMetric = gapMetric.reader({
+		env = surfaceEnvironment,
+		label = "VirtualGrid.rowGap",
+		value = spec.rowGap,
+		default = 0,
+		what = "the gutter between LINES. It is the index's gap, so the canvas, the window and the mounted band "
+			.. "all read the same number",
+	})
+	local rowGapIn = rowGapMetric.In
+	local rowGapNow = rowGapMetric.Now
+	local gapMetricReader = gapMetric.reader({
+		env = surfaceEnvironment,
+		label = "VirtualGrid.gap",
+		value = spec.gap,
+		default = 0,
+		what = "the space between cells ACROSS a line. It is handed to the mounted band's UI.Grid, whose column "
+			.. "width is derived from it",
+	})
+	local gapNow = gapMetricReader.Now
 
 	local viewportSpec = spec.viewportExtent
+	--[[ ...OR `"auto"`, THE GRID MEASURING THE BOX IT WAS GIVEN (purity audit §4,
+		2026-08-22) — `newVirtualList`'s form, the same argument and the same seam:
+		the host takes `fill` along its scroll axis, so its solved size is decided by
+		what CONTAINS it and never by what is inside it, and `syncGeometry` reports
+		what the solver gave. Seeded from the screen so the frame before a
+		measurement over-fills rather than mounting one line and popping.
+
+		THE CROSS AXIS HAS NO SUCH FORM HERE, and the reason is arithmetic rather
+		than effort: a grid's lane width is derived FROM its cross extent
+		(`floor((innerW - gap * (lanes - 1)) / lanes)`), so a grid that sized its
+		cross axis to its content would be asking its lanes how wide they are in
+		order to know how wide its lanes are. `crossExtent` is a list field; this
+		grid's closed spec refuses the key by name. ]]
+	local viewportIsAuto = viewportSpec == "auto"
 	local viewportIsLive = type(viewportSpec) == "table" and type((viewportSpec :: any).get) == "function"
 	assert(
-		viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
-		"VirtualGrid.viewportExtent must be a positive number or a Readable<number>: the scroll host's height"
+		viewportIsAuto or viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
+		'VirtualGrid.viewportExtent must be a positive number, a Readable<number>, or "auto": the scroll host\'s '
+			.. 'size along the grid\'s own axis (its height on axis="y", its width on axis="x"). "auto" takes '
+			.. "`fill` along that axis and measures what the solver gave it, so a grid inside a pane needs no "
+			.. "number at all — the one requirement is an ancestor that hands it a definite extent there."
 	)
+	-- THE SEED IS THE SCREEN along this grid's own axis, read ONCE: an upper bound
+	-- on any box inside it, so the frame before a measurement over-fills (a strict
+	-- superset of what the viewport touches) rather than mounting one line and
+	-- popping. No environment is the headless case, and it is 0.
+	local function screenSeed(): number
+		if surfaceEnvironment == nil then
+			return 0
+		end
+		local r: any = surfaceEnvironment:get("viewportRect"):get()
+		if type(r) ~= "table" then
+			return 0
+		end
+		local raw = if isX then r.w else r.h
+		return if type(raw) == "number" and raw == raw and raw > 0 then raw else 0
+	end
+	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
 	local function viewportIn(use: any): number
+		if viewportIsAuto then
+			return use(measuredViewport)
+		end
 		return if viewportIsLive then use(viewportSpec) else viewportSpec
 	end
 	local function viewportNow(): number
+		if viewportIsAuto then
+			return measuredViewport:get()
+		end
 		return if viewportIsLive then (viewportSpec :: any):get() else viewportSpec
 	end
 
@@ -429,6 +478,21 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	)
 
 	local scope = core:scope(`virtual-grid-{id}`)
+	if measuredViewport ~= nil then
+		scope:own(measuredViewport)
+	end
+	-- a gutter that can move (a Readable, or a theme metric name) reaches the band
+	-- as a live prop; one that cannot stays the plain number it always was
+	local gapProp: any = if gapMetricReader.live
+		then scope:own(core:memo(function(use)
+			return gapMetricReader.In(use)
+		end))
+		else gapNow()
+	local rowGapProp: any = if rowGapMetric.live
+		then scope:own(core:memo(function(use)
+			return rowGapMetric.In(use)
+		end))
+		else rowGapNow()
 
 	local boundController: any = nil
 	local boundScrollPath: string? = nil
@@ -797,8 +861,16 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			The band FILLS the cross axis and takes its main extent from its lines. ]]
 		flow = if isX then "column" else nil,
 		columns = lanesDim,
-		gap = gapSpec,
-		rowGap = rowGapSpec,
+		--[[ RESOLVED PIXELS, NOT THE RAW SPEC. A metric name handed straight to
+			`UI.Grid` would be resolved a SECOND time, by the renderer, against
+			whatever snapshot it holds — and the index over here would have resolved
+			it against the environment's. One number, read from one reader, is the
+			invariant this grid's own refusal states: the canvas, the window and the
+			mounted band all read the same gutter. A static number stays a static
+			number, so a plain grid's band props are byte-identical to what they
+			were. ]]
+		gap = gapProp,
+		rowGap = rowGapProp,
 		width = widthOf(nil, fill()),
 		height = heightOf(nil, fill()),
 		children = {
@@ -887,8 +959,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		},
 	})
 
-	local viewportDim: any = if viewportIsLive
-		then scope:own(core:memo(function(use)
+	local viewportDim: any = if viewportIsAuto
+		-- `"auto"` FILLS along its own axis: the measurement is one the solver
+		-- decides rather than one this control asserts, which is what makes it
+		-- converge in a single step
+		then fill()
+		elseif viewportIsLive then scope:own(core:memo(function(use)
 			return { type = "fixed", px = viewportIn(use) }
 		end))
 		else { type = "fixed", px = viewportSpec }
@@ -1098,10 +1174,35 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		end,
 		-- the grid's root IS its ScrollView, so the mounted node's own path is the
 		-- path to observe. Re-asserted only when the MOUNT changes, never per frame.
-		syncGeometry = function(_rectOf: (string) -> any, node: any?)
+		syncGeometry = function(rectOf: (string) -> any, node: any?)
 			if type(node) == "table" and node.path ~= nil then
 				mountedScrollPath = node.path
 				mirror.noticeMount(node, node.path)
+			end
+			--[[ ...AND THE MEASURED VIEWPORT (`viewportExtent = "auto"`). The host
+				takes `fill` along its scroll axis, so its solved size is decided by
+				what CONTAINS it and never by the lines inside it — measuring cannot
+				change what was measured. The equality guard is still load-bearing: a
+				signal written to its own value on every refresh would re-solve the
+				tree forever. ]]
+			if measuredViewport == nil or rectOf == nil then
+				return
+			end
+			local root = if type(node) == "table" and type(node.path) == "string" then node.path else mountedScrollPath
+			if root == nil then
+				return
+			end
+			local box = rectOf(root)
+			if type(box) ~= "table" then
+				return
+			end
+			local raw = if isX then box.w else box.h
+			if type(raw) ~= "number" or raw ~= raw then
+				return
+			end
+			local main = math.max(0, math.floor(raw + 0.5))
+			if main ~= measuredViewport:get() then
+				measuredViewport:set(main)
 			end
 		end,
 	}
@@ -1125,6 +1226,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	grid.pathOf = pathOf
 	grid.revealItem = revealItem
 	grid.focusGroupName = focusGroupName
+	-- THE SELF-MEASURED VIEWPORT (nil unless `viewportExtent = "auto"`): the solved
+	-- box along the scroll axis, published so a consumer reads the number instead
+	-- of re-deriving it from a pane rect and a stack of subtractions.
+	grid.viewportExtent = measuredViewport
 
 	-- reach a cell BY KEY: scroll it into view, then hand back the hit path the
 	-- focus graph can aim at (nil while the control is unmounted or the key is gone)
@@ -1167,7 +1272,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			lineCount = ix.count,
 			content = ix.content,
 			rowGap = rowGapNow(),
-			gap = gapSpec,
+			gap = gapNow(),
 			overscan = overscan,
 			scrollTop = clampedTop:get(),
 			lines = { range.first, range.last },

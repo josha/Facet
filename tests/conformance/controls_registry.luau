@@ -371,6 +371,33 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ THE GAP VOCABULARY, shared by `newVirtualList` and `newVirtualGrid`
+			(purity audit §5, 2026-08-22). NOT a control: it mounts nothing and paints
+			nothing — it answers "what may a gutter be" (a number, a theme metric name,
+			or a `Readable` of either), refuses everything else BY NAME, and hands back
+			the reactive and the immediate read of one number. It has a row here for
+			the same reason `CardRail` and `ScrollSnap` do: `check_registration` walks
+			`src/controls/` and a module with no row is a module nothing knows about.
+
+			IT IS ONE MODULE RATHER THAN TWO COPIES for the reason `ScrollSnap` is: two
+			collections spending the same field would otherwise grow two refusal
+			messages and, worse, two answers about whether a name resolves at all. ]]
+		name = "GapMetric",
+		kind = "composite",
+		module = "src/controls/gap_metric.luau",
+		export = "Controls.VirtualList",
+		spec = "tests/collection_gap_tokens.spec.luau",
+		conformance = "tests/collection_gap_tokens.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- STATELESS MODULE: `reader(ctx)` closes over one spec value and returns two
+		-- pure reads of it; the gutter it answers with is already in each
+		-- collection's own dump().
+		dump = false,
+		reason = "stateless module: reader(ctx) returns two reads of one spec value, and the gutter it resolves is already reported by the list's and the grid's own dump()",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		--[[ THE CARD PARADIGM'S ARRANGEMENT, for `newVirtualList`'s
 			`itemExtent = "cards"` (ADAPT-17, audit cells B-1/B-7/B-8). NOT a control:
 			it builds no blueprint and mounts nothing. It answers one question — how

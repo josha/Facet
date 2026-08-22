@@ -270,6 +270,7 @@
 -- `row_actions.composeWithReorder`, over a hit it owns outright).
 
 local cardRail = require("./card_rail")
+local gapMetric = require("./gap_metric")
 local contribution = require("../input/contribution")
 local surfaceEnv = require("../env/surface_env")
 local nativeScrollBinding = require("./native_scroll_binding")
@@ -385,6 +386,9 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	-- (the sibling relationship `estimatedItemExtent` has with `"measured"`)
 	"cards",
 	"cell",
+	-- where the CROSS axis (the one this list does not scroll) gets its extent:
+	-- absent = fill, "hug" = the content, "measured" = fill and report the number
+	"crossExtent",
 	"dropSurface",
 	"env",
 	-- the seed a MEASURED list windows unmeasured rows at (`itemExtent =
@@ -635,6 +639,15 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				.. 'accepted and then ignored. Declare itemExtent = "measured", or drop estimatedItemExtent.'
 		)
 	end
+	--[[ THE SURFACE ENVIRONMENT, RESOLVED ONCE AND EARLY, because two features now
+		want it: a themed gutter resolves a metric name against its `themeMetrics`,
+		and the card arrangement reads its interaction class and viewing distance.
+		`spec.env` wins, else the one published against this core; nil is a headless
+		mount and every reader below degrades to the neutral package. The CARD
+		REFUSAL is still raised where it was — an adapting rail must not silently
+		not adapt, and that message names the control (`surfaceEnv.resolve` below),
+		which a gutter falling back to neutral has no reason to do. ]]
+	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
 	-- THE CARD PARADIGM'S OPTIONS, validated by the module that owns the decision
 	-- (`controls/card_rail.luau`), so the refusals and the arrangement cannot drift
 	-- apart. `cards` without `itemExtent = "cards"` is refused there by name.
@@ -651,27 +664,70 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		to its pre-field form at 0). Live for the same reason `rowHeight` is: a
 		gutter derived from the theme metrics re-derives on a theme swap without
 		rebuilding the list. ]]
-	local rowGapSpec: any = if spec.rowGap ~= nil then spec.rowGap else 0
-	local rowGapIsLive = type(rowGapSpec) == "table" and type(rowGapSpec.get) == "function"
-	assert(
-		rowGapIsLive or (type(rowGapSpec) == "number" and rowGapSpec == rowGapSpec and rowGapSpec >= 0),
-		"VirtualList.rowGap must be a non-negative number or a Readable<number> (the gutter between item slots ALONG "
-			.. "THE LIST'S AXIS, uniform per list; the item itself stays itemExtent along that axis and the gutter is "
-			.. "dead space). The name is not axis-specific on purpose: a gap is a gap on either axis."
-	)
+	--[[ ...AND IT TAKES A THEME METRIC NAME, on `newTable.rowGap`'s own contract
+		(purity audit §5, 2026-08-22). The vocabulary, the refusal and the live read
+		are `controls/gap_metric.luau`'s, shared with `newVirtualGrid` so the two
+		collections cannot drift into two answers about what a gutter may be. ]]
+	local rowGapMetric = gapMetric.reader({
+		env = surfaceEnvironment,
+		label = "VirtualList.rowGap",
+		value = spec.rowGap,
+		default = 0,
+		what = "the gutter between item slots ALONG THE LIST'S AXIS, uniform per list; the item itself stays "
+			.. "itemExtent along that axis and the gutter is dead space. The name is not axis-specific on purpose: "
+			.. "a gap is a gap on either axis",
+	})
 	-- THE VIEWPORT EXTENT MAY BE LIVE for the same reason itemExtent may (P5-F5):
 	-- a list filling a container, or re-deriving after an environment change,
 	-- hands in a Readable and BOTH consumers of the number — the host's
 	-- main-axis dim (reactive, dirty=measure) and the windowing arithmetic —
 	-- track it, so the painted box and the window can never disagree.
 	local viewportSpec = oneOf("viewportExtent", spec.viewportExtent, "viewportHeight", spec.viewportHeight)
+	--[[ ...OR `"auto"`, WHICH IS THE LIST MEASURING THE BOX IT WAS GIVEN (purity
+		audit §4, 2026-08-22). `newTable` has done this since the variable-extents
+		mission and its own comment says why the consumer should not be asked:
+		"asking for it would be one more thing to predict wrongly, which is the whole
+		family of defect the variable-extents mission was about". The technique is
+		promoted here verbatim — the host takes `fill`, the presenter's
+		`syncGeometry` reports what the solver gave it, and the number is seeded from
+		the screen so the frame before a measurement over-fills rather than mounting
+		three rows and popping. See THE MEASURED VIEWPORT below. ]]
+	local viewportIsAuto = viewportSpec == "auto"
 	local viewportIsLive = type(viewportSpec) == "table" and type(viewportSpec.get) == "function"
 	assert(
-		viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
+		viewportIsAuto or viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
 		"VirtualList.viewportExtent (deprecated alias: viewportHeight — both are accepted, one at a time) must be a "
-			.. "positive number or a Readable<number>: the scroll host's size along the list's own axis (its height on "
-			.. 'axis="y", its width on axis="x")'
+			.. "positive number, a Readable<number>, or \"auto\": the scroll host's size along the list's own axis "
+			.. '(its height on axis="y", its width on axis="x"). "auto" takes `fill` along that axis and measures '
+			.. "what the solver gave it, so a list inside a pane needs no number at all — the one requirement is an "
+			.. "ancestor that hands it a definite extent there (a `fill` inside a box that HUGS has nothing to "
+			.. "measure)."
 	)
+	--[[ THE CROSS AXIS — the one this list does not scroll. Absent it FILLS, which
+		is what every list has always done and is why this field's default is nothing
+		at all. The two declared forms answer "where does my cross extent come from":
+
+		  · `"hug"` — from my CONTENT. The rail is exactly as tall as its card. This
+		    is the horizontal rail's own defect, recorded in the gallery fixture that
+		    hand-summed the number: "`fill` is a promise the box will be big enough,
+		    and this box was not."
+		  · `"measured"` — from the box I was GIVEN. It still fills, and the solved
+		    extent is reported through `crossExtent` so a consumer reads the number
+		    instead of predicting it.
+
+		IT IS A LIST FIELD AND NOT A GRID ONE. A grid's lane width is derived FROM
+		its cross extent (`floor((innerW - gap * (lanes - 1)) / lanes)`), so a
+		hugging grid would be asking its lanes how wide they are in order to know how
+		wide its lanes are. `newVirtualGrid`'s closed spec refuses the key by name. ]]
+	local crossExtentSpec = spec.crossExtent
+	assert(
+		crossExtentSpec == nil or crossExtentSpec == "hug" or crossExtentSpec == "measured",
+		`VirtualList.crossExtent must be "hug" (size the cross axis to the content) or "measured" (fill it, and `
+			.. `report the extent the solver gave) — got {tostring(crossExtentSpec)}. Leave it out and the cross `
+			.. "axis fills, which is what every list did before this field existed."
+	)
+	local crossIsHug = crossExtentSpec == "hug"
+	local crossIsMeasured = crossExtentSpec ~= nil
 	assert(type(spec.key) == "function", "VirtualList.key is required")
 	assert(type(spec.cell) == "function", "VirtualList.cell is required")
 	--[[ `width` IS THE CROSS AXIS, and only a vertical list has one there. On
@@ -690,10 +746,61 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	end
 	local UI = Facet.UI
 	local id = spec.id or "VirtualList"
+	--[[ ── THE MEASURED VIEWPORT (`viewportExtent = "auto"`) ─────────────────────
+		`newTable`'s technique, promoted to a declared spec value. Three parts, and
+		each is load-bearing:
+
+		THE HOST TAKES `fill` ALONG ITS OWN AXIS, so its solved size is decided by
+		what CONTAINS it and never by what is inside it. That is what makes the
+		measurement converge in one step rather than chase itself: measuring cannot
+		change what was measured. The equality guard at the write is what keeps that
+		a fact rather than a hope — a signal written to its own value every refresh
+		would re-solve the tree forever.
+
+		THE NUMBER COMES FROM THE SOLVE, through `syncGeometry` — the same seam the
+		measured-extent cache already arrives on, called by the presenter after every
+		refresh, in every configuration.
+
+		THE FIRST FRAME IS SEEDED WITH THE SCREEN, AND THE DIRECTION IS THE POINT.
+		Seeded with 0 the first window is `1 .. 1 + overscan` — three rows in a
+		six-hundred-pixel pane, and a visible pop when the measurement lands. A box
+		is never bigger than the surface that contains it, so the screen is a sound
+		UPPER bound and windowing against an upper bound mounts a strict SUPERSET of
+		what the viewport touches: over-filled rather than under-filled, still
+		bounded by the screen and never by the data. READ ONCE, NOT SUBSCRIBED —
+		this is a seed for the frames before a measurement exists, not a second
+		source of truth; a rotation re-solves the host and `syncGeometry` reports it.
+		Without an environment there is no screen to ask and the seed is 0, which is
+		the headless case. ]]
+	local function screenSeed(): number
+		local env = surfaceEnvironment
+		if env == nil then
+			return 0
+		end
+		local rect: any = env:get("viewportRect"):get()
+		if type(rect) ~= "table" then
+			return 0
+		end
+		local raw = if isX then rect.w else rect.h
+		return if type(raw) == "number" and raw == raw and raw > 0 then raw else 0
+	end
+	-- created here rather than after `listScope` because everything below reads it;
+	-- it is handed to the scope for disposal the moment that scope exists
+	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
+	-- ...and the cross axis, when the list was asked to know it. Seeded 0: unlike
+	-- the scroll axis there is no over-fill argument here, because nothing is
+	-- WINDOWED against the cross extent — it is a number a consumer reads.
+	local measuredCross: any = if crossIsMeasured then core:signal(0) else nil
 	local function viewportIn(use: any): number
+		if viewportIsAuto then
+			return use(measuredViewport)
+		end
 		return if viewportIsLive then use(viewportSpec) else viewportSpec
 	end
 	local function viewportNow(): number
+		if viewportIsAuto then
+			return measuredViewport:get()
+		end
 		return if viewportIsLive then (viewportSpec :: any):get() else viewportSpec
 	end
 	local overscan: number = spec.overscan or 2
@@ -849,12 +956,8 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		return if isX then cross else main
 	end
 
-	local function rowGapNow(): number
-		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
-	end
-	local function rowGapIn(use: any): number
-		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
-	end
+	local rowGapNow = rowGapMetric.Now
+	local rowGapIn = rowGapMetric.In
 	--[[ ── THE CARD ARRANGEMENT (`itemExtent = "cards"`) ─────────────────────────
 		One decision with three overrides, and it lives in `controls/card_rail.luau`
 		— its header carries the reasoning, the refusal and the reason it is a module
@@ -1031,6 +1134,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	end
 
 	local listScope = core:scope(`virtual-list-{id}`)
+	if measuredViewport ~= nil then
+		listScope:own(measuredViewport)
+	end
+	if measuredCross ~= nil then
+		listScope:own(measuredCross)
+	end
 	--[[ ===== THE WINDOWING ARITHMETIC LIVES IN `./virtual_window.luau`
 		(2026-08-15, the 200,000-char Source-write cap — tools/check_source_size.py).
 
@@ -2394,7 +2503,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				-- ONE fresh cross-axis fill for this row, handed to whichever of the
 				-- two dims the axis puts it on (the other takes `rowExtentDim`), so a
 				-- row allocates exactly the one dim table it always did
-				local rowCross = fill()
+				-- ...and the row's own cross dim, which under `"hug"` has to be
+				-- `content` too or the chain stops at the row and the canvas hugs a
+				-- box that is still filling nothing
+				local rowCross: any = if crossIsHug then { type = "content" } else fill()
 				--[[ ── THE CELL, AND WHERE ITS MEASUREMENT COMES FROM ────────────────
 					A DECLARED list parents the cell straight under the Row, byte-identical
 					to what it always did. A MEASURED list wraps it in ONE control-owned
@@ -2561,13 +2673,22 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- windowing math reads. It sits on the SCROLL AXIS; the cross axis is
 	-- `spec.width` on a vertical list (refused on a horizontal one — see the
 	-- construction check) and fills otherwise.
-	local viewportDim: any = if viewportIsLive
-		then listScope:own(core:memo(function(use)
+	local viewportDim: any = if viewportIsAuto
+		-- `"auto"` FILLS along its own axis: that is what makes the measurement one
+		-- the solver decides rather than one this control asserts, and it is the
+		-- whole convergence argument (see THE MEASURED VIEWPORT)
+		then fill()
+		elseif viewportIsLive then listScope:own(core:memo(function(use)
 			return { type = "fixed", px = viewportIn(use) }
 		end))
 		else { type = "fixed", px = viewportSpec }
-	local crossDim: any = spec.width or fill()
-	local canvasCross = fill()
+	--[[ THE CROSS AXIS. `"hug"` is the one form that changes a dim: the host, its
+		canvas and every row take `content` across, so the extent walks up from the
+		card instead of down from the pane. `"measured"` and the absent default both
+		FILL, exactly as every list always has — the difference is only that the
+		measured form reports the number back. ]]
+	local crossDim: any = if crossIsHug then { type = "content" } else (spec.width or fill())
+	local canvasCross: any = if crossIsHug then { type = "content" } else fill()
 	local blueprint = UI.ScrollView({
 		id = id,
 		width = widthOf(viewportDim, crossDim),
@@ -2677,11 +2798,61 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		while this seam is fed in every configuration (measured —
 		`native_scroll_binding.luau`'s header). `noticeMount` re-asserts only when the
 		MOUNT changes, so the per-frame cost is one table comparison. ]]
+	--[[ THE HOST'S OWN SOLVED BOX, on either axis, for the two self-measuring forms
+		(`viewportExtent = "auto"` and `crossExtent`). It reads the CONTRIBUTION's own
+		node, which IS this list's ScrollView root, so it is authoritative on the
+		very first refresh — `hostedDelivery.scrollPath` is captured by the
+		focus-group derivation and may not exist yet.
+
+		THE EQUALITY GUARD IS THE CONVERGENCE. Both dims this reads are decided by
+		what CONTAINS the host (`fill` on the scroll axis under `"auto"`; `fill` or
+		`spec.width` across it), so measuring cannot change what was measured — but a
+		signal written to its own value on every refresh would re-solve the tree
+		forever regardless, which is the guard `newTable` records in capitals for the
+		same seam. Under `"hug"` the cross dim IS decided by the content, so that
+		number is reported and never fed back into a dim: reporting is not a dim. ]]
+	local function measureHost(rectOf: ((string) -> any)?, rootNode: any?)
+		if rectOf == nil or (measuredViewport == nil and measuredCross == nil) then
+			return
+		end
+		local root: string? = if rootNode ~= nil and type(rootNode.path) == "string"
+			then rootNode.path
+			else hostedDelivery.scrollPath
+		if root == nil then
+			return
+		end
+		local box = rectOf(root)
+		if type(box) ~= "table" then
+			return
+		end
+		local function px(raw: any): number?
+			if type(raw) ~= "number" or raw ~= raw then
+				return nil
+			end
+			return math.max(0, math.floor(raw + 0.5))
+		end
+		if measuredViewport ~= nil then
+			local main = px(if isX then box.w else box.h)
+			if main ~= nil and main ~= measuredViewport:get() then
+				measuredViewport:set(main)
+			end
+		end
+		if measuredCross ~= nil then
+			local cross = px(if isX then box.h else box.w)
+			if cross ~= nil and cross ~= measuredCross:get() then
+				measuredCross:set(cross)
+			end
+		end
+	end
+
 	local function syncGeometry(rectOf: ((string) -> any)?, rootNode: any?)
 		if type(rootNode) == "table" and rootNode.path ~= nil then
 			hostedDelivery.scrollPath = rootNode.path
 			mirror.noticeMount(rootNode, rootNode.path)
 		end
+		-- a no-op on a list that declared its own extents; the seam that fills them
+		-- in on one that asked the solver instead
+		measureHost(rectOf, rootNode)
 		-- a no-op on a declared list; the measurement's own seam on a measured one
 		measureWindow(rectOf, rootNode)
 	end
@@ -2859,6 +3030,15 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		-- nothing else to read.
 		engagedKey = engagedKey,
 		engagedOffset = engagedOffset,
+		--[[ THE SELF-MEASURED EXTENTS (nil unless the list asked to measure them).
+			A list that declared its own numbers publishes nothing here, because it
+			already has them and a second copy would be the same number twice.
+			`viewportExtent` is the solved box along the scroll axis under
+			`viewportExtent = "auto"`; `crossExtent` is the solved box across it under
+			either `crossExtent` form. Both are what a consumer used to hand-derive
+			from a pane rect and a stack of subtractions. ]]
+		viewportExtent = measuredViewport,
+		crossExtent = measuredCross,
 	}
 	function list.clearSelection()
 		selectedKey:set(nil)

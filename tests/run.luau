@@ -228,6 +228,8 @@ require("./virtual_list_variable_extents.spec")
 -- design that measured every row would look identical in a screenshot
 require("./virtual_list_measured_extents.spec")
 require("./virtual_list_row_gap.spec")
+require("./collection_gap_tokens.spec")
+require("./collection_self_measure.spec")
 require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")
 -- the LYING `itemExtent` guard (2026-08-13): a fixed-pitch window is only exact
