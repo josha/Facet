@@ -1950,3 +1950,15 @@ STUDIO.md, root CLAUDE.md.
   reality ("the default"); pins now 260 matched + ALL 487 run strings
   bash-parsed. THE FULL PRIOR SWEEP is running (1-2h) — then the RC
   gate re-run, the live pass, and the wrap.
+
+## 2026-08-22 — THE GATE PASSES AGAIN. Post-close cascade complete.
+
+- Final RC gate re-run: PASS (23 green, 2 FAIL_ENVIRONMENT by design)
+  over the regenerated prior sweep. Suites 7,062 / 3,470. The
+  large-text-overflow pin re-homed to table_header.luau (the extraction
+  moved it); the rascalrally-consumer red stands as the system CORRECTLY
+  demanding the owed RR Studio canary (allowlisted by name; the
+  director's hand). Addendum appended to final-report.md: the two-day
+  cascade, R18–R23 for veto, the three remaining asks. Memory updated
+  both days. Every implementer round of the cascade: landed, reviewed,
+  findings closed or ruled.

@@ -110,3 +110,57 @@ documented until it lands).
 The remote packet (`step14-remote-packet.md`) is ready: remote creation,
 distribution artifacts, `use-facet` skill, the default-flip checkpoint.
 Nothing has been pushed, published, or packaged — those are yours.
+
+---
+
+# Post-close addendum — the two days after the gate (2026-08-21 → 22)
+
+**The gate re-passed at the end of it all: 23 rows green, the same two
+device-only rows environmental by design.** Suites Facet **7,062** / Rascal
+Rally **3,470** (from 6,892 / 3,449 at close), every round independently
+reviewed, every review finding fixed or ruled.
+
+## What landed
+
+- **All three size-frozen files split free** (solver 197.8k→188k, renderer
+  199k→182.5k, plus the plate/table seams), each with byte-identical
+  differential proof and zero test edits. The freed room paid for:
+- **Containment by construction**: hug arithmetic composed in one solver seam;
+  a settle-time containment diagnostic; the harness invariant on by default in
+  every test (calibrated: it reds on the historical "9" bug verbatim and found
+  a second unseen overflow); sweeps now open popups/menus before judging.
+- **The hit-floor law, finished** (ADR-0041): grows-until-pressable, stops only
+  at AUTHOR-declared sinks (R23), covers and the corner close both in the
+  class, blast radius pinned at matrix scale — zero framework tap-theft.
+- **Director decisions built**: style-sheets default (with the rollback flag
+  proven un-deletable), radii+strokes on the metric ladder by derivation (both
+  paint doors verified on glass), plate Option B tangent-exact on both
+  presentations, ButtonY back to menus, primary-input-gated shoulder hints
+  with the house deadzone.
+- **The purity work**: the teaching corpus now 12.6% raw literals (was 39.4%,
+  game is 22%) under a standing lint; 353 swaps proven value-identical; the
+  ten-foot drift class caught, fixed, and detector-guarded; 7 live defects
+  fixed; the 34 MOVE gaps ranked for the phase-2 pick.
+- **Gate infrastructure hardened**: every run string bash-parsed (a dropped
+  quote had hidden 22 checks), four proves-nothing calls replaced, one lint
+  that had never run now runs, the flat-theme baseline reconciled by
+  characterization (not re-pinning), the nav gate 14/14, prior sweep 28 PASS.
+
+## New rulings for veto (joining R1–R17)
+
+| # | Ruling |
+|---|---|
+| R18 | Hit floors: exempt over passive content, banned over interactive |
+| R19 | Bumpers are the chrome's pad doors; Adjust yields (its true cost documented) |
+| R20 | ButtonY belongs to menus; the chrome's pad toggle is gone |
+| R21 | RR's tri-state nativeStyle flag (rollback preserved) |
+| R22 | Source pins guard accidents, not sabotage; the behavioral canary is the terminator |
+| R23 | A floor stops only at author-declared sinks; framework affordances arbitrate by z |
+
+## Still yours
+
+1. **The RR Studio canary** — a gate row now formally demands it (this week
+   changed visible behavior); open the RR place once and I run it.
+2. **The device packet** (unchanged list + the shoulder raw-delivery check).
+3. **The phase-2 pick**: the 34 framework gaps, top six ranked in the audit.
+4. Republish the showcase when you want the current build on devices.
