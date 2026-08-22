@@ -191,10 +191,37 @@ describe("app metrics: every package carries them", function()
 		end)
 	end)
 
-	it("publishes an empty section when nothing is declared", function()
+	it("publishes the section even for a group nobody declared", function()
 		local snap = snapshot.resolve(snapshot.neutralPackage(), nil, {})
 		expect(type(snap.app)).toBe("table")
-		expect(next(snap.app)).toBe(nil)
+		-- an UNDECLARED group is absent, not empty: the section is exactly what
+		-- was declared and nothing else (other specs in this process declare their
+		-- own groups, which is the point of grouping)
+		expect(snap.app[GROUP]).toBe(nil)
+	end)
+
+	--[[ THE ORDERING TRAP, FOUND MIGRATING `p2_cartwheel` AND CLOSED IN THE
+		FRAMEWORK. A host creates the environment and may commit a theme package's
+		snapshot; the APP then builds and declares its namespace. The snapshot every
+		screen is measured against was therefore resolved against the previous
+		vocabulary — and a metric name that resolves to nothing is a missing
+		DIMENSION, not an error, so the whole proof measured zero in silence.
+
+		`forDisplay` is the one seam every environment read passes through, and it
+		refreshes a base whose declaration generation is stale. The steady state is
+		still the identity. ]]
+	it("a snapshot resolved BEFORE the declaration still spells the names", function()
+		local stale = snapshot.resolve(snapshot.neutralPackage(), nil, {})
+		expect(stale.app[GROUP]).toBe(nil)
+		withApp(PROOF, function()
+			local presented = snapshot.forDisplay(stale, "Medium")
+			expect(presented.app.proof.tileMin).toBe(96)
+			expect(snapshot.forDisplay(stale, "Large").app.proof.tileMin).toBe(144)
+			-- …and a snapshot resolved AFTER it is the identity at a near display,
+			-- which is the guarantee the refresh must not cost
+			local fresh = snapshot.resolve(snapshot.neutralPackage(), nil, {})
+			expect(rawequal(snapshot.forDisplay(fresh, "Medium"), fresh)).toBe(true)
+		end)
 	end)
 end)
 

@@ -158,6 +158,13 @@ with its hand-scaled `gatherToggleAt`); Rascal Rally's `TableMetrics`
 `NAMES`/`DEFAULTS`/dotted-lookup `resolve` and `ResultsParts`'
 `METRIC_NAMES`/`METRIC_DEFAULTS`/`metrics()`.
 
+**One adjacent gap is booked, not closed**: `UI.Grid.minColumnWidth` takes a px
+number or `"intrinsic"` and is the one dimension-shaped prop in the library that
+does not accept a theme metric NAME — so `p2_cartwheel`'s gallery keeps a memo,
+now doing something honest (reading the resolved value off the live snapshot)
+rather than multiplying by a factor. Widening that prop is a separate, additive
+change with its own tests.
+
 **Two deliberate behaviour changes ride the migration, both at ten-foot only:**
 
 - `p2_cartwheel`'s `chartH`, `heroH`, `previewMin` and `cardMin` now scale at a
@@ -177,12 +184,31 @@ metrics — and therefore no package's content stamp — move for the section
 existing. `check_flat_baseline` passes untouched: an empty section paints nothing,
 so no `ALLOWED_ADDED_SUBKEYS` entry was needed. No ADR-0040 row is owed.
 
-**The declaration is boot-ordered**, and that is the one sharp edge: a snapshot
-resolved *before* `declareApp` carries the older namespace. The framework makes
-this as narrow as it can — `declareApp` drops the neutral memo, so the snapshot
-every screen gets for free is always current — but an app that resolves a package
-into `themeMetrics` before declaring gets a snapshot without its own numbers.
-Declare at boot, before the first form is built.
+**The ordering trap is closed in the framework, not in a rule.** It is the one
+thing the migration actually broke, and it broke silently: a HOST creates the
+environment and may commit a theme package's snapshot, and only then does the app
+build and declare. Every `px = "app.cartwheel.…"` in `p2_cartwheel` resolved to
+nothing, every band it sized measured zero, and nothing errored — an unresolvable
+metric name is a missing dimension, which is precisely the accepted-and-ignored
+class the metric vocabulary exists to remove.
+
+Two seams close it, and both are the seam that was already there:
+
+- `env/environment.luau` reads the framework's own default **live** when nobody
+  has committed a theme (`snapshot.isFrameworkDefault`), instead of replaying the
+  module-load object it was seeded with. A package snapshot somebody committed is
+  theirs and is never silently replaced.
+- `snapshot.forDisplay` — the one seam every environment read passes through —
+  refreshes a base whose **declaration generation** is stale, merging in only the
+  names that base has never heard of (a value already there was put there by a
+  package, an override or the pixel snap, and it is that snapshot's answer). In
+  the steady state, which is every read after boot, this is one weak-table lookup
+  returning its argument, so the near-display identity guarantee is untouched.
+
+The generation rides a weak side table rather than a field, for `densityBases`'
+reason: a snapshot's own shape is byte-identical to what it was before this
+feature. Declaring is still a boot act — declare before the first form is built —
+but forgetting is now a no-op rather than a silent collapse.
 
 ## Alternatives rejected
 

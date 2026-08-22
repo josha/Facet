@@ -367,6 +367,18 @@ local function frozenClone(t: any): any
 	return table.freeze(out)
 end
 
+-- freeze IN PLACE, skipping what is already frozen (re-freezing is an error in
+-- Luau). `frozenClone` above copies; this one is for a table that was just built
+-- and has no other owner.
+local function deepFreeze(t: any): any
+	for _, v in t do
+		if type(v) == "table" and not table.isfrozen(v) then
+			deepFreeze(v)
+		end
+	end
+	return table.freeze(t)
+end
+
 -- ===== the app namespace (ADR-0042) ========================================
 --[[ A RESERVED `app.*` SECTION AN APPLICATION DECLARES ONCE.
 
@@ -406,6 +418,21 @@ end
 	and every later `resolve` see the same namespace and no snapshot is ever
 	half-declared. Declaring is an app-BOOT act — before the first form is built. ]]
 local declaredApp: any = table.freeze({})
+--[[ …and its GENERATION, which is what makes a declaration reach a snapshot that
+	was resolved before it.
+
+	The trap this closes was found migrating `p2_cartwheel`: a HOST creates the
+	environment and may commit a theme package's snapshot, then the app builds and
+	declares its namespace — so the snapshot every screen is measured against was
+	resolved against the previous vocabulary, every `px = "app.…"` resolved to nil,
+	and every band sized zero. Silently: an unresolvable metric name is a missing
+	dimension, not an error.
+
+	`forDisplay` is the ONE seam every environment read passes through, so it is
+	where a stale base is refreshed — see `withCurrentApp`. A counter rather than a
+	field on the snapshot, so a snapshot's own shape is byte-identical to what it
+	was before this feature (the same reason `densityBases` is a side table). ]]
+local declaredAppGeneration = 0
 -- …and the memo `declareApp` has to drop, declared here because the declaration
 -- is what decides which names `neutral()` can spell (`snapshot.neutral` below is
 -- its only other writer)
@@ -462,6 +489,7 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	end
 	next_[namespace] = if metrics == nil then nil else frozenClone(metrics)
 	declaredApp = table.freeze(next_)
+	declaredAppGeneration += 1
 	-- the neutral snapshot is what `isMetricPath` spells names against, so it
 	-- cannot outlive the vocabulary it was resolved with
 	neutralCache = nil
@@ -757,6 +785,64 @@ end
 	grid, so 44 -> 66 -> 68 -> 45.33 is what a ratio-composed round trip would
 	do, while a re-derivation from the base is exact in both directions. ]]
 local densityBases: any = setmetatable({}, { __mode = "k" })
+--[[ THE APP-DECLARATION GENERATION EACH RESOLVED SNAPSHOT WAS BUILT WITH, and
+	the refreshed form of a stale one. Both weak-keyed side tables, for
+	`densityBases`' reason: a snapshot's own shape stays byte-identical to what it
+	was before the app namespace existed. ]]
+local appGenerations: any = setmetatable({}, { __mode = "k" })
+local appRefreshed: any = setmetatable({}, { __mode = "k" })
+
+--[[ withCurrentApp(base) -> a base whose `app` section can spell every name the
+	app has declared.
+
+	THE IDENTITY IN THE STEADY STATE, which is every read after boot: the
+	generation matches and this is one weak-table lookup returning the argument.
+
+	IT IS NOT THE IDENTITY WHEN A DECLARATION CAME LATER, and that is the point.
+	A host creates the environment and may commit a package snapshot; the app then
+	builds and declares. Without this the app's own names are missing from the very
+	snapshot its screens are measured against, and a missing metric name is a
+	missing dimension rather than an error — the whole proof silently measures
+	zero.
+
+	THE MERGE DIRECTION IS "BASE WINS": a value already in the snapshot was put
+	there by the package's `metrics.app`, an override or the pixel snap, and it is
+	that snapshot's answer. Only names the base has never heard of are added, from
+	the declaration. A name RETIRED since is left where it is — a stale answer for
+	a name nobody spells any more is harmless, and dropping it would make a
+	still-mounted screen's dimension vanish. ]]
+local function withCurrentApp(base: any): any
+	if type(base) ~= "table" or appGenerations[base] == declaredAppGeneration then
+		return base
+	end
+	local cached = appRefreshed[base]
+	if cached ~= nil then
+		return cached
+	end
+	local merged: any = appBase(if type(base.app) == "table" then base.app else {})
+	local function fill(node: any, into: any)
+		for key, value in node do
+			if type(value) == "table" then
+				if type(into[key]) ~= "table" then
+					into[key] = {}
+				end
+				fill(value, into[key])
+			elseif into[key] == nil then
+				into[key] = value
+			end
+		end
+	end
+	fill(declaredApp, merged)
+	local out: any = {}
+	for key, value in base do
+		out[key] = value
+	end
+	out.app = merged
+	local frozen = deepFreeze(out)
+	appGenerations[frozen] = declaredAppGeneration
+	appRefreshed[base] = frozen
+	return frozen
+end
 -- per-base memo of the adapted forms, keyed by factor. A snapshot is frozen, so
 -- an adapted form can never go stale for a given base.
 local densityCache: any = setmetatable({}, { __mode = "k" })
@@ -810,15 +896,6 @@ local function scaleInto(node: any, out: any, prefix: string, factor: number, un
 	end
 end
 
-local function deepFreeze(t: any): any
-	for _, v in t do
-		if type(v) == "table" and not table.isfrozen(v) then
-			deepFreeze(v)
-		end
-	end
-	return table.freeze(t)
-end
-
 --[[ forDisplay(snapshot, displaySize) -> the snapshot AS PRESENTED at that
 	display class. Pure, total, idempotent and reversible.
 
@@ -843,7 +920,7 @@ function snapshot.forDisplay(snap: any, displaySize: any): any
 	if type(snap) ~= "table" then
 		return snap
 	end
-	local base = snapshot.baseOf(snap)
+	local base = withCurrentApp(snapshot.baseOf(snap))
 	local factor = snapshot.metricScale(displaySize)
 	local density = if displaySize == "Large" then "ten-foot" else "near"
 	if factor == 1 and base.density == density then
@@ -1765,8 +1842,25 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		themeName = name,
 		stamp = package.stamp,
 	}
-	return frozenClone(out)
+	local frozen = frozenClone(out)
+	-- the vocabulary this snapshot was resolved against (see `withCurrentApp`):
+	-- a later declaration is what makes it stale, and `forDisplay` is where that
+	-- is noticed
+	appGenerations[frozen] = declaredAppGeneration
+	return frozen
 end
+
+--[[ EVERY NEUTRAL THIS MODULE HAS EVER ISSUED, weakly.
+
+	`declareApp` drops the memo, so a process that declares a namespace produces a
+	SECOND neutral — and an environment created before that declaration is holding
+	the first one, resolved against a vocabulary that no longer exists. This set is
+	how the environment recognises "nobody has committed a theme here, this is
+	still the framework's own default" and reads the current one instead
+	(`env/environment.luau`'s `themeMetrics` memo). Weak, so a dropped neutral
+	collects; membership, not identity with the LIVE one, because there may be
+	several generations alive at once. ]]
+local neutralsIssued: any = setmetatable({}, { __mode = "k" })
 
 -- the snapshot every screen gets for free: Studio Neutral, no facts, no
 -- overrides. Values are byte-identical to the literals the framework shipped
@@ -1774,8 +1868,20 @@ end
 function snapshot.neutral(): any
 	if neutralCache == nil then
 		neutralCache = snapshot.resolve(snapshot.neutralPackage(), nil, {}, nil)
+		neutralsIssued[neutralCache] = true
 	end
 	return neutralCache
+end
+
+--[[ is this snapshot one `neutral()` produced — i.e. has NOBODY committed a
+	theme to the surface holding it?
+
+	The one caller is the environment's `themeMetrics` memo, and the question it is
+	really asking is "may I re-read the default?". A package snapshot must never be
+	silently replaced; the framework's own default may be, because it is the value
+	the environment seeded ITSELF with and its whole content is derivable. ]]
+function snapshot.isFrameworkDefault(snap: any): boolean
+	return type(snap) == "table" and neutralsIssued[snap] == true
 end
 
 -- ===== metric-reference resolution =========================================

@@ -5704,6 +5704,13 @@ a typo is a build error rather than a nil size on the first solve.
 process-wide because `isMetricPath` runs at construction with no snapshot in
 scope, which is the whole point of it.
 
+**Declaring late is safe.** A snapshot resolved *before* the declaration is
+refreshed at the environment's own `themeMetrics` seam, so an app whose host
+created the environment (and possibly committed a theme) still spells its own
+names; only names the snapshot has never heard of are added, so a package's
+`metrics.app`, an override and the pixel snap all keep their answers. Declare at
+boot anyway — it is one line and it keeps the vocabulary in one place.
+
 **A theme may move them.** A package's `metrics.app` is its answer for an app
 number, exactly as `metrics.space` is its answer for a spacing step:
 

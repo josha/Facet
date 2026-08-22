@@ -134,6 +134,12 @@ local FACT_DEFAULTS: { [string]: any } = {
 	-- it in the same invocation as the native derive swap. The default is Studio
 	-- Neutral, whose values are byte-identical to the literals the framework
 	-- shipped before packages existed, so no screen has to opt in.
+	--
+	-- SEEDED PER ENVIRONMENT, not from this module-load table (ADR-0042): an app
+	-- may declare an `app.*` namespace, which produces a new neutral, and an
+	-- environment built afterwards must not be handed a snapshot resolved against
+	-- the vocabulary that preceded it. `environment.new` overwrites this key; the
+	-- entry stays so the fact list here remains the whole list.
 	themeMetrics = themeSnapshot.neutral(),
 }
 
@@ -157,6 +163,10 @@ function environment.new(core: any): Env
 	for key, default in FACT_DEFAULTS do
 		signals[key] = core:signal(default)
 	end
+	-- …and the one default that is not a constant (see FACT_DEFAULTS): read now,
+	-- so an environment built after an app declared its namespace is seeded with a
+	-- snapshot that can spell it
+	signals.themeMetrics = core:signal(themeSnapshot.neutral())
 	-- keys with nil defaults still need signals
 	signals.keyboardOcclusionRect = signals.keyboardOcclusionRect or core:signal(nil)
 
@@ -212,7 +222,28 @@ function environment.new(core: any): Env
 		controller makes — read the pre-install snapshot, hold it, write it back on
 		uninstall — cannot compose the transform onto its own output. ]]
 	derived.themeMetrics = core:memo(function(use)
-		return themeSnapshot.forDisplay(use(signals.themeMetrics), use(signals.displaySize))
+		local committed = use(signals.themeMetrics)
+		--[[ NOBODY HAS COMMITTED A THEME HERE, so the metric authority is the
+			framework's own default — read it LIVE rather than replaying the object
+			this environment happened to be seeded with (ADR-0042).
+
+			An app declares its `app.*` namespace at boot, and `declareApp` drops the
+			neutral memo because the neutral snapshot is what `isMetricPath` spells
+			names against. An environment created BEFORE that declaration is holding
+			the previous generation, whose `app` section predates the vocabulary — so
+			every `px = "app.…"` in that app resolved to nil and every band it sized
+			measured zero. Found exactly that way, migrating `p2_cartwheel`.
+
+			ONLY the framework's own default is re-read. A package snapshot somebody
+			committed is theirs and is never silently replaced; an app that installs
+			a package and then declares a namespace re-resolves its own package, which
+			is the one call it was already making. With nothing declared this is the
+			same table it was seeded with, so no near-distance geometry moves and the
+			identity guarantee below is untouched. ]]
+		if themeSnapshot.isFrameworkDefault(committed) then
+			committed = themeSnapshot.neutral()
+		end
+		return themeSnapshot.forDisplay(committed, use(signals.displaySize))
 	end)
 	derived.effectiveTransparency = core:memo(function(use)
 		local raw = use(signals.preferredTransparency)

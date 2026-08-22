@@ -1126,6 +1126,48 @@ describe("Cartwheel — the solver's own verdict", function()
 		end
 	end)
 
+	--[[ THE LADDER IS APPLIED TO ALL OF IT, OR IT IS NOT APPLIED (ADR-0042).
+
+		This proof used to own its seven structural numbers as literals in
+		`content/metrics.luau`, with a hand `metricScale` multiply on ONE of them —
+		so at three metres the tile minimum grew to 144 while the chart band, the
+		hero band and the preview box stayed exactly where a phone left them. A
+		fixed px number holding content that is not fixed is
+		`docs/lessons/facet-fixed-px-heights.md`'s class; a fixed px number holding
+		content that IS scaling is the same class read across the distance axis,
+		and a hand-rolled ladder is one somebody has to remember to climb.
+
+		They are theme metrics now (`app.cartwheel.*`), so the framework climbs it:
+		every one of them takes the same factor, from the same place, with no
+		arithmetic in this proof at all. Measured off the PAINTED boxes rather than
+		off the declaration, because the declaration is what was already right. ]]
+	it("every structural band takes the ten-foot factor, not just the one that was remembered", function()
+		local near = makeWorld({ width = 1440, height = 900 })
+		near.built.steps.section(near.built, "ledger")
+		near.presenter.refresh()
+		local nearPlot = near.adapter.node(near.built.paths.ledger .. "/Chart/PlotHost/Plot")
+		expect(nearPlot ~= nil).toBe(true)
+
+		local far = makeWorld({ width = 1920, height = 1080 })
+		far.env:set("displaySize", "Large")
+		far.built.steps.section(far.built, "ledger")
+		far.presenter.refresh()
+		local farPlot = far.adapter.node(far.built.paths.ledger .. "/Chart/PlotHost/Plot")
+		expect(farPlot ~= nil).toBe(true)
+		expect(farPlot.rect.h).toBe(nearPlot.rect.h * 1.5)
+
+		-- ...and the same factor reaches the declaration side, which is what makes
+		-- the four numbers ONE decision instead of four remembered ones
+		local snap: any = far.env:get("themeMetrics"):get()
+		expect(snap.app.cartwheel.chartH).toBe(240)
+		expect(snap.app.cartwheel.heroH).toBe(180)
+		expect(snap.app.cartwheel.previewMin).toBe(300)
+		expect(snap.app.cartwheel.tileMin).toBe(144)
+		expect(snap.app.cartwheel.cardMin).toBe(420)
+		closeWorld(near)
+		closeWorld(far)
+	end)
+
 	it(
 		"below every shipping device the shell falls back to the column, and SAYS the minimum it could not meet",
 		function()

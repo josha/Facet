@@ -12,7 +12,6 @@
 -- reactive prop, so the ratio is computed in the memo and the control runs 0..1
 -- — same picture, one authority.
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local workbench = {}
@@ -206,7 +205,7 @@ function workbench.new(app: any): any
 					text = nameValue,
 					textSize = "heading",
 					textAlign = "center",
-					width = { type = "minMax", max = metrics.previewMin },
+					width = { type = "minMax", max = "app.cartwheel.previewMin" },
 					lineLimit = 2,
 					disclose = true,
 				}),
@@ -218,7 +217,7 @@ function workbench.new(app: any): any
 	-- height and the full preview alone wants more than that, so the region steps
 	-- DOWN to a thumbnail-sized plate before anything is dropped — which is the
 	-- composition's own ladder, not a device branch.
-	local preview = previewPlate("Preview", { type = "fixed", px = metrics.previewMin })
+	local preview = previewPlate("Preview", { type = "fixed", px = "app.cartwheel.previewMin" })
 	local previewCompact = previewPlate("PreviewCompact", { type = "fixed", px = "controls.image.defaultSize" })
 
 	-- ---- the form ------------------------------------------------------------
@@ -474,7 +473,7 @@ function workbench.new(app: any): any
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				groups = {
-					{ id = "preview", lane = "lead", sizing = "hug", minWidth = metrics.previewMin },
+					{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
 					{ id = "form", lane = "main", sizing = "fill" },
 				},
 				children = {

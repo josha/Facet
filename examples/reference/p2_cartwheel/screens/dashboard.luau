@@ -7,7 +7,6 @@
 -- resolves against the LIVE theme — which is what makes a raised type scale flip
 -- the grid to one column with no branch on the text fact (ledger §C row 2).
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local dashboard = {}
@@ -158,7 +157,7 @@ function dashboard.new(app: any): any
 	local heroBand = UI.ZStack({
 		id = "HeroBand",
 		width = { type = "fill", weight = 1 },
-		height = { type = "fixed", px = metrics.heroH },
+		height = { type = "fixed", px = "app.cartwheel.heroH" },
 		children = {
 			UI.gradient(
 				UI.Box({
@@ -392,7 +391,7 @@ function dashboard.new(app: any): any
 			UI.ZStack({
 				id = "Plot",
 				width = { type = "fill", weight = 1 },
-				height = { type = "fixed", px = metrics.chartH },
+				height = { type = "fixed", px = "app.cartwheel.chartH" },
 				children = {
 					UI.Anchor({
 						id = "Bands",
@@ -462,7 +461,7 @@ function dashboard.new(app: any): any
 			UI.Anchor({
 				id = "Lattice",
 				width = { type = "fill", weight = 1 },
-				height = { type = "fixed", px = metrics.previewMin },
+				height = { type = "fixed", px = "app.cartwheel.previewMin" },
 				children = rackChildren,
 			}),
 		},
@@ -533,8 +532,8 @@ function dashboard.new(app: any): any
 						laneGap = "m",
 						groupGap = "m",
 						groups = {
-							{ id = "left", lane = "lead", sizing = "fill", minWidth = metrics.cardMin },
-							{ id = "right", lane = "main", sizing = "fill", minWidth = metrics.cardMin },
+							{ id = "left", lane = "lead", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
+							{ id = "right", lane = "main", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
 						},
 						children = {
 							UI.Region({

@@ -20,7 +20,6 @@
 -- so it can paint its declared fallback plate when it did not.
 local art = require("@self/content/art")
 local data = require("@self/content/data")
-local metrics = require("@self/content/metrics")
 local strings = require("@self/content/strings")
 
 local ambientService = require("@self/services/ambient_service")
@@ -133,8 +132,42 @@ local STAGE_CONTENT = {
 	},
 }
 
+--[[ THE PROOF'S OWN STRUCTURAL METRICS (ADR-0042).
+
+	These seven numbers used to live in `content/metrics.luau` as declared
+	literals, with a comment saying what they wanted to be: *"THE SPEC ASKS FOR
+	`metrics.cartwheel.*` IN THE TOKEN SCHEMA, AND A PROOF CANNOT PUT THEM
+	THERE."* It can now. `themes.declareApp` reserves the `app.cartwheel.*` group,
+	so every one of them is a theme metric NAME everywhere this proof spends it —
+	resolved on every solve, movable by a package, and carried up the ten-foot
+	ladder by the framework instead of by a `metricScale` multiply this proof had
+	to remember to write (and, at `chartH`/`heroH`/`previewMin`, had not).
+
+	DECLARED AT BUILD, BEFORE THE FIRST FORM. A metric name is validated at
+	CONSTRUCTION, so the names have to exist before any screen builds a blueprint
+	— which is the line below, ahead of every `screens.*` call. The group keeps
+	this proof's vocabulary separate from the four other proofs the showcase
+	mounts in the same place. ]]
+local APP_METRICS = {
+	-- shell sidebar lane `minWidth` — five control rows' worth of label
+	sidebarMin = 220,
+	-- shell detail lane `minWidth` — below this a two-lane shell is illegal
+	detailMin = 360,
+	-- dashboard card lane legality
+	cardMin = 280,
+	-- gallery `Grid.minColumnWidth`
+	tileMin = 96,
+	-- Skyglow / Ledger / Top Five plot height
+	chartH = 160,
+	-- Workbench + Plaza preview boxes
+	previewMin = 200,
+	-- parallax header band height
+	heroH = 120,
+}
+
 function Cartwheel.build(Facet: any, core: any, deps: any): any
 	local UI = Facet.UI
+	Facet.themes.declareApp("cartwheel", APP_METRICS)
 	local env = deps.env
 	local presenter = deps.presenter
 	local scope = core:scope("cartwheel")
@@ -226,7 +259,6 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		commands = commands,
 		S = S,
 		art = art,
-		metrics = metrics,
 		paths = PATHS,
 		reducedMotion = reducedMotion,
 		state = state,

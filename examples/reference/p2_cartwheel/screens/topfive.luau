@@ -8,7 +8,6 @@
 -- type scale, or the pseudo-locale) cannot make the bars jitter.
 --
 -- Read-only, and the cells are not focusable: there is nothing here to do.
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local topfive = {}
@@ -166,7 +165,7 @@ function topfive.new(app: any): any
 				gap = "s",
 				align = "end",
 				width = { type = "fill", weight = 1 },
-				height = { type = "fixed", px = metrics.chartH },
+				height = { type = "fixed", px = "app.cartwheel.chartH" },
 				children = cells,
 			}),
 		},

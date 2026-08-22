@@ -8,7 +8,6 @@
 -- second control is a `When`, not a permanently-present picker that means
 -- nothing two thirds of the time.
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local gallery = {}
@@ -297,10 +296,10 @@ function gallery.new(app: any): any
 
 	--[[ THE TILE MINIMUM SCALES WITH THE TILE (B-6e's consequence, 2026-08-21).
 
-		`metrics.tileMin` is 96 device px and everything INSIDE a tile is a theme
-		metric, so on a Large display the mark grew to 72px and the button's padding
-		to 18 a side — 108px of content asking for a 96px minimum — while the column
-		minimum stayed exactly where a phone left it. That is
+		`app.cartwheel.tileMin` is 96 device px and everything INSIDE a tile is a
+		theme metric, so on a Large display the mark grew to 72px and the button's
+		padding to 18 a side — 108px of content asking for a 96px minimum — while the
+		column minimum stayed exactly where a phone left it. That is
 		`docs/lessons/facet-fixed-px-heights.md`'s class read across the distance
 		axis: a fixed px number holding content that is not fixed.
 
@@ -310,18 +309,28 @@ function gallery.new(app: any): any
 		visible cells. The cap did not cause this — it stopped the extra pixels from
 		hiding it, which is what the always-on overflow sweep is for.
 
-		So the minimum takes the same factor its contents take: the environment's own
-		`metricScale` (ADR-0039's one ten-foot number). At near distance it is 1 and
-		this is byte-identical to the literal it replaces. ]]
+		THE FIX USED TO BE A SCOPE-OWNED MEMO THAT MULTIPLIED BY `metricScale`, and
+		it was the wrong shape twice over: it was a ladder this proof had to
+		remember to climb — and three of its four neighbours (`chartH`, `heroH`,
+		`previewMin`) never got the same treatment, so a television measured a 144px
+		tile minimum inside a 160px chart band. The number is a declared app metric
+		now (ADR-0042), so the framework applies the factor once, to all seven, in
+		the place that owns the ladder.
+
+		THE MEMO SURVIVES, DOING SOMETHING ELSE. `Grid.minColumnWidth` takes a px
+		number or `"intrinsic"` — it is the one dimension-shaped prop in the library
+		that does not accept a theme metric NAME (booked as a follow-up; every other
+		call site in this proof spells `"app.cartwheel.*"` directly). So this READS
+		the resolved value off the live snapshot rather than deriving it: no
+		arithmetic, no factor, and a theme that moves `app.cartwheel.tileMin` moves
+		this grid with it. ]]
 	-- OWNED (RR-8): a memo the screen builds per mount and nobody disposes is one
 	-- leaked memo per build cycle, which `cartwheel_spec`'s registry-neutrality
 	-- case counts. `app.scope` is the app's own, and it caught this immediately.
 	local tileMin = app.scope:own(core:memo(function(use)
-		local m = use(app.env:get("themeMetrics"))
-		local scale = if type(m) == "table" and type((m :: any).metricScale) == "number"
-			then (m :: any).metricScale
-			else 1
-		return math.floor(metrics.tileMin * scale)
+		local m: any = use(app.env:get("themeMetrics"))
+		local group = if type(m) == "table" and type(m.app) == "table" then m.app.cartwheel else nil
+		return if type(group) == "table" and type(group.tileMin) == "number" then group.tileMin else 96
 	end))
 
 	local gridForm = UI.Grid({

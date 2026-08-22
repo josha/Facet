@@ -9,7 +9,6 @@
 -- ticks and legend stay, a scrim and a lock chip cover the plot. Same
 -- information shape, honest mechanism, and nothing paints that should not.
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local ledger = {}
@@ -129,7 +128,7 @@ function ledger.new(app: any): any
 	local plot = UI.ZStack({
 		id = "Plot",
 		width = { type = "fill", weight = 1 },
-		height = { type = "fixed", px = metrics.chartH },
+		height = { type = "fixed", px = "app.cartwheel.chartH" },
 		children = {
 			UI.Anchor({
 				id = "Grid",

@@ -12,7 +12,6 @@
 -- reason: the preset's lane order is `{ main } { lead, trail }`, so a sidebar
 -- declared `lead` would resolve to the RIGHT of the detail it navigates.
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 
 local shell = {}
 
@@ -359,8 +358,8 @@ function shell.new(app: any): any
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				groups = {
-					{ id = "nav", lane = "lead", sizing = "hug", minWidth = metrics.sidebarMin },
-					{ id = "detail", lane = "main", sizing = "fill", minWidth = metrics.detailMin },
+					{ id = "nav", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.sidebarMin" },
+					{ id = "detail", lane = "main", sizing = "fill", minWidth = "app.cartwheel.detailMin" },
 				},
 				children = {
 					UI.Region({

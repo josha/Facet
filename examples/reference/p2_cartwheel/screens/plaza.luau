@@ -14,7 +14,6 @@
 -- key-art, a wash, and a sentence. `tests/reference/cartwheel_spec.luau` pins
 -- exactly that, with an adapter whose stage seam is absent.
 local data = require("../content/data")
-local metrics = require("../content/metrics")
 local parts = require("./parts")
 
 local plaza = {}
@@ -171,7 +170,7 @@ function plaza.new(app: any): any
 	local hero = UI.ZStack({
 		id = "Hero",
 		width = { type = "fill", weight = 1 },
-		height = { type = "fixed", px = metrics.previewMin },
+		height = { type = "fixed", px = "app.cartwheel.previewMin" },
 		children = {
 			-- the reserved box itself: it paints its own plate whether or not a
 			-- scene ever arrives, so the layout is identical in both worlds
