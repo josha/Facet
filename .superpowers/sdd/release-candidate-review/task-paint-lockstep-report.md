@@ -407,6 +407,17 @@ round adds the first **mounted framework surface at ten-foot**:
 `check_types` PASS · `check_doc_style` PASS · `stylua` clean. `api.md` documents
 the surviving token beside `strokeData`/`cornersData`.
 
+## Rascal Rally — it walks through this door twice
+
+Not churn: the game authors corner tokens in two shipped surfaces —
+`FacetSponsor/Ticker.luau:132` (the entry plate rounds `"control"`) and
+`StartCountdown.luau:166/179` (the numeral plate rounds and takes the theme
+hairline) — so its console HUD would have painted a phone's corner even with the
+display class wired. Both now re-derive at paint, for free. Contract row added and
+committed (`cae4c7a2b`): the two authored shapes at both distances, plus the
+LITERAL corner `Marks.luau` computes from its own box side, which must not move.
+**RR suite: 3465 passed, 0 failed.**
+
 ## What the third live verify should read
 
 On a console row at Large: the three `Indicator/Layer/Bar` `UICorner`s should
