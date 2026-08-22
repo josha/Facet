@@ -340,10 +340,11 @@ function screen_target.new(opts: Opts?)
 	-- native paint: `paintPlan` IS the decision (the default, the capability gate,
 	-- the escape hatch, the transitions seed) and this closure OBEYS it rather
 	-- than re-deriving it — the only way a module nothing can require headlessly
-	-- gets a witness for any of it (ADR-0040 B-15).
+	-- gets a witness for any of it (ADR-0040 B-15). It reads the opt off `opts`
+	-- itself, so there is no value here to substitute for the one it decides.
 	local nativeHandle: any = nil
 	do
-		local plan = native_style.paintPlan(opts and (opts :: any).nativeStyle, isReducedMotion)
+		local plan = native_style.paintPlan(opts, isReducedMotion)
 		local nativeOpt: any = plan.opt
 		if plan.native then
 			if type(nativeOpt) == "table" and nativeOpt.handle ~= nil then

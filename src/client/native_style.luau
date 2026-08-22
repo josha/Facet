@@ -113,6 +113,15 @@ end
 	`opt` is the RESOLVED opt, and it is why the pre-flip rule cannot be rebuilt
 	from a plan: an absent opt and an explicit `true` are the same value by the
 	time a target sees one.
+
+	IT TAKES THE TARGET'S WHOLE `opts` TABLE, not the paint opt, and that is the
+	load-bearing part of the signature rather than a convenience. Handed a VALUE, a
+	seam can always be handed a DIFFERENT one — a re-review reverted the product
+	default in one line by substituting the pre-flip answer into this function's own
+	argument (`paintPlan(if raw == nil then false else raw, …)`), with every shape
+	pin on the caller satisfied and the whole suite green. Reading the field HERE
+	leaves the adapter nothing to substitute: it never holds the opt in any
+	spelling, which is a fact a spec can state as a count of zero.
 ]]
 export type PaintPlan = {
 	native: boolean, -- take the sheet path at all
@@ -122,10 +131,17 @@ export type PaintPlan = {
 	transitions: boolean, -- the seed for `transitionsEnabled`
 }
 
-function native_style.paintPlan(opt: any, isReducedMotion: (() -> boolean)?, available: boolean?): PaintPlan
-	local resolved = native_style.resolveOpt(opt)
+function native_style.paintPlan(opts: any, isReducedMotion: (() -> boolean)?, available: boolean?): PaintPlan
+	local resolved = native_style.resolveOpt(if opts == nil then nil else opts.nativeStyle)
+	-- REFUSE BEFORE PROBING. The two-clause gate this replaced short-circuited, so
+	-- an opted-out target never ran `Instance.new("StyleSheet")`; computing
+	-- `capable` first quietly spent that on every opt-out — the edit preview, every
+	-- billboard, every place carrying the rollback. Order is the whole fix.
+	if resolved == false then
+		return { native = false, opt = resolved, transitions = false }
+	end
 	local capable = if available == nil then native_style.available() else available == true
-	if resolved == false or not capable then
+	if not capable then
 		return { native = false, opt = resolved, transitions = false }
 	end
 	local config: any = if type(resolved) == "table" then resolved else nil

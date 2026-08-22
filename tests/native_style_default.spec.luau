@@ -118,8 +118,31 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		`game:GetService("Players")` at module scope and cannot be required
 		headlessly by anything — ~20 specs read its source for the same reason. The
 		difference is that what they read is now a SHAPE with one legal spelling
-		rather than the presence of a string. ]]
-	it("`screen_target` OBEYS the plan: one call, one opt read, no probe, no second rule", function()
+		rather than the presence of a string.
+
+		AND THEN THE SHAPE WAS NOT ENOUGH EITHER. A re-review broke the five pins
+		twice, both times with the full suite green at the identical count:
+
+		  * substitute the pre-flip default INTO the seam's own argument —
+		    `paintPlan(if raw == nil then false else raw, …)`. One call, one read,
+		    no probe, no flag, `if plan.native then` verbatim: all five satisfied,
+		    and a bare `screen_target.new({})` back on explicit-write paint;
+		  * re-derive through a BRACKET index — `(opts :: any)["nativeStyle"]` —
+		    which a `%.nativeStyle` pattern cannot see at all.
+
+		The lesson is the one this file keeps re-learning: a pin on how the caller
+		is SHAPED cannot say what VALUE it hands over. So the seam took the whole
+		`opts` table and reads the opt itself, and the pin became a COUNT OF ZERO.
+		There is no longer an opt in the adapter's hands to substitute, in any
+		spelling — the two bypasses above are unwritable rather than merely
+		detected, and the count is over the WORD rather than over one punctuation
+		spelling of it, so a bracket index is not a way around it either.
+
+		THE COST, NAMED: this file may not write the opt's name in a comment. The
+		exclusions are exactly two, and both are structural rather than editorial —
+		the `Opts` field's own declaration line, and the unrelated
+		`adapter.nativeStyleInfo` surface. Anything else naming it is a read. ]]
+	it("`screen_target` OBEYS the plan: it never touches the opt at all", function()
 		local source = fs.readFile(TARGET)
 		local function countOf(pattern: string): number
 			local n, from = 0, 1
@@ -137,10 +160,20 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		if countOf("native_style%.paintPlan%(") ~= 1 then
 			table.insert(wrong, `paintPlan is called {countOf("native_style%.paintPlan%(")} time(s), not once`)
 		end
-		-- `%.nativeStyle[^%w_]` and not plain `.nativeStyle`: `adapter.nativeStyleInfo`
-		-- is a different surface entirely and must not count as a read of the opt
-		if countOf("%.nativeStyle[^%w_]") ~= 1 then
-			table.insert(wrong, `the opt is read {countOf("%.nativeStyle[^%w_]")} time(s) off opts, not once`)
+		--[[ THE ZERO. Every line naming the opt is a read, whatever punctuation
+			reaches it, EXCEPT the two the adapter cannot be without: the `Opts`
+			field's own declaration, and `adapter.nativeStyleInfo`, a different
+			surface that merely shares a prefix. A dotted read, a bracket index and
+			a string built at runtime all land in this list. ]]
+		local reads: { string } = {}
+		for line in string.gmatch(source, "[^\n]+") do
+			local rest = string.gsub(line, "nativeStyleInfo", "")
+			if string.find(rest, "nativeStyle", 1, true) ~= nil and string.match(line, "^\tnativeStyle: ") == nil then
+				table.insert(reads, (string.gsub(line, "^%s+", "")))
+			end
+		end
+		if #reads ~= 0 then
+			table.insert(wrong, `the target names the opt {#reads} time(s), and may name it none: {reads[1]}`)
 		end
 		if countOf("native_style%.available%(") ~= 0 then
 			table.insert(wrong, "the target still probes the capability itself — that gate belongs to the plan")
@@ -150,6 +183,14 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		end
 		if countOf("if plan%.native then") ~= 1 then
 			table.insert(wrong, "the native branch is not `if plan.native then` — the plan is computed and ignored")
+		end
+		--[[ AND THE ARGUMENT IS THE OPTS TABLE ITSELF, which is what makes the zero
+			above reachable: a seam handed a VALUE can always be handed a different
+			one, and no count can see that. Handed the table, the adapter has nothing
+			left to substitute. ]]
+		local arg = string.match(source, "native_style%.paintPlan%(([^,]*),")
+		if arg ~= "opts" then
+			table.insert(wrong, `the plan is handed \`{tostring(arg)}\`, not the opts table`)
 		end
 		expect(`consumer off contract:{table.concat(wrong, "; ")}`).toBe("consumer off contract:")
 	end)
@@ -180,7 +221,15 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 			-- the constructor's own argument list, so the match walks from
 			-- `screen_target.new(` to the closing brace and looks only inside it.
 			local call = string.match(source, "screen_target%.new%(%s*%b{}")
-			if call == nil or string.find(call :: string, "nativeStyle = false", 1, true) == nil then
+			--[[ AND THE COMMENTS COME OUT OF THE SPAN. Anchoring to the argument
+				list was a real tightening, and a re-review walked straight through
+				it: delete the argument, leave `-- previously passed nativeStyle =
+				false here` inside the braces, and the preview goes back to seeding a
+				persistent sheet into the Edit DataModel with this case green. The
+				Rascal Rally sweep in the same fix round learned to skip comment
+				lines; this one had not. An exemption has to be CODE. ]]
+			local code = if call == nil then nil else (string.gsub(call :: string, "\n%s*%-%-[^\n]*", ""))
+			if code == nil or string.find(code :: string, "nativeStyle = false", 1, true) == nil then
 				table.insert(silent, `{path} passes no explicit \`nativeStyle = false\` in its screen_target.new call`)
 			end
 		end
@@ -194,8 +243,11 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		reason these cases can exist: `native_style.available()` answers `false`
 		under Lune (there is no `Instance`), so a plan that probed for itself could
 		only ever be tested in its refusing half. ]]
+	-- the seam takes the TARGET'S OPTS TABLE and reads the opt itself, so a spec
+	-- drives it the way `screen_target.new` is called: `nil` for "no opts at all",
+	-- `{}` for "opts with no paint opt", and a field for a stated one
 	local function planFor(opt: any, reduced: boolean?, available: boolean?): any
-		return native_style.paintPlan(opt, function()
+		return native_style.paintPlan(if opt == nil then {} else { nativeStyle = opt }, function()
 			return reduced == true
 		end, if available == nil then true else available)
 	end
@@ -263,7 +315,7 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 			-- ...and the motion fact is only asked for when it could matter, so a
 			-- consumer's deprecated closure is not called on a target that opted out
 			local asked = 0
-			native_style.paintPlan(false, function()
+			native_style.paintPlan({ nativeStyle = false }, function()
 				asked += 1
 				return false
 			end, true)
@@ -271,18 +323,47 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		end)
 
 		it("the plan is NEVER nil and always answers `native`, so one test decides the branch", function()
-			for _, opt in { { "absent" }, { false }, { true } } do
-				local plan = native_style.paintPlan(if opt[1] == "absent" then nil else opt[1], nil, true)
+			-- including the shape `screen_target.new()` itself passes: NO opts table
+			for _, opts in { nil :: any, {}, { nativeStyle = false }, { nativeStyle = true } } do
+				local plan = native_style.paintPlan(opts, nil, true)
 				expect(type(plan)).toBe("table")
 				expect(type(plan.native)).toBe("boolean")
 			end
+			expect(native_style.paintPlan(nil, nil, true).native).toBe(true)
 		end)
 
 		it("the engine probe is consulted when the caller states no capability", function()
 			-- the shipped call passes two arguments; headless there is no
 			-- `Instance`, so `available()` is false and the plan refuses. A plan
 			-- that stopped probing would answer `true` here and redden.
-			expect(native_style.paintPlan(true, nil).native).toBe(false)
+			expect(native_style.paintPlan({ nativeStyle = true }, nil).native).toBe(false)
+		end)
+
+		--[[ THE PROBE IS NOT RUN ON THE OPT-OUT PATH. `resolved == false` is tested
+			BEFORE the capability is computed, which is the short-circuit the old
+			two-clause gate `nativeOpt ~= false and native_style.available()` had for
+			free and the first version of this function quietly spent: it probed
+			`Instance.new("StyleSheet")` on every opted-out target — the edit
+			preview, every billboard, and any Rascal Rally place carrying the
+			rollback. Harmless in substance, but it is a behavioural delta on the
+			exact path this round exists to protect, so it is pinned rather than
+			explained. ]]
+		it("an explicit `false` refuses BEFORE the engine is probed", function()
+			local probes = 0
+			local plan = native_style.paintPlan(
+				{ nativeStyle = false },
+				nil,
+				(function()
+					probes += 1
+					return true
+				end)()
+			)
+			expect(plan.native).toBe(false)
+			-- the argument above is evaluated by the CALLER, so it cannot prove the
+			-- order on its own; the real witness is that the shipped two-argument
+			-- call refuses without reaching the engine at all
+			expect(probes).toBe(1)
+			expect(native_style.paintPlan({ nativeStyle = false }, nil).native).toBe(false)
 		end)
 	end)
 
