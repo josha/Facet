@@ -1565,3 +1565,21 @@ STUDIO.md, root CLAUDE.md.
   nonexistent symbols, AND the maturing debt measured — dropping
   solver.luau from the checker's exemption tuple now that its extraction
   happened (the "owed to that extraction" codes come due).
+
+## 2026-08-21 (post-close 22) — the 312 verdict: one event, 312 hats
+
+- 312 TRIAGE (e7e2268; 7002/0, RR 3465/0): DELIBERATE. All 312 carry
+  fallback=true — "a region left the box" and "the composition fell back"
+  are the SAME EVENT, which the framework already files once per solve as
+  its single designed=true finding. Structurally proven both ways: a legal
+  composition cannot produce one (the 20px legality boundary measured:
+  lead 400 legal/everything inside; 420 rejected/fallback outside); no
+  horizontal instance possible (the slot is clamped); where it fires,
+  nothing escapes PAINT (worst cell: 0 collisions, 0 off-screen, guard 0).
+  Shipped as a RULE with its measurement, not a waiver ("a waiver hides a
+  class where a rule explains it") + two pinning cases either side of the
+  boundary + 3 mutations. Root pressure is the hud fixture's own
+  documented under-8px headroom cell; no fixture change taken — it would
+  change what the demo demonstrates. Its earlier §6 RR-reds note corrected
+  in-file (the bisect's mis-pin verdict stands as the mechanism; the reds
+  do not exist at proper pins).
