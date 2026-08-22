@@ -63,6 +63,11 @@ COPIED_TREES = ("src",)
 COPIED_FILES = (
     os.path.join("tests", "lib", "world.luau"),
     os.path.join("tests", "lib", "fake_target.luau"),
+    # world.luau requires both since the containment invariant became
+    # default-on (overflow-guard mission, 2026-08-21) — an isolated tree
+    # without them fails every probe at require time
+    os.path.join("tests", "lib", "overflow_guard.luau"),
+    os.path.join("tests", "lib", "overflow_waivers.luau"),
     os.path.join("tools", "lune", "theme_artifact_probe.luau"),
 )
 
