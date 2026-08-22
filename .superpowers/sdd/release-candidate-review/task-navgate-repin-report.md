@@ -12,6 +12,8 @@ reported under class (c)**.
 | `d7d97bf` | five gate rows that had stopped asking, and the one export nobody filed | 5 |
 | `a762cd9` | the four re-pointed rows say, in place, which ruling moved the world | 1 |
 | `8594ef1` | three gate clauses that ran a module and called it a check | 2 |
+| `813ff00` | the report grows the section the reviewer asked for, with the arm that lied | 1 |
+| `be1abb6` | the formatter's only complaint was an escape that escaped nothing | 1 |
 
 `d3a-help` was not touched. Each re-pointed row records its own supersession in
 its manifest `note` (`a762cd9`), so the next reader does not have to find this
@@ -264,6 +266,21 @@ All three rows re-run green on their own run strings (52, 52 and 4 clauses),
 `check_manifest_integrity` (both modes) and `check_gate_pins` are clean, and the
 navigation-and-menus gate re-runs PASS 14/14 after the swap.
 
+## 8. `stylua --check tools`
+
+Reported one diff, and **it was this round's, not an earlier cli swap**:
+`a762cd9`'s note on `chrome-four-inputs-and-settings` spelled two apostrophes
+`\'` inside a *double*-quoted Lua string, where a bare `'` belongs. Lua
+unescapes `\'` to `'` either way, so the note's **value is byte-identical**
+before and after — source spelling, not content, which is why it was safe to land
+under a sweep already in flight.
+
+Re-run **after** the format pass, per the rule that a formatter may re-wrap a run
+string: `check_manifest_integrity` 1518/1518 anchored and matching,
+`check_gate_pins` 260 pins with all 487 run strings parsing, its `--selftest`
+green, and the manifest still loads with all 14 navigation-and-menus rows and
+both re-pinned notes reading correctly. `stylua --check tools` is clean.
+
 ---
 
 ## Verdict
@@ -289,6 +306,70 @@ round produces is that the **fifteen game-side suite greps in `d5` and `d6` now
 actually execute** — eight of them had been dead behind the typo — and pass
 against the game's own cached transcript (`3469 passed`).
 
-**Prior sweep.** `tools/prior_gates.sh … release-candidate-review` was started in
-the background at the close of this task; its roll-up is the input the release
-gate's re-run wants. Result recorded at the bottom of this file when it lands.
+**Prior sweep.** Below.
+
+---
+
+## 9. `tools/prior_gates.sh … release-candidate-review` — the sweep, and what it found
+
+Run on the FINAL tree. An earlier run was **stopped and discarded** when the
+scope addendum arrived: a roll-up measured against a tree that moves under it is
+the dishonesty the sweep exists to prevent, so the manifest edits landed first
+and the sweep was restarted from scratch (lock confirmed released, then re-taken).
+
+**30 gates, `DONE` reached. 21 PASS, 9 FAIL.** `navigation-and-menus` is
+**PASS** in the sweep, which is the row this task owed.
+
+| FAIL | Rows that reddened it |
+|---|---|
+| `expansion-textinput` | `expansion-adr-bench-rollback` — **on the declared allow-list** |
+| `example-quality-pass` | `rascalrally-consumer` — **allow-listed**; plus `large-text-overflow` |
+| `native-stylesheets` | `docs-and-adr` |
+| `theme-packages-and-skinning` | `metric-snapshot-single-source`, `font-aware-measurement` |
+| `rich-skinning-v2` | `layered-slots-and-posture`, `circle-button` |
+| `api-architecture-consistency` | `studio-evidence` |
+| `swiftui-parity-round2` | `checker-battery` |
+| `swiftui-parity-round3` | `checker-battery` |
+| `swiftui-parity-round4` | `checker-battery`, `prior-gates-unregressed` |
+
+`controls-semantic-roles` — the row this round swapped to the cli form —
+**PASSES** inside `theme-packages-and-skinning`. Its gate is red on two other
+rows.
+
+**ONE DEFECT ACCOUNTS FOR FOUR OF THOSE ROWS, AND IT IS WORTH NAMING LOUDLY.**
+The three `checker-battery` reds and `rich-skinning-v2`'s
+`layered-slots-and-posture` all end on the same clause:
+
+```
+lune run tools/lune/check_flat_baseline
+→ FAIL [UI-STYLE-001] — 7 problem(s)
+  the stored dump artifacts/rich-skinning-v2/rows/neutral-render-dump.json is not
+  reproducible from the current tree
+  control-vocabulary|{desktop,phone-portrait,tablet}|{nodes,opened}|/Vocabulary/Tag:
+    'corners={form=uniform,radius=999};label=Tag;padding=12;selected=false'
+ -> 'corners={form=uniform,radius=999,tokens={…}};…;textFont={family=BuilderSans,…};
+     textSize=18;textWrapped=false'
+  and is not characterized
+```
+
+That is the **flat-theme byte-compatibility claim** (ADR-0020 R9) failing: the
+`Tag` node grew `corners.tokens` and a whole text-font block against the frozen
+0.6.0 render, and the delta is not characterized in
+`artifacts/rich-skinning-v2/rs-a1-image-is-element.json`.
+
+**It is not this round's, and that is measured rather than asserted.** A
+content-pinned copy at `fe7c3db` — the commit that was HEAD when this task began,
+before any edit of mine — produces the **identical seven problems, word for
+word**, against the same stored dump. This round changed no `src/` file, and
+`check_flat_baseline` reads only `src/` and that dump.
+
+**Outside this brief, and reported rather than fixed.** Whoever owns the recent
+paint/text work needs to either re-characterize the `/Vocabulary/Tag` delta or
+regenerate the baseline deliberately. Until then four prior gates stay red on one
+cause, and the release gate's own prior-gates comparison will carry it.
+
+Two mechanics, so they are not mistaken for regressions:
+`swiftui-parity-round4`'s `prior-gates-unregressed` reddens because the nested
+run correctly SKIPS regeneration while the row still wants its evidence artifact;
+and every `FAIL_ENVIRONMENT` / `PENDING` row in the table above is a declared
+device-or-human row, not an automated failure.
