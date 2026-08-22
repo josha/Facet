@@ -199,6 +199,13 @@ export type Spec = {
 	-- false: the segment keeps its word and degrades to the glyph. A GROUP
 	-- decision — see the header on why it cannot be per-option.
 	iconOnly: boolean?,
+	-- the TYPE ROLE every segment wears (a `TypeRole` name or a number, or a
+	-- Readable of either), passed straight to each segment's Button. Nil is the
+	-- Button's own default, which is what every caller before §6 had. REACTIVE for
+	-- the same reason `axis` and `sizing` are: a strip's home moves under a live
+	-- rotation and a tab bar in the thumb zone is caption-sized while the same
+	-- strip on a rail is not.
+	textSize: any?,
 	sizeClass: any?, -- string | Readable<string> from Facet.adaptive.conditions
 	env: any?, -- optional environment, so the indicator's metrics follow a live theme
 	enabled: any?,
@@ -272,6 +279,7 @@ local PICKER_KEYS = specGuard.keySet({
 	"selected",
 	"sizeClass",
 	"sizing",
+	"textSize",
 })
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
@@ -516,10 +524,12 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		if not isEnabled() or selected:get() == value then
 			return false
 		end
-		selected:set(value)
-		if spec.onChange ~= nil then
-			spec.onChange(value)
-		end
+		core:transaction(function()
+			selected:set(value)
+			if spec.onChange ~= nil then
+				spec.onChange(value)
+			end
+		end)
 		return true
 	end
 
@@ -549,6 +559,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 				elseif iconOnly then { icon = option.icon, prefer = true }
 				else { icon = option.icon },
 			enabled = spec.enabled,
+			textSize = spec.textSize,
 			surface = if slides then "plain" else nil,
 			selected = if slides
 				then nil

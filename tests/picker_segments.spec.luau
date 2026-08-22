@@ -54,7 +54,7 @@ local function world(spec: any?)
 		},
 		env = env,
 	}
-	for _, key in { "presentation", "indicator", "axis", "iconOnly", "label", "sizeClass", "sizing" } do
+	for _, key in { "presentation", "indicator", "axis", "iconOnly", "label", "sizeClass", "sizing", "textSize" } do
 		if (options :: any)[key] ~= nil then
 			built[key] = (options :: any)[key]
 		end
@@ -754,6 +754,131 @@ describe("D5 found: a segmented strip navigates ACROSS on a pad, not down", func
 		axis:set("y")
 		pres.refresh()
 		expect(focus_map.autoGroups(handle.root.node)[1].axis).toBe("vertical")
+		p.dispose()
+	end)
+end)
+
+--[[ §6 THE SEGMENT'S TYPE ROLE. A tab strip in the thumb zone is caption-sized in
+	tighter chrome — "which is what a tab bar is everywhere", `p1_glade`'s own
+	shipped comment — and until the reference shells migrated onto `newTabView`
+	each of them carried that treatment by hand, on its own copy of the row. The
+	strip had no way to say it, so a four-word band on a 320px phone truncated
+	three of its four tabs (measured) the moment a shell adopted the construct.
+	This is the vocabulary; the POLICY of which home takes it stays with the
+	caller, because a type ramp is a design language rather than a layout rule. ]]
+describe("§6 seam: a segment carries the strip's declared type role", function()
+	-- the ROLE is resolved to a number by the time the target sees it, so the
+	-- assertion is about the SIZE the segments were painted at, not the word
+	it("`textSize` reaches every segment, and declaring none leaves the default", function()
+		local plain = world({ presentation = "segmented" })
+		local default = plain.adapter.node(optPath(plain, 1)).props.textSize
+		expect(type(default)).toBe("number")
+		local w = world({ presentation = "segmented", textSize = "caption" })
+		expect(w.adapter.node(optPath(w, 1)).props.textSize < default).toBe(true)
+		expect(w.adapter.node(optPath(w, 2)).props.textSize).toBe(w.adapter.node(optPath(w, 1)).props.textSize)
+	end)
+
+	it("...and it is REACTIVE, because the home a strip sits in moves under a rotation", function()
+		local core = Facet.newCore()
+		local role = core:signal("caption")
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local p = Facet.Controls.Picker(core, {
+			id = "View",
+			selected = core:signal("grid"),
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+			presentation = "segmented",
+			textSize = role,
+			env = env,
+		})
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		local small = adapter.node("/S/View/Indicator/Options/Opt1").props.textSize
+		role:set("body")
+		pres.refresh()
+		expect(adapter.node("/S/View/Indicator/Options/Opt1").props.textSize > small).toBe(true)
+		p.dispose()
+	end)
+end)
+
+--[[ §6 ONE TURN, NOT TWO. A caller may VETO or REDIRECT a selection from inside
+	`onChange` — `p3_sipworks`' Steam Stamps tab presents a card on a wide screen
+	instead of becoming the section, so the app writes the Signal back — and the
+	control's own write plus the notification have to be a single turn for that to
+	be invisible. They were not: the set flushed on its own, so every observer saw
+	a value the app was about to undo, and a `UI.When` over the selection MOUNTED A
+	WHOLE SUBTREE and immediately evicted it. Measured on the shipped reference
+	shell before the fix (a tab body built and disposed on every tap of a tab that
+	is not a destination). ]]
+describe("§6 seam: a selection and its onChange are ONE transaction", function()
+	it("a redirect inside onChange never reaches an observer at all", function()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selected = core:signal("grid")
+		local seen: { any } = {}
+		core:observe(selected, function(value: any)
+			table.insert(seen, value)
+		end)
+		local p = Facet.Controls.Picker(core, {
+			id = "View",
+			selected = selected,
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+			presentation = "segmented",
+			env = env,
+			onChange = function(_value: any)
+				-- the caller's authority: this pick does not stand
+				selected:set("grid")
+			end,
+		})
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		adapter.tap("/S/View/Indicator/Options/Opt2", { source = "pointer", pointer = "mouse" })
+		pres.refresh()
+		expect(selected:get()).toBe("grid")
+		-- ZERO, not two: the value the app undid never left the turn
+		expect(#seen).toBe(0)
+		expect(core:lastError()).toBeNil()
+		p.dispose()
+	end)
+
+	it("...and a pick that STANDS still notifies exactly once", function()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selected = core:signal("grid")
+		local seen: { any } = {}
+		core:observe(selected, function(value: any)
+			table.insert(seen, value)
+		end)
+		local changed: { any } = {}
+		local p = Facet.Controls.Picker(core, {
+			id = "View",
+			selected = selected,
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+			presentation = "segmented",
+			env = env,
+			onChange = function(value: any)
+				-- the callback still reads the NEW value: a transaction defers the
+				-- flush, never the read
+				table.insert(changed, `{value}/{selected:get()}`)
+			end,
+		})
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		adapter.tap("/S/View/Indicator/Options/Opt2", { source = "pointer", pointer = "mouse" })
+		pres.refresh()
+		expect(table.concat(seen, ",")).toBe("list")
+		expect(table.concat(changed, ",")).toBe("list/list")
 		p.dispose()
 	end)
 end)

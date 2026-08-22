@@ -699,6 +699,7 @@ require("./hit_expander_z_band.spec")
 	control case is that an ORDINARY sub-floor control keeps its whole floor ]]
 require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
+require("./tab_view_accessories.spec")
 require("./level_picker.spec")
 --[[ ADR-0037: `Facet.Controls.<Name>(core, spec)` — every one of the nineteen
 	composites built BOTH ways from the same spec and compared on what it

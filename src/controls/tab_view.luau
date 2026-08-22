@@ -127,6 +127,53 @@
 -- indicator, its springs — is built once and survives every rotation. D5 found
 -- the one thing that did not survive it (`selection_indicator` learned its
 -- mounted paths exactly once) and fixed it there.
+--
+-- ===== THE CHROME BESIDE THE TABS (framework-gaps-phase2 §6) ===============
+--
+-- A nav bar is rarely only tabs. `p1_glade` puts a WORDMARK at the rail's head;
+-- `p3_sipworks` puts a SEARCH FIELD on the top band's trailing edge and directly
+-- above the thumb-zone dock. Neither was expressible, so both kept a hand-built
+-- four-`When` shell and the examples directory taught the same thing two
+-- contradictory ways — which is the gap this closes.
+--
+--     `accessories = { head?, foot?, trailing?, aboveBar? }`, each a
+--     `(placement, scope) -> Blueprint?` FACTORY, invoked only by the homes that
+--     host that slot. The placement this control already resolved is what decides
+--     which slots mount, so no app re-derives the policy.
+--
+-- WHY A SLOT IS NOT HOSTED EVERYWHERE, and why that is a refusal rather than a
+-- shrug. The four homes are not four boxes with the same edges:
+--
+--   sidebar   a RAIL down the screen: it has a head and a foot, and its foot is
+--             the BOTTOM OF THE RAIL (the strip's scroller spends the slack), not
+--             "under the last tab".
+--   topBar    a CENTRED band. Its strip HUGS and is centred by a ZStack, so
+--             chrome at the trailing edge must OVERLAY it — putting the accessory
+--             in the band's own stack would push the strip off centre by exactly
+--             the accessory's width, and every dump would still read "centered"
+--             (ADAPT-4 / B-12, the contract this file already carries).
+--   bottomBar / bottomBarCompact
+--             the THUMB ZONE. Nothing may sit at a band's trailing edge there: a
+--             `fill` band divides its width among equal targets and an overlay
+--             would cover one. What a dock has room for is a strip ABOVE it, which
+--             is the shape the reference shells already call an accessory.
+--
+-- So `head`/`foot` are the rail's; `trailing` is the top band's; `aboveBar` is the
+-- dock's. `accessoryPlacements(slot)` is that rule, pure and exported, and a slot
+-- no REACHABLE placement can host refuses at construction — reachable being the
+-- one placement a DECLARED `placement` (or nesting, which always resolves
+-- `topBar`) can ever produce. Under `automatic` every home is still reachable, so
+-- nothing is refused and a factory declines a shape by returning nothing.
+--
+-- DECLARING NOTHING MOUNTS NOTHING, structurally: the wrappers below appear only
+-- when a factory really returned a blueprint, so every path that shipped before
+-- this — the four `p4_foyer` pins among them — is byte-identical.
+--
+-- WHAT AN ACCESSORY IS NOT. It is CHROME, not a tab whose home moves. `p3`'s
+-- Steam Stamps pocket looks like a `foot` case and is not one: it is a nav
+-- DESTINATION pinned to the rail's foot, and moving a segment out of the strip is
+-- a strip concern (one picker object serves every home by contract). That case is
+-- recorded in ADR-0045 rather than half-served here.
 
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
@@ -147,10 +194,34 @@ export type Tab = {
 	content: (tabScope: any) -> any,
 }
 
+-- THE CHROME BESIDE THE TABS. Each slot is a FACTORY rather than a blueprint for
+-- the same two reasons `content` is: it is not built until the home that hosts it
+-- is mounted, and the `scope` it receives is disposed when that home goes away. It
+-- is told the placement so ONE function can serve several homes, and it may
+-- return nothing to decline one of them.
+export type Accessories = {
+	head: ((placement: string, scope: any) -> any)?,
+	foot: ((placement: string, scope: any) -> any)?,
+	trailing: ((placement: string, scope: any) -> any)?,
+	aboveBar: ((placement: string, scope: any) -> any)?,
+}
+
 export type Spec = {
 	id: string?,
 	selection: any, -- owner-held Signal of a tab id (required)
 	tabs: { Tab },
+	-- chrome beside the tabs, homed by the placement (see the header). A slot no
+	-- reachable placement can host is an authoring mistake and refuses.
+	accessories: Accessories?,
+	-- the SIDEBAR RAIL's width dim; content-sized by default. A rail states its
+	-- band and lets the labels adapt inside it — a 1.4x locale at the largest text
+	-- preference otherwise makes the longest tab name the whole rail. Hosted by
+	-- `sidebar` alone, and refused for a placement that can never have one.
+	railWidth: any?,
+	-- the ENTER transition each content branch carries — the framework's own
+	-- `UI.When` transition table, passed through. The strip is never evicted, so
+	-- it is never animated by this.
+	transition: any?,
 	-- "automatic" (default) | "bottomBar" | "bottomBarCompact" | "topBar" | "sidebar".
 	-- "automatic" reads `adaptive.navPlacement` — unless this TabView is NESTED,
 	-- which never claims the app-level answer (see the header).
@@ -165,6 +236,12 @@ export type Spec = {
 	-- which is what makes a top strip able to overflow and scroll.
 	sizing: string?,
 	iconOnly: boolean?, -- the strip's group icon decision (see newPicker)
+	-- the TYPE ROLE every tab wears, passed straight to the strip (see newPicker).
+	-- Reactive, so a caller can bind it against `api.placement`: a thumb-zone tab
+	-- bar is caption-sized in tighter chrome and a rail is not, and WHICH home
+	-- takes which role is a design language rather than a layout rule — so the
+	-- construct carries the binding and never picks the ramp.
+	textSize: any?,
 	conditions: any?, -- the table `adaptive.conditions(core, env)` returns
 	env: any?, -- an environment, when `conditions` was not built by the caller
 	enabled: any?,
@@ -180,6 +257,28 @@ local PLACEMENTS: { [string]: boolean } = {
 }
 local INDICATORS: { [string]: boolean } = { automatic = true, none = true, underline = true, pill = true }
 local SIZINGS: { [string]: boolean } = { automatic = true, fill = true, hug = true }
+
+--[[ WHICH HOME HOSTS WHICH SLOT — the whole accessory rule, as data, so the
+	refusal message and the mount obey ONE statement of it. Reasons in the header;
+	the short form is that a rail has ends, a centred band has an overlay edge, and
+	a thumb-zone dock has a strip above it. ]]
+local ACCESSORY_HOMES: { [string]: { string } } = {
+	aboveBar = { "bottomBar", "bottomBarCompact" },
+	foot = { "sidebar" },
+	head = { "sidebar" },
+	trailing = { "topBar" },
+}
+-- sorted, because it is what every refusal message and the dump report
+local ACCESSORY_SLOTS = table.freeze({ "aboveBar", "foot", "head", "trailing" })
+-- the framework node each slot's blueprint lands in. It exists so the mounted
+-- PATH is the framework's to promise: an app's own id is not something a spec —
+-- or a bug report — can predict.
+local SLOT_ID: { [string]: string } = {
+	aboveBar = "AboveBarSlot",
+	foot = "FootSlot",
+	head = "HeadSlot",
+	trailing = "TrailingSlot",
+}
 
 -- WHAT AN INNER TABVIEW RESOLVES TO. `r2` draws a top tab bar inside a screen
 -- that is itself a tab, and a top bar is the one home that does not compete for
@@ -203,6 +302,7 @@ local BAND_CAPPED = table.freeze({ type = "hug" })
 -- CLOSED SPEC (constitution §4). An unknown key is an authoring mistake,
 -- never a silent no-op.
 local TABVIEW_KEYS = specGuard.keySet({
+	"accessories",
 	"conditions",
 	"enabled",
 	"env",
@@ -211,9 +311,12 @@ local TABVIEW_KEYS = specGuard.keySet({
 	"indicator",
 	"onChange",
 	"placement",
+	"railWidth",
 	"selection",
 	"sizing",
 	"tabs",
+	"textSize",
+	"transition",
 })
 
 --[[ HOW DEEP INSIDE A TAB'S CONTENT WE CURRENTLY ARE.
@@ -258,6 +361,16 @@ function tab_view.resolveSizing(requested: string, placement: string): string
 		return requested
 	end
 	return if placement == "bottomBar" then "fill" else "hug"
+end
+
+--[[ THE PLACEMENTS THAT HOST AN ACCESSORY SLOT, or nil for a name that is not a
+	slot at all. Pure and exported for the same reason `resolvePlacement` is: the
+	matrix is then a test over strings, and the refusal below quotes the very list
+	the mount obeys rather than a second copy of it. A COPY is returned, because a
+	caller that edited the framework's own rule would move every later answer. ]]
+function tab_view.accessoryPlacements(slot: string): { string }?
+	local homes = ACCESSORY_HOMES[slot]
+	return if homes == nil then nil else table.clone(homes)
 end
 
 function tab_view.build(Facet: any, core: any, spec: Spec)
@@ -334,6 +447,103 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	if not SIZINGS[requestedSizing] then
 		error(
 			`Facet newTabView('{id}'): unknown sizing '{tostring(requestedSizing)}'. One of automatic | fill | hug.`,
+			0
+		)
+	end
+
+	-- ===== the accessories ====================================================
+	--[[ THE ONE MOMENT A SLOT MISTAKE IS PROVABLE. A DECLARED placement — or
+		nesting, which always resolves `topBar` — narrows the reachable homes to
+		exactly one, so chrome declared for a home that can never exist is a bug
+		whose only symptom is silence. Under `automatic` every home is still
+		reachable and nothing is refused; a factory declines a shape by returning
+		nothing. ]]
+	local reachable: { [string]: boolean } = {}
+	if requestedPlacement ~= "automatic" then
+		reachable[requestedPlacement] = true
+	elseif nested then
+		reachable[NESTED_PLACEMENT] = true
+	else
+		for name in PLACEMENTS do
+			if name ~= "automatic" then
+				reachable[name] = true
+			end
+		end
+	end
+	local function whyUnreachable(): string
+		return if nested
+			then "this TabView is NESTED, so its placement is always '" .. NESTED_PLACEMENT .. "'"
+			else "this TabView DECLARED placement '" .. requestedPlacement .. "'"
+	end
+	-- the rail's band rides the SAME reachability rule the slots do: a width for a
+	-- rail that can never exist is the same silent authoring mistake
+	if spec.railWidth ~= nil and not reachable.sidebar then
+		error(
+			`Facet newTabView('{id}'): \`railWidth\` is the SIDEBAR rail's band, and {whyUnreachable()}. `
+				.. "Leave the placement `automatic` and it applies wherever the rail is, or drop it.",
+			0
+		)
+	end
+
+	local accessories: any = spec.accessories
+	local declaredSlots: { string } = {}
+	if accessories ~= nil then
+		if type(accessories) ~= "table" then
+			error(
+				`Facet newTabView('{id}'): \`accessories\` must be a TABLE of slots — `
+					.. "{ head?, foot?, trailing?, aboveBar? }, each a (placement, scope) -> Blueprint? factory.",
+				0
+			)
+		end
+		for slot, factory in accessories do
+			local homes = ACCESSORY_HOMES[slot]
+			if homes == nil then
+				error(
+					`Facet newTabView('{id}'): unknown accessory slot '{tostring(slot)}'. One of `
+						.. table.concat(ACCESSORY_SLOTS, " | ")
+						.. " — the head and foot of the RAIL, the trailing edge of the TOP band, and the strip "
+						.. "ABOVE a thumb-zone dock. A band has no other edge to spare (see this control's header).",
+					0
+				)
+			end
+			if type(factory) ~= "function" then
+				error(
+					`Facet newTabView('{id}'): accessory '{slot}' must be a FUNCTION (placement, scope) -> Blueprint?, `
+						.. "not a blueprint. The placement is its argument — one factory can serve several homes — "
+						.. "and the scope it receives is disposed when that home goes away.",
+					0
+				)
+			end
+			local hosted = false
+			for _, home in homes do
+				if reachable[home] then
+					hosted = true
+				end
+			end
+			if not hosted then
+				error(
+					`Facet newTabView('{id}'): accessory '{slot}' can never mount — {whyUnreachable()}, and '{slot}' is hosted `
+						.. "only by "
+						.. table.concat(homes, " / ")
+						.. ". Leave the placement `automatic` and the slot mounts wherever it is hosted, or drop "
+						.. "the slot: silently ignoring it is how a wordmark never appears and nobody can say why.",
+					0
+				)
+			end
+			table.insert(declaredSlots, slot)
+		end
+		table.sort(declaredSlots)
+	end
+
+	--[[ THE CONTENT REGION'S ENTER TRANSITION (§6). Both reference shells this
+		control replaced declared one on their own section hosts, and there was
+		nowhere to say it — so adopting the construct swapped a fade for a hard cut
+		in two shipped proofs. It is `UI.When`'s own table, validated here only for
+		SHAPE: the grammar itself is the blueprint layer's to police, once. ]]
+	if spec.transition ~= nil and type(spec.transition) ~= "table" then
+		error(
+			`Facet newTabView('{id}'): \`transition\` must be a TABLE — the same `
+				.. "{ enter?, exit?, class? } `UI.When` takes, not the name of one.",
 			0
 		)
 	end
@@ -418,6 +628,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		axis = stripAxis,
 		sizing = sizing,
 		iconOnly = spec.iconOnly,
+		textSize = spec.textSize,
 		env = spec.env,
 		enabled = spec.enabled,
 		onChange = spec.onChange,
@@ -439,6 +650,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			UI.When({
 				id = "Tab-" .. tabId,
 				condition = selectedHere,
+				transition = spec.transition,
 				thenView = function(branchScope: any)
 					-- THE BUILD STACK, raised for exactly the duration of the
 					-- caller's factory. `pcall` so a factory that throws still
@@ -496,17 +708,81 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- The scrolling homes are ScrollViews because a hugging strip can be wider
 	-- than its offer; the thumb-zone band is not, because a `fill` strip divides
 	-- the offer and has nothing to overflow with.
+
+	--[[ THE ACCESSORY, BUILT INSIDE THE HOME THAT HOSTS IT. The homes are already
+		`When`s, so the factory runs in a real branch scope (disposed on re-home,
+		which is the whole ownership story) and its RETURN decides whether any node
+		exists at all — an empty wrapper still takes a dock's slot and a rail's
+		slack. `mountedSlots` is that fact made reportable, and it rides the same
+		disposal rather than a second mechanism. ]]
+	local railWidth: any = if spec.railWidth ~= nil then spec.railWidth else NATURAL
+	local mountedSlots: { [string]: boolean } = {}
+	local function accessory(slot: string, home: string, branchScope: any): any?
+		local factory = if accessories ~= nil then accessories[slot] else nil
+		if factory == nil then
+			return nil
+		end
+		local built = factory(home, branchScope)
+		if built == nil then
+			return nil
+		end
+		mountedSlots[slot] = true
+		branchScope:own({
+			dispose = function()
+				mountedSlots[slot] = nil
+			end,
+		})
+		if slot == "trailing" then
+			-- THE OVERLAY, not a sibling in the band's stack: `align` on a stack is
+			-- read by its PARENT as cross-axis alignment, which is what parks this
+			-- box's child at the band's trailing edge while the centred scroller
+			-- underneath keeps every pixel of its own offer (ADAPT-4).
+			return UI.VStack({ id = SLOT_ID[slot], align = "end", width = FILL, children = { built } })
+		end
+		if slot == "aboveBar" then
+			return UI.VStack({ id = SLOT_ID[slot], align = "stretch", width = FILL, children = { built } })
+		end
+		-- the rail's ends: CONTENT width, so the rail still hugs the widest of
+		-- {head, strip, foot} rather than measuring a `fill` child against nothing
+		return UI.VStack({ id = SLOT_ID[slot], align = "stretch", width = NATURAL, children = { built } })
+	end
+
 	local rail = UI.When({
 		id = "RailHome",
 		condition = sidebar,
-		thenView = function()
-			return UI.ScrollView({
+		thenView = function(branchScope: any)
+			local scroller = UI.ScrollView({
 				id = "Rail",
 				axis = "y",
-				width = NATURAL,
+				width = railWidth,
 				height = FILL,
 				indicators = "none",
 				children = { strip.blueprint },
+			})
+			local head = accessory("head", "sidebar", branchScope)
+			local foot = accessory("foot", "sidebar", branchScope)
+			if head == nil and foot == nil then
+				return scroller
+			end
+			--[[ THE FOOT IS THE BOTTOM OF THE RAIL, and this is what makes it so:
+				the scroller keeps `height = FILL`, so it spends every pixel of slack
+				between the head and the foot. Put the three in a hugging stack
+				instead and a three-tab strip leaves the foot parked under the last
+				tab — which reads identically in a dump and wrongly on screen. ]]
+			local children: { any } = {}
+			if head ~= nil then
+				table.insert(children, head)
+			end
+			table.insert(children, scroller)
+			if foot ~= nil then
+				table.insert(children, foot)
+			end
+			return UI.VStack({
+				id = "RailShell",
+				align = "stretch",
+				width = railWidth,
+				height = FILL,
+				children = children,
 			})
 		end,
 	})
@@ -527,39 +803,90 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local topBand = UI.When({
 		id = "TopHome",
 		condition = isPlacement("topBar"),
-		thenView = function()
+		thenView = function(branchScope: any)
+			local children: { any } = {
+				UI.ScrollView({
+					id = "TopBand",
+					axis = "x",
+					width = BAND_CAPPED,
+					alignH = "center",
+					indicators = "none",
+					children = { strip.blueprint },
+				}),
+			}
+			-- declared AFTER the strip, so it is painted after it and — the same
+			-- fact read twice — reads after it in the focus ring
+			local trailing = accessory("trailing", "topBar", branchScope)
+			if trailing ~= nil then
+				table.insert(children, trailing)
+			end
 			return UI.ZStack({
 				id = "TopBandCenter",
 				width = FILL,
-				children = {
-					UI.ScrollView({
-						id = "TopBand",
-						axis = "x",
-						width = BAND_CAPPED,
-						alignH = "center",
-						indicators = "none",
-						children = { strip.blueprint },
-					}),
-				},
+				children = children,
 			})
 		end,
 	})
+	--[[ THE DOCK. `aboveBar` is a band-relative slot rather than a screen-relative
+		one: it rides directly above the strip INSIDE the bottom home, so it moves
+		with the bar and disappears with it, and it is declared BEFORE the strip
+		because that is where a dock accessory reads (the reference shells' own
+		order: the field, then the tabs). Both thumb-zone homes host it — the same
+		bar in two forms is still one bar. ]]
+	local function dock(id: string, home: string, band: any, branchScope: any): any
+		local above = accessory("aboveBar", home, branchScope)
+		if above == nil then
+			return band
+		end
+		return UI.VStack({ id = id, align = "stretch", width = FILL, children = { above, band } })
+	end
+	--[[ THE THUMB ZONE'S TWO SHAPES, and which one it takes is decided ONCE, here:
+		`resolveSizing` is pure and this home's placement is a constant, so a
+		declared sizing is known at construction and no memo is needed.
+
+		  fill (the default)  NOT a scroller: `fill` segments divide the band, so
+		                      the strip is exactly as wide as its offer and a scroll
+		                      host would have nothing to scroll. Declaring one anyway
+		                      would put a `fill` child on a scroll axis, which
+		                      measures against a canvas derived from that child.
+		  hug (declared)      the same centred scroller every other hugging home
+		                      gets. The comment above belongs to the DEFAULT, not to
+		                      the home: before §6 a declared `hug` here was parked at
+		                      the band's leading edge with nothing able to scroll it,
+		                      so a strip wider than a phone simply ran off the screen.
+		                      `p1_glade` is that caller — its bottom bar has always
+		                      been a centred natural-width cluster, because equal
+		                      segments truncate four localized words on a 320px
+		                      phone. ]]
+	local bottomHugs = tab_view.resolveSizing(requestedSizing, "bottomBar") == "hug"
 	local bottomBand = UI.When({
 		id = "BottomHome",
 		condition = isPlacement("bottomBar"),
-		thenView = function()
-			-- NOT a scroller: `fill` segments divide the band, so this strip is
-			-- exactly as wide as its offer and a scroll host would have nothing to
-			-- scroll. Declaring one anyway would put a `fill` child on a scroll
-			-- axis, which measures against a canvas derived from that child.
-			return UI.VStack({ id = "BottomBand", width = FILL, children = { strip.blueprint } })
+		thenView = function(branchScope: any)
+			local band = if bottomHugs
+				then UI.ZStack({
+					id = "BottomBandCenter",
+					width = FILL,
+					children = {
+						UI.ScrollView({
+							id = "BottomBand",
+							axis = "x",
+							width = BAND_CAPPED,
+							alignH = "center",
+							indicators = "none",
+							children = { strip.blueprint },
+						}),
+					},
+				})
+				else UI.VStack({ id = "BottomBand", width = FILL, children = { strip.blueprint } })
+			return dock("BottomDock", "bottomBar", band, branchScope)
 		end,
 	})
 	local compactBand = UI.When({
 		id = "CompactHome",
 		condition = isPlacement("bottomBarCompact"),
-		thenView = function()
-			return UI.ZStack({
+		thenView = function(branchScope: any)
+			local band = UI.ZStack({
 				id = "CompactBandCenter",
 				width = FILL,
 				children = {
@@ -573,6 +900,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 					}),
 				},
 			})
+			return dock("CompactDock", "bottomBarCompact", band, branchScope)
 		end,
 	})
 
@@ -720,6 +1048,18 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- belongs in the rail) reads ONE answer rather than re-deriving the policy
 	api.placement = placement
 
+	-- sorted, so the dump is deterministic (it is compared whole by the spec that
+	-- pins every field a bug report needs)
+	local function accessoryMounted(): { string }
+		local live: { string } = {}
+		for _, slot in ACCESSORY_SLOTS do
+			if mountedSlots[slot] then
+				table.insert(live, slot)
+			end
+		end
+		return live
+	end
+
 	function api.dump()
 		local current = selection:get()
 		local label: string? = nil
@@ -767,6 +1107,14 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			-- how many times a selection change actually MOVED the strip's
 			-- scroller. Zero on a `fill` band is correct, not a failure.
 			reveals = reveals,
+			--[[ THE CHROME, as what was ASKED FOR beside what the home ACTUALLY
+				HOSTS — the same pairing `requestedPlacement`/`placement` makes. A
+				report of "my wordmark is missing" is answered by the two lists: in
+				`declared` but not `mounted` means the placement does not host it,
+				which is the sentence the refusal could not say because `automatic`
+				makes every home reachable. NOT a substitute for measuring where the
+				accessory landed — that is a rect, never a dump. ]]
+			accessories = { declared = declaredSlots, mounted = accessoryMounted() },
 			semanticText = `Tabs: {label or "none"} ({index or 0} of {#spec.tabs}) in the {placement:get()}`,
 		}
 	end

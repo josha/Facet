@@ -85,7 +85,9 @@ local function world(opts: any?)
 		env = env,
 		tabs = options.tabs or tabsOf({ "home", "feed", "me" }),
 	}
-	for _, key in { "placement", "indicator", "sizing", "iconOnly", "enabled", "onChange" } do
+	for _, key in
+		{ "placement", "indicator", "sizing", "iconOnly", "enabled", "onChange", "transition", "textSize", "railWidth" }
+	do
 		if (options :: any)[key] ~= nil then
 			built[key] = (options :: any)[key]
 		end
@@ -1013,6 +1015,83 @@ describe("D5: four inputs, one story", function()
 	end)
 end)
 
+--[[ §6 THE CONTENT REGION'S ENTER TRANSITION. Both reference shells migrated onto
+	this control in the accessory round declared `transition = { enter = "fade" }` on
+	their own section hosts, and the construct had nowhere to say it — so adopting it
+	would have silently swapped a fade for a hard cut in two shipped proofs. It is
+	the framework's own `UI.When` transition, passed through to the content branches
+	and to nothing else: the STRIP is never evicted, so it has nothing to animate. ]]
+describe("§6: the content branches carry the caller's enter transition", function()
+	-- the MOUNTED node, not the adapter's record of it: a transition is a fact
+	-- `mount.luau` writes on the branch it built, and the adapter never sees it
+	local function nodeAt(w: any, path: string): any
+		local found: any = nil
+		local function walk(node: any)
+			if node == nil then
+				return
+			end
+			if node.path == path then
+				found = node
+			end
+			for _, child in node.children or {} do
+				walk(child)
+			end
+		end
+		walk(w.handle.root.node)
+		return found
+	end
+
+	-- a fade needs a fade GROUP (the framework diagnoses a fade over a bare leaf),
+	-- which is exactly the plate both migrated shells already wrap their sections in
+	local function plate(name: string)
+		return function(_scope: any)
+			return UI.ZStack({
+				id = name .. "Plate",
+				canvasGroup = true,
+				children = { UI.Text({ id = name .. "Body", text = name }) },
+			})
+		end
+	end
+
+	it("the declared transition reaches the content branch, and only it", function()
+		local w = world({
+			transition = { enter = "fade", class = "container" },
+			tabs = {
+				{ id = "home", label = "Home", content = plate("home") },
+				{ id = "me", label = "Me", content = plate("me") },
+			},
+		})
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		expect(nodeAt(w, "/S/Tabs/Content/Tab-home/then/homePlate").transition.enter).toBe("fade")
+		-- the strip's home is NOT a content branch: it re-homes on rotation and a
+		-- fade there would cross-fade a bar the player did not move
+		expect(nodeAt(w, "/S/Tabs/BottomHome/then/BottomBand").transition).toBeNil()
+	end)
+
+	it("declaring none leaves the branch with none — p4_foyer's path is unchanged", function()
+		local w = world()
+		expect(nodeAt(w, "/S/Tabs/Content/Tab-home/then/homeBody").transition).toBeNil()
+	end)
+
+	it("a transition must be a table, not the name of one", function()
+		local core = Facet.newCore()
+		local ok, err = pcall(function()
+			Facet.Controls.TabView(core, {
+				id = "X",
+				selection = core:signal("a"),
+				placement = "topBar",
+				transition = "fade",
+				tabs = { { id = "a", content = body("a") } },
+			})
+		end)
+		expect(ok).toBe(false)
+		-- naming `table` is what separates THIS refusal from the closed spec's
+		-- "unknown key", which fires for the same input before the guard exists
+		expect(string.find(tostring(err), "transition", 1, true) ~= nil).toBe(true)
+		expect(string.find(string.lower(tostring(err)), "table", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("D5: the closed spec, the dump, and disposal", function()
 	it("an unknown key is an authoring error", function()
 		local core = Facet.newCore()
@@ -1119,5 +1198,144 @@ describe("D5: the closed spec, the dump, and disposal", function()
 		expect(w.selection:get()).toBe("feed")
 		expect(w.tv.dump().mountedTabs).toEqual({ "feed" })
 		expect(w.core:lastError()).toBeNil()
+	end)
+end)
+
+--[[ §6 THE STRIP'S TYPE ROLE, passed through to the segments. A thumb-zone tab bar
+	is caption-sized in tighter chrome and a rail is not — `p1_glade`'s shipped
+	comment says so, and it carried that treatment on its own copy of the row until
+	it migrated onto this construct. The construct does NOT pick the ramp: which
+	home takes which role is a design language, so the caller binds it against the
+	placement this control already publishes. What the construct owes is that the
+	binding REACHES the segments and follows a live re-home. ]]
+describe("§6: the strip carries the caller's type role, and it follows the home", function()
+	it("a bound textSize reaches the segments and re-reads when the placement moves", function()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local conditions = Facet.adaptive.conditions(core, env)
+		local role = core:memo(function(use)
+			local home = use(conditions.navPlacement)
+			return if home == "bottomBar" or home == "bottomBarCompact" then "caption" else "body"
+		end)
+		local tv = Facet.Controls.TabView(core, {
+			id = "Tabs",
+			selection = core:signal("home"),
+			env = env,
+			textSize = role,
+			tabs = tabsOf({ "home", "feed", "me" }),
+		})
+		pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
+		pres.refresh()
+		expect(tv.dump().placement).toBe("bottomBar")
+		local band = adapter.node("/S/Tabs/BottomHome/then/BottomBand/Strip/Indicator/Options/Opt1").props.textSize
+		expect(type(band)).toBe("number")
+
+		env:set("viewportRect", { x = 0, y = 0, w = DESKTOP.w, h = DESKTOP.h })
+		env:set("preferredInput", "KeyboardAndMouse")
+		pres.refresh()
+		expect(tv.dump().placement).toBe("sidebar")
+		local rail = adapter.node("/S/Tabs/RailHome/then/Rail/Strip/Indicator/Options/Opt1").props.textSize
+		expect(rail > band).toBe(true)
+		tv.dispose()
+	end)
+
+	it("declaring none leaves the segments at the Button's own default", function()
+		local w = world()
+		local bare = w.adapter.node(tabPath(w, 1)).props.textSize
+		local sized = world({ textSize = "caption" })
+		expect(sized.adapter.node(tabPath(sized, 1)).props.textSize < bare).toBe(true)
+	end)
+end)
+
+--[[ §6 A DECLARED `hug` IN THE THUMB ZONE. The bottom band is the one home that is
+	deliberately NOT a scroller, and this file's own comment says why: a `fill`
+	strip divides the offer and has nothing to overflow with. That premise belongs
+	to the DEFAULT, not to the home — a caller that declares `sizing = "hug"` gets
+	natural-width segments there too, and until §6 they were parked at the leading
+	edge of a band that could not scroll, so a strip wider than a phone simply ran
+	off it. `p1_glade` is that caller: its bottom bar has always been a centred
+	natural-width cluster, because equal-width segments truncate four localized
+	words on a 320px phone (measured: three of the four, at the +4 text offset). ]]
+describe("§6: a declared `hug` bottom band centres and scrolls, like every other hugging home", function()
+	local LONG = {
+		{ id = "avatars", label = "Avatars", content = body("avatars") },
+		{ id = "body", label = "Bodywork", content = body("body") },
+		{ id = "clothing", label = "Clothing", content = body("clothing") },
+		{ id = "backgrounds", label = "Backgrounds", content = body("backgrounds") },
+	}
+
+	it("the default is untouched: an automatic band still fills, in the shipped shape", function()
+		local w = world({ viewport = PHONE })
+		expect(w.tv.dump().sizing).toBe("fill")
+		expect(w.adapter.node("/S/Tabs/BottomHome/then/BottomBand/Strip") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand")).toBeNil()
+	end)
+
+	it("a declared hug band is CENTRED — measured, not named", function()
+		local w = world({ viewport = PHONE, sizing = "hug" })
+		expect(w.tv.dump().placement).toBe("bottomBar")
+		expect(w.tv.dump().sizing).toBe("hug")
+		local strip = w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand/Strip").rect
+		local root = w.adapter.node("/S/Tabs").rect
+		local left, right = strip.x - root.x, (root.x + root.w) - (strip.x + strip.w)
+		expect(strip.w < root.w).toBe(true) -- it HUGS, which is what makes a gap exist
+		expect(math.abs(left - right) <= 1).toBe(true)
+		expect(left > 0).toBe(true)
+	end)
+
+	it("...and a hug band that does NOT fit takes the whole band and SCROLLS", function()
+		local w = world({ viewport = PHONE, sizing = "hug", tabs = LONG })
+		local band = w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand").rect
+		local root = w.adapter.node("/S/Tabs").rect
+		local strip = w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand/Strip").rect
+		expect(band.x).toBe(root.x)
+		expect(band.w).toBe(root.w)
+		expect(strip.w > band.w).toBe(true) -- there really is something to scroll
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+end)
+
+--[[ §6 THE RAIL'S BAND. A rail is content-sized by default, which is right until a
+	1.4x locale at the largest text preference makes the longest tab name the whole
+	rail: `p3_sipworks` measured its own hand-built rail growing past 400px and
+	squeezing the content lane, and capped it — "a rail is a rail: it states its
+	band and the labels adapt inside it". The rail is the construct's node now, so
+	the band has to be sayable here or that finding is lost in the migration. ]]
+describe("§6: the sidebar rail's width is the caller's to state", function()
+	it("the default is content-sized, and a declared band is honoured", function()
+		local bare = world({ viewport = DESKTOP, preferredInput = "KeyboardAndMouse" })
+		local natural = bare.adapter.node("/S/Tabs/RailHome/then/Rail").rect.w
+		expect(natural > 0).toBe(true)
+		local capped = world({
+			viewport = DESKTOP,
+			preferredInput = "KeyboardAndMouse",
+			railWidth = { type = "minMax", min = 240, ideal = 240, max = 260 },
+		})
+		local railed = capped.adapter.node("/S/Tabs/RailHome/then/Rail").rect.w
+		expect(railed).toBe(240)
+		expect(railed ~= natural).toBe(true)
+		-- ...and the content really did get the rest of the row
+		local content = capped.adapter.node("/S/Tabs/Content").rect
+		expect(content.x >= railed - 1).toBe(true)
+	end)
+
+	it("a rail band declared for a placement that has no rail refuses", function()
+		local core = Facet.newCore()
+		local ok, err = pcall(function()
+			Facet.Controls.TabView(core, {
+				id = "X",
+				selection = core:signal("a"),
+				placement = "bottomBar",
+				railWidth = { type = "fixed", px = 200 },
+				tabs = { { id = "a", content = body("a") } },
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(string.lower(tostring(err)), "railwidth", 1, true) ~= nil).toBe(true)
+		expect(string.find(string.lower(tostring(err)), "sidebar", 1, true) ~= nil).toBe(true)
 	end)
 end)
