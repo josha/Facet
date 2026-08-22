@@ -1408,3 +1408,32 @@ STUDIO.md, root CLAUDE.md.
   package installs). Fix round 2 resumed on the implementer: find the
   actual reader, ENUMERATE THE DOORS the way the census enumerated
   constructors, red-first. Third live verify owed on its landing.
+
+## 2026-08-21 (post-close 15) — the overflow guard SHIPS, calibrated on history
+
+- OVERFLOW GUARD LANDED (19dc1cb + repair 3183740; committed tree 6982/0):
+  Layer 1 = containment invariant ON BY DEFAULT in every fixture world
+  (ancestor-chain visibility — the campaign's instrument lesson made
+  structural; off is a REASON STRING; no-waiver-rot case runs LAST);
+  Layer 3 = scenarios declare states(), the missing generic expand step
+  exists, the sweep walks fresh-mounts per state, the Studio driver gains
+  containment/zeroBoxes + mode="states". CALIBRATION (the director's own
+  bar): at 27af00f^ the walk reds with the VERBATIM 8px "9" message at 4/9
+  viewports AND found a SECOND unseen instance (Expand:Actions past the
+  LEFT edge at narrow-landscape); HEAD clean; fresh mutation 4/9 red. The
+  waiver registry ships EMPTY and that is a measurement (the corner disc
+  was expected to need one and measured not to). Triage across 630 cells /
+  49k nodes: one instrument fix (transparent Hit counted as paint), zero
+  waivers. commit_isolated's -U1 hole hit FOR REAL (a neighbor require
+  swept in, HEAD briefly unloadable — caught by running the COMMITTED
+  tree; dry-run cannot see this class) and repaired without touching the
+  other round's work.
+- NEW PROBLEM IT SURFACED: RR 3462/2 red at Facet HEAD on an unmodified
+  pair (facet_large_text_sweep NameTag, facet_large_text_results Ctas) —
+  pre-existing, entered by some recent round unnoticed. Bisect-by-pair
+  round dispatched (root-fix or honest re-verdict; in-flight files
+  report-only).
+- Owed mine: the Studio driver's containment mode live pass (next console
+  session); world-vs-sweep scrollBarThickness divergence booked; RR
+  harness does not share tests/lib/world — one-line follow-up is an RR
+  decision, booked.
