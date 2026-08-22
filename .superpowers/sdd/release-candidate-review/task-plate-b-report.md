@@ -306,6 +306,21 @@ round taking the predicate widening into its own commit. **Nothing of it is in t
 today, so the 9x9 is still live** — deliberately, rather than at the cost of another
 round's work.
 
+**AND THE REPLAY IS VALIDATED AGAINST THE ROUND IT IS WAITING FOR.** The held fix was
+applied to a private export of HEAD carrying that round's in-flight R23 files
+(`commit_walks.luau`, `renderer.luau`, `commit_walks_seam.spec.luau`) — the state it will
+actually land on top of, not the state it was written against:
+
+* every anchor survives their rewrite (the script touches only the `isCover` definition
+  and its single call site, and their `authorPressableRects` rename lives between them);
+* **red-first still holds under R23**: the hit-floor case is 1 failed / 77 passed without
+  the source half, and **78 passed** with it;
+* the two rules COMPOSE the right way round. R23 narrows which rects may stop a floor
+  (author-declared sinks only); this widens which hosts are stopped by them (the whole
+  synthesized-chrome class). The author Button that the close's floor used to take 36 and
+  81 px2 from is author-declared, so it still blocks — and the close, being framework,
+  stops blocking other framework floors, which is R23's own ruling.
+
 **Also NOT landed with it, for the same reason:** `expandTarget`'s third role in
 `blueprint_schema.luau` and the `{ role = "close" }` declaration on the close affordance.
 They are inert without the predicate — accepted and doing nothing, which the constitution
