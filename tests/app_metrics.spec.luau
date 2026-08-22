@@ -326,6 +326,77 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		expect(snapshot.isMetricPath("app.transient.tileMin")).toBe(false)
 	end)
 
+	--[[ A DECLARATION THAT FAILS TO PUBLISH MUST NOT STRAND THE VOCABULARY.
+
+		`declareApp` WRITES reactive state, so calling it from inside a memo or
+		effect body raises — and it raises AFTER the namespace, the generation and
+		the dropped neutral memo have all been applied, but BEFORE (or part-way
+		through) telling the environments. Left alone that is the silent-zero class
+		through a new door, and the value-equality short-circuit makes it PERMANENT:
+		the obvious retry with the same table is a no-op, so the environment stays
+		blind forever while `isMetricPath` cheerfully answers true.
+
+		Two properties close it, and this case is both halves:
+		  1. a failing observer never costs a WORKING one its notification — every
+		     signal is offered the generation before the first failure is re-raised;
+		  2. the publish is SELF-HEALING — any signal whose value trails the
+		     generation is caught up on the next `declareApp`, including the
+		     short-circuited identical retry.
+		And the failure is LOUD either way: `declareApp` re-raises. ]]
+	it("a failing observer does not strand the declaration, and does not silence it", function()
+		local core = (Facet :: any).newCore()
+		local env = (Facet :: any).newEnvironment(core)
+		expect((env:get("themeMetrics"):get() :: any).app.probe).toBe(nil) -- warm it
+
+		-- the throw point, stood in for: a signal that refuses every write, exactly
+		-- as the reactive core refuses one made during a memo evaluation
+		local exploding = {
+			set = function()
+				error("writing state during memo evaluation", 0)
+			end,
+		}
+		local unsubscribe = snapshot.observeAppDeclarations(exploding)
+
+		-- LOUD, not silent
+		expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
+		-- …and the environment that CAN hear it still did: a failing observer never
+		-- costs a working one its notification, whatever order the registry iterates
+		expect((env:get("themeMetrics"):get() :: any).app.probe.tileMin).toBe(96)
+		expect(snapshot.isMetricPath("app.probe.tileMin")).toBe(true)
+
+		-- …and the retry an author reaches for — the SAME table, which the
+		-- value-equality short-circuit would otherwise eat — is still refused rather
+		-- than quietly succeeding while one environment stays blind
+		expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
+
+		unsubscribe()
+		themes.declareApp("probe", nil)
+	end)
+
+	it("a signal whose value trails the generation is caught up by the next declaration", function()
+		-- a recording stand-in for an environment that missed its notification
+		local trailing: any = { value = -1 }
+		function trailing:set(v: number)
+			self.value = v
+		end
+		function trailing:get(): number
+			return self.value
+		end
+		local unsubscribe = snapshot.observeAppDeclarations(trailing)
+
+		themes.declareApp("heal", { tileMin = 96 })
+		expect(trailing.value).toBe(snapshot.appGeneration())
+
+		-- strand it by hand, then make the IDENTICAL re-declaration the short-circuit
+		-- eats — the heal has to happen before the short-circuit returns
+		trailing.value = -1
+		themes.declareApp("heal", { tileMin = 96 })
+		expect(trailing.value).toBe(snapshot.appGeneration())
+
+		unsubscribe()
+		themes.declareApp("heal", nil)
+	end)
+
 	--[[ AN IDENTICAL RE-DECLARATION IS NOT A CHANGE. `installTypeRamp` and
 		`ResultsParts.declareMetrics` re-declare the same table on every presenter
 		build, and a generation bump per build drops the neutral memo, re-resolves

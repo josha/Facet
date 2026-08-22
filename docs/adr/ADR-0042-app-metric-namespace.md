@@ -212,18 +212,59 @@ nothing, every band it sized measured zero, and nothing errored — an unresolva
 metric name is a missing dimension, which is precisely the accepted-and-ignored
 class the metric vocabulary exists to remove.
 
-Two seams close it, and both are the seam that was already there:
+**THREE seams close it, and the third one is the decisive one.** The first draft
+of this section listed two, and shipped with the trap still open — the review that
+caught it is why this paragraph is worded as a warning:
 
-- `env/environment.luau` reads the framework's own default **live** when nobody
-  has committed a theme (`snapshot.isFrameworkDefault`), instead of replaying the
-  module-load object it was seeded with. A package snapshot somebody committed is
-  theirs and is never silently replaced.
-- `snapshot.forDisplay` — the one seam every environment read passes through —
-  refreshes a base whose **declaration generation** is stale, merging in only the
-  names that base has never heard of (a value already there was put there by a
-  package, an override or the pixel snap, and it is that snapshot's answer). In
-  the steady state, which is every read after boot, this is one weak-table lookup
-  returning its argument, so the near-display identity guarantee is untouched.
+1. `env/environment.luau` reads the framework's own default **live** when nobody
+   has committed a theme (`snapshot.isFrameworkDefault`), instead of replaying the
+   module-load object it was seeded with. A package snapshot somebody committed is
+   theirs and is never silently replaced.
+2. `snapshot.forDisplay` — the one seam every environment read passes through —
+   refreshes a base whose **declaration generation** is stale, merging in only the
+   names that base has never heard of (a value already there was put there by a
+   package, an override or the pixel snap, and it is that snapshot's answer). In
+   the steady state, which is every read after boot, this is one weak-table lookup
+   returning its argument, so the near-display identity guarantee is untouched.
+3. **THE REACTIVE EDGE — `use(appGeneration)` inside the environment's
+   `themeMetrics` memo. DO NOT REMOVE IT.** The two seams above are what
+   *recompute* a stale answer; this is what makes anyone *ask*. An environment
+   MEMOIZES that read, and a memo re-runs only when a signal it `use()`d changed —
+   so with 1 and 2 alone, a declaration made after the first read invalidated
+   nothing, the memo served its warm value, and `px = "app.…"` went on resolving
+   to nil with the band silently measuring zero. Every ten-foot test in the
+   framework masked it, because setting `displaySize` invalidates that memo for an
+   unrelated reason and the declaration rode in on it.
+
+   `declareApp` publishes its generation to a **weak-keyed** registry of signals
+   (`snapshot.observeAppDeclarations`), and `environment.new` registers one — kept
+   deliberately OUTSIDE the `signals` fact table, so the vocabulary `env:get` /
+   `env:set` police is unchanged and nothing can write it. It is a **dependency,
+   never a value**: the number is subscribed to and never read.
+
+   Guard: `tests/app_metrics.spec.luau`, "a declaration reaches a warm
+   environment" — it declares AFTER a read on the SAME environment and touches
+   nothing else, which is the only shape that can fail.
+
+**Publishing is self-healing, and the failure is loud.** `declareApp` writes
+reactive state, so a call made from inside a memo or effect body raises — *after*
+the namespace, the generation and the dropped neutral memo are applied and
+*before* (or part-way through) the notification. Two properties stop that becoming
+a permanent silent zero: every registered signal is offered the generation before
+the first failure is re-raised (so a failing observer never costs a working one
+its notification, whatever order the weak registry iterates), and only a signal
+that TRAILS is written — which lets the top of the next `declareApp`, including
+the identical retry the value-equality short-circuit would otherwise eat, catch it
+up. **Call `declareApp` at boot, from ordinary code**; the framework refuses to
+hide it when you do not.
+
+`observeAppDeclarations` and `appGeneration` are **internal**, not exported on
+`Facet.themes` and not classified as public surface. The registry is weak, so an
+observer that keeps no reference of its own would have its edge collected out from
+under it with no diagnostic anywhere; the environment is safe because its signal
+lives exactly as long as it does, and `observeAppDeclarations` returns an
+`unsubscribe` (which captures the signal) so a deliberate holder is safe the same
+way.
 
 The generation rides a weak side table rather than a field, for `densityBases`'
 reason: a snapshot's own shape is byte-identical to what it was before this

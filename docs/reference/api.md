@@ -5833,12 +5833,26 @@ a typo is a build error rather than a nil size on the first solve.
 process-wide because `isMetricPath` runs at construction with no snapshot in
 scope, which is the whole point of it.
 
-**Declaring late is safe.** A snapshot resolved *before* the declaration is
-refreshed at the environment's own `themeMetrics` seam, so an app whose host
-created the environment (and possibly committed a theme) still spells its own
-names; only names the snapshot has never heard of are added, so a package's
-`metrics.app`, an override and the pixel snap all keep their answers. Declare at
-boot anyway — it is one line and it keeps the vocabulary in one place.
+**Declaring late is safe**, and it takes three mechanisms rather than the two it
+looks like. A snapshot resolved *before* the declaration is refreshed at the
+environment's own `themeMetrics` seam (only names the snapshot has never heard of
+are added, so a package's `metrics.app`, an override and the pixel snap all keep
+their answers), the framework's own default snapshot is re-read live when nobody
+has committed a theme — and, decisively, **that memo subscribes to a declaration
+edge**. An environment memoizes its metric read, and a memo re-runs only when a
+signal it used changed; without the edge, a declaration made after the first read
+invalidates nothing and every `px = "app.…"` in that app keeps resolving to
+nothing while the band silently measures zero. The edge is internal
+(`environment.new` registers a signal `themes.declareApp` publishes to) and it is
+load-bearing: it is what makes anyone *ask* for the refreshed answer.
+
+**Call `declareApp` at boot, from ordinary code** — never from inside a memo or
+effect body. It writes reactive state, so the core refuses a write made during an
+evaluation and the call raises. The framework does not hide that: the vocabulary
+still lands, every observer that *can* be told is told before the error is
+re-raised, and any observer that missed it is caught up by the next `declareApp`
+— including the identical retry. Loud and recoverable, rather than a namespace
+that answers `isMetricPath` while one environment stays blind.
 
 **A theme may move them.** A package's `metrics.app` is its answer for an app
 number, exactly as `metrics.space` is its answer for a spacing step:

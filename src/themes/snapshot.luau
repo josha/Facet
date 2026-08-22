@@ -481,21 +481,72 @@ end
 	alive; a signal is a table, which is what makes it a legal weak key. ]]
 local appGenerationSignals: any = setmetatable({}, { __mode = "k" })
 
---[[ observeAppDeclarations(signal): `signal:set(generation)` on every real
-	change to the app namespace. The environment is the only caller; it is public
-	because a consumer that builds its own metric memo needs the same edge. ]]
+--[[ observeAppDeclarations(signal) -> unsubscribe.
+
+	`signal:set(generation)` on every real change to the app namespace.
+
+	INTERNAL, not public surface. `env/environment.luau` is the only caller and
+	the only one that should be: this is the seam that makes the environment's
+	metric memo re-run, and it is registered WEAKLY, so an observer that keeps no
+	reference of its own would have its edge collected out from under it with no
+	diagnostic anywhere. The environment is safe because its signal lives exactly
+	as long as it does; a third party holding only the returned `unsubscribe`
+	(which captures the signal) is safe for the same reason. It is not exported on
+	`Facet.themes` and is not classified as public surface — see ADR-0042.
+
+	`unsubscribe` is what lets a caller retire an observer deliberately rather
+	than by dropping a reference and hoping. ]]
 function snapshot.observeAppDeclarations(signal: any)
 	assert(
 		type(signal) == "table" and type(signal.set) == "function",
 		"themes.observeAppDeclarations: expected a settable signal"
 	)
 	appGenerationSignals[signal] = true
-	return signal
+	return function()
+		appGenerationSignals[signal] = nil
+	end
 end
 
--- the current declaration generation — the number the signal above carries
+-- the current declaration generation — the number the signals above carry.
+-- INTERNAL, for the same reason `observeAppDeclarations` is.
 function snapshot.appGeneration(): number
 	return declaredAppGeneration
+end
+
+--[[ publish the generation to every registered signal that does not already
+	carry it, and hand back the FIRST failure rather than raising it here.
+
+	TWO PROPERTIES, AND EACH ONE CLOSES A REAL HOLE.
+
+	IT OFFERS THE GENERATION TO EVERY SIGNAL BEFORE ANYONE HEARS ABOUT A FAILURE.
+	`declareApp` WRITES reactive state, so a call made from inside a memo or effect
+	body raises — and a loop that stopped at the first raise would leave the
+	environments after it in the iteration order (which is arbitrary) blind, for a
+	reason having nothing to do with them.
+
+	AND IT ONLY WRITES A SIGNAL THAT TRAILS, which is what makes the publish
+	SELF-HEALING. The namespace, the generation and the dropped neutral memo are
+	applied BEFORE this runs, so a failure here leaves the vocabulary live and
+	unpublished — and the value-equality short-circuit would make the obvious retry
+	a no-op, stranding that environment forever while `isMetricPath` answered true.
+	Running this at the TOP of `declareApp` as well means the identical retry heals
+	it. ]]
+local function publishAppGeneration(): any
+	local failure: any = nil
+	for signal in appGenerationSignals do
+		local current: any = nil
+		if type(signal.get) == "function" then
+			local ok, value = pcall(signal.get, signal)
+			current = if ok then value else nil
+		end
+		if current ~= declaredAppGeneration then
+			local ok, err = pcall(signal.set, signal, declaredAppGeneration)
+			if not ok and failure == nil then
+				failure = err
+			end
+		end
+	end
+	return failure
 end
 
 -- deep VALUE equality over a declaration group (numbers and nested tables only,
@@ -527,6 +578,14 @@ end
 	the whole section is what `isMetricPath` spells against and what a caller
 	inspecting the namespace wants to see.
 
+	CALL IT AT BOOT, FROM ORDINARY CODE — never from inside a memo, an effect body
+	or anything else the reactive core is evaluating. It WRITES reactive state (the
+	generation every environment's metric memo subscribes to), and the core refuses
+	a write made during an evaluation, so a declaration made from in there raises.
+	It raises AFTER the vocabulary is live and BEFORE it is published, which is why
+	the publish below is self-healing and this paragraph exists rather than a
+	comment saying "don't".
+
 	AN IDENTICAL RE-DECLARATION IS NOT A CHANGE, and the short-circuit is not
 	tidiness. `TableMetrics.installTypeRamp` and `ResultsParts.declareMetrics`
 	re-declare the same constant table on every presenter build; without this, each
@@ -547,10 +606,19 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	if metrics ~= nil then
 		checkAppNode(metrics, `{namespace}.`)
 	end
+	--[[ HEAL BEFORE ANYTHING ELSE. A previous call may have applied the vocabulary
+		and then failed to publish it (see `publishAppGeneration`), and the retry an
+		author reaches for is the SAME table — which the short-circuit below would
+		eat, leaving that environment blind forever. Any signal that trails is caught
+		up here, before the early return can happen. ]]
+	local pending = publishAppGeneration()
 	-- VALIDATE FIRST, THEN COMPARE: a malformed re-declaration is an authoring
 	-- error whether or not it happens to match, and refusing it is the only way
 	-- the author hears about it
 	if sameAppGroup(declaredApp[namespace], metrics) then
+		if pending ~= nil then
+			error(pending, 0)
+		end
 		return declaredApp
 	end
 	local next_: any = {}
@@ -563,10 +631,16 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	-- the neutral snapshot is what `isMetricPath` spells names against, so it
 	-- cannot outlive the vocabulary it was resolved with
 	neutralCache = nil
-	-- …and every live environment's metric memo has to be told, or it serves the
-	-- warm value it computed before the vocabulary existed (see the note above)
-	for signal in appGenerationSignals do
-		signal:set(declaredAppGeneration)
+	--[[ …and every live environment's metric memo has to be told, or it serves the
+		warm value it computed before the vocabulary existed (see the note above).
+
+		THE FAILURE IS RE-RAISED, LOUDLY, and the state stays applied: the next
+		`declareApp` — including the identical retry — heals whoever missed it. A
+		swallowed failure here would be the silent zero this whole channel exists to
+		remove, wearing the fix's own clothes. ]]
+	local failure = publishAppGeneration()
+	if failure ~= nil then
+		error(failure, 0)
 	end
 	return declaredApp
 end
