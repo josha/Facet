@@ -1671,3 +1671,21 @@ STUDIO.md, root CLAUDE.md.
   brief-refusal reproduction) and the plate-B review seat (the last
   unreviewed round). When both return: the consolidated day wrap for the
   director.
+
+## 2026-08-21 (post-close 27) — plate-B review: the shared helper's other consumer
+
+- PLATE-B REVIEW (195c5f9): REQUEST CHANGES — 1H/4M/6L; every headline
+  claim reproduced (geometry to the pixel both rungs, H2's exact red,
+  all 8 mutations, arithmetic from archives). THE HIGH: closeAffordance()
+  serves panelOf AND sheetOf — the plate-correct margin moved the SHEET's
+  disc 4/6px into its reservation, COVERED=true on a filling form where
+  the parent was exactly TANGENT — the precise violation the new circle
+  fence exists to catch, on the one presentation the fence doesn't sweep.
+  Their concern-2 upgraded: the 9×9 ten-foot hit-floor incursion lands on
+  CONTENT (81 px² of an interactive corner control) and the renderer's
+  new clamp is cover-scoped so it doesn't reach the close. Concern-5
+  sharpened: inset 3 vs a 4px ten-foot ring on two packages, and the
+  snapshot returns nil for the ring authority. Fix round resumed: the
+  one-line sheet fix + the fence learns the sheet, the close joins the
+  grow-until-pressable class (commit_walks is unlocked now), the ring
+  inequality against the real authority.
