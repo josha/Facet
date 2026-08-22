@@ -160,6 +160,10 @@ expand-plate round's landing). +5 = the four new/rebuilt cases plus the `active`
 The measured tree's Luau files are **byte-identical to what landed** (`099e28f`) — only
 `docs/reference/api.md` was re-patched at land time, because that file had moved
 underneath and nothing executes it.
+
+**Confirmed after the commit**: a fresh `git archive` of `099e28f` runs **7000 passed,
+0 failed**. The four cases above 6996 are the two rounds that landed between the
+measured base and this commit (`9cce13e`, `c93e80e`), not this round's.
 `stylua --check` clean on all seven files; `check_source_size` PASS (`blueprint.luau`
 113,596 — nowhere near the band; no band file touched); `check_doc_style` PASS.
 `check_comment_codes` reports `FAIL_ENVIRONMENT git ls-files` inside a `git archive`
