@@ -1904,3 +1904,27 @@ STUDIO.md, root CLAUDE.md.
 - Housekeeping: the committed gate_manifest carries a stylua diff (the
   controller's cli-swap edit) — routed to the repin round holding the
   file, with the re-verify order stated (format, THEN integrity+pins).
+
+## 2026-08-22 (cont. 3) — the nav gate at 14/14; the sweep names one cause for four reds
+
+- NAVGATE REPIN LANDED (84bf1fb..be1abb6; navigation-and-menus PASS
+  14/14, zero class-(c) regressions): d6's red was a DROPPED QUOTE that
+  had silently disabled 22 clauses (incl. all 8 RR greps) since
+  2026-08-21 — and the class is closed MECHANICALLY: check_gate_pins now
+  bash -n-parses every run string (the replanted typo → malformed=1).
+  d5 re-pinned STRONGER post-ADR-0037; d2/d3b's red was a REAL unfiled
+  export (themes.paintForDisplay, B-17) — ledger row added naming commit
+  and ruling; the two R20-strengthened patterns re-pinned; the cache-
+  guard instrument race fixed with an after-the-fact discriminator.
+  MED-1 done: check_docs_cli in d3b/d6; controls-semantic-roles runs its
+  lint FOR THE FIRST TIME (it had only asserted the file exists).
+- PRIOR SWEEP, LOUD: 21/30 PASS. Four reds share ONE cause —
+  check_flat_baseline's 7 uncharacterized /Vocabulary/Tag deltas
+  (corners.tokens + a text-font block) against the frozen 0.6.0 render
+  (ADR-0020 R9's byte claim), present pre-round. Routed to the
+  paint-lockstep implementer: characterize each delta to its commit and
+  ruling, prove paint value-identity (the sha256 method), regenerate the
+  baseline DELIBERATELY, stop loudly on anything not paint-identical.
+  Also its: theme-packages' metric-snapshot + font-aware rows. To
+  diagnose-only: native-stylesheets docs-and-adr (flip family),
+  api-architecture studio-evidence.
