@@ -1786,3 +1786,21 @@ STUDIO.md, root CLAUDE.md.
   deprecated sites, fix the 7 defects red-first, mark the 13 mistakable
   probes. The 34 MOVE gaps + gap-6 are the DIRECTOR'S pick list —
   presented with the matrix; phase 2 waits on his word.
+
+## 2026-08-21 (post-close 33) — the held fix lands on the commit it waited for
+
+- PLATE-B FULLY CLOSED (cec8453 + 8b51929 on top of the renderer round's
+  16f5434; 7040/0, RR 3466/0 identical): the replay applied with ZERO
+  edits, exactly as the rehearsal predicted. The close declares
+  role="close"; commit_walks' predicate is the whole synthesized-chrome
+  class (cover|close — the chevron stays out: it owns its column). The
+  TV-corner overlap: 81 px² → 9 px², and the residue is the DISC'S OWN
+  BOUNDING BOX (a hit rect is a rectangle, the disc is a circle) — the
+  case asserts that honest rule; paint stays with the circle fence. Both
+  new mutations land on this case and no other. THE PROCESS LESSON,
+  evidenced end to end: the hold was proven necessary (md5), the wait was
+  made cheap by rehearsing against the blocker's in-flight state, and
+  landing was two scripts + zero reconstruction.
+- Renderer R23 landed as 16f5434 (its report notification pending);
+  purity sweep phase 1 running. Remaining after those: final live
+  verification pass + the consolidated day wrap.
