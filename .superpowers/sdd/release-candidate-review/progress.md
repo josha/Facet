@@ -1644,3 +1644,30 @@ STUDIO.md, root CLAUDE.md.
   was wrong — true ancestry +7 another round's, +74 this round's own
   comment (the −30 was the code line alone). Recorded here; the ledger
   cell's chronology stands corrected by this entry.
+
+## 2026-08-21 (post-close 26) — THE LAST LOCK OPENS; two closing seats out
+
+- RENDERER SPLIT LANDED (4cc5cb0/935f9a2/5c407cc/2e6c7d9/753e088; 7036/0,
+  RR 3466/0): renderer.luau 198,974 → 182,522 — 17,478 headroom, out of
+  the band; commit_walks.luau took the six write loops; the ledger's own
+  prescription was one day stale (rect_pass had already left) and the
+  round said so. THE BRIEF REFUSED ON MEASUREMENT: my prescribed hard
+  clamp would have cost three shipped HUD covers their F1 floor
+  (overflow_sweep's dead-end guard caught it on five viewports); shipped
+  = B-19, the floor GROWS one side at a time and stops at the first
+  pressable rect — ringScreen theft retracted (960/828 → 0), HUD covers
+  keep 44, the boxed-in region keeps 42-of-44 instead of 0. Four of eight
+  Phase-B mutations were green FIRST, one exposing a real arithmetic
+  defect (a blocker above zeroing downward growth) — fixed, kept as B-M7.
+  It also paid BOTH exemption debts the day created (comment codes 41 →
+  prose with renderer out of the tuple; check_brand_drift red THREE DAYS
+  on the solver split's move — the same lock's second list, which the
+  ledger names once; a checker that enumerates its own lock lists is the
+  follow-up). One commit left HEAD red (missed hunk, own instrument
+  caught it, repaired next commit — the -U1 class again). B-19 appended
+  (as a table row; the report offered blockquote form). The R18 hit-floor
+  reserve on the solver row is now SUFFICIENT, not just nice.
+- Dispatched: the renderer review seat (behavior identity + the
+  brief-refusal reproduction) and the plate-B review seat (the last
+  unreviewed round). When both return: the consolidated day wrap for the
+  director.
