@@ -174,12 +174,19 @@ change with its own tests.
   Large display, where before only `tileMin` did. That is the half-applied ladder
   above being finished, and it is the point of the change rather than a side
   effect of it.
-- Rascal Rally's ~60 sponsor metrics and its results bands now scale at a Large
-  display, where before they were constants. Every viewport the game ships on is a
-  near display, where the numbers are **byte-identical** — asserted number by
-  number in `facet_ten_foot_metrics_contract.spec`, not assumed — so the change is
-  confined to a display class the game does not ship on today and is the same fix
-  the framework's own ruling (ADR-0039) made for every other metric.
+- Rascal Rally's ~60 sponsor metrics, its HUD story tokens and its results bands
+  now scale at a Large display, where before they were constants. Every viewport
+  the game ships on is a near display, and the near answer does not move.
+
+  **What actually proves that, precisely.** The near factor is `1` and
+  `forDisplay` returns the base table itself at every near display, so the
+  structural argument is that no near-distance arithmetic exists to change an
+  answer — and `resolve`'s exhaustive loop pins that every key falls back to the
+  declaration it came from, which is the table the old `DEFAULTS` was. On top of
+  that, `facet_ten_foot_metrics_contract.spec` spot-checks eight named numbers at
+  `PHONE` against their frozen legacy citations. That is a strong argument plus a
+  sample, not a number-by-number sweep of all sixty, and it should not be
+  described as one.
 
 **Ten Rascal Rally names changed spelling**, and each one is a defect the ladder
 would otherwise have shipped: `mapFraction*` → `map{Landscape,Portrait}Fraction`
