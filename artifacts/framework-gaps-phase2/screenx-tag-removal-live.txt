@@ -1,0 +1,83 @@
+SCREEN-X — the sticky-tag fix, proved in a live Roblox engine
+=============================================================
+
+Session: Facet-Showcase.rbxl, Studio EDIT datamodel, 2026-08-22.
+Not rojo-connected; source injected with `lune run tools/lune/studio_sync` +
+`tools/studio/inject.luau`. This file is the GREEN half of the A/B whose RED
+half is `artifacts/framework-gaps-phase2/bugAB-tag-stickiness-probe.txt` (the
+FIX-SHOW round's clean-room probe, same three writes, same reader).
+
+
+1. THE SESSION WAS PRE-FIX WHEN IT WAS OPENED — the RED witness, read off the
+   live place before anything was injected:
+
+       screen_target=true  screen_vocabulary=false
+       len=193795
+       has old sub5: true          <- string.sub(tag, 1, 5) == "facet-"
+       has ownsTag:  false
+
+2. AFTER THE INJECT (`{"created":2,"patched":36,"unchanged":279,
+   "staleModules":0,"refused":[],"failed":[]}` — nothing over the 200,000-char
+   Source cap, so nothing is stale):
+
+       screen_target len=189985
+       screen_vocabulary=true len=9077
+       old sub5 present:      false
+       ownsTag call present:  true
+       stamp=58593ff9-7124096  stale=0
+
+3. THE PREDICATE, ON THE ENGINE, OVER THE REAL CLASSIFIER AND A REAL
+   CollectionService. A `Frame` in Workspace, dressed from
+   `sheet_model.classifyTags`, then run through the adapter's removal loop with
+   the SHIPPED `screen_vocabulary.ownsTag`:
+
+       TAG_PREFIX = "facet-"
+       after dressing: [facet-interactive,facet-selected,facet-surface-control]
+       removed:        [facet-interactive,facet-selected,facet-surface-control]
+       left:           []
+       the old five would have claimed: 0 of 3
+
+   "0 of 3" is the defect, executed: `string.sub(tag, 1, 5)` is `"facet"`, so
+   the removal loop matched NOTHING rather than matching the wrong thing.
+
+4. THE CLEAN-ROOM ADAPTER PROBE — the SHIPPED adapter driving its own
+   `syncTags`, one Button, tags read after each write. `opts.parent` takes a
+   Folder so the adapter needs no LocalPlayer and the probe runs in Edit:
+
+       local adapter = screen_target.new({ parent = holder })
+       local root = adapter.createRoot("ProbePlainSurface")
+       local h = adapter.create(root, "/Probe/Btn", "Button")
+
+       create:            [facet-interactive,facet-surface-control]
+       selected=true:     [facet-interactive,facet-selected,facet-surface-control]
+       selected=false:    [facet-interactive,facet-surface-control]
+       surface=plain:     []
+       surface=accent:    [facet-interactive,facet-surface-accent]
+       role=destructive:  [facet-interactive,facet-role-destructive,facet-surface-accent]
+       role=default:      [facet-interactive,facet-surface-accent]
+       class=TextButton
+
+   Line by line against the RED table in `bugAB-tag-stickiness-probe.txt`:
+
+       selected=false     RED kept `facet-selected`            -> GONE
+       surface=plain      RED kept `facet-selected` AND
+                          `facet-surface-control`              -> NOTHING LEFT
+       surface=accent     RED carried TWO surface tags at once
+                          (`accent` + `control`), so the sheet
+                          cascade picked the fill by rule ORDER -> ONE surface tag
+       role=default       RED kept `facet-role-destructive`    -> GONE
+
+   `surface=plain` leaving NO tags at all is the exact case Bugs A and B are:
+   `picker.luau:552` declares every segment `surface = "plain"` while an
+   indicator slides, `screen_paint.applySurfaceNative` sets
+   `nativeSurface = nil` / `nativeInteractive = false`, and the instance now
+   agrees with the handle. It is also precisely what the FIX-SHOW round removed
+   BY HAND to produce `bugAB-green-tags-removed.png` — the same two tags off the
+   same class of node — so the causal chain from that capture to this code path
+   is closed.
+
+WHAT THIS DOES NOT CLAIM. No pixels. This is the tag layer, in an Edit
+datamodel; the app bar's underline and the page bar's pill at rest and
+mid-flight are still owed as a live Play re-test on the `tab-view` demo. The
+places were rebuilt (`tools/build_places.sh`, 15 files) so that re-test runs
+against this code.
