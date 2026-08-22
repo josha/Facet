@@ -419,8 +419,21 @@ well as the default, at both rungs.
 |---|---|
 | Facet baseline `20148ef` (content-pinned `git archive`) | **7036 passed, 0 failed** |
 | Facet, this commit's content | **7037 passed, 0 failed** (+1: the ring-room case) |
-| Facet, with the held MEDIUM-2 commit applied | **7038 passed, 0 failed** (+1: the hit-floor case) |
+| Facet, with the then-held MEDIUM-2 commit applied | **7038 passed, 0 failed** (+1: the hit-floor case) |
 | Rascal Rally, `tools/mkpair.sh` at refs resolved AT measurement time | **3466 passed, 0 failed** (`PIN_FACET 7131565`, `PIN_RR c3c8d49`) |
+
+...and the MEDIUM-2 commit as it actually landed, re-measured on the R23 round it waited
+for rather than on the base it was written against:
+
+| | measured |
+|---|---|
+| Facet baseline `16f5434` (the R23 landing, content-pinned) | **7039 passed, 0 failed** |
+| Facet with the close's floor fix | **7040 passed, 0 failed** (+1: the hit-floor case) |
+| Rascal Rally BEFORE (`PIN_FACET 16f5434`, `PIN_RR c3c8d49`) | **3466 passed, 0 failed** |
+| Rascal Rally AFTER (`PIN_FACET cec8453`, `PIN_RR c3c8d49`) | **3466 passed, 0 failed** — identical |
+
+The four files in `cec8453` are **byte-identical** to the tree that measured 7040
+(`md5` on each), so the number is the committed content's and not an adjacent tree's.
 
 **Red-first**, the fix round's spec against unfixed `20148ef` source: **3 failed, 75
 passed** — the sheet fence, the hit floor, and the `active` signal arm. Green after.
