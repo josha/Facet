@@ -28,6 +28,14 @@ export type Opts = {
 	alwaysOnTop: boolean?,
 	maxDistance: number?,
 	style: any?,
+	--[[ THE DISPLAY CLASS, FORWARDED VERBATIM like `style` (paint-family lockstep,
+		ADR-0039 Decision 3a). A billboard is a WORLD surface and the viewer's
+		distance to it is a world distance, not a screen class — but its solver
+		reads the same environment-wide `themeMetrics` every other surface on this
+		client reads, so a billboard that painted near while its own layout measured
+		far would re-open the measure/paint disagreement the ladder exists to close.
+		The consumer passes the environment's fact; absent is near, the identity. ]]
+	displaySize: string?,
 	-- DEPRECATED, and forwarded verbatim to `screen_target.new` — see its own `Opts`
 	-- for why it survives at all. Registered in `Facet.DEPRECATIONS` as
 	-- `screen_target.new(opts.isReducedMotion)`, which this field retires with:
@@ -43,6 +51,7 @@ function billboard_target.new(opts: Opts)
 	local adapter = screen_target.new({
 		parent = opts.parent,
 		style = opts.style,
+		displaySize = opts.displaySize,
 		-- deprecated on both sides (ADR-0011); forwarded, never interpreted here
 		isReducedMotion = opts.isReducedMotion,
 		-- native ScrollingFrame hosts stay OFF billboards until their canvas

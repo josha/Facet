@@ -36,6 +36,16 @@ local unbindEnv = roblox_env.bind(env)
 -- (progressive enhancement, default OFF until the NSS-P3 publish rider clears).
 local paint_mode = require(script:WaitForChild("paint_mode")) :: any
 local adapter = screen_target.new({
+	--[[ THE DISTANCE THIS PLACE IS WATCHED FROM (fix round, 2026-08-21, found on
+		a live console row at stamp e0d6afd5). At ten-foot the paint family —
+		corner radii and hairlines — scales with the metric ladder, and a target
+		takes that class at construction; this bootstrap builds its own target
+		instead of taking `client.host`, so the fact has to be handed over by hand
+		or the showcase MEASURES at three metres and PAINTS at arm's length. The
+		verify read it exactly that way: a capsule painting `0, 999` where the
+		derivation says 1499. Read after `roblox_env.bind` above, so it is the
+		engine's own `ViewportDisplaySize`. ]]
+	displaySize = env:get("displaySize"):get(),
 	forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
 	nativeStyle = paint_mode.decide({
 		native = workspace:GetAttribute("Facet_NativeStyle") == true,

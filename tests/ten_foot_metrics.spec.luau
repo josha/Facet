@@ -1490,6 +1490,112 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 		)
 	end)
 
+	--[[ THE CONSTRUCTOR CENSUS — the CLASS, not the instance (fix round,
+		2026-08-21, after a live console verify at stamp e0d6afd5).
+
+		THE DEFECT THIS EXISTS FOR. A render target takes its display class as a
+		CONSTRUCTOR ARGUMENT, so "does this surface paint at the right distance" is
+		decided once per call site — and a call site that omits it is silently near
+		while its own solver measures at three metres. The round that introduced the
+		argument wired `client.host` and proved the derivation, and the live check
+		found the framework's OWN gallery painting a 999 capsule where the
+		derivation says 1499: `examples/gallery/client/init.client.luau` builds its
+		target by hand. One consumer had already been caught the same way
+		(Rascal Rally's `FacetSponsor`, which builds its own core, environment and
+		target). Two instances of one class is a class.
+
+		SO THIS ARM ENUMERATES EVERY CONSTRUCTOR IN THE REPOSITORY instead of the
+		ones somebody remembered. It walks `src`, `examples` and `tools` for
+		`screen_target.new(`, reads the call's OWN argument list — anchored with
+		`%b{}` from the call, the technique `native_style_default.spec` established
+		after a reviewer deleted an argument and left a comment claiming it — and
+		requires each to either state `displaySize` or carry a written exemption
+		here. A new bare constructor is red on the commit that adds it.
+
+		THERE ARE NO EXEMPTIONS TODAY, and the two candidates are worth naming.
+		`billboard_target` builds a screen target for a WORLD surface, where the
+		viewer's distance is a world distance rather than a screen class — but its
+		solver reads the same environment-wide `themeMetrics`, so painting near
+		while measuring far would re-open exactly the disagreement this ladder
+		closes; it forwards the class from its own `Opts`, verbatim, like `style`.
+		`edit_preview` looked near-only and is not: `preview/device_profiles` has a
+		`console` profile whose facts carry `displaySize = "Large"`, and the preview
+		applies a profile BEFORE it builds its target, so the class it is previewing
+		is the class it must paint. (A LIVE `setProfile` across the near/ten-foot
+		boundary still moves measure and not paint — a target takes its class at
+		construction, like its palette — and that is the same growth seam
+		ADR-0039 Decision 3a books, not an exemption from this census.) ]]
+	it("every render-target constructor in this repository states the distance it paints at", function()
+		local fs = require("@lune/fs")
+		--[[ path -> the reason its context genuinely has no distance. A constructor
+			may only be listed here with a written reason; the empty table is the
+			claim that nothing is waived. ]]
+		local EXEMPT: { [string]: string } = {}
+		local found: { string } = {}
+		local bare: { string } = {}
+		local function walk(dir: string)
+			for _, entry in fs.readDir(dir) do
+				local path = `{dir}/{entry}`
+				if fs.isDir(path) then
+					walk(path)
+				elseif string.sub(entry, -5) == ".luau" or string.sub(entry, -4) == ".lua" then
+					local source = fs.readFile(path)
+					--[[ A CALL, NOT A SENTENCE ABOUT ONE. This repository's comments
+						quote `screen_target.new({})` in prose all over the client and
+						the renderer, and a scan that counted those would report five
+						bare constructors that do not exist — a census nobody would
+						trust twice. The positive rule is the one shape a real call
+						takes here: the value of an assignment or of a return. It also
+						excludes the DECLARATION (`function screen_target.new(`) for
+						free. ]]
+					local i = 1
+					while true do
+						local a, b = string.find(source, "screen_target.new(", i, true)
+						if a == nil then
+							break
+						end
+						i = (b :: number) + 1
+						local before = string.sub(source, math.max(1, (a :: number) - 12), (a :: number) - 1)
+						if string.match(before, "=%s*$") == nil and string.match(before, "return%s*$") == nil then
+							continue
+						end
+						local call = string.match(source, "%s*(%b{})", b :: number)
+						table.insert(found, path)
+						if
+							call == nil
+							or (string.find(call :: string, "displaySize", 1, true) == nil and EXEMPT[path] == nil)
+						then
+							table.insert(bare, path)
+						end
+					end
+				end
+			end
+		end
+		walk("src")
+		walk("examples")
+		walk("tools")
+		table.sort(found)
+		table.sort(bare)
+		expect(`bare constructors: {table.concat(bare, ", ")}`).toBe("bare constructors: ")
+		--[[ …AND THE SCAN REALLY SCANNED. A walker that stopped finding files would
+			pass the arm above with an empty census, which is the shape of check that
+			proves nothing this framework already names. The five known call sites are
+			listed positively; a sixth is welcome and needs no edit here. ]]
+		local census = table.concat(found, ", ")
+		for _, known in
+			{
+				"src/client/billboard_target.luau",
+				"src/client/edit_preview.luau",
+				"src/client/host.luau",
+				"examples/gallery/client/init.client.luau",
+				"examples/performance/client/init.client.luau",
+			}
+		do
+			expect(`census has {known}: {string.find(census, known, 1, true) ~= nil}`).toBe(`census has {known}: true`)
+		end
+		expect(`census size: {#found >= 5}`).toBe("census size: true")
+	end)
+
 	--[[ AND THE WIRE ITSELF. The two paint authorities are engine files no
 		headless world can mount, so the seam is asserted at the source: the target
 		derives its `ctx.style` through the one function and hands the same class to

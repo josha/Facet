@@ -100,6 +100,10 @@ local unbindEnv = roblox_env.bind(env)
 -- otherwise. `Facet_NativeStyle = true` still A/Bs it (the place file ships the
 -- attribute set to `false` so the opt-out is visible in Studio, not implied).
 local adapter = screen_target.new({
+	-- the distance the lab is watched from: the paint family scales at ten-foot
+	-- and a target takes its class at construction. Near is the IDENTITY, so every
+	-- budget in bench/perf_budgets.json was measured at the value this now states.
+	displaySize = env:get("displaySize"):get(),
 	nativeStyle = workspace:GetAttribute("Facet_NativeStyle") == true and { transitions = false } or false,
 })
 local system = roblox_input.newSystem(core)

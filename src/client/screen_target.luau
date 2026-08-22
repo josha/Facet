@@ -276,7 +276,7 @@ export type Opts = {
 	-- THE DISPLAY CLASS THIS TARGET PAINTS FOR: at ten-foot the paint family
 	-- (radii, strokes) scales — see `themes/snapshot.paintForDisplay`. `host`
 	-- passes the environment's fact; absent is near, the identity. Taken at
-	-- construction, like the palette (ADR-0040 B-16).
+	-- construction, like the palette (ADR-0040 B-17).
 	displaySize: string?,
 }
 

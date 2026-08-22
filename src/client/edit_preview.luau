@@ -86,7 +86,24 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 		paint paths byte-equal on every mapped property, so a preview painted the
 		explicit-write way shows what the game shows. `billboard_target` opts out
 		beside it, for its own reason. ]]
-	local adapter = screen_target.new({ parent = opts.parent, style = opts.style, nativeStyle = false })
+	--[[ THE PREVIEW HAS A DISTANCE, AND IT IS THE PROFILE'S (fix round,
+		2026-08-21). `device_profiles` ships a `console` profile whose facts carry
+		`displaySize = "Large"`, and the profile is applied to `env` at the top of
+		this function — BEFORE this line — so the class being previewed is the class
+		this target must paint. Without it the preview would show a television's
+		spacing around a phone's corners, which is precisely the disagreement a
+		preview exists to make visible.
+
+		A LIVE `setProfile` ACROSS THE NEAR/TEN-FOOT BOUNDARY still moves the
+		measure and not the paint: a target takes its class at construction, the way
+		it takes its palette. Restart the preview to change distance; the growth
+		seam that would make it live is booked in ADR-0039 Decision 3a. ]]
+	local adapter = screen_target.new({
+		parent = opts.parent,
+		style = opts.style,
+		displaySize = env:get("displaySize"):get(),
+		nativeStyle = false,
+	})
 	local root: any = nil
 	local controller: any = nil
 	local ok, startErr = pcall(function()
