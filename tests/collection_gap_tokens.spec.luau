@@ -36,6 +36,7 @@ local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
 local themeSnapshot = require("../src/themes/snapshot")
+local surfaceEnv = require("../src/env/surface_env")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = table.create(n)
@@ -86,6 +87,70 @@ end
 local NEUTRAL = themeSnapshot.neutral()
 local XS = themeSnapshot.resolveNumber(NEUTRAL, "xs") :: number
 local TABLE_ROW_GAP = themeSnapshot.resolveNumber(NEUTRAL, "controls.table.rowGap") :: number
+
+describe("an AMBIGUOUS core is refused, not resolved against neutral", function()
+	--[[ TWO DIFFERENT NILS (fix round 1, finding H). `surfaceEnv.find` answers nil
+		both for "nothing published" — a headless mount, a legal caller that degrades
+		to the neutral package — and for AMBIGUOUS, meaning this core carries more
+		than one live environment. Collapsing them meant a themed gutter silently
+		resolved against neutral on a core where the framework could not tell which
+		surface the control belonged to, and `viewportExtent = "auto"` seeded its
+		first window from a screen it could not name. That is the framework guessing,
+		and refuse-don't-guess is the standing rule; `surfaceEnv.resolve` already
+		spells the message for every control that adopts it, so it is CALLED rather
+		than restated. ]]
+	local function twoSurfaces(): any
+		local core = Facet.newCore()
+		for _ = 1, 2 do
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+			surfaceEnv.publish(core, env)
+		end
+		return core
+	end
+
+	it("a NAMED gutter on an ambiguous core refuses, and the message names the way out", function()
+		local core = twoSurfaces()
+		local ok, err = pcall(function()
+			newList(core, { rows = core:signal(makeRows(4)), rowGap = "xs" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "MORE THAN ONE environment", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "newVirtualList", 1, true) ~= nil).toBe(true)
+	end)
+
+	it('...and so does `viewportExtent = "auto"`, whose seed is a screen it cannot name', function()
+		local core = twoSurfaces()
+		expect(pcall(function()
+			newList(core, { rows = core:signal(makeRows(4)), viewportExtent = "auto" })
+		end)).toBe(false)
+		local gridCore = twoSurfaces()
+		expect(pcall(function()
+			newGrid(gridCore, { items = gridCore:signal(makeRows(9)), viewportExtent = "auto" })
+		end)).toBe(false)
+	end)
+
+	it("a build that needs NO environment is still built on an ambiguous core", function()
+		--[[ THE NARROWING, and it is what stops this from being a new refusal on a
+			shape that worked yesterday: a plain numeric list asks the environment
+			nothing, so an ambiguous core is none of its business. Without this case
+			the three above would pass just as happily against a control that refused
+			every ambiguous core outright. ]]
+		local core = twoSurfaces()
+		local list = newList(core, { rows = core:signal(makeRows(4)), rowGap = 6, viewportExtent = 200 })
+		expect(list.dump().rowGap).toBe(6)
+		list.dispose()
+	end)
+
+	it("NOTHING published is still the headless case, and still resolves against neutral", function()
+		-- the other nil, unchanged: a name on a core with no environment at all is a
+		-- legal headless mount and answers from the neutral package
+		local core = Facet.newCore()
+		local list = newList(core, { rows = core:signal(makeRows(4)), rowGap = "xs" })
+		expect(list.dump().rowGap).toBe(XS)
+		list.dispose()
+	end)
+end)
 
 describe("a virtualized gutter takes a theme metric name", function()
 	it("VirtualList.rowGap resolves a space step, and the arithmetic is the number's", function()

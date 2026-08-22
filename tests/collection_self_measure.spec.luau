@@ -64,27 +64,31 @@ local function pane(opts: any)
 	local rows = w.core:signal(makeRows(opts.count or 40))
 	local paneMain = w.core:signal(opts.pane or 240)
 	local built = opts.build(w.core, w.env, rows)
+	if opts.beforePresent ~= nil then
+		-- the frame before any solve exists, which is the only place a SEED can be
+		-- observed at all
+		opts.beforePresent(built)
+	end
 	local paneDim = w.core:memo(function(use)
 		return { type = "fixed", px = use(paneMain) }
 	end)
-	w.present(Facet.UI.Screen({
-		id = "S",
-		padding = 0,
-		gap = 0,
-		children = {
-			Facet.UI.VStack({
-				id = "Pane",
-				padding = 0,
-				gap = 0,
-				-- the pane is FIXED on y and FILLS on x, so a vertical list's SCROLL
-				-- axis and a horizontal rail's CROSS axis are both the number under
-				-- test, and neither is the screen's
-				width = { type = "fill", weight = 1 },
-				height = paneDim,
-				children = { built.blueprint },
-			}),
-		},
-	}))
+	--[[ `wrap` REPLACES the pane, for the cases whose whole subject is an ancestor
+		that is NOT a pane — a scroller unbounded on the collection's own axis. The
+		default is the pane, so every other case reads the same. ]]
+	local inner = if opts.wrap ~= nil
+		then opts.wrap(built.blueprint)
+		else Facet.UI.VStack({
+			id = "Pane",
+			padding = 0,
+			gap = 0,
+			-- the pane is FIXED on y and FILLS on x, so a vertical list's SCROLL
+			-- axis and a horizontal rail's CROSS axis are both the number under
+			-- test, and neither is the screen's
+			width = { type = "fill", weight = 1 },
+			height = paneDim,
+			children = { built.blueprint },
+		})
+	w.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { inner } }))
 	return {
 		core = w.core,
 		env = w.env,
@@ -274,6 +278,208 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 	end)
 end)
 
+describe('viewportExtent = "auto": the measurement that is NOT a viewport', function()
+	--[[ THE DEFECT THIS REPORTS, and it was found by review rather than by a
+		failing assertion, which is the whole reason it needs a case.
+
+		`"auto"` takes `fill` along its own axis. A `fill` dim offered `math.huge`
+		answers with its CONTENT contribution (`layout/solver.luau`'s `fill` branch),
+		a scroll node offers its children `math.huge` on the axis it scrolls, and a
+		scroll node's own content measure SUMS its children. So an `"auto"`
+		collection nested inside ANOTHER scroller's own scroll axis is handed a rect
+		the size of its WHOLE CANVAS — and windows every row. Virtualization silently
+		off, stable across every frame, and invisible to any assertion about
+		correctness: the rows are all there and all in the right place. It is a
+		performance cliff wearing a correct-looking layout.
+
+		THE TEST IS THE SEED'S OWN ARGUMENT TURNED AROUND. `"auto"` seeds from the
+		screen because "a box is never bigger than the surface that contains it". A
+		measured extent that EXCEEDS the screen is therefore not a box at all; it is
+		a canvas. The list reports it and does NOT clamp, because clamping the window
+		while the solver still paints the host at canvas height would empty the
+		bottom of the painted box — a visible defect traded for an invisible one. ]]
+	it("a list nested in another scroller's SCROLL axis measures its whole canvas, and says so", function()
+		local w = pane({
+			count = 400,
+			build = function(core: any, env: any, rows: any)
+				return virtual_list.build(Facet, core, {
+					id = "VL",
+					rows = rows,
+					env = env,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = 40,
+					viewportExtent = "auto",
+					overscan = 0,
+					cell = function(item: any)
+						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+					end,
+				})
+			end,
+			wrap = function(blueprint: any)
+				return Facet.UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					padding = 0,
+					gap = 0,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = { blueprint },
+				})
+			end,
+		})
+		local d = w.control.dump()
+		-- MEASURED, not asserted from theory: 400 rows of 40px on a 600px screen
+		expect(d.viewportExtent).toBe(400 * 40)
+		expect(#d.window).toBe(400)
+		expect(#d.diagnostics).toBe(1)
+		expect(string.find(d.diagnostics[1], "CANVAS, not a viewport", 1, true) ~= nil).toBe(true)
+		-- the message carries BOTH numbers, or the reader cannot tell how far out it is
+		expect(string.find(d.diagnostics[1], "16000px", 1, true) ~= nil).toBe(true)
+		expect(string.find(d.diagnostics[1], "600px", 1, true) ~= nil).toBe(true)
+		w.control.dispose()
+	end)
+
+	it("NEGATIVE CONTROL: a list in a real pane reports NOTHING, however many rows it has", function()
+		-- the same 400 rows, the only difference being an ancestor with a definite
+		-- extent — so the case above cannot be passing because the diagnostic always
+		-- fires, and cannot be passing because 400 rows is itself the trigger
+		local w = pane({
+			pane = 240,
+			count = 400,
+			build = function(core: any, env: any, rows: any)
+				return virtual_list.build(Facet, core, {
+					id = "VL",
+					rows = rows,
+					env = env,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = 40,
+					viewportExtent = "auto",
+					overscan = 0,
+					cell = function(item: any)
+						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+					end,
+				})
+			end,
+		})
+		local d = w.control.dump()
+		expect(`{d.viewportExtent}|{#d.window}|{#d.diagnostics}`).toBe("240|6|0")
+		w.control.dispose()
+	end)
+
+	it("a grid says the same thing about the same shape", function()
+		local w = pane({
+			count = 300,
+			build = function(core: any, env: any, rows: any)
+				return virtual_grid.build(Facet, core, {
+					id = "VG",
+					items = rows,
+					env = env,
+					key = function(item: any)
+						return item.id
+					end,
+					columns = 3,
+					itemExtent = 50,
+					viewportExtent = "auto",
+					overscan = 0,
+					cell = function(item: any)
+						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+					end,
+				})
+			end,
+			wrap = function(blueprint: any)
+				return Facet.UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					padding = 0,
+					gap = 0,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = { blueprint },
+				})
+			end,
+		})
+		expect(#w.control.dump().diagnostics).toBe(1)
+		w.control.dispose()
+	end)
+end)
+
+describe('viewportExtent = "auto" + itemExtent = "cards": the seed is not an arrangement', function()
+	--[[ THE SUPERSET ARGUMENT COVERS WINDOWING AND NOT PAINT (fix round 1, finding
+		B). Over-estimating a viewport mounts more rows than the box touches, which
+		is bounded and invisible. `itemExtent = "cards"` makes the same number decide
+		how many whole cards belong in view — a PARADIGM decision, and `card_rail`'s
+		own header says in capitals that it must be asked about the rail's own extent
+		rather than the screen's.
+
+		MEASURED before the fix: a 300px rail on an 800px screen resolved a THREE-UP
+		arrangement of 261px cards on its first painted frame and a ONE-UP 270px
+		carousel on its second. Not a size that popped — a different answer. ]]
+	it("a card rail paints NOTHING before it has been measured, then the right arrangement", function()
+		local w = pane({
+			axis = "x",
+			pane = 200,
+			count = 200,
+			build = function(core: any, env: any, rows: any)
+				return virtual_list.build(Facet, core, {
+					id = "Rail",
+					axis = "x",
+					rows = rows,
+					env = env,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = "cards",
+					viewportExtent = "auto",
+					rowGap = 8,
+					overscan = 0,
+					cell = function(item: any)
+						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14, lineLimit = 1 })
+					end,
+				})
+			end,
+			beforePresent = function(built: any)
+				-- the frame before any solve: a card rail seeds 0, so it commits to no
+				-- arrangement at all rather than to the screen's
+				expect(built.dump().viewportExtent).toBe(0)
+				expect(#built.dump().window).toBe(0)
+			end,
+		})
+		-- ...and once the solver has answered, the arrangement is the RAIL's
+		local d = w.control.dump()
+		expect(d.viewportExtent).toBe(800)
+		expect(#d.window > 0).toBe(true)
+		w.control.dispose()
+	end)
+
+	it("NEGATIVE CONTROL: a plain list still seeds from the screen and over-fills", function()
+		-- the narrowing is to `cards` alone; every other list keeps the seed and the
+		-- superset it buys, which is the case this pair would otherwise silently lose
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local list = virtual_list.build(Facet, core, {
+			id = "VL",
+			rows = core:signal(makeRows(400)),
+			env = env,
+			key = function(item: any)
+				return item.id
+			end,
+			itemExtent = 40,
+			viewportExtent = "auto",
+			overscan = 0,
+			cell = function()
+				return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+			end,
+		})
+		expect(`{list.dump().viewportExtent}|{#list.dump().window}`).toBe("600|15")
+		list.dispose()
+	end)
+end)
+
 describe("crossExtent: the axis the list does not scroll", function()
 	local function rail(core: any, env: any, rows: any, crossExtent: any): any
 		return virtual_list.build(Facet, core, {
@@ -382,6 +588,50 @@ describe("crossExtent: the axis the list does not scroll", function()
 		build(nil, { type = "fixed", px = 300 }).dispose()
 		-- ...and `"measured"` composes with a width, because it changes no dim
 		build("measured", { type = "fixed", px = 300 }).dispose()
+	end)
+
+	it('"hug" works on a VERTICAL list too, where the cross axis is the WIDTH', function()
+		--[[ EVERY OTHER HUG CASE IN THIS FILE IS `axis = "x"` (fix round 1, finding
+			I), which is where the field's motivating defect lived — so the vertical
+			half of a field documented as axis-neutral had no proof at all. Here the
+			cross axis is the WIDTH: the list hugs its widest row instead of filling
+			the pane it was given. ]]
+		local w = pane({
+			pane = 300,
+			count = 6,
+			build = function(core: any, env: any, rows: any)
+				return virtual_list.build(Facet, core, {
+					id = "VL",
+					rows = rows,
+					env = env,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = 40,
+					viewportExtent = 200,
+					crossExtent = "hug",
+					overscan = 0,
+					cell = function(item: any)
+						return Facet.UI.HStack({
+							id = "Card",
+							padding = 8,
+							gap = 0,
+							children = { Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 }) },
+						})
+					end,
+				})
+			end,
+		})
+		local box = w.rect("/S/Pane/VL")
+		local row = w.rect("/S/Pane/VL/Canvas/W/[r1]/Row")
+		expect(row ~= nil).toBe(true)
+		-- the list is its row's WIDTH, not the pane's — and the pane is 800 wide
+		expect(box.w).toBe(row.w)
+		expect(box.w < 800).toBe(true)
+		-- ...and the scroll axis is untouched: it is still the number handed in
+		expect(box.h).toBe(200)
+		expect((w.control :: any).crossExtent:get()).toBe(box.w)
+		w.control.dispose()
 	end)
 
 	it("an unknown word is refused, naming the two that are legal", function()

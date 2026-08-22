@@ -342,6 +342,14 @@ local MEASURED_CONTENT_ID = "Content"
 -- the two mounted-path ids are published by the hosted half, which is where
 -- everything that READS a path built from them lives (`./virtual_list_hosted`);
 -- the nodes themselves are rendered here, so both spellings come from one place
+--[[ "NOTHING TO REPORT", as ONE shared frozen table. `dump()` answers this for
+	the whole life of every healthy list, and a fresh empty table per call would
+	make two dumps of the same list compare unequal by IDENTITY — which is exactly
+	what `tests/virtual_list_axis.spec.luau` does when it asserts the canonical and
+	the deprecated spellings agree FIELD FOR FIELD. Frozen because it is shared: a
+	caller that appended to it would be writing into every other list's report. The
+	same idiom, for the same reason, as the hosted overlay's empty item list. ]]
+local NO_DIAGNOSTICS: { string } = table.freeze({})
 local HOSTED_OVERLAY_ID = virtual_list_hosted.OVERLAY_ID
 local HOSTED_TRAY_GROUP_ID = virtual_list_hosted.TRAY_GROUP_ID
 
@@ -414,8 +422,8 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"reorderable",
 	"rowActions",
 	-- PER-ROW CAPABILITY OPT-OUTS (parity round 3, item C). Positive polarity,
-	-- matching `rowFocusable` two lines down rather than SwiftUI's negative
-	-- `moveDisabled`/`selectionDisabled`/`deleteDisabled` — see
+	-- matching `rowFocusable` two lines down rather than the NEGATIVE `*Disabled`
+	-- polarity the comparison document records — see
 	-- `src/row_capability.luau` for why, and for the inverse mapping.
 	"rowDeletable",
 	"rowDropTarget",
@@ -448,7 +456,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		below). A wrapped line has ragged main extents and a variable number of
 		items per line, so `index x pitch` cannot say which items are on screen at
 		a given scroll offset — it would need a running-offset index, which is the
-		same problem `swiftui-parity.md` §4.2 records as unbuilt for variable item
+		same problem the comparison document's §4.2 records as unbuilt for variable item
 		extents, with two candidate designs that each give something up and no
 		screen asking for either.
 
@@ -647,7 +655,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		REFUSAL is still raised where it was — an adapting rail must not silently
 		not adapt, and that message names the control (`surfaceEnv.resolve` below),
 		which a gutter falling back to neutral has no reason to do. ]]
-	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
+	local foundEnv, envReason = surfaceEnv.find(core)
+	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else foundEnv
+	--[[ ...AND A `nil` ENVIRONMENT IS TWO DIFFERENT ANSWERS (fix round 1, finding
+		H). `surfaceEnv.find` returns nil for "nothing published" — a headless mount,
+		which is a legal caller and degrades to the neutral package — AND for
+		"AMBIGUOUS", meaning this core carries more than one live environment. The
+		second is not a caller that can degrade: silently resolving a themed gutter
+		against neutral, or seeding a measured viewport from a screen that might be
+		either surface's, is the framework guessing which surface this control
+		belongs to. `surfaceEnv.resolve` already spells that refusal for every
+		control that adopts it, so it is CALLED rather than restated — but only when
+		this build actually needs the environment, so a plain numeric list on an
+		ambiguous core is still built without complaint. ]]
+	local envIsAmbiguous = spec.env == nil and envReason == "ambiguous"
 	-- THE CARD PARADIGM'S OPTIONS, validated by the module that owns the decision
 	-- (`controls/card_rail.luau`), so the refusals and the arrangement cannot drift
 	-- apart. `cards` without `itemExtent = "cards"` is refused there by name.
@@ -726,6 +747,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			.. `report the extent the solver gave) — got {tostring(crossExtentSpec)}. Leave it out and the cross `
 			.. "axis fills, which is what every list did before this field existed."
 	)
+	if envIsAmbiguous then
+		-- the two facts a nil-because-ambiguous environment would silently answer
+		-- wrong: a metric NAME has nothing to resolve against, and `"auto"`'s seed
+		-- is a screen this control cannot name
+		local need: string? = if viewportIsAuto
+			then '`viewportExtent = "auto"` seeds its first window from the screen and measures the box it was given'
+			elseif
+				type(spec.rowGap) == "string"
+			then "`rowGap` is a theme metric name and resolves against the live snapshot"
+			else nil
+		if need ~= nil then
+			surfaceEnv.resolve("newVirtualList", spec.id or "VirtualList", core, nil, need)
+		end
+	end
 	local crossIsHug = crossExtentSpec == "hug"
 	local crossIsMeasured = crossExtentSpec ~= nil
 	--[[ ...AND `width` IS THE SAME AXIS ON A VERTICAL LIST, so declaring both is
@@ -798,9 +833,25 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local raw = if isX then rect.w else rect.h
 		return if type(raw) == "number" and raw == raw and raw > 0 then raw else 0
 	end
-	-- created here rather than after `listScope` because everything below reads it;
-	-- it is handed to the scope for disposal the moment that scope exists
-	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
+	--[[ ...AND THE CARD PARADIGM DOES NOT GET THE SCREEN SEED (fix round 1, finding
+		B). The superset argument above is about WINDOWING: over-estimating the
+		viewport mounts more rows than the box touches, which is bounded and
+		invisible. `itemExtent = "cards"` makes the same number decide PAINT and, far
+		worse, the ARRANGEMENT — `card_rail` asks how many whole cards belong in the
+		space it actually got, and its own header says in capitals that it must be
+		asked about THE RAIL'S OWN EXTENT and not the screen's. Measured: a 300px
+		rail on an 800px screen resolved a THREE-UP arrangement of 261px cards on its
+		first painted frame and a ONE-UP 270px carousel on its second — not a pop in
+		size, a different answer to the paradigm question.
+
+		So a card rail seeds 0, and a 0 viewport windows to NOTHING (`ix.window` over
+		a zero extent selects no rows). One frame painting nothing, then the right
+		arrangement — which is strictly better than one frame painting the wrong one,
+		and is the same "measure rather than predict" the whole field exists for.
+		Every other list keeps the screen seed and the over-fill it buys. ]]
+	local measuredViewport: any = if viewportIsAuto
+		then core:signal(if itemExtentIsCards then 0 else screenSeed())
+		else nil
 	-- ...and the cross axis, when the list was asked to know it. Seeded 0: unlike
 	-- the scroll axis there is no over-fill argument here, because nothing is
 	-- WINDOWED against the cross extent — it is a number a consumer reads.
@@ -2825,6 +2876,52 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		forever regardless, which is the guard `newTable` records in capitals for the
 		same seam. Under `"hug"` the cross dim IS decided by the content, so that
 		number is reported and never fed back into a dim: reporting is not a dim. ]]
+	--[[ THE MEASUREMENT THAT IS NOT A VIEWPORT (fix round 1, finding A), and the
+		house idiom it follows is `layout/solver.luau`'s "percent size on an
+		unbounded axis (inside scroll axis?)": name the condition, say what it fell
+		back to, and let the caller see it.
+
+		THE DEFECT IT REPORTS, measured rather than reasoned: an `"auto"` list nested
+		inside ANOTHER scroller's own scroll axis is offered `math.huge` there, a
+		`fill` dim answers with its CONTENT contribution, and a scroll node's content
+		measure SUMS its children — so the list is handed a rect the size of its
+		whole canvas. Measured headlessly: 400 rows of 40px inside a y-scrolling page
+		measured a 16,000px "viewport" and mounted all 400 rows. Virtualization
+		silently off, stable, and invisible to every assertion anyone would think to
+		write.
+
+		THE TEST IS THE SEED'S OWN ARGUMENT, TURNED AROUND. `screenSeed` is sound
+		because "a box is never bigger than the surface that contains it". A measured
+		extent that EXCEEDS the screen is therefore not a box the player can see: it
+		is a canvas, and the ancestor is unbounded on this axis.
+
+		IT REPORTS AND DOES NOT CLAMP. Clamping the window to the screen while the
+		SOLVER still paints the host at canvas height would leave the bottom of the
+		painted box empty of rows — a visible defect traded for an invisible one. The
+		honest answer is the number the solver gave, plus a diagnostic naming the
+		shape and the fix. ]]
+	local measureDiagnostics: { string } = {}
+	local viewportExceedsScreen = false
+	local function noticeViewport(main: number)
+		local bound = screenSeed()
+		local exceeds = bound > 0 and main > bound
+		if exceeds == viewportExceedsScreen then
+			return -- reported once per state change, never once per refresh
+		end
+		viewportExceedsScreen = exceeds
+		if not exceeds then
+			return
+		end
+		table.insert(
+			measureDiagnostics,
+			`newVirtualList('{id}'): viewportExtent = "auto" measured {main}px along its own axis, which is larger `
+				.. `than the screen ({bound}px) — so this is a CANVAS, not a viewport, and the window it produces `
+				.. "covers every row (virtualization is off). The list is inside an ancestor that is unbounded on "
+				.. "this axis, which is what another scroller's own scroll axis offers. Give the list a pane with a "
+				.. 'definite extent there, or hand in the number instead of "auto".'
+		)
+	end
+
 	local function measureHost(rectOf: ((string) -> any)?, rootNode: any?)
 		if rectOf == nil or (measuredViewport == nil and measuredCross == nil) then
 			return
@@ -2847,8 +2944,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		end
 		if measuredViewport ~= nil then
 			local main = px(if isX then box.w else box.h)
-			if main ~= nil and main ~= measuredViewport:get() then
-				measuredViewport:set(main)
+			if main ~= nil then
+				noticeViewport(main)
+				if main ~= measuredViewport:get() then
+					measuredViewport:set(main)
+				end
 			end
 		end
 		if measuredCross ~= nil then
@@ -3103,6 +3203,14 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			contentExtent = layoutNow().content,
 			viewportExtent = viewportNow(),
 			rowGap = rowGapNow(),
+			--[[ WHAT THE MEASUREMENT SAID THAT NOBODY ELSE CAN SEE (fix round 1,
+				finding A). Empty on every healthy list; one entry names an `"auto"`
+				measurement that came back larger than the screen, which is the
+				nested-scroller shape where virtualization silently stops. `dump()` is
+				this control's reporting channel (`newLevelPicker`'s `diagnostics`
+				precedent), so the fact lives where a probe, a fixture or a Studio
+				session already looks rather than in a warning nobody reads. ]]
+			diagnostics = if #measureDiagnostics == 0 then NO_DIAGNOSTICS else table.clone(measureDiagnostics),
 			overscan = overscan,
 			scrollTop = clampedTop:get(),
 			focusedKey = focusedKey:get(),

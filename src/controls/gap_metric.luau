@@ -37,6 +37,15 @@
 	be able to tear down a mounted surface. The construction check is what makes
 	that fallback rare rather than routine.
 
+	`env = nil` MEANS "NOTHING PUBLISHED", AND ONLY THAT (fix round 1, finding H).
+	`surfaceEnv.find` answers nil for two different situations — nothing published,
+	which is a headless mount and a legal caller that degrades to neutral, and
+	AMBIGUOUS, meaning more than one live environment on the core. This module is
+	handed the first and never the second: the CONTROL distinguishes them and calls
+	`surfaceEnv.resolve` to refuse the ambiguous case by name, because "resolve a
+	themed gutter against neutral because we could not tell which surface you meant"
+	is the framework guessing, and refuse-don't-guess is the standing rule.
+
 	Public interface: `gap_metric.reader(ctx) -> Reader`.
 ]]
 
@@ -45,8 +54,10 @@ local themeSnapshot = require("../themes/snapshot")
 local gap_metric = {}
 
 export type Ctx = {
-	-- the environment whose `themeMetrics` a name resolves against; nil is a
-	-- headless mount and resolves against the neutral package
+	-- the environment whose `themeMetrics` a name resolves against. nil means
+	-- NOTHING PUBLISHED (a headless mount) and resolves against the neutral
+	-- package; the caller has already refused the AMBIGUOUS case, which is a
+	-- different nil entirely (see the header)
 	env: any,
 	-- what to call this field in a refusal, e.g. "VirtualList.rowGap"
 	label: string,

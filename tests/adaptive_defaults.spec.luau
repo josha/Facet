@@ -792,13 +792,23 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		return missing
 	end
 
-	it("the refusing controls are read out of the sources, and there are six today", function()
-		-- `newVirtualList` joined them in the CAROUSEL wave: `itemExtent = "cards"`
-		-- with no authored `cards.perView` arranges the rail from the live
-		-- interaction class and the space it got, so it refuses without an
-		-- environment rather than silently taking the large-screen answer.
+	it("the refusing controls are read out of the sources, and there are seven today", function()
+		--[[ `newVirtualList` joined them in the CAROUSEL wave: `itemExtent = "cards"`
+			with no authored `cards.perView` arranges the rail from the live
+			interaction class and the space it got, so it refuses without an
+			environment rather than silently taking the large-screen answer.
+
+			`newVirtualGrid` joined on 2026-08-22 (ADR-0043) for a NARROWER reason, and
+			it is worth naming because it is the first entry here that refuses only
+			SOMETIMES. It adapts nothing; what it needs an environment for is a fact —
+			the live theme snapshot a metric-name gutter resolves against, and the
+			screen `viewportExtent = "auto"` seeds its first window from. So it
+			refuses on an AMBIGUOUS core (more than one live environment: the
+			framework would be guessing which surface this grid belongs to) and only
+			when the build actually asks for one of those two facts. A plain numeric
+			grid on the same core is built without complaint. ]]
 		expect(table.concat(refusingControls(), " ")).toBe(
-			"newMenu newPicker newPopupButton newTabView newTextInput newVirtualList"
+			"newMenu newPicker newPopupButton newTabView newTextInput newVirtualGrid newVirtualList"
 		)
 	end)
 

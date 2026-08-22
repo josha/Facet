@@ -432,6 +432,16 @@ VENDOR_ALLOWLIST = [
     ("src/controls/table.luau", VENDOR,
      "extraction-locked: comments sweep with the extraction that owns this file",
      "when the table extraction lands"),
+    #[[ `src/controls/virtual_list.luau` LEFT THIS LIST on 2026-08-22, the round its
+    #   hosted half became `controls/virtual_list_hosted.luau`. Its entry read
+    #   "when the virtual-list extraction lands", and it landed — so the sweep it
+    #   was deferring came due. Six sites were reworded rather than re-exempted,
+    #   and the NEW module was never added here: an extraction inherits none of its
+    #   host's exemptions (the same rule `docs/handoff/SOURCE_CAP_LEDGER.md`'s head
+    #   states for `check_comment_codes`, and the same way it bites — the four
+    #   comments that rode out of the locked file were live the moment the split
+    #   commit landed). Adding the sibling would have re-created the debt under a
+    #   new name. ]]
     ("src/layout/solver.luau", VENDOR,
      "extraction-locked: same rule", "when the solver extraction lands"),
     ("src/present/presenter.luau", VENDOR,

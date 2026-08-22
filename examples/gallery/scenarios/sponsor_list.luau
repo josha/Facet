@@ -164,11 +164,18 @@ return {
 			gave it, and its one requirement is an ancestor that hands the list a
 			DEFINITE extent there. This list sits inside `Body`, a y-scrolling page:
 			its content box is unbounded on y by construction, so a `fill` child of it
-			has nothing definite to fill and the measurement would be a number about
-			the canvas rather than about the window. `scenarios/sponsor_drop.luau` and
-			`scenarios/row_actions.luau` both migrated in the same round because their
-			lists sit in panes with definite heights. The clamp stays here, and the
-			sentence above is why. ]]
+			has nothing definite to fill. AND THE FAILURE WOULD BE THE LOUD-LOOKING ONE
+			WEARING THE QUIET ONE'S CLOTHES: a `fill` inside a scroller's own scroll
+			axis is offered an unbounded limit and answers with its CONTENT, and a
+			scroll node's content measure sums its children — so this list would
+			measure its whole canvas and window every row, with virtualization
+			silently off and the layout looking perfect. `newVirtualList` reports that
+			shape in `dump().diagnostics` now; it is still not a thing to declare on
+			purpose. `scenarios/row_actions.luau` and `scenarios/card_rail.luau`
+			migrated in the same round because their lists sit in panes with definite
+			extents; `scenarios/sponsor_drop.luau` was migrated and REVERTED on
+			measurement, for a different reason it carries at its own site. The clamp
+			stays here, and the sentence above is why. ]]
 		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760

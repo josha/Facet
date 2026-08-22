@@ -94,8 +94,8 @@ local HOSTED_ROW_ACTIONS_KEYS = specGuard.keySet({ "leading", "trailing", "fullS
 	        than at the release — see `hostedResolveAxis`, which carries the
 	        red-team finding that made it a blocker;
 	      * a tap on an OPEN hosted row means "close the tray" and nothing else —
-	        iOS parity, and the alternative is a swipe-then-tap opening whatever
-	        the row's `onActivate` opens.
+	        the swipe-tray convention this control follows, and the alternative is
+	        a swipe-then-tap opening whatever the row's `onActivate` opens.
 	    WHAT MAY SPEND IT is as much of the rule as where it is armed — the lesson
 	    is `docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`,
 	    written from this exact seam: all three producers are POINTER gestures
@@ -343,8 +343,8 @@ function virtual_list_hosted.new(deps: Deps)
 		row owns the TRAY, the overlay's anchor and the focus-restore target — and
 		that arbitration below is unchanged. The SLIDE is per row, because two
 		springs are genuinely in flight at once during a handover, so it rides
-		`hostedSlideByKey` and every entry in it is painted. iOS animates the
-		previously-open row closed under the new one; so does this now.
+		`hostedSlideByKey` and every entry in it is painted. The convention
+		animates the previously-open row closed UNDER the new one; so does this now.
 
 		Both engagement writes ride ONE transaction so a memo over the pair can
 		never observe the new row against the previous row's pixels. ]]
@@ -875,7 +875,7 @@ function virtual_list_hosted.new(deps: Deps)
 
 				STILL NOT COVERED (review round 1, F2 — carried, and named here
 				rather than left silent): a tap on the list's own EMPTY CANVAS,
-				below the last row. iOS closes there. It reaches neither seam —
+				below the last row. The convention closes there. It reaches neither seam —
 				the presenter's outside-tap test says "inside this contribution"
 				for the whole list, and this dispatcher only ever hears from a row
 				`Hit`. Closing it needs a hit surface over the empty canvas, and
@@ -1124,8 +1124,8 @@ function virtual_list_hosted.new(deps: Deps)
 		listScope:own(core:observe(engagedKey, hostedWriteSlide))
 		listScope:own(core:observe(engagedKey, hostedRestoreFocusOnDisengage))
 		listScope:own(core:observe(engagedOffset, hostedWriteSlide))
-		--[[ SCROLL CLOSES THE OPEN ROW (iOS parity; `newCoordinator.bindScroll`'s
-			own rule). That coordinator method takes a render controller and a path
+		--[[ SCROLL CLOSES THE OPEN ROW (the swipe-tray convention, and
+			`newCoordinator.bindScroll`'s own rule). That coordinator method takes a render controller and a path
 			and rides `observeScroll` — but this list ALREADY owns the engine's
 			CanvasPosition mirror as a signal (`scrollTop`, written by
 			`bindNativeScroll` or by a test), and it is live before any controller

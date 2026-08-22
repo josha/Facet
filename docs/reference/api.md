@@ -4915,6 +4915,25 @@ standing in for a layout the caller does not own.
   extent is reported. Use it when you need the number rather than a different
   size.
 
+**`crossExtent = "hug"` and `width` are refused together** on a vertical list,
+because there `width` *is* the cross axis and `"hug"` replaces that dim: keeping
+both would silently discard the authored width, which is the accepted-property-
+that-drives-nothing rule (constitution §4) this control already refuses `cards`
+and `estimatedItemExtent` for. Drop `width` to hug the content, or take
+`"measured"`, which changes no dim and therefore composes with an authored width.
+On `axis = "x"` there is nothing to refuse: `width` *is* the scroll axis there and
+is already refused on its own.
+
+**`itemExtent = "cards"` does not take the screen seed**, and the exception is
+the rule stated precisely: the seed's over-fill argument is about *windowing*,
+where an over-estimate mounts more rows than the box touches and is bounded and
+invisible. The card paradigm makes the same number decide how many whole cards
+belong in view, which is a **paradigm** answer and not a size — measured, a 300px
+rail on an 800px screen resolved a three-up arrangement of 261px cards on its
+first painted frame and a one-up 270px carousel on its second. So a card rail
+seeds **0**, which windows to nothing: one frame painting nothing, then the right
+arrangement. Every other list keeps the screen seed.
+
 Both forms publish their number on the returned table as a
 `Readable<number>` — `list.viewportExtent`, `list.crossExtent`,
 `grid.viewportExtent` — so a consumer reads the box the collection was actually
@@ -5270,6 +5289,18 @@ local grid = Facet.Controls.VirtualGrid(core, {
 -- (O-31). `grid.bindNativeScroll(controller)` remains public for a standalone
 -- mount and for switching the mirror off; see newVirtualList's Native canvas.
 ```
+
+**A grid REFUSES to construct on an AMBIGUOUS core**, and only then. It adapts
+nothing, so unlike `newTabView` or an adaptive card rail it normally asks the
+environment for nothing at all — but two of its fields are facts *about* a
+surface: a gutter spelled as a theme metric name resolves against the live theme
+snapshot, and `viewportExtent = "auto"` seeds its first window from the screen. If
+the core carries **more than one** live environment the framework will not guess
+which surface this grid belongs to, so it refuses by name and tells you to pass
+`env` explicitly or build the second surface on its own core. A core with **no**
+environment is a headless mount and is legal: a metric name resolves against the
+neutral package and the seed is 0. A grid whose gutters are numbers and whose
+viewport is a number never asks, and is built on any core.
 
 **`itemExtent` is one LINE's size, not one cell's.** It takes a number, a
 `Readable<number>`, or a per-line function `(line, use) -> px`. The function
@@ -5644,6 +5675,37 @@ face in both weights and authors nothing. Author either role to win outright.
 The derivation runs in `themes.resolve`, never in a package's authored metrics,
 so no package's content `stamp` moved when the roles were added. The same two
 sizes are derived by `tokens.compile` for a game's own token schema.
+
+**Art geometry: `chromeInsets`, `chromeOutsets` and `chromeBleed`.** Three
+snapshot facts describing what a package's *art* does to a node's box. They exist
+because a decorated node is not the rectangle its author declared, and every
+consumer that needs to reason about the real box has to be told by how much.
+
+| fact | what it is | who spends it |
+|---|---|---|
+| `chromeInsets[slot]` | per chrome slot (`panel`, `control`, `selection`, …): `{top, right, bottom, left}` px the slot's art reserves **inside** the node, before anything in it is measured — a nine-slice border, a plate's carved edge. Every slot publishes an entry, zero included | the renderer, added to the node's padding (`render/layout_node.luau`); read directly only when a caller must predict a decorated node's *content* box |
+| `chromeOutsets[slot]` | per slot: px the art **bleeds past** the node, realized as a margin, so the node itself is that much smaller inside the box it was given. Fantasy Ornate declares one (20px off the top of `panel`); most packages declare none | the renderer, as the margin; and by anything sizing a box that must sit around the bleed |
+| `chromeBleed` | a whole-package **number**, not a map: the deepest any slot's shadow reaches outside its box. It reserves nothing — it is the paint seam's clip allowance | the paint seam |
+
+**`hasChromeInsets` is the guard to read first.** Because every slot publishes an
+entry, `next(chromeInsets) ~= nil` answers "yes" on every package and tells you
+nothing; `snapshot.hasChromeInsets` is the boolean that means "there is something
+here to spend".
+
+**They do not scale at ten-foot** — see the ladder below — because they describe
+pixels the engine paints at the size the recipe declares.
+
+**Prefer not to read them at all.** They are published because the framework's own
+render seam needs them, and because a consumer that must predict a decorated box
+has no other route; but a prediction assembled out of them is the defect family
+`viewportExtent = "auto"` and `crossExtent = "hug"` exist to remove. The gallery's
+card rail summed a plate's padding, two line boxes, `chromeInsets.panel` and
+`chromeOutsets.panel` to guess its own height, and each of the last two was
+discovered only after a device round found the previous sum short — 12px under
+Compact Pointer at the default text preference, 16px under Fantasy Ornate at
+every preference. `crossExtent = "hug"` asks the solver, which already knows all
+of them, and deleted the sum. Reach for these when you are extending the render
+seam; reach for a self-measuring extent when you are building a screen.
 
 #### The ten-foot metric ladder
 

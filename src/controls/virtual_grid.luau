@@ -228,6 +228,12 @@ local paths = require("../paths")
 -- recompute, re-dirtying measure and arrange for a value that did not change.
 local rect = require("../rect")
 
+-- "nothing to report", as ONE shared frozen table — see `newVirtualList`'s own
+-- note: a fresh empty per `dump()` makes two dumps of one grid compare unequal by
+-- identity, and a shared mutable one would let a caller write into every grid's
+-- report at once.
+local NO_DIAGNOSTICS: { string } = table.freeze({})
+
 local virtual_grid = {}
 
 local VIRTUAL_GRID_KEYS = specGuard.keySet({
@@ -398,7 +404,15 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		separately: a grid whose cross gutter tracked anything at all was
 		unexpressible. The surface environment is what a NAME resolves against; nil
 		is a headless grid and resolves against the neutral package. ]]
-	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
+	local foundEnv, envReason = surfaceEnv.find(core)
+	local surfaceEnvironment: any = if spec.env ~= nil then spec.env else foundEnv
+	-- ...and a nil environment is TWO answers (fix round 1, finding H): "nothing
+	-- published", which is a headless grid and degrades to neutral, and AMBIGUOUS —
+	-- more than one live environment on this core — which is the framework being
+	-- asked to guess which surface this grid belongs to. `surfaceEnv.resolve` spells
+	-- that refusal once for every control; it is called below, and only when this
+	-- build actually needs the environment.
+	local envIsAmbiguous = spec.env == nil and envReason == "ambiguous"
 	local rowGapMetric = gapMetric.reader({
 		env = surfaceEnvironment,
 		label = "VirtualGrid.rowGap",
@@ -457,7 +471,50 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		local raw = if isX then r.w else r.h
 		return if type(raw) == "number" and raw == raw and raw > 0 then raw else 0
 	end
+	if envIsAmbiguous then
+		local need: string? = if viewportIsAuto
+			then '`viewportExtent = "auto"` seeds its first window from the screen and measures the box it was given'
+			elseif
+				type(spec.rowGap) == "string" or type(spec.gap) == "string"
+			then "a gutter is a theme metric name and resolves against the live snapshot"
+			else nil
+		if need ~= nil then
+			surfaceEnv.resolve("newVirtualGrid", spec.id or "VirtualGrid", core, nil, need)
+		end
+	end
 	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
+	--[[ THE MEASUREMENT THAT IS NOT A VIEWPORT (fix round 1, finding A) — the same
+		shape `newVirtualList` reports and for the same reason, because both take
+		`fill` along their scroll axis and both are exposed to an ancestor that is
+		unbounded there. A `fill` dim offered `math.huge` answers with its CONTENT
+		contribution, and a scroll node's content measure SUMS its children, so a
+		grid nested in another scroller's own scroll axis is handed a rect the size
+		of its whole canvas and windows every line. THE TEST IS THE SEED'S OWN
+		ARGUMENT TURNED AROUND: a box is never bigger than the surface containing it,
+		so a measurement that EXCEEDS the screen is a canvas rather than a viewport.
+		Reported, never clamped — see the list's own note for why clamping trades an
+		invisible defect for a visible one. ]]
+	local measureDiagnostics: { string } = {}
+	local viewportExceedsScreen = false
+	local function noticeViewport(main: number)
+		local bound = screenSeed()
+		local exceeds = bound > 0 and main > bound
+		if exceeds == viewportExceedsScreen then
+			return
+		end
+		viewportExceedsScreen = exceeds
+		if not exceeds then
+			return
+		end
+		table.insert(
+			measureDiagnostics,
+			`newVirtualGrid('{id}'): viewportExtent = "auto" measured {main}px along its own axis, which is larger `
+				.. `than the screen ({bound}px) — so this is a CANVAS, not a viewport, and the window it produces `
+				.. "covers every line (virtualization is off). The grid is inside an ancestor that is unbounded on "
+				.. "this axis, which is what another scroller's own scroll axis offers. Give the grid a pane with a "
+				.. 'definite extent there, or hand in the number instead of "auto".'
+		)
+	end
 	local function viewportIn(use: any): number
 		if viewportIsAuto then
 			return use(measuredViewport)
@@ -1201,6 +1258,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 				return
 			end
 			local main = math.max(0, math.floor(raw + 0.5))
+			noticeViewport(main)
 			if main ~= measuredViewport:get() then
 				measuredViewport:set(main)
 			end
@@ -1273,6 +1331,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			content = ix.content,
 			rowGap = rowGapNow(),
 			gap = gapNow(),
+			-- empty on every healthy grid; one entry names an `"auto"` measurement
+			-- that came back larger than the screen (fix round 1, finding A)
+			diagnostics = if #measureDiagnostics == 0 then NO_DIAGNOSTICS else table.clone(measureDiagnostics),
 			overscan = overscan,
 			scrollTop = clampedTop:get(),
 			lines = { range.first, range.last },

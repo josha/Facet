@@ -73,10 +73,51 @@ intact:
   touches. The first frame over-fills rather than mounting three rows and
   popping. Read once, not subscribed: it is a seed, not a second source of truth.
 * **One requirement, stated rather than implied:** an ancestor that hands the
-  collection a definite extent along that axis. A `fill` inside a box that HUGS
-  has nothing to measure, and neither does a `fill` inside a scrolling page's own
-  content. `scenarios/sponsor_list.luau` keeps its clamp for exactly that reason
-  and says so at the site.
+  collection a definite extent along that axis. `scenarios/sponsor_list.luau`
+  keeps its clamp for exactly that reason and says so at the site.
+
+**THE TWO WAYS TO BREAK THAT REQUIREMENT FAIL DIFFERENTLY, AND THE FIRST DRAFT OF
+THIS DECISION GOT THE SECOND ONE WRONG** (fix round 1, review finding A). A `fill`
+inside a box that **hugs** measures 0 and mounts nothing, which is obvious. A
+`fill` inside an ancestor that is **unbounded** on that axis — which is exactly
+what another scroller's own scroll axis is — measures the collection's **whole
+canvas**: `solver.luau`'s `fill` branch answers with the node's *content*
+contribution, a scroll node offers its children `math.huge` on the axis it
+scrolls, and a scroll node's content measure sums them. Measured headlessly: 400
+rows of 40px inside a y-scrolling page reported a **16,000px viewport and mounted
+all 400 rows**. Virtualization silently off, stable, and invisible to any
+assertion about correctness — the rows are all present and all correctly placed.
+It is a performance cliff wearing a correct-looking layout, and it is a worse
+failure than the one the first draft documented.
+
+**The collection detects it, on the seed's own argument turned around.** The seed
+is sound because *a box is never bigger than the surface that contains it*; so a
+measured extent that **exceeds the screen** is not a viewport, it is a canvas. The
+finding lands in `dump().diagnostics` (`newLevelPicker`'s precedent for a
+control-side diagnostic) naming both numbers and the fix, once per state change
+rather than once per refresh. The house idiom it follows is `solver.luau`'s
+"percent size on an unbounded axis (inside scroll axis?)".
+
+**It reports and does NOT clamp**, and that is the load-bearing half. Clamping the
+window to the screen while the solver still paints the host at canvas height would
+leave the bottom of the painted box empty of rows — a *visible* defect traded for
+an invisible one. The honest answer is the number the solver gave, plus a
+diagnostic naming the shape. A solver-side fix (refusing to offer `math.huge` to a
+scroll host's own `fill` child, or answering a bounded contribution) was not
+attempted: `src/layout/solver.luau` has an extraction owed to another round and
+this is not the change to open it with.
+
+**`itemExtent = "cards"` does not take the screen seed** (fix round 1, review
+finding B). The superset argument is about *windowing*, where an over-estimate
+mounts more rows than the box touches and is bounded and invisible. The card
+paradigm makes the same number decide **the arrangement** — `card_rail`'s own
+header says in capitals that it must be asked about the rail's own extent and not
+the screen's. Measured before the fix: a 300px rail on an 800px screen resolved a
+**three-up arrangement of 261px cards** on its first painted frame and a **one-up
+270px carousel** on its second; not a size that popped, a different answer to the
+paradigm question. A card rail therefore seeds **0**, which windows to nothing:
+one frame painting nothing, then the right arrangement. Every other list keeps the
+seed and the over-fill it buys.
 
 ### 2. `crossExtent = "hug" | "measured"` (`newVirtualList` only)
 
@@ -115,6 +156,17 @@ the spelling that meant nothing there either. The LIVE read cannot refuse and
 does not pretend to: a package swapped at runtime may drop a key, and a theme
 swap must not be able to tear down a mounted surface.
 
+**`env = nil` is two answers, and only one of them may degrade** (fix round 1,
+review finding H). `surfaceEnv.find` returns nil both for "nothing published" — a
+headless mount, a legal caller — and for **ambiguous**, meaning more than one live
+environment on the core. Collapsing them meant a themed gutter silently resolved
+against neutral, and `"auto"` seeded from a screen the control could not name, on
+a core where the framework had been asked to guess which surface the control
+belonged to. The controls distinguish them now and call `surfaceEnv.resolve` — the
+one spelling of that refusal — but **only when the build actually needs the
+environment**, so a plain numeric collection on an ambiguous core is still built
+without complaint.
+
 **Owed:** `newTable.rowGap` should adopt `gap_metric` and inherit the same
 refusal. It did not this round only because `table.luau` belonged to a
 concurrent writer.
@@ -125,7 +177,9 @@ Every clause above widens or adds:
 
 * `viewportExtent` gains a word; every number and `Readable` behaves identically.
 * `crossExtent` is new, and absent it reproduces the previous behaviour exactly
-  (the cross axis fills).
+  (the cross axis fills). `"hug"` beside an authored `width` on a vertical list is
+  refused rather than silently discarding the width — a refusal on a combination
+  that could not exist before the field did.
 * the three gutters gain two accepted forms; a number behaves identically and a
   negative one is still refused.
 * the self-measured `Readable`s are published only when asked for, so no
@@ -152,8 +206,10 @@ its wrapped rows spend. Nothing behaves differently for the field being legible.
   as its own behaviour-neutral commit with the verdict set diffed line for line.
 * **A consumer can now be given the number it used to guess**, which is the
   measure of whether this was worth doing: `viewportExtent = "auto"` deleted a
-  path constant, a signal, a handler and a snapshot read from one fixture, and
-  ~55 lines and two constants from another.
+  signal, a handler and a snapshot read from one fixture (its pane PATH survives,
+  as a path — two scripted steps aim the focus ring with it), and ~55 lines plus
+  one constant (`RAIL_SLACK`) from another. `PADDING` survives there as the
+  padding the Screen is given, which is what it was always for.
 
 ## Alternatives considered
 
