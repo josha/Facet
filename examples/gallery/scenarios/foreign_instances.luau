@@ -27,10 +27,62 @@
 
 local foreign_instances = {}
 
--- build(content) -> Instance. Errors on an unknown kind rather than answering nil:
--- a silently empty pane is the accepted-and-ignored failure this whole feature's
--- refusal ladder exists to remove.
+--[[ THE SEAM'S OWN TYPE CONTRACT, and it exists because the suite could not see
+	the one defect on the other side of it (review 2026-08-22, MED-2).
+
+	`foreign_content.luau` hands these descriptors ACROSS the seam and this module
+	writes their fields straight onto engine properties. An engine property takes an
+	engine type: `TextLabel.TextSize` takes a NUMBER. The declarative-purity sweep
+	briefly turned that field into `"control"` — the theme role name the lint asks
+	for everywhere else — and NOTHING caught it: the whole suite passed (this path
+	needs a live engine to run) and the lint passed too (a name is exactly what it
+	demands). Only reading the diff did.
+
+	So the refusal ladder this module's header describes now covers a wrong-typed
+	FIELD as well as an unknown KIND. It is checked HERE, in the module that owns
+	the write, because that is the only place that knows which property each field
+	becomes — and `tests/foreign.spec.luau` drives it from the shipped descriptors,
+	so the pin is on the real content rather than on a fixture's copy of it. ]]
+foreign_instances.CONTENT_SCHEMA = {
+	richText = { text = "string", textSize = "number?" },
+	engineList = { items = "table" },
+	oversize = {},
+}
+
+-- validate(content) -> nil | reason. `nil` is "this crosses the seam cleanly".
+function foreign_instances.validate(content: any): string?
+	if type(content) ~= "table" then
+		return `foreign content must be a table, got {type(content)}`
+	end
+	local fields = (foreign_instances.CONTENT_SCHEMA :: any)[content.kind]
+	if fields == nil then
+		return `unknown foreign content kind '{tostring(content.kind)}'`
+	end
+	for field, expected in fields do
+		local optional = string.sub(expected, -1) == "?"
+		local want = if optional then string.sub(expected, 1, -2) else expected
+		local got = type(content[field])
+		if got == "nil" then
+			if not optional then
+				return `foreign '{content.kind}' is missing required field '{field}' ({want})`
+			end
+		elseif got ~= want then
+			return `foreign '{content.kind}' field '{field}' must be a {want} — it is written straight `
+				.. `onto an ENGINE property, which takes no theme name — got {got} ({tostring(content[field])})`
+		end
+	end
+	return nil
+end
+
+-- build(content) -> Instance. Errors on an unknown kind, and on a field whose type
+-- the engine property cannot take, rather than answering nil: a silently empty
+-- pane is the accepted-and-ignored failure this whole feature's refusal ladder
+-- exists to remove.
 function foreign_instances.build(content: any): Instance
+	local refusal = foreign_instances.validate(content)
+	if refusal ~= nil then
+		error(`foreign_instances.build: {refusal}`, 2)
+	end
 	if content.kind == "richText" then
 		-- RICH TEXT: markup spans inside ONE string. `UI.Text` resolves ONE
 		-- typography role and ONE colour for the whole label — by design, because

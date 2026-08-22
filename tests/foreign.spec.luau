@@ -602,6 +602,68 @@ describe("UI.Foreign: layout (e)", function()
 		expect((tonumber(written) :: number) < 0.1).toBe(true)
 	end)
 
+	--[[ THE SEAM CROSSES TYPES, AND NOTHING USED TO CHECK IT (review 2026-08-22,
+		MED-2).
+
+		`foreign_content.luau` declares its panes as DATA and this module writes their
+		fields onto engine properties: `TextLabel.TextSize` takes a NUMBER. The
+		declarative-purity sweep briefly turned that field into `"control"` — the
+		theme role name the drift lint asks for on every other `textSize` in the
+		corpus — and NOTHING caught it. The whole suite passed (this path needs a live
+		engine, so no headless case reaches it) and the lint passed too (a name is
+		precisely what it demands). A comment was the only guard, and a comment is not
+		a check.
+
+		So the module now VALIDATES at the seam, and this case drives that validation
+		from the SHIPPED descriptors rather than from a fixture's copy of them — the
+		content the scenario really hands over is the content under test. Both
+		directions, because "nothing was refused" is also what a dead validator
+		produces. ]]
+	it("every SHIPPED foreign descriptor crosses the seam with the types the engine takes", function()
+		local materializer = require("../examples/gallery/scenarios/foreign_instances") :: any
+		local scenario = require("../examples/gallery/scenarios/foreign_content") :: any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
+		local adapter = fake_target.new()
+		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local built = scenario.build({
+			Facet = Facet,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+		})
+		local content = built.foreignContent
+		expect(type(content)).toBe("table")
+		local checked = 0
+		local refusals: { string } = {}
+		for path, descriptor in content do
+			checked += 1
+			local refusal = materializer.validate(descriptor)
+			if refusal ~= nil then
+				table.insert(refusals, `{path}: {refusal}`)
+			end
+		end
+		expect(`descriptors checked: {checked > 0}`).toBe("descriptors checked: true")
+		expect(table.concat(refusals, "\n")).toBe("")
+
+		--[[ THE NEGATIVE CONTROL, and it is the exact defect: the role name the lint
+			would have demanded. It must be REFUSED, and the refusal must say why an
+			engine property cannot take it. ]]
+		local wrong = materializer.validate({ kind = "richText", text = "x", textSize = "control" })
+		expect(`a role name is refused: {wrong ~= nil}`).toBe("a role name is refused: true")
+		expect(string.find(wrong :: string, "ENGINE property", 1, true) ~= nil).toBe(true)
+		-- ...and `build` raises rather than answering a half-built Instance
+		local ok = pcall(function()
+			materializer.build({ kind = "richText", text = "x", textSize = "control" })
+		end)
+		expect(`build refuses it too: {ok}`).toBe("build refuses it too: false")
+		-- ...and the right form is still accepted, so the check is not "refuse always"
+		expect(materializer.validate({ kind = "richText", text = "x", textSize = 18 })).toBeNil()
+		expect(materializer.validate({ kind = "richText", text = "x" })).toBeNil()
+	end)
+
 	it("is never a decoration surface: the create path pins NO_SLOT for it", function()
 		local chrome_slots = require("../src/tokens/chrome_slots") :: any
 		-- a `raised` surface on ANY ordinary leaf is exactly what an art package
