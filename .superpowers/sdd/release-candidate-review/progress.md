@@ -1476,3 +1476,24 @@ STUDIO.md, root CLAUDE.md.
   implementer for triage; the R18 hit-floor reserve stays booked (its own
   fixture round). Review seat dispatched (the most load-bearing diff of
   the day: behavior-identity is the whole question).
+
+## 2026-08-21 (post-close 18) — DOOR 2 CLOSED; third verify EXACT
+
+- LOCKSTEP FIX 2 LANDED (41e6829 + reports; RR cae4c7a; 6986 +4, RR
+  3465/0): the second door was AUTHOR-time freezing — styling.normalize*
+  resolved tokens where they were WRITTEN (control factories, no style, no
+  class), so radii.pill=999 froze into blueprints before any target
+  existed. Fix: token NAMES travel to paint (the gap="m" idiom); pure
+  paintCorners/paintStroke resolvers re-derive against the target's style;
+  an absent stroke thickness is a token too. Door census: TWO doors, both
+  derive, four default_style readers each with a written reason, a fifth
+  goes red. RR was in the same trap (Ticker/StartCountdown corner tokens)
+  and is carried; Marks' computed literal pinned as must-not-move. New
+  at-Large-by-a-test evidence: the real Picker mounted at 1920 Large
+  asserts authored 999 both distances, painted 1499/999.
+- THIRD LIVE VERIFY: EXACT oracle match (stamp 2116ce45) — capsules
+  0,1499; sheet rule 0,18; Large. Both doors derive ON GLASS. The
+  director's TV-paint decision is fully live; capture committed
+  (afa2882) and sent. NOTE: this round reports RR 3465/0 — the
+  large-text bisect round may find its two reds already healed by this
+  commit; let its report settle the truth.
