@@ -413,3 +413,18 @@ it is not discovered late.
 * **Bug C** — the playlist demo (`ex02`) in edit mode. The rebuilt place shows
   the heading tracking the ≡ gutter today; it will not sit over the columns until
   the row-actions ⊖ publication lands.
+
+---
+
+## Postscript — what the rebuilt places actually contain
+
+`tools/build_places.sh` ran at 2026-08-22 after `5b88eb2`, stamping
+`Facet_Build = "5b88eb2+dirty <time>"` into every place (the settings panel shows
+it). The `+dirty` is honest and load-bearing: the working tree at build time also
+carried two other lanes' in-flight edits (`src/controls/virtual_list.luau`,
+`src/controls/virtual_grid.luau`, `src/controls/gap_metric.luau`). So the
+rebuilt `examples/places/Facet-Showcase.rbxl` is Bug C's fix PLUS whatever those
+lanes had on disk at that instant — not a clean checkout of any commit. If the
+director's re-test is meant to certify Bug C alone, rebuild from a clean tree
+first; if it is a general re-test, read the stamp and take the `+dirty` at face
+value.
