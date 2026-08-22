@@ -230,6 +230,97 @@ describe("Table: layout", function()
 		expectAligned(adapter, "/S/Racers/Main/Body/Rows/[razz@0]/RowActions-razz/Content/Row/Cells/Cell-name")
 	end)
 
+	--[[ THE SUBSCRIPTION ITSELF, NOT JUST THE NUMBER THE ARM ABOVE CHECKS
+		(review finding on the fix above, FIX-SHOW round 2). `noteEditGutter`'s
+		`core:observe(source, ...)` (`controls/table_rows.luau`) was never wrapped
+		in `scope:own`, unlike every other `core:observe` call site in that file's
+		pair. Its hand-rolled `unbindEditGutter` releases the PREVIOUS row's
+		observer on every rebuild — so churn alone never leaked, which is why the
+		"row churn + dispose are registry-neutral" case elsewhere in this file
+		never caught it — but the LAST wrapped row built has no second owner:
+		`tbl.dispose()` tears down `rowActionsByKey` (each row_actions instance's
+		OWN independent scope) and then Table's own `scope`, and neither ever held
+		this one. `9c76f99` moved `editGutterPx`'s publication outside
+		`if isHosted`, so this is live at HEAD for any DISPOSED table with a
+		destructive `rowActions` entry.
+
+		WHY THIS CASE BUILDS ITS OWN CORE rather than taking `world()`'s default
+		`Facet.newCore()` (measured, not assumed — see the investigation this case
+		is written from). `src/core/custom.luau` — the production default — makes a
+		disposed signal/memo's OWN `node.dispose()` walk ITS OWN `node.observers`
+		and decrement `counts.observers` for every one of them (its own comment:
+		"live observers die with their node... their unsubscribe becomes a
+		no-op"). `row_actions.luau` owns `editGutterPx` in ITS OWN scope, and
+		`tbl.dispose()` always disposes every `rowActionsByKey` entry before
+		Table's own `scope` — so under `custom`, THIS SPECIFIC ordering-dependent
+		bug is invisible to `counts.observers` today, on every reachable path
+		through the public API, fix or no fix (proved by running this exact case
+		on `Facet.newCore()`: identical counters either way). `src/core/
+		imperative.luau` — the OTHER conforming core this repo ships and runs the
+		SAME control suite against (`tests/conformance/cli.luau <imperative>`) —
+		makes no such promise: an observer released only through the disposer
+		`core:observe` returned is the WHOLE contract (`core/contract.luau`), and
+		nothing else may stand in for it. `table_rows.luau`'s own idiom
+		(`scope:own(core:observe(...))`, all seven other call sites) is written to
+		hold under EITHER core; this one case is the one place in the framework
+		that already needs it not to matter which. Using `imperative` here is what
+		makes `counts.observers` the load-bearing diagnostic the fix requirement
+		names, instead of a check a production-core run cannot fail.
+
+		ONE ROW, NOT THREE, and a FULL teardown (`tbl.dispose()` AND `handle.root.
+		dispose()`, releasing the mount tree `tbl.dispose()` alone does not touch)
+		— both chosen to make the arithmetic exact rather than approximate.
+		Measured: after a full teardown, CONTROL (no `rowActions`, so nothing for
+		`noteEditGutter` to ever subscribe to) and SUBJECT (one destructive row)
+		land on byte-identical `scopes`/`signals`/`memos`/`effects` in every run,
+		fixed or not — `row_actions.luau`'s own disposal is clean. `observers`
+		alone carries a flat +1 over CONTROL that is there in BOTH cases (a live
+		per-wrapped-row registration this fix does not touch or own — out of
+		scope for this file, unrelated to `editGutterPx`) PLUS this bug's own +1,
+		present only on the unfixed source. The assertion below is exactly that
+		arithmetic: `CONTROL + 1` on the fix, `CONTROL + 2` on HEAD before it. ]]
+	it("disposing a table with a destructive rowActions entry frees the edit-gutter observer", function()
+		local imperativeCore = require("../src/core/imperative")
+		local ONE_RACER = { { id = "razz", name = "Razz Raccoon", laps = 3 } }
+
+		local controlCore = imperativeCore.new()
+		local _, _, _, controlTbl, _, controlHandle = world({
+			core = controlCore,
+			reorderable = true,
+			onReorder = function() end,
+			rowsOverride = ONE_RACER,
+		})
+		controlTbl.dispose()
+		controlHandle.root.dispose()
+		local controlAfter = controlCore:counters()
+
+		local subjectCore = imperativeCore.new()
+		local _, _, subjectPres, subjectTbl, _, subjectHandle = world({
+			core = subjectCore,
+			reorderable = true,
+			onReorder = function() end,
+			rowsOverride = ONE_RACER,
+			rowActions = function()
+				return {
+					trailing = {
+						{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+					},
+				}
+			end,
+		})
+		subjectTbl.api.editing:set(true)
+		subjectPres.refresh()
+		subjectTbl.dispose()
+		subjectHandle.root.dispose()
+		local subjectAfter = subjectCore:counters()
+
+		expect(subjectAfter.scopes).toBe(controlAfter.scopes)
+		expect(subjectAfter.signals).toBe(controlAfter.signals)
+		expect(subjectAfter.memos).toBe(controlAfter.memos)
+		expect(subjectAfter.effects).toBe(controlAfter.effects)
+		expect(subjectAfter.observers).toBe(controlAfter.observers + 1)
+	end)
+
 	it("variable row heights position rows correctly", function()
 		local _, adapter = world({
 			rowHeight = function(item)

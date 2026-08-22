@@ -261,6 +261,15 @@ function table_header.band(deps: Deps): any
 		if not use(editingSignal) then
 			return band
 		end
+		-- NOT `not canEditMode` here too, unlike `cellsEditPadding`'s combined
+		-- guard — on purpose, not by omission. `canEditMode` gates HANDLE_GUTTER
+		-- inline (same condition `cellsEditPadding` uses for that term), but
+		-- `rowEditGutter` is never itself gated by `canEditMode` anywhere: its
+		-- source, `row_actions`' own `editGutterPx`, reacts to `editingSignal`
+		-- alone (Table's `canEditMode` is never passed to `row_actions.build`), so
+		-- a row_actions-wrapped row already pays that inset regardless of
+		-- `canEditMode` — the band has to match what the row actually spent, not
+		-- a gated re-derivation of it.
 		local lead = (if canEditMode then HANDLE_GUTTER else 0) + (use(rowEditGutter) or 0)
 		if lead <= 0 then
 			return band

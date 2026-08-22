@@ -129,6 +129,12 @@ export type Deps = {
 	-- here, owned by `table.luau`, spent by `table_header.band` (see
 	-- `noteEditGutter` below for why the number is taken rather than re-derived)
 	rowEditGutter: any,
+	-- `table.luau`'s OWN scope (`local scope = core:scope(...)`) — the one
+	-- `tbl.dispose()` tears down. `noteEditGutter` below owns its rebindable
+	-- observer into it, the same idiom every other `core:observe` call site in
+	-- this file's pair uses, so the FINAL row's subscription is released when
+	-- the table itself is.
+	scope: any,
 	-- the ONE environment `table.luau` resolved (`spec.env`, else the one
 	-- published against the core): a wrapped row's tray must not resolve its
 	-- metrics against a different one than the row box did
@@ -183,6 +189,7 @@ function table_rows.new(deps: Deps)
 	local columnDim = deps.columnDim
 	local columnHidden = deps.columnHidden
 	local canEditMode = deps.canEditMode
+	local scope = deps.scope
 	local surfaceEnvironment = deps.surfaceEnvironment
 	local selectedMemo = deps.selectedMemo
 	local itemForKey = deps.itemForKey
@@ -213,7 +220,29 @@ function table_rows.new(deps: Deps)
 		mode), so which row is watched does not change the reading — and re-pointing
 		rather than accumulating is what stops a table that rebuilds its rows from
 		growing one observer per rebuild. The write is equality-guarded by the signal
-		itself, so a row built while the mode is closed writes nothing at all. ]]
+		itself, so a row built while the mode is closed writes nothing at all.
+
+		OWNED, LIKE EVERY OTHER OBSERVE IN THIS PAIR (scope-neutrality fix,
+		FIX-SHOW round 2). `unbindEditGutter` still fires by hand on every rebind —
+		that manual call is what keeps a rebuilding table from accumulating one
+		observer per row — but until this fix the disposer `core:observe` returns
+		was never also handed to `scope`, so the FINAL wrapped row's subscription
+		had no owner at all: nothing calls it when `tbl.dispose()` runs.
+		`src/core/custom.luau` (the production default) happens to self-heal this
+		one today — a disposed signal/memo's OWN `node.dispose()` walks its
+		`node.observers` and force-decrements `counts.observers` for each,
+		because `tbl.dispose()` always disposes the owning `row_actions` instance
+		(hence `editGutterPx`) before Table's own `scope` — but `core/contract.
+		luau`'s promise is that an observer is released ONLY through the disposer
+		`core:observe` returns, and `src/core/imperative.luau` (the other
+		conforming core this repo ships and runs the identical control suite
+		against) keeps exactly that promise with no self-heal, so there the
+		subscription is never released at all. `scope:own` fixes that under
+		EITHER core, the same way the other seven `core:observe` call sites in
+		this file's pair do; calling an already-disposed observer's unbind again
+		(the walk `scope:dispose()` performs on every prior row's now-stale
+		entry) is a no-op by construction on both cores, so nothing here
+		double-frees. ]]
 	local rowEditGutter = deps.rowEditGutter
 	local unbindEditGutter: (() -> ())? = nil
 	local function noteEditGutter(source: any)
@@ -223,9 +252,9 @@ function table_rows.new(deps: Deps)
 		if unbindEditGutter ~= nil then
 			unbindEditGutter()
 		end
-		unbindEditGutter = core:observe(source, function()
+		unbindEditGutter = scope:own(core:observe(source, function()
 			rowEditGutter:set(source:get())
-		end)
+		end))
 		rowEditGutter:set(source:get())
 	end
 	-- the edit-mode ≡ handle reuses the row-drag closures; forward-declared for

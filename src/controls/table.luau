@@ -1787,6 +1787,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		columnHidden = columnHidden,
 		canEditMode = canEditMode,
 		rowEditGutter = rowEditGutter,
+		scope = scope,
 		-- the SAME environment every other read site takes (ISSUE-4): a wrapped
 		-- row's tray metrics must not resolve against a different one
 		surfaceEnvironment = surfaceEnvironment,
