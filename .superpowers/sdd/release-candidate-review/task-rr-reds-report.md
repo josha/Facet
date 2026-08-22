@@ -229,14 +229,35 @@ overflow guard: the waiver registry cannot rot
 7000 passed
 ```
 
-`368f69e` is the newest **source-bearing** Facet commit; the two commits that
-landed above it while this task ran (`aa4321d`, `3011bcd`) are report-only, so
-the archive under test is the current source tree. Facet's own HEAD moved four
-times during this task — which is precisely why every number here names its sha.
+### 6.1 Re-measured after both HEADs moved underneath this task
+
+Facet's HEAD moved **six** times while this task ran and RR's once, which is
+precisely why every number here names its sha rather than saying "HEAD". After
+this report's own commit landed, two later Facet commits touched `src/` —
+`src/client/roblox_env.luau` and `src/layout/measure_facts.luau`, **comment text
+only** (`check_comment_codes` prose), verified by reading the diff. Rather than
+argue that a comment cannot move a number, the whole pair was rebuilt and both
+suites re-run.
+
+Pair: Facet **`ba5be7bf87ef5abaaecda364b8dfe1a1ceb72fce`** + RR
+**`cae4c7a2b352a4363439b57bb1fc53749e3d41a4`**, both `git archive`.
+
+| | |
+|---|---|
+| Facet | **7000 passed, 0 failed** |
+| RascalRally | **3465 passed, 0 failed** |
+
+RR is 3465 rather than 3464 because RR's own `cae4c7a` ("the plates this game
+rounds by name now round at distance too") adds one case. Both numbers are green
+on both pinned pairs, five minutes apart, across a `src/` change and an RR
+commit — the retraction does not depend on which of them you take.
 
 `stylua`: **N/A** — this task wrote no `.luau`. The only files it changes are this
 report and an erratum block in `task-overflow-guard-report.md`.
 `check_doc_style`: **PASS** (23 documents).
+
+Commits: **`d0e554e`** — the report and the erratum — and one follow-up carrying
+§6.1, the re-measurement forced by both HEADs moving underneath the first one.
 
 ## 7. Files touched
 
