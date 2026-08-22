@@ -256,6 +256,11 @@ local withAnimationLib = require("./with_animation")
 -- consumers of the D1 anchored seam and neither mounts a surface of its own.
 local helpPlateLib = require("./help_plate")
 local calloutQueueLib = require("./callout_queue")
+-- the surface lifecycle helpers — the shared focus-visual sync, the per-frame
+-- refresh body and the dismissal pair. See that module's header for the seam
+-- (docs/handoff/SOURCE_CAP_LEDGER.md's row for this file named it) and
+-- tests/surface_lifecycle_seam.spec.luau for what mechanises it.
+local surfaceLifecycleLib = require("./surface_lifecycle")
 
 -- ALIASED TO THE SAME LOCAL NAMES the 3 500-line `presenter.new` closure below already
 -- calls (2026-08-06). The focus-order/traversal-rank/navigation-group derivations and
@@ -623,174 +628,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	local handleByPath: ((string) -> any)? = nil
 
-	-- FULL-VALUE DISCLOSURE (LTN-4), forward-declared: the plate's machinery needs
-	-- the mount/render collaborators built further down, while the three places
-	-- that ENGAGE or DISENGAGE it — the focus observer just below, the surface tap
-	-- handler, and `dismiss` — all sit above it. Reassigned once, never rebound.
-	local syncDisclosureFocus: (path: string?) -> () = function() end
-	local dismissDisclosure: (reason: string) -> () = function() end
-	-- ...and its D3a sibling, forward-declared for the same reason: `help` rides
-	-- the same focus observer, because a second copy of "is this surface actually
-	-- reaching the keyboard" is a copy that will not get the next rule
-	local syncHelpFocus: (path: string?) -> () = function() end
-
-	-- the path an ARMED drag session was last aimed at, so "armed follows focus"
-	-- re-aims on a focus MOVE rather than on every sync (see the block below)
-	local lastArmedAim: string? = nil
-	-- ...and whether the CURRENT armed session has been seen at all yet, so the
-	-- arming frame seeds the aim instead of counting as a move
-	local armedSeen = false
-	-- the focus this function last ran on, so the arming frame can tell "focus is
-	-- where it already was" from "arming moved focus here"
-	local prevFocusPath: string? = nil
-
-	-- one shared observer drives focus visuals across all presented handles
-	local function syncFocusVisuals(path: string?)
-		-- THE RING IS A NAVIGATION ANSWER, NOT A FOCUS ANSWER (DB-3(b)): a
-		-- pointer/touch-driven focus move tracks focus without drawing it.
-		local ringVisible = graph.focusVisible:get() ~= false
-		for _, handle in stack do
-			local rootPath = "/" .. (handle.blueprint.id or "")
-			--[[ SEGMENT-ALIGNED, because `/Menu` is a raw string prefix of
-				`/MenuBar/Save` and this decides which surface draws the ring (REUSE-3).
-				`isPathPrefix` is imported at the top of this file and was already the
-				right answer 370 lines above; this site wrote the unsafe form by hand. ]]
-			local owns = path ~= nil and isPathPrefix(rootPath, path :: string)
-			-- ...AND IT IS A CLAIM ABOUT WHO OWNS INPUT, SO A SURFACE THAT DOES NOT
-			-- OWN IT DRAWS NO RING (director playtest 2026-08-03 round 4: "when i hit
-			-- play and clicked on the world, the text field kept showing a focus ring
-			-- even though input goes to the avatar").
-			--
-			-- A passive surface has focus IDENTITY from the moment it mounts —
-			-- entry focus lands on its first focusable, which is correct and is what
-			-- every consumer that follows focus depends on. What it does not have is
-			-- the keyboard: it binds nothing until it engages. The ring was painted
-			-- from `focusVisible` alone, which only answers "was the last focus move
-			-- a pointer move or a navigation move", so a freshly mounted passive HUD
-			-- drew a full ring while every key it looked ready to receive went to the
-			-- avatar. The ring was not stale — it had never been true.
-			--
-			-- Clicking the world could not clear it either: a passive surface is not
-			-- `currentExclusive`, so there is no catcher and the click is never seen.
-			-- Gating on ownership fixes both halves at once — nothing to clear,
-			-- because nothing was ever drawn.
-			local ownsInput = not handle.isPassive or handle.responder:get() == "engaged"
-			handle.controller.setFocusPath(if owns then path else nil, ringVisible and ownsInput)
-			-- focus-gated Adjust bindings (matrix §B-Table): bind/unbind as focus
-			-- enters/leaves a declared adjust target so gameplay keys are never
-			-- shadowed while focus is elsewhere
-			-- ...AND SO DO THE ADJUST BINDINGS (round 7). These were gated on focus
-			-- alone, so a resigned surface kept Left/Right/Comma/Period bound to
-			-- whatever its focus was standing on. It is inert today only because a
-			-- passive surface's context is DISABLED — the keys are bound to a
-			-- context that delivers nothing — which is luck, not design: the whole
-			-- point of the dynamic binding is that a surface shadows no gameplay key
-			-- it is not using, and "bound but currently undeliverable" is exactly the
-			-- stuck-sink shape ADR-0014 forbids.
-			if handle.syncAdjustBindings ~= nil then
-				handle.syncAdjustBindings(if owns and ownsInput then path else nil)
-			end
-			-- ARMED FOLLOWS FOCUS (director virtual-controller round): while a
-			-- session is armed, every focus move IS the aim — the verdict paints
-			-- on the row you are standing on and the ghost rides along (RR
-			-- SponsorGesture §3: ghost-follows-focus). Without this, navigation
-			-- moved the ring but the session kept aiming at the hand, so a commit
-			-- landed where the pickup began.
-			--[[ …ON A FOCUS **MOVE**, NOT ON EVERY SYNC (director, 2026-08-04: "when
-				I tap to pick up a card, racers are randomly highlighted red or
-				green").
-
-				This block was written when `syncFocusVisuals` ran from ONE place: the
-				`graph.focused` observer, i.e. only when focus actually moved. Step 8
-				(desktop keyboard navigation) promoted it to a method and started
-				calling it unconditionally from `refresh()`, `engage()`, `resign()`
-				and `present()` — so "re-aim on a focus move" silently became "re-aim
-				on every frame".
-
-				That is what put a verdict wash on a row nobody aimed at. A tap that
-				ARMS deliberately skips the presenter's tap handler, so it never moves
-				focus onto the card slot; focus stays wherever it was left — most
-				often a racer row, because a successful play parks it there. The next
-				refresh then aimed the armed session at that row and painted it green
-				or red. It read as random because a pointer-origin focus move paints
-				no ring, so the player could not see where focus was standing.
-
-				Guarding on the path CHANGING restores the original meaning without
-				re-splitting the ownership decision into a second observer (round 7's
-				rule). `nil` is tracked too, so leaving and re-entering the same row
-				re-aims. ]]
-			if owns then
-				local reg = if handle.controller.peekDragRegistry ~= nil
-					then handle.controller.peekDragRegistry()
-					else nil
-				if reg ~= nil and reg.mode ~= nil and reg.mode() == "armed" then
-					if not armedSeen then
-						--[[ THE ARM ITSELF IS NOT A MOVE — but an arm that MOVES focus is.
-
-							Seed from the focus as it stood BEFORE this session armed, not
-							from the focus right now. That one distinction separates the two
-							real flows:
-
-							  · a touch tap-arm does not move focus at all (the tap path
-							    that arms deliberately skips the presenter's tap handler),
-							    so focus is still parked on whatever row the last play left
-							    it on. Seed == current => no aim, which is the director's
-							    report fixed: a pickup must not paint a row nobody chose.
-							  · a gamepad arm that lands focus on the first eligible row HAS
-							    moved it. Seed != current => aim, and the ghost hops to the
-							    row the ring just went to, exactly as before.
-
-							`prevFocusPath` is last call's focus, and this branch runs
-							before it is updated below — so it is the pre-arm value. ]]
-						armedSeen = true
-						lastArmedAim = prevFocusPath
-						if path ~= lastArmedAim then
-							lastArmedAim = path
-							reg.armTo(path)
-						end
-					elseif path ~= lastArmedAim then
-						lastArmedAim = path
-						reg.armTo(path)
-					end
-				else
-					-- no session: the next arm seeds itself again from scratch
-					armedSeen = false
-					lastArmedAim = nil
-				end
-			end
-		end
-		-- FOCUS ENTER IS ONE OF THE THREE ENGAGEMENTS (LTN-4). It rides this
-		-- function rather than its own observer for the reason round 7 recorded: a
-		-- second copy of the "does this surface own input" decision is a copy that
-		-- will not get the next rule added to the original. A surface that is not
-		-- painting a focus ring is not presenting a focus-driven plate either.
-		syncDisclosureFocus(path)
-		-- ...and so is a helped view's own sentence (D3a), from the same call and
-		-- under the same ownership decision
-		syncHelpFocus(path)
-		-- recorded LAST, so the armed-aim seed above reads the PREVIOUS call's focus
-		prevFocusPath = path
-	end
-	core:observe(graph.focused, syncFocusVisuals)
-	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
-	-- after a tap must bring the ring back onto the node the finger left it on,
-	-- without waiting for focus to move somewhere else.
-	core:observe(graph.focusVisible, function()
-		syncFocusVisuals(graph.focused:get())
-	end)
-	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
-	-- ring up on the node focus is already standing on (nothing moved, so neither
-	-- observer above fires), and resigning must take it away again. `engage()` and
-	-- `resign()` call this; it is exposed on the presenter rather than inlined
-	-- there because a handle cannot reach this closure.
-	function self.syncFocusVisuals()
-		syncFocusVisuals(graph.focused:get())
-	end
-
 	-- cross-surface z: a monotonic layer per presented surface (base first, each
 	-- later surface above). Deterministic and creation-ordered; the synthesized
 	-- scrim sits just BELOW its owner (spec §2.2).
-	local displayLayer = 0
+	-- A RECORD RATHER THAN A SCALAR, and it is the only thing the surface-
+	-- lifecycle split cost: `makeHandle` below INCREMENTS this counter while
+	-- `dismiss` (src/present/surface_lifecycle.luau) RESETS it, so the two
+	-- writers now live in two files and need one object between them rather than
+	-- two copies of a number.
+	local displayLayer = { value = 0 }
 
 	-- ===== synthesized scrim / popup catcher ==================================
 	-- The two full-viewport tap swallowers this presenter synthesizes moved into
@@ -1030,7 +876,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		plate.scope:dispose()
 	end
 
-	dismissDisclosure = function(_reason: string)
+	local function dismissDisclosure(_reason: string)
 		disclosureDwell = nil
 		disposeDisclosure()
 	end
@@ -1199,7 +1045,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		handleByPath = handleOwning,
 	})
 
-	syncDisclosureFocus = function(path: string?)
+	local function syncDisclosureFocus(path: string?)
 		-- A DIRECT ENGAGEMENT OUTRANKS FOCUS. A pointer dwell or a long press is a
 		-- deliberate ask about ONE label; focus merely happens to be somewhere, and
 		-- it is re-synced on every refresh. Without this, a refresh under a live
@@ -1259,7 +1105,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		    so a HUD that has not engaged does not describe itself unprompted.
 		  * `hasHelp` is stamped once at present, so a surface that declared no
 		    help anywhere pays nothing for the feature (the F-11 containment rule). ]]
-	syncHelpFocus = function(path: string?)
+	local function syncHelpFocus(path: string?)
 		if graph.focusVisible:get() == false then
 			helpPlate.focus(nil)
 			return
@@ -1434,7 +1280,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		plateShows = plateShows,
 	})
-	local retireRevealFor = textReveal.retireRevealFor
 	local stepReveal = textReveal.stepReveal
 	self.reveal = textReveal.reveal
 	self.movingText = textReveal.movingText
@@ -1455,6 +1300,61 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		handle.textRevealPending = false
 		handle.textRevealedExact = not pending
 		handle.controller.setRootVisible(true)
+	end
+
+	-- ===== surface lifecycle ==================================================
+	-- The shared focus-visual sync, the per-frame refresh body and the dismissal
+	-- pair moved into src/present/surface_lifecycle.luau for the 200,000-char
+	-- Source WRITE cap (see that header, and
+	-- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	--
+	-- BUILT HERE rather than where any of the three used to stand, because this
+	-- is the first line at which every collaborator they read is a FINAL value:
+	-- the two focus-driven plates, the anchored/callout registries, and the
+	-- reveal gate directly above. That is what makes the seam one-way — the
+	-- alternative was a record of forward declarations, which is the shape this
+	-- file has been paying for. REBOUND TO THEIR ORIGINAL NAMES, so not one call
+	-- site moved.
+	local surfaceLifecycle = surfaceLifecycleLib.new({
+		graph = graph,
+		stack = stack,
+		presenter = self,
+		displayLayer = displayLayer,
+		anchoredSurfaces = anchoredSurfaces,
+		helpPlate = helpPlate,
+		calloutQueue = calloutQueue,
+		revalidateDisclosure = revalidateDisclosure,
+		syncDisclosureFocus = syncDisclosureFocus,
+		syncHelpFocus = syncHelpFocus,
+		syncTextReveal = syncTextReveal,
+		retireRevealFor = textReveal.retireRevealFor,
+		emitFeedback = emitFeedback,
+		refreshExclusive = refreshExclusive,
+		syncScrim = syncScrim,
+	})
+	local syncFocusVisuals = surfaceLifecycle.syncFocusVisuals
+	-- THE TWO OBSERVERS REGISTER HERE rather than up beside the focus scalars,
+	-- where the function they call used to be declared, and that is order-neutral
+	-- for one measured reason: `presenter.new` mounts nothing, so these are still the
+	-- FIRST two observers on both signals — every other observer of
+	-- `graph.focused` in this library belongs to a CONTROL and is registered at
+	-- mount, which cannot happen until this constructor has returned. `observe`
+	-- also seeds `lastSeen` from the value at registration, so moving a
+	-- registration later inside one constructor cannot make it fire late.
+	core:observe(graph.focused, syncFocusVisuals)
+	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
+	-- after a tap must bring the ring back onto the node the finger left it on,
+	-- without waiting for focus to move somewhere else.
+	core:observe(graph.focusVisible, function()
+		syncFocusVisuals(graph.focused:get())
+	end)
+	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
+	-- ring up on the node focus is already standing on (nothing moved, so neither
+	-- observer above fires), and resigning must take it away again. `engage()` and
+	-- `resign()` call this; it is exposed on the presenter rather than inlined
+	-- there because a handle cannot reach this closure.
+	function self.syncFocusVisuals()
+		syncFocusVisuals(graph.focused:get())
 	end
 
 	-- ===== DRAG-PROXY HOST (ADR-0022 Decision 5; ui-designer §5.3/§6.3) ======
@@ -2633,8 +2533,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- arrived in. The synthesized scrim sits at displayOrder-50, beneath its
 			-- owner.
 			displayOrder = (function()
-				displayLayer += 100
-				return (if kind == "modal" then SURFACE_LAYER.modal else SURFACE_LAYER.base) + displayLayer
+				displayLayer.value += 100
+				return (if kind == "modal" then SURFACE_LAYER.modal else SURFACE_LAYER.base) + displayLayer.value
 			end)(),
 		}
 		if controller.setDisplayOrder ~= nil then
@@ -3510,275 +3410,17 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen")
 	end
 
-	function self.dismiss(handle: any)
-		--[[ A CHROME LAYER IS NOT ON THE STACK (D3a). `presentAnchored{ chrome =
-			true }` hand-mounts its own controller precisely so it can never take a
-			focus scope or an input context, so there is nothing here to remove — its
-			teardown is the anchored module's. One dismissal verb, two shapes. ]]
-		if type(handle) == "table" and handle.chrome == true then
-			anchoredSurfaces.dismissChrome(handle)
-			return
-		end
-		local index = table.find(stack, handle)
-		if index == nil then
-			return
-		end
-		table.remove(stack, index)
-		-- an ANCHORED surface stops being anchored the moment it leaves the stack
-		-- (D1): the record and the placement signals it owns die here, not a frame
-		-- later on the next sync
-		anchoredSurfaces.prune()
-		-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
-		-- (the "cross-surface z" band-offset counter above, `makeHandle`'s
-		-- `displayLayer += 100`) never went back down — a long-lived session
-		-- that opens and closes 100 present/dismiss cycles pushes every FUTURE
-		-- base screen's own `displayOrder` past the toast band (`SURFACE_LAYER
-		-- .toast`, +10000 above base), and 300 cycles pushes it past the modal
-		-- band too, silently reordering surfaces that were never touched.
-		-- Reset to its base the moment the stack goes empty — the one point a
-		-- fresh session and a long-lived one are indistinguishable (nothing is
-		-- presented, so no live `handle.displayOrder` depends on the counter's
-		-- current value), per the reviewer's own suggestion.
-		-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
-		-- (the "cross-surface z" band-offset counter above, `makeHandle`'s
-		-- `displayLayer += 100`) never went back down — a long-lived session
-		-- that opens and closes 100 present/dismiss cycles pushes every FUTURE
-		-- base screen's own `displayOrder` past the toast band (`SURFACE_LAYER
-		-- .toast`, +10000 above base), and 300 cycles pushes it past the modal
-		-- band too, silently reordering surfaces that were never touched.
-		-- Reset to its base the moment the stack goes empty — the one point a
-		-- fresh session and a long-lived one are indistinguishable (nothing is
-		-- presented, so no live `handle.displayOrder` depends on the counter's
-		-- current value), per the reviewer's own suggestion.
-		if #stack == 0 then
-			displayLayer = 0
-		end
-		handle.context.destroy()
-		-- pop any live transient popup trap scopes first, so removing the base
-		-- scope never leaves an orphaned trap on top (matrix §B PopupButton)
-		if handle.clearTransientScopes ~= nil then
-			handle.clearTransientScopes()
-		end
-		-- remove THIS handle's focus scope wherever it sits — dismissing a
-		-- covered screen must not pop the live top scope (verifier F3)
-		graph.removeScope(handle.blueprint.id or handle.kind)
-		--[[ AND STOP PAINTING FOCUS ON THE WAY OUT (director playtest 2026-08-03
-			round 5: "if the user does something that would dismiss the view, when
-			the view goes away we give up focus").
-
-			Removing the scope releases focus IDENTITY correctly — the graph moves
-			to the next scope's entry, or to nil. What it cannot do is un-paint the
-			departing surface: `syncFocusVisuals` iterates the live `stack`, and
-			this handle was removed from it three lines above, so the focus change
-			it just caused reaches every surface EXCEPT the one that was wearing the
-			ring. With an exit transition the tree stays mounted for the whole
-			animation, so the ring sat there, on a surface that had already stopped
-			taking input, until the instances were destroyed. Measured: `graph focus
-			= nil`, node still mounted, ring still `true`.
-
-			The input half was already right. This makes the paint tell the same
-			story. ]]
-		handle.controller.setFocusPath(nil)
-		-- ...and it stops being a SURFACE at the same moment, for the same reason
-		-- (ADR-0028). With an exit transition the tree stays mounted and fully
-		-- painted for the whole animation, and a departing screen covering its
-		-- replacement is the transition rather than a defect — so the
-		-- cross-surface overlap alarm's set of live surfaces is exactly this
-		-- stack, and this is the one call that keeps the two equal.
-		if handle.controller.retireSurface ~= nil then
-			handle.controller.retireSurface()
-		end
-		-- ...and so does any disclosure plate this surface owns: the handle is out
-		-- of `stack` above, so the revalidation resolves it (LTN-4)
-		revalidateDisclosure()
-		-- ...and any help plate it raised, on the same call and for the same
-		-- reason — a dismissed presenter may never refresh again (D3a)
-		helpPlate.revalidate()
-		-- ...and a callout whose surface this WAS is released from the queue, so
-		-- the next one in line is promoted instead of the queue stalling (D3b)
-		calloutQueue.prune()
-		-- ...and the reveal strip goes with its owner SYNCHRONOUSLY, exactly as
-		-- the plate does — a dismissed presenter may never tick again, and a
-		-- strip that waited for one would leak its overlay and the held paint
-		retireRevealFor(handle)
-		-- the dismissal is a fact the moment it is decided, not when the pixels
-		-- finish moving (SF-F1's causal frame)
-		emitFeedback({ type = "dismiss", path = "/" .. (handle.blueprint.id or handle.kind), surface = handle })
-		local function teardown()
-			handle.controller.dispose()
-			-- handle.scope owns the mount child scope; disposing it disposes the
-			-- mounted tree exactly once (a separate root.dispose() here double-
-			-- disposed the 'mount' child — phase-4 fault injection, input-switch)
-			handle.scope:dispose()
-			if handle.coordinator ~= nil then
-				handle.coordinator.dispose()
-			end
-		end
-		-- A DISMISSED SURFACE LEAVES THE STACK NOW AND THE SCREEN LATER. Its input
-		-- context is destroyed, its focus scope popped and its exclusivity dropped
-		-- above — a surface on its way out must never still take input — while the
-		-- mounted tree and the instances live on until the exit completes, or until
-		-- the coordinator's flat 500 ms cap fires. `dismiss` is idempotent through
-		-- the stack check, so a second call during the exit does nothing.
-		if handle.transition ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
-			local spec = transitionsLib.resolve(handle.transition)
-			if spec.exit ~= "instant" then
-				handle.coordinator.beginExit(handle.transitionNode.path, handle.transitionNode, spec, teardown)
-				refreshExclusive()
-				syncScrim()
-				return
-			end
-		end
-		teardown()
-		refreshExclusive() -- dismissing a modal may lower the exclusive flag
-		syncScrim() -- retire or re-home the scrim to the new top exclusive surface
-	end
-
-	function self.back()
-		for i = #stack, 1, -1 do
-			if stack[i].kind == "modal" then
-				self.dismiss(stack[i])
-				return true
-			end
-		end
-		return false
-	end
-
-	-- THE FRAME'S OWN SCOPE (2026-08-05). Everything below runs on the host's frame
-	-- connection whether or not anything changed, and until this scope existed none of
-	-- the nine layout phases could see it: they only open when there is layout work,
-	-- so a frame that solved nothing profiled as free while costing 2 ms.
-	-- RE-DERIVE THE FOCUS MAP from the CURRENT mounted tree, so focusables mounted or
-	-- unmounted by `When`/`ForEach` stay reachable and dead paths never receive
-	-- Activate (phase-1 verifier finding F1). The rank is re-derived here with the
-	-- order, from the same tree walk, so a list that grew or shrank between presses
-	-- ranks its current members and never sorts by a map describing rows that no
-	-- longer exist.
-	-- ONLY THE DERIVATION IS CACHED, NEVER THE GRAPH CALL (2026-08-05). `replaceGroups`
-	-- and `setOrder` are not pure: on the topmost scope they re-seed focus when the
-	-- current path is no longer in the order, and that re-seed is load-bearing for the
-	-- passive/resign behaviour this project spent seven director rounds getting right.
-	-- So the walk is skipped and the call is still made, with the same arguments it
-	-- would have been given. Nothing downstream of this function can tell the
-	-- difference; the two tree walks and the rank sort simply stop repeating.
-	local function focusDerivation(handle: any): any
-		local ctrl = handle.controller
-		local epoch = if ctrl ~= nil and ctrl.structureEpoch ~= nil then ctrl.structureEpoch() else nil
-		local cached = handle.focusDerived
-		-- the FUNCTION is part of the key: `syncContributions` can swap a surface from
-		-- the flat ring to `autoGroups` mid-refresh when a contribution with
-		-- focusGroups mounts, and that changes the derivation without touching the tree
-		if
-			epoch ~= nil
-			and cached ~= nil
-			and cached.epoch == epoch
-			and cached.fn == handle.navigationGroupsFn
-			and cached.autoFocusMap == handle.autoFocusMap
-		then
-			return cached
-		end
-		local hidden = if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
-		local derived: any
-		if handle.navigationGroupsFn ~= nil then
-			local groups = filterGroupsHidden(handle.navigationGroupsFn(handle.root.node), hidden)
-			derived = {
-				grouped = true,
-				groups = groups,
-				rank = if handle.autoFocusMap == false then nil else traversalRank(handle.root.node, nil, groups),
-			}
-		else
-			local order: { string } = {}
-			focusOrder(handle.root.node, order)
-			order = filterHidden(order, hidden)
-			derived = { grouped = false, order = order, rank = traversalRank(handle.root.node, order, nil) }
-		end
-		derived.epoch = epoch
-		derived.fn = handle.navigationGroupsFn
-		derived.autoFocusMap = handle.autoFocusMap
-		-- a controller with no epoch (a test double, an older adapter) simply never
-		-- caches: `epoch == nil` fails the hit test above every time
-		handle.focusDerived = if epoch ~= nil then derived else nil
-		return derived
-	end
-
-	local function syncFocusMap(handle: any)
-		local derived = focusDerivation(handle)
-		local scopeName = handle.blueprint.id or handle.kind
-		if derived.grouped then
-			graph.replaceGroups(scopeName, derived.groups, derived.rank)
-		else
-			graph.setOrder(scopeName, derived.order, derived.rank)
-		end
-	end
-
-	local refreshBody: () -> ()
-	function self.refresh()
-		profile.span("present", refreshBody)
-	end
-
-	function refreshBody()
-		for _, handle in stack do
-			handle.controller.refresh()
-			-- FIRST: re-discover the input contributions from the tree this refresh
-			-- just re-rendered (device round 1, DB-4). Before the focus map below,
-			-- because a contribution that just mounted owns the groups that map is
-			-- built from — wiring it a frame later would give the surface one frame
-			-- of the wrong navigation model and, worse, one frame in which a tap on
-			-- a freshly-mounted control dispatches to nothing.
-			if handle.syncContributions ~= nil then
-				handle.syncContributions()
-			end
-			-- a region that mounted since the last refresh has handles only now, so
-			-- its enter transition's seeded values land here rather than a frame late
-			if handle.coordinator ~= nil then
-				handle.coordinator.flush()
-			end
-			-- re-feed solved geometry to keep-visible-aware controls (opt or
-			-- every contribution's syncGeometry — see makeHandle.feedGeometry)
-			handle.feedGeometry(handle.controller.rectOf)
-			-- a gated surface reveals itself the moment its text round closes
-			syncTextReveal(handle)
-			-- re-derive the focus map from the CURRENT mounted tree so
-			-- focusables mounted/unmounted by When/ForEach stay reachable and
-			-- dead paths never receive Activate (phase-1 verifier finding F1)
-			-- the rank is RE-DERIVED here with the order, from the same tree walk, so
-			-- a list that grew or shrank between presses ranks its current members
-			-- and never sorts by a map describing rows that no longer exist
-			profile.span("focusmap", function()
-				syncFocusMap(handle)
-			end)
-			-- push/pop transient popup trap scopes now that the popup rows are
-			-- mounted/unmounted (matrix §B PopupButton; transientScope) — AFTER the
-			-- base order update so a close restores focus to the trigger cleanly
-			if handle.syncTransientScopes ~= nil then
-				handle.syncTransientScopes()
-			end
-		end
-		-- re-gate the dynamic Adjust bindings and the focus ring: adjust targets may
-		-- have churned (rows added/removed) even when the focused path is unchanged.
-		--
-		-- THROUGH THE SHARED FUNCTION, once, after the loop (round 7). This was a
-		-- hand-rolled copy of the ownership decision that syncFocusVisuals makes —
-		-- and being a copy, it did not get the ownership gate, so every refresh
-		-- re-bound the Adjust keys onto a surface that had already resigned. That is
-		-- the second time in this stage a duplicate of this exact decision has
-		-- silently opted out of a rule added to the original (the first was
-		-- `setFocusPath(current)` in makeHandle). There is now one.
-		self.syncFocusVisuals()
-		-- ...and every ANCHORED surface re-reads its source (D1). AFTER the loop,
-		-- because a surface is anchored to a rect that belongs to a DIFFERENT
-		-- handle, which has only just re-rendered and re-fed its geometry. This is
-		-- the cadence a real scroll already drives — the same one row_actions'
-		-- floating menu re-aims on — so following a moving source asks nothing new
-		-- of any caller and adds no watcher.
-		anchoredSurfaces.sync()
-		-- ...and a disclosure plate is checked against the tree that just
-		-- re-rendered: its source node may be gone, or the re-solve may have made
-		-- room for the label (LTN-4)
-		revalidateDisclosure()
-		-- ...and a help plate against the same tree, for the same reason (D3a)
-		helpPlate.revalidate()
-	end
+	-- `dismiss` and `back` live in src/present/surface_lifecycle.luau now, with
+	-- the shared focus-visual sync and the refresh body — see that module's
+	-- header for why the three are one seam and what the `displayLayer` record
+	-- costs. Bound HERE, where they have always been declared, so every caller
+	-- reads the same `self.dismiss` it always did.
+	self.dismiss = surfaceLifecycle.dismiss
+	self.back = surfaceLifecycle.back
+	-- ...and so does `refresh`, whose loop ends by calling the focus-visual sync
+	-- back through `self` — round 7's rule, that there is exactly ONE copy of the
+	-- "does this surface own input" decision, is what keeps them in one file.
+	self.refresh = surfaceLifecycle.refresh
 
 	-- ===== withAnimation (docs/plans/parity-round2.md §Phase 1) ===============
 	--

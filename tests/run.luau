@@ -35,6 +35,15 @@ require("./measure_memo.spec")
 	HOSTS, plus the four-name write surface, the exports against the binding
 	block, and that the module holds no module-level mutable state ]]
 require("./measure_facts_seam.spec")
+--[[ the surface-lifecycle SEAM (2026-08-22, SOURCE_CAP_LEDGER): what keeps
+	`present/surface_lifecycle.luau` one-way now that `presenter.luau` has stopped
+	carrying the focus-visual sync, the refresh body and the dismissal pair. This
+	seam DOES have a parameter object, so the three sets are the record's keys as
+	the presenter HOSTS them, as the module DECLARES them and as its body READS
+	them — plus the one-name write surface, `EXPORTED == BOUND` in both
+	directions, no module-level mutable state, and the rule this document's other
+	seams did not need: that `displayLayer` stays ONE record with two writers ]]
+require("./surface_lifecycle_seam.spec")
 require("./fine_grained_reactivity.spec")
 --[[ the reactive core's RECOVERY half (release-candidate review RR-1..RR-11):
 	whether a memo that failed, an effect that disposed itself, or a settle
