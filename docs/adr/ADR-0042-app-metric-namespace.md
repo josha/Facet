@@ -48,14 +48,15 @@ remember to climb.
 ## Decision — a reserved `app.*` namespace the application declares once
 
 ```lua
-Facet.themes.declareApp({ tileMin = 96, sponsor = { rowHeight = { landscape = 56 } } })
+Facet.themes.declareApp("cartwheel", { tileMin = 96, gallery = { rowHeight = 56 } })
 ```
 
-From that call on, `"app.tileMin"` is a metric name in every sense the framework
-already has one:
+From that call on, `"app.cartwheel.tileMin"` is a metric name in every sense the
+framework already has one:
 
-1. **Spellable.** `isMetricPath("app.tileMin")` is true, so `px = "app.tileMin"`
-   passes the same construction check `px = "iconSizes.large"` passes — and an
+1. **Spellable.** `isMetricPath("app.cartwheel.tileMin")` is true, so
+   `px = "app.cartwheel.tileMin"` passes the same construction check
+   `px = "iconSizes.large"` passes — and an
    **undeclared** `app.*` name is refused exactly as `iconSizes.enormous` is.
    Declaring is what makes a name legal; a typo is a build error, not a nil size
    on the first solve of a themed screen.
@@ -86,9 +87,22 @@ consumers that reported the gap unable to use the fix.
 `declaredApp` is therefore the one mutable module-level fact in the pure theme
 half, and it is fenced: `declareApp` validates, deep-freezes, and drops the
 `neutral()` memo, so the snapshot `isMetricPath` spells names against can never
-outlive the vocabulary it was resolved with. Re-declaring is legal because the
-alternative is a global nobody can put back — a test restores the previous
-namespace, and an app has no reason to call it twice.
+outlive the vocabulary it was resolved with.
+
+### Why a declaration claims a GROUP rather than the whole section
+
+The first draft took `declareApp(metrics)` and replaced the section. That is
+wrong in this repository's own showcase: `examples/gallery` mounts **five**
+reference proofs in one place and the picker switches between them at runtime, so
+the second proof's boot would have silently un-spelled the first proof's names —
+and every form the picker rebuilt after the switch would have refused to
+construct, with a message blaming a name that was correct when it was written.
+
+So a declaration claims exactly one top-level group and replaces only that group;
+`nil` retires it, which is also how a test puts the process back the way it found
+it. Two apps cannot collide by construction, and the group name is the one
+segment that says **whose** number this is — which is what `metrics.sponsor.*`
+was trying to spell in the Rascal Rally shim all along.
 
 ### Why the default class is LENGTH
 
@@ -181,7 +195,7 @@ Declare at boot, before the first form is built.
 - **Let each package declare its own app names.** Leaves the two showcase proofs
   — which install no package — exactly where they were, and makes the same app
   number a different name under two themes.
-- **A flat namespace.** The ten-foot classification reads every path SEGMENT, so
-  `app.sponsor.mapFraction.landscape` is exempt while a flattened
-  `app.sponsorMapFractionLandscape` would not be. Grouping is load-bearing, not
-  cosmetic.
+- **A flat namespace.** Twice load-bearing. The ten-foot classification reads
+  every path SEGMENT, so `app.sponsor.mapFraction.landscape` is exempt while a
+  flattened `app.sponsorMapFractionLandscape` would not be; and the top-level
+  group is what keeps two apps in one process from clobbering each other.

@@ -5670,38 +5670,45 @@ against the neutral snapshot, so before this channel there was nowhere to put
 them: they stayed literals, outside every theme, outside a package swap, and
 outside the ten-foot ladder.
 
-`themes.declareApp(metrics)` reserves them. Call it **once, at app boot, before
-the first form is built**:
+`themes.declareApp(namespace, metrics)` reserves them under **your app's own
+group**. Call it **once, at app boot, before the first form is built**:
 
 ```lua
-Facet.themes.declareApp({
+Facet.themes.declareApp("cartwheel", {
     tileMin = 96,
     chartH = 160,
-    sponsor = { rowHeight = { landscape = 56, portrait = 60 } },
+    gallery = { rowHeight = { landscape = 56, portrait = 60 } },
 })
 ```
 
-From then on `"app.tileMin"` and `"app.sponsor.rowHeight.landscape"` are metric
-names like any other: `px = "app.tileMin"` passes the same construction check
+From then on `"app.cartwheel.tileMin"` and
+`"app.cartwheel.gallery.rowHeight.landscape"` are metric names like any other:
+`px = "app.cartwheel.tileMin"` passes the same construction check
 `px = "iconSizes.large"` passes, `themes.resolve` publishes them on **every**
 package (so a proof that must mount under Studio Neutral *and* Fantasy Parchment
 keeps its geometry either way), and `themes.resolve`'s `overrides` and a
 package's `metrics.tenFoot` both reach them.
 
-The declaration is **validated, not guessed at**: every key must be an identifier
-(a `.` would make the dotted path ambiguous) and every leaf a finite number.
-An **undeclared** `app.*` name is refused at construction exactly as
-`iconSizes.enormous` is — declaring is what makes a name spellable, so a typo is
-a build error rather than a nil size on the first solve.
-`themes.appMetrics()` reads the declaration back, frozen; passing `nil` clears
-it. The namespace is process-wide because `isMetricPath` runs at construction
-with no snapshot in scope, which is the whole point of it.
+**The group is not decoration.** The namespace is process-wide, and one place may
+host several apps — this repo's own showcase mounts five reference proofs and
+switches between them at runtime. A declaration replaces **only its own group**,
+so two apps compose instead of the second one silently un-spelling the first
+one's names; `declareApp(namespace, nil)` retires a group.
+
+The declaration is **validated, not guessed at**: the namespace and every key
+must be an identifier (a `.` would make the dotted path ambiguous) and every leaf
+a finite number. An **undeclared** `app.*` name is refused at construction
+exactly as `iconSizes.enormous` is — declaring is what makes a name spellable, so
+a typo is a build error rather than a nil size on the first solve.
+`themes.appMetrics()` reads the whole section back, frozen. The namespace is
+process-wide because `isMetricPath` runs at construction with no snapshot in
+scope, which is the whole point of it.
 
 **A theme may move them.** A package's `metrics.app` is its answer for an app
 number, exactly as `metrics.space` is its answer for a spacing step:
 
 ```lua
-themes.define({ base = themes.neutralPackage(), … , metrics = { app = { tileMin = 128 } } })
+themes.define({ base = themes.neutralPackage(), … , metrics = { app = { cartwheel = { tileMin = 128 } } } })
 ```
 
 Names it does not mention keep the app's own value. A package that names an app
@@ -5712,9 +5719,9 @@ moves.
 **They ride the ten-foot ladder**, with `controls.*`'s rule word for word: an app
 metric is a **length** unless one of its name segments says otherwise
 (`*TextSize`, `*Lines`, `*Count`, `*Duration`, `*Seconds`, `*Ratio`, `*Fraction`,
-`*Scale`, `*Opacity`, `*Weight`). So `app.tileMin` is 144 on a television while
-`app.sponsor.mapFraction.landscape` and `app.sponsor.listRowCount` stay exactly
-what they are — name a fraction, a count, seconds or a type size accordingly and
+`*Scale`, `*Opacity`, `*Weight`). So `app.cartwheel.tileMin` is 144 on a
+television while `app.sponsor.mapFraction.landscape` and
+`app.sponsor.listRowCount` stay exactly what they are — name a fraction, a count, seconds or a type size accordingly and
 the ladder leaves it alone. A pixel package snaps app **lengths** onto its own
 grid and leaves the rest untouched. A package's authored `metrics.app` entries
 appear in the theme dump (`token_sync.records`) as `app.<path>` and round-trip

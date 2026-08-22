@@ -391,12 +391,20 @@ end
 	app OWNS the names, every resolved snapshot carries them, and a PACKAGE may
 	MOVE any of them (`metrics.app`) exactly as it moves `space.m`.
 
+	ONE GROUP PER DECLARER, AND THAT IS NOT TIDINESS. The namespace is
+	process-wide, and this repo's own showcase mounts FIVE reference proofs in one
+	place — so a `declareApp(metrics)` that replaced the whole section would let
+	the second proof's boot silently un-spell the first proof's names, and every
+	form the picker rebuilt after the switch would refuse to construct. A
+	declaration therefore claims exactly one top-level GROUP
+	(`declareApp("cartwheel", …)` -> `app.cartwheel.tileMin`), replaces only that
+	group, and `nil` retires it. Two apps cannot collide by construction, and the
+	group name is the one segment that says WHOSE number this is.
+
 	IT IS THE ONE MUTABLE MODULE-LEVEL FACT IN THIS FILE, and it is fenced:
 	`declareApp` validates, freezes and drops the neutral memo, so `neutral()`
 	and every later `resolve` see the same namespace and no snapshot is ever
-	half-declared. Declaring is an app-BOOT act — before the first form is built
-	— and re-declaring is legal (a test restores the previous namespace) because
-	the alternative is a global nobody can put back. ]]
+	half-declared. Declaring is an app-BOOT act — before the first form is built. ]]
 local declaredApp: any = table.freeze({})
 -- …and the memo `declareApp` has to drop, declared here because the declaration
 -- is what decides which names `neutral()` can spell (`snapshot.neutral` below is
@@ -413,7 +421,7 @@ local function checkAppNode(node: any, prefix: string)
 	for key, value in node do
 		assert(
 			isAppSegment(key),
-			`themes.declareApp: '{prefix}{tostring(key)}' is not a legal metric name `
+			`themes.declareApp: 'app.{prefix}{tostring(key)}' is not a legal metric name `
 				.. `(letters, digits and underscore, starting with a letter or underscore)`
 		)
 		local path = `{prefix}{key}`
@@ -428,25 +436,39 @@ local function checkAppNode(node: any, prefix: string)
 	end
 end
 
---[[ declareApp(metrics) -> the frozen namespace.
+--[[ declareApp(namespace, metrics) -> the whole frozen `app` section.
 
-	`nil` clears it. Returns what was installed so a caller can hold the frozen
-	table (a test restores the previous one; an app has no reason to). ]]
-function snapshot.declareApp(metrics: any): any
+	`metrics = nil` RETIRES that group, which is how a test puts the process back
+	the way it found it. Returns the whole section rather than the group, because
+	the whole section is what `isMetricPath` spells against and what a caller
+	inspecting the namespace wants to see. ]]
+function snapshot.declareApp(namespace: any, metrics: any): any
+	assert(
+		isAppSegment(namespace),
+		`themes.declareApp: '{tostring(namespace)}' is not a legal app namespace `
+			.. `(letters, digits and underscore, starting with a letter or underscore) — `
+			.. `it is the group your metrics live under, e.g. declareApp("cartwheel", \{ tileMin = 96 })`
+	)
 	assert(
 		metrics == nil or type(metrics) == "table",
-		`themes.declareApp: expected a table of app metrics, got {type(metrics)}`
+		`themes.declareApp('{namespace}'): expected a table of app metrics or nil, got {type(metrics)}`
 	)
-	local declaration = if metrics == nil then {} else metrics
-	checkAppNode(declaration, "")
-	declaredApp = frozenClone(declaration)
+	if metrics ~= nil then
+		checkAppNode(metrics, `{namespace}.`)
+	end
+	local next_: any = {}
+	for group, entries in declaredApp do
+		next_[group] = entries
+	end
+	next_[namespace] = if metrics == nil then nil else frozenClone(metrics)
+	declaredApp = table.freeze(next_)
 	-- the neutral snapshot is what `isMetricPath` spells names against, so it
 	-- cannot outlive the vocabulary it was resolved with
 	neutralCache = nil
 	return declaredApp
 end
 
--- the declared namespace, frozen. `{}` until an app declares one.
+-- the declared namespace, frozen. `{}` until an app declares a group.
 function snapshot.appMetrics(): any
 	return declaredApp
 end

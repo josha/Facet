@@ -18,11 +18,14 @@
 
 	This file is the contract for the channel that replaces them:
 
-	  1. it is DECLARED once (`Facet.themes.declareApp`), and declaring is
-	     validated — a name that is not a legal identifier, or a value that is not
-	     a finite number, is refused rather than guessed at;
-	  2. a declared name is SPELLABLE — `isMetricPath("app.tileMin")` — so
-	     `px = "app.tileMin"` passes the same construction check
+	  1. it is DECLARED once per app, under that app's own GROUP
+	     (`Facet.themes.declareApp("cartwheel", …)`), and declaring is validated —
+	     a name that is not a legal identifier, or a value that is not a finite
+	     number, is refused rather than guessed at. The group is what lets the
+	     showcase mount five proofs in one process without the second one
+	     un-spelling the first one's names;
+	  2. a declared name is SPELLABLE — `isMetricPath("app.proof.tileMin")` — so
+	     `px = "app.proof.tileMin"` passes the same construction check
 	     `px = "iconSizes.large"` passes, and an UNDECLARED `app.*` name is
 	     refused exactly as `iconSizes.enormous` is;
 	  3. it RESOLVES on every snapshot, whatever package is installed, so a proof
@@ -57,11 +60,12 @@ local function refusal(report: any): string
 	return if type(first) == "table" then tostring(first.message) else "?"
 end
 
+local GROUP = "proof"
+
 local function withApp(declaration: any, body: () -> ())
-	local previous = themes.appMetrics()
-	themes.declareApp(declaration)
+	themes.declareApp(GROUP, declaration)
 	local ok, err = pcall(body)
-	themes.declareApp(previous)
+	themes.declareApp(GROUP, nil)
 	if not ok then
 		error(err, 0)
 	end
@@ -81,72 +85,96 @@ local PROOF = {
 }
 
 describe("app metrics: declaring the namespace", function()
-	it("declares names, reads them back frozen, and clears", function()
+	it("declares names under its own group, reads them back frozen, and retires them", function()
 		withApp(PROOF, function()
 			local declared = themes.appMetrics()
-			expect(declared.tileMin).toBe(96)
-			expect(declared.sponsor.rowHeight.landscape).toBe(56)
+			expect(declared.proof.tileMin).toBe(96)
+			expect(declared.proof.sponsor.rowHeight.landscape).toBe(56)
 			expect(table.isfrozen(declared)).toBe(true)
-			expect(table.isfrozen(declared.sponsor)).toBe(true)
+			expect(table.isfrozen(declared.proof.sponsor)).toBe(true)
 		end)
-		-- restored: the namespace is exactly what it was
-		expect(themes.appMetrics().tileMin).toBe(nil)
+		-- retired: the group is gone and nothing else was touched
+		expect(themes.appMetrics().proof).toBe(nil)
+	end)
+
+	--[[ THE REASON A GROUP EXISTS. `examples/gallery` mounts five reference
+		proofs in ONE place and the picker switches between them at runtime, so a
+		declaration that replaced the whole section would let the second proof's
+		boot un-spell the first proof's names — and every form the picker rebuilt
+		after the switch would refuse to construct. Two groups compose; neither can
+		reach the other's. ]]
+	it("two apps in one process compose instead of clobbering", function()
+		themes.declareApp("alpha", { tileMin = 96 })
+		themes.declareApp("beta", { tileMin = 200 })
+		expect(snapshot.isMetricPath("app.alpha.tileMin")).toBe(true)
+		expect(snapshot.isMetricPath("app.beta.tileMin")).toBe(true)
+		local snap = snapshot.neutral()
+		expect(snapshot.resolveNumber(snap, "app.alpha.tileMin")).toBe(96)
+		expect(snapshot.resolveNumber(snap, "app.beta.tileMin")).toBe(200)
+		-- retiring one leaves the other exactly where it was
+		themes.declareApp("alpha", nil)
+		expect(snapshot.isMetricPath("app.alpha.tileMin")).toBe(false)
+		expect(snapshot.isMetricPath("app.beta.tileMin")).toBe(true)
+		themes.declareApp("beta", nil)
 	end)
 
 	--[[ REFUSE, DON'T GUESS. Every one of these is a shape that would otherwise
 		become a silent nil on the first solve of a themed screen. ]]
 	it("refuses a name that is not a legal metric identifier", function()
-		expect(pcall(themes.declareApp, { ["tile-min"] = 96 })).toBe(false)
-		expect(pcall(themes.declareApp, { ["tile.min"] = 96 })).toBe(false)
-		expect(pcall(themes.declareApp, { ["9lives"] = 96 })).toBe(false)
-		expect(pcall(themes.declareApp, { [1] = 96 })).toBe(false)
-		expect(themes.appMetrics().tileMin).toBe(nil)
+		expect(pcall(themes.declareApp, GROUP, { ["tile-min"] = 96 })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { ["tile.min"] = 96 })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { ["9lives"] = 96 })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { [1] = 96 })).toBe(false)
+		expect(themes.appMetrics()[GROUP]).toBe(nil)
 	end)
 
 	it("refuses a value that is not a finite number", function()
-		expect(pcall(themes.declareApp, { tileMin = "96" })).toBe(false)
-		expect(pcall(themes.declareApp, { tileMin = 0 / 0 })).toBe(false)
-		expect(pcall(themes.declareApp, { tileMin = math.huge })).toBe(false)
-		expect(pcall(themes.declareApp, { tileMin = true })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { tileMin = "96" })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { tileMin = 0 / 0 })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { tileMin = math.huge })).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, { tileMin = true })).toBe(false)
 	end)
 
-	it("refuses a non-table declaration", function()
-		expect(pcall(themes.declareApp, 96)).toBe(false)
-		expect(pcall(themes.declareApp, "tileMin")).toBe(false)
+	it("refuses a non-table declaration and an illegal group name", function()
+		expect(pcall(themes.declareApp, GROUP, 96)).toBe(false)
+		expect(pcall(themes.declareApp, GROUP, "tileMin")).toBe(false)
+		expect(pcall(themes.declareApp, "not a group", { tileMin = 96 })).toBe(false)
+		expect(pcall(themes.declareApp, nil, { tileMin = 96 })).toBe(false)
+		expect(pcall(themes.declareApp, "proof.sub", { tileMin = 96 })).toBe(false)
 	end)
 end)
 
 describe("app metrics: a declared name is spellable", function()
 	it("isMetricPath accepts a declared app name and refuses an undeclared one", function()
-		expect(snapshot.isMetricPath("app.tileMin")).toBe(false)
+		expect(snapshot.isMetricPath("app.proof.tileMin")).toBe(false)
 		withApp(PROOF, function()
-			expect(snapshot.isMetricPath("app.tileMin")).toBe(true)
-			expect(snapshot.isMetricPath("app.sponsor.rowHeight.landscape")).toBe(true)
+			expect(snapshot.isMetricPath("app.proof.tileMin")).toBe(true)
+			expect(snapshot.isMetricPath("app.proof.sponsor.rowHeight.landscape")).toBe(true)
 			-- an undeclared name is refused exactly as `iconSizes.enormous` is
-			expect(snapshot.isMetricPath("app.tilemin")).toBe(false)
-			expect(snapshot.isMetricPath("app.nope")).toBe(false)
+			expect(snapshot.isMetricPath("app.proof.tilemin")).toBe(false)
+			expect(snapshot.isMetricPath("app.proof.nope")).toBe(false)
 			-- a BRANCH is not a metric: only numeric leaves resolve
-			expect(snapshot.isMetricPath("app.sponsor")).toBe(false)
+			expect(snapshot.isMetricPath("app.proof.sponsor")).toBe(false)
 			expect(snapshot.isMetricPath("app")).toBe(false)
 		end)
-		expect(snapshot.isMetricPath("app.tileMin")).toBe(false)
+		expect(snapshot.isMetricPath("app.proof.tileMin")).toBe(false)
 	end)
 
 	it("a dim may carry an app metric name, and an undeclared one is refused at construction", function()
 		withApp(PROOF, function()
 			local UI = (Facet :: any).UI
-			local form = UI.Box({ id = "Tile", width = { type = "fixed", px = "app.tileMin" } })
+			local form = UI.Box({ id = "Tile", width = { type = "fixed", px = "app.proof.tileMin" } })
 			expect(form ~= nil).toBe(true)
-			expect(pcall(UI.Box, { id = "Bad", width = { type = "fixed", px = "app.tilemin" } })).toBe(false)
+			expect(pcall(UI.Box, { id = "Bad", width = { type = "fixed", px = "app.proof.tilemin" } })).toBe(false)
 		end)
 	end)
 
 	it("resolveNumber answers an app name against a live snapshot", function()
 		withApp(PROOF, function()
 			local snap = snapshot.neutral()
-			expect(snapshot.resolveNumber(snap, "app.tileMin")).toBe(96)
-			expect(snapshot.resolveNumber(snap, "-app.tileMin")).toBe(-96)
-			expect(snapshot.resolveNumber(snap, "app.nope")).toBe(nil)
+			expect(snapshot.resolveNumber(snap, "app.proof.tileMin")).toBe(96)
+			expect(snapshot.resolveNumber(snap, "-app.proof.tileMin")).toBe(-96)
+			expect(snapshot.resolveNumber(snap, "app.proof.nope")).toBe(nil)
 		end)
 	end)
 end)
@@ -157,8 +185,8 @@ describe("app metrics: every package carries them", function()
 			local parchment = (require)("../examples/themes/fantasy_parchment").build(themes)
 			for _, package in { snapshot.neutralPackage(), parchment } do
 				local snap = snapshot.resolve(package, nil, {})
-				expect(snap.app.tileMin).toBe(96)
-				expect(snap.app.sponsor.rowHeight.portrait).toBe(60)
+				expect(snap.app.proof.tileMin).toBe(96)
+				expect(snap.app.proof.sponsor.rowHeight.portrait).toBe(60)
 			end
 		end)
 	end)
@@ -178,16 +206,16 @@ describe("app metrics: the ten-foot ladder", function()
 		cannot be half-applied. ]]
 	it("classifies an app length as a length and scales it by the factor", function()
 		withApp(PROOF, function()
-			expect(snapshot.densityClassOf("app.tileMin")).toBe("scale")
-			expect(snapshot.densityClassOf("app.sponsor.rowHeight.landscape")).toBe("scale")
+			expect(snapshot.densityClassOf("app.proof.tileMin")).toBe("scale")
+			expect(snapshot.densityClassOf("app.proof.sponsor.rowHeight.landscape")).toBe("scale")
 			local base = snapshot.resolve(snapshot.neutralPackage(), nil, {})
 			local tv = snapshot.forDisplay(base, "Large")
-			expect(tv.app.tileMin).toBe(96 * 1.5)
-			expect(tv.app.chartH).toBe(160 * 1.5)
-			expect(tv.app.sponsor.rowHeight.landscape).toBe(56 * 1.5)
+			expect(tv.app.proof.tileMin).toBe(96 * 1.5)
+			expect(tv.app.proof.chartH).toBe(160 * 1.5)
+			expect(tv.app.proof.sponsor.rowHeight.landscape).toBe(56 * 1.5)
 			-- reversible, and the near display is still the identity
 			expect(rawequal(snapshot.forDisplay(base, "Medium"), base)).toBe(true)
-			expect(snapshot.forDisplay(tv, "Medium").app.tileMin).toBe(96)
+			expect(snapshot.forDisplay(tv, "Medium").app.proof.tileMin).toBe(96)
 		end)
 	end)
 
@@ -198,15 +226,15 @@ describe("app metrics: the ten-foot ladder", function()
 		a name is a LENGTH unless one of its segments says otherwise. ]]
 	it("classifies an app number whose name says it is not a length as exempt", function()
 		withApp(PROOF, function()
-			expect(snapshot.densityClassOf("app.sponsor.mapFraction.landscape")).toBe("exempt")
-			expect(snapshot.densityClassOf("app.sponsor.toastDurationSeconds")).toBe("exempt")
-			expect(snapshot.densityClassOf("app.sponsor.listRowCount")).toBe("exempt")
-			expect(snapshot.densityClassOf("app.sponsor.rowNameTextSize")).toBe("exempt")
+			expect(snapshot.densityClassOf("app.proof.sponsor.mapFraction.landscape")).toBe("exempt")
+			expect(snapshot.densityClassOf("app.proof.sponsor.toastDurationSeconds")).toBe("exempt")
+			expect(snapshot.densityClassOf("app.proof.sponsor.listRowCount")).toBe("exempt")
+			expect(snapshot.densityClassOf("app.proof.sponsor.rowNameTextSize")).toBe("exempt")
 			local tv = snapshot.forDisplay(snapshot.resolve(snapshot.neutralPackage(), nil, {}), "Large")
-			expect(tv.app.sponsor.mapFraction.landscape).toBe(0.52)
-			expect(tv.app.sponsor.toastDurationSeconds).toBe(2.5)
-			expect(tv.app.sponsor.listRowCount).toBe(8)
-			expect(tv.app.sponsor.rowNameTextSize).toBe(18)
+			expect(tv.app.proof.sponsor.mapFraction.landscape).toBe(0.52)
+			expect(tv.app.proof.sponsor.toastDurationSeconds).toBe(2.5)
+			expect(tv.app.proof.sponsor.listRowCount).toBe(8)
+			expect(tv.app.proof.sponsor.rowNameTextSize).toBe(18)
 		end)
 	end)
 end)
@@ -217,18 +245,18 @@ describe("app metrics: a theme owns them like every other metric", function()
 			local moved, report = themes.define({
 				base = themes.neutralPackage(),
 				identity = { id = "app-moved", displayName = "Moved", schemaVersion = themes.SCHEMA, version = "1.0.0" },
-				metrics = { app = { tileMin = 128, sponsor = { rowHeight = { landscape = 72 } } } },
+				metrics = { app = { proof = { tileMin = 128, sponsor = { rowHeight = { landscape = 72 } } } } },
 			})
 			expect(moved ~= nil).toBe(true)
 			if moved == nil then
 				error(`themes.define refused: {refusal(report)}`)
 			end
 			local snap = snapshot.resolve(moved, nil, {})
-			expect(snap.app.tileMin).toBe(128)
-			expect(snap.app.sponsor.rowHeight.landscape).toBe(72)
+			expect(snap.app.proof.tileMin).toBe(128)
+			expect(snap.app.proof.sponsor.rowHeight.landscape).toBe(72)
 			-- everything the package stayed silent about keeps the app's own number
-			expect(snap.app.chartH).toBe(160)
-			expect(snap.app.sponsor.rowHeight.portrait).toBe(60)
+			expect(snap.app.proof.chartH).toBe(160)
+			expect(snap.app.proof.sponsor.rowHeight.portrait).toBe(60)
 		end)
 	end)
 
@@ -246,7 +274,7 @@ describe("app metrics: a theme owns them like every other metric", function()
 					schemaVersion = themes.SCHEMA,
 					version = "1.0.0",
 				},
-				metrics = { app = { tilemin = 128 } },
+				metrics = { app = { proof = { tilemin = 128 } } },
 			})
 			expect(invented ~= nil).toBe(true)
 			expect(pcall(snapshot.resolve, invented, nil, {})).toBe(false)
@@ -255,9 +283,9 @@ describe("app metrics: a theme owns them like every other metric", function()
 
 	it("an override reaches an app metric, and an undeclared one still refuses", function()
 		withApp(PROOF, function()
-			local snap = snapshot.resolve(snapshot.neutralPackage(), nil, {}, { ["app.tileMin"] = 111 })
-			expect(snap.app.tileMin).toBe(111)
-			expect(pcall(snapshot.resolve, snapshot.neutralPackage(), nil, {}, { ["app.nope"] = 1 })).toBe(false)
+			local snap = snapshot.resolve(snapshot.neutralPackage(), nil, {}, { ["app.proof.tileMin"] = 111 })
+			expect(snap.app.proof.tileMin).toBe(111)
+			expect(pcall(snapshot.resolve, snapshot.neutralPackage(), nil, {}, { ["app.proof.nope"] = 1 })).toBe(false)
 		end)
 	end)
 
@@ -271,15 +299,15 @@ describe("app metrics: a theme owns them like every other metric", function()
 					schemaVersion = themes.SCHEMA,
 					version = "1.0.0",
 				},
-				metrics = { tenFoot = { ["app.tileMin"] = 200 } },
+				metrics = { tenFoot = { ["app.proof.tileMin"] = 200 } },
 			})
 			expect(declared ~= nil).toBe(true)
 			if declared == nil then
 				error(`themes.define refused: {refusal(report)}`)
 			end
 			local base = snapshot.resolve(declared, nil, {})
-			expect(base.app.tileMin).toBe(96)
-			expect(snapshot.forDisplay(base, "Large").app.tileMin).toBe(200)
+			expect(base.app.proof.tileMin).toBe(96)
+			expect(snapshot.forDisplay(base, "Large").app.proof.tileMin).toBe(200)
 		end)
 	end)
 
@@ -295,10 +323,10 @@ describe("app metrics: a theme owns them like every other metric", function()
 			local snap = snapshot.resolve(quest, nil, {})
 			local unit = snap.pixelUnit
 			expect(type(unit)).toBe("number")
-			expect(snap.app.tileMin % unit).toBe(0)
-			expect(snap.app.chartH % unit).toBe(0)
-			expect(snap.app.sponsor.mapFraction.landscape).toBe(0.52)
-			expect(snap.app.sponsor.listRowCount).toBe(8)
+			expect(snap.app.proof.tileMin % unit).toBe(0)
+			expect(snap.app.proof.chartH % unit).toBe(0)
+			expect(snap.app.proof.sponsor.mapFraction.landscape).toBe(0.52)
+			expect(snap.app.proof.sponsor.listRowCount).toBe(8)
 		end)
 	end)
 end)
@@ -310,19 +338,19 @@ describe("app metrics: the theme dump carries them", function()
 			local authored = themes.define({
 				base = themes.neutralPackage(),
 				identity = { id = "app-dump", displayName = "Dump", schemaVersion = themes.SCHEMA, version = "1.0.0" },
-				metrics = { app = { tileMin = 128, sponsor = { rowHeight = { landscape = 72 } } } },
+				metrics = { app = { proof = { tileMin = 128, sponsor = { rowHeight = { landscape = 72 } } } } },
 			})
 			local seen: { [string]: any } = {}
 			for _, record in token_sync.records(authored) do
 				seen[record.path] = record
 			end
-			expect(seen["app.tileMin"] ~= nil).toBe(true)
-			expect(seen["app.tileMin"].value).toBe(128)
-			expect(seen["app.sponsor.rowHeight.landscape"].value).toBe(72)
+			expect(seen["app.proof.tileMin"] ~= nil).toBe(true)
+			expect(seen["app.proof.tileMin"].value).toBe(128)
+			expect(seen["app.proof.sponsor.rowHeight.landscape"].value).toBe(72)
 			-- and the round trip: a dump reconstructs the authored section
 			local rebuilt = token_sync.metricsFromRecords(token_sync.records(authored))
-			expect(rebuilt.app.tileMin).toBe(128)
-			expect(rebuilt.app.sponsor.rowHeight.landscape).toBe(72)
+			expect(rebuilt.app.proof.tileMin).toBe(128)
+			expect(rebuilt.app.proof.sponsor.rowHeight.landscape).toBe(72)
 		end)
 	end)
 end)
