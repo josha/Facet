@@ -1323,3 +1323,28 @@ STUDIO.md, root CLAUDE.md.
   catchers, files nobody else holds). B-16 amended by the controller
   ("UNDER every form WITHIN ITS OWN REGION" + correction note). The
   cover-on-device evidence row joins the director packet.
+
+## 2026-08-21 (post-close 11) — paint-lockstep landed; ITS OWN CLASS found alive in the gallery
+
+- PAINT-LOCKSTEP LANDED (c4d0591 + c6c6260, RR 4e271c3; 6926/3465, +11/+2;
+  tree-behind clean export 6939): one derivation
+  (snapshot.paintForDisplay) spent by both authorities; radii whole-pixel,
+  strokes keep the fraction; the capsule SCALES (999→1499, clamp-identical
+  to 1998px, swept) — no underivable threshold; metrics.tenFoot now wins on
+  BOTH sides (closing a real measure-without-paint gap); near density
+  byte-identical (sha256 over nine configurations); artifacts unchanged
+  by construction. RR defect found+fixed: FacetSponsor built its own target
+  — measured at three metres, painted at arm's length. Row appended as
+  B-17 (its report said B-16 — the collision the ledger predicted).
+- LIVE VERIFY CAUGHT THE SAME CLASS IN THE GALLERY: console row, Large —
+  painted capsule GetStyled "0, 999" (not 1499) because
+  examples/gallery/client/init.client.luau:38 constructs screen_target.new
+  with NO displaySize while host.luau:153 passes it. The showcase paints
+  unscaled at ten-foot; the round swept RR's consumers and not the
+  framework's own bootstraps. Fix round resumed: gallery + a full
+  constructor census with a closed-set spec (a new bare constructor goes
+  red) + the B-16→B-17 reference correction in the cap ledger row.
+- screen_target is EIGHT BYTES under its 194,000 trigger — the vocabulary
+  extraction is owed by the NEXT round that opens the file (the lockstep
+  round cut its own comments twice to land under). Live density-change
+  repaint gap (Studio-only) recorded as a deliberate not-taken.
