@@ -1928,3 +1928,25 @@ STUDIO.md, root CLAUDE.md.
   Also its: theme-packages' metric-snapshot + font-aware rows. To
   diagnose-only: native-stylesheets docs-and-adr (flip family),
   api-architecture studio-evidence.
+
+## 2026-08-22 (cont. 4) — the baseline reconciled; the long sweep runs
+
+- FLAT-BASELINE RECONCILIATION LANDED (97bd808; 7062/0): only ONE delta
+  was truly uncharacterized — the round's own corners.tokens, proven
+  byte-identical by stripping the field (sha matches RS-A1's citation);
+  the "text-font block" had been characterized for three weeks (the
+  sweep's phrasing misread one node's four prop changes as separate
+  deltas). Shipped as an ALLOWED_ADDED_SUBKEYS RULE with a mutation
+  proof (999→1000 still reds naming both numbers); the frozen 0.6.0
+  baseline was correctly NOT re-pinned (declined a third time per its
+  own header). SEVEN rows PASS across five gates. font-aware-measurement
+  was the SOLVER split's (fontKey moved with measure_facts) — re-pinned
+  to where the fact lives AND the require binding so the re-pin cannot
+  hide a real removal. The orphaned /tmp prior-gates lock (its own
+  parallel runs) cleared and deliberately left FREE for the controller's
+  re-verify. Instrument caution recorded: /private/tmp gate copies
+  false-red the two RR-path rows; verify in the real checkout.
+- Controller: docs-and-adr's stale heading grep re-pinned to the B-15
+  reality ("the default"); pins now 260 matched + ALL 487 run strings
+  bash-parsed. THE FULL PRIOR SWEEP is running (1-2h) — then the RC
+  gate re-run, the live pass, and the wrap.
