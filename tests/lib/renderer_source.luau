@@ -13,9 +13,12 @@
 	Studio session, and a live check against it then tests the code baked into the
 	place file rather than the edits on disk
 	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). `renderer.luau`
-	was 242,943 characters and shed two seams: the measure seam
-	(`render/layout_node.luau`) and the presentation channel
-	(`render/presentation_channel.luau`).
+	was 242,943 characters and has shed seam after seam since: the measure seam
+	(`render/layout_node.luau`), the presentation channel
+	(`render/presentation_channel.luau`), the prop-channel manifest
+	(`render/prop_channels.luau`), the ordered rect apply
+	(`render/rect_pass.luau`) and the commit walks
+	(`render/commit_walks.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -33,6 +36,12 @@ local PARTS = {
 	-- and `emitsBinding`. Adding it here is what kept `tests/button_shape.spec`'s
 	-- "shape is applied FIRST" pin looking at the list it names.
 	"src/render/prop_channels.luau",
+	--[[ ...and the COMMIT WALKS (2026-08-21): the six write loops that spend a
+		finished solve — `textScale`, `padding`, `textVerdicts`, `visible`,
+		`hitRects`, `scrollRegions`. Adding it here is what kept
+		`tests/button_shape.spec`'s "the renderer really carries it across" pin
+		looking at the `textWrapped` write it names, which moved with the walk. ]]
+	"src/render/commit_walks.luau",
 }
 
 local renderer_source = {}

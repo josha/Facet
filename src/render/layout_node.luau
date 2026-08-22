@@ -102,7 +102,7 @@ end
 
 -- drawnButtonText(props, compact): what a Button's own engine text NODE shows.
 -- `compact` is the SOLVER's verdict for this node on this solve — see
--- `applyTextVerdicts` below.
+-- `commit_walks.textVerdicts` below.
 local function drawnButtonText(props: any, compact: boolean?): any
 	if compact == true then
 		local form = compactForm(props)
@@ -135,7 +135,7 @@ end
 -- textScale is the env typographyScale (input-paradigms expansion, matrix D.1):
 -- geometry-affecting text sizes are multiplied at the MEASURE seam here so the
 -- solver reserves the scaled box; the same factor is applied at the PAINT seam
--- (applyTextScale below) so layout and paint agree. Only sizes that ALSO reach
+-- (`commit_walks.textScale`) so layout and paint agree. Only sizes that ALSO reach
 -- paint (an explicit props.textSize) are scaled — intrinsic control defaults
 -- stay as the adapter draws them, so the two seams never diverge.
 -- prefOffset (platform verifier F1/F2, 2026-07-23): the engine renders the
@@ -233,7 +233,7 @@ local function toLayoutNode(
 		-- television got near-distance type for every screen written the natural
 		-- way (`UI.Text{ text }`, `UI.Button{ label }`). The floor is a property of
 		-- the typography ROLE, and an unauthored node wears the class's intrinsic
-		-- one, so it takes the same multiplier. `renderer.applyTextScale` moves in
+		-- one, so it takes the same multiplier. `commit_walks.textScale` moves in
 		-- the same commit: measure/paint agreement is what must survive the fix.
 		if size == nil then
 			return text_metrics.reservedSize(metrics.type[fallbackRole].size, textScale, prefOffset), role
@@ -314,7 +314,7 @@ local function toLayoutNode(
 		-- this a legal break at all" is all a string can answer; whether that break
 		-- can SUCCEED needs the drawable width, so the solver finishes the rule in
 		-- its own wrap block (a phrase whose LONGEST WORD does not fit is measured
-		-- on one line too) and publishes `textFacts.wraps`, which `applyTextVerdicts`
+		-- on one line too) and publishes `textFacts.wraps`, which `commit_walks.textVerdicts`
 		-- below carries to paint. This line is unchanged — a word is single-line at
 		-- every width — and the width-dependent half is added on top of it.
 		buttonSingleLine = kind == "text" and isSingleWord(props.label)

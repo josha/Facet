@@ -243,7 +243,7 @@ function screen_chrome.new(ctx: Context)
 	-- padding pushed back out: start at minus the leading inset and grow by both.
 	--
 	-- Offsets only. A scale-valued UIPadding would need the host's resolved size
-	-- to invert and nothing in this library authors one — `applyPadding` and the
+	-- to invert and nothing in this library authors one — `commit_walks.padding` and the
 	-- Button create branch both write pure offsets — so a scale component is left
 	-- alone rather than half-handled.
 	local function applyFullBleed(host: GuiObject, deco: GuiObject)
@@ -2391,7 +2391,7 @@ function screen_chrome.new(ctx: Context)
 		-- the paint side moved by an engine object the solver cannot see.
 		--
 		-- Re-applied on EVERY sync because the host's padding is rewritten per
-		-- solve (`applyPadding` re-derives a Button's inset from the live theme),
+		-- solve (`commit_walks.padding` re-derives a Button's inset from the live theme),
 		-- so a theme swap changes the number this compensates for.
 		applyFullBleed(instance, deco :: ImageLabel)
 		-- run on EVERY sync, not only at creation: several construction paths

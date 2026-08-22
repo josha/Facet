@@ -267,7 +267,7 @@ local function recordTextFacts(
 		-- word does not fit the drawable width, which is the ruling: wrapping into
 		-- a column narrower than one of the phrase's own words does not wrap, it
 		-- breaks the word. The paint seam writes `TextWrapped` from exactly this,
-		-- because it sees the string but not the box (renderer `applyTextVerdicts`).
+		-- because it sees the string but not the box (`render/commit_walks.textVerdicts`).
 		wraps = wraps == true,
 		-- the string this verdict is about: with a compact form in play it is NOT
 		-- the string the node draws, and disclosure hands back the full value

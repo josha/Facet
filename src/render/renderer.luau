@@ -39,6 +39,7 @@ local layout_node = require("./layout_node")
 local hit_lift = require("./hit_lift")
 local instance_boundary = require("./instance_boundary")
 local rect_pass = require("./rect_pass")
+local commit_walks = require("./commit_walks")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop (ADR-0022 D5): the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
@@ -1128,12 +1129,12 @@ function renderer.attach(
 			-- the engine text inset must MATCH the solver's padding (the adapter
 			-- used to hardcode 12px, which rendered a 22px star button's glyph
 			-- into a negative text area — playlist place, 2026-07-20). The write
-			-- itself is applyPadding's, per solve: writing it ONCE here meant a
+			-- itself is `commit_walks.padding`'s, per solve: writing it ONCE here meant a
 			-- theme commit moved the solver's padding while the engine kept the
 			-- construction inset for the rest of the session.
 			-- geometry-affecting typography inputs are layout authority (§11):
 			-- applied identically to measurement and render. The scaled value is
-			-- written by applyTextScale (below, per solve) so a displaySize flip
+			-- written by `commit_walks.textScale`, per solve, so a displaySize flip
 			-- (handheld -> TV dock) re-scales paint to match the re-solved layout.
 			-- pointer taps flow through the adapter into the same semantic
 			-- activate path as focus+Activate (touch parity). Routed through the
@@ -1493,183 +1494,28 @@ function renderer.attach(
 		end
 	end
 
-	-- paint seam for scaled text (input-paradigms expansion, matrix D.1): write
-	-- props.textSize * typographyScale, tracking the last value per path so a
-	-- steady scale is a no-op (minimal-write contract) but a displaySize flip
-	-- rewrites every scaled size. Runs inside solveAndApply so paint and the
-	-- re-solved layout always agree.
-	--
-	-- ...and the INTRINSIC size paints too (director fix round 2026-07-25). It
-	-- used not to: an absent `textSize` left the adapter's hardcoded TextSize 16,
-	-- while the measure seam above reserved the class's typography ROLE from the
-	-- snapshot. A package that moved that role — compact-pointer draws its control
-	-- text at 13 — was therefore reserved for at one size and drawn at another,
-	-- and a single-line button label wrapped ("Pla"/"y") inside a box the solver
-	-- had sized correctly for the size it measured. Same argument as applyPadding
-	-- below, same seam, same guarantee: written inside the solve, against THAT
-	-- solve's metrics, so the size the engine draws with and the size the solver
-	-- reserved can never disagree.
-	--
-	-- `textScale` multiplies AUTHORED sizes only, exactly as the measure seam does
-	-- (an intrinsic default is not scaled there either), and the preferred-text
-	-- offset stays out of paint because the engine applies its own at draw time.
+	-- the scaled text size last written per path. The paint seam that writes it —
+	-- authored sizes, intrinsic sizes, and why it runs inside the solve — is
+	-- `commit_walks.textScale`.
 	local lastTextSize: { [string]: number } = {}
-	-- THE FACE, beside the size, from the SAME role (F2, 2026-08-02). The
-	-- typography role has always carried a font descriptor and the MEASURE seam
-	-- has always keyed `text_metrics` on it (`toLayoutNode` -> `layoutNode.font`);
-	-- paint did not, so every text node was drawn in whatever face the adapter
-	-- hardcoded at creation. That is `Text.font`'s deprecation read backwards —
-	-- there, the author's face reached measurement and never paint; here, the
-	-- THEME's face reached measurement and never paint — and it is why a weight
-	-- channel had to be a role rather than a prop.
-	--
-	-- Both seams resolve through `themeSnapshot.effectiveTypeRole`, so the
-	-- descriptor the solver measured with IS the descriptor the engine draws with.
-	-- Written inside the solve, against THAT solve's metrics, exactly as the size
-	-- and the Button padding beside it are. Minimal-write: the descriptor key is
-	-- cached per path, so a steady theme costs zero writes and every screen whose
-	-- roles all resolve to the family's Regular face is byte-identical.
+	-- ...and the FACE beside the size, from the SAME role (F2): the descriptor key
+	-- last written per path. Same seam, same walk.
 	local lastTextFont: { [string]: string } = {}
-	local function applyTextScale(scale: number, metrics: any)
-		local function walk(node: any)
-			-- an AUTHORED size paints; a role name is just as authored as a number
-			-- (it resolves through the same snapshot the measure seam used), while
-			-- an absent prop falls back to the class's own typography role
-			local raw = themeSnapshot.resolveSize(metrics, node.props and node.props.textSize)
-			if raw == nil and not (node.class == "Button" and #node.children > 0) then
-				raw = themeSnapshot.intrinsicTextSize(metrics, node.class)
-			end
-			if raw ~= nil and handles[node.path] ~= nil then
-				--[[ ONE LADDER, AUTHORED OR NOT (ADAPT-7, 2026-08-18). This read
-					`if authored then raw * scale else raw`, and the measure seam said the
-					same thing, so the two agreed and nothing clipped — which is precisely
-					why nobody saw that `UI.Text{ text }` painted 16px on a television
-					while `UI.Text{ textSize = "body" }` painted 24. The ten-foot floor is
-					a property of the ROLE ("body text must clear ~29pt at 3m", D.1), and
-					an unauthored node wears a role too (`INTRINSIC_TEXT_ROLE`), so it
-					takes the same multiplier. Scaling here alone would draw 27px inside a
-					box reserved for 18: `layout_node.textOf` moves in the same commit,
-					and measure/paint agreement is the property that had to survive. ]]
-				local scaled = raw * scale
-				if lastTextSize[node.path] ~= scaled then
-					authority.assertWrite(node.class, "textSize", "layout")
-					adapter.setProp(handles[node.path], "textSize", scaled, "layout")
-					lastTextSize[node.path] = scaled
-					stats.propWrites += 1
-				end
-				-- a CONTENT Button draws no text of its own, so it has no face to
-				-- write either (`raw` is already nil for one, above)
-				local roleName, role =
-					themeSnapshot.effectiveTypeRole(metrics, node.class, node.props and node.props.textSize)
-				if role ~= nil then
-					if lastTextFont[node.path] ~= role.fontKey then
-						authority.assertWrite(node.class, "textFont", "layout")
-						adapter.setProp(handles[node.path], "textFont", {
-							role = roleName,
-							fontKey = role.fontKey,
-							family = role.font.family,
-							weight = role.font.weight,
-							style = role.font.style,
-						}, "layout")
-						lastTextFont[node.path] = role.fontKey
-						stats.propWrites += 1
-					end
-				end
-			end
-			for _, child in node.children do
-				walk(child)
-			end
-		end
-		walk(root.node)
-	end
 
-	-- PAINT SEAM FOR PADDING, exactly the shape applyTextScale has. A Button's
-	-- engine text inset is theme geometry: it resolves through the snapshot, so a
-	-- theme swap or a designer's live metric edit moves it — and it is written
-	-- here, inside the solve, against THAT solve's metrics, so the inset the
-	-- engine draws with and the padding the solver reserved can never disagree.
-	-- Minimal-write: the effective four sides are cached per path, so a steady
-	-- theme costs zero writes.
-	--
-	-- ...AND A PADDED `Text` GOES OUT THE SAME SEAM (device report 2026-08-12,
-	-- IMG_3691 — the S1..S12 stat tiles). `UI.padding` is legal on a Text because
-	-- the solver's text measure ADDS it to the reserved box
-	-- (`blueprint_schema` Text.padding: "it lets UI.padding apply without
-	-- wrapping"), and nothing painted it: the plate came out label+12 wide and the
-	-- glyphs were drawn from the box's leading edge, so every tile's label sat
-	-- against — and over — its own rounded corner. Measured at a size nobody
-	-- painted, which is `docs/lessons/measure-the-requirement-not-the-render.md`
-	-- read backwards. A container spends its padding in `arrange` (children are
-	-- placed at rect + padding) and a Button already had this write, so a text LEAF
-	-- was the one shape where the two passes could disagree.
-	--
-	-- Guarded on an AUTHORED value: an unpadded Text — every Text on every shipped
-	-- screen but these — raises no write and materializes no engine modifier.
+	-- the effective four sides last written per path — a Button's engine text inset
+	-- and an authored `Text` padding both go out on `commit_walks.padding`, which
+	-- carries the reasoning and the device report behind the second one.
 	local lastPadding: { [string]: string } = {}
-	local function applyPadding(metrics: any)
-		local function walk(node: any)
-			local pad: any = nil
-			if node.class == "Button" then
-				pad = themeSnapshot.buttonPadding(metrics, node.props)
-			elseif node.class == "Text" then
-				if node.props ~= nil and node.props.padding ~= nil then
-					pad = themeSnapshot.resolveSides(metrics, node.props.padding)
-				elseif lastPadding[node.path] ~= nil then
-					-- ...AND AN ADOPTED INSTANCE MUST BE UN-PADDED EXPLICITLY. The
-					-- recycler carries `padding` across an adoption
-					-- (`captureParkedProps`/`restoreParkedProps` below), so a padded
-					-- label recycled into an unpadded one would keep the previous row's
-					-- inset on a modifier this seam had stopped visiting. Zeroing is a
-					-- write; skipping is a stale glyph box.
-					pad = { top = 0, right = 0, bottom = 0, left = 0 }
-				end
-			end
-			if pad ~= nil and handles[node.path] ~= nil then
-				local top, right, bottom, left = solver.sides(pad)
-				local key = `{top},{right},{bottom},{left}`
-				if lastPadding[node.path] ~= key then
-					authority.assertWrite(node.class, "padding", "layout")
-					adapter.setProp(handles[node.path], "padding", pad, "layout")
-					lastPadding[node.path] = key
-					stats.propWrites += 1
-				end
-			end
-			for _, child in node.children do
-				walk(child)
-			end
-		end
-		walk(root.node)
-	end
 
-	-- PAINT SEAM FOR THE COMPACT LADDER, the same shape applyTextScale and
-	-- applyPadding have (director, 2026-07-27).
-	--
-	-- The verdict is the SOLVER's — only it knows the width this node ended up
-	-- with — and it reaches paint through the rects it produced, so the string the
-	-- box was reserved for is the string the engine draws. That is the whole
-	-- reason this is a post-solve seam and not a prop the author toggles.
-	--
-	-- The label ITSELF still goes out on the ordinary binding write, so there is
-	-- exactly one writer for `Text` and `screen_target`'s TextWrapped rule
-	-- re-decides from the string it is handed, exactly as it does for a reactive
-	-- label. An icon form additionally raises an icon REQUEST, which is the same
-	-- upgrade-not-dependency arrangement `props.icon` already uses: the ASCII
-	-- glyph is already drawn, and theme art paints over it if any resolves.
-	-- Minimal-write: the verdict is cached per path, so a steady layout costs zero
-	-- writes and a node with no compact form is never visited twice.
+	-- the compact-ladder verdict last written per path. The seam that writes it,
+	-- and why a post-solve seam is the only place it can be decided, is
+	-- `commit_walks.textVerdicts`.
 	local lastCompact: { [string]: boolean } = {}
 
-	-- ...and the WRAP verdict, on the same seam and for the same reason (director
-	-- ruling 5, 2026-08-13). `screen_target`'s TextWrapped rule sees the string and
-	-- not the box, so it cannot answer "does this phrase's longest word fit"; the
-	-- solver can, and does (`textFacts.wraps`). Unlike `lastCompact` this IS a value
-	-- the instance holds, so it rides the parked-props record across a recycle
-	-- exactly as `lastTextSize` does — a recycled instance carrying `TextWrapped =
-	-- false` with a cleared cache would silently keep it.
-	--
-	-- `nil` means "never written", which is the adapter's own default (wrap on
-	-- whitespace) — so the overwhelmingly common `wraps = true` node costs ZERO
-	-- writes, on the first solve and every one after it.
+	-- ...and the WRAP verdict, on the same walk. `nil` means "never written", which
+	-- is the adapter's own default, so the common `wraps = true` node costs zero
+	-- writes; unlike `lastCompact` this IS a value the instance holds, so it rides
+	-- the parked-props record below (`commit_walks.textVerdicts` has the rest).
 	local lastWrapped: { [string]: boolean } = {}
 
 	-- The instance's own property record, moved with it across a recycle. These say
@@ -1679,7 +1525,7 @@ function renderer.attach(
 	-- TWO ARE DELIBERATELY EXCLUDED, and the difference is worth stating: a cache may
 	-- be carried only if it records a VALUE the instance holds. `solverHidden` is a
 	-- verdict about the node. `lastCompact` looks like a value and is not — it gates
-	-- `applyTextVerdicts`' compact half, whose WRITE depends on the new node's label, so a carried
+	-- `commit_walks.textVerdicts`' compact half, whose WRITE depends on the new node's label, so a carried
 	-- `true` skips re-applying a different row's glyph and the previous row's label
 	-- survives. (Caught by "a REMOUNTED button gets its verdict re-applied", which is
 	-- itself the pin for a defect found live on RascalRally's watch-cycle buttons.)
@@ -1705,54 +1551,35 @@ function renderer.attach(
 		lastHitRects[path] = carried.hitRect
 		lastWrapped[path] = carried.textWrapped
 	end
-	-- ONE WALK, TWO VERDICTS. Both are the solver's answers about text, both reach
-	-- paint through the rects that produced them, and both are cached per path — so
-	-- they share the traversal rather than paying for a second one on every solve.
-	local function applyTextVerdicts(rects: any)
-		local function walk(node: any)
-			local handle = handles[node.path]
-			local labelDriven = node.class == "Text" or (node.class == "Button" and #node.children == 0)
-			if labelDriven and handle ~= nil then
-				local entry = rects[node.path]
-				if node.class == "Button" then
-					local isCompact = entry ~= nil and entry.compact == true
-					local form = renderer.compactForm(node.props)
-					if form ~= nil and lastCompact[node.path] ~= isCompact then
-						authority.assertWrite("Button", "text", "binding")
-						adapter.setProp(handle, "label", renderer.drawnButtonText(node.props, isCompact), "binding")
-						stats.propWrites += 1
-						if form.kind == "icon" then
-							authority.assertWrite("Button", "icon", "style")
-							adapter.setProp(handle, "icon", if isCompact then form.icon else nil, "style")
-							stats.propWrites += 1
-						elseif form.kind == "image" then
-							authority.assertWrite("Button", "compactLabel", "style")
-							adapter.setProp(handle, "compactLabel", if isCompact then form else nil, "style")
-							stats.propWrites += 1
-						end
-						lastCompact[node.path] = isCompact
-					end
-				end
-				-- THE WRAP VERDICT (ruling 5). A node the solve did not reach (hidden,
-				-- not yet solved) keeps whatever it has: absent facts are not a verdict.
-				local facts = if entry ~= nil then entry.textFacts else nil
-				if facts ~= nil then
-					local wraps = facts.wraps == true
-					local previous = lastWrapped[node.path]
-					if (if previous == nil then true else previous) ~= wraps then
-						authority.assertWrite(node.class, "textWrapped", "layout")
-						adapter.setProp(handle, "textWrapped", wraps, "layout")
-						lastWrapped[node.path] = wraps
-						stats.propWrites += 1
-					end
-				end
-			end
-			for _, child in node.children do
-				walk(child)
-			end
-		end
-		walk(root.node)
-	end
+	-- THE COMMIT WALKS (`src/render/commit_walks`): the six write loops that spend
+	-- a finished solve — the two typography paint seams, the text verdicts, the
+	-- visibility verdict, the hit floor and the native scroll canvas. Built once
+	-- per attach over the records above, every one of which is a table this file
+	-- declares, clears on removal and carries across a recycle, and which that one
+	-- reads and writes BY REFERENCE. Declared here rather than beside the rect
+	-- pass because five of those records do not exist until this line.
+	local commitWalks = commit_walks.new({
+		adapter = adapter,
+		handles = handles,
+		stats = stats,
+		rectsEqual = rectsEqual,
+		paintedRectIn = paintedRectIn,
+		pathEscapesClip = pathEscapesClip,
+		reculPathClips = reculPathClips,
+		lastTextSize = lastTextSize,
+		lastTextFont = lastTextFont,
+		lastPadding = lastPadding,
+		lastCompact = lastCompact,
+		lastWrapped = lastWrapped,
+		lastVisible = lastVisible,
+		lastHitRects = lastHitRects,
+		lastScrollRegions = lastScrollRegions,
+		scrollAutoscroll = scrollAutoscroll,
+		pathClipObservers = pathClipObservers,
+		solverHidden = solverHidden,
+		paintHeld = paintHeld,
+		pathNodes = pathNodes,
+	})
 
 	-- the inputs of the most recent solve, for the opt-in boundary analysis below
 	local lastSolveInputs: any = nil
@@ -1981,9 +1808,9 @@ function renderer.attach(
 		profile.span("commit", function()
 			local textRequests = text_metrics.endCollect()
 			lastDiagnostics = result.diagnostics
-			applyTextScale(paintScale, metrics)
-			applyPadding(metrics)
-			applyTextVerdicts(result.rects)
+			commitWalks.textScale(root.node, paintScale, metrics)
+			commitWalks.padding(root.node, metrics)
+			commitWalks.textVerdicts(root.node, result.rects)
 			-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its
 			-- mount but must not be reachable. The solver marks the losing candidate
 			-- roots; the presenter reads this set to exclude them from focus order,
@@ -2039,93 +1866,25 @@ function renderer.attach(
 			-- a hidden candidate must not PAINT. A zero rect was not enough: text still
 			-- wrapped and drew inside a 0px box (found live in the adaptive_controls
 			-- capture, where the losing action column's labels ran down the screen edge).
-			if adapter.setVisible ~= nil then
-				local function rectFor(path: string): any
-					return paintedRectIn(result.rects, path)
-				end
-				local function pushVisible(node: any, hidden: boolean)
-					local isHidden = hidden or nextHidden[node.path] == true
-					solverHidden[node.path] = isHidden
-					-- RS-PATHCLIP: a stroked path outside its clip host is culled. It is
-					-- decided per NODE and never inherited (a Path is a leaf, and the
-					-- solver's own verdict is what descends), so the walk keeps carrying
-					-- `isHidden` down and this only widens the write for the path itself.
-					-- ...and a presenter PAINT HOLD (auto reveal) is a per-node veto the
-					-- same way: never inherited, never contradicting the solver.
-					local wantHidden = isHidden or paintHeld[node.path] == true
-					if not wantHidden and pathNodes[node.path] == true and pathEscapesClip(node.path, rectFor) then
-						wantHidden = true
-					end
-					local handle = handles[node.path]
-					if handle ~= nil and lastVisible[node.path] ~= not wantHidden then
-						adapter.setVisible(handle, not wantHidden)
-						lastVisible[node.path] = not wantHidden
-					end
-					for _, child in node.children do
-						pushVisible(child, isHidden)
-					end
-				end
-				pushVisible(root.node, false)
-			end
+			commitWalks.visible(root.node, result.rects, nextHidden)
 			-- B-BTN3: enforce the effective target floor in HIT geometry. The visual
 			-- rect is deliberately untouched — flooring the painted size would silently
 			-- rewrite shipped design (a 22px icon button would double) — so the
 			-- framework separates what the player SEES from what the player can HIT.
 			-- Feature-detected: an adapter without the seam keeps today's behaviour.
-			if adapter.setHitRect ~= nil then
-				-- RS-A16-D1 (found live by the rich-skinning-v2 matrix drive, under the
-				-- FLAT default, with real injected clicks): this walk used to ignore the
-				-- `nextHidden` set the visibility walk just built. A hidden candidate
-				-- solves to zero width, so every control inside it fell under the floor
-				-- and the renderer ASKED for an expanded hit rect — a live activation
-				-- surface for a control the player cannot see, which in the real adapter
-				-- sits at the ScreenGui root and out-ranked the VISIBLE winner's buttons.
-				-- Hiddenness is carried down the walk (the solver marks the candidate
-				-- ROOT only) exactly as `pushVisible` carries it, and a hidden node takes
-				-- the SAME diff path with `want = nil`, so a node that BECOMES hidden has
-				-- its expander retracted rather than merely left un-refreshed.
-				local function pushHitRects(node: any, hidden: boolean)
-					local isHidden = hidden or nextHidden[node.path] == true
-					-- the same reading the solve was handed as `hitFloor` (see
-					-- `effectiveHitFloor`): the contract declares the floor exists, the
-					-- theme owns its value, and it clamps up only
-					local floor = effectiveHitFloor(node.class, metrics)
-					if floor ~= nil then
-						local entry = result.rects[node.path]
-						local handle = handles[node.path]
-						if entry ~= nil and handle ~= nil then
-							local r = entry.rect
-							local want: any = nil
-							if not isHidden and (r.w < floor or r.h < floor) then
-								local w = math.max(r.w, floor)
-								local h = math.max(r.h, floor)
-								want = {
-									x = r.x - math.floor((w - r.w) / 2),
-									y = r.y - math.floor((h - r.h) / 2),
-									w = w,
-									h = h,
-								}
-							end
-							local last = lastHitRects[node.path]
-							if not rectsEqual(last, want) then
-								adapter.setHitRect(handle, want)
-								lastHitRects[node.path] = want
-							end
-						end
-					end
-					for _, child in node.children do
-						pushHitRects(child, isHidden)
-					end
-				end
-				pushHitRects(root.node, false)
-				-- ...and the paint order those expanders need in order to be REACHABLE
-				-- (the overhang lift, `src/render/hit_lift.luau`). It runs HERE
-				-- because the lift is geometry: structural sync assigns z before the
-				-- solve that produces the rects, so the z walk re-runs from here, and
-				-- only when the lift itself changed.
-				if hitLift.refresh(result.rects, lastHitRects, inputSinks, parentNodeOf, solverHidden) then
-					syncZOrder()
-				end
+			commitWalks.hitRects(root.node, result.rects, nextHidden, metrics)
+			-- ...and the paint order those expanders need in order to be REACHABLE
+			-- (the overhang lift, `src/render/hit_lift.luau`). It runs HERE
+			-- because the lift is geometry: structural sync assigns z before the
+			-- solve that produces the rects, so the z walk re-runs from here, and
+			-- only when the lift itself changed. It stays behind rather than
+			-- travelling with the floor walk because a lift is paint ORDER, and
+			-- `syncZOrder` is declared far below both.
+			if
+				adapter.setHitRect ~= nil
+				and hitLift.refresh(result.rects, lastHitRects, inputSinks, parentNodeOf, solverHidden)
+			then
+				syncZOrder()
 			end
 			-- `withAnimation`, and ONLY on the armed commit it forces for itself
 			-- (design §"Blocker 1"). It must sit HERE: root classification is
@@ -2141,105 +1900,11 @@ function renderer.attach(
 			-- measurement behind it, and the deferred re-base that goes with it.
 			rectPass.apply(root.node, result.rects)
 
-			-- native scroll regions (native-substrate NS-A2): a scroll node's SOLVED
-			-- content extent (plus its own padding — children arrange inside the
-			-- padded area, so the canvas must include it) maps to the adapter's
-			-- canvas. The adapter/engine owns the live offset; the solver keeps
-			-- owning every content rect. Feature-detected: a scroll-less adapter
-			-- (billboard until proven, old fake) keeps the clip-only fallback.
-			if adapter.setScrollRegion ~= nil then
-				local function pushRegions(node: any)
-					if node.class == "ScrollView" then
-						local entry = result.rects[node.path]
-						local handle = handles[node.path]
-						if entry ~= nil and entry.contentSize ~= nil and handle ~= nil then
-							-- THE PADDING THE SOLVER ACTUALLY SPENT, not the padding the
-							-- author wrote (found 2026-07-27 while chasing a landscape
-							-- scroll cut-off). `toLayoutNode` adds a slot's `chromeInsets`
-							-- to this node's padding before the solve, and a ScrollView
-							-- always classifies into the `scrollbar` slot — so recomputing
-							-- from `props.padding` here would under-report the canvas by
-							-- exactly the theme's reservation, and the tail of the content
-							-- would be unreachable. Inert today (every shipped package
-							-- declares `chrome.scrollbar = { kind = "native" }`, reserving
-							-- zero) and wrong the moment one does not.
-							local props = node.props or {}
-							local layoutPadding = if entry.padding ~= nil
-								then entry.padding
-								else themeSnapshot.resolveSides(metrics, props.padding)
-							local pt, pr, pb, pl = solver.sides(layoutPadding)
-							-- ...PLUS THE THEME'S DECORATION BLEED (director round 11,
-							-- root-caused 2026-07-27 from a landscape capture).
-							--
-							-- A canvas built from RECTS stops exactly at the last child's
-							-- rect — I measured it doing so to the pixel in seven
-							-- configurations. A `shadow` recipe paints OUTSIDE that rect,
-							-- so under Sci-Fi HUD (a centred 24px glow on `panel`) the
-							-- bottom of the last element was unreachable: scrollbar at the
-							-- end of its track, content still cut off.
-							--
-							-- It is spent HERE and nowhere else, deliberately. Reserving it
-							-- as layout margin would be the other way to fix it and it would
-							-- be wrong — a glow is meant to overlap its neighbours, and
-							-- reserving it would space every themed screen out by 24px in
-							-- every direction. A canvas allowance is the iOS `contentInset`
-							-- shape: the layout does not move, the paint becomes reachable.
-							-- Zero for every package that declares no shadow.
-							local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
-							local region = {
-								axis = props.axis or "y",
-								contentW = entry.contentSize.w + pl + pr + bleed,
-								contentH = entry.contentSize.h + pt + pb + bleed,
-								-- the host's ARRANGED box, so the adapter's cross-axis
-								-- canvas clamp is deterministic instead of racing the
-								-- engine's own window geometry mid-layout
-								hostW = entry.w,
-								hostH = entry.h,
-								-- per-host indicator opt-out (director ruling 2026-08-09):
-								-- carried on the region because the adapter learns a host
-								-- overflows on exactly this walk — the same place its
-								-- indicator lifecycle begins
-								indicators = if props.indicators == "none" then "none" else "auto",
-							}
-							-- the host's own autoscroll declaration, recorded on the SAME
-							-- walk that publishes its canvas: `false` opts out, a table
-							-- tunes the model, absent means on-and-inert. Kept here so the
-							-- per-frame stepper never needs a tree lookup.
-							scrollAutoscroll[node.path] = if props.autoscroll == false
-								then false
-								else (if type(props.autoscroll) == "table" then props.autoscroll else true)
-							local last = lastScrollRegions[node.path]
-							if
-								last == nil
-								or last.axis ~= region.axis
-								or last.contentW ~= region.contentW
-								or last.contentH ~= region.contentH
-								or last.indicators ~= region.indicators
-								or last.hostW ~= region.hostW
-								or last.hostH ~= region.hostH
-							then
-								authority.assertWrite("common", "canvasSize", "layout")
-								adapter.setScrollRegion(handle, region)
-								lastScrollRegions[node.path] = region
-							end
-							-- RS-PATHCLIP: the host's live offset is what a stroked path
-							-- inside it has to be re-culled against. One subscription per
-							-- scroll host, taken where the host is already in hand; the
-							-- callback early-outs on a surface with no paths, so a list that
-							-- draws none pays a comparison.
-							if adapter.observeScroll ~= nil and pathClipObservers[node.path] == nil then
-								pathClipObservers[node.path] = adapter.observeScroll(handle, function()
-									reculPathClips()
-								end)
-							end
-						end
-					end
-					for _, child in node.children do
-						pushRegions(child)
-					end
-				end
-				pushRegions(root.node)
-			end
+			-- NATIVE SCROLL REGIONS (native-substrate NS-A2): the canvas the adapter is
+			-- told about, plus the per-host autoscroll and indicator declarations that
+			-- ride the same walk. `render/commit_walks` carries the rule and the two live
+			-- findings behind it (the theme's own chrome reservation, the shadow bleed).
+			commitWalks.scrollRegions(root.node, result.rects, metrics)
 
 			-- ...and only now, with this frame fully painted from the conservative
 			-- estimate, ask the engine for the words it could not size. Ordering is
@@ -2643,7 +2308,7 @@ function renderer.attach(
 				-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
 				-- after a pose toggle at EVERY preference). A re-created button is
 				-- born with its FULL label; a surviving `true` here said the swap was
-				-- already applied, so `applyTextVerdicts` never wrote the glyph again.
+				-- already applied, so `commit_walks.textVerdicts` never wrote the glyph again.
 				-- One mount looked right — which is why the device pass that shipped
 				-- the feature saw chevrons — and every remount after it did not.
 				lastCompact[path] = nil

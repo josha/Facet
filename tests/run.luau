@@ -76,6 +76,14 @@ require("./container_relative_incremental.spec")
 require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
+--[[ the commit walks' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
+	`render/commit_walks.luau` one-way now that the six write loops that spend a
+	finished solve have left `renderer.luau`. This seam has a parameter object
+	with TWENTY fields in it, eight of them mutable records the renderer keeps
+	writing to, so the three sets are READ == DECLARED == PASSED plus the
+	twelve-name shared write surface, the lifetime owner of each shared record,
+	and the mutable-upvalue test applied to the twenty names themselves ]]
+require("./commit_walks_seam.spec")
 require("./native_scroll.spec")
 -- O-31: a virtualised collection mirrors its engine CanvasPosition with NO
 -- post-`present` consumer call, on the two contribution seams that reach every

@@ -172,14 +172,14 @@ end
 -- of a thing nobody can see. Add a new setProp write site, add it here.
 local DIRECT_PROPS: { [string]: string } = {
 	clipChildren = "ensureTree's clip-host declaration (layout authority)",
-	textSize = "applyTextScale — the scaled-text paint seam",
-	textFont = "applyTextScale — the typography role's FACE, beside its size (F2)",
+	textSize = "commit_walks.textScale — the scaled-text paint seam",
+	textFont = "commit_walks.textScale — the typography role's FACE, beside its size (F2)",
 	-- THE WRAP RULE'S PAINT HALF (director ruling 5, 2026-08-13). The solver is the
 	-- only seam that knows the drawable width, so it decides whether wrapping can
 	-- succeed and publishes the verdict; this carries it to the adapter, which
 	-- otherwise sees the string and not the box.
-	textWrapped = "applyTextVerdicts — the wrap-rule paint seam (layout authority)",
-	padding = "applyPadding — the Button and padded-Text text-inset paint seam",
+	textWrapped = "commit_walks.textVerdicts — the wrap-rule paint seam (layout authority)",
+	padding = "commit_walks.padding — the Button and padded-Text text-inset paint seam",
 	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
 	transparency = "controller.setPresentationTransparency (presentation authority)",
 }
