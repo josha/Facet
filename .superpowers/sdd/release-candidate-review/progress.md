@@ -1962,3 +1962,33 @@ STUDIO.md, root CLAUDE.md.
   cascade, R18–R23 for veto, the three remaining asks. Memory updated
   both days. Every implementer round of the cascade: landed, reviewed,
   findings closed or ruled.
+
+## 2026-08-22 (cont. 5) — THE RR CANARY RUNS, and finds a boot-killer first
+
+- The director opened RascalRally with Rojo connected (controller started
+  rojo serve; the director clicked Connect). THE CANARY'S FIRST FINDING
+  PRECEDED ITS FIRST FRAME: SponsorService.start died at boot — all three
+  DataStore backend constructors (OnboardingFlags, FTUEReward,
+  ProfileStore) called GetDataStore BARE, upstream of their own pcall'd
+  loads, so an unpublished place threw at the constructor and the whole
+  sponsor stack (remotes, rig, results) never existed. The
+  degrade-gracefully contract held everywhere except its first line.
+  Fixed (RR 829b382): constructors build under pcall and degrade to the
+  session their loads already report. MY OWN FIRST PATCH APPENDED the
+  guard after the bare call instead of replacing it — the live session
+  caught that too (the throw survived a fresh clone compile; the
+  appended-not-replaced diff was the answer). Instrument note: a play
+  session compiled BEFORE a Rojo push runs old bytecode under new Source
+  text — stop/verify-Edit/start, and probe the CONSTRUCTOR not the text.
+- THE CANARY PROPER: rig armed (11 scenarios), results-sponsor → story,
+  held at results. ResultsScreen — the 2026-08-06 deferral's own named
+  surface — rendered live: standings + cast avatars, drama recap, Rally
+  Points/Coins, Race + Sponsor Again with the focus ring; sheet-paint
+  default live in RR (4 StyleLinks, FacetStyle sheets, zero attributes —
+  R21's absent arm on glass); zero effective-visible zero-box text.
+  Capture committed (rr-canary-2026-08-22.png). Ledger sentence replaced
+  (96f2cb0) — the gate row that refused to stop asking gets its answer;
+  example-quality-pass re-running now.
+- Also delivered this session: framework-gaps.md in artifacts (the full
+  34-gap MOVE list) + docs/plans/framework-gaps-phase2-goal.md (the
+  fresh-context prompt for the director's six picks).
