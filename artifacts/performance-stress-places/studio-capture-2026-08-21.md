@@ -15,11 +15,28 @@ and landed byte-for-byte through the studio_sync bridge as
 `studio/rc-requal-row01..13-*.json` + `rc-requal-moduleload.json`.
 `check_perf_captures: PASS`.
 
+> **CORRECTION, 2026-08-22 (SCREEN-X fix round) — EVERY INSTANCE COUNT IN THIS
+> CAPTURE IS INVALID.** `examples/gallery/scenarios/runner.luau`'s M3 census
+> compared SIX characters against the five-character `"Facet"`: ADR-0038 renamed
+> the roots `LuauUI_<id>` -> `Facet_<id>` and the sweep left the count behind, so
+> `mine` was constantly false, every Facet-owned root was filed under `foreign`,
+> and the framework's own `guiObjects`/`screenGuis` came out ZERO on all thirteen
+> rows. Seven of them have `Facet_PerfWorkload` sitting in `foreign.roots`, which
+> is the proof. **The "0 GuiObjects" in row 01 below is therefore a reader
+> artifact, not a measurement** — it may also be true (an idle baseline mounts
+> nothing), and that is exactly the problem: nothing in this document could tell
+> you which. Every row JSON now carries an additive `censusCorrection` key saying
+> the same thing in band. **Nothing else in this capture is affected**: scopes,
+> frame timings, solves, creates/recycled/elided, haptics and the profiler rows
+> were taken by instruments the defect never touched, and they stand. The reader
+> is fixed; the counts need a live re-capture, booked in
+> `docs/handoff/SCREEN-X-OWED-LIVE-WORK.md`.
+
 ## The headlines, against the plan's questions
 
 | row | what the engine said |
 |---|---|
-| 01 idle-baseline | 0 GuiObjects; Facet idle ≈ 0.02–0.03 ms/frame across every scope |
+| 01 idle-baseline | ~~0 GuiObjects~~ (census invalid — see the correction above); Facet idle ≈ 0.02–0.03 ms/frame across every scope |
 | 02 dense-scroll flat | solves 103, **partialSolves 0**, creates 922 / recycled 567 / elided 505; `text.pending` false at snapshot; **haptics flat at 0 across the whole scroll** (event-driven, nothing built per frame) |
 | 03 native reference | **zero Facet scopes during the scroll** — the framework does no work on the raw-Roblox arm, so the comparison is honest |
 | 04 dense-scroll ornate | same order as flat (commit 96ms/67 vs 143/97 window totals) — the most expensive shipped skin does not blow up the scroll |
