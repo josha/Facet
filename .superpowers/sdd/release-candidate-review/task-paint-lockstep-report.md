@@ -294,3 +294,126 @@ native-default fix round — this round changed only the stale reference inside 
 and that row now reads **193,714**, 286 characters from the trigger, because that
 round's extraction paid back my eight). **The row text in the section above is
 row B-17.**
+
+---
+
+# Fix round 2 — the second door: a token resolved where it was written
+
+**Trigger.** Second live console verify (stamp `b62ac109`, Large, gallery injected
+*with* the round-1 wiring): the sheet rule `.facet-surface-raised::UICorner`
+carried the derived `0, 18` — correct — while three live `UICorner` instances on
+the same screen still read `0, 999`. **Status: FIXED, class closed.** Commit
+`41e68298e`.
+
+## The actual reader, found
+
+The three instances are the segmented picker's sliding indicator —
+`/S/View/Indicator/Layer/Bar`, `src/controls/selection_indicator.luau:434-436`,
+`UI.corners(bar, "pill")`. They are painted from the node's own `corners` PROP,
+not from a sheet rule and not from a surface role, and that prop was already a
+NUMBER before any target existed:
+
+`styling.normalizeCorners(spec, style?)` resolves a radius token **at authoring
+time**, and its fallback is `style or default_style` (`src/tokens/styling.luau:20`).
+Every call in `src/controls`, in `present/`, and in any consumer's code passes no
+style — there is none to pass inside a control factory — so `default_style.radii
+.pill = 999` was frozen into the blueprint. `screen_paint.applyCorners` then wrote
+exactly what it was handed. **The target's `ctx.style` was derived correctly; this
+number never asked it.** The coordinator's first hypothesis (the studio-neutral
+boot handing `default_style` raw to the adapter) was ruled out by the sheet rule
+reading 18 from that same style — one door was already right; this was the other.
+
+## The fix: a name reaches paint as a name
+
+The framework already does this everywhere else — `gap = "m"` reaches the solver
+as a name and is resolved against the live `themeMetrics`; `Divider.thickness`
+takes a metric name the renderer resolves. So:
+
+* `styling.normalizeCorners` / `normalizeStroke` now carry the authored NAME beside
+  the number, under `tokens` (`{ form = "uniform", radius = 999, tokens = { radius
+  = "pill" } }`). A literal carries no token and never moves.
+* **An absent stroke thickness is a token too** — its documented default *is*
+  `strokes.hairline`, so `UI.stroke(bp, {})`, the commonest stroke in the
+  framework, froze a themed number nobody had named. It names it now.
+* `styling.paintCorners(data, style)` / `paintStroke(data, style)` re-resolve
+  against the style the render target was built with — the derived one since round
+  one. **Pure**, for the reason `native_style.paintPlan` was extracted this week:
+  the painter is an engine file no headless world can mount, so the decision it
+  spends must live where a test can call it. Total and identity-preserving: no
+  token, no style, a style with no `radii`, or a token the theme lacks all return
+  the authored number and the SAME table.
+* `screen_paint.applyCorners` / `applyStroke` spend them.
+
+No locked file was touched: the fix is at the door, so `presenter.luau:1495` and
+`present/anchored.luau:436/490` — both of which author `"control"`/`"panel"`
+corners — are carried without an edit, as are `chip`, `picker` and
+`selection_indicator`.
+
+## The door census (the class)
+
+| door | where a paint token becomes a number | verdict |
+|---|---|---|
+| 1. the render target's `ctx.style` (and the sheet literals built from it) | `screen_target`, `sheet_model`, `theme_controller` | **derives** (round 1); every constructor states its class (fix round 1) |
+| 2. authored token data | `styling.normalizeCorners` / `normalizeStroke` → `screen_paint` | **derives** (this round): the token survives, the painter re-resolves |
+
+The census arm enumerates every module in `src` that reads the authored token
+module (`tokens/default_style`) at all — **four**, each with a written reason
+(`styling` the authoring fallback, `snapshot` the neutral base and the deriver,
+`screen_target` the Light-theme identity check, `theme_controller` the `extra`
+merge) — and asserts both appliers go through the shared resolver. A fifth reader
+is red (M19).
+
+**Out of scope, stated:** `shadows` are also resolved through `styling` against
+`default_style`, and they correctly do NOT scale — ADR-0039's art-geometry rule
+("a shadow's blur is a declared px figure the engine renders unchanged") — and
+they are not part of the paint family the director ruled on. Gradients carry
+colours, not lengths.
+
+## Which framework surfaces are exercised at Large **by a test**
+
+Round 1's evidence was derivation-level; fix round 1's was wiring-level. This
+round adds the first **mounted framework surface at ten-foot**:
+
+* **`Controls.Picker`, `presentation = "segmented"`, `indicator = "pill"`, mounted
+  in a 1920×1080 `displaySize = "Large"` world through the real presenter and
+  renderer onto a fake target** — the exact control whose three `UICorner`s the
+  live row read. The arm follows `/S/View/Indicator/Layer/Bar`'s `corners` prop and
+  asserts: the authored number is 999 at BOTH distances (the defect's own
+  fingerprint, and why the token must survive), the token is carried, and the
+  painted value is **1499 at Large / 999 at Medium**.
+* Still NOT exercised at Large by a test: any surface that paints through the real
+  `screen_target` (it needs a DataModel — the wiring is source-pinned instead), and
+  the gallery/perf-lab/edit-preview bootstraps as programs. The controller's live
+  re-verify remains the instrument for those.
+
+## Fix-round-2 mutations — five, all bite
+
+| # | mutation | red |
+|---|---|---|
+| M15 | normalized data stops carrying the token | the token arm, the resolver arm, the mounted-picker arm |
+| M16 | the corner painter stops re-deriving | the door census |
+| M17 | the stroke painter stops re-deriving | the door census |
+| M18 | an ABSENT stroke thickness stops naming the theme number it took | the token arm, the resolver arm |
+| M19 | a NEW module starts reading the authored token module | the door census |
+
+## Suite tails — content-pinned
+
+| copy | pin (sha256 over `src`+`tests`+`examples` `.luau`) | tail |
+|---|---|---|
+| HEAD `6addc5e` alone | — | **6982 passed**, 0 failed |
+| HEAD + fix round 2 | `7a93a771af9bf33e…` | **6986 passed**, 0 failed (+4 = the four new arms) |
+| working tree (all rounds in flight) | — | **6995 passed**, 0 failed |
+
+`check_types` PASS · `check_doc_style` PASS · `stylua` clean. `api.md` documents
+the surviving token beside `strokeData`/`cornersData`.
+
+## What the third live verify should read
+
+On a console row at Large: the three `Indicator/Layer/Bar` `UICorner`s should
+GetStyled **`0, 1499`**, the sheet's `.facet-surface-raised::UICorner` stays
+`0, 18`, and any authored hairline reads **1.5**. If a capsule still reads 999,
+the node's `corners` prop will now say which door it came through — it carries the
+token, so `tokens.radius = "pill"` with a 999 paint means the painter's style is
+underived (door 1), and a missing `tokens` means an authoring path that bypassed
+`styling.normalize*` entirely, which would be a third door and nothing in this
+repository has one today.
