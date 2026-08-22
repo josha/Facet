@@ -349,6 +349,41 @@ describe("crossExtent: the axis the list does not scroll", function()
 		w.control.dispose()
 	end)
 
+	it('"hug" and an authored `width` are two answers to one dim, and are refused together', function()
+		--[[ SELF-REVIEW FINDING, not a hypothetical: `"hug"` REPLACES the cross dim
+			with `content`, so a vertical list declaring both would have had its
+			`width` silently discarded — an accepted property that drives nothing,
+			which is the exact class this control already refuses `cards` and
+			`estimatedItemExtent` for. `"measured"` does not touch the dim, so it
+			COMPOSES with `width` and is deliberately not refused. ]]
+		local core = Facet.newCore()
+		local rows = core:signal(makeRows(4))
+		local function build(crossExtent: any, width: any)
+			return virtual_list.build(Facet, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 40,
+				viewportExtent = 200,
+				crossExtent = crossExtent,
+				width = width,
+				cell = function()
+					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+				end,
+			})
+		end
+		expect(pcall(function()
+			build("hug", { type = "fixed", px = 300 })
+		end)).toBe(false)
+		-- ...and each alone is fine, so the refusal is about the PAIR
+		build("hug", nil).dispose()
+		build(nil, { type = "fixed", px = 300 }).dispose()
+		-- ...and `"measured"` composes with a width, because it changes no dim
+		build("measured", { type = "fixed", px = 300 }).dispose()
+	end)
+
 	it("an unknown word is refused, naming the two that are legal", function()
 		local core = Facet.newCore()
 		local rows = core:signal(makeRows(4))

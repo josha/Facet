@@ -728,6 +728,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	)
 	local crossIsHug = crossExtentSpec == "hug"
 	local crossIsMeasured = crossExtentSpec ~= nil
+	--[[ ...AND `width` IS THE SAME AXIS ON A VERTICAL LIST, so declaring both is
+		two answers to one dim. `"hug"` REPLACES the cross dim with `content`, which
+		would silently discard an authored `width` — an accepted property that drives
+		nothing, constitution §4's exact prohibition and the class this control
+		already refuses `cards` and `estimatedItemExtent` for. `"measured"` does not
+		touch the dim (it fills, or takes `width`, exactly as before), so it composes
+		with `width` and is not refused. On `axis = "x"` there is nothing to check:
+		`width` IS the scroll axis there and is already refused below. ]]
+	assert(
+		not crossIsHug or spec.width == nil,
+		'VirtualList.crossExtent = "hug" sizes the CROSS axis to the content, and on a vertical list `width` is that '
+			.. "same axis — declaring both would silently discard the width. Drop one: `width` to hug the content, or "
+			.. 'crossExtent = "measured"` to keep the authored width and still be told the extent.'
+	)
 	assert(type(spec.key) == "function", "VirtualList.key is required")
 	assert(type(spec.cell) == "function", "VirtualList.cell is required")
 	--[[ `width` IS THE CROSS AXIS, and only a vertical list has one there. On
