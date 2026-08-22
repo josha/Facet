@@ -996,6 +996,15 @@ local UNSWEEPABLE: { [string]: string } = {
 	VirtualReorder = "the DRAG half of VirtualList: canvas-offset arithmetic, reorder commits, slide springs and "
 		.. "the edge-autoscroll model — no blueprint, nothing to mount or measure. The rows it moves are swept "
 		.. "through the VirtualList fixture, at every preference",
+	-- the hosted row-actions half of src/controls/virtual_list.luau, lifted out on
+	-- 2026-08-22 so that file could get back under the same cap. Not a control
+	-- either; what it reveals is row_actions' OWN tray, which the RowActions
+	-- fixture mounts and sweeps.
+	VirtualListHosted = "the HOSTED ROW-ACTIONS half of VirtualList (extracted 2026-08-22 for the same cap): the "
+		.. "swipe dispatcher, the per-row engine cache, the presentation slide and the commit collapse — numbers "
+		.. "and gestures, not boxes. It builds no blueprint of its own: the tray it reveals is `row_actions`' own "
+		.. "`trayViews`, swept through the RowActions fixture at every preference, and the overlay region those "
+		.. "trays mount under is `newVirtualList`'s own node, swept through the VirtualList fixture",
 	VirtualWindow = "the WINDOWING arithmetic of VirtualList: a running-offset index and the memos over it — no "
 		.. "blueprint, nothing to mount or measure. The rows it windows are swept through the VirtualList "
 		.. "fixture, at every preference, and the measured-extent form is what that sweep re-measures",

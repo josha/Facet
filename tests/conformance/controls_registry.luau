@@ -308,6 +308,41 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		--[[ VirtualList's HOSTED ROW-ACTIONS half (2026-08-22). NOT a control: it
+			mounts nothing and has no blueprint of its own — it is the swipe
+			dispatcher and its axis lock, the per-row `row_actions` engine cache and
+			its retention policy, the shared tray overlay's item list, the
+			presentation slide, the commit collapse, the list-wide Delete/menu key
+			context and the focus restore on disengage. Lifted out of
+			src/controls/virtual_list.luau verbatim; the seven REASSIGNED host
+			scalars it read (the six contribution handoffs plus the render
+			controller) became ONE shared record, `deps.delivery`, which is the
+			`table.luau`/`rowGesture` technique and what made the move one-way at
+			all. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for that file made the
+			extraction a PRECONDITION of the next change of any size — it was 805
+			characters from 193,000 and 7,805 from the 200,000-char `Script.Source`
+			WRITE cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+
+			Its four-input story IS the VirtualList row's above: every hosted swipe,
+			tray tap, Delete key and pad route cited there is this module answering,
+			and the cases are byte-identical before and after the extraction. ]]
+		name = "VirtualListHosted",
+		kind = "composite",
+		module = "src/controls/virtual_list_hosted.luau",
+		export = "Controls.VirtualList",
+		spec = "tests/virtual_list_row_actions.spec.luau",
+		conformance = "tests/virtual_list_row_actions.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NO INSTANCE: `new(deps)` returns the bag of closures VirtualList rebinds,
+		-- and every live number in it (the engaged key, the slide offset, the open
+		-- row) is already reported by list.dump() — a second copy would be the same
+		-- numbers twice.
+		dump = false,
+		reason = "the hosted row-actions half of VirtualList: its live state (the engaged row, the slide offset, the per-row engines) is already reported by list.dump(), and a second copy here would be the same numbers twice",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		-- VirtualList's WINDOWING ARITHMETIC (2026-08-15). NOT a control: it mounts
 		-- nothing — it is the running-offset index over src/virtual_extents.luau,
 		-- the measurement cache's storage, the row->index map, the canvas Dim, the

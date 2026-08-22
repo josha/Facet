@@ -310,6 +310,7 @@ require("./virtual_list_row_actions.spec")
 -- list and a `rowActions` list built from one builder, diffed node for node
 -- (paths, classes, solved rects) and over the whole engage/disengage lifecycle
 require("./virtual_list_row_actions_identity.spec")
+require("./virtual_list_hosted_seam.spec")
 require("./auto_input_screens.spec")
 -- device round 1 (RascalRally, 2026-07-31): contributions mounted by a keyed
 -- region AFTER present, and the focus-visible rule a finger must obey

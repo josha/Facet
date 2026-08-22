@@ -66,9 +66,17 @@ SCANNED = ("src",)
 # place would have kept exempting a file that had already cleared the warning
 # band, which is an exemption with nothing left to be owed to. Twelve codes
 # surfaced; all twelve became prose in the same commit.
+#
+# `src/controls/virtual_list.luau` was removed on 2026-08-22 for the same reason,
+# the round its hosted row-actions half left for `controls/virtual_list_hosted.luau`
+# and the file fell from 192,187 to 145,913 — out of the warning band entirely.
+# SIXTEEN codes surfaced, not the fourteen orphans alone: a file leaving this
+# tuple brings its RESOLVABLE codes into the live count too, and the total is a
+# ratchet, so "make the orphans resolvable" would have moved the count from 25 to
+# 41 and failed anyway. All sixteen became prose, which is what the solver round
+# above did and the only move that keeps the ceiling honest.
 EXTRACTION_LOCKED = (
     "src/controls/table.luau",
-    "src/controls/virtual_list.luau",
     "src/present/presenter.luau",
 )
 
