@@ -321,7 +321,11 @@ moved HEAD twice mid-flight (`f95afbf` → `23081c3`), and its in-flight
 `tests/ten_foot_metrics.spec.luau` edits contaminated one intermediate run (8 reds,
 all in that file, all theirs) — the isolated copy is rebuilt from HEAD for that file
 and re-patched with my hunk alone, which is what the numbers above are measured on.
-A final run at the committed HEAD is in the appendix note below.
+
+**Confirmed after the commit**: a fresh `git archive` of the committed HEAD (`27af00f`,
+which carries the concurrent round's landed work too) runs **6915 passed, 0 failed** —
+the same number the isolated copy measured, so the delta is this round's and nothing
+in it depends on an unlanded edit.
 
 `stylua --check` clean on all eleven files. `check_source_size` PASS (`blueprint.luau`
 is nowhere near the band; the six band files are untouched). `check_doc_style`,
