@@ -123,12 +123,12 @@ local function newFakeServices(camera: any): any
 		GamepadConnected = newSignal(),
 		GamepadDisconnected = newSignal(),
 		LastInputTypeChanged = newSignal(),
-		-- the fact the sticky-preference correction reads (DIR5): what the player
-		-- most recently DID, as against what the engine standingly guesses
-		lastInputType = { Name = "MouseMovement" },
-		GetLastInputType = function(self: any)
-			return self.lastInputType
-		end,
+		--[[ THE RAW STREAM the deliberate-act classifier reads (DIR5 fix round 1,
+			INPUT-100/101). `GetLastInputType` is deliberately ABSENT from this fake:
+			the module must not read it, and an engine that does not offer it has to be
+			cleanly skipped — so its absence here is an assertion, not an omission. ]]
+		InputBegan = newSignal(),
+		InputChanged = newSignal(),
 		GetPropertyChangedSignal = function(_self, name: string)
 			return inputBag.signalFor(name)
 		end,
@@ -246,67 +246,190 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 		return env, services, unbind
 	end
 
-	it("pads connected + a mouse in the player's hand reads POINTER-primary, not gamepad", function()
-		local env, _, unbind = bound(function(services)
-			services.userInput.PreferredInput = { Name = "Gamepad" }
-			services.userInput.GamepadEnabled = true
-			services.userInput.MouseEnabled = true
-			services.userInput.lastInputType = { Name = "MouseMovement" }
-		end)
+	local function padDesktop(s: any)
+		s.userInput.PreferredInput = { Name = "Gamepad" }
+		s.userInput.GamepadEnabled = true
+		s.userInput.MouseEnabled = true
+	end
+
+	-- the raw events, in the engine's own shapes. `tostring` on a real EnumItem is
+	-- "Enum.UserInputType.MouseButton1"; the module takes the last dotted segment,
+	-- so a fake may hand either spelling and these use the engine's
+	local function began(services: any, inputType: string)
+		services.userInput.InputBegan:fire({ UserInputType = `Enum.UserInputType.{inputType}` })
+	end
+	local function stick(services: any, magnitude: number)
+		services.userInput.InputChanged:fire({
+			UserInputType = "Enum.UserInputType.Gamepad1",
+			KeyCode = "Enum.KeyCode.Thumbstick1",
+			Position = { X = magnitude, Y = 0 },
+		})
+	end
+	local function mouseMoved(services: any)
+		-- the engine reports movement as a CHANGE, which is exactly why it is not an act
+		services.userInput.InputChanged:fire({ UserInputType = "Enum.UserInputType.MouseMovement" })
+	end
+
+	it("nothing deliberate yet: the engine's preference stands, whatever it says", function()
+		--[[ THE FLOOR. A session that has seen no input at all has no evidence to
+			outvote the engine with, and inventing one is how a boot screen picks the
+			wrong layout (the phone case one layer up, in reverse). ]]
+		local env, _, unbind = bound(padDesktop)
+		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		unbind()
+	end)
+
+	it("a mouse CLICK claims primacy from a pad nobody has pressed", function()
+		local env, services, unbind = bound(padDesktop)
+		began(services, "MouseButton1")
 		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
 		local classes = env:get("interactionClasses"):get()
 		expect(classes.primary).toBe("pointer")
 		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
-		--[[ THE CAPABILITY IS UNTOUCHED, and this is the line that keeps the fix
-			from being a different bug: the pad IS live and everything that gates on
-			liveness (ADR-0015 Decision 2) must still see it. Only PRIMARY moved. ]]
+		--[[ THE CAPABILITY IS UNTOUCHED, and this is the line that keeps the fix from
+			being a different bug: the pad IS live and everything that gates on liveness
+			(ADR-0015 Decision 2) must still see it. Only PRIMARY moved. ]]
 		expect(classes.gamepad).toBe(true)
 		unbind()
 	end)
 
-	it("...and the very first pad press hands it straight back", function()
-		local env, services, unbind = bound(function(s)
-			s.userInput.PreferredInput = { Name = "Gamepad" }
-			s.userInput.GamepadEnabled = true
-			s.userInput.MouseEnabled = true
-			s.userInput.lastInputType = { Name = "MouseMovement" }
-		end)
+	it("...and a real pad PRESS takes it straight back", function()
+		local env, services, unbind = bound(padDesktop)
+		began(services, "MouseButton1")
 		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
-		services.userInput.lastInputType = { Name = "Gamepad1" }
-		services.userInput.LastInputTypeChanged:fire({ Name = "Gamepad1" })
+		began(services, "Gamepad1")
 		expect(env:get("preferredInput"):get()).toBe("Gamepad")
 		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
-		-- ...and back again when the mouse moves: the correction is not a latch
-		services.userInput.lastInputType = { Name = "MouseMovement" }
-		services.userInput.LastInputTypeChanged:fire({ Name = "MouseMovement" })
+		unbind()
+	end)
+
+	--[[ ── THE FLAP, WHICH IS WHAT THIS FIX IS ABOUT (INPUT-100/101) ──────────────
+		`tools/check_input_authority.py` records, as an enforced ledger entry, that
+		this repository already refused `UserInputService:GetLastInputType()` because
+		*"deadzone drift flaps it several times a second"* — a thumb RESTING on a
+		stick emits `Gamepad1` continuously — and requires *"a DELIBERATE act (past a
+		0.25 deadzone) before identity changes"*.
+
+		The director's hardware is exactly that: a mouse in hand, three pads
+		connected, one drifting. So the sequence below is the hardware, driven: stick
+		noise under the deadzone interleaved with mouse MOVEMENT, forty times. A
+		correction that read the engine's summary would republish `preferredInput` on
+		every one of them and take density, scroll indicators and every pad affordance
+		with it.
+
+		THE ASSERTION IS ON THE COUNT, not on the final value. A fix that flapped and
+		happened to land right would pass a value check. ]]
+	it("stick drift interleaved with mouse movement does not flap primacy, or publish at all", function()
+		local env, services, unbind = bound(padDesktop)
+		began(services, "MouseButton1") -- the player is on the mouse, deliberately
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+
+		local flips = 0
+		local last = env:get("effectiveInput"):get()
+		local stop = Facet.newCore()
+		local watcher = env:get("effectiveInput")
+		local unwatch = nil :: any
+		do
+			-- count every CHANGE of the derived fact, which is what a consumer feels
+			local scope = stop:scope("flap")
+			scope:own(stop:effect(function(use)
+				local now = use(watcher)
+				if now ~= last then
+					flips += 1
+					last = now
+				end
+			end))
+			unwatch = function()
+				scope:dispose()
+			end
+		end
+
+		for _ = 1, 20 do
+			stick(services, 0.1) -- drift: well under the 0.25 house deadzone
+			mouseMoved(services) -- movement: noise on the other side
+		end
+		expect(`flips after 40 noise events: {flips}`).toBe("flips after 40 noise events: 0")
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+
+		-- ...and the deadzone is a THRESHOLD, not a mute: one real deflection claims it
+		stick(services, 0.9)
+		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(`flips after one deliberate deflection: {flips}`).toBe("flips after one deliberate deflection: 1")
+		unwatch()
+		unbind()
+	end)
+
+	it("MOUSE MOVEMENT is not an act either — a pad player brushing a mouse keeps the pad", function()
+		--[[ `InputIdentity.luau`'s own list says so in as many words ("mouse MOVEMENT
+			is noise too"), and it is the symmetric half of the deadzone: the pointer
+			side has drift of its own. ]]
+		local env, services, unbind = bound(padDesktop)
+		began(services, "Gamepad1")
+		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		for _ = 1, 10 do
+			mouseMoved(services)
+		end
+		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		-- a CLICK is the act, and it moves it
+		began(services, "MouseButton1")
 		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
 		unbind()
 	end)
 
-	it("a device with NO pointer is a pad player whatever the last input was", function()
+	it("TOUCH is a deliberate act too, on a hybrid the engine still calls a pad", function()
+		-- L1: the first cut's table held only the five mouse names and `Keyboard`, so
+		-- a mouse-capable hybrid whose player was using the touchscreen kept a sticky
+		-- Gamepad preference. A touch began is as deliberate as a click.
+		local env, services, unbind = bound(function(s)
+			padDesktop(s)
+			s.userInput.TouchEnabled = true
+		end)
+		began(services, "Touch")
+		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
+		unbind()
+	end)
+
+	it("a device with NO pointer is a pad player whatever the player just did", function()
 		-- a console: the preference is the only answer there is, and it stands
-		local env, _, unbind = bound(function(s)
+		local env, services, unbind = bound(function(s)
 			s.userInput.PreferredInput = { Name = "Gamepad" }
 			s.userInput.GamepadEnabled = true
 			s.userInput.MouseEnabled = false
 			s.userInput.KeyboardEnabled = false
-			s.userInput.lastInputType = { Name = "MouseMovement" }
 		end)
+		began(services, "Touch")
 		expect(env:get("preferredInput"):get()).toBe("Gamepad")
 		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
 		unbind()
 	end)
 
-	it("an engine with no GetLastInputType is taken at its word", function()
+	it("an engine with no raw stream is taken at its word, and binds without a nil hole", function()
 		-- the same guard every optional engine read in this module carries: the
 		-- correction is an OPTION, never a requirement
 		local env, _, unbind = bound(function(s)
-			s.userInput.PreferredInput = { Name = "Gamepad" }
-			s.userInput.GamepadEnabled = true
-			s.userInput.MouseEnabled = true
-			s.userInput.GetLastInputType = nil
+			padDesktop(s)
+			s.userInput.InputBegan = nil
+			s.userInput.InputChanged = nil
 		end)
 		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		unbind()
+	end)
+
+	it("...and `GetLastInputType` is never read, because this repository refused it", function()
+		--[[ INPUT-100/101 as an executable pin rather than a comment: the fake engine
+			does not offer the member at all, and a module that reached for it would
+			take the pcall's failure path silently. So the FAKE asserts the absence and
+			the module is driven through the whole sequence without it. ]]
+		local services = newFakeServices(newCamera(1280, 720))
+		expect(services.userInput.GetLastInputType).toBeNil()
+		local core = Facet.newCore()
+		local env = environment.new(core)
+		padDesktop(services)
+		local unbind = roblox_env.bind(env, services)
+		began(services, "MouseButton1")
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
 		unbind()
 	end)
 

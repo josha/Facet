@@ -910,8 +910,8 @@ gesture still arrives at it. `formInteractive` is reported beside the role, beca
 whether the player has two things to press in that box is worth knowing. The plate's width is the composition's
 own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
 plate, the same content is presented as a full-width sheet instead. Dismissal is the
-presented surface's: a tap outside, the plate's own **Close** control (an icon chip
-whose accessibility name stays the word "Close"), and gamepad B —
+presented surface's: a tap outside, the plate's own **Close** control (the corner disc
+described below, whose accessibility name stays the word "Close"), and gamepad B —
 and the plate closes itself when the rect it was opened against moves, resizes or goes
 (a rotation, a viewport change, a theme-metric change, or a re-solve that put the region
 back on its richest form). **Escape is not one of the routes and cannot be**: it is

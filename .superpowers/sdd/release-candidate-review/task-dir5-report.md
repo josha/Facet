@@ -423,3 +423,230 @@ feature entirely.
    device, the model is unanimous that they are hidden — which would make it an
    engine-side paint latch, the class the HUD paint-latch round already met once, and
    a whole-live-tree diff rather than a model instrument is what would find it.
+
+---
+
+# FIX ROUND 1 — appended 2026-08-21, answering `task-dir5-review.md`
+
+**Status: DONE for the two MEDIUMs assigned to me (M4, M1) and five of the six
+LOWs.** Facet **6949 → 6957**, RR **3461 → 3464**, both green, both content-pinned
+at the current HEADs. Five new mutations bite. The geometry HIGHs (H1, H2) and M2's
+device evidence are not mine this round and are not touched — nor is
+`src/region_expand.luau`, whose `anchoredOpts` comment carries a sentence this round
+proves wrong (flagged below for whoever holds that file).
+
+## M4 — the input-primacy flap: the house record applied, not re-derived
+
+**The review is right and the finding is worse than it looks.** DIR5's item 5 read
+`UserInputService:GetLastInputType()` — the exact function this repository already
+refused, in a ledger entry it *enforces*. `tools/check_input_authority.py`
+INPUT-100/101, on the consumer's `InputIdentity.luau`: *"deadzone drift flaps it
+several times a second — so the classifier reads the raw stream and requires a
+DELIBERATE act (past a 0.25 deadzone) before identity changes."* On the director's
+own hardware (mouse in hand, three pads connected, one drifting) DIR5 traded a
+preference that was stickily WRONG for one that FLAPS, and `primary` carries density,
+scroll indicators and every pad affordance with it.
+
+**The remedy is the house record, clause for clause** (`src/client/roblox_env.luau`):
+
+* `GetLastInputType()` is **gone**. Primacy reads the RAW stream, which is what
+  INPUT-100 prescribes and what `InputIdentity.luau` does.
+* `InputBegan` is a press by definition and is taken at face value — including for a
+  gamepad, where `InputBegan` can only be a BUTTON (sticks arrive on `InputChanged`).
+* `InputChanged` claims the pad **only past `DELIBERATE_DEADZONE = 0.25`**, the same
+  house number, and only for `Thumbstick1`/`Thumbstick2`. Drift never qualifies.
+* **Mouse MOVEMENT is noise too** — `InputIdentity`'s own list says so, and it is the
+  symmetric half of the deadzone. A click or a wheel is the deliberate pointer act.
+* Nothing is claimed until something deliberate happens: `deliberateClass` starts
+  `nil`, and a `nil` class leaves the engine's preference exactly as reported. So a
+  session that has seen no input, and any engine whose raw stream this module cannot
+  reach, are byte-identical to before.
+* `capabilities.gamepad` is still untouched, and the `LastInputTypeChanged`
+  connection is back to what it was at HEAD: a capability latch only. Nothing about
+  primacy is decided there any more.
+
+**The gate caught the new subscriptions and the remedy is the one it prescribes.**
+`check_input_authority.py` flagged `roblox_env.luau: Input*:Connect×2` — correctly,
+because reading the raw stream is exactly the class it polices. It is allowlisted
+now with its inventory class (`2`), the platform text that makes it impossible (the
+same INPUT-100/101 text the consumer's entry carries: no device-change event in IAS,
+a STICKY `PreferredInput`, and a `GetLastInputType` this repo refused), and the event
+that retires it — *the same event*, so the two entries retire together.
+
+**Red-first.** The flap case drives the director's hardware: a deliberate mouse
+click, then **forty** interleaved noise events (stick at 0.1 — under the deadzone —
+alternating with mouse movement), and asserts the COUNT of changes to
+`effectiveInput`, not its final value (a fix that flapped and happened to land right
+would pass a value check). Then one deflection at 0.9 claims the pad, so the deadzone
+is shown to be a threshold rather than a mute. Eleven cases, all green:
+
+```
+nothing deliberate yet: the engine's preference stands, whatever it says
+a mouse CLICK claims primacy from a pad nobody has pressed
+...and a real pad PRESS takes it straight back
+stick drift interleaved with mouse movement does not flap primacy, or publish at all
+MOUSE MOVEMENT is not an act either — a pad player brushing a mouse keeps the pad
+TOUCH is a deliberate act too, on a hybrid the engine still calls a pad      <- L1
+a device with NO pointer is a pad player whatever the player just did
+an engine with no raw stream is taken at its word, and binds without a nil hole
+...and `GetLastInputType` is never read, because this repository refused it
+a pointer-primary desktop with no pad is exactly where it was
+```
+
+The last-but-one is INPUT-100/101 as an **executable pin**: the fake engine does not
+offer `GetLastInputType` at all, so a module that reached for it would take the
+pcall's failure path silently — the absence is an assertion, not an omission.
+
+## M1 — the scrim mechanism, honestly
+
+### (a) The published mechanism is FALSE, and here is what the numbers actually measure
+
+The review is right: DIR5's own oracle resolves `plain` to
+`BackgroundTransparency = 1` through `Button default`, so "its transparency is
+whatever the class-default rule happens to leave" is true about OWNERSHIP and false
+about the CONSEQUENCE — the number is 1, exactly the transparent-but-catching catcher
+the code intended. **The class default was never the opaque source.**
+
+**MEASURED LIVE** in the connected Studio (`Facet-Showcase.rbxl`, Edit datamodel),
+building the adapter's own order — create root, `StyleLink`, parent, create node, tag
+— against a sheet carrying Facet's own two rules, and reading back after N frames.
+Full trail in `artifacts/expand-plate/catcher-paint-window.md`:
+
+```
+plain@0f styled=0.00 prop=0.00     scrim@0f  styled=0.00 prop=0.00
+plain@1f styled=0.00 prop=0.00     scrim@1f  styled=0.00 prop=0.00
+plain@2f styled=0.00 prop=0.00     scrim@3f  styled=0.45 prop=0.00
+plain@3f styled=1.00 prop=0.00     scrim@10f styled=0.45 prop=0.00
+plain@10f styled=1.00 prop=0.00
+```
+
+A sheet parented OUTSIDE the linked subtree settles identically, so sheet placement
+is not a term. **Both of the director's numbers decompose:**
+
+1. **`BackgroundTransparency = 0` (the property) is expected and PERMANENT.** In
+   native mode the adapter writes that property on no node, ever — an explicit write
+   would defeat every surface rule (spike m10) — so it reads the engine default for
+   the life of every Facet node. My report treated it as corroborating. **It carries
+   no information at all**, and that correction matters more than the rest: it was
+   half of what made the false mechanism look measured.
+2. **`GetStyled(...) = 0` is the styling-application window** — ~3 frames after an
+   instance is created, and it reports the class default for `scrim` (0.45) exactly
+   as much as for `plain` (1). A catcher root is created at the instant a surface
+   opens, so a reading taken then is inside it.
+
+So the director's measurement is **consistent with a correctly linked, correctly
+ruled catcher**, which is what the review proved from the other side. The role change
+did not remove a known cause; it replaced an unowned 1 with a theme-owned 0.45. That
+is the right PRODUCT answer for a plate that covers content — and it is not a
+mechanism, and the commit message should not have said it was.
+
+**What is still open, and how to discriminate on report #4.** The window itself is a
+real opaque flash of a full-viewport node and **no framework-side write can close
+it**: the one property that would is the one native mode may not touch. Two live
+candidates remain, each fenced — a root that never received a `StyleLink` (pinned
+model-side by the root-link case), and the window (engine-side, unmeasurable
+headlessly). **The discriminator is duration**: a reading 10+ frames after the plate
+opened that still says 0 is the unlinked root; one taken immediately is the window.
+Take both.
+
+### (b) Every other `scrim = "none"` catcher, swept and dispositioned
+
+The population is three, and it is the mechanism rather than the row:
+
+| path | reached by | disposition |
+|---|---|---|
+| `mountScrim(owner, "none")` -> `plain` | an engaged-passive surface (`presenter.luau:2629` defaults every non-modal to `"none"`), `newMenu` (`menu.luau:636`), row-actions' floating menu (`row_actions.luau:2101`) | **stays `plain` — correct.** A menu at a button and an engaged HUD are tap swallowers, not backdrops; dimming there is a product regression |
+| `mountPopupCatcher` -> `plain`, unconditionally | PopupButton's panel, an open row-actions tray | **stays `plain` — correct**, same reason |
+| `mountScrim(owner, "scrim")` | a declared modal, and the region EXPAND plate since DIR5 | **dims — correct.** It covers content, and the dim is how a player is told the screen behind it is not live |
+
+`plain` is the right DECLARATION for two of the three. What was NOT defended is the
+number behind it, so that is what changed: the resolved-paint oracle now runs over
+**every** catcher this presenter can mount, asserting **exactly 1** for the two
+invisible paths (not "> 0" — a catcher resolving to 0.999 would be a near-opaque
+full-screen fill that every "is it transparent" predicate here would call fine) and
+the theme's own token for the dimming one, plus a live-driven case that mounts a
+`newMenu`-shaped `scrim = "none"` modal and reads the number off the real node. If
+`Button default` is ever renamed, reordered under a painting rule, or a state rule
+starts carrying a fill, all three paths redden together instead of one shipping
+opaque. The reasoning is recorded at the seam in `catchers.luau`, including why these
+stay `plain` and the expand plate does not.
+
+### (c) The mechanism story is corrected in place
+
+`tests/popup_catcher_paint.spec.luau`'s section header now records the false answer,
+why it was false, and what the numbers measure — kept rather than deleted, because a
+mechanism contradicted by the instrument shipped to prove it is worth the space. The
+`describe` is retitled ("every synthesized catcher resolves to a number somebody
+chose"), since two of the three are deliberately class-default-owned.
+
+**One correction I could not make**: `src/region_expand.luau`'s `anchoredOpts`
+comment still carries the false mechanism (*"its transparency is whatever the CLASS
+DEFAULT rule happens to leave"*). That file belongs to the plate-B round this turn.
+**Owner action**: replace that paragraph with the artifact's finding, or delete the
+mechanism claim and keep only the product argument (a plate that covers content dims;
+the theme owns the number; ADR-0035 composes against it).
+
+## The six LOWs
+
+| | verdict | |
+|---|---|---|
+| **L1** `Touch` missing from the deliberate set | **FIXED** | it is a `DELIBERATE_CLASS` entry now, with a case ("TOUCH is a deliberate act too, on a hybrid the engine still calls a pad") that reddens when it is removed (MF4) |
+| **L2** the report's RR-repo claim is wrong | **FIXED** | verified: `games/RascalRally/code` **is** the repository (`git log` shows `e6e1c56` carrying round 1's fence, and `4e271c3` after it). The round-1 statement was wrong and is corrected here rather than edited in place, so the mistake stays legible. Round 1's RR file was committed by the controller at `e6e1c56`; this round's RR file is committed below |
+| **L3** no game-side evidence for item 5 | **FIXED** | three cases in RR's `facet_composition_collision_contract.spec.luau`, driving Facet's real `roblox_env` against a fake pad-desktop engine and asserting the predicate `FacetSponsor/init.luau:686` actually runs (`effectiveInput == "Gamepad"`, the gamepad-only seeded focus ring from the 2026-08-03 racer-sort ruling): a mouse player with idle pads does NOT get the ring; a real pad press still does (positive control); and the game reads that fact in exactly one place, enumerated from the source tree so a second consumer reddens the row. The review's line number (`:686`) is right and the report's `:672` was wrong |
+| **L4** doc drift: the Close as "an icon chip" | **FIXED** | both sites now say "the corner disc" and point at the paragraph that describes it |
+| **L5** the paint oracle is priority-blind and skips silently | **FIXED** | the cascade is `(priority, insertion)` — reading the field the engine reads costs one comparison and stops a future self-prioritising rule from making the oracle wrong quietly. `selectorMatches` returns a **channel** (`match` / `state` / `descendant` / `unknown`) and every channel is counted; the case asserts `unknown == 0` **and** that the two skipped families are non-empty, so the exemptions are about something. Plus a new case that makes the exemption's premise executable: no state rule in the built sheet carries a `BackgroundTransparency` at all |
+| **L6** B-16's change column says "cover **over** the whole form" | **FIXED** in the row text below, together with the qualifier the review's H1 asks for ("under every form **within its own region**") |
+
+## ADR-0040 row B-16 — CORRECTED text (supersedes the round-1 version)
+
+| B-16 | `UI.Region{ expand }`'s synthesized affordance on a form that carries no control of its own | a **chevron** beside the form → a **cover UNDER the whole form** (`expandTarget.role`, a closed set of two again) | the affordance a collapsing region synthesizes changes SHAPE and TARGET on the commonest case: a passive compact form draws **no mark at all** and the whole of it becomes the tap/A target at the standard hit floor, where it used to draw a caret in a column the form's own measure reserved. Shipped geometry moves — the form gets the mark's column back (the HUD demo's clock zone 100 → 80 at 360x691), so a value that was being cut may now fit and a screen tuned against the reserved width re-lays out. Director ruling, DIR5 2026-08-21: *"the controls should just be tappable by default to open more without the arrow. we'll only need the arrow if the thing is already a control the user can tap."* The cover was retired by the 2026-08-21 device round for painting over the author's content; it returns declared `zIndex = -1`, so it and the hit expander banded below it paint **under every form within its own region** — the retirement note's own condition ("placing the affordance BELOW the form"), met without an extraction, because the solver's last-child lookup is a TREE fact and paint order is a different axis. **It is NOT under everything**: a cover's floor is the region's whole width, so where it overhangs a neighbouring region `hit_lift` lifts it ABOVE that neighbour to keep the band deliverable — measured 26% of each adjacent Button on the `ringScreen` fixture, and the open finding H1 in `task-dir5-review.md`. `UI.Foreign` and the lazy regions still force the chevron; `UI.Box{ active = true }` does not and is the review's M3. Rascal Rally declines the default on every multi-form region (`ResultsScreen.luau`'s `region()` helper) and is unaffected, pinned game-side | `tests/region_expand.spec.luau` EXPAND 5/7/15/17/18; `tests/hud_composition.spec.luau`; RR `tests/facet_composition_collision_contract.spec.luau` |
+
+## Suite tails (content-pinned at the current HEADs)
+
+| | baseline | after the fix round |
+|---|---|---|
+| Facet | **6949 passed, 0 failed** (`git archive HEAD`) | **6957 passed, 0 failed** (same archive + this round's six files) |
+| Rascal Rally | **3461 passed, 0 failed** (RR `git archive HEAD` + Facet `git archive HEAD`) | **3464 passed, 0 failed** (same pair, this round's Facet files + RR spec file) |
+
+An earlier pairing of RR's HEAD against a STALE Facet archive produced 3 reds in
+`facet_theme_paint_contract.spec` — the consumer's own native-flip rider calling a
+`native_style` function the older Facet did not have. Not a finding: a mis-pinned
+pair, corrected by rebuilding both sides from their current HEADs, which is exactly
+the failure mode content-pinning exists to make visible.
+
+`stylua --check` clean. `check_input_authority` **clean** (after the allowlist entry
+— it correctly failed first). `check_doc_style` PASS.
+
+## Mutations (fix round; each applied to a private copy, run, reverted)
+
+| # | mutation | red |
+|---|---|---|
+| MF1 | the deadzone removed — any stick change claims the pad | **1** (the flap case) |
+| MF2 | mouse MOVEMENT counts as deliberate | **1** (the pad-player-brushing-a-mouse case) |
+| MF3 | the whole correction removed | **6** |
+| MF4 | `Touch` drops out of the deliberate set (L1 regressed) | **1** |
+| MF5 | MF1 and MF2 together — the full noise pair | **2** |
+
+MF1 is the red-first proof for M4 specifically: it is the shape of the code the
+review objected to, and the case that reddens is the one that drives the director's
+hardware.
+
+## Concerns after the fix round
+
+1. **The scrim's visual bug is still not proven fixed.** The mechanism is now
+   honestly recorded and the settled paint is owned, but neither of those is a device
+   pass. The discriminator for report #4 is written down (duration) and the artifact
+   holds the numbers.
+2. **The create-window flash is real and unclosable from here.** Every full-viewport
+   catcher — `plain` and `scrim` alike — paints its class default for the frames
+   before styling applies. If that turns out to be what the director saw, the fix
+   belongs in the adapter's create path or in the presenter's mount ordering, not in
+   a surface role, and it is a decision above my level.
+3. **`roblox_env` now subscribes to the raw input stream.** It is allowlisted with
+   the ledger's own reasoning and it routes no actions — but it is a second module in
+   this repository doing device classification by hand, and the right end state is
+   one classifier, shared with the consumer's, retired together by the same IAS
+   event.
+4. **H1, H2, M2 and M3 are not addressed here** by instruction. M3 in particular is a
+   one-line population (`UI.Box{ active = true }` belongs in `UNSEEN_CONTENT`) whose
+   file the plate-B round holds this turn.

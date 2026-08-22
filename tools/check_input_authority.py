@@ -92,6 +92,24 @@ ALLOWLIST = {
         "these probes to find. Partially retired already: disableLegacyControls() is inert "
         "wherever iasPlayerScriptsActive() answers true (DF-9, 2026-08-18).",
     ),
+    "src/client/roblox_env.luau": (
+        "2",
+        "INPUT-100/101, the SAME entry the consumer's InputIdentity.luau carries and for "
+        "the same reason — recorded there as: 'Device-change observation: Not exposed as "
+        "its own event... The docs do not document a way to explicitly subscribe to "
+        "device-change events within IAS itself.' The platform adapter has to answer WHICH "
+        "CLASS IS PRIMARY, and the two summaries the engine offers cannot: "
+        "UserInputService.PreferredInput is STICKY (a desktop with a pad connected reads "
+        "Gamepad for the session once one drifting thumbstick has spoken, measured by the "
+        "game director 2026-08-21), and GetLastInputType() is the function this repository "
+        "already refused one module over because 'deadzone drift flaps it several times a "
+        "second'. So primacy is read the way the ledger prescribes: from the raw stream, "
+        "requiring a DELIBERATE act — a press, or a stick past the same 0.25 deadzone; "
+        "never drift, never mouse movement. Two connections, no action routing: nothing "
+        "here binds, sinks or consumes an input, it only classifies one.",
+        "IAS documents a device-change event carrying the deliberate-act distinction — the "
+        "same event that retires INPUT-100/101 in the consumer. Both entries go together.",
+    ),
     "src/client/screen_pointer.luau": (
         "3 (+1: the wheel)",
         "INPUT-29/30/32. Research A.4: 'Pointer position/geometry: Not addressed as a "

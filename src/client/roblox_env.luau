@@ -210,15 +210,55 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		The correction lives HERE rather than in the memo because it is about an
 		ENGINE fact's known behaviour, which is this module's whole job — the same
 		place `capabilities.gamepad` already corrects `GamepadEnabled` with
-		`sawGamepadInput`. ]]
-	local POINTER_LAST_INPUT: { [string]: boolean } = {
-		MouseButton1 = true,
-		MouseButton2 = true,
-		MouseButton3 = true,
-		MouseMovement = true,
-		MouseWheel = true,
-		Keyboard = true,
+		`sawGamepadInput`.
+
+		=== AND IT READS A DELIBERATE ACT, NOT `GetLastInputType()` (fix round 1) ===
+
+		The first cut of this correction read `UserInputService:GetLastInputType()`.
+		THIS REPOSITORY HAS ALREADY REJECTED THAT FUNCTION, in a ledger entry it
+		enforces: `tools/check_input_authority.py` INPUT-100/101 records that Rascal
+		Rally's `InputIdentity.luau` refuses it because *"deadzone drift flaps it
+		several times a second"* — a thumb RESTING on a stick emits `Gamepad1`
+		continuously — and requires *"a DELIBERATE act (past a 0.25 deadzone) before
+		identity changes"*. On the exact hardware the director reported (a mouse in
+		hand, three pads connected, one of them drifting) the first cut therefore
+		traded a preference that was stickily WRONG for one that FLAPS, and every
+		consumer of `primary` — density, scroll indicators, every pad affordance —
+		would have flapped with it.
+
+		SO THE HOUSE RECORD IS FOLLOWED RATHER THAN RE-DERIVED, clause for clause:
+
+		  · the RAW stream, not the engine's summary. `InputBegan` is a press by
+		    definition, and `InputChanged` carries the analogue noise, so the two are
+		    read separately and only the first is trusted outright;
+		  · a THUMBSTICK claims the pad only past `DELIBERATE_DEADZONE`. Drift never
+		    qualifies, which is the entire finding INPUT-100 is about;
+		  · MOUSE MOVEMENT IS NOISE TOO — `InputIdentity`'s own list says so, and a
+		    pad player whose sleeve brushes a mouse must not lose the pad. A click or
+		    a wheel is the deliberate pointer act;
+		  · and nothing at all is claimed until something deliberate happens: the
+		    class starts `nil`, and a `nil` class leaves the engine's preference
+		    exactly as reported.
+
+		The constant is the house number. If it ever needs to differ from the game's,
+		that is a decision with two owners, not a second literal. ]]
+	local DELIBERATE_DEADZONE = 0.25
+	--[[ WHAT A DELIBERATE PRESS MEANS, by `UserInputType` name. Gamepad buttons are
+		not in the table because they arrive on a different branch (any gamepad
+		`InputBegan` is a button — sticks come through `InputChanged`), and
+		`MouseMovement` is not in it because it is not an act. ]]
+	local DELIBERATE_CLASS: { [string]: string } = {
+		MouseButton1 = "pointer",
+		MouseButton2 = "pointer",
+		MouseButton3 = "pointer",
+		MouseWheel = "pointer",
+		Keyboard = "keyboard",
+		Touch = "touch",
 	}
+	--[[ The last class the player DELIBERATELY used, or nil while they have used
+		nothing. Read by `pushInput` below and written only by the two raw-stream
+		connections further down. ]]
+	local deliberateClass: string? = nil
 
 	-- same fact-group rule as pushViewport: the class and the capability set are
 	-- one truth about the device, and the interactionClasses memo reads BOTH.
@@ -227,16 +267,13 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 			local preferred = UserInputService.PreferredInput
 			local name = preferred.Name
 			local mouse = UserInputService.MouseEnabled
-			if name == "Gamepad" and mouse then
-				-- guarded like every other optional engine read in this file: an engine
-				-- without the member keeps the preference exactly as reported. The NAME
-				-- is read inside the pcall so the call and the member are one question
-				local okLast, lastName = pcall(function()
-					return (UserInputService :: any):GetLastInputType().Name
-				end)
-				if okLast and POINTER_LAST_INPUT[lastName] == true then
-					name = "KeyboardAndMouse"
-				end
+			--[[ A pad the player has not deliberately used cannot outvote a pointer
+				the device physically has. `deliberateClass` is nil until something
+				deliberate happens, and a nil answer changes nothing — so a session that
+				has seen no input at all, and any engine whose raw stream this module
+				could not reach, keep the preference exactly as reported. ]]
+			if name == "Gamepad" and mouse and deliberateClass ~= nil and deliberateClass ~= "gamepad" then
+				name = "KeyboardAndMouse"
 			end
 			env:set("preferredInput", name)
 			env:set("capabilities", {
@@ -365,30 +402,98 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 	for _, property in { "KeyboardEnabled", "MouseEnabled", "TouchEnabled", "GamepadEnabled" } do
 		table.insert(connections, UserInputService:GetPropertyChangedSignal(property):Connect(pushInput))
 	end
-	--[[ ...AND THE LAST INPUT NOW MOVES A FACT, not only a latch (see `pushInput`),
-		so this connection has to push on more than the first pad press: the whole
-		point of the correction is that it comes back the moment the player uses the
-		pad, and that moment arrives here.
-
-		ONLY ON A FAMILY CHANGE. `LastInputTypeChanged` fires on every mouse move; a
-		re-push per frame would be a transaction per frame for a fact that did not
-		move. The family is the only thing `pushInput` reads, so it is the only thing
-		worth waking for. ]]
-	local lastWasPointerFamily: boolean? = nil
+	--[[ THE CAPABILITY LATCH, UNCHANGED. `LastInputTypeChanged` is still the cheapest
+		place to learn that a pad exists at all when detection lagged or failed, and it
+		still fires exactly once for that — it is a CAPABILITY question and noise
+		answers it just as well as a press does. Nothing about PRIMACY is decided here
+		any more; that reads the deliberate stream below. ]]
 	table.insert(
 		connections,
 		UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInputType)
-			local pointerFamily = POINTER_LAST_INPUT[inputType.Name] == true
-			local familyChanged = pointerFamily ~= lastWasPointerFamily
-			lastWasPointerFamily = pointerFamily
 			if not sawGamepadInput and inputType.Name:sub(1, 7) == "Gamepad" then
 				sawGamepadInput = true
-				pushInput()
-			elseif familyChanged then
 				pushInput()
 			end
 		end)
 	)
+	--[[ ── THE DELIBERATE STREAM (INPUT-100/101; see `pushInput`) ──────────────────
+		A press is deliberate by definition, so `InputBegan` is taken at face value —
+		including for a gamepad, where `InputBegan` can only be a BUTTON (sticks and
+		triggers arrive on `InputChanged`). Mouse MOVEMENT never reaches this branch
+		because the engine reports it as a change rather than a beginning, which is
+		the same split `InputIdentity.luau` relies on.
+
+		A re-push only on a CHANGE of class: a player clicking a mouse fires this on
+		every click and the fact has not moved.
+
+		BOTH CONNECTIONS ARE OPTIONAL. An engine without the member — a fake in a
+		test, a future target — keeps `deliberateClass` nil forever, and a nil class
+		leaves the preference exactly as the engine reported it. That is the same
+		"cleanly skipped, with no nil hole" contract every guarded read in this module
+		carries. ]]
+	local function claimDeliberate(class: string?)
+		if class == nil or class == deliberateClass then
+			return
+		end
+		deliberateClass = class
+		pushInput()
+	end
+	do
+		local okBegan, began = pcall(function()
+			return (UserInputService :: any).InputBegan
+		end)
+		if okBegan and began ~= nil then
+			table.insert(
+				connections,
+				began:Connect(function(io: any)
+					local name = if type(io) == "table" or typeof(io) == "Instance"
+						then tostring((io :: any).UserInputType)
+						else ""
+					-- `tostring` on an EnumItem is "Enum.UserInputType.Foo"; the fake
+					-- engine hands a plain table whose field is already the name
+					local short = string.match(name, "([^%.]+)$") or name
+					if string.sub(short, 1, 7) == "Gamepad" then
+						claimDeliberate("gamepad")
+					else
+						claimDeliberate(DELIBERATE_CLASS[short])
+					end
+				end)
+			)
+		end
+		local okChanged, changed = pcall(function()
+			return (UserInputService :: any).InputChanged
+		end)
+		if okChanged and changed ~= nil then
+			table.insert(
+				connections,
+				changed:Connect(function(io: any)
+					local name = string.match(tostring((io :: any).UserInputType), "([^%.]+)$") or ""
+					--[[ THE DEADZONE, AND IT IS THE WHOLE POINT (INPUT-100). A stick a
+						thumb is resting on emits continuously; only a deflection past the
+						house number is an act. Triggers and every other analogue axis are
+						deliberately NOT read here — a trigger at rest drifts too, and a
+						pulled trigger arrives as a button on `InputBegan`. ]]
+					if string.sub(name, 1, 7) == "Gamepad" then
+						local key = string.match(tostring((io :: any).KeyCode), "([^%.]+)$") or ""
+						if key == "Thumbstick1" or key == "Thumbstick2" then
+							local pos = (io :: any).Position
+							local mag = if type(pos) == "table"
+								then math.sqrt((pos.X or 0) ^ 2 + (pos.Y or 0) ^ 2)
+								elseif pos ~= nil then (pos :: any).Magnitude
+								else 0
+							if type(mag) == "number" and mag > DELIBERATE_DEADZONE then
+								claimDeliberate("gamepad")
+							end
+						end
+					elseif name == "MouseWheel" then
+						-- a wheel IS an act; `MouseMovement`, which arrives on this same
+						-- connection, deliberately is not
+						claimDeliberate("pointer")
+					end
+				end)
+			)
+		end
+	end
 	table.insert(connections, GuiService:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(pushAccessibility))
 	table.insert(connections, GuiService:GetPropertyChangedSignal("PreferredTransparency"):Connect(pushAccessibility))
 	do

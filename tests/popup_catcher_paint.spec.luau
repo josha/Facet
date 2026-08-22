@@ -224,17 +224,36 @@ end)
 	AND THE TWO CASES ABOVE WERE GREEN OVER IT, on the twin path their own header
 	names. That is this repository's "check that proves nothing" class, and the
 	reason is exact: they assert the DECLARATION (`decorationSlot=nil
-	surface=plain`) and a declaration is not a paint. `plain` earns no
-	`facet-surface-*` tag at all, so nothing in the sheet's vocabulary can address
-	that node and its transparency is whatever the CLASS DEFAULT rule happens to
-	leave — a number the catcher neither states nor owns, on the one node in the
-	framework that covers the entire screen.
+	surface=plain`) and a declaration is not a paint.
 
-	SO THE ORACLE BELOW RESOLVES THE PAINT instead of reading the declaration: it
-	classifies the catcher exactly as `sheet_model.classifyTags` does, walks the
-	BUILT sheet in cascade order, and reports the VALUE and the RULE THAT SUPPLIED
-	IT. "Which rule owns this pixel" is the question the three reports were really
-	about, and it is answerable headlessly. ]]
+	=== AND THE FIRST ANSWER THIS FILE GAVE WAS WRONG (fix round 1) ===
+
+	The first version of this section said the opaque fill came from `plain`
+	resolving to "whatever the CLASS DEFAULT rule happens to leave". **Its own first
+	case refutes that**, and a review said so: `plain` resolves to `Button default`
+	-> `BackgroundTransparency = 1`, i.e. exactly the transparent-but-catching
+	catcher the code intended. The class default was never the source. A mechanism
+	contradicted by the instrument shipped to prove it is worth more space than a
+	quiet edit, so it is recorded rather than deleted.
+
+	WHAT THE DIRECTOR'S TWO NUMBERS ACTUALLY MEASURE, live in Studio, in
+	artifacts/expand-plate/catcher-paint-window.md:
+	  · `BackgroundTransparency = 0` (the plain property) is EXPECTED AND PERMANENT.
+	    In native mode the adapter writes that property on no node ever — an explicit
+	    write would defeat every surface rule — so it reads the engine default for
+	    the life of every Facet node. It corroborates nothing.
+	  · `GetStyled(...) = 0` is the STYLING-APPLICATION WINDOW. Measured: a freshly
+	    created root reads the CLASS DEFAULT for ~3 frames and then the rule's value,
+	    for `scrim` (0.45) exactly as much as for `plain` (1). A catcher root is
+	    created at the instant a surface opens, so a reading taken then is inside it.
+
+	So this file cannot say the visual bug is explained, and it does not. What it
+	CAN do is make "which rule owns this pixel" answerable, for every catcher this
+	presenter can mount — which is what the oracle below does: it classifies the
+	catcher exactly as `sheet_model.classifyTags` does, walks the BUILT sheet in
+	`(priority, insertion)` order, and reports the VALUE and the RULE THAT SUPPLIED
+	IT. Three reports were really asking that question, and it is answerable
+	headlessly even though the paint is not. ]]
 
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
@@ -287,8 +306,9 @@ local function expandScreen(): any
 end
 
 --[[ Does a rule's selector match a RESTING node of `class` carrying `tags`? Two
-	whole families are deliberately not this node and are named rather than
-	pattern-matched away:
+	whole families are deliberately not this node, and each is COUNTED rather than
+	pattern-matched away (review finding L5 — a skip channel nothing can see is how
+	an oracle stops auditing the vocabulary it was built for):
 
 	  `::UICorner` / `::UIStroke` — a DESCENDANT object the sheet materializes.
 	  It carries its own properties and none of them is this node's fill.
@@ -296,62 +316,109 @@ end
 	  never hovered, pressed or disabled at the moment the reports are about (a
 	  full-screen fill that is already wrong before anyone touches it).
 
-	Anything else that is not one of the three resting shapes is REPORTED, so this
-	oracle cannot quietly stop matching the vocabulary it is auditing. ]]
-local function selectorMatches(selector: string, class: string, tags: { [string]: boolean }): (boolean, string?)
+	The second answer is the CHANNEL a selector went down: "match", "state",
+	"descendant", or "unknown". Anything that is not one of the three resting
+	shapes lands in `unknown`, and the case below asserts every channel's count. ]]
+local function selectorMatches(selector: string, class: string, tags: { [string]: boolean }): (boolean, string)
+	if string.find(selector, "::", 1, true) ~= nil then
+		return false, "descendant"
+	end
 	if string.find(selector, ":", 1, true) ~= nil then
-		return false, nil -- a descendant object or a non-resting state
+		return false, "state"
 	end
 	local cls, tag = string.match(selector, "^([%a]+)%.([%w%-]+)$")
 	if cls ~= nil then
-		return cls == class and tags[tag] == true, nil
+		return cls == class and tags[tag] == true, "match"
 	end
 	local bareTag = string.match(selector, "^%.([%w%-]+)$")
 	if bareTag ~= nil then
-		return tags[bareTag] == true, nil
+		return tags[bareTag] == true, "match"
 	end
 	if string.match(selector, "^[%a]+$") ~= nil then
-		return selector == class, nil
+		return selector == class, "match"
 	end
-	return false, selector
+	return false, "unknown"
 end
 
--- the resolved BackgroundTransparency of a catcher declaring `surface`, and the
--- NAME of the rule that supplied it. Insertion order IS the cascade.
-local function resolvedCatcherPaint(surface: string?): (number?, string?, { string })
+--[[ The resolved BackgroundTransparency of a catcher declaring `surface`, and the
+	NAME of the rule that supplied it.
+
+	THE CASCADE IS `(priority, insertion)`, NOT INSERTION ALONE (review finding L5).
+	`sheet_model` derives `rule.priority` from the index today, so the two orders
+	agree — but a rule that ever declares its own priority would make an
+	insertion-only oracle wrong QUIETLY, on the one instrument three reports were
+	waiting for. Reading the field the engine reads costs one comparison. ]]
+local function resolvedCatcherPaint(surface: string?): (number?, string?, { [string]: number })
 	local tags = sheet_model.classifyTags({ class = "Button", surface = surface, interactive = true })
 	local model = neutralSheet()
-	local value: number?, owner: string?, unknown: { string } = nil, nil, {}
-	for _, rule in model.rules do
-		local ok, weird = selectorMatches(rule.selector, "TextButton", tags)
-		if weird ~= nil then
-			table.insert(unknown, weird)
-		end
-		if not ok then
-			continue
-		end
-		local prop = rule.props.BackgroundTransparency
-		if type(prop) == "table" and prop.kind == "number" then
-			value, owner = prop.value, rule.name
+	local channels: { [string]: number } = { match = 0, state = 0, descendant = 0, unknown = 0 }
+	local ordered: { { rule: any, index: number, priority: number } } = {}
+	for index, rule in model.rules do
+		local ok, channel = selectorMatches(rule.selector, "TextButton", tags)
+		channels[channel] += 1
+		if ok then
+			local priority = if type(rule.priority) == "number" then rule.priority else index
+			table.insert(ordered, { rule = rule, index = index, priority = priority })
 		end
 	end
-	return value, owner, unknown
+	table.sort(ordered, function(a, b)
+		if a.priority ~= b.priority then
+			return a.priority < b.priority
+		end
+		return a.index < b.index
+	end)
+	local value: number?, owner: string? = nil, nil
+	for _, entry in ordered do
+		local prop = entry.rule.props.BackgroundTransparency
+		if type(prop) == "table" and prop.kind == "number" then
+			value, owner = prop.value, entry.rule.name
+		end
+	end
+	return value, owner, channels
 end
 
-describe("the catcher's paint is OWNED, not inherited from a class default", function()
+describe("every synthesized catcher resolves to a number somebody chose", function()
 	it("the oracle can see the difference between a role and a class default", function()
 		--[[ THE INSTRUMENT'S OWN PROOF, first: the two surfaces a catcher can wear
 			resolve through DIFFERENT rules, so a case built on this oracle is reading
 			a real distinction rather than one constant. ]]
-		local plainValue, plainOwner, plainUnknown = resolvedCatcherPaint("plain")
-		local scrimValue, scrimOwner, scrimUnknown = resolvedCatcherPaint("scrim")
-		expect(#plainUnknown).toBe(0)
-		expect(#scrimUnknown).toBe(0)
+		local plainValue, plainOwner, plainChannels = resolvedCatcherPaint("plain")
+		local scrimValue, scrimOwner, scrimChannels = resolvedCatcherPaint("scrim")
+		expect(plainChannels.unknown).toBe(0)
+		expect(scrimChannels.unknown).toBe(0)
 		expect(`plain -> {plainValue} by '{plainOwner}'`).toBe("plain -> 1 by 'Button default'")
 		expect(scrimOwner).toBe(sheet_model.SCRIM_RULE)
 		expect(`the scrim role dims rather than hides or fills: {scrimValue > 0 and scrimValue < 1}`).toBe(
 			"the scrim role dims rather than hides or fills: true"
 		)
+		--[[ ...AND THE SKIPPED FAMILIES ARE REAL AND NON-EMPTY (L5). A skip channel
+			that happened to be empty would mean the oracle was matching everything and
+			the exemptions below were about nothing. ]]
+		expect(`state rules skipped: {plainChannels.state > 0}`).toBe("state rules skipped: true")
+		expect(`descendant rules skipped: {plainChannels.descendant > 0}`).toBe("descendant rules skipped: true")
+	end)
+
+	it("...and skipping the STATE rules is a fact about the sheet, not an assumption", function()
+		--[[ L5's other half. The oracle drops `:Hover` / `:Press` / `:NonInteractable`
+			because a catcher is never in those states — which is only safe while no
+			state rule carries a FILL. That is true of every rule both builders emit
+			today; if one ever does, the exemption becomes a lie and this reddens
+			instead of the oracle quietly reporting the resting value for a node that
+			is painting something else. ]]
+		local painting: { string } = {}
+		for _, rule in neutralSheet().rules do
+			if string.find(rule.selector, "::", 1, true) ~= nil then
+				continue
+			end
+			if string.find(rule.selector, ":", 1, true) == nil then
+				continue
+			end
+			if rule.props.BackgroundTransparency ~= nil then
+				table.insert(painting, `{rule.name} ({rule.selector})`)
+			end
+		end
+		table.sort(painting)
+		expect(table.concat(painting, " ; ")).toBe("")
 	end)
 
 	it("a region's EXPAND plate mounts a barrier that wears the scrim ROLE", function()
@@ -394,6 +461,74 @@ describe("the catcher's paint is OWNED, not inherited from a class default", fun
 			table.insert(moved, `{row.rule}/{row.prop}`)
 		end
 		expect(table.concat(moved, " ")).toBe(`{sheet_model.SCRIM_RULE}/BackgroundTransparency`)
+	end)
+
+	--[[ ── EVERY OTHER CATCHER THIS PRESENTER CAN MOUNT (DIR5 fix round) ─────────
+		The review's finding: DIR5 changed ONE path to the scrim role and left every
+		other `plain` catcher alone on the reasoning that the class default was the
+		opaque source — which its own oracle refutes (`plain` resolves to 1). So the
+		class must not be able to recur on a path nobody tested, and the disposition
+		of each path has to be a decision rather than an omission.
+
+		THE POPULATION IS THREE, and the sweep is over the mechanism rather than the
+		row:
+		  · `mountScrim(owner, "none")` — an engaged-passive surface (`presenter`
+		    defaults every non-modal to `"none"`), `newMenu`, and row-actions' floating
+		    menu. Must NOT dim: a menu at a button is not a backdrop.
+		  · `mountPopupCatcher` — PopupButton's panel and an open row-actions tray.
+		    Mounts `plain` unconditionally, same reason.
+		  · `mountScrim(owner, "scrim")` — a declared modal, and the region EXPAND
+		    plate since DIR5. SHOULD dim: it covers content.
+
+		`plain` is therefore the right DECLARATION for two of the three, and this case
+		pins what actually supplies their invisibility — the class-default rule — so a
+		rename, a reorder under a painting rule, or a state rule that ever carries a
+		fill reddens all of them together instead of one shipping opaque. ]]
+	it("every catcher role resolves to a number somebody chose, and the two invisible ones to 1", function()
+		local plainValue, plainOwner = resolvedCatcherPaint("plain")
+		local scrimValue, scrimOwner = resolvedCatcherPaint("scrim")
+		--[[ EXACTLY 1, not "> 0". A catcher that resolved to 0.999 would be a
+			near-opaque full-screen fill and every "is it transparent" predicate this
+			repository has would call it fine. ]]
+		expect(`plain={plainValue} by '{plainOwner}'`).toBe("plain=1 by 'Button default'")
+		expect(`scrim={scrimValue} by '{scrimOwner}'`).toBe(`scrim={scrimValue} by '{sheet_model.SCRIM_RULE}'`)
+		expect(scrimOwner).toBe(sheet_model.SCRIM_RULE)
+		expect(`the dim is a dim: {scrimValue > 0 and scrimValue < 1}`).toBe("the dim is a dim: true")
+	end)
+
+	it("...and the two live `plain` owners really do mount a catcher that resolves to 1", function()
+		--[[ Driven rather than reasoned, through both shipped `outsideDismiss` owners
+			and through a `newMenu`-shaped modal that declares `scrim = "none"` — the
+			three ways a `plain` catcher reaches a screen. The two cases at the top of
+			this file already drive the first two for their DECLARATION; this reads the
+			resolved number off the same nodes. ]]
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 40 } })
+		w.present(expandScreen(), { initialFocus = "none" })
+		w.pres.presentAnchored(
+			UI.VStack({
+				id = "Panel",
+				surface = "raised",
+				padding = "s",
+				width = { type = "fixed", px = 120 },
+				children = { UI.Button({ id = "One", label = "one", onActivate = function() end }) },
+			}),
+			{
+				id = "Menu",
+				modal = true,
+				scrim = "none",
+				outsideTapCancel = true,
+				anchor = { source = { path = "/S/C/Clock" } },
+			}
+		)
+		w.pres.refresh()
+		local path = w.pres.topScrimPath()
+		expect(path).never().toBeNil()
+		local node = w.adapter.node(path :: string)
+		expect(node.props.surface).toBe("plain")
+		local value, owner = resolvedCatcherPaint(node.props.surface)
+		expect(`a menu's barrier: {value} by '{owner}'`).toBe("a menu's barrier: 1 by 'Button default'")
+		-- it really is full-viewport, which is what makes the number matter
+		expect(`{node.rect.w}x{node.rect.h}`).toBe("390x40")
 	end)
 
 	it("the synthesized scrim ROOT is linked to the same sheet as the screen it covers", function()

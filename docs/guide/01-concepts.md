@@ -436,8 +436,8 @@ Activating it presents the region's **richest form** — the same blueprint, by
 identity — in a transient plate at the region's own anchor, sized by the same
 solve that chose the ladder rung. Where the richest form cannot meet its floor in
 a plate, the identical content is presented as a full-width sheet instead. It
-closes on a tap outside, on its own **Close** control (an icon chip carrying the
-standard close mark; its accessibility name stays the word "Close"), on gamepad B,
+closes on a tap outside, on its own **Close** control (the corner disc below, which
+carries the standard close mark; its accessibility name stays the word "Close"), on gamepad B,
 and by itself when the box it was opened against moves, resizes or goes (a rotation, a viewport
 change, a theme change, or a re-solve that put the region back at its richest
 form).

@@ -181,6 +181,42 @@ function catchers.new(ctx: any)
 		FOCUSABLE = false: never in the focus walk, never in navigation, in either
 		mode.
 
+		=== WHAT SUPPLIES "INVISIBLE", AND WHY THAT IS WORTH SAYING OUT LOUD ===
+		(DIR5 fix round, 2026-08-21, after the third report of "the popup background
+		is opaque" and a review that refuted the mechanism the second fix claimed.)
+
+		A `plain` catcher's transparency is NOT owned by its declaration. `plain`
+		earns no `facet-surface-*` tag at all (`sheet_model.classifyTags` — that is
+		what "suppressed" means), so in NATIVE mode the only rule that reaches it is
+		the CLASS DEFAULT, `Button default` (`TextButton` -> `BackgroundTransparency
+		= 1`). Measured, on the built neutral sheet and on a live engine: it resolves
+		to exactly 1, i.e. correctly invisible. So the class default was never the
+		source of an opaque catcher — and `tests/popup_catcher_paint.spec.luau`
+		now resolves that number for EVERY catcher this file can mount, rather than
+		asserting the declaration and hoping. If `Button default` is ever renamed,
+		reordered under a rule that paints, or a state rule starts carrying a fill,
+		all three paths redden together instead of one of them shipping opaque.
+
+		THE ONE THING NO DECLARATION HERE CAN OWN, measured live in Studio and
+		recorded in artifacts/expand-plate/catcher-paint-window.md: in native mode the
+		adapter writes NO `BackgroundTransparency` at create — an explicit write would
+		permanently defeat every surface rule (spike m10) — and the styling pass does
+		not apply on the frame an instance is created. Measured ~3 frames, during
+		which `GetStyled` reports the CLASS DEFAULT (0, opaque) for a `plain` catcher
+		AND for a `scrim` one. A full-viewport catcher is the worst possible member of
+		that class, and it is why a `GetStyled` reading taken near a catcher's birth is
+		not evidence about its settled paint. Nothing in this file can close that
+		window; what it can do is not add a second, permanent way to be opaque.
+
+		WHY THESE STAY `plain` AND THE EXPAND PLATE DOES NOT. A menu at a button, an
+		engaged HUD and an open row-actions tray must not dim the screen — the catcher
+		is a tap swallower, not a backdrop, and a dim there would be a product
+		regression. A region's EXPAND plate is the opposite: it is a modal that covers
+		content, and the dim is how a player is told the screen behind it is not live.
+		That one wears `scrim`, whose number the THEME owns and the player's
+		`PreferredTransparency` composes against (ADR-0035). Both answers are
+		deliberate; neither is a default nobody chose.
+
 		Full write-up, with the live same-adapter A/B that measured it:
 		docs/lessons/an-invisible-surface-declares-its-invisibility.md ]]
 	local function catcherScreen(rootId: string, surface: string): any
