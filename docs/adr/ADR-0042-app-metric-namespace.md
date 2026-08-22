@@ -152,11 +152,14 @@ accepts and the distance transform walks, so `px = "app.tileMin"` works everywhe
 ## Consequences
 
 **Four shim files migrate and the shims are deleted** in the same round:
-`p2_cartwheel/content/metrics.luau` (gone) and its hand `metricScale` multiply in
-`screens/gallery.luau`; `p3_sipworks/content/metrics.luau`'s number half (gone,
-with its hand-scaled `gatherToggleAt`); Rascal Rally's `TableMetrics`
+`p2_cartwheel/content/metrics.luau` (deleted) and its hand `metricScale` multiply
+in `screens/gallery.luau`; `p3_sipworks/content/metrics.luau` (deleted — what is
+left of it is `content/dims.luau`, seven shape constructors with no dimension in
+them) and its hand-scaled `gatherToggleAt`; Rascal Rally's `TableMetrics`
 `NAMES`/`DEFAULTS`/dotted-lookup `resolve` and `ResultsParts`'
-`METRIC_NAMES`/`METRIC_DEFAULTS`/`metrics()`.
+`METRIC_NAMES`/`METRIC_DEFAULTS`/dotted-lookup `metrics()`. `TableMetrics.APP` and
+`ResultsParts.appMetrics` are what those tables became: the declarations
+themselves.
 
 **One adjacent gap is booked, not closed**: `UI.Grid.minColumnWidth` takes a px
 number or `"intrinsic"` and is the one dimension-shaped prop in the library that
@@ -171,11 +174,21 @@ change with its own tests.
   Large display, where before only `tileMin` did. That is the half-applied ladder
   above being finished, and it is the point of the change rather than a side
   effect of it.
-- Rascal Rally's ~60 sponsor metrics now scale at a Large display, where before
-  they were constants. Every viewport the game ships on is a near display, where
-  the numbers are **byte-identical** — asserted, not assumed — so the change is
+- Rascal Rally's ~60 sponsor metrics and its results bands now scale at a Large
+  display, where before they were constants. Every viewport the game ships on is a
+  near display, where the numbers are **byte-identical** — asserted number by
+  number in `facet_ten_foot_metrics_contract.spec`, not assumed — so the change is
   confined to a display class the game does not ship on today and is the same fix
   the framework's own ruling (ADR-0039) made for every other metric.
+
+**Ten Rascal Rally names changed spelling**, and each one is a defect the ladder
+would otherwise have shipped: `mapFraction*` → `map{Landscape,Portrait}Fraction`
+(0.52 × 1.5 = 0.78 of the body), `listRows` → `listRowCount` (eight rows become
+twelve), `toastDurationS`/`toastReadFloorS`/`rejectFlashS` → `…Seconds` (a 2.5 s
+toast becomes 3.75), and `rowNameSize`/`rowPosRenderSize`/`badgeInitialSize`/
+`controlGlyphSize` → `…TextSize` (the 2.25× double application). That is the
+suffix vocabulary doing the work it was kept for — and it is the argument for
+naming an app metric after what it *is* rather than where it sits.
 
 **Not breaking.** The framework change is additive: a snapshot gains an `app`
 section that is empty (`{}`) until an app declares one, no existing name moves, no
