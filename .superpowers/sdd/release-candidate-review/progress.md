@@ -1583,3 +1583,22 @@ STUDIO.md, root CLAUDE.md.
   change what the demo demonstrates. Its earlier §6 RR-reds note corrected
   in-file (the bisect's mis-pin verdict stands as the mechanism; the reds
   do not exist at proper pins).
+
+## 2026-08-21 (post-close 23) — solver record fix; the class reborn next door
+
+- SOLVER FIX ROUND LANDED (b5732d0 + 3fee51c; 7005/0, RR identical; pins
+  via mkpair, both refs at measurement time): HIGH-1 corrected unhedged
+  (asserted-not-run owned); THE TUPLE DEBT PAID — solver.luau dropped from
+  the checker's exemption, 12 sites swept to prose (10 orphans + 2 that
+  would breach the ratchet), 0 orphans / 25 of 25 / four locked modules
+  holding 171; the ledger head gained the rule the next split needs.
+  HIGH-2 rewritten as a STATE (ARRIVED, flowPartition+flowPlan named,
+  this round's +385 recorded as the last free pass). B-18 appended by the
+  controller. MEDIUM-B was already fixed by plate-B — coordinated, and the
+  header now names the three REAL fields so the drift class is closed.
+- THE CLASS REBORN WITHIN THE HOUR: the renderer round's own extraction
+  (4cc5cb0, mid-flight) moved ADAPT-7/RS-A16/NS-A2 into unlocked
+  commit_walks.luau — check_comment_codes FAIL at HEAD, exactly the
+  pattern the ledger-head rule now names. Messaged the round directly so
+  it sweeps before closing, runs every guard it certifies, and labels its
+  ADR row B-19.
