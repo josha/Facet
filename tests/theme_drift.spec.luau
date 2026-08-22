@@ -348,8 +348,11 @@ describe("the teaching corpus spells the values the theme system already names",
 		named sites, and the failure was never that the swap happened, it was that
 		nobody was told the file predicts its own geometry. ]]
 	it("a finding in a file that predicts geometry from raw constants says so, and names them", function()
-		-- `card_rail` declares `CARD_PADDING` / `PADDING` and spends them in arithmetic
-		local coupledFile = "examples/gallery/scenarios/card_rail.luau"
+		-- the perf lab's row declares `ROW_GAP` / `ROW_PADDING_HEADROOM` /
+		-- `TEXT_BLOCK` and spends them in arithmetic. It replaced `card_rail`, which
+		-- left the coupled set on 2026-08-22 when `viewportExtent = "auto"` and
+		-- `crossExtent = "hug"` took both of its predictions away.
+		local coupledFile = "examples/performance/lab/rows.luau"
 		expect(`{coupledFile} is coupled: {#drift.coupledConstants(fs.readFile(coupledFile)) > 0}`).toBe(
 			`{coupledFile} is coupled: true`
 		)
@@ -367,7 +370,7 @@ describe("the teaching corpus spells the values the theme system already names",
 		end
 		expect(message ~= nil).toBe(true)
 		-- the message names the class, the ladder, the constants and BOTH exits
-		for _, phrase in { "COUPLED", "Studio Neutral ONLY", "CARD_PADDING", "THEME-OPT-OUT", "rowPaddingV" } do
+		for _, phrase in { "COUPLED", "Studio Neutral ONLY", "ROW_GAP", "THEME-OPT-OUT", "rowPaddingV" } do
 			expect(`the coupled message says '{phrase}': {string.find(message :: string, phrase, 1, true) ~= nil}`).toBe(
 				`the coupled message says '{phrase}': true`
 			)
@@ -406,10 +409,8 @@ describe("the teaching corpus spells the values the theme system already names",
 		expect(table.concat(names, "\n")).toBe(table.concat({
 			"examples/gallery/client/demo_picker.luau [BAR_HEIGHT]",
 			"examples/gallery/client/theme_picker.luau [BAR_HEIGHT]",
-			"examples/gallery/scenarios/card_rail.luau [CARD_PADDING CARD_ROW_GAP PADDING]",
 			"examples/gallery/scenarios/hud.luau [HUD_FLOOR_PX]",
 			"examples/gallery/scenarios/perf_capture.luau [ROSTER_ROW_PADDING viewportExtent=<literal>]",
-			"examples/gallery/scenarios/virtual_hgrid.luau [LINE_GAP]",
 			"examples/performance/lab/levers.luau [itemExtent=<literal>]",
 			"examples/performance/lab/perf_lab.luau [EXTENT_GAP EXTENT_LINE_H EXTENT_PAD SCREEN_GAP SCREEN_PADDING]",
 			"examples/performance/lab/rows.luau [COMPACT_CONTROLS_WIDTH COMPACT_LINE_GAP COMPACT_TEXT_BLOCK "

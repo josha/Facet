@@ -66,8 +66,17 @@
 local ITEM_COUNT = 5000
 -- ONE LINE OF CELLS' size along the scroll axis: on `axis = "x"` that is its WIDTH
 local LINE_EXTENT = 72
-local CELL_GAP = 6 -- between cells ACROSS a line (vertical here)
-local LINE_GAP = 6 -- between LINES (horizontal here)
+--[[ THE TWO GUTTERS ARE THEME METRIC NAMES, not numbers (purity audit §5,
+	2026-08-22). `newVirtualGrid.gap` and `.rowGap` refused a string until this
+	round — `gap` refused even a `Readable` — so a fixture that wanted a
+	theme-tracking gutter had to hold pixels, and a held pixel is wrong the moment
+	the theme moves: at ten-foot every space step scales by the type floor's factor
+	and a literal 6 does not. `"xs"` is 4 at arm's length and scales with the rest
+	of the surface on a television, which is the whole point of naming it. The lane
+	readout below reads the RESOLVED number back off the grid's own dump rather
+	than keeping a copy, so this file predicts nothing. ]]
+local CELL_GAP = "xs" -- between cells ACROSS a line (vertical here)
+local LINE_GAP = "xs" -- between LINES (horizontal here)
 --[[ TWO LANE CHOICES AND THREE BUTTONS, AND THE SWEEP CHOSE BOTH NUMBERS. On a
 	640x320 landscape phone at the Largest text preference this surface has 200px
 	once the CoreGui topbar and the showcase chip strip are out, and the page cannot
@@ -166,7 +175,11 @@ return {
 			-- the LANE HEIGHT is printed because it is the number this axis makes
 			-- interesting and the one no cell may assume: the grid's own division of
 			-- a height the screen chose
-			local lane = if d.lanes > 0 then (cross - LINE_GAP * (d.lanes - 1)) // d.lanes else 0
+			-- ...and the gutter it divides around is the grid's OWN resolved number
+			-- (`d.gap`, the ACROSS-a-line gutter, which on this axis is the one
+			-- between lanes), never a copy held here: a name resolves per solve and a
+			-- copy would answer for whatever the theme used to say.
+			local lane = if d.lanes > 0 then (cross - d.gap * (d.lanes - 1)) // d.lanes else 0
 			return `cells built: {n} of {ITEM_COUNT} — window {#d.window} in {d.lanes} lanes of {lane}px, `
 				.. `lines {d.lines[1]}-{d.lines[2]} of {d.lineCount}, canvas {d.content}px wide, `
 				.. `anchor {tostring(d.anchorKey)}`

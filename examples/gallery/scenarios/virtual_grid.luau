@@ -84,9 +84,11 @@ local LINE_EXTENT = 96
 local CELL_PADDING = 10
 local LABEL_SIZE = 12
 
--- across a line, and between lines
-local CELL_GAP = 6
-local LINE_GAP = 6
+-- THE TWO GUTTERS (across a line, and between lines) ARE THEME METRIC NAMES (purity audit §5, 2026-08-22), for the
+-- reason `virtual_hgrid` states at length: a held pixel does not scale at
+-- ten-foot and a name does. `newVirtualGrid` refused a string until this round.
+local CELL_GAP = "xs"
+local LINE_GAP = "xs"
 
 -- the lane counts the chips offer. The middle one is the seed, so the swept
 -- (step-free) mount is the ordinary case rather than either extreme.

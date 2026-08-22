@@ -587,21 +587,26 @@ return {
 			below, i.e. "the list is never shorter than one row" — and as the estimate an
 			unmeasured row starts at. ]]
 		local ROW_HEIGHT = 84
-		--[[ VListPane's own `"s"` gap, between the hint and the list — READ FROM THE
-			LIVE SNAPSHOT, not copied as an 8 (wave TEN-FOOT, 2026-08-20). This was a
-			literal, and a literal copy of a theme metric is wrong the moment the
-			theme moves: at ten-foot `space.s` scales 8 -> 12, the window this
-			subtracts from was 4px too tall, and the list painted 4px past its own
-			pane on every console pass. The same class as the `336` window this file
-			already fixed above — "a constant that does not adapt is a constant that
-			is wrong on some real device". ]]
-		local function vlistGap(): number
-			local snap: any = ctx.env:get("themeMetrics"):get()
-			local step = if type(snap) == "table" and type(snap.space) == "table" then snap.space.s else nil
-			return if type(step) == "number" then step else 8
-		end
+		--[[ THE WINDOW IS NOT THIS FILE'S ARITHMETIC ANY MORE (purity audit §4,
+			2026-08-22). What stood here was three moving parts — a `VLIST_PANE` path
+			string, a `vlistWindow` signal seeded with a literal 336, and an
+			`onGeometry` handler that subtracted the hint's solved height and a
+			snapshot read of VListPane's own `"s"` gap — and every one of them was
+			this file re-deriving a number the framework already had. The history is
+			worth keeping because it is the whole argument for the field that replaced
+			it: the 336 was measured once on a desktop and painted 227-245px past its
+			own pane on a landscape phone; the gap was a literal 8 until ten-foot
+			scaled `space.s` to 12 and the window came out 4px too tall on every
+			console pass; the floor under it took the list off screen at +14.
+
+			`viewportExtent = "auto"` is the list measuring the box it was given.
+			It takes `fill` inside this pane, so the VStack hands it whatever is left
+			after the hint and the gap — the identical number, decided by the solver
+			rather than predicted here, with nothing left to be wrong about. ]]
+		-- ...what survives is the PATH, and only as a path: two scripted steps below
+		-- aim the focus ring at a row under this pane. A mounted path is a name, not
+		-- a prediction about geometry.
 		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
-		local vlistWindow = core:signal(336)
 
 		local vlist = Facet.Controls.VirtualList(core, {
 			id = "VList",
@@ -631,10 +636,12 @@ return {
 			-- strip publishes its own measured height.
 			--
 			-- IT CANNOT CHASE ITS OWN TAIL: `VListPane` takes `fill`, so its height is
-			-- decided by the screen and never by the list inside it. One solve after a
-			-- resize the window is exact; the literal below is only the value for the
-			-- frame before any geometry exists.
-			viewportExtent = vlistWindow,
+			-- decided by the screen and never by the list inside it, and the list
+			-- takes `fill` inside the pane for the same reason. One solve after a
+			-- resize the window is exact; before any geometry exists the list windows
+			-- against the SCREEN, which is an upper bound, so the first frame
+			-- over-fills rather than mounting three rows and popping.
+			viewportExtent = "auto",
 			overscan = 2,
 			cell = function(item: any)
 				return vlRowContent(item)
@@ -806,38 +813,6 @@ return {
 		local result: any
 		result = {
 			screen = screen,
-			present = {
-				-- THE HOSTED LIST'S WINDOW, FED FROM ITS OWN SOLVED PANE. `onGeometry`
-				-- is a broadcast (presenter.luau: "solved rects are a notification"),
-				-- so composing it here costs the screen's own controls nothing. The
-				-- pane exists only in "vlist" mode; in the other two `rectOf` answers
-				-- nil and the last good window simply stands.
-				onGeometry = function(rectOf: (string) -> any)
-					local pane = rectOf(VLIST_PANE)
-					if pane == nil or type(pane.h) ~= "number" then
-						return
-					end
-					local hint = rectOf(VLIST_PANE .. "/VListHint")
-					local spent = if hint ~= nil and type(hint.h) == "number" then hint.h + vlistGap() else 0
-					--[[ THE PANE IS THE WINDOW, WITH NO ROW-SIZED FLOOR UNDER IT.
-						This read `math.max(ROW_HEIGHT, …)` — "one row is the floor: a
-						one-row list is small, and it is ON SCREEN, which is the whole
-						point". Measured 2026-08-15 (O-21) the floor is what took it OFF
-						screen: on a 640x320 landscape at +14 the solver hands this pane
-						46px, the floor insisted on 84, and the list painted the missing
-						38 past its own pane and past the canvas — the exact mistake
-						`table_virtualized`'s waiver names ("a list that insists on 72px
-						in a 0px pane paints those 72px over its neighbour"). A list
-						shorter than one row still scrolls to every row it has; a list
-						hanging off the bottom edge does not. 1px, not 0, only so the
-						window is never a nonsense number. ]]
-					local window = math.max(1, math.floor(pane.h - spent))
-					if window ~= vlistWindow:get() then
-						vlistWindow:set(window)
-					end
-				end,
-			},
-
 			steps = {
 				-- state drivers -----------------------------------------------------
 				mode = function(_built: any, payload: string?)

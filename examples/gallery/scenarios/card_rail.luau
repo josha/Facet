@@ -73,21 +73,17 @@ local CARD_COUNT = 400
 	touch phone, a multi-up rail on anything larger. There is no size branch in
 	this file, and that is the point of the declaration. ]]
 local CARD_GAP = 8
--- THE PLATE'S OWN TERMS, named once because `cardHeight` below sums exactly
--- these and the blueprint spends exactly these — the row-height lesson's rule
--- that the arrangement and the extent are ONE decision.
+-- THE PLATE'S OWN TERMS. They used to be named here because `cardHeight` summed
+-- exactly these to predict the rail's cross extent; `crossExtent = "hug"` asks
+-- the solver instead, so what is left is what the blueprint actually SPENDS.
 local CARD_PADDING = 8
 local CARD_ROW_GAP = 2
 local NAME_SIZE = 14
 local BADGE_SIZE = 12
--- The Screen's own frame, as a NUMBER rather than a spacing token, because the
--- viewport arithmetic below has to subtract it exactly. A token would be a
--- theme fact this file cannot read at build time.
+-- The Screen's own frame. It was a NUMBER rather than a spacing token because
+-- the viewport arithmetic had to subtract it exactly; that arithmetic is gone,
+-- and the constant survives only as the padding the Screen is given.
 local PADDING = 12
--- What the rail gives back to the world beyond its own frame: the engine's
--- scrollbar gutter plus a pixel of rounding slack. Over-reserving shortens the
--- rail; under-reserving paints it past the screen edge.
-local RAIL_SLACK = 12
 
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 
@@ -133,25 +129,15 @@ return {
 		end
 		local rows = scope:own(core:signal(cards))
 
-		-- PROBE-EXEMPT BEGIN: a HAND-DERIVED viewport, and a gap rather than a lesson.
-		-- `newVirtualList.viewportExtent` is asserted REQUIRED with no self-measuring
-		-- form, so this memo re-derives from raw env facts what the framework already
-		-- has: it subtracts `coreSafeInsets`, the Screen's padding and a scrollbar
-		-- guess by hand. The idiom a reader should copy does not exist yet
-		-- (`viewportExtent = "auto"`, purity audit MOVE §4); this is the careful
-		-- version of doing without it, not a pattern.
-		-- THE RAIL'S WIDTH IS A LIVE NUMBER (see the header). `newVirtualList`
-		-- takes a Readable<number> for `viewportExtent`, so a rotation re-derives
-		-- the window in place with no reset and no remount.
-		local viewportExtent = scope:own(core:memo(function(use)
-			local vp: any = use(ctx.env:get("viewportRect"))
-			local insets: any = use(ctx.env:get("coreSafeInsets"))
-			local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 800
-			local left = if type(insets) == "table" and type(insets.left) == "number" then insets.left else 0
-			local right = if type(insets) == "table" and type(insets.right) == "number" then insets.right else 0
-			return math.clamp(math.floor(w - left - right - PADDING * 2 - RAIL_SLACK), 96, 1600)
-		end))
-		-- PROBE-EXEMPT END
+		--[[ THE RAIL'S WIDTH IS NOT THIS FILE'S ARITHMETIC ANY MORE (purity audit §4,
+			2026-08-22). What stood here was a memo that subtracted `coreSafeInsets`,
+			the Screen's own padding and a scrollbar guess from the raw viewport — the
+			careful version of doing without an idiom that did not exist. It exists
+			now: `viewportExtent = "auto"` takes `fill` along the scroll axis and
+			measures what the solver gave, so the three terms this file had to name,
+			and the two constants it had to hold to name them, are gone. A rotation
+			still re-derives the window in place with no reset and no remount, for the
+			same reason it always did — the number is live. ]]
 
 		local rail = Facet.Controls.VirtualList(core, {
 			id = "Rail",
@@ -169,7 +155,18 @@ return {
 				the one-up case because a one-card view is a page. Nothing here
 				declares a width, a breakpoint or a device. ]]
 			itemExtent = "cards",
-			viewportExtent = viewportExtent,
+			viewportExtent = "auto",
+			--[[ ...AND THE CROSS AXIS COMES FROM THE CARD, NOT FROM THE PAGE (§4's
+				other half). This rail used to be given a height this file summed by
+				hand — the plate's padding, two live line boxes, the theme's chrome
+				INSET off the panel slot, its chrome OUTSET, and a slack constant for
+				the scrollbar gutter — because `fill` "is a promise the box will be big
+				enough, and this box was not" on a 640x320 landscape at the largest
+				text preference. Every one of those terms is something the SOLVER
+				already knows about the card it is about to lay out, so `"hug"` asks it
+				instead: the rail is exactly as tall as its card, and the page takes
+				the deficit. ]]
+			crossExtent = "hug",
 			-- a gap is a gap on either axis: here it is the horizontal gutter
 			-- between card slots, and the paradigm above spends it when it decides
 			-- how wide one card is
@@ -218,68 +215,16 @@ return {
 			return `{COPY.selectedPrefix}{key}`
 		end))
 
-		--[[ THE CARD'S OWN HEIGHT, DERIVED FROM THE SAME FACTS IT PAINTS WITH
-			(O-21, 2026-08-15) — the `sponsor_list` row-height idiom, applied to the
-			CROSS axis of a horizontal list.
-
-			WHAT IT WAS: `RailPane` took `height = fill`, i.e. "whatever the three
-			labels around it did not take, and it can never demand more". On a
-			640x320 landscape at the largest text preference the three labels took
-			all but 23px, the plate needed 84, and the rail's clip host cut the
-			`Rally` badge 61px below its own window — where nothing scrolls it back,
-			because the axis that scrolls here is x. `fill` is a promise the box will
-			be big enough, and this box was not.
-
-			The plate's height is not a mystery: it is its own padding, one 14pt line,
-			its own 2px gap and one 12pt line, every term read from the live text
-			facts so a text-size preference or a theme face moves the plate and the
-			rail together. Declaring it is what lets the PAGE take the deficit
-			instead — see the scroller below. ]]
-		local cardHeight = scope:own(core:memo(function(use)
-			local facts = Facet.text.facts({ env = ctx.env, use = use })
-			local box = CARD_PADDING * 2
-				+ Facet.text.lineBox({ facts = facts, size = NAME_SIZE, lines = 1 })
-				+ CARD_ROW_GAP
-				+ Facet.text.lineBox({ facts = facts, size = BADGE_SIZE, lines = 1 })
-			--[[ ...PLUS WHAT THE THEME CARVES OUT OF THE PLATE. `surface = "raised"`
-				classifies to the `panel` chrome slot, and a package whose panel art has
-				a border reserves that border off the node's content box before anything
-				inside it is measured (`layout_node.luau`, "a chrome inset is a request,
-				not a right"). Measured 2026-08-15: under Compact Pointer the plate's
-				own top inset was 16px against the authored 8, so a height summed from
-				padding + two line boxes alone came out 12px short on EVERY card at the
-				DEFAULT preference — the theme axis this fixture's first fix was blind
-				to. `hasChromeInsets` is the snapshot's own answer to "is there anything
-				to spend": every slot publishes an entry now, zero included. ]]
-			local metrics: any = facts.metrics
-			local chrome = if type(metrics) == "table"
-					and metrics.hasChromeInsets == true
-					and type(metrics.chromeInsets) == "table"
-				then metrics.chromeInsets.panel
-				else nil
-			local chromeV = if type(chrome) == "table"
-				then (tonumber(chrome.top) or 0) + (tonumber(chrome.bottom) or 0)
-				else 0
-			-- ...and the OUTSET, which is the same fact pointing the other way: art
-			-- that bleeds past the plate is realised as a margin, so the plate itself
-			-- is that much smaller inside the row the list gave it. Fantasy Ornate is
-			-- the one shipped package that declares one (20px off the top), and
-			-- without this term its cards came out 16px short at every preference.
-			local bleed = if type(metrics) == "table" and type(metrics.chromeOutsets) == "table"
-				then metrics.chromeOutsets.panel
-				else nil
-			local bleedV = if type(bleed) == "table"
-				then (tonumber(bleed.top) or 0) + (tonumber(bleed.bottom) or 0)
-				else 0
-			-- ...and the rail's OWN gutter, which on a horizontal scroller comes off
-			-- the bottom: the pane holds the list, the list holds a bar, and a plate
-			-- sized to the pane would be exactly `scrollBarThickness` too tall (8px,
-			-- measured). `RAIL_SLACK` is the same over-reserve this file already
-			-- spends on the width, on the other axis and for the same reason — a
-			-- slightly taller pane is empty space the page scrolls past, a slightly
-			-- shorter one clips the badge.
-			return { type = "fixed", px = math.ceil(box + chromeV + bleedV) + RAIL_SLACK }
-		end))
+		--[[ THE CARD'S OWN HEIGHT WAS ~45 LINES HERE, and its deletion is the point of
+			`crossExtent = "hug"`. It summed the plate's padding, two live line boxes,
+			the theme's chrome INSET off the `panel` slot, the chrome OUTSET Fantasy
+			Ornate declares, and a `RAIL_SLACK` over-reserve for the engine's
+			scrollbar gutter — five terms, each of which had to be discovered by a
+			device round after the previous sum came out short (12px under Compact
+			Pointer at the DEFAULT preference; 16px under Fantasy Ornate at every
+			preference; 8px for the bar). Every one of them is a fact the SOLVER holds
+			about the card it is about to lay out. The rail hugs now, and the page
+			takes the deficit. ]]
 
 		local screen = UI.Screen({
 			id = "CardRail",
@@ -303,14 +248,15 @@ return {
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Hint", text = COPY.hint, textSize = "caption", role = "secondary" }),
-						-- the rail's cross extent is now the plate's own measured height
-						-- (above) rather than the page's leftover
+						-- the rail's cross extent is the rail's own (`crossExtent = "hug"`),
+						-- so the pane that holds it takes its content's height rather than
+						-- a number this file computed for it
 						UI.VStack({
 							id = "RailPane",
 							gap = 0,
 							padding = 0,
 							width = { type = "fill", weight = 1 },
-							height = cardHeight,
+							height = { type = "content" },
 							children = { rail.blueprint },
 						}),
 						UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),

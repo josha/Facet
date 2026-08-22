@@ -91,13 +91,15 @@ local HOSTED_ROW_ACTIONS_KEYS = specGuard.keySet({ "leading", "trailing", "fullS
 	        row (whichever side of InputEnded it lands), or every reorder would
 	        also read as a tap on the row it started from;
 	      * a HOSTED SWIPE ends the same way, and is armed at the axis lock rather
-	        than at the release — see `hostedResolveAxis` (redteam NEW-1);
+	        than at the release — see `hostedResolveAxis`, which carries the
+	        red-team finding that made it a blocker;
 	      * a tap on an OPEN hosted row means "close the tray" and nothing else —
 	        iOS parity, and the alternative is a swipe-then-tap opening whatever
 	        the row's `onActivate` opens.
-	    WHAT MAY SPEND IT is as much of the rule as where it is armed (redteam
-	    NEW-2, and the lesson `docs/lessons/an-arm-set-by-a-gesture-must-name-what-
-	    may-spend-it.md`): all three producers are POINTER gestures leaving a
+	    WHAT MAY SPEND IT is as much of the rule as where it is armed — the lesson
+	    is `docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`,
+	    written from this exact seam: all three producers are POINTER gestures
+	    leaving a
 	    POINTER Activated behind, so a DEVICE Activate (`meta.source == "action"`,
 	    no pointer-down anywhere) is never it and never consumed by it. Cleared by
 	    the one pointer Activate it swallows, by a cancel, by a device Activate, or
@@ -709,7 +711,8 @@ function virtual_list_hosted.new(deps: Deps)
 				hosted-mode defects": "a vertical pan begun on a row still fires that
 				row's `onActivate`").
 
-				IT IS redteam NEW-1's DEFECT IN THE BRANCH THAT WAS MISSED. The
+				IT IS THE SAME RED-TEAM DEFECT AS ABOVE, IN THE BRANCH THAT WAS
+				MISSED. The
 				horizontal branch below arms for one reason — the row's `Hit` is a
 				real engine `GuiButton`, so the same pointer sequence that swipes it
 				ends in an `Activated` on it — and that reason does not care which
@@ -756,8 +759,8 @@ function virtual_list_hosted.new(deps: Deps)
 			pending.declined = true
 			return
 		end
-		--[[ A HOSTED SWIPE IS UNDONE BY ITS OWN RELEASE, unless this arms here
-			(redteam NEW-1, BLOCKER, 2026-08-13). A row's `Hit` is a real engine
+		--[[ A HOSTED SWIPE IS UNDONE BY ITS OWN RELEASE, unless this arms here (a
+			red-team BLOCKER, 2026-08-13). A row's `Hit` is a real engine
 			`GuiButton`, so the SAME pointer sequence that swipes it also ends in a
 			native `Activated` on it — "whichever side of `InputEnded` it lands",
 			the fact this file's own `delivery.suppressActivate` declaration already
@@ -821,8 +824,8 @@ function virtual_list_hosted.new(deps: Deps)
 				on that row.
 
 				THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and the
-				first draft of it carried a premise that is simply false (redteam
-				NEW-2, 2026-08-13 — `table.luau`'s twin comment carries the identical
+				first draft of it carried a premise that is simply false (a red-team
+				finding, 2026-08-13 — `table.luau`'s twin comment carries the identical
 				correction, because it is one rule in two controls): "a real Activated
 				always fires between a pointer-up and the next pointer-down, so a
 				still-live suppression can never legitimately survive to see another
@@ -961,8 +964,9 @@ function virtual_list_hosted.new(deps: Deps)
 			local unresolved = hostedPending ~= nil
 			hostedPending = nil
 			hostedActiveKey = nil
-			-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (redteam NEW-2's rule,
-			-- applied to this dispatcher too): the engine fires no `Activated` for
+			-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (the arm-must-name-what-
+			-- may-spend-it rule, applied to this dispatcher too): the engine fires
+			-- no `Activated` for
 			-- a capture it took away, so an arm left standing here would be spent
 			-- on the next producer that carries no pointer-down — an IAS device
 			-- Activate, or the minimum-target hit expander's own `Activated` —

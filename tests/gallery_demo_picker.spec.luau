@@ -617,11 +617,20 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 end)
 
 describe("showcase host: the delivered opts CHANGE the surface (row_actions)", function()
-	-- the load-bearing consequence. `scenarios/row_actions.luau` replaced a
-	-- `336 -- 4 rows visible` literal with a window fed from its own solved pane
-	-- through `present.onGeometry` (device round 2026-08-12) — a fix the showcase
-	-- host discarded, so in the showcase the window stayed at that literal and the
-	-- hosted list painted past its pane on a landscape phone.
+	--[[ the load-bearing consequence, and the invariant OUTLIVED THE MECHANISM IT
+		was written for. `scenarios/row_actions.luau` replaced a `336 -- 4 rows
+		visible` literal with a window fed from its own solved pane through
+		`present.onGeometry` (device round 2026-08-12) — a fix the showcase host
+		discarded, so in the showcase the window stayed at that literal and the
+		hosted list painted past its pane on a landscape phone.
+
+		The fixture now declares `viewportExtent = "auto"` (purity audit §4,
+		2026-08-22) and the handler is gone with the arithmetic it carried, so there
+		is no longer an opts table for a host to drop. What this case asserts is what
+		it always really asserted: THE LIST ENDS INSIDE ITS PANE on a landscape phone
+		whose pane is far shorter than the literal. That claim is now true by
+		construction rather than by delivery — which is the stronger form, and is
+		exactly why the case stays rather than being deleted with the handler. ]]
 	local LITERAL = 336
 
 	it("the hosted VirtualList's window tracks its solved pane, not the pre-geometry literal", function()
@@ -634,8 +643,9 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 			actionSystem = w.system,
 			presenter = w.presenter,
 		})
-		expect(built.present).never().toBeNil()
-		expect(type(built.present.onGeometry)).toBe("function")
+		-- no opts table to deliver any more: the list measures its own box, so the
+		-- host has nothing it could drop
+		expect(built.present).toBeNil()
 		built.handle = w.presenter.present(built.screen, built.present)
 		w.presenter.refresh()
 		-- the hosted-list surface is the one the window belongs to
@@ -657,9 +667,11 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 		if (bottom :: number) > paneBottom + 1 then
 			error(
 				`the hosted list ends at {bottom} but its pane ends at {paneBottom} — `
-					.. `{(bottom :: number) - paneBottom}px outside. The window is stuck at the `
-					.. `pre-geometry literal ({LITERAL}), which is what dropping built.present does `
-					.. "(examples/gallery/client/init.client.luau, fixture branch).",
+					.. `{(bottom :: number) - paneBottom}px outside. The window is not the box the `
+					.. `solver gave this list — before \`viewportExtent = "auto"\` that meant the `
+					.. `pre-geometry literal ({LITERAL}) survived because the host dropped `
+					.. "built.present (examples/gallery/client/init.client.luau, fixture branch); "
+					.. "now it means the list is not taking `fill` inside its pane.",
 				0
 			)
 		end
