@@ -995,8 +995,18 @@ local function formCarriesMeaning(node: Blueprint): boolean
 		`UI.Foreign` was added to `UNSEEN_CONTENT` for, arriving through the
 		framework's own vocabulary instead of through a class, so it takes the same
 		answer — the chevron BESIDE the form. Read off the PROP, because the class is
-		right about a plain Box and this is a Box that has said otherwise. ]]
-	if (node.props or {}).active == true then
+		right about a plain Box and this is a Box that has said otherwise.
+
+		AND IT IS ANY SPELLING BUT AN EXPLICIT `false` (fix round 1, review
+		MEDIUM-1). `active` is `Bound<boolean>` — a literal OR a Signal/Memo — and
+		the first version tested `== true`, which is false for every reactive
+		spelling and left `UI.Box{ active = core:signal(true) }` covered, i.e. the
+		defect verbatim under the framework's own primary idiom for a varying prop.
+		A passive Box has no reason to declare `active` at all, so declaring it in
+		any form is the author saying "presses land here"; only an explicit literal
+		`false` says the opposite. ]]
+	local active = (node.props or {}).active
+	if active ~= nil and active ~= false then
 		return true
 	end
 	for _, child in node.children or {} do
@@ -1179,9 +1189,8 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				alignH = "end",
 				alignV = "start",
 				-- inset from the panel's own corner, which is the room the focus ring
-				-- draws in (4 >= the 2px ring near, 6 >= 4 at ten-foot). The plate's
-				-- margin is this PLUS half the disc, so the disc's centre and the
-				-- plate's corner are one point
+				-- draws in. The plate's margin is this PLUS half the disc, so the disc's
+				-- centre and the plate's corner are one point
 				margin = { top = CLOSE_INSET, right = CLOSE_INSET, bottom = 0, left = 0 },
 				onActivate = function()
 					engine.close()

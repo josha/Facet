@@ -195,10 +195,29 @@ ExpandPanel = ZStack {
 - **Hit-target honesty (the one real con):** the 44 floor reaches 22px inward from the
   corner; padding is 16, so the invisible expander can contest ~6px of a content
   control's corner if the author puts one exactly in the top-trailing corner (topmost
-  wins → the close).  Ten-foot: 22 < 24 → no incursion.  A and C have zero incursion.
+  wins → the close).  A and C have zero incursion.
+  **CORRECTED IN BUILD (fix round 1, 2026-08-21): the ten-foot line here was wrong and
+  the incursion is WORSE at distance, not absent.**  This spec said "Ten-foot: 22 < 24 →
+  no incursion", comparing the NEAR floor's half (44/2 = 22) against the TEN-FOOT
+  padding (24).  The floor scales too: 66/2 = 33, minus 24, so the incursion is **9px at
+  ten-foot** against 6px near — measured 6×6 = 36 px² and 9×9 = 81 px² over an author
+  Button in the plate's top-trailing corner.  It is answered in the build rather than
+  accepted: the close now carries `expandTarget = { role = "close" }` and the renderer's
+  grow-until-pressable floor (`render/commit_walks.growWithin`, ADR-0041) bounds it, so
+  the floor grants nothing over an author control.  What remains is the disc's own
+  bounding BOX at the corner — 2px near, 3px at ten-foot — which is a rectangle-vs-circle
+  fact about engine hit rects, not about this design.
 - **Sheet:** a sheet is edge-to-edge — no corner to straddle — so the disc sits
-  *inside* the sheet's top-trailing padding (`space.m`), as shipped today.  B is the
-  only option whose plate and sheet wear two different silhouettes.
+  *inside* the sheet's top-trailing padding, and its trailing reserve is the disc's own
+  metric.  B is the only option whose plate and sheet wear two different silhouettes.
+  **CORRECTED IN BUILD (fix round 1, 2026-08-21): "as shipped today" was not enough of a
+  ruling.**  The close affordance is ONE node shared by both presentations, so the
+  `space.xs` margin that centres the disc on the *plate's* corner also moves it inward on
+  the *sheet*, where there is no straddle to absorb it — straight into a reserve that was
+  exactly `controlSizes.compact.height` and no more.  Measured: the painted circle 4px
+  (near) / 6px (ten-foot) over the author's own words.  The sheet's trailing reserve is
+  therefore `space.xs + controlSizes.compact.height` — the disc PLUS the inset it is
+  given — which restores the tangency this bullet has always described.
 
 ### Geometry table
 

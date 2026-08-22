@@ -73,7 +73,15 @@
 	and it holds on the ten-foot ladder for free, because both sides scale
 	together (54 <= 67.9). `r18Clearance` returns the two distances so a package
 	that breaks it reddens in a named spec case instead of painting a disc over a
-	word. NOTHING HERE IS A HAND LITERAL: every number above is a resolution of
+	word.
+
+	THOSE TWO NUMBERS ARE THE LOOSEST PACKAGE'S, AND THE BINDING ONE IS TIGHTER
+	(fix round 1, review MEDIUM-4b): `studio_neutral` clears by 9.2px, but
+	`classic_desktop` (`space.m` 8, `compact.height` 22) clears the inequality by
+	**0.63px** and the distance by 0.31px, at both rungs. The rects a solve
+	produces are rounded to whole pixels, so quoting the default's headroom as the
+	guarantee's is what would let a package cross it unnoticed; the spec case runs
+	the geometric sweep on the tightest package as well as the default. NOTHING HERE IS A HAND LITERAL: every number above is a resolution of
 	one of the two names below.
 
 	WHY `discHalf` IS A PX NUMBER AND NOT A THIRD TOKEN NAME. The metric
@@ -96,9 +104,18 @@ local expand_plate = {}
 -- 48px gets a 48px disc, a 24px straddle and a 24px cap reserve with no
 -- arithmetic anywhere but here
 local CLOSE_DISC = "controlSizes.compact.height"
--- how far the disc's own box sits inside the panel's corner. It is what leaves
--- room for the focus ring outside the disc (4 >= the 2px ring; 6 >= 4 at
--- ten-foot), which the shipped design had none of
+--[[ how far the disc's own box sits inside the panel's corner, and what leaves
+	room for the focus ring the shipped design had none of.
+
+	IT IS A CONSTRAINT ON THE PACKAGE, NOT A FACT ABOUT ALL OF THEM (fix round 1,
+	review MEDIUM-4a). This comment used to assert "4 >= the 2px ring; 6 >= 4 at
+	ten-foot" as though it held everywhere; it is the DEFAULT package's arithmetic.
+	The ring's thickness lives on the STYLE side (`style.extra.focusRingThickness`,
+	strengthened to `tenFootFocusRingThickness` at distance) and the metric
+	snapshot cannot name it, so nothing here can derive the inset FROM the ring —
+	which is why it is checked in a spec case against both authorities instead
+	(`tests/region_expand.spec`), and why two shipped reference packages are
+	measured exceptions rather than a silent pass. ]]
 local CLOSE_INSET = "space.xs"
 -- the plate's frame: ONE token on all four sides (Option B's balance invariant)
 local PLATE_PADDING = "space.m"
@@ -107,11 +124,24 @@ expand_plate.CLOSE_DISC = CLOSE_DISC
 expand_plate.CLOSE_INSET = CLOSE_INSET
 expand_plate.PADDING = { top = PLATE_PADDING, right = PLATE_PADDING, bottom = PLATE_PADDING, left = PLATE_PADDING }
 
--- the full-width sheet twin: a sheet is edge-to-edge and has no corner to
--- straddle, so the disc sits INSIDE its top-trailing padding and the right inset
--- is the disc's own metric — the one reservation Option B keeps, because there
--- is no half-out to take its place (design spec, Option B "Sheet")
-expand_plate.SHEET_PADDING = { top = "space.m", right = CLOSE_DISC, bottom = "space.m", left = "space.m" }
+--[[ the full-width sheet twin: a sheet is edge-to-edge and has no corner to
+	straddle, so the disc sits INSIDE its top-trailing padding — the one
+	reservation Option B keeps, because there is no half-out to take its place
+	(design spec, Option B "Sheet").
+
+	AND THE RESERVATION IS THE DISC PLUS ITS INSET, not the disc alone (fix round 1
+	on the plate-B review, `.superpowers/sdd/release-candidate-review/
+	task-plate-b-review.md`, its one HIGH). `closeAffordance` is SHARED, and
+	the `CLOSE_INSET` margin that makes the plate's two corners coincide moves the
+	disc INWARD on the sheet, where no straddle absorbs it. Reserving only
+	`CLOSE_DISC` therefore put the painted circle 4px (near) / 6px (ten-foot) over
+	the author's own words — measured 14.00 against an 18 radius at Medium and
+	21.00 against 27 at Large, on a form that fills the sheet's content box. The
+	sum restores the tangency the comment has always claimed: the content box ends
+	exactly where the disc begins, at every ladder, on the presentation as well as
+	on the plate. ]]
+expand_plate.SHEET_PADDING =
+	{ top = "space.m", right = { CLOSE_INSET, CLOSE_DISC }, bottom = "space.m", left = "space.m" }
 
 --[[ THE PLATE'S OWN HORIZONTAL INSETS in px at this snapshot's scale: what the
 	content cap has to give back before form 1 is measured against it.

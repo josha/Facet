@@ -276,6 +276,9 @@ local UI = require("../src/blueprint")
 local Facet = require("../src")
 local themeSnapshot = require("../src/themes/snapshot")
 local expandPlate = require("../src/layout/expand_plate")
+-- the ONE enumerator for the theme corpus (MAINT-8c): a spec that restated the
+-- package list would be a second copy of it, and a tenth package would escape
+local themePackages = require("../tools/lune/theme_packages")
 local customFactory = require("../src/core/custom")
 
 local function childrenOf(node: any): { any }
@@ -551,6 +554,25 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		})
 		expect(plain.props.expand.interactive[2]).toBe(false)
 		expect(expandNodes(plain)[1].props.expandTarget.role).toBe("cover")
+		--[[ ...AND THE REACTIVE SPELLING, which is the one the first fix missed (fix
+			round 1, review MEDIUM-1). `active` is `Bound<boolean>` — a literal or a
+			Signal/Memo — and `== true` is false for every bound value, so
+			`UI.Box{ active = core:signal(true) }`, the framework's own primary idiom
+			for a prop that varies, still got a cover UNDERNEATH an Active Frame. Both
+			pinned arms above are literals, so no mutation could have caught it. ]]
+		local core = Facet.newCore()
+		local bound = UI.Region({
+			id = "Bound",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = {
+				textForm("Full"),
+				UI.VStack({ id = "Compact", children = { UI.Box({ id = "Sink", active = core:signal(true) }) } }),
+			},
+		})
+		expect(bound.props.expand.interactive[2]).toBe(true)
+		expect(expandNodes(bound)[1].props.expandTarget.role).toBe("chevron")
 	end)
 
 	it("content the framework CANNOT see is taken as interactive — a lazy region is never covered", function()
@@ -1580,7 +1602,16 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 			cannot fit the content cap belongs on the full-width sheet, which is
 			edge-to-edge by construction and cannot overflow; a form that fits gets a
 			panel. What may never happen is the third thing, which is what shipped:
-			an anchored panel wider than the allowance it was chosen against. ]]
+			an anchored panel wider than the allowance it was chosen against.
+
+			AND THERE IS A FOURTH OUTCOME THIS FRAMING DID NOT NAME (fix round 1,
+			review LOW-5). `sheet` is `measured > maxW`, and a WRAPPING form's measure
+			is by construction `<= maxW`, so such a form can never reach the sheet — it
+			is capped instead. At any viewport wide enough to ship that is the right
+			answer (the content wraps and stays inside), but at a degenerate width the
+			cap squeezes rather than promotes: measured at a 90px viewport the content
+			gets 4px. No device is that narrow; it is named because the rule above
+			reads as an exhaustive pair and is not one. ]]
 		if panel ~= nil then
 			expect(`panel {panel.rect.w} within allowance {ALLOWANCE}`).toBe(
 				`panel {math.min(panel.rect.w, ALLOWANCE)} within allowance {ALLOWANCE}`
@@ -2398,11 +2429,21 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 	local PANEL = "/Expand:Clock/Layer/Surface/ExpandPanel"
 
 	-- the plate, its disc and the panel that holds both, at one display class
-	local function plateAt(displaySize: string?): any
+	--[[ ...AND IT TAKES A PACKAGE, because the default is the LOOSEST one (fix
+		round 1, review MEDIUM-4b). `studio_neutral` clears the R18 inequality by
+		9.2px; `classic_desktop` clears it by 0.63px and clears the DISTANCE by
+		0.31px — below the whole-pixel granularity a solve rounds its rects to. A
+		geometric sweep that only ever runs the roomiest package is a sweep whose
+		margin is not the guarantee's margin. ]]
+	local function plateAt(displaySize: string?, packageName: string?): any
 		local opts: any = { viewport = { x = 0, y = 0, w = 390, h = 150 } }
 		if displaySize ~= nil then
 			opts.displaySize = displaySize
 			opts.viewport = { x = 0, y = 0, w = 1200, h = 150 }
+		end
+		if packageName ~= nil then
+			local pkg = (require)(`../examples/themes/{packageName}`).build(Facet.themes)
+			opts.themeMetrics = themeSnapshot.resolve(pkg, nil, {})
 		end
 		local w = worldLib.new(opts)
 		w.present(ringScreen(false), { initialFocus = "none" })
@@ -2414,6 +2455,70 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			plate = w.adapter.node(`{PANEL}/ExpandPlate`),
 			close = w.adapter.node(`{PANEL}/ExpandClose`),
 			content = w.adapter.node(`{PANEL}/ExpandPlate/Full`),
+			metrics = w.env:get("themeMetrics"):get(),
+		}
+	end
+
+	--[[ ...AND THE SHEET, which is the presentation the fence used to have a BLIND
+		SPOT on (fix round 1, review HIGH-1). `closeAffordance()` is SHARED by
+		`panelOf` and `sheetOf`: the margin that makes the plate's two corners
+		coincide moved the disc INWARD on the sheet, where there is no straddle to
+		absorb it, straight into the reservation `SHEET_PADDING.right` holds — and
+		the fence swept the plate only, so the round's own instrument never looked at
+		the presentation the round's own change regressed. The fixture is a form that
+		FILLS the sheet's content box, because a hugging one leaves slack that hides
+		the incursion. ]]
+	local SHEET = "/ExpandSheet:Clock/Layer/ExpandSheet"
+	local function sheetScreen(): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = {
+								-- measured WIDER than the content cap, so the composition
+								-- chooses the sheet; `fill` so what mounts is exactly the
+								-- sheet's own content box
+								UI.VStack({
+									id = "Full",
+									width = { type = "fill", weight = 1 },
+									children = { fixedBox("Wide", 2000, 60) },
+								}),
+								fixedBox("Compact", 60, 20),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	local function sheetAt(displaySize: string?): any
+		local opts: any = { viewport = { x = 0, y = 0, w = 390, h = 30 } }
+		if displaySize ~= nil then
+			opts.displaySize = displaySize
+			opts.viewport = { x = 0, y = 0, w = 1200, h = 30 }
+		end
+		local w = worldLib.new(opts)
+		w.present(sheetScreen(), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		return {
+			w = w,
+			close = w.adapter.node(`{SHEET}/ExpandClose`),
+			content = w.adapter.node(`{SHEET}/ExpandSheetPlate/Full`),
 			metrics = w.env:get("themeMetrics"):get(),
 		}
 	end
@@ -2473,46 +2578,101 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 		end
 	end)
 
-	it("R18 — the disc's incursion lands on the plate's PADDING and never on content", function()
-		--[[ THE FENCE IS A CIRCLE, and that is the honest instrument rather than a
-			convenience: `shape = "circle"` paints a disc, and the one part of its
-			bounding BOX that paints nothing is exactly the corner that reaches
-			furthest into the plate. A box-overlap sweep would therefore report an
-			incursion of 2x2 px that no player can see, and — worse — would go green
-			on a package whose disc genuinely covered a word diagonally.
+	--[[ THE FENCE IS A CIRCLE, and that is the honest instrument rather than a
+		convenience: `shape = "circle"` paints a disc, and the one part of its
+		bounding BOX that paints nothing is exactly the corner that reaches furthest
+		in. A box-overlap sweep therefore reports an incursion the player cannot see
+		— 2x2 px on the default package at Medium, 3x3 at Large, and 1 to 6 px across
+		the shipped corpus.
 
-			So the rule is stated as the distance it actually is: from the disc's
-			centre to the nearest point of every author rect on the plate, against
-			the disc's radius. ]]
-		local function distanceToRect(cx: number, cy: number, r: any): number
-			local dx = math.max(r.x - cx, 0, cx - (r.x + r.w))
-			local dy = math.max(r.y - cy, 0, cy - (r.y + r.h))
-			return math.sqrt(dx * dx + dy * dy)
+		AND THE FALSE-NEGATIVE HALF OF THIS ARGUMENT WAS WRONG (fix round 1, review
+		MEDIUM-3). The version of this comment that shipped said a box sweep "would
+		go green on a package whose disc genuinely covered a word diagonally". It
+		cannot: a circle's bounding box strictly CONTAINS the circle, so the box
+		test's red set is a strict superset of this one's. With disc `D` and padding
+		`P` the box fires iff `D > 2P` and the circle iff `D > 2*sqrt(2)*P`, so the
+		box always fires first — measured on all ten configurations the guarantee
+		runs over: box red, circle green, 20 rows out of 20. The false POSITIVE is
+		the box sweep's only error mode, and that alone is the reason to use a
+		circle. ]]
+	local function distanceToRect(cx: number, cy: number, r: any): number
+		local dx = math.max(r.x - cx, 0, cx - (r.x + r.w))
+		local dy = math.max(r.y - cy, 0, cy - (r.y + r.h))
+		return math.sqrt(dx * dx + dy * dy)
+	end
+
+	--[[ ONE FENCE, RUN ON WHICHEVER PRESENTATION IT IS HANDED. `subtree` is the
+		prefix every AUTHOR node of that presentation shares. Returns the worst
+		distance and the offenders, so a caller can state both the rule and the
+		measurement that carries it. ]]
+	local function r18Sweep(w: any, close: any, subtree: string): (number, { string }, number)
+		local cx = close.rect.x + close.rect.w / 2
+		local cy = close.rect.y + close.rect.h / 2
+		local radius = close.rect.w / 2
+		local covered: { string } = {}
+		local swept, worst = 0, math.huge
+		for _, path in w.adapter.paths() do
+			if string.find(path, subtree, 1, true) ~= 1 then
+				continue
+			end
+			local n = w.adapter.node(path)
+			if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
+				continue
+			end
+			swept += 1
+			local d = distanceToRect(cx, cy, n.rect)
+			worst = math.min(worst, d)
+			if d < radius - 0.5 then
+				table.insert(covered, `{path} at {d} < {radius}`)
+			end
 		end
+		table.sort(covered)
+		return worst, covered, swept
+	end
+
+	it("R18 — the disc's incursion lands on the PADDING and never on content, on BOTH presentations", function()
+		--[[ THE SHEET ARM IS THE ONE THIS CASE WAS EXTENDED FOR. Measured before the
+			fix, on a form that fills the sheet's content box: the disc's centre sat
+			14.00 from the author's node against an 18 radius at Medium, and 21.00
+			against 27 at Large — 4px and 6px of painted circle over the author's
+			words. The parent's construction was exactly TANGENT (18.00 / 27.00), which
+			is what `SHEET_PADDING`'s comment means by "the content box ends where the
+			disc begins"; the shared `closeAffordance` margin broke it, and the fence
+			that would have caught it swept the plate only. ]]
 		for _, displaySize in { "Medium", "Large" } do
-			local g = plateAt(displaySize)
-			local cx = g.close.rect.x + g.close.rect.w / 2
-			local cy = g.close.rect.y + g.close.rect.h / 2
-			local radius = g.close.rect.w / 2
-			local covered: { string } = {}
-			local swept = 0
-			for _, path in g.w.adapter.paths() do
-				if string.find(path, `{PANEL}/ExpandPlate/`, 1, true) ~= 1 then
-					continue
-				end
-				local n = g.w.adapter.node(path)
-				if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
-					continue
-				end
-				swept += 1
-				if distanceToRect(cx, cy, n.rect) < radius - 0.5 then
-					table.insert(covered, `{path} at {distanceToRect(cx, cy, n.rect)} < {radius}`)
+			for _, arm in
+				{
+					{ label = "plate", geom = plateAt(displaySize), subtree = `{PANEL}/ExpandPlate/` },
+					{ label = "sheet", geom = sheetAt(displaySize), subtree = `{SHEET}/ExpandSheetPlate/` },
+					--[[ THE TIGHTEST SHIPPED PACKAGE, swept as real solved rects rather
+						than as the inequality alone: `classic_desktop` is `space.m` 8
+						against a 22px disc, so the guarantee clears by 0.63px and the
+						distance by 0.31px — inside the rounding a solve applies. If
+						whole-pixel rects ever tip it, this arm is where it shows. ]]
+					{
+						label = "plate/classic_desktop",
+						geom = plateAt(displaySize, "classic_desktop"),
+						subtree = `{PANEL}/ExpandPlate/`,
+					},
+				}
+			do
+				local g = arm.geom
+				expect(`{displaySize}/{arm.label}: close mounted {g.close ~= nil}`).toBe(
+					`{displaySize}/{arm.label}: close mounted true`
+				)
+				local worst, covered, swept = r18Sweep(g.w, g.close, arm.subtree)
+				-- a sweep that swept nothing proves nothing
+				expect(`{displaySize}/{arm.label}: swept {swept > 0}`).toBe(`{displaySize}/{arm.label}: swept true`)
+				expect(`{displaySize}/{arm.label}: {table.concat(covered, " ; ")}`).toBe(`{displaySize}/{arm.label}: `)
+				-- ...and the sheet's is TANGENCY, not merely clearance: its reservation
+				-- is exactly the disc plus its inset, so the nearest author point is
+				-- the radius away and not one pixel more
+				if arm.label == "sheet" then
+					expect(`sheet {displaySize}: nearest {worst} vs radius {g.close.rect.w / 2}`).toBe(
+						`sheet {displaySize}: nearest {g.close.rect.w / 2} vs radius {g.close.rect.w / 2}`
+					)
 				end
 			end
-			table.sort(covered)
-			-- a sweep that swept nothing proves nothing
-			expect(`{displaySize}: swept {swept > 0}`).toBe(`{displaySize}: swept true`)
-			expect(`{displaySize}: {table.concat(covered, " ; ")}`).toBe(`{displaySize}: `)
 		end
 	end)
 
@@ -2530,19 +2690,15 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			package this repository ships, at both rungs of the ladder — a package
 			with a fatter disc or a thinner plate padding reddens HERE, with the two
 			distances named, instead of painting a disc over a word on a device. ]]
+		--[[ THE LIST IS DERIVED, NOT RESTATED (fix round 1, review LOW-3). A
+			hand-written corpus plus a pinned `checked 18` is a COUNT, not a
+			derivation: a tenth reference package would enter `REFERENCE_ORDER`,
+			redden `theme_package_enumeration.spec` over there, and escape this
+			guarantee here with the count still green. `shippable()` reads the
+			directory, so the guarantee grows with the corpus and the assertion below
+			is a function of it. ]]
 		local packages = { "studio_neutral" }
-		for _, name in
-			{
-				"glossy_mobile",
-				"glossy_touch",
-				"pixel_quest",
-				"fantasy_ornate",
-				"scifi_hud",
-				"compact_pointer",
-				"classic_desktop",
-				"fantasy_parchment",
-			}
-		do
+		for _, name in themePackages.shippable() do
 			table.insert(packages, name)
 		end
 		local checked = 0
@@ -2560,7 +2716,76 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 				checked += 1
 			end
 		end
-		expect(`checked {checked}`).toBe("checked 18")
+		expect(`checked {checked}`).toBe(`checked {#packages * 2}`)
+		-- ...and the corpus is not empty or one-element, which is the only way the
+		-- derivation above could pass while measuring nothing
+		expect(`corpus {#packages >= 9}`).toBe("corpus true")
+	end)
+
+	it("...and the disc's inset is measured against the RING's own authority, package by package", function()
+		--[[ WHAT THE ROUND BEFORE THIS ONE COULD NOT ASSERT, AND WHY (fix round 1,
+			review MEDIUM-4a; concern 5 of the plate-B report). The disc is inset
+			`space.xs` from the panel's surface box, and that inset is the room the
+			focus ring draws in. `space.xs` is a METRIC; the ring's thickness is not —
+			it lives on the STYLE side as `extra.focusRingThickness`, strengthened to
+			`extra.tenFootFocusRingThickness` at distance, and
+			`themeSnapshot.resolveNumber(snap, "extra.focusRingThickness")` returns nil
+			at both rungs because the snapshot does not carry it. So no runtime
+			derivation can make the inset ring-aware, and the previous round stated
+			that as a reason to assert nothing.
+
+			IT IS A REASON TO ASSERT IT HERE INSTEAD. A spec file can require both
+			authorities and compare them, which is exactly the standard this feature
+			set for its R18 guarantee, and the comparison finds real defects: on
+			`classic_desktop` and `compact_pointer` the ten-foot inset is 3 against a
+			4px strengthened ring, so the close's outward ring overruns the panel's
+			surface box by 1px — and at Medium both sit at exactly 2 against 2, zero
+			slack. Those two are named below rather than papered over: the list is a
+			RATCHET, and it is asserted in BOTH directions, so a third package joining
+			them reddens here and so does one of them being repaired.
+
+			WHY IT IS NOT FIXED IN GEOMETRY. Raising the inset would move the straddle
+			(`CLOSE_INSET + disc/2`) and therefore the plate's corner, which is the
+			construction the director settled; and the two packages' own `space.xs` is
+			a decision of theirs, not of this framework. The honest answer is the
+			measurement, standing where a change to either side has to walk past it. ]]
+		local defaultStyle = require("../src/tokens/default_style")
+		local EXPECTED_SHORT = {
+			"classic_desktop/Large",
+			"compact_pointer/Large",
+		}
+		local packages = { "studio_neutral" }
+		for _, name in themePackages.shippable() do
+			table.insert(packages, name)
+		end
+		local short: { string } = {}
+		local checked = 0
+		for _, name in packages do
+			local package = if name == "studio_neutral"
+				then themeSnapshot.neutralPackage()
+				else (require)(`../examples/themes/{name}`).build(Facet.themes)
+			-- the package's OWN theme entry first, then the library default — which is
+			-- the `fill` semantics `tokens/sheet_model` applies when it builds a style
+			local extra = (package.style.themes[1] or {}).extra or {}
+			local base = themeSnapshot.resolve(package, nil, {})
+			for _, class in { "Medium", "Large" } do
+				local ring = if class == "Large"
+					then extra.tenFootFocusRingThickness or defaultStyle.extra.tenFootFocusRingThickness
+					else extra.focusRingThickness or defaultStyle.extra.focusRingThickness
+				local inset =
+					themeSnapshot.resolveNumber(themeSnapshot.forDisplay(base, class), expandPlate.CLOSE_INSET)
+				expect(`{name}/{class}: inset {type(inset)} ring {type(ring)}`).toBe(
+					`{name}/{class}: inset number ring number`
+				)
+				if inset < ring then
+					table.insert(short, `{name}/{class}`)
+				end
+				checked += 1
+			end
+		end
+		table.sort(short)
+		expect(`checked {checked}`).toBe(`checked {#packages * 2}`)
+		expect(`short: {table.concat(short, " ")}`).toBe(`short: {table.concat(EXPECTED_SHORT, " ")}`)
 	end)
 
 	it("...and it is still the same control: one focus stop, the standard band, Return closes", function()
