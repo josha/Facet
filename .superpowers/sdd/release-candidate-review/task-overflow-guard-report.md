@@ -300,6 +300,18 @@ no `src/` file at all, so they belong to whichever concurrent round is mid-fligh
 in `src/layout/solver.luau` / `src/client/screen_target.luau`. Reported, not
 adopted.
 
+> **ERRATUM (2026-08-21, `task-rr-reds-report.md`) — the paragraph above is
+> WRONG and is retracted.** `4f86ac5` was **not** Facet HEAD; HEAD was `3183740`,
+> seven commits later. The pin sits one commit *before* `4110ba1`, the DIR5
+> `src/client/roblox_env.luau` input-primacy fix — and RR `4fdb0e6`, the working
+> tree used here, is that fix's own consumer rider. So the pair ran the game's
+> proof of a framework fix against a framework without it. The two reds are
+> `facet_composition_collision_contract.spec:502` and `:516`, **not** the
+> large-text specs (both of those are green in that very run, 46/46). Rebuilt
+> honestly, RR is **3464 passed / 0 failed** at `19dc1cb`, `3183740`, `6addc5e`
+> and every commit since. Nothing was mid-flight in `solver.luau` /
+> `screen_target.luau`; nothing needed adopting.
+
 **Cost.** `overflow_sweep.spec` alone, same machine, back to back:
 **27.00s → 27.26s (+1.0%)** for the settled containment oracle on 414 cells plus
 9 state-walk cases at 9 viewports. Well inside `check_tier_costs`' 50% tolerance,
