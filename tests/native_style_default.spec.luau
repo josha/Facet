@@ -18,6 +18,18 @@
 	it encodes is now a pure function (`native_style.resolveOpt`) that the target
 	calls instead of re-deriving, which is what gives the default a witness.
 
+	THE THREAT MODEL, RULED AT ROUND'S END (controller R22, 2026-08-21, after a
+	third bypass survived): these pins guard against ACCIDENTAL reversion and
+	careless refactors — every natural spelling of a re-derivation reds, and a
+	flip-back of the constant reds four cases. They are NOT obfuscation-proof and
+	no source pin can be: a reviewer's runtime-concatenated field name on a
+	fabricated table beat the count pin with the full suite green, which proves
+	the class un-closable at the source level in a dynamic language. Deliberate
+	in-repo sabotage is outside this file's job. The BEHAVIORAL terminator is the
+	live boot canary (a bare showcase boot must show StyleLinks and sheet-resolved
+	paint with zero attributes set — run and recorded 2026-08-21), booked as a
+	standing scripted canary row rather than a fourth source-pin round.
+
 	THE FOUR CLAIMS, and each of them was RED before the flip:
 
 	  1. the LIBRARY DEFAULT is sheet paint — an absent opt resolves to `true`;

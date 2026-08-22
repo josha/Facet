@@ -1623,3 +1623,24 @@ STUDIO.md, root CLAUDE.md.
   check_theme_artifacts red on the WORKING tree only (the renderer
   round's mid-edit state) — green on clean exports all day; full battery
   re-runs on the committed tree at the renderer landing.
+
+## 2026-08-21 (post-close 25) — R22: the loop ends by ruling, not by round 4
+
+- FLIP FIX-2 RE-REVIEW (05aeeea): M7/M3/original all redden as claimed;
+  MEDIUM-A closed (collapsing site reds, honest site admitted); overclaims
+  genuinely retracted inline. BUT the reviewer's OWN fresh bypass survived
+  — opts reassigned to a fabricated table via a runtime-CONCATENATED field
+  name, six pins satisfied, 7022 green. Third occurrence of the class.
+- RULING R22: the class is PROVEN un-closable at the source level in a
+  dynamic language — the loop terminates by threat-model statement, not a
+  fourth round. The pins' job is accidental reversion + careless refactor
+  (they now catch every natural spelling); deliberate obfuscation is
+  outside the file's job in an unpublished single-team repo; the
+  BEHAVIORAL terminator is the boot canary (already run live: bare boot →
+  3 StyleLinks + sheet-resolved paint), booked to t16 as a standing
+  scripted canary row. Threat model written INTO the spec header. Cost if
+  wrong: an in-repo saboteur — who owns commit rights anyway.
+- Re-review's LOW absorbed: the "+81 belongs to another round" attribution
+  was wrong — true ancestry +7 another round's, +74 this round's own
+  comment (the −30 was the code line alone). Recorded here; the ledger
+  cell's chronology stands corrected by this entry.
