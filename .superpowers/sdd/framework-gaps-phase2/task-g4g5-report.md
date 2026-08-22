@@ -528,3 +528,222 @@ Specifically owed to a Studio/device pass:
    (ruling R5). The RR contract spec is headless; the game's racer list and
    sponsor table ride the extracted hosted half, and R5 says the canary is
    captured in the verifying session rather than pre-frozen.
+
+### Explicitly owed, because the headless suite is structurally blind to it
+
+Added after fix round 1's review, so the device half inherits a list rather than
+a paragraph. Every item here is a claim this round made that **no headless
+assertion can check**:
+
+* **`card_rail`'s chrome terms.** `crossExtent = "hug"` claims the solver knows
+  the five terms the fixture used to sum, and two of them were only ever
+  discovered by a device round: `chromeInsets.panel` (**12px short under Compact
+  Pointer, at the DEFAULT text preference**) and `chromeOutsets.panel` (**16px
+  short under Fantasy Ornate, at every preference**). The headless matrices are
+  green; they were green before those two rounds as well.
+* **The first painted frame's card width** (fix-round finding B). The fix is
+  asserted by a dump on the frame before any solve — a real first frame on a real
+  device is where "paints nothing, then the right arrangement" is either invisible
+  or a flash.
+* **Nested-scroller materialization** (fix-round finding A). The diagnostic is
+  proved headlessly, but the *cliff* it names is a frame-time fact: 400 rows
+  mounted instead of 6 is a number only a device profile puts a cost on. Worth a
+  deliberate probe on the one surface most at risk of the shape.
+* **The two grid fixtures at ten-foot**, where the gutter moved from a fixed 6 to
+  a scaling `"xs"` — already listed above, repeated here because it is the same
+  class: a metric that scales only on a rung the headless sweep does not stand on.
+
+---
+---
+
+# Fix round 1 — the review's four Important findings, the spec miss, and the minors
+
+**Commits:** `b72b1b0` (the round), `0ffce6c` (the allowlist entry the first
+commit's hunk filter could not reach).
+**Measured suites, fresh content-pinned pair (`PIN_FACET 0ffce6ce`,
+`PIN_RR 7a2b3a2e`):** Facet **7,135 passed / 0 failed** (7,124 → 7,135; **+11**,
+all of them the new cases below), Rascal Rally **3,483 passed / 0 failed**
+(unchanged — nothing in this round touched a game-side surface).
+
+Three of the five substantive findings were defects in what the round SHIPPED.
+One was in what it TAUGHT, and it is the one worth reading first.
+
+## A (Important) — the teaching was backwards, and the real failure is silent
+
+**What I wrote:** api.md said a `fill` inside a scrolling page's own content "has
+nothing definite to fill", i.e. measures 0.
+
+**What is true**, traced by the reviewer and then **measured** rather than
+inferred:
+
+* an ancestor that **HUGS** on that axis does give nothing: measured **0**,
+  window **0**. That half was right, and it is the loud half — obvious the moment
+  you look at it;
+* an ancestor that is **UNBOUNDED** on that axis — which is exactly what another
+  scroller's own scroll axis is — hands the collection its **whole canvas**.
+  `solver.luau:595-597` answers a `fill` dim with its *content* contribution;
+  `:1395-1396` and `:2467-2471` offer a scroll node's children `math.huge` on the
+  axis it scrolls; `:1389-1412` sums those children into the scroll node's own
+  content measure. **Measured headlessly: 400 rows of 40px inside a y-scrolling
+  page reported a 16,000px "viewport" and mounted all 400 rows.**
+
+That is strictly worse than measuring 0. Virtualization is **silently off** —
+stable across every frame, and invisible to any assertion about correctness,
+because every row is present and correctly placed. It is a performance cliff
+wearing a correct-looking layout, and this round would have shipped it documented
+as the *other* failure.
+
+**The fix, and why it is a diagnostic rather than a clamp.** The detection is the
+seed's own argument turned around: the seed is sound because *a box is never
+bigger than the surface that contains it*, so a measured extent that **exceeds
+the screen** is not a viewport, it is a canvas. Both collections report it in
+`dump().diagnostics`, naming both numbers and the fix, **once per state change**
+rather than once per refresh (`newLevelPicker` is the precedent for where a
+control's diagnostics live; `solver.luau:562-570`'s "percent size on an unbounded
+axis (inside scroll axis?)" is the house idiom for the message shape).
+
+It does **not** clamp. Clamping the window to the screen while the solver still
+paints the host at canvas height would leave the bottom of the painted box empty
+of rows — a *visible* defect traded for an invisible one.
+
+**Not attempted, as instructed:** a solver-side fix (refusing to offer `math.huge`
+to a scroll host's own `fill` child, or answering a bounded contribution).
+`src/layout/solver.luau` has an extraction owed to another round.
+**Deferred note addressed to the G2+G10 round:** the list-side detector reports
+the *symptom* and cannot prevent it. The structural question — *should a scroll
+node offer `math.huge` to a child that is itself a scroll host?* — lives in
+`solver.luau`'s measure and belongs with whoever opens that file next.
+
+**Covering cases** (`tests/collection_self_measure.spec.luau`):
+`a list nested in another scroller's SCROLL axis measures its whole canvas, and
+says so` (pins 16,000 / 400 / the message text), `a grid says the same thing
+about the same shape`, and a **negative control** — the same 400 rows in a real
+pane, reporting nothing — so the pair cannot pass by the diagnostic always firing
+or by 400 rows being the trigger.
+
+## B (Important) — the seed is a window argument, not an arrangement
+
+`card_rail` derives `perView` and the card width from `ctx.viewportIn/Now`, which
+under `"auto"` is the **screen seed** at build. **Measured before the fix:** a
+300px rail on an 800px screen resolved a **three-up arrangement of 261px cards**
+on its first painted frame and a **one-up 270px carousel** on its second. Not a
+size that popped — a different answer to the paradigm question, on a module whose
+own header says in capitals that it must be asked about *the rail's own extent*.
+
+**Fix:** `itemExtent = "cards"` seeds **0** instead of the screen. A 0 viewport
+windows to nothing, so the rail paints **nothing** on the pre-measure frame and
+the right arrangement on the next. The superset argument is preserved exactly
+where it applies — every other list keeps the screen seed — and that narrowing is
+its own **negative control** (`a plain list still seeds from the screen and
+over-fills`, pinning `600|15`), without which the fix could have been a blanket
+change nobody noticed.
+
+**Covering case:** `a card rail paints NOTHING before it has been measured, then
+the right arrangement`. It needed a new harness hook (`beforePresent`), because
+the frame before any solve is the only place a seed can be observed at all.
+
+## C (spec miss) — `chromeInsets` / `chromeOutsets` documented
+
+They stay public-reachable (a snapshot field; RR's `facet_racer_list.spec` reads
+one), so the brief's condition applies and I had recorded it as owed instead of
+doing it. `docs/reference/api.md`'s `themes` section now carries them: a table
+saying what each of the three is and who spends it (**`chromeBleed` corrected
+while writing it — it is a whole-package NUMBER, the deepest shadow reach, not a
+per-slot map**), `hasChromeInsets` as the guard to read first (every slot
+publishes an entry now, so `next(chromeInsets)` answers yes on every package and
+tells you nothing), the ten-foot exemption, and the part that matters: **prefer
+not to read them at all**, with the card rail's own two device rounds as the
+evidence for why a prediction assembled out of them goes stale.
+
+## D (Important, partial) — the owed list, made explicit
+
+No device work attempted. Report §12 gains a named sub-list of everything the
+headless suite is **structurally** blind to: `card_rail`'s chrome-inset (12px,
+Compact Pointer, default preference) and chrome-outset (16px, Fantasy Ornate,
+every preference) terms; the first painted frame's card width; nested-scroller
+materialization as a frame-time cost; and the two grid fixtures at ten-foot.
+
+## Minors
+
+* **(E)** `sponsor_list.luau`'s comment said `sponsor_drop` "migrated in the same
+  round"; it migrated **and was reverted**. Corrected — and while correcting it,
+  the comment now names what its *own* tree would have suffered, which is finding
+  A's silent shape rather than the 0 it previously claimed.
+* **(F)** ADR-0043 said `card_rail` lost "two constants"; it lost **one**
+  (`RAIL_SLACK`). `PADDING` survives as the padding the Screen is given.
+  Corrected in the durable copy.
+* **(G)** The `crossExtent = "hug"` + `width` refusal is documented in api.md,
+  including why `"measured"` deliberately composes with a width.
+* **(H)** `gap_metric` treated `env == nil` as "headless → neutral", but
+  `surfaceEnv.find` also answers nil for an **ambiguous** core. Both collections
+  distinguish them now and call `surfaceEnv.resolve` — the framework's one
+  spelling of that refusal — **only when the build actually needs the
+  environment**. Four cases, including the narrowing (`a build that needs NO
+  environment is still built on an ambiguous core`) and the other nil (`NOTHING
+  published is still the headless case`), so the refusal cannot pass by having
+  swallowed every ambiguous core.
+* **(I)** Every `"hug"` case was `axis = "x"`. A **vertical** case joins them,
+  where the cross axis is the WIDTH: the list is its row's width, not the 800px
+  pane's, and the scroll axis is untouched.
+
+## The brand guard (raised mid-round by the coordinator)
+
+`check_brand_drift` was red, four hits mine — vendor prose in
+`virtual_list_hosted.luau`. **The cause is the rule this round had already been
+taught once:** the guard's allowlist carried
+`("src/controls/virtual_list.luau", VENDOR, "extraction-locked…", "when the
+virtual-list extraction lands")`. The extraction landed, so the sweep it was
+deferring came due, and the prose that rode out of the locked file was live the
+moment the split commit did — **the identical shape `check_comment_codes` bit
+this round with, for the identical reason.**
+
+So the six sites were **reworded**, the `virtual_list.luau` entry **removed**, and
+`virtual_list_hosted.luau` deliberately **not added**: an extraction inherits none
+of its host's exemptions, and adding the sibling would have re-created the debt
+under a new name. The removal is recorded as a note beside the remaining entries
+so the next reader sees why the list got shorter.
+
+**A tooling trap earned in the process, and it is worth the line:** the delete was
+silently dropped by `commit_isolated`'s hunk filter, because the marker I chose
+came from the note I *added* and the deleting hunk contains only what was
+*removed*. The explanation landed while the file was still on the list. Fixed in
+`0ffce6c`. **A marker chosen from what you added cannot select a hunk whose whole
+content is what you removed** — check the `drop` lines in the tool's own output,
+which said so plainly.
+
+## Two shared pins that moved with the code
+
+* **`newVirtualGrid` joins the refusing controls** (`adaptive_defaults.spec`,
+  six → seven) because finding H's fix gave it a refusal. It is the first entry
+  there that refuses only *sometimes*: it adapts nothing, and what it needs an
+  environment for is two **facts** (the snapshot a metric name resolves against,
+  the screen `"auto"` seeds from), so it refuses on an ambiguous core and only
+  when the build asks for one of them. Its api.md section documents the refusal,
+  as that guard requires.
+* **`dump().diagnostics` returns ONE shared frozen empty table.** A fresh `{}` per
+  call made two dumps of one list compare unequal by *identity*, which is exactly
+  what `virtual_list_axis.spec`'s "the deprecated aliases agree field for field"
+  case asserts. Frozen because it is shared. Same idiom, same reason, as the
+  hosted overlay's empty item list one file over.
+
+## Gates after the fix round
+
+`check_brand_drift` **PASS** (added to the list at the coordinator's request —
+the five remaining hits are another lane's and were left alone), `check_gate_pins`
+PASS, `check_manifest_integrity` 1,518 greps anchored, `check_source_size` PASS,
+`check_comment_codes` PASS (0 orphans, 25/25), `check_types` PASS,
+`check_registration` PASS (270 specs registered), theme drift clean,
+`check_surface_ledger` PASS, `check_docs` PASS, `check_doc_style` PASS,
+`stylua --check src/ tests/ examples/` clean.
+
+## What this round changes about my own confidence
+
+Finding A is the one to carry forward. The round's whole thesis is *stop
+predicting a number the framework already holds* — and the feature that
+implements it had a failure mode where the framework hands over a number that is
+confidently, stably wrong, and I documented the wrong failure mode for it. The
+headless suite could not have caught it: **every assertion about correctness
+passes**. What caught it was someone tracing the dim resolution by hand. The
+lesson I would write for myself: **when a feature's value is "the framework
+answers instead of you", the review that matters is of what the framework answers
+at the edges of its own contract** — not of whether the happy path measures right.
