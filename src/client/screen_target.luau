@@ -2528,7 +2528,7 @@ function screen_target.new(opts: Opts?)
 		end
 		local touch_gestures = require(script.Parent.Parent.input.touch_gestures) :: any
 		-- `normalize(kind, args)` reads `args` POSITIONALLY — it is the engine
-		-- callback's argument list, in the engine's order, not a record (SEAM-3:
+		-- callback's argument list, in the engine's order, not a record (the seam rule:
 		-- passing named keys made a[1]..a[4] nil, so every gesture a device
 		-- delivered normalized to `{ kind, state = "none", positions = {} }` with
 		-- the translation/velocity/scale/rotation/direction dropped). The engine's

@@ -416,7 +416,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 			end
 		end)
 	)
-	--[[ ── THE DELIBERATE STREAM. INPUT-100: the engine's last-input summary is unusable for primacy without a deadzone. INPUT-101: primacy reads the raw stream and only DELIBERATE events count. See `pushInput`. ──────────────────
+	--[[ ── THE DELIBERATE STREAM: the engine's last-input summary is unusable for primacy without a deadzone, so primacy reads the raw stream and only DELIBERATE events count. See `pushInput`. ──────────────────
 		A press is deliberate by definition, so `InputBegan` is taken at face value —
 		including for a gamepad, where `InputBegan` can only be a BUTTON (sticks and
 		triggers arrive on `InputChanged`). Mouse MOVEMENT never reaches this branch
@@ -468,7 +468,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 				connections,
 				changed:Connect(function(io: any)
 					local name = string.match(tostring((io :: any).UserInputType), "([^%.]+)$") or ""
-					--[[ THE DEADZONE, AND IT IS THE WHOLE POINT (INPUT-100: stick noise below 0.25 must never claim primacy — without this the primary input flaps on every idle wobble). A stick a
+					--[[ THE DEADZONE, AND IT IS THE WHOLE POINT: stick noise below 0.25 must never claim primacy — without this the primary input flaps on every idle wobble. A stick a
 						thumb is resting on emits continuously; only a deflection past the
 						house number is an act. Triggers and every other analogue axis are
 						deliberately NOT read here — a trigger at rest drifts too, and a

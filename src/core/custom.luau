@@ -653,7 +653,7 @@ function Custom.new()
 					fail(tostring(err))
 				end
 			end
-			-- RR-7: a value that can never change again, being read
+			-- a value that can never change again, being read
 			reportFrozen(node)
 			return node.value
 		end
