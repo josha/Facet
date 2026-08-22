@@ -173,15 +173,75 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 	-- forwarding, controller-emulator slot shift; ADR-0015)
 	local sawGamepadInput = false
 
+	--[[ A PAD THAT IS MERELY THERE IS NOT THE PLAYER'S PAD (director round 5,
+		2026-08-21: "we don't need to see the lb/rb tips unless the user has a gamepad
+		as the primary input"). MEASURED on the director's desktop: three pads
+		connected, the player driving with a mouse, and
+		`UserInputService.PreferredInput` reading **Gamepad** — so `primary` resolved
+		to "gamepad", `effectiveInput` to "Gamepad", and every pad affordance in the
+		framework turned on for a player who had not touched one.
+
+		THE ENGINE'S PREFERENCE IS STICKY AND THE LAST INPUT IS NOT. `PreferredInput`
+		is the engine's standing guess and it does not come back on its own once a pad
+		has spoken — one drifting thumbstick, or an emulator's virtual pads, is enough
+		to set it for the session. `GetLastInputType()` answers the other question,
+		"what did this player just DO", and the two disagreeing is precisely the state
+		the director measured.
+
+		SO THIS IS THE MIRROR OF THE RULE ALREADY WRITTEN in `env/environment.luau`'s
+		own fallback — *"a preference the player has not expressed yet cannot outvote
+		what the device physically is"* — applied on the side the engine's guess is
+		STICKY on instead of the side it is DEFAULT on. It is deliberately narrow, and
+		every clause is load-bearing:
+
+		  * only when the device HAS a mouse. A console or a handheld with no pointer
+		    at all is a pad player whatever the last input was, and nothing here moves
+		    for them;
+		  * only while the last input actually seen is a POINTER or KEYBOARD one. The
+		    first press of any pad button flips `GetLastInputType` to a Gamepad value
+		    and the preference is honoured again in the same frame, through the
+		    `LastInputTypeChanged` connection below — so a desktop player who picks up
+		    a pad gets the pad layout on their first press, which is the case this must
+		    not break;
+		  * the CAPABILITY is untouched. `capabilities.gamepad` still reports the pad
+		    as live, because it is: this changes which class is PRIMARY (emphasis, and
+		    which idiom leads — ADR-0015 Decision 2), never which classes exist.
+
+		The correction lives HERE rather than in the memo because it is about an
+		ENGINE fact's known behaviour, which is this module's whole job — the same
+		place `capabilities.gamepad` already corrects `GamepadEnabled` with
+		`sawGamepadInput`. ]]
+	local POINTER_LAST_INPUT: { [string]: boolean } = {
+		MouseButton1 = true,
+		MouseButton2 = true,
+		MouseButton3 = true,
+		MouseMovement = true,
+		MouseWheel = true,
+		Keyboard = true,
+	}
+
 	-- same fact-group rule as pushViewport: the class and the capability set are
 	-- one truth about the device, and the interactionClasses memo reads BOTH.
 	local function pushInput()
 		env:batch(function()
 			local preferred = UserInputService.PreferredInput
-			env:set("preferredInput", preferred.Name)
+			local name = preferred.Name
+			local mouse = UserInputService.MouseEnabled
+			if name == "Gamepad" and mouse then
+				-- guarded like every other optional engine read in this file: an engine
+				-- without the member keeps the preference exactly as reported. The NAME
+				-- is read inside the pcall so the call and the member are one question
+				local okLast, lastName = pcall(function()
+					return (UserInputService :: any):GetLastInputType().Name
+				end)
+				if okLast and POINTER_LAST_INPUT[lastName] == true then
+					name = "KeyboardAndMouse"
+				end
+			end
+			env:set("preferredInput", name)
 			env:set("capabilities", {
 				keyboard = UserInputService.KeyboardEnabled,
-				mouse = UserInputService.MouseEnabled,
+				mouse = mouse,
 				touch = UserInputService.TouchEnabled,
 				gamepad = UserInputService.GamepadEnabled or sawGamepadInput,
 			})
@@ -305,11 +365,26 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 	for _, property in { "KeyboardEnabled", "MouseEnabled", "TouchEnabled", "GamepadEnabled" } do
 		table.insert(connections, UserInputService:GetPropertyChangedSignal(property):Connect(pushInput))
 	end
+	--[[ ...AND THE LAST INPUT NOW MOVES A FACT, not only a latch (see `pushInput`),
+		so this connection has to push on more than the first pad press: the whole
+		point of the correction is that it comes back the moment the player uses the
+		pad, and that moment arrives here.
+
+		ONLY ON A FAMILY CHANGE. `LastInputTypeChanged` fires on every mouse move; a
+		re-push per frame would be a transaction per frame for a fact that did not
+		move. The family is the only thing `pushInput` reads, so it is the only thing
+		worth waking for. ]]
+	local lastWasPointerFamily: boolean? = nil
 	table.insert(
 		connections,
 		UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInputType)
+			local pointerFamily = POINTER_LAST_INPUT[inputType.Name] == true
+			local familyChanged = pointerFamily ~= lastWasPointerFamily
+			lastWasPointerFamily = pointerFamily
 			if not sawGamepadInput and inputType.Name:sub(1, 7) == "Gamepad" then
 				sawGamepadInput = true
+				pushInput()
+			elseif familyChanged then
 				pushInput()
 			end
 		end)

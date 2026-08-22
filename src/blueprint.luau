@@ -895,38 +895,58 @@ end
 	ordering the director's constraint asks for and which no code here has to
 	arrange.
 
-	IT IS A CHEVRON — A MARK BESIDE THE FORM — AND NEVER A SURFACE OVER IT.
+	ITS ROLE IS DECIDED HERE, AT CONSTRUCTION, FROM WHAT THE FORMS CONTAIN, and the
+	director's rule is the whole of it (DIR5, 2026-08-21): *"the controls should
+	just be tappable by default to open more without the arrow. we'll only need the
+	arrow if the thing is already a control the user can tap."*
 
-	The first cut had two roles. A form carrying no control of its own got a
-	"cover": a full-size activation surface laid over it, so the WHOLE compact form
-	was the target (the director's approved gesture). A DEVICE ROUND KILLED IT
-	(2026-08-21, emulated portrait 360x691): every stepped-down zone on the HUD
-	demo rendered as an EMPTY PILL — the timer, the tasks chip and the health pod
-	were rounded boxes with nothing in them, which is the precise opposite of the
-	constraint the feature was approved under.
+	  "cover"    no form below the richest carries a focus stop or a semantic
+	             action, so the WHOLE compact form is the target: one focusable, one
+	             gesture anywhere on the pill, the 44px floor over the whole of it,
+	             and NO PAINTED MARK AT ALL. A passive pill is not an affordance
+	             wearing an arrow; it is the affordance.
+	  "chevron"  some form below the richest does carry one. Its meanings are left
+	             alone and the affordance becomes a mark BESIDE it — a separate tap
+	             target with its own focus stop. The arrow exists exactly for that
+	             disambiguation: something actionable by itself must not also be the
+	             thing you action to expand.
 
-	NO MODEL-SIDE INSTRUMENT COULD SEE IT, and that is the part worth keeping. At
-	that viewport every one of those Text nodes had a real rect and `visible =
-	true`; the composition dump, the value-text oracle and the overflow sweep all
-	agreed the screen was fine. What the framework had done was put its OWN
-	instance on top of them — a full-size TextButton plus a 44px hit band over a
-	23px pill (measured z: cover 116, band 115, the pill's text 113) — and "it is
-	transparent, so it is harmless" is a claim about the ENGINE that no headless
-	check in this repository makes or can make.
+	MIXED LADDERS TAKE THE CHEVRON: "never overload a control" outranks "cover what
+	you can", and one affordance per region means the conservative rung decides.
 
-	So the role is gone and the rule that replaces it is structural: THE FRAMEWORK
-	PUTS NOTHING OF ITS OWN ABOVE THE AUTHOR'S CONTENT. A mark beside the form
-	cannot occlude a pixel the author drew, whatever the engine does with
-	transparency, stacking contexts, hit expanders or instance recycling — and the
-	form's own measure reserves the width it stands in, so it does not crowd the
-	content either.
+	=== WHY THE COVER IS DECLARED LAST AND PAINTS FIRST ===
 
-	`expandTarget.role` survives as a one-value set rather than being deleted: the
-	prop is public, the solver reads it to tell an affordance from a form, and a
-	closed set with one member is how the second one comes back if the director
-	restores the whole-form gesture (which needs the affordance placed BELOW the
-	form — the solver's lookup is the LAST child by identity, so that is an
-	extraction-gated change, not a prop change).
+	The cover shipped once before and a DEVICE ROUND KILLED IT (2026-08-21,
+	emulated portrait 360x691): every stepped-down zone on the HUD demo rendered as
+	an EMPTY PILL — the timer, the tasks chip and the health pod were rounded boxes
+	with nothing in them. NO MODEL-SIDE INSTRUMENT COULD SEE IT: at that viewport
+	every one of those Text nodes had a real rect and `visible = true`. What the
+	framework had done was put its OWN instance ON TOP of them — a full-size
+	TextButton plus a 44px hit band over a 23px pill (measured z: cover 116, band
+	115, the pill's text 113) — and "it is transparent, so it is harmless" is a
+	claim about the ENGINE that no headless check in this repository makes.
+
+	THE RULE THAT SURVIVED THAT ROUND IS KEPT WORD FOR WORD: THE FRAMEWORK PUTS
+	NOTHING OF ITS OWN ABOVE THE AUTHOR'S CONTENT. What changed is that the cover
+	now obeys it. `zIndex = -1` puts the whole affordance — its painted rect and the
+	hit expander the renderer bands one below it — UNDER every form: siblings sort
+	by `(zIndex or 0, tree order)` and a node's whole subtree travels with it
+	(`render/renderer.luau` `orderedChildren`). So the retirement note's own
+	condition ("the whole-form gesture comes back by placing the affordance BELOW
+	the form") is met without moving it in the child list at all — the solver finds
+	the affordance as the LAST child by identity, which is a TREE fact, and z is a
+	PAINT fact. No extraction-gated change was needed; the two orders are separate.
+
+	AND BELOW IS WHERE THE GESTURE STILL ARRIVES, because of what "passive" means.
+	A cover is synthesized only when nothing above it is interactive, and a Facet
+	node that is not interactive is not an `Active` GuiObject — it sinks nothing
+	(docs/lessons/roblox-input-goes-to-the-topmost-only.md: it is the GuiButton that
+	sinks). The one class whose content cannot be inspected for that is `UI.Foreign`,
+	and it is in `UNSEEN_CONTENT` below precisely so it never gets a cover.
+
+	`expandTarget.role` is a closed set of two again, and the solver already spends
+	both: a cover reserves nothing and takes the region's whole box, a chevron is
+	reserved out of the form's own measure (`layout/solver.luau`, region branch).
 
 	WHAT COUNTS AS CARRYING A MEANING is `class_contract.isInteractive`, read off
 	the registry every primitive already declares its focus role and its semantic
@@ -1086,20 +1106,36 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			one to form 1 would not discharge it either — activating the author's own
 			control is the author's action, not a dismissal.
 
-			IT IS THE LAST CHILD, so the presenter's existing rule decides where focus
-			lands and no new option is invented: a modal defaults to its FIRST
-			focusable, which is the content's own control when form 1 has one and this
-			when it does not. ]]
-		--[[ AN ICON, NOT A WORD (director device round, 2026-08-21). The plate is
-			small and its way out is a standard affordance, so it wears the standard
-			mark: the framework's own ASCII-safe `close` glyph, carried on its own node
-			beside the semantic NAME — which is what lets a package paint art over it
-			and what keeps a control from ever naming an asset.
+			IT IS THE LAST CHILD OF THE PANEL — see `plate` below, where it is layered
+			over the plate's corner rather than laid out in its flow — so the
+			presenter's existing rule decides where focus lands and no new option is
+			invented: a modal defaults to its FIRST focusable, which is the content's
+			own control when form 1 has one and this when it does not. ]]
+		--[[ A CIRCULAR CORNER CLOSE, NOT A BLOCK IN THE FLOW (director round 5,
+			2026-08-21, with the reference image: a disc pinned at the modal's top-right
+			corner, overlapping its edge). What it replaces is a 44x46 chip sitting in
+			the panel's own column — measured at the plate's BOTTOM-LEFT, which is the
+			"giant X" the director rejected.
 
-			THE LABEL STAYS A WORD. `label = "Close"` is what a screen reader says and
-			what the contract requires of every Button; the glyph is what the screen
-			shows. Nothing about the focus stop, the activation verbs or the 44px hit
-			band moves — an icon chip is the same control wearing a different face. ]]
+			FOUR THINGS DO NOT MOVE, because they are the contract rather than the
+			face: the ASCII-safe `close` glyph (through `icon`, so a package paints art
+			over it and a control never names an asset), `label = "Close"` for the
+			screen reader, the focus stop with its ring, and the 44px effective target
+			— which a disc painted at the theme's own compact control size gets from
+			the renderer's hit floor rather than from its own box.
+
+			`shape = "circle"` is the framework's one disc idiom and it takes at most
+			ONE of width/height, the other following — so the size is stated once, as a
+			METRIC NAME, and a package that thinks a compact control is 48px gets a
+			48px disc with no arithmetic here. ]]
+		local CLOSE_DISC = "controlSizes.compact.height"
+		--[[ HALF-IN, HALF-OUT, IN THE PANEL'S OWN BOX. The straddle is a MARGIN on the
+			plate rather than an offset on the disc, and that is the whole reason the
+			disc cannot fall off the screen: the panel's box grows by the straddle, so
+			the anchored placement's safe-area clamp — which knows only the surface's
+			box — is already clamping a box that CONTAINS the disc. An offset disc would
+			paint outside every rect the placement can see. ]]
+		local CLOSE_STRADDLE = "space.m"
 		local function closeAffordance(): Blueprint
 			return blueprint.Button({
 				id = "ExpandClose",
@@ -1107,20 +1143,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				-- the standard chip idiom, which is what every other dismissing
 				-- affordance in this repository's own fixtures wears
 				surface = "chip",
-				textSize = "control",
+				shape = "circle",
+				icon = "close",
+				height = { type = "fixed", px = CLOSE_DISC },
+				-- the panel is a ZStack, so placement is `alignH`/`alignV`: a zstack
+				-- layers its children over its whole box and reads exactly these two
+				alignH = "end",
+				alignV = "start",
 				onActivate = function()
 					engine.close()
 				end,
-				children = {
-					chromeSlots.attachHint(
-						blueprint.Text({
-							id = "CloseMark",
-							text = themePackage.iconGlyph("close") or "x",
-							textSize = "control",
-						}),
-						{ icon = "close" }
-					),
-				},
 			})
 		end
 		engine = regionExpand.new({
@@ -1146,21 +1178,80 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				IT IS DECIDED HERE because this is the only layer that can see it: the
 				measure seam reports a size and cannot report an intent, and the pure
 				module holds no blueprints. The declaration does. ]]
+			--[[ ...AND THE PLATE IS NOT THE CONTENT (director round 5, MEASURED: the
+				panel 208 wide at x=130 with its children spanning 138..346 — the whole
+				content width, starting one inset in and ending 8px past the panel's own
+				right edge, at every viewport).
+
+				`plate.w` is a measure of FORM 1. It was then written straight onto a
+				VStack that also declares `padding`, and a padded box's declared width is
+				its OUTER width — so the content box was `plate.w` minus two insets and
+				the form, measured against `plate.w`, overflowed it by exactly that.
+
+				THE PLATE HUGS ITS CONTENT NOW, which is the same fact stated from the
+				side that owns the chrome: the panel is the content PLUS the padding, the
+				close disc's reserve and the straddle, and hugging is how a box says
+				"whatever those come to". Nothing here re-derives an inset, and a package
+				with fatter padding moves the panel rather than cutting the content.
+
+				THE ONE DECLARED WIDTH IS THE `fill` CORRECTION (director device round,
+				2026-08-21: the task plate truncated its own rows to "Win a…"). `plate.w`
+				is `min(natural, viewport - gutters)`, and `natural` is what the measure
+				seam answers — which for a form that declared `width = fill` is its
+				CONTENT, not what it asked for. The task panel measured 184 where 328 was
+				available. A fill form has already said it wants the whole offer, so on
+				the plate it gets the whole plate: the cap (`plate.max`). It is decided
+				HERE because this is the only layer that can see it — the measure seam
+				reports a size and cannot report an intent, and the pure module holds no
+				blueprints.
+
+				WHAT THIS FIX DOES NOT REACH, stated where it is felt: the composition
+				measures form 1 against `viewport - gutters` and calls the answer a
+				plate, but the panel it will actually be wrapped in is wider than that
+				answer by its own chrome. A form whose natural width lands within the
+				chrome of the cap therefore produces a panel wider than the gutter
+				allowance. The number that would close it — the plate chrome — can only
+				reach `layout/composition.luau` beside `expandGutter`, which is resolved
+				in `layout/solver.luau` (extraction-locked). Contested there; the fix
+				above removes the overflow at every width below that band. ]]
 			panelOf = function(plate: any): Blueprint
 				local declaredW = (forms[1].props or {}).width
 				local fills = type(declaredW) == "table" and (declaredW :: any).type == "fill"
 				local width = if fills
 						and type(plate.max) == "number"
 						and plate.max > plate.w
-					then plate.max
-					else plate.w
-				return blueprint.VStack({
+					then { type = "fixed", px = plate.max }
+					else { type = "hug" }
+				--[[ THE PANEL IS A ZSTACK, and the two children are the whole design: the
+					author's form on a raised plate, and the framework's disc layered over
+					the plate's top-right corner.
+
+					R18 — THE FRAMEWORK'S CHROME MAY SIT ON THE PLATE'S OWN PADDING AND
+					NOWHERE ELSE. The plate's RIGHT padding is the disc's own metric, so the
+					content box ends exactly where the disc begins: the disc's left edge is
+					`panel - disc`, the content's right edge is `panel - straddle - disc`,
+					and the difference is the straddle, which is never negative. That holds
+					for any theme ladder and any content, which is what makes it a
+					construction rather than a number that happens to work. ]]
+				return blueprint.ZStack({
 					id = "ExpandPanel",
-					surface = "raised",
-					padding = "s",
-					gap = "xs",
-					width = { type = "fixed", px = width },
-					children = { forms[1], closeAffordance() },
+					children = {
+						blueprint.VStack({
+							id = "ExpandPlate",
+							surface = "raised",
+							padding = {
+								top = "space.s",
+								right = CLOSE_DISC,
+								bottom = "space.s",
+								left = "space.s",
+							},
+							margin = { top = CLOSE_STRADDLE, right = CLOSE_STRADDLE, bottom = 0, left = 0 },
+							gap = "xs",
+							width = width,
+							children = { forms[1] },
+						}),
+						closeAffordance(),
+					},
 				})
 			end,
 			--[[ ...AND THE SAME CONTENT AS A FULL-WIDTH SHEET for the offer where a
@@ -1175,16 +1266,35 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },
 							children = {
-								blueprint.VStack({
+								--[[ THE SAME CORNER CLOSE, AND NO STRADDLE. A sheet is
+									edge-to-edge by construction, so there is no corner to
+									overlap — half of the disc would hang off the screen. It
+									sits INSIDE the sheet's own top-right, and the right
+									padding is the disc's metric for the same reason the
+									plate's is: the content box ends where the disc begins. ]]
+								blueprint.ZStack({
 									id = "ExpandSheet",
 									anchor = "bottom",
-									surface = "raised",
-									padding = "m",
-									gap = "xs",
 									width = { type = "fill", weight = 1 },
-									-- the sheet is the same content in a different
-									-- presentation, so it carries the same way out
-									children = { forms[1], closeAffordance() },
+									children = {
+										blueprint.VStack({
+											id = "ExpandSheetPlate",
+											surface = "raised",
+											padding = {
+												top = "space.m",
+												right = CLOSE_DISC,
+												bottom = "space.m",
+												left = "space.m",
+											},
+											gap = "xs",
+											width = { type = "fill", weight = 1 },
+											-- the sheet is the same content in a
+											-- different presentation, so it carries
+											-- the same way out
+											children = { forms[1] },
+										}),
+										closeAffordance(),
+									},
 								}),
 							},
 						}),
@@ -1193,19 +1303,33 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			end,
 			handler = expandHandler,
 		})
-		local role = "chevron"
-		-- the caret is its own node carrying the semantic NAME beside the ASCII
-		-- character, exactly as the disclosure group's is: a package that ships art
-		-- for `chevron.trailing` paints it over the glyph, and a control never names
-		-- an asset
-		local mark: Blueprint = chromeSlots.attachHint(
-			blueprint.Text({
-				id = "Caret",
-				text = themePackage.iconGlyph("chevron.trailing") or ">",
-				textSize = "control",
-			}),
-			{ icon = "chevron.trailing" }
-		)
+		local role = if anyReducedFormCarriesMeaning then "chevron" else "cover"
+		local mark: Blueprint
+		if role == "chevron" then
+			-- the caret is its own node carrying the semantic NAME beside the ASCII
+			-- character, exactly as the disclosure group's is: a package that ships art
+			-- for `chevron.trailing` paints it over the glyph, and a control never names
+			-- an asset
+			mark = chromeSlots.attachHint(
+				blueprint.Text({
+					id = "Caret",
+					text = themePackage.iconGlyph("chevron.trailing") or ">",
+					textSize = "control",
+				}),
+				{ icon = "chevron.trailing" }
+			)
+		else
+			--[[ A COVER DRAWS NOTHING, and the empty box is what makes that true rather
+				than merely intended: a Button with NO children draws its OWN label, and
+				this label ("expands to full Clock") is for a screen reader, not for the
+				screen. One box, no surface, so the whole affordance is a rect that takes
+				a gesture and paints not one pixel. ]]
+			mark = blueprint.Box({
+				id = "Zone",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+			})
+		end
 		local children = table.clone(forms)
 		table.insert(
 			children,
@@ -1223,6 +1347,14 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					is how this was found), and a "chevron" is a mark whose TARGET comes
 					from the 44px hit floor rather than from padding. ]]
 				padding = 0,
+				--[[ UNDER THE FORM, NOT OVER IT — the whole of what the retired cover
+					got wrong, and the one line that fixes it. Siblings paint in
+					`(zIndex or 0, tree order)` and a subtree travels with its root, so a
+					negative z puts this Button AND the hit expander the renderer bands one
+					below it under every form. A chevron reserves its own column and
+					overlaps nothing, so it does not need one — and declaring it anyway
+					would lift the mark under the form it is meant to stand beside. ]]
+				zIndex = if role == "cover" then -1 else nil,
 				expandTarget = { role = role },
 				onActivate = function()
 					engine.open()

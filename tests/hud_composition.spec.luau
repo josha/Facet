@@ -602,6 +602,62 @@ end)
 -- in Studio and non-zero on a notched phone, so a check that trusted the local
 -- environment would pass everywhere and prove nothing.
 
+--[[ ── THE FIXTURE CARRIES BOTH EXPAND ROLES, AND HAS TO (DIR5, 2026-08-21) ────
+	The director's rule: *"the controls should just be tappable by default to open
+	more without the arrow. we'll only need the arrow if the thing is already a
+	control the user can tap."* Both halves of that are only a rule if a fixture
+	exercises both — a demo whose every zone is passive would let the chevron rot
+	unnoticed, and one whose every zone is actionable would do the same to the
+	cover.
+
+	The HUD is the demo the ruling was made on, so the pinning belongs here rather
+	than in a synthetic screen: `Clock`, `Tasks` and `Health` are the passive pills
+	the director tapped, and `Actions` is a cluster of round Buttons — a form that
+	is already a control the player can tap, which is exactly the case the arrow
+	exists to disambiguate. ]]
+describe("DIR5: the HUD demo exercises BOTH expand roles", function()
+	local Facet = require("../src") :: any
+	local hudScenario = require("../examples/gallery/scenarios/hud")
+
+	local function rolesOf(): { string }
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local built = hudScenario.build({
+			Facet = Facet,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			actionSystem = system,
+			record = function() end,
+			flags = {},
+		})
+		local out: { string } = {}
+		local function walk(node: any)
+			local expand = if node.props ~= nil then node.props.expand else nil
+			if node.class == "Region" and type(expand) == "table" and expand.role ~= nil then
+				table.insert(out, `{node.id}={expand.role}`)
+			end
+			for _, child in node.children or {} do
+				walk(child)
+			end
+		end
+		walk(built.screen)
+		built.dispose()
+		table.sort(out)
+		return out
+	end
+
+	it("the passive pills are COVERS and the button cluster keeps its arrow", function()
+		local roles = rolesOf()
+		expect(table.concat(roles, " ")).toBe("Actions=chevron Clock=cover Health=cover Rail=cover Tasks=cover")
+	end)
+end)
+
 describe("ADR-0027: nothing the HUD paints lands on the platform's own controls", function()
 	local Facet = require("../src") :: any
 	local hudScenario = require("../examples/gallery/scenarios/hud")

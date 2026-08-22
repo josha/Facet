@@ -780,6 +780,34 @@ return {
 			local vp = use(viewportFact) :: any
 			local declared = use(appChromeFact)
 			local parts = { `{vp.w}x{vp.h}`, tostring(use(riding)), tostring(use(urlBar)) }
+			--[[ THE PLATFORM'S OWN INSETS ARE A TERM, and leaving them out was a
+				latch (found 2026-08-21 by DIR5's expand-affordance change, which
+				narrowed the clock zone by the chevron column it no longer reserves —
+				20px, enough to take its left edge clear of the chip row's right edge at
+				678x339).
+
+				The adapter publishes the six platform facts ONE AT A TIME (the belt
+				releases each inset as it catches up — `roblox_env`, and the order
+				`hud_chrome_rotation.spec` drives). `viewportRect` lands first, so the
+				epoch below turned over while the screen was still wearing the PREVIOUS
+				orientation's insets — and the sample taken in that half-published state
+				(the clock at its RICHEST form, 208 wide, reaching well into the chip
+				row) latched `reaches = true` for an epoch that never turned over again.
+				The zone then reserved against chrome its settled form does not touch,
+				and the centre column sat 62px lower than a fresh mount of the very same
+				screen. Measured: `80.0x30.0@298.7,120.0` settled against
+				`80.0x30.0@298.7,58.0` fresh.
+
+				So the token says what its own first line always claimed: EVERY
+				composition input that can move a zone's width. The box this HUD is
+				solved in is the viewport LESS these insets, so they are exactly such an
+				input — and `platformChrome` is the single authority that carries them,
+				so one read covers all four platform facts. ]]
+			local chrome = use(chromeFact) :: any
+			local insets = chrome.insets
+			table.insert(parts, `i{insets.top},{insets.right},{insets.bottom},{insets.left}`)
+			local band = chrome.band
+			table.insert(parts, if band ~= nil then `b{band.x},{band.y},{band.w},{band.h}` else "b-")
 			table.insert(parts, tostring(use(env:get("preferredTextOffset"))))
 			table.insert(parts, tostring(use(env:get("themeMetrics"))))
 			if type(declared) == "table" then

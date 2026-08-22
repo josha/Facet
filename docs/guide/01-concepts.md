@@ -402,21 +402,25 @@ exists to remove.
 below its richest gets one **expand** affordance, appended as its last child, and
 it stands exactly while a reduced form stands:
 
-The affordance is a **chevron**: a mark BESIDE the compact form, in width the
-form's own measure reserved for it, with its own tap target at the standard floor
-and its own focus stop **after** the form's own stops. It is never a surface over
-the form. One gesture, one meaning — a compact form that already holds a button
-has spoken for the tap, and a form that holds nothing keeps every pixel it painted.
+Its shape is the forms' own answer. A compact form that carries **no** control of
+its own IS the affordance — the whole pill is the target, at the standard tap
+floor, with one focus stop and **no arrow drawn anywhere**. A compact form that
+already holds a button has spoken for the tap, so it keeps its meanings and the
+affordance becomes a **chevron** beside it, in width the form's own measure
+reserves. One gesture, one meaning; the arrow exists exactly for that
+disambiguation and nowhere else.
 
-> **It used to cover.** A form carrying no control of its own got a full-size
-> activation surface instead, so the whole compact form was the target. A device
-> round (2026-08-21) killed that: every stepped-down zone on the HUD demo rendered
-> as an **empty pill**, and no headless instrument in this repository could see it
-> — the model had a rect and `visible = true` for every one of those labels. What
-> the framework had done was put its own instance on top of them, and "it is
-> transparent, so it is harmless" is a claim about the ENGINE that nothing here
-> makes or can make. The rule that replaced it is structural: **the framework
-> puts nothing of its own above your content.**
+> **The framework puts nothing of its own above your content.** A device round
+> (2026-08-21) bought that rule: a cover laid OVER the compact form rendered every
+> stepped-down zone on the HUD demo as an **empty pill**, and no headless
+> instrument in this repository could see it — the model had a rect and
+> `visible = true` for every one of those labels. "It is transparent, so it is
+> harmless" is a claim about the ENGINE that nothing here makes or can make. The
+> cover obeys the rule instead of being an exception to it: it is declared with
+> `zIndex = -1`, so it paints **under** every form, and it is only ever
+> synthesized where nothing above it is interactive — which is why the gesture
+> still reaches it (a Facet node that is not interactive is not an `Active`
+> GuiObject, and it is the GuiButton that sinks).
 
 The resolution still reports `formInteractive` — whether the standing form
 contributes a focus stop or a semantic action — read off the class contract every
@@ -441,8 +445,11 @@ form).
 The Close control is the framework's, not yours, and it is there because of the
 platform fact above: **Escape cannot be bound**, and a plate that traps focus — as
 it must, or its own contents are on nobody's ring — would otherwise have no
-keyboard exit at all. It is the panel's last child, so focus on open lands on your
-content's first control when form 1 has one, and on the way out when it does not.
+keyboard exit at all. It is a circular icon button on the plate's top-right corner,
+half on and half off it, and it never covers your content: the plate's right
+padding is the disc's own metric, so the content box ends exactly where the disc
+begins. It is the panel's last child, so focus on open lands on your content's
+first control when form 1 has one, and on the way out when it does not.
 
 You can turn it off — `expand = "none"` says there is nothing to disclose or that
 you are disclosing it yourself — or replace it with a handler:

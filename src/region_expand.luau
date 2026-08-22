@@ -19,8 +19,9 @@
 	  * the PLACEMENT is `presenter.presentAnchored`'s (D1) — edge flip, safe-area
 	    clamp, moving-source follow, arrow tail, all shipped;
 	  * the DISMISSALS are the presented surface's own. The plate is presented
-	    `modal` with a fully transparent catching scrim, which is the Menu's own
-	    idiom, and that ONE decision buys three of the four routes the contract
+	    `modal` over a catching scrim (dimmed at the theme's own token — see
+	    `anchoredOpts`, and the three reports that decided it), and that ONE
+	    decision buys three of the four routes the contract
 	    asks for: a tap outside dismisses (`outsideTapCancel`), gamepad B dismisses
 	    (the default `cancelPolicy`), and the focus scope is pushed and POPPED — so
 	    focus returns to the affordance that opened it without this file holding a
@@ -168,18 +169,41 @@ function region_expand.new(config: Config)
 	end
 
 	--[[ ONE SET OF PRESENT OPTIONS, and every dismissal route is in it. `modal`
-		with `scrim = "none"` is the Menu's idiom: fully transparent, still catching,
-		so an outside tap closes the plate and never clicks through to the HUD
-		underneath. `cancelPolicy` is left at its default (`dismiss`), which is what
-		makes gamepad ButtonB close it (Escape cannot be bound on this platform, so the
+		catches the outside tap, so it closes the plate and never clicks through to
+		the HUD underneath. `cancelPolicy` is left at its default (`dismiss`), which is
+		what makes gamepad ButtonB close it (Escape cannot be bound on this platform, so the
 		panel's own close affordance is the keyboard route). No `transition` is declared, so
 		the plate PLACES rather than travels — which is the reduced-motion answer by
-		construction rather than by a branch that only one player ever exercises. ]]
+		construction rather than by a branch that only one player ever exercises.
+
+		`scrim = "scrim"`, AND THE THIRD REPORT OF THE SAME BUG IS WHY (director round
+		5, 2026-08-21; DIR2-2 and DIR3-1 before it: "the popup background is opaque").
+		MEASURED live at the third report: `/__scrim__/catcher`, full viewport,
+		`GetStyled("BackgroundTransparency") = 0` — an opaque full-screen fill under a
+		plate, with the roots and display orders all correct and
+		`GuiService.PreferredTransparency = 1`, so it was neither a stacking bug nor
+		the accessibility case.
+
+		THE MECHANISM IS WHAT THE ROLE OWNS. `scrim = "none"` mounts the catcher as
+		`surface = "plain"`, and `plain` is the SUPPRESSED surface: it earns no
+		`facet-surface-*` tag, so nothing in the sheet's vocabulary can address it and
+		its transparency is whatever the CLASS DEFAULT rule happens to leave — a value
+		this file neither states nor owns, on the one node in the framework that
+		covers the entire screen. `scrim` is the opposite: the role carries the
+		theme's own `scrimOpacity` through `sheet_model.SCRIM_RULE`, it is the ONE
+		rule the player's `PreferredTransparency` composes against (ADR-0035,
+		`PREFERENCE_RULE_PROPS`), and a package that ships an opaque one is caught by
+		`transient_over_live.spec` across all eight.
+
+		It is also the right PRODUCT answer, which is why this is not merely a
+		robustness fix: a disclosure plate is a modal that covers content, and the
+		dim is how a player is told the screen behind it is not live. The Menu keeps
+		`none` — a menu is a small list at a button, not a plate over the screen. ]]
 	local function anchoredOpts(): any
 		return {
 			id = `Expand:{config.id}`,
 			modal = true,
-			scrim = "none",
+			scrim = "scrim",
 			outsideTapCancel = true,
 			anchor = {
 				source = { path = regionPath },

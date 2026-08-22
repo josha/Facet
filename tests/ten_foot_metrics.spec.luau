@@ -684,7 +684,7 @@ describe("ten-foot metrics — interplay: the expand plate and its Close", funct
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(2)
 		-- the richest form travelled to the plate, by identity
-		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Scores")).never().toBeNil()
+		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Scores")).never().toBeNil()
 		-- ...and the keyboard Close is there, at the DISTANCE floor
 		local close = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
 		expect(close).never().toBeNil()

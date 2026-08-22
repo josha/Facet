@@ -233,6 +233,19 @@ describe("the standing rule: a transient opens OVER the live screen", function()
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(2)
 		expect(table.concat(opaqueCovers(w, { Live = true }), " ; ")).toBe("")
+		--[[ ...AND THE ONE FULL-VIEWPORT NODE IT DOES ADD WEARS THE ROLE (director
+			round 5, the third report of "the popup background is opaque"). The
+			predicate above is a NEGATIVE — it says the plate added no PAINTING role —
+			and a catcher declaring `plain` passes it while painting whatever the class
+			default leaves, which is exactly how this path stayed green through three
+			reports. The positive is one line: the barrier is the scrim role, whose
+			transparency the theme owns and the player's preference composes against.
+			`tests/popup_catcher_paint.spec` resolves that role to a rule and a number. ]]
+		local scrimPath = w.pres.topScrimPath()
+		expect(scrimPath).never().toBeNil()
+		local catcher = w.adapter.node(scrimPath :: string)
+		expect(catcher).never().toBeNil()
+		expect(catcher.props.surface).toBe("scrim")
 	end)
 
 	it("a MODAL's declared scrim is the one full-viewport node, and it is the scrim role", function()

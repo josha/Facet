@@ -421,12 +421,20 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		expect(aff.props.surface).toBe("plain")
 		-- the FACT is still reported — form 2 contributes nothing to focus or action
 		expect(region.props.expand.interactive[2]).toBe(false)
-		--[[ ...and the affordance is a mark BESIDE it all the same (device round,
-			2026-08-21). It used to be a surface OVER it, which is what rendered three
-			stepped-down pills empty; a passive form is now told apart from an
-			interactive one by nothing the player can see, and that is the point. ]]
-		expect(aff.props.expandTarget.role).toBe("chevron")
-		expect(childrenOf(aff)[1].id).toBe("Caret")
+		--[[ THE DIRECTOR'S RULE (DIR5, 2026-08-21): *"the controls should just be
+			tappable by default to open more without the arrow. we'll only need the
+			arrow if the thing is already a control the user can tap."* So a passive
+			form gets a COVER — the whole pill is the target — and it draws NOTHING:
+			no caret, no glyph, one empty box that exists only to stop a Button
+			painting its own accessible label. ]]
+		expect(aff.props.expandTarget.role).toBe("cover")
+		expect(childrenOf(aff)[1].id).toBe("Zone")
+		--[[ ...AND IT IS DECLARED BELOW THE FORM, which is the whole difference from
+			the cover that was retired for rendering three pills empty. `zIndex` is
+			paint order within the parent's stacking scope; the affordance is still the
+			LAST child, because that is the TREE fact the solver's identity lookup
+			reads. Two orders, and only one of them moved. ]]
+		expect(aff.props.zIndex).toBe(-1)
 	end)
 
 	it("an INTERACTIVE form keeps its own meanings and gets a chevron beside it", function()
@@ -647,17 +655,29 @@ describe("EXPAND 7 — the affordance stands exactly while a reduced form does",
 		expect(controller.hiddenRoots()["/S/C/Clock/Expand"]).toBe(true)
 	end)
 
-	it("stepped down, a PASSIVE form keeps its whole box and the mark stands beside it", function()
+	it("stepped down, a PASSIVE form IS the target: the cover is the region's whole box", function()
 		local adapter, controller = mountedAt(400, 30, { expand = nil })
 		expect(controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
 		local region = adapter.node("/S/C/Clock").rect
 		local affordance = adapter.node("/S/C/Clock/Expand").rect
 		local form = adapter.node("/S/C/Clock/Compact").rect
 		expect(controller.hiddenRoots()["/S/C/Clock/Expand"]).toBe(nil)
-		-- BESIDE, at the trailing edge, with the form's own box untouched by it
-		expect(affordance.x + affordance.w).toBe(region.x + region.w)
-		expect(form.x + form.w <= affordance.x).toBe(true)
-		expect(form.w > 0).toBe(true)
+		--[[ THE WHOLE BOX, and the form KEEPS the whole box too: a cover reserves
+			nothing, so the compact form is not paying a column for a mark it no longer
+			has. That is the second half of the director's rule — the arrow was costing
+			the value beside it width on exactly the phones where the value was
+			already tightest. ]]
+		expect(`{affordance.x},{affordance.y} {affordance.w}x{affordance.h}`).toBe(
+			`{region.x},{region.y} {region.w}x{region.h}`
+		)
+		--[[ ...and the form is exactly the size it is with NO affordance at all. A
+			chevron is reserved out of the region's offer, so a form beside one measures
+			against a narrower box; a cover reserves nothing, and this is that stated as
+			a differential rather than as a number. ]]
+		local bare = mountedAt(400, 30, { expand = "none" })
+		expect(`the form pays nothing for the affordance: {form.w}`).toBe(
+			`the form pays nothing for the affordance: {bare.node("/S/C/Clock/Compact").rect.w}`
+		)
 	end)
 
 	it("stepped down, an INTERACTIVE form keeps its box and the chevron takes the trailing edge", function()
@@ -906,7 +926,12 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 		engine.open()
 		expect(opts.transition).toBeNil()
 		expect(opts.modal).toBe(true)
-		expect(opts.scrim).toBe("none")
+		--[[ ...AND THE BARRIER IS THE SCRIM ROLE (DIR5, the third report of "the
+			popup background is opaque"). `none` mounts the catcher as the SUPPRESSED
+			surface, whose transparency no rule in the sheet's vocabulary can address —
+			`tests/popup_catcher_paint.spec` resolves both roles to the rule that
+			supplies the number. ]]
+		expect(opts.scrim).toBe("scrim")
 		expect(opts.outsideTapCancel).toBe(true)
 		-- cancelPolicy is left at the presenter's default, which is what makes
 		-- gamepad ButtonB closes the plate (Escape cannot be bound on this platform;
@@ -973,7 +998,7 @@ describe("EXPAND 9 — the whole loop, with no per-region code anywhere in the d
 		expect(w.pres.depth()).toBe(2)
 		-- the plate carries the RICHEST form, by identity: the same nodes, on a
 		-- surface of their own
-		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Scores")).never().toBeNil()
+		expect(w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Scores")).never().toBeNil()
 	end)
 
 	it("...and gamepad B closes it, because the plate is an ordinary presented surface", function()
@@ -1334,10 +1359,10 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		expect(w.pres.depth()).toBe(2)
 		local stops = traversalPaths(w)
 		expect(#stops).toBe(2)
-		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Details")
+		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Details")
 		expect(stops[2]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
 		-- the modal's existing rule put focus on the CONTENT, not on the way out
-		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/Full/Details")
+		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Details")
 		-- Tab to it and press Return: the whole keyboard route, driven
 		w.press("Tab")
 		w.pres.refresh()
@@ -1389,7 +1414,7 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(2)
 		-- the same content, presented full width, with the same way out
-		expect(w.adapter.node("/ExpandSheet:Clock/Layer/ExpandSheet/Wide")).never().toBeNil()
+		expect(w.adapter.node("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandSheetPlate/Wide")).never().toBeNil()
 		expect(w.pres.focus.focused:get()).toBe("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandClose")
 		w.press("Return")
 		w.pres.refresh()
@@ -1579,23 +1604,32 @@ end)
 	So the rule below is not a paint assertion, because a paint assertion is
 	exactly what this repository cannot make headlessly. It is a STRUCTURAL one,
 	and it is stronger: THE FRAMEWORK PUTS NOTHING OF ITS OWN ABOVE THE AUTHOR'S
-	CONTENT. A cover affordance is declared FIRST — beneath the form it serves —
-	so there is no z at which any of its instances can occlude anything, whatever
-	the engine does with transparency, stacking contexts or hit expanders.
+	CONTENT.
 
-	SO THE COVER ROLE IS RETIRED. Every expand affordance is now a CHEVRON: a mark
-	BESIDE the form, in width the form's own measure reserved for it, never a
-	surface over it. The framework's own instances are then geometrically incapable
-	of covering a pixel the author drew, whatever the engine does with
-	transparency, stacking contexts, hit expanders or instance recycling.
+	=== AND THE COVER IS BACK, UNDER THAT SAME RULE (DIR5, 2026-08-21) ===
 
-	WHAT IT COSTS, stated where the next reader will look: the director approved
-	"the WHOLE compact form is the reveal target" for a passive form, and that
-	gesture is gone with the surface that provided it. Restoring it means placing
-	the affordance BELOW the form, which the solver's affordance lookup (the LAST
-	child, by identity) cannot express — an extraction-gated change this round is
-	not allowed to make. The trade is a smaller target against a pill that renders
-	its value; the director's own approval constraint decides it. ]]
+	The director's ruling: *"the controls should just be tappable by default to open
+	more without the arrow. we'll only need the arrow if the thing is already a
+	control the user can tap."* So a passive form is covered again — and the
+	retirement note's own escape clause is what makes it legal, met exactly as
+	written: *"restoring it means placing the affordance BELOW the form"*.
+
+	`zIndex = -1` is that placement. Siblings paint in `(zIndex or 0, tree order)`
+	and a node's whole subtree travels with its root, so the cover AND the hit
+	expander the renderer bands one below it are UNDER every form — which is what
+	the rule asks for, and what the retired version got backwards. The claim that
+	needed an extraction was about the TREE (the solver finds the affordance as the
+	last child by identity); paint order is a different axis, and only that one
+	moved.
+
+	SO THE RULE SPLITS BY DIRECTION, and the sweep below reads z rather than
+	assuming it:
+	  * ABOVE author content — FORBIDDEN, whatever the overlap and whatever the
+	    transparency. This is the retired cover's defect and it stays banned.
+	  * BELOW author content — allowed, and only for a COVER, which is synthesized
+	    only where nothing above it is interactive. A Facet node that is not
+	    interactive is not an `Active` GuiObject, so the gesture still reaches the
+	    cover underneath (docs/lessons/roblox-input-goes-to-the-topmost-only.md). ]]
 
 --[[ EXPAND 15's helpers: what the fake target calls an INTERACTIVE node, and the
 	overlap of two rects. Both are used by the hit-floor sweep below. ]]
@@ -1626,16 +1660,49 @@ local function overlapOf(a: any, b: any): (number, number)
 end
 
 describe("EXPAND 15 — the framework paints nothing over the author's content", function()
-	it("a passive form gets a chevron BESIDE it, not a surface OVER it", function()
+	it("a passive form gets a cover UNDER it — same box, and every z below the form's", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 		w.present(ringScreen(false), { initialFocus = "none" })
 		expect(w.controller.compositionAt("/S/C").regions[2].activeForm).toBe(2)
 		local mark = w.adapter.node("/S/C/Clock/Expand")
 		local form = w.adapter.node("/S/C/Clock/Compact")
 		expect(mark).never().toBeNil()
-		-- BESIDE: the form ends where the mark begins, and they share no pixel
-		expect(form.rect.x + form.rect.w <= mark.rect.x).toBe(true)
-		expect(mark.rect.w > 0).toBe(true)
+		--[[ THE WHOLE REGION IS THE TARGET: the affordance takes the region's own
+			box, and the form stands inside it rather than beside a reserved column. ]]
+		local region = w.adapter.node("/S/C/Clock")
+		expect(`{mark.rect.x},{mark.rect.y} {mark.rect.w}x{mark.rect.h}`).toBe(
+			`{region.rect.x},{region.rect.y} {region.rect.w}x{region.rect.h}`
+		)
+		expect(mark.rect.x <= form.rect.x and form.rect.x + form.rect.w <= mark.rect.x + mark.rect.w).toBe(true)
+		--[[ ...AND UNDER IT. The z the adapter was told is the whole claim: every
+			node of the framework's affordance is strictly below every node of the
+			standing form, so no engine behaviour — transparency, stacking context,
+			recycling — can put it on top. The band one z BELOW the cover is the hit
+			expander's, reserved by `syncZOrder`, so it is under the form too. ]]
+		local coverZ, formZ = {}, {}
+		for _, path in w.adapter.paths() do
+			local n = w.adapter.node(path)
+			if n == nil or type(n.z) ~= "number" then
+				continue
+			end
+			if string.find(path, "/S/C/Clock/Expand", 1, true) == 1 then
+				table.insert(coverZ, n.z)
+			elseif string.find(path, "/S/C/Clock/Compact", 1, true) == 1 then
+				table.insert(formZ, n.z)
+			end
+		end
+		expect(#coverZ >= 2).toBe(true) -- the Button and its empty Zone
+		expect(#formZ >= 1).toBe(true)
+		local highestCover, lowestForm = -math.huge, math.huge
+		for _, z in coverZ do
+			highestCover = math.max(highestCover, z)
+		end
+		for _, z in formZ do
+			lowestForm = math.min(lowestForm, z)
+		end
+		expect(`cover tops out at {highestCover}, form starts at {lowestForm}: {highestCover < lowestForm}`).toBe(
+			`cover tops out at {highestCover}, form starts at {lowestForm}: true`
+		)
 	end)
 
 	it("no framework instance covers any node of the screen, painted OR reachable (R18)", function()
@@ -1663,24 +1730,38 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			is the tap-ambiguity defect class, because the engine delivers input to the
 			topmost object only and the player cannot see which one won.
 
-			So: the PAINTED rect must touch nothing at all, and the HIT rect must
-			touch no interactive node — against that node's own rect or its own floor.
-			Passive overlaps are counted rather than forbidden, and the count is
-			asserted non-zero, so the exemption stays a measured fact rather than a
-			sentence nothing exercises. ]]
+			...AND DIR5 SPLITS IT AGAIN, BY DIRECTION. "Covers" is a claim about
+			z, not about geometry, and the cover role's whole design is a rect the size
+			of the form with every one of its z values BELOW it. So the painted rule
+			reads the z the adapter was told:
+
+			  * overlap AT OR ABOVE an author node — FORBIDDEN. This is the retired
+			    cover's defect, and it stays banned for both roles.
+			  * overlap strictly BELOW a PASSIVE author node — allowed, and counted.
+			    The count is asserted non-zero so the allowance is a measured fact.
+			  * overlap strictly below an INTERACTIVE author node — still forbidden:
+			    a cover is only ever synthesized where nothing above it is
+			    interactive, so one appearing here means the role derivation is wrong,
+			    which is the one-gesture-two-meanings collision itself. ]]
 		local MARK = "/S/C/Clock/Expand"
 		local passiveOverlaps = 0
+		local overhangs = 0
+		local rolesSeen: { string } = {}
 		for _, interactive in { false, true } do
 			local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 			w.present(ringScreen(interactive), { initialFocus = "none" })
 			local mark = w.adapter.node(MARK)
 			local markHit = w.adapter.hitRectOf(MARK)
+			table.insert(rolesSeen, if interactive then "chevron" else "cover")
 			--[[ THE INSTRUMENT IS NOT VACUOUS: the floor exists, and it is bigger than
-				the rect the old version of this case measured. Without these two lines
-				a sweep against a nil hit rect would pass every assertion below. ]]
+				the painted rect on at least one axis. Without these lines a sweep
+				against a nil hit rect would pass every assertion below. ]]
 			expect(markHit).never().toBeNil()
 			expect(markHit.w >= 44 and markHit.h >= 44).toBe(true)
-			expect(markHit.w > mark.rect.w and markHit.h > mark.rect.h).toBe(true)
+			expect(markHit.w >= mark.rect.w and markHit.h > mark.rect.h).toBe(true)
+			--[[ ...AND SO IS THE Z READING: every node in the sweep has to have been
+				told a z, or the direction test below is comparing nils. ]]
+			expect(type(mark.z)).toBe("number")
 
 			for _, path in w.adapter.paths() do
 				-- the mark's own subtree is the framework's, and its ANCESTORS contain
@@ -1692,12 +1773,17 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 				if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
 					continue
 				end
+				-- the affordance's own hit expander is banded one z BELOW it, so the
+				-- whole affordance — painted rect and floor — is at or under `mark.z`
+				local below = type(n.z) == "number" and mark.z < n.z
 
-				-- (a) the PAINTED rect covers nothing, passive or interactive
+				-- (a) the PAINTED rect covers nothing it is not strictly UNDER
 				local px, py = overlapOf(mark.rect, n.rect)
-				expect(`{path} under the affordance's painted rect: {px > 0.5 and py > 0.5}`).toBe(
-					`{path} under the affordance's painted rect: false`
-				)
+				if px > 0.5 and py > 0.5 then
+					expect(`{path} under the affordance's paint, framework below it: {below}`).toBe(
+						`{path} under the affordance's paint, framework below it: true`
+					)
+				end
 
 				-- (b) the HIT floor covers no INTERACTIVE node, by either of its rects
 				-- the hitRectOf arm is FORWARD protection: in today's fixtures every
@@ -1707,20 +1793,51 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 				for _, authorRect in { n.rect, w.adapter.hitRectOf(path) } do
 					local ox, oy = overlapOf(markHit, authorRect)
 					if ox > 0.5 and oy > 0.5 then
-						if interactiveNode(n) then
-							expect(`{path} under the mark's 44px floor by {ox}x{oy}: FORBIDDEN (R18)`).toBe(
-								`{path} under the mark's 44px floor by {ox}x{oy}: allowed (R18)`
-							)
-						else
+						if not interactiveNode(n) then
 							passiveOverlaps += 1
+							continue
 						end
+						--[[ AN INTERACTIVE NODE UNDER THE FLOOR SPLITS BY SCOPE, and the
+							cover's own floor is what made the distinction necessary: a cover
+							is the region's whole box, so inflating a 20px zone to the 44px
+							floor overhangs the ROW BELOW — measured 12px into the next
+							region's Button.
+
+							  INSIDE THE AFFORDANCE'S OWN REGION it stays absolutely
+							  FORBIDDEN. That is the one-gesture-two-meanings collision the
+							  chevron exists to prevent, and it is the collision R18 was ruled
+							  on: two targets for the same content, and the player cannot see
+							  which one won.
+
+							  ACROSS REGIONS it is the ordinary hit-expander OVERHANG, and
+							  this framework already has a measured, shipped ruling on it:
+							  `src/render/hit_lift.luau` lifts the host past every sinking
+							  sibling its floor reaches into, because a floor that advertises a
+							  band it cannot deliver is the defect (a 44px divider that
+							  delivered 26px, and the outer 18px sorted a column the player
+							  never touched). So what this case asserts is that the lift
+							  HAPPENED — the band is deliverable — rather than re-litigating
+							  which of the two rulings wins. An overhang with no lift is an
+							  advertised dead band and reddens here. ]]
+						local ownRegion = string.find(path, "/S/C/Clock/", 1, true) == 1
+						expect(`{path} under the floor is in the affordance's own region: {ownRegion}`).toBe(
+							`{path} under the floor is in the affordance's own region: false`
+						)
+						expect(`{path} under the floor, and the overhang lift delivered it: {not below}`).toBe(
+							`{path} under the floor, and the overhang lift delivered it: true`
+						)
+						overhangs += 1
 					end
 				end
 			end
 		end
-		-- the exemption is exercised: a fill-width compact form DOES sit under the
-		-- floor, which is the counterexample the M2 review measured
+		-- the allowance is exercised: the cover DOES sit under the passive form,
+		-- which is the whole of the director's gesture
 		expect(passiveOverlaps >= 1).toBe(true)
+		-- ...and so is the cross-region overhang arm, so the lift assertion above is
+		-- a measured fact rather than a branch nothing enters
+		expect(overhangs >= 1).toBe(true)
+		expect(table.concat(rolesSeen, " ")).toBe("cover chevron")
 	end)
 
 	it("the hit expander is paint-INERT by construction, not by transparency (R18)", function()
@@ -1868,7 +1985,7 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 		)
 	end)
 
-	it("every affordance is a chevron now — the record says so, and there is one role", function()
+	it("the role is the forms' own answer, and only the cover is allowed to be under one", function()
 		local passive = UI.Region({
 			id = "Clock",
 			group = "body",
@@ -1876,8 +1993,28 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			recover = "overflow",
 			children = { textForm("Full"), textForm("Tiny") },
 		})
-		expect(expandNodes(passive)[1].props.expandTarget.role).toBe("chevron")
-		expect(childrenOf(expandNodes(passive)[1])[1].id).toBe("Caret")
+		local chevron = UI.Region({
+			id = "Tasks",
+			group = "body",
+			rank = 1,
+			recover = "overflow",
+			children = {
+				textForm("Full"),
+				UI.VStack({
+					id = "Chip",
+					children = { UI.Button({ id = "Open", label = "go", onActivate = function() end }) },
+				}),
+			},
+		})
+		expect(expandNodes(passive)[1].props.expandTarget.role).toBe("cover")
+		expect(expandNodes(chevron)[1].props.expandTarget.role).toBe("chevron")
+		--[[ THE LIFT IS THE COVER'S ALONE. A chevron stands BESIDE the form and
+			overlaps nothing, so pushing it under would only lift it below the thing it
+			is meant to sit next to — and the `zIndex` here is what the paint sweep
+			above resolves into a z, so a role that took the wrong one would silently
+			change what "below" means for the whole rule. ]]
+		expect(expandNodes(passive)[1].props.zIndex).toBe(-1)
+		expect(expandNodes(chevron)[1].props.zIndex).toBe(nil)
 	end)
 end)
 
@@ -1954,29 +2091,68 @@ describe("EXPAND 16 — the plate opens OVER a live screen, and hands it back", 
 	end)
 end)
 
-describe("EXPAND 17 — the way out wears a mark, and keeps its word", function()
-	it("the close affordance is an icon chip: a glyph on screen, a word for a reader", function()
+describe("EXPAND 17 — the way out is a corner disc, and keeps its word", function()
+	it("the close affordance is a circular icon at the plate's TOP-RIGHT, half off its corner", function()
+		--[[ DIR5: the in-flow 44x46 chip at the panel's bottom-left — "the giant X"
+			— is replaced by a disc pinned at the plate's top-right corner and
+			overlapping its edge (director's reference image). ]]
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 		w.present(ringScreen(false), { initialFocus = "none" })
 		w.adapter.tap("/S/C/Clock/Expand")
 		w.pres.refresh()
-		local close = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		local PANEL = "/Expand:Clock/Layer/Surface/ExpandPanel"
+		local close = w.adapter.node(`{PANEL}/ExpandClose`)
+		local plate = w.adapter.node(`{PANEL}/ExpandPlate`)
+		local panel = w.adapter.node(PANEL)
 		expect(close).never().toBeNil()
+		expect(plate).never().toBeNil()
 		--[[ THE WORD IS NOT DRAWN, and this is the framework's own rule doing it: a
 			CONTENT button's label is semantics, so the renderer writes "" as its text
 			(B-BTN1) and the content is what shows. The label itself — `"Close"`, what
 			a screen reader says — is a construction fact this seam cannot report,
 			because no adapter channel carries it; `blueprint.Button` refuses a Button
-			without one, and the value is one grep from here. What IS assertable is
-			that the screen shows a MARK and not a word, which is the change. ]]
-		expect(close.props.label).toBe("")
-		local mark = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose/CloseMark")
-		expect(mark).never().toBeNil()
-		expect(type(mark.props.text)).toBe("string")
-		expect(#mark.props.text > 0).toBe(true)
-		-- the standard icon-chip idiom: the chip surface, and the glyph carrying its
-		-- semantic NAME so a package's own art paints over it
+			without one, and the value is one grep from here. ]]
+		expect(close.props.label).never().toBe("Close")
+		expect(#close.props.label <= 2).toBe(true)
+		-- a DISC carrying a SEMANTIC ICON NAME, which is the framework's one icon
+		-- affordance that never names an asset
+		expect(close.props.shape).toBe("circle")
+		expect(close.props.icon).toBe("close")
 		expect(close.props.surface).toBe("chip")
+		expect(close.rect.w).toBe(close.rect.h)
+		--[[ ON THE CORNER, HALF IN AND HALF OUT — stated as the four inequalities
+			that make it that rather than as a pixel count, so a theme with a bigger
+			disc or a wider straddle still passes: the disc's right/top edges are the
+			PANEL's, its left/bottom edges are inside the PLATE, and the plate's own
+			right/top edges fall strictly inside the disc. ]]
+		expect(`disc right on the panel edge: {close.rect.x + close.rect.w}`).toBe(
+			`disc right on the panel edge: {panel.rect.x + panel.rect.w}`
+		)
+		expect(`disc top on the panel edge: {close.rect.y}`).toBe(`disc top on the panel edge: {panel.rect.y}`)
+		local straddlesX = close.rect.x < plate.rect.x + plate.rect.w
+			and plate.rect.x + plate.rect.w < close.rect.x + close.rect.w
+		local straddlesY = close.rect.y < plate.rect.y and plate.rect.y < close.rect.y + close.rect.h
+		expect(`straddles the corner: {straddlesX and straddlesY}`).toBe("straddles the corner: true")
+		--[[ R18 — AND IT COVERS NO AUTHOR CONTENT. The plate's right padding is the
+			disc's own metric, so the content box ends where the disc begins: this is a
+			construction, not a number that happens to work, and the sweep is over
+			every author node on the plate. ]]
+		local covered: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, `{PANEL}/ExpandPlate/`, 1, true) ~= 1 then
+				continue
+			end
+			local n = w.adapter.node(path)
+			if n == nil or n.rect == nil or n.rect.w <= 0 or n.rect.h <= 0 then
+				continue
+			end
+			local ox, oy = overlapOf(close.rect, n.rect)
+			if ox > 0.5 and oy > 0.5 then
+				table.insert(covered, path)
+			end
+		end
+		table.sort(covered)
+		expect(table.concat(covered, " ; ")).toBe("")
 	end)
 
 	it("...and it is still the same control: one focus stop, the standard band, Return closes", function()
@@ -2056,19 +2232,56 @@ describe("EXPAND 18 — a plate does not truncate what it was opened to show", f
 		expect(row.plate.max > row.plate.w).toBe(true)
 		w.adapter.tap("/S/C/Tasks/Expand")
 		w.pres.refresh()
-		local panel = w.adapter.node("/Expand:Tasks/Layer/Surface/ExpandPanel")
-		expect(panel).never().toBeNil()
-		expect(panel.rect.w).toBe(row.plate.max)
+		local plate = w.adapter.node("/Expand:Tasks/Layer/Surface/ExpandPanel/ExpandPlate")
+		expect(plate).never().toBeNil()
+		expect(plate.rect.w).toBe(row.plate.max)
 	end)
 
-	it("...and a HUGGING richest form still gets exactly what it measured", function()
+	it("...and a HUGGING richest form still gets exactly what it measured, INSIDE the plate", function()
+		--[[ THE DEFECT THIS CASE NOW OWNS (director round 5, MEASURED live: panel 135
+			wide at x=151, its content spanning 159..294 against a right edge of 286).
+			`plate.w` measures FORM 1; it was written straight onto a box that also
+			declares padding, and a padded box's declared width is its OUTER width — so
+			the content box was `plate.w` minus two insets and the form overflowed it by
+			exactly that, at every viewport.
+
+			So the assertion is no longer "the panel is `plate.w`" (which is what was
+			green while the content bled): it is that the FORM gets `plate.w` and every
+			node of it lands inside the plate that carries it. ]]
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 		w.present(ringScreen(false), { initialFocus = "none" })
 		local row = w.controller.compositionAt("/S/C").regions[2]
 		w.adapter.tap("/S/C/Clock/Expand")
 		w.pres.refresh()
-		local panel = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")
-		expect(panel.rect.w).toBe(row.plate.w)
+		local PANEL = "/Expand:Clock/Layer/Surface/ExpandPanel"
+		local plate = w.adapter.node(`{PANEL}/ExpandPlate`)
+		local form = w.adapter.node(`{PANEL}/ExpandPlate/Full`)
 		expect(row.plate.w < row.plate.max).toBe(true)
+		expect(form).never().toBeNil()
+		expect(`the form measures the plate width: {form.rect.w}`).toBe(
+			`the form measures the plate width: {row.plate.w}`
+		)
+		-- ...and the plate is WIDER than its content, by its own chrome
+		expect(plate.rect.w > row.plate.w).toBe(true)
+		local outside: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, `{PANEL}/ExpandPlate/`, 1, true) ~= 1 then
+				continue
+			end
+			local n = w.adapter.node(path)
+			if n == nil or n.rect == nil or n.rect.w <= 0 then
+				continue
+			end
+			if n.rect.x < plate.rect.x - 0.5 or n.rect.x + n.rect.w > plate.rect.x + plate.rect.w + 0.5 then
+				table.insert(
+					outside,
+					`{path} spans {n.rect.x}..{n.rect.x + n.rect.w} outside {plate.rect.x}..{plate.rect.x + plate.rect.w}`
+				)
+			end
+		end
+		table.sort(outside)
+		expect(table.concat(outside, " ; ")).toBe("")
+		-- the sweep walked something
+		expect(#w.adapter.paths() > 10).toBe(true)
 	end)
 end)

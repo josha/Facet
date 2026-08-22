@@ -208,3 +208,219 @@ describe("popup catcher paint: an open PopupButton", function()
 		expect(adapter.rootDisplayOrder("__popupcatcher__") < adapter.rootDisplayOrder("S")).toBe(true)
 	end)
 end)
+
+-- ===========================================================================
+-- 3. THE SAME CATCHER, THE THIRD REPORT, AND THE CHECK THAT DID NOT SEE IT
+-- ===========================================================================
+--[[ THE DIRECTOR HAS NOW REPORTED "THE POPUP BACKGROUND IS OPAQUE" THREE TIMES
+	(DIR2-2, DIR3-1, DIR5-2). MEASURED live at the third report, on the HUD demo at
+	compact-phone portrait with a region's expand plate open: the roots and their
+	display orders are all correct (base 12000, `Facet___scrim__` 42050,
+	`Facet_Expand:Clock` 42100), `GuiService.PreferredTransparency` is 1 so it is
+	not the accessibility case — and `/__scrim__/catcher`, a full-viewport node,
+	reads `GetStyled("BackgroundTransparency") = 0`. An opaque full-screen fill
+	under the plate.
+
+	AND THE TWO CASES ABOVE WERE GREEN OVER IT, on the twin path their own header
+	names. That is this repository's "check that proves nothing" class, and the
+	reason is exact: they assert the DECLARATION (`decorationSlot=nil
+	surface=plain`) and a declaration is not a paint. `plain` earns no
+	`facet-surface-*` tag at all, so nothing in the sheet's vocabulary can address
+	that node and its transparency is whatever the CLASS DEFAULT rule happens to
+	leave — a number the catcher neither states nor owns, on the one node in the
+	framework that covers the entire screen.
+
+	SO THE ORACLE BELOW RESOLVES THE PAINT instead of reading the declaration: it
+	classifies the catcher exactly as `sheet_model.classifyTags` does, walks the
+	BUILT sheet in cascade order, and reports the VALUE and the RULE THAT SUPPLIED
+	IT. "Which rule owns this pixel" is the question the three reports were really
+	about, and it is answerable headlessly. ]]
+
+local sheet_model = require("../src/tokens/sheet_model")
+local default_style = require("../src/tokens/default_style")
+local light_style = require("../src/tokens/default_light_style")
+local worldLib = require("./lib/world")
+local UI = Facet.UI
+
+local function neutralSheet(): any
+	return sheet_model.build({
+		themes = { { name = "Dark", style = default_style }, { name = "Light", style = light_style } },
+	})
+end
+
+-- a one-region composition that has to step down at 390x40, so activating its
+-- framework-synthesized affordance presents a real expand plate over a real screen
+local function expandScreen(): any
+	return UI.Screen({
+		id = "S",
+		width = { type = "fill", weight = 1 },
+		height = { type = "fill", weight = 1 },
+		children = {
+			UI.Composition({
+				id = "C",
+				arrangements = { "column" },
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				groups = { { id = "body", lane = "main", sizing = "fill" } },
+				children = {
+					UI.Region({
+						id = "Clock",
+						group = "body",
+						rank = 1,
+						recover = "overflow",
+						children = {
+							UI.VStack({
+								id = "Full",
+								children = {
+									UI.Text({ id = "A", text = "2:14", textSize = 16 }),
+									UI.Text({ id = "B", text = "12 - 9", textSize = 16 }),
+									UI.Text({ id = "C2", text = "Home 12", textSize = 16 }),
+								},
+							}),
+							UI.Text({ id = "Compact", text = "2:14", textSize = 16 }),
+						},
+					}),
+				},
+			}),
+		},
+	})
+end
+
+--[[ Does a rule's selector match a RESTING node of `class` carrying `tags`? Two
+	whole families are deliberately not this node and are named rather than
+	pattern-matched away:
+
+	  `::UICorner` / `::UIStroke` — a DESCENDANT object the sheet materializes.
+	  It carries its own properties and none of them is this node's fill.
+	  `:Hover` / `:Press` / `:NonInteractable` — an engine GuiState. A catcher is
+	  never hovered, pressed or disabled at the moment the reports are about (a
+	  full-screen fill that is already wrong before anyone touches it).
+
+	Anything else that is not one of the three resting shapes is REPORTED, so this
+	oracle cannot quietly stop matching the vocabulary it is auditing. ]]
+local function selectorMatches(selector: string, class: string, tags: { [string]: boolean }): (boolean, string?)
+	if string.find(selector, ":", 1, true) ~= nil then
+		return false, nil -- a descendant object or a non-resting state
+	end
+	local cls, tag = string.match(selector, "^([%a]+)%.([%w%-]+)$")
+	if cls ~= nil then
+		return cls == class and tags[tag] == true, nil
+	end
+	local bareTag = string.match(selector, "^%.([%w%-]+)$")
+	if bareTag ~= nil then
+		return tags[bareTag] == true, nil
+	end
+	if string.match(selector, "^[%a]+$") ~= nil then
+		return selector == class, nil
+	end
+	return false, selector
+end
+
+-- the resolved BackgroundTransparency of a catcher declaring `surface`, and the
+-- NAME of the rule that supplied it. Insertion order IS the cascade.
+local function resolvedCatcherPaint(surface: string?): (number?, string?, { string })
+	local tags = sheet_model.classifyTags({ class = "Button", surface = surface, interactive = true })
+	local model = neutralSheet()
+	local value: number?, owner: string?, unknown: { string } = nil, nil, {}
+	for _, rule in model.rules do
+		local ok, weird = selectorMatches(rule.selector, "TextButton", tags)
+		if weird ~= nil then
+			table.insert(unknown, weird)
+		end
+		if not ok then
+			continue
+		end
+		local prop = rule.props.BackgroundTransparency
+		if type(prop) == "table" and prop.kind == "number" then
+			value, owner = prop.value, rule.name
+		end
+	end
+	return value, owner, unknown
+end
+
+describe("the catcher's paint is OWNED, not inherited from a class default", function()
+	it("the oracle can see the difference between a role and a class default", function()
+		--[[ THE INSTRUMENT'S OWN PROOF, first: the two surfaces a catcher can wear
+			resolve through DIFFERENT rules, so a case built on this oracle is reading
+			a real distinction rather than one constant. ]]
+		local plainValue, plainOwner, plainUnknown = resolvedCatcherPaint("plain")
+		local scrimValue, scrimOwner, scrimUnknown = resolvedCatcherPaint("scrim")
+		expect(#plainUnknown).toBe(0)
+		expect(#scrimUnknown).toBe(0)
+		expect(`plain -> {plainValue} by '{plainOwner}'`).toBe("plain -> 1 by 'Button default'")
+		expect(scrimOwner).toBe(sheet_model.SCRIM_RULE)
+		expect(`the scrim role dims rather than hides or fills: {scrimValue > 0 and scrimValue < 1}`).toBe(
+			"the scrim role dims rather than hides or fills: true"
+		)
+	end)
+
+	it("a region's EXPAND plate mounts a barrier that wears the scrim ROLE", function()
+		--[[ THE CASE THAT REDDENS AT THE THIRD REPORT'S HEAD, which is the whole
+			point of adding it: there the plate presented `scrim = "none"`, the catcher
+			was declared `plain`, and the oracle above names the rule that then owned
+			the whole screen's fill — `Button default`, a class default nobody chose. ]]
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 40 } })
+		w.present(expandScreen(), { initialFocus = "none" })
+		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		local path = w.pres.topScrimPath()
+		expect(path).never().toBeNil()
+		local node = w.adapter.node(path :: string)
+		expect(node).never().toBeNil()
+		-- it really is the full-viewport node the reports are about
+		expect(`{node.rect.w}x{node.rect.h}`).toBe("390x40")
+		expect(node.props.surface).toBe("scrim")
+		local value, owner = resolvedCatcherPaint(node.props.surface)
+		expect(owner).toBe(sheet_model.SCRIM_RULE)
+		expect(`the barrier under the plate is translucent: {value > 0 and value < 1}`).toBe(
+			"the barrier under the plate is translucent: true"
+		)
+	end)
+
+	it("...and the player's PreferredTransparency composes against it, uncapped", function()
+		--[[ ADR-0035: the preference multiplies the theme's own number and is NOT
+			floored — `PreferredTransparency = 0` is a player asking for an opaque
+			backdrop and gets one. The rule the preference is allowed to move is a
+			declared list of exactly one, and it is the same rule the case above
+			resolved to, which is what makes wearing the role the whole fix. ]]
+		local base = select(1, resolvedCatcherPaint("scrim"))
+		expect(sheet_model.backdropTransparency(base, 1)).toBe(base)
+		expect(sheet_model.backdropTransparency(base, 0)).toBe(0)
+		expect(sheet_model.backdropTransparency(base, 0.5)).toBe(base * 0.5)
+		local moved: { string } = {}
+		for _, row in sheet_model.PREFERENCE_RULE_PROPS do
+			table.insert(moved, `{row.rule}/{row.prop}`)
+		end
+		expect(table.concat(moved, " ")).toBe(`{sheet_model.SCRIM_RULE}/BackgroundTransparency`)
+	end)
+
+	it("the synthesized scrim ROOT is linked to the same sheet as the screen it covers", function()
+		--[[ THE OTHER WAY THE SAME PIXEL GOES OPAQUE, and it is worth a case of its
+			own because the fix above cannot reach it: in native mode the adapter writes
+			no `BackgroundTransparency` at all (an explicit write would permanently
+			defeat every surface rule — spike m10), so a catcher root that the theme
+			sheet never reached would paint the ENGINE default, which is 0. Opaque, on
+			every surface role including this one.
+
+			The presenter mounts the scrim on its own root, after the screen it covers,
+			so it is exactly the shape that inherits nothing. `trackThemeRoots` is the
+			target seam that answers it. ]]
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 390, h = 40 },
+			newAdapter = function()
+				return fake_target.new({ trackThemeRoots = true })
+			end,
+		})
+		w.present(expandScreen(), { initialFocus = "none" })
+		w.adapter.tap("/S/C/Clock/Expand")
+		w.pres.refresh()
+		local sheets = w.adapter.rootThemeSheets()
+		expect(sheets["S"]).never().toBeNil()
+		expect(sheets["__scrim__"]).never().toBeNil()
+		expect(`the scrim root shares the screen's sheet: {sheets["__scrim__"] == sheets["S"]}`).toBe(
+			"the scrim root shares the screen's sheet: true"
+		)
+	end)
+end)

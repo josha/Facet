@@ -879,7 +879,7 @@ richest first; the last is its minimum-viable form. Exactly one is shown.
 | `mayScroll` | this is *the* scroll region. **At most one per composition**; a second is refused at construction |
 | `mayDrop` | it may be removed entirely when stepping down is not enough (default `false`) |
 | `recover` | **where the content a reduced form stops showing went.** `"none"` (every form below the richest still shows everything — a poorer *layout*, not less content) \| `"self"` (the reduced form **is** the route: the player taps what is left to get the rest) \| `"overflow"` (the screen's overflow surface is the route, and it reads `resolution.unshown`). **Required** with more than one form and **refused** with one: a one-form region can only stop showing content by being *dropped*, and a dropped region has no form left to be its own route, so the sink is the only possible answer — `mayDrop` is already that declaration. `"none"` together with `mayDrop` is refused for the same reason: dropping shows nothing |
-| `expand` | **how a stepped-down region discloses its richest form.** `"auto"` (default) — the framework presents form 1 in a transient plate at this region's own anchor, opened by a **chevron beside the compact form** (never a surface over it — see the note below) \| `"none"` — the authored escape (nothing to disclose, or you are disclosing it yourself) \| a **function**, which replaces the presentation entirely. **Refused on a one-form region**: a region with one form never simplifies, and that is also the answer to "how do I stop this region collapsing" — give it one form. Silence means `"auto"` except under `recover = "none"`, which has already stated that nothing is missing |
+| `expand` | **how a stepped-down region discloses its richest form.** `"auto"` (default) — the framework presents form 1 in a transient plate at this region's own anchor, opened by the **whole compact form** when that form carries no control of its own, or by a **chevron beside it** when it does (see the note below) \| `"none"` — the authored escape (nothing to disclose, or you are disclosing it yourself) \| a **function**, which replaces the presentation entirely. **Refused on a one-form region**: a region with one form never simplifies, and that is also the answer to "how do I stop this region collapsing" — give it one form. Silence means `"auto"` except under `recover = "none"`, which has already stated that nothing is missing |
 | `reserved` | hold its box while its content rests **between pieces**, so a finishing transient never moves its neighbours. `true` reserves for the surface's whole life; **a `Readable<boolean>`** — the only reactive prop on a `Region` — reserves only while it reads true ("this schedule can still produce a piece") and releases the box, and with it the lane (rule 9), when it reads false. Mutually exclusive with `mayDrop` |
 
 **The expand, in one paragraph.** A region standing on a form below its richest is
@@ -887,17 +887,27 @@ showing less than it has, and `expand` is how the player asks for the rest witho
 leaving the screen. The framework appends **one** button to such a region — the last
 child, so its focus stop lands after the form's own stops in document order — and
 the solver stands it up only while a reduced form is standing. Its shape is decided
-a **chevron** beside the
-form, in width the form's own measure reserved for it — never a surface over the
-form. One gesture may only have one meaning, and a compact form that already holds
-a button has spoken for the tap; a compact form that holds nothing keeps every
-pixel it painted. **The framework puts nothing of its own above your content**, a
-rule a device round bought (2026-08-21: a full-size activation surface over the
-compact form rendered three stepped-down zones as empty pills, with every headless
-instrument green). `formInteractive` is still reported — it is the class contract's
-answer plus the four classes whose content it cannot describe (`When`, `ForEach`,
-`ErrorBoundary`, `Foreign`) — because whether the player has two things to press in
-that box is worth knowing, even though both answers take the same mark. The plate's width is the composition's
+at construction, from what the forms CONTAIN:
+
+* **cover** — no form below the richest carries a focus stop or a semantic action,
+  so the whole compact form is the target: one focusable, a tap or `A` anywhere on
+  it, the standard target floor over the whole of it, and **no painted mark at
+  all**. A passive pill is not an affordance wearing an arrow; it is the
+  affordance.
+* **chevron** — some form below the richest does carry one. Its meanings are left
+  alone and the affordance becomes a mark BESIDE it, in width the form's own
+  measure reserves. The arrow exists exactly for that disambiguation: something
+  actionable by itself must not also be the thing you action to expand. Mixed
+  ladders take the chevron.
+
+**The framework puts nothing of its own above your content**, and the cover obeys
+that rule rather than being an exception to it: it is declared with `zIndex = -1`,
+so it and the hit expander banded below it paint UNDER every form. A device round
+bought that rule (2026-08-21: a cover laid OVER the compact form rendered three
+stepped-down zones as empty pills, with every headless instrument green), and a
+cover is only ever synthesized where nothing above it is interactive — so the
+gesture still arrives at it. `formInteractive` is reported beside the role, because
+whether the player has two things to press in that box is worth knowing. The plate's width is the composition's
 own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
 plate, the same content is presented as a full-width sheet instead. Dismissal is the
 presented surface's: a tap outside, the plate's own **Close** control (an icon chip
@@ -907,10 +917,14 @@ and the plate closes itself when the rect it was opened against moves, resizes o
 back on its richest form). **Escape is not one of the routes and cannot be**: it is
 permanently bound to the Roblox CoreGui menu and the engine refuses the binding
 (ADR-0013 §Justified exceptions), which is exactly why the framework puts a Close control
-in the panel — the plate is a modal, so its own ring is the whole keyboard story. That
-control is the panel's LAST child, so the presenter's existing rule (a modal focuses its
-first focusable) lands on the content's own control when form 1 has one and on the way out
-when it does not.
+in the panel — the plate is a modal, so its own ring is the whole keyboard story. It is a
+**circular icon button pinned to the plate's top-right corner, half on and half off it**;
+the plate's own right padding is the disc's metric, so framework chrome sits on the
+plate's padding and never over your content, and the straddle is a margin on the plate
+rather than an offset on the disc — the panel's box therefore CONTAINS the disc, which is
+what keeps the anchored placement's safe-area clamp able to see it. It is the panel's LAST
+child, so the presenter's existing rule (a modal focuses its first focusable) lands on the
+content's own control when form 1 has one and on the way out when it does not.
 
 **A form's minimum must carry the region's essential value.** The expand is for the
 REST. A ladder whose last rung drops the number the player actually needs has moved
@@ -1224,15 +1238,15 @@ onPointerUp?, onPointerCancel? }` — activatable control.
 focus ring gets about what this button does; it shows **nothing on touch** by
 specification. See `Text`'s `help` above and **Help** under `newPresenter`.
 
-**`expandTarget`** (`{ role = "chevron" }`, construction-only) is
+**`expandTarget`** (`{ role = "cover" | "chevron" }`, construction-only) is
 **framework-declared**: `UI.Region` sets it on the one button it synthesizes for a
 collapsing region, and nothing else ever should. Authors write `UI.Region{ expand }`.
 It is public for the reason `virtualSlot` is — a prop nothing can see is a prop
 nothing can audit — and it is carried rather than inferred because a region's forms
 can splice themselves out from under an index (`UI.When`), so counting children would
-name the wrong node. `role` is a closed set of one: `"cover"` was retired by the
-2026-08-21 device round, and the set stays a set so a second placement can come back
-through it rather than through a new prop.
+name the wrong node. `role` is a closed set of two, decided from the forms' own
+contents: `"cover"` (the whole compact form is the target, declared under it with
+`zIndex = -1`) and `"chevron"` (a mark beside it, in width the form reserves).
 
 **Custom content.** A Button takes `children`, which render inside the ONE
 activation surface. `label` stays **required** even for an icon-only button — it is

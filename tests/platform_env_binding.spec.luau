@@ -123,6 +123,12 @@ local function newFakeServices(camera: any): any
 		GamepadConnected = newSignal(),
 		GamepadDisconnected = newSignal(),
 		LastInputTypeChanged = newSignal(),
+		-- the fact the sticky-preference correction reads (DIR5): what the player
+		-- most recently DID, as against what the engine standingly guesses
+		lastInputType = { Name = "MouseMovement" },
+		GetLastInputType = function(self: any)
+			return self.lastInputType
+		end,
 		GetPropertyChangedSignal = function(_self, name: string)
 			return inputBag.signalFor(name)
 		end,
@@ -209,6 +215,108 @@ describe("the platform adapter binds the connections it claims to (PLAT-1/PLAT-2
 
 		unbind()
 		expect(second:GetPropertyChangedSignal("ViewportSize"):liveCount()).toBe(0)
+	end)
+end)
+
+--[[ ── A CONNECTED PAD IS NOT THE PLAYER'S PAD (director round 5, 2026-08-21) ──
+	*"we don't need to see the lb/rb tips unless the user has a gamepad as the
+	primary input."* MEASURED on the director's desktop while they drove the
+	showcase with a mouse: `UserInputService.PreferredInput` = **Gamepad**, three
+	pads connected. That fact reaches `interactionClasses` as the whole answer —
+	`preferred == "Gamepad"` sets `primary = "gamepad"` outright — so
+	`effectiveInput` read Gamepad and every pad affordance in the framework turned
+	on for a player who had not touched one.
+
+	THE ENGINE'S PREFERENCE IS STICKY; THE LAST INPUT IS NOT. One drifting
+	thumbstick (or Studio's virtual pads) sets `PreferredInput` for the session and
+	nothing brings it back. `GetLastInputType()` answers what the player just DID,
+	and the correction is the mirror of the rule already written for the phone case
+	one layer up: an engine guess the player has not expressed cannot outvote a
+	pointer the device physically has.
+
+	Driven through the fake engine, because that is the only place these two facts
+	can be made to disagree. ]]
+describe("a sticky Gamepad preference does not outvote a pointer the player is using (DIR5)", function()
+	local function bound(setup: (services: any) -> ())
+		local core = Facet.newCore()
+		local env = environment.new(core)
+		local services = newFakeServices(newCamera(1280, 720))
+		setup(services)
+		local unbind = roblox_env.bind(env, services)
+		return env, services, unbind
+	end
+
+	it("pads connected + a mouse in the player's hand reads POINTER-primary, not gamepad", function()
+		local env, _, unbind = bound(function(services)
+			services.userInput.PreferredInput = { Name = "Gamepad" }
+			services.userInput.GamepadEnabled = true
+			services.userInput.MouseEnabled = true
+			services.userInput.lastInputType = { Name = "MouseMovement" }
+		end)
+		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
+		local classes = env:get("interactionClasses"):get()
+		expect(classes.primary).toBe("pointer")
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		--[[ THE CAPABILITY IS UNTOUCHED, and this is the line that keeps the fix
+			from being a different bug: the pad IS live and everything that gates on
+			liveness (ADR-0015 Decision 2) must still see it. Only PRIMARY moved. ]]
+		expect(classes.gamepad).toBe(true)
+		unbind()
+	end)
+
+	it("...and the very first pad press hands it straight back", function()
+		local env, services, unbind = bound(function(s)
+			s.userInput.PreferredInput = { Name = "Gamepad" }
+			s.userInput.GamepadEnabled = true
+			s.userInput.MouseEnabled = true
+			s.userInput.lastInputType = { Name = "MouseMovement" }
+		end)
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		services.userInput.lastInputType = { Name = "Gamepad1" }
+		services.userInput.LastInputTypeChanged:fire({ Name = "Gamepad1" })
+		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		-- ...and back again when the mouse moves: the correction is not a latch
+		services.userInput.lastInputType = { Name = "MouseMovement" }
+		services.userInput.LastInputTypeChanged:fire({ Name = "MouseMovement" })
+		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		unbind()
+	end)
+
+	it("a device with NO pointer is a pad player whatever the last input was", function()
+		-- a console: the preference is the only answer there is, and it stands
+		local env, _, unbind = bound(function(s)
+			s.userInput.PreferredInput = { Name = "Gamepad" }
+			s.userInput.GamepadEnabled = true
+			s.userInput.MouseEnabled = false
+			s.userInput.KeyboardEnabled = false
+			s.userInput.lastInputType = { Name = "MouseMovement" }
+		end)
+		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		unbind()
+	end)
+
+	it("an engine with no GetLastInputType is taken at its word", function()
+		-- the same guard every optional engine read in this module carries: the
+		-- correction is an OPTION, never a requirement
+		local env, _, unbind = bound(function(s)
+			s.userInput.PreferredInput = { Name = "Gamepad" }
+			s.userInput.GamepadEnabled = true
+			s.userInput.MouseEnabled = true
+			s.userInput.GetLastInputType = nil
+		end)
+		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		unbind()
+	end)
+
+	it("a pointer-primary desktop with no pad is exactly where it was", function()
+		-- the negative control: nothing in this correction may move the ordinary
+		-- desktop, which is the shape every other case in this suite assumes
+		local env, _, unbind = bound(function() end)
+		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
+		unbind()
 	end)
 end)
 
