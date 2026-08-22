@@ -724,12 +724,6 @@ require("./ten_foot_metrics.spec")
 	which is the one property the always-on `overflow_sweep` cannot check because it
 	counts findings and never reads one. ]]
 require("./layout_defaults.spec")
---[[ THE SETTLE-TIME CONTAINMENT FINDING (2026-08-21): the one overflow the
-	solver knew and could not say, because every other finding in that file is
-	derived from a MEASURE against an offer and none from the RECT a child was
-	finally given. Scoped by measurement to a stack's CROSS axis — the counts
-	that rejected the wider rule are in `layout/placement_audit.luau` ]]
-require("./containment_diagnostic.spec")
 --[[ THE CONTAINMENT INVARIANT'S OWN PROOFS, and it is REQUIRED LAST ON PURPOSE.
 	`tests/lib/overflow_guard.luau` runs after every settle in every fixture world
 	above, and its waiver registry may not rot — "every waiver still fires" is a
