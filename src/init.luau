@@ -733,6 +733,13 @@ local Facet = {
 			moves, and which it deliberately leaves alone. ]]
 		metricScale = themesSnapshot.metricScale,
 		forDisplay = themesSnapshot.forDisplay,
+		--[[ …and the PAINT half of the same ladder (director ruling 2026-08-21).
+			`forDisplay` adapts what the framework MEASURES; this adapts the
+			`radii`/`strokes` a paint authority DRAWS, off the same factor. A
+			consumer that builds its own render target — rather than taking
+			`client.host`'s — is the caller who needs it: hand `screen_target.new`
+			the environment's `displaySize` and the target spends this for you. ]]
+		paintForDisplay = themesSnapshot.paintForDisplay,
 		baseOf = themesSnapshot.baseOf,
 		densityClassOf = themesSnapshot.densityClassOf,
 		-- the §4 legal-property linter, exported so a materializer or an

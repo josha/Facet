@@ -118,7 +118,7 @@ end
 -- the compiled-style shape the sheet model and the bespoke adapter both speak,
 -- assembled from ONE theme of a package (its palette) plus the package's
 -- package-level metrics
-function theme_controller.styleFor(package: any, themeName: string?): any
+function theme_controller.styleFor(package: any, themeName: string?, displaySize: string?): any
 	local name = themeName or package.style.defaultTheme
 	local theme: any = nil
 	for _, entry in package.style.themes do
@@ -127,7 +127,11 @@ function theme_controller.styleFor(package: any, themeName: string?): any
 		end
 	end
 	assert(theme ~= nil, `theme_controller: package '{package.identity.id}' has no theme named '{tostring(name)}'`)
+	-- the PAINT FAMILY at this display class (director ruling 2026-08-21): the
+	-- bespoke path writes `radii`/`strokes` from this table, so it takes the same
+	-- derivation the sheet's literals and the measured snapshot take
 	local metrics = package.metrics
+	local paint = snapshotLib.paintForDisplay(metrics, displaySize, pkgLib.pixelUnitOf(package))
 	local typeSizes: { [string]: number } = {}
 	for role, entry in metrics.typography do
 		typeSizes[role] = entry.size
@@ -137,8 +141,8 @@ function theme_controller.styleFor(package: any, themeName: string?): any
 		extra = mergedExtra(theme),
 		type = typeSizes,
 		space = metrics.space,
-		radii = metrics.radii,
-		strokes = metrics.strokes,
+		radii = paint.radii,
+		strokes = paint.strokes,
 		targetSizes = metrics.targetSizes,
 		motion = metrics.motion,
 		shadows = (defaultStyle :: any).shadows,
@@ -148,14 +152,16 @@ end
 -- sheetModelFor(package): the PURE sheet model for a package's palette. Exposed
 -- rather than inlined so the chrome package and the Studio authoring tools build
 -- the same model this controller materializes, from the same one function.
-function theme_controller.sheetModelFor(package: any): any
+function theme_controller.sheetModelFor(package: any, displaySize: string?): any
 	-- buildPackage, never the legacy build(): the package builder carries the
 	-- package's own typography fonts, chrome/slot rules, gradients and the
 	-- metric repaint map. The legacy builder's font is a BuilderSans constant —
 	-- routing a package through it painted every themed screen in the wrong
 	-- face while the solver measured the right one (found live, TP matrix
 	-- 2026-07-25: exact-Fondamento boxes clipping BuilderSans glyphs).
-	return sheet_model.buildPackage(package)
+	-- …and the display class rides along, because the corner a television paints
+	-- is 1.5x the corner a phone paints and the sheet is where that literal lives
+	return sheet_model.buildPackage(package, { displaySize = displaySize })
 end
 
 -- the per-package sheet name. NEVER "Facet": that is the library ModuleScript
@@ -593,12 +599,28 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		end
 	end
 
+	--[[ THE DISPLAY CLASS, read the way every other fact this controller spends
+		is read: the injected `facts` win (a headless caller states its own world),
+		then the live environment, then nothing. Declared HERE rather than inside
+		`factsForResolve` below because the SHEET needs it too — a television's
+		corners are painted 1.5x from the same number the snapshot measures with —
+		and `materializeFor` runs above that function. ]]
+	local function displaySizeFact(): any
+		if o.facts ~= nil then
+			return (o.facts :: any).displaySize
+		end
+		local ok, value = pcall(function()
+			return env:get("displaySize"):get()
+		end)
+		return if ok then value else nil
+	end
+
 	-- materializeFor(pkg, theme, records) -> (handle, model). Takes its inputs
 	-- EXPLICITLY rather than reading the active-* locals, so `swapPackage` can
 	-- prove a whole new package materializes before anything about this
 	-- controller changes.
 	local function materializeFor(pkg: any, themeName: string, records: { any }): (any, any)
-		local built = o.sheetModel or theme_controller.sheetModelFor(pkg)
+		local built = o.sheetModel or theme_controller.sheetModelFor(pkg, displaySizeFact())
 		local made = nativeStyle.ensure(built, {
 			host = o.host,
 			theme = themeName,
@@ -832,7 +854,14 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	-- re-pushed the generated value over whatever the designer had since typed
 	-- into that rule in the Style Editor — a rule edit that silently reverted on
 	-- the next swap, which is exactly the authoring surface this stage promises.
-	local function pushMetricRuleProps(next_: any)
+	--[[ …and it pushes the DISTANCE-ADAPTED snapshot (paint-family lockstep,
+		2026-08-21). The rules it writes carry the paint family, which now scales at
+		ten-foot: pushing the authored ladder here would answer a designer's edit by
+		putting a phone's corner on a television, one edit after the sheet was built
+		with the right one. `forDisplay` is the same function the environment's
+		`themeMetrics` memo applies, so what repaints is what the solver measured. ]]
+	local function pushMetricRuleProps(base_: any)
+		local next_ = snapshotLib.forDisplay(base_, displaySizeFact())
 		if handle == nil or type(handle.setRuleProperty) ~= "function" then
 			return
 		end
@@ -941,7 +970,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		if type(adapter.setThemeStyle) == "function" then
 			-- a fallback target that CAN take a new style at runtime gets one;
 			-- today's ScreenTarget cannot (see the module header)
-			adapter.setThemeStyle(theme_controller.styleFor(activePackage, themeName))
+			adapter.setThemeStyle(theme_controller.styleFor(activePackage, themeName, displaySizeFact()))
 		end
 		notify(reason)
 	end

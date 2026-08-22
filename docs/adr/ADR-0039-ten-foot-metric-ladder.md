@@ -134,23 +134,58 @@ happened to be resolved with.)
   fact, composed with the safe insets by the renderer. They compose; they must never
   multiply, or a console surface silently insets 135 px where two rows each thought
   they were the only one.
-- **Corner radii and stroke thicknesses** (added by fix round 1, 2026-08-21, from the
-  wave's review — NEW-1). These were in the scaled set when this ADR was first
-  written, and that was wrong for a reason the wave had no instrument to see:
-  they are not resolved from this snapshot at paint time. They come from `ctx.style`
-  — `tokens/default_style.luau` on the default path, the package's authored metrics on
-  the themed one — and `sheet_model.buildPackage` bakes them into StyleSheet rules as
-  **literals**, a channel that never passes through `forDisplay` and cannot (one sheet
-  per package serves every surface on the client, whatever display class each is on).
-  So scaling them did not make a television's corners rounder; it made the MEASURED
-  corner disagree with the PAINTED one — 12 painted against 18 measured on the default
-  package, 10 against 15 under Fantasy Ornate, 14 against 21 under Glossy Touch — and
-  the disagreement is load-bearing: `present/anchored.luau` shapes a callout tail from
-  `radii.panel` and its seam from `strokes.hairline`. **The general rule this states:
-  a metric may only scale where the framework OWNS the paint.** If the director later
-  wants TV corners and strokes to scale, that is sheet-GENERATION work (a
-  distance-aware rule set), not a reclassification — booked as a director-eye row in
-  the batched Studio pass.
+- ~~**Corner radii and stroke thicknesses**~~ — **SUPERSEDED 2026-08-21 by the
+  director's ruling on the live A/B; they SCALE, see "Decision 3a" below.** The
+  exemption stood for one day and its reasoning is preserved there, because the rule
+  it stated — *a metric may only scale where the framework OWNS the paint* — is what
+  the replacement had to satisfy rather than something the replacement discarded.
+
+### Decision 3a — the paint family scales, because the framework took the paint (2026-08-21)
+
+The director looked at a console capture and ruled: **at ten-foot, corner radii and
+stroke thicknesses scale by the same factor as everything else, derived from
+`metricScale` so that a future scale tweak moves them in lockstep.** That supersedes
+the bullet above IN ITS RESULT. It does not supersede the doctrine that produced it,
+and the implementation is the one the superseded bullet itself named — *sheet
+GENERATION*, not a reclassification on its own:
+
+- `snapshot.paintForDisplay(metricsLike, displaySize, pixelUnit?)` is ONE derivation
+  of the paint family, off the same `snapshot.metricScale` the measured ladder uses.
+- Both paint authorities call it. `tokens/sheet_model.build`/`buildPackage` take a
+  `displaySize` and bake the derived literal into the phantom `::UICorner`/`::UIStroke`
+  rules; `client/screen_target` derives the `ctx.style` that `screen_paint`,
+  `screen_chrome` and `tokens/styling`'s radius tokens write from. `client/host` is
+  where the environment's `displaySize` fact crosses to the target — the one place
+  that holds both — and `client/theme_controller` builds a package's sheet, its
+  `styleFor`, and its live-edit repaint at the same class.
+- So the measured 12-against-painted-18 disagreement the exemption was written to
+  close is closed by AGREEMENT instead: `tests/ten_foot_metrics.spec.luau` compares
+  the two derivations leaf by leaf on all nine shipped configurations, including a
+  pixel package whose authored radius sits between two grid lines.
+
+**Two classes, because two engine properties.** `UICorner.CornerRadius` is a `UDim`
+whose Offset is an integer, so a radius scales to a WHOLE pixel (`scaleWhole`, nearest
+— a pixel package's grid wins where it has one); `UIStroke.Thickness` is a float, so a
+hairline scales exactly (1 → 1.5). Handing the engine a 10.5 it would round itself is
+the same "painted at a size nobody measured" defect one step smaller.
+
+**The capsule sentinel scales too.** `radii.pill = 999` is a request for a full
+capsule, and a sentinel scaled is still a sentinel: the engine clamps `CornerRadius`
+to half the box's shorter side, so 999 and 1499 are the same pixel on every box up to
+1998 px on that side — every element on a 1080p or 1440p television. Exempting it
+would have meant a threshold constant nobody can derive, in a design whose whole point
+is that one number owns the family.
+
+**Authored still wins, on both sides.** `metrics.tenFoot` may name a paint path
+(`radii.panel`), and until this round it moved the measure while the sheet kept
+painting the authored literal — a live gap. `paintForDisplay` applies the same
+declaration, so 20 means 20 at both ends and is never double-scaled.
+
+**Near density is byte-identical.** The near call returns the same table, the near
+sheet has the same stamp and the same rule props, and the built theme artifacts are
+unchanged — they are Luau `Source` data carriers, and every StyleSheet is generated at
+install time in the consuming client, at that client's own distance.
+
 - **Art geometry** — `chromeInsets`, `chromeOutsets`, `chromeBleed`. This is the
   sharpest line in the classification and the one that took a measurement to find. A
   nine-slice border is drawn at `SliceCenter`/`SliceScale`, both authored by the

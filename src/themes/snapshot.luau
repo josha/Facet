@@ -432,40 +432,40 @@ local DENSITY_LENGTH_SECTIONS: { [string]: boolean } = {
 	targetSizes = true,
 	iconSizes = true,
 	iconRunGap = true,
+	-- the PAINT family's float half — see the paint-family note below
+	strokes = true,
 }
---[[ THE PAINT AUTHORITY BOUNDARY — why `radii` and `strokes` do NOT scale
-	(fix round 1, 2026-08-21).
+--[[ THE PAINT FAMILY — corner radii and stroke thickness, which scale WITH the
+	ladder (DIRECTOR RULING, 2026-08-21, decided on a live A/B capture of a
+	television at three metres).
 
-	A corner radius and a stroke thickness are not resolved from this snapshot at
-	paint time. They come from a DIFFERENT authority: `ctx.style` — which is
-	`tokens/default_style.luau` on the default path and the package's own authored
-	`metrics` on the themed one — and `tokens/sheet_model.buildPackage` bakes them
-	into StyleSheet rules as LITERALS ("Corner radii and stroke thickness are baked
-	into rules as literals", its own comment). That channel never passes through
-	`forDisplay` and cannot: a StyleSheet is generated once per package and applies
-	to every surface on the client, whatever display class each one is on.
+	THIS SUPERSEDES THE EXEMPTION THAT STOOD HERE, and it supersedes it in the
+	RESULT while keeping the doctrine that produced it word for word:
 
-	So scaling them here does not make a television's corners rounder. It makes the
-	MEASURED corner disagree with the PAINTED one — measured 12 painted against 18
-	measured on the default package, 10 against 15 under Fantasy Ornate. And the
-	disagreement is load-bearing rather than cosmetic: `present/anchored.luau`
-	shapes a callout's tail from `radii.panel` and its seam from `strokes.hairline`,
-	`render/layout_node.luau` spends the hairline as a real reservation, and
-	`controls/menu_recipe.luau` spends it as a row gap. A tail shaped for an 18 px
-	corner against a panel the engine draws with a 12 px one is the tooltip-seam
-	defect this framework has already been bitten by once, and no headless
-	instrument can see it (`fake_target` paints no `UICorner`/`UIStroke`).
+		A METRIC MAY ONLY SCALE WHERE THE FRAMEWORK OWNS THE PAINT.
 
-	THE RULE THIS EXPRESSES: a metric may only scale where the framework OWNS the
-	paint. Where a second authority paints the number, the metric must agree with
-	what that authority will draw.
+	The exemption existed because a corner radius is not painted from this
+	snapshot: it is painted from a SECOND authority — `ctx.style` on the bespoke
+	path, and the StyleSheet rules `tokens/sheet_model` bakes it into as literals
+	on the native one — and scaling here alone made the MEASURED corner disagree
+	with the PAINTED one (12 measured against 18 painted on the default package,
+	10 against 15 under Fantasy Ornate). The old comment named the fix as
+	sheet-GENERATION work rather than a reclassification here. That work is what
+	this round did: `snapshot.paintForDisplay` below is ONE derivation, and BOTH
+	authorities call it — `sheet_model.buildPackage` for the literal it bakes, and
+	`screen_target` for the `ctx.style` it hands `screen_paint`/`screen_chrome`.
+	So the reclassification is now honest: measure and paint move together, off
+	the same `metricScale`, and the callout tail `present/anchored` shapes from
+	`radii.panel` lands on the corner the engine actually draws.
 
-	IF THE DIRECTOR LATER WANTS TV CORNERS AND STROKES TO SCALE, this comment is
-	the pointer: it is sheet-GENERATION work (a per-display-class sheet, or a
-	distance-aware rule set), not a reclassification here — moving these two back
-	into the list above without that work re-opens exactly the disagreement above.
-	The question is booked as a director-eye row in the batched Studio pass. ]]
-local DENSITY_PAINT_SECTIONS: { [string]: boolean } = { radii = true, strokes = true }
+	TWO CLASSES, BECAUSE THE TWO ENGINE PROPERTIES ARE DIFFERENT TYPES.
+	`UICorner.CornerRadius` is a `UDim` whose Offset is an INTEGER, so a scaled
+	radius is rounded to a whole pixel here rather than handed to the engine as a
+	10.5 it will silently round itself — a reservation must be the number the
+	paint will be, and half a pixel of disagreement is the same defect one step
+	smaller. `UIStroke.Thickness` is a float, so a hairline scales exactly:
+	1 -> 1.5 at the director's 1.5. ]]
+local DENSITY_WHOLE_PIXEL_SECTIONS: { [string]: boolean } = { radii = true }
 --[[ ART GEOMETRY IS NOT A METRIC LADDER, and this is the sharpest line in the
 	classification. `chromeInsets`, `chromeOutsets` and `chromeBleed` describe
 	PIXELS THE ENGINE ACTUALLY PAINTS: a nine-slice recipe's border is drawn at
@@ -543,7 +543,7 @@ local function endsWith(s: string, suffix: string): boolean
 	return #s >= #suffix and string.sub(s, -#suffix) == suffix
 end
 
---[[ densityClassOf(path) -> "scale" | "scaleDown" | "exempt" | nil.
+--[[ densityClassOf(path) -> "scale" | "scaleWhole" | "scaleDown" | "exempt" | nil.
 	`nil` means "nobody has said", which the transform treats as exempt and the
 	spec treats as a failure. ]]
 function snapshot.densityClassOf(path: any): string?
@@ -567,7 +567,10 @@ function snapshot.densityClassOf(path: any): string?
 	if DENSITY_LENGTH_SECTIONS[root] then
 		return "scale"
 	end
-	if DENSITY_EXEMPT_SECTIONS[root] or DENSITY_ART_SECTIONS[root] or DENSITY_PAINT_SECTIONS[root] then
+	if DENSITY_WHOLE_PIXEL_SECTIONS[root] then
+		return "scaleWhole"
+	end
+	if DENSITY_EXEMPT_SECTIONS[root] or DENSITY_ART_SECTIONS[root] then
 		return "exempt"
 	end
 	--[[ A SLOT INSET IS A COMPOSITE, and the framework already publishes the
@@ -624,6 +627,19 @@ function snapshot.baseOf(snap: any): any
 	return if base ~= nil then base else snap
 end
 
+--[[ wholePixel(scaled, unit) -> the number the ENGINE will paint.
+
+	A pixel package's grid wins where it has one (`snapToPixelUnit` is the same
+	ceil the resolver spends, so a scaled radius stays on the package's own
+	coordinate system); off the grid it is the NEAREST whole pixel, because a
+	`UDim` Offset is an integer and nearest is the smallest disagreement with the
+	derived value a rounding can leave. Not `ceil`: a radius is not an
+	accessibility floor, and rounding a whole family up would fatten every corner
+	on the screen by up to a pixel for nothing. ]]
+local function wholePixel(scaled: number, unit: number?): number
+	return if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else math.round(scaled)
+end
+
 local function scaleInto(node: any, out: any, prefix: string, factor: number, unit: number?)
 	for key, value in node do
 		local path = if prefix == "" then tostring(key) else `{prefix}.{tostring(key)}`
@@ -632,6 +648,8 @@ local function scaleInto(node: any, out: any, prefix: string, factor: number, un
 			if class == "scale" then
 				local scaled = value * factor
 				out[key] = if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else scaled
+			elseif class == "scaleWhole" then
+				out[key] = wholePixel(value * factor, unit)
 			elseif class == "scaleDown" then
 				local scaled = value * factor
 				out[key] = if unit ~= nil
@@ -750,6 +768,94 @@ function snapshot.forDisplay(snap: any, displaySize: any): any
 	end
 	cached[factor] = frozen
 	return frozen
+end
+
+--[[ paintForDisplay(metricsLike, displaySize, pixelUnit?) -> the PAINT FAMILY,
+	as the engine will draw it at that display class.
+
+	THE SECOND HALF OF THE LOCKSTEP, and the reason the paint family may scale at
+	all. `forDisplay` above adapts the snapshot every MEASURE reads; this adapts
+	the `radii`/`strokes` every PAINT authority reads, from the same
+	`snapshot.metricScale`, with the same whole-pixel rule and the same pixel
+	grid. Two callers, one derivation:
+
+	  * `tokens/sheet_model.buildPackage` — the literal baked into the phantom
+	    `::UICorner`/`::UIStroke` rules the engine paints from;
+	  * `client/screen_target` — `ctx.style`, which `screen_paint`,
+	    `screen_chrome` and `tokens/styling`'s `"panel"`/`"control"`/`"pill"`
+	    token resolution all write from.
+
+	IT TAKES A METRICS-SHAPED TABLE, not a snapshot, because the two authorities
+	hold different shapes: a package's authored `metrics`, or a compiled token
+	`style` (`tokens/default_style`). Everything outside `radii`/`strokes` is
+	passed through BY REFERENCE — this function has no opinion about colours,
+	type, motion or spacing, and a caller that hands it a whole style gets its
+	own style back with two sections re-derived.
+
+	WHY IT SNAPS BEFORE IT SCALES. `resolve` puts a pixel package's authored
+	lengths on its grid (step 4b) and `forDisplay` scales what `resolve`
+	published, so a paint authority reading the UNSNAPPED authored number would
+	drift from the measure on any package whose radius is not already a multiple
+	of its unit. Snapping first reproduces the resolver's own answer exactly, and
+	`tests/ten_foot_metrics.spec.luau` compares the two derivations leaf by leaf
+	on all nine shipped configurations rather than taking this paragraph's word
+	for it.
+
+	AUTHORED WINS, HERE TOO. A package may declare ABSOLUTE ten-foot pixels
+	(`metrics.tenFoot`), and that channel can name a paint metric — so it is
+	applied here for the same reason `forDisplay` applies it: a number a package
+	wrote is a number a package meant, and reading it on one side only is exactly
+	the measure/paint disagreement this whole design exists to prevent.
+
+	AT A NEAR DISPLAY THIS IS THE IDENTITY — the same table, not a copy — so
+	nothing on a phone, tablet or desktop moves by a pixel, and the built-in
+	sheet's `style == defaultStyle` identity check still holds. ]]
+function snapshot.paintForDisplay(metricsLike: any, displaySize: any, pixelUnit: any): any
+	if type(metricsLike) ~= "table" then
+		return metricsLike
+	end
+	local factor = snapshot.metricScale(displaySize)
+	if factor == 1 then
+		return metricsLike
+	end
+	local unit: number? = if type(pixelUnit) == "number" then pixelUnit else nil
+	local function snapped(value: number): number
+		return if unit ~= nil then pkg.snapToPixelUnit(value, unit :: number) else value
+	end
+	local out: any = table.clone(metricsLike)
+	for section, whole in { radii = true, strokes = false } do
+		local src = (metricsLike :: any)[section]
+		if type(src) ~= "table" then
+			continue
+		end
+		local dst: any = {}
+		for key, value in src do
+			if type(value) == "number" then
+				local scaled = snapped(value) * factor
+				dst[key] = if whole then wholePixel(scaled, unit) else snapped(scaled)
+			else
+				dst[key] = value
+			end
+		end
+		out[section] = dst
+	end
+	if type((metricsLike :: any).tenFoot) == "table" then
+		for path, value in (metricsLike :: any).tenFoot do
+			local section, key = string.match(tostring(path), "^([^%.]+)%.([^%.]+)$")
+			if (section == "radii" or section == "strokes") and type(out[section]) == "table" then
+				out[section][key] = if type(value) == "number" then snapped(value) else value
+			end
+		end
+	end
+	-- ONLY the two tables this function authored are frozen. Everything else in
+	-- the clone is the CALLER'S table, held by reference: freezing those would
+	-- reach back through the copy and change the input.
+	for section in { radii = true, strokes = true } do
+		if type(out[section]) == "table" then
+			out[section] = table.freeze(out[section])
+		end
+	end
+	return table.freeze(out)
 end
 
 -- resolve(package, themeName, facts, overrides?) -> frozen ThemeSnapshot.

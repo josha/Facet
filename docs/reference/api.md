@@ -5595,14 +5595,23 @@ snapshot was resolved with) and `metricScale` (the factor that was applied — t
 number a consumer predicting its own geometry should spend).
 
 **What scales**: `space`, `targetSizes`, `iconSizes`, `iconRunGap`, `controlSizes`
-and every control-family length, plus the authored half of a slot `inset`.
-**What does not**: `radii` and `strokes` — a corner radius and a stroke thickness are
-painted from a **second authority** (`ctx.style`, and the StyleSheet rules
-`sheet_model.buildPackage` bakes them into as literals), and that channel never passes
-through `forDisplay`; scaling the metric would make the number the framework MEASURES
-disagree with the one the engine PAINTS, which is what shapes a callout tail for an
-18 px corner against a panel drawn with a 12 px one. **A metric may only scale where
-the framework owns the paint.** Also: the type ramp (`typographyPaintScale`
+and every control-family length, plus the authored half of a slot `inset` — and the
+**paint family**, `radii` and `strokes` (director ruling 2026-08-21). A corner radius
+and a stroke thickness are painted from a second authority — `ctx.style`, and the
+StyleSheet rules `sheet_model` bakes them into as literals — so they scale only
+because that authority now derives them the same way:
+`themes.paintForDisplay(metricsLike, displaySize, pixelUnit?)` is the one derivation,
+`sheet_model.build`/`buildPackage` take a `displaySize` and bake what it returns, and
+`screen_target` takes one at construction (`client.host` passes the environment's
+fact; a consumer building its own target passes it too, or its corners stay near while
+its layout goes to distance). **A metric may only scale where the framework owns the
+paint** — unchanged as a rule; what changed is that the framework took the paint. A
+radius rounds to a **whole pixel** because a `UDim` Offset is an integer (a pixel
+package's grid wins where it has one); a stroke keeps its fraction because
+`UIStroke.Thickness` is a float, so a 1 px hairline is 1.5 px at three metres. The
+capsule sentinel (`radii.pill = 999`) scales like any other radius and paints
+identically, because `UICorner` clamps to half the box's shorter side.
+**What does not scale**: the type ramp (`typographyPaintScale`
 already scales it at the measure and paint seams — scaling it here would be the
 double application), `motion` (durations are time-true at every distance; reduced
 motion is unaffected), counts and ratios, the player's own `preferredText` inputs,

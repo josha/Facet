@@ -28,6 +28,10 @@ local chrome_slots = require("./chrome_slots")
 -- and this module resolves those roles against a theme's palette
 local styling = require("./styling")
 local themePackage = require("../themes/package")
+-- the PAINT FAMILY's one derivation (`snapshot.paintForDisplay`): a corner
+-- radius and a stroke thickness scale with the metric ladder at ten-foot, and
+-- the literal this file bakes into a rule is what makes measure and paint agree
+local themeSnapshot = require("../themes/snapshot")
 
 local sheet_model = {}
 
@@ -789,6 +793,8 @@ export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
 	defaultTheme: string?,
+	-- the display class this sheet is painted for; see BuildPackageOpts.displaySize
+	displaySize: string?,
 }
 
 function sheet_model.build(opts: BuildOpts): Model
@@ -804,7 +810,10 @@ function sheet_model.build(opts: BuildOpts): Model
 			contrast = gateTheme(entry.name, entry.style),
 		})
 	end
-	local base = opts.themes[1].style
+	-- the first theme's style is where every metric literal in this sheet comes
+	-- from, so the paint family is derived for the display class HERE, once, from
+	-- the same `metricScale` the measured snapshot uses
+	local base = themeSnapshot.paintForDisplay(opts.themes[1].style, opts.displaySize)
 	local x = base.extra
 	local T = sheet_model.TAGS
 	local S = T.surfacePrefix
@@ -1147,6 +1156,10 @@ function sheet_model.build(opts: BuildOpts): Model
 
 	-- deterministic stamp over everything the generator writes
 	local parts: { string } = {}
+	-- …including the distance its corners were cut for (see buildPackage's stamp)
+	if themeSnapshot.metricScale(opts.displaySize) ~= 1 then
+		table.insert(parts, `paintScale={themeSnapshot.metricScale(opts.displaySize)}`)
+	end
 	for _, th in themes do
 		local names = {}
 		for k in th.tokens do
@@ -1603,6 +1616,15 @@ end
 
 export type BuildPackageOpts = {
 	defaultTheme: string?,
+	--[[ THE DISPLAY CLASS THIS SHEET IS PAINTED FOR (director ruling 2026-08-21).
+		A sheet is generated per package and worn by every surface on the client,
+		and a client is one screen at one distance — so the class belongs to the
+		BUILD. Absent (or near) bakes the authored paint family unchanged; "Large"
+		bakes the ten-foot one, derived through `snapshot.paintForDisplay` from the
+		same `metricScale` the measured snapshot uses. Hand this the package's
+		AUTHORED metrics, never an already-adapted set: the derivation happens
+		here, once. ]]
+	displaySize: string?,
 	-- Extra author-supplied rules, appended to the chrome group. This is the
 	-- surface a Style-Editor round-trip feeds back, and it is why the pseudo
 	-- allowlist and the §4 property linter run on INPUT and not only on what
@@ -1615,8 +1637,10 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		type(package) == "table" and package.schema == themePackage.SCHEMA,
 		"sheet_model.buildPackage: expected a package compiled by themes.define"
 	)
-	local metrics = package.metrics
 	local o = opts or {}
+	-- the paint family AS PAINTED at this display class; everything else in the
+	-- metrics table passes through by reference (see `paintForDisplay`)
+	local metrics = themeSnapshot.paintForDisplay(package.metrics, o.displaySize, themePackage.pixelUnitOf(package))
 
 	-- ----- metric-derived rule props (live-edit repaint map) ---------------
 	-- Corner radii and stroke thickness are baked into rules as LITERALS (a
@@ -2908,6 +2932,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- sheet even if two different packages happened to compile to the same
 	-- rules; and the chrome kinds, via chrome_props.describe.
 	local parts: { string } = { `package={package.identity.id}@{package.identity.version}#{package.stamp}` }
+	-- the ten-foot sheet is a DIFFERENT sheet and says so, so a re-ensure at a
+	-- new display class regenerates its rules instead of preserving corners cut
+	-- for another distance
+	if themeSnapshot.metricScale(o.displaySize) ~= 1 then
+		table.insert(parts, `paintScale={themeSnapshot.metricScale(o.displaySize)}`)
+	end
 	for _, theme in themes do
 		local names = {}
 		for k in theme.tokens do

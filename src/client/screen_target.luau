@@ -273,10 +273,19 @@ export type Opts = {
 		decided that; it was discovered. Absent still means 0, so nothing moves
 		unless a consumer says where it wants to be. ]]
 	displayOrder: number?,
+	-- THE DISPLAY CLASS THIS TARGET PAINTS FOR: at ten-foot the paint family
+	-- (radii, strokes) scales — see `themes/snapshot.paintForDisplay`. `host`
+	-- passes the environment's fact; absent is near, the identity. Taken at
+	-- construction, like the palette (ADR-0040 B-16).
+	displaySize: string?,
 }
 
 function screen_target.new(opts: Opts?)
-	local style: any = (opts and opts.style) or defaultStyle
+	-- the AUTHORED style is kept by identity (the built-in Light theme is keyed
+	-- on it); `style` is that style AS PAINTED at this distance
+	local baseStyle: any = (opts and opts.style) or defaultStyle
+	local displaySize: any = opts and (opts :: any).displaySize
+	local style: any = themeSnapshot.paintForDisplay(baseStyle, displaySize)
 	-- default TRUE: Roblox's own default, and the director's ruling is that this
 	-- experience localizes. `false` is an explicit opt-out for one that does not.
 	local autoLocalize: boolean = not (opts ~= nil and opts.autoLocalize == false)
@@ -346,11 +355,12 @@ function screen_target.new(opts: Opts?)
 					-- built-in model: the passed style is the default theme; the
 					-- built-in Light theme ships only when running Studio Neutral
 					-- (a game style carries no light variant to derive)
-					local themes = { { name = "Dark", style = style } }
-					if style == defaultStyle then
+					local themes = { { name = "Dark", style = baseStyle } }
+					if baseStyle == defaultStyle then
 						table.insert(themes, { name = "Light", style = defaultLightStyle })
 					end
-					model = sheet_model.build({ themes = themes })
+					-- authored styles in, class beside them: one derivation
+					model = sheet_model.build({ themes = themes, displaySize = displaySize })
 				end
 				-- transitions are progressive-enhancement OPT-IN (the native stylesheets work rider:
 				-- publish status unconfirmed; default = instant change), and

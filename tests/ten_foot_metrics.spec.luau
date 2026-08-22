@@ -51,6 +51,8 @@ local rendererLib = require("../src/render/renderer")
 local layoutNode = require("../src/render/layout_node")
 local adaptive = require("../src/layout/adaptive")
 local themes = require("../src/themes/package")
+local sheet_model = require("../src/tokens/sheet_model")
+local default_style = require("../src/tokens/default_style") :: any
 local snapshot = require("../src/themes/snapshot") :: any
 local fake_target = require("./lib/fake_target")
 
@@ -182,7 +184,7 @@ describe("ten-foot metrics — proportion equality across the control set", func
 			local nearLeaves, tenLeaves = leavesOf(near), leavesOf(tenFoot)
 			for path, nearValue in nearLeaves do
 				local class = snapshot.densityClassOf(path)
-				if class ~= "scale" and class ~= "scaleDown" then
+				if class ~= "scale" and class ~= "scaleDown" and class ~= "scaleWhole" then
 					continue
 				end
 				local want = nearValue * 1.5
@@ -191,47 +193,285 @@ describe("ten-foot metrics — proportion equality across the control set", func
 					want = if class == "scaleDown"
 						then math.max(unit, math.floor(want / unit) * unit)
 						else themes.snapToPixelUnit(want, unit)
+				elseif class == "scaleWhole" then
+					-- a whole-pixel class lands on a whole pixel off the grid too
+					want = math.round(want)
 				end
 				expect(`{cfg.name}:{path}={tenLeaves[path]}`).toBe(`{cfg.name}:{path}={want}`)
 				checked += 1
 			end
 		end
 		--[[ A SWEEP THAT SWEPT NOTHING PASSES VACUOUSLY, and the floor is RE-PINNED
-			(fix round 1, 2026-08-21): `radii.*` and `strokes.*` left the scaled class
-			for the paint-authority reason recorded in `snapshot.densityClassOf`, which
-			took 38 leaves out of this arm. The floor is set just under the true count
-			so that a class moving out of `scale` unnoticed cannot hide here — the
-			must-not-scale arm below is what pins the two that moved. ]]
-		expect(`checked:{checked > 550}`).toBe("checked:true")
+			AGAIN (paint-family lockstep, director ruling 2026-08-21): `radii.*` and
+			`strokes.*` came BACK into the scaled class — 38 leaves, true count 641 —
+			so the floor moves up WITH them instead of staying where a whole family
+			could quietly leave it. 630 is above the 603 this sweep counted while the
+			paint family was exempt, so the exemption coming back cannot pass here. ]]
+		expect(`checked:{checked > 630}`).toBe("checked:true")
 	end)
 
-	--[[ …AND THE TWO FAMILIES THAT MUST NOT MOVE, pinned positively rather than by
-		their absence from the arm above (review NEW-1, fix round 1).
+	--[[ …AND THE PAINT FAMILY MOVES WITH THEM, in lockstep (DIRECTOR RULING,
+		2026-08-21, on the live A/B capture: TV corner rounding scales by the SAME
+		factor as everything else and stays DERIVED from it).
 
-		A corner radius and a stroke thickness are painted from a SECOND authority —
-		`ctx.style` and the StyleSheet rules `sheet_model.buildPackage` bakes them
-		into as literals — and that channel never passes through `forDisplay`. So a
-		scaled radius here would be a number the framework MEASURES and the engine
-		never PAINTS: `present/anchored.luau` would shape a callout tail for an 18px
-		corner against a panel drawn with a 12px one. Measured 12-vs-18 (default),
-		10-vs-15 (fantasy_ornate), 14-vs-21 (glossy_touch) before this was fixed.
+		THIS ARM RE-VERDICTS. It used to assert the opposite — "a radius and a
+		stroke are painted by another authority, so they do not scale" — and the
+		doctrine behind that sentence is untouched: A METRIC MAY ONLY SCALE WHERE
+		THE FRAMEWORK OWNS THE PAINT. What changed is that the framework now takes
+		the paint: `snapshot.paintForDisplay` is the one derivation, and both
+		authorities call it — the sheet builder for the literal it bakes into
+		`::UICorner`/`::UIStroke`, and the render target for `ctx.style`. The
+		12-measured-against-18-painted disagreement the old arm was written to
+		close is closed by AGREEMENT now instead of by exemption, and the arm that
+		proves it is "the painted number and the measured number are ONE
+		derivation" below.
 
-		The rule: a metric may only scale where the framework OWNS the paint. ]]
-	it("a radius and a stroke are painted by another authority, so they do not scale", function()
+		TWO CLASSES, because the two engine properties are different types:
+		`UICorner.CornerRadius` is a `UDim`, whose Offset is an INTEGER, so a
+		radius scales to a WHOLE pixel (`scaleWhole`) — handing the engine 10.5
+		would be a number nobody measured, the same defect one step smaller.
+		`UIStroke.Thickness` is a float, so a hairline scales exactly: 1 -> 1.5. ]]
+	it("a radius and a stroke are the PAINT family, and they scale in lockstep", function()
 		local checked = 0
 		for _, cfg in configurations() do
 			local near, tenFoot = pair(cfg.package)
+			local unit = near.pixelUnit
 			for _, section in { "radii", "strokes" } do
 				for key, value in (near :: any)[section] do
+					local want = value * 1.5
+					if type(unit) == "number" then
+						want = themes.snapToPixelUnit(want, unit)
+					elseif section == "radii" then
+						want = math.round(want)
+					end
 					expect(`{cfg.name}.{section}.{key}={(tenFoot :: any)[section][key]}`).toBe(
-						`{cfg.name}.{section}.{key}={value}`
+						`{cfg.name}.{section}.{key}={want}`
 					)
-					expect(snapshot.densityClassOf(`{section}.{key}`)).toBe("exempt")
+					expect(snapshot.densityClassOf(`{section}.{key}`)).toBe(
+						if section == "radii" then "scaleWhole" else "scale"
+					)
 					checked += 1
 				end
 			end
 		end
 		expect(`checked:{checked}`).toBe("checked:38")
+		-- …and the numbers the director actually looked at, said out loud
+		local nearNeutral, tvNeutral = pair(snapshot.neutralPackage())
+		expect(`{nearNeutral.radii.panel}/{nearNeutral.radii.control}/{nearNeutral.strokes.hairline}`).toBe("12/8/1")
+		expect(`{tvNeutral.radii.panel}/{tvNeutral.radii.control}/{tvNeutral.strokes.hairline}`).toBe("18/12/1.5")
+	end)
+
+	--[[ DERIVED, NEVER LITERAL. The ruling's second half is that a FUTURE scale
+		tweak moves the paint family with it and with zero further edits, so this
+		arm resolves at a scale that is NOT 1.5 and asserts the lockstep there.
+
+		It drives the factor at its source — `snapshot.metricScale`, the one
+		function `forDisplay` and `paintForDisplay` both read — rather than
+		mutating a value after the fact, which is what makes it a test of the
+		DERIVATION rather than of an arithmetic. A `radii.panel = 12 * factor`
+		written anywhere would pass at 1.5 and fail here. ]]
+	it("a future scale tweak moves the whole family, measure and paint together", function()
+		local realScale = snapshot.metricScale
+		local checked = 0
+		local ok, err = pcall(function()
+			for _, factor in { 2, 1.25, 3 } do
+				snapshot.metricScale = function(displaySize: any): number
+					return if displaySize == "Large" then factor else 1
+				end
+				for _, cfg in configurations() do
+					local near, tenFoot = pair(cfg.package)
+					local unit = near.pixelUnit
+					local paint = snapshot.paintForDisplay(cfg.package.metrics, "Large", unit)
+					for key, value in near.radii do
+						local want = if type(unit) == "number"
+							then themes.snapToPixelUnit(value * factor, unit)
+							else math.round(value * factor)
+						expect(`{cfg.name}@{factor} radii.{key}={tenFoot.radii[key]}`).toBe(
+							`{cfg.name}@{factor} radii.{key}={want}`
+						)
+						-- the PAINT side, from the same one factor
+						expect(`{cfg.name}@{factor} paint.{key}={paint.radii[key]}`).toBe(
+							`{cfg.name}@{factor} paint.{key}={want}`
+						)
+						checked += 1
+					end
+					for key, value in near.strokes do
+						local want = if type(unit) == "number"
+							then themes.snapToPixelUnit(value * factor, unit)
+							else value * factor
+						expect(`{cfg.name}@{factor} strokes.{key}={tenFoot.strokes[key]}`).toBe(
+							`{cfg.name}@{factor} strokes.{key}={want}`
+						)
+						expect(`{cfg.name}@{factor} paint.{key}={paint.strokes[key]}`).toBe(
+							`{cfg.name}@{factor} paint.{key}={want}`
+						)
+						checked += 1
+					end
+					-- …and the ladder it is in lockstep WITH moved by the same factor
+					expect(`{cfg.name}@{factor} space.m={tenFoot.space.m}`).toBe(
+						`{cfg.name}@{factor} space.m={if type(unit) == "number"
+							then themes.snapToPixelUnit(near.space.m * factor, unit)
+							else near.space.m * factor}`
+					)
+				end
+			end
+		end)
+		snapshot.metricScale = realScale
+		expect(if ok then "ok" else `threw: {tostring(err)}`).toBe("ok")
+		expect(`checked:{checked}`).toBe("checked:114")
+		-- the stub is gone: the shipped factor is back
+		expect(snapshot.metricScale("Large")).toBe(1.5)
+	end)
+
+	--[[ THE WHOLE-PIXEL RULE, on the one shape no shipped package produces.
+		Every authored radius in the nine configurations happens to scale to an
+		integer at 1.5, so the rounding rule would be untested by the sweep alone —
+		this arm authors the half-pixel case deliberately. ]]
+	it("a scaled radius lands on a whole pixel, because a UDim offset is an integer", function()
+		local base = snapshot.resolve(snapshot.neutralPackage(), nil, {}, { ["radii.panel"] = 7 })
+		local tv = snapshot.forDisplay(base, "Large")
+		expect(`7 * 1.5 = {tv.radii.panel}`).toBe("7 * 1.5 = 11")
+		-- …and the paint authority rounds it the same way, from the same rule
+		local paint = snapshot.paintForDisplay({ radii = { panel = 7 }, strokes = { hairline = 1 } }, "Large")
+		expect(`paint {paint.radii.panel}`).toBe("paint 11")
+		-- a STROKE is a float property and keeps its fraction: 1 -> 1.5, not 2
+		expect(`hairline {paint.strokes.hairline}`).toBe("hairline 1.5")
+	end)
+
+	--[[ THE CAPSULE SENTINEL, decided rather than special-cased (`radii.pill =
+		999` in Studio Neutral and in five of the eight packages).
+
+		THE DECISION: IT SCALES LIKE EVERY OTHER RADIUS. A sentinel scaled is still
+		a sentinel, and exempting it would mean a threshold constant — a second
+		place to maintain, and a number nobody can derive — for a value the engine
+		never paints as written anyway. `UICorner` clamps `CornerRadius` to half
+		the box's SHORTER side, so 999 and 1499 are the same pixel on every box a
+		ten-foot surface can present: the identity holds for every box up to 1998 px
+		on its shorter side, which is every element on a 1080p or 1440p television
+		(the bound is stated rather than hidden — a box shorter-side taller than
+		1998 px would paint 999 and 1499 differently, and nothing in this framework
+		draws a pill that large).
+
+		This arm re-verdicts the live-Studio row that read "authored capsule radius
+		passes through unscaled (999, not 1498)": the capsule now reads 1499, and
+		what makes that safe is the clamp, measured below rather than asserted. ]]
+	it("the capsule sentinel scales too, and the engine's clamp makes it the same pixel", function()
+		local near, tv = pair(snapshot.neutralPackage())
+		expect(`{near.radii.pill} -> {tv.radii.pill}`).toBe("999 -> 1499")
+		-- the clamp, over every box a ten-foot surface can present
+		local sizes = { 1, 2, 8, 44, 66, 120, 400, 1080, 1440, 1998 }
+		local checked = 0
+		for _, side in sizes do
+			local painted = math.min(near.radii.pill, side / 2)
+			local paintedTv = math.min(tv.radii.pill, side / 2)
+			expect(`box {side}: {painted} vs {paintedTv}`).toBe(`box {side}: {painted} vs {painted}`)
+			checked += 1
+		end
+		expect(`checked:{checked}`).toBe("checked:10")
+	end)
+
+	--[[ THE LOCKSTEP ITSELF, mechanised across every shipped package: what the
+		framework MEASURES and what it PAINTS are one derivation, not two that
+		agree today. `forDisplay` is the measure authority (the environment's
+		`themeMetrics` memo) and `paintForDisplay` is the paint one (the sheet
+		builder's literal and `ctx.style`), and this arm compares their answers
+		leaf by leaf — including the pixel-package grid, where the two used to
+		disagree by construction because the sheet read the package's UNSNAPPED
+		authored number. ]]
+	it("the painted number and the measured number are ONE derivation, on every package", function()
+		local checked = 0
+		for _, cfg in configurations() do
+			local base = snapshot.resolve(cfg.package, nil, {})
+			local unit = base.pixelUnit
+			for _, displaySize in { "Medium", "Large" } do
+				local measured = snapshot.forDisplay(base, displaySize)
+				local painted = snapshot.paintForDisplay(cfg.package.metrics, displaySize, unit)
+				for _, section in { "radii", "strokes" } do
+					for key in (measured :: any)[section] do
+						expect(`{cfg.name}@{displaySize} {section}.{key} paint={(painted :: any)[section][key]}`).toBe(
+							`{cfg.name}@{displaySize} {section}.{key} paint={(measured :: any)[section][key]}`
+						)
+						checked += 1
+					end
+				end
+			end
+		end
+		expect(`checked:{checked}`).toBe("checked:76")
+		--[[ …INCLUDING THE CASE NO SHIPPED PACKAGE PRODUCES. Every reference
+			package authors radii already on its own grid, so the resolver's snap
+			would be invisible here: this pixel package authors a radius BETWEEN two
+			grid lines, which is where a paint authority reading the unsnapped
+			authored number drifts from the measure (5 -> snap 8 -> 12, not
+			5 * 1.5 = 7.5 -> snap 8). ]]
+		local offGrid = themes.define({
+			base = packageNamed("pixel_quest"),
+			identity = {
+				id = "offgrid-pixel",
+				displayName = "Off-Grid Pixel",
+				version = "1.0.0",
+				schemaVersion = themes.SCHEMA,
+				rendering = "pixel",
+				pixelUnit = 4,
+			},
+			metrics = { radii = { control = 5, panel = 10, pill = 999 }, strokes = { hairline = 5 } },
+		})
+		expect(offGrid).never().toBeNil()
+		local unit = snapshot.resolve(offGrid, nil, {}).pixelUnit
+		local measured = snapshot.forDisplay(snapshot.resolve(offGrid, nil, {}), "Large")
+		local painted = snapshot.paintForDisplay(offGrid.metrics, "Large", unit)
+		expect(`off-grid unit={unit} radii.control paint={painted.radii.control}`).toBe(
+			`off-grid unit=4 radii.control paint={measured.radii.control}`
+		)
+		expect(`off-grid radii.panel paint={painted.radii.panel}`).toBe(
+			`off-grid radii.panel paint={measured.radii.panel}`
+		)
+		expect(`off-grid strokes.hairline paint={painted.strokes.hairline}`).toBe(
+			`off-grid strokes.hairline paint={measured.strokes.hairline}`
+		)
+		-- and the numbers themselves, so a "both nil" pass is impossible
+		-- 5 -> grid 8 -> 12, 10 -> grid 12 -> 18 -> grid 20, 5 -> grid 8 -> 12
+		expect(`{measured.radii.control}/{measured.radii.panel}/{measured.strokes.hairline}`).toBe("12/20/12")
+	end)
+
+	--[[ AUTHORED WINS, ON BOTH SIDES. A package may declare ABSOLUTE ten-foot
+		pixels (`metrics.tenFoot`), and until this round that channel could name
+		`radii.panel` with nothing to stop it — which moved the MEASURE and left
+		the PAINT on the authored literal, the very defect the exemption existed to
+		prevent. Now the paint authority reads the same declaration, so a package
+		that wants a bespoke television corner gets one and is never double-scaled:
+		20 means 20, not 20 * 1.5 and not 12 * 1.5. ]]
+	it("a package's own ten-foot radius declaration wins for the paint too, and is not double-scaled", function()
+		local built = themes.define({
+			base = snapshot.neutralPackage(),
+			identity = {
+				id = "tenfoot-paint-authority",
+				displayName = "Ten-Foot Paint Authority",
+				version = "1.0.0",
+				schemaVersion = themes.SCHEMA,
+			},
+			metrics = { tenFoot = { ["radii.panel"] = 20, ["strokes.hairline"] = 3 } },
+		})
+		expect(built).never().toBeNil()
+		local base = snapshot.resolve(built, nil, {})
+		local tv = snapshot.forDisplay(base, "Large")
+		local paint = snapshot.paintForDisplay(built.metrics, "Large")
+		expect(`measured {tv.radii.panel}/{tv.strokes.hairline}`).toBe("measured 20/3")
+		expect(`painted {paint.radii.panel}/{paint.strokes.hairline}`).toBe("painted 20/3")
+		-- the family the declaration did NOT name still takes the derived scale
+		expect(`{tv.radii.control} {paint.radii.control}`).toBe("12 12")
+	end)
+
+	--[[ NEAR IS THE IDENTITY, and this is what keeps every phone, tablet and
+		desktop byte-identical through a change to the paint family: the near call
+		returns the SAME TABLE, so the built-in-sheet identity check in
+		`screen_target` (`style == defaultStyle`, which decides whether the Light
+		theme ships) still holds, and no near-density token moves. ]]
+	it("the near paint derivation is the identity — the same table, not a copy", function()
+		local style = require("../src/tokens/default_style") :: any
+		expect(rawequal(snapshot.paintForDisplay(style, "Medium"), style)).toBe(true)
+		expect(rawequal(snapshot.paintForDisplay(style, "Small"), style)).toBe(true)
+		expect(rawequal(snapshot.paintForDisplay(style, nil), style)).toBe(true)
+		expect(rawequal(snapshot.paintForDisplay(style, "Large"), style)).toBe(false)
 	end)
 
 	--[[ …AND THE COMPOSITE ARM. A slot inset is the package's authored padding
@@ -1070,5 +1310,178 @@ describe("ten-foot metrics — the transform is total", function()
 		expect(env:get("themeMetrics"):get().space.m).toBe(packageA.space.m * 1.5)
 		env:set("displaySize", "Medium")
 		expect(rawequal(env:get("themeMetrics"):get(), packageA)).toBeTruthy()
+	end)
+end)
+
+--[[ THE PAINT HALF OF THE LOCKSTEP. Everything above measures; this asserts that
+	what the engine will DRAW carries the same number, on both paint paths — the
+	native StyleSheet (the default since the 2026-08-21 flip) and the bespoke
+	`ctx.style` writes the fallback path makes. The old exemption existed exactly
+	because these two authorities could not agree; these are the arms that make
+	the agreement checkable instead of claimed. ]]
+describe("ten-foot metrics — the paint family reaches the paint", function()
+	-- every rule prop of a sheet model, flattened to comparable lines
+	local function propLines(model: any): { string }
+		local out: { string } = {}
+		for _, rule in model.rules do
+			local keys: { string } = {}
+			for prop in rule.props do
+				table.insert(keys, prop)
+			end
+			table.sort(keys)
+			for _, prop in keys do
+				local v: any = rule.props[prop]
+				local shown = if type(v) == "table"
+					then (if v.kind == "udim"
+						then `udim({v.scale},{v.offset})`
+						else (if v.kind == "number" then tostring(v.value) else tostring(v.kind)))
+					else tostring(v)
+				table.insert(out, `{rule.name}/{prop}={shown}`)
+			end
+		end
+		return out
+	end
+
+	local function builtIn(displaySize: string?): any
+		return sheet_model.build({
+			themes = { { name = "Dark", style = default_style } },
+			displaySize = displaySize,
+		})
+	end
+
+	--[[ THE DIRECTOR'S OWN A/B, AS A TEST. The live capture was made by typing
+		18 and 12 into the sheet's corner rules by hand; this is the generator
+		producing the same numbers from the factor, and — the other half of the
+		claim — producing NOTHING ELSE new. Every rule prop that differs between
+		the near sheet and the ten-foot one must be a corner or a thickness, and
+		must be exactly the scaled value: a sheet that also moved a colour, a
+		transparency or a font at distance would fail here. ]]
+	it("the built-in sheet bakes the ten-foot corner, and moves nothing else", function()
+		local near, tv = builtIn(nil), builtIn("Large")
+		local nearLines, tvLines = propLines(near), propLines(tv)
+		expect(#nearLines).toBe(#tvLines)
+		local moved = 0
+		for i, line in nearLines do
+			if line == tvLines[i] then
+				continue
+			end
+			moved += 1
+			local prop = string.match(line, "/([^/=]+)=")
+			expect(`{line} -> {tvLines[i]}`).toBe(
+				if prop == "CornerRadius" or prop == "Thickness"
+					then `{line} -> {tvLines[i]}`
+					else `NOT A PAINT-FAMILY PROP: {line}`
+			)
+			-- …and the number it moved to is the derived one
+			local was = tonumber(string.match(line, "([%d%.]+)%)?$") :: any)
+			local now = tonumber(string.match(tvLines[i], "([%d%.]+)%)?$") :: any)
+			local want = if prop == "CornerRadius" then math.round((was :: number) * 1.5) else (was :: number) * 1.5
+			expect(`{line}: {now}`).toBe(`{line}: {want}`)
+		end
+		expect(`moved:{moved > 0}`).toBe("moved:true")
+		-- the two the director looked at, by name
+		local function lineFor(model: any, want: string): string
+			for _, line in propLines(model) do
+				if string.sub(line, 1, #want) == want then
+					return line
+				end
+			end
+			return `MISSING: {want}`
+		end
+		expect(lineFor(near, "Raised panel — corner/")).toBe("Raised panel — corner/CornerRadius=udim(0,12)")
+		expect(lineFor(tv, "Raised panel — corner/")).toBe("Raised panel — corner/CornerRadius=udim(0,18)")
+		expect(lineFor(near, "Control — corner/")).toBe("Control — corner/CornerRadius=udim(0,8)")
+		expect(lineFor(tv, "Control — corner/")).toBe("Control — corner/CornerRadius=udim(0,12)")
+		expect(lineFor(tv, "Raised panel — hairline/Thickness")).toBe("Raised panel — hairline/Thickness=1.5")
+	end)
+
+	--[[ …AND THE SAME CLAIM FOR A PACKAGE SHEET, mechanised off the generator's
+		OWN map of metric-derived rule props rather than a list of rule names a
+		refactor could leave behind. Every entry in `metricRuleProps` names the
+		path it was baked from; the value in the rule must equal what
+		`paintForDisplay` derives for that path at that distance, on all nine
+		configurations — which is the same function the measured snapshot uses. ]]
+	it("every metric-derived rule of every package sheet carries the derived number", function()
+		local checked = 0
+		for _, cfg in configurations() do
+			local unit = snapshot.resolve(cfg.package, nil, {}).pixelUnit
+			for _, displaySize in { "Medium", "Large" } do
+				local model = sheet_model.buildPackage(cfg.package, { displaySize = displaySize })
+				local paint = snapshot.paintForDisplay(cfg.package.metrics, displaySize, unit)
+				for _, entry in model.metricRuleProps do
+					if entry.form == "font" then
+						continue
+					end
+					local want: any = paint
+					for part in string.gmatch(entry.path, "[^%.]+") do
+						want = if type(want) == "table" then want[part] else nil
+					end
+					local rule: any = nil
+					for _, r in model.rules do
+						if r.name == entry.rule then
+							rule = r
+						end
+					end
+					expect(`{cfg.name}@{displaySize} {entry.rule} exists`).toBe(
+						`{cfg.name}@{displaySize} {rule ~= nil and entry.rule or "MISSING"} exists`
+					)
+					local prop = rule.props[entry.prop]
+					local got = if entry.form == "udimOffset" then prop.offset else prop.value
+					expect(`{cfg.name}@{displaySize} {entry.rule}.{entry.prop}={got}`).toBe(
+						`{cfg.name}@{displaySize} {entry.rule}.{entry.prop}={want}`
+					)
+					checked += 1
+				end
+			end
+		end
+		expect(`checked:{checked > 190}`).toBe("checked:true")
+	end)
+
+	--[[ THE NEAR SHEET DOES NOT MOVE — the guard on every phone, tablet and
+		desktop that is not what this ruling was about, and on the built theme
+		artifacts and the style-editor token dump, which are near-density data. ]]
+	it("the near sheet is byte-identical to the one built with no display class", function()
+		for _, displaySize in { "Small", "Medium" } do
+			expect(builtIn(displaySize).stamp).toBe(builtIn(nil).stamp)
+			expect(table.concat(propLines(builtIn(displaySize)), "|")).toBe(table.concat(propLines(builtIn(nil)), "|"))
+		end
+		-- …and a package's near sheet, tokens and mirrors included
+		for _, cfg in configurations() do
+			local plain = sheet_model.buildPackage(cfg.package)
+			local near = sheet_model.buildPackage(cfg.package, { displaySize = "Medium" })
+			expect(`{cfg.name}:{near.stamp}`).toBe(`{cfg.name}:{plain.stamp}`)
+			expect(`{cfg.name}:{table.concat(propLines(near), "|")}`).toBe(
+				`{cfg.name}:{table.concat(propLines(plain), "|")}`
+			)
+		end
+		-- the ten-foot sheet is a DIFFERENT sheet, and says so in its stamp, so a
+		-- re-ensure at a new distance regenerates instead of preserving stale corners
+		expect(sheet_model.buildPackage(snapshot.neutralPackage(), { displaySize = "Large" }).stamp)
+			.never()
+			.toBe(sheet_model.buildPackage(snapshot.neutralPackage()).stamp)
+	end)
+
+	--[[ AND THE WIRE ITSELF. The two paint authorities are engine files no
+		headless world can mount, so the seam is asserted at the source: the target
+		derives its `ctx.style` through the one function and hands the same class to
+		the sheet builder, and the host is where the environment's fact crosses over
+		(it is the only place that holds both). Without these two lines the whole
+		lockstep is a snapshot that agrees with nothing. ]]
+	it("the render target and the host wire the display class through to the paint", function()
+		local fs = require("@lune/fs")
+		local target = fs.readFile("src/client/screen_target.luau")
+		expect(string.find(target, "themeSnapshot.paintForDisplay(baseStyle, displaySize)", 1, true) ~= nil).toBe(true)
+		expect(string.find(target, "sheet_model.build({ themes = themes, displaySize = displaySize })", 1, true) ~= nil).toBe(
+			true
+		)
+		local host = fs.readFile("src/client/host.luau")
+		expect(string.find(host, 'displaySize = env:get("displaySize"):get()', 1, true) ~= nil).toBe(true)
+		local controller = fs.readFile("src/client/theme_controller.luau")
+		expect(string.find(controller, "sheetModelFor(pkg, displaySizeFact())", 1, true) ~= nil).toBe(true)
+		-- …and the live-edit repaint answers a designer's edit at the SAME distance
+		expect(string.find(controller, "snapshotLib.forDisplay(base_, displaySizeFact())", 1, true) ~= nil).toBe(true)
+		expect(string.find(controller, "styleFor(activePackage, themeName, displaySizeFact())", 1, true) ~= nil).toBe(
+			true
+		)
 	end)
 end)

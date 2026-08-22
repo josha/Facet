@@ -72,7 +72,9 @@ local host = {}
 
 export type Opts = {
 	-- ===== render target (forwarded to `screen_target.new`) ================
-	-- opt in to the Roblox StyleSheet paint path; nil = the library default
+	-- the Roblox StyleSheet paint path. `nil` = the library default, which IS
+	-- sheet paint since 2026-08-21 (ADR-0040 B-15); `false` is the opt-OUT and
+	-- wins over everything. Forwarded verbatim to `screen_target.new`.
 	nativeStyle: boolean?,
 	style: any?,
 	-- the PlayerGui to parent roots under; nil = the local player's own
@@ -132,7 +134,7 @@ local OPTS_KEYS = specGuard.keySet({
 --[[ The engine collaborators, resolved HERE rather than at module scope, so
 	requiring this file stays legal off-engine (see the header). Each is behind
 	its own seam above, so a headless caller never reaches any of them. ]]
-local function engineAdapter(opts: Opts): any
+local function engineAdapter(opts: Opts, env: any): any
 	local screen_target = require("./screen_target") :: any
 	return screen_target.new({
 		nativeStyle = opts.nativeStyle,
@@ -141,6 +143,14 @@ local function engineAdapter(opts: Opts): any
 		autoLocalize = opts.autoLocalize,
 		themePackage = opts.themePackage,
 		displayOrder = opts.displayOrder,
+		--[[ THE DISPLAY CLASS, HANDED ACROSS THE ONE SEAM THAT HAS BOTH (director
+			ruling 2026-08-21: the paint family scales at ten-foot). The target
+			paints radii and strokes; the environment is where display facts live;
+			this function is the only place that holds both, and it runs AFTER
+			`bindEnv` above, so the fact is already the engine's own
+			`ViewportDisplaySize` rather than the default. A target built by
+			`newAdapter` is the consumer's own and takes its own class. ]]
+		displaySize = env:get("displaySize"):get(),
 	})
 end
 
@@ -234,7 +244,7 @@ function host.new(opts: Opts?): Host
 			end
 		end
 
-		local adapter = if o.newAdapter then o.newAdapter() else engineAdapter(o)
+		local adapter = if o.newAdapter then o.newAdapter() else engineAdapter(o, env)
 		ownIfDisposable(adapter)
 		local inputSystem = if o.newInputSystem then o.newInputSystem(core) else engineInputSystem(core)
 		ownIfDisposable(inputSystem)
