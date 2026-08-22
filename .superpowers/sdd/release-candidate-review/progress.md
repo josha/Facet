@@ -1751,3 +1751,16 @@ STUDIO.md, root CLAUDE.md.
   neither round moves. **EXPLICIT HANDOFF: when the renderer R23 round
   lands, resume the plate agent to replay and land the held fix — the
   9×9 is live until then, deliberately.**
+
+## 2026-08-21 (post-close 31) — the hold rehearses against its blocker
+
+- The plate agent used a stale-poll wake to REHEARSE the held 9×9 fix
+  against a private export carrying the R23 round's in-flight files:
+  every anchor survives their rewrite (the rename lives BETWEEN its two
+  touch points), red-first holds under R23 (1 failed/77 → 78), and the
+  two rules compose the right way round — R23 narrows which RECTS stop a
+  floor (author-declared only), the held fix widens which HOSTS are
+  stopped (the whole synthesized-chrome class); the author Button keeps
+  blocking the close's floor, the close stops blocking other framework
+  floors. Replay is two scripted steps; a bounded watch will fire on the
+  file's release. c6f313f (report only).
