@@ -79,10 +79,10 @@ require("./renderer.spec")
 --[[ the commit walks' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
 	`render/commit_walks.luau` one-way now that the six write loops that spend a
 	finished solve have left `renderer.luau`. This seam has a parameter object
-	with TWENTY fields in it, eight of them mutable records the renderer keeps
+	with twenty-one fields in it, eight of them mutable records the renderer keeps
 	writing to, so the three sets are READ == DECLARED == PASSED plus the
 	twelve-name shared write surface, the lifetime owner of each shared record,
-	and the mutable-upvalue test applied to the twenty names themselves ]]
+	and the mutable-upvalue test applied to the twenty-one names themselves ]]
 require("./commit_walks_seam.spec")
 require("./native_scroll.spec")
 -- O-31: a virtualised collection mirrors its engine CanvasPosition with NO
@@ -667,6 +667,13 @@ require("./hud_paint_probe.spec")
 	expander landed on the previous node's ZIndex. Measured live on the built
 	showcase: 73 of 86 nodes diverged from a fresh mount on `zIndex` alone. ]]
 require("./hit_expander_z_band.spec")
+--[[ A COVER'S TOUCH FLOOR STOPS AT ITS OWN REGION (DIR5 review H1, ADR-0041):
+	the one hit floor that is BOUNDED, because a cover's rect is a whole region's
+	box and inflating it to 44px necessarily leaves the region across its full
+	width — measured as 26% of each of two neighbouring Buttons. Beside the two
+	cases above because it is the third rule about the same expander, and its
+	control case is that an ORDINARY sub-floor control keeps its whole floor ]]
+require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
 require("./level_picker.spec")
 --[[ ADR-0037: `Facet.Controls.<Name>(core, spec)` — every one of the nineteen

@@ -56,6 +56,115 @@ local solver = require("../layout/solver")
 
 local commit_walks = {}
 
+--[[ A TOUCH FLOOR THAT GROWS UNTIL IT MEETS SOMETHING PRESSABLE (DIR5 review H1,
+	ADR-0041).
+
+	`own` is the rect the node paints, `want` is the floor it would like, and
+	`blockers` are the rects of every node OUTSIDE it that can sink a press. The
+	answer is `want`, given back one side at a time, each side stopping at the first
+	blocker in its way and never shrinking past `own`.
+
+	WHY GROWTH RATHER THAN A BOX TO CLAMP INTO. R18's ruling splits by what is
+	UNDERNEATH: the 44px floor is EXEMPT over PASSIVE content — it is the F1
+	accessibility floor and the convention every platform ships — and BANNED over
+	INTERACTIVE content, because two actionable targets for one gesture is an
+	ambiguity the player cannot see. So the bound is other pressable things, not a
+	container. A first version clamped a cover into its REGION instead, and the
+	measurement refused it: on the shipped HUD demo three covers whose floors reach
+	nothing at all lost the floor purely because their regions are 21-30px tall, and
+	`overflow_sweep`'s "no dead-end compact" guard reported it on five viewports — a
+	route the thumb cannot land on is a route on paper.
+
+	ONE SIDE AT A TIME, AND THE ORDER IS DETERMINISTIC rather than optimal: each
+	side is grown against the rect as it stands, so an earlier side's growth is
+	visible to a later side's test. That is conservative in the right direction (it
+	can only grant less, never overlap more) and it is why this needs no fixed
+	point. In the fixture that commissioned the rule the two vertical gaps are 9.5px
+	against a 10.5px ask, so a cover that used to take 26% of each of two
+	neighbouring Buttons now grows 42px of its 44 and takes nothing.
+
+	It is a free function because a rule with a rect, a wish and a list in it
+	deserves a table of cases (`tests/hit_floor_region_clamp.spec.luau`). ]]
+function commit_walks.growWithin(own: any, want: any, blockers: { any }): any
+	local out = { x = own.x, y = own.y, w = own.w, h = own.h }
+	local asks = {
+		{ side = "top", ask = math.max(0, own.y - want.y) },
+		{ side = "bottom", ask = math.max(0, (want.y + want.h) - (own.y + own.h)) },
+		{ side = "left", ask = math.max(0, own.x - want.x) },
+		{ side = "right", ask = math.max(0, (want.x + want.w) - (own.x + own.w)) },
+	}
+	for _, entry in asks do
+		local granted = entry.ask
+		if granted <= 0 then
+			continue
+		end
+		for _, b in blockers do
+			if b.w <= 0 or b.h <= 0 then
+				continue
+			end
+			--[[ TWO SKIPS PER SIDE, and the second one is what a first draft got
+				wrong. A blocker BESIDE this rect on the other axis is never in its way;
+				and a blocker entirely on the FAR side of the edge being moved cannot be
+				hit by moving that edge — a rect above the box does not block growth
+				DOWNWARD. Without the second test its negative "room" clamped the
+				opposite side to zero, which cost every boxed-in-on-one-side cover its
+				whole floor. ]]
+			local room: number
+			if entry.side == "top" or entry.side == "bottom" then
+				if b.x >= out.x + out.w or b.x + b.w <= out.x then
+					continue
+				end
+				if entry.side == "top" then
+					if b.y >= out.y then
+						continue
+					end
+					room = out.y - (b.y + b.h)
+				else
+					if b.y + b.h <= out.y + out.h then
+						continue
+					end
+					room = b.y - (out.y + out.h)
+				end
+			else
+				if b.y >= out.y + out.h or b.y + b.h <= out.y then
+					continue
+				end
+				if entry.side == "left" then
+					if b.x >= out.x then
+						continue
+					end
+					room = out.x - (b.x + b.w)
+				else
+					if b.x + b.w <= out.x + out.w then
+						continue
+					end
+					room = b.x - (out.x + out.w)
+				end
+			end
+			granted = math.min(granted, room)
+		end
+		--[[ ...AND A SIDE THAT WAS GRANTED NOTHING — OR LESS THAN NOTHING, which is
+			what a blocker already level with or inside this rect computes — MOVES NOT
+			AT ALL. This is the guard that makes the rule one-directional: a floor may
+			never shrink a node past what it already paints. ]]
+		if granted <= 0 then
+			continue
+		end
+		if entry.side == "top" then
+			out.y -= granted
+			out.h += granted
+		elseif entry.side == "bottom" then
+			out.h += granted
+		elseif entry.side == "left" then
+			out.x -= granted
+			out.w += granted
+		else
+			out.w += granted
+		end
+	end
+	return out
+end
+
 --[[ THE CONTRACT, AS A TYPE RATHER THAN A PARAGRAPH. Every field is read-only to
 	this module or a by-reference table the renderer declares ONCE and never
 	rebinds — which is the whole seam test, because a reassigned local cannot be
@@ -87,6 +196,7 @@ export type CommitCtx = {
 	solverHidden: any, -- path -> the solver's hidden verdict this pass
 	paintHeld: any, -- path -> the presenter's paint hold
 	pathNodes: any, -- the stroked-path node set
+	inputSinks: any, -- path -> can this node SINK a press (the overhang lift's census)
 }
 
 function commit_walks.new(ctx: CommitCtx)
@@ -110,6 +220,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local solverHidden = ctx.solverHidden
 	local paintHeld = ctx.paintHeld
 	local pathNodes = ctx.pathNodes
+	local inputSinks = ctx.inputSinks
 
 	-- paint seam for scaled text (input-paradigms expansion, matrix D.1): write
 	-- props.textSize * typographyScale, tracking the last value per path so a
@@ -156,7 +267,8 @@ function commit_walks.new(ctx: CommitCtx)
 				raw = themeSnapshot.intrinsicTextSize(metrics, node.class)
 			end
 			if raw ~= nil and handles[node.path] ~= nil then
-				--[[ ONE LADDER, AUTHORED OR NOT (ADAPT-7, 2026-08-18). This read
+				--[[ ONE LADDER, AUTHORED OR NOT — the ten-foot adaptation round, 2026-08-18.
+					This read
 					`if authored then raw * scale else raw`, and the measure seam said the
 					same thing, so the two agreed and nothing clipped — which is precisely
 					why nobody saw that `UI.Text{ text }` painted 16px on a television
@@ -379,8 +491,9 @@ function commit_walks.new(ctx: CommitCtx)
 		if adapter.setHitRect == nil then
 			return
 		end
-		-- RS-A16-D1 (found live by the rich-skinning-v2 matrix drive, under the
-		-- FLAT default, with real injected clicks): this walk used to ignore the
+		-- A HIDDEN CANDIDATE ASKS FOR NOTHING — found live by the rich-skinning
+		-- device matrix, under the flat default, with real injected clicks. This
+		-- walk used to ignore the
 		-- `nextHidden` set the visibility walk just built. A hidden candidate
 		-- solves to zero width, so every control inside it fell under the floor
 		-- and the renderer ASKED for an expanded hit rect — a live activation
@@ -390,14 +503,80 @@ function commit_walks.new(ctx: CommitCtx)
 		-- ROOT only) exactly as `pushVisible` carries it, and a hidden node takes
 		-- the SAME diff path with `want = nil`, so a node that BECOMES hidden has
 		-- its expander retracted rather than merely left un-refreshed.
+		--[[ ...AND THE ONE FLOOR THAT IS BOUNDED (DIR5 review H1, ADR-0041). A
+			region's expand affordance in the "cover" role IS the region's whole box,
+			so inflating it to the touch floor necessarily leaves the region on the
+			axis it is short on — measured at 390x150 as 960 px2 of one neighbouring
+			Button and 828 of another, 26% of each, delivered to the plate instead of
+			to the button the player aimed at.
+
+			THE BOUND IS R18 AS IT WAS RULED, AND THE REGION BOX IS NOT IT. The ruling
+			splits by what is UNDERNEATH: the 44px floor is EXEMPT over PASSIVE content
+			— it is the F1 accessibility floor and the convention every platform ships
+			— and BANNED over INTERACTIVE content, because two actionable targets for
+			one gesture is the ambiguity the player cannot see. So a cover keeps its
+			whole floor unless that floor would reach an interactive node OUTSIDE its
+			own region, and only then falls back to the region's box.
+
+			CLAMPING TO THE REGION UNCONDITIONALLY WAS TRIED FIRST AND MEASURED WRONG.
+			On the shipped HUD demo the un-clamped floors of all five covers take
+			NOTHING from any interactive node — the regions have room around them — and
+			the unconditional clamp took the accessibility floor off three of them
+			purely because their regions are 21-30px tall. `overflow_sweep`'s
+			"no dead-end compact" guard reported it on five viewports: a route the
+			thumb cannot land on is a route on paper. The guard was right and the
+			first rule was over-applied.
+
+			WHY NOT A NODE-AWARE `effectiveHitFloor`. `syncZOrder` calls that same
+			function to reserve the expander's z slot, and NM-H4a made that reservation
+			a function of the CLASS rather than of the current state after a whole-band
+			paint defect on a real device. A floor that returned nil for a cover would
+			move every z below every cover and put the reservation back on history.
+			This decision reads THIS SOLVE's rects and the structural sink census, and
+			never `lastHitRects` — it is a function of the frame, not of its history. ]]
+		local function isCover(node: any): boolean
+			local props = node.props
+			local target = if props ~= nil then props.expandTarget else nil
+			return type(target) == "table" and target.role == "cover"
+		end
+		--[[ EVERY RECT A PRESS COULD LAND ON. `inputSinks` is the same structural
+			census the overhang lift resolves against — which paths can actually SINK a
+			press — collected on the live-path walk, so this costs one pass over that
+			set per STANDING COVER and nothing at all on every other node.
+
+			IT NEEDS NO "NOT MY OWN REGION" FILTER, and one was written and then
+			removed because no mutation could redden it (2026-08-21). R18 exempts the
+			floor inside its own region, and the geometry already delivers that: every
+			side's test skips a blocker on the far side of the edge it is moving, so a
+			blocker CONTAINED in the node's own rect — which is what a region's own
+			standing form is, and what the cover itself is — skips on all four sides by
+			construction. A filter that restates a fact the arithmetic already
+			guarantees is a filter the next reader trusts instead of the arithmetic.
+
+			A HIDDEN NODE CANNOT BE PRESSED, and `solverHidden` was written by the
+			visibility walk that runs immediately before this one. ]]
+		local function pressableRects(): { any }
+			local out: { any } = {}
+			for path in inputSinks do
+				if solverHidden[path] == true then
+					continue
+				end
+				local other = rects[path]
+				local r = if other ~= nil then other.rect else nil
+				if r ~= nil and r.w > 0 and r.h > 0 then
+					table.insert(out, r)
+				end
+			end
+			return out
+		end
 		local function pushHitRects(node: any, hidden: boolean)
 			local isHidden = hidden or nextHidden[node.path] == true
+			local entry = rects[node.path]
 			-- the same reading the solve was handed as `hitFloor` (see
 			-- `effectiveHitFloor`): the contract declares the floor exists, the
 			-- theme owns its value, and it clamps up only
 			local floor = layout_node.effectiveHitFloor(node.class, metrics)
 			if floor ~= nil then
-				local entry = rects[node.path]
 				local handle = handles[node.path]
 				if entry ~= nil and handle ~= nil then
 					local r = entry.rect
@@ -411,6 +590,16 @@ function commit_walks.new(ctx: CommitCtx)
 							w = w,
 							h = h,
 						}
+						if isCover(node) then
+							want = commit_walks.growWithin(r, want, pressableRects())
+							-- grown back to the box it already paints, there is
+							-- nothing to advertise: the Button's own rect IS the
+							-- region, so an expander here would be a transparent
+							-- duplicate of it
+							if want.w <= r.w and want.h <= r.h then
+								want = nil
+							end
+						end
 					end
 					local last = lastHitRects[node.path]
 					if not rectsEqual(last, want) then
@@ -419,6 +608,9 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
+			-- the box a child's floor may not leave. A node the solve did not reach
+			-- passes its own ancestor's down rather than nil, which widens the bound
+			-- rather than removing it.
 			for _, child in node.children do
 				pushHitRects(child, isHidden)
 			end
@@ -426,7 +618,8 @@ function commit_walks.new(ctx: CommitCtx)
 		pushHitRects(rootNode, false)
 	end
 
-	--[[ NATIVE SCROLL REGIONS (native-substrate NS-A2): a scroll node's SOLVED
+	--[[ NATIVE SCROLL REGIONS — the native-substrate round's scroll seam, and the
+		one place a canvas is published. A scroll node's SOLVED
 		content extent (plus its own padding — children arrange inside the padded
 		area, so the canvas must include it) maps to the adapter's canvas. The
 		adapter/engine owns the live offset; the solver keeps owning every content

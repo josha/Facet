@@ -1579,6 +1579,7 @@ function renderer.attach(
 		solverHidden = solverHidden,
 		paintHeld = paintHeld,
 		pathNodes = pathNodes,
+		inputSinks = inputSinks,
 	})
 
 	-- the inputs of the most recent solve, for the opt-in boundary analysis below

@@ -115,7 +115,7 @@ end
 
 --[[ IS THIS NAME DECLARED ONCE AND NEVER REASSIGNED IN ITS HOST? A table-
 	constructor entry (`handles = handles,`) reads exactly like an assignment, and
-	the renderer contains twenty of them for these very names, so a scan that did
+	the renderer contains twenty-one of them for these very names, so a scan that did
 	not exclude a trailing comma would report every shared record as mutable. A
 	`local` line is the declaration, not a reassignment. ]]
 local function assignmentsOutsideDeclaration(source: string, name: string): { string }
@@ -235,16 +235,16 @@ describe("the commit-walk seam: the shared WRITE surface, and who owns each life
 	local renderer = fs.readFile(RENDERER_PATH)
 	local walks = fs.readFile(WALKS_PATH)
 
-	it("the module writes through exactly twelve of the twenty records it is handed", function()
+	it("the module writes through exactly twelve of the twenty-one records it is handed", function()
 		--[[ THE WHOLE POINT OF THE SPLIT, STATED AS A SET. Eight of these are the
 			minimal-write records — one per verdict a walk sends — and each exists so
 			a steady frame costs zero adapter writes. Three are the renderer's
 			per-node bookkeeping the walks maintain as they go (`solverHidden`,
 			`scrollAutoscroll`, `pathClipObservers`), and one is the counters.
 
-			THE OTHER EIGHT ARE READ-ONLY AND MUST STAY SO: `adapter`, `handles`,
+			THE OTHER NINE ARE READ-ONLY AND MUST STAY SO: `adapter`, `handles`,
 			`rectsEqual`, `paintedRectIn`, `pathEscapesClip`, `reculPathClips`,
-			`paintHeld`, `pathNodes`. `paintHeld` in particular is PRESENTER-owned —
+			`paintHeld`, `pathNodes`, `inputSinks`. `paintHeld` in particular is PRESENTER-owned —
 			set and cleared through `controller.setPaintHeld` — and a write to it from
 			here would be a second authority for a presentation hold.
 
@@ -311,7 +311,7 @@ describe("the commit-walk seam: the mutable-upvalue test itself", function()
 			the callee keeps the OLD value and the two halves silently disagree — which
 			is why `table.luau` had to turn two reassigned scalars into one record and
 			`virtual_list` still owes the same on six. This seam needed neither,
-			because every one of these twenty was already a table, a function or a
+			because every one of these twenty-one was already a table, a function or a
 			parameter declared once. That is the fact, and here it is checked rather
 			than remembered.
 
@@ -327,7 +327,7 @@ describe("the commit-walk seam: the mutable-upvalue test itself", function()
 			end
 		end
 		expect(table.concat(offenders, " ")).toBe("")
-		-- ...and the scan really looked: nineteen of the twenty are declared once
+		-- ...and the scan really looked: twenty of the twenty-one are declared once
 		-- and `adapter` is the parameter
 		expect(declarationsOf(renderer, "adapter")).toBe(0)
 		expect(declarationsOf(renderer, "lastHitRects")).toBe(1)

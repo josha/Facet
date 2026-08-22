@@ -1983,7 +1983,7 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			    which is the one-gesture-two-meanings collision itself. ]]
 		local MARK = "/S/C/Clock/Expand"
 		local passiveOverlaps = 0
-		local overhangs = 0
+		local thefts: { string } = {}
 		local rolesSeen: { string } = {}
 		for _, interactive in { false, true } do
 			local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
@@ -1991,12 +1991,29 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			local mark = w.adapter.node(MARK)
 			local markHit = w.adapter.hitRectOf(MARK)
 			table.insert(rolesSeen, if interactive then "chevron" else "cover")
-			--[[ THE INSTRUMENT IS NOT VACUOUS: the floor exists, and it is bigger than
-				the painted rect on at least one axis. Without these lines a sweep
-				against a nil hit rect would pass every assertion below. ]]
-			expect(markHit).never().toBeNil()
-			expect(markHit.w >= 44 and markHit.h >= 44).toBe(true)
-			expect(markHit.w >= mark.rect.w and markHit.h > mark.rect.h).toBe(true)
+			--[[ THE INSTRUMENT IS NOT VACUOUS, AND THE TWO ROLES NOW ANSWER
+				DIFFERENTLY (ADR-0041, this file's own H1). A CHEVRON is a mark in its
+				own reserved column and its 44px floor reaches only its region's passive
+				gutter, so it keeps the whole thing. A COVER is the region's WHOLE BOX,
+				and in THIS fixture the regions are edge to edge — so its floor reached
+				960 px2 of `Before/First` and 828 of `After/Last`, and the clamp in
+				`render/commit_walks.hitRects` gives it back the region instead, which
+				for a cover IS its own painted rect. `nil` is therefore the correct
+				answer here and the sweep below reads `mark.rect` for it: there is no
+				expander left to be vacuous about.
+
+				A COVER WITH ROOM STILL KEEPS ITS 44px — the HUD demo's three do — and
+				that arm is pinned in `tests/hit_floor_region_clamp.spec.luau` beside
+				this one's numbers. ]]
+			local expectFloor = interactive
+			if expectFloor then
+				expect(markHit).never().toBeNil()
+				expect(markHit.w >= 44 and markHit.h >= 44).toBe(true)
+				expect(markHit.w >= mark.rect.w and markHit.h > mark.rect.h).toBe(true)
+			else
+				expect(markHit).toBeNil()
+				markHit = mark.rect
+			end
 			--[[ ...AND SO IS THE Z READING: every node in the sweep has to have been
 				told a z, or the direction test below is comparing nils. ]]
 			expect(type(mark.z)).toBe("number")
@@ -2074,16 +2091,19 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 							  pass (`pushHitRects` inflates around the solved rect with no
 							  knowledge of the node), which is behind the source-cap lock —
 							  named in this round's report, owed with that file's extraction. ]]
-						local ownRegion = string.find(path, "/S/C/Clock/", 1, true) == 1
-						expect(`{path} under the floor is in the affordance's own region: {ownRegion}`).toBe(
-							`{path} under the floor is in the affordance's own region: false`
-						)
-						local overhangY = (markHit.h - mark.rect.h) / 2
-						local _, oy = overlapOf(markHit, n.rect)
-						expect(
-							`{path} overhang {oy} within the floor's own shortfall {overhangY}: {oy <= overhangY + 0.5}`
-						).toBe(`{path} overhang {oy} within the floor's own shortfall {overhangY}: true`)
-						overhangs += 1
+						--[[ FORBIDDEN IN BOTH DIRECTIONS NOW (ADR-0041). This case used
+							to split here: inside the affordance's own region an interactive
+							node under the floor was banned, and ACROSS a region boundary it
+							was an EXPOSURE the case merely bounded — first by ratifying the
+							lift that delivered it (review H1: green *because* the theft
+							happened), then by asserting the overhang was no bigger than the
+							floor's own arithmetic.
+
+							The clamp closes it, so there is no band left to bound. An
+							interactive node under a framework floor is a defect wherever it
+							is, and the tail below asserts this branch is never entered
+							rather than asserting it is. ]]
+						table.insert(thefts, `{path} under the {if interactive then "chevron" else "cover"}'s floor`)
 					end
 				end
 			end
@@ -2091,9 +2111,11 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 		-- the allowance is exercised: the cover DOES sit under the passive form,
 		-- which is the whole of the director's gesture
 		expect(passiveOverlaps >= 1).toBe(true)
-		-- ...and so is the cross-region overhang arm, so the lift assertion above is
-		-- a measured fact rather than a branch nothing enters
-		expect(overhangs >= 1).toBe(true)
+		--[[ ...AND NOT ONE INTERACTIVE NODE IS UNDER EITHER ROLE'S FLOOR, in its own
+			region or in a neighbour's. Before ADR-0041 this read `overhangs >= 1` and
+			was green BECAUSE the cover took 26% of each of the two buttons beside
+			it. ]]
+		expect(table.concat(thefts, " | ")).toBe("")
 		expect(table.concat(rolesSeen, " ")).toBe("cover chevron")
 	end)
 
