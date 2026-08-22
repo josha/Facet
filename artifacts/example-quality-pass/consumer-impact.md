@@ -93,7 +93,21 @@ widths are unchanged — the reservation tests pin the numbers, and the game sui
 
 ## What this ledger does NOT claim
 
-- **No Rascal Rally Studio canary was run in this stage.** The game suite is green at the
+- **The Rascal Rally Studio canary RAN on 2026-08-22** (deferred with authorization on
+  2026-08-06; the gate row stayed red on purpose until this line could be written
+  honestly). The director opened the place with Rojo connected; the sponsor scenario rig
+  armed and drove `results-sponsor` → `story` (stamp
+  `rascal-sponsor-scenario/1:results-sponsor`, held at `results`): **ResultsScreen — the
+  deferral's own named surface — rendered live** (standings with cast avatars, the drama
+  recap lines, Rally Points/Coins, Race + Sponsor Again with the focus ring), under the
+  post-flip SHEET-PAINT DEFAULT (4 StyleLinks, FacetStyle/FacetTheme sheets installed,
+  no attributes set — ruling R21's absent-flag arm, live), with ZERO effective-visible
+  zero-box text nodes. Capture: `rr-canary-2026-08-22.png` beside this ledger. The
+  canary's first finding preceded its first frame: all three DataStore backend
+  constructors called `GetDataStore` bare — upstream of their own pcall'd loads — so an
+  unpublished place killed `SponsorService.start` at boot; fixed in RR `829b382`
+  (degrade-at-the-constructor, matching each module's stated contract).
+  The ORIGINAL deferral record follows, kept as history. The game suite was green at the
   judged source, the caller audit above is exhaustive for the changed contracts, and the
   one layout change with a plausible game-side consequence (F-5) now has a game-side test
   proving it cannot reach the live screen. But a live Sponsor session was not driven.

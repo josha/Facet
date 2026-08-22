@@ -376,3 +376,164 @@ which **190,000**, which is 7,478 above the recorded size.
    characters from the cap and the rename is +8 characters it does not have. The
    `commit_walks.luau` header names all six old identifiers so the prose still
    resolves; the rename belongs to that file's own extraction round.
+
+---
+
+# Fix round 1 — review `cff4bb8`, ACCEPT WITH FIXES
+
+**Status: COMPLETE.** One commit, **`16f5434`**. Facet **7,037 → 7,039, zero
+removals**; Rascal Rally **3,466 / 0** on a pinned pair; every guard PASS;
+`stylua --check` clean. `renderer.luau` 182,522 → **183,684** (16,316 to the cap,
+6,316 clear of the warning line), measured after the final format pass.
+
+## MAJOR-1 → ruling R23: the framework may not take the floor off its own affordance
+
+The review is right and the correction is a ruling, not a tweak. R18 answered the
+**author-content** question — a framework floor landing on the player's controls
+is the one-gesture-two-meanings collision, and that is the DIR5 theft the rule
+exists to close. It was never asked whether the framework should surrender the F1
+floor to **another cover**, and `hit_lift`'s doctrine already answers the same
+question the other way: *"expander-vs-expander is left to the existing host z
+order… another expander's invisible rect never [creates a lift]."* A cover paints
+not one pixel; two of them meeting is an ordering question the z walk decides.
+
+**R23: the blocker set holds only rects the AUTHOR declared.** Implemented at the
+census rather than at the walk: `inputSinks` now records *who declared* each
+sinker (`true` author / `false` framework, framework meaning the one prop the
+schema documents as framework-declared, `expandTarget`). `hit_lift` still
+iterates the keys and still wants every sinker; the hit-floor walk reads the
+value. One census, one walk, no second table to go stale — and the trap is named
+at the declaration, because a framework affordance is a **key with a false
+value** and `if inputSinks[p] then` is the natural thing to write.
+
+### The matrix numbers, before and after
+
+Measured with the review's own instrument (the `overflow_sweep` matrix: viewport
+× theme package × preference × strip state), reading the same `<region>/Expand`
+route box its dead-end guard reads:
+
+| | before R23 | after R23 |
+|---|---|---|
+| route boxes swept | 381 | 381 |
+| below the effective floor | **43** | **38** |
+| …attributable to a FRAMEWORK route | **20** | **0** |
+| …cut only by author nodes | 23 | 38 |
+| covers retracted entirely | 32 | 31 |
+| smallest route | **25 px** | **35 px** |
+
+The review's headline figures reproduce (382 ≈ my 381 boxes, 42 ≈ 43 sub-floor,
+32 retracted, 25 px smallest). My attribution is **per-side** rather than per
+cut-event, which is why the split reads 23/20 where the review's event-level
+count read 20/29/55 — the property is the same and it is the one R23 turns on:
+**zero sub-floor routes attributable to a framework affordance, and every
+remaining one cut by an author node** (each legitimate under R18: the author put
+a control there). The DIR5 numbers stay **0 px²**.
+
+### The blast radius is now pinned at matrix scale
+
+`tests/overflow_sweep.spec.luau` gains **"R23: no route falls below the touch
+floor except where an AUTHOR node is in the way"**. It accumulates across the
+swept `it`s and asserts once — the pattern this file already uses for its theme
+axis and its waiver registry — and its **per-side attribution is derived
+independently of the rule it audits**: it re-derives the wished-for floor from
+the route's own rect and the theme's own minimum and asks who was in the way. It
+never calls `growWithin`.
+
+* **Red-first** against the shipped rule, naming the exact routes and packages
+  (`/HudScreen/Hud/Tasks/Expand bottom 116x35 floor 44 [package = fantasy-ornate]
+  [+0] [strip = true]`, …).
+* Two lists pinned **empty** (framework-attributable, unexplained); the swept
+  count pinned at **381** as a census ratchet with instructions for when the
+  matrix legitimately moves; and a positive control that the attribution branch is
+  entered at all.
+* **Four mutations bite, in both directions**: census marks everything as the
+  author's → the matrix pin (1 red); census marks everything as the framework's →
+  the DIR5 960/828 numbers return (6 red); the walk stops reading the value → the
+  matrix pin; the marker inverted → 6 red.
+
+## The other findings
+
+| finding | what shipped |
+|---|---|
+| **MEDIUM-1** ADR-0041 did not exist (8 dangling citations) | **`docs/adr/ADR-0041-hit-floor-bound.md` written** — decision, both bounds with who ruled each (R18 author-content, R23 framework-vs-framework), the measured before/after table, what it does *not* decide (the solver-side hit-floor reserve, the remaining 38, a device pass), and its three guards. ADR-0040's row now links it. |
+| **B-19's blast radius** | Corrected in place: it now states the **matrix** figures and says plainly that the "three covers keep 44 px" clause holds at 359×718 with the default package. |
+| **MEDIUM-2** "red for three days" | Corrected in the cap ledger to the measured **3 h 10 min** (`f0fc77e` 17:53 → `753e088` 21:03), with the note that this round's own `4cc5cb0` added the second violation 1 h 54 min into that window, and that it is the durability figure that was invented while everything substantive stands. |
+| **MEDIUM-3** the abandoned clamp's threaded-bound comment | Deleted. |
+| **MEDIUM-4** `renderer_source` prose vs `PARTS` | `rect_pass.luau` added to `PARTS`, **and mechanised**: the seam spec now asserts every `render/<module>.luau` the header names is a part (mutation: drop the part → red). Suite unaffected by the addition. |
+| **MEDIUM-5** the red window | Corrected below. |
+| **MINOR-4** stale ledger row | "twenty names" → twenty-one (with *why*: `inputSinks` joined for R23); "26.7 KB" → 36.5 KB at close, 26.7 KB at the split. |
+
+**MEDIUM-5, corrected.** My Concern 1 said "HEAD was red for one commit". Measured
+by the review: the **suite** was red at `935f9a2`, `05aeeea`, `5c51cb4` — **three
+commits, 20:36–20:43**, two of them other agents', one of whose subject asserts
+"green at 7022" over a tree that was 7,035 + 1 failed. **`check_comment_codes`**
+was red at `4cc5cb0` and through six other agents' commits until `935f9a2`
+repaired it — **seven commits, 19:47–20:36**, and that repair landed *inside*
+Phase B, which the report did not say. `check_brand_drift` was red across the
+whole chain until `753e088`. The disclosure was honest in kind and understated in
+degree.
+
+**MINOR-1/2/3/5, acknowledged as recorded.** The red-first "6 failed, 2 passed"
+was measured before the mutation work grew the spec to 14 cases (10/4 at the
+parent); the RR A/B arm labelled "mine + Phase B" was `4cc5cb0` + patch, not
+`935f9a2`; the negative-control line counts came from mutations whose text I did
+not record and are not reproducible as stated (the review's own re-derivation
+gives much larger deltas); and "landscape Tasks grows 42 of its 44" is real only
+under the sweep's chrome, not on the bare fixture — the matrix pin now measures
+that population properly.
+
+**MINOR-6/7, not this round's.** Six more files spell the moved walks the old way
+(all resolve through the module header, no code reference). `check_theme_artifacts`
+is red at HEAD from `19dc1cb`'s `tests/lib/world.luau` require and a hand-maintained
+`COPIED_FILES` list that never followed — it predates `b5732d0`; I have not touched
+it, and my "every guard PASS" claim was over a named list rather than over
+`tools/check_*.py`, which is exactly how it hid.
+
+## Corrected B-19 row (for the controller; already applied in `16f5434`)
+
+> **B-19 — the hit expander a `role = "cover"` affordance receives**
+> ([ADR-0041](ADR-0041-hit-floor-bound.md)). *Changed:* unconditional 44 px
+> inflation of the solved rect → **grows one side at a time, each side stopping at
+> the first rect outside it that can sink a press**; boxed in on every side =
+> retracted, the affordance reached through the region's own box. *Why:* a cover
+> IS its region's whole box, so the old floor left the region across its full
+> width — measured at 390×150 as 960 px² of one neighbouring Button and 828 of
+> another (26 % of each) delivered to the plate instead of the button the player
+> aimed at (DIR5 review H1). R18 bounds it: exempt over passive content, banned
+> over interactive — an ordinary sub-floor control keeps its WHOLE F1 floor,
+> including the part that leaves its parent. **R23 (2026-08-21) bounds it further:
+> only rects the AUTHOR declared stop a floor** — a framework affordance may not
+> take the accessibility floor off another one, which is the line `hit_lift`'s
+> doctrine already draws on expander-vs-expander. *Blast radius, measured at MATRIX
+> scale rather than on one fixture:* of 381 swept route boxes **38 end below the
+> effective floor and every one is cut by an author node, 0 by a framework route**,
+> smallest route 35 px, 31 covers retracted; counting framework routes as blockers
+> read 43 / 20 / 25 px / 32 — the 25 px route one pixel above the dead-end bar.
+> Outside that population nothing moves: the 800-tree differential oracle over
+> every other walk's output is byte-identical, and at 359×718 with the default
+> package the HUD demo's three stepped-down covers keep 44 px. *Guards:*
+> `tests/hit_floor_region_clamp.spec.luau` (14 cases, 8 mutations);
+> `tests/overflow_sweep.spec.luau` "R23: no route falls below the touch floor
+> except where an AUTHOR node is in the way" (381 routes, 4 mutations);
+> `tests/region_expand.spec.luau` EXPAND 15. *Owner:*
+> `src/render/commit_walks.luau` (`growWithin` + `hitRects`).
+
+## Concerns from this round
+
+1. **31 covers are still retracted and 38 routes still sit below the floor**, all
+   author-cut and all legitimate under R18 — but the real answer is the **solver-side
+   hit-floor reserve still booked on the solver's cap row**. With it a cover could
+   never be boxed in and this rule would stop firing on shipped screens. R23 makes
+   that reserve *sufficient*, not merely nice.
+2. **Two adjacent covers' floors may now overlap more**, by construction — that is
+   R23's explicit allowance and the z walk arbitrates, exactly as `hit_lift` says.
+   The review measured 15 overlapping affordance pairs before R23; the count can
+   only rise under it, and nothing pins it. If the director wants a bound there, it
+   is a paint-order question for `hit_lift`, not a geometry one.
+3. **The matrix pin's `routes swept: 381` is a census ratchet.** A legitimate change
+   to `VIEWS`, `PACKAGES` or the offsets moves it and the case goes red with a
+   number, not a mystery. The comment says to re-read rather than delete.
+4. **`check_theme_artifacts` is red at HEAD and is not mine** (MINOR-7). It needs
+   `tests/lib/overflow_guard.luau` in its `COPIED_FILES`; that file is held by a
+   concurrent round, so I left it. It should be routed.
+5. **Still no device pass.** The 35 px routes are exactly what one is for.
