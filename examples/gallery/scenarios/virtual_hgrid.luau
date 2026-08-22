@@ -200,7 +200,7 @@ return {
 			the picker chip already carries. ]]
 		local screen = UI.Screen({
 			id = "VirtualHGrid",
-			padding = 8,
+			padding = "s",
 			gap = 6,
 			children = {
 				UI.HStack({
@@ -236,7 +236,7 @@ return {
 						return kids
 					end)(),
 				}),
-				UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary", lineLimit = 1 }),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 1 }),
 				--[[ THE PANE WHOSE SOLVED WIDTH IS THE RAIL'S WINDOW, and whose solved
 					HEIGHT is the rail's cross extent. On `axis = "x"` the grid refuses a
 					`width` — there the width IS the scroll axis — and its height fills its

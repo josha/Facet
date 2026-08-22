@@ -90,6 +90,11 @@ return {
 		-- surface); this only gives the PAGE a second, outer place to go.
 		local screen = UI.Screen({
 			id = "KbdNav",
+			-- THEME-OPT-OUT: the page's own gutter is what leaves this screen 242px of
+			-- usable width on a 320px phone, and the Actions row below is already recorded
+			-- in the overflow ledger as 145px too wide there at +14. `padding = "m"` under
+			-- glossy-touch narrows it further and measured 149px. The gutter waits on the
+			-- row it squeezes.
 			padding = 16,
 			children = {
 				UI.ScrollView({
@@ -106,6 +111,10 @@ return {
 						-- where Left/Right used to belong permanently to NavigateH
 						UI.HStack({
 							id = "Actions",
+							-- THEME-OPT-OUT: same standing as the page padding above — this two-button row
+							-- is already 145px past a 320x640 phone at +14 in the overflow ledger, and
+							-- `gap = "s"` under glossy-touch measured 151px. A theme step cannot fix a row
+							-- that does not fit; it can only make the recorded number worse.
 							gap = 8,
 							children = {
 								UI.Button({ id = "Save", label = "Save" }),
@@ -294,11 +303,11 @@ return {
 					modalHandle = ctx.presenter.presentModal(UI.Screen({
 						id = "KbdModal",
 						padding = 20,
-						gap = 8,
+						gap = "s",
 						width = { type = "fixed", px = 320 },
 						height = { type = "fixed", px = 180 },
 						children = {
-							UI.Text({ id = "MTitle", text = "Confirm", textSize = 20 }),
+							UI.Text({ id = "MTitle", text = "Confirm", textSize = "heading" }),
 							UI.Button({ id = "Ok", label = "OK" }),
 							UI.Button({ id = "Nope", label = "Cancel" }),
 						},

@@ -134,7 +134,7 @@ return {
 					what makes a cut label a degrade rather than lost copy. ]]
 				return UI.HStack({
 					id = "Row",
-					gap = 8,
+					gap = "s",
 					padding = ROSTER_ROW_PADDING,
 					children = {
 						-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
@@ -172,13 +172,13 @@ return {
 			local text = core:memo(function(use)
 				return `{use(sig)}`
 			end)
-			table.insert(readoutViews, UI.Text({ id = `R{i}`, text = text, textSize = 14 }))
+			table.insert(readoutViews, UI.Text({ id = `R{i}`, text = text, textSize = "label" }))
 		end
 
 		local screen = UI.Screen({
 			id = "PerfCapture",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
 					live numbers and the boost count are the same kind of thing and used
@@ -199,7 +199,7 @@ return {
 					width = { type = "fill", weight = 1 },
 					children = (function()
 						local kids: { any } = table.clone(readoutViews)
-						table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = 16 }))
+						table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = "body" }))
 						return kids
 					end)(),
 				}),
@@ -221,6 +221,11 @@ return {
 				}),
 				UI.HStack({
 					id = "Actions",
+					-- THEME-OPT-OUT: this row is ALREADY in the overflow ledger for not fitting a
+					-- 320x640 phone at the Largest text preference (126px over, waived). Spending
+					-- the theme's own step here does not make it fit — measured with `gap = "s"` it
+					-- makes the recorded defect 2px worse under glossy-touch — so the step waits on
+					-- the row's own fix rather than landing on top of it.
 					gap = 8,
 					height = actionHeight,
 					children = {

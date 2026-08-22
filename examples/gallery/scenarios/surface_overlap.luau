@@ -92,17 +92,17 @@ return {
 		local function probeScreen(): any
 			return UI.Screen({
 				id = "SurfaceOverlapProbe",
-				padding = 16,
+				padding = "m",
 				children = {
 					UI.VStack({
 						id = "Plate",
 						surface = "control",
-						padding = 8,
-						gap = 4,
+						padding = "s",
+						gap = "xs",
 						hidden = probeHidden,
 						children = {
-							UI.Text({ id = "Label", text = COPY.probe, textSize = 12 }),
-							UI.Text({ id = "Hint", text = COPY.probeHint, textSize = 12, role = "secondary" }),
+							UI.Text({ id = "Label", text = COPY.probe, textSize = "caption" }),
+							UI.Text({ id = "Hint", text = COPY.probeHint, textSize = "caption", role = "secondary" }),
 						},
 					}),
 				},
@@ -184,7 +184,7 @@ return {
 		local screen = UI.Screen({
 			id = "SurfaceOverlap",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- the page scrolls for the reason every fixture here does: a title,
 				-- a control row and two readouts do not fit the ~200px a 640x320
@@ -192,13 +192,13 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
-						UI.Text({ id = "PickLabel", text = COPY.pick, textSize = 12 }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+						UI.Text({ id = "PickLabel", text = COPY.pick, textSize = "caption" }),
 						UI.HStack({
 							id = "Picks",
 							gap = 6,
@@ -214,26 +214,36 @@ return {
 						UI.VStack({
 							id = "State",
 							surface = "control",
-							padding = 8,
-							gap = 4,
+							padding = "s",
+							gap = "xs",
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = 12 }),
-								UI.Text({ id = "Declaration", text = declaration, textSize = 12, role = "secondary" }),
+								UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
+								UI.Text({
+									id = "Declaration",
+									text = declaration,
+									textSize = "caption",
+									role = "secondary",
+								}),
 							},
 						}),
 						UI.VStack({
 							id = "Findings",
 							surface = "control",
-							padding = 8,
-							gap = 4,
+							padding = "s",
+							gap = "xs",
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "FindingsTitle", text = COPY.findingsTitle, textSize = 12 }),
-								UI.Text({ id = "FindingsBody", text = findings, textSize = 12, role = "secondary" }),
+								UI.Text({ id = "FindingsTitle", text = COPY.findingsTitle, textSize = "caption" }),
+								UI.Text({
+									id = "FindingsBody",
+									text = findings,
+									textSize = "caption",
+									role = "secondary",
+								}),
 							},
 						}),
-						UI.Text({ id = "Note", text = COPY.note, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
 					},
 				}),
 			},

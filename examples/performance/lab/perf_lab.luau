@@ -822,7 +822,7 @@ return {
 					Facet.UI.Text({
 						id = "Head",
 						text = `Facet · {#rowsSignal:get()} rows`,
-						textSize = 14,
+						textSize = "label",
 					}),
 					list.blueprint,
 				},
@@ -1416,8 +1416,8 @@ return {
 				local U = Facet.UI
 				local handle = ctx.presenter.present(U.Screen({
 					id = "MotionFlight",
-					padding = 8,
-					gap = 4,
+					padding = "s",
+					gap = "xs",
 					children = {
 						U.ForEach({
 							id = "Flight",
@@ -1442,7 +1442,7 @@ return {
 									opacity = rowOpacity,
 									scale = rowScale,
 									rotation = rowRotation,
-									children = { U.Text({ id = "L", text = `row {item}`, textSize = 12 }) },
+									children = { U.Text({ id = "L", text = `row {item}`, textSize = "caption" }) },
 								})
 							end,
 						}),
@@ -1502,8 +1502,8 @@ return {
 					local plainOrder = core:signal(initial)
 					local plain = ctx.presenter.present(U.Screen({
 						id = "MotionFlightPlain",
-						padding = 8,
-						gap = 4,
+						padding = "s",
+						gap = "xs",
 						children = {
 							U.ForEach({
 								id = "Flight",
@@ -1517,7 +1517,7 @@ return {
 										padding = 0,
 										gap = 0,
 										height = { type = "fixed", px = 28 },
-										children = { U.Text({ id = "L", text = `row {item}`, textSize = 12 }) },
+										children = { U.Text({ id = "L", text = `row {item}`, textSize = "caption" }) },
 									})
 								end,
 							}),
@@ -1645,7 +1645,7 @@ return {
 						height = { type = "fill", weight = 1 },
 						children = children,
 					})
-					local screen = U.Screen({ id = "SensoryCascade", padding = 8, children = { page } })
+					local screen = U.Screen({ id = "SensoryCascade", padding = "s", children = { page } })
 					if decorate == "root" then
 						screen = U.sensoryFeedback(screen, { activation = "commit" })
 					end
@@ -1889,7 +1889,7 @@ return {
 								children[i] = U.Text({
 									id = `L{i}`,
 									text = if i == 1 then item.name else item.detail,
-									textSize = 12,
+									textSize = "caption",
 									lineLimit = 1,
 									height = { type = "fixed", px = EXTENT_LINE_H },
 								})

@@ -1110,7 +1110,7 @@ return {
 				taskRows,
 				UI.HStack({
 					id = `TaskRow{i}`,
-					gap = 8,
+					gap = "s",
 					align = "center",
 					width = { type = "fill", weight = 1 },
 					children = {
@@ -1196,7 +1196,7 @@ return {
 				"control",
 				UI.HStack({
 					id = id .. "Row",
-					gap = 8,
+					gap = "s",
 					align = "center",
 					padding = { top = 4, right = 8, bottom = 4, left = 8 },
 					children = {
@@ -1274,7 +1274,7 @@ return {
 			"pill",
 			UI.HStack({
 				id = "HealthRow",
-				gap = 8,
+				gap = "s",
 				align = "center",
 				padding = { top = 4, right = 12, bottom = 4, left = 12 },
 				children = {
@@ -1304,7 +1304,7 @@ return {
 		)
 		local railTall = UI.VStack({
 			id = "RailTall",
-			gap = 4,
+			gap = "xs",
 			align = "end",
 			children = {
 				weaponChip("W1", COPY.weapon1, COPY.ammo1),
@@ -1314,7 +1314,7 @@ return {
 		})
 		local actionsCol = UI.VStack({
 			id = "ActionsCol",
-			gap = 8,
+			gap = "s",
 			align = "end",
 			children = {
 				roundButton("A1", COPY.action1, "more", "controlSizes.large.height"),
@@ -2331,7 +2331,7 @@ return {
 										"panel",
 										UI.VStack({
 											id = "ProbeBody",
-											padding = 8,
+											padding = "s",
 											gap = 2,
 											width = { type = "fill", weight = 1 },
 											children = {
@@ -2703,8 +2703,8 @@ return {
 								pseudo-localized at 320x640). The children go straight on the row. ]]
 							UI.HStack({
 								id = "TasksOneBody",
-								padding = 8,
-								gap = 8,
+								padding = "s",
+								gap = "s",
 								align = "center",
 								width = { type = "fill", weight = 1 },
 								children = {
@@ -2931,7 +2931,7 @@ return {
 		local screen = UI.Screen({
 			id = "HudScreen",
 			padding = screenPadding,
-			gap = 4,
+			gap = "xs",
 			children = {
 				hud,
 				-- two switches WRAP rather than run off a 320px phone at the largest

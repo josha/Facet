@@ -363,12 +363,12 @@ return {
 		local screen = UI.Screen({
 			id = "RowCapabilities",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
@@ -411,7 +411,7 @@ return {
 						UI.VStack({
 							id = "Legend",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {

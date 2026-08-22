@@ -41,24 +41,24 @@ return {
 		-- `tests/native_style_scenario.spec.luau` reference moved with it.
 		local screen = UI.Screen({
 			id = "NativeStyle",
-			padding = 16,
-			gap = 8,
+			padding = "m",
+			gap = "s",
 			surface = "base",
 			children = {
 				UI.ScrollView({
 					id = "Body",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = 24 }),
-						UI.Text({ id = "Subtitle", text = "secondary text", textSize = 14, role = "secondary" }),
+						UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = "title" }),
+						UI.Text({ id = "Subtitle", text = "secondary text", textSize = "label", role = "secondary" }),
 						UI.VStack({
 							id = "Panel",
 							surface = "raised",
 							padding = 12,
-							gap = 8,
+							gap = "s",
 							children = {
 								UI.Button({ id = "RowA", label = "Row A (selected)", selected = selectedA }),
 								UI.Button({
@@ -85,7 +85,7 @@ return {
 						UI.Grid({
 							id = "SurfaceRow",
 							minColumnWidth = 90,
-							gap = 8,
+							gap = "s",
 							children = {
 								UI.Box({
 									id = "Chip",
@@ -131,7 +131,7 @@ return {
 										UI.Text({
 											id = "ScrollRow" .. i,
 											text = "Scroll row " .. i,
-											textSize = 16,
+											textSize = "body",
 											height = { type = "fixed", px = 28 },
 										})
 									)

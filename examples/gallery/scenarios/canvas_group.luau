@@ -168,13 +168,13 @@ return {
 			return UI.VStack({
 				id = id,
 				surface = "control",
-				padding = 8,
+				padding = "s",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = title, textSize = 12 }),
+					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					body,
-					UI.Text({ id = "Note", text = note, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 				},
 			})
 		end
@@ -199,7 +199,7 @@ return {
 		local screen = UI.Screen({
 			id = "CanvasGroup",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every other fixture here does: two
 				-- 132px panels, a chip row, a transition panel and the framework's own
@@ -208,33 +208,34 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						UI.HStack({
 							id = "Stops",
 							gap = 6,
 							wrap = true,
 							width = { type = "fill", weight = 1 },
 							children = (function()
-								local row = { UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = 12 }) }
+								local row =
+									{ UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = "caption" }) }
 								for _, chip in stopChips do
 									table.insert(row, chip)
 								end
 								return row
 							end)(),
 						}),
-						UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
 						-- side by side where there is room, a column where there is not:
 						-- the two panels are only a comparison while both are visible,
 						-- and a 320px phone cannot hold two 132px plates in one line
 						UI.AdaptiveStack({
 							id = "Panels",
 							axis = conditions.axis,
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {
 								panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
@@ -245,11 +246,11 @@ return {
 						UI.VStack({
 							id = "Transition",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = 12 }),
+								UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),
 								UI.Button({
 									id = "ToggleFading",
 									label = COPY.transitionButton,
@@ -270,13 +271,13 @@ return {
 											surface = "raised",
 											-- THE DECLARATION, with no opacity beside it
 											canvasGroup = true,
-											padding = 8,
+											padding = "s",
 											width = { type = "fill", weight = 1 },
 											children = {
 												UI.Text({
 													id = "Body",
 													text = COPY.transitionBody,
-													textSize = 12,
+													textSize = "caption",
 												}),
 											},
 										})
@@ -285,14 +286,14 @@ return {
 								UI.Text({
 									id = "Note",
 									text = COPY.transitionNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
 						}),
 
-						UI.Text({ id = "RefusalTitle", text = COPY.refusalTitle, textSize = 12 }),
-						UI.Text({ id = "Refusal", text = refusal, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "RefusalTitle", text = COPY.refusalTitle, textSize = "caption" }),
+						UI.Text({ id = "Refusal", text = refusal, textSize = "caption", role = "secondary" }),
 					},
 				}),
 			},

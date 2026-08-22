@@ -119,7 +119,7 @@ return {
 		local screen = UI.Screen({
 			id = "LifecycleHidden",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
 				-- title, a switch, two panels and a log do not fit the ~200px a
@@ -129,12 +129,12 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						UI.Toggle({ id = "ShowToggle", label = COPY.toggleLabel, value = showing }),
 						-- PANEL ONE, AND THE ORDER IS THE DEMO. The kept slot goes FIRST so
 						-- that "this line never moves" is literally true on screen: a panel
@@ -145,16 +145,16 @@ return {
 						UI.VStack({
 							id = "Reserved",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = 12 }),
+								UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
 								badge("Ghost", { hidden = isHidden }),
 								UI.Text({
 									id = "ReservedNote",
 									text = COPY.reservedNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
@@ -165,11 +165,11 @@ return {
 						UI.VStack({
 							id = "Removed",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = 12 }),
+								UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),
 								UI.When({
 									id = "Gate",
 									condition = showing,
@@ -189,18 +189,18 @@ return {
 								UI.Text({
 									id = "RemovedNote",
 									text = COPY.removedNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
 						}),
-						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = 12 }),
-						UI.Text({ id = "Log", text = logText, textSize = 12, role = "secondary" }),
-						UI.Text({ id = "Counts", text = counts, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
+						UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
+						UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
 						UI.Text({
 							id = "NoFire",
 							text = COPY.hiddenFiresNothing,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 					},

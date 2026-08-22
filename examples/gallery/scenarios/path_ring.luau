@@ -38,17 +38,17 @@ return {
 		-- ScrollView so it's reachable instead of clipped off the bottom.
 		local screen = UI.Screen({
 			id = "PathRing",
-			padding = 16,
+			padding = "m",
 			children = {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
 						UI.Text({ id = "Title", text = "Path2D progress ring", textSize = 22 }),
-						UI.Text({ id = "Value", text = label, textSize = 14 }),
+						UI.Text({ id = "Value", text = label, textSize = "label" }),
 						UI.ZStack({
 							id = "Gauge",
 							width = { type = "fixed", px = 180 },

@@ -94,12 +94,12 @@ return {
 
 		local screen = UI.Screen({
 			id = "ProgressRing",
-			padding = 16,
+			padding = "m",
 			children = {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {

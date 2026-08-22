@@ -44,7 +44,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "AsyncImages",
-			padding = 16,
+			padding = "m",
 			gap = 12,
 			children = {
 				-- THE PAGE SCROLLS, and it did not until this fixture entered the demo
@@ -62,7 +62,7 @@ return {
 					height = { type = "fill", weight = 1 },
 					children = {
 						UI.Text({ id = "Title", text = "Async images (PreloadAsync transport)", textSize = 22 }),
-						UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
+						UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
 						UI.HStack({
 							id = "Row",
 							gap = 12,

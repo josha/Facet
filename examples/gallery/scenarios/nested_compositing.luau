@@ -315,13 +315,13 @@ return {
 			return UI.VStack({
 				id = id,
 				surface = "control",
-				padding = 8,
+				padding = "s",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = title, textSize = 12 }),
+					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					body,
-					UI.Text({ id = "Note", text = note, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 				},
 			})
 		end
@@ -329,7 +329,7 @@ return {
 		local screen = UI.Screen({
 			id = "NestedCompositing",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, same reason as every multi-section fixture here:
 				-- two comparison rows, two controls and four caption blocks do not fit
@@ -338,34 +338,39 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 
 						UI.VStack({
 							id = "Opacity",
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = 14 }),
+								UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = "label" }),
 								UI.Text({
 									id = "SectionIntro",
 									text = COPY.opacityIntro,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 								fadeSlider.blueprint,
-								UI.Text({ id = "FadeStatus", text = fadeStatus, textSize = 12, role = "secondary" }),
+								UI.Text({
+									id = "FadeStatus",
+									text = fadeStatus,
+									textSize = "caption",
+									role = "secondary",
+								}),
 								-- side by side where there is room, a column where there is
 								-- not — the comparison only means anything while both panels
 								-- are visible at once
 								UI.AdaptiveStack({
 									id = "Panels",
 									axis = conditions.axis,
-									gap = 8,
+									gap = "s",
 									width = { type = "fill", weight = 1 },
 									children = {
 										panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
@@ -377,22 +382,27 @@ return {
 
 						UI.VStack({
 							id = "Carry",
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = 14 }),
+								UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = "label" }),
 								UI.Text({
 									id = "SectionIntro",
 									text = COPY.carryIntro,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 								turnToggle,
-								UI.Text({ id = "TurnStatus", text = turnStatus, textSize = 12, role = "secondary" }),
+								UI.Text({
+									id = "TurnStatus",
+									text = turnStatus,
+									textSize = "caption",
+									role = "secondary",
+								}),
 								UI.AdaptiveStack({
 									id = "Panels",
 									axis = conditions.axis,
-									gap = 8,
+									gap = "s",
 									width = { type = "fill", weight = 1 },
 									children = {
 										panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),

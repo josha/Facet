@@ -55,6 +55,13 @@ local POST_COUNT = 400
 	the whole authoring discipline the per-item form exists to make possible.
 	`docs/lessons/facet-fixed-px-heights.md` is the class this avoids: a px
 	height fixed against unfixed content. ]]
+-- THEME-OPT-OUT: every number in this table is ALSO ARITHMETIC. `rowExtent`
+-- above adds `METRICS.gap` to two `Facet.text.lineBox` results to declare the
+-- row's extent, and a metric NAME cannot be added to a number — the framework
+-- resolves a name inside the solver, and a consumer computing its own extent is
+-- outside it. That is the audit's MOVE §10/§1 gap, not a literal anyone chose:
+-- until an extent can be declared in content terms, the table that both sides
+-- read has to hold pixels or the two sides stop agreeing.
 local METRICS = {
 	padding = 10,
 	gap = 4,
@@ -318,7 +325,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "VariableExtents",
-			padding = 8,
+			padding = "s",
 			gap = 6,
 			children = {
 				UI.ScrollView({
@@ -328,7 +335,7 @@ return {
 					width = { type = "fill", weight = 1 },
 					height = chromeHeight,
 					children = {
-						UI.Text({ id = "Title", text = "400 posts, four heights", textSize = 18 }),
+						UI.Text({ id = "Title", text = "400 posts, four heights", textSize = "control" }),
 						--[[ THE CONTROLS WRAP rather than the page scrolling. Every other
 					fixture here puts its chrome in a page `UI.ScrollView`, and this one
 					cannot: the list IS a scroll host, and nesting one inside another is a
@@ -357,7 +364,7 @@ return {
 						UI.Text({
 							id = "Status",
 							text = status,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 							lineLimit = 2,
 							disclose = true,

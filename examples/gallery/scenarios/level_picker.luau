@@ -114,12 +114,12 @@ return {
 			return UI.VStack({
 				id = id,
 				surface = "control",
-				padding = 8,
+				padding = "s",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Label", text = label, textSize = 12 }),
-					UI.Text({ id = "Hint", text = hint, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "Label", text = label, textSize = "caption" }),
+					UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
 					--[[ THE STRIP TAKES THE LEFTOVER, and that is the whole layout.
 						The stepper is content-sized (two 44px targets and a readout
 						whose width is a theme metric), the picker is `fill`, so the
@@ -134,6 +134,11 @@ return {
 						(docs/lessons/the-solver-already-told-you.md). ]]
 					UI.HStack({
 						id = "Pair",
+						-- THEME-OPT-OUT: this row is pinned between a `fill` picker and a stepper that
+						-- is content-sized from two 44px targets and a theme-metric readout, and the
+						-- comment above records why it may not wrap. There is no slack for a step that
+						-- grows: measured, `gap = "s"` puts all five rows 2px past their box on a
+						-- 320x640 phone at +14 under glossy-touch.
 						gap = 8,
 						align = "center",
 						width = { type = "fill", weight = 1 },
@@ -190,8 +195,8 @@ return {
 		end))
 
 		local page: { any } = {
-			UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-			UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+			UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+			UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 		}
 		for _, node in rows do
 			table.insert(page, node)
@@ -201,26 +206,26 @@ return {
 			UI.VStack({
 				id = "Readout",
 				surface = "control",
-				padding = 8,
-				gap = 4,
+				padding = "s",
+				gap = "xs",
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = 12 }),
-					UI.Text({ id = "ReadoutBody", text = readout, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = "caption" }),
+					UI.Text({ id = "ReadoutBody", text = readout, textSize = "caption", role = "secondary" }),
 				},
 			})
 		)
-		table.insert(page, UI.Text({ id = "Note", text = COPY.note, textSize = 12, role = "secondary" }))
+		table.insert(page, UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }))
 
 		local screen = UI.Screen({
 			id = "LevelPickerDemo",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = page,

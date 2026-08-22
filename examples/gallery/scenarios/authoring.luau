@@ -68,11 +68,11 @@ return {
 		-- this is what the capture shows
 		local screen = UI.Screen({
 			id = "AuthoringScreen",
-			padding = 16,
+			padding = "m",
 			gap = 10,
 			children = {
 				UI.Text({ id = "Title", text = "Strict public authoring", textSize = 22 }),
-				UI.Text({ id = "Summary", text = summary, textSize = 14 }),
+				UI.Text({ id = "Summary", text = summary, textSize = "label" }),
 				-- A horizontal ScrollView rather than the original HStack (overflow
 				-- sweep, 2026-08-12): the button's and toggle's own hug-sized labels
 				-- ran 43-82px past a narrow phone's width with nothing to move them.
@@ -84,7 +84,7 @@ return {
 				UI.ScrollView({
 					id = "Row",
 					axis = "x",
-					gap = 8,
+					gap = "s",
 					children = {
 						UI.Button({ id = "Valid", label = "Valid button" }),
 						UI.Toggle({ id = "ValidToggle", label = "Valid toggle", value = core:signal(false) }),

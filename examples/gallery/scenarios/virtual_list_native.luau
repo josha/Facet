@@ -96,8 +96,8 @@ return {
 
 		local screen = UI.Screen({
 			id = "VLNative",
-			padding = 16,
-			gap = 8,
+			padding = "m",
+			gap = "s",
 			children = {
 				UI.Text({ id = "Title", text = "VirtualList x2000 (native canvas)", textSize = 22 }),
 				list.blueprint,

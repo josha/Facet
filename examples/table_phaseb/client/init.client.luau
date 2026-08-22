@@ -62,7 +62,7 @@ local tbl = Facet.Controls.Table(core, {
 			minWidth = 80,
 			resizable = true,
 			cell = function(item)
-				return UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return UI.Text({ id = "Value", text = item.name, textSize = "body" })
 			end,
 		},
 		{
@@ -115,8 +115,8 @@ local tbl = Facet.Controls.Table(core, {
 
 local screen = UI.Screen({
 	id = "TB",
-	padding = 24,
-	gap = 8,
+	padding = "l",
+	gap = "s",
 	children = {
 		UI.Text({ id = "Title", text = "Table Phase B — resize / drag / select", textSize = 22 }),
 		tbl.blueprint,

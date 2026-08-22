@@ -354,8 +354,8 @@ return {
 									}),
 								},
 							}),
-							UI.Text({ id = "Subject", text = item.subject, textSize = 14 }),
-							UI.Text({ id = "Preview", text = item.preview, textSize = 12, role = "secondary" }),
+							UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
+							UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
 						},
 					}),
 				},
@@ -442,6 +442,12 @@ return {
 			end,
 			cellFor = function(columnId: string, item: any): any
 				local text = if columnId == "from" then item.from else item.subject
+				-- THEME-OPT-OUT: this cell paints inside a row whose height the table pins
+				-- (`rowHeight` below), so the cell's type cannot ride a theme's ramp while the
+				-- row cannot. Measured with `textSize = "label"`: the value overflows its zstack
+				-- by 24px under compact-pointer and 25px under scifi-hud at +14 against a 21px
+				-- ledger ceiling, on both narrow viewports. It waits on a row height in content
+				-- terms (purity audit MOVE §3).
 				return UI.Text({ id = "Value", text = text, textSize = 14 })
 			end,
 			rowHeight = 44,
@@ -548,8 +554,8 @@ return {
 									}),
 								},
 							}),
-							UI.Text({ id = "Subject", text = item.subject, textSize = 14 }),
-							UI.Text({ id = "Preview", text = item.preview, textSize = 12, role = "secondary" }),
+							UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
+							UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
 						},
 					}),
 				},
@@ -683,7 +689,7 @@ return {
 				UI.Text({
 					id = "VListHint",
 					text = "Swipe a row (real touch/mouse — no scripted step reaches this surface)",
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				vlist.blueprint,

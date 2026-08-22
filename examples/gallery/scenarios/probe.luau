@@ -1,4 +1,11 @@
 --!strict
+-- PROBE-EXEMPT: this file is INSTRUMENT, not example — do not copy its shape.
+-- Every number in it is written as a literal ON PURPOSE and is listed in
+-- `PROBE_EXEMPT_FILES` in `tools/lune/check_theme_drift.luau` for that reason:
+-- the geometry below IS the frozen baseline ledger row NS-A2 captures, so it has
+-- to be immune to a theme swap by construction. An example spells the same
+-- values `gap = "s"` / `textSize = "body"`, and the rest of this directory does.
+--
 -- Scenario 'probe': surface self-test (no ledger adoption row of its own).
 -- Proves the verification surface itself: mount through the real presenter,
 -- deterministic steps, env observation, instance/geometry export, reset.

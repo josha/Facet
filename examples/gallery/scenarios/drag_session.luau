@@ -28,7 +28,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "DragLab",
-			padding = 16,
+			padding = "m",
 			-- 8, not 10 (2026-08-12): the `Board` below is a horizontal scroller, and
 			-- since the scrollbar reserve became policy-independent that scroller hugs
 			-- 8px taller — the height the engine actually charges for its bar. At the
@@ -36,11 +36,11 @@ return {
 			-- this page had 7px of slack, so it went 1px over and the overflow sweep
 			-- said so. The room comes out of the inter-row gap, which is the cheapest
 			-- pixel on a four-row lab page; nothing here is a token.
-			gap = 8,
+			gap = "s",
 			children = {
 				UI.Text({ id = "Title", text = "Drag session lab", textSize = 22 }),
-				UI.Text({ id = "Status", text = statusText, textSize = 14 }),
-				UI.Text({ id = "Hover", text = hoverText, textSize = 14 }),
+				UI.Text({ id = "Status", text = statusText, textSize = "label" }),
+				UI.Text({ id = "Hover", text = hoverText, textSize = "label" }),
 				-- The board's four fixed-width slots (Card + three targets, ~640px
 				-- with gaps) never fit a phone's width and must stay side by side —
 				-- the drag targets' geometry is meaningless if they wrap or shrink.
@@ -49,7 +49,7 @@ return {
 				UI.ScrollView({
 					id = "Board",
 					axis = "x",
-					gap = 16,
+					gap = "m",
 					children = {
 						UI.Box({
 							id = "Card",

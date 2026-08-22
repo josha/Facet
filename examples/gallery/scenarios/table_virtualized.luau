@@ -288,7 +288,7 @@ return {
 		local screen = UI.Screen({
 			id = "TableVirtualized",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				--[[ THE CHROME IS A SIBLING SCROLLER ON A SHORT CANVAS (O-21, measured
 					2026-08-15). The waiver this replaces was right that the page cannot
@@ -307,7 +307,7 @@ return {
 				UI.ScrollView({
 					id = "Chrome",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = chromeHeight,
 					children = {

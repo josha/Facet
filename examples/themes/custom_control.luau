@@ -160,7 +160,7 @@ function custom_control.blueprint(UI: any, resolved: any, id: string?): any
 	local name = id or "Gauge"
 	return UI.VStack({
 		id = name,
-		gap = 4,
+		gap = "xs",
 		width = { type = "fill", weight = 1 },
 		children = {
 			UI.Text({ id = name .. "Label", text = "Custom gauge (demo:gauge)", textSize = "caption" }),

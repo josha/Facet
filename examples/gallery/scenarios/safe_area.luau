@@ -22,15 +22,15 @@ return {
 		local screen = UI.Screen({
 			id = "SafeAreaScreen",
 			padding = 0,
-			gap = 4,
+			gap = "xs",
 			children = {
-				UI.Text({ id = "TopEdge", text = "TOP-EDGE MARKER", textSize = 18 }),
+				UI.Text({ id = "TopEdge", text = "TOP-EDGE MARKER", textSize = "control" }),
 				UI.Box({
 					id = "Content",
 					surface = "raised",
 					height = { type = "fill", weight = 1 },
 				}),
-				UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = 18 }),
+				UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = "control" }),
 			},
 		})
 

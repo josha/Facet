@@ -286,7 +286,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 
 	return UI.VStack({
 		id = name,
-		gap = 4,
+		gap = "xs",
 		width = FILL,
 		children = {
 			UI.Text({

@@ -696,7 +696,7 @@ return {
 				UI.Text({
 					id = `Phase{i}`,
 					text = `{row.phase} → {row.effect} — {row.owner}`,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				})
 			)
@@ -724,7 +724,7 @@ return {
 				UI.Text({
 					id = `Sensation{i}`,
 					text = `{row.verb} → {row.effect or row.note or COPY.silent}`,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				})
 			)
@@ -733,7 +733,7 @@ return {
 		local screen = UI.Screen({
 			id = "SensoryFeedback",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every fixture here does: two
 				-- panels, a log and a table do not fit the ~200px a 640x320 landscape
@@ -743,25 +743,30 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						UI.VStack({
 							id = "Leaves",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "LeavesTitle", text = COPY.declaredTitle, textSize = 12 }),
+								UI.Text({ id = "LeavesTitle", text = COPY.declaredTitle, textSize = "caption" }),
 								-- WRAPS. Five chips at the Largest text preference, pseudo-
 								-- localized, do not fit one line on a 320px phone, and a row
 								-- that cannot wrap walks off the right edge of its own box.
 								UI.HStack({ id = "LeafRow", wrap = true, gap = 6, children = leafButtons }),
-								UI.Text({ id = "MuteNote", text = COPY.muteNote, textSize = 12, role = "secondary" }),
+								UI.Text({
+									id = "MuteNote",
+									text = COPY.muteNote,
+									textSize = "caption",
+									role = "secondary",
+								}),
 							},
 						}),
 						-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
@@ -771,11 +776,11 @@ return {
 							UI.VStack({
 								id = "Cascade",
 								surface = "control",
-								padding = 8,
+								padding = "s",
 								gap = 6,
 								width = { type = "fill", weight = 1 },
 								children = {
-									UI.Text({ id = "CascadeTitle", text = COPY.cascadeTitle, textSize = 12 }),
+									UI.Text({ id = "CascadeTitle", text = COPY.cascadeTitle, textSize = "caption" }),
 									UI.HStack({
 										id = "CascadeRow",
 										wrap = true,
@@ -795,25 +800,25 @@ return {
 									UI.Text({
 										id = "CascadeNote",
 										text = COPY.cascadeNote,
-										textSize = 12,
+										textSize = "caption",
 										role = "secondary",
 									}),
 								},
 							}),
 							{ activation = "pickup" }
 						),
-						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = 12 }),
-						UI.Text({ id = "Log", text = logText, textSize = 12, role = "secondary" }),
-						UI.Text({ id = "Counts", text = counts, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
+						UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
+						UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
 						UI.VStack({
 							id = "Sensations",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = (function(): { any }
 								local kids: { any } = {
-									UI.Text({ id = "SensationTitle", text = COPY.sensationTitle, textSize = 12 }),
+									UI.Text({ id = "SensationTitle", text = COPY.sensationTitle, textSize = "caption" }),
 								}
 								for _, row in sensationRows do
 									table.insert(kids, row)
@@ -823,7 +828,7 @@ return {
 									UI.Text({
 										id = "PlaysNothing",
 										text = COPY.playsNothing,
-										textSize = 12,
+										textSize = "caption",
 										role = "secondary",
 									})
 								)
@@ -843,20 +848,30 @@ return {
 						UI.VStack({
 							id = "Play",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "PlayTitle", text = COPY.playTitle, textSize = 12 }),
+								UI.Text({ id = "PlayTitle", text = COPY.playTitle, textSize = "caption" }),
 								UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
-								UI.Text({ id = "PlayNote", text = COPY.playNote, textSize = 12, role = "secondary" }),
-								UI.Text({ id = "PlayState", text = hapticsHeadline, textSize = 12 }),
-								UI.Text({ id = "PlayDetail", text = hapticsDetail, textSize = 12, role = "secondary" }),
-								UI.Text({ id = "UnknowableTitle", text = COPY.unknowableTitle, textSize = 12 }),
+								UI.Text({
+									id = "PlayNote",
+									text = COPY.playNote,
+									textSize = "caption",
+									role = "secondary",
+								}),
+								UI.Text({ id = "PlayState", text = hapticsHeadline, textSize = "caption" }),
+								UI.Text({
+									id = "PlayDetail",
+									text = hapticsDetail,
+									textSize = "caption",
+									role = "secondary",
+								}),
+								UI.Text({ id = "UnknowableTitle", text = COPY.unknowableTitle, textSize = "caption" }),
 								UI.Text({
 									id = "Unknowable",
 									text = COPY.unknowable,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
@@ -873,18 +888,18 @@ return {
 						UI.VStack({
 							id = "Calibration",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = 12 }),
+								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = "caption" }),
 								UI.Text({
 									id = "CalNote",
 									text = COPY.calibrationNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
-								UI.Text({ id = "PhasesTitle", text = COPY.phasesTitle, textSize = 12 }),
+								UI.Text({ id = "PhasesTitle", text = COPY.phasesTitle, textSize = "caption" }),
 								UI.VStack({ id = "PhaseRows", gap = 2, children = phaseRows }),
 								-- PRESS has no handler and cannot have one: pressing it IS
 								-- the phase, because the engine owns the moment.
@@ -920,28 +935,28 @@ return {
 								UI.Text({
 									id = "CalPressNote",
 									text = COPY.calPressNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 								UI.Text({
 									id = "CalReleaseNote",
 									text = COPY.calReleaseNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 								UI.Text({
 									id = "CalSelectNote",
 									text = COPY.calSelectNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 								UI.Text({
 									id = "CalSynthNote",
 									text = COPY.calSynthNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
-								UI.Text({ id = "ProfileTitle", text = COPY.profileTitle, textSize = 12 }),
+								UI.Text({ id = "ProfileTitle", text = COPY.profileTitle, textSize = "caption" }),
 								UI.HStack({
 									id = "ProfileRow",
 									wrap = true,
@@ -952,14 +967,14 @@ return {
 										profileButton("ProfileSilent", "profileSilent", PROFILE_SILENT),
 									},
 								}),
-								UI.Text({ id = "ProfileCurrent", text = profileLine, textSize = 12 }),
+								UI.Text({ id = "ProfileCurrent", text = profileLine, textSize = "caption" }),
 								UI.Text({
 									id = "ProfileNote",
 									text = COPY.profileNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
-								UI.Text({ id = "PulseCount", text = pulseLine, textSize = 12 }),
+								UI.Text({ id = "PulseCount", text = pulseLine, textSize = "caption" }),
 							},
 						}),
 					},

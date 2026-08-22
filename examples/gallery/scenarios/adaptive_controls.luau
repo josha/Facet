@@ -177,11 +177,11 @@ return {
 			gap = 6,
 			width = { type = "fill", weight = 1 },
 			children = {
-				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = 12 }),
+				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = "caption" }),
 				navPill.blueprint,
 				UI.HStack({
 					id = "NavRailRow",
-					gap = 8,
+					gap = "s",
 					align = "start",
 					width = { type = "fill", weight = 1 },
 					children = {
@@ -189,7 +189,7 @@ return {
 						UI.Text({
 							id = "NavReadout",
 							text = navReadout,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 							width = { type = "fill", weight = 1 },
 						}),
@@ -221,7 +221,7 @@ return {
 			children = {
 				UI.HStack({
 					id = "ActionsRow",
-					gap = 8,
+					gap = "s",
 					align = "stretch",
 					width = { type = "fill", weight = 1 },
 					children = {
@@ -303,7 +303,7 @@ return {
 						UI.Text({
 							id = id .. "Badge",
 							text = badge,
-							textSize = 12,
+							textSize = "caption",
 							textAlign = "center",
 							surface = "badge",
 							width = { type = "fixed", px = 28 },
@@ -412,7 +412,7 @@ return {
 				hudTiles,
 				UI.background(
 					UI.padding(
-						UI.Text({ id = `Stat{i}`, text = `S{i}`, textSize = 12 }),
+						UI.Text({ id = `Stat{i}`, text = `S{i}`, textSize = "caption" }),
 						{ top = 4, bottom = 4, left = 6, right = 6 }
 					),
 					UI.Box({ id = `StatPlate{i}`, surface = "control" })
@@ -432,7 +432,7 @@ return {
 		-- every viewport — which is exactly the tab-bar case §2.6 was written for,
 		-- and today's only alternative is hand-placed Spacers.
 		local function marker(id: string, text: string)
-			return UI.Text({ id = id, text = text, textSize = 12, role = "secondary" })
+			return UI.Text({ id = id, text = text, textSize = "caption", role = "secondary" })
 		end
 		-- ...AND IT WRAPS (O-21, 2026-08-15). `spaceBetween` distributes the
 		-- leftover; it has nothing to say when there IS no leftover, and at +10/+14
@@ -516,7 +516,7 @@ return {
 		-- are. The header cell spans both columns and contributes to neither
 		-- column's maximum.
 		local function specCell(id: string, text: string, extra: { [string]: any }?)
-			local props: { [string]: any } = { id = id, text = text, textSize = 12 }
+			local props: { [string]: any } = { id = id, text = text, textSize = "caption" }
 			for key, value in extra or {} do
 				props[key] = value
 			end
@@ -561,10 +561,10 @@ return {
 
 		local hudColumn = UI.VStack({
 			id = "Hud",
-			gap = 8,
+			gap = "s",
 			width = { type = "fill", weight = 1 },
 			children = {
-				UI.Text({ id = "HudHeading", text = "Status", textSize = 18 }),
+				UI.Text({ id = "HudHeading", text = "Status", textSize = "control" }),
 				UI.Divider({}),
 				toolbar,
 				compactLadder,
@@ -575,7 +575,7 @@ return {
 				UI.Grid({
 					id = "Stats",
 					minColumnWidth = 48,
-					gap = 4,
+					gap = "xs",
 					width = { type = "fill", weight = 1 },
 					children = hudTiles,
 				}),
@@ -594,7 +594,7 @@ return {
 				}),
 				-- the round-2 layout vocabulary, built above
 				UI.Divider({}),
-				UI.Text({ id = "VocabHeading", text = "Layout vocabulary", textSize = 18 }),
+				UI.Text({ id = "VocabHeading", text = "Layout vocabulary", textSize = "control" }),
 				vocabLegend,
 				vocabShrink,
 				vocabPage,
@@ -619,6 +619,11 @@ return {
 		-- leaves, at every viewport and every text scale, without arithmetic.
 		local screen = UI.Screen({
 			id = "AdaptiveScreen",
+			-- THEME-OPT-OUT: this gutter decides the usable width of every control row
+			-- below it. MEASURED with `padding = "m"`: on a 320x640 phone under glossy-mobile
+			-- and glossy-touch the theme's larger step narrows the body to 242px and the
+			-- Slider row overflows by 4px AT +0 — a default-text-size regression on a shipped
+			-- package. The gutter waits on a control row that can give way at that width.
 			padding = 16,
 			gap = 12,
 			-- centres the width-capped action bar; the scroll region is fill-width
@@ -634,7 +639,7 @@ return {
 						UI.AdaptiveStack({
 							id = "Body",
 							axis = conditions.axis,
-							gap = 16,
+							gap = "m",
 							width = { type = "fill", weight = 1 },
 							children = { settingsColumn, hudColumn },
 						}),

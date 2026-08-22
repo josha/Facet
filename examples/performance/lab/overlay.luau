@@ -164,7 +164,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			lineLimit = 1,
 			width = { type = "fill", weight = 1 },
 		}),
-		UI.Text({ id = "Position", text = model.scenarioPosition, textSize = 12 }),
+		UI.Text({ id = "Position", text = model.scenarioPosition, textSize = "caption" }),
 		UI.Button({
 			id = "Next",
 			label = "▶",
@@ -206,7 +206,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			local lines = use(model.counterLines)
 			return lines[i] or ""
 		end)
-		table.insert(counterTexts, UI.Text({ id = `C{i}`, text = line, textSize = 12 }))
+		table.insert(counterTexts, UI.Text({ id = `C{i}`, text = line, textSize = "caption" }))
 	end
 
 	-- ORDER IS REACHABILITY. The panel is bounded and scrolls, so whatever sits below
@@ -227,7 +227,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		stackChildren,
 		UI.HStack({
 			id = "Status",
-			gap = 8,
+			gap = "s",
 			-- FILL, or the `fill` child below collapses. A `fill` child asks its
 			-- parent for the leftover main-axis space, and a HUGGING parent has
 			-- none to give — it sizes itself to its content, so the child resolves
@@ -283,7 +283,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- fixed picker cannot trap a control off-screen.
 			height = { type = "fixed", px = 110 },
 			width = { type = "fill", weight = 1 },
-			children = { UI.VStack({ id = "Chips", gap = 4, children = chips }) },
+			children = { UI.VStack({ id = "Chips", gap = "xs", children = chips }) },
 		})
 	)
 	table.insert(stackChildren, UI.VStack({ id = "Counters", gap = 0, children = counterTexts }))
@@ -303,7 +303,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	-- while guaranteeing the workload always gets the majority of the screen.
 	return UI.Screen({
 		id = "PerfLabOverlay",
-		padding = 8,
+		padding = "s",
 		children = {
 			UI.Anchor({
 				id = "Dock",
@@ -319,7 +319,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 						-- straight through its own labels — which is what a phone
 						-- screenshot showed: counter text woven into list rows.
 						surface = "raised",
-						padding = 8,
+						padding = "s",
 						width = { type = "fill", weight = 1 },
 						-- A FRACTION OF THE SCREEN, RESOLVED EVERY SOLVE. A fixed px
 						-- computed by the caller was a snapshot of one orientation;

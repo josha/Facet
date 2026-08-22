@@ -126,7 +126,7 @@ return {
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Body", text = COPY.panelBody, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "Body", text = COPY.panelBody, textSize = "caption", role = "secondary" }),
 				},
 			})
 		end
@@ -134,7 +134,7 @@ return {
 		local screen = UI.Screen({
 			id = "BranchScope",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
 				-- title, two panels, two buttons and a five-line readout do not fit the
@@ -143,21 +143,21 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 
 						UI.VStack({
 							id = "Owned",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = 12 }),
+								UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = "caption" }),
 								UI.Button({
 									id = "OwnedButton",
 									label = COPY.ownedButton,
@@ -183,7 +183,7 @@ return {
 								UI.Text({
 									id = "OwnedNote",
 									text = COPY.ownedNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
@@ -192,11 +192,11 @@ return {
 						UI.VStack({
 							id = "Hoisted",
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							gap = 6,
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = 12 }),
+								UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = "caption" }),
 								UI.Button({
 									id = "HoistedButton",
 									label = COPY.hoistedButton,
@@ -224,14 +224,14 @@ return {
 								UI.Text({
 									id = "HoistedNote",
 									text = COPY.hoistedNote,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
 						}),
 
-						UI.Text({ id = "StatsTitle", text = COPY.statsTitle, textSize = 12 }),
-						UI.Text({ id = "Stats", text = readout, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "StatsTitle", text = COPY.statsTitle, textSize = "caption" }),
+						UI.Text({ id = "Stats", text = readout, textSize = "caption", role = "secondary" }),
 					},
 				}),
 			},

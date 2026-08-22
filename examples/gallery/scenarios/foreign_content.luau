@@ -71,7 +71,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "ForeignContent",
-			padding = 16,
+			padding = "m",
 			children = {
 				UI.ScrollView({
 					id = "Page",
@@ -80,12 +80,12 @@ return {
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = "UI.Foreign", textSize = 24 }),
+						UI.Text({ id = "Title", text = "UI.Foreign", textSize = "title" }),
 						UI.Text({
 							id = "Blurb",
 							text = "Facet reserves and clips the box. You create the instance, you own every "
 								.. "property on it, and the framework writes exactly one thing: its Parent.",
-							textSize = 14,
+							textSize = "label",
 						}),
 						UI.HStack({
 							id = "Panes",
@@ -127,7 +127,7 @@ return {
 						UI.Text({ id = "Status", text = status, textSize = 13 }),
 						UI.HStack({
 							id = "Actions",
-							gap = 8,
+							gap = "s",
 							wrap = true,
 							children = {
 								UI.Button({
@@ -146,13 +146,18 @@ return {
 								}),
 							},
 						}),
-						UI.Text({ id = "Refusal", text = refusal, textSize = 12, disclose = true }),
+						UI.Text({ id = "Refusal", text = refusal, textSize = "caption", disclose = true }),
 					},
 				}),
 			},
 		})
 
 		local CONTENT: { [string]: any } = {
+			-- THEME-OPT-OUT: this number is not a Facet prop — it is handed across the
+			-- FOREIGN seam to `foreign_instances.build`, which writes it to a raw
+			-- `TextLabel.TextSize`, and an engine property takes a number or nothing.
+			-- Naming a typography role here would be a runtime type error, which is
+			-- the point the pane exists to make: outside the seam there is no theme.
 			[`{PANES}/Rich/Pane`] = { kind = "richText", text = RICH, textSize = 18 },
 			[`{PANES}/Engine/Pane`] = { kind = "engineList", items = LIST_ITEMS },
 			[`{PANES}/Clip/Pane`] = { kind = "oversize" },

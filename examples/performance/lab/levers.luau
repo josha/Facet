@@ -280,7 +280,7 @@ function levers.install(deps: any)
 			return U.Text({
 				id = `L{i}`,
 				text = item.name,
-				textSize = 12,
+				textSize = "caption",
 				lineLimit = 1,
 				height = { type = "fixed", px = SHAPE_LEAF_H },
 			})
@@ -543,11 +543,11 @@ function levers.install(deps: any)
 			cell = function(item: any)
 				return U.VStack({
 					id = "Row",
-					padding = 4,
+					padding = "xs",
 					gap = 2,
 					width = { type = "fill", weight = 1 },
 					children = {
-						U.Text({ id = "N", text = item.name, textSize = 12, lineLimit = 1 }),
+						U.Text({ id = "N", text = item.name, textSize = "caption", lineLimit = 1 }),
 					},
 				})
 			end,

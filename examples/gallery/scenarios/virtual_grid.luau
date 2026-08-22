@@ -233,7 +233,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "VirtualGrid",
-			padding = 8,
+			padding = "s",
 			gap = 6,
 			children = {
 				--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
@@ -285,7 +285,7 @@ return {
 				}),
 				-- capped at two lines so a longer status string can never be the thing
 				-- that pushes the grid out of its own page
-				UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary", lineLimit = 2 }),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
 				-- the pane whose solved height IS the grid's window (see `onGeometry`
 				-- below). `fill` is what makes it the screen's decision, never the
 				-- grid's

@@ -790,12 +790,12 @@ return {
 				surface = "raised",
 				-- clears the Roblox topbar so a capture shows the whole row
 				padding = { top = 56, right = 24, bottom = 24, left = 24 },
-				gap = 16,
+				gap = "m",
 				children = {
 					UI.Text({ id = "Title", text = "shape = circle", textSize = "heading" }),
 					UI.HStack({
 						id = "Row",
-						gap = 16,
+						gap = "m",
 						align = "center",
 						children = {
 							UI.Button({ id = "Dots", label = "...", shape = "circle" }),

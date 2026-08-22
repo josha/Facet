@@ -195,12 +195,12 @@ return {
 			return UI.VStack({
 				id = id,
 				surface = "control",
-				padding = 8,
-				gap = 4,
+				padding = "s",
+				gap = "xs",
 				width = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = title, textSize = 12 }),
-					UI.Text({ id = "Note", text = note, textSize = 12, role = "secondary" }),
+					UI.Text({ id = "Title", text = title, textSize = "caption" }),
+					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 					UI.VStack({
 						id = "Rows",
 						gap = 2,
@@ -216,7 +216,7 @@ return {
 									return UI.Text({
 										id = "Row",
 										text = `{entry.key}  {entry.value}`,
-										textSize = 12,
+										textSize = "caption",
 									})
 								end,
 							}),
@@ -229,7 +229,7 @@ return {
 		local screen = UI.Screen({
 			id = "SortedEntries",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every other fixture here does:
 				-- twelve rows in each of two columns plus a picker and a status line do
@@ -238,12 +238,12 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						picker.blueprint,
 						-- SIDE BY SIDE WITH ROOM, STACKED WITHOUT, and the axis is bound
 						-- rather than branched: an `AdaptiveStack` re-solves in place, so
@@ -256,16 +256,16 @@ return {
 						UI.AdaptiveStack({
 							id = "Columns",
 							axis = conditions.axis,
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {
 								column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
 								column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),
 							},
 						}),
-						UI.Text({ id = "StatusTitle", text = COPY.statusTitle, textSize = 12 }),
-						UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary" }),
-						UI.Text({ id = "Note", text = COPY.note, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "StatusTitle", text = COPY.statusTitle, textSize = "caption" }),
+						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+						UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
 					},
 				}),
 			},

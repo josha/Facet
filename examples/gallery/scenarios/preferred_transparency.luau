@@ -138,7 +138,7 @@ return {
 		local function swatch(id: string, label: string, hint: string, body: any): any
 			return UI.VStack({
 				id = id,
-				gap = 4,
+				gap = "xs",
 				width = { type = "fixed", px = 132 },
 				children = {
 					body,
@@ -164,7 +164,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "PreferredTransparency",
-			padding = 16,
+			padding = "m",
 			children = {
 				UI.ScrollView({
 					id = "Page",

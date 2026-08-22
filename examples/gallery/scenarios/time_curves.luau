@@ -320,7 +320,7 @@ return {
 						UI.Text({
 							id = "Label",
 							text = lane.label,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 						UI.Anchor({
@@ -432,19 +432,19 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						motionPicker.blueprint,
 
 						-- (1) THE RACE
-						UI.Text({ id = "RaceHead", text = COPY.raceHead, textSize = 14 }),
+						UI.Text({ id = "RaceHead", text = COPY.raceHead, textSize = "label" }),
 						UI.Text({
 							id = "RaceBody",
 							text = COPY.raceBody,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 						UI.Button({
@@ -458,16 +458,16 @@ return {
 						UI.Text({
 							id = "RaceStatus",
 							text = raceStatus,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 
 						-- (2) THE CURVE GALLERY
-						UI.Text({ id = "GalleryHead", text = COPY.galleryHead, textSize = 14 }),
+						UI.Text({ id = "GalleryHead", text = COPY.galleryHead, textSize = "label" }),
 						UI.Text({
 							id = "GalleryBody",
 							text = COPY.galleryBody,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 						UI.Button({
@@ -484,11 +484,11 @@ return {
 						}),
 
 						-- (3) THE withAnimation PANEL
-						UI.Text({ id = "PanelHead", text = COPY.panelHead, textSize = 14 }),
+						UI.Text({ id = "PanelHead", text = COPY.panelHead, textSize = "label" }),
 						UI.Text({
 							id = "PanelBody",
 							text = COPY.panelBody,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 						UI.Button({
@@ -520,7 +520,7 @@ return {
 						UI.Text({
 							id = "CardCaption",
 							text = COPY.panelCard,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 						--[[ ...and the thing that GROWS: a box whose SOLVED height
@@ -550,7 +550,7 @@ return {
 						UI.Text({
 							id = "PanelStatus",
 							text = panelStatus,
-							textSize = 12,
+							textSize = "caption",
 							role = "secondary",
 						}),
 					},

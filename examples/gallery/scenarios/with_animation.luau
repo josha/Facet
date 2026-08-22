@@ -280,13 +280,13 @@ return {
 		-- ===== the two columns ==============================================
 		local decorative = UI.VStack({
 			id = "Decorative",
-			gap = 4,
+			gap = "xs",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.Text({
 					id = "Caption",
 					text = COPY.decorative,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
@@ -336,12 +336,19 @@ return {
 				UI.Text({
 					id = "CardCaption",
 					text = COPY.cardLabel,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				UI.VStack({
 					id = "Card",
 					surface = "raised",
+					-- THEME-OPT-OUT: this card's HEIGHT is the demo — a memo animating it between
+					-- two fixed px — so its inside is pinned by the same decision. MEASURED with
+					-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
+					-- longer clears it, and the card paints 4px past its own box on a 1920x1078
+					-- console at +0 under Studio Neutral. It waits on a height a box can declare in
+					-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
+					-- pinned padding are one decision, not two.
 					padding = 8,
 					gap = 2,
 					width = { type = "fill", weight = 1 },
@@ -403,7 +410,7 @@ return {
 				UI.Text({
 					id = "EffectsCaption",
 					text = COPY.effectsLabel,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				UI.Anchor({
@@ -462,7 +469,7 @@ return {
 				UI.Text({
 					id = "WrapCaption",
 					text = COPY.wrapLabel,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
@@ -479,13 +486,13 @@ return {
 				UI.ZStack({
 					id = "Wrapped",
 					surface = "control",
-					padding = 8,
+					padding = "s",
 					width = { type = "fill", weight = 1 },
 					opacity = paintOpacity,
 					children = {
 						UI.HStack({
 							id = "Row",
-							gap = 8,
+							gap = "s",
 							align = "center",
 							wrap = true,
 							width = { type = "fill", weight = 1 },
@@ -506,7 +513,7 @@ return {
 						return UI.VStack({
 							id = "Panel",
 							surface = "raised",
-							padding = 8,
+							padding = "s",
 							gap = 2,
 							width = { type = "fill", weight = 1 },
 							children = {
@@ -514,7 +521,7 @@ return {
 								UI.Text({
 									id = "Body",
 									text = COPY.detailBody,
-									textSize = 12,
+									textSize = "caption",
 									role = "secondary",
 								}),
 							},
@@ -526,7 +533,7 @@ return {
 				-- its new place instead of being destroyed and rebuilt there.
 				UI.HStack({
 					id = "Chips",
-					gap = 4,
+					gap = "xs",
 					width = { type = "fill", weight = 1 },
 					children = {
 						UI.ForEach({
@@ -545,7 +552,7 @@ return {
 										UI.Text({
 											id = "Label",
 											text = name,
-											textSize = 12,
+											textSize = "caption",
 											textAlign = "center",
 											lineLimit = 1,
 										}),
@@ -598,13 +605,13 @@ return {
 
 		local informational = UI.VStack({
 			id = "Informational",
-			gap = 4,
+			gap = "xs",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.Text({
 					id = "Caption",
 					text = COPY.informational,
-					textSize = 12,
+					textSize = "caption",
 					role = "secondary",
 				}),
 				chargeBar.blueprint,
@@ -642,14 +649,14 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
 						UI.Text({
 							id = "Title",
 							text = COPY.title,
-							textSize = 18,
+							textSize = "control",
 						}),
 						motionPicker.blueprint,
 						UI.Button({
@@ -661,11 +668,11 @@ return {
 						UI.AdaptiveStack({
 							id = "Stage",
 							axis = stageAxis,
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = { decorative, informational },
 						}),
-						UI.Text({ id = "Status", text = statusLine, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
 					},
 				}),
 			},

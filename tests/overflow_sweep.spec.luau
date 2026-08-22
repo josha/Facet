@@ -3171,8 +3171,15 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			mounted produces, which is the trap every set assertion in this file
 			carries. The census pin is the same discipline the cap ledger uses on a
 			file size: when the matrix legitimately changes, this number changes with
-			it and the next author re-reads the case rather than deleting it. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 381")
+			it and the next author re-reads the case rather than deleting it.
+
+			381 -> 385 (2026-08-21, declarative-purity sweep). The matrix changed
+			legitimately: 355 spacing and type literals across the showcase became the
+			theme names that already resolved to them, so four more route boxes in the
+			swept surfaces now measure at a size this census counts. RE-READ RATHER
+			THAN BUMPED — the two pinned-EMPTY lists above are what the R23 ruling is
+			about, and both are still empty, which is the half a count cannot say. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 385")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

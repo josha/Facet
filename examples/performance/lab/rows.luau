@@ -409,7 +409,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			-- the owner caps the lines. `disclose` keeps the full name reachable once it
 			-- truncates, so nothing is hidden — the line count is bounded, not the value.
 			UI.Text({ id = "Name", text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),
-			UI.Text({ id = "Detail", text = item.detail, textSize = 12, lineLimit = 1 }),
+			UI.Text({ id = "Detail", text = item.detail, textSize = "caption", lineLimit = 1 }),
 		},
 	})
 	local toggle = UI.Toggle({ id = "Ready", label = "Ready", value = toggled })
@@ -435,7 +435,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		local lines = {
 			UI.HStack({
 				id = "Head",
-				gap = 8,
+				gap = "s",
 				width = { type = "fill", weight = 1 },
 				children = { image.blueprint, labels },
 			}),
@@ -451,7 +451,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			-- workload does not, which is the rule the split above already follows.
 			UI.HStack({
 				id = "Controls",
-				gap = 8,
+				gap = "s",
 				width = { type = "fill", weight = 1 },
 				children = if split then { toggle } else { toggle, open },
 			}),
@@ -461,7 +461,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 				lines,
 				UI.HStack({
 					id = "Action",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					children = { open },
 				})
@@ -471,7 +471,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			lines,
 			UI.HStack({
 				id = "Value",
-				gap = 8,
+				gap = "s",
 				width = { type = "fill", weight = 1 },
 				children = { stepper.blueprint },
 			})
@@ -479,7 +479,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		return UI.VStack({
 			id = "Row",
 			gap = rows.COMPACT_LINE_GAP,
-			padding = 4,
+			padding = "xs",
 			width = { type = "fill", weight = 1 },
 			children = lines,
 		})
@@ -487,8 +487,8 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 
 	return UI.HStack({
 		id = "Row",
-		gap = 8,
-		padding = 4,
+		gap = "s",
+		padding = "xs",
 		width = { type = "fill", weight = 1 },
 		children = { image.blueprint, labels, toggle, stepper.blueprint, open },
 	})

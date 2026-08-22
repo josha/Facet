@@ -59,7 +59,7 @@ return {
 				UI.Text({
 					id = entry.id,
 					text = entry.text,
-					textSize = 18,
+					textSize = "control",
 					width = { type = "fixed", px = 300 },
 				})
 			)
@@ -74,7 +74,7 @@ return {
 		-- own row->column reflow) still happens inside it.
 		local screen = UI.Screen({
 			id = "PrefText",
-			padding = 16,
+			padding = "m",
 			gap = 10,
 			children = {
 				UI.Text({ id = "Title", text = "Preferred-text corpus", textSize = 22 }),
@@ -93,7 +93,7 @@ return {
 								UI.Text({
 									id = "Identity",
 									text = "Bartholomew 'The Unstoppable Thunderbolt' Maximilian III",
-									textSize = 16,
+									textSize = "body",
 									lineLimit = 1,
 									disclose = true,
 									width = { type = "fixed", px = 220 },
@@ -106,7 +106,7 @@ return {
 									children = {
 										UI.VStack({
 											id = "FormRows",
-											gap = 8,
+											gap = "s",
 											children = (function()
 												local rows = {}
 												table.insert(rows, field.blueprint)
@@ -126,7 +126,7 @@ return {
 									children = {
 										UI.HStack({
 											id = "CtaRow",
-											gap = 8,
+											gap = "s",
 											children = {
 												UI.Button({ id = "AcceptRow", label = "Accept the invitation" }),
 												UI.Button({ id = "DeclineRow", label = "Politely decline for now" }),
@@ -134,7 +134,7 @@ return {
 										}),
 										UI.VStack({
 											id = "CtaColumn",
-											gap = 8,
+											gap = "s",
 											children = {
 												UI.Button({ id = "AcceptCol", label = "Accept the invitation" }),
 												UI.Button({ id = "DeclineCol", label = "Politely decline for now" }),

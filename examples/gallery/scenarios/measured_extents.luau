@@ -135,7 +135,7 @@ return {
 				return UI.VStack({
 					id = "Post",
 					padding = 10,
-					gap = 4,
+					gap = "xs",
 					width = { type = "fill", weight = 1 },
 					children = {
 						UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
@@ -189,7 +189,7 @@ return {
 
 		local screen = UI.Screen({
 			id = "MeasuredExtents",
-			padding = 8,
+			padding = "s",
 			gap = 6,
 			children = {
 				--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
@@ -205,7 +205,7 @@ return {
 				}),
 				-- capped at two lines so a longer status string can never be the thing
 				-- that pushes the list out of its own page
-				UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary", lineLimit = 2 }),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
 				-- the pane whose solved height IS the list's window. `fill` is what makes
 				-- it the screen's decision rather than the list's
 				UI.VStack({

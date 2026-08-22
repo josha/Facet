@@ -178,7 +178,7 @@ return {
 		local screen = UI.Screen({
 			id = "FlowWrap",
 			padding = 12,
-			gap = 8,
+			gap = "s",
 			children = {
 				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
 				-- title, a toggle, two panels and a picker do not fit the ~200px a
@@ -188,14 +188,19 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Toggle({ id = "WrapToggle", label = COPY.wrapLabel, value = wrapping }),
-						UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary" }),
-						UI.Text({ id = "CloudCaption", text = COPY.cloudCaption, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+						UI.Text({
+							id = "CloudCaption",
+							text = COPY.cloudCaption,
+							textSize = "caption",
+							role = "secondary",
+						}),
 						-- THE FIXTURE ITSELF. No height: it is exactly as tall as its
 						-- own lines, at every viewport, which is what makes the tag
 						-- count safe on a 320px phone.
@@ -206,7 +211,12 @@ return {
 							width = { type = "fill", weight = 1 },
 							children = cloudTags,
 						}),
-						UI.Text({ id = "AlignCaption", text = COPY.alignCaption, textSize = 12, role = "secondary" }),
+						UI.Text({
+							id = "AlignCaption",
+							text = COPY.alignCaption,
+							textSize = "caption",
+							role = "secondary",
+						}),
 						alignPicker.blueprint,
 						-- ...and the probe, as a surface. `surface = "control"` so the
 						-- box the block is aligned INSIDE is visible; without it the
@@ -217,7 +227,7 @@ return {
 							align = blockAlign,
 							gap = TAG_GAP,
 							surface = "control",
-							padding = 8,
+							padding = "s",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fixed", px = ALIGN_BOX_HEIGHT },
 							children = shortTags,

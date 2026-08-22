@@ -35,7 +35,7 @@ return {
 				UI.Text({
 					id = "Row" .. i,
 					text = "List row " .. i,
-					textSize = 18,
+					textSize = "control",
 					height = { type = "fixed", px = 36 },
 				})
 			)
@@ -72,8 +72,8 @@ return {
 
 		local screen = UI.Screen({
 			id = "ScrollHost",
-			padding = 16,
-			gap = 8,
+			padding = "m",
+			gap = "s",
 			children = {
 				--[[ THE TITLE GOES WHEN THE ROOM DOES (O-21, measured 2026-08-15) —
 					the same call `row_actions` makes, for the same reason: the demo
@@ -106,7 +106,7 @@ return {
 					id = "List",
 					height = { type = "fill", weight = 3 },
 					width = { type = "fixed", px = 280 },
-					padding = 8,
+					padding = "s",
 					gap = 0,
 					children = rows,
 				}),
@@ -121,7 +121,7 @@ return {
 						return UI.Text({
 							id = "StripLabel",
 							text = "horizontal axis",
-							textSize = 14,
+							textSize = "label",
 							role = "secondary",
 						})
 					end,
@@ -129,7 +129,7 @@ return {
 				UI.ScrollView({
 					id = "Strip",
 					axis = "x",
-					gap = 8,
+					gap = "s",
 					width = { type = "fixed", px = 280 },
 					height = { type = "fill", weight = 1 },
 					children = strip,
@@ -141,7 +141,7 @@ return {
 						return UI.Text({
 							id = "KeepLabel",
 							text = "keep-visible (focusable rows)",
-							textSize = 14,
+							textSize = "label",
 							role = "secondary",
 						})
 					end,
@@ -153,7 +153,7 @@ return {
 					gap = 2,
 					children = focusRows,
 				}),
-				UI.Text({ id = "Below", text = "BELOW-LIST MARKER (must never move)", textSize = 14 }),
+				UI.Text({ id = "Below", text = "BELOW-LIST MARKER (must never move)", textSize = "label" }),
 			},
 		})
 

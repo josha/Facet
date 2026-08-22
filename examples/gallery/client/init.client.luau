@@ -1039,13 +1039,13 @@ end)
 
 local screen = UI.Screen({
 	id = "GallerySettings",
-	padding = 16,
-	gap = 8,
+	padding = "m",
+	gap = "s",
 	children = {
-		UI.Text({ id = "Title", text = "Facet Gallery — Settings", textSize = 24 }),
-		UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+		UI.Text({ id = "Title", text = "Facet Gallery — Settings", textSize = "title" }),
+		UI.Text({ id = "Hint", text = hint, textSize = "label" }),
 		UI.Toggle({ id = "Music", label = "Music", value = draftMusic }),
-		UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
+		UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
 		UI.Spacer({ id = "Gap", height = { type = "fill", weight = 1 } }),
 		UI.Button({ id = "Save", label = "Save" }),
 	},

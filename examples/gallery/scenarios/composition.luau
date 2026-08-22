@@ -93,17 +93,17 @@ return {
 				rows,
 				UI.HStack({
 					id = `Row{i}`,
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = `RowRank{i}`, text = tostring(i), textSize = 14 }),
+						UI.Text({ id = `RowRank{i}`, text = tostring(i), textSize = "label" }),
 						UI.Box({
 							id = `RowMark{i}`,
 							surface = "chip",
 							width = { type = "fixed", px = 18 },
 							height = { type = "fixed", px = 18 },
 						}),
-						UI.Text({ id = `RowName{i}`, text = `Entry {i}`, textSize = 14, lineLimit = 1 }),
+						UI.Text({ id = `RowName{i}`, text = `Entry {i}`, textSize = "label", lineLimit = 1 }),
 					},
 				})
 			)
@@ -111,7 +111,7 @@ return {
 		local field = UI.ScrollView({
 			id = "FieldScroll",
 			axis = "y",
-			gap = 4,
+			gap = "xs",
 			width = { type = "fill", weight = 1 },
 			height = { type = "fill", weight = 1 },
 			children = rows,
@@ -279,7 +279,7 @@ return {
 					children = {
 						UI.VStack({
 							id = "SponsorsFull",
-							gap = 4,
+							gap = "xs",
 							children = {
 								line("SponsorsHead", "BACKED BY", 12),
 								line("SponsorsList", "Aurora · Kestrel · Vale", 14),
@@ -329,7 +329,7 @@ return {
 					children = {
 						UI.HStack({
 							id = "ActionsRow",
-							gap = 8,
+							gap = "s",
 							children = {
 								UI.Button({
 									id = "Again",
@@ -377,7 +377,7 @@ return {
 				UI.ScrollView({
 					id = "Body",
 					axis = "y",
-					gap = 8,
+					gap = "s",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
@@ -391,18 +391,18 @@ return {
 						UI.HStack({
 							id = "OfferBar",
 							wrap = true,
-							gap = 8,
+							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {
-								UI.Text({ id = "OfferLabel", text = "Offer", textSize = 14 }),
-								UI.Text({ id = "OfferName", text = offerName, textSize = 14 }),
+								UI.Text({ id = "OfferLabel", text = "Offer", textSize = "label" }),
+								UI.Text({ id = "OfferName", text = offerName, textSize = "label" }),
 								UI.Spacer({}),
 								UI.Text({
 									id = "Visits",
 									text = core:memo(function(use)
 										return `visits {use(visits)}`
 									end),
-									textSize = 14,
+									textSize = "label",
 								}),
 							},
 						}),

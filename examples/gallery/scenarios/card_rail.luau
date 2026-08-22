@@ -293,8 +293,8 @@ return {
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-						UI.Text({ id = "Hint", text = COPY.hint, textSize = 12, role = "secondary" }),
+						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+						UI.Text({ id = "Hint", text = COPY.hint, textSize = "caption", role = "secondary" }),
 						-- the rail's cross extent is now the plate's own measured height
 						-- (above) rather than the page's leftover
 						UI.VStack({
