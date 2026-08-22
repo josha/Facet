@@ -1992,3 +1992,12 @@ STUDIO.md, root CLAUDE.md.
 - Also delivered this session: framework-gaps.md in artifacts (the full
   34-gap MOVE list) + docs/plans/framework-gaps-phase2-goal.md (the
   fresh-context prompt for the director's six picks).
+
+## 2026-08-22 (cont. 6) — the sixteen-day-old red goes green
+
+- example-quality-pass re-run: rascalrally-consumer PASS (the canary
+  declaration satisfied the row that refused to stop asking since
+  2026-08-06), large-text-overflow PASS (the re-homed pin). The gate's
+  overall verdict is PENDING on exactly one row — physical-and-human-rows,
+  the device/human half, its designed resting state. Every automated row
+  in the stage stack is green across both repos.
