@@ -281,7 +281,7 @@ report-only corrections, applied in place above and marked as such.
 | | Facet | Rascal Rally |
 |---|---|---|
 | commit | `b52d220` | `1509383` |
-| suite | **6949** in an isolated export of Facet HEAD `462a1ca` + this round's files only (HEAD alone: 6939, so **+10**) | **3461** (baseline at RR HEAD `4e271c3` with the same Facet: 3465, so **−4**) |
+| suite | **6949** in an isolated export of Facet **`fa0be0c`** — the true parent of `b52d220` — plus this round's files only (that parent alone: 6939, so **+10**). *(Corrected in fix round 2, LOW-A: this said `462a1ca`, a commit six rounds back that measures 6925. The `+10` holds on either base; the attribution did not.)* | **3461** (baseline at RR HEAD `4e271c3` with the same Facet: 3465, so **−4**) |
 | `screen_target.luau` | **193,992 → 193,714 chars (−278)** | — |
 
 **Why the Facet number is measured in an isolated export.** Two other rounds have
@@ -328,6 +328,18 @@ exactly one legal place to get it, and `plan.opt` is the **resolved** opt, from
 which "was one passed" cannot be recovered — an absent opt and an explicit `true`
 are the same value by the time the target sees one.
 
+> **CORRECTION (fix round 2).** The second half of that sentence was true; the
+> first half — *"exactly one legal place to get it"* — was **false**, and it was
+> the load-bearing half. A count of reads says nothing about the VALUE handed
+> over, and the re-review reverted the product default twice with the full suite
+> green at the identical 6949: once by substituting the pre-flip answer into the
+> seam's own argument (`paintPlan(if raw == nil then false else raw, …)`, all five
+> pins satisfied), once through a bracket index the `%.nativeStyle` pattern could
+> not see at all. The claim should have read: *five shape facts, none of which
+> constrains the argument.* Fix round 2 closes it by handing the seam the whole
+> `opts` table — the count is now **zero**, and there is nothing left in the
+> adapter's hands to substitute.
+
 **Mutation evidence.**
 
 *The reviewer's exact bypass* (call `paintPlan` into `_ignored`, re-derive the
@@ -370,6 +382,15 @@ vocabulary module is still owed.
 1. The sweep's gate was `nativeStyle%a*%(`, which accepts `nativeStyleOn(`. It now
    names **`nativeStyleOpt`**, which turns the hardcoded four-site list beside it
    from a ceiling into a floor: it binds every site that will ever exist.
+
+   > **CORRECTION (fix round 2).** Premature. It bound every site to *calling the
+   > right reader*; it bound none of them to *passing its answer through*. The
+   > re-review wrote the difference in one line —
+   > `nativeStyle = if FacetFlags.nativeStyleOpt() then true else nil` — which asks
+   > correctly, maps the `false` rollback onto `nil`, and deletes the rollback for
+   > that screen with the suite green at 3465. "The class is closed" was the wrong
+   > tense: one *spelling* was closed. Fix round 2 puts the contract on the value
+   > expression and derives the site list from the sweep.
 2. **`nativeStyleOn()` is deleted**, not documented as test-only. It had no
    production caller at all and survived to satisfy one row of the rename matrix;
    the reviewer used it exactly as a future author would. The matrix row now names
@@ -436,3 +457,111 @@ lines from the paint-family round's hunks so git could not merge them, verified
 with `--dry-run` before committing, and `tests/run.luau`, `src/layout/solver.luau`,
 `src/themes/snapshot.luau`, `tests/facet_composition_collision_contract.spec.luau`
 and the rest were left untouched.
+
+
+---
+
+# Fix round 2 — re-review dispositions
+
+**Re-review:** `task-native-default-fix1-rereview.md`, APPROVE with findings
+(0 BLOCKER, 1 MAJOR residual, 1 MEDIUM residual, 5 LOW, 1 INFO). Both headline
+findings were **narrowed but not closed** in fix round 1, and this report's own
+wording claimed closure twice. The two corrections are inline above, in the
+sentences that overclaimed, rather than only here.
+
+**Pins, taken AT MEASUREMENT TIME** (the standing lesson of 2026-08-21, after the
+same failure bit three times in one day — a pair pinned at *dispatch* time
+fabricates reds that survive an A/B, because the mis-pin is common-mode):
+
+| measurement | Facet | Rascal Rally |
+|---|---|---|
+| Facet suite | `3fee51c` | — |
+| Rascal Rally pair (`tools/mkpair.sh`) | `a4fbd65` | `cae4c7a` |
+
+| | Facet | Rascal Rally |
+|---|---|---|
+| commit | `c3eec58` | `c3c8d49` |
+| suite | **7022** (parent `3fee51c` alone: 7021, so **+1**) | **3466** (same pair, baseline 3465, so **+1**) |
+| `screen_target.luau` | 193,714 → **193,795**, of which **+81 is another round's**; this round's own edit is **−30** | — |
+
+## MAJOR-A — the five pins locked the SHAPE, not the ARGUMENT
+
+**Closed by the reviewer's prescribed endgame, not the cheap fallback.**
+`native_style.paintPlan` now takes the target's **whole `opts` table** and reads
+the paint opt itself. The consumer pin became a **count of ZERO**: the adapter
+never holds the opt, in any spelling, so there is nothing left to substitute.
+
+The count is over the **word**, line by line, with exactly two structural
+exclusions — the `Opts` field's own declaration, and the unrelated
+`adapter.nativeStyleInfo` surface. That is what catches the bracket-index
+re-derivation a `%.nativeStyle` pattern was blind to. **The named cost:** the
+adapter may no longer write the opt's name in a comment. Stated in the case.
+
+The argument itself is also pinned (`arg == "opts"`), because a seam handed a
+*value* can always be handed a different one — belt and braces, and the message
+names whichever half broke.
+
+**Mutation evidence — all three now redden, where two were green at 6949:**
+
+| mutation | before | after |
+|---|---|---|
+| **M7**, substitute the pre-flip default into the seam's argument | 6949 passed, **0 red** | **1 failed** — `the target names the opt 2 time(s), and may name it none: local raw: any = opts and (opts :: any).nativeStyle; the plan is handed \`if raw == nil then { nativeStyle = false } else opts\`, not the opts table` |
+| **M3**, bracket-indexed re-derivation | 6949 passed, **0 red** | **1 failed** — `the target names the opt 1 time(s)…: if opts == nil or (opts :: any)["nativeStyle"] == nil then` |
+| the original bypass (call, discard, re-derive) | already red | **still red**, three pins in one message |
+
+## MEDIUM-A — the RR floor bound the reader's NAME, not the tri-state
+
+**Closed as a class, both halves.**
+
+1. **The contract is now the VALUE EXPRESSION**, not the reader's name: the opt
+   must arrive at the adapter exactly as the owner answered it, **unmapped**. The
+   two legal spellings are the reader called on the owner and the Sponsor's getter
+   form. A variable holding the answer is deliberately *not* accepted — a
+   line-based reader cannot follow a local, so a site that wants one is asked to
+   inline the call. Strictness costs nothing here and is the difference between a
+   rule and a suggestion; it is stated in the helper rather than left implicit.
+2. **The hardcoded four-entry `SITES` list is gone.** One `adapterSites()` sweep
+   feeds both cases. The floor case enforces the contract on whatever it finds; the
+   second case now asserts only what a sweep cannot say about itself — that it
+   still finds the four screens this game ships, so a sweep that silently found
+   nothing cannot pass the floor with flying colours.
+
+**Mutation evidence:**
+
+| mutation | before | after |
+|---|---|---|
+| the re-review's collapsing fifth site (`if FacetFlags.nativeStyleOpt() then true else nil`) | **3465 passed, 0 red** | **1 failed** — `sites that do not hand the opt through: src/client/FacetFifthGui.luau hands \`if FacetFlags.nativeStyleOpt() then true else nil })\`` |
+| positive control: a correctly written fifth site | green | **green** (3466) — the floor admits new sites, it does not freeze the file list |
+
+## The five LOWs
+
+| # | disposition |
+|---|---|
+| LOW-A | **Fixed** — the fix-round-1 table now names `fa0be0c`, the true parent, and marks the correction. `462a1ca` measures 6925; the `+10` held on either base, the attribution did not. |
+| LOW-B | **Fixed** — comment lines are stripped from the matched argument span before the search, so an exemption has to be **code**. The re-review's `-- previously passed nativeStyle = false here` inside the braces no longer satisfies it. |
+| LOW-C | **Fixed** — the ledger cell is rewritten as a chronological chain, newest first, with balanced `**` (22) and balanced parens (8/8). The nested `(Previously: …` groups that never closed are gone; every entry keeps its content. |
+| LOW-D | **Fixed** — `readFlag` takes an optional `accepts` predicate, so there is **one** dual-read walk with two policies instead of a second copy inside `nativeStyleOpt`. A case pins both halves: exactly one `GetAttribute(oldName)` in the source, no `GetAttribute(pair.old` anywhere, and the two readers still agree on a boolean at the old name. When the removal trigger fires, the fallback is deleted once and every reader loses it together. |
+| LOW-E | **Fixed, not merely named** — `resolved == false` is now tested **before** the capability is computed, restoring the short-circuit the two-clause gate had for free. Fix round 1 quietly spent it: every opted-out target ran `Instance.new("StyleSheet")` — the edit preview, every billboard, every place carrying the rollback. Pinned by a case, on the exact path this round exists to protect. |
+| INFO-A | **Skipped, correctly routed.** `check_surface_ledger` is red at the parent too (`themes.paintForDisplay` unclassified) — the paint-family round's to close. |
+
+## Guards, and one honest FAIL
+
+In the isolated export at `3fee51c` + this round's files: `check_library_purity`,
+`check_types`, `check_source_size`, `check_doc_style`, `check_example_drift_cli`,
+`check_docs_cli`, `stylua --check src tests tools examples` — **PASS**.
+
+**`check_theme_artifacts` FAILS, and it is not this round's**: the theme probe
+copies tracked files only, and the DIR5/overflow round's `tests/lib/world.luau`
+requires an untracked `tests/lib/overflow_guard.luau`. **It fails identically at
+`3fee51c` with none of this round's files present**, which is how I know. Recorded
+rather than omitted, because "all guards PASS" is exactly the claim the re-review
+caught this report making loosely once already.
+
+## What this round changed about how it writes
+
+Both corrections above are the same defect in prose: a mechanism was described by
+what it *constrains* and reported as though it constrained the *class*. The pins
+were real, the counts were real, and the sentences around them were one step
+stronger than the evidence. Fix round 2's own claims are therefore stated as what
+was measured — a count of zero, a value expression, two mutations that were green
+and are now red — with the cost of each named beside it.
