@@ -130,3 +130,216 @@ describe("no reusable framework control hardcodes a theme-owned metric", functio
 		end
 	end)
 end)
+
+--[[ THE SECOND SCOPE: the TEACHING corpus (declarative-purity sweep, 2026-08-21).
+
+	The lint used to exempt `examples/` on the stated ground that "an app author's
+	literal is a legitimate opt-out". That is right for an app and wrong for the
+	gallery, which is the reference a reader copies from — the purity audit measured
+	539 raw literals on the three props the theme system owns, 40% of every such prop
+	in the corpus against 22% in the shipping game it teaches. So the scope moved, and
+	these cases are what makes the move a standing guard rather than a one-time sweep.
+
+	SCOPED TO THE PLANTED FILE, ALWAYS — the same MAINT-4 discipline as above, for
+	the same reason: an absolute count here would be a second silent copy of "the
+	corpus is clean" and would misname the file when it had something to say. ]]
+describe("the teaching corpus spells the values the theme system already names", function()
+	local EXAMPLE = "examples/gallery/scenarios/callout.luau"
+
+	local function inFile(result: any, file: string): { any }
+		local mine: { any } = {}
+		for _, violation in result.violations do
+			if violation.file == file then
+				table.insert(mine, violation)
+			end
+		end
+		return mine
+	end
+
+	local function exampleViolations(result: any): { any }
+		local mine: { any } = {}
+		for _, violation in result.violations do
+			if violation.scope == "example" then
+				table.insert(mine, violation)
+			end
+		end
+		return mine
+	end
+
+	local function plantedDelta(line: string, opts: any?): { any }
+		local before = #inFile(drift.check(opts), EXAMPLE)
+		local options: any = { injectFile = EXAMPLE, injectLine = line }
+		if opts ~= nil then
+			for key, value in opts :: any do
+				options[key] = value
+			end
+		end
+		local mine = inFile(drift.check(options), EXAMPLE)
+		local planted: { any } = {}
+		for index = before + 1, #mine do
+			table.insert(planted, mine[index])
+		end
+		return planted
+	end
+
+	it("the corpus is clean", function()
+		local result = drift.check()
+		local mine = exampleViolations(result)
+		local detail = ""
+		for _, violation in mine do
+			detail ..= `\n{violation.file}:{violation.line}: {violation.what}`
+		end
+		expect(#mine == 0 or error(`the teaching corpus has {#mine} theme-drift violation(s):{detail}`, 2)).toBe(true)
+	end)
+
+	it("it actually scanned the corpus it claims to cover", function()
+		local counts = drift.check().counts
+		-- 165 example files / ~70,000 lines is the corpus the audit measured
+		expect(counts.exampleFiles >= 150).toBe(true)
+		expect(counts.exampleLines > 50000).toBe(true)
+	end)
+
+	--[[ THE POSITIVE DIRECTION: a literal a theme name RESOLVES TO is caught. ]]
+	it("catches a spacing literal a space step already names", function()
+		for _, case in
+			{
+				{ line = "local x = UI.HStack({ gap = 8 })", names = '"s"' },
+				{ line = "local x = UI.VStack({ gap = 4 })", names = '"xs"' },
+				{ line = "local x = UI.Grid({ rowGap = 16 })", names = '"m"' },
+				{ line = "local x = UI.Screen({ padding = 24 })", names = '"l"' },
+			}
+		do
+			local planted = plantedDelta(case.line)
+			expect(`{case.line}: planted {#planted}`).toBe(`{case.line}: planted 1`)
+			expect(string.find(planted[1].what, case.names, 1, true) ~= nil).toBe(true)
+			expect(planted[1].scope).toBe("example")
+		end
+	end)
+
+	it("catches a text size a typography role already names, and names the role", function()
+		local planted = plantedDelta('local x = UI.Text({ text = "x", textSize = 12 })')
+		expect(#planted).toBe(1)
+		expect(string.find(planted[1].what, '"caption"', 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ THE NEGATIVE DIRECTION, and it is the half that makes the gate mechanical
+		rather than a judgement call. A number NO name resolves to is not reported,
+		because there is nothing to rewrite it to — `gap = 6` is the corpus's single
+		most common spacing value and the framework concedes in `snapshot.luau` that
+		no space step is 6. The day the scale grows that rung this case flips, which
+		is exactly the alarm it should be. ]]
+	it("a value no name resolves to is NOT reported — there is nothing to rewrite it to", function()
+		for _, line in
+			{
+				"local x = UI.HStack({ gap = 6 })",
+				"local x = UI.HStack({ gap = 2 })",
+				"local x = UI.VStack({ padding = 12 })",
+				'local x = UI.Text({ text = "x", textSize = 13 })',
+			}
+		do
+			expect(`{line}: planted {#plantedDelta(line)}`).toBe(`{line}: planted 0`)
+		end
+	end)
+
+	it("zero stays legal in the corpus too: 'this container adds no spacing'", function()
+		expect(#plantedDelta("local x = UI.HStack({ gap = 0, padding = 0 })")).toBe(0)
+	end)
+
+	it("a prop the theme system does not own is not this scope's business", function()
+		-- the framework scope reports `px`/`min`/`height`; the example scope
+		-- deliberately does not, because a demo canvas is structure
+		expect(#plantedDelta('local x = { width = { type = "fixed", px = 8 } }')).toBe(0)
+	end)
+
+	--[[ THE MARKERS, both directions each. ]]
+	it("a THEME-OPT-OUT marker with a reason keeps the literal; one without does not", function()
+		expect(#plantedDelta("local x = UI.HStack({ gap = 8 }) -- THEME-OPT-OUT: the fixture's subject is the hatch")).toBe(
+			0
+		)
+		-- ...and a marker with no reason is a suppression comment, which is refused
+		expect(#plantedDelta("local x = UI.HStack({ gap = 8 }) -- THEME-OPT-OUT: nope")).toBe(1)
+		expect(#plantedDelta("local x = UI.HStack({ gap = 8 }) -- THEME-OPT-OUT:")).toBe(1)
+	end)
+
+	it("a marker in the comment ABOVE excuses the next literal, and only that one", function()
+		expect(
+			#plantedDelta("-- THEME-OPT-OUT: this one is deliberate and here is why\nlocal x = UI.HStack({ gap = 8 })")
+		).toBe(0)
+		-- ONE MARKER, ONE LITERAL: the second is still reported
+		expect(
+			#plantedDelta(
+				"-- THEME-OPT-OUT: this one is deliberate and here is why\n"
+					.. "local x = UI.HStack({ gap = 8 })\n"
+					.. "local y = UI.HStack({ gap = 4 })"
+			)
+		).toBe(1)
+	end)
+
+	it("a PROBE-EXEMPT region excuses what is inside it, and an unclosed one is itself a violation", function()
+		expect(
+			#plantedDelta(
+				"-- PROBE-EXEMPT BEGIN: this block is instrument, not example\n"
+					.. "local x = UI.HStack({ gap = 8 })\n"
+					.. "local y = UI.HStack({ gap = 4 })\n"
+					.. "-- PROBE-EXEMPT END"
+			)
+		).toBe(0)
+		local unclosed = plantedDelta(
+			"-- PROBE-EXEMPT BEGIN: this block is instrument, not example\nlocal x = UI.HStack({ gap = 8 })"
+		)
+		expect(#unclosed).toBe(1)
+		expect(string.find(unclosed[1].what, "unclosed", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ THE FILE LISTING AND ITS GUARD, driven from the case so both directions
+		are proved against real corpus files rather than asserted. ]]
+	it("a PROBE_EXEMPT_FILES listing silences the file — and is refused when its header does not say so", function()
+		--[[ `callout.luau` is an ordinary example and carries no PROBE-EXEMPT header,
+			so listing it proves BOTH halves at once: the listing DOES silence the
+			planted literal, and the missing header is reported in its place. A
+			listing that silenced a file without telling its reader would be the
+			invisible exemption this guard exists to refuse. ]]
+		local planted = "local x = UI.HStack({ gap = 8 })"
+		local listed = { { file = EXAMPLE, why = "a synthetic listing, for this case only" } }
+		local function census(opts: any): string
+			local literals, guards = 0, 0
+			for _, violation in inFile(drift.check(opts), EXAMPLE) do
+				if string.find(violation.what, "PROBE_EXEMPT_FILES listing", 1, true) ~= nil then
+					guards += 1
+				else
+					literals += 1
+				end
+			end
+			return `literals {literals}, guard findings {guards}`
+		end
+		-- unlisted: the planted literal is reported and no guard fires
+		expect(census({ injectFile = EXAMPLE, injectLine = planted })).toBe("literals 1, guard findings 0")
+		-- listed: the literal goes quiet and the missing header takes its place
+		expect(census({ injectFile = EXAMPLE, injectLine = planted, probeExemptFiles = listed })).toBe(
+			"literals 0, guard findings 1"
+		)
+	end)
+
+	it("the shipped listing is guarded by real headers: every listed file says so in its own", function()
+		expect(#drift.PROBE_EXEMPT_FILES > 0).toBe(true)
+		for _, entry in drift.PROBE_EXEMPT_FILES do
+			expect(#entry.why > 40).toBe(true) -- a reason, not a shrug
+		end
+		-- and the guard is live: with the shipped list the corpus is clean, which is
+		-- only true because each listed file carries the marker its reader needs
+		expect(#exampleViolations(drift.check())).toBe(0)
+	end)
+
+	it("the naming vocabulary is READ FROM THE FRAMEWORK, not restated here", function()
+		-- a package that re-ladders its type scale re-ladders this lint with it, so
+		-- the map has to come from the snapshot. Spot-check the ladder's ends.
+		expect(drift.NAMES_FOR.type[12][1]).toBe("caption")
+		expect(drift.NAMES_FOR.type[24][1]).toBe("title")
+		expect(drift.NAMES_FOR.space[4][1]).toBe("xs")
+		expect(drift.NAMES_FOR.space[40][1]).toBe("xl")
+		-- ...and the ladder order decides the collision: `control` 18 outranks the
+		-- derived `numeral` 18, `s` 8 outranks the derived `gutter` 8
+		expect(drift.NAMES_FOR.type[18][1]).toBe("control")
+		expect(drift.NAMES_FOR.space[8][1]).toBe("s")
+	end)
+end)
