@@ -1823,3 +1823,28 @@ STUDIO.md, root CLAUDE.md.
   containment invariant became default-on). All guards green at HEAD.
 - Remaining: the purity sweep (running), then the final live pass + gate
   re-run + the consolidated wrap.
+
+## 2026-08-22 (early) — the sweep lands; the last seat goes out
+
+- PURITY SWEEP LANDED (five Facet commits → b3f9c89 + RR ca50fdb; 7057/0,
+  3469/0 at measurement-time pins): the lint flip is a STANDING GUARD
+  (red-first 365/0-framework against the pre-sweep tree; example scope
+  fires only on exact token equality so every fix is pixel-identical;
+  gap=6 stays a PENDING finding that reddens 60 sites the day the scale
+  grows the rung). 353 literals swept / 11 measured opt-outs / 147
+  unreachable (no name resolves — phase-2 fodder). TWO AUDIT CLAIMS
+  REFUTED BY MEASUREMENT and recorded (7 minColumnWidth are a packing
+  floor — "intrinsic" collapsed a fill column, 70 findings; two
+  "non-reactive" reads are per-frame by design, null result pinned).
+  6 defects fixed red-first (wardrobe reduced-motion, RR ticker 22px
+  inside, 31→0 imperative transforms, autoscroll band). Two sweeps
+  WOULD HAVE SHIPPED BUGS caught only by reading the diff (role name
+  across the FOREIGN seam = runtime type error; a METRICS table that is
+  arithmetic). Hit floors NAMED not deleted (the framework enforces the
+  hit floor, not the visual one). Corpus raw share 39.4% → 12.6%, now
+  BETTER than the game's 22% — the teaching inversion is fixed.
+- Controller: the d3a-help + picker gate rows re-pointed to
+  check_theme_drift_cli (the exitless form was a proves-nothing call);
+  pins pass; the navigation-and-menus gate re-running as proof. The
+  sweep review seat dispatched — the final seat. Then: full RC gate
+  re-run, the wrap, memory.
