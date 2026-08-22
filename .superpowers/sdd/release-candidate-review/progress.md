@@ -1497,3 +1497,28 @@ STUDIO.md, root CLAUDE.md.
   (afa2882) and sent. NOTE: this round reports RR 3465/0 — the
   large-text bisect round may find its two reds already healed by this
   commit; let its report settle the truth.
+
+## 2026-08-21 (post-close 19) — PLATE B ON GLASS; the last lock opens
+
+- PLATE-B LANDED (099e28f; committed tree 7000/0, RR 3464/0 pinned): Option
+  B built INTO expand_plate.luau (correctly rebased onto the solver round's
+  module); discHalf resolves the one number the metric vocabulary cannot
+  spell (a half); R18 is an INEQUALITY with a CIRCLE fence (a box sweep
+  would stay green on a disc that covered a word); H2 fixed (plate carries
+  its own cap — panel 8..366 at every content width); H1 REFUTED as
+  mechanism (hit_lift never fires for a cover — rank already wins) and
+  RELOCATED: the real fix is a class-keyed clamp in renderer pushHitRects,
+  LOCKED, so EXPAND 15 stops ratifying and asserts a bound. M3 fixed
+  (formCarriesMeaning reads active).
+- LIVE VERIFY: disc center (328,114) == panel corner EXACTLY; padding
+  16/16 symmetric; disc in viewport; scrim 0.45. Capture committed
+  (aa46cda) and sent. The director's balance complaint is answered in
+  numbers.
+- GATE REPAIR by controller: check_comment_codes was red on 4 new codes
+  from two rounds — made resolvable, then the RATCHET fired (32 > 25);
+  seven codes displaced into plain prose (the definitions stood alone);
+  PASS at exactly 25/25, 0 orphans (4553a22, follow-ups).
+- RENDERER SPLIT DISPATCHED — the last locked file (1,018 chars from the
+  cap, the closest in the repo), the ledger's rect_pass prescription, with
+  the H1 tap-theft clamp as its Phase B (960+828 px² red probe). Plate-B
+  review seat next.
