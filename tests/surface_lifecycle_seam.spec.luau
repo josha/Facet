@@ -302,6 +302,12 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 	end)
 
 	it("there is exactly ONE consumer of the module in src/", function()
+		--[[ MATCHED BY THE PATH'S TAIL, NOT BY `"./surface_lifecycle"` — measured,
+			not chosen. A scan pinned to the sibling spelling cannot see a consumer
+			in another directory (`require("../present/surface_lifecycle")` from
+			`src/controls`), which is exactly the second consumer this rule exists
+			to notice, and the mutation that planted one left the check green
+			(mutation M15, 2026-08-22). ]]
 		local seen: { string } = {}
 		for _, dir in
 			{
@@ -321,7 +327,7 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" then
 					continue
 				end
-				if string.find(fs.readFile(path), 'require("./surface_lifecycle")', 1, true) ~= nil then
+				if string.find(fs.readFile(path), 'require%("[^"]*surface_lifecycle"%)') ~= nil then
 					table.insert(seen, path)
 				end
 			end
