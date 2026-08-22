@@ -301,3 +301,204 @@ arithmetic (~2 KB) named as the next two candidates.
    this mission. That is machine load from four concurrent agents, not a tier
    regression — the full suite in a private copy ran in normal time throughout —
    but it is worth a re-measure once the rounds land.
+
+---
+
+# FIX ROUND 1 — the record catches up with the code
+
+Review: `task-solver-split-review.md`, **PASS WITH FINDINGS**. The behaviour claim
+held under fully independent re-measurement (the reviewer's own 800-tree oracle,
+their own commit-to-commit pairs, their own mutation battery). Every finding was
+record integrity. All six are closed below. **Commit `b5732d0`.**
+
+Measurement is a content-pinned pair built with the new `tools/mkpair.sh`, both
+repositories' refs resolved at measurement time and stamped into the pair as
+artifacts:
+
+```
+PIN_FACET  e8ce70a (before)  →  b5732d0 (after)      PIN_RR  cae4c7a (both arms)
+Facet       7,002 passed / 0 failed  →  7,005 / 0    3 additions, ZERO removals
+Rascal Rally  3,465 / 0  →  3,465 / 0                verdict sets IDENTICAL (diff exit 0)
+```
+
+The three additions are the two new pins this round adds and nothing else. Guards
+at the fix commit, all run rather than asserted: `check_comment_codes` **PASS**,
+`check_source_size` PASS, `check_doc_style` PASS, `check_types` PASS,
+`check_library_purity` PASS, `check_manifest_integrity` PASS (1,518 greps
+anchored), `stylua --check` clean.
+
+## HIGH-1 — the gate I certified was RED, and my split is what made it red
+
+**The correction, stated plainly: I asserted it, I did not run it.** This report's
+Evidence section said "`check_library_purity`, `check_types`, `check_comment_codes`,
+`check_doc_style` all PASS". `check_comment_codes` was **FAIL at `f0fc77e` (2
+orphans) and FAIL at `435dade` (4)**. It was PASS at the parent. I ran the other
+three and carried the fourth along with them in one sentence, which is how a
+roster becomes a claim nobody checked.
+
+**The mechanism is the split itself, and it was foreseeable.**
+`tools/check_comment_codes.py` holds an `EXTRACTION_LOCKED` tuple of the five
+files the source-cap ledger governs; codes inside them are counted and reported
+but never gated, because the sweep is owed to the extraction that owns them.
+Moving a block out of a locked file into a **new, unlocked** module strips that
+exemption — `NS-A2` rode out with `sides` and `LTN-4` with `recordTextFacts`, and
+both became live orphans against a ceiling of zero, on the split commit.
+
+**Who paid.** Three later commits from other rounds (`8ae0384`, `4553a22`,
+`d3abdb0`) swept those orphans, which is why the shared tree was green when I
+looked at it and why the code needed nothing here. The cost of my not running the
+check was borne by whoever found it.
+
+**The rule now lives where the next split will read it.** `SOURCE_CAP_LEDGER.md`
+gained a "What an extraction owes on the way out" section: an extraction out of an
+`EXTRACTION_LOCKED` module inherits none of its exemptions, run
+`check_comment_codes` on the split commit itself, and take the file out of the
+tuple when the extraction lands.
+
+### The tuple measurement, and the drop
+
+`src/layout/solver.luau` was still in `EXTRACTION_LOCKED` — a file whose
+extraction had just happened and which had left the warning band entirely. That
+is an exemption with nothing left to be owed to. **Measured before deciding**, by
+dropping the entry in a private `git archive` of HEAD and running the checker:
+
+| | with the tuple entry | with it dropped |
+|---|---|---|
+| orphans (ceiling **0**) | 0 | **10** |
+| live resolvable (ceiling **25**) | 25 | **27** |
+| locked modules / codes owed | 5 / 183 | 4 / 171 |
+
+**Twelve sites surface**, ten of them orphans across seven distinct codes
+(`LTN-4` ×4, `RS-A16` ×2, `NS-A2`, `NS-A3`, `MINOR-8`, `STAGE-1`) and two already
+resolvable (`LT-8` → a handoff doc, `SF-P5` → ADR-0022) which would still have
+pushed the live count to 27 against a ceiling of 25. **Twelve is under the ~15
+threshold, so the drop and the sweep both landed in this commit.**
+
+All twelve became **prose**, not define-in-block, and the arithmetic is why:
+`len(live)` counts every private code in a maintained file whether it resolves or
+not, so with 25 of 25 already spent, a single define-in-block would have breached
+the ceiling and raising it is forbidden. Prose is also what the checker's own
+header asks for — *the code is the whole explanation and the explanation is not in
+the repository*. The `ADR-0022` citation survives at its site (a public prefix
+costs nothing); only the private row code goes.
+
+**Result: 0 orphans, 25 of 25, four locked modules holding 171 codes. The solver
+now contributes zero.** Nothing was displaced onto another file's budget, no
+ceiling moved, and `--selftest` passes. Mutation **F-M3** — putting one swept
+`LTN-4` back — reddens the check, so the sweep is load-bearing rather than
+decorative.
+
+## HIGH-2 — the trigger had already fired when I wrote it
+
+The row recorded **188,050** and set `Trigger: this file passes 188,000`. Fifty
+characters past, on the day of writing: a trigger permanently in the fired state,
+which is the same class as a check that cannot fail — and the exact failure the
+`presenter.luau` row two rows above documents in capitals. I read my own number
+and wrote a threshold under it without comparing them.
+
+**The consequence had already materialised before the review found it**:
+`099e28f` put **420** characters into the solver with no extraction preceding
+them, and neither clause of my trigger could warn it.
+
+**Rewritten as a STATE, and the choice is named rather than slipped.** Not a
+bumped number — **ARRIVED**, the way every other row in the file says it, with the
+next extraction named: `flowPartition` + `flowPlan` (~3 KB; `flowPartition` is
+already exported as `solver.flowPartition` precisely because it reads no node and
+no `ctx`, which is the whole one-way test, and `flowPlan` reads only
+`dim`/`mainDimOf`/`sides`/the partition — all now in `./measure_facts`), with the
+placement arithmetic (~2 KB) behind it. This round's own **+385** of comment sweep
+(188,050 → 188,435) is recorded in the row rather than quietly absorbed, together
+with why it is the last change that gets that pass: it pays down the debt the
+split created, it moves no geometry, and the rule it violated is the one this same
+commit wrote down. The ledger's shared rule section also gained the general form:
+state a trigger as a condition that has or has not arrived, never as a number the
+file has already passed.
+
+**Headroom at close of the fix round: 11,565 characters to the write cap** (from
+2,190 at dispatch), **1,565 below the 190,000 warning line.**
+
+## MEDIUM-1 — the ADR row, and the `api.md` rule
+
+`docs/reference/api.md` is corrected in this commit: the plate section now states
+**both** routes to the full-width sheet, because the second one is new and
+invisible to someone tuning a form against a viewport — the richest form cannot
+meet its floor, **or** the richest form is wider than the allowance once the
+plate's chrome is reserved. A form that would just fit the raw allowance is a
+sheet, because the panel wrapping it would not.
+
+**ADR-0040 row text, for the controller to append as B-18.** I have not edited
+`ADR-0040-unreleased-breaking-changes.md`; B-17 is taken by the paint-family row,
+and the five-column shape below matches B-14/B-15/B-16:
+
+> | B-18 | `UI.Region{ expand }`'s plate/sheet SELECTION, and `plate.max` on the composition resolution | measured against the gutter allowance → measured against the allowance **minus the plate's own chrome**; `plate.max` changes meaning from "the cap the form was measured against" to "the widest the plate BOX may be declared" (at 390: 358 → 342) | a form whose natural width lands in the last `inset + straddle` px of the allowance now falls back to the **full-width sheet** instead of mounting an anchored panel. The panel it used to mount was **wider than the allowance it had just been chosen against** — reproduced headlessly at 390: a 320px form gave `plate.max=358, sheet=false, panel=380`, i.e. 22px past a 358 allowance, and near the top of the band wider than the viewport. This is the residue DIR5 fixed the inner half of and CONTESTED the rest of by name (`solver.luau` ~1113, beside `expandGutter`); it is closed with ONE declaration rather than one number — `layout/expand_plate.luau` owns the insets and the straddle, `blueprint` BUILDS the plate from them, the solver RESOLVES them onto the resolve context, `composition` SPENDS them on the cap. Two numbers rather than one because they sit on opposite sides of the declared box (padding inside, straddle outside): a single combined figure mis-sizes whichever of hug/fill it was not derived for. **Zero shipped screens move today** — no fixture is in the band, the Facet verdict set gains only the new cases and Rascal Rally is identical — which is exactly why it needs a register entry rather than a fixture: the next reader tuning a form against the allowance has no other way to learn the band exists | `tests/region_expand.spec.luau` EXPAND 19 (the band case and the in-allowance control), EXPAND 18 (`plate.rect.w == row.plate.max`, relational so both numbers move together); `docs/reference/api.md` §Region plate; three mutations bite (the cap stops reserving the padding, the cap stops reserving the straddle, the plate stops spending the declaration) |
+
+## MEDIUM-2 — the single-source module named an API that did not exist
+
+Already repaired in the tree by the plate-B round (`099e28f`) before I got here:
+`expandPlateChrome` and `chromeX` exist nowhere, and `blueprint.luau` now cites
+`expand_plate.insetX`. **I coordinated rather than regressed** — their `CLOSE_DISC`
+/ `CLOSE_INSET` / `discHalf` / `r18Clearance` additions are untouched.
+
+What was still missing is the part that let the drift happen: the header said the
+solver "hands the px across on the resolve context" without naming the fields, so
+nothing in the file could go stale *visibly*. It now writes all three out —
+`expandPlateInset` (`insetX`), `expandPlateStraddle` (`straddleX`),
+`expandPlateDiscHalf` (`discHalf`) — with the reason stated: in the one file whose
+whole justification is *there is no second copy*, a header naming a nonexistent
+seam field is that same failure one level up.
+
+## LOW-1 — `axisAbsorbs` now carries its contract, and the contract is scanned
+
+The two callers pass two different quantities: the boundary analysis passes the
+OFFER, the containment gate passes the parent's RESOLVED content extent. They
+agree for exactly one reason — every branch asks `~= math.huge` and nothing else,
+so the argument means "is this axis bounded" and both callers are right about
+that.
+
+That is written at the function **and mechanised in the seam spec**, because the
+ledger row justifies sharing this predicate precisely so a boundary rule cannot
+disagree with the resolver: the spec pulls `axisAbsorbs`'s body and fails if
+`limit` or `otherLimit` is ever read outside a `math.huge` comparison, with a
+negative control proving the scan sees a magnitude read and ignores a comment.
+Mutation **F-M1** (a `limit > 400` branch) reddens it.
+
+## LOW-2 — the measured scoping decision now has a regression pin
+
+`anchor` (13,851 findings in the census) and `zstack` (3,609) are excluded by a
+call site **not existing**, which one future line can undo, and the measurement
+that rejected them lived only in prose. `tests/containment_diagnostic.spec.luau`
+now builds four genuinely overflowing trees — a zstack overflowed by a fixed child
+and by an aspect child, an anchor overflowed by `offsetX` and by `anchor =
+"topRight"` — asserts the containment channel is silent on all four, **and proves
+each tree really overflows** (the child's rect is 30–60px outside the parent's
+box, computed from the solve), because "no finding" is also what a contained tree
+answers. The zstack case additionally asserts that the finding which *does* own
+that case still fires, so the exclusion is a division of labour rather than a
+hole. Mutation **F-M2** (a zstack call site appears) reddens it.
+
+The composition-region class (312) stays routed to the overflow-guard round rather
+than pinned here — it is a defect to investigate, not an exclusion to lock in.
+
+## Fix-round mutations
+
+| # | mutation | result |
+|---|---|---|
+| F-M1 | `axisAbsorbs` reads the MAGNITUDE of `limit` | 1 red |
+| F-M2 | a `zstack` containment call site appears | 1 red |
+| F-M3 | one swept comment code returns to the solver | `check_comment_codes` FAIL |
+
+## Concerns after the fix round
+
+1. **`check_comment_codes` is at exactly 25 of 25 and the solver no longer has a
+   waiver.** Every future comment in that file is now on the ratchet like any
+   other. That is the correct state and it is also a tighter constraint than the
+   file has ever had — the next private code added anywhere in maintained `src/`
+   reddens the row.
+2. **The R18 hit-floor reserve is still booked** (unchanged from the main report),
+   with 11,565 characters of headroom and the trigger now reading ARRIVED — so
+   whoever takes it extracts `flowPartition`/`flowPlan` first.
+3. **The composition-region containment class (312 findings) is still open** and
+   independently reproduced at exactly 312 by the reviewer.
+4. **B-18 is written but not appended** — it needs the controller, per the
+   instruction not to edit `ADR-0040` from here. Until it lands, the plate/sheet
+   selection band is recorded only in `api.md` and in this report.
