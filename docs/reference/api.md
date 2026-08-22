@@ -4899,10 +4899,28 @@ standing in for a layout the caller does not own.
   than mounting three rows and popping. Available on `newVirtualList` and
   `newVirtualGrid`.
   **The one requirement**: an ancestor that hands the collection a DEFINITE
-  extent along that axis. A `fill` inside a box that HUGS has nothing to measure,
-  and neither does a `fill` inside a scrolling page's own content — put the
-  collection in a pane whose extent the layout decides, which is what you were
-  doing by hand anyway.
+  extent along that axis. Put the collection in a pane whose extent the layout
+  decides, which is what you were doing by hand anyway. **The two ways to get it
+  wrong fail differently, and only one of them is loud**:
+  * an ancestor that **HUGS** on that axis has no extent to give, so the
+    collection measures **0** and mounts nothing. Obvious the moment you look at
+    it;
+  * an ancestor that is **UNBOUNDED** on that axis — which is exactly what
+    another scroller's own scroll axis is — hands the collection its **whole
+    canvas**. A `fill` dim offered an unbounded limit answers with its *content*
+    contribution, and a scroll node's content measure sums its children, so the
+    "viewport" comes back the size of every row there is and the window covers
+    all of them. **Virtualization is silently off**: the layout looks perfect,
+    every row is present and correctly placed, and nothing about correctness can
+    tell you. Measured: 400 rows of 40px inside a y-scrolling page reported a
+    16,000px viewport and mounted all 400.
+  The collection detects the second one and says so, on the seed's own argument
+  turned around — *a box is never bigger than the surface that contains it*, so a
+  measurement that **exceeds the screen** is a canvas rather than a viewport. It
+  lands in **`dump().diagnostics`** naming both numbers and the fix. It is
+  reported and deliberately **not** clamped: clamping the window while the solver
+  still paints the host at canvas height would leave the bottom of the painted box
+  empty of rows, which trades an invisible defect for a visible one.
 * **`crossExtent = "hug"`** (list only) — the axis the list does not scroll sizes
   to its CONTENT instead of filling: the host, its canvas and every row take
   `content` across, so a sideways rail is exactly as tall as its card. This is
