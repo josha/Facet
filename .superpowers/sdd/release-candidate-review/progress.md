@@ -1454,3 +1454,25 @@ STUDIO.md, root CLAUDE.md.
   different (minor) question. The create-window flash stays on the charter
   at LOW priority. If a fourth report ever comes, the written discriminator
   (duration + the artifact's probes) applies.
+
+## 2026-08-21 (post-close 17) — THE SOLVER SPLIT LANDED
+
+- SOLVER SPLIT + CONTAINMENT LANDED (f0fc77e + 435dade + report c874840;
+  6937 +22 ZERO removals; RR identical verdicts): solver.luau 197,810 →
+  188,050 — 11,950 headroom, OUT of the warning band; measure_facts.luau
+  took the ledger's exact prescription (first seam in the document costing
+  neither a record nor an accessor; two honest analysis corrections
+  recorded). Phase B.1: DIR5's contested band closed by DECLARATION —
+  src/layout/expand_plate.luau owns insets + straddle, three consumers one
+  source (red at the predicted 380-vs-358, green at HEAD). Phase B.2: the
+  containment diagnostic's scope was MEASURED, not chosen — the broad rule
+  fired 21,916 times on a green library; shipped = stack cross-axis (41,
+  all fuzz). The 800-tree differential oracle byte-identical, diagnostics
+  strictly additive. Two proves-nothing checks found and fixed en route,
+  one exposing a dead export (PLAN_KEYED). 20 mutations bite.
+- ROUTED: plate-B told to build against expand_plate.luau and rebase (the
+  band under it changed); the 312-hit composition-region-below-box class
+  (concern 2, counted not shipped) resumed on the overflow-guard
+  implementer for triage; the R18 hit-floor reserve stays booked (its own
+  fixture round). Review seat dispatched (the most load-bearing diff of
+  the day: behavior-identity is the whole question).
