@@ -168,7 +168,7 @@ local function textTypography(ctx: MeasureCtx, node: any): (string, number, numb
 	return node.font or base.fontKey, size, node.lineHeight or base.lineHeight
 end
 
---[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4, artifacts/large-text-accessibility/decisions.md).
+--[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4: the large-text rule that a measure which truncates must SAY so where it truncates, so no consumer re-derives fit from geometry).
 
 	`Metrics` already answers "did this get cut" for the WRAPPED case
 	(`naturalLines > lines`, which only a `lineLimit` can produce). It cannot
