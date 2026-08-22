@@ -157,10 +157,16 @@ One hunk, no behaviour.
 
 Both Facet numbers are `git archive`-pinned at the same commit (`435dade`, the
 expand-plate round's landing). +5 = the four new/rebuilt cases plus the `active` case.
+The measured tree's Luau files are **byte-identical to what landed** (`099e28f`) — only
+`docs/reference/api.md` was re-patched at land time, because that file had moved
+underneath and nothing executes it.
 `stylua --check` clean on all seven files; `check_source_size` PASS (`blueprint.luau`
 113,596 — nowhere near the band; no band file touched); `check_doc_style` PASS.
 `check_comment_codes` reports `FAIL_ENVIRONMENT git ls-files` inside a `git archive`
-export (no repository there) — it passes in the real tree.
+export (no repository there); in the real tree it is **FAIL with 4 unresolvable
+private codes, none of them in this round's files** — `src/client/roblox_env.luau`
+(INPUT-100 x2, the flip round) and `src/layout/measure_facts.luau` (NS-A2, LTN-4, the
+solver split). Reported here rather than repaired: they are those rounds' files.
 
 ## 8. Red-first and mutations
 
@@ -195,10 +201,13 @@ failed**. No churn.
 ## 10. Concerns
 
 1. **H1 IS NOT FIXED** and cannot be from any unlocked file — see §3. It needs a clamp
-   in `renderer.luau`'s `pushHitRects`, or a node-aware `effectiveHitFloor`. The
-   renderer's extraction has since landed (`9cce13e`), so the file may now be openable:
-   this is the round that should take it. The suite no longer ratifies the defect, but
-   960 + 828 px2 of two neighbouring Buttons are still contested by the cover's floor.
+   in `renderer.luau`'s `pushHitRects`, or a node-aware `effectiveHitFloor` (two call
+   sites, `renderer.luau:2092` and `:2484`, both passing `node.class`). The extraction
+   that landed on 2026-08-21 was the SOLVER's, not the renderer's: `renderer.luau` is
+   **198,974 characters, 1,026 from the write cap**, with its own extraction still owed
+   BEFORE any change of any size — so the fix is gated on that round, not on this one.
+   The suite no longer ratifies the defect, but 960 + 828 px2 of two neighbouring
+   Buttons are still contested by the cover's floor.
 2. **The disc's hit floor contests a corner of the plate's own content box** — the
    spec's own "one real con", and its arithmetic in the spec is off: it says ten-foot
    has none (comparing the NEAR floor's 22 against the ten-foot padding's 24).
