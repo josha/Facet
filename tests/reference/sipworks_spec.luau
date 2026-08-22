@@ -14,7 +14,10 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local Facet = require("../../src") :: any
+local Facet = require("../../src")
+-- the metric-name vocabulary, read directly: the teardown below asserts that this
+-- proof's group really left it
+local themeSnapshot = require("../../src/themes/snapshot") :: any
 local fake_target = require("../../tests/lib/fake_target")
 local proof = require("../../examples/reference/p3_sipworks") :: any
 local strings = require("../../examples/reference/p3_sipworks/content/strings") :: any
@@ -1216,10 +1219,28 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		once, and the toggle's hand transform is deleted rather than copied
 		twenty-four times. ]]
 	it("every structural number takes the ten-foot factor, not just the one with a helper", function()
+		--[[ MEASURED ON THE PAINTED BOX FIRST, because that is the claim: the
+			declaration was already right before this round, and a spec that only
+			re-read the declaration would pass on a framework that scaled nothing. The
+			list row's art plate is `app.sip.rowArt` on both axes. ]]
+		local near = world()
+		near.presenter.refresh()
+		local nearPlate = findNode(near, "/Art/Plate")
+		expect(nearPlate ~= nil).toBe(true)
+		local nearBox = near.adapter.node(nearPlate :: string).rect
+		expect(nearBox.h).toBe(60)
+		near.built.dispose()
+
 		local w = world()
 		w.env:set("displaySize", "Large")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		w.presenter.refresh()
+		local farPlate = findNode(w, "/Art/Plate")
+		expect(farPlate ~= nil).toBe(true)
+		local farBox = w.adapter.node(farPlate :: string).rect
+		expect(farBox.h).toBe(nearBox.h * 1.5)
+		expect(farBox.w).toBe(nearBox.w * 1.5)
+
 		local snap: any = w.env:get("themeMetrics"):get()
 		local sip = snap.app.sip
 		expect(sip.rowArt).toBe(90) -- 60 * 1.5
@@ -1280,5 +1301,21 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		pad("DPadDown")
 		expect(string.find(focused(), "Nav-", 1, true) == nil).toBe(true)
 		w.built.dispose()
+	end)
+end)
+
+--[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
+
+	`build` declares `app.sip.*` PROCESS-WIDE, and a spec file that walked away
+	would leave the group standing for every later file in this one Lune run —
+	which makes suite ORDER quietly load-bearing, and a later case's "nobody
+	declared this" assertion depend on which file happened to run first. Retiring
+	it here is the teardown; asserting it is what stops the teardown from silently
+	becoming a no-op. ]]
+describe("Sipworks — the declaration does not leak into the rest of the suite", function()
+	it("retires its app namespace", function()
+		Facet.themes.declareApp("sip", nil)
+		expect(Facet.themes.appMetrics()["sip"]).toBe(nil)
+		expect(themeSnapshot.isMetricPath("app.sip.rowArt")).toBe(false)
 	end)
 end)

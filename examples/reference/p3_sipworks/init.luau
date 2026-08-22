@@ -275,12 +275,14 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		fires in practice (`themes.declareApp` runs at the top of `build`) — it is
 		here because a metric read that can answer nil is a number that silently
 		becomes zero, which is the class this whole channel exists to remove. ]]
-	function app.metric(name: string, fallback: number, use: any?): number
+	function app.metric(name: string, use: any?): number
 		local signal = if env ~= nil then env:get("themeMetrics") else nil
 		local snap: any = if signal == nil then nil elseif use ~= nil then use(signal) else signal:get()
 		local sip = if type(snap) == "table" and type(snap.app) == "table" then snap.app.sip else nil
 		local value = if type(sip) == "table" then sip[name] else nil
-		return if type(value) == "number" then value else fallback
+		-- the fallback is the DECLARATION, never a literal beside it: a second copy
+		-- of the number is the drift this whole channel exists to remove
+		return if type(value) == "number" then value else (APP_METRICS :: any)[name]
 	end
 	-- "NOT COMPACT", not "isRegular". `isRegular` is the middle class only, so a
 	-- desktop (`wide`) reads false on it — the two-pane layout would have been
@@ -295,7 +297,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- 600 and at 640x320 the split overflowed its lane, which the solver's
 	-- overflow diagnostic reported before any screenshot could have.
 	app.paneSplit = core:memo(function(use)
-		return use(app.cond.viewportWidth) >= app.metric("twoPaneMin", 900, use)
+		return use(app.cond.viewportWidth) >= app.metric("twoPaneMin", use)
 	end)
 	scope:own(function()
 		app.notCompact:dispose()

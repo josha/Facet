@@ -15,7 +15,10 @@
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local Facet = require("../../src") :: any
+local Facet = require("../../src")
+-- the metric-name vocabulary, read directly: the teardown below asserts that this
+-- proof's group really left it
+local themeSnapshot = require("../../src/themes/snapshot") :: any
 local fake_target = require("../lib/fake_target")
 local standard_icons = require("../../src/themes/standard_icons")
 
@@ -63,8 +66,15 @@ local function makeWorld(opts: any?): World
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system, built = built }
 end
 
+--[[ …AND THE PROOF'S APP NAMESPACE GOES WITH IT (ADR-0042). `build` declares
+	`app.cartwheel.*` process-wide, and a spec that walked away would leave the
+	group standing for every later file in this one Lune process — which makes
+	suite ORDER quietly load-bearing, and a later case's "nobody declared this"
+	assertion depend on which file ran first. Retiring it here means every case in
+	this file declares its own, and nothing outside it inherits one. ]]
 local function closeWorld(world: World)
 	world.built.dispose()
+	Facet.themes.declareApp("cartwheel", nil)
 end
 
 -- a deterministic string form of a report: keys sorted, so two runs of the same
@@ -1499,5 +1509,21 @@ describe("Cartwheel — the rows that WRAP (parity round 3)", function()
 		expect(countKeys(sameLine :: any)).toBe(1)
 		expect(countKeys(legendWidths :: any) > 1).toBe(true)
 		ledger.dispose()
+	end)
+end)
+
+--[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
+
+	`build` declares `app.cartwheel.*` PROCESS-WIDE, and a spec file that walked away
+	would leave the group standing for every later file in this one Lune run —
+	which makes suite ORDER quietly load-bearing, and a later case's "nobody
+	declared this" assertion depend on which file happened to run first. Retiring
+	it here is the teardown; asserting it is what stops the teardown from silently
+	becoming a no-op. ]]
+describe("Cartwheel — the declaration does not leak into the rest of the suite", function()
+	it("retires its app namespace", function()
+		Facet.themes.declareApp("cartwheel", nil)
+		expect(Facet.themes.appMetrics()["cartwheel"]).toBe(nil)
+		expect(themeSnapshot.isMetricPath("app.cartwheel.tileMin")).toBe(false)
 	end)
 end)

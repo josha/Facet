@@ -330,7 +330,11 @@ function gallery.new(app: any): any
 	local tileMin = app.scope:own(core:memo(function(use)
 		local m: any = use(app.env:get("themeMetrics"))
 		local group = if type(m) == "table" and type(m.app) == "table" then m.app.cartwheel else nil
-		return if type(group) == "table" and type(group.tileMin) == "number" then group.tileMin else 96
+		-- the fallback is the DECLARATION, never a literal: a second copy of 96 here
+		-- is the very drift the whole channel exists to remove
+		return if type(group) == "table" and type(group.tileMin) == "number"
+			then group.tileMin
+			else app.appMetrics.tileMin
 	end))
 
 	local gridForm = UI.Grid({

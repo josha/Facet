@@ -173,13 +173,13 @@ function parts.steamBackdrop(app: any, id: string): any
 	local wisps: { any } = {}
 	local rng = app.seed
 	local reduced = app.motionPolicy() == "reduced"
-	for i = 1, app.metric("wispCount", 8) do
+	for i = 1, app.metric("wispCount") do
 		-- a tiny deterministic hash, so the drift is seeded and never random
 		rng = (rng * 1103515245 + 12345) % 2147483648
 		local x = 0.06 + ((rng // 97) % 88) / 100
 		rng = (rng * 1103515245 + 12345) % 2147483648
 		local rest = 0.1 + ((rng // 89) % 80) / 100
-		local travel = app.metric("wispTravelFraction", 0.16)
+		local travel = app.metric("wispTravelFraction")
 
 		local offset: any
 		if reduced or app.clockMotion == nil then

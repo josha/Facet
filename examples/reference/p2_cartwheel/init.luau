@@ -259,6 +259,10 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		commands = commands,
 		S = S,
 		art = art,
+		-- the DECLARATION itself, so a screen that needs one of these as a Luau
+		-- number (rather than as a `px` name) reads the same table `declareApp`
+		-- was handed instead of restating a literal beside it
+		appMetrics = APP_METRICS,
 		paths = PATHS,
 		reducedMotion = reducedMotion,
 		state = state,
