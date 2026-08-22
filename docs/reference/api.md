@@ -908,8 +908,17 @@ stepped-down zones as empty pills, with every headless instrument green), and a
 cover is only ever synthesized where nothing above it is interactive — so the
 gesture still arrives at it. `formInteractive` is reported beside the role, because
 whether the player has two things to press in that box is worth knowing. The plate's width is the composition's
-own (`plate.w` on the resolution); where the richest form cannot meet its floor in a
-plate, the same content is presented as a full-width sheet instead. Dismissal is the
+own (`plate.w` on the resolution), and it is measured against the allowance MINUS the
+plate's own chrome rather than against the allowance itself: the panel you get is the
+form plus two uniform insets plus the corner disc's straddle, so the cap the form is
+offered has all three taken out of it first (`plate.max` reports the widest the plate
+BOX may be, which is the viewport minus its gutters minus that straddle). **There are
+therefore TWO ways to land on the full-width sheet**, and the second one is easy to
+miss when you are tuning a form against a viewport: the richest form cannot meet its
+floor in a plate, OR the richest form is wider than the allowance once the plate's
+chrome is reserved — a form that would just fit the raw allowance is a sheet, because
+the panel wrapping it would not. Before 2026-08-21 that second case mounted an anchored
+panel wider than the allowance it had just been chosen against. Dismissal is the
 presented surface's: a tap outside, the plate's own **Close** control (the corner disc
 described below, whose accessibility name stays the word "Close"), and gamepad B —
 and the plate closes itself when the rect it was opened against moves, resizes or goes

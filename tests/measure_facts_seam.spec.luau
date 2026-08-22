@@ -290,6 +290,64 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 	end)
 end)
 
+describe("the measure-facts seam: `axisAbsorbs` carries ONE BIT to both its callers", function()
+	local facts = fs.readFile(FACTS_PATH)
+
+	--[[ THE HAZARD IS THAT TWO CALLERS PASS TWO QUANTITIES. The
+		boundary analysis hands `axisAbsorbs` the OFFER (`maxW`/`maxH`); the
+		containment gate hands it the parent's RESOLVED content extent
+		(`innerW`/`innerH`), because by arrange time the offer is gone. They agree
+		for exactly one reason: every branch asks `~= math.huge` and nothing else,
+		so the argument means "is this axis bounded" and both callers are right
+		about that. Widen it and one of them silently becomes wrong — and the
+		ledger row that justifies sharing this predicate does so precisely to stop
+		a boundary rule disagreeing with the resolver.
+
+		So the contract is scanned rather than promised: pull the function's body
+		and assert that every mention of `limit`/`otherLimit` is a `math.huge`
+		comparison. ]]
+	local function bodyOf(source: string, name: string): string
+		local body = string.match(source, "\nlocal function " .. name .. "%b()[^\n]*\n(.-)\nend\n")
+		assert(body ~= nil, `no body for {name}`)
+		return body :: string
+	end
+
+	-- every line that mentions either limit argument but does NOT compare it to
+	-- `math.huge`
+	local function magnitudeReads(body: string): { string }
+		local out: { string } = {}
+		for line in string.gmatch("\n" .. body, "\n([^\n]*)") do
+			local trimmed = string.match(line, "^%s*(.-)%s*$") :: string
+			if string.sub(trimmed, 1, 2) == "--" then
+				continue
+			end
+			if string.find(trimmed, "limit", 1, true) == nil and string.find(trimmed, "Limit", 1, true) == nil then
+				continue
+			end
+			if string.find(trimmed, "math.huge", 1, true) ~= nil then
+				continue
+			end
+			table.insert(out, trimmed)
+		end
+		return out
+	end
+
+	it("every read of `limit`/`otherLimit` is a boundedness test and nothing else", function()
+		expect(table.concat(magnitudeReads(bodyOf(facts, "axisAbsorbs")), " | ")).toBe("")
+		-- ...and the scan looked at a real body rather than an empty string, which
+		-- is the trap an "assert nothing matched" rule invites
+		expect(string.find(bodyOf(facts, "axisAbsorbs"), "math.huge", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("NEGATIVE CONTROL: a branch that reads the MAGNITUDE is reported", function()
+		local widened = "\tlocal t = d.type\n\tif limit > 400 then\n\t\treturn true\n\tend\n\treturn limit ~= math.huge"
+		expect(#magnitudeReads(widened)).toBe(1)
+		expect(magnitudeReads(widened)[1]).toBe("if limit > 400 then")
+		-- a comment naming the argument is not a read
+		expect(#magnitudeReads("\t-- limit is the offer\n\treturn limit ~= math.huge")).toBe(0)
+	end)
+end)
+
 describe("the measure-facts seam: no module-level mutable state", function()
 	local facts = fs.readFile(FACTS_PATH)
 

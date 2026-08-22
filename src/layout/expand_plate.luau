@@ -16,7 +16,14 @@
 	    `padding` and `margin` on the node it returns;
 	  · `src/layout/solver.luau` RESOLVES them, because it is the one place that
 	    holds both the composition seam and the live snapshot, and hands the px
-	    across on the resolve context;
+	    across on the resolve context as `expandPlateInset` (`insetX`),
+	    `expandPlateStraddle` (`straddleX`) and `expandPlateDiscHalf`
+	    (`discHalf`) — THE FIELD NAMES ARE WRITTEN OUT HERE ON PURPOSE, because a
+	    header in the one file whose whole justification is "there is no second
+	    copy" is the last place a name may be approximate. The first draft of
+	    this module carried a combined `expandPlateChrome`/`chromeX` that the
+	    two-number split replaced, and the prose kept naming it for a round
+	    after the code had moved on;
 	  · `src/layout/composition.luau` SPENDS the px, taking the plate's own
 	    insets out of the cap before it measures form 1 against it, and carrying
 	    the one number the declaration cannot spell back out on the plate record.

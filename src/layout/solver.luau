@@ -226,7 +226,7 @@ export type Node = {
 	-- fit test is skipped: the compact form is measured and painted always, so the
 	-- box is reserved for exactly what lands in it.
 	compactPrefer: boolean?,
-	-- FULL-VALUE DISCLOSURE (blueprint `Text.disclose`, LTN-4). Carried, never
+	-- FULL-VALUE DISCLOSURE (blueprint `Text.disclose`). Carried, never
 	-- spent: it changes no geometry. It rides the layout node so the solve result
 	-- — the one place that knows this text TRUNCATED — can say in the same breath
 	-- whether the author declared a way back to the whole string. The presenter
@@ -248,7 +248,7 @@ export type Node = {
 	expandTarget: any?,
 	axis: string?,
 	-- the decoration slot whose `contentInsets` are part of this node's padding
-	-- (renderer-set; RS-A16-D3). Diagnostics only — the solver spends the padding
+	-- (renderer-set). Diagnostics only — the solver spends the padding
 	-- identically either way, and naming the source is what makes a collapsed
 	-- content box actionable instead of mysterious.
 	chromeSlot: string?,
@@ -334,7 +334,8 @@ end
 -- `CONTENT`, `MEMO_ARM_DEPTH`, `dim`, `SPACER_FILL`/`mainDimOf` and `sides` are
 -- bound from `./measure_facts` at the top of this file. `sides` is re-exported
 -- below as `solver.sides` (the renderer's scroll-region canvas math must use the
--- SAME padding semantics the arrange pass uses — native-substrate NS-A2).
+-- SAME padding semantics the arrange pass uses, or a canvas under-covers the
+-- region it is supposed to hold).
 
 type Ctx = {
 	-- A FINDING'S `designed` FLAG (ruling 8) marks the ones that report the system
@@ -347,7 +348,7 @@ type Ctx = {
 	-- out during arrange, so the verdict the box was reserved for is exactly the
 	-- verdict the adapter paints (docs/lessons/one-word-two-subsystems.md).
 	compact: { [string]: boolean },
-	-- PER-TEXT-NODE MEASUREMENT FACTS (LTN-4), recorded on the same channel and
+	-- PER-TEXT-NODE MEASUREMENT FACTS, recorded on the same channel and
 	-- under the same discipline as `compact`: assigned on EVERY measure of the
 	-- node, so the facts published are the ones the reserved box was built from
 	-- and a re-solve that made room can never leave a stale "truncated" behind.
@@ -464,7 +465,7 @@ type Ctx = {
 
 -- `textTypography` and `recordTextFacts` are bound from `./measure_facts` at the
 -- top of this file: the one resolution of a text node's face and size, and the
--- per-text-node facts (LTN-4) that every measure publishes on `ctx.textFacts`.
+-- per-text-node facts that every measure publishes on `ctx.textFacts`.
 
 local measure -- forward
 local measureUncached -- forward (the real body; `measure` is the per-solve memo in front of it)
@@ -1288,7 +1289,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- there. A collapsed box — a closed swipe tray, a control mid-yield — is not
 		-- a label being cut, and claiming "this truncated" for one would file a
 		-- finding about text nobody is being shown (measured 2026-08-13: the
-		-- row-actions tray's own action labels, at w=0, in the LT-8 sweep).
+		-- row-actions tray's own action labels, at w=0, in the large-text sweep).
 		local singleLine = node.singleLine == true
 		if not singleLine and availW ~= math.huge and availW > 0 then
 			singleLine = text_metrics.minWidth(node.text or "", font, size) > availW
@@ -1707,7 +1708,7 @@ end
 -- (§2.5, it sizes a `containerRelative` dimension) — so both are part of the key,
 -- carried together as `ctx.scopeKey`. A miss recomputes exactly as before.
 measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
-	-- SCOPED TO THE SHAPES THAT PAY FOR IT (architecture review MINOR-8, confirmed as a
+	-- SCOPED TO THE SHAPES THAT PAY FOR IT (architecture review, confirmed as a
 	-- real gate failure). The memo exists for ONE redundancy: `arrange`'s scroll branch
 	-- re-measuring children the measure pass already sized. A tree with no scroll node
 	-- has no such redundancy, so the cache can only cost — a string key and a table per
@@ -2047,7 +2048,7 @@ local ANCHOR_FACTORS: { [string]: { number } } = {
 
 -- offsetPx(value, extent): an offset in pixels. A number passes through; the
 -- `{ scale, offset }` form is a FRACTION OF THE PARENT'S INNER EXTENT plus a px
--- adjustment (ADR-0022 Decision 6, row SF-P5) — the shape a marker overlay needs,
+-- adjustment (ADR-0022 Decision 6) — the shape a marker overlay needs,
 -- because a minimap dot's position is a share of the map and not a pixel count.
 -- Rounded, because every other placement in this solver is: a marker on a
 -- half-pixel is a marker the engine antialiases into a smudge.
@@ -2317,7 +2318,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		compact = ctx.compact[node.id],
 		-- ...and so do the text facts, for the same reason: "this label was cut"
 		-- is only meaningful beside the box it was cut to fit. `nil` on every node
-		-- that is not text (LTN-4).
+		-- that is not text.
 		textFacts = ctx.textFacts[node.id],
 		-- the declared target floor of an interactive node, carried through so a
 		-- pure audit can tell an interactive rect from a decorative one without a
@@ -2337,7 +2338,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	local innerW = math.max(0, rect.w - pl - pr)
 	local innerH = math.max(0, rect.h - pt - pb)
 
-	-- ZERO CONTENT BOX (RS-A16-D3, found live under pixel-quest: `barTrack`
+	-- ZERO CONTENT BOX (found live under pixel-quest: `barTrack`
 	-- contentInsets of 8 on all four sides over a track the package resolved to
 	-- 8px tall, so the fill solved to max(0, 8 - 16) = 0 and the download bar
 	-- showed a trough, two heart caps and no value — with zero diagnostics). A
@@ -2511,7 +2512,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- the gaps are already folded into contentW/contentH by measureAll: the
 		-- flow cursor advances by gap between children, so the extent must include
 		-- them or the native canvas under-covers and the last row's tail is
-		-- unreachable (migration-agent finding 2026-07-23, native-substrate NS-A3)
+		-- unreachable (migration-agent finding 2026-07-23, native substrate)
 		--
 		-- THE CROSS AXIS IS CLAMPED TO THE WINDOW (director live report,
 		-- 2026-08-09): this is a SINGLE-axis scroller, so content on the other
@@ -3703,7 +3704,7 @@ solver.sides = sides
 -- measure and arrange both go through it and therefore cannot disagree.
 solver.flowPartition = flowPartition
 
--- ---- THE STAGE-1 REPORT -----------------------------------------------------
+-- ---- THE STAGE 1 REPORT ------------------------------------------------------
 --
 -- Answers one question, for the tree as solved: **if any single node changed size,
 -- how much of the tree would a boundary-aware layout have to redo?**

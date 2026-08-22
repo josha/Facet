@@ -55,10 +55,20 @@ SCANNED = ("src",)
 
 # Held by the concurrent source-cap extraction work. Counted and reported, never
 # mixed into the ratchet: their sweep belongs to the extraction that owns them.
+#
+# A FILE LEAVES THIS TUPLE WHEN ITS EXTRACTION LANDS, and the discipline that
+# says so was learned the expensive way. `src/layout/solver.luau` was removed on
+# 2026-08-21, the round after its split: an extraction out of a locked file
+# inherits NONE of its exemptions, so the two codes that rode into the brand-new
+# `layout/measure_facts.luau` became live orphans on the split commit and this
+# check went RED while the report beside it certified a PASS. The exemption is
+# owed to the extraction, so it ends when the extraction does — leaving it in
+# place would have kept exempting a file that had already cleared the warning
+# band, which is an exemption with nothing left to be owed to. Twelve codes
+# surfaced; all twelve became prose in the same commit.
 EXTRACTION_LOCKED = (
     "src/controls/table.luau",
     "src/controls/virtual_list.luau",
-    "src/layout/solver.luau",
     "src/render/renderer.luau",
     "src/present/presenter.luau",
 )

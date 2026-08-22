@@ -418,6 +418,22 @@ end
 --
 -- Stage 1 computes this and NOTHING else: no behaviour changes, and the whole
 -- analysis is gated behind an opt-in flag so an ordinary solve does not pay for it.
+--[[ `limit`/`otherLimit` CARRY ONE BIT, AND THAT IS THE CONTRACT.
+
+	The two callers pass two different quantities. The boundary analysis passes
+	the OFFER (`maxW`/`maxH`, "what decides it for a percent or fill dimension");
+	the containment gate passes the parent's RESOLVED content extent
+	(`innerW`/`innerH`), because by arrange time the offer is gone and the box is
+	the answer. They agree today for one reason only: every branch below asks
+	`~= math.huge` and nothing else, so the argument means "is this axis bounded"
+	and both callers are right about that.
+
+	IT IS NOT A COMMENT ASKING TO BE TRUSTED. `tests/measure_facts_seam.spec.luau`
+	scans this function and fails if `limit` or `otherLimit` is ever compared to
+	anything but `math.huge` — the moment a branch reads the magnitude, the two
+	callers stop meaning the same thing and one of them is silently wrong. Widen
+	it deliberately and that check tells you to give the second caller its own
+	argument. ]]
 local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number): boolean
 	local t = d.type
 	if t == "fixed" then

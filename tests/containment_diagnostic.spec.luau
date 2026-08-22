@@ -168,6 +168,75 @@ describe("containment: a stack child placed outside its own cross axis says so",
 		expect(`main={main} contained={contained}`).toBe("main=1 contained=0")
 	end)
 
+	it("the three exclusions the census bought are pinned, not merely absent", function()
+		--[[ THE SCOPE WAS A MEASURED DECISION AND IT HAD NO REGRESSION PIN.
+			Three families are excluded by there being no CALL SITE, which is
+			a fact about `solver.luau` that a future round can undo by adding one
+			line — and the measurement that rejected them (21,916 findings on a green
+			library; `anchor` 13,851 and `zstack` 3,609 of it) lives in prose. So the
+			decision is asserted here instead:
+
+			  · an ANCHOR places a child exactly where the author says. A badge on a
+			    corner and a thumb at the end of a groove are the paradigm, not a
+			    defect, and there is no way to tell them apart from a rect;
+			  · a ZSTACK layers by definition, and it ALREADY reports — with its own
+			    measure-side overlap finding, its own `fill`-axis exemption and its
+			    own `intentionalOverlap` opt-out. A second telling is noise.
+
+			EACH CASE CARRIES ITS OWN PROOF THAT THE TREE REALLY OVERFLOWS, because
+			"no finding" is also what a contained tree answers, and a pin that cannot
+			tell those apart is the trap this file's other cases already name. ]]
+		local function outsideBy(root: any, childId: string): number
+			local result = solver.solve(root, { w = 400, h = 300 }, { scrollBarReserve = 0 })
+			local parent = result.rects[root.id].rect
+			local kid = result.rects[childId].rect
+			return math.max(parent.x - kid.x, (kid.x + kid.w) - (parent.x + parent.w))
+		end
+		local function layered(childWidth: any): any
+			return {
+				kind = "zstack",
+				id = "Z",
+				width = { type = "fixed", px = 100 },
+				height = { type = "fixed", px = 200 },
+				children = { { kind = "box", id = "Kid", height = { type = "fixed", px = 80 }, width = childWidth } },
+			}
+		end
+		local function anchored(extra: { [string]: any }): any
+			local kid: any =
+				{ kind = "box", id = "Kid", width = { type = "fixed", px = 40 }, height = { type = "fixed", px = 40 } }
+			for key, value in extra do
+				kid[key] = value
+			end
+			return {
+				kind = "anchor",
+				id = "A",
+				width = { type = "fixed", px = 100 },
+				height = { type = "fixed", px = 200 },
+				children = { kid },
+			}
+		end
+
+		-- a ZSTACK: outside on the right, silent here, and STILL REPORTED by the
+		-- finding that owns it — which is what makes this an exclusion rather than
+		-- a hole
+		local zFixed = layered({ type = "fixed", px = 160 })
+		expect(outsideBy(zFixed, "Kid")).toBe(60)
+		expect(#findings(zFixed)).toBe(0)
+		local zResult = solver.solve(zFixed, { w = 400, h = 300 }, { scrollBarReserve = 0 })
+		expect(#zResult.diagnostics).toBe(1)
+		expect(string.find(zResult.diagnostics[1].issue, "overflows its zstack", 1, true) ~= nil).toBe(true)
+		-- ...and the aspect shape that IS a finding inside a stack is not one here
+		expect(#findings(layered({ type = "aspect", ratio = 2 }))).toBe(0)
+
+		-- an ANCHOR: outside on either side, by offset or by anchor, and nothing
+		-- else reports it either. That is the accepted cost, named where it is felt
+		expect(outsideBy(anchored({ offsetX = 90 }), "Kid")).toBe(30)
+		expect(#findings(anchored({ offsetX = 90 }))).toBe(0)
+		local wide = anchored({ anchor = "topRight", width = { type = "fixed", px = 160 } })
+		expect(outsideBy(wide, "Kid")).toBe(60)
+		expect(#findings(wide)).toBe(0)
+	end)
+
 	it("a subtree that never paints files nothing", function()
 		--[[ `hiddenDepth` — the losing `ViewThatFits` candidate, the dropped
 			composition region. A subtree arranged against a 0x0 box produces
