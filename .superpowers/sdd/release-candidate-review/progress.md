@@ -1364,3 +1364,27 @@ STUDIO.md, root CLAUDE.md.
   content correct, but the exact accident commit_isolated exists to prevent,
   running the other way. Re-review seat dispatched. Two INFO policy notes
   booked to triage (showcase's hardcoded true; host.Opts boolean? typing).
+
+## 2026-08-21 (post-close 13) — DIR5 fix round: the TRUE opaque mechanism
+
+- DIR5 FIX LANDED (4110ba1 + bb3b801, RR 4fdb0e6; 6957/3464): the input
+  primacy flap fixed BY THE HOUSE RECORD (INPUT-100/101 applied clause for
+  clause — raw stream, presses deliberate, 0.25 stick deadzone, mouse
+  movement is noise; check_input_authority correctly failed on the new
+  subscriptions and the allowlist entry mirrors the consumer's).
+  THE SCRIM MECHANISM RETRACTED, not restated: plain resolves to 1; the
+  false story's "corroborating" property read was native-mode-permanent;
+  the TRUE finding is the STYLING-APPLICATION WINDOW (~3 frames) where any
+  full-viewport catcher paints its class default — measured live, artifact
+  at artifacts/expand-plate/catcher-paint-window.md; the discriminator for
+  any fourth director report is DURATION. The other two catcher paths stay
+  plain deliberately (tap swallowers), oracle pins exactly-1. The
+  create-window flash is real, unclosable from a role, booked to the
+  extraction charter (adapter create path / presenter mount order).
+  Cross-round lesson repeated: an early RR pairing showed 3 phantom reds
+  from a MIS-PINNED pair (RR HEAD vs stale Facet archive) — rebuilt both
+  sides; content-pinning exists to expose exactly this.
+- Stale false-mechanism comment in region_expand forwarded to plate-B (its
+  file). RR L2 correction: RR DOES have a repo (games/RascalRally/code) —
+  the DIR5 main round's "no .git" claim was wrong and its fence commit was
+  already landed by the controller (e6e1c56).
