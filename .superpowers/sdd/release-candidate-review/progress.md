@@ -1237,3 +1237,36 @@ STUDIO.md, root CLAUDE.md.
   builds, LAYER 3 sweep state-walk (demos declare openable states; the L3
   expand step). Proof bar: the new rule must redden on TODAY's hud "9"
   state before DIR5's fix.
+
+## 2026-08-21 (post-close 7) — DIR5 landed + verified live; design round; solver charter upgraded
+
+- DIR5 LANDED (27af00f; 6915/3463) and LIVE-VERIFIED by the controller
+  (stamp b0f35391): zero carets on passive zones (the pill IS the target),
+  catcher GetStyled 0.45 (was 0 — three-times-reported bug dead at the
+  paint level), plate contains content (300 <= 336), 36x36 corner disc
+  straddling, base screen alive behind the scrim. B-16 appended
+  contiguously (41aca37); the RR fence committed in the RR repo by the
+  controller (e6e1c56 — the round resolved the game repo root wrong;
+  games/RascalRally/code is the repo, docs/ is outside it). DIR5 review
+  seat dispatched. Its forensics correction absorbed: my "visible
+  zero-width text" probe read OWN Visible on a hidden variant subtree —
+  ancestor-chain visibility is the only honest read (baked into the
+  overflow-guard brief).
+- DIRECTOR (solver question): why didn't the solver ensure containment?
+  Answer given: the solver did what it was told — the control composed its
+  own hug arithmetic and forgot an inset; the solver has no
+  parents-contain-children invariant because authored fixed-size parents
+  legitimately under-size (the declared overflow routes exist for that).
+  CHARTER UPGRADED: the solver extraction stops being a someday-rider —
+  its first deliverable is containment-by-construction (hug = content +
+  insets composed in ONE seam, the exact line DIR5 contested at ~1113) +
+  settle-time containment enforcement with declared routes. The
+  overflow-guard mission (harness invariant + sweep state-walk) dispatched
+  NOW as the immediate net; calibration bar = red on 27af00f's parent.
+- DIRECTOR (two design notes on the verified plate): upper-left vs
+  upper-right close, and "not a fan of how much negative space it added —
+  control feels unbalanced. come up with a better visual design." UI
+  DESIGNER dispatched (per the studio constitution — spec before build):
+  2-3 options with PIL-rendered mockups, token-derived metrics, the
+  left-vs-right question answered inside the options with platform
+  reasoning. Build waits for the director's pick.
