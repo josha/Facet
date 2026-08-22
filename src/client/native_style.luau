@@ -77,6 +77,71 @@ function native_style.resolveOpt(opt: any): any
 	return opt
 end
 
+--[[ THE WHOLE PAINT DECISION, as a value a target OBEYS.
+
+	WHY IT IS NOT JUST `resolveOpt`. A fresh-context reviewer broke the first
+	version of this seam in one edit: `screen_target` called `resolveOpt`, threw
+	the answer away, and re-derived the pre-flip rule underneath — and the entire
+	suite stayed green while a bare `screen_target.new({})` painted explicit-write
+	again. The spec could see that the adapter MENTIONED the seam; nothing could
+	see whether it OBEYED one, because `screen_target.luau` opens with
+	`game:GetService("Players")` at module scope and cannot be required headlessly
+	by any spec that will ever exist.
+
+	So the decision left the closure entirely. Everything here used to be a branch
+	inside `screen_target.new` with no witness:
+
+	  * the DEFAULT — an absent opt is `DEFAULT_ENABLED`;
+	  * the ESCAPE HATCH — an explicit `false` refuses, and wins over everything;
+	  * the CAPABILITY GATE — an engine without StyleSheets refuses too, even for
+	    a caller who asked out loud;
+	  * the TRANSITIONS SEED — opt-in per target, with reduced motion overriding
+	    the opt, asked for lazily so a target that opted out never calls a
+	    consumer's deprecated motion closure at all.
+
+	PURE, because the two engine facts are PARAMETERS. `available` defaults to the
+	real probe so the shipped call site stays two arguments; a spec states it,
+	which is the only reason the accepting half of every branch above is testable
+	(the probe answers `false` off-engine).
+
+	WHAT IT DELIBERATELY DOES NOT CARRY: `handle` and `model`. Those are the
+	caller's own objects rather than decisions, and the target reads them off
+	`plan.opt` where it builds the sheet, beside the style and display facts only
+	it has. A plan field no production line reads is a surface kept alive for a
+	test, which is the defect shape this same round found on the consumer side.
+
+	`opt` is the RESOLVED opt, and it is why the pre-flip rule cannot be rebuilt
+	from a plan: an absent opt and an explicit `true` are the same value by the
+	time a target sees one.
+]]
+export type PaintPlan = {
+	native: boolean, -- take the sheet path at all
+	opt: any, -- the resolved opt: `true`, `false`, or the caller's config table
+	host: any?, -- where the sheet is seeded
+	theme: string?, -- which theme sheet is active at construction
+	transitions: boolean, -- the seed for `transitionsEnabled`
+}
+
+function native_style.paintPlan(opt: any, isReducedMotion: (() -> boolean)?, available: boolean?): PaintPlan
+	local resolved = native_style.resolveOpt(opt)
+	local capable = if available == nil then native_style.available() else available == true
+	if resolved == false or not capable then
+		return { native = false, opt = resolved, transitions = false }
+	end
+	local config: any = if type(resolved) == "table" then resolved else nil
+	local transitions = config ~= nil and config.transitions == true
+	if transitions and isReducedMotion ~= nil and isReducedMotion() == true then
+		transitions = false
+	end
+	return {
+		native = true,
+		opt = resolved,
+		host = if config ~= nil then config.host else nil,
+		theme = if config ~= nil then config.theme else nil,
+		transitions = transitions,
+	}
+end
+
 -- distinct from the library ModuleScript tree (also commonly named "Facet"
 -- under ReplicatedStorage — live find 2026-07-24: a same-name lookup found the
 -- LIBRARY and the old replace path would have destroyed it)

@@ -92,8 +92,9 @@ local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
 -- THE LAB OPTS OUT ON PURPOSE, and after the 2026-08-21 default flip (ADR-0040
 -- B-15) that `false` is doing real work rather than restating the default. Every
--- budget and capture in artifacts/perf/ was measured with the adapter as the only
--- writer of every paint property; taking the sheet path here would move the
+-- budget (bench/perf_budgets.json) and capture
+-- (artifacts/performance-stress-places/) was measured with the adapter as the
+-- only writer of every paint property; taking the sheet path here would move the
 -- instance counts and the paint timings under numbers recorded against the other
 -- painter, so the lab keeps the explicit-write arm until a re-baseline says
 -- otherwise. `Facet_NativeStyle = true` still A/Bs it (the place file ships the

@@ -37,7 +37,7 @@
   "stillRequired": [
     "Published retail-client run (cannot be automated from MCP: publish needs the Studio UI/account) \u2014 procedure staged in review-packet.md",
     "2-client Team Test theme independence (Studio UI-driven) \u2014 procedure staged",
-    "RascalRally screens on device (flag staged; eyes-on pass)",
+    "RascalRally screens on device (eyes-on pass). RESTATED 2026-08-21: the flag is no longer \"staged\" \u2014 native paint is the DEFAULT and this game passes no `nativeStyle` opt at its four adapter sites, so the device pass exercises the shipped default rather than an opt-in. Read `UseFacetNativeStyle` on the place FIRST: absent (expected) means the default; an explicit `false` is the rollback and the screenshots would then be of the explicit-write path.",
     "Device floor performance (NSS-P2)"
   ],
   "refreshed": {

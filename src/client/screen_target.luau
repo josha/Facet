@@ -337,16 +337,15 @@ function screen_target.new(opts: Opts?)
 	-- birth, to decide whether a new ScrollingFrame is born with its bar hidden.
 	local scrollIndicatorState = { policy = "always", reduced = false }
 
-	-- native-paint mode resolution: capability-probed, default-on since the
-	-- 2026-08-21 ruling (ADR-0040 B-15).
+	-- native paint: `paintPlan` IS the decision (the default, the capability gate,
+	-- the escape hatch, the transitions seed) and this closure OBEYS it rather
+	-- than re-deriving it — the only way a module nothing can require headlessly
+	-- gets a witness for any of it (ADR-0040 B-15).
 	local nativeHandle: any = nil
 	do
-		-- `resolveOpt` owns the default rule and is the only reader of the flag,
-		-- so it has a headless witness this closure could never have: unset means
-		-- the library default, an explicit `false` is the per-target escape hatch,
-		-- anything else passes through by identity.
-		local nativeOpt: any = native_style.resolveOpt(opts and (opts :: any).nativeStyle)
-		if nativeOpt ~= false and native_style.available() then
+		local plan = native_style.paintPlan(opts and (opts :: any).nativeStyle, isReducedMotion)
+		local nativeOpt: any = plan.opt
+		if plan.native then
 			if type(nativeOpt) == "table" and nativeOpt.handle ~= nil then
 				nativeHandle = nativeOpt.handle
 			else
@@ -371,11 +370,9 @@ function screen_target.new(opts: Opts?)
 				-- renderer calls at attach (C1) — so the seed is never the last
 				-- word, only the value for the frames before a surface attaches.
 				nativeHandle = native_style.ensure(model, {
-					host = if type(nativeOpt) == "table" then nativeOpt.host else nil,
-					theme = if type(nativeOpt) == "table" then nativeOpt.theme else nil,
-					transitionsEnabled = type(nativeOpt) == "table"
-						and nativeOpt.transitions == true
-						and not isReducedMotion(),
+					host = plan.host,
+					theme = plan.theme,
+					transitionsEnabled = plan.transitions,
 				})
 			end
 		end

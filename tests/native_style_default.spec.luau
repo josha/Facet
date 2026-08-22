@@ -83,17 +83,75 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		end
 	end)
 
-	--[[ THE SEAM IS REALLY THE ONE THE TARGET USES. A pure function agrees with
-		itself; what it cannot say is that the shipped adapter asks it. The target
-		cannot be constructed headlessly, so its source is the witness — and the
-		second half is what matters: no SECOND copy of the default rule may exist
-		beside the call, which is exactly how the rule got to be untested. ]]
-	it("`screen_target` resolves its opt through the seam, and holds no second copy", function()
+	--[[ ═══ THE WHOLE DECISION, AND THE ADAPTER OBEYING IT ═════════════════════
+
+		WHY THIS REPLACED A TWO-SUBSTRING GREP. The first version of this case
+		asserted that `screen_target.luau` CONTAINS "native_style.resolveOpt(" and
+		does NOT contain one literal second-copy spelling. A fresh-context reviewer
+		broke it in one edit: call the seam, throw the answer into `_ignored`,
+		re-derive the pre-flip rule underneath, and the FULL SUITE STAYS GREEN —
+		6905 passed — while a bare `screen_target.new({})` paints explicit-write
+		again. The case said the adapter MENTIONS the seam; it never said the
+		adapter OBEYS it, and a paraphrase is not a mention.
+
+		THE FIX IS AN EXTRACTION, NOT A TIGHTER GREP. `native_style.paintPlan` is
+		now the whole decision — the default, the capability gate, the escape
+		hatch, which handle/model/host/theme to use, and the transitions seed with
+		reduced motion overriding it — as a PURE function with the engine probe and
+		the motion fact as parameters. Every branch that used to live inside a
+		closure no headless spec can construct now has a witness, and the adapter
+		holds a call and a `plan.native` test instead of a rule.
+
+		FOUR PINS ON THE CONSUMER, and the bypass above trips three of them:
+
+		  1. exactly ONE call to `paintPlan`;
+		  2. exactly ONE read of the `nativeStyle` opt off `opts` — a re-derivation
+		     needs the RAW opt, and there is exactly one legal place to get it. The
+		     plan carries only the RESOLVED opt, from which "was it absent" cannot
+		     be recovered, so the pre-flip rule is not reconstructible from it;
+		  3. the capability probe is NOT called in the target at all — it moved
+		     into the plan, so the old `and native_style.available()` gate cannot
+		     be rebuilt beside a discarded plan;
+		  4. the branch really tests `plan.native`.
+
+		They are still source reads, because this module opens with
+		`game:GetService("Players")` at module scope and cannot be required
+		headlessly by anything — ~20 specs read its source for the same reason. The
+		difference is that what they read is now a SHAPE with one legal spelling
+		rather than the presence of a string. ]]
+	it("`screen_target` OBEYS the plan: one call, one opt read, no probe, no second rule", function()
 		local source = fs.readFile(TARGET)
-		expect(string.find(source, "native_style.resolveOpt(", 1, true) ~= nil).toBe(true)
-		-- the flag is named ONCE in that file — inside the comment that explains
-		-- the call — and never re-branched on
-		expect(string.find(source, "nativeOpt = native_style.DEFAULT_ENABLED", 1, true)).toBeNil()
+		local function countOf(pattern: string): number
+			local n, from = 0, 1
+			while true do
+				local at = string.find(source, pattern, from)
+				if at == nil then
+					break
+				end
+				n += 1
+				from = at + 1
+			end
+			return n
+		end
+		local wrong: { string } = {}
+		if countOf("native_style%.paintPlan%(") ~= 1 then
+			table.insert(wrong, `paintPlan is called {countOf("native_style%.paintPlan%(")} time(s), not once`)
+		end
+		-- `%.nativeStyle[^%w_]` and not plain `.nativeStyle`: `adapter.nativeStyleInfo`
+		-- is a different surface entirely and must not count as a read of the opt
+		if countOf("%.nativeStyle[^%w_]") ~= 1 then
+			table.insert(wrong, `the opt is read {countOf("%.nativeStyle[^%w_]")} time(s) off opts, not once`)
+		end
+		if countOf("native_style%.available%(") ~= 0 then
+			table.insert(wrong, "the target still probes the capability itself — that gate belongs to the plan")
+		end
+		if countOf("DEFAULT_ENABLED") ~= 0 then
+			table.insert(wrong, "the target names the default flag — it must obey the plan, never read the flag")
+		end
+		if countOf("if plan%.native then") ~= 1 then
+			table.insert(wrong, "the native branch is not `if plan.native then` — the plan is computed and ignored")
+		end
+		expect(`consumer off contract:{table.concat(wrong, "; ")}`).toBe("consumer off contract:")
 	end)
 
 	--[[ WHO THE DEFAULT DOES NOT SWEEP, and this case is here because the flag's
@@ -115,11 +173,117 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		local silent: { string } = {}
 		for _, path in { "src/client/billboard_target.luau", "src/client/edit_preview.luau" } do
 			local source = fs.readFile(path)
-			if string.find(source, "nativeStyle = false", 1, true) == nil then
-				table.insert(silent, `{path} names no explicit \`nativeStyle = false\``)
+			-- ANCHORED TO THE CALL, not searched over the file: a reviewer deleted
+			-- the argument, left behind a comment saying the argument used to be
+			-- there, and this case stayed green while the preview seeded a
+			-- persistent sheet into the Edit DataModel. The exemption has to be in
+			-- the constructor's own argument list, so the match walks from
+			-- `screen_target.new(` to the closing brace and looks only inside it.
+			local call = string.match(source, "screen_target%.new%(%s*%b{}")
+			if call == nil or string.find(call :: string, "nativeStyle = false", 1, true) == nil then
+				table.insert(silent, `{path} passes no explicit \`nativeStyle = false\` in its screen_target.new call`)
 			end
 		end
 		expect(`swept:{table.concat(silent, "; ")}`).toBe("swept:")
+	end)
+
+	--[[ ═══ THE PLAN ITSELF — every branch that used to be un-witnessable ══════
+
+		`paintPlan(opt, isReducedMotion, available)` is pure. The engine probe and
+		the motion fact are PARAMETERS rather than reads, which is the entire
+		reason these cases can exist: `native_style.available()` answers `false`
+		under Lune (there is no `Instance`), so a plan that probed for itself could
+		only ever be tested in its refusing half. ]]
+	local function planFor(opt: any, reduced: boolean?, available: boolean?): any
+		return native_style.paintPlan(opt, function()
+			return reduced == true
+		end, if available == nil then true else available)
+	end
+
+	describe("the plan the adapter obeys", function()
+		it("NO opt plans SHEET PAINT — the default, decided here and nowhere else", function()
+			expect(planFor(nil).native).toBe(true)
+		end)
+
+		it("an explicit `false` plans the EXPLICIT-WRITE path", function()
+			expect(planFor(false).native).toBe(false)
+		end)
+
+		it("no engine capability refuses even an explicit opt-in", function()
+			-- the gate that used to be `and native_style.available()` in the target
+			expect(planFor(true, false, false).native).toBe(false)
+			expect(planFor(nil, false, false).native).toBe(false)
+			expect(planFor({ theme = "Light" }, false, false).native).toBe(false)
+		end)
+
+		it("the plan carries the RESOLVED opt, and it cannot say whether one was passed", function()
+			-- what makes the pre-flip rule unreconstructible from the plan: an
+			-- absent opt and an explicit `true` are the same answer by the time
+			-- the adapter sees it
+			expect(planFor(nil).opt).toBe(true)
+			expect(planFor(true).opt).toBe(true)
+			local config = { theme = "Light" }
+			expect(planFor(config).opt).toBe(config)
+		end)
+
+		it("the sheet's HOST and THEME pass through by identity", function()
+			local host = { fake = true }
+			local plan = planFor({ host = host, theme = "Light" })
+			expect(plan.host).toBe(host)
+			expect(plan.theme).toBe("Light")
+		end)
+
+		it("a bare `true` names no host or theme, so `ensure` takes its own defaults", function()
+			local plan = planFor(true)
+			expect(plan.native).toBe(true)
+			expect(plan.host).toBe(nil)
+			expect(plan.theme).toBe(nil)
+		end)
+
+		--[[ WHAT THE PLAN DELIBERATELY DOES NOT CARRY. `handle` and `model` are the
+			caller's own OBJECTS, not decisions — the target reads them off
+			`plan.opt` where it builds the sheet, beside the style and display
+			facts only it has. Putting them in the plan would ship two fields no
+			production line reads, which is the shape of defect this round already
+			found once on the Rascal Rally side (a retained reader with no caller is
+			a loaded gun). So the plan answers WHETHER and HOW, never WITH WHAT. ]]
+		it("the plan carries no `handle` and no `model` — those are the caller's objects", function()
+			local plan = planFor({ handle = { sheet = "pretend" }, model = { rules = {} } })
+			expect(plan.native).toBe(true)
+			expect(plan.handle).toBe(nil)
+			expect(plan.model).toBe(nil)
+			-- ...and the target reaches them through the resolved opt, by identity
+			expect(plan.opt.handle.sheet).toBe("pretend")
+		end)
+
+		it("transitions are OPT-IN, and reduced motion wins over the opt", function()
+			expect(planFor(true).transitions).toBe(false)
+			expect(planFor({ transitions = true }).transitions).toBe(true)
+			expect(planFor({ transitions = true }, true).transitions).toBe(false)
+			-- ...and the motion fact is only asked for when it could matter, so a
+			-- consumer's deprecated closure is not called on a target that opted out
+			local asked = 0
+			native_style.paintPlan(false, function()
+				asked += 1
+				return false
+			end, true)
+			expect(asked).toBe(0)
+		end)
+
+		it("the plan is NEVER nil and always answers `native`, so one test decides the branch", function()
+			for _, opt in { { "absent" }, { false }, { true } } do
+				local plan = native_style.paintPlan(if opt[1] == "absent" then nil else opt[1], nil, true)
+				expect(type(plan)).toBe("table")
+				expect(type(plan.native)).toBe("boolean")
+			end
+		end)
+
+		it("the engine probe is consulted when the caller states no capability", function()
+			-- the shipped call passes two arguments; headless there is no
+			-- `Instance`, so `available()` is false and the plan refuses. A plan
+			-- that stopped probing would answer `true` here and redden.
+			expect(native_style.paintPlan(true, nil).native).toBe(false)
+		end)
 	end)
 
 	it("the flip is RECORDED in ADR-0040, which is what makes it legal", function()
