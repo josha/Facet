@@ -1602,3 +1602,24 @@ STUDIO.md, root CLAUDE.md.
   pattern the ledger-head rule now names. Messaged the round directly so
   it sweeps before closing, runs every guard it certifies, and labels its
   ADR row B-19.
+
+## 2026-08-21 (post-close 24) — the flip guard reaches its dead end
+
+- FLIP FIX 2 LANDED (c3eec58 + 9a88feb, RR c3c8d49; 7022/3466 at
+  measurement-time pins): MAJOR-A closed by the PRESCRIBED endgame —
+  paintPlan takes the whole opts table, the consumer pin is a count of
+  ZERO over the word (two structural exclusions, which is what catches
+  bracket spellings), the argument itself pinned. Both surviving
+  mutations now redden with messages QUOTING the attempted substitution;
+  the original bypass still red. MEDIUM-A closed as a class: the sweep's
+  contract is the VALUE EXPRESSION (unmapped pass-through; a variable
+  deliberately refused), the hardcoded SITES list replaced by the sweep
+  feeding both cases; the collapsing fifth site reds, the correct fifth
+  site is admitted. LOW-E fixed rather than named (short-circuit
+  restored). Both report overclaims retracted INLINE in the sentences
+  that made them. Sonnet re-review seat dispatched with one instruction
+  beyond reproduction: design a FRESH bypass of its own.
+- Housekeeping: two review seats' staged records committed (55fdfb0);
+  check_theme_artifacts red on the WORKING tree only (the renderer
+  round's mid-edit state) — green on clean exports all day; full battery
+  re-runs on the committed tree at the renderer landing.
