@@ -52,6 +52,14 @@ export type Deps = {
 	headerDim: (any) -> any,
 	columnHidden: (any) -> any,
 	isSortable: (any) -> boolean,
+	-- THE THREE FACTS THE EDIT-MODE GUTTER IS MADE OF (see `headerPadding`): the
+	-- mode itself, whether this table can ever reach it (the same build-time union
+	-- `cellsEditPadding` gates on), the table's own ≡/◉ gutter width, and the
+	-- row-actions ⊖ gutter the row builder publishes out of the composite
+	editingSignal: any,
+	canEditMode: boolean,
+	HANDLE_GUTTER: number,
+	rowEditGutter: any,
 	-- the sort mark's reactive text needs a scope and a core of the table's own
 	scope: any,
 	core: any,
@@ -78,6 +86,10 @@ function table_header.band(deps: Deps): any
 	local headerDim = deps.headerDim
 	local columnHidden = deps.columnHidden
 	local isSortable = deps.isSortable
+	local editingSignal = deps.editingSignal
+	local canEditMode = deps.canEditMode
+	local HANDLE_GUTTER = deps.HANDLE_GUTTER
+	local rowEditGutter = deps.rowEditGutter
 	local scope = deps.scope
 	local core = deps.core
 	local api = deps.api
@@ -221,7 +233,42 @@ function table_header.band(deps: Deps): any
 	if spec.header == false then
 		return nil
 	end
-	local headerPadding = bandPadding
+	--[[ THE BAND PAYS WHAT EDIT MODE COST THE ROW (director report 2026-08-22:
+		"the header pills keep their pre-edit x positions and widths, so every header
+		is misaligned with its column — Name sits over the minus circles").
+
+		Opening edit mode gives a row up to TWO leading affordances and the row's
+		cells pay for both: the table's own ≡/◉ gutter, which `cellsEditPadding`
+		adds under exactly the condition repeated below, and — on a row wrapped by
+		`row_actions` for its destructive action — the composite's ⊖ gutter, which it
+		spends as the LEFT PADDING of the content it was handed. This band is outside
+		every row, so it paid neither: measured at 800px with two columns, the body
+		cell moved from x=0 to x=32 (unwrapped) or x=68 (wrapped) and narrowed by the
+		same amount while the heading stayed at x=0 w=736.
+
+		BOTH TERMS COME FROM THE SIDE THAT SPENDS THEM, which is the whole point:
+		`HANDLE_GUTTER` is the table's own number and `rowEditGutter` is the
+		composite's own published reading (`table_rows`' `noteEditGutter`). The band
+		re-derives neither, so the two can never come apart again — including the
+		next time something else claims leading room in a row.
+
+		A PASS-THROUGH WHEN THE MODE IS CLOSED, and it is the same table
+		`bandPadding` already returns: the closed state has to be byte-identical to
+		what shipped, and the toolbar — which shares `bandPadding` and is not a row —
+		keeps its own edge in both states. ]]
+	local headerPadding = scope:own(core:memo(function(use)
+		local band = use(bandPadding)
+		if not use(editingSignal) then
+			return band
+		end
+		local lead = (if canEditMode then HANDLE_GUTTER else 0) + (use(rowEditGutter) or 0)
+		if lead <= 0 then
+			return band
+		end
+		local left = table.clone(band.left)
+		table.insert(left, lead)
+		return { left = left, right = band.right, bottom = band.bottom }
+	end))
 	local headerCells = {}
 	for _, column in columns do
 		-- full-contrast title (the secondary tint was unreadable over

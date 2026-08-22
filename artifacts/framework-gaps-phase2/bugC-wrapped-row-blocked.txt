@@ -1,0 +1,81 @@
+Bug C — the WRAPPED-ROW half, BLOCKED (lane ownership), 2026-08-22
+==================================================================
+
+WHAT IS FIXED IN THIS ROUND
+  The heading band now pays the table's OWN edit-mode gutter (`HANDLE_GUTTER`,
+  32px — the ≡ reorder handle / ◉ selection mark) under exactly the condition
+  `cellsEditPadding` adds it. Headless and live evidence in the task report.
+
+WHAT IS STILL WRONG, AND BY EXACTLY HOW MUCH
+  A row that carries a destructive `rowActions` entry is WRAPPED by
+  `row_actions.build`, and the composite insets that row's whole content by a
+  SECOND leading gutter — its edit-mode ⊖ — which `row_actions_root` spends as
+  the LEFT PADDING of the content it was handed. Measured live (Facet-Showcase,
+  Play, native sheet path, source stamp efc1794e-7090005), a 3-row table with a
+  destructive trailing action, editing = true:
+
+      Header  Head-name/Title      x =  64
+      Row     Cell-name/Value      x = 100        <- 36px further in
+      Row     EditAffordance (⊖)   x =  24 w = 28
+
+  36 = `controls.rowActions.editAffordance` (28) + `controls.rowActions.rowGutter` (8).
+
+  Before this round's fix the same measurement read header x=32 / cell x=100,
+  i.e. 68px apart; headless at 800px with two columns: header x=0 w=736 against
+  a cell at x=32 w=704 (unwrapped) or x=68 w=668 (wrapped).
+
+WHY IT IS BLOCKED
+  `headerPadding` (src/controls/table_header.luau) is ALREADY WRITTEN to spend
+  the number: it adds `use(rowEditGutter)`, and `table_rows`' `noteEditGutter`
+  binds `rowEditGutter` to whatever the composite publishes. The composite does
+  not publish it in the mode Table uses:
+
+      src/controls/row_actions.luau:3499   if isHosted then
+      src/controls/row_actions.luau:3550       api.editGutterPx = editGutterPx
+      src/controls/row_actions.luau:3569   end
+
+  In WRAP (standalone) mode — Table's mode — `api.editGutterPx` is nil, so
+  `noteEditGutter` returns immediately and `rowEditGutter` stays 0. There is no
+  other route to the number: `ROW_GUTTER` ("controls.rowActions.rowGutter") is
+  NOT exported from `row_actions_metrics.luau` (only `EDIT_AFFORDANCE` and
+  `BUTTON_MIN_WIDTH` are), and re-deriving the sum in the table would be a
+  second implementation of a number the composite already owns.
+
+  `src/controls/row_actions.luau` belongs to lane R1b this round (binding brief:
+  "Avoid their files"), so the change was NOT made.
+
+THE CHANGE THE CONTROLLER NEEDS TO SEQUENCE (one line, additive, no behaviour
+change in either mode — the field simply becomes readable in both)
+  Move `api.editGutterPx = editGutterPx` out of the `if isHosted then` block, to
+  just before `return api` (row_actions.luau:3570), with the reason:
+  a hosted host declares the gutter as its own row content's left padding; a
+  WRAP host does not, because the composite spends it — but Table has a HEADING
+  BAND outside the composite that must reserve the identical amount, and a
+  second derivation of it is how the two come apart. Nil unless the row can ever
+  show the minus, unchanged.
+  File size after: 192,903 -> ~193,3xx, still ~2,700 below that row's 196,000
+  trigger.
+
+THE SPEC CASE THAT LANDS WITH IT (drop into tests/table.spec.luau's
+"Table: layout" describe, beside the two that shipped this round; the comment
+block already in that file at the same spot names this artifact)
+
+	it("columns stay aligned in edit mode: the ≡ gutter AND the row-actions ⊖", function()
+		local _, adapter = editAlignmentWorld({
+			reorderable = true,
+			onReorder = function() end,
+			rowActions = function()
+				return {
+					trailing = {
+						{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+					},
+				}
+			end,
+		})
+		expectAligned(adapter, "/S/Racers/Main/Body/Rows/[razz@0]/RowActions-razz/Content/Row/Cells/Cell-name")
+	end)
+
+  RED evidence, run against this round's own tree BEFORE the header fix:
+    tests/table.spec:177: expected 68 to be 0
+  and AFTER the header fix, with the publication still missing:
+    tests/table.spec:177: expected 68 to be 32

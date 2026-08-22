@@ -144,6 +144,69 @@ describe("Table: layout", function()
 		end
 	end)
 
+	--[[ ...AND THEY STAY ALIGNED WHEN EDIT MODE OPENS (bug FIX-SHOW C, director
+		report 2026-08-22: "the header pills keep their pre-edit x positions and
+		widths, so every header is misaligned with its column — Name sits over the
+		minus circles").
+
+		Edit mode gives a row up to TWO leading affordances, and the row's cells
+		pay for both: the table's own ≡/◉ gutter (`cellsEditPadding`, HANDLE_GUTTER)
+		and — on a row wrapped by `row_actions` because it carries a destructive
+		action — the composite's ⊖ gutter, which `row_actions_root` spends as the
+		LEFT PADDING of the row content it was handed. The heading band sits outside
+		every row, so it has to add the same two or the columns come apart the
+		instant the mode opens.
+
+		Measured before the fix, at 800px with two columns: the body cell moved from
+		x=0 to x=32 (unwrapped) / x=68 (wrapped) and narrowed by the same amount,
+		while the header cell stayed at x=0 w=736. THE INVARIANT IS THE ONE THE CASE
+		ABOVE ALREADY STATES, asserted in the state the case above never enters —
+		which is why this is a second case on the same rule rather than a number
+		somebody chose. ]]
+	local function editAlignmentWorld(spec: any)
+		local core, adapter, pres, tbl = world(spec)
+		local editing = tbl.api.editing
+		editing:set(true)
+		pres.refresh()
+		return core, adapter, pres, tbl
+	end
+
+	local function expectAligned(adapter: any, rowCellPath: string)
+		local headerName = adapter.node("/S/Racers/Main/Header/Head-name").rect
+		local nameCell = adapter.node(rowCellPath).rect
+		expect(nameCell.x).toBe(headerName.x)
+		expect(nameCell.w).toBe(headerName.w)
+	end
+
+	it("columns stay aligned in edit mode: the ≡ gutter", function()
+		local _, adapter = editAlignmentWorld({ reorderable = true, onReorder = function() end })
+		expectAligned(adapter, cellPath(0, "razz", "name"))
+	end)
+
+	-- ...and the ◉/◯ half of the same gutter, on the OTHER route into edit mode:
+	-- an owner-held `editing` signal is what makes `canEditMode` true here, and
+	-- without it this arm would assert alignment on a table that never insets at
+	-- all — a case that cannot fail. `world` forwards `spec.editing` verbatim.
+	it("columns stay aligned in edit mode: the selection gutter", function()
+		local core = Facet.newCore()
+		local _, adapter = editAlignmentWorld({ core = core, selection = "multi", editing = core:signal(false) })
+		expectAligned(adapter, cellPath(0, "razz", "name"))
+	end)
+
+	--[[ THE THIRD ARM — a row WRAPPED by `row_actions` for its destructive action —
+		is NOT here, and its absence is the finding rather than an oversight. That
+		row's content carries a SECOND leading gutter, the composite's own ⊖, and the
+		composite publishes the number (`api.editGutterPx`) only in HOSTED mode: in
+		the WRAP mode Table uses, the field is assigned inside
+		`row_actions.luau`'s `if isHosted then` block and there is no other route to
+		it. `headerPadding` above is already written to spend it — `rowEditGutter`
+		reads whatever `table_rows`' `noteEditGutter` is handed — so the case lands
+		with the one-line publication and needs nothing else. Measured red today at
+		800px with two columns: header x=32 w=704 against a cell at x=68 w=668.
+		Blocked this round because `src/controls/row_actions.luau` belongs to another
+		lane; the case and its evidence are in
+		`artifacts/framework-gaps-phase2/bugC-wrapped-row-blocked.txt`. ]]
+
 	it("variable row heights position rows correctly", function()
 		local _, adapter = world({
 			rowHeight = function(item)

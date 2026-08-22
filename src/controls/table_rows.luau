@@ -125,6 +125,10 @@ export type Deps = {
 	-- is edit mode reachable at all on this table (the consumer holds the signal,
 	-- or the control auto-shows its toggle) — a build-time union
 	canEditMode: boolean,
+	-- the shared cell the HEADER BAND reads its edit-mode gutter out of; written
+	-- here, owned by `table.luau`, spent by `table_header.band` (see
+	-- `noteEditGutter` below for why the number is taken rather than re-derived)
+	rowEditGutter: any,
 	-- the ONE environment `table.luau` resolved (`spec.env`, else the one
 	-- published against the core): a wrapped row's tray must not resolve its
 	-- metrics against a different one than the row box did
@@ -186,6 +190,44 @@ function table_rows.new(deps: Deps)
 	local clearPointerDrag = deps.clearPointerDrag
 	local liveDragRects = deps.liveDragRects
 	local cancelDrag = deps.cancelDrag
+	--[[ THE ⊖ GUTTER THE HEADING BAND HAS TO MATCH (director report 2026-08-22:
+		"Name sits over the minus circles").
+
+		A row that carries a destructive action is WRAPPED by `row_actions`, and the
+		composite insets the content it was handed — this row, cells and all — by its
+		own edit-mode gutter (`row_actions_root` spends `editGutterPx` as that
+		content's LEFT PADDING). That is on top of the ≡/◉ gutter `cellsEditPadding`
+		already pays. The heading band sits outside every row and pays neither, so
+		every column came apart the instant edit mode opened.
+
+		THE NUMBER IS TAKEN, NOT RE-DERIVED. `api.editGutterPx` is the composite's
+		own published reading — the same Readable its padding is spent from, 0
+		whenever the mode is closed — so the band and the row cannot disagree. A
+		second `editAffordance + rowGutter` sum here would be the "two
+		implementations that agree today" shape this file's other comments keep
+		finding at the bottom of a defect, and it would go stale the next time
+		anything else claims leading room in a row.
+
+		ONE OBSERVATION, RE-POINTED at the most recently built wrapped row. Every row
+		that can show the minus publishes the SAME number (two theme metrics and the
+		mode), so which row is watched does not change the reading — and re-pointing
+		rather than accumulating is what stops a table that rebuilds its rows from
+		growing one observer per rebuild. The write is equality-guarded by the signal
+		itself, so a row built while the mode is closed writes nothing at all. ]]
+	local rowEditGutter = deps.rowEditGutter
+	local unbindEditGutter: (() -> ())? = nil
+	local function noteEditGutter(source: any)
+		if source == nil then
+			return
+		end
+		if unbindEditGutter ~= nil then
+			unbindEditGutter()
+		end
+		unbindEditGutter = core:observe(source, function()
+			rowEditGutter:set(source:get())
+		end)
+		rowEditGutter:set(source:get())
+	end
 	-- the edit-mode ≡ handle reuses the row-drag closures; forward-declared for
 	-- the same reason it always was (it is built after them and read by the
 	-- blueprint below)
@@ -943,6 +985,7 @@ function table_rows.new(deps: Deps)
 			staleInstance.dispose()
 		end
 		rowActionsByKey[rowKey] = rowActionsApi
+		noteEditGutter(rowActionsApi.editGutterPx)
 
 		return rowActionsApi.blueprint
 	end

@@ -1126,6 +1126,9 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- `controls/table_header.luau` (which starts every one of these gestures) —
 	-- the same spelling, for the same reason, as `rowGesture` above
 	local resizeGesture: table_header.ResizeGesture = { drag = nil }
+	-- the row-actions ⊖ gutter: written by `table_rows` (noteEditGutter), spent by
+	-- `table_header` (headerPadding). Owned here because both halves hold it.
+	local rowEditGutter = scope:own(core:signal(0))
 	-- Phase B row drag: drop indicator state; commits via spec.onReorder.
 	-- suppression is armed at the drag THRESHOLD (not on release) and keyed to
 	-- the origin row's path, so it neither depends on the engine's unspecified
@@ -1783,6 +1786,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		columnDim = columnDim,
 		columnHidden = columnHidden,
 		canEditMode = canEditMode,
+		rowEditGutter = rowEditGutter,
 		-- the SAME environment every other read site takes (ISSUE-4): a wrapped
 		-- row's tray metrics must not resolve against a different one
 		surfaceEnvironment = surfaceEnvironment,
@@ -1848,6 +1852,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		headerDim = headerDim,
 		columnHidden = columnHidden,
 		isSortable = isSortable,
+		editingSignal = editingSignal,
+		canEditMode = canEditMode,
+		HANDLE_GUTTER = HANDLE_GUTTER,
+		rowEditGutter = rowEditGutter,
 		scope = scope,
 		core = core,
 		api = api,
