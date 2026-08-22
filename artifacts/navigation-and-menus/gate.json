@@ -11,7 +11,7 @@
       "state": "PASS"
     },
     {
-      "detail": "suite cache selftest\n  ✓ --fingerprint prints a content hash\n  ✓ fingerprint is stable across calls on an unchanged tree\n  ✓ a new file under tests/ changes the fingerprint\n  ✓ a cache holding the PREVIOUS tree state reports a MISS for the new one\n  ✓ editing a file's CONTENT changes the fingerprint\n  ✓ removing the edit restores the original fingerprint\n  ✓ an absent cache reports MISS (hit-or-run, never trust-the-file)\n  ✓ a transcript with no meta reports MISS\n  ✓ a foreign fingerprint reports MISS\n  ✓ a RED suite (non-zero exit) is refused\n  ✓ a suite with failures is refused\n  ✓ a TRUNCATED transcript (no summary line) is refused\n  ✓ a FAST-TIER transcript is refused\n  ✓ an EMPTY transcript is refused\n  ✓ a transcript mutated on disk after caching is refused\n  ✓ the race guard is silent on the dir a refusal case actually built\n  ✓ ...and it SEES the second entry a missed, re-run suite leaves behind\n  ✓ a valid cache is served verbatim and exits 0\nartifacts/suite_cache/68b196df4489c9c969d85cf9c25f3b8c40a24e4a0fac5d3e748c87b56901998e.txt\n  ✓ tools/test.sh --ensure-cache leaves a valid cache\n  ✓ a warm call re-runs nothing (transcript untouched, 1s)\n    (warm call: 1s wall — informational; the mtime check above is the claim)\n  ✓ an unchanged tree reports a cache HIT\n  ✓ RascalRally: --fingerprint prints a content hash\n  ✓ RascalRally: a Facet-side edit changes the RascalRally fingerprint\n  ✓ RascalRally: Facet src/ is a declared fingerprint root\n  ✓ RascalRally: a RED suite is refused\n  ✓ RascalRally: a suite with failures is refused\n  ✓ RascalRally: a TRUNCATED transcript is refused\n  ✓ RascalRally: a valid transcript is served\n    (RascalRally warm call: 0s wall — informational, same reason)\n\nsuite cache selftest: 28 passed, 0 failed",
+      "detail": "suite cache selftest\n  ✓ --fingerprint prints a content hash\n  ✓ fingerprint is stable across calls on an unchanged tree\n  ✓ a new file under tests/ changes the fingerprint\n  ✓ a cache holding the PREVIOUS tree state reports a MISS for the new one\n  ✓ editing a file's CONTENT changes the fingerprint\n  ✓ removing the edit restores the original fingerprint\n  ✓ an absent cache reports MISS (hit-or-run, never trust-the-file)\n  ✓ a transcript with no meta reports MISS\n  ✓ a foreign fingerprint reports MISS\n  ✓ a RED suite (non-zero exit) is refused\n  ✓ a suite with failures is refused\n  ✓ a TRUNCATED transcript (no summary line) is refused\n  ✓ a FAST-TIER transcript is refused\n  ✓ an EMPTY transcript is refused\n  ✓ a transcript mutated on disk after caching is refused\n  ✓ the race guard is silent on the dir a refusal case actually built\n  ✓ ...and it SEES the second entry a missed, re-run suite leaves behind\n  ✓ a valid cache is served verbatim and exits 0\nartifacts/suite_cache/a5e62be0ea3317e4813e1c3215570bc1eb0d4179ff8981ddb8ef412b97b2add4.txt\n  ✓ tools/test.sh --ensure-cache leaves a valid cache\n  ✓ a warm call re-runs nothing (transcript untouched, 0s)\n    (warm call: 0s wall — informational; the mtime check above is the claim)\n  ✓ an unchanged tree reports a cache HIT\n  ✓ RascalRally: --fingerprint prints a content hash\n  ✓ RascalRally: a Facet-side edit changes the RascalRally fingerprint\n  ✓ RascalRally: Facet src/ is a declared fingerprint root\n  ✓ RascalRally: a RED suite is refused\n  ✓ RascalRally: a suite with failures is refused\n  ✓ RascalRally: a TRUNCATED transcript is refused\n  ✓ RascalRally: a valid transcript is served\n    (RascalRally warm call: 0s wall — informational, same reason)\n\nsuite cache selftest: 28 passed, 0 failed",
       "evidence": "artifacts/navigation-and-menus/suite-cache-selftest.md",
       "name": "d0-cache-guards-bite",
       "releaseBlocking": false,
@@ -54,7 +54,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_prop_parity: PASS (27 classes, 673 properties, 2 diagnosed, 711 typed fields)\ntheme drift: clean — framework 45 files / 38158 lines (1 allowlisted); examples 165 files / 70460 lines (11 marked THEME-OPT-OUT, 4 PROBE-EXEMPT across 1 listed files)",
+      "detail": "check_prop_parity: PASS (27 classes, 673 properties, 2 diagnosed, 711 typed fields)\ntheme drift: clean — framework 45 files / 38158 lines (1 allowlisted); examples 165 files / 70565 lines (12 marked THEME-OPT-OUT, 4 PROBE-EXEMPT across 1 listed files)",
       "evidence": "artifacts/navigation-and-menus/d3a-help.md",
       "name": "d3a-help",
       "releaseBlocking": false,
@@ -65,7 +65,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_registration: PASS (38 controls, 100 exports documented, 263 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)",
+      "detail": "check_registration: PASS (38 controls, 100 exports documented, 263 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)\ncheck_docs: PASS (9 documents, 81 surface anchors, 151 comparison citations, 163 local links, 12 themes exports documented, 24 scenario steps, 11 example packages, 17 asset files, 11 stale phrases absent)",
       "evidence": "artifacts/navigation-and-menus/d3b-callout.md",
       "name": "d3b-callout",
       "releaseBlocking": false,
@@ -100,7 +100,7 @@
       "state": "PASS"
     },
     {
-      "detail": "theme drift: clean — framework 45 files / 38158 lines (1 allowlisted); examples 165 files / 70460 lines (11 marked THEME-OPT-OUT, 4 PROBE-EXEMPT across 1 listed files)",
+      "detail": "check_docs: PASS (9 documents, 81 surface anchors, 151 comparison citations, 163 local links, 12 themes exports documented, 24 scenario steps, 11 example packages, 17 asset files, 11 stale phrases absent)\ntheme drift: clean — framework 45 files / 38158 lines (1 allowlisted); examples 165 files / 70565 lines (12 marked THEME-OPT-OUT, 4 PROBE-EXEMPT across 1 listed files)",
       "evidence": "artifacts/navigation-and-menus/d6-segmented-picker.md",
       "name": "d6-segmented",
       "releaseBlocking": false,
