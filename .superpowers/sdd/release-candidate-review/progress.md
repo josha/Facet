@@ -1210,3 +1210,30 @@ STUDIO.md, root CLAUDE.md.
   packet).
 - Dispatched: the radii+strokes lockstep round (queued behind the flip, now
   live) and the flip's review seat. DIR5 still running.
+
+## 2026-08-21 (post-close 6) — flip review back; fix round dispatched; overflow-guard mission queued
+
+- FLIP REVIEW (task-native-default-review.md): APPROVE, 0 blocker / 1 MAJOR /
+  2 MEDIUM / 6 LOW / 2 INFO; everything reproduced exactly (11 mutations, two
+  positive controls; RR green against moving HEAD). MAJOR-1: the seam pin is
+  a SOURCE GREP — the reviewer's bypass calls resolveOpt, discards the
+  answer, re-derives the pre-flip rule, and the full suite stays 6905 green
+  while the default reverts (only 2 cases redden on flip-back, both on the
+  pure function). MEDIUM-1: the RR sweep gate accepts nativeStyleOn( and a
+  fifth adapter site can silently delete the rollback with RR green.
+  ALSO: the edit-preview defect is WORSE than reported — ensure seeds to
+  ReplicatedStorage in Edit by design and dispose never looks there. Fix
+  round resumed on the flip implementer (paintPlan extraction per the
+  reviewer — also buys chars back in near-cap screen_target; RR gate
+  nativeStyleOpt%( + nativeStyleOn removal).
+- DIRECTOR (systemic ask): the test system must GUARANTEE no-overflow — the
+  "9" class. Assessment delivered: it escaped because (a) sweeps never open
+  stateful surfaces, (b) the oracle asks off-viewport not out-of-parent,
+  (c) nothing forbids zero-size visible text. Mission queued behind DIR5
+  (file overlap): LAYER 1 harness-level containment invariant on-by-default
+  in every fixture world (visible node within nearest clipping ancestor;
+  non-empty visible text never zero-box; explicit waiver registry via
+  triage_overflow_waivers), LAYER 2 solver diagnostics treated red in dev
+  builds, LAYER 3 sweep state-walk (demos declare openable states; the L3
+  expand step). Proof bar: the new rule must redden on TODAY's hud "9"
+  state before DIR5's fix.
