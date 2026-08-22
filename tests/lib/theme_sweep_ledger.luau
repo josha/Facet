@@ -1290,22 +1290,18 @@ theme_ledger.ROWS = {
 	-- cell for the stars to overflow and the finding fires nowhere in the themed
 	-- passes. The rating is still reachable: the disclosure plate lists it per row.
 	-- Deleted rather than re-recorded, which is what this list is for.
-	{
-		--[[ THE KNOCK-ON FROM THE TEN ROWS ABOVE IT, and the only one there was. Pixel
-			Quest's fields grew from 44px to the 76px its own art needs, and this proof
-			puts a search bar in a shell that also carries a top bar and a dock: on a
-			640x320 landscape phone at +14 the middle content region is left with 2px.
-			It is a screen with genuinely no room rather than a control that cannot draw
-			— every field on it now paints — and the trade was ten of these for one. ]]
-		surface = "p3_sipworks",
-		variant = "-",
-		node = "/Sipworks/Shell/Middle/Content",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 2,
-		since = 14,
-		packages = "pixel-quest",
-		kind = "collapsed-box",
-	},
+	--[[ DELETED by framework-gaps-phase2 §6 (2026-08-22), which is what this ledger
+		is FOR: the defect is gone rather than moved. The row read
+
+		    p3_sipworks /Sipworks/Shell/Middle/Content — content box collapses to 2px
+		    on y, from +14, under pixel-quest
+
+		— Pixel Quest's fields at 76px in a hand-built shell that stacked a top bar, a
+		`Middle` row and a `Dock`, each with a gap of its own, left the content region
+		2px on a 640x320 landscape at the largest text preference. The shell is
+		`Facet.Controls.TabView` now, and the construct declares NO padding and NO gap
+		anywhere in its own scaffold (its header says why), so those steps came back to
+		the content. The sweep reports nothing at that cell any more, from any package. ]]
 	{
 		--[[ TWO TAB BARS DO NOT FIT ON A 320px-TALL LANDSCAPE AT THE LARGEST TEXT
 			PREFERENCE, and that is a fact about NESTING rather than about this fixture

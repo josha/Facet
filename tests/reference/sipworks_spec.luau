@@ -93,6 +93,43 @@ local function find(w: any, suffix: string): string?
 	return nil
 end
 
+--[[ THE NAV, AFTER §6. The shell is `Facet.Controls.TabView` now
+	(framework-gaps-phase2 §6, the accessory-slot round): a section's button is a
+	SEGMENT of the construct's one strip rather than a `Nav-<section>` Button this
+	proof declared three times over. A section is therefore addressed by its INDEX
+	in the proof's own `SECTIONS` order — the one part of the nav this file still
+	owns — while the path ABOVE the segment is the placement policy's business and
+	changes with the home. ]]
+local SECTION_ORDER = { "menu", "favorites", "recipes", "stamps" }
+local function navTail(section: string): string
+	for index, name in SECTION_ORDER do
+		if name == section then
+			return `/Strip/Indicator/Options/Opt{index}`
+		end
+	end
+	error(`no such section '{section}'`, 2)
+end
+local function navSection(path: string): string?
+	if string.find(path, "/Nav/", 1, true) == nil or string.find(path, "/Strip/", 1, true) == nil then
+		return nil
+	end
+	for index, name in SECTION_ORDER do
+		local tail = `/Opt{index}`
+		if string.sub(path, -#tail) == tail then
+			return name
+		end
+	end
+	return nil
+end
+local function isNavPath(path: string): boolean
+	return navSection(path) ~= nil
+end
+-- the four homes the construct mounts its strip in, by tail
+local RAIL = "/Nav/RailHome/then/Rail"
+local TOP_BAND = "/Nav/TopHome/then/TopBandCenter/TopBand"
+local BOTTOM_BAND = "/Nav/BottomHome/then/BottomDock/BottomBand"
+local COMPACT_BAND = "/Nav/CompactHome/then/CompactDock/CompactBandCenter/CompactBand"
+
 -- every MOUNTED node, not only the focusables — a `UI.Text` is not focusable and
 -- the guard notice, the row title and a measured quantity are all texts
 local function findNode(w: any, suffix: string): string?
@@ -143,25 +180,25 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 	it("navPlacement gives every canvas its home: sidebar / bottom tabs / inline tabs / top tabs", function()
 		-- desktop shape (roomy + pointer default): the sidebar rail, no dock
 		local w = world()
-		expect(findNode(w, "/then/NavRail") ~= nil).toBe(true)
-		expect(findNode(w, "/then/Dock") == nil).toBe(true)
-		expect(findNode(w, "/then/TopBar") == nil).toBe(true)
+		expect(findNode(w, RAIL) ~= nil).toBe(true)
+		expect(findNode(w, BOTTOM_BAND) == nil and findNode(w, COMPACT_BAND) == nil).toBe(true)
+		expect(findNode(w, TOP_BAND) == nil).toBe(true)
 
 		-- phone portrait: full bottom tab bar in the dock, rail gone
 		w.env:set("viewportRect", PHONE)
 		w.presenter.refresh()
-		expect(findNode(w, "/then/NavRail") == nil).toBe(true)
-		expect(findNode(w, "TabsFit") ~= nil).toBe(true)
+		expect(findNode(w, RAIL) == nil).toBe(true)
+		expect(findNode(w, BOTTOM_BAND) ~= nil).toBe(true)
 		expect(findNode(w, "TabsFull") == nil).toBe(true) -- bottom bars speak the SHORT vocabulary
-		expect(findNode(w, "/then/Dock") ~= nil).toBe(true)
+		expect(findNode(w, "/AboveBarSlot/AccessoryWhen/then/Accessory") ~= nil).toBe(true)
 
 		-- phone landscape (roomy width, SHORT height): the same bar, inline
 		-- form — and a CENTERED, HUGGING cluster, never a full-width stretch
 		w.env:set("viewportRect", { x = 0, y = 0, w = 720, h = 360 })
 		w.presenter.refresh()
-		local compactPath = findNode(w, "Center/TabsCompact")
+		local compactPath = findNode(w, COMPACT_BAND .. "/Strip")
 		expect(compactPath ~= nil).toBe(true)
-		expect(findNode(w, "TabsFit") == nil).toBe(true)
+		expect(findNode(w, BOTTOM_BAND) == nil).toBe(true)
 		local compactRow = w.adapter.node(compactPath)
 		expect(compactRow ~= nil and compactRow.rect ~= nil).toBe(true)
 		expect(compactRow.rect.w < 720 * 0.7).toBe(true)
@@ -173,9 +210,9 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		w.env:set("preferredInput", "Touch")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
 		w.presenter.refresh()
-		expect(findNode(w, "/then/TopBar") ~= nil).toBe(true)
-		expect(findNode(w, "/then/Dock") == nil).toBe(true)
-		expect(findNode(w, "/then/NavRail") == nil).toBe(true)
+		expect(findNode(w, TOP_BAND) ~= nil).toBe(true)
+		expect(findNode(w, BOTTOM_BAND) == nil and findNode(w, COMPACT_BAND) == nil).toBe(true)
+		expect(findNode(w, RAIL) == nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()
 		w.built.dispose()
 	end)
@@ -188,10 +225,10 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		local w = world()
 		w.env:set("viewportRect", PHONE)
 		w.presenter.refresh()
-		local content = w.adapter.node(findNode(w, "/Middle/Content"))
-		local tabsPath = findNode(w, "TabsShort") or findNode(w, "TabsShortWide")
+		local content = w.adapter.node(findNode(w, "/Nav/Content"))
+		local tabsPath = findNode(w, BOTTOM_BAND .. "/Strip")
 		local tabs = if tabsPath ~= nil then w.adapter.node(tabsPath) else nil
-		local accessory = w.adapter.node(findNode(w, "/then/Accessory"))
+		local accessory = w.adapter.node(findNode(w, "/AboveBarSlot/AccessoryWhen/then/Accessory"))
 		expect(content ~= nil and content.rect ~= nil).toBe(true)
 		expect(tabs ~= nil and tabs.rect ~= nil).toBe(true)
 		expect(accessory ~= nil and accessory.rect ~= nil).toBe(true)
@@ -209,7 +246,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		local report = w.built.handle.controller.textAt ~= nil and nil or nil
 		-- ask the solver's own text facts: every mounted Nav- tab must FIT
 		for _, path in w.adapter.paths() do
-			if string.find(path, "/TabsShort/Nav-", 1, true) ~= nil then
+			if isNavPath(path) then
 				local n = w.adapter.node(path)
 				-- the fake target records label text props; the solver's unfit
 				-- report is what the matrix consumes — assert the node was not
@@ -228,7 +265,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		w.env:set("preferredInput", "Touch")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
 		w.presenter.refresh()
-		local rowPath = findNode(w, "TopTabsFull") or findNode(w, "TopTabsShort")
+		local rowPath = findNode(w, TOP_BAND .. "/Strip")
 		local row = if rowPath ~= nil then w.adapter.node(rowPath) else nil
 		expect(row ~= nil and row.rect ~= nil).toBe(true)
 		-- hugging: the tab cluster is decisively narrower than the band...
@@ -761,10 +798,10 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 		local w = world({ viewport = PHONE, entry = "compact-link" })
 		step(w, "close")
 		w.presenter.refresh()
-		expect(find(w, "/Nav-menu")).toBeNil()
-		expect(find(w, "/Nav-favorites")).toBeNil()
-		expect(find(w, "/Nav-stamps")).toBeNil()
-		expect(find(w, "/Nav-recipes")).toBeNil()
+		expect(find(w, navTail("menu"))).toBeNil()
+		expect(find(w, navTail("favorites"))).toBeNil()
+		expect(find(w, navTail("stamps"))).toBeNil()
+		expect(find(w, navTail("recipes"))).toBeNil()
 		for _, path in w.report().focusPaths do
 			expect(string.find(path, "/Favorite", 1, true)).toBeNil()
 		end
@@ -825,7 +862,7 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 		local r = w.report()
 		expect(r.entry).toBe("full")
 		expect(r.rewards.earned).toBe(3)
-		expect(find(w, "/Nav-menu") ~= nil).toBe(true)
+		expect(find(w, navTail("menu")) ~= nil).toBe(true)
 		w.built.dispose()
 	end)
 end)
@@ -1020,13 +1057,49 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		end
 	end)
 
+	--[[ §6 THE POCKET IS A VERB ON A ROOMY SHAPE, and the migration onto
+		`newTabView` had to keep it one. The construct writes its own selection
+		Signal on activation, as every picker does, so the proof reconciles that
+		write back against what `commands.selectSection` ACTUALLY did: Steam Stamps
+		presents the rewards card on a wide screen and never swaps the section.
+		Driven through the real activation closure, because "the strip set a Signal
+		and the app set it back" is exactly the kind of claim a `steps` call cannot
+		make. ]]
+	it("the Steam Stamps tab PRESENTS the rewards card on a wide screen — it is not a destination", function()
+		local w = world()
+		expect(w.report().section).toBe("menu")
+		local path = findNode(w, navTail("stamps"))
+		expect(path ~= nil).toBe(true)
+		w.adapter.tap(path :: string, { source = "pointer", pointer = "mouse" })
+		w.presenter.refresh()
+		-- the card is up...
+		expect(w.report().surfaces.rewards).toBe(true)
+		-- ...the section never moved, and neither did the strip's own selection
+		expect(w.report().section).toBe("menu")
+		expect(findNode(w, "/Tab-stamps/then/Body")).toBeNil()
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("...and on a COMPACT shape the same tab is a real destination", function()
+		local w = world({ viewport = PHONE })
+		local path = findNode(w, navTail("stamps"))
+		expect(path ~= nil).toBe(true)
+		w.adapter.tap(path :: string, { source = "pointer", pointer = "mouse" })
+		w.presenter.refresh()
+		expect(w.report().section).toBe("stamps")
+		expect(findNode(w, "/Tab-stamps/then/Body") ~= nil).toBe(true)
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
 	it("every verb in the loop is a real focusable, on every input class", function()
 		local w = world()
 		-- the shell: four nav stops and a row with its own heart
-		expect(find(w, "/Nav-menu") ~= nil).toBe(true)
-		expect(find(w, "/Nav-favorites") ~= nil).toBe(true)
-		expect(find(w, "/Nav-recipes") ~= nil).toBe(true)
-		expect(find(w, "/Nav-stamps") ~= nil).toBe(true)
+		expect(find(w, navTail("menu")) ~= nil).toBe(true)
+		expect(find(w, navTail("favorites")) ~= nil).toBe(true)
+		expect(find(w, navTail("recipes")) ~= nil).toBe(true)
+		expect(find(w, navTail("stamps")) ~= nil).toBe(true)
 		expect(find(w, "/Search/Field") ~= nil).toBe(true)
 		expect(find(w, "/Row-lantern-oolong/Line/Open") ~= nil).toBe(true)
 		expect(find(w, "/Row-lantern-oolong/Line/Favorite") ~= nil).toBe(true)
@@ -1164,7 +1237,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		for _, section in { "menu", "favorites", "recipes", "stamps" } do
 			local hit = false
 			for path in seen do
-				if string.find(path, "Nav-" .. section, 1, true) ~= nil then
+				if navSection(path) == section then
 					hit = true
 				end
 			end
@@ -1173,13 +1246,13 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		-- (away) the ring holds MORE than the bar: content stops exist too
 		local outside = false
 		for path in seen do
-			if string.find(path, "Nav-", 1, true) == nil then
+			if not isNavPath(path) then
 				outside = true
 			end
 		end
 		expect(outside).toBe(true)
 		-- (action) activating a tab through the engine's activation path works
-		local fav = findNode(w, "Nav-favorites")
+		local fav = findNode(w, navTail("favorites"))
 		expect(fav ~= nil).toBe(true)
 		expect(w.adapter.driveActivate(fav :: string)).toBe(true)
 		w.presenter.refresh()
@@ -1267,7 +1340,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		w.env:set("displaySize", "Large")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		w.presenter.refresh()
-		expect(findNode(w, "/then/TopBar") ~= nil).toBe(true)
+		expect(findNode(w, TOP_BAND) ~= nil).toBe(true)
 		local function pad(key: string)
 			w.system.deviceKey(key, true)
 			w.system.deviceKey(key, false)
@@ -1285,7 +1358,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		for _, section in { "menu", "favorites", "recipes", "stamps" } do
 			local hit = false
 			for path in seen do
-				if string.find(path, "Nav-" .. section, 1, true) ~= nil then
+				if navSection(path) == section then
 					hit = true
 				end
 			end
@@ -1294,12 +1367,12 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		-- (action) ButtonA on the focused tab switches the section
 		pad("DPadLeft")
 		pad("DPadLeft") -- back to favorites
-		expect(string.find(focused(), "Nav-favorites", 1, true) ~= nil).toBe(true)
+		expect(navSection(focused()) == "favorites").toBe(true)
 		pad("ButtonA")
 		expect(w.report().section).toBe("favorites")
 		-- (away) DPadDown leaves the bar into the content below
 		pad("DPadDown")
-		expect(string.find(focused(), "Nav-", 1, true) == nil).toBe(true)
+		expect(isNavPath(focused())).toBe(false)
 		w.built.dispose()
 	end)
 end)

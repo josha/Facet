@@ -1,26 +1,31 @@
 --!strict
--- The Sipworks shell (spec §5): compact tab row ⇄ regular sidebar, decided by
--- `UI.Composition` from the box the shell actually receives.
+-- The Sipworks shell (spec §5): a nav whose home is a POLICY, and the two panes
+-- behind it. Since framework-gaps-phase2 §6 the nav itself is one construct —
+-- `Facet.Controls.TabView` — and this file is what an app still owns around it.
 --
--- TWO DEVIATIONS FROM THE SPEC'S LETTER, both forced by what a Region IS, and
--- both preserving what §5 is about:
+-- THREE DEVIATIONS FROM THE SPEC'S LETTER, each preserving what §5 is about:
 --
---  1. The spec gives the Nav region TWO ranked forms (sidebar, then tab row).
---     A Region's forms are chosen by FAILURE — a region steps down when its
---     arrangement cannot fit — not by width, so in the `column` arrangement the
---     richer sidebar form fits a full-width bottom band perfectly well and
---     would have been chosen there: a phone would have got a vertical sidebar
---     across the bottom of the screen. The nav is therefore ONE form built on
---     `UI.AdaptiveStack`, whose `axis` is a bound prop — the class that exists
---     precisely so a row/column flip is a re-solve and not a remount.
+--  1. The spec gives the Nav region TWO ranked forms (sidebar, then tab row)
+--     chosen by a `UI.Composition`. A Region's forms are chosen by FAILURE — a
+--     region steps down when its arrangement cannot fit — not by width, so a
+--     phone would have got a vertical sidebar across the bottom of the screen.
+--     The home is therefore `adaptive.navPlacement`, which answers from shape and
+--     input facts, and the construct is what mounts it.
 --
---  2. Declaration order is the same in both forms (Menu, Favorites, Blend Book,
+--  2. Declaration order is the same in every home (Menu, Favorites, Blend Book,
 --     Steam Stamps) rather than moving the Stamps pocket to the foot in one and
---     the third slot in the other. The framework states the reason: "Focus
---     order is the declaration's own order, and is therefore identical in every
---     arrangement" — so two orders would have been one order and a lie. The
---     pocket still sits at the FOOT of the sidebar, pushed there by a spacer
---     that only exists in the regular arrangement.
+--     the third slot in the other. The framework states the reason: "Focus order
+--     is the declaration's own order, and is therefore identical in every
+--     arrangement" — so two orders would have been one order and a lie.
+--
+--  3. THE STAMPS POCKET NO LONGER SITS AT THE RAIL'S FOOT (§6, recorded in
+--     ADR-0045). A spacer used to push it there, and a spacer inside the strip is
+--     not something an accessory slot can express: the pocket is a nav DESTINATION
+--     whose home moves, not chrome beside the tabs, and one picker object serves
+--     every placement by contract. It reads in its declared order instead. What it
+--     DOES on a roomy shape is unchanged — it presents the rewards card rather
+--     than swapping the section (`commands.selectSection`), which is why the
+--     construct's own write is reconciled below.
 
 local dims = require("../content/dims")
 local listView = require("./list")
@@ -41,183 +46,33 @@ local SECTION_LABEL: { [string]: string } = {
 shell.SECTIONS = SECTIONS
 
 -- ---------------------------------------------------------------------------
--- navigation
+-- navigation — ONE construct (framework-gaps-phase2 §6)
 -- ---------------------------------------------------------------------------
-
-local function navButton(app: any, section: string, opts: { short: boolean, hug: boolean? }): any
-	local UI = app.UI
-	local core = app.core
-	local selected = app.own(core:memo(function(use)
-		return use(app.state.section) == section
-	end))
-	return UI.Button({
-		-- NO `compactLabel`, and that is a finding rather than an omission: a
-		-- compact form is construction-only (a compact representation is what a
-		-- control HAS), so it cannot follow the live locale flip this proof's
-		-- loop drives. The short form is a second LOCALIZED string instead.
-		id = "Nav-" .. section,
-		label = app.text(SECTION_LABEL[section] .. (if opts.short then ".short" else "")),
-		selected = selected,
-		width = if opts.hug == true then nil else dims.fill,
-		onActivate = function()
-			app.commands.selectSection(section)
-		end,
-	})
-end
-
--- THE FOUR NAV HOMES (adaptive.navPlacement, director ruling 2026-08-09,
--- aligned to the platform tab-bar guidance the reference follows):
---   sidebar          desktop shape — the vertical rail, stamps pocket at the foot
+--
+-- THE FOUR NAV HOMES are still `adaptive.navPlacement`'s (director ruling
+-- 2026-08-09, aligned to the platform tab-bar guidance the reference follows):
+--
+--   sidebar          desktop shape — the vertical rail, full labels
 --   topBar           tablet/ten-foot shape — CENTER-ALIGNED, HUGS its tabs
 --                    (never full width), search rides the band's trailing edge
 --   bottomBar        phone portrait — full-width tabs in the thumb zone
 --   bottomBarCompact phone landscape — the SAME bar in its reduced inline form
---                    (short labels, tighter padding)
--- The placement is a CONDITION, not a fit: which home the nav takes is a
--- policy over shape + input facts, so it is decided by `navPlacement` and
--- mounted through `When`, while the CONTENT of a bar still degrades by fit
--- (the bottom bar is a ViewThatFits: full labels, then the short form — the
--- same localization-honest step-down the old region forms carried).
-
-local function sideRail(app: any): any
-	local UI = app.UI
-	local children: { any } = {}
-	for _, section in SECTIONS do
-		if section == "stamps" then
-			-- the pocket is pushed to the FOOT of the sidebar
-			table.insert(children, UI.Spacer({ id = "PocketGap", height = dims.fill }))
-		end
-		table.insert(children, navButton(app, section, { short = false }))
-	end
-	return UI.VStack({
-		id = "NavRail",
-		gap = "s",
-		padding = "s",
-		align = "stretch",
-		width = dims.minMax("app.sip.navRailMin", "app.sip.navRailMin", "app.sip.navRailMax"),
-		height = dims.fill,
-		children = children,
-	})
-end
-
-local function tabRow(app: any, id: string, opts: { short: boolean, hug: boolean?, pad: string }): any
-	local UI = app.UI
-	local children: { any } = {}
-	for _, section in SECTIONS do
-		table.insert(children, navButton(app, section, { short = opts.short, hug = opts.hug }))
-	end
-	return UI.HStack({
-		id = id,
-		gap = if opts.short then "xs" else "s",
-		padding = opts.pad,
-		-- NO `align` on the natural-width rows: a container's own `align` is
-		-- also read by its PARENT as cross-axis alignment (framework finding
-		-- 15), so "stretch" here would defeat the centering wrapper and
-		-- stretch the cluster back to full width.
-		align = if opts.hug == true then nil else "stretch",
-		-- CONTENT, not hug, on the measured candidates: `hug` CAPS at the
-		-- offer, so a hug row can never tell a ViewThatFits it does not fit —
-		-- the ladder silently pinned its first candidate and the tabs
-		-- truncated ("a lot of cutoff text", director live report). `content`
-		-- is the uncapped natural width, which is what a fit CHOICE needs;
-		-- the chosen row is then centered by its wrapper and never stretched.
-		width = if opts.hug == true then { type = "content" } else dims.fill,
-		children = children,
-	})
-end
-
-local function bottomBar(app: any, compactForm: boolean): any
-	local UI = app.UI
-	if compactForm then
-		-- the INLINE form: short labels, tighter band — and CENTERED, HUGGING
-		-- its tabs like the top bar (director refinement 2026-08-09: a
-		-- landscape phone's reduced bar is a centered cluster, never a
-		-- full-width stretch). A ViewThatFits carries the honest step-down:
-		-- at the 1.4x locale + the largest text preference the cluster cannot
-		-- hug 720px, and the full-width shared band is the fallback (the same
-		-- degradation rule every other bar form declares).
-		return UI.ViewThatFits({
-			id = "TabsCompactFit",
-			width = dims.fill,
-			children = {
-				UI.VStack({
-					id = "TabsCompactCenter",
-					align = "center",
-					width = dims.fill,
-					children = {
-						tabRow(app, "TabsCompact", { short = true, hug = true, pad = "xs" }),
-					},
-				}),
-				tabRow(app, "TabsCompactWide", { short = true, pad = "xs" }),
-			},
-		})
-	end
-	-- BOTTOM BARS SPEAK THE SHORT VOCABULARY (director refinement 2026-08-09:
-	-- "consider when to use the compact representation — I see a lot of cutoff
-	-- text"). Full labels belong to the homes with room (sidebar, top bar); a
-	-- thumb-zone tab bar uses the terse localized strings by construction, so
-	-- nothing ellipsizes in the normal range at all. The ladder that remains
-	-- is the honest extreme-text step-down: a CENTERED natural-width cluster,
-	-- then the full-width shared band at the 1.4x locale + largest preference.
-	return UI.ViewThatFits({
-		id = "TabsFit",
-		width = dims.fill,
-		children = {
-			UI.VStack({
-				id = "TabsShortCenter",
-				align = "center",
-				width = dims.fill,
-				children = { tabRow(app, "TabsShort", { short = true, hug = true, pad = "s" }) },
-			}),
-			tabRow(app, "TabsShortWide", { short = true, pad = "s" }),
-		},
-	})
-end
-
-local function topBar(app: any): any
-	local UI = app.UI
-	-- CENTERED AND HUGGING: the tab cluster is a hug row centered in a
-	-- full-width band (never stretched edge to edge), with the search field on
-	-- the band's trailing edge — the tablet tab-bar shape the guidance draws
-	return UI.ZStack({
-		id = "TopBar",
-		width = dims.fill,
-		children = {
-			UI.VStack({
-				id = "TopTabsCenter",
-				align = "center",
-				width = dims.fill,
-				children = {
-					UI.ViewThatFits({
-						id = "TopTabsFit",
-						children = {
-							tabRow(app, "TopTabsFull", { short = false, hug = true, pad = "s" }),
-							tabRow(app, "TopTabsShort", { short = true, hug = true, pad = "s" }),
-						},
-					}),
-				},
-			}),
-			UI.When({
-				id = "TopSearchWhen",
-				condition = app.searchable,
-				thenView = function()
-					return UI.VStack({
-						id = "TopSearchSlot",
-						align = "end",
-						width = dims.fill,
-						children = {
-							UI.VStack({
-								id = "TopSearchBox",
-								width = dims.minMax(160, 200, 260),
-								children = { listView.searchBar(app) },
-							}),
-						},
-					})
-				end,
-			}),
-		},
-	})
-end
+--                    (short labels, centred)
+--
+-- ...but this file no longer BUILDS them. `Facet.Controls.TabView` owns the
+-- placement, the strip, the content region's lifecycle and the focus order, and
+-- what kept this proof off it until §6 was the SEARCH FIELD's two chrome homes:
+-- the top band's trailing edge and the strip directly above the thumb-zone dock.
+-- Those are `accessories.trailing` and `accessories.aboveBar`, and the third
+-- home — inline atop the list pane on the sidebar shape — was never chrome at
+-- all: it lives in the CONTENT, where it always did.
+--
+-- THE SHORT VOCABULARY SURVIVES AS A BOUND LABEL rather than a second bar
+-- (director refinement 2026-08-09: "consider when to use the compact
+-- representation — I see a lot of cutoff text"). A thumb-zone home takes the
+-- short localized string and the roomier homes take the full one; `Option.label`
+-- is a Readable, so the flip follows a live rotation and a live locale change
+-- alike, which a construction-time compact form could not.
 
 -- ---------------------------------------------------------------------------
 -- section bodies — one two-pane shape, one bound pane width
@@ -431,42 +286,23 @@ local function stampsSection(app: any): any
 	})
 end
 
-local function content(app: any): any
+--[[ ONE TAB'S CONTENT. The plate is the same `canvasGroup` the four `When`-gated
+	section hosts each declared, and it is still the fade GROUP the enter
+	transition needs — the transition just moved onto the construct, which is the
+	one place that knows a section change IS a tab change now. The padding moved
+	with it: `newTabView` deliberately declares no spacing of its own, so the
+	breathing room a page wants belongs to the page. ]]
+local function sectionContent(app: any, section: string): any
 	local UI = app.UI
-	local core = app.core
-	local children: { any } = {}
-	for _, section in SECTIONS do
-		local this = section
-		local visible = app.own(core:memo(function(use)
-			return use(app.state.section) == this
-		end))
-		table.insert(
-			children,
-			UI.When({
-				id = "Section-" .. this,
-				condition = visible,
-				transition = { enter = "fade" },
-				thenView = function()
-					return UI.ZStack({
-						id = "Body",
-						canvasGroup = true,
-						width = dims.fill,
-						height = dims.fill,
-						children = {
-							if this == "stamps" then stampsSection(app) else listSection(app, this),
-						},
-					})
-				end,
-			})
-		)
-	end
-	return UI.VStack({
-		id = "Content",
-		gap = "s",
+	return UI.ZStack({
+		id = "Body",
+		canvasGroup = true,
 		padding = "s",
 		width = dims.fill,
 		height = dims.fill,
-		children = children,
+		children = {
+			if section == "stamps" then stampsSection(app) else listSection(app, section),
+		},
 	})
 end
 
@@ -478,109 +314,129 @@ function shell.build(app: any): any
 	local UI = app.UI
 	local core = app.core
 
-	-- the placement policy, spelled once (adaptive.navPlacement via conditions)
+	-- the placement policy, spelled once — and the ONE fact this file still reads
+	-- off it, because the inline search home is a CONTENT decision
 	local placement = app.cond.navPlacement
 	app.navSidebar = app.own(core:memo(function(use)
 		return use(placement) == "sidebar"
 	end))
-	local navTop = app.own(core:memo(function(use)
-		return use(placement) == "topBar"
-	end))
-	local navBottomFull = app.own(core:memo(function(use)
-		return use(placement) == "bottomBar"
-	end))
-	local navBottomCompact = app.own(core:memo(function(use)
-		return use(placement) == "bottomBarCompact"
-	end))
-	local navBottomish = app.own(core:memo(function(use)
-		local m = use(placement)
-		return m == "bottomBar" or m == "bottomBarCompact"
-	end))
-	-- the accessory (and the top band's search slot) only makes sense on the
+	-- the accessory (and the top band's trailing slot) only makes sense on the
 	-- sections that HAVE a searchable list — never over the stamps pocket
 	app.searchable = app.own(core:memo(function(use)
 		return use(app.state.section) ~= "stamps"
 	end))
+	-- ...and the SHORT vocabulary's own condition: the two thumb-zone homes
+	local terse = app.own(core:memo(function(use)
+		local home = use(placement)
+		return home == "bottomBar" or home == "bottomBarCompact"
+	end))
+	local function sectionLabel(section: string): any
+		-- both memos are built ONCE and selected between: `app.text` mints a new
+		-- one per call, so choosing the key inside a memo body would mint one per
+		-- evaluation
+		local full = app.text(SECTION_LABEL[section])
+		local short = app.text(SECTION_LABEL[section] .. ".short")
+		return app.own(core:memo(function(use)
+			return if use(terse) then use(short) else use(full)
+		end))
+	end
+
+	--[[ THE STRIP'S SELECTION IS A NAV INTENT; `state.section` stays the authority.
+		Steam Stamps is a VERB on every roomy shape — it presents the rewards card
+		rather than swapping the section — and a destination only on a compact one,
+		and `commands.selectSection` is the single place that rule lives. The
+		construct writes its own Signal on activation (as every picker does), so the
+		intent is reconciled back to whatever the command actually did, in the same
+		synchronous turn: a tab that declines to become the section snaps back before
+		anything is solved. ]]
+	local intent = app.own(core:signal(app.state.section:get()))
+	-- `core:observe` hands back a DISCONNECT FUNCTION, not a disposable, so the
+	-- proof's own `own` gets the shape it disposes
+	local unmirror = core:observe(app.state.section, function(value: string)
+		intent:set(value)
+	end)
+	app.own({ dispose = unmirror })
+
+	local tabs: { any } = {}
+	for _, section in SECTIONS do
+		local this = section
+		table.insert(tabs, {
+			id = this,
+			label = sectionLabel(this),
+			content = function()
+				return sectionContent(app, this)
+			end,
+		})
+	end
+
+	local nav = app.own(app.Facet.Controls.TabView(core, {
+		id = "Nav",
+		selection = intent,
+		-- the conditions this proof already built, passed in rather than rebuilt:
+		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- answers to one question
+		conditions = app.cond,
+		env = app.env,
+		--[[ THE RAIL'S BAND, and it is a MEASURED finding rather than a taste: a hug
+			rail is as wide as its widest label, and at the 1.4x locale with the
+			largest text preference that pushed this rail past 400px and squeezed the
+			content lane — the two-pane row overflowed by 82px on a 1024px tablet.
+			A rail is a rail: it states its band and the labels adapt inside it. ]]
+		railWidth = dims.minMax("app.sip.navRailMin", "app.sip.navRailMin", "app.sip.navRailMax"),
+		-- the enter fade the four section hosts each declared
+		transition = { enter = "fade" },
+		tabs = tabs,
+		onChange = function(id: string)
+			core:transaction(function()
+				app.commands.selectSection(id)
+				intent:set(app.state.section:get())
+			end)
+		end,
+		accessories = {
+			--[[ THE TOP BAND'S TRAILING EDGE. The construct parks this at the band's
+				end as an OVERLAY, so the hugging tab cluster underneath keeps its
+				centre — which is the shape this proof drew by hand with a ZStack and
+				an `align = "end"` wrapper, and the contract `newTabView` now owns. ]]
+			trailing = function()
+				return UI.When({
+					id = "TopSearchWhen",
+					condition = app.searchable,
+					thenView = function()
+						return UI.VStack({
+							id = "TopSearchBox",
+							width = dims.minMax(160, 200, 260),
+							children = { listView.searchBar(app) },
+						})
+					end,
+				})
+			end,
+			--[[ THE TAB-BAR ACCESSORY: the search field rides directly above the
+				bottom tab bar (the guidance's accessory slot), for the sections that
+				search. Both thumb-zone homes host it — the same bar in two forms is
+				still one bar — which is exactly what the hand-built `Dock` said with
+				a `bottomBar or bottomBarCompact` memo of its own. ]]
+			aboveBar = function()
+				return UI.When({
+					id = "AccessoryWhen",
+					condition = app.searchable,
+					thenView = function()
+						return UI.VStack({
+							id = "Accessory",
+							width = dims.fill,
+							padding = "xs",
+							children = { listView.searchBar(app) },
+						})
+					end,
+				})
+			end,
+		},
+	}))
 
 	return UI.Screen({
 		id = "Sipworks",
 		padding = 0,
 		surface = "base",
-		children = {
-			UI.VStack({
-				id = "Shell",
-				gap = "s",
-				width = dims.fill,
-				height = dims.fill,
-				children = {
-					UI.When({
-						id = "TopBarWhen",
-						condition = navTop,
-						thenView = function()
-							return topBar(app)
-						end,
-					}),
-					UI.HStack({
-						id = "Middle",
-						gap = "m",
-						width = dims.fill,
-						height = dims.fill,
-						children = {
-							UI.When({
-								id = "SideRailWhen",
-								condition = app.navSidebar,
-								thenView = function()
-									return sideRail(app)
-								end,
-							}),
-							content(app),
-						},
-					}),
-					UI.When({
-						id = "DockWhen",
-						condition = navBottomish,
-						thenView = function()
-							return UI.VStack({
-								id = "Dock",
-								gap = "xs",
-								width = dims.fill,
-								children = {
-									-- THE TAB-BAR ACCESSORY: the search field rides
-									-- directly above the bottom tab bar (the guidance's
-									-- accessory slot), for the sections that search
-									UI.When({
-										id = "AccessoryWhen",
-										condition = app.searchable,
-										thenView = function()
-											return UI.VStack({
-												id = "Accessory",
-												width = dims.fill,
-												padding = "xs",
-												children = { listView.searchBar(app) },
-											})
-										end,
-									}),
-									UI.When({
-										id = "BottomFullWhen",
-										condition = navBottomFull,
-										thenView = function()
-											return bottomBar(app, false)
-										end,
-									}),
-									UI.When({
-										id = "BottomCompactWhen",
-										condition = navBottomCompact,
-										thenView = function()
-											return bottomBar(app, true)
-										end,
-									}),
-								},
-							})
-						end,
-					}),
-				},
-			}),
-		},
+		children = { nav.blueprint },
 	})
 end
 
