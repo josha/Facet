@@ -6507,7 +6507,19 @@ content) when it must be pressable, which keeps one activation surface.
 — single selection from a small option set. `spec = { id?, label?, options ({ value,
 label, icon? }[]), selected (Signal), presentation? ("automatic" | "segmented" |
 "inline"), indicator? ("automatic" | "none" | "underline" | "pill"), axis? ("x" |
-"y"), iconOnly? (boolean), sizeClass?, env?, enabled?, onChange? }`.
+"y"), sizing? ("fill" | "hug"), iconOnly? (boolean), textSize?, sizeClass?, env?,
+enabled?, onChange? }`.
+
+**`textSize`** is the type role every segment wears — a role name or a number, or a
+Readable of either, passed straight to each segment's Button. Reactive for the same
+reason `axis` and `sizing` are: a strip's home moves under a live rotation, and a tab
+bar in the thumb zone is caption-sized while the same strip on a rail is not.
+
+**A pick and its `onChange` are ONE transaction.** A caller may redirect or veto a
+selection from inside `onChange` by writing the Signal back, and the two writes
+coalesce: no observer sees the value that was undone, and a `UI.When` over the
+selection never mounts a subtree it is about to evict. A transaction defers the flush
+and never a read, so `onChange` still sees the value it was handed.
 
 The two-argument spelling `Facet.newPicker(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
@@ -6675,8 +6687,9 @@ shape, and adding fields is not one.
 — a tab bar and the pages behind it. `spec = { id?, selection (Signal), tabs ({ id,
 label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
-"pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, conditions?, env?,
-enabled?, onChange? }`.
+"pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
+head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
+conditions?, env?, enabled?, onChange? }`.
 
 The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
@@ -6758,6 +6771,65 @@ and a bottom bar after it. The gamepad **shoulders** (L1/R1) page between tabs a
 rather than wrapping; they are bound only while focus sits on a tab, so a screen carrying
 a TabView never shadows gameplay bumpers. An icon-only tab still carries `label` as its
 semantic name.
+
+**Accessories: the chrome beside the tabs, homed by the placement** (ADR-0045). A nav
+bar is rarely only tabs — a wordmark at a rail's head, a search field on a top band's
+trailing edge or above the thumb-zone dock. Each slot is a **factory**
+`(placement, scope) -> Blueprint?`, invoked only by the homes that host it, inside that
+home's own branch: the `scope` it receives is disposed when the placement moves, and a
+factory that returns nothing leaves no node at all. Which slot goes where is a fact
+about what a home IS, published as `Facet.Controls.TabView`'s own
+`accessoryPlacements(slot)`:
+
+| slot | hosted by | where it lands |
+|---|---|---|
+| `head` | `sidebar` | above the strip, at the top of the rail |
+| `foot` | `sidebar` | at the BOTTOM of the rail — the strip's scroller spends the slack, so a three-tab rail still puts the foot on the floor |
+| `trailing` | `topBar` | an OVERLAY at the band's trailing edge, so the centred strip keeps its centre |
+| `aboveBar` | `bottomBar`, `bottomBarCompact` | a strip directly above the tab band, inside the dock |
+
+```lua
+accessories = {
+    head = function(_placement, _scope)
+        return UI.Text({ id = "Wordmark", text = L("app.title"), textSize = "title" })
+    end,
+    aboveBar = function(placement, _scope)
+        return UI.When({ id = "SearchWhen", condition = searchable, thenView = function()
+            return searchBar()
+        end })
+    end,
+}
+```
+
+**A slot the placement can never host REFUSES at construction**, and only then: a
+*declared* `placement` (or nesting, which always resolves `topBar`) narrows the
+reachable homes to one, so chrome for a home that cannot exist is a bug whose only
+symptom is silence. Under `"automatic"` every home is reachable and nothing is refused
+— vary the CONTENT by reading the `placement` argument, and decline a shape by
+returning nothing. `dump().accessories` reports `{ declared, mounted }`: a slot in the
+first list and not the second is the sentence "this placement does not host it".
+
+**Declaring no accessory changes nothing.** The wrappers exist only when a factory
+really returned a blueprint, so every mounted path is what it was before they existed.
+
+**`railWidth`** is the sidebar rail's width dim — content-sized by default. A rail
+states its band and lets its labels adapt inside it; a hugging rail at a 1.4x locale
+and the largest text preference otherwise becomes as wide as its longest tab name and
+squeezes the content lane. Refused for a declared placement that has no rail.
+
+**`textSize`** is passed straight through to the strip's segments (see `newPicker`), and
+is reactive so it can be bound against the placement: a thumb-zone tab bar is
+caption-sized in tighter chrome and a rail is not. The construct carries the binding and
+does not pick the ramp — which home takes which role is a design language.
+
+**`transition`** is `UI.When`'s own transition table, applied to the **content**
+branches and to nothing else (the strip is never evicted, so it has nothing to animate).
+A `fade` needs a fade group, so make the tab's own top node a `canvasGroup`.
+
+**A declared `sizing = "hug"` in the thumb zone centres and scrolls**, like every other
+hugging home. The default `fill` band is deliberately not a scroller because `fill`
+segments divide the offer and cannot overflow — that is a statement about the default,
+not about the home.
 
 **A segmented picker used as a tab bar IS this**, with `indicator = "pill"`. A picker
 chooses a value; a tab view chooses a page.
