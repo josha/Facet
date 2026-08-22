@@ -141,6 +141,7 @@ working tree carries two other rounds' in-flight edits, including in
 | HEAD `454e27f` alone | `382465046cc5ff78…` | **6915 passed**, 0 failed |
 | HEAD + this round | `cdae9784b039ddfe…` | **6926 passed**, 0 failed (+11 = the new arms exactly) |
 | Rascal Rally (working tree, full suite) | — | **3465 passed**, 0 failed (baseline 3463 + 2 new contract cases) |
+| the tree left behind: clean export of HEAD `a9af1a1` (this round's four commits plus every other round that has landed) | — | **6939 passed**, 0 failed |
 
 The dispatch baseline of 6905 was an earlier HEAD; two other rounds have landed
 since (`23081c3`, `813f779`, `27af00f`, `50a7940`, `6f9e307`, `454e27f`).
