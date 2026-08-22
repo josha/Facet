@@ -134,7 +134,7 @@ local function mainDimOf(child: any, isH: boolean): Dim
 end
 
 -- exported below as solver.sides (renderer scroll-region canvas math must use
--- the SAME padding semantics the arrange pass uses — native-substrate NS-A2)
+-- the SAME padding semantics the arrange pass uses — native-substrate NS-A2, ADR-0017)
 local function sides(margin: any): (number, number, number, number) -- t, r, b, l
 	if margin == nil then
 		return 0, 0, 0, 0
@@ -168,7 +168,7 @@ local function textTypography(ctx: MeasureCtx, node: any): (string, number, numb
 	return node.font or base.fontKey, size, node.lineHeight or base.lineHeight
 end
 
---[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4).
+--[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4, artifacts/large-text-accessibility/decisions.md).
 
 	`Metrics` already answers "did this get cut" for the WRAPPED case
 	(`naturalLines > lines`, which only a `lineLimit` can produce). It cannot
