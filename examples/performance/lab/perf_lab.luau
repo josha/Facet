@@ -36,7 +36,7 @@
 -- captured, because both are real.
 --
 -- /3 (2026-08-05): the row restacks on a compact width (perf-row/2) and the list's
--- rowHeight follows the same decision, so a phone no longer paints rows over each
+-- itemExtent follows the same decision, so a phone no longer paints rows over each
 -- other. The layout audit is now enforced at mount and after every pass.
 --
 -- 2026-08-14: TWO WORKLOADS ADDED FOR WHAT ROUND 3 SHIPPED, AND THE VERSION DOES
@@ -386,7 +386,7 @@ return {
 			local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
 			return rows.splitControlsFor(w, use(env:get("themeMetrics")))
 		end))
-		local rowHeight = labScope:own(core:memo(function(use)
+		local itemExtent = labScope:own(core:memo(function(use)
 			return rows.heightFor(
 				use(isCompact) == true,
 				use(env:get("typographyScale")),
@@ -794,9 +794,9 @@ return {
 				key = function(item: any)
 					return item.id
 				end,
-				rowHeight = rowHeight,
+				itemExtent = itemExtent,
 				rowGap = rows.ROW_GAP,
-				viewportHeight = listHeight,
+				viewportExtent = listHeight,
 				overscan = if settings.faultWindow then #rowsSignal:get() else rows.OVERSCAN,
 				selection = "single",
 				cell = function(item: any, cellCtx: any)
@@ -948,7 +948,7 @@ return {
 		--
 		-- `compact` is read ONCE when a cell is built, and `UI.ForEach` never rebuilds a
 		-- row whose key is unchanged — so rows built one-line in landscape survived a
-		-- rotation into a 359px-wide, 152px-tall portrait slot. The `rowHeight` memo
+		-- rotation into a 359px-wide, 152px-tall portrait slot. The `itemExtent` memo
 		-- updated; the cells did not. Twelve layout findings.
 		--
 		-- This is the same hazard the reactive-runtime review named as RR-9 (a `:get()`
@@ -1107,7 +1107,7 @@ return {
 			return timed("scrollSteady", function()
 				local frames = tonumber(payload or "") or 60
 				local m = requireList()
-				local pitch = rowHeight:get() + rows.ROW_GAP
+				local pitch = itemExtent:get() + rows.ROW_GAP
 				local extent = math.max(0, #rowsSignal:get() * pitch - viewportH())
 				-- 40px/frame at 60Hz is ~2 400px/s: a brisk flick, and about 0.7 of a
 				-- row per frame at this pitch
@@ -1155,7 +1155,7 @@ return {
 			return timed("scrollSeek", function()
 				local steps = tonumber(payload or "") or 60
 				local m = requireList()
-				local pitch = rowHeight:get() + rows.ROW_GAP
+				local pitch = itemExtent:get() + rows.ROW_GAP
 				local extent = math.max(0, #rowsSignal:get() * pitch - viewportH())
 				local worstWrite, worstRefresh, worstTotal = 0, 0, 0
 				for i = 1, steps do
@@ -1880,7 +1880,7 @@ return {
 						-- amount of it.
 						estimatedItemExtent = if measured then EXTENT_UNIFORM_PX else nil,
 						rowGap = 0,
-						viewportHeight = listHeight,
+						viewportExtent = listHeight,
 						overscan = rows.OVERSCAN,
 						cell = function(item: any)
 							local n = linesOf(item)
@@ -3044,7 +3044,7 @@ return {
 		passes.imagesReuse = function(payload: string?)
 			return timed("imagesReuse", function()
 				local cycles = tonumber(payload or "") or 8
-				local pitch = rowHeight:get() + rows.ROW_GAP
+				local pitch = itemExtent:get() + rows.ROW_GAP
 				for i = 1, cycles do
 					scrollTo(((i % 2) == 0 and 0 or 40) * pitch)
 					ctx.presenter.refresh()

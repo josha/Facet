@@ -206,7 +206,7 @@ return {
 				label = label,
 				role = role,
 				width = { type = "fill", weight = 1 },
-				height = { type = "minMax", min = 44 },
+				height = { type = "minMax", min = "targetSizes.minimum" },
 			})
 		end
 		-- The action bar CAPS its width and centres (director review 2026-07-24):
@@ -321,11 +321,11 @@ return {
 			gap = 6,
 			width = { type = "fill", weight = 1 },
 			children = {
-				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = 44 } }),
+				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
 				UI.Divider({ axis = "x" }),
-				UI.Button({ id = "TbPlay", label = "Play", height = { type = "minMax", min = 44 } }),
+				UI.Button({ id = "TbPlay", label = "Play", height = { type = "minMax", min = "targetSizes.minimum" } }),
 				UI.Spacer({}),
-				UI.Button({ id = "TbMore", label = "…", height = { type = "minMax", min = 44 } }),
+				UI.Button({ id = "TbMore", label = "…", height = { type = "minMax", min = "targetSizes.minimum" } }),
 			},
 		})
 		-- THE COMPACT-LABEL LADDER, on screen (compact-label stage, 2026-07-27).
@@ -377,27 +377,27 @@ return {
 					label = "Edit item",
 					compactLabel = "Ed",
 					width = { type = "fill", weight = 1 },
-					height = { type = "minMax", min = 44 },
+					height = { type = "minMax", min = "targetSizes.minimum" },
 				}),
 				UI.Button({
 					id = "CmpText",
 					label = "Edit item",
 					compactLabel = "Ed",
 					width = compactWidth,
-					height = { type = "minMax", min = 44 },
+					height = { type = "minMax", min = "targetSizes.minimum" },
 				}),
 				UI.Button({
 					id = "CmpIcon",
 					label = "Edit item",
 					compactLabel = { icon = "edit" },
 					width = compactWidth,
-					height = { type = "minMax", min = 44 },
+					height = { type = "minMax", min = "targetSizes.minimum" },
 				}),
 				UI.Button({
 					id = "CmpNone",
 					label = "Edit item",
 					width = compactWidth,
-					height = { type = "minMax", min = 44 },
+					height = { type = "minMax", min = "targetSizes.minimum" },
 				}),
 			},
 		})
@@ -574,6 +574,10 @@ return {
 				-- the dense readout field
 				UI.Grid({
 					id = "Stats",
+					-- A DENSITY FLOOR for the readout field, measured and kept 2026-08-21:
+					-- `"intrinsic"` sizes these to the widest `S12` glyph run, which re-columns the
+					-- field so short that the page stops overflowing its scroller at all — and this
+					-- fixture's §2.5 case is about what a scroller's viewport measures.
 					minColumnWidth = 48,
 					gap = "xs",
 					width = { type = "fill", weight = 1 },
@@ -582,6 +586,10 @@ return {
 				-- a dense tile grid: fill cells occupy their derived columns (A-LV1)
 				UI.Grid({
 					id = "Tiles",
+					-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
+					-- express an intrinsic minimum (it measures to whatever it is offered), so the
+					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
+					-- fill cells occupying their derived columns — would have nothing to show.
 					minColumnWidth = 72,
 					gap = 6,
 					width = { type = "fill", weight = 1 },

@@ -191,7 +191,7 @@ return {
 		end
 
 		-- ===== the list =====================================================
-		local rowHeight = scope:own(core:memo(function(use)
+		local itemExtent = scope:own(core:memo(function(use)
 			--[[ THE LINE BOX COMES FROM THE FRAMEWORK (`Facet.text.facts` /
 				`Facet.text.lineBox`, adopted 2026-08-15). The copy that was here read
 				`typographyScale` alone; the measure seam reserves at
@@ -213,7 +213,7 @@ return {
 		-- place, and the painted box and the windowing arithmetic read the same
 		-- number. A build-time pixel was the fixed-px-vs-live-facts defect class one
 		-- level up from the row height.
-		local viewportHeight = scope:own(core:memo(function(use)
+		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760
 			return math.clamp(math.floor(h * 0.5), 160, 420)
@@ -368,8 +368,8 @@ return {
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = rowHeight,
-			viewportHeight = viewportHeight,
+			itemExtent = itemExtent,
+			viewportExtent = viewportExtent,
 			overscan = 2,
 			selection = "single",
 			rowDropTarget = function(item: any)
@@ -750,7 +750,7 @@ return {
 			-- inverted at exactly the moment it matters. The range comes off the
 			-- list's own dump (position vs the canvas end), never a private field.
 			local dump = list.dump()
-			local maxScroll = math.max(0, dump.totalRows * dump.rowHeight - dump.viewportHeight)
+			local maxScroll = math.max(0, dump.totalRows * dump.itemExtent - dump.viewportExtent)
 			local atEnd = { top = dump.scrollTop <= 0.5, bottom = dump.scrollTop >= maxScroll - 0.5 }
 			local state = list.autoscroll:get()
 			local reduced = env:get("motionPolicy"):get() == "reduced"
@@ -1229,8 +1229,8 @@ return {
 				surfaceDisplayOrder = if result.handle ~= nil then result.handle.displayOrder else nil,
 				proxyLayerPath = PROXY_LAYER,
 				window = window,
-				rowHeight = rowHeight:get(),
-				viewportHeight = viewportHeight:get(),
+				itemExtent = itemExtent:get(),
+				viewportExtent = viewportExtent:get(),
 				armedSource = armedSource:get(),
 				armFocus = armFocus,
 				chevronFade = { top = chevFade.top, bottom = chevFade.bottom, seconds = CHEV_FADE_S },

@@ -101,7 +101,7 @@ return {
 			while fixing an accessibility defect. The floor keeps the row byte-identical
 			everywhere it was already honest, and the line box takes over exactly where
 			it stopped being. ]]
-		local rowHeight = core:memo(function(use)
+		local itemExtent = core:memo(function(use)
 			local facts = Facet.text.facts({ env = ctx.env, use = use })
 			local content = math.max(
 				Facet.text.lineBox({ facts = facts, size = ROSTER_NAME_SIZE, lines = 1 }),
@@ -116,8 +116,8 @@ return {
 			key = function(item)
 				return item.id
 			end,
-			rowHeight = rowHeight,
-			viewportHeight = 220,
+			itemExtent = itemExtent,
+			viewportExtent = 220,
 			cell = function(item)
 				--[[ THE DETAIL SHRINKS AND DISCLOSES (O-21, 2026-08-15), and it may
 					not WRAP. Name + detail at the Largest text preference measure past
@@ -126,7 +126,7 @@ return {
 					carries the standing — up to 16px off the right screen edge.
 
 					A wrap is the usual repair and is wrong HERE: this list declares a
-					uniform `rowHeight` on purpose (see the block above), so a second
+					uniform `itemExtent` on purpose (see the block above), so a second
 					line would turn one honest number into a lying extent — measured
 					2026-08-15, the wrap traded the layer-overlap finding for a
 					`newVirtualList declares itemExtent` one. Shrinking keeps the row one

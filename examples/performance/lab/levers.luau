@@ -538,7 +538,7 @@ function levers.install(deps: any)
 			end,
 			itemExtent = 28,
 			rowGap = 0,
-			viewportHeight = listH,
+			viewportExtent = listH,
 			overscan = rows.OVERSCAN,
 			cell = function(item: any)
 				return U.VStack({

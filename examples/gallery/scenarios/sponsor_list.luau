@@ -8,7 +8,7 @@
 -- the live text facts (typography scale + preferred-text offset), which is the
 -- lesson a px height fixed against unfixed content taught: the detail line is
 -- `lineLimit`-capped at 2 so growth stays uniform per list (finding F13), and the
--- height re-derives on a theme swap because `rowHeight` accepts a Readable. The
+-- height re-derives on a theme swap because `itemExtent` accepts a Readable. The
 -- derivation reads every token the `Card`/`Labels` arrangement itself spends
 -- (the label VStack's inter-line gap, the card's own padding AND its own
 -- margin) rather than a second, approximate copy of them — the overflow sweep
@@ -109,7 +109,7 @@ return {
 		end
 
 		-- ===== the derived row height =======================================
-		local rowHeight = scope:own(core:memo(function(use)
+		local itemExtent = scope:own(core:memo(function(use)
 			--[[ THE LINE BOXES COME FROM THE FRAMEWORK (`Facet.text.facts` /
 				`Facet.text.lineBox`, adopted 2026-08-15). This memo used to carry its own
 				copy of the arithmetic, and the copy was wrong in the way six of the seven
@@ -157,7 +157,7 @@ return {
 		-- arithmetic read the same number. A build-time pixel here was the same
 		-- fixed-px-vs-live-facts defect the derived row height above exists to avoid,
 		-- one level up.
-		local viewportHeight = scope:own(core:memo(function(use)
+		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760
 			return math.clamp(math.floor(h - 220), 160, 460)
@@ -304,8 +304,8 @@ return {
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = rowHeight,
-			viewportHeight = viewportHeight,
+			itemExtent = itemExtent,
+			viewportExtent = viewportExtent,
 			overscan = 2,
 			selection = "single",
 			onSelect = function(_item: any, key: string)
@@ -670,8 +670,8 @@ return {
 				trace = trace,
 				order = order,
 				window = window,
-				rowHeight = rowHeight:get(),
-				viewportHeight = viewportHeight:get(),
+				itemExtent = itemExtent:get(),
+				viewportExtent = viewportExtent:get(),
 				selectedKey = list.selectedKey:get(),
 				armedKey = list.armedKey:get(),
 				focusedKey = list.focusedKey:get(),

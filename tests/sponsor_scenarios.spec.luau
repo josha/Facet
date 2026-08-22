@@ -580,18 +580,18 @@ describe("sponsor_list (SF-L1/L3/P1/P3)", function()
 
 	it("the row height is DERIVED from the theme snapshot, never typed", function()
 		local w = makeWorld("sponsor_list")
-		local base = w.report().rowHeight
+		local base = w.report().itemExtent
 		expect(base >= 44).toBe(true)
 		w.teardown()
 		-- a raised preferred-text offset grows every row by the same amount
 		local larger = makeWorld("sponsor_list", { preferredTextOffset = 8 })
-		expect(larger.report().rowHeight > base).toBe(true)
+		expect(larger.report().itemExtent > base).toBe(true)
 		larger.teardown()
 	end)
 
 	it("the window RE-DERIVES on a live rotation, with no reset (R2-F7)", function()
 		local w = makeWorld("sponsor_list", { viewport = { x = 0, y = 0, w = 420, h = 900 } })
-		expect(w.report().viewportHeight).toBe(460) -- clamped: 900 - 220 is over the ceiling
+		expect(w.report().viewportExtent).toBe(460) -- clamped: 900 - 220 is over the ceiling
 		expect(w.report().viewportHeightDerivedAtBuild).toBeNil() -- the escape note is gone
 		w.step("select")
 		local before = w.report().remounts["row-01"]
@@ -599,7 +599,7 @@ describe("sponsor_list (SF-L1/L3/P1/P3)", function()
 		w.env:set("viewportRect", { x = 0, y = 0, w = 900, h = 420 })
 		w.pres.refresh()
 		local report = w.report()
-		expect(report.viewportHeight).toBe(200)
+		expect(report.viewportExtent).toBe(200)
 		expect(w.adapter.node("/ListLab/Body/Rows").rect.h).toBe(200)
 		-- ...and the rows that stayed are the SAME rows: a rotation is not a remount
 		expect(report.remounts["row-01"]).toBe(before)

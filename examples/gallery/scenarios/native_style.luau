@@ -84,7 +84,7 @@ return {
 						-- never what they look like.
 						UI.Grid({
 							id = "SurfaceRow",
-							minColumnWidth = 90,
+							minColumnWidth = "intrinsic",
 							gap = "s",
 							children = {
 								UI.Box({

@@ -44,7 +44,7 @@ return {
 		-- textSize 22 — generous on purpose, because over-reserving only shortens
 		-- the list (which can never overflow), while under-reserving would squeeze
 		-- the title instead.
-		local viewportHeight = scope:own(core:memo(function(use)
+		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(ctx.env:get("viewportRect"))
 			local insets: any = use(ctx.env:get("coreSafeInsets"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 640
@@ -72,7 +72,7 @@ return {
 			cost Stage 2 could not remove. A single-line row at a known authored size is
 			also exactly the case a consumer really can predict. So it predicts, with the
 			framework's own arithmetic instead of a hand copy of it. ]]
-		local rowHeight = scope:own(core:memo(function(use)
+		local itemExtent = scope:own(core:memo(function(use)
 			return ctx.Facet.text.lineBox({
 				facts = ctx.Facet.text.facts({ env = ctx.env, use = use }),
 				size = ROW_TEXT_SIZE,
@@ -86,8 +86,8 @@ return {
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = rowHeight,
-			viewportHeight = viewportHeight,
+			itemExtent = itemExtent,
+			viewportExtent = viewportExtent,
 			overscan = 2,
 			cell = function(item: any)
 				return UI.Text({ id = "Label", text = item.label, textSize = ROW_TEXT_SIZE })

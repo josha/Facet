@@ -634,7 +634,7 @@ return {
 			-- decided by the screen and never by the list inside it. One solve after a
 			-- resize the window is exact; the literal below is only the value for the
 			-- frame before any geometry exists.
-			viewportHeight = vlistWindow,
+			viewportExtent = vlistWindow,
 			overscan = 2,
 			cell = function(item: any)
 				return vlRowContent(item)

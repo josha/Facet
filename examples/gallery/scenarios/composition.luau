@@ -334,9 +334,13 @@ return {
 								UI.Button({
 									id = "Again",
 									label = "Play again",
-									height = { type = "minMax", min = 44 },
+									height = { type = "minMax", min = "targetSizes.minimum" },
 								}),
-								UI.Button({ id = "Leave", label = "Leave", height = { type = "minMax", min = 44 } }),
+								UI.Button({
+									id = "Leave",
+									label = "Leave",
+									height = { type = "minMax", min = "targetSizes.minimum" },
+								}),
 							},
 						}),
 						UI.VStack({
@@ -347,9 +351,13 @@ return {
 								UI.Button({
 									id = "Again",
 									label = "Play again",
-									height = { type = "minMax", min = 44 },
+									height = { type = "minMax", min = "targetSizes.minimum" },
 								}),
-								UI.Button({ id = "Leave", label = "Leave", height = { type = "minMax", min = 44 } }),
+								UI.Button({
+									id = "Leave",
+									label = "Leave",
+									height = { type = "minMax", min = "targetSizes.minimum" },
+								}),
 							},
 						}),
 					},

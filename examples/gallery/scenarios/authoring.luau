@@ -92,6 +92,10 @@ return {
 				}),
 				UI.Grid({
 					id = "ValidGrid",
+					-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
+					-- express an intrinsic minimum (it measures to whatever it is offered), so the
+					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
+					-- fill cells occupying their derived columns — would have nothing to show.
 					minColumnWidth = 90,
 					gap = 6,
 					children = {
