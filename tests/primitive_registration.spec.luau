@@ -44,7 +44,7 @@ describe("primitive registration (agentic maintainability, MAINT-5)", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "no readable CLASS_TO_INSTANCE", 1, true) ~= nil).toBe(true)
 
-		local live = check_primitives.classToInstance(require("@lune/fs").readFile("src/client/screen_target.luau"))
+		local live = check_primitives.classToInstance(require("@lune/fs").readFile("src/client/screen_vocabulary.luau"))
 		expect(live.Text).toBe("TextLabel")
 		expect(live.ScrollView).toBe("ScrollingFrame")
 	end)

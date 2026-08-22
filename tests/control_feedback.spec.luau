@@ -856,8 +856,11 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		end
 		table.sort(floors)
 		expect(floors).toEqual({ "Button", "Grip", "TextField", "Toggle" })
-		-- TextField is the one the TextButton-scoped mirror could never reach
-		expect(string.find(body, 'TextField = "TextBox"', 1, true) ~= nil).toBe(true)
+		-- TextField is the one the TextButton-scoped mirror could never reach. The
+		-- class map it is read from is `screen_vocabulary`'s since the adapter paid
+		-- its SOURCE_CAP_LEDGER extraction (2026-08-22); the fact is unchanged.
+		local vocabulary = fs.readFile("src/client/screen_vocabulary.luau")
+		expect(string.find(vocabulary, 'TextField = "TextBox"', 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a sub-floor control really produces the population F1 is about", function()

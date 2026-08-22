@@ -2027,7 +2027,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "scroll-host-adoption",
 			requirements = { "UI-NATIVE-001" },
-			run = 'test -f artifacts/native-substrate/a2-scroll-host.json && grep -q "ScrollView = \\"ScrollingFrame\\"" src/client/screen_target.luau && grep -q "setScrollRegion" src/client/screen_target.luau && grep -q "observeScroll" src/client/screen_target.luau && grep -q "forceScrollFallback" src/client/billboard_target.luau && grep -q "setScrollRegion" src/render/target_contract.luau && grep -q "scrollTo" src/render/renderer.luau && out="$(tools/suite_transcript.sh)" && echo "$out" | grep -q "✓.*sends its solved content extent as the scroll region" && echo "$out" | grep -q "✓.*FALLBACK: an adapter without the scroll seam"',
+			run = 'test -f artifacts/native-substrate/a2-scroll-host.json && grep -q "ScrollView = \\"ScrollingFrame\\"" src/client/screen_vocabulary.luau && grep -q "setScrollRegion" src/client/screen_target.luau && grep -q "observeScroll" src/client/screen_target.luau && grep -q "forceScrollFallback" src/client/billboard_target.luau && grep -q "setScrollRegion" src/render/target_contract.luau && grep -q "scrollTo" src/render/renderer.luau && out="$(tools/suite_transcript.sh)" && echo "$out" | grep -q "✓.*sends its solved content extent as the scroll region" && echo "$out" | grep -q "✓.*FALLBACK: an adapter without the scroll seam"',
 			evidence = "artifacts/native-substrate/a2-scroll-host.json",
 			note = "NS-A2 LIVE-PROVEN 2026-07-23: real wheel moved the native canvas (0->300) on a running Facet ScrollView, programmatic clamp 476, captures paired with geometry; fallback (Frame clip-only) exercised separately live + headless; billboard stays fallback until proven",
 		},

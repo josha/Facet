@@ -72,118 +72,26 @@ local SCROLL_BAR_THICKNESS = 8
 -- src/client/screen_scroll_indicators, together with the ruling that explains
 -- why the policy paints the bar but never moves the reserve above.
 
--- `textAlign` (director review 2026-07-24). Absent means Left, which is what the
--- adapter hard-coded before the prop existed, so every existing screen is
--- unchanged.
-local TEXT_ALIGN_MAP: { [string]: Enum.TextXAlignment } = {
-	start = Enum.TextXAlignment.Left,
-	center = Enum.TextXAlignment.Center,
-	["end"] = Enum.TextXAlignment.Right,
-}
-
--- THE ENGINE FACE FOR A TYPOGRAPHY-ROLE DESCRIPTOR (F2, 2026-08-02).
---
--- `text_premeasure.fontFor` is the SAME resolver the premeasure batch hands to
--- `GetTextBoundsAsync`, keyed on the same canonical "family#weight#style"
--- descriptor (ADR-0019 §6). So the face the engine DRAWS and the face the engine
--- was asked to MEASURE are one cached lookup, not two parallel mappings that can
--- drift — which is the failure `Text.font` was deprecated for. An unresolvable
--- family returns nil and the node keeps the face it already has.
-local function fontFaceFor(descriptor: any): Font?
-	if type(descriptor) ~= "table" or type(descriptor.fontKey) ~= "string" then
-		return nil
-	end
-	return text_premeasure.fontFor(descriptor.fontKey)
-end
-
--- authored `scaleMode` -> engine ScaleType (ADR-0022 Decision 6).
---
--- `fill` and `crop` BOTH map to Crop, and that is deliberate rather than a
--- collision: Roblox's `Crop` IS the cover behaviour every other UI vocabulary
--- calls "fill" (preserve the aspect ratio, let the overflow be cropped), and an
--- author arriving from either vocabulary should not have to look it up. `slice`
--- is absent because nine-slice geometry is theme-owned chrome.
---
--- Mirrored headlessly by tests/lib/fake_target's SCALE_MODE_ENGINE_NAME so the
--- mapping is provable without an engine — keep the two in lockstep, exactly as
--- KEYBOARD_TYPE_ENGINE_NAME is.
-local SCALE_MODE_ENGINE: { [string]: Enum.ScaleType } = {
-	fit = Enum.ScaleType.Fit,
-	fill = Enum.ScaleType.Crop,
-	crop = Enum.ScaleType.Crop,
-	stretch = Enum.ScaleType.Stretch,
-}
-
--- props whose own write repaints a property the `tint` channel may have claimed
--- (see the tail of setProp)
-local TINT_REPAINTING_PROPS: { [string]: boolean } =
-	{ surface = true, role = true, selected = true, enabled = true, value = true }
+--[[ THE ENGINE VOCABULARY, now a sibling (SOURCE_CAP_LEDGER, 2026-08-22): the
+	authored-word -> engine-value maps, the two pure converters, and the stage/
+	foreign helpers that used to be declared here. They moved VERBATIM — every
+	comment travelled with the code it explains — because they read no upvalue of
+	`screen_target.new` and so cannot require back. Bound to the same local names
+	the rest of this file already spells, so the move is a seam and not a rename. ]]
+local screen_vocabulary = require("./screen_vocabulary")
+local CLASS_TO_INSTANCE = screen_vocabulary.CLASS_TO_INSTANCE
+local TEXT_ALIGN_MAP = screen_vocabulary.TEXT_ALIGN_MAP
+local SCALE_MODE_ENGINE = screen_vocabulary.SCALE_MODE_ENGINE
+local TINT_REPAINTING_PROPS = screen_vocabulary.TINT_REPAINTING_PROPS
+local STAGE_WORLD_NAME = screen_vocabulary.STAGE_WORLD_NAME
+local STAGE_CAMERA_NAME = screen_vocabulary.STAGE_CAMERA_NAME
+local fontFaceFor = screen_vocabulary.fontFaceFor
+local toColor3 = screen_vocabulary.toColor3
+local writeStageProp = screen_vocabulary.writeStageProp
+local markStageDisposed = screen_vocabulary.markStageDisposed
+local markForeignDisposed = screen_vocabulary.markForeignDisposed
 
 local screen_target = {}
-
-local CLASS_TO_INSTANCE: { [string]: string } = {
-	Text = "TextLabel",
-	Button = "TextButton",
-	Toggle = "TextButton",
-	Image = "ImageLabel",
-	TextField = "TextBox", -- §17 Phase 5 (UI.TextInput): the only engine text-entry instance
-	ScrollView = "ScrollingFrame", -- native scroll host; opts.forceScrollFallback keeps a Frame
-	-- the engine-content box (ViewportFrame adoption 2026-08-08): a GuiObject that
-	-- renders its own scene. The adapter also creates and owns the WorldModel the
-	-- content lives in and the Camera the frame renders through — see buildHandle.
-	Stage = "ViewportFrame",
-	-- Path renders as a transparent Frame holder + child Path2D
-	-- containers and everything else render as Frames
-}
-
--- the instances the stage seam owns, named from one place so the adapter and any
--- probe reading the Explorer agree
-local STAGE_WORLD_NAME = "FacetStageWorld"
-local STAGE_CAMERA_NAME = "FacetStageCamera"
-
--- THE ONE WRITER for a seam-owned engine property (render/authority.luau's
--- SEAM_OWNED: Ambient, LightColor, LightDirection, CurrentCamera). It writes by
--- INDEX rather than by field name, so a dotted assignment to any of the four
--- appears NOWHERE in this adapter — which turns "a bespoke write defeated the
--- seam" into a literal tests/stage.spec.luau pins at zero, the same way the paint
--- gate turns a sheet-defeating write into a loud error. Every call site is inside
--- the stage seam, so `bySeam` is true here and false everywhere the gate is asked
--- from outside it.
-local function writeStageProp(instance: Instance, engineProp: string, value: any)
-	authority.assertSeamWrite(engineProp, true);
-	(instance :: any)[engineProp] = value
-end
-
--- a stage node's seam going dead, spelled once because two teardown paths need it
--- (`remove` and `destroyRoot`). The instances themselves are children of the frame
--- and die with it; this is what makes a handle a consumer still holds REFUSE
--- instead of writing into the corpse.
-local function markStageDisposed(handle: any)
-	if handle == nil or handle.stageWorld == nil then
-		return
-	end
-	handle.stageDisposed = true
-	handle.stageWorld = nil
-	handle.stageCamera = nil
-	handle.stageApi = nil
-end
-
--- ...and the same thing for a FOREIGN box (ADR-0034). There is nothing to tear
--- down — whatever the caller adopted is a child of the container and dies with
--- it, exactly as they were told it would — so this is purely the HANDLE going
--- dead, which is what turns a consumer's stale `adopt` from a write into a
--- destroyed instance (silent) into a refusal that names the node (loud).
-local function markForeignDisposed(handle: any)
-	if handle == nil or handle.foreignBox == nil then
-		return
-	end
-	handle.foreignDisposed = true
-	handle.foreignApi = nil
-end
-
-local function toColor3(c: any): Color3
-	return Color3.new(c.r, c.g, c.b)
-end
 
 export type Opts = {
 	style: any?,

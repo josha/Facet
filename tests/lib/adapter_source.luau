@@ -15,7 +15,8 @@
 	has been split along that pressure: the chrome/decoration materializer left
 	first (`screen_chrome`), then the scroll seam (`screen_scroll_indicators`),
 	the bespoke paint vocabulary (`screen_paint`), the presentation channel
-	(`screen_presentation`) and the pointer seam (`screen_pointer`).
+	(`screen_presentation`), the pointer seam (`screen_pointer`) and the engine
+	vocabulary the adapter declares before its closure opens (`screen_vocabulary`).
 
 	WHAT `live()` IS, AND IS NOT. It is the adapter minus chrome. `screen_chrome`
 	left long enough ago that the specs which pin it read it explicitly by name;
@@ -31,6 +32,7 @@ local fs = require("@lune/fs")
 
 local PARTS = {
 	"src/client/screen_target.luau",
+	"src/client/screen_vocabulary.luau",
 	"src/client/screen_paint.luau",
 	"src/client/screen_scroll_indicators.luau",
 	"src/client/screen_presentation.luau",

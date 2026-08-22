@@ -26,6 +26,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
+local adapter_source = require("./lib/adapter_source")
 
 local UI = require("../src/blueprint")
 local customFactory = require("../src/core/custom")
@@ -398,7 +399,11 @@ describe("UI.Stage: property authority (d)", function()
 		-- The seam writes them through ONE indexed writer, so a literal
 		-- `instance.Ambient = …` anywhere in the adapter is the defeating pattern
 		-- this pin exists to catch (the same shape assertBespokePaint gives paint).
-		local liveSource = fs.readFile("src/client/screen_target.luau")
+		-- ...and it reads the WHOLE adapter, not just its largest file: the indexed
+		-- writer moved to `screen_vocabulary` with the rest of the module-level
+		-- vocabulary (SOURCE_CAP_LEDGER, 2026-08-22), and a pin that only reads
+		-- `screen_target.luau` would have gone quietly half-blind on that move.
+		local liveSource = adapter_source.live()
 		for prop in authority.seamOwnedSet() do
 			expect(`{prop}:{contains(liveSource, "." .. prop .. " =")}`).toBe(`{prop}:false`)
 		end
