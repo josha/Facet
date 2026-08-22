@@ -196,6 +196,15 @@ local fake_target = require("./lib/fake_target")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
+--[[ THE CONTAINMENT ORACLE (overflow guard layers 1 and 3, 2026-08-21). This
+	file's question has always been "what does the SOLVER say", and the solver said
+	nothing at all about the region-expand plate that painted its `9` 8px past its
+	own panel edge (commit 27af00f): the plate's box was legal, its content was
+	legal, and only their RELATIONSHIP was wrong. Nothing here asked about that
+	relationship, and nothing here opened the plate in the first place. Both holes
+	are the same import — the guard is the oracle, and `states` below is what puts a
+	surface into the state that has one. ]]
+local overflow_guard = require("./lib/overflow_guard")
 
 -- The five canonical rows of docs/plans/studio-device-verification.md at the
 -- viewports the driver RECORDED, plus the narrowest supported viewport in both
@@ -1389,6 +1398,58 @@ local function collapsedDeadEnds(w: any): { string }
 	return out
 end
 
+--[[ THE STATE WALK (overflow guard layer 3, 2026-08-21).
+
+	A SWEEP THAT ONLY EVER JUDGES THE SETTLED SCREEN IS BLIND TO EVERY SURFACE A
+	TAP CREATES. That is not a hypothesis: this file, at every viewport and every
+	text preference, plus a 180-cell live demo sweep, plus the whole suite, were
+	all green over a region-expand plate painting its `9` 8px past its own panel
+	edge, because the plate only exists after the affordance is used and no
+	instrument here had ever pressed it.
+
+	A surface DECLARES what it can be opened into (`built.states()` — see
+	`examples/gallery/scenarios/hud.luau` and the runner's `api.states`), and this
+	drives each one and judges it with the containment oracle. `open()` returning
+	false is an answer, not a failure: at a viewport where nothing steps down there
+	is no expand to open, and the walk says so by moving on.
+
+	A FRESH MOUNT PER STATE, for the reason the resize probe one screen up already
+	takes one: an opened plate is a presented surface with focus scopes and a
+	scrim, and leaving it standing would make every later assertion in the cell a
+	measurement of a screen with a modal over it. It is the same trade this file
+	made there — a real solve, spent to keep the shared mount honest. ]]
+local function stateProblems(view: any, built: any, remount: () -> any): { string }
+	local out: { string } = {}
+	-- THE LIST IS READ OFF THE MOUNT THAT IS ALREADY STANDING and only the
+	-- OPENING costs a fresh one, so a surface that declares nothing costs one
+	-- table lookup rather than a solve. On a sweep this size that is the whole
+	-- difference between an extension point and a tax.
+	if type(built.states) ~= "function" then
+		return out
+	end
+	for _, state in built.states() do
+		local cell = remount()
+		local opened = false
+		for _, candidate in (if type(cell.built.states) == "function" then cell.built.states() else {}) do
+			if candidate.id == state.id then
+				opened = candidate.open() == true
+				break
+			end
+		end
+		settle(cell.presenter)
+		if not opened then
+			continue
+		end
+		for _, violation in overflow_guard.violations(cell.adapter) do
+			table.insert(
+				out,
+				`  {view.id} ({view.w}x{view.h}) with state '{state.id}' OPEN: ` .. overflow_guard.describe(violation)
+			)
+		end
+	end
+	return out
+end
+
 local function sweep(kind: string, name: string, mount: (any) -> any, localeMount: ((any) -> any)?)
 	local label = `{kind} '{name}'`
 	it(`{label}: the solver reports NOTHING at any swept viewport, at any text size`, function()
@@ -1399,6 +1460,37 @@ local function sweep(kind: string, name: string, mount: (any) -> any, localeMoun
 			local built = mount(w)
 			settle(w.presenter)
 			local englishDigest = textDigest(built)
+			--[[ THE CONTAINMENT ORACLE ON THE SETTLED SCREEN, at the default
+				preference, on the neutral pass. It asks the one question the solver's
+				findings do not: not "does this box fit its parent's measure" but "is
+				this node's RECT inside the box it lives in" — the shape that painted a
+				plate's content 8px past its own panel edge with the solver silent.
+				Measured over the whole corpus when it landed: 630 mounted cells, 49,224
+				nodes, 24,892 painting, ZERO findings, so it is a floor rather than a
+				ledger. ]]
+			for _, violation in overflow_guard.violations(w.adapter) do
+				table.insert(
+					problems,
+					`  {view.id} ({view.w}x{view.h}) SETTLED: ` .. overflow_guard.describe(violation)
+				)
+			end
+			--[[ ...AND THE SAME ORACLE ON EVERY STATE THIS SURFACE DECLARES IT CAN BE
+				OPENED INTO. A surface with no `states` is skipped in one table lookup;
+				today that is every surface in this list, and the HUD block below is
+				where the walk currently has something to drive. It is here anyway
+				because the hole it closes is generic — the day a fixture in THIS list
+				grows a plate, the sweep opens it without anybody remembering to. ]]
+			for _, hit in
+				stateProblems(view, built, function()
+					local sw = world(view)
+					local sbuilt = mount(sw)
+					settle(sw.presenter)
+					sw.built = sbuilt
+					return sw
+				end)
+			do
+				table.insert(problems, hit)
+			end
 			-- `package` is nil on the neutral pass and the package's id on a themed
 			-- one, and it selects WHICH list the finding is matched against — see
 			-- "THE THEME LEDGER" above for why a neutral ceiling may not pardon a
@@ -2902,6 +2994,48 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 				end
 			end
 		)
+	end
+
+	--[[ THE STATES THE HUD CAN BE OPENED INTO, DRIVEN (overflow guard layer 3).
+
+		THIS IS THE CASE THAT WOULD HAVE CAUGHT THE ESCAPE. Calibrated against the
+		defect itself: checked out at `27af00f^` and driven here, the Clock expand
+		plate reports two violations at compact-phone portrait — its `ScoreAway`
+		plate 8px past the panel's right edge and the `9` inside it 4px past — and
+		the same drive at HEAD reports none. The settled screen is clean at both
+		commits, which is precisely why every instrument in this repository was
+		green over it.
+
+		The states are the FIXTURE'S OWN LIST, derived from the framework's
+		resolution: which zones are stepped down (and therefore carry an expand)
+		depends on the viewport, the preference and the app chrome. That is why this
+		case runs under `hudWorld` rather than the generic sweep above — the chrome
+		reservation is what makes anything step down at all, and without it the HUD
+		declares one state instead of four. ]]
+	for _, view in VIEWS do
+		it(`{view.id} ({view.w}x{view.h}): every state the HUD opens into holds its own boxes`, function()
+			local chips = showcase_chips.rectFor(Facet, view, nil, nil, 0)
+			local top = showcase_chips.reservationFor(chips)
+			local base = hudWorld(view, nil, 0, chips, top)
+			local declared = base.built.states()
+			--[[ THE ANTI-VACUITY CLAUSE, and it is not decoration. A `states` list
+				that came back empty would make this case pass over nothing at all, and
+				the HUD's overflow sink exists at EVERY viewport by construction — so
+				one state is the floor this can be held to at any size. ]]
+			expect(#declared).toBeGreaterThan(0)
+			local problems = stateProblems(view, base.built, function()
+				return hudWorld(view, nil, 0, chips, top)
+			end)
+			if #problems > 0 then
+				error(
+					`{view.id} ({view.w}x{view.h}): {#problems} containment violation(s) in a state this HUD `
+						.. `can be OPENED into — a surface that does not exist until it is tapped, and that no `
+						.. `settled sweep has ever laid eyes on (tests/overflow_sweep.spec.luau, the state `
+						.. `walk):\n{table.concat(problems, "\n")}`,
+					0
+				)
+			end
+		end)
 	end
 
 	--[[ THE DEAD-END GUARANTEE BITES, and it is checked the only way a guarantee

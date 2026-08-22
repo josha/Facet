@@ -3111,6 +3111,60 @@ return {
 					sampleChromeReach(rectOf)
 				end,
 			},
+			--[[ WHAT THIS SURFACE CAN BE OPENED INTO (overflow guard layer 3,
+				2026-08-21). A sweep mounts and settles, and everything reachable only
+				through a TAP is invisible to it — which is how the region-expand plate
+				painted its `9` 8px past its own panel edge through a green 180-cell
+				demo sweep and a green suite (commit 27af00f). The plate does not exist
+				at settle. Nothing was wrong with the oracles' arithmetic; they were
+				looking at a screen that did not contain the defect.
+
+				So the fixture DECLARES its openable states and the sweep drives each
+				one before it judges. The list is derived from the framework's own
+				resolution rather than written here: which zones are stepped down (and
+				therefore carry an expand) depends on the viewport, the text
+				preference and the app chrome, so a hand-written list would be right at
+				one size and silently short at every other. `open` returns false when a
+				state does not exist in this configuration, which is an answer rather
+				than a failure — at desktop nothing steps down and there is nothing to
+				open.
+
+				A driver that wants one by name uses the runner's `expand` step; this
+				list is for the driver that wants ALL of them. ]]
+			states = function(): { { id: string, kind: string, open: () -> boolean } }
+				local out: { { id: string, kind: string, open: () -> boolean } } = {}
+				local dump = state()
+				for _, row in (if dump ~= nil then dump.regions else nil) or {} do
+					if row.expandable ~= true then
+						continue
+					end
+					local path = row.id
+					table.insert(out, {
+						id = `expand:{string.match(path, "([^/]+)$") or path}`,
+						kind = "expand",
+						open = function(): boolean
+							if ctx.presenter == nil or ctx.presenter.expand == nil then
+								return false
+							end
+							return ctx.presenter.expand(path) ~= nil
+						end,
+					})
+				end
+				--[[ ...AND THE SINK ITSELF, which is the same class of surface for the
+					same reason: it is a presented panel that exists only after the
+					affordance is used, so no settle has ever laid eyes on it. ]]
+				table.insert(out, {
+					id = "overflow",
+					kind = "disclosure",
+					open = function(): boolean
+						if overflowHandle == nil then
+							openOverflow()
+						end
+						return overflowOpen:get()
+					end,
+				})
+				return out
+			end,
 			steps = {
 				openUrlBar = function()
 					urlBar:set(true)

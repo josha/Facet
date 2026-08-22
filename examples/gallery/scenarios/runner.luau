@@ -10,7 +10,12 @@
 --
 -- MCP contract (execute_luau, Client datamodel):
 --   _G.FacetScenario.list()          -> registered scenario names
+--   _G.FacetScenario.steps()         -> this scenario's steps, plus the generic ones
 --   _G.FacetScenario.step(name)      -> run a named scenario step, returns its result
+--   _G.FacetScenario.states()        -> the states this surface declares it can be
+--                                        OPENED into (expand/menu/tray/disclosure)
+--   _G.FacetScenario.openState(id)   -> open one of them; a sweep that only judges
+--                                        the settled screen never sees the rest
 --   _G.FacetScenario.report(opts?)   -> JSON string (facet-scenario/1)
 --   _G.FacetScenario.reset()         -> teardown + rebuild the scenario fresh
 --   _G.FacetScenario.freezeEnv()     -> detach live engine env binding so
@@ -1250,24 +1255,101 @@ function Runner.start(deps: { [string]: any })
 
 	local api = {}
 
+	--[[ THE STEPS EVERY SCENARIO HAS WITHOUT WRITING ONE. `expand` was the gap
+		this registry had: `presenter.expand(path)` is the framework's own second
+		route to a region's disclosure — the same longest-prefix dispatch an
+		Activate takes — and until now the only way to reach it from a driver was
+		for a fixture to have hand-written a step for it. A generic step is right
+		here rather than in each fixture precisely because the seam is the
+		framework's; a per-fixture copy is a second thing to keep in step.
+
+		It is a STATE DRIVER, not counterfeited input, and is labelled as such by
+		the same rule the rest of this file follows: the affordance's own Activate
+		is native-input territory and rides the MCP input tools. ]]
+	local GENERIC_STEPS: { [string]: (any, string?) -> any } = {
+		expand = function(_built: any, payload: string?)
+			assert(payload ~= nil and payload ~= "", "step 'expand' needs a region path payload")
+			local opened = deps.presenter.expand(payload)
+			return { path = payload, opened = opened }
+		end,
+	}
+
 	function api.list(): { string }
 		return registry.order
 	end
 
 	function api.steps(): { string }
 		local names = {}
+		local seen: { [string]: boolean } = {}
 		if session.built and session.built.steps then
 			for stepName in session.built.steps do
+				seen[stepName] = true
 				table.insert(names, stepName)
 			end
-			table.sort(names)
 		end
+		-- ...AND THE GENERIC ONES, because a driver discovers what it can do from
+		-- this list and a step it cannot see is a step nobody drives
+		for stepName in GENERIC_STEPS do
+			if not seen[stepName] then
+				table.insert(names, stepName)
+			end
+		end
+		table.sort(names)
 		return names
+	end
+
+	--[[ THE OPENABLE STATES OF THIS SURFACE (overflow guard layer 3, 2026-08-21).
+
+		A sweep mounts a demo, settles it, and judges what is on screen. Everything
+		that exists only after a TAP — an expand plate, a menu, a tray, a disclosure
+		sink — is invisible to it, and that is not a hypothetical: the region-expand
+		plate painted its `9` 8px past its own panel edge, live, through a green
+		180-cell demo sweep and a green suite, because the plate is not on the
+		screen the sweep looked at (commit 27af00f).
+
+		A scenario declares `states` — a function returning `{ id, kind, open }` —
+		and a driver walks it. The list is a FUNCTION rather than a table because
+		which states exist depends on the configuration: at desktop nothing steps
+		down and there is nothing to expand, so the honest list at that viewport is
+		shorter, and `open()` returning false is the answer for a state that is not
+		reachable here. ]]
+	function api.states(): { { id: string, kind: string } }
+		local out: { { id: string, kind: string } } = {}
+		local declare = if session.built then session.built.states else nil
+		if type(declare) ~= "function" then
+			return out
+		end
+		for _, state in declare() do
+			table.insert(out, { id = state.id, kind = state.kind })
+		end
+		return out
+	end
+
+	function api.openState(id: string): any
+		assert(session.built, "scenario not built")
+		local declare = session.built.states
+		assert(type(declare) == "function", `scenario '{name}' declares no openable states`)
+		for _, state in declare() do
+			if state.id == id then
+				workspace:SetAttribute("Facet_ScenarioState", "opening:" .. id)
+				local ok, opened = pcall(state.open)
+				workspace:SetAttribute("Facet_ScenarioState", if ok then "ready" else "failed:open:" .. id)
+				if not ok then
+					error(opened)
+				end
+				deps.presenter.refresh()
+				return { id = id, opened = opened == true }
+			end
+		end
+		error(`no state '{id}' in scenario '{name}'`)
 	end
 
 	function api.step(stepName: string, payload: string?): any
 		assert(session.built, "scenario not built")
 		local fn = session.built.steps and session.built.steps[stepName]
+		if fn == nil then
+			fn = GENERIC_STEPS[stepName]
+		end
 		assert(fn ~= nil, `no step '{stepName}' in scenario '{name}'`)
 		workspace:SetAttribute("Facet_ScenarioState", "running:" .. stepName)
 		local ok, result = pcall(fn, session.built, payload)
@@ -1464,6 +1546,15 @@ function Runner.start(deps: { [string]: any })
 			end,
 			steps = function(_arg: string?)
 				return HttpService:JSONEncode(api.steps())
+			end,
+			-- the openable states this surface declares, and the driver that opens
+			-- one (overflow guard layer 3): a sweep that only ever judges the settled
+			-- screen cannot see a plate that exists after a tap
+			states = function(_arg: string?)
+				return HttpService:JSONEncode(api.states())
+			end,
+			openState = function(arg: string?)
+				return HttpService:JSONEncode(api.openState(arg :: string))
 			end,
 			step = function(arg: string?)
 				-- "name" or "name:payload" — BindableFunction Invoke carries ONE

@@ -31,6 +31,10 @@
 --   keyboard   drive a SEQUENCE of raw key presses (args.keys) through
 --              VirtualInput and pair each with the semantic action it produced
 --   step       run one scenario step (name in args.step, payload in args.payload)
+--   states     open the states this fixture DECLARES it can be opened into and
+--              judge each with the containment oracle (args.all = every declared
+--              state rather than the first); the half of the sweep that was blind
+--              to every surface a tap creates
 --   reset      stop device simulation and restore the session
 --
 -- Each mode returns a JSON string. One row = several calls, because
@@ -615,6 +619,143 @@ end
 -- ===========================================================================
 local MAX_NODES = 400
 
+--[[ THE CONTAINMENT ORACLE (overflow guard layer 3, 2026-08-21).
+
+	THIS DRIVER'S GEOMETRY QUESTION WAS "IS THIS RECT OFF THE VIEWPORT", and the
+	defect that commissioned this block was fully on screen: the region-expand
+	plate painted its `9` 8px past ITS OWN PANEL'S right edge, at every viewport,
+	through a clean 180-cell run of this very sweep. Off-viewport and
+	outside-its-own-box are different questions and only one of them was being
+	asked.
+
+	IT ASKS THE SAME QUESTION `tests/lib/overflow_guard.luau` ASKS HEADLESS, in the
+	one vocabulary a live tree has:
+
+	  * WHAT PAINTS — a node with non-empty `ContentText`, or one carrying a
+	    `facet-surface-*` tag (the sheet vocabulary's own name for a plate,
+	    `src/tokens/sheet_model.surfacePrefix`). A transparent hit target has
+	    neither, which is the same rule the headless guard learned the hard way.
+	  * WHERE IT LIVES — the nearest ANCESTOR BY PATH NAME carrying a surface tag.
+	    The live instance tree is FLAT (ADR-0022: a container's move carries
+	    nothing inside it), so tree parentage is not the containment relation here;
+	    the instance NAME is the Facet path, and prefix is what ancestry means.
+	  * WHERE IT STOPS — a clipping node or a `ScrollingFrame`. Inside a clip the
+	    engine has already cut, and a scroll canvas is SUPPOSED to exceed its
+	    window; the walk gives no verdict rather than a wrong one, exactly as the
+	    `insideClip` exemption above does for the off-viewport question.
+
+	TWO LIMITS, STATED. Instance names cap at 100 characters, so a deep node's name
+	is a PREFIX of its real path — the same fact `unfitText` below already works
+	around — which can only ever make this MISS a boundary, never invent one. And
+	the surface tag exists in the sheet-paint vocabulary; a surface painted through
+	the bespoke path carries no tag, so it is not a boundary here. Both failure
+	directions are silence, which is the right way for a live oracle to be wrong. ]]
+local SURFACE_TAG = "facet%-surface%-"
+local CONTAINMENT_SLACK = 1
+
+local function tagged(d: any): boolean
+	for _, tag in d.tags or {} do
+		if string.find(tag, SURFACE_TAG) ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+local function judgeContainment(census: { any }, out: { any })
+	local byName: { [string]: any } = {}
+	for _, d in census do
+		if type(d.name) == "string" and d.absPos ~= nil and d.absSize ~= nil then
+			byName[d.name] = d
+		end
+	end
+	for _, d in census do
+		if #out >= 20 then
+			return
+		end
+		if d.visible == false or d.absPos == nil or d.absSize == nil then
+			continue
+		end
+		if d.absSize.x <= 0 or d.absSize.y <= 0 then
+			continue
+		end
+		local paints = tagged(d) or (type(d.text) == "string" and d.text ~= "")
+		if not paints then
+			continue
+		end
+		local cursor = d.name
+		local boundary: any = nil
+		while true do
+			local cut = string.find(cursor, "/[^/]*$")
+			if cut == nil or cut == 1 then
+				break
+			end
+			cursor = string.sub(cursor, 1, cut - 1)
+			local n = byName[cursor]
+			if n == nil then
+				continue
+			end
+			if n.clips == true or n.class == "ScrollingFrame" then
+				break
+			end
+			if tagged(n) then
+				boundary = n
+				break
+			end
+		end
+		if boundary == nil then
+			continue
+		end
+		local worst, edge = 0, ""
+		local sides = {
+			{ name = "left", over = boundary.absPos.x - d.absPos.x },
+			{ name = "right", over = (d.absPos.x + d.absSize.x) - (boundary.absPos.x + boundary.absSize.x) },
+			{ name = "top", over = boundary.absPos.y - d.absPos.y },
+			{ name = "bottom", over = (d.absPos.y + d.absSize.y) - (boundary.absPos.y + boundary.absSize.y) },
+		}
+		for _, side in sides do
+			if side.over > worst and side.over > CONTAINMENT_SLACK then
+				worst, edge = side.over, side.name
+			end
+		end
+		if worst > CONTAINMENT_SLACK then
+			table.insert(out, {
+				name = d.name,
+				class = d.class,
+				text = d.text,
+				boundary = boundary.name,
+				edge = edge,
+				overhangPx = worst,
+			})
+		end
+	end
+end
+
+--[[ ...AND THE OTHER HALF: a visible, non-empty string in a box with no area.
+	The third hole the escape went through, and the cheapest of the three to ask —
+	nothing forbade it, so nothing reported it. ]]
+local function judgeZeroBoxes(census: { any }, out: { any })
+	for _, d in census do
+		if #out >= 20 then
+			return
+		end
+		if d.visible == false or d.absSize == nil then
+			continue
+		end
+		if type(d.text) ~= "string" or d.text == "" then
+			continue
+		end
+		if d.absSize.x <= 0 or d.absSize.y <= 0 then
+			table.insert(out, {
+				name = d.name,
+				class = d.class,
+				text = d.text,
+				size = d.absSize,
+			})
+		end
+	end
+end
+
 local function observe(): any
 	local api = scenarioApi()
 	if api == nil then
@@ -633,6 +774,9 @@ local function observe(): any
 	local unfitText = {}
 	local invisible = 0
 	local clippedNodes = 0
+	-- the two questions this driver never asked (see judgeContainment above)
+	local containment = {}
+	local zeroBoxes = {}
 	local cam = workspace.CurrentCamera
 	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
 	-- JUDGE FACET'S OWN TREES, NOT ROBLOX'S (example-quality-pass, 2026-08-06).
@@ -654,6 +798,9 @@ local function observe(): any
 			continue
 		end
 		judgedTrees += 1
+		-- the flat depth-ordered dump, kept for the containment pass: prefix
+		-- ancestry needs every node of the tree in hand, not the one being visited
+		local census = {}
 		-- CLIPPING ANCESTRY. The dump is a flat depth-ordered walk, so a stack of
 		-- "is some ancestor a clip host" is enough. Without it the first live run
 		-- flagged a virtual list's 8800px canvas as off-screen content, which is
@@ -663,6 +810,7 @@ local function observe(): any
 		local clipDepth: number? = nil
 		for _, d in tree.nodes do
 			nodes += 1
+			table.insert(census, d)
 			local depth = d.depth or 0
 			if clipDepth ~= nil and depth <= clipDepth then
 				clipDepth = nil
@@ -733,6 +881,8 @@ local function observe(): any
 				})
 			end
 		end
+		judgeContainment(census, containment)
+		judgeZeroBoxes(census, zeroBoxes)
 	end
 
 	return {
@@ -757,6 +907,8 @@ local function observe(): any
 		judgedTrees = judgedTrees,
 		skippedTrees = skippedTrees,
 		unfitText = unfitText,
+		containment = containment,
+		zeroBoxes = zeroBoxes,
 	}
 end
 
@@ -977,6 +1129,91 @@ local function driveKeyboard(): any
 end
 
 -- ===========================================================================
+--[[ THE STATE WALK (overflow guard layer 3, 2026-08-21).
+
+	A SWEEP THAT ONLY EVER JUDGES THE SETTLED SCREEN IS BLIND TO EVERY SURFACE A
+	TAP CREATES. This driver's §14a pass swept 36 demos at 5 views and reported
+	180/180 clean over a region-expand plate that painted its `9` 8px past its own
+	panel edge — because the plate is not on the settled screen. It exists after
+	the affordance is used, and nothing in this file had ever used one.
+
+	The fixture DECLARES what it can be opened into (`FacetScenario.states()`,
+	`examples/gallery/scenarios/runner.luau`) and this opens each declared state
+	and re-`observe`s it with the same oracle the settled screen gets. A state that
+	is not reachable at this viewport reports `opened = false` and is not judged,
+	which is an answer rather than a failure.
+
+	IT DOES NOT CLOSE WHAT IT OPENS, and that is deliberate rather than lazy: a
+	plate's dismissal routes are the presented surface's own (outside tap, gamepad
+	B, the panel's close affordance) and driving one of them from here would be
+	this driver counterfeiting input, which is the one thing its header forbids.
+	The caller resets the fixture — `FacetScenario.reset()` — between walks, which
+	is the seam that already exists for exactly this. ]]
+local function stateWalk(): any
+	local api = scenarioApi()
+	if api == nil then
+		return { ok = false, reason = "no scenario API" }
+	end
+	if api.states == nil or api.openState == nil then
+		return {
+			ok = false,
+			reason = "this place's scenario runner predates the states seam — re-sync the served tree",
+		}
+	end
+	local okList, declared = pcall(function()
+		return decode(api.states())
+	end)
+	if not okList or type(declared) ~= "table" then
+		return { ok = false, reason = `states() failed: {tostring(declared)}` }
+	end
+	local rows = {}
+	local clean = true
+	for _, state in declared do
+		local okOpen, opened = pcall(function()
+			return decode(api.openState(state.id))
+		end)
+		if not okOpen then
+			clean = false
+			table.insert(rows, { id = state.id, kind = state.kind, ok = false, error = tostring(opened) })
+			continue
+		end
+		if opened == nil or opened.opened ~= true then
+			table.insert(rows, { id = state.id, kind = state.kind, opened = false, reachable = false })
+			continue
+		end
+		local seen = observe()
+		local containment = seen.containment or {}
+		local zeroBoxes = seen.zeroBoxes or {}
+		if #containment > 0 or #zeroBoxes > 0 then
+			clean = false
+		end
+		table.insert(rows, {
+			id = state.id,
+			kind = state.kind,
+			opened = true,
+			nodes = seen.nodes,
+			containment = containment,
+			zeroBoxes = zeroBoxes,
+			offscreenNodes = seen.offscreenNodes,
+			solverDiagnostics = seen.solverDiagnostics,
+		})
+		-- one state per walk unless the caller asks for the lot: an opened plate is
+		-- a modal with a scrim, and the state after it is measured through it
+		if ARGS.all ~= true then
+			break
+		end
+	end
+	return {
+		ok = clean,
+		declared = #declared,
+		evidenceClass = "studio-emulated",
+		evidenceLevel = "E3",
+		states = rows,
+		note = "states are opened and NOT closed; call FacetScenario.reset() between walks",
+	}
+end
+
+-- ===========================================================================
 local function stepScenario(): any
 	local api = scenarioApi()
 	if api == nil then
@@ -1050,6 +1287,11 @@ local function rowRecord(): any
 		ok = observed.ok
 			and (observed.judgedTrees or 0) > 0
 			and #observed.offscreenNodes == 0
+			-- OFF-VIEWPORT WAS NEVER THE WHOLE QUESTION (overflow guard, 2026-08-21):
+			-- the plate that painted its `9` past its own panel edge was fully on
+			-- screen and passed this row 180 times
+			and #(observed.containment or {}) == 0
+			and #(observed.zeroBoxes or {}) == 0
 			and observed.solverDiagnostics == 0
 			-- DECLARED truncation (disclose/reveal) is the framework's legal
 			-- overflow policy with a full-value affordance; only an UNDECLARED
@@ -1102,6 +1344,8 @@ local function rowRecord(): any
 			clippedNodes = observed.clippedNodes,
 			invisibleNodes = observed.invisibleNodes,
 			offscreenNodes = observed.offscreenNodes,
+			containment = observed.containment,
+			zeroBoxes = observed.zeroBoxes,
 			unfitText = observed.unfitText,
 			judgedTrees = observed.judgedTrees,
 			skippedTrees = observed.skippedTrees,
@@ -1129,6 +1373,8 @@ local function run(args: any): string
 		return json(rowRecord())
 	elseif mode == "step" then
 		return json(stepScenario())
+	elseif mode == "states" then
+		return json(stateWalk())
 	elseif mode == "input" then
 		return json(driveInput())
 	elseif mode == "keyboard" then

@@ -47,6 +47,7 @@
 
 local Facet = require("../../src") :: any
 local fake_target = require("./fake_target")
+local overflow_guard = require("./overflow_guard")
 
 local world = {}
 
@@ -70,6 +71,22 @@ export type Opts = {
 	presenterOpts: any?,
 	-- swap the render target (the billboard target, a fault-injecting fake)
 	newAdapter: (() -> any)?,
+	--[[ THE CONTAINMENT INVARIANT IS ON BY DEFAULT (overflow guard layer 1,
+		2026-08-21). Every screen this world presents and settles is asked, at every
+		settle, whether anything it paints is outside the box it lives in and
+		whether any visible string solved to nothing — see
+		`tests/lib/overflow_guard.luau` for the escape that commissioned it.
+
+		A FIXTURE MAY TURN IT OFF ONLY BY SAYING WHY. The option is a STRING, not a
+		boolean, and the string is the reason: a spec that deliberately builds an
+		overflowing screen (that is the whole point of a diagnostics fixture) states
+		that here, in the constructor, where the next reader of the file will see it.
+		`false` is not accepted, because "off" with no reason is how an always-on
+		check becomes a check nobody notices is off. ]]
+	overflowGuardOff: string?,
+	-- what the guard calls this world in its message; defaults to the presented
+	-- screen's id, which is the right answer in every fixture that presents one
+	overflowLabel: string?,
 }
 
 export type World = {
@@ -82,6 +99,10 @@ export type World = {
 	press: (key: string) -> (),
 	tick: (dt: number?) -> (),
 	settle: (frames: number?) -> (),
+	-- the containment invariant, callable on demand: a spec that drives a state
+	-- WITHOUT settling (an activation that solves synchronously) still has to be
+	-- able to ask
+	overflowGuard: () -> (),
 	handle: any,
 	controller: any,
 }
@@ -124,12 +145,38 @@ function world.new(opts: Opts?): World
 
 	local w: any = { core = core, env = env, adapter = adapter, system = system, pres = pres }
 
+	--[[ THE INVARIANT, AT EVERY POINT THIS WORLD HANDS CONTROL BACK. A check that
+		ran only at mount would miss every defect a state change introduces, which is
+		the class the escape belongs to; a check that ran inside `settle`'s frame loop
+		would ask the same question 120 times and cost 120 times as much for one
+		answer. So it runs once, after the loop, on the state the caller is about to
+		assert against. ]]
+	local guardLabel: string? = o.overflowLabel
+	local function guard()
+		if o.overflowGuardOff ~= nil then
+			return
+		end
+		if adapter.paths == nil or adapter.node == nil then
+			-- a fault-injecting or billboard target with no node census: nothing to
+			-- read, and inventing an answer from a target that cannot answer is the
+			-- "instrument reading an unreal surface" trap
+			return
+		end
+		overflow_guard.assertContained(adapter, guardLabel)
+	end
+	w.overflowGuard = guard
+
 	-- present + settle in one, because a presented screen that has not solved is
 	-- a state no spec in this suite is ever interested in
 	function w.present(screen: any, presentOpts: any?): any
 		w.handle = pres.present(screen, presentOpts)
 		pres.refresh()
 		w.controller = w.handle.controller
+		if guardLabel == nil and type(screen) == "table" then
+			local props = (screen :: any).props
+			guardLabel = if type(props) == "table" and type(props.id) == "string" then props.id else nil
+		end
+		guard()
 		return w.handle
 	end
 
@@ -156,6 +203,7 @@ function world.new(opts: Opts?): World
 			pres.tick(1 / 60)
 			pres.refresh()
 		end
+		guard()
 	end
 
 	return w :: World
