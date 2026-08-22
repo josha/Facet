@@ -285,14 +285,31 @@ nearest == radius, not `>=` — because the sheet's reserve is exact by construc
 
 ## MEDIUM-2 — the 9x9: BUILT AND MEASURED, LANDING IN THE FOLLOW-UP COMMIT
 
-**Held out of this commit deliberately, not deferred.** The fix edits
+**Held out of the tree, and the hold was TESTED rather than assumed.** The fix edits
 `render/commit_walks.luau`, and the renderer round is mid-flight in that same file with
 ruling R23 (its `pressableRects` is already renamed `authorPressableRects` in the shared
-working tree). My one-line scope change sits on the line ADJACENT to their rename, so
-git would put both in one hunk and `commit_isolated`'s marker filter would carry their
-uncommitted work in with mine — the exact accident that tool exists to prevent. It lands
-as its own commit once theirs is in. Everything below is built, green and mutation-tested
-against `20148ef`; only the landing is sequenced.
+working tree, and `tests/commit_walks_seam.spec.luau` with it). My change was applied to
+the live file and the isolation checked before committing anything: **both of my hunks —
+the predicate at `@@ -534,31 @@` and the call site at `@@ -590,12 @@` — carry that
+round's uncommitted R23 work as well**, because my one changed line sits directly above
+their renamed one and git cannot split them. `commit_isolated`'s marker filter would have
+swept their work into my commit, which is the precise accident that tool exists to
+prevent. The edit was reverted byte-for-byte (`md5 d4c5818f…` before and after) and the
+two files it depends on restored to HEAD.
+
+**It is READY, not merely planned.** `scratchpad/fix1_B.py` applies it to whatever that
+round leaves behind — it anchors on the `isCover` definition and its single call site and
+touches nothing between them, so their rename survives untouched. Everything below is
+built, green (7038 passed against a 7036 baseline) and mutation-tested against `20148ef`.
+Landing it needs one of: this round resumed after the renderer round commits, or that
+round taking the predicate widening into its own commit. **Nothing of it is in the tree
+today, so the 9x9 is still live** — deliberately, rather than at the cost of another
+round's work.
+
+**Also NOT landed with it, for the same reason:** `expandTarget`'s third role in
+`blueprint_schema.luau` and the `{ role = "close" }` declaration on the close affordance.
+They are inert without the predicate — accepted and doing nothing, which the constitution
+forbids — so they travel with it rather than ahead of it.
 
 The review is right that this was a finding rather than a footnote, and right that the
 blocked argument had expired. `render/commit_walks.growWithin` (ADR-0041) is exactly the
