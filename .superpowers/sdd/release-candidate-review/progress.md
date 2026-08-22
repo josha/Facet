@@ -1388,3 +1388,23 @@ STUDIO.md, root CLAUDE.md.
   file). RR L2 correction: RR DOES have a repo (games/RascalRally/code) —
   the DIR5 main round's "no .git" claim was wrong and its fence commit was
   already landed by the controller (e6e1c56).
+
+## 2026-08-21 (post-close 14) — census landed; the SECOND door found live
+
+- LOCKSTEP FIX 1 LANDED (5a43992 + e74e5fe; 6950 +1): constructor census —
+  six sites, five FIXED (gallery, perf lab, billboard, edit preview, RR
+  last round) + host blessed; EXEMPT table exists and is EMPTY (the edit
+  preview is NOT near-only: device_profiles ships a console profile);
+  class-closing guard with the new-bare-file mutation (M14). Its honest
+  correction: NO framework surface was exercised live at Large by the
+  original round — only host, headlessly. B-16→B-17 references corrected.
+- LIVE VERIFY 2 (stamp b62ac109, console, Large): the SHEET path is now
+  derived ON GLASS — `.facet-surface-raised::UICorner` rule carries 0, 18.
+  But the BESPOKE path still paints base: the segmented Indicator Bar
+  capsules GetStyled "0, 999" (not 1499); default_style.luau:69 holds the
+  base tokens. A second door: some style source reaches the bespoke painter
+  without paintForDisplay (candidate: the studio-neutral boot hands
+  default_style raw — theme_controller.styleFor may only engage when a
+  package installs). Fix round 2 resumed on the implementer: find the
+  actual reader, ENUMERATE THE DOORS the way the census enumerated
+  constructors, red-first. Third live verify owed on its landing.
