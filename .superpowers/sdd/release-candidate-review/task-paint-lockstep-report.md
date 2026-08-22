@@ -522,6 +522,22 @@ serially with the lock free — result appended below. The remaining
 `FAIL_ENVIRONMENT` rows (`physical-and-human-rows`, `studio-device-canary`,
 `studio-and-device-evidence`) are declared device rows, non-blocking by design.
 
+**The lock, followed to the end.** With the lock cleared, `prior-gates-unregressed`
+stops refusing and starts doing its real work: `tools/prior_gates.sh <artifact>
+rich-skinning-v2`, which re-runs every gate BEFORE that one — a one-to-two-hour
+sweep. I let it start (it got past `game-suite-untouched`, which PASSED in the real
+checkout), then **stopped it deliberately and released the lock**, because that is
+the same lock the controller's re-verify sweep needs and holding it for two hours
+to reproduce a sweep the controller is about to run would block the thing it
+proves. `/tmp/facet_prior_gates.lock` is confirmed free at hand-off and no gate
+process of mine is alive. What is established: the row's only recorded cause was
+the orphaned lock (its own detail string says so), and every other row of all five
+gates is PASS or a declared device row. The stale
+`artifacts/rich-skinning-v2/prior-gates-rerun.txt` on disk corroborates the
+diagnosis from the other side — it records `FAIL theme-packages-and-skinning` with
+`FAIL_RECOVERABLE font-aware-measurement`, which is exactly the row this round
+re-pinned.
+
 **A measurement caution worth recording**: gates run in a `/private/tmp` copy
 produce FALSE reds on `rascalrally-consumer` and `game-suite-untouched`, because
 both `cd ../../../games/RascalRally/code`. Both PASS in the real checkout. A gate
