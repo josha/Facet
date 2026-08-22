@@ -1270,3 +1270,23 @@ STUDIO.md, root CLAUDE.md.
   2-3 options with PIL-rendered mockups, token-derived metrics, the
   left-vs-right question answered inside the options with platform
   reasoning. Build waits for the director's pick.
+
+## 2026-08-21 (post-close 8) — solver split ACTIVE; close position settled
+
+- DIRECTOR: "do the split as part of this work" + "upper right is ok then."
+- SOLVER MISSION DISPATCHED (task-solver-split): Phase A = the ledger's own
+  prescription (layout/measure_facts.luau, ~6 KB one-way — SHRINK_DEPS
+  already threads the argument list), house seam method (READ==DECLARED==
+  PASSED mechanised spec, zero re-verdicts, measure LAST), honest ledger
+  re-record. Phase B in the freed room: hug-includes-insets composed in ONE
+  seam (closes DIR5's contested band at ~1113 beside expandGutter) + the
+  settle-time containment diagnostic through the existing channel
+  (the-solver-already-told-you made literal); the R18 hit-floor reserve if
+  headroom allows. Hard rule: the file ends with MORE headroom than it
+  started.
+- Design round told upper-right is settled; options now differ on BALANCE
+  only.
+- LEDGER COLLISION TO RESOLVE AT LANDING: the cap ledger's screen_target row
+  (re-recorded by the paint-lockstep round mid-flight) calls that round's
+  ADR row "B-16" — but B-16 is DIR5's appended row. The lockstep round's
+  row must land as B-17; renumber at append time.
