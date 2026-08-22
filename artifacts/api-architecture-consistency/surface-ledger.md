@@ -109,7 +109,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | Item | Kind | Pattern / exception | Dispositions | Fragment |
 |---|---|---|---|---|
 | `tokens` · `tokens.compile` · `tokens.contrastRatio` · `tokens.dangerPair` | pure decision module | `(value?, report)` validator; E-12 | DOC-8 (`dangerPair`), PKT-8 (types) | seams |
-| `themes` · `themes.define` · `themes.resolve` · `themes.neutral` · `themes.neutralPackage` · `themes.metricScale` · `themes.forDisplay` · `themes.baseOf` · `themes.densityClassOf` · `themes.lintProperty` · `themes.checkCoverage` · `themes.SCHEMA` | curated namespace | strongest docs-coverage story (per-member check) | PKT-8 (types), NOTE (three return conventions — SEAM-13, constitution §6 rules future) | seams |
+| `themes` · `themes.define` · `themes.resolve` · `themes.neutral` · `themes.neutralPackage` · `themes.metricScale` · `themes.forDisplay` · `themes.paintForDisplay` · `themes.baseOf` · `themes.densityClassOf` · `themes.lintProperty` · `themes.checkCoverage` · `themes.SCHEMA` | curated namespace | strongest docs-coverage story (per-member check) | PKT-8 (types), NOTE (three return conventions — SEAM-13, constitution §6 rules future); `paintForDisplay` joined the namespace in `c4d0591` (ADR-0040 row B-17, director 2026-08-21) as `forDisplay`'s paint-side twin — one derivation for radii/strokes, spent by `sheet_model`, `screen_target` and `theme_controller` | seams |
 
 ## Client entry points (blessed; required directly per ADR-0011)
 
