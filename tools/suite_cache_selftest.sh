@@ -46,19 +46,46 @@ synth() {
 
 GREEN_BODY=$'\xe2\x9c\x93 a case that passed\n5618 passed\n0 failed'
 
+# --- Did the cache MISS, so nothing was measured? ----------------------------
+# A synthetic entry only measures a refusal while it is a cache HIT. If the tree
+# moves between keying the entry and reading it, `tools/test.sh` misses, RE-RUNS
+# the real (green) suite and serves that — and the guard reads as broken when it
+# was never exercised. The window is small but real: `suite_fingerprint`'s own
+# header documents it (a sibling agent's temp file, listed by `find` and gone
+# before `shasum` opens it), and it reddened
+# `a transcript mutated on disk after caching is refused` in the
+# navigation-and-menus gate run of 2026-08-21 while the same command passed on
+# the next run.
+#
+# It is exactly detectable AFTER THE FACT rather than guessed at: a miss is the
+# only path on which either helper writes, and it writes an entry keyed by the
+# CURRENT fingerprint — so a case dir that holds a second entry is a case that
+# raced. Re-key and try again; never score the race as a verdict.
+served_a_miss() {
+	[ "$(find "$1" -maxdepth 1 -name '*.meta' | wc -l)" -gt 1 ]
+}
+RACE_RETRIES=3
+
 # A transcript is refused unless it is a green, complete, full-tier suite run.
 # Each case asserts BOTH halves of the contract: a non-zero exit (so FORM A's
 # `&&` chain short-circuits) and EMPTY STDOUT (so a FORM B pipeline, whose exit
 # status is grep's and not ours, finds nothing to match and reddens too).
 refuses() {
 	local label="$1" body="$2" code="$3" passed="$4" failed="$5"
-	local dir="$TMP/case-$RANDOM"
-	local fp
-	fp="$(tools/test.sh --fingerprint)"
-	synth "$dir" "$fp" "$body" "$code" "$passed" "$failed"
-	local out rc
-	out="$(FACET_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
-	rc=$?
+	local dir fp out rc attempt=0
+	while :; do
+		dir="$TMP/case-$RANDOM-$attempt"
+		fp="$(tools/test.sh --fingerprint)"
+		synth "$dir" "$fp" "$body" "$code" "$passed" "$failed"
+		out="$(FACET_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
+		rc=$?
+		served_a_miss "$dir" || break
+		attempt=$((attempt + 1))
+		if [ "$attempt" -ge "$RACE_RETRIES" ]; then
+			no "$label — the tree moved under this case $RACE_RETRIES times; nothing was measured"
+			return
+		fi
+	done
 	if [ $rc -eq 0 ]; then
 		no "$label — served it and exited 0 (FORM A checks would pass over this)"
 	elif [ -n "$out" ]; then
@@ -183,15 +210,44 @@ refuses "an EMPTY transcript is refused" "" 0 5618 0
 
 # A transcript mutated on disk after caching still has to redden the checks that
 # read it. Deleting the summary line is the cheapest real corruption.
-mutated="$TMP/mutated"
-mutated_fp="$(tools/test.sh --fingerprint)"
-synth "$mutated" "$mutated_fp" "$GREEN_BODY" 0 5618 0
-printf '%s\n' $'\xe2\x9c\x93 a case that passed' >"$mutated/$mutated_fp.txt"
-out="$(FACET_SUITE_CACHE_DIR="$mutated" tools/suite_transcript.sh 2>/dev/null)"
-if [ $? -ne 0 ] && [ -z "$out" ]; then
+mutated_attempt=0
+while :; do
+	mutated="$TMP/mutated-$mutated_attempt"
+	mutated_fp="$(tools/test.sh --fingerprint)"
+	synth "$mutated" "$mutated_fp" "$GREEN_BODY" 0 5618 0
+	printf '%s\n' $'\xe2\x9c\x93 a case that passed' >"$mutated/$mutated_fp.txt"
+	out="$(FACET_SUITE_CACHE_DIR="$mutated" tools/suite_transcript.sh 2>/dev/null)"
+	mutated_rc=$?
+	served_a_miss "$mutated" || break
+	mutated_attempt=$((mutated_attempt + 1))
+	if [ "$mutated_attempt" -ge "$RACE_RETRIES" ]; then
+		mutated_rc=0
+		break
+	fi
+done
+if [ "$mutated_attempt" -ge "$RACE_RETRIES" ]; then
+	no "a transcript mutated on disk after caching is refused — the tree moved under this case $RACE_RETRIES times; nothing was measured"
+elif [ "$mutated_rc" -ne 0 ] && [ -z "$out" ]; then
 	ok "a transcript mutated on disk after caching is refused"
 else
 	no "a transcript mutated on disk after caching is refused"
+fi
+
+# THE RACE GUARD ITSELF, both directions and without paying for a suite run:
+# the one-entry dir every refusal case builds must NOT read as a miss (it would
+# retry forever), and the second entry a missed, re-run suite leaves behind must.
+race="$TMP/race"
+synth "$race" "$(tools/test.sh --fingerprint)" "$GREEN_BODY" 0 5618 0
+if served_a_miss "$race"; then
+	no "the race guard is silent on the dir a refusal case actually built"
+else
+	ok "the race guard is silent on the dir a refusal case actually built"
+fi
+synth "$race" "the-fingerprint-a-re-run-would-have-written" "$GREEN_BODY" 0 5618 0
+if served_a_miss "$race"; then
+	ok "...and it SEES the second entry a missed, re-run suite leaves behind"
+else
+	no "...and it SEES the second entry a missed, re-run suite leaves behind — a race would be scored as a failed guard"
 fi
 
 # ---------------------------------------------------------------------------
@@ -298,16 +354,25 @@ fi
 
 rr_refuses() {
 	local label="$1" body="$2" code="$3"
-	local dir="$TMP/rr-$RANDOM"
-	local fp
-	fp="$(rr_fp)"
-	mkdir -p "$dir"
-	printf '%s\n' "$body" >"$dir/$fp.txt"
-	{ echo "fingerprint=$fp"; echo "exit_code=$code"; } >"$dir/$fp.meta"
-	# $dir is absolute (mktemp -d), so it survives the cd into the other repo.
-	local out rc
-	out="$(cd "$RR" && RR_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
-	rc=$?
+	local dir fp out rc attempt=0
+	# Same race, wider surface: this fingerprint covers GameStudio/ui/Facet too,
+	# so an edit in EITHER repo can turn the measurement into a re-run.
+	while :; do
+		dir="$TMP/rr-$RANDOM-$attempt"
+		fp="$(rr_fp)"
+		mkdir -p "$dir"
+		printf '%s\n' "$body" >"$dir/$fp.txt"
+		{ echo "fingerprint=$fp"; echo "exit_code=$code"; } >"$dir/$fp.meta"
+		# $dir is absolute (mktemp -d), so it survives the cd into the other repo.
+		out="$(cd "$RR" && RR_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"
+		rc=$?
+		served_a_miss "$dir" || break
+		attempt=$((attempt + 1))
+		if [ "$attempt" -ge "$RACE_RETRIES" ]; then
+			no "RascalRally: $label — the tree moved under this case $RACE_RETRIES times; nothing was measured"
+			return
+		fi
+	done
 	if [ $rc -eq 0 ] || [ -n "$out" ]; then
 		no "RascalRally: $label"
 	else
