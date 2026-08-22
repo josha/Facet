@@ -354,4 +354,140 @@ function placement_audit.auditPlacement(
 	return found
 end
 
+--[[ ===== THE SETTLE-TIME CONTAINMENT FINDING (2026-08-21) ==================
+
+	`docs/lessons/the-solver-already-told-you.md` is the standing lesson, and its
+	one line is that the solver already knows — every overflow, every collapsed
+	content box, every inert prop — on a channel somebody has to ask. THIS IS THE
+	ONE THING IT DID NOT KNOW HOW TO SAY. Every overflow finding in `solver.luau`
+	is derived from a MEASURE compared against an offer: "content overflows this
+	vstack by 44px", "this child overflows its zstack by 12x0px", "the wrapped
+	lines overflow this hwrap". Not one of them is derived from the RECT the child
+	was finally given.
+
+	SO THIS ONE IS, AND IT IS SCOPED BY MEASUREMENT RATHER THAN BY INTENTION.
+	The first draft policed every parent that places a child, and the suite
+	answered with **21,916 findings**: 13,851 from `anchor`, whose entire contract
+	is to place a child wherever the author says (a badge on a corner, a thumb at
+	the end of a groove); 3,609 from `zstack`, which layers by definition and
+	already has its own measure-side overlap finding and its own
+	`intentionalOverlap` opt-out; and 4,103 on the MAIN axis of a stack, every one
+	of them a second telling of the "content overflows this vstack by Npx" finding
+	that fires two lines above the loop. A finding that fires 21,916 times on a
+	green library is not a diagnostic, it is a channel people learn to mute.
+
+	WHAT IS LEFT IS THE HOLE: the CROSS axis of a flow stack. A stack's own
+	arithmetic is supposed to guarantee it — `crossSize` is `min(desired,
+	crossAvail)` — so a child landing outside on that axis means the guarantee
+	broke (margins wider than the box are one live way, found by fuzz), and
+	NOTHING reported it. Measured on the same run: **41 occurrences suite-wide,
+	all of them on adversarial fuzz trees and not one on a shipped fixture or
+	example**, which is what a diagnostic scoped to a real defect looks like.
+
+	The same shape as the rule three files over: "the main axis has now been
+	reported by name and by number; leave the overlap finding below the CROSS axis
+	only, so a row that is ALSO too wide still says so exactly once."
+
+	Reported, never fatal — the trade every finding in this family makes: an
+	honestly cramped offer produces the same geometry, and stopping a screen to
+	report an authoring mistake is the worse outcome.
+
+	STILL UNREPORTED, MEASURED AND BOOKED rather than shipped silently: a
+	composition REGION placed below its composition's own content box fired 312
+	times on one scenario (`/HudScreen/Hud/*`). That is a real class — the
+	collision finding compares regions against each OTHER and never against the
+	box — but it is a defect to investigate rather than a rule to add in the same
+	breath, and the adapter-side containment harness is the right instrument for
+	it.
+]]
+
+-- sub-pixel noise is not a defect: rects are rounded and a half-pixel of
+-- accumulated alignment is not something an author can act on
+local CONTAIN_SLOP = 0.5
+
+local CONTAIN_ADVICE = "give the box room — a `minMax` FLOOR rather than a fixed CAP — trim the child's "
+	.. 'margin, or say so with overflow = "clip"'
+
+local ROUTED_KINDS: { [string]: boolean } = {
+	-- a canvas absorbs its own content by construction
+	scroll = true,
+	-- a wrapping stack reports its own cross-axis spill and its own clamped
+	-- children, by name and by number, one layer up
+	hwrap = true,
+	vwrap = true,
+}
+
+--[[ Does this parent route overflow away on its own account? `overflow` is the
+	author's word and covers both axes; the kind table above covers the two
+	families whose whole job is to absorb, or to report for themselves. Exported
+	rather than folded into `containment` because the solver checks it before it
+	pays for `axisAbsorbs`, and one reading of "routed" is the point. ]]
+function placement_audit.routesOverflow(parent: any): boolean
+	local declared = parent.overflow
+	if declared == "clip" or declared == "scroll" or declared == "intentionalOverlap" then
+		return true
+	end
+	return ROUTED_KINDS[parent.kind] == true
+end
+
+--[[ THE FINDING, OR NIL — which is the overwhelmingly common answer, so a
+	contained tree allocates nothing.
+
+	`x`/`y`/`w`/`h` are the parent's CONTENT box (its padding already spent), which
+	is the box the child was placed into. `axisIsX` names the axis to police: the
+	caller passes its stack's CROSS axis, and passes it only after establishing
+	that the parent cannot grow on it (`axisAbsorbs`) and routes no overflow. Both
+	of those live in `solver.luau` because both are its own predicates, and
+	duplicating either here is the copy-goes-stale failure every seam in this
+	directory exists to avoid. ]]
+function placement_audit.containment(
+	parent: any,
+	child: any,
+	rect: { x: number, y: number, w: number, h: number },
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	axisIsX: boolean
+): { { node: string, issue: string, filedBy: string, edge: string, overhang: number } }?
+	local nearOver = if axisIsX then x - rect.x else y - rect.y
+	local farOver = if axisIsX then (rect.x + rect.w) - (x + w) else (rect.y + rect.h) - (y + h)
+	if nearOver <= CONTAIN_SLOP and farOver <= CONTAIN_SLOP then
+		return nil
+	end
+	local found: { { node: string, issue: string, filedBy: string, edge: string, overhang: number } } = {}
+	for _, pair in
+		{ { if axisIsX then "left" else "top", nearOver }, { if axisIsX then "right" else "bottom", farOver } }
+	do
+		local edge, over = pair[1] :: string, pair[2] :: number
+		if over <= CONTAIN_SLOP then
+			continue
+		end
+		table.insert(found, {
+			node = child.id,
+			-- filed by the PARENT and naming the CHILD, the stamp the incremental
+			-- replay gate reads (`solve`'s replay loop): the node that FILES a
+			-- finding is the one whose being skipped could leave it stale
+			filedBy = parent.id,
+			-- FIRST-CLASS FIELDS, not a substring of the sentence. A harness asserts
+			-- on the edge and the number without parsing English, which is the whole
+			-- difference between a diagnostic and a log line
+			edge = edge,
+			overhang = over,
+			issue = string.format(
+				"'%s' is placed %dpx past the %s edge of this %s's content box on the CROSS axis — a stack "
+					.. "sizes its children to that box, so landing outside it means something (a margin "
+					.. "wider than the box is the usual one) beat the clamp, and the child paints over "
+					.. "whatever sits beyond that edge (%s)",
+				child.id,
+				math.ceil(over),
+				edge,
+				parent.kind,
+				CONTAIN_ADVICE
+			),
+		})
+	end
+	return if #found > 0 then found else nil
+end
+
 return placement_audit

@@ -2,9 +2,18 @@
 --[[ measure_facts — THE PURE PER-NODE FACTS BOTH SOLVER PASSES READ.
 
 	Public interface: `Dim` (the dimension schema), `CONTENT`, `dim`, `mainDimOf`,
-	`sides`, `textTypography`, `recordTextFacts`, `memoPlan`, `MEMO_ARM_DEPTH` and
-	the three `PLAN_*` verdicts. Depends on `../themes/snapshot` and on nothing
-	else — no solver local, no forward declaration, no `require` back.
+	`axisAbsorbs`, `sides`, `textTypography`, `recordTextFacts`, `memoPlan`,
+	`MEMO_ARM_DEPTH` and two of the three `PLAN_*` verdicts. Depends on
+	`../themes/snapshot` and on nothing else — no solver local, no forward
+	declaration, no `require` back.
+
+	`axisAbsorbs` JOINED IT IN THE SAME ROUND it left, and for the reason a pure
+	predicate ends up somewhere: it reads a `Dim` and two limits, which is exactly
+	what this file is for, and it grew a SECOND reader. It was written for the
+	relayout-boundary analysis; the settle-time containment finding asks it the
+	same question ("can this parent grow to hold that?") and a second copy of a
+	predicate that mirrors `resolveAxis` case for case is how a boundary rule ends
+	up disagreeing with the resolver.
 
 	WHY IT IS ITS OWN FILE. `src/layout/solver.luau` crossed the 200,000-character
 	`Script.Source` write cap on 2026-08-14 and stopped live-syncing into an open
@@ -383,7 +392,61 @@ local function memoPlan(ctx: MeasureCtx, node: any): number
 	return plan
 end
 
+-- ---- RELAYOUT BOUNDARIES (incremental-layout Stage 1: DETECTION ONLY) -------
+--
+-- A node is a relayout BOUNDARY when its own size cannot change because something
+-- inside it changed. That is the property incremental layout needs: when a leaf's
+-- size changes, the effect propagates upward until it reaches a node that absorbs
+-- it, and only that node's subtree has to be laid out again.
+--
+-- The predicate MIRRORS `resolveAxis` deliberately, case for case, because a
+-- boundary rule that disagrees with the resolver is worse than none: it would
+-- promise that a subtree is isolated when it is not.
+--
+--   fixed    a literal                                    -> absorbs
+--   percent  reads the LIMIT, not the content...          -> absorbs IF bounded
+--   fill     ...same                                      -> absorbs IF bounded
+--   containerRelative  reads the CONTAINER, not either    -> absorbs
+--   minMax   `preferred or contentFn()`                   -> absorbs IFF preferred
+--   hug      content, capped at the offer                 -> does NOT absorb
+--   content  the content                                  -> does NOT absorb
+--   aspect   derived from the other axis                  -> defers to it
+--
+-- `percent` and `fill` fall back to content on an UNBOUNDED axis (inside a scroll's
+-- scroll direction), and `resolveAxis` files a diagnostic when it does — so the
+-- limit check here is the same condition, not an approximation of it.
+--
+-- Stage 1 computes this and NOTHING else: no behaviour changes, and the whole
+-- analysis is gated behind an opt-in flag so an ordinary solve does not pay for it.
+local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number): boolean
+	local t = d.type
+	if t == "fixed" then
+		return true
+	elseif t == "containerRelative" then
+		-- reads the CONTAINER, never the content: nothing inside it can change its
+		-- size, which is exactly what "absorbs" means here (§2.5)
+		return true
+	elseif t == "percent" or t == "fill" then
+		return limit ~= math.huge
+	elseif t == "minMax" then
+		return d.preferred ~= nil
+	elseif t == "aspect" then
+		-- one level only: aspect-on-both-axes is already rewritten to content above
+		local ot = other.type
+		if ot == "fixed" then
+			return true
+		elseif ot == "percent" or ot == "fill" then
+			return otherLimit ~= math.huge
+		elseif ot == "minMax" then
+			return other.preferred ~= nil
+		end
+		return false
+	end
+	return false
+end
+
 measure_facts.CONTENT = CONTENT
+measure_facts.axisAbsorbs = axisAbsorbs
 measure_facts.MEMO_ARM_DEPTH = MEMO_ARM_DEPTH
 -- `PLAN_KEYED` is deliberately NOT exported: it is the default verdict and its
 -- only reader is `memoPlan` itself, so exporting it would be a fact computed

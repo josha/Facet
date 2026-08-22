@@ -54,6 +54,9 @@ local themeSnapshot = require("../themes/snapshot")
 -- and the arrangement choice live there, where a headless sweep can drive them
 -- with no tree at all.
 local compositionLib = require("./composition")
+-- the expand plate's chrome, declared once beside the padding `blueprint` writes
+-- on the plate; resolved into the composition's resolve context below
+local expandPlate = require("./expand_plate")
 -- the parent-side placement-prop audit (parity round 2 §2.1), re-exported below
 -- as `solver.auditPlacement`. It reads no solve state, which is why it is the
 -- one block of this file that could become a sibling module unchanged.
@@ -93,6 +96,7 @@ local dim = measureFacts.dim
 local mainDimOf = measureFacts.mainDimOf
 local memoPlan = measureFacts.memoPlan
 local recordTextFacts = measureFacts.recordTextFacts
+local axisAbsorbs = measureFacts.axisAbsorbs
 local sides = measureFacts.sides
 local textTypography = measureFacts.textTypography
 
@@ -503,58 +507,11 @@ local GRID_DEPS: gridLib.Deps = {
 }
 
 -- resolve one axis of `node` given the limit and a content thunk
--- ---- RELAYOUT BOUNDARIES (incremental-layout Stage 1: DETECTION ONLY) -------
---
--- A node is a relayout BOUNDARY when its own size cannot change because something
--- inside it changed. That is the property incremental layout needs: when a leaf's
--- size changes, the effect propagates upward until it reaches a node that absorbs
--- it, and only that node's subtree has to be laid out again.
---
--- The predicate MIRRORS `resolveAxis` deliberately, case for case, because a
--- boundary rule that disagrees with the resolver is worse than none: it would
--- promise that a subtree is isolated when it is not.
---
---   fixed    a literal                                    -> absorbs
---   percent  reads the LIMIT, not the content...          -> absorbs IF bounded
---   fill     ...same                                      -> absorbs IF bounded
---   containerRelative  reads the CONTAINER, not either    -> absorbs
---   minMax   `preferred or contentFn()`                   -> absorbs IFF preferred
---   hug      content, capped at the offer                 -> does NOT absorb
---   content  the content                                  -> does NOT absorb
---   aspect   derived from the other axis                  -> defers to it
---
--- `percent` and `fill` fall back to content on an UNBOUNDED axis (inside a scroll's
--- scroll direction), and `resolveAxis` files a diagnostic when it does — so the
--- limit check here is the same condition, not an approximation of it.
---
--- Stage 1 computes this and NOTHING else: no behaviour changes, and the whole
--- analysis is gated behind an opt-in flag so an ordinary solve does not pay for it.
-local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number): boolean
-	local t = d.type
-	if t == "fixed" then
-		return true
-	elseif t == "containerRelative" then
-		-- reads the CONTAINER, never the content: nothing inside it can change its
-		-- size, which is exactly what "absorbs" means here (§2.5)
-		return true
-	elseif t == "percent" or t == "fill" then
-		return limit ~= math.huge
-	elseif t == "minMax" then
-		return d.preferred ~= nil
-	elseif t == "aspect" then
-		-- one level only: aspect-on-both-axes is already rewritten to content above
-		local ot = other.type
-		if ot == "fixed" then
-			return true
-		elseif ot == "percent" or ot == "fill" then
-			return otherLimit ~= math.huge
-		elseif ot == "minMax" then
-			return other.preferred ~= nil
-		end
-		return false
-	end
-	return false
-end
+-- `axisAbsorbs` — the relayout-BOUNDARY predicate, which mirrors `resolveAxis`
+-- case for case — is bound from `./measure_facts` at the top of this file. It
+-- reads a `Dim` and two limits and nothing else, and it now has two readers:
+-- the boundary analysis it was written for, and the containment finding's
+-- "can this parent grow?" gate.
 
 -- CONTAINER-RELATIVE SIZING (§2.5). `container` is the nearest ancestor viewport's
 -- inner extent on THIS axis — `ctx.containerW`/`ctx.containerH`, pushed at each
@@ -965,6 +922,26 @@ local function compositionResolution(ctx: Ctx, node: Node, innerW: number, inner
 			the live snapshot and the NAME never crosses the boundary — the same split
 			`floorOf` makes for a content floor. ]]
 		expandGutter = (ctx.metrics.space :: any).m,
+		--[[ ...AND THE PLATE'S OWN CHROME, which is the half the gutter could not
+			say (DIR5 item 3, contested there and closed here). The gutter is what the
+			plate leaves at the SCREEN edges; this is what the plate spends on ITSELF
+			— two insets, one of them the close disc's reserve, plus the straddle the
+			disc sits half-out on. Without it the composition measured form 1 against
+			the whole allowance and handed back a plate that, once wrapped, was wider
+			than the allowance it had just been chosen against.
+
+			TWO NUMBERS, BECAUSE THEY SIT ON OPPOSITE SIDES OF THE BOX the caller
+			declares: the inset is inside it (content = box - inset) and the straddle
+			is outside it (panel = box + straddle). One combined number silently
+			mis-sizes whichever of hug/fill it was not derived for.
+
+			SAME SPLIT AS `expandGutter` AND `floorOf` ONE LINE UP: the composition
+			owns no theme, so the NUMBERS are resolved here from the live snapshot and
+			the NAMES never cross. They live in `./expand_plate` beside the padding
+			`blueprint` actually writes on the plate, so the cap and the box cannot be
+			two readings of one intention. ]]
+		expandPlateInset = expandPlate.insetX(ctx.metrics),
+		expandPlateStraddle = expandPlate.straddleX(ctx.metrics),
 	}
 	local offerW = if innerW == math.huge then COMPOSITION_UNBOUNDED else innerW
 	local offerH = if innerH == math.huge then COMPOSITION_UNBOUNDED else innerH
@@ -2207,6 +2184,68 @@ local function replaySubtree(ctx: Ctx, node: Node, previous: any, out: { [string
 		end
 	end
 	return true
+end
+
+--[[ THE CONTAINMENT CHECK, ON THE ONE AXIS NOTHING ELSE WATCHES.
+
+	Every other overflow finding in this file is derived from a MEASURE against an
+	offer. This one is derived from the RECT the child was finally given, which is
+	the only instrument that can see a box placed outside its parent by ARITHMETIC
+	rather than by size — the class `docs/lessons/the-solver-already-told-you.md`
+	is about, and the property `tests/lib/overflow_guard.luau` now asserts from the
+	adapter side after every settle.
+
+	IT POLICES THE STACK'S CROSS AXIS AND NOTHING ELSE, and the scope was measured
+	rather than chosen: `./placement_audit` carries the counts. The main axis is
+	already reported by name and by number two lines above the loop; `zstack` and
+	`anchor` place children outside their box by design and have their own finding
+	and their own opt-out. What is left is the axis a stack's own `min(desired,
+	crossAvail)` is supposed to guarantee — so a child outside it means the
+	guarantee broke, and until now nothing said so.
+
+	TWO COMPARISONS ON THE COMMON PATH: a contained child never reaches
+	`axisAbsorbs`, never reaches the route test and never allocates.
+]]
+local function noteContainment(
+	ctx: Ctx,
+	node: Node,
+	child: Node,
+	rect: Rect,
+	innerX: number,
+	innerY: number,
+	innerW: number,
+	innerH: number,
+	axisIsX: boolean
+)
+	if ctx.hiddenDepth ~= 0 then
+		return
+	end
+	local near = if axisIsX then innerX - rect.x else innerY - rect.y
+	local far = if axisIsX then (rect.x + rect.w) - (innerX + innerW) else (rect.y + rect.h) - (innerY + innerH)
+	if near <= 0.5 and far <= 0.5 then
+		return
+	end
+	if placementAudit.routesOverflow(node) then
+		return
+	end
+	--[[ THE PARENT MUST BE UNABLE TO GROW, and the answer comes from `axisAbsorbs`
+		above rather than from a second reading of the resolver — a `hug` or
+		`content` parent that ends up too small has a different story (its own
+		parent squeezed it) and the measure-side findings already tell it. The
+		parent's own rect IS its resolved extent by the time it is placing children,
+		so the "bounded" arm of that predicate is answered by the box itself. ]]
+	local wD, hD = dim(node, "w"), dim(node, "h")
+	local absorbs = if axisIsX then axisAbsorbs(wD, innerW, hD, innerH) else axisAbsorbs(hD, innerH, wD, innerW)
+	if not absorbs then
+		return
+	end
+	local found = placementAudit.containment(node, child, rect, innerX, innerY, innerW, innerH, axisIsX)
+	if found == nil then
+		return
+	end
+	for _, finding in found do
+		table.insert(ctx.diagnostics, finding)
+	end
 end
 
 local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
@@ -3519,6 +3558,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			cursor += extra - gapExtraApplied
 			gapExtraApplied = extra
 		end
+		noteContainment(ctx, node, child, childRect, innerX, innerY, innerW, innerH, not isH)
 		arrange(ctx, child, childRect, out)
 	end
 end

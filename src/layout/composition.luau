@@ -2382,6 +2382,18 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		each side); a form that comes back WIDER than that cap cannot meet its floor
 		in a plate, and the caller falls back to the full-width sheet. ]]
 	local gutter = if type((ctx :: any).expandGutter) == "number" then (ctx :: any).expandGutter :: number else 0
+	--[[ THE PLATE'S OWN CHROME, RESERVED BEFORE THE FORM IS MEASURED (2026-08-21).
+		`expandGutter` is what the plate leaves at the SCREEN edges; this is what it
+		spends on ITSELF, and the two are not the same subtraction. Absent, it is 0
+		and the arithmetic below is exactly what it was — which is what a pure test
+		means when it says nothing, and it keeps every `resolve()` call that hands
+		this module a bare `measure` working unchanged. ]]
+	local plateInset = if type((ctx :: any).expandPlateInset) == "number"
+		then (ctx :: any).expandPlateInset :: number
+		else 0
+	local plateStraddle = if type((ctx :: any).expandPlateStraddle) == "number"
+		then (ctx :: any).expandPlateStraddle :: number
+		else 0
 	for _, r in d.regions do
 		local res = byId[r.id]
 		if res == nil then
@@ -2394,7 +2406,19 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		res.formInteractive = active > 0 and ((r :: any).formInteractive or {})[active] == true
 		res.expandable = active > 1 and res.expand ~= "none"
 		if res.expandable then
-			local maxW = math.max(0, offerW - gutter * 2)
+			--[[ THREE CAPS, AND THE DIFFERENCES ARE THE WHOLE FIX. `allowW` is the box
+				the PANEL has to fit in — the offer minus a gutter each side.
+				`plateMax` is the widest the plate's own box may be declared, which is
+				that minus the straddle the disc sits half-out on, because the panel is
+				the box PLUS that margin. `maxW` is the box the FORM has to fit in,
+				which is `plateMax` minus the plate's own padding. Measuring the form
+				against `allowW` and calling the answer a plate is what produced a
+				panel wider than the allowance it had just been chosen against, for
+				every form inside the last `inset + straddle` px of the range (DIR5
+				item 3, contested there). ]]
+			local allowW = math.max(0, offerW - gutter * 2)
+			local plateMax = math.max(0, allowW - plateStraddle)
+			local maxW = math.max(0, plateMax - plateInset)
 			local maxH = math.max(0, offerH - gutter * 2)
 			local w, h = ctx.measure(r.id, 1, maxW, maxH)
 			--[[ `max` IS THE CAP THIS MEASURE WAS TAKEN AGAINST (fix round 2), reported
@@ -2404,7 +2428,15 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 				the declaration can tell those apart. Without the cap it would have to
 				re-derive the gutter arithmetic, which is the second source of truth
 				this seam exists to prevent. ]]
-			res.plate = { w = math.min(w, maxW), h = h, sheet = roundPx(w) > roundPx(maxW), max = maxW }
+			--[[ `max` IS THE PLATE BOX'S OWN CAP, not the form's — and that is a
+				change of meaning, made deliberately and in one place. Its only reader
+				spends it as a DECLARED OUTER width on the plate (a `fill` form asked
+				for the whole offer and only the layer holding the declaration can tell
+				that apart), and an outer width has to be an outer number or the fix is
+				the same defect one level up. `sheet` still asks the honest question —
+				did form 1 fit the box it will actually get? — which is the CONTENT
+				cap, `maxW`. ]]
+			res.plate = { w = math.min(w, maxW), h = h, sheet = roundPx(w) > roundPx(maxW), max = plateMax }
 		end
 	end
 

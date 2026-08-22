@@ -208,7 +208,7 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 		local bound = boundOf(solver)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
-		expect(#sorted(exported)).toBe(10)
+		expect(#sorted(exported)).toBe(11)
 		--[[ ...and the ONE thing that crosses as a TYPE rather than a value. `Dim`
 			moved with `dim` and `mainDimOf` — the two functions that read it — and
 			the solver re-exports it under the name every caller and every doc uses,

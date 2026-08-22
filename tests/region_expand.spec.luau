@@ -1422,6 +1422,105 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 	end)
 end)
 
+describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allowance", function()
+	--[[ THE BAND DIR5 LEFT OPEN, CLOSED (2026-08-21). The plate hugging its content
+		removed the overflow at every width BELOW a band and named the residue with
+		the line: the composition measures form 1 against `viewport - 2*gutter` and
+		calls the answer a plate, but the panel it is actually wrapped in is wider
+		than that answer by its OWN CHROME — the plate's two paddings (the right one
+		is the close disc's reserve) and the straddle the disc sits on. A form whose
+		natural width lands within the chrome of the cap therefore produced a panel
+		wider than the allowance, and at the top of the band wider than the viewport.
+
+		At 390 the numbers are exact: gutter 16 so the ALLOWANCE is 358; straddle 16
+		so the widest the plate BOX may be is 342; padding 8 + 36 so the CONTENT cap
+		is 298. A 320px form is inside the band. Before the fix `plate.sheet` was
+		false and the anchored panel mounted at 380 — 22px past the allowance.
+
+		THE FIX IS THE ONE SEAM THE RESIDUE NAMED: the chrome is declared once, in
+		`layout/expand_plate.luau`, spent by `blueprint`'s `panelOf` when it builds
+		the plate and resolved by the solver into `resolveCtx.expandPlateInset` /
+		`expandPlateStraddle`, so the cap form 1 is measured against already has the
+		plate's own insets taken out of it. Nothing re-derives an inset and no caller
+		can forget one. ]]
+	local ALLOWANCE = 358
+	local function bandScreen(formWidth: number): any
+		return UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Composition({
+					id = "C",
+					arrangements = { "column" },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					groups = { { id = "body", lane = "main", sizing = "fill" } },
+					children = {
+						UI.Region({
+							id = "Clock",
+							group = "body",
+							rank = 1,
+							recover = "overflow",
+							children = { fixedBox("Wide", formWidth, 60), fixedBox("Compact", 60, 20) },
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("a form INSIDE the chrome band cannot mount a panel wider than the allowance", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
+		w.present(bandScreen(320), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[1]
+		expect(row.activeForm).toBe(2)
+		-- `plate.max` is the widest the plate BOX may be declared: the allowance
+		-- minus the straddle its own margin will add back on the way out
+		expect(row.plate.max).toBe(ALLOWANCE - 16)
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		expect(w.pres.depth()).toBe(2)
+		local panel = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")
+		local sheet = w.adapter.node("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandSheetPlate")
+		--[[ EITHER ANSWER IS LEGAL; PAINTING PAST THE ALLOWANCE IS NOT. A form that
+			cannot fit the content cap belongs on the full-width sheet, which is
+			edge-to-edge by construction and cannot overflow; a form that fits gets a
+			panel. What may never happen is the third thing, which is what shipped:
+			an anchored panel wider than the allowance it was chosen against. ]]
+		if panel ~= nil then
+			expect(`panel {panel.rect.w} within allowance {ALLOWANCE}`).toBe(
+				`panel {math.min(panel.rect.w, ALLOWANCE)} within allowance {ALLOWANCE}`
+			)
+		else
+			expect(sheet).never().toBeNil()
+		end
+	end)
+
+	it("...and a form that fits the CONTENT cap still gets its panel, chrome included", function()
+		-- 240 + 44 of padding + 16 of straddle = 300, comfortably inside the 358
+		-- allowance: the control, and what keeps the fix from being "always sheet"
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 30 } })
+		w.present(bandScreen(240), { initialFocus = "none" })
+		local row = w.controller.compositionAt("/S/C").regions[1]
+		expect(row.plate.sheet).toBe(false)
+		expect(row.plate.w).toBe(240)
+		w.pres.focus.focusOn("/S/C/Clock/Expand")
+		w.press("Return")
+		w.pres.refresh()
+		local panel = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel")
+		expect(panel).never().toBeNil()
+		expect(`panel {panel.rect.w} within allowance {ALLOWANCE}`).toBe(
+			`panel {math.min(panel.rect.w, ALLOWANCE)} within allowance {ALLOWANCE}`
+		)
+		-- ...and the form itself is untouched by the reserve: it gets what it asked for
+		local form = w.adapter.node("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Wide")
+		expect(form).never().toBeNil()
+		expect(form.rect.w).toBe(240)
+	end)
+end)
+
 -- ===== 7. THE TWO LINES NOTHING WATCHED ====================================
 --[[ Both of these were found by the wave's own reviewer, by MUTATION: delete the
 	line, run the whole suite, and see 6516/6516 still green. A line with a long

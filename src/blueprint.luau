@@ -22,6 +22,11 @@ local dragContract = require("./input/drag_contract")
 -- composition declaration may say, read here for construction and by the solver
 -- on every solve, so the two can never disagree about what is legal
 local compositionLib = require("./layout/composition")
+-- THE EXPAND PLATE'S CHROME, DECLARED ONCE (`layout/expand_plate.luau`): this
+-- file BUILDS the plate from it, the solver RESOLVES it into the composition's
+-- resolve context, and `layout/composition.luau` SPENDS it on the cap form 1 is
+-- measured against. Three layers, one declaration, no inset re-derived anywhere
+local expandPlate = require("./layout/expand_plate")
 -- WAVE REVEAL: the two leaves `UI.Region` needs to synthesize an expand — the
 -- registry that says which classes carry a meaning already (so the affordance
 -- never overloads one) and the engine that owns the plate's lifetime. Both
@@ -1128,14 +1133,14 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			ONE of width/height, the other following — so the size is stated once, as a
 			METRIC NAME, and a package that thinks a compact control is 48px gets a
 			48px disc with no arithmetic here. ]]
-		local CLOSE_DISC = "controlSizes.compact.height"
+		local CLOSE_DISC = expandPlate.PADDING.right
 		--[[ HALF-IN, HALF-OUT, IN THE PANEL'S OWN BOX. The straddle is a MARGIN on the
 			plate rather than an offset on the disc, and that is the whole reason the
 			disc cannot fall off the screen: the panel's box grows by the straddle, so
 			the anchored placement's safe-area clamp — which knows only the surface's
 			box — is already clamping a box that CONTAINS the disc. An offset disc would
 			paint outside every rect the placement can see. ]]
-		local CLOSE_STRADDLE = "space.m"
+		local CLOSE_STRADDLE = expandPlate.STRADDLE
 		local function closeAffordance(): Blueprint
 			return blueprint.Button({
 				id = "ExpandClose",
@@ -1239,12 +1244,13 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 						blueprint.VStack({
 							id = "ExpandPlate",
 							surface = "raised",
-							padding = {
-								top = "space.s",
-								right = CLOSE_DISC,
-								bottom = "space.s",
-								left = "space.s",
-							},
+							--[[ THE PLATE'S INSETS ARE THE DECLARATION THE CAP RESERVED
+								(`layout/expand_plate.luau`). Not a copy of it and not a
+								second reading of the same tokens: the composition's content
+								cap is `expand_plate.chromeX` of these exact three names, so
+								a package with fatter padding moves BOTH numbers at once and
+								there is no width at which they can disagree. ]]
+							padding = expandPlate.PADDING,
 							margin = { top = CLOSE_STRADDLE, right = CLOSE_STRADDLE, bottom = 0, left = 0 },
 							gap = "xs",
 							width = width,
@@ -1280,12 +1286,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 										blueprint.VStack({
 											id = "ExpandSheetPlate",
 											surface = "raised",
-											padding = {
-												top = "space.m",
-												right = CLOSE_DISC,
-												bottom = "space.m",
-												left = "space.m",
-											},
+											padding = expandPlate.SHEET_PADDING,
 											gap = "xs",
 											width = { type = "fill", weight = 1 },
 											-- the sheet is the same content in a
