@@ -197,3 +197,100 @@ Run in isolated copies, never in the shared working tree.
 ## ADR-0040 row text (for the controller to append)
 
 | B-16 | **The paint family scales at ten-foot, derived from `metricScale`** | Director, 2026-08-21, on the live console A/B (`captures/tv_corners_zoom_compare.png`): corner radii AND hairline strokes scale with the metric ladder at the ten-foot class, and stay DERIVED from `metricScale` so a future scale tweak moves them in lockstep. This supersedes **R13 in its result** and preserves its doctrine — *a metric may only scale where the framework owns the paint* — by doing the sheet-GENERATION work R13's own pointer named: `snapshot.paintForDisplay` is one derivation, and both authorities spend it (`sheet_model.build`/`buildPackage` bake the literal into the phantom `::UICorner`/`::UIStroke` rules; `screen_target` derives `ctx.style`; `client.host` carries the environment's `displaySize` to the target; `theme_controller` builds a package's sheet, its `styleFor` and its live-edit repaint at the same class). A radius rounds to a WHOLE pixel (a `UDim` Offset is an integer; a pixel package's grid wins where it has one), a stroke keeps its fraction (`Thickness` is a float): 12→18, 8→12, 1→1.5 at 1.5. The capsule sentinel scales (999→1499) and paints identically under `UICorner`'s clamp for every box up to 1998 px on its shorter side. A package's `metrics.tenFoot` may name a paint path and wins on both sides — closing a live gap where such a declaration moved the measure and not the paint. Near density is byte-identical: same table, same sheet stamp, same 99-token dump, and the eight built theme artifacts are unchanged (they carry Luau source, and every sheet is generated in the consuming client at that client's own distance). Guard: `tests/ten_foot_metrics.spec.luau` (11 new rows, 9 mutations). Consumer: Rascal Rally `4e271c312` — `FacetSponsor` builds its own target and now forwards the class, or the console HUD would have measured at three metres and painted at arm's length. |
+
+---
+
+# Fix round — the constructor class (2026-08-21, after the live console verify)
+
+**Trigger.** A live console row (stamp `e0d6afd5`, DisplaySize Large) read the
+framework's OWN showcase painting an unscaled capsule — GetStyled `0, 999` where
+the derivation says 1499 — because `examples/gallery/client/init.client.luau:38`
+builds its render target by hand and never handed it the display class. Sheet
+token attributes read base (panel 12), which is correct by the near-density design:
+the attributes are the authored ladder, and the scaling is in the rule literals.
+**The defect was the constructor, not the derivation** — and it is the same class
+Rascal Rally's `FacetSponsor` had already shown once. Two instances is a class, so
+this round closed the class.
+
+**Status: FIXED and CLASS-CLOSED.** Commit `5a43992d6` (Facet).
+
+## The constructor census — every `screen_target.new(` in the repository
+
+| call site | before | verdict |
+|---|---|---|
+| `src/client/host.luau:139` | passes | **PASSES** — the blessed bootstrap, wired in the first round |
+| `examples/gallery/client/init.client.luau:38` | BARE | **FIXED** — passes `env:get("displaySize"):get()`, read after `roblox_env.bind` above it. This is the surface the live verify caught |
+| `examples/performance/client/init.client.luau:102` | BARE | **FIXED** — same wiring. It is on the explicit-write path (`nativeStyle = false`), so its painter reads `ctx.style` and needed the fact just as much; near is the identity, so every `bench/perf_budgets.json` number was measured at the value this now states |
+| `src/client/billboard_target.luau:43` | BARE | **FIXED — forwarded verbatim from its own `Opts`**, like `style`. Not an exemption: a billboard is a world surface, but its solver reads the same environment-wide `themeMetrics` as every other surface on that client, so painting near while measuring far would re-open the disagreement. A consumer passes the fact; absent is near |
+| `src/client/edit_preview.luau:89` | BARE | **FIXED — and it is NOT a legitimate near-only case.** `preview/device_profiles` ships a `console` profile whose facts carry `displaySize = "Large"`, and `start()` applies a profile to `env` BEFORE it builds the target, so the class being previewed is the class it must paint. A live `setProfile` across the near/ten-foot boundary still moves measure and not paint — the construction-time rule, booked in ADR-0039 Decision 3a — and that is documented at the call site rather than waived |
+| Rascal Rally `FacetSponsor/init.luau:444` | BARE | **FIXED last round** (`4e271c312`); re-swept this round, and it is still the only constructor in that repository |
+
+`EXEMPT` is a written table in the spec and **it is empty** — nothing is waived.
+Prose mentions of `screen_target.new({})` in `renderer`, `native_style` and
+`theme_controller` comments are excluded by a positive rule (the call must be the
+value of an assignment or a return), which is why the census reports five call
+sites and not eight.
+
+## The class-closing guard
+
+`tests/ten_foot_metrics.spec.luau` — "every render-target constructor in this
+repository states the distance it paints at": walks `src`, `examples` and `tools`,
+anchors on each call with `%b{}` (the technique `native_style_default.spec`
+established after a reviewer deleted an argument and left a comment claiming it),
+and requires `displaySize` inside the call's own argument list or a written
+exemption. It also asserts the five known paths are IN the census, so a walker that
+silently stopped finding files cannot pass with an empty sweep.
+
+## Fix-round mutations — five, all bite
+
+| # | mutation | red |
+|---|---|---|
+| M10 | the gallery bootstrap goes bare again (the live defect, restored) | the census |
+| M11 | the billboard stops forwarding the class | the census |
+| M12 | the edit preview paints near while previewing a console profile | the census |
+| M13 | the performance lab goes bare | the census |
+| M14 | **a brand-new file with a bare constructor appears** | the census |
+
+M14 is the one that proves the CLASS is closed rather than the four instances.
+
+## Suite tails — content-pinned
+
+| copy | pin (sha256 over `src`+`tests`+`examples` `.luau`) | tail |
+|---|---|---|
+| HEAD `b52d220` alone | — | **6949 passed**, 0 failed |
+| HEAD + this fix round | `598f9b5ca6b1d7c1…` | **6950 passed**, 0 failed (+1 = the census arm) |
+
+The working tree also shows one red — "the plate opens at ten-foot and its Close is
+a 66px focus target" — which is the plate-B round's in-flight `blueprint`/
+`region_expand` work: it is green in both pinned copies above, so it is not this
+round's.
+
+## Correction: which FRAMEWORK surfaces were exercised at Large
+
+The first report's "carried free" sentence was about **Rascal Rally's** three
+host-built surfaces, and it should not be read as a statement about the framework.
+Stated properly:
+
+* **Exercised at Large: none, live.** My evidence was headless (the derivation, the
+  sheet literals, the compiled style, all nine configurations) plus source-scan (the
+  target/host/controller wiring). No framework surface was mounted on a console by
+  this round — which is exactly the gap the controller's live verify filled, and why
+  it found what the headless suite could not see.
+* **Wired and proven headlessly: `client.host`** — and only `client.host`. That is
+  what "carried free" was true of: any surface built through the blessed bootstrap.
+* **Not exercised and, as it turned out, not wired: the gallery showcase, the
+  performance lab, the Studio edit preview, and the billboard target.** All four are
+  fixed above; none has yet been read at Large on a device.
+* **Still owed (device):** one console GetStyled row on the gallery after this
+  commit — the capsule should read 1499 and a hairline 1.5 — plus the same reading
+  on a themed package. The controller re-verifies live.
+
+## ADR-0040 row: the number is **B-17**, not B-16
+
+B-16 was taken by the DIR5 expand-affordance row. Corrected in both places the
+wrong number reached: `src/client/screen_target.luau`'s `displaySize` comment and
+the `SOURCE_CAP_LEDGER` row (whose text has since been re-recorded by the
+native-default fix round — this round changed only the stale reference inside it,
+and that row now reads **193,714**, 286 characters from the trigger, because that
+round's extraction paid back my eight). **The row text in the section above is
+row B-17.**
