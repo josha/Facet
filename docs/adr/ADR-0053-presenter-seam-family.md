@@ -107,6 +107,20 @@ hand-typed glyph is exactly the kind of private DSL this campaign's other
 waves (item 14, `UI.fill`/`UI.hug`) exist to retire in favour of the
 framework's own vocabulary.
 
+**A real defect the corpus sweep caught, not merely a refactor.**
+`compactLabel` without `prefer = true` degrades to compact only when the FULL
+label does not fit — right for a control whose full form is a real, useful
+rung, wrong for a Back button, which had no full-label form on two of the four
+sites before this construct existed. `tests/overflow_sweep.spec.luau`'s
+pseudo-locale (`xa`, ~1.4x) x largest-text-preference (+14) cell measured the
+ladder's "full label when it fits" rung actually winning at
+`p3_sipworks/book.luau`'s `TopBar` — a 7px main-axis overflow no site had
+before. Fixed with `compactLabel = { icon = "chevron.leading", prefer = true }`
+— ALWAYS compact, never a degrade candidate, on all four sites uniformly —
+and pinned in `tests/nav_bar.spec.luau`. Recorded here because a migration
+that quietly regresses one axis of one locale is exactly the failure class a
+"pure mechanical refactor" framing would hide.
+
 **Home: `src/present/*`, not `src/controls/`.** `task-g6-report.md`'s
 recommendation, verbatim: "its real companion is registry item 12's sibling,
 [...] not this gap" — meaning the presenter family, because the Back verb's
@@ -118,8 +132,8 @@ theme (a surface's own dismissal) is that family's, not `newTabView`'s.
 would spend on a fresh present, writes it onto the SAME handle in place, and
 pushes it to the adapter with the SAME `controller.setDisplayOrder` call
 `makeHandle` already makes at creation — nothing else. The handle's tree,
-scope, focus scope and transition state are never touched, so nothing
-remounts, no enter transition replays, and focus never moves.
+scope, controller and transition state are never touched, so nothing
+remounts and no enter transition replays.
 
 ```lua
 local function raise(handle: any)
@@ -132,9 +146,52 @@ local function raise(handle: any)
 	if handle.controller.setDisplayOrder ~= nil then
 		handle.controller.setDisplayOrder(handle.displayOrder)
 	end
+	local scopeName = handle.blueprint.id or handle.kind
+	local currentFocus = graph.focused:get()
+	local derived = focusDerivation(handle)
+	graph.removeScope(scopeName)
+	graph.pushScope({
+		name = scopeName,
+		trap = handle.kind == "modal",
+		chrome = handle.focusChrome,
+		groups = if derived.grouped then derived.groups else nil,
+		order = if derived.grouped then nil else derived.order,
+		traversalWrap = handle.traversalWrap,
+		traversalRank = derived.rank,
+	})
+	if type(currentFocus) == "string" then
+		graph.focusOn(currentFocus)
+	end
 	syncScrim()
 end
 ```
+
+**FOCUS IS THE ONE THING THAT STILL MOVES, AND IT TOOK A FAILING TEST TO FIND
+OUT WHY.** The design above was originally paint-only (bump `displayOrder`,
+call `syncScrim`, done) — it passed a hand-written smoke check and looked
+complete. Driving it through the PRE-EXISTING `tests/gallery_chrome.spec
+.luau` cases (10) and (15), which predate this round and encode the DIR3
+mitigation's actual contract, immediately failed two of them: after a raise,
+Tab/the arrows landed on the freshly-presented demo, not the raised panel.
+The cause is a second, independent ordering structure: `focus_graph`'s own
+scope stack (`graph`'s `scopes` array) decides which surface `Tab`/the
+arrows/`focusOn` reach, is ordered by PRESENT time, and is pushed once in
+`makeHandle` and never reordered since — completely separate from
+`displayOrder`. A demo re-presented over a raised panel pushes a fresh scope
+on top of `graph`'s stack regardless of what `raise` does to `displayOrder`,
+so a paint-only raise left the player's input on the surface UNDERNEATH the
+one now visibly on top — worse than not raising at all. Fixed by re-topping
+the scope too (`graph.removeScope` + a fresh `graph.pushScope`, using
+`focusDerivation` — the exact content `refresh`'s `syncFocusMap` already
+keeps current, so nothing here re-walks the tree — and two fields
+`makeHandle` now also stores on the handle, `focusChrome`/`traversalWrap`,
+which nothing needed to read back until `raise` did). The common case
+(nothing stole the scope) stays a true no-op: the focus path from just
+before the reorder is captured and hedged back through `graph.focusOn`,
+which harmlessly no-ops when that path does not belong to the newly-active
+scope. `focus_graph.luau` itself was never touched — every primitive `raise`
+uses (`removeScope`, `pushScope`, `focusOn`, `focused`) already existed on
+the same object `presenter.focus` exposes.
 
 **Lives beside `dismiss`/`back` in `src/present/surface_lifecycle.luau`**,
 not in `presenter.luau` itself — `SOURCE_CAP_LEDGER.md`'s row for
@@ -169,18 +226,33 @@ pay unconditionally rather than track a fourth field just to detect the case.
 
 **Migrated the real consumer in the same round.**
 `examples/gallery/client/showcase_chrome.luau`'s `raisePanel` — the DIR3
-MAJOR-2 mitigation itself — now calls `presenter.raise(panelHandle)` directly.
-This deleted the entire focus-restore retry mechanism the mitigation needed
-(`pendingFocus`, `lastPanelFocus`, `pendingFocusTries`, the `isPanelPath`
-prefix test, and a `presenter.focus.focused` observer that existed only to
-remember where the ring was before a remount lost it) — real complexity this
-round removes rather than leaves as a second, now-unnecessary code path.
-`tests/gallery_chrome.spec.luau` describe (15) exercises the migrated
-`raisePanel` end-to-end through the real InputAction/demo-picker path and
-needed no behavioral change: the failed-mount-costs-nothing guard, the
-successful-swap-costs-one-slot measurement, and the ring-survives-a-swap
-case all still hold, now for a stronger reason (nothing capable of moving the
-ring ever runs, rather than a retry loop that usually wins the race).
+MAJOR-2 mitigation itself — now calls `presenter.raise(panelHandle)`, then
+hands the tracked `lastPanelFocus` path to `presenter.focus.focusOn` — the
+same public API any caller already has, which now succeeds because `raise`
+just made the panel's scope active again. `pendingFocus`/`pendingFocusTries`
+and the `onGeometry` 4-frame retry callback are gone (`raise` never
+remounts, so the panel's rects are already known and a single `focusOn` call
+lands synchronously, first try, every time) — real complexity removed, not
+left as a second, now-unnecessary path. `lastPanelFocus` and its tracking
+observer STAY, simplified: `raise` has no memory of "where the player was"
+and must not invent one, so the caller that needs the exact row still tracks
+it — there is just nothing left to retry once it does.
+
+**A second bug, found the same way.** The first migrated `raisePanel` called
+`presenter.raise` then read `lastPanelFocus` — and still landed focus on the
+wrong node, because `raise`'s OWN fallback write (the scope's fresh entry
+point, when nothing better was found) is itself inside `/ShowcasePanel/...`,
+so the SAME observer tracking `lastPanelFocus` silently overwrote it with
+that fallback before `raisePanel` read it back — reading your own write
+through an observer you also own. Fixed by snapshotting `lastPanelFocus` into
+a local BEFORE calling `raise`, never after. `tests/gallery_chrome.spec.luau`
+describe (10) and (15) — pre-existing, encoding the DIR3 mitigation's actual
+contract, unmodified in substance — caught both bugs above and pass on the
+final shape: the failed-mount-costs-nothing guard, the
+successful-swap-costs-one-slot measurement, and the ring-survives-a-swap case
+all still hold, now for a stronger reason (nothing capable of moving the ring
+ever runs without this file's own knowledge of it, rather than a retry loop
+that usually won the race).
 
 ### 3. Item 24 — `presenter.APP_CHROME_PRIORITY`, a static ceiling with room
 

@@ -1,11 +1,13 @@
 --!strict
---[[ Surface lifecycle — the three helpers that run a presented surface's life
-	once it exists: the shared FOCUS-VISUAL sync (who draws the ring, whose
-	Adjust bindings are live, where an armed drag session is aimed), the
-	per-frame REFRESH body (re-render every handle, re-derive its focus map,
-	re-feed its geometry, then re-place every anchored/disclosure/help plate),
-	and DISMISSAL (`dismiss`, and `back` which is its modal half). Extracted
-	verbatim from src/present/presenter.luau for Studio's 200,000-character
+--[[ Surface lifecycle — the helpers that run a presented surface's life once
+	it exists: the shared FOCUS-VISUAL sync (who draws the ring, whose Adjust
+	bindings are live, where an armed drag session is aimed), the per-frame
+	REFRESH body (re-render every handle, re-derive its focus map, re-feed its
+	geometry, then re-place every anchored/disclosure/help plate), DISMISSAL
+	(`dismiss`, and `back` which is its modal half), and RE-BANDING (`raise`,
+	added 2026-08-23 — see its own header below for why it belongs beside
+	dismissal rather than in a fourth module). Extracted verbatim from
+	src/present/presenter.luau for Studio's 200,000-character
 	`Source` WRITE cap — over it a module silently stops live-syncing into an
 	open session, so a live check against it tests the built place rather than
 	the edits on disk (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
