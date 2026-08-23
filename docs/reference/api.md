@@ -2334,6 +2334,21 @@ pair is a `ZStack` — so they need the base to carry an explicit `id`. The wrap
 takes a derived id and the base keeps its own, so the base stays addressable by
 focus, tests and dumps at `<parent>/<id>+overlay/<id>`.
 
+### Dim-shape shorthands: `fill`, `hug`
+
+Not blueprint modifiers like the family above — no `bp` argument, and no
+frozen-blueprint rewrite. Both are plain **value producers**: they return the
+same dim table a `width`/`height` prop already accepted written by hand,
+because that raw table (`{ type = "fill", weight = 1 }` above all — written
+326 times across the reference corpus with no name for it, framework-gaps-
+phase2 audit in-brief item 14) is authored on ONE axis at a time, exactly
+where these go: `width = UI.fill()`.
+
+| Shorthand | Signature | Equivalent to |
+|---|---|---|
+| `fill` | `UI.fill(weight?)` | `{ type = "fill", weight = weight or 1 }`. `weight` must be a positive number when given |
+| `hug` | `UI.hug(bounds?)` | `{ type = "hug", min = bounds?.min, max = bounds?.max }`. `UI.hug()` alone is the bare, unbounded form |
+
 ### `containerRelativeFrame`
 
 `UI.containerRelativeFrame(bp, spec) -> Blueprint` — size one axis against the

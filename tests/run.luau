@@ -27,6 +27,11 @@ require("./perf_lab.spec")
 -- last-write-wins silently becomes first-measure-wins and a cut label reports
 -- truncated = false with its geometry unchanged
 require("./measure_memo.spec")
+-- content-terms height (framework-gaps-phase2 gap 3, ADR-0049): the closed
+-- construction grammar, `of`'s metric resolution, the solver arithmetic for
+-- both `lines`/`rows` shapes, the nested-scroll-diagnostic regression fix,
+-- the four migrated adaptation-slice sites, and UI.fill/UI.hug (item 14)
+require("./content_terms_height.spec")
 --[[ the measure helpers' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
 	`layout/measure_facts.luau` one-way now that `solver.luau` has stopped being
 	one file. There is no parameter object to compare — everything arrives on the
