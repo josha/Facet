@@ -80,9 +80,23 @@ return {
 			)
 		end
 
+		-- the viewport's own row count, in CONTENT TERMS (framework-gaps-phase2
+		-- gap 3, 2026-08-23): `List` below used to pin its viewport at a literal
+		-- `150` — a "roughly four rows, with a bit of the fifth peeking through
+		-- to hint it scrolls" guess that never moved with anything. `rows` names
+		-- the SAME metric a row's own floor already cites two lines above
+		-- (`controlSizes.compact.height`), so the two cannot drift apart, and
+		-- the reservation now grows at the ten-foot ladder — `4 * 36 = 144` at
+		-- Neutral (was 150; the four-and-a-peek guess is gone, not preserved:
+		-- MEASURED, `Row1`..`Row4` at Neutral desktop are 46px each with no
+		-- gap between them, so even the OLD 150px literal never actually held
+		-- four full rows — `4 * 46 = 184 > 150`. 144 keeps the identical
+		-- partial-row-peek shape at a slightly smaller, now-principled number).
+		local LIST_VISIBLE_ROWS = 4
+
 		-- THE SCREEN BODY SCROLLS (BodyScroll precedent, adaptive_controls.luau).
-		-- The field, the actions row, the slider, the stepper and the 150px row
-		-- list are content-sized in total, and on a short landscape phone their
+		-- The field, the actions row, the slider, the stepper and the row list
+		-- are content-sized in total, and on a short landscape phone their
 		-- sum already exceeds the box the screen offers before `List` even gets
 		-- to scroll ITS OWN twelve rows — found live by the overflow sweep at
 		-- 705x338 and 640x320 (221px/239px over). `List` keeps its own inner
@@ -101,8 +115,8 @@ return {
 					id = "Body",
 					axis = "y",
 					gap = 10,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
 						field.blueprint,
@@ -125,7 +139,7 @@ return {
 						stepper.blueprint,
 						UI.ScrollView({
 							id = "List",
-							height = { type = "fixed", px = 150 },
+							height = { type = "content", rows = LIST_VISIBLE_ROWS, of = "controlSizes.compact.height" },
 							children = rows,
 						}),
 					},

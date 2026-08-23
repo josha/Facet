@@ -49,8 +49,8 @@ return {
 					id = "Body",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = "title" }),
 						UI.Text({ id = "Subtitle", text = "secondary text", textSize = "label", role = "secondary" }),
@@ -120,9 +120,22 @@ return {
 								}),
 							},
 						}),
+						-- CONTENT-TERMS VIEWPORT (framework-gaps-phase2 gap 3, 2026-08-23):
+						-- a literal `120` used to sit here next to eight `textSize = "body"`
+						-- rows, tracking neither the ten-foot ladder nor a raised text
+						-- preference. `lines = 6` spends the SAME arithmetic
+						-- `Facet.text.lineBox` publicly exposes for the role the rows
+						-- actually paint at ("body"), so the viewport grows exactly as
+						-- the rows themselves would if their own fixed 28px floor were
+						-- lifted (a separate, out-of-scope change — the rows keep their
+						-- literal height; only this container is gap 3's target).
+						-- MEASURED, not preserved exactly: six lines of `body` is 116px at
+						-- Neutral (`ceil(6 * 16 * 1.2)`), 4px under the old 120 — the
+						-- closest a whole line count reaches, and a smaller number is the
+						-- safe direction for a viewport (nothing that fit now overflows).
 						UI.ScrollView({
 							id = "Scroll",
-							height = { type = "fixed", px = 120 },
+							height = { type = "content", lines = 6 },
 							children = (function()
 								local rows = {}
 								for i = 1, 8 do

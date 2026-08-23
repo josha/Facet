@@ -80,7 +80,7 @@ return {
 				UI.Text({ id = "Title", text = "Preferred-text corpus", textSize = 22 }),
 				UI.ScrollView({
 					id = "Doc",
-					height = { type = "fill", weight = 1 },
+					height = UI.fill(),
 					children = {
 						UI.VStack({
 							id = "DocRows",
@@ -99,10 +99,21 @@ return {
 									width = { type = "fixed", px = 220 },
 								}),
 								-- the scrolling FORM region: live control state + scroll position
-								-- must survive a hot preference change (LT-2)
+								-- must survive a hot preference change (LT-2). CONTENT-TERMS
+								-- (framework-gaps-phase2 gap 3, 2026-08-23): the viewport is FIVE
+								-- ROWS of the theme's own compact-control floor, an ESTIMATE
+								-- rather than a per-row sum of the mixed content it actually
+								-- holds (a field, a slider, six corpus lines — MEASURED at
+								-- Neutral: 44+44+22+65 plus three "s" gaps, already past 180,
+								-- which is why this region scrolls at Neutral too) — the same
+								-- "how many rows should the viewport show" declaration Region
+								-- floors already make inside Composition, not a claim that five
+								-- of THESE rows fit. `5 * 36 = 180`, value-identical at Neutral,
+								-- and now grows at the ten-foot ladder where the literal it
+								-- replaces never did.
 								UI.ScrollView({
 									id = "Form",
-									height = { type = "fixed", px = 180 },
+									height = { type = "content", rows = 5, of = "controlSizes.compact.height" },
 									children = {
 										UI.VStack({
 											id = "FormRows",

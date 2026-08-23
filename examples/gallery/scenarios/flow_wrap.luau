@@ -25,11 +25,16 @@
 	    ordinary `align`. There is no new alignment word to demonstrate, which is
 	    itself the thing being demonstrated.
 
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT except `ALIGN_BOX_HEIGHT`,
-	and that one is fixed against its own CONTENT rather than against a screen:
-	four short tags cannot exceed four wrapped lines at the narrowest supported
-	width, and four lines is comfortably under it. The tag cloud above it declares
-	no height at all — it is exactly as tall as its lines, at every viewport.
+	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. `AlignBox` (below) used to
+	be the one exception — a literal `360` PX, reasoned by hand from a nine-
+	package sweep and then frozen — and framework-gaps-phase2 gap 3 is what
+	removed it: `height = { type = "content", rows = 10, of =
+	"controlSizes.compact.height" }` reproduces that same 360px margin AT
+	NEUTRAL (`10 * 36`), but as a THEME-METRIC FORMULA rather than a frozen
+	number, so it now grows at the ten-foot ladder the way the chips it holds
+	do (`ALIGN_BOX_ROWS` below explains the row count). The tag cloud above it
+	still declares no height at all — it is exactly as tall as its lines, at
+	every viewport.
 
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS (the same pair
 	`card_rail.luau` documents): the scenario runner drives `steps` by name, and
@@ -42,19 +47,34 @@
 -- The lower panel's box. It exists to have SLACK: `align` can only be seen when
 -- the lines do not fill their container.
 --
--- THIS NUMBER WAS MEASURED, NOT GUESSED, and the first guess was wrong in exactly
--- the documented way (`docs/lessons/facet-fixed-px-heights`: a px height fixed
--- against unfixed content). 200 was reasoned from Studio Neutral's ~36px chip and
--- held there — and then the nine-package sweep in `tests/flow_wrap.spec.luau`
--- reported four packages overflowing this box on the cross axis at 320px wide:
--- glossy_touch by 33, fantasy_parchment by 33, fantasy_ornate by 49 and
--- pixel_quest by 88. Their control faces are far taller than Neutral's, so the
--- same four tags take more lines and each line is taller.
+-- THIS NUMBER WAS MEASURED, NOT GUESSED (docs/lessons/facet-fixed-px-heights:
+-- a px height fixed against unfixed content). Its history, kept because the
+-- reasoning is still the margin: 200 was reasoned from Studio Neutral's
+-- ~36px chip, then the nine-package sweep in `tests/flow_wrap.spec.luau`
+-- found four packages overflowing it on the cross axis at 320px wide
+-- (glossy_touch by 33, fantasy_parchment by 33, fantasy_ornate by 49,
+-- pixel_quest by 88 — their control faces are taller than Neutral's, so the
+-- same four tags take more lines and each line is taller), and 360 —
+-- `200 + 88` plus a line of headroom — is what survived that sweep.
 --
--- 360 clears the worst measured case (200 + 88) with a line of headroom, and the
--- sweep is what keeps it honest: a package that grows past it reddens with the
--- exact pixel count rather than painting outside the plate on somebody's phone.
-local ALIGN_BOX_HEIGHT = 360
+-- CONTENT-TERMS, 2026-08-23 (framework-gaps-phase2 gap 3): that 360 is now
+-- `ALIGN_BOX_ROWS` rows of `controlSizes.compact.height`, not a frozen
+-- literal — `10 * 36 = 360` reproduces the identical margin AT NEUTRAL,
+-- value-for-value, but as a FORMULA over a theme metric rather than a number
+-- nobody re-derives. Ten rows for four short-tag lines reads oddly next to
+-- each other, and that is the honest shape of the number it replaces: the
+-- margin was ALWAYS bigger than "how many lines the content needs" — it is
+-- "how many lines the WORST SHIPPED PACKAGE's chips need, plus headroom" —
+-- and a formula that reproduces a margin exactly reproduces its shape too.
+-- What DOES change: `controlSizes.compact.height` is a THEME METRIC, so
+-- under the ten-foot ladder (`metricScale`, ADR-0040 B-7) this box now grows
+-- with it — 36 -> 54 at Large, box -> 540 — where the frozen 360 never did.
+-- The cross-package worst-case margin the sweep measures (still 82px short
+-- under four packages per `tests/lib/theme_sweep_ledger.luau`'s own waiver)
+-- is UNCHANGED by this migration: `compact.height` does not track a
+-- package's actual chip content any more precisely than the old literal did
+-- — that is a different, already-ledgered gap, not this one's to close.
+local ALIGN_BOX_ROWS = 10
 
 -- The tag cloud's own spacing. ONE number, because a wrapping stack spaces its
 -- items and its lines with the same `gap` — exactly as `UIListLayout` has one
@@ -189,8 +209,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Toggle({ id = "WrapToggle", label = COPY.wrapLabel, value = wrapping }),
@@ -208,7 +228,7 @@ return {
 							id = "Cloud",
 							wrap = wrapping,
 							gap = TAG_GAP,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = cloudTags,
 						}),
 						UI.Text({
@@ -228,8 +248,8 @@ return {
 							gap = TAG_GAP,
 							surface = "control",
 							padding = "s",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fixed", px = ALIGN_BOX_HEIGHT },
+							width = UI.fill(),
+							height = { type = "content", rows = ALIGN_BOX_ROWS, of = "controlSizes.compact.height" },
 							children = shortTags,
 						}),
 					},
