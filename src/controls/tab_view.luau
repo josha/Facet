@@ -147,11 +147,11 @@
 --   sidebar   a RAIL down the screen: it has a head and a foot, and its foot is
 --             the BOTTOM OF THE RAIL (the strip's scroller spends the slack), not
 --             "under the last tab".
---   topBar    a CENTRED band. Its strip HUGS and is centred by a ZStack, so
---             chrome at the trailing edge must OVERLAY it — putting the accessory
---             in the band's own stack would push the strip off centre by exactly
---             the accessory's width, and every dump would still read "centered"
---             (ADAPT-4 / B-12, the contract this file already carries).
+--   topBar    a CENTRED band (ADR-0040 B-12, the contract this file already
+--             carries). Its strip HUGS, so chrome at the trailing edge RESERVES
+--             its own width and the strip centres in what is left: an overlay
+--             keeps the cluster centred on the whole band and sits ON the last tab
+--             the moment the strip overflows, where scrolling can never uncover it.
 --   bottomBar / bottomBarCompact
 --             the THUMB ZONE. Nothing may sit at a band's trailing edge there: a
 --             `fill` band divides its width among equal targets and an overlay
@@ -495,7 +495,17 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 				0
 			)
 		end
-		for slot, factory in accessories do
+		--[[ SORTED, not the caller's hash order: an author with two bad slots got a
+			different one named per run, so fixing the one they were shown could
+			surface the other — or the same again. A refusal a reader cannot
+			reproduce is one they cannot act on. ]]
+		local declaredNames: { string } = {}
+		for slot in accessories do
+			table.insert(declaredNames, tostring(slot))
+		end
+		table.sort(declaredNames)
+		for _, slot in declaredNames do
+			local factory = accessories[slot]
 			local homes = ACCESSORY_HOMES[slot]
 			if homes == nil then
 				error(
@@ -532,7 +542,6 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			end
 			table.insert(declaredSlots, slot)
 		end
-		table.sort(declaredSlots)
 	end
 
 	--[[ THE CONTENT REGION'S ENTER TRANSITION (§6). Both reference shells this
@@ -714,9 +723,18 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		which is the whole ownership story) and its RETURN decides whether any node
 		exists at all — an empty wrapper still takes a dock's slot and a rail's
 		slack. `mountedSlots` is that fact made reportable, and it rides the same
-		disposal rather than a second mechanism. ]]
+		disposal rather than a second mechanism.
+
+		IT HOLDS THE OWNING SCOPE, NOT A BOOLEAN, and that is not bookkeeping taste.
+		`aboveBar` is hosted by TWO placements, and `mount.luau` BUILDS THE ARRIVING
+		BRANCH BEFORE IT DISPOSES THE DEPARTING ONE — so on a `bottomBar` ⇄
+		`bottomBarCompact` rotation the newcomer writes the cell and the leaver then
+		clears it, and the dump goes on reporting the slot as absent while its node
+		is on screen. Clearing only when the cell still holds THIS scope makes the
+		leaver's disposal a no-op in exactly that case, and identical in every
+		other. ]]
 	local railWidth: any = if spec.railWidth ~= nil then spec.railWidth else NATURAL
-	local mountedSlots: { [string]: boolean } = {}
+	local mountedSlots: { [string]: any } = {}
 	local function accessory(slot: string, home: string, branchScope: any): any?
 		local factory = if accessories ~= nil then accessories[slot] else nil
 		if factory == nil then
@@ -726,18 +744,27 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		if built == nil then
 			return nil
 		end
-		mountedSlots[slot] = true
+		mountedSlots[slot] = branchScope
 		branchScope:own({
 			dispose = function()
-				mountedSlots[slot] = nil
+				if mountedSlots[slot] == branchScope then
+					mountedSlots[slot] = nil
+				end
 			end,
 		})
 		if slot == "trailing" then
-			-- THE OVERLAY, not a sibling in the band's stack: `align` on a stack is
-			-- read by its PARENT as cross-axis alignment, which is what parks this
-			-- box's child at the band's trailing edge while the centred scroller
-			-- underneath keeps every pixel of its own offer (ADAPT-4).
-			return UI.VStack({ id = SLOT_ID[slot], align = "end", width = FILL, children = { built } })
+			--[[ CONTENT-WIDTH, because the band RESERVES it rather than painting over
+				it (I-6, 2026-08-22). It began as an overlay in a ZStack, which keeps a
+				hugging cluster centred on the whole band and is what the hand-built
+				shell it replaced drew — and it is wrong the moment the strip
+				OVERFLOWS: a hugging band takes the whole offer then, so the strip's
+				trailing edge and the band's are the same edge, the accessory sits on
+				the last tab (measured: 60px of it, taking the taps), and scrolling can
+				never uncover it because the content ends exactly where the accessory
+				begins. Reserving the width costs the cluster its centre ON THE BAND
+				and gives it its centre IN THE SPACE THE TABS HAVE, which is the only
+				one of the two that is true at every tab count. ]]
+			return UI.HStack({ id = SLOT_ID[slot], align = "center", width = NATURAL, children = { built } })
 		end
 		if slot == "aboveBar" then
 			return UI.VStack({ id = SLOT_ID[slot], align = "stretch", width = FILL, children = { built } })
@@ -804,26 +831,32 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		id = "TopHome",
 		condition = isPlacement("topBar"),
 		thenView = function(branchScope: any)
-			local children: { any } = {
-				UI.ScrollView({
-					id = "TopBand",
-					axis = "x",
-					width = BAND_CAPPED,
-					alignH = "center",
-					indicators = "none",
-					children = { strip.blueprint },
-				}),
-			}
+			local scroller = UI.ScrollView({
+				id = "TopBand",
+				axis = "x",
+				width = BAND_CAPPED,
+				alignH = "center",
+				indicators = "none",
+				children = { strip.blueprint },
+			})
 			-- declared AFTER the strip, so it is painted after it and — the same
 			-- fact read twice — reads after it in the focus ring
 			local trailing = accessory("trailing", "topBar", branchScope)
-			if trailing ~= nil then
-				table.insert(children, trailing)
+			if trailing == nil then
+				return UI.ZStack({ id = "TopBandCenter", width = FILL, children = { scroller } })
 			end
-			return UI.ZStack({
+			--[[ A ROW, NOT A STACK, and only when there is something to reserve for.
+				The box the strip centres in is the one the accessory has not taken;
+				an author who declares nothing gets the shape that shipped, node for
+				node. ]]
+			return UI.HStack({
 				id = "TopBandCenter",
+				align = "center",
 				width = FILL,
-				children = children,
+				children = {
+					UI.ZStack({ id = "TopBandBox", width = FILL, children = { scroller } }),
+					trailing,
+				},
 			})
 		end,
 	})
@@ -1053,7 +1086,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local function accessoryMounted(): { string }
 		local live: { string } = {}
 		for _, slot in ACCESSORY_SLOTS do
-			if mountedSlots[slot] then
+			if mountedSlots[slot] ~= nil then
 				table.insert(live, slot)
 			end
 		end

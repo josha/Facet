@@ -208,13 +208,15 @@ describe("§6 the rail's two ends: head above the strip, foot pinned to the bott
 end)
 
 describe("§6 the top band's trailing edge — and the centring that must survive it", function()
-	local function tabletWorld(accessories: any)
+	local function tabletWorld(accessories: any, extra: any?)
+		local o = extra or {}
 		return world({
-			viewport = TABLET,
+			viewport = o.viewport or TABLET,
 			preferredInput = "Touch",
 			displaySize = "Medium",
 			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
 			accessories = accessories,
+			tabs = o.tabs,
 		})
 	end
 
@@ -228,22 +230,74 @@ describe("§6 the top band's trailing edge — and the centring that must surviv
 		expect(search.x > strip.x + strip.w - 1).toBe(true)
 	end)
 
-	--[[ THE HALF THAT MAKES IT SAFE (ADAPT-4). The naive fix puts the accessory in
-		the band's stack, which pushes the hugging strip off centre by exactly the
-		accessory's width — and every dump still reads "centered". ]]
-	it("...and the strip is STILL centred, measured, with the accessory mounted", function()
-		local bare = tabletWorld(nil)
-		local withAcc = tabletWorld({ trailing = leaf("Search") })
-		local function gaps(w: any): (number, number)
-			local strip = rect(w, "/TopBand/Strip")
-			local root = w.adapter.node("/S/Tabs").rect
-			return strip.x - root.x, (root.x + root.w) - (strip.x + strip.w)
-		end
-		local bareLeft, bareRight = gaps(bare)
-		expect(math.abs(bareLeft - bareRight) <= 1).toBe(true)
-		local left, right = gaps(withAcc)
+	--[[ I-6: THE OVERFLOWING STRIP, which the three-tab cases could not see. A
+		hugging band takes the WHOLE offer once its tabs no longer fit, so the strip's
+		trailing edge and the band's are the same edge — and an accessory parked on
+		that edge sits ON the last tab. Measured before the fix: 60px of the last tab
+		under the search field, its taps going to the accessory, and scrolling could
+		never uncover it because the scroller's content ends exactly where the
+		accessory begins.
+
+		THE ASSERTION IS A RECT NON-INTERSECTION, not a gap: "they do not overlap" is
+		the property, and it has to hold in BOTH states — the hugging cluster that
+		fits with room to spare, and the overflowing strip that does not. ]]
+	it("the accessory never sits ON a tab, even when the strip overflows its band", function()
+		local w = tabletWorld({ trailing = leaf("Search") }, {
+			tabs = tabsOf({
+				"avatars",
+				"bodywork",
+				"clothing",
+				"accessories",
+				"backgrounds",
+				"expressions",
+				"voices",
+				"emotes",
+			}),
+			viewport = { w = 700, h = 900 },
+		})
+		expect(w.tv.dump().placement).toBe("topBar")
+		local strip = rect(w, "/TopBand/Strip")
+		local band = rect(w, "/TopBand")
+		local search = rect(w, "/TrailingSlot/Search")
+		-- the premise: this strip really does overflow the band it scrolls in
+		expect(strip.w > band.w).toBe(true)
+		-- ...and the accessory is clear of it, so no tab is ever under it
+		expect(`overlap: {search.x < band.x + band.w}`).toBe("overlap: false")
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	--[[ THE HALF THAT MAKES IT SAFE (ADAPT-4 / ADR-0040 B-12). The naive fix puts
+		the accessory in the band's own STACK, which pushes the hugging strip off
+		centre by exactly the accessory's width and reads "centered" in every dump.
+		The strip is centred in THE BOX THE TABS HAVE — the band minus what the
+		accessory reserved — and that is the claim at every tab count, where
+		"centred on the whole band" is only true until the strip grows. ]]
+	it("...and the strip is centred in the box the tabs have, with the accessory clear of it", function()
+		local w = tabletWorld({ trailing = leaf("Search") })
+		local strip = rect(w, "/TopBand/Strip")
+		local box = rect(w, "/TopBandBox")
+		local search = rect(w, "/TrailingSlot/Search")
+		local left, right = strip.x - box.x, (box.x + box.w) - (strip.x + strip.w)
+		expect(strip.w < box.w).toBe(true) -- it HUGS, which is what makes a gap exist
 		expect(math.abs(left - right) <= 1).toBe(true)
-		expect(math.abs(left - bareLeft) <= 1).toBe(true)
+		expect(left > 0).toBe(true)
+		-- the accessory took real width out of the band, and none of the strip's
+		expect(`overlap: {search.x < box.x + box.w}`).toBe("overlap: false")
+		local root = w.adapter.node("/S/Tabs").rect
+		expect(box.w < root.w).toBe(true)
+	end)
+
+	--[[ ...AND DECLARING NONE STILL CENTRES ON THE WHOLE BAND, which is the shape
+		that shipped: no reservation, no row, no `TopBandBox`. ]]
+	it("a band with no trailing accessory is centred on the WHOLE band, in the shipped shape", function()
+		local bare = tabletWorld(nil)
+		local strip = rect(bare, "/TopBand/Strip")
+		local root = bare.adapter.node("/S/Tabs").rect
+		local left, right = strip.x - root.x, (root.x + root.w) - (strip.x + strip.w)
+		expect(math.abs(left - right) <= 1).toBe(true)
+		expect(left > 0).toBe(true)
+		expect(bare.adapter.node("/S/Tabs/TopHome/then/TopBandCenter/TopBand/Strip") ~= nil).toBe(true)
+		expect(find(bare, "/TopBandBox")).toBeNil()
 	end)
 end)
 
@@ -261,6 +315,30 @@ describe("§6 the dock: an accessory directly above the thumb-zone band", functi
 		local band = rect(w, "/BottomBand/Strip")
 		expect(search.y >= content.y + content.h - 1).toBe(true)
 		expect(band.y >= search.y + search.h - 1).toBe(true)
+	end)
+
+	--[[ M-4: THE DOCK ADDS NO SPACING OF ITS OWN, pinned as a RECT rather than as
+		the absence of a `gap` prop. The construct declares no padding and no gap
+		anywhere in its scaffold (a landscape phone offers ~320px of height and the
+		first app migrated onto this control lost 8 of them to a band inset it never
+		asked for), so the only space between an accessory and the tabs is the space
+		the ACCESSORY ITSELF declares. The hand-built dock this replaced had a
+		`gap = "xs"` on top of its accessory's own padding; that step is gone, and
+		this is the case that makes its absence deliberate. ]]
+	it("the dock adds NO spacing of its own: the accessory's box meets the band's", function()
+		local w = world({
+			viewport = PHONE,
+			preferredInput = "Touch",
+			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
+			accessories = { aboveBar = leaf("Search") },
+		})
+		local slot = rect(w, "/AboveBarSlot")
+		local band = rect(w, "/BottomBand")
+		expect(`gap: {band.y - (slot.y + slot.h)}`).toBe("gap: 0")
+		-- ...and the slot is exactly its child's box, so an author who wants
+		-- breathing room pads the blueprint they hand in
+		local search = rect(w, "/AboveBarSlot/Search")
+		expect(`slot height: {slot.h - search.h}`).toBe("slot height: 0")
 	end)
 
 	it("the landscape phone's inline dock hosts it too, and its band stays centred", function()
@@ -309,6 +387,54 @@ describe("§6 the slots follow the placement — mounted where hosted, absent ev
 		w.pres.refresh()
 		expect(table.concat(w.tv.dump().accessories.mounted, ",")).toBe("foot,head")
 		expect(find(w, "/AboveBarSlot/Dock")).toBeNil()
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	--[[ I-1: THE TWO-HOME SLOT, RE-HOMED BETWEEN ITS OWN TWO HOMES. `aboveBar` is
+		the only slot two placements host, so it is the only one whose new branch is
+		BUILT WHILE THE OLD ONE IS STILL ALIVE — `mount.luau` mounts the arriving
+		`When` and disposes the departing one after. A bookkeeping cell keyed by slot
+		name alone is therefore written by the newcomer and then cleared by the
+		leaver, and the dump goes on claiming the slot is absent while the node is on
+		screen. It re-lies on every cycle, which is what makes it a bug report nobody
+		can use rather than a one-frame blink. ]]
+	it("a slot re-homed between its OWN two homes stays reported as mounted", function()
+		local dockOnly: any = { aboveBar = leaf("Search") }
+		local w = world({
+			viewport = PHONE,
+			preferredInput = "Touch",
+			capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },
+			accessories = dockOnly,
+		})
+		expect(w.tv.dump().placement).toBe("bottomBar")
+		expect(table.concat(w.tv.dump().accessories.mounted, ",")).toBe("aboveBar")
+
+		-- ...to the landscape phone, which hosts the SAME slot...
+		w.env:set("viewportRect", { x = 0, y = 0, w = LANDSCAPE.w, h = LANDSCAPE.h })
+		w.pres.refresh()
+		expect(w.tv.dump().placement).toBe("bottomBarCompact")
+		expect(find(w, "/AboveBarSlot/Search") ~= nil).toBe(true)
+		expect(table.concat(w.tv.dump().accessories.mounted, ",")).toBe("aboveBar")
+
+		-- ...and back. The node is on screen at every step, so the dump must say so
+		-- at every step — and it must not decay on the second cycle either.
+		for _ = 1, 2 do
+			w.env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
+			w.pres.refresh()
+			expect(`portrait: {table.concat(w.tv.dump().accessories.mounted, ",")}`).toBe("portrait: aboveBar")
+			expect(find(w, "/AboveBarSlot/Search") ~= nil).toBe(true)
+			w.env:set("viewportRect", { x = 0, y = 0, w = LANDSCAPE.w, h = LANDSCAPE.h })
+			w.pres.refresh()
+			expect(`landscape: {table.concat(w.tv.dump().accessories.mounted, ",")}`).toBe("landscape: aboveBar")
+		end
+		-- and leaving BOTH of its homes still clears it
+		w.env:set("viewportRect", { x = 0, y = 0, w = DESKTOP.w, h = DESKTOP.h })
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		w.env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = false })
+		w.pres.refresh()
+		expect(w.tv.dump().placement).toBe("sidebar")
+		expect(#w.tv.dump().accessories.mounted).toBe(0)
+		expect(find(w, "/AboveBarSlot/Search")).toBeNil()
 		expect(w.core:lastError()).toBeNil()
 	end)
 
@@ -386,6 +512,30 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 		expect(string.find(message, "leading", 1, true) ~= nil).toBe(true)
 		expect(string.find(message, "abovebar", 1, true) ~= nil).toBe(true)
 		expect(string.find(message, "head", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ M-2: TWO BAD SLOTS NAME THE SAME ONE EVERY TIME. The guard walked the
+		caller's table, whose iteration order is a hash order — so an author with two
+		mistakes got a different one named per run, and fixing the named one could
+		surface the other or the same again. Sorted, for the reason `declaredSlots`
+		and the dump are sorted: a refusal a reader can reproduce is a refusal they
+		can act on. ]]
+	it("with two bad slots, the refusal names the FIRST in sorted order, every time", function()
+		local seen: { string } = {}
+		for _ = 1, 12 do
+			local message = refuses(function()
+				world({ viewport = DESKTOP, accessories = { zenith = leaf("X"), leading = leaf("Y") } })
+			end)
+			-- the message quotes exactly one slot name; which one must not be a
+			-- coin flip across runs of the same authoring mistake
+			local named = if string.find(message, "'leading'", 1, true) ~= nil then "leading" else "zenith"
+			table.insert(seen, named)
+		end
+		local first = seen[1]
+		for _, name in seen do
+			expect(`{name} == {first}`).toBe(`{first} == {first}`)
+		end
+		expect(first).toBe("leading")
 	end)
 
 	it("a slot must be a FACTORY, because the placement is its argument", function()

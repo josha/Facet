@@ -126,7 +126,9 @@ local function isNavPath(path: string): boolean
 end
 -- the four homes the construct mounts its strip in, by tail
 local RAIL = "/Nav/RailHome/then/Rail"
-local TOP_BAND = "/Nav/TopHome/then/TopBandCenter/TopBand"
+-- the top band RESERVES the trailing accessory's width (I-6), so the scroller the
+-- tabs centre in is the box beside it rather than the whole band
+local TOP_BAND = "/Nav/TopHome/then/TopBandCenter/TopBandBox/TopBand"
 local BOTTOM_BAND = "/Nav/BottomHome/then/BottomDock/BottomBand"
 local COMPACT_BAND = "/Nav/CompactHome/then/CompactDock/CompactBandCenter/CompactBand"
 
