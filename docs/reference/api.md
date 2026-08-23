@@ -434,7 +434,12 @@ rebuilding a blueprint. A name is either a spacing step (`"xs"`, `"tight"`,
 `"s"`, `"m"`, `"l"`, `"xl"`, or the derived screen-edge step `"gutter"`) or a
 dotted path into the snapshot
 (`"targetSizes.minimum"`, `"controlSizes.large.height"`,
-`"controls.slider.thumbSize"`, `"strokes.hairline"`, `"radii.panel"`); a leading
+`"controls.slider.thumbSize"`, `"strokes.hairline"`, `"radii.panel"`,
+`"controls.decorative.minimum"` — the theme-owned floor for a non-text decorative
+box with nothing of its own to measure, `"controls.focusRing.thickness"` — the
+focus ring's own painted weight, mirrored from `style.extra.focusRingThickness`/
+`tenFootFocusRingThickness` so a layout computation can read the same number
+`screen_target` paints); a leading
 `-` negates it (`"-s"`). `textSize` instead takes a typography ROLE name.
 An unknown name is a construction error that lists the vocabulary. A literal
 number stays legal everywhere and thereby marks that value explicitly
@@ -1057,8 +1062,15 @@ in the panel — the plate is a modal, so its own ring is the whole keyboard sto
 **circular icon button CENTRED ON the plate's top-right corner, half on and half off it**.
 The plate's padding is uniform — one spacing token on all four sides, so your content sits
 centred in its own frame and nothing in its flow is reserved for the close — and the disc's
-straddle is derived from the disc itself (`space.xs + disc/2`), which puts its centre exactly
-on the corner at every theme ladder. Framework chrome therefore sits on the plate's padding
+straddle is derived from the disc itself (its own inset plus half the disc), which puts its
+centre exactly on the corner at every theme ladder. **The inset is `controls.focusRing.inset`**
+— `max(space.xs, controls.focusRing.thickness)`, resolved from the theme snapshot at both
+display classes, not a bare `space.xs`: the room the close's own ring draws in always clears
+the ring's actual thickness (`controls.focusRing.thickness`, a live theme-metric mirror of
+`style.extra.focusRingThickness`/`tenFootFocusRingThickness` — the same number
+`screen_target` paints, so a metric-vocabulary reader and the engine's own paint always
+agree), even on a package whose own `space.xs` would otherwise fall short at ten-foot.
+Framework chrome therefore sits on the plate's padding
 and never over your content: the disc reaches `disc/2` inward from the corner while your
 content box's nearest point is `padding x sqrt(2)` away, so the guarantee a theme package has
 to keep is `controlSizes.compact.height <= 2 x sqrt(2) x space.m` (36 <= 45.2 by default), and
