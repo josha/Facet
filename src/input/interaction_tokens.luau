@@ -75,6 +75,35 @@ function interaction_tokens.promotionForPointerType(pointerType: string?, overri
 	return interaction_tokens.promotionPx(interaction_tokens.classForPointerType(pointerType), overrides)
 end
 
+--[[ THE RESPONDER PRIORITY BANDS (framework-gaps-phase2 item 41; ADR-0014;
+	`src/present/presenter.luau`'s own responder-priority section is the live
+	authority these numbers mirror). A consumer arbitrating its OWN input
+	contexts against a Facet-presented surface's — the exact shape
+	`games/RascalRally/code/src/shared/InputActions.luau` is — has to know
+	where Facet's own bands sit, and until now the only place that was written
+	down was a comment inside `presenter.luau` and inside this framework's own
+	controls (`src/input/contribution.luau`, `src/controls/row_actions.luau`)
+	that named it in prose rather than pointing at a value. Published here so
+	"know it only by comment" stops being the only way to find out.
+
+	  baseScreen   every presented Facet screen (`kind = "screen"`) sinks here.
+	  engagedBase  an engaged-from-passive or modal surface's floor — strictly
+	               above `baseScreen`, so an engaged surface can never be
+	               starved by a base screen sharing its band.
+	  modalStep    each modal stacks this far above the previous one
+	               (`engagedBase + modalStep * depth`), so nested modals never
+	               collide on one priority.
+
+	A NUMBER A GAME MUST STAY BELOW, NOT ONE IT MAY REUSE: a context sitting AT
+	or above `baseScreen` can sink a Facet screen it does not own (measured
+	live, RascalRally DF-1 rebuilt one layer up — see `InputActions.luau`'s own
+	account of the failure mode this exists to prevent). ]]
+interaction_tokens.contextPriority = table.freeze({
+	baseScreen = 1500,
+	engagedBase = 3000,
+	modalStep = 500,
+})
+
 -- has this press travelled far enough to become a drag? MAGNITUDE, not
 -- per-axis: a 5 px diagonal on a mouse is 7 px of travel and reads as a drag to
 -- the player, while two independent axis tests would still call it a tap.

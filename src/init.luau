@@ -18,6 +18,7 @@ local actionsLib = require("@self/input/actions")
 local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
+local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_SECONDS
 --[[ THE NINETEEN COMPOSITE CONTROLS (ADR-0037). Named locals rather than inline
 	`require(...)` expressions, because `Facet.Controls` below has to name each
 	module twice — once for the closure that calls it and once for the spec type
@@ -444,6 +445,18 @@ local Facet = {
 	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
 	VERSION = "0.10.0",
+
+	--[[ THE FLAT, NON-OVERRIDABLE EXIT CAP (framework-gaps-phase2 item 41; ui-designer
+		spec §2.1 / disposition F8). No exit's teardown may defer past this many
+		seconds of CLOCK time — `src/render/transitions.luau` is the authority
+		and enforces it; this is that same number, published, because a consumer
+		that must tick a stepped clock past a dismissed surface's teardown (a
+		presenter's own final `tick` on the way out, the way
+		`games/RascalRally/code/src/client/FacetSponsor/init.luau`'s `destroy()`
+		does) used to know it only by reading this constant's doc comment and
+		copying the literal `0.5` by hand — the exact "framework constant known
+		only by comment" shape the audit names. ]]
+	EXIT_CAP_SECONDS = transitionsLib.EXIT_CAP_SECONDS,
 
 	--[[ the composite-control namespace (ADR-0037). `Facet.Controls.Table(core,
 		spec)`; the nineteen `new<Control>` builders below keep working and are

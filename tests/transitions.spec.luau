@@ -29,6 +29,7 @@ local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local clockLib = require("../src/motion/clock")
 local transitionsLib = require("../src/render/transitions")
+local Facet = require("../src") :: any -- framework-gaps-phase2 item 41: EXIT_CAP_SECONDS
 local presenterLib = require("../src/present/presenter")
 local actionsLib = require("../src/input/actions")
 local fake_target = require("./lib/fake_target")
@@ -528,6 +529,10 @@ describe("transition coordinator: lifetime", function()
 		end
 		expect(#gate.children).toBe(0)
 		expect(transitionsLib.EXIT_CAP_SECONDS).toBe(0.5)
+		-- framework-gaps-phase2 item 41: `Facet.EXIT_CAP_SECONDS` is the SAME
+		-- number, published at the root so a consumer stops copying `0.5` by
+		-- hand from this file's own doc comment
+		expect(Facet.EXIT_CAP_SECONDS).toBe(transitionsLib.EXIT_CAP_SECONDS)
 	end)
 
 	it("a re-entry mid-exit reverses from the value it had, without a jump", function()

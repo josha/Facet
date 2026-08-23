@@ -82,6 +82,59 @@ describe("interaction tokens: promotion thresholds (SF-D3)", function()
 	end)
 end)
 
+-- ===== framework-gaps-phase2 item 41: the responder priority bands ========
+--
+-- Audit: "`Facet.EXIT_CAP_SECONDS` and `interactionTokens.contextPriority`
+-- (two framework constants currently known to consumers only by comment)".
+-- `presenter.luau` is still the live authority for the numbers a responder is
+-- actually arbitrated at (this round's lane excludes `src/present/*`); this
+-- pins that `interactionTokens.contextPriority` publishes THE SAME three
+-- numbers presenter.luau's own ADR-0014 section states in its comment, so a
+-- consumer reads a value instead of copying a literal out of prose.
+
+describe("interaction tokens: the responder priority bands (framework-gaps-phase2 item 41)", function()
+	it("publishes the three ADR-0014 bands presenter.luau's own comment states", function()
+		expect(tokens.contextPriority.baseScreen).toBe(1500)
+		expect(tokens.contextPriority.engagedBase).toBe(3000)
+		expect(tokens.contextPriority.modalStep).toBe(500)
+		-- strictly ordered: a base screen never outranks an engaged surface,
+		-- and one modal step is a real gap, not a tie
+		expect(tokens.contextPriority.baseScreen < tokens.contextPriority.engagedBase).toBe(true)
+		expect(tokens.contextPriority.modalStep > 0).toBe(true)
+	end)
+
+	it(
+		"matches presenter.luau's own literals — a drift here fails loudly instead of shipping quietly wrong",
+		function()
+			local fs = require("@lune/fs")
+			local presenterSource = fs.readFile("src/present/presenter.luau")
+			expect(
+				string.find(
+					presenterSource,
+					"BASE_SCREEN_PRIORITY = " .. tostring(tokens.contextPriority.baseScreen),
+					1,
+					true
+				) ~= nil
+			).toBe(true)
+			expect(
+				string.find(
+					presenterSource,
+					"ENGAGED_BASE_PRIORITY = " .. tostring(tokens.contextPriority.engagedBase),
+					1,
+					true
+				) ~= nil
+			).toBe(true)
+			expect(
+				string.find(presenterSource, "top += " .. tostring(tokens.contextPriority.modalStep), 1, true) ~= nil
+			).toBe(true)
+		end
+	)
+
+	it("is frozen — a consumer cannot mutate the shared band table", function()
+		expect(table.isfrozen(tokens.contextPriority)).toBe(true)
+	end)
+end)
+
 describe("drag velocity: the rolling release window (SF-D2)", function()
 	it("answers zero until it has two samples", function()
 		local v = drag_velocity.new()

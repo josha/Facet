@@ -186,7 +186,8 @@ export type Bundle = {
 	-- simply has nothing to call).
 	--
 	-- Deliberately `presentModal`, never the plain `present` a base screen
-	-- uses: `presenter.luau`'s own `contextPriority` comment documents that
+	-- uses: `Facet.interactionTokens.contextPriority` (framework-gaps-phase2
+	-- item 41; mirrors `presenter.luau`'s own bands) publishes that
 	-- two `kind == "screen"` surfaces share one priority band and would
 	-- double-deliver Navigate/Activate/Cancel if both sank — exactly the
 	-- failure a composite-owned floating surface would hit, so only the

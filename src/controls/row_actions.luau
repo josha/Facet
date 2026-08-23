@@ -1685,11 +1685,13 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- byte-identical open vs closed, VStack and Table both.
 	--
 	-- WHY `presentModal`, NOT plain `present()` (this is the framework's
-	-- OWN documented constraint, not a guess — presenter.luau's own
-	-- `contextPriority` comment: "two focus-driven base screens would
-	-- double-deliver on the shared focus graph... present the second one
-	-- as a modal instead"). Two `kind == "screen"` surfaces share
-	-- `BASE_SCREEN_PRIORITY`; a base screen presented with `sinkNavigation`
+	-- OWN documented constraint, not a guess — `Facet.interactionTokens.
+	-- contextPriority` (framework-gaps-phase2 item 41) publishes it: "two
+	-- focus-driven base screens would double-deliver on the shared focus
+	-- graph... present the second one as a modal instead"). Two
+	-- `kind == "screen"` surfaces share `contextPriority.baseScreen`
+	-- (presenter.luau's own `BASE_SCREEN_PRIORITY`); a base screen presented
+	-- with `sinkNavigation`
 	-- (this row's own OWN presenting screen, in every existing test) already
 	-- sinks at that priority, and a SECOND sinking screen at the identical
 	-- priority would double-fire Navigate/Activate/Cancel on every key —
