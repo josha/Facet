@@ -122,7 +122,7 @@ Re-counted at execution time against `check_theme_drift_cli`'s own report
 
 | outcome | count | detail |
 |---|---|---|
-| **converted** | 55 | mechanical `gap`/`padding` literal `6` → `"tight"`, value-identical at neutral (6 == 6) on every site, across 22 files |
+| **converted** | 55 | mechanical `gap`/`padding` literal `6` → `"tight"`, value-identical at neutral (6 == 6) on every site, across 23 files |
 | **handed off** | 6 | `examples/gallery/scenarios/hud.luau` — the HUD round (G8+G9)'s territory per the campaign's concurrent-lane rule; listed here rather than edited |
 | **refused, documented** | 1 | `examples/themes/fantasy_parchment.luau:212` — a theme PACKAGE's own `metrics.controls.label.gap`; `package.luau`'s `CONTROL_FAMILIES` validation is `isFiniteNumber`-only for this field, so it cannot legally take a string name. Marked `-- THEME-OPT-OUT` naming the reason (the same one `default_style.luau`'s own `controls.label.gap` has — see §"What did not move" below) |
 
@@ -207,15 +207,35 @@ unrecorded, because a reader who tuned anything against the G4/G5 report's "6
   GREEN → RED (62 sites, the moment the token existed) → **GREEN except the 6
   hand-off sites in `hud.luau`**, which the controller sequences after the HUD
   round (G8+G9) lands, per this campaign's concurrent-lane rule.
-* RR lockstep: **clean negative**. RR authors no Facet blueprint `gap`/
-  `padding`/`rowGap` prop as a raw `6` anywhere (`grep` for the exact
-  `gap = 6,`/`padding = 6,`/`rowGap = 6,` shape returns nothing). Its several
-  `= 6` constants (`HudZoneModel.gap`, `GearDockModel.edgeGap`,
-  `ResultsLayoutModel`'s `BAIT_ROW_GAP`/`HEADER_CHIP_GAP`, `SponsorGui.
-  LIST_ROW_GAP`, `FacetSponsor/TableMetrics.listRowGap`) all feed native
+* RR lockstep: **one real site, refused with reason; the rest a clean
+  negative.** RR authors no Facet blueprint `gap`/`padding`/`rowGap` prop as a
+  raw `6` literal anywhere (`grep` for the exact `gap = 6,`/`padding = 6,`/
+  `rowGap = 6,` shape returns nothing), but ONE of its `= 6` constants IS this
+  token's channel and not a lookalike: `TableMetrics.luau:94`'s
+  `listRowGap = 6` reaches `FacetSponsor/init.luau:2162`'s
+  `rowGap = metrics.listRowGap`, which is a genuine `newVirtualList.rowGap` —
+  the same `gap_metric` channel `space.tight` rides (`RacerList.luau:936`
+  constructs the real `newVirtualList`, not a native `UIListLayout`). It
+  stays raw, refused rather than migrated: RR's own comment names the coupling
+  ("D1: legacy's 6 px gutter, so the SLOT is 62 and the row stays 56/60"), and
+  `tests/facet_collection_extent_contract.spec.luau` already pins the NUMBER
+  form as a deliberate, tested "spelling this package ships" — moving it to
+  `"tight"` would let the gutter scale at ten-foot while that fixed SLOT/row
+  arithmetic beside it does not, the exact coupled-constant hazard this round's
+  own day-2 lesson warns against. Full reasoning:
+  `docs/handoff/GSPACE-OWED-LIVE-WORK.md` §3. The other five `= 6` constants
+  (`HudZoneModel.gap`, `GearDockModel.edgeGap`, `ResultsLayoutModel`'s
+  `BAIT_ROW_GAP`/`HEADER_CHIP_GAP`, `SponsorGui.LIST_ROW_GAP`) DO feed native
   Roblox `UIListLayout`/manual-offset code in the pre-Facet Sponsor layer, not
   a Facet blueprint prop — outside this token's channel by construction, and
   `HudZoneModel`/`GearDockModel` are additionally the HUD round's territory.
+* the brief's booked item 5 (relocate `TAG_PREFIX`/`ownsTag` into
+  `src/tokens/sheet_model`, "the tokens lane is open now") is **MOOTED**, not
+  skipped: SCREEN-X's `98a90f4` already relocated that exact ruling, before
+  this round started, to `src/render/tag_sync.luau` — a deliberately BETTER
+  home than the one either brief named, for a measured reason (`sheet_model`/
+  `screen_vocabulary` cannot be required headlessly, so a spec could never
+  drive the ruling from either). No action taken here; none was owed.
 
 ## Alternatives considered
 

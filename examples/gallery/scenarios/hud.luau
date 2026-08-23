@@ -988,7 +988,7 @@ return {
 			reads the same signal the HUD's does and cannot show a stale figure. ]]
 		local clockStack = UI.HStack({
 			id = "ClockStack",
-			gap = 6,
+			gap = "tight",
 			align = "center",
 			children = {
 				pill("ScoreHome", COPY.scoreHome, "numeral"),
@@ -997,7 +997,7 @@ return {
 					"pill",
 					UI.HStack({
 						id = "TimerRow",
-						gap = 6,
+						gap = "tight",
 						align = "center",
 						padding = { top = 4, right = 12, bottom = 4, left = 12 },
 						children = {
@@ -1317,7 +1317,7 @@ return {
 					UI.VStack({
 						id = "OverflowBody",
 						padding = 12,
-						gap = 6,
+						gap = "tight",
 						width = { type = "fill", weight = 1 },
 						children = rows,
 					}),
@@ -2338,7 +2338,7 @@ return {
 					children = {
 						UI.HStack({
 							id = "RoundStrip",
-							gap = 6,
+							gap = "tight",
 							wrap = true,
 							children = {
 								roundButton("R1", COPY.round1, "menu", "controlSizes.compact.height"),
@@ -2382,7 +2382,7 @@ return {
 							UI.VStack({
 								id = "TasksFullBody",
 								padding = 10,
-								gap = 6,
+								gap = "tight",
 								width = { type = "fill", weight = 1 },
 								children = {
 									UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
@@ -2536,7 +2536,7 @@ return {
 							"pill",
 							UI.HStack({
 								id = "TimerOnlyRow",
-								gap = 6,
+								gap = "tight",
 								align = "center",
 								-- the same ruling as `pill`'s gutter above, for the same reason
 								padding = { top = 4, right = 4, bottom = 4, left = 4 },

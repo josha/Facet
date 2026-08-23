@@ -113,6 +113,34 @@ describe("space.tight — the missing spacing step (ADR-0047)", function()
 		expect(bRect.x - (aRect.x + 20)).toBe(6)
 	end)
 
+	-- THE FOURTH CHANNEL, NAMED BUT NOT YET DIRECTLY PROVEN ABOVE: `px =` inside
+	-- a `{ type = "fixed", px = <name> }` dimension (api.md's own example is
+	-- `px = "targetSizes.minimum"`). Mounted and measured, not just resolved in
+	-- isolation, so a solver-side regression on this specific prop path would
+	-- show up here rather than only in the generic `resolveNumber` case above.
+	it("resolves through a fixed-dimension px prop", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Box({
+					id = "Tight",
+					width = { type = "fixed", px = "tight" },
+					height = { type = "fixed", px = "tight" },
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		local rect = adapter.node("/S/Tight").rect
+		expect(`{rect.w}x{rect.h}`).toBe("6x6")
+	end)
+
 	it("resolves through the VirtualList/VirtualGrid gap_metric channel", function()
 		local neutral = snapshot.neutral()
 		local reader = gap_metric.reader({
