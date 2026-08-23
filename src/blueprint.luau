@@ -155,6 +155,12 @@ export type BoxProps = {
 	-- happens at the one presentation write site, so neither is a second writer.
 	scale: Bound<number>?,
 	rotation: Bound<number>?,
+	-- the fourth authored presentation term (ADR-0026 amendment, gap 16
+	-- framework-gaps-phase2): a paint-only translation in px from the SOLVED
+	-- position, {x=,y=}. Same boundary as scale/rotation above — never how a
+	-- node's box gets positioned (that stays width/height/margin/Anchor) — and
+	-- ADDS to any offset the framework is applying, the same rule rotation uses.
+	offset: Bound<{ x: number, y: number }>?,
 	-- view lifetime, measured on the RENDER instance rather than the mounted node.
 	-- `onAppear` fires once after the first solve that includes this node;
 	-- `onDisappear` fires once after its render instance has been released

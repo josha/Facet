@@ -103,6 +103,12 @@ local DEDICATED_PAINT_SEAMS: { [string]: string } = {
 	opacity = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
 	scale = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
 	rotation = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
+	-- the FOURTH member of the same triple-turned-quad (ADR-0026 amendment,
+	-- 2026-08-23, gap 16 framework-gaps-phase2): identical seam, identical
+	-- reason — a paint-only authored translation composed into the same ONE
+	-- presentation write site, never a second writer of `transform` under its
+	-- own name.
+	offset = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026 amendment)",
 }
 
 -- Props consumed by the PRESENTER (focus graph / control contract) rather than

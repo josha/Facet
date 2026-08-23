@@ -259,6 +259,7 @@ authoring a screen. They are public and covered by ADR-0011 like anything else.
 | `UI.schema.checkOpacity(value) -> (ok, problem?)` | the 0…1 opacity ruling, shared by the authored `opacity` prop and `withAnimation` |
 | `UI.schema.checkScaleFactor(value) -> (ok, problem?)` | the finite, non-negative scale ruling |
 | `UI.schema.checkDegrees(value) -> (ok, problem?)` | the finite-rotation ruling (degrees, unbounded by design — 720° is a legal spin) |
+| `UI.schema.checkPresentationOffset(value) -> (ok, problem?)` | the authored `offset` ruling: a table `{ x = <number>, y = <number> }`, both finite (framework-gaps-phase2 gap 16) |
 | `UI.schema.refusal(class, prop, value, problem) -> string` | the ONE refusal wording every constructor, modifier and adapter raises, so a bad value reads the same wherever it is caught |
 | `UI.schema.suggest(class, badKey) -> { string }` | the did-you-mean candidates for an unknown key |
 | `UI.schema.propDirty() -> { [prop]: { [class]: { dirtyClass } } }` | which update classes a reactive prop schedules (a fresh table per call) |
@@ -4461,6 +4462,16 @@ solver files one finding per pair, so the always-on overflow sweep sees it at
 every viewport. The scroll region and a `fill` region's height are excluded: those
 extents are granted by the mechanism rather than claimed by the author.
 
+### `layout`
+
+`Facet.layout` — pure layout geometry not owned by any one control. **No core,
+no engine, no theme, no node** — deterministic and headlessly testable, same
+shape as `adaptive`/`composition` above.
+
+| Call | Result |
+|---|---|
+| `layout.transformFootprint(w, h, scale, deg)` | the axis-aligned bounding box of a `w x h` rectangle scaled uniformly by `scale` and rotated `deg` degrees about its own centre, ROUNDED UP: `width, height` (two numbers). `scale`/`rotation` are paint-only (see the `scale` row above), so the solver reserves a node's UNSCALED box and the engine draws the transformed one — a scaled/rotated container's PARENT has to reserve the painted footprint itself, as a plain sibling box outside the node that scales. This is that formula, published (framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12") so a consumer computes the reservation instead of hand-transcribing the trigonometry the `scale` row documents in prose. Reproduces the exact device measurement recorded there: `transformFootprint(100, 70, 1.5, 30)` returns `183, 166` |
+
 ### `contribution`
 
 `Facet.contribution` — the input-contribution seam (ADR-0013). A composite
@@ -6510,7 +6521,7 @@ shift, the safe-area clamp and the follow-a-moving-source behaviour are the
 restore and tap-away catcher are the presenter's own.
 
 Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
-presentation: ("automatic" | "menu" | "sheet")?, sizeClass: (string | Readable)?,
+presentation: (("automatic" | "menu" | "sheet") | Readable<string>)?, sizeClass: (string | Readable)?,
 interactionClasses: (table | Readable)?, env: Environment?, onOpen: (() -> ())?,
 onClose: (() -> ())? }`. Both adaptive facts arrive by themselves from the surface's
 environment when you pass neither, and an automatic menu with no environment anywhere
