@@ -69,11 +69,17 @@
 	inside settings; see `settings_panel.luau`.
 
 	The chips step down through a `UI.ViewThatFits` ladder to ICON-ONLY rather
-	than clipping labels by character count. `p4_foyer`'s nav bar is the
-	reference, including its trap: a candidate must be sized `content` (the
-	uncapped natural width), because `hug` CAPS at the offer and a capped row can
-	never tell a `ViewThatFits` that it does not fit — the ladder would silently
-	pin its first candidate and the labels would truncate anyway.
+	than clipping labels by character count. `p4_foyer`'s nav bar is the reference.
+
+	IT USED TO CARRY A TRAP AND NO LONGER DOES (Facet ADR-0044 / ADR-0040 B-21,
+	2026-08-22): `hug` CAPPED at the offer, so a hug candidate could never tell a
+	`ViewThatFits` that it did not fit, the ladder silently pinned its first rung
+	and the labels truncated anyway. The framework fixed it at the seam — the fit
+	probe resolves `hug` as `content`, because a cap-at-the-offer is a squeezing
+	term like `shrinkWeight` and a candidate is judged at its IDEAL size — so both
+	spellings now choose the same rung at every width. `content` stays here because
+	it is what these rungs mean (an uncapped natural width, deliberately), not
+	because the other one is unsafe.
 
 	=== 4. THE BINDINGS, AND WHY THESE THREE KEYS ===
 
@@ -464,9 +470,13 @@ function showcase_chrome.mount(opts: MountOpts): any
 	end))
 
 	-- ===== the strip ========================================================
-	-- CONTENT, NOT HUG, on both rungs (the p4_foyer trap): `hug` caps at the
-	-- offer, so a hug row can never report that it does not fit and the ladder
-	-- would pin its first candidate forever.
+	-- CONTENT on both rungs, and now because it is what they MEAN rather than
+	-- because the alternative was broken: `hug` capped at the offer, so a hug row
+	-- could never report that it did not fit and the ladder pinned its first
+	-- candidate forever ("the p4_foyer trap"). Facet closed it at the seam in
+	-- ADR-0044 — the fit probe judges a candidate at its ideal size, `hug`'s cap
+	-- included — so the two spellings agree at every width. These rungs want the
+	-- UNCAPPED natural width either way.
 	local NATURAL = { type = "content" }
 	local chipRow = UI.ViewThatFits({
 		id = "Chips",

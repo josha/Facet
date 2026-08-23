@@ -1092,8 +1092,8 @@ local TEXT_SIZE: PropSpec = p({
 	doc = "text size: an explicit px number, a typography role name "
 		.. `({TYPE_ROLE_LIST}) resolved from the active `
 		.. 'theme, or `"fit"` — the largest size that fits the box this node lands in, chosen by the '
-		.. "solver (option form: `{ fit = { cap = <role or px>, floor = <role or px> } }`; cap defaults to the "
-		.. "class's own role, floor to the theme's `caption`). A role also supplies the FONT DESCRIPTOR and "
+		.. "solver (option form: `{ fit = { cap = <role or px>, floor = <role or px> } }`; an absent cap is the "
+		.. "class's own role and an absent floor is the theme's `caption`). A role also supplies the FONT DESCRIPTOR and "
 		.. "line height, so `strong` and "
 		.. "`numeral` are how a node asks for weight — both seams read the one role. "
 		.. "A px or role size is scaled at BOTH the measure and paint seams; a `fit` size is already "
