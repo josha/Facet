@@ -15,8 +15,8 @@
 	THE FIX IS NOT A REFUSAL, and that is this round's one design decision. The
 	ladder's own doctrine already says what to do: "a candidate is judged at the
 	size it would like, not at the size it could be squeezed into" (ruling 2,
-	2026-08-14 — SwiftUI's ideal-size rule), and `ctx.fitProbe` is the mechanism
-	that makes every squeezing mechanism invisible for the duration of the probe.
+	2026-08-14 — the ideal-size rule), and `ctx.fitProbe` is the mechanism that
+	makes every squeezing mechanism invisible for the duration of the probe.
 	`hug`'s cap-at-the-offer IS a squeezing mechanism — the same family as
 	truncation, `lineLimit` and `shrinkWeight` — so the probe suppresses it too,
 	and the ladder's existing `w <= availW` test then answers correctly. The
