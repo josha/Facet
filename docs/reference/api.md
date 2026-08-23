@@ -306,7 +306,7 @@ Three groups recur in the column below and are worth naming once:
 | Property | Accepted on | Meaning |
 |---|---|---|
 | `id` | every class | stable node identity; required to address the node later (focus, tests, dumps) |
-| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="fill",weight=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`. The `px`/`min`/`preferred`/`max` fields take a number **or a theme metric name** (see below) |
+| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
 | `margin` | every rendered class | outer spacing the parent reserves around this node; a number, a spacing-step name, or `{top?,right?,bottom?,left?}` of either. A **`fill` child spends its own margin out of its fill**, on every container — a `ZStack` layer with `margin = { top = 56 }` is 56 px shorter, not 56 px lower — and a filled axis therefore ignores `alignH`/`alignV`, because there is nothing left to align. A non-fill child keeps its size and is displaced, so alignment still applies to it |
 | `anchor`, `offsetX`, `offsetY` | children of an `Anchor` | placement corner plus offset; offsets update in the arrange pass only (no re-measure). An offset takes a number, a theme metric name (`"-s"` negates one), or a **fraction of the parent's inner extent**: `{ scale = 0.5 }`, `{ scale = 0.5, offset = -4 }` (the marker-overlay shape — see `Anchor`) |
 | `alignH`, `alignV` | children of a `ZStack` | per-child cross-alignment (`start`/`center`/`end`) |
@@ -326,6 +326,50 @@ Three groups recur in the column below and are worth naming once:
 | `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme, or **`"fit"`** — the largest size that fits the box this node lands in, chosen by the SOLVER (option form `{ fit = { cap = <role or px>, floor = <role or px> } }`; see below). A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. A px or role size is scaled at both seams; a `"fit"` size is already the painted one |
+
+**`{ type = "content", lines = n }` / `{ type = "content", rows = n, of = metric }`**
+(ADR-0049) is how a box declares its extent in CONTENT TERMS — "about N lines/rows",
+never measured from an actual child — which is what a scroller or panel viewport
+needs when it must show *less* than all of its own content: a bare `{ type =
+"content" }` measures everything and cannot express that, and a `{ type = "fixed",
+px = 150 }` next to it is a number that tracks neither the player's accessibility
+text preference nor the ten-foot ladder. `UI.Composition`'s Region floors have always
+had this vocabulary (`{ lines = n }` / `{ targets = n }`); this publishes it for
+every class.
+
+`lines = n` (optionally `role`, default `"body"`) reserves `n` lines of a
+typography role — the SAME two calls `Facet.text.lineBox` makes
+(`ceil(n * (roleSize * scale + offset) * lineHeight)`), so it grows with a raised
+text preference and the ten-foot ladder exactly as the text it holds does:
+
+```lua
+UI.ScrollView({
+  id = "Notes",
+  height = { type = "content", lines = 6 }, -- ~six lines of body text, then scroll
+  children = notes,
+})
+```
+
+`rows = n, of = metric` reserves `n` rows of a NAMED THEME METRIC — a metric path,
+a space step, or a literal px (the same `px`/`min`/`max`/`preferred` escape hatch):
+
+```lua
+UI.ScrollView({
+  id = "List",
+  height = { type = "content", rows = 4, of = "controlSizes.compact.height" },
+  children = rows,
+})
+```
+
+The two shapes track **different** axes, and the split is deliberate rather than a
+gap: `rows`+`of` reads only a theme metric, so it grows at the ten-foot ladder
+(`metricScale` already scales `controlSizes`/space steps) but **not** at a raised
+`preferredTextOffset` — a theme metric never has. `lines` goes through the text
+seam, so it tracks both. Pick `lines` when the box holds text whose growth you must
+follow; pick `rows` when it holds a repeated control-sized item and the metric that
+sizes one is the metric you want N of. Neither adds a gap term between
+lines/rows — the same limitation `composition.floorPx`'s two existing forms
+already have.
 
 **`textSize = "fit"`** is the declarative face of `Facet.text.fit`, and it exists because
 the imperative one kept losing: a character count times a guessed constant is one line,

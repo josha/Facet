@@ -130,6 +130,7 @@ replacement and their earliest removal version.
 | `UI.Region` | One ranked thing a `Composition` must place, richest form first. | [api](../reference/api.md#region) |
 | `UI.frame`, `UI.padding`, `UI.offset`, `UI.aspectRatio`, `UI.alignment`, `UI.overlay`, `UI.background` | The layout modifiers you wrap around a blueprint. | [api](../reference/api.md#layout-modifiers-frame-padding-offset-aspectratio-alignment-overlay-background) |
 | `UI.containerRelativeFrame` | Sizes an element as a fraction of its container. | [api](../reference/api.md#containerrelativeframe) |
+| `UI.fill`, `UI.hug` | Shorthand for the `fill`/`hug` dimension tables you'd otherwise write by hand. | [api](../reference/api.md#shared-properties) |
 | `UI.Stage` | Reserves a box for content the engine draws, such as a rig preview. | [api](../reference/api.md#stage) |
 | `UI.Foreign` | Reserves a box for a Roblox `GuiObject` that Facet does not wrap. | [api](../reference/api.md#foreign) |
 
