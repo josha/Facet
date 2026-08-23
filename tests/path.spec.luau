@@ -125,6 +125,65 @@ describe("UI.Path: paint-only reactive stroke (NS-A7)", function()
 		controller.dispose()
 		root.dispose()
 	end)
+
+	--[[ F-20/BP-F12's parity round proved the metric-name grammar CONSTRUCTS
+		(`tests/authoring.spec.luau`'s "Divider/Path thickness take the metric-name
+		grammar") and proved Divider's own name SOLVES to the theme's number — but
+		Divider consumes `thickness` at the SOLVER (it never reaches an adapter) and
+		Path consumes it at PAINT (`src/render/renderer.luau`'s `applyProp`), which
+		is a different seam with its own proof owed: does a metric-named Path
+		stroke actually reach the engine as the theme's resolved number, and does it
+		ten-foot-scale (gap 29, W3-B — "same pattern one construct over" as gap 42).
+		Real consumers already spell this in production (`p2_cartwheel/screens/
+		{dashboard,ledger}.luau`'s `thickness = "controls.table.indicatorThickness"`,
+		`p1_glade/ui/scene.luau`'s `thickness = "xs"`); this is the regression
+		instrument for the seam they depend on. ]]
+	it("a metric-named Path thickness PAINTS to the theme's resolved number, and scales at ten-foot", function()
+		local themeSnapshot = require("../src/themes/snapshot")
+		local METRIC = "controls.table.indicatorThickness"
+		local function thicknessAt(displaySize: string): (number, number)
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			env:set("displaySize", displaySize)
+			local root = mountLib.mount(
+				core,
+				UI.Screen({
+					id = "P",
+					children = {
+						UI.Path({
+							id = "Ring",
+							points = { { x = 0, y = 0 }, { x = 1, y = 1 } },
+							thickness = METRIC,
+							role = "accent",
+							width = { type = "fixed", px = 120 },
+							height = { type = "fixed", px = 120 },
+						}),
+					},
+				})
+			)
+			local adapter = fake_target.new()
+			local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+			controller.initialRender()
+			local painted = adapter.node("/P/Ring").props.thickness
+			local snap = themeSnapshot.forDisplay(themeSnapshot.neutral(), displaySize)
+			local expected = themeSnapshot.resolveNumber(snap, METRIC)
+			controller.dispose()
+			root.dispose()
+			return painted, expected :: number
+		end
+		local mediumPainted, mediumExpected = thicknessAt("Medium")
+		local largePainted, largeExpected = thicknessAt("Large")
+		expect(`Medium: painted {mediumPainted}`).toBe(`Medium: painted {mediumExpected}`)
+		expect(`Large: painted {largePainted}`).toBe(`Large: painted {largeExpected}`)
+		-- the ten-foot proof, said as a fact rather than merely resolved twice: the
+		-- metric name actually MOVED the painted number, which a stale fallback to
+		-- the near value would not
+		expect(`Large painted {largePainted} > Medium painted {mediumPainted}: {largePainted > mediumPainted}`).toBe(
+			`Large painted {largePainted} > Medium painted {mediumPainted}: true`
+		)
+	end)
 end)
 
 -- ===== RS-PATHCLIP: a stroked path never paints outside its clip host ======

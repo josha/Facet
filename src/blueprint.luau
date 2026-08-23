@@ -293,7 +293,11 @@ export type RegionSpec = {
 }
 export type DividerSpec = BoxProps & {
 	axis: Bound<string>?,
-	thickness: Bound<number>?,
+	-- a px number or a theme metric name ("strokes.hairline", "xs"), the same
+	-- vocabulary `gap`/`padding` already take — the schema has accepted both
+	-- since the metric-name grammar shipped (F-20/BP-F12); this type used to
+	-- say only `number`
+	thickness: Bound<number | Metric>?,
 }
 
 -- `tint` is the continuous-colour channel: { role, blend, from? } (themable) or
@@ -440,7 +444,13 @@ export type ForeignSpec = BoxProps & {
 
 export type PathSpec = BoxProps & {
 	points: Bound<{ any }>,
-	thickness: Bound<number>?,
+	-- same ruling as `DividerSpec.thickness` (gap 29, W3-B): the schema has
+	-- taken a theme metric name here since F-20/BP-F12 ("same pattern one
+	-- construct over" as Divider's), and every real consumer that stamps a
+	-- theme-tracking stroke width — `p2_cartwheel/screens/{dashboard,ledger}.luau`,
+	-- `p1_glade/ui/scene.luau` — already spells one; this type used to say
+	-- only `number`
+	thickness: Bound<number | Metric>?,
 	closed: Bound<boolean>?,
 	role: Bound<string>?,
 	tint: Bound<any>?,

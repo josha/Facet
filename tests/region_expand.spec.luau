@@ -2844,42 +2844,31 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 	end)
 
 	it("...and the disc's inset is measured against the RING's own authority, package by package", function()
-		--[[ WHAT THE ROUND BEFORE THIS ONE COULD NOT ASSERT, AND WHY (fix round 1,
-			review MEDIUM-4a; concern 5 of the plate-B report). The disc is inset
-			`space.xs` from the panel's surface box, and that inset is the room the
-			focus ring draws in. `space.xs` is a METRIC; the ring's thickness is not —
-			it lives on the STYLE side as `extra.focusRingThickness`, strengthened to
-			`extra.tenFootFocusRingThickness` at distance, and
-			`themeSnapshot.resolveNumber(snap, "extra.focusRingThickness")` returns nil
-			at both rungs because the snapshot does not carry it. So no runtime
-			derivation can make the inset ring-aware, and the previous round stated
-			that as a reason to assert nothing.
+		--[[ THE RATCHET THIS REPLACES (gap 42, W3-B; closes task-plate-b-report.md's
+			"Concerns carried forward" #1 and t16-triage.md:39). The round before this
+			one could not make the inset ring-aware — `space.xs` is a METRIC, the ring's
+			thickness lived only on the STYLE side (`extra.focusRingThickness` /
+			`extra.tenFootFocusRingThickness`), and the metric snapshot answered nil for
+			it — so it named `classic_desktop`/`compact_pointer`'s ten-foot shortfall (3
+			against a 4px ring) as a RATCHET: a list of known-short packages, asserted in
+			both directions so a third joining or one repairing would both redden here.
 
-			IT IS A REASON TO ASSERT IT HERE INSTEAD. A spec file can require both
-			authorities and compare them, which is exactly the standard this feature
-			set for its R18 guarantee, and the comparison finds real defects: on
-			`classic_desktop` and `compact_pointer` the ten-foot inset is 3 against a
-			4px strengthened ring, so the close's outward ring overruns the panel's
-			surface box by 1px — and at Medium both sit at exactly 2 against 2, zero
-			slack. Those two are named below rather than papered over: the list is a
-			RATCHET, and it is asserted in BOTH directions, so a third package joining
-			them reddens here and so does one of them being repaired.
-
-			WHY IT IS NOT FIXED IN GEOMETRY. Raising the inset would move the straddle
-			(`CLOSE_INSET + disc/2`) and therefore the plate's corner, which is the
-			construction the director settled; and the two packages' own `space.xs` is
-			a decision of theirs, not of this framework. The honest answer is the
-			measurement, standing where a change to either side has to walk past it. ]]
-		local defaultStyle = require("../src/tokens/default_style")
-		local EXPECTED_SHORT = {
-			"classic_desktop/Large",
-			"compact_pointer/Large",
-		}
+			`themes/snapshot.luau`'s `resolve` now mirrors both style values onto
+			`controls.focusRing.thickness` (the ring) and `controls.focusRing.inset`
+			(`math.max(space.xs, ring)`, at both rungs) — the metric snapshot's own
+			vocabulary, which `expand_plate.CLOSE_INSET` now names directly instead of
+			`space.xs`. Two things are proved below instead of one ratchet: the metric
+			MIRRORS the style authority exactly (a parity check — if `resolve` ever drifts
+			from what `screen_target` actually paints, this reddens), and the disc's inset
+			clears the ring on EVERY shipped package at BOTH rungs, universally, with no
+			named exceptions — because it is now the `max` of the ring and the package's
+			own `space.xs`, not an unrelated spacing step that happened to be big enough. ]]
 		local packages = { "studio_neutral" }
 		for _, name in themePackages.shippable() do
 			table.insert(packages, name)
 		end
 		local short: { string } = {}
+		local mismatched: { string } = {}
 		local checked = 0
 		for _, name in packages do
 			local package = if name == "studio_neutral"
@@ -2891,22 +2880,30 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			local base = themeSnapshot.resolve(package, nil, {})
 			for _, class in { "Medium", "Large" } do
 				local ring = if class == "Large"
-					then extra.tenFootFocusRingThickness or defaultStyle.extra.tenFootFocusRingThickness
-					else extra.focusRingThickness or defaultStyle.extra.focusRingThickness
-				local inset =
-					themeSnapshot.resolveNumber(themeSnapshot.forDisplay(base, class), expandPlate.CLOSE_INSET)
-				expect(`{name}/{class}: inset {type(inset)} ring {type(ring)}`).toBe(
+					then extra.tenFootFocusRingThickness or default_style.extra.tenFootFocusRingThickness
+					else extra.focusRingThickness or default_style.extra.focusRingThickness
+				local snap = themeSnapshot.forDisplay(base, class)
+				local mirroredRing = themeSnapshot.resolveNumber(snap, expandPlate.RING_THICKNESS)
+				local inset = themeSnapshot.resolveNumber(snap, expandPlate.CLOSE_INSET)
+				expect(`{name}/{class}: inset {type(inset)} ring {type(mirroredRing)}`).toBe(
 					`{name}/{class}: inset number ring number`
 				)
-				if inset < ring then
+				if mirroredRing ~= ring then
+					table.insert(mismatched, `{name}/{class}: metric {mirroredRing} style {ring}`)
+				end
+				if (inset :: number) < (ring :: number) then
 					table.insert(short, `{name}/{class}`)
 				end
 				checked += 1
 			end
 		end
 		table.sort(short)
+		table.sort(mismatched)
 		expect(`checked {checked}`).toBe(`checked {#packages * 2}`)
-		expect(`short: {table.concat(short, " ")}`).toBe(`short: {table.concat(EXPECTED_SHORT, " ")}`)
+		-- non-vacuity, the LOW-3 pattern this round inherits
+		expect(`corpus {#packages >= 9}`).toBe("corpus true")
+		expect(`mirror mismatches: {table.concat(mismatched, " | ")}`).toBe("mirror mismatches: ")
+		expect(`short: {table.concat(short, " ")}`).toBe("short: ")
 	end)
 
 	it("...and it is still the same control: one focus stop, the standard band, Return closes", function()

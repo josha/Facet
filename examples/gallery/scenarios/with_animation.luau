@@ -292,11 +292,17 @@ return {
 				-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
 				-- re-arranges one node without re-measuring it; the rect changes,
 				-- which is exactly what `withAnimation` records.
+				--
+				-- THE LANE/PUCK ARE `controls.decorative.minimum` NOW (gap 34, W3-B):
+				-- the raw 40 this pair hardened by hand against
+				-- `tests/overflow_sweep.spec.luau` — the same number `time_curves.luau`'s
+				-- puck independently reached for — is the theme-owned decorative-chrome
+				-- floor, so it ten-foot-scales instead of staying pinned.
 				UI.Anchor({
 					id = "Lane",
 					surface = "control",
 					width = UI.fill(),
-					height = { type = "fixed", px = 40 },
+					height = { type = "fixed", px = "controls.decorative.minimum" },
 					children = {
 						UI.Box({
 							id = "Puck",
@@ -304,7 +310,7 @@ return {
 							anchor = scope:own(core:memo(function(use)
 								return if use(laneRight) then "topRight" else "topLeft"
 							end)),
-							width = { type = "fixed", px = 40 },
+							width = { type = "fixed", px = "controls.decorative.minimum" },
 							height = UI.fill(),
 						}),
 					},

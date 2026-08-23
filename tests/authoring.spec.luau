@@ -735,6 +735,62 @@ describe("F-20 (BP-F12): Divider/Path thickness take the metric-name grammar", f
 	end)
 end)
 
+describe('gap 19 (W3-B): `surface = "badge"` carries an intrinsic minimum', function()
+	local function mountBadge(spec: any): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 300 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root = mountLib.mount(core, UI.Screen({ id = "S", padding = 0, children = { spec } }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local rect = adapter.node("/S/B").rect
+		controller.dispose()
+		root.dispose()
+		return rect
+	end
+
+	it("an undimensioned badge floors to the theme's minimum, on both axes", function()
+		local rect = mountBadge(UI.Text({ id = "B", text = "3", surface = "badge", textSize = "caption" }))
+		local snapshot = require("../src/themes/snapshot")
+		local floor = snapshot.resolveNumber(snapshot.neutral(), "controls.badge.minimum")
+		expect(rect.w >= (floor :: number)).toBe(true)
+		expect(rect.h >= (floor :: number)).toBe(true)
+	end)
+
+	it("an explicit dim still wins — the census sites' own shipped content does not move", function()
+		local rect = mountBadge(UI.Text({
+			id = "B",
+			text = "3",
+			surface = "badge",
+			textSize = "caption",
+			width = { type = "fixed", px = 20 },
+			height = { type = "fixed", px = 20 },
+		}))
+		expect(rect.w).toBe(20)
+		expect(rect.h).toBe(20)
+	end)
+
+	it("the floor reaches Image and ZStack too — RascalRally's avatar/initial seal shape", function()
+		local imageRect = mountBadge(UI.Image({ id = "B", image = "rbxassetid://1", surface = "badge" }))
+		local zstackRect = mountBadge(UI.ZStack({ id = "B", surface = "badge", children = {} }))
+		local snapshot = require("../src/themes/snapshot")
+		local floor = snapshot.resolveNumber(snapshot.neutral(), "controls.badge.minimum")
+		expect(imageRect.w >= (floor :: number) and imageRect.h >= (floor :: number)).toBe(true)
+		expect(zstackRect.w >= (floor :: number) and zstackRect.h >= (floor :: number)).toBe(true)
+	end)
+
+	it("a non-badge surface is untouched — the floor is surface-scoped, not class-scoped", function()
+		local rect = mountBadge(UI.Text({ id = "B", text = "3", surface = "chip", textSize = "caption" }))
+		local snapshot = require("../src/themes/snapshot")
+		local floor = snapshot.resolveNumber(snapshot.neutral(), "controls.badge.minimum")
+		-- a bare "3" hugs its own glyph, well under the badge floor — proving this
+		-- was never a generic Text minimum in disguise
+		expect(rect.w < (floor :: number)).toBe(true)
+	end)
+end)
+
 describe("F-21 (BP-F14): the suggester knows the two reserved keys", function()
 	it("a typo'd `id` suggests it", function()
 		local err = failure(function()

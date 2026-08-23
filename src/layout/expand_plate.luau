@@ -107,21 +107,40 @@ local CLOSE_DISC = "controlSizes.compact.height"
 --[[ how far the disc's own box sits inside the panel's corner, and what leaves
 	room for the focus ring the shipped design had none of.
 
-	IT IS A CONSTRAINT ON THE PACKAGE, NOT A FACT ABOUT ALL OF THEM (fix round 1,
-	review MEDIUM-4a). This comment used to assert "4 >= the 2px ring; 6 >= 4 at
-	ten-foot" as though it held everywhere; it is the DEFAULT package's arithmetic.
-	The ring's thickness lives on the STYLE side (`style.extra.focusRingThickness`,
-	strengthened to `tenFootFocusRingThickness` at distance) and the metric
-	snapshot cannot name it, so nothing here can derive the inset FROM the ring —
-	which is why it is checked in a spec case against both authorities instead
-	(`tests/region_expand.spec`), and why two shipped reference packages are
-	measured exceptions rather than a silent pass. ]]
-local CLOSE_INSET = "space.xs"
+	IT IS DERIVED FROM THE RING NOW, NOT A CONSTRAINT ON THE PACKAGE (gap 42,
+	W3-B; closes task-plate-b-report.md's "Concerns carried forward" #1). This
+	comment used to name `space.xs` here and assert "4 >= the 2px ring; 6 >= 4
+	at ten-foot" as though that held everywhere; it was the DEFAULT package's
+	arithmetic, and it measured false on two shipped ones — `classic_desktop`/
+	`compact_pointer` at ten-foot, `space.xs` 3 against a 4px ring, 1px short.
+
+	The ring's thickness has always lived on the STYLE side
+	(`style.extra.focusRingThickness`, strengthened to
+	`tenFootFocusRingThickness` at distance), and the metric snapshot used to
+	answer nil for it — nothing here could derive the inset FROM the ring, so a
+	spec case checked both authorities instead and named the two short
+	packages as a ratchet. `themes/snapshot.luau`'s `resolve` now mirrors both
+	style values onto `controls.focusRing.thickness` (the ring itself) and
+	`controls.focusRing.inset` (`math.max(space.xs, ring)`, at both rungs of
+	the ladder) — the metric snapshot's own vocabulary, resolved the same way
+	`CLOSE_DISC` above is. Every package whose own `space.xs` already cleared
+	the ring gets the identical inset back, byte-identical (`max` picks its
+	own `space.xs`); the two that did not get exactly enough room and no more.
+	The ratchet test in `tests/region_expand.spec.luau` is now a live
+	`inset >= ring` guarantee across the whole corpus, with no named
+	exceptions. ]]
+local CLOSE_INSET = "controls.focusRing.inset"
+-- the ring's own thickness, published for anything that needs the number
+-- itself rather than the inset derived from it (`tests/region_expand.spec.luau`'s
+-- parity check against the STYLE authority, `UI.Path.thickness` fixtures that
+-- want to draw a ring-matched stroke)
+local RING_THICKNESS = "controls.focusRing.thickness"
 -- the plate's frame: ONE token on all four sides (Option B's balance invariant)
 local PLATE_PADDING = "space.m"
 
 expand_plate.CLOSE_DISC = CLOSE_DISC
 expand_plate.CLOSE_INSET = CLOSE_INSET
+expand_plate.RING_THICKNESS = RING_THICKNESS
 expand_plate.PADDING = { top = PLATE_PADDING, right = PLATE_PADDING, bottom = PLATE_PADDING, left = PLATE_PADDING }
 
 --[[ the full-width sheet twin: a sheet is edge-to-edge and has no corner to

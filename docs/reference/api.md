@@ -1339,6 +1339,13 @@ Set `textAlign = "center"` alongside `surface = "badge"`: the *skinned* lift
 centres a badge's value for you, but a flat theme draws the label's own text with
 the alignment you asked for, which defaults to start.
 
+**A `badge` (on `Text`, `Image`, or a `Box`/`ZStack` wearing it) has an intrinsic
+minimum** when you declare neither `width` nor `height`: it floors to the theme's
+`controls.badge.minimum` (20px at Studio Neutral, ten-foot-scaling like every
+other `controls.*` metric) on both axes, so a one-digit count never draws as a
+bare glyph hugging its own pixels. Declare either dim yourself and it wins — the
+floor only reaches an undimensioned badge.
+
 **`tint`** is the continuous-colour channel (see [above](#continuous-colour-tint));
 on a Text it claims `TextColor3`. `role` remains the way to say "secondary" — a
 tint is for a colour a role cannot name, and it leaves `TextTransparency` alone so

@@ -98,6 +98,35 @@ end
 -- naming it can never get nil back and silently draw a zero-size picture.
 local NEUTRAL_ICON_SIZES = table.freeze({ small = 16, medium = 20, large = 24 })
 
+--[[ THE BADGE FLOOR (gap 19, W3-B). `surface = "badge"` carries no intrinsic
+	size of its own — the classifier answers only what SKIN a badge-surfaced
+	node wears, never how big one is undimensioned — and every real site that
+	needed one had already reserved it by hand, independently, with the same
+	number: `controls/picker.luau`'s own `BADGE_BOX` (`{minMax, min="l"}` on
+	its option-count seal), `examples/reference/p4_foyer/init.luau`'s
+	`BADGE_MIN`/`BADGE_MAX` (20/40, "a count bubble is a MIN-SIZED round
+	plate, never a bare glyph hugging its own pixels"), RascalRally's own
+	`FacetRacerListScreen.luau` avatar/initial seal (fixed 20px), and
+	`adaptive_controls.luau`'s fixed 28px chip. 20 is the value two of those
+	four independent authors reached for. Filled in `resolve`, not authored
+	here, for the `iconSizes` note's reason: a literal in this table would
+	move every derived package's content stamp for a value no package wrote. ]]
+local NEUTRAL_BADGE_MIN = 20
+
+--[[ THE DECORATIVE-CHROME FLOOR (gap 34, W3-B). Two motion fixtures —
+	`examples/gallery/scenarios/time_curves.luau`'s `PUCK_PX`/`LANE_PX` and
+	`with_animation.luau`'s "Lane"/"Puck" — independently hardened the exact
+	same 40px against `tests/overflow_sweep.spec.luau`: a NON-TEXT decorative
+	box (no content to measure) needs a floor wide enough for the
+	chrome-heaviest shipped package's own border (fantasy-ornate wants 28px
+	of it on one axis alone), and nothing published that floor as a theme
+	number, so both fixtures picked the same 40 by hand and neither could
+	ten-foot-scale it. This is that floor, DISTINCT from `targetSizes.minimum`
+	(gap 34's own framing: "same 'floor' pattern, different prop class" — a
+	hit target answers "can a finger find this", a decorative floor answers
+	"can this survive the ornate theme's own border"). ]]
+local NEUTRAL_DECORATIVE_MIN = 40
+
 -- THE SMALLEST SCREEN-EDGE GUTTER ANY PACKAGE MAY RESOLVE TO. 8px is the step
 -- the neutral scale already names `s`, and the floor under `space.gutter` in
 -- `resolve` — see the long note there for why this is a derived step rather than
@@ -925,6 +954,21 @@ function snapshot.densityClassOf(path: any): string?
 		return if CONTROL_SIZE_LENGTHS[parts[#parts]] then "scale" else nil
 	end
 	if root == "controls" then
+		--[[ `controls.focusRing.*` IS EXEMPT FROM THE GENERIC LADDER (gap 42,
+			W3-B), and every leaf under the family, not just the two this round
+			ships: the ring does not move by `metricScale` at all — it
+			STRENGTHENS (2 -> 4, not the ladder's 2 -> 3), the "focus
+			strengthening" row the ten-foot policy's four rows always named
+			beside the type floor (see `metricScale`'s own header). Its ten-foot
+			VALUE is entirely governed by the explicit `tenFoot` absolute
+			injection `resolve`'s "6a" step seeds (which runs regardless of a
+			leaf's own classification), so "exempt" here only tells THIS
+			classification, and the proportion-equality sweep it feeds
+			(`tests/ten_foot_metrics.spec.luau`), not to expect the ordinary
+			1.5x — it never promises one. ]]
+		if parts[2] == "focusRing" then
+			return "exempt"
+		end
 		-- the vocabulary is checked on EVERY segment below the family, not only on
 		-- the leaf: `controls.table.rowLines.pointer` is a count one level down
 		for i = 2, #parts do
@@ -1912,6 +1956,65 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		end
 	end
 
+	--[[ 4a-focus. THE FOCUS RING'S OWN THICKNESS, AS A METRIC (gap 42, W3-B;
+		t16-triage.md:39, task-plate-b-report.md MEDIUM-4a/"Concerns carried
+		forward" #1). The ring's real authority has always been
+		`style.extra.focusRingThickness`/`tenFootFocusRingThickness`, but that is
+		the STYLE side, and the metric SNAPSHOT — the one thing a LAYOUT
+		computation (`layout/expand_plate.luau`) can read — answered nil for it.
+		No package has ever authored its own focus ring (every shipped package's
+		`extra` is silent on it and falls to the same default), so filling it
+		here, for every package, is publishing a number that was already
+		universal rather than inventing a per-package one.
+
+		`controls.focusRing.inset` IS THE FIX THE SHORTFALL NEEDED, not a second
+		derived fact beside it: `classic_desktop`/`compact_pointer` at ten-foot
+		measured `space.xs` 3 against a 4px ring (task-plate-b-report.md's
+		"Concerns carried forward" #1), 1px short, because the close disc's inset
+		from the panel corner (`expand_plate.CLOSE_INSET`) had always been
+		`space.xs` — a spacing step with no relationship to the ring it exists to
+		clear. `max(spaceXs, ring)` is that relationship, computed once per
+		package rather than left to whichever token happened to be big enough:
+		every package whose own `space.xs` already cleared the ring (Studio
+		Neutral: 4/6 against 2/4) gets the SAME inset back, byte-identical, and
+		the two that did not get exactly enough room and no more.
+
+		ONLY `inset` IS WRITTEN HERE — `thickness` (the ring's own mirrored
+		number) is written AFTER 4b's pixel snap, below, and deliberately not
+		swept by it (see that step's note). `inset` IS a real spent layout
+		distance (`CLOSE_INSET`), so it belongs on the package's own grid exactly
+		as `space.xs` does; snapping the MAX of two not-yet-snapped numbers here
+		and snapping each input separately land on the same answer, because
+		`pkg.snapToPixelUnit` rounds UP and a monotone function preserves
+		`max` — `snap(max(a,b)) = max(snap(a), snap(b))`. ]]
+	do
+		local ringNear = (theme.extra and theme.extra.focusRingThickness) or defaultStyle.extra.focusRingThickness
+		out.controls.focusRing = {
+			inset = math.max(out.space.xs, ringNear),
+		}
+	end
+
+	--[[ 4a-decorative. THE DECORATIVE-CHROME FLOOR (gap 34, W3-B). See the
+		`NEUTRAL_DECORATIVE_MIN` note above this function for the two fixtures
+		this closes. An authored `metrics.controls.decorative.minimum` wins, as
+		every derived control metric's does; the framework default is the number
+		both fixtures independently hardened. ]]
+	do
+		local decorative = out.controls.decorative
+		local authored = if type(decorative) == "table" then decorative.minimum else nil
+		out.controls.decorative = { minimum = if type(authored) == "number" then authored else NEUTRAL_DECORATIVE_MIN }
+	end
+
+	--[[ 4a-badge. THE BADGE FLOOR (gap 19, W3-B). See the `NEUTRAL_BADGE_MIN`
+		note above this function for the census of independently hand-rolled
+		minimums this replaces. An authored `metrics.controls.badge.minimum`
+		wins. ]]
+	do
+		local badge = out.controls.badge
+		local authored = if type(badge) == "table" then badge.minimum else nil
+		out.controls.badge = { minimum = if type(authored) == "number" then authored else NEUTRAL_BADGE_MIN }
+	end
+
 	-- 4b. PIXEL SNAP (ADR-0020 R5, generation rule 3; probe rs-m5). A pixel
 	-- package declares an integer coordinate system, and every LENGTH the
 	-- snapshot publishes snaps UP to the next multiple of it. Up, never down, for
@@ -1985,6 +2088,22 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		-- OUTSIDE the sheet (icons), and so a dump can assert the unit that
 		-- produced these numbers rather than inferring it
 		out.pixelUnit = unit
+	end
+
+	--[[ 4b-focus. THE RING'S OWN NUMBER, UNSNAPPED (gap 42, W3-B). Written
+		AFTER 4b, not swept by its generic per-key snap, and that is deliberate:
+		`controls.focusRing.thickness` MIRRORS `style.extra.focusRingThickness`,
+		which paints through a SECOND authority (`client/screen_target.luau`)
+		that was never on this package's pixel grid to begin with — the same
+		"a metric may only scale where the framework owns the paint" doctrine
+		`chromeInsets`/`chromeOutsets` are exempt for. Snapping the mirror here
+		would make it disagree with the number `screen_target` actually draws,
+		which is the one thing a mirror may never do (measured on `pixel_quest`:
+		4b's generic sweep rounds the raw `2` up to its 4px grid, producing a
+		metric that reads `4` while the ring itself still paints at `2`). ]]
+	do
+		local ringNear = (theme.extra and theme.extra.focusRingThickness) or defaultStyle.extra.focusRingThickness
+		out.controls.focusRing.thickness = ringNear
 	end
 
 	-- 4c. THE OUTWARD RESERVATIONS, one writer for every slot family (director fix
@@ -2070,6 +2189,41 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		anything; a near display never reads this table. `resolve` goes on recording
 		display facts and re-applying none of them. ]]
 	local declared: any = {}
+	--[[ 6a. THE FOCUS RING'S OWN TEN-FOOT VALUE, SEEDED (gap 42, W3-B). The ring
+		does not scale through the generic metric ladder — it STRENGTHENS (2 -> 4,
+		not the metric ladder's 2 -> 3) — the same "focus strengthening" row the
+		ten-foot policy's four rows always named beside the type floor
+		(`snapshot.metricScale`'s own header), authored as the package's own
+		`tenFootFocusRingThickness`, never a derived multiply. `controls.
+		focusRing.inset` rides the same seed for the reason it rides `math.max` at
+		Medium (see 4a-focus above): the disc's inset must clear whichever is
+		bigger, at BOTH rungs, and `space.xs` at ten-foot IS a derived multiply —
+		reproduced here rather than read back off a not-yet-built `forDisplay`
+		snapshot. Seeded here, not applied: a package's OWN `metrics.tenFoot`
+		entry for either path — the escape `t16-triage.md` named as the second
+		closure route ("or those packages re-spec their ring") — still wins,
+		because the loop below runs after this and its assignment is
+		unconditional. `thickness` and `inset` get different pixel-grid
+		treatment below, for 4b-focus's reason: the ring mirrors a second,
+		ungridded paint authority; the inset is a real spent layout distance. ]]
+	do
+		local ringLarge = (theme.extra and theme.extra.tenFootFocusRingThickness)
+			or defaultStyle.extra.tenFootFocusRingThickness
+		if type(ringLarge) == "number" then
+			local xsLarge = out.space.xs * snapshot.metricScale("Large")
+			local insetLarge = math.max(xsLarge, ringLarge)
+			if pixelUnit ~= nil then
+				insetLarge = pkg.snapToPixelUnit(insetLarge, pixelUnit :: number)
+			end
+			-- `thickness` stays UNSNAPPED (the ring mirrors a second, ungridded
+			-- paint authority and must read back exactly what it painted);
+			-- `inset` is snapped once, after the max — equal to snapping each
+			-- input first, since `snapToPixelUnit`'s UP-rounding is monotone and
+			-- `snap(max(a,b)) = max(snap(a), snap(b))` for a monotone snap
+			declared["controls.focusRing.thickness"] = ringLarge
+			declared["controls.focusRing.inset"] = insetLarge
+		end
+	end
 	if type(metrics.tenFoot) == "table" then
 		local paths: { string } = {}
 		for path in metrics.tenFoot :: any do

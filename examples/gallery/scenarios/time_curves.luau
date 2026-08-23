@@ -91,24 +91,31 @@ local GALLERY_SECONDS = 0.4
 -- and a slow-in shape is the readable proof that it is not a spring.
 local PANEL_SECONDS = 0.45
 
---[[ THE PUCK IS 40px BECAUSE THE SWEEP SAID SO, and the number is not this
-	fixture's to choose. The first cut drew an 18px puck in a 24px lane and
-	`tests/overflow_sweep.spec.luau` filed eight findings on it immediately: a
-	`control`-chrome package (fantasy-ornate, fantasy-parchment, glossy-touch,
-	pixel-quest) wants 28px of border on x and 20px on y, so an 18px plate cannot
-	spend its own theme's insets and draws smaller than the theme expects. Studio
-	Neutral said nothing at all, which is exactly why that sweep runs every shipped
-	package. 40px is the size `with_animation`'s puck already proves.
+--[[ THE PUCK IS THE THEME-OWNED DECORATIVE FLOOR NOW (gap 34, W3-B), and the
+	number was never this fixture's to choose. The first cut drew an 18px puck
+	in a 24px lane and `tests/overflow_sweep.spec.luau` filed eight findings on
+	it immediately: a `control`-chrome package (fantasy-ornate,
+	fantasy-parchment, glossy-touch, pixel-quest) wants 28px of border on x and
+	20px on y, so an 18px plate cannot spend its own theme's insets and draws
+	smaller than the theme expects. Studio Neutral said nothing at all, which
+	is exactly why that sweep runs every shipped package. 40 was the size this
+	fixture and `with_animation`'s puck each hardened by hand, independently,
+	against the same sweep — the two fixtures gap 34 names — and it is now
+	`controls.decorative.minimum`, `themes/snapshot.luau`'s theme-owned floor
+	for exactly this shape (a non-text decorative box with nothing of its own
+	to measure). A METRIC NAME, not a resolved number: the solver resolves it
+	against the live snapshot on every solve, so it ten-foot-scales the way the
+	raw 40 literal never could.
 
 	...AND THE TRAVEL IS 0.72 OF THE LANE, FOR THE SAME KIND OF REASON. `back · out`
 	peaks at 1.0999 (measured, not assumed), so the widest offset this fixture can
-	ask for is 0.72 x 1.0999 = 0.79 of the lane — which leaves the 40px puck inside
+	ask for is 0.72 x 1.0999 = 0.79 of the lane — which leaves the puck inside
 	its own box at the narrowest viewport swept here, with the OVERSHOOT itself
 	still on screen. The overshoot is the half of that curve worth looking at; a
 	puck that spent the whole lane would push it off the right edge. ]]
 local LANE_SPAN = 0.72
-local PUCK_PX = 40
-local LANE_PX = 40
+local PUCK_PX = "controls.decorative.minimum"
+local LANE_PX = "controls.decorative.minimum"
 
 -- The registered curve NAMES. Namespaced, because the registry is process-wide
 -- and a bare "linear" is a name another surface would reasonably want.

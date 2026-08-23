@@ -777,6 +777,35 @@ local function toLayoutNode(
 			layoutNode.height = layoutNode.height or { type = "fixed", px = thickness }
 		end
 	end
+	--[[ `surface = "badge"` INTRINSIC MINIMUM (gap 19, W3-B). A SURFACE
+		concern, not a CLASS one — `Text`, `Image` and `ZStack` all wear the
+		badge skin in shipped fixtures — so this reads `props.surface` rather
+		than joining the class chain above, and it runs for every class.
+
+		THE CENSUS THAT JUSTIFIES IT: every shipped `surface = "badge"` site up
+		to this round independently reserved room by hand — `controls/
+		picker.luau`'s own `BADGE_BOX` (`{minMax, min="l"}`),
+		`p4_foyer/init.luau`'s `BADGE_MIN`/`BADGE_MAX` with the comment "a count
+		bubble is a MIN-SIZED round plate, never a bare glyph hugging its own
+		pixels", `adaptive_controls.luau`'s fixed 28px chip, RascalRally's
+		`FacetRacerListScreen.luau` fixed 20px seal, `p2_cartwheel/screens/
+		parts.luau`'s hand-padding. Only `p1_glade/ui/shop.luau`'s corner count
+		left it fully undimensioned — the bare-glyph case the census exists to
+		fix.
+
+		AN EXPLICIT DIM STILL WINS, the same `or` every default above this line
+		uses: this only reaches a badge whose author declared neither width nor
+		height, which is every one of the census sites' own PROBLEM (they had to
+		declare one BECAUSE nothing here did) and none of their shipped
+		content — RR's/`adaptive_controls`'/`p4_foyer`'s explicit dims are
+		unaffected byte-for-byte. ]]
+	if props.surface == "badge" then
+		local badgeMin = metrics.controls.badge and metrics.controls.badge.minimum
+		if type(badgeMin) == "number" then
+			layoutNode.width = layoutNode.width or { type = "minMax", min = badgeMin }
+			layoutNode.height = layoutNode.height or { type = "minMax", min = badgeMin }
+		end
+	end
 	-- DECORATION CONTENT INSETS (ADR-0019 §5). A nine-slice skin has a carved
 	-- border that content must clear, so the recipe's `contentInsets` are
 	-- SOLVER-VISIBLE: they are added to whatever padding the node already had,
