@@ -1301,6 +1301,21 @@ local function solveArrangement(
 		composition outside a band-riding surface, which is what makes the whole
 		branch below cost one nil check to a screen that never heard of it. ]]
 	local bandBox = (ctx :: any).band
+	--[[ ...AND WHETHER IT IS A BAND WORTH RIDING (ADOPT-round fix, framework-gaps-
+		phase2, 2026-08-23). `composition_resolve.localBand` hands back a NON-NIL,
+		ZERO-AREA placeholder (`{x=0,w=0,h=0,reserve=...}`) whenever `bandSafeContent`
+		is the policy but the platform reported no free strip at all — every
+		SHIPPED Roblox client always does (a `TopbarInset` always exists live), so
+		this is the headless/no-topbar-fact rung, and it is exactly `deviceSafeContent`'s
+		rung: nothing about the ROW'S OWN WIDTH should collapse just because nobody
+		published a strip. `bandBox ~= nil` alone could not tell "a real, if narrow,
+		strip" from "no strip published" apart — a topbar row measured against the
+		zero-area placeholder was choosing a WIDTH OF ZERO, not the row's honest
+		content width, over the row it would have gotten had this composition
+		declared no `topbar` region at all (Rascal Rally's chip-band cutover rider,
+		`facet_large_text_sweep.spec.luau`: a REAL truncation regression on
+		value-bearing text, R9). ]]
+	local hasRealBand = bandBox ~= nil and (bandBox :: any).w > 0
 	--[[ ...AND THE RECTS A LANE MAY NOT START INSIDE (§8), decided ONCE. `nil` until
 		the first pass has measured; from then on the same answer for every pass of
 		this attempt, which is what makes the reservation a fixed point instead of a
@@ -1600,8 +1615,11 @@ local function solveArrangement(
 				engine's own control cluster leaves. Measuring it at the offer would
 				let a chip that fits the screen but not the strip choose its richest
 				form and then paint over the platform's buttons. On a 320px phone the
-				free band is ~156px, so the difference is the whole feature. ]]
-			local rowW = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).w else offerW
+				free band is ~156px, so the difference is the whole feature. A band
+				that is not REAL (see `hasRealBand` above) is not a strip to measure
+				against at all, and this row falls back to the same `offerW` every
+				other span row already gets. ]]
+			local rowW = if gid == BAND_ZONE and hasRealBand then (bandBox :: any).w else offerW
 			for _, r in regionsOfGroup[gid] or {} do
 				if dropped[r.id] then
 					continue
@@ -1632,8 +1650,10 @@ local function solveArrangement(
 				the platform's strip: it reaches the band's own bottom edge whatever it
 				holds, so the lanes below start exactly where the platform's row ends
 				and a taller chip cannot push them down. The floor a `reserved` region
-				declares still applies to the CONTENT inside it, exactly as before. ]]
-			if gid == BAND_ZONE and bandBox ~= nil and n > 0 then
+				declares still applies to the CONTENT inside it, exactly as before. A
+				band that is not REAL owns no bottom edge to reach, so the row keeps
+				its own measured/floored height instead (`need`, already set above). ]]
+			if gid == BAND_ZONE and hasRealBand and n > 0 then
 				need = math.max(0, (bandBox :: any).h)
 			end
 			groupNeed[gid] = need
@@ -2261,9 +2281,12 @@ local function solveArrangement(
 			paints the part of the platform's top band the engine's own control
 			cluster leaves free, so its content sits LEVEL with the platform's buttons
 			and cannot be over them (ADR-0027) — which is the placement a consumer
-			previously reached with two hand-computed spacers and a fixed height. ]]
-		local rowX = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).x else 0
-		local rowW = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).w else offerW
+			previously reached with two hand-computed spacers and a fixed height.
+			Not under a band that is not REAL (see `hasRealBand`, resolved once for
+			both the measure and the arrange pass): that row places like any other
+			span, full composition width from the left edge. ]]
+		local rowX = if gid == BAND_ZONE and hasRealBand then (bandBox :: any).x else 0
+		local rowW = if gid == BAND_ZONE and hasRealBand then (bandBox :: any).w else offerW
 		local rowRect: Rect = { x = rowX, y = p.spanY[gid] or 0, w = rowW, h = p.spanNeed[gid] or 0 }
 		table.insert(spans, { id = gid, side = row.side, rect = rowRect })
 		table.insert(groups, { id = gid, lane = nil, span = row.side, rect = rowRect })

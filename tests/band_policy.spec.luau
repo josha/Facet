@@ -270,4 +270,37 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 		expect(`{a.y},{a.w},{a.h}`).toBe(`{b.y},{b.w},{b.h}`)
 		expect(a.y).toBe(58)
 	end)
+
+	--[[ ADOPT-round fix (framework-gaps-phase2, 2026-08-23): a composition that
+		DOES declare a `topbar` region, on a platform that reports NO strip at
+		all (`platformChrome.band` nil — every SHIPPED Roblox client always
+		publishes one; this is the headless/no-topbar-fact case), used to measure
+		and place that row against a zero-area placeholder
+		(`composition_resolve.localBand`'s own fallback for "nothing to ride"),
+		collapsing a real row of content to WIDTH ZERO — discovered live by Rascal
+		Rally's chip-band cutover (`facet_large_text_sweep.spec.luau`: a
+		measured, real truncation on value-bearing text). The row should get
+		exactly what the "no topbar region declared" case above gets: the
+		composition's own offered width, not a strip that does not exist. ]]
+	it("a DECLARED topbar region on a platform reporting NO strip is NOT zero-width", function()
+		local NO_STRIP = {
+			vp = { x = 0, y = 0, w = 1280, h = 720 },
+			core = { top = 58, bottom = 0, left = 0, right = 0 },
+			device = { top = 0, bottom = 0, left = 0, right = 0 },
+			topbarSafe = { top = 0, bottom = 0, left = 0, right = 0 },
+			bar = { x = 0, y = 0, w = 0, h = 0 },
+		}
+		local w = mountUnder(hudScreen(true), "bandSafeContent", NO_STRIP)
+		expect(w.env:get("platformChrome"):get().band).toBe(nil)
+		local strip = w.adapter.node("/S/H/Strip").rect
+		-- the composition's own offer, not a free-strip rect nobody published —
+		-- the byte-identical answer a composition with NO `topbar` region gets
+		local plain = mountUnder(hudScreen(false), "bandSafeContent", NO_STRIP)
+		local plainH = plain.adapter.node("/S/H").rect
+		expect(strip.w).toBe(plainH.w)
+		expect(strip.w > 0).toBe(true)
+		-- the row still floors at ITS OWN content (the `Chip` box declared inside
+		-- it, 24px tall), not at a platform band's height that does not exist
+		expect(strip.h).toBe(24)
+	end)
 end)
