@@ -692,6 +692,14 @@ local Facet = {
 		size = require("@self/layout/text_fit").size,
 		facts = require("@self/layout/text_fit").facts,
 		lineBox = require("@self/layout/text_fit").lineBox,
+		-- the fallback fraction itself (framework-gaps-phase2 gap 11), so a
+		-- CALLER that already holds this table can source it rather than
+		-- hand-copying it — RascalRally's HudZoneModel.fitSize used to, as
+		-- `GLYPH_EM = 0.62`, under a comment misidentifying it as "Gotham Bold
+		-- cap advance" (a number about no font at all, since the fallback is
+		-- uniform). `src/measure.luau` publishes the same field for a consumer
+		-- that has no `Facet` table to hold in the first place
+		AVG_GLYPH_FRACTION = require("@self/layout/text_metrics").AVG_GLYPH_FRACTION,
 	},
 
 	-- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023): the PURE half of the

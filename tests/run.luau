@@ -140,6 +140,11 @@ require("./selection_bridge.spec")
 require("./text_calibration.spec")
 require("./text_degrade_cascade.spec")
 require("./text_fit.spec")
+-- the headless measurement entry point (framework-gaps-phase2 gap 11):
+-- `src/measure` is reachable with none of `src/init.luau`'s 65 `@self`
+-- requires, so a pure shared model (RR's HudZoneModel among them) can depend
+-- on measurement alone; plus a demonstration for registry item 31
+require("./measure_entry_point.spec")
 --[[ THE DECLARATIVE FACE OF THE SAME QUESTION (`textSize = "fit"`, audit §10 of
 	framework-gaps-phase2 — the one gap in that audit that was shipping wrong pixels).
 	The first block MEASURES the class the prop closes: a line box computed at 1.25

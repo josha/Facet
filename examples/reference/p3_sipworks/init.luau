@@ -286,11 +286,11 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 	-- "NOT COMPACT", not "isRegular". `isRegular` is the middle class only, so a
 	-- desktop (`wide`) reads false on it — the two-pane layout would have been
-	-- absent on the widest screen there is. The shell asks the question it
-	-- actually means.
-	app.notCompact = core:memo(function(use)
-		return not use(app.cond.isCompact)
-	end)
+	-- absent on the widest screen there is. GAP 7b (framework-gaps-phase2 §7)
+	-- named the question the shell actually means: `adaptive.conditions` now
+	-- owns this memo (scope-owned there, at construction), so there is nothing
+	-- left for this file to build or dispose by hand.
+	app.notCompact = app.cond.isRegularOrWider
 	-- THE TWO-PANE FACT, and it is its own fact rather than a size class. A
 	-- sidebar has already taken the rail's width out of the window, so "regular"
 	-- is not the same question as "can two panes stand beside each other" — at
@@ -300,7 +300,6 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		return use(app.cond.viewportWidth) >= app.metric("twoPaneMin", use)
 	end)
 	scope:own(function()
-		app.notCompact:dispose()
 		app.paneSplit:dispose()
 	end)
 

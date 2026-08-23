@@ -224,9 +224,10 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	local openBrew = core:signal(0)
 	local openPotion = core:signal("")
 	local compactOpen = core:signal(false)
-	local isTableMode = core:memo(function(use)
-		return not use(conditions.isCompact)
-	end)
+	-- GAP 7b (framework-gaps-phase2 §7): "not compact", not "isRegular" — the
+	-- middle class alone reads false on a desktop, which is `wide`. Reuses the
+	-- memo `adaptive.conditions` already owns rather than building a second one.
+	local isTableMode = conditions.isRegularOrWider
 	local reducedMotion = core:memo(function(use)
 		return use(env:get("motionPolicy")) == "reduced"
 	end)
@@ -697,7 +698,8 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		stats.dispose()
 		orders.dispose()
 		reducedMotion:dispose()
-		isTableMode:dispose()
+		-- isTableMode is `conditions.isRegularOrWider` — owned by `conditions`'s
+		-- own scope (framework-gaps-phase2 gap 7b), not by this file
 		compactOpen:dispose()
 		openPotion:dispose()
 		openBrew:dispose()

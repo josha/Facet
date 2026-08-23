@@ -1011,9 +1011,10 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 					sectionPicker.blueprint,
 					UI.When({
 						id = "WalletWhen",
-						condition = core:memo(function(use)
-							return not use(conditions.isCompact)
-						end),
+						-- GAP 7b (framework-gaps-phase2 §7): "not compact", not
+						-- "isRegular" — reuses the memo `adaptive.conditions`
+						-- already owns rather than minting an unowned one here.
+						condition = conditions.isRegularOrWider,
 						thenView = function()
 							return walletPill("Wallet")
 						end,

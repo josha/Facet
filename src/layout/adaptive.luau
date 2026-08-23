@@ -92,6 +92,25 @@ function adaptive.sizeClass(width: number, opts: ClassOpts?): string
 	return class
 end
 
+--[[ sizeClassAtLeast(value, target) -> boolean (framework-gaps-phase2 gap 7b).
+
+	THE TRAP THIS ANSWERS: `isRegular` names the MIDDLE class only, so it reads
+	"at least regular" and behaves "regular and nothing else" — false on a
+	desktop, which is `wide`. Three of five reference apps wrote
+	`not use(conditions.isCompact)` by hand because that is the question they
+	actually meant, and one spent six lines explaining why. This is the
+	general, pure form of that question: compact < regular < wide, ranked once
+	so `conditions.atLeast` and its named spelling `isRegularOrWider` cannot
+	disagree with each other or with `sizeClass`'s own three-way partition. ]]
+local SIZE_CLASS_RANK = table.freeze({ compact = 1, regular = 2, wide = 3 })
+function adaptive.sizeClassAtLeast(value: string, target: string): boolean
+	local rank = SIZE_CLASS_RANK[value]
+	local targetRank = SIZE_CLASS_RANK[target]
+	assert(rank ~= nil, `adaptive.sizeClassAtLeast: '{tostring(value)}' is not a size class`)
+	assert(targetRank ~= nil, `adaptive.sizeClassAtLeast: '{tostring(target)}' is not a size class`)
+	return rank >= targetRank
+end
+
 -- heightClass(height, opts?) -> "short" | "medium" | "tall"
 -- The vertical sibling of `sizeClass`, with the same ten-foot cap for the same
 -- reason: `tall` is the DENSEST vertical arrangement (the most bands stacked),
@@ -392,6 +411,24 @@ export type Conditions = {
 	isLandscape: any, -- Readable<boolean>
 	-- the app-level tab/sidebar placement policy (see adaptive.navPlacement)
 	navPlacement: any, -- Readable<"bottomBar" | "bottomBarCompact" | "topBar" | "sidebar">
+	-- GAP 7a: the four homes `navPlacement` names, promoted off the equality-
+	-- check idiom `tab_view.luau` already computed privately for itself — so a
+	-- consumer never hand-rolls a `navPlacement == "sidebar"` memo again.
+	navSidebar: any, -- Readable<boolean>
+	navTopBar: any, -- Readable<boolean>
+	navBottomBar: any, -- Readable<boolean>
+	navBottomBarCompact: any, -- Readable<boolean>
+	-- GAP 7b: the two-way split the `isRegular` trap invites, named so the
+	-- opposite relationship reads from the name alone (`isRegular` is the
+	-- MIDDLE class only, and reads as "at least regular" while behaving as
+	-- "regular and nothing else" — false on `wide`, the widest screen there
+	-- is). `isCompactOnly` is `isCompact` under the pairing name;
+	-- `isRegularOrWider` is `atLeast("regular")`.
+	isCompactOnly: any, -- Readable<boolean>
+	isRegularOrWider: any, -- Readable<boolean>
+	-- the general form both of the above name a spelling of: rank `sizeClass`
+	-- against `target` ("compact" | "regular" | "wide") via `sizeClassAtLeast`.
+	atLeast: (target: string) -> any, -- (target: string) -> Readable<boolean>
 }
 
 --[[ THE MOST IMPORTANT ARGUMENT IS NOW IN A TYPE (F-29). `conditions` used to
@@ -420,12 +457,15 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	local interactionClasses = env:get("interactionClasses")
 	local displaySize = env:get("displaySize")
 
-	-- OWNERSHIP: this function creates THIRTEEN memos (six until
-	-- ADR-0023 added the height half, twelve until navPlacement), and a caller that rebuilds per mount
-	-- without owning them leaks twelve per cycle — measured in the sponsor
-	-- fixtures under a long-lived core. Pass `opts.scope` and the memos die with
-	-- the caller; omitted, the caller owns them by hand (§6.3 — every resource
-	-- has exactly one owner either way).
+	-- OWNERSHIP: this function creates EIGHTEEN memos (six until ADR-0023
+	-- added the height half, twelve until navPlacement, eighteen since gap 7
+	-- added the four nav-home predicates plus `isRegularOrWider` —
+	-- `isCompactOnly` is an ALIAS of the existing `isCompact` memo, not a
+	-- nineteenth), and a caller that rebuilds per mount without owning them
+	-- leaks eighteen per cycle — measured in the sponsor fixtures under a
+	-- long-lived core. Pass `opts.scope` and the memos die with the caller;
+	-- omitted, the caller owns them by hand (§6.3 — every resource has exactly
+	-- one owner either way).
 	local function owned<T>(resource: T): T
 		if opts ~= nil and opts.scope ~= nil then
 			return opts.scope:own(resource)
@@ -454,9 +494,40 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	local orientation = owned(core:memo(function(use)
 		return adaptive.orientationFor(use(contentWidth), use(contentHeight))
 	end))
+	local navPlacementSignal = owned(core:memo(function(use)
+		return adaptive.navPlacement({
+			sizeClass = use(sizeClass),
+			heightClass = use(heightClass),
+			distanceProfile = use(distanceProfile),
+			primary = (function()
+				local ic = use(interactionClasses)
+				return if type(ic) == "table" then ic.primary else nil
+			end)(),
+			displaySize = use(displaySize),
+		})
+	end))
+	-- GAP 7a: the same equality-check idiom `is(name)` above already uses for
+	-- `sizeClass`, over `navPlacementSignal` instead — promoted from
+	-- `tab_view.luau`'s private `isPlacement(name)`, not reinvented.
+	local function navIs(name: string)
+		return owned(core:memo(function(use)
+			return use(navPlacementSignal) == name
+		end))
+	end
+	-- GAP 7b: the general ranked form, and the memo `isRegularOrWider` binds.
+	-- Not `owned` at the point of definition — `owned` wraps a NEW memo each
+	-- call, and a consumer calling `atLeast` directly (rather than through the
+	-- named `isRegularOrWider`) gets that same per-call ownership, exactly as
+	-- `is(name)` already does above.
+	local function atLeast(target: string): any
+		return owned(core:memo(function(use)
+			return adaptive.sizeClassAtLeast(use(sizeClass), target)
+		end))
+	end
+	local isCompactMemo = is("compact")
 	return {
 		sizeClass = sizeClass,
-		isCompact = is("compact"),
+		isCompact = isCompactMemo,
 		isRegular = is("regular"),
 		isWide = is("wide"),
 		isTenFoot = owned(core:memo(function(use)
@@ -485,18 +556,21 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 		isLandscape = owned(core:memo(function(use)
 			return use(orientation) == "landscape"
 		end)),
-		navPlacement = owned(core:memo(function(use)
-			return adaptive.navPlacement({
-				sizeClass = use(sizeClass),
-				heightClass = use(heightClass),
-				distanceProfile = use(distanceProfile),
-				primary = (function()
-					local ic = use(interactionClasses)
-					return if type(ic) == "table" then ic.primary else nil
-				end)(),
-				displaySize = use(displaySize),
-			})
-		end)),
+		navPlacement = navPlacementSignal,
+		-- GAP 7a: promoted off the equality-check idiom `tab_view.luau` already
+		-- computed privately for itself (`isPlacement(name)`) — same technique,
+		-- reused rather than reinvented, now published so a call site never
+		-- hand-rolls a `navPlacement == "sidebar"` memo again.
+		navSidebar = navIs("sidebar"),
+		navTopBar = navIs("topBar"),
+		navBottomBar = navIs("bottomBar"),
+		navBottomBarCompact = navIs("bottomBarCompact"),
+		-- GAP 7b: `isCompactOnly` is `isCompact` itself, under the name that
+		-- pairs with `isRegularOrWider` — not a second fact, and not a second
+		-- memo (reuses the memo `isCompact` already is, above).
+		isCompactOnly = isCompactMemo,
+		isRegularOrWider = atLeast("regular"),
+		atLeast = atLeast,
 	}
 end
 

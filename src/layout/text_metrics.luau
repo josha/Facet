@@ -56,7 +56,15 @@ local text_metrics = {}
 
 -- Average glyph width as a fraction of font size. Conservative upper bound
 -- for typical UI sans-serif Latin text; CJK/emoji get a full em per glyph.
+-- EXPORTED (framework-gaps-phase2 gap 11): this used to be reachable only by
+-- hand-copying the literal, which is exactly what RR's `HudZoneModel.fitSize`
+-- did as `GLYPH_EM = 0.62` under a comment that misidentified it as "Gotham
+-- Bold cap advance" — a number about no font at all, since the fallback
+-- applies uniformly to every uncalibrated font. Publishing it here is what
+-- lets a consumer SOURCE the number instead of copying it, so the two cannot
+-- drift apart again.
 local AVG_GLYPH_FRACTION = 0.62
+text_metrics.AVG_GLYPH_FRACTION = AVG_GLYPH_FRACTION
 -- default line-height factor; a typography role may carry its own (ADR-0019 §6)
 local LINE_HEIGHT_FACTOR = 1.2
 text_metrics.LINE_HEIGHT_FACTOR = LINE_HEIGHT_FACTOR

@@ -748,10 +748,11 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- one; because `Option.label` is a Readable, the flip follows a live rotation
 	-- and a live locale change alike, which a construction-time `compactLabel`
 	-- could not.
-	local placement = conditions.navPlacement
+	-- GAP 7a (framework-gaps-phase2 §7): the two thumb-zone homes, off the
+	-- promoted predicates rather than a hand-rolled `== "bottomBar"` string
+	-- compare.
 	local terse = scope:own(core:memo(function(use)
-		local home = use(placement)
-		return home == "bottomBar" or home == "bottomBarCompact"
+		return use(conditions.navBottomBar) or use(conditions.navBottomBarCompact)
 	end))
 	--[[ ...AND THE TERSE FORM COMES WITH THE TERSE TREATMENT, which is the other
 		half of the same director call: a thumb-zone tab is caption-sized, which is

@@ -314,12 +314,11 @@ function shell.build(app: any): any
 	local UI = app.UI
 	local core = app.core
 
-	-- the placement policy, spelled once — and the ONE fact this file still reads
-	-- off it, because the inline search home is a CONTENT decision
-	local placement = app.cond.navPlacement
-	app.navSidebar = app.own(core:memo(function(use)
-		return use(placement) == "sidebar"
-	end))
+	-- the placement policy — and, since GAP 7a (framework-gaps-phase2 §7)
+	-- promoted the four homes onto `adaptive.conditions` itself, the inline
+	-- search home reads its own promoted predicate rather than a memo this
+	-- file built by hand
+	app.navSidebar = app.cond.navSidebar
 	-- the accessory (and the top band's trailing slot) only makes sense on the
 	-- sections that HAVE a searchable list — never over the stamps pocket
 	app.searchable = app.own(core:memo(function(use)
@@ -327,8 +326,7 @@ function shell.build(app: any): any
 	end))
 	-- ...and the SHORT vocabulary's own condition: the two thumb-zone homes
 	local terse = app.own(core:memo(function(use)
-		local home = use(placement)
-		return home == "bottomBar" or home == "bottomBarCompact"
+		return use(app.cond.navBottomBar) or use(app.cond.navBottomBarCompact)
 	end))
 	local function sectionLabel(section: string): any
 		-- both memos are built ONCE and selected between: `app.text` mints a new

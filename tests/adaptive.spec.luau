@@ -76,13 +76,29 @@ describe("A-AL3: pure adaptive decisions (no device names)", function()
 		expect(adaptive.sizeClass(0 / 0)).toBe("compact")
 		expect(adaptive.sizeClass(-50)).toBe("compact")
 	end)
+
+	--[[ GAP 7b (framework-gaps-phase2 §7): `isRegular` names the MIDDLE class
+		only, and three of five reference apps wrote `not use(isCompact)` instead
+		because that is the question they actually meant — "regular or wider".
+		`sizeClassAtLeast` is the pure ranking `conditions.atLeast` binds. ]]
+	it("GAP7b: sizeClassAtLeast ranks compact < regular < wide", function()
+		expect(adaptive.sizeClassAtLeast("compact", "compact")).toBe(true)
+		expect(adaptive.sizeClassAtLeast("compact", "regular")).toBe(false)
+		expect(adaptive.sizeClassAtLeast("compact", "wide")).toBe(false)
+		expect(adaptive.sizeClassAtLeast("regular", "compact")).toBe(true)
+		expect(adaptive.sizeClassAtLeast("regular", "regular")).toBe(true)
+		expect(adaptive.sizeClassAtLeast("regular", "wide")).toBe(false)
+		expect(adaptive.sizeClassAtLeast("wide", "compact")).toBe(true)
+		expect(adaptive.sizeClassAtLeast("wide", "regular")).toBe(true)
+		expect(adaptive.sizeClassAtLeast("wide", "wide")).toBe(true)
+	end)
 end)
 
 describe("A-AL3: reactive conditions over the environment", function()
-	local function makeConditions(w: number, displaySize: string?)
+	local function makeConditions(w: number, displaySize: string?, h: number?)
 		local core = customFactory.new()
 		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = w, h = 800 })
+		env:set("viewportRect", { x = 0, y = 0, w = w, h = h or 800 })
 		if displaySize ~= nil then
 			env:set("displaySize", displaySize)
 		end
@@ -157,6 +173,84 @@ describe("A-AL3: reactive conditions over the environment", function()
 		-- a REAL write still lands (the refusal is about placeholders, not writes)
 		env:set("viewportRect", { x = 0, y = 0, w = 375, h = 812 })
 		expect(env:get("viewportRect"):get().w).toBe(375)
+	end)
+
+	--[[ GAP 7a (framework-gaps-phase2 §7): `navPlacement` alone was a bare
+		string, so both reference apps that consume it hand-rolled 4-5 identical
+		`== "sidebar"` memos — the same equality-check idiom `tab_view.luau`
+		already computed privately for itself. Promoted, not reinvented: these
+		are the same four homes `adaptive.navPlacement` names, as Readables. ]]
+	it("GAP7a: navSidebar/navTopBar/navBottomBar/navBottomBarCompact are the four homes, promoted", function()
+		-- pointer-primary, roomy on both axes -> sidebar
+		local _, _, sidebarC = makeConditions(1200, nil, 800)
+		expect(sidebarC.navPlacement:get()).toBe("sidebar")
+		expect(sidebarC.navSidebar:get()).toBe(true)
+		expect(sidebarC.navTopBar:get()).toBe(false)
+		expect(sidebarC.navBottomBar:get()).toBe(false)
+		expect(sidebarC.navBottomBarCompact:get()).toBe(false)
+
+		-- ten-foot -> topBar
+		local _, _, topC = makeConditions(1200, "Large", 800)
+		expect(topC.navPlacement:get()).toBe("topBar")
+		expect(topC.navTopBar:get()).toBe(true)
+		expect(topC.navSidebar:get()).toBe(false)
+
+		-- compact width -> bottomBar
+		local _, _, bottomC = makeConditions(400, nil, 800)
+		expect(bottomC.navPlacement:get()).toBe("bottomBar")
+		expect(bottomC.navBottomBar:get()).toBe(true)
+		expect(bottomC.navBottomBarCompact:get()).toBe(false)
+
+		-- short height, roomy width -> bottomBarCompact
+		local _, _, compactC = makeConditions(900, nil, 400)
+		expect(compactC.navPlacement:get()).toBe("bottomBarCompact")
+		expect(compactC.navBottomBarCompact:get()).toBe(true)
+		expect(compactC.navBottomBar:get()).toBe(false)
+	end)
+
+	it("GAP7a: navSidebar re-resolves live, exactly as navPlacement does", function()
+		local _, env, c = makeConditions(1200, nil, 800)
+		expect(c.navSidebar:get()).toBe(true)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
+		expect(c.navSidebar:get()).toBe(false)
+		expect(c.navBottomBar:get()).toBe(true)
+	end)
+
+	--[[ GAP 7b: the trap is that `isRegular` READS like "at least regular" and
+		BEHAVES as "the middle class only" — false on `wide`, which is how p3's
+		two-pane layout would have vanished on the widest screen there is. These
+		two names are the two-way split the reference apps actually wrote by
+		hand, self-explanatory without reading the breakpoint doc. ]]
+	it("GAP7b: isRegularOrWider/isCompactOnly name the two-way split the trap invites", function()
+		local _, _, compact = makeConditions(400)
+		expect(compact.isCompactOnly:get()).toBe(true)
+		expect(compact.isRegularOrWider:get()).toBe(false)
+
+		local _, _, regular = makeConditions(700)
+		expect(regular.isCompactOnly:get()).toBe(false)
+		expect(regular.isRegularOrWider:get()).toBe(true)
+
+		-- the trap's own case: `isRegular` is false here, but isRegularOrWider
+		-- (what every hand-rolled `not isCompact` site actually meant) is true
+		local _, _, wide = makeConditions(1200)
+		expect(wide.isRegular:get()).toBe(false)
+		expect(wide.isCompactOnly:get()).toBe(false)
+		expect(wide.isRegularOrWider:get()).toBe(true)
+	end)
+
+	it("GAP7b: isCompactOnly is isCompact under a name that pairs with isRegularOrWider, not a second fact", function()
+		local _, env, c = makeConditions(400)
+		expect(c.isCompactOnly:get()).toBe(c.isCompact:get())
+		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
+		expect(c.isCompactOnly:get()).toBe(c.isCompact:get())
+	end)
+
+	it("GAP7b: conditions.atLeast is the general form isRegularOrWider names", function()
+		local _, _, c = makeConditions(700)
+		expect(c.atLeast("compact"):get()).toBe(true)
+		expect(c.atLeast("regular"):get()).toBe(true)
+		expect(c.atLeast("wide"):get()).toBe(false)
+		expect(c.atLeast("regular"):get()).toBe(c.isRegularOrWider:get())
 	end)
 end)
 

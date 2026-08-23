@@ -4071,6 +4071,7 @@ headlessly testable):
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
+| `adaptive.sizeClassAtLeast(value, target)` | `boolean` — ranks `compact < regular < wide` and answers whether `value` is at least `target`'s rank. The general pure form `conditions.atLeast`/`isRegularOrWider` bind (framework-gaps-phase2 gap 7b): `isRegular` names the MIDDLE class only, so it reads "at least regular" and behaves "regular and nothing else" — false on `wide`, the widest screen there is. `sizeClassAtLeast(sizeClass, "regular")` is the question a caller actually means by "not compact" |
 
 **Reactive conditions:** `adaptive.conditions(core, env, opts?)` returns Readables
 the caller owns — `sizeClass`, `isCompact`, `isRegular`, `isWide`, `isTenFoot`,
@@ -4084,6 +4085,24 @@ over the environment, so they cost nothing until read and re-resolve in place wh
 fact changes. `sizeClass` delegates to the environment's own memo, so the
 breakpoints have exactly one implementation.
 
+**The four nav homes, promoted (gap 7a):** `navSidebar`, `navTopBar`,
+`navBottomBar` and `navBottomBarCompact` are `Readable<boolean>`s over
+`navPlacement`'s four values — the same equality-check idiom
+`src/controls/tab_view.luau` already computed privately for itself
+(`isPlacement(name)`), published so a call site never hand-rolls a
+`use(navPlacement) == "sidebar"` memo again. Two reference apps did exactly
+that before this round (`p1_glade`'s four-memo wordmark ladder, `p3_sipworks`'s
+`app.navSidebar`); both now bind these fields directly.
+
+**The `isRegular` trap, named around (gap 7b):** `isCompactOnly` is `isCompact`
+itself, under the name that pairs with `isRegularOrWider` — not a second fact,
+not a second memo. `isRegularOrWider` is `atLeast("regular")`, and `atLeast(target)`
+is the general form both spellings name: `(target: "compact"|"regular"|"wide") ->
+Readable<boolean>`, backed by the pure `adaptive.sizeClassAtLeast`. Three of five
+reference apps wrote `not use(conditions.isCompact)` by hand for this exact
+question before this round (`p2_cartwheel`, `p3_sipworks`, `p5_wardrobe`); all
+three now bind `isRegularOrWider` directly.
+
 The height half is **additive**: every key that existed before it keeps its exact
 meaning and its exact value, including the ten-foot demotion. It exists so no
 screen re-derives a private viewport-height threshold in its own code — which is
@@ -4092,10 +4111,12 @@ an adaptation that must depend on the box one *container* received rather than o
 the viewport, these classes are still the wrong tool: use `UI.Composition` (whole
 screen, both axes) or `ViewThatFits` (one container).
 
-**Pass `opts.scope`.** "The caller owns them" is literal: this call builds **twelve
-memos** (six before the height half landed), and on a long-lived core a screen that
-rebuilds without owning them leaks twelve per build/dispose cycle (measured — the
-leak is invisible to a per-screen test
+**Pass `opts.scope`.** "The caller owns them" is literal: this call builds
+**eighteen memos** (six before the height half landed, twelve before gap 7's four
+nav-home predicates plus `isRegularOrWider` — `isCompactOnly` is an alias of the
+existing `isCompact` memo, not a nineteenth), and on a long-lived core a screen
+that rebuilds without owning them leaks eighteen per build/dispose cycle
+(measured — the leak is invisible to a per-screen test
 because the memos die with a short-lived core). `opts.scope` hands them to a scope
 so they die with the screen:
 
@@ -4103,7 +4124,7 @@ so they die with the screen:
 local conditions = Facet.adaptive.conditions(core, env, { scope = screenScope })
 ```
 
-Omitting it is still legal — then you own the twelve memos by hand, which is the
+Omitting it is still legal — then you own the eighteen memos by hand, which is the
 same rule every other resource follows. `opts` also carries the `axisFor`
 breakpoint override (`stackAbove`).
 
@@ -4286,6 +4307,7 @@ fallback* for a font it has never seen.
 | `text.size(spec) -> number` | the same answer, when all you want is the size |
 | `text.facts(spec) -> TextFacts` | the live text facts a prediction needs, read once |
 | `text.lineBox(spec) -> number` | how tall `lines` lines of this text will be |
+| `text.AVG_GLYPH_FRACTION` | `0.62` — the fallback fraction itself, as data (framework-gaps-phase2 gap 11). For a caller that already holds `Facet` and wants to pass the SAME number a hand-rolled estimate elsewhere used to guess at — source it here rather than copying it. See `measure` below for the same constant with no `Facet` table at all |
 
 **`text.measure`** takes a spec table — the canonical form, and the one that
 matches its two siblings:
@@ -4441,6 +4463,56 @@ occupies. It does not include padding, gaps or any sibling — a row's extent is
 its own arithmetic over one or more line boxes, and keeping those separate is
 what lets a cell with a title above a body ceil each of them once rather than
 ceiling their sum.
+
+### `measure` — the headless entry point (framework-gaps-phase2 gap 11)
+
+`Facet.text` above is reached through `src/init.luau`, which makes 65 `@self`
+requires and transitively pulls `src/client/*` — `GetService` and all. A model
+that has to run **headless** (Lune, a benchmark, a shared game module with no
+DataModel) cannot take that dependency, even though the measurement engine
+itself needs none of it. `src/measure.luau` is a SIBLING module beside
+`src/init.luau`, not a member of the table `Facet` returns — reaching it never
+runs `init.luau`'s module function, so none of the 65 requires pay. Two shapes,
+depending on the caller:
+
+- **live engine, no Lune:** `require(ReplicatedStorage.Facet.measure)` —
+  an instance path, exactly as `src/client/host.luau` is already reached
+  directly by client code as `ReplicatedStorage.Facet.client.host` with no
+  `require(Facet)` first.
+- **headless (Lune, a shared game module):** `require("<path-to-Facet>/src/measure")`
+  — the plain relative-string form, the one RascalRally's test suite already
+  uses to reach `src/layout/text_metrics` directly.
+
+Either route lands on the SAME underlying module `Facet.text.measure`/`.fit`/
+`.size` are built on — a plain republish of `src/layout/text_metrics.luau`
+(zero requires, zero `GetService`), so there is exactly one implementation and
+the live path and the headless path cannot disagree.
+
+| Call | Answers |
+|---|---|
+| `measure.measure(spec)` / the six-positional form | identical to `text.measure` above |
+| `measure.minWidth(text, font, fontSize) -> number` | the narrowest a string can be laid out at that size without splitting a word (or an ideographic run) |
+| `measure.AVG_GLYPH_FRACTION` | `0.62` — the conservative per-glyph-width fallback fraction every measurement here falls back to for an uncalibrated font. The SAME value `text.AVG_GLYPH_FRACTION` above is, for the consumer that has no `Facet` table to read it off |
+
+This is for the consumer with no core, no environment and no engine to mount
+one on — not a second measurement API. Every mounted surface still reaches
+measurement through `Facet.text`.
+
+**Measured limit (2026-08-22):** a plain relative-string `require` into this
+module is NOT safe from an arbitrary consumer's own Rojo mount. RascalRally's
+`HudZoneModel.fitSize` used to hand-copy the fallback fraction as
+`GLYPH_EM = 0.62`, under a comment that misidentified it as "Gotham Bold cap
+advance" (a number about no font at all — the fallback is uniform across
+every uncalibrated font). A require from there into this file resolves by
+file-system depth under Lune and by Rojo instance-tree depth live, and those
+two depths disagree whenever a consumer's `$path` mapping does not mirror the
+source tree's nesting (measured live: `HudZoneModel` and `Facet` are Rojo
+SIBLINGS, one hop apart live, five apart on disk — no string satisfies both).
+`HudZoneModel` takes `text.AVG_GLYPH_FRACTION` (above) by INJECTION instead,
+from the one caller that already holds the live `Facet` table — this entry
+point remains the right tool for a consumer with no such table to inject
+from, or one whose mount depth genuinely does match its disk depth in both
+runtimes.
 
 ---
 
