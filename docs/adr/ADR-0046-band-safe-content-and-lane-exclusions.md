@@ -248,7 +248,22 @@ three per-column reserve regions and two cluster-width spacers deleted, replaced
 by one policy string and one declared prop. Its behaviour is preserved as the
 specs above rather than as a comment — the fixture is what those specs drive.
 
-Rascal Rally's chip band moves with it in the same round.
+**Rascal Rally's chip band does NOT move with it, and that is booked rather than
+done.** `FacetSponsor/HudScreen.CHIP_PRESENT_OPTS` still presents
+`rootPolicy = "edgeToEdge"` and `buildChipBand` still places the row with four
+hand-computed Readables (`offsetX`, `offsetY`, `bandWidth`, `bandHeight`) — the
+exact shape §9 exists to remove, and its own header names the hole in as many
+words: *"That row is the PLATFORM'S TOPBAR STRIP, and it is outside every
+content-safe root policy by definition."* The cutover is one policy string plus a
+`UI.Composition` with a `topbar` region, and the four Readables die with it. It
+was not taken in this round because it moves a **shipped HUD surface's placement**
+and the honest verification for that is a device look rather than a headless rect.
+Owed at `docs/handoff/G8G9-OWED-LIVE-WORK.md` §3.
+
+What DID move game-side in the same round is the other half of the audit's
+consumer finding: `GearDockModel.placeInBand` and `HudZoneModel.sponsorTopStrip`
+now read `platformChrome` instead of hand-deriving the topbar dock from
+`GuiService.TopbarInset` with manual change-listeners.
 
 ## The alternatives, and why not
 
