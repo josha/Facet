@@ -110,7 +110,7 @@ return {
 			content = function()
 				return UI.VStack({
 					id = "AdvancedBody",
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					children = {
 						UI.Toggle({ id = "Vsync", label = "Vertical sync", value = core:signal(true) }),
@@ -174,7 +174,7 @@ return {
 		end))
 		local navShapes = UI.VStack({
 			id = "NavShapes",
-			gap = 6,
+			gap = "tight",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = "caption" }),
@@ -232,7 +232,7 @@ return {
 				}),
 				UI.VStack({
 					id = "ActionsColumn",
-					gap = 6,
+					gap = "tight",
 					align = "stretch",
 					width = { type = "fill", weight = 1 },
 					children = {
@@ -318,7 +318,7 @@ return {
 		end
 		local toolbar = UI.HStack({
 			id = "Toolbar",
-			gap = 6,
+			gap = "tight",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
@@ -369,7 +369,7 @@ return {
 		-- set it must draw "/" and on every other one a pencil.
 		local compactLadder = UI.HStack({
 			id = "CompactRow",
-			gap = 6,
+			gap = "tight",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.Button({
@@ -486,7 +486,7 @@ return {
 		end
 		local vocabShrink = UI.HStack({
 			id = "Shrink",
-			gap = 6,
+			gap = "tight",
 			align = "start",
 			width = { type = "fill", weight = 1 },
 			children = {
@@ -524,7 +524,7 @@ return {
 		end
 		local vocabSpecs = UI.Grid({
 			id = "Specs",
-			gap = 6,
+			gap = "tight",
 			width = { type = "fill", weight = 1 },
 			children = {
 				UI.GridRow({
@@ -591,7 +591,7 @@ return {
 					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
 					-- fill cells occupying their derived columns — would have nothing to show.
 					minColumnWidth = 72,
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					children = {
 						badgedTile("t1", "3"),

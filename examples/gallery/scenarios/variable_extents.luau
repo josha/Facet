@@ -326,12 +326,12 @@ return {
 		local screen = UI.Screen({
 			id = "VariableExtents",
 			padding = "s",
-			gap = 6,
+			gap = "tight",
 			children = {
 				UI.ScrollView({
 					id = "Chrome",
 					axis = "y",
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					height = chromeHeight,
 					children = {
@@ -345,7 +345,7 @@ return {
 						UI.HStack({
 							id = "Controls",
 							wrap = true,
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = (function()
 								local kids: { any } = {

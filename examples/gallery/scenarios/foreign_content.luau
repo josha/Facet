@@ -63,7 +63,7 @@ return {
 		local function pane(id: string, caption: string, child: any)
 			return UI.VStack({
 				id = id,
-				gap = 6,
+				gap = "tight",
 				width = { type = "fixed", px = 220 },
 				children = { child, UI.Text({ id = "Caption", text = caption, textSize = 13 }) },
 			})

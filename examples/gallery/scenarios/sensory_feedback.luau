@@ -753,14 +753,14 @@ return {
 							id = "Leaves",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "LeavesTitle", text = COPY.declaredTitle, textSize = "caption" }),
 								-- WRAPS. Five chips at the Largest text preference, pseudo-
 								-- localized, do not fit one line on a 320px phone, and a row
 								-- that cannot wrap walks off the right edge of its own box.
-								UI.HStack({ id = "LeafRow", wrap = true, gap = 6, children = leafButtons }),
+								UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
 								UI.Text({
 									id = "MuteNote",
 									text = COPY.muteNote,
@@ -777,19 +777,19 @@ return {
 								id = "Cascade",
 								surface = "control",
 								padding = "s",
-								gap = 6,
+								gap = "tight",
 								width = { type = "fill", weight = 1 },
 								children = {
 									UI.Text({ id = "CascadeTitle", text = COPY.cascadeTitle, textSize = "caption" }),
 									UI.HStack({
 										id = "CascadeRow",
 										wrap = true,
-										gap = 6,
+										gap = "tight",
 										children = {
 											UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
 											UI.VStack({
 												id = "Nested",
-												gap = 6,
+												gap = "tight",
 												children = {
 													UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
 													UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
@@ -814,7 +814,7 @@ return {
 							id = "Sensations",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = (function(): { any }
 								local kids: { any } = {
@@ -849,7 +849,7 @@ return {
 							id = "Play",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "PlayTitle", text = COPY.playTitle, textSize = "caption" }),
@@ -889,7 +889,7 @@ return {
 							id = "Calibration",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = "caption" }),
@@ -906,7 +906,7 @@ return {
 								UI.HStack({
 									id = "CalRow",
 									wrap = true,
-									gap = 6,
+									gap = "tight",
 									children = {
 										UI.Button({ id = "CalPress", label = COPY.calPress, surface = "chip" }),
 										-- the two bus phases are driven from controls that
@@ -960,7 +960,7 @@ return {
 								UI.HStack({
 									id = "ProfileRow",
 									wrap = true,
-									gap = 6,
+									gap = "tight",
 									children = {
 										profileButton("ProfileDefaults", "profileDefaults", PROFILE_DEFAULTS),
 										profileButton("ProfileFallback", "profileFallback", PROFILE_FALLBACK),

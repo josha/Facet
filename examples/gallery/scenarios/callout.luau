@@ -255,7 +255,7 @@ return {
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						UI.HStack({
 							id = "Picks",
-							gap = 6,
+							gap = "tight",
 							wrap = true,
 							width = { type = "fill", weight = 1 },
 							children = {

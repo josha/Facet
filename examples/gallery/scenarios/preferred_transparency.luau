@@ -176,7 +176,7 @@ return {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "title" }),
 						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
 						UI.Text({ id = "SettingLabel", text = COPY.setting, textSize = "label" }),
-						UI.HStack({ id = "Stops", gap = 6, wrap = true, children = stopChips }),
+						UI.HStack({ id = "Stops", gap = "tight", wrap = true, children = stopChips }),
 						UI.Text({ id = "Readout", text = readout, textSize = "label" }),
 						UI.Text({ id = "RealHint", text = COPY.realHint, textSize = "caption", role = "secondary" }),
 						UI.HStack({

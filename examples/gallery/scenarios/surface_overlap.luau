@@ -201,7 +201,7 @@ return {
 						UI.Text({ id = "PickLabel", text = COPY.pick, textSize = "caption" }),
 						UI.HStack({
 							id = "Picks",
-							gap = 6,
+							gap = "tight",
 							wrap = true,
 							width = { type = "fill", weight = 1 },
 							children = {

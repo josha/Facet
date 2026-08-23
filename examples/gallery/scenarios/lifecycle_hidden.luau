@@ -146,7 +146,7 @@ return {
 							id = "Reserved",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
@@ -166,7 +166,7 @@ return {
 							id = "Removed",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),

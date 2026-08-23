@@ -412,7 +412,7 @@ return {
 							id = "Legend",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({

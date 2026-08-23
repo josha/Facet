@@ -209,6 +209,11 @@ local GENERATED: any = {
 				defaultSize = 48,
 			},
 			label = {
+				-- THEME-OPT-OUT: a theme package's own metrics.controls.<family>
+				-- field is validated isFiniteNumber-only (package.luau's
+				-- CONTROL_FAMILIES check) — it cannot take a theme-metric NAME
+				-- string like "tight", the same reason default_style.luau's own
+				-- controls.label.gap stays a raw literal (ADR-0047)
 				gap = 6,
 			},
 			popup = {

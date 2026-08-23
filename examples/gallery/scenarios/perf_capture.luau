@@ -194,7 +194,7 @@ return {
 					package, which a second pinned line would not have been. ]]
 				UI.HStack({
 					id = "Readouts",
-					gap = 6,
+					gap = "tight",
 					wrap = true,
 					width = { type = "fill", weight = 1 },
 					children = (function()

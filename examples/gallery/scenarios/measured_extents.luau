@@ -190,7 +190,7 @@ return {
 		local screen = UI.Screen({
 			id = "MeasuredExtents",
 			padding = "s",
-			gap = 6,
+			gap = "tight",
 			children = {
 				--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
 					`variable_extents` records: the list IS a scroll host, and nesting one
@@ -199,7 +199,7 @@ return {
 				UI.HStack({
 					id = "Controls",
 					wrap = true,
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					children = sizeChips,
 				}),

@@ -115,7 +115,7 @@ return {
 				id = id,
 				surface = "control",
 				padding = "s",
-				gap = 6,
+				gap = "tight",
 				width = { type = "fill", weight = 1 },
 				children = {
 					UI.Text({ id = "Label", text = label, textSize = "caption" }),

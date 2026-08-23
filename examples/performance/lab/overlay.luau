@@ -98,7 +98,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	local actionRow = UI.Grid({
 		id = "Actions",
 		minColumnWidth = "intrinsic",
-		gap = 6,
+		gap = "tight",
 		width = { type = "fill", weight = 1 },
 		children = actionButtons,
 	})
@@ -183,7 +183,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	end
 	local cycleRow = UI.HStack({
 		id = "Cycle",
-		gap = 6,
+		gap = "tight",
 		width = { type = "fill", weight = 1 },
 		children = cycleChildren,
 	})
@@ -195,7 +195,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	local actionLine = if splitAction
 		then UI.HStack({
 			id = "PrimaryAction",
-			gap = 6,
+			gap = "tight",
 			width = { type = "fill", weight = 1 },
 			children = { runAll },
 		})
@@ -335,7 +335,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 							UI.VStack({
 								id = "Stack",
 								width = { type = "fill", weight = 1 },
-								gap = 6,
+								gap = "tight",
 								children = stackChildren,
 							}),
 						},

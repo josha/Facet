@@ -229,7 +229,7 @@ return {
 		local screen = UI.Screen({
 			id = "CardRail",
 			padding = PADDING,
-			gap = 6,
+			gap = "tight",
 			children = {
 				--[[ THE PAGE SCROLLS, AND THE AXIS IS WHY IT MAY (O-21). The rule this
 					fixture family keeps — `variable_extents`, `scroll_host` — is that a
@@ -242,7 +242,7 @@ return {
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {

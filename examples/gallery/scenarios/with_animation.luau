@@ -546,7 +546,7 @@ return {
 								return UI.VStack({
 									id = "Chip",
 									surface = "raised",
-									padding = 6,
+									padding = "tight",
 									width = { type = "fill", weight = 1 },
 									children = {
 										UI.Text({
@@ -638,7 +638,7 @@ return {
 		local screen = UI.Screen({
 			id = "MotionDemo",
 			padding = 12,
-			gap = 6,
+			gap = "tight",
 			children = {
 				-- THE PAGE SCROLLS. Two motion categories, a picker, a button and a
 				-- status line do not fit in the ~200px a 640x320 landscape phone has

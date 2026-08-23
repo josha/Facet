@@ -87,8 +87,14 @@ local LABEL_SIZE = 12
 -- THE TWO GUTTERS (across a line, and between lines) ARE THEME METRIC NAMES (purity audit §5, 2026-08-22), for the
 -- reason `virtual_hgrid` states at length: a held pixel does not scale at
 -- ten-foot and a name does. `newVirtualGrid` refused a string until this round.
-local CELL_GAP = "xs"
-local LINE_GAP = "xs"
+--
+-- RESTORED TO "tight" (task G-SPACE, ADR-0047): the G4/G5 round wanted 6 here
+-- and no space step named it, so both gutters were force-moved to "xs" (4) at
+-- neutral — a deliberate VALUE CHANGE recorded in that round's report because
+-- "no metric in any shipped package resolves to 6" at the time. `space.tight`
+-- now does, and restoring it is the matching deliberate value change back.
+local CELL_GAP = "tight"
+local LINE_GAP = "tight"
 
 -- the lane counts the chips offer. The middle one is the seed, so the swept
 -- (step-free) mount is the ordinary case rather than either extreme.
@@ -236,7 +242,7 @@ return {
 		local screen = UI.Screen({
 			id = "VirtualGrid",
 			padding = "s",
-			gap = 6,
+			gap = "tight",
 			children = {
 				--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
 					SWEEP TAUGHT THIS FIXTURE. A 640x320 landscape phone leaves this
@@ -255,7 +261,7 @@ return {
 				UI.HStack({
 					id = "Controls",
 					wrap = true,
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					children = (function()
 						local kids: { any } = {}

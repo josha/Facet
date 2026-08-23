@@ -422,7 +422,7 @@ return {
 		local screen = UI.Screen({
 			id = "TimeCurves",
 			padding = 12,
-			gap = 6,
+			gap = "tight",
 			children = {
 				-- THE PAGE SCROLLS. Three demonstrations, a picker, three buttons and
 				-- two status lines do not fit in the ~200px a 640x320 landscape phone
@@ -478,7 +478,7 @@ return {
 						}),
 						UI.VStack({
 							id = "Lanes",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = lanes,
 						}),

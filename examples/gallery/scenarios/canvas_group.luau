@@ -169,7 +169,7 @@ return {
 				id = id,
 				surface = "control",
 				padding = "s",
-				gap = 6,
+				gap = "tight",
 				width = { type = "fill", weight = 1 },
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "caption" }),
@@ -216,7 +216,7 @@ return {
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 						UI.HStack({
 							id = "Stops",
-							gap = 6,
+							gap = "tight",
 							wrap = true,
 							width = { type = "fill", weight = 1 },
 							children = (function()
@@ -247,7 +247,7 @@ return {
 							id = "Transition",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),

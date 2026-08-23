@@ -71,12 +71,18 @@ local LINE_EXTENT = 72
 	round — `gap` refused even a `Readable` — so a fixture that wanted a
 	theme-tracking gutter had to hold pixels, and a held pixel is wrong the moment
 	the theme moves: at ten-foot every space step scales by the type floor's factor
-	and a literal 6 does not. `"xs"` is 4 at arm's length and scales with the rest
-	of the surface on a television, which is the whole point of naming it. The lane
-	readout below reads the RESOLVED number back off the grid's own dump rather
-	than keeping a copy, so this file predicts nothing. ]]
-local CELL_GAP = "xs" -- between cells ACROSS a line (vertical here)
-local LINE_GAP = "xs" -- between LINES (horizontal here)
+	and a literal 6 does not. The lane readout below reads the RESOLVED number
+	back off the grid's own dump rather than keeping a copy, so this file
+	predicts nothing.
+
+	RESTORED TO "tight" (task G-SPACE, ADR-0047). No space step named 6 at the
+	time this round shipped, so both gutters were force-moved to `"xs"` (4) at
+	neutral — a deliberate VALUE CHANGE, recorded in the G4/G5 report as "no
+	metric in any shipped package resolves to 6". `space.tight` does now, and
+	`"tight"` is 6 at arm's length and scales with the rest of the surface on a
+	television exactly as `"xs"` did — which is the whole point of naming it. ]]
+local CELL_GAP = "tight" -- between cells ACROSS a line (vertical here)
+local LINE_GAP = "tight" -- between LINES (horizontal here)
 --[[ TWO LANE CHOICES AND THREE BUTTONS, AND THE SWEEP CHOSE BOTH NUMBERS. On a
 	640x320 landscape phone at the Largest text preference this surface has 200px
 	once the CoreGui topbar and the showcase chip strip are out, and the page cannot
@@ -214,12 +220,12 @@ return {
 		local screen = UI.Screen({
 			id = "VirtualHGrid",
 			padding = "s",
-			gap = 6,
+			gap = "tight",
 			children = {
 				UI.HStack({
 					id = "Controls",
 					wrap = true,
-					gap = 6,
+					gap = "tight",
 					width = { type = "fill", weight = 1 },
 					children = (function()
 						local kids: { any } = {}

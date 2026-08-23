@@ -123,7 +123,7 @@ return {
 		local function panelBody(id: string): any
 			return UI.VStack({
 				id = id,
-				gap = 6,
+				gap = "tight",
 				width = { type = "fill", weight = 1 },
 				children = {
 					UI.Text({ id = "Body", text = COPY.panelBody, textSize = "caption", role = "secondary" }),
@@ -154,7 +154,7 @@ return {
 							id = "Owned",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = "caption" }),
@@ -193,7 +193,7 @@ return {
 							id = "Hoisted",
 							surface = "control",
 							padding = "s",
-							gap = 6,
+							gap = "tight",
 							width = { type = "fill", weight = 1 },
 							children = {
 								UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = "caption" }),

@@ -97,7 +97,7 @@ return {
 					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
 					-- fill cells occupying their derived columns — would have nothing to show.
 					minColumnWidth = 90,
-					gap = 6,
+					gap = "tight",
 					children = {
 						-- fill cells occupy their derived column (A-LV1). Before the
 						-- solver fix these rendered at the right column origins with

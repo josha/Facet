@@ -345,7 +345,7 @@ return {
 						}),
 						UI.VStack({
 							id = "ActionsColumn",
-							gap = 6,
+							gap = "tight",
 							align = "stretch",
 							children = {
 								UI.Button({
