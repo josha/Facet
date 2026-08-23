@@ -46,4 +46,26 @@ function paths.escape(s: string): string
 	return (string.gsub(s, "%W", "%%%0"))
 end
 
+--[[ Strip every `/then` segment a `UI.When` branch injects into a mounted
+	path (`mount.luau`'s `branchPath = path .. "/then"`), so an author's
+	DECLARED id chain can be compared against a LIVE path without knowing at
+	what depth an ancestor `UI.When` sits (framework-gaps-phase2 gap 15: "a
+	node cannot hand back its own mounted path"). `/S/PaneZ/then/Pane` strips
+	to `/S/PaneZ/Pane` — the exact chain the author wrote.
+
+	Segment-based, not a string replace: an id is never itself compared
+	against the literal `"then"` unless it occupies a whole path segment, so
+	an author who genuinely names a node `"then"` is not silently eaten (rare
+	and not this function's problem to refuse — `mount.luau` owns id
+	legality). ]]
+function paths.stripThenSegments(path: string): string
+	local kept: { string } = {}
+	for segment in string.gmatch(path, "[^/]+") do
+		if segment ~= "then" then
+			table.insert(kept, segment)
+		end
+	end
+	return "/" .. table.concat(kept, "/")
+end
+
 return paths

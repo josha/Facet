@@ -1110,23 +1110,17 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 	do
 		local controller = (handle :: any).controller
 		if controller ~= nil and controller.stageHost ~= nil then
-			-- the Composition's When wrapper prefixes the authored path; resolve
-			-- the real mounted path by suffix through the adapter-agnostic dump
-			-- of stage candidates: try authored path first, then discovery
-			local host = controller.stageHost(PANE_PATH)
+			-- the Composition's When wrapper prefixes the DECLARED path
+			-- (`/then` spliced in wherever it sits); `mountedPathOf` is the
+			-- node reporting its own live path back (gap 15, framework-gaps-
+			-- phase2), so this no longer has to enumerate every live path and
+			-- substring-scan it for a suffix match
+			local resolvedPath = if controller.mountedPathOf ~= nil
+				then controller.mountedPathOf(PANE_PATH)
+				else PANE_PATH
+			local host = if resolvedPath ~= nil then controller.stageHost(resolvedPath) else nil
 			if host ~= nil then
-				paneStagePath = PANE_PATH
-			end
-			if host == nil and deps.adapter ~= nil and (deps.adapter :: any).paths ~= nil then
-				for _, path in (deps.adapter :: any).paths() do
-					if string.find(path, "/PaneZ/Pane", 1, true) ~= nil then
-						host = controller.stageHost(path)
-						if host ~= nil then
-							paneStagePath = path
-							break
-						end
-					end
-				end
+				paneStagePath = resolvedPath
 			end
 			stageHost = host
 		end
