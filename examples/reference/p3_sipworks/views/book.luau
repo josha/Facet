@@ -164,48 +164,31 @@ function book.recipeView(app: any, opts: any): any
 		return if blendId == nil then {} else { blendId }
 	end))
 
-	local topBar: { any } = {}
-	if options.showBack then
-		table.insert(
-			topBar,
-			UI.Button({
-				id = "Back",
-				label = app.text("nav.back"),
-				shape = "circle",
-				onActivate = function()
-					app.commands.closeRecipe()
-				end,
-				children = { UI.Text({ id = "Mark", text = "<", textSize = "strong", textAlign = "center" }) },
-			})
-		)
-	end
-	-- the top bar's title is bounded identity text: it truncates into its
-	-- disclosure rather than making the whole pane wider than the pane it is in
-	table.insert(
-		topBar,
-		UI.Text({
-			id = "Title",
-			text = title,
-			textSize = "heading",
-			lineLimit = 1,
-			disclose = true,
-			width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
-		})
-	)
-
+	-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack (a circle
+	-- Button with a literal "<" glyph child); the shared bar draws the
+	-- framework's own chevron icon instead — see nav_bar.luau's header for
+	-- why that is a deliberate, disclosed visual change, not an oversight.
+	-- The title's bounded width (identity text, truncating into its
+	-- disclosure rather than widening the pane) is this site's own dim,
+	-- passed through verbatim.
 	return UI.VStack({
 		id = options.id or "Recipe",
 		gap = "s",
 		width = dims.fill,
 		height = dims.fill,
 		children = {
-			UI.HStack({
+			app.Facet.navBar({
 				id = "TopBar",
 				padding = "m",
-				gap = "s",
-				align = "center",
-				width = dims.fill,
-				children = topBar,
+				onBack = if options.showBack
+					then function()
+						app.commands.closeRecipe()
+					end
+					else nil,
+				backLabel = app.text("nav.back"),
+				title = title,
+				titleSize = "heading",
+				titleWidth = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 			}),
 			UI.ScrollView({
 				id = "Page",

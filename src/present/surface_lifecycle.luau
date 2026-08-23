@@ -30,7 +30,9 @@
 	`tests/surface_lifecycle_seam.spec.luau` mechanises all of it against the
 	live sources.
 
-	`new(ctx)` returns the four names `presenter.new` bound before the move,
+	`new(ctx)` returns the five names `presenter.new` bound before the move
+	(four original, plus `raise` — registry item 23, W3-D, ADR-0053, added
+	2026-08-23 once this file's own row cleared the extraction-locked band),
 	under those exact names, so not one call site changed:
 	  syncFocusVisuals(path)   the one shared observer body: ring ownership,
 	                           focus-gated Adjust bindings, armed-follows-focus,
@@ -39,6 +41,9 @@
 	  dismiss(handle)          pop a surface (or a chrome layer) and retire
 	                           everything it owned
 	  back()                   dismiss the topmost modal, if there is one
+	  raise(handle)            re-band a LIVE stack member above whatever was
+	                           freshly presented over it, with no dismiss and
+	                           no re-present — see its own header below
 
 	ctx — every field is a FINAL value at construction time, which is what makes
 	this one-way (the presenter builds this module after all of them exist):
@@ -48,6 +53,8 @@
 	                           body reach `dismiss`/`syncFocusVisuals` through
 	                           the same table every other caller uses
 	  displayLayer             the cross-surface z record described above
+	  SURFACE_LAYER            the four-band floor table (`raise` needs it for
+	                           the same base-vs-modal branch `makeHandle` takes)
 	  anchoredSurfaces, helpPlate, calloutQueue
 	                           the three surface registries a refresh re-syncs
 	                           and a dismissal prunes
@@ -61,7 +68,7 @@
 	  emitFeedback             the semantic feedback seam (ADR-0022 Decision 7)
 	  refreshExclusive, syncScrim
 	                           the exclusivity flag and the synthesized scrim,
-	                           both of which a dismissal moves
+	                           both of which a dismissal (and now `raise`) moves
 
 	Strictly one-way: this never requires the presenter back. ]]
 
@@ -82,6 +89,7 @@ function surfaceLifecycle.new(ctx: any)
 	local stack = ctx.stack
 	local presenter = ctx.presenter
 	local displayLayer = ctx.displayLayer
+	local SURFACE_LAYER = ctx.SURFACE_LAYER
 	local anchoredSurfaces = ctx.anchoredSurfaces
 	local helpPlate = ctx.helpPlate
 	local calloutQueue = ctx.calloutQueue
@@ -426,6 +434,115 @@ function surfaceLifecycle.new(ctx: any)
 		end
 	end
 
+	--[[ RAISE — RE-BAND A LIVE SURFACE WITHOUT DISMISS+RE-PRESENT (registry
+		item 23; t16-triage.md:27, DIR3-review MAJOR-2; W3-D, ADR-0053). Before
+		this, the only way to move a PRESENTED surface back above something
+		freshly presented over it was to dismiss and re-present it —
+		`examples/gallery/client/showcase_chrome.luau`'s `raisePanel` did
+		exactly that as a documented workaround, at the cost of a full
+		unmount/remount: a fresh focus scope, a played exit+enter transition,
+		and a 4-frame focus-restore retry loop to put the ring back where the
+		player left it, because a dismissed-and-re-presented surface genuinely
+		does lose focus.
+
+		`raise` pays the ONE thing that operation cannot avoid — a new slot in
+		the handle's own band, the same `displayLayer` counter every `present`
+		spends (bands only grow forward; see `makeHandle`'s `displayOrder`
+		expression, which this mirrors exactly) — and skips the mount/scope/
+		transition cost: the handle's tree, root, controller and transition
+		state are untouched, so nothing remounts and no enter transition
+		replays.
+
+		FOCUS IS THE ONE THING THAT STILL MOVES, AND HERE IS WHY THAT IS
+		CORRECT RATHER THAN A REGRESSION OF THE "NOTHING MOVES" CLAIM ABOVE.
+		`graph`'s scope stack — a SEPARATE structure from `stack`/`displayOrder`
+		— decides which surface Tab/the arrows/`focusOn` actually reach, and it
+		is ordered by PRESENT time, pushed once in `makeHandle` and never
+		reordered since. A demo swap presented AFTER a raised panel pushes a
+		FRESH scope on top of the graph's stack regardless of anything this
+		function does to `displayOrder` — display z and scope order are two
+		different stacks that happened to move together as long as nothing but
+		`present`/`dismiss` ever touched either one. So a `raise` that moved
+		only the paint would leave a player's Tab/arrows on the surface
+		UNDERNEATH the one they can now see on top, which is worse than the
+		unraised state (at least a demo swap under a CLOSED panel never
+		disagreed about which surface owned input). `raise` therefore re-tops
+		the handle's OWN scope too — `graph.removeScope` then a fresh
+		`graph.pushScope` — using `focusDerivation`, the exact same content
+		`refresh`'s `syncFocusMap` keeps current (so nothing here re-walks the
+		tree; a cached derivation is reused verbatim when the structure has not
+		changed), and the two construction-time fields `makeHandle` now stores
+		on the handle for exactly this (`focusChrome`, `traversalWrap`).
+		THE COMMON CASE IS A TRUE NO-OP FOR FOCUS. `pushScope` defaults a fresh
+		scope to its own first eligible node — right for a genuinely new
+		surface, wrong for a raise where NOTHING stole the scope (nothing else
+		was ever presented over it), which would otherwise reset the ring to
+		row one for no reason on every call. So the path focused right before
+		the reorder is captured and handed to `graph.focusOn` right after: a
+		member of the newly-active scope (the common case) lands back on it
+		exactly, silently; a path that belongs to whatever DID steal the scope
+		(the showcase's demo-swap case) is not a member and the call is a
+		harmless no-op, leaving the fresh entry point `pushScope` already
+		chose. `raise` has no memory of "where the player was BEFORE it was
+		stolen" and must not invent one — a caller that tracked it (as
+		`raisePanel` does) restores that exact row with the SAME public,
+		documented `presenter.focus.focusOn(path)` any caller already has,
+		immediately afterward, which now succeeds because this function is
+		what makes the handle's scope active again.
+
+		REFUSE, DON'T GUESS: a handle that is not currently on `stack` (never
+		presented through this presenter, or already dismissed) has nothing to
+		raise — silently, matching `dismiss`'s own shape for the same case,
+		because a raise a caller fires defensively must not error on a surface
+		that already closed.
+
+		`syncScrim` runs afterward so a surface that owns the modal/engaged
+		scrim or a transient popup catcher takes them along —
+		`catchers.luau`'s `syncScrim`/`syncPopupCatcher` both now re-home their
+		catcher's `displayOrder` even when their OWNER has not changed, exactly
+		this case (a raise never swaps `topEx`/`currentPopupOwner`, only the
+		number underneath it). ]]
+	local function raise(handle: any)
+		if type(handle) ~= "table" or table.find(stack, handle) == nil then
+			return
+		end
+		displayLayer.value += 100
+		handle.displayOrder = (if handle.kind == "modal" then SURFACE_LAYER.modal else SURFACE_LAYER.base)
+			+ displayLayer.value
+		if handle.controller.setDisplayOrder ~= nil then
+			handle.controller.setDisplayOrder(handle.displayOrder)
+		end
+		local scopeName = handle.blueprint.id or handle.kind
+		-- captured BEFORE the reorder: if focus was ALREADY inside this handle
+		-- (the common case — raising a surface nothing ever stole from), it
+		-- belongs back exactly where it was, not reset to the scope's own
+		-- first eligible node just because re-topping happens to reuse the
+		-- push machinery that normally seeds a BRAND NEW scope
+		local currentFocus = graph.focused:get()
+		local derived = focusDerivation(handle)
+		graph.removeScope(scopeName)
+		graph.pushScope({
+			name = scopeName,
+			trap = handle.kind == "modal",
+			chrome = handle.focusChrome,
+			groups = if derived.grouped then derived.groups else nil,
+			order = if derived.grouped then nil else derived.order,
+			traversalWrap = handle.traversalWrap,
+			traversalRank = derived.rank,
+		})
+		-- `pushScope` just defaulted focus to this scope's own first eligible
+		-- node. `focusOn` asks the identical "is this path a member of the
+		-- now-active scope" question any caller restoring a DIFFERENT
+		-- remembered path already has to ask (see `raisePanel` in
+		-- showcase_chrome.luau) — reused here rather than a second copy of
+		-- that membership check. A no-op, harmlessly, when it is not (focus
+		-- was elsewhere, or nothing was ever focused).
+		if type(currentFocus) == "string" then
+			graph.focusOn(currentFocus)
+		end
+		syncScrim()
+	end
+
 	local refreshBody: () -> ()
 	local function refresh()
 		profile.span("present", refreshBody)
@@ -502,6 +619,7 @@ function surfaceLifecycle.new(ctx: any)
 		refresh = refresh,
 		dismiss = dismiss,
 		back = back,
+		raise = raise,
 	}
 end
 

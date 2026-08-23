@@ -379,6 +379,22 @@ function catchers.new(ctx: any)
 		end
 	end
 
+	-- THE MINIMUM OVER THE LIVE STACK, factored out (registry item 23; W3-D,
+	-- ADR-0053) so `presenter.raise` re-banding a stack member IN PLACE gets
+	-- the identical floor a fresh mount would have computed — see the
+	-- invariant comment inside `mountPopupCatcher` below, unchanged, for why
+	-- this is "below everything live" and never just `owner.displayOrder - 50`.
+	local function catcherFloor(owner: any): number
+		local lowest = owner.displayOrder
+		for _, h in stack do
+			local order = h.displayOrder
+			if type(order) == "number" and order < lowest then
+				lowest = order
+			end
+		end
+		return lowest - 50
+	end
+
 	local function mountPopupCatcher(owner: any, contribPath: string, dismiss: () -> (), consume: boolean?): any
 		--[[ ALWAYS "plain" — this catcher never dims; it exists only to swallow one
 			outside tap. Until 2026-08-13 it declared no surface at all and built its
@@ -427,14 +443,7 @@ function catchers.new(ctx: any)
 				stays true when the owner is not the bottom: a catcher is the fallback
 				for a tap that hit NOTHING, so it belongs under everything that could
 				have been hit. ]]
-			local lowest = owner.displayOrder
-			for _, h in stack do
-				local order = h.displayOrder
-				if type(order) == "number" and order < lowest then
-					lowest = order
-				end
-			end
-			controller.setDisplayOrder(lowest - 50)
+			controller.setDisplayOrder(catcherFloor(owner))
 		end
 		return {
 			scope = sc,
@@ -459,6 +468,15 @@ function catchers.new(ctx: any)
 			return
 		end
 		if popupCatcher ~= nil and popupCatcher.owner == owner and popupCatcher.contribPath == c.path then
+			-- SAME OWNER, POSSIBLY A NEW `displayOrder` — `presenter.raise`
+			-- (registry item 23) re-bands a live stack member IN PLACE, with no
+			-- dismiss+re-present to drive a fresh mount through, so nothing else
+			-- reaches this catcher to move it. A reposition is one property
+			-- write, cheap enough to pay on every sync rather than tracking a
+			-- fourth field just to detect the case.
+			if popupCatcher.controller.setDisplayOrder ~= nil then
+				popupCatcher.controller.setDisplayOrder(catcherFloor(owner))
+			end
 			return
 		end
 		disposePopupCatcher()
@@ -478,6 +496,12 @@ function catchers.new(ctx: any)
 		end
 		local mode = topEx.scrimMode
 		if scrim ~= nil and scrim.owner == topEx and scrim.mode == mode then
+			-- SAME OWNER, POSSIBLY A NEW `displayOrder` (registry item 23:
+			-- `presenter.raise` re-bands a live surface in place — see the
+			-- matching comment on `syncPopupCatcher` above, which this mirrors)
+			if scrim.controller.setDisplayOrder ~= nil then
+				scrim.controller.setDisplayOrder(topEx.displayOrder - 50)
+			end
 			syncPopupCatcher() -- an exclusive surface suppresses the popup catcher
 			return
 		end

@@ -400,24 +400,13 @@ end
 function detail.body(app: any, opts: any): any
 	local UI = app.UI
 	local options = opts or {}
-	local topBar: { any } = {}
-	if options.showBack then
-		table.insert(
-			topBar,
-			UI.Button({
-				id = "Back",
-				label = app.text("nav.back"),
-				shape = "circle",
-				onActivate = function()
-					app.commands.closeDetail()
-				end,
-				children = { UI.Text({ id = "Mark", text = "<", textSize = "strong", textAlign = "center" }) },
-			})
-		)
-	end
-	table.insert(topBar, UI.Spacer({ id = "Gap", width = dims.fill }))
+	-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack (a circle
+	-- Button with a literal "<" glyph child); the shared bar draws the
+	-- framework's own chevron icon instead — see nav_bar.luau's header for
+	-- why that is a deliberate, disclosed visual change, not an oversight
+	local topBarTrailing: { any } = {}
 	if app.entry == "full" then
-		table.insert(topBar, detail.favoriteSlot(app))
+		table.insert(topBarTrailing, detail.favoriteSlot(app))
 	end
 
 	return UI.VStack({
@@ -426,7 +415,17 @@ function detail.body(app: any, opts: any): any
 		width = dims.fill,
 		height = dims.fill,
 		children = {
-			UI.HStack({ id = "TopBar", padding = "m", align = "center", width = dims.fill, children = topBar }),
+			app.Facet.navBar({
+				id = "TopBar",
+				padding = "m",
+				onBack = if options.showBack
+					then function()
+						app.commands.closeDetail()
+					end
+					else nil,
+				backLabel = app.text("nav.back"),
+				trailing = topBarTrailing,
+			}),
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",

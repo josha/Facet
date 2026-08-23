@@ -150,7 +150,9 @@ describe("the surface-lifecycle seam: HOSTED == DECLARED == READ", function()
 		expect(#missingFrom(hosted, declaredOf(lifecycle))).toBe(0)
 		-- ...and the set is not empty, which is the trap a set comparison invites:
 		-- two empty sets are equal
-		expect(#sorted(hosted)).toBe(15)
+		-- 16, not 15: `SURFACE_LAYER` joined 2026-08-23 for `raise` (registry
+		-- item 23; W3-D, ADR-0053)
+		expect(#sorted(hosted)).toBe(16)
 	end)
 
 	it("every field the module unpacks is one the presenter hands over", function()
@@ -282,17 +284,18 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		local bound = boundOf(presenter)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
-		expect(sorted(exported)).toEqual({ "back", "dismiss", "refresh", "syncFocusVisuals" })
+		-- "raise" joined 2026-08-23 (registry item 23; W3-D, ADR-0053)
+		expect(sorted(exported)).toEqual({ "back", "dismiss", "raise", "refresh", "syncFocusVisuals" })
 	end)
 
-	it("three of the four are bound straight onto the presenter under their original names", function()
+	it("four of the five are bound straight onto the presenter under their original names", function()
 		--[[ THE CLAIM THE MOVE RESTS ON: not one call site changed. `self.dismiss`,
-			`self.back` and `self.refresh` are public verbs with consumers in RR and
-			in every example, so the binding form is asserted literally rather than
-			inferred from a set. `syncFocusVisuals` is the fourth and is bound to a
-			LOCAL, because the presenter wraps it (`self.syncFocusVisuals()` reads
-			the graph's current focus first). ]]
-		for _, name in { "dismiss", "back", "refresh" } do
+			`self.back`, `self.raise` and `self.refresh` are public verbs with
+			consumers in RR and in every example, so the binding form is asserted
+			literally rather than inferred from a set. `syncFocusVisuals` is the
+			fifth and is bound to a LOCAL, because the presenter wraps it
+			(`self.syncFocusVisuals()` reads the graph's current focus first). ]]
+		for _, name in { "dismiss", "back", "refresh", "raise" } do
 			expect(string.find(presenter, `\n\tself.{name} = surfaceLifecycle.{name}\n`) ~= nil).toBe(true)
 			-- ...and the presenter no longer DECLARES it, which is the half a set
 			-- comparison cannot see: a leftover `function self.dismiss(` further

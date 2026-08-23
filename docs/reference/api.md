@@ -2951,6 +2951,20 @@ Methods:
 - `presenter.dismiss(handle)` — removes THAT handle's screen, focus scope
   (wherever it sits in the stack), input context, and mounted tree.
 - `presenter.back() -> boolean` — dismisses the top modal.
+- `presenter.raise(handle)` — re-bands a LIVE presented surface (a screen or a
+  modal, whatever is still on `presenter`'s stack) above whatever was freshly
+  presented over it, **without dismiss+re-present**: the handle's tree, scope,
+  focus scope and transition state are untouched, so nothing remounts, no enter
+  transition replays, and focus never moves. It costs exactly the SAME thing a
+  fresh `present` costs — one more slot in the handle's own band (`base` or
+  `modal`) — because bands only grow forward; what it removes is the mount/
+  scope/transition/focus cost of the dismiss+re-present a caller would
+  otherwise need to fake this with. **Refuses silently, like `dismiss`,** for a
+  handle that is not currently presented (`nil`, or already dismissed) — a
+  defensive caller must not be punished for raising a surface that already
+  closed. See `examples/gallery/client/showcase_chrome.luau`'s `raisePanel`
+  for the shape a real consumer takes (framework-gaps-phase2 item 23; W3-D,
+  ADR-0053).
 - `presenter.refresh()` — re-renders all presented screens, **re-discovers each
   surface's input contributions from its live mounted tree**, and re-derives
   focus rings from those trees. The contribution walk matters as much as the
@@ -3017,6 +3031,21 @@ Methods:
   BANDS: `base` < `toast` < `dragProxy` < `modal`. Bands rather than one running
   counter, so a toast sits above every base screen and below every modal
   whatever order they were presented in; within a band, creation order decides.
+- `presenter.APP_CHROME_PRIORITY` — the reserved **input-priority** band (not a
+  display-order band — see `SURFACE_LAYER` above for that axis) for
+  session-lifetime, app-level global chrome: a settings toggle, a demo picker,
+  anything a game binds ONCE at boot and means to keep winning input
+  arbitration against any live modal/engaged surface for the rest of the
+  session. Sits strictly above `presenter`'s own ENGAGED-EXCLUSIVE band and
+  above every live modal depth this framework's own suite exercises (twenty
+  simultaneously-open nested modals of headroom — the same "far past anything
+  real" doctrine `displayLayer`'s cross-surface z counter already claims). Use
+  it as `opts.actionSystem.createContext({ priority = presenter.APP_CHROME_PRIORITY, sink = true })`
+  for a context that must never contend with a modal's own priority
+  (`topModalPriority() + 500` per depth) the way a hand-picked literal would.
+  See `examples/gallery/client/showcase_chrome.luau`'s toggle context for the
+  real consumer this replaced a hand-picked `3500` in (framework-gaps-phase2
+  item 24; W3-D, ADR-0053).
 - `presenter.exclusiveSurfaceActive` — a `Readable<boolean>`, true while any
   presented surface is EXCLUSIVE (a modal, or an engaged-from-passive HUD — both
   sink, becoming first responder over gameplay). A client adapter observes this
@@ -3126,6 +3155,43 @@ apply.
 > | `responder = "passive"` | on first tap on the UI | while engaged | on a tap outside, Cancel, or `resign()` |
 > | `presentModal()` | while open | yes | on dismiss |
 
+### `Facet.navBar`
+
+`Facet.navBar(spec) -> Blueprint` — the presenter-side surface-chrome seam
+(framework-gaps-phase2 item 13; W3-D, ADR-0053): a `UI.HStack` factory for the
+back+title+trailing-actions bar a presented or compact-open detail surface
+draws at its own top. **Pure**: no core, no scope, no presenter reference of
+its own, so it composes with whatever placement the caller already decided —
+pinned above a `ScrollView`, inside a compact-only `UI.When`, or scrolling
+with the body — without touching the surrounding structure.
+
+```lua
+Facet.navBar({
+  id = "TopBar",              -- default "NavBar"
+  onBack = function() presenter.dismiss(handle) end, -- nil = no Back button
+  backLabel = "Back",         -- required alongside onBack (Button a11y)
+  title = titleReadable,      -- string | Readable<string>?; nil = no Title node
+  titleSize = "title",        -- default "title"
+  titleWidth = someDim,       -- nil leaves Title unbounded/hugging
+  trailing = { favoriteButton }, -- placed after the spacer, in order; nil/{} = none
+  gap = "s",                  -- default "s"
+  padding = "m",               -- default none
+})
+```
+
+**`onBack` is refuse-don't-guess, not auto-wired.** This construct never
+reaches into a presenter or a handle to decide "is there something to go back
+to" — the caller already knows (a modal-stack wrapper, an app router, a
+compact/regular split), and hands over exactly the verb it wants or `nil` for
+none. A `Back` button always draws the framework's own `chevron.leading`
+icon via `compactLabel`, never a hand-typed glyph.
+
+The four hand-built back+title bars this replaced are named, with file:line
+pointers, in `task-g6-report.md`'s item-13 assessment; two of them drew a
+circle-shaped Button with a literal `"<"` Text child, and migrating them to
+`Facet.navBar` is a deliberate, disclosed visual change (the framework's own
+chevron icon replaces the hand-typed glyph) — see `task-w3d-report.md`.
+
 ### The standing rule: a transient opens OVER the live screen, and the live screen stays visible
 
 A menu, a popup, a picker panel, a callout, an expand plate — the whole
@@ -3136,18 +3202,25 @@ synthesizes one (`tests/transient_over_live.spec.luau`); an app that presents it
 own transients owes the same rule, and two mechanics decide whether it keeps it:
 
 - **Cross-surface z is PRESENT ORDER within a band.** `displayLayer` goes up 100
-  per present and back to zero only when the stack EMPTIES. So a base screen that
-  is dismissed and re-presented — a screen swap, a re-mount — climbs **above** a
-  transient that was presented before it, and the player ends up reading a panel
-  that is now underneath the screen they opened it over. There is no
-  `presenter.raise(handle)` today: an app whose live screen re-presents under a
-  live transient must re-present the transient afterwards, and can tell whether it
-  needs to by comparing the two handles' `.displayOrder`.
-- **Every present spends a slot.** A re-present to restore ordering therefore
-  costs a second slot per swap. `SURFACE_LAYER.toast` is +10000 above the base
-  band, so a long-lived session that swaps screens under an open transient reaches
-  it in roughly half as many swaps as one that does not. Prefer closing the
-  transient to re-presenting it in a loop.
+  per present (or `raise`) and back to zero only when the stack EMPTIES. So a
+  base screen that is dismissed and re-presented — a screen swap, a re-mount —
+  climbs **above** a transient that was presented before it, and the player
+  ends up reading a panel that is now underneath the screen they opened it
+  over. An app whose live screen re-presents under a live transient calls
+  **`presenter.raise(transientHandle)`** afterwards to put it back on top —
+  see `presenter.raise` above (framework-gaps-phase2 item 23; W3-D, ADR-0053)
+  — and can tell whether it needs to by comparing the two handles'
+  `.displayOrder`. `raise` never dismisses or remounts the transient, so its
+  scroll position, focus ring and any live animation survive the re-band
+  untouched; before this landed, the only available fix was a full
+  dismiss+re-present, which lost all three.
+- **Every present (or raise) spends a slot.** Restoring ordering this way
+  therefore still costs a second slot per swap — `raise` removes the
+  mount/scope/transition/focus COST of a re-present, not the band-slot cost,
+  which no re-banding scheme in this framework can avoid paying. `SURFACE_LAYER
+  .toast` is +10000 above the base band, so a long-lived session that swaps
+  screens under an open transient reaches it in roughly half as many swaps as
+  one that does not. Prefer closing the transient to raising it in a loop.
 
 ### `handle.focusOrder()`
 

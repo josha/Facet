@@ -257,3 +257,78 @@ describe("presenter: presentCritical carries the caller's opts to the fallback (
 		expect((handle.blueprint :: any).fallbackScreen).toBeNil()
 	end)
 end)
+
+--[[ `presenter.raise` (registry item 23; W3-D, ADR-0053) — re-band a LIVE
+	surface without dismiss+re-present. `examples/gallery/client/
+	showcase_chrome.luau`'s `raisePanel` is the real, migrated consumer
+	(`tests/gallery_chrome.spec.luau` describe (15) exercises it end-to-end,
+	through the real InputAction/demo-picker path); this block is the direct,
+	presenter-level unit coverage the seam itself needs. ]]
+describe("presenter: raise re-bands a live surface without dismiss+re-present", function()
+	it("bumps a base screen into a fresh band slot, in place", function()
+		local _, _, adapter, _, pres = makeWorld()
+		local handle = pres.present(settingsScreen())
+		local before = adapter.rootDisplayOrder("Settings")
+		pres.raise(handle)
+		local after = adapter.rootDisplayOrder("Settings")
+		expect(`raised: {after} (was {before})`).toBe(`raised: {before + 100} (was {before})`)
+		expect(handle.displayOrder).toBe(after)
+	end)
+
+	it("raises within the MODAL band, never the base band", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(settingsScreen())
+		local modal = pres.presentModal(confirmModal())
+		pres.raise(modal)
+		-- a base-band mistake would land far below this floor (~10000+N*100
+		-- against a 40000 floor), so this is the branch assertion, not just "it
+		-- went up"
+		expect(modal.displayOrder >= pres.SURFACE_LAYER.modal).toBe(true)
+	end)
+
+	it("re-homes an owned scrim's displayOrder along with the surface it belongs to", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(settingsScreen())
+		local modal = pres.presentModal(confirmModal())
+		local scrimBefore = adapter.rootDisplayOrder("__scrim__")
+		pres.raise(modal)
+		local scrimAfter = adapter.rootDisplayOrder("__scrim__")
+		expect(`scrim followed: {scrimAfter} = modal - 50 ({modal.displayOrder - 50})`).toBe(
+			`scrim followed: {modal.displayOrder - 50} = modal - 50 ({modal.displayOrder - 50})`
+		)
+		expect(scrimAfter > scrimBefore).toBe(true)
+	end)
+
+	it("REFUSES a handle already dismissed — silently, matching `dismiss`'s own shape", function()
+		local _, _, _, _, pres = makeWorld()
+		local handle = pres.present(settingsScreen())
+		pres.dismiss(handle)
+		local before = handle.displayOrder
+		pres.raise(handle)
+		expect(handle.displayOrder).toBe(before)
+	end)
+
+	it("REFUSES nil without erroring — a defensive caller must not be punished", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(settingsScreen())
+		pres.raise(nil :: any)
+	end)
+
+	it("never remounts: zero instance churn and focus never moves", function()
+		local core, _, adapter, system, pres = makeWorld()
+		local handle = pres.present(settingsScreen())
+		system.deviceKey("Down", true)
+		system.deviceKey("Down", false)
+		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
+		local baseline = core:counters()
+		local liveBaseline = adapter.liveCount()
+		pres.raise(handle)
+		local after = core:counters()
+		for k, v in baseline :: any do
+			expect((after :: any)[k]).toBe(v)
+		end
+		expect(adapter.liveCount()).toBe(liveBaseline)
+		-- the ring never moved, because nothing capable of moving it ran
+		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
+	end)
+end)

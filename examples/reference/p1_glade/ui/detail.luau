@@ -276,38 +276,32 @@ function detail.body(ctx: any, spec: BodySpec): any
 		return ctx.Lnow("glade." .. gladeId)
 	end))
 
-	local titleRow: { any } = {}
-	if spec.compact then
-		table.insert(
-			titleRow,
+	-- the shared back+title+trailing bar (registry item 13; W3-D, ADR-0053):
+	-- `onBack` is nil outside compact, which is this site's OWN "nothing to go
+	-- back to" decision (the detail pane is beside the overview there, not a
+	-- pushed surface) — `Facet.navBar` never invents a verb it was not given
+	local titleBar = ctx.Facet.navBar({
+		onBack = if spec.compact
+			then function()
+				ctx.nav.closeDetail()
+			end
+			else nil,
+		backLabel = ctx.L("detail.back"),
+		title = name,
+		trailing = {
 			UI.Button({
-				id = "Back",
-				label = ctx.L("detail.back"),
-				compactLabel = { icon = "chevron.leading" },
+				id = "Fav",
+				label = ctx.L("overview.favorite"),
+				compactLabel = "★",
+				selected = ctx.state.favourites[gladeId],
 				width = { type = "fixed", px = "targetSizes.minimum" },
 				height = { type = "fixed", px = "targetSizes.minimum" },
 				onActivate = function()
-					ctx.nav.closeDetail()
+					ctx.nav.toggleFavourite(gladeId)
 				end,
-			})
-		)
-	end
-	table.insert(titleRow, UI.Text({ id = "Title", text = name, textSize = "title", lineLimit = 1, disclose = true }))
-	table.insert(titleRow, UI.Spacer({ id = "Push" }))
-	table.insert(
-		titleRow,
-		UI.Button({
-			id = "Fav",
-			label = ctx.L("overview.favorite"),
-			compactLabel = "★",
-			selected = ctx.state.favourites[gladeId],
-			width = { type = "fixed", px = "targetSizes.minimum" },
-			height = { type = "fixed", px = "targetSizes.minimum" },
-			onActivate = function()
-				ctx.nav.toggleFavourite(gladeId)
-			end,
-		})
-	)
+			}),
+		},
+	})
 
 	return UI.ScrollView({
 		id = spec.id,
@@ -317,13 +311,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 		width = UI.fill(),
 		height = UI.fill(),
 		children = {
-			UI.HStack({
-				id = "TitleRow",
-				gap = "s",
-				align = "center",
-				width = UI.fill(),
-				children = titleRow,
-			}),
+			titleBar,
 			sceneLib.glade(ctx, {
 				id = "Hero",
 				glade = gladeId,

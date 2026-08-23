@@ -318,29 +318,16 @@ function shell.new(app: any): any
 				id = "HeaderWhen",
 				condition = headerVisible,
 				thenView = function()
-					return UI.HStack({
+					-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack; the
+					-- shared bar takes the same Back verb and title
+					return app.Facet.navBar({
 						id = "Header",
-						gap = "s",
-						align = "center",
 						padding = "s",
-						width = UI.fill(),
-						children = {
-							UI.Button({
-								id = "Back",
-								label = S.t("nav.back"),
-								compactLabel = { icon = "chevron.leading" },
-								onActivate = function()
-									app.actions.back()
-								end,
-							}),
-							UI.Text({
-								id = "Title",
-								text = headerTitle,
-								textSize = "title",
-								lineLimit = 1,
-								disclose = true,
-							}),
-						},
+						onBack = function()
+							app.actions.back()
+						end,
+						backLabel = S.t("nav.back"),
+						title = headerTitle,
 					})
 				end,
 			}),

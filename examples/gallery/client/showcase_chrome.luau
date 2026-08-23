@@ -108,9 +108,13 @@
 	    buttons and are exactly the trade the gamepad-contention lesson refuses to
 	    make.
 
-	The context sits at priority 3500 — above the engaged band (3000) — so the
-	toggle key can still be pressed while the panel it opened is engaged and
-	sinking.
+	The context sits at `presenter.APP_CHROME_PRIORITY` — the framework's own
+	app-level global chrome band (registry item 24; W3-D, ADR-0053), strictly
+	above the engaged band (3000) and above every live modal depth this
+	codebase exercises — so the toggle key can still be pressed while the
+	panel it opened is engaged and sinking. See "THE TIE, CLOSED" below for why
+	this replaced a hand-picked literal (`3500`) that used to tie a live modal
+	exactly.
 
 	=== 5. THE AUDIT, MEASURED — AND WHAT IT COST TWICE ===
 
@@ -131,8 +135,10 @@
 	    and `:884-899` binds it on a **sinking** context at `TRIGGER_KEY_PRIORITY`
 	    1200 for every `Menu` control that has an action system. The catalogue
 	    ships the `menu` demo, whose whole subject is "one list of verbs, five ways
-	    in". CONTENDED — and taken by a context at 3500, the chrome would have
-	    silently deleted the pad route that demo exists to show.
+	    in". CONTENDED — and taken by a context at the chrome's OLD literal
+	    priority (3500, since replaced by `presenter.APP_CHROME_PRIORITY` —
+	    see below), the chrome would have silently deleted the pad route that
+	    demo exists to show.
 
 	MEASURED, both halves. On a surface declaring `onAdjust`, ONE `ButtonR1` press
 	fired BOTH — the value under the ring moved AND the panel opened over it (the
@@ -170,17 +176,23 @@
 	gamepad toggle key, and `TOGGLE_GAMEPAD` is gone rather than left naming a
 	binding that no longer exists.
 
-	THE ONE REMAINING TIE. `presenter.luau`'s first modal sits at
-	`topModalPriority() + 500` = 3500 — the same number as this context — and the
-	engine's own rule is "contexts with the same priority will receive the input"
-	(artifacts/release-candidate-review/input/ias-inventory.md §A.2). A modal demo
-	with a focused adjust target would therefore still double-fire. NOT fixed here,
-	and the option that was weighed and declined: `TOGGLE_PRIORITY = 3501` is the
-	example's own constant and would break the first-modal tie in the chrome's
-	favour without touching a framework band — but it leaves the SECOND modal
-	(4000) winning, so the rule would be "the chrome wins one modal depth and loses
-	the next", which is a worse thing to have to explain than the tie. The honest
-	fix is a band with room in it, and that is a framework re-banding. ]]
+	THE TIE, CLOSED (W3-D, ADR-0053, 2026-08-23). `presenter.luau`'s first modal
+	used to sit at `topModalPriority() + 500` = 3500 — the same number this
+	context hand-picked — and the engine's own rule is "contexts with the same
+	priority will receive the input" (artifacts/release-candidate-review/input/
+	ias-inventory.md §A.2), so a modal demo with a focused adjust target still
+	double-fired. `task-dir4-report.md` reported it CONTESTED and
+	`t16-triage.md` recorded the director's ruling: ship the tie as-is, "band
+	re-spacing rides the extraction charter." The option weighed and declined
+	at the time — an example-local `TOGGLE_PRIORITY = 3501` — broke the
+	first-modal tie in the chrome's favour without touching a framework band,
+	but left the SECOND modal (4000) winning, so the rule would have been "the
+	chrome wins one modal depth and loses the next": a worse thing to explain
+	than the tie it replaced. The framework re-banding is `presenter
+	.APP_CHROME_PRIORITY` (registry item 24) — a band with real room above it,
+	reserved for exactly this: session-lifetime, app-level global chrome bound
+	once and meant to win against any live modal depth this codebase
+	exercises, not a number this example had to guess and re-guess. ]]
 
 local showcase_chrome = {}
 
@@ -255,9 +267,6 @@ function showcase_chrome.overscanEdge(distanceProfile: any, insets: any, edge: s
 	local v = if type(insets) == "table" then (insets :: any)[edge] else nil
 	return if type(v) == "number" and v == v and v > 0 then v else 0
 end
--- strictly above the engaged band (`presenter.luau` ENGAGED_BASE_PRIORITY =
--- 3000) so an engaged panel can never sink its own way out
-showcase_chrome.TOGGLE_PRIORITY = 3500
 
 -- nextKind(current) -> the other section. The couch path: with one toggle key
 -- and two targets, holding the key's second press for "close" and giving the
@@ -328,7 +337,12 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- on the rest of `mount` having run.
 	local toggleContext = opts.actionSystem.createContext({
 		name = "ShowcaseChromeToggle",
-		priority = showcase_chrome.TOGGLE_PRIORITY,
+		-- registry item 24 (W3-D, ADR-0053): was `showcase_chrome.TOGGLE_PRIORITY
+		-- = 3500`, a literal that tied `presenter.luau`'s own first-modal number
+		-- exactly — see "THE TIE, CLOSED" in this module's header. Session-lifetime
+		-- app chrome now reads the framework's own reserved band instead of
+		-- guessing one.
+		priority = presenter.APP_CHROME_PRIORITY,
 		-- SINKING (§5, ruling R19). `ButtonL1`/`ButtonR1` are the framework's own
 		-- Adjust step keys, so a press with an adjustable focused used to fire this
 		-- AND move the value under the ring. One press must resolve to one context:
@@ -702,32 +716,22 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- chips the last time this was routed by path matching.
 	}
 
-	--[[ WHERE THE RING GOES BACK, after a raise re-presents the panel under a
-		player who was reading it. Set by `raisePanel` and consumed by the first
-		`onGeometry` the fresh panel reports.
-
-		WHY NOT JUST `focusOn` AFTER `present`. The panel's rows live behind
-		`UI.When`s, and a `When` materializes on the next SOLVE — so a path captured
-		before the dismiss does not exist yet on the line after the present, and the
-		call is a silent no-op. `onGeometry` is the presenter's own "this surface has
-		been laid out" seam (the chip strip already reserves its strip through it),
-		which is the first moment the question can be answered. If the row is gone
-		(the section changed under it), the fresh panel's own `initialFocus = "first"`
-		is the right answer and stands. ]]
-	local pendingFocus: string? = nil
-	--[[ ...AND WHERE IT WAS, WHICH HAS TO BE REMEMBERED RATHER THAN READ.
-
-		Measured: by the time a raise runs, the live focus is already the NEW demo's
-		first stop — `show()` dismisses the old demo, presents the new one (which
-		pushes a scope and takes entry focus) and only THEN calls its raise
-		listeners. Reading `focused` inside `raisePanel` therefore reads the demo,
-		never the row the player was on.
-
-		So the panel's own ring position is tracked while it is up. Cleared when the
-		panel closes, so a fresh open never inherits a stale row. ]]
+	--[[ THE RING'S LAST KNOWN ROW INSIDE THE PANEL (registry item 23; W3-D,
+		ADR-0053), so a raise can hand it straight back to `presenter.focus
+		.focusOn`. `presenter.raise` re-tops the panel's OWN focus scope — the
+		fix for the OTHER half of this problem, that a freshly re-presented
+		demo's scope steals the graph's "active scope" out from under a raised
+		surface even though the surface's PAINT is back on top — but it has no
+		memory of "where the player was" and must not invent one (its own
+		header explains why). So this is still tracked, the same way the
+		OLD dismiss+re-present mitigation had to. WHAT IS GONE is the RETRY:
+		that mitigation needed `pendingFocus`/`pendingFocusTries` and an
+		`onGeometry` callback because a fresh remount's rects were not known
+		yet and `initialFocus = "first"` would land a moment later and
+		overwrite a same-frame `focusOn`. `raise` never remounts, so the
+		panel's rects are already known the instant it returns and a single
+		`focusOn` call below lands synchronously — no race to wait out. ]]
 	local lastPanelFocus: string? = nil
-	-- how many laid-out frames the restore may spend before it stops trying
-	local pendingFocusTries = 0
 	--[[ A PREFIX TEST NEEDS ITS SEPARATOR (DIR4 review MINOR-7). Without it
 		`/ShowcasePanelX/Row` reads as "mine", which is wrong in the one function
 		whose whole job is deciding ownership — the spec file's own `isPrefix` helper
@@ -757,10 +761,9 @@ function showcase_chrome.mount(opts: MountOpts): any
 		presenter.dismiss(panelHandle)
 		panelHandle = nil
 		closing = false
-		-- a fresh open starts at the panel's own first stop, never on a row the
-		-- player was reading last time
+		-- a fresh open starts at the panel's own first stop, never on a row
+		-- the player was reading last time
 		lastPanelFocus = nil
-		pendingFocus = nil
 		open:set(false)
 	end
 
@@ -781,28 +784,6 @@ function showcase_chrome.mount(opts: MountOpts): any
 			-- because the player just asked for it. `"first"` is what makes a
 			-- keyboard or a pad land somewhere on the frame it opens.
 			initialFocus = "first",
-			onGeometry = function(rectOf: (string) -> any)
-				local want = pendingFocus
-				if want == nil then
-					return
-				end
-				--[[ A BUDGET, BECAUSE `initialFocus` LANDS AFTER THIS. Measured: the
-					first geometry callback arrives before the presenter has placed the
-					fresh surface's entry focus, so a single `focusOn` here is overwritten
-					by "first" a moment later. The restore therefore re-asserts until the
-					ring IS where the player left it, and gives up after a few frames so a
-					row that will never come back cannot fight the player forever. ]]
-				pendingFocusTries -= 1
-				if pendingFocusTries <= 0 or type(rectOf(want)) ~= "table" then
-					pendingFocus = nil
-					return
-				end
-				if presenter.focus.focused:get() == want then
-					pendingFocus = nil
-					return
-				end
-				presenter.focus.focusOn(want)
-			end,
 		})
 		-- ...and this is the call the whole item turns on. Nothing in `src/` ever
 		-- makes it outside the tap handler, so without it Tab and Space are never
@@ -821,7 +802,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 	end
 
 	--[[ AN OPEN PANEL GOES BACK ON TOP WHEN THE DEMO UNDER IT CHANGES (director
-		round 3, 2026-08-21).
+		round 3, 2026-08-21; MIGRATED TO `presenter.raise` 2026-08-23 — registry
+		item 23, W3-D, ADR-0053).
 
 		THE RULE IT SERVES: a transient opened from a control appears OVER the live
 		screen, and the live screen stays visible behind it. THE MECHANISM IT
@@ -832,77 +814,71 @@ function showcase_chrome.mount(opts: MountOpts): any
 		put the demo at displayOrder 11000 against the panel's 10400, i.e. the list
 		the player is reading ends up underneath the screen they are reading it over.
 
-		RE-PRESENT RATHER THAN RAISE, which is the same trade the demo picker's own
-		overlay already makes ("rebuilding it is cheaper than teaching the presenter
-		a raise operation for one example's benefit"). `closing` guards the responder
-		watch so this dismissal is bookkeeping rather than the player leaving.
+		RAISE, NOT RE-PRESENT. Until this landed, the fix here was dismiss+re-present
+		— "rebuilding it is cheaper than teaching the presenter a raise operation for
+		one example's benefit" — which is exactly the workaround `presenter.raise`
+		replaces: `raisePanel` below hands `panelHandle` straight to it, so the SAME
+		handle takes a new band slot in place. Nothing unmounts and nothing replays a
+		transition — but focus still needs a hand back (see the block above
+		`closePanel`): `presenter.raise` re-tops the panel's paint AND its focus scope,
+		but a freshly re-presented demo's own scope still steals the graph's "active"
+		slot the instant IT is presented, before this function ever runs, so the ring
+		lands on the demo's own entry point until `focusOn` below puts it back. What
+		IS gone is the 4-frame retry loop (review MINOR-4): `raise` never remounts, so
+		the panel's rects are already known and `focusOn` lands synchronously, first
+		try, every time.
 
-		=== AND IT COSTS A LAYER, WHICH IS THE HAZARD IT COMPENSATES FOR ===
+		=== THE LAYER COST IS UNCHANGED, WHICH IS WORTH SAYING PRECISELY ===
 
-		`presenter.luau`'s `displayLayer` counter goes UP 100 per present and back to
-		zero only when the stack EMPTIES — and this stack never empties, because the
-		backdrop is permanent. So a swap under an OPEN panel costs +200 (the demo's
-		present and this one) where a swap under a closed panel costs +100. Measured
-		over 100 swaps: 30300 against 20300. `SURFACE_LAYER.toast` is 20000 and
-		`dragProxy` is 30000, so an open panel HALVES the horizon at which a base
-		screen starts painting over toasts (~48 swaps rather than ~96).
-
-		CONTESTED, AND HERE IS WHY IT IS NOT FIXED HERE. The counter, and the
-		`presenter.raise(handle)` this whole comment is a workaround for, live inside
-		`src/present/presenter.luau`, whose extraction is OWED before any edit
-		(`docs/handoff/SOURCE_CAP_LEDGER.md`). No public seam re-bands a live
-		surface: `handle.displayOrder` is documented and READABLE, and nothing
-		writes it. What an app CAN do is not spend a layer it does not need, which is
-		the guard below — the demo handle rides in on the raise, and a raise that
-		names NO handle (the failed-mount path, where `show()` dismissed the old
-		demo and presented nothing) costs nothing, because a dismissal does not move
-		the counter and so nothing climbed. That is the only saving available to an
-		app here, and it is the only one claimed: a successful swap really has
-		climbed and really does cost the second slot.
-
-		THE FOCUS SURVIVES THE RE-PRESENT (review MINOR-4). `openPanel` asks for
-		`initialFocus = "first"`, which is right for OPENING and wrong for a demo
-		swap underneath: a player reading row nine of the list would be put back on
-		row one by something they did not do. The path is re-focused afterwards when
-		it still exists, and falls back to the fresh panel's own first stop when it
-		does not. ]]
+		`presenter.luau`'s `displayLayer` counter still goes UP 100 per present OR
+		raise, and back to zero only when the stack EMPTIES — this stack never does,
+		because the backdrop is permanent. A swap under an OPEN panel still costs
+		+200 (the demo's present and this raise) where a swap under a closed panel
+		costs +100 — `raise` was never a cheaper NUMBER, it is a cheaper OPERATION:
+		what it removes is the mount/scope/transition/focus cost of a full
+		dismiss+re-present, not the band slot, which no re-banding scheme in this
+		framework can avoid paying (see `presenter.APP_CHROME_PRIORITY`'s own header
+		for the fuller version of that argument). `task-dir4-report.md`'s CONTESTED
+		framing and its halved-horizon numbers (30300 vs 20300 over 100 swaps) still
+		hold exactly as measured; only the mechanism paying for them changed. ]]
 	local function raisePanel(demoHandle: any?)
 		if panelHandle == nil then
 			return
 		end
-		--[[ NOTHING WAS PRESENTED, SO NOTHING CLIMBED: SPEND NOTHING.
+		--[[ NOTHING WAS PRESENTED, SO NOTHING CLIMBED: RAISE NOTHING.
 
 			THE CONTRACT. A raiser hands over the handle of the screen it just
 			presented, and `nil` means it presented NONE. `demo_picker`'s `raise()`
 			passes `mounted.handle`, and `mounted` is nil exactly when `mountDemo`
 			threw — the failed-mount path, where `show()` has dismissed the old demo
 			and put nothing in its place. A dismissal does not move `displayLayer`;
-			only a present does. So on that path the panel is provably still where it
-			was, above what is left, and re-presenting it would spend a slot to restore
-			an order that never changed.
-
-			AND THE OTHER PATH IS NOT WORTH A BRANCH (DIR4 review MAJOR-1). The first
-			version of this guard compared `panelHandle.displayOrder >
-			demoHandle.displayOrder` and shipped a comment claiming it saved the failed
-			mount — while the `type(demoHandle) == "table"` test it led with made that
-			the one case it could NOT fire on. The comparison is unreachable in this
-			example anyway: a successful swap has just presented the demo, so the demo
-			is above by construction, every time. Dead code with a fixture certifying it
-			is worse than no guard, so it is gone and this is the whole condition. ]]
+			only a present (or a raise) does. So on that path the panel is provably
+			still where it was, above what is left, and raising it would spend a slot
+			to restore an order that never changed. `presenter.raise` has its own
+			"is this handle even still live" refusal, but this guard is a DIFFERENT
+			question — not "is `panelHandle` valid" but "did anything actually climb
+			above it" — so it stays here rather than folding into the seam. ]]
 		if demoHandle == nil then
 			return
 		end
-		pendingFocus = lastPanelFocus
-		pendingFocusTries = 4
-		closing = true
-		if panelWatch ~= nil then
-			panelWatch()
-			panelWatch = nil
+		--[[ SNAPSHOT BEFORE `raise`, NOT AFTER — `raise` itself may set focus
+			(its own fallback: the demo's stolen path is not a member of the
+			panel's re-topped scope, so it lands on the scope's fresh entry
+			point), and that write is STILL inside `/ShowcasePanel/...`, so
+			the observer above would silently overwrite `lastPanelFocus` with
+			it before this function ever got to read the row the player was
+			actually on. Reading your own write through an observer you also
+			own is the trap; a plain local captured first has no race. ]]
+		local wantFocus = lastPanelFocus
+		presenter.raise(panelHandle)
+		-- HAND FOCUS BACK, SYNCHRONOUSLY (see the block above `closePanel`).
+		-- `raise` re-topped the panel's scope, so `focusOn` can now reach it;
+		-- `wantFocus` is nil the one time it should be (a fresh panel that has
+		-- never held focus yet), in which case the scope's own fresh entry
+		-- point — already set by `raise` — stands untouched.
+		if wantFocus ~= nil then
+			presenter.focus.focusOn(wantFocus)
 		end
-		presenter.dismiss(panelHandle)
-		panelHandle = nil
-		closing = false
-		openPanel()
 	end
 	if opts.demos ~= nil and opts.demos.watchRaise ~= nil then
 		-- AFTER the demo is presented, never on the selection signal: the picker

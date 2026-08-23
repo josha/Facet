@@ -613,6 +613,45 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return top
 	end
 
+	--[[ APP-LEVEL GLOBAL CHROME'S OWN BAND (registry item 24; W3-D, ADR-0053).
+		Census: `Facet`'s own showcase example is the one measured, real
+		consumer this campaign found — RascalRally's HudZone/GearDock/settings
+		chrome only ever sets raw `DisplayOrder`/`ZIndex` (paint order, already
+		documented and adequate) and its one hand-rolled InputAction priority
+		(`FacetSponsor.POSE_CONTEXT_PRIORITY = 1000`, non-sinking, below
+		`BASE_SCREEN_PRIORITY`) never contends for the exclusive band at all —
+		see task-w3d-report.md for the full census.
+
+		`examples/gallery/client/showcase_chrome.luau`'s demo-picker/settings
+		toggle is a genuine app-level global chrome context: SESSION-LIFETIME
+		(built once, at boot, never rebound) and meant to win outside-tap-style
+		arbitration against ANY live modal/engaged surface — its own comment
+		said as much ("strictly above the engaged band... so an engaged panel
+		can never sink its own way out"). It picked `3500`, which TIES
+		`topModalPriority()`'s own number for the FIRST live modal exactly —
+		measured, and CONTESTED in `task-dir4-report.md` (Concern 2): "a modal
+		demo with a focused adjust target still double-fires." `t16-triage.md`
+		records the director's ruling: ship the tie as-is, "band re-spacing
+		rides the extraction charter." This is that charter landing.
+
+		WHY A STATIC CEILING, NOT A LIVE QUERY. `topModalPriority()` is exposed
+		nowhere and stays that way: it is only SAFE for a caller to read at the
+		instant it asks, and app-level chrome's whole point is a context bound
+		ONCE for the entire session, before any modal the player ever opens —
+		reading `topModalPriority() + N` at boot would still tie a modal
+		presented two levels deep, later. The only number good for a context's
+		WHOLE LIFETIME is one PROVABLY above every value `topModalPriority()`
+		can produce, which needs a bound on modal depth. This reserves the same
+		"far past anything real" headroom `displayLayer` two paragraphs below
+		already claims for cross-surface z (~100 live surfaces before two
+		collide): twenty SIMULTANEOUSLY OPEN nested modals, which nothing in
+		this codebase exercises past two. ]]
+	local APP_CHROME_PRIORITY = ENGAGED_BASE_PRIORITY + 500 * 20 + 500 -- 13500
+	-- reachable from the INSTANCE the public API hands out, exactly like
+	-- `self.SURFACE_LAYER` below (P5-F3: a module-table-only copy is
+	-- unreachable through `Facet.newPresenter`)
+	self.APP_CHROME_PRIORITY = APP_CHROME_PRIORITY
+
 	-- presenter-level readable: true while ANY presented surface is exclusive
 	-- (a modal, or an engaged-from-passive surface — both sink, becoming first
 	-- responder over gameplay). A client adapter observes this to hide the touch
@@ -1324,6 +1363,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		presenter = self,
 		displayLayer = displayLayer,
+		SURFACE_LAYER = SURFACE_LAYER,
 		anchoredSurfaces = anchoredSurfaces,
 		helpPlate = helpPlate,
 		calloutQueue = calloutQueue,
@@ -2529,6 +2569,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- non-sinking; a modal is engaged-exclusive). Readable for consumers.
 			isPassive = isPassive,
 			responder = responderState,
+			-- the two `graph.pushScope` opts `raise` (registry item 23) needs to
+			-- re-derive the SAME scope shape `makeHandle` built here, when it
+			-- re-tops this handle's focus scope — neither was stored on the
+			-- handle before, because nothing needed to rebuild a scope after
+			-- creation until `raise` did
+			focusChrome = focusChrome,
+			traversalWrap = traversalWrap,
 			-- scrim appearance (spec §3.1): modals dim by default; engaged HUDs are
 			-- transparent-but-catching; either overridable via opts.scrim.
 			scrimMode = (opts and opts.scrim) or (if kind == "modal" then "scrim" else "none"),
@@ -3416,13 +3463,17 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen")
 	end
 
-	-- `dismiss` and `back` live in src/present/surface_lifecycle.luau now, with
-	-- the shared focus-visual sync and the refresh body — see that module's
-	-- header for why the three are one seam and what the `displayLayer` record
-	-- costs. Bound HERE, where they have always been declared, so every caller
-	-- reads the same `self.dismiss` it always did.
+	-- `dismiss`, `back` and `raise` live in src/present/surface_lifecycle.luau
+	-- now, with the shared focus-visual sync and the refresh body — see that
+	-- module's header for why these are one seam and what the `displayLayer`
+	-- record costs. Bound HERE, where they have always been declared, so every
+	-- caller reads the same `self.dismiss` it always did. `raise` (registry
+	-- item 23; W3-D, ADR-0053) joined 2026-08-23, once this file's own row
+	-- cleared the extraction-locked band — see surface_lifecycle.luau's `raise`
+	-- for the seam itself.
 	self.dismiss = surfaceLifecycle.dismiss
 	self.back = surfaceLifecycle.back
+	self.raise = surfaceLifecycle.raise
 	-- ...and so does `refresh`, whose loop ends by calling the focus-visual sync
 	-- back through `self` — round 7's rule, that there is exactly ONE copy of the
 	-- "does this surface own input" decision, is what keeps them in one file.

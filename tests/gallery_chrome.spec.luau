@@ -763,9 +763,10 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 
 	it("the toggle still works while the panel it opened is engaged and sinking", function()
 		-- the priority claim: the chrome context sits above the engaged band, and
-		-- sinking is per-key anyway
-		expect(showcase_chrome.TOGGLE_PRIORITY > 3000).toBe(true)
+		-- sinking is per-key anyway (registry item 24, W3-D: the literal moved
+		-- to `presenter.APP_CHROME_PRIORITY`)
 		local w = showcase()
+		expect(w.pres.APP_CHROME_PRIORITY > 3000).toBe(true)
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
 		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")

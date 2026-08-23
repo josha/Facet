@@ -197,6 +197,9 @@ require("./drag_session.spec")
 require("./touch_gestures.spec")
 require("./input.spec")
 require("./presenter.spec")
+-- the presenter-side surface-chrome seam (framework-gaps-phase2 item 13,
+-- W3-D, ADR-0053): the pure back+title+trailing bar factory
+require("./nav_bar.spec")
 require("./controls_conformance.spec")
 require("./hint_no_remount.spec")
 require("./icon_box.spec")
