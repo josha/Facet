@@ -1304,17 +1304,29 @@ local function solveArrangement(
 	--[[ ...AND WHETHER IT IS A BAND WORTH RIDING (ADOPT-round fix, framework-gaps-
 		phase2, 2026-08-23). `composition_resolve.localBand` hands back a NON-NIL,
 		ZERO-AREA placeholder (`{x=0,w=0,h=0,reserve=...}`) whenever `bandSafeContent`
-		is the policy but the platform reported no free strip at all — every
-		SHIPPED Roblox client always does (a `TopbarInset` always exists live), so
-		this is the headless/no-topbar-fact rung, and it is exactly `deviceSafeContent`'s
-		rung: nothing about the ROW'S OWN WIDTH should collapse just because nobody
-		published a strip. `bandBox ~= nil` alone could not tell "a real, if narrow,
-		strip" from "no strip published" apart — a topbar row measured against the
-		zero-area placeholder was choosing a WIDTH OF ZERO, not the row's honest
-		content width, over the row it would have gotten had this composition
-		declared no `topbar` region at all (Rascal Rally's chip-band cutover rider,
-		`facet_large_text_sweep.spec.luau`: a REAL truncation regression on
-		value-bearing text, R9). ]]
+		is the policy but the platform reported no free strip at all — nothing about
+		the ROW'S OWN WIDTH should collapse just because nobody published a strip;
+		it is exactly `deviceSafeContent`'s rung, the same additive-safe answer a
+		composition with no `topbar` region already gets. `bandBox ~= nil` alone
+		could not tell "a real, if narrow, strip" from "no strip published" apart —
+		a topbar row measured against the zero-area placeholder was choosing a
+		WIDTH OF ZERO, not the row's honest content width, over the row it would
+		have gotten had this composition declared no `topbar` region at all
+		(Rascal Rally's chip-band cutover rider, `facet_large_text_sweep
+		.spec.luau`: a REAL truncation regression on value-bearing text, R9).
+
+		THIS RUNG IS NOT HEADLESS-ONLY, and review round 2 caught the report that
+		said so. `platformChrome.band` goes nil on a LIVE device both at boot
+		(`FACT_DEFAULTS.topbarInset` is a zero-rect, `src/env/environment.luau:25`,
+		until the platform's first push lands) and on a measured rotation-recovery
+		frame (NM-H4a, `environment.luau:407-449` — a stale `topbarSafeInsets`
+		intersected against a fresh viewport empties, root-caused from a director's
+		phone, 2026-08-17: "the plate on the phone read NOT RIDING · no platform
+		band"). Every SHIPPED steady-state viewport reaches a real band once that
+		first push lands, which is what keeps a fixture's settled geometry
+		unmoved — but the sentinel rung this guards is a real, if transient, LIVE
+		one, not a fact this framework only sees under Lune. See B-27,
+		`docs/adr/ADR-0040-unreleased-breaking-changes.md`. ]]
 	local hasRealBand = bandBox ~= nil and (bandBox :: any).w > 0
 	--[[ ...AND THE RECTS A LANE MAY NOT START INSIDE (§8), decided ONCE. `nil` until
 		the first pass has measured; from then on the same answer for every pass of
@@ -1710,10 +1722,24 @@ local function solveArrangement(
 			riding the band at all — the demo's ride switch, or a platform that
 			reported no strip — and such a surface owes the platform's whole row
 			whatever else it has declared. So the short floor needs BOTH: a row in the
-			strip, and a host that has said where its own chrome is. ]]
+			strip, and a host that has said where its own chrome is.
+
+			AND "a row in the strip" MEANS A REAL ONE (review round 2 finding, ADOPT
+			round, same day). `bandBox` is non-nil for the SENTINEL too (`hasRealBand`
+			above) — its own `.h` is the zero-area placeholder's, not a platform fact,
+			so reading it here on the sentinel would let a lane start AT the topbar
+			row's own measured height with no floor under it at all, exactly the bug
+			`hasRealBand` exists to name. `.reserve` stays legal read on the sentinel
+			(it is `fullTop - originY`, meaningful with or without a real strip
+			shape — the SAME fallback the trailing `else` already takes), so the
+			short floor is `hasRealBand`'s to grant, not `bandBox`'s mere
+			non-nilness. ]]
 		local bandReserve = if bandBox == nil
 			then 0
-			elseif hasExclusions and spanActive[BAND_ZONE] == true then math.max(0, (bandBox :: any).h)
+			elseif hasRealBand and hasExclusions and spanActive[BAND_ZONE] == true then math.max(
+				0,
+				(bandBox :: any).h
+			)
 			else math.max(0, (bandBox :: any).reserve)
 		-- what the `above` rows have already spent, so the reservation is a FLOOR on
 		-- where the lanes start rather than a second thing added to them

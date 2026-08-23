@@ -273,9 +273,10 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 
 	--[[ ADOPT-round fix (framework-gaps-phase2, 2026-08-23): a composition that
 		DOES declare a `topbar` region, on a platform that reports NO strip at
-		all (`platformChrome.band` nil — every SHIPPED Roblox client always
-		publishes one; this is the headless/no-topbar-fact case), used to measure
-		and place that row against a zero-area placeholder
+		all (`platformChrome.band` nil — a real, if TRANSIENT, live rung: it goes
+		nil at boot before the platform's first push and on a measured
+		rotation-recovery frame, NM-H4a in `environment.luau`, not only under
+		Lune), used to measure and place that row against a zero-area placeholder
 		(`composition_resolve.localBand`'s own fallback for "nothing to ride"),
 		collapsing a real row of content to WIDTH ZERO — discovered live by Rascal
 		Rally's chip-band cutover (`facet_large_text_sweep.spec.luau`: a
@@ -303,4 +304,62 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 		-- it, 24px tall), not at a platform band's height that does not exist
 		expect(strip.h).toBe(24)
 	end)
+
+	--[[ REVIEW ROUND 2 FINDING (ADOPT round, same day as the width fix above):
+		`bandReserve` had a SECOND read of the sentinel, in the `hasExclusions`
+		branch — `elseif hasExclusions and spanActive[BAND_ZONE] then
+		math.max(0, bandBox.h)`, gated on `bandBox == nil` alone, not
+		`hasRealBand`. On a real-but-degenerate band (`composition_resolve
+		.localBand` returns the SAME `{x=0,w=0,h=0,reserve=N}` shape whenever the
+		band's own width/height clamp to zero, whether or not the platform
+		published a band fact at all — `reserve` stays a REAL, independently
+		computed number in that case, `fullTop - originY`) the lane band would
+		have read the sentinel's `.h` (0) as its floor instead of the platform's
+		real top reservation — silently discarding it exactly where a live host
+		that declares BOTH `exclusions` AND a `topbar` region needs it most
+		(`examples/gallery/scenarios/hud.luau:2240` declares `exclusions`, on this
+		same `rootPolicy`).
+
+		Tested at `composition.resolve()`'s own level, not through `mountUnder`:
+		the upstream chain that makes `reserve` nonzero while the band's own
+		width/height are zero (a real band whose CLAMPED width/height fall to
+		zero while its ORIGIN still shrank `bandInsets` below the surface's full
+		reservation) is a narrow enough environment fact to construct that this
+		module's own documented `ResolveCtx.band` contract — accept exactly this
+		shape, `{x,w,h,reserve}` with any of the four independently zero or not —
+		is the more direct thing to hold to account. ]]
+	it(
+		"the RESERVE still floors the lanes on a sentinel band with exclusions declared and an active topbar row",
+		function()
+			local SIZES: { [string]: { { w: number, h: number } } } = {
+				-- smaller than `reserve` on purpose: the row's OWN height is not what
+				-- this case is proving
+				Chip = { { w = 90, h = 10 } },
+				Btn = { { w = 60, h = 40 } },
+			}
+			local ctx: any = {
+				measure = function(id: string, form: number, _w: number, _h: number): (number, number)
+					local list = SIZES[id]
+					local s = list[math.min(form, #list)]
+					return s.w, s.h
+				end,
+				exclusions = { { x = 0, y = 0, w = 10, h = 10 } },
+				band = { x = 0, w = 0, h = 0, reserve = 25 },
+			}
+			local decl = {
+				groups = composition.HUD_GROUPS,
+				arrangements = { composition.HUD },
+				regions = {
+					{ id = "Chip", group = "topbar", rank = 1, forms = 1, sizing = "fill" },
+					{ id = "Btn", group = "topLeft", rank = 2, forms = 1 },
+				},
+			}
+			local r = composition.resolve(decl :: any, { w = 400, h = 300 }, ctx)
+			-- the floor is the RESERVE (25) — the platform's whole top reservation —
+			-- not the sentinel's own zero height, and not the topbar row's measured
+			-- 10px either: the lane clears whichever of the two is taller, exactly
+			-- as "a composition that declares NO topbar region" does two tests up
+			expect(r.lanes[1].rect.y).toBe(25)
+		end
+	)
 end)
