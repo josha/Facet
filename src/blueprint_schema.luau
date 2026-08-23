@@ -281,6 +281,25 @@ function schema.checkDegrees(v: any): (boolean, string?)
 	return true
 end
 
+--[[ THE FOURTH AUTHORED PRESENTATION TERM (gap 16, framework-gaps-phase2;
+	ADR-0026 amendment). `scale`/`rotation` already prove the boundary: a
+	paint-only perturbation the solver never sees, composed with whatever the
+	framework is doing to the same node. `offset` is that same class of thing
+	for TRANSLATION — it is NOT how a node's box gets positioned (that stays
+	the solver's, per `width`/`height`/`margin`/`Anchor`); it is a decorative
+	nudge FROM wherever the solver already put it, same as a scale nudge is a
+	decorative resize from wherever the solver already sized it. ]]
+function schema.checkPresentationOffset(v: any): (boolean, string?)
+	if type(v) ~= "table" then
+		return false, "a table { x = <number>, y = <number> } — a paint-only nudge, not a layout position"
+	end
+	local t = v :: any
+	if type(t.x) ~= "number" or t.x ~= t.x or type(t.y) ~= "number" or t.y ~= t.y then
+		return false, "{ x = <number>, y = <number> }, both finite"
+	end
+	return true
+end
+
 local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	string = function(v)
 		return type(v) == "string"
@@ -631,6 +650,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	opacity = schema.checkOpacity,
 	scaleFactor = schema.checkScaleFactor,
 	degrees = schema.checkDegrees,
+	presentationOffset = schema.checkPresentationOffset,
 	metric = metricName,
 	typeRole = function(v)
 		if themeSnapshot.isTypeRole(v) then
@@ -980,6 +1000,33 @@ local BOX: { [string]: PropSpec } = {
 		doc = "paint-only rotation in DEGREES about the node's centre (0 = upright, positive = clockwise). "
 			.. "It changes nothing the solver sees — the hit target stays the unrotated box — and it ADDS "
 			.. "to any rotation the framework is applying",
+	}),
+	--[[ THE THIRD MEMBER OF THE AUTHORED PRESENTATION FAMILY (ADR-0026
+		amendment, gap 16 framework-gaps-phase2): a paint-only TRANSLATION,
+		exactly parallel to `scale`/`rotation` above — same boundary (the solver
+		never sees it), same reason it exists (an author-declared perturbation
+		composed with whatever the framework is doing to the same node), same
+		gate. `x`/`y` in the CHANNEL (the framework's own `setPresentationTransform`/
+		`withAnimation` writes) stay the solver's business per that channel's own
+		rule; this is the AUTHORED counterpart `scale`/`rotation` already have and
+		`offset` did not — before it, a decorative nudge (a bounce, a shake) had
+		no declarative spelling and had to go through the imperative channel
+		every frame, including every resting frame it wrote nothing over (DELETE#5,
+		`p2_cartwheel/screens/celebration.luau`).
+
+		Composes ADDITIVELY, the same rule `rotation` uses (never MULTIPLY — an
+		offset has no "unscaled" identity beyond zero). ]]
+	offset = p({
+		types = { "presentationOffset" },
+		reactive = true,
+		dirty = { "paint" },
+		shared = true,
+		channel = "presentation",
+		doc = "paint-only translation in px from the node's SOLVED position ({x=,y=}; 0,0 = unmoved). It "
+			.. "changes nothing the solver sees — the box, the hit target and the focus order stay at the "
+			.. "solved position; to change WHERE a node is, change its layout (margin, Anchor offsets, "
+			.. "position in the tree) — and it ADDS to any offset the framework is applying (a slide "
+			.. "transition, a keyboard shift)",
 	}),
 	-- VIEW LIFETIME (the `onAppear`/`onDisappear` pair).
 	-- Mount scopes have owned this lifetime since the framework's first phase; what

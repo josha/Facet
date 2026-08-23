@@ -10,7 +10,9 @@
 	second writer — the renderer composes (channel value x authored value) at ONE
 	write site, and `withAnimation` adds a third term to that same composition.
 
-	So the cases split four ways:
+	So the cases split four ways (A-D below cover the ORIGINAL three,
+	opacity/scale/rotation, over their own shared `world()` fixture — kept
+	as-authored rather than rewritten to avoid perturbing what they measure):
 
 	  A. AUTHORING — the props exist, they are reactive, and the refusals are
 	     loud (a leaf cannot fade; a scale of zero is not a small view).
@@ -23,6 +25,11 @@
 	  D. COST AND AUTHORITY — a surface that authors none of the three pays
 	     nothing, and there is still exactly ONE site in the renderer that writes
 	     each of the two presentation engine properties.
+
+	F (added 2026-08-23, gap 16 framework-gaps-phase2, ADR-0026 amendment) —
+	  `offset`, the fourth authored term (a paint-only TRANSLATION), over its own
+	  minimal fixture so cases A-D's off-path/cost claims about the original
+	  three stay measuring exactly what they always did.
 ]]
 
 local t = require("./lib/testkit")
@@ -707,5 +714,130 @@ describe("authored presentation E — an authored scale survives a press", funct
 		-- exactly one writer of the field, and it is this authority
 		local _, writes = string.gsub(source, "handle%.restingScale =", "")
 		expect(writes).toBe(1)
+	end)
+end)
+
+-- ===== E: offset, the fourth authored term (gap 16, ADR-0026 amendment) ====
+--
+-- A minimal fixture of its own — one Box whose `offset` is signal-driven —
+-- rather than growing the shared `world()` above, so A-D's off-path/cost
+-- claims about the ORIGINAL three keep measuring exactly what they always did
+-- (an offset-carrying node is never accidentally in their population).
+local function offsetWorld(opts: any?)
+	local options = opts or {}
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+	local system = Facet.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local offset = core:signal(options.offset or { x = 0, y = 0 })
+	local UI = Facet.UI
+	local screen = UI.Screen({
+		id = "S",
+		padding = 0,
+		gap = 0,
+		children = {
+			UI.Box({ id = "Nudge", height = { type = "fixed", px = 100 }, offset = offset }),
+			UI.Box({ id = "Plain", height = { type = "fixed", px = 100 } }),
+		},
+	})
+	local handle = pres.present(screen)
+	pres.refresh()
+	return { core = core, env = env, adapter = adapter, pres = pres, handle = handle, offset = offset }
+end
+
+describe("authored presentation F — offset (gap 16)", function()
+	it("is authorable and reactive: a change moves the PAINTED position with no remount", function()
+		local w = offsetWorld({ offset = { x = 0, y = 0 } })
+		local before = w.adapter.node("/S/Nudge").presentedPosition
+		w.adapter.takeOps()
+		w.offset:set({ x = 5, y = 12 })
+		w.pres.refresh()
+		local after = w.adapter.node("/S/Nudge").presentedPosition
+		expect(after.x - before.x).toBeCloseTo(5)
+		expect(after.y - before.y).toBeCloseTo(12)
+		local created = 0
+		for _, op in w.adapter.takeOps() do
+			if string.find(op, "create ", 1, true) == 1 then
+				created += 1
+			end
+		end
+		expect(created).toBe(0)
+	end)
+
+	it("changes NOTHING the solver sees — same rect as an unoffset sibling, same hit target", function()
+		local w = offsetWorld({ offset = { x = 40, y = -40 } })
+		local nudge = w.adapter.node("/S/Nudge")
+		local plain = w.adapter.node("/S/Plain")
+		expect(nudge.rect.x).toBe(plain.rect.x)
+		expect(nudge.rect.y).toBe(0)
+		-- painted position moved; the SOLVED rect (what hit-testing uses) did not
+		expect(nudge.presentedPosition.x - nudge.rect.x).toBeCloseTo(40)
+	end)
+
+	it("composes ADDITIVELY with the framework's own imperative channel write", function()
+		local w = offsetWorld({ offset = { x = 10, y = 0 } })
+		local before = w.adapter.node("/S/Nudge").presentedPosition
+		w.handle.controller.setPresentationTransform("/S/Nudge", { x = 0, y = 20 })
+		w.pres.refresh()
+		local after = w.adapter.node("/S/Nudge").presentedPosition
+		-- authored 10 (unchanged) + channel 20 (new) — neither term stomps the other
+		expect(after.x - before.x).toBeCloseTo(0)
+		expect(after.y - before.y).toBeCloseTo(20)
+		expect(after.x).toBeCloseTo(10)
+	end)
+
+	it("refuses a non-table value, loudly, naming the path", function()
+		local ok, err = pcall(function()
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local adapter = fake_target.new()
+			local system = Facet.newActionSystem(core)
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			pres.present(UI.Screen({
+				id = "S",
+				children = { UI.Box({ id = "Bad", offset = core:signal(5) }) },
+			}))
+			pres.refresh()
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Bad", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "offset", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("refuses a NaN component", function()
+		local ok = pcall(function()
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local adapter = fake_target.new()
+			local system = Facet.newActionSystem(core)
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			pres.present(UI.Screen({
+				id = "S",
+				children = { UI.Box({ id = "Bad", offset = core:signal({ x = 0 / 0, y = 0 }) }) },
+			}))
+			pres.refresh()
+		end)
+		expect(ok).toBe(false)
+	end)
+
+	it("a surface authoring no offset at all pays the same off-path cost D already proved", function()
+		local w = offsetWorld()
+		w.adapter.takeOps()
+		local wrote = false
+		for _, op in w.adapter.takeOps() do
+			if string.find(op, "/S/Plain.transform=", 1, true) then
+				wrote = true
+			end
+		end
+		expect(wrote).toBe(false)
 	end)
 end)

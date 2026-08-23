@@ -41,19 +41,18 @@ function celebration.new(app: any): any
 	end)
 
 	-- the dip rides the PRESENTATION channel: a motion never writes solver
-	-- geometry, so nothing here can cause a re-solve
-	app.onTick(function()
-		local controller = app.modalController()
-		if controller == nil then
-			return
-		end
-		local amount = dip:get()
-		if math.abs(amount) <= 0.001 then
-			controller.setPresentationTransform("/CartwheelCelebration/Group/Card/Bottle", nil)
-		else
-			controller.setPresentationTransform("/CartwheelCelebration/Group/Card/Bottle", { x = 0, y = amount * 12 })
-		end
-	end)
+	-- geometry, so nothing here can cause a re-solve. DECLARED, not written
+	-- (gap 16, framework-gaps-phase2): this used to be an `app.onTick` calling
+	-- `setPresentationTransform` every frame — including every resting frame,
+	-- where it wrote `nil` over and over. `offset` is now a reactive prop on
+	-- every rendered class exactly like `scale`/`rotation` already were, so one
+	-- memo over the spring is the whole binding — the same shape `dashboard.luau`'s
+	-- neighbouring pulse already uses for `scale`. See that file's comment for
+	-- the fuller "reach for the write only when there is no prop" argument;
+	-- this is the site it was written FOR.
+	local bottleOffset = app.scope:own(core:memo(function(use)
+		return { x = 0, y = use(dip) * 12 }
+	end))
 
 	local function view(): any
 		local brew = app.services.orders.byId(brewId:get())
@@ -83,6 +82,7 @@ function celebration.new(app: any): any
 									label = S.t("celebrate.title", { id = brewId:get() }),
 									gap = "xs",
 									align = "center",
+									offset = bottleOffset,
 									onActivate = function()
 										-- an idempotent toy: activating the bottle re-toggles
 										-- the cork and nothing else

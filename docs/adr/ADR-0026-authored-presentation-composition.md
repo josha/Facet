@@ -312,3 +312,65 @@ shape here:
 - **A `drawingGroup`-style rasterization is still not on offer.** Declaring an opacity buys grouped
   alpha and a render buffer, never a cached bitmap — the half of [SW-134] the `canvasGroup` row
   already records as missing.
+
+## Amendment (2026-08-23) — `offset`, a fourth authored term (framework-gaps-phase2 gap 16)
+
+**Commissioned by:** the framework-gaps-phase2 audit's in-brief item 16: *"`offset` takes numbers,
+not Readables, while `scale`/`rotation` are reactive — which pushed a whole file to imperative
+`setPresentationTransform`."* Live evidence, DELETE#5: `p2_cartwheel/screens/celebration.luau` ran
+an `app.onTick` calling `controller.setPresentationTransform(path, { x = 0, y = amount * 12 })`
+every frame — including every RESTING frame, where it wrote `nil` over and over — because a
+decorative bounce had no declarative spelling to reach for instead.
+
+**Does this reopen Decision 2's original refusal?** No, and the distinction is the whole amendment.
+Decision 2 said: *"the channel also carries `x`, `y`, `w`, `h`... there is no authored counterpart,
+because a node's authored position and size is the solver's output, not a paint value."* That
+ruling is about **where a node's box IS** — a layout question, answered once by `width`/`height`/
+`margin`/`Anchor`, and it stays exactly that: `offset` gives an author no way to say where a node
+lives. What it gives them is the same thing `scale`/`rotation` already do for size and angle — a
+**paint-only, temporary perturbation FROM wherever the solver already put the node**, composed with
+whatever the framework is doing to the same node, never touching the solved rect, the hit target or
+focus order. A `size`-shaped equivalent (an authored `w`/`h` delta) would still reopen the
+"size-shaped fade" failure mode the original ruling named, and is **not** proposed by this
+amendment — `w`/`h` stay framework-only.
+
+**Composition rule, extended:**
+
+| property | composes by | identity |
+|----------|-------------|----------|
+| opacity  | MULTIPLY    | `1`      |
+| scale    | MULTIPLY    | `1`      |
+| rotation | ADD         | `0`      |
+| **offset** | **ADD**   | **`0`**  |
+
+Same reasoning as rotation: an offset has no "unscaled" identity to multiply against, only a zero to
+add against, and additive composition is what keeps two nested offsets meaning "both nudges apply"
+rather than one silently winning.
+
+**Shape:** `offset = { x = <number>, y = <number> }` (a table, not two separate props — matching the
+imperative channel's own `{x=,y=}` shape rather than inventing a second spelling), domain-checked by
+`schema.checkPresentationOffset` (refuses a non-table, a non-finite/NaN component) at construction
+for a plain value and at each read for a reactive one — the same `readAuthored`/domain-check split
+`scale`/`rotation` already use.
+
+**What is deliberately NOT built:** an authored offset does not participate in a `withAnimation`
+FLIGHT (`presentation.effective`'s `rec` term) — it rides through unchanged regardless of whether a
+structural transition is flying the same node. No consumer has asked to animate a CHANGE of authored
+offset yet (as opposed to animating position via the solver, which `withAnimation` already does), so
+this keeps the two position-adjacent mechanisms — a solver-driven rect flight and an author's steady
+paint-time nudge — from being conflated rather than inventing an interpolation nothing exercises.
+Revisit if a consumer needs it.
+
+**Consequences:**
+- A fourth blueprint prop, `offset`, shared on every rendered class exactly like `scale`/`rotation`
+  (same `BOX` table, same `shared = true`).
+- `celebration.luau`'s every-frame imperative write is gone: the dip is now a `bottleOffset` memo
+  bound declaratively to the `Bottle` button's `offset` prop, the same shape `dashboard.luau`'s
+  neighbouring `tallyScale` memo already used for `scale`.
+- `Facet.layout.transformFootprint` (gap 33, same round) is a SEPARATE, pure geometry helper for the
+  reserved-box math a scaled/rotated node's parent needs — it does not depend on `offset` and is not
+  part of this amendment's composition rule; noted here only because both shipped in the same round
+  and a reader tracing "presentation channel changes, 2026-08-23" should not conflate the two.
+- Pinned by `tests/authored_presentation.spec.luau` §F (authorability/reactivity, the "changes
+  nothing the solver sees" invariant, additive composition with the imperative channel, the two
+  refusals, and the off-path cost claim D already proved, re-verified for the fourth term).

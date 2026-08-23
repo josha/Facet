@@ -87,10 +87,15 @@ function dashboard.new(app: any): any
 		wants. A MotionValue IS a `Readable<number>`, so one memo over the spring is
 		the whole binding.
 
-		`celebration.luau` next door is still imperative and correctly so: it moves
-		a TRANSLATION, and `offset` takes numbers rather than Readables, so it has
-		no declarative twin to reach for. That is the difference worth copying —
-		reach for the write when there is no prop, not because a sibling did. ]]
+		`celebration.luau` next door used to be imperative for the same reason
+		this pulse once was, and correctly so at the time: it moves a
+		TRANSLATION, and `offset` took numbers rather than Readables, so it had
+		no declarative twin to reach for. Gap 16 (framework-gaps-phase2,
+		2026-08-23) closed that: `offset` is now a reactive presentation prop
+		too, and `celebration.luau`'s dip is a `bottleOffset` memo exactly like
+		this file's `tallyScale`. The lesson stands either way — reach for the
+		write when there is no prop, not because a sibling did — it is just that
+		neither sibling has to reach for one anymore. ]]
 	local tallyScale = app.scope:own(core:memo(function(use)
 		return 1 + 0.06 * use(pulse)
 	end))

@@ -10,7 +10,7 @@
 
 	Three contributors, ONE write site (ADR-0026 Decision 3): the imperative
 	channel (`setPresentationTransform` / `setPresentationTransparency`), the
-	AUTHORED triple a blueprint declares (`opacity`/`scale`/`rotation`), and the
+	AUTHORED quad a blueprint declares (`opacity`/`scale`/`rotation`/`offset`), and the
 	`withAnimation` records that fly a commit's rect and paint deltas home on one
 	spring. They compose; they never take turns at the adapter.
 
@@ -94,7 +94,7 @@ function presentation_channel.new(deps: {
 	local lastTransform: { [string]: any } = {}
 	local presentationLive = 0
 	-- AUTHORED PRESENTATION (ADR-0026, and render/presentation.luau's header): the
-	-- blueprint's `opacity`/`scale`/`rotation` are a second TERM in this channel,
+	-- blueprint's `opacity`/`scale`/`rotation`/`offset` are a second TERM in this channel,
 	-- never a second writer. `authoredN` is the off-path gate — zero means the
 	-- composition is skipped entirely.
 	local authored: { [string]: any } = {}
@@ -238,14 +238,15 @@ function presentation_channel.new(deps: {
 		-- THE OFF-PATH GATE (Decision 9). Nothing on this surface authored one of the
 		-- three, so there is nothing to compose and `composeTransform` returns the
 		-- channel value by identity.
-		local o, s, r = nil, nil, nil
+		local o, s, r, offsetX, offsetY = nil, nil, nil, nil, nil
 		if authoredN > 0 then
 			local rec = animationRecords[path]
-			o, s, r = presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:get() else 0)
+			o, s, r, offsetX, offsetY =
+				presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:get() else 0)
 		end
 		local node: any = nil
 
-		local composed = presentation.composeTransform(t, s, r)
+		local composed = presentation.composeTransform(t, s, r, offsetX, offsetY)
 		if not transformsEqual(lastComposedTransform[path], composed) then
 			node = nodeAt(path)
 			if node ~= nil then
