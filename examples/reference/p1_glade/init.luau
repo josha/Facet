@@ -793,8 +793,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			},
 			laneGap = "m",
 			groupGap = "m",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			groups = {
 				{ id = "content", lane = "main", sizing = "fill", minWidth = METRICS.shellContentMin },
 				{ id = "detail", lane = "trail", sizing = "hug" },
@@ -819,8 +819,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 							-- itself a clip host, so the plate keeps clipping while the one
 							-- canvasGroup this pane spends sits where the fade needs it.
 							overflow = "clip",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = { build(ctx) },
 						}),
 					},
@@ -836,8 +836,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		return UI.ZStack({
 			id = "Pane_" .. id,
 			canvasGroup = true,
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = { pane },
 		})
 	end

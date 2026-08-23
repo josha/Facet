@@ -86,7 +86,7 @@ function commands.new(opts: any): any
 					UI.Box({
 						id = "Plate",
 						surface = "raised",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						height = { type = "content" },
 					}),
 					UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),

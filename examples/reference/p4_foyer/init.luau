@@ -266,7 +266,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 														"Hero",
 														detailScope,
 														tile.thumbKey,
-														{ type = "fill", weight = 1 },
+														UI.fill(),
 														{ type = "aspect", ratio = 16 / 9 }
 													),
 													UI.Text({ id = "Title", text = tile.title, textSize = "title" }),
@@ -353,7 +353,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		return UI.Button({
 			id = tile.id,
 			label = tile.title,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			onActivate = function()
 				presentDetail(tile)
 			end,
@@ -362,15 +362,9 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 					id = "Col",
 					gap = "xs",
 					align = "stretch",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
-						asyncImage(
-							"Thumb",
-							itemScope,
-							tile.thumbKey,
-							{ type = "fill", weight = 1 },
-							{ type = "aspect", ratio = 16 / 9 }
-						),
+						asyncImage("Thumb", itemScope, tile.thumbKey, UI.fill(), { type = "aspect", ratio = 16 / 9 }),
 						UI.Text({ id = "Title", text = tile.title, textSize = "label", lineLimit = 2 }),
 						--[[ THIS WAS A TWO-RUNG `ViewThatFits`: `MetaRow` (approval + a
 							trailing Sponsored chip) with `MetaColumn` (the same two, stacked)
@@ -521,7 +515,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				},
 			})
 		end
-		return UI.VStack({ id = "Body", gap = "s", width = { type = "fill", weight = 1 }, children = { header, body } })
+		return UI.VStack({ id = "Body", gap = "s", width = UI.fill(), children = { header, body } })
 	end
 
 	-- ── HomeBody (spec §6.3) ───────────────────────────────────────────────
@@ -546,7 +540,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				UI.Box({
 					id = "Underline",
 					height = { type = "fixed", px = 3 },
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					tint = underlineTint(tabId),
 				}),
 			},
@@ -563,8 +557,8 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			id = "BadgeBubble",
 			alignH = "end",
 			alignV = "start",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.stroke(
 					UI.Text({
@@ -691,7 +685,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		id = "HomeBody",
 		gap = "s",
 		align = "stretch",
-		height = { type = "fill", weight = 1 },
+		height = UI.fill(),
 		children = {
 			--[[ THE TAB ROW SHRINKS RATHER THAN WRAPS (O-21 round 2, 2026-08-15).
 				Wrapping was the first repair — two tab targets at the Largest text
@@ -728,7 +722,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "FeedPage",
 				gap = "l",
 				padding = "s",
-				height = { type = "fill", weight = 1 },
+				height = UI.fill(),
 				children = {
 					UI.ScrollView({
 						id = "FriendsRow",
@@ -737,7 +731,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 						-- tile — the reference app draws no bar on its carousels
 						indicators = "none",
 						gap = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = friendTiles,
 					}),
 					UI.When({
@@ -747,7 +741,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 							return UI.VStack({
 								id = "Results",
 								gap = "s",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.When({
 										id = "None",
@@ -856,7 +850,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			id = "StubPlate",
 			gap = "s",
 			align = "center",
-			height = { type = "fill", weight = 1 },
+			height = UI.fill(),
 			children = {
 				UI.Text({
 					id = "Name",
@@ -935,7 +929,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			}),
 			UI.ViewThatFits({
 				id = "SearchSlot",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				layoutPriority = 1,
 				children = {
 					UI.HStack({
@@ -1051,7 +1045,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "Root",
 				gap = "m",
 				align = "stretch",
-				height = { type = "fill", weight = 1 },
+				height = UI.fill(),
 				children = {
 					-- the chrome band, which never moves…
 					topBar,

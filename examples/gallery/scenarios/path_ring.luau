@@ -44,8 +44,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Path2D progress ring", textSize = 22 }),
 						UI.Text({ id = "Value", text = label, textSize = "label" }),

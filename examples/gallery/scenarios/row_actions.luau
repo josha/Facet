@@ -316,7 +316,7 @@ return {
 				label = `{item.subject} from {item.from}`,
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				padding = { top = 10, bottom = 10, left = 14, right = 14 },
 				surface = "base",
 				onActivate = function()
@@ -338,7 +338,7 @@ return {
 					UI.VStack({
 						id = "Text",
 						gap = 2,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.HStack({
 								id = "TopLine",
@@ -376,7 +376,7 @@ return {
 					-- itself `width = fill` with nothing to measure against once
 					-- it sits inside a content-sized composite root (row_actions.
 					-- luau's own `width` field comment; table.luau's identical fix)
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					content = rowContent(listModel, item),
 					leading = actions.leading,
 					trailing = actions.trailing,
@@ -399,13 +399,13 @@ return {
 		local listBody = UI.ScrollView({
 			id = "List",
 			axis = "y",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.VStack({
 					id = "Rows",
 					gap = 1,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = { rowsForEach },
 				}),
 			},
@@ -434,7 +434,7 @@ return {
 				geometry is exactly what shipped and the promise is now honest. ]]
 			columns = {
 				{ id = "from", title = "From", width = { type = "fixed", px = 150 } },
-				{ id = "subject", title = "Subject", width = { type = "fill", weight = 1 }, minWidth = 90 },
+				{ id = "subject", title = "Subject", width = UI.fill(), minWidth = 90 },
 			},
 			rows = tableModel.rows,
 			key = function(item)
@@ -480,8 +480,8 @@ return {
 		local tableBody = UI.VStack({
 			id = "TablePane",
 			gap = "s",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.HStack({
 					id = "TableToolbar",
@@ -520,7 +520,7 @@ return {
 				id = "RowBody",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				padding = { top = 10, bottom = 10, left = 14, right = 14 },
 				children = {
 					UI.When({
@@ -538,7 +538,7 @@ return {
 					UI.VStack({
 						id = "Text",
 						gap = 2,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.HStack({
 								id = "TopLine",
@@ -681,8 +681,8 @@ return {
 		local vlistBody = UI.VStack({
 			id = "VListPane",
 			gap = "s",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				--[[ THE HINT STAYS AT EVERY SIZE, AND THAT IS A MEASUREMENT (O-21,
 					2026-08-15). Hiding it behind the same `showHeading` Readable the
@@ -736,7 +736,7 @@ return {
 					id = "ModeBar",
 					minColumnWidth = "intrinsic",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Button({
 							id = "ModeList",

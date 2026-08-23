@@ -68,8 +68,8 @@ function celebration.new(app: any): any
 				UI.ZStack({
 					id = "Group",
 					canvasGroup = true,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.VStack({
 							id = "Card",
@@ -99,8 +99,8 @@ function celebration.new(app: any): any
 													image = app.art.marks.menu.image,
 													scaleMode = "fit",
 													tint = { role = "contentSecondary", blend = 0.8 },
-													width = { type = "fill", weight = 1 },
-													height = { type = "fill", weight = 1 },
+													width = UI.fill(),
+													height = UI.fill(),
 												}),
 												if potion ~= nil
 													then parts.potionMark(app, "Potion", potion, "iconSizes.medium")
@@ -120,8 +120,8 @@ function celebration.new(app: any): any
 																	image = app.art.marks.chevronDown.image,
 																	scaleMode = "fit",
 																	tint = { role = "accent", blend = 1 },
-																	width = { type = "fill", weight = 1 },
-																	height = { type = "fill", weight = 1 },
+																	width = UI.fill(),
+																	height = UI.fill(),
 																}),
 															},
 														})

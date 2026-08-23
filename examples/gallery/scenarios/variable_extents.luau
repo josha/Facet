@@ -242,7 +242,7 @@ return {
 					id = "Post",
 					padding = METRICS.padding,
 					gap = METRICS.gap,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
 						UI.Text({
@@ -320,7 +320,7 @@ return {
 			"the vertical room is scarce" and it re-resolves on rotation. ]]
 		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
-			return if use(conditions.isShort) then { type = "fill", weight = 1 } else nil
+			return if use(conditions.isShort) then UI.fill() else nil
 		end))
 
 		local screen = UI.Screen({
@@ -332,7 +332,7 @@ return {
 					id = "Chrome",
 					axis = "y",
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = chromeHeight,
 					children = {
 						UI.Text({ id = "Title", text = "400 posts, four heights", textSize = "control" }),
@@ -346,7 +346,7 @@ return {
 							id = "Controls",
 							wrap = true,
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = (function()
 								local kids: { any } = {
 									UI.Toggle({ id = "UniformToggle", label = "One height for all", value = uniformOn }),
@@ -376,11 +376,11 @@ return {
 				-- decision rather than the list's
 				UI.VStack({
 					id = "ListPane",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					-- weight 2 against the chrome's 1: on a short canvas the list still
 					-- gets the larger share of what there is, and where the chrome hugs
 					-- this is the only fill and takes everything left, as before
-					height = { type = "fill", weight = 2 },
+					height = UI.fill(2),
 					children = { list.blueprint },
 				}),
 			},

@@ -214,7 +214,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = children,
 			})
 		end
@@ -276,8 +276,8 @@ return {
 							id = "PageBody",
 							axis = "y",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								statusPanel("Status"),
 								UI.Text({ id = "Name", text = COPY[id], textSize = "heading" }),
@@ -301,7 +301,7 @@ return {
 									id = "Jumps",
 									gap = "xs",
 									wrap = true,
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 									children = {
 										chip("JumpLast", COPY.jumpLast, function()
 											page:set(PAGE_TABS[#PAGE_TABS])
@@ -365,8 +365,8 @@ return {
 				id = "InboxBody",
 				axis = "y",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
 					UI.Text({ id = "Title", text = COPY.unreadTitle, textSize = "heading" }),
@@ -408,8 +408,8 @@ return {
 				id = "NotesBody",
 				axis = "y",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
 					UI.Text({ id = "Title", text = COPY.keptTitle, textSize = "heading" }),
@@ -432,7 +432,7 @@ return {
 						id = "Bumps",
 						gap = "xs",
 						wrap = true,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							chip("Bump", COPY.bump, bumpBoth),
 							chip("BumpUnread", COPY.bumpUnread, function()
@@ -449,8 +449,8 @@ return {
 				id = "MeBody",
 				axis = "y",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
 					UI.Text({ id = "Title", text = COPY.meTitle, textSize = "heading" }),
@@ -539,8 +539,8 @@ return {
 					id = "Root",
 					gap = "xs",
 					align = "stretch",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = { outer.blueprint },
 				}),
 			},

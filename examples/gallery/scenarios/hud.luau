@@ -770,8 +770,8 @@ return {
 					UI.corners(
 						UI.Box({
 							id = "Plate",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							surface = "raised",
 							tint = { role = "surface", blend = 1, transparency = GLASS },
 						}),
@@ -863,7 +863,7 @@ return {
 					id = `TaskRow{i}`,
 					gap = "s",
 					align = "center",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						--[[ THE MARK IS PAINT, NOT A SURFACE, and the sweep is why.
 							`surface = "accent"` subscribes a node to the accent surface's
@@ -1268,7 +1268,7 @@ return {
 							label = `{entry.id} — {COPY.overflowSimplified}`,
 							surface = "chip",
 							textSize = "caption",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							onActivate = function()
 								local path = entry.path
 								closeOverflow()
@@ -1318,7 +1318,7 @@ return {
 						id = "OverflowBody",
 						padding = 12,
 						gap = "tight",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = rows,
 					}),
 					-- a fixed panel width is an APP-level decision (a plate a thumb can
@@ -2032,7 +2032,7 @@ return {
 							id = "Line",
 							text = readable,
 							textSize = "caption",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 						})
 					end,
 				})
@@ -2060,8 +2060,8 @@ return {
 				children = {
 					UI.Anchor({
 						id = "ProbeField",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = {
 							--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
 							*"this round seems to have regressed as the buttons on the right
@@ -2092,7 +2092,7 @@ return {
 											id = "ProbeBody",
 											padding = "s",
 											gap = 2,
-											width = { type = "fill", weight = 1 },
+											width = UI.fill(),
 											children = {
 												-- COMPACT: the head is the toggle, so it must not cost a control's
 												-- full chrome height on a plate that has to stay out of the way
@@ -2102,7 +2102,7 @@ return {
 													surface = "plain",
 													textSize = "caption",
 													padding = 0,
-													width = { type = "fill", weight = 1 },
+													width = UI.fill(),
 													onActivate = function()
 														probeExpanded:set(not probeExpanded:get())
 													end,
@@ -2113,7 +2113,7 @@ return {
 												UI.VStack({
 													id = "ProbeLines",
 													gap = 1,
-													width = { type = "fill", weight = 1 },
+													width = UI.fill(),
 													children = probeLineViews,
 												}),
 												--[[ RELEASE / RE-ARM, and never the capture itself. On the
@@ -2127,7 +2127,7 @@ return {
 													id = "ProbeHold",
 													label = probeButtonLabel,
 													surface = "chip",
-													width = { type = "fill", weight = 1 },
+													width = UI.fill(),
 													onActivate = function()
 														if probeHeld:get() then
 															probeHeld:set(false)
@@ -2227,8 +2227,8 @@ return {
 		-- ---- the HUD -----------------------------------------------------
 		local hud = UI.Composition({
 			id = "Hud",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			groups = Facet.composition.HUD_GROUPS,
 			arrangements = { Facet.composition.HUD },
 			--[[ THE HOST'S OWN CHROME, DECLARED (§8). One prop where ~90 lines of
@@ -2284,8 +2284,8 @@ return {
 							thenView = function()
 								return UI.HStack({
 									id = "StripRow",
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 									align = "center",
 									distribute = "center",
 									children = {
@@ -2383,7 +2383,7 @@ return {
 								id = "TasksFullBody",
 								padding = 10,
 								gap = "tight",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
 									taskRows[1],
@@ -2435,7 +2435,7 @@ return {
 								padding = "s",
 								gap = "s",
 								align = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
 									-- alone the plate hugged to 16px — a bar is `fill`, so it
@@ -2766,8 +2766,8 @@ return {
 							"control",
 							UI.HStack({
 								id = "UrlBarBody",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 								padding = { top = 4, right = 10, bottom = 4, left = 10 },
 								align = "center",
 								children = {
@@ -2776,8 +2776,8 @@ return {
 										"control",
 										UI.HStack({
 											id = "UrlBarFieldRow",
-											width = { type = "fill", weight = 1 },
-											height = { type = "fill", weight = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 											padding = { top = 2, right = 8, bottom = 2, left = 8 },
 											align = "center",
 											children = {
@@ -2791,12 +2791,12 @@ return {
 												}),
 											},
 										}),
-										{ type = "fill", weight = 1 },
+										UI.fill(),
 										{ type = "fixed", px = "controlSizes.compact.height" }
 									),
 								},
 							}),
-							{ type = "fill", weight = 1 },
+							UI.fill(),
 							barHeight
 						)
 					end,
@@ -2808,7 +2808,7 @@ return {
 						return UI.VStack({
 							id = "LadderLines",
 							gap = 2,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({
 									id = "Ladder",

@@ -744,8 +744,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -754,7 +754,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "LeavesTitle", text = COPY.declaredTitle, textSize = "caption" }),
 								-- WRAPS. Five chips at the Largest text preference, pseudo-
@@ -778,7 +778,7 @@ return {
 								surface = "control",
 								padding = "s",
 								gap = "tight",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({ id = "CascadeTitle", text = COPY.cascadeTitle, textSize = "caption" }),
 									UI.HStack({
@@ -815,7 +815,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = (function(): { any }
 								local kids: { any } = {
 									UI.Text({ id = "SensationTitle", text = COPY.sensationTitle, textSize = "caption" }),
@@ -850,7 +850,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "PlayTitle", text = COPY.playTitle, textSize = "caption" }),
 								UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
@@ -890,7 +890,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = "caption" }),
 								UI.Text({

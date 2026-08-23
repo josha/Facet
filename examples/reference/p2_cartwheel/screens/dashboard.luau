@@ -156,22 +156,22 @@ function dashboard.new(app: any): any
 
 	local heroBand = UI.ZStack({
 		id = "HeroBand",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.heroH" },
 		children = {
 			UI.gradient(
 				UI.Box({
 					id = "Sky",
 					surface = "base",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
 			),
 			UI.Anchor({
 				id = "Layers",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					heroLayer(1, app.art.marks.chevronUp, 0.16),
 					heroLayer(2, app.art.marks.menu, 0.34),
@@ -206,15 +206,15 @@ function dashboard.new(app: any): any
 		local plate = UI.Box({
 			id = "Plate",
 			surface = "base",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 		})
 		plate = UI.corners(plate, "control")
 		plate = UI.stroke(plate, {})
 		return UI.ZStack({
 			id = "Tile" .. tostring(item.id),
 			canvasGroup = true,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = { type = "content" },
 			children = {
 				plate,
@@ -271,7 +271,7 @@ function dashboard.new(app: any): any
 							UI.VStack({
 								id = "HeroSlot",
 								gap = "xs",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.ForEach({
 										id = "HeroRow",
@@ -390,13 +390,13 @@ function dashboard.new(app: any): any
 			}),
 			UI.ZStack({
 				id = "Plot",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "fixed", px = "app.cartwheel.chartH" },
 				children = {
 					UI.Anchor({
 						id = "Bands",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = bandBoxes,
 					}),
 					UI.Path({
@@ -404,8 +404,8 @@ function dashboard.new(app: any): any
 						points = parts.polyline(skySamples),
 						role = "accent",
 						thickness = "controls.table.indicatorThickness",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 					}),
 				},
 			}),
@@ -460,7 +460,7 @@ function dashboard.new(app: any): any
 			}),
 			UI.Anchor({
 				id = "Lattice",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "fixed", px = "app.cartwheel.previewMin" },
 				children = rackChildren,
 			}),
@@ -514,16 +514,16 @@ function dashboard.new(app: any): any
 	local page = UI.ZStack({
 		id = "Cart",
 		overflow = "clip",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				gap = "m",
 				padding = "m",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					heroBand,
 					UI.Composition({

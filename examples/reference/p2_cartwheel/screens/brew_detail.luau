@@ -152,8 +152,8 @@ function brew_detail.new(app: any): any
 		axis = "y",
 		gap = "m",
 		padding = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.Text({ id = "Title", text = titleText, textSize = "title" }),
 			parts.card(app, {
@@ -183,7 +183,7 @@ function brew_detail.new(app: any): any
 							return UI.VStack({
 								id = "Clock",
 								gap = "xs",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({
 										id = "Remaining",
@@ -205,7 +205,7 @@ function brew_detail.new(app: any): any
 					UI.VStack({
 						id = "Rows",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.ForEach({
 								id = "Items",
@@ -219,7 +219,7 @@ function brew_detail.new(app: any): any
 										id = "Item",
 										gap = "s",
 										align = "center",
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										children = {
 											if potion ~= nil
 												then parts.potionMark(app, "Mark", potion, "iconSizes.medium")
@@ -231,7 +231,7 @@ function brew_detail.new(app: any): any
 												lineLimit = 1,
 												disclose = true,
 											}),
-											UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }),
+											UI.Spacer({ id = "Gap", width = UI.fill() }),
 											parts.badge(app, "Bottles", tostring(item.bottles)),
 										},
 									})
@@ -243,10 +243,10 @@ function brew_detail.new(app: any): any
 						id = "Total",
 						gap = "s",
 						align = "center",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Text({ id = "Label", text = S.t("detail.totalBottles"), textSize = "label" }),
-							UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }),
+							UI.Spacer({ id = "Gap", width = UI.fill() }),
 							parts.badge(app, "Count", totalText),
 						},
 					}),
@@ -256,7 +256,7 @@ function brew_detail.new(app: any): any
 				id = "Actions",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Button({
 						id = "Primary",

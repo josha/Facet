@@ -153,10 +153,10 @@ return {
 			local chosen = use(stop)
 			for _, entry in STOPS do
 				if entry.value == chosen then
-					return if entry.width == nil then { type = "fill" } else { type = "fixed", px = entry.width }
+					return if entry.width == nil then UI.fill() else { type = "fixed", px = entry.width }
 				end
 			end
-			return { type = "fill" }
+			return UI.fill()
 		end))
 		local columnWidth = scope:own(core:memo(function(use)
 			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
@@ -192,8 +192,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "m",
-					width = { type = "fill" },
-					height = { type = "fill" },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "title", disclose = true }),
 						UI.Text({ id = "Lead", text = COPY.lead, textSize = "caption", role = "secondary" }),

@@ -480,7 +480,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	local NATURAL = { type = "content" }
 	local chipRow = UI.ViewThatFits({
 		id = "Chips",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			UI.HStack({
 				id = "Full",
@@ -524,8 +524,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 			UI.Anchor({
 				id = "Dock",
 				padding = overscanPadding,
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.VStack({
 						id = "Bar",
@@ -551,7 +551,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 						-- here is the topbar alone, because the Roblox buttons sit
 						-- INSIDE the displayed area and the bezel is outside it.
 						offsetY = opts.coreTop,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = { chipRow },
 					}),
 				},
@@ -577,22 +577,22 @@ function showcase_chrome.mount(opts: MountOpts): any
 		children = {
 			UI.Anchor({
 				id = "Dock",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.VStack({
 						id = "Column",
 						anchor = "topLeft",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = {
 							UI.ScrollView({
 								id = "Panel",
 								surface = "raised",
 								padding = "s",
 								gap = "s",
-								width = { type = "hug" },
-								height = { type = "hug" },
+								width = UI.hug(),
+								height = UI.hug(),
 								children = {
 									sectionPicker.blueprint,
 									UI.When({
@@ -612,7 +612,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 										thenView = function()
 											return UI.VStack({
 												id = "Settings",
-												width = { type = "fill", weight = 1 },
+												width = UI.fill(),
 												gap = "m",
 												children = opts.settings.sections,
 											})

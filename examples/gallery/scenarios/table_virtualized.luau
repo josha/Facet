@@ -210,7 +210,7 @@ return {
 				{
 					id = "name",
 					title = copy.colName,
-					width = { type = "fill", weight = 3 },
+					width = UI.fill(3),
 					minWidth = 90,
 					disclose = true,
 					value = function(item: any)
@@ -220,7 +220,7 @@ return {
 				{
 					id = "team",
 					title = copy.colTeam,
-					width = { type = "fill", weight = 4 },
+					width = UI.fill(4),
 					minWidth = 80,
 					disclose = true,
 					value = function(item: any)
@@ -230,7 +230,7 @@ return {
 				{
 					id = "best",
 					title = copy.colBest,
-					width = { type = "fill", weight = 3 },
+					width = UI.fill(3),
 					minWidth = 70,
 					value = function(item: any)
 						return item.best
@@ -282,7 +282,7 @@ return {
 		-- `Chrome` block below); `heightClass` is ADR-0023's own Readable for it
 		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
-			return if use(conditions.isShort) then { type = "fill", weight = 1 } else nil
+			return if use(conditions.isShort) then UI.fill() else nil
 		end))
 
 		local screen = UI.Screen({
@@ -308,7 +308,7 @@ return {
 					id = "Chrome",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = chromeHeight,
 					children = {
 						--[[ A WRAPPING BUTTON ROW. Four labels that a ~1.4x localization
@@ -319,7 +319,7 @@ return {
 							id = "Actions",
 							wrap = true,
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								actionButton("Reveal", copy.btnReveal, function()
 									tbl.api.revealRow(keyOf(FAR_ROW))
@@ -357,11 +357,11 @@ return {
 					`syncGeometry`, so nothing here has to know it. ]]
 				UI.ZStack({
 					id = "ListPane",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					-- weight 2 against the chrome's 1 wherever the chrome is a fill: on
 					-- a short canvas the table still gets the larger share, and where the
 					-- chrome hugs this is the only fill and takes everything left
-					height = { type = "fill", weight = 2 },
+					height = UI.fill(2),
 					children = { tbl.blueprint },
 				}),
 			},

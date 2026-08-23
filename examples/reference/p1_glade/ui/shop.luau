@@ -26,8 +26,8 @@ local function sheet(ctx: any, id: string, children: { any }): any
 			ctx.UI.ZStack({
 				id = "Sheet",
 				canvasGroup = true,
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = ctx.UI.fill(),
+				height = ctx.UI.fill(),
 				children = children,
 			}),
 		},
@@ -143,7 +143,7 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 					id = "Act_" .. nectar.id,
 					label = actionLabel,
 					enabled = actionEnabled,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					onActivate = function()
 						local phase = mode:get()
 						if phase == "shop" then
@@ -168,7 +168,7 @@ local function shelf(ctx: any, id: string, nectars: { any }, gladeId: string, sc
 		id = id,
 		axis = "x",
 		gap = "m",
-		width = { type = "fill", weight = 1 },
+		width = ctx.UI.fill(),
 		children = children,
 	})
 end
@@ -182,14 +182,14 @@ function shop.picker(ctx: any, gladeId: string, scope: any): any
 			gap = "l",
 			padding = "l",
 			surface = "raised",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.HStack({
 					id = "TitleRow",
 					gap = "s",
 					align = "center",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						parts.heading(ctx, "Title", ctx.L("picker.title")),
 						UI.Spacer({ id = "Push" }),
@@ -206,7 +206,7 @@ function shop.picker(ctx: any, gladeId: string, scope: any): any
 				UI.Button({
 					id = "ShopRow",
 					label = ctx.L("picker.shopRow"),
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					align = "start",
 					onActivate = function()
 						ctx.nav.openShop()
@@ -236,7 +236,7 @@ local function packCard(ctx: any, pack: any, wide: boolean, scope: any): any
 	end))
 	local price = ctx.commerce.priceOf(pack.id)
 
-	local width = if wide then { type = "fill", weight = 1 } else { type = "fixed", px = METRICS.packCardMin }
+	local width = if wide then UI.fill() else { type = "fixed", px = METRICS.packCardMin }
 	local body: { any } = {
 		parts.well(ctx, "Art", pack.art, METRICS.portrait),
 		UI.Text({ id = "Name", text = nectarName, textSize = "label", lineLimit = 1, disclose = true }),
@@ -306,7 +306,7 @@ function shop.provisions(ctx: any, scope: any): any
 			id = "TitleRow",
 			gap = "s",
 			align = "center",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				parts.heading(ctx, "Title", ctx.L("shop.title")),
 				UI.Spacer({ id = "Push" }),
@@ -341,7 +341,7 @@ function shop.provisions(ctx: any, scope: any): any
 				id = "Shelf_" .. nectar.id,
 				axis = "x",
 				gap = "m",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = row,
 			})
 		)
@@ -354,8 +354,8 @@ function shop.provisions(ctx: any, scope: any): any
 			gap = "l",
 			padding = "l",
 			surface = "raised",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = children,
 		}),
 	})
@@ -400,14 +400,14 @@ function shop.charm(ctx: any, scope: any): any
 					return UI.ZStack({
 						id = "TierGroup",
 						canvasGroup = true,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.VStack({
 								id = "Tier_" .. tier.id,
 								surface = "raised",
 								padding = "m",
 								gap = "s",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({ id = "Name", text = name, textSize = "heading" }),
 									parts.body(ctx, "Tagline", tagline),
@@ -437,14 +437,14 @@ function shop.charm(ctx: any, scope: any): any
 			gap = "l",
 			padding = "l",
 			surface = "raised",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.HStack({
 					id = "TitleRow",
 					gap = "s",
 					align = "center",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Spacer({ id = "Push" }),
 						UI.Button({
@@ -460,7 +460,7 @@ function shop.charm(ctx: any, scope: any): any
 				-- the marketing header: the hero species floating over a soft glow
 				UI.ZStack({
 					id = "Header",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.corners(
 							UI.Box({
@@ -477,7 +477,7 @@ function shop.charm(ctx: any, scope: any): any
 							id = "HeaderCopy",
 							gap = "s",
 							align = "center",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
 								UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
@@ -489,7 +489,7 @@ function shop.charm(ctx: any, scope: any): any
 				UI.VStack({
 					id = "Tiers",
 					gap = "m",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = tiers,
 				}),
 			},
@@ -538,12 +538,12 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 			padding = "l",
 			gap = "m",
 			align = "center",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.HStack({
 					id = "TitleRow",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Spacer({ id = "Push" }),
 						UI.Button({

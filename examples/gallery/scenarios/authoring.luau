@@ -105,19 +105,19 @@ return {
 						UI.Box({
 							id = "g1",
 							surface = "raised",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "fixed", px = 40 },
 						}),
 						UI.Box({
 							id = "g2",
 							surface = "raised",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "fixed", px = 40 },
 						}),
 						UI.Box({
 							id = "g3",
 							surface = "raised",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "fixed", px = 40 },
 						}),
 					},

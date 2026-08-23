@@ -48,8 +48,8 @@ function chatter.new(app: any): any
 		local avatarPlate = UI.Box({
 			id = "Plate",
 			surface = "base",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 		})
 		avatarPlate = UI.corners(avatarPlate, "pill")
 		avatarPlate = UI.stroke(avatarPlate, {})
@@ -58,7 +58,7 @@ function chatter.new(app: any): any
 			id = "Post_" .. post.id,
 			gap = "s",
 			align = "start",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.ZStack({
 					id = "Avatar",
@@ -74,7 +74,7 @@ function chatter.new(app: any): any
 				UI.VStack({
 					id = "Body",
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({
 							id = "Message",
@@ -136,7 +136,7 @@ function chatter.new(app: any): any
 			}),
 		}
 		if entry.save ~= nil then
-			table.insert(children, UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }))
+			table.insert(children, UI.Spacer({ id = "Gap", width = UI.fill() }))
 			table.insert(children, parts.chip(app, "Save", S.t("chatter.save", { percent = entry.save })))
 		end
 		return UI.Button({
@@ -145,7 +145,7 @@ function chatter.new(app: any): any
 				then S.t("chatter.tierYearly", { credits = entry.credits })
 				else S.t("chatter.tierMonthly", { credits = entry.credits }),
 			selected = isSelected,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			align = "center",
 			gap = "s",
 			onActivate = function()
@@ -222,7 +222,7 @@ function chatter.new(app: any): any
 						gap = "m",
 						padding = "l",
 						surface = "raised",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = children,
 					}),
 				},
@@ -246,7 +246,7 @@ function chatter.new(app: any): any
 						gap = "m",
 						padding = "l",
 						surface = "raised",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Text({ id = "Title", text = S.t("chatter.options"), textSize = "title" }),
 							UI.Text({
@@ -296,17 +296,17 @@ function chatter.new(app: any): any
 		id = "Chatter",
 		padding = "m",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.HStack({
 				id = "Header",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "title" }),
-					UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }),
+					UI.Spacer({ id = "Gap", width = UI.fill() }),
 					UI.When({
 						id = "OptionsWhen",
 						condition = subscribed,
@@ -325,8 +325,8 @@ function chatter.new(app: any): any
 				id = "Feed",
 				axis = "y",
 				gap = "m",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.When({
 						id = "MarketingWhen",
@@ -348,7 +348,7 @@ function chatter.new(app: any): any
 							return UI.VStack({
 								id = "Highlighted",
 								gap = "s",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = children,
 							})
 						end,
@@ -356,7 +356,7 @@ function chatter.new(app: any): any
 					UI.VStack({
 						id = "Posts",
 						gap = "m",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = postRows,
 					}),
 				},

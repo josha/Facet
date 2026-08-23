@@ -116,7 +116,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "tight",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Label", text = label, textSize = "caption" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
@@ -141,7 +141,7 @@ return {
 						-- 320x640 phone at +14 under glossy-touch.
 						gap = 8,
 						align = "center",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = { picker.blueprint, stepper.blueprint },
 					}),
 				},
@@ -208,7 +208,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = "caption" }),
 					UI.Text({ id = "ReadoutBody", text = readout, textSize = "caption", role = "secondary" }),
@@ -226,8 +226,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = page,
 				}),
 			},

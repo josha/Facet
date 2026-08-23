@@ -254,8 +254,8 @@ function example.build(Facet: any, core: any, _deps: any)
 				id = "Page",
 				axis = "y",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					-- EVERY LONG LINE ON THIS PAGE DECLARES ITS FULL-VALUE PATH (director
 					-- ruling 5, 2026-08-13). On a 360px phone at the +14px preference
@@ -318,7 +318,7 @@ function example.build(Facet: any, core: any, _deps: any)
 						-- IT. Content-sized, the row was only as wide as its two
 						-- buttons, so the `fill` read-out between them solved to 0x44
 						-- and the volume was invisible — measured, not guessed.
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							-- a one-glyph button is narrower than a finger: the floor
 							-- is the theme's own minimum target, never a px literal
@@ -333,7 +333,7 @@ function example.build(Facet: any, core: any, _deps: any)
 								text = volumeLabel,
 								textSize = "control",
 								textAlign = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								disclose = true,
 							}),
 							UI.Button({

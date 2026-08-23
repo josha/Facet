@@ -266,8 +266,8 @@ local function build(Facet: any, core: any, deps: any)
 				id = "Page",
 				axis = "y",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = "Facet Tiles", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
@@ -294,7 +294,7 @@ local function build(Facet: any, core: any, deps: any)
 						id = "Stats",
 						minColumnWidth = "intrinsic",
 						gap = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
 							UI.Text({

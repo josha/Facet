@@ -281,7 +281,7 @@ return {
 		local decorative = UI.VStack({
 			id = "Decorative",
 			gap = "xs",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Text({
 					id = "Caption",
@@ -295,7 +295,7 @@ return {
 				UI.Anchor({
 					id = "Lane",
 					surface = "control",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = { type = "fixed", px = 40 },
 					children = {
 						UI.Box({
@@ -305,7 +305,7 @@ return {
 								return if use(laneRight) then "topRight" else "topLeft"
 							end)),
 							width = { type = "fixed", px = 40 },
-							height = { type = "fill", weight = 1 },
+							height = UI.fill(),
 						}),
 					},
 				}),
@@ -351,7 +351,7 @@ return {
 					-- pinned padding are one decision, not two.
 					padding = 8,
 					gap = 2,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = scope:own(core:memo(function(use)
 						return { type = "fixed", px = if use(cardTall) then 76 else 40 }
 					end)),
@@ -416,7 +416,7 @@ return {
 				UI.Anchor({
 					id = "Effects",
 					surface = "control",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = { type = "fixed", px = 60 },
 					children = {
 						UI.Box({
@@ -487,7 +487,7 @@ return {
 					id = "Wrapped",
 					surface = "control",
 					padding = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					opacity = paintOpacity,
 					children = {
 						UI.HStack({
@@ -495,7 +495,7 @@ return {
 							gap = "s",
 							align = "center",
 							wrap = true,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "Label", text = COPY.wrapText, textSize = 13 }),
 								UI.Button({ id = "Locked", label = COPY.wrapButton, enabled = false }),
@@ -515,7 +515,7 @@ return {
 							surface = "raised",
 							padding = "s",
 							gap = 2,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "Head", text = COPY.detailHead, textSize = 13 }),
 								UI.Text({
@@ -534,7 +534,7 @@ return {
 				UI.HStack({
 					id = "Chips",
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.ForEach({
 							id = "Order",
@@ -547,7 +547,7 @@ return {
 									id = "Chip",
 									surface = "raised",
 									padding = "tight",
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 									children = {
 										UI.Text({
 											id = "Label",
@@ -606,7 +606,7 @@ return {
 		local informational = UI.VStack({
 			id = "Informational",
 			gap = "xs",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Text({
 					id = "Caption",
@@ -650,8 +650,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({
 							id = "Title",
@@ -662,14 +662,14 @@ return {
 						UI.Button({
 							id = "Run",
 							label = COPY.run,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							onActivate = animate,
 						}),
 						UI.AdaptiveStack({
 							id = "Stage",
 							axis = stageAxis,
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = { decorative, informational },
 						}),
 						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),

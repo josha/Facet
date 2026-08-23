@@ -557,7 +557,7 @@ function theme_picker.mount(opts: MountOpts): any
 		-- its OWN definite box).
 		UI.VStack({
 			id = "Choose",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			gap = theme_picker.ROW_GAP,
 			children = {
 				UI.Text({
@@ -589,7 +589,7 @@ function theme_picker.mount(opts: MountOpts): any
 					-- the ROWS breathe with the package (director finding 14); the
 					-- COLUMN gap above stays a literal because it decides the count
 					rowGap = theme_picker.GRID_ROW_GAP,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = packageChips,
 				}),
 			},
@@ -658,8 +658,8 @@ function theme_picker.mount(opts: MountOpts): any
 			surface = "raised",
 			padding = "s",
 			gap = theme_picker.SECTION_GAP,
-			width = { type = "hug" },
-			height = { type = "hug" },
+			width = UI.hug(),
+			height = UI.hug(),
 			children = panelSections,
 		})
 	end
@@ -738,8 +738,8 @@ function theme_picker.mount(opts: MountOpts): any
 		children = {
 			UI.Anchor({
 				id = "Dock",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					dockChild,
 				},

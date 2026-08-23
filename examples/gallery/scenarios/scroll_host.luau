@@ -51,7 +51,7 @@ return {
 					id = "Cell" .. i,
 					surface = "control",
 					width = { type = "fixed", px = 70 },
-					height = { type = "fill", weight = 1 },
+					height = UI.fill(),
 				})
 			)
 		end
@@ -65,7 +65,7 @@ return {
 					-- the theme's own touch floor rather than the 44 it happens to be, so
 					-- the row adapts at distance (wave TEN-FOOT, 2026-08-20)
 					height = { type = "fixed", px = "targetSizes.minimum" },
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 				})
 			)
 		end
@@ -104,7 +104,7 @@ return {
 				-- behavior under test is unchanged — only the box gets smaller.
 				UI.ScrollView({
 					id = "List",
-					height = { type = "fill", weight = 3 },
+					height = UI.fill(3),
 					width = { type = "fixed", px = 280 },
 					padding = "s",
 					gap = 0,
@@ -131,7 +131,7 @@ return {
 					axis = "x",
 					gap = "s",
 					width = { type = "fixed", px = 280 },
-					height = { type = "fill", weight = 1 },
+					height = UI.fill(),
 					children = strip,
 				}),
 				UI.When({
@@ -148,7 +148,7 @@ return {
 				}),
 				UI.ScrollView({
 					id = "FocusList",
-					height = { type = "fill", weight = 2 },
+					height = UI.fill(2),
 					width = { type = "fixed", px = 280 },
 					gap = 2,
 					children = focusRows,

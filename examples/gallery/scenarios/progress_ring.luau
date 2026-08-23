@@ -100,8 +100,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
 						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),

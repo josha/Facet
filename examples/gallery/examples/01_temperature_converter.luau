@@ -140,8 +140,8 @@ function example.build(Facet: any, core: any, deps: any)
 				id = "Page",
 				axis = "y",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = "Fahrenheit → Celsius", textSize = "title" }),
 					UI.Text({

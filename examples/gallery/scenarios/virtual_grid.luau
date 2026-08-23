@@ -175,16 +175,16 @@ return {
 					this fixture's own. ]]
 				return UI.ZStack({
 					id = "Plate",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					padding = CELL_PADDING,
 					alignH = "center",
 					alignV = "center",
 					children = {
 						UI.Box({
 							id = "Face",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							tint = { role = "accent", blend = 0.35 },
 						}),
 						UI.Text({
@@ -193,7 +193,7 @@ return {
 							textSize = LABEL_SIZE,
 							textAlign = "center",
 							lineLimit = 1,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 						}),
 					},
 				})
@@ -262,7 +262,7 @@ return {
 					id = "Controls",
 					wrap = true,
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = (function()
 						local kids: { any } = {}
 						for _, chip in laneChips do
@@ -299,8 +299,8 @@ return {
 				-- grid's
 				UI.VStack({
 					id = "GridPane",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = { grid.blueprint },
 				}),
 			},

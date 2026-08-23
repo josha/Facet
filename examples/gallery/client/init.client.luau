@@ -625,8 +625,8 @@ if bootDecision.mode == "showcase" then
 			children = {
 				UI.Spacer({
 					id = "Fill",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 			},
 		}),
@@ -1046,7 +1046,7 @@ local screen = UI.Screen({
 		UI.Text({ id = "Hint", text = hint, textSize = "label" }),
 		UI.Toggle({ id = "Music", label = "Music", value = draftMusic }),
 		UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
-		UI.Spacer({ id = "Gap", height = { type = "fill", weight = 1 } }),
+		UI.Spacer({ id = "Gap", height = UI.fill() }),
 		UI.Button({ id = "Save", label = "Save" }),
 	},
 })

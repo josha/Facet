@@ -99,7 +99,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		id = "Actions",
 		minColumnWidth = "intrinsic",
 		gap = "tight",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = actionButtons,
 	})
 
@@ -167,7 +167,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- space between two buttons on a 360px screen, and a name that wraps
 			-- would grow this row past the height the panel reserved for it
 			lineLimit = 1,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 		}),
 		UI.Text({ id = "Position", text = model.scenarioPosition, textSize = "caption" }),
 		UI.Button({
@@ -184,7 +184,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	local cycleRow = UI.HStack({
 		id = "Cycle",
 		gap = "tight",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = cycleChildren,
 	})
 	-- The primary action's own line, inserted directly under the cycler so it is
@@ -196,7 +196,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		then UI.HStack({
 			id = "PrimaryAction",
 			gap = "tight",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = { runAll },
 		})
 		else nil
@@ -239,7 +239,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- to ~zero and the status renders as a single character. Measured, not
 			-- reasoned: the first attempt set the child to fill and left this row
 			-- hugging, and the device showed "F".
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				--[[ FILL, SO IT WRAPS INSTEAD OF RUNNING OFF THE EDGE.
 
@@ -258,7 +258,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 					id = "State",
 					text = model.statusLine,
 					textSize = 15,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 				}),
 				UI.Text({ id = "Countdown", text = model.countdown, textSize = 15 }),
 			},
@@ -287,7 +287,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- by the overlay layout audit on its first run). The panel scrolls, so a
 			-- fixed picker cannot trap a control off-screen.
 			height = { type = "fixed", px = 110 },
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = { UI.VStack({ id = "Chips", gap = "xs", children = chips }) },
 		})
 	)
@@ -312,8 +312,8 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		children = {
 			UI.Anchor({
 				id = "Dock",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.ScrollView({
 						id = "Panel",
@@ -325,7 +325,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 						-- screenshot showed: counter text woven into list rows.
 						surface = "raised",
 						padding = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						-- A FRACTION OF THE SCREEN, RESOLVED EVERY SOLVE. A fixed px
 						-- computed by the caller was a snapshot of one orientation;
 						-- `percent` with a clamp is the same intent stated to the
@@ -334,7 +334,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 						children = {
 							UI.VStack({
 								id = "Stack",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								gap = "tight",
 								children = stackChildren,
 							}),

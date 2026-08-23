@@ -546,7 +546,7 @@ return {
 				return UI.Box({
 					id = id,
 					surface = "raised",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = { type = "fixed", px = 40 },
 				})
 			end
@@ -724,7 +724,7 @@ return {
 							Facet.UI.VStack({
 								id = "WashCard",
 								surface = "raised",
-								width = { type = "fill", weight = 1 },
+								width = Facet.UI.fill(),
 								height = { type = "fixed", px = 96 },
 								padding = { top = 12, right = 16, bottom = 12, left = 16 },
 								children = {

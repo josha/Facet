@@ -450,7 +450,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 	local labels = UI.VStack({
 		id = "Labels",
 		gap = 2,
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			-- IDENTITY: may truncate, and therefore discloses (Step 8.5's rung 3).
 			-- Removing this to make the profile prettier is exactly the "weakened
@@ -494,7 +494,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			UI.HStack({
 				id = "Head",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = { image.blueprint, labels },
 			}),
 			-- THE CONTROLS STACK TOO. Two lines was not enough: the controls line
@@ -510,7 +510,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			UI.HStack({
 				id = "Controls",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = if split then { toggle } else { toggle, open },
 			}),
 		}
@@ -520,7 +520,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 				UI.HStack({
 					id = "Action",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = { open },
 				})
 			)
@@ -530,7 +530,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			UI.HStack({
 				id = "Value",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = { stepper.blueprint },
 			})
 		)
@@ -538,7 +538,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			id = "Row",
 			gap = rows.COMPACT_LINE_GAP,
 			padding = rows.ROW_PADDING_STEP,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = lines,
 		})
 	end
@@ -547,7 +547,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		id = "Row",
 		gap = "s",
 		padding = rows.ROW_PADDING_STEP,
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = { image.blueprint, labels, toggle, stepper.blueprint, open },
 	})
 end

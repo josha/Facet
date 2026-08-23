@@ -58,7 +58,7 @@ local tbl = Facet.Controls.Table(core, {
 		{
 			id = "name",
 			title = "Racer",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			minWidth = 80,
 			resizable = true,
 			cell = function(item)

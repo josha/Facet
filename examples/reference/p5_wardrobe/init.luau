@@ -371,7 +371,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			scope = itemScope,
 			provider = provider,
 			key = item.thumbKey,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			-- FIXED height, deliberately not `aspect` (live matrix 2026-08-09,
 			-- xa + parchment + compact): an aspect-on-fill thumb couples the
 			-- CELL HEIGHT to the grid's column width, and the Grid's uniform
@@ -540,7 +540,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 				UI.Box({
 					id = "Underline",
 					height = { type = "fixed", px = 3 },
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					alignV = "end",
 					tint = underlineTint(c),
 				}),
@@ -607,7 +607,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			UI.VStack({
 				id = "CatalogCol",
 				gap = "s",
-				height = { type = "fill", weight = 1 },
+				height = UI.fill(),
 				children = {
 					UI.HStack({
 						id = "CategoryRow",
@@ -615,13 +615,13 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 						-- fill, not hug: a fill-width scroller contributes 0 to a HUG
 						-- row's measure (solver seam, framework-fixes ledger
 						-- 2026-08-08), and this row should span its lane regardless
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.ScrollView({
 								id = "Cats",
 								axis = "x",
 								gap = "s",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = categoryButtons,
 							}),
 							UI.Button({
@@ -636,7 +636,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 					UI.ScrollView({
 						id = "Items",
 						gap = "m",
-						height = { type = "fill", weight = 1 },
+						height = UI.fill(),
 						children = {
 							UI.When({
 								id = "EmptyWhen",
@@ -718,8 +718,8 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 		id = "Orbit",
 		focusable = true,
 		focusVisual = "none",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		onPointerDown = function(_path: string, pos: any)
 			orbitState.lastX = pos.x
 			return true
@@ -759,7 +759,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			UI.VStack({
 				id = "PreviewCol",
 				gap = "xs",
-				height = { type = "fill", weight = 1 },
+				height = UI.fill(),
 				children = {
 					UI.ZStack({
 						id = "PaneZ",
@@ -772,14 +772,14 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 						-- as the flex-shrink follow-on proposal in framework-fixes.md).
 						-- The pane's visual minimum is the Region floor's job, not
 						-- this node's.
-						height = { type = "fill", weight = 1 },
+						height = UI.fill(),
 						children = {
 							UI.stroke(
 								UI.Stage({
 									id = "Pane",
 									surface = "raised",
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 								}),
 								{ color = "accent" }
 							),
@@ -820,7 +820,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 												wrap = true,
 												gap = "xs",
 												distribute = "center",
-												width = { type = "fill", weight = 1 },
+												width = UI.fill(),
 												children = {
 													UI.ForEach({
 														id = "WornChips",
@@ -1006,7 +1006,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			UI.HStack({
 				id = "ChromeRow",
 				gap = "m",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					sectionPicker.blueprint,
 					UI.When({
@@ -1029,7 +1029,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			id = "Stub",
 			gap = "s",
 			align = "center",
-			height = { type = "fill", weight = 1 },
+			height = UI.fill(),
 			children = {
 				UI.Text({ id = "Name", text = L(nameKey), textSize = "heading" }),
 				UI.Text({ id = "Body", text = L("stub.body") }),
@@ -1051,7 +1051,7 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 				thenView = function()
 					return UI.Composition({
 						id = "Body",
-						height = { type = "fill", weight = 1 },
+						height = UI.fill(),
 						arrangements = {
 							{ name = "split", lanes = { { "main" }, { "trail" } } },
 							{ name = "stacked", lanes = { { "trail", "main" } } },

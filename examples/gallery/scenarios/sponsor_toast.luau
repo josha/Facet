@@ -107,7 +107,7 @@ return {
 				-- and every toast painted as an empty strip. Headless never asserted
 				-- paint widths, so only the pixels caught it; the width pin below
 				-- (sponsor_scenarios.spec) keeps it caught.
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.corners(
 						UI.Box({
@@ -121,7 +121,7 @@ return {
 					UI.VStack({
 						id = "Lines",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							-- WRAPS, never truncates: the toast grows in height and the
 							-- title is never the thing that gets cut
@@ -129,7 +129,7 @@ return {
 								id = "Title",
 								text = title,
 								textSize = "body",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 							}),
 							UI.Text({
 								id = "Detail",
@@ -138,7 +138,7 @@ return {
 								-- too small to catch at race-glance speed)
 								textSize = "body",
 								role = "secondary",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 							}),
 						},
 					}),
@@ -153,7 +153,7 @@ return {
 		local function toastBody(title: string, detail: string): any
 			return UI.ZStack({
 				id = "Plate",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "content" },
 				children = {
 					UI.shadow(
@@ -161,8 +161,8 @@ return {
 							UI.Box({
 								id = "PlateFill",
 								surface = "raised",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 							}),
 							"control"
 						),
@@ -212,8 +212,8 @@ return {
 				-- lives below the stage
 				UI.ZStack({
 					id = "Stage",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Button({
 							id = "Beneath",
@@ -243,8 +243,8 @@ return {
 					id = "Chrome",
 					axis = "y",
 					gap = "m",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Toast lab", textSize = "heading" }),
 						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
@@ -259,7 +259,7 @@ return {
 							minColumnWidth = 104,
 							gap = "s",
 							rowGap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								control("BtnOne", "One", function()
 									show("Notice", "A single transient message")

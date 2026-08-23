@@ -37,7 +37,7 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 	local body = UI.Button({
 		id = "GladeCard_" .. glade.id,
 		label = openLabel,
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		padding = 0,
 		onActivate = function()
 			ctx.nav.openGlade(glade.id)
@@ -45,7 +45,7 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 		children = {
 			UI.ZStack({
 				id = "Body",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					sceneLib.glade(ctx, {
 						id = "Scene",
@@ -113,7 +113,7 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 	return UI.ZStack({
 		id = "Card_" .. glade.id,
 		canvasGroup = true,
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			body,
 			-- the star: a sibling, floored to the theme's own target size so the
@@ -156,7 +156,7 @@ local function offerCard(ctx: any): any
 			return UI.ZStack({
 				id = "OfferGroup",
 				canvasGroup = true,
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.shadow(
 						UI.VStack({
@@ -164,7 +164,7 @@ local function offerCard(ctx: any): any
 							surface = "raised",
 							padding = "m",
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "heading" }),
 								parts.body(ctx, "Pitch", ctx.L("offer.pitch")),
@@ -197,8 +197,8 @@ local function offerCard(ctx: any): any
 										UI.Button({
 											id = "OfferSee",
 											label = ctx.L("offer.cta"),
-											width = { type = "fill", weight = 1 },
-											height = { type = "fill", weight = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 											onActivate = function()
 												ctx.nav.openCharm()
 											end,
@@ -207,8 +207,8 @@ local function offerCard(ctx: any): any
 											id = "OfferDismiss",
 											label = ctx.L("offer.dismiss"),
 											role = "cancel",
-											width = { type = "fill", weight = 1 },
-											height = { type = "fill", weight = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 											onActivate = function()
 												ctx.state.offerDismissed:set(true)
 											end,
@@ -239,7 +239,7 @@ local function suggestions(ctx: any): any
 			return UI.VStack({
 				id = "SuggestionList",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.ForEach({
 						id = "Rows",
@@ -285,7 +285,7 @@ local function suggestions(ctx: any): any
 							return UI.Button({
 								id = "Suggest_" .. item.id,
 								label = gladeName,
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								align = "start",
 								onActivate = function()
 									ctx.nav.search(ctx.Lnow("glade." .. item.glade))
@@ -355,7 +355,7 @@ local function emptyState(ctx: any): any
 			return UI.VStack({
 				id = "NoMatchesBody",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					parts.body(ctx, "Copy", copy),
 					UI.Button({
@@ -390,21 +390,21 @@ function overview.glades(ctx: any): any
 		axis = "y",
 		gap = "l",
 		padding = "l",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			offerCard(ctx),
 			UI.VStack({
 				id = "Find",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = { search.blueprint, suggestions(ctx), emptyState(ctx) },
 			}),
 			UI.Grid({
 				id = "Cards",
 				minColumnWidth = METRICS.gladeCardMin,
 				gap = "m",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.ForEach({
 						id = "Glades",
@@ -437,15 +437,15 @@ function overview.wisps(ctx: any): any
 		axis = "y",
 		gap = "l",
 		padding = "l",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			parts.heading(ctx, "WispsTitle", ctx.L("section.wisps")),
 			UI.Grid({
 				id = "WispCards",
 				minColumnWidth = METRICS.nectarCardMin,
 				gap = "m",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.ForEach({
 						id = "Wisps",
@@ -464,7 +464,7 @@ function overview.wisps(ctx: any): any
 							return UI.Button({
 								id = "WispCard_" .. wisp.id,
 								label = name,
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								onActivate = function()
 									ctx.nav.openWisp(wisp.id)
 								end,
@@ -473,7 +473,7 @@ function overview.wisps(ctx: any): any
 										id = "Body",
 										gap = "s",
 										align = "center",
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										children = {
 											sceneLib.portrait(ctx, "Portrait", wisp.id, METRICS.portrait),
 											UI.Text({
@@ -515,15 +515,15 @@ function overview.flora(ctx: any): any
 		axis = "y",
 		gap = "l",
 		padding = "l",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			parts.heading(ctx, "FloraTitle", ctx.L("flora.title")),
 			UI.Grid({
 				id = "FloraCards",
 				minColumnWidth = METRICS.nectarCardMin,
 				gap = "m",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.ForEach({
 						id = "Flora",
@@ -546,7 +546,7 @@ function overview.flora(ctx: any): any
 								padding = "m",
 								gap = "s",
 								align = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									parts.well(ctx, "Art", plant.art, METRICS.portrait),
 									UI.Text({

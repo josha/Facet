@@ -257,7 +257,7 @@ return {
 				trigger = UI.Button({
 					id = `{id}Trigger`,
 					label = label,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 				}),
 				items = items,
 				triggers = triggers,
@@ -382,7 +382,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					UI.Text({ id = "Body", text = body, textSize = "caption", role = "secondary" }),
@@ -403,7 +403,7 @@ return {
 					surface = "control",
 					padding = "s",
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						entry.control.blueprint,
 						UI.Text({ id = "Routes", text = entry.routes, textSize = "caption", role = "secondary" }),
@@ -421,8 +421,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -430,7 +430,7 @@ return {
 							id = "Cards",
 							gap = "xs",
 							align = "stretch",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = triggerCards,
 						}),
 						UI.VStack({
@@ -438,7 +438,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								idiomPicker.blueprint,
 								UI.Text({

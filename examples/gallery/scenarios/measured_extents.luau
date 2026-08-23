@@ -136,7 +136,7 @@ return {
 					id = "Post",
 					padding = 10,
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
 						--[[ NO `lineLimit`, ON PURPOSE. `variable_extents` caps its body at
@@ -200,7 +200,7 @@ return {
 					id = "Controls",
 					wrap = true,
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = sizeChips,
 				}),
 				-- capped at two lines so a longer status string can never be the thing
@@ -210,8 +210,8 @@ return {
 				-- it the screen's decision rather than the list's
 				UI.VStack({
 					id = "ListPane",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = { list.blueprint },
 				}),
 			},

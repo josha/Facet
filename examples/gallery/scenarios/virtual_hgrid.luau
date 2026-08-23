@@ -165,8 +165,8 @@ return {
 					lesson 2). The face is a `tint`, never a themed `surface`. ]]
 				return UI.Box({
 					id = "Plate",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					tint = { role = "accent", blend = item.blend },
 				})
 			end,
@@ -226,7 +226,7 @@ return {
 					id = "Controls",
 					wrap = true,
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = (function()
 						local kids: { any } = {}
 						for _, chip in laneChips do
@@ -262,8 +262,8 @@ return {
 					container, so this pane is the single place the screen decides both. ]]
 				UI.VStack({
 					id = "RailPane",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = { grid.blueprint },
 				}),
 			},

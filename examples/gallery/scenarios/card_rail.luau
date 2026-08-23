@@ -179,8 +179,8 @@ return {
 					surface = "raised",
 					padding = CARD_PADDING,
 					gap = CARD_ROW_GAP,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
 						-- COPY note above, which is why neither of these strings is in
@@ -243,8 +243,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Hint", text = COPY.hint, textSize = "caption", role = "secondary" }),
@@ -255,7 +255,7 @@ return {
 							id = "RailPane",
 							gap = 0,
 							padding = 0,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "content" },
 							children = { rail.blueprint },
 						}),

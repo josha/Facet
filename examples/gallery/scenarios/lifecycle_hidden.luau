@@ -130,8 +130,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -147,7 +147,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
 								badge("Ghost", { hidden = isHidden }),
@@ -167,7 +167,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),
 								UI.When({

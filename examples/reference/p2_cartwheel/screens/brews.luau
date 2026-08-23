@@ -199,11 +199,11 @@ function brews.new(app: any): any
 		id = "Toolbar",
 		gap = "s",
 		align = "center",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			UI.VStack({
 				id = "SearchSlot",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = { search.blueprint },
 			}),
 			UI.When({
@@ -274,7 +274,7 @@ function brews.new(app: any): any
 			id = "BrewCell",
 			gap = "xs",
 			align = "center",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				parts.thumbStack(app, "Thumbs", item.items, "iconSizes.large"),
 				-- the label TAKES the leftover instead of its natural width: a
@@ -284,7 +284,7 @@ function brews.new(app: any): any
 					id = "Id",
 					text = S.t("brews.rowLabel", { id = item.id }),
 					textSize = "label",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					lineLimit = 1,
 					disclose = true,
 				}),
@@ -306,7 +306,7 @@ function brews.new(app: any): any
 			{
 				id = "brew",
 				title = S.t("brews.colBrew"),
-				width = { type = "fill", weight = 1.6 },
+				width = UI.fill(1.6),
 				cell = brewCell,
 				sortable = true,
 				disclose = true,
@@ -315,7 +315,7 @@ function brews.new(app: any): any
 			{
 				id = "bottles",
 				title = S.t("brews.colBottles"),
-				width = { type = "fill", weight = 0.6 },
+				width = UI.fill(0.6),
 				alignment = { h = "trailing" },
 				value = function(item)
 					return tostring(item.bottles)
@@ -324,13 +324,13 @@ function brews.new(app: any): any
 			{
 				id = "status",
 				title = S.t("brews.colStatus"),
-				width = { type = "fill", weight = 0.8 },
+				width = UI.fill(0.8),
 				value = statusText,
 			},
 			{
 				id = "placed",
 				title = S.t("brews.colPlaced"),
-				width = { type = "fill", weight = 0.8 },
+				width = UI.fill(0.8),
 				value = function(item)
 					return strings.clockTime(item.placedAt)
 				end,
@@ -338,7 +338,7 @@ function brews.new(app: any): any
 			{
 				id = "actions",
 				title = S.t("brews.colActions"),
-				width = { type = "fill", weight = 0.8 },
+				width = UI.fill(0.8),
 				cell = function(item)
 					-- ONE verb in the row, and it is the one the row is FOR. The
 					-- other half of the reference's ellipsis menu — Open — is the
@@ -430,7 +430,7 @@ function brews.new(app: any): any
 			id = "Row",
 			gap = "s",
 			align = "center",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.When({
 					id = "PickWhen",
@@ -455,7 +455,7 @@ function brews.new(app: any): any
 				UI.Button({
 					id = "Open",
 					label = S.t("brews.rowLabel", { id = brew.id }),
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					align = "center",
 					gap = "s",
 					onActivate = function()
@@ -470,7 +470,7 @@ function brews.new(app: any): any
 							lineLimit = 1,
 							disclose = true,
 						}),
-						UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }),
+						UI.Spacer({ id = "Gap", width = UI.fill() }),
 						parts.badge(app, "Bottles", tostring(brew.bottles)),
 					},
 				}),
@@ -482,8 +482,8 @@ function brews.new(app: any): any
 		id = "List",
 		axis = "y",
 		gap = "xs",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.ForEach({
 				id = "Entries",
@@ -506,14 +506,14 @@ function brews.new(app: any): any
 				gap = "s",
 				padding = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Button({
 						id = "CollectSelected",
 						label = collectLabel,
 						compactLabel = { icon = "checkmark" },
 						surface = "accent",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						onActivate = collectSelected,
 					}),
 				},
@@ -525,14 +525,14 @@ function brews.new(app: any): any
 		id = "Brews",
 		padding = "m",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.VStack({
 				id = "Body",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = S.t("brews.title"), textSize = "title" }),
 					toolbar,
@@ -545,8 +545,8 @@ function brews.new(app: any): any
 								id = "TableHost",
 								canvasGroup = true,
 								overflow = "clip",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 								children = { tableControl.blueprint },
 							})
 						end,
@@ -560,8 +560,8 @@ function brews.new(app: any): any
 								id = "ListHost",
 								canvasGroup = true,
 								overflow = "clip",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 								children = { listBody },
 							})
 						end,

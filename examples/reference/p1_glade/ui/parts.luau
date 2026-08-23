@@ -104,14 +104,14 @@ function parts.rejectionNotice(ctx: any, id: string, commandId: string): any
 			return ctx.UI.ZStack({
 				id = "Notice",
 				canvasGroup = true,
-				width = { type = "fill", weight = 1 },
+				width = ctx.UI.fill(),
 				children = {
 					ctx.UI.stroke(
 						ctx.UI.VStack({
 							id = "Plate",
 							surface = "raised",
 							padding = "s",
-							width = { type = "fill", weight = 1 },
+							width = ctx.UI.fill(),
 							children = { ctx.UI.Text({ id = "Why", text = copy, textSize = "body" }) },
 						}),
 						{}
@@ -131,8 +131,8 @@ function parts.well(ctx: any, id: string, art: { number }, size: number, childre
 			ctx.UI.Box({
 				id = "Fill",
 				tint = ctx.tint(art),
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = ctx.UI.fill(),
+				height = ctx.UI.fill(),
 			}),
 			"pill"
 		),

@@ -144,7 +144,7 @@ function workbench.new(app: any): any
 			children = {
 				UI.ZStack({
 					id = "Layers",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = box,
 					children = {
 						UI.Image({
@@ -152,16 +152,16 @@ function workbench.new(app: any): any
 							image = app.art.marks.menu.image,
 							scaleMode = "fit",
 							tint = { role = "contentSecondary", blend = 0.9 },
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 						}),
 						UI.Image({
 							id = "Base",
 							image = app.art.marks.chevronUp.image,
 							scaleMode = "fit",
 							tint = baseHue,
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 						}),
 						UI.When({
 							id = "EssenceWhen",
@@ -172,8 +172,8 @@ function workbench.new(app: any): any
 									image = app.art.marks.check.image,
 									scaleMode = "fit",
 									tint = { role = "accent", blend = 0.8 },
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 								})
 							end,
 						}),
@@ -186,8 +186,8 @@ function workbench.new(app: any): any
 									image = app.art.marks.more.image,
 									scaleMode = "fit",
 									tint = { role = "contentStrong", blend = 1 },
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 								})
 							end,
 						}),
@@ -278,7 +278,7 @@ function workbench.new(app: any): any
 				-- step spent exactly the 12px it overflowed by
 				gap = "xs",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Image({
 						id = "Mark",
@@ -296,13 +296,13 @@ function workbench.new(app: any): any
 						text = parts.attributeName(app, axis),
 						textSize = "label",
 						role = roleMemo,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						lineLimit = 1,
 						disclose = true,
 					}),
 					UI.VStack({
 						id = "Bar",
-						width = { type = "fill", weight = 2 },
+						width = UI.fill(2),
 						children = { gauge.blueprint },
 					}),
 					UI.Text({ id = "Value", text = valueText, textSize = "numeral", role = roleMemo }),
@@ -359,13 +359,13 @@ function workbench.new(app: any): any
 		id = "Form",
 		axis = "y",
 		gap = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.VStack({
 				id = "Potion",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Heading", text = S.t("bench.sectionPotion"), textSize = "heading" }),
 					nameField.blueprint,
@@ -374,13 +374,13 @@ function workbench.new(app: any): any
 			UI.VStack({
 				id = "Attributes",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Heading", text = S.t("bench.sectionAttributes"), textSize = "heading" }),
 					UI.VStack({
 						id = "Rows",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = attributeRows,
 					}),
 				},
@@ -388,7 +388,7 @@ function workbench.new(app: any): any
 			UI.VStack({
 				id = "Ingredients",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Heading", text = S.t("bench.sectionIngredients"), textSize = "heading" }),
 					UI.HStack({
@@ -404,7 +404,7 @@ function workbench.new(app: any): any
 								id = "Label",
 								text = S.t("bench.base"),
 								textSize = "label",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								lineLimit = 1,
 								disclose = true,
 							}),
@@ -424,7 +424,7 @@ function workbench.new(app: any): any
 								id = "Label",
 								text = S.t("bench.essence"),
 								textSize = "label",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								lineLimit = 1,
 								disclose = true,
 							}),
@@ -444,7 +444,7 @@ function workbench.new(app: any): any
 								id = "Label",
 								text = S.t("bench.garnish"),
 								textSize = "label",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								lineLimit = 1,
 								disclose = true,
 							}),
@@ -460,8 +460,8 @@ function workbench.new(app: any): any
 		id = "Workbench",
 		padding = "m",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.Text({ id = "Title", text = S.t("bench.title"), textSize = "title" }),
 			UI.Text({ id = "Live", text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
@@ -470,8 +470,8 @@ function workbench.new(app: any): any
 				arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
 				laneGap = "m",
 				groupGap = "m",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				groups = {
 					{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
 					{ id = "form", lane = "main", sizing = "fill" },

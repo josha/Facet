@@ -197,14 +197,14 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 					UI.VStack({
 						id = "Rows",
 						gap = 2,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.ForEach({
 								id = "List",
@@ -239,8 +239,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -257,7 +257,7 @@ return {
 							id = "Columns",
 							axis = conditions.axis,
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
 								column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),

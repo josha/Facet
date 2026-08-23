@@ -56,7 +56,7 @@ return {
 				-- freeze — at every viewport, just never the page's.
 				UI.ScrollView({
 					id = "ProbeScroll",
-					height = { type = "fill", weight = 1 },
+					height = UI.fill(),
 					children = rows,
 				}),
 			},

@@ -293,7 +293,7 @@ function levers.install(deps: any)
 		return U.Box({
 			id = `L{i}`,
 			width = { type = "fixed", px = SHAPE_LEAF_W },
-			height = if kind == "fill" then { type = "fill", weight = 1 } else { type = "fixed", px = SHAPE_LEAF_H },
+			height = if kind == "fill" then U.fill() else { type = "fixed", px = SHAPE_LEAF_H },
 		})
 	end
 
@@ -318,7 +318,7 @@ function levers.install(deps: any)
 				id = "Shape",
 				axis = "y",
 				padding = pad,
-				width = { type = "fill", weight = 1 },
+				width = U.fill(),
 				height = { type = "fixed", px = math.max(100, viewportH()) },
 				children = { child },
 			})
@@ -345,7 +345,7 @@ function levers.install(deps: any)
 					-- the outermost level owns the provocation UNLESS a scroller is
 					-- wrapping it, in which case the scroller does
 					padding = if level == 1 and kind == "deep" then pad else 0,
-					width = { type = "fill", weight = 1 },
+					width = U.fill(),
 					children = children,
 				})
 			end
@@ -360,22 +360,20 @@ function levers.install(deps: any)
 				wrap = true,
 				gap = 0,
 				padding = pad,
-				width = { type = "fill", weight = 1 },
+				width = U.fill(),
 				children = leaves,
 			})
 		end
 		if kind == "scroll" then
 			-- the FLAT tree, moved inside a scroller. The vstack below is byte-identical
 			-- to the `flat` arm's root except that it no longer owns the padding.
-			return scroller(
-				U.VStack({ id = "Inner", gap = 0, width = { type = "fill", weight = 1 }, children = leaves })
-			)
+			return scroller(U.VStack({ id = "Inner", gap = 0, width = U.fill(), children = leaves }))
 		end
 		return U.VStack({
 			id = "Shape",
 			gap = 0,
 			padding = pad,
-			width = { type = "fill", weight = 1 },
+			width = U.fill(),
 			children = leaves,
 		})
 	end
@@ -559,7 +557,7 @@ function levers.install(deps: any)
 					-- lint's coupling detector reports this file for exactly that reason.
 					padding = 4,
 					gap = 2,
-					width = { type = "fill", weight = 1 },
+					width = U.fill(),
 					children = {
 						U.Text({ id = "N", text = item.name, textSize = "caption", lineLimit = 1 }),
 					},
@@ -755,7 +753,7 @@ function levers.install(deps: any)
 				out[r] = U.HStack({
 					id = `R{r}`,
 					gap = 2,
-					width = { type = "fill", weight = 1 },
+					width = U.fill(),
 					children = cells,
 				})
 			end
@@ -765,7 +763,7 @@ function levers.install(deps: any)
 		local list = U.VStack({
 			id = "List",
 			gap = 2,
-			width = { type = "fill", weight = 1 },
+			width = U.fill(),
 			children = buildRows(),
 		})
 		-- HOSTED wraps the SAME list in a `ScrollView` — a clip host BY CONSTRUCTION
@@ -777,12 +775,12 @@ function levers.install(deps: any)
 				id = "Rows",
 				axis = "y",
 				padding = 0,
-				width = { type = "fill", weight = 1 },
+				width = U.fill(),
 				height = { type = "fixed", px = math.max(100, viewportH()) },
 				children = { list },
 			})
 			else list
-		local header = U.Box({ id = "Header", width = { type = "fill", weight = 1 }, height = headerDim })
+		local header = U.Box({ id = "Header", width = U.fill(), height = headerDim })
 		local handle =
 			ctx.presenter.present(U.Screen({ id = "HostArm", padding = 0, gap = 0, children = { header, body } }), {
 				recycleInstances = settings.recycle == true,

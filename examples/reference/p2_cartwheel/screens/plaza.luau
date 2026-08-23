@@ -140,8 +140,8 @@ function plaza.new(app: any): any
 	local fallbackPlate = UI.ZStack({
 		id = "Fallback",
 		canvasGroup = true,
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		alignH = "center",
 		alignV = "center",
 		children = {
@@ -151,8 +151,8 @@ function plaza.new(app: any): any
 					image = app.art.marks.menu.image,
 					scaleMode = "crop",
 					tint = { role = "contentSecondary", blend = 0.7 },
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
 			),
@@ -169,7 +169,7 @@ function plaza.new(app: any): any
 
 	local hero = UI.ZStack({
 		id = "Hero",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.previewMin" },
 		children = {
 			-- the reserved box itself: it paints its own plate whether or not a
@@ -178,8 +178,8 @@ function plaza.new(app: any): any
 				UI.Stage({
 					id = "Stage",
 					surface = "raised",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				"panel"
 			),
@@ -199,8 +199,8 @@ function plaza.new(app: any): any
 		axis = "y",
 		gap = "m",
 		padding = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			-- plaza and pitch names are identity text: they may truncate, but only
 			-- with a way back to the whole string (spec §19 disclose ledger)

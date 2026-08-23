@@ -170,8 +170,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = 10,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "title" }),
 						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
@@ -194,7 +194,7 @@ return {
 									UI.Box({
 										id = "Fill",
 										surface = "scrim",
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										height = { type = "fixed", px = 72 },
 									})
 								),
@@ -205,7 +205,7 @@ return {
 									UI.Box({
 										id = "Fill",
 										surface = "raised",
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										height = { type = "fixed", px = 72 },
 									})
 								),
@@ -216,14 +216,14 @@ return {
 									UI.ZStack({
 										id = "Fill",
 										opacity = 0.5,
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										height = { type = "fixed", px = 72 },
 										children = {
 											UI.Box({
 												id = "Plate",
 												surface = "raised",
-												width = { type = "fill", weight = 1 },
-												height = { type = "fill", weight = 1 },
+												width = UI.fill(),
+												height = UI.fill(),
 											}),
 										},
 									})

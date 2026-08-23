@@ -81,7 +81,7 @@ return {
 				id = id,
 				surface = "raised",
 				height = { type = "fixed", px = h },
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = { UI.Text({ id = id .. "Label", text = label, textSize = size, textAlign = "center" }) },
 			})
 		end
@@ -94,7 +94,7 @@ return {
 				UI.HStack({
 					id = `Row{i}`,
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({ id = `RowRank{i}`, text = tostring(i), textSize = "label" }),
 						UI.Box({
@@ -112,8 +112,8 @@ return {
 			id = "FieldScroll",
 			axis = "y",
 			gap = "xs",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = rows,
 		})
 
@@ -123,8 +123,8 @@ return {
 			arrangements = { "threeLane", "twoLane", "column" },
 			laneGap = "m",
 			groupGap = "s",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			groups = {
 				-- THE SPANNING ROW (2026-07-31): `span` instead of a lane affinity, so
 				-- this band is the composition's full width, directly under the
@@ -386,8 +386,8 @@ return {
 					id = "Body",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						-- THE BAR WRAPS (O-21, 2026-08-15). Label + the resolved offer
 						-- name + `visits N` measure past a 320px phone row from +4
@@ -400,7 +400,7 @@ return {
 							id = "OfferBar",
 							wrap = true,
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "OfferLabel", text = "Offer", textSize = "label" }),
 								UI.Text({ id = "OfferName", text = offerName, textSize = "label" }),

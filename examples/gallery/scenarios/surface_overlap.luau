@@ -193,8 +193,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -203,7 +203,7 @@ return {
 							id = "Picks",
 							gap = "tight",
 							wrap = true,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								pick("Layered", COPY.layered, "layered"),
 								pick("Decoration", COPY.decoration, "decoration"),
@@ -216,7 +216,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
 								UI.Text({
@@ -232,7 +232,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "FindingsTitle", text = COPY.findingsTitle, textSize = "caption" }),
 								UI.Text({

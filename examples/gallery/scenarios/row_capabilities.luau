@@ -233,7 +233,7 @@ return {
 				{
 					id = "name",
 					title = copy.colName,
-					width = { type = "fill", weight = 3 },
+					width = UI.fill(3),
 					minWidth = 90,
 					disclose = true,
 					value = nameOf,
@@ -241,7 +241,7 @@ return {
 				{
 					id = "lock",
 					title = copy.colLock,
-					width = { type = "fill", weight = 2 },
+					width = UI.fill(2),
 					minWidth = 60,
 					disclose = true,
 					value = function(item: any): string
@@ -369,8 +369,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = copy.title, textSize = "heading" }),
 						UI.Text({ id = "Intro", text = copy.intro, textSize = "caption", role = "secondary" }),
@@ -381,7 +381,7 @@ return {
 							id = "Toolbar",
 							gap = "s",
 							wrap = true,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Button({
 									id = "MoveUp",
@@ -413,7 +413,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({
 									id = "LegendPinned",

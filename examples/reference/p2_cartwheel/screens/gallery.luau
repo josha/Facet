@@ -170,13 +170,13 @@ function gallery.new(app: any): any
 	local toolbar = UI.VStack({
 		id = "Toolbar",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			UI.HStack({
 				id = "Primary",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					layoutPicker.blueprint,
 					sortMenu.blueprint,
@@ -194,7 +194,7 @@ function gallery.new(app: any): any
 				id = "Secondary",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.When({
 						id = "TimeframeWhen",
@@ -212,7 +212,7 @@ function gallery.new(app: any): any
 					}),
 					UI.VStack({
 						id = "SearchSlot",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = { search.blueprint },
 					}),
 				},
@@ -247,7 +247,7 @@ function gallery.new(app: any): any
 				-- measures against an offer of zero — so the tile collapsed to its
 				-- own padding (24px) and the solver said "nothing inside this can
 				-- draw". The Button fills; the stack inside it hugs.
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				selected = isSelected,
 				onActivate = function()
 					selected:set(potion.id)
@@ -367,20 +367,20 @@ function gallery.new(app: any): any
 			{
 				id = "potion",
 				title = S.t("gallery.colPotion"),
-				width = { type = "fill", weight = 1.6 },
+				width = UI.fill(1.6),
 				cell = function(item)
 					return UI.HStack({
 						id = "PotionCell",
 						gap = "xs",
 						align = "center",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							parts.potionMark(app, "Mark", item, "iconSizes.large"),
 							UI.Text({
 								id = "Name",
 								text = item.name,
 								textSize = "label",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								lineLimit = 1,
 								disclose = true,
 							}),
@@ -393,7 +393,7 @@ function gallery.new(app: any): any
 			{
 				id = "strongest",
 				title = S.t("gallery.colStrongest"),
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				value = strongestCaption,
 			},
 		},
@@ -418,8 +418,8 @@ function gallery.new(app: any): any
 		id = "Potions",
 		padding = "m",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.Text({ id = "Title", text = S.t("gallery.title"), textSize = "title" }),
 			toolbar,
@@ -438,14 +438,14 @@ function gallery.new(app: any): any
 						id = "GridHost",
 						canvasGroup = true,
 						overflow = "clip",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = {
 							UI.ScrollView({
 								id = "GridScroll",
 								axis = "y",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 								children = { gridForm },
 							}),
 						},
@@ -461,8 +461,8 @@ function gallery.new(app: any): any
 						id = "TableHost",
 						canvasGroup = true,
 						overflow = "clip",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = { tableControl.blueprint },
 					})
 				end,

@@ -84,8 +84,8 @@ function ledger.new(app: any): any
 				points = points,
 				role = SERIES_ROLES[index] or "content",
 				thickness = "controls.table.indicatorThickness",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 			})
 		)
 	end
@@ -127,13 +127,13 @@ function ledger.new(app: any): any
 
 	local plot = UI.ZStack({
 		id = "Plot",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.chartH" },
 		children = {
 			UI.Anchor({
 				id = "Grid",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = gridLines,
 			}),
 			UI.When({
@@ -142,8 +142,8 @@ function ledger.new(app: any): any
 				thenView = function()
 					return UI.ZStack({
 						id = "Series",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = seriesPaths,
 					})
 				end,
@@ -155,16 +155,16 @@ function ledger.new(app: any): any
 					return UI.ZStack({
 						id = "Lock",
 						canvasGroup = true,
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						alignH = "center",
 						alignV = "center",
 						children = {
 							UI.Box({
 								id = "Scrim",
 								surface = "scrim",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 							}),
 							parts.chip(app, "Badge", S.t("ledger.locked")),
 						},
@@ -191,7 +191,7 @@ function ledger.new(app: any): any
 	local upsell = UI.VStack({
 		id = "Upsell",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			UI.When({
 				id = "ExpandedWhen",
@@ -200,7 +200,7 @@ function ledger.new(app: any): any
 					return UI.ZStack({
 						id = "ExpandedHost",
 						canvasGroup = true,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						height = { type = "content" },
 						children = {
 							parts.card(app, {
@@ -210,7 +210,7 @@ function ledger.new(app: any): any
 										id = "Head",
 										gap = "s",
 										align = "center",
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										children = {
 											-- the heading TAKES the slack rather than a
 											-- spacer beside it: a fixed-width heading plus a
@@ -219,7 +219,7 @@ function ledger.new(app: any): any
 												id = "Heading",
 												text = S.t("ledger.unlockTitle"),
 												textSize = "heading",
-												width = { type = "fill", weight = 1 },
+												width = UI.fill(),
 												lineLimit = 2,
 												disclose = true,
 											}),
@@ -261,14 +261,14 @@ function ledger.new(app: any): any
 					return UI.ZStack({
 						id = "RowHost",
 						canvasGroup = true,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						height = { type = "content" },
 						children = {
 							UI.HStack({
 								id = "Row",
 								gap = "s",
 								align = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({
 										id = "Line",
@@ -278,7 +278,7 @@ function ledger.new(app: any): any
 										lineLimit = 2,
 										disclose = true,
 									}),
-									UI.Spacer({ id = "Gap", width = { type = "fill", weight = 1 } }),
+									UI.Spacer({ id = "Gap", width = UI.fill() }),
 									UI.Button({
 										id = "Unlock",
 										label = S.t("ledger.unlock"),
@@ -307,8 +307,8 @@ function ledger.new(app: any): any
 		axis = "y",
 		gap = "m",
 		padding = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.Text({ id = "Title", text = S.t("ledger.title"), textSize = "title" }),
 			picker.blueprint,
@@ -316,13 +316,13 @@ function ledger.new(app: any): any
 				id = "Chart",
 				gap = "s",
 				align = "start",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.VStack({ id = "Axis", gap = "m", children = axisCaptions }),
 					UI.VStack({
 						id = "PlotHost",
 						gap = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							plot,
 							-- a chart legend is plaza NAMES, so its chips are ragged by

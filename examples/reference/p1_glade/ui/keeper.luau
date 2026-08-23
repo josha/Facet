@@ -58,20 +58,20 @@ function keeper.section(ctx: any): any
 		axis = "y",
 		gap = "l",
 		padding = "l",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.HStack({
 				id = "Header",
 				gap = "m",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					sceneLib.portrait(ctx, "Portrait", "tidewisp", METRICS.heroPortrait),
 					UI.VStack({
 						id = "Who",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Text({
 								id = "Name",
@@ -90,7 +90,7 @@ function keeper.section(ctx: any): any
 				surface = "raised",
 				padding = "m",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					parts.caption(ctx, "Status", tierLabel),
 					UI.When({
@@ -118,7 +118,7 @@ function keeper.section(ctx: any): any
 			UI.VStack({
 				id = "RestoreRow",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					parts.commandButton(ctx, {
 						id = "Restore",
@@ -183,19 +183,19 @@ function keeper.editForm(ctx: any, scope: any): any
 			gap = "l",
 			padding = "l",
 			surface = "raised",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				parts.heading(ctx, "Title", ctx.L("keeper.editTitle")),
 				UI.VStack({
 					id = "Fields",
 					gap = "m",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.VStack({
 							id = "NameRow",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
 								nameField.blueprint,
@@ -204,7 +204,7 @@ function keeper.editForm(ctx: any, scope: any): any
 						UI.VStack({
 							id = "ContactRow",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
 								contactField.blueprint,
@@ -215,7 +215,7 @@ function keeper.editForm(ctx: any, scope: any): any
 				UI.HStack({
 					id = "Actions",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Button({
 							id = "SaveKeeper",

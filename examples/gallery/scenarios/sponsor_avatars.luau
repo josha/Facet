@@ -235,7 +235,7 @@ return {
 					minColumnWidth = "intrinsic",
 					gap = "s",
 					rowGap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.ForEach({
 							id = "Set",
@@ -259,7 +259,7 @@ return {
 					minColumnWidth = 104,
 					gap = "s",
 					rowGap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						control("BtnLoad", "Load", function()
 							autoDrain:set(true)

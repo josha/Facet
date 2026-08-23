@@ -110,7 +110,7 @@ function signup.new(app: any): any
 					gap = "m",
 					padding = "l",
 					surface = "raised",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = S.t("guild.title"), textSize = "title" }),
 						UI.Text({

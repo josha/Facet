@@ -258,21 +258,21 @@ return {
 				-- by the theme on the list's hit node, which this card paints over —
 				-- stays visible around the card on every viewport
 				margin = "xs",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					-- the selected FORM channel (never hue alone, I-5)
 					UI.Box({
 						id = "EdgeBar",
 						surface = "accent",
 						width = edgeBarWidth,
-						height = { type = "fill", weight = 1 },
+						height = UI.fill(),
 					}),
 					UI.corners(UI.Box({ id = "Swatch", surface = "chip", width = SWATCH, height = SWATCH }), "pill"),
 					UI.VStack({
 						id = "Labels",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Text({ id = "Name", text = item.name, textSize = "body", role = nameRole }),
 							-- CAPPED AT TWO LINES (finding F13): the row height above
@@ -293,7 +293,7 @@ return {
 								-- 101px of box for a 61-character string) and had nothing to
 								-- open it, which is lost copy rather than a declared degrade.
 								disclose = true,
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 							}),
 						},
 					}),
@@ -307,7 +307,7 @@ return {
 						id = "Wash",
 						tint = washTint,
 						width = { type = "fixed", px = 6 },
-						height = { type = "fill", weight = 1 },
+						height = UI.fill(),
 					}),
 				},
 			})
@@ -464,8 +464,8 @@ return {
 					id = "Body",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
 						-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
@@ -477,7 +477,7 @@ return {
 							id = "Controls",
 							wrap = true,
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Button({
 									id = "BtnChurn",

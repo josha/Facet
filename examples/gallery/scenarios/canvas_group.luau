@@ -133,7 +133,7 @@ return {
 		local onePanel = UI.ZStack({
 			id = "OneGroup",
 			opacity = opacity,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = { type = "fixed", px = PLATES[1].px },
 			children = { plate(PLATES[1]), plate(PLATES[2]), plate(PLATES[3]) },
 		})
@@ -144,7 +144,7 @@ return {
 		-- author gets when they fade "the plate" instead of "the picture".
 		local manyPanel = UI.ZStack({
 			id = "ThreeGroups",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = { type = "fixed", px = PLATES[1].px },
 			children = (function()
 				local kids = {}
@@ -170,7 +170,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "tight",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					body,
@@ -209,8 +209,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -218,7 +218,7 @@ return {
 							id = "Stops",
 							gap = "tight",
 							wrap = true,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = (function()
 								local row =
 									{ UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = "caption" }) }
@@ -236,7 +236,7 @@ return {
 							id = "Panels",
 							axis = conditions.axis,
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
 								panel("Many", COPY.manyTitle, COPY.manyNote, manyPanel),
@@ -248,7 +248,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),
 								UI.Button({
@@ -272,7 +272,7 @@ return {
 											-- THE DECLARATION, with no opacity beside it
 											canvasGroup = true,
 											padding = "s",
-											width = { type = "fill", weight = 1 },
+											width = UI.fill(),
 											children = {
 												UI.Text({
 													id = "Body",

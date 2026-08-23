@@ -240,16 +240,16 @@ return {
 				-- move — which is what makes a coach mark's anchor (a PATH) survive a reset.
 				UI.Anchor({
 					id = "Bar",
-					width = { type = "fill", weight = 1 },
-					height = { type = "hug" },
+					width = UI.fill(),
+					height = UI.hug(),
 					children = { second.blueprint, tip.blueprint },
 				}),
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -257,7 +257,7 @@ return {
 							id = "Picks",
 							gap = "tight",
 							wrap = true,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								pick("Show", COPY.show, function()
 									tip.api.present()
@@ -279,7 +279,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "QueueTitle", text = COPY.queueTitle, textSize = "caption" }),
 								UI.Text({
@@ -295,7 +295,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
 								UI.Text({
@@ -312,7 +312,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "SaveTitle", text = COPY.saveTitle, textSize = "caption" }),
 								UI.Text({ id = "SaveBody", text = saved, textSize = "caption", role = "secondary" }),
@@ -323,7 +323,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "xs",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "HelpTitle", text = COPY.helpTitle, textSize = "caption" }),
 								UI.Text({

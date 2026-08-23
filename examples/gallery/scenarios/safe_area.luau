@@ -28,7 +28,7 @@ return {
 				UI.Box({
 					id = "Content",
 					surface = "raised",
-					height = { type = "fill", weight = 1 },
+					height = UI.fill(),
 				}),
 				UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = "control" }),
 			},

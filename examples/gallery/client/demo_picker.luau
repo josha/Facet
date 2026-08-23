@@ -777,8 +777,8 @@ function demo_picker.mount(opts: MountOpts): any
 		gap = "xs",
 		surface = "raised",
 		padding = "s",
-		width = { type = "hug" },
-		height = { type = "hug" },
+		width = UI.hug(),
+		height = UI.hug(),
 		children = buildRows(),
 	})
 	-- ...AND THE PLAIN STACK the composed host puts inside ITS card. The chrome's
@@ -790,7 +790,7 @@ function demo_picker.mount(opts: MountOpts): any
 	local rowsStack = UI.VStack({
 		id = "Rows",
 		gap = "xs",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = buildRows(),
 	})
 
@@ -880,8 +880,8 @@ function demo_picker.mount(opts: MountOpts): any
 		children = {
 			UI.Anchor({
 				id = "Dock",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.VStack({
 						id = "Panel",

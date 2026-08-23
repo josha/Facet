@@ -67,7 +67,7 @@ function topfive.new(app: any): any
 			local peak = if list[1] == nil then 1 else math.max(1, list[1].bottles)
 			local entry = list[slot]
 			local value = if entry == nil then 0 else entry.bottles
-			return { type = "fill", weight = math.max(0.001, value / peak) }
+			return UI.fill(math.max(0.001, value / peak))
 		end)
 		table.insert(memos, barWeight)
 		local slackWeight = core:memo(function(use)
@@ -75,7 +75,7 @@ function topfive.new(app: any): any
 			local peak = if list[1] == nil then 1 else math.max(1, list[1].bottles)
 			local entry = list[slot]
 			local value = if entry == nil then 0 else entry.bottles
-			return { type = "fill", weight = math.max(0.001, 1 - value / peak) }
+			return UI.fill(math.max(0.001, 1 - value / peak))
 		end)
 		table.insert(memos, slackWeight)
 		local valueText = core:memo(function(use)
@@ -102,7 +102,7 @@ function topfive.new(app: any): any
 		local column = UI.Box({
 			id = "Bar",
 			surface = "accent",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = barWeight,
 		})
 		column = UI.corners(column, "control")
@@ -114,11 +114,11 @@ function topfive.new(app: any): any
 				id = "Cell" .. slot,
 				gap = "xs",
 				align = "center",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					parts.badge(app, "Value", valueText),
-					UI.Spacer({ id = "Slack", height = slackWeight, width = { type = "fill", weight = 1 } }),
+					UI.Spacer({ id = "Slack", height = slackWeight, width = UI.fill() }),
 					column,
 					UI.Image({
 						id = "Mark",
@@ -146,8 +146,8 @@ function topfive.new(app: any): any
 		axis = "y",
 		gap = "m",
 		padding = "m",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.Text({ id = "Title", text = S.t("top.title"), textSize = "title" }),
 			picker.blueprint,
@@ -164,7 +164,7 @@ function topfive.new(app: any): any
 				id = "Chart",
 				gap = "s",
 				align = "end",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "fixed", px = "app.cartwheel.chartH" },
 				children = cells,
 			}),

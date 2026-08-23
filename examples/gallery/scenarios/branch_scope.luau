@@ -124,7 +124,7 @@ return {
 			return UI.VStack({
 				id = id,
 				gap = "tight",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Body", text = COPY.panelBody, textSize = "caption", role = "secondary" }),
 				},
@@ -144,8 +144,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -155,7 +155,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = "caption" }),
 								UI.Button({
@@ -194,7 +194,7 @@ return {
 							surface = "control",
 							padding = "s",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = "caption" }),
 								UI.Button({

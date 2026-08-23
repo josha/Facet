@@ -196,7 +196,7 @@ return {
 					id = "Readouts",
 					gap = "tight",
 					wrap = true,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = (function()
 						local kids: { any } = table.clone(readoutViews)
 						table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = "body" }))
@@ -207,14 +207,14 @@ return {
 				UI.ScrollView({
 					id = "Body",
 					axis = "y",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.AdaptiveStack({
 							id = "Split",
 							axis = conditions.axis,
 							gap = 12,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = { list.blueprint },
 						}),
 					},

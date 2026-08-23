@@ -362,8 +362,8 @@ local function build(Facet: any, core: any, deps: any)
 						id = "img",
 						image = image,
 						tint = tint,
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 					}),
 					-- the hit target: focusable + tappable, fills the tile; its
 					-- `selected` prop reflects the current selection, and its label
@@ -377,8 +377,8 @@ local function build(Facet: any, core: any, deps: any)
 						surface = "plain",
 						selected = isSelected,
 						textSize = "control",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						onActivate = function()
 							activateCell(rr, cc)
 						end,
@@ -478,8 +478,8 @@ local function build(Facet: any, core: any, deps: any)
 				id = "Page",
 				axis = "y",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = "Facet Match-3", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
@@ -521,7 +521,7 @@ local function build(Facet: any, core: any, deps: any)
 						id = "Art",
 						minColumnWidth = "intrinsic",
 						gap = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Button({ id = "Reload", label = "Re-request artwork", onActivate = reloadArt }),
 							UI.Button({

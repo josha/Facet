@@ -227,7 +227,7 @@ return {
 		local oneGroup = UI.ZStack({
 			id = "OneGroup",
 			opacity = opacityValue,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = { type = "fixed", px = BACK.h },
 			children = { plate(BACK), plate(FRONT) },
 		})
@@ -239,7 +239,7 @@ return {
 		-- tiny CanvasGroup).
 		local twoGroups = UI.ZStack({
 			id = "TwoGroups",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			height = { type = "fixed", px = BACK.h },
 			children = { plate(BACK, opacityValue), plate(FRONT, opacityValue) },
 		})
@@ -315,7 +315,7 @@ return {
 		local function stage(body: any): any
 			return UI.ZStack({
 				id = "Stage",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "fixed", px = STAGE_H },
 				children = { body },
 			})
@@ -327,7 +327,7 @@ return {
 				surface = "control",
 				padding = "s",
 				gap = "tight",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = title, textSize = "caption" }),
 					body,
@@ -349,8 +349,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
@@ -358,7 +358,7 @@ return {
 						UI.VStack({
 							id = "Opacity",
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = "label" }),
 								UI.Text({
@@ -381,7 +381,7 @@ return {
 									id = "Panels",
 									axis = conditions.axis,
 									gap = "s",
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 									children = {
 										panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
 										panel("Two", COPY.manyTitle, COPY.manyNote, twoGroups),
@@ -393,7 +393,7 @@ return {
 						UI.VStack({
 							id = "Carry",
 							gap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = "label" }),
 								UI.Text({
@@ -413,7 +413,7 @@ return {
 									id = "Panels",
 									axis = conditions.axis,
 									gap = "s",
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 									children = {
 										panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
 										panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),

@@ -342,8 +342,8 @@ return {
 			return UI.ZStack({
 				id = "Card",
 				stroke = strokeData,
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.When({
 						id = "WashWhen",
@@ -352,8 +352,8 @@ return {
 							return UI.Box({
 								id = "Wash",
 								tint = verdictTint,
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 							})
 						end,
 					}),
@@ -361,8 +361,8 @@ return {
 						id = "Row",
 						padding = "s",
 						gap = "s",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 						children = {
 							UI.Text({ id = "Name", text = item.name, textSize = "body" }),
 							UI.Spacer({ id = "Gap" }),
@@ -502,7 +502,7 @@ return {
 						label = label,
 						compactLabel = letter,
 						selected = armed,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						height = { type = "minMax", min = "targetSizes.minimum" },
 						onActivate = function(_path: string, meta: any?)
 							activations:set(activations:get() + 1)
@@ -550,16 +550,16 @@ return {
 					proxy = function()
 						return UI.ZStack({
 							id = "GhostCard",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								UI.shadow(
 									UI.corners(
 										UI.Box({
 											id = "GhostPlate",
 											surface = "raised",
-											width = { type = "fill", weight = 1 },
-											height = { type = "fill", weight = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 										}),
 										"control"
 									),
@@ -585,7 +585,7 @@ return {
 					surface = "raised",
 					gap = "s",
 					padding = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						card("CardA", "A", "Card A"),
 						card("CardB", "B", "Card B", "flyToTarget"),
@@ -629,7 +629,7 @@ return {
 						textSize = "caption",
 						textAlign = "center",
 						role = "secondary",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 					}),
 				},
 			})
@@ -649,18 +649,18 @@ return {
 					id = "Main",
 					axis = conditions.axis,
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.ZStack({
 							id = "ListZone",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								list.blueprint,
 								UI.Anchor({
 									id = "Chevrons",
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 									children = {
 										chevron("ChevTop", "top", "^"),
 										chevron("ChevBottom", "bottom", "v"),

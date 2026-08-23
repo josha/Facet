@@ -216,14 +216,14 @@ return {
 
 		local stage = UI.ZStack({
 			id = "Stage",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.Box({
 					id = "StageSurface",
 					surface = "base",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				slot("SlotA", "start", "start"),
 				slot("SlotB", "end", slotBAlignV),
@@ -282,8 +282,8 @@ return {
 					thenView = function()
 						return UI.ZStack({
 							id = "Clones",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = clones,
 						})
 					end,
@@ -364,14 +364,14 @@ return {
 					id = "Main",
 					axis = conditions.axis,
 					gap = "m",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.VStack({
 							id = "StageColumn",
 							gap = "s",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								stage,
 								-- the decay-wash subject, LABELED (director SFH-2: "decay
@@ -380,15 +380,15 @@ return {
 								-- names the button that drives it.
 								UI.ZStack({
 									id = "WashRow",
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 									height = { type = "fixed", px = "targetSizes.minimum" },
 									children = {
 										UI.Box({
 											id = "WashFill",
 											surface = "control",
 											tint = wash,
-											width = { type = "fill", weight = 1 },
-											height = { type = "fill", weight = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 										}),
 										UI.Text({
 											id = "WashLabel",
@@ -412,7 +412,7 @@ return {
 							minColumnWidth = 96,
 							gap = "s",
 							rowGap = "s",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								control("BtnPanel", "Panel", function()
 									if panelOpen:get() then

@@ -1647,8 +1647,8 @@ return {
 						id = "Page",
 						axis = "y",
 						gap = 2,
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = U.fill(),
+						height = U.fill(),
 						children = children,
 					})
 					local screen = U.Screen({ id = "SensoryCascade", padding = "s", children = { page } })
@@ -1904,7 +1904,7 @@ return {
 								id = "Row",
 								padding = EXTENT_PAD,
 								gap = EXTENT_GAP,
-								width = { type = "fill", weight = 1 },
+								width = U.fill(),
 								children = children,
 							})
 						end,
@@ -2210,7 +2210,7 @@ return {
 						{
 							id = "name",
 							title = "Entrant",
-							width = { type = "fill", weight = 4 },
+							width = U.fill(4),
 							minWidth = 90,
 							disclose = true,
 							value = function(item: any)
@@ -2220,7 +2220,7 @@ return {
 						{
 							id = "team",
 							title = "Team",
-							width = { type = "fill", weight = 3 },
+							width = U.fill(3),
 							minWidth = 70,
 							disclose = true,
 							value = function(item: any)
@@ -2230,7 +2230,7 @@ return {
 						{
 							id = "rank",
 							title = "#",
-							width = { type = "fill", weight = 2 },
+							width = U.fill(2),
 							minWidth = 40,
 							value = function(item: any)
 								return tostring(item.rank)
@@ -2250,8 +2250,8 @@ return {
 						children = {
 							U.ZStack({
 								id = "Pane",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = U.fill(),
+								height = U.fill(),
 								children = { tbl.blueprint },
 							}),
 						},

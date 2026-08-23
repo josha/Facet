@@ -77,8 +77,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = 12,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "UI.Foreign", textSize = "title" }),
 						UI.Text({

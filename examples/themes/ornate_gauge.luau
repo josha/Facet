@@ -194,11 +194,11 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 	local FLOOR = 1e-4
 	local lead = core:memo(function(use: any)
 		local f = clamp01(if fraction ~= nil then use(fraction) else 0)
-		return { type = "fill", weight = math.max(f, FLOOR) }
+		return UI.fill(math.max(f, FLOOR))
 	end)
 	local trail = core:memo(function(use: any)
 		local f = clamp01(if fraction ~= nil then use(fraction) else 0)
-		return { type = "fill", weight = math.max(1 - f, FLOOR) }
+		return UI.fill(math.max(1 - f, FLOOR))
 	end)
 
 	local dialHeight: any = if o.heightPx ~= nil
@@ -207,7 +207,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		end)
 		else { type = "fixed", px = resolved.height }
 
-	local FILL = { type = "fill", weight = 1 }
+	local FILL = UI.fill()
 
 	-- the value token, wearing the THEME's colour as a glow. This is the one
 	-- place a contributed control can put a palette colour today: `UI.shadow`

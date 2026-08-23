@@ -315,7 +315,7 @@ return {
 				UI.VStack({
 					id = lane.id,
 					gap = 2,
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Text({
 							id = "Label",
@@ -326,7 +326,7 @@ return {
 						UI.Anchor({
 							id = "Lane",
 							surface = "control",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "fixed", px = LANE_PX },
 							children = {
 								-- the lane holds NO text, which is what makes a fixed px
@@ -338,7 +338,7 @@ return {
 									anchor = "left",
 									offsetX = offsetX,
 									width = { type = "fixed", px = PUCK_PX },
-									height = { type = "fill", weight = 1 },
+									height = UI.fill(),
 								}),
 							},
 						}),
@@ -433,8 +433,8 @@ return {
 					id = "Page",
 					axis = "y",
 					gap = "s",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
 						motionPicker.blueprint,
@@ -450,7 +450,7 @@ return {
 						UI.Button({
 							id = "RunRace",
 							label = COPY.raceRun,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							onActivate = runRace,
 						}),
 						cooldownBar.blueprint,
@@ -473,13 +473,13 @@ return {
 						UI.Button({
 							id = "LaunchGallery",
 							label = COPY.galleryRun,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							onActivate = launchGallery,
 						}),
 						UI.VStack({
 							id = "Lanes",
 							gap = "tight",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = lanes,
 						}),
 
@@ -494,7 +494,7 @@ return {
 						UI.Button({
 							id = "FlyPanel",
 							label = COPY.panelRun,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							onActivate = flyPanel,
 						}),
 						-- the thing that MOVES: `anchor` is arrange-only, so flipping it
@@ -503,7 +503,7 @@ return {
 						UI.Anchor({
 							id = "PanelLane",
 							surface = "control",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = { type = "fixed", px = 40 },
 							children = {
 								UI.Box({
@@ -513,7 +513,7 @@ return {
 										return if use(panelRight) then "topRight" else "topLeft"
 									end)),
 									width = { type = "fixed", px = 36 },
-									height = { type = "fill", weight = 1 },
+									height = UI.fill(),
 								}),
 							},
 						}),
@@ -542,7 +542,7 @@ return {
 						UI.Box({
 							id = "PanelCard",
 							surface = "accent",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							height = scope:own(core:memo(function(use)
 								return { type = "fixed", px = if use(panelTall) then 88 else 40 }
 							end)),

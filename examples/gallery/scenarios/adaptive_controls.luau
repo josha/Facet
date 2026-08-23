@@ -111,7 +111,7 @@ return {
 				return UI.VStack({
 					id = "AdvancedBody",
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						UI.Toggle({ id = "Vsync", label = "Vertical sync", value = core:signal(true) }),
 						UI.Toggle({ id = "Telemetry", label = "Share telemetry", value = core:signal(false) }),
@@ -175,7 +175,7 @@ return {
 		local navShapes = UI.VStack({
 			id = "NavShapes",
 			gap = "tight",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = "caption" }),
 				navPill.blueprint,
@@ -183,7 +183,7 @@ return {
 					id = "NavRailRow",
 					gap = "s",
 					align = "start",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						navRail.blueprint,
 						UI.Text({
@@ -191,7 +191,7 @@ return {
 							text = navReadout,
 							textSize = "caption",
 							role = "secondary",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 						}),
 					},
 				}),
@@ -205,7 +205,7 @@ return {
 				id = id,
 				label = label,
 				role = role,
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "minMax", min = "targetSizes.minimum" },
 			})
 		end
@@ -223,7 +223,7 @@ return {
 					id = "ActionsRow",
 					gap = "s",
 					align = "stretch",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						actionButton("Save", "Save changes"),
 						actionButton("Reset", "Reset to defaults", "cancel"),
@@ -234,7 +234,7 @@ return {
 					id = "ActionsColumn",
 					gap = "tight",
 					align = "stretch",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						actionButton("Save", "Save changes"),
 						actionButton("Reset", "Reset to defaults", "cancel"),
@@ -249,7 +249,7 @@ return {
 		local settingsColumn = UI.VStack({
 			id = "Settings",
 			gap = 10,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Text({ id = "Heading", text = "Settings", textSize = 22 }),
 				UI.Divider({}),
@@ -282,7 +282,7 @@ return {
 				UI.Box({
 					id = id,
 					surface = "control",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = { type = "fixed", px = 44 },
 				}),
 				UI.alignment(
@@ -328,7 +328,7 @@ return {
 			-- measured: task G-SPACE fix round, review finding). Kept raw rather
 			-- than migrated -- the day-2 lesson names exactly this shape.
 			gap = 6,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
 				UI.Divider({ axis = "x" }),
@@ -379,13 +379,13 @@ return {
 		local compactLadder = UI.HStack({
 			id = "CompactRow",
 			gap = "tight",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Button({
 					id = "CmpRoomy",
 					label = "Edit item",
 					compactLabel = "Ed",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					height = { type = "minMax", min = "targetSizes.minimum" },
 				}),
 				UI.Button({
@@ -411,8 +411,7 @@ return {
 			},
 		})
 		-- 16:9 media with NO hand arithmetic: the height follows the resolved width
-		local media =
-			UI.aspectRatio(UI.Box({ id = "Media", surface = "raised", width = { type = "fill", weight = 1 } }), 16 / 9)
+		local media = UI.aspectRatio(UI.Box({ id = "Media", surface = "raised", width = UI.fill() }), 16 / 9)
 		-- a DENSE HUD (A-AL4's second required surface): many small live readouts in
 		-- a derived-column grid, not a settings form
 		local hudTiles = {}
@@ -454,7 +453,7 @@ return {
 			id = "Legend",
 			distribute = "spaceBetween",
 			wrap = true,
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				marker("LegendLow", "Optional"),
 				marker("LegendMid", "Useful"),
@@ -497,7 +496,7 @@ return {
 			id = "Shrink",
 			gap = "tight",
 			align = "start",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				bar("VocabOptional", {
 					width = { type = "minMax", min = 24, preferred = 140 },
@@ -534,7 +533,7 @@ return {
 		local vocabSpecs = UI.Grid({
 			id = "Specs",
 			gap = "tight",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.GridRow({
 					id = "SpecHead",
@@ -547,7 +546,7 @@ return {
 					children = {
 						specCell("SpecTitle", "Row grid", {
 							gridSpan = 2,
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 						}),
 					},
 				}),
@@ -571,7 +570,7 @@ return {
 		local hudColumn = UI.VStack({
 			id = "Hud",
 			gap = "s",
-			width = { type = "fill", weight = 1 },
+			width = UI.fill(),
 			children = {
 				UI.Text({ id = "HudHeading", text = "Status", textSize = "control" }),
 				UI.Divider({}),
@@ -589,7 +588,7 @@ return {
 					-- fixture's §2.5 case is about what a scroller's viewport measures.
 					minColumnWidth = 48,
 					gap = "xs",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = hudTiles,
 				}),
 				-- a dense tile grid: fill cells occupy their derived columns (A-LV1)
@@ -601,7 +600,7 @@ return {
 					-- fill cells occupying their derived columns — would have nothing to show.
 					minColumnWidth = 72,
 					gap = "tight",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						badgedTile("t1", "3"),
 						badgedTile("t2", "9"),
@@ -650,14 +649,14 @@ return {
 				UI.ScrollView({
 					id = "BodyScroll",
 					axis = "y",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.AdaptiveStack({
 							id = "Body",
 							axis = conditions.axis,
 							gap = "m",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = { settingsColumn, hudColumn },
 						}),
 					},

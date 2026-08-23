@@ -206,7 +206,7 @@ function settings_panel.mount(opts: MountOpts): any
 
 	local motionSection = UI.VStack({
 		id = "Motion",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		gap = "xs",
 		children = {
 			motionPicker.blueprint,
@@ -218,7 +218,7 @@ function settings_panel.mount(opts: MountOpts): any
 				text = COPY.motionNote,
 				textSize = "caption",
 				role = "secondary",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 			}),
 		},
 	})
@@ -229,7 +229,7 @@ function settings_panel.mount(opts: MountOpts): any
 			sections,
 			UI.VStack({
 				id = "Build",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				gap = "xs",
 				children = {
 					UI.Text({
@@ -239,7 +239,7 @@ function settings_panel.mount(opts: MountOpts): any
 						role = "secondary",
 						-- WRAPS, never clips: a sha plus a timestamp is long, and this
 						-- is the one line whose whole job is being read exactly.
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 					}),
 				},
 			})

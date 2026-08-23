@@ -99,8 +99,8 @@ function scene.ring(ctx: any, spec: RingSpec): any
 								UI.Box({
 									id = "Fill",
 									tint = jarTint,
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
 								}),
 								"pill"
 							),
@@ -132,8 +132,8 @@ function scene.ring(ctx: any, spec: RingSpec): any
 				points = ctx.Facet.pathShapes.ring({}),
 				thickness = "xs",
 				role = "secondary",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 			}),
 			UI.When({
 				id = "Arc",
@@ -144,8 +144,8 @@ function scene.ring(ctx: any, spec: RingSpec): any
 						points = points,
 						thickness = "xs",
 						tint = ctx.supplyTint(spec.kind),
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
+						width = UI.fill(),
+						height = UI.fill(),
 					})
 				end,
 			}),
@@ -193,8 +193,8 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 			id = "Sky",
 			tint = ctx.tint(seedData.WHITE),
 			gradient = sky,
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 		}),
 		-- weighted-fill columns, not percent: a percent height inside the page
 		-- scroller's unbounded measure axis is the exact shape the solver
@@ -202,29 +202,29 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 		-- states the same 42%/20% bands against the scene's own box
 		UI.VStack({
 			id = "TreesBand",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
-				UI.Spacer({ height = { type = "fill", weight = 58 } }),
+				UI.Spacer({ height = UI.fill(58) }),
 				UI.Box({
 					id = "TreesFar",
 					tint = silhouette,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 42 },
+					width = UI.fill(),
+					height = UI.fill(42),
 				}),
 			},
 		}),
 		UI.VStack({
 			id = "FloorBand",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
-				UI.Spacer({ height = { type = "fill", weight = 80 } }),
+				UI.Spacer({ height = UI.fill(80) }),
 				UI.Box({
 					id = "Floor",
 					tint = ctx.tint(seedData.MOSS),
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 20 },
+					width = UI.fill(),
+					height = UI.fill(20),
 				}),
 			},
 		}),
@@ -252,8 +252,8 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 		layers,
 		UI.Anchor({
 			id = "Flora",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = fernChildren,
 		})
 	)
@@ -331,13 +331,13 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 				return UI.ZStack({
 					id = "VisitorLayer",
 					canvasGroup = true,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Anchor({
 							id = "Flight",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								UI.ZStack({
 									id = "Wisp",
@@ -351,8 +351,8 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 											UI.Box({
 												id = "Glow",
 												tint = glowTint,
-												width = { type = "fill", weight = 1 },
-												height = { type = "fill", weight = 1 },
+												width = UI.fill(),
+												height = UI.fill(),
 											}),
 											"pill"
 										),
@@ -394,7 +394,7 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 				id = spec.id,
 				canvasGroup = true,
 				overflow = "clip",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = spec.height,
 				children = layers,
 			}),
@@ -424,8 +424,8 @@ function scene.portrait(ctx: any, id: string, wispId: string, size: number): any
 					id = "Mini",
 					tint = ctx.tint(seedData.WHITE),
 					gradient = UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } }),
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				UI.corners(
 					UI.Box({

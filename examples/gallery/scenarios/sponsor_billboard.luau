@@ -75,8 +75,8 @@ return {
 		local RING: any = { type = "fixed", px = 160 }
 		local billboardBlueprint = UI.ZStack({
 			id = "Omen",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				UI.When({
 					id = "RenderScope",
@@ -85,8 +85,8 @@ return {
 						return UI.ZStack({
 							id = "Composite",
 							canvasGroup = true,
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								UI.Path({
 									id = "Track",
@@ -126,7 +126,7 @@ return {
 									textAlign = "center",
 									alignH = "center",
 									alignV = "end",
-									width = { type = "fill", weight = 1 },
+									width = UI.fill(),
 								}),
 							},
 						})
@@ -236,8 +236,8 @@ return {
 					id = "Readouts",
 					axis = "y",
 					gap = "m",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
 						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
@@ -260,7 +260,7 @@ return {
 					minColumnWidth = 104,
 					gap = "s",
 					rowGap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						control("BtnMount", "Mount", function()
 							mountBillboard()

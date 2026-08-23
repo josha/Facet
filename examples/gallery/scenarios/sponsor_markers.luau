@@ -205,22 +205,22 @@ return {
 				UI.Text({ id = "Title", text = "Marker lab", textSize = "heading" }),
 				UI.ZStack({
 					id = "Stage",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.corners(
 							UI.Box({
 								id = "Map",
 								surface = "raised",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
 							}),
 							"panel"
 						),
 						UI.Anchor({
 							id = "Overlay",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
+							width = UI.fill(),
+							height = UI.fill(),
 							children = {
 								UI.ForEach({
 									id = "Markers",
@@ -246,7 +246,7 @@ return {
 					minColumnWidth = 104,
 					gap = "s",
 					rowGap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						control("BtnOrbit", "Orbit", toggleOrbit),
 						control("BtnBurst", "Burst", burst),

@@ -161,13 +161,13 @@ function custom_control.blueprint(UI: any, resolved: any, id: string?): any
 	return UI.VStack({
 		id = name,
 		gap = "xs",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			UI.Text({ id = name .. "Label", text = "Custom gauge (demo:gauge)", textSize = "caption" }),
 			UI.Box({
 				id = name .. "Track",
 				surface = "control",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				height = { type = "fixed", px = resolved.height },
 			}),
 		},

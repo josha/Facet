@@ -213,7 +213,7 @@ return {
 			return UI.VStack({
 				id = `Beat{index}`,
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					boxView,
 					-- captions WRAP (they are the preferred-text participant here);
@@ -228,8 +228,8 @@ return {
 
 		local stageInner = UI.ZStack({
 			id = "StageInner",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
+			width = UI.fill(),
+			height = UI.fill(),
 			children = {
 				-- the beat-4 wash, BEHIND the beats: a tinted Box claims both colour
 				-- and opacity, so a wash painted over the content would hide it
@@ -237,20 +237,20 @@ return {
 					id = "Wash",
 					surface = "base",
 					tint = washTint,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 				UI.ScrollView({
 					id = "Beats",
 					axis = "y",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.HStack({
 							id = "Row",
 							gap = "s",
 							align = "start",
-							width = { type = "fill", weight = 1 },
+							width = UI.fill(),
 							children = {
 								beat(
 									1,
@@ -265,7 +265,7 @@ return {
 													id = "BoxA",
 													surface = "control",
 													canvasGroup = true,
-													width = { type = "fill", weight = 1 },
+													width = UI.fill(),
 													height = BEAT_BOX,
 												}),
 												"control"
@@ -280,7 +280,7 @@ return {
 										UI.Box({
 											id = "BoxB",
 											surface = "control",
-											width = { type = "fill", weight = 1 },
+											width = UI.fill(),
 											height = BEAT_BOX,
 										}),
 										"control"
@@ -293,7 +293,7 @@ return {
 										UI.Box({
 											id = "BoxC",
 											surface = "control",
-											width = { type = "fill", weight = 1 },
+											width = UI.fill(),
 											height = BEAT_BOX,
 										}),
 										"control"
@@ -306,7 +306,7 @@ return {
 										UI.Box({
 											id = "BoxD",
 											surface = "control",
-											width = { type = "fill", weight = 1 },
+											width = UI.fill(),
 											height = BEAT_BOX,
 										}),
 										"control"
@@ -343,8 +343,8 @@ return {
 					label = "Skip sequence",
 					focusable = false,
 					surface = "base",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					onActivate = function()
 						skipRun()
 					end,
@@ -361,7 +361,7 @@ return {
 					minColumnWidth = 104,
 					gap = "s",
 					rowGap = "s",
-					width = { type = "fill", weight = 1 },
+					width = UI.fill(),
 					children = {
 						control("BtnRun", "Run", function()
 							startRun("button")

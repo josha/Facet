@@ -422,7 +422,7 @@ function example.build(Facet: any, core: any, deps: any)
 			{
 				id = "name",
 				title = "Name",
-				width = { type = "fill", weight = 3 },
+				width = UI.fill(3),
 				minWidth = 90,
 				resizable = true,
 				-- the value can outgrow its cell at the narrowest viewport (see THE
@@ -436,7 +436,7 @@ function example.build(Facet: any, core: any, deps: any)
 			{
 				id = "artist",
 				title = "Artist",
-				width = { type = "fill", weight = 2 },
+				width = UI.fill(2),
 				minWidth = 72,
 				resizable = true,
 				disclose = true,
@@ -819,8 +819,8 @@ function example.build(Facet: any, core: any, deps: any)
 				id = "Page",
 				axis = "y",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				children = {
 					UI.Text({ id = "Title", text = "Playlist", textSize = "title" }),
 					filterControl.blueprint,

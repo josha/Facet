@@ -97,7 +97,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 	return UI.Button({
 		id = "SupplyRow_" .. kind,
 		label = actionTitle,
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		onActivate = function()
 			if kind == "dew" then
 				ctx.nav.refillDew(gladeId)
@@ -110,7 +110,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 				id = "Row",
 				gap = "m",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					sceneLib.ring(ctx, {
 						id = "Ring",
@@ -122,13 +122,13 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 					UI.VStack({
 						id = "Copy",
 						gap = "xs",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.HStack({
 								id = "TitleRow",
 								gap = "s",
 								align = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									UI.Text({
 										id = "Name",
@@ -139,7 +139,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 										-- the 1.4x locale this name's natural width pushed the
 										-- row past its box; a fill share truncates through the
 										-- declared disclose instead
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										lineLimit = 1,
 										disclose = true,
 									}),
@@ -168,7 +168,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 								text = caption,
 								textSize = "caption",
 								role = captionRole,
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								lineLimit = 2,
 							}),
 						},
@@ -192,7 +192,7 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 	return UI.VStack({
 		id = "Visitors",
 		gap = "s",
-		width = { type = "fill", weight = 1 },
+		width = UI.fill(),
 		children = {
 			parts.heading(ctx, "VisitorsTitle", ctx.L("detail.visitors")),
 			UI.When({
@@ -224,7 +224,7 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 					return UI.Button({
 						id = "Visitor_" .. visit.id,
 						label = activate,
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						align = "start",
 						onActivate = function()
 							ctx.nav.openWisp(visit.wisp)
@@ -234,7 +234,7 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 								id = "Row",
 								gap = "m",
 								align = "center",
-								width = { type = "fill", weight = 1 },
+								width = UI.fill(),
 								children = {
 									sceneLib.portrait(ctx, "Portrait", visit.wisp, METRICS.portrait),
 									UI.Text({
@@ -243,7 +243,7 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 										textSize = "label",
 										-- fill for the same reason as the supply row's name:
 										-- lineLimit does not cap the width a text asks for
-										width = { type = "fill", weight = 1 },
+										width = UI.fill(),
 										lineLimit = 1,
 										disclose = true,
 									}),
@@ -314,14 +314,14 @@ function detail.body(ctx: any, spec: BodySpec): any
 		axis = "y",
 		gap = "l",
 		padding = "l",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.HStack({
 				id = "TitleRow",
 				gap = "s",
 				align = "center",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = titleRow,
 			}),
 			sceneLib.glade(ctx, {
@@ -334,7 +334,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 			UI.VStack({
 				id = "Supplies",
 				gap = "s",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = {
 					supplyRow(ctx, gladeId, "nectar", spec.scope),
 					supplyRow(ctx, gladeId, "dew", spec.scope),
@@ -374,14 +374,14 @@ function detail.lane(ctx: any): any
 				id = "Pane",
 				canvasGroup = true,
 				width = { type = "fixed", px = METRICS.detailPaneMin },
-				height = { type = "fill", weight = 1 },
+				height = UI.fill(),
 				children = {
 					detail.body(ctx, { id = "Detail", glade = item.id, scope = rowScope, compact = false }),
 				},
 			})
 		end,
 	})
-	return UI.VStack({ id = "DetailForm", height = { type = "fill", weight = 1 }, children = { rows } })
+	return UI.VStack({ id = "DetailForm", height = UI.fill(), children = { rows } })
 end
 
 return detail

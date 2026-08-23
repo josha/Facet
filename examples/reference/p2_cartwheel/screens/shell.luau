@@ -104,7 +104,7 @@ function shell.new(app: any): any
 			spec.width = { type = "fixed", px = "targetSizes.minimum" }
 			spec.height = { type = "fixed", px = "targetSizes.minimum" }
 		else
-			spec.width = { type = "fill", weight = 1 }
+			spec.width = UI.fill()
 			spec.align = "start"
 		end
 		return UI.Button(spec)
@@ -125,7 +125,7 @@ function shell.new(app: any): any
 			spec.width = { type = "fixed", px = "targetSizes.minimum" }
 			spec.height = { type = "fixed", px = "targetSizes.minimum" }
 		else
-			spec.width = { type = "fill", weight = 1 }
+			spec.width = UI.fill()
 			spec.align = "start"
 		end
 		return UI.Button(spec)
@@ -174,14 +174,14 @@ function shell.new(app: any): any
 		for _, plaza in data.plazas :: any do
 			table.insert(children, plazaButton(plaza, rail))
 		end
-		table.insert(children, UI.Spacer({ id = "Gap", height = { type = "fill", weight = 1 } }))
+		table.insert(children, UI.Spacer({ id = "Gap", height = UI.fill() }))
 		table.insert(
 			children,
 			UI.Button({
 				id = "GuildCard",
 				label = guildLabel,
 				compactLabel = { text = "Guild" },
-				width = if rail then { type = "fixed", px = "targetSizes.minimum" } else { type = "fill", weight = 1 },
+				width = if rail then { type = "fixed", px = "targetSizes.minimum" } else UI.fill(),
 				height = if rail then { type = "fixed", px = "targetSizes.minimum" } else nil,
 				onActivate = function()
 					app.actions.openGuildCard()
@@ -196,13 +196,13 @@ function shell.new(app: any): any
 		axis = "y",
 		gap = "xs",
 		padding = "s",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.VStack({
 				id = "Rows",
 				gap = "xs",
-				width = { type = "fill", weight = 1 },
+				width = UI.fill(),
 				children = sidebarChildren(false),
 			}),
 		},
@@ -213,7 +213,7 @@ function shell.new(app: any): any
 		axis = "y",
 		gap = "xs",
 		padding = "xs",
-		height = { type = "fill", weight = 1 },
+		height = UI.fill(),
 		children = {
 			UI.VStack({
 				id = "Rows",
@@ -239,8 +239,8 @@ function shell.new(app: any): any
 					-- lets the solver stop reporting a page scroller's canvas as a
 					-- child painting outside its box.
 					overflow = "clip",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = { body() },
 				})
 			end,
@@ -253,8 +253,8 @@ function shell.new(app: any): any
 	local sections = UI.ZStack({
 		id = "Sections",
 		overflow = "clip",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			section("Cart", isSection("cart"), function()
 				return app.screens.dashboard.view()
@@ -263,8 +263,8 @@ function shell.new(app: any): any
 				return UI.ZStack({
 					id = "BrewsStack",
 					overflow = "clip",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+					width = UI.fill(),
+					height = UI.fill(),
 					children = {
 						UI.When({
 							id = "ListWhen",
@@ -307,8 +307,8 @@ function shell.new(app: any): any
 	local detailHost = UI.VStack({
 		id = "Host",
 		gap = "xs",
-		width = { type = "fill", weight = 1 },
-		height = { type = "fill", weight = 1 },
+		width = UI.fill(),
+		height = UI.fill(),
 		children = {
 			UI.When({
 				id = "HeaderWhen",
@@ -319,7 +319,7 @@ function shell.new(app: any): any
 						gap = "s",
 						align = "center",
 						padding = "s",
-						width = { type = "fill", weight = 1 },
+						width = UI.fill(),
 						children = {
 							UI.Button({
 								id = "Back",
@@ -355,8 +355,8 @@ function shell.new(app: any): any
 				arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
 				laneGap = "s",
 				groupGap = "s",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				width = UI.fill(),
+				height = UI.fill(),
 				groups = {
 					{ id = "nav", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.sidebarMin" },
 					{ id = "detail", lane = "main", sizing = "fill", minWidth = "app.cartwheel.detailMin" },
@@ -380,7 +380,7 @@ function shell.new(app: any): any
 							-- layout anywhere.
 							UI.VStack({
 								id = "Full",
-								height = { type = "fill", weight = 1 },
+								height = UI.fill(),
 								children = {
 									UI.When({
 										id = "Body",
@@ -393,7 +393,7 @@ function shell.new(app: any): any
 							}),
 							UI.VStack({
 								id = "Rail",
-								height = { type = "fill", weight = 1 },
+								height = UI.fill(),
 								children = {
 									UI.When({
 										id = "Body",
@@ -416,7 +416,7 @@ function shell.new(app: any): any
 						children = {
 							UI.VStack({
 								id = "Lane",
-								height = { type = "fill", weight = 1 },
+								height = UI.fill(),
 								children = {
 									UI.When({
 										id = "Body",
