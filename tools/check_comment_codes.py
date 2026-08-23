@@ -67,6 +67,15 @@ SCANNED = ("src",)
 # band, which is an exemption with nothing left to be owed to. Twelve codes
 # surfaced; all twelve became prose in the same commit.
 #
+# `src/present/presenter.luau` was removed on 2026-08-22, the round after its
+# surface-lifecycle split, and its own ledger row had named the debt in advance:
+# "the seven private comment codes that rode out of this file became prose on the
+# split commit ... what did NOT happen is the other half". FORTY-EIGHT sites
+# surfaced across THIRTY distinct codes, and all of them became prose rather than
+# citations for the reason the `virtual_list` note below records: the total is a
+# ratchet, so making the eleven resolvable ones resolve would have raised the
+# count instead of clearing it.
+#
 # `src/controls/virtual_list.luau` was removed on 2026-08-22 for the same reason,
 # the round its hosted row-actions half left for `controls/virtual_list_hosted.luau`
 # and the file fell from 192,187 to 145,913 — out of the warning band entirely.
@@ -77,7 +86,6 @@ SCANNED = ("src",)
 # above did and the only move that keeps the ceiling honest.
 EXTRACTION_LOCKED = (
     "src/controls/table.luau",
-    "src/present/presenter.luau",
 )
 
 # `AB-12`, `ABC-A7`, `SF-M9` — a private ledger row, phase or finding code.

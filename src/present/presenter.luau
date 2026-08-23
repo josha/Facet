@@ -80,11 +80,11 @@ export type PresentOpts = {
 	-- arrows) stop reaching the avatar underneath, which is what "the UI has focus"
 	-- has to mean to a player. See api.md § Desktop keyboard conventions.
 	keyboardNavigation: boolean?,
-	-- engine-selection bridge (native-substrate NS-A12): presentModal-only
+	-- engine-selection bridge (the native-substrate round): presentModal-only
 	-- opt-in that mirrors Facet's logical focus to GuiService.SelectedObject
 	-- while the modal owns UI input. Ignored on present() (passive/gameplay
-	-- surfaces keep SelectedObject nil — NS-A11). Experiment until the
-	-- physical-gamepad row (NS-P1) closes; reversible by omitting the opt.
+	-- surfaces keep SelectedObject nil, the same round's finding). Experiment until the
+	-- physical-gamepad non-interference proof closes; reversible by omitting the opt.
 	engineSelectionBridge: boolean?,
 	-- NO-POP TEXT (text-measurement milestone): mount and measure with the
 	-- surface's ROOT hidden, and reveal it once the text is exact. Exact text
@@ -114,10 +114,10 @@ export type PresentOpts = {
 	-- auto-derive: from mounted input contributions when any provides focusGroups,
 	-- else from the mounted LAYOUT structure when it has a horizontal container or
 	-- Grid with >=2 focusables (HStack row -> horizontal group; Grid -> per-row 2D
-	-- groups), else the flat ring (ADR-0013 WP-1). `false` = force the flat ring,
+	-- groups), else the flat ring (ADR-0013's automatic navigation groups). `false` = force the flat ring,
 	-- ignoring both (a legacy flat-list consumer opting out of auto-grouping).
 	navigationGroups: ({ focus_graph.NavigationGroup } | (rootNode: any) -> { focus_graph.NavigationGroup } | boolean)?,
-	-- presentModal only (ADR-0013 WP-2): while this modal is on top, a pointer/
+	-- presentModal only (ADR-0013's modal outside-tap rule): while this modal is on top, a pointer/
 	-- touch tap whose path is NOT owned by the modal's blueprint dismisses the
 	-- modal (platform sheet outside-tap) and never routes to a lower screen.
 	-- Default true; set false to restore legacy clickthrough routing. A scrim or
@@ -190,7 +190,8 @@ export type ToastOpts = {
 	context: any?, -- carried on the toast's dismiss event, untouched
 }
 
--- CLOSED OPTS (constitution §4; ARCH-1). This is the widest opts table in the
+-- CLOSED OPTS (constitution §4, and the architecture review's first finding).
+-- This is the widest opts table in the
 -- library — twenty declared fields, most of them booleans and policy strings
 -- with silent defaults — so it is the one where an accepted-and-ignored key
 -- costs the most: `outsideTapCancle = false` left the modal dismissing on an
@@ -331,7 +332,8 @@ local function activateEffect(handle: any, node: any, path: string?, meta: any?)
 			return
 		end
 	end
-	--[[ (4) THE PUBLIC DRAG VERB'S PICKUP (ADAPT-16). An action-source Activate
+	--[[ (4) THE PUBLIC DRAG VERB'S PICKUP (the adaptation wave's generic-verb
+		row). An action-source Activate
 		that nobody above wanted, on a mounted `UI.draggable`, ARMS it — and the
 		next one commits it at the aim the focus ring has been feeding. The rule is
 		`newVirtualList`'s own ("a source with no consumer Activate arms on
@@ -365,7 +367,8 @@ end
 -- surface mirrors Facet focus onto `GuiService.SelectedObject`: the engine then
 -- fires the selected `GuiButton`'s own `Activated` for the same key press that
 -- IAS delivered as Activate. That must still be ONE activation (roadmap Step 8,
--- DK-9), so a cross-source pair inside ACTIVATE_ECHO_WINDOW collapses.
+-- the one-Activate-per-press rule), so a cross-source pair inside
+-- ACTIVATE_ECHO_WINDOW collapses.
 --
 -- IDENTIFIED BY INPUT CLASS, NOT BY TIME ALONE. A time-only window would eat a
 -- real mouse click that happened to land beside a key press — which is a thing
@@ -398,7 +401,7 @@ local function dispatchActivate(handle: any, path: string?, meta: any?, source: 
 			and (at - previous.at) < ACTIVATE_ECHO_WINDOW
 		if echoes then
 			-- A PRESS IS A PAIR, AND THE PAIR IS NOW SPENT (architecture review
-			-- ARCH-4). Recording the collapsing signal instead would roll the
+			-- finding on the echo window). Recording the collapsing signal instead would roll the
 			-- window forward on every echo, so a genuinely fast third press —
 			-- key, echo, key — would land inside a window opened by the echo and
 			-- be eaten as well. Clearing means the next signal starts a new press.
@@ -481,7 +484,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.focus = graph
 	local presenterOpts: PresenterOpts = opts or {}
 	local nowFn = presenterOpts.now or os.clock
-	-- ONE ACTIVATE PER PRESS ACROSS THE TWO PATHS (roadmap Step 8, DK-9). A
+	-- ONE ACTIVATE PER PRESS ACROSS THE TWO PATHS (roadmap Step 8, the desktop
+	-- keyboard round). A
 	-- keyboard press on a control the engine also considers SELECTED can arrive
 	-- twice: once as the IAS `Activate` action, and once as the native
 	-- `GuiButton.Activated` the engine-selection bridge makes reachable. Keyed by
@@ -491,7 +495,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- detector-echo guard draws the same line for the same reason.
 	local activateEcho: { [string]: { at: number, source: string } } = {}
 
-	-- ===== the semantic feedback seam (ADR-0022 Decision 7; row SF-F1) =======
+	-- ===== the semantic feedback seam (ADR-0022 Decision 7) ===================
 	-- ONE bus per presenter. `presenter.onFeedback` is the primary seam (every
 	-- surface, one subscription — a game maps events to sound/haptics in one
 	-- place); `handle.onFeedback` is the same bus filtered to that surface.
@@ -662,11 +666,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.topPopupCatcherPath = catchers.topPopupCatcherPath
 	self.topScrimPath = catchers.topScrimPath
 
-	--[[ ===== FULL-VALUE DISCLOSURE (LTN-4) ====================================
+	--[[ ===== FULL-VALUE DISCLOSURE (the large-text round) =====================
 
 		A `UI.Text{ disclose = true }` that TRUNCATED owes the reader the whole
 		string. The screen declares the debt; the presenter pays it, here, with one
-		STATIC plate — no marquee, no travel, no per-frame work (LTN-2 chose the
+		STATIC plate — no marquee, no travel, no per-frame work (the same round chose the
 		static form precisely so reduced-motion parity is structural rather than a
 		branch, and so the moving-label count stays zero).
 
@@ -791,7 +795,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
 		end
-		--[[ A CONTROL MAY WIDEN THE SCOPE TO ITS OWN ROW (ADAPT-20). The default is
+		--[[ A CONTROL MAY WIDEN THE SCOPE TO ITS OWN ROW (the adaptation wave). The default is
 			"at or under the focused path", which is dead for any control whose focus
 			stop is a SIBLING of its disclosed label rather than its ancestor — a
 			Table's row `Hit` beside `Row/Cells/…`. The control answers for the paths
@@ -817,7 +821,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- gate, focusing a row whose RICH candidate lost raised a plate for a
 		-- string that is nowhere on screen.
 		--[[ ONE OWNER FOR "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT"
-			(reuse audit REUSE-29). `focusMap.isHiddenPath` is the published answer and
+			(the reuse audit's fourth-copy finding). `focusMap.isHiddenPath` is the published answer and
 			takes the SET `hiddenRoots()` already returns, so the array this used to
 			build was a conversion nobody needed. Hoisted once rather than re-read per
 			node: the walk visits every node in the subtree. ]]
@@ -828,7 +832,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if foundPath ~= nil or isHiddenPath(n.path, hiddenRoots) then
 				return
 			end
-			-- class-AGNOSTIC on purpose (LT-G1): any node whose measured text
+			-- class-AGNOSTIC on purpose (the large-text gate): any node whose measured text
 			-- carries the disclose declaration owes its full value — a Text's
 			-- `text`, a Toggle's one-line `label` — the facts channel is the same.
 			-- A `reveal` node is a disclosure source too (2026-08-04): the static
@@ -1062,7 +1066,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if owner ~= nil and owner.hasDisclose ~= true then
 			owner = nil
 		end
-		-- ...AND A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (DB-3(b),
+		-- ...AND A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (device round 3,
 		-- the same term the ring reads). Tapping a row moves focus there; the
 		-- finger asked to press the row, not to read its name, and a plate popping
 		-- up under every tap is the tooltip-on-click behaviour nobody wants. The
@@ -1096,7 +1100,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		and for the same three reasons — which is also, without a single device
 		branch, why a touch player sees nothing:
 
-		  * A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (DB-3(b)). A tap
+		  * A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (device round 3). A tap
 		    sets `focusOrigin = "pointer"`, which clears `focusVisible` — so a
 		    finger moves the ring and raises no plate. That is the whole of the
 		    touch story: the hover zone is never wired without a pointer class, and
@@ -1542,7 +1546,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 		-- engine-selection bridge: opt-in AND modal/exclusive-only. It is the only
 		-- way `GuiService.SelectedObject` is ever set, and therefore the only way a
-		-- native `Activated` can echo a key press (NS-A11) — but the echo guard in
+		-- native `Activated` can echo a key press (the native-substrate round) — but the echo guard in
 		-- `dispatchActivate` does NOT read this flag, because the input CLASS of
 		-- the native half is a stricter test and needs no per-surface state. Named
 		-- here only for the renderer wiring below.
@@ -1610,15 +1614,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
 			incrementalLayout = opts == nil or opts.incrementalLayout ~= false,
-			-- engine-selection bridge (native-substrate NS-A12, corrections §11):
+			-- engine-selection bridge (the native-substrate round, corrections §11):
 			-- OPT-IN and modal/exclusive-only. Passive/gameplay surfaces never
-			-- set it, so GuiService.SelectedObject stays nil for them (NS-A11).
+			-- set it, so GuiService.SelectedObject stays nil for them.
 			-- Facet's logical focus graph remains the sole authority; the
 			-- bridge is a render output that clears on teardown. Physical-pad
-			-- non-interference proof is ledger row NS-P1; until it closes this
+			-- non-interference proof is the physical-gamepad row; until it closes this
 			-- stays an experiment, not a contract.
 			engineSelectionBridge = selectionBridged,
-			-- FULL-VALUE DISCLOSURE engagement (LTN-4): the live adapter's
+			-- FULL-VALUE DISCLOSURE engagement (the large-text round): the live adapter's
 			-- pointer enter/leave and touch long-press zones on `disclose`
 			-- Texts route into the presenter's engagement seams. The seams
 			-- re-check live truncation facts, so a zone firing proves nothing
@@ -1639,7 +1643,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				if pathIsRetiring(root.node, path) then
 					return
 				end
-				-- A TAP RETIRES THE DISCLOSURE PLATE (LTN-4 "tap elsewhere"). Every
+				-- A TAP RETIRES THE DISCLOSURE PLATE (the large-text round's "tap
+				-- elsewhere"). Every
 				-- tap, including one on the disclosed label itself: the plate answers
 				-- "what does this say", and a player who has moved on to pressing
 				-- something has stopped asking.
@@ -1648,7 +1653,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- pressing something has stopped asking what it does
 				helpPlate.dismiss("tap")
 				-- outside-tap policy is owned by the topmost EXCLUSIVE surface: a
-				-- modal (ADR-0013 WP-2) OR an engaged-from-passive surface (ADR-0014).
+				-- modal (ADR-0013's outside-tap rule) OR an engaged-from-passive surface (ADR-0014).
 				-- A tap whose path is NOT owned by that surface dismisses/resigns it
 				-- (platform sheet dismiss) and never clicks through to a lower handle.
 				for i = #stack, 1, -1 do
@@ -1714,7 +1719,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- BEFORE the activate routes (director round 2) — navigation
 				-- then continues from the clicked control. The ORIGIN is set
 				-- first, so the move tracks focus without painting a ring the
-				-- finger never asked for (DB-3(b)); the next Navigate restores it.
+				-- finger never asked for (device round 3); the next Navigate restores it.
 				graph.setFocusOrigin("pointer")
 				graph.focusOn(path)
 				if h ~= nil then
@@ -1734,7 +1739,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- with every consumer opt overriding its auto counterpart per-opt (below)
 		--
 		-- THIS ARRAY IS LIVE, AND IS UPDATED IN PLACE BY `syncContributions` ON
-		-- EVERY REFRESH (device round 1, DB-4 — the crown bug). It used to be a
+		-- EVERY REFRESH (device round 1 — the crown bug). It used to be a
 		-- ONE-SHOT walk, which silently assumed every contributing control is
 		-- mounted at present() time. `UI.When` exists precisely so that is not
 		-- true: RascalRally's whole Sponsor HUD lives under one region gated on
@@ -1954,12 +1959,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				navigationGroups = autoGroups(root.node)
 			elseif hasHorizontalStructure(root.node) then
 				-- no contributions, but the LAYOUT has a horizontal container /
-				-- grid: derive 2D navigation from tree structure (ADR-0013 WP-1)
+				-- grid: derive 2D navigation from tree structure (ADR-0013's automatic groups)
 				navigationGroupsFn = layoutGroups
 				navigationGroups = layoutGroups(root.node)
 			end
 		end
-		-- RE-DISCOVER THE CONTRIBUTIONS FROM THE LIVE TREE (device round 1, DB-4).
+		-- RE-DISCOVER THE CONTRIBUTIONS FROM THE LIVE TREE (device round 1).
 		-- Called at the top of every `refresh`, i.e. after every structural change.
 		-- Cheap by construction: one pre-order walk of the same tree `refresh`
 		-- already walks for the focus map, and a pass that finds nothing new does
@@ -2032,7 +2037,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- order IT derived. When the consumer handed us a focus map — an explicit
 		-- `navigationGroups` array or function — that map IS the declared order and
 		-- the framework adds no opinion to it: no rank, so `graph.traverse` walks
-		-- it exactly as written (ledger row TD-7). `navigationGroups = false` is
+		-- it exactly as written (the traversal-order ledger). `navigationGroups = false` is
 		-- not such a map: it says "no groups", which puts us back on the
 		-- framework's own flat derivation, and that does get ranked.
 		-- a plain local, carried onto the handle in its table literal below: at this
@@ -2234,7 +2239,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local function axisOwner(axis: string): any
 			return if axis == "horizontal" then navigateH else navigate
 		end
-		-- A SUSPENSION MUST RESTORE WHAT IT TOOK (architecture review ARCH-10). The
+		-- A SUSPENSION MUST RESTORE WHAT IT TOOK (architecture review). The
 		-- whole binding spec is captured, not just the key and direction: a binding
 		-- also carries `displayName` (what `inputHint` reads to label the
 		-- affordance) and `uiButton`. Restoring a partial spec would silently
@@ -2489,13 +2494,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				adjustAxis = adjustAxis,
 				traverse = traverse,
 			},
-			-- ONE ACTIVATE PER PRESS, ACROSS THE TWO PATHS (DK-9). The shared echo
+			-- ONE ACTIVATE PER PRESS, ACROSS THE TWO PATHS (roadmap Step 8). The shared echo
 			-- table + injected clock live on the presenter; the handle carries them
 			-- so the module-level dispatchActivate can reach them.
 			activateEcho = activateEcho,
 			now = nowFn,
 			contributions = contributions,
-			-- modal outside-tap dismiss (ADR-0013 WP-2): default true; a modal
+			-- modal outside-tap dismiss (ADR-0013's outside-tap rule): default true; a modal
 			-- opts out with outsideTapCancel=false to keep legacy clickthrough
 			outsideTapCancel = not (opts and opts.outsideTapCancel == false),
 			-- what Cancel (ButtonB) does to this SURFACE once no contribution
@@ -2515,7 +2520,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			onAdjust = (opts and opts.onAdjust) or nil,
 			onReorderNav = (opts and opts.onReorderNav) or nil,
 			feedGeometry = feedGeometry,
-			-- the live re-discovery of this surface's input contributions (DB-4);
+			-- the live re-discovery of this surface's input contributions (device round 1);
 			-- `refresh` calls it before it re-derives the focus map, so a region
 			-- that opened this frame is wired BEFORE its nodes join the ring
 			syncContributions = syncContributions,
@@ -2614,7 +2619,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			order"; `eligible = false` means something narrower, that a live
 			focus-skip predicate is refusing it right now.
 
-			SAFE AFTER DISPOSE (ledger row TD-10). A debug overlay outliving the
+			SAFE AFTER DISPOSE (the traversal-order ledger). A debug overlay outliving the
 			surface it inspects gets an empty map carrying the schema, never a throw:
 			an inspection tool that crashes the client it was added to diagnose is
 			worse than no tool. ]]
@@ -2681,7 +2686,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 
 		function handle.syncKeyboardBindings()
-			-- A DISMISSED SURFACE BINDS NOTHING (architecture review ARCH-6). Input
+			-- A DISMISSED SURFACE BINDS NOTHING (architecture review). Input
 			-- stops the frame `dismiss` runs — `context.destroy()` is immediate —
 			-- but a surface with an exit transition keeps `handle.scope` alive until
 			-- the transition finishes (or the coordinator's 500 ms cap fires), so
@@ -2803,8 +2808,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- churn). No-op unless a contribution opted into the dynamic path.
 		-- The axis comes from the OWNING contribution (`adjustAxis`): a control that
 		-- declares one consumes those arrows and leaves the other axis to Navigate;
-		-- one that declares none keeps the pre-Step-8 key set (roadmap Step 8,
-		-- DK-10/DK-11).
+		-- one that declares none keeps the pre-Step-8 key set (roadmap Step 8's
+		-- adjust-axis rows).
 		function handle.syncAdjustBindings(ownedPath: string?)
 			if not dynamicAdjust then
 				return
@@ -2867,7 +2872,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						end
 						-- a popup's trap scope is a framework-derived flat order like any
 						-- other, so it ranks too — a popup holding a Slider traverses in
-						-- document order inside its trap (ledger row TD-12). Ranked
+						-- document order inside its trap (the traversal-order ledger). Ranked
 						-- against the POPUP's own subtree, which is the tree its order
 						-- was walked from.
 						local rank = if sub ~= nil then traversalRank(sub, order, nil) else nil
@@ -2955,7 +2960,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- press, which is exactly the drift this framework keeps paying for.
 		local function navigateHorizontal(dir: number)
 			-- a NAVIGATION verb asks "where does the ring go next", so the ring
-			-- comes back even if a tap had put it away (DB-3(b))
+			-- comes back even if a tap had put it away (device round 3)
 			graph.setFocusOrigin("navigation")
 			local direction = if dir == 1 then "right" else "left"
 			if handle.navigateIntercept(direction) then
@@ -3104,7 +3109,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local backward = actionSystem.modifiers ~= nil and actionSystem.modifiers().shift
 			local direction = if backward then -1 else 1
 			-- a traversal verb asks "where does the ring go next", so the ring comes
-			-- back even if a tap had put it away (DB-3(b))
+			-- back even if a tap had put it away (device round 3)
 			graph.setFocusOrigin("navigation")
 			local from = graph.focused:get()
 			if from ~= nil then
@@ -3167,7 +3172,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					return
 				end
 			end
-			--[[ A CARD THE GENERIC VERB PICKED UP IS PUT BACK DOWN (ADAPT-16). After
+			--[[ A CARD THE GENERIC VERB PICKED UP IS PUT BACK DOWN (the adaptation
+				wave's generic-verb row). After
 				the contributions, because a control that owns its own grab owns its own
 				Cancel; before the surface branches, because a player holding something
 				means "put it down", not "close the screen". `cancelArmed` answers false
@@ -3192,7 +3198,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end)
 
-		-- STEP-5 DRAG INTEGRATION (ADR-0022 Decision 5): every surface's registry
+		-- ROADMAP STEP 5 DRAG INTEGRATION (ADR-0022 Decision 5): every surface's registry
 		-- receives the presentation collaborators the moment the surface exists,
 		-- so no fixture or game ever wires them — the feedback bus (drag events
 		-- carry this surface), the shared motion clock (pickup scale, flights),
@@ -3256,7 +3262,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		for i = #stack, 1, -1 do
 			local handle = stack[i]
 			local rootPath = "/" .. (handle.blueprint.id or "")
-			--[[ SEGMENT-ALIGNED (REUSE-3). The raw `string.sub` form that stood here
+			--[[ SEGMENT-ALIGNED (the reuse audit). The raw `string.sub` form that stood here
 				made `/Menu` own every tap on `/MenuBar/…`: the search runs from the top
 				of the stack, so whichever of the two was presented LAST swallowed the
 				other's taps, dispatched them against a handle with no such node, and
@@ -3449,7 +3455,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.animationRecordCount = withAnimation.animationRecordCount
 	self.commitCount = withAnimation.commitCount
 
-	-- ===== TOASTS (ADR-0022 Decision 4; rows SF-T1..T3) =======================
+	-- ===== TOASTS (ADR-0022 Decision 4) =======================================
 	--
 	-- A toast surface is PRESENTER-PRIVATE, exactly like the scrim and the popup
 	-- catcher: it is not in `stack`, pushes no focus scope, creates no input
@@ -3465,7 +3471,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- The scheduler (`toast_schedule`) owns priority, the queue cap, read floors
 	-- and supersede; this driver owns pixels. Under reduced motion the transition
 	-- places instantly and the schedule is untouched: every toast that would have
-	-- been shown is still shown, for the same time (SF-T3).
+	-- been shown is still shown, for the same time (ADR-0022 Decision 4).
 	local toastTime = 0
 	local toastPosition = "top"
 	local toastTransition: any = nil
@@ -3555,7 +3561,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			table.insert(children, blueprintLib.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }))
 		end
 		table.insert(children, rows)
-		-- padding lifts the strip off the surface edges (director SFH-3: rows
+		-- padding lifts the strip off the surface edges (director, sensory-feedback
+		-- round: rows
 		-- hugging the exact top edge collided with content pinned there, and
 		-- edge-to-edge rows read as a debug bar rather than a toast)
 		local bp = blueprintLib.Screen({
@@ -3680,7 +3687,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		lastTick = t
 		motionClock:step(step)
-		-- POINTER DWELL (LTN-4). Guarded, so a presentation with nothing engaged
+		-- POINTER DWELL (the large-text round). Guarded, so a presentation with nothing engaged
 		-- does no per-frame work at all — the plan's own bound on this feature, and
 		-- the reason the disclosure is static rather than a per-label reveal.
 		if disclosureDwell ~= nil then
@@ -3729,7 +3736,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- probe — ride the SAME tick so "one clock, one driver" stays true. Hooks
 		-- run after the motion step: they read this frame's settled values.
 		for _, hook in table.clone(tickHooks) do
-			-- quarantined (verifier RR-12): a throwing hook must not starve its
+			-- quarantined (the reactive-runtime verifier): a throwing hook must not starve its
 			-- siblings or escape into the render thread's PreRender handler
 			pcall(hook, step :: number)
 		end
