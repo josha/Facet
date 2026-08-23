@@ -195,6 +195,7 @@ replacement and their earliest removal version.
 | `newEnvironment` | The per-device facts: viewport, safe area, input class, text size. | [api](../reference/api.md#newenvironment) |
 | `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
 | `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |
+| `layout` | Pure layout geometry not owned by a control — `transformFootprint(w, h, scale, deg)`, the reserved-box math for a scaled/rotated node. | [api](../reference/api.md#shared-properties) |
 | `text` | Measures strings, fits them, and reports line boxes. | [api](../reference/api.md#text-1) |
 | `spatial` | The contract for spatial pointer data. A seam, with no adapter today. | [api](../reference/api.md#spatial) |
 
