@@ -122,9 +122,8 @@ Re-counted at execution time against `check_theme_drift_cli`'s own report
 
 | outcome | count | detail |
 |---|---|---|
-| **converted** | 55 | mechanical `gap`/`padding` literal `6` → `"tight"`, value-identical at neutral (6 == 6) on every site, across 23 files |
-| **handed off** | 6 | `examples/gallery/scenarios/hud.luau` — the HUD round (G8+G9)'s territory per the campaign's concurrent-lane rule; listed here rather than edited |
-| **refused, documented** | 1 | `examples/themes/fantasy_parchment.luau:212` — a theme PACKAGE's own `metrics.controls.label.gap`; `package.luau`'s `CONTROL_FAMILIES` validation is `isFiniteNumber`-only for this field, so it cannot legally take a string name. Marked `-- THEME-OPT-OUT` naming the reason (the same one `default_style.luau`'s own `controls.label.gap` has — see §"What did not move" below) |
+| **converted** | 60 | mechanical `gap`/`padding` literal `6` → `"tight"`, value-identical at neutral (6 == 6) on every site — 55 in the sweep commit across 23 files, 6 more (`examples/gallery/scenarios/hud.luau`, initially handed off under the concurrent-lane rule) converted by fix round 1 once the HUD round closed, and 1 (`adaptive_controls.luau`'s Toolbar) converted then REVERTED by fix round 1 as not value-identical under themed packages (measured 121→129px) |
+| **refused, documented** | 2 — the Toolbar revert above (`-- THEME-OPT-OUT`, measured delta at the site) and: `examples/themes/fantasy_parchment.luau:212` — a theme PACKAGE's own `metrics.controls.label.gap`; `package.luau`'s `CONTROL_FAMILIES` validation is `isFiniteNumber`-only for this field, so it cannot legally take a string name. Marked `-- THEME-OPT-OUT` naming the reason (the same one `default_style.luau`'s own `controls.label.gap` has — see §"What did not move" below) |
 
 **Coupled-constants check (the day-2 lesson — value-identity is a scale-1.0
 guarantee only).** `check_theme_drift.luau`'s `coupledConstants` detector
@@ -204,9 +203,9 @@ unrecorded, because a reader who tuned anything against the G4/G5 report's "6
 ## Consequences
 
 * The purity lint's PENDING finding is RESOLVED, not suppressed: it went
-  GREEN → RED (62 sites, the moment the token existed) → **GREEN except the 6
-  hand-off sites in `hud.luau`**, which the controller sequences after the HUD
-  round (G8+G9) lands, per this campaign's concurrent-lane rule.
+  GREEN → RED (62 sites, the moment the token existed) → **fully GREEN**: the 6
+  `hud.luau` hand-off sites were converted by fix round 1 once the HUD round
+  (G8+G9) closed (commit `5504033`), and the lint reports zero violations.
 * RR lockstep: **one real site, refused with reason; the rest a clean
   negative.** RR authors no Facet blueprint `gap`/`padding`/`rowGap` prop as a
   raw `6` literal anywhere (`grep` for the exact `gap = 6,`/`padding = 6,`/

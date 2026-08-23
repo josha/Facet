@@ -52,7 +52,7 @@ Use `GetStyled` (never a plain property read) to confirm the PAINTED gutter
 agrees with the SOLVED one. Capture via `tools/studio/capture_viewport.sh`
 only — never full-screen.
 
-## 2. `hud.luau`'s 6 hand-off sites — the controller sequences these
+## 2. `hud.luau`'s 6 hand-off sites — CLOSED by fix round 1 (commit `5504033`; lint fully green). Original text kept below for the record:
 
 `examples/gallery/scenarios/hud.luau:991,1000,1320,2341,2385,2539` are all raw
 `gap = 6` sites the purity lint now flags (all `[example, COUPLED]` — the file
