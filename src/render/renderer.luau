@@ -1831,28 +1831,21 @@ function renderer.attach(
 			cleared"; it does not answer "may content touch the glass", and on a device
 			whose engine pre-excludes the notch from the camera the lateral inset is
 			ZERO — so every edge-anchored control laid out flush against the camera's
-			own boundary, and a rounded control whose rim ended exactly there read as
-			one that had been cut. The HUD demo has spent this per-edge max by hand
-			since 2026-08-15; the policy owns it now and the hand-roll is deleted.
-
-			`space.gutter` and not `space.s`: the screen edge is the one step in the
-			scale with a physical floor under it (`max(8, space.s)`).
+			own boundary. The HUD demo spent this per-edge max by hand since
+			2026-08-15; the policy owns it now and the hand-roll is deleted.
+			`space.gutter` and not `space.s`, because the screen edge is the one step
+			in the scale with a physical floor under it (`max(8, space.s)`).
 
 			IT IS HERE AND NOT IN THE SOLVER, which is the audit's own split: this is
-			the policy resolver, the one place that turns platform FACTS into insets,
-			and `solver.solve` stays a pure function of the insets it is handed.
+			the policy resolver, and `solver.solve` stays a pure function of the insets
+			it is handed.
 
-			WHY ONLY THIS POLICY, when the audit says "floor every policy": MEASURED,
-			and the number is why. Flooring `coreSafeContent` and `deviceSafeContent`
-			too costs every surface 16px of measure, and the shipped example corpus
-			does not have it — `tests/overflow_sweep.spec.luau` files **255 findings
-			across 51 of its 95 scenarios**, 249 of them at the two narrowest swept
-			viewports (320x640 and 640x320), i.e. content that no longer fits its own
-			box on the device class the gutter exists to protect. That is a
-			gallery-wide re-tuning campaign and a director's call, not a clause of this
-			round; it is booked with the measurement in
-			`docs/handoff/G8G9-OWED-LIVE-WORK.md` §5. The line that lands it is this
-			branch's condition. ]]
+			WHY ONLY THIS POLICY, when the audit says "floor every policy": MEASURED.
+			Built the wider way, `tests/overflow_sweep.spec.luau` files 255 findings
+			across 51 of its 95 scenarios — content that no longer fits its own box, 249
+			of them at the two narrowest swept viewports. THE LINE THAT LANDS IT IS THIS
+			BRANCH'S CONDITION; the number and the trade are in ADR-0046 §2 and
+			`docs/handoff/G8G9-OWED-LIVE-WORK.md` §5. ]]
 		if rootPolicy == "bandSafeContent" then
 			local space = (metrics :: any).space
 			local gutter = if type(space) == "table" and type(space.gutter) == "number"
