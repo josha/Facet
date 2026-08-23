@@ -139,8 +139,10 @@ describe("a cover's touch floor takes nothing pressable (H1)", function()
 		local cover = w.adapter.node(COVER)
 		local region = w.adapter.node(REGION)
 		expect(cover).never().toBeNil()
-		expect(`{cover.rect.x},{cover.rect.y} {cover.rect.w}x{cover.rect.h}`).toBe("0,46 390x20")
-		expect(`{region.rect.x},{region.rect.y} {region.rect.w}x{region.rect.h}`).toBe("0,46 390x20")
+		-- the box is 16 narrower and 8 lower: the surface's content rect is the
+		-- viewport less the theme gutter at each edge now (ADR-0040 §B-24)
+		expect(`{cover.rect.x},{cover.rect.y} {cover.rect.w}x{cover.rect.h}`).toBe("8,54 374x20")
+		expect(`{region.rect.x},{region.rect.y} {region.rect.w}x{region.rect.h}`).toBe("8,54 374x20")
 		local first = w.adapter.node("/S/C/Before/First")
 		local last = w.adapter.node("/S/C/After/Last")
 		expect(`first {first.rect.w}x{first.rect.h}`).toBe("first 80x46")
@@ -469,7 +471,7 @@ describe("a HIDDEN target is not a target", function()
 			local hit = w.adapter.hitRectOf("/G/Z/C/Clock/Expand")
 			-- non-vacuity: the cover is standing over the region's whole box, and the
 			-- ghost really does lie in the band the floor wants to grow into
-			expect(`cover {cover.rect.w}x{cover.rect.h}`).toBe("cover 390x20")
+			expect(`cover {cover.rect.w}x{cover.rect.h}`).toBe("cover 374x20")
 			local ghost = w.adapter.node("/G/Z/Ghost")
 			expect(`ghost reaches past the cover: {ghost.rect.y + ghost.rect.h > cover.rect.y + cover.rect.h}`).toBe(
 				"ghost reaches past the cover: true"
@@ -481,9 +483,9 @@ describe("a HIDDEN target is not a target", function()
 		end
 
 		-- hidden: nothing is in the way, so the floor grows 12px each way
-		expect(floorWith(true)).toBe("0,-12 390x44")
+		expect(floorWith(true)).toBe("8,-4 374x44")
 		-- standing: the downward half is refused, and only that half
-		expect(floorWith(false)).toBe("0,-12 390x32")
+		expect(floorWith(false)).toBe("8,-4 374x32")
 	end)
 end)
 

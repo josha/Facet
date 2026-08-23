@@ -1357,6 +1357,10 @@ describe("RowActions control", function()
 				return {
 					offset = w.ra.dump().offset,
 					rightEdge = box.x + box.w,
+					-- where the ROW itself starts: the surface's content rect no longer
+					-- begins at x = 0 (ADR-0040 §B-24), and the identity below is about
+					-- the travel rather than about where the row is
+					rowX = w.adapter.node(ROW).rect.x,
 					bodyX = w.adapter.node(ROW .. "/Content/Body").rect.x,
 				}
 			end
@@ -1368,7 +1372,7 @@ describe("RowActions control", function()
 			-- rows satisfy by construction and would pass even if the gutter ate
 			-- the reveal.
 			expect(edit.rightEdge).toBe(plain.rightEdge)
-			expect(edit.rightEdge).toBe(ROW_W + edit.offset) -- ...and it is the travel, not a coincidence
+			expect(edit.rightEdge).toBe(edit.rowX + ROW_W + edit.offset)
 			-- ...and the gutter is an INSET, present at this offset like every other
 			-- controls.rowActions.editAffordance (28) + controls.rowActions.rowGutter
 			-- (8). The gutter joined the strip in the device bug round 2026-08-12
@@ -1557,11 +1561,15 @@ describe("RowActions control", function()
 			-- what the branch it replaced could not say (it held only for offset
 			-- >= 0 and stepped by the whole gutter at the crossing).
 			local body = w.adapter.node(ROW .. "/Content/Body").rect
+			-- ...measured from the ROW's own leading edge: the surface's content rect no
+			-- longer starts at x = 0 (ADR-0040 §B-24), and this identity is about the
+			-- inset inside the row rather than about where the row is
+			local rowX = w.adapter.node(ROW).rect.x
 			-- testkit's second argument is an ABSOLUTE tolerance, so the `6` this
 			-- was written with meant ±6px — wide enough for a 5px gutter collapse
 			-- to pass (review round, injected and confirmed green). The identity is
 			-- exact arithmetic on the same double; 1e-6 is float noise only.
-			expect(body.x - w.ra.dump().offset).toBeCloseTo(36, 1e-6) -- editAffordance + rowGutter
+			expect(body.x - rowX - w.ra.dump().offset).toBeCloseTo(36, 1e-6) -- editAffordance + rowGutter
 		end
 		checkFrame()
 		w.ra._open("trailing")

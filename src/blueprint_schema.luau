@@ -1644,12 +1644,19 @@ class("ViewThatFits", {
 
 -- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023).
 --
--- Nothing here is reactive, on purpose. `AdaptiveStack` binds an axis because
--- the author decides the axis; a Composition decides FOR the author from the
--- box it was given, on both axes, so a reactive prop would be a second source
+-- The DECLARATION is not reactive, on purpose. `AdaptiveStack` binds an axis
+-- because the author decides the axis; a Composition decides FOR the author from
+-- the box it was given, on both axes, so a reactive prop would be a second source
 -- of truth about a fact the solver already measures. That is the whole point of
 -- the mechanism: no screen re-derives a viewport threshold, so no screen can get
 -- one wrong.
+--
+-- `exclusions` IS REACTIVE, and it is the one prop here that answers a question
+-- the solver cannot measure for itself — the same split `UI.Region.reserved`
+-- makes. Every other field says what this composition IS; `exclusions` says where
+-- the HOST'S OWN chrome currently sits, which is a fact about the screen outside
+-- this tree that only the caller holds and that moves on a rotation, a pose
+-- change or a chrome row appearing.
 class("Composition", {
 	container = true,
 	structural = false,
@@ -1693,6 +1700,17 @@ class("Composition", {
 			channel = "layout",
 			doc = "cap both axes of the box the composition resolves in, and centre the result — the "
 				.. '"full width, but no wider than this" shape for very large offers',
+		}),
+		exclusions = p({
+			types = { "array" },
+			reactive = true,
+			dirty = { "measure" },
+			channel = "layout",
+			doc = "rects the HOST'S own chrome occupies, in WINDOW space — the space `platformChrome.rects` "
+				.. "and this solver's own output rects are stated in, so a caller never converts. A solved "
+				.. "lane starts BELOW any of them that its own regions share an x range with, and a lane "
+				.. "whose content clears them stays level with the chrome. The lane band stops being one "
+				.. "rectangle, which is what lets a chrome row covering some columns be reserved around",
 		}),
 	}),
 })

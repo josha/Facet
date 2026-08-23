@@ -34,6 +34,7 @@ require("./measure_memo.spec")
 	the ones its `MeasureCtx` DECLARES and the ones the solver's `Ctx` still
 	HOSTS, plus the four-name write surface, the exports against the binding
 	block, and that the module holds no module-level mutable state ]]
+require("./composition_resolve_seam.spec")
 require("./measure_facts_seam.spec")
 --[[ ...and the ENUMERATION both seam specs asked their one-consumer question over
 	(rulings P5 + PRES-X minor): it was a hand-written list of nine directory names
@@ -611,7 +612,9 @@ require("./sponsor_scenarios.spec")
 -- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023): the pure decision matrix
 -- (arrangement choice, step-down/drop order, floors, reserved-at-rest, the
 -- one-scroll refusal, the column fallback) plus the mounted re-solve identity
+require("./band_policy.spec")
 require("./composition.spec")
+require("./composition_exclusions.spec")
 -- WAVE REVEAL: a region standing on a form below its richest EXPANDS to it — the
 -- pure facts (activeForm/richestForm/formInteractive/expand), the plate's size and
 -- its sheet fallback, the affordance the framework synthesizes, and the plate's

@@ -32,6 +32,10 @@ local fake_target = require("../tests/lib/fake_target")
 -- reddens the layout audit with a 4px overflow, 56 is clean with headroom.
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 480, h = 640 }
+-- the per-edge floor every content policy applies (ADR-0046 / ADR-0040 §B-24):
+-- the box a Screen actually receives is the viewport less this on each side, and
+-- this default-policy surface reports no platform inset at all
+local CONTENT_GUTTER = (require("../src/themes/snapshot").neutral().space :: any).gutter
 
 -- ASK THE SOLVER. A perf fixture that never reads `controller.diagnostics()` may be
 -- measuring an overflowing layout, and a number taken from a screen nobody would ship
@@ -80,7 +84,7 @@ local function world(rowCount: number): World
 			return item.id
 		end,
 		rowHeight = ROW_HEIGHT,
-		viewportHeight = VIEWPORT.h,
+		viewportHeight = VIEWPORT.h - CONTENT_GUTTER * 2,
 		overscan = 2,
 		cell = function(item: any)
 			return Facet.UI.HStack({

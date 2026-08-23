@@ -185,6 +185,15 @@ function renderer.attach(
 		coreSafeContent = true,
 		-- content, inset by the per-edge maximum of CoreGui and device insets
 		deviceSafeContent = true,
+		--[[ content that MEANS TO RIDE THE PLATFORM'S TOPBAR BAND (ADR-0046): the
+			same three edges `deviceSafeContent` clears, and a TOP brought up to where
+			the free strip starts — `platformChrome.bandInsets`, the fact api.md has
+			described as *"what a surface that means to ride the band applies instead"*
+			since ADR-0027 and which no policy applied. WHAT REACHES THE STRIP IS A
+			DECLARATION, never the whole surface: a composition with no `topbar` region
+			reserves the platform's whole row and is byte-identical to
+			`deviceSafeContent`. ]]
+		bandSafeContent = true,
 		-- DECORATION only — a scrim or a backdrop, painting under the insets
 		edgeToEdge = true,
 	}
@@ -1735,8 +1744,27 @@ function renderer.attach(
 		-- insets)" — and no branch here matched it, so every scrim silently got
 		-- the ordinary content insets instead. A policy string nothing consumes
 		-- is indistinguishable from a policy that works until you look.
+		--[[ ...AND THE FOURTH CASE, which is the one `bandInsets` was published for
+			(ADR-0046 §1). `platformChrome` is the single authority that can say "the
+			top band is an L": `insets` clears everything (what `deviceSafeContent`
+			applies) and `bandInsets` is the same four edges with the top brought up to
+			where the platform's FREE strip starts. Reading the derived fact rather
+			than re-deriving it is the whole point — it is the one place that knows
+			what a zero means, and it carries the belt an inset measured against
+			another viewport needs. `bandFullTop` rides beside it: the platform's whole
+			top reservation, which is what the composition reserves when nothing
+			declares a `topbar` region. ]]
+		local band: any = nil
+		local bandFullTop: number? = nil
 		if rootPolicy == "edgeToEdge" then
 			insets = { top = 0, bottom = 0, left = 0, right = 0 }
+		elseif rootPolicy == "bandSafeContent" then
+			local chrome = env:get("platformChrome"):get()
+			if type(chrome) == "table" then
+				insets = (chrome :: any).bandInsets
+				band = (chrome :: any).band
+				bandFullTop = ((chrome :: any).insets :: any).top
+			end
 		elseif rootPolicy == "deviceSafeContent" then
 			local device = env:get("deviceSafeInsets"):get()
 			if type(device) == "table" then
@@ -1765,7 +1793,10 @@ function renderer.attach(
 		-- ten-foot presentation (input-paradigms expansion): TVs clip edges,
 		-- so overscan margins compose ON TOP of the CoreGui safe insets while
 		-- the display class is Large; a near display keeps the full canvas
-		if env:get("distanceProfile"):get() == "ten-foot" then
+		-- NOT UNDER `bandSafeContent`: `platformChrome` composes the overscan into
+		-- both of its inset records itself, so a second addition here would spend a
+		-- television's margin twice (ADR-0046 §1)
+		if rootPolicy ~= "bandSafeContent" and env:get("distanceProfile"):get() == "ten-foot" then
 			local overscan = env:get("effectiveOverscanInsets"):get()
 			if type(overscan) == "table" then
 				insets = {
@@ -1795,12 +1826,49 @@ function renderer.attach(
 		-- path and the paint seam must all resolve the same theme, or a swap
 		-- landing mid-solve would measure one theme and paint another
 		local metrics = currentMetrics()
+		--[[ ...AND EVERY CONTENT POLICY FLOORS EACH EDGE AT THE THEME'S GUTTER
+			(ADR-0046 §2, ADR-0040 §B-24, where the measurement is). The platform's
+			safe inset answers "what must be cleared"; it does not answer "may content
+			touch the glass", and on a device whose engine pre-excludes the notch from
+			the camera the lateral inset is ZERO — so every edge-anchored control laid
+			out flush against the camera's own boundary, and a rounded control whose
+			rim ended exactly there read as one that had been cut.
+
+			`space.gutter` and not `space.s`: the screen edge is the one step in the
+			scale with a physical floor under it (`max(8, space.s)`).
+
+			IT IS HERE AND NOT IN THE SOLVER, which is the audit's own split: this is
+			the policy resolver, the one place that turns platform FACTS into insets,
+			and `solver.solve` stays a pure function of the insets it is handed.
+
+			`edgeToEdge` is EXEMPT — a scrim that stopped at the gutter would draw a
+			rectangle inside the screen with the world showing around it — and so is
+			the TOP of `bandSafeContent`, for the reason ADR-0027 exists. ]]
+		if rootPolicy ~= "edgeToEdge" then
+			local space = (metrics :: any).space
+			local gutter = if type(space) == "table" and type(space.gutter) == "number"
+				then math.max(0, space.gutter)
+				else 0
+			if gutter > 0 then
+				insets = {
+					top = if rootPolicy == "bandSafeContent" then insets.top else math.max(insets.top, gutter),
+					bottom = math.max(insets.bottom, gutter),
+					left = math.max(insets.left, gutter),
+					right = math.max(insets.right, gutter),
+				}
+			end
+		end
 		local layoutRoot = toLayoutNode(root.node, metrics, measureScale, prefOffset)
 		local solveOpts = {
 			safeInsets = insets,
 			rootPolicy = rootPolicy,
 			scrollBarReserve = barReserve,
 			metrics = metrics,
+			-- §9: the platform's free strip in WINDOW space, and the whole row above
+			-- the content rect. `nil` on every other policy, so the solver's own band
+			-- branch costs an undeclared surface one nil check.
+			band = band,
+			bandFullTop = bandFullTop,
 		}
 		-- kept so the Stage-1 boundary analysis can re-solve the SAME tree with the
 		-- SAME offers; an analysis run against a differently-built tree would be
@@ -2434,6 +2502,37 @@ function renderer.attach(
 	-- lived here and in `src/controls/selection_indicator.luau`, across a layer
 	-- boundary, with the indicator's copy carrying a comment naming this one.
 	local sameGeometryValue = rectLib.sameFlatValue
+	--[[ ...AND THE ONE NESTED FACT, compared exactly rather than refused (ADR-0046
+		§1). `platformChrome` is `{ band, rects, insets, bandInsets }` — three flat
+		records and a LIST of them — and it is a memo, so it hands back a brand-new
+		frozen table on every recompute; under identity OR `sameFlatValue` a
+		band-riding surface would re-solve on every flush. This walks exactly the four
+		fields the fact has, and an unknown fifth would compare as "changed", which is
+		the safe direction. ]]
+	local function sameChrome(a: any, b: any): boolean
+		if a == nil or b == nil then
+			return a == b
+		end
+		if type(a) ~= "table" or type(b) ~= "table" then
+			return false
+		end
+		if not sameGeometryValue(a.band, b.band) then
+			return false
+		end
+		if not sameGeometryValue(a.insets, b.insets) or not sameGeometryValue(a.bandInsets, b.bandInsets) then
+			return false
+		end
+		local ar, br = a.rects, b.rects
+		if type(ar) ~= "table" or type(br) ~= "table" or #ar ~= #br then
+			return false
+		end
+		for i = 1, #ar do
+			if not sameGeometryValue(ar[i], br[i]) then
+				return false
+			end
+		end
+		return true
+	end
 
 	local GEOMETRY_KEYS = {
 		"viewportRect",
@@ -2475,6 +2574,25 @@ function renderer.attach(
 		end
 		GEOMETRY_KEYS = narrowed
 	end
+	--[[ ...AND `bandSafeContent` READS ONE FACT WHERE THE OTHERS READ THREE
+		(ADR-0046 §1). Its content rect comes from `platformChrome`, which is DERIVED
+		from the core and device insets, the two topbar facts, the declared app chrome
+		and the overscan — so subscribing to the raw three would be both incomplete (a
+		`TopbarInset` change would move the band and re-solve nothing) and redundant.
+		Same narrowing `edgeToEdge` gets above, in the other direction.
+
+		It is the one NESTED fact in this list and it has a comparator of its own
+		(`sameChrome`); the refusal the block above documents stands for facts with
+		none. ]]
+	if rootPolicy == "bandSafeContent" then
+		local swapped = { "platformChrome" }
+		for _, key in GEOMETRY_KEYS do
+			if key ~= "coreSafeInsets" and key ~= "deviceSafeInsets" and key ~= "overscanInsets" then
+				table.insert(swapped, key)
+			end
+		end
+		GEOMETRY_KEYS = swapped
+	end
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
 	local geometryFacts = attachScope:own(core:memo(function(use)
@@ -2488,7 +2606,10 @@ function renderer.attach(
 			return a == b
 		end
 		for i = 1, #GEOMETRY_KEYS do
-			if not sameGeometryValue(a[i], b[i]) then
+			local same = if GEOMETRY_KEYS[i] == "platformChrome"
+				then sameChrome(a[i], b[i])
+				else sameGeometryValue(a[i], b[i])
+			if not same then
 				return false
 			end
 		end

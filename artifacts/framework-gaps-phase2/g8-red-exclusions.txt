@@ -1,0 +1,18 @@
+[1m§8: a lane starts below an exclusion its own CONTENT reaches into[0m
+  [32m✓[0m the covered column gives way and the columns beside it stay LEVEL with the chrome
+  [32m✓[0m a column the chrome BARELY clips still gives way when its content reaches in
+  [32m✓[0m ...and a column whose content clears the chrome entirely stays where it was
+  [32m✓[0m the LOWEST exclusion a lane meets wins — two rows are not two reservations
+  [32m✓[0m a lane that gives way is SHORTER by exactly what it gave, so its content still fits its box
+  [32m✓[0m ADDITIVITY: declaring none is byte-identical to the composition that never heard of them
+  [32m✓[0m a malformed rect is SKIPPED, not clamped — a zero-width rect excludes nothing
+[1m§8: the decision is a FIXED POINT, so no latch is needed[0m
+  [32m✓[0m re-resolving the same declaration twice lands on the same answer
+  [32m✓[0m ...and a lane squeezed past its floor still holds the exclusion rather than buying it back
+[1m§8: `UI.Composition{ exclusions }` — the declaration, through the mounted path[0m
+  [31m✗ a declared chrome row pushes only the lanes its own content reaches into[0m
+      Facet UI.Composition: unknown property 'exclusions'. Valid properties: active, alignH, alignV, anchor, arrangements, clipChildren, corners, gradient, gridSpan, groupGap, groups, height, hidden, laneGap, layoutPriority, lineAlign, margin, maxMeasure, offsetX, offsetY, onAppear, onDisappear, overflow, padding, rotation, scale, shadow, shrinkWeight, stroke, surface, width, zIndex.
+  [31m✗ it is REACTIVE: a chrome row that arrives after the first solve re-runs the pass[0m
+      Facet UI.Composition: unknown property 'exclusions'. Valid properties: active, alignH, alignV, anchor, arrangements, clipChildren, corners, gradient, gridSpan, groupGap, groups, height, hidden, laneGap, layoutPriority, lineAlign, margin, maxMeasure, offsetX, offsetY, onAppear, onDisappear, overflow, padding, rotation, scale, shadow, shrinkWeight, stroke, surface, width, zIndex.
+
+[31m2 failed[0m, [32m9 passed[0m

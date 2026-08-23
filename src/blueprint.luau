@@ -265,6 +265,12 @@ export type CompositionSpec = BoxProps & ContainerProps & {
 	laneGap: (number | Metric)?,
 	groupGap: (number | Metric)?,
 	maxMeasure: (number | Metric)?,
+	-- §8: the rects the HOST'S own chrome occupies, in WINDOW space. A Readable is
+	-- the ordinary form — a chrome row moves on a rotation and on a pose change —
+	-- and it is the ONE reactive field on this declaration, for the same reason
+	-- `UI.Region.reserved` is the one on that one: it answers a question about the
+	-- screen outside this tree that only the caller holds.
+	exclusions: Bound<{ { x: number, y: number, w: number, h: number } }>?,
 }
 export type RegionFloor = { lines: number?, role: TypeRole?, targets: number? }
 export type RegionSpec = {

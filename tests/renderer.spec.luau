@@ -381,7 +381,9 @@ describe("safe areas: deviceSafeContent root policy (native-substrate NS-A1)", f
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 		controller.initialRender()
 		local rootNode = adapter.node("/CoreOnly")
-		expect(rootNode.rect.x).toBe(0)
+		-- the lateral edges report NOTHING, so the theme's gutter is the floor
+		-- (ADR-0046 / ADR-0040 §B-24); the 59px top is deeper than it and wins
+		expect(rootNode.rect.x).toBe(8)
 		expect(rootNode.rect.y).toBe(59)
 		controller.dispose()
 		root.dispose()
@@ -948,8 +950,10 @@ describe("renderer — root policy", function()
 		presenter.refresh()
 		local rect = adapter.node("/Content/Fill").rect
 		expect(rect.y).toBe(40)
-		expect(rect.h).toBe(250) -- 300 - 40 - 10
-		expect(rect.w).toBe(390) -- 400 - 5 - 5
+		expect(rect.h).toBe(250) -- 300 - 40 - 10, both deeper than the gutter
+		-- ...and the 5px lateral insets are SHALLOWER than the theme's 8px gutter,
+		-- which is the floor every content policy applies (ADR-0040 §B-24)
+		expect(rect.w).toBe(384) -- 400 - 8 - 8
 	end)
 
 	it("paints an edgeToEdge root under the insets — a backdrop is not content", function()

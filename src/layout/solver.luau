@@ -409,6 +409,20 @@ type Ctx = {
 	-- arrange can never disagree about which arrangement won — the same
 	-- discipline `ctx.compact` carries for the compact-label verdict.
 	compositions: { [string]: { key: string, resolution: any } },
+	--[[ THE SURFACE'S OWN BOX, AND THE PLATFORM BAND ABOVE IT (§9, ADR-0046).
+		A `UI.Composition`'s exclusion rects and the topbar band both arrive in
+		WINDOW space — that is the space `platformChrome` states them in, and the
+		space the solver's own output rects are in — so turning either into a box a
+		pure composition can reason about needs the composition's own origin. These
+		three are what the conversion is made of, and they are the SURFACE's facts
+		rather than any one node's: `rootRect` is the content rect the policy
+		resolved, `rootBand` the free strip, `rootBandFullTop` the window y below
+		which the platform's whole top reservation ends. All three are nil-safe: a
+		surface under any other policy carries no band and every composition in it
+		behaves exactly as it did. ]]
+	rootRect: Rect,
+	rootBand: Rect?,
+	rootBandFullTop: number?,
 	-- ...and the form index each region resolved to, read by the `region` arrange
 	-- branch. 0 means "nothing shows" (dropped, or below its floor).
 	regionForm: { [string]: number },
@@ -2399,7 +2413,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 
 	if node.kind == "composition" then
-		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerW, innerH)
+		--[[ THE ORIGIN IS WHAT MAKES A WINDOW-SPACE RECT MEAN SOMETHING HERE (§9/§8).
+			`arrange` is the one pass that knows where this composition actually is, so
+			it is the one that can convert an exclusion rect or the platform band into
+			the composition's own box. `measure` has no position and passes none — it
+			falls back to the surface's content origin, which is exact for the
+			full-bleed case every band-riding surface is and conservative otherwise
+			(see the module's own note). ]]
+		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerW, innerH, innerX, innerY)
 		if resolution == nil then
 			return
 		end
@@ -3357,7 +3378,16 @@ export type SafeInsets = { top: number, bottom: number, left: number, right: num
 function solver.solve(
 	root: Node,
 	viewport: { w: number, h: number },
-	opts: { safeInsets: SafeInsets?, rootPolicy: string?, scrollBarReserve: number?, metrics: any? }?
+	opts: {
+		safeInsets: SafeInsets?,
+		rootPolicy: string?,
+		scrollBarReserve: number?,
+		metrics: any?,
+		-- §9: the platform's free topbar strip in window space, and the window y the
+		-- platform's whole top reservation ends at. Both `nil` off `bandSafeContent`.
+		band: Rect?,
+		bandFullTop: number?,
+	}?
 ): {
 	rects: { [string]: any },
 	diagnostics: { { node: string, issue: string, designed: boolean? } },
@@ -3365,13 +3395,22 @@ function solver.solve(
 }
 	local insets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 }
 	local policy = (opts and opts.rootPolicy) or "coreSafeContent"
+	-- Studio Neutral when the caller supplies none: a solve is never without a
+	-- metric authority, and neutral reproduces the pre-theme literals.
+	local metrics = (opts and opts.metrics) or themeSnapshot.neutral()
 	local contentRect: Rect
 	if policy == "edgeToEdge" then
 		contentRect = { x = 0, y = 0, w = viewport.w, h = viewport.h }
-	else -- coreSafeContent / deviceSafeContent collapse for now
+	else
 		-- clamp: insets larger than the viewport (1x1 Studio instrument trap,
 		-- foldable posture change) must not go negative (phase-4 layout fuzz,
-		-- seed 2384194589)
+		-- seed 2384194589).
+		--
+		-- THE GUTTER FLOOR IS NOT HERE, and that is the audit's own split (§9): the
+		-- floor belongs to the POLICY RESOLVER, which is the one place that turns
+		-- platform FACTS into insets, and this function is a pure function of the
+		-- insets it is handed. A caller that states its own safe insets — `dump`, a
+		-- layout unit test, the fuzzer — gets exactly the box it asked for.
 		contentRect = {
 			x = insets.left,
 			y = insets.top,
@@ -3381,6 +3420,9 @@ function solver.solve(
 	end
 	local reserve = (opts and opts.scrollBarReserve) or 0
 	local ctx: Ctx = {
+		rootRect = contentRect,
+		rootBand = if opts ~= nil then (opts :: any).band else nil,
+		rootBandFullTop = if opts ~= nil then (opts :: any).bandFullTop else nil,
 		diagnostics = {},
 		textStates = {},
 		compact = {},
@@ -3422,9 +3464,8 @@ function solver.solve(
 		-- pays for the cache
 		hasScroll = false,
 		scrollBarReserve = if type(reserve) == "number" and reserve == reserve then math.max(0, reserve) else 0,
-		-- Studio Neutral when the caller supplies none: a solve is never without
-		-- a metric authority, and neutral reproduces the pre-theme literals
-		metrics = (opts and opts.metrics) or themeSnapshot.neutral(),
+		-- resolved above, so the content rect and this record are one reading
+		metrics = metrics,
 	}
 	-- MICROPROFILER PHASES (roadmap Step 9). The two passes are named separately
 	-- because they answer different questions and regress for different reasons: a

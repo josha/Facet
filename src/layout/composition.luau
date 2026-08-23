@@ -253,6 +253,49 @@ export type ResolveCtx = {
 	-- region's floor is its minimum-viable form's own measured height, which is
 	-- the honest default: the smallest thing the author was willing to show.
 	floorOf: ((RegionDecl) -> number?)?,
+	--[[ THE RECTS A SOLVED LANE MAY NOT START INSIDE (framework-gaps §8), in THIS
+		composition's own box — the caller subtracts its origin, exactly as it
+		resolves a metric NAME to a number before handing it over.
+
+		A lane band is one rectangle: every lane starts at the same y, so a host's
+		own chrome row covering SOME columns and not others could not be reserved
+		around declaratively at all, and the HUD demo spent ~150 lines plus a sampled
+		monotone latch and a hand-built dependency token doing it by hand. `src/env/
+		environment.luau` documents the punt in as many words: *"which is what lets a
+		consumer reserve around it per column"*.
+
+		THE RULE IS THE MEASUREMENT, NOT A FRACTION. Three coverage-fraction rules
+		were each measured wrong on a case this repository has recorded — ANY overlap
+		pushes a centre column down for pixels its content never comes near, MAJORITY
+		misses a 46%-covered column whose `end`-anchored rail is inside the row, and
+		the ANCHOR POINT misses both. Every one of them is a guess about the WIDTH OF
+		THE CONTENT, and the content's width is a thing this module MEASURES. So a
+		lane starts below an exclusion when the lane's own regions occupy an x range
+		the exclusion also occupies, at the RICHEST forms — decided once, from the
+		first pass, and never re-decided. That is what makes it a fixed point rather
+		than a 2-cycle: giving way shrinks the budget, the budget steps a region down
+		to a narrower form, the narrower form no longer reaches the chrome — and a
+		rule that re-asked would put the richer form back. The consumer's version had
+		to bound that with an epoch token and a latch because it was sampling SOLVED
+		rects through a geometry feedback loop; inside one resolve there is no loop
+		to bound. ]]
+	exclusions: { Rect }?,
+	--[[ THE PLATFORM'S OWN TOPBAR BAND (framework-gaps §9), in this composition's
+		box, supplied only under `rootPolicy = "bandSafeContent"` and only to a
+		composition sitting at the surface's own content origin.
+
+		  `x` / `w`  where the FREE strip is — the part of the band the platform's
+		             own control cluster does not occupy. The `topbar` span row is
+		             laid out inside exactly this, so its content is level with the
+		             engine's buttons and cannot be on them (ADR-0027).
+		  `h`        the row's height: down to the band's own bottom edge.
+		  `reserve`  what the composition owes the platform's WHOLE top reservation
+		             when it declares no `topbar` region — which makes the policy
+		             byte-identical to `deviceSafeContent` for such a composition.
+
+		Absent, nothing here changes, which is what every composition outside a
+		band-riding surface gets. ]]
+	band: { x: number, w: number, h: number, reserve: number }?,
 }
 
 export type RegionResolution = {
@@ -324,7 +367,19 @@ export type Resolution = {
 	used: { w: number, h: number },
 	-- EVERY lane of the chosen arrangement, in order — including the ones rule 9
 	-- collapsed, which report `collapsed = true`, no groups and a zero-width rect
-	lanes: { { index: number, affinities: { string }, groups: { string }, rect: Rect, collapsed: boolean } },
+	lanes: {
+		{
+			index: number,
+			affinities: { string },
+			groups: { string },
+			rect: Rect,
+			collapsed: boolean,
+			-- §8: how far below the lane band this lane starts because a declared
+			-- exclusion occupies an x range its own content does. Absent when none did
+			-- — so a composition that declares no exclusions reports what it always did
+			exclusion: number?,
+		}
+	},
 	-- the spanning rows, in flow order (above rows, then below rows)
 	spans: { { id: string, side: string, rect: Rect } },
 	groups: { { id: string, lane: number?, span: string?, rect: Rect } },
@@ -425,6 +480,13 @@ composition.ZONES = table.freeze({
 	"right",
 	"bottomRight",
 }) :: { string }
+
+--[[ ...AND THE ONE OF THE TEN THAT IS NOT AN ANCHOR IS THE ONE THE PLATFORM OWNS
+	(§9). `ZONES[1]` is `topbar`, and this is the name the band branch below tests
+	for — written once, derived from the list, so the vocabulary and the mechanism
+	cannot drift into two spellings. A group with this id and `span = "above"` is
+	the row a `bandSafeContent` surface lays into `platformChrome.band`. ]]
+local BAND_ZONE = composition.ZONES[1]
 
 local function hudColumn(lane: string, align: string, zones: { string }): { GroupDecl }
 	local out: { GroupDecl } = {
@@ -1108,6 +1170,17 @@ local function definite(v: number): boolean
 	return v == v and v ~= math.huge and v >= 0
 end
 
+--[[ ...AND THE SAME TEST WITHOUT THE `>= 0`, which `definite` carries because
+	every extent it guards is a LENGTH. An exclusion rect is a POSITION, and a
+	position may legitimately be negative: the rects arrive in the composition's
+	own box, and a host's chrome row that starts left of where the composition does
+	is at a negative x. Using `definite` on one of those silently discarded every
+	exclusion on a composition inset from the window origin — which is every
+	composition under a policy with a gutter, i.e. all of them. ]]
+local function finitePos(v: any): boolean
+	return type(v) == "number" and v == v and v > -math.huge and v < math.huge
+end
+
 type Attempt = {
 	legal: boolean,
 	rule: string?,
@@ -1224,6 +1297,17 @@ local function solveArrangement(
 
 	local laneGap = px(decl.laneGap) or 0
 	local groupGap = px(decl.groupGap) or 0
+	--[[ THE PLATFORM'S BAND, ALREADY IN THIS COMPOSITION'S BOX (§9). `nil` on every
+		composition outside a band-riding surface, which is what makes the whole
+		branch below cost one nil check to a screen that never heard of it. ]]
+	local bandBox = (ctx :: any).band
+	--[[ ...AND THE RECTS A LANE MAY NOT START INSIDE (§8), decided ONCE. `nil` until
+		the first pass has measured; from then on the same answer for every pass of
+		this attempt, which is what makes the reservation a fixed point instead of a
+		2-cycle (see `ResolveCtx.exclusions`). Absolute local y of the lowest
+		exclusion each lane meets, so a span row changing height re-derives the INSET
+		from it rather than remembering one. ]]
+	local excludeBottom: { number }? = nil
 
 	local forms: { [string]: number } = {}
 	local dropped: { [string]: boolean } = {}
@@ -1247,6 +1331,10 @@ local function solveArrangement(
 		widthFail: string?,
 		laneW: { number },
 		laneX: { number },
+		-- §8: how far below the lane band this lane starts, because a declared
+		-- exclusion occupies an x range its own content does. 0 for every lane of
+		-- every composition that declares none.
+		laneInset: { number },
 		laneIntrinsic: { number },
 		laneNeed: { number },
 		laneOver: { number },
@@ -1506,11 +1594,19 @@ local function solveArrangement(
 			local gGap = groupGapOf[gid]
 			local need = 0
 			local n = 0
+			--[[ THE BAND ROW IS MEASURED AGAINST THE FREE STRIP, NOT THE COMPOSITION
+				(§9). A span row is the composition's full width by definition — except
+				this one, whose width is a PLATFORM FACT: the part of the top band the
+				engine's own control cluster leaves. Measuring it at the offer would
+				let a chip that fits the screen but not the strip choose its richest
+				form and then paint over the platform's buttons. On a 320px phone the
+				free band is ~156px, so the difference is the whole feature. ]]
+			local rowW = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).w else offerW
 			for _, r in regionsOfGroup[gid] or {} do
 				if dropped[r.id] then
 					continue
 				end
-				local w, h = measure(r.id, forms[r.id], offerW, offerH)
+				local w, h = measure(r.id, forms[r.id], rowW, offerH)
 				natural[r.id] = { w = w, h = h }
 				measured[r.id] = { w = w, h = h }
 				local isMounted = w > 0 or h > 0 or r.reserved
@@ -1532,6 +1628,14 @@ local function solveArrangement(
 			if n > 1 then
 				need += gGap * (n - 1)
 			end
+			--[[ ...AND ITS HEIGHT IS THE BAND'S, not its content's (§9). The row IS
+				the platform's strip: it reaches the band's own bottom edge whatever it
+				holds, so the lanes below start exactly where the platform's row ends
+				and a taller chip cannot push them down. The floor a `reserved` region
+				declares still applies to the CONTENT inside it, exactly as before. ]]
+			if gid == BAND_ZONE and bandBox ~= nil and n > 0 then
+				need = math.max(0, (bandBox :: any).h)
+			end
 			groupNeed[gid] = need
 			spanNeed[gid] = need
 			spanActive[gid] = n > 0
@@ -1548,7 +1652,66 @@ local function solveArrangement(
 		-- two groups stacked inside one lane
 		local bandRows = spanRowCount + (if nActive > 0 then 1 else 0)
 		local spanGaps = if bandRows > 1 then groupGap * (bandRows - 1) else 0
-		local laneBudget = offerH - spanTotal - spanGaps
+		--[[ THE LANE BAND NEVER STARTS INSIDE THE PLATFORM'S OWN RESERVATION (§9).
+
+			`bandSafeContent`'s content rect starts where the FREE STRIP starts, which
+			is above the platform's whole top reservation — so without this the top
+			lane would begin at the band's bottom edge and, on a host that reserves
+			more than the strip (a showcase with a chip row of its own inflating
+			`coreSafeInsets.top`, which is a BOUNDING BOX and all such a host has
+			said), it would begin inside that reservation.
+
+			So the `topbar` row rides the strip and the LANES start at the whole
+			reservation, which are two different edges and coincide on a platform whose
+			CoreGui inset is exactly its topbar band. That is the arrangement the HUD
+			demo reached by hand with a fixed-height row plus a per-column reserve of
+			`insets.top - spent`, and it is what makes the policy additive in risk: a
+			composition that declares no `topbar` region gets exactly the lane band
+			`deviceSafeContent` would have given it. ]]
+		--[[ ...AND A HOST THAT HAS SAID WHERE ITS CHROME IS GETS THE PLATFORM'S OWN
+			ROW INSTEAD OF THE BOUNDING BOX (§9 x §8, the director's item 4).
+
+			`reserve` is the whole top inset, and on a host with a persistent chrome
+			row of its own that inset is INFLATED by it — a bounding box, which is all
+			such a host has said. Reserving it in every lane is the defect ADR-0027
+			exists to remove: it pushes a column the chrome does not cover down for
+			pixels nothing occupies, which is the director's *"things at top that are
+			aligned with the controls but don't overlap"* refused.
+
+			A composition that declares `exclusions` HAS said where its chrome is, per
+			column, so the bounding box is no longer the best available answer: the
+			lanes start at the platform's OWN row and the declared rects push down only
+			the lanes whose content meets them. Declaring nothing keeps the bounding
+			box, byte for byte — which is what a host that never adopted the
+			declaration has always had. ]]
+		local hasExclusions = type((ctx :: any).exclusions) == "table" and #((ctx :: any).exclusions :: any) > 0
+		--[[ ...AND ONLY A COMPOSITION THAT IS ACTUALLY RIDING THE STRIP GETS THE
+			SHORTER FLOOR. A `topbar` row that resolved to nothing is a surface not
+			riding the band at all — the demo's ride switch, or a platform that
+			reported no strip — and such a surface owes the platform's whole row
+			whatever else it has declared. So the short floor needs BOTH: a row in the
+			strip, and a host that has said where its own chrome is. ]]
+		local bandReserve = if bandBox == nil
+			then 0
+			elseif hasExclusions and spanActive[BAND_ZONE] == true then math.max(0, (bandBox :: any).h)
+			else math.max(0, (bandBox :: any).reserve)
+		-- what the `above` rows have already spent, so the reservation is a FLOOR on
+		-- where the lanes start rather than a second thing added to them
+		local aboveSpent = 0
+		do
+			local n = 0
+			for _, row in spanRows do
+				if row.side == "above" and spanActive[row.id] then
+					aboveSpent += groupNeed[row.id] or 0
+					n += 1
+				end
+			end
+			if n > 0 then
+				aboveSpent += groupGap * n
+			end
+		end
+		local bandGap = math.max(0, bandReserve - aboveSpent)
+		local laneBudget = offerH - spanTotal - spanGaps - bandGap
 		-- one cursor down the flow: every `above` row, then the lane band, then
 		-- every `below` row. `spanRows` is already in that order.
 		local laneBandY = 0
@@ -1561,6 +1724,7 @@ local function solveArrangement(
 				end
 				if row.side == "below" and not bandPlaced then
 					bandPlaced = true
+					y += bandGap
 					laneBandY = y
 					y += math.max(0, laneBudget) + groupGap
 				end
@@ -1568,7 +1732,8 @@ local function solveArrangement(
 				y += (groupNeed[row.id] or 0) + groupGap
 			end
 			if not bandPlaced then
-				laneBandY = y -- every span row was `above`; the band closes the flow
+				-- every span row was `above`; the band closes the flow
+				laneBandY = y + bandGap
 			end
 		end
 
@@ -1639,10 +1804,79 @@ local function solveArrangement(
 				need += groupGap * (mountedGroups - 1)
 			end
 			laneNeed[i] = need
-			-- the lanes are short of what the SPANS left them, not of the whole
-			-- offer — with no spans declared `laneBudget` IS `offerH`
-			laneOver[i] = if active[i] then need - laneBudget else 0
 			laneWide[i] = if active[i] then wide else 0
+		end
+
+		--[[ ── WHICH LANES GIVE WAY TO THE HOST'S OWN CHROME (§8) ─────────────────
+			Decided on the FIRST pass and never re-decided, from the richest forms and
+			the widths they measured — see `ResolveCtx.exclusions` for why re-asking
+			is a 2-cycle rather than a refinement, and why a coverage fraction is a
+			guess about a width this module already knows.
+
+			The x range a lane occupies is the range its own REGIONS occupy, which is
+			the lane's box unless the group declares an `align` — and when it does, it
+			is the width the region MEASURED at that end of the lane. That is the same
+			arithmetic the placement pass below runs, and it is the difference between
+			"the right column is 46% covered" and "the right column's `end`-anchored
+			rail is inside the chrome row". ]]
+		local exclusions = (ctx :: any).exclusions
+		if excludeBottom == nil then
+			local decided: { number } = {}
+			for i, ids in laneGroups do
+				local bottom = -math.huge
+				if type(exclusions) == "table" and active[i] then
+					for _, gid in ids do
+						local g = groupOf[gid]
+						for _, r in regionsOfGroup[gid] or {} do
+							if dropped[r.id] or not mounted[r.id] then
+								continue
+							end
+							local rx, rw = laneX[i], laneW[i]
+							if g.align ~= nil then
+								local m = measured[r.id]
+								rw = math.min(if m ~= nil then m.w else rw, laneW[i])
+								local f = if g.align == "center" then 0.5 elseif g.align == "end" then 1 else 0
+								rx = laneX[i] + roundPx((laneW[i] - rw) * f)
+							end
+							for _, ex in exclusions :: any do
+								--[[ A MALFORMED RECT IS SKIPPED, NEVER CLAMPED. This module is
+									PURE and drivable straight from a test, so it cannot assume the
+									caller normalized: a rect with no width is not an exclusion, and
+									clamping one to zero would put it at the origin, where it would
+									exclude the first column of every lane. Same refuse-don't-guess
+									rule the env fact's own merge applies to a declared chrome row. ]]
+								if
+									type(ex) ~= "table"
+									or not finitePos(ex.x)
+									or not finitePos(ex.y)
+									or not finitePos(ex.w)
+									or not finitePos(ex.h)
+									or ex.w <= 0
+									or ex.h <= 0
+								then
+									continue
+								end
+								if math.min(rx + rw, ex.x + ex.w) - math.max(rx, ex.x) > 0.5 then
+									bottom = math.max(bottom, ex.y + ex.h)
+								end
+							end
+						end
+					end
+				end
+				decided[i] = bottom
+			end
+			excludeBottom = decided
+		end
+		local laneInset: { number } = {}
+		for i in laneGroups do
+			local bottom = (excludeBottom :: { number })[i]
+			laneInset[i] = if bottom > -math.huge then math.max(0, bottom - laneBandY) else 0
+		end
+		for i in laneGroups do
+			-- the lanes are short of what the SPANS left them, not of the whole
+			-- offer — with no spans declared `laneBudget` IS `offerH` — and short by
+			-- the exclusion this lane gave way to on top of that
+			laneOver[i] = if active[i] then laneNeed[i] - (laneBudget - laneInset[i]) else 0
 		end
 
 		local usedW = 0
@@ -1661,6 +1895,7 @@ local function solveArrangement(
 			widthFail = widthFail,
 			laneW = laneW,
 			laneX = laneX,
+			laneInset = laneInset,
 			laneIntrinsic = laneIntrinsic,
 			laneNeed = laneNeed,
 			laneOver = laneOver,
@@ -2021,20 +2256,57 @@ local function solveArrangement(
 		if not p.spanActive[gid] then
 			continue
 		end
-		local rowRect: Rect = { x = 0, y = p.spanY[gid] or 0, w = offerW, h = p.spanNeed[gid] or 0 }
+		--[[ THE BAND ROW IS THE ONE SPAN THAT IS NOT FULL WIDTH (§9). Every other
+			span row paints the composition's whole width by definition; this one
+			paints the part of the platform's top band the engine's own control
+			cluster leaves free, so its content sits LEVEL with the platform's buttons
+			and cannot be over them (ADR-0027) — which is the placement a consumer
+			previously reached with two hand-computed spacers and a fixed height. ]]
+		local rowX = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).x else 0
+		local rowW = if gid == BAND_ZONE and bandBox ~= nil then (bandBox :: any).w else offerW
+		local rowRect: Rect = { x = rowX, y = p.spanY[gid] or 0, w = rowW, h = p.spanNeed[gid] or 0 }
 		table.insert(spans, { id = gid, side = row.side, rect = rowRect })
 		table.insert(groups, { id = gid, lane = nil, span = row.side, rect = rowRect })
 		local gGap = groupGapOf[gid]
+		--[[ A SPAN ROW'S SLACK GOES TO ITS `fill` REGIONS — rule 6, applied to a row
+			instead of a lane (§9). Until the band existed a span row was EXACTLY as
+			tall as its content, so there was never any slack to give and this is inert
+			on every composition that declares no `topbar` region: `rowSlack` is 0 and
+			the loop below is what it always was. The band row is the first row whose
+			height is a PLATFORM FACT rather than a measurement, so a region that says
+			`sizing = "fill"` in it means what it means everywhere else in this module
+			— take the box, so the content can centre in the strip rather than sitting
+			at the top of it. ]]
+		local rowFill = 0
+		local rowContent = 0
+		local rowMounted = 0
+		for _, r in regionsOfGroup[gid] or {} do
+			if dropped[r.id] or not p.mounted[r.id] then
+				continue
+			end
+			rowMounted += 1
+			rowContent += p.contribution[r.id] or 0
+			if r.sizing == "fill" then
+				rowFill += r.weight or 1
+			end
+		end
+		if rowMounted > 1 then
+			rowContent += gGap * (rowMounted - 1)
+		end
+		local rowSlack = math.max(0, rowRect.h - rowContent)
 		local ry = rowRect.y
 		for _, r in regionsOfGroup[gid] or {} do
 			if dropped[r.id] or not p.mounted[r.id] then
 				continue
 			end
 			local h = p.contribution[r.id] or 0
+			if rowFill > 0 and r.sizing == "fill" then
+				h += rowSlack * ((r.weight or 1) / rowFill)
+			end
 			local res = byId[r.id]
 			res.mounted = true
 			res.span = row.side
-			res.rect = { x = 0, y = ry, w = offerW, h = h }
+			res.rect = { x = rowX, y = ry, w = rowW, h = h }
 			ry += h + gGap
 		end
 	end
@@ -2055,7 +2327,14 @@ local function solveArrangement(
 			})
 			continue
 		end
-		local laneRect: Rect = { x = p.laneX[i], y = p.laneBandY, w = p.laneW[i], h = math.max(0, p.laneBudget) }
+		--[[ ...AND THE LANE BAND IS A RECTANGLE NO LONGER (§8). A lane that gave way
+			to a declared exclusion starts below it and is shorter by exactly that,
+			which is the L a host's own chrome row makes of the band's top edge. Every
+			lane of every composition that declares no exclusions has an inset of 0
+			here and is byte-identical to what it was. ]]
+		local inset = math.max(0, (p.laneInset[i] or 0))
+		local laneRect: Rect =
+			{ x = p.laneX[i], y = p.laneBandY + inset, w = p.laneW[i], h = math.max(0, p.laneBudget - inset) }
 		local mountedGroups: { string } = {}
 		for _, gid in ids do
 			for _, r in regionsOfGroup[gid] or {} do
@@ -2071,8 +2350,11 @@ local function solveArrangement(
 			groups = mountedGroups,
 			rect = laneRect,
 			collapsed = false,
+			-- §8: reported only when it bit, so a dump of a composition that declares
+			-- no exclusions is byte-identical to the one it printed before the feature
+			exclusion = if inset > 0 then inset else nil,
 		})
-		laneUsedH = math.max(laneUsedH, p.laneNeed[i])
+		laneUsedH = math.max(laneUsedH, inset + p.laneNeed[i])
 
 		local slack = math.max(0, p.laneBudget - p.laneNeed[i])
 		local fillWeight = 0
@@ -2307,6 +2589,33 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			originY = math.floor((offerH - cap) / 2)
 			offerH = cap
 		end
+	end
+
+	--[[ ...AND THE TWO SPATIAL INPUTS MOVE WITH THAT CENTRING (§8/§9). `maxMeasure`
+		caps the box and centres the result, so every rect `solveArrangement` produces
+		is relative to the CENTRED box — and an exclusion or a band expressed against
+		the composition's outer box would be off by exactly the offset above. The
+		caller cannot make this correction because the offset is decided here; so it
+		is made here, once, and everything below reads one space. ]]
+	if originX ~= 0 or originY ~= 0 then
+		local shifted = table.clone(ctx :: any)
+		if type((ctx :: any).exclusions) == "table" then
+			local out: { Rect } = {}
+			for _, r in (ctx :: any).exclusions :: any do
+				table.insert(out, { x = r.x - originX, y = r.y - originY, w = r.w, h = r.h })
+			end
+			shifted.exclusions = out
+		end
+		local band = (ctx :: any).band
+		if type(band) == "table" then
+			shifted.band = {
+				x = (band :: any).x - originX,
+				w = (band :: any).w,
+				h = math.max(0, (band :: any).h - originY),
+				reserve = math.max(0, (band :: any).reserve - originY),
+			}
+		end
+		ctx = shifted :: any
 	end
 
 	local scroller: string? = nil
@@ -2554,6 +2863,11 @@ function composition.dump(resolution: Resolution): any
 			-- to be OMITTED now appear with `collapsed = true` — so a reader that
 			-- never heard of the rule sees the same active lanes it always did
 			collapsed = lane.collapsed == true,
+			-- ADDITIVE (§8): 0 on every lane of every composition that declares no
+			-- exclusions, so a reader that never heard of them reads what it always
+			-- did. It is the ONE number that says why a lane did not start at the top
+			-- of the band, which a rect alone cannot distinguish from a span row.
+			exclusion = roundPx(lane.exclusion or 0),
 		})
 	end
 	local spans = {}

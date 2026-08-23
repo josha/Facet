@@ -846,7 +846,14 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 		local chrome = w.env:get("platformChrome"):get()
 		local band = chrome.band
 		expect(band ~= nil).toBe(true)
-		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective")
+		--[[ THE PATH MOVED WITH THE §9 MIGRATION AND THE ASSERTIONS DID NOT. The
+			fixture used to hold the chip inside `StripRow > StripFree` with a Spacer on
+			each side as wide as the platform's own cluster; the framework holds that
+			space open now (`bandSafeContent` lays the `topbar` zone into
+			`platformChrome.band`), so the two spacers and the inner stack are gone and
+			the whole row is behind the ride switch. Every expectation below is
+			unchanged — this is the same claim about the same pixels. ]]
+		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective")
 		expect(chip ~= nil).toBe(true)
 		local rect = (chip :: any).rect
 		-- INSIDE the platform's own band, vertically — this is the "aligned with the

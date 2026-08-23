@@ -386,7 +386,8 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 			},
 		}))
 		local rect = controller.rectOf("/S/Main")
-		expect(rect.w).toBe(800)
+		-- 800 less the content rect's own 8px gutter on each edge (ADR-0040 §B-24)
+		expect(rect.w).toBe(784)
 		expect(rect.h).toBe(100)
 		expect(controller.rectOf("/S/Nope")).toBe(nil)
 	end)
@@ -427,14 +428,14 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 		)
 		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
-		expect(adapter.node("/S/Z/Line").rect.x).toBe(40)
+		expect(adapter.node("/S/Z/Line").rect.x).toBe(48) -- 40 + the content gutter
 		-- the Main content still fills underneath the overlay
-		expect(adapter.node("/S/Z/Main").rect.w).toBe(800)
+		expect(adapter.node("/S/Z/Main").rect.w).toBe(784)
 		local factoryRuns = root.counters().factoryRuns
 		adapter.takeOps()
 		offsetX:set(90)
 		controller.refresh()
-		expect(adapter.node("/S/Z/Line").rect.x).toBe(90)
+		expect(adapter.node("/S/Z/Line").rect.x).toBe(98) -- 90 + the content gutter
 		expect(root.counters().factoryRuns).toBe(factoryRuns) -- no remount
 		for _, op in adapter.takeOps() do
 			expect(string.sub(op, 1, 4)).toBe("rect") -- minimal writes: rects only

@@ -791,7 +791,7 @@ minimap, choose between two *surfaces* before either is built — reach for
 
 ### `Composition`
 
-`UI.Composition{ id?, arrangements (required), groups (required), laneGap?, groupGap?, maxMeasure?, padding?, surface?, width?, height?, children (UI.Region…) }`
+`UI.Composition{ id?, arrangements (required), groups (required), laneGap?, groupGap?, maxMeasure?, exclusions?, padding?, surface?, width?, height?, children (UI.Region…) }`
 — the **screen-level** sibling of `AdaptiveStack` (which resolves one axis) and
 `ViewThatFits` (which resolves one container's candidate). You declare *what the
 screen has to say*, ranked, with a richest→minimum form list per region; the
@@ -823,6 +823,20 @@ UI.Composition{
     },
 }
 ```
+
+- **`exclusions`** — `Readable<{ Rect }>` (or a plain list): the rects the
+  **host's own chrome** occupies, in **WINDOW space** — the space
+  `platformChrome.rects` and the solver's own output rects are stated in, so a
+  caller never converts and never needs to know where its composition landed. A
+  solved lane starts **below** any of them its own regions share an x range with;
+  a lane whose content clears them stays **level** with the chrome. This is what
+  makes the lane band stop being one rectangle: a chrome row covering some
+  columns and not others can be reserved around per column. The decision reads
+  the **richest** forms' measured widths and is taken once per resolve — the
+  reservation is the lane's own starting edge, not a region the ladder can drop —
+  so a settled tree equals a fresh mount by construction. Declaring none is
+  byte-identical to a composition that never heard of them.
+  ([ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md))
 
 - **`arrangements`** — ordered candidates, richest first. A preset name
   (`"threeLane"` · `"twoLane"` · `"column"`) or a table
@@ -3120,13 +3134,52 @@ focused node unmounts.
 
 **`rootPolicy`** resolves the surface's content rect from the viewport and the
 safe insets: `coreSafeContent` (the default — inset by the CoreGui reservation),
-`deviceSafeContent` (per-edge max of CoreGui and device insets), and
-`edgeToEdge` (the whole window — a scrim, a backdrop, or a surface that
-deliberately places itself in a platform band the insets exclude).
+`deviceSafeContent` (per-edge max of CoreGui and device insets), `bandSafeContent`
+(the same three edges, with the TOP brought up to where the platform's free topbar
+strip starts — content that means to ride the band), and `edgeToEdge` (the whole
+window — a scrim or a backdrop).
 
-**Placing a surface in the platform's TOPBAR band.** Read the derived fact
-**`platformChrome`** and present the surface `edgeToEdge`, whose content rect *is*
-window space:
+**Every CONTENT policy floors each edge at `themeMetrics.space.gutter`**, so the
+inset a surface gets is the per-edge **max** of what the platform says must be
+cleared and what the theme calls a gap. The platform's safe inset answers "what
+must be cleared"; it does not answer "may content touch the glass", and on a
+device whose engine pre-excludes the notch from the camera the lateral inset is
+zero. `edgeToEdge` is exempt — a decoration layer has to reach the edges — and so
+is the TOP of `bandSafeContent`, because a gutter there would stop a topbar row
+sitting level with the engine's own buttons. See
+[ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) and
+ADR-0040 §B-24.
+
+**Placing a surface in the platform's TOPBAR band.** Present it
+`rootPolicy = "bandSafeContent"` and give it a `UI.Composition` with a region in
+the **`topbar`** group. The solver lays that row into `platformChrome.band` — the
+free strip's own x and width, reaching the band's bottom edge — so its content is
+level with the platform's controls and cannot be over them, and the lanes start
+below the platform's whole top reservation:
+
+```lua
+presenter.present(screen, { rootPolicy = "bandSafeContent" })
+
+UI.Composition({
+	id = "Hud",
+	groups = Facet.composition.HUD_GROUPS,
+	arrangements = { Facet.composition.HUD },
+	children = {
+		-- `sizing = "fill"` takes the strip, so the content centres IN it
+		UI.Region({ id = "Strip", group = "topbar", rank = 1, sizing = "fill", children = { chip } }),
+		-- ...the nine anchored zones, which start below the band
+	},
+})
+```
+
+A composition that declares **no** `topbar` region resolves exactly as
+`deviceSafeContent` would have resolved it, so asking for the policy does not put
+anything in the band — declaring a region does. And a surface whose root is not a
+Composition gets the band as its own content rect: `bandSafeContent` is for a
+surface that *means* to ride it.
+
+The fact itself is still readable, for a caller that needs the numbers rather
+than the placement:
 
 ```lua
 local chrome = env:get("platformChrome"):get()
@@ -3144,8 +3197,9 @@ instructions. `chrome.rects` is what the platform's own controls occupy, as a
 rather than a rectangle. `chrome.insets` is what a surface must inset to clear
 everything — byte-identical to what `rootPolicy = "deviceSafeContent"` applies —
 and `chrome.bandInsets` is the same four edges with the top brought up to where
-the band starts, which is what a surface that means to ride the band applies
-instead. When there is no band the two are equal, so a consumer needs no branch.
+the band starts, which is what `rootPolicy = "bandSafeContent"` applies. When
+there is no band the two are equal, so a consumer needs no branch and the policy
+is byte-identical to `deviceSafeContent` there.
 
 Do not add `topbarSafeInsets.left` to `topbarInset.x`. They are two encodings of
 one rect — measured on the live engine 2026-08-14 at 735x413, `TopbarInset` reads
@@ -4113,7 +4167,7 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.ARRANGEMENTS` | the three presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `threeLane` = `{ lead } { main } { trail }` |
 | `composition.HUD` | the **screen-anchored HUD** arrangement as data (ADR-0025): three lanes, `{ left } { center } { right }` — the three screen columns |
 | `composition.HUD_GROUPS` | the thirteen groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty), the nine **zone** groups `topLeft … bottomRight`, and the `topbar` **span** row (ADR-0027) |
-| `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact — see **Placing a surface in the platform's TOPBAR band** |
+| `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact and the SOLVER applies it under `rootPolicy = "bandSafeContent"`: the row is laid into the free strip's own x and width rather than across the composition, and a `sizing = "fill"` region in it takes the strip so its content centres there. Under any other policy it is an ordinary full-width span row, as it always was — see **Placing a surface in the platform's TOPBAR band** and [ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) |
 
 A declaration is `{ id?, groups, regions, arrangements, laneGap?, groupGap?, maxMeasure? }`,
 where each region carries `{ id, group, rank, forms = <count>, recover, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.

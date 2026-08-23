@@ -42,6 +42,52 @@ local expandPlate = require("./expand_plate")
 
 local compositionResolve = {}
 
+local function finite(v: any): number?
+	return if type(v) == "number" and v == v and v > -math.huge and v < math.huge then v else nil
+end
+
+--[[ WINDOW-SPACE RECTS, IN THE COMPOSITION'S OWN BOX. A malformed entry is
+	SKIPPED rather than clamped to zero: a rect with no width is not an exclusion,
+	and a zero-width one at the origin would exclude the first column of every
+	lane. Same refuse-don't-guess rule the env fact's own merge applies. ]]
+local function localRects(
+	rects: { any },
+	originX: number,
+	originY: number
+): { { x: number, y: number, w: number, h: number } }
+	local out: { { x: number, y: number, w: number, h: number } } = {}
+	for _, r in rects do
+		if type(r) ~= "table" then
+			continue
+		end
+		local x, y = finite((r :: any).x), finite((r :: any).y)
+		local w, h = finite((r :: any).w), finite((r :: any).h)
+		if x == nil or y == nil or w == nil or h == nil or w <= 0 or h <= 0 then
+			continue
+		end
+		table.insert(out, { x = x - originX, y = y - originY, w = w, h = h })
+	end
+	return out
+end
+
+-- the platform band as the composition sees it: where the free strip is across
+-- this box, how tall the row that reaches its bottom edge is, and the whole
+-- reservation a composition owes when it declares no `topbar` region at all
+local function localBand(ctx: any, originX: number, originY: number): any
+	local fullTop = finite(ctx.rootBandFullTop) or 0
+	local reserve = math.max(0, fullTop - originY)
+	local band = ctx.rootBand
+	if type(band) ~= "table" then
+		return { x = 0, w = 0, h = 0, reserve = reserve }
+	end
+	local bx, by = finite((band :: any).x), finite((band :: any).y)
+	local bw, bh = finite((band :: any).w), finite((band :: any).h)
+	if bx == nil or by == nil or bw == nil or bh == nil or bw <= 0 or bh <= 0 then
+		return { x = 0, w = 0, h = 0, reserve = reserve }
+	end
+	return { x = bx - originX, w = bw, h = math.max(0, by + bh - originY), reserve = reserve }
+end
+
 -- WHAT THIS MODULE NEEDS FROM THE SOLVER, handed over rather than captured: the
 -- mutually recursive `measure`, which a region's form is measured through. It is
 -- the same forwarder shape `GRID_DEPS` / `FLOW_DEPS` already carry.
@@ -78,6 +124,16 @@ export type SolveCtx = {
 	-- own chrome are resolved from it, so the NAME never crosses into the pure
 	-- composition module (read only)
 	metrics: any,
+	--[[ THE SURFACE'S OWN BOX AND THE PLATFORM BAND ABOVE IT (§9/§8, ADR-0046),
+		all three read only. They are what turns a WINDOW-space rect — which is the
+		space `platformChrome` states its band and its rects in, and the space this
+		solver's own output is in — into the local box a PURE composition can reason
+		about. `rootRect` is the content rect the policy resolved; `rootBand` is the
+		free strip; `rootBandFullTop` is the window y the platform's whole top
+		reservation ends at. All three nil-safe. ]]
+	rootRect: any,
+	rootBand: any,
+	rootBandFullTop: number?,
 }
 
 -- THE COMPOSITION RESOLUTION, COMPUTED ONCE PER BOX (ADR-0023).
@@ -94,12 +150,51 @@ export type SolveCtx = {
 -- against a large finite box to learn the natural extent, then against that
 -- extent, which is what `hug` means everywhere else in this file.
 local COMPOSITION_UNBOUNDED = 1e6
-function compositionResolve.resolve(deps: Deps, ctx: SolveCtx, node: any, innerW: number, innerH: number): any?
+function compositionResolve.resolve(
+	deps: Deps,
+	ctx: SolveCtx,
+	node: any,
+	innerW: number,
+	innerH: number,
+	originX: number?,
+	originY: number?
+): any?
 	local declared = node.composition
 	if declared == nil then
 		return nil
 	end
-	local key = `{innerW}|{innerH}`
+	--[[ WHERE THIS COMPOSITION IS, AND WHAT IT DOES WITH THAT (§9/§8).
+
+		Both window-space inputs — the platform band and the author's `exclusions` —
+		have to be expressed in the composition's OWN box before a pure module can
+		spend them. `arrange` knows the origin and passes it; `measure` does not
+		exist at a position at all, so it falls back to the surface's content origin.
+
+		THAT FALLBACK IS EXACT FOR THE CASE THAT MATTERS AND CONSERVATIVE OTHERWISE.
+		A composition that fills its surface — which is every band-riding surface and
+		every HUD — IS at the content origin, so both passes agree and the cache key
+		below is the same string for both: one resolution, no extra work. A
+		composition placed lower down measures against an origin ABOVE its own, which
+		over-states an exclusion's reach rather than under-stating it, so a `hug`
+		height reserves at least enough; `arrange` then re-resolves at the true
+		origin and the rects that ship are exact.
+
+		THE ORIGIN JOINS THE CACHE KEY, and only when something reads it. Without
+		that, an arrange whose box happened to equal the measure's would hand back
+		the measure-time resolution and the exclusions would silently not apply —
+		the cache returning an answer computed against a different ruler, which is
+		the defect family this file's own header names. ]]
+	local placedX = if originX ~= nil then originX else (if type(ctx.rootRect) == "table" then ctx.rootRect.x else 0)
+	local placedY = if originY ~= nil then originY else (if type(ctx.rootRect) == "table" then ctx.rootRect.y else 0)
+	local exclusions = declared.exclusions
+	local hasExclusions = type(exclusions) == "table" and #(exclusions :: any) > 0
+	--[[ THE BAND IS THE SURFACE'S, NOT A NODE'S, so only a composition sitting at
+		the surface's own content origin may ride it. A nested one is somewhere else
+		on the screen and reserving the platform's row inside it would be reserving
+		it twice; it is left exactly as it was. ]]
+	local atRoot = type(ctx.rootRect) == "table" and placedY == ctx.rootRect.y
+	local hasBand = atRoot and type(ctx.rootBandFullTop) == "number"
+	local key = if hasExclusions or hasBand then `{innerW}|{innerH}|{placedX},{placedY}` else `{innerW}|{innerH}`
 	local cached = ctx.compositions[node.id]
 	if cached ~= nil and cached.key == key then
 		return cached.resolution
@@ -279,6 +374,23 @@ function compositionResolve.resolve(deps: Deps, ctx: SolveCtx, node: any, innerW
 			at. It rides back out on the plate record beside `max`, so the
 			declaration spends the same resolution the cap above reserved. ]]
 		expandPlateDiscHalf = expandPlate.discHalf(ctx.metrics),
+		--[[ THE TWO WINDOW-SPACE FACTS, CONVERTED (§9 + §8). Same split every other
+			line of this record makes: the composition owns no env and no window, so
+			the NUMBERS arrive already in its own box and the SPACE never crosses.
+
+			`exclusions` — the rects a solved lane may not start inside. The author
+			states them where they are (`platformChrome.rects`, an app's own declared
+			chrome row); this is the one place that can subtract the composition's
+			origin from them.
+
+			`band` — the platform's free strip, plus the `reserve` the composition owes
+			the platform's whole row when nothing declares a `topbar` region. `h` is
+			measured to the band's own bottom and `reserve` to the reservation's, and
+			they differ on a device whose device-safe top is deeper than the CoreGui
+			one; both are floored at 0 so a band above the content rect never becomes
+			a negative row. ]]
+		exclusions = if hasExclusions then localRects(exclusions :: any, placedX, placedY) else nil,
+		band = if hasBand then localBand(ctx, placedX, placedY) else nil,
 	}
 	local offerW = if innerW == math.huge then COMPOSITION_UNBOUNDED else innerW
 	local offerH = if innerH == math.huge then COMPOSITION_UNBOUNDED else innerH

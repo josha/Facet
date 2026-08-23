@@ -302,7 +302,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		local columnWidth = column.adapter.node("/S/View").rect.w
 		-- the rail hugs its widest segment; the row list spans the offer
 		expect(railWidth < columnWidth).toBe(true)
-		expect(columnWidth).toBe(480)
+		expect(columnWidth).toBe(464) -- the offer, less the content gutter each side
 	end)
 
 	it("every segment of the rail still meets the 44px floor on BOTH axes", function()
@@ -401,7 +401,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		pres.refresh()
 		expect(p.dump().presentation).toBe("inline")
 		expect(p.dump().verticalPill).toBe(false)
-		expect(adapter.node("/S/View").rect.w).toBe(480)
+		expect(adapter.node("/S/View").rect.w).toBe(464)
 		p.dispose()
 	end)
 
@@ -462,7 +462,7 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 		local w = world({ presentation = "segmented", sizing = "hug", viewport = 320 })
 		local hugged = w.adapter.node("/S/View").rect.w
 		local filled = world({ presentation = "segmented", viewport = 320 }).adapter.node("/S/View").rect.w
-		expect(filled).toBe(320)
+		expect(filled).toBe(304) -- the 320 viewport, less the content gutter each side
 		expect(hugged < filled).toBe(true)
 		expect(w.picker.dump().sizing).toBe("hug")
 	end)
@@ -505,7 +505,7 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 			pres.refresh()
 			w = { adapter = adapter, pres = pres, picker = p }
 		end
-		expect(w.adapter.node("/S/View").rect.w).toBe(480)
+		expect(w.adapter.node("/S/View").rect.w).toBe(464)
 		local before = w.adapter.node("/S/View/Indicator/Options/Opt1").id
 		sizing:set("hug")
 		w.pres.refresh()
@@ -553,7 +553,7 @@ describe("D5 seam: `axis` is REACTIVE, because a placement flip is a re-solve", 
 		pres.refresh()
 		expect(p.dump().axis).toBe("x")
 		expect(p.dump().verticalPill).toBe(false)
-		expect(adapter.node("/S/View").rect.w).toBe(480)
+		expect(adapter.node("/S/View").rect.w).toBe(464)
 		axis:set("y")
 		pres.refresh()
 		expect(p.dump().axis).toBe("y")

@@ -292,7 +292,7 @@ describe("ten-foot default overscan margins (director live find: edge-flush UI o
 				}),
 			}
 		end)
-		expect(adapter.node("/S/Panel").rect.x).toBe(0)
+		expect(adapter.node("/S/Panel").rect.x).toBe(8) -- the content gutter, near
 		env:set("displaySize", "Large")
 		local rect = adapter.node("/S/Panel").rect
 		expect(rect.x).toBe(90)

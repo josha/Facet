@@ -550,6 +550,11 @@ local function toLayoutNode(
 				display class and the declaration are both already in hand — the
 				same place `maxMeasure`'s own metric name is resolved to px. ]]
 			measureCap = if props.maxMeasure ~= nil then nil else adaptive.laneMeasureFor((metrics :: any).metricScale),
+			-- §8: the host's own chrome, in WINDOW space. It rides through untouched —
+			-- the SOLVER is the one place that knows where this composition landed, so
+			-- it is the one place that can convert a window rect into the composition's
+			-- own box (`layout/composition_resolve.luau`).
+			exclusions = props.exclusions,
 		}
 	elseif class == "Region" then
 		layoutNode.region = {

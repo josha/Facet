@@ -318,7 +318,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 	it("a TOUCH drag on the grip previews and commits the new column width", function()
 		local w = resizeWorld()
 		local cell = w.adapter.node("/S/T/Main/Header/Head-name").rect
-		expect(cell.w).toBe(736) -- 800 viewport - 64 fixed
+		expect(cell.w).toBe(720) -- 800 viewport - 16 content gutter - 64 fixed
 		-- Table treats grip drags as reorder-exempt on ANY pointer (ui_todo §3):
 		-- the SAME seam the mouse test uses, driven with a "touch" pointer.
 		w.adapter.pointerDown(GRIP, cell.x + cell.w, 10, "touch")
@@ -326,12 +326,12 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 		w.pres.refresh()
 		local line = w.adapter.node("/S/T/ResizeWhen/then/ResizeLine")
 		expect(line ~= nil).toBe(true)
-		expect(line.rect.x).toBe(636) -- guide sits at the dragged boundary
+		expect(line.rect.x).toBe(628) -- guide sits at the dragged boundary
 		w.adapter.pointerUp(cell.x + cell.w - 100, 12, "touch")
 		w.pres.refresh()
 		expect(w.adapter.node("/S/T/ResizeWhen/then/ResizeLine")).toBe(nil)
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@1]/Row/Cells/Cell-name").rect.w).toBe(636)
-		expect(w.adapter.node("/S/T/Main/Header/Head-name").rect.w).toBe(636)
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@1]/Row/Cells/Cell-name").rect.w).toBe(620)
+		expect(w.adapter.node("/S/T/Main/Header/Head-name").rect.w).toBe(620)
 	end)
 
 	it("a TOUCH grip drag clamps to the column minWidth", function()
@@ -650,7 +650,13 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 							-- chain question is real, because a point at the inner
 							-- list's edge but mid-page is not at the page's edge at all
 							-- and the page is right to stay still.
-							height = { type = "fixed", px = options.fillerPx or 360 },
+							--
+							-- 344 rather than 360 because the page is the content rect's own
+							-- gutter shorter at each end now (ADR-0040 §B-24) and this number
+							-- is what puts the table's bottom edge inside the page's bottom
+							-- band: it is the fixture's knob for exactly that overlap, and its
+							-- own comment above says so.
+							height = { type = "fixed", px = options.fillerPx or 344 },
 						}),
 						tbl.blueprint,
 						Facet.UI.Box({

@@ -515,21 +515,23 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 			itemExtent = 40,
 			width = { type = "fixed", px = 320 },
 		})
-		-- floor((320 - 4 * 3) / 4) = 77, the flow grid's own formula
+		-- floor((320 - 4 * 3) / 4) = 77, the flow grid's own formula; the xs start at
+		-- the content rect's own 8px gutter (ADR-0040 §B-24)
 		expect(w.cellRect("i1").w).toBe(77)
-		expect(w.cellRect("i1").x).toBe(0)
-		expect(w.cellRect("i2").x).toBe(81)
-		expect(w.cellRect("i4").x).toBe(243)
+		expect(w.cellRect("i1").x).toBe(8)
+		expect(w.cellRect("i2").x).toBe(89)
+		expect(w.cellRect("i4").x).toBe(251)
 		w.grid.dispose()
 	end)
 
 	it("a SHORT last line keeps its column width and stays left-aligned", function()
 		local w =
 			world({ items = makeItems(6), columns = 4, gap = 4, itemExtent = 40, width = { type = "fixed", px = 320 } })
-		-- line 2 holds two cells; they must be 77 wide at x = 0 and 81, NOT stretched
+		-- line 2 holds two cells; they must be 77 wide at the content gutter and 81
+		-- past it, NOT stretched
 		expect(w.cellRect("i5").w).toBe(77)
-		expect(w.cellRect("i5").x).toBe(0)
-		expect(w.cellRect("i6").x).toBe(81)
+		expect(w.cellRect("i5").x).toBe(8)
+		expect(w.cellRect("i6").x).toBe(89)
 		expect(w.cellRect("i6").w).toBe(77)
 		w.grid.dispose()
 	end)
@@ -577,7 +579,8 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 		w.grid.scrollTop:set(460)
 		w.pres.refresh()
 		local first = w.grid.dump().lines[1]
-		expect(w.rect("/S/VG/Canvas/Band").y).toBe((first - 1) * 46)
+		-- ...from the content rect's own gutter, which is where the canvas starts
+		expect(w.rect("/S/VG/Canvas/Band").y).toBe(8 + (first - 1) * 46)
 		w.grid.dispose()
 	end)
 end)

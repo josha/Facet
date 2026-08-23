@@ -1,0 +1,22 @@
+[1m§9: `bandSafeContent` is the policy that spends `platformChrome.bandInsets`[0m
+  [31m✗ the renderer accepts it, and names it among the valid values when a typo arrives[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+  [31m✗ its content rect starts where the BAND starts, not below the platform's whole row[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+  [31m✗ with NO band reported it is byte-identical to `deviceSafeContent` — no branch for a consumer[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+[1m§9: every CONTENT policy floors each edge at the theme's own gutter[0m
+  [31m✗ a platform reporting NO inset still leaves the theme's gutter — content never touches the glass[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/tests/band_policy.spec:144: expected coreSafeContent 0,0,400,300 to be coreSafeContent 8,8,384,284
+  [31m✗ a REAL inset bigger than the gutter still wins — the floor is a floor, not a replacement[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/tests/band_policy.spec:162: expected 0 to be 8
+  [32m✓[0m CONTROL: `edgeToEdge` is EXEMPT — a scrim still reaches the glass on all four sides
+[1m§9: the `topbar` zone is inset to `platformChrome.band`, by the framework[0m
+  [31m✗ the row sits INSIDE the free strip — level with the platform's buttons, never on them[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+  [31m✗ ...and the lanes start BELOW the band, so the top-left cluster is clear by construction[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+  [31m✗ a composition that declares NO topbar region reserves the platform's whole row anyway[0m
+      Facet renderer: unknown rootPolicy 'bandSafeContent'. Valid: coreSafeContent, deviceSafeContent, edgeToEdge.
+
+[31m8 failed[0m, [32m1 passed[0m

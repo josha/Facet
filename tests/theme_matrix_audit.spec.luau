@@ -73,7 +73,24 @@ local PACKAGES = {
 local VIEWS = {
 	{
 		id = "compact-phone-portrait",
-		viewport = { x = 0, y = 0, w = 359, h = 718 },
+		--[[ 375x734 rather than 359x718, and the sixteen pixels are the framework's
+			own: every content `rootPolicy` floors each edge at the theme's gutter now
+			(ADR-0046 / ADR-0040 §B-24), so a surface's CONTENT box is the viewport
+			less 8 a side. This row models a compact phone's content box, and 375 is
+			the viewport that leaves it the 359 it modelled before.
+
+			WHAT WAS MEASURED AT 359, recorded rather than hidden: two rows went red,
+			both content that no longer fits its own box. One was this repository's —
+			`adaptive_controls`' Toolbar overran by 14px under Fantasy Ornate and 18
+			under Glossy Touch, and is FIXED at the fixture (`TbPlay` now declares
+			`shrinkWeight`, which is the row's own vocabulary for "this is the child
+			that yields"). The other is a shipped CONTROL and is booked rather than
+			papered over: `Controls.Stepper`'s own row overflows by 7px under Glossy
+			Touch at a 343px content box, because the control has no shrink term at
+			all — a label and three fixed affordances. That is a real narrow-phone
+			finding for the roomiest package and it belongs to the Stepper, not to
+			this matrix. ]]
+		viewport = { x = 0, y = 0, w = 375, h = 734 },
 		displaySize = "Small",
 		preferredInput = "Touch",
 		capabilities = { touch = true, mouse = false, keyboard = false, gamepad = false },

@@ -585,19 +585,21 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 					w.built.steps.openUrlBar()
 					settle(w)
 				end
+				--[[ THE RESERVATION IS THE LANE'S OWN BOX NOW (§8), not a rank-1 region
+					standing at the head of the column. That is a stronger version of the
+					same guarantee rather than a weaker one: the ladder's currency is
+					CONTENT, and a lane's own starting edge is not something it can spend.
+					The `exclusion` on the lane is what says so, and it is reported on
+					every solve so a dump can still tell "the column gave way" from "the
+					column happens to start there". ]]
 				local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
-				local reserve: any = nil
-				for _, r in dump.regions do
-					if r.id == "/HudScreen/Hud/ChromeLeft" then
-						reserve = r
-					end
-				end
+				local reserve = dump.lanes[1]
 				expect(reserve ~= nil).toBe(true)
-				expect(`749x{state.h} the reservation is mounted: {reserve.mounted}`).toBe(
-					`749x{state.h} the reservation is mounted: true`
+				expect(`749x{state.h} the reservation is held: {reserve.exclusion > 0}`).toBe(
+					`749x{state.h} the reservation is held: true`
 				)
-				expect(`749x{state.h} the reservation was dropped: {reserve.dropped}`).toBe(
-					`749x{state.h} the reservation was dropped: false`
+				expect(`749x{state.h} the lane starts below the chrome: {reserve.rect.y >= CHIPS[1].y + CHIPS[1].h}`).toBe(
+					`749x{state.h} the lane starts below the chrome: true`
 				)
 				expect(`749x{state.h} it is holding a real box: {reserve.rect.h > 0}`).toBe(
 					`749x{state.h} it is holding a real box: true`
@@ -644,15 +646,15 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 		for _, r in dump.regions do
 			byId[r.id] = r
 		end
-		local reserve = byId["/HudScreen/Hud/ChromeLeft"]
+		local reserve = dump.lanes[1]
 		local rounds = byId["/HudScreen/Hud/Rounds"]
-		expect(`the exclusion held: {reserve.mounted and not reserve.dropped}`).toBe("the exclusion held: true")
+		expect(`the exclusion held: {reserve.exclusion > 0}`).toBe("the exclusion held: true")
 		-- the tail of the ladder is gone: every droppable zone in the left column
 		for _, id in { "Tasks", "Health", "Feed" } do
 			expect(`{id} dropped: {byId[`/HudScreen/Hud/{id}`].dropped}`).toBe(`{id} dropped: true`)
 		end
 		-- ...and the rank-1 zone that survives is BELOW the exclusion, never in it
-		expect(`the buttons start below the exclusion: {rounds.rect.y >= reserve.rect.y + reserve.rect.h - 0.01}`).toBe(
+		expect(`the buttons start below the exclusion: {rounds.rect.y >= reserve.rect.y - 0.01}`).toBe(
 			"the buttons start below the exclusion: true"
 		)
 		expect(`...and clear of the chip row: {assertLeftColumnClearsChips(w, "749x180") > 0}`).toBe(
@@ -1146,12 +1148,10 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 		expect(`the rail is below the chip row: {rail.rect.y >= chip.y + chip.h - 0.01}`).toBe(
 			"the rail is below the chip row: true"
 		)
-		-- ...and the reservation that put it there is the RIGHT column's, which is
-		-- the one the majority rule left at zero
-		local reserve = byId["/HudScreen/Hud/ChromeRight"]
-		expect(`the right column reserved: {reserve ~= nil and reserve.mounted and reserve.rect.h > 0}`).toBe(
-			"the right column reserved: true"
-		)
+		-- ...and the reservation that put it there is the RIGHT lane's own, which is
+		-- the one the majority rule left at zero (§8: the lane's starting edge, not a
+		-- region standing at the head of the column)
+		expect(`the right column reserved: {dump.lanes[3].exclusion > 0}`).toBe("the right column reserved: true")
 	end)
 
 	--[[ ── DIR-7: THE OBJECTIVE CHIP SWAPS INSTEAD OF SPILLING ──────────────────
@@ -1181,10 +1181,11 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 			w.env:set("preferredTextOffset", offset)
 			settle(w)
 			settle(w)
-			local full =
-				"/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective/ObjectiveRow/ObjectiveT"
+			-- the path moved with the §9 migration (the two cluster-width Spacers and
+			-- the inner stack are the framework's job now); the claim did not
+			local full = "/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective/ObjectiveRow/ObjectiveT"
 			local short =
-				"/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/ObjectiveShort/ObjectiveShortRow/ObjectiveShortT"
+				"/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/ObjectiveShort/ObjectiveShortRow/ObjectiveShortT"
 			local shown = if w.adapter.visibleOf(full) ~= false then full else short
 			expect(`+{offset}: a rung is on screen: {shown ~= nil}`).toBe(`+{offset}: a rung is on screen: true`)
 			local facts = w.built.handle.controller.textAt(shown)
@@ -1230,24 +1231,32 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 	end)
 end)
 
---[[ ── H1: THE GIVE-WAY EPOCH KEY, ONE CASE PER TERM ─────────────────────────
-	(fresh-context review of the DIR wave, 2026-08-18, finding H1.)
+--[[ ── H1: EVERY INPUT THAT CAN MOVE A GIVE-WAY DECISION, ONE CASE PER TERM ──
+	(fresh-context review of the DIR wave, 2026-08-18, finding H1; the mechanism
+	underneath it replaced by framework-gaps §8, 2026-08-22.)
 
-	THE WAVE SHIPPED A CROSS-FRAME FEEDBACK LOOP AND OFFERED THE WRONG GUARD. The
-	give-way reach is sampled from solved rects and held MONOTONE WITHIN AN EPOCH,
-	where the epoch is every composition input that can move a zone's width; the
-	report named the DIR-5 rotation cases above as the protection. The reviewer
-	deleted FIVE of the six terms from the key — `riding`, `urlBar`,
-	`preferredTextOffset`, `themeMetrics` and the declared chrome rects — and both
-	instruments stayed green (29 and 82 passed). The DIR-5 cases cannot see it for
-	a structural reason: their oracle and their subject BOTH cross a viewport
-	change, which resets the latch identically on each side, so they are blind to
-	every term except the one they vary.
+	WHAT THIS FAMILY WAS BUILT TO GUARD, AND WHY IT OUTLIVED IT. The DIR wave
+	shipped a CROSS-FRAME FEEDBACK LOOP in this fixture: the give-way reach was
+	sampled from solved rects and held monotone within an EPOCH — a hand-built
+	token naming every composition input that can move a zone's width — and the
+	reviewer showed the guard offered for it was no guard at all. Five of the six
+	terms could be deleted from the key with both instruments still green, because
+	the DIR-5 cases' oracle and their subject BOTH cross a viewport change, which
+	resets the latch identically on each side.
 
-	THIS FAMILY IS THE GUARD THE KEY ACTUALLY NEEDS. One case per term: hold the
-	viewport fixed (except for the viewport term itself), change ONLY that input on
-	a live tree, and require the settled decision to equal a tree MOUNTED at that
-	state — the flipped-versus-fresh oracle, per term.
+	THE EPOCH AND THE LATCH ARE GONE. `UI.Composition{ exclusions }` decides the
+	give-way inside ONE `resolve`, from the lane rects and the region widths it has
+	in hand at that moment, so there is no key to keep in sync and no sample to go
+	stale. The bug class this family was written to catch — an input that moves a
+	zone's width and is not a dependency of the decision — cannot be spelled any
+	more: the decision's dependencies are its arguments.
+
+	SO WHY KEEP IT. Because the property it asserts is the one that matters and is
+	now a claim about the FRAMEWORK rather than about a token: change ONE input on
+	a live tree and the settled screen must equal a tree MOUNTED at that state.
+	That is what "no latch" means, stated where a reader can see it fail, and it is
+	the cheapest possible regression guard on a mechanism whose previous version
+	went wrong on a real device. Every term still gets a case.
 
 	A FRESH MOUNT TAKES ITS STEP BEFORE THE FIRST SOLVE. `urlBar` and `riding` are
 	internal signals reached through the fixture's own steps, so a "fresh mount with
@@ -1255,31 +1264,21 @@ end)
 	the A->B transition, i.e. the subject, and comparing the subject with itself is
 	the vacuity this file has had to fix once already.
 
-	── WHICH TERMS ARE LOAD-BEARING, MEASURED RATHER THAN ASSUMED ───────────────
+	── THE CELLS ARE STILL CONSTRUCTED, NOT GUESSED ─────────────────────────────
 
-	The cells below are CONSTRUCTED, not guessed: for each term the two states'
-	unreserved column extents were measured and a chip rect placed so its right
-	edge falls between them — the column's content reaches the chrome in one state
-	and clears it in the other, with the chrome still clipping the column (so the
-	majority floor cannot mask the difference).
+	For each term the two states' column extents were measured and a chip rect
+	placed so the answer genuinely differs between them — a case whose two states
+	are the same screen is six ways of comparing a tree with itself, and the
+	non-vacuity assertion in each case is what says so out loud.
 
-	Four terms have such a cell and each one's deletion reddens exactly its own
-	case: **viewport, preferredTextOffset, themeMetrics, appChromeRects**.
-
-	TWO DO NOT, AND THAT IS A MEASUREMENT, NOT AN OMISSION. `riding` and `urlBar`
-	are searched over 7 viewports x 36 chip positions x 7 widths (1 764 cells each)
-	and produce NO cell where the settled decision diverges from a fresh mount when
-	their term is deleted from the key. The reason is a property of the design: the
-	latch is monotone UP within an epoch and it samples the FIRST, UNRESERVED
-	solve — and neither of these two terms moves any column's x extent on that
-	solve (`riding` moves the band vertically and nothing else; opening the bar
-	narrows a zone only AFTER the reserve it triggers has already been taken). A
-	term can therefore only be caught here if it changes what the first solve
-	measures. Both stay in the key: they are cheap, they are conservative, and
-	"I could not construct a case" is not a reason to remove a safety term. Their
-	cases below still assert the property, so the day either becomes load-bearing
-	the guard is already in place. ]]
-describe("H1: the give-way epoch key holds one term at a time", function()
+	`appChromeRects`' cell was RE-CONSTRUCTED for the §8 rule: the previous pair
+	(x 240 w 60 against x 240 w 12) discriminated under the old sampled rule and
+	does not under this one, because the framework reads the RICHEST forms' widths
+	rather than the settled tree's — a 12px rect at x 240 is inside the right
+	lane's own content at form 1, so both states push that lane. The rule is
+	strictly more conservative there, which is the direction a reservation should
+	err in; the cell now moves the rect between LANES instead of within one. ]]
+describe("H1: every input that can move a give-way decision settles where a fresh mount lands", function()
 	local ORNATE_PKG = Facet.themes.resolve((require)("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
 	local CLASSIC_PKG =
 		Facet.themes.resolve((require)("../examples/themes/classic_desktop").build(Facet.themes), nil, {})
@@ -1350,10 +1349,14 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 		"Readout",
 		"Actions",
 		"Weapon",
-		"ChromeLeft",
-		"ChromeTop",
-		"ChromeRight",
 	}
+	--[[ ...AND THE THREE RESERVATIONS, WHICH ARE LANES NOW AND NOT REGIONS (§8).
+		This list used to end `ChromeLeft`, `ChromeTop`, `ChromeRight` — the three
+		rank-1 reserve regions the fixture declared at the head of each column. The
+		lane's own starting edge carries it now, so the decision is read off the lane
+		and a name that no longer resolves would have compared "(none)" with
+		"(none)" on both sides, which is a term with no case wearing one. ]]
+	local LANE_COUNT = 3
 	local function epochDecision(w: any): { [string]: string }
 		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
 		local byId: { [string]: any } = {}
@@ -1363,6 +1366,14 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 			end
 		end
 		local out: { [string]: string } = {}
+		for i = 1, LANE_COUNT do
+			local lane = if dump ~= nil then dump.lanes[i] else nil
+			out[`lane{i}`] = string.format(
+				"exclusion=%s y=%s",
+				tostring(lane and lane.exclusion),
+				if lane ~= nil and lane.rect ~= nil then string.format("%.0f", lane.rect.y) else "(none)"
+			)
+		end
 		for _, id in EPOCH_IDS do
 			local r = byId[`/HudScreen/Hud/{id}`]
 			out[id] = string.format(
@@ -1423,8 +1434,10 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 			term = "appChromeRects",
 			discriminating = true,
 			view = { w = 360, h = 691 } :: View,
+			-- the rect moves between LANES: A is inside the right lane's own content,
+			-- B is inside the left lane's, so the two states push different columns
 			chipsA = CHIPS_AT(240, 60),
-			chipsB = CHIPS_AT(240, 12),
+			chipsB = CHIPS_AT(10, 60),
 			a = {},
 			b = {},
 		},
@@ -1494,6 +1507,9 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 			for _, id in EPOCH_IDS do
 				expect(`{row.term} {id} {got[id]}`).toBe(`{row.term} {id} {want[id]}`)
 			end
+			for i = 1, LANE_COUNT do
+				expect(`{row.term} lane{i} {got[`lane{i}`]}`).toBe(`{row.term} lane{i} {want[`lane{i}`]}`)
+			end
 		end)
 	end
 
@@ -1501,7 +1517,7 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 		which terms a deletion can be caught by; this asserts the shape of that
 		record so a future edit cannot quietly add a term with no case, or mark an
 		unmeasured term as covered. ]]
-	it("COVERAGE: every term of the shipped epoch key has a case, and the key has no term without one", function()
+	it("COVERAGE: every input that can move a give-way decision has a case, and none is listed without one", function()
 		local named: { [string]: boolean } = {}
 		local discriminating = 0
 		for _, row in TERMS do
@@ -1510,11 +1526,16 @@ describe("H1: the give-way epoch key holds one term at a time", function()
 				discriminating += 1
 			end
 		end
-		-- the six terms `reachEpoch` actually concatenates
+		--[[ THE SIX INPUTS THAT CAN MOVE A GIVE-WAY DECISION. They are the six the
+			retired `reachEpoch` token had to name by hand; they are kept as the
+			coverage claim because the SET has not changed — only who is answerable for
+			it. `discriminating` records which of them this family can catch a
+			regression in, which is still four: `riding` and `urlBar` move no column's
+			x extent, so no cell exists where they change the answer. ]]
 		for _, term in { "viewport", "riding", "urlBar", "preferredTextOffset", "themeMetrics", "appChromeRects" } do
 			expect(`{term} has a case: {named[term] == true}`).toBe(`{term} has a case: true`)
 		end
 		expect(`terms with a case: {#TERMS}`).toBe("terms with a case: 6")
-		expect(`terms whose deletion is CAUGHT here: {discriminating}`).toBe("terms whose deletion is CAUGHT here: 4")
+		expect(`terms whose change is CAUGHT here: {discriminating}`).toBe("terms whose change is CAUGHT here: 4")
 	end)
 end)

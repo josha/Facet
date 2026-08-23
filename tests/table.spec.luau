@@ -1317,16 +1317,17 @@ describe("Table: row gaps (director round 4 — cards must not touch)", function
 				table.insert(reorders, { keys = keys, toIndex = toIndex })
 			end,
 		})
-		-- rows at 40px + 4px gaps: razz 0, bolt 44, josh 88
-		expect(adapter.node(rowHitPath(0, "razz")).rect.y).toBe(0)
-		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(44)
-		expect(adapter.node(rowHitPath(0, "josh")).rect.y).toBe(88)
-		-- drag razz below bolt's midpoint (44+20=64): slot 2 full-list,
-		-- indicator centered in the gap after bolt (44+40+2 = 86)
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20)
-		adapter.pointerMove(100, 70)
+		-- rows at 40px + 4px gaps, from the content rect's own top gutter (8, the
+		-- floor every content policy applies — ADR-0040 §B-24): razz 8, bolt 52, josh 96
+		expect(adapter.node(rowHitPath(0, "razz")).rect.y).toBe(8)
+		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(52)
+		expect(adapter.node(rowHitPath(0, "josh")).rect.y).toBe(96)
+		-- drag razz below bolt's midpoint (52+20=72): slot 2 full-list,
+		-- indicator centered in the gap after bolt (52+40+2 = 94)
+		adapter.pointerDown(rowHitPath(0, "razz"), 100, 28)
+		adapter.pointerMove(100, 78)
 		pres.refresh()
-		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(86)
+		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(94)
 		adapter.pointerUp(100, 70)
 		expect(reorders[1].keys[1]).toBe("razz")
 		expect(reorders[1].toIndex).toBe(1)
@@ -1364,13 +1365,13 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		pres.refresh()
 		-- the origin row STAYS in the flow
 		expect(adapter.node(razzPath) ~= nil).toBe(true)
-		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(40)
-		-- ghost + indicator present; y=90 sits past razz(20) and bolt(60) mids
+		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(48)
+		-- ghost + indicator present; y=98 sits past razz(28) and bolt(68) mids
 		-- single-row drag: exactly one chip, label on the front chip
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost/Chip1/Label").props.text).toBe("Razz Raccoon")
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost/Chip2")).toBe(nil)
-		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(80)
-		adapter.pointerUp(100, 90)
+		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(88)
+		adapter.pointerUp(100, 98)
 		pres.refresh()
 		expect(#reorders).toBe(1)
 		expect(#reorders[1].keys).toBe(1)
@@ -1569,13 +1570,14 @@ describe("Table: row drag-and-drop (Phase B)", function()
 	end)
 
 	it("one-step downward drag reports the post-removal insertion slot", function()
-		-- full-list mids: razz 20, bolt 60, josh 100; y=115 -> full slot 3 ->
-		-- dragged bolt (0-based 1) sits above it -> post-removal slot 2
+		-- full-list mids, from the content rect's 8px top gutter: razz 28, bolt 68,
+		-- josh 108; y=123 -> full slot 3 -> dragged bolt (0-based 1) sits above it
+		-- -> post-removal slot 2
 		local reorders, adapter, pres = dragWorld()
-		adapter.pointerDown(rowHitPath(0, "bolt"), 100, 60)
-		adapter.pointerMove(100, 115)
+		adapter.pointerDown(rowHitPath(0, "bolt"), 100, 68)
+		adapter.pointerMove(100, 123)
 		pres.refresh()
-		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(120)
+		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(128)
 		adapter.pointerUp(100, 115)
 		expect(reorders[1].keys[1]).toBe("bolt")
 		expect(reorders[1].toIndex).toBe(2)
@@ -1781,20 +1783,20 @@ describe("Table: column resize interaction (Phase B)", function()
 		local _, adapter, pres = world({})
 		local gripPath = "/S/Racers/Main/Header/Head-name/Grip"
 		local cellRect = adapter.node("/S/Racers/Main/Header/Head-name").rect
-		expect(cellRect.w).toBe(736) -- fill column: 800 viewport - 64 fixed
+		expect(cellRect.w).toBe(720) -- fill column: 800 viewport - 16 gutter - 64 fixed
 		adapter.pointerDown(gripPath, cellRect.x + cellRect.w, 10)
 		adapter.pointerMove(cellRect.x + cellRect.w - 100, 12)
 		pres.refresh()
 		local line = adapter.node("/S/Racers/ResizeWhen/then/ResizeLine")
 		expect(line ~= nil).toBe(true)
-		expect(line.rect.x).toBe(636) -- guide sits at the dragged boundary
+		expect(line.rect.x).toBe(628) -- guide sits at the dragged boundary
 		-- preview only: rows still mounted under @0 keys until release
 		expect(adapter.node(cellPath(0, "razz", "name")) ~= nil).toBe(true)
 		adapter.pointerUp(cellRect.x + cellRect.w - 100, 12)
 		pres.refresh()
 		expect(adapter.node("/S/Racers/ResizeWhen/then/ResizeLine")).toBe(nil)
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(636)
-		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(636)
+		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(620)
+		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(620)
 	end)
 
 	it("focus cycles through the column handle and the rows, and wraps around", function()
@@ -1843,14 +1845,14 @@ describe("Table: column resize interaction (Phase B)", function()
 		system.deviceKey("Left", true)
 		system.deviceKey("Left", false)
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(720)
-		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(720)
+		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(704)
+		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(704)
 		-- gamepad bumper: another step (the virtual cursor ignores MouseIcon,
 		-- so this focus+bumper path IS the gamepad resize affordance)
 		system.deviceKey("ButtonL1", true)
 		system.deviceKey("ButtonL1", false)
 		pres.refresh()
-		expect(adapter.node(cellPath(2, "razz", "name")).rect.w).toBe(704)
+		expect(adapter.node(cellPath(2, "razz", "name")).rect.w).toBe(688)
 	end)
 
 	it("grip drag clamps to the column minWidth", function()
@@ -2368,8 +2370,10 @@ describe("table rows sit inside the theme's own selection card", function()
 
 	it("a flat package does not move a single pixel", function()
 		local cell, head = cellXUnder(nil)
-		expect(cell).toBe(16) -- the screen's own padding, and nothing else
-		expect(head).toBe(16)
+		-- the screen's own padding PLUS the content rect's own gutter (ADR-0040
+		-- §B-24), and nothing else
+		expect(cell).toBe(16 + 8)
+		expect(head).toBe(16 + 8)
 	end)
 
 	it("a skinning package insets the cells by what its card reserves PLUS its glow gutter", function()
@@ -2385,7 +2389,13 @@ describe("table rows sit inside the theme's own selection card", function()
 			local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
 			expect(reserve > 0).toBe(true) -- these three DO carve a border
 			local cell = cellXUnder(pkg)
-			expect(cell).toBe(16 + bleed + reserve)
+			--[[ THREE gutters now, and the third is the framework's rather than the
+				screen's: every content `rootPolicy` floors each edge at the package's own
+				`space.gutter` (ADR-0046 / ADR-0040 §B-24), and this surface reports no
+				platform inset at all. It is read off the package rather than written as
+				8, exactly like the two beside it, so a package that breathes more moves
+				all three together. ]]
+			expect(cell).toBe(16 + (snap.space :: any).gutter + bleed + reserve)
 		end
 	end)
 

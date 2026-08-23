@@ -1,0 +1,20 @@
+[1mGearDockModel.placeLocal — engine-pill parity in topbar-safe local space[0m
+  [32m✓[0m matches the MEASURED desktop strip: h=58 → 44 px pill centered at y=34, x=edgeGap
+  [32m✓[0m diameter SCALES with the strip (Xbox photo: bigger engine pills), clamped to [minTouch, maxPill]
+  [32m✓[0m bottom-aligns on any strip tall enough; centers short strips; never NaN
+  [32m✓[0m degenerate strip (0 / NaN — old client, headless) falls back to the measured desktop strip
+[1mGearDockModel.gearRightEdge — the gear's physical right boundary[0m
+  [32m✓[0m desktop, no cluster offset: dockX + diameter, matching placeLocal exactly
+  [32m✓[0m adds the physical cluster offset on notched devices
+  [32m✓[0m tracks placeLocal's own strip-height scaling (bigger strip -> further right edge)
+[1mGearDockModel.placeInBand — the window-space dock, from the framework fact[0m
+  [31m✗ is `placeLocal` plus the band's own origin — the arithmetic the gui used to do[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/games/RascalRally/code/tests/gear_dock_model.spec:100: attempt to call a nil value
+  [31m✗ a notched landscape band carries BOTH offsets, not just the horizontal one[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/games/RascalRally/code/tests/gear_dock_model.spec:110: attempt to call a nil value
+  [31m✗ NO BAND is the desktop/old-client answer, byte for byte: the fallback strip at the origin[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/games/RascalRally/code/tests/gear_dock_model.spec:124: attempt to call a nil value
+  [31m✗ it is PURE: no Roblox service is reached for any of it[0m
+      /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/games/RascalRally/code/tests/gear_dock_model.spec:147: expected false to be true
+
+[31m4 failed[0m, [32m7 passed[0m

@@ -476,7 +476,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		end
 		local carved = collapseThreshold(true)
 		local flat = collapseThreshold(false)
-		expect(`carved {carved} vs flat {flat}`).toBe("carved 231 vs flat 199")
+		-- each 16 wider than before: the widths are VIEWPORT widths and the box the
+		-- table gets is that less the content rect's gutter each side (ADR-0040 §B-24)
+		expect(`carved {carved} vs flat {flat}`).toBe("carved 247 vs flat 215")
 		-- ...and the difference IS the package's own reservation rather than a
 		-- number that happens to differ
 		expect(`difference: {carved - flat}`).toBe("difference: 32")

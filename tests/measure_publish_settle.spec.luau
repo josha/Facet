@@ -608,7 +608,7 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		local s = propScene(true)
 		s.env:set("viewportRect", { x = 0, y = 0, w = 500, h = 700 })
 		local want = math.floor(s.barW() / 10)
-		expect(`want:{want}`).toBe("want:50")
+		expect(`want:{want}`).toBe("want:48") -- the box lost the content gutter each side
 		expect(`published:{s.published()}`).toBe(`published:{want}`)
 		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
 		expect(s.core:lastError()).toBeNil()
@@ -624,7 +624,7 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		s.margin:set(50)
 		s.pres.refresh()
 		local want = math.floor(s.barW() / 10)
-		expect(`want:{want}`).toBe("want:80")
+		expect(`want:{want}`).toBe("want:78") -- the box lost the content gutter each side
 		expect(`published:{s.published()}`).toBe(`published:{want}`)
 		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
 		expect(s.core:lastError()).toBeNil()

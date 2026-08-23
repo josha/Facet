@@ -111,8 +111,11 @@ describe("the composition-resolve seam: READ == DECLARED == HOSTED", function()
 		local reads = ctxFieldsRead(resolveSrc)
 		expect(#missingFrom(reads, typeFields(resolveSrc, "SolveCtx"))).toBe(0)
 		-- ...and the set is not empty, which is the trap a set comparison invites:
-		-- two empty sets are equal
-		expect(#sorted(reads)).toBe(4)
+		-- two empty sets are equal. SEVEN: the four the resolution has always read,
+		-- plus the three §9/§8 added — the surface's own content rect and the two
+		-- platform-band facts, which is what a WINDOW-space rect has to be measured
+		-- against before a pure composition can spend it.
+		expect(#sorted(reads)).toBe(7)
 	end)
 
 	it("every field `SolveCtx` declares is one the module actually reads", function()

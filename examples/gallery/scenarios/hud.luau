@@ -354,8 +354,8 @@ local PROBE_ROWS: { { name: string, paths: { string } } } = {
 	{
 		name = "Objective",
 		paths = {
-			PROBE_HUD .. "/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective/Plate",
-			PROBE_HUD .. "/Strip/StripRow/StripFree/StripChip/then/StripFit/ObjectiveShort/Plate",
+			PROBE_HUD .. "/Strip/StripChip/then/StripRow/StripFit/Objective/Plate",
+			PROBE_HUD .. "/Strip/StripChip/then/StripRow/StripFit/ObjectiveShort/Plate",
 		},
 	},
 	-- ALL THREE DISCS, not just the first: they are siblings rather than forms,
@@ -565,103 +565,39 @@ return {
 		local riding = scope:own(core:memo(function(use)
 			return use(ride) == true and (use(chromeFact) :: any).band ~= nil
 		end))
-		-- the surface is edgeToEdge, so the HUD spends the insets itself — from the
-		-- fact, and the fact alone. Riding the band spends the top down to where the
-		-- band starts; not riding spends the whole band, which is exactly what
-		-- `deviceSafeContent` used to apply here.
-		local margin = scope:own(core:memo(function(use)
-			local chrome = use(chromeFact) :: any
-			local insets = if use(riding) then chrome.bandInsets else chrome.insets
-			return {
-				top = insets.top,
-				-- THE SIMULATED BAR IS A THING ON THE SCREEN NOW, not a margin
-				-- (director 2026-08-15, item 5). It is the LAST child of the Screen
-				-- below, so the height it takes is taken by a box a viewer can see —
-				-- and the HUD, which is `fill`, is left with exactly what a real
-				-- browser bar would leave it. A margin took the same pixels and drew
-				-- nothing in them, which is why "turn the URL bar on" read as
-				-- "controls disappear for no reason".
-				right = 0,
-				bottom = 0,
-				left = 0,
-			}
-		end))
-		-- everything the HUD is NOT allowed to reach, on the other three edges. The
-		-- top is the HUD's own margin above, because the top is the edge with a hole
-		-- in it.
-		--[[ ...AND CONTENT NEVER TOUCHES THE PHYSICAL EDGE (director 2026-08-15,
-			round 2: *"the circular controls are still getting cut off"*).
 
-			This used to be the safe-area inset alone, which on this platform is ZERO
-			laterally — the engine pre-excludes the notch from the camera rather than
-			reporting it as an in-canvas inset (docs/lessons/device-emulator-truths).
-			So every right-anchored zone was laid out flush against the camera's own
-			edge. Measured live through a parallel real-engine mount, a compact phone
-			portrait: every right-anchored node's right edge is 401.0 against a 401px
-			canvas — over by 0.0px, nothing overflowing, zero collisions — and a
-			rounded control whose rim ends exactly on the boundary reads as one that
-			was cut there. With `ClipToDeviceSafeArea` on, a theme that paints a rim
-			or a shadow OUTSIDE the box really does lose it.
+		--[[ ═══ WHAT USED TO BE HERE, AND WHY IT IS NOT (framework-gaps §9 + §8) ═══
 
-			IT IS ALSO WHY THE TWO ORIENTATIONS LOOKED LIKE OPPOSITE DEFECTS. The
-			platform's exclusion is wildly asymmetric on this device: portrait leaves
-			1px of glass beyond the 401px camera, landscape leaves 125px beyond the
-			749px one. One rule — "anchor to the camera's edge" — therefore reads as
-			"over the edge" in portrait and "pulled inward" in landscape. There was
-			never a wrong width; there was no gutter.
+			~150 lines: a `margin` that spent `platformChrome.bandInsets` by hand, a
+			`screenPadding` that floored each of the other three edges against the
+			theme's gutter, a `stripHeight` and two `edgeSpacer` Spacers that placed
+			the topbar row inside the free band, and — the largest part — a
+			`reachEpoch` dependency token, a monotone `chromeReach` latch and a
+			`columnReserve` per column that reserved around the showcase's own chip
+			row per column. All of it because a surface that means to ride the band had
+			to present `edgeToEdge` (which drops all four insets) and re-spend them,
+			and because a composition's lane band was one rectangle.
 
-			So the padding is the per-edge MAX of what the platform says must be
-			cleared and what the theme calls a gap. The step is the theme's own
-			`space.s` — the same one a compact control uses to clear its own frame —
-			so a themed package that breathes more moves this with it and this
-			fixture learns no number. The TOP stays the HUD's own margin's business:
-			the topbar row has to sit level with the platform's buttons, and a gutter
-			there would be the one thing ADR-0027 exists to prevent. ]]
-		local screenPadding = scope:own(core:memo(function(use)
-			local insets = (use(chromeFact) :: any).insets
-			local metrics = use(env:get("themeMetrics"))
-			local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
-			-- `space.gutter` and not `space.s` (DIR wave contract 6): the screen edge
-			-- is the one step in the scale with a physical floor under it, and this
-			-- fixture reading the raw small step is how a dense package put content
-			-- 4px from the glass. The snapshot derives it as `max(8, space.s)`, so a
-			-- package that breathes more still moves this with it.
-			local gutter = if type(space.gutter) == "number" then space.gutter else 8
-			return {
-				top = 0,
-				right = math.max(insets.right, gutter),
-				bottom = math.max(insets.bottom, gutter),
-				left = math.max(insets.left, gutter),
-			}
-		end))
-		-- the topbar row: as tall as the band the platform left free, and inset to
-		-- START where that band starts — so the chip is level with Roblox's own
-		-- buttons and cannot be over them.
-		--[[ THE ROW IS THE PLATFORM'S OWN BAND, NOT EVERYTHING RESERVED ABOVE THE HUD
-			(director 2026-08-15, item 4, and the measured cause of the rotation
-			report). This used to be `insets.top - bandInsets.top` — the whole top
-			reservation — and in the showcase that reservation is the platform's 58px
-			row PLUS the demo picker's own 62px chip strip. One full-width 120px row
-			is 32% of a 380px landscape phone, so the top-centre cluster landed a third
-			of the way down the screen and the "upper right" cluster with it. Measured
-			live 2026-08-15, compact phone landscape (749x380): clock at y=120, i.e.
-			32% down, identical whether the tree was mounted there or rotated into it.
+			THE AUDIT'S FINDING WAS THAT THE HAND-ROLL WAS *STRICTLY BETTER* THAN THE
+			SHIPPED POLICY — it floored each edge against the gutter and
+			`deviceSafeContent` did not — and its verdict was that when the consumer's
+			hand-rolled version beats the shipped policy, the policy is the bug. So the
+			behaviour did not move: it became `rootPolicy = "bandSafeContent"` (which
+			spends `bandInsets`, floors the other three edges at the theme's gutter and
+			hands the `topbar` zone the free strip) plus one declared prop,
+			`exclusions`, below.
 
-			The row is now the band the PLATFORM actually owns, and the app's own
-			chrome is reserved PER COLUMN below (`columnReserve`) — so a column the
-			chrome does not cover starts level with it instead of below it, which is
-			exactly what the director asked for. ]]
-		local stripHeight = scope:own(core:memo(function(use)
-			local chrome = use(chromeFact) :: any
-			if not use(riding) then
-				return { type = "fixed", px = 0 }
-			end
-			local band = chrome.band
-			local bottom = if band ~= nil then band.y + band.h else chrome.insets.top
-			return { type = "fixed", px = math.max(0, bottom - chrome.bandInsets.top) }
-		end))
+			THE EPOCH AND THE LATCH DIED WITH IT, and that is the part worth naming.
+			They existed because this fixture was sampling SOLVED rects back through
+			the `onGeometry` seam — a consumer maintaining a manual dependency set for
+			a framework convergence loop — and this file's own note records what that
+			cost: leaving the platform insets out of the token latched a wrong answer
+			for a whole epoch on the director's phone. Inside one `resolve` the lane
+			rects and the exclusion are in scope at the same moment, so there is no
+			loop to bound and nothing to keep in sync. ]]
 
-		--[[ ...AND THE APP'S OWN CHROME, RESERVED IN THE COLUMNS IT ACTUALLY COVERS.
+		--[[ ...AND THE APP'S OWN CHROME, RESERVED PER COLUMN — BY THE FRAMEWORK NOW
+			(framework-gaps §8).
 
 			`appChromeRects` is the general mechanism (src/env/environment.luau): a
 			surface that draws a persistent chrome row DECLARES the rect it occupies,
@@ -669,266 +605,27 @@ return {
 			merges both into `rects`. The showcase host publishes its demo/settings
 			chip row through it (examples/gallery/client/init.client.luau).
 
-			A composition's lane band is a RECTANGLE — every lane starts at the same
-			y — so the framework itself cannot yet make the band's top edge an L. The
-			author can, with the vocabulary that already exists: a reserve REGION at
-			the head of the column, which is SPACE rather than an offset (the same
-			idiom `stripLead` uses for the platform's cluster one row up). Making the
-			solver take a per-lane top inset is the general fix and is FLAGGED, not
-			smuggled in here (ENGINEERING.md, "flag refactors; don't smuggle them").
+			WHAT THIS FIXTURE USED TO DO WITH THEM was reserve a per-column SPACE at the
+			head of each column, decided by a rule it had to converge by hand: a
+			`reachEpoch` token naming every composition input, a monotone latch bounding
+			the geometry feedback at three rounds, and a majority-coverage floor for the
+			frame before any geometry existed. It is now one declared prop —
+			`exclusions` on the Composition below — and the framework decides it inside
+			one `resolve`, from the lane rects and the region widths it has in hand at
+			that moment.
 
-			NOTHING DECLARED = TODAY'S ANSWER, BYTE FOR BYTE. A host that reserves its
-			chrome the old way (a bigger `coreSafeInsets.top` and no declaration) has
-			told us only a bounding box, so every column reserves the whole of it —
-			which is what this fixture has always spent. ]]
-		--[[ A COLUMN RESERVES WHEN THE CHROME COVERS MOST OF IT, not when it clips
-			the far end.
-
-			Measured live 2026-08-15, compact phone landscape (749x380): the
-			showcase's two chips run x 8..267 and the HUD's columns are 250px each, so
-			the row covers 97% of the left column and 7% of the centre one. A rule
-			that reserved on ANY overlap would push the centre column down for 17px
-			the centred clock (x 294..453) never comes near — which is precisely the
-			thing the director asked to stop happening. A rule that probed only the
-			column's anchored EDGE was tried first and is worse: the chips start at
-			x=8 because the chrome pads itself, so the left column's x=0 anchor is not
-			covered and the round buttons landed UNDER the chips (measured, same
-			session).
-
-			Majority coverage is a judgement and it is stated as one. It WAS stated
-			as safe "because it is not the last line of defence: a zone whose content
-			reaches into the chrome anyway is a region painting outside its own box,
-			and `resolution.collisions` is the alarm that already names that". That
-			sentence was wrong, and the director's phone is where it was found:
-			`collisions` is about two REGIONS overlapping each other, and the app's
-			chrome is not a region — so nothing was watching, and the majority rule
-			shipped a HUD painting on the chips it was written to avoid.
-
-			── THE SECOND HALF, MEASURED (DIR wave contract 2, 2026-08-18) ──────────
-
-			Reproduced headlessly at 360x691 under fantasy-ornate with the showcase's
-			282px chip row declared: the columns are 114.7px each, so the row covers
-			97% of the left column, 100% of the centre and 46% of the RIGHT one. The
-			right column therefore reserved nothing — and the weapon rail is
-			`end`-anchored and 80px wide, so it solved at x 272..352 against a chip
-			row ending at 290. 28px of overlap, which is the director's photograph to
-			the pixel (`artifacts/release-candidate-review/rename/dir-reproductions.md`).
-			The same shape fires on 21 of the 81 (viewport x package) cells the
-			extended sweep now walks — 164 painted nodes inside the app's chrome.
-
-			ALL THREE COVERAGE-FRACTION RULES ARE PROVABLY WRONG, each on a case this
-			repository has measured, which is why the fix is not a fourth fraction:
-			  * ANY OVERLAP pushes the centre column down at 749x380 for 17px the
-			    centred clock never comes near — the director's own round-2 refusal;
-			  * MAJORITY misses the 46%-covered right column above;
-			  * THE ANCHOR POINT misses it too (the chips end at 290, the column's
-			    `end` anchor is 352, so the anchor is clear while the content is not)
-			    and it already failed once on the left column's padded start edge.
-			Every one of them is a guess about the WIDTH OF THE CONTENT, and the
-			content's width is a thing the composition MEASURES.
-
-			SO THE RULE READS THE MEASUREMENT. `chromeReach` below is sampled from the
-			solved rects through the presenter's `onGeometry` seam — the same seam the
-			paint probe already runs in, so there is no second clock and no second
-			connection — and it asks the only question that is actually decidable: does
-			any of this column's own regions occupy an X RANGE that a declared chrome
-			rect also occupies? If none does, no y can make them collide and the
-			column stays LEVEL with the chrome, which is the director's round-2 ask
-			preserved by construction. If one does, the column gives way: it reserves
-			the chrome's height and wraps below it, and whatever no longer fits goes
-			down the rank ladder to the ··· sink like every other zone that gives way.
-
-			IT CHASES ITS OWN TAIL UNLESS IT IS MADE MONOTONE, and that is a
-			MEASUREMENT rather than a worry. The first cut of this reasoned that a
-			region's x and width come from its lane while the reservation spends
-			height, so giving way moves a zone DOWN and never sideways and the sample
-			is a fixed point. That is true of the GEOMETRY and false of the LADDER:
-			the reservation shrinks the lane's budget, the budget steps a zone down to
-			a narrower form, the narrower form no longer reaches the chrome, the
-			reservation goes away, the richer form comes back — a 2-cycle. The
-			framework refused it outright, in its own words, on the first run of the
-			swept matrix:
-
-			    Facet renderer: a solve's geometry feedback did not converge in 8
-			    rounds (a consumer publishing a layout prop derived from the rect that
-			    prop moves?)
-
-			So the sample is MONOTONE WITHIN AN EPOCH. An epoch is the set of
-			composition INPUTS — viewport, declared chrome, theme metrics, text
-			preference, whether the HUD rides the band, whether the pseudo bar is open
-			— and inside one epoch the reach latch may only ever go from false to
-			true, which bounds the feedback at three rounds and makes the fixed point
-			the CONSERVATIVE one. Crossing an epoch clears it, so the pass re-decides
-			from nothing on every fact revision: this is a convergence device, never a
-			memory of a decision, and DIR-5's cases in
-			`tests/hud_chrome_rotation.spec.luau` are what hold it to that (a latch
-			that survived a theme swap or a rotation is exactly what the director
-			photographed, and those cases compare the settled tree against a FRESH
-			mount).
-
-			...and the majority rule stays as the FLOOR beneath the sample, so the
-			frame before any geometry exists is over-reserved rather than overlapping. ]]
+			THE RULE DID NOT CHANGE, only its owner. The three coverage-fraction rules
+			this fixture measured wrong are all still wrong: ANY overlap pushes the
+			centre column down at 749x380 for 17px the centred clock never comes near,
+			MAJORITY misses the 46%-covered right column whose `end`-anchored rail is
+			inside the chip row, and the ANCHOR POINT misses it too. What decides is
+			the MEASUREMENT — does any of this lane's own content share an x range with
+			a declared rect — which is exactly what the latch was converging towards
+			and what the framework can now answer without converging at all. ]]
 		local appChromeFact = env:get("appChromeRects")
-		--[[ WHICH COLUMN EACH ZONE BELONGS TO, in the order `columnReserve` indexes
-			them. Derived from the `group` each `UI.Region` below declares, and stated
-			once here because the sample runs per frame and a table built per frame on
-			the geometry seam is an allocation on the solve's own path. ]]
-		local COLUMN_ZONES: { { string } } = {
-			{ "Rounds", "Tasks", "Health", "Feed" },
-			{ "Clock" },
-			{ "Rail", "Readout", "Actions", "Weapon" },
-		}
-		--[[ THE EPOCH: every composition INPUT that can move a zone's width, as one
-			comparable token. Crossing it clears the reach latch below, which is what
-			separates "a device that keeps the pass converging" from "a decision that
-			latched" — the defect the director reported. `themeMetrics` is compared by
-			IDENTITY because a package swap hands the environment a whole new frozen
-			snapshot; every other term is a number the fact itself carries. ]]
-		local reachEpoch = scope:own(core:memo(function(use)
-			local vp = use(viewportFact) :: any
-			local declared = use(appChromeFact)
-			local parts = { `{vp.w}x{vp.h}`, tostring(use(riding)), tostring(use(urlBar)) }
-			--[[ THE PLATFORM'S OWN INSETS ARE A TERM, and leaving them out was a
-				latch (found 2026-08-21 by DIR5's expand-affordance change, which
-				narrowed the clock zone by the chevron column it no longer reserves —
-				20px, enough to take its left edge clear of the chip row's right edge at
-				678x339).
-
-				The adapter publishes the six platform facts ONE AT A TIME (the belt
-				releases each inset as it catches up — `roblox_env`, and the order
-				`hud_chrome_rotation.spec` drives). `viewportRect` lands first, so the
-				epoch below turned over while the screen was still wearing the PREVIOUS
-				orientation's insets — and the sample taken in that half-published state
-				(the clock at its RICHEST form, 208 wide, reaching well into the chip
-				row) latched `reaches = true` for an epoch that never turned over again.
-				The zone then reserved against chrome its settled form does not touch,
-				and the centre column sat 62px lower than a fresh mount of the very same
-				screen. Measured: `80.0x30.0@298.7,120.0` settled against
-				`80.0x30.0@298.7,58.0` fresh.
-
-				So the token says what its own first line always claimed: EVERY
-				composition input that can move a zone's width. The box this HUD is
-				solved in is the viewport LESS these insets, so they are exactly such an
-				input — and `platformChrome` is the single authority that carries them,
-				so one read covers all four platform facts. ]]
-			local chrome = use(chromeFact) :: any
-			local insets = chrome.insets
-			table.insert(parts, `i{insets.top},{insets.right},{insets.bottom},{insets.left}`)
-			local band = chrome.band
-			table.insert(parts, if band ~= nil then `b{band.x},{band.y},{band.w},{band.h}` else "b-")
-			table.insert(parts, tostring(use(env:get("preferredTextOffset"))))
-			table.insert(parts, tostring(use(env:get("themeMetrics"))))
-			if type(declared) == "table" then
-				for _, r in declared :: any do
-					if type(r) == "table" then
-						table.insert(parts, `{r.x},{r.y},{r.w},{r.h}`)
-					end
-				end
-			end
-			return table.concat(parts, "|")
-		end))
-		-- one boolean per column: does anything this column PAINTS share an x range
-		-- with the app's declared chrome? Nil-safe before the first solve, and
-		-- stamped with the epoch it was sampled under so a stale answer is ignored
-		-- rather than obeyed.
-		local chromeReach = scope:own(core:signal({ epoch = "", cols = { false, false, false } }))
-		local function sampleChromeReach(rectOf: (string) -> any)
-			local declared = appChromeFact:get()
-			local epoch = reachEpoch:get()
-			local held = chromeReach:get()
-			-- MONOTONE WITHIN THE EPOCH (see the long note above): carry the previous
-			-- answer forward only while the inputs have not moved, so the feedback
-			-- converges upward instead of oscillating; start from nothing when they
-			-- have, so nothing is ever remembered ACROSS a fact revision.
-			local carried = if held.epoch == epoch then held.cols else { false, false, false }
-			local next: { boolean } = { carried[1] == true, carried[2] == true, carried[3] == true }
-			if type(declared) == "table" then
-				for index, ids in COLUMN_ZONES do
-					for _, id in ids do
-						local r = rectOf(`{PROBE_HUD}/{id}`)
-						if type(r) ~= "table" or type(r.x) ~= "number" or type(r.w) ~= "number" or r.w <= 0 then
-							continue
-						end
-						for _, c in declared :: any do
-							if type(c) ~= "table" or type(c.x) ~= "number" or type(c.w) ~= "number" or c.w <= 0 then
-								continue
-							end
-							if math.min(r.x + r.w, c.x + c.w) - math.max(r.x, c.x) > 0.5 then
-								next[index] = true
-								break
-							end
-						end
-						if next[index] then
-							break
-						end
-					end
-				end
-			end
-			if held.epoch ~= epoch or held.cols[1] ~= next[1] or held.cols[2] ~= next[2] or held.cols[3] ~= next[3] then
-				chromeReach:set({ epoch = epoch, cols = next })
-			end
-		end
-		local function columnReserve(index: number, _anchor: string): any
-			return scope:own(core:memo(function(use)
-				local chrome = use(chromeFact) :: any
-				local vp = use(viewportFact) :: any
-				local insets = chrome.insets
-				-- what the HUD has already spent at the top: the band row when it is
-				-- riding, the whole inset when it is not
-				local spent = if use(riding)
-					then (if chrome.band ~= nil then chrome.band.y + chrome.band.h else insets.top)
-					else insets.top
-				local declared = use(appChromeFact)
-				if type(declared) ~= "table" or #(declared :: any) == 0 then
-					return { type = "fixed", px = math.max(0, insets.top - spent) }
-				end
-				-- the columns are thirds of the box the composition ACTUALLY gets, which
-				-- is the viewport less the Screen's own padding — not less the raw
-				-- insets. Since the gutter joined that padding the two differ by 8px a
-				-- side, and a reservation computed against the wrong box is the
-				-- "measured one box, painted another" family this repo keeps meeting.
-				local pad = use(screenPadding) :: any
-				local W = math.max(0, vp.w - pad.left - pad.right)
-				local x0 = pad.left + (index - 1) * W / 3
-				local x1 = pad.left + index * W / 3
-				local span = math.max(1, x1 - x0)
-				--[[ THE SAMPLE, READ AS A FACT. `true` means this column's own solved
-					content shares an x range with the chrome, so no y that keeps it in
-					the band can be legal and the column must give way. It is read
-					REACTIVELY (`use`) rather than sampled here, which is what makes a
-					later revision of the app's chrome — or of anything that moves a
-					zone's width — re-run this decision instead of latching it (DIR-5,
-					tests/hud_chrome_rotation.spec.luau). ]]
-				local sample = use(chromeReach) :: any
-				local reaches = sample.epoch == use(reachEpoch) and sample.cols[index] == true
-				local bottom = spent
-				for _, r in declared :: any do
-					if type(r) ~= "table" then
-						continue
-					end
-					local covered = math.max(0, math.min(r.x + r.w, x1) - math.max(r.x, x0))
-					--[[ MAJORITY COVERAGE IS THE FLOOR, THE SAMPLE IS THE REFINEMENT.
-						The fraction alone decides the frame BEFORE any geometry exists —
-						over-reserving a covered column rather than letting it overlap for
-						one frame — and from the first solve onward the measurement can
-						only ever ADD columns to it. A chrome rect this column's content
-						never touches, in a column the chrome barely clips, still reserves
-						nothing: that is the centre column at 749x380, and it is the case
-						the director asked for by name. ]]
-					if covered / span > 0.5 or (reaches and covered > 0) then
-						bottom = math.max(bottom, r.y + r.h)
-					end
-				end
-				return { type = "fixed", px = math.max(0, bottom - spent) }
-			end))
-		end
-		-- the same three alignments `composition.HUD_GROUPS` gives the three columns
-		local reserveLeft = columnReserve(1, "start")
-		local reserveCentre = columnReserve(2, "center")
-		local reserveRight = columnReserve(3, "end")
 		--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH — WHICH THE
 			APP'S OWN CHROME IS A TERM OF (measured 2026-08-15).
-		
+
 			`HUD_FLOOR_PX` is a SUM, and its own note names the terms: the platform's
 			reserved row (58), one target-sized zone per lane (44), this fixture's own
 			driver row (44), and the Screen's gaps. `appChromeRects` added a term to
@@ -939,37 +636,33 @@ return {
 			the demo was showing an IMPOSSIBLE screen instead of the ladder. An
 			instrument that eats the thing it measures is what this floor exists to
 			stop, and it was doing it again with one term missing.
-		
-			It takes the WORST column's reservation: the lane band is a rectangle, so
-			the column the chrome covers is the one that runs out first. A host that
-			reserves nothing above the platform's own band reserves 0 in every
-			column, and this is then `HUD_FLOOR_PX` exactly — byte for byte what
-			such a host has always had (the control is in
-			tests/hud_chrome_rotation.spec.luau). ]]
+
+			IT TAKES THE WORST COLUMN'S RESERVATION, and now that the framework owns
+			the per-column decision this reads the UPPER BOUND on it directly: the
+			lowest edge any declared chrome rect reaches, below what the HUD has
+			already spent at the top. No lane can be pushed further than that, so the
+			floor stays conservative in the direction that matters and no longer needs
+			three memos to say so. A host that declares no chrome of its own reserves 0
+			and this is `HUD_FLOOR_PX` exactly — byte for byte what such a host has
+			always had (the control is in tests/hud_chrome_rotation.spec.luau). ]]
 		local function urlBarPx(use: any): number
 			if not use(urlBar) then
 				return 0
 			end
+			local chrome = use(chromeFact) :: any
+			local band = chrome.band
+			local spent = if use(riding) and band ~= nil then band.y + band.h else chrome.insets.top
 			local reserved = 0
-			for _, r in { reserveLeft, reserveCentre, reserveRight } do
-				reserved = math.max(reserved, (use(r) :: any).px or 0)
-			end
-			return math.min(URL_BAR_STEAL_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
-		end
-		-- ...and the platform's own cluster is held open as SPACE inside that row —
-		-- a leading spacer as wide as the distance from the HUD's own left edge to
-		-- where the free band begins, and a trailing one for the platforms that put
-		-- something on the right too. Space, not an offset, so the row's content is
-		-- laid out INSIDE what is left rather than positioned over what is not.
-		local function edgeSpacer(pick: (any, any) -> number): any
-			return scope:own(core:memo(function(use)
-				local chrome = use(chromeFact) :: any
-				local band = chrome.band
-				if not use(riding) or band == nil then
-					return { type = "fixed", px = 0 }
+			local declared = use(appChromeFact)
+			if type(declared) == "table" then
+				for _, r in declared :: any do
+					if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
+						reserved = math.max(reserved, r.y + r.h - spent)
+					end
 				end
-				return { type = "fixed", px = math.max(0, pick(chrome, use(viewportFact))) }
-			end))
+			end
+			reserved = math.max(0, reserved)
+			return math.min(URL_BAR_STEAL_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
 		end
 		-- ...and whether this screen has room for the fixture's own caption (see the
 		-- `UI.When` at the bottom). It reads the SAME two facts the HUD's margin
@@ -984,13 +677,6 @@ return {
 		local barHeight = scope:own(core:memo(function(use)
 			return { type = "fixed", px = urlBarPx(use) }
 		end))
-
-		local stripLead = edgeSpacer(function(chrome, _vp)
-			return chrome.band.x - chrome.insets.left
-		end)
-		local stripTrail = edgeSpacer(function(chrome, vp)
-			return (vp.w - chrome.insets.right) - (chrome.band.x + chrome.band.w)
-		end)
 
 		-- ---- the material ------------------------------------------------
 		--[[ THE HUD'S ONE PLATE. Everything a player sees here sits on this
@@ -2486,9 +2172,15 @@ return {
 			id = "Hud",
 			width = { type = "fill", weight = 1 },
 			height = { type = "fill", weight = 1 },
-			margin = margin,
 			groups = Facet.composition.HUD_GROUPS,
 			arrangements = { Facet.composition.HUD },
+			--[[ THE HOST'S OWN CHROME, DECLARED (§8). One prop where ~90 lines of
+				epoch token, monotone latch and per-column reserve regions were. The
+				rects are the ones the showcase host publishes into `appChromeRects`,
+				in WINDOW space, which is the space the framework states its own chrome
+				and its own solved rects in — so this fixture converts nothing and needs
+				to know nothing about where its composition landed. ]]
+			exclusions = appChromeFact,
 			children = {
 				-- THE PLATFORM'S OWN ROW (ADR-0027). A `span = "above"` group, so it
 				-- is one full-width row above every lane in every arrangement — which
@@ -2515,95 +2207,46 @@ return {
 					-- floor. The row's real height is the band's (a platform fact the
 					-- form carries); this is only what it may never fall below.
 					floor = { targets = 1 },
+					--[[ `fill`, SO THE REGION IS THE BAND. The row's box is a PLATFORM
+						fact now — `bandSafeContent` lays the `topbar` zone into
+						`platformChrome.band` — and `sizing = "fill"` is what asks for it,
+						the same word it means in a lane (rule 6). The chip then centres in
+						the strip instead of sitting at the top of it. ]]
+					sizing = "fill",
 					children = {
-						UI.HStack({
-							id = "StripRow",
-							width = { type = "fill", weight = 1 },
-							height = stripHeight,
-							align = "center",
-							children = {
-								UI.Spacer({ id = "StripLead", width = stripLead }),
-								UI.HStack({
-									id = "StripFree",
+						--[[ AND THE WHOLE ROW IS BEHIND THE RIDE SWITCH, which is what makes
+							the not-riding rung byte-identical to `deviceSafeContent`: with
+							nothing paintable in it the region resolves to nothing (rule 9), the
+							band row is inactive, and the composition reserves the platform's
+							whole top reservation instead of the free strip. Two spacers as wide
+							as the platform's cluster used to live here; the framework holds that
+							space open now, because it is the one that knows where the strip is. ]]
+						UI.When({
+							id = "StripChip",
+							condition = riding,
+							thenView = function()
+								return UI.HStack({
+									id = "StripRow",
 									width = { type = "fill", weight = 1 },
+									height = { type = "fill", weight = 1 },
 									align = "center",
 									distribute = "center",
 									children = {
-										UI.When({
-											id = "StripChip",
-											condition = riding,
-											thenView = function()
-												-- the band can be narrow (a 320px phone has ~156px
-												-- of it), so the fit is the framework's decision
-												-- and not an authored width guess
-												return UI.ViewThatFits({
-													id = "StripFit",
-													children = {
-														pill("Objective", COPY.objective, "caption"),
-														pill("ObjectiveShort", COPY.objectiveShort, "caption"),
-													},
-												})
-											end,
+										-- the band can be narrow (a 320px phone has ~156px of
+										-- it), so the fit is the framework's decision and not
+										-- an authored width guess
+										UI.ViewThatFits({
+											id = "StripFit",
+											children = {
+												pill("Objective", COPY.objective, "caption"),
+												pill("ObjectiveShort", COPY.objectiveShort, "caption"),
+											},
 										}),
 									},
-								}),
-								UI.Spacer({ id = "StripTrail", width = stripTrail }),
-							},
+								})
+							end,
 						}),
 					},
-				}),
-				--[[ THE APP CHROME'S OWN SPACE, one region per column, declared FIRST
-					in its group so it sits above the zone it protects.
-
-					`columnReserve` is 0px in every column the chrome does not cover, and
-					a 0px region is not mounted at all — it takes no space, no gap and no
-					place in the output. So this costs nothing to a host with no chrome
-					of its own, and in the showcase it keeps the round buttons clear of
-					the demo/settings chips while the clock and the weapon rail rise to
-					sit LEVEL with them.
-
-					NOT DROPPABLE, AND THAT IS A RULE RATHER THAN A PREFERENCE (measured
-					2026-08-15). It WAS `mayDrop = true`, on the reasoning that "a
-					reservation is worth less than the controls it was protecting" — and
-					that reasoning is the defect. Measured at 749x380 with the pseudo URL
-					bar open and the showcase's chip row declared: the left lane is offered
-					78px and needs 62 (this reservation) + 36 (the round strip) = 98. The
-					ladder stepped and dropped everything else in that lane — correctly —
-					then took the only lever it had left and dropped the reservation,
-					buying 62px and landing both round buttons INSIDE the chip row, 36x36
-					each.
-					
-					IT IS THE ONE PURCHASE THE LADDER MUST NOT MAKE. Rule 3's own principle
-					is that a candidate has to BUY A PIXEL — never degrade something that
-					cannot help the failure it is being asked to fix. Dropping an EXCLUSION
-					buys pixels that are not the composition's to spend: they are occupied
-					by somebody else's chrome. It is a false purchase, which is that same
-					principle one level out. A reservation is not low-ranked content; it is
-					the shape of the box, and the ladder's currency is content.
-					
-					WHAT HAPPENS INSTEAD when the lane still cannot fit is the DEFINED
-					FLOOR, pinned in tests/hud_chrome_rotation.spec.luau: the exclusion
-					holds, every droppable zone in the lane is gone, and the top-ranked
-					zone that is left is placed BELOW the exclusion and runs past the
-					composition's own bottom edge — with `fallback = true` on the
-					resolution saying so. Content over the app's own chrome is never it. ]]
-				UI.Region({
-					id = "ChromeLeft",
-					group = "topLeft",
-					rank = 1,
-					children = { UI.Spacer({ id = "ChromeLeftGap", height = reserveLeft }) },
-				}),
-				UI.Region({
-					id = "ChromeTop",
-					group = "top",
-					rank = 1,
-					children = { UI.Spacer({ id = "ChromeTopGap", height = reserveCentre }) },
-				}),
-				UI.Region({
-					id = "ChromeRight",
-					group = "topRight",
-					rank = 1,
-					children = { UI.Spacer({ id = "ChromeRightGap", height = reserveRight }) },
 				}),
 				--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
 					ONE FORM, and that is the D7 repair rather than a simplification.
@@ -2959,7 +2602,9 @@ return {
 		-- also what keeps these two drivers off a home indicator.
 		local screen = UI.Screen({
 			id = "HudScreen",
-			padding = screenPadding,
+			--[[ NO PADDING. The three edges with no hole in them used to be spent here,
+				per-edge max of the platform's inset and the theme's gutter; that IS the
+				`bandSafeContent` policy now (§9), so spending it again would double it. ]]
 			gap = "xs",
 			children = {
 				hud,
@@ -3117,11 +2762,16 @@ return {
 
 		result = {
 			screen = screen,
-			-- EDGE TO EDGE, and the insets come from `platformChrome` above — still
-			-- ONE authority, and the only one that can say "the top band is an L".
-			-- `deviceSafeContent` would spend the whole band and put the topbar row
-			-- out of reach; every other edge is spent identically (pinned in
-			-- tests/adaptive.spec.luau).
+			--[[ BAND-SAFE CONTENT (§9, ADR-0046). This surface used to present
+				`edgeToEdge` — the DECORATION policy, which drops all four insets — and
+				re-spend every one of them by hand, because `bandInsets` was a published
+				fact no policy applied. It asks for the fact by name now: the top comes
+				up to where the platform's free strip starts, the other three edges are
+				the per-edge max of the platform's own reservation and the theme's
+				gutter, and the `topbar` zone is laid into `platformChrome.band` by the
+				solver. `deviceSafeContent` would still spend the whole band and put the
+				topbar row out of reach; that rung is what this HUD gets when the ride
+				switch is off, and it gets it from the same policy. ]]
 			--[[ ...AND THE PAINT PROBE'S SAMPLE CLOCK RIDES THE SAME OPTS (NM-H4a).
 				`onGeometry` is fed once per frame from `refreshBody` AND from this
 				surface's own `onSolved`, and `onSolved` is announced AFTER the
@@ -3131,13 +2781,15 @@ return {
 				no second RunService connection. Every host passes `present` through, so
 				the sample runs in the runner, in the sweep and in the shipped showcase. ]]
 			present = {
-				rootPolicy = "edgeToEdge",
-				onGeometry = function(rectOf: (string) -> any)
+				rootPolicy = "bandSafeContent",
+				--[[ ...AND THE GIVE-WAY SAMPLE IS GONE FROM THIS SEAM (§8). It used to
+					take a second reading here — "where did my own zones actually land" —
+					because that was the only honest input to "does this column reach into
+					the app's chrome", and it needed an epoch token and a monotone latch to
+					stop the feedback oscillating. The framework answers it inside one
+					`resolve` now, so the seam carries the paint probe alone. ]]
+				onGeometry = function(_rectOf: (string) -> any)
 					probeSample()
-					-- ...and the give-way sample (contract 2): the one place this fixture
-					-- can see where its own zones actually LANDED, which is the only
-					-- honest input to "does this column reach into the app's chrome".
-					sampleChromeReach(rectOf)
 				end,
 			},
 			--[[ WHAT THIS SURFACE CAN BE OPENED INTO (overflow guard layer 3,

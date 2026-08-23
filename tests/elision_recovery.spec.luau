@@ -752,7 +752,8 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 		local w = drive({ id = "baseline", w = 749, h = 380 })
 		local band = (w.env:get("platformChrome"):get() :: any).band
 		expect(band ~= nil).toBe(true)
-		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective") :: any
+		-- the path moved with the band-policy migration; the claim did not
+		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective") :: any
 		expect(chip ~= nil).toBe(true)
 		expect(`chip y {chip.rect.y} >= band y {band.y}: {chip.rect.y >= band.y}`).toBe(
 			`chip y {chip.rect.y} >= band y {band.y}: true`

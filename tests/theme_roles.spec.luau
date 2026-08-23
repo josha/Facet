@@ -22,6 +22,8 @@ local text_metrics = require("../src/layout/text_metrics")
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local defaultStyle = require("../src/tokens/default_style")
+-- the per-edge floor every content policy applies (ADR-0046 / ADR-0040 §B-24)
+local GUTTER = (require("../src/themes/snapshot").neutral().space :: any).gutter
 local fake_target = require("../tests/lib/fake_target")
 
 local function world(build: (core: any) -> any, w: number?, h: number?)
@@ -151,7 +153,8 @@ describe("role resolution: renderer layout-node construction", function()
 				},
 			})
 		end)
-		expect(adapter.node("/S/A").rect.x).toBe(defaultStyle.space.m)
+		-- the Screen's own `m` padding PLUS the content rect's gutter (ADR-0040 §B-24)
+		expect(adapter.node("/S/A").rect.x).toBe(defaultStyle.space.m + GUTTER)
 		expect(adapter.node("/S/B").rect.y - adapter.node("/S/A").rect.y).toBe(10 + defaultStyle.space.s)
 	end)
 
@@ -182,7 +185,7 @@ describe("role resolution: renderer layout-node construction", function()
 		expect(adapter.node("/S/Host/Pin").rect.w).toBe(28)
 		expect(adapter.node("/S/Host/Pin").rect.h).toBe(44)
 		-- pinned to the right edge and pulled in by one small step
-		expect(adapter.node("/S/Host/Pin").rect.x).toBe(800 - 28 - defaultStyle.space.s)
+		expect(adapter.node("/S/Host/Pin").rect.x).toBe(800 - GUTTER - 28 - defaultStyle.space.s)
 	end)
 
 	it("the solver's measure path resolves a role handed straight to it", function()

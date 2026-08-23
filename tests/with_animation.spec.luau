@@ -395,7 +395,7 @@ describe("withAnimation: called during a core commit", function()
 		-- ordinary refresh. A caller that "retried" would toggle it back.
 		expect(w.tall:get()).toBe(true)
 		w.pres.refresh()
-		expect(w.adapter.node("/S/Body").rect.y).toBe(200)
+		expect(w.adapter.node("/S/Body").rect.y).toBe(208) -- 200 + the content gutter
 	end)
 end)
 
@@ -509,9 +509,10 @@ describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", funct
 		end)
 		-- the layout is exact and instant, exactly as with a class
 		local node = w.adapter.node("/S/Body")
-		expect(node.rect.y).toBe(200)
+		-- 200 + the content rect's own top gutter (ADR-0040 §B-24), here and below
+		expect(node.rect.y).toBe(208)
 		-- ...and the paint started back at the old place
-		expect(node.presentedPosition.y).toBe(100)
+		expect(node.presentedPosition.y).toBe(108)
 		expect(w.pres.animationRecordCount() > 0).toBe(true)
 		settle(w.pres)
 		local settled = w.adapter.node("/S/Body")
@@ -567,8 +568,8 @@ describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", funct
 		end)
 		expect(w.pres.animationRecordCount()).toBe(0)
 		local node = w.adapter.node("/S/Body")
-		expect(node.rect.y).toBe(200)
-		expect(node.presentedPosition.y).toBe(200)
+		expect(node.rect.y).toBe(208)
+		expect(node.presentedPosition.y).toBe(208)
 	end)
 
 	it("an unknown name is refused, and the message names BOTH vocabularies", function()
@@ -700,7 +701,12 @@ describe("withAnimation: the painted SIZE travels, and the solved size is still 
 		for _ = 1, 8 do
 			local panel = w.adapter.node("/S/Panel")
 			local tail = w.adapter.node("/S/Tail")
-			expect(panel.presentedSize.h).toBe(tail.presentedPosition.y)
+			-- the tail's position RELATIVE to the panel's own top: a size and an absolute
+			-- position were only comparable while the surface began at y = 0, which it
+			-- did until every content policy gained its gutter floor (ADR-0040 §B-24)
+			-- ...to float noise: the subtraction is exact arithmetic on the same double
+			-- but not the same ORDER of operations the renderer used
+			expect(panel.presentedSize.h).toBeCloseTo(tail.presentedPosition.y - panel.presentedPosition.y, 1e-9)
 			w.pres.tick(FRAME)
 		end
 	end)
