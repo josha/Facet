@@ -323,22 +323,7 @@ return {
 			children = {
 				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
 				UI.Divider({ axis = "x" }),
-				--[[ THE ONE THAT GIVES WAY, and it earned the declaration on a
-					measurement. Every content `rootPolicy` floors each edge at the theme's
-					gutter now (ADR-0046 / ADR-0040 §B-24), so this row is 16px narrower on
-					every screen — and at 359px under Fantasy Ornate and Glossy Touch the
-					four buttons' own chrome overran it by 14 and 18px, which the theme
-					matrix reported as a solver finding rather than letting it paint outside
-					its box. `shrinkWeight` is the row's own vocabulary for "this is the
-					child that yields", and `Play` is the widest label with the least to
-					lose: the other three are already at the deliberately-narrow literals
-					this scenario exists to demonstrate. ]]
-				UI.Button({
-					id = "TbPlay",
-					label = "Play",
-					shrinkWeight = 1,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
+				UI.Button({ id = "TbPlay", label = "Play", height = { type = "minMax", min = "targetSizes.minimum" } }),
 				UI.Spacer({}),
 				UI.Button({ id = "TbMore", label = "…", height = { type = "minMax", min = "targetSizes.minimum" } }),
 			},

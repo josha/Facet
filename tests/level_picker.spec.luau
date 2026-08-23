@@ -573,14 +573,7 @@ describe("LevelPicker: a high count is diagnosed, never refused", function()
 	-- TOUCH — the paradigm with the wider gap, which is where the segments run out
 	-- of room first. One more level and at least one shipped package falls below.
 	local function narrowestSegment(pkgName: string, count: number): (number, number)
-		--[[ 336 rather than 320: what this case measures is the CONTROL's box at the
-			narrowest supported width, and since ADR-0040 §B-24 a surface's content rect
-			is the viewport less the theme's gutter at each edge. 336 is the viewport
-			that leaves the control the 320 the threshold was measured against, so the
-			subject is unchanged. THE PRODUCT CONSEQUENCE IS REAL AND IS NOT HIDDEN
-			here: on a genuine 320px phone a roomy package's segments are now 16px
-			narrower than they were, which is what B-24 records. ]]
-		local core, env, adapter, _, pres = world({ w = 336, h = 640 })
+		local core, env, adapter, _, pres = world({ w = 320, h = 640 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
 		local control =

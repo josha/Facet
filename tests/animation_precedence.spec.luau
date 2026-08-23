@@ -206,13 +206,8 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		expect(after.y).toBe(rootT.y)
 		-- ...and because the root did NOT absorb the move, each child carries its
 		-- own full delta instead, so the flight still happens
-		--[[ 22, NOT 30. The root started at the theme's gutter rather than at 0 —
-			every content policy floors each edge at it now (ADR-0040 §B-24) — so a
-			30px inset arriving MOVES it by 30 - 8. The delta is what this case is
-			about, and it is spelled rather than assumed. ]]
-		local DELTA = 30 - 8
-		expect(w.adapter.node("/S/Body").rect.y).toBe(bodyBefore + DELTA)
-		expect(w.adapter.node("/S/Body").props.transform.y).toBe(-DELTA)
+		expect(w.adapter.node("/S/Body").rect.y).toBe(bodyBefore + 30)
+		expect(w.adapter.node("/S/Body").props.transform.y).toBe(-30)
 		expect(w.adapter.node("/S/Body").presentedPosition.y).toBe(bodyBefore)
 		settle(w.pres)
 		expect(w.adapter.node("/S/Body").presentedPosition.y).toBe(w.adapter.node("/S/Body").rect.y)

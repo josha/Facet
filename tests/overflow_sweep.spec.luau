@@ -3176,10 +3176,18 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			381 -> 385 (2026-08-21, declarative-purity sweep). The matrix changed
 			legitimately: 355 spacing and type literals across the showcase became the
 			theme names that already resolved to them, so four more route boxes in the
-			swept surfaces now measure at a size this census counts. RE-READ RATHER
-			THAN BUMPED — the two pinned-EMPTY lists above are what the R23 ruling is
-			about, and both are still empty, which is the half a count cannot say. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 385")
+			swept surfaces now measure at a size this census counts.
+
+			385 -> 417 (2026-08-22, the band-policy round). The HUD demo stopped
+			presenting `edgeToEdge` and re-spending four insets by hand and now presents
+			`bandSafeContent`, so its topbar row is laid into `platformChrome.band` by
+			the solver rather than held open by two `Spacer`s, and its own driver
+			switches yield on a box that cannot hold them. Both change WHICH boxes exist
+			in the swept surface — thirty-two more of them measure at a size this census
+			counts — and neither changes what the census is ABOUT. RE-READ RATHER THAN
+			BUMPED, both times: the two pinned-EMPTY lists above are what the R23 ruling
+			is, and both are still empty, which is the half a count cannot say. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 417")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

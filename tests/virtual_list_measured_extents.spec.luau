@@ -512,15 +512,10 @@ describe("VirtualList measured extents: the scroll does not jump as measurements
 			edge is still the row under the top edge, at the same offset into it", and
 			that is what is asserted: the distance from the scroll to row 21's own
 			leading edge does not move when every row grows by half again. ]]
-		--[[ ...AND BOTH SIDES ARE RELATIVE TO THE CANVAS. `scrollTop` is a canvas
-			offset and a rect is in the surface's own space, so the two were only
-			comparable while the canvas sat at y = 0 — which it did until every content
-			policy gained its gutter floor (ADR-0040 §B-24). ]]
 		local function offsetIntoAnchor(): number
 			local rect = handle.controller.rectOf("/S/VL/Canvas/W/[r21]/Row")
-			local canvas = handle.controller.rectOf("/S/VL/Canvas")
-			assert(rect ~= nil and canvas ~= nil, "r21 is not mounted")
-			return list.dump().scrollTop - (rect.y - canvas.y)
+			assert(rect ~= nil, "r21 is not mounted")
+			return list.dump().scrollTop - rect.y
 		end
 		expect(offsetIntoAnchor()).toBe(10)
 		-- the preference moves: every mounted row measures 84 now

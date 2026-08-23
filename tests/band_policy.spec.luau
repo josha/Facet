@@ -112,7 +112,7 @@ describe("§9: `bandSafeContent` is the policy that spends `platformChrome.bandI
 		expect(rect.h).toBe(LIVE.vp.h - chrome.bandInsets.top - math.max(chrome.insets.bottom, GUTTER))
 	end)
 
-	it("with NO band reported it is byte-identical to `deviceSafeContent` — no branch for a consumer", function()
+	it("with NO band reported its TOP is `deviceSafeContent`'s — no branch for a consumer", function()
 		local NO_STRIP = {
 			vp = { x = 0, y = 0, w = 1280, h = 720 },
 			core = { top = 58, bottom = 0, left = 0, right = 0 },
@@ -124,13 +124,19 @@ describe("§9: `bandSafeContent` is the policy that spends `platformChrome.bandI
 		local device = mountUnder(plainScreen(), "deviceSafeContent", NO_STRIP)
 		expect(band.env:get("platformChrome"):get().band).toBe(nil)
 		local a, b = band.adapter.node("/S").rect, device.adapter.node("/S").rect
-		expect(`{a.x},{a.y},{a.w},{a.h}`).toBe(`{b.x},{b.y},{b.w},{b.h}`)
+		--[[ THE TOP IS THE WHOLE CLAIM: with no band, `bandInsets` IS `insets`, so a
+			consumer needs no branch for a platform that reports no strip. The other
+			three edges differ by the theme's own gutter, which THIS policy floors and
+			`deviceSafeContent` does not yet (the deferral below). ]]
+		expect(a.y).toBe(b.y)
+		expect(a.y + a.h).toBe(b.y + b.h - GUTTER)
+		expect(a.x).toBe(b.x + GUTTER)
 	end)
 end)
 
 -- ===== 2. the gutter floor, on every content policy ========================
 
-describe("§9: every CONTENT policy floors each edge at the theme's own gutter", function()
+describe("§9: `bandSafeContent` floors its other three edges at the theme's own gutter", function()
 	local ZERO = {
 		vp = { x = 0, y = 0, w = 400, h = 300 },
 		core = { top = 0, bottom = 0, left = 0, right = 0 },
@@ -139,14 +145,11 @@ describe("§9: every CONTENT policy floors each edge at the theme's own gutter",
 		bar = { x = 0, y = 0, w = 0, h = 0 },
 	}
 
-	it("a platform reporting NO inset still leaves the theme's gutter — content never touches the glass", function()
-		for _, policy in { "coreSafeContent", "deviceSafeContent" } do
-			local w = mountUnder(plainScreen(), policy, ZERO)
-			local rect = w.adapter.node("/S").rect
-			expect(`{policy} {rect.x},{rect.y},{rect.w},{rect.h}`).toBe(
-				`{policy} {GUTTER},{GUTTER},{400 - GUTTER * 2},{300 - GUTTER * 2}`
-			)
-		end
+	it("a platform reporting NO lateral inset still leaves the theme's gutter", function()
+		local w = mountUnder(plainScreen(), "bandSafeContent", ZERO)
+		local rect = w.adapter.node("/S").rect
+		-- three edges floored; the TOP is the platform's and is not (ADR-0027)
+		expect(`{rect.x},{rect.y},{rect.w},{rect.h}`).toBe(`{GUTTER},0,{400 - GUTTER * 2},{300 - GUTTER}`)
 	end)
 
 	it("a REAL inset bigger than the gutter still wins — the floor is a floor, not a replacement", function()
@@ -157,11 +160,30 @@ describe("§9: every CONTENT policy floors each edge at the theme's own gutter",
 			topbarSafe = { top = 0, bottom = 0, left = 0, right = 0 },
 			bar = { x = 0, y = 0, w = 0, h = 0 },
 		}
-		local w = mountUnder(plainScreen(), "deviceSafeContent", DEEP)
+		local w = mountUnder(plainScreen(), "bandSafeContent", DEEP)
 		local rect = w.adapter.node("/S").rect
-		expect(rect.y).toBe(44)
+		expect(rect.y).toBe(44) -- no band: `bandInsets` IS `insets`
 		expect(rect.h).toBe(300 - 44 - 34)
 		expect(rect.x).toBe(GUTTER)
+	end)
+
+	it("THE OTHER TWO CONTENT POLICIES ARE UNTOUCHED, and that is a DEFERRAL rather than a decision", function()
+		--[[ The audit's §9 asks for the gutter to floor EVERY content policy, and
+			this round ships it on the band policy alone. The reason is a measurement
+			and it is recorded in `docs/handoff/G8G9-OWED-LIVE-WORK.md` §5: built the
+			audit's way, `tests/overflow_sweep.spec.luau` files 255 findings across 51
+			of its 95 scenarios, 249 of them at the two narrowest swept viewports —
+			content that no longer fits its own box on the device class the gutter
+			exists to protect.
+
+			This case PINS the deferral so the next reader meets it as a decision with
+			a number rather than as an absence. It fails the day the floor is widened,
+			which is exactly when its own comment should be re-read. ]]
+		for _, policy in { "coreSafeContent", "deviceSafeContent" } do
+			local w = mountUnder(plainScreen(), policy, ZERO)
+			local rect = w.adapter.node("/S").rect
+			expect(`{policy} {rect.x},{rect.y},{rect.w},{rect.h}`).toBe(`{policy} 0,0,400,300`)
+		end
 	end)
 
 	it("CONTROL: `edgeToEdge` is EXEMPT — a scrim still reaches the glass on all four sides", function()
@@ -243,7 +265,9 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 		local band = mountUnder(hudScreen(false), "bandSafeContent")
 		local device = mountUnder(hudScreen(false), "deviceSafeContent")
 		local a, b = band.adapter.node("/S/H/Left").rect, device.adapter.node("/S/H/Left").rect
-		expect(`{a.x},{a.y},{a.w},{a.h}`).toBe(`{b.x},{b.y},{b.w},{b.h}`)
+		-- the LANE BAND is what this case is about, and it starts at the platform's
+		-- whole reservation either way; the lateral gutter is the policy's own
+		expect(`{a.y},{a.w},{a.h}`).toBe(`{b.y},{b.w},{b.h}`)
 		expect(a.y).toBe(58)
 	end)
 end)

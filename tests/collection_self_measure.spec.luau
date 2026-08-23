@@ -450,7 +450,7 @@ describe('viewportExtent = "auto" + itemExtent = "cards": the seed is not an arr
 		})
 		-- ...and once the solver has answered, the arrangement is the RAIL's
 		local d = w.control.dump()
-		expect(d.viewportExtent).toBe(784) -- 800 less the content gutter each side
+		expect(d.viewportExtent).toBe(800)
 		expect(#d.window > 0).toBe(true)
 		w.control.dispose()
 	end)

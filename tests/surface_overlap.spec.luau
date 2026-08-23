@@ -282,9 +282,7 @@ describe("cross-surface overlap: it arrives through controller.diagnostics()", f
 		local a = w.presenter.present(panel("Hud"))
 		local b = w.presenter.present(panel("Probe"), { rootPolicy = "deviceSafeContent" })
 		w.presenter.refresh()
-		-- the default policy floors its top at the theme gutter (ADR-0040 §B-24);
-		-- the 300px device inset is deeper than it and wins on the second surface
-		expect(`{a.controller.coverRect().y} {b.controller.coverRect().y}`).toBe("8 300")
+		expect(`{a.controller.coverRect().y} {b.controller.coverRect().y}`).toBe("0 300")
 		expect(#crossFindings(a)).toBe(0)
 		expect(#crossFindings(b)).toBe(0)
 	end)
@@ -315,7 +313,7 @@ describe("cross-surface overlap: it arrives through controller.diagnostics()", f
 		}))
 		local b = w.presenter.present(panel("Probe"), { rootPolicy = "deviceSafeContent" })
 		w.presenter.refresh()
-		expect(a.controller.coverRect().h).toBe(584) -- 600 less the gutter each end
+		expect(a.controller.coverRect().h).toBe(600)
 		expect(#crossFindings(a)).toBe(1)
 		expect(#crossFindings(b)).toBe(1)
 	end)
@@ -463,7 +461,7 @@ describe("cross-surface overlap: the covering set (ADR-0026's hand-off)", functi
 		local a = w.presenter.present(panel("Hud"))
 		w.presenter.refresh()
 		local r = a.controller.coverRect()
-		expect(`{r.x},{r.y} {r.w}x{r.h}`).toBe("8,8 200x120")
+		expect(`{r.x},{r.y} {r.w}x{r.h}`).toBe("0,0 200x120")
 		-- ...and it is a copy, like every other diagnostic read (F-30)
 		r.w = 1
 		expect(a.controller.coverRect().w).toBe(200)

@@ -599,8 +599,11 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 			end
 		end
 		-- the HUD's own controls ARE in the ring
-		expect(seen["/HudScreen/Drivers/UrlBar"]).toBe(true)
-		expect(seen["/HudScreen/Drivers/RideStrip"]).toBe(true)
+		-- the switches sit behind a room gate now (`hud.luau`, `roomForDrivers`), so
+		-- the path carries the `UI.When`; the claim — they are in THIS surface's ring
+		-- and the probe's switch is not — is unchanged
+		expect(seen["/HudScreen/DriversWhen/then/Drivers/UrlBar"]).toBe(true)
+		expect(seen["/HudScreen/DriversWhen/then/Drivers/RideStrip"]).toBe(true)
 		-- ...and the probe's switch, on its own surface, is not
 		expect(seen["/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHold"]).toBe(nil)
 		built.dispose()

@@ -684,8 +684,13 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 			expect(`the bar yielded to the reservation: {withChrome.lostPx < 67}`).toBe(
 				"the bar yielded to the reservation: true"
 			)
-			-- 240 (the viewport) - 160 (HUD_FLOOR_PX) - 62 (the chip row) = 18
-			expect(`the bar takes {withChrome.lostPx}px`).toBe(`the bar takes {240 - 160 - CHIP_STRIP}px`)
+			--[[ 240 (the viewport) - 8 (the content rect's own bottom gutter, which
+				`bandSafeContent` floors — ADR-0046 §2) - 160 (HUD_FLOOR_PX) - 62 (the
+				chip row) = 10. The instrument caps against the box it is IN rather than
+				against the window: the band policy takes the platform's reservation off
+				the SURFACE now, so a cap written against the viewport is a screen the
+				demo does not have (`hud.luau`, `boxHeight`). ]]
+			expect(`the bar takes {withChrome.lostPx}px`).toBe(`the bar takes {240 - 8 - 160 - CHIP_STRIP}px`)
 
 			--[[ THE BYTE-FOR-BYTE CONTROL: a host that reserves nothing above the
 			platform's own band reserves 0 in every column, and the bar takes exactly

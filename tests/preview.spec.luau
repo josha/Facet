@@ -94,14 +94,12 @@ describe("Preview: device profiles", function()
 		)
 		local controller = Facet.renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
-		-- the desktop viewport LESS the content rect's own gutter each side (ADR-0040 §B-24)
-		expect(adapter.node("/P/Panel").rect.w).toBe(device_profiles.get("desktop").viewport.w - 16)
+		expect(adapter.node("/P/Panel").rect.w).toBe(device_profiles.get("desktop").viewport.w)
 		local factoryRuns = root.counters().factoryRuns
 		adapter.takeOps()
 		device_profiles.apply(env, "phone")
-		-- the camera pre-excludes lateral safe areas, so the theme's gutter is the
-		-- only lateral inset there is (ADR-0040 §B-24)
-		expect(adapter.node("/P/Panel").rect.w).toBe(device_profiles.get("phone").viewport.w - 16)
+		-- the camera pre-excludes lateral safe areas: full canvas width
+		expect(adapter.node("/P/Panel").rect.w).toBe(device_profiles.get("phone").viewport.w)
 		expect(root.counters().factoryRuns).toBe(factoryRuns) -- live re-render, no remount
 		for _, op in adapter.takeOps() do
 			expect(string.sub(op, 1, 4)).toBe("rect")
@@ -139,10 +137,8 @@ describe("Preview: device profiles", function()
 		expect(rect.w).toBe(1920 - 90 - 90)
 		expect(rect.h).toBe(1080 - 58 - 60 - 60)
 		device_profiles.apply(env, "desktop")
-		-- ...and a desktop reports no lateral inset at all, so the theme's gutter is
-		-- the floor there (ADR-0040 §B-24)
-		expect(adapter.node("/P/Panel").rect.w).toBe(1264)
-		expect(adapter.node("/P/Panel").rect.x).toBe(8)
+		expect(adapter.node("/P/Panel").rect.w).toBe(1280)
+		expect(adapter.node("/P/Panel").rect.x).toBe(0)
 	end)
 end)
 

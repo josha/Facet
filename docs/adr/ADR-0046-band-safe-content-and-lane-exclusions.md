@@ -3,15 +3,14 @@
 **Date:** 2026-08-22
 **Status:** Accepted
 **Number:** 0046. 0040 is the unreleased-breaking-changes register; **this
-decision adds two rows there** — B-24 (the gutter floor on every content policy)
-and B-25 (the `topbar` zone's geometry) — and §"What is breaking, and what is
-not" says why the rest is additive.
+decision adds one row there** — B-24, the `topbar` zone's geometry — and §"What is
+breaking, and what is not" says why the rest is additive.
 **Companions:** [ADR-0027](ADR-0027-platform-chrome-band.md) (the `platformChrome`
 fact this spends), [ADR-0023](ADR-0023-declared-content-composition.md) and
 [ADR-0025](ADR-0025-screen-anchored-hud.md) (the composition and the HUD preset),
-[ADR-0040](ADR-0040-unreleased-breaking-changes.md) §B-24/§B-25.
-**Home:** `src/render/renderer.luau` (the policy resolver), `src/layout/solver.luau`
-(the content rect and the gutter floor), `src/layout/composition_resolve.luau`
+[ADR-0040](ADR-0040-unreleased-breaking-changes.md) §B-24.
+**Home:** `src/render/renderer.luau` (the policy resolver and the gutter floor),
+`src/layout/solver.luau` (the content rect), `src/layout/composition_resolve.luau`
 (the window→box conversion), `src/layout/composition.luau` (the band row and the
 per-lane exclusion), `src/blueprint_schema.luau` (`UI.Composition.exclusions`).
 **Guards:** `tests/band_policy.spec.luau`, `tests/composition_exclusions.spec.luau`,
@@ -87,12 +86,11 @@ rather than an oversight: `platformChrome` folds the overscan into both of its
 inset records itself, so a second addition would spend a television's margin
 twice.
 
-### 2. Every CONTENT policy floors each edge at `themeMetrics.space.gutter`
+### 2. `bandSafeContent` floors its other three edges at `themeMetrics.space.gutter`
 
-`coreSafeContent`, `deviceSafeContent` and `bandSafeContent` take the per-edge
-max of the platform's inset and the theme's gutter. The platform's safe inset
-answers *"what must be cleared"*; it does not answer *"may content touch the
-glass"*, and those are different questions.
+The per-edge max of the platform's inset and the theme's gutter. The platform's
+safe inset answers *"what must be cleared"*; it does not answer *"may content
+touch the glass"*, and those are different questions.
 
 `space.gutter` and not `space.s`: the screen edge is the one step in the scale
 with a physical floor under it (the snapshot derives it as `max(8, space.s)`),
@@ -109,6 +107,27 @@ carries that as a control rather than as a comment.
 ADR-0027 exists to protect: its top edge is where the platform's own strip
 starts, and a theme gutter there would stop the topbar row sitting level with
 the engine's buttons.
+
+#### Why only this policy, when the audit says "floor every policy"
+
+**Measured, and the number is the decision.** The audit's clause is right about
+the principle and this round could not land it: flooring `coreSafeContent` and
+`deviceSafeContent` too costs every surface 16px of measure, and **the shipped
+example corpus does not have it.** Built and run, `tests/overflow_sweep.spec.luau`
+files **255 findings across 51 of its 95 scenarios** — 249 of them at the two
+narrowest swept viewports (320x640 and 640x320) — which is content that no longer
+fits its own box on the very device class the gutter exists to protect. Rascal
+Rally's suite is nearly untouched (three pins); the gallery is not.
+
+Re-tuning fifty-one example scenarios for a narrower content box is a campaign of
+its own and a director's call, not a clause of this round. **The line that lands
+it is one branch condition in `renderer.luau`**, and the measurement is booked in
+`docs/handoff/G8G9-OWED-LIVE-WORK.md` §5 rather than left as a sentence.
+
+WHAT IS NOT DEFERRED is the finding underneath it: the HUD demo's hand-rolled
+version had the floor and the shipped policy did not, and the surface it rides is
+`bandSafeContent`. That surface has it now, which is why the hand-roll could be
+deleted rather than copied.
 
 ### 3. The `topbar` zone is laid into `platformChrome.band` by the solver
 
@@ -196,23 +215,25 @@ the solver keeps meeting.
 
 ## What is breaking, and what is not
 
-**BREAKING, and each has an ADR-0040 row.**
+**BREAKING, and it has an ADR-0040 row.**
 
-* **B-24** — the gutter floor. Every surface under a content policy moves by up
-  to the theme's gutter on each edge and loses up to twice it on each axis. On a
-  platform reporting a real inset larger than the gutter nothing moves at all;
-  on a headless environment, a desktop's lateral edges and any device whose
-  engine pre-excludes its notch, everything does.
-* **B-25** — the `topbar` zone's geometry. A `topbar` region under
+* **B-24** — the `topbar` zone's geometry. A `topbar` region under
   `bandSafeContent` is laid into the free strip rather than across the
   composition's full width, and the lane band below it is floored at the
-  platform's whole reservation.
+  platform's whole reservation. No SHIPPED surface moves through it today (the
+  policy is new), which is exactly why the register's own B-18/B-21 precedent
+  says a row is owed: `topbar` is shipped vocabulary, and the next reader tuning
+  a row against the old full-width shape has no other way to learn it changed.
 
 **NOT breaking.**
 
 * `bandSafeContent` is a new enum value. A surface that does not ask for it is
-  untouched, and asking for it without declaring a `topbar` region resolves to
-  what `deviceSafeContent` resolved to.
+  untouched — including by the gutter floor, which is scoped to this policy — and
+  asking for it without declaring a `topbar` region resolves to what
+  `deviceSafeContent` resolved to.
+* A span row's slack going to its `fill` regions is inert everywhere it is not
+  the band: until the band existed a span row was exactly as tall as its content,
+  so there was never slack to give.
 * `exclusions` is a new optional prop. A composition that declares none produces
   a byte-identical resolution and a byte-identical dump — pinned as the
   additivity case rather than asserted.

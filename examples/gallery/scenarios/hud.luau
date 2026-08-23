@@ -315,6 +315,12 @@ local GLASS = 0.28
 -- `UI.When` at the bottom of the Screen). A HUD is what this surface is FOR, so
 -- on a screen shorter than this the explanation yields to the thing it explains.
 local CAPTION_FLOOR = 360
+--[[ ...AND THE RUNG ABOVE IT, for the fixture's own two switches (see
+	`roomForDrivers`). 560 rather than a rounder number because it is a MEASUREMENT:
+	the showcase profile's narrow-portrait box is 512 and the switches take 150 of
+	it at the largest text preference, which is where the HUD ran 5-74px past its
+	own box under six packages. Any box that could hold both is above it. ]]
+local DRIVERS_FLOOR = 560
 
 -- PROBE-EXEMPT BEGIN: the paint probe's watch list — INSTRUMENT, NOT EXAMPLE.
 -- Hard-coded mounted PATHS into this file's own tree, in document order,
@@ -645,6 +651,32 @@ return {
 			three memos to say so. A host that declares no chrome of its own reserves 0
 			and this is `HUD_FLOOR_PX` exactly — byte for byte what such a host has
 			always had (the control is in tests/hud_chrome_rotation.spec.luau). ]]
+		--[[ HOW TALL THIS SURFACE'S OWN BOX IS, which is the one number the policy
+			does not publish (§9 follow-up candidate).
+
+			The instrument below caps the simulated bar against the room the screen
+			actually has, and until the band policy existed that room WAS the viewport:
+			this surface presented `edgeToEdge` and spent the platform's reservation as
+			a margin on the HUD, so the Screen's own box was the whole window. Under
+			`bandSafeContent` the Screen is the CONTENT rect — the policy takes the
+			reservation off the surface rather than off one child — so a cap written
+			against the viewport is 120px too generous on the showcase's own profile,
+			and the bar eats a screen that is not there. Measured: 68-82px of overflow
+			at 320x640 under fantasy-ornate at the largest text preference.
+
+			So the instrument asks for the box it is in. It is the policy's own
+			arithmetic restated, which is a smell — a surface cannot read the rect its
+			`rootPolicy` resolved without sampling a solved rect — and it is BOOKED as
+			such in docs/handoff/G8G9-OWED-LIVE-WORK.md. It is the fixture's
+			instrument, not its layout: nothing the HUD paints reads it. ]]
+		local function boxHeight(use: any): number
+			local vp = use(viewportFact) :: any
+			local chrome = use(chromeFact) :: any
+			local metrics = use(env:get("themeMetrics"))
+			local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
+			local gutter = if type(space.gutter) == "number" then space.gutter else 8
+			return math.max(0, vp.h - chrome.bandInsets.top - math.max(chrome.insets.bottom, gutter))
+		end
 		local function urlBarPx(use: any): number
 			if not use(urlBar) then
 				return 0
@@ -662,7 +694,7 @@ return {
 				end
 			end
 			reserved = math.max(0, reserved)
-			return math.min(URL_BAR_STEAL_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
+			return math.min(URL_BAR_STEAL_PX, math.max(0, boxHeight(use) - HUD_FLOOR_PX - reserved))
 		end
 		-- ...and whether this screen has room for the fixture's own caption (see the
 		-- `UI.When` at the bottom). It reads the SAME two facts the HUD's margin
@@ -670,7 +702,32 @@ return {
 		-- first" is derived from the demo's own state rather than from a second
 		-- guess about screen size.
 		local roomForCaption = scope:own(core:memo(function(use)
-			return ((use(viewportFact) :: any).h - urlBarPx(use)) >= CAPTION_FLOOR
+			return (boxHeight(use) - urlBarPx(use)) >= CAPTION_FLOOR
+		end))
+		--[[ ...AND THE SWITCHES YIELD ONE RUNG BEFORE THE CAPTION DOES (§9 migration,
+			2026-08-22). Same rule, same reason: they are chrome ABOUT the demo, so on a
+			screen with no room to spare they go before any zone does.
+
+			MEASURED, not guessed. The band policy takes the platform's reservation off
+			the SURFACE rather than off one child, so this Screen's box on the showcase
+			profile is 512px where it used to be the whole 640 — the 120 the HUD's
+			margin used to carry, which a vstack's own need arithmetic never counted.
+			So the overflow this exposes is not new; it was there and the margin was
+			hiding it from the instrument. At 320x640 with `preferredTextOffset = +14`
+			the two `UI.Toggle`s wrap to THREE lines (150px of a 512px screen) and the
+			HUD is left 5-74px short across six packages (`tests/overflow_sweep.spec`,
+			narrow-portrait at +14).
+
+			At every other preference and on every taller box they fit and are shown,
+			which is what the second term says. The sweep and the specs drive the demo
+			through `steps.*` rather than through these switches, so nothing that
+			measures this fixture depends on them being on screen. ]]
+		local roomForDrivers = scope:own(core:memo(function(use)
+			local offset = use(env:get("preferredTextOffset"))
+			if type(offset) ~= "number" or offset <= 10 then
+				return true
+			end
+			return (boxHeight(use) - urlBarPx(use)) >= DRIVERS_FLOOR
 		end))
 		-- the DRAWN bar's box, and it is the same number the HUD lost — one memo,
 		-- so the picture and the geometry cannot disagree (item 5)
@@ -2611,14 +2668,18 @@ return {
 				-- two switches WRAP rather than run off a 320px phone at the largest
 				-- text preference — found by the always-on sweep the moment the second
 				-- one was added, which is the sweep doing its job on the instrument
-				UI.HStack({
-					id = "Drivers",
-					gap = 12,
-					wrap = true,
-					children = {
-						UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
-						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
-						--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
+				UI.When({
+					id = "DriversWhen",
+					condition = roomForDrivers,
+					thenView = function()
+						return UI.HStack({
+							id = "Drivers",
+							gap = 12,
+							wrap = true,
+							children = {
+								UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
+								UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
+								--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
 							MEASUREMENT AND A REPORTED FRAMEWORK GAP (NM-H4a).
 
 							It belongs here on the four-input rule: a second base surface's
@@ -2643,7 +2704,9 @@ return {
 							scripted route — and neither is the capture. The probe LATCHES ITSELF
 							on the frame the disagreement appears, so no input class can miss the
 							evidence; what the switch buys is releasing and re-arming it. ]]
-					},
+							},
+						})
+					end,
 				}),
 				--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
 					step down is only a demonstration if the viewer can see why THAT

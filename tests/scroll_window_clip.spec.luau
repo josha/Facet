@@ -215,10 +215,7 @@ describe("scroll host: every policy lays content inside the window it can see", 
 		-- fills its whole slot, and the reserve is spent INSIDE it, so the row now
 		-- ends exactly at the window's edge instead of one bar past it.
 		expect(host.w).toBe(window.w + BAR)
-		-- both edges ABSOLUTE: the surface's content rect no longer starts at x = 0
-		-- (ADR-0040 §B-24), so comparing a right edge with a WIDTH only agreed while
-		-- it did
-		expect(row.x + row.w).toBe(window.x + window.w)
+		expect(row.x + row.w).toBe(window.w)
 	end)
 
 	it("✓ a POINTER session reserves the bar, so its rows land inside the window", function()

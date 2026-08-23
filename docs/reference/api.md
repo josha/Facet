@@ -3139,16 +3139,15 @@ safe insets: `coreSafeContent` (the default — inset by the CoreGui reservation
 strip starts — content that means to ride the band), and `edgeToEdge` (the whole
 window — a scrim or a backdrop).
 
-**Every CONTENT policy floors each edge at `themeMetrics.space.gutter`**, so the
-inset a surface gets is the per-edge **max** of what the platform says must be
+**`bandSafeContent` floors its other three edges at `themeMetrics.space.gutter`**,
+so the inset it applies is the per-edge **max** of what the platform says must be
 cleared and what the theme calls a gap. The platform's safe inset answers "what
 must be cleared"; it does not answer "may content touch the glass", and on a
 device whose engine pre-excludes the notch from the camera the lateral inset is
-zero. `edgeToEdge` is exempt — a decoration layer has to reach the edges — and so
-is the TOP of `bandSafeContent`, because a gutter there would stop a topbar row
-sitting level with the engine's own buttons. See
-[ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) and
-ADR-0040 §B-24.
+zero. Its TOP is exempt, because a gutter there would stop a topbar row sitting
+level with the engine's own buttons. `coreSafeContent` and `deviceSafeContent`
+are unchanged — widening the floor to them is deferred with its measurement, see
+[ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) §2.
 
 **Placing a surface in the platform's TOPBAR band.** Present it
 `rootPolicy = "bandSafeContent"` and give it a `UI.Composition` with a region in

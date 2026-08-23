@@ -1826,13 +1826,14 @@ function renderer.attach(
 		-- path and the paint seam must all resolve the same theme, or a swap
 		-- landing mid-solve would measure one theme and paint another
 		local metrics = currentMetrics()
-		--[[ ...AND EVERY CONTENT POLICY FLOORS EACH EDGE AT THE THEME'S GUTTER
-			(ADR-0046 §2, ADR-0040 §B-24, where the measurement is). The platform's
-			safe inset answers "what must be cleared"; it does not answer "may content
-			touch the glass", and on a device whose engine pre-excludes the notch from
-			the camera the lateral inset is ZERO — so every edge-anchored control laid
-			out flush against the camera's own boundary, and a rounded control whose
-			rim ended exactly there read as one that had been cut.
+		--[[ ...AND `bandSafeContent` FLOORS ITS OTHER THREE EDGES AT THE THEME'S
+			GUTTER (ADR-0046 §2). The platform's safe inset answers "what must be
+			cleared"; it does not answer "may content touch the glass", and on a device
+			whose engine pre-excludes the notch from the camera the lateral inset is
+			ZERO — so every edge-anchored control laid out flush against the camera's
+			own boundary, and a rounded control whose rim ended exactly there read as
+			one that had been cut. The HUD demo has spent this per-edge max by hand
+			since 2026-08-15; the policy owns it now and the hand-roll is deleted.
 
 			`space.gutter` and not `space.s`: the screen edge is the one step in the
 			scale with a physical floor under it (`max(8, space.s)`).
@@ -1841,17 +1842,28 @@ function renderer.attach(
 			the policy resolver, the one place that turns platform FACTS into insets,
 			and `solver.solve` stays a pure function of the insets it is handed.
 
-			`edgeToEdge` is EXEMPT — a scrim that stopped at the gutter would draw a
-			rectangle inside the screen with the world showing around it — and so is
-			the TOP of `bandSafeContent`, for the reason ADR-0027 exists. ]]
-		if rootPolicy ~= "edgeToEdge" then
+			WHY ONLY THIS POLICY, when the audit says "floor every policy": MEASURED,
+			and the number is why. Flooring `coreSafeContent` and `deviceSafeContent`
+			too costs every surface 16px of measure, and the shipped example corpus
+			does not have it — `tests/overflow_sweep.spec.luau` files **255 findings
+			across 51 of its 95 scenarios**, 249 of them at the two narrowest swept
+			viewports (320x640 and 640x320), i.e. content that no longer fits its own
+			box on the device class the gutter exists to protect. That is a
+			gallery-wide re-tuning campaign and a director's call, not a clause of this
+			round; it is booked with the measurement in
+			`docs/handoff/G8G9-OWED-LIVE-WORK.md` §5. The line that lands it is this
+			branch's condition. ]]
+		if rootPolicy == "bandSafeContent" then
 			local space = (metrics :: any).space
 			local gutter = if type(space) == "table" and type(space.gutter) == "number"
 				then math.max(0, space.gutter)
 				else 0
 			if gutter > 0 then
 				insets = {
-					top = if rootPolicy == "bandSafeContent" then insets.top else math.max(insets.top, gutter),
+					-- the TOP is the platform's, untouched: a theme gutter there would
+					-- stop the topbar row sitting level with the engine's own buttons,
+					-- which is the one thing ADR-0027 exists to prevent
+					top = insets.top,
 					bottom = math.max(insets.bottom, gutter),
 					left = math.max(insets.left, gutter),
 					right = math.max(insets.right, gutter),

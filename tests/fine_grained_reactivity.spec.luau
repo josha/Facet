@@ -71,9 +71,6 @@ local SIZES = { 200, 2000, 20000 }
 -- constant is a measured floor with headroom, and the audit is what makes it one.
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 800, h = 600 }
--- the per-edge floor every content policy applies (ADR-0046): the box a Screen
--- actually receives is the viewport less this on each side
-local CONTENT_GUTTER = (require("../src/themes/snapshot").neutral().space :: any).gutter
 
 type Item = { id: string, label: string, value: any, flag: any }
 
@@ -124,14 +121,9 @@ local function world(count: number, opts: any?)
 			return item.id
 		end,
 		rowHeight = ROW_HEIGHT,
-		--[[ DERIVED from the viewport, not a magic number beside it. The list is the
-			Screen's only child, so the space it gets is the viewport height LESS the
-			content rect's own gutter on each edge — every content `rootPolicy` floors
-			each edge at `themeMetrics.space.gutter` (ADR-0046 / ADR-0040 §B-24), and
-			this default-policy surface reports no platform inset at all, so the floor
-			is what it gets. Read from the snapshot rather than written as 16, so a
-			package that breathes more moves this with it. ]]
-		viewportHeight = VIEWPORT.h - CONTENT_GUTTER * 2,
+		-- DERIVED from the viewport, not a magic number beside it. The list is the
+		-- Screen's only child, so the space it gets IS the viewport height.
+		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
 			return Facet.UI.HStack({

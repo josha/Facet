@@ -1810,8 +1810,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		-- above the trigger" is equally explained by "it was always above"
 		local w = bottomMenuWorld(480)
 		local trigger = w.triggerRect()
-		-- the reported number, reproduced, less the content rect's own bottom gutter
-		expect(trigger.y).toBe(516)
+		expect(trigger.y).toBe(508) -- the reported number, reproduced
 		w.openMenu()
 		local menu = w.menuRect()
 		expect(`below-placement would overflow: {trigger.y + trigger.h + menu.h > 600}`).toBe(

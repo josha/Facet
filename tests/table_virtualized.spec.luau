@@ -345,13 +345,7 @@ describe("Table virtualized: one arithmetic with newVirtualList", function()
 		w.pres.refresh()
 		local slot = ix.slotAt(80)
 		expect(slot).toBe(2)
-		--[[ BOTH SIDES RELATIVE TO THE TABLE ROOT. The DropLine's rect is in the
-			surface's own space and `boundaryOffset` is relative to the body, so the
-			two were only comparable while the root sat at y = 0 — which it did until
-			every content policy gained its gutter floor (ADR-0040 §B-24). Subtracting
-			the root from the measured side is what that sentence always meant. ]]
-		local dropY = w.adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y
-		expect(dropY - rootY).toBe(bodyY - rootY + ix.boundaryOffset(slot))
+		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(bodyY - rootY + ix.boundaryOffset(slot))
 		w.adapter.pointerUp(100, bodyY + 80)
 	end)
 end)

@@ -1248,9 +1248,7 @@ describe("playlist columns: the 320x640 edit-mode measurement that kept the thir
 	it("at the narrowest swept viewport, in edit mode, no cell collapses and the numbers are these", function()
 		local nameCell, nameText = editModeCell(320, 640, "name")
 		local artistCell, artistText = editModeCell(320, 640, "artist")
-		-- each cell 10/6 narrower: 320 is the VIEWPORT and the table gets it less the
-		-- content rect's own gutter at each edge (ADR-0040 §B-24)
-		expect(`name:{nameCell}/{nameText} artist:{artistCell}/{artistText}`).toBe("name:122/66 artist:82/66")
+		expect(`name:{nameCell}/{nameText} artist:{artistCell}/{artistText}`).toBe("name:132/66 artist:88/66")
 	end)
 
 	it("...because the RATING column collapsed, and the table says so out loud (ADAPT-18)", function()

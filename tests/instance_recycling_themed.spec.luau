@@ -29,10 +29,6 @@ local fake_target = require("../tests/lib/fake_target")
 
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 360, h = 640 }
--- the per-edge floor every content policy applies (ADR-0046 / ADR-0040 §B-24):
--- the box a Screen actually receives is the viewport less this on each side, and
--- this default-policy surface reports no platform inset at all
-local CONTENT_GUTTER = (require("../src/themes/snapshot").neutral().space :: any).gutter
 
 local function makeItems(n: number)
 	local out = {}
@@ -69,7 +65,7 @@ local function hintedWorld(recycle: boolean)
 			return item.id
 		end,
 		rowHeight = ROW_HEIGHT,
-		viewportHeight = VIEWPORT.h - CONTENT_GUTTER * 2,
+		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
 			return Facet.UI.HStack({

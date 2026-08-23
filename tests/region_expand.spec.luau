@@ -1512,12 +1512,7 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 		`expandPlateStraddle`, so the cap form 1 is measured against already has the
 		plate's own insets taken out of it. Nothing re-derives an inset and no caller
 		can forget one. ]]
-	--[[ 342 rather than 358 since ADR-0040 §B-24: the allowance is measured off the
-		SURFACE's content rect, and every content policy now floors each edge at the
-		theme's gutter, so a 390px viewport reporting no platform inset gives 374 and
-		the gutter allowance is that less `space.m` on each side. The block above
-		derives every other number in this case from it. ]]
-	local ALLOWANCE = 342
+	local ALLOWANCE = 358
 	local function bandScreen(formWidth: number): any
 		return UI.Screen({
 			id = "S",
@@ -1759,10 +1754,7 @@ describe("EXPAND 13 — the ladder chooses a rung against the width it will actu
 	end
 
 	it("a wrapping compact form is measured against the box the chevron leaves it", function()
-		-- 276x116 rather than 260x100: the box this case is tuned against is the
-		-- SURFACE's content rect, which is the viewport less the theme gutter at each
-		-- edge (ADR-0040 §B-24), so the fixture states the viewport that leaves it
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 276, h = 116 } })
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 260, h = 100 } })
 		w.present(wrapScreen(), { initialFocus = "none" })
 		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
 		local line = w.adapter.node("/S/C/Clock/Compact/Line").rect

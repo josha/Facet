@@ -28,8 +28,6 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
--- the solver's own pixel rounding, so an oracle here cannot disagree with the box
-local roundPx = require("../src/num").roundPx
 
 -- A complete headless stack: the same wiring a client bootstrap uses, minus
 -- the Roblox-only adapters (FakeTarget stands in for ScreenTarget; the headless
@@ -3060,11 +3058,11 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			local optional = rectOf(w, HUD .. "/Shrink/VocabOptional")
 			local useful = rectOf(w, HUD .. "/Shrink/VocabUseful")
 			local essential = rectOf(w, HUD .. "/Shrink/VocabEssential")
-			expect(`row={row.w}`).toBe("row=264") -- 280 less the content gutter each side
+			expect(`row={row.w}`).toBe("row=280")
 			-- tier -1 is spent to its declared floor before tier 0 gives a pixel...
 			expect(`optional={optional.w}`).toBe("optional=24")
 			-- ...tier 0 then gives the remainder, and only the remainder
-			expect(`useful={useful.w}`).toBe("useful=88") -- 16 less: the row is 16 narrower
+			expect(`useful={useful.w}`).toBe("useful=104")
 			-- ...and `shrinkWeight = 0` (the default) is rigid whatever its siblings do
 			expect(`essential={essential.w}`).toBe("essential=140")
 			-- the row absorbed its whole deficit: it fits, so the overflow diagnostic
@@ -3097,13 +3095,9 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			local scroll = rectOf(w, SCROLL)
 			local page = rectOf(w, HUD .. "/Page")
 			-- (viewport - spacing x (count - 1)) / count x span, viewport = the
-			-- scroller's inner width (its box less the bar it reserves), ROUNDED the
-			-- way the solver rounds every box (`num.roundPx`). It used to say
-			-- `math.floor` and agreed by accident, because the viewport this ran at
-			-- divided by three exactly; the content rect's gutter (ADR-0040 §B-24)
-			-- moved it off that and the two rules parted by one pixel.
+			-- scroller's inner width (its box less the bar it reserves)
 			local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
-			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={roundPx((viewport - 16) / 3)}`)
+			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3)}`)
 			built.dispose()
 		end
 	end)
@@ -3120,10 +3114,10 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		local column = rectOf(w, HUD)
 		local page = rectOf(w, HUD .. "/Page")
 		local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
-		expect(`column={column.w} viewport={viewport}`).toBe(`column=580 viewport=1176`)
-		expect(`page={page.w}`).toBe(`page={roundPx((viewport - 16) / 3)}`)
+		expect(`column={column.w} viewport={viewport}`).toBe(`column=588 viewport=1192`)
+		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3)}`)
 		-- the parent-relative reading, which this is NOT
-		expect(page.w > roundPx((column.w - 16) / 3) + 100).toBe(true)
+		expect(page.w > math.floor((column.w - 16) / 3) + 100).toBe(true)
 		built.dispose()
 	end)
 
