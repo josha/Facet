@@ -6531,6 +6531,12 @@ coalesce: no observer sees the value that was undone, and a `UI.When` over the
 selection never mounts a subtree it is about to evict. A transaction defers the flush
 and never a read, so `onChange` still sees the value it was handed.
 
+> **So `onChange` inherits a transaction body's obligation: it MUST NOT YIELD.** The
+> transaction stays open across a yield, which holds every observer in the session and
+> any unrelated write made meanwhile (`core.transaction`, and the same rule
+> `withAnimation`'s body carries). Do the waiting outside — set state and let an
+> observer or a task pick it up.
+
 The two-argument spelling `Facet.newPicker(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
 control, and `Facet.Controls.Picker` is a closure over the library, not a second
@@ -6788,14 +6794,14 @@ trailing edge or above the thumb-zone dock. Each slot is a **factory**
 `(placement, scope) -> Blueprint?`, invoked only by the homes that host it, inside that
 home's own branch: the `scope` it receives is disposed when the placement moves, and a
 factory that returns nothing leaves no node at all. Which slot goes where is a fact
-about what a home IS, published as `Facet.Controls.TabView`'s own
-`accessoryPlacements(slot)`:
+about what a home IS, and **this table is the whole of it** — the control quotes the
+same rule back in its refusal, so there is nothing to look up at runtime:
 
 | slot | hosted by | where it lands |
 |---|---|---|
 | `head` | `sidebar` | above the strip, at the top of the rail |
 | `foot` | `sidebar` | at the BOTTOM of the rail — the strip's scroller spends the slack, so a three-tab rail still puts the foot on the floor |
-| `trailing` | `topBar` | an OVERLAY at the band's trailing edge, so the centred strip keeps its centre |
+| `trailing` | `topBar` | at the band's trailing edge, whose width it **reserves**: the strip centres in the box left over, never under the accessory |
 | `aboveBar` | `bottomBar`, `bottomBarCompact` | a strip directly above the tab band, inside the dock |
 
 ```lua
@@ -6820,7 +6826,12 @@ returning nothing. `dump().accessories` reports `{ declared, mounted }`: a slot 
 first list and not the second is the sentence "this placement does not host it".
 
 **Declaring no accessory changes nothing.** The wrappers exist only when a factory
-really returned a blueprint, so every mounted path is what it was before they existed.
+really returned a blueprint, so every mounted path is what it was before they existed —
+including the top band, which is a plain centred stack until a `trailing` accessory
+gives it something to reserve for. With one declared, the band becomes a row: the strip
+centres in the box beside the accessory rather than on the whole band (a hugging cluster
+therefore sits half the accessory's width off the band's centre, by design), and no tab
+is ever under it at any tab count.
 
 **`railWidth`** is the sidebar rail's width dim — content-sized by default. A rail
 states its band and lets its labels adapt inside it; a hugging rail at a 1.4x locale

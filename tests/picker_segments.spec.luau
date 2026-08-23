@@ -24,6 +24,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
+local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
@@ -846,6 +847,18 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 		expect(#seen).toBe(0)
 		expect(core:lastError()).toBeNil()
 		p.dispose()
+	end)
+
+	--[[ ...AND IT IS ON THE REGISTER (ADR-0040 B-20). The ordering change REPLACES
+		behaviour a caller could have observed rather than adding a refusal, which is
+		the B-3 precedent for owing a row; this case is the half that keeps the record
+		and the live behaviour from drifting apart, in the shape
+		`tests/api_surface.spec.luau` uses for the two schema-shaped rows. ]]
+	it("the register records it: ADR-0040 carries the one-turn row", function()
+		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
+		expect(string.find(record, "| B-20 |", 1, true) ~= nil).toBe(true)
+		expect(string.find(record, "`newPicker`'s activation ORDER", 1, true) ~= nil).toBe(true)
+		expect(string.find(record, "one transaction", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("...and a pick that STANDS still notifies exactly once", function()

@@ -25,6 +25,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local serde = require("@lune/serde")
+local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
 local tab_view = require("../src/controls/tab_view")
@@ -1273,6 +1274,18 @@ describe("§6: a declared `hug` bottom band centres and scrolls, like every othe
 		expect(w.tv.dump().sizing).toBe("fill")
 		expect(w.adapter.node("/S/Tabs/BottomHome/then/BottomBand/Strip") ~= nil).toBe(true)
 		expect(w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand")).toBeNil()
+	end)
+
+	--[[ ...AND IT IS ON THE REGISTER (ADR-0040 B-21). Shipped geometry moves for any
+		caller who declared `hug` at this placement, and `p1_glade` is one as of
+		ADR-0045 — recorded by the B-18 precedent, which owes a row for a change no
+		fixture moves through today precisely because the next reader tuning against
+		the old shape has no other way to learn it changed. ]]
+	it("the register records it: ADR-0040 carries the hug-band row", function()
+		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
+		expect(string.find(record, "| B-21 |", 1, true) ~= nil).toBe(true)
+		expect(string.find(record, 'DECLARED `sizing = "hug"`', 1, true) ~= nil).toBe(true)
+		expect(string.find(record, "centred scroller", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a declared hug band is CENTRED — measured, not named", function()
