@@ -61,6 +61,10 @@ local expandPlate = require("./expand_plate")
 -- as `solver.auditPlacement`. It reads no solve state, which is why it is the
 -- one block of this file that could become a sibling module unchanged.
 local placementAudit = require("./placement_audit")
+-- `placement`: the arrange pass's pure arithmetic — the anchor factors, the two
+-- offset helpers, cross-axis alignment and main-axis distribution. Functions on
+-- numbers, so it takes no `Deps` at all.
+local placementLib = require("./placement")
 -- the main-axis shrink pass and its degrade cascade (§2.4 + director ruling 1).
 -- It takes `SHRINK_DEPS` below rather than closing over anything of this file's.
 local shrinkLib = require("./shrink")
@@ -69,6 +73,9 @@ local shrinkLib = require("./shrink")
 -- `shrink`: it takes `GRID_DEPS` below, plus the two helpers declared too far down
 -- this file to sit in a load-time record, and holds no state of its own.
 local gridLib = require("./grid")
+-- `flow`: the wrapping stacks' line partition and the plan both passes share. It
+-- takes `FLOW_DEPS` below — the same three helpers `GRID_DEPS` carries.
+local flowLib = require("./flow")
 local num = require("../num")
 -- bound at module scope: `solver.luau` records that a per-call allocation on
 -- the measure path is a bench regression this repository has already paid for
@@ -506,6 +513,13 @@ local GRID_DEPS: gridLib.Deps = {
 	dim = dim,
 	sides = sides,
 }
+
+-- ...AND WHAT `src/layout/flow.luau` NEEDS, which is the SAME THREE, so it is the
+-- same record rather than a second copy of it. Two modules asking the solver for
+-- `measure`/`dim`/`sides` is not a coincidence — it is what a pure measure-side
+-- helper needs, and building the forwarder twice is how the two ends up reading a
+-- different `measure` after someone edits one of them.
+local FLOW_DEPS: flowLib.Deps = GRID_DEPS
 
 -- resolve one axis of `node` given the limit and a content thunk
 -- `axisAbsorbs` — the relayout-BOUNDARY predicate, which mirrors `resolveAxis`
@@ -1070,131 +1084,24 @@ local function restoreScope(ctx: Ctx, w: number, h: number, key: string)
 	ctx.containerW, ctx.containerH, ctx.scopeKey = w, h, key
 end
 
---[[ ===== FLOW-WRAP (docs/plans/parity-round3.md, item A) =============
-
-	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` reach this file as the
-	kinds `hwrap` / `vwrap`: Roblox's `UIListLayout.Wraps`, which Facet had no
-	spelling for at all. It is a NATIVE branch and deliberately not a public
-	`Layout` protocol — the round-3 Phase 0 verdict, whose one carrying reason is
-	that this file's three newest correctness mechanisms (the measure memo's cache
-	key, the incremental-arrange reuse skip, the placement-prop audit) are each
-	sound only as an ENUMERATION over a closed file, and consumer code inside the
-	solve makes all three unenumerable at once.
-
-	IT ADDS ONE PROP AND NO ALIGNMENT VOCABULARY, and that is a measurement rather
-	than a preference. Probed live in Studio on 2026-08-13 (300x400 box, six 100x40
-	items, so 80px of lines in 400px of container): wrapped lines are packed with
-	NO extra space between them, and the whole BLOCK is placed on the cross axis by
-	the container's existing alignment property — `Top` 0, `Center` 160, `Bottom`
-	320, exactly. A ragged line put line 2 at y=90, its tallest item, not at 40. So
-
-	    the block of lines  -> `align`      (Roblox VerticalAlignment/Horizontal…)
-	    an item in its line -> `lineAlign`  (Roblox ItemLineAlignment)
-	    along the main axis -> `distribute` (Roblox HorizontalFlex/VerticalFlex)
-
-	map one-to-one onto words that already ship, and CSS's `align-content` (space
-	between LINES) has no native counterpart to be parity with.
-
-	ONE `gap`, BOTH AXES, for the same reason: `UIListLayout` has a single
-	`Padding`, and a `rowGap` on `UI.HStack`/`UI.VStack` would be accepted and
-	ignored on every stack that does not wrap — the §4 violation the placement
-	audit exists to end. (`UI.Grid` has `rowGap` because its two pitches are
-	genuinely different arithmetic; here they are the same number.)
-]]
-
--- THE LINE PARTITION, AND IT IS A PURE FUNCTION ON PURPOSE.
+-- ===== FLOW-WRAP: THE LINE PARTITION AND THE SHARED PLAN =================
 --
--- `(childMainExtents, innerMain, gap) -> lines`, reading nothing else — no node,
--- no ctx, no clock. Two properties fall out of that and both are load-bearing:
--- measure and arrange cannot derive different partitions for the same numbers
--- (this library's four-times-fixed defect class, see `gridColumnPlan` in
--- `src/layout/grid.luau`), and the
--- partition is drivable by a headless fuzz with no tree at all
--- (`tests/flow_wrap.spec.luau`).
+-- MOVED to `src/layout/flow.luau` — its header carries the whole of the
+-- reasoning that used to live here (the round-3 Phase 0 verdict, the live Studio
+-- probe that fixed the three alignment words, and why one `gap` serves both
+-- axes), unabridged.
 --
--- GREEDY, which is what the engine does and what CSS does: an item joins the
--- current line if it still fits with a gap in front of it, and starts a new one if
--- it does not. An item that fits on NO line still gets a line — of its own —
--- because the alternative is dropping it; `arrange` clamps it to the line and
--- files the diagnostic. An UNBOUNDED offer (`math.huge`, reachable from measure
--- and from a sideways scroller) yields exactly one line, which is the honest
--- answer: infinity cannot be wrapped.
-local function flowPartition(
-	mains: { number },
-	innerMain: number,
-	gap: number
-): { { first: number, last: number, main: number, cross: number } }
-	local lines: { { first: number, last: number, main: number, cross: number } } = {}
-	local first, used = 1, 0
-	for i = 1, #mains do
-		local m = mains[i]
-		if i == first then
-			used = m
-		elseif used + gap + m <= innerMain then
-			used += gap + m
-		else
-			table.insert(lines, { first = first, last = i - 1, main = used, cross = 0 })
-			first = i
-			used = m
-		end
-	end
-	if #mains > 0 then
-		table.insert(lines, { first = first, last = #mains, main = used, cross = 0 })
-	end
-	return lines
-end
-
--- ...AND THE PLAN THE TWO PASSES SHARE, cached on the context and keyed by the
--- box, exactly as `src/layout/grid.luau`'s `gridColumnPlan` is and for the
--- identical reason.
+-- The short version of why it could leave: `docs/handoff/SOURCE_CAP_LEDGER.md`'s
+-- row for this file names it as the next seam, and its trigger is a STATE rather
+-- than a number — the extraction PRECEDES a round's own changes. `flowPartition`
+-- was already exported as `solver.flowPartition` because it reads no node and no
+-- `ctx`, which is the one-way test written down before the split, and `flowPlan`
+-- reads only `measure`, `dim` and `sides`, handed over as `FLOW_DEPS` beside
+-- `GRID_DEPS` above.
 --
--- It owns the measurement as well as the partition: the child extents ARE the
--- partition's input, so deriving them in one pass and the lines in the other is
--- the disagreement this shape exists to make impossible. Every extent here
--- INCLUDES the child's margins, because a margin occupies line space.
-local function flowPlan(ctx: Ctx, node: Node, isH: boolean, innerMain: number, innerCross: number, gap: number): any
-	local key = `{innerMain}|{innerCross}|{gap}`
-	local cached = ctx.flowLines[node.id]
-	if cached ~= nil and cached.key == key then
-		return cached.value
-	end
-	local children = node.children or {}
-	local mains: { number } = {}
-	local crosses: { number } = {}
-	local sizes: { any } = {}
-	for idx, child in children do
-		local mt, mr, mb, ml = sides(child.margin)
-		local w, h = measure(ctx, child, if isH then innerMain else innerCross, if isH then innerCross else innerMain)
-		sizes[idx] = { w = w, h = h, mt = mt, mr = mr, mb = mb, ml = ml }
-		-- A `fill` MAIN DIMENSION TAKES THE WHOLE LINE, and it has to be said here
-		-- rather than left to `measure`. `resolveAxis` can only report CONTENT for a
-		-- `fill` axis (the same fact the aspect-with-fill repair above `measure`
-		-- documents), so a `fill`-width Box would enter the partition at ZERO and
-		-- three of them would share one line at zero pixels each — a row of invisible
-		-- children with nothing to say. "Fill" means "take the extent the parent
-		-- offers", and on a wrapping stack the extent it offers IS the line, so it
-		-- takes the line. `arrange` files the diagnostic that says so.
-		local mainDim = dim(child, if isH then "w" else "h")
-		local ownMain = if isH then w + ml + mr else h + mt + mb
-		mains[idx] = if mainDim.type == "fill" and innerMain ~= math.huge then innerMain else ownMain
-		crosses[idx] = if isH then h + mt + mb else w + ml + mr
-	end
-	local lines = flowPartition(mains, innerMain, gap)
-	local totalCross, maxMain = 0, 0
-	for li, line in lines do
-		local lineCross = 0
-		for i = line.first, line.last do
-			lineCross = math.max(lineCross, crosses[i])
-		end
-		line.cross = lineCross
-		-- the lines are PACKED (the probe): one gap between them and nothing else
-		totalCross += lineCross + (if li > 1 then gap else 0)
-		maxMain = math.max(maxMain, line.main)
-	end
-	local value = { lines = lines, sizes = sizes, mains = mains, totalCross = totalCross, maxMain = maxMain }
-	ctx.flowLines[node.id] = { key = key, value = value }
-	return value
-end
+-- Re-exported under its own name because that is what `tests/flow_wrap.spec.luau`
+-- and every doc call it.
+solver.flowPartition = flowLib.partition
 
 -- content sizes per kind (pre-dim resolution), used by measure
 local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
@@ -1518,7 +1425,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- is left over and says so.
 	if node.kind == "hwrap" or node.kind == "vwrap" then
 		local wrapH = node.kind == "hwrap"
-		local plan = flowPlan(
+		local plan = flowLib.plan(
+			FLOW_DEPS,
 			ctx,
 			node,
 			wrapH,
@@ -2034,58 +1942,29 @@ end
 -- `tests/placement_audit.spec.luau` and every doc call it.
 solver.auditPlacement = placementAudit.auditPlacement
 
-local ANCHOR_FACTORS: { [string]: { number } } = {
-	topLeft = { 0, 0 },
-	top = { 0.5, 0 },
-	topRight = { 1, 0 },
-	left = { 0, 0.5 },
-	center = { 0.5, 0.5 },
-	right = { 1, 0.5 },
-	bottomLeft = { 0, 1 },
-	bottom = { 0.5, 1 },
-	bottomRight = { 1, 1 },
-}
-
--- offsetPx(value, extent): an offset in pixels. A number passes through; the
--- `{ scale, offset }` form is a FRACTION OF THE PARENT'S INNER EXTENT plus a px
--- adjustment (ADR-0022 Decision 6) — the shape a marker overlay needs,
--- because a minimap dot's position is a share of the map and not a pixel count.
--- Rounded, because every other placement in this solver is: a marker on a
--- half-pixel is a marker the engine antialiases into a smudge.
-local function offsetPx(value: any, extent: number): number
-	if type(value) == "number" then
-		return value
-	end
-	if type(value) ~= "table" then
-		return 0
-	end
-	local scale = if type(value.scale) == "number" then value.scale else 0
-	local offset = if type(value.offset) == "number" then value.offset else 0
-	return roundPx(scale * extent + offset)
-end
-
--- The extent a `fill` anchor child may take once its own offset is paid for.
--- Hoisted out of the arrange loop: the solver is perf-pinned, and this used to be
--- a closure allocated per anchor child per solve.
-local function offsetFill(available: number, offset: number, factor: number): number
-	if offset == 0 then
-		return available
-	end
-	local facing = if offset > 0 then 1 - factor else factor
-	if facing <= 0 then
-		return available -- anchored to the edge it is being pushed past
-	end
-	return math.max(0, available - math.abs(offset) / facing)
-end
-
-local function alignOffset(align: string?, avail: number, size: number): number
-	if align == "center" then
-		return math.floor((avail - size) / 2)
-	elseif align == "end" then
-		return avail - size
-	end
-	return 0
-end
+-- ===== THE ARRANGE PASS'S PURE ARITHMETIC =================================
+--
+-- MOVED to `src/layout/placement.luau` on 2026-08-22 — `ANCHOR_FACTORS`,
+-- `offsetPx`, `offsetFill`, `alignOffset` and `distributionOf` (whose body sat
+-- below the shrink pointer). Its header carries the rationale each of them used
+-- to state here, unabridged.
+--
+-- The short version of why they could leave: not one of them reads a node, a
+-- `ctx` or a mutable upvalue of this file — they are functions on numbers — and
+-- `alignOffset` has been crossing a module boundary BY VALUE since the grid
+-- split, because it is declared below `grid.arrange`'s call site and a closure
+-- naming it there would resolve the nil global. `docs/handoff/SOURCE_CAP_LEDGER.md`
+-- names this block as the seam behind `flowPartition`/`flowPlan`, and its trigger
+-- is a STATE: the extraction PRECEDES a round's own changes.
+--
+-- Bound locally rather than called through the module table because every one of
+-- them is on the per-child arrange path, where a table index per call is a bench
+-- regression this file has already paid for once.
+local ANCHOR_FACTORS = placementLib.ANCHOR_FACTORS
+local offsetPx = placementLib.offsetPx
+local offsetFill = placementLib.offsetFill
+local alignOffset = placementLib.alignOffset
+local distributionOf = placementLib.distributionOf
 
 -- a px number as an author would read it back: whole when it is whole (an
 -- authored `itemExtent = 56` must not be quoted back as "56.00"), two places
@@ -2139,31 +2018,6 @@ end
 -- ONE function, both callers, exactly as before: the measure branch's PASS 1.5
 -- and arrange's own block each call `shrinkLib.stack`. A second copy is the
 -- "measured one shape, arranged another" defect this file has fixed four times.
-
--- MAIN-AXIS DISTRIBUTION (§2.6). Returns (lead, step): the pixels before the
--- first child, and the pixels added to every gap between children. Both 0 for
--- `"start"`, which is why the default is byte-identical to the hard-anchored
--- cursor this branch always had.
---
--- One child is not a special case in the arithmetic, and the answers it falls out
--- with are CSS's: `spaceBetween` pins it at the start (there is no gap to fill),
--- `spaceAround` and `spaceEvenly` centre it.
-local function distributionOf(mode: string, slack: number, count: number): (number, number)
-	if slack <= 0 or count <= 0 then
-		return 0, 0
-	elseif mode == "center" then
-		return slack / 2, 0
-	elseif mode == "end" then
-		return slack, 0
-	elseif mode == "spaceBetween" then
-		return 0, if count > 1 then slack / (count - 1) else 0
-	elseif mode == "spaceAround" then
-		return slack / count / 2, slack / count
-	elseif mode == "spaceEvenly" then
-		return slack / (count + 1), slack / (count + 1)
-	end
-	return 0, 0
-end
 
 -- arrange pass: assign rects into out[id]
 -- Copy a whole subtree's previous entries forward, unchanged. Used only when the
@@ -3082,14 +2936,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- THE WRAPPING STACKS (round 3 item A). This is the flow-`grid` loop above with
 	-- a RAGGED advance instead of `i += cols`: form a line, take its cross extent
 	-- from its tallest item, place, advance — except that the partition is not
-	-- re-derived here. It comes from `flowPlan`, which measure also called, so the
+	-- re-derived here. It comes from `flow.plan`, which measure also called, so the
 	-- two passes cannot disagree about where the lines break.
 	if node.kind == "hwrap" or node.kind == "vwrap" then
 		local isH = node.kind == "hwrap"
 		local children = node.children or {}
 		local innerMain = if isH then innerW else innerH
 		local innerCross = if isH then innerH else innerW
-		local plan = flowPlan(ctx, node, isH, innerMain, innerCross, gap)
+		local plan = flowLib.plan(FLOW_DEPS, ctx, node, isH, innerMain, innerCross, gap)
 
 		-- `stretch` IS REFUSED HERE, NOT REINTERPRETED. On a single-line stack the
 		-- word has one meaning — "a child fills its line on the cross axis". On a
@@ -3702,7 +3556,6 @@ solver.sides = sides
 -- gap) -> lines`, reading no node and no ctx — so a fuzz can drive it with no tree
 -- at all, which is half of why it was written this way. The other half is that
 -- measure and arrange both go through it and therefore cannot disagree.
-solver.flowPartition = flowPartition
 
 -- ---- THE STAGE 1 REPORT ------------------------------------------------------
 --
