@@ -11,8 +11,10 @@ require("./fusion_vendor.spec")
 require("./conformance/conformance.spec")
 require("./replication.spec")
 require("./layout.spec")
+require("./transform_footprint.spec")
 require("./focus.spec")
 require("./mount.spec")
+require("./node_facts.spec")
 -- MicroProfiler phase scopes (roadmap Step 9, PL-8): the closed scope set, its
 -- cardinality bound, and the balance guarantee proved through a recording hook
 -- pair — because Lune has no debug.profilebegin and the instrumented branch is

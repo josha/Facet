@@ -3161,6 +3161,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	function list.scrollPath(): string?
 		return hostedDelivery.scrollPath
 	end
+	--[[ A ROW'S CURRENT 1-BASED INDEX IN `spec.rows` (gap 40, framework-gaps-
+		phase2: "`list.api.positionOf(key)`"). An INDEX, not a pixel — for where a
+		key is painted see `screenRectOf`/`scrollPosition` instead; this answers
+		"where does this key sit in the data order right now", which a consumer
+		otherwise hand-rolled as a linear scan over its own copy of `rows` (the
+		exact shape `examples/gallery/scenarios/row_capabilities.luau`'s local
+		`indexOf` still is, for app-owned data the framework never sees).
+
+		Free: `indexByKey` is the live windowing map every hover/drag/pin path in
+		this file already reads off `window` — this is the first PUBLIC door onto
+		it, not new bookkeeping. `nil` for a key not in the current `rows`. ]]
+	function list.positionOf(key: string): number?
+		return (indexByKey:get() :: { [string]: number })[key]
+	end
 	-- deterministic diagnostic summary (§10.2 dump form; uniform control seam)
 	function list.dump()
 		local windowKeys = {}

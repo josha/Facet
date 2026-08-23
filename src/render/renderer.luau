@@ -366,17 +366,35 @@ function renderer.attach(
 	-- chain, so a list inside a scrolled panel still answers where it is drawn —
 	-- and presentation offsets accumulate with them, so a shifted surface answers
 	-- where it is drawn too.
-	local function screenRectOf(path: string): any
+	--
+	-- `relativeTo` (gap 37, framework-gaps-phase2): optional second path whose
+	-- WINDOW-space origin is subtracted from the answer, so a caller who wants
+	-- "where is A inside B" gets it in one call instead of two `screenRectOf`
+	-- reads and a hand-subtraction — the exact pattern three call sites in
+	-- RascalRally's `StoryFlow.luau` (`_layerRectOf`/`_centreOf`) had each grown
+	-- their own copy of. `nil` when either node is not live, same as the
+	-- one-argument form; a node relative to ITSELF is `{x=0,y=0,w,h}`.
+	local function screenRectOf(path: string, relativeTo: string?): any
 		local rect = lastRects[path]
 		if rect == nil then
 			return nil
 		end
 		local dx, dy = scrollShift(path)
 		local px, py = presentationShift(path)
-		if dx == 0 and dy == 0 and px == 0 and py == 0 then
-			return rect
+		local out = if dx == 0
+				and dy == 0
+				and px == 0
+				and py == 0
+			then rect
+			else { x = rect.x - dx + px, y = rect.y - dy + py, w = rect.w, h = rect.h }
+		if relativeTo == nil then
+			return out
 		end
-		return { x = rect.x - dx + px, y = rect.y - dy + py, w = rect.w, h = rect.h }
+		local origin = if relativeTo == path then out else screenRectOf(relativeTo)
+		if origin == nil then
+			return nil
+		end
+		return { x = out.x - origin.x, y = out.y - origin.y, w = out.w, h = out.h }
 	end
 	-- the same window-space answer over a solve's FRESH rects: the visibility
 	-- pass runs before `lastRects` is updated, and culling this frame's paths
@@ -1038,9 +1056,14 @@ function renderer.attach(
 				if node.props.hidden == true then
 					authoredHidden[node.path] = true
 				end
-				-- read at mount so a node born faded/scaled/rotated paints that way on
-				-- its FIRST frame; the write happens after the handle exists, below
-				if node.props.opacity ~= nil or node.props.scale ~= nil or node.props.rotation ~= nil then
+				-- read at mount so a node born faded/scaled/rotated/offset paints that
+				-- way on its FIRST frame; the write happens after the handle exists, below
+				if
+					node.props.opacity ~= nil
+					or node.props.scale ~= nil
+					or node.props.rotation ~= nil
+					or node.props.offset ~= nil
+				then
 					readAuthoredPresentation(node)
 				end
 			end
@@ -2732,15 +2755,24 @@ function renderer.attach(
 		-- resolved inline because the LIVE value has to be read off the tree, and the
 		-- tree read is worth doing once per path even when a signal fired twice.
 		local hiddenTouched: { string }? = nil
-		-- ...and the same collection for the authored presentation triple (ADR-0026).
-		-- One list, not three: they share one stored record and one re-read.
+		-- ...and the same collection for the authored presentation quad (ADR-0026,
+		-- `offset` added by amendment, gap 16 framework-gaps-phase2). One list,
+		-- not four: they share one stored record and one re-read.
 		local presentationTouched: { string }? = nil
 		for _, entry in dirty do
 			if entry.prop == "hidden" and entry.path ~= nil then
 				hiddenTouched = hiddenTouched or {}
 				table.insert(hiddenTouched :: { string }, entry.path)
 			end
-			if entry.path ~= nil and (entry.prop == "opacity" or entry.prop == "scale" or entry.prop == "rotation") then
+			if
+				entry.path ~= nil
+				and (
+					entry.prop == "opacity"
+					or entry.prop == "scale"
+					or entry.prop == "rotation"
+					or entry.prop == "offset"
+				)
+			then
 				presentationTouched = presentationTouched or {}
 				table.insert(presentationTouched :: { string }, entry.path)
 			end
@@ -3143,6 +3175,38 @@ function renderer.attach(
 	-- autoscroll bands) must use this one, or it targets the wrong row the moment
 	-- the list is scrolled or the surface is shifted.
 	controller.screenRectOf = screenRectOf
+
+	--[[ A NODE HANDS BACK ITS OWN MOUNTED PATH (gap 15, framework-gaps-phase2).
+		`handles` is this surface's live path -> instance-handle registry, so it
+		already answers "what is actually mounted right now" — the fact a caller
+		who only knows the DECLARED id chain (never told at what depth an
+		ancestor `UI.When` sits) previously had no honest way to reach except
+		enumerating every live path and substring-scanning it by hand
+		(`examples/reference/p5_wardrobe/init.luau`'s `adapter.paths()` fallback,
+		dead code because no adapter ever grew that dump — this is the API that
+		makes it unnecessary).
+
+		Exact match first (the common case: nothing between the declared node and
+		the surface root spliced a segment in), then a `/then`-stripped compare
+		against every live path — `paths.stripThenSegments` is the one home for
+		that arithmetic, shared with any future caller. Returns the FIRST live
+		path whose stripped form equals the declared one; a declared chain that
+		names no live node, or genuinely matches more than one (an author-level
+		ambiguity this function does not try to arbitrate), answers through the
+		same "first found" rule rather than throwing — callers already treat a
+		`nil`/best-effort path the way `stageHost`/`screenRectOf` do. ]]
+	local function mountedPathOf(declaredPath: string): string?
+		if handles[declaredPath] ~= nil then
+			return declaredPath
+		end
+		for livePath in handles do
+			if paths.stripThenSegments(livePath) == declaredPath then
+				return livePath
+			end
+		end
+		return nil
+	end
+	controller.mountedPathOf = mountedPathOf
 
 	--[[ THE SCROLLBAR GUTTER A HOST SPENT, for a node that must align ACROSS it.
 
