@@ -208,6 +208,11 @@ describe("the teaching corpus spells the values the theme system already names",
 				{ line = "local x = UI.VStack({ gap = 4 })", names = '"xs"' },
 				{ line = "local x = UI.Grid({ rowGap = 16 })", names = '"m"' },
 				{ line = "local x = UI.Screen({ padding = 24 })", names = '"l"' },
+				-- THE FLIP (ADR-0047, task G-SPACE): `gap = 6` used to be the negative
+				-- control immediately below — the one value NO name resolved to. The
+				-- scale grew a rung for it (`space.tight`, the missing spacing step),
+				-- and this is the alarm that comment said would go off.
+				{ line = "local x = UI.HStack({ gap = 6 })", names = '"tight"' },
 			}
 		do
 			local planted = plantedDelta(case.line)
@@ -225,14 +230,20 @@ describe("the teaching corpus spells the values the theme system already names",
 
 	--[[ THE NEGATIVE DIRECTION, and it is the half that makes the gate mechanical
 		rather than a judgement call. A number NO name resolves to is not reported,
-		because there is nothing to rewrite it to — `gap = 6` is the corpus's single
-		most common spacing value and the framework concedes in `snapshot.luau` that
-		no space step is 6. The day the scale grows that rung this case flips, which
-		is exactly the alarm it should be. ]]
+		because there is nothing to rewrite it to.
+
+		`gap = 6` FLIPPED (ADR-0047, task G-SPACE, 2026-08-23): it was the corpus's
+		single most common spacing value and this comment's own prior wording said
+		"the framework concedes in `snapshot.luau` that no space step is 6... the
+		day the scale grows that rung this case flips, which is exactly the alarm
+		it should be." The scale grew a rung — `space.tight` — and `gap = 6` moved
+		to "catches a spacing literal a space step already names" above, which is
+		the flip firing exactly as designed. `gap = 7` takes its seat in the
+		negative list below: still nothing on the ladder resolves to it. ]]
 	it("a value no name resolves to is NOT reported — there is nothing to rewrite it to", function()
 		for _, line in
 			{
-				"local x = UI.HStack({ gap = 6 })",
+				"local x = UI.HStack({ gap = 7 })",
 				"local x = UI.HStack({ gap = 2 })",
 				"local x = UI.VStack({ padding = 12 })",
 				'local x = UI.Text({ text = "x", textSize = 13 })',

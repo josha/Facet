@@ -155,7 +155,16 @@ local function neutralDefinition(): any
 					trackInset = 12, -- its inset from the row's right edge
 				},
 				stepper = { valueMinWidth = 32 }, -- stepper readout's stable width
-				label = { gap = 6 }, -- label.luau icon->title gap (no space step is 6)
+				-- label.luau icon->title gap. Kept as its own authored literal
+				-- (not re-pointed at the `space.tight` step ADR-0047 added, which
+				-- resolves to the same 6 at neutral) because moving it into a
+				-- resolve-time derivation would REMOVE an authored key from this
+				-- definition and move Studio Neutral's own content stamp — the
+				-- exact hazard the `gutter`/`tight` notes below warn a NEW
+				-- addition away from; this is a pre-existing one. A package that
+				-- wants this gap to track its own `space.tight` still can, by
+				-- naming it: `controls.label.gap = "tight"`.
+				label = { gap = 6 },
 				image = { defaultSize = 48 }, -- async_image default square
 				-- Table's own chrome: sizes the shared role ladder does not name,
 				-- each replacing a literal that used to sit inside table.luau
@@ -1801,6 +1810,31 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		so neither half can drift away from the other. ]]
 	if type(out.space.gutter) ~= "number" then
 		out.space.gutter = math.max(SCREEN_GUTTER_FLOOR, out.space.s)
+	end
+
+	--[[ 4a-ante-bis. THE MISSING SPACING STEP (task G-SPACE, ADR-0047, the
+		declarative-purity audit's `gap = 6` finding). `xs` and `s` are the
+		ladder's two smallest REQUIRED rungs and nothing named the value halfway
+		between them, so 61 sites across 25 files spent a raw `6` because there
+		was nowhere else to point it — `tools/lune/check_theme_drift.luau`'s own
+		header names the exact private channel: "the framework concedes this in
+		`snapshot.luau`'s own `label = { gap = 6 }`" (below, in `controls.label`).
+
+		`tight` is a SEVENTH derived step, one rung tighter than `s`: the
+		midpoint of the package's own `xs`/`s`, which is what makes it correct
+		for every package's ladder rather than a Studio-Neutral-only literal —
+		it answers 6 at neutral (xs=4, s=8) and moves with a package that
+		re-ladders either neighbour. A package that authors its own `space.tight`
+		still wins, exactly as `gutter` does above.
+
+		FILLED HERE, NOT IN THE NEUTRAL DEFINITION, for the reason every derived
+		metric under this comment carries: an authored `metrics.space.tight`
+		entry would move the authored metrics — and therefore the CONTENT STAMP —
+		of every package derived from Studio Neutral, for a value no package
+		wrote. It is above the pixel-unit snap below, so a pixel package's
+		`tight` lands on its own grid, exactly like `gutter`. ]]
+	if type(out.space.tight) ~= "number" then
+		out.space.tight = (out.space.xs + out.space.s) / 2
 	end
 
 	-- 4a-bis. THE ROW-ACTION TRAY'S OWN GUTTER (director device round 2026-08-12).

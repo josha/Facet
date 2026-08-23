@@ -136,14 +136,39 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 	screen edge has a physical floor that the rest of a spacing ladder does not —
 	and a package that authors one of its own still wins.
 
-	It is listed here, beside the required steps, because THIS list is what
+	`tight` is THE MISSING SPACING STEP (task G-SPACE, the declarative-purity
+	audit's `gap = 6` finding, ADR-0047). `xs` (4) and `s` (8) are the ladder's
+	two smallest required rungs and nothing named the value HALFWAY BETWEEN
+	them, so 61 sites across 25 files (and the framework's own
+	`controls.label.gap`) spent a raw `6` because there was nowhere else to
+	point it — the exact "private channel" `tools/lune/check_theme_drift.luau`'s
+	header names. It is derived in `themes/snapshot.resolve` as
+	`(space.xs + space.s) / 2` — a package that authors its own `space.tight`
+	still wins, exactly as `gutter` does — which is what keeps it correct for
+	every package's own ladder rather than a Studio-Neutral-only constant: it
+	answers 6 at neutral (4, 8) and moves with a package that re-ladders `xs`/`s`.
+
+	NAMING DOCTRINE (do not invent a new class — see ADR-0047 for the full
+	argument): the five REQUIRED steps are relative-size letters (xs/s/m/l/xl),
+	a closed vocabulary with no room between two adjacent letters for a sixth.
+	Every step this framework has added to the ladder AFTER that initial five
+	shipped — `gutter` here, `strong`/`numeral` one ladder over in
+	`package.OPTIONAL_TYPE_ROLES` — took a semantic, ROLE-describing word
+	instead of a repositioned letter, DERIVED rather than authored in the
+	neutral definition (so no existing package's content stamp moves for a
+	value it never wrote). `tight` follows that same established doctrine: it
+	names what the step IS FOR (a gap tighter than the default `s` reading,
+	used across icon/label pairs, chip rows and compact stacks in the swept
+	corpus) rather than where it sits in the sequence.
+
+	Both are listed here, beside the required steps, because THIS list is what
 	`snapshot.isSpaceStep` and the blueprint boundary's refusal message are built
 	from. A step the resolver answers but the boundary refuses is the "the
 	documentation states what ships" defect the schema's own comment warns about,
 	one vocabulary down. Optional, so no package's compile changes and no content
 	stamp moves. ]]
-package.DERIVED_SPACE_STEPS = table.freeze({ "gutter" })
-package.SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl", "gutter" })
+package.DERIVED_SPACE_STEPS = table.freeze({ "gutter", "tight" })
+package.SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl", "gutter", "tight" })
 package.REQUIRED_CONTROL_SIZES = table.freeze({ "compact", "regular", "large" })
 package.CONTROL_SIZE_FIELDS = table.freeze({ "height", "paddingX", "iconSize" })
 -- THE SLOT VOCABULARY IS chrome_slots'. It used to be restated here and the two

@@ -537,6 +537,7 @@ describe("ten-foot metrics — proportion equality across the control set", func
 			"iconSizes.large",
 			"space.m",
 			"space.gutter",
+			"space.tight",
 		}
 		local ROLES = { "caption", "label", "body", "heading", "title", "control" }
 		local compared = 0

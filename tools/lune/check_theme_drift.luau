@@ -38,12 +38,17 @@
 --     spacing-and-type class specifically, and the hit-target floor and the
 --     `minColumnWidth` classes are swept by name rather than by grep;
 --   * it only fires when a theme NAME RESOLVES TO EXACTLY THAT NUMBER on the
---     neutral snapshot. `gap = 8` is a violation because `"s"` is 8; `gap = 6`
---     is not, because no space step is 6 and there is nothing to rewrite it to
---     (the framework concedes this in `snapshot.luau`'s own
---     `label = { gap = 6 }`). That is not a loophole, it is a pending finding:
---     the day the spacing scale grows a rung for 6, this lint starts failing all
---     sixty of those sites for free.
+--     neutral snapshot. `gap = 8` is a violation because `"s"` is 8. `gap = 6`
+--     USED TO be exempt for the same reason — no space step named it — and
+--     that was the pending finding this comment described: "the day the
+--     spacing scale grows a rung for 6, this lint starts failing all sixty of
+--     those sites for free." RESOLVED (ADR-0047, task G-SPACE, 2026-08-23):
+--     `space.tight` is that rung, and `gap = 6` is a violation now too — see
+--     `snapshot.luau`'s resolve-time derivation beside `space.gutter`. The
+--     framework's own `controls.label.gap = 6` stays a deliberate exception
+--     (ADR-0047 explains why: it is a theme-package metric field, validated
+--     number-only, that cannot take a string name — not a second pending
+--     finding).
 --
 -- WHAT "THE REWRITE CANNOT MOVE ONE PIXEL" ACTUALLY GUARANTEES, stated exactly
 -- because the first version of this file overstated it and shipped a regression

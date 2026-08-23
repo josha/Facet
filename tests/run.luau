@@ -776,6 +776,12 @@ require("./adaptive_defaults.spec")
 	floor uses — so a television with no theme package installed measures capped
 	lanes and scaled metrics (ADAPT-L1) ]]
 require("./ten_foot_metrics.spec")
+--[[ the missing spacing step (task G-SPACE, ADR-0047; the declarative-purity
+	audit's `gap = 6` finding): a seventh, derived space step naming the value
+	halfway between `xs` and `s` — resolves to 6 at neutral, authored beats
+	derived exactly as `space.gutter` does, and is legal in the same
+	gap/rowGap/padding/px= channels its neighbors are ]]
+require("./space_tight_step.spec")
 --[[ …and the channel that lets an APP put its own structural numbers on that
 	same ladder (ADR-0042, framework-gaps-phase2 gap 1): a reserved `app.*`
 	namespace an app declares once, that `isMetricPath` accepts, a package may
