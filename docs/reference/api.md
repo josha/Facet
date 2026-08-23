@@ -3155,10 +3155,10 @@ apply.
 > | `responder = "passive"` | on first tap on the UI | while engaged | on a tap outside, Cancel, or `resign()` |
 > | `presentModal()` | while open | yes | on dismiss |
 
-### `Facet.navBar`
+### `navBar`
 
-`Facet.navBar(spec) -> Blueprint` — the presenter-side surface-chrome seam
-(framework-gaps-phase2 item 13; W3-D, ADR-0053): a `UI.HStack` factory for the
+`Facet.navBar(spec) -> Blueprint` (W3-D, ADR-0053) — the presenter-side
+surface-chrome seam (framework-gaps-phase2 item 13): a `UI.HStack` factory for the
 back+title+trailing-actions bar a presented or compact-open detail surface
 draws at its own top. **Pure**: no core, no scope, no presenter reference of
 its own, so it composes with whatever placement the caller already decided —

@@ -188,6 +188,7 @@ replacement and their earliest removal version.
 | Capability | What it does | Reference |
 |---|---|---|
 | `newPresenter` | Owns which screens and modals are on screen, and their motion. | [api](../reference/api.md#newpresenter) |
+| `navBar` | The back+title+trailing chrome bar a presented surface draws at its own top. | [api](../reference/api.md#navbar) |
 | `newFocusGraph` | Derives keyboard and gamepad navigation from the solved layout. | [api](../reference/api.md#newfocusgraph) |
 | `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
 | `contribution` | The seam a composite uses to declare its whole input story. | [api](../reference/api.md#contribution) |
