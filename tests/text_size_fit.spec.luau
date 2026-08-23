@@ -280,6 +280,41 @@ describe('textSize = "fit": the solver picks the size, and paint writes what it 
 	end)
 end)
 
+--[[ THE PROP IS THE SHARED `textSize`, SO IT REACHES ALL FOUR TEXT-BEARING
+	CLASSES. `textOf` is one function with four callers, which is what makes that
+	true rather than a claim — but "one function" is exactly the sentence that goes
+	stale when a fifth caller is added and forgets the third return value, so the
+	classes are driven rather than reasoned about. ]]
+describe('textSize = "fit": every class that carries a textSize', function()
+	it("a Toggle fits its label into the box the switch leaves it", function()
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.Toggle({
+					id = "Tg",
+					label = "Enable the long option name",
+					value = customFactory.new():signal(false),
+					onActivate = function() end,
+					width = { type = "fixed", px = 200 },
+					height = { type = "fixed", px = 40 },
+					textSize = "fit",
+				}),
+			},
+		})
+		local adapter = mount(bp, { w = 400, h = 300 })
+		local painted = adapter.node("/S/Tg").props.textSize
+		local caption = themeSnapshot.neutral().type.caption
+		--[[ A Toggle's label column is its box MINUS the switch chrome, so this
+			label cannot hold its role size there and the fit comes down to the floor —
+			which is the answer, and the point: the prop is not silently ignored on a
+			class that reaches `textOf` through a different branch. ]]
+		expect(`painted={painted} floor={caption.size}`).toBe(`painted={caption.size} floor={caption.size}`)
+		expect(`below the body role: {painted < themeSnapshot.neutral().type.body.size}`).toBe(
+			"below the body role: true"
+		)
+	end)
+end)
+
 describe('textSize = "fit": the grammar is closed', function()
 	it("reads both spellings and nothing else", function()
 		expect(`bare={textFit.fitSpecOf("fit") ~= nil}`).toBe("bare=true")
