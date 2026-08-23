@@ -334,6 +334,86 @@ describe("the measure memo's key carries the offer only where the offer is read"
 		expect(answer(false)).toBe("140x33 size=9 lines=3")
 	end)
 
+	--[[ ═══ A CONTENT-TERMS `content` DIM (`lines`/`rows`) IS HEIGHT-FREE BY
+		CONSTRUCTION, AND THIS IS THE PROOF (framework-gaps-phase2 gap 3,
+		2026-08-23) ═════════════════════════════════════════════════════════════
+
+		The brief's own load-bearing warning: this campaign's C-1 (above) was a
+		height READ that `PLAN_HEIGHT_FREE` dropped from the cache key, so a
+		content-height dim must "declare its own key/plan interaction explicitly:
+		state in the code and prove in a measure_memo case which plan class it
+		takes and why." `measure_facts.memoPlan` answers it structurally: `t ==
+		"content"` was ALREADY in the height-free-eligible set before this dim
+		form existed (it is the same branch a bare, measuring `content` takes),
+		and neither `contentTermsPx` shape (`lines`, `rows`) reads `limit`/the
+		offer at any point — `lines` reads `ctx.metrics` (invariant for the whole
+		solve) plus the two numbers `layout_node.luau` stamped BEFORE the solve
+		started; `rows` reads only the `Dim` itself (`d.rows * d.of`, `of`
+		already resolved to a number at the same prop-normalization step). So
+		unlike C-1 — where `textSize = "fit"` genuinely reads the box, and the
+		exception had to be carved out — a content-terms `content` needs NO
+		exception: the answer is offer-invariant BY CONSTRUCTION, not merely
+		unbroken by the current test corpus.
+
+		THE SHAPE BELOW MIRRORS THE FIT CASE ABOVE DELIBERATELY: the same node
+		measured through a `hug`-capped ancestor (so it is asked at the OFFER
+		once and at the ancestor's resolved CAP again — genuinely two different
+		`maxH` values in one solve) armed vs. unarmed by a scroller elsewhere in
+		the tree (`ctx.hasScroll` gates the memo, so a scroll-free tree re-
+		derives every time and would look correct even with a broken key). Both
+		arms must agree, and the agreed answer must be the `lines` formula's own
+		— not the ancestor's cap, which is what a wrongly-dropped-`limit` bug
+		would leak in (the C-1 shape, applied to this dim instead of `textFit`). ]]
+	it("a content-terms `{ lines = n }` dim answers the SAME regardless of the offer it is asked at", function()
+		local function tree(withScroller: boolean): any
+			-- role "body" at Neutral: 4 lines -> ceil(4*16*1.2) = 77px, and NOT the
+			-- ancestor's cap (41) or its full offer (700) — the box that would leak
+			-- either number is exactly what this case is testing for
+			local ct = node("CT", "box", {
+				width = { type = "fixed", px = 140 },
+				height = { type = "content", lines = 4, scale = 1, textOffset = 0 },
+			})
+			-- a `hug` with a small cap, so its CHILD (`CT`) is measured once at the
+			-- 700px offer (the hug's own measure pass) and again once the hug
+			-- resolves to its 41px cap (arrange) — the fit case's own two-heights
+			-- mechanism, reused rather than reinvented
+			local box = node("Box", "vstack", {
+				width = { type = "fixed", px = 140 },
+				height = { type = "hug", max = 41 },
+			})
+			box.children = { ct }
+			local kids = { box }
+			if withScroller then
+				local inner =
+					node("B", "box", { width = { type = "fixed", px = 5 }, height = { type = "fixed", px = 5 } })
+				local scroll = node("Elsewhere", "scroll", {
+					axis = "y",
+					width = { type = "fixed", px = 10 },
+					height = { type = "fixed", px = 10 },
+				})
+				scroll.children = { inner }
+				table.insert(kids, scroll)
+			end
+			local root = node("screen", "vstack", {
+				width = { type = "fixed", px = 140 },
+				height = { type = "fixed", px = 700 },
+			})
+			root.children = kids
+			return root
+		end
+
+		local function answer(withScroller: boolean): number
+			local r = solver.solve(tree(withScroller), { w = 140, h = 700 }, { rootPolicy = "edgeToEdge" })
+			return r.rects["CT"].rect.h
+		end
+
+		-- THE MEMO MAY NOT CHANGE THE ANSWER (the same contract the fit case pins)
+		expect(answer(true)).toBe(answer(false))
+		-- ...and the agreed answer is the FORMULA's own, not the 700px offer or
+		-- the 41px cap either candidate wrong-key bug would have leaked
+		expect(answer(false)).toBe(77)
+	end)
+
 	it("a `vwrap` breaks its lines ON the offered height, so it is never height-free", function()
 		-- Mutation: empty `HEIGHT_COUPLED_KINDS`. `vwrap` partitions on `innerMaxH`, so
 		-- a replayed answer re-uses a partition computed for a different height and the

@@ -35,8 +35,28 @@ local nextId = 0
 
 local function randomDim(rng: Prng, allowFill: boolean): solver.Dim?
 	local roll = rng:range(1, 100)
-	if roll <= 30 then
-		return nil -- content (default)
+	if roll <= 22 then
+		return nil -- content (default): measures its own children
+	elseif roll <= 30 then
+		--[[ CONTENT-TERMS (framework-gaps-phase2 gap 3, 2026-08-23) — the C-1
+			LESSON APPLIED, not re-learned. C-1 (`textSize = "fit"`) was invisible
+			to every fuzz run until this file learned to generate the shape that
+			broke the cache key; an unfuzzed vocabulary is an unguarded one. `scale`/
+			`textOffset` are stamped here exactly as `render/layout_node.luau`'s
+			`stampContentTermsFacts` stamps them on the real pipeline, so a solve
+			against this tree exercises the SAME shape production code produces —
+			not an always-neutral stand-in that could hide a scale/offset bug the
+			way an unfuzzed `textFit` hid C-1. ]]
+		if rng:bool(0.5) then
+			return {
+				type = "content",
+				lines = rng:range(1, 6),
+				role = if rng:bool(0.4) then rng:pick({ "body", "control", "caption", "title" }) else nil,
+				scale = rng:pick({ 1, 1, 1.5 }),
+				textOffset = rng:pick({ 0, 0, 4, 10, 14 }),
+			} :: any
+		end
+		return { type = "content", rows = rng:range(1, 6), of = rng:range(10, 80) } :: any
 	elseif roll <= 55 then
 		return { type = "fixed", px = rng:range(1, 300) }
 	elseif roll <= 70 and allowFill then

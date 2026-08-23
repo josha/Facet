@@ -2465,7 +2465,12 @@ function snapshot.resolveSides(snap: any, value: any): any
 	return resolved or value
 end
 
-local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred" }
+-- `of` joined 2026-08-23 (framework-gaps-phase2 gap 3): a content-terms `rows`
+-- dim's per-row unit rides the SAME resolution `px`/`min`/`max`/`preferred`
+-- already get — `blueprint_schema.luau` carries the matching addition to its
+-- own copy of this list (construction-time validation; this one is
+-- resolution).
+local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred", "of" }
 
 -- resolveDim: a layout dimension whose numeric fields may be metric names
 function snapshot.resolveDim(snap: any, dim: any): any

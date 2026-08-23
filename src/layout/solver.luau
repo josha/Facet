@@ -583,6 +583,82 @@ local function containerRelativeSize(d: Dim, container: number): number
 	return math.max(0, roundPx(container * ((d :: any).fraction or 1)))
 end
 
+--[[ contentTermsPx(ctx, d) -> px — A BOX DECLARES ITS EXTENT IN CONTENT TERMS
+	(framework-gaps-phase2 gap 3; audit §3). `UI.Composition` already had this
+	vocabulary, LOCKED inside it (`Region` floors, `composition.floorPx`): a
+	scroller or panel outside a `Composition` had no way to say "big enough for
+	about N lines/rows" and got pinned in px instead, next to content that
+	scales with text preference and the ten-foot ladder. This is that same
+	arithmetic, published on the ordinary `dim` grammar every class already
+	shares.
+
+	TWO SHAPES, TWO UNITS — never confused, because `blueprint_schema` refuses
+	both on one dim:
+
+	  `{ type = "content", lines = n, role: string? }` — n lines of a
+	  TYPOGRAPHY ROLE (default "body"), through the SAME two calls
+	  `Facet.text.lineBox` makes (`text_metrics.reservedSize` then
+	  `.lineBoxPx`), so a raised text preference or the ten-foot ladder grows
+	  this box exactly as it grows the text it holds.
+
+	  `{ type = "content", rows = n, of = metric }` — n rows of a NAMED THEME
+	  METRIC (`"controlSizes.compact.height"`, a space step, a literal px…).
+	  `of` already arrived here AS A PLAIN NUMBER: `themeSnapshot.resolveDim`
+	  resolves it at prop-normalization time, the same pass that resolves
+	  `px`/`min`/`max`/`preferred`, so this is arithmetic on the `Dim` alone —
+	  it grows at the ten-foot ladder (theme metrics do) but NOT with the
+	  player's accessibility text-size preference (theme metrics never have —
+	  see `docs/adr/ADR-0049-content-terms-height.md` for why that split is the
+	  correct one and not a gap).
+
+	WHY `lines` DOES NOT SIMPLY CALL `textFitLib.facts({ metrics = ctx.metrics
+	})` THE WAY `composition.floorPx` DOES (found while wiring this up, and
+	worth stating so it is not re-discovered the hard way): `ctx.metrics` is
+	the snapshot `render/renderer.luau`'s `currentMetrics()` last RESOLVED —
+	its `preferredText.offset` is whatever the theme was last swapped/re-
+	resolved with, NOT necessarily this solve's live `preferredTextOffset`.
+	The renderer keeps that fact OUT of `themeMetrics` on purpose (re-resolving
+	a whole theme on every accessibility nudge would be wasteful) and instead
+	re-reads it fresh every solve as `prefOffset`, threading it straight into
+	`toLayoutNode` for every text node's own reservation. `d.scale`/
+	`d.textOffset` below are `layout_node.luau`'s `stampContentTermsFacts`
+	spending that SAME live pair, at the SAME prop-normalization step —
+	`ctx.metrics` is read here only for the ROLE's size/lineHeight, which the
+	snapshot always has current (it is rebuilt on every theme swap, unlike the
+	fast-changing text preference).
+
+	THE MEASURE-KEY ARGUMENT (this function's whole reason for existing where
+	it does rather than being pre-collapsed at prop-normalization time the way
+	`rows`'s `of` is): both shapes are PURE functions of `n`, `role`, `ctx.metrics`
+	and — for `lines` — the two ALREADY-RESOLVED numbers on the `Dim` itself.
+	Neither ever reads `limit` (the offer) or a child. That is exactly
+	`measure_facts.memoPlan`'s `PLAN_HEIGHT_FREE` promise, and it holds by
+	construction rather than by case analysis — see the comment on `memoPlan`
+	beside the `content` branch for the full argument and the C-1 lesson it is
+	built from. ]]
+local function contentTermsPx(ctx: Ctx, d: Dim): number
+	if d.lines ~= nil then
+		-- a synthetic `TextFacts` carrying the LIVE scale/offset `layout_node.luau`
+		-- stamped, paired with `ctx.metrics` for the role lookup — `text_fit.
+		-- lineBox` spends the same two calls `Facet.text.lineBox` publicly does,
+		-- so there is one arithmetic for "predict a text box", not a second copy
+		-- of it living here
+		-- `scale`/`textOffset` default to unscaled/no-offset for a tree built
+		-- directly against the solver (the fuzzer, a low-level spec) rather than
+		-- through `layout_node.luau`'s stamping — the live pipeline always
+		-- supplies both, so the default never masks a real solve
+		local facts = { scale = d.scale or 1, offset = d.textOffset or 0, metrics = ctx.metrics }
+		return textFitLib.lineBox({
+			facts = facts,
+			size = d.role or "body",
+			lines = d.lines :: number,
+			role = d.role,
+		})
+	end
+	-- rows: `of` is already a plain number (see the header above) — n rows of it
+	return (d.rows :: number) * (d.of :: number)
+end
+
 local function resolveAxis(
 	ctx: Ctx,
 	node: Node,
@@ -593,6 +669,8 @@ local function resolveAxis(
 ): number
 	if d.type == "fixed" then
 		return d.px :: number
+	elseif d.type == "content" and (d.lines ~= nil or d.rows ~= nil) then
+		return contentTermsPx(ctx, d)
 	elseif d.type == "containerRelative" then
 		-- AN UNBOUNDED CONTAINER IS THE SAME REFUSAL `percent` MAKES, and for the
 		-- same reason: a fraction of infinity is not a size. It happens when a
@@ -1249,9 +1327,20 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			`percent` cannot be computed against infinity; `fill` can. The four cases and
 			three negative controls are in `tests/container_relative_frame.spec.luau`. ]]
 		local mainDim = dim(node, if axis == "x" then "w" else "h")
+		--[[ A CONTENT-TERMS DIM IS DEFINITE TOO (framework-gaps-phase2 gap 3,
+			2026-08-23), found by this very diagnostic firing on `preferred_text`'s
+			`Form` — a `lines`/`rows` viewport nested inside another scroller's own
+			axis, exactly the shape this check exists to police. `mainDim.type ==
+			"content"` alone means "unbounded, resolves to the CONTENT" (the
+			historic reading, and still true for a BARE `content`); `lines`/`rows`
+			present means the opposite — a FORMULA over `ctx.metrics`, never the
+			offer, joining `fixed` as a definite extent this scroller can actually
+			present a smaller viewport than its canvas at. ]]
+		local mainDimIsContentTerms = mainDim.type == "content" and (mainDim.lines ~= nil or mainDim.rows ~= nil)
 		if
 			(if axis == "x" then innerMaxW else innerMaxH) == math.huge
 			and mainDim.type ~= "fixed"
+			and not mainDimIsContentTerms
 			and ctx.hiddenDepth == 0
 		then
 			table.insert(ctx.diagnostics, {

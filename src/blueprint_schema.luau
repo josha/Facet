@@ -88,6 +88,12 @@ export type PropSpec = {
 --            "hug"|"percent"|"minMax"|"aspect"|"containerRelative", ... }. Rejecting a
 --            bare number here is deliberate: `width = 100` used to fall through to
 --            content sizing.
+--            `type = "content"` alone measures the node's own children (the
+--            historic meaning). Adding `lines = n` or `rows = n, of = metric`
+--            (framework-gaps-phase2 gap 3) turns it into a FORMULA instead — "N
+--            lines of a typography role" / "N rows of a named theme metric" —
+--            for the box that must show LESS than all of its content (a
+--            scroller's viewport) and so cannot be answered by measuring it.
 -- "sides"    padding/margin: a number or { top?, right?, bottom?, left? }.
 -- "metric"   a THEME METRIC NAME (ADR-0019 §2): a space step ("xs".."xl") or a
 --            dotted path into the snapshot ("controls.slider.thumbSize",
@@ -200,6 +206,13 @@ local SPACE_STEP_LIST = table.concat(themePackage.SPACE_STEPS, " | ")
 -- that names a stale six-role set while the resolver accepts eight is exactly
 -- the "documentation states what ships" defect (constitution §14).
 local TYPE_ROLE_LIST = table.concat(themePackage.TYPE_ROLES, " | ")
+-- the SET twin of the list above, for the closed-role check a content-terms
+-- `lines` dim needs (framework-gaps-phase2 gap 3) — same source, same reason
+-- the list itself is derived rather than restated
+local TYPE_ROLE_SET: { [string]: boolean } = {}
+for _, role in themePackage.TYPE_ROLES do
+	TYPE_ROLE_SET[role] = true
+end
 local METRIC_HINT = `a spacing step ({SPACE_STEP_LIST}) or a theme metric path such as `
 	.. `"controls.slider.thumbSize" / "targetSizes.minimum"`
 
@@ -218,8 +231,15 @@ local function metricName(v: any): (boolean, string?)
 	return false, `'{v}' names no theme metric — use {METRIC_HINT}`
 end
 
--- numeric dimension fields that may carry a metric name instead of a number
-local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred" }
+-- numeric dimension fields that may carry a metric name instead of a number.
+-- `of` joined this list 2026-08-23 (framework-gaps-phase2 gap 3): a content-
+-- terms `rows` dim's per-row unit is "a metric name, a literal px number, or
+-- an additive list of either" — the SAME escape hatch `px`/`min`/`max`/
+-- `preferred` already grant, so it rides their existing validation loop below
+-- rather than a second copy of it. `themes/snapshot.luau` carries the same
+-- addition to its OWN copy of this list (`resolveDim`'s), which is what turns
+-- a metric name into a number at prop-normalization time.
+local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred", "of" }
 
 -- ===== the authored presentation domain (ADR-0026) =========================
 -- ONE ruling per property, read HERE for a static value and by the RENDERER for
@@ -403,6 +423,59 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 						return false, `{field}: a list takes numbers or {METRIC_HINT}, got {typeof(entry)}`
 					end
 				end
+			end
+		end
+		--[[ CONTENT-TERMS SIZING (framework-gaps-phase2 gap 3): `{ type = "content",
+			lines = n, role? }` or `{ type = "content", rows = n, of = metric }` — a
+			box declaring its extent as N lines of a typography role or N rows of a
+			named theme metric, rather than a literal px or a measured child.
+			Refused LOUD at construction, the same "an enum prop that accepts any
+			string and silently does nothing" lesson every other closed vocabulary in
+			this file follows (see the file header): `lines` and `rows` name two
+			DIFFERENT units (a text line height vs. an arbitrary metric), so declaring
+			both is not "extra generosity", it is an unanswerable question — which
+			unit wins? — and every other field here only makes sense attached to the
+			shape that uses it. ]]
+		local dv = v :: any
+		local hasLines = dv.lines ~= nil
+		local hasRows = dv.rows ~= nil
+		if dv.type ~= "content" then
+			if hasLines or hasRows or dv.of ~= nil or dv.role ~= nil then
+				return false, '`lines`/`rows`/`of`/`role` only apply to a content-terms dimension (`type = "content"`)'
+			end
+		elseif hasLines and hasRows then
+			return false,
+				'a content dimension takes `lines` OR `rows`, never both — "N lines of a text role" and '
+					.. '"N rows of a named metric" are two different units'
+		elseif hasLines then
+			if type(dv.lines) ~= "number" or dv.lines ~= dv.lines or dv.lines < 1 or dv.lines == math.huge then
+				return false, `lines must be a finite count >= 1 (got {tostring(dv.lines)})`
+			end
+			if dv.of ~= nil then
+				return false, "`of` only applies to `rows`, not `lines`"
+			end
+			if dv.role ~= nil then
+				if type(dv.role) ~= "string" or not TYPE_ROLE_SET[dv.role] then
+					return false, `role must be one of {TYPE_ROLE_LIST} (got {tostring(dv.role)})`
+				end
+			end
+		elseif hasRows then
+			if type(dv.rows) ~= "number" or dv.rows ~= dv.rows or dv.rows < 1 or dv.rows == math.huge then
+				return false, `rows must be a finite count >= 1 (got {tostring(dv.rows)})`
+			end
+			if dv.of == nil then
+				return false,
+					"`rows` requires `of` — the metric name, literal px, or additive list naming one row's height"
+			end
+			if dv.role ~= nil then
+				return false, "`role` only applies to `lines`, not `rows`"
+			end
+		else
+			if dv.of ~= nil then
+				return false, "`of` requires `rows`"
+			end
+			if dv.role ~= nil then
+				return false, "`role` requires `lines`"
 			end
 		end
 		return true

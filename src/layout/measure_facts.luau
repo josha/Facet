@@ -101,6 +101,34 @@ export type Dim = {
 	preferred: number?,
 	max: number?,
 	ratio: number?,
+	-- CONTENT-TERMS SIZING (framework-gaps-phase2 gap 3): `type = "content"` plus
+	-- ONE of these two turns the sentinel-default "measure my children" meaning
+	-- into a FORMULA meaning — "N lines of a typography role" or "N rows of a
+	-- named theme metric" — resolved by `resolveAxis` (`../solver`)'s
+	-- `contentTermsPx`, never by reading a child.
+	--
+	-- EVERY NUMERIC FACT BOTH FORMULAS NEED ARRIVES HERE ALREADY RESOLVED, and
+	-- for the SAME reason a `textSize = "fit"` node's `textFit.offset` does
+	-- (`render/layout_node.luau`'s `textOf`): `themeSnapshot.resolveNumber`
+	-- only knows the SNAPSHOT's own baked-in facts, and the player's
+	-- accessibility text-size preference is a FAST-changing fact kept deliberately
+	-- OUT of the snapshot (re-resolving the whole theme on every nudge would be
+	-- wasteful), so a solver-side read of `ctx.metrics.preferredText.offset`
+	-- would be reading last theme-swap's value, not this solve's. `of` (the
+	-- `rows` unit) is an ordinary metric name with no text-preference component,
+	-- so `themeSnapshot.resolveDim` resolving it — the SAME pass that resolves
+	-- `px`/`min`/`max`/`preferred` — is the whole story. `scale`/`textOffset`
+	-- (the `lines` unit) are stamped by `layout_node.luau`'s
+	-- `stampContentTermsFacts`, spending the SAME live `textScale`/`prefOffset`
+	-- every text node's own reservation already spends, at the SAME
+	-- prop-normalization step. `lines`/`role` are the two things nothing but
+	-- the AUTHOR decides, so they pass through unresolved.
+	lines: number?,
+	rows: number?,
+	of: number?,
+	role: string?,
+	scale: number?, -- `lines` only: the live measure-reserve scale, pre-resolved
+	textOffset: number?, -- `lines` only: the live preferredTextOffset, pre-resolved
 }
 
 local CONTENT: Dim = { type = "content" }
@@ -314,6 +342,28 @@ end
 	    `resolveAxis` answers without reading its `limit` (`fill`, `percent` and
 	    `hug` all read it; `hug` caps at the offer), and neither axis is `aspect`,
 	    which couples the two;
+	  * ...AND A `content` DECLARING `lines`/`rows` (framework-gaps-phase2 gap 3,
+	    2026-08-23) TAKES THE SAME BRANCH ON PURPOSE, not by accident of sharing a
+	    type tag. `{ type = "content", lines = n }` / `{ rows = n, of = metric }`
+	    is a FORMULA, never a measurement: `resolveAxis`'s `contentTermsPx` reads
+	    `n`, `role` and (for `lines`) `ctx.metrics` — and `ctx.metrics` is the
+	    per-solve ThemeSnapshot, ONE value for the whole solve, never the offer —
+	    so the answer is identical at `maxH = 104` and `maxH = 700` by
+	    construction, which is precisely what `PLAN_HEIGHT_FREE` promises. This is
+	    the C-1 LESSON APPLIED, not re-learned: C-1 (`textSize = "fit"`, below)
+	    broke the promise because a FIT reads the offer itself; `lines`/`rows`
+	    never do, so no exception is needed here the way one was needed there.
+	    `rows`'s `of` is even freer of `ctx`: `themeSnapshot.resolveDim` collapses
+	    a metric name into a plain number at prop-normalization time (the same
+	    step that already resolves `px`/`min`/`max`/`preferred`), so by the time
+	    `resolveAxis` sees it, `d.of` is arithmetic on the `Dim` alone — it does
+	    not even read `ctx.metrics`. A node whose KIND is height-coupled
+	    (`scroll`, `composition`, …) still falls to `PLAN_KEYED` regardless, via
+	    the existing branch below — this dim form changes what the FORMULA reads,
+	    never what the NODE's kind reads, so that guard is untouched and still
+	    correct. `tests/measure_memo.spec.luau` proves it the same way C-1's fix
+	    is proved: the same node measured at two different offers, armed and
+	    unarmed, must agree;
 	  * ...AND IT IS NOT A `textSize = "fit"` NODE ON ONE OF THE TWO INDEFINITE ONES
 	    (2026-08-22). This enumeration used to end at the clause above and the text
 	    branch below took it unconditionally, on the fact that a text node's content

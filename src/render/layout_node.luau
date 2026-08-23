@@ -170,6 +170,33 @@ local function resolveOffset(metrics: any, raw: any): any
 	return themeSnapshot.resolveNumber(metrics, raw)
 end
 
+--[[ stampContentTermsFacts(dim, textScale, prefOffset) -> dim — the ONE seam
+	`{ type = "content", lines = n }` (framework-gaps-phase2 gap 3) needs OUTSIDE
+	the solver, for the exact reason `textOf` above needs `prefOffset` outside
+	it: `resolveDim` only resolves METRIC NAMES against the theme snapshot, and
+	the snapshot's OWN `preferredText.offset` is the value it was resolved with
+	— not necessarily the LIVE `env:get("preferredTextOffset")` this solve is
+	running with. The renderer re-reads `prefOffset` fresh every solve
+	(`preferredTextOffset` is a fast-changing fact kept OUT of `themeMetrics` on
+	purpose, so an accessibility nudge does not re-resolve the whole snapshot);
+	`toLayoutNode` already carries that live number for every text node's
+	`textFit.offset` and `reservedSize` call, and a content-terms `lines` dim
+	is exactly the same "predict a text box" question `text.lineBox` answers,
+	so it takes the same live number rather than reading the snapshot's stale
+	one. `rows`/`of` need nothing here: `of` is an ordinary metric name — no
+	text-preference component — so `resolveDim`'s own resolution is already the
+	whole story, which is why the solver's `contentTermsPx` (`../layout/solver`)
+	reads `d.of` unchanged and `d.scale`/`d.textOffset` only for `lines`. ]]
+local function stampContentTermsFacts(dim: any, textScale: number, prefOffset: number): any
+	if type(dim) == "table" and dim.type == "content" and (dim :: any).lines ~= nil then
+		local out = table.clone(dim)
+		out.scale = textScale
+		out.textOffset = prefOffset
+		return out
+	end
+	return dim
+end
+
 local function isSingleWord(label: any): boolean
 	if type(label) == "number" then
 		return true
@@ -400,8 +427,8 @@ local function toLayoutNode(
 		kind = kind,
 		singleLine = if buttonSingleLine then true else nil,
 		id = node.path,
-		width = themeSnapshot.resolveDim(metrics, props.width),
-		height = themeSnapshot.resolveDim(metrics, props.height),
+		width = stampContentTermsFacts(themeSnapshot.resolveDim(metrics, props.width), textScale, prefOffset),
+		height = stampContentTermsFacts(themeSnapshot.resolveDim(metrics, props.height), textScale, prefOffset),
 		padding = themeSnapshot.resolveSides(metrics, props.padding),
 		gap = themeSnapshot.resolveNumber(metrics, props.gap),
 		-- a grid's vertical pitch, resolved through the same space ladder as

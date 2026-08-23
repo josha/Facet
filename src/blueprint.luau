@@ -2382,6 +2382,43 @@ function blueprint.aspectRatio(bp: Blueprint, ratio: number): Blueprint
 	return withProps(bp, { height = { type = "aspect", ratio = ratio } }, "aspectRatio")
 end
 
+--[[ UI.fill(weight?) -> Dim — the shorthand for `{ type = "fill", weight = n }`
+	(framework-gaps-phase2 audit, in-brief item 14, dissolved on gap 3's own
+	adjacency: same home, same "noun layer" wave, cheap once the file was
+	already open for the content-terms dim). Written by hand **326 times**
+	across the reference corpus because there was no name for it — two apps
+	built private dim DSLs rather than keep repeating the table. `weight`
+	defaults to 1, the overwhelmingly common case (a lone `fill` child taking
+	the rest of its stack's main axis). A VALUE, used exactly where the raw
+	table went — `width = UI.fill()` — not a blueprint modifier like
+	`aspectRatio` above: a fill dim is authored on ONE axis at a time, and the
+	326 sites it replaces were already writing it as a plain prop value. ]]
+function blueprint.fill(weight: number?): any
+	if weight ~= nil and (type(weight) ~= "number" or weight ~= weight or weight <= 0) then
+		error(`Facet UI.fill: weight must be a positive number (got {tostring(weight)})`, 0)
+	end
+	return { type = "fill", weight = weight or 1 }
+end
+
+--[[ UI.hug(bounds?) -> Dim — the shorthand for `{ type = "hug", min?, max? }`,
+	the same audit item as `fill` above and the same home. Content-sized,
+	capped at the parent's offer, with an author's own floor/ceiling; `UI.hug()`
+	alone (no `bounds`) is the bare, unbounded form. ]]
+function blueprint.hug(bounds: { min: (number | string)?, max: (number | string)? }?): any
+	if bounds == nil then
+		return { type = "hug" }
+	end
+	if type(bounds) ~= "table" then
+		error(`Facet UI.hug: expected a min/max table or nothing, got {typeof(bounds)}`, 0)
+	end
+	for k in bounds :: any do
+		if k ~= "min" and k ~= "max" then
+			error(`Facet UI.hug: unknown field '{tostring(k)}' (min | max)`, 0)
+		end
+	end
+	return { type = "hug", min = bounds.min, max = bounds.max }
+end
+
 -- UI.alignment(bp, horizontal?, vertical?) — placement inside a ZStack parent.
 function blueprint.alignment(bp: Blueprint, horizontal: string?, vertical: string?): Blueprint
 	local extra: { [string]: any } = {}
