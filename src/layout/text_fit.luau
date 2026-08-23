@@ -387,7 +387,16 @@ end
 	own `text` section records why: a survey run in 2026-08 found SEVEN
 	near-duplicates of this arithmetic in this repository and exactly one of them
 	correct, because a character count times a guessed constant is ONE LINE while
-	`text.fit` costs a memo, a `use`, an env read and a font name — PER SITE. Four
+	`text.fit` costs a memo, a `use`, an env read and a font name — PER SITE.
+
+	THAT NUMBER IS A DATED FINDING AND THE CENSUS WAS RE-RUN 2026-08-22: in this
+	repository there are now ZERO box-or-fit derivations outside `text_metrics`
+	itself. The 2026-08-15 line-box round moved the predicting sites onto
+	`text.facts`/`text.lineBox`, and this round moved the fitting ones onto the
+	prop below. One use of the glyph fraction survives — `present/text_reveal
+	.luau`'s `REVEAL_GLYPH_EM`, which is a travel RATE (glyphs/second times an em
+	times the painted size) rather than a box, and neither face of this module can
+	or should express it. Four
 	of those copies were in one consumer's Sponsor package, each mirroring the
 	framework's private `AVG_GLYPH_FRACTION = 0.62` and `LINE_HEIGHT_FACTOR = 1.2`
 	under a comment naming the source, and three of the four were wrong: one used

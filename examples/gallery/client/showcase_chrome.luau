@@ -71,7 +71,7 @@
 	The chips step down through a `UI.ViewThatFits` ladder to ICON-ONLY rather
 	than clipping labels by character count. `p4_foyer`'s nav bar is the reference.
 
-	IT USED TO CARRY A TRAP AND NO LONGER DOES (Facet ADR-0044 / ADR-0040 B-21,
+	IT USED TO CARRY A TRAP AND NO LONGER DOES (Facet ADR-0044 / ADR-0040 B-23,
 	2026-08-22): `hug` CAPPED at the offer, so a hug candidate could never tell a
 	`ViewThatFits` that it did not fit, the ladder silently pinned its first rung
 	and the labels truncated anyway. The framework fixed it at the seam — the fit

@@ -1421,6 +1421,34 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- grid measure follows. The condition mirrors arrange's: reserve only
 		-- when the scroll-axis content overflows the bounded offer (an unbounded
 		-- offer cannot overflow, and a fitting shelf shows no bar).
+		--[[ ── A SCROLLER WITH NO VIEWPORT ON ITS OWN AXIS MATERIALIZES EVERYTHING ──
+			(booked ruling G5c, framework-gaps-phase2, 2026-08-22.) A scroll node inside
+			ANOTHER scroller's own axis is offered `math.huge` there; if its own extent
+			on that axis is not definite it resolves to its CONTENT, so viewport ==
+			canvas, it scrolls nothing and pays for every child. `newVirtualList
+			{ viewportExtent = "auto" }` reports that SYMPTOM but only for a list, and a
+			plain ScrollView inside a ScrollView reaches no list at all.
+
+			NARROW ON PURPOSE, and measured: the first draft put this on `resolveAxis`'s
+			`fill` branch beside `percent`'s, where the ruling pointed, and it fired on
+			twelve shipped scenarios — `height = fill` inside a y-scroller is an ORDINARY
+			correct declaration ("as tall as my content") that resolves to exactly that.
+			`percent` cannot be computed against infinity; `fill` can. The four cases and
+			three negative controls are in `tests/container_relative_frame.spec.luau`. ]]
+		local mainDim = dim(node, if axis == "x" then "w" else "h")
+		if
+			(if axis == "x" then innerMaxW else innerMaxH) == math.huge
+			and mainDim.type ~= "fixed"
+			and ctx.hiddenDepth == 0
+		then
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = `scroll region on an unbounded {axis} axis (inside another scroller's own axis?): its `
+					.. `own {if axis == "x" then "width" else "height"} is '{mainDim.type}', so the viewport `
+					.. "resolves to the CONTENT and this region can never scroll — every child is materialized. "
+					.. "Give it a definite extent on that axis",
+			})
+		end
 		local reserve = 0
 		if ctx.scrollBarReserve > 0 then
 			local mainOffer = if axis == "x" then innerMaxW else innerMaxH

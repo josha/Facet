@@ -228,10 +228,14 @@ local SIZINGS: { [string]: boolean } = { fill = true, hug = true }
 --         natural width is a glyph — measured at 36px, which is under it.
 --   hug   `sizing = "hug"` (D5): the band takes its NATURAL width, uncapped, so
 --         it can be wider than the offer and a scroll host has something to
---         scroll. `content`, never `hug`-the-solver-word: a capped width can
---         never report that it did not fit (the reference shells' own
---         ViewThatFits finding), and an overflowing strip is precisely the case
---         that has to.
+--         scroll. `content`, never `hug`-the-solver-word — and the REASON changed
+--         on 2026-08-22 while the choice did not. It used to be "a capped width
+--         can never report that it did not fit (the reference shells' own
+--         ViewThatFits finding)"; ADR-0044 closed that at the seam, so a `hug`
+--         candidate reports its ideal size like any other. What stands is the
+--         plain one: this band must be able to be WIDER THAN ITS OFFER so the
+--         scroll host has something to scroll, and `hug` caps at the offer by
+--         definition. `content` is the word for "uncapped natural width".
 local BAND_WIDTH = table.freeze({ type = "fill", weight = 1 })
 local RAIL_WIDTH = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local NATURAL_WIDTH = table.freeze({ type = "content" })

@@ -232,6 +232,111 @@ describe("the paging form is the standard arithmetic", function()
 		expect(string.find(issues(r), "percent size on an unbounded axis", 1, true) ~= nil).toBe(true)
 	end)
 
+	--[[ ═══ THE NESTED SCROLLER THAT CANNOT SEE ITS OWN VIEWPORT ═══════════════
+		(framework-gaps-phase2, booked ruling G5c, landed 2026-08-22.)
+
+		A scroll node inside ANOTHER scroller's own axis is offered `math.huge` there.
+		If its own extent on that axis is not definite it resolves to its CONTENT — so
+		its viewport equals its canvas, nothing is ever off-screen, and it scrolls
+		nothing while paying to materialize every child. `newVirtualList
+		{ viewportExtent = "auto" }` reports the SYMPTOM and only for a list; a plain
+		ScrollView inside a ScrollView reaches no list, and said nothing at all.
+
+		WHY IT IS NOT ON `resolveAxis`'s `fill` BRANCH beside `percent`'s and
+		`containerRelative`'s, which is where the ruling pointed: it was, first, and it
+		fired on TWELVE shipped scenarios. `height = fill` inside a y-scroller is an
+		ordinary correct declaration meaning "as tall as my content", and it resolves
+		to exactly that — `percent` cannot be computed against infinity, `fill` can.
+		The narrow rule reports the one shape where the fallback destroys the
+		construct. ]]
+	it("a scroller with no viewport on its own axis says so", function()
+		local r = solve({
+			kind = "scroll",
+			id = "Outer",
+			axis = "y",
+			width = fixed(400),
+			height = fixed(200),
+			children = {
+				{
+					kind = "scroll",
+					id = "Inner",
+					axis = "y",
+					width = { type = "fill", weight = 1 },
+					children = { { kind = "box", id = "Row", width = fixed(50), height = fixed(600) } },
+				},
+			},
+		}, 400, 200)
+		expect(string.find(issues(r), "scroll region on an unbounded y axis", 1, true) ~= nil).toBe(true)
+		expect(string.find(issues(r), "every child is materialized", 1, true) ~= nil).toBe(true)
+		-- ...and it names the reason rather than only the fact: the height it fell back on
+		expect(string.find(issues(r), "its own height is 'content'", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ THE THREE NEGATIVE CONTROLS, and they are what keep this from becoming the
+		twelve-scenario flood the first draft was. ]]
+	it("...but a DEFINITE inner extent is exempt — that scroller has a real viewport", function()
+		local r = solve({
+			kind = "scroll",
+			id = "Outer",
+			axis = "y",
+			width = fixed(400),
+			height = fixed(200),
+			children = {
+				{
+					kind = "scroll",
+					id = "Inner",
+					axis = "y",
+					width = { type = "fill", weight = 1 },
+					height = fixed(120),
+					children = { { kind = "box", id = "Row", width = fixed(50), height = fixed(600) } },
+				},
+			},
+		}, 400, 200)
+		expect(string.find(issues(r), "scroll region on an unbounded", 1, true) == nil).toBe(true)
+	end)
+
+	it("...and a scroller on the CROSS axis of another is exempt — that axis is bounded", function()
+		local r = solve({
+			kind = "scroll",
+			id = "Outer",
+			axis = "y",
+			width = fixed(400),
+			height = fixed(200),
+			children = {
+				{
+					kind = "scroll",
+					id = "Shelf",
+					axis = "x",
+					width = { type = "fill", weight = 1 },
+					height = fixed(90),
+					children = { { kind = "box", id = "Card", width = fixed(900), height = fixed(80) } },
+				},
+			},
+		}, 400, 200)
+		expect(string.find(issues(r), "scroll region on an unbounded", 1, true) == nil).toBe(true)
+	end)
+
+	it("...and an ordinary `fill` child of a scroller says nothing — it is not a scroller", function()
+		local r = solve({
+			kind = "scroll",
+			id = "Sc",
+			axis = "y",
+			width = fixed(300),
+			height = fixed(200),
+			children = {
+				{
+					kind = "vstack",
+					id = "Body",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = { { kind = "box", id = "A", width = { type = "fill", weight = 1 }, height = fixed(80) } },
+				},
+			},
+		}, 300, 200)
+		expect(r.rects.Body.rect.h).toBe(80)
+		expect(string.find(issues(r), "unbounded", 1, true) == nil).toBe(true)
+	end)
+
 	it("an unbounded CONTAINER is refused the same way `percent` refuses one", function()
 		-- a horizontal scroller inside another horizontal scroller's own axis: the
 		-- inner one's viewport on that axis is an offer it never received

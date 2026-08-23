@@ -127,10 +127,40 @@ describe("ViewThatFits: a candidate is judged at its IDEAL size, `hug` included"
 		bigger"). At 250px the rich rung loses; at 400 it wins and takes its natural
 		320, not the 400 a `fill` would have taken. ]]
 	it("a `hug` rung that WINS is still capped by the offer it is shown in", function()
-		local r = ladder({ type = "hug" }, 400)
-		expect(`rich w={r.rects.rich.rect.w}`).toBe("rich w=320")
-		local ladderRect = r.rects.ladder.rect
-		expect(`ladder w={ladderRect.w}`).toBe("ladder w=320")
+		--[[ THE CAP HAS TO BITE FOR THIS CASE TO SAY ANYTHING, and the first version
+			of it did not: it took a 320 px rung at a 400 px offer, where nothing is
+			capped and `hug`, `content` and `fill` would all have answered 320.
+
+			THE FALLBACK RUNG IS THE HONEST SUBJECT. It is NEVER PROBED — the loop stops
+			one short of it, because rule 8 promises the fallback resolves whatever it
+			measures — so the probe's suppression can never reach it, and whatever it
+			paints is the cap doing its ordinary job. A 210 px `hug` row shown in a 90
+			px and then a 150 px box must paint 90 and 150: "picking is unsqueezed;
+			showing is not", stated where only the showing half exists. ]]
+		local function soloFallback(offerW: number): any
+			local kids: { solver.Node } = {}
+			for i = 1, 3 do
+				table.insert(kids, { kind = "box", id = `f{i}`, width = fixed(70), height = fixed(20) })
+			end
+			local root: solver.Node = {
+				kind = "vstack",
+				id = "screen",
+				width = fixed(offerW),
+				height = fixed(200),
+				children = {
+					{
+						kind = "fits",
+						id = "ladder",
+						children = { { kind = "hstack", id = "only", width = { type = "hug" }, children = kids } },
+					},
+				},
+			}
+			return solver.solve(root, { w = offerW, h = 200 }, { rootPolicy = "edgeToEdge" })
+		end
+		-- 3 x 70 with no gap = 210 of natural width, and it is the only rung
+		expect(`uncapped at 400: {soloFallback(400).rects.only.rect.w}`).toBe("uncapped at 400: 210")
+		expect(`capped at 150: {soloFallback(150).rects.only.rect.w}`).toBe("capped at 150: 150")
+		expect(`capped at 90: {soloFallback(90).rects.only.rect.w}`).toBe("capped at 90: 90")
 	end)
 
 	--[[ ...AND A `hug` CAP INSIDE THE OFFER IS AN INSTRUCTION, NOT A SHORTAGE.

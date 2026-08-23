@@ -250,6 +250,90 @@ describe("the measure memo's key carries the offer only where the offer is read"
 		expect(result.rects["n10"].rect.h).toBe(178)
 	end)
 
+	--[[ ═══ A `textSize = "fit"` NODE READS THE OFFERED HEIGHT, AND TEXT IS EXEMPT
+		FROM THE HEIGHT KEY ═══════════════════════════════════════════════════════
+
+		`memoPlan` gives EVERY text node `PLAN_HEIGHT_FREE` — L-9's own measured fact,
+		and it was true when it was written: "a text node's answer does not depend on
+		[the offered height] at all. Its content size comes from the wrap width, and
+		`contentSize`'s text branch never reads `innerMaxH`."
+
+		`textSize = "fit"` (2026-08-22) made that sentence false. The fit is bounded by
+		the BOX, so a fit node whose height is `content` or `minMax` reads `innerMaxH`
+		— and with `maxH` dropped from its key, the SAME node asked at `inf|700` and
+		then at `inf|104` shares the key `inf|*|0` and the first box's answer serves the
+		second.
+
+		THE SHAPE BELOW IS THE MINIMAL ONE, and it needs three things at once, which is
+		why nothing else in this suite caught it: a fit node, the same node measured at
+		TWO definite heights (a `hug`-capped box inside a taller offer measures its
+		child at the offer and again at the resolved cap), and a ScrollView ANYWHERE in
+		the tree — because the memo is armed by `ctx.hasScroll`, so a scroll-free tree
+		re-derives every time and looks correct.
+
+		Measured on the pre-fix build: the 41 px box painted a **531 px** line block at
+		size 34 — the answer for the 700 px offer — instead of 33 px at size 9. That is
+		a 490 px overflow out of a box whose whole declaration is a 41 px cap.
+
+		THE FIX IS ONE CLAUSE: a fit node keeps `maxH` in its key unless its height is
+		`fixed` (a literal box cannot be offered two heights). `tests/lib/fuzzers/
+		layout.luau` now generates `textFit` too, so the differential oracle can see
+		this class at all — a fuzzer that speaks only numbers cannot find a defect in a
+		shape it cannot generate. ]]
+	it('a `textSize = "fit"` node keeps `maxH` in its key — the box it fits IS the offer', function()
+		local COPY = "Cause chaos for the other racers and earn a great many rally points indeed"
+		local function tree(withScroller: boolean): any
+			local text = node("T", "text", { width = { type = "fill", weight = 1 } })
+			text.text = COPY
+			text.font = "BuilderSans#Regular#Normal"
+			text.lineHeight = 1.2
+			text.textSize = 34
+			-- the RESOLVED form `render/layout_node.textOf` hands the solver
+			text.textFit = { cap = 34, floor = 8, offset = 0 }
+			-- a `hug` with a cap is measured at the OFFER and arranged at the cap, which
+			-- is the two-heights half
+			local box = node("Box", "vstack", {
+				width = { type = "fixed", px = 140 },
+				height = { type = "hug", max = 41 },
+			})
+			box.children = { text }
+			local kids = { box }
+			if withScroller then
+				-- ...and the memo is ARMED by any scroll node in the tree, not by this one
+				local inner =
+					node("B", "box", { width = { type = "fixed", px = 5 }, height = { type = "fixed", px = 5 } })
+				local scroll = node("Elsewhere", "scroll", {
+					axis = "y",
+					width = { type = "fixed", px = 10 },
+					height = { type = "fixed", px = 10 },
+				})
+				scroll.children = { inner }
+				table.insert(kids, scroll)
+			end
+			local root = node("screen", "vstack", {
+				width = { type = "fixed", px = 140 },
+				height = { type = "fixed", px = 700 },
+			})
+			root.children = kids
+			return root
+		end
+
+		local function answer(withScroller: boolean): string
+			local r = solver.solve(tree(withScroller), { w = 140, h = 700 }, { rootPolicy = "edgeToEdge" })
+			local e = r.rects["T"]
+			return `{e.rect.w}x{e.rect.h} size={e.textFacts.size} lines={e.textFacts.lines}`
+		end
+
+		--[[ THE MEMO MAY NOT CHANGE THE ANSWER. That is the whole contract of a cache,
+			and it is stated as an EQUALITY between the two arms rather than as a pinned
+			number, so the case survives a font recalibration and still bites. ]]
+		expect(`armed={answer(true)}`).toBe(`armed={answer(false)}`)
+		-- ...and the answer is the one the 41px cap can actually hold, not the one the
+		-- 700px offer could — pinned, because an equality alone would pass on two
+		-- identically-wrong arms
+		expect(answer(false)).toBe("140x33 size=9 lines=3")
+	end)
+
 	it("a `vwrap` breaks its lines ON the offered height, so it is never height-free", function()
 		-- Mutation: empty `HEIGHT_COUPLED_KINDS`. `vwrap` partitions on `innerMaxH`, so
 		-- a replayed answer re-uses a partition computed for a different height and the

@@ -361,7 +361,29 @@ local function memoPlan(ctx: MeasureCtx, node: any): number
 		local t = hD.type
 		if wD.type ~= "aspect" and t ~= "aspect" and (t == "fixed" or t == "content" or t == "minMax") then
 			if kind == "text" then
-				plan = PLAN_HEIGHT_FREE
+				--[[ ...UNLESS THE SOLVER IS CHOOSING THE SIZE (`textSize = "fit"`,
+					2026-08-22). The sentence above — "a text node's answer does not depend
+					on [the offered height] at all; its content size comes from the wrap
+					width, and `contentSize`'s text branch never reads `innerMaxH`" — was
+					measured and true when it was written, and the fit branch made it false:
+					a fit is bounded by the BOX, so it reads `innerMaxH` on every height that
+					is not a literal.
+
+					Dropping `maxH` there means the same node asked at `inf|700` and then at
+					`inf|104` shares the key `inf|*|0`, and the first box's answer serves the
+					second. Measured on the pre-fix build: a 41 px `hug` cap painted a 531 px
+					line block at the 700 px offer's size. It needed a ScrollView anywhere in
+					the tree to show at all (the memo is armed by `ctx.hasScroll`), which is
+					how it survived a green suite.
+
+					`fixed` IS still height-free, and genuinely so: a literal box cannot be
+					offered two different heights, so the fit's second input is a constant
+					and the key does not need it. Everything else keeps `maxH`.
+
+					VERIFIED BY THE DIFFERENTIAL ORACLE, and it could not have been before:
+					`tests/lib/fuzzers/layout.luau` spoke only numeric text sizes, so no
+					seeded tree contained the shape. It generates `textFit` now. ]]
+				plan = if node.textFit ~= nil and t ~= "fixed" then PLAN_KEYED else PLAN_HEIGHT_FREE
 			elseif not HEIGHT_COUPLED_KINDS[kind] then
 				plan = PLAN_HEIGHT_FREE
 				-- the kinds whose main axis is VERTICAL: `vstack` and every kind that

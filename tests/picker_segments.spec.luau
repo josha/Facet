@@ -856,8 +856,14 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 		`tests/api_surface.spec.luau` uses for the two schema-shaped rows. ]]
 	it("the register records it: ADR-0040 carries the one-turn row", function()
 		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
-		expect(string.find(record, "| B-20 |", 1, true) ~= nil).toBe(true)
-		expect(string.find(record, "`newPicker`'s activation ORDER", 1, true) ~= nil).toBe(true)
+		--[[ THE ID AND THE SUBJECT ARE ONE PATTERN, NOT TWO SUBSTRINGS (2026-08-22).
+			As three independent `find`s this asserted only that the file contains a row
+			labelled B-20 SOMEWHERE and a row about this control SOMEWHERE — which two
+			DIFFERENT rows satisfy just as well. Two concurrent lanes both minted a
+			`B-20` in the same week and this pin stayed green through the collision, so
+			the failure is measured rather than hypothetical: bind the id to its own
+			row's text or the pin cannot tell a renumber from a rename. ]]
+		expect(string.find(record, "| B%-20 | `newPicker`'s activation ORDER") ~= nil).toBe(true)
 		expect(string.find(record, "one transaction", 1, true) ~= nil).toBe(true)
 	end)
 

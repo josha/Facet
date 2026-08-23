@@ -99,6 +99,23 @@ local function buildNode(rng: Prng, depth: number, forceAdversarial: boolean): N
 		node.text = rng:pick(TEXTS)
 		node.font = rng:pick(FONTS)
 		node.textSize = rng:range(8, 40)
+		--[[ ...AND SOMETIMES THE SIZE IS THE SOLVER'S TO CHOOSE (`textSize = "fit"`,
+			2026-08-22). This vocabulary spoke only NUMBERS, which is exactly why the
+			differential oracle could not see the fit branch's stale-cache defect: a fit
+			node's answer depends on the offered HEIGHT, and text nodes are exempt from
+			the height key (`memoPlan`'s `PLAN_HEIGHT_FREE`, L-9's fact), so the first
+			box's answer served the second. A fuzzer that cannot generate the shape
+			cannot find the bug in it.
+
+			`textFit` is the RESOLVED form the renderer hands the solver (cap and floor
+			already through the typography scale, the paint offset beside them), because
+			that is what the solver reads — generating the PROP would test the schema
+			instead. One in four, so three quarters of the corpus stays the plain-size
+			control the oracle has always compared against. ]]
+		if rng:bool(0.25) then
+			local cap = rng:range(10, 44)
+			node.textFit = { cap = cap, floor = rng:range(6, math.max(6, cap)), offset = rng:pick({ 0, 0, 4, 14 }) }
+		end
 		return node
 	end
 	if kind == "box" or kind == "spacer" then

@@ -331,7 +331,9 @@ Three groups recur in the column below and are worth naming once:
 the imperative one kept losing: a character count times a guessed constant is one line,
 while `text.fit` costs a memo, a `use`, an env read and a font name — *per site*. A survey
 run in 2026-08 found seven near-duplicates of that formula in this repository and exactly
-one of them correct. The prop is shorter than the character count, and it is resolved
+one of them correct — a dated finding, re-run 2026-08-22 and now **zero** outside
+`text_metrics` itself, which this prop is the second half of closing. The prop is shorter
+than the character count, and it is resolved
 **inside the solver**, which is the only place the box, the face, the typography scale and
 the paint offset are all already in hand — so it is scale-correct and offset-correct by
 construction rather than by care.
@@ -753,7 +755,7 @@ unshrunk; showing is not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size
 carries the measurement, the citations, and the one place Facet still differs on
 purpose.)
 
-**`hug` on a candidate is legal and honest** (2026-08-22, **ADR-0040 B-21**). `hug`
+**`hug` on a candidate is legal and honest** (2026-08-22, **ADR-0040 B-23**). `hug`
 means "the content size, capped at the offer", and that cap is a squeezing term
 like any other: it made a hug candidate's measured width equal the offer at every
 width, so `w <= availW` was always true, the first rung won forever, and the labels
@@ -4299,7 +4301,7 @@ phrase it changes nothing — a wrapped line is bounded by the width it wrapped
 into — except for the one case where it should not be, a phrase whose longest
 word is wider than the box, which the engine breaks mid-word and paints outside
 the column. It is the same rule the solver's `ViewThatFits` candidate test had to
-be given, one seam over (**ADR-0040 B-20**).
+be given, one seam over (**ADR-0040 B-22**).
 
 **`text.size(spec) -> number`** is `fit(spec).size` — the convenience, for the
 common case where the box is known to be big enough.

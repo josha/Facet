@@ -4,8 +4,8 @@
 **Status:** Accepted
 **Number:** 0044. 0043 is collections measure-and-name; 0045 (tab-view accessory
 slots) landed in a concurrent lane of the same campaign.
-**Companions:** [ADR-0040](ADR-0040-unreleased-breaking-changes.md) rows **B-20**
-and **B-21** (the two behaviour changes this ruling required),
+**Companions:** [ADR-0040](ADR-0040-unreleased-breaking-changes.md) rows **B-22**
+and **B-23** (the two behaviour changes this ruling required),
 [ADR-0019](ADR-0019-theme-packages.md) §6 (typography roles carry the face and the
 line height), [ADR-0039](ADR-0039-ten-foot-metric-ladder.md) (the ladder the four
 wrong copies could not ride), `docs/reference/api.md` §`textSize` and
@@ -27,7 +27,8 @@ shape was the one consumers reached for.
   result back into a prop — *per site*. A character count times a guessed constant
   is one line. api.md's own `text` section records the outcome: a survey run in
   2026-08 found **seven near-duplicates of that formula in this repository and
-  exactly one of them correct.** Rascal Rally's Sponsor package alone held four,
+  exactly one of them correct** — a dated finding, re-run 2026-08-22 and now **zero**
+  (see Consequences). Rascal Rally's Sponsor package alone held four,
   each mirroring the framework's private `AVG_GLYPH_FRACTION = 0.62` and
   `LINE_HEIGHT_FACTOR = 1.2` under a comment naming the source.
 * **Layout.** `UI.ViewThatFits` returns a **subtree**. A consumer needing the fit
@@ -96,7 +97,7 @@ spelling its author never wrote, with no fix available but a wrapper that change
 the semantics. Refuse-don't-guess governs the cases where the framework would have
 to *guess*; here it can compute the honest answer.
 
-See ADR-0040 **B-21** for the blast radius and the instrument.
+See ADR-0040 **B-23** for the blast radius and the instrument.
 
 ### 3. `adaptive.fitsIn` / `adaptive.fits` — the container-relative decision as a value
 
@@ -125,6 +126,15 @@ loud refusal has to happen at construction and can, for everything knowable
 there — that split is forced by the core, not chosen.)
 
 ## Consequences
+
+**The census, re-run.** The "seven near-duplicates" above is a 2026-08 finding and
+this round is the second half of closing it. Re-run 2026-08-22 over `src/` and
+`examples/`: **zero** box-or-fit derivations remain outside `text_metrics` itself —
+the 2026-08-15 line-box round moved the PREDICTING sites onto `text.facts`/
+`text.lineBox` and this one moved the FITTING sites onto the prop. One use of the
+glyph fraction survives and is deliberately excluded: `src/present/text_reveal.luau`'s
+`REVEAL_GLYPH_EM` is a travel RATE (glyphs per second times an em times the painted
+size), not a box, and neither face of `text_fit` expresses it.
 
 **What it closes, measured.** Rascal Rally's `StartCountdown` deleted both mirrored
 constants and declares `textSize = "fit"` with the plate as its ceiling; its

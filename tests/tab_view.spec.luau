@@ -1283,8 +1283,10 @@ describe("§6: a declared `hug` bottom band centres and scrolls, like every othe
 		the old shape has no other way to learn it changed. ]]
 	it("the register records it: ADR-0040 carries the hug-band row", function()
 		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
-		expect(string.find(record, "| B-21 |", 1, true) ~= nil).toBe(true)
-		expect(string.find(record, 'DECLARED `sizing = "hug"`', 1, true) ~= nil).toBe(true)
+		--[[ THE ID AND THE SUBJECT ARE ONE PATTERN, NOT TWO SUBSTRINGS (2026-08-22) —
+			see the twin note in `picker_segments.spec`. As independent `find`s this
+			passed while a second lane's row also called itself B-21. ]]
+		expect(string.find(record, '| B%-21 | `newTabView` with a DECLARED `sizing = "hug"`') ~= nil).toBe(true)
 		expect(string.find(record, "centred scroller", 1, true) ~= nil).toBe(true)
 	end)
 
