@@ -63,6 +63,12 @@
 	the probe) is still owed before this round's device pass closes.
 ]]
 
+-- the pure geometry this fixture used to transcribe by hand (gap 33,
+-- framework-gaps-phase2) — a leaf module with no engine/theme/core
+-- dependency, same reach-in idiom `sensory_feedback.luau` uses for
+-- `src/client/haptics`
+local transform_footprint = require("../../../src/layout/transform_footprint")
+
 -- the fade's resting stop: low enough that a doubled overlap is unmistakable,
 -- high enough that both plates are still on screen (the same reasoning
 -- `canvas_group.luau`'s STOPS[3] = 0.4 documents for its own resting value)
@@ -110,22 +116,18 @@ local CLUSTER_W, CLUSTER_H = 100, 70
 -- 166 one — 0.03px a side, which is one rounding difference away from clipping a
 -- hairline off an edge nobody would think to look at. Slack is cheaper than a
 -- device round.
--- PROBE-EXEMPT BEGIN: TRANSCRIBED TRIGONOMETRY — a workaround, not a lesson.
--- api.md:325 records a real 2026-08-17 device defect (a 100x70 box at scale 1.5
--- and rotation 30 painted 182.4x165.9 into its 100x70 slot and spilled onto its
--- neighbours) and then hands the consumer this formula as prose. So this file
--- transcribes it, plus a slack constant, and every future consumer combining
--- `scale` with `rotation` beside a sibling is one copy-paste from correct and
--- one omission from reproducing the original bug. The framework owes a
--- reserved-footprint API here (purity audit teaches-wrong §12); until it has
--- one, copy this at your own risk rather than as the house style.
+--
+-- GAP 33 CLOSED (framework-gaps-phase2, 2026-08-23): the trigonometry this
+-- fixture used to transcribe by hand — plus the risk of a future copy
+-- omitting a term and reproducing the original device bug — is now
+-- `Facet.layout.transformFootprint`, published exactly because this comment
+-- named it as owed. `FOOTPRINT_SLACK` stays HERE: it is this demo's own
+-- buffer choice (api.md's worked rounding example), never part of the
+-- reservation math itself.
 local FOOTPRINT_SLACK = 6
 local function turnedFootprint(w: number, h: number, scale: number, deg: number): (number, number)
-	local r = math.rad(deg)
-	local sw, sh = w * scale, h * scale
-	local c, s = math.abs(math.cos(r)), math.abs(math.sin(r))
-	return math.ceil(sw * c + sh * s) + FOOTPRINT_SLACK, math.ceil(sw * s + sh * c) + FOOTPRINT_SLACK
-	-- PROBE-EXEMPT END
+	local fw, fh = transform_footprint.transformFootprint(w, h, scale, deg)
+	return fw + FOOTPRINT_SLACK, fh + FOOTPRINT_SLACK
 end
 local STAGE_W, STAGE_H = turnedFootprint(CLUSTER_W, CLUSTER_H, TURN_SCALE, TURN_ROTATION)
 local PLATE_W, PLATE_H = 70, 40

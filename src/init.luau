@@ -505,6 +505,12 @@ local Facet = {
 	newEnvironment = environment.new,
 	renderer = rendererLib,
 	newPresenter = presenterLib.new,
+	-- the presenter-side surface-chrome seam (registry item 13; W3-D,
+	-- ADR-0053): a pure back+title+trailing bar factory, not a stateful
+	-- control — `Facet.navBar({ onBack, title, trailing })` -> Blueprint.
+	-- See src/present/nav_bar.luau's header for why this lives beside the
+	-- presenter and not under `Facet.Controls`.
+	navBar = require("@self/present/nav_bar").build,
 
 	-- input pipeline (headless model; the client swaps in roblox_input)
 	newActionSystem = actionsLib.newSystem,
@@ -725,6 +731,18 @@ local Facet = {
 	-- what a declaration may say; `floorPx` turns a CONTENT floor ("one line",
 	-- "two targets") into pixels against a live theme snapshot.
 	composition = require("@self/layout/composition"),
+
+	--[[ PURE LAYOUT GEOMETRY, made reachable (framework-gaps-phase2 gap 33):
+		`transformFootprint(w, h, scale, deg)` is the reserved-box math a scaled/
+		rotated node's PARENT needs to avoid a spillover (`scale`/`rotation` are
+		paint-only, so the solver reserves the unscaled box and the engine draws
+		the transformed one) — the formula `docs/reference/api.md`'s `scale` row
+		already documents in prose, published here so a consumer computes the
+		reservation instead of hand-transcribing the trigonometry (as
+		`examples/gallery/scenarios/nested_compositing.luau` used to). ]]
+	layout = {
+		transformFootprint = require("@self/layout/transform_footprint").transformFootprint,
+	},
 
 	-- focus, replication, tokens
 	newFocusGraph = focusLib.new,
