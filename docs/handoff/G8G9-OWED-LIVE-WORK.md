@@ -67,19 +67,50 @@ change on exactly that device class. Every shipped desktop viewport is unmoved b
 construction (the live engine's strip reaches the window edge) and the spec pins
 that as its control.
 
-## 3. Owed, not done — the Rascal Rally chip band's own cutover
+## 3. DONE (framework-gaps-phase2 ADOPT round, 2026-08-23) — the Rascal Rally chip band's own cutover
 
-`FacetSponsor/HudScreen.CHIP_PRESENT_OPTS` still presents `rootPolicy =
-"edgeToEdge"`, and `buildChipBand` still places the row with four hand-computed
-Readables (`offsetX`, `offsetY`, `bandWidth`, `bandHeight`). Its own header names
-the hole this round closed: *"That row is the PLATFORM'S TOPBAR STRIP, and it is
-outside every content-safe root policy by definition."*
+`FacetSponsor/HudScreen.CHIP_PRESENT_OPTS.rootPolicy` moved `edgeToEdge` ->
+`bandSafeContent` (director-authorized, task-adopt-brief.md item 2), and
+`buildChipBand`'s four hand-computed Readables (`offsetX`, `offsetY`,
+`bandWidth`, `bandHeight`) are gone, replaced by one `UI.Composition` with a
+`UI.Region{group="topbar"}` — the shape this section's own header called for.
+Full account: `.superpowers/sdd/framework-gaps-phase2/task-adopt-report.md`.
 
-The cutover is now one policy string plus a `UI.Composition` with a `topbar`
-region, and the four Readables die with it. It was NOT taken in this round because
-it moves a **shipped HUD surface's placement** and the honest verification for
-that is a device look, not a headless rect — and this session could not take one.
-It is a contained, well-specified follow-up.
+**Two real consequences fell out of taking it, both fixed with test evidence,
+neither hand-waved:**
+
+* A `height = fill` Composition wrapper "claims the whole screen" for ADR-0028's
+  cross-surface alarm once `edgeToEdge`'s blanket exemption is gone (the alarm
+  now evaluates real geometry) — fixed to `height = UI.hug()`.
+* `composition_resolve.localBand`'s degenerate fallback for "no platform strip
+  published" was silently zero-width, not full-width — a genuine framework gap
+  (fixed in `src/layout/composition.luau`, `hasRealBand`, with its own spec
+  case in `tests/band_policy.spec.luau`), caught by a REAL truncation
+  regression in `facet_large_text_sweep.spec.luau` before it shipped.
+
+**STILL OWED — the device look this section originally named, now narrower and
+specific rather than "the whole cutover":**
+
+1. **The 5px gear-midline gap, measured not guessed.** `GearDockModel
+   .placeLocal`'s real engine-pill anchor is bottom-aligned in its 58px strip
+   (`yCenter = 34`), not centred (`58/2 = 29`) — `facet_sponsor_table.spec
+   .luau`'s DV3-1 pin now asserts the framework's generic band-centre directly
+   and documents the 5px number in its own header. A device look is what says
+   whether 5px reads as "one line" (SponsorGui:1116-1120's stated intent) or
+   as a visible seam worth a follow-up (a `UI.Region` cannot offset a Readable
+   anchor into a fill box today — that would be a real feature gap, not a
+   cutover bug).
+2. **The "band too narrow" rung's new shape.** DV2-2's old fallback relocated
+   the whole chip group BELOW the strip when it did not fit; the framework's
+   generic answer is content giving way WITHIN whatever band it is offered
+   (the same shape `hud.luau`'s own `StripFit` uses) — this file's own §3 text
+   above already named this as the honest cost of dropping the four Readables,
+   and it is what a portrait-phone capture should confirm reads cleanly (no
+   redundant proof needed here beyond what DV3-1's own "a band too NARROW for
+   the group keeps DV2-2's placement, untouched" case already pins headlessly
+   for the geometry it CAN see).
+3. **The settings-gear midline itself is untouched** (`GearDockModel
+   .placeInBand`, §2 above) — carried forward, not reopened.
 
 ## 4. Booked, control-side: `Controls.Stepper` at a narrow content box
 

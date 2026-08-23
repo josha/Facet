@@ -248,17 +248,20 @@ three per-column reserve regions and two cluster-width spacers deleted, replaced
 by one policy string and one declared prop. Its behaviour is preserved as the
 specs above rather than as a comment — the fixture is what those specs drive.
 
-**Rascal Rally's chip band does NOT move with it, and that is booked rather than
-done.** `FacetSponsor/HudScreen.CHIP_PRESENT_OPTS` still presents
-`rootPolicy = "edgeToEdge"` and `buildChipBand` still places the row with four
-hand-computed Readables (`offsetX`, `offsetY`, `bandWidth`, `bandHeight`) — the
-exact shape §9 exists to remove, and its own header names the hole in as many
-words: *"That row is the PLATFORM'S TOPBAR STRIP, and it is outside every
-content-safe root policy by definition."* The cutover is one policy string plus a
-`UI.Composition` with a `topbar` region, and the four Readables die with it. It
-was not taken in this round because it moves a **shipped HUD surface's placement**
-and the honest verification for that is a device look rather than a headless rect.
-Owed at `docs/handoff/G8G9-OWED-LIVE-WORK.md` §3.
+**Rascal Rally's chip band moved with it (framework-gaps-phase2 ADOPT round,
+2026-08-23), director-authorized.** `FacetSponsor/HudScreen.CHIP_PRESENT_OPTS
+.rootPolicy` is `bandSafeContent` and `buildChipBand` places the row through one
+`UI.Composition` with a `UI.Region{group="topbar"}` — the four hand-computed
+Readables (`offsetX`, `offsetY`, `bandWidth`, `bandHeight`) this section used to
+name as the hole §9 exists to remove are gone. Taking the cutover exposed a real
+gap in §9 itself: a declared `topbar` region on a platform reporting no strip at
+all was silently ZERO-WIDTH rather than the additive-safe full-width answer a
+composition with no `topbar` region gets (`composition_resolve.localBand`'s
+degenerate fallback, fixed alongside the cutover — `hasRealBand` in
+`src/layout/composition.luau`, `tests/band_policy.spec.luau`'s own new case). The
+device look is narrower now, not closed: `docs/handoff/G8G9-OWED-LIVE-WORK.md` §3
+names exactly what is left (a measured 5px gap between the framework's generic
+band-centre and the real engine pill's bottom-aligned anchor).
 
 What DID move game-side in the same round is the other half of the audit's
 consumer finding: `GearDockModel.placeInBand` and `HudZoneModel.sponsorTopStrip`
