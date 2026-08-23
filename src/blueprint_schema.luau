@@ -46,6 +46,8 @@ local themeSnapshot = require("./themes/snapshot")
 -- the typography-role list a refusal names comes from the one table that
 -- defines it, so the schema can never advertise a stale set.
 local themePackage = require("./themes/package")
+-- the one reading of the `textSize = "fit"` grammar, shared with both seams
+local textFitLib = require("./layout/text_fit")
 -- the pure style-modifier layer. ONE ruling on what a `tint` value may be
 -- (styling.checkTint), read here for construction and by the adapter for a
 -- REACTIVE value at the write site, so the two can never diverge.
@@ -563,6 +565,25 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		return false, `a typography role ({TYPE_ROLE_LIST}) or an explicit px number`
 	end,
+	--[[ `textSize = "fit"` and its option form (audit §10). The grammar itself is
+		`layout/text_fit.checkFitProp` — the SAME reading the measure seam and the
+		paint seam use — so a spelling this check accepts is a spelling those two
+		can resolve, which is the whole reason it is not re-stated here. ]]
+	textFit = function(v)
+		local ok, why = textFitLib.checkFitProp(v)
+		if ok then
+			return true
+		end
+		--[[ IT ONLY CLAIMS THE ERROR SENTENCE FOR A VALUE SHAPED LIKE A FIT SPEC.
+			`checkValue` keeps the FIRST failing type's detail, so a check that always
+			spoke would drown the better sentence for a mistyped role name or a bad
+			number — while a TABLE can only ever have been meant as this, and its own
+			reason ("fit takes only cap and floor") is the one worth printing. ]]
+		if type(v) == "table" then
+			return false, why
+		end
+		return false
+	end,
 }
 
 -- check a STATIC value against a prop spec. Returns (ok, detail?).
@@ -1063,16 +1084,20 @@ local TEXT_SIZE: PropSpec = p({
 	-- a role name is the intended form; a dotted metric path is the escape for a
 	-- control-specific size the role ladder does not name (Table's cell and
 	-- sort-mark sizes), which still keeps the value theme-owned
-	types = { "number", "typeRole", "metric" },
+	types = { "textFit", "number", "typeRole", "metric" },
 	reactive = true,
 	dirty = { "paint", "measure" },
 	shared = true,
 	channel = "layout",
-	doc = "text size: an explicit px number, or a typography role name "
+	doc = "text size: an explicit px number, a typography role name "
 		.. `({TYPE_ROLE_LIST}) resolved from the active `
-		.. "theme. A role also supplies the FONT DESCRIPTOR and line height, so `strong` and "
+		.. 'theme, or `"fit"` — the largest size that fits the box this node lands in, chosen by the '
+		.. "solver (option form: `{ fit = { cap = <role or px>, floor = <role or px> } }`; cap defaults to the "
+		.. "class's own role, floor to the theme's `caption`). A role also supplies the FONT DESCRIPTOR and "
+		.. "line height, so `strong` and "
 		.. "`numeral` are how a node asks for weight — both seams read the one role. "
-		.. "Either form is scaled at BOTH the measure and paint seams",
+		.. "A px or role size is scaled at BOTH the measure and paint seams; a `fit` size is already "
+		.. "the painted one",
 })
 
 -- LINE LIMIT. "This label gets at most N

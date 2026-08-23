@@ -1836,7 +1836,10 @@ function renderer.attach(
 		profile.span("commit", function()
 			local textRequests = text_metrics.endCollect()
 			lastDiagnostics = result.diagnostics
-			commitWalks.textScale(root.node, paintScale, metrics)
+			-- `result.rects` and `prefOffset` are for `textSize = "fit"` alone: that node
+			-- has no authored size for this walk to scale, so paint reads the size the
+			-- SOLVER chose against the box (see `commit_walks.textScale`)
+			commitWalks.textScale(root.node, paintScale, metrics, result.rects, prefOffset)
 			commitWalks.padding(root.node, metrics)
 			commitWalks.textVerdicts(root.node, result.rects)
 			-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its

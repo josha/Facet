@@ -29,6 +29,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
+-- every `.luau` under `src/`, ONE enumeration (see its header for the nine-of-
+-- fifteen hole this replaces)
+local srcTree = require("./lib/src_tree")
 
 local SOLVER_PATH = "src/layout/solver.luau"
 local FACTS_PATH = "src/layout/measure_facts.luau"
@@ -241,32 +244,17 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 		expect(table.concat(unused, " ")).toBe("")
 	end)
 
+	--[[ OVER THE WHOLE TREE, NOT OVER NINE OF ITS FIFTEEN DIRECTORIES (rulings
+		P5 + PRES-X minor, fixed 2026-08-22). This iterated a hand-written list of
+		nine directory names while `src/` has fifteen and thirteen top-level `.luau`
+		files, so a second consumer appearing in `src/env`, `src/focus`,
+		`src/blueprint.luau` or nine other places would have been reported as
+		"exactly one" — a check that cannot fail for the case it exists to catch.
+		`tests/lib/src_tree.luau` is the one enumeration, and matching by the
+		require's TAIL is what lets it see a consumer that spells the path from
+		another directory. ]]
 	it("there is exactly ONE consumer of the module in src/", function()
-		local seen: { string } = {}
-		for _, dir in
-			{
-				"src/layout",
-				"src/render",
-				"src/present",
-				"src/controls",
-				"src/client",
-				"src/tokens",
-				"src/themes",
-				"src/input",
-				"src/core",
-			}
-		do
-			for _, entry in fs.readDir(dir) do
-				local path = `{dir}/{entry}`
-				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" then
-					continue
-				end
-				if string.find(fs.readFile(path), 'require("./measure_facts")', 1, true) ~= nil then
-					table.insert(seen, path)
-				end
-			end
-		end
-		expect(seen).toEqual({ SOLVER_PATH })
+		expect(srcTree.pathsMatching('require%("[^"]*measure_facts"%)')).toEqual({ SOLVER_PATH })
 	end)
 
 	it("the module requires the solver NOWHERE — the require is one-way", function()

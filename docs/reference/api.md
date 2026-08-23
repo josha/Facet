@@ -325,7 +325,44 @@ Three groups recur in the column below and are worth naming once:
 | `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — because a paint term never moves a measured box; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side |
 | `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
-| `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
+| `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme, or **`"fit"`** — the largest size that fits the box this node lands in, chosen by the SOLVER (option form `{ fit = { cap = <role or px>, floor = <role or px> } }`; see below). A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. A px or role size is scaled at both seams; a `"fit"` size is already the painted one |
+
+**`textSize = "fit"`** is the declarative face of `Facet.text.fit`, and it exists because
+the imperative one kept losing: a character count times a guessed constant is one line,
+while `text.fit` costs a memo, a `use`, an env read and a font name — *per site*. A survey
+run in 2026-08 found seven near-duplicates of that formula in this repository and exactly
+one of them correct. The prop is shorter than the character count, and it is resolved
+**inside the solver**, which is the only place the box, the face, the typography scale and
+the paint offset are all already in hand — so it is scale-correct and offset-correct by
+construction rather than by care.
+
+```lua
+UI.Text({ id = "Cta", text = label, lineLimit = 1,
+          width = dims.fixed(240), height = dims.fixed(52), textSize = "fit" })
+
+-- ...and with an explicit band:
+textSize = { fit = { cap = "title", floor = 12 } }
+```
+
+- **`cap`** — the largest size this node may paint at, a typography role name or a px
+  number. Absent it is the class's own intrinsic role, i.e. exactly the size the node
+  would have painted without the prop: adding `"fit"` can only ever make text *smaller*.
+- **`floor`** — the smallest. Absent it is the theme's `caption` role, which every package
+  is required to carry. A theme-owned floor is the point: "never below this theme's
+  smallest type role" survives a package swap and the ten-foot ladder, where a literal
+  would not, and where `text.fit`'s own raw default of 1 would let a label paint
+  unreadably rather than let the layout decide.
+- **the box is the node's own**, not its parent's offer — the same width and height rule
+  the compact ladder and `ViewThatFits` each had to be fixed for. `lineLimit` is the line
+  budget; with no `lineLimit` wrapping is free and only the HEIGHT can refuse a size.
+- **an unknown option key is refused at construction** (`{ fit = { max = 24 } }` names no
+  ceiling), because an accepted-and-ignored key is the §4 violation the placement audit
+  exists to end.
+
+Reach for a px or role size whenever the box can grow instead: `"fit"` shrinks TEXT to fit
+a box, and a screen that should grow its box for a larger preference wants the size as a
+*value* (`Facet.text.fit`) so the box can be derived from it.
+
 | `textAlign` | `Text` | horizontal alignment of the node's own text in its box (`start` \| `center` \| `end`); default `start`. Vertical alignment stays adapter-owned and is always centred, because the headless measurer over-reserves and centring splits that error evenly |
 | `focusable` | `Button`, `Toggle`, `TextField` (opt **out**), `Grip` (opt **in**) | membership in focus order |
 | `traversalPriority` | `Button`, `Toggle`, `TextField`, `Grip` | linear-traversal (Tab/Shift+Tab) sort **tier**, default `0`. The sort key is `(traversalPriority, document position)`, so a negative value traverses earlier and a positive one later, and **within a tier document order always wins** — the `tabindex` model. Affects Tab only; the directional arrows never read it. Construction-only: a traversal position is what a node *is*, so binding a Readable here is refused with the rebuild idiom |
@@ -709,11 +746,24 @@ solver already knows what each candidate measures.
 **A candidate is judged at the size it would like, not at the size it could be
 squeezed into.** The choice reads each candidate's IDEAL size — what it
 measures when nothing is proposed to it — so shrink terms are invisible to the
-choice. Facet's member of that family is `shrinkWeight`: a candidate that only
-fits *after* being squeezed does not fit. Once a candidate has won it is laid out
-against the real offer and shrinks normally. Picking is unshrunk; showing is
-not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md` carries the
-measurement, the citations, and the one place Facet still differs on purpose.)
+choice. Facet's members of that family are `shrinkWeight` **and `hug`**: a
+candidate that only fits *after* being squeezed does not fit. Once a candidate has
+won it is laid out against the real offer and shrinks normally. Picking is
+unshrunk; showing is not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`
+carries the measurement, the citations, and the one place Facet still differs on
+purpose.)
+
+**`hug` on a candidate is legal and honest** (2026-08-22, **ADR-0040 B-21**). `hug`
+means "the content size, capped at the offer", and that cap is a squeezing term
+like any other: it made a hug candidate's measured width equal the offer at every
+width, so `w <= availW` was always true, the first rung won forever, and the labels
+the ladder exists to protect truncated anyway. `hug` is the instinctive spelling —
+four consumer files independently learned this and defended against it in prose,
+one of them naming it *"the p4_foyer trap"* — so it is fixed rather than refused:
+the probe resolves `hug` as `content`, the author's own `min`/`max` still bind
+(a declaration is not a shortage), and the WINNER is capped by its offer exactly as
+before. `hug` and `content` now choose the same rung at every width
+(`tests/fits_ideal_size.spec.luau` sweeps both side by side).
 
 Two properties make it safe:
 
@@ -732,7 +782,10 @@ Two properties make it safe:
   could not reach the visible row.
 
 This is also the **container-relative** condition: `Facet.adaptive.conditions` is
-viewport-relative, while this measures the container.
+viewport-relative, while this measures the container. When the answer you need is
+a **value** rather than a subtree — reserve space in a sibling, place or skip a
+minimap, choose between two *surfaces* before either is built — reach for
+`Facet.adaptive.fitsIn` / `.fits`, which make the same comparison this ladder does.
 
 ### `Composition`
 
@@ -4007,7 +4060,34 @@ width: it does not subtract safe insets or overscan. On a console row it reads 1
 while overscan removes 106 px per side, so near a breakpoint a screen can resolve for
 space it does not have. For a decision that must depend on the space one particular
 container actually received, use the real measurement contract instead — see
-`ViewThatFits`.
+`ViewThatFits` for the subtree form and the pair below for the value form.
+
+**`adaptive.fitsIn(needs, container, clearance?) -> boolean`** and
+**`adaptive.fits(core, spec) -> Readable<boolean>`** are the container-relative
+half (2026-08-22). `fitsIn` is the pure one and it is *the ladder's own predicate*:
+`ViewThatFits` tests `availW == math.huge or w <= availW`, and so does this — an
+unbounded container fits everything, exactly as it does in the solver. A screen
+that reserved room for an arrangement the solver then refused to use is worse than
+one that never reserved, so there is one comparison rather than two.
+
+```lua
+local ridesTheTopbar = Facet.adaptive.fits(core, {
+    needs = { lapPillWidth, dramaDialWidth },  -- the PARTS, never a pre-computed sum
+    gap = rowGap,
+    container = bandWidth,                     -- a number or a Readable
+    clearance = 24,                            -- room that must remain BEYOND them
+    scope = scope,                             -- owns the memo (as `conditions` does)
+})
+```
+
+`needs` takes a **list** on purpose. Naming the parts is what lets them be the same
+theme reads the content is built from, so the sum moves when they move; a sum
+computed once cannot ride the ten-foot metric ladder, and — the failure that
+matters — a part that goes missing makes a sum *smaller* and the verdict *more
+permissive*. A static part that is not a number, and a list with a hole in it, are
+refused at construction; a live part that resolves to `nil` reaches
+`core:lastError()` and the decision holds its last good answer rather than
+inventing a new, wrong, confident one.
 
 **`contentWidth` is deprecated (since 0.8.0; replacement `viewportWidth`).** It
 is the same value under a second name, and the name is a lie: it states an inset
@@ -4209,6 +4289,17 @@ CTA did exactly that). Absent = 0, byte-identical to the pre-8.5 behavior.
 The search is exact rather than iterative-until-close: fit is monotone in size,
 so a binary search over `[floor, cap]` lands on the true answer in ~log2(cap)
 measures, each of them memoized per `(text, font, size, width)`.
+
+A size fits when the wrapped form stays inside `lines`, **the widest line stays
+inside `width`**, and (when given) the box stays inside `height`. The width half
+was added 2026-08-22: a WORD has no legal break, so the wrapper reports one line
+at every size however far past the box the glyphs run, and the line count alone
+therefore said "yes" for a string that does not fit at all. For a multi-word
+phrase it changes nothing — a wrapped line is bounded by the width it wrapped
+into — except for the one case where it should not be, a phrase whose longest
+word is wider than the box, which the engine breaks mid-word and paints outside
+the column. It is the same rule the solver's `ViewThatFits` candidate test had to
+be given, one seam over (**ADR-0040 B-20**).
 
 **`text.size(spec) -> number`** is `fit(spec).size` — the convenience, for the
 common case where the box is known to be big enough.

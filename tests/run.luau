@@ -35,6 +35,12 @@ require("./measure_memo.spec")
 	HOSTS, plus the four-name write surface, the exports against the binding
 	block, and that the module holds no module-level mutable state ]]
 require("./measure_facts_seam.spec")
+--[[ ...and the ENUMERATION both seam specs asked their one-consumer question over
+	(rulings P5 + PRES-X minor): it was a hand-written list of nine directory names
+	against a `src/` that has fifteen and thirteen top-level files, so the second
+	consumer those rules exist to notice could have appeared in a dozen places and
+	still read "exactly one". ]]
+require("./src_tree.spec")
 --[[ the surface-lifecycle SEAM (2026-08-22, SOURCE_CAP_LEDGER): what keeps
 	`present/surface_lifecycle.luau` one-way now that `presenter.luau` has stopped
 	carrying the focus-visual sync, the refresh body and the dismissal pair. This
@@ -133,6 +139,14 @@ require("./selection_bridge.spec")
 require("./text_calibration.spec")
 require("./text_degrade_cascade.spec")
 require("./text_fit.spec")
+--[[ THE DECLARATIVE FACE OF THE SAME QUESTION (`textSize = "fit"`, audit §10 of
+	framework-gaps-phase2 — the one gap in that audit that was shipping wrong pixels).
+	The first block MEASURES the class the prop closes: a line box computed at 1.25
+	against the library's declared 1.2, and a reserve that ignores
+	`max(typographyScale, typographyPaintScale)` and is therefore short by the
+	ladder's own factor at ten-foot. The rest drives the whole shipped path, because
+	the claim is that four seams cannot disagree about the size. ]]
+require("./text_size_fit.spec")
 -- the LINE BOX (ruled 2026-08-15): `text.facts`/`text.lineBox`, the three defects
 -- they fixed in the public `composition.floorPx`, and the differential oracle that
 -- proves the helper equals what the solver arranges across every shipped theme x
@@ -441,6 +455,13 @@ require("./scroll_window_clip.spec")
 -- the namespaced-icon ASCII floor the api contract promised
 require("./icon_ns_glyph.spec")
 require("./adaptive.spec")
+--[[ THE `hug` TRAP INSIDE A `ViewThatFits` CANDIDATE (framework-gaps-phase2 §2a):
+	`hug` caps at the offer, so a hug rung could never report "does not fit" and the
+	ladder pinned its first rung at every width. The fix is the ladder's own
+	doctrine rather than a refusal — `ctx.fitProbe` already makes every squeezing
+	mechanism invisible while a candidate is judged, and the cap is one of them —
+	and the sweep here is what says `hug` and `content` now agree at every width. ]]
+require("./fits_ideal_size.spec")
 require("./button_complete.spec")
 -- the circle Button (feature round 2026-07-26)
 require("./button_shape.spec")

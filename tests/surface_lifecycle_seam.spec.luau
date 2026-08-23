@@ -38,6 +38,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
+-- every `.luau` under `src/`, ONE enumeration (see its header for the nine-of-
+-- fifteen hole this replaces)
+local srcTree = require("./lib/src_tree")
 
 local PRESENTER_PATH = "src/present/presenter.luau"
 local LIFECYCLE_PATH = "src/present/surface_lifecycle.luau"
@@ -308,31 +311,13 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 			`src/controls`), which is exactly the second consumer this rule exists
 			to notice, and the mutation that planted one left the check green
 			(mutation M15, 2026-08-22). ]]
-		local seen: { string } = {}
-		for _, dir in
-			{
-				"src/layout",
-				"src/render",
-				"src/present",
-				"src/controls",
-				"src/client",
-				"src/tokens",
-				"src/themes",
-				"src/input",
-				"src/core",
-			}
-		do
-			for _, entry in fs.readDir(dir) do
-				local path = `{dir}/{entry}`
-				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" then
-					continue
-				end
-				if string.find(fs.readFile(path), 'require%("[^"]*surface_lifecycle"%)') ~= nil then
-					table.insert(seen, path)
-				end
-			end
-		end
-		expect(seen).toEqual({ PRESENTER_PATH })
+		--[[ ...AND OVER THE WHOLE TREE, not over nine of its fifteen directories
+			(rulings P5 + PRES-X minor, fixed 2026-08-22). The directory list here was
+			hand-written and six subdirectories plus every top-level `src/*.luau` were
+			outside it, so the second-consumer this case exists to notice could have
+			appeared in a dozen places and still read "exactly one".
+			`tests/lib/src_tree.luau` is the one enumeration. ]]
+		expect(srcTree.pathsMatching('require%("[^"]*surface_lifecycle"%)')).toEqual({ PRESENTER_PATH })
 	end)
 
 	it("the module requires the presenter NOWHERE — the require is one-way", function()

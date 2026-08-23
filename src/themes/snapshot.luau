@@ -290,6 +290,20 @@ function snapshot.typographyPaintScale(displaySize: any): number
 	return tenFootFloor(displaySize)
 end
 
+--[[ displaySizeOf(snap) -> "Large" | "Medium" — THE DISPLAY CLASS A RESOLVED
+	SNAPSHOT WAS RESOLVED AGAINST, read back off the snapshot itself.
+
+	`resolve` and `forDisplay` both stamp `density` ("ten-foot" | "near"), and a
+	caller holding only a snapshot — no env, no facts — needs the `displaySize`
+	word back to spend `typographyPaintScale`/`metricScale`. Two call sites
+	derived it inline before this existed (`text_fit.facts`'s snapshot branch and
+	the measure seam's fit band), which is one inversion of the same mapping
+	written twice: exactly how a ladder ends up disagreeing with itself. ]]
+function snapshot.displaySizeOf(snap: any): string
+	local density = if type(snap) == "table" then (snap :: any).density else nil
+	return if density == "ten-foot" then "Large" else "Medium"
+end
+
 --[[ metricScale(displaySize) -> the METRIC ladder's ten-foot factor (director
 	ruling 2026-08-20).
 

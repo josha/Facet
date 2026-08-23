@@ -52,6 +52,9 @@
 local authority = require("./authority")
 local layout_node = require("./layout_node")
 local themeSnapshot = require("../themes/snapshot")
+-- the ONE reading of the `textSize = "fit"` grammar (shared with the schema and
+-- with `render/layout_node.textOf`, which resolves the band the solver picks from)
+local textFit = require("../layout/text_fit")
 local solver = require("../layout/solver")
 
 local commit_walks = {}
@@ -258,16 +261,40 @@ function commit_walks.new(ctx: CommitCtx)
 	-- and the Button padding beside it are. Minimal-write: the descriptor key is
 	-- cached per path, so a steady theme costs zero writes and every screen whose
 	-- roles all resolve to the family's Regular face is byte-identical.
-	local function textScale(rootNode: any, scale: number, metrics: any)
+	--[[ `rects` AND `prefOffset` ARE HERE FOR ONE NODE SHAPE: `textSize = "fit"`
+		(audit §10). Every other size on this walk is derived from the PROP, which
+		is why the walk could be prop-only for four stages; a fit node has no
+		authored size at all — the SOLVER chose one, against the box, and the whole
+		point of the prop is that the two seams cannot then disagree about it. So
+		paint reads the solve's own answer rather than re-deriving a number the
+		solver has already rejected.
+
+		The recovery is an identity rather than a new channel: `textFacts.size` is
+		the size the measure used, which for EVERY text node is what the engine will
+		draw — the authored size plus the additive offset the engine adds itself —
+		so the size to WRITE is that minus the same offset. ]]
+	local function textScale(rootNode: any, scale: number, metrics: any, rects: any?, prefOffset: number?)
+		local offset = if type(prefOffset) == "number" then prefOffset else 0
 		local function walk(node: any)
 			-- an AUTHORED size paints; a role name is just as authored as a number
 			-- (it resolves through the same snapshot the measure seam used), while
 			-- an absent prop falls back to the class's own typography role
-			local raw = themeSnapshot.resolveSize(metrics, node.props and node.props.textSize)
-			if raw == nil and not (node.class == "Button" and #node.children > 0) then
+			local authored = node.props and node.props.textSize
+			local fitProp = textFit.fitSpecOf(authored)
+			local raw = if fitProp ~= nil then nil else themeSnapshot.resolveSize(metrics, authored)
+			local fitted: number? = nil
+			if fitProp ~= nil then
+				-- a node the solve did not reach keeps whatever it has, exactly as the
+				-- wrap verdict does: absent facts are not a verdict
+				local entry = if type(rects) == "table" then (rects :: any)[node.path] else nil
+				local facts = if type(entry) == "table" then entry.textFacts else nil
+				if type(facts) == "table" and type(facts.size) == "number" then
+					fitted = facts.size - offset
+				end
+			elseif raw == nil and not (node.class == "Button" and #node.children > 0) then
 				raw = themeSnapshot.intrinsicTextSize(metrics, node.class)
 			end
-			if raw ~= nil and handles[node.path] ~= nil then
+			if (raw ~= nil or fitted ~= nil) and handles[node.path] ~= nil then
 				--[[ ONE LADDER, AUTHORED OR NOT — the ten-foot adaptation round, 2026-08-18.
 					This read
 					`if authored then raw * scale else raw`, and the measure seam said the
@@ -279,7 +306,10 @@ function commit_walks.new(ctx: CommitCtx)
 					takes the same multiplier. Scaling here alone would draw 27px inside a
 					box reserved for 18: `layout_node.textOf` moves in the same commit,
 					and measure/paint agreement is the property that had to survive. ]]
-				local scaled = raw * scale
+				-- a fit size is ALREADY the number to draw (the solver picked it out of
+				-- a band this seam's own `layout_node.textOf` had already scaled), so it
+				-- is written straight through rather than multiplied a second time
+				local scaled = if fitted ~= nil then fitted else (raw :: number) * scale
 				if lastTextSize[node.path] ~= scaled then
 					authority.assertWrite(node.class, "textSize", "layout")
 					adapter.setProp(handles[node.path], "textSize", scaled, "layout")

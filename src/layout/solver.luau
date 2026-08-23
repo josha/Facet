@@ -34,7 +34,7 @@
 --   rowGap = number?,                                  -- grid (defaults to gap)
 --   gridSpan = number?,                                -- gridrow cells (ROW mode)
 --   overflow = "clip"|"scroll"|"visible"|"intentionalOverlap"?,
---   text/font?, textSize = number | <typography role name>?, lineHeight?,
+--   text/font?, textSize = number | <typography role name>?, textFit?, lineHeight?,
 --   singleLine = boolean? (measure one line, clamp to the offer),
 --   axis = "y"|"x"? (scroll), children = { Node }? }
 -- Dim = { type = "fixed", px } | { type = "content" } | { type = "hug", min?, max? } |
@@ -47,6 +47,10 @@
 -- runs on Studio Neutral, whose values are the framework's historic literals.
 
 local text_metrics = require("./text_metrics")
+-- `text_fit`: the ONE binary search for "what size makes this string fit this
+-- box". The public `Facet.text.fit` and the solver's own `textSize = "fit"` are
+-- the same call, which is what stops an eighth near-duplicate being written.
+local textFitLib = require("./text_fit")
 local profile = require("../core/profile")
 local themeSnapshot = require("../themes/snapshot")
 -- the PURE declared-content composition decision (ADR-0023). The solver supplies
@@ -207,6 +211,14 @@ export type Node = {
 	-- a literal px size, or a typography ROLE name resolved from the active
 	-- ThemeSnapshot on this solve (ADR-0019 §2)
 	textSize: (number | string)?,
+	--[[ ...OR THE BAND THE SOLVER PICKS ONE FROM (`textSize = "fit"`, audit §10).
+		`cap`/`floor` are already through the typography scale and `offset` is the
+		additive paint offset the engine applies at draw time, kept SEPARATE because
+		the measure has to ask about `size + offset` while paint writes `size`. When
+		it is present, `textSize` above is the reserved CAP — what a reader that
+		knows nothing of this field measures at, i.e. the largest this node can
+		paint. `render/layout_node.textOf` is the one writer. ]]
+	textFit: { cap: number, floor: number, offset: number }?,
 	-- line-height factor from the role; absent = the library's global 1.2
 	lineHeight: number?,
 	-- measure this text on ONE line and clamp to the offer, because the adapter
@@ -604,7 +616,34 @@ local function resolveAxis(
 		-- content extent, and the overflow annotation turns on by itself. So the
 		-- SAME declaration hugs a short list and scrolls a long one, which is the
 		-- pair of behaviours the two device rounds asked for.
+		--[[ ...EXCEPT WHILE A `ViewThatFits` PROBE IS ASKING (framework-gaps-phase2
+			§2a). The ladder judges a candidate "at the size it would like, not at the
+			size it could be squeezed into" (ruling 2, SwiftUI's ideal-size rule), and
+			`ctx.fitProbe` is how every squeezing mechanism is made invisible for the
+			duration of the probe. THE CAP BELOW IS ONE OF THEM: a `hug` candidate
+			whose content wants 320 in a 200px offer reported 200, so `w <= availW`
+			was true whatever the content wanted, the first rung won at every width,
+			and the labels the ladder exists to protect truncated anyway. `hug` is the
+			instinctive spelling everywhere else in this framework, so that is a
+			SILENT wrong answer reached by writing the obvious thing — four consumer
+			files independently learned it and defended against it in prose
+			(`showcase_chrome.luau` names it "the p4_foyer trap").
+
+			The author's own `min`/`max` stay in force, because those are a
+			DECLARATION and not a shortage — the same split `recordTextFacts` draws
+			with `authoredWidth`, where a pin that cuts a label is the author's pin
+			rather than the box being too small.
+
+			SCOPED TO THE PROBE, and that is what makes it safe: the flag is off again
+			by the time the chosen candidate is measured and arranged, so a `hug` rung
+			that WINS is capped by its offer exactly as before, and a hugging panel
+			outside any ladder never sees this branch. The memo agrees by
+			construction — `rebuildScopeKey` already appends `|fit`, so the two
+			answers are filed under different keys. ]]
 		local base = math.clamp(contentFn(), d.min or 0, d.max or math.huge)
+		if ctx.fitProbe then
+			return base
+		end
 		return if limit == math.huge then base else math.min(base, limit)
 	elseif d.type == "fill" then
 		-- fill resolves at arrange; desired contribution is content
@@ -1162,6 +1201,57 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- client premeasure adapter resolves that descriptor to the engine face it
 		-- names (src/client/text_premeasure).
 		local font, size, lineHeight = textTypography(ctx, node)
+		--[[ ...AND `textSize = "fit"` IS RESOLVED RIGHT HERE, BEFORE ANYTHING ELSE
+			READS `size` (audit §10, framework-gaps-phase2).
+
+			This is the home the audit named, and the reason is that every other input
+			to the question is already in this scope and nowhere else: the box
+			(`availW`/`availH`, each the width and height this node will OCCUPY rather
+			than the offer it was handed), the face and line height
+			(`textTypography`), the typography scale and the additive paint offset
+			(both already folded into `node.textFit` by `render/layout_node.textOf`).
+			Four separate consumer copies of this arithmetic each had to reconstruct
+			those four facts from outside the solve, and three of the four got one of
+			them wrong — a `1.25` line-height factor against the library's declared
+			`1.2`, and a scale nobody applied at all.
+
+			IT IS `text_fit.fit`, NOT A SECOND SEARCH. The public helper already owns
+			the binary search, the conservative-by-inheritance direction and the
+			"fit the painted form, return the authored size" split; a private copy here
+			is precisely how the seventh near-duplicate gets written. Everything below
+			this block then runs on the chosen size — the wrap rule, the compact
+			ladder, the truncation verdict — because `size` IS the answer by the time
+			they read it.
+
+			LINES: the author's own `lineLimit` when there is one; otherwise
+			`math.huge`, which means "wrapping is free, decide on the HEIGHT alone".
+			That is the honest question for a label in a box: a phrase is allowed to
+			reflow, and only the box it must live in can refuse it. ]]
+		if node.textFit ~= nil then
+			local band = node.textFit :: { cap: number, floor: number, offset: number }
+			local heightDim = dim(node, "h")
+			-- the height this node will OCCUPY, derived exactly as `availW` above is
+			-- and for the identical reason: for a `fixed`-height node `innerMaxH` is
+			-- the PARENT'S offer, and fitting a label to the parent's box is the
+			-- offer-versus-occupied trap this branch has had to close twice already
+			local availH = if heightDim.type == "fixed" then (heightDim.px :: number) - pt - pb else innerMaxH
+			local chosen = textFitLib.fit({
+				text = node.text or "",
+				font = font,
+				cap = band.cap,
+				floor = band.floor,
+				width = availW,
+				height = if availH == math.huge then nil else availH,
+				lines = if node.lineLimit ~= nil then node.lineLimit else math.huge,
+				lineHeight = lineHeight,
+				offset = band.offset,
+			})
+			-- the RESERVED size, in the units everything downstream already speaks:
+			-- what the engine will draw, which is the authored size plus the offset it
+			-- adds itself. `textFacts.size` therefore carries it unchanged, and the
+			-- paint seam recovers the size to write by subtracting the same offset.
+			size = chosen.size + band.offset
+		end
 		-- SINGLE-LINE TEXT (director finding 13, 2026-07-26). A control whose
 		-- adapter draws its label on one line has to be MEASURED on one line, or
 		-- the row reserves height for a second line nobody draws — the same
@@ -1881,7 +1971,16 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- Forcing the measure here keeps ONE decision path — the same `availW` rule,
 	-- the same "assigned on EVERY measure" contract — and costs one cached text
 	-- measure on the bounded set of nodes that declared a compact form.
-	if node.compactText ~= nil then
+	--[[ ...AND `textSize = "fit"` NEEDS ONE FOR EXACTLY THE SAME REASON (audit §10).
+		A fit node's whole purpose is a label inside a box the AUTHOR pinned — the
+		production role-pick CTA is `fixed(240) x fixed(52)` — so both dimensions are
+		fixed and nothing about the box depends on the content. Without this the
+		lazy `content()` is never asked, the fit is never resolved, and the paint
+		seam finds no size to write: the one case the prop exists for would be the
+		one case that could not reach it. That is the compact ladder's own defect,
+		found live in 2026-07-30 and recorded directly above, which is why the fix
+		is the same line rather than a second mechanism. ]]
+	if node.compactText ~= nil or node.textFit ~= nil then
 		content()
 	end
 

@@ -36,6 +36,9 @@
 
 local solver = require("../layout/solver")
 local text_metrics = require("../layout/text_metrics")
+-- the ONE reading of the `textSize = "fit"` grammar, shared with the schema's
+-- acceptance check and with the paint seam (`render/commit_walks.textScale`)
+local textFit = require("../layout/text_fit")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
@@ -209,8 +212,70 @@ local function toLayoutNode(
 	-- scaled, because it also reaches paint and the two seams must agree; an
 	-- ABSENT one falls back to the class's intrinsic role unscaled, exactly as the
 	-- adapter draws it.
-	local function textOf(fallbackRole: string): (number, any)
+	local function textOf(fallbackRole: string): (number, any, any)
 		local raw = props.textSize
+		--[[ `textSize = "fit"` — THE SIZE THIS NODE PAINTS AT IS THE SOLVER'S TO
+			CHOOSE (audit §10, framework-gaps-phase2). Everything this seam resolves for
+			a fixed size is resolved here too — the face, the line height, the scale and
+			the paint offset — but the SIZE is left as a band, because the box is the one
+			input this seam does not have and the solver does.
+
+			WHAT TRAVELS: `cap` and `floor` already through `textScale`, and the additive
+			paint `offset` beside them rather than folded in, because the solver has to
+			measure the PAINTED form (`size + offset`) while paint writes the authored
+			one. That split is `text_metrics.reservedSize`'s own ("scale, then add"), and
+			keeping the two numbers apart on the record is what lets the solver hand the
+			paint seam a size it can write without subtracting anything back out.
+
+			THE CAP DEFAULTS TO THE SIZE THE NODE WOULD OTHERWISE HAVE PAINTED — the
+			class's intrinsic role — so `"fit"` can only ever make text smaller, never
+			bigger. THE FLOOR DEFAULTS TO THE THEME'S `caption`, which every package is
+			required to carry: "never below this theme's smallest type role" is a bound
+			that survives a package swap and the ten-foot ladder, where a literal would
+			not, and where this module's raw `text.fit` default of 1 would let a label
+			paint unreadably rather than let the layout decide.
+
+			THE FACE STILL COMES FROM A ROLE: `cap` names one when it is a role name,
+			and otherwise the class's intrinsic role answers, exactly as a literal px
+			size gets the intrinsic face today. ]]
+		local fitProp = textFit.fitSpecOf(raw)
+		if fitProp ~= nil then
+			local _, capRole = themeSnapshot.effectiveTypeRole(metrics, class, fitProp.cap)
+			local capPx = if type(fitProp.cap) == "number"
+				then fitProp.cap
+				else (themeSnapshot.resolveSize(metrics, fitProp.cap) or metrics.type[fallbackRole].size)
+			local captionRole = (metrics.type :: any).caption
+			local floorPx = if type(fitProp.floor) == "number"
+				then fitProp.floor
+				else (themeSnapshot.resolveSize(metrics, fitProp.floor) or (if type(captionRole) == "table"
+					then captionRole.size
+					else nil) or capPx)
+			--[[ THE BAND IS IN PAINT UNITS, and that is the one arithmetic decision in
+				this branch. Everything else on this seam is scaled by `textScale`, which
+				is `max(typographyScale, typographyPaintScale)` — the RESERVE scale, a
+				deliberate over-estimate, because the engine applies the player's
+				preference as an ADDITIVE offset at draw time and the box must hold what
+				is drawn.
+
+				A fit node has no authored size to over-reserve for: the solver picks the
+				size that will actually be PAINTED, so the band it picks from has to be
+				the band paint lives in, and the reserve is then exact rather than
+				generous. Using the measure scale here would let a fit label grow by the
+				preference AND take the engine's additive offset on top — the
+				double-application defect `text_metrics.reservedSize`'s own header warns
+				about, spelled the other way round. ]]
+			local paintScale = themeSnapshot.typographyPaintScale(themeSnapshot.displaySizeOf(metrics))
+			local fit = {
+				cap = capPx * paintScale,
+				-- a floor above the cap is a declaration that cannot be honoured; the
+				-- cap wins, because a node may never paint LARGER than its cap
+				floor = math.min(floorPx, capPx) * paintScale,
+				offset = prefOffset,
+			}
+			-- the fallback size a reader that knows nothing of `textFit` sees: the
+			-- cap as the engine will draw it, i.e. the largest box this node can need
+			return fit.cap + prefOffset, capRole, fit
+		end
 		-- THE FACE COMES FROM THE EFFECTIVE ROLE, authored or intrinsic (F2,
 		-- 2026-08-02). This used to hand back `nil` for an unauthored size, and the
 		-- solver then keyed measurement on `body`'s descriptor — while the class's
@@ -532,8 +597,10 @@ local function toLayoutNode(
 		-- remove. `props.text` may be a reactive binding, and it is already
 		-- resolved by the time this runs, exactly as `props.label` is.
 		layoutNode.singleLine = if isSingleWord(props.text) then true else nil
-		local size, role = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Text)
+		local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Text)
 		layoutNode.textSize = size
+		-- the fit BAND, when the author asked the solver to choose the size
+		layoutNode.textFit = fit
 		-- an explicit (deprecated) font prop still wins for measurement; otherwise
 		-- the role's canonical font DESCRIPTOR ("family#weight#style", ADR-0019
 		-- §6) and line height ride with its size, so a theme that changes weight
@@ -543,8 +610,10 @@ local function toLayoutNode(
 	elseif class == "Button" then
 		if #node.children == 0 then
 			layoutNode.text = drawnButtonText(props)
-			local size, role = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Button)
+			local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Button)
 			layoutNode.textSize = size
+			-- the fit BAND, when the author asked the solver to choose the size
+			layoutNode.textFit = fit
 			layoutNode.font = if role ~= nil then role.fontKey else nil
 			layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
 			-- THE COMPACT ALTERNATIVE, handed to the solver alongside the full
@@ -624,8 +693,10 @@ local function toLayoutNode(
 		-- explicit textSize wins and scales like every other text node
 		-- (verifier F1: measure and paint must agree); the intrinsic default is
 		-- the `body` role, which is ScreenTarget's toggle label size
-		local size, role = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Toggle)
+		local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Toggle)
 		layoutNode.textSize = size
+		-- the fit BAND, when the author asked the solver to choose the size
+		layoutNode.textFit = fit
 		layoutNode.font = if role ~= nil then role.fontKey else nil
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
 		-- the row's box now comes from the SHARED description the adapter paints
@@ -642,8 +713,10 @@ local function toLayoutNode(
 			shown = props.placeholder
 		end
 		layoutNode.text = shown or ""
-		local size, role = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.TextField)
+		local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.TextField)
 		layoutNode.textSize = size
+		-- the fit BAND, when the author asked the solver to choose the size
+		layoutNode.textFit = fit
 		layoutNode.font = if role ~= nil then role.fontKey else nil
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
 		layoutNode.padding = layoutNode.padding or metrics.controls.textInput.padding

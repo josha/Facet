@@ -18,12 +18,15 @@
 --     Readables over the environment, so a screen BINDS them (no remount) and a
 --     viewport, orientation or display-class change re-resolves in place.
 --
--- Container-relative conditions: these are viewport-relative. A decision that
--- must depend on the space a PARTICULAR container actually got needs the real
--- measurement contract, which is `UI.ViewThatFits` — the solver measures each
--- candidate against the space that container was proposed. Use the conditions
--- here for screen-level arrangement and ViewThatFits inside a container whose
--- width is not the screen's.
+-- Container-relative conditions: everything above `adaptive.fits` is
+-- VIEWPORT-relative. A decision that must depend on the space a PARTICULAR
+-- container got has two shapes here, and they are the same predicate:
+--   * `UI.ViewThatFits` when the answer is a SUBTREE — the solver measures each
+--     candidate against the space that container was proposed;
+--   * `adaptive.fitsIn` / `adaptive.fits` when the answer is a VALUE — the same
+--     comparison the ladder makes, as a plain function and as a Readable, for a
+--     consumer that must reserve space in a sibling or skip a whole surface
+--     before either arrangement is built.
 
 local specGuard = require("../spec_guard")
 
@@ -495,6 +498,160 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 			})
 		end)),
 	}
+end
+
+--[[ ===== THE CONTAINER-RELATIVE DECISION, AS A VALUE ========================
+
+	"Does this content fit that container?" is the question `UI.ViewThatFits`
+	answers by MOUNTING a subtree — and a consumer often needs the same answer as
+	a VALUE: to reserve space in a sibling, to place or skip a minimap, to choose
+	between two surfaces before either one is built. Everything above this line is
+	viewport-relative and `ViewThatFits` returns a subtree, so until this pair
+	there was no container-relative Readable at all (framework-gaps-phase2 §2b).
+
+	IT IS THE LADDER'S OWN PREDICATE, deliberately, and that is the whole reason
+	it lives in the framework rather than at each call site. `chosenCandidate` in
+	`src/layout/solver.luau` tests `availW == math.huge or w <= availW`; so does
+	`fitsIn`, and `tests/fits_ideal_size.spec.luau` drives the two side by side
+	across a width sweep and requires that they never disagree. A second copy of
+	the comparison is how a screen ends up reserving room for an arrangement the
+	solver then refuses to use.
+
+	WHAT IT REPLACES, and it is a measured shape rather than a hypothetical. Rascal
+	Rally's `HudZoneModel.sponsorTopStrip` decided whether its Lap pill and Race
+	Drama dial fit the free topbar band with `GROUP_NATURAL_W = 100 + 10 + 200` —
+	a hand sum of two chip widths and a gap, mirrored from another file with a
+	"keep this in sync" comment — plus `TOPBAR_SLACK = 24`, a fudge whose own
+	comment admits it is guarding a guess. A hand sum is wrong in three ways this
+	pair closes: a part can go stale silently, a part can arrive `nil` and be added
+	as zero, and the sum does not ride the ten-foot metric ladder that moves the
+	very chips it is summing.
+
+	`needs` THEREFORE TAKES A LIST. Naming the parts is what lets them be the SAME
+	metric reads the content is built from — so the sum moves when they move — and
+	a part that is `nil`, NaN or negative is REFUSED rather than silently counted
+	as zero, which is the hand sum's real failure mode. ]]
+
+-- fitsIn(needs, container, clearance?) -> boolean — the PURE half, and the same
+-- comparison the ViewThatFits ladder makes. An UNBOUNDED container fits
+-- everything, exactly as `availW == math.huge` does in the solver: infinity has
+-- room for anything, and answering "no" there is how a decision inside a
+-- scroller's own axis ends up permanently pessimistic.
+function adaptive.fitsIn(needs: number, container: number, clearance: number?): boolean
+	if container == math.huge then
+		return true
+	end
+	return safeWidth(needs) + safeWidth(clearance) <= safeWidth(container)
+end
+
+export type FitsSpec = {
+	--[[ the extent the content needs on this axis: a px number, a
+		`Readable<number>`, or a LIST of either — the parts of a row, summed with
+		`gap` between them. Name the parts rather than pre-summing them: that is
+		what keeps the sum honest when a theme, a display class or a preference
+		moves one of them. ]]
+	needs: any,
+	gap: any?, -- px between the parts of a `needs` list; ignored for a single extent
+	container: any, -- the container extent: a px number or a `Readable<number>`
+	--[[ how much room must remain BEYOND the content for the answer to be yes. A
+		real clearance ("this row may not touch the gear beside it") is a
+		declaration and belongs here; a fudge covering an untrustworthy sum does
+		not, and naming the parts is what removes the need for one. ]]
+	clearance: any?,
+	scope: any?, -- owns the memo this function creates (see `conditions`)
+}
+
+local FITS_SPEC_KEYS = specGuard.keySet({ "needs", "gap", "container", "clearance", "scope" })
+
+--[[ fits(core, spec) -> Readable<boolean> — the REACTIVE half. Every field may be
+	a live Readable, so a theme swap, a rotation, a preferred-text change and a
+	display-class change all re-resolve the decision in place. ]]
+function adaptive.fits(core: any, spec: FitsSpec): any
+	specGuard.assertKnownKeys("adaptive.fits", spec, FITS_SPEC_KEYS, "spec")
+	assert(spec.needs ~= nil, "adaptive.fits: spec.needs is required (a px number, a Readable, or a list of either)")
+	assert(
+		spec.container ~= nil,
+		"adaptive.fits: spec.container is required (the container extent, a px number or a Readable)"
+	)
+	--[[ WHAT IS CHECKED WHERE, and it is forced by the reactive core rather than
+		chosen: a memo's compute is pcall-quarantined, so an `assert` inside one
+		records `core:lastError()` and answers `nil` instead of unwinding. A LOUD
+		refusal therefore has to happen HERE, at construction, and it can — every
+		STATIC part is knowable now. A part that arrives as a live Readable can only
+		be judged when it resolves, and there the assert reaches the core's own
+		error channel and the decision answers falsy, which is the conservative
+		direction: never reserve room the container has not been shown to have. ]]
+	local function isReadable(raw: any): boolean
+		return type(raw) == "table" and (raw.kind == "signal" or raw.kind == "memo")
+	end
+	local function checkStatic(raw: any, what: string)
+		if raw == nil or isReadable(raw) then
+			return
+		end
+		assert(
+			type(raw) == "number" and raw == raw and raw >= 0,
+			`adaptive.fits: {what} must be a non-negative number or a Readable (got {tostring(raw)})`
+		)
+	end
+	local rawNeeds = spec.needs
+	local isList = type(rawNeeds) == "table" and not isReadable(rawNeeds)
+	if isList then
+		local parts = rawNeeds :: { any }
+		--[[ A HOLE IS A PART THAT WENT AWAY, and Lua will not say so: `{ a, b, c }`
+			with `b` nil has an undefined length, so a naive sum quietly drops the
+			parts past the hole and answers "it fits". That is the hand sum's own
+			failure mode reproduced one layer down, which is why the count of KEYS is
+			checked against the length rather than trusted. ]]
+		local keyed = 0
+		for _ in parts do
+			keyed += 1
+		end
+		assert(
+			keyed == #parts and keyed > 0,
+			`adaptive.fits: spec.needs is a list of {keyed} part(s) whose length reads {#parts} — a nil in the `
+				.. "middle of the list, or an empty list. Name every part: a part that arrives nil is exactly the "
+				.. "hand-sum failure this helper exists to end"
+		)
+		for i = 1, #parts do
+			checkStatic(parts[i], `spec.needs[{i}]`)
+		end
+	else
+		checkStatic(rawNeeds, "spec.needs")
+	end
+	checkStatic(spec.gap, "spec.gap")
+	checkStatic(spec.container, "spec.container")
+	checkStatic(spec.clearance, "spec.clearance")
+
+	local function px(raw: any, use: any, what: string): number
+		local value = if isReadable(raw) then use(raw) else raw
+		assert(
+			type(value) == "number" and value == value and value >= 0,
+			`adaptive.fits: {what} resolved to {tostring(value)} rather than a non-negative number. A part that `
+				.. "arrives nil is the hand-sum failure this helper exists to end, so it is refused rather than "
+				.. "counted as zero"
+		)
+		return value
+	end
+	local memo = core:memo(function(use)
+		local needs = 0
+		if isList then
+			local parts = rawNeeds :: { any }
+			for i = 1, #parts do
+				needs += px(parts[i], use, `spec.needs[{i}]`)
+			end
+			if #parts > 1 and spec.gap ~= nil then
+				needs += px(spec.gap, use, "spec.gap") * (#parts - 1)
+			end
+		else
+			needs = px(rawNeeds, use, "spec.needs")
+		end
+		local clearance = if spec.clearance == nil then 0 else px(spec.clearance, use, "spec.clearance")
+		return adaptive.fitsIn(needs, px(spec.container, use, "spec.container"), clearance)
+	end)
+	if spec.scope ~= nil then
+		return spec.scope:own(memo)
+	end
+	return memo
 end
 
 return adaptive

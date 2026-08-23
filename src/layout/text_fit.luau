@@ -39,6 +39,10 @@ local specGuard = require("../spec_guard")
 
 local text_fit = {}
 
+-- the defaults-only fit spec, frozen and shared: `textSize = "fit"` allocates
+-- nothing per node, and nothing can mutate the meaning of the bare spelling
+local EMPTY_FIT = table.freeze({})
+
 export type FitSpec = {
 	text: string,
 	font: string,
@@ -98,6 +102,29 @@ local function fitsAt(spec: FitSpec, size: number): (boolean, text_metrics.Metri
 	-- so that is the size the question is asked about
 	local m = text_metrics.measure(spec.text, spec.font, size + offsetOf(spec), spec.width, spec.lineHeight, spec.lines)
 	local ok = m.naturalLines <= (spec.lines or 1)
+	--[[ ...AND THE WIDEST LINE HAS TO FIT THE WIDTH, which the line count alone
+		cannot say (found 2026-08-22 by the `textSize = "fit"` round, on the sponsor
+		countdown's own "GO!").
+
+		A WORD HAS NO LEGAL BREAK, so the wrapper cannot put it on a second line: it
+		reports `naturalLines = 1` at EVERY size, however far past the box the glyphs
+		run, and the height of one line is small — so both tests above said yes and
+		this function handed back the cap for a string that does not fit at all. That
+		is the same "the width test alone can never say no about text" the solver's
+		own `chosenCandidate` had to be fixed for, one seam over, and it is the shape
+		this whole module exists to stop consumers hand-rolling.
+
+		FOR A MULTI-WORD PHRASE IT CHANGES NOTHING: a wrapped line is bounded by the
+		width it wrapped INTO, so `m.width <= spec.width` is already true whenever
+		the line count test passed — except for the one case where it should not be,
+		a phrase whose LONGEST WORD is wider than the box, which the engine breaks
+		mid-word and paints outside the column. Both halves are the same rule.
+
+		An UNBOUNDED width (`math.huge`, which is what a node free to grow is
+		offered) can refuse nothing, exactly as it refuses nothing in the solver. ]]
+	if ok then
+		ok = m.width <= spec.width
+	end
 	if ok and type(spec.height) == "number" then
 		ok = m.height <= (spec.height :: number)
 	end
@@ -253,8 +280,7 @@ function text_fit.facts(spec: FactsSpec): TextFacts
 		local rawOffset = if type(carried) == "table" then (carried :: any).offset else nil
 		-- `density` is the snapshot's record of the display class it was resolved
 		-- against ("ten-foot" | "near"), which is what the type-scale floor keys off
-		local density = if type(metrics) == "table" then (metrics :: any).density else nil
-		local displaySize = if density == "ten-foot" then "Large" else "Medium"
+		local displaySize = themeSnapshot.displaySizeOf(metrics)
 		return {
 			scale = themeSnapshot.measureScale(displaySize, multiplier),
 			offset = themeSnapshot.textOffset(rawOffset),
@@ -352,6 +378,97 @@ function text_fit.lineBox(spec: LineBoxSpec): number
 
 	-- 3. the solver's two calls, in the solver's order
 	return text_metrics.lineBoxPx(text_metrics.reservedSize(authored, facts.scale, facts.offset), lines, lineHeight)
+end
+
+--[[ ===== THE DECLARATIVE FACE: `textSize = "fit"` ==========================
+
+	Everything above is the IMPERATIVE face — a consumer builds a memo, reads the
+	env, names the font and calls `fit`. That route lost, measurably, and api.md's
+	own `text` section records why: a survey run in 2026-08 found SEVEN
+	near-duplicates of this arithmetic in this repository and exactly one of them
+	correct, because a character count times a guessed constant is ONE LINE while
+	`text.fit` costs a memo, a `use`, an env read and a font name — PER SITE. Four
+	of those copies were in one consumer's Sponsor package, each mirroring the
+	framework's private `AVG_GLYPH_FRACTION = 0.62` and `LINE_HEIGHT_FACTOR = 1.2`
+	under a comment naming the source, and three of the four were wrong: one used
+	`1.25` while the same file declared `1.2` two hundred lines later, and NONE of
+	them applied `max(typographyScale, typographyPaintScale)`, so every band
+	derived from them under-reserved by up to 1.5x on a ten-foot display.
+
+	`textSize = "fit"` is the declarative face of the same question, and it wins
+	the shortness argument outright: it is shorter than the character count. The
+	SOLVER resolves it, because the solver is the only place where the box, the
+	font, the scale and the paint offset are all already in hand — which is
+	precisely what the four copies each had to reconstruct, and each got wrong in
+	a different way.
+
+	TWO SPELLINGS, ONE MEANING:
+
+	    textSize = "fit"
+	    textSize = { fit = { cap = "title", floor = 12 } }
+
+	`cap` is the largest size this node may paint at — a typography ROLE name or a
+	px number; absent, it is the class's own intrinsic role, i.e. exactly the size
+	the node would have painted without the prop, so adding `"fit"` can only ever
+	make text SMALLER and never bigger. `floor` is the smallest — absent, the
+	theme's `caption` role, which every package is required to carry
+	(`themes/package.REQUIRED_TYPE_ROLES`). A theme-owned floor rather than a
+	literal is the point: "never below this theme's smallest type role" survives a
+	package swap and a ten-foot ladder, and `floor = 1` (this module's own default
+	for a raw `fit` call) would let a label paint unreadably rather than let the
+	layout decide.
+
+	`fitSpecOf` IS THE ONE READING OF THE SPELLING, and the three seams that need
+	it all call it: the schema's acceptance check, `render/layout_node.textOf`
+	(which resolves cap/floor against the live theme and hands the solver numbers),
+	and `render/commit_walks.textScale` (which must NOT re-derive a size for a fit
+	node, because the solver already chose one). A second reading of the grammar
+	is how "fit" ends up meaning two things. ]]
+
+export type FitProp = { cap: (number | string)?, floor: (number | string)? }
+
+--[[ fitSpecOf(textSize) -> FitProp? — pure, theme-free, and total: any value
+	that is not one of the two fit spellings answers nil, so a caller can ask
+	without first knowing what it is holding. ]]
+function text_fit.fitSpecOf(textSize: any): FitProp?
+	if textSize == "fit" then
+		return EMPTY_FIT
+	end
+	if type(textSize) ~= "table" then
+		return nil
+	end
+	local inner = (textSize :: any).fit
+	if type(inner) ~= "table" then
+		return nil
+	end
+	return inner :: FitProp
+end
+
+--[[ ...and the same grammar read STRICTLY, for the construction-time check. It
+	returns a REASON rather than a boolean because that reason is the whole value
+	of a closed vocabulary: `{ fit = { max = 24 } }` is a typo that would otherwise
+	be accepted and ignored, which is the §4 violation the placement audit exists
+	to end. ]]
+local FIT_PROP_KEYS = specGuard.keySet({ "cap", "floor" })
+
+function text_fit.checkFitProp(textSize: any): (boolean, string?)
+	local found = text_fit.fitSpecOf(textSize)
+	if found == nil then
+		return false, 'the word "fit", or { fit = { cap = <role name or px>, floor = <role name or px> } }'
+	end
+	local spec: any = found
+	for key in spec do
+		if not FIT_PROP_KEYS[key] then
+			return false, `fit takes only cap and floor (got "{tostring(key)}")`
+		end
+	end
+	for _, field in { "cap", "floor" } do
+		local raw = spec[field]
+		if raw ~= nil and not (type(raw) == "number" and raw == raw and raw > 0) and type(raw) ~= "string" then
+			return false, `fit.{field} must be a positive px number or a typography role name`
+		end
+	end
+	return true
 end
 
 return text_fit
