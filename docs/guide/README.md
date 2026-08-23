@@ -232,6 +232,7 @@ replacement and their earliest removal version.
 | `UI.PROP_DIRTY` | The frozen map from property to the work a change to it dirties. | [api](../reference/api.md#tooling-surface-uischema-uiisreadable-uiprop_dirty) |
 | `specGuard` | The closed-key-set guard, exported so an out-of-repo control can reuse it. | [api](../reference/api.md#specguard) |
 | `VERSION` | The library's semantic version string. | [api](../reference/api.md#version) |
+| `EXIT_CAP_SECONDS` | The flat, non-overridable cap on how long a dismissed surface's exit may defer teardown. | [api](../reference/api.md#exit_cap_seconds) |
 | `DEPRECATIONS` | The retiring-surface ledger: what is going, what replaces it, and when. | [api](../reference/api.md#deprecations) |
 
 The Roblox-specific modules that create `Instance`s, read the real input device,
