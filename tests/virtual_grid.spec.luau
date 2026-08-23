@@ -582,6 +582,51 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 	end)
 end)
 
+--[[ ── E2. `dump()` REPORTS THE PER-LANE CROSS EXTENT (framework-gaps-phase2
+	item 26) ───────────────────────────────────────────────────────────────── ]]
+
+describe("VirtualGrid: dump() reports the cross extent and the per-lane width", function()
+	it("the mounted band's own cross extent and its solved column width, not a re-derivation", function()
+		-- SAME FIXTURE AS THE DIFFERENTIAL ABOVE: floor((320 - 4 * 3) / 4) = 77 is
+		-- the flow grid's own column arithmetic, already proven equal to
+		-- `w.cellRect("i1").w` there. This is the same number, reached through
+		-- `dump()` instead of a private `rectOf` read.
+		local w = world({
+			items = makeItems(12),
+			columns = 4,
+			gap = 4,
+			itemExtent = 40,
+			width = { type = "fixed", px = 320 },
+		})
+		local d = w.grid.dump()
+		expect(d.crossExtent).toBe(320)
+		expect(d.laneWidth).toBe(77)
+		expect(d.laneWidth).toBe(w.cellRect("i1").w)
+		w.grid.dispose()
+	end)
+
+	-- the axis="x" half of this fact (the cross axis transposes to the HEIGHT)
+	-- is pinned in tests/virtual_hgrid.spec.luau, beside that file's own
+	-- lane-arithmetic differential.
+
+	it("a cross extent too small for the gaps CLAMPS at zero, never goes negative", function()
+		-- 4 lanes, 3 gaps of 100 inside a 50px cross extent: the raw arithmetic is
+		-- negative, and a negative width is not a fact about a lane, it is a bug
+		-- report wearing a number.
+		local w = world({
+			items = makeItems(4),
+			columns = 4,
+			gap = 100,
+			itemExtent = 40,
+			width = { type = "fixed", px = 50 },
+		})
+		local d = w.grid.dump()
+		expect(d.crossExtent).toBe(50)
+		expect(d.laneWidth).toBe(0)
+		w.grid.dispose()
+	end)
+end)
+
 --[[ ── F. THE NATIVE SCROLL SUBSTRATE ───────────────────────────────────────── ]]
 
 describe("VirtualGrid: the engine owns the offset, the framework owns the window", function()

@@ -332,6 +332,18 @@ describe("VirtualHGrid: the mounted band's lanes are the flow grid's own arithme
 		expect(#w.handle.controller.diagnostics()).toBe(0)
 		w.grid.dispose()
 	end)
+
+	it(
+		"dump() reports the cross extent on ITS OWN axis (the height), and the solved lane width (framework-gaps-phase2 item 26)",
+		function()
+			local w = world({ count = 20, gap = 6 })
+			local d = w.grid.dump()
+			expect(d.crossExtent).toBe(CROSS)
+			expect(d.laneWidth).toBe(math.floor((CROSS - 6 * (LANES - 1)) / LANES))
+			expect(d.laneWidth).toBe(w.cellRect("i1").h)
+			w.grid.dispose()
+		end
+	)
 end)
 
 --[[ ── D. THE FOUR INPUTS, WITH THE RING A QUARTER TURN ROUND ────────────────── ]]

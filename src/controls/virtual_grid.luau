@@ -483,6 +483,18 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		end
 	end
 	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
+	--[[ THE MOUNTED BAND'S OWN CROSS EXTENT (framework-gaps-phase2 item 26). Unlike
+		`measuredViewport` this is not an OPT-IN form — there is no `crossExtent`
+		spec key to gate it behind (the header above already explains why: a
+		grid's lane width is DERIVED from its cross extent, not the other way
+		round, so there is nothing for the grid to size itself to). It is simply
+		the box `syncGeometry` already reads back every refresh, published on the
+		axis this control does not scroll, so `dump()` can report the SOLVED
+		per-lane width instead of a probe reaching around it for `rectOf` on a
+		cell that may not even be mounted yet. Starts at 0 (nothing measured
+		before the first geometry sync); a grid that never presents reports 0,
+		honestly, rather than a guess. ]]
+	local measuredCrossExtent = core:signal(0)
 	--[[ THE MEASUREMENT THAT IS NOT A VIEWPORT (fix round 1, finding A) — the same
 		shape `newVirtualList` reports and for the same reason, because both take
 		`fill` along their scroll axis and both are exposed to an ancestor that is
@@ -538,6 +550,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	if measuredViewport ~= nil then
 		scope:own(measuredViewport)
 	end
+	scope:own(measuredCrossExtent)
 	-- a gutter that can move (a Readable, or a theme metric name) reaches the band
 	-- as a live prop; one that cannot stays the plain number it always was
 	local gapProp: any = if gapMetricReader.live
@@ -1236,13 +1249,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 				mountedScrollPath = node.path
 				mirror.noticeMount(node, node.path)
 			end
-			--[[ ...AND THE MEASURED VIEWPORT (`viewportExtent = "auto"`). The host
-				takes `fill` along its scroll axis, so its solved size is decided by
-				what CONTAINS it and never by the lines inside it — measuring cannot
-				change what was measured. The equality guard is still load-bearing: a
-				signal written to its own value on every refresh would re-solve the
-				tree forever. ]]
-			if measuredViewport == nil or rectOf == nil then
+			-- framework-gaps-phase2 item 26: no longer gated on
+			-- `measuredViewport ~= nil` — the cross extent below is read
+			-- unconditionally, so only a missing `rectOf` (no geometry at all)
+			-- is a reason to stop here.
+			if rectOf == nil then
 				return
 			end
 			local root = if type(node) == "table" and type(node.path) == "string" then node.path else mountedScrollPath
@@ -1251,6 +1262,28 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			end
 			local box = rectOf(root)
 			if type(box) ~= "table" then
+				return
+			end
+			--[[ THE CROSS EXTENT (framework-gaps-phase2 item 26), READ
+				UNCONDITIONALLY — unlike the viewport below there is no spec key
+				gating this: it is simply the axis that is NOT the scroll axis. The
+				equality guard is the same reason `measuredViewport`'s one is: a
+				signal written to its own value on every refresh would re-solve the
+				tree forever. ]]
+			local crossRaw = if isX then box.h else box.w
+			if type(crossRaw) == "number" and crossRaw == crossRaw then
+				local cross = math.max(0, math.floor(crossRaw + 0.5))
+				if cross ~= measuredCrossExtent:get() then
+					measuredCrossExtent:set(cross)
+				end
+			end
+			--[[ ...AND THE MEASURED VIEWPORT (`viewportExtent = "auto"`). The host
+				takes `fill` along its scroll axis, so its solved size is decided by
+				what CONTAINS it and never by the lines inside it — measuring cannot
+				change what was measured. The equality guard is still load-bearing: a
+				signal written to its own value on every refresh would re-solve the
+				tree forever. ]]
+			if measuredViewport == nil then
 				return
 			end
 			local raw = if isX then box.w else box.h
@@ -1341,6 +1374,29 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			itemExtentMode = if extentIsPerLine then "variable" else "uniform",
 			bandOffset = bandOffset:get(),
 			anchorKey = anchorKey,
+			--[[ THE PER-LANE CROSS EXTENT (framework-gaps-phase2 item 26). `crossExtent`
+				is the mounted band's own solved box on the axis this grid does not
+				scroll — 0 before the first geometry sync, honestly, rather than a
+				guess. `laneWidth` is the SAME formula the header above names as
+				EXECUTING (`floor((innerW - gap * (lanes - 1)) / lanes)`), spent here
+				instead of re-derived by a probe reaching around `dump()` for a
+				mounted cell's own `rectOf`, which may not even be windowed. `nil`
+				before anything has been measured — a lane width of 0 would read as
+				"every lane is zero-wide", which is a different fact from "nobody
+				has asked yet". Clamped at 0 otherwise: a cross extent too small for
+				its own gaps is a fact worth reporting, never a negative number. ]]
+			crossExtent = measuredCrossExtent:get(),
+			laneWidth = (function(): number?
+				local cross = measuredCrossExtent:get()
+				if cross <= 0 then
+					return nil
+				end
+				local lanes = lanesNow()
+				if lanes <= 0 then
+					return nil
+				end
+				return math.max(0, math.floor((cross - gapNow() * (lanes - 1)) / lanes))
+			end)(),
 		}
 	end
 
