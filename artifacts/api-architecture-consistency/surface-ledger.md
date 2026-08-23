@@ -19,6 +19,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 |---|---|---|---|---|
 | `VERSION` | metadata | single-source constant | DOC-26 (0.8.0 notes) | blueprints |
 | `DEPRECATIONS` | metadata | generated + declared ledger, frozen | F-34, DEP ×2, ENF-3 | blueprints, seams |
+| `EXIT_CAP_SECONDS` | metadata | single-source constant, mirrors `src/render/transitions.luau`'s own | NOTE (framework-gaps-phase2 item 41 — was known to consumers only by a doc comment; RascalRally's `FacetSponsor/init.luau` now reads it directly) | blueprints |
 
 ## Reactive core and state services
 
@@ -102,7 +103,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newDragRegistry` | service | dot functions (the family's one dot object — recorded, PKT-1-adjacent; documented per call) | F-29 (Opts truth), DOC-6 | seams |
 | `newDragVelocity` | pure model | opts-factory, colon | PKT-5 (`WINDOW_S`) | seams |
 | `newAutoscroll` | pure model | opts-factory, colon | PKT-5 (constants), DOC-21 | seams |
-| `interactionTokens` · `interactionTokens.dragPromotionPx` · `interactionTokens.dragPromotionRangePx` · `interactionTokens.classForPointerType` · `interactionTokens.promotionPx` · `interactionTokens.promotionForPointerType` · `interactionTokens.promoted` | pure decision module | clean — no findings | — | seams |
+| `interactionTokens` · `interactionTokens.dragPromotionPx` · `interactionTokens.dragPromotionRangePx` · `interactionTokens.classForPointerType` · `interactionTokens.promotionPx` · `interactionTokens.promotionForPointerType` · `interactionTokens.promoted` · `interactionTokens.contextPriority` | pure decision module | clean — no findings; `contextPriority` (framework-gaps-phase2 item 41) publishes the three responder priority bands `src/present/presenter.luau`'s own comment used to be the only place they were written down | — | seams |
 | `touchGestures` · `touchGestures.normalize` · `touchGestures.newArbiter` | pure decision module + factory | positional engine-args contract | F-17 (adapter call shape), F-37 (opts refusal) | seams |
 | `spatial` · `spatial.normalize` · `spatial.extend` · `spatial.of` · `spatial.isFlat` · `spatial.describe` · `spatial.PHASES` · `spatial.HANDEDNESS` | contract-only module | never-errors clamp; cleanest entry | DOC-20 | seams |
 

@@ -37,6 +37,18 @@ currently `0.10.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
 pre-1.0, a minor bump may change behavior with notice; a patch bump never
 does. The version lives only here; docs and tests read it from the source.
 
+### `EXIT_CAP_SECONDS`
+
+`Facet.EXIT_CAP_SECONDS: number` — `0.5`. The flat, non-overridable cap (ui-
+designer spec §2.1 / disposition F8) on how long a dismissed surface's exit
+transition may defer its teardown, in **clock time** (a stopped clock stops the
+cap too). `src/render/transitions.luau` is the authority and enforces it; this
+is that same number, published (framework-gaps-phase2 item 41) for a consumer
+that must advance a stepped clock past a dismissed surface's own teardown — a
+presenter's final `tick(Facet.EXIT_CAP_SECONDS)` on the way out, the way
+RascalRally's `FacetSponsor/init.luau:destroy()` does — instead of copying the
+literal out of this paragraph by hand.
+
 ### `DEPRECATIONS`
 
 `Facet.DEPRECATIONS: { { surface, since, removeNoEarlierThan, replacement, note? } }`
@@ -4244,7 +4256,7 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.dump(resolution)` | the deterministic diagnostic table (`{ schema = "facet-composition-dump/1", … }`); two calls are equal. This is what the solver publishes and the layout dump carries |
 | `composition.floorPx(floor, metrics)` | a CONTENT floor (`{ lines = n, role? }`, `{ targets = n }`) resolved to pixels against a theme snapshot; `nil` when nothing was declared |
 | `composition.arrangementOf(value)` | a preset name or a custom table, validated to `{ name, lanes }` |
-| `composition.ARRANGEMENTS` | the three presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `threeLane` = `{ lead } { main } { trail }` |
+| `composition.ARRANGEMENTS` | the four presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `leadFirst` = `{ lead } { main, trail }` — the mirror of `twoLane`, for an app shell whose nav sits on the `lead` side (framework-gaps-phase2 item 12) — `threeLane` = `{ lead } { main } { trail }` |
 | `composition.HUD` | the **screen-anchored HUD** arrangement as data (ADR-0025): three lanes, `{ left } { center } { right }` — the three screen columns |
 | `composition.HUD_GROUPS` | the thirteen groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty), the nine **zone** groups `topLeft … bottomRight`, and the `topbar` **span** row (ADR-0027) |
 | `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact and the SOLVER applies it under `rootPolicy = "bandSafeContent"`: the row is laid into the free strip's own x and width rather than across the composition, and a `sizing = "fill"` region in it takes the strip so its content centres there. Under any other policy it is an ordinary full-width span row, as it always was — see **Placing a surface in the platform's TOPBAR band** and [ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) |
@@ -4303,6 +4315,21 @@ form is lossless (`recover = "none"`) is not missing anything; and a one-form
 region can only be missing by being dropped. A DROPPED region's route is always
 `"overflow"` whatever its `recover` said — there is no standing form left to be
 its own route, which is the half `mayDrop` has always implied and now states.
+
+**...and, beside it, whether this screen is simplified at all** (framework-gaps-
+phase2 item 28). `resolution.simplified` answers a different question than
+`unshown`: not "what is missing" but "what is on screen showing less than its
+richest form" — which includes a `recover = "none"` region (nothing missing, by
+the author's own word, but still not showing its richest form) and excludes a
+dropped one (`activeForm = 0` there; it is showing nothing, not showing less):
+
+```lua
+resolution.simplified --> { { id = "Rail", form = 2 } }
+```
+
+One entry per on-screen region with `activeForm > 1`, in declaration order,
+`form` restating that region's `activeForm` so a reader never has to cross back
+to `regionById` for it. `composition.dump(resolution)` carries the same list.
 
 `resolution.collisions` is the alarm for the one failure a partition cannot
 remove: a region whose chosen form **measures** bigger than the box it was
@@ -5643,6 +5670,16 @@ and turns a quarter turn:
 | the mounted band | `UI.Grid` | `UI.Grid { flow = "column" }` |
 | the focus group's axis | `horizontal` | `vertical` |
 | a whole-line step | Up/Down | Left/Right |
+
+**`dump()` reports the mounted band's cross extent and its solved per-lane
+width** (`crossExtent`, `laneWidth` — framework-gaps-phase2 item 26), on
+whichever axis is this grid's OWN cross axis (the width on `axis = "y"`, the
+height on `axis = "x"`). `laneWidth` is the same formula the column-width
+paragraph above names as *executing* — `floor((crossExtent − gap × (columns −
+1)) / columns)`, clamped at 0 — read here instead of re-derived by a probe
+reaching around `dump()` for a mounted cell's own rect. Both are `nil`/`0`
+before the grid's first geometry sync (nothing measured yet, honestly, rather
+than a guess).
 
 The band being a real `UI.Grid` on both axes is what made `axis = "x"` possible:
 it used to be refused because `UI.Grid` wrapped row-major only, and hand-rolling
@@ -7931,6 +7968,17 @@ to find every copy.
 - `interactionTokens.promoted(dx, dy, pointerType, overrides?) -> boolean` —
   the **magnitude** test. A 5 px diagonal on a mouse is 7 px of travel and reads
   as a drag to the player; two independent axis tests would still call it a tap.
+- `interactionTokens.contextPriority` — `{ baseScreen = 1500, engagedBase =
+  3000, modalStep = 500 }` (framework-gaps-phase2 item 41; ADR-0014). The
+  **responder priority bands** every presented Facet surface arbitrates at
+  (`src/present/presenter.luau`'s own live authority), published so a
+  consumer arbitrating its OWN input contexts against a Facet-presented
+  surface's — the shape `presentModal` exists to keep collision-free — knows
+  where the ceiling is without reading a source comment: a context sitting AT
+  or above `baseScreen` can sink a Facet screen it does not own. `baseScreen`
+  is every presented `kind = "screen"` surface's floor; `engagedBase` is an
+  engaged-from-passive or modal surface's floor, strictly above it; each modal
+  stacks `modalStep` above the previous one's depth.
 
 The decision is made against the pointer type of the **event in hand**, never
 against the live interaction-class set: a hybrid device delivers mouse and touch
