@@ -91,7 +91,11 @@ export type Spec = {
 	trigger: any, -- Blueprint, required: ANY node, not a built-in trigger
 	items: { Item }, -- required, non-empty
 	triggers: { string }?, -- which gestures open it; default all five
-	presentation: string?, -- automatic | menu | sheet
+	-- string | Readable<string> (automatic | menu | sheet; gap 20, framework-
+	-- gaps-phase2). Was construction-time only; a forced (non-"automatic")
+	-- value now rides the SAME hot-switch machinery `sizeClass`/
+	-- `interactionClasses` already drive an open menu through.
+	presentation: any?,
 	sizeClass: any?, -- string | Readable<string>
 	interactionClasses: any?, -- table | Readable<table>
 	--[[ the environment both facts above come from. Omitted, an
@@ -258,10 +262,18 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local diagnostics: { string } = {}
 	validate(id, spec.items, "items", 0, diagnostics)
 
-	local requestedPresentation = spec.presentation or "automatic"
-	if not PRESENTATIONS[requestedPresentation] then
+	--[[ `presentation` accepts a plain string OR a `Readable<string>` (gap 20,
+		framework-gaps-phase2). A STATIC misspelling still fails fast, at
+		construction, exactly as before; a REACTIVE value is domain-checked at
+		each read instead (`presentationMemo` below), the same split every other
+		reactive prop in this framework uses (`scale`/`rotation`'s
+		`schema.checkX` pattern) because a Readable's future values cannot be
+		known here. ]]
+	local presentationIsReadable = type(spec.presentation) == "table" and (spec.presentation :: any).get ~= nil
+	local staticPresentation = if presentationIsReadable then nil else (spec.presentation or "automatic")
+	if staticPresentation ~= nil and not PRESENTATIONS[staticPresentation] then
 		error(
-			`Facet newMenu('{id}'): unknown presentation '{requestedPresentation}' (automatic | menu | sheet). `
+			`Facet newMenu('{id}'): unknown presentation '{tostring(staticPresentation)}' (automatic | menu | sheet). `
 				.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
 			0
 		)
@@ -362,7 +374,15 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		refuses to construct rather than presenting a desktop plate to a thumb. ]]
 	local envForFacts: any = nil
 	local factsFrom = "spec"
-	if requestedPresentation == "automatic" and (spec.sizeClass == nil or spec.interactionClasses == nil) then
+	-- resolve env facts whenever the presentation MIGHT resolve to "automatic"
+	-- at some point in its life: the static "automatic" case (as before), or a
+	-- Readable whose future values this constructor cannot see (gap 20) — a
+	-- forced-then-later-automatic flip must not find the facts it needs
+	-- unresolved because construction guessed it would never need them.
+	if
+		(presentationIsReadable or staticPresentation == "automatic")
+		and (spec.sizeClass == nil or spec.interactionClasses == nil)
+	then
 		local env, source = surfaceEnv.resolve(
 			"newMenu",
 			id,
@@ -378,8 +398,16 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		or (if envForFacts ~= nil then envForFacts:get("interactionClasses") else nil)
 
 	local presentationMemo = scope:own(core:memo(function(use)
-		if requestedPresentation ~= "automatic" then
-			return requestedPresentation
+		local requested = useFact(use, spec.presentation)
+		if requested ~= nil and requested ~= "automatic" then
+			if not PRESENTATIONS[requested] then
+				error(
+					`Facet newMenu('{id}'): unknown presentation '{tostring(requested)}' (automatic | menu | sheet). `
+						.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
+					0
+				)
+			end
+			return requested
 		end
 		-- PRIMARY, not merely present: one predicate, in the recipe
 		local touchLive = menuRecipe.touchPrimary(useFact(use, classesSource))

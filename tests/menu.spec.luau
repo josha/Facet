@@ -686,6 +686,157 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 	end)
 end)
 
+--[[ D2: `presentation` accepts a Readable (gap 20, framework-gaps-phase2).
+	Was a static string, checked once at construction; the audit's own
+	adjacent evidence (teaches-wrong #8) put `sizeClass`/`interactionClasses`
+	on the same file already accepting a Readable — this is the third leg,
+	riding the SAME `presentationMemo`/hot-switch machinery the class-flip
+	test above proves, so a forced override reacts exactly like an automatic
+	resolution already does. ]]
+describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
+	it("a plain string still fails fast, at CONSTRUCTION — no regression", function()
+		local ok, err = pcall(function()
+			world({ presentation = "bogus" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown presentation", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a Readable forcing 'sheet' opens sheeted even on a desktop-shaped surface", function()
+		local core = Facet.newCore()
+		local forced = core:signal("sheet")
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local control = menuLib.build(
+			Facet,
+			core,
+			{
+				id = "M",
+				trigger = UI.Button({ id = "Trigger", label = "More" }),
+				items = ITEMS,
+				presentation = forced,
+				interactionClasses = { pointer = true, primary = "pointer" }, -- would resolve "menu" if honoured
+			} :: any
+		)
+		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.refresh()
+		expect(control.presentation()).toBe("sheet")
+		control.api.open()
+		pres.refresh()
+		expect(adapter.node("/Menu-M/Layer/Panel/Item:accessory") ~= nil).toBe(true)
+	end)
+
+	it("flipping the Readable while OPEN re-presents through the same hot-switch the automatic case uses", function()
+		local core = Facet.newCore()
+		local forced = core:signal("menu")
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+		local control = menuLib.build(
+			Facet,
+			core,
+			{
+				id = "M",
+				trigger = UI.Button({ id = "Trigger", label = "More" }),
+				items = ITEMS,
+				presentation = forced,
+			} :: any
+		)
+		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.refresh()
+		control.api.open()
+		pres.refresh()
+		expect(control.dump().surfaces).toBe(1)
+		expect(adapter.node(sheetRow("accessory"))).toBe(nil)
+		forced:set("sheet")
+		pres.refresh()
+		expect(control.presentation()).toBe("sheet")
+		expect(control.api.isOpen:get()).toBe(true) -- the surface survived the switch
+		expect(adapter.node(sheetRow("accessory")) ~= nil).toBe(true)
+	end)
+
+	it(
+		"a Readable can flip INTO 'automatic', resolving the size/interaction facts as if authored from the start",
+		function()
+			local core = Facet.newCore()
+			local forced = core:signal("sheet")
+			local classes = core:signal({ pointer = true, primary = "pointer" })
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local control = menuLib.build(
+				Facet,
+				core,
+				{
+					id = "M",
+					trigger = UI.Button({ id = "Trigger", label = "More" }),
+					items = ITEMS,
+					presentation = forced,
+					interactionClasses = classes,
+				} :: any
+			)
+			pres.present(UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+			pres.refresh()
+			expect(control.presentation()).toBe("sheet")
+			-- flip to "automatic": the env facts must already be resolved (the
+			-- construction-time gate had to anticipate a Readable might do this)
+			forced:set("automatic")
+			pres.refresh()
+			expect(control.presentation()).toBe("menu") -- pointer/primary resolves menu, not sheet
+		end
+	)
+
+	--[[ THE DOMAIN CHECK LIVES INSIDE `presentationMemo` — a `core:memo`, not
+		`readAuthoredPresentation`'s plain renderer-side call (the path
+		`scale`/`rotation`/`opacity` use, which genuinely throws OUT of
+		`pres.refresh()`, per `authored_presentation.spec.luau`'s equivalent
+		case). The reactive core QUARANTINES a memo compute error by design
+		(`src/core/custom.luau`: "an equality callback error quarantined... it
+		must never unwind a writer or wedge the flush loop") — one screen's
+		malformed reactive value must not crash an unrelated surface mid-frame.
+		So the refusal here is loud on `core:lastError()`, and the menu HOLDS
+		its last valid presentation rather than adopting the bad one — never a
+		silent, undiagnosed acceptance of "bogus" as if it were a real idiom. ]]
+	it(
+		"a reactive value out of domain is refused loudly on core:lastError(), and the menu HOLDS its last valid state",
+		function()
+			local core = Facet.newCore()
+			local forced = core:signal("menu")
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = Facet.newPresenter(core, env, adapter, system)
+			local control = menuLib.build(
+				Facet,
+				core,
+				{
+					id = "M",
+					trigger = UI.Button({ id = "Trigger", label = "More" }),
+					items = ITEMS,
+					presentation = forced,
+				} :: any
+			)
+			pres.present(UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+			pres.refresh()
+			expect(control.presentation()).toBe("menu")
+			expect(core:lastError()).toBeNil()
+			forced:set("bogus")
+			pres.refresh()
+			expect(string.find(tostring(core:lastError()), "unknown presentation", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(core:lastError()), "bogus", 1, true) ~= nil).toBe(true)
+			expect(control.presentation()).toBe("menu") -- HELD, not silently accepted
+		end
+	)
+end)
+
 -- ===== the shared recipe ================================================
 
 describe("D2: one menu row recipe, and one presentation rule", function()
