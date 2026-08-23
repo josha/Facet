@@ -61,6 +61,10 @@ local compositionLib = require("./composition")
 -- the expand plate's chrome, declared once beside the padding `blueprint` writes
 -- on the plate; resolved into the composition's resolve context below
 local expandPlate = require("./expand_plate")
+-- the composition's own resolution — the block this file used to hold, taken as
+-- its own module by the source-cap ledger's named seam. It reads `measure` back,
+-- which is why it takes a Deps record rather than closing over anything here.
+local compositionResolve = require("./composition_resolve")
 -- the parent-side placement-prop audit (parity round 2 §2.1), re-exported below
 -- as `solver.auditPlacement`. It reads no solve state, which is why it is the
 -- one block of this file that could become a sibling module unchanged.
@@ -532,6 +536,10 @@ local GRID_DEPS: gridLib.Deps = {
 -- helper needs, and building the forwarder twice is how the two ends up reading a
 -- different `measure` after someone edits one of them.
 local FLOW_DEPS: flowLib.Deps = GRID_DEPS
+-- ...and `./composition_resolve` needs exactly one of the three, so it declares
+-- its own record rather than borrowing a wider one: a Deps record is a statement
+-- about what a module reads, and a spare field in it is a false statement.
+local COMPOSITION_DEPS: compositionResolve.Deps = { measure = GRID_DEPS.measure }
 
 -- resolve one axis of `node` given the limit and a content thunk
 -- `axisAbsorbs` — the relayout-BOUNDARY predicate, which mirrors `resolveAxis`
@@ -803,218 +811,9 @@ local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: num
 	return chosen
 end
 
--- THE COMPOSITION RESOLUTION, COMPUTED ONCE PER BOX (ADR-0023).
---
--- Measure and arrange both need it, and they must never get different answers —
--- reserving a box for `threeLane` and then arranging `column` inside it is the
--- exact measure-versus-paint disagreement this solver has had to fix four times
--- (ViewThatFits' candidate, the compact ladder, the uniform Grid cell, the
--- container offer). So it is cached on the CONTEXT, keyed by the box, and the
--- cache dies with the solve.
---
--- An UNBOUNDED axis (a composition inside a scrolling region) cannot adapt on
--- that axis — there is no offer to be short of. It is resolved twice: once
--- against a large finite box to learn the natural extent, then against that
--- extent, which is what `hug` means everywhere else in this file.
-local COMPOSITION_UNBOUNDED = 1e6
-local function compositionResolution(ctx: Ctx, node: Node, innerW: number, innerH: number): any?
-	local declared = node.composition
-	if declared == nil then
-		return nil
-	end
-	local key = `{innerW}|{innerH}`
-	local cached = ctx.compositions[node.id]
-	if cached ~= nil and cached.key == key then
-		return cached.resolution
-	end
-
-	local byId: { [string]: Node } = {}
-	-- wave REVEAL: per region, the affordance node (or nil) and the FORM count the
-	-- ladder may use. Built in the same walk, read by the measure closure below.
-	local expandFor: { [string]: { node: Node?, forms: number } } = {}
-	local regions = {}
-	for _, child in node.children or {} do
-		local r = child.region
-		if r == nil then
-			if ctx.hiddenDepth == 0 then
-				table.insert(ctx.diagnostics, {
-					node = child.id,
-					issue = "every child of a Composition must be a UI.Region — this one is not, so it "
-						.. "carries no rank, no forms and no floor, and the composition cannot place it",
-				})
-			end
-			continue
-		end
-		byId[child.id] = child
-		--[[ WAVE REVEAL. The region's children are its FORMS plus, when it collapses,
-			ONE expand affordance appended last. The ladder must not step onto that
-			button, so the count it is given excludes it — and the affordance is found
-			by its own declaration (`expandTarget`) rather than by position, because a
-			form declared behind a `UI.When` splices itself out of this list and an
-			index would then name the wrong node. ]]
-		local kids = child.children or {}
-		local affordance = if #kids > 0 and kids[#kids].expandTarget ~= nil then kids[#kids] else nil
-		local formCount = math.max(1, #kids - (if affordance ~= nil then 1 else 0))
-		expandFor[child.id] = { node = affordance, forms = formCount }
-		--[[ ...AND THE INTERACTIVITY ARRAY IS INDEXED BY THE DECLARED FORM while this
-			count is of the MOUNTED ones. When they agree the declaration's own answer
-			is used verbatim; when a `UI.When` has spliced a form away they cannot be
-			aligned, so every form falls back to the affordance's ROLE — the
-			conservative answer the construction pass already computed across the whole
-			ladder ("never overload a control"). A wrong index would report a live
-			control as a passive box, which is the one mistake this fact exists to
-			prevent. ]]
-		local record = r.expand
-		local interactive: { boolean }? = nil
-		if record ~= nil then
-			if record.forms == formCount then
-				interactive = record.interactive
-			else
-				interactive = {}
-				for i = 1, formCount do
-					(interactive :: { boolean })[i] = record.role == "chevron"
-				end
-			end
-		end
-		table.insert(regions, {
-			id = child.id,
-			group = r.group,
-			rank = r.rank,
-			forms = formCount,
-			expand = if record ~= nil then record.mode else nil,
-			formInteractive = interactive,
-			sizing = r.sizing,
-			weight = r.weight,
-			floor = r.floor,
-			mayScroll = r.mayScroll,
-			mayDrop = r.mayDrop,
-			reserved = r.reserved,
-			recover = r.recover,
-		})
-	end
-
-	--[[ A LIVE `eligible` is resolved HERE, once per solve, exactly as a live
-		`reserved` reaches the region list above already resolved. The gate answers
-		"is this candidate offered on THIS offer?", which is a per-solve question by
-		construction — a size class changes when the window does. ]]
-	local arrangements = declared.arrangements
-	local anyLive = false
-	for _, a in arrangements do
-		if type(a) == "table" and type((a :: any).eligible) == "table" then
-			anyLive = true
-			break
-		end
-	end
-	if anyLive then
-		local resolved = {}
-		for _, a in arrangements do
-			local gate = if type(a) == "table" then (a :: any).eligible else nil
-			if type(gate) == "table" and type((gate :: any).get) == "function" then
-				local copy = table.clone(a :: any)
-				copy.eligible = (gate :: any):get() == true
-				table.insert(resolved, copy)
-			else
-				table.insert(resolved, a)
-			end
-		end
-		arrangements = resolved
-	end
-
-	local decl = {
-		id = node.id,
-		groups = declared.groups,
-		arrangements = arrangements,
-		regions = regions,
-		laneGap = declared.laneGap,
-		groupGap = declared.groupGap,
-		maxMeasure = declared.maxMeasure,
-	}
-	local resolveCtx = {
-		measure = function(id: string, form: number, availW: number, availH: number): (number, number)
-			local regionNode = byId[id]
-			local forms = (if regionNode ~= nil then regionNode.children else nil) or {}
-			local spec = expandFor[id]
-			local count = if spec ~= nil then spec.forms else #forms
-			local child = forms[math.min(form, count)]
-			--[[ THE AFFORDANCE IS NEVER A FORM, and this identity test is what says so
-				in the one state a count cannot: a region whose EVERY form is behind a
-				`UI.When` that reads false has spliced them all away, leaving the
-				affordance as the only child — and measuring THAT would hold open a
-				region rule 9 exists to release (the composition showcase's `Callout`,
-				which is exactly this shape). An empty region is absent, affordance and
-				all: there is nothing to disclose. ]]
-			if child == nil or (spec ~= nil and child == spec.node) then
-				return 0, 0
-			end
-			--[[ A CHEVRON IS RESERVED, NEVER OVERLAID (wave REVEAL). When a reduced
-				form carries controls of its own the affordance sits BESIDE it, so the
-				region needs room for both — and the ladder has to know that before it
-				chooses a rung, or a form would be picked on a width it does not have.
-				A "cover" affordance reserves nothing: it is the form's own box. ]]
-			local mark = if spec ~= nil then spec.node else nil
-			if mark ~= nil and form > 1 and mark.expandTarget.role == "chevron" then
-				local mw, mh = measure(ctx, mark, availW, availH)
-				local w, h = measure(ctx, child, math.max(0, availW - mw), availH)
-				--[[ AN EMPTY FORM RESERVES NOTHING. Rule 9 releases a region whose
-					content resolves to nothing paintable, and an affordance that kept the
-					box open would defeat it — the reserved slot would hold a third of a
-					landscape phone for a chevron pointing at nothing. Measured on the
-					composition showcase, whose regions are `UI.When` forms that genuinely
-					empty. There is nothing to disclose from a form that is not there. ]]
-				if w <= 0 and h <= 0 then
-					return 0, 0
-				end
-				return w + mw, math.max(h, mh)
-			end
-			return measure(ctx, child, availW, availH)
-		end,
-		floorOf = function(r: any): number?
-			return compositionLib.floorPx(r.floor, ctx.metrics)
-		end,
-		--[[ THE GUTTER AN EXPAND PLATE LEAVES on each side of the viewport (wave
-			REVEAL). The composition owns no theme, so the NUMBER is resolved here from
-			the live snapshot and the NAME never crosses the boundary — the same split
-			`floorOf` makes for a content floor. ]]
-		expandGutter = (ctx.metrics.space :: any).m,
-		--[[ ...AND THE PLATE'S OWN CHROME, which is the half the gutter could not
-			say (DIR5 item 3, contested there and closed here). The gutter is what the
-			plate leaves at the SCREEN edges; this is what the plate spends on ITSELF
-			— two insets, one of them the close disc's reserve, plus the straddle the
-			disc sits half-out on. Without it the composition measured form 1 against
-			the whole allowance and handed back a plate that, once wrapped, was wider
-			than the allowance it had just been chosen against.
-
-			TWO NUMBERS, BECAUSE THEY SIT ON OPPOSITE SIDES OF THE BOX the caller
-			declares: the inset is inside it (content = box - inset) and the straddle
-			is outside it (panel = box + straddle). One combined number silently
-			mis-sizes whichever of hug/fill it was not derived for.
-
-			SAME SPLIT AS `expandGutter` AND `floorOf` ONE LINE UP: the composition
-			owns no theme, so the NUMBERS are resolved here from the live snapshot and
-			the NAMES never cross. They live in `./expand_plate` beside the padding
-			`blueprint` actually writes on the plate, so the cap and the box cannot be
-			two readings of one intention. ]]
-		expandPlateInset = expandPlate.insetX(ctx.metrics),
-		expandPlateStraddle = expandPlate.straddleX(ctx.metrics),
-		--[[ ...AND THE ONE NUMBER THE DECLARATION CANNOT SPELL (plate design B).
-			The metric vocabulary sums names and negates them; it cannot HALVE one,
-			and half the disc is exactly the offset a disc CENTRED ON A CORNER sits
-			at. It rides back out on the plate record beside `max`, so the
-			declaration spends the same resolution the cap above reserved. ]]
-		expandPlateDiscHalf = expandPlate.discHalf(ctx.metrics),
-	}
-	local offerW = if innerW == math.huge then COMPOSITION_UNBOUNDED else innerW
-	local offerH = if innerH == math.huge then COMPOSITION_UNBOUNDED else innerH
-	local resolution = compositionLib.resolve(decl, { w = offerW, h = offerH }, resolveCtx)
-	if innerW == math.huge or innerH == math.huge then
-		resolution = compositionLib.resolve(decl, {
-			w = if innerW == math.huge then resolution.used.w else offerW,
-			h = if innerH == math.huge then resolution.used.h else offerH,
-		}, resolveCtx)
-	end
-	ctx.compositions[node.id] = { key = key, resolution = resolution }
-	return resolution
-end
+-- THE COMPOSITION RESOLUTION LIVES IN `./composition_resolve` (SOURCE_CAP_LEDGER,
+-- the solver row's named next seam). It is reached through `COMPOSITION_DEPS`
+-- above, and the ONE thing it needs from this file is `measure`.
 
 --[[ THE FIVE WRITERS OF `ctx.scopeKey`.
 
@@ -1500,7 +1299,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	end
 
 	if node.kind == "composition" then
-		local resolution = compositionResolution(ctx, node, innerMaxW, innerMaxH)
+		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerMaxW, innerMaxH)
 		if resolution == nil then
 			return pl + pr, pt + pb
 		end
@@ -1848,7 +1647,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			-- THE PACKED ENTRY: a node that publishes NOTHING is filed as the array
 			-- `{ w, h }` and read back in two indexes (L-37). `ctx.textStates`,
 			-- `ctx.compact` and `ctx.textFacts` are written only by the `text` branch of
-			-- `contentSize` and `ctx.compositions` only by `compositionResolution`, so
+			-- `contentSize` and `ctx.compositions` only by `composition_resolve.resolve`, so
 			-- for every other kind the four replay assignments below are provably four
 			-- writes of `nil` over `nil`. Measured on the `flat` shape arm: replaying
 			-- them anyway cost more than the measure the hit saved (+7.8% against a 1.5%
@@ -2600,7 +2399,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 
 	if node.kind == "composition" then
-		local resolution = compositionResolution(ctx, node, innerW, innerH)
+		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerW, innerH)
 		if resolution == nil then
 			return
 		end
@@ -2741,7 +2540,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			             the WHOLE compact form.
 			  "chevron"  the trailing edge, vertically centred, with the form arranged
 			             in what is left. The reserve is the same measure the ladder was
-			             given (see `compositionResolution`), so the form was CHOSEN
+			             given (see `./composition_resolve`), so the form was CHOSEN
 			             against the width it is now being handed. ]]
 		local kids = node.children or {}
 		local mark = if #kids > 0 and kids[#kids].expandTarget ~= nil then kids[#kids] else nil
