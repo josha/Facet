@@ -1085,3 +1085,52 @@ describe("D1: the hand-rolled precedents now share one solver", function()
 		expect(stays.flipped).toBe(false)
 	end)
 end)
+
+--[[ framework-gaps-phase2 gap 39: "`armStaging` as a declaration rather than a
+	coordinate". Census (task-w3e): `UI.draggable`'s `armStaging` was ALREADY a
+	declaration in FORM — a callback the framework calls, not a value stored at
+	arm time — since the parallel-sponsor round (OWN-D27, 2026-08-04). The gap
+	survives one level down: the solver's shared placement arithmetic
+	(`anchor_placement.solve`, this file's own `solve` above) already answers
+	"where does a box belong, relative to a source rect" for three framework
+	callers (`present/anchored.luau`, `present/presenter.luau`'s disclosure
+	plate, `controls/row_actions.luau`'s floating menu) but was never reachable
+	off the public library table — so RascalRally's `HandDock` staging spot
+	(`FacetSponsor/init.luau`'s `slotStagingPoint`, the ONE real consumer the
+	census found, read by both the framework's `armStaging` seam and
+	`PlayFlow:heldOrigin`) had no honest way to DECLARE "above the source,
+	centred, gapped by N" and reimplemented the arithmetic by hand instead
+	(`source.x + source.w/2 - slot/2`, `source.y - slot - gap`) — exactly the
+	formula this solver already generalizes. Published as `Facet.layout
+	.anchorPlacement`, the same shape gap 33's `layout.transformFootprint` took
+	for a sibling "a consumer hand-transcribes math the framework already owns"
+	class. ]]
+describe("framework-gaps-phase2 gap 39: Facet.layout.anchorPlacement is published", function()
+	it("is reachable on the public library table, and is the SAME function as anchor_placement.solve", function()
+		local Facet = require("../src") :: any
+		expect(type(Facet.layout)).toBe("table")
+		expect(type(Facet.layout.anchorPlacement)).toBe("function")
+		expect(Facet.layout.anchorPlacement).toBe(anchorPlacement.solve)
+	end)
+
+	it("lets a consumer DECLARE a staging spot instead of hand-computing one — RascalRally's own shape", function()
+		local Facet = require("../src") :: any
+		-- HandDock's staging point, before this gap closed: a raw coordinate
+		-- computed by hand (`x = source.x + source.w/2 - slot/2`,
+		-- `y = source.y - slot - gap`). The declaration form asks for the same
+		-- answer by NAMING the placement instead:
+		local source = { x = 40, y = 500, w = 64, h = 64 }
+		local slot = 64
+		local gap = 8
+		local placement = Facet.layout.anchorPlacement({
+			source = source,
+			size = { w = slot, h = slot },
+			safe = { x = 0, y = 0, w = 800, h = 600 },
+			edge = "top",
+			align = "center",
+			gap = gap,
+		})
+		expect(placement.x).toBe(source.x + source.w / 2 - slot / 2)
+		expect(placement.y).toBe(source.y - slot - gap)
+	end)
+end)

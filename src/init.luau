@@ -739,9 +739,18 @@ local Facet = {
 		the transformed one) — the formula `docs/reference/api.md`'s `scale` row
 		already documents in prose, published here so a consumer computes the
 		reservation instead of hand-transcribing the trigonometry (as
-		`examples/gallery/scenarios/nested_compositing.luau` used to). ]]
+		`examples/gallery/scenarios/nested_compositing.luau` used to).
+
+		`anchorPlacement(request)` is the same move for gap 39 (`armStaging`
+		"as a declaration rather than a coordinate"): the pure edge/flip/shift/
+		tail decision `present/anchored.luau`, the disclosure plate and
+		`newRowActions`' floating menu already share, published so a consumer can
+		DECLARE a placement — "above the source, centred, gapped by N" — instead
+		of hand-computing the point, the way RascalRally's `HandDock` staging
+		spot used to (`ADR-0054`). ]]
 	layout = {
 		transformFootprint = require("@self/layout/transform_footprint").transformFootprint,
+		anchorPlacement = require("@self/layout/anchor_placement").solve,
 	},
 
 	-- focus, replication, tokens
