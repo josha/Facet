@@ -160,14 +160,16 @@ cross-repo, cross-runtime consumer can safely take.
 ## What is breaking, and what is not
 
 **Nothing is breaking.** Every new field, function and parameter above is
-additive: `adaptive.conditions()`'s return grows six new keys, none renamed
-or removed; `adaptive.sizeClassAtLeast` and `src/measure.luau` are new
-exports with no prior name to collide with; `text.AVG_GLYPH_FRACTION` is a
-new field on an existing table; `HudZoneModel.itemCaption`/`itemNameFlash`
-gain a sixth, OPTIONAL, trailing parameter — every existing call site
-(including the four that pass no `fallbackFraction`) behaves byte-identically
-because `fallbackFraction == nil` resolves to the same module default the
-function always used. `ADR-0040` gets no row.
+additive: `adaptive.conditions()`'s return grows SEVEN new keys —
+`navSidebar`/`navTopBar`/`navBottomBar`/`navBottomBarCompact`/
+`isCompactOnly`/`isRegularOrWider`/`atLeast` — none renamed or removed;
+`adaptive.sizeClassAtLeast` and `src/measure.luau` are new exports with no
+prior name to collide with; `text.AVG_GLYPH_FRACTION` is a new field on an
+existing table; `HudZoneModel.itemCaption`/`itemNameFlash` gain a sixth,
+OPTIONAL, trailing parameter — every existing call site (including the four
+that pass no `fallbackFraction`) behaves byte-identically because
+`fallbackFraction == nil` resolves to the same module default the function
+always used. `ADR-0040` gets no row.
 
 ## Consumers
 
@@ -181,12 +183,20 @@ rather than a silent possibility.
 
 **Registry evidence, recorded per the round's own instruction:**
 
-- **Teaches-wrong #7** (raw `conditions.viewportWidth`, cited against
-  `examples/gallery/scenarios/composition.luau:67`) does **NOT** dissolve
-  into gap 7. That site clamps a FIXED PX OFFER against the raw viewport
-  extent (`math.min(px, have)`) — genuine pixel arithmetic no boolean class
-  predicate (this round's `navSidebar`/`isRegularOrWider`/`atLeast`, or any
-  prior `isCompact`/`isRegular`/`isWide`) answers. It stays open.
+- **Teaches-wrong #7** (raw `conditions.viewportWidth`) does **NOT** dissolve
+  into gap 7, at EITHER of its two live sites — both genuine pixel arithmetic
+  no boolean class predicate (this round's
+  `navSidebar`/`isRegularOrWider`/`atLeast`, or any prior
+  `isCompact`/`isRegular`/`isWide`) answers.
+  `examples/gallery/scenarios/composition.luau:67` clamps a FIXED PX OFFER
+  against the raw viewport extent (`math.min(px, have)`).
+  `examples/reference/p3_sipworks/init.luau:300` (`app.paneSplit`) compares it
+  against an AUTHORED METRIC threshold
+  (`use(app.cond.viewportWidth) >= app.metric("twoPaneMin", use)`) — "can two
+  panes stand beside each other" is its own fact, not the same question as a
+  size class (a sidebar has already taken width out of the window, so
+  `sizeClass` and this threshold disagree near 600px, per the site's own
+  comment). It stays open.
 - **Item 31** ("a pure viewport-fact simulator for benchmarks") does **NOT**
   dissolve into gap 11's entry point — that item is about VIEWPORT facts
   (breakpoints, size/height class), not TEXT measurement, a genuinely

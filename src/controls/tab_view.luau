@@ -574,17 +574,17 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		if spec.conditions ~= nil then
 			policySource = spec.conditions.navPlacement
 		elseif publishedEnv ~= nil then
-			-- built here and OWNED here: `adaptive.conditions` creates thirteen
-			-- memos and a caller that rebuilds per mount without owning them leaks
-			-- thirteen per cycle (that function's own leak note says so)
+			-- built here and OWNED here: `adaptive.conditions` creates its own set
+			-- of memos and a caller that rebuilds per mount without owning them
+			-- leaks all of them per cycle (that function's own leak note says so)
 			policySource = adaptive.conditions(core, publishedEnv, { scope = scope }).navPlacement
 		else
 			error(
 				`Facet newTabView('{id}'): an automatic placement reads \`adaptive.navPlacement\`, so it needs `
 					.. "an environment. A surface stood up with `Facet.client.host.new` publishes one on the "
 					.. "core it builds and this control finds it with no wiring; otherwise pass `conditions` "
-					.. "(the table `Facet.adaptive.conditions(core, env)` returns — pass yours so its thirteen "
-					.. "memos are not built twice) or `env`. Or declare `placement` and the policy is never "
+					.. "(the table `Facet.adaptive.conditions(core, env)` returns — pass yours so its memos "
+					.. "are not built twice) or `env`. Or declare `placement` and the policy is never "
 					.. "consulted.",
 				0
 			)

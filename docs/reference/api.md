@@ -6962,7 +6962,7 @@ control reads the environment its own core published — a surface stood up with
 `Facet.client.host.new` publishes one, and a headless caller gets the same from
 `Facet.newEnvironment(core)` — so on a real surface neither key below is required.
 Pass `conditions` (the table `Facet.adaptive.conditions(core, env)` returns) so its
-thirteen memos are not built twice, or `env` and the control builds and owns them;
+memos are not built twice, or `env` and the control builds and owns them;
 with **no environment reachable at all** the construction raises, naming all three
 routes, because a tab bar that silently picked one home and kept it is the defect this
 refusal replaced. A **declared** `placement` never consults the policy at all — and

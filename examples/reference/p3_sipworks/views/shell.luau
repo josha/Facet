@@ -371,7 +371,7 @@ function shell.build(app: any): any
 		id = "Nav",
 		selection = intent,
 		-- the conditions this proof already built, passed in rather than rebuilt:
-		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- `adaptive.conditions` creates its own set of memos and two copies would be two
 		-- answers to one question
 		conditions = app.cond,
 		env = app.env,

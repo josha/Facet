@@ -102,7 +102,7 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("tab-view-scenario")
-		-- thirteen memos, owned, so a demo swap does not leave them behind
+		-- `adaptive.conditions`'s memos, owned, so a demo swap does not leave them behind
 		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		--[[ THE TWO SELECTIONS, AND THEY ARE TWO. `selection` is the caller's

@@ -869,7 +869,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		-- tab switch is owned OUTSIDE the construct, and this is the first one
 		selection = state.section,
 		-- the conditions this screen already built, passed in rather than rebuilt:
-		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- `adaptive.conditions` creates its own set of memos and two copies would be two
 		-- answers to one question
 		conditions = conditions,
 		env = env,

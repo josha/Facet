@@ -723,7 +723,7 @@ and nothing names the canonical one.
   `.../StoryFlow.luau:73` and `.../TableScreen.luau:54`.
   tests — `tests/adaptive.spec.luau`.
 - **Lifecycle:** X-2 spelling #1 — `opts.scope` owns the memos
-  (`src/layout/adaptive.luau:170-181`); omitted, the caller owns twelve memos by
+  (`src/layout/adaptive.luau:170-181`); omitted, the caller owns its memos by
   hand. The RR-8 leak that motivated it is written into the source comment
   (`:170-175`) and api.md (`:1776-1789`).
 - **Proof:** `tests/adaptive.spec.luau` — "classifies width into compact / regular

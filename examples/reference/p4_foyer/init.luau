@@ -1035,7 +1035,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		id = "Nav",
 		selection = destination,
 		-- the conditions this screen already builds, passed in rather than rebuilt:
-		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- `adaptive.conditions` creates its own set of memos and two copies would be two
 		-- answers to one question
 		conditions = conditions,
 		env = env,

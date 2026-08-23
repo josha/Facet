@@ -433,8 +433,8 @@ export type Conditions = {
 
 --[[ THE MOST IMPORTANT ARGUMENT IS NOW IN A TYPE (F-29). `conditions` used to
 	declare an inline intersection `(AxisOpts & { scope: any? })?` and read the
-	scope through two `(opts :: any)` casts, so the one argument that stops a
-	twelve-memo leak was undiscoverable from the exported types and a rename would
+	scope through two `(opts :: any)` casts, so the one argument that stops an
+	eighteen-memo leak was undiscoverable from the exported types and a rename would
 	not have been caught. ]]
 export type ConditionsOpts = {
 	stackAbove: number?, -- AxisOpts: width at or above which the axis becomes "x"
@@ -445,7 +445,7 @@ export type ConditionsOpts = {
 -- Readables the caller owns; they are memos over the environment, so they cost
 -- nothing until read and re-resolve in place when a fact changes.
 -- CLOSED OPTS (constitution §4). `scope` is the leak fix below, and a
--- misspelled one leaks twelve memos per mount without a word.
+-- misspelled one leaks eighteen memos per mount without a word.
 local CONDITIONS_OPTS_KEYS = specGuard.keySet({ "scope", "stackAbove" })
 
 function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Conditions
