@@ -314,6 +314,15 @@ end
 	    `resolveAxis` answers without reading its `limit` (`fill`, `percent` and
 	    `hug` all read it; `hug` caps at the offer), and neither axis is `aspect`,
 	    which couples the two;
+	  * ...AND IT IS NOT A `textSize = "fit"` NODE ON ONE OF THE TWO INDEFINITE ONES
+	    (2026-08-22). This enumeration used to end at the clause above and the text
+	    branch below took it unconditionally, on the fact that a text node's content
+	    never reads `innerMaxH`. A FIT reads it — the size is chosen against the box
+	    — so `content` and `minMax` stop being height-free for it, and only `fixed`
+	    survives (a literal box cannot be offered two heights). The exception is
+	    written HERE as well as at its branch because a rule stated in one place and
+	    qualified seventy lines below is a rule the next reader will re-derive from
+	    the wrong half;
 	  * its CONTENT does not read `innerMaxH`. `contentSize` is a closed enumeration
 	    and only these kinds read it other than by handing it to a child:
 	    `scroll` (it pushes the container AND prices the scrollbar reserve off it),

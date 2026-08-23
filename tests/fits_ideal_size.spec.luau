@@ -126,7 +126,7 @@ describe("ViewThatFits: a candidate is judged at its IDEAL size, `hug` included"
 		which is the whole reason `hug` exists (a panel "as big as it needs and no
 		bigger"). At 250px the rich rung loses; at 400 it wins and takes its natural
 		320, not the 400 a `fill` would have taken. ]]
-	it("a `hug` rung that WINS is still capped by the offer it is shown in", function()
+	it("a `hug` FALLBACK rung — the one never probed — is capped by the offer it is shown in", function()
 		--[[ THE CAP HAS TO BITE FOR THIS CASE TO SAY ANYTHING, and the first version
 			of it did not: it took a 320 px rung at a 400 px offer, where nothing is
 			capped and `hug`, `content` and `fill` would all have answered 320.

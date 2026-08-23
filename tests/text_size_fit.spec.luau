@@ -4,7 +4,12 @@
 	framework-gaps-phase2). THE HIGHEST-SEVERITY GAP IN THAT AUDIT, because unlike
 	the others it was shipping wrong pixels: api.md's own `text` section records
 	that a 2026-08 survey found SEVEN near-duplicates of this arithmetic in this
-	repository and exactly one of them correct.
+	repository and exactly one of them correct. THAT NUMBER IS A DATED FINDING and
+	this file is the second half of closing it: the census was re-run 2026-08-22
+	and stands at ZERO outside `src/layout/text_metrics.luau` itself, with one
+	glyph-fraction use deliberately excluded (`present/text_reveal.luau`'s travel
+	RATE, which is not a box). `src/layout/text_fit.luau`'s own header carries the
+	re-run.
 
 	WHY THE IMPERATIVE ROUTE LOST, and it is not a taste argument: a character
 	count times a constant is ONE LINE, while `text.fit` costs a memo, a `use`, an

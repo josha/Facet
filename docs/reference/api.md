@@ -4341,7 +4341,9 @@ sub-1 accessibility preference makes the *paint* seam the larger of the two, and
 a `ceil` that lands **once on the whole product** (ceiling per line
 over-reserves by up to `lines - 1` px). A survey run in 2026-08 found seven
 near-duplicates of that formula in this repository and exactly one of them
-correct. `text.lineBox` is that one implementation, and it spends the solver's
+correct — a dated finding, re-run 2026-08-22 and now **zero** outside
+`text_metrics` itself (see the `textSize = "fit"` section, which is the other half
+of closing it). `text.lineBox` is that one implementation, and it spends the solver's
 own two seams rather than a copy of them, so it moves when they move.
 
 ```lua
