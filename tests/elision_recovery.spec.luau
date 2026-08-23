@@ -279,6 +279,80 @@ describe("D7.1 — `elided` beside `dropped`, and the list an overflow surface r
 		-- ADDITIVE: a reader that never heard of elision still reads `false`, never nil
 		expect(byId.D.elided).toBe(false)
 	end)
+
+	--[[ `resolution.simplified`, BESIDE `unshown` (framework-gaps-phase2 item 28).
+		`unshown` answers "what is missing"; it does NOT answer "what is on screen
+		but showing less than its richest form" — a `recover = "none"` region that
+		stepped down is never in `unshown` (nothing is missing, by the author's own
+		word) but a screen showing it in a reduced form is not showing everything
+		it normally does either. The showcase HUD used to answer that second
+		question by looping every region and checking `activeForm > 1` by hand
+		(`examples/gallery/scenarios/hud.luau`'s own overflow-panel census); this is
+		the same census, computed once by the framework and read off the
+		resolution the way `unshown` already is. ]]
+	it("`simplified` lists exactly the ON-SCREEN regions whose active form is not their richest", function()
+		for _, h in { 340, 200, 100, 500 } do
+			local r = solve(h)
+			local expected = {}
+			for _, res in r.regions do
+				if res.activeForm > 1 then
+					table.insert(expected, res.id)
+				end
+			end
+			table.sort(expected)
+			local got = {}
+			for _, s in r.simplified do
+				table.insert(got, s.id)
+			end
+			table.sort(got)
+			expect(`h={h} simplified={table.concat(got, ",")}`).toBe(`h={h} simplified={table.concat(expected, ",")}`)
+		end
+	end)
+
+	it("a DROPPED region never appears in `simplified` — it is showing nothing, not showing less", function()
+		local r = solve(100)
+		for _, s in r.simplified do
+			expect(`{s.id} dropped={tostring(r.regionById[s.id].dropped)}`).toBe(`{s.id} dropped=false`)
+		end
+	end)
+
+	it("each entry carries the ACTIVE form index, matching `regionById`", function()
+		local r = solve(340)
+		expect(#r.simplified > 0).toBe(true)
+		for _, s in r.simplified do
+			expect(s.form).toBe(r.regionById[s.id].activeForm)
+		end
+	end)
+
+	it(
+		"empty when nothing has stepped down — additive: a reader that never heard of it sees what it always did",
+		function()
+			local r = solve(500)
+			expect(#r.simplified).toBe(0)
+		end
+	)
+
+	it("the dump carries it too, in the same order as `regions`", function()
+		local r = solve(340)
+		local d = composition.dump(r)
+		expect(#d.simplified).toBe(#r.simplified)
+		local order = {}
+		for _, res in r.regions do
+			for _, s in d.simplified do
+				if s.id == res.id then
+					table.insert(order, s.id)
+				end
+			end
+		end
+		local got = {}
+		for _, s in d.simplified do
+			table.insert(got, s.id)
+		end
+		expect(table.concat(got, ",")).toBe(table.concat(order, ","))
+		for _, s in d.simplified do
+			expect(s.form).toBe(r.regionById[s.id].activeForm)
+		end
+	end)
 end)
 
 -- ===== 3. a terminal form must be actionable ===============================

@@ -1223,16 +1223,15 @@ return {
 				`recover = "none"` route by construction — so a zone standing on a REDUCED
 				form could be on the screen while this panel said every zone was showing
 				everything it has. The census reads both halves of the same dump: what is
-				missing (`unshown`) and what is SIMPLIFIED (`activeForm > 1`), and the
-				empty line waits for both to be silent. ]]
+				missing (`unshown`) and what is SIMPLIFIED — now `dump.simplified`
+				(framework-gaps-phase2 item 28) rather than this fixture's own re-derivation
+				(a loop over `dump.regions` checking `activeForm > 1` by hand, the exact
+				census this field was built to replace) — and the empty line waits for both
+				to be silent. ]]
 			local steppedDown = 0
 			do
 				local dump = state()
-				for _, row in (if dump ~= nil then dump.regions else nil) or {} do
-					if (row.activeForm or 0) > 1 then
-						steppedDown += 1
-					end
-				end
+				steppedDown = if dump ~= nil then #(dump.simplified or {}) else 0
 			end
 			if #hidden == 0 and steppedDown == 0 then
 				-- ...AND THE EMPTY STATE IS NOT AN EMPTY PANEL. A sink that opens onto

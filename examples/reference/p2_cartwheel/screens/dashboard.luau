@@ -254,7 +254,12 @@ function dashboard.new(app: any): any
 			}),
 			UI.Composition({
 				id = "HeroTiles",
-				arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
+				-- `leadFirst` (framework-gaps-phase2 item 12): the built-in mirror of
+				-- `twoLane` — `lead` in the solo lane, so a hero/nav-shaped lane never
+				-- resolves to the RIGHT of what it fronts. Used to be a CUSTOM
+				-- arrangement reusing the `"twoLane"` name for different lanes; see
+				-- `shell.luau`'s header for the full account.
+				arrangements = { "leadFirst", "column" },
 				laneGap = "s",
 				groupGap = "s",
 				groups = {
@@ -528,7 +533,10 @@ function dashboard.new(app: any): any
 					heroBand,
 					UI.Composition({
 						id = "CardGrid",
-						arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
+						-- `leadFirst` (framework-gaps-phase2 item 12): see `shell.luau`'s
+						-- header for the full account of why this used to be a CUSTOM
+						-- arrangement reusing the `"twoLane"` name for different lanes.
+						arrangements = { "leadFirst", "column" },
 						laneGap = "m",
 						groupGap = "m",
 						groups = {

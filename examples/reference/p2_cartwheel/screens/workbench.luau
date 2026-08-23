@@ -467,7 +467,10 @@ function workbench.new(app: any): any
 			UI.Text({ id = "Live", text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
 			UI.Composition({
 				id = "Bench",
-				arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
+				-- `leadFirst` (framework-gaps-phase2 item 12): see shell.luau's header
+				-- for the full account of why this used to be a CUSTOM arrangement
+				-- reusing the `"twoLane"` name for different lanes.
+				arrangements = { "leadFirst", "column" },
 				laneGap = "m",
 				groupGap = "m",
 				width = UI.fill(),

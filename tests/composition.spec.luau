@@ -2108,3 +2108,75 @@ describe("ruling 8: the declared-fallback finding is marked as designed behaviou
 		expect(`findings={#controller.diagnostics()}`).toBe("findings=0")
 	end)
 end)
+
+-- ===== framework-gaps-phase2 item 12: the lead-first two-lane preset =======
+--
+-- Audit: "`composition.ARRANGEMENTS` has no lead-first two-lane preset (six
+-- re-authorings across three apps, one shadowing the preset's own name)".
+-- `twoLane` is HUD-shaped (`main` solo, `lead`+`trail` share the second lane);
+-- every app shell in the reference apps wants the MIRROR — `lead` solo, so the
+-- nav sidebar gets its own lane and everything else shares the field. Four
+-- sites in `examples/reference/p2_cartwheel` used to hand-author exactly this
+-- shape under a CUSTOM arrangement that reused the preset's own name
+-- (`{ name = "twoLane", lanes = { { "lead" }, { "main" } } }`) — a dump could
+-- not tell that arrangement apart from the real `twoLane` preset, which is the
+-- "shadowing" the audit names. `leadFirst` is the built-in that removes the
+-- re-authoring AND the name collision at once.
+
+describe("framework-gaps-phase2 item 12: ARRANGEMENTS.leadFirst", function()
+	it("is the mirror of twoLane: lead takes the SOLO lane, main+trail share the second", function()
+		local preset = composition.ARRANGEMENTS.leadFirst
+		expect(preset ~= nil).toBe(true)
+		expect(preset.name).toBe("leadFirst")
+		expect(#preset.lanes).toBe(2)
+		expect(table.concat(preset.lanes[1], "+")).toBe("lead")
+		expect(table.concat(preset.lanes[2], "+")).toBe("main+trail")
+	end)
+
+	it("twoLane itself is UNCHANGED — this ships an additive sibling, not a rewrite", function()
+		local twoLane = composition.ARRANGEMENTS.twoLane
+		expect(table.concat(twoLane.lanes[1], "+")).toBe("main")
+		expect(table.concat(twoLane.lanes[2], "+")).toBe("lead+trail")
+	end)
+
+	it("resolves through the real preset NAME, nav first — no custom arrangement needed", function()
+		-- the exact shape of the four p2_cartwheel sites: a lead-affinity
+		-- sidebar and a main-affinity field, nothing more
+		local decl = {
+			id = "Shell",
+			laneGap = 8,
+			groupGap = 0,
+			arrangements = { "leadFirst", "column" },
+			groups = {
+				{ id = "nav", lane = "lead", sizing = "hug", minWidth = 200 },
+				{ id = "detail", lane = "main", sizing = "fill" },
+			},
+			regions = {
+				{ id = "Nav", group = "nav", rank = 2, forms = 1 },
+				{ id = "Detail", group = "detail", rank = 1, forms = 1, sizing = "fill", mayScroll = true },
+			},
+		}
+		local sizes = { Nav = { { w = 220, h = 400 } }, Detail = { { w = 600, h = 400 } } }
+		local res = composition.resolve(decl, { w = 900, h = 500 }, ctx(sizes))
+		expect(res.arrangement).toBe("leadFirst")
+		expect(res.legal).toBe(true)
+		expect(#res.lanes).toBe(2)
+		expect(table.concat(res.lanes[1].affinities, "+")).toBe("lead")
+		-- the lane's declared affinity ROSTER, not just the ones this decl has
+		-- groups for — the "trail" slot is simply empty here, and empty is not
+		-- the same fact as "not declared" (rule 9's own collapse handles the
+		-- former; this is the preset's own, unrelated, static shape)
+		expect(table.concat(res.lanes[2].affinities, "+")).toBe("main+trail")
+		-- the nav lane sits FIRST (x = 0); the detail lane starts after it + the gap
+		expect(res.lanes[1].rect.x).toBe(0)
+		expect(res.lanes[2].rect.x).toBe(res.lanes[1].rect.w + 8)
+	end)
+
+	it("an unknown arrangement name's error message lists leadFirst among the built-ins", function()
+		local ok, err = pcall(function()
+			composition.arrangementOf("notARealPreset")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "leadFirst", 1, true) ~= nil).toBe(true)
+	end)
+end)

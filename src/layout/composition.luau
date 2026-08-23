@@ -358,6 +358,20 @@ export type Unshown = {
 	route: string, -- "overflow" | "self"
 }
 
+--[[ ONE ENTRY PER ON-SCREEN REGION SHOWING LESS THAN ITS RICHEST FORM
+	(framework-gaps-phase2 item 28) — the seam `unshown` does not cover. A region
+	whose `recover = "none"` reduced form is standing is never in `unshown`
+	(nothing is missing, by the author's own word) but it is not showing
+	everything it normally does either, and a consumer that wants to know "did
+	adaptation simplify anything on this screen" used to answer it by looping
+	`regions` and checking `activeForm > 1` by hand (the showcase HUD's own
+	overflow-panel census). `form` is that region's `activeForm`, restated here
+	so a reader of this list never has to cross back to `regionById` for it. ]]
+export type Simplified = {
+	id: string,
+	form: number,
+}
+
 export type Resolution = {
 	arrangement: string,
 	legal: boolean,
@@ -411,6 +425,16 @@ export type Resolution = {
 		`recover` is not "none". It does not appear when `recover = "none"`: the
 		author has stated, explicitly, that the reduced form still shows everything. ]]
 	unshown: { Unshown },
+	--[[ ADDITIVE (framework-gaps-phase2 item 28), BESIDE `unshown` and in the
+		same declaration order. A region appears here whenever it is ON SCREEN
+		(`activeForm > 1`, so a DROPPED region — `activeForm = 0` — is never
+		here) and NOT at its richest form, regardless of `recover`: this list
+		answers "is this screen simplified", `unshown` answers "is this screen
+		missing something", and they are different questions with an
+		overlapping-but-unequal answer set (a `recover = "none"` region is
+		`simplified` and never `unshown`; a dropped region is `unshown` and
+		never `simplified`). ]]
+	simplified: { Simplified },
 }
 
 -- ===== the built-in arrangement presets ====================================
@@ -425,6 +449,19 @@ composition.ARRANGEMENTS = table.freeze({
 	twoLane = table.freeze({
 		name = "twoLane",
 		lanes = table.freeze({ table.freeze({ "main" }), table.freeze({ "lead", "trail" }) }),
+	}),
+	--[[ THE MIRROR OF `twoLane` (framework-gaps-phase2 item 12). `twoLane` is
+		HUD-shaped: `main` gets the solo lane and `lead`+`trail` share the
+		second, which is right for the field beside a stacked ceremony+next but
+		backwards for an app shell whose nav sits on the LEAD side — every
+		reference app that needed a two-lane split with a nav sidebar had to
+		hand-author this exact shape (`{ "lead" }, { "main", "trail" }`) under a
+		CUSTOM arrangement, and four of those sites named it `"twoLane"` too,
+		so a dump could not tell the two apart. `leadFirst` is that shape,
+		shipped once. ]]
+	leadFirst = table.freeze({
+		name = "leadFirst",
+		lanes = table.freeze({ table.freeze({ "lead" }), table.freeze({ "main", "trail" }) }),
 	}),
 	-- ceremony | field | actions: the short, wide offer (landscape phone up)
 	threeLane = table.freeze({
@@ -2816,6 +2853,11 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 	end
 
 	local unshown: { Unshown } = {}
+	-- item 28, built in the SAME walk `unshown` already makes: `activeForm` is
+	-- set on every `res` by the expand-facts pass above, and 0 exactly on a
+	-- dropped or nothing-resolved region, so filtering `> 1` excludes a drop
+	-- without a second flag to keep in sync with `dropped`.
+	local simplified: { Simplified } = {}
 	for _, r in d.regions do
 		local res = byId[r.id]
 		if res == nil then
@@ -2825,6 +2867,9 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			table.insert(unshown, { id = r.id, reason = "dropped", route = "overflow" })
 		elseif res.elided and r.recover ~= nil and r.recover ~= "none" then
 			table.insert(unshown, { id = r.id, reason = "elided", route = r.recover :: string })
+		end
+		if res.activeForm > 1 then
+			table.insert(simplified, { id = r.id, form = res.activeForm })
 		end
 	end
 
@@ -2865,6 +2910,10 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			where the rest is. Empty on every declaration whose regions all fit at
 			their richest form, which is what makes it additive. ]]
 		unshown = unshown,
+		-- ADDITIVE (framework-gaps-phase2 item 28): what is on screen but not at
+		-- its richest form. Empty on every declaration whose regions all fit at
+		-- their richest form, same as `unshown` above.
+		simplified = simplified,
 		--[[ AUTHORING DIAGNOSTICS. Sorted region ids whose chosen form measured the
 			WHOLE offer inside a HUG lane — the signature of a form authored
 			`width = FILL` where the lane's whole contract is "as wide as my
@@ -2979,6 +3028,10 @@ function composition.dump(resolution: Resolution): any
 	for _, u in resolution.unshown or {} do
 		table.insert(unshown, { id = u.id, reason = u.reason, route = u.route })
 	end
+	local simplified = {}
+	for _, s in resolution.simplified or {} do
+		table.insert(simplified, { id = s.id, form = s.form })
+	end
 	return {
 		schema = "facet-composition-dump/1",
 		arrangement = resolution.arrangement,
@@ -3005,6 +3058,9 @@ function composition.dump(resolution: Resolution): any
 			answer "did adaptation delete anything" without re-deriving it from `form`
 			and `dropped` — and the row the D7.6 device sweep asserts a route for. ]]
 		unshown = unshown,
+		-- ADDITIVE (framework-gaps-phase2 item 28): what is on screen but not at
+		-- its richest form, in declaration order, beside `unshown`.
+		simplified = simplified,
 	}
 end
 

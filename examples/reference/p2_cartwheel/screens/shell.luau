@@ -8,9 +8,13 @@
 -- EMPTY (and therefore absent, and its lane collapsed) while the other is the
 -- one being shown. There is no compact layout and no per-device branch.
 --
--- The arrangement is a CUSTOM twoLane rather than the preset, for one measured
--- reason: the preset's lane order is `{ main } { lead, trail }`, so a sidebar
--- declared `lead` would resolve to the RIGHT of the detail it navigates.
+-- The arrangement is `leadFirst` (framework-gaps-phase2 item 12), the built-in
+-- mirror of `twoLane`: `twoLane`'s lane order is `{ main } { lead, trail }`,
+-- so a sidebar declared `lead` would resolve to the RIGHT of the detail it
+-- navigates. `leadFirst` puts `lead` in the solo lane instead — this file used
+-- to hand-author that shape under a CUSTOM arrangement that reused the
+-- `"twoLane"` name for a different set of lanes, which is exactly the
+-- shadowing the gap names.
 local data = require("../content/data")
 
 local shell = {}
@@ -352,7 +356,7 @@ function shell.new(app: any): any
 		children = {
 			UI.Composition({
 				id = "Shell",
-				arrangements = { { name = "twoLane", lanes = { { "lead" }, { "main" } } }, "column" },
+				arrangements = { "leadFirst", "column" },
 				laneGap = "s",
 				groupGap = "s",
 				width = UI.fill(),
