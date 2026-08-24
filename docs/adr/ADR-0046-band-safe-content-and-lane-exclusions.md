@@ -270,7 +270,7 @@ now read `platformChrome` instead of hand-deriving the topbar dock from
 
 ## The alternatives, and why not
 
-**A per-node `ignoresSafeArea`** (SwiftUI's split) was the shape the
+**A per-node `ignoresSafeArea`** (the per-view split some UI frameworks use) was the shape the
 parallel-sponsor ledger proposed for the same problem (`OWN-D38`). It is a bigger
 vocabulary for a smaller answer: every node in the tree gains a question about
 the safe area, and the one node that wanted it is a row the composition already

@@ -29,8 +29,7 @@ ten-foot metric ladder generically (`space` is an unconditional
 headlessly at 1.5x (`tests/space_tight_step.spec.luau`, `tests/
 ten_foot_metrics.spec.luau`'s proportion-equality sweep) — but no session
 confirmed it PAINTS at that scale on an actual `displaySize = "Large"`
-render target. The prior campaign's own lesson (`luauui-tooltip-unified-shape`
-memory) is exactly why this matters: **a plain `BackgroundColor3`/property read
+render target. The prior campaign's own tooltip-unified-shape lesson (memory index) is exactly why this matters: **a plain `BackgroundColor3`/property read
 reports the UNSTYLED value; `GetStyled` is the only instrument that sees
 sheet-resolved paint.** A geometry-only headless proof cannot see whether the
 native StyleSheet path (the default paint path since B-15) resolves the same

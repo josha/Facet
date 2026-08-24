@@ -301,7 +301,8 @@ export type DividerSpec = BoxProps & {
 	axis: Bound<string>?,
 	-- a px number or a theme metric name ("strokes.hairline", "xs"), the same
 	-- vocabulary `gap`/`padding` already take — the schema has accepted both
-	-- since the metric-name grammar shipped (F-20/BP-F12); this type used to
+	-- since the metric-name grammar shipped (ADR-0051, and the blueprints ledger
+	-- in artifacts/api-architecture-consistency/); this type used to
 	-- say only `number`
 	thickness: Bound<number | Metric>?,
 }
@@ -451,7 +452,7 @@ export type ForeignSpec = BoxProps & {
 export type PathSpec = BoxProps & {
 	points: Bound<{ any }>,
 	-- same ruling as `DividerSpec.thickness` (gap 29, W3-B): the schema has
-	-- taken a theme metric name here since F-20/BP-F12 ("same pattern one
+	-- taken a theme metric name here since the metric-name grammar (ADR-0051; "same pattern one
 	-- construct over" as Divider's), and every real consumer that stamps a
 	-- theme-tracking stroke width — `p2_cartwheel/screens/{dashboard,ledger}.luau`,
 	-- `p1_glade/ui/scene.luau` — already spells one; this type used to say

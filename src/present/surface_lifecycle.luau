@@ -437,7 +437,7 @@ function surfaceLifecycle.new(ctx: any)
 	end
 
 	--[[ RAISE — RE-BAND A LIVE SURFACE WITHOUT DISMISS+RE-PRESENT (registry
-		item 23; t16-triage.md:27, DIR3-review MAJOR-2; W3-D, ADR-0053). Before
+		item 23; t16-triage.md:27; W3-D, ADR-0053). Before
 		this, the only way to move a PRESENTED surface back above something
 		freshly presented over it was to dismiss and re-present it —
 		`examples/gallery/client/showcase_chrome.luau`'s `raisePanel` did

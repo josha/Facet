@@ -40,7 +40,7 @@
 -- This module is INTERNAL (no Facet.* export). The performance lab reaches it by
 -- instance path through the named exemption in tools/lune/check_boundary.luau, so
 -- the scenario driver's own scopes and the framework's come from one implementation
--- and can never disagree about naming or balance. Recorded as PLN-2.
+-- and can never disagree about naming or balance (recorded in the planning ledger).
 
 local profile = {}
 

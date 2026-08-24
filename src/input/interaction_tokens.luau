@@ -96,7 +96,7 @@ end
 
 	A NUMBER A GAME MUST STAY BELOW, NOT ONE IT MAY REUSE: a context sitting AT
 	or above `baseScreen` can sink a Facet screen it does not own (measured
-	live, RascalRally DF-1 rebuilt one layer up — see `InputActions.luau`'s own
+	live, a RascalRally device finding rebuilt one layer up — see `InputActions.luau`'s own
 	account of the failure mode this exists to prevent). ]]
 interaction_tokens.contextPriority = table.freeze({
 	baseScreen = 1500,
