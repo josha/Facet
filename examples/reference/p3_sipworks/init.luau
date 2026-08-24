@@ -454,7 +454,12 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 				-- share ONE focus graph (api.md `newPresenter`) — the shell
 				-- behind would keep taking Tab.
 				scrim = "none",
-				transition = { enter = "slide-left" },
+				-- task-fix3 symptoms 2/3 ("SAME in Sipworks -> navigation-general,
+				-- not app code"): `distance` travels the surface's own current
+				-- width, so the push/pop reads as a slide rather than the themed
+				-- `space.l` default's ~24px nudge (director device round
+				-- 2026-08-23; render/transitions.luau's `slideDistance` header).
+				transition = { enter = "slide-left", distance = env:get("viewportRect"):get().w },
 				initialFocus = "first",
 				keyboardNavigation = true,
 			}

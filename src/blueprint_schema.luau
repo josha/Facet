@@ -191,7 +191,11 @@ local TRANSITION_MIRROR: { [string]: string } = {
 	["slide-left"] = "slide-right",
 	["slide-right"] = "slide-left",
 }
-local TRANSITION_KEYS: { [string]: boolean } = { enter = true, exit = true, class = true, fade = true }
+-- task-fix3 symptoms 2/3: `distance` joins the transition table (px, slide forms
+-- only) — see render/transitions.luau's `slideDistance` header for why the
+-- themed default is right for a decorative nudge and wrong for a full-surface
+-- push/pop, and why this is an opt-in override rather than a changed default.
+local TRANSITION_KEYS: { [string]: boolean } = { enter = true, exit = true, class = true, fade = true, distance = true }
 schema.TRANSITION_MIRROR = table.freeze(TRANSITION_MIRROR)
 -- forms that drive TRANSPARENCY, and therefore need a declared fade group
 -- (`canvasGroup = true`). The coordinator asserts it and names the fix.
@@ -620,7 +624,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		for k in v :: any do
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
-				return false, `unknown transition field '{tostring(k)}' (enter | exit | class | fade)`
+				return false, `unknown transition field '{tostring(k)}' (enter | exit | class | fade | distance)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -641,6 +645,15 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		local fade = (v :: any).fade
 		if fade ~= nil and type(fade) ~= "boolean" then
 			return false, "fade is a boolean: pair a slide with a transparency fade (needs a canvasGroup node)"
+		end
+		-- task-fix3 symptoms 2/3: the slide-forms' travel, in px, overriding the
+		-- themed default (render/transitions.luau's `slideDistance`) — for a
+		-- surface that should travel its own extent (a full-viewport push/pop)
+		-- rather than a decorative nudge (a toast easing in from its edge).
+		-- Ignored by non-slide forms (nothing there reads it).
+		local distance = (v :: any).distance
+		if distance ~= nil and (type(distance) ~= "number" or distance ~= distance or distance <= 0) then
+			return false, "distance is a positive number of px (the slide forms' own full travel, no unit suffix)"
 		end
 		return true
 	end,
@@ -1412,7 +1425,9 @@ local TRANSITION: PropSpec = p({
 	channel = "structural",
 	doc = 'enter/exit transition for this region\'s children: { enter = "fade" | "slide-up" | "slide-down" | '
 		.. '"slide-left" | "slide-right" | "materialize" | "instant", exit? (default: the mirror of enter), '
-		.. 'class? (a motion class name, default "container"), fade? (pair a slide with a transparency fade) }. '
+		.. 'class? (a motion class name, default "container"), fade? (pair a slide with a transparency fade), '
+		.. "distance? (px, slide forms only: overrides the themed default with the surface's own full travel — "
+		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge) }. "
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })
 

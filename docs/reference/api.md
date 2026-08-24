@@ -2019,8 +2019,8 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, fade? }` on `UI.When`, `UI.ForEach`, a
-`presentToast` and `PresentOpts` (ADR-0022 Decision 3).
+`transition = { enter, exit?, class?, fade?, distance? }` on `UI.When`,
+`UI.ForEach`, a `presentToast` and `PresentOpts` (ADR-0022 Decision 3).
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
   `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"instant"`.
@@ -2034,6 +2034,11 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   re-entry mid-exit reverses through one continuous motion.
 - **`class`** names a motion class (default `"container"`); **`fade = true`**
   pairs a slide with a transparency fade.
+- **`distance`** (px, slide forms only; task-fix3, 2026-08-23) overrides the
+  themed travel default (`space.l`, a decorative nudge — right for a toast
+  easing in from its own edge) with the surface's own full extent, for a slide
+  that IS the surface leaving/entering the screen (a full-viewport push/pop).
+  Omitted, every caller keeps the themed default unchanged.
 - **A fading form needs a fade group.** `fade`, `materialize` and
   `fade = true` drive transparency, so the region's child must be declared
   `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }` for a

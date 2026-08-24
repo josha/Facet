@@ -469,7 +469,14 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			end, {
 				outsideTapCancel = false,
 				scrim = "none",
-				transition = { enter = "slide-left", class = "container" },
+				-- task-fix3 symptoms 2/3: this IS the surface leaving/entering the
+				-- screen (a `scrim = "none"` push, its own opaque backdrop per the
+				-- fix above), not a decorative nudge — `distance` travels its own
+				-- current width so it reads as a slide at every viewport this
+				-- proof's matrix sweeps, not the themed `space.l` default's ~24px
+				-- (director device round 2026-08-23: "should slide and fade
+				-- further"; measured ~94% still on screen through the whole enter)
+				transition = { enter = "slide-left", class = "container", distance = env:get("viewportRect"):get().w },
 				initialFocus = "SupplyRow_nectar",
 			})
 		end

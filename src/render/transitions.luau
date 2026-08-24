@@ -62,6 +62,9 @@ export type Spec = {
 	exit: string,
 	class: string,
 	fade: boolean,
+	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
+	-- meaning "use the themed default" (every caller before this fix, unchanged)
+	distance: number?,
 }
 
 export type Opts = {
@@ -94,6 +97,7 @@ function transitions.resolve(declared: any): Spec
 		exit = exit,
 		class = declared.class or DEFAULT_CLASS,
 		fade = declared.fade == true,
+		distance = if type(declared.distance) == "number" then declared.distance else nil,
 	}
 end
 
@@ -114,7 +118,23 @@ function transitions.new(opts: Opts)
 	local entries: { [string]: any } = {}
 	local disposed = false
 
-	local function slideDistance(): number
+	-- task-fix3 symptoms 2/3 (director device round, 2026-08-23): "slides a few
+	-- pixels then pops out" / "pops in then slides a few pixels". `space.l` (24px
+	-- neutral) is the right size for a DECORATIVE nudge — a toast easing in from
+	-- its own edge — and the wrong one for a full-viewport surface push/pop,
+	-- where the node needs to travel far enough to read as leaving/entering the
+	-- screen: measured, a 390px-wide compact detail sheet sliding 24px stayed
+	-- ~94% on screen for its whole enter, then (on exit) the flat 500ms cap
+	-- disposed it after ~24px of travel — visually indistinguishable from an
+	-- instant pop either way. `spec.distance` (declared per transition, gap 16's
+	-- sibling `offset`'s own shape: an opt-in AUTHORED override, never a changed
+	-- default) is the fix a caller reaches for when its slide IS the surface
+	-- leaving the screen rather than a nudge; nil keeps every existing caller
+	-- (toasts included) on the themed default, unchanged.
+	local function slideDistance(spec: Spec): number
+		if type(spec.distance) == "number" and spec.distance > 0 then
+			return spec.distance
+		end
 		local snap = metricsOf()
 		local space = if type(snap) == "table" then (snap :: any).space else nil
 		local step = if type(space) == "table" then (space :: any).l else nil
@@ -128,7 +148,7 @@ function transitions.new(opts: Opts)
 		local absent: any = { x = 0, y = 0 }
 		local travel = TRAVEL[form]
 		if travel ~= nil then
-			local d = slideDistance()
+			local d = slideDistance(spec)
 			local sign = if phase == "enter" then -1 else 1
 			absent.x = travel.x * d * sign
 			absent.y = travel.y * d * sign
