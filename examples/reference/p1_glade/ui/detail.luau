@@ -310,6 +310,22 @@ function detail.body(ctx: any, spec: BodySpec): any
 		padding = "l",
 		width = UI.fill(),
 		height = UI.fill(),
+		-- COMPACT ONLY: this body is pushed as its OWN full-viewport root
+		-- (`nav.openGlade`'s `scrim = "none"` push) over the still-mounted
+		-- overview root, and NOTHING dims the overview behind it — the same
+		-- convention `p3_sipworks`'s compact detail push already uses
+		-- (`UI.Screen{surface="base",...}` around its own body). Without an
+		-- opaque backdrop here, every gap this ScrollView does not itself paint
+		-- (padding, the space around the nav bar) is fully transparent, so the
+		-- overview root paints straight through it — director device round
+		-- 2026-08-23: "Mossholm" (this body's own NavBar title) interleaved with
+		-- "Keeper's Charm" (the overview's promo banner, still fully bright
+		-- underneath, never dimmed). The regular/wide lane (`compact = false`)
+		-- stays transparent on purpose: it sits beside the overview in normal
+		-- flow, not stacked over it, so there is nothing behind it to bleed
+		-- through, and painting it would be an unreviewed style change to a
+		-- five-view-matrix-clean surface no symptom named.
+		surface = if spec.compact then "base" else nil,
 		children = {
 			titleBar,
 			sceneLib.glade(ctx, {
