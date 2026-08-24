@@ -517,6 +517,13 @@ require("./theme_assets.spec")
 -- rich-skinning-v2 adapter APPLICATION specs (P2): every P1 emission, proven on
 -- the live path (the Step 3.5 lesson — emission is not application)
 require("./theme_layer_application.spec")
+-- the float focus ring's geometry (device fix round, director 2026-08-23): the
+-- ten-foot lift ordering and the native-mode phantom-corner fallback
+require("./focus_ring_float_geometry.spec")
+-- the activate-handler connection leak on a recycled instance (device fix
+-- round, director 2026-08-23): nested-tabs hit targets shifting after a round
+-- trip through a sibling app tab
+require("./activate_handler_reconnect.spec")
 -- image value displays (P3): the bar family, the stepper plate, the toggle slots
 require("./theme_value_displays.spec")
 -- icons + pixel mode + content adoption + selectBy (P4), emission AND application

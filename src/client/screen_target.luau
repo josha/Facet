@@ -2844,6 +2844,45 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		if on then
+			--[[ THE LIFT, COMPUTED BEFORE THE RING (device bug fix, director 2026-08-23:
+				"the button's right edge draws past the ring"). This used to run AFTER
+				the float block below, which sized the float from the PRE-LIFT rect:
+				`FocusScale` (a top-left-anchored UIScale) grows the focused instance by
+				`tenFootFocusScale` post-hoc and the float's manual position/size math
+				never read it. Measured live (demo picker, console-ten-foot, a scrolled
+				row): button 146x69 base -> 153x72 lifted; float stuck at 138x61 (base
+				minus the ring's own thickness) — a gap on the right/bottom, the two
+				edges a top-left anchor grows into. The ORDINARY (non-float) ring never
+				showed this: it is a literal UIStroke child of the SAME instance the
+				UIScale scales, so the engine scales it for free — only the float, built
+				by hand because a clipping host would cut an outward stroke, needs the
+				factor spelled out. ]]
+			local lift = false
+			if strong then
+				local screenGui = instance:FindFirstAncestorWhichIsA("ScreenGui")
+				if screenGui ~= nil then
+					-- bounds = the solved ROOT node's frame (the SAFE content rect,
+					-- inside the overscan margins), not the raw canvas: a TV clips
+					-- the margin, so a lift poking into it can vanish on real
+					-- hardware. Matches the fake_target mirror exactly (its screen
+					-- bounds are the root node's solved rect). Rendering is FLAT
+					-- (siblings named by path), so the root is looked up by the
+					-- path's first segment, never by ancestry.
+					local rootSegment = string.match(handle.path or "", "^(/[^/]+)")
+					local rootFrame = if rootSegment ~= nil then screenGui:FindFirstChild(rootSegment) else nil
+					local boundsSource: GuiObject = if rootFrame ~= nil and rootFrame:IsA("GuiObject")
+						then rootFrame
+						else screenGui :: any
+					local scale = style.extra.tenFootFocusScale
+					local pos = instance.AbsolutePosition
+					local size = instance.AbsoluteSize
+					local boundsPos = boundsSource.AbsolutePosition
+					local bounds = boundsSource.AbsoluteSize
+					lift = pos.X + size.X * scale <= boundsPos.X + bounds.X
+						and pos.Y + size.Y * scale <= boundsPos.Y + bounds.Y
+				end
+			end
+			local liftScale = if strong and lift then style.extra.tenFootFocusScale else 1
 			local thickness = if strong then style.extra.tenFootFocusRingThickness else style.extra.focusRingThickness
 			if not wantGlow then
 				-- THE FLOAT RING (director round three, ROOT CAUSE). The instance
@@ -2873,6 +2912,36 @@ function screen_target.new(opts: Opts?)
 						local corner = host:FindFirstChildOfClass("UICorner")
 						if corner ~= nil then
 							corner:Clone().Parent = float
+						else
+							--[[ NATIVE MODE'S CORNER IS A PHANTOM (device bug fix, director
+								2026-08-23: "the ring is sharp-cornered, the button is round").
+								Under native paint (B-15's default) a control's `::UICorner` is
+								a StyleSheet pseudo-element the engine materializes at render
+								time (`native_style.luau`: "a real modifier instance here would
+								silently defeat those rules") — never a real child, so the clone
+								above always finds nothing on a native-styled host. Measured
+								live: the demo picker's row buttons (plain `UI.Button`, native
+								`control` surface) painted round and rang square. The float is
+								the framework's OWN unstyled instance — a real UICorner on IT
+								defeats no sheet rule — so this mirrors the role -> radius
+								mapping `applySurface`'s bespoke `corner()` already makes
+								(`screen_paint.luau`), rather than re-guessing it here. ]]
+							local surfaceRole = handle.nativeSurface or handle.declaredSurface
+							local radius: UDim? = nil
+							if handle.shape == "circle" then
+								radius = UDim.new(0.5, 0)
+							elseif surfaceRole == "raised" then
+								radius = UDim.new(0, style.radii.panel)
+							elseif surfaceRole == "control" or surfaceRole == "chip" then
+								radius = UDim.new(0, style.radii.control)
+							elseif surfaceRole == "badge" then
+								radius = UDim.new(0.5, 0)
+							end
+							if radius ~= nil then
+								local fallbackCorner = Instance.new("UICorner")
+								fallbackCorner.CornerRadius = radius
+								fallbackCorner.Parent = float
+							end
 						end
 						float.Parent = handle.instanceHost.instance
 						handle.focusRingFloat = float
@@ -2881,8 +2950,13 @@ function screen_target.new(opts: Opts?)
 					local rect = handle.windowRect
 					local origin = handle.instanceHost.rect
 					if rect ~= nil and origin ~= nil then
+						-- POSITION is unaffected: the lift's UIScale anchors at the
+						-- instance's own top-left, so that corner never moves. SIZE
+						-- grows by the same factor the lift applies, or the ring stays
+						-- sized for the rect the control no longer paints at.
 						f.Position = UDim2.fromOffset(rect.x - origin.x + thickness, rect.y - origin.y + thickness)
-						f.Size = UDim2.fromOffset(rect.w - 2 * thickness, rect.h - 2 * thickness)
+						f.Size =
+							UDim2.fromOffset(rect.w * liftScale - 2 * thickness, rect.h * liftScale - 2 * thickness)
 					end
 					f.ZIndex = 9999
 					strokeParent = f
@@ -2914,31 +2988,7 @@ function screen_target.new(opts: Opts?)
 			-- (top-left in this stack), so the check is right/bottom edges.
 			-- Measured pre-lift: FocusScale is 1 whenever this branch runs on a
 			-- fresh focus (blur resets it below).
-			local lift = false
-			if strong then
-				local screenGui = instance:FindFirstAncestorWhichIsA("ScreenGui")
-				if screenGui ~= nil then
-					-- bounds = the solved ROOT node's frame (the SAFE content rect,
-					-- inside the overscan margins), not the raw canvas: a TV clips
-					-- the margin, so a lift poking into it can vanish on real
-					-- hardware. Matches the fake_target mirror exactly (its screen
-					-- bounds are the root node's solved rect). Rendering is FLAT
-					-- (siblings named by path), so the root is looked up by the
-					-- path's first segment, never by ancestry.
-					local rootSegment = string.match(handle.path or "", "^(/[^/]+)")
-					local rootFrame = if rootSegment ~= nil then screenGui:FindFirstChild(rootSegment) else nil
-					local boundsSource: GuiObject = if rootFrame ~= nil and rootFrame:IsA("GuiObject")
-						then rootFrame
-						else screenGui :: any
-					local scale = style.extra.tenFootFocusScale
-					local pos = instance.AbsolutePosition
-					local size = instance.AbsoluteSize
-					local boundsPos = boundsSource.AbsolutePosition
-					local bounds = boundsSource.AbsoluteSize
-					lift = pos.X + size.X * scale <= boundsPos.X + bounds.X
-						and pos.Y + size.Y * scale <= boundsPos.Y + bounds.Y
-				end
-			end
+			-- `lift`/`liftScale`: computed above now, beside the ring geometry.
 			if strong and lift then
 				local focusScale = handle.focusScale
 				if focusScale == nil then
