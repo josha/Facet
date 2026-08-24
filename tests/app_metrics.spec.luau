@@ -448,7 +448,17 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		`declareApp` heals it, which is what makes the mistake recoverable instead of
 		terminal. ]]
 	it("a declaration made inside a memo is quarantined, recorded, and healed later", function()
-		local core = (Facet :: any).newCore()
+		-- `warns` (device bug fix round, director 2026-08-23, task-fix2 item 6):
+		-- this quarantine used to be "recorded" on `lastError()` alone — an author
+		-- who calls `declareApp` from the wrong place never hears about it unless
+		-- they think to poll. `core/custom.luau`'s `fail()` now warns on every
+		-- quarantine, real `warn()` by default; injected here for an exact assertion.
+		local warns: { string } = {}
+		local core = (Facet :: any).newCore({
+			warn = function(message: string)
+				table.insert(warns, message)
+			end,
+		})
 		local env = (Facet :: any).newEnvironment(core)
 		expect((env:get("themeMetrics"):get() :: any).app.inmemo).toBe(nil) -- warm it
 
@@ -465,14 +475,19 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		-- the ONE artifact
 		expect(type(core:lastError())).toBe("string")
 		expect(string.find(tostring(core:lastError()), "memo evaluation", 1, true) ~= nil).toBe(true)
+		-- ...and now a SECOND artifact: the same string, said out loud once
+		expect(#warns).toBe(1)
+		expect(warns[1]).toBe(`Facet: quarantined - {core:lastError()}`)
 
 		-- the vocabulary IS live — which is exactly why the environment being blind
 		-- would be silent rather than obvious
 		expect(snapshot.isMetricPath("app.inmemo.tileMin")).toBe(true)
 
-		-- …and ANY later declaration heals the environment that missed it
+		-- …and ANY later declaration heals the environment that missed it — a HEALTHY
+		-- declaration, so it must not warn again
 		themes.declareApp("healer", { chartH = 160 })
 		expect((env:get("themeMetrics"):get() :: any).app.inmemo.tileMin).toBe(96)
+		expect(#warns).toBe(1)
 
 		memo:dispose()
 		themes.declareApp("inmemo", nil)

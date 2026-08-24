@@ -112,7 +112,13 @@ export type Core = {
 
 export type CoreFactory = {
 	name: string,
-	new: () -> Core,
+	-- `opts.warn` (director ruling 2026-08-23, task-fix2 item 6): every
+	-- quarantined write now calls it — real `warn()` by default, injectable so
+	-- a spec asserting a quarantine fired need not print past the suite's own
+	-- PASS/FAIL lines. Optional and additive: a factory that ignores it is
+	-- still a valid `CoreFactory` (Luau's structural typing lets a `() -> Core`
+	-- satisfy this).
+	new: (opts: { warn: ((string) -> ())? }?) -> Core,
 	-- true when the implementation genuinely supports the semantic (rubric
 	-- honesty: the suite still RUNS every check; this only annotates results)
 	claims: {

@@ -807,7 +807,18 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 	it(
 		"a reactive value out of domain is refused loudly on core:lastError(), and the menu HOLDS its last valid state",
 		function()
-			local core = Facet.newCore()
+			-- `warns` (device bug fix round, director 2026-08-23, task-fix2 item 6):
+			-- a quarantine used to be recorded on `lastError()` and nowhere else — an
+			-- author who never thinks to poll it never hears about a bad reactive
+			-- `presentation` value. `core/custom.luau`'s `fail()` now calls this on
+			-- every quarantine, real `warn()` by default; injected here so the
+			-- assertion below is exact rather than a print the suite has to eyeball.
+			local warns: { string } = {}
+			local core = Facet.newCore({
+				warn = function(message: string)
+					table.insert(warns, message)
+				end,
+			})
 			local forced = core:signal("menu")
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
@@ -828,11 +839,22 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 			pres.refresh()
 			expect(control.presentation()).toBe("menu")
 			expect(core:lastError()).toBeNil()
+			-- the healthy path never warns: building and presenting a VALID menu
+			-- must not print anything, or a warning becomes noise nobody trusts
+			expect(#warns).toBe(0)
 			forced:set("bogus")
 			pres.refresh()
 			expect(string.find(tostring(core:lastError()), "unknown presentation", 1, true) ~= nil).toBe(true)
 			expect(string.find(tostring(core:lastError()), "bogus", 1, true) ~= nil).toBe(true)
 			expect(control.presentation()).toBe("menu") -- HELD, not silently accepted
+			-- ...and NOW it warns — once, naming the same failure `lastError` holds
+			expect(#warns).toBe(1)
+			expect(string.find(warns[1], "unknown presentation", 1, true) ~= nil).toBe(true)
+			expect(string.find(warns[1], "bogus", 1, true) ~= nil).toBe(true)
+			-- a repeated re-evaluation of the SAME bad value does not warn again
+			pres.refresh()
+			pres.refresh()
+			expect(#warns).toBe(1)
 		end
 	)
 end)

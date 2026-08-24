@@ -107,10 +107,19 @@ print(`Facet preloaded {loaded} deferred modules`)
 
 ### `newCore`
 
-`Facet.newCore() -> Core` — creates an independent reactive core: the
+`Facet.newCore(opts?) -> Core` — creates an independent reactive core: the
 signal/memo/observer/effect graph plus the transaction scheduler and scope
 (ownership) system. Everything else in the library is built over one core per
 client.
+
+`opts.warn: (string) -> ()` (optional; director ruling 2026-08-23) — called
+once per DISTINCT quarantine message (a `warn()`-worded diagnostic, not just
+`lastError`'s silent record) whenever this core quarantines anything — a
+compute error, a throwing `eq`/observer callback, a feedback-cap trip, a
+double disposal, an illegal write attempted from inside a memo evaluation
+(`themes.declareApp`'s own self-healing case). Defaults to the real engine
+`warn()`; a spec that deliberately drives a quarantine path injects its own to
+assert the warning fired without printing past the suite's own output.
 
 `core.name` is the implementation's name (`"custom"` for the shipped core) — a
 plain field, useful in a diagnostic dump. A core has **no `dispose()`**: scopes
@@ -123,8 +132,9 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   `signal:set(value)`, `signal:dispose()`. `eq` customizes change detection
   (default: `==`, NaN-safe; it is a positional optional because these are the
   library's hottest constructors — constitution E-9). A throwing `eq` is
-  quarantined (recorded via `lastError`, treated as "changed"), never crashes a
-  writer. **Disposing a signal freezes its readers rather than erroring them**:
+  quarantined (warned and recorded via `lastError`, treated as "changed"),
+  never crashes a writer. **Disposing a signal freezes its readers rather than
+  erroring them**:
   dependents are never invalidated again and keep serving their last value, and
   a later `set` on it succeeds silently and reaches nobody. Dispose a signal
   last, or let its scope do it.
@@ -135,15 +145,16 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   error. Compute errors quarantine the memo (it keeps its old value).
 - `core:observe(readable, onChange) -> unsubscribe` — calls `onChange(value)`
   after a flush in which the value actually changed. Observer callbacks are
-  quarantined: a throwing callback records `lastError` and never wedges the
-  scheduler. Disposing an observed node reclaims and silences its observers.
+  quarantined: a throwing callback warns, records `lastError`, and never
+  wedges the scheduler. Disposing an observed node reclaims and silences its
+  observers.
 - `core:effect(run) -> unsubscribe` — like observe but dependency-tracked, with
   one difference that matters: **`run(use)` executes immediately, at
   registration**, and then again post-commit whenever a tracked dependency
   changes. (`observe` does NOT fire on registration — it baselines instead.)
   Writes from an effect land in the NEXT flush round; runaway feedback trips a
-  100-round cap, which discards that round's pending writes and records the trip
-  on `lastError`.
+  100-round cap, which discards that round's pending writes and warns and
+  records the trip on `lastError`.
 - `core:transaction(body)` — **batching, not atomicity.** Writes inside `body`
   are held and observers/effects fire once at the end; set-then-revert inside a
   transaction fires nothing. There is no snapshot and no rollback: if `body`
@@ -158,13 +169,17 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   being torn down), `scope:use(resource)` (borrow: returns it, and does NOT take
   ownership — the spelling for a child that must outlive this scope),
   `scope:child(label?)`, `scope:dispose()` (reverse order, idempotent; double
-  disposal is DETECTED via `lastError`), `scope:isDisposed()`.
+  disposal is DETECTED, warned, and recorded via `lastError`),
+  `scope:isDisposed()`.
 - `core:counters() -> { signals, memos, observers, effects, scopes }` — live
   registry counts; lifecycle-neutral code returns them to baseline. A root scope
   from `core:scope()` has no parent, so it is yours to dispose.
 - `core:lastError() -> string?` — the most recent quarantined error (cycles,
-  compute/observer/eq errors, feedback-cap trips, double disposals). **It is
-  sticky**: `nil` until the first quarantine, and never cleared afterwards.
+  compute/observer/eq errors, feedback-cap trips, double disposals). Every one
+  of those also calls `opts.warn` (real `warn()` by default) once per DISTINCT
+  message — `lastError` is the durable record, the warning is what makes an
+  author who never polls it hear about it anyway. **It is sticky**: `nil`
+  until the first quarantine, and never cleared afterwards.
   There is no take-or-clear verb, so it reports "something was contained at some
   point in this core's life", not "this core is unhealthy right now" — a health
   assertion built on it has to be scoped to a freshly-built core, the way the
@@ -6534,10 +6549,11 @@ construction-time only; it now rides the same hot-switch machinery `sizeClass`/
 `interactionClasses` already drive an open menu through, so `presentation:set(...)`
 re-presents a live surface at its current open depth exactly like a live
 size/interaction-class change does. A static misspelling still fails fast at
-construction; a reactive one out-of-domain is refused loudly on `core:lastError()`
-at the read site (the reactive core QUARANTINES a memo compute error rather than
-letting it unwind an unrelated surface's refresh — see `src/core/custom.luau`) and
-the menu HOLDS its last valid presentation rather than adopting the bad one.
+construction; a reactive one out-of-domain is refused loudly — `warn()`ed AND
+recorded on `core:lastError()` — at the read site (the reactive core QUARANTINES
+a memo compute error rather than letting it unwind an unrelated surface's
+refresh — see `src/core/custom.luau`) and the menu HOLDS its last valid
+presentation rather than adopting the bad one.
 
 An **`Item`** is exactly one of three shapes:
 

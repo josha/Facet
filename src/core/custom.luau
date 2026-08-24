@@ -50,7 +50,18 @@ end
 
 local Custom = {}
 
-function Custom.new()
+--[[ `opts.warn` (director ruling 2026-08-23, task-fix2 item 6): the engine
+	`warn()` every quarantined write now calls (see `fail` below), injectable for
+	the same reason `theme_controller.install`/`gallery_chrome`'s own `warn` opts
+	are — a spec that deliberately drives a quarantine path (cycle detection, a
+	throwing equality callback, a memo re-evaluated on a persistently bad input)
+	wants to ASSERT the warning fired, not have it print past the suite's own
+	PASS/FAIL lines. Defaults to the real global, which is what every ordinary
+	caller (every `Facet.newCore()` in Studio, in a shipped game) already gets. ]]
+export type CustomOpts = { warn: ((string) -> ())? }
+
+function Custom.new(opts: CustomOpts?)
+	local emitWarn: (string) -> () = if opts ~= nil and opts.warn ~= nil then opts.warn else warn
 	local core: any
 	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0, settles = 0 }
 	local txDepth = 0
@@ -70,7 +81,32 @@ function Custom.new()
 
 	local flush -- forward
 
+	--[[ THE ONE PLACE EVERY QUARANTINED WRITE LANDS, AND NOW THE ONE PLACE THAT
+		SAYS SO OUT LOUD (director ruling 2026-08-23, framework-gaps-phase2
+		task-fix2 item 6). Every self-healing quarantine in this codebase — a
+		memo's compute throwing (line ~208 below), an equality callback throwing
+		(`safeEq`), a scope's own double-disposal diagnostic (`scope_impl`), a
+		write attempted mid-evaluation (`themes.declareApp` called from inside a
+		memo, `snapshot.luau`'s "offer-all-then-raise") — calls THIS function and
+		nothing else, which is what the docstring above `core:lastError()` and two
+		call sites (`newMenu`'s bad `presentation`, `declareApp`'s mid-memo write)
+		used to describe as "recorded silently". A silent quarantine heals the
+		STATE and tells nobody: `core:lastError()` exists, but nothing makes an
+		author look at it, so a bad `presentation` value or a namespace declared
+		from the wrong place ships mute until someone thinks to ask.
+
+		DEDUPED BY MESSAGE, AGAINST WHAT `lastError` ALREADY HELD. A memo that
+		keeps failing the SAME way every re-evaluation (a persistent authoring
+		error re-hit on every solve) would otherwise warn once per solve forever;
+		comparing the new message to the one `lastError` is about to replace means
+		only a message that DIFFERS warns — the identical-failure case this
+		function's own callers retry (`declareApp`'s healing re-declaration,
+		a memo re-evaluated on the same bad input) stays a single warning, while
+		two DIFFERENT quarantines — even back to back — both get said out loud. ]]
 	local function fail(message: string)
+		if message ~= lastError then
+			emitWarn(`Facet: quarantined - {message}`)
+		end
 		lastError = message
 	end
 

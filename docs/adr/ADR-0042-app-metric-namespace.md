@@ -272,15 +272,19 @@ retry the value-equality short-circuit would otherwise eat, and including a
 declaration for an unrelated group — catch it up.
 
 So: **call `declareApp` at boot, from ordinary code.** The framework makes the
-mistake *recoverable*, not *self-announcing*. Guard:
+mistake *recoverable*, and now *self-announcing* too. Guard:
 `tests/app_metrics.spec.luau`, "a declaration made inside a memo is quarantined,
 recorded, and healed later".
 
-**Booked, not done**: whether an illegal write during a memo evaluation deserves
-a real diagnostic rather than a `lastError` entry is a question about
-`core/custom.luau`'s `fail()`, which is outside this decision's lane. If the
-answer is yes, it is one change in one place and every quarantined-write shape in
-the framework benefits, not only this one.
+**DONE 2026-08-23** (director ruling, framework-gaps-phase2 task-fix2 item 6):
+an illegal write during a memo evaluation now gets a real diagnostic, not only a
+`lastError` entry — `core/custom.luau`'s `fail()` calls `warn()` (injectable via
+`Facet.newCore({ warn = ... })`, real by default) on every quarantine, deduped
+against the message it is about to replace so a persistently-failing memo warns
+once per DISTINCT failure rather than once per re-evaluation. One change, in the
+one place every quarantined-write shape in the framework routes through — this
+one, `newMenu`'s reactive `presentation` refusal, an equality-callback throw, a
+scope's own double-disposal diagnostic, all of it.
 
 `observeAppDeclarations` and `appGeneration` are **internal**, not exported on
 `Facet.themes` and not classified as public surface. The registry is weak, so an
