@@ -644,6 +644,39 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	})
 	scope:own(strip)
 
+	--[[ THE CONTENT TRANSITION'S EXIT IS ALWAYS `instant` (task-fix3 symptoms 4/5;
+		director device round, 2026-08-23; "mid-screen then pops to the top" /
+		"layout appears then pops"). `Content` below is a STRETCH VSTACK, not a ZStack (see its own
+		header comment) — every branch's page declares `width/height = fill`
+		against it. `mount.luau`'s ordinary retire model (a departing branch
+		STAYS MOUNTED, non-interactive, until its exit transition settles — right
+		for a list row, which is a peer sharing space with its siblings) is wrong
+		here: while the OUTGOING tab's branch is retiring, it and the INCOMING
+		tab's branch are BOTH mounted as fill-height siblings of the same stack for
+		that window, so the stack divides the offer between them instead of
+		handing the offer to either — measured: a 798px pane became two 399px
+		panes, the incoming one pinned to the BOTTOM half, until the outgoing one
+		finished retiring and the stack re-solved to give the survivor the whole
+		798. A tab's own page is not a list row sharing a shelf with its
+		neighbour; it is the WHOLE surface, mutually exclusive with every other
+		tab's page, so nothing is lost by removing the outgoing one on the spot —
+		`exit = "instant"` skips the retire entirely (transitions.luau's
+		`shouldRetire` returns nil for it), which is what keeps exactly one branch
+		mounted, exactly the invariant this construct's own comment below already
+		claims. The caller's `enter` (and `class`/`fade`) still plays for the
+		branch arriving. ]]
+	local function contentTransition(declared: any): any
+		if declared == nil then
+			return nil
+		end
+		return {
+			enter = declared.enter,
+			exit = "instant",
+			class = declared.class,
+			fade = declared.fade,
+		}
+	end
+
 	-- ===== the content: one branch per tab, only one mounted =================
 	local mounted: { [string]: boolean } = {}
 	local mountCount = 0
@@ -659,7 +692,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			UI.When({
 				id = "Tab-" .. tabId,
 				condition = selectedHere,
-				transition = spec.transition,
+				transition = contentTransition(spec.transition),
 				thenView = function(branchScope: any)
 					-- THE BUILD STACK, raised for exactly the duration of the
 					-- caller's factory. `pcall` so a factory that throws still
