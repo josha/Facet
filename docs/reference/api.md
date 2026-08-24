@@ -2587,13 +2587,16 @@ lifetime is the mount's, not the module's).
 | `renderer.compactForm(props) -> form?` | pure: the normalized compact representation of a `Button`'s `compactLabel` (`{ kind = "text" \| "icon" \| "image", … }`, `nil` when none). The one place the authored grammar becomes a shape, shared by the measure seam, the paint seam and the adapter |
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
-**`attach` options** — `{ rootPolicy?, onNodeTap?, engineSelectionBridge?,
+**`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
 onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout? }`
 (the last two are the two performance opts described under `present()`, both on
 by default; a presented surface forwards its own).
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
-`"deviceSafeContent"`, `"edgeToEdge"`; an unknown value errors and lists the
-set). **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
+`"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
+errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a
+number or a theme metric name) described under `present()`'s own `rootPolicy`
+section — illegal together with `rootPolicy = "edgeToEdge"`.
+**`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
 geometry (`x`/`y`) the outside-tap policy reads, and `via` for a
 detector-driven tap. **`engineSelectionBridge`** is the same opt-in mirror
 `presentModal` exposes, available here for a hand-attached surface.
@@ -3099,7 +3102,7 @@ Methods:
 Options — the key set is closed, and an unknown one is refused at present time:
 `onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,
-`sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `outsideTapCancel`,
+`sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `edgeFloor`, `outsideTapCancel`,
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
 `traversalWrap`, `keyboardNavigation`, `initialFocus`, `focusChrome`,
 `engineSelectionBridge` (the `presentModal` mirror described above),
@@ -3363,6 +3366,29 @@ zero. Its TOP is exempt, because a gutter there would stop a topbar row sitting
 level with the engine's own buttons. `coreSafeContent` and `deviceSafeContent`
 are unchanged — widening the floor to them is deferred with its measurement, see
 [ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) §2.
+
+**`edgeFloor`** is the opt-in version of that same floor, for a consumer who
+wants one on `coreSafeContent`/`deviceSafeContent`/`bandSafeContent` without
+waiting on the default (director ruling, 2026-08-23: *"if the user truly
+specifies edge-to-edge we should do so with no padding. Ensure the user can
+specify padding"* — [ADR-0055](../adr/ADR-0055-edge-floor.md)). A number (a
+literal pixel count, every distance) or a theme metric name (`"l"`,
+`"space.xl"` — resolved the same way `Table.cellPadding`/`anchor.gap` already
+resolve theirs, so it rides the ten-foot ladder for free: a literal number
+does not, a metric name does, exactly like those two). Floors bottom/left/right
+at the **max** of what the policy already reserves and this — never top, never
+a second addition. **Illegal together with `rootPolicy = "edgeToEdge"`**:
+`presenter.present`/`renderer.attach` refuse the combination at the call site
+rather than picking a winner, because edge-to-edge means zero padding by
+definition. Omitted = today's behavior on every policy, unchanged; whether the
+default ever floors `coreSafeContent`/`deviceSafeContent` the way `edgeFloor`
+lets a caller ask for by hand is a separate, unshipped call — see ADR-0055's
+own "What is deferred".
+
+```lua
+presenter.present(screen, { edgeFloor = "l" }) -- a consumer-declared floor
+presenter.present(screen, { edgeFloor = 16 }) -- or a literal pixel count
+```
 
 **Placing a surface in the platform's TOPBAR band.** Present it
 `rootPolicy = "bandSafeContent"` and give it a `UI.Composition` with a region in

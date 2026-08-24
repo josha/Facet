@@ -126,6 +126,20 @@ local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
 export type RendererAttachOpts = {
 	-- "coreSafeContent" (default) | "deviceSafeContent" | "edgeToEdge"
 	rootPolicy: string?,
+	-- THE EDGE-FLOOR KNOB (director ruling, ADR-0055, 2026-08-23): "if the
+	-- user truly specifies edge-to-edge we should do so with no padding.
+	-- Ensure the user can specify padding" — a number (a literal px, never
+	-- scaled) or a theme metric name (`themeSnapshot.resolveNumber`'s own
+	-- grammar — the same one `Table.cellPadding`/`anchor.gap` already use),
+	-- which rides the ten-foot ladder for free because the metrics snapshot
+	-- resolveNumber reads from is already display-scaled. Floors bottom/left/
+	-- right (never top — ADR-0027's reason: the platform's own row owns that
+	-- edge) at max(whatever the policy already reserves, this). NEVER legal
+	-- together with `rootPolicy = "edgeToEdge"`: attach() refuses the
+	-- combination rather than silently picking a winner (§ ROOT POLICY below).
+	-- Omitted = today's behavior, byte for byte, on every policy (no default
+	-- flip this round — see ADR-0055).
+	edgeFloor: (number | string)?,
 	-- a pointer tap on a mounted path. `meta` carries the tap's geometry
 	-- (`x`/`y`) for the outside-tap policy, and `via` for a detector-driven tap.
 	onNodeTap: ((path: string, meta: any?) -> ())?,
@@ -148,6 +162,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"engineSelectionBridge",
 	"onNodeTap",
 	"rootPolicy",
+	"edgeFloor",
 	"onDiscloseHover",
 	"onDiscloseLongPress",
 	"recycleInstances",
@@ -205,6 +220,21 @@ function renderer.attach(
 		end
 		table.sort(names)
 		error(`Facet renderer: unknown rootPolicy '{tostring(rootPolicy)}'. Valid: {table.concat(names, ", ")}.`, 0)
+	end
+	local optEdgeFloor = opts and opts.edgeFloor
+	--[[ THE ONE COMBINATION THIS OPT REFUSES (director ruling, ADR-0055):
+		explicit `edgeToEdge` means zero padding, guaranteed — a decoration
+		layer that asked to paint to the edge and a floor that pads it away
+		from the edge is a contradiction at the call site, not a race the
+		renderer picks a winner for. Same doctrine `edgeToEdge` itself already
+		got above: an unusable combination fails loudly here instead of
+		silently doing whichever the last write meant. ]]
+	if optEdgeFloor ~= nil and rootPolicy == "edgeToEdge" then
+		error(
+			"Facet renderer: edgeFloor has no effect under rootPolicy = 'edgeToEdge' (edge-to-edge is zero "
+				.. "padding by definition) — drop edgeFloor, or use a rootPolicy that reserves content insets.",
+			0
+		)
 	end
 	local rootHandle = adapter.createRoot(root.node.id or "Screen")
 	local attachScope = core:scope("renderer-attach")
@@ -1883,6 +1913,31 @@ function renderer.attach(
 					bottom = math.max(insets.bottom, gutter),
 					left = math.max(insets.left, gutter),
 					right = math.max(insets.right, gutter),
+				}
+			end
+		end
+		--[[ THE EDGE-FLOOR KNOB, APPLIED (director ruling, ADR-0055). Same
+			three edges as `bandSafeContent`'s own gutter floor above and the
+			same reason (ADR-0027: the top is the platform's row, never a
+			theme value) — this is a SEPARATE, opt-in floor a consumer names
+			explicitly, so it composes with whatever the policy already
+			reserved (MAX, never a second addition) rather than replacing it.
+			`attach()` already refused `edgeToEdge + edgeFloor` together, so
+			this is reachable only on a policy that has content insets to
+			begin with. `metrics` is the display-scaled snapshot `resolveNumber`
+			resolves a metric NAME against — the ten-foot ladder a package's
+			`space.*` already rides — so `edgeFloor = "l"` grows at the same
+			1.5x every neighbor (`space.gutter`, `anchor.gap`, `cellPadding`)
+			grows at; a literal number stays the literal pixel count at every
+			distance, exactly like those neighbors' own number arm. ]]
+		if rootPolicy ~= "edgeToEdge" and optEdgeFloor ~= nil then
+			local floorPx = themeSnapshot.resolveNumber(metrics, optEdgeFloor)
+			if type(floorPx) == "number" and floorPx == floorPx and floorPx > 0 then
+				insets = {
+					top = insets.top,
+					bottom = math.max(insets.bottom, floorPx),
+					left = math.max(insets.left, floorPx),
+					right = math.max(insets.right, floorPx),
 				}
 			end
 		end

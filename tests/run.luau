@@ -111,6 +111,7 @@ require("./container_relative_incremental.spec")
 require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
+require("./edge_floor.spec")
 --[[ the commit walks' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
 	`render/commit_walks.luau` one-way now that the six write loops that spend a
 	finished solve have left `renderer.luau`. This seam has a parameter object

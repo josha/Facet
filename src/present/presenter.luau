@@ -47,6 +47,13 @@ local presenter = {}
 -- presenter surface is typed, not `any`)
 export type PresentOpts = {
 	rootPolicy: string?,
+	-- the edge-floor knob (director ruling, ADR-0055, 2026-08-23): a
+	-- number (literal px) or a theme metric name, passed straight to
+	-- `renderer.attach`'s own opt of the same name — see its header for the
+	-- full grammar and the ten-foot-ladder note. Refused together with
+	-- `rootPolicy = "edgeToEdge"` (explicit edge-to-edge stays zero padding,
+	-- guaranteed); omitted = unchanged behavior on every other policy.
+	edgeFloor: (number | string)?,
 	onActivate: ((path: string?, meta: any?) -> ())?,
 	onAdjust: ((path: string, direction: number, rectOf: (string) -> any) -> ())?,
 	onFocusNav: ((path: string) -> ())?,
@@ -199,6 +206,7 @@ export type ToastOpts = {
 -- exactly those.
 local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"cancelPolicy",
+	"edgeFloor",
 	"engineSelectionBridge",
 	"fallbackScreen",
 	"gameplayGuard",
@@ -1651,6 +1659,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
+			edgeFloor = opts and opts.edgeFloor,
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
 			incrementalLayout = opts == nil or opts.incrementalLayout ~= false,
