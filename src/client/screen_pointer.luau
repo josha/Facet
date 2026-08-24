@@ -166,6 +166,26 @@ function screen_pointer.new(ctx: any)
 		-- kept on the handle so the effective-target hit expander (B-BTN3) can
 		-- forward to the SAME activation path rather than becoming a second one
 		handle.activate = fn
+		--[[ DISCONNECT BEFORE RECONNECT (device bug fix, director 2026-08-23:
+			nested-tabs hit targets shift after a bottom-tab round trip). This call
+			runs once per (path, fresh-or-adopted handle) — `render/renderer.luau`'s
+			create-or-adopt block calls it right after choosing the engine object —
+			and a RECYCLED instance (`adapter.adopt`, instance recycling ON by
+			default) is never destroyed between lives, only reparented. Without this
+			disconnect, `instance.Activated` kept every PRIOR life's connection —
+			each one a closure over `local path = node.path` from a DIFFERENT commit,
+			bound to whatever node this physical instance used to represent — and a
+			single real click fired all of them, `dispatchNodeTapOnce` keyed per
+			PATH so it let every one through. Measured live: `tab_view`'s nested page
+			strip, Pages -> Notes -> Pages, a tap on "Clothing"'s own painted rect
+			selected "Backgrounds" — a recycled button carrying a stale listener from
+			an earlier occupant. Toggle/Button are otherwise never reactivated on the
+			SAME handle without a path change, so this is a leak fix, not a
+			behavior change for the non-recycled case. ]]
+		if handle.activatedConn ~= nil then
+			handle.activatedConn:Disconnect()
+			handle.activatedConn = nil
+		end
 		if instance:IsA("GuiButton") then
 			handle.activatedConn = instance.Activated:Connect(function(inputObject: InputObject)
 				fn(pointerActivateMeta(inputObject))
