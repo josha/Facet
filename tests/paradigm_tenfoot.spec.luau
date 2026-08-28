@@ -417,7 +417,7 @@ end)
 	construction — touch is never checked unless the raw fact is already
 	"Large". ]]
 describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foot treatment", function()
-	local function worldFor(displaySize: string, touch: boolean, gamepad: boolean): (any, any)
+	local function envFor(displaySize: string, touch: boolean, gamepad: boolean): (any, any)
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
@@ -435,7 +435,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	it(
 		"1920x1080 + gamepad + touch + engine-reported Large reads NEAR, with handheld-appropriate (1x) type scale",
 		function()
-			local _, env = worldFor("Large", true, true)
+			local _, env = envFor("Large", true, true)
 			expect(env:get("effectiveDisplaySize"):get()).toBe("Medium")
 			expect(env:get("distanceProfile"):get()).toBe("near")
 			expect(env:get("typographyScale"):get()).toBe(1) -- NOT 1.5 — the director's own ask
@@ -453,7 +453,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- engine-reported "Large" — but NO touchscreen, because a real console
 	-- does not have one. This must stay byte-identical to today.
 	it("a PS5-shaped device (1920x1080, gamepad, NO touch) stays ten-foot — unchanged", function()
-		local _, env = worldFor("Large", false, true)
+		local _, env = envFor("Large", false, true)
 		expect(env:get("effectiveDisplaySize"):get()).toBe("Large")
 		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
 		expect(env:get("typographyScale"):get()).toBe(1.5)
@@ -467,8 +467,8 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- at the same engine-reported "Large" is classed identically to a
 	-- gamepad one; the input class was never the variable.
 	it("gamepad input alone never changes the classing (the director's suspicion, measured false)", function()
-		local _, gamepadSession = worldFor("Large", false, true)
-		local _, keyboardSession = worldFor("Large", false, false)
+		local _, gamepadSession = envFor("Large", false, true)
+		local _, keyboardSession = envFor("Large", false, false)
 		expect(gamepadSession:get("distanceProfile"):get()).toBe(keyboardSession:get("distanceProfile"):get())
 		expect(gamepadSession:get("distanceProfile"):get()).toBe("ten-foot")
 	end)
@@ -478,7 +478,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- tablet/mobile/handheld devices") is untouched either way — nothing here
 	-- depends on the correction firing.
 	it("an honestly-reported Small handheld is untouched by the correction", function()
-		local _, env = worldFor("Small", true, true)
+		local _, env = envFor("Small", true, true)
 		expect(env:get("effectiveDisplaySize"):get()).toBe("Small")
 		expect(env:get("distanceProfile"):get()).toBe("near")
 	end)
@@ -492,8 +492,8 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- boundary that would flip its outcome — recorded honestly rather than
 	-- claimed as a fix, and booked as a possible follow-up in the ADR.
 	it("navPlacement's gamepad branch is unchanged by this fix (audited, not altered)", function()
-		local coreAlly, envAlly = worldFor("Large", true, true)
-		local corePs5, envPs5 = worldFor("Large", false, true)
+		local coreAlly, envAlly = envFor("Large", true, true)
+		local corePs5, envPs5 = envFor("Large", false, true)
 		expect(adaptive.conditions(coreAlly, envAlly).navPlacement:get()).toBe("topBar")
 		expect(adaptive.conditions(corePs5, envPs5).navPlacement:get()).toBe("topBar")
 	end)
