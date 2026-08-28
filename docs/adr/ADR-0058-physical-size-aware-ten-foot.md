@@ -1,12 +1,27 @@
 # ADR-0058 — Physical-size-aware ten-foot classing (`effectiveDisplaySize`)
 
-**Date:** 2026-08-27
+**Date:** 2026-08-27 (fix round 1, 2026-08-28: ADR-0040 row B-32 added — see
+"ADR-0040 register row" below; the original text below this notice argued no
+row was owed and is kept, corrected rather than silently overwritten, per
+this project's own discipline for a reviewed reversal).
 **Status:** Accepted
-**Number:** 0058. Additive — no ADR-0040 row. No required-prop flip and no
-documented-default VALUE change on any public constructor: this corrects an
-internal derivation (what `distanceProfile`/`typographyScale`/`metricScale`/
-`effectiveOverscanInsets` compute from), not a documented required-prop
-default. The one in-code claim it does supersede — `environment.luau`'s own
+**Number:** 0058. **CORRECTED (RED-TEAM review finding I1):** the row below
+was originally omitted on the reasoning "no required-prop flip, no
+documented-default VALUE change on any public constructor." That framing is
+narrower than the register's own stated purpose and its own **B-4** precedent
+(`adaptive.navPlacement` on a tablet: `bottomBar` → `topBar` — a documented
+DERIVED POLICY answering differently for a real device class, recorded even
+though it is not a component-prop default either). `distanceProfile`/
+`typographyScale`/`typographyPaintScale`/`themeMetrics`/`sizeClass`/
+`effectiveOverscanInsets` are all documented derived policy in exactly B-4's
+sense, and all six now answer differently for a real, existing device class
+(any `"Large"`-reporting, touch-capable session). ADR-0040 row **B-32**
+records it, on Decision 2 grounds (the register's stated purpose) rather than
+Decision 3's narrower mechanical trigger — which is genuinely not tripped
+here, and was correctly identified as such; the gap was treating "the
+mechanical instrument has nothing to check" as "no row is owed," which
+B-18/B-21/B-25/B-27/B-30/B-31 already establish is not the register's rule.
+The one in-code claim this ADR does supersede — `environment.luau`'s own
 comment, "ten-foot presentation keys off the display class, not the input
 class... Large alone (any input) earns the distance treatment" — is corrected
 in the same commit as a stale-comment fix (ENGINEERING.md: a stale comment is
@@ -268,6 +283,49 @@ this change (see "Suite tails" in the task report).
   gamepad-primary device should ALSO get phone-style bottom tabs is a
   separate, more specific product question this round does not decide.
 
+## DIRECTOR-AWARENESS FLAG (RED-TEAM review finding I2) — stated plainly
+
+**The symptom the director reported may not be limited to handhelds.** This
+round's own load-bearing measurement — an ordinary windowed desktop viewport
+in Roblox Studio Play reporting `ViewportDisplaySize = "Large"` — was taken in
+Studio, not on a packaged client on real desktop hardware, and is explicitly
+caveated as unverified beyond that in this ADR's own "Caveat, stated plainly"
+paragraph above. **If that measurement generalizes to a real, packaged
+desktop client, an ORDINARY DESKTOP PLAYER WITH A GAMEPAD PLUGGED IN AND NO
+TOUCHSCREEN would get the exact same oversized, console-scaled UI the
+director reported for the ROG Ally** — and this round's fix does not touch
+that case at all, by design: `effectiveDisplaySize` only ever corrects when
+`capabilities.touch == true`, so a no-touch session (a real console OR an
+ordinary desktop with a pad) resolves identically before and after this
+round. There is no signal this round's research found that can tell "PC
+handheld, no touch" apart from "ordinary desktop monitor, no touch, gamepad
+plugged in" — both report gamepad-primary, no touch, and possibly an
+engine-reported `"Large"`. This is **not a regression from this round**
+(byte-identical behavior either way) and **not silently swept** — it is a
+real, open question about how far the underlying platform defect reaches,
+recorded here for the director because the review specifically asked for an
+explicit adjudication rather than a caveat buried in prose.
+
+**The exact on-hardware check that settles it:** take a PACKAGED Facet game
+client (not Roblox Studio) onto an ORDINARY DESKTOP PC — no handheld, a
+regular monitor — plug in a gamepad, and read `GuiService.ViewportDisplaySize`
+live (a one-line diagnostic print is sufficient; `client.gamepad_contention`'s
+pattern of guarded live probes is the right shape for a permanent one). Two
+outcomes:
+- **Reports `"Medium"` or `"Small"`** (matching the DevForum-documented
+  bucket for "most laptops and monitors"): the Studio measurement does NOT
+  generalize, this ADR's fix is sufficient as scoped, and the "ordinary
+  desktop + gamepad" case was never actually at risk.
+- **Reports `"Large"`**, matching the Studio measurement: the underlying
+  platform defect is broader than handhelds, and the director has a real
+  product decision to make — there is no signal available to distinguish
+  this class from a genuine console (both are gamepad-primary, no touch,
+  `1920x1080`-class, and physically far more common than a real console
+  misreport would be), so closing it is not a follow-up fix of this round's
+  size; it would need either a new corroborating signal this round's
+  research did not find, or a deliberate product call that ordinary desktop
+  gamepad sessions should also read as near-distance.
+
 ## Device-owed
 
 Studio cannot BE a PC handheld and its own display-metadata access may not
@@ -286,3 +344,8 @@ hardware:
    ten-foot) reads as intended rather than as a regression for that class of
    device — the one case this design deliberately trades away precision for
    safety.
+4. **An ORDINARY DESKTOP PC with a gamepad plugged in, NO touchscreen** — see
+   the DIRECTOR-AWARENESS FLAG immediately above. This is the check that
+   settles whether the director's underlying symptom reaches beyond
+   handhelds; read `GuiService.ViewportDisplaySize` live from a PACKAGED
+   client (not Studio) on that hardware.
