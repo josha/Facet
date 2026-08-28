@@ -1,6 +1,6 @@
 # ADR-0058 — Physical-size-aware ten-foot classing (`effectiveDisplaySize`)
 
-**Date:** 2026-08-27 (fix round 1, 2026-08-28: ADR-0040 row B-32 added — see
+**Date:** 2026-08-27 (fix round 1, 2026-08-28: ADR-0040 row B-34 added — see
 "ADR-0040 register row" below; the original text below this notice argued no
 row was owed and is kept, corrected rather than silently overwritten, per
 this project's own discipline for a reviewed reversal).
@@ -15,12 +15,17 @@ though it is not a component-prop default either). `distanceProfile`/
 `typographyScale`/`typographyPaintScale`/`themeMetrics`/`sizeClass`/
 `effectiveOverscanInsets` are all documented derived policy in exactly B-4's
 sense, and all six now answer differently for a real, existing device class
-(any `"Large"`-reporting, touch-capable session). ADR-0040 row **B-32**
+(any `"Large"`-reporting, touch-capable session). ADR-0040 row **B-34**
 records it, on Decision 2 grounds (the register's stated purpose) rather than
 Decision 3's narrower mechanical trigger — which is genuinely not tripped
 here, and was correctly identified as such; the gap was treating "the
 mechanical instrument has nothing to check" as "no row is owed," which
 B-18/B-21/B-25/B-27/B-30/B-31 already establish is not the register's rule.
+(Renumbered from an initial B-32: that number landed on the SAME commit as
+[ADR-0059](ADR-0059-themed-chrome-is-a-layout-fact.md)'s own B-32 and this
+round's own B-31 restoration — see the "ledger integrity" note on
+[ADR-0061](ADR-0061-compact-is-the-single-panel-boundary.md), task PANEL,
+which found and repaired the collision.)
 The one in-code claim this ADR does supersede — `environment.luau`'s own
 comment, "ten-foot presentation keys off the display class, not the input
 class... Large alone (any input) earns the distance treatment" — is corrected
