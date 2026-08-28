@@ -195,6 +195,70 @@ describe("nested_compositing showcase: builds and paints with ZERO solver diagno
 		end
 	end)
 
+	--[[ ITEM 16 (framework-gaps-phase2-followups, task MISC): "the 'Container
+		that carries' showcase renders EMPTY — should it?" (`demo_picker`'s
+		"nested-tree" entry titles this scenario "A container that carries",
+		this file's own scenario title.)
+
+		ROOT-CAUSE FINDING: not reproducible from source. Every node a player is
+		meant to see — the title, both opacity panels' plates, and both carry
+		panels' Plate + Marker — solves to a real, positive-area, PAINTED rect
+		at every swept viewport, at rest and mid-drive, with zero solver
+		diagnostics (proved above). Nothing here is hidden, nothing collapses to
+		0x0, and the mount path this file drives is byte-for-byte the one
+		`examples/gallery/client/init.client.luau`'s `mountDemo` uses for a
+		`kind == "fixture"` entry. The prior tests already prove the geometry;
+		this one closes the gap this file's OWN header names ("A Studio capture
+		of THIS surface... is still owed") with the strongest headless proxy
+		available — VISIBILITY, not just absence-of-diagnostics, because a
+		diagnostic-free tree can still be a fully invisible one (a hidden
+		ancestor, a 0-opacity group stuck open, a node the renderer never
+		reached). Given this, the most likely explanation for a live "empty"
+		report is a STALE SHOWCASE BUILD: `Facet-Showcase.rbxl` is NOT
+		rojo-connected this campaign (binding-context Environment &
+		commands) and needs an explicit `studio_sync` inject to pick up a
+		source-side scenario — exactly the class of trap this campaign's own
+		memory already names ("probe a commit marker before trusting Studio
+		readings"). Recorded as Studio-owed in the task report rather than
+		guessed at further. ]]
+	it("every node a player is meant to see paints a real, visible, positive-area rect", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w = fixtureWorld(view)
+			local built = mountFixture(w)
+			local paths = {
+				ROOT,
+				ROOT .. "/Title",
+				ONE_GROUP,
+				ONE_GROUP .. "/Back",
+				ONE_GROUP .. "/Front",
+				TWO_GROUPS,
+				TWO_GROUPS .. "/Back",
+				TWO_GROUPS .. "/Front",
+				CARRIED,
+				CARRIED .. "/Plate",
+				CARRIED .. "/Marker",
+				STATIC,
+				STATIC .. "/Plate",
+				STATIC .. "/Marker",
+			}
+			for _, path in paths do
+				local rect = built.handle.controller.rectOf(path)
+				if rect == nil or (rect :: any).w <= 0 or (rect :: any).h <= 0 then
+					error(
+						`nested_compositing at {view.w}x{view.h}: {path} solved to `
+							.. `{if rect then `{(rect :: any).w}x{(rect :: any).h}` else "NIL"} — not a visible box`,
+						2
+					)
+				end
+				local visible = w.adapter.visibleOf(path)
+				if visible == false then
+					error(`nested_compositing at {view.w}x{view.h}: {path} is a real box but marked NOT visible`, 2)
+				end
+			end
+			built.dispose()
+		end
+	end)
+
 	it("its chrome copy survives a ~1.4x pseudo-localization without clipping", function()
 		local original: { [string]: string } = {}
 		for key, value in module.copy do
