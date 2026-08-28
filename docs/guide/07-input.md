@@ -280,9 +280,15 @@ path (never silently dropping typed text). You never write any of this — it is
 the control's contract.
 
 **Ten-foot (a screen across the room).** When the display class is large the
-environment reports `distanceProfile == "ten-foot"` (keyed on `displaySize ==
-"Large"`, *not* on the input device — a keyboard on a TV still earns it). Four
-things change, and they compose rather than multiply:
+environment reports `distanceProfile == "ten-foot"` (keyed on
+`effectiveDisplaySize == "Large"`, *not* on the input device — a keyboard on a
+TV still earns it). `effectiveDisplaySize` is `displaySize` — the engine's own
+`GuiService.ViewportDisplaySize` — corrected for one case the raw fact gets
+wrong: a touch-capable device the engine still reports as `"Large"` (a PC
+handheld's misdetection, not a television) reads `"Medium"` instead, because a
+real ten-foot session never has a touchscreen (ADR-0058). Every other device,
+touch or not, sees no difference between the two facts. Four things change,
+and they compose rather than multiply:
 
 - **The whole size ladder scales by 1.5.** Type first — body text must clear
   roughly 29 pt at three metres — and, since the same factor drives both, control

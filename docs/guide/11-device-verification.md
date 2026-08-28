@@ -76,9 +76,12 @@ row with their reason.
 
 A row also declares what must be true of the *running session* once the preset
 is selected — not just what the catalog claimed. The console row requires
-`displaySize == "Large"`, because that is the fact that drives the ×1.5 type
-floor, the overscan margins and the strengthened focus visual. Without it the
-row would measure a large desktop and call it a console.
+`displaySize == "Large"` (with no touch capability on the preset, so the
+derived `effectiveDisplaySize` reads the same `"Large"` — ADR-0058's
+touch-vs-`"Large"` correction never fires on a console row), because
+`effectiveDisplaySize` is the fact that actually drives the ×1.5 type floor,
+the overscan margins and the strengthened focus visual. Without it the row
+would measure a large desktop and call it a console.
 
 ### Running it
 
