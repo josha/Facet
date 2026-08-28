@@ -372,7 +372,8 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	local barSurface = if spec.surface ~= nil then spec.surface elseif skin == "pill" then "accent" else nil
 	local barSurfaceSlot = chrome_slots.classify({ class = "Box", surface = barSurface })
 
-	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8).
+	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8;
+		ADR-0059 Decision 3).
 		The paragraph beside `barSurface` below says a ~40px chip "has room for a
 		themed control chrome's borders and insets". Measured 2026-08-27 on the tab
 		strip it was written for: Pixel Quest's `control` recipe carves 16px per side,

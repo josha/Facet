@@ -961,10 +961,27 @@ local function toLayoutNode(
 				as unbounded, kept charging for it. A 36px Pixel Quest round button then
 				had 36px of height around a 4px-wide content box. The solver's own
 				arithmetic is `w = h * ratio` / `h = w / ratio` (`measureUncached`), so
-				it is copied here rather than approximated. ]]
+				it is followed here rather than approximated.
+
+				IT IS THE ARITHMETIC AND NOT THE ROUNDING, and the difference is stated
+				rather than left for a reader to spot (review Minor 8, 2026-08-28). The
+				solver wraps both products in `num.roundPx`; this does not, because what
+				it feeds is an AFFORDABILITY TEST — "is there room for a line of text
+				inside this box" — and a half-pixel cannot change that answer without the
+				box being within half a pixel of the floor, which is a box already
+				reporting. Adding a rounding call here would import `num` into this file
+				for a difference no assertion can see. At `shape = "circle"`'s ratio of
+				1 — the only ratio this pairing produces today — the two are identical.
+
+				A ZERO RATIO IS GUARDED ON BOTH BRANCHES, likewise. `h = w / 0` is why
+				the second branch always had the test; `w = h * 0` yields a zero extent,
+				which is not a crash but is a lie about the box, and it would refuse the
+				whole inset on a node that has room. Neither is reachable from
+				`shape = "circle"`; the guard costs one comparison and removes the
+				asymmetry a reader would otherwise have to explain. ]]
 			local wExtent, hExtent = extentOf(layoutNode.width), extentOf(layoutNode.height)
 			local wDim: any, hDim: any = layoutNode.width, layoutNode.height
-			if type(wDim) == "table" and wDim.type == "aspect" and type(wDim.ratio) == "number" then
+			if type(wDim) == "table" and wDim.type == "aspect" and type(wDim.ratio) == "number" and wDim.ratio ~= 0 then
 				wExtent = if hExtent == math.huge then math.huge else hExtent * wDim.ratio
 			elseif
 				type(hDim) == "table"

@@ -264,10 +264,21 @@ end
 
 	THE SLOT IS DERIVED THE WAY THE RENDERER DERIVES IT (`chrome_slots.classify`,
 	the same call `render/layout_node` makes), minus the internal `hint` channel a
-	node census cannot carry: a control that declared its OWN slot (a Slider's rail)
-	is judged against the slot the generic map guesses instead. That under-reports
-	on those few nodes and can never over-report, which is the right direction for
-	an always-on check. ]]
+	node census cannot carry — and the honest statement of what that costs is TWO
+	directions, not one (review Minor 6, 2026-08-28; this header used to claim it
+	"can never over-report", which is not enforced and is not true in general).
+
+	  * UNDER-REPORTS on a node whose control declared its own POSITIVE slot (a
+	    Slider's rail): it is judged against the slot the generic map guesses.
+	  * CAN OVER-REPORT on a node hinted `chrome_slots.NO_SLOT` — an explicit "not
+	    a decoration surface", which the classifier honours and this census cannot
+	    see. `present/catchers.luau`'s scrim Button and `controls/slider.luau`'s
+	    accent Box both land on `control` here, where the renderer reserves zero.
+
+	MEASURED 2026-08-28 across every surface at all nine viewports under every
+	package: ZERO such violations today, which is why this is a disclosure rather
+	than a defect. The instrument is `tools/lune/theme_containment_census`, so the
+	claim is re-runnable rather than remembered. ]]
 local function themedBox(snapshot: any, node: any, box: any): any
 	if type(snapshot) ~= "table" or box == nil then
 		return box

@@ -312,7 +312,8 @@ function pixel_quest.definition(themes: any): any
 				contentInsets = { top = 24, right = 24, bottom = 24, left = 24 },
 			},
 			--[[ CONTENT INSETS ARE THE CARVED FRAME, NOT THE SLICE BORDER (task
-				THEME, 2026-08-27, and it is the one number this package had wrong).
+				THEME, 2026-08-27, ADR-0059 Decision 5, and it is the one number this
+				package had wrong).
 
 				Every inset here was written equal to its art's NINE-SLICE BORDER,
 				which for this package is forced large by the authoring rule at the
@@ -325,10 +326,22 @@ function pixel_quest.definition(themes: any): any
 				is 9x9 dp): one INK outline, one TAN/WOOD_D bevel, then five design
 				pixels of flat WOOD face, with the corner rivets sitting AT the bevel.
 				The frame is TWO design pixels, and 4 dp was reserving half the face.
-				`pixel_field` is the same shape (INK, WOOD_D/TAN, then the SHADE well)
-				and `pixel_plate_selected` too (INK, the CREAM ring, then the gilt
-				face with its ruby studs on the ring) — which is what keeps R2's
-				identical-inset rule between the two selection states.
+				`pixel_field` is the same shape (INK, WOOD_D/TAN, then the SHADE well).
+
+				`pixel_plate_selected` IS ONE DESIGN PIXEL FATTER AND THE VALUE STILL
+				HAS TO BE 8 (corrected 2026-08-28, review Minor 1 — an earlier reading
+				of this file described it as two, which is art that is not there). Its
+				centre row decodes as INK | CREAM | CREAM | TAN TAN TAN | WOOD | CREAM |
+				INK: a DOUBLE cream ring, so the gilt face starts at design pixel 3 on
+				the top/left and 2 on the bottom/right, and the ruby studs sit at design
+				pixel 2 — exactly on this 8px boundary. ADR-0020 R2 forces both
+				selection states to declare ONE reservation ("a variant may change its
+				art, never its reservation" — the row must not move when it is chosen)
+				and the DEFAULT plate genuinely carves two, so 8 is the number both can
+				live with. What it costs is stated rather than hidden: selected content
+				sits on the studs by a design pixel. Reserving 12 instead would move
+				every unselected row's content in by a whole design pixel to pay for a
+				state it is not in, which is the worse trade.
 
 				WHAT IT COST WHILE IT WAS WRONG. `controlSizes.compact.height` is 36
 				and `regular` 44, so 4 dp per side left a 36px control FOUR pixels of

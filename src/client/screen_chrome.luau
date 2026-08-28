@@ -608,13 +608,23 @@ function screen_chrome.new(ctx: Context)
 			needs (a themed fixed-px control at the largest text preference, measure
 			and paint agreeing). `TextScaled` is out of scope by declaration — see the
 			head of this file — so that half of the risk is closed by design. ]]
+		--[[ AN `IsA` TEST, NOT A `pcall` (review Minor 7, 2026-08-28). This ran a
+			closure through `pcall` on EVERY call, and `refitIconArt` drives every call
+			from `applyRect` — a per-rect-write allocation on the hot path, to answer a
+			question the vocabulary already answers: `chrome_slots.LIFTED_TEXT_CLASSES`
+			is the closed set of classes that HAVE a `TextSize`, and it is the same list
+			`syncChromeText` gates the lift's existence on. A class outside it
+			contributes no floor, which is what the failed `pcall` meant. ]]
 		local lineBox = 0
-		if handle ~= nil then
-			local ok, size = pcall(function()
-				return (handle.instance :: any).TextSize
-			end)
-			if ok and type(size) == "number" then
-				lineBox = size
+		if handle ~= nil and handle.instance ~= nil then
+			for _, className in chrome_slots.LIFTED_TEXT_CLASSES do
+				if handle.instance:IsA(className) then
+					local size = (handle.instance :: any).TextSize
+					if type(size) == "number" then
+						lineBox = size
+					end
+					break
+				end
 			end
 		end
 		local plaque = chrome_slots.plaqueTextBox(plan)
