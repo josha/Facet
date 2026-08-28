@@ -2458,8 +2458,15 @@ local function solveArrangement(
 			compare). Nothing compared a placed rect with the lane rect it went into.
 
 			ONE OPERAND, DERIVED FROM THE RECT rather than re-computed, so the two halves
-			cannot drift apart again: with no exclusion `laneRect.h` IS `laneBudget` and
-			every composition in the library places byte for byte where it did. ]]
+			cannot drift apart again. With no exclusion the two agree, and the step is
+			worth stating because they are not the same TEXT: `laneRect.h` is
+			`math.max(0, laneBudget - inset)`, so at `inset == 0` it is
+			`math.max(0, laneBudget)` — which differs from `laneBudget` only when the
+			budget is NEGATIVE, and there the outer `math.max(0, … - laneNeed)` clamps
+			both to 0 for any `laneNeed >= 0` (a need is a sum of measured extents and
+			floors, so it never is). Every composition in the library therefore places
+			byte for byte where it did, which the 30-cell invariance matrix in
+			`tests/composition_exclusions.spec.luau` asserts rather than assumes. ]]
 		local slack = math.max(0, laneRect.h - p.laneNeed[i])
 		local fillWeight = 0
 		for _, gid in mountedGroups do

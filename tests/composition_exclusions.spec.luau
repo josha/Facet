@@ -332,6 +332,108 @@ describe("§8: a lane that gave way is shorter at BOTH ends — the PS5/phone bo
 		end
 	end)
 
+	it("INVARIANCE, over a MATRIX: a declaration that reaches no exclusion dumps byte for byte", function()
+		--[[ THE HONEST MECHANICAL GUARD for "nothing without a chrome row moved"
+			(review finding I-5). The first version of this round cited
+			`check_flat_baseline` for that claim; that gate renders eight fixtures and
+			not one of them contains a `UI.Composition`, so its PASS is structurally
+			incapable of observing this change in either direction — the exact
+			"pin that cannot reach the mechanism" failure this round exists to condemn,
+			committed by the round itself.
+
+			This is the guard that can reach it: every combination of lane count,
+			`place` and `sizing` this ADR moves, each resolved three ways — with no
+			`exclusions` key at all, with a far-away 1x1 rect, and with a rect that
+			shares no x range with any content — and the three dumps compared BY VALUE.
+			Deterministic enumeration rather than a fuzzer: no seed, no clock, and the
+			failure names the exact cell.
+
+			WHY THE THREE ARMS ARE DIFFERENT QUESTIONS. "No key" is the pre-feature
+			path. "A far-away rect" is the arm FIX-4 used as its discriminator (the
+			overflow scaled with the rect's reach, not its presence). "A
+			non-intersecting rect" is the one that exercises §8's own decision — the
+			rule runs, measures every region's x range, and decides NOT to give way —
+			so a fix that accidentally made every declared rect an inset would be
+			caught here and nowhere else. ]]
+		local PLACES = { "start", "center", "end", 0.25, 0.66 }
+		local SIZINGS = { "hug", "fill" }
+		-- a stable serialization, keys sorted, so "byte for byte" is a string compare
+		-- a failure can PRINT rather than a structural walk that only says "differs"
+		local function ser(v: any): string
+			if type(v) ~= "table" then
+				return tostring(v)
+			end
+			local keys: { string } = {}
+			for k in v do
+				table.insert(keys, tostring(k))
+			end
+			table.sort(keys)
+			local parts: { string } = {}
+			for _, k in keys do
+				local raw = (v :: any)[k]
+				if raw == nil then
+					raw = (v :: any)[tonumber(k) :: any]
+				end
+				table.insert(parts, `{k}={ser(raw)}`)
+			end
+			return "{" .. table.concat(parts, ",") .. "}"
+		end
+		local mismatches: { string } = {}
+		for _, lanes in { 1, 2, 3 } do
+			for _, place in PLACES do
+				for _, sizing in SIZINGS do
+					local groups: { any } = {}
+					local regions: { any } = {}
+					local laneNames = { "lead", "main", "trail" }
+					for i = 1, lanes do
+						table.insert(groups, { id = `top{i}`, lane = laneNames[i], place = "start" })
+						table.insert(groups, { id = `body{i}`, lane = laneNames[i], place = place, sizing = sizing })
+						table.insert(regions, { id = `Rounds{i}`, group = `top{i}`, rank = i * 2 - 1, forms = 1 })
+						table.insert(regions, { id = `Feed{i}`, group = `body{i}`, rank = i * 2, forms = 1 })
+					end
+					local names: { string } = {}
+					for i = 1, lanes do
+						table.insert(names, laneNames[i])
+					end
+					local decl: any = {
+						groups = groups,
+						arrangements = { { name = "m", lanes = { names } } },
+						regions = regions,
+					}
+					local sizes: { [string]: { w: number, h: number } } = {}
+					for i = 1, lanes do
+						sizes[`Rounds{i}`] = { w = 80, h = 36 }
+						sizes[`Feed{i}`] = { w = 120, h = 60 }
+					end
+					local function resolve(exclusions: { any }?): any
+						local ctx: any = {
+							measure = function(id: string): (number, number)
+								local sz = sizes[id]
+								return sz.w, sz.h
+							end,
+						}
+						ctx.exclusions = exclusions
+						return composition.dump(composition.resolve(decl, { w = 900, h = 500 }, ctx))
+					end
+					local base = resolve(nil)
+					local cell = `lanes={lanes} place={tostring(place)} sizing={sizing}`
+					-- a 1x1 rect far past the composition's own box
+					if ser(base) ~= ser(resolve({ { x = 5000, y = 5000, w = 1, h = 1 } })) then
+						table.insert(mismatches, `{cell}: far-away 1x1 rect moved the solve`)
+					end
+					-- a real rect that shares no x range with any lane's content
+					if ser(base) ~= ser(resolve({ { x = 1200, y = 0, w = 300, h = 80 } })) then
+						table.insert(mismatches, `{cell}: a non-intersecting chrome row moved the solve`)
+					end
+				end
+			end
+		end
+		expect(`invariance mismatches: [{table.concat(mismatches, "; ")}]`).toBe("invariance mismatches: []")
+		-- ...AND THE MATRIX IS NOT EMPTY, which is the failure mode this whole round
+		-- is about: 3 lane counts x 5 places x 2 sizings
+		expect(`cells swept: {3 * #PLACES * #SIZINGS}`).toBe("cells swept: 30")
+	end)
+
 	it("ADDITIVITY: a lane that gave way NOTHING places exactly as it always did", function()
 		--[[ THE CONTROL FOR THE FIX ITSELF. With no exclusion the inset is 0, so the
 			new operand IS the old one and every composition in the library places byte
