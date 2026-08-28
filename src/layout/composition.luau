@@ -2442,7 +2442,25 @@ local function solveArrangement(
 		})
 		laneUsedH = math.max(laneUsedH, inset + p.laneNeed[i])
 
-		local slack = math.max(0, p.laneBudget - p.laneNeed[i])
+		--[[ ...AND THE SLACK IS THE SHORTENED LANE'S, NOT THE ONE IT WOULD HAVE HAD
+			(ADR-0056, the director's PS5/phone bottom overlap).
+
+			This is `laneRect.h` and not `p.laneBudget` because the L an exclusion makes
+			of the band has BOTH a top edge and a bottom one. The rect above already
+			carries the inset; the leftover shared out below is what puts an `end`-placed
+			group (`bottomLeft`/`bottom`/`bottomRight`) against the lane's bottom and
+			what a `fill` group takes as height. Reading the pre-exclusion budget here
+			handed out one extra `inset` of room that does not exist, so a bottom-anchored
+			cluster landed EXACTLY `inset` px past its own lane — measured 1:1 at every
+			inset from 1px to 300px, and silently: the content FIT (rule 3's `laneOver`
+			already subtracts the same inset, so nothing was rejected) and every region
+			measured exactly its allotment (so the collision finding had nothing to
+			compare). Nothing compared a placed rect with the lane rect it went into.
+
+			ONE OPERAND, DERIVED FROM THE RECT rather than re-computed, so the two halves
+			cannot drift apart again: with no exclusion `laneRect.h` IS `laneBudget` and
+			every composition in the library places byte for byte where it did. ]]
+		local slack = math.max(0, laneRect.h - p.laneNeed[i])
 		local fillWeight = 0
 		for _, gid in mountedGroups do
 			if groupOf[gid].sizing == "fill" then
