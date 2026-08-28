@@ -1187,9 +1187,18 @@ local function toLayoutNode(
 			a consumer reaching for a tinted panel builds one (the tint channel is a
 			Box's, so the plate CANNOT be the stack itself). There the reservation lands
 			on a node with no children, nothing spends it, and the content — a SIBLING —
-			paints over the frame. Measured 2026-08-27 with the containment oracle taught
-			to see it: 494 distinct escapes across the showcase corpus under the five
-			packages that carve anything, against 0 under every flat one.
+			paints over the frame. Measured 2026-08-28 by `tools/lune/theme_containment_census`
+			— the committed instrument, so this number is a RUN rather than a claim
+			(review finding I1; it replaces a 494 that reproduced as nothing) — over 63
+			surfaces x 9 viewports x 8 packages: **2,472 hits, 103 distinct by (surface,
+			node)**, which is the dedup rule the backlog is booked against because one
+			construction is one defect. The five packages that carve anything hold
+			2,458 of them; the three flat ones hold 14, and those are NOT this class —
+			a flat package still moves geometry through its metrics, so "0 under every
+			flat one" (which this comment used to claim) was never measured and is not
+			true. The neutral arm is 0. Judged against the plain RECT with the same
+			packages installed — the vocabulary before the themed rules — it is 270/42,
+			and the difference between 42 and 103 IS what teaching the guard bought.
 
 			THE OBVIOUS REPAIR WAS BUILT, MEASURED AND REJECTED, and the number is why:
 			handing the plate's inset to the stack's other children turns the HUD's

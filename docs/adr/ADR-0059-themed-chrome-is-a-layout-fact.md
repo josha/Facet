@@ -14,16 +14,23 @@ keeps in two more places — "a nine-slice skin has a carved border that content
 must clear"), [ADR-0020](ADR-0020-rich-skinning-v2.md) R4/R5 (semantic icons and
 the pixel rules), the containment invariant's own charter in
 `tests/lib/overflow_guard.luau`.
-**Home:** `src/tokens/chrome_slots.luau` (`spendInset`, `liftGeometry`),
-`src/render/layout_node.luau` (the chrome block),
+**Home:** `src/tokens/chrome_slots.luau` (`spendInset`, `liftGeometry`, `Hint.footprint`),
+`src/render/layout_node.luau` (the chrome block, the bounded circle icon floor),
 `src/client/screen_chrome.luau` (the lift's floor),
 `src/controls/selection_indicator.luau` (the pill's inset),
+`src/controls/row_actions_metrics.luau` + `src/controls/row_actions_root.luau`
+(`EDIT_FOOTPRINT`, Decision 6), `src/themes/snapshot.luau` (`resolveTotal`),
+`src/layout/solver.luau` (`sizeRefused`),
 `examples/gallery/scenarios/hud.luau` (the task panel's body padding),
 `examples/themes/pixel_quest.luau` (the package's own numbers).
-**Guards:** `tests/themed_containment.spec.luau` (15 cases — the four
-photographed surfaces, the four measurements, and each new rule shown biting and
-silent), `tests/chrome_inset_yield.spec.luau`, `tests/theme_layer_application.spec.luau`
+**Guards:** `tests/themed_containment.spec.luau` (18 cases — the four
+photographed surfaces, the four measurements, item 9 as a PROPERTY over a swept
+package metric, and each new rule shown biting and silent),
+`tests/chrome_inset_yield.spec.luau`, `tests/theme_layer_application.spec.luau`
 (the lift's source pin).
+**Instrument:** `tools/lune/theme_containment_census` — every corpus number in
+this document is one run of it, with its dedup rule named (fix round 2026-08-28;
+see the amendment at the foot).
 
 ## Context
 
@@ -47,11 +54,26 @@ nothing else. `overflow_guard.violations` runs once per viewport, on the freshly
 mounted NEUTRAL tree, before the first `env:set("themeMetrics")`. So the one
 instrument in this repository that asks *"is this rect inside the box it lives
 in"* was structurally blind to every package that carves a border, which is every
-ornate package the library ships. Measured 2026-08-27 over the whole showcase
-corpus at every swept viewport: **the neutral pass reports ZERO and the eight
-packages report 92 violations nothing had ever asked about** — and that is before
-the guard is taught what a themed edge even is. Taught, the same corpus reports
-601.
+ornate package the library ships. Measured by `tools/lune/theme_containment_census`
+over the whole showcase corpus (63 surfaces × 9 viewports × 8 packages = 4,536
+cells), **2026-08-28**:
+
+| arm | total | distinct by (surface, node) |
+|---|---|---|
+| neutral — no package installed, what the suite asked | **0** | **0** |
+| every package installed, judged against the plain RECT (the vocabulary before this round) | **270** | **42** |
+| every package installed, judged against the THEMED box and the sibling plate | **2,472** | **103** |
+
+The distinct rule the backlog is booked against is **(surface, node)**: one
+construction is one defect, and the same leaf on the same plate at nine viewports
+under five carving packages is one thing to fix. The other rules the instrument
+prints — 369 by (surface, package, node), 654 by (surface, view, node) — are
+there so a reader can see what the choice costs.
+
+*(The figures 92 / 601 / 494 / 484 / 253 stood here and in the task report until
+2026-08-28. They came from a probe that was never committed and none of them
+reproduces; the table above is the committed instrument's own output. Review
+finding I1.)*
 
 And the invariant's vocabulary was neutral-shaped in two ways that matter:
 
@@ -129,7 +151,7 @@ into — and belongs to a round that can re-spec the packages.
 
 So the framework's answer here is CATCH: `tests/lib/overflow_guard` treats a
 full-bleed surfaced sibling as the boundary its stack really has, every one of the
-494 escapes is now a finding a spec can fail on, and the fixtures that can afford
+103 escapes is now a finding a spec can fail on, and the fixtures that can afford
 their own frame spend it at their declaration. The HUD's task panel — 288px wide,
 the one plate in that fixture that IS a panel, and the one the director
 photographed — now takes `math.max(10, chromeInsets.panel.<side>)` as its body
@@ -185,13 +207,80 @@ the entire content box.
 * Rascal Rally does not install a carving package on any shipped surface; its
   selection-indicator contract pins the neutral inset (`second.w - 8`) and holds.
 
+**6. A SIZE FLOOR IS A REQUEST, NOT A RIGHT** *(fix round, 2026-08-28; review
+finding C1).*
+
+Decision 1 bounded one number in the chrome block and left the other unbounded.
+`render/layout_node`'s `shape = "circle"` icon floor raises a disc to hold its
+picture at full size — `iconSizes[role]` PLUS whatever padding the chrome block
+just wrote — and it grew with no limit at all. Decision 5 moved Pixel Quest onto
+the side where the floor happens to fit; it did not make the two numbers agree, so
+director item 9 reproduces under a package one design pixel thinner. Measured
+2026-08-28, `02_playlist_table` in edit mode at compact-phone-portrait, Pixel
+Quest with only its `control`/`field`/`selection`/`stepperPlate` insets at 4 per
+side — every value still a multiple of its own `pixelUnit`, its package gate
+green:
+
+| `control` inset/side | disc | row starts | overlap |
+|---|---|---|---|
+| **4** | **40x40 @ x=16** | x=52 | **+4 onto every row — IMG_3788** |
+| 5, 6, 7, 8 (shipped) | 32x32 @ x=16 | x=52 | −4 clear |
+| 9, 12 | 32x32 @ x=16 | x=52 | −4 clear |
+
+At 4 the inset is SPENDABLE (32 − 8 = 24, above the 16px line-box floor of
+Decision 1), the disc's padding becomes 4, the floor wants 32 + 8 = 40, and the
+gutter `row_actions` reserved is 36.
+
+So the floor takes the same shape `spendInset` already has one screen up.
+`chrome_slots.Hint.footprint` is the host declaring what it RESERVED, in the
+grammar a padding side and a dimension field already take (a px, a metric name, or
+a list that SUMS — `themeSnapshot.resolveTotal`, extracted here rather than copied
+a third time). Above it the floor is refused: the control keeps the room it was
+given, `chrome_slots.iconBoxPx` draws the picture at the size that fits, and the
+solver files `sizeRefused` naming both numbers. **Refuse-or-catch, never a silent
+overlap.**
+
+**One expression, not two that agree.** `row_actions_metrics.EDIT_FOOTPRINT` is
+`{ editAffordance, rowGutter }`. `editGutterPx` resolves it to reserve the room
+(replacing its own `editAffordancePx + rowGutterPx` pair) and `row_actions_root`
+hands the identical list to `attachHint` as the disc's ceiling, so the reservation
+and the bound cannot be edited apart.
+
+**What moves:** at inset 4 the disc is 36x36 (capped at the gutter, ending exactly
+where the row begins) with one `sizeRefused` per row; at every shipped inset it is
+32x32 with zero findings. **No shipped geometry moves.** `chrome_slots.hintKey`
+carries `footprint` BY CONTENT, because it decides geometry and a recycled node
+carrying another one would solve to another size.
+
+The guard for it is a PROPERTY rather than two rects: `themed_containment`'s last
+group sweeps the one package metric that decides item 9 and asserts "the
+affordance never exceeds the gutter the row reserved for it", with anti-vacuity
+row counts and the assertion that only the arm which used to overflow files.
+
 ## What is NOT decided here
 
-The same oracle, run over the WHOLE showcase corpus under all eight packages,
-reports **253 remaining violations** after this round — overwhelmingly leaves laid
-directly on a sibling plate (`UI.background(tile, plate)` with a `Text` base is the
-commonest shape), which Decision 2 deliberately does not repair. That is a real
-backlog and it is recorded rather than waived: the honest repair is either a
-leaf-side padding seam that reaches paint, or those fixtures wrapping their ink.
-Booked for the campaign's next round; this ADR's guard is a floor under the four
-the director reported, not a claim about the library.
+The census above reports **103 distinct escapes remaining** across the corpus
+after this round (2,472 hits) — overwhelmingly leaves laid directly on a sibling
+plate (`UI.background(tile, plate)` with a `Text` base is the commonest shape),
+which Decision 2 deliberately does not repair. **22 of the 2,472 are `zero-box`**
+— a visible string solving to nothing — and those are a different and worse defect
+than the plate overhangs; they are named here rather than folded into one total.
+That is a real backlog and it is recorded rather than waived: the honest repair is
+either a leaf-side padding seam that reaches paint, or those fixtures wrapping
+their ink. Booked for the campaign's next round; this ADR's guard is a floor under
+the four the director reported, not a claim about the library.
+
+**Three of the eight packages carve nothing and still report 14 hits between them**
+(`glossy_mobile` 11, `scifi_hud` 3). Those are NOT this class: a flat package still
+moves geometry through its metrics, so the escapes are ordinary containment
+defects the neutral pass cannot see because the neutral tree is a different tree.
+An earlier draft of this ADR and of `layout_node`'s comment claimed "0 under every
+flat one"; that was never measured and is not true.
+
+## Amendment log
+
+* **2026-08-27** — decisions 1-5, as landed by the round this ADR was written for.
+* **2026-08-28 (fix round)** — Decision 6 added (review finding C1: item 9's class
+  was not closed by Decision 5); every corpus number replaced with one run of the
+  now-committed `tools/lune/theme_containment_census` (finding I1); the flat-package
+  and `zero-box` claims corrected against that run.
