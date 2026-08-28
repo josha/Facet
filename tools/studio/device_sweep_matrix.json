@@ -36,25 +36,46 @@
       "director": "THEME round device-owed #1 (IMG_3785 after-shot): the round chips (R1/R2/R3)"
     },
     {
+      "id": "settings-ring-pixelquest-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "pixel_quest",
+      "scenario": "theme_authoring",
+      "director": "controller-routed director report 2026-08-28 (i1.png): the shared focus-ring decoration is rounded (fixed 8px UICorner) while pixel_quest's controls are square-cornered; THEME2 lane owns the fix (headless, framework files) -- capture and judge only",
+      "note": "a SHAPE fact (corner radius), not a position/size fact -- structurally invisible to judgeContainment/judgeZeroBoxes; see the row's own notes for the assert class that would catch it"
+    },
+    {
+      "id": "settings-badge-pixelquest-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "pixel_quest",
+      "scenario": "theme_authoring",
+      "director": "controller-routed director report 2026-08-28 (i2.png): a HUD tile's badge sits flush at the tile's top-right corner with zero inset; THEME2 lane owns the fix (headless, framework files) -- capture and judge only",
+      "note": "a SIBLING-ADJACENCY/minimum-inset fact, not a containment fact -- confirmed GATE BLIND SPOT this round (containment=[] despite the visible defect); see the row's own notes for the assert class that would catch it"
+    }
+  ],
+  "plannedCells": [
+    {
       "id": "pixelquest-hud-tablet",
       "deviceRow": "tablet-landscape",
       "theme": "pixel_quest",
       "scenario": "hud",
-      "director": "THEME round device-owed #2 (IMG_3786 after-shot): the task panel's reward chips inside the plank frame"
+      "director": "THEME round device-owed #2 (IMG_3786 after-shot): the task panel's reward chips inside the plank frame",
+      "status": "not reached this round (task SWEEP, 2026-08-28) -- time budget + session contention (see report Concerns); showcase mode + the 'live' census mode both support this, next round can drive it directly"
     },
     {
       "id": "pixelquest-tabs-nested",
       "deviceRow": "compact-phone-portrait",
       "theme": "pixel_quest",
       "scenario": "tab_view",
-      "director": "THEME round device-owed #3 (IMG_3787 after-shot): the pill covering its whole tab"
+      "director": "THEME round device-owed #3 (IMG_3787 after-shot): the pill covering its whole tab",
+      "status": "not reached this round"
     },
     {
       "id": "pixelquest-rowactions-edit",
       "deviceRow": "compact-phone-portrait",
       "theme": "pixel_quest",
       "scenario": "row_actions",
-      "director": "THEME round device-owed #4 (IMG_3788 after-shot): playlist edit mode, the disc inside its gutter"
+      "director": "THEME round device-owed #4 (IMG_3788 after-shot): playlist edit mode, the disc inside its gutter",
+      "status": "not reached this round"
     },
     {
       "id": "menu-five-triggers-phone",
@@ -62,21 +83,24 @@
       "theme": "neutral",
       "scenario": "menu",
       "director": "PANEL round Studio-owed #3 (ADR-0061): open a five-item root menu, enter Layering, confirm ONE panel with a working Back row, confirm focus returns to Layering after backing out",
-      "steps": ["open the root menu", "activate 'Layering'", "observe (single panel, no overlap)", "activate 'Back'", "observe (focus back on Layering)"]
+      "steps": ["open the root menu", "activate 'Layering'", "observe (single panel, no overlap)", "activate 'Back'", "observe (focus back on Layering)"],
+      "status": "not reached this round"
     },
     {
       "id": "glade-corner-rings-phone",
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
       "scenario": "ref_glade",
-      "director": "PAINT round Studio-owed #1/#3 (ADR-0062): overview grid corner + glance-plate mini rings"
+      "director": "PAINT round Studio-owed #1/#3 (ADR-0062): overview grid corner + glance-plate mini rings",
+      "status": "not reached this round"
     },
     {
       "id": "glade-corner-rings-tablet",
       "deviceRow": "tablet-landscape",
       "theme": "neutral",
       "scenario": "ref_glade",
-      "director": "PAINT round Studio-owed #1 (ADR-0062): overview grid corner at tablet width"
+      "director": "PAINT round Studio-owed #1 (ADR-0062): overview grid corner at tablet width",
+      "status": "not reached this round"
     },
     {
       "id": "glade-detail-rings",
@@ -84,14 +108,16 @@
       "theme": "neutral",
       "scenario": "ref_glade",
       "director": "PAINT round Studio-owed #2 (ADR-0062): detail screen supply rows, identity dot centred not pinned top-left",
-      "steps": ["open a detail screen (nectar or dew)", "observe"]
+      "steps": ["open a detail screen (nectar or dew)", "observe"],
+      "status": "not reached this round"
     },
     {
       "id": "wardrobe-grids-phone",
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
       "scenario": "ref_wardrobe",
-      "director": "MISC round Studio-owed item 15: 'Picked for you' and 'Everything' grids, cards no longer cramped"
+      "director": "MISC round Studio-owed item 15: 'Picked for you' and 'Everything' grids, cards no longer cramped",
+      "status": "not reached this round"
     },
     {
       "id": "conn-park-adopt-recycle",
@@ -99,7 +125,8 @@
       "theme": "neutral",
       "scenario": "virtual_list_native",
       "director": "CONN round Studio-owed (findings 1 and 4): a park->adopt recycle of a row carrying a pointer-down/drag handler + Grip(hover) + scroll-wheel host, confirming the fresh occupant's handlers respond and the sub-floor hit-expander margin routes to the new occupant",
-      "note": "behavioral (connection-identity) claim; a black-box visual sweep can only evidence the GEOMETRY half (hit-expander margin on the post-recycle occupant) -- the handler-identity half needs an internal probe or stays physical/Studio-interactive owed"
+      "note": "behavioral (connection-identity) claim; a black-box visual sweep can only evidence the GEOMETRY half (hit-expander margin on the post-recycle occupant) -- the handler-identity half needs an internal probe or stays physical/Studio-interactive owed",
+      "status": "not reached this round"
     }
   ]
 }

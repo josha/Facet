@@ -135,19 +135,23 @@ def selftest(cfg, verbose):
     if not cfg.get("baseScenario"):
         errors.append("baseScenario is not set")
     notable = cfg.get("notableCells", [])
-    if not notable:
-        errors.append("notableCells is empty — the brief names specific director cells beyond the matrix floor")
+    planned = cfg.get("plannedCells", [])
+    if not notable and not planned:
+        errors.append("notableCells/plannedCells are both empty — the brief names specific director cells beyond the matrix floor")
     seen_ids = set()
-    for cell in notable:
+    for cell in notable + planned:
         for field in ("id", "deviceRow", "scenario", "director"):
             if not cell.get(field):
-                errors.append(f"notable cell missing '{field}': {cell}")
+                errors.append(f"cell missing '{field}': {cell}")
         cid = cell.get("id")
         if cid in seen_ids:
-            errors.append(f"duplicate notable cell id '{cid}'")
+            errors.append(f"duplicate cell id '{cid}' (across notableCells/plannedCells)")
         seen_ids.add(cid)
         if cell.get("deviceRow") not in known_rows:
-            errors.append(f"notable cell '{cid}' names deviceRow '{cell.get('deviceRow')}', not a real matrix row")
+            errors.append(f"cell '{cid}' names deviceRow '{cell.get('deviceRow')}', not a real matrix row")
+    for cell in planned:
+        if not cell.get("status"):
+            errors.append(f"plannedCells entry '{cell.get('id')}' has no 'status' explaining why it is not required yet")
     for d in (ARTIFACT_DIR, ROWS_DIR, CAPTURES_DIR):
         if not os.path.isdir(d):
             errors.append(f"missing artifact directory {os.path.relpath(d, REPO)}")
@@ -158,8 +162,9 @@ def selftest(cfg, verbose):
         return 1
     print(
         f"selftest ok: {len(cfg['deviceRows'])} device rows x {len(cfg['themes'])} themes "
-        f"({len(base_cells(cfg))} base cells) + {len(notable)} notable cells, config wired to "
-        f"real matrix_rows ids, artifact directories present"
+        f"({len(base_cells(cfg))} base cells) + {len(notable)} notable cells (required) + "
+        f"{len(planned)} planned cells (not yet required), config wired to real matrix_rows ids, "
+        f"artifact directories present"
     )
     return 0
 
