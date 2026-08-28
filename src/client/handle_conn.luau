@@ -6,10 +6,10 @@
 	A recycled handle (`screen_target.adapter.adopt`, instance recycling ON by
 	default) is the SAME Lua table across park->adopt lives: `adopt` re-keys the
 	pooled `candidate` handle directly into `handlesByPath`, carrying every
-	`*Conn` field on it forward untouched. FIX-2 fixed exactly one of those
-	fields (`activatedConn`) with an inline disconnect-before-reconnect guard;
-	the review found every sibling setter shared the same bug in one of two
-	shapes:
+	`*Conn` field on it forward untouched. A prior device-bug-fix round fixed
+	exactly one of those fields (`activatedConn`) with an inline
+	disconnect-before-reconnect guard; the review found every sibling setter
+	shared the same bug in one of two shapes:
 
 	  * UNCONDITIONAL OVERWRITE (Finding 1: `pointerBeganConn`, `hoverEnterConn`,
 	    `hoverLeaveConn`, `scrollConn`, `barConn`/`barWindowConn`) — the prior
