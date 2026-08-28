@@ -147,65 +147,6 @@ local function toColor3(c: any): Color3
 	return Color3.new(c.r, c.g, c.b)
 end
 
---[[ RECONNECT: disconnect a handle's PRIOR `*Conn` field before making a fresh
-	one (task CONN, review-fix234 Finding 1). `screen_pointer.setActivateHandler`
-	fixed exactly this for `activatedConn` alone (device bug fix, director
-	2026-08-23): a recycled handle (`screen_target.adapter.adopt`, instance
-	recycling ON by default) is the SAME Lua table across park->adopt lives, so
-	every OTHER `*Conn` field on it survives untouched unless something
-	disconnects it first. Every call site below is a setter invoked exactly
-	ONCE per (path, fresh-or-adopted handle) — `render/renderer.luau`'s
-	create-or-adopt block calls each one right after choosing the engine
-	object — so an unconditional overwrite leaves the PRIOR life's connection
-	live beside the fresh one: Roblox fires `RBXScriptSignal` listeners in
-	connection order, so the OLDER, stale connection (closed over a prior
-	life's handlers/path) can win a race the fresh one should have owned. One
-	helper because six hand-repeated disconnect-if-present guards is the "fix
-	shared logic once" standard this campaign holds itself to, not a
-	suggestion. `factory` may answer nil (e.g. the node no longer qualifies for
-	a connection at all), which correctly leaves the field nil too. ]]
-local function reconnect(handle: any, field: string, factory: () -> RBXScriptConnection?): RBXScriptConnection?
-	local prior = handle[field]
-	if prior ~= nil then
-		(prior :: RBXScriptConnection):Disconnect()
-	end
-	local conn = factory()
-	handle[field] = conn
-	return conn
-end
-
---[[ RECONNECT ON IDENTITY CHANGE (Finding 4): for a slot whose setter can run
-	MANY times within a single life (unlike every site `reconnect` above
-	serves, which runs exactly once per life), an unconditional
-	disconnect-and-remake on every call would churn a fresh connection each
-	time for no reason. What actually needs to change is whether the WATCHED
-	identity moved: unchanged is a no-op — which preserves the same-life,
-	order-independent wiring the field's old `== nil` guard existed for
-	(two setters may run in either order within one life and both compute the
-	SAME current identity, so whichever runs first wins and the second is a
-	no-op, exactly as the guard intended) — and a genuinely changed identity
-	(a park->adopt recycle: `adopt` reassigns `handle.path`, which is already
-	the generation stamp the recycling mechanism provides, needing no new
-	field) disconnects the stale connection before wiring the fresh one. The
-	old `== nil` guard could never tell "already correct" from "stale
-	forever"; comparing identity can. ]]
-local function reconnectOnChange(
-	handle: any,
-	field: string,
-	identityField: string,
-	identity: any,
-	factory: () -> RBXScriptConnection?
-)
-	if handle[field] ~= nil and handle[identityField] == identity then
-		return
-	end
-	if handle[field] ~= nil then
-		(handle[field] :: RBXScriptConnection):Disconnect()
-	end
-	handle[identityField] = identity
-	handle[field] = factory()
-end
-
 screen_vocabulary.CLASS_TO_INSTANCE = CLASS_TO_INSTANCE
 screen_vocabulary.TEXT_ALIGN_MAP = TEXT_ALIGN_MAP
 screen_vocabulary.SCALE_MODE_ENGINE = SCALE_MODE_ENGINE
@@ -217,7 +158,5 @@ screen_vocabulary.toColor3 = toColor3
 screen_vocabulary.writeStageProp = writeStageProp
 screen_vocabulary.markStageDisposed = markStageDisposed
 screen_vocabulary.markForeignDisposed = markForeignDisposed
-screen_vocabulary.reconnect = reconnect
-screen_vocabulary.reconnectOnChange = reconnectOnChange
 
 return screen_vocabulary

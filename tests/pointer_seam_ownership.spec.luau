@@ -222,3 +222,97 @@ describe("a touch capture belongs to the finger that opened it (PLAT-6)", functi
 		expect(string.find(ended :: string, "not fromThisPointer(endObject)", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+--[[ TASK CONN (review-fix234-findings.md Findings 1 & 4) — the SAME mistake
+	this file's own header names ("adapter-wide state treated as though it
+	belonged to whatever happened to touch it last"), one level down: a
+	RECYCLED HANDLE, not a root. `screen_target.adapter.adopt` re-keys the same
+	Lua table across a park->adopt life, and `setPointerHandlers`/
+	`setScrollHandler` are called again for the new occupant. This harness
+	cannot fire a real capture (the header above explains why: `Enum` does not
+	exist under Lune and a fake global was rejected), but the DEFECT and the
+	FIX both live one layer up from that — in whether the PRIOR life's engine
+	connection is still live at all — which this fake signal's `liveCount()`
+	answers exactly, with no `Enum` involved anywhere in these cases. ]]
+describe("task CONN: a recycled handle's connections do not accumulate (Finding 1)", function()
+	it("pointerBeganConn: a second setPointerHandlers call leaves exactly one InputBegan listener", function()
+		local fixture = newSeam()
+		local instance = newFakeInstance()
+		local handle = { class = "Button", instance = instance }
+		fixture.seam.setPointerHandlers(handle, {})
+		expect(instance.InputBegan:liveCount()).toBe(1)
+		-- SIMULATED RECYCLE: the same handle table, the same physical instance, a
+		-- fresh call from renderer.luau's create-or-adopt block for a DIFFERENT
+		-- occupant -- exactly what `adopt` produces (pre-fix, this left TWO live
+		-- listeners: the stale one Roblox would have run FIRST, per connection
+		-- order, and the fresh one)
+		fixture.seam.setPointerHandlers(handle, {})
+		expect(instance.InputBegan:liveCount()).toBe(1)
+	end)
+
+	it(
+		"hoverEnterConn/hoverLeaveConn: two setPointerHandlers calls on a Grip leave exactly one listener each",
+		function()
+			local fixture = newSeam()
+			local instance = newFakeInstance()
+			local handle = { class = "Grip", instance = instance, cursorHint = "colResize" }
+			fixture.seam.setPointerHandlers(handle, {})
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(instance.MouseEnter:liveCount()).toBe(1)
+			expect(instance.MouseLeave:liveCount()).toBe(1)
+		end
+	)
+
+	it("scrollConn: a second setScrollHandler call leaves exactly one InputChanged listener", function()
+		local fixture = newSeam()
+		local instance = newFakeInstance()
+		local handle = { instance = instance }
+		fixture.seam.setScrollHandler(handle, function(_delta: number) end)
+		fixture.seam.setScrollHandler(handle, function(_delta: number) end)
+		expect(instance.InputChanged:liveCount()).toBe(1)
+	end)
+end)
+
+describe(
+	"task CONN: hitExpanderPointerConn rewires on a genuine recycle, stays a no-op within one life (Finding 4)",
+	function()
+		it("a same-life re-entry (unchanged handle.path) adds no second connection", function()
+			-- the property the old `== nil` guard existed for: `setHitRect` and
+			-- `setPointerHandlers` may both wire this field in the same life, in
+			-- either order, and neither may double it
+			local fixture = newSeam()
+			local instance = newFakeInstance()
+			local expander = newFakeInstance()
+			local handle = { class = "Button", instance = instance, path = "/A", hitExpander = expander }
+			fixture.seam.setPointerHandlers(handle, {})
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(expander.InputBegan:liveCount()).toBe(1)
+		end)
+
+		it("rewires when handle.path changes -- the signal a park->adopt recycle actually produces", function()
+			-- pre-fix, the `== nil` guard left this listener wired FOREVER to the
+			-- FIRST occupant's `handlers` once set, for the rest of the pooled
+			-- handle's life: a permanent misroute of the hit-expander's touch-floor
+			-- margin, not a duplicate-listener leak (Finding 4's own distinction).
+			-- COUNT ALONE CANNOT TELL THIS APART FROM THE BUG: a guard that never
+			-- rewires also leaves exactly one live connection forever, just the
+			-- WRONG one -- so this pins the CONNECTION OBJECT ITSELF changing, not
+			-- only how many are live (a naive first draft of this case using only
+			-- `liveCount()` passed unchanged against the pre-fix `== nil` guard).
+			local fixture = newSeam()
+			local instance = newFakeInstance()
+			local expander = newFakeInstance()
+			local handle = { class = "Button", instance = instance, path = "/A", hitExpander = expander }
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(expander.InputBegan:liveCount()).toBe(1)
+			local firstConn = handle.hitExpanderPointerConn
+			expect(firstConn ~= nil).toBe(true)
+			-- `adopt` reassigns `handle.path` before the renderer's create-or-adopt
+			-- block calls `setPointerHandlers` again for the new occupant
+			handle.path = "/B"
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(expander.InputBegan:liveCount()).toBe(1)
+			expect(handle.hitExpanderPointerConn ~= firstConn).toBe(true)
+		end)
+	end
+)

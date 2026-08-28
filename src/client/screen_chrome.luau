@@ -30,11 +30,11 @@ local chrome_slots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local styling = require("../tokens/styling")
 -- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1): see
--- screen_vocabulary.luau for why a shared helper replaces a hand-repeated
+-- handle_conn.luau for why a shared helper replaces a hand-repeated
 -- disconnect-if-present guard at every `handle.*Conn` reconnect site
-local screen_vocabulary = require("./screen_vocabulary")
-local reconnect = screen_vocabulary.reconnect
-local reconnectOnChange = screen_vocabulary.reconnectOnChange
+local handle_conn = require("./handle_conn")
+local reconnect = handle_conn.reconnect
+local reconnectOnChange = handle_conn.reconnectOnChange
 
 local screen_chrome = {}
 

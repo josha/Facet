@@ -17,9 +17,8 @@
 -- PERMANENT misroute surviving every future recycle (Finding 4:
 -- `hitExpanderPointerConn`).
 --
--- Two shared helpers replace eight hand-repeated guards
--- (`src/client/screen_vocabulary.luau`, the one pure/one-way module already
--- required by every sibling this bug spans):
+-- Two shared helpers in `src/client/handle_conn.luau` replace eight
+-- hand-repeated guards:
 --   * `reconnect(handle, field, factory)` — for a setter called exactly ONCE
 --     per (path, fresh-or-adopted handle): disconnect any prior connection,
 --     unconditionally take whatever `factory()` answers (including nil).
@@ -29,71 +28,152 @@
 --     `adopt` reassigns `handle.path`, which IS the generation stamp,
 --     needing no new field).
 --
--- `screen_vocabulary.luau` reaches `Enum` at module scope (see
--- `CLASS_TO_INSTANCE`/`TEXT_ALIGN_MAP`) and cannot be required headlessly —
--- verified directly (`lune run` on a probe script reaches
--- "attempt to index nil with 'TextXAlignment'" at load) — so, like the rest of
--- this adapter family (`theme_layer_application.spec.luau`,
--- `focus_ring_float_geometry.spec.luau`, `activate_handler_reconnect.spec.luau`),
--- this file reads the live source as TEXT and pins the fix structurally rather
--- than by requiring the module.
+-- `handle_conn.luau` is deliberately its own module rather than a
+-- `screen_vocabulary.luau` addition — see its header — SPECIFICALLY so it
+-- touches no engine global and can be required and driven directly here,
+-- which is strictly stronger evidence than the text-pin family this adapter
+-- usually needs (`screen_pointer.luau`/`screen_chrome.luau` themselves still
+-- reach `game`/`Enum` and are pinned as text below, for the CENSUS_SLOTS
+-- completeness sweep — a real behavioral proof of the fix's effect on live
+-- connections lives in `tests/pointer_seam_ownership.spec.luau`, task CONN's
+-- own addition there).
 --
 -- MUTATION PROOF (performed by hand during task CONN, not a permanent case —
--- there is no headless harness to flip source and re-run against engine
--- globals): reverting `screen_pointer.luau`'s `setPointerHandlers` line for
--- `pointerBeganConn` back to the pre-fix
--- `handle.pointerBeganConn = connectPointerBegan(handle, instance, handlers)`
--- turned this file's "pointerBeganConn ... wired through reconnect" case AND
--- its "no raw assignment survives" case red; restored afterward. Recorded in
+-- screen_pointer.luau/screen_chrome.luau cannot run headlessly past module
+-- scope, so there is no way to flip their source and re-require in-process):
+-- reverting screen_pointer.luau's `setPointerHandlers` line for
+-- `pointerBeganConn` back to the pre-fix raw assignment turned this file's
+-- "pointerBeganConn ... wired through reconnect" case AND its "no raw
+-- assignment survives" case red; restored afterward. A SECOND, sharper
+-- mutation proof lives in `pointer_seam_ownership.spec.luau`: reverting
+-- `hitExpanderPointerConn`'s fix to the pre-fix `== nil` guard passed a first
+-- draft of that file's rewire case that checked only a live-connection COUNT
+-- (a guard that never rewires also leaves exactly one connection, forever —
+-- just the wrong one) and reddened the corrected case that checks the
+-- CONNECTION OBJECT ITSELF changed identity. Both recorded in
 -- task-conn-report.md.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
+local handle_conn = require("../src/client/handle_conn")
 
-local vocab = fs.readFile("src/client/screen_vocabulary.luau")
 local pointerSrc = fs.readFile("src/client/screen_pointer.luau")
 local chromeSrc = fs.readFile("src/client/screen_chrome.luau")
 
-describe("screen_vocabulary.reconnect: disconnects any prior connection before making a fresh one", function()
-	it("found the function", function()
-		expect(string.find(vocab, "local function reconnect(", 1, true) ~= nil).toBe(true)
+local function newFakeConn(): any
+	local live = true
+	return {
+		isLive = function()
+			return live
+		end,
+		Disconnect = function()
+			live = false
+		end,
+	}
+end
+
+describe("handle_conn.reconnect: disconnects any prior connection before making a fresh one", function()
+	it("a first call with no prior field just takes the factory's connection", function()
+		local handle: any = {}
+		local made = newFakeConn()
+		local conn = handle_conn.reconnect(handle, "fooConn", function()
+			return made
+		end)
+		expect(conn).toBe(made)
+		expect(handle.fooConn).toBe(made)
 	end)
 
-	it("disconnects the PRIOR value before calling factory()", function()
-		local disconnectAt = string.find(vocab, "(prior :: RBXScriptConnection):Disconnect()", 1, true)
-		local factoryAt = string.find(vocab, "local conn = factory()", 1, true)
-		expect(disconnectAt ~= nil and factoryAt ~= nil).toBe(true)
-		expect((disconnectAt :: number) < (factoryAt :: number)).toBe(true)
+	it("a second call disconnects the PRIOR connection before installing the fresh one", function()
+		local handle: any = {}
+		local first = newFakeConn()
+		handle_conn.reconnect(handle, "fooConn", function()
+			return first
+		end)
+		local second = newFakeConn()
+		handle_conn.reconnect(handle, "fooConn", function()
+			return second
+		end)
+		expect(first.isLive()).toBe(false)
+		expect(second.isLive()).toBe(true)
+		expect(handle.fooConn).toBe(second)
+	end)
+
+	it("a nil answer from factory() clears the field (and still disconnects the prior one)", function()
+		local handle: any = {}
+		local first = newFakeConn()
+		handle_conn.reconnect(handle, "fooConn", function()
+			return first
+		end)
+		handle_conn.reconnect(handle, "fooConn", function()
+			return nil
+		end)
+		expect(first.isLive()).toBe(false)
+		expect(handle.fooConn).toBeNil()
+	end)
+end)
+
+describe("handle_conn.reconnectOnChange: no-ops on an unchanged identity, rewires on a changed one", function()
+	it("a first call with no prior field connects and stamps the identity", function()
+		local handle: any = {}
+		local made = newFakeConn()
+		handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+			return made
+		end)
+		expect(handle.fooConn).toBe(made)
+		expect(handle.fooConnId).toBe("A")
+	end)
+
+	it("an unchanged identity is a total no-op, even if factory() would answer something new", function()
+		local handle: any = {}
+		local first = newFakeConn()
+		handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+			return first
+		end)
+		local calledAgain = false
+		handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+			calledAgain = true
+			return newFakeConn()
+		end)
+		expect(calledAgain).toBe(false)
+		expect(handle.fooConn).toBe(first)
+		expect(first.isLive()).toBe(true)
+	end)
+
+	it("a changed identity disconnects the prior connection and installs a genuinely fresh one", function()
+		local handle: any = {}
+		local first = newFakeConn()
+		handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+			return first
+		end)
+		local second = newFakeConn()
+		handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "B", function()
+			return second
+		end)
+		expect(first.isLive()).toBe(false)
+		expect(second.isLive()).toBe(true)
+		expect(handle.fooConn).toBe(second)
+		expect(handle.fooConnId).toBe("B")
 	end)
 
 	it(
-		"assigns the field from factory()'s own result unconditionally (a nil answer clears a no-longer-wanted slot)",
+		"retries on every call while the field stays nil (a track/target not found yet), regardless of identity",
 		function()
-			expect(string.find(vocab, "handle[field] = conn", 1, true) ~= nil).toBe(true)
+			local handle: any = {}
+			local attempts = 0
+			handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+				attempts += 1
+				return nil
+			end)
+			handle_conn.reconnectOnChange(handle, "fooConn", "fooConnId", "A", function()
+				attempts += 1
+				return nil
+			end)
+			expect(attempts).toBe(2)
+			expect(handle.fooConn).toBeNil()
 		end
 	)
-end)
-
-describe("screen_vocabulary.reconnectOnChange: no-ops on an unchanged identity, rewires on a changed one", function()
-	it("found the function", function()
-		expect(string.find(vocab, "local function reconnectOnChange(", 1, true) ~= nil).toBe(true)
-	end)
-
-	it("the no-op guard checks BOTH the field and the identity before returning", function()
-		local at = string.find(vocab, "if handle[field] ~= nil and handle[identityField] == identity then", 1, true)
-		expect(at ~= nil).toBe(true)
-	end)
-
-	it("disconnects the prior connection, THEN restamps identity, THEN reconnects (in that order)", function()
-		local disconnectAt = string.find(vocab, "(handle[field] :: RBXScriptConnection):Disconnect()", 1, true)
-		local restampAt = string.find(vocab, "handle[identityField] = identity", 1, true)
-		local reconnectAt = string.find(vocab, "handle[field] = factory()", 1, true)
-		expect(disconnectAt ~= nil and restampAt ~= nil and reconnectAt ~= nil).toBe(true)
-		expect((disconnectAt :: number) < (restampAt :: number)).toBe(true)
-		expect((restampAt :: number) < (reconnectAt :: number)).toBe(true)
-	end)
 end)
 
 -- CENSUS_SLOTS COMPLETENESS (the table task-conn-report.md owes, mechanised):

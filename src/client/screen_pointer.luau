@@ -52,11 +52,13 @@ local function engineServices(): any
 end
 
 -- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1/4):
--- see screen_vocabulary.luau for why a shared helper replaces a hand-repeated
--- guard at every `handle.*Conn` site in this file.
-local screen_vocabulary = require("./screen_vocabulary")
-local reconnect = screen_vocabulary.reconnect
-local reconnectOnChange = screen_vocabulary.reconnectOnChange
+-- a module of their own, not a screen_vocabulary addition — see
+-- handle_conn.luau's header for why (it would have cost this file its
+-- headless-requireability, which tests/pointer_seam_ownership.spec.luau
+-- depends on).
+local handle_conn = require("./handle_conn")
+local reconnect = handle_conn.reconnect
+local reconnectOnChange = handle_conn.reconnectOnChange
 
 local screen_pointer = {}
 
