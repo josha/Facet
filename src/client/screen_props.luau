@@ -45,7 +45,7 @@
 --                        THE PAINT-CLAIM LEDGER and the tag reconciler, the same
 --                        host helpers `screen_chrome`/`screen_paint` already
 --                        receive
---   syncChrome, applyOverrideVariantArt, refitFullBleed
+--   syncChrome, applyOverrideVariantArt, refitFullBleed, refitIconArt
 --                        from `screen_chrome` — the package-art path
 --   applySurface, applyShadow, applyGradient, applyCorners, applyStroke,
 --   applyTint, releaseTint, applyPathRole, cornerRadiusFor, applyToggleValue
@@ -85,6 +85,7 @@ export type Ctx = {
 	syncChrome: (any) -> (),
 	applyOverrideVariantArt: (any) -> (),
 	refitFullBleed: (any) -> (),
+	refitIconArt: (any) -> (),
 	applySurface: (Instance, string, any) -> (),
 	applyShadow: (Instance, any, any) -> (),
 	applyGradient: (Instance, any, any) -> (),
@@ -115,6 +116,7 @@ function screen_props.new(ctx: Ctx)
 	local syncChrome = ctx.syncChrome
 	local applyOverrideVariantArt = ctx.applyOverrideVariantArt
 	local refitFullBleed = ctx.refitFullBleed
+	local refitIconArt = ctx.refitIconArt
 	local applySurface = ctx.applySurface
 	local applyShadow = ctx.applyShadow
 	local applyGradient = ctx.applyGradient
@@ -445,6 +447,21 @@ function screen_props.new(ctx: Ctx)
 				if handle.labelInstance ~= nil then
 					handle.labelInstance.TextSize = value
 				end
+				-- THE TEXT-SIZE-ONLY DRIFT CASE (review finding I5, 2026-08-28;
+				-- ADR-0059 Decision 1b's amendment). `chrome_slots.liftGeometry`'s
+				-- floor is the host's LIVE `TextSize`, re-read from two places: the
+				-- chrome reconcile, and `refitIconArt`, which the adapter otherwise
+				-- only drives from `applyRect`. `render/rect_pass.luau` skips
+				-- `setRect` for a rect equal to the last one written, so a
+				-- `fixed`-px themed control whose TEXT SIZE moves at a new
+				-- `preferredTextSize` step while its RECT does not would take the
+				-- new size here and get no refit — the paint seam holding the
+				-- previous frame's lift box while the measure seam has already
+				-- moved. This is the one other write that can know the floor just
+				-- changed, so it re-runs the same no-op-guarded refit
+				-- `applyRect`/the padding write already call (see
+				-- `chrome_padding_refit.spec.luau`'s identical shape).
+				refitIconArt(handle)
 				if nativeMode then
 					-- native: heading-scale emphasis rides the "Strong text" tag rule
 					handle.nativeStrong = value >= style.type.heading

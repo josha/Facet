@@ -29,6 +29,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local fs = require("@lune/fs")
 local UI = require("../src/blueprint")
 local Facet = require("../src") :: any
 local customFactory = require("../src/core/custom")
@@ -305,5 +306,36 @@ describe("the lifted label is never smaller than the text it stands in for", fun
 		-- which is the agreement Decision 1b is about
 		expect(chrome_slots.spendInset(36, 0, 16, 16)).toBe(16)
 		expect(chrome_slots.spendInset(36, 0, 16, 30)).toBe(0)
+	end)
+
+	--[[ THE WIRING HALF (review finding I5, fix landed 2026-08-28). The two tests
+		above prove the VALUE is right at either text size; neither drives
+		`screen_target`'s live `setProp` (it cannot load under Lune), so neither
+		could have caught the actual defect — `render/rect_pass.luau` skips
+		`setRect` for an unchanged rect, and the refit rides `applyRect`, so a
+		TEXT-SIZE-ONLY change (no rect change) reached `applyProps` and never
+		re-ran the lift. A source pin proves the argument is PASSED, not that the
+		value is right — which is exactly why the behavioural pair above exists —
+		but paired with them it closes the loop: the branch that WRITES the new
+		`TextSize` is the one branch that can know the lift floor just moved, and
+		it is the cheapest place to re-run `refitIconArt` rather than wait for the
+		next `applyRect`. ]]
+	it("the textSize WRITE re-fits the lifted label — the TextSize-only drift case", function()
+		--[[ BITES: delete the `refitIconArt(handle)` call from the `textSize`
+			branch and this fails. The two comparisons after it are anti-vacuity: a
+			check that cannot fail is decoration. ]]
+		local propsSource = fs.readFile("src/client/screen_props.luau")
+		local head = 'elseif prop == "textSize" then'
+		local from = string.find(propsSource, head, 1, true)
+		assert(from ~= nil, "screen_props has no 'textSize' branch")
+		local nextBranch = string.find(propsSource, "\n\t\telseif prop == ", from + #head, true)
+		local branch = string.sub(propsSource, from, if nextBranch ~= nil then nextBranch else #propsSource)
+		expect(`textSize branch refits: {string.find(branch, "refitIconArt(handle)", 1, true) ~= nil}`).toBe(
+			"textSize branch refits: true"
+		)
+		-- ...and the OTHER seam that already re-fits on the same shape, so this
+		-- is not an invented convention: the padding write re-fits its own
+		-- decoration for the identical reason (chrome_padding_refit.spec.luau)
+		expect(string.find(propsSource, "refitFullBleed(handle)", 1, true) ~= nil).toBe(true)
 	end)
 end)

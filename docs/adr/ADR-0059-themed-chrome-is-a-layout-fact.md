@@ -284,3 +284,12 @@ flat one"; that was never measured and is not true.
   was not closed by Decision 5); every corpus number replaced with one run of the
   now-committed `tools/lune/theme_containment_census` (finding I1); the flat-package
   and `zero-box` claims corrected against that run.
+* **2026-08-28 (extraction round)** — Decision 1b's own comment claimed the measure
+  and paint seams "can never drift"; review finding I5 traced the one window they
+  still could (a `TextSize`-only write with no rect change, which
+  `render/rect_pass.luau`'s unchanged-rect skip left unrefit until the next
+  `applyRect`). The fix was booked against `src/client/screen_target.luau`'s
+  SOURCE_CAP_LEDGER row (the file was inside the band) and lands in the same round
+  the row's named extraction (`src/client/screen_props.luau`) does: the `textSize`
+  branch — now in `screen_props.luau` — calls `refitIconArt(handle)`, pinned by
+  `tests/chrome_inset_yield.spec.luau`.

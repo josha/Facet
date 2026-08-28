@@ -3124,6 +3124,7 @@ function screen_target.new(opts: Opts?)
 		syncChrome = syncChrome,
 		applyOverrideVariantArt = applyOverrideVariantArt,
 		refitFullBleed = refitFullBleed,
+		refitIconArt = refitIconArt,
 		applySurface = applySurface,
 		applyShadow = applyShadow,
 		applyGradient = applyGradient,

@@ -600,15 +600,16 @@ function screen_chrome.new(ctx: Context)
 			the previous frame's box: the disagreement Decision 1b exists to prevent,
 			in the one window it can still occur.
 
-			IT IS NOT FIXED HERE, and the reason is a rule rather than a judgement:
-			the fix is one call at `screen_target.luau`'s `textSize` branch
-			(`refitIconArt(handle)` beside the `syncTags` it already makes), and that
-			file is inside the source-cap band — `docs/handoff/SOURCE_CAP_LEDGER.md`
-			binds the next round that opens it for anything larger than a comment to
-			take its named extraction FIRST. Booked there, with the Studio capture it
-			needs (a themed fixed-px control at the largest text preference, measure
-			and paint agreeing). `TextScaled` is out of scope by declaration — see the
-			head of this file — so that half of the risk is closed by design. ]]
+			FIXED 2026-08-28, the round after the source-cap extraction this drift was
+			booked against landed: `screen_props.luau`'s `textSize` branch (the
+			per-class chain moved there off `screen_target.luau`, SOURCE_CAP_LEDGER)
+			now calls `refitIconArt(handle)` beside the `syncTags` it already makes,
+			so a `TextSize`-only write re-runs this arithmetic itself rather than
+			waiting on the next `applyRect`. `tests/chrome_inset_yield.spec.luau`
+			pins the wiring; the Studio capture (a themed fixed-px control at the
+			largest text preference, measure and paint agreeing) is still owed.
+			`TextScaled` is out of scope by declaration — see the head of this file —
+			so that half of the risk is closed by design. ]]
 		--[[ AN `IsA` TEST, NOT A `pcall` (review Minor 7, 2026-08-28). This ran a
 			closure through `pcall` on EVERY call, and `refitIconArt` drives every call
 			from `applyRect` — a per-rect-write allocation on the hot path, to answer a
