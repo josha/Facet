@@ -472,3 +472,185 @@ describe("Wardrobe — the worn chips FLOW (parity round 3)", function()
 		teardown(w)
 	end)
 end)
+
+-- ===========================================================================
+-- ITEM 15 (framework-gaps-phase2-followups, task MISC): "cards too narrow,
+-- second image off-center — framework minimum-width issue?" ANSWERED BY
+-- MEASUREMENT, not guessed, and the answer is worse than "narrow": it was
+-- TWO CASCADING under-reports, both from the same missing `width = fill`.
+--
+-- The card's outer `UI.Button` and its inner `Col` VStack declared no width,
+-- so `itemSizing = "uniform"` sized the button to the widest MEASURED card —
+-- content only (`Thumb`'s `width = fill` contributes 0 to a hug measure, the
+-- same rule this file already cites elsewhere), which came out narrower than
+-- the lane the grid could actually offer. `Col` then hugged ITS OWN card's
+-- text a second time, so two different cards' images ended up two different,
+-- non-square widths — "cramped" and "off-center" are one root cause.
+--
+-- IT DID NOT STOP AT THE CARD. `itemGrid`'s reported width
+-- (`gridFlowPlan`'s `laneReport`) is `max(the cells' actual painted width,
+-- minColumnWidth-derived floor)` — and with un-filled, content-hugging
+-- cards, the cells' actual width (284px: two 138px cards + a gap) lost to the
+-- floor (304px), so the GRID reported 304 upward. `Items` (the page
+-- ScrollView) and `CatalogCol` both hug their own width to their widest
+-- child instead of declaring `fill`, so that 304 became the whole catalog
+-- column's ARRANGED width — 86px of the 390px phone viewport thrown away
+-- before a single card was measured. `width = fill` on the card makes the
+-- grid report what it can actually paint (390), which is what the hug chain
+-- above it should have been offering all along.
+--
+-- This is an APP-SPEC defect (Wardrobe under-declares its own stretch), not
+-- a Grid/framework one: `adaptive.columnsFor` + the flow-grid's lane math
+-- and floor formula are all doing exactly what they document.
+--
+-- THE THUMB IS NOT FORCED SQUARE, ON PURPOSE. A `width = fixed(CARD_MIN)`
+-- slot held it exactly square at the one viewport this was first measured
+-- at, then overflowed `tests/overflow_sweep.spec.luau`'s "proof 'p5_wardrobe'"
+-- case on every OTHER swept device: `CARD_MIN` is a floor on the LANE
+-- (`adaptive.columnsFor`'s contract), not on the padded CONTENT BOX inside a
+-- card, so a lane exactly at the floor left the fixed-square thumb wider
+-- than the space its own card's padding left for it. `width = fill` keeps
+-- the thumb CONSISTENT (every card the same width, which is what "off-center"
+-- was actually about) without ever overflowing its own card.
+-- ===========================================================================
+describe("Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)", function()
+	local PHONE = { w = 390, h = 800 }
+
+	-- every mounted card under a grid, keyed by its ForEach item id
+	local function gridCards(
+		w: any,
+		gridNeedle: string
+	): { { path: string, cardW: number, cardX: number, thumbW: number, thumbH: number } }
+		local gridPath = findPath(w.adapter, gridNeedle)
+		if gridPath == nil then
+			return {}
+		end
+		local prefix = gridPath .. "/Items/"
+		local seen: { [string]: boolean } = {}
+		local out = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, 1, #prefix) == prefix then
+				local rest = string.sub(path, #prefix + 1)
+				local firstSeg = string.match(rest, "^[^/]+")
+				if firstSeg ~= nil and not seen[firstSeg] then
+					seen[firstSeg] = true
+					local itemId = string.match(firstSeg, "^%[(.+)%]$") or firstSeg
+					local cardPath = `{prefix}{firstSeg}/{itemId}`
+					local cardRect = w.handle.controller.rectOf(cardPath)
+					local thumbRect = w.handle.controller.rectOf(cardPath .. "/Col/Thumb")
+					if cardRect ~= nil and thumbRect ~= nil then
+						table.insert(out, {
+							path = cardPath,
+							cardW = cardRect.w,
+							cardX = cardRect.x,
+							thumbW = thumbRect.w,
+							thumbH = thumbRect.h,
+						})
+					end
+				end
+			end
+		end
+		table.sort(out, function(a, b)
+			return a.path < b.path
+		end)
+		return out
+	end
+
+	it("the catalog column claims the whole phone viewport — not just the grid's minColumnWidth floor", function()
+		local w = makeWorld(PHONE.w, PHONE.h)
+		for _ = 1, 8 do
+			w.presenter.refresh()
+		end
+		local colRect = w.handle.controller.rectOf("/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol")
+		expect(colRect ~= nil).toBe(true)
+		-- the Region's own box is the whole (stacked, padding-free) viewport; a
+		-- hug-collapsed catalog column reported 304 of 390 before this fix
+		expect((colRect :: any).w).toBe(PHONE.w)
+		teardown(w)
+	end)
+
+	it("every Picked-for-you card is the same width, and the row tiles the grid exactly", function()
+		local w = makeWorld(PHONE.w, PHONE.h)
+		for _ = 1, 8 do
+			w.presenter.refresh()
+		end
+		local gridPath = findPath(w.adapter, "PickedGrid")
+		expect(gridPath ~= nil).toBe(true)
+		local gridRect = w.handle.controller.rectOf(gridPath :: string)
+		expect(gridRect ~= nil).toBe(true)
+		local cards = gridCards(w, "PickedGrid")
+		expect(#cards > 1).toBe(true)
+		local firstW = cards[1].cardW
+		for _, card in cards do
+			expect(`{card.path} width {card.cardW}`).toBe(`{card.path} width {firstW}`)
+		end
+		-- N equal lanes plus (N-1) gaps must account for the whole grid width —
+		-- the lane count is the number of DISTINCT column positions the cards
+		-- actually occupy (there are more cards than lanes once the picked set
+		-- wraps to a second row), not the card count, and not a second copy of
+		-- `adaptive.columnsFor`
+		local xs: { [number]: boolean } = {}
+		local lanes = 0
+		for _, card in cards do
+			if not xs[card.cardX] then
+				xs[card.cardX] = true
+				lanes += 1
+			end
+		end
+		local gaps = (gridRect :: any).w - firstW * lanes
+		if lanes > 1 then
+			expect(gaps % (lanes - 1)).toBe(0)
+			expect(gaps >= 0).toBe(true)
+		else
+			expect(gaps).toBe(0)
+		end
+		teardown(w)
+	end)
+
+	it("every Picked-for-you thumbnail is the SAME width — never a different width per card", function()
+		local w = makeWorld(PHONE.w, PHONE.h)
+		for _ = 1, 8 do
+			w.presenter.refresh()
+		end
+		local cards = gridCards(w, "PickedGrid")
+		expect(#cards > 1).toBe(true)
+		local firstW, firstH = cards[1].thumbW, cards[1].thumbH
+		for _, card in cards do
+			expect(`{card.path} thumb {card.thumbW}x{card.thumbH}`).toBe(`{card.path} thumb {firstW}x{firstH}`)
+		end
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		teardown(w)
+	end)
+
+	--[[ THE OVERFLOW-SWEEP'S OWN QUESTION (not `diagnostics()` — the solver
+		does not self-report a ZSTACK child painting past its box; that is what
+		`tests/overflow_sweep.spec.luau` exists to catch instead, and it is the
+		instrument that caught the `fixed(CARD_MIN)` square attempt overflowing
+		a padded card's content box at every OTHER swept device. Pinned here so
+		a future edit to this card cannot regress it without a phone-viewport
+		spec noticing too. ]]
+	it("the thumbnail never paints past its own Col — at the floor lane, not just a wide one", function()
+		-- CARD_MIN + the card's own horizontal padding, at a viewport whose
+		-- lane lands AT the floor (`adaptive.columnsFor`'s guarantee is
+		-- `>= minColumnWidth`, never more) — the exact shape that overflowed
+		local w = makeWorld(320, 640)
+		for _ = 1, 8 do
+			w.presenter.refresh()
+		end
+		local cards = gridCards(w, "PickedGrid")
+		expect(#cards > 1).toBe(true)
+		for _, card in cards do
+			local colRect = w.handle.controller.rectOf(card.path .. "/Col")
+			expect(colRect ~= nil).toBe(true)
+			if card.thumbW > (colRect :: any).w + 0.01 then
+				error(
+					`{card.path}: thumbnail is {card.thumbW}px wide, wider than its own Col `
+						.. `({(colRect :: any).w}px) — it paints past its card`,
+					2
+				)
+			end
+		end
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		teardown(w)
+	end)
+end)

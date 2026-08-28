@@ -371,16 +371,32 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			scope = itemScope,
 			provider = provider,
 			key = item.thumbKey,
+			-- FILLS THE CARD (item 15, framework-gaps-phase2-followups task
+			-- MISC): `width = fill` cascades from the card `UI.Button` and
+			-- `Col` below (both now `fill`, so every card is the grid's own
+			-- lane — see the fix note there), which is what makes the thumb
+			-- the SAME width on every card regardless of that card's own text
+			-- length — the actual "off-center" defect. It is not always
+			-- perfectly SQUARE at every lane width any more (a wide phone's
+			-- 2-column lane runs past `CARD_MIN` once the card legitimately
+			-- fills it, e.g. 167 wide against a 148 fixed height): a tried
+			-- `width = fixed(CARD_MIN)` sibling slot held the square exactly
+			-- until the LANE went narrower than `CARD_MIN` PLUS the card's own
+			-- padding — which `adaptive.columnsFor`'s floor does not reserve
+			-- for, because the floor is a fact about the LANE, not about a
+			-- padded card's CONTENT box — so a fixed thumb overflowed a
+			-- narrower content box on every device the overflow sweep swept.
+			-- `aspect` is not the answer either — deliberately, still (live
+			-- matrix 2026-08-09, xa + parchment + compact): an aspect-on-fill
+			-- thumb couples the CELL HEIGHT to the grid's column width, and
+			-- the Grid's uniform measure and its arrange can disagree about
+			-- that width inside an overflowing scroller (bar reserve) — the
+			-- Picked plate painted 29px past its measured box. A consistent,
+			-- occasionally-rectangular thumb beats a square one that can
+			-- overflow its own card, and it is what actually answers "cards
+			-- too narrow, second image off-center" — the two reported
+			-- symptoms, neither of which was about the ASPECT ratio.
 			width = UI.fill(),
-			-- FIXED height, deliberately not `aspect` (live matrix 2026-08-09,
-			-- xa + parchment + compact): an aspect-on-fill thumb couples the
-			-- CELL HEIGHT to the grid's column width, and the Grid's uniform
-			-- measure and its arrange can disagree about that width inside an
-			-- overflowing scroller (bar reserve) — the Picked plate painted 29px
-			-- past its measured box. A width-independent cell height makes
-			-- measure and arrange agree by construction; the framework-side
-			-- fixed point is framework-fixes.md finding 21. Height matches the
-			-- CARD_MIN column floor so the thumb reads square at the floor width.
 			height = { type = "fixed", px = CARD_MIN },
 		})
 		local worn = core:memo(function(use)
@@ -437,6 +453,16 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 			label = item.name,
 			selected = worn,
 			enabled = cardEnabled,
+			-- FILL THE LANE (item 15, framework-gaps-phase2-followups task MISC):
+			-- without this the card was a "content" hstack, so `itemSizing =
+			-- "uniform"` sized it to the widest MEASURED card — and `Thumb`'s own
+			-- `width = fill` contributes 0 to that measure (the same rule every
+			-- other hug-measure in this app already cites), so the number it
+			-- measured to was really just the longest text line. `fill` bypasses
+			-- uniform sizing entirely (the flow grid's own `isFill` branch takes
+			-- priority), so every card is now exactly the grid's lane — no wider,
+			-- no narrower, and the same width as its neighbours.
+			width = UI.fill(),
 			onActivate = function()
 				services.equip(item.id)
 			end,
@@ -445,6 +471,14 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 					id = "Col",
 					gap = "xs",
 					align = "stretch",
+					-- ...and STRETCH TO THE CARD (same finding): `align = "stretch"`
+					-- above only reaches Col's OWN children on its cross axis — Col
+					-- itself is the button's MAIN-axis child, so without its own
+					-- `width = fill` it still hugged its longest line (the creator
+					-- name), and `Thumb` filled THAT width instead of the card's —
+					-- a different, non-square thumbnail per card depending on which
+					-- card happened to have the longest text.
+					width = UI.fill(),
 					children = {
 						UI.corners(img.blueprint, "control"),
 						UI.Text({
