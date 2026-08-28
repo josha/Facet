@@ -102,7 +102,7 @@ before any reading; full table in
 | device | HUD box bottom | `Feed` before | `Feed` after | overshoot = inset |
 |---|---:|---|---|---:|
 | PS5 (1920x1078, URL bar on, strip on) | 811 | [930, 952] | [789, **811**] | **141** |
-| iPhone 14 (749x368, URL bar off, strip on) | 251 | [290, 305] | [236, **251**] | **54** |
+| phone preset (749x368, URL bar off, strip on) | 251 | [290, 305] | [236, **251**] | **54** |
 
 In both arms the box and the demo's caption are byte-identical and only the
 `bottomLeft` cluster moves — the 14px (PS5) and 12px (phone) of text-on-text the
