@@ -674,6 +674,11 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			exit = "instant",
 			class = declared.class,
 			fade = declared.fade,
+			-- task CONN, review-fix234 Finding 2: `distance` (task-fix3 cause A) is
+			-- a no-op for the forced-instant `exit` and matters only for `enter`,
+			-- which IS live here — dropping it silently reproduced cause A's own
+			-- "slides a few pixels" bug, scoped to this construct's content region
+			distance = declared.distance,
 		}
 	end
 

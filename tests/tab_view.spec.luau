@@ -1069,6 +1069,41 @@ describe("§6: the content branches carry the caller's enter transition", functi
 		expect(nodeAt(w, "/S/Tabs/BottomHome/then/BottomBand").transition).toBeNil()
 	end)
 
+	--[[ task CONN, review-fix234-findings.md Finding 2. `contentTransition`
+		rebuilds the transition table field-by-field rather than passing the
+		caller's declaration through, so a field ADDED to the shared transition
+		Spec after this construct was written (`distance`, task-fix3 cause A —
+		landed one commit before `contentTransition` itself) was silently
+		dropped: a caller declaring a slide with `distance` got the themed
+		default travel instead, reproducing cause A's own "slides a few pixels"
+		bug scoped to TabView. Looping over the DECLARED table's own keys (rather
+		than a hand-list of field names here) is what keeps this case honest
+		against the NEXT field the Spec grows — a hand-list would need its own
+		edit to notice a new drop, which is exactly the shape of bug this is. ]]
+	it("the full transition contract passes through field-for-field, exit forced to instant", function()
+		local declared =
+			{ enter = "slide-left", exit = "slide-right", class = "container", fade = true, distance = 240 }
+		local w = world({
+			transition = declared,
+			tabs = {
+				{ id = "home", label = "Home", content = plate("home") },
+				{ id = "me", label = "Me", content = plate("me") },
+			},
+		})
+		local applied = nodeAt(w, "/S/Tabs/Content/Tab-home/then/homePlate").transition
+		expect(applied ~= nil).toBe(true)
+		for key, value in declared do
+			if key == "exit" then
+				continue
+			end
+			expect(applied[key]).toBe(value)
+		end
+		-- the one deliberate override (task-fix3 cause B, comment above
+		-- `contentTransition`): TabView never retires a departing branch, so the
+		-- caller's own `exit` never plays regardless of what they declared
+		expect(applied.exit).toBe("instant")
+	end)
+
 	it("declaring none leaves the branch with none — p4_foyer's path is unchanged", function()
 		local w = world()
 		expect(nodeAt(w, "/S/Tabs/Content/Tab-home/then/homeBody").transition).toBeNil()
