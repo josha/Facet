@@ -51,6 +51,13 @@ local function engineServices(): any
 	}
 end
 
+-- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1/4):
+-- see screen_vocabulary.luau for why a shared helper replaces a hand-repeated
+-- guard at every `handle.*Conn` site in this file.
+local screen_vocabulary = require("./screen_vocabulary")
+local reconnect = screen_vocabulary.reconnect
+local reconnectOnChange = screen_vocabulary.reconnectOnChange
+
 local screen_pointer = {}
 
 function screen_pointer.new(ctx: any)
@@ -167,30 +174,32 @@ function screen_pointer.new(ctx: any)
 		-- forward to the SAME activation path rather than becoming a second one
 		handle.activate = fn
 		--[[ DISCONNECT BEFORE RECONNECT (device bug fix, director 2026-08-23:
-			nested-tabs hit targets shift after a bottom-tab round trip). This call
-			runs once per (path, fresh-or-adopted handle) — `render/renderer.luau`'s
-			create-or-adopt block calls it right after choosing the engine object —
-			and a RECYCLED instance (`adapter.adopt`, instance recycling ON by
-			default) is never destroyed between lives, only reparented. Without this
-			disconnect, `instance.Activated` kept every PRIOR life's connection —
-			each one a closure over `local path = node.path` from a DIFFERENT commit,
-			bound to whatever node this physical instance used to represent — and a
-			single real click fired all of them, `dispatchNodeTapOnce` keyed per
-			PATH so it let every one through. Measured live: `tab_view`'s nested page
-			strip, Pages -> Notes -> Pages, a tap on "Clothing"'s own painted rect
-			selected "Backgrounds" — a recycled button carrying a stale listener from
-			an earlier occupant. Toggle/Button are otherwise never reactivated on the
-			SAME handle without a path change, so this is a leak fix, not a
-			behavior change for the non-recycled case. ]]
-		if handle.activatedConn ~= nil then
-			handle.activatedConn:Disconnect()
-			handle.activatedConn = nil
-		end
-		if instance:IsA("GuiButton") then
-			handle.activatedConn = instance.Activated:Connect(function(inputObject: InputObject)
-				fn(pointerActivateMeta(inputObject))
-			end)
-		end
+			nested-tabs hit targets shift after a bottom-tab round trip; task CONN
+			moved this to the shared `screen_vocabulary.reconnect` helper — see
+			its header for the general rule this is the original case of). This
+			call runs once per (path, fresh-or-adopted handle) —
+			`render/renderer.luau`'s create-or-adopt block calls it right after
+			choosing the engine object — and a RECYCLED instance (`adapter.adopt`,
+			instance recycling ON by default) is never destroyed between lives,
+			only reparented. Without the disconnect, `instance.Activated` kept
+			every PRIOR life's connection — each one a closure over
+			`local path = node.path` from a DIFFERENT commit, bound to whatever
+			node this physical instance used to represent — and a single real
+			click fired all of them, `dispatchNodeTapOnce` keyed per PATH so it
+			let every one through. Measured live: `tab_view`'s nested page strip,
+			Pages -> Notes -> Pages, a tap on "Clothing"'s own painted rect
+			selected "Backgrounds" — a recycled button carrying a stale listener
+			from an earlier occupant. Toggle/Button are otherwise never
+			reactivated on the SAME handle without a path change, so this is a
+			leak fix, not a behavior change for the non-recycled case. ]]
+		reconnect(handle, "activatedConn", function(): RBXScriptConnection?
+			if instance:IsA("GuiButton") then
+				return instance.Activated:Connect(function(inputObject: InputObject)
+					fn(pointerActivateMeta(inputObject))
+				end)
+			end
+			return nil
+		end)
 	end
 
 	-- pointer capture (ADR-0008): down on the zone captures; global move/up
@@ -477,22 +486,45 @@ function screen_pointer.new(ctx: any)
 			return
 		end
 		handle.pointer = handlers
-		handle.pointerBeganConn = connectPointerBegan(handle, instance, handlers)
-		-- ORDER-INDEPENDENT: `setHitRect` may run before or after this (the renderer
-		-- pushes hit geometry from the solve, handlers from the structural sync), so
-		-- each side wires the expander if the other got there first.
-		if handle.hitExpander ~= nil and handle.hitExpanderPointerConn == nil then
-			handle.hitExpanderPointerConn = connectPointerBegan(handle, handle.hitExpander, handlers)
+		-- DISCONNECT BEFORE RECONNECT (task CONN, Finding 1): this setter runs
+		-- once per (path, fresh-or-adopted handle), same cadence as
+		-- `setActivateHandler` above — an unconditional overwrite here left a
+		-- recycled handle's PRIOR life's `handlers` (closed over that life's
+		-- `path`/`props`) live beside the fresh one, and `beginPointerCapture`'s
+		-- single-capture-slot rule made the STALE, earlier-connected listener the
+		-- likely winner of a real press (see review-fix234-findings.md Finding 1).
+		reconnect(handle, "pointerBeganConn", function()
+			return connectPointerBegan(handle, instance, handlers)
+		end)
+		-- SAME-LIFE ORDER-INDEPENDENT, RECYCLE-SAFE (task CONN, Finding 4):
+		-- `setHitRect` may run before or after this (the renderer pushes hit
+		-- geometry from the solve, handlers from the structural sync), so each
+		-- side wires the expander if the other got there first. `handle.path` is
+		-- the identity `reconnectOnChange` compares: unchanged within one life
+		-- (whichever side runs first stamps it, the second is a no-op —
+		-- preserving the property the old `== nil` guard existed for), and it is
+		-- already the generation stamp a park->adopt recycle provides (`adopt`
+		-- reassigns it), so a handle recycled into a new identity gets a genuine
+		-- disconnect-and-rewire instead of the permanent misroute the `== nil`
+		-- guard could never distinguish from "already correct".
+		if handle.hitExpander ~= nil then
+			reconnectOnChange(handle, "hitExpanderPointerConn", "hitExpanderPointerConnPath", handle.path, function()
+				return connectPointerBegan(handle, handle.hitExpander, handlers)
+			end)
 		end
 		-- hover: request/clear the zone's semantic cursor
 		if handle.class == "Grip" then
-			handle.hoverEnterConn = instance.MouseEnter:Connect(function()
-				hoverHint = handle.cursorHint
-				applyCursor()
+			reconnect(handle, "hoverEnterConn", function()
+				return instance.MouseEnter:Connect(function()
+					hoverHint = handle.cursorHint
+					applyCursor()
+				end)
 			end)
-			handle.hoverLeaveConn = instance.MouseLeave:Connect(function()
-				hoverHint = nil
-				applyCursor()
+			reconnect(handle, "hoverLeaveConn", function()
+				return instance.MouseLeave:Connect(function()
+					hoverHint = nil
+					applyCursor()
+				end)
 			end)
 		end
 	end
@@ -504,10 +536,15 @@ function screen_pointer.new(ctx: any)
 		if not instance:IsA("GuiObject") then
 			return
 		end
-		handle.scrollConn = instance.InputChanged:Connect(function(inputObject: InputObject)
-			if inputObject.UserInputType == Enum.UserInputType.MouseWheel then
-				fn(inputObject.Position.Z)
-			end
+		-- DISCONNECT BEFORE RECONNECT (task CONN, Finding 1): `fn` closes over the
+		-- caller's `path`/`props` at THIS call, so an unconditional overwrite left
+		-- a recycled handle answering wheel input on a prior life's path forever.
+		reconnect(handle, "scrollConn", function()
+			return instance.InputChanged:Connect(function(inputObject: InputObject)
+				if inputObject.UserInputType == Enum.UserInputType.MouseWheel then
+					fn(inputObject.Position.Z)
+				end
+			end)
 		end)
 	end
 

@@ -30,7 +30,17 @@
 -- at load time and cannot run headlessly, so — same instrument
 -- `theme_layer_application.spec.luau`/`focus_ring_float_geometry.spec.luau`
 -- use — this reads the live adapter as TEXT and pins the fix structurally.
--- Reverting the disconnect turns the first case below red.
+--
+-- UPDATED (task CONN, review-fix234 Finding 1): the disconnect-before-reconnect
+-- logic this file originally pinned INLINE in `setActivateHandler`'s own body
+-- moved to a shared `screen_vocabulary.reconnect` helper — the finding's own
+-- complaint was that FIX-2 fixed `activatedConn` alone and left every sibling
+-- `*Conn` field ("eight hand-repeated guards" waiting to happen) unswept. This
+-- file now pins that `setActivateHandler` DELEGATES to the shared helper
+-- (rather than re-testing the helper's own disconnect-before-reconnect body,
+-- which `conn_reconnect_sweep.spec.luau` pins once for every call site).
+-- Reverting the call to a raw inline `instance.Activated:Connect` (the pattern
+-- this fix replaced) turns the second case below red.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -46,18 +56,21 @@ describe("screen_pointer.setActivateHandler: no leaked connection on a recycled 
 		expect(#FN > 0).toBe(true)
 	end)
 
-	it("disconnects any PRIOR activatedConn before connecting a new one", function()
-		local disconnectAt = string.find(FN, "handle.activatedConn:Disconnect()", 1, true)
-		expect(disconnectAt ~= nil).toBe(true)
-		local connectAt = string.find(FN, "instance.Activated:Connect(function(inputObject", 1, true)
-		expect(connectAt ~= nil).toBe(true)
-		-- ORDER: the old connection must go before the new one is made, or a
-		-- recycled instance still ends the call holding two live listeners
-		expect((disconnectAt :: number) < (connectAt :: number)).toBe(true)
+	it("delegates activatedConn to the shared reconnect helper, not a raw assignment", function()
+		local reconnectAt = string.find(FN, 'reconnect(handle, "activatedConn", function()', 1, true)
+		expect(reconnectAt ~= nil).toBe(true)
+		-- a raw `handle.activatedConn = instance.Activated:Connect(...)` outside
+		-- the helper is exactly the pattern that leaked a recycled instance's
+		-- prior-life connection (FIX-2's own original bug) — refuse it can come
+		-- back beside the helper
+		local rawAssignAt = string.find(FN, "handle.activatedConn = instance.Activated:Connect(", 1, true)
+		expect(rawAssignAt == nil).toBe(true)
 	end)
 
-	it("nils the field after disconnecting (so a later re-entry cannot double-disconnect)", function()
-		local at = string.find(FN, "handle.activatedConn:Disconnect()\n\t\t\thandle.activatedConn = nil", 1, true)
-		expect(at ~= nil).toBe(true)
+	it("the connect call lives inside the reconnect factory, after the delegation", function()
+		local reconnectAt = string.find(FN, 'reconnect(handle, "activatedConn", function()', 1, true)
+		local connectAt = string.find(FN, "instance.Activated:Connect(function(inputObject", 1, true)
+		expect(reconnectAt ~= nil and connectAt ~= nil).toBe(true)
+		expect((reconnectAt :: number) < (connectAt :: number)).toBe(true)
 	end)
 end)

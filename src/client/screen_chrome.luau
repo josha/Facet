@@ -29,6 +29,12 @@ local chrome_slots = require("../tokens/chrome_slots")
 -- this file is its application site (ADR-0020 R4)
 local themePackage = require("../themes/package")
 local styling = require("../tokens/styling")
+-- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1): see
+-- screen_vocabulary.luau for why a shared helper replaces a hand-repeated
+-- disconnect-if-present guard at every `handle.*Conn` reconnect site
+local screen_vocabulary = require("./screen_vocabulary")
+local reconnect = screen_vocabulary.reconnect
+local reconnectOnChange = screen_vocabulary.reconnectOnChange
 
 local screen_chrome = {}
 
@@ -1665,6 +1671,12 @@ function screen_chrome.new(ctx: Context)
 				handle[key] = nil
 			end
 		end
+		-- the identity `reconnectOnChange` stamped `barConn` against (task CONN):
+		-- clearing it with the connection it belongs to is not load-bearing (a nil
+		-- `barConn` already short-circuits the comparison), but leaving a stale
+		-- path on a handle that no longer has the connection it names is the kind
+		-- of drift this file's own census exists to catch
+		handle.barConnPath = nil
 		handle.barFillExtent = nil
 		instancesByPath[handle.path .. "/" .. chrome_slots.BAR_WINDOW_NAME] = nil
 		instancesByPath[handle.path .. "/" .. chrome_slots.BAR_FILL_NAME] = nil
@@ -1688,16 +1700,28 @@ function screen_chrome.new(ctx: Context)
 		if handle.barFill == nil then
 			return
 		end
-		if handle.barConn == nil then
+		-- RECONNECT ON IDENTITY CHANGE (task CONN, Finding 1). This function can
+		-- run many times inside one life (every percent sweep re-enters it, "a
+		-- percent sweep costs zero writes here however often it fires" below), so
+		-- an unconditional disconnect-and-remake here would churn a connection on
+		-- every call for no reason — the `== nil` guard this replaces existed for
+		-- exactly that, but for that same reason it could never rewire when the
+		-- watched TRACK actually changed underneath it (a park->adopt recycle:
+		-- `handle.path` moves, `barTrackHandleOf` resolves a different sibling,
+		-- and the stale connection keeps watching the PRIOR track's AbsoluteSize
+		-- forever, missing the current one's resizes). `handle.path` is the
+		-- identity: unchanged short-circuits to the guard's old behaviour
+		-- (connect once, keep retrying every call until a track exists), changed
+		-- disconnects the stale watch before wiring the current track's.
+		reconnectOnChange(handle, "barConn", "barConnPath", handle.path, function()
 			local track = barTrackHandleOf(handle)
 			if track ~= nil and track.instance:IsA("GuiObject") then
-				handle.barConn = (track.instance :: GuiObject)
-					:GetPropertyChangedSignal("AbsoluteSize")
-					:Connect(function()
-						refreshBarFillExtent(handle)
-					end)
+				return (track.instance :: GuiObject):GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+					refreshBarFillExtent(handle)
+				end)
 			end
-		end
+			return nil
+		end)
 		local direction = chrome_slots.barDirectionOf(chromeState.package(), "barFill")
 		local px = barTrackExtent(handle, chrome_slots.isVerticalBar(direction))
 		if handle.barFillExtent == px then
@@ -1747,9 +1771,14 @@ function screen_chrome.new(ctx: Context)
 		chromeState.noteCreated("barFill")
 		-- the WINDOW's own resize is the reliable first signal: it is this node's
 		-- solved rect, so it fires as soon as the tree is laid out — which is also
-		-- the first moment the track exists to be measured
-		handle.barWindowConn = window:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			refreshBarFillExtent(handle)
+		-- the first moment the track exists to be measured. `destroyBarFill`
+		-- always precedes this call when actually rebuilding (line below), so
+		-- `barWindowConn` is already nil here — `reconnect` is defense-in-depth
+		-- against a future caller that forgets that pairing (task CONN).
+		reconnect(handle, "barWindowConn", function()
+			return window:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+				refreshBarFillExtent(handle)
+			end)
 		end)
 		refreshBarFillExtent(handle)
 		watchChromeAsset(art, plan.assetName)
