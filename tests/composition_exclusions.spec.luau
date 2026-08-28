@@ -47,11 +47,13 @@ local SIZES: { [string]: { { w: number, h: number } } } = {
 	Rail = { { w = 80, h = 60 } }, -- right column, end-anchored
 }
 
-local CTX = { measure = function(id: string, form: number, _w: number, _h: number): (number, number)
-	local list = SIZES[id]
-	local s = list[math.min(form, #list)]
-	return s.w, s.h
-end }
+local CTX = {
+	measure = function(id: string, form: number, _w: number, _h: number): (number, number)
+		local list = SIZES[id]
+		local s = list[math.min(form, #list)]
+		return s.w, s.h
+	end,
+}
 
 local REGIONS = {
 	{ id = "Rounds", group = "topLeft", rank = 1, forms = 1 },
@@ -175,10 +177,12 @@ describe("§8: a lane that gave way is shorter at BOTH ends — the PS5/phone bo
 		Health = { w = 120, h = 40 },
 		Feed = { w = 200, h = 60 },
 	}
-	local BOTTOM_CTX = { measure = function(id: string, _f: number, _w: number, _h: number): (number, number)
-		local s = BOTTOM_SIZES[id]
-		return s.w, s.h
-	end }
+	local BOTTOM_CTX = {
+		measure = function(id: string, _f: number, _w: number, _h: number): (number, number)
+			local s = BOTTOM_SIZES[id]
+			return s.w, s.h
+		end,
+	}
 	-- the shape of the reported screen: a top-anchored zone the chrome row pushes
 	-- down, and the `bottomLeft` cluster (health, then the kill feed) under it
 	local BOTTOM_REGIONS = {
@@ -492,7 +496,11 @@ describe("§8: `UI.Composition{ exclusions }` — the declaration, through the m
 				group = group,
 				rank = rank,
 				children = {
-					UI.Box({ id = id .. "Body", width = { type = "fixed", px = w }, height = { type = "fixed", px = 36 } }),
+					UI.Box({
+						id = id .. "Body",
+						width = { type = "fixed", px = w },
+						height = { type = "fixed", px = 36 },
+					}),
 				},
 			})
 		end
