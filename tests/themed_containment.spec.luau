@@ -56,9 +56,11 @@
 	that catches it rather than the whole cross product: the three surfaces the
 	director photographed (plus the playlist in the STATE he photographed it in),
 	under the two ornate packages with the fattest and the second-fattest carved
-	borders, at the two viewports where each surface's ladder builds its rich form.
-	The corpus-wide number the same oracle reports is recorded in the task report
-	and is NOT green yet — this is a floor under the four, not a claim about the
+	borders, at the three viewports where each surface's ladder builds its rich
+	form (`tablet-landscape`, `compact-phone-landscape` and the narrowest supported
+	box) — plus, for item 9, a sweep of the one package METRIC that decides it. The
+	corpus-wide number the same oracle reports is recorded in the task report and
+	is NOT green yet — this is a floor under the four, not a claim about the
 	library.
 
 	AND ITS NEGATIVE CONTROLS. Two of the guard's three themed rules are new here,
@@ -728,28 +730,6 @@ describe("themed containment: the guard's new rules bite", function()
 	it("...and with no package the sibling plate is not a boundary at all", function()
 		expect(#violationsOf(inkPlate(false), nil)).toBe(0)
 	end)
-end)
-
-describe("themed containment: the HUD plate ledger cannot rot", function()
-	--[[ A LEDGER ROW THAT NEVER FIRES IS A FIXED DEFECT, and the line should go.
-		This case runs after the HUD is judged (testkit executes in registration
-		order), so the counts are complete. ]]
-	it("every row in the HUD plate ledger still fires", function()
-		local stale: { string } = {}
-		for _, row in HUD_PLATE_LEDGER do
-			if PLATE_HITS[row.node] == 0 then
-				table.insert(stale, `{row.node} ({row.why})`)
-			end
-		end
-		if #stale > 0 then
-			error(
-				`{#stale} HUD plate-ledger row(s) no longer fire. If the plate was fixed, DELETE the line — `
-					.. `that is the point of the ledger; if the node moved, re-record it:\n  `
-					.. table.concat(stale, "\n  "),
-				0
-			)
-		end
-	end)
 
 	--[[ RULE 2's SELF-EXCLUSION, AT THE ARITY THAT BROKE IT (review finding I2,
 		fixed 2026-08-28). "Never the branch the question came up" covered ONE plate:
@@ -794,5 +774,27 @@ describe("themed containment: the HUD plate ledger cannot rot", function()
 			string.find(overflow_guard.describe(hits[1]), "via its sibling plate /TwoPlates/Stack/PlateA", 1, true)
 				~= nil
 		).toBe(true)
+	end)
+end)
+
+describe("themed containment: the HUD plate ledger cannot rot", function()
+	--[[ A LEDGER ROW THAT NEVER FIRES IS A FIXED DEFECT, and the line should go.
+		This case runs after the HUD is judged (testkit executes in registration
+		order), so the counts are complete. ]]
+	it("every row in the HUD plate ledger still fires", function()
+		local stale: { string } = {}
+		for _, row in HUD_PLATE_LEDGER do
+			if PLATE_HITS[row.node] == 0 then
+				table.insert(stale, `{row.node} ({row.why})`)
+			end
+		end
+		if #stale > 0 then
+			error(
+				`{#stale} HUD plate-ledger row(s) no longer fire. If the plate was fixed, DELETE the line — `
+					.. `that is the point of the ledger; if the node moved, re-record it:\n  `
+					.. table.concat(stale, "\n  "),
+				0
+			)
+		end
 	end)
 end)
