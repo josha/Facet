@@ -2800,6 +2800,66 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
+	--[[ ── AND A ZONE STAYS INSIDE THE LANE IT WAS PUT IN (ADR-0056) ────────────
+
+		THE HOLE THIS CLOSES, and it is this sweep's own. Everything above polices
+		the TOP of the give-way — does the HUD clear the declared chip row — and the
+		text inside each box. Nothing asked the other question: having given way, did
+		the lane's own content stay inside the lane. It did not. A `bottomLeft`
+		cluster landed EXACTLY one exclusion-inset past its lane's bottom edge on
+		every declaring cell, and this sweep ran clean through it, twice, because no
+		collector compared a placed rect with the lane rect it was placed into.
+
+		SCOPED TO A LEGAL COMPOSITION, and the scope is measured rather than chosen:
+		`tests/lib/overflow_guard.luau`'s own header counted 312 suite-wide cases of a
+		region below its composition's box and found every one carried
+		`fallback = true` — the composition's own "no arrangement is legal", already
+		filed once per solve, on itself, marked `designed`. Re-reporting those is
+		re-telling a finding. What that count could not know is that a LEGAL
+		composition could produce one too; this is the collector that would have
+		said so.
+
+		PURE, so the control below can drive it with a dump it has moved a region in
+		— an oracle nobody can break is the class this file exists to remove. ]]
+	local function laneContainmentIn(dump: any): { string }
+		local out: { string } = {}
+		if dump == nil or dump.fallback == true or dump.legal ~= true then
+			return out
+		end
+		for _, r in dump.regions do
+			if not r.mounted or r.dropped or r.rect == nil or type(r.lane) ~= "number" then
+				continue
+			end
+			local lane = dump.lanes[r.lane]
+			if lane == nil or lane.rect == nil then
+				continue
+			end
+			local over = (r.rect.y + r.rect.h) - (lane.rect.y + lane.rect.h)
+			local under = lane.rect.y - r.rect.y
+			if over > 0.5 then
+				table.insert(
+					out,
+					string.format(
+						"%s: placed %.0fpx past the BOTTOM of lane %d (lane gave way %.0fpx)",
+						r.id,
+						over,
+						r.lane,
+						lane.exclusion or 0
+					)
+				)
+			end
+			if under > 0.5 then
+				table.insert(out, string.format("%s: placed %.0fpx above the TOP of lane %d", r.id, under, r.lane))
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	local function laneContainmentViolations(w: any): { string }
+		return laneContainmentIn(w.built.handle.controller.compositionAt("/HudScreen/Hud"))
+	end
+
 	--[[ ── A VALUE MAY NOT BE ELLIPSIZED (controller ruling R9, 2026-08-18) ─────
 
 		The standing localization rule is "wrap or auto-fit, never clip", and a HUD
@@ -3109,6 +3169,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 								table.insert(problems, `  {hit}{suffix}`)
 							end
 							for _, hit in giveWayViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
+							for _, hit in laneContainmentViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
 							collectRouteFloors(w, suffix)
@@ -3427,6 +3490,88 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		child.visible, child.props.text = wasVisible, wasText
 		expect(`...and the untouched tree is silent again: {#giveWayViolations(w)}`).toBe(
 			"...and the untouched tree is silent again: 0"
+		)
+	end)
+
+	--[[ THE LANE-CONTAINMENT ORACLE BITES, on the tree the bug was reported on. This
+		is the control the ADR-0056 collector needs for exactly the reason the give-way
+		one above needed its own: "zero regions outside their lane" reads identically
+		whether the geometry is clean or the comparison is dead, and this sweep had
+		been reading the second kind of zero for two director rounds.
+
+		THE CELL IS THE ONE THAT DECLARES CHROME, because a lane with no exclusion has
+		an inset of 0 and the bug's whole term is that inset — a control run without
+		the chip row would prove the collector works on a case the defect could never
+		reach. The premise is asserted, not assumed. ]]
+	it("LANE-CONTAINMENT CONTROL: a zone below its own lane is reported, and the settled tree is not", function()
+		local view = VIEWS[1]
+		local cell = CELLS[1]
+		local chips = showcase_chips.rectFor(Facet, view, cell.id, cell.snapshot, LARGEST)
+		expect(`the control's cell declares a chrome row: {chips ~= nil}`).toBe(
+			"the control's cell declares a chrome row: true"
+		)
+		local w = hudWorld(view, cell.snapshot, LARGEST, chips, showcase_chips.reservationFor(chips))
+		w.built.steps.rideStrip()
+		for _ = 1, SETTLE_FRAMES * 2 do
+			w.presenter.refresh()
+		end
+		expect(#laneContainmentViolations(w)).toBe(0)
+
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		--[[ THE PREMISE, IN TWO HALVES. A lane has to have GIVEN WAY (otherwise the
+			defect's term is zero here and this control watches a case that cannot
+			occur), and the composition has to be LEGAL (the collector deliberately
+			says nothing about a fallback, so a fallback tree would report zero for the
+			wrong reason). ]]
+		local gaveWay = false
+		for _, lane in dump.lanes do
+			if (lane.exclusion or 0) > 0 then
+				gaveWay = true
+			end
+		end
+		expect(`a lane gave way to the chip row here: {gaveWay}`).toBe("a lane gave way to the chip row here: true")
+		expect(`...and the composition is legal: {dump.legal == true and dump.fallback == false}`).toBe(
+			"...and the composition is legal: true"
+		)
+
+		--[[ MOVE ONE ZONE DOWN by the inset the defect used to add — the exact shape
+			the director photographed — and PUT IT BACK. `compositionAt` hands back the
+			solve's own dump, not a copy: the first version of this case mutated it and
+			the collector was still reporting the violation afterwards, so the restore
+			is what keeps a control from leaving a corpse for the next case in the
+			file. (That is also why the silence below is re-read from `dump` rather
+			than from a fresh `compositionAt` — same object either way.) ]]
+		local moved: string? = nil
+		local wasY = 0
+		for _, r in dump.regions do
+			if moved == nil and r.mounted and not r.dropped and type(r.lane) == "number" and r.rect ~= nil then
+				local lane = dump.lanes[r.lane]
+				if lane ~= nil and (lane.exclusion or 0) > 0 then
+					wasY = r.rect.y
+					r.rect.y = (lane.rect.y + lane.rect.h) - r.rect.h + (lane.exclusion :: number)
+					moved = r.id
+				end
+			end
+		end
+		expect(`a zone in a lane that gave way was moved: {moved ~= nil}`).toBe(
+			"a zone in a lane that gave way was moved: true"
+		)
+		local reported = false
+		for _, hit in laneContainmentIn(dump) do
+			if string.find(hit, `{moved}: placed`, 1, true) == 1 and string.find(hit, "past the BOTTOM", 1, true) then
+				reported = true
+			end
+		end
+		expect(`{moved} below its own lane is reported: {reported}`).toBe(
+			`{moved} below its own lane is reported: true`
+		)
+		for _, r in dump.regions do
+			if r.id == moved then
+				r.rect.y = wasY
+			end
+		end
+		expect(`...and the restored tree is silent again: {#laneContainmentViolations(w)}`).toBe(
+			"...and the restored tree is silent again: 0"
 		)
 	end)
 
