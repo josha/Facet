@@ -622,4 +622,49 @@ describe("themed containment: the HUD plate ledger cannot rot", function()
 			)
 		end
 	end)
+
+	--[[ RULE 2's SELF-EXCLUSION, AT THE ARITY THAT BROKE IT (review finding I2,
+		fixed 2026-08-28). "Never the branch the question came up" covered ONE plate:
+		with a second full-bleed surfaced sibling in the same stack, each plate was
+		excluded from its OWN lookup and then judged against the other, so both
+		reported the identical false escape — three violations where one is real.
+		The rule is now on the QUESTIONER (a node already drawing the host's own edge
+		has no plate), which is one line for both arities, and this case is the one
+		that can tell them apart. ]]
+	local function twoPlates(): any
+		return UI.Screen({
+			id = "TwoPlates",
+			padding = 0,
+			children = {
+				UI.ZStack({
+					id = "Stack",
+					width = { type = "fixed", px = 200 },
+					height = { type = "fixed", px = 200 },
+					children = {
+						UI.Box({ id = "PlateA", surface = "raised", width = UI.fill(), height = UI.fill() }),
+						UI.Box({ id = "PlateB", surface = "raised", width = UI.fill(), height = UI.fill() }),
+						UI.Box({
+							id = "Ink",
+							surface = "control",
+							width = { type = "fixed", px = 200 },
+							height = { type = "fixed", px = 8 },
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	it("two full-bleed plates in one stack report the ink ONCE and neither other", function()
+		local hits = violationsOf(twoPlates(), PIXEL)
+		expect(#hits).toBe(1)
+		expect(string.find(hits[1].node, "/Ink", 1, true) ~= nil).toBe(true)
+		expect(hits[1].overhang).toBe(24)
+		-- ...and the message names the box that was actually compared, so a reader
+		-- is not sent looking for an inset on the stack (Minor 5)
+		expect(
+			string.find(overflow_guard.describe(hits[1]), "via its sibling plate /TwoPlates/Stack/PlateA", 1, true)
+				~= nil
+		).toBe(true)
+	end)
 end)

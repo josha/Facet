@@ -168,6 +168,13 @@ export type Violation = {
 	overhang: number,
 	text: string?,
 	waiver: string?,
+	--[[ THE PLATE THE BOX CAME FROM, when the boundary is a SIBLING plate rather
+		than the container itself (review finding, Minor 5). `boundary` stays the
+		container — that is the path waivers match on and the path every existing
+		pin reads — but the box compared is the plate's themed one, so a message
+		naming only the container reads as "overflows /S/Stack by 24px" about a
+		stack with no inset at all. `describe` says which plate drew the edge. ]]
+	via: string?,
 }
 
 export type Ledger = { waivers: { any }, hits: { [string]: number } }
@@ -297,43 +304,65 @@ end
 	path census, so this costs one pass over the paths rather than a search per node.
 	Only ever consulted when a snapshot is in hand, because on a flat package the
 	plate's themed box IS its rect and the rule could only restate the parent. ]]
+local function coversHost(node: any, host: any): boolean
+	local r, h = node.rect, host.rect
+	return math.abs(r.x - h.x) <= 1
+		and math.abs(r.y - h.y) <= 1
+		and math.abs(r.w - h.w) <= 1
+		and math.abs(r.h - h.h) <= 1
+end
+
 local function plateOf(
 	nodes: { [string]: any },
 	children: { [string]: { string } },
 	parent: string,
 	from: string?
-): any?
+): (any?, string?)
 	local host = nodes[parent]
 	if host == nil or host.rect == nil then
-		return nil
+		return nil, nil
+	end
+	--[[ A NODE THAT ALREADY DRAWS THE HOST'S OWN EDGE HAS NO PLATE, which is the
+		difference between a rule and a tautology. The plate is a boundary for the
+		siblings that sit INSIDE it; two full-bleed surfaced children of one stack
+		draw the SAME edge, and neither contains the other.
+
+		This began as `childPath == from` — skip the branch the question came up —
+		after asking whether a plate clears its own carved border reported every
+		plate in the library overflowing ITSELF by exactly its own inset (measured:
+		ten on the HUD alone). That covered ONE plate and not two: with a second
+		full-bleed surfaced sibling in the stack, each was excluded from its own
+		lookup and then judged against the OTHER, so both reported the identical
+		false 24px escape (review finding I2, reproduced 2026-08-28 —
+		`ZStack{ PlateA, PlateB, Ink }` under Pixel Quest gave 3 violations where
+		one is real). Testing the QUESTIONER rather than the candidate covers both
+		shapes with one line, and subsumes the old skip: a `from` that is itself the
+		childless full-bleed plate returns here. ]]
+	if from ~= nil then
+		local asker = nodes[from]
+		if asker ~= nil and asker.rect ~= nil and isRealSurface(asker.props) and coversHost(asker, host) then
+			return nil, nil
+		end
 	end
 	for _, childPath in children[parent] or {} do
-		--[[ NEVER THE BRANCH THE QUESTION CAME UP, which is the difference between a
-			rule and a tautology: the plate is a boundary for its SIBLINGS, and asking
-			whether a plate clears its own carved border reports every plate in the
-			library overflowing itself by exactly its own inset (measured: ten on the HUD
-			alone before this line existed). ]]
-		if childPath == from then
-			continue
-		end
 		local child = nodes[childPath]
 		if child == nil or child.rect == nil or not isRealSurface(child.props) then
 			continue
 		end
+		--[[ A PLATE CARRYING DECORATION IS NOT RECOGNISED, and that under-report is
+			disclosed here rather than left to be discovered (review finding, Minor 10):
+			the childless test is what tells a PLATE from a surfaced container that
+			happens to fill its parent, and a plate with an ornament child reads as the
+			latter. The direction is the safe one for an always-on check — a boundary
+			that is not found is a question not asked, never a false red. ]]
 		if #(children[childPath] or {}) > 0 then
 			continue
 		end
-		local r, h = child.rect, host.rect
-		if
-			math.abs(r.x - h.x) <= 1
-			and math.abs(r.y - h.y) <= 1
-			and math.abs(r.w - h.w) <= 1
-			and math.abs(r.h - h.h) <= 1
-		then
-			return child
+		if coversHost(child, host) then
+			return child, childPath
 		end
 	end
-	return nil
+	return nil, nil
 end
 
 --[[ THE BOUNDARY THIS NODE LIVES IN, and on which axes it binds. `axes` is
@@ -344,7 +373,7 @@ local function boundaryFor(
 	children: { [string]: { string } },
 	path: string,
 	snapshot: any?
-): (string?, any?, { [string]: boolean }?)
+): (string?, any?, { [string]: boolean }?, string?)
 	local cursor, from = parentPath(path), path
 	while cursor ~= nil do
 		local n = nodes[cursor]
@@ -369,7 +398,7 @@ local function boundaryFor(
 				-- ...AND THE SIBLING PLATE, which is a boundary this container has and
 				-- does not carry itself (see `plateOf`). The BOX is the plate's, so the
 				-- edge judged is the one a player sees painted.
-				local plate = plateOf(nodes, children, cursor, from)
+				local plate, platePath = plateOf(nodes, children, cursor, from)
 				if plate ~= nil then
 					local box = themedBox(snapshot, plate, plate.rect)
 					-- IDENTITY, deliberately: `themedBox` hands back the SAME table when
@@ -378,7 +407,7 @@ local function boundaryFor(
 					-- edge exactly where the parent's box already is and could only
 					-- restate the walk-up.
 					if box ~= plate.rect then
-						return cursor, box, { x = true, y = true }
+						return cursor, box, { x = true, y = true }, platePath
 					end
 				end
 			end
@@ -520,7 +549,7 @@ function overflow_guard.violations(adapter: any, ledger: Ledger?, snapshot: any?
 		if not paints(node) then
 			continue
 		end
-		local boundaryPath, box, axes = boundaryFor(nodes, children, path, snapshot)
+		local boundaryPath, box, axes, viaPlate = boundaryFor(nodes, children, path, snapshot)
 		if boundaryPath == nil or box == nil or axes == nil then
 			continue
 		end
@@ -559,6 +588,7 @@ function overflow_guard.violations(adapter: any, ledger: Ledger?, snapshot: any?
 					then props.text
 					elseif type(props.label) == "string" then props.label
 					else nil,
+				via = viaPlate,
 			}
 			if waiverFor(book, v) == nil then
 				table.insert(out, v)
@@ -580,12 +610,18 @@ function overflow_guard.describe(v: Violation): string
 	end
 	local quoted = if v.text ~= nil and v.text ~= "" then string.format(' "%s"', v.text) else ""
 	local capped = if v.waiver ~= nil then string.format(" [waiver %s]", v.waiver) else ""
+	-- ...AND WHICH BOX WAS ACTUALLY COMPARED (Minor 5). Without this the sibling-
+	-- plate rule reads "overflows /S/Stack past its left edge by 24px" about a
+	-- stack that carves nothing, and the reader goes looking for an inset on the
+	-- wrong node.
+	local via = if v.via ~= nil then string.format(" (via its sibling plate %s)", v.via) else ""
 	return string.format(
-		"outside-parent: %s [%s]%s overflows %s past its %s edge by %.1fpx%s",
+		"outside-parent: %s [%s]%s overflows %s%s past its %s edge by %.1fpx%s",
 		v.node,
 		v.class,
 		quoted,
 		v.boundary,
+		via,
 		v.edge,
 		v.overhang,
 		capped
