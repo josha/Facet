@@ -307,12 +307,26 @@ exclusive boot modes (`examples/gallery/client/boot_mode.luau`):
   shared by both `observe` and `live`) instead of depending on it. The
   desktop-scrollbar notable cell (below) also runs in showcase mode, at a
   windowed (non-`ActualResolution`-forced) viewport, because that is the
-  director's own repro shape.
+  director's own repro shape. **Naming trap**: the showcase's package ids use
+  **hyphens** (`pickPackage("pixel-quest")`, `pickPackage("fantasy-ornate")`) — its own
+  `identity.id` convention — while `theme_authoring`'s `installPackage` step
+  matches the FacetThemes folder's **file basenames**, underscored
+  (`"pixel_quest"`, `"fantasy_ornate"`); both name the same packages,
+  reachable through the boot mode each is native to. `live` mode has two
+  further disclosed limits versus `observe`: no solver-diagnostics visibility
+  at all (only `FacetScenarioAPI.report()` exposes them), and `unfitText`
+  carries no declared/undeclared distinction (no `textPolicies` channel
+  outside scenario mode) — treat a `live`-mode `unfitText` entry as
+  informational, not gating.
 
 **The matrix**: `device_sweep_matrix.json`'s `deviceRows` × `themes` on
 `baseScenario` is the floor (5 × 3 = 15 cells); `notableCells` names specific
 director-reported surfaces beyond it (each with its own device row, theme,
-scenario, and a `director` field citing the finding it re-proves). Captures
+scenario, and a `director` field citing the finding it re-proves) that the
+gate REQUIRES evidence for; `plannedCells` holds cells identified but not yet
+driven (each with a `status` explaining why) — moving a cell there is how you
+defer it honestly instead of leaving the gate permanently red over future
+work. Captures
 follow `capture_viewport.sh`'s convention:
 `<deviceRow>__<theme>__<scenario>.png`, or a notable cell's own `id` in place
 of `deviceRow` when it overrides the viewport.
@@ -364,6 +378,30 @@ with the framework's own reactive control of that property — call
 `FacetScenario.reset()` (or re-enter the demo) rather than trusting a session
 that has been hand-scrolled.
 
+**Known gate limitations** (found by live measurement this round, not fixed —
+each is a false-NEGATIVE direction only, never a false-positive, so a red
+cell from any other check is still trustworthy):
+
+- **Containment tests ancestor-escape, not sibling-adjacency.** A decoration
+  that sits flush at zero inset against a SIBLING's edge under a shared
+  ZStack (a badge overlapping its own tile's corner, say) can never be
+  flagged: `judgeContainment` only walks name-PREFIX ancestry to find a
+  tagged boundary, and two siblings composed under a shared, often-untagged,
+  sometimes not even materialized group node have no ancestry relationship
+  to test at all. Confirmed live: a HUD tile badge sitting flush at its own
+  tile's top-right corner with zero inset reads `containment: []`.
+- **Containment tests position/size, never shape.** A decoration positioned
+  and sized exactly right but painted with the wrong corner radius (a
+  hardcoded-radius focus ring on a squared-off package's button, which has no
+  `UICorner` of its own to compare against) is invisible to every existing
+  check — `dumpGuiInstance` already counts `modifierChildren.UICorner`, but
+  nothing reads the radius VALUE or compares it to anything.
+- **The offscreen check has no exemption for a deliberately negative-Y
+  reserved chrome band** — the showcase's own topbar-strip reservation, and
+  any HUD strip mounted inside it, both legitimately paint above `y = 0` by
+  design (matching `coreSafeInsets.top`); only `ScrollingFrame` clipping is
+  exempted today, so this whole class reads as spurious `offscreenNodes`.
+
 ## What the automated matrix can never close
 
 - physical touch targeting, gestures, or touch feel;
@@ -398,119 +436,3 @@ measured rather than a story about it. **Never add the two together**: one is
 whole-frame
 work on a fast host, the other is Facet's share of one client's work.
 
-## The device-emulator visual sweep (gate)
-
-Performance is one axis; **overlap/cutoff/stray-stroke/pop** is another, and it
-is the one the director keeps finding by hand in the Studio device emulator
-after headless suites are green (task SWEEP, `framework-gaps-phase2-followups`,
-director mandate part a). This section is the gate for that axis: a matrix of
-device presets x theme packages x scenarios, asserted for on-glass containment
-and `GetStyled` paint claims, with a screenshot per cell.
-
-**It cannot run in CI.** There is no headless stand-in for Studio's device
-emulator; every cell needs an open, injected Studio session and a human or
-agent operator driving it through the Studio MCP. Treat it as the
-**release/device gate**: run it before any director device-pass, before
-closing a phase/campaign that claims cross-platform or themed correctness, and
-after any change to `screen_scroll_indicators.luau`, `screen_presentation.luau`,
-`screen_target.luau`'s paint/containment path, `render/transitions.luau`
-(backdrop/pop), or any `examples/themes/*.luau` package.
-
-### The matrix
-
-`tools/studio/device_sweep_matrix.json` is the config: the five canonical
-`matrix_rows` device rows x `{neutral, pixel_quest, fantasy_ornate}` on the
-`theme_authoring` scenario (the "All controls" fixture, the same one the
-showcase's default demo and the SCROLL2 desktop-scrollbar repro use) = 15 base
-cells, plus a `notableCells` list of specific director-named cells (the
-desktop-windowed-scrollbar repro, PS5 x showcase HUD, themed Settings-view
-findings, ...) and a `plannedCells` list for cells identified but not yet
-driven (not required by the gate yet; each carries a `status` explaining why).
-
-### Two instruments, because boot mode splits them
-
-`tools/studio/device_matrix.luau` (installed into the running place as
-`workspace.FacetMatrixDriver`, served verbatim from `studio_sync`'s `/driver`
-route) carries the on-glass containment oracle (`judgeContainment`/
-`judgeZeroBoxes`, offscreen/unfit-text checks, `GetStyled` paint dumps) behind
-**two census sources**:
-
-- `mode = "observe"` reads `workspace.FacetScenarioAPI.report()` — available
-  when the place boots in **scenario mode** (`Facet_Showcase = false`,
-  `Facet_Scenario = "theme_authoring"` or any other registered scenario name).
-  This is the only source that also sees solver diagnostics and the
-  declared/undeclared text-truncation policy channel.
-- `mode = "live"` walks `Players.LocalPlayer.PlayerGui` directly, with no
-  `FacetScenarioAPI` dependency — the only way to get the containment oracle
-  onto a demo the **showcase's own theme picker** themed, because
-  `theme_authoring` is the *only* scenario-mode fixture that wraps
-  package-swap steps around itself; every other demo (`hud`, `menu`,
-  `tab_view`, `row_actions`, a numbered tutorial example, ...) is only
-  themeable through the showcase's global adapter-level swap
-  (`workspace.FacetShowcaseAPI.pickTheme("pixel-quest")` — note the showcase's
-  package ids use **hyphens**, `pixel-quest`/`fantasy-ornate`, where
-  `theme_authoring`'s `installPackage` step uses the FacetThemes **file
-  basenames**, `pixel_quest`/`fantasy_ornate`, underscored; both name the same
-  packages). `live` mode has two disclosed limits: no solver-diagnostics
-  visibility, and `unfitText` carries no declared/undeclared distinction
-  (informational only there).
-
-### Running it
-
-```
-lune run tools/lune/studio_sync                          # kill any stale one on :8642 first
-# Edit datamodel: fetch /manifest + /file/<n>, patch the tree (tools/studio/inject.luau body)
-# probe a commit marker (a file's byte length) before trusting the session
-# Edit datamodel: StudioDeviceSimulatorService:SetDeviceAsync(<preset>) for the row's device
-# Play. Server datamodel: fetch /driver into workspace.FacetMatrixDriver
-# Client datamodel:
-local run = require(workspace.FacetMatrixDriver)
-run({ mode = "select", row = "compact-phone-portrait" })   -- scenario-mode rows
-run({ mode = "step", step = "installPackage", payload = "pixel_quest" })
-run({ mode = "observe" })                                  -- or mode = "live" in showcase mode
-```
-
-`tools/studio/capture_viewport.sh artifacts/device-emulator-sweep/captures/<cell>.png`
-takes the screenshot (`<deviceRow>__<theme>__<scenario>.png`, or a notable
-cell's own id). Persist one JSON row per cell to
-`artifacts/device-emulator-sweep/rows/<cell>.json` (schema documented at the
-top of `tools/check_device_sweep.py`) — `ok`, the four finding arrays, a
-capture path + sha256, and a `triage` block on every red cell.
-
-### The gate check
-
-```
-python3 tools/check_device_sweep.py --selftest   # headless: matrix config wired to real matrix_rows ids
-python3 tools/check_device_sweep.py --verbose    # requires evidence: full verdict grid, PASS/PENDING/MISSING/REGRESSION
-```
-
-It diffs every cell against `artifacts/device-emulator-sweep/baseline.json`
-(gitignored and regenerable, like every other `artifacts/**/*.json` in this
-repo — re-run the sweep to refresh it; a fresh clone starts with none, so
-every cell reads with no prior baseline until the first run seeds one
-locally). A cell that was green in the baseline and is red now with no
-`triage` is a **REGRESSION** and fails the gate; a red cell with a `triage`
-block is **PENDING** (listed, not fatal — the triage names whether it is
-`known-owed`, a `sweep-defect`, `real-regression` needing controller routing,
-or `physical-owed`); a configured cell with no row file at all is **MISSING**
-and fails the gate, so a cell moved to `plannedCells` (not yet required) is
-how you defer it honestly instead of leaving a permanent red.
-
-### Known gate limitations (found by this round, not fixed)
-
-- **Containment tests ancestor-escape, not sibling-adjacency.** A decoration
-  that sits flush at zero inset against a SIBLING's edge (in a ZStack) can
-  never be flagged: `judgeContainment` only walks name-PREFIX ancestry to find
-  a boundary, so two siblings composed under a shared (often untagged, often
-  not even a real instance) group node have no ancestry relationship at all.
-- **Containment tests position/size, never shape.** A decoration positioned
-  and sized exactly right but painted with the wrong corner radius (a rounded
-  focus ring on a square-cornered package) is invisible to every existing
-  check.
-- **The offscreen check has no exemption for a deliberately negative-Y
-  reserved chrome band** (the showcase's own topbar-strip reservation, and any
-  HUD strip mounted inside it) — only `ScrollingFrame` clipping is exempted
-  today.
-
-All three are documented with live measurements on real cells in
-`.superpowers/sdd/framework-gaps-phase2-followups/task-sweep-report.md`.
