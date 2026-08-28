@@ -721,15 +721,23 @@ describe("verifier V11: the hit expander is re-based by its clip host", function
 		-- presentation channel when screen_target crossed the 200_000-char Source
 		-- cap, and the claim is about the adapter rather than about one of its files
 		local source = adapter_source.live()
-		local at = string.find(source, "function adapter.setHitRect", 1, true)
-		expect(at ~= nil).toBe(true)
 		-- (window widened 1800→2400 when the expander's Activated started building
 		-- the SAME activate meta a press on the control itself carries — redteam
 		-- item 2, 2026-08-13; then 2400→3000 when the expander began MIRRORING its
 		-- host's declared sensory verb and disabled state at birth — release-
-		-- candidate review F1, 2026-08-18. The invariant asserted below is unchanged
-		-- both times; only the text it lives in grew.)
-		local body = string.sub(source, at :: number, (at :: number) + 3000)
+		-- candidate review F1, 2026-08-18; then a THIRD time, silently, when task
+		-- CONN round 2 (`1a01521`) grew setHitRect's body by +519 chars replacing
+		-- the inline hitExpanderPointerConn guard with a reconnectOnChange block,
+		-- pushing this call 113 chars past the 3000-char edge with no test change
+		-- to match — a red pin nobody noticed until the forensic attribution in
+		-- .superpowers/sdd/framework-gaps-phase2-followups/value-controls-red-
+		-- attribution.md. The invariant asserted below was unchanged all three
+		-- times; only the text it lives in kept growing. Retiring the fixed-window
+		-- idiom for good: this now anchors via adapter_source.bodyOf
+		-- (find-until-next-sibling-declaration), which is immune to the function
+		-- body growing, instead of guessing another width.
+		local body = adapter_source.bodyOf(source, "function adapter.setHitRect(")
+		expect(#body > 0).toBe(true)
 		-- the seam still re-bases — through the shared placement helper the control's
 		-- own re-base uses (RS-A16-D1b), which is what also fixes the origin arriving
 		-- LATE. The property is unchanged; only its single home moved.
