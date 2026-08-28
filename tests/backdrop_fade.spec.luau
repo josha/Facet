@@ -72,8 +72,15 @@ local FRAME = 1 / 60
 -- read exactly these three fields off a real one (`src/mount.luau`'s
 -- `mountNode` produces the same shape), so a plain table exercises them with
 -- no mount, no core, no scope.
-local function node(path: string, props: { [string]: any }?, children: { any }?): any
-	return { path = path, props = props or {}, children = children or {} }
+local function node(path: string, props: { [string]: any }?, children: { any }?, class: string?): any
+	return { path = path, props = props or {}, children = children or {}, class = class }
+end
+
+-- a Box-classed node, the one class a `tint` genuinely paints a background
+-- rect through (task POP fix round 1) — the constructor real call sites use
+-- (`UI.Box{ tint = ... }`) always carries this class
+local function box(path: string, props: { [string]: any }?, children: { any }?): any
+	return node(path, props, children, "Box")
 end
 
 describe("backdrop-before-content: the pure structural finder", function()
@@ -119,6 +126,71 @@ describe("backdrop-before-content: the pure structural finder", function()
 		})
 		expect(#transitionsLib.findBackdropFindings(group.path, group)).toBe(0)
 	end)
+
+	--[[ REVIEW FINDING 2 (fix round 1): the first shipped detector only read
+		`props.surface` — a `tint`-painted `Box` (RascalRally's own house style
+		for `StartCountdown.CountdownScrim`, `Ticker.EntryPlate`,
+		`TableScreen.TablePlate`, and more) rode straight through it. These four
+		cases pin the generalized rule: a `tint` PAINTS unless it is provably
+		fully transparent, and ONLY on the one class (`Box`) whose `tint` is a
+		background fill rather than a glyph/picture/stroke colour. ]]
+	it("an opaque tint on a Box, DIRECT child of the fade group, is a finding — via = tint", function()
+		local group = node("/S/Group", { canvasGroup = true }, {
+			box("/S/Group/Plate", { tint = { direct = "#000000" } }),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("tint")
+		expect(findings[1].surface).toBeNil() -- via=tint never populates `surface`
+	end)
+
+	it("a tint with `transparency = 1` (fully invisible) never paints, so it is never a finding", function()
+		local group = node("/S/Group", { canvasGroup = true }, {
+			box("/S/Group/Ghost", { tint = { direct = "#000000", transparency = 1 } }),
+		})
+		expect(#transitionsLib.findBackdropFindings(group.path, group)).toBe(0)
+	end)
+
+	it("a REACTIVE tint (no readable `.transparency`) is treated as opaque — the safe default direction", function()
+		-- `core:memo`'s own Readable shape (`{ kind = "memo", _node = ..., get = fn }`)
+		-- carries no `.transparency` field at all; unreadable counts as painting
+		local reactiveTint: any = { kind = "memo", _node = {}, get = function() end }
+		local group = node("/S/Group", { canvasGroup = true }, {
+			box("/S/Group/Plate", { tint = reactiveTint }),
+		})
+		expect(#transitionsLib.findBackdropFindings(group.path, group)).toBe(1)
+	end)
+
+	it(
+		"a `tint` on a NON-Box class (Text/Path/Image/Stage colour a glyph/stroke/picture, never a plate) is not a finding",
+		function()
+			local group = node("/S/Group", { canvasGroup = true }, {
+				node("/S/Group/Line", { tint = { direct = "#ffffff" } }, {}, "Text"),
+			})
+			expect(#transitionsLib.findBackdropFindings(group.path, group)).toBe(0)
+		end
+	)
+
+	--[[ REVIEW FINDING 3 (fix round 1): the SELF-CASE — the declared node IS
+		the canvasGroup — is not a separate, unproven code path. `resolveAlphaTarget`
+		does not repair it (see that function's own header), but detection here
+		takes NO node-identity shortcut: this is the exact shape `resolveAlphaTarget`
+		returns UNCHANGED for a self-case (`node.props.canvasGroup == true`), fed
+		straight into the SAME finder every other case in this file uses — and it
+		reddens exactly the same. RascalRally's `MessageLayer.ribbon`'s pre-fix
+		`HostRibbon`/`RibbonPlate` (surface) was measured in precisely this shape. ]]
+	it(
+		"the SELF-CASE (declared node IS the canvasGroup) is caught by the identical finder — no special case needed",
+		function()
+			local selfCase = node("/S/HostRibbon", { canvasGroup = true }, {
+				node("/S/HostRibbon/RibbonPlate", { surface = "raised" }),
+				node("/S/HostRibbon/RibbonBody", {}),
+			})
+			local findings = transitionsLib.findBackdropFindings(selfCase.path, selfCase)
+			expect(#findings).toBe(1)
+			expect(findings[1].backdropPath).toBe("/S/HostRibbon/RibbonPlate")
+		end
+	)
 
 	it("MUTATION PROOF: the fixed shape is clean, and re-nesting the plate reddens it", function()
 		-- THE FIXED SHAPE (what `shop.wisp` looks like after this task): the

@@ -97,17 +97,59 @@ moving one node.
 
 **The mandate-(b) guard is structural, not temporal.** `transitions.
 findBackdropFindings(alphaPath, alphaNode)` answers "does the node that will
-actually fade still compose an opaque `surface` as one of its own DIRECT
+actually fade still compose an opaque backdrop as one of its own DIRECT
 children" — a pure read of `.props`/`.children`, no clock, no engine, no
-adapter. Deliberately ONE LEVEL: a `surface` two levels into the content is
-ordinary content a shallower plate already made opaque, not a second
-backdrop, and flagging it would bury the real finding in noise (measured: the
-un-narrowed version reported `Portrait`/`Favourite` as false positives inside
-an already-fixed `Panel`). Every coordinator accumulates every finding it
-ever sees through a real `beginEnter`/`shouldRetire`, exposed as
-`coordinator.findings()` (a copy, like `controller.stats()`) — so a
-regression reddens the moment its push transition first runs, in a test or in
-Studio, with nothing to remember to re-run.
+adapter. **"Opaque backdrop" is a class, not a hand-list of one prop
+(fix round 1, review finding 2):** the same question is asked of Facet's TWO
+paint channels — an authored `surface` (any role but `plain`) and a `Box`'s
+own `tint` (unless its `transparency` is a literal `1`, fully invisible) —
+because both write the SAME engine property, `BackgroundColor3`. `tint` is
+NOT flagged on any other class: `Text`/`Image`/`Path`/`Stage` all accept
+`tint` too, but there it colours a glyph, a picture, a stroke or a clear-
+colour, never a background rect a sibling could hide behind — `paintsBackdrop`
+checks the node's CLASS before its paint, not just its props, so a `UI.Text{
+tint = … }` label is never mistaken for a plate. Deliberately ONE LEVEL: a
+backdrop paint two levels into the content is ordinary content a shallower
+plate already made opaque, not a second backdrop, and flagging it would bury
+the real finding in noise (measured: the un-narrowed version reported
+`Portrait`/`Favourite` as false positives inside an already-fixed `Panel`).
+Every coordinator accumulates every finding it ever sees through a real
+`beginEnter`/`shouldRetire`, exposed as `coordinator.findings()` (a copy, like
+`controller.stats()`) — so a regression reddens the moment its push
+transition first runs, in a test or in Studio, with nothing to remember to
+re-run. **Also fix round 1: the record only fires when the transition
+actually fades** (`fades(spec, form)`) — a pure slide writes no
+`GroupTransparency` anywhere, so a backdrop check against it was checking a
+property nothing ever animates (measured: RascalRally's `HandDock`-adjacent
+`BuyBar`, a `{enter = "slide-up"}` with no fade, flagged its own `Buy` button
+as an "opaque backdrop" — true of the shape, meaningless for the bug). This
+was the ONE false positive found across two reference apps and RascalRally's
+whole FacetSponsor surface this round; narrowing to fading transitions only
+removed it, with zero loss of real coverage (every genuine finding this round
+was already on a fading transition).
+
+**The self-case is DETECTED, not automatically REPAIRED (fix round 1, review
+finding 3).** `resolveAlphaTarget` returns the declared node unchanged
+whenever it is ALREADY `canvasGroup = true` (the self-case) — on the
+reasoning that an author who wrote that meant to fade exactly that node.
+`findBackdropFindings` takes no shortcut for this case: it reads whatever
+node `resolveAlphaTarget` hands it, self-case or resolved, identically —
+proven directly in `tests/backdrop_fade.spec.luau`'s own self-case test, and
+proven the hard way by a RED-TEAM review that fed `MessageLayer.ribbon()`'s
+UNMODIFIED, self-case `HostRibbon`/`RibbonPlate` straight into this finder
+and got exactly one finding back. What the resolver does NOT do is repair a
+flagged self-case for you: there is no OTHER node to redirect
+`GroupTransparency` to when the plate and the declared fade target are the
+SAME node's own children, so a flagged self-case still needs the identical
+blueprint surgery every other finding does (the plate moves to a sibling, its
+former content moves one level in, under a NEW canvasGroup). **This report's
+own earlier framing — "why this kills the CLASS, not one site" — invited
+exactly this over-reading; stated plainly, once, here: a change that makes a
+CORRECT construction possible does not retroactively repair an
+already-broken one, self-case or not. The finder would have found every real
+finding fixed this round on the day ADR-0060 landed, had it been pointed at
+them; mandate (b)'s own instrument was always capable, the round-0 sweep just
+never ran it wide enough to say so.**
 
 **What this answers about mandate (b), precisely.** This whole class is
 visible with ZERO frames stepped: the defect is a STATIC fact about the
@@ -130,7 +172,7 @@ universal pop detector.
   overlap is an at-rest `ViewThatFits`-vs-`fill`-sibling measurement
   interaction (director ruling 2026-08-14, "a candidate is judged at its
   ideal size, not the size it could be squeezed into" — deliberate,
-  SwiftUI-matching behavior, not a framework defect), not a pop. This
+  documented layout behavior, not a framework defect), not a pop. This
   invariant remains worth building for a genuinely transient class if one
   is found; it answers nothing about either video in this round, so it is
   not shipped here (see task-pop-report.md for the honest accounting).
@@ -167,10 +209,36 @@ universal pop detector.
   now-fixed shape) were caught by the full targeted suite before landing,
   not shipped; both now share `shop.page`/the plate-split pattern rather
   than carrying a third copy.
-- RascalRally: `games/RascalRally/code` uses `canvasGroup = true` fade groups
-  through `FacetSponsor` (`HandDock`, `FollowScreen`, `RolePickScreen`,
-  `ResultsScreen`, `TableScreen`, `HudScreen`, and others). Every one of
-  them declares the fade on the node itself (the self-case), so
-  `resolveAlphaTarget` returns it unchanged — RR's own suite is the
-  evidence (task-pop-report.md's RR tail) that this migration needs no
-  RR-side change; the change is additive at the framework boundary.
+- **RascalRally, round 0 vs. fix round 1 (corrected).** Round 0's report
+  claimed every `FacetSponsor` `canvasGroup` site was a self-case needing no
+  RR-side migration — TRUE of `resolveAlphaTarget`'s own resolution (spot-
+  checked, accurate), but that is a DIFFERENT question from "does any of them
+  compose the newpop.mov shape," which round 0 never actually ran the finder
+  to answer. A RED-TEAM review (fix round 1) fed `MessageLayer.ribbon()`'s
+  unmodified `HostRibbon`/`RibbonPlate` into `findBackdropFindings` directly
+  and got a finding back — the exact bug, live in production. Fix round 1's
+  own sweep (`games/RascalRally/code/tests/facet_sponsor_backdrop_sweep.spec.
+  luau`, registered) then found and fixed SEVEN real instances of this shape
+  across the game's own FacetSponsor surfaces — `MessageLayer.ribbon`
+  (`HostRibbon`/`RibbonPlate`), `StartCountdown` (`CountdownScrim`, a
+  `tint`-painted plate — invisible to round 0's `surface`-only detector),
+  `Ticker` (`EntryPlate`, also `tint`), `TableScreen` (`TablePlate`, also
+  `tint` — the main driver table), `RolePickScreen` (`Scrim` AND `Card`, the
+  mandatory join modal), `ResultsScreen`'s `Payoff` piece, and `HudScreen`'s
+  dead-code table placeholder — each restructured with the SAME plate-
+  outside/content-in-a-new-inner-group shape this ADR's own fix uses, no new
+  API. `ResultsScreen`'s main `ResultsRoot`/`ResultsScrim` (the full-screen
+  results dimmer) is a CONFIRMED, real eighth instance, root-caused and
+  fix-specified but NOT executed this round — its `focusGroups`/
+  `adjustTargets` machinery threads absolute paths through the exact subtree
+  the fix would restructure, and the file is large and heavily relied upon;
+  deferred deliberately (task-pop-report.md's fix-round-1 section), the same
+  honest-deferral standard round 0 set for the cartwheel toolbar overlap.
+  Every fix landed here also needed the SAME thing Glade's did: the site's
+  own PATH constants updated for the new nesting depth (RR's `MessageLayer.
+  PATHS`, `StartCountdown.PATHS`, `Ticker.entryPath`, `TableScreen.PATHS`,
+  `RolePickScreen.PATHS`) and every consumer of those constants (RR's own
+  test suite) migrated in the SAME commit set — recorded here per the root
+  `CLAUDE.md`'s consumer-lockstep rule, not asserted without the RR-side
+  evidence to back it (RR suite: 3537 passed, 1 pre-existing unrelated
+  failure, task-pop-report.md's fix-round-1 tail).

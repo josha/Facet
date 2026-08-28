@@ -2064,14 +2064,24 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`
   for a single plate) itself, OR contain exactly ONE such node in its own
   subtree (ADR-0060, task POP). The second shape is how a backdrop plate stays
-  OUTSIDE the fade: give the region's child an opaque `surface` and put its
-  content one level in, inside its own `canvasGroup` — position/scale still
-  ride the whole card as one rigid unit (a plain `UIScale`/offset needs no
-  group at all), while `GroupTransparency` is written to the inner group only,
-  so the plate paints at its own, immediate opacity from the first frame
-  instead of fading in lockstep with the text on it. Zero or more than one
-  `canvasGroup` candidate in the subtree is an authoring error that names the
-  fix, exactly as a bare non-group child always has been.
+  OUTSIDE the fade: give the region's child an opaque background — a
+  `surface` role, OR a `UI.Box`'s own `tint` (the same `BackgroundColor3`
+  channel; a `tint` on any OTHER class colours a glyph/picture/stroke, never a
+  plate, and is not covered by this rule at all) — and put its content one
+  level in, inside its own `canvasGroup`. Position/scale still ride the whole
+  card as one rigid unit (a plain `UIScale`/offset needs no group at all),
+  while `GroupTransparency` is written to the inner group only, so the plate
+  paints at its own, immediate opacity from the first frame instead of fading
+  in lockstep with the text on it. Zero or more than one `canvasGroup`
+  candidate in the subtree is an authoring error that names the fix, exactly
+  as a bare non-group child always has been. **This is a construction rule,
+  not an automatic repair**: a node that is ALREADY `canvasGroup = true`
+  itself, with the opaque plate as its OWN direct child (rather than nested
+  one level down inside a separate plate node), is a self-case Facet resolves
+  to itself unchanged — the plate must be moved to a sibling and the content
+  re-nested by hand; nothing in the framework rewrites an existing tree for
+  you. `tests/backdrop_fade.spec.luau` is the headless gate that catches
+  either shape (self-case or not) the moment its push transition first runs.
 - **A departing subtree RETIRES, it does not vanish.** It stays mounted in its
   slot (a `ForEach` row exits in place, clamped to its old index), turns
   **non-interactive** — focus order and tap routing both skip it and everything

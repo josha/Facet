@@ -108,9 +108,11 @@ end
 --[[ BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
 	item 10 + mandate b). `GroupTransparency` is ONE scalar Roblox composites over
 	a CanvasGroup's WHOLE rendered subtree, so an opaque plate (an authored
-	`surface`) declared INSIDE the node a fade targets reaches full opacity at the
-	exact instant its content does — "the backdrop is legible no later than the
-	content" is then impossible BY CONSTRUCTION, not merely unlikely. Measured
+	`surface` or an opaque `Box` `tint` — fix round 1 widened this from
+	`surface` alone, see `paintsBackdrop` below) declared INSIDE the node a fade
+	targets reaches full opacity at the exact instant its content does — "the
+	backdrop is legible no later than the content" is then impossible BY
+	CONSTRUCTION, not merely unlikely. Measured
 	headlessly (task POP): four Glade modals shared one helper that put
 	`surface = "raised"` on a descendant of the one canvasGroup `presentModal`
 	targets; `GroupTransparency` sampled across a 30-tick materialize read
@@ -123,8 +125,44 @@ end
 	gate can call them directly over a `tests/lib/fake_target` tree with nothing
 	else wired up. ]]
 local NON_PAINTING_SURFACE: { [string]: boolean } = { plain = true }
-local function paintsBackdrop(surface: any): boolean
-	return type(surface) == "string" and not NON_PAINTING_SURFACE[surface]
+--[[ task POP fix round 1 (review finding 2): the FIRST shipped detector only
+	read `props.surface` — provably blind to a plate painted with `tint`
+	instead (RascalRally's own house style: `StartCountdown.CountdownScrim`,
+	`Ticker.EntryPlate`, `TableScreen.TablePlate`, and more, swept this round).
+	`tint` is not by itself proof of an opaque BACKDROP, though: `blueprint_
+	schema.luau` gives `tint` to `Text`, `Image`, `Path` and `Stage` too, where
+	it colours a GLYPH, a picture, a stroke or a scene clear-colour — never a
+	background rect a sibling could be hidden behind. `Box` is the one class
+	whose `tint` is a straight `BackgroundColor3` fill (the exact channel
+	`surface` also writes), so a tint-based finding is scoped to it — a
+	general fact about the ONE class that paints a full-bleed rect this way,
+	not a hand-list of the sites that happen to hit it today. ]]
+local TINT_PAINTS_BACKDROP: { [string]: boolean } = { Box = true }
+local function paintsBackdrop(child: any): (boolean, string?)
+	local props = child.props
+	if props == nil then
+		return false
+	end
+	local surface = props.surface
+	if type(surface) == "string" and not NON_PAINTING_SURFACE[surface] then
+		return true, "surface"
+	end
+	if TINT_PAINTS_BACKDROP[child.class] then
+		local tint = props.tint
+		if type(tint) == "table" then
+			-- `styling.checkTint`'s own vocabulary: "0 is opaque (the default),
+			-- 1 is invisible". A REACTIVE tint (a Bound value, still a plain
+			-- table at this layer — see `core:memo`'s `makeReadable`) carries no
+			-- readable `.transparency` at all; treating "unreadable" the same as
+			-- "opaque" is the safe direction (a `surface = "plain"`-style miss
+			-- would hide a real finding, a spurious one just asks for a look).
+			local alpha = tint.transparency
+			if not (type(alpha) == "number" and alpha >= 1) then
+				return true, "tint"
+			end
+		end
+	end
+	return false
 end
 
 -- every `canvasGroup = true` descendant of `node`, stopping descent at each one
@@ -149,7 +187,23 @@ end
 	backdrop is then never a descendant of what fades, so it paints at its own,
 	immediate opacity from the first frame. Zero or more than one candidate falls
 	back to the declared node itself — exactly today's construction, and
-	`assertFadeCapable`'s refusal still fires for it unchanged. ]]
+	`assertFadeCapable`'s refusal still fires for it unchanged.
+
+	THE SELF-CASE IS TRUSTED, NOT REPAIRED (review finding 3, fix round 1
+	honesty note). When the DECLARED node already IS the canvasGroup, this
+	returns it unchanged — on the reasoning that a node an author explicitly
+	marked `canvasGroup = true` is the one they meant to fade. If that SAME
+	node also composes an opaque `surface`/`tint` as one of its own direct
+	children (RascalRally's `MessageLayer.ribbon`'s pre-fix `HostRibbon`/
+	`RibbonPlate` was measured in exactly this shape), this function does
+	NOTHING to separate them — there is no OTHER node here to redirect the
+	write to; splitting a self-case apart is a BLUEPRINT edit (the plate moves
+	to a sibling, its former content moves one level into a NEW inner group),
+	not something this resolver can do for you. `findBackdropFindings` still
+	SEES a self-case exactly as it sees any other (it reads whatever node
+	`resolveAlphaTarget` hands it, self or resolved, with no special case of
+	its own) — detection and repair are two different questions, and only the
+	second one has a boundary here. ]]
 local function resolveAlphaTarget(path: string, node: any): (string, any)
 	if node == nil or node.props == nil or node.props.canvasGroup == true then
 		return path, node
@@ -163,7 +217,14 @@ local function resolveAlphaTarget(path: string, node: any): (string, any)
 	return path, node
 end
 
-export type BackdropFinding = { path: string, backdropPath: string, surface: string }
+export type BackdropFinding = {
+	path: string,
+	backdropPath: string,
+	-- populated for a `surface`-painted finding; nil for a `tint`-painted one
+	-- (task POP fix round 1) — `via` always names which channel tripped it
+	surface: string?,
+	via: string, -- "surface" | "tint"
+}
 
 -- the STRUCTURAL half of the same finding, usable with no coordinator at all:
 -- does the node that will actually fade (post `resolveAlphaTarget`) itself
@@ -183,10 +244,11 @@ export type BackdropFinding = { path: string, backdropPath: string, surface: str
 -- second backdrop. `tests/backdrop_fade.spec.luau` pins both directions: the
 -- unfixed shape reddens this, and legitimate nested content (a card two levels
 -- into a fixed page) never does.
-local function collectBackdrops(node: any, out: { any })
+local function collectBackdrops(node: any, out: { { node: any, via: string } })
 	for _, child in node.children or {} do
-		if child.props ~= nil and paintsBackdrop(child.props.surface) then
-			table.insert(out, child)
+		local paints, via = paintsBackdrop(child)
+		if paints then
+			table.insert(out, { node = child, via = via :: string })
 		end
 	end
 end
@@ -199,23 +261,31 @@ function transitions.findBackdropFindings(alphaPath: string, alphaNode: any): { 
 	if alphaNode == nil then
 		return out
 	end
-	local backdrops: { any } = {}
+	local backdrops: { { node: any, via: string } } = {}
 	collectBackdrops(alphaNode, backdrops)
 	for _, b in backdrops do
-		table.insert(out, { path = alphaPath, backdropPath = b.path, surface = b.props.surface })
+		table.insert(out, {
+			path = alphaPath,
+			backdropPath = b.node.path,
+			surface = if b.via == "surface" then b.node.props.surface else nil,
+			via = b.via,
+		})
 	end
 	return out
 end
 
 function transitions.backdropIssue(finding: BackdropFinding): string
+	local paint = if finding.via == "tint"
+		then "opaque `tint`"
+		else string.format("opaque `surface = %q`", finding.surface)
 	return string.format(
-		"%s declares a fading transition whose fade group still composes %s's opaque `surface = %q` — "
+		"%s declares a fading transition whose fade group still composes %s's %s — "
 			.. "GroupTransparency dims the two together, so the backdrop can never be legible ahead of the "
 			.. "content it sits behind. Move the backdrop OUTSIDE the fade group (a sibling, not a descendant); "
 			.. "`src/render/transitions.luau`'s header names the shape.",
 		finding.path,
 		finding.backdropPath,
-		finding.surface
+		paint
 	)
 end
 
@@ -459,7 +529,20 @@ function transitions.new(opts: Opts)
 		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.enter)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
-		recordBackdropFindings(alphaPath, alphaNode)
+		--[[ task POP fix round 1 (sweep found this real, against the GATE
+			itself): a PURE slide (no `fade`) never writes `GroupTransparency`
+			anywhere — `resolveAlphaTarget`'s own "zero candidates" fallback
+			then names the DECLARED node, which was never meant to be an alpha
+			target at all, and a backdrop check against it is checking a
+			property nothing ever animates. Measured: `p5_wardrobe`'s BuyBar
+			(`{enter = "slide-up"}`, no fade) flagged its own `Buy` button as
+			an "opaque backdrop" — true of the shape, meaningless for the bug,
+			since GroupTransparency is never written here at all. Gated on
+			`spec.enter` actually fading, matching what this transition will
+			really do to the node. ]]
+		if fades(spec, spec.enter) then
+			recordBackdropFindings(alphaPath, alphaNode)
+		end
 		if spec.enter == "instant" then
 			-- a hard place: nothing to animate, but the arrival is still a fact the
 			-- feedback seam owes its subscribers (information parity)
@@ -498,7 +581,12 @@ function transitions.new(opts: Opts)
 		end
 		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
-		recordBackdropFindings(alphaPath, alphaNode)
+		-- the enter-side twin's own reasoning: an exit that does not fade
+		-- never writes GroupTransparency, so a backdrop check against it is
+		-- checking a property nothing here ever animates
+		if fades(spec, spec.exit) then
+			recordBackdropFindings(alphaPath, alphaNode)
+		end
 		return spec
 	end
 
