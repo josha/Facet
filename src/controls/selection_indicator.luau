@@ -118,6 +118,7 @@ local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local rectLib = require("../rect")
 local themeSnapshot = require("../themes/snapshot")
+local chrome_slots = require("../tokens/chrome_slots")
 
 local selection_indicator = {}
 
@@ -364,13 +365,48 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		local raw = use(env:get("themeMetrics"))
 		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 	end))
+	--[[ WHICH PLATE THE BAR IS, hoisted above `skinOpts` because the inset rule
+		below has to know what the bar's surface CARVES. The declaration and the
+		reasoning for it live at `barSurface`'s use site further down; only the two
+		values move here. ]]
+	local barSurface = if spec.surface ~= nil then spec.surface elseif skin == "pill" then "accent" else nil
+	local barSurfaceSlot = chrome_slots.classify({ class = "Box", surface = barSurface })
+
+	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8).
+		The paragraph beside `barSurface` below says a ~40px chip "has room for a
+		themed control chrome's borders and insets". Measured 2026-08-27 on the tab
+		strip it was written for: Pixel Quest's `control` recipe carves 16px per side,
+		so a 44px segment inset by `space.xs` gives a 128x36 plate whose own content
+		box is 96x4 — and the option's label, which is a SIBLING of the plate and
+		spans the whole 136x44 segment, is drawn straight across the frame (IMG_3787:
+		"tab font has no padding, overlaps edge").
+
+		SO THE PILL'S OWN INSET GIVES WAY TO THE FRAME FIRST. `inset` is decoration —
+		"stand this chip off the segment edge" — and the package's carved border is
+		not: a plate that cannot contain what it decorates is worse than one flush
+		with its segment. Zero on every flat package (`chromeInsets` all zero, so
+		`inset` is untouched and the shipped geometry cannot move) and, on an ornate
+		one, the difference between a plate 8px too small on each axis and one that is
+		merely tight. It does NOT make a 16px frame fit a 44px tab — no arrangement
+		does, and what remains is the package's own metric to answer; it stops the
+		framework from spending pixels making it worse. ]]
 	local skinOpts = scope:own(core:memo(function(use)
 		local snap = use(metricsSig)
+		local carved = 0
+		local insets = if type(snap) == "table" then (snap :: any).chromeInsets else nil
+		local plate = if type(insets) == "table" and barSurfaceSlot ~= nil then (insets :: any)[barSurfaceSlot] else nil
+		if type(plate) == "table" then
+			for _, side in { "top", "right", "bottom", "left" } do
+				local px = (plate :: any)[side]
+				carved = math.max(carved, if type(px) == "number" then px else 0)
+			end
+		end
+		local declared = themeSnapshot.resolveNumber(snap, spec.inset or DEFAULT_INSET) or 0
 		return {
 			skin = skin,
 			axis = axisNow(use),
 			thickness = themeSnapshot.resolveNumber(snap, spec.thickness or DEFAULT_THICKNESS) or 0,
-			inset = themeSnapshot.resolveNumber(snap, spec.inset or DEFAULT_INSET) or 0,
+			inset = math.max(0, declared - carved),
 		}
 	end, sameGeometry))
 
@@ -419,7 +455,8 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		before this seam replaced it. `spec.surface` still overrides, on either
 		skin, for a caller that wants the plate. ]]
 	local UNDERLINE_TINT = table.freeze({ role = "accent", blend = 1 })
-	local barSurface = if spec.surface ~= nil then spec.surface elseif skin == "pill" then "accent" else nil
+	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its
+	-- slot); the decision it records is this paragraph's.
 	local bar = UI.Box({
 		id = "Bar",
 		surface = barSurface,
