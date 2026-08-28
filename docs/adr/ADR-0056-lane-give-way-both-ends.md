@@ -2,10 +2,18 @@
 
 **Date:** 2026-08-27
 **Status:** Accepted
-**Number:** 0056. A defect fix, not a new surface — no new prop, no new key, no
-ADR-0040 row (no required-prop flip, no documented-default change). It DOES move
-painted geometry on every composition that declares `exclusions`; the affected
-shipped surfaces are listed under "What moves" below.
+**Number:** 0056. A defect fix, not a new surface — no new prop and no new key,
+so Decision 3's shape instrument (the required set and the documented defaults)
+has nothing to record. It DOES move painted geometry on every composition that
+declares `exclusions`, and that is what earns it
+**[ADR-0040](ADR-0040-unreleased-breaking-changes.md) row B-31**: the register's
+own precedent is B-18 ("zero shipped screens move today ... which is exactly why
+it needs a register entry"), B-21, B-25/B-30 (a gallery-fixture geometry change is
+still a shipped-geometry change worth a row) and above all B-27 — same file, same
+feature, same live consumer, a pure defect fix, and it got a row. The first version
+of this ADR declined one on Decision 3's criterion, which is the instrument's
+criterion and not the register's (review finding I-2). Affected shipped surfaces
+are listed under "What moves" below.
 **Companions:** [ADR-0046](ADR-0046-band-safe-content-and-lane-exclusions.md)
 §4 (the per-lane exclusion this corrects the other half of),
 [ADR-0025](ADR-0025-screen-anchored-hud.md) (the composition's partition
@@ -88,7 +96,13 @@ Measured on the pure module (`bottomLeft` cluster, HUD preset, 1716x871 box):
 | 300 | y=300 h=571 | 1171 | **300** |
 
 The overshoot is the inset, 1:1, at every size — which is what identifies the
-term rather than fitting a curve to one screenshot. FIX-4's 54-vs-78/90px gap is
+term rather than fitting a curve to one screenshot. **The 1:1 law is stated for
+the LAST region of the `end`-placed group** (`Feed` in the table above, and in
+every row of the corpus sweep): a region ABOVE another in the same group is short
+of the full inset by its sibling's height, which is the group stacking downwards
+rather than a second term — traced and confirmed as one term, and visible in the
+sweep's own output (`/HudScreen/Hud/Health: placed 39px past … (lane gave way
+54px)` beside `/HudScreen/Hud/Feed: placed 54px past … (lane gave way 54px)`). FIX-4's 54-vs-78/90px gap is
 the SAME single term read in two frames: its headless repro injected the chip
 rect relative to a box whose origin was the window origin, while the live path
 shifts window-space rects into a composition box that starts at y=-87, so the
@@ -200,12 +214,26 @@ a non-`start`-placed group in a lane that gives way**. In this repository:
 - Nothing else. No other shipped scenario, example, reference app or proof
   declares `exclusions`, and a composition that declares none has an inset of 0
   on every lane, where the new operand and the old one are the same number.
-- **Rascal Rally: not affected.** Its one shipped composition
-  (`ResultsScreen.luau`'s `ResultsBody`) declares no `exclusions` and the game
-  never publishes `appChromeRects` — grepped, zero hits, and pinned as a consumer
-  rider in `tests/facet_composition_collision_contract.spec.luau` alongside a
-  POSITIVE CONTROL that drives the game's own pinned Facet through an exclusion
-  and asserts the containment, so "unaffected" cannot rot into "untested".
+- **Rascal Rally: not affected** — and the survey behind that sentence was wrong
+  twice in this ADR's first version (review finding I-1), so here it is corrected.
+  The game constructs `UI.Composition` in **three** places, not one:
+  `ResultsScreen.luau:2866` and `:3416` (the compact and roomy arrangement sets of
+  the same `ResultsBody` id) and `HudScreen.luau:281` — `ChipBandRoot`, the
+  production sponsor chip band, built on `Facet.composition.HUD_GROUPS` under
+  `rootPolicy = "bandSafeContent"`, which is the closest surface in that game to
+  the showcase HUD that broke. It declares **two** non-`start` placements, not one:
+  `place = "center"` on `ceremony` and `place = 0.66` on `next` (a numeric `place`
+  is a real non-`start` placement — `placeWeights` takes a number — and 0.66 would
+  have moved by `0.34 * inset`). The CONCLUSION survives every correction: no RR
+  composition declares `exclusions`, nothing there publishes `appChromeRects`, so
+  every lane's inset is 0 and the new operand is the old one.
+  `tests/facet_composition_collision_contract.spec.luau` carries it mechanically —
+  a POSITIVE CONTROL that drives the game's own pinned Facet through an exclusion
+  and a bottom-anchored group (verified red against the pre-fix framework), an
+  `exclusion = 0` pin and a containment sweep on the shipped results screen at
+  every matrix viewport, and a span-only fence on `ChipBandRoot` (its one region
+  takes `topbar`, outside the lane vocabulary, so there is no lane to give way;
+  mutation-proved by moving that region onto `bottomLeft`).
 
 ## The alternatives
 
@@ -224,6 +252,38 @@ director's words are *"the framework should make overlap impossible"*, and a
 diagnostic is not an impossibility. The finding ships too, as the guard, because
 the fix makes the class impossible by arithmetic and the guard is what proves the
 arithmetic did not come back.
+
+**Ship the containment compare as a per-solve RUNTIME finding as well.**
+Deferred — and the reason is a scope judgement, stated as one, because the cost
+claim the first version of this ADR leaned on turned out to be false (review
+finding I-6). **Measured**, `tools/lune/_probe_containment_cost` shape, 4,000
+resolves per arm on a twelve-region HUD declaration, ABBA x5, medians:
+
+| declaration | plain | with the compare | delta | A/A spread |
+|---|---:|---:|---:|---:|
+| no `exclusions` | 0.2192s / 0.2340s / 0.2263s | 0.2218s / 0.2364s / 0.2258s | +1.18% / +1.01% / -0.20% | 0.28% / 1.50% / 2.03% |
+| `exclusions` declared | 0.2359s / 0.2437s / 0.2308s | 0.2353s / 0.2446s / 0.2318s | -0.24% / +0.36% / +0.43% | 1.37% / 0.34% / 0.80% |
+
+**The delta is inside the harness's own A/A spread in every run.** That is the
+opposite of the neighbouring collision PRECONDITION's number (`composition.luau`,
+"with the scan unconditional the off-path legacy declaration paid +3.5% per
+resolve"), and the difference is structural rather than lucky: that one is a
+PAIRWISE scan with two tables behind it, this one is `#regions` compares against a
+rect already in hand. So cost is not the reason and this ADR no longer claims it
+is.
+
+The reason is what the finding would have to SAY. Scoped to `legal and not
+fallback` — the scope the 312-case measurement forces — it can now fire only on a
+framework bug, and `controller.diagnostics()` is an AUTHOR-facing channel: a
+finding with no author to address is an assertion wearing a diagnostic's clothes.
+Unscoped it would re-report the 312 `designed` fallbacks. The invariant is
+enforced instead where it costs no shipped frame and still runs on every solve the
+suite makes: `tests/overflow_sweep.spec.luau`'s `laneContainmentScan` (every
+composition on every swept surface, not one path), `tests/overflow_guard.spec.luau`'s
+chrome-row arm, and Rascal Rally's own rider. **Named as a judgement, with the
+number, so the next reader can overturn it on the merits rather than on a cost
+that is not there** — and if a runtime channel for framework-invariant violations
+ever exists, this is a candidate for it.
 
 ## The runnable checks
 

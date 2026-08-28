@@ -916,12 +916,13 @@ UI.Composition{
   so a settled tree equals a fresh mount by construction. Declaring none is
   byte-identical to a composition that never heard of them.
   ([ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md))
-  A lane that gives way is **shorter by exactly what it gave, at both ends**: it
-  places its groups exactly as an unshortened lane of the same height would, so a
-  `place = "end"` group (`bottomLeft` · `bottom` · `bottomRight`) sits against the
-  **shortened** lane's bottom edge and a `sizing = "fill"` group takes the
-  **shortened** lane's height — the composition's partition still holds with a
-  chrome row declared
+  A lane that gives way is **shorter by exactly what it gave, at both ends**, and
+  the precise statement is that it **places its groups exactly as an unshortened
+  lane of the same height would** — every `place`, every `sizing`, offset by where
+  the lane starts and by nothing else. So the last `place = "end"` group in a lane
+  (`bottomLeft` · `bottom` · `bottomRight`) sits against the **shortened** lane's
+  bottom edge, a `sizing = "fill"` group divides the **shortened** lane's height,
+  and the composition's partition still holds with a chrome row declared
   ([ADR-0056](../adr/ADR-0056-lane-give-way-both-ends.md)).
 
 - **`arrangements`** — ordered candidates, richest first. A preset name
