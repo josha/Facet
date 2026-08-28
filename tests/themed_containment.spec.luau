@@ -42,6 +42,16 @@
 	     making them agree. With the inset given back the disc is 32 and the gutter
 	     holds it.
 
+	     ...AND THAT FIXED THE PACKAGE, NOT THE CLASS (fix round, 2026-08-28,
+	     review finding C1). The disc's floor still grew without any bound, so the
+	     photograph came straight back under a package one design pixel thinner: at
+	     a `control` inset of 4 per side the inset is SPENDABLE, the floor wants 40
+	     and the gutter is 36. The room the row reserves is now DECLARED
+	     (`chrome_slots.Hint.footprint`, from the same `EDIT_FOOTPRINT` list
+	     `editGutterPx` resolves), the floor stops there, and the solver files
+	     `sizeRefused`. The last group in this file sweeps the inset instead of
+	     pinning one package's rects, which is the difference between the two.
+
 	WHAT THIS FILE IS. The always-on floor for the class, at the MEASURED MINIMUM
 	that catches it rather than the whole cross product: the three surfaces the
 	director photographed (plus the playlist in the STATE he photographed it in),
@@ -476,6 +486,124 @@ describe("themed containment: the four measurements, pinned", function()
 			judged += 1
 		end
 		expect(judged >= 6).toBe(true)
+	end)
+end)
+
+--[[ ITEM 9 AS A PROPERTY, NOT AS TWO NUMBERS (task THEME fix round, 2026-08-28;
+	review finding C1; ADR-0059 Decision 6).
+
+	THE CASE ABOVE PINS THE SHIPPED RECTS, and that is not the same claim as "the
+	class is dead". It reproduced under a package one design pixel thinner: with
+	Pixel Quest's `control` inset at 4 per side — still a multiple of its own
+	`pixelUnit`, still green against its own package gate — the inset became
+	SPENDABLE (32 - 8 = 24 is above the 16px line-box floor), the disc's padding
+	became 4, the `shape = "circle"` icon floor raised it to `iconSizes.medium` 32
+	plus 8 = 40, and a 40px disc at x=16 painted onto a row starting at x=52. Four
+	pixels onto EVERY row: IMG_3788, from a legal package, with the round that
+	"fixed item 9" already landed.
+
+	SO THIS SWEEPS THE INSET rather than one package's value, and asserts the
+	INVARIANT the row and the disc are really about: the affordance never exceeds
+	the room the row reserved for it. Three values, chosen by measurement rather
+	than taste — 4 is the one that used to break (the inset is spent AND the floor
+	then wants more than the gutter), 8 is the shipped value (spent, floor fits),
+	12 is the largest that snaps below the refusal boundary (the inset is given
+	back entirely). Each is a package the gate accepts.
+
+	AND THE OTHER HALF OF REFUSE-OR-CATCH. A cap that silently shrank the disc
+	would pass the invariant while hiding a package whose icon does not fit its own
+	control, so the arm that used to overflow must also FILE — one `sizeRefused`
+	per row, naming both numbers. ]]
+describe("themed containment: item 9's class, at every legal package", function()
+	local pixel_quest = require("../examples/themes/pixel_quest") :: any
+
+	local INSETS = { 4, 8, 12 }
+
+	local function snapshotAt(px: number): any
+		local def = pixel_quest.definition(Facet.themes)
+		if px ~= 8 then
+			for _, slot in { "control", "field", "selection", "stepperPlate" } do
+				def.chrome[slot].contentInsets = { top = px, right = px, bottom = px, left = px }
+			end
+			def.identity.id = `{pixel_quest.id}-inset{px}`
+		end
+		local pkg, report = Facet.themes.define(def)
+		assert(
+			pkg ~= nil,
+			`pixel_quest at control inset {px} is NOT a legal package, so it cannot stand for one: `
+				.. `{report and report.errors[1] and report.errors[1].message}`
+		)
+		return Facet.themes.resolve(pkg, nil, {})
+	end
+
+	it("the edit affordance never exceeds the gutter the row reserved for it", function()
+		local view: any = nil
+		for _, v in device_views.VIEWS do
+			if v.id == "compact-phone-portrait" then
+				view = v
+			end
+		end
+		local problems: { string } = {}
+		local refusedAt: { [number]: number } = {}
+		local judgedAt: { [number]: number } = {}
+		for _, px in INSETS do
+			local w = world(view)
+			local built = mountExample(w, "02_playlist_table")
+			settle(w)
+			w.env:set("themeMetrics", snapshotAt(px))
+			settle(w)
+			for _, path in w.adapter.paths() do
+				if string.find(path, "EditToggle", 1, true) ~= nil then
+					w.adapter.tap(path)
+					break
+				end
+			end
+			settle(w)
+			judgedAt[px] = 0
+			for _, path in w.adapter.paths() do
+				if string.find(path, "/EditAffordanceWhen/then/EditAffordance", 1, true) == nil then
+					continue
+				end
+				local disc = w.adapter.node(path)
+				local row =
+					w.adapter.node(string.gsub(path, "/EditAffordanceWhen/then/EditAffordance$", "/Content/Row"))
+				if disc == nil or row == nil then
+					continue
+				end
+				judgedAt[px] += 1
+				local over = (disc.rect.x + disc.rect.w) - row.rect.x
+				if over > 0 then
+					table.insert(
+						problems,
+						`  control inset {px}/side: {disc.rect.w}x{disc.rect.h} disc at x={disc.rect.x} runs `
+							.. `{over}px onto a row starting at x={row.rect.x} ({path})`
+					)
+				end
+			end
+			refusedAt[px] = 0
+			for _, finding in built.handle.controller.diagnostics() do
+				if string.find(finding.issue, "icon floor wanted", 1, true) ~= nil then
+					refusedAt[px] += 1
+				end
+			end
+		end
+		if #problems > 0 then
+			error(
+				`the edit affordance escaped the gutter under a LEGAL package — director item 9's class, `
+					.. `not its numbers:\n{table.concat(problems, "\n")}`,
+				0
+			)
+		end
+		-- ANTI-VACUITY: every arm really entered edit mode and found its discs
+		for _, px in INSETS do
+			expect(`inset {px}: {judgedAt[px] >= 6}`).toBe(`inset {px}: true`)
+		end
+		-- ...AND THE CATCH. Only the arm whose floor wanted more than the row
+		-- reserved files, and it files once per row rather than once per screen —
+		-- a cap that shrank the disc in silence would pass the invariant above
+		-- while hiding the package defect that forced it.
+		expect(refusedAt[4] >= 6).toBe(true)
+		expect(`8:{refusedAt[8]} 12:{refusedAt[12]}`).toBe("8:0 12:0")
 	end)
 end)
 

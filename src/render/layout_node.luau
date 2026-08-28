@@ -1077,6 +1077,37 @@ local function toLayoutNode(
 				floor, never a bigger constant. ]]
 			if props.shape == "circle" then
 				local need = px + math.max(pl + pr, pt + pb)
+				--[[ ...AND A FLOOR IS A REQUEST, NOT A RIGHT (task THEME fix round,
+					2026-08-28; ADR-0059 Decision 6; review finding C1). Which is the same
+					sentence the block a few dozen lines up is built on, at the other number
+					that block decides — and this one had no such bound at all.
+
+					The floor above grows the disc by whatever the chrome block just wrote
+					into its padding, so a package that makes its `control` inset SPENDABLE
+					(small enough that the line box survives it) hands the growth straight
+					through: `iconSizes.medium` 32 plus 4+4 of newly-spent frame is a 40px
+					disc where the host reserved 36. Measured 2026-08-28 on a Pixel Quest
+					variant carving 4px per side — legal, every value a multiple of its own
+					`pixelUnit`, its package gate green — the edit-mode delete disc solved
+					40x40 at x=16 against a row starting at x=52. That is director item 9's
+					photograph, reproduced by a legal package, because two theme facts
+					decided one distance and nothing made them agree.
+
+					`hint.footprint` is the host saying what it reserved, in the SAME
+					expression it reserved it with (`chrome_slots.Hint`). Above it the floor
+					is refused: the control keeps the room it was given, the paint seam's
+					`chrome_slots.iconBoxPx` draws the picture at the size that fits, and
+					`sizeRefused` tells the author the package wants a bigger picture than
+					this control has room for. Refuse-or-catch rather than an overlap
+					nothing reports. No hint = no reservation = the floor grows exactly as
+					it did, which is every other disc in the library. ]]
+				local reserved = if hint ~= nil and hint.footprint ~= nil
+					then themeSnapshot.resolveTotal(metrics, hint.footprint)
+					else nil
+				if type(reserved) == "number" and reserved > 0 and need > reserved then
+					layoutNode.sizeRefused = { want = need, reserved = reserved, icon = iconName }
+					need = reserved
+				end
 				for _, axis in { "width", "height" } do
 					local dim = (layoutNode :: any)[axis]
 					if type(dim) == "table" and dim.type == "fixed" and type(dim.px) == "number" and dim.px < need then

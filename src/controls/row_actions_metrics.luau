@@ -94,6 +94,26 @@ row_actions_metrics.BUTTON_MIN_WIDTH = BUTTON_MIN_WIDTH
 -- `editGutterPx` sums.
 row_actions_metrics.EDIT_AFFORDANCE = EDIT_AFFORDANCE
 
+--[[ THE ROOM THE ROW LEAVES FOR THE MINUS, WRITTEN ONCE (task THEME fix round,
+	2026-08-28; ADR-0059 Decision 6; review finding C1).
+
+	`editGutterPx` below resolves this list, and `row_actions_root` hands the SAME
+	list to `chrome_slots.attachHint` as the disc's `footprint`, so the space the
+	row reserves and the ceiling the framework's size floor may not cross are one
+	expression rather than two that happen to agree. They did not, before: the
+	`shape = "circle"` icon floor in `render/layout_node` raises a disc to hold its
+	picture at full size and had no bound at all, so a package whose `control`
+	inset is SPENDABLE handed the growth straight through — measured 2026-08-28 on
+	a legal Pixel Quest variant carving 4px per side, a 40px disc against a 36px
+	gutter, painting onto every row (director item 9's photograph).
+
+	A LIST IS A SUM (`themeSnapshot.resolveTotal`, the grammar `resolveSides` and
+	`resolveDim` already share): "as wide as the affordance metric, plus the
+	row-facing negative space the band spends". Both terms are theme metrics, so
+	the reservation moves with the package exactly as it always did. ]]
+local EDIT_FOOTPRINT = table.freeze({ EDIT_AFFORDANCE, ROW_GUTTER })
+row_actions_metrics.EDIT_FOOTPRINT = EDIT_FOOTPRINT
+
 --[[ EVERY ARGUMENT IS A BUILD-TIME FACT, and that is what makes this safe to
 	call once from inside `buildEngine` and close over the result. `env` is
 	`spec.env` (optional, `themeSnapshot.neutral()` when absent);
@@ -262,12 +282,14 @@ function row_actions_metrics.build(
 		editAffordanceShown = scope:own(core:memo(function(use)
 			return use(editingReadable) == true
 		end))
-		local editAffordancePx = scope:own(core:memo(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), EDIT_AFFORDANCE) or 0
-		end))
+		-- ONE EXPRESSION, resolved once (2026-08-28; see `EDIT_FOOTPRINT` above).
+		-- This used to be `editAffordancePx + rowGutterPx` through two memos of its
+		-- own; it is the same two metrics and the same sum, said in the form the
+		-- disc's `footprint` hint also takes, so the reservation and the ceiling
+		-- cannot be edited apart.
 		editGutterPx = scope:own(core:memo(function(use)
 			if use(editAffordanceShown) then
-				return use(editAffordancePx) + use(rowGutterPx)
+				return themeSnapshot.resolveTotal(use(metricsSig), EDIT_FOOTPRINT) or 0
 			end
 			return 0
 		end))

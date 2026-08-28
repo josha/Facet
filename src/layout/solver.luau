@@ -281,6 +281,15 @@ export type Node = {
 	-- and what this carries is the fact that it needed repairing. `x`/`y` are the
 	-- px that went unspent on that axis; absent = that axis was afforded.
 	chromeYield: { slot: string, x: number?, y: number? }?,
+	--[[ ...AND THE SIZE FLOOR THE RENDERER HAD TO REFUSE, for the same reason and
+		on the same terms (task THEME fix round, 2026-08-28; ADR-0059 Decision 6).
+		`render/layout_node`'s `shape = "circle"` icon floor raises a disc to hold
+		its picture at full size; where the host declared what it RESERVED for that
+		node (`chrome_slots.Hint.footprint`) the floor stops there instead of
+		growing onto whatever sits beside it. Diagnostics only — the geometry is
+		already decided by the time this arrives, and what it carries is that the
+		package wants a bigger picture than this control has room for. ]]
+	sizeRefused: { want: number, reserved: number, icon: string? }?,
 	-- DECLARED-CONTENT COMPOSITION (ADR-0023). `composition` marks a screen-level
 	-- container: its children are all `region` nodes and their placement comes
 	-- from src/layout/composition.luau rather than from a stack rule. `region`
@@ -2271,6 +2280,27 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				),
 			})
 		end
+	end
+
+	--[[ ...AND THE SIZE FLOOR THAT WAS REFUSED, next to the yield above because it
+		is the same fact about a different number: a control too small for what its
+		package asks it to wear. The disc is NOT broken — it keeps the room the host
+		reserved and the paint seam draws the picture at the size that fits — so the
+		message says what the author can act on, which is the package's own two
+		metrics disagreeing. ]]
+	if ctx.hiddenDepth == 0 and node.sizeRefused ~= nil then
+		local refused = node.sizeRefused
+		table.insert(ctx.diagnostics, {
+			node = node.id,
+			issue = string.format(
+				"the '%s' icon floor wanted a %dpx disc and the host reserved %dpx — the floor was "
+					.. "refused so this control stays inside the room it was given and the picture is "
+					.. "drawn at the size that fits, but this theme's icon is bigger than this control",
+				tostring(refused.icon),
+				refused.want,
+				refused.reserved
+			),
+		})
 	end
 
 	-- A LEAF'S TEXT IS CONTENT TOO (director report 2026-07-28). This was guarded

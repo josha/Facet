@@ -2568,6 +2568,32 @@ function snapshot.resolveSize(snap: any, value: any): number?
 	return snapshot.resolveNumber(snap, value)
 end
 
+--- resolveTotal: a number, a metric NAME, or a LIST of either that sums.
+---
+--- ONE IMPLEMENTATION of the "a length may be several metrics added together"
+--- grammar (2026-07-27, extracted 2026-08-28). It grew twice independently —
+--- once inside `resolveSides` for a padding side, once inside `resolveDim` for a
+--- dimension field — and the third caller (`chrome_slots.Hint.footprint`, the
+--- room a host reserved) is what made three copies one too many. Both of those
+--- now call this, so the grammar cannot mean three slightly different things.
+---
+--- An entry that resolves to nothing contributes nothing, exactly as it did in
+--- both originals: an unknown name inside a list is silently zero here and fails
+--- at CONSTRUCTION, where the package gate can say which name it was.
+function snapshot.resolveTotal(snap: any, value: any): number?
+	if type(value) ~= "table" then
+		return snapshot.resolveNumber(snap, value)
+	end
+	local total = 0
+	for _, entry in value do
+		local n = if type(entry) == "string" then snapshot.resolveNumber(snap, entry) else entry
+		if type(n) == "number" then
+			total += n
+		end
+	end
+	return total
+end
+
 -- resolveSides: number | metric name | { top?, right?, bottom?, left? } whose
 -- side values may themselves be metric names. Returns the same SHAPE (so the
 -- solver's `sides()` and the adapter's padding write behave exactly as before).
@@ -2604,16 +2630,11 @@ function snapshot.resolveSides(snap: any, value: any): any
 			--
 			-- Every entry is resolved the same way a bare side is, so an unknown
 			-- name inside a list fails at construction exactly as it would outside
-			-- one, and a package that declares neither pays zero.
-			local total = 0
-			for _, entry in raw do
-				local n = if type(entry) == "string" then snapshot.resolveNumber(snap, entry) else entry
-				if type(n) == "number" then
-					total += n
-				end
-			end
+			-- one, and a package that declares neither pays zero. The arithmetic is
+			-- `resolveTotal` above — one implementation for all three callers of this
+			-- grammar (extracted 2026-08-28, behaviour unchanged).
 			resolved = resolved or table.clone(value)
-			resolved[side] = total
+			resolved[side] = snapshot.resolveTotal(snap, raw)
 		end
 	end
 	return resolved or value
@@ -2651,15 +2672,10 @@ function snapshot.resolveDim(snap: any, dim: any): any
 			-- the content box was NEGATIVE before it was clamped to zero and the
 			-- control drew nothing. Written as a sum, the same declaration means
 			-- the same THING under every package instead of the same number.
-			local total = 0
-			for _, entry in dim[field] do
-				local n = if type(entry) == "string" then snapshot.resolveNumber(snap, entry) else entry
-				if type(n) == "number" then
-					total += n
-				end
-			end
+			-- (Arithmetic shared with `resolveSides` and `Hint.footprint` through
+			-- `resolveTotal` above, extracted 2026-08-28; behaviour unchanged.)
 			resolved = resolved or table.clone(dim)
-			resolved[field] = total
+			resolved[field] = snapshot.resolveTotal(snap, dim[field])
 		end
 	end
 	return resolved or dim

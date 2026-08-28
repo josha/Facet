@@ -46,6 +46,7 @@
 	a way no headless test can see. ]]
 
 local rowActionsMetrics = require("./row_actions_metrics")
+local chromeSlots = require("../tokens/chrome_slots")
 
 local EDIT_AFFORDANCE = rowActionsMetrics.EDIT_AFFORDANCE
 
@@ -160,25 +161,42 @@ function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
 		id = "EditAffordanceWhen",
 		condition = editAffordanceShown,
 		thenView = function()
-			return UI.Button({
-				id = "EditAffordance",
-				anchor = "left",
-				shape = "circle",
-				role = "destructive",
-				icon = "decrement", -- the framework's own minus glyph (standard_icons)
-				-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
-				-- unfocusable, non-activating; this IS a Button, so it
-				-- needs one). `Button.label` is the framework's own
-				-- "required even when the button renders custom content...
-				-- stays the semantic name and is not drawn" seam
-				-- (blueprint_schema.luau) — the SAME icon-only-control
-				-- precedent `shape = "circle"` exists for. Reuses the
-				-- destructive action's own label (typically "Delete") so
-				-- the announced name matches exactly what a second tap
-				-- reaches.
-				label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
-				width = { type = "fixed", px = EDIT_AFFORDANCE },
-			})
+			--[[ THE GUTTER AND THE DISC'S CEILING ARE ONE EXPRESSION (task THEME fix
+				round, 2026-08-28; ADR-0059 Decision 6; review finding C1).
+				`EDIT_FOOTPRINT` is the list `row_actions_metrics.editGutterPx` resolves
+				to reserve this node's room, and it is what this hint declares as the
+				room this node was given — the SAME two theme metrics, summed by the
+				same call, so the reservation and the ceiling cannot be edited apart.
+
+				Without it the framework's own `shape = "circle"` icon floor
+				(`render/layout_node`) grew the disc by whatever chrome padding the
+				package spent on it, with no bound at all: measured 2026-08-28 on a
+				legal Pixel Quest variant carving 4px per side, a 40px disc at x=16
+				against a row starting at x=52 — director item 9's photograph, from a
+				package that passes its own gate. The floor now stops here and the
+				solver files `sizeRefused` instead of the row being painted over. ]]
+			return chromeSlots.attachHint(
+				UI.Button({
+					id = "EditAffordance",
+					anchor = "left",
+					shape = "circle",
+					role = "destructive",
+					icon = "decrement", -- the framework's own minus glyph (standard_icons)
+					-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
+					-- unfocusable, non-activating; this IS a Button, so it
+					-- needs one). `Button.label` is the framework's own
+					-- "required even when the button renders custom content...
+					-- stays the semantic name and is not drawn" seam
+					-- (blueprint_schema.luau) — the SAME icon-only-control
+					-- precedent `shape = "circle"` exists for. Reuses the
+					-- destructive action's own label (typically "Delete") so
+					-- the announced name matches exactly what a second tap
+					-- reaches.
+					label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
+					width = { type = "fixed", px = EDIT_AFFORDANCE },
+				}),
+				{ footprint = rowActionsMetrics.EDIT_FOOTPRINT }
+			)
 		end,
 	})
 end

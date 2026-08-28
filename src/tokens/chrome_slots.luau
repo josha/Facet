@@ -749,6 +749,38 @@ export type Hint = {
 	-- which `iconSizes` role this request draws at ("small" | "medium" |
 	-- "large"); the snapshot owns the px, so a metric package resizes icons
 	iconSize: string?,
+	--[[ THE ROOM THE HOST RESERVED FOR THIS NODE — a theme metric NAME or a px
+		number (task THEME fix round, 2026-08-28; ADR-0059 Decision 6).
+
+		A SIZE FLOOR IS A REQUEST, NOT A RIGHT, which is the same sentence
+		`spendInset` is built on one screen up, at the other number in the same
+		block. `render/layout_node`'s `shape = "circle"` icon floor raises a disc to
+		hold its picture at full size (`iconSizes[role]` PLUS whatever padding the
+		chrome block just wrote), and it grew WITHOUT LIMIT: a host that had already
+		reserved a gutter from a theme metric had no way to say so, so two theme
+		facts decided one distance and nothing made them agree. Measured 2026-08-28
+		on a LEGAL Pixel Quest variant carving 4px per side (every value still a
+		multiple of its own `pixelUnit`): the edit-mode delete disc solved 40x40 at
+		x=16 against a row starting at x=52 — 4px onto every row, which is director
+		item 9's photograph reproduced under a package that passes its own gate.
+
+		`footprint` is how the host says the number, and it takes the SAME grammar a
+		padding side and a dimension field already take (`themeSnapshot.resolveTotal`
+		— a px number, a metric NAME, or a list of either that SUMS), so the host can
+		hand over the identical expression it reserved with rather than a literal
+		that is right for one package. `row_actions_metrics.EDIT_FOOTPRINT` is that
+		list — `{ editAffordance, rowGutter }` — resolved by `editGutterPx` to
+		reserve the room and by the floor below to bound it, which is what makes the
+		reservation and the ceiling one thing rather than two that agree today.
+		Above it the floor is REFUSED, the control stays inside
+		the room it was given, `chrome_slots.iconBoxPx` draws the picture at the size
+		that fits, and the solver files a diagnostic saying the package asks for a
+		bigger picture than this control has room for. Refuse-or-catch, not silence.
+
+		Read TODAY by the circle icon floor alone, which is square by construction —
+		hence one number rather than a pair. Absent (the overwhelmingly common case)
+		means "no host reservation", and the floor grows exactly as it did. ]]
+	footprint: (string | number | { string | number })?,
 }
 
 -- attach(blueprint, hint) -> a NEW frozen blueprint carrying the hint. Mirrors
@@ -764,6 +796,15 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		hint.icon == nil or (type(hint.icon) == "string" and hint.icon ~= ""),
 		'chrome_slots.attachHint: `icon` is a semantic icon NAME (e.g. "chevron.trailing"), never an asset id'
 	)
+	assert(
+		hint.footprint == nil
+			or (type(hint.footprint) == "string" and hint.footprint ~= "")
+			or (type(hint.footprint) == "number" and hint.footprint > 0)
+			or (type(hint.footprint) == "table" and #(hint.footprint :: any) > 0),
+		"chrome_slots.attachHint: `footprint` is the room the host reserved — a theme metric name, a "
+			.. "positive px number, or a non-empty list of either that sums (see the type's comment; "
+			.. "zero would mean 'reserved nothing', which is `nil`)"
+	)
 	local meta = if blueprint.meta ~= nil then table.clone(blueprint.meta) else {}
 	meta[chrome_slots.META_KEY] = table.freeze({
 		slot = hint.slot,
@@ -771,6 +812,7 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		imageVariants = hint.imageVariants,
 		icon = hint.icon,
 		iconSize = hint.iconSize,
+		footprint = hint.footprint,
 	})
 	return table.freeze({
 		class = blueprint.class,
@@ -809,7 +851,32 @@ function chrome_slots.hintKey(hint: Hint?): string
 	if hint == nil then
 		return "nil"
 	end
-	local parts = { tostring(hint.slot), tostring(hint.image), tostring(hint.icon), tostring(hint.iconSize) }
+	-- `footprint` is in the key because it DECIDES GEOMETRY (the circle icon
+	-- floor's ceiling): two content-equal hints that reserve different room are
+	-- not interchangeable, and a recycled node carrying the other one would solve
+	-- to the other size. BY CONTENT even though the shipped declaration is a frozen
+	-- module constant whose address happens to be stable — the rule this function
+	-- exists for admits no exceptions, and a caller building its list per row would
+	-- otherwise never adopt.
+	local footprint = if type(hint.footprint) == "table"
+		then table.concat(
+			(function()
+				local entries: { string } = {}
+				for _, e in hint.footprint :: any do
+					table.insert(entries, tostring(e))
+				end
+				return entries
+			end)(),
+			"+"
+		)
+		else tostring(hint.footprint)
+	local parts = {
+		tostring(hint.slot),
+		tostring(hint.image),
+		tostring(hint.icon),
+		tostring(hint.iconSize),
+		footprint,
+	}
 	if type(hint.imageVariants) == "table" then
 		local states = {}
 		for state, entry in hint.imageVariants do
