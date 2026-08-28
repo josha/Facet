@@ -940,12 +940,13 @@ local function toLayoutNode(
 				--[[ ...AND A `minMax` CEILING IS AS KNOWABLE AS A `fixed` px (task THEME
 					fix round, 2026-08-28, review finding I3). This is a CEILING test — "how
 					much room can this axis ever have" — and `max` answers it exactly: a
-					`minMax{max = 36}` axis never solves wider than 36, so a frame that
+					an axis whose
+					`minMax` ceiling is 36 never solves wider than 36, so a frame that
 					cannot fit inside 36 cannot fit inside it. Reading only the literal made
 					the rule half-apply the same way the `aspect` branch below did before it
 					was taught: measured under fantasy_ornate (`control` 14/10 per side), one
 					`UI.Button{label = "X"}` at `fixed 36 x fixed 36` filed TWO chromeYields
-					and the identical control at `minMax{max = 36}` on both axes filed NONE —
+					and the identical control with a `minMax` ceiling of 36 on both axes filed NONE —
 					a 12px content box holding a 16px glyph, reported nowhere. `max` absent
 					is an axis free to grow, which is `math.huge` and the no-op it was. ]]
 				if dim.type == "minMax" and type(dim.max) == "number" then
