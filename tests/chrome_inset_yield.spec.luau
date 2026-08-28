@@ -55,8 +55,11 @@ local function packageOf(name: string): any
 end
 
 -- mount one Button at a fixed width and report the rect AND the solver's
--- diagnostics for that solve
-local function solveButton(props: any, px: number, pkg: any?): any
+-- diagnostics for that solve. `px` is a number for the fixed-width form every
+-- case below the first group uses, or a whole DIMENSION table for the
+-- ceiling-shape sweep (review finding I3) — the two are the same question asked
+-- through two spellings, which is exactly what that finding was about.
+local function solveButton(props: any, px: any, pkg: any?): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 400 })
@@ -67,7 +70,10 @@ local function solveButton(props: any, px: number, pkg: any?): any
 	local adapter = fake_target.new()
 	local spec: any = table.clone(props)
 	spec.id = "B"
-	spec.width = { type = "fixed", px = px }
+	spec.width = if type(px) == "table" then px.width else { type = "fixed", px = px }
+	if type(px) == "table" and px.height ~= nil then
+		spec.height = px.height
+	end
 	local root = mountLib.mount(core, UI.Screen({ id = "S", padding = 0, children = { UI.Button(spec) } }))
 	local controller = rendererLib.attach(core, root, env, adapter, {})
 	controller.initialRender()
@@ -171,6 +177,61 @@ describe("a control narrower than its own chrome still draws", function()
 				`{name}: h={out.h} ceiling={ceiling} within=true`
 			)
 		end
+	end)
+
+	--[[ ...AND THE RULE MAY NOT DEPEND ON HOW THE CEILING WAS SPELLED (task THEME
+		fix round, 2026-08-28, review finding I3). The affordability test reads the
+		axis's extent, and the extent used to mean "a literal `fixed` px" alone — so
+		the SAME 36px control filed two yields spelled `fixed` and NONE spelled
+		`minMax{max = 36}`, with a 12px content box holding a 16px glyph and nothing
+		anywhere saying so. `max` is a ceiling exactly the way a `fixed` px is: an
+		axis that never solves wider than 36 cannot fit a frame 36 cannot fit. The
+		third spelling is the one that made it a defect rather than a gap — one axis
+		each way, on one control, reporting half the truth.
+
+		Swept over every package rather than pinned to the one that surfaced it, and
+		asserted as an EQUALITY between the spellings rather than as a count, so a
+		package that legitimately affords the frame contributes a matching zero. ]]
+	it("a ceiling spelled `minMax{max}` affords exactly what the same `fixed` px affords", function()
+		local SHAPES: { { id: string, dims: any } } = {
+			{
+				id = "fixed x fixed",
+				dims = { width = { type = "fixed", px = 36 }, height = { type = "fixed", px = 36 } },
+			},
+			{
+				id = "minMax x minMax",
+				dims = { width = { type = "minMax", max = 36 }, height = { type = "minMax", max = 36 } },
+			},
+			{
+				id = "minMax x fixed",
+				dims = { width = { type = "minMax", max = 36 }, height = { type = "fixed", px = 36 } },
+			},
+		}
+		for _, name in PACKAGES do
+			local pkg = packageOf(name)
+			local baseline: number? = nil
+			for _, shape in SHAPES do
+				local out = solveButton({ label = "X" }, shape.dims, pkg)
+				local yielded = #issuesMatching(out.diagnostics, "chrome contentInsets could not be spent")
+				if baseline == nil then
+					baseline = yielded
+				end
+				expect(`{name} / {shape.id}: {yielded}`).toBe(`{name} / {shape.id}: {baseline}`)
+			end
+		end
+	end)
+
+	it("...and an axis with no ceiling at all is still free to grow and pay for it", function()
+		-- `minMax` carrying only a `min` is an axis that grows, which is
+		-- `math.huge` and the no-op the rule always was. The negative control that
+		-- keeps the branch above from becoming "every minMax refuses".
+		expect(chrome_slots.spendInset(math.huge, 0, 28, 16)).toBe(28)
+		local out = solveButton(
+			{ label = "X" },
+			{ width = { type = "minMax", min = 4 }, height = { type = "minMax", min = 4 } },
+			packageOf("fantasy_ornate")
+		)
+		expect(#issuesMatching(out.diagnostics, "chrome contentInsets could not be spent")).toBe(0)
 	end)
 
 	it("a Button with room pays its chrome exactly as before — nothing that fit moves", function()
