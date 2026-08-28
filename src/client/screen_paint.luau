@@ -265,10 +265,14 @@ function screen_paint.new(ctx: any)
 				accepted: a node that starts bare and is GIVEN a surface later (after
 				this write already ran) still collides with `applySurface`'s own
 				`corner()` call, because neither checks for an existing sibling — the
-				same latent double-instantiation shape every non-"plain" surface
-				TRANSITION already carries, one file up, and closing it for every
-				caller is the "audit `applySurface`'s full call graph" work this task's
-				own report named as bigger than this round owes. ]]
+				same latent double-instantiation CLASS every non-"plain" surface
+				TRANSITION already carries, one file up. THE CLASS IS OLD; THIS ENTRY
+				PATH IS NOT (review Minor-1, task EXTRACT fix round 1): before this
+				write existed, a bare tinted circle created NO UICorner at all, so
+				this specific route into the class was unreachable — this fix is what
+				opens it. Closing the class for every caller is the "audit
+				`applySurface`'s full call graph" work this task's own report named as
+				bigger than this round owes. ]]
 			if not nativeMode and handle.shape == "circle" and handle.declaredSurface == nil then
 				if instance:FindFirstChildOfClass("UICorner") == nil then
 					corner(instance, style.radii.control, nil, handle)

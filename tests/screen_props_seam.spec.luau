@@ -167,7 +167,7 @@ describe("the screen_props seam: the (empty) shared WRITE surface, and the one-w
 	it("setProp writes through NO ctx dep at all — the cost this extraction did not pay", function()
 		--[[ EVERY OTHER SEAM IN THIS DOCUMENT PAID SOMETHING: `table_rows.luau` a
 			record for two reassigned scalars, `virtual_list_hosted.luau` a record
-			for seven. `setProp` reassigns not one of its 27 ctx names — every large
+			for seven. `setProp` reassigns not one of its 28 ctx names — every large
 			block it dispatches to is a value fact (style/mode/palette), a function
 			bound once from a sibling subsystem, or a host helper — so unlike its
 			siblings this seam needed neither a record nor an accessor. A NAME HERE
