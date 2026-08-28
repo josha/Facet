@@ -277,6 +277,22 @@ defects the neutral pass cannot see because the neutral tree is a different tree
 An earlier draft of this ADR and of `layout_node`'s comment claimed "0 under every
 flat one"; that was never measured and is not true.
 
+**A THIRD occurrence of the badge-corner-offset class (task THEME2) was found
+and deliberately left open.** `examples/reference/p4_foyer/init.luau`'s
+`badgeBubble` is a third, independent hand-rolled implementation with the
+identical shape to the two closed this round (`alignH = "end", alignV =
+"start", width/height = fill`, no inset at all) — the file's own comment even
+names it as `src/controls/picker.luau`'s cited precedent ("the p4_foyer
+badgeBubble shape"). Both its call sites decorate a `shape = "circle"` Button
+with no declared `surface`, which classifies into the same `control` slot, so
+it carves the identical straddle under any package that carves `control`.
+Not fixed here: `p4_foyer` is a separate reference proof-of-concept the
+director did not report against, one showcase/Settings-scoped task away from
+this round's actual assignment, and closing it was judged scope creep against
+"do not manufacture churn" rather than a defensible extension. `chrome_slots.
+carvedBorder` exists now specifically so the next author who opens this file
+has a one-line fix instead of a re-derivation.
+
 ## Amendment log
 
 * **2026-08-27** — decisions 1-5, as landed by the round this ADR was written for.
