@@ -56,6 +56,7 @@ local mountLib = require("../src/mount")
 local rendererLib = require("../src/render/renderer")
 local clockLib = require("../src/motion/clock")
 local fake_target = require("./lib/fake_target")
+local worldLib = require("./lib/world")
 
 local Facet = require("../src") :: any
 local gladeProof = require("../examples/reference/p1_glade") :: any
@@ -282,33 +283,35 @@ end)
 --    across every `sheet()`-based Glade modal the video family covers.
 -- ============================================================================
 
+-- built on the shared substrate (reuse audit REUSE-88/95/96/104; controller
+-- ruling R12's own follow-up trigger: "the next spec file that ADDS a builder
+-- migrates its file [to `tests/lib/world.luau`] instead") rather than a new
+-- spec-local hand-rolled presenter.
 local function gladeWorld(width: number?, height: number?): any
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = width or 390, h = height or 844 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local built = gladeProof.build(Facet, core, {
-		env = env,
-		actionSystem = system,
-		presenter = presenter,
-		adapter = adapter,
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = width or 390, h = height or 844 },
+		presenterOpts = { keyboardNavigation = true },
 	})
-	local handle = presenter.present(built.screen, built.present)
+	local built = gladeProof.build(Facet, w.core, {
+		env = w.env,
+		actionSystem = w.system,
+		presenter = w.pres,
+		adapter = w.adapter,
+	})
+	local handle = w.pres.present(built.screen, built.present)
 	built.api.bindHandle(handle)
-	presenter.refresh()
+	w.pres.refresh()
 	-- capture every surface `presentModal` opens (a plain wrap, not a mock: the
 	-- real function still runs, this only ALSO remembers what it returned) so
 	-- each push's own coordinator is reachable without a private API
 	local captured: { any } = {}
-	local originalPresentModal = presenter.presentModal
-	presenter.presentModal = function(...): any
+	local originalPresentModal = w.pres.presentModal
+	w.pres.presentModal = function(...): any
 		local h = originalPresentModal(...)
 		table.insert(captured, h)
 		return h
 	end
-	return { core = core, env = env, adapter = adapter, presenter = presenter, built = built, captured = captured }
+	return { core = w.core, env = w.env, adapter = w.adapter, presenter = w.pres, built = built, captured = captured }
 end
 
 describe("backdrop-before-content: the real Glade modals (newpop.mov's family)", function()
