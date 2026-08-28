@@ -603,13 +603,19 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 		})
 	end
 
+	--[[ task POP fix round 1 (sweep found this real): `Card` is itself the
+		plate (`surface = "raised"`) AND, before this fix, the direct
+		container of the flip content — `Body`'s `materialize`/`fade` push
+		transition (`presenter.presentModal`) used to fade `Card`'s own
+		background in lockstep with the flip face's text (`newpop.mov`'s
+		mechanism). `Card` stays the outer, non-canvasGroup plate; `Group` is
+		the ONE new canvasGroup, nested one level in. ]]
 	return UI.Screen({
 		id = "BotanicalCard",
 		padding = 0,
 		children = {
 			UI.ZStack({
 				id = "Body",
-				canvasGroup = true,
 				width = dims.fill,
 				height = dims.fill,
 				alignH = "center",
@@ -623,13 +629,21 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 						corners = UI.cornersData("panel"),
 						shadow = UI.shadowData("overlay"),
 						children = {
-							parts.flipPlate(app, {
-								id = "Flip",
-								progress = progress,
+							UI.ZStack({
+								id = "Group",
+								canvasGroup = true,
 								width = dims.fill,
 								height = dims.fill,
-								front = frontFace,
-								back = backFace,
+								children = {
+									parts.flipPlate(app, {
+										id = "Flip",
+										progress = progress,
+										width = dims.fill,
+										height = dims.fill,
+										front = frontFace,
+										back = backFace,
+									}),
+								},
 							}),
 						},
 					}),

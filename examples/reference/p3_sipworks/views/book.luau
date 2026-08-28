@@ -41,6 +41,14 @@ function book.unlockCard(app: any): any
 		return use(unlock.status) ~= "pending"
 	end))
 
+	--[[ task POP fix round 1 (sweep found this real): `Card` is itself the
+		plate (`surface = "raised"`) AND, before this fix, the direct
+		container of its own content — `materialize` (which fades) targets
+		`UnlockBox`, so `Card` used to ride the same `GroupTransparency` ramp
+		as its own cover art/price text (`newpop.mov`'s mechanism). `Card`
+		stays the outer, non-canvasGroup plate; `Group` is the ONE new
+		canvasGroup, nested one level in, wrapping what used to be `Card`'s
+		direct children. ]]
 	return UI.When({
 		id = "Unlock",
 		condition = locked,
@@ -48,7 +56,6 @@ function book.unlockCard(app: any): any
 		thenView = function()
 			return UI.ZStack({
 				id = "UnlockBox",
-				canvasGroup = true,
 				width = dims.fill,
 				children = {
 					UI.VStack({
@@ -59,66 +66,80 @@ function book.unlockCard(app: any): any
 						gap = 0,
 						width = dims.fill,
 						children = {
-							parts.artPlate(app, "blend", "amber-harvest", {
-								id = "Cover",
-								width = dims.fill,
-								height = dims.aspect(2.4),
-								markSize = "title",
-							}),
-							UI.VStack({
-								id = "Bar",
-								-- the translucent bar is the MATERIALS adaptation: a
-								-- `raised` plate, never a blur
-								surface = "raised",
-								padding = "m",
-								gap = "xs",
+							UI.ZStack({
+								id = "Group",
+								canvasGroup = true,
 								width = dims.fill,
 								children = {
-									UI.Text({
-										id = "Name",
-										text = app.text(unlock.product.nameKey),
-										textSize = "heading",
-									}),
-									UI.Text({
-										id = "Description",
-										text = app.text(unlock.product.descriptionKey),
-										role = "secondary",
-										textSize = "body",
-										lineLimit = 2,
-										disclose = true,
+									UI.VStack({
+										id = "GroupStack",
+										gap = 0,
 										width = dims.fill,
-									}),
-									-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
-									-- IS MOUNTED (spec §10): a price nobody knows yet
-									-- must not be pressable.
-									UI.When({
-										id = "Loading",
-										condition = loading,
-										thenView = function()
-											return UI.Text({
-												id = "Price",
-												text = app.text("unlock.loading"),
-												role = "secondary",
-												textSize = "caption",
-											})
-										end,
-									}),
-									UI.When({
-										id = "Offer",
-										condition = available,
-										thenView = function()
-											return UI.Button({
-												id = "UnlockBuy",
-												label = buyLabel,
-												enabled = buyEnabled,
-												surface = "accent",
-												corners = UI.cornersData("pill"),
+										children = {
+											parts.artPlate(app, "blend", "amber-harvest", {
+												id = "Cover",
 												width = dims.fill,
-												onActivate = function()
-													app.commands.buyBlendBook()
-												end,
-											})
-										end,
+												height = dims.aspect(2.4),
+												markSize = "title",
+											}),
+											UI.VStack({
+												id = "Bar",
+												-- the translucent bar is the MATERIALS adaptation: a
+												-- `raised` plate, never a blur
+												surface = "raised",
+												padding = "m",
+												gap = "xs",
+												width = dims.fill,
+												children = {
+													UI.Text({
+														id = "Name",
+														text = app.text(unlock.product.nameKey),
+														textSize = "heading",
+													}),
+													UI.Text({
+														id = "Description",
+														text = app.text(unlock.product.descriptionKey),
+														role = "secondary",
+														textSize = "body",
+														lineLimit = 2,
+														disclose = true,
+														width = dims.fill,
+													}),
+													-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
+													-- IS MOUNTED (spec §10): a price nobody knows yet
+													-- must not be pressable.
+													UI.When({
+														id = "Loading",
+														condition = loading,
+														thenView = function()
+															return UI.Text({
+																id = "Price",
+																text = app.text("unlock.loading"),
+																role = "secondary",
+																textSize = "caption",
+															})
+														end,
+													}),
+													UI.When({
+														id = "Offer",
+														condition = available,
+														thenView = function()
+															return UI.Button({
+																id = "UnlockBuy",
+																label = buyLabel,
+																enabled = buyEnabled,
+																surface = "accent",
+																corners = UI.cornersData("pill"),
+																width = dims.fill,
+																onActivate = function()
+																	app.commands.buyBlendBook()
+																end,
+															})
+														end,
+													}),
+												},
+											}),
+										},
 									}),
 								},
 							}),

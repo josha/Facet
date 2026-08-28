@@ -1379,6 +1379,42 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 	end)
 end)
 
+--[[ BACKDROP-FINDING SWEEP (task POP fix round 1, CRITICAL finding: the
+	round-0 gate was never actually run against this reference app — grep
+	alone found 11 `canvasGroup = true` sites here, unswept). Drives every
+	named section, the blend detail, a botanical tile, the order/guard flow,
+	and the rewards overlay, then reads the UNION of every coordinator's own
+	`.findings()` (`tests/lib/backdrop_sweep.luau`). ]]
+describe("Sipworks — backdrop-finding sweep (task POP)", function()
+	it("every section, the blend detail, a botanical tile and the order/rewards overlays are clean", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local w: any
+		local findings = backdropSweep.capture(function()
+			w = world()
+			for _, name in { "menu", "favorites", "recipes", "stamps" } do
+				w.steps.section(w.built, name)
+			end
+			w.steps.section(w.built, "menu")
+			w.steps.open(w.built, "lantern-oolong")
+			w.steps.favorite(w.built, "lantern-oolong")
+			w.steps.close()
+			w.steps.tile(w.built, "oolong")
+			w.steps.flip(w.built, "back")
+			w.steps.cancelCard()
+			w.steps.guard(w.built, "off")
+			w.steps.order()
+			w.steps.guardOk()
+			w.steps.done()
+			w.steps.stamps()
+			w.steps.leaveStamps()
+			w.presenter.refresh()
+		end)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
+		w.built.dispose()
+		Facet.themes.declareApp("sip", nil)
+	end)
+end)
+
 --[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
 
 	`build` declares `app.sip.*` PROCESS-WIDE, and a spec file that walked away
