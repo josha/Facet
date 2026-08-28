@@ -114,6 +114,26 @@ default ever changes, it is a required-value flip on every policy but
 `tests/api_surface.spec.luau` pin update, same as every other row in that
 register.
 
+**ADDENDUM 2026-08-27 (task CONN, from review-fix234 Finding 3, code side):**
+the report cited above also claimed RR calls neither `renderer.attach` nor
+passes `rootPolicy` anywhere in its own source — that premise is false and
+must not carry into the default-flip round. Verified directly against the live
+`games/RascalRally/code` repo: `src/client/FacetSponsor/OmenState.luau:458`
+calls `Facet.renderer.attach(core, root, self._env, built.adapter, { rootPolicy
+= "edgeToEdge" })` DIRECTLY (bypassing `presenter.present`/`presentModal`/
+`presentCritical` entirely), and `rootPolicy` appears at 11 non-spec call sites
+across `FacetSettingsGui.luau`, `HudScreen.luau`, `ResultsScreen.luau`,
+`OmenState.luau`, `FacetSponsor/init.luau` and `ChipRow.luau`. None of the 11
+passes `edgeFloor` today (re-verified: zero hits), which is why this round's
+knob-only change needed no RR edit — but a future default-flip is a
+required-value change on every policy but `edgeToEdge`, and **the round that
+proposes it must re-evaluate every one of these 11 sites individually**,
+starting with `OmenState.luau:458`'s `edgeToEdge` call (exempt from the floor
+by this ADR's own refusal rule, so unaffected either way) and every
+`coreSafeContent`/`deviceSafeContent`/`bandSafeContent` site among the
+remaining ten. "RR doesn't consume this surface" is not a safe premise to
+inherit from this document.
+
 ## What is breaking, and what is not
 
 **NOT breaking.** `edgeFloor` is a new, optional opt. Every existing call to
