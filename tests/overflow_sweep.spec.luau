@@ -3243,6 +3243,31 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 								if finding.designed == true then
 									continue
 								end
+								--[[ ...AND THROUGH THE SAME THEME LEDGER THE GENERIC PASS USES,
+									rather than a filter of its own (task THEME, 2026-08-27). This
+									block asks the solver a question the generic sweep cannot —
+									what does declaring the app's chrome change — and the answer
+									must not be swamped by findings that are decided by a
+									control's own fixed size and a package's inset, neither of
+									which the chrome declaration touches. Those ARE recorded, one
+									screen up, with a measured ceiling and a package list; reading
+									the same rows here keeps ONE list rather than two, keeps the
+									ceilings live (a finding that got worse still fails), and
+									marks the row used so the no-rot case cannot be fooled by a
+									row that only ever fires on this axis. ]]
+								local ledgerIndex =
+									themeRowFor("hud", "-", normalizePath(finding.node), signature(finding.issue))
+								local ledgerRow = if ledgerIndex ~= nil then theme_ledger.ROWS[ledgerIndex] else nil
+								if
+									ledgerRow ~= nil
+									and findingPx(finding.issue) <= ledgerRow.px
+									and offset >= ledgerRow.since
+									and string.find(`,{ledgerRow.packages},`, `,{tostring(cell.id)},`, 1, true)
+										~= nil
+								then
+									THEME_MATCHED[ledgerIndex :: number] = true
+									continue
+								end
 								table.insert(problems, `  {finding.node}: {finding.issue}{suffix}`)
 							end
 						end
@@ -3300,8 +3325,19 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			in the swept surface — thirty-two more of them measure at a size this census
 			counts — and neither changes what the census is ABOUT. RE-READ RATHER THAN
 			BUMPED, both times: the two pinned-EMPTY lists above are what the R23 ruling
-			is, and both are still empty, which is the half a count cannot say. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 417")
+			is, and both are still empty, which is the half a count cannot say.
+
+			417 -> 414 (2026-08-27, task THEME / ADR-0059). `chrome_slots.spendInset`
+			now asks whether a node's own LINE BOX survives the package's carved border
+			rather than whether any pixels do, so an ornate disc that used to reserve a
+			frame it could not spend gives it back — and a `shape = "circle"` control's
+			icon floor, which reads that padding, therefore raises the disc less far
+			(Fantasy Ornate's HUD chip 60 -> 52, Parchment's 44 -> 38). THREE FEWER
+			boxes measure at a size this census counts, and none of them is a route that
+			LOST its floor: both pinned-EMPTY lists below are still empty, which is the
+			half a count cannot say. RE-READ RATHER THAN BUMPED, as the two entries
+			above were. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 414")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]
