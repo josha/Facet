@@ -16,6 +16,7 @@ local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
+local adaptive = require("../src/layout/adaptive")
 
 local function attach(displaySize: string?, childrenFn: (any) -> { any })
 	local core = customFactory.new()
@@ -389,5 +390,111 @@ describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects 
 		local metrics = snapshot.neutral()
 		local family = (metrics.controls :: any).table
 		expect(family.rowHeight.tenFoot >= 41).toBe(true)
+	end)
+end)
+
+--[[ DIRECTOR ITEM 5 (ADR-0058): PHYSICAL-SIZE-AWARE TEN-FOOT CLASSING.
+
+	The director's report: a ROG Ally (a Windows PC handheld) reads fonts too
+	small, suspected classed as console/ten-foot BY INPUT rather than by
+	screen size. Measured directly (ADR-0058 quotes the Studio session in
+	full): the engine's own `GuiService.ViewportDisplaySize` is not reliable
+	enough alone — an ordinary windowed desktop viewport, measured live in
+	Studio Play, reported "Large", the SAME bucket a real console reports.
+
+	The fix reads `effectiveDisplaySize` everywhere ten-foot TREATMENT is
+	decided (see `adaptive.effectiveDisplaySize`'s header): "Large" only earns
+	ten-foot when touch capability is NOT ALSO live, because a real ten-foot
+	session — a console on a TV, from a couch — never has a touchscreen, and a
+	PC handheld small enough to misreport "Large" has one on every shipping
+	example.
+
+	EVERY CASE BELOW IS A REGRESSION PIN OR AN EXTENSION, NEVER A WEAKENING:
+	the PS5-shaped case pins a genuine console UNCHANGED, and every case above
+	this block already exercises `displaySize = "Small"`/`"Medium"` untouched
+	(the correction only ever fires on "Large" + touch), so the whole
+	phone/tablet/desktop ladder those pin is provably unaffected by
+	construction — touch is never checked unless the raw fact is already
+	"Large". ]]
+describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foot treatment", function()
+	local function worldFor(displaySize: string, touch: boolean, gamepad: boolean): (any, any)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("displaySize", displaySize)
+		env:set("capabilities", { touch = touch, gamepad = gamepad, keyboard = false, mouse = false })
+		env:set("preferredInput", if gamepad then "Gamepad" else "KeyboardAndMouse")
+		return core, env
+	end
+
+	-- THE ROG-ALLY-SHAPED CASE (the brief's own shape): 1920x1080, gamepad
+	-- preferred, touch enabled, and — the worst case this round's platform
+	-- research could not rule out on a PC handheld — the engine itself
+	-- reporting "Large".
+	it(
+		"1920x1080 + gamepad + touch + engine-reported Large reads NEAR, with handheld-appropriate (1x) type scale",
+		function()
+			local _, env = worldFor("Large", true, true)
+			expect(env:get("effectiveDisplaySize"):get()).toBe("Medium")
+			expect(env:get("distanceProfile"):get()).toBe("near")
+			expect(env:get("typographyScale"):get()).toBe(1) -- NOT 1.5 — the director's own ask
+			expect(env:get("typographyPaintScale"):get()).toBe(1)
+			expect(env:get("themeMetrics"):get().metricScale).toBe(1) -- the whole ladder, not just type
+			expect(env:get("effectiveOverscanInsets"):get()).toEqual({ top = 0, bottom = 0, left = 0, right = 0 })
+			-- the WIDTH-only breakpoint is untouched by this fix — it is a
+			-- separate axis (raw viewport pixels), deliberately out of this
+			-- round's scope; see the ADR's own scoping note
+			expect(env:get("sizeClass"):get()).toBe("wide")
+		end
+	)
+
+	-- THE PS5-SHAPED REGRESSION PIN: same viewport, same gamepad, same
+	-- engine-reported "Large" — but NO touchscreen, because a real console
+	-- does not have one. This must stay byte-identical to today.
+	it("a PS5-shaped device (1920x1080, gamepad, NO touch) stays ten-foot — unchanged", function()
+		local _, env = worldFor("Large", false, true)
+		expect(env:get("effectiveDisplaySize"):get()).toBe("Large")
+		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(env:get("typographyScale"):get()).toBe(1.5)
+		expect(env:get("themeMetrics"):get().metricScale).toBe(1.5)
+		expect(env:get("effectiveOverscanInsets"):get()).toEqual({ top = 60, bottom = 60, left = 90, right = 90 })
+		expect(env:get("sizeClass"):get()).toBe("regular") -- the pre-existing density cap
+	end)
+
+	-- THE DIRECTOR'S OWN SUSPICION, DIRECTLY DISPROVED: gamepad input alone
+	-- never changes the classing — only touch does. A keyboard+mouse session
+	-- at the same engine-reported "Large" is classed identically to a
+	-- gamepad one; the input class was never the variable.
+	it("gamepad input alone never changes the classing (the director's suspicion, measured false)", function()
+		local _, gamepadSession = worldFor("Large", false, true)
+		local _, keyboardSession = worldFor("Large", false, false)
+		expect(gamepadSession:get("distanceProfile"):get()).toBe(keyboardSession:get("distanceProfile"):get())
+		expect(gamepadSession:get("distanceProfile"):get()).toBe("ten-foot")
+	end)
+
+	-- A DEVICE THE ENGINE HONESTLY REPORTS AS SMALL (the happy path a real
+	-- handheld likely already gets, per Roblox's own documented "Small = most
+	-- tablet/mobile/handheld devices") is untouched either way — nothing here
+	-- depends on the correction firing.
+	it("an honestly-reported Small handheld is untouched by the correction", function()
+		local _, env = worldFor("Small", true, true)
+		expect(env:get("effectiveDisplaySize"):get()).toBe("Small")
+		expect(env:get("distanceProfile"):get()).toBe("near")
+	end)
+
+	-- ITEM 5.4'S OWN NAMED EXAMPLE, AUDITED: "what Large means for a
+	-- gamepad+small-screen device" reaches `adaptive.navPlacement` through
+	-- `adaptive.conditions` (what a real screen binds). Checked, not altered:
+	-- the gamepad branch's own "Medium or Large -> topBar" rule (a SEPARATE,
+	-- more specific tablet-vs-phone placement question this round does not
+	-- touch) means the Large-to-Medium correction does not cross the
+	-- boundary that would flip its outcome — recorded honestly rather than
+	-- claimed as a fix, and booked as a possible follow-up in the ADR.
+	it("navPlacement's gamepad branch is unchanged by this fix (audited, not altered)", function()
+		local coreAlly, envAlly = worldFor("Large", true, true)
+		local corePs5, envPs5 = worldFor("Large", false, true)
+		expect(adaptive.conditions(coreAlly, envAlly).navPlacement:get()).toBe("topBar")
+		expect(adaptive.conditions(corePs5, envPs5).navPlacement:get()).toBe("topBar")
 	end)
 end)

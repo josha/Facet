@@ -66,6 +66,41 @@ adaptive.HEIGHT_BREAKPOINTS = adaptive.BREAKPOINTS
 -- screen that adapts its density flip at the same width.
 adaptive.DEFAULT_STACK_ABOVE = 600
 
+--[[ effectiveDisplaySize(displaySize, touchCapable) -> "Small" | "Medium" |
+	"Large" | nil (director item 5, ADR-0058: physical-size-aware ten-foot
+	classing).
+
+	`displaySize` is the engine's own attempt at physical screen size
+	(`GuiService.ViewportDisplaySize`) and it is not reliable enough to trust
+	alone for "Large" specifically: measured directly in Roblox Studio Play
+	(ADR-0058 quotes the session), a plain windowed viewport on an ordinary
+	desktop reported the SAME "Large" bucket this framework treats as
+	ten-foot/console — the identical failure class the director's ROG Ally
+	report describes, on hardware nobody would call a television.
+
+	TOUCH IS THE CORROBORATING SIGNAL, because it is both ALREADY DERIVABLE
+	(`UserInputService.TouchEnabled`, no new engine call) and physically
+	meaningful in exactly the way `displaySize` is not: a real ten-foot
+	session — a console plugged into a TV, played from a couch — has no
+	touchscreen; a handheld small enough to report "Large" by mistake has one
+	on every shipping example. A device reporting BOTH is reporting two
+	contradictory physical facts, and the safe resolution favors the cheaper
+	failure: a real big-screen touch kiosk keeps normal (not enlarged) text,
+	which stays perfectly usable up close; a handheld wrongly inflated to
+	console scale does not.
+
+	ADDITIVE, NOT A REPLACEMENT: this answers "what should TREATMENT decisions
+	(type scale, metric scale, the sizeClass density cap, overscan margins,
+	nav placement) read", never "what did the engine literally report" — a
+	diagnostic, a device-matrix harness, or an explicit preview override wants
+	the raw `displaySize` fact untouched, and keeps reading it directly. ]]
+function adaptive.effectiveDisplaySize(displaySize: any, touchCapable: boolean?): any
+	if displaySize == "Large" and touchCapable == true then
+		return "Medium"
+	end
+	return displaySize
+end
+
 export type ClassOpts = {
 	-- "ten-foot" caps the result at `regular`: a TV at 3 m must not resolve the
 	-- densest arrangement however wide it is (input-paradigms matrix D.3)
@@ -455,7 +490,11 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	local sizeClass = env:get("sizeClass")
 	local distanceProfile = env:get("distanceProfile")
 	local interactionClasses = env:get("interactionClasses")
-	local displaySize = env:get("displaySize")
+	-- the TREATMENT-corrected fact (director item 5, ADR-0058): `navPlacement`'s
+	-- gamepad branch below asks "Medium or Large" to mean "not a near-distance
+	-- handheld", which the raw engine fact cannot answer safely alone — see
+	-- `adaptive.effectiveDisplaySize`'s own header
+	local displaySize = env:get("effectiveDisplaySize")
 
 	-- OWNERSHIP: this function creates EIGHTEEN memos (six until ADR-0023
 	-- added the height half, twelve until navPlacement, eighteen since gap 7

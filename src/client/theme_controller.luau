@@ -604,13 +604,19 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		then the live environment, then nothing. Declared HERE rather than inside
 		`factsForResolve` below because the SHEET needs it too — a television's
 		corners are painted 1.5x from the same number the snapshot measures with —
-		and `materializeFor` runs above that function. ]]
+		and `materializeFor` runs above that function.
+
+		THE LIVE-ENVIRONMENT FALLBACK READS `effectiveDisplaySize`, NOT the raw
+		fact (director item 5, ADR-0058): a PC handheld's engine-reported "Large"
+		must not paint console-scaled corners. `o.facts` is left exactly as a
+		caller states it — an explicit world (headless test, preview) is not the
+		engine's own uncorroborated guess and is never second-guessed here. ]]
 	local function displaySizeFact(): any
 		if o.facts ~= nil then
 			return (o.facts :: any).displaySize
 		end
 		local ok, value = pcall(function()
-			return env:get("displaySize"):get()
+			return env:get("effectiveDisplaySize"):get()
 		end)
 		return if ok then value else nil
 	end
@@ -643,7 +649,8 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			return if ok then value else nil
 		end
 		return {
-			displaySize = fact("displaySize"),
+			-- effectiveDisplaySize, not the raw fact — see displaySizeFact above
+			displaySize = fact("effectiveDisplaySize"),
 			preferredTextSize = fact("preferredTextSize"),
 			preferredTextOffset = fact("preferredTextOffset"),
 		}

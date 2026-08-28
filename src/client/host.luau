@@ -149,8 +149,14 @@ local function engineAdapter(opts: Opts, env: any): any
 			this function is the only place that holds both, and it runs AFTER
 			`bindEnv` above, so the fact is already the engine's own
 			`ViewportDisplaySize` rather than the default. A target built by
-			`newAdapter` is the consumer's own and takes its own class. ]]
-		displaySize = env:get("displaySize"):get(),
+			`newAdapter` is the consumer's own and takes its own class.
+
+			`effectiveDisplaySize`, NOT the raw fact (director item 5, ADR-0058):
+			this is the LIVE client's real paint decision, so it must be the
+			touch-corrected class, the same one `typographyScale`/`metricScale`
+			already read — a PC handheld's engine-reported "Large" must not paint
+			console-scaled corners any more than it measures console-scaled type. ]]
+		displaySize = env:get("effectiveDisplaySize"):get(),
 	})
 end
 

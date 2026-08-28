@@ -1611,7 +1611,9 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 			true
 		)
 		local host = fs.readFile("src/client/host.luau")
-		expect(string.find(host, 'displaySize = env:get("displaySize"):get()', 1, true) ~= nil).toBe(true)
+		-- effectiveDisplaySize, not the raw fact, since director item 5 / ADR-0058:
+		-- the live client's real paint decision must be the touch-corrected class
+		expect(string.find(host, 'displaySize = env:get("effectiveDisplaySize"):get()', 1, true) ~= nil).toBe(true)
 		local controller = fs.readFile("src/client/theme_controller.luau")
 		expect(string.find(controller, "sheetModelFor(pkg, displaySizeFact())", 1, true) ~= nil).toBe(true)
 		-- …and the live-edit repaint answers a designer's edit at the SAME distance

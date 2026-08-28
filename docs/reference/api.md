@@ -4077,18 +4077,19 @@ Derived policy (memoized, read-only):
 
 | Derived | Answers |
 |---|---|
-| `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 on a `Large` display |
-| `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 on `Large`, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
-| `themeMetrics` (derived half) | the metric authority as PRESENTED at this display class — `themes.forDisplay(<the committed snapshot>, displaySize)`. Listed under the facts above because it is the same key; listed here because reading it is a derived read. It is the ONE place the ten-foot metric ladder is applied |
+| `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 at ten-foot (`effectiveDisplaySize == "Large"`) |
+| `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 at ten-foot, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
+| `themeMetrics` (derived half) | the metric authority as PRESENTED at this display class — `themes.forDisplay(<the committed snapshot>, effectiveDisplaySize)`. Listed under the facts above because it is the same key; listed here because reading it is a derived read. It is the ONE place the ten-foot metric ladder is applied |
 | `effectiveTransparency` | `preferredTransparency` clamped to 0–1 — the player's **Background Transparency** setting. The framework paints with it: the one see-through background it owns (the `scrim` surface, which is the modal backdrop and anything a consumer declares `surface = "scrim"`) is composed `themeDim × effectiveTransparency`, in both paint modes. An authored `opacity`, the disabled dim, hairlines and shadows are deliberately untouched — [ADR-0035](../adr/ADR-0035-preferred-transparency.md) |
-| `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` on a `Large` display |
+| `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` at ten-foot (`effectiveDisplaySize == "Large"`) |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
-| `distanceProfile` | `"ten-foot"` on a `Large` display, else `"near"` |
-| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) on a `Large` display and zeros elsewhere |
+| `distanceProfile` | `"ten-foot"` when `effectiveDisplaySize == "Large"`, else `"near"` |
+| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) at ten-foot and zeros elsewhere |
 | `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE (ADR-0027): `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
 | `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
 | `interactionClasses` | the LIVE set of input idioms plus `primary` (ADR-0015): capabilities and preference together, never the preference alone |
 | `effectiveInput` | `interactionClasses.primary` in the platform fact's own vocabulary |
+| `effectiveDisplaySize` | `displaySize`, corrected: `"Large"` downgrades to `"Medium"` when `capabilities.touch` is also true, else passes through unchanged. Read by every ten-foot-sensitive derivation above (`typographyScale`, `typographyPaintScale`, `themeMetrics`, `sizeClass`, `distanceProfile`, `effectiveOverscanInsets`, `platformChrome`) instead of the raw fact — see below |
 
 **Where the clamping actually happens.** `env:set` validates only that the key
 exists and is settable — it does **not** check the value, so a fact reads back
@@ -4113,6 +4114,21 @@ This was one defect with two faces (2026-07-29): a touch-only device installed t
 compact *pointer* theme package, and a phone took the Table's dense pointer row
 height and reflowed the whole page — canvas and scrollbar with it — on the
 player's first touch.
+
+**`displaySize` is a REPORT, `effectiveDisplaySize` is the ANSWER (director item
+5, ADR-0058).** `GuiService.ViewportDisplaySize` is the engine's own attempt at
+physical screen size, and it is not reliable enough on its own to gate the
+ten-foot 1.5x swing: measured directly in Roblox Studio Play, an ordinary
+windowed desktop viewport reported `"Large"` — the same bucket a real console
+reports. A PC handheld (the director's example: a 7-inch 1080p device with a
+gamepad) can plausibly hit the same misclassification, and unlike a console it
+has a touchscreen. `effectiveDisplaySize` downgrades `"Large"` to `"Medium"`
+**only** when `capabilities.touch` is also true — a real ten-foot session never
+has one — and passes every other value through unchanged, so a genuine console
+(no touch) is byte-identical to before. **Read `effectiveDisplaySize`, not
+`displaySize`,** for anything that decides ten-foot TREATMENT; keep reading the
+raw fact for anything that wants the engine's literal report (a diagnostic, the
+device-matrix harness, an explicit preview override).
 
 ---
 

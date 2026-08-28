@@ -2253,3 +2253,31 @@ describe("NM-H4a: a topbar-safe inset that cannot describe this viewport is disc
 		expect(chromeWith(facts).band).toBe(nil)
 	end)
 end)
+
+--[[ director item 5 (ADR-0058): physical-size-aware ten-foot classing. The
+	engine's own `displaySize` (`GuiService.ViewportDisplaySize`) is not
+	reliable enough alone to gate the ten-foot 1.5x swing — measured directly
+	in Studio (ADR-0058), a plain windowed desktop viewport reported "Large".
+	Touch is the corroborating signal: a real ten-foot session never has a
+	touchscreen, so "Large" + touch-capable is a contradiction this function
+	resolves toward the safer failure (a big-screen touch kiosk keeps normal
+	text; a handheld does not get inflated to console scale). ]]
+describe("director item 5: adaptive.effectiveDisplaySize (ADR-0058)", function()
+	it("downgrades Large to Medium only when touch is ALSO live", function()
+		expect(adaptive.effectiveDisplaySize("Large", true)).toBe("Medium")
+		expect(adaptive.effectiveDisplaySize("Large", false)).toBe("Large")
+		expect(adaptive.effectiveDisplaySize("Large", nil)).toBe("Large")
+	end)
+
+	it("never touches Small or Medium, touch or not — only Large is ever in question", function()
+		expect(adaptive.effectiveDisplaySize("Small", true)).toBe("Small")
+		expect(adaptive.effectiveDisplaySize("Small", false)).toBe("Small")
+		expect(adaptive.effectiveDisplaySize("Medium", true)).toBe("Medium")
+		expect(adaptive.effectiveDisplaySize("Medium", false)).toBe("Medium")
+	end)
+
+	it("passes nil/garbage through untouched — only a genuine Large+touch pair corrects", function()
+		expect(adaptive.effectiveDisplaySize(nil, true)).toBe(nil)
+		expect(adaptive.effectiveDisplaySize("Enormous", true)).toBe("Enormous")
+	end)
+end)

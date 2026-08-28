@@ -195,6 +195,27 @@ function environment.new(core: any): Env
 	-- Derived values CLAMP garbage platform facts into their legal domain —
 	-- a broken adapter fact must never leak a negative text scale or a
 	-- non-policy value downstream (phase-4 fault injection: accessibility).
+	--[[ THE PHYSICAL-SIZE-AWARE DISPLAY FACT (director item 5, ADR-0058).
+		`displaySize` is the raw engine report (`GuiService.ViewportDisplaySize`)
+		and every TEN-FOOT TREATMENT decision below used to read it directly —
+		which is the bug: measured directly (ADR-0058), the engine's own physical-
+		size detection is not reliable enough on its own to gate a 1.5x swing in
+		type, metrics and margins. `adaptive.effectiveDisplaySize`'s own header has
+		the reasoning; this memo is the one seam every ten-foot-sensitive reader in
+		this file shares, so a future one inherits the correction for free instead
+		of re-deriving it (and re-risking the raw read). ADDITIVE: `displaySize`
+		itself is untouched and still answers "what did the engine report" for
+		anything that wants that — a diagnostic, `preview.matrix_rows`' own
+		device-simulation check, an explicit preview override
+		(`client.edit_preview`) — this key answers "what should TREATMENT read"
+		instead, in the same three-value vocabulary, so an existing consumer
+		migrates by swapping the key name (the same shape `effectiveInput` already
+		is for `preferredInput`, below). ]]
+	derived.effectiveDisplaySize = core:memo(function(use)
+		local caps = use(signals.capabilities)
+		local touch = type(caps) == "table" and caps.touch == true
+		return adaptive.effectiveDisplaySize(use(signals.displaySize), touch)
+	end)
 	-- THE POLICY ITSELF LIVES IN `themes/snapshot` (the text-scale policy block),
 	-- as pure functions of these two facts. These memos only supply the facts.
 	-- The reason it moved there rather than staying here: `composition.floorPx`
@@ -203,7 +224,7 @@ function environment.new(core: any): Env
 	-- that agrees today is the defect the line-box helper exists to end
 	-- (docs/plans/variable-item-extents.md).
 	derived.typographyScale = core:memo(function(use)
-		return themeSnapshot.typographyScale(use(signals.displaySize), use(signals.preferredTextSize))
+		return themeSnapshot.typographyScale(use(derived.effectiveDisplaySize), use(signals.preferredTextSize))
 	end)
 	-- PAINT-seam scale (the native substrate; MODEL CORRECTED by Step 8.5): the engine
 	-- applies the player's PreferredTextSize as an ADDITIVE px offset at draw
@@ -214,7 +235,7 @@ function environment.new(core: any): Env
 	-- through `preferredTextOffset` at the measure seam; a dev/test profile
 	-- that raises the multiplier widens measurement only (over-reserve, safe).
 	derived.typographyPaintScale = core:memo(function(use)
-		return themeSnapshot.typographyPaintScale(use(signals.displaySize))
+		return themeSnapshot.typographyPaintScale(use(derived.effectiveDisplaySize))
 	end)
 	--[[ THE METRIC AUTHORITY, AS PRESENTED AT THIS DISPLAY CLASS (director
 		ruling 2026-08-20, from the Part-2 layout audit).
@@ -268,7 +289,7 @@ function environment.new(core: any): Env
 		if themeSnapshot.isFrameworkDefault(committed) then
 			committed = themeSnapshot.neutral()
 		end
-		return themeSnapshot.forDisplay(committed, use(signals.displaySize))
+		return themeSnapshot.forDisplay(committed, use(derived.effectiveDisplaySize))
 	end)
 	derived.effectiveTransparency = core:memo(function(use)
 		local raw = use(signals.preferredTransparency)
@@ -286,7 +307,7 @@ function environment.new(core: any): Env
 		-- comment there was aspirational). The pure function is the single source;
 		-- this memo only supplies the facts.
 		return adaptive.sizeClass(w, {
-			distanceProfile = if use(signals.displaySize) == "Large" then "ten-foot" else "near",
+			distanceProfile = if use(derived.effectiveDisplaySize) == "Large" then "ten-foot" else "near",
 		})
 	end)
 	derived.motionPolicy = core:memo(function(use)
@@ -313,10 +334,16 @@ function environment.new(core: any): Env
 	-- stuck at KeyboardAndMouse). The preferred class is forced live even if
 	-- its capability fact disagrees, so `primary` is always in the set.
 	-- ten-foot presentation keys off the display class, not the input class:
-	-- a console is Large + gamepad, but Large alone (any input) earns the
-	-- distance treatment (type floor, overscan margins, focus visibility)
+	-- a console is Large + gamepad, and Large alone (any input) earns the
+	-- distance treatment (type floor, overscan margins, focus visibility) —
+	-- UNLESS touch is also live (director item 5, ADR-0058): a real ten-foot
+	-- session never has a touchscreen, so "Large" AND "touch capable" is two
+	-- contradictory physical facts, and `effectiveDisplaySize` is the one seam
+	-- that resolves them (a PC handheld's engine-reported "Large" is corrected
+	-- to "Medium" there; every other combination passes through unchanged, a
+	-- real console included).
 	derived.distanceProfile = core:memo(function(use)
-		return if use(signals.displaySize) == "Large" then "ten-foot" else "near"
+		return if use(derived.effectiveDisplaySize) == "Large" then "ten-foot" else "near"
 	end)
 	-- effectiveOverscanInsets (director live find, Xbox emulator 2026-07-21):
 	-- a TV-class display must never render edge-flush, so when the display is
@@ -337,7 +364,7 @@ function environment.new(core: any): Env
 				return authored
 			end
 		end
-		if use(signals.displaySize) == "Large" then
+		if use(derived.effectiveDisplaySize) == "Large" then
 			return { top = 60, bottom = 60, left = 90, right = 90 }
 		end
 		return { top = 0, bottom = 0, left = 0, right = 0 }
@@ -410,7 +437,7 @@ function environment.new(core: any): Env
 		local safeI = edgesOf(use(signals.topbarSafeInsets))
 		local bar = use(signals.topbarInset)
 		local overscan = edgesOf(use(derived.effectiveOverscanInsets))
-		local tenFoot = use(signals.displaySize) == "Large"
+		local tenFoot = use(derived.effectiveDisplaySize) == "Large"
 
 		local insets = {
 			top = math.max(coreI.top, deviceI.top),
