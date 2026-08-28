@@ -2048,9 +2048,18 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   that IS the surface leaving/entering the screen (a full-viewport push/pop).
   Omitted, every caller keeps the themed default unchanged.
 - **A fading form needs a fade group.** `fade`, `materialize` and
-  `fade = true` drive transparency, so the region's child must be declared
-  `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }` for a
-  single plate). Anything else is an authoring error that names the fix.
+  `fade = true` drive transparency, so the region's child must EITHER be
+  declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`
+  for a single plate) itself, OR contain exactly ONE such node in its own
+  subtree (ADR-0060, task POP). The second shape is how a backdrop plate stays
+  OUTSIDE the fade: give the region's child an opaque `surface` and put its
+  content one level in, inside its own `canvasGroup` — position/scale still
+  ride the whole card as one rigid unit (a plain `UIScale`/offset needs no
+  group at all), while `GroupTransparency` is written to the inner group only,
+  so the plate paints at its own, immediate opacity from the first frame
+  instead of fading in lockstep with the text on it. Zero or more than one
+  `canvasGroup` candidate in the subtree is an authoring error that names the
+  fix, exactly as a bare non-group child always has been.
 - **A departing subtree RETIRES, it does not vanish.** It stays mounted in its
   slot (a `ForEach` row exits in place, clamped to its old index), turns
   **non-interactive** — focus order and tap routing both skip it and everything
@@ -3488,7 +3497,13 @@ a screen on its way out must never still take input; only the pixels linger.
 A fading form needs a fade group and a `Screen` is not one, so the transition
 targets the root's single declared `canvasGroup` child when it has one
 (`UI.ZStack{ canvasGroup = true }` around the screen's content is the shape) and
-the root itself otherwise.
+the root itself otherwise. **Position/scale always ride that target as
+declared; alpha alone may resolve one level further in** (ADR-0060, task
+POP) — when the target is not itself a `canvasGroup`, the transparency write
+looks for the ONE such descendant in its subtree instead, so an opaque plate
+can sit OUTSIDE the fade (a direct, non-`canvasGroup` child of the target)
+while its content, one level in, is what actually fades. See **Structural
+transitions** above for the full shape.
 
 #### Full-value disclosure
 
