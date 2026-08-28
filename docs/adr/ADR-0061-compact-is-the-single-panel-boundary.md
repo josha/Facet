@@ -259,8 +259,12 @@ More directly: omitting `backLabel` is BYTE-IDENTICAL to every session's
 behavior before this field existed (the same literal, the same row, now
 also carrying a `compactLabel` degrade path nothing before this round could
 trigger because the row never received caller text to overflow with) — no
-existing caller's observable behavior moves, which is the ADR-0058 precedent
-for "additive, no row owed" rather than the B-4/B-31/B-32/B-33 "Decision 2,
+existing caller's observable behavior moves. (Citation corrected post-review:
+ADR-0058 originally used an "additive, no row owed" framing but was CORRECTED
+in 9320a23 to repudiate exactly that framing and take row B-32 — so ADR-0058
+is NOT a precedent for skipping a row. The argument here stands on its own
+merits instead: a genuinely opt-in key whose omission is byte-identical is
+categorically unlike the B-4/B-31/B-32/B-33 "Decision 2,
 row owed even though nothing moves today" shape (those record a POLICY or
 GEOMETRY answering differently for a class of session that already existed;
 this adds a field nobody could have been passing).
