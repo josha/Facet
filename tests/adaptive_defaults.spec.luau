@@ -420,12 +420,22 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 			THE OBSERVABLE IS THE COLLAPSE THRESHOLD, because that is where the
 			reservation actually lands. `reserved` is the row card's own padding, and
-			Pixel Quest carves 16px a side where the built-in neutral snapshot carves
-			nothing — so on a carved surface a two-column table with 100px floors runs
-			out of room 32px EARLIER. Nothing here reaches into a private: the widest
-			viewport at which a column disappears is a number the player could count.
+			Pixel Quest carves a border on `selection` where the built-in neutral
+			snapshot carves nothing — so on a carved surface a two-column table with
+			100px floors runs out of room exactly that much EARLIER. Nothing here
+			reaches into a private: the widest viewport at which a column disappears is
+			a number the player could count.
 
-			MEASURED: carved 231, flat 199 — the 32px the package reserves, exactly. A
+			RE-MEASURED 2026-08-27 (task THEME, ADR-0059 Decision 5): carved 231 -> 215,
+			flat unchanged at 199, difference 32 -> 16. Pixel Quest's `selection` recipe
+			now reserves the TWO design pixels its art carves rather than the four its
+			nine-slice border needs for the stretch rule, so it takes 8px a side where
+			it used to take 16 — and this case's whole point is that the number it
+			reserves and the number the table spends are ONE number, which is exactly
+			what a halved reservation halving this threshold demonstrates. The property
+			is untouched; only the package's own figure moved.
+
+			MEASURED: carved 215, flat 199 — the 16px the package reserves, exactly. A
 			table reading two environments answered 199 while its rows were sized for
 			the carved package. ]]
 		local pixelQuest = require("../examples/themes/pixel_quest")
@@ -476,10 +486,10 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		end
 		local carved = collapseThreshold(true)
 		local flat = collapseThreshold(false)
-		expect(`carved {carved} vs flat {flat}`).toBe("carved 231 vs flat 199")
+		expect(`carved {carved} vs flat {flat}`).toBe("carved 215 vs flat 199")
 		-- ...and the difference IS the package's own reservation rather than a
 		-- number that happens to differ
-		expect(`difference: {carved - flat}`).toBe("difference: 32")
+		expect(`difference: {carved - flat}`).toBe("difference: 16")
 	end)
 
 	it("TextInput: the field lifts itself off the keyboard with no `env` key", function()

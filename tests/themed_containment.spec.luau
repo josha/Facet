@@ -63,6 +63,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("./lib/fake_target")
+local worldLib = require("./lib/world")
 local overflow_guard = require("./lib/overflow_guard")
 local device_views = require("./lib/device_views")
 local chrome_slots = require("../src/tokens/chrome_slots")
@@ -98,19 +99,40 @@ for _, view in device_views.VIEWS do
 end
 assert(#VIEWS == 3, "the three swept views did not resolve — device_views.VIEWS was renamed")
 
+--[[ THE SHARED SUBSTRATE, not a hand-rolled builder (R12's follow-up trigger,
+	mechanised by `tests/world_substrate.spec`: the next spec file that ADDS a
+	builder migrates its file instead). `tests/lib/world.luau` owns the two
+	construction invariants this file would otherwise have to remember — the
+	viewport is set BEFORE the presenter exists, and the adapter is built before it
+	and never shared — and it takes the scroll-bar thickness through `newAdapter`,
+	which is the seam that exists for exactly this.
+
+	ITS OWN CONTAINMENT GUARD IS OFF, WITH THE REASON IN THE CONSTRUCTOR, because
+	this file's whole job is to ask the guard BY HAND with a package in its hands,
+	and three of its fixtures are deliberately broken screens. The neutral question
+	the substrate would ask is already asked of every one of these surfaces by
+	`tests/overflow_sweep.spec.luau`. ]]
+local GUARD_OFF = "this file asks the guard BY HAND under a theme package, and its "
+	.. "negative controls are deliberately broken screens"
+
 local function world(view: any): any
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
-	env:set("displaySize", view.displaySize)
-	env:set("preferredInput", view.input)
-	env:set("capabilities", device_views.CAPABILITIES[view.input])
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new() :: any
-	adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		safeInsets = { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 },
+		displaySize = view.displaySize,
+		preferredInput = view.input,
+		capabilities = device_views.CAPABILITIES[view.input],
+		newAdapter = function()
+			local adapter = fake_target.new() :: any
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			return adapter
+		end,
+		overflowGuardOff = GUARD_OFF,
+	})
+	-- the scenario contract calls its presenter `presenter`; the substrate calls it
+	-- `pres`. One object, both names, so nothing below has to know which.
+	w.presenter = w.pres
+	return w
 end
 
 local function settle(w: any)
