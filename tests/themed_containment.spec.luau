@@ -798,3 +798,149 @@ describe("themed containment: the HUD plate ledger cannot rot", function()
 		end
 	end)
 end)
+
+--[[ THE COUNT SEAL VS. ITS OWN SEGMENT'S CHROME (task THEME2, director item:
+	"the badge has no padding and overlaps the edge of the control", i2.png — a
+	purple "7" straddling a Pixel Quest segment's golden plank border).
+
+	A DIFFERENT CLASS FROM EVERYTHING ABOVE IN THIS FILE, and worth saying so in
+	one place: every other group here asks "is this rect inside the box its
+	ANCESTOR CHAIN gives it" (`overflow_guard.violations`, Rule 2's sibling-plate
+	extension included). The count seal is NOT outside anything by that question —
+	it is a corner-aligned overlay sized well within its own cell, so it never
+	fires a single `overflow_guard` finding at any inset. What it does is sit ON
+	TOP of a DIFFERENT sibling's own carved border, which is a decoration-vs-
+	decoration collision, not a containment escape — `overflow_guard` has no
+	vocabulary for "does my rect intersect a sibling's own painted border band",
+	only for "did I exceed the box a boundary computation handed me". Measured:
+	mounting the fixture below under Pixel Quest with the pre-fix (flush, zero
+	inset) badge geometry and running `overflow_guard.violations` against it
+	reports ZERO findings — the class is STRUCTURALLY INVISIBLE to the sweep's
+	oracle. This group is therefore its own instrument, reading node rects
+	directly, the same way item 9's own class group above does for the identical
+	reason (a size floor colliding with a gutter is not a containment question
+	either).
+
+	THE FIX (`src/controls/picker.luau`): the badge's own wrapper reads
+	`chromeInsets.control` off the LIVE theme snapshot — the same slot
+	`selection_indicator.luau`'s `barSurfaceSlot` already carves clear of for the
+	sliding pill itself (ADR-0059 Decision 3, director item 8) — and pads its
+	top/right by the carved amount before the "Count" text aligns to the corner.
+	Zero carve (every flat package) reproduces the exact pre-fix geometry. ]]
+describe("themed containment: the count seal clears its own segment's chrome (director item 2)", function()
+	local function badgeScreen(core: any, selected: any): any
+		local picker = Facet.Controls.Picker(core, {
+			id = "Seg",
+			label = "Segments",
+			presentation = "segmented",
+			options = {
+				{ value = "a", label = "Alpha", badge = "7" },
+				{ value = "b", label = "Beta" },
+			},
+			selected = selected,
+		})
+		return UI.Screen({ id = "BadgeScreen", padding = 0, children = { picker.blueprint } }), picker
+	end
+
+	-- carved(snapshot) -> the SAME number the fix reads: the largest side of
+	-- `chromeInsets.control`, or 0 with no package installed. Independent of
+	-- `src/controls/picker.luau`'s own computation (it re-derives from the raw
+	-- snapshot rather than importing the fix's helper), so a case here cannot
+	-- pass merely because it shares a typo with the code under test.
+	local function carvedControlInset(snapshot: any?): number
+		if type(snapshot) ~= "table" then
+			return 0
+		end
+		local insets = (snapshot :: any).chromeInsets
+		local plate = if type(insets) == "table" then insets.control else nil
+		local carved = 0
+		if type(plate) == "table" then
+			for _, side in { "top", "right", "bottom", "left" } do
+				local px = (plate :: any)[side]
+				carved = math.max(carved, if type(px) == "number" then px else 0)
+			end
+		end
+		return carved
+	end
+
+	-- badgeHits(snapshot) -> one row per mounted "Count" badge: how far its own
+	-- top/right edge clears the CELL's top/right edge, minus what the package
+	-- carves. `>= -0.5` (never NEGATIVE beyond sub-pixel slack) is "cleared";
+	-- anything past that is the director's overlap, reproduced.
+	local function badgeHits(
+		w: any,
+		snapshot: any?
+	): { { node: string, carved: number, rightClear: number, topClear: number } }
+		local selected = w.core:signal("a")
+		local screen = badgeScreen(w.core, selected)
+		w.presenter.present(screen, {})
+		settle(w)
+		if snapshot ~= nil then
+			w.env:set("themeMetrics", snapshot)
+			settle(w)
+		end
+		local carved = carvedControlInset(snapshot)
+		local out = {}
+		for _, path in w.adapter.paths() do
+			if #path < 12 or string.sub(path, -12) ~= "/Badge/Count" then
+				continue
+			end
+			local cellPath = string.sub(path, 1, #path - 12)
+			local badge = w.adapter.node(path)
+			local cell = w.adapter.node(cellPath)
+			if badge == nil or cell == nil or badge.rect == nil or cell.rect == nil then
+				continue
+			end
+			table.insert(out, {
+				node = path,
+				carved = carved,
+				rightClear = (cell.rect.x + cell.rect.w - carved) - (badge.rect.x + badge.rect.w),
+				topClear = badge.rect.y - (cell.rect.y + carved),
+			})
+		end
+		return out
+	end
+
+	it("with no package installed, the badge sits flush at the corner — shipped geometry, unchanged", function()
+		local w = world(VIEWS[1])
+		local hits = badgeHits(w, nil)
+		expect(#hits > 0).toBe(true) -- anti-vacuity: the fixture really has a badge
+		for _, hit in hits do
+			expect(hit.carved).toBe(0)
+			-- FLUSH means AT the corner (clearance ~0), not clear of it by a margin
+			expect(math.abs(hit.rightClear) <= 0.5).toBe(true)
+			expect(math.abs(hit.topClear) <= 0.5).toBe(true)
+		end
+	end)
+
+	for _, pkg in PACKAGES do
+		it(`under {pkg.id}, the count seal clears the segment's own carved border`, function()
+			local w = world(VIEWS[1])
+			local hits = badgeHits(w, pkg.snapshot)
+			expect(#hits > 0).toBe(true)
+			for _, hit in hits do
+				-- anti-vacuity: this package really does carve a `control` border,
+				-- or the case below would pass for having asked nothing
+				expect(hit.carved > 0).toBe(true)
+				expect(hit.rightClear >= -0.5).toBe(true)
+				expect(hit.topClear >= -0.5).toBe(true)
+			end
+		end)
+	end
+
+	it("...and overflow_guard itself reports NOTHING here — the class is structurally invisible to it", function()
+		-- the disclosure this file's header makes precise: the sweep's own
+		-- oracle, asked directly, finds no violation on this exact fixture under
+		-- the fattest carving package — proving the SWEEP lane's containment
+		-- census is not already covering this class before this group existed
+		local w = world(VIEWS[1])
+		local selected = w.core:signal("a")
+		local screen = badgeScreen(w.core, selected)
+		w.presenter.present(screen, {})
+		settle(w)
+		w.env:set("themeMetrics", PACKAGES[1].snapshot)
+		settle(w)
+		local found = overflow_guard.violations(w.adapter, overflow_guard.newLedger({}), PACKAGES[1].snapshot)
+		expect(#found).toBe(0)
+	end)
+end)

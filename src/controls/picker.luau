@@ -155,11 +155,13 @@
 -- unbadged picker mounts no wrapper and no badge node, so every path that
 -- shipped before D5 is byte-identical.
 
+local chrome_slots = require("../tokens/chrome_slots")
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
+local themeSnapshot = require("../themes/snapshot")
 
 local picker = {}
 
@@ -541,6 +543,63 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	-- rides a style tag; WITH one, the indicator is the selection paint and the
 	-- buttons go plain so nothing paints over the chip behind them (see header).
 	local slides = indicator ~= "none"
+
+	--[[ BADGE_CLEAR_SLOT + badgeCornerInset (task THEME2, director item 2: "the
+		badge has no padding and overlaps the edge of the control", i2.png — a
+		count seal straddling a Pixel Quest segment's own plank border).
+
+		The count seal used to anchor flush to the segment cell's raw corner —
+		zero inset, on every package. That is invisible on a flat theme (nothing
+		is painted under the corner to overlap) and wrong on any package that
+		carves a border into whatever surface actually paints behind this segment,
+		which is EXACTLY `selection_indicator.luau`'s own `barSurfaceSlot` finding
+		(ADR-0059 Decision 3, director item 8, "tab font has no padding, overlaps
+		edge") one seam over: a decoration that ignores the themed chrome inset
+		ADR-0059 made available collides with it.
+
+		WHICH SURFACE PAINTS UNDER THE BADGE is exactly what decides `surface`
+		on the option Button four lines below, so the same branch is read here:
+		`indicator = "none"` -> the option's OWN surface (nil -> classifies to
+		`control` by CLASS alone, the Button/Toggle fallback rule); any sliding
+		indicator's bar wears `surface = "accent"` when it paints at all (`pill`)
+		or nothing chrome-carrying at all (`underline`, a tint-only rule) — and
+		`chrome_slots.classify` resolves BOTH `control` and `accent` to the same
+		`control` decoration slot, so one lookup covers every indicator except
+		`underline`, whose (still-`plain`) option surface classifies to nil.
+
+		Costs nothing unless a badge exists (`badgeCount` is counted above) and
+		moves no pixel on a flat package: `chromeInsets.control` is all-zero
+		there (ADR-0059's own "flat packages are byte-identical" guarantee), so
+		`carved` stays 0 and `padding` stays the same `{}` it always solved to. ]]
+	local badgeClearSlot: string? = if indicator == "underline"
+		then nil
+		else chrome_slots.classify({ class = "Button", surface = if indicator == "none" then nil else "accent" })
+	local badgeCornerInset: any = nil
+	if badgeCount > 0 then
+		local metricsSig = scope:own(core:memo(function(use)
+			if spec.env == nil then
+				return themeSnapshot.neutral()
+			end
+			local raw = use((spec.env :: any):get("themeMetrics"))
+			return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+		end))
+		badgeCornerInset = scope:own(core:memo(function(use)
+			local px = 0
+			if badgeClearSlot ~= nil then
+				local snap = use(metricsSig)
+				local insets = if type(snap) == "table" then (snap :: any).chromeInsets else nil
+				local plate = if type(insets) == "table" then (insets :: any)[badgeClearSlot] else nil
+				if type(plate) == "table" then
+					for _, side in { "top", "right", "bottom", "left" } do
+						local carved = (plate :: any)[side]
+						px = math.max(px, if type(carved) == "number" then carved else 0)
+					end
+				end
+			end
+			return { top = px, right = px }
+		end))
+	end
+
 	local rows: { any } = {}
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
@@ -605,6 +664,10 @@ function picker.build(Facet: any, core: any, spec: Spec)
 							alignV = "start",
 							width = OVERLAY_FILL,
 							height = OVERLAY_FILL,
+							-- clears the segment's own themed chrome border (see
+							-- `badgeCornerInset` above); `{top=0,right=0}` on every flat
+							-- package, so shipped geometry there is unchanged
+							padding = badgeCornerInset,
 							children = {
 								UI.Text({
 									id = "Count",
