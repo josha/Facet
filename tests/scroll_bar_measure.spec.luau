@@ -518,3 +518,113 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		always.built.dispose()
 	end)
 end)
+
+--[[ ── RED-TEAM finding 1 (fix round 1): THE WIDEN MUST LAND ON THE SAME PAINT
+	IT WAS COMPUTED FOR ────────────────────────────────────────────────────────
+
+	Every case above measures the SETTLED geometry, after `presenter.refresh()`
+	has run once or more — which is exactly what the RED-TEAM review found could
+	mask a one-commit-late write: `render/renderer.luau`'s `solveAndApply` used to
+	call `rectPass.apply` (paints Size, reading `handle.barOverlayWidenW/H`)
+	BEFORE `commitWalks.scrollRegions` (computes and writes that same field for
+	THIS solve). A host newly overflowing under "auto" therefore painted with the
+	PREVIOUS solve's widen — nil on a fresh mount — and the field is a bare,
+	non-reactive handle write with no settle-phase feedback to correct it later
+	(unlike `table.luau`'s `bodyBarInset`, which rides a `core:signal` through the
+	renderer's settle phase for exactly this "derived from this solve's own
+	rects, must land before paint" hazard). A host nothing else ever re-solves
+	stays clipped indefinitely — the 2026-08-09 defect this whole file exists to
+	keep fixed.
+
+	`tests/lib/fake_target.luau`'s `_deriveWindowRect` could not see this: it
+	recomputes `windowRect` FRESH every call from whatever is current, which is
+	structurally incapable of representing a stale read. The mirror added
+	alongside this spec (`handle.appliedRectW/H`, snapshotted inside `setRect`
+	exactly where the live `applyRect` reads the field; `handle.barOverlayWidenW/H`,
+	written inside `setScrollRegion` exactly where the live `applyBarOverlayWiden`
+	writes it) makes the ORDER observable without needing the live, engine-coupled
+	adapter — this is real `render/renderer.luau`/`rect_pass.luau`/`commit_walks.luau`
+	code driving a mirrored adapter, the same relationship every other case in this
+	file already has to the live `screen_target.luau`.
+
+	A SINGLE `presenter.present()` call, nothing else: no `presenter.refresh()`,
+	and plain `Box` rows with no text at all, so the text-measurement round
+	(`renderer.luau`'s `adapter.measureTextWidths` branch) never fires and cannot
+	sneak in a confounding second solve that would re-touch this node's rect and
+	paper over the hazard by chance — the exact confound the review named in the
+	report's own multi-refresh helpers above. `ops()` below proves it stayed one. ]]
+describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint that computes it", function()
+	local ROW_H = 40
+	local ROW_COUNT = 6 -- 240px of content in a 100px box: overflows on the FIRST solve
+
+	local function firstPaintWorld(preferredInput: string?): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
+		if preferredInput ~= nil then
+			env:set("preferredInput", preferredInput)
+		end
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
+		local rows: { any } = {}
+		for i = 1, ROW_COUNT do
+			rows[i] = UI.Box({
+				id = "R" .. i,
+				width = UI.fill(),
+				height = { type = "fixed", px = ROW_H },
+				surface = "raised",
+			})
+		end
+		local handle = presenter.present(
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				children = {
+					UI.ScrollView({
+						id = "List",
+						width = UI.fill(),
+						height = { type = "fixed", px = 100 },
+						children = rows,
+					}),
+				},
+			}),
+			{}
+		)
+		return { core = core, adapter = adapter, presenter = presenter, handle = handle }
+	end
+
+	it("an already-overflowing 'auto' host gets the widen on its FIRST setRect call, not a later one", function()
+		local w = firstPaintWorld("Touch")
+		local node = (w.adapter :: any).node("/S/List")
+		expect(node ~= nil).toBe(true)
+		local rectCalls, regionCalls = 0, 0
+		for _, op in (w.adapter :: any).ops() do
+			if string.match(op, "^rect /S/List ") ~= nil then
+				rectCalls += 1
+			elseif string.match(op, "^scrollregion /S/List ") ~= nil then
+				regionCalls += 1
+			end
+		end
+		-- exactly one paint: the ordering hazard cannot survive a second
+		-- `setRect`/`setScrollRegion` round papering over it
+		expect(rectCalls).toBe(1)
+		expect(regionCalls).toBe(1)
+		-- THE ASSERTION: the Size actually applied on that ONE `setRect` call
+		-- already includes the widen. Before the `renderer.luau` reorder fix
+		-- (task SCROLL2 fix round 1), this read a stale nil widen — RED.
+		expect((node :: any).appliedRectW).toBe((node :: any).rect.w + fake_target.SCROLL_BAR_THICKNESS)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("...and under 'always' policy the same first solve applies no widen at all (sanity control)", function()
+		local w = firstPaintWorld(nil)
+		local node = (w.adapter :: any).node("/S/List")
+		expect(node ~= nil).toBe(true)
+		expect((node :: any).appliedRectW).toBe((node :: any).rect.w)
+		expect(w.core:lastError()).toBeNil()
+	end)
+end)

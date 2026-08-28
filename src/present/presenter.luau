@@ -551,12 +551,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- paint. A DECLARED optional target method: an adapter without it keeps its
 	-- constant bar and nothing else changes.
 	--
-	-- IT NO LONGER MOVES THE RESERVE (director ruling 2026-08-12, reversing
-	-- 2026-08-09). The policy used to zero the adapter's published bar thickness
-	-- under "auto", which is why a change re-solves every surface; the engine
-	-- charges the window for the bar instance whatever the policy paints, so the
-	-- reserve is now constant and the re-solve exists for the indicator lifecycle
-	-- alone. See src/client/screen_target.luau SCROLL_BAR_THICKNESS.
+	-- THE RESERVE MOVES AGAIN, BUT ONLY HALF OF IT (director ruling 2026-08-28,
+	-- task SCROLL2, fa7233a, ADR-0040 row B-35; PARTIALLY RE-REVERSING
+	-- 2026-08-12, which itself reversed 2026-08-09): "always" still charges the
+	-- window for the bar instance unconditionally; "auto" now publishes ZERO
+	-- again, paired with the adapter's own compensating frame-widen
+	-- (src/client/screen_scroll_indicators.luau) so the re-solve below is
+	-- load-bearing for the RESERVE again, not just the indicator's paint
+	-- lifecycle. See src/client/screen_target.luau SCROLL_BAR_THICKNESS.
 	if type((adapter :: any).setScrollIndicatorPolicy) == "function" then
 		local okP, policyReadable = pcall(function()
 			return env:get("scrollIndicatorPolicy")

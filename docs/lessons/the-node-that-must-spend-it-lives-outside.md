@@ -117,6 +117,13 @@ two subtrees — never a containment test inside one.
 - [`a-fixed-box-cannot-hold-a-themes-frame.md`](a-fixed-box-cannot-hold-a-themes-frame.md)
   — the same rule one level in: a control that reserves room its own content
   cannot spend.
-- `docs/plans/device-bug-round-2026-08-12.md` B7(a) — why the reserve is
-  policy-blind and must stay so. Roblox has no overlay scrollbar; the engine
-  charges the window for the bar instance whatever the policy paints.
+- `docs/plans/device-bug-round-2026-08-12.md` B7(a) — FIXED 2026-08-12
+  (director ruling REVERSED): why the reserve was made policy-blind, from
+  2026-08-12 until 2026-08-28. Director ruling 2026-08-28 (task SCROLL2,
+  fa7233a, ADR-0040 row B-35) PARTIALLY RE-REVERSED it: "always" still
+  reserves unconditionally — this entry's own reasoning (Roblox has no overlay
+  scrollbar; the engine charges the window for the bar instance whatever the
+  policy paints) is still exactly why a BARE zero reserve is wrong — but
+  "auto" reserves nothing again, paired with a compensating frame-widen
+  (`src/client/screen_scroll_indicators.luau`'s file header) so the zero
+  reserve does not reproduce the clip this entry describes.

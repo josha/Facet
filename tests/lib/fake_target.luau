@@ -509,6 +509,17 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.setRect(handle: any, rect: any)
 		handle.rect = rect
+		-- ORDERING-HAZARD MIRROR (task SCROLL2 fix round 1, RED-TEAM finding 1):
+		-- captured at the EXACT moment this call runs, mirroring the live
+		-- `applyRect`'s own read of `handle.barOverlayWidenW/H`
+		-- (screen_presentation.luau composes `pw = rect.w + ... + barOverlayWidenW`
+		-- into the Size it actually sends). `_deriveWindowRect` below recomputes
+		-- `windowRect` FRESH from whatever is current every time it runs, which
+		-- cannot see a stale write — this field is a plain snapshot instead, so a
+		-- renderer that calls `setRect` before the widen for THIS solve has been
+		-- written (`setScrollRegion`, below) proves it by staying stale here.
+		handle.appliedRectW = rect.w + (handle.barOverlayWidenW or 0)
+		handle.appliedRectH = rect.h + (handle.barOverlayWidenH or 0)
 		table.insert(ops, `rect {handle.path} {rect.x},{rect.y} {rect.w}x{rect.h}`)
 		-- a rect write RE-APPLIES the stored transform, exactly as the live
 		-- applyRect does: a re-solve must never drop a running motion
@@ -1061,6 +1072,39 @@ function fake_target.new(opts: Opts?)
 		-- creates every scroll host with `ScrollBarThickness = SCROLL_BAR_THICKNESS`
 		-- and only zeroes it for a host that declared `indicators = "none"`. Kept in
 		-- lockstep with that file, exactly like `SCALE_MODE_ENGINE_NAME`.
+		--
+		-- ORDERING-HAZARD MIRROR (task SCROLL2 fix round 1, RED-TEAM finding 1):
+		-- the REAL `applyBarOverlayWiden` (screen_scroll_indicators.setScrollRegion)
+		-- writes `handle.barOverlayWidenW/H` from exactly this fact — does the
+		-- scroll axis overflow its own arranged box — independently of
+		-- `_deriveWindowRect`'s net-outcome window derivation above, because the
+		-- ordering hazard this proves is about WHEN the write lands relative to
+		-- `setRect`, not what window size results. `region.hostW/hostH` are the
+		-- host's solved box (`commit_walks.scrollRegions`), so this needs no
+		-- `handle.rect`, exactly like the real `setScrollRegion`.
+		if region == nil then
+			handle.barOverlayWidenW = nil
+			handle.barOverlayWidenH = nil
+		else
+			local isXAxis = region.axis == "x"
+			local hostW = if type(region.hostW) == "number" then region.hostW else 0
+			local hostH = if type(region.hostH) == "number" then region.hostH else 0
+			local overflowsAxis = if isXAxis
+				then (region.contentW or 0) > hostW + 1
+				else (region.contentH or 0) > hostH + 1
+			local widenAmount = if overflowsAxis
+					and adapter.scrollIndicatorPolicy == "auto"
+					and region.indicators ~= "none"
+				then fake_target.SCROLL_BAR_THICKNESS
+				else 0
+			if isXAxis then
+				handle.barOverlayWidenH = if widenAmount > 0 then widenAmount else nil
+				handle.barOverlayWidenW = nil
+			else
+				handle.barOverlayWidenW = if widenAmount > 0 then widenAmount else nil
+				handle.barOverlayWidenH = nil
+			end
+		end
 		adapter._deriveWindowRect(handle, region)
 		table.insert(
 			ops,

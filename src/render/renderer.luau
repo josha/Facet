@@ -2075,19 +2075,34 @@ function renderer.attach(
 			if channel.armed() then
 				channel.installAnimationRecords(result.rects)
 			end
+			-- NATIVE SCROLL REGIONS, from the native-substrate round: the canvas the
+			-- adapter is told about, plus the per-host autoscroll and indicator
+			-- declarations that ride the same walk. `render/commit_walks` carries the
+			-- rule and the two live findings behind it (the theme's own chrome
+			-- reservation, the shadow bleed).
+			--
+			-- RUNS BEFORE `rectPass.apply` BELOW — LOAD-BEARING (task SCROLL2 fix
+			-- round 1, RED-TEAM finding 1). `applyBarOverlayWiden`
+			-- (`screen_scroll_indicators.setScrollRegion`) writes
+			-- `handle.barOverlayWidenW/H` from THIS solve's own overflow facts;
+			-- `applyRect` (`screen_presentation.luau`, driven by `rectPass.apply`)
+			-- reads that same field composing the Size it sends. Swapped from the
+			-- opposite order, which painted a freshly-overflowing "auto" host with
+			-- the PREVIOUS solve's widen (nil on a fresh mount, since the field is a
+			-- bare non-reactive write with no settle-phase feedback) — reproducing
+			-- the 2026-08-09 clip on any host nothing else ever re-solves. Safe to
+			-- run first: this walk reads only `result.rects`/`metrics`/the handle
+			-- map, all already populated above, and nothing `rectPass.apply` sets up.
+			commitWalks.scrollRegions(root.node, result.rects, metrics)
+
 			-- ANCESTORS FIRST, AND IT IS LOAD-BEARING, NOT TIDINESS: under a nested
 			-- tree a descendant's engine Position is relative to its HOST, so a
 			-- descendant applied before its host re-bases against an origin that has
 			-- not moved yet. `render/rect_pass` carries the rule, the live
 			-- measurement behind it, and the deferred re-base that goes with it.
+			-- (Unaffected by running after `scrollRegions` above: neither reads
+			-- anything the other writes to the engine.)
 			rectPass.apply(root.node, result.rects)
-
-			-- NATIVE SCROLL REGIONS, from the native-substrate round: the canvas the
-			-- adapter is
-			-- told about, plus the per-host autoscroll and indicator declarations that
-			-- ride the same walk. `render/commit_walks` carries the rule and the two live
-			-- findings behind it (the theme's own chrome reservation, the shadow bleed).
-			commitWalks.scrollRegions(root.node, result.rects, metrics)
 
 			-- ...and only now, with this frame fully painted from the conservative
 			-- estimate, ask the engine for the words it could not size. Ordering is

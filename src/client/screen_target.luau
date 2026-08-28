@@ -74,11 +74,22 @@ local foreign_content = require("../render/foreign_content")
 --[[ THE ENGINE CHARGES FOR THIS BAR, ALWAYS. A `ScrollingFrame`'s VISIBLE window
 	is narrower than its own frame by this thickness on the cross axis whenever the
 	scroll axis overflows — even at `ScrollBarInset.None` — and the indicator POLICY
-	cannot change that: the policy only fades the bar's IMAGE. So the solver reserves
-	it off the cross axis under every policy, and the number is one value shared by
-	both seams (`adapter.scrollBarThickness`, published below and again in
-	`setScrollIndicatorPolicy` — now in src/client/screen_scroll_indicators, which
-	is handed this constant — and `tests/lib/fake_target.luau`'s lockstep copy). ]]
+	cannot change THAT engine fact: the policy only fades the bar's IMAGE.
+
+	THE SOLVER RESERVE IS POLICY-AWARE AGAIN (director ruling 2026-08-28, task
+	SCROLL2, fa7233a, ADR-0040 row B-35; PARTIALLY RE-REVERSING 2026-08-12, which
+	itself reversed 2026-08-09): "always" reserves this thickness off the cross
+	axis unconditionally, exactly as before; "auto" reserves ZERO, paired with
+	`screen_scroll_indicators.applyBarOverlayWiden` widening the scroll host's own
+	frame by the same amount whenever its axis overflows — which cancels the
+	engine's window-narrowing above instead of reserving against it (that file's
+	header carries the full mechanism and its disclosed limit).
+
+	The number is still one value shared by both write sites:
+	`adapter.scrollBarThickness`, published below (the pre-policy construction
+	default) and again, policy-branched, in `setScrollIndicatorPolicy`
+	(src/client/screen_scroll_indicators.luau, which is handed this constant) —
+	and `tests/lib/fake_target.luau`'s lockstep copy. ]]
 local SCROLL_BAR_THICKNESS = 8
 -- The scroll indicator POLICY (and its "auto" flash/fade driver) now lives in
 -- src/client/screen_scroll_indicators, together with the ruling that explains
