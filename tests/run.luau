@@ -525,6 +525,11 @@ require("./focus_ring_float_geometry.spec")
 -- round, director 2026-08-23): nested-tabs hit targets shifting after a round
 -- trip through a sibling app tab
 require("./activate_handler_reconnect.spec")
+-- task CONN (review-fix234 Findings 1 & 4): every SIBLING `handle.*Conn`
+-- reconnect site the activate-handler fix above did not sweep, closed through
+-- two shared helpers (`src/client/handle_conn.luau`) and a CENSUS_SLOTS
+-- completeness sweep over every named site
+require("./conn_reconnect_sweep.spec")
 -- image value displays (P3): the bar family, the stepper plate, the toggle slots
 require("./theme_value_displays.spec")
 -- icons + pixel mode + content adoption + selectBy (P4), emission AND application
