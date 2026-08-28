@@ -25,6 +25,13 @@
 --   preflight  the execution contract §4 preflight, as data
 --   select     resolve + select the device for one matrix row and validate it
 --   observe    read the row's evidence from the shared scenario surface
+--   live       the SAME containment/paint judgment, sourced from a raw
+--              PlayerGui walk instead of FacetScenarioAPI — works in the
+--              showcase's OWN boot mode (Facet_Showcase = true), which never
+--              creates that folder; this is the only way to get the on-glass
+--              containment oracle onto a demo the showcase's theme picker
+--              themed, since that is the only path that can theme a
+--              non-theme_authoring scenario at all (task SWEEP)
 --   row        select + observe + measure, composed into one stamped record
 --   input      drive native input through VirtualInput at live geometry and pair
 --              the raw event with the visible effect
@@ -756,16 +763,19 @@ local function judgeZeroBoxes(census: { any }, out: { any })
 	end
 end
 
-local function observe(): any
-	local api = scenarioApi()
-	if api == nil then
-		return { ok = false, reason = "no scenario API" }
-	end
-	local report = decode(api.report(json({ tree = true })))
-	if type(report) ~= "table" then
-		return { ok = false, reason = "scenario report did not decode" }
-	end
+--[[ JUDGE A SET OF FACET-ROOTED INSTANCE TREES (task SWEEP, 2026-08-28).
 
+	Extracted out of `observe()` so a second census SOURCE could exist without a
+	second copy of the judging logic: `observe()` sources `instanceTrees` from
+	`FacetScenarioAPI.report()` (scenario/example boot modes only — the showcase's
+	OWN boot mode never creates that folder, see `observeLive()` below); the exact
+	same judgment now also runs against a tree walked straight off
+	`Players.LocalPlayer.PlayerGui`, which works in EVERY boot mode including the
+	showcase's demo+theme chips — the only surface that can drive a THEME PACKAGE
+	across a non-`theme_authoring` scenario (hud/menu/tab_view/row_actions/...),
+	because only the showcase's theme picker calls the package-swap path for an
+	arbitrarily-mounted demo. One judge, two honest sources. ]]
+local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw: number, vh: number): any
 	-- BOUNDED: a full tree dump of a 200-row fixture is not evidence, it is a
 	-- haystack. Keep the counts, the diagnostics, the offenders and a capped
 	-- sample rather than everything.
@@ -777,8 +787,6 @@ local function observe(): any
 	-- the two questions this driver never asked (see judgeContainment above)
 	local containment = {}
 	local zeroBoxes = {}
-	local cam = workspace.CurrentCamera
-	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
 	-- JUDGE FACET'S OWN TREES, NOT ROBLOX'S (example-quality-pass, 2026-08-06).
 	-- The runner dumps EVERY ScreenGui under PlayerGui, which on a live client
 	-- includes the CoreGui chat window. Its nodes reported `textFits = false`
@@ -800,7 +808,7 @@ local function observe(): any
 	local ROOT_PREFIX = "Facet_"
 	local judgedTrees = 0
 	local skippedTrees = {}
-	for _, tree in report.instanceTrees or {} do
+	for _, tree in instanceTrees or {} do
 		if type(tree.root) ~= "string" or string.sub(tree.root, 1, #ROOT_PREFIX) ~= ROOT_PREFIX then
 			table.insert(skippedTrees, tostring(tree.root))
 			continue
@@ -856,8 +864,9 @@ local function observe(): any
 				-- a truncation the AUTHOR DECLARED (disclose/reveal) is the
 				-- framework's legal overflow policy with a full-value affordance —
 				-- evidence, not a failure. The runner publishes the facts channel
-				-- as report.textPolicies keyed by the same flat path names.
-				local policy = (report.textPolicies or {})[d.name]
+				-- as textPolicies keyed by the same flat path names (nil when the
+				-- source has no such channel — the live-PlayerGui census does not).
+				local policy = (textPolicies or {})[d.name]
 				if policy == nil and type(d.name) == "string" then
 					-- instance names cap at 100 chars, so a deep node's flat name
 					-- is a PREFIX of its real path — and that prefix can cover the
@@ -869,7 +878,7 @@ local function observe(): any
 					-- undeclared (the facts channel does not know this node).
 					local truncatedHits = 0
 					local allDeclared = true
-					for path, pol in report.textPolicies or {} do
+					for path, pol in textPolicies or {} do
 						if string.sub(path, 1, #d.name) == d.name and (pol :: any).truncated == true then
 							truncatedHits += 1
 							if not ((pol :: any).disclose == true or (pol :: any).reveal ~= nil) then
@@ -894,7 +903,35 @@ local function observe(): any
 	end
 
 	return {
+		nodes = nodes,
+		nodesCapped = nodes > MAX_NODES,
+		invisibleNodes = invisible,
+		clippedNodes = clippedNodes,
+		offscreenNodes = offscreen,
+		judgedTrees = judgedTrees,
+		skippedTrees = skippedTrees,
+		unfitText = unfitText,
+		containment = containment,
+		zeroBoxes = zeroBoxes,
+	}
+end
+
+-- observe: the FacetScenarioAPI-sourced census (scenario/example boot modes).
+local function observe(): any
+	local api = scenarioApi()
+	if api == nil then
+		return { ok = false, reason = "no scenario API" }
+	end
+	local report = decode(api.report(json({ tree = true })))
+	if type(report) ~= "table" then
+		return { ok = false, reason = "scenario report did not decode" }
+	end
+	local cam = workspace.CurrentCamera
+	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+	local judged = judgeInstanceTrees(report.instanceTrees or {}, report.textPolicies, vw, vh)
+	return {
 		ok = true,
+		evidenceSource = "FacetScenarioAPI.report",
 		scenario = report.scenario,
 		version = report.version,
 		sourceStamp = report.sourceStamp,
@@ -907,16 +944,197 @@ local function observe(): any
 		custom = report.custom,
 		diagnostics = report.diagnostics,
 		solverDiagnostics = if report.diagnostics ~= nil then #report.diagnostics else 0,
-		nodes = nodes,
-		nodesCapped = nodes > MAX_NODES,
-		invisibleNodes = invisible,
-		clippedNodes = clippedNodes,
-		offscreenNodes = offscreen,
-		judgedTrees = judgedTrees,
-		skippedTrees = skippedTrees,
-		unfitText = unfitText,
-		containment = containment,
-		zeroBoxes = zeroBoxes,
+		nodes = judged.nodes,
+		nodesCapped = judged.nodesCapped,
+		invisibleNodes = judged.invisibleNodes,
+		clippedNodes = judged.clippedNodes,
+		offscreenNodes = judged.offscreenNodes,
+		judgedTrees = judged.judgedTrees,
+		skippedTrees = judged.skippedTrees,
+		unfitText = judged.unfitText,
+		containment = judged.containment,
+		zeroBoxes = judged.zeroBoxes,
+	}
+end
+
+--[[ observeLive: the SAME judgment, sourced from a raw walk of
+	`Players.LocalPlayer.PlayerGui` instead of `FacetScenarioAPI.report()` (task
+	SWEEP, 2026-08-28). Exists because the showcase place's OWN boot mode
+	(`Facet_Showcase = true`) never creates `workspace.FacetScenarioAPI` — only
+	`FacetShowcaseAPI` (list/current/showNext/pickTheme/...) — and the showcase's
+	theme picker is the ONLY surface that can drive a theme PACKAGE across an
+	arbitrarily-mounted demo (hud/menu/tab_view/row_actions/nested_compositing/a
+	numbered tutorial example): `theme_authoring` is the one scenario-mode fixture
+	that wraps package-swap steps around itself, everything else only gets themed
+	through the showcase's global adapter-level swap. Without this, the sweep's
+	on-glass containment oracle could never run against a themed HUD, tab strip,
+	row-actions surface or settings panel — exactly the surfaces the director's
+	own Pixel-Quest reports (round-3 IMG_3785..3788, and the settings-view ring/
+	badge reports) are about.
+
+	dumpGuiInstance/dumpTree are a deliberate, minimal COPY of
+	`examples/gallery/scenarios/runner.luau`'s own tree-dump (same field names,
+	same STYLED_PROPS table, same flat-name/depth shape judgeContainment already
+	expects) rather than a shared require: this file is standalone dev tooling
+	installed into the place as a single ModuleScript source string (see the
+	header), so it cannot `require` a gallery module that may not be replicated
+	into the running session at all (the showcase's demo host, unlike the
+	scenario runner, never mounts `ReplicatedStorage.Facet.preview.matrix_rows`'s
+	sibling scenario registry). Keeping the two dumps byte-comparable is the
+	discipline `tests/prefix_tests.spec.luau`-style drift guards exist for; if the
+	runner's `dumpGuiInstance` grows a field this judge needs, mirror it here. ]]
+local LIVE_STYLED_PROPS: { [string]: { string } } = {
+	Frame = { "BackgroundColor3", "BackgroundTransparency" },
+	TextButton = { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "TextTransparency" },
+	TextLabel = { "BackgroundColor3", "BackgroundTransparency", "TextColor3" },
+	TextBox = { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "TextTransparency" },
+	ImageLabel = {
+		"BackgroundColor3",
+		"BackgroundTransparency",
+		"Image",
+		"ImageColor3",
+		"ImageTransparency",
+		"ScaleType",
+		"SliceCenter",
+		"SliceScale",
+		"TileSize",
+	},
+	ScrollingFrame = { "BackgroundColor3", "BackgroundTransparency", "ScrollBarImageColor3" },
+}
+
+-- {x,y}, NOT device_matrix's own `serializeAny` {w,h} shape (used elsewhere for
+-- catalog dpi/resolution) — judgeContainment/judgeZeroBoxes read `.x`/`.y`
+-- because that is the shape `runner.luau`'s OWN serializeValue produces for a
+-- Vector2, and this dump has to agree with the census the containment judge
+-- was written against.
+local function vec2xy(v: Vector2): { x: number, y: number }
+	return { x = v.X, y = v.Y }
+end
+
+-- GetStyled returns whatever type the property is (Color3, EnumItem, Rect,
+-- UDim2, a plain number/string) and `HttpService:JSONEncode` throws on a raw
+-- Roblox userdata, which would take the WHOLE `row`/`observeLive` call down
+-- rather than reporting one property. Leaf-typed, deliberately: a `styled`
+-- value is never a nested table, so this needs none of `serializeValue`'s
+-- cycle guard.
+local function serializeStyled(v: any): any
+	local t = typeof(v)
+	if t == "Color3" then
+		return string.format("#%02x%02x%02x", v.R * 255 + 0.5, v.G * 255 + 0.5, v.B * 255 + 0.5)
+	elseif t == "EnumItem" then
+		return tostring(v)
+	elseif t == "Vector2" then
+		return { x = v.X, y = v.Y }
+	elseif t == "Rect" then
+		return { minX = v.Min.X, minY = v.Min.Y, maxX = v.Max.X, maxY = v.Max.Y }
+	elseif t == "UDim2" then
+		return tostring(v)
+	end
+	return v
+end
+
+local function dumpGuiInstance(inst: Instance): { [string]: any }?
+	if not inst:IsA("GuiObject") and not inst:IsA("ScreenGui") and not inst:IsA("Path2D") then
+		return nil
+	end
+	local d: { [string]: any } = { class = inst.ClassName, name = inst.Name }
+	if inst:IsA("GuiObject") then
+		d.absPos = vec2xy(inst.AbsolutePosition)
+		d.absSize = vec2xy(inst.AbsoluteSize)
+		d.visible = inst.Visible
+		d.zIndex = inst.ZIndex
+		d.clips = inst.ClipsDescendants
+		local tags = game:GetService("CollectionService"):GetTags(inst)
+		if #tags > 0 then
+			table.sort(tags)
+			d.tags = tags
+		end
+		local corners, strokes = 0, 0
+		for _, c in inst:GetChildren() do
+			if c:IsA("UICorner") then
+				corners += 1
+			elseif c:IsA("UIStroke") then
+				strokes += 1
+			end
+		end
+		if corners > 0 or strokes > 0 then
+			d.modifierChildren = { UICorner = corners, UIStroke = strokes }
+		end
+		local styledProps = LIVE_STYLED_PROPS[inst.ClassName]
+		if styledProps ~= nil then
+			local styled = {}
+			for _, prop in styledProps do
+				local ok, v = pcall(function()
+					return (inst :: any):GetStyled(prop)
+				end)
+				if ok then
+					styled[prop] = serializeStyled(v)
+				end
+			end
+			d.styled = styled
+		end
+		if inst:IsA("ScrollingFrame") then
+			d.canvasPosition = vec2xy(inst.CanvasPosition)
+			d.absCanvasSize = vec2xy(inst.AbsoluteCanvasSize)
+		end
+		if inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox") then
+			d.text = (inst :: any).ContentText
+			d.textFits = (inst :: any).TextFits
+		end
+		if inst:IsA("ImageLabel") or inst:IsA("ImageButton") then
+			d.image = (inst :: any).Image
+		end
+	elseif inst:IsA("Path2D") then
+		d.controlPoints = #inst:GetControlPoints()
+		d.visible = inst.Visible
+	end
+	return d
+end
+
+local function dumpTree(root: Instance): { any }
+	local out: { any } = {}
+	local function walk(inst: Instance, depth: number)
+		local d = dumpGuiInstance(inst)
+		if d then
+			d.depth = depth
+			table.insert(out, d)
+		end
+		for _, c in inst:GetChildren() do
+			walk(c, depth + 1)
+		end
+	end
+	walk(root, 0)
+	return out
+end
+
+local function observeLive(): any
+	local lp = game:GetService("Players").LocalPlayer
+	if lp == nil or lp:FindFirstChild("PlayerGui") == nil then
+		return { ok = false, reason = "no LocalPlayer.PlayerGui — is this the Client VM, during Play?" }
+	end
+	local trees = {}
+	for _, gui in lp.PlayerGui:GetChildren() do
+		if gui:IsA("ScreenGui") then
+			table.insert(trees, { root = gui.Name, nodes = dumpTree(gui) })
+		end
+	end
+	local cam = workspace.CurrentCamera
+	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+	local judged = judgeInstanceTrees(trees, nil, vw, vh)
+	return {
+		ok = true,
+		evidenceSource = "live PlayerGui walk (no FacetScenarioAPI dependency)",
+		viewport = { w = vw, h = vh },
+		nodes = judged.nodes,
+		nodesCapped = judged.nodesCapped,
+		invisibleNodes = judged.invisibleNodes,
+		clippedNodes = judged.clippedNodes,
+		offscreenNodes = judged.offscreenNodes,
+		judgedTrees = judged.judgedTrees,
+		skippedTrees = judged.skippedTrees,
+		unfitText = judged.unfitText,
+		containment = judged.containment,
+		zeroBoxes = judged.zeroBoxes,
 	}
 end
 
@@ -1377,6 +1595,8 @@ local function run(args: any): string
 		return json(selectRow())
 	elseif mode == "observe" then
 		return json(observe())
+	elseif mode == "live" then
+		return json(observeLive())
 	elseif mode == "row" then
 		return json(rowRecord())
 	elseif mode == "step" then

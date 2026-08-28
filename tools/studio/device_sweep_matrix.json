@@ -1,0 +1,105 @@
+{
+  "schema": "facet-device-sweep-matrix/1",
+  "note": "Config for the device-emulator visual sweep gate (task SWEEP, mandate part a). Read by tools/check_device_sweep.py --selftest (headless structure check) and by the human/agent operator driving tools/studio/device_matrix.luau + the theme_authoring scenario through the Studio MCP. See docs/guide/11-device-verification.md '#The device-emulator visual sweep (gate)'.",
+  "deviceRows": [
+    "compact-phone-portrait",
+    "compact-phone-landscape",
+    "tablet-landscape",
+    "desktop-standard",
+    "console-ten-foot"
+  ],
+  "themes": ["neutral", "pixel_quest", "fantasy_ornate"],
+  "baseScenario": "theme_authoring",
+  "captureNaming": "<deviceRow>__<theme>__<scenario>.png (capture_viewport.sh convention; notable cells use their id in place of deviceRow when a custom viewport is involved)",
+  "notableCells": [
+    {
+      "id": "desktop-windowed-scrollbar-repro",
+      "deviceRow": "desktop-standard",
+      "viewportOverride": { "w": 1200, "h": 800 },
+      "theme": "neutral",
+      "scenario": "theme_authoring",
+      "director": "the director's ds2.png repro (SCROLL2 additions, binding): the 'All controls' scenario at a windowed desktop viewport must show the scrollbar thumb no longer covering the Essential label / 0.35 slider / Ed… button region",
+      "reason": "prior lane's live captures of this exact repro were LOST; this is the mandatory re-capture"
+    },
+    {
+      "id": "ps5-showcase-hud",
+      "deviceRow": "console-ten-foot",
+      "theme": "neutral",
+      "scenario": "hud",
+      "director": "ADR-0056 verify on glass: PS5 preset over the showcase HUD"
+    },
+    {
+      "id": "pixelquest-hud-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "pixel_quest",
+      "scenario": "hud",
+      "director": "THEME round device-owed #1 (IMG_3785 after-shot): the round chips (R1/R2/R3)"
+    },
+    {
+      "id": "pixelquest-hud-tablet",
+      "deviceRow": "tablet-landscape",
+      "theme": "pixel_quest",
+      "scenario": "hud",
+      "director": "THEME round device-owed #2 (IMG_3786 after-shot): the task panel's reward chips inside the plank frame"
+    },
+    {
+      "id": "pixelquest-tabs-nested",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "pixel_quest",
+      "scenario": "tab_view",
+      "director": "THEME round device-owed #3 (IMG_3787 after-shot): the pill covering its whole tab"
+    },
+    {
+      "id": "pixelquest-rowactions-edit",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "pixel_quest",
+      "scenario": "row_actions",
+      "director": "THEME round device-owed #4 (IMG_3788 after-shot): playlist edit mode, the disc inside its gutter"
+    },
+    {
+      "id": "menu-five-triggers-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "scenario": "menu",
+      "director": "PANEL round Studio-owed #3 (ADR-0061): open a five-item root menu, enter Layering, confirm ONE panel with a working Back row, confirm focus returns to Layering after backing out",
+      "steps": ["open the root menu", "activate 'Layering'", "observe (single panel, no overlap)", "activate 'Back'", "observe (focus back on Layering)"]
+    },
+    {
+      "id": "glade-corner-rings-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "scenario": "ref_glade",
+      "director": "PAINT round Studio-owed #1/#3 (ADR-0062): overview grid corner + glance-plate mini rings"
+    },
+    {
+      "id": "glade-corner-rings-tablet",
+      "deviceRow": "tablet-landscape",
+      "theme": "neutral",
+      "scenario": "ref_glade",
+      "director": "PAINT round Studio-owed #1 (ADR-0062): overview grid corner at tablet width"
+    },
+    {
+      "id": "glade-detail-rings",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "scenario": "ref_glade",
+      "director": "PAINT round Studio-owed #2 (ADR-0062): detail screen supply rows, identity dot centred not pinned top-left",
+      "steps": ["open a detail screen (nectar or dew)", "observe"]
+    },
+    {
+      "id": "wardrobe-grids-phone",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "scenario": "ref_wardrobe",
+      "director": "MISC round Studio-owed item 15: 'Picked for you' and 'Everything' grids, cards no longer cramped"
+    },
+    {
+      "id": "conn-park-adopt-recycle",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "scenario": "virtual_list_native",
+      "director": "CONN round Studio-owed (findings 1 and 4): a park->adopt recycle of a row carrying a pointer-down/drag handler + Grip(hover) + scroll-wheel host, confirming the fresh occupant's handlers respond and the sub-floor hit-expander margin routes to the new occupant",
+      "note": "behavioral (connection-identity) claim; a black-box visual sweep can only evidence the GEOMETRY half (hit-expander margin on the post-recycle occupant) -- the handler-identity half needs an internal probe or stays physical/Studio-interactive owed"
+    }
+  ]
+}
