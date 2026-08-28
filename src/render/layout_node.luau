@@ -1230,7 +1230,7 @@ local function toLayoutNode(
 
 			SO THE FRAMEWORK REPORTS RATHER THAN REPAIRS. `tests/lib/overflow_guard`
 			treats a full-bleed surfaced sibling as the boundary its stack really has, so
-			every one of those 494 is now a finding a spec can fail on, and
+			every one of those 103 is now a finding a spec can fail on, and
 			`tests/themed_containment.spec.luau` holds the four surfaces the director
 			photographed to it. That is the half of "refuse-or-catch" this seam can
 			honestly deliver. ]]
