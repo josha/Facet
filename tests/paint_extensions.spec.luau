@@ -420,6 +420,31 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		expect(contains(adapterSource, "tinted = handle.tintFill == true")).toBe(true)
 	end)
 
+	--[[ A BARE `shape = "circle"` NODE NEVER GETS A REAL UICorner IN FALLBACK MODE
+		(task PAINT's disclosed boundary, ADR-0062; closed here now that
+		`screen_target.luau`'s SOURCE_CAP_LEDGER extraction makes the fix cheap).
+		`applySurface` is the only fallback writer that materialises `corner()`;
+		a bare node (no `surface` ever authored) never reaches it, so the fallback
+		`shape` write has nothing to re-radius and a tint painted a SQUARE fill on
+		a "circle" ZStack. `applyTint`'s GuiObject branch — the other write that
+		can reach a bare node directly — now creates one itself, gated on
+		`declaredSurface == nil` so a node that DOES carry a surface (whose
+		UICorner life cycle `applySurface` alone owns) is untouched. ]]
+	it("a bare circle node gets a real fallback UICorner the moment a tint paints it", function()
+		local tint = adapter_source.bodyOf(adapterSource, "local function applyTint(handle: any)")
+		expect(`applyTint found: {#tint > 0}`).toBe("applyTint found: true")
+		-- gated on all three: fallback mode, the circle shape, and NO surface ever
+		-- declared — a surfaced node's UICorner belongs to applySurface alone
+		expect(contains(tint, "not nativeMode and handle.shape == \"circle\" and handle.declaredSurface == nil")).toBe(
+			true
+		)
+		-- guarded against a second UICorner on a node applySurface already carved
+		expect(contains(tint, 'instance:FindFirstChildOfClass("UICorner") == nil')).toBe(true)
+		-- reuses the ONE spelling of "a circle radius is half the box"
+		-- (`corner()`), never a second literal `UDim.new(0.5, 0)` that could drift
+		expect(contains(tint, "corner(instance, style.radii.control, nil, handle)")).toBe(true)
+	end)
+
 	it("the four claimable properties are the sheet-owned ones (that is why they claim)", function()
 		for _, prop in { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "ImageColor3", "ScaleType" } do
 			expect(authority.nativeSheetOwned(prop)).toBe(true)

@@ -139,6 +139,13 @@ function screen_paint.new(ctx: any)
 		return activeTheme() or { colors = style.colors, extra = style.extra }
 	end
 
+	-- forward-declared for `applyTint`'s bare-circle corner fix below (a local
+	-- declared later is not an upvalue, docs/lessons/later-locals-are-not-
+	-- upvalues.md); assigned at their ordinary position, unchanged, so every
+	-- other call site reads exactly as it did before this fix
+	local cornerRadiusFor: (any, number) -> UDim
+	local corner: (Instance, number, boolean?, any?) -> ()
+
 	-- THE CONTINUOUS-COLOUR WRITE (ADR-0022 Decision 6).
 	--
 	-- One engine property per class — the one paint channel that class owns — and
@@ -240,6 +247,33 @@ function screen_paint.new(ctx: any)
 				explicit write is the whole story, exactly as before. ]]
 			handle.tintFill = true
 			syncTags(handle)
+			--[[ A BARE `shape = "circle"` NODE NEVER REACHES `applySurface` (ADR-0062;
+				task EXTRACT, closing task PAINT's disclosed boundary). `applySurface`
+				is the only fallback-mode writer that materialises a real UICorner
+				(`corner()`, below); a node that never carries a `surface` prop at all
+				never calls it, so the fallback `shape` write (screen_props.luau) has
+				nothing to re-radius and `shape = "circle"` is accepted-and-ignored —
+				until THIS write paints a square fill directly onto it. Gated on
+				`declaredSurface == nil` (set unconditionally, both modes, the moment a
+				surface IS ever authored — screen_paint's `applySurface`) so a node that
+				carries a real surface is untouched: that node's UICorner life cycle
+				belongs to `applySurface` alone, and creating a second one here would be
+				exactly the "two paint decisions that can drift" this file's `corner()`
+				comment already warns about. Native mode is excluded because the
+				phantom `.facet-shape-circle::UICorner` sheet rule already rounds it
+				for free (screen_chrome). Residual, disclosed rather than silently
+				accepted: a node that starts bare and is GIVEN a surface later (after
+				this write already ran) still collides with `applySurface`'s own
+				`corner()` call, because neither checks for an existing sibling — the
+				same latent double-instantiation shape every non-"plain" surface
+				TRANSITION already carries, one file up, and closing it for every
+				caller is the "audit `applySurface`'s full call graph" work this task's
+				own report named as bigger than this round owes. ]]
+			if not nativeMode and handle.shape == "circle" and handle.declaredSurface == nil then
+				if instance:FindFirstChildOfClass("UICorner") == nil then
+					corner(instance, style.radii.control, nil, handle)
+				end
+			end
 		end
 	end
 
@@ -493,7 +527,7 @@ function screen_paint.new(ctx: any)
 	-- bespoke path the adapter owns the real UICorner, so the SAME fact has to
 	-- reach it here. One function, so "a circle is UDim(0.5, 0)" is one decision
 	-- across both paint paths rather than two that drift.
-	local function cornerRadiusFor(handle: any, radius: number): UDim
+	cornerRadiusFor = function(handle: any, radius: number): UDim
 		if type(handle) == "table" and handle.shape == "circle" then
 			return UDim.new(0.5, 0)
 		end
@@ -503,7 +537,7 @@ function screen_paint.new(ctx: any)
 	-- sanctionedOverride: the toggle knob-track assembly's declared real-child
 	-- chrome (authority.luau native-owned notes) — the ONLY callers allowed to
 	-- materialize modifier instances in native mode
-	local function corner(instance: Instance, radius: number, sanctionedOverride: boolean?, handle: any?)
+	corner = function(instance: Instance, radius: number, sanctionedOverride: boolean?, handle: any?)
 		if not sanctionedOverride then
 			assertBespokePaint("CornerRadius")
 		end
