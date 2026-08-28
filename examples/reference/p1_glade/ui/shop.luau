@@ -17,15 +17,29 @@ local shop = {}
 
 local METRICS = seedData.METRICS
 
--- a modal's body: the presenter's fading surface transition targets the root's
--- single declared canvasGroup child, so every modal in this proof has exactly one
+-- a modal's body. USED TO read "the presenter's fading surface transition
+-- targets the root's single declared canvasGroup CHILD, so every modal in this
+-- proof has exactly one" — `Sheet` itself was that child, wrapping the whole
+-- card, backdrop included. `GroupTransparency` is one engine scalar over the
+-- WHOLE subtree it composites, so a plate declared inside it fades exactly as
+-- fast as the text sitting on it: the backdrop can never be legible ahead of
+-- the content (task POP, director item 10 + mandate b — measured on this
+-- file's own `shop.wisp`, `GroupTransparency` sampled at 1, 0.73, 0.23, 0.003
+-- across a 30-tick materialize, the plate riding every one of those numbers).
+--
+-- `Sheet` is now a plain positioning ZStack, never the fade group. Each caller
+-- below puts its OWN opaque plate outside a NESTED `canvasGroup` instead
+-- (`page()` right below does it once for S3/S4/S5; `shop.wisp` does it inline
+-- for its one-off card shape) — `src/render/transitions.luau`'s
+-- `resolveAlphaTarget` finds that descendant and fades it there, while `Sheet`
+-- still carries the whole card's slide/scale as one rigid unit (transform
+-- needs no group at all; only alpha does).
 local function sheet(ctx: any, id: string, children: { any }): any
 	return ctx.UI.Screen({
 		id = id,
 		children = {
 			ctx.UI.ZStack({
 				id = "Sheet",
-				canvasGroup = true,
 				width = ctx.UI.fill(),
 				height = ctx.UI.fill(),
 				children = children,
@@ -35,6 +49,38 @@ local function sheet(ctx: any, id: string, children: { any }): any
 end
 
 shop.sheet = sheet
+
+-- the shared FULL-BLEED page body (S3 picker, S4 provisions, S5 charm): one
+-- opaque plate (`Page`, NEVER inside the fade group) and its scrollable
+-- content in its own `canvasGroup` (`PageContent`) so the plate paints at its
+-- own, immediate opacity while the content fades in over it (task POP).
+local function page(ctx: any, children: { any }): any
+	return ctx.UI.ScrollView({
+		id = "Page",
+		axis = "y",
+		padding = "l",
+		surface = "raised",
+		width = ctx.UI.fill(),
+		height = ctx.UI.fill(),
+		children = {
+			ctx.UI.ZStack({
+				id = "PageContent",
+				canvasGroup = true,
+				width = ctx.UI.fill(),
+				children = {
+					ctx.UI.VStack({
+						id = "PageBody",
+						gap = "l",
+						width = ctx.UI.fill(),
+						children = children,
+					}),
+				},
+			}),
+		},
+	})
+end
+
+shop.page = page
 
 -- ---- S3: the nectar picker ---------------------------------------------------
 
@@ -176,47 +222,38 @@ end
 function shop.picker(ctx: any, gladeId: string, scope: any): any
 	local UI = ctx.UI
 	return sheet(ctx, "NectarPicker", {
-		UI.ScrollView({
-			id = "Page",
-			axis = "y",
-			gap = "l",
-			padding = "l",
-			surface = "raised",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = {
-				UI.HStack({
-					id = "TitleRow",
-					gap = "s",
-					align = "center",
-					width = UI.fill(),
-					children = {
-						parts.heading(ctx, "Title", ctx.L("picker.title")),
-						UI.Spacer({ id = "Push" }),
-						UI.Button({
-							id = "Done",
-							label = ctx.L("picker.done"),
-							compactLabel = "OK",
-							onActivate = function()
-								ctx.nav.dismissTop()
-							end,
-						}),
-					},
-				}),
-				UI.Button({
-					id = "ShopRow",
-					label = ctx.L("picker.shopRow"),
-					width = UI.fill(),
-					align = "start",
-					onActivate = function()
-						ctx.nav.openShop()
-					end,
-				}),
-				parts.heading(ctx, "PremiumTitle", ctx.L("picker.premium")),
-				shelf(ctx, "PremiumShelf", seedData.PREMIUM, gladeId, scope),
-				parts.heading(ctx, "StandardTitle", ctx.L("picker.standard")),
-				shelf(ctx, "StandardShelf", seedData.STANDARD, gladeId, scope),
-			},
+		page(ctx, {
+			UI.HStack({
+				id = "TitleRow",
+				gap = "s",
+				align = "center",
+				width = UI.fill(),
+				children = {
+					parts.heading(ctx, "Title", ctx.L("picker.title")),
+					UI.Spacer({ id = "Push" }),
+					UI.Button({
+						id = "Done",
+						label = ctx.L("picker.done"),
+						compactLabel = "OK",
+						onActivate = function()
+							ctx.nav.dismissTop()
+						end,
+					}),
+				},
+			}),
+			UI.Button({
+				id = "ShopRow",
+				label = ctx.L("picker.shopRow"),
+				width = UI.fill(),
+				align = "start",
+				onActivate = function()
+					ctx.nav.openShop()
+				end,
+			}),
+			parts.heading(ctx, "PremiumTitle", ctx.L("picker.premium")),
+			shelf(ctx, "PremiumShelf", seedData.PREMIUM, gladeId, scope),
+			parts.heading(ctx, "StandardTitle", ctx.L("picker.standard")),
+			shelf(ctx, "StandardShelf", seedData.STANDARD, gladeId, scope),
 		}),
 	})
 end
@@ -347,18 +384,7 @@ function shop.provisions(ctx: any, scope: any): any
 		)
 	end
 
-	return sheet(ctx, "ProvisionShop", {
-		UI.ScrollView({
-			id = "Page",
-			axis = "y",
-			gap = "l",
-			padding = "l",
-			surface = "raised",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = children,
-		}),
-	})
+	return sheet(ctx, "ProvisionShop", { page(ctx, children) })
 end
 
 -- ---- S5: the Keeper's Charm --------------------------------------------------
@@ -397,30 +423,47 @@ function shop.charm(ctx: any, scope: any): any
 				condition = offered,
 				transition = { enter = "fade", class = "container" },
 				thenView = function(): any
+					-- `TierGroup` is a plain positioning ZStack now (task POP):
+					-- `Tier_*` is the opaque plate and stays a DIRECT child of it,
+					-- never of the fade group, so it paints immediately; `TierContent`
+					-- is the one canvasGroup `resolveAlphaTarget` finds one level
+					-- further in, and only its rows ramp in over the plate.
 					return UI.ZStack({
 						id = "TierGroup",
-						canvasGroup = true,
 						width = UI.fill(),
 						children = {
 							UI.VStack({
 								id = "Tier_" .. tier.id,
 								surface = "raised",
 								padding = "m",
-								gap = "s",
 								width = UI.fill(),
 								children = {
-									UI.Text({ id = "Name", text = name, textSize = "heading" }),
-									parts.body(ctx, "Tagline", tagline),
-									parts.chip(ctx, "Price", ctx.commerce.charmPriceOf(tier.id)),
-									parts.commandButton(ctx, {
-										id = "BuyCharm_" .. tier.id,
-										commandId = tier.id,
-										label = ctx.L("charm.buy"),
-										onActivate = function()
-											ctx.nav.buyCharm(tier.id)
-										end,
+									UI.ZStack({
+										id = "TierContent",
+										canvasGroup = true,
+										width = UI.fill(),
+										children = {
+											UI.VStack({
+												id = "TierBody",
+												gap = "s",
+												width = UI.fill(),
+												children = {
+													UI.Text({ id = "Name", text = name, textSize = "heading" }),
+													parts.body(ctx, "Tagline", tagline),
+													parts.chip(ctx, "Price", ctx.commerce.charmPriceOf(tier.id)),
+													parts.commandButton(ctx, {
+														id = "BuyCharm_" .. tier.id,
+														commandId = tier.id,
+														label = ctx.L("charm.buy"),
+														onActivate = function()
+															ctx.nav.buyCharm(tier.id)
+														end,
+													}),
+													parts.rejectionNotice(ctx, "RejectCharm_" .. tier.id, tier.id),
+												},
+											}),
+										},
 									}),
-									parts.rejectionNotice(ctx, "RejectCharm_" .. tier.id, tier.id),
 								},
 							}),
 						},
@@ -431,68 +474,59 @@ function shop.charm(ctx: any, scope: any): any
 	end
 
 	return sheet(ctx, "CharmShop", {
-		UI.ScrollView({
-			id = "Page",
-			axis = "y",
-			gap = "l",
-			padding = "l",
-			surface = "raised",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = {
-				UI.HStack({
-					id = "TitleRow",
-					gap = "s",
-					align = "center",
-					width = UI.fill(),
-					children = {
-						UI.Spacer({ id = "Push" }),
-						UI.Button({
-							id = "Close",
-							label = ctx.L("wisp.close"),
-							compactLabel = { icon = "close" },
-							onActivate = function()
-								ctx.nav.dismissTop()
-							end,
+		page(ctx, {
+			UI.HStack({
+				id = "TitleRow",
+				gap = "s",
+				align = "center",
+				width = UI.fill(),
+				children = {
+					UI.Spacer({ id = "Push" }),
+					UI.Button({
+						id = "Close",
+						label = ctx.L("wisp.close"),
+						compactLabel = { icon = "close" },
+						onActivate = function()
+							ctx.nav.dismissTop()
+						end,
+					}),
+				},
+			}),
+			-- the marketing header: the hero species floating over a soft glow
+			UI.ZStack({
+				id = "Header",
+				width = UI.fill(),
+				children = {
+					UI.corners(
+						UI.Box({
+							id = "Glow",
+							surface = "raised",
+							alignH = "center",
+							alignV = "center",
+							width = { type = "fixed", px = METRICS.heroPortrait * 2 },
+							height = { type = "fixed", px = METRICS.heroPortrait },
 						}),
-					},
-				}),
-				-- the marketing header: the hero species floating over a soft glow
-				UI.ZStack({
-					id = "Header",
-					width = UI.fill(),
-					children = {
-						UI.corners(
-							UI.Box({
-								id = "Glow",
-								surface = "raised",
-								alignH = "center",
-								alignV = "center",
-								width = { type = "fixed", px = METRICS.heroPortrait * 2 },
-								height = { type = "fixed", px = METRICS.heroPortrait },
-							}),
-							"pill"
-						),
-						UI.VStack({
-							id = "HeaderCopy",
-							gap = "s",
-							align = "center",
-							width = UI.fill(),
-							children = {
-								sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
-								UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
-								parts.body(ctx, "Pitch", pitch),
-							},
-						}),
-					},
-				}),
-				UI.VStack({
-					id = "Tiers",
-					gap = "m",
-					width = UI.fill(),
-					children = tiers,
-				}),
-			},
+						"pill"
+					),
+					UI.VStack({
+						id = "HeaderCopy",
+						gap = "s",
+						align = "center",
+						width = UI.fill(),
+						children = {
+							sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
+							UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
+							parts.body(ctx, "Pitch", pitch),
+						},
+					}),
+				},
+			}),
+			UI.VStack({
+				id = "Tiers",
+				gap = "m",
+				width = UI.fill(),
+				children = tiers,
+			}),
 		}),
 	})
 end
@@ -532,62 +566,82 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 	end))
 
 	return sheet(ctx, "WispInfo", {
+		-- `Panel` is the opaque plate and is NEVER inside the fade group (task
+		-- POP): it stays a direct child of `Sheet` (itself no longer a
+		-- canvasGroup — see `sheet`'s header), so it paints at its own, immediate
+		-- opacity from the first frame. `PanelContent`, one level in, is the ONE
+		-- canvasGroup `resolveAlphaTarget` finds and fades — the card still
+		-- slides/scales as a single rigid unit (`Panel`'s own `UIScale`), only its
+		-- CONTENT ramps in over the plate that was always there.
 		UI.VStack({
 			id = "Panel",
 			surface = "raised",
 			padding = "l",
-			gap = "m",
-			align = "center",
 			width = UI.fill(),
 			children = {
-				UI.HStack({
-					id = "TitleRow",
-					gap = "s",
+				UI.ZStack({
+					id = "PanelContent",
+					canvasGroup = true,
 					width = UI.fill(),
 					children = {
-						UI.Spacer({ id = "Push" }),
-						UI.Button({
-							id = "Close",
-							label = ctx.L("wisp.close"),
-							compactLabel = { icon = "close" },
-							onActivate = function()
-								ctx.nav.dismissTop()
-							end,
-						}),
-					},
-				}),
-				sceneLib.portrait(ctx, "Portrait", wispId, METRICS.heroPortrait),
-				UI.Text({ id = "Name", text = name, textSize = "heading" }),
-				parts.body(ctx, "Species", line),
-				parts.caption(ctx, "Seen", seen),
-				parts.chip(ctx, "Favourite", favourite),
-				UI.When({
-					id = "LumenGate",
-					condition = gated,
-					transition = { enter = "fade", class = "container" },
-					thenView = function(): any
-						return UI.ZStack({
-							id = "GateGroup",
-							canvasGroup = true,
+						UI.VStack({
+							id = "PanelBody",
+							gap = "m",
+							align = "center",
+							width = UI.fill(),
 							children = {
-								UI.VStack({
-									id = "GateBody",
+								UI.HStack({
+									id = "TitleRow",
 									gap = "s",
-									align = "center",
+									width = UI.fill(),
 									children = {
-										parts.chip(ctx, "LumenChip", ctx.L("wisp.lumenPitch")),
+										UI.Spacer({ id = "Push" }),
 										UI.Button({
-											id = "SeeCharm",
-											label = ctx.L("offer.cta"),
+											id = "Close",
+											label = ctx.L("wisp.close"),
+											compactLabel = { icon = "close" },
 											onActivate = function()
-												ctx.nav.openCharm()
+												ctx.nav.dismissTop()
 											end,
 										}),
 									},
 								}),
+								sceneLib.portrait(ctx, "Portrait", wispId, METRICS.heroPortrait),
+								UI.Text({ id = "Name", text = name, textSize = "heading" }),
+								parts.body(ctx, "Species", line),
+								parts.caption(ctx, "Seen", seen),
+								parts.chip(ctx, "Favourite", favourite),
+								UI.When({
+									id = "LumenGate",
+									condition = gated,
+									transition = { enter = "fade", class = "container" },
+									thenView = function(): any
+										return UI.ZStack({
+											id = "GateGroup",
+											canvasGroup = true,
+											children = {
+												UI.VStack({
+													id = "GateBody",
+													gap = "s",
+													align = "center",
+													children = {
+														parts.chip(ctx, "LumenChip", ctx.L("wisp.lumenPitch")),
+														UI.Button({
+															id = "SeeCharm",
+															label = ctx.L("offer.cta"),
+															onActivate = function()
+																ctx.nav.openCharm()
+															end,
+														}),
+													},
+												}),
+											},
+										})
+									end,
+								}),
 							},
-						})
-					end,
+						}),
+					},
 				}),
 			},
 		}),

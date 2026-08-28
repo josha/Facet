@@ -176,66 +176,61 @@ function keeper.editForm(ctx: any, scope: any): any
 	scope:own(nameField)
 	scope:own(contactField)
 
+	-- `page()`, not a hand-rolled `Page` ScrollView (task POP): this form used
+	-- to build its own copy of `sheet()`'s plate-inside-the-fade-group shape,
+	-- which is the SAME defect newpop.mov showed on `shop.wisp` — sharing the
+	-- helper is the fix landing here too, not a second one.
 	return shopLib.sheet(ctx, "EditKeeperForm", {
-		UI.ScrollView({
-			id = "Page",
-			axis = "y",
-			gap = "l",
-			padding = "l",
-			surface = "raised",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = {
-				parts.heading(ctx, "Title", ctx.L("keeper.editTitle")),
-				UI.VStack({
-					id = "Fields",
-					gap = "m",
-					width = UI.fill(),
-					children = {
-						UI.VStack({
-							id = "NameRow",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
-								nameField.blueprint,
-							},
-						}),
-						UI.VStack({
-							id = "ContactRow",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
-								contactField.blueprint,
-							},
-						}),
-					},
-				}),
-				UI.HStack({
-					id = "Actions",
-					gap = "s",
-					width = UI.fill(),
-					children = {
-						UI.Button({
-							id = "SaveKeeper",
-							label = ctx.L("keeper.save"),
-							compactLabel = "OK",
-							onActivate = function()
-								ctx.nav.saveKeeper()
-							end,
-						}),
-						UI.Button({
-							id = "CancelKeeper",
-							label = ctx.L("keeper.cancel"),
-							role = "cancel",
-							onActivate = function()
-								ctx.nav.dismissTop()
-							end,
-						}),
-					},
-				}),
-			},
+		shopLib.page(ctx, {
+			parts.heading(ctx, "Title", ctx.L("keeper.editTitle")),
+			UI.VStack({
+				id = "Fields",
+				gap = "m",
+				width = UI.fill(),
+				children = {
+					UI.VStack({
+						id = "NameRow",
+						gap = "xs",
+						width = UI.fill(),
+						children = {
+							parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
+							nameField.blueprint,
+						},
+					}),
+					UI.VStack({
+						id = "ContactRow",
+						gap = "xs",
+						width = UI.fill(),
+						children = {
+							parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
+							contactField.blueprint,
+						},
+					}),
+				},
+			}),
+			UI.HStack({
+				id = "Actions",
+				gap = "s",
+				width = UI.fill(),
+				children = {
+					UI.Button({
+						id = "SaveKeeper",
+						label = ctx.L("keeper.save"),
+						compactLabel = "OK",
+						onActivate = function()
+							ctx.nav.saveKeeper()
+						end,
+					}),
+					UI.Button({
+						id = "CancelKeeper",
+						label = ctx.L("keeper.cancel"),
+						role = "cancel",
+						onActivate = function()
+							ctx.nav.dismissTop()
+						end,
+					}),
+				},
+			}),
 		}),
 	})
 end
@@ -244,35 +239,51 @@ end
 function keeper.confirmReset(ctx: any): any
 	local UI = ctx.UI
 	return shopLib.sheet(ctx, "FreshStartConfirm", {
+		-- `Alert` is the opaque plate and stays OUTSIDE the fade group (task
+		-- POP, the same shape as `shop.wisp`'s `Panel`): it keeps the
+		-- positioning props (`alignH`/`alignV`) so the card still centres in
+		-- `Sheet`; `AlertContent`, one level in, is the ONE canvasGroup that
+		-- actually fades.
 		UI.VStack({
 			id = "Alert",
 			surface = "raised",
 			padding = "l",
-			gap = "m",
 			alignH = "center",
 			alignV = "center",
 			children = {
-				parts.heading(ctx, "Title", ctx.L("keeper.confirmTitle")),
-				parts.body(ctx, "Body", ctx.L("keeper.confirmBody")),
-				UI.HStack({
-					id = "Actions",
-					gap = "s",
+				UI.ZStack({
+					id = "AlertContent",
+					canvasGroup = true,
 					children = {
-						UI.Button({
-							id = "KeepGlades",
-							label = ctx.L("keeper.keep"),
-							role = "cancel",
-							onActivate = function()
-								ctx.nav.dismissTop()
-							end,
-						}),
-						UI.Button({
-							id = "StartOver",
-							label = ctx.L("keeper.startOver"),
-							role = "destructive",
-							onActivate = function()
-								ctx.nav.confirmFreshStart()
-							end,
+						UI.VStack({
+							id = "AlertBody",
+							gap = "m",
+							children = {
+								parts.heading(ctx, "Title", ctx.L("keeper.confirmTitle")),
+								parts.body(ctx, "Body", ctx.L("keeper.confirmBody")),
+								UI.HStack({
+									id = "Actions",
+									gap = "s",
+									children = {
+										UI.Button({
+											id = "KeepGlades",
+											label = ctx.L("keeper.keep"),
+											role = "cancel",
+											onActivate = function()
+												ctx.nav.dismissTop()
+											end,
+										}),
+										UI.Button({
+											id = "StartOver",
+											label = ctx.L("keeper.startOver"),
+											role = "destructive",
+											onActivate = function()
+												ctx.nav.confirmFreshStart()
+											end,
+										}),
+									},
+								}),
+							},
 						}),
 					},
 				}),

@@ -565,7 +565,10 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec Â
 		local w = world()
 		w.tap("/GladeCard_mossholm")
 		w.tap("/Visitor_v1")
-		local seen = w.textOf("/Panel/Seen") :: string
+		-- task POP restructured `shop.wisp`'s `Panel` into a plate (never inside
+		-- the fade group) wrapping `PanelContent`'s `PanelBody` (the content that
+		-- actually fades) â€” `Seen` moved one level in with the rest of the body
+		local seen = w.textOf("/PanelBody/Seen") :: string
 		expect(string.find(seen, "Mossholm", 1, true) ~= nil).toBe(true)
 		expect(string.find(seen, "ago", 1, true) ~= nil).toBe(true)
 	end)
