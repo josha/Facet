@@ -341,8 +341,20 @@ describe("scenario 'menu': the list, and what the framework says about it", func
 end)
 
 describe("scenario 'menu': both idioms, from one control, on one machine", function()
+	--[[ RE-PINNED FOR DIRECTOR ITEM 14 (framework-gaps-phase2-followups;
+		shouldHaveSinglePanel.png; ADR-0061). This describe block's own claim —
+		"both idioms, from one control, on one machine" — used to be demonstrated
+		at `PHONE` (320x640), forcing the Idiom picker's `interactionClasses` fact
+		to reach BOTH `menu` and `sheet` without a second device. That is now the
+		exact shape of the defect the director reported: a COMPACT width forces
+		`sheet` as a framework default regardless of which pointer is live, so
+		`panel` stopped being reachable there — on purpose. The three cases below
+		move to `DESKTOP` (a `wide` sizeClass, unaffected by the compact override)
+		to keep proving what they always proved; the case that follows them is the
+		one that proves the NEW rule, at `PHONE`, where the old shape used to
+		live. ]]
 	it("panel stacks a surface per level; sheet REPLACES and grows a Back row", function()
-		local w = world(PHONE)
+		local w = world(DESKTOP)
 		w.built.steps.idiom(w.built, "panel")
 		w.built.steps.open(w.built, "Tap")
 		w.built.steps.enter(w.built, "layering")
@@ -374,7 +386,7 @@ describe("scenario 'menu': both idioms, from one control, on one machine", funct
 	end)
 
 	it("a live idiom flip REBUILDS an open chain in place, at the depth the player reached", function()
-		local w = world(PHONE)
+		local w = world(DESKTOP)
 		w.built.steps.idiom(w.built, "panel")
 		w.built.steps.open(w.built, "Tap")
 		w.built.steps.enter(w.built, "layering")
@@ -391,7 +403,7 @@ describe("scenario 'menu': both idioms, from one control, on one machine", funct
 	end)
 
 	it("`automatic` is the environment's own answer, and it is not a device name", function()
-		local w = world(PHONE)
+		local w = world(DESKTOP)
 		w.built.steps.idiom(w.built, "auto")
 		w.settle()
 		-- headless capabilities are pointer+keyboard, so the automatic answer here
@@ -402,6 +414,31 @@ describe("scenario 'menu': both idioms, from one control, on one machine", funct
 		w.settle()
 		expect(w.built.report().presentation).toBe("sheet")
 	end)
+
+	--[[ DIRECTOR ITEM 14, THE FIXTURE THE SCREENSHOT WAS TAKEN FROM
+		(shouldHaveSinglePanel.png; ADR-0061). At a COMPACT width the framework
+		now forces `sheet` regardless of which idiom this demo forces — the three
+		cases above moved off `PHONE` because this is what took their place: a
+		floating `panel` no longer fits here, on purpose, so forcing it stops
+		reaching `menu` at all rather than stacking a second surface over the
+		first the way the screenshot shows. ]]
+	it(
+		"on a COMPACT viewport, forcing `panel` still resolves `sheet` — the screenshot's own defect, closed",
+		function()
+			local w = world(PHONE)
+			w.built.steps.idiom(w.built, "panel")
+			w.built.steps.open(w.built, "Tap")
+			w.settle()
+			expect(w.built.report().presentation).toBe("sheet")
+			w.built.steps.enter(w.built, "layering")
+			w.settle()
+			-- ONE surface — not the parent AND a floating child overlapping it, which
+			-- is exactly what the screenshot shows
+			expect(w.built.report().cards[1].surfaces).toBe(1)
+			expect(w.adapter.node(sheetRow("Tap", "clothing")) ~= nil).toBe(true)
+			expect(w.adapter.node(panelRow("Tap", 1, "clothing"))).toBeNil()
+		end
+	)
 end)
 
 describe("scenario 'menu': it holds together where a phone squeezes it", function()

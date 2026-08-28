@@ -44,6 +44,18 @@
 	live surface under `sheet` at any depth, and `dump().surfaces` is where a test
 	reads that rather than trusting the shape.
 
+	COMPACT DOES NOT NEST EITHER, AS A FRAMEWORK DEFAULT (director item 14,
+	framework-gaps-phase2-followups; ADR-0061). `resolvePresentation`'s own sheet
+	branch answers "is touch primary", which is a different question from "does
+	this fit" — a compact width with a pointer primary (a phone with a mouse, or
+	Roblox Studio's own compact preset, which cannot inject touch at all) used to
+	fall through to the floating `menu` idiom and stack a submenu over its own
+	parent and the page beneath it. The automatic resolution now forces `sheet`
+	whenever `sizeClass == "compact"`, independent of which pointer is live;
+	medium/large keep the side-by-side expansion. Backing out of a level restores
+	focus to the row that led into it, not the level's first row — `sheet`
+	replaces its one surface on every level change, so nothing else remembers.
+
 	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. The guidance: if all of a menu's
 	items are unavailable, the menu itself needs to remain available so people can
 	open it and learn about the commands it contains."* Nothing here counts
@@ -411,11 +423,32 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 		-- PRIMARY, not merely present: one predicate, in the recipe
 		local touchLive = menuRecipe.touchPrimary(useFact(use, classesSource))
-		local resolved = menuRecipe.resolvePresentation(
-			menuRecipe.actionableCount(spec.items),
-			useFact(use, sizeClassSource),
-			touchLive
-		)
+		local liveSizeClass = useFact(use, sizeClassSource)
+		local resolved =
+			menuRecipe.resolvePresentation(menuRecipe.actionableCount(spec.items), liveSizeClass, touchLive)
+		--[[ COMPACT IS THE SINGLE-PANEL BOUNDARY, NOT TOUCH (director item 14,
+			framework-gaps-phase2-followups; shouldHaveSinglePanel.png; ADR-0061).
+			`resolvePresentation` (above) gates its own sheet branch on live TOUCH,
+			which answers a different question than the one this override asks: a
+			phone with a mouse attached, or Roblox Studio's own compact preset
+			(which cannot inject touch at all — it reports `primary = "pointer"`
+			unconditionally), still has a compact WIDTH, and a floating per-level
+			panel does not fit one no matter which pointer moved it —
+			`shouldHaveSinglePanel.png` is exactly this: a submenu overlapping its
+			still-open parent AND the page beneath it. The framework's own
+			compact/regular/wide boundary (`layout/adaptive.luau`'s `sizeClass`,
+			breakpoints 600/1000 — the same string `resolvePresentation` already
+			compares against) is a fact this control was already handed, so COMPACT
+			alone now forces the single-surface idiom, independent of which
+			pointer is live. This only ever WIDENS which environments choose
+			`sheet` — touch still forces it at any width (ADAPT-9), and an
+			author-forced `presentation` above this branch is untouched, so the
+			escape hatch stands. Medium/large (`regular`/`wide`) keep the
+			side-by-side expansion exactly as `resolvePresentation` already
+			decided it. ]]
+		if resolved ~= "sheet" and liveSizeClass == "compact" then
+			resolved = "sheet"
+		end
 		return if resolved == "sheet" then "sheet" else "menu"
 	end))
 
@@ -731,12 +764,29 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			closeAll()
 			return
 		end
-		table.remove(chain)
+		local leavingId = table.remove(chain)
 		openPath:set(chain)
 		local presentation = presentationNow()
 		dismissDeepest()
 		if presentation == "sheet" then
 			presentLevel(0, presentation, chain)
+			--[[ FOCUS RETURNS TO THE ROW THAT LED HERE, not the level's own
+				`entry = "first"` default (director item 14: "state preserved —
+				scroll/focus position on back"). `sheet` REPLACES its one surface on
+				every level change, so the fresh scope `presentLevel` just built has
+				no memory of where the player was — without this, backing out of ANY
+				level always lands on that level's first row (or its Back row, one
+				deeper), which is sane on the way IN and wrong on the way OUT: the
+				player just left `leavingId`, and that is what they were looking at.
+				`graph.focusOn` is the same technique
+				`present/surface_lifecycle.luau`'s `raise` uses to restore a
+				remembered focus across an identical remove-then-push scope rebuild;
+				it is a harmless no-op if the id is no longer present (an author
+				removed it while the level was open). ]]
+			local graph = graphs[#graphs]
+			if graph ~= nil then
+				graph.focusOn(`/{surfaceIdFor(0)}/Layer/{PANEL_ID}/Item:{leavingId}`)
+			end
 		end
 	end
 

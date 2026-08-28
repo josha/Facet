@@ -41,14 +41,20 @@
 	THE PRESENTATION IS FORCED FROM A CONTROL, NOT FROM A DEVICE. The idiom comes
 	out of `menu_recipe.resolvePresentation(count, sizeClass, touchLive)` — a pure
 	function of the item count, the space class and whether touch is a LIVE
-	interaction class. So the Idiom picker below writes the ONE input that rule
-	reads, and both idioms are reachable in one session on one machine:
+	interaction class — and then `newMenu`'s own automatic resolution (director
+	item 14, ADR-0061) forces `sheet` whenever the space class is COMPACT,
+	regardless of which pointer is live: a floating per-level panel does not fit
+	a phone width no matter what moved it. So the Idiom picker below writes the
+	ONE input `resolvePresentation` reads, and both idioms are reachable in one
+	session on one machine ONLY at a regular width or wider — narrow this window
+	past compact and Panel stops being reachable, on purpose:
 
 	  · panel — each submenu level is its own surface anchored to its parent ROW,
 	    and `surfaces` in the readout climbs with the chain;
-	  · sheet — the touch idiom, where a submenu REPLACES the sheet's contents and
-	    grows a Back row. `surfaces` stays 1 at any depth, which is the only way to
-	    tell the two apart without looking.
+	  · sheet — the touch idiom, and now also the compact-width idiom, where a
+	    submenu REPLACES the sheet's contents and grows a Back row. `surfaces`
+	    stays 1 at any depth, which is the only way to tell the two apart
+	    without looking.
 
 	AND ONE CARD EXISTS FOR A REFUSAL: a menu whose every item is disabled still
 	OPENS. The guidance: if all of a menu's items are unavailable, the menu itself needs
@@ -100,7 +106,7 @@ local COPY = {
 	idiomAuto = "Automatic",
 	idiomPanel = "Panel",
 	idiomSheet = "Sheet",
-	idiomNote = "Automatic reads the live interaction classes. Panel and Sheet write the one fact that rule reads — a live touch class — so both idioms are reachable without a second device.",
+	idiomNote = "Automatic reads the live interaction classes AND the space class. Panel and Sheet write the one fact the interaction rule reads — a live touch class — so both idioms are reachable without a second device at a regular width or wider. At a COMPACT width the framework always resolves Sheet, on purpose (director item 14): forcing Panel there still shows Sheet, because a floating per-level panel does not fit a phone regardless of which pointer moved it. Widen the window past a compact width to see Panel's floating, side-by-side submenus.",
 	-- readouts
 	openedTitle = "What opened, and what this app can tell about it",
 	nothingYet = "nothing yet — open one of the cards above",

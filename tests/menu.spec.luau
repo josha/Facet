@@ -686,6 +686,188 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 	end)
 end)
 
+--[[ D2, director item 14 (framework-gaps-phase2-followups; shouldHaveSinglePanel.png;
+	ADR-0061): the "Menus and their five triggers" showcase, driven on a phone
+	viewport with NO touch signal (Roblox Studio's own compact preset — it cannot
+	inject touch at all, so `interactionClasses.primary` reads "pointer"
+	unconditionally), showed a submenu floating over its own still-open parent
+	AND the page beneath it. `resolvePresentation`'s sheet branch answers "is
+	touch primary", a different question from "does a floating panel fit" —
+	COMPACT is the framework's own single-panel boundary
+	(`layout/adaptive.luau`'s `sizeClass`, breakpoints 600/1000), asked here as
+	the SAME string this file already reads as `sizeClassSource`, never a new
+	breakpoint. ]]
+describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch", function()
+	it("a compact width forces `sheet` even with a POINTER-primary class (the exact screenshot repro)", function()
+		local w = world({ w = 390, interactionClasses = { pointer = true, primary = "pointer" } })
+		expect(w.control.presentation()).toBe("sheet")
+	end)
+
+	it("...and the SAME pointer-primary class resolves `menu` once the width crosses into `regular`", function()
+		local w = world({ w = 800, interactionClasses = { pointer = true, primary = "pointer" } })
+		expect(w.control.presentation()).toBe("menu")
+	end)
+
+	it(
+		"this only WIDENS which environments choose `sheet` — touch still forces it at any width (ADAPT-9 unaffected)",
+		function()
+			local w = world({ w = 1200, interactionClasses = { touch = true, primary = "touch" } })
+			expect(w.control.presentation()).toBe("sheet")
+		end
+	)
+
+	it(
+		"an author-forced `presentation` is untouched — forcing stays the escape hatch even at a compact width",
+		function()
+			local w =
+				world({ w = 390, presentation = "menu", interactionClasses = { pointer = true, primary = "pointer" } })
+			expect(w.control.presentation()).toBe("menu")
+		end
+	)
+
+	it(
+		"AUTOMATICALLY, with no forced idiom: entering a submenu on a compact pointer-primary surface REPLACES the panel instead of stacking a second one over it",
+		function()
+			local w = world({ items = NESTED, w = 390, interactionClasses = { pointer = true, primary = "pointer" } })
+			w.control.api.open()
+			w.pres.refresh()
+			expect(w.control.dump().surfaces).toBe(1)
+			w.control.api.select("adjust")
+			w.pres.refresh()
+			-- ONE surface, not two overlapping ones — shouldHaveSinglePanel.png's own defect
+			expect(w.control.dump().surfaces).toBe(1)
+			expect(w.adapter.node(sheetRow("head")) ~= nil).toBe(true)
+			expect(w.adapter.node(sheetRow("adjust"))).toBe(nil) -- the parent level is GONE, not overlapping
+		end
+	)
+
+	it(
+		"touch (the Back row) closes one level on the AUTOMATIC compact idiom, exactly as the forced `sheet` case does",
+		function()
+			local w = world({ items = NESTED, w = 390 }) -- default classes: pointer-primary, no forced presentation
+			w.control.api.open()
+			w.pres.refresh()
+			w.control.api.select("adjust")
+			w.pres.refresh()
+			expect(w.adapter.node("/Menu-M/Layer/Panel/Back") ~= nil).toBe(true)
+			w.adapter.tap("/Menu-M/Layer/Panel/Back")
+			w.pres.refresh()
+			expect(#w.control.api.openPath:get()).toBe(0)
+			expect(w.control.api.isOpen:get()).toBe(true)
+		end
+	)
+
+	it("keyboard (Left) and gamepad (ButtonB) each close one level on the AUTOMATIC compact idiom", function()
+		local w = world({ items = NESTED, w = 390 })
+		w.control.api.open()
+		w.pres.refresh()
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		w.pres.refresh()
+		expect(#w.control.api.openPath:get()).toBe(1)
+		w.system.deviceKey("Left", true)
+		w.system.deviceKey("Left", false)
+		w.pres.refresh()
+		expect(#w.control.api.openPath:get()).toBe(0)
+		expect(w.control.api.isOpen:get()).toBe(true)
+		w.control.api.select("adjust")
+		w.pres.refresh()
+		expect(#w.control.api.openPath:get()).toBe(1)
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+		w.pres.refresh()
+		expect(#w.control.api.openPath:get()).toBe(0)
+		expect(w.control.api.isOpen:get()).toBe(true)
+	end)
+
+	it(
+		"dismissal semantics are UNCHANGED at the root: an outside tap still closes every level on the automatic compact idiom",
+		function()
+			local w = world({ items = NESTED, w = 390 })
+			w.control.api.open()
+			w.pres.refresh()
+			w.control.api.select("adjust")
+			w.control.api.select("layer")
+			w.pres.refresh()
+			expect(#w.control.api.openPath:get()).toBe(2)
+			w.adapter.tap(TRIGGER)
+			w.pres.refresh()
+			expect(w.control.api.isOpen:get()).toBe(false)
+			expect(w.control.dump().surfaces).toBe(0)
+		end
+	)
+
+	it(
+		"BACK restores focus to the row that led into the level just left, not the level's first row (state preserved)",
+		function()
+			local w = world({ items = NESTED, presentation = "sheet" })
+			w.control.api.open()
+			w.pres.refresh()
+			w.control.api.select("adjust")
+			w.pres.refresh()
+			-- "layer" is the SECOND row of "adjust"'s children ({ head, layer }) — a
+			-- naive `entry = "first"` rebuild on the way back out would land on
+			-- "head" instead, which is the defect this proves closed
+			w.control.api.select("layer")
+			w.pres.refresh()
+			expect(#w.control.api.openPath:get()).toBe(2)
+			w.control.api.closeLevel()
+			w.pres.refresh()
+			expect(#w.control.api.openPath:get()).toBe(1)
+			expect(w.pres.focus.focused:get()).toBe(sheetRow("layer"))
+			w.control.api.closeLevel()
+			w.pres.refresh()
+			expect(#w.control.api.openPath:get()).toBe(0)
+			expect(w.pres.focus.focused:get()).toBe(sheetRow("adjust"))
+		end
+	)
+
+	it("repeated enter/back leaves no orphaned nodes once closed (no leaked scope)", function()
+		local w = world({ items = NESTED, presentation = "sheet" })
+		w.control.api.open()
+		w.pres.refresh()
+		for _ = 1, 5 do
+			w.control.api.select("adjust")
+			w.pres.refresh()
+			w.control.api.select("layer")
+			w.pres.refresh()
+			w.control.api.closeLevel()
+			w.pres.refresh()
+			w.control.api.closeLevel()
+			w.pres.refresh()
+		end
+		--[[ EVERY PATH EVER CREATED under this menu's surfaces, over the whole
+				five-cycle run — collected BEFORE the close, so a path built and torn
+				down MID-run (every level `sheet` replaces) is still counted. `ops()`'s
+				own "create"/"remove" pairing is the WRONG instrument here and was the
+				first draft's mistake: a `sheet` surface is a MODAL, torn down through
+				`adapter.destroyRoot`, which clears every descendant's `nodes` entry in
+				ONE opaque `"destroyRoot"` op with no per-path text at all — mirroring a
+				real engine's `Instance:Destroy()` cascade, which never calls back once
+				per descendant either. So "was a remove logged for this exact path" is
+				unanswerable by construction and reddened on every row despite nothing
+				being leaked. The instrument that actually answers "is it gone" is the
+				live node table itself. ]]
+		local everCreated: { [string]: boolean } = {}
+		for _, op in w.adapter.ops() do
+			local path = string.match(op, "^create (%S+)")
+			if path ~= nil and string.match(path, "^/Menu%-M") ~= nil then
+				everCreated[path] = true
+			end
+		end
+		w.control.api.close()
+		w.pres.refresh()
+		local stillAlive: { string } = {}
+		for path in everCreated do
+			if w.adapter.node(path) ~= nil then
+				table.insert(stillAlive, path)
+			end
+		end
+		table.sort(stillAlive)
+		expect(table.concat(stillAlive, ", ")).toBe("")
+	end)
+end)
+
 --[[ D2: `presentation` accepts a Readable (gap 20, framework-gaps-phase2).
 	Was a static string, checked once at construction; the audit's own
 	adjacent evidence (teaches-wrong #8) put `sizeClass`/`interactionClasses`
