@@ -736,9 +736,21 @@ function commit_walks.new(ctx: CommitCtx)
 						contentH = entry.contentSize.h + pt + pb + bleed,
 						-- the host's ARRANGED box, so the adapter's cross-axis
 						-- canvas clamp is deterministic instead of racing the
-						-- engine's own window geometry mid-layout
-						hostW = entry.w,
-						hostH = entry.h,
+						-- engine's own window geometry mid-layout. FIX ROUND 2
+						-- (task SCROLL2, RED-TEAM re-review): this read `entry.w`/
+						-- `entry.h`, which do not exist on a solver rect entry — the
+						-- arranged box lives at `entry.rect.w`/`entry.rect.h`
+						-- (`layout/solver.luau`'s `out[node.id] = { rect = rect, ... }`).
+						-- So `hostW`/`hostH` were ALWAYS nil, which made
+						-- `screen_scroll_indicators.setScrollRegion`'s
+						-- `instance.AbsoluteWindowSize` fallback the ONLY branch ever
+						-- taken on the live adapter — self-consistent before fix round
+						-- 1's reorder (it ran right after `rectPass.apply` painted
+						-- THIS solve's Size), genuinely stale after it (now reads the
+						-- class-default/previous-solve Size, one solve behind). Fixed
+						-- at the root rather than re-arguing the fallback's safety.
+						hostW = entry.rect.w,
+						hostH = entry.rect.h,
 						-- per-host indicator opt-out (director ruling 2026-08-09):
 						-- carried on the region because the adapter learns a host
 						-- overflows on exactly this walk — the same place its

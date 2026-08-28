@@ -628,3 +628,126 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 		expect(w.core:lastError()).toBeNil()
 	end)
 end)
+
+--[[ ── FIX ROUND 2 (RED-TEAM re-review, new HIGH finding): setScrollRegion
+	MUST receive the real solved-rect host box ──────────────────────────────
+
+	Fix round 1's own safety argument claimed `screen_scroll_indicators.
+	setScrollRegion`'s `instance.AbsoluteWindowSize` fallback was "dead" because
+	`commitWalks.scrollRegions` "always supplies region.hostW/hostH from the
+	solved rect." The re-review proved that claim FALSE: `commit_walks.luau`
+	built the region with `hostW = entry.w, hostH = entry.h`, and a solver rect
+	entry has NO top-level `.w`/`.h` — the arranged box lives at
+	`entry.rect.w`/`entry.rect.h` (`layout/solver.luau`: `out[node.id] = { rect
+	= rect, ... }`). So `hostW`/`hostH` were ALWAYS nil, on every call, for
+	every scroll host — a pre-existing, ambient bug (traced to the 2026-08-22
+	`commit_walks` extraction, `4cc5cb0`, which carried it verbatim from
+	`renderer.luau`) that fix round 1's reorder made behaviourally live: the
+	"dead" engine-read fallback was in fact the ONLY branch ever taken, and
+	the reorder changed it from self-consistent (ran right after
+	`rectPass.apply` painted THIS solve's Size) to genuinely stale (now reads
+	the class-default/previous-solve Size).
+
+	`tests/lib/fake_target.luau`'s OWN `setScrollRegion` mirror could not catch
+	this either: its widen-mirror (fix round 1) falls back to a bare `0` when
+	`region.hostW` is not a number, and every fixture built so far happened to
+	be grossly overflowing either way — so "correct hostW", "always-0 hostW"
+	and "whatever a live engine happens to say" were indistinguishable. This
+	spec closes that blind spot the direct way: it reads the `region` table
+	`setScrollRegion` ACTUALLY received (stored verbatim on
+	`handle.scrollRegion` — real `commit_walks.scrollRegions` output, the fake
+	adapter only stores it) and pins `hostW`/`hostH` to be non-nil AND equal to
+	the same node's own solved rect — the one fact a fake terminal adapter
+	cannot get wrong about real, upstream production code. ]]
+describe(
+	"fix round 2 (RED-TEAM re-review): setScrollRegion receives the REAL solved-rect host box, never nil",
+	function()
+		it("hostW/hostH reaching setScrollRegion are non-nil and equal the solved rect", function()
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			local rows: { any } = {}
+			for i = 1, 6 do
+				rows[i] = UI.Box({
+					id = "R" .. i,
+					width = UI.fill(),
+					height = { type = "fixed", px = 40 },
+					surface = "raised",
+				})
+			end
+			presenter.present(
+				UI.Screen({
+					id = "S",
+					padding = 0,
+					children = {
+						UI.ScrollView({
+							id = "List",
+							width = UI.fill(),
+							height = { type = "fixed", px = 100 },
+							children = rows,
+						}),
+					},
+				}),
+				{}
+			)
+			local node = (adapter :: any).node("/S/List")
+			expect(node ~= nil and node.scrollRegion ~= nil).toBe(true)
+			-- THE ASSERTION: before this fix, both of these were nil
+			-- (`type(nil) == "number"` is false), silently routing every real
+			-- setScrollRegion call onto the live-engine fallback — RED.
+			expect(type((node :: any).scrollRegion.hostW)).toBe("number")
+			expect(type((node :: any).scrollRegion.hostH)).toBe("number")
+			expect((node :: any).scrollRegion.hostW).toBe((node :: any).rect.w)
+			expect((node :: any).scrollRegion.hostH).toBe((node :: any).rect.h)
+			expect(core:lastError()).toBeNil()
+		end)
+
+		it("...and a hug-width X shelf gets the same fact on its own cross axis (hostH)", function()
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			local chips: { any } = {}
+			for i = 1, 9 do
+				chips[i] = UI.Box({
+					id = "C" .. i,
+					width = { type = "fixed", px = 80 },
+					height = { type = "fixed", px = 40 },
+					surface = "raised",
+				})
+			end
+			presenter.present(
+				UI.Screen({
+					id = "S",
+					padding = 0,
+					children = {
+						UI.ScrollView({
+							id = "Shelf",
+							axis = "x",
+							width = { type = "fixed", px = 200 },
+							height = { type = "hug" },
+							children = chips,
+						}),
+					},
+				}),
+				{}
+			)
+			local node = (adapter :: any).node("/S/Shelf")
+			expect(node ~= nil and node.scrollRegion ~= nil).toBe(true)
+			expect(type((node :: any).scrollRegion.hostW)).toBe("number")
+			expect(type((node :: any).scrollRegion.hostH)).toBe("number")
+			expect((node :: any).scrollRegion.hostW).toBe((node :: any).rect.w)
+			expect((node :: any).scrollRegion.hostH).toBe((node :: any).rect.h)
+			expect(core:lastError()).toBeNil()
+		end)
+	end
+)
