@@ -2380,7 +2380,39 @@ return {
 							"panel",
 							UI.VStack({
 								id = "TasksFullBody",
-								padding = 10,
+								--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
+									7, IMG_3786: the `+50`/`+120`/`+300` reward chips painting over
+									the plank's right border under Pixel Quest).
+
+									`glass()` is `ZStack{ Plate, content }` — the plate carries the
+									surface and the content is its SIBLING — so the framework's
+									chrome reservation lands on a childless node and this body clears
+									nothing (ADR-0059 Decision 2 says why the framework cannot spend
+									it for us: on a small pill the same reservation is a window's
+									border). A panel that is 288px wide can afford its own frame, and
+									this is the one plate in the HUD that IS a panel.
+
+									`math.max`, not `+`: 10px is this body's own breathing room and
+									the frame is a floor under it, so Studio Neutral and every other
+									flat package are byte-identical (max(10, 0) = 10) and Pixel Quest
+									spends its 24. ]]
+								padding = scope:own(core:memo(function(use)
+									local metrics = use(env:get("themeMetrics"))
+									local insets = if type(metrics) == "table"
+										then (metrics :: any).chromeInsets
+										else nil
+									local panel = if type(insets) == "table" then (insets :: any).panel else nil
+									local function side(name: string): number
+										local px = if type(panel) == "table" then (panel :: any)[name] else nil
+										return math.max(10, if type(px) == "number" then px else 0)
+									end
+									return {
+										top = side("top"),
+										right = side("right"),
+										bottom = side("bottom"),
+										left = side("left"),
+									}
+								end)),
 								gap = "tight",
 								width = UI.fill(),
 								children = {
