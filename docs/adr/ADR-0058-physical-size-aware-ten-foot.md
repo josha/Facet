@@ -49,14 +49,15 @@ and why" below).
 [the shipping announcement](https://devforum.roblox.com/t/full-release-build-cross-platform-ui-with-the-viewportdisplaysize-api/3880384)):
 `Small` = "most tablet/mobile/handheld devices", `Medium` = "most laptops and
 monitors", `Large` = "most TVs or larger". A Roblox engineer's own reply in
-that thread: *"We're detecting the physical size through vendor API. E.g. you
-can get the inches from Android/Apple. Other platforms are more complicated,
-but you can get a monitor size."* — mobile has a reliable vendor API; **every
-other platform (Windows, Mac, Linux — i.e. every PC form factor, ROG Ally
-included) is explicitly "more complicated"**, with no documented fallback
-behavior stated anywhere reachable. The API's own ship note: *"This API should
-not be used to make decisions about rendering quality"* — a caution the
-director's own ten-foot type-scale use already runs against, pre-existing.
+that thread explains the mechanism: physical size is detected through each
+platform's own vendor API, with reliable inches available on mobile OSes —
+but, quoted directly, *"other platforms are more complicated, but you can get
+a monitor size."* Mobile has a reliable vendor API; **every non-mobile PC
+platform (ROG Ally included) is explicitly "more complicated"**, with no
+documented fallback behavior stated anywhere reachable. The API's own ship
+note: *"This API should not be used to make decisions about rendering
+quality"* — a caution the director's own ten-foot type-scale use already runs
+against, pre-existing.
 
 **`GuiService:IsTenFootInterface()` is DEPRECATED** (confirmed live against
 the reflection database below) with no documented replacement rule and no
@@ -86,8 +87,9 @@ camera.ViewportSize: 1920, 1078
 ```
 
 **This is the load-bearing measurement.** The Studio session above is an
-ordinary windowed Play-test on a desktop Mac — not a console, not a TV, not a
-handheld — at a 1920x1078 viewport, and `ViewportDisplaySize` reports `Large`.
+ordinary windowed Play-test on an ordinary desktop computer — not a console,
+not a TV, not a handheld — at a 1920x1078 viewport, and `ViewportDisplaySize`
+reports `Large`.
 `IsTenFootInterface()` agrees (`true`), so it is not an independent signal
 either — both apparently share, or independently mis-hit, the same
 resolution-shaped heuristic on a non-mobile platform. **This reproduces the
