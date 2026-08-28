@@ -216,13 +216,19 @@ theme_ledger.ROWS = {
 		-- 2026-08-27 when Pixel Quest's frame narrowed (ADR-0059 Decision 5) and the page
 		-- re-flowed; the neutral pass already waives this page's parent `HomeBody` for the
 		-- same short-landscape reason (see the spec's own waiver list).
+		--
+		-- `compact-pointer` joined 2026-08-28 (task SCROLL2, fa7233a): the director's
+		-- ruling drops the "auto" scroll reserve to zero, so this page's own scroll host
+		-- measures 8px wider under a touch-derived package at +14 — a SMALLER collapse
+		-- (2px, well inside this row's existing 5px ceiling) under a package this row did
+		-- not previously need to name.
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
 		sig = "content box collapses to Npx on y: padding N",
 		px = 5,
 		since = 0,
-		packages = "pixel-quest",
+		packages = "compact-pointer,pixel-quest",
 		kind = "collapsed-box",
 	},
 	{
@@ -528,23 +534,12 @@ theme_ledger.ROWS = {
 		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
 	},
-	{
-		--[[ NEW 2026-08-16 (D5): the TabView ROOT itself, on the three heaviest
-			packages at the one cell where a 320px-tall landscape has nothing left to
-			give. The construct's own arithmetic is a band at the tap-target floor
-			plus a content region that fills the rest; under a package whose chrome
-			inflates the band there is no rest, and the root reports the 3-4px it is
-			short. It is the same page-not-scrollable family as the row above and it
-			resolves the same way — that page needs a ScrollView at this canvas. ]]
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Nav",
-		sig = "content overflows this vstack by Npx on the",
-		px = 4,
-		since = 14,
-		packages = "glossy-mobile,glossy-touch,scifi-hud",
-		kind = "page-not-scrollable",
-	},
+	-- CLOSED 2026-08-28 (task SCROLL2, fa7233a). This row recorded `/Foyer/Root/Nav`
+	-- (the TabView root) on the three heaviest packages overflowing 3-4px at 320px-tall
+	-- landscape @+14 — the same "nothing left to give" cell its child `HomeBody` above
+	-- is waived for. The director's zero-auto-reserve ruling hands this touch-derived
+	-- cell's scroll host 8px more measured width, which absorbs the shortfall; the
+	-- finding no longer fires anywhere in the themed passes.
 	{
 		surface = "flow_wrap",
 		variant = "-",
@@ -576,11 +571,17 @@ theme_ledger.ROWS = {
 		kind = "row-cannot-shrink",
 	},
 	{
+		-- RE-PINNED 2026-08-28 (task SCROLL2, fa7233a): 71 -> 72. `Page` is a
+		-- touch-derived auto-policy ScrollView; the director's zero-auto-reserve
+		-- ruling hands it 8px more measured width, which redistributes through the
+		-- Chips hwrap and lands this fixed 36+36 padding chrome on a 72px box instead
+		-- of 71 — still fully collapsed (0px of content) either way, just a 1px wider
+		-- box hitting the same ceiling.
 		surface = "with_animation",
 		variant = "-",
 		node = "/MotionDemo/Page/Stage/Decorative/Chips/Order/[*]/Chip",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 71,
+		px = 72,
 		since = 0,
 		packages = "fantasy-ornate",
 		kind = "collapsed-box",
@@ -965,7 +966,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/TileGame/Page/rack/rt*",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 39, -- re-recorded 2026-08-15 (O-19): 390x844 measures 39, 2px past the old ceiling
+		px = 40, -- re-recorded 2026-08-28 (task SCROLL2, fa7233a): 39 -> 40, the zero-auto-reserve ruling's 8px-wider touch-derived scroll host redistributing 1px onto this rack row (390x844 still measures 39 elsewhere; this is glossy-touch's new max)
 		since = 0,
 		-- ...and pixel-quest joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
@@ -1374,16 +1375,11 @@ theme_ledger.ROWS = {
 		packages = "fantasy-ornate,glossy-touch,pixel-quest,scifi-hud",
 		kind = "row-cannot-shrink",
 	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol",
-		sig = "content overflows this vstack by Npx on the",
-		px = 16,
-		since = 14,
-		packages = "fantasy-ornate,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
+	-- CLOSED 2026-08-28 (task SCROLL2, fa7233a). This row recorded
+	-- `/Wardrobe/.../CatalogCol` overflowing 16px at 320x640@+14 under four heavy
+	-- packages. The director's zero-auto-reserve ruling hands this touch-derived
+	-- column's scroll host 8px more measured width, which absorbs the overflow; the
+	-- finding no longer fires anywhere in the themed passes.
 	{
 		surface = "sponsor_motion",
 		variant = "-",
@@ -1446,24 +1442,22 @@ theme_ledger.ROWS = {
 			reports that nothing inside it can draw. There is no copy inside a progress
 			fill and nothing beside it moves — a 2px sliver of a bar not painting its
 			inner plate is a bleed, not a lost word. Recorded rather than filtered
-			because the same sentence on a node that DID carry copy would be real. ]]
+			because the same sentence on a node that DID carry copy would be real.
+
+			RE-PINNED 2026-08-28 (task SCROLL2, fa7233a): 2 -> 10. `Page` is a
+			touch-derived auto-policy ScrollView; the director's zero-auto-reserve
+			ruling hands it 8px more measured width, which reaches this bar's own
+			`barTrack` and grows it by the same 8px (measured directly: this exact cell
+			now reports 10, not 2) — still fully collapsed against the fixed 8+8
+			padding, just a wider box hitting the same ceiling. `SpringBar`'s twin row
+			(which stood here until now) is DELETED rather than re-pinned: measured at
+			the same cell, its fill no longer collapses at all — a defect this ruling
+			genuinely fixed, not merely widened. ]]
 		surface = "time_curves",
 		variant = "-",
 		node = "/TimeCurves/Page/CooldownBar/Bar",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 2,
-		since = 0,
-		packages = "pixel-quest",
-		kind = "collapsed-box",
-	},
-	{
-		-- the twin of the row above, one bar down: the same `barTrack` inset against
-		-- the spring demo's own fill width at 390x844.
-		surface = "time_curves",
-		variant = "-",
-		node = "/TimeCurves/Page/SpringBar/Bar",
-		sig = "content box collapses to Npx on x: padding N",
-		px = 2,
+		px = 10,
 		since = 0,
 		packages = "pixel-quest",
 		kind = "collapsed-box",

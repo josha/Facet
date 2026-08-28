@@ -1194,19 +1194,29 @@ local LOCALE_WAIVERS: { Waiver } = {
 		kind = "layer-overlap",
 		where = "desktop-studio-1320@+14, narrow-landscape@+14",
 	},
+	-- CLOSED 2026-08-28 (task SCROLL2, fa7233a). This row recorded
+	-- `/Foyer/Root/Nav/.../FeedPage` collapsing to a 9px box at narrow-landscape@+0
+	-- under the xa pseudo-locale pass (RE-RECORDED 2026-08-16 with the D5 migration,
+	-- when the node moved into the TabView's content region). The director's
+	-- zero-auto-reserve ruling hands this touch-derived cell's scroll host 8px more
+	-- measured width, which absorbs the collapse; the finding no longer fires
+	-- anywhere in the locale pass.
 	{
-		-- RE-RECORDED 2026-08-16 with the D5 migration: the node moved into the
-		-- TabView's content region and the collapse got SMALLER in absolute terms
-		-- (a 9px box rather than a 3px one), which the ledger reads as a worse
-		-- ceiling because the number it records is the box that could not draw.
-		surface = "p4_foyer",
+		-- NEW 2026-08-28 (task SCROLL2, fa7233a). `Page`'s auto-policy ScrollView
+		-- reserve dropping to zero (director ruling) hands its content 8px more
+		-- measured width; that redistributes through this hstack's sibling flex
+		-- allocation and tips it past fitting at the widest pseudo-locale text on the
+		-- narrowest landscape viewport — a new, real finding this contract's own
+		-- extra width produces, not present before fa7233a (verified: 0 findings on
+		-- this surface at the parent commit).
+		surface = "p2_cartwheel",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 9,
-		since = 0,
-		kind = "collapsed-box",
-		where = "narrow-landscape@+0",
+		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/Recent/RecentBrews/OpenBrews",
+		sig = "content overflows this hstack by Npx on the",
+		px = 25,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "narrow-landscape@+14",
 	},
 }
 
