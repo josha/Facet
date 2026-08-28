@@ -39,6 +39,30 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 		label = openLabel,
 		width = UI.fill(),
 		padding = 0,
+		-- THE STRAY CORNER STROKE, root-caused (task PAINT, director item 11:
+		-- glade-corner.png — a partial gray corner-stroke arc at a card corner).
+		-- An unsurfaced `class = "Button"` classifies into the `control` slot
+		-- BY CLASS ALONE (`chrome_slots.classify`: "class = Button|Toggle ->
+		-- control ... including a Button that never declared a surface"), which
+		-- under the running package paints a `controls.control` fill inside a
+		-- `radii.control` (8px under Studio Neutral) rounded corner — its OWN
+		-- chrome, wearing its OWN radius. This card's content is edge-to-edge
+		-- (`padding = 0`, a full-bleed `Scene`) and rounds ITS OWN box at
+		-- `radii.panel` (12px) via `sceneLib.glade`'s `UI.corners(_, "panel")`
+		-- — a LARGER radius than the button wearing it. Since the scene cuts
+		-- more corner away than the button underneath it does, a sliver of the
+		-- button's own control fill/corner shows past the scene's more-rounded
+		-- edge at every corner: the stray stroke. `surface = "plain"` is the
+		-- framework's existing, documented escape hatch for exactly this shape
+		-- — "an activation surface whose entire box is covered by content that
+		-- paints its own visuals" (the same doctrine the playlist's rating
+		-- stars use, chrome_slots.luau) — so the button contributes NO chrome
+		-- of its own and the scene's paint is the only paint. Class-level fix,
+		-- not a per-card patch: the phantom-corner/stroke family already lives
+		-- at `chrome_slots.classify` + the package's surface recipes; this
+		-- applies the vocabulary that already exists rather than adding a new
+		-- one. See `tests/reference/glade_spec.luau` ("item 11").
+		surface = "plain",
 		onActivate = function()
 			ctx.nav.openGlade(glade.id)
 		end,

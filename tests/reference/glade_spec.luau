@@ -372,6 +372,116 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 	end)
 end)
 
+--[[ THE STRAY CORNER STROKE AND THE CIRCLE DOCTRINE (task PAINT, director
+	items 11 + 12). glade-corner.png, OddOverlapNotRound.png and whatisthis.png,
+	root-caused from the Glade source rather than guessed from the photographs
+	(the brief's own instruction): item 11 was an unsurfaced Button's default
+	`control` chrome (a phantom fill + corner) peeking past its own full-bleed,
+	more-rounded content; item 12's "double-draw" was never two ring paints —
+	one `Track`+`Arc` ring plus one identity dot, the dot pinned to the ZStack's
+	default top-left alignment instead of its centre; and whatisthis.png is the
+	deliberate "glance-only rings, bottom-trailing on their own plate"
+	(`overview.luau`'s own comment), not a leaked mount — it carries the exact
+	same dot defect at a smaller size, which is what made it unrecognisable. ]]
+describe("Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)", function()
+	local chrome_slots = require("../../src/tokens/chrome_slots")
+
+	-- CENTRED, WITHIN A PIXEL — not exact equality, because a mark whose
+	-- floor-derived size is ODD against its ring (e.g. `floor(56 * 0.46)` = 25
+	-- inside a 56px ring) centres at a HALF pixel, which the solver's own
+	-- pixel-snapping (`layout/solver.luau`'s `roundPx`) resolves to one whole
+	-- pixel or the other. The claim under test is "centred", not "centred to a
+	-- sub-pixel this engine cannot paint" — the same tolerance this file's own
+	-- `centered()` helper (the nav-placement describe block, above) already
+	-- uses for exactly this reason.
+	local function centeredAxis(markPos: number, markSize: number, ringPos: number, ringSize: number)
+		local wantMid = ringPos + ringSize / 2
+		local gotMid = markPos + markSize / 2
+		expect(math.abs(gotMid - wantMid) <= 1).toBe(true)
+	end
+
+	it("item 11: the card's activation Button classifies to NO chrome slot at all — surface = plain", function()
+		local w = world()
+		local button = w.node("/Card_mossholm/GladeCard_mossholm")
+		expect(button ~= nil).toBe(true)
+		expect(button.props.surface).toBe("plain")
+		-- the root cause, named: an unsurfaced Button classifies "control" BY
+		-- CLASS ALONE and gets a phantom fill+corner of its own — GetStyled-level
+		-- (a property probe on BackgroundColor3/CornerRadius cannot see sheet
+		-- paint; `chrome_slots.classify` is the decision that produces it).
+		expect(chrome_slots.classify({ class = "Button" })).toBe("control")
+		expect(chrome_slots.classify({ class = "Button", surface = button.props.surface })).toBeNil()
+	end)
+
+	it("item 12: the supply ring is a TRUE 1:1 box via shape = circle, byte-identical geometry to before", function()
+		local w = world()
+		w.tap("/GladeCard_mossholm")
+		local ring = w.node("/SupplyRow_dew/Row/Ring")
+		expect(ring ~= nil).toBe(true)
+		expect(ring.props.shape).toBe("circle")
+		expect(ring.rect.w).toBe(seedData.METRICS.ringLarge)
+		expect(ring.rect.h).toBe(seedData.METRICS.ringLarge)
+		expect(ring.rect.w).toBe(ring.rect.h) -- the guarantee: it cannot NOT be square
+	end)
+
+	it("item 12: the dew ring's identity dot is CENTRED, not pinned to the top-left corner", function()
+		local w = world()
+		w.tap("/GladeCard_mossholm")
+		local ring = w.node("/SupplyRow_dew/Row/Ring")
+		local drop = w.node("/SupplyRow_dew/Row/Ring/Drop")
+		expect(ring ~= nil and drop ~= nil).toBe(true)
+		-- the pre-fix defect, stated as the assertion it must NOT satisfy: a
+		-- top-left dot has drop.rect.x == ring.rect.x (offset 0), which is
+		-- exactly what `child.alignH or node.alignH or "start"` produced before
+		-- this ring declared its own alignment
+		centeredAxis(drop.rect.x, drop.rect.w, ring.rect.x, ring.rect.w)
+		centeredAxis(drop.rect.y, drop.rect.h, ring.rect.y, ring.rect.h)
+		-- and it is still exactly the drawn size the art spec names (0.40 of the
+		-- ring), unmoved by the alignment fix
+		expect(drop.rect.w).toBe(math.floor(seedData.METRICS.ringLarge * 0.40))
+	end)
+
+	it("item 12: the nectar ring's identity mark (the Jar swap) is centred the same way", function()
+		local w = world()
+		w.tap("/GladeCard_mossholm")
+		local ring = w.node("/SupplyRow_nectar/Row/Ring")
+		expect(ring ~= nil).toBe(true)
+		local swapPath: string? = nil
+		for _, path in w.adapter.paths() do
+			if
+				string.find(path, "/SupplyRow_nectar/Row/Ring/Jar/", 1, true) ~= nil
+				and string.sub(path, -5) == "/Swap"
+			then
+				swapPath = path
+			end
+		end
+		expect(swapPath ~= nil).toBe(true)
+		local swap = w.adapter.node(swapPath :: string)
+		centeredAxis(swap.rect.x, swap.rect.w, ring.rect.x, ring.rect.w)
+		centeredAxis(swap.rect.y, swap.rect.h, ring.rect.y, ring.rect.h)
+	end)
+
+	it("item 12: whatisthis.png IS the deliberate glance plate, not a leaked mount — same rings, same fix", function()
+		-- the overview grid's OWN small rings (`sceneLib.ring(..., size =
+		-- METRICS.ringSmall)`), never navigated into a detail — proving the
+		-- centring fix is the SHARED composite's, not something the supply
+		-- row's own wrapper adds
+		local w = world()
+		local glance = w.node("/Card_mossholm/GladeCard_mossholm/Body/Glance")
+		expect(glance ~= nil).toBe(true)
+		local nectarRing = w.node("/Card_mossholm/GladeCard_mossholm/Body/Glance/GlanceNectar")
+		expect(nectarRing ~= nil).toBe(true)
+		expect(nectarRing.props.shape).toBe("circle")
+		expect(nectarRing.rect.w).toBe(seedData.METRICS.ringSmall)
+		expect(nectarRing.rect.h).toBe(seedData.METRICS.ringSmall)
+		local dewRing = w.node("/Card_mossholm/GladeCard_mossholm/Body/Glance/GlanceDew")
+		local drop = w.node("/Card_mossholm/GladeCard_mossholm/Body/Glance/GlanceDew/Drop")
+		expect(dewRing ~= nil and drop ~= nil).toBe(true)
+		centeredAxis(drop.rect.x, drop.rect.w, dewRing.rect.x, dewRing.rect.w)
+		centeredAxis(drop.rect.y, drop.rect.h, dewRing.rect.y, dewRing.rect.h)
+	end)
+end)
+
 describe("Glade S3/S4: the purchase command's four phases (spec §9)", function()
 	local function openShop(w: any)
 		w.tap("/GladeCard_mossholm")

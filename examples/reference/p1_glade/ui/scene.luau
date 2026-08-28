@@ -124,8 +124,32 @@ function scene.ring(ctx: any, spec: RingSpec): any
 
 	return UI.ZStack({
 		id = spec.id,
+		-- THE CIRCLE DOCTRINE (task PAINT, director item 12: OddOverlapNotRound.png
+		-- + whatisthis.png). `shape = "circle"` — generalized from the circle
+		-- Button onto ZStack this round — replaces the two literal, independently
+		-- authored `{ type = "fixed", px = spec.size }` dimensions above with ONE
+		-- authored axis and a solver-enforced square: an author (here, or the
+		-- next ring anyone builds) cannot hand the two axes different numbers by
+		-- a typo or a later edit, because there is only one number to hand it.
+		-- Byte-identical geometry to before (both axes were already spec.size),
+		-- pinned in tests/reference/glade_spec.luau.
+		shape = "circle",
 		width = { type = "fixed", px = spec.size },
-		height = { type = "fixed", px = spec.size },
+		-- THE OFFSET DOT, root-caused. The identity mark (`Swap`/`Drop` below) is
+		-- a ZStack child with no `alignH`/`alignV` of its own, so it inherited
+		-- this node's default — and this node had none either, so the solver's
+		-- own fallback fired: `child.alignH or node.alignH or "start"`
+		-- (layout/solver.luau) — pinning the mark to the ring's TOP-LEFT corner
+		-- instead of its centre. That is the "filled dot offset at the ring's
+		-- top-left" the director read as a possible second ring paint (it is
+		-- not: `Track` + the conditional `Arc` are the one ring, `mark` is the
+		-- one identity dot, and the "double-draw" was one ring correctly drawn
+		-- behind one badly-placed dot). Declaring the alignment HERE, on the
+		-- ring itself, fixes it for every mark this shared composite ever
+		-- draws — a class fix, not a per-card patch, since `scene.ring` is the
+		-- one function every nectar/dew ring in the proof calls.
+		alignH = "center",
+		alignV = "center",
 		children = {
 			UI.Path({
 				id = "Track",
