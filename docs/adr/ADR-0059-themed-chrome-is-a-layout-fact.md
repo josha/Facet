@@ -293,3 +293,29 @@ flat one"; that was never measured and is not true.
   the row's named extraction (`src/client/screen_props.luau`) does: the `textSize`
   branch — now in `screen_props.luau` — calls `refitIconArt(handle)`, pinned by
   `tests/chrome_inset_yield.spec.luau`.
+* **2026-08-28 (task THEME2)** — a FOURTH site closed, past the four Decision 3
+  already named (a container sibling, a leaf sibling, the pill indicator, item
+  9's disc floor): `Facet.Controls.Picker`'s segmented "count seal" badge
+  (`src/controls/picker.luau`), which anchored flush at the raw segment cell
+  corner with no inset at all, on every package — invisible on a flat theme
+  (nothing painted under the corner to overlap) and, under any package that
+  carves a `control`/`accent` border, a straddle onto that border identical in
+  shape to the pill's own pre-Decision-3 defect one seam over (director item:
+  "the badge has no padding and overlaps the edge of the control", i2.png). Same
+  fix, same slot: the badge's own wrapper reads `chromeInsets.control` — the
+  slot both the option's bare-surface classification (`indicator = "none"`) and
+  the sliding pill's `accent` surface (`indicator = "pill"`) resolve to via
+  `chrome_slots.classify` — and pads top/right by the largest carved side before
+  the seal aligns to the corner. `indicator = "underline"` carves nothing (a
+  tint-only bar, a `plain` option surface) and computes zero, matching its
+  already-borderless shipped shape. Zero on every flat package, so shipped
+  geometry there is unchanged; ADR-0040 row B-37. **Also recorded here because
+  this ADR's own containment guard cannot see it**: `overflow_guard.violations`
+  asks "is this rect inside the box its ancestor chain gives it", and the badge
+  was never outside anything by that question — it oversits a coincidentally
+  co-located SIBLING's own carved border, which is a decoration-vs-decoration
+  collision, not a containment escape. `tests/themed_containment.spec.luau`'s
+  new group proves the class was structurally invisible to the sweep's own
+  oracle before adding its own direct-rect instrument, rather than extending
+  `overflow_guard` itself — the guard's vocabulary is containment, and inventing
+  a second one for one decoration pair was not owed by this round's evidence.
