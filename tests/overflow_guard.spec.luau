@@ -441,13 +441,23 @@ end)
 	  2. **312 of 312 are the BOTTOM edge.** There is no horizontal instance,
 	     because `placed.rect` is the SLOT the partition allotted and the partition
 	     is clamped to the box. Only the fallback column's tail runs past it.
-	  3. **A LEGAL composition cannot do it**, and that is a measured structural
-	     fact rather than an empirical absence — the two cases below are exactly
-	     that boundary: at hero 400 the three-lane arrangement is legal and every
-	     region is inside the box; at hero 420, twenty pixels later, the
-	     arrangement is REJECTED and the fallback places its regions outside. The
-	     legality check bounds vertical fit, so "a region left the box" and "the
-	     composition fell back" are the same event.
+	  3. **A LEGAL composition cannot do it** — this clause WAS wrong, and ADR-0056
+	     is the counterexample. It said the fact was "a measured structural fact
+	     rather than an empirical absence", reasoning that "the legality check
+	     bounds vertical fit, so 'a region left the box' and 'the composition fell
+	     back' are the same event". They are not: the legality check bounds whether
+	     the content FITS, and `UI.Composition{ exclusions }` shipped a give-way
+	     whose placement arithmetic put a fitting zone `inset` px outside a lane it
+	     fits inside — legal, no rejection, no collision, and up to 300px out
+	     (`docs/adr/ADR-0056-lane-give-way-both-ends.md`). The clause is now true
+	     again for the arithmetic reason rather than the fit reason: a legal
+	     composition's placement sums to the lane exactly. THE THREE CASES BELOW
+	     ARE THE BOUNDARY IT ACTUALLY NEEDED — at hero 400 the three-lane
+	     arrangement is legal and every region is inside the box; at hero 420,
+	     twenty pixels later, the arrangement is REJECTED and the fallback places
+	     its regions outside; and the third declares a chrome row, because the
+	     first two declare no `exclusions` and an inset of 0 made them structurally
+	     incapable of failing on the class that actually shipped.
 	  4. **Where it fires, nothing escapes paint.** On the worst cell in the suite
 	     (narrow-portrait 320x640, `preferredTextOffset` +14, Pixel Quest, strip
 	     down) the composition is offered **304x0** and yet: zero region-vs-region
@@ -478,9 +488,14 @@ describe("overflow guard: a composition region outside its box IS the declared f
 
 	--[[ 700x400, and the ONE variable is the lead region's height. The three-lane
 		arrangement is legal while the tallest form fits the box and is rejected the
-		moment it does not, which is the boundary these two cases sit either side
-		of. ]]
-	local function screenWith(heroH: number): any
+		moment it does not, which is the boundary the first two cases sit either side
+		of. THE SECOND VARIABLE is `exclusions` — a declared chrome row — and it
+		exists because the first two cases DECLARE NONE: with an inset of 0 they are
+		structurally incapable of failing on the class ADR-0056 fixed, so the
+		property they name ("a legal composition keeps every region inside its own
+		box") was pinned by a case that could not break. The third case supplies the
+		arm that can. ]]
+	local function screenWith(heroH: number, exclusions: { any }?): any
 		return UI.Screen({
 			id = "S",
 			children = {
@@ -489,6 +504,7 @@ describe("overflow guard: a composition region outside its box IS the declared f
 					arrangements = { "threeLane", "column" },
 					laneGap = 12,
 					groupGap = 8,
+					exclusions = exclusions,
 					width = { type = "fixed", px = 700 },
 					height = { type = "fixed", px = 400 },
 					groups = {
@@ -531,12 +547,12 @@ describe("overflow guard: a composition region outside its box IS the declared f
 		return out
 	end
 
-	local function mount(heroH: number): any
+	local function mount(heroH: number, exclusions: { any }?): any
 		local w = world.new({
 			viewport = { x = 0, y = 0, w = 900, h = 700 },
 			overflowGuardOff = OFF,
 		})
-		w.present(screenWith(heroH))
+		w.present(screenWith(heroH, exclusions))
 		w.settle(2)
 		return w
 	end
@@ -574,6 +590,63 @@ describe("overflow guard: a composition region outside its box IS the declared f
 		expect(designed).toBe(1)
 
 		-- ...and no PAINT escapes: the fallback is a layout verdict, not a leak
+		expect(#overflow_guard.violations(w.adapter)).toBe(0)
+	end)
+
+	--[[ THE ARM THAT CAN ACTUALLY FAIL (ADR-0056). The two cases above declare no
+		`exclusions`, so every lane's give-way inset is 0 and the placement term this
+		guard's verdict depends on is never exercised — they were green before the
+		ADR-0056 fix and green after, on a defect that put a region up to 300px
+		outside its lane while the composition reported `legal = true`.
+
+		THE ROW IS DERIVED FROM THE MOUNTED BOX rather than guessed at a literal,
+		because `exclusions` are WINDOW-space and where a fixed 700x400 composition
+		lands inside a 900x700 Screen is the Screen's business. Mount once to read
+		the box, then re-mount with a row that reaches into it. Both halves of the
+		premise are asserted — every lane must actually give way, and the composition
+		must still be LEGAL — so this case reports a broken premise instead of
+		passing vacuously the way the two above did.
+
+		HERO 300, NOT 400: at 400 the arrangement is already one pixel from its own
+		boundary, so ANY inset tips it into the `column` fallback and the case would
+		be measuring the SECOND case's event instead of this one (measured: hero 400
+		+ a 40px row = `arrangement = column, fallback = true`). 300 leaves the
+		three-lane arrangement legal with a 40px row on every lane, which is the
+		only shape in which this property has anything to say. ]]
+	it("...AND IT HOLDS WITH A CHROME ROW DECLARED — the arm the first case could not fail on", function()
+		local probe = mount(300)
+		local box = probe.adapter.node("/S/C").rect
+		-- a row across the whole composition, reaching 40px into its top edge: every
+		-- lane's own content shares an x range with it, so every lane gives way
+		local w = mount(300, { { x = box.x, y = box.y, w = box.w, h = 40 } })
+		local dump = w.controller.compositionAt("/S/C")
+
+		local gaveWay: { string } = {}
+		for _, lane in dump.lanes do
+			if (lane.exclusion or 0) > 0 then
+				table.insert(gaveWay, `{lane.index}:{lane.exclusion}`)
+			end
+		end
+		expect(`lanes that gave way: {#gaveWay}`).toBe("lanes that gave way: 3")
+		expect(`still legal: {dump.legal == true and dump.fallback == false}`).toBe("still legal: true")
+
+		--[[ THE PROPERTY, now on a tree that can break it: `ceremony` is
+			`place = "center"` and `next` is `place = "end"`, the two shapes ADR-0056
+			moved. Containment is `<= 0` here rather than the first case's `== 0`
+			because hero 300 leaves real slack — a region ENDING above the box's
+			bottom edge is the lane placing it, not an escape. The `end`-placed group
+			is asserted at exactly 0 separately: that one is load-bearing, it is the
+			shape that used to land `inset` px out, and "flush with the bottom" is the
+			whole claim. ]]
+		local escaped: { string } = {}
+		for path, below in belowBox(w) do
+			if below > 0.5 then
+				table.insert(escaped, `{path} below by {below}`)
+			end
+		end
+		table.sort(escaped)
+		expect(table.concat(escaped, ", ")).toBe("")
+		expect(`Ctas below by {belowBox(w)["/S/C/Ctas"]}`).toBe("Ctas below by 0")
 		expect(#overflow_guard.violations(w.adapter)).toBe(0)
 	end)
 end)

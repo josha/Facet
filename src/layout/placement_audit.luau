@@ -392,13 +392,27 @@ end
 	honestly cramped offer produces the same geometry, and stopping a screen to
 	report an authoring mistake is the worse outcome.
 
-	STILL UNREPORTED, MEASURED AND BOOKED rather than shipped silently: a
-	composition REGION placed below its composition's own content box fired 312
-	times on one scenario (`/HudScreen/Hud/*`). That is a real class — the
-	collision finding compares regions against each OTHER and never against the
-	box — but it is a defect to investigate rather than a rule to add in the same
-	breath, and the adapter-side containment harness is the right instrument for
-	it.
+	MEASURED, BOOKED — AND THE INVESTIGATION HAPPENED, so this paragraph no longer
+	ends where it used to. A composition REGION placed below its composition's own
+	content box fired 312 times on one scenario (`/HudScreen/Hud/*`). That is a
+	real class — the collision finding compares regions against each OTHER and
+	never against the box — and it was booked here as "a defect to investigate
+	rather than a rule to add in the same breath", with the adapter-side
+	containment harness named as the right instrument.
+
+	IT WAS A DEFECT. `docs/adr/ADR-0056-lane-give-way-both-ends.md`: the 312 were
+	all `fallback = true` and all correctly silent, but the set they were counted
+	from was not closed — `UI.Composition{ exclusions }` shortened a lane at the
+	top and shared out the UNSHORTENED lane's slack when placing, so a LEGAL
+	composition put a fitting zone up to 300px outside a lane it fits inside, with
+	nothing to say about it. The arithmetic is fixed at the source; the standing
+	instrument is `tests/overflow_sweep.spec.luau`'s `laneContainmentViolations`
+	(the harness this paragraph nominated, scoped to a legal composition for the
+	reason the 312 give), and `tests/overflow_guard.spec.luau` now carries an arm
+	that DECLARES a chrome row so the property is exercised rather than assumed.
+	The scope rule above — cross axis only, `anchor`/`zstack` unpoliced — is
+	unchanged; what changed is that the composition class is no longer an open
+	booking.
 ]]
 
 -- sub-pixel noise is not a defect: rects are rounded and a half-pixel of

@@ -77,13 +77,28 @@
 	legal, which it already files once per solve, on itself, marked
 	`designed = true`, naming the offer it could not satisfy. All 312 are the
 	BOTTOM edge (the slot partition is clamped to the box, so nothing escapes
-	sideways), a LEGAL composition cannot produce one (measured at the boundary:
-	the arrangement is rejected the moment a form outgrows the box), and where it
-	fires nothing escapes paint — on the worst cell in the suite the composition is
-	offered 304x0 and this guard, the collision finding and the off-screen check
-	are all silent. Policing it would re-tell an existing finding and call the
-	framework's own designed behaviour a defect. Pinned by two cases in
-	`tests/overflow_guard.spec.luau` so the verdict cannot rot into an omission.
+	sideways), and where it fires nothing escapes paint — on the worst cell in the
+	suite the composition is offered 304x0 and this guard, the collision finding
+	and the off-screen check are all silent. Policing it would re-tell an existing
+	finding and call the framework's own designed behaviour a defect. Pinned by
+	three cases in `tests/overflow_guard.spec.luau` so the verdict cannot rot into
+	an omission.
+
+	ONE CLAUSE OF THAT VERDICT WAS WRONG, and it is struck above rather than left
+	to be re-derived: "a LEGAL composition cannot produce one (measured at the
+	boundary: the arrangement is rejected the moment a form outgrows the box)"
+	stood here until `docs/adr/ADR-0056-lane-give-way-both-ends.md`, which is its
+	counterexample. The reasoning was about a form OUTGROWING its box; the defect
+	was a zone PLACED outside a box it fits inside, by an arithmetic slip in the
+	give-way's own placement — legal, unrejected, uncollided, up to 300px out. The
+	312 count was real and every one of them really was a `fallback`; what a count
+	cannot know is whether the set it counted is closed. THE SCOPE DECISION ABOVE
+	SURVIVES on the three clauses that are still true plus ADR-0056's arithmetic (a
+	legal composition's placement now sums to the lane exactly, so the case this
+	guard would newly catch cannot be produced) — but it survives as a conclusion
+	from a proof rather than from a sample, and the pinned cases now include an arm
+	that DECLARES a chrome row, because the two that were here declare none and an
+	inset of 0 made them incapable of failing on the class that actually shipped.
 
 	── WHAT PAINTS ──────────────────────────────────────────────────────────────
 
