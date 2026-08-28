@@ -106,10 +106,18 @@ theme_ledger.ROWS = {
 	},
 	{
 		-- a BADGE is the smallest control in the library and the one an ornate seal fits
-		-- least; four tiles, one construction.
+		-- least; four tiles, one construction. THE NODE GAINED A SEGMENT (task
+		-- THEME2, director item: "the badge has no padding and overlaps the edge
+		-- of the control"): `badgedTile` used to align the "Count" Text directly
+		-- in the tile's own overlay ZStack; it now wraps it in a "BadgeCorner"
+		-- ZStack carrying the corner-clearing inset, so the path is one segment
+		-- longer (`globMatches` requires an EQUAL segment count, so the old
+		-- pattern stopped matching outright rather than matching wrong). The
+		-- finding itself (the badge's OWN `badge`-slot seal art not affording its
+		-- 10px contentInset in a 28px box) is unrelated to that fix and unmoved.
 		surface = "adaptive_controls",
 		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Tiles/t*+overlay/t*Badge",
+		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Tiles/t*+overlay/t*BadgeCorner/t*Badge",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 28,
 		since = 0,
@@ -117,10 +125,11 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
-		-- the same four badges reached through the theme-authoring surface.
+		-- the same four badges reached through the theme-authoring surface; see
+		-- the row above for the added `BadgeCorner` path segment.
 		surface = "theme_authoring",
 		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Tiles/t*+overlay/t*Badge",
+		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Tiles/t*+overlay/t*BadgeCorner/t*Badge",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 28,
 		since = 0,

@@ -828,7 +828,7 @@ end)
 	top/right by the carved amount before the "Count" text aligns to the corner.
 	Zero carve (every flat package) reproduces the exact pre-fix geometry. ]]
 describe("themed containment: the count seal clears its own segment's chrome (director item 2)", function()
-	local function badgeScreen(core: any, selected: any): any
+	local function badgeScreen(core: any, env: any, selected: any): any
 		local picker = Facet.Controls.Picker(core, {
 			id = "Seg",
 			label = "Segments",
@@ -838,6 +838,13 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 				{ value = "b", label = "Beta" },
 			},
 			selected = selected,
+			-- WITHOUT THIS the fix's own `metricsSig` memo never sees a live
+			-- swap (it falls back to `themeSnapshot.neutral()` whenever
+			-- `spec.env == nil`) — found by this exact test going red for
+			-- the wrong reason (picker.luau's `badgeCornerInset` computing 0
+			-- under every package, matching the flat-package expectation by
+			-- accident rather than proving anything about a carving one)
+			env = env,
 		})
 		return UI.Screen({ id = "BadgeScreen", padding = 0, children = { picker.blueprint } }), picker
 	end
@@ -872,7 +879,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		snapshot: any?
 	): { { node: string, carved: number, rightClear: number, topClear: number } }
 		local selected = w.core:signal("a")
-		local screen = badgeScreen(w.core, selected)
+		local screen = badgeScreen(w.core, w.env, selected)
 		w.presenter.present(screen, {})
 		settle(w)
 		if snapshot ~= nil then
@@ -935,7 +942,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		-- census is not already covering this class before this group existed
 		local w = world(VIEWS[1])
 		local selected = w.core:signal("a")
-		local screen = badgeScreen(w.core, selected)
+		local screen = badgeScreen(w.core, w.env, selected)
 		w.presenter.present(screen, {})
 		settle(w)
 		w.env:set("themeMetrics", PACKAGES[1].snapshot)
