@@ -83,7 +83,17 @@ local SRC_SOLVER_PARTS = {
 	"src/layout/grid.luau",
 }
 local SRC_SOLVER = SRC_SOLVER_PARTS[1]
-local SRC_ADAPTER = "src/client/screen_target.luau"
+-- THE ADAPTER'S `setProp` SWITCH, for the same reason and the same rule: views 3
+-- (binding), "style" and "presentation" all ask "does the engine adapter branch
+-- on `prop == "<name>"`?", and the 200k `Source` write-cap split moved the whole
+-- per-class chain out to `screen_props.luau` (SOURCE_CAP_LEDGER, 2026-08-28) —
+-- `screen_target.luau` itself now branches on no prop at all. ADD A PART
+-- WHENEVER MORE OF THE ADAPTER'S setProp MOVES OUT.
+local SRC_ADAPTER_PARTS = {
+	"src/client/screen_target.luau",
+	"src/client/screen_props.luau",
+}
+local SRC_ADAPTER = SRC_ADAPTER_PARTS[1]
 local DOCS_API = "docs/reference/api.md"
 
 -- Props the renderer re-applies through a DEDICATED seam rather than the
@@ -372,7 +382,12 @@ function checker.check(opts: Options?)
 		table.insert(solverParts, fs.readFile(path))
 	end
 	local solverSource = table.concat(solverParts, "\n")
-	local adapterSource = fs.readFile(SRC_ADAPTER)
+	local adapterParts: { string } = {}
+	for _, path in SRC_ADAPTER_PARTS do
+		table.insert(adapterParts, fs.readFile(path))
+	end
+	-- joined by a newline so no two files' lines ever merge into one
+	local adapterSource = table.concat(adapterParts, "\n")
 	local docsSource = fs.readFile(DOCS_API)
 
 	local bindingProps = table.clone(renderer.BINDING_PROPS)

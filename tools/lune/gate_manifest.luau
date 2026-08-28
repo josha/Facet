@@ -1370,7 +1370,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "adapter-capability-detection",
 			requirements = { "UI-STYLE-001", "UI-FID-001" },
-			run = "test -f artifacts/studio/expansion-textinput-adapter.json && grep -q 'canSetTextInputType' src/client/screen_target.luau && grep -q 'ClearTextOnFocus' src/client/screen_target.luau && grep -q 'lastModelText' src/client/screen_target.luau && grep -q 'setTextInputHandlers' src/client/screen_target.luau && lune run tools/lune/check_boundary >/dev/null",
+			run = "test -f artifacts/studio/expansion-textinput-adapter.json && grep -q 'canSetTextInputType' src/client/screen_props.luau && grep -q 'ClearTextOnFocus' src/client/screen_target.luau && grep -q 'lastModelText' src/client/screen_target.luau && grep -q 'setTextInputHandlers' src/client/screen_target.luau && lune run tools/lune/check_boundary >/dev/null",
 			evidence = "artifacts/studio/expansion-textinput-adapter.json",
 			note = "TextField->TextBox in ScreenTarget only: capability-probed keyboardType (TextInputType RobloxScript-locked; degrades, declaration stays data), ClearTextOnFocus=false, single-line config (MultiLine/TextWrapped false per devforum 1014598), IME-safe value-based lastModelText echo guard (live drive caught the deferred-signal re-entrancy bug — see the artifact's RED run), Capture/ReleaseFocus via the editing binding with IsFocused guards; live-verified 2026-07-20 (raw-box probe of the exact adapter patterns)",
 		},

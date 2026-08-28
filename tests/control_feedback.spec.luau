@@ -46,6 +46,7 @@ local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
 local fake_target = require("./lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 local UI = Facet.UI
 
@@ -772,10 +773,15 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			it, at every seam that can change one of the three facts. Each assertion
 			names the seam, so a mirror deleted from one of them reddens on its own. ]]
 		local body = fs.readFile("src/client/screen_target.luau")
-		local function calls(after: string, span: number?): number
-			local at = string.find(body, after, 1, true)
+		-- the per-class `setProp` chain (the `enabled` branch below) is
+		-- `screen_props.luau`'s now (SOURCE_CAP_LEDGER, 2026-08-28); `mirrorToHitExpander`
+		-- itself stays a screen_target host helper, called through `screen_props`'s `ctx`
+		local propsBody = fs.readFile("src/client/screen_props.luau")
+		local function calls(after: string, span: number?, source: string?): number
+			local haystack = source or body
+			local at = string.find(haystack, after, 1, true)
 			expect(`{after} exists:{at ~= nil}`).toBe(`{after} exists:true`)
-			local segment = string.sub(body, at :: number, (at :: number) + (span or 1400))
+			local segment = string.sub(haystack, at :: number, (at :: number) + (span or 1400))
 			local n = 0
 			for _ in string.gmatch(segment, "mirrorToHitExpander%(handle%)") do
 				n += 1
@@ -805,7 +811,7 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		-- be a window that happens to reach it rather than a claim about the seam
 		-- (a wider span than the other two: this branch carries the whole
 		-- per-instance-class chain before the mirror it must reach)
-		expect(`enabled seam:{calls('elseif prop == "enabled" then', 2400) > 0}`).toBe("enabled seam:true")
+		expect(`enabled seam:{calls('elseif prop == "enabled" then', 2400, propsBody) > 0}`).toBe("enabled seam:true")
 	end)
 
 	it("the enabled seam mirrors for EVERY host class that can carry an expander", function()
@@ -828,7 +834,10 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			second copy of a fact that already has one, and would still have missed
 			Grip. The assertion is INDENTATION, because in this file indentation is
 			exactly the difference between "gated on a class" and "not". ]]
-		local body = fs.readFile("src/client/screen_target.luau")
+		-- the `enabled` branch is `screen_props.luau`'s now (SOURCE_CAP_LEDGER,
+		-- 2026-08-28) — it moved verbatim, at the same relative indentation, so the
+		-- tab-depth assertions below are unchanged
+		local body = fs.readFile("src/client/screen_props.luau")
 		local at = string.find(body, 'elseif prop == "enabled" then', 1, true)
 		expect(`enabled branch exists:{at ~= nil}`).toBe("enabled branch exists:true")
 		local nextBranch = string.find(body, "\n\t\telseif prop == ", (at :: number) + 10, true)

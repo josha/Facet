@@ -61,7 +61,10 @@ local fs = require("@lune/fs")
 local chrome_slots = require("../src/tokens/chrome_slots")
 
 local chromeSource = fs.readFile("src/client/screen_chrome.luau")
-local targetSource = fs.readFile("src/client/screen_target.luau")
+-- the per-class `setProp` chain (every `elseif prop == "<name>" then` branch)
+-- left screen_target.luau for src/client/screen_props.luau (SOURCE_CAP_LEDGER,
+-- 2026-08-28) — moved verbatim, same relative indentation
+local targetSource = fs.readFile("src/client/screen_props.luau")
 
 -- the source of ONE `elseif prop == "<name>" then` branch of `applyProp`, so an
 -- assertion about where a call sits cannot be satisfied by that call appearing
@@ -69,7 +72,7 @@ local targetSource = fs.readFile("src/client/screen_target.luau")
 local function propBranch(name: string): string
 	local head = `elseif prop == "{name}" then`
 	local from = string.find(targetSource, head, 1, true)
-	assert(from ~= nil, `screen_target has no '{head}' branch`)
+	assert(from ~= nil, `screen_props has no '{head}' branch`)
 	local nextBranch = string.find(targetSource, "\n\t\telseif prop == ", from + #head, true)
 	return string.sub(targetSource, from, if nextBranch ~= nil then nextBranch else #targetSource)
 end

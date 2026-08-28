@@ -17,6 +17,7 @@ local Facet = require("../src")
 local target_contract = require("../src/render/target_contract")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 describe("RenderTargetAdapter contract", function()
 	it("the FakeTarget satisfies every required and optional method", function()
@@ -213,9 +214,11 @@ end)
 -- what the FakeTarget declares it handles, and what the live adapter's own switch
 -- actually branches on. `screen_target` is client-only (it reaches engine globals
 -- at load, and check_boundary forbids requiring it outside client code), so its
--- view is read from source exactly as check_prop_parity reads it.
+-- view is read from source exactly as check_prop_parity reads it — `adapter_source
+-- .live()`, since the whole `prop == "<name>"` switch is `screen_props.luau` now
+-- (SOURCE_CAP_LEDGER, 2026-08-28): screen_target itself branches on no prop at all.
 describe("adapter prop parity: the fake and the live target handle the same props", function()
-	local liveSource = fs.readFile("src/client/screen_target.luau")
+	local liveSource = adapter_source.live()
 
 	local function liveHandled(): { [string]: boolean }
 		local handled: { [string]: boolean } = {}
@@ -335,8 +338,9 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 
 		-- the FALLBACK path (no native StyleSheets) is where the one-way write was:
 		-- the branch must key its colour off the value, not gate the whole write on
-		-- `value == "secondary"`
-		local source = fs.readFile("src/client/screen_target.luau")
+		-- `value == "secondary"`. The `role` branch is `screen_props.luau`'s now
+		-- (SOURCE_CAP_LEDGER, 2026-08-28).
+		local source = fs.readFile("src/client/screen_props.luau")
 		expect(string.find(source, 'and value == "secondary" then', 1, true)).toBe(nil)
 		expect(
 			string.find(
