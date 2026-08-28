@@ -206,6 +206,13 @@ function dashboard.new(app: any): any
 
 	-- ---- card 1: Recent Brews (hero + tiles) --------------------------------
 
+	--[[ task POP fix round 1 (sweep found this real): `arrivalTransition` below
+		fades every arriving tile, and `GroupTransparency` is one Roblox scalar
+		over the WHOLE canvasGroup subtree — so `Plate` used to fade in lockstep
+		with `Body`'s thumbnail/label, exactly `newpop.mov`'s mechanism
+		(`src/render/transitions.luau`'s header names the shape). `Plate` stays
+		a plain, non-canvasGroup direct child (opaque from its first frame); the
+		NEW `Group` is the one canvasGroup, wrapping only `Body`. ]]
 	local function brewTile(item: any, big: boolean): any
 		local size = if big then "controls.image.defaultSize" else "controlSizes.regular.height"
 		local plate = UI.Box({
@@ -218,25 +225,32 @@ function dashboard.new(app: any): any
 		plate = UI.stroke(plate, {})
 		return UI.ZStack({
 			id = "Tile" .. tostring(item.id),
-			canvasGroup = true,
 			width = UI.fill(),
 			height = { type = "content" },
 			children = {
 				plate,
-				UI.VStack({
-					id = "Body",
-					padding = "s",
-					gap = "xs",
-					align = "center",
+				UI.ZStack({
+					id = "Group",
+					canvasGroup = true,
+					width = UI.fill(),
+					height = { type = "content" },
 					children = {
-						parts.thumbStack(app, "Thumbs", item.items, size),
-						UI.Text({
-							id = "Id",
-							text = S.t("brews.rowLabel", { id = item.id }),
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 1,
-							disclose = true,
+						UI.VStack({
+							id = "Body",
+							padding = "s",
+							gap = "xs",
+							align = "center",
+							children = {
+								parts.thumbStack(app, "Thumbs", item.items, size),
+								UI.Text({
+									id = "Id",
+									text = S.t("brews.rowLabel", { id = item.id }),
+									textSize = "caption",
+									role = "secondary",
+									lineLimit = 1,
+									disclose = true,
+								}),
+							},
 						}),
 					},
 				}),

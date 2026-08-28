@@ -1512,6 +1512,42 @@ describe("Cartwheel — the rows that WRAP (parity round 3)", function()
 	end)
 end)
 
+--[[ BACKDROP-FINDING SWEEP (task POP fix round 1, CRITICAL finding: the
+	round-0 gate was never actually run against this reference app — grep
+	alone found 14 `canvasGroup = true` sites here, unswept). Drives every
+	named section, every modal/overlay this proof exposes, and a purchase +
+	celebration pass, then reads the UNION of every coordinator's own
+	`.findings()` (`tests/lib/backdrop_sweep.luau`) — the honest, disclosed
+	scope is exactly the surfaces named below, not a claim of exhaustive
+	branch coverage. ]]
+describe("Cartwheel — backdrop-finding sweep (task POP)", function()
+	it("every named section, the subscribe/guild/brew overlays, and a purchase pass are clean", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local world: World
+		local findings = backdropSweep.capture(function()
+			world = makeWorld()
+			local b = world.built
+			for _, name in
+				{ "cart", "brews", "chatter", "ledger", "potions", "workbench", "topfive", "plaza:gullsgate" }
+			do
+				b.steps.section(b, name)
+			end
+			b.steps.section(b, "brews")
+			b.steps.open_brew(b, "101")
+			b.steps.advance_status()
+			b.steps.collect_selected()
+			b.steps.dismiss_celebration()
+			b.steps.section(b, "chatter")
+			b.steps.subscribe_open()
+			b.steps.section(b, "workbench")
+			b.steps.guild_open()
+			world.presenter.refresh()
+		end)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
+		closeWorld(world)
+	end)
+end)
+
 --[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
 
 	`build` declares `app.cartwheel.*` PROCESS-WIDE, and a spec file that walked away

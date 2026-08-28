@@ -196,56 +196,77 @@ function ledger.new(app: any): any
 			UI.When({
 				id = "ExpandedWhen",
 				condition = upsellExpanded,
+				--[[ task POP fix round 1 (sweep found this real): `parts.card`
+					is itself the plate (`surface = "raised"`) AND, before this
+					fix, the direct container of its own content — the same
+					shape `shop.wisp`'s pre-fix `Panel` had. `Expanded` (the
+					card/plate) stays the OUTER, non-canvasGroup node; `Group`
+					is the ONE new canvasGroup, nested one level in, wrapping
+					what used to be the card's direct children. ]]
 				thenView = function()
 					return UI.ZStack({
 						id = "ExpandedHost",
-						canvasGroup = true,
 						width = UI.fill(),
 						height = { type = "content" },
 						children = {
 							parts.card(app, {
 								id = "Expanded",
 								children = {
-									UI.HStack({
-										id = "Head",
-										gap = "s",
-										align = "center",
+									UI.ZStack({
+										id = "Group",
+										canvasGroup = true,
 										width = UI.fill(),
+										height = { type = "content" },
 										children = {
-											-- the heading TAKES the slack rather than a
-											-- spacer beside it: a fixed-width heading plus a
-											-- 44px disc overflowed a phone-width card by 7px
-											UI.Text({
-												id = "Heading",
-												text = S.t("ledger.unlockTitle"),
-												textSize = "heading",
+											UI.VStack({
+												id = "GroupStack",
+												gap = "s",
 												width = UI.fill(),
-												lineLimit = 2,
-												disclose = true,
-											}),
-											UI.Button({
-												id = "Dismiss",
-												label = S.t("ledger.close"),
-												shape = "circle",
-												icon = "close",
-												onActivate = function()
-													upsellCollapsed:set(true)
-												end,
+												children = {
+													UI.HStack({
+														id = "Head",
+														gap = "s",
+														align = "center",
+														width = UI.fill(),
+														children = {
+															-- the heading TAKES the slack rather than a
+															-- spacer beside it: a fixed-width heading plus a
+															-- 44px disc overflowed a phone-width card by 7px
+															UI.Text({
+																id = "Heading",
+																text = S.t("ledger.unlockTitle"),
+																textSize = "heading",
+																width = UI.fill(),
+																lineLimit = 2,
+																disclose = true,
+															}),
+															UI.Button({
+																id = "Dismiss",
+																label = S.t("ledger.close"),
+																shape = "circle",
+																icon = "close",
+																onActivate = function()
+																	upsellCollapsed:set(true)
+																end,
+															}),
+														},
+													}),
+													UI.Text({
+														id = "Body",
+														text = S.t("ledger.unlockBody"),
+														textSize = "body",
+														role = "secondary",
+													}),
+													UI.Button({
+														id = "Unlock",
+														label = S.t("ledger.unlock"),
+														surface = "accent",
+														enabled = unlockIdle,
+														onActivate = unlock,
+													}),
+												},
 											}),
 										},
-									}),
-									UI.Text({
-										id = "Body",
-										text = S.t("ledger.unlockBody"),
-										textSize = "body",
-										role = "secondary",
-									}),
-									UI.Button({
-										id = "Unlock",
-										label = S.t("ledger.unlock"),
-										surface = "accent",
-										enabled = unlockIdle,
-										onActivate = unlock,
 									}),
 								},
 							}),
