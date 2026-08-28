@@ -622,9 +622,21 @@ stays symmetric instead of drifting left.
 
 ### `ZStack`
 
-`UI.ZStack{ id?, alignH?, alignV?, width?, height?, surface?, canvasGroup?, opacity?, virtualSlot?, children? }` —
+`UI.ZStack{ id?, alignH?, alignV?, width?, height?, surface?, shape?, canvasGroup?, opacity?, virtualSlot?, children? }` —
 layered container; children align independently (`alignH`/`alignV`), `fill`
 children stretch to the stack (scrims, backdrops).
+
+**`shape = "circle"`** — the circle Button's guarantee (below), generalized to
+this class (ADR-0062): a true 1:1 box, the missing axis derived by the solver,
+authoring both refused at construction. Not reactive, for the same reason it
+isn't on a Button. Use it for a ring/disc **composite** you build yourself out
+of `UI.Path`/`UI.Box` layers (a progress ring's track + sweep + a centered
+identity mark is the shipped example, `examples/reference/p1_glade`'s
+`SupplyRing`) — a circle Button is still the right primitive for a single
+interactive disc. Paint costs a flat theme nothing here either: it is the
+identical `facet-shape-circle` phantom `::UICorner`/`::UIStroke` rule, which
+only matters if this stack (or a descendant) is filled — a stack of pure
+strokes has nothing for the corner to round.
 
 `virtualSlot = { list, extent, axis?, contentFrom? }` declares that this stack is
 **one slot of a fixed-pitch windowed list** — a list that places item *i* at

@@ -42,6 +42,16 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	common = {
 		surface = "style",
 		role = "style",
+		-- THE CIRCLE SHAPE (feature round 2026-07-26 on Button; PROMOTED to
+		-- `common` task PAINT 2026-08-27 when it generalized to ZStack). STYLE
+		-- authority even though it also decides geometry: the geometry half is
+		-- the solver reading a prop (no engine write at all), and the only thing
+		-- written to an engine object is the shape's chrome — a tag in native
+		-- mode, the real UICorner's radius in fallback mode. Common because both
+		-- classes reach the identical write site (`screen_target`'s "shape" prop
+		-- branch reads `handle.shape` with no class check at all) — a per-class
+		-- copy would be the same entry twice.
+		shape = "style",
 		active = "binding",
 		position = "layout",
 		size = "layout",
@@ -119,13 +129,10 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		textSize = "layout",
 		font = "style",
 		textFont = "layout", -- the role's face; see the Text entry above
-		-- the circle Button (feature round 2026-07-26). `shape` is STYLE authority
-		-- even though it also decides geometry: the geometry half is the solver
-		-- reading a prop (no engine write at all), and the only thing written to an
-		-- engine object is the disc's chrome — a tag in native mode, the real
-		-- UICorner's radius in fallback mode. `icon` is style for the same reason:
-		-- it selects the theme-owned picture over the node's own glyph.
-		shape = "style",
+		-- `shape` moved to `common` (task PAINT) once ZStack reached it too; see
+		-- that entry. `icon` stays HERE, Button-only: it is style authority for
+		-- the same reason `shape` is (it selects the theme-owned picture over the
+		-- node's own glyph), but no other class has an `icon` prop to authorize.
 		icon = "style",
 		-- `compactLabel` is STYLE for the same reason `icon` is, and the reasoning
 		-- matters because it also decides TEXT. The declaration selects which

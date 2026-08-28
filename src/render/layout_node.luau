@@ -220,6 +220,36 @@ local function effectiveHitFloor(class: string, metrics: any): number?
 	return if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
 end
 
+-- THE CIRCLE IS A SOLVER FACT (feature round 2026-07-26 on Button; GENERALIZED
+-- to ZStack, task PAINT 2026-08-27, director items 11/12). `shape = "circle"`
+-- promises a TRUE 1:1 box and promises the author never computes it, so the
+-- square is enforced HERE, through the dimension vocabulary that already
+-- expresses "this axis follows that one": `aspect` with ratio 1. Nothing new
+-- lands in the solver, and the pairing therefore inherits every fix that
+-- vocabulary already has (including `aspect` + `fill`, which used to measure
+-- 0x0 — found live 2026-07-24).
+--
+-- ONE authored axis drives the other; NEITHER authored means the control
+-- metric (`controls.button.height`), resolved from the live snapshot so a
+-- metric package resizes the shape and a pixel package snaps it. BOTH
+-- authored is refused at the blueprint boundary (`assertCircleSquare`), so
+-- this branch can never have to pick a winner. Shared by every class that
+-- reaches `shape = "circle"` rather than copied per class — the Button and
+-- ZStack call sites below are identical on purpose.
+local function applyCircleShape(layoutNode: any, props: any, metrics: any)
+	if props.shape ~= "circle" then
+		return
+	end
+	if layoutNode.width == nil and layoutNode.height == nil then
+		layoutNode.width = { type = "fixed", px = themeSnapshot.circleDiameter(metrics) }
+	end
+	if layoutNode.height == nil then
+		layoutNode.height = { type = "aspect", ratio = 1 }
+	elseif layoutNode.width == nil then
+		layoutNode.width = { type = "aspect", ratio = 1 }
+	end
+end
+
 local function toLayoutNode(
 	node: any,
 	metrics: any,
@@ -674,29 +704,20 @@ local function toLayoutNode(
 				end
 			end
 		end
-		-- THE CIRCLE IS A SOLVER FACT (feature round 2026-07-26). `shape =
-		-- "circle"` promises a TRUE 1:1 box and promises the author never computes
-		-- it, so the square is enforced HERE, through the dimension vocabulary that
-		-- already expresses "this axis follows that one": `aspect` with ratio 1.
-		-- Nothing new lands in the solver, and the pairing therefore inherits every
-		-- fix that vocabulary already has (including `aspect` + `fill`, which used
-		-- to measure 0x0 — found live 2026-07-24).
-		--
-		-- ONE authored axis drives the other; NEITHER authored means the control
-		-- metric, resolved from the live snapshot so a metric package resizes the
-		-- disc and a pixel package snaps it. BOTH authored is refused at the
-		-- blueprint boundary, so this branch can never have to pick a winner.
-		if props.shape == "circle" then
-			if layoutNode.width == nil and layoutNode.height == nil then
-				layoutNode.width = { type = "fixed", px = themeSnapshot.circleDiameter(metrics) }
-			end
-			if layoutNode.height == nil then
-				layoutNode.height = { type = "aspect", ratio = 1 }
-			elseif layoutNode.width == nil then
-				layoutNode.width = { type = "aspect", ratio = 1 }
-			end
-		end
+		-- THE CIRCLE IS A SOLVER FACT (see `applyCircleShape` above, now shared
+		-- with ZStack's branch below).
+		applyCircleShape(layoutNode, props, metrics)
 		layoutNode.padding = themeSnapshot.buttonPadding(metrics, props)
+	elseif class == "ZStack" then
+		-- THE CIRCLE SHAPE, generalized from the Button-only case above (task
+		-- PAINT, director items 11/12). A ring/disc composite built from a
+		-- ZStack (`UI.Path` track + arc + a centered mark — this round's Glade
+		-- supply rings) gets the identical square guarantee: state a shape,
+		-- never compute a size. No padding default here — unlike a Button's
+		-- disc, a circular ZStack has no drawn label whose room this file could
+		-- reserve or return, so the author's own (or absent) `padding` stands
+		-- unchanged either way.
+		applyCircleShape(layoutNode, props, metrics)
 	elseif class == "Toggle" then
 		-- measure = what the adapter DRAWS (control contract): label at the left
 		-- plus the right-aligned track with its inset and the label margin. The

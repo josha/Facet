@@ -1411,6 +1411,34 @@ local OPACITY: PropSpec = p({
 		.. "framework is running on the same node, and animates through presenter.withAnimation",
 })
 
+--[[ THE CIRCLE SHAPE (feature round 2026-07-26, Button only; GENERALIZED to
+	ZStack, task PAINT 2026-08-27, director items 11/12 — "circles need a better
+	approach than what we have"). `shape` is a closed set of two and defaults to
+	the rectangle every existing Button/ZStack already is, so nothing that
+	predates it moves by a pixel. NOT reactive: a shape is what the control IS,
+	not a state it passes through, and a reactive shape would re-solve one axis
+	against the other mid-flight for no expressive gain.
+
+	ONE SHARED SPEC, not a second copy: `layout_node.luau`'s square-enforcement
+	(`aspect` ratio 1 on the axis not authored) and the sheet's phantom
+	`.facet-shape-circle::UICorner`/`::UIStroke` rules (`sheet_model.luau`,
+	`sheet_model.classifyTags`) were ALREADY class-agnostic — they read
+	`props.shape`/`handle.shape`, never a class name — so a ring/disc primitive
+	built from a ZStack (a `UI.Path` track + arc + a centered mark, e.g. this
+	round's Glade supply rings) gets the identical "author states a shape, the
+	solver derives the square, refuse-don't-guess if both axes are given"
+	guarantee a circle Button always had, with no new paint machinery. See
+	ADR-0062 (the circle doctrine). ]]
+local SHAPE: PropSpec = p({
+	types = { "string" },
+	reactive = false,
+	enum = { "rect", "circle" },
+	channel = "style",
+	doc = '"circle" makes a TRUE 1:1 box whose diameter is the control metric '
+		.. "(controls.button.height) when neither axis is authored — the solver enforces the square, so "
+		.. "an authored width or height drives the other axis and neither means the metric",
+})
+
 -- THE STRUCTURAL-TRANSITION DECLARATION (ADR-0022 Decision 3). A
 -- structural region declares how its branch/rows come and go; the mount layer
 -- RETIRES a departing subtree (it stays mounted, turns non-interactive, and
@@ -1535,6 +1563,13 @@ class("ZStack", {
 	props = merge(BOX, CONTAINER_LAYOUT, {
 		canvasGroup = CANVAS_GROUP,
 		opacity = OPACITY,
+		-- THE CIRCLE SHAPE, generalized from the circle Button (task PAINT,
+		-- director items 11/12): a ring/disc built from a ZStack (`UI.Path`
+		-- track + arc + a centered mark, this round's Glade supply rings) gets
+		-- the same "author states a shape, the solver derives the square,
+		-- refuse-don't-guess on two authored axes" guarantee — see the shared
+		-- SHAPE spec above and `blueprint.luau`'s `assertCircleSquare`.
+		shape = SHAPE,
 		--[[ "THIS CONTAINER IS ONE SLOT OF A FIXED-PITCH WINDOWED LIST" (2026-08-13).
 			Declared by `newVirtualList` on every row it builds, and available to any
 			hand-rolled surface that windows by `index x extent` — which is the only
@@ -2186,20 +2221,10 @@ class("Button", {
 		gap = GAP,
 		align = ALIGN,
 		-- THE CIRCLE BUTTON (feature round 2026-07-26; the floating round
-		-- "..." action). `shape` is a closed set of two and defaults to the
-		-- rectangle every existing Button already is, so nothing that predates it
-		-- moves by a pixel. NOT reactive: a shape is what the control IS, not a
-		-- state it passes through, and a reactive shape would re-solve one axis
-		-- against the other mid-flight for no expressive gain.
-		shape = p({
-			types = { "string" },
-			reactive = false,
-			enum = { "rect", "circle" },
-			channel = "style",
-			doc = '"circle" makes a TRUE 1:1 disc whose diameter is the control metric '
-				.. "(controls.button.height) — the solver enforces the square, so an authored width "
-				.. "or height drives the other axis and neither means the metric",
-		}),
+		-- "..." action). See the shared SHAPE spec above (generalized to ZStack,
+		-- task PAINT) for the full doc; this class also refuses two authored axes
+		-- and validates the drawn content against it (`assertShape` below).
+		shape = SHAPE,
 		-- SEMANTIC ICON CONTENT (ADR-0020 R4) for the one shape whose content is a
 		-- single mark. A NAME, never an asset id: the framework draws its own
 		-- ASCII-safe glyph and a package that ships art for that name has the

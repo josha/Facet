@@ -209,6 +209,10 @@ export type ZStackSpec = BoxProps & ContainerProps & {
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 	virtualSlot: Bound<VirtualSlot>?,
+	-- THE CIRCLE SHAPE (task PAINT, generalized from the circle Button):
+	-- "rect" (default) | "circle" — a true 1:1 box, the missing axis derived by
+	-- the solver. See `blueprint_schema`'s shared SHAPE spec and ADR-0062.
+	shape: string?,
 }
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
@@ -814,6 +818,31 @@ local function make(class: string, spec: any): Blueprint
 	return table.freeze(node) :: any
 end
 
+-- THE SQUARE REFUSAL, shared by every class `shape = "circle"` reaches (task
+-- PAINT, director items 11/12: "circles need a better approach than what we
+-- have"). Originally Button-only content; generalized because `layout_node`'s
+-- solver-side derivation (`aspect` ratio 1 on the axis not authored) and the
+-- sheet's phantom `.facet-shape-circle` rules were ALREADY class-agnostic —
+-- only this refusal and the Button-specific content rules further down were
+-- not. Refuse-don't-guess (binding R15/B-3 precedent): a construction that
+-- gives the solver two conflicting axes is an authoring error, not a 50/50
+-- guess. Declared here, ahead of every constructor that calls it (ZStack
+-- below, Button further down) — a `local function` is an upvalue only to code
+-- that follows it in the source.
+local function assertCircleSquare(className: string, props: { [string]: any })
+	if props.shape ~= "circle" then
+		return
+	end
+	if props.width ~= nil and props.height ~= nil then
+		error(
+			`Facet UI.{className}: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
+				.. `enforces the 1:1 square, so the other axis follows and the author never does the math. `
+				.. `Fix: drop one of them (or drop both to size the disc from the control metric).`,
+			0
+		)
+	end
+end
+
 -- public constructors (§10.1 subset for Phase 1)
 function blueprint.Screen(spec: ScreenSpec): Blueprint
 	return make("Screen", spec)
@@ -825,7 +854,9 @@ function blueprint.HStack(spec: HStackSpec): Blueprint
 	return make("HStack", spec)
 end
 function blueprint.ZStack(spec: ZStackSpec): Blueprint
-	return make("ZStack", spec)
+	local bp = make("ZStack", spec)
+	assertCircleSquare("ZStack", bp.props)
+	return bp
 end
 function blueprint.ScrollView(spec: ScrollViewSpec?): Blueprint
 	-- the native substrate: a scroll region is ALWAYS a clip host — on the
@@ -1741,14 +1772,7 @@ local function assertShape(props: { [string]: any }, children: { Blueprint }?)
 	if shape ~= "circle" then
 		return
 	end
-	if props.width ~= nil and props.height ~= nil then
-		error(
-			`Facet UI.Button: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
-				.. `enforces the 1:1 square, so the other axis follows and the author never does the math. `
-				.. `Fix: drop one of them (or drop both to size the disc from the control metric).`,
-			0
-		)
-	end
+	assertCircleSquare("Button", props)
 	local drawn = circleDrawnLabel(props, children)
 	if drawn == nil then
 		return
