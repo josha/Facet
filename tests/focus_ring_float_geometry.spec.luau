@@ -32,6 +32,29 @@
 -- fallback that resolves the SAME role -> radius mapping `applySurface`'s
 -- bespoke `corner()` already uses (`screen_paint.luau`), applied to the
 -- float's own (unstyled, framework-owned) instance.
+--
+-- (c) TWO MORE DEFECTS, fixed together (task THEME2, director item: "the
+-- selection ring is rounded vs matching the theme", i1.png — Pixel Quest's
+-- hard-cornered plaque wrapped in a smooth rounded ring):
+--
+--   (c1) THE CORNER WAS ONLY EVER BUILT `if float == nil` — at first
+--   creation, never again. `refreshFocusVisuals` re-enters `setFocusVisual`
+--   for every STILL-FOCUSED handle on a live theme swap specifically so it can
+--   "repaint whatever is showing one right now" (`setActiveTheme`'s own
+--   documented job) — but the corner was invisible to that repaint, so a
+--   control that stayed focused across a swap kept the OUTGOING theme's ring
+--   shape forever. Fixed by moving the corner sync OUT of the `if float ==
+--   nil` guard so it re-runs, idempotently, on every call.
+--
+--   (c2) THE FALLBACK READ `style.radii`, A CONSTRUCTION-TIME SNAPSHOT THAT IS
+--   NEVER REASSIGNED (`screen_paint.luau`'s own contract: "style, nativeMode,
+--   palette — construction-time facts, by value"). A live package install/
+--   swap instead reassigns `activeThemeSnapshot` (`setThemePackage`'s whole
+--   job), so the fallback answered "what radius did this target boot with"
+--   forever, on the FIRST focus after a swap too, not only one that survived
+--   it. Fixed by preferring `activeThemeSnapshot.radii` (the SAME
+--   `themeSnapshot`-shaped table `style.radii` is) when a package is
+--   installed, falling back to `style.radii` exactly as before when it is not.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -74,23 +97,65 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 	end)
 
 	it("(b) falls back to a resolved radius when no literal UICorner clone exists", function()
-		local cloneAt = at("corner:Clone().Parent = float")
+		local cloneAt = at("floatCorner = realCorner:Clone()")
 		local fallbackAt = at("local surfaceRole = handle.nativeSurface or handle.declaredSurface")
 		expect(cloneAt < fallbackAt).toBe(true)
 	end)
 
 	it("(b) the fallback mirrors applySurface's bespoke role -> radius mapping", function()
 		expect(string.find(FN, 'surfaceRole == "raised"', 1, true) ~= nil).toBe(true)
-		expect(string.find(FN, "style.radii.panel", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN, "liveRadii.panel", 1, true) ~= nil).toBe(true)
 		expect(string.find(FN, 'surfaceRole == "control" or surfaceRole == "chip"', 1, true) ~= nil).toBe(true)
-		expect(string.find(FN, "style.radii.control", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN, "liveRadii.control", 1, true) ~= nil).toBe(true)
 		expect(string.find(FN, 'handle.shape == "circle"', 1, true) ~= nil).toBe(true)
 		expect(string.find(FN, "UDim.new(0.5, 0)", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("(b) the fallback corner is parented on the float, not on the styled host", function()
-		local fallbackCornerAt = at('local fallbackCorner = Instance.new("UICorner")')
-		local parentAt = string.find(FN, "fallbackCorner.Parent = float", fallbackCornerAt, true)
+		local fallbackCornerAt = at('floatCorner = Instance.new("UICorner")')
+		local parentAt = string.find(FN, "floatCorner.Parent = float", fallbackCornerAt, true)
 		expect(parentAt ~= nil).toBe(true)
+	end)
+
+	it("(c1) the corner sync runs after float creation, and only once per call", function()
+		-- the creation guard assigns `handle.focusRingFloat` exactly once, before
+		-- the corner lookup — a mutation that moved the lookup back INTO the `if
+		-- float == nil` guard (the pre-fix shape) would put it BEFORE this line
+		-- instead of after
+		local createdAt = at("handle.focusRingFloat = float")
+		local syncAt = at('local realCorner = host:FindFirstChildOfClass("UICorner")')
+		expect(createdAt < syncAt).toBe(true)
+		-- and the lookup is not itself repeated (a copy inside the guard would
+		-- make the fix a no-op for a float that already existed)
+		local _, occurrences = string.gsub(FN, 'host:FindFirstChildOfClass%("UICorner"%)', "")
+		expect(occurrences).toBe(1)
+	end)
+
+	it("(c1) an existing float's corner is UPDATED in place, never duplicated", function()
+		-- both branches (real-corner clone, native fallback) reuse `floatCorner`
+		-- when one is already there — a `floatCorner == nil` guard around each
+		-- `Instance.new`/`:Clone()`, and a plain `.CornerRadius =` write on the
+		-- else side of each — which is what makes re-running this block on
+		-- every call idempotent rather than a leak of one UICorner per swap
+		expect(string.find(FN, 'local floatCorner = float:FindFirstChildOfClass("UICorner")', 1, true) ~= nil):toBe(
+			true
+		)
+		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius", 1, true) ~= nil):toBe(
+			true
+		)
+		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = radius", 1, true) ~= nil):toBe(true)
+	end)
+
+	it("(c2) the live package's radii win over the frozen construction-time style", function()
+		-- `activeThemeSnapshot` (reassigned by every `setThemePackage` swap) is
+		-- read FIRST; `style.radii` (never reassigned — the construction-time
+		-- fact `screen_paint.luau`'s own header names) is the fallback, never
+		-- the answer, whenever a package is installed
+		local liveRadiiAt = at('local liveRadii = if type(activeThemeSnapshot) == "table"')
+		expect(string.find(FN, "then (activeThemeSnapshot :: any).radii", liveRadiiAt, true) ~= nil):toBe(true)
+		local elseAt = string.find(FN, "else style.radii", liveRadiiAt, true)
+		expect(elseAt ~= nil).toBe(true)
+		-- and the mapping below reads `liveRadii`, never `style.radii`, directly
+		expect(string.find(FN, "radius = UDim.new(0, style.radii", 1, true)).toBe(nil)
 	end)
 end)

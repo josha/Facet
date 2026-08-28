@@ -2979,9 +2979,36 @@ function screen_target.new(opts: Opts?)
 						float = Instance.new("Frame")
 						float.Name = "FocusRingFloat"
 						float.BackgroundTransparency = 1
-						local corner = host:FindFirstChildOfClass("UICorner")
-						if corner ~= nil then
-							corner:Clone().Parent = float
+						float.Parent = handle.instanceHost.instance
+						handle.focusRingFloat = float
+					end
+					--[[ THE CORNER IS RE-SYNCED ON EVERY CALL, NOT ONLY AT FLOAT CREATION
+						(fix, task THEME2, director item: "the selection ring is rounded vs
+						matching the theme", i1.png). `refreshFocusVisuals` re-enters this
+						function for every STILL-FOCUSED handle on a live theme swap —
+						`setActiveTheme`'s own documented job is "repaint whatever is
+						showing one right now" — but this block used to build the float's
+						corner only `if float == nil`, so a control that stayed focused
+						across a swap (exactly what driving a theme picker's live swap
+						does) kept the PREVIOUS theme's ring corner forever: Studio
+						Neutral's 8px, Glossy Mobile's 16px, whatever was live when the
+						float was first built, even though the control's own paint and
+						palette repainted in the very same commit. A blur-then-refocus
+						cycle was never affected (blur destroys the float below), which is
+						why this only shows on a control that survives a swap while it
+						still holds focus. Idempotent by construction: re-run with no
+						theme change re-derives the SAME radius and only overwrites a
+						`CornerRadius` field, never adds a second corner instance. ]]
+					do
+						local realCorner = host:FindFirstChildOfClass("UICorner")
+						local floatCorner = float:FindFirstChildOfClass("UICorner")
+						if realCorner ~= nil then
+							if floatCorner == nil then
+								floatCorner = realCorner:Clone()
+								floatCorner.Parent = float
+							else
+								(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius
+							end
 						else
 							--[[ NATIVE MODE'S CORNER IS A PHANTOM (device bug fix, director
 								2026-08-23: "the ring is sharp-cornered, the button is round").
@@ -2996,25 +3023,57 @@ function screen_target.new(opts: Opts?)
 								defeats no sheet rule — so this mirrors the role -> radius
 								mapping `applySurface`'s bespoke `corner()` already makes
 								(`screen_paint.luau`), rather than re-guessing it here. ]]
+							--[[ THE LIVE PACKAGE'S RADII, NOT THE FROZEN CONSTRUCTION-TIME
+								ONE (fix, task THEME2, director item: "the selection ring is
+								rounded vs matching the theme", i1.png). `style` is a
+								CONSTRUCTION-TIME fact by this file's own contract
+								(`screen_paint.luau`'s header: "style, nativeMode, palette —
+								construction-time facts, by value") and is never reassigned —
+								grepped across this whole file, the only writes are `style =
+								style` at three OTHER subsystems' construction calls. A live
+								package install/swap instead reassigns `activeThemeSnapshot`
+								(`setThemePackage`'s whole job), so for the ENTIRE lifetime of a
+								target that ever installs a non-neutral package, `style.radii`
+								answers "what radius did this target boot with", never "what
+								radius is live right now" — measured: Pixel Quest's `control`
+								radius is 4px, Studio Neutral's (this showcase's boot style) is
+								8px, and every fallback ring stayed at 8px under every package
+								until this fix, on the FIRST focus after a swap, not only one
+								that survived it. `activeThemeSnapshot` is the SAME
+								`themeSnapshot`-shaped table `style` itself is (both carry
+								`.radii.{control,panel,pill}` — `themes/snapshot.luau`'s
+								`paintForDisplay` and its general resolve path agree on the
+								shape), so reading it where present is a value swap, not a new
+								contract; nil (no package installed) keeps today's answer
+								exactly. ]]
+							local liveRadii = if type(activeThemeSnapshot) == "table"
+									and type((activeThemeSnapshot :: any).radii) == "table"
+								then (activeThemeSnapshot :: any).radii
+								else style.radii
 							local surfaceRole = handle.nativeSurface or handle.declaredSurface
 							local radius: UDim? = nil
 							if handle.shape == "circle" then
 								radius = UDim.new(0.5, 0)
 							elseif surfaceRole == "raised" then
-								radius = UDim.new(0, style.radii.panel)
+								radius = UDim.new(0, liveRadii.panel)
 							elseif surfaceRole == "control" or surfaceRole == "chip" then
-								radius = UDim.new(0, style.radii.control)
+								radius = UDim.new(0, liveRadii.control)
 							elseif surfaceRole == "badge" then
 								radius = UDim.new(0.5, 0)
 							end
 							if radius ~= nil then
-								local fallbackCorner = Instance.new("UICorner")
-								fallbackCorner.CornerRadius = radius
-								fallbackCorner.Parent = float
+								if floatCorner == nil then
+									floatCorner = Instance.new("UICorner")
+									floatCorner.Parent = float
+								end
+								(floatCorner :: UICorner).CornerRadius = radius
+							elseif floatCorner ~= nil then
+								-- the role stopped mapping to any radius (e.g. a live
+								-- swap changed the classified surface) — a stale corner
+								-- left behind is worse than none
+								floatCorner:Destroy()
 							end
 						end
-						float.Parent = handle.instanceHost.instance
-						handle.focusRingFloat = float
 					end
 					local f = float :: Frame
 					local rect = handle.windowRect
