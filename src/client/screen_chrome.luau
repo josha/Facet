@@ -577,8 +577,25 @@ function screen_chrome.new(ctx: Context)
 			-- made the fit check believe the label had 24px less room than it does.
 			hostW, hostH = rect.w, rect.h
 		end
+		--[[ THE LABEL'S OWN LINE BOX, which is the floor the recipe's inset may not
+			eat through (task THEME, 2026-08-27; `chrome_slots.liftGeometry`). It is
+			read off the LIVE instance rather than plumbed here because the host IS the
+			text node — `TextSize` is whatever the last paint wrote, so the two can
+			never drift, and a host with no text property contributes no floor at all.
+			The measure seam takes the identical number through
+			`chrome_slots.spendInset`, which is what keeps the reservation and the
+			drawn box agreeing about a control too small for its theme. ]]
+		local lineBox = 0
+		if handle ~= nil then
+			local ok, size = pcall(function()
+				return (handle.instance :: any).TextSize
+			end)
+			if ok and type(size) == "number" then
+				lineBox = size
+			end
+		end
 		local plaque = chrome_slots.plaqueTextBox(plan)
-		local box = plaque or chrome_slots.liftGeometry(plan, hostW, hostH)
+		local box = plaque or chrome_slots.liftGeometry(plan, hostW, hostH, lineBox, lineBox)
 		local anchor = (box :: any).anchor
 		local px, py = box.position.xOffset, box.position.yOffset
 		local sx, sy = box.size.xOffset, box.size.yOffset

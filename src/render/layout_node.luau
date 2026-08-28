@@ -915,10 +915,43 @@ local function toLayoutNode(
 				end
 				return math.huge
 			end
+			--[[ ...AND AN `aspect` AXIS IS AS KNOWABLE AS THE ONE IT FOLLOWS (task
+				THEME, 2026-08-27). `shape = "circle"` is a fixed px on ONE axis and
+				`aspect ratio = 1` on the other — the pairing a few dozen lines above
+				enforces — so reading only the literal made the rule half-apply on every
+				disc in the library: the HEIGHT gave its frame back and the WIDTH, seen
+				as unbounded, kept charging for it. A 36px Pixel Quest round button then
+				had 36px of height around a 4px-wide content box. The solver's own
+				arithmetic is `w = h * ratio` / `h = w / ratio` (`measureUncached`), so
+				it is copied here rather than approximated. ]]
+			local wExtent, hExtent = extentOf(layoutNode.width), extentOf(layoutNode.height)
+			local wDim: any, hDim: any = layoutNode.width, layoutNode.height
+			if type(wDim) == "table" and wDim.type == "aspect" and type(wDim.ratio) == "number" then
+				wExtent = if hExtent == math.huge then math.huge else hExtent * wDim.ratio
+			elseif
+				type(hDim) == "table"
+				and hDim.type == "aspect"
+				and type(hDim.ratio) == "number"
+				and hDim.ratio ~= 0
+			then
+				hExtent = if wExtent == math.huge then math.huge else wExtent / hDim.ratio
+			end
+			--[[ THE FLOOR A CHROME INSET MAY NOT EAT THROUGH, and it is the node's own
+				text (see `chrome_slots.spendInset`). A leaf that draws a string needs at
+				least one line box of room or the string is reserved for and drawn into
+				nothing; `layoutNode.text`/`textSize` are set by the class blocks above,
+				so the number is already resolved and no re-measure happens here. Zero for
+				every node that draws no string of its own, which is the rule that shipped
+				before this line existed. ]]
+			local textFloor = if type(layoutNode.text) == "string"
+					and layoutNode.text ~= ""
+					and type(layoutNode.textSize) == "number"
+				then layoutNode.textSize
+				else 0
 			local wantX = extra.left + extra.right
 			local wantY = extra.top + extra.bottom
-			local spentX = chrome_slots.spendInset(extentOf(layoutNode.width), left + right, wantX)
-			local spentY = chrome_slots.spendInset(extentOf(layoutNode.height), top + bottom, wantY)
+			local spentX = chrome_slots.spendInset(wExtent, left + right, wantX, textFloor)
+			local spentY = chrome_slots.spendInset(hExtent, top + bottom, wantY, textFloor)
 			-- "was it spent AS ASKED", not "is it non-zero": a slot that reserves
 			-- nothing asks for nothing and gets exactly that, and reporting it as
 			-- a yield would put a diagnostic on every flat scrollbar in the tree.
@@ -1070,6 +1103,41 @@ local function toLayoutNode(
 		for _, child in node.children do
 			appendChild(child)
 		end
+		--[[ ── THE SIBLING PLATE'S CARVED BORDER, AND WHY THE FRAMEWORK DOES NOT
+			SPEND IT (task THEME, director items 7-8; ADR-0059 Decision 2) ──────────
+
+			ADR-0019 §5 promises that a nine-slice skin's `contentInsets` are
+			SOLVER-VISIBLE — "a carved border that content must clear". The block a few
+			hundred lines up keeps that promise by adding the inset to the SURFACED
+			NODE'S OWN padding, which is right whenever the plate is the content's
+			parent, and cannot be kept at all for the library's other plate idiom:
+
+			    UI.ZStack{ UI.Box{ surface = ..., width = fill, height = fill }, content }
+
+			The HUD's `glass()` builds one, `selection_indicator`'s pill builds one, and
+			a consumer reaching for a tinted panel builds one (the tint channel is a
+			Box's, so the plate CANNOT be the stack itself). There the reservation lands
+			on a node with no children, nothing spends it, and the content — a SIBLING —
+			paints over the frame. Measured 2026-08-27 with the containment oracle taught
+			to see it: 494 distinct escapes across the showcase corpus under the five
+			packages that carve anything, against 0 under every flat one.
+
+			THE OBVIOUS REPAIR WAS BUILT, MEASURED AND REJECTED, and the number is why:
+			handing the plate's inset to the stack's other children turns the HUD's
+			objective pill from 116x41 into 92x85 under Fantasy Ornate, because a
+			package's `panel` recipe is a WINDOW frame (30px per side there) and this
+			idiom wears it on chips and pills too. Making every small plate grow by a
+			window's border is a worse answer than the defect. Deciding that a `raised`
+			chip is not a window is a THEME question — which slot a small plate should
+			classify into — and belongs to a round that can re-spec the packages, not to
+			a bug fix.
+
+			SO THE FRAMEWORK REPORTS RATHER THAN REPAIRS. `tests/lib/overflow_guard`
+			treats a full-bleed surfaced sibling as the boundary its stack really has, so
+			every one of those 494 is now a finding a spec can fail on, and
+			`tests/themed_containment.spec.luau` holds the four surfaces the director
+			photographed to it. That is the half of "refuse-or-catch" this seam can
+			honestly deliver. ]]
 		-- THE PARENT-SIDE PLACEMENT AUDIT (parity round 2 §2.1). `anchor`,
 		-- `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign` and `gridSpan` are
 		-- legal on every node but read only by particular parent arrange branches;

@@ -330,7 +330,11 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		-- assumed affordable (director report 2026-07-28: a lift inset by more than
 		-- its host's padded box solved to zero width and drew nothing)
 		local geom = section("local function liftGeometry(plan: any, handle: any?)", "\n\tend")
-		expect(string.find(geom, "plaque or chrome_slots.liftGeometry(plan, hostW, hostH)", 1, true) ~= nil).toBe(true)
+		-- ...and the two FLOORS (task THEME): the label's own line box, so this seam
+		-- and `spendInset` reach the same verdict about a control too small for its frame
+		expect(
+			string.find(geom, "plaque or chrome_slots.liftGeometry(plan, hostW, hostH, lineBox, lineBox)", 1, true) ~= nil
+		).toBe(true)
 		expect(string.find(geom, "local plaque = chrome_slots.plaqueTextBox(plan)", 1, true) ~= nil).toBe(true)
 		-- ...and the PLAQUE path takes no full-bleed compensation. The generic lift is
 		-- scale-1 against the host's padded content box and must add that padding back

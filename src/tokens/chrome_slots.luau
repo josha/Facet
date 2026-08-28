@@ -177,16 +177,33 @@ export type LiftBox = {
 -- Omitting both is the create path (a lift can exist before the first rect) and
 -- means "no constraint known": honour the recipe, and the caller re-fits when the
 -- rect lands.
-function chrome_slots.liftGeometry(plan: any, hostW: number?, hostH: number?): LiftBox
+--- `minContent` IS THE SAME FLOOR `spendInset` TAKES, at the seam that paints
+--- (task THEME, 2026-08-27). The two read the numbers independently and the rule
+--- above says they must agree, so when the measure seam decided a 36px chip could
+--- not afford 16px of frame per side and handed the reservation back, this seam
+--- has to reach the same verdict or the label is drawn into a 4px box the solver
+--- no longer believes in. `<= 0` is what let that happen: 4 is positive, so the
+--- lift kept the inset and a 16px glyph was painted into 4x4 (director item 6).
+--- Pass the label's own text size; omitting it keeps the pre-2026-08-27 `<= 0`
+--- behaviour exactly.
+function chrome_slots.liftGeometry(
+	plan: any,
+	hostW: number?,
+	hostH: number?,
+	minContentW: number?,
+	minContentH: number?
+): LiftBox
 	local ci = if type(plan) == "table" then plan.contentInsets else nil
 	local top = (if type(ci) == "table" then ci.top else nil) or 0
 	local right = (if type(ci) == "table" then ci.right else nil) or 0
 	local bottom = (if type(ci) == "table" then ci.bottom else nil) or 0
 	local left = (if type(ci) == "table" then ci.left else nil) or 0
-	if type(hostW) == "number" and hostW - (left + right) <= 0 then
+	local floorW = if type(minContentW) == "number" and minContentW > 0 then minContentW else 0
+	local floorH = if type(minContentH) == "number" and minContentH > 0 then minContentH else 0
+	if type(hostW) == "number" and hostW - (left + right) <= floorW then
 		left, right = 0, 0
 	end
-	if type(hostH) == "number" and hostH - (top + bottom) <= 0 then
+	if type(hostH) == "number" and hostH - (top + bottom) <= floorH then
 		top, bottom = 0, 0
 	end
 	return {
@@ -655,20 +672,53 @@ end
 --- and the art still PAINTS either way (a decoration is sized full-bleed, not
 --- from this) -- what is given back is only the reservation.
 ---
+--- `minContent` IS THAT NUMBER, AND IT IS NOT A CONSTANT (task THEME,
+--- 2026-08-27). The paragraph above is right that there is no universal "how much
+--- content is enough" -- and wrong that there is none at all for the one node
+--- shape where the question has an answer. A node that DRAWS ITS OWN STRING knows
+--- exactly how much room a line of it needs: its resolved text size. `> 0` said a
+--- 36px Pixel Quest chip wearing a 16px carved frame per side could afford it,
+--- because 4 is a positive number -- and the framework then drew a 16px glyph into
+--- that 4px box and the player saw an empty plank square (director item 6,
+--- IMG_3785, three round HUD buttons with no mark at all). The floor is the caller's
+--- because only the caller knows what this node draws: it is the text size for a
+--- text-bearing leaf and ZERO for everything else, which is byte-for-byte the rule
+--- that shipped before.
+---
+--- The give-back is still ALL OR NOTHING. What changed is the threshold, not the
+--- shape: below it the whole inset comes back, the content draws, and the solver's
+--- `chromeYield` diagnostic says the control is smaller than its theme expects --
+--- which is refuse-or-catch instead of a silently blank control.
+---
 --- AUTHORED PADDING IS NEVER TOUCHED. That is an explicit instruction from the
 --- author; the framework does not get to overrule it, and a box collapsed by
 --- authored padding alone is still reported and still collapsed.
 ---
 --- An unbounded extent affords everything: a node free to grow pays its chrome
 --- and grows by it, which is the overwhelmingly common path and must not move.
-function chrome_slots.spendInset(extent: number, authored: number, inset: number): number
+function chrome_slots.spendInset(extent: number, authored: number, inset: number, minContent: number?): number
 	if extent == math.huge then
 		return inset
 	end
-	if extent - authored - inset > 0 then
-		return inset
+	if extent - authored - inset <= 0 then
+		return 0
 	end
-	return 0
+	--[[ THE TEXT FLOOR IGNORES AUTHORED PADDING, AND THAT IS NOT AN OVERSIGHT.
+		The two tests are about two different boxes. The one above is the CONTENT
+		box — what a child is placed inside — and authored padding is part of it. A
+		leaf's own string is drawn by the chrome LIFT, whose geometry is the host's
+		rect minus the recipe's insets with the host's `UIPadding` added back
+		(`screen_chrome.liftGeometry`'s full-bleed compensation, and the 60px button
+		that measured 8px of label before it existed). So the room a line of text
+		really gets is `extent - inset`, and comparing the floor against the padded
+		box instead would report every 44px button with 12+12 of padding under an
+		ornate package — 94 of them across the showcase corpus, none of which draws
+		anything wrong. ]]
+	local floor = if type(minContent) == "number" and minContent > 0 then minContent else 0
+	if floor > 0 and extent - inset <= floor then
+		return 0
+	end
+	return inset
 end
 
 function chrome_slots.iconBoxPx(wantPx: number, rectW: number?, rectH: number?, padX: number, padY: number): number
