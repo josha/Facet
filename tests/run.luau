@@ -515,6 +515,9 @@ require("./theme_chrome.spec")
 -- border clipped away by the Table body, because its full-bleed was computed
 -- from the Button's CREATE-time padding and the authored one arrived after)
 require("./chrome_padding_refit.spec")
+-- the setProp seam, mechanised (task EXTRACT, SOURCE_CAP_LEDGER):
+-- READ == DECLARED == PASSED over src/client/screen_props.luau + screen_target.luau
+require("./screen_props_seam.spec")
 -- rich-skinning-v2 schema + model specs (P1)
 require("./theme_layers.spec")
 require("./theme_variants.spec")
