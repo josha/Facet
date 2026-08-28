@@ -644,13 +644,38 @@ function screen_paint.new(ctx: any)
 	-- the sheet's surface rules own fills/transparency and its ::UICorner/
 	-- ::UIStroke rules CREATE the phantom chrome (spike m2: materializing a
 	-- real modifier instance here would silently defeat those rules).
+	--[[ `plain` AND `scrim` PART WAYS ON `suppressStates` (task PAINT fix round
+		1, RED-TEAM finding 1, 2026-08-28). Both stay chrome-less — `nativeSurface`
+		is nil either way, so neither ever earns a `facet-surface-*` tag and
+		`classifyTags`'s own `suppressed` check (`sheet_model.luau`) independently
+		refuses BOTH the `facet-interactive` and `facet-selected` tags for
+		either one, regardless of `nativeInteractive` below — that part of the
+		contract is unchanged and is exactly why `nativeInteractive` staying
+		`false` for `plain` costs nothing: no tag exists for it to gate.
+
+		`suppressStates` is a DIFFERENT gate, read by exactly two consumers,
+		neither of them tag-based: `wireNativePressDip`'s press/release tween
+		(`not handle.suppressStates`) and this file's fallback-mode
+		`wireInteractiveStates`. It is presentation-only — a `UIScale` dip on
+		press, nothing to do with fill, corner or hairline — so an activation
+		surface that opts out of decorative chrome (`plain`) has no reason to
+		also opt out of feeling pressed. A `scrim` is not a control the player
+		activates for its own sake (a backdrop dismiss-catcher), so it keeps
+		BOTH flags suppressed, unchanged. Found live: `examples/reference/
+		p1_glade`'s `gladeCard` went `surface = "plain"` to fix a corner-radius
+		mismatch (item 11) and silently lost all pointer/touch tap feedback
+		with it — the two concerns had never been asked to separate before. ]]
 	local function applySurfaceNative(instance: GuiObject, surface: string, handle: any)
 		handle.nativeSurface = if surface == "plain" then nil else surface
-		if surface == "plain" or surface == "scrim" then
+		if surface == "scrim" then
 			handle.suppressStates = true
 			handle.nativeInteractive = false
 		else
 			handle.suppressStates = false
+			-- `plain` is chrome-less but still every bit the control its class
+			-- says it is (a Button/Toggle) -- see the header above for why this
+			-- is safe: classifyTags' own `suppressed` check keeps the tag from
+			-- ever reaching the sheet either way.
 			handle.nativeInteractive = handle.class == "Button" or handle.class == "Toggle"
 			if surface == "accent" and instance:IsA("TextButton") then
 				-- primary-action treatment: sheet rules carry accent fill + label
@@ -708,9 +733,22 @@ function screen_paint.new(ctx: any)
 			hairline(instance)
 		elseif surface == "plain" then
 			-- chrome-less control: ONLY the content shows (in-cell glyph
-			-- buttons like the playlist stars). No fill, no corner, no
-			-- hairline, no hover/pressed treatment; the focus ring still
-			-- applies for gamepad reachability.
+			-- buttons like a segmented picker's options, a match3 tile's full-
+			-- bleed hit target, a region's cover). No fill, no corner, no
+			-- hairline; the focus ring still applies for gamepad reachability.
+			--
+			-- STILL LIVE INTERACTION FEEDBACK (task PAINT fix round 1, RED-TEAM
+			-- finding 1, 2026-08-28): `suppressStates` deliberately stays
+			-- false/unset here now, so `wireInteractiveStates`'s press-dip
+			-- (`ensureScale`/`TweenService`, pure presentation, no fill/corner
+			-- read or write) still plays on press and release. The hover/press
+			-- FILL tween below also stays live, but it costs nothing to leave
+			-- on: `setFill` only ever writes `BackgroundColor3`, never touches
+			-- `BackgroundTransparency`, which this branch just forced to `1` and
+			-- nothing downstream reverts -- so the colour changes underneath an
+			-- invisible background, harmlessly. See `applySurfaceNative` above
+			-- for the identical split on the native path, and ADR-0062 §"the
+			-- corner-stroke fix's own fix" for the full account.
 			instance.BackgroundTransparency = 1
 			local chrome = instance:FindFirstChild("Hairline")
 			if chrome then
@@ -721,8 +759,12 @@ function screen_paint.new(ctx: any)
 					child:Destroy()
 				end
 			end
+			-- explicit, not merely "left unset": `surface` is reactively
+			-- authorable, and a Button that ever wore `scrim` (which DOES set
+			-- this true, below) before flipping to `plain` must not inherit
+			-- that suppression by omission.
 			if handle ~= nil then
-				handle.suppressStates = true
+				handle.suppressStates = false
 			end
 		elseif surface == "accent" then
 			-- on a Button this is the PRIMARY-ACTION treatment: accent fill,

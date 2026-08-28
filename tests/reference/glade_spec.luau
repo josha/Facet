@@ -21,6 +21,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
+local adapter_source = require("../lib/adapter_source")
 local seedData = require("../../examples/reference/p1_glade/content/seed") :: any
 local strings = require("../../examples/reference/p1_glade/content/strings") :: any
 
@@ -412,6 +413,109 @@ describe("Glade: the stray corner stroke and the circle doctrine (task PAINT, di
 		expect(chrome_slots.classify({ class = "Button" })).toBe("control")
 		expect(chrome_slots.classify({ class = "Button", surface = button.props.surface })).toBeNil()
 	end)
+
+	--[[ ITEM 11's OWN FIX ROUND 1 (RED-TEAM finding 1, 2026-08-28):
+		`surface = "plain"` silenced ALL pointer/touch interaction feedback on
+		gladeCard's Button, not merely its decorative chrome — `applySurface`/
+		`applySurfaceNative`'s `plain` branch used to bundle "no fill/corner/
+		hairline" with "no press-dip, no hover/pressed tint" as one flag
+		(`suppressStates`), and nothing distinguished the two. The two live
+		instruments below are GetStyled-level (the pre-paint DECISION, not a
+		property probe on the live/unstyled value) for exactly the reason
+		`chrome_slots.classify` was the right instrument for item 11's root
+		cause: `screen_target.luau` cannot load headlessly (it reaches engine
+		globals at load time — `tests/lib/adapter_source.luau`'s own header),
+		so its and `screen_paint.luau`'s ACTUAL shipped source is read as text
+		and the exact branch a Button reaches is isolated by name — the same
+		technique `tests/button_shape.spec.luau`'s paint section already uses
+		for this exact pair of files. ]]
+	local adapterSource = adapter_source.live()
+
+	it(
+		"item 11 fix round 1: a plain surface no longer bundles chrome suppression with interaction suppression (native)",
+		function()
+			local body = adapter_source.bodyOf(adapterSource, "local function applySurfaceNative(")
+			expect(body ~= "").toBe(true)
+			-- the OLD, now-wrong bundling this round removed
+			expect(string.find(body, 'surface == "plain" or surface == "scrim"', 1, true)).toBeNil()
+			-- ONLY scrim (a backdrop dismiss-catcher, never a control the player
+			-- means to feel pressed) still suppresses both flags
+			local scrimAt = string.find(body, 'if surface == "scrim" then', 1, true)
+			expect(scrimAt ~= nil).toBe(true)
+			local scrimBranch =
+				string.sub(body, scrimAt :: number, (string.find(body, "else", scrimAt :: number, true) :: number) - 1)
+			expect(string.find(scrimBranch, "handle.suppressStates = true", 1, true) ~= nil).toBe(true)
+			expect(string.find(scrimBranch, "handle.nativeInteractive = false", 1, true) ~= nil).toBe(true)
+			-- and `plain` now falls into the SAME branch every genuinely interactive
+			-- surface does: suppressStates false, nativeInteractive true for a
+			-- Button/Toggle -- a chrome-less Button is still a Button
+			local elseAt = string.find(body, "else", scrimAt :: number, true) :: number
+			local generalBranch =
+				string.sub(body, elseAt, string.find(body, "syncTags(handle)", elseAt, true) :: number)
+			expect(string.find(generalBranch, "handle.suppressStates = false", 1, true) ~= nil).toBe(true)
+			expect(
+				string.find(
+					generalBranch,
+					'handle.nativeInteractive = handle.class == "Button" or handle.class == "Toggle"',
+					1,
+					true
+				) ~= nil
+			).toBe(true)
+		end
+	)
+
+	it(
+		"item 11 fix round 1: a plain surface no longer bundles chrome suppression with interaction suppression (fallback)",
+		function()
+			local surfaceBody = adapter_source.bodyOf(adapterSource, "local function applySurface(")
+			expect(surfaceBody ~= "").toBe(true)
+			local plainAt = string.find(surfaceBody, 'elseif surface == "plain" then', 1, true) :: number
+			expect(plainAt ~= nil).toBe(true)
+			local nextBranchAt = string.find(surfaceBody, 'elseif surface == "accent" then', plainAt, true) :: number
+			local plainBranch = string.sub(surfaceBody, plainAt, nextBranchAt - 1)
+			-- the fix: this branch must NEVER suppress interaction feedback
+			expect(string.find(plainBranch, "handle.suppressStates = true", 1, true)).toBeNil()
+			-- explicit false, not merely absent (a reactive scrim -> plain flip
+			-- must not inherit scrim's suppression by omission)
+			expect(string.find(plainBranch, "handle.suppressStates = false", 1, true) ~= nil).toBe(true)
+			-- the chrome removal itself is UNCHANGED — still no fill, no corner,
+			-- no hairline
+			expect(string.find(plainBranch, "instance.BackgroundTransparency = 1", 1, true) ~= nil).toBe(true)
+			expect(string.find(plainBranch, 'IsA("UICorner")', 1, true) ~= nil).toBe(true)
+			-- the regression guard: scrim is UNTOUCHED by this fix — a backdrop
+			-- dismiss-catcher still gets zero interaction feedback, on purpose
+			local scrimAt = string.find(surfaceBody, 'elseif surface == "scrim" then', 1, true) :: number
+			expect(scrimAt ~= nil).toBe(true)
+			local scrimBranch = string.sub(surfaceBody, scrimAt, #surfaceBody)
+			expect(string.find(scrimBranch, "handle.suppressStates = true", 1, true) ~= nil).toBe(true)
+		end
+	)
+
+	it(
+		"item 11 fix round 1: the press-dip and the hover/pressed fill are the mechanism this restores — both gate on exactly the flag the branches above now leave false for `plain`",
+		function()
+			-- proves the fix is EFFECTIVE, not merely present: every consumer of
+			-- `suppressStates` gates on that SAME field, so flipping it in the
+			-- branches above is sufficient — no second flag anywhere silently
+			-- re-suppresses the dip or the tint for a chrome-less control. Counted
+			-- rather than found-once: `wireNativePressDip`'s press+recover pair (2),
+			-- fallback `wireInteractiveStates`'s press+recover pair (2) and
+			-- `setFill`'s early return (1) — five call sites, one flag.
+			local count = 0
+			local at = 1
+			while true do
+				local found = string.find(adapterSource, "suppressStates", at, true)
+				if found == nil then
+					break
+				end
+				count += 1
+				at = found + 1
+			end
+			expect(count >= 6).toBe(true) -- 5 reads + the branches' own writes
+			expect(string.find(adapterSource, "if handle.suppressStates then", 1, true) ~= nil).toBe(true)
+			expect(string.find(adapterSource, "not handle.suppressStates then", 1, true) ~= nil).toBe(true)
+		end
+	)
 
 	it("item 12: the supply ring is a TRUE 1:1 box via shape = circle, byte-identical geometry to before", function()
 		local w = world()

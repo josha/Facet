@@ -12,13 +12,17 @@ ZStack that predates this (none could have authored `shape` — it was refused
 as an unknown prop) is untouched.
 **Home:** `src/blueprint_schema.luau` (`SHAPE`, shared), `src/blueprint.luau`
 (`assertCircleSquare`, shared), `src/render/authority.luau` (`common.shape`),
-`src/render/layout_node.luau` (`applyCircleShape`, shared). No change to
-`src/tokens/sheet_model.luau`, `src/client/screen_paint.luau` or
-`src/client/screen_target.luau` — see "What did not need to change" below.
+`src/render/layout_node.luau` (`applyCircleShape`, shared). The circle-shape
+generalization itself needed no change to `src/tokens/sheet_model.luau` or
+`src/client/screen_target.luau` — see "What did not need to change" below —
+but `src/client/screen_paint.luau` **was** touched in fix round 1, for a
+different reason: `applySurfaceNative`/`applySurface`'s `surface = "plain"`
+branches (item 11's fix, not the circle guarantee) — see "Fix round 1" below.
 **Guards:** `tests/button_shape.spec.luau` (unchanged, still green — the
 regression floor for the feature this generalizes), `tests/zstack_shape.spec.luau`
 (new), `tests/reference/glade_spec.luau` ("the stray corner stroke and the
-circle doctrine" — the migrated consumer).
+circle doctrine" — the migrated consumer, gaining three more cases in fix
+round 1 for the interaction-feedback restoration).
 
 ## Context
 
@@ -224,9 +228,94 @@ reader who puts a fill on a bare circular ZStack under the legacy paint path.
   the Button was classified into a chrome slot it was never meant to wear.
   `surface = "plain"` is the framework's own existing, already-documented
   answer to "this activation surface's entire box is covered by content that
-  paints its own visuals" (`chrome_slots.luau`'s own comment, citing the
-  playlist's rating stars as precedent) — applying it is the class-level fix,
-  not a workaround.
+  paints its own visuals" (`chrome_slots.luau`'s own comment) — applying it is
+  the class-level fix, not a workaround. **Correction (RED-TEAM finding 2,
+  fix round 1):** this decision originally cited the playlist's rating stars
+  as shipped precedent for `plain` on a genuinely-singular Button. That
+  citation was stale — `Rating` (`src/controls/rating.luau`'s own header,
+  director round 10) retired its five-`plain`-Button construction entirely in
+  favor of a `Grip` + reactive-glyph composite, precisely because the plain-
+  Button approach was wrong on paint, input AND semantics for THAT control.
+  The semantics/input half of that history doesn't transfer to `gladeCard`
+  (one genuine Button, not five collapsed into one), but the PAINT half does,
+  and citing a retired construction as proof of a pattern overstated how
+  settled the escape hatch was — see "the corner-stroke fix's own fix" below
+  for what that overstatement was hiding.
+
+## Fix round 1 (2026-08-28): the corner-stroke fix's own fix
+
+RED-TEAM finding 1 (Important) found that `surface = "plain"` — the escape
+hatch this ADR's own Decision documents for item 11 — was not the honest
+construction it was presented as: `screen_paint.luau`'s `applySurfaceNative`
+and its fallback-mode `applySurface` both bundled "no fill/corner/hairline"
+with "no interaction feedback of any kind" behind ONE flag
+(`handle.suppressStates`), because `plain`'s only prior consumer (the now-
+retired rating-star construction, see the correction above) never needed the
+two to separate. `gladeCard`'s Button has no reactive glyph or other
+compensating affordance, so the fix silently made every glade card in the
+overview grid give ZERO visual acknowledgement of a tap until the navigation
+transition itself began.
+
+**The split, once traced to source.** `suppressStates` has exactly two kinds
+of consumer, and NEITHER is tag-based or fill-based: `wireNativePressDip`'s
+(native mode) and `wireInteractiveStates`'s (fallback mode) press/release
+`UIScale` tween, and `setFill`'s early return (fallback mode; native mode has
+no equivalent bespoke fill write at all). The tween is pure presentation — a
+subtle scale dip on press, orthogonal to fill, corner or hairline — so a
+chrome-less activation surface has no reason to also lose it. What DOES stay
+correctly suppressed either way, confirmed rather than assumed:
+`sheet_model.classifyTags`'s own INDEPENDENT `suppressed = surface == "plain"
+or surface == "scrim"` check refuses the `facet-interactive`/`facet-selected`
+tags for `plain` regardless of `handle.nativeInteractive`'s value, and
+`applySurface`'s `plain` branch forces `BackgroundTransparency = 1` with
+nothing downstream ever reverting it — so re-enabling the (fallback-mode)
+hover/pressed FILL tween changes a colour underneath an invisible background,
+harmlessly. The two flags were never the same claim; only the code coupled
+them.
+
+**Fix:** `applySurfaceNative` now isolates `scrim` (a backdrop dismiss-
+catcher genuinely wants zero tap feel) from every other surface including
+`plain`, which now takes the SAME branch a `control`/`raised`/`accent`
+Button/Toggle does — `suppressStates = false`, `nativeInteractive =
+handle.class == "Button" or handle.class == "Toggle"`. The fallback
+`applySurface`'s `plain` branch drops its `suppressStates = true` write
+(replaced with an explicit `false`, so a reactive `scrim` -> `plain` flip
+cannot inherit scrim's suppression by omission) while its chrome removal is
+untouched. `scrim` is unmodified in both modes.
+
+**What this restores and what it does not, stated precisely.** The press-dip
+(a real, visible tap acknowledgement, identical for touch and pointer input)
+is fully restored on every `plain`-surfaced Button/Toggle in the framework,
+not only `gladeCard` — this is a class fix by construction, since the
+branches these two functions dispatch through are the only two places
+`plain` is ever interpreted. A visible HOVER treatment is not restored and
+could not be without reintroducing some fill (contradicting `plain`'s own
+contract): the native "Control — hover"/"Control — pressed" sheet rules and
+the fallback `setFill` tween now run again for `plain`, but both only ever
+write `BackgroundColor3`, and nothing gives `plain` a `BackgroundTransparency`
+other than the `1` its own branch sets — so hover/press colour changes happen
+underneath an invisible background. This is disclosed rather than
+engineered around: press feedback (universal across input classes) was the
+finding's central concern and is fully live; a distinct hover affordance for
+chrome-less content is a genuinely different, larger feature (the review's
+own option (b) — the CONTENT owning a hover treatment — remains open for
+whichever future author needs it) and was not invented here.
+
+**Evidence.** `tests/reference/glade_spec.luau` gained three cases reading
+`screen_paint.luau`'s and `screen_target.luau`'s actual shipped source as
+text (`tests/lib/adapter_source.luau`, the same instrument
+`tests/button_shape.spec.luau`'s paint section already uses for this exact
+pair of files — GetStyled-level in the sense this codebase's own precedent
+gives that phrase, since neither file loads headlessly for a literal
+`Instance:GetStyled()` call): the native branch no longer bundles `plain`
+with `scrim`; the fallback branch's `plain` case never writes
+`suppressStates = true` and does write `suppressStates = false`, while
+`scrim`'s own branch is confirmed UNCHANGED (still suppresses); and every
+consumer of the flag reads the SAME field the fix flips. All three were run
+red against the pre-fix bundled condition (restored via a temporary revert)
+and confirmed to redden exactly where expected, then restored to green —
+162 cases passing total in the isolated `button_shape` + `zstack_shape` +
+`glade_spec` run this round used throughout.
 
 ## Consequences
 

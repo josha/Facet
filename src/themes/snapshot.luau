@@ -2515,18 +2515,21 @@ function snapshot.toggleRowPadding(snap: any): { top: number, right: number, bot
 	}
 end
 
--- ===== the circle Button's two shared decisions ============================
+-- ===== the circle shape's two shared decisions ==============================
 --
--- `UI.Button{ shape = "circle" }` is a TRUE 1:1 disc whose diameter is a control
--- metric, so a metric package resizes it and a pixel package snaps it without
--- any call site doing arithmetic. Both facts below have MORE THAN ONE consumer —
--- the renderer's measure seam, its paint seam, and the headless specs — and the
+-- `UI.Button{ shape = "circle" }` (and, since task PAINT generalized the same
+-- guarantee to `UI.ZStack` — ADR-0062 — a `UI.ZStack{ shape = "circle" }` ring/
+-- disc composite) is a TRUE 1:1 box whose diameter is a control metric, so a
+-- metric package resizes it and a pixel package snaps it without any call site
+-- doing arithmetic. Both facts below have MORE THAN ONE consumer — the
+-- renderer's measure seam, its paint seam, and the headless specs — and the
 -- toggle row three functions up is the recorded reason they are functions: two
 -- copies of the same theme arithmetic silently disagreed for four stages.
 
--- circleDiameter: the px a circle Button is BOTH wide and tall. `resolve` fills
--- `controls.button.height` in for every package (see step 4a there), so this
--- fallback only covers a hand-built metrics table in a test.
+-- circleDiameter: the px a `shape = "circle"` node (Button or ZStack) is BOTH
+-- wide and tall. `resolve` fills `controls.button.height` in for every package
+-- (see step 4a there), so this fallback only covers a hand-built metrics table
+-- in a test.
 function snapshot.circleDiameter(snap: any): number
 	local button = ((if type(snap) == "table" then snap.controls else nil) or {}).button or {}
 	if type(button.height) == "number" and button.height > 0 then

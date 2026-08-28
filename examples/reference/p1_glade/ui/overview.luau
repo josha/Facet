@@ -55,13 +55,28 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 		-- edge at every corner: the stray stroke. `surface = "plain"` is the
 		-- framework's existing, documented escape hatch for exactly this shape
 		-- — "an activation surface whose entire box is covered by content that
-		-- paints its own visuals" (the same doctrine the playlist's rating
-		-- stars use, chrome_slots.luau) — so the button contributes NO chrome
-		-- of its own and the scene's paint is the only paint. Class-level fix,
-		-- not a per-card patch: the phantom-corner/stroke family already lives
-		-- at `chrome_slots.classify` + the package's surface recipes; this
-		-- applies the vocabulary that already exists rather than adding a new
-		-- one. See `tests/reference/glade_spec.luau` ("item 11").
+		-- paints its own visuals" (`chrome_slots.luau`'s own comment) — so the
+		-- button contributes NO chrome of its own and the scene's paint is the
+		-- only paint. Class-level fix, not a per-card patch: the phantom-
+		-- corner/stroke family already lives at `chrome_slots.classify` + the
+		-- package's surface recipes; this applies the vocabulary that already
+		-- exists rather than adding a new one. See `tests/reference/
+		-- glade_spec.luau` ("item 11").
+		--
+		-- FIX ROUND 1 (RED-TEAM finding 1, 2026-08-28): this alone used to
+		-- silently strip ALL pointer/touch hover/press feedback along with the
+		-- chrome — `applySurface`/`applySurfaceNative`'s `plain` branch
+		-- bundled "no fill/corner/hairline" with "no press-dip, no hover tint"
+		-- as one flag (`suppressStates`). `screen_paint.luau` now separates
+		-- them: `plain` still gets zero decorative chrome, but the press-dip
+		-- (a `UIScale` animation, orthogonal to fill/corner) plays exactly as
+		-- it does on any other Button, so tapping a glade card is visibly
+		-- acknowledged before the navigation transition begins. The
+		-- (superseded, retired) note that this mirrored the playlist rating
+		-- stars' construction was also wrong on its own terms — `Rating`
+		-- moved off individual `plain` Buttons entirely for a `Grip` +
+		-- reactive-glyph composite (`src/controls/rating.luau`'s own header,
+		-- director round 10) — corrected here rather than left standing.
 		surface = "plain",
 		onActivate = function()
 			ctx.nav.openGlade(glade.id)
