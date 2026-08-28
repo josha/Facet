@@ -180,7 +180,6 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 				children = {
 					UI.ZStack({
 						id = "PanelZ",
-						canvasGroup = true,
 						children = {
 							UI.corners(
 								UI.shadow(
@@ -191,78 +190,86 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 										gap = "m",
 										width = { type = "minMax", min = 260, max = CONFIRM_W },
 										children = {
-											UI.Text({ id = "Name", text = item.name, textSize = "heading" }),
-											UI.Text({
-												id = "Creator",
-												text = item.creator,
-												textSize = "caption",
-												role = "secondary",
-											}),
-											UI.Text({
-												id = "Price",
-												text = SPARK .. " " .. tostring(item.price),
-												textSize = "numeral",
-											}),
-											UI.Text({
-												id = "After",
-												text = core:memo(function(use)
-													return strings.get(
-														use(locale),
-														"buy.after",
-														SPARK
-															.. " "
-															.. tostring(use(services.balance) - (item.price :: number))
-													)
-												end),
-												textSize = "caption",
-												role = "secondary",
-											}),
-											UI.When({
-												id = "Reason",
-												condition = core:memo(function(use)
-													return use(reason) ~= nil
-												end),
-												thenView = function()
-													return UI.Text({
-														id = "Strip",
-														text = core:memo(function(use)
-															return use(reason) or ""
-														end),
-														tint = { role = "danger", blend = 1 },
-													})
-												end,
-											}),
-											UI.HStack({
-												id = "Footer",
-												gap = "m",
+											UI.ZStack({
+												id = "Group",
+												canvasGroup = true,
 												children = {
-													UI.Button({
-														id = "Confirm",
-														label = confirmLabel,
-														surface = "accent",
-														enabled = buttonsEnabled,
-														onActivate = function()
-															services.purchase(item.id)
+													UI.Text({ id = "Name", text = item.name, textSize = "heading" }),
+													UI.Text({
+														id = "Creator",
+														text = item.creator,
+														textSize = "caption",
+														role = "secondary",
+													}),
+													UI.Text({
+														id = "Price",
+														text = SPARK .. " " .. tostring(item.price),
+														textSize = "numeral",
+													}),
+													UI.Text({
+														id = "After",
+														text = core:memo(function(use)
+															return strings.get(
+																use(locale),
+																"buy.after",
+																SPARK
+																	.. " "
+																	.. tostring(
+																		use(services.balance) - (item.price :: number)
+																	)
+															)
+														end),
+														textSize = "caption",
+														role = "secondary",
+													}),
+													UI.When({
+														id = "Reason",
+														condition = core:memo(function(use)
+															return use(reason) ~= nil
+														end),
+														thenView = function()
+															return UI.Text({
+																id = "Strip",
+																text = core:memo(function(use)
+																	return use(reason) or ""
+																end),
+																tint = { role = "danger", blend = 1 },
+															})
 														end,
 													}),
-													UI.Button({
-														id = "Cancel",
-														label = Lnow("buy.cancel"),
-														role = "cancel",
-														enabled = buttonsEnabled,
-														onActivate = function()
-															presenter.dismiss(handle)
-														end,
-													}),
-													UI.Spacer({}),
-													UI.Button({
-														id = "Close",
-														label = Lnow("close.label"),
-														shape = "circle",
-														icon = "close",
-														onActivate = function()
-															presenter.dismiss(handle)
-														end,
+													UI.HStack({
+														id = "Footer",
+														gap = "m",
+														children = {
+															UI.Button({
+																id = "Confirm",
+																label = confirmLabel,
+																surface = "accent",
+																enabled = buttonsEnabled,
+																onActivate = function()
+																	services.purchase(item.id)
+																end,
+															}),
+															UI.Button({
+																id = "Cancel",
+																label = Lnow("buy.cancel"),
+																role = "cancel",
+																enabled = buttonsEnabled,
+																onActivate = function()
+																	presenter.dismiss(handle)
+																end,
+															}),
+															UI.Spacer({}),
+															UI.Button({
+																id = "Close",
+																label = Lnow("close.label"),
+																shape = "circle",
+																icon = "close",
+																onActivate = function()
+																	presenter.dismiss(handle)
+																end,
+															}),
+														},
 													}),
 												},
 											}),
@@ -323,7 +330,6 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 				children = {
 					UI.ZStack({
 						id = "PanelZ",
-						canvasGroup = true,
 						children = {
 							UI.corners(
 								UI.shadow(
@@ -334,21 +340,27 @@ function Wardrobe.build(Facet: any, core: any, deps: any): any
 										gap = "m",
 										width = { type = "minMax", min = 240, max = 360 },
 										children = {
-											UI.Toggle({
-												id = "OwnedOnly",
-												label = Lnow("filter.owned"),
-												value = services.ownedOnly,
-											}),
-											picker.blueprint,
-											UI.Button({
-												id = "Done",
-												label = Lnow("filter.done"),
-												onActivate = function()
-													presenter.dismiss(handle)
-													if picker.dispose ~= nil then
-														picker.dispose()
-													end
-												end,
+											UI.ZStack({
+												id = "Group",
+												canvasGroup = true,
+												children = {
+													UI.Toggle({
+														id = "OwnedOnly",
+														label = Lnow("filter.owned"),
+														value = services.ownedOnly,
+													}),
+													picker.blueprint,
+													UI.Button({
+														id = "Done",
+														label = Lnow("filter.done"),
+														onActivate = function()
+															presenter.dismiss(handle)
+															if picker.dispose ~= nil then
+																picker.dispose()
+															end
+														end,
+													}),
+												},
 											}),
 										},
 									}),

@@ -219,7 +219,7 @@ describe("Wardrobe proof — the purchase lifecycle", function()
 		w.presenter.refresh()
 		w.adapter.tap(findPath(w.adapter, "BuyBarWhen/then/BuyBar/Buy") :: string)
 		w.presenter.refresh()
-		local confirm = findPath(w.adapter, "Confirm/PanelZ/Plate/Footer/Confirm")
+		local confirm = findPath(w.adapter, "Confirm/PanelZ/Plate/Group/Footer/Confirm")
 		expect(confirm ~= nil).toBe(true)
 		w.adapter.tap(confirm :: string)
 		expect(w.built.report().purchaseStatus).toBe("pending")
@@ -244,7 +244,7 @@ describe("Wardrobe proof — the purchase lifecycle", function()
 			w.presenter.refresh()
 			w.adapter.tap(findPath(w.adapter, "BuyBarWhen/then/BuyBar/Buy") :: string)
 			w.presenter.refresh()
-			local confirm = findPath(w.adapter, "Confirm/PanelZ/Plate/Footer/Confirm")
+			local confirm = findPath(w.adapter, "Confirm/PanelZ/Plate/Group/Footer/Confirm")
 			w.adapter.tap(confirm :: string)
 			w.built.steps.settle()
 			w.presenter.refresh()
@@ -651,6 +651,35 @@ describe("Wardrobe — Picked-for-you cards fill their lane and never overflow t
 			end
 		end
 		expect(#w.handle.controller.diagnostics()).toBe(0)
+		teardown(w)
+	end)
+end)
+
+--[[ BACKDROP-FINDING SWEEP (task POP fix round 1, CRITICAL finding: the
+	round-0 gate was never actually run against this reference app — grep
+	alone found 2 `canvasGroup = true` sites here, unswept). Raises the
+	purchase Confirm modal (trying on an unowned item) and the Refine filter
+	modal — this app's two `presentModal` call sites — then reads the UNION
+	of every coordinator's own `.findings()` (`tests/lib/backdrop_sweep.luau`). ]]
+describe("Wardrobe — backdrop-finding sweep (task POP)", function()
+	it("the purchase Confirm modal and the Refine filter modal are clean", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local w: any
+		local findings = backdropSweep.capture(function()
+			w = makeWorld()
+			w.built.steps.equip(nil, "puffin-beanie")
+			w.presenter.refresh()
+			local buy = findPath(w.adapter, "BuyBarWhen/then/BuyBar/Buy")
+			expect(buy ~= nil).toBe(true)
+			w.adapter.tap(buy :: string)
+			w.presenter.refresh()
+			w.presenter.back() -- close Confirm before opening Refine
+			local filter = findPath(w.adapter, "Filter")
+			expect(filter ~= nil).toBe(true)
+			w.adapter.tap(filter :: string)
+			w.presenter.refresh()
+		end)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
 		teardown(w)
 	end)
 end)
