@@ -1008,7 +1008,15 @@ describe("screen_target: the bar assembly is materialized as rs-m4 measured", fu
 		-- Live-found: the chrome can be built before the node joins its track, and
 		-- a connection made against nil would never fire — the art stayed 0 wide and
 		-- its asset was then reported failed for never decoding.
-		expect(at(refresh, "if handle.barConn == nil then") < at(refresh, "local px = barTrackExtent")).toBe(true)
+		--
+		-- UPDATED (task CONN round 2, review-conn-verdicts.md item 3): the literal
+		-- `if handle.barConn == nil then` guard this pinned was rewired onto the
+		-- shared `handle_conn.reconnectOnChange` helper (task CONN round 1,
+		-- Finding 1) — a recycle-safe identity check replacing the guard that
+		-- could never rewire once true, same behavior this test already wanted
+		-- (attach-or-retry BEFORE reading the current extent) plus the fix. The
+		-- ORDERING property is unchanged and still what this case verifies.
+		expect(at(refresh, 'reconnectOnChange(handle, "barConn"') < at(refresh, "local px = barTrackExtent")).toBe(true)
 	end)
 
 	it("the TRACK is found through the PATH, not through instance.Parent", function()
