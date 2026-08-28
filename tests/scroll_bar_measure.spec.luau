@@ -241,3 +241,130 @@ describe("the bar gutter a host spent is published for its SIBLINGS to pay", fun
 		expect(handle.controller.scrollBarInsetOf("/S/Col/Shelf")).toBeNil()
 	end)
 end)
+
+--[[ ── ITEM 3 (framework-gaps-phase2-followups, task MISC): "desktop scrollbar
+	reserves no pixels, overlaps content" ────────────────────────────────────
+
+	desktopScroll.png is a plain vertical list of individually-rounded,
+	FULL-WIDTH cards — the shape every card-list/settings-list screen in this
+	repo and its consumer reach for, and one this file did not already cover:
+	every case above is either a HUG scroller measuring its own bar (the
+	shelf/list-beside-text cases) or a synthetic Button row, never a `fill`
+	scroll host whose direct children are themselves `fill`-width leaves.
+
+	ROOT-CAUSE FINDING: there is no framework defect here. The mechanism this
+	whole file exists for — `ctx.scrollBarReserve` narrowing the cross axis
+	whenever the scroll axis overflows (`layout/solver.luau`'s `arrange`
+	branch for `kind == "scroll"`) — already applies unconditionally to a
+	`fill`-width child of ANY scroll host, HUG or FILL-sized, under EITHER
+	indicator policy (the 2026-08-12 reversal made the reserve policy-blind on
+	purpose: "the engine charges the window for the bar instance however the
+	bar is painted"). This file's own header already names why no headless
+	sweep saw the class before `scroll_bar_measure.spec` existed — the fake
+	target's `scrollBarThickness` is deliberately opt-in per world, not a
+	silent default — so the fix this item owes is the same shape as the file
+	around it: cover the SHAPE the director's screenshot is, opted in exactly
+	like every other case here, so a future regression in this exact card-list
+	shape cannot ship unseen. RR lockstep: no Facet API/default/behavior
+	changed, so there is nothing for the consumer to migrate (clean-negative —
+	`games/RascalRally/code` mounts its own lists through the same public
+	`ScrollView`/`Table` surfaces this file already exercises). ]]
+describe("item 3: a persistent scrollbar never overlaps a full-width card list", function()
+	local CARD_COUNT = 20
+	local CARD_H = 60
+
+	local function cardList(UI: any): any
+		local cards: { any } = {}
+		for i = 1, CARD_COUNT do
+			cards[#cards + 1] = UI.corners(
+				UI.Box({
+					id = "Card" .. i,
+					width = UI.fill(),
+					height = { type = "fixed", px = CARD_H },
+					surface = "raised",
+				}),
+				"panel"
+			)
+		end
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.ScrollView({
+					id = "List",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = cards,
+				}),
+			},
+		})
+	end
+
+	-- the REAL reactive path, not a manual short-circuit: presenter
+	-- construction runs the scroll-indicator-policy effect once at boot
+	-- (src/present/presenter.luau), which is what a live desktop session
+	-- actually goes through before its first paint
+	local function policyWorld(viewport: { w: number, h: number }, preferredInput: string?): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+		if preferredInput ~= nil then
+			env:set("preferredInput", preferredInput)
+		end
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local handle = presenter.present(cardList(Facet.UI), {})
+		presenter.refresh()
+		return { core = core, adapter = adapter, presenter = presenter, handle = handle }
+	end
+
+	local function assertNoOverlap(w: any)
+		local list = w.handle.controller.rectOf("/S/List")
+		expect(list ~= nil).toBe(true)
+		-- the reserve a sibling would have to pay (§ "THE GUTTER IS PUBLISHED"
+		-- above) — nil when nothing overflowed, which is the honest "at rest"
+		-- case: a list with no bar to paint has nothing to leave room for
+		local inset = w.handle.controller.scrollBarInsetOf("/S/List")
+		local reserve = if type(inset) == "table" and type(inset.right) == "number" then inset.right else 0
+		for i = 1, CARD_COUNT do
+			local card = w.handle.controller.rectOf(`/S/List/Card{i}`)
+			if card ~= nil then
+				-- the card's right edge must never reach the reserved gutter —
+				-- the exact overlap desktopScroll.png shows
+				if card.x + card.w > (list :: any).x + (list :: any).w - reserve + 0.01 then
+					error(
+						`Card{i}: right edge {card.x + card.w} runs into the {reserve}px scrollbar gutter `
+							.. `reserved off list right edge {(list :: any).x + (list :: any).w}`,
+						2
+					)
+				end
+			end
+		end
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end
+
+	it("desktop/pointer (the default profile — a persistent bar): no card overlaps it, overflowing", function()
+		local w = policyWorld({ w = 360, h = 400 }) -- 400/60 < 20 rows: overflows
+		assertNoOverlap(w)
+		local inset = w.handle.controller.scrollBarInsetOf("/S/List")
+		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+	end)
+
+	it("desktop/pointer at rest (content fits — nothing to reserve, nothing to overlap)", function()
+		local w = policyWorld({ w = 360, h = 4000 })
+		assertNoOverlap(w)
+		expect(w.handle.controller.scrollBarInsetOf("/S/List")).toBeNil()
+	end)
+
+	it(
+		"touch/auto profile: unchanged — the SAME reserve, because the engine charges the window either way",
+		function()
+			local w = policyWorld({ w = 360, h = 400 }, "Touch")
+			assertNoOverlap(w)
+			local inset = w.handle.controller.scrollBarInsetOf("/S/List")
+			expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		end
+	)
+end)
