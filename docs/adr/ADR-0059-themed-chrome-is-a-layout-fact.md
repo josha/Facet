@@ -319,3 +319,25 @@ flat one"; that was never measured and is not true.
   oracle before adding its own direct-rect instrument, rather than extending
   `overflow_guard` itself — the guard's vocabulary is containment, and inventing
   a second one for one decoration pair was not owed by this round's evidence.
+* **2026-08-28 (task THEME2, second round)** — the same round found a SECOND,
+  independent implementation of the identical defect:
+  `examples/gallery/scenarios/adaptive_controls.luau`'s hand-rolled HUD-tile
+  badge (`badgedTile`), which never goes through `Facet.Controls.Picker` at
+  all — a raw `UI.overlay` + `UI.Text` carrying its own `alignH`/`alignV`, so
+  closing the Picker's copy above did not close this one. Its own `2`px
+  `UI.padding` is the seal's INTERNAL glyph inset (its own comment says so,
+  measuring the badge recipe's contentInset against the glyph's line box) —
+  `UI.padding`/`UI.alignment` write straight onto a node's own props, never a
+  wrapper, so that `2` never moved the badge off the tile's raw corner. Same
+  overlap, same class, and the fixture's own `t4` badge value ("7") matches
+  the director's photograph. The computation that decides the inset — the
+  four-line max-over-sides loop written by hand THREE times now
+  (`selection_indicator.luau`'s pill inset, then Picker's own first-pass fix,
+  then this) — is extracted once, `chrome_slots.carvedBorder(snapshot, slot)`,
+  and both consumers (Picker's badge, refactored onto it with no behaviour
+  change; the scenario's tile badge, fixed with it) now share the one
+  implementation. ADR-0040 row B-37 amended to describe both consumers rather
+  than superseded, since it is the same class, the same slot and the same
+  fix. `tests/themed_containment.spec.luau` gains a second group mounting the
+  actual scenario and pinning all four tiles the same way the Picker group
+  pins its own.
