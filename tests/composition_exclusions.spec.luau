@@ -161,8 +161,9 @@ end)
 	does not FIT is caught; this content fitted and was merely put in the wrong
 	place. The collision finding compares regions with each OTHER, never with their
 	lane. So the composition returned `legal = true`, no rejection and no collision,
-	while painting a region 54px (PS5) / 300px (the sweep below) outside its box —
-	and `tests/lib/overflow_guard.luau`'s own header recorded the premise this
+	while painting a region outside its box by the whole inset — measured LIVE at
+	54px on the phone, 141px on the PS5, and 300px in the sweep case below — and
+	`tests/lib/overflow_guard.luau`'s own header recorded the premise this
 	falsifies: *"a LEGAL composition cannot produce one"*.
 
 	The fix is one term: the slack a lane shares out is measured against the lane's
