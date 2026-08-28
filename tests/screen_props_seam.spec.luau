@@ -180,7 +180,8 @@ describe("the screen_props seam: the (empty) shared WRITE surface, and the one-w
 
 	it("NEGATIVE CONTROL: the write scan sees each of the three write shapes", function()
 		local keys = { alpha = true, beta = true, gamma = true, delta = true }
-		local text = "\n\talpha.field = 1\n\tbeta[key] = 2\n\tgamma = 3\n\tlocal x = delta.field\n\tif delta == nil then\n"
+		local text =
+			"\n\talpha.field = 1\n\tbeta[key] = 2\n\tgamma = 3\n\tlocal x = delta.field\n\tif delta == nil then\n"
 		local seen = writesOf(text, keys)
 		expect(seen.alpha).toBe(true)
 		expect(seen.beta).toBe(true)
@@ -197,7 +198,7 @@ describe("the screen_props seam: the (empty) shared WRITE surface, and the one-w
 			`tests/lib/adapter_source.luau`'s own header) is a source anchor,
 			not a driven call. ]]
 		local returnBlock = string.match(moduleSource, "\n\treturn {\n(.-)\n\t}\nend\n\nreturn screen_props")
-		assert(returnBlock ~= nil, `{MODULE_PATH}: no 'return { ... } end' block to read`)
+		assert(returnBlock ~= nil, `{MODULE_PATH}: no trailing 'return TABLE end' block to read`)
 		local names: { string } = {}
 		for name in string.gmatch("\n" .. (returnBlock :: string), "\n%s*([%a_][%w_]*) =") do
 			table.insert(names, name)
