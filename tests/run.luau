@@ -838,6 +838,11 @@ require("./layout_defaults.spec")
 	finally given. Scoped by measurement to a stack's CROSS axis — the counts
 	that rejected the wider rule are in `layout/placement_audit.luau` ]]
 require("./containment_diagnostic.spec")
+--[[ ...AND THE SAME INVARIANT ASKED UNDER A PACKAGE (task THEME, director items
+	6-9). It sits above the guard's own proofs for the same reason everything else
+	does — those read process-wide waiver counts — and below the diagnostic because
+	it is the applied floor rather than the rule. ]]
+require("./themed_containment.spec")
 --[[ THE CONTAINMENT INVARIANT'S OWN PROOFS, and it is REQUIRED LAST ON PURPOSE.
 	`tests/lib/overflow_guard.luau` runs after every settle in every fixture world
 	above, and its waiver registry may not rot — "every waiver still fires" is a

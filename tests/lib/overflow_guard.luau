@@ -118,9 +118,44 @@
 	node, so a sub-44px control's target legitimately exceeding its parent is not
 	a thing this can report. Both are stated in `tests/lib/overflow_waivers.luau`
 	so a reader does not go looking for waivers that cannot exist.
+
+	── THE THEMED PASS (task THEME, 2026-08-27) ─────────────────────────────────
+
+	EVERYTHING ABOVE WAS ONLY EVER ASKED UNDER STUDIO NEUTRAL, and that is the hole
+	the director's items 6-9 came through. `tests/overflow_sweep.spec.luau` swings
+	eight theme packages onto every swept surface — and collects only
+	`controller.diagnostics()` on those passes; this oracle runs once per viewport,
+	on the freshly-mounted neutral tree, BEFORE the first `env:set("themeMetrics")`.
+	Measured on 2026-08-27 over the showcase corpus at every swept viewport: the
+	neutral pass reports ZERO and the eight packages report 92 DISTINCT violations
+	the suite had never asked about.
+
+	A PACKAGE ALSO MOVES THE EDGE THE QUESTION IS ABOUT, twice, and both are
+	invisible to the neutral rules:
+
+	  1. A THEMED PANEL'S VISIBLE EDGE IS NOT ITS RECT. A nine-slice skin carves a
+	     border out of its own box (`ThemeSnapshot.chromeInsets[slot]` — 24px per
+	     side on Pixel Quest's `panel`, 30 on Fantasy Ornate's), so the box a player
+	     sees content inside is the rect MINUS that. Judging against the outer rect
+	     pardons a child painted over the whole frame.
+	  2. A PLATE IS OFTEN A SIBLING, NOT AN ANCESTOR. The library's own idiom for a
+	     tinted panel is `ZStack{ Box(surface, fill×fill), content }` — the HUD's
+	     `glass()` and `selection_indicator`'s pill both build one — so the node
+	     carrying the surface is the content's SIBLING and `boundaryFor`, which only
+	     ever walks up, never sees it. The framework's chrome reservation lands on
+	     that plate, which has no children, and the content clears nothing.
+
+	So with a snapshot in hand this module judges against the THEMED CONTENT BOX of
+	the nearest boundary, and treats a full-bleed surfaced sibling as the boundary
+	its stack really has. Both are exactly zero-cost on a flat package: Studio
+	Neutral, classic-desktop, glossy-mobile and sci-fi HUD publish an all-zero
+	`chromeInsets`, so the themed box IS the rect and the sibling plate inset is
+	nothing. WITHOUT a snapshot nothing below changes by a byte — every existing
+	caller keeps the neutral rules it had.
 ]]
 
 local waivers = require("./overflow_waivers")
+local chrome_slots = require("../../src/tokens/chrome_slots")
 
 local overflow_guard = {}
 
@@ -214,11 +249,103 @@ local function paints(node: any): boolean
 	return false
 end
 
+--[[ THE THEMED CONTENT BOX of a surfaced node: its rect minus the carved border
+	the installed package reserves for that node's chrome slot. `snapshot` nil (the
+	neutral pass and every existing caller) returns the rect unchanged, and so does
+	every package whose `chromeInsets` are all zero — which is what makes this rule
+	free on a flat theme rather than merely cheap.
+
+	THE SLOT IS DERIVED THE WAY THE RENDERER DERIVES IT (`chrome_slots.classify`,
+	the same call `render/layout_node` makes), minus the internal `hint` channel a
+	node census cannot carry: a control that declared its OWN slot (a Slider's rail)
+	is judged against the slot the generic map guesses instead. That under-reports
+	on those few nodes and can never over-report, which is the right direction for
+	an always-on check. ]]
+local function themedBox(snapshot: any, node: any, box: any): any
+	if type(snapshot) ~= "table" or box == nil then
+		return box
+	end
+	local insets = (snapshot :: any).chromeInsets
+	if type(insets) ~= "table" then
+		return box
+	end
+	local props = node.props or {}
+	local slot = chrome_slots.classify({
+		class = node.class,
+		surface = props.surface,
+		hasSelection = props.selected ~= nil,
+	})
+	local ins = if slot ~= nil then (insets :: any)[slot] else nil
+	if type(ins) ~= "table" then
+		return box
+	end
+	local top = if type(ins.top) == "number" then ins.top else 0
+	local right = if type(ins.right) == "number" then ins.right else 0
+	local bottom = if type(ins.bottom) == "number" then ins.bottom else 0
+	local left = if type(ins.left) == "number" then ins.left else 0
+	if top == 0 and right == 0 and bottom == 0 and left == 0 then
+		return box
+	end
+	return { x = box.x + left, y = box.y + top, w = box.w - left - right, h = box.h - top - bottom }
+end
+
+--[[ THE PLATE THIS CONTAINER REALLY HAS, or nil. The library's idiom for a tinted
+	panel is `ZStack{ Box(surface, fill×fill), content }` — the plate is a SIBLING of
+	the content, so the surface that draws the edge is never on the walk up. A plate
+	is recognised by what makes it one rather than by its id: a childless surfaced
+	node whose rect is its parent's rect. `childrenOf` is derived from the sorted
+	path census, so this costs one pass over the paths rather than a search per node.
+	Only ever consulted when a snapshot is in hand, because on a flat package the
+	plate's themed box IS its rect and the rule could only restate the parent. ]]
+local function plateOf(
+	nodes: { [string]: any },
+	children: { [string]: { string } },
+	parent: string,
+	from: string?
+): any?
+	local host = nodes[parent]
+	if host == nil or host.rect == nil then
+		return nil
+	end
+	for _, childPath in children[parent] or {} do
+		--[[ NEVER THE BRANCH THE QUESTION CAME UP, which is the difference between a
+			rule and a tautology: the plate is a boundary for its SIBLINGS, and asking
+			whether a plate clears its own carved border reports every plate in the
+			library overflowing itself by exactly its own inset (measured: ten on the HUD
+			alone before this line existed). ]]
+		if childPath == from then
+			continue
+		end
+		local child = nodes[childPath]
+		if child == nil or child.rect == nil or not isRealSurface(child.props) then
+			continue
+		end
+		if #(children[childPath] or {}) > 0 then
+			continue
+		end
+		local r, h = child.rect, host.rect
+		if
+			math.abs(r.x - h.x) <= 1
+			and math.abs(r.y - h.y) <= 1
+			and math.abs(r.w - h.w) <= 1
+			and math.abs(r.h - h.h) <= 1
+		then
+			return child
+		end
+	end
+	return nil
+end
+
 --[[ THE BOUNDARY THIS NODE LIVES IN, and on which axes it binds. `axes` is
 	"both" everywhere except a scroll host, where the scrolled axis is exempt
 	(content you can scroll to is content you can reach). ]]
-local function boundaryFor(nodes: { [string]: any }, path: string): (string?, any?, { [string]: boolean }?)
-	local cursor = parentPath(path)
+local function boundaryFor(
+	nodes: { [string]: any },
+	children: { [string]: { string } },
+	path: string,
+	snapshot: any?
+): (string?, any?, { [string]: boolean }?)
+	local cursor, from = parentPath(path), path
 	while cursor ~= nil do
 		local n = nodes[cursor]
 		if n ~= nil then
@@ -226,7 +353,7 @@ local function boundaryFor(nodes: { [string]: any }, path: string): (string?, an
 				local box = n.windowRect or n.rect
 				if box ~= nil then
 					local scrolled = if type(n.scrollRegion) == "table" then n.scrollRegion.axis else nil
-					return cursor, box, { x = scrolled ~= "x", y = scrolled ~= "y" }
+					return cursor, themedBox(snapshot, n, box), { x = scrolled ~= "x", y = scrolled ~= "y" }
 				end
 			elseif
 				(n.props ~= nil and n.props.clipChildren == true)
@@ -234,11 +361,30 @@ local function boundaryFor(nodes: { [string]: any }, path: string): (string?, an
 				or n.foreignClips == true
 			then
 				if n.rect ~= nil then
-					return cursor, n.rect, { x = true, y = true }
+					return cursor, themedBox(snapshot, n, n.rect), { x = true, y = true }
 				end
 			elseif isRealSurface(n.props) and n.rect ~= nil then
-				return cursor, n.rect, { x = true, y = true }
+				return cursor, themedBox(snapshot, n, n.rect), { x = true, y = true }
+			elseif snapshot ~= nil then
+				-- ...AND THE SIBLING PLATE, which is a boundary this container has and
+				-- does not carry itself (see `plateOf`). The BOX is the plate's, so the
+				-- edge judged is the one a player sees painted.
+				local plate = plateOf(nodes, children, cursor, from)
+				if plate ~= nil then
+					local box = themedBox(snapshot, plate, plate.rect)
+					-- IDENTITY, deliberately: `themedBox` hands back the SAME table when
+					-- the package reserves nothing for this slot, so this reads "does the
+					-- plate carve anything at all". A plate that carves nothing draws its
+					-- edge exactly where the parent's box already is and could only
+					-- restate the walk-up.
+					if box ~= plate.rect then
+						return cursor, box, { x = true, y = true }
+					end
+				end
 			end
+		end
+		if nodes[cursor] ~= nil then
+			from = cursor
 		end
 		cursor = parentPath(cursor)
 	end
@@ -273,12 +419,36 @@ end
 	adapter's own census and returns; nothing here fails a test. `world` turns the
 	list into a red, and the sweep turns the same list into a finding, so the two
 	cannot drift on what counts. ]]
-function overflow_guard.violations(adapter: any, ledger: Ledger?): { Violation }
+function overflow_guard.violations(adapter: any, ledger: Ledger?, snapshot: any?): { Violation }
 	local book = ledger or DEFAULT
 	local nodes: { [string]: any } = {}
 	local paths = adapter.paths()
 	for _, path in paths do
 		nodes[path] = adapter.node(path)
+	end
+	--[[ THE CHILD INDEX, built once, and only when a snapshot is in hand: it exists
+		for the sibling-plate rule (`plateOf`) and nothing else asks for it, so the
+		neutral pass pays nothing at all for a question it never puts. A path's parent
+		is the census entry it hangs off, which is not always its literal path parent —
+		an elided container the target never gave a handle is simply absent — so the
+		walk climbs to the nearest ancestor that IS in the census, exactly as the
+		visibility chain below does. ]]
+	local children: { [string]: { string } } = {}
+	if snapshot ~= nil then
+		for _, path in paths do
+			local parent = parentPath(path)
+			while parent ~= nil and nodes[parent] == nil do
+				parent = parentPath(parent)
+			end
+			if parent ~= nil then
+				local bucket = children[parent]
+				if bucket == nil then
+					bucket = {}
+					children[parent] = bucket
+				end
+				table.insert(bucket, path)
+			end
+		end
 	end
 
 	-- ANCESTOR-CHAIN VISIBILITY, memoized down the path. `paths()` is sorted, so a
@@ -350,7 +520,7 @@ function overflow_guard.violations(adapter: any, ledger: Ledger?): { Violation }
 		if not paints(node) then
 			continue
 		end
-		local boundaryPath, box, axes = boundaryFor(nodes, path)
+		local boundaryPath, box, axes = boundaryFor(nodes, children, path, snapshot)
 		if boundaryPath == nil or box == nil or axes == nil then
 			continue
 		end
