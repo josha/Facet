@@ -137,13 +137,13 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 		-- `Instance.new`/`:Clone()`, and a plain `.CornerRadius =` write on the
 		-- else side of each — which is what makes re-running this block on
 		-- every call idempotent rather than a leak of one UICorner per swap
-		expect(string.find(FN, 'local floatCorner = float:FindFirstChildOfClass("UICorner")', 1, true) ~= nil):toBe(
+		expect(string.find(FN, 'local floatCorner = float:FindFirstChildOfClass("UICorner")', 1, true) ~= nil).toBe(
 			true
 		)
-		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius", 1, true) ~= nil):toBe(
+		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius", 1, true) ~= nil).toBe(
 			true
 		)
-		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = radius", 1, true) ~= nil):toBe(true)
+		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = radius", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("(c2) the live package's radii win over the frozen construction-time style", function()
@@ -152,7 +152,7 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 		-- fact `screen_paint.luau`'s own header names) is the fallback, never
 		-- the answer, whenever a package is installed
 		local liveRadiiAt = at('local liveRadii = if type(activeThemeSnapshot) == "table"')
-		expect(string.find(FN, "then (activeThemeSnapshot :: any).radii", liveRadiiAt, true) ~= nil):toBe(true)
+		expect(string.find(FN, "then (activeThemeSnapshot :: any).radii", liveRadiiAt, true) ~= nil).toBe(true)
 		local elseAt = string.find(FN, "else style.radii", liveRadiiAt, true)
 		expect(elseAt ~= nil).toBe(true)
 		-- and the mapping below reads `liveRadii`, never `style.radii`, directly
