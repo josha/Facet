@@ -599,7 +599,7 @@ describe("Foyer proof — tile detail and the visit command", function()
 			w.adapter.tap(tile :: string)
 			w.presenter.refresh()
 			expect(w.presenter.depth()).toBe(baseDepth + 1)
-			local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Page/Footer/Visit")
+			local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Group/Page/Footer/Visit")
 			expect(visit ~= nil).toBe(true)
 			w.adapter.tap(visit :: string)
 			expect(w.built.report().visitStatus).toBe("pending")
@@ -621,7 +621,7 @@ describe("Foyer proof — tile detail and the visit command", function()
 		w.adapter.tap(tile :: string)
 		w.presenter.refresh()
 		w.built.steps.rejectNextVisit()
-		local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Page/Footer/Visit")
+		local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Group/Page/Footer/Visit")
 		w.adapter.tap(visit :: string)
 		w.built.steps.settle()
 		w.presenter.refresh()
@@ -836,7 +836,7 @@ describe("Foyer — the tile meta row WRAPS where it used to ladder (parity roun
 		expect(tile ~= nil).toBe(true)
 		w.adapter.tap(tile :: string)
 		w.presenter.refresh()
-		expect(findPath(w.adapter, "Plate/Page/Footer/Close") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "Plate/Group/Page/Footer/Close") ~= nil).toBe(true)
 
 		local spacers: { string } = {}
 		for _, path in w.adapter.paths() do
@@ -855,6 +855,38 @@ describe("Foyer — the tile meta row WRAPS where it used to ladder (parity roun
 		expect(title.x).toBe(header.x)
 		expect(seeAll.x + seeAll.w).toBe(header.x + header.w)
 		expect(seeAll.x > title.x + title.w).toBe(true)
+		teardown(w)
+	end)
+end)
+
+--[[ BACKDROP-FINDING SWEEP (task POP fix round 1, CRITICAL finding: the
+	round-0 gate was never actually run against this reference app — grep
+	alone found 2 `canvasGroup = true` sites here, unswept). Opens the Bell
+	(notices), Profile and tile Detail modals — every `presentModal` call
+	site this app has — then reads the UNION of every coordinator's own
+	`.findings()` (`tests/lib/backdrop_sweep.luau`). ]]
+describe("Foyer — backdrop-finding sweep (task POP)", function()
+	it("the notices, profile and detail modals are clean", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local w: any
+		local findings = backdropSweep.capture(function()
+			w = makeWorld()
+			local bell = findPath(w.adapter, "Bell")
+			expect(bell ~= nil).toBe(true)
+			w.adapter.tap(bell :: string)
+			w.presenter.refresh()
+			w.presenter.back() -- close the notices modal before opening the next one
+			local profile = findPath(w.adapter, "Profile")
+			if profile ~= nil then
+				w.adapter.tap(profile)
+				w.presenter.refresh()
+			end
+			local tile = findPath(w.adapter, "Sections/[picked]/Body/Grid/Tiles/[moss-kingdom]/moss-kingdom")
+			expect(tile ~= nil).toBe(true)
+			w.adapter.tap(tile :: string)
+			w.presenter.refresh()
+		end)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
 		teardown(w)
 	end)
 end)

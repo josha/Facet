@@ -171,13 +171,18 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				presenter.dismiss(handle)
 			end,
 		})
+		--[[ task POP fix round 1: `Plate` is itself the panel (`surface =
+			"raised"`) AND, before this fix, the direct container of `children`
+			— `materialize` (which fades) targeted `PanelZ`, so `Plate` used to
+			ride the same `GroupTransparency` ramp as its own title/body text
+			(`newpop.mov`'s mechanism). `Plate` stays the outer, non-canvasGroup
+			panel; `Group` is the ONE new canvasGroup, nested one level in. ]]
 		handle = presenter.presentModal(
 			UI.Screen({
 				id = id,
 				children = {
 					UI.ZStack({
 						id = "PanelZ",
-						canvasGroup = true,
 						children = {
 							UI.corners(
 								UI.shadow(
@@ -187,7 +192,13 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 										padding = "l",
 										gap = "m",
 										width = { type = "minMax", min = 280, max = DETAIL_W },
-										children = children,
+										children = {
+											UI.ZStack({
+												id = "Group",
+												canvasGroup = true,
+												children = children,
+											}),
+										},
 									}),
 									"overlay"
 								),
@@ -242,13 +253,16 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			return use(services.visitStatus) ~= "pending"
 		end)
 		local handle
+		--[[ task POP fix round 1: same shape and fix as `presentInfoModal`
+			above — `Plate` stays the outer, non-canvasGroup panel; `Group` is
+			the ONE new canvasGroup, nested one level in, wrapping the page
+			scroller. ]]
 		handle = presenter.presentModal(
 			UI.Screen({
 				id = "Detail",
 				children = {
 					UI.ZStack({
 						id = "PanelZ",
-						canvasGroup = true,
 						children = {
 							UI.corners(
 								UI.shadow(
@@ -258,49 +272,59 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 										padding = "l",
 										width = { type = "minMax", min = 280, max = DETAIL_W },
 										children = {
-											UI.ScrollView({
-												id = "Page",
-												gap = "m",
+											UI.ZStack({
+												id = "Group",
+												canvasGroup = true,
 												children = {
-													asyncImage(
-														"Hero",
-														detailScope,
-														tile.thumbKey,
-														UI.fill(),
-														{ type = "aspect", ratio = 16 / 9 }
-													),
-													UI.Text({ id = "Title", text = tile.title, textSize = "title" }),
-													UI.Text({
-														id = "Meta",
-														text = tile.approval .. "%  ·  " .. tile.creator,
-														textSize = "caption",
-														role = "secondary",
-													}),
-													UI.Text({ id = "Blurb", text = tile.blurb }),
-													UI.HStack({
-														id = "Footer",
+													UI.ScrollView({
+														id = "Page",
 														gap = "m",
-														-- same story as the section Header: primary leading,
-														-- dismiss trailing, said once on the row
-														distribute = "spaceBetween",
 														children = {
-															UI.Button({
-																id = "Visit",
-																label = visitLabel,
-																surface = "accent",
-																enabled = visitEnabled,
-																onActivate = function()
-																	services.visit(tile.id)
-																end,
+															asyncImage(
+																"Hero",
+																detailScope,
+																tile.thumbKey,
+																UI.fill(),
+																{ type = "aspect", ratio = 16 / 9 }
+															),
+															UI.Text({
+																id = "Title",
+																text = tile.title,
+																textSize = "title",
 															}),
-															UI.Button({
-																id = "Close",
-																label = Lnow("close.label"),
-																shape = "circle",
-																icon = "close",
-																onActivate = function()
-																	presenter.dismiss(handle)
-																end,
+															UI.Text({
+																id = "Meta",
+																text = tile.approval .. "%  ·  " .. tile.creator,
+																textSize = "caption",
+																role = "secondary",
+															}),
+															UI.Text({ id = "Blurb", text = tile.blurb }),
+															UI.HStack({
+																id = "Footer",
+																gap = "m",
+																-- same story as the section Header: primary leading,
+																-- dismiss trailing, said once on the row
+																distribute = "spaceBetween",
+																children = {
+																	UI.Button({
+																		id = "Visit",
+																		label = visitLabel,
+																		surface = "accent",
+																		enabled = visitEnabled,
+																		onActivate = function()
+																			services.visit(tile.id)
+																		end,
+																	}),
+																	UI.Button({
+																		id = "Close",
+																		label = Lnow("close.label"),
+																		shape = "circle",
+																		icon = "close",
+																		onActivate = function()
+																			presenter.dismiss(handle)
+																		end,
+																	}),
+																},
 															}),
 														},
 													}),
