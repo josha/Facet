@@ -2830,7 +2830,19 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			if not r.mounted or r.dropped or r.rect == nil or type(r.lane) ~= "number" then
 				continue
 			end
-			local lane = dump.lanes[r.lane]
+			--[[ BY `lane.index`, NOT BY ARRAY POSITION (review Minor 3). They agree
+				today — the dump reports every lane of the chosen arrangement in order
+				and a collapsed one still takes its slot — but a `lanes` list that is
+				ever filtered would silently compare a region to the WRONG lane, and a
+				collector that reports a confident number about the wrong rect is worse
+				than one that reports nothing. Matching the id the region actually
+				carries costs one loop over at most three entries. ]]
+			local lane = nil
+			for _, candidate in dump.lanes do
+				if candidate.index == r.lane then
+					lane = candidate
+				end
+			end
 			if lane == nil or lane.rect == nil then
 				continue
 			end
@@ -2856,8 +2868,40 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
+	--[[ EVERY COMPOSITION ON THE SURFACE, not one hard-coded path (review Minor 4).
+		The first version asked `compositionAt("/HudScreen/Hud")` and returned `{}`
+		when that came back nil — so a path rename or a mount change would have zeroed
+		the collector on 95 of 96 cells while looking exactly like a clean run, which
+		is the silent-zero class this whole file exists to remove. It now enumerates
+		Composition nodes off the adapter's own census, so the sweep's OTHER
+		compositions are covered too, and it reports the count so a caller can assert
+		the census was not empty. ]]
+	local function laneContainmentScan(w: any): ({ string }, number)
+		local out: { string } = {}
+		local seen = 0
+		for _, path in w.adapter.paths() do
+			local node = w.adapter.node(path)
+			if node == nil or node.class ~= "Composition" then
+				continue
+			end
+			local dump = w.built.handle.controller.compositionAt(path)
+			if dump == nil then
+				continue
+			end
+			seen += 1
+			for _, hit in laneContainmentIn(dump) do
+				-- NOT prefixed with `path`: a region's dumped id is already its full
+				-- node path on a rendered tree, so a prefix would print it twice
+				table.insert(out, hit)
+			end
+		end
+		table.sort(out)
+		return out, seen
+	end
+
 	local function laneContainmentViolations(w: any): { string }
-		return laneContainmentIn(w.built.handle.controller.compositionAt("/HudScreen/Hud"))
+		local hits = laneContainmentScan(w)
+		return hits
 	end
 
 	--[[ ── A VALUE MAY NOT BE ELLIPSIZED (controller ruling R9, 2026-08-18) ─────
@@ -3171,8 +3215,15 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 							for _, hit in giveWayViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
-							for _, hit in laneContainmentViolations(w) do
+							local laneHits, compositionsSeen = laneContainmentScan(w)
+							for _, hit in laneHits do
 								table.insert(problems, `  {hit}{suffix}`)
+							end
+							-- THE CENSUS HAS TO HAVE SOMETHING TO SAY: a cell whose
+							-- composition census is empty read as "clean" before, which is
+							-- the same silent zero the give-way oracle shipped once
+							if compositionsSeen == 0 then
+								table.insert(problems, `  lane containment saw NO composition at all{suffix}`)
 							end
 							collectRouteFloors(w, suffix)
 							for _, hit in deadEndViolations(w) do
@@ -3565,6 +3616,33 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		expect(`{moved} below its own lane is reported: {reported}`).toBe(
 			`{moved} below its own lane is reported: true`
 		)
+		--[[ ...AND THE TOP EDGE, which the shipped defect never exercised (review
+			Minor 2: the `under > 0.5` branch produced 0 hits in BOTH arms of the
+			180-escape measurement, so it was an unmutated oracle inside a
+			mutation-tested one). A give-way pushes DOWN, so nothing in this corpus
+			can lift a zone above its lane's top — which is precisely why that branch
+			needs a control rather than a measurement. ]]
+		for _, r in dump.regions do
+			if r.id == moved then
+				local lane = nil
+				for _, candidate in dump.lanes do
+					if candidate.index == r.lane then
+						lane = candidate
+					end
+				end
+				r.rect.y = (lane :: any).rect.y - 30
+			end
+		end
+		local liftedReported = false
+		for _, hit in laneContainmentIn(dump) do
+			if string.find(hit, `{moved}: placed 30px above the TOP`, 1, true) == 1 then
+				liftedReported = true
+			end
+		end
+		expect(`{moved} above its own lane is reported: {liftedReported}`).toBe(
+			`{moved} above its own lane is reported: true`
+		)
+
 		for _, r in dump.regions do
 			if r.id == moved then
 				r.rect.y = wasY
