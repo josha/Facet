@@ -359,12 +359,162 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 	end)
 
 	it(
-		"touch/auto profile: unchanged — the SAME reserve, because the engine charges the window either way",
+		"touch/auto profile: ZERO reserve (director ruling 2026-08-28 — persistent holds space, auto overlaps)",
 		function()
 			local w = policyWorld({ w = 360, h = 400 }, "Touch")
 			assertNoOverlap(w)
-			local inset = w.handle.controller.scrollBarInsetOf("/S/List")
-			expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+			-- the reserve publishes NOTHING under auto: a sibling that asked
+			-- "how much room did this host take" gets the honest "none" answer,
+			-- not the always-policy's 8
+			expect(w.handle.controller.scrollBarInsetOf("/S/List")).toBeNil()
+			-- and the content itself proves it, not just the published fact: an
+			-- auto card is measured `fake_target.SCROLL_BAR_THICKNESS` px WIDER
+			-- than the SAME list under "always", because nothing narrowed it
+			local alwaysW = policyWorld({ w = 360, h = 400 })
+			local autoCard = w.handle.controller.rectOf("/S/List/Card1")
+			local alwaysCard = alwaysW.handle.controller.rectOf("/S/List/Card1")
+			expect(autoCard ~= nil and alwaysCard ~= nil).toBe(true)
+			expect((autoCard :: any).w - (alwaysCard :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
 		end
 	)
+end)
+
+--[[ ── DIRECTOR RULING 2026-08-28, PINNED ACROSS EVERY CONSTRUCTION CLASS ──────
+
+	"we should make sure that if the scrollbar is set to persistently visible, we
+	hold space for it, but if it's auto visible, we let it overlap. that should be
+	a framework thing that just works with our layouts." Implemented ONCE, at the
+	seam that already knows the policy (`screen_scroll_indicators.
+	setScrollIndicatorPolicy` feeds `adapter.scrollBarThickness`, which
+	`renderer.luau` feeds the solver as `scrollBarReserve` — no parallel
+	per-construction copy of the decision) — so this describe proves the SAME
+	seam reaches every scroller shape a caller can build from the public API,
+	not just the hand-rolled `ScrollView` the block above already covers.
+
+	The "let it overlap" half is NOT "zero reserve, full stop" (that reproduces
+	2026-08-09's clip — see `screen_scroll_indicators.luau`'s file header): the
+	live adapter widens the FRAME by the bar's thickness under "auto" whenever
+	the scroll axis overflows (`applyBarOverlayWiden`), which the fake mirrors as
+	its NET OUTCOME (`_deriveWindowRect`: `lost = 0` under "auto"). What a
+	headless world can prove is exactly that net outcome — nothing is clipped,
+	nothing is reserved — which is what every case below asserts. ]]
+describe("director ruling 2026-08-28: persistent holds space, auto lets it overlap — every construction", function()
+	local function tableWorld(viewport: { w: number, h: number }, preferredInput: string?): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+		if preferredInput ~= nil then
+			env:set("preferredInput", preferredInput)
+		end
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		-- RascalRally's FacetRacerListScreen shape exactly (task-misc-report.md):
+		-- headerless, single `fill` column, overflowing a fixed-height panel
+		local ROW_COUNT = 40
+		local rows: { any } = {}
+		for i = 1, ROW_COUNT do
+			rows[i] = { id = "r" .. i, label = "Row " .. i }
+		end
+		local tbl = Facet.Controls.Table(core, {
+			id = "Tbl",
+			rows = core:signal(rows),
+			key = function(item: any)
+				return item.id
+			end,
+			header = false,
+			rowHeight = 28,
+			height = { type = "fixed", px = 300 }, -- a fixed panel, overflowing 40 rows
+			columns = { { id = "label", width = { type = "fill", weight = 1 } } },
+			cellFor = function(_columnId: string, item: any)
+				return Facet.UI.Text({ id = "Value", text = item.label })
+			end,
+		})
+		local screen = Facet.UI.Screen({
+			id = "S",
+			padding = 0,
+			gap = 0,
+			children = { tbl.blueprint },
+		})
+		local handle = presenter.present(screen, {})
+		presenter.refresh()
+		presenter.refresh() -- the body window is taken against a measured height, settled one solve later
+		return { core = core, adapter = adapter, presenter = presenter, handle = handle, tbl = tbl }
+	end
+
+	it("Table (headerless, RascalRally's racer-list shape): always holds space, auto does not", function()
+		local always = tableWorld({ w = 360, h = 400 })
+		local auto = tableWorld({ w = 360, h = 400 }, "Touch")
+		local bodyPath = "/S/Tbl/Main/Body"
+		local alwaysInset = always.handle.controller.scrollBarInsetOf(bodyPath)
+		local autoInset = auto.handle.controller.scrollBarInsetOf(bodyPath)
+		expect(alwaysInset ~= nil and alwaysInset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect(autoInset).toBeNil()
+		-- a ROW's own solved box proves it too (measured live: `Body` and its
+		-- `Rows` grouping node are never themselves narrowed — `Body` reports
+		-- the full 360px panel under EITHER policy, exactly like `BodyScroll` in
+		-- the All-controls case below; the reserve lands on each ROW's own
+		-- `fill`, matching task-misc-report.md's own finding for this exact
+		-- headerless shape): under "always" a row is narrowed by exactly the
+		-- bar's thickness; under "auto" it gets the FULL panel width.
+		local rowPath = bodyPath .. "/Rows/[r1@0]/Row"
+		local alwaysRow = always.handle.controller.rectOf(rowPath)
+		local autoRow = auto.handle.controller.rectOf(rowPath)
+		expect(alwaysRow ~= nil and autoRow ~= nil).toBe(true)
+		expect((autoRow :: any).w - (alwaysRow :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
+	end)
+
+	--[[ THE ALL-CONTROLS CONSTRUCTION ITSELF — item 3's reopened repro
+		(director, 2026-08-28: "the missing repro supplied... showcase 'ALL
+		CONTROLS' boot view, DESKTOP with Roblox IN A WINDOW"). Mounted exactly
+		as `examples/gallery/client/init.client.luau`'s `mountDemo` does for a
+		`kind == "fixture"` scenario (the same minimal ctx `tests/
+		examples_gallery.spec.luau`'s `mountFixture` already uses), at a
+		WINDOWED-not-fullscreen desktop viewport — the differentiator the prior
+		two rounds' fullscreen-only tests never exercised. This is the proof
+		case the director named: persistent (the desktop/pointer default) STILL
+		reserves on this exact construction; auto does not. ]]
+	local adaptive_controls = require("../examples/gallery/scenarios/adaptive_controls") :: any
+	local WINDOWED_DESKTOP = { w = 1200, h = 800 } -- windowed, not fullscreen (measured live at 1366x768 too)
+
+	local function allControlsWorld(viewport: { w: number, h: number }, preferredInput: string?): any
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+		if preferredInput ~= nil then
+			env:set("preferredInput", preferredInput)
+		end
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local built = adaptive_controls.build({ Facet = Facet, core = core, env = env })
+		local handle = presenter.present(built.screen, {})
+		presenter.refresh()
+		presenter.refresh()
+		presenter.refresh()
+		return { core = core, adapter = adapter, presenter = presenter, handle = handle, built = built }
+	end
+
+	it("the All-controls scenario, windowed desktop: persistent (pointer default) holds space", function()
+		local w = allControlsWorld(WINDOWED_DESKTOP)
+		local inset = w.handle.controller.scrollBarInsetOf("/AdaptiveScreen/BodyScroll")
+		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		w.built.dispose()
+	end)
+
+	it("the All-controls scenario, windowed desktop: auto lets it overlap (zero reserve)", function()
+		local w = allControlsWorld(WINDOWED_DESKTOP, "Touch")
+		expect(w.handle.controller.scrollBarInsetOf("/AdaptiveScreen/BodyScroll")).toBeNil()
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		local always = allControlsWorld(WINDOWED_DESKTOP)
+		local autoBody = w.handle.controller.rectOf("/AdaptiveScreen/BodyScroll/Body")
+		local alwaysBody = always.handle.controller.rectOf("/AdaptiveScreen/BodyScroll/Body")
+		expect(autoBody ~= nil and alwaysBody ~= nil).toBe(true)
+		expect((autoBody :: any).w - (alwaysBody :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		w.built.dispose()
+		always.built.dispose()
+	end)
 end)

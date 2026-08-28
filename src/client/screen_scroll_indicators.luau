@@ -38,24 +38,47 @@ local TweenService = game:GetService("TweenService")
 	degrades to visible-whenever-scrollable, so the affordance never depends on
 	movement.
 
-	IT DOES NOT DECIDE THE LAYOUT RESERVE (director ruling 2026-08-12, REVERSING the
-	ruling of 2026-08-09). The original ruling read "an overlay indicator lays claim
-	to no layout space" and published a reserve of ZERO under "auto". Roblox has no
-	overlay scrollbar: the engine shrinks the window by the instance's thickness
-	regardless of how the bar is painted, so a zero reserve laid every touch
-	scroller's content out to a box 8px wider than the box the player could see, and
-	the engine clipped the difference. Measured live in Studio on the running
-	showcase 2026-08-12: `AbsoluteSize` 703x203 against `AbsoluteWindowSize` 695x203,
-	nine nodes painted past the invisible edge — a `…` overflow button sliced, and a
-	value reading "0.35" clipped to "0.3" (bugs/IMG_3691.jpeg,
-	docs/plans/device-bug-round-2026-08-12.md B7(a) option (a)).
+	IT DECIDES THE LAYOUT RESERVE ONCE MORE, BUT ONLY FOR "auto" (director ruling
+	2026-08-28, PARTIALLY REVERSING 2026-08-12, which itself reversed 2026-08-09):
+	"if the scrollbar is set to persistently visible, we hold space for it, but if
+	it's auto visible, we let it overlap — a framework thing that just works with
+	our layouts." "always" keeps the FULL 2026-08-12 behaviour unchanged (a
+	persistent bar earns a permanent gutter). "auto" now reserves ZERO again — but
+	NOT by simply repeating 2026-08-09's mistake.
 
-	The director's reasoning, kept here so nobody "restores" the old behaviour
-	thinking they found a regression: 8px of real content on every phone beats a
-	cosmetic flash indicator, and Roblox offers no free overlay bar. Note also that a
-	machine which merely CAN accept touch derives "auto" — the Studio session that
-	measured this reported both `TouchEnabled` and `MouseEnabled` — so this was never
-	a phone-only fault. ]]
+	2026-08-12's own measurement is still true and still the reason a bare
+	reserve-zero is wrong: Roblox has no overlay scrollbar — `AbsoluteWindowSize`
+	is narrower than the frame's own `AbsoluteSize` by `ScrollBarThickness`
+	whenever the scroll axis overflows, UNCONDITIONALLY on paint policy (measured
+	directly in this round: even `ScrollBarImageTransparency = 1`, fully invisible,
+	does not stop the engine narrowing the window — `291,200` against `300,200`,
+	thickness untouched). A zero reserve alone reproduces 2026-08-09's exact
+	defect (`bugs/IMG_3691.jpeg`): content measured to the full width, then
+	clipped by the engine's own narrower window.
+
+	So "auto" pairs the zero reserve with `applyBarOverlayWiden` below: the FRAME
+	ITSELF is widened by `SCROLL_BAR_THICKNESS` on the cross axis whenever its
+	scroll axis overflows, which widens the engine's own internal window by the
+	same amount and exactly cancels the narrowing — content measured to the full
+	(unreserved) width lands on a window of that same full width. The extra
+	`SCROLL_BAR_THICKNESS` px the frame now occupies sits BEYOND the box the
+	solver gave it (typically the padding/gap that already follows a scroller),
+	which is where the bar ends up: genuinely overlapping whatever is there
+	instead of a permanently reserved, usually-empty gutter — measured live,
+	`.superpowers/sdd/framework-gaps-phase2-followups/task-scroll2-report.md`.
+	Known, disclosed limit: a scroller authored with LESS than
+	`SCROLL_BAR_THICKNESS` of trailing room has nothing safe to widen into and
+	may encroach on whatever follows it — no viewport-bounds clamp exists yet
+	(booked as a follow-up).
+
+	The director's ORIGINAL reasoning for reserving nothing under "auto" still
+	stands and is worth keeping in mind reading the above: 8px of real content on
+	every phone beats a cosmetic flash indicator. What changed is not that
+	reasoning — it is HOW to get there without the clip Roblox's own engine
+	otherwise charges for it. Note also that a machine which merely CAN accept
+	touch derives "auto" — the Studio session that measured the original defect
+	reported both `TouchEnabled` and `MouseEnabled` — so this was never a
+	phone-only fault. ]]
 local INDICATOR_IDLE_FADE_SECONDS = 1.1
 local INDICATOR_FLASH_HOLD_SECONDS = 1.6
 local INDICATOR_FADE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -157,27 +180,65 @@ function screen_scroll_indicators.new(ctx: any)
 		end
 	end
 
+	--[[ THE FRAME-WIDENING HALF OF THE "auto" RULING (see the header). `axis` /
+		`overflowing` are the SAME facts `setScrollRegion` already derives for the
+		cross-axis canvas clamp — this just remembers them on the handle so a bare
+		POLICY change (no new region event) can re-derive the widen without one.
+		`indicatorsOff` mirrors a per-region `indicators = "none"` opt-out: that
+		host already draws no bar at all (`instance.ScrollBarThickness = 0`), so it
+		has nothing to compensate for and must never widen.
+
+		Consumed by `screen_presentation.luau`'s `applyRect`, riding the SAME
+		additive-delta seam `presentationSizeW/H` already uses for a mid-animation
+		size delta (`pw = rect.w + presentationSizeW + barOverlayWidenW`) — no new
+		writer of `Position`/`Size` needed, which is the invariant that function's
+		own header states `applyRect` is checked to be the only one of. ]]
+	local function applyBarOverlayWiden(handle: any, axis: string?, overflowing: boolean, indicatorsOff: boolean)
+		handle.barOverlayAxis = axis
+		handle.barOverlayOverflowing = overflowing
+		local widen = if axis ~= nil
+				and overflowing
+				and not indicatorsOff
+				and state.policy == "auto"
+				and not forceScrollFallbackMode
+			then SCROLL_BAR_THICKNESS
+			else 0
+		if axis == "x" then
+			handle.barOverlayWidenH = if widen > 0 then widen else nil
+			handle.barOverlayWidenW = nil
+		else
+			handle.barOverlayWidenW = if widen > 0 then widen else nil
+			handle.barOverlayWidenH = nil
+		end
+	end
+
 	--[[ the DECLARED optional policy seam the presenter drives from the
 		environment's `scrollIndicatorPolicy` + `motionPolicy` facts. It decides the
 		bar's PAINT — persistent, or hidden-at-rest with a flash and a fade.
 
-		IT NO LONGER MOVES THE RESERVE (director ruling 2026-08-12, reversing
-		2026-08-09; see SCROLL_BAR_THICKNESS in src/client/screen_target.luau for the
-		measured defect and the reasoning). This used to publish 0 under "auto" on the reading
-		that an overlay indicator claims no layout space — but the engine charges the
-		window for the instance whatever the policy paints, which this file's own
-		cross-axis canvas clamp in `setScrollRegion` below has always said. The two
-		statements contradicted each other in one file, and the reserve was the one
-		that was wrong. The write stays here, restating the one true value, so a
-		reader of this function is never left wondering whether the policy changed it. ]]
+		THE RESERVE IS POLICY-DRIVEN AGAIN, BUT ONLY HALF OF IT MOVED (director
+		ruling 2026-08-28; see the file header). "always" keeps the 2026-08-12
+		reserve unchanged; "auto" now publishes zero — paired with
+		`applyBarOverlayWiden` re-run below for every live handle, so a policy flip
+		alone (no new region event) immediately re-derives each host's widen from
+		its own last-known axis/overflow rather than leaving it stale until the
+		next region write. ]]
 	local function setScrollIndicatorPolicy(policy: string, reduced: boolean?)
 		state.policy = if policy == "auto" then "auto" else "always"
 		state.reduced = reduced == true
-		adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto"
+			then 0
+			else SCROLL_BAR_THICKNESS
 		for _, handle in handlesByPath do
 			if handle.instance ~= nil and handle.instance:IsA("ScrollingFrame") then
 				handle.indicatorFlashed = nil
 				indicatorSync(handle)
+				applyBarOverlayWiden(
+					handle,
+					handle.barOverlayAxis,
+					handle.barOverlayOverflowing == true,
+					handle.indicatorsOff == true
+				)
 			end
 		end
 	end
@@ -189,6 +250,7 @@ function screen_scroll_indicators.new(ctx: any)
 		end
 		if region == nil then
 			instance.CanvasSize = UDim2.new()
+			applyBarOverlayWiden(handle, nil, false, handle.indicatorsOff == true)
 			return
 		end
 		instance.ScrollingDirection = if region.axis == "x"
@@ -210,11 +272,15 @@ function screen_scroll_indicators.new(ctx: any)
 		local thickness = instance.ScrollBarThickness
 		local hostW = if type(region.hostW) == "number" then region.hostW else window.X
 		local hostH = if type(region.hostH) == "number" then region.hostH else window.Y
+		-- SHARED with `applyBarOverlayWiden` below (director ruling 2026-08-28):
+		-- the same "does the scroll axis overflow" fact that decides the
+		-- cross-axis clamp ALSO decides whether an "auto" host needs widening.
+		local willOverflow: boolean
 		if region.axis == "x" then
-			local willOverflow = contentW > hostW
+			willOverflow = contentW > hostW
 			contentH = math.min(contentH, math.max(0, hostH - (if willOverflow then thickness else 0)))
 		else
-			local willOverflow = contentH > hostH
+			willOverflow = contentH > hostH
 			contentW = math.min(contentW, math.max(0, hostW - (if willOverflow then thickness else 0)))
 		end
 		instance.CanvasSize = UDim2.fromOffset(contentW, contentH)
@@ -224,12 +290,14 @@ function screen_scroll_indicators.new(ctx: any)
 		if region.indicators == "none" then
 			handle.indicatorsOff = true
 			instance.ScrollBarThickness = 0
+			applyBarOverlayWiden(handle, region.axis, willOverflow, true)
 			return
 		end
 		if handle.indicatorsOff == true then
 			handle.indicatorsOff = nil
 			instance.ScrollBarThickness = SCROLL_BAR_THICKNESS
 		end
+		applyBarOverlayWiden(handle, region.axis, willOverflow, false)
 		-- the region write is where a host LEARNS it overflows — the auto
 		-- policy's mount flash rides it (and a region that stops overflowing
 		-- hides its indicator and re-arms the flash)

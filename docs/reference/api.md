@@ -706,21 +706,43 @@ canvas extent along x, and stretches cross-axis `fill` children to the viewport
 height (before this the solver stacked horizontal children in a column and
 reported a canvas the engine could not scroll to).
 
-**Scroll indicators (director ruling 2026-08-09).** The environment derives
-`scrollIndicatorPolicy` from `interactionClasses.primary` — `"always"` on
-pointer sessions (the desktop convention: a persistent bar whose thickness the
-solver RESERVES off the scrolling region's cross axis), `"auto"` on touch and
-gamepad sessions (the platform convention: OVERLAY indicators that lay claim
-to no layout space, appear while scrolling, FLASH once when a scrollable
-region first mounts — so a page that continues below never reads as cut off —
-and fade when idle). Reduced motion never fades: `auto` degrades to
-visible-whenever-scrollable. The presenter pushes the policy through the
-declared optional target method `setScrollIndicatorPolicy(policy, reduced)`;
-an adapter without the seam keeps the constant persistent bar. The indicator's
-COLOR stays the theme's `Scroll bar` rule; its visibility is behavior, not
-paint. Known limit, recorded: the engine bar is a single tintable image, so a
-theme-colored thumb can vanish over live WORLD content behind a transparent
-surface — outline indicator art is the follow-on (framework-fixes.md).
+**Scroll indicators (director ruling 2026-08-28, the latest of three).** The
+environment derives `scrollIndicatorPolicy` from `interactionClasses.primary`
+— `"always"` on pointer sessions (the desktop convention: a persistent bar),
+`"auto"` on touch and gamepad sessions (the platform convention: an overlay
+indicator, hidden at rest, that FLASHES once when a scrollable region first
+mounts — so a page that continues below never reads as cut off — shows while
+scrolling, and fades when idle). Reduced motion never fades: `auto` degrades
+to visible-whenever-scrollable.
+
+**Persistent holds space; auto does not — and neither clips.** `"always"`
+reserves the bar's thickness off the scrolling region's cross axis, same as
+always. `"auto"` reserves NOTHING (content is measured to the full width) —
+but Roblox's engine still narrows a `ScrollingFrame`'s own visible window by
+the bar's thickness whenever the scroll axis overflows, regardless of paint
+policy (measured directly: even a fully transparent bar image still narrows
+the window). A bare zero reserve would therefore clip exactly the content a
+zero reserve was meant to save — the 2026-08-09 defect the 2026-08-12 ruling
+reverted to fix. The 2026-08-28 ruling gets both: the target widens the
+scroll host's own frame by the bar's thickness on the cross axis whenever
+"auto" overflows, which cancels the engine's narrowing one-for-one, so the
+full-width content lands on a full-width window. The extra thickness the
+frame now occupies sits beyond the box the solver gave it — typically the
+padding/gap that already follows a scroller — which is where the indicator
+ends up: genuinely overlapping whatever is there, not a permanently reserved
+gutter. A scroller authored with less than the bar's thickness of trailing
+room has nothing safe to widen into (no viewport-bounds clamp exists yet).
+
+The presenter pushes the policy through the declared optional target method
+`setScrollIndicatorPolicy(policy, reduced)`; an adapter without the seam keeps
+the constant persistent bar. `scrollBarInsetOf(path)` reports the gutter a
+host reserved on its last solve — non-nil only for an overflowing `"always"`
+host, always nil for `"auto"` (nothing was reserved to report). The
+indicator's COLOR stays the theme's `Scroll bar` rule; its visibility is
+behavior, not paint. Known limit, recorded: the engine bar is a single
+tintable image, so a theme-colored thumb can vanish over live WORLD content
+behind a transparent surface — outline indicator art is the follow-on
+(framework-fixes.md).
 
 **`autoscroll` — drag-to-edge, and it belongs to the SCROLLER.** While a pointer
 drag is in flight, a `ScrollView` whose edge band the drag point is inside scrolls

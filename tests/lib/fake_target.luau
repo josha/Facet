@@ -94,11 +94,15 @@ fake_target.SCALE_MODE_ENGINE_NAME = table.freeze(SCALE_MODE_ENGINE_NAME)
 
 -- The engine scrollbar's thickness, in LOCKSTEP with `SCROLL_BAR_THICKNESS` in
 -- src/client/screen_target.luau. It is the thickness of the INSTANCE the live
--- adapter creates on every scroll host, and — since the 2026-08-12 reversal of
--- the zero-reserve ruling — also the layout reserve it publishes
--- (`adapter.scrollBarThickness`), under BOTH indicator policies, because the
--- engine charges the window for the instance however the bar is painted.
--- `setScrollRegion` below models that window.
+-- adapter creates on every scroll host, ALWAYS, under both indicator policies
+-- (director ruling 2026-08-28 leaves this half alone — the bar itself paints
+-- and flashes the same either way). What changed is the LAYOUT reserve
+-- (`adapter.scrollBarThickness`) and the engine's window: "always" still
+-- charges the window for the instance under the 2026-08-12 reversal; "auto"
+-- pairs a zero reserve with a frame WIDENED by this same thickness
+-- (`_deriveWindowRect` below), which cancels the engine's own narrowing
+-- instead of reserving it from content. `setScrollRegion` models the window
+-- either way.
 fake_target.SCROLL_BAR_THICKNESS = 8
 
 -- the theme a tint resolves against with NO PACKAGE INSTALLED: the library's own
@@ -976,9 +980,12 @@ function fake_target.new(opts: Opts?)
 	-- DRIVER — it stands in for the engine moving CanvasPosition and fires the
 	-- renderer's observer exactly like a real user fling would.
 	-- scroll indicator policy, mirrored (director ruling 2026-08-09; reserve half
-	-- reversed 2026-08-12). The fake records the POLICY FACTS and derives the same
-	-- reserve rule the live adapter derives — which is now "the policy does not
-	-- move it" — so a headless world proves the event order (flash on first
+	-- reversed 2026-08-12; "auto" half of THAT reversed again 2026-08-28 — see
+	-- `SCROLL_BAR_THICKNESS`'s own header above and
+	-- `src/client/screen_scroll_indicators.luau`'s file header for the full
+	-- ruling chain). The fake records the POLICY FACTS and derives the same
+	-- reserve rule the live adapter derives — "always" reserves, "auto" does
+	-- not — so a headless world proves the event order (flash on first
 	-- overflow, show on scroll, fade scheduled) and the layout invariant without
 	-- an engine. The configured thickness a spec opted into is captured on the
 	-- first call, because the presenter applies the boot policy during
@@ -989,12 +996,14 @@ function fake_target.new(opts: Opts?)
 		end
 		adapter.scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
 		adapter.scrollIndicatorReduced = reduced == true
-		-- THE POLICY NO LONGER MOVES THE RESERVE (director ruling 2026-08-12,
-		-- reversing 2026-08-09), in lockstep with the live adapter: the engine
-		-- charges the window for the bar instance whatever the policy paints, so a
-		-- zero reserve under "auto" laid every touch scroller out 8px wider than
-		-- its own window. The configured thickness now stands under both policies.
-		adapter.scrollBarThickness = adapter._configuredBarThickness
+		-- THE POLICY MOVES THE RESERVE AGAIN, BUT ONLY FOR "auto" (director ruling
+		-- 2026-08-28): "always" still charges the window for the bar instance
+		-- (2026-08-12, unchanged); "auto" publishes zero, paired with
+		-- `_deriveWindowRect`'s widen below so the zero reserve does not
+		-- reproduce 2026-08-09's clip.
+		adapter.scrollBarThickness = if adapter.scrollIndicatorPolicy == "auto"
+			then 0
+			else adapter._configuredBarThickness
 		table.insert(ops, `indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
 	end
 
@@ -1003,7 +1012,15 @@ function fake_target.new(opts: Opts?)
 		`setScrollRegion`) because either one can move it, and it used to be
 		computed in only the second: a host that was re-positioned or re-sized
 		without its canvas changing kept answering with the window of the box it no
-		longer occupied. ]]
+		longer occupied.
+
+		"auto" LOSES NOTHING (director ruling 2026-08-28): the live adapter widens
+		the FRAME by the bar's thickness whenever the scroll axis overflows under
+		"auto" (`applyBarOverlayWiden`), which cancels the engine's own narrowing
+		one-for-one — the net window a player sees is the FULL rect either way.
+		The fake has no separate "instance Size vs solved rect" to widen, so it
+		models the NET OUTCOME directly: `lost` is zero under "auto", full under
+		"always", exactly like the live pair (widen + narrow) resolves to. ]]
 	function adapter._deriveWindowRect(handle: any, region: any)
 		local rect = handle.rect
 		if region == nil or rect == nil then
@@ -1015,7 +1032,7 @@ function fake_target.new(opts: Opts?)
 		handle.barInstanceThickness = bar
 		local isX = region.axis == "x"
 		local overflows = if isX then (region.contentW or 0) > rect.w + 1 else (region.contentH or 0) > rect.h + 1
-		local lost = if overflows then bar else 0
+		local lost = if overflows and adapter.scrollIndicatorPolicy ~= "auto" then bar else 0
 		handle.windowRect = {
 			x = rect.x,
 			y = rect.y,

@@ -321,8 +321,15 @@ function screen_presentation.new(ctx: any)
 		-- THE PAINTED SIZE (withAnimation size, 2026-08-14): the solved extent plus
 		-- this node's own presentation delta. Zero for every node that is not
 		-- mid-flight, which is every node almost all of the time.
-		local pw = rect.w + (handle.presentationSizeW or 0)
-		local ph = rect.h + (handle.presentationSizeH or 0)
+		--
+		-- ...AND THE "auto" SCROLL BAR'S OVERLAY DELTA (director ruling 2026-08-28,
+		-- `screen_scroll_indicators.applyBarOverlayWiden`): zero for every node
+		-- that is not an overflowing auto-policy scroll host, which is every node
+		-- and almost every scroll host almost all of the time. Riding the SAME
+		-- additive seam as the animation delta rather than a second writer, for
+		-- the reason the paragraph below this one states about `applyRect` itself.
+		local pw = rect.w + (handle.presentationSizeW or 0) + (handle.barOverlayWidenW or 0)
+		local ph = rect.h + (handle.presentationSizeH or 0) + (handle.barOverlayWidenH or 0)
 		local px = rect.x - ox + (handle.presentationOffsetX or 0)
 		local py = rect.y - oy + (handle.presentationOffsetY or 0)
 		if handle.motionAnchorCentered then
