@@ -725,9 +725,12 @@ describe("RS-A13 Pixel Quest is a real pixel package", function()
 		expect(ornament.kind).toBe("corners")
 		expect(ornament.assetVariants.default.asset).toBe("pixel_blank")
 		expect(ornament.assetVariants.selected.asset).toBe("pixel_plate_ornament")
-		-- and the swap does not move the row: one reservation, both states
-		expect(selection.contentInsets.left).toBe(16)
-		expect(selection.contentInsets.top).toBe(16)
+		-- and the swap does not move the row: one reservation, both states. TWO
+		-- design pixels since 2026-08-27 (task THEME) — the frame the art carves,
+		-- read off both plates, rather than the nine-slice border the package's
+		-- `2·border + 1` stretch rule forces to be twice that.
+		expect(selection.contentInsets.left).toBe(8)
+		expect(selection.contentInsets.top).toBe(8)
 	end)
 end)
 

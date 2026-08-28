@@ -311,17 +311,42 @@ function pixel_quest.definition(themes: any): any
 				fallback = "native",
 				contentInsets = { top = 24, right = 24, bottom = 24, left = 24 },
 			},
+			--[[ CONTENT INSETS ARE THE CARVED FRAME, NOT THE SLICE BORDER (task
+				THEME, 2026-08-27, and it is the one number this package had wrong).
+
+				Every inset here was written equal to its art's NINE-SLICE BORDER,
+				which for this package is forced large by the authoring rule at the
+				head of this file: a sliced source is `2·border + 1` DESIGN pixels so
+				the stretched centre is exactly one. That makes the border a statement
+				about STRETCHING, and `contentInsets` is a statement about PAINT — "how
+				far in does the frame reach" — and the two are not the same number.
+
+				Read off the art, design pixel by design pixel (`pixel_plate_default`
+				is 9x9 dp): one INK outline, one TAN/WOOD_D bevel, then five design
+				pixels of flat WOOD face, with the corner rivets sitting AT the bevel.
+				The frame is TWO design pixels, and 4 dp was reserving half the face.
+				`pixel_field` is the same shape (INK, WOOD_D/TAN, then the SHADE well)
+				and `pixel_plate_selected` too (INK, the CREAM ring, then the gilt
+				face with its ruby studs on the ring) — which is what keeps R2's
+				identical-inset rule between the two selection states.
+
+				WHAT IT COST WHILE IT WAS WRONG. `controlSizes.compact.height` is 36
+				and `regular` 44, so 4 dp per side left a 36px control FOUR pixels of
+				interior for a 16px glyph: the director's item 6 (three round HUD
+				buttons painting no mark at all, IMG_3785) and 448 of the framework's
+				own "could not be spent" reports on one keyboard fixture. Two design
+				pixels leave 20 and 28. ]]
 			control = {
 				kind = "nineSlice",
 				asset = "pixel_plate_default",
 				fallback = "native",
-				contentInsets = { top = 16, right = 16, bottom = 16, left = 16 },
+				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			field = {
 				kind = "nineSlice",
 				asset = "pixel_field",
 				fallback = "native",
-				contentInsets = { top = 16, right = 16, bottom = 16, left = 16 },
+				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			-- SELECTION CHANGES THE WHOLE STYLE (RS-A13, the pixel reference's own
 			-- idiom) — a LAYERED slot, not a tint and not one swapped picture:
@@ -334,13 +359,16 @@ function pixel_quest.definition(themes: any): any
 			--            a baked ornament would smear (provenance note 3), and
 			--            their `default` is `pixel_blank` — 24x24 of nothing.
 			--
-			-- The chrome inset is 4 design pixels in BOTH states, which is what
+			-- The chrome inset is 2 design pixels in BOTH states, which is what
 			-- makes the swap legal: a variant may change its art, never its
 			-- reservation. The row therefore does not move when it is chosen.
+			-- (It read 4 dp until 2026-08-27; see `control` above for why the slice
+			-- border is the wrong number to reserve. Both plates carve two: INK plus
+			-- a bevel on the default, INK plus the CREAM ring on the selected.)
 			selection = {
 				kind = "layered",
 				fallback = "native",
-				contentInsets = { top = 16, right = 16, bottom = 16, left = 16 },
+				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 				layers = {
 					{
 						kind = "fill",
@@ -363,7 +391,10 @@ function pixel_quest.definition(themes: any): any
 				asset = { default = "pixel_stepper_plate_default", pressed = "pixel_stepper_plate_pressed" },
 				sliced = true,
 				fallback = "native",
-				contentInsets = { top = 12, right = 12, bottom = 12, left = 12 },
+				-- ...and the same correction: 7x7 dp, one INK outline and one TAN /
+				-- WOOD_D bevel, so the frame is two design pixels and the 3 dp slice
+				-- border was never the reservation (see `control` above).
+				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			barTrack = {
 				kind = "nineSlice",
