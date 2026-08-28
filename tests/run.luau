@@ -570,6 +570,14 @@ require("./reduced_motion_seam.spec")
 -- model, the coordinator over the presentation channel, and the presenter's own
 -- surface enter/exit — ADR-0022 Decision 3, row SF-M6)
 require("./transitions.spec")
+-- BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
+-- item 10 + mandate b): the structural gate for the pop class newpop.mov
+-- demonstrated — a canvasGroup fade whose OWN direct child paints an opaque
+-- surface can never let that backdrop be legible ahead of its content, because
+-- GroupTransparency is one engine scalar over the whole subtree. Pure finder +
+-- live coordinator + the real Glade modals (wisp/charm/provisions/picker), all
+-- clean after `examples/reference/p1_glade/ui/shop.luau`'s restructuring.
+require("./backdrop_fade.spec")
 -- the pure toast scheduler and the input-transparent toast surface it drives
 -- (ADR-0022 Decision 4, rows SF-T1..T3)
 require("./toast_schedule.spec")

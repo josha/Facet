@@ -105,6 +105,120 @@ local function fades(spec: Spec, form: string): boolean
 	return spec.fade or (schema.TRANSITION_FADES :: any)[form] == true
 end
 
+--[[ BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
+	item 10 + mandate b). `GroupTransparency` is ONE scalar Roblox composites over
+	a CanvasGroup's WHOLE rendered subtree, so an opaque plate (an authored
+	`surface`) declared INSIDE the node a fade targets reaches full opacity at the
+	exact instant its content does — "the backdrop is legible no later than the
+	content" is then impossible BY CONSTRUCTION, not merely unlikely. Measured
+	headlessly (task POP): four Glade modals shared one helper that put
+	`surface = "raised"` on a descendant of the one canvasGroup `presentModal`
+	targets; `GroupTransparency` sampled across a 30-tick materialize read
+	1, 0.73, 0.23, 0.003 and the plate rode every one of those numbers alongside
+	its own text.
+
+	Pure, module-level and engine-free on purpose (mirrors `src/render/
+	surface_overlap.luau`'s own shape): a mounted node's `.props`/`.children` are
+	all either function needs, so both the live coordinator below and a headless
+	gate can call them directly over a `tests/lib/fake_target` tree with nothing
+	else wired up. ]]
+local NON_PAINTING_SURFACE: { [string]: boolean } = { plain = true }
+local function paintsBackdrop(surface: any): boolean
+	return type(surface) == "string" and not NON_PAINTING_SURFACE[surface]
+end
+
+-- every `canvasGroup = true` descendant of `node`, stopping descent at each one
+-- found (a nested INDEPENDENT fade group is its own compositing boundary, not a
+-- candidate one level further in).
+local function collectCanvasGroups(node: any, out: { any })
+	for _, child in node.children or {} do
+		if child.props ~= nil and child.props.canvasGroup == true then
+			table.insert(out, child)
+		else
+			collectCanvasGroups(child, out)
+		end
+	end
+end
+
+--[[ THE FIX SPLITS THE WRITE, NOT THE TRANSITION. Position/scale still target
+	the node the caller declared — a plain `UIScale`/offset moves a background
+	plate and its content as one rigid unit, canvasGroup or not, so a
+	`materialize` card still scales and slides as a whole. Alpha alone needs the
+	group: when the declared node is not itself one, this finds the ONE
+	canvasGroup in its subtree and routes `GroupTransparency` there instead — the
+	backdrop is then never a descendant of what fades, so it paints at its own,
+	immediate opacity from the first frame. Zero or more than one candidate falls
+	back to the declared node itself — exactly today's construction, and
+	`assertFadeCapable`'s refusal still fires for it unchanged. ]]
+local function resolveAlphaTarget(path: string, node: any): (string, any)
+	if node == nil or node.props == nil or node.props.canvasGroup == true then
+		return path, node
+	end
+	local candidates: { any } = {}
+	collectCanvasGroups(node, candidates)
+	if #candidates == 1 then
+		local only = candidates[1]
+		return only.path, only
+	end
+	return path, node
+end
+
+export type BackdropFinding = { path: string, backdropPath: string, surface: string }
+
+-- the STRUCTURAL half of the same finding, usable with no coordinator at all:
+-- does the node that will actually fade (post `resolveAlphaTarget`) itself
+-- COMPOSE an opaque `surface` as one of its own DIRECT children? Zero frames
+-- stepped, zero engine — a pure tree read, which is the honest answer to
+-- mandate (b): this whole class is visible headlessly, with nothing animated
+-- at all.
+--
+-- ONE LEVEL, DELIBERATELY — not every `surface` anywhere in the subtree. The
+-- bug this catches is "the plate meant to hide whatever is BEHIND THE WHOLE
+-- FADING SURFACE is itself inside it" (`shop.wisp`'s `Panel`, `page()`'s old
+-- `Page`, both direct children of the node the transition targeted); a card's
+-- OWN thumbnail or a chip three levels into its content also carries a
+-- `surface`, and flagging those too would bury the real finding in ordinary
+-- content that was always going to fade in with the rest of the modal — a
+-- plate a level down is content the plate above it ALREADY made opaque, not a
+-- second backdrop. `tests/backdrop_fade.spec.luau` pins both directions: the
+-- unfixed shape reddens this, and legitimate nested content (a card two levels
+-- into a fixed page) never does.
+local function collectBackdrops(node: any, out: { any })
+	for _, child in node.children or {} do
+		if child.props ~= nil and paintsBackdrop(child.props.surface) then
+			table.insert(out, child)
+		end
+	end
+end
+
+-- `alphaNode` is what `resolveAlphaTarget` returns for a DECLARED fade — pass
+-- the node as declared (self or a resolved content group) plus the resolved
+-- path, so a finding names the same path the coordinator would actually fade.
+function transitions.findBackdropFindings(alphaPath: string, alphaNode: any): { BackdropFinding }
+	local out: { BackdropFinding } = {}
+	if alphaNode == nil then
+		return out
+	end
+	local backdrops: { any } = {}
+	collectBackdrops(alphaNode, backdrops)
+	for _, b in backdrops do
+		table.insert(out, { path = alphaPath, backdropPath = b.path, surface = b.props.surface })
+	end
+	return out
+end
+
+function transitions.backdropIssue(finding: BackdropFinding): string
+	return string.format(
+		"%s declares a fading transition whose fade group still composes %s's opaque `surface = %q` — "
+			.. "GroupTransparency dims the two together, so the backdrop can never be legible ahead of the "
+			.. "content it sits behind. Move the backdrop OUTSIDE the fade group (a sibling, not a descendant); "
+			.. "`src/render/transitions.luau`'s header names the shape.",
+		finding.path,
+		finding.backdropPath,
+		finding.surface
+	)
+end
+
 function transitions.new(opts: Opts)
 	assert(type(opts) == "table" and opts.core ~= nil, "Facet transitions: a core is required")
 	assert(opts.clock ~= nil, "Facet transitions: a motion clock is required (Facet.motion.newClock)")
@@ -117,6 +231,21 @@ function transitions.new(opts: Opts)
 
 	local entries: { [string]: any } = {}
 	local disposed = false
+	-- task POP, mandate (b)'s gate: every backdrop-inside-fade-group shape ever
+	-- DECLARED through this coordinator, deduplicated by (path, backdrop) so a
+	-- surface re-entered many times over a session reports once. Read-only for
+	-- everyone but `self.findings()`; nothing here costs off that read.
+	local foundBackdrops: { BackdropFinding } = {}
+	local seenBackdropKeys: { [string]: boolean } = {}
+	local function recordBackdropFindings(alphaPath: string, alphaNode: any)
+		for _, finding in transitions.findBackdropFindings(alphaPath, alphaNode) do
+			local key = finding.path .. "\0" .. finding.backdropPath
+			if not seenBackdropKeys[key] then
+				seenBackdropKeys[key] = true
+				table.insert(foundBackdrops, finding)
+			end
+		end
+	end
 
 	-- task-fix3 symptoms 2/3 (director device round, 2026-08-23): "slides a few
 	-- pixels then pops out" / "pops in then slides a few pixels". `space.l` (24px
@@ -196,7 +325,7 @@ function transitions.new(opts: Opts)
 			scale = if absent.scale ~= nil then 1 + (absent.scale - 1) * k else nil,
 		})
 		if absent.alpha ~= nil then
-			controller.setPresentationTransparency(entry.path, absent.alpha * k)
+			controller.setPresentationTransparency(entry.alphaPath, absent.alpha * k)
 		end
 	end
 
@@ -208,7 +337,7 @@ function transitions.new(opts: Opts)
 		end
 		controller.setPresentationTransform(entry.path, nil)
 		if entry.absent.alpha ~= nil then
-			controller.setPresentationTransparency(entry.path, nil)
+			controller.setPresentationTransparency(entry.alphaPath, nil)
 		end
 	end
 
@@ -259,17 +388,19 @@ function transitions.new(opts: Opts)
 		end
 	end
 
-	local function entryFor(path: string, node: any, spec: Spec, initial: number): any
+	local function entryFor(path: string, node: any, spec: Spec, initial: number, alphaPath: string): any
 		local existing = entries[path]
 		if existing ~= nil then
 			existing.node = node
 			existing.spec = spec
+			existing.alphaPath = alphaPath
 			return existing
 		end
 		local entry: any = {
 			path = path,
 			node = node,
 			spec = spec,
+			alphaPath = alphaPath,
 			phase = "idle",
 			absent = { x = 0, y = 0 },
 			progress = clock:spring(initial, spec.class),
@@ -313,13 +444,22 @@ function transitions.new(opts: Opts)
 		end
 	end
 
+	-- task POP mandate (b)'s gate reads this: every backdrop-inside-fade-group
+	-- shape any transition on this surface has ever DECLARED, a pure structural
+	-- fact with zero frames stepped. A copy, like `controller.stats()` (F-30).
+	function self.findings(): { BackdropFinding }
+		return table.clone(foundBackdrops)
+	end
+
 	function self.beginEnter(path: string, node: any, declared: any)
 		if disposed then
 			return
 		end
 		local spec = transitions.resolve(declared)
-		assertFadeCapable(path, node, spec, spec.enter)
-		assertFadeCapable(path, node, spec, spec.exit)
+		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
+		assertFadeCapable(alphaPath, alphaNode, spec, spec.enter)
+		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
+		recordBackdropFindings(alphaPath, alphaNode)
 		if spec.enter == "instant" then
 			-- a hard place: nothing to animate, but the arrival is still a fact the
 			-- feedback seam owes its subscribers (information parity)
@@ -333,7 +473,7 @@ function transitions.new(opts: Opts)
 			end
 			return
 		end
-		local entry = entryFor(path, node, spec, 0)
+		local entry = entryFor(path, node, spec, 0, alphaPath)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "enter"
@@ -356,7 +496,9 @@ function transitions.new(opts: Opts)
 		if spec.exit == "instant" then
 			return nil
 		end
-		assertFadeCapable(path, node, spec, spec.exit)
+		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
+		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
+		recordBackdropFindings(alphaPath, alphaNode)
 		return spec
 	end
 
@@ -365,7 +507,8 @@ function transitions.new(opts: Opts)
 			done()
 			return
 		end
-		local entry = entryFor(path, node, spec, 1)
+		local alphaPath = resolveAlphaTarget(path, node)
+		local entry = entryFor(path, node, spec, 1, alphaPath)
 		entry.phase = "exit"
 		entry.done = done
 		entry.absent = absentFor(spec, spec.exit, "exit")
