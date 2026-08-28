@@ -143,11 +143,13 @@ universal pop detector.
   gets the same "reddens on the exact defect" property without the
   live-runtime risk; a future round can promote it to a refusal once the
   wider sweep (mandate a) has audited the rest of the tree.
-- **Wrapping the WHOLE toolbar/backdrop pair in a second `canvasGroup`
-  nested inside the first.** Rejected: `GroupTransparency` COMPOUNDS on
-  nested `CanvasGroup`s (the outer's alpha still multiplies the inner's
-  render), so a plate inside a nested group would be MORE transparent, not
-  less — this does not solve the problem, it relocates it.
+- **Wrapping the plate in its OWN second `canvasGroup`, nested inside the
+  first, with an independent (front-loaded) alpha curve.** Rejected:
+  `GroupTransparency` COMPOUNDS on nested `CanvasGroup`s (the outer's alpha
+  still multiplies the inner's render), so a plate inside a nested group
+  would be MORE transparent overall, not less — this does not solve the
+  problem, it relocates it. The plate has to be a SIBLING, outside the
+  fading node entirely, which is what the shipped fix requires.
 
 ## Consequences
 
