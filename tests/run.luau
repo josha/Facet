@@ -375,6 +375,10 @@ require("./modal_dismissal.spec")
 require("./paradigm_popup.spec")
 require("./popup_catcher_paint.spec")
 require("./paradigm_input_axis.spec")
+-- gamepad d-pad auto-repeat (director item 4, ADR-0057): holding a direction
+-- advances focus repeatedly after the initial delay, gamepad-only, through
+-- the same navigate/navigateH functions a fresh press uses
+require("./dpad_repeat.spec")
 require("./paradigm_table.spec")
 require("./paradigm_hover.spec")
 require("./paradigm_tenfoot.spec")

@@ -2939,6 +2939,23 @@ Until the property is on, a place that keeps the default camera should not rely 
 Left/Right for UI; `client.gamepad_contention.cameraKeysContended()` answers
 whether any CAS binding is holding an arrow on this client right now.
 
+**Holding a gamepad direction repeats (ADR-0057).** `Navigate`/`NavigateH` used
+to deliver exactly one focus move per press, however long the direction was
+held — the engine's own Input Action System documents no repeat behavior
+(`Pressed`/`Released`/`StateChanged` state transitions only) and there is no
+scripted way to detect what the native `GuiService` selection navigator does
+internally, so nothing above this layer could have inherited a repeat for
+free. The presenter now supplies one itself: after an initial **0.4s** hold it
+repeats every **0.1s** — the console-standard shape, since neither platform
+surface documents its own timing — through the exact same navigation call a
+fresh press makes, so every wrap rule, `navigateIntercept`, and focus-boundary
+behavior applies to a repeated step exactly as it does to a single one. It is
+**gamepad-only**: a keyboard arrow held down keeps its original single-step
+behavior, and a `Thumbstick1` push held past the D-pad-tolerance threshold
+(above) repeats through the identical mechanism, at the identical cadence — one
+repeat path, not two. There is no opt-out and no new option; every presented
+surface gets it.
+
 **Session lifetime, stated.** A presenter is built **once per client session**
 and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
 (its own, unless you passed one) and up to four private surfaces, and nothing
@@ -4248,12 +4265,19 @@ it cannot get stuck the same way). A scenario simulating an interrupted
 chord (a modifier key down with no matching up) can call this between steps
 rather than leave a phantom `true` for the rest of the run.
 
-**`action._deliver(value)` and `binding._sample(x, y)` are the engine-adapter
-seam.** The leading underscore means exactly that (constitution §2): they are
-how an alternate action-system adapter — `src/client/roblox_input.luau` is the
-first-party one — delivers state into the headless model. They are not private,
-and they are not for consumer code: a control or a screen drives an action
-through `bind`/`deviceKey`, never through these.
+**`action._deliver(value, sourceGamepad?)` and `binding._sample(x, y)` are the
+engine-adapter seam.** The leading underscore means exactly that (constitution
+§2): they are how an alternate action-system adapter —
+`src/client/roblox_input.luau` is the first-party one — delivers state into the
+headless model. They are not private, and they are not for consumer code: a
+control or a screen drives an action through `bind`/`deviceKey`, never through
+these. `sourceGamepad` (ADR-0057, d-pad auto-repeat) records whether the
+BINDING that produced this value is gamepad-classed — every `ButtonX`/`DPad*`
+keyCode and every axis binding (`Thumbstick*` is gamepad-exclusive in this
+vocabulary) is; a keyboard keyCode or a scriptable binding is not. Read back as
+`action.lastGamepad`, a plain (non-reactive) field correct exactly at the
+moment a real change fires — a deduped re-delivery of the same value never
+reaches the line that would update it.
 
 ### `inputHint`
 

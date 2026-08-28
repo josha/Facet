@@ -16,6 +16,19 @@ local actions = {}
 
 export type ActionType = "Bool" | "Direction1D" | "Direction2D" | "ViewportPosition"
 
+-- GAMEPAD-SOURCED KEYCODES (director item 4, d-pad auto-repeat). Every
+-- gamepad KeyCode Roblox exposes is named "ButtonX" / "DPad*" / "Thumbstick*"
+-- — exclusively; no keyboard KeyCode shares any of the three prefixes (Enum.
+-- KeyCode's own naming convention, not a guess this file makes up). Auto-
+-- repeat has to be gamepad-only (a keyboard arrow held down keeps its
+-- existing single-step behavior), and this is the one place that already
+-- knows which BINDING delivered a value — so it is also the one place that
+-- can answer "was this a gamepad press" without the presenter re-deriving it
+-- from a live platform fact that updates on its own schedule.
+local function isGamepadKeyCode(keyCode: string): boolean
+	return keyCode:match("^Button") ~= nil or keyCode:match("^DPad") ~= nil or keyCode:match("^Thumbstick") ~= nil
+end
+
 function actions.newSystem(core: any)
 	local system = {}
 	local contexts: { any } = {}
@@ -30,6 +43,14 @@ function actions.newSystem(core: any)
 			pressedHandlers = {} :: { (any) -> () },
 			releasedHandlers = {} :: { (any) -> () },
 			bindings = {} :: { any },
+			-- was the binding that delivered the CURRENT `state` value gamepad-
+			-- classed (see isGamepadKeyCode)? A plain field, not reactive: it only
+			-- has to be correct at the moment a real change fires, and a deduped
+			-- call (below) never reaches the line that would update it, so it
+			-- cannot go stale between one delivery and the next. Read by the
+			-- presenter's d-pad auto-repeat glue (director item 4) to gate repeat
+			-- to gamepad input only.
+			lastGamepad = false,
 		}
 
 		-- THE HANDLER IS HANDED THE VALUE (api-architecture-consistency F-29).
@@ -56,8 +77,12 @@ function actions.newSystem(core: any)
 			end
 		end
 
-		-- internal: deliver a state update (deduplicated like the engine)
-		function action._deliver(value: any)
+		-- internal: deliver a state update (deduplicated like the engine).
+		-- `sourceGamepad` records whether the BINDING that produced this value is
+		-- gamepad-classed (isGamepadKeyCode, or an axis binding — see bindAxis);
+		-- nil/omitted (the scriptable-fire default when a binding has no keyCode)
+		-- reads as false.
+		function action._deliver(value: any, sourceGamepad: boolean?)
 			if not context.enabled or context.destroyed then
 				return
 			end
@@ -65,6 +90,7 @@ function actions.newSystem(core: any)
 			if previous == value then
 				return
 			end
+			action.lastGamepad = sourceGamepad == true
 			action.state:set(value)
 			if action.type == "Bool" then
 				local handlers = if value == true then action.pressedHandlers else action.releasedHandlers
@@ -110,6 +136,9 @@ function actions.newSystem(core: any)
 				displayName = spec.displayName,
 				direction = spec.direction,
 				modifiers = spec.modifiers,
+				-- gamepad-only auto-repeat gate (see isGamepadKeyCode above); a
+				-- scriptable/uiButton binding has no keyCode and is never gamepad
+				isGamepad = spec.keyCode ~= nil and isGamepadKeyCode(spec.keyCode :: string),
 			}
 			table.insert(action.bindings, binding)
 			-- scriptable test path: fires the action DIRECTLY (engine truth)
@@ -117,7 +146,7 @@ function actions.newSystem(core: any)
 				if binding.removed or action.context.destroyed then
 					return -- silent no-op, spike T6a
 				end
-				action._deliver(value)
+				action._deliver(value, binding.isGamepad)
 			end
 			function binding.remove()
 				binding.removed = true
@@ -154,6 +183,10 @@ function actions.newSystem(core: any)
 				invert = spec.invert == true,
 				isAxis = true,
 				armed = true, -- ready to fire on the next threshold crossing
+				-- every axis this system binds is a gamepad analog stick
+				-- (Thumbstick*) — there is no non-gamepad concept of an axis
+				-- binding in this vocabulary, so this is unconditional
+				isGamepad = true,
 			}
 			table.insert(action.bindings, binding)
 			-- process one axis sample; returns the value to deliver, or nil for
@@ -407,7 +440,7 @@ function actions.newSystem(core: any)
 			if candidate.binding.modifiers ~= nil then
 				candidate.binding.pressed = isDown
 			end
-			candidate.action._deliver(value)
+			candidate.action._deliver(value, candidate.binding.isGamepad)
 			if candidate.context.sink then
 				consumedPriority = candidate.context.priority
 			end
@@ -444,7 +477,7 @@ function actions.newSystem(core: any)
 			end
 			local value = candidate.binding._sample(x, y)
 			if value ~= nil then
-				candidate.action._deliver(value)
+				candidate.action._deliver(value, candidate.binding.isGamepad)
 			end
 			if candidate.context.sink then
 				consumedPriority = candidate.context.priority

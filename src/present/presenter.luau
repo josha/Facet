@@ -2324,6 +2324,21 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					end
 				end
 			end
+			-- A SUSPENDED AXIS OWNS NO DIRECTIONAL BINDING UNTIL RESTORED (found
+			-- while adding d-pad auto-repeat, director item 4). If this axis's
+			-- Direction1D was currently HELD, dedup means the delivered value never
+			-- returns to 0 on its own: the key-UP that would normally clear it now
+			-- arbitrates to Adjust/AdjustAxis instead, which just gained the SAME
+			-- keyCode. Left alone, the owner would keep claiming a direction it can
+			-- no longer receive updates for — `restoreSuspendedNav` rebinds the key
+			-- later but leaves the STALE value in place, so the very next press of
+			-- the same direction is silently swallowed by `_deliver`'s dedup guard,
+			-- and (with auto-repeat) the repeat glue watching this action would keep
+			-- firing a step every interval for a direction the surface no longer
+			-- owns. Zeroing here is always correct: the only way this action's
+			-- state becomes non-zero again is a FRESH delivery, which correctly
+			-- reflects a hold that is live right now.
+			owner.state:set(0)
 		end
 		local function restoreSuspendedNav()
 			for _, entry in suspendedNav do
@@ -3079,6 +3094,81 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				navigateVertical(dir)
 			end
 		end))
+
+		--[[ D-PAD AUTO-REPEAT (director item 4; ADR-0057). `Navigate`/`NavigateH`
+			only ever DELIVER on a value CHANGE — a press, then back to 0 on release —
+			so a HELD direction moved focus exactly once. Neither Roblox's Input
+			Action System (Pressed/Released/StateChanged only, no repeat property) nor
+			GuiService's own native selection navigator documents any repeat timing
+			(ADR-0057 cites both platform surfaces), so there is nothing to defer to:
+			the framework owns this, here, so every presented surface gets it free.
+
+			GAMEPAD-ONLY (`action.lastGamepad`, stamped by actions.luau from the
+			binding that actually delivered the held value — see isGamepadKeyCode
+			there): a keyboard arrow held down keeps today's exact single-step
+			behavior, matching the director's wording ("Gamepad: holding d-pad...").
+			The Thumbstick1-as-d-pad axis binding (matrix §D.5 tolerance) is ALSO
+			gamepad-classed, so a fully-deflected stick repeats through this SAME
+			glue — there is no second repeat path to double-fire against
+			(tests/dpad_repeat.spec.luau measures the cadence is not doubled).
+
+			SCOPE-OWNED, the same idiom the drag-to-edge autoscroll stepper above
+			uses: the tick hook is `scope:own`'d with everything else this SURFACE
+			owns, so it tears down the instant the surface dismisses — no timer
+			outlives its screen. It also stops the moment the held direction
+			releases (state returns to 0) or an axis suspension (see
+			`suspendAxisKeys` below) zeroes the action out from under it — repeat
+			never outlives the binding that is driving it.
+
+			Repeats through the EXACT SAME `navigateVertical`/`navigateHorizontal`
+			functions a fresh press uses, so every focus-boundary/wrap rule, every
+			`navigateIntercept`, and the armed-aim sync apply to a repeated step
+			exactly as they do to a single press — nothing here reimplements the
+			ring. Scope deliberately excludes Adjust/AdjustAxis: a slider/stepper
+			held-repeat is a separate, un-asked-for UX call (director item 4 says
+			"advance selection", not "adjust a value"). ]]
+		local DPAD_REPEAT_DELAY_S = 0.4 -- initial hold-before-repeat (console
+		-- convention; matches this file's own DISCLOSE_LONG_PRESS_S precedent
+		-- in screen_target.luau — see ADR-0057)
+		local DPAD_REPEAT_INTERVAL_S = 0.1 -- steady-state repeat cadence
+		-- an accumulator compared against a fractional-second threshold needs a
+		-- tolerance: `0.09 + 0.01` is not bit-identical to `0.1` in IEEE754 double
+		-- (neither literal is exactly representable), so a bare `>=` can miss a
+		-- step by less than a microsecond of drift — measured directly in
+		-- tests/dpad_repeat.spec.luau's cadence case, which is what pins this.
+		local DPAD_REPEAT_EPS = 1e-6
+		local function bindDpadRepeat(action: any, fire: (dir: number) -> ())
+			local heldDir: number? = nil
+			local sinceLastFire = 0
+			local repeating = false
+			scope:own(core:observe(action.state, function(dir: any)
+				if (dir == 1 or dir == -1) and action.lastGamepad then
+					heldDir = dir :: number
+				else
+					heldDir = nil
+				end
+				sinceLastFire = 0
+				repeating = false
+			end))
+			scope:own(self.onTick(function(dt: number)
+				if heldDir == nil then
+					return
+				end
+				sinceLastFire += dt
+				local threshold = if repeating then DPAD_REPEAT_INTERVAL_S else DPAD_REPEAT_DELAY_S
+				while heldDir ~= nil and sinceLastFire >= threshold - DPAD_REPEAT_EPS do
+					sinceLastFire -= threshold
+					repeating = true
+					threshold = DPAD_REPEAT_INTERVAL_S
+					fire(heldDir :: number)
+				end
+			end))
+		end
+		bindDpadRepeat(navigate, navigateVertical)
+		if navigateH ~= nil then
+			bindDpadRepeat(navigateH, navigateHorizontal)
+		end
+
 		-- ADJUST DISPATCH, shared by both adjust actions. Returns whether anything
 		-- claimed the press — which is what the axis action turns into a yield.
 		local function dispatchAdjust(dir: number): boolean
