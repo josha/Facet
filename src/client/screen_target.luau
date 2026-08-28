@@ -49,6 +49,10 @@ local screen_presentation = require("./screen_presentation")
 -- the pointer seam: the one activate meta, the global capture, the semantic
 -- cursor and the connection census that reports what they hold
 local screen_pointer = require("./screen_pointer")
+-- the recycle-safe reconnect helper (task CONN round 2): see its header
+local handle_conn = require("./handle_conn")
+local reconnect = handle_conn.reconnect
+local reconnectOnChange = handle_conn.reconnectOnChange
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
 -- ...and the classification-tag seam's PURE ruling: who owns a `facet-*` tag,
@@ -2252,13 +2256,23 @@ function screen_target.new(opts: Opts?)
 			-- it is born at its host's visibility: a control configured before its
 			-- expander existed must not get a band that disagrees with its face
 			mirrorToHitExpander(handle)
-			-- ...AND THE HOST'S POINTER GESTURE, for a control that has one (see
-			-- `beginPointerCapture`'s header). `Activated` alone covers the tappable
-			-- family only; a pointer zone's expander was inert without this, which is
-			-- the whole 26px dead band the ruling above exists to close.
-			if handle.pointer ~= nil and handle.hitExpanderPointerConn == nil then
-				handle.hitExpanderPointerConn = connectPointerBegan(handle, expander, handle.pointer)
-			end
+		end
+		-- THE HOST'S POINTER GESTURE, for a control that has one. `Activated`
+		-- alone covers the tappable family only. Task CONN round 2 (Finding 4
+		-- residual, review-conn-verdicts.md): moved OUTSIDE `expander == nil`
+		-- (was never re-examined once an expander existed) and off the `== nil`
+		-- guard onto `reconnectOnChange`, keyed on `handle.path` like every
+		-- sibling site — `adapter.adopt` now also resets `handle.pointer` to nil
+		-- on every recycle, so a life declaring no pointer handlers cannot
+		-- inherit a prior occupant's (the re-review's exact traced scenario).
+		if handle.pointer ~= nil then
+			reconnectOnChange(handle, "hitExpanderPointerConn", "hitExpanderPointerConnPath", handle.path, function()
+				return connectPointerBegan(handle, expander, handle.pointer)
+			end)
+		elseif handle.hitExpanderPointerConn ~= nil then
+			handle.hitExpanderPointerConn:Disconnect()
+			handle.hitExpanderPointerConn = nil
+			handle.hitExpanderPointerConnPath = nil
 		end
 		-- re-base by the clip host exactly as applyRect does (verifier finding V11).
 		-- The solver rect is WINDOW space; a child of a clip host is positioned
@@ -2535,16 +2549,22 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.textHandlers = handlers
 		handle.lastModelText = handle.lastModelText or instance.Text
+		-- RECONNECT, NOT A RAW ASSIGNMENT (task CONN round 2, completeness sweep):
+		-- once-per-life setter, same Finding-1 unconditional-overwrite shape as
+		-- `screen_pointer.luau`'s siblings — a recycled handle kept a stale
+		-- listener closing over a prior occupant's `handlers`.
 		-- engine text changes -> onTextChanged. Fires on EVERY .Text mutation
 		-- including our own reconcile writes (facts §4) and DEFERRED, so a boolean
 		-- guard can't gate them (see writeFieldText). Skip only the echo of the
 		-- model's own value; fire on genuine user divergence.
 		if handlers.onTextChanged then
-			handle.textChangedConn = instance:GetPropertyChangedSignal("Text"):Connect(function()
-				if instance.Text == (handle.lastModelText or "") then
-					return
-				end
-				handlers.onTextChanged(instance.Text)
+			reconnect(handle, "textChangedConn", function()
+				return instance:GetPropertyChangedSignal("Text"):Connect(function()
+					if instance.Text == (handle.lastModelText or "") then
+						return
+					end
+					handlers.onTextChanged(instance.Text)
+				end)
 			end)
 		end
 		-- engine focus (native tap / gamepad A / our own CaptureFocus) ->
@@ -2555,8 +2575,10 @@ function screen_target.new(opts: Opts?)
 			-- pass the node's full path: native-tap focus never routes through
 			-- handleActivate, so the control learns its path (for keep-visible)
 			-- only from this seam (F1). handle.path is set by create().
-			handle.focusedConn = instance.Focused:Connect(function()
-				handlers.onFocusGained(handle.path)
+			reconnect(handle, "focusedConn", function()
+				return instance.Focused:Connect(function()
+					handlers.onFocusGained(handle.path)
+				end)
 			end)
 		end
 		-- engine focus loss -> onFocusLost(reason). enterPressed is the canonical
@@ -2567,24 +2589,31 @@ function screen_target.new(opts: Opts?)
 		-- this arrives idempotent. Escape is core-reserved (D1) — reported as
 		-- cancel per the contract if it ever surfaces as the causing input.
 		if handlers.onFocusLost then
-			handle.focusLostConn = instance.FocusLost:Connect(function(enterPressed: boolean, input: InputObject?)
-				local reason = "focusLost"
-				if input ~= nil and (input.KeyCode == Enum.KeyCode.ButtonB or input.KeyCode == Enum.KeyCode.Escape) then
-					reason = "cancel"
-				elseif enterPressed then
-					reason = "enter"
-				end
-				handlers.onFocusLost(reason)
+			reconnect(handle, "focusLostConn", function()
+				return instance.FocusLost:Connect(function(enterPressed: boolean, input: InputObject?)
+					local reason = "focusLost"
+					if
+						input ~= nil
+						and (input.KeyCode == Enum.KeyCode.ButtonB or input.KeyCode == Enum.KeyCode.Escape)
+					then
+						reason = "cancel"
+					elseif enterPressed then
+						reason = "enter"
+					end
+					handlers.onFocusLost(reason)
+				end)
 			end)
 		end
 		-- mobile / console on-screen-keyboard return: focus may still be held, so
 		-- force the canonical commit through FocusLost.enterPressed (research F9).
 		-- pcall-guarded: the member is absent on very old engines.
 		pcall(function()
-			handle.oskReturnConn = (instance :: any).ReturnPressedFromOnScreenKeyboard:Connect(function()
-				if instance:IsFocused() then
-					instance:ReleaseFocus(true)
-				end
+			reconnect(handle, "oskReturnConn", function()
+				return (instance :: any).ReturnPressedFromOnScreenKeyboard:Connect(function()
+					if instance:IsFocused() then
+						instance:ReleaseFocus(true)
+					end
+				end)
 			end)
 		end)
 	end
@@ -2611,11 +2640,16 @@ function screen_target.new(opts: Opts?)
 		if handle.applyHoverFill == nil or not instance:IsA("GuiObject") then
 			return
 		end
-		if handle.hoverStateConn ~= nil then
-			return
-		end
-		handle.hoverStateConn = instance.MouseEnter:Connect(function()
-			handle.applyHoverFill()
+		-- RECONNECT ON IDENTITY CHANGE, NOT `== nil` (task CONN round 2,
+		-- completeness sweep): TWO call sites (create-or-adopt + the live
+		-- pointer-class-flip resync below), same `barConn` cadence, keyed on
+		-- `handle.path`. Argued safe in round 1 (this callback re-reads
+		-- `handle.applyHoverFill()` at fire time, not a per-life closure) — that
+		-- stands; this is completeness-table honesty, not a live-bug fix.
+		reconnectOnChange(handle, "hoverStateConn", "hoverStateConnPath", handle.path, function()
+			return instance.MouseEnter:Connect(function()
+				handle.applyHoverFill()
+			end)
 		end)
 	end
 
@@ -2637,88 +2671,100 @@ function screen_target.new(opts: Opts?)
 		end
 		-- MERGE, don't one-shot (architecture review F-5): a capability that
 		-- turns on mid-session re-wires already-mounted labels, so each half
-		-- guards itself and a later call may add the half a mount-time gate
-		-- withheld
-		if callbacks.hover ~= nil and handle.discloseEnterConn == nil then
-			handle.discloseEnterConn = instance.MouseEnter:Connect(function()
-				callbacks.hover(true)
+		-- guards itself. `reconnectOnChange` (task CONN round 2, completeness
+		-- sweep), not `== nil`: TWO call sites (create-or-adopt + the
+		-- disclosure-capability resync), and unlike `enableHover` this WAS a
+		-- genuine bug — these callbacks close over `render/renderer.luau`'s
+		-- per-call `callbacks.hover`/`-longPress`, bound to that node's `path`
+		-- at that call, so a recycle-surviving `== nil` guard permanently
+		-- misrouted a resurrected label's engagement to a prior occupant's plate
+		-- (`hitExpanderPointerConn`'s own pre-fix shape). Keyed on `handle.path`.
+		if callbacks.hover ~= nil then
+			reconnectOnChange(handle, "discloseEnterConn", "discloseEnterConnPath", handle.path, function()
+				return instance.MouseEnter:Connect(function()
+					callbacks.hover(true)
+				end)
 			end)
-			handle.discloseLeaveConn = instance.MouseLeave:Connect(function()
-				callbacks.hover(false)
+			reconnectOnChange(handle, "discloseLeaveConn", "discloseLeaveConnPath", handle.path, function()
+				return instance.MouseLeave:Connect(function()
+					callbacks.hover(false)
+				end)
 			end)
 		end
-		if callbacks.longPress ~= nil and handle.discloseTouchConn == nil then
-			local pressToken = 0
-			handle.discloseTouchConn = instance.InputBegan:Connect(function(inputObject: InputObject)
-				if inputObject.UserInputType ~= Enum.UserInputType.Touch then
-					return
-				end
-				pressToken += 1
-				local token = pressToken
-				local start = inputObject.Position
-				local live = true
-				local fired = false
-				local moveConn: RBXScriptConnection? = nil
-				local endConn: RBXScriptConnection? = nil
-				local destroyingConn: RBXScriptConnection? = nil
-				local function finish(reason: string)
-					if not live then
+		if callbacks.longPress ~= nil then
+			reconnectOnChange(handle, "discloseTouchConn", "discloseTouchConnPath", handle.path, function()
+				local pressToken = 0
+				return instance.InputBegan:Connect(function(inputObject: InputObject)
+					if inputObject.UserInputType ~= Enum.UserInputType.Touch then
 						return
 					end
-					live = false
-					if moveConn ~= nil then
-						moveConn:Disconnect()
-					end
-					if endConn ~= nil then
-						endConn:Disconnect()
-					end
-					if destroyingConn ~= nil then
-						destroyingConn:Disconnect()
-					end
-					-- a press that dies with its label must not dismiss ANOTHER
-					-- label's plate (platform review F7): the label's own death
-					-- fires no release
-					if fired and reason ~= "drag" and reason ~= "destroyed" then
-						callbacks.longPress(false)
-					end
-				end
-				-- ONE FINGER, THIS FINGER (platform review F6): a touch
-				-- InputObject is stable for the life of its contact, so both
-				-- global listeners filter to the object that began the press —
-				-- a second finger panning the HUD must neither cancel the press
-				-- nor dismiss the plate it raised
-				moveConn = UserInputService.InputChanged:Connect(function(moveObject: InputObject)
-					if moveObject ~= inputObject then
-						return
-					end
-					local dx = moveObject.Position.X - start.X
-					local dy = moveObject.Position.Y - start.Y
-					if math.abs(dx) + math.abs(dy) > DISCLOSE_SLOP_PX then
-						-- a moving finger is a scroll/drag, never a press: if the
-						-- plate already showed, take it down with the movement
-						local wasFired = fired
-						finish("drag")
-						if wasFired then
+					pressToken += 1
+					local token = pressToken
+					local start = inputObject.Position
+					local live = true
+					local fired = false
+					local moveConn: RBXScriptConnection? = nil
+					local endConn: RBXScriptConnection? = nil
+					local destroyingConn: RBXScriptConnection? = nil
+					local function finish(reason: string)
+						if not live then
+							return
+						end
+						live = false
+						if moveConn ~= nil then
+							moveConn:Disconnect()
+						end
+						if endConn ~= nil then
+							endConn:Disconnect()
+						end
+						if destroyingConn ~= nil then
+							destroyingConn:Disconnect()
+						end
+						-- a press that dies with its label must not dismiss ANOTHER
+						-- label's plate (platform review F7): the label's own death
+						-- fires no release
+						if fired and reason ~= "drag" and reason ~= "destroyed" then
 							callbacks.longPress(false)
 						end
 					end
-				end)
-				endConn = UserInputService.InputEnded:Connect(function(endObject: InputObject)
-					if endObject == inputObject then
-						finish("release")
-					end
-				end)
-				-- the label dying mid-press ends the press silently; the timer
-				-- below then finds `live` false and does nothing (the task.delay
-				-- itself cannot be cancelled, so this is what defuses it)
-				destroyingConn = instance.Destroying:Connect(function()
-					finish("destroyed")
-				end)
-				task.delay(DISCLOSE_LONG_PRESS_S, function()
-					if live and token == pressToken then
-						fired = true
-						callbacks.longPress(true)
-					end
+					-- ONE FINGER, THIS FINGER (platform review F6): a touch
+					-- InputObject is stable for the life of its contact, so both
+					-- global listeners filter to the object that began the press —
+					-- a second finger panning the HUD must neither cancel the press
+					-- nor dismiss the plate it raised
+					moveConn = UserInputService.InputChanged:Connect(function(moveObject: InputObject)
+						if moveObject ~= inputObject then
+							return
+						end
+						local dx = moveObject.Position.X - start.X
+						local dy = moveObject.Position.Y - start.Y
+						if math.abs(dx) + math.abs(dy) > DISCLOSE_SLOP_PX then
+							-- a moving finger is a scroll/drag, never a press: if the
+							-- plate already showed, take it down with the movement
+							local wasFired = fired
+							finish("drag")
+							if wasFired then
+								callbacks.longPress(false)
+							end
+						end
+					end)
+					endConn = UserInputService.InputEnded:Connect(function(endObject: InputObject)
+						if endObject == inputObject then
+							finish("release")
+						end
+					end)
+					-- the label dying mid-press ends the press silently; the timer
+					-- below then finds `live` false and does nothing (the task.delay
+					-- itself cannot be cancelled, so this is what defuses it)
+					destroyingConn = instance.Destroying:Connect(function()
+						finish("destroyed")
+					end)
+					task.delay(DISCLOSE_LONG_PRESS_S, function()
+						if live and token == pressToken then
+							fired = true
+							callbacks.longPress(true)
+						end
+					end)
 				end)
 			end)
 		end
@@ -2880,6 +2926,26 @@ function screen_target.new(opts: Opts?)
 					local bounds = boundsSource.AbsoluteSize
 					lift = pos.X + size.X * scale <= boundsPos.X + bounds.X
 						and pos.Y + size.Y * scale <= boundsPos.Y + bounds.Y
+					-- ALSO CAP AGAINST THE NEAREST SCROLL/CLIP HOST'S WINDOW (task CONN
+					-- round 2, item 5; MISC's live repro: 306.6x40.95 vs a 292px
+					-- `AbsoluteWindowSize` — the pop overflowed a ScrollingFrame's
+					-- scrollbar reserve while still fitting the far-larger root
+					-- above). `AbsoluteWindowSize` is ScrollingFrame-only; a plain
+					-- clip host falls back to `AbsoluteSize`.
+					if
+						lift
+						and handle.instanceHost ~= nil
+						and handle.instanceHost.crops
+						and handle.instanceHost.instance ~= nil
+					then
+						local hostInst = handle.instanceHost.instance
+						local hostPos = hostInst.AbsolutePosition
+						local hostWindow = if hostInst:IsA("ScrollingFrame")
+							then (hostInst :: ScrollingFrame).AbsoluteWindowSize
+							else hostInst.AbsoluteSize
+						lift = pos.X + size.X * scale <= hostPos.X + hostWindow.X
+							and pos.Y + size.Y * scale <= hostPos.Y + hostWindow.Y
+					end
 				end
 			end
 			local liftScale = if strong and lift then style.extra.tenFootFocusScale else 1
@@ -3785,6 +3851,10 @@ function screen_target.new(opts: Opts?)
 		handle.parked = nil
 		handle.parkedChromeEpoch = nil
 		handle.indicatorFlashed = nil -- a recycled instance's NEW identity flashes again
+		-- task CONN round 2 (Finding 4 residual): a life declaring no pointer
+		-- handlers never calls setPointerHandlers, so this must not survive to
+		-- be read as though it were this occupant's (setHitRect's stale misroute)
+		handle.pointer = nil
 		handle.path = newPath
 		handle.instance.Name = newPath
 		local host = hostFor(newPath)

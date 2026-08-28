@@ -542,6 +542,7 @@ function screen_chrome.new(ctx: Context)
 			chromeTextLifts -= 1
 		end
 		handle.chromeTextPlan = nil
+		handle.chromeTextPath = nil
 	end
 
 	-- the lifted label's BOX, inset by the recipe's own contentInsets (director
@@ -686,6 +687,17 @@ function screen_chrome.new(ctx: Context)
 		end
 		if not lifts then
 			return
+		end
+		-- FORCE A REBUILD ON RECYCLE (task CONN round 2, completeness sweep):
+		-- `park`/`adopt` never touch `chromeText`/`chromeTextConns`, so a lift
+		-- surviving under an UNCHANGED chrome key across a recycle kept its
+		-- Focused/FocusLost closures' captured `deco` and its `centred` local,
+		-- both fixed at THIS build call, silently stale for the new occupant.
+		-- `destroyChromeText` clears everything so the fall-through below
+		-- rebuilds fresh; `handle.chromeTextPath` is the same identity every
+		-- other site in this sweep keys on.
+		if handle.chromeText ~= nil and handle.chromeTextPath ~= handle.path then
+			destroyChromeText(handle)
 		end
 		if handle.chromeText ~= nil then
 			-- geometry follows the live recipe even when the label already exists
@@ -849,6 +861,7 @@ function screen_chrome.new(ctx: Context)
 		label.Parent = instance
 		handle.chromeText = label
 		handle.chromeTextConns = conns
+		handle.chromeTextPath = handle.path
 		instancesByPath[handle.path .. "/" .. chrome_slots.TEXT_LIFT_NAME] = label
 		chromeTextLifts += 1
 	end

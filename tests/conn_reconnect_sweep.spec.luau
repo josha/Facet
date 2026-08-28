@@ -58,9 +58,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 local handle_conn = require("../src/client/handle_conn")
+local adapter_source = require("./lib/adapter_source")
 
 local pointerSrc = fs.readFile("src/client/screen_pointer.luau")
 local chromeSrc = fs.readFile("src/client/screen_chrome.luau")
+local targetSrc = fs.readFile("src/client/screen_target.luau")
 
 local function newFakeConn(): any
 	local live = true
@@ -196,6 +198,16 @@ local SWEPT_SITES = {
 	},
 	{ field = "barConn", helper = "reconnectOnChange", label = "screen_chrome.luau", src = chromeSrc },
 	{ field = "barWindowConn", helper = "reconnect", label = "screen_chrome.luau", src = chromeSrc },
+	-- task CONN round 2: the 8 screen_target.luau sites round 1's completeness
+	-- table disclosed as deferred (same family, different file), now swept
+	{ field = "hoverStateConn", helper = "reconnectOnChange", label = "screen_target.luau", src = targetSrc },
+	{ field = "discloseEnterConn", helper = "reconnectOnChange", label = "screen_target.luau", src = targetSrc },
+	{ field = "discloseLeaveConn", helper = "reconnectOnChange", label = "screen_target.luau", src = targetSrc },
+	{ field = "discloseTouchConn", helper = "reconnectOnChange", label = "screen_target.luau", src = targetSrc },
+	{ field = "textChangedConn", helper = "reconnect", label = "screen_target.luau", src = targetSrc },
+	{ field = "focusedConn", helper = "reconnect", label = "screen_target.luau", src = targetSrc },
+	{ field = "focusLostConn", helper = "reconnect", label = "screen_target.luau", src = targetSrc },
+	{ field = "oskReturnConn", helper = "reconnect", label = "screen_target.luau", src = targetSrc },
 }
 
 describe("CENSUS_SLOTS completeness: every Finding-1/4-named *Conn field is swept", function()
@@ -215,16 +227,27 @@ describe("CENSUS_SLOTS completeness: every Finding-1/4-named *Conn field is swep
 	end
 end)
 
--- THE REMAINING CENSUS_SLOTS: `hoverStateConn`, `discloseEnterConn`,
--- `discloseLeaveConn`, `discloseTouchConn`, `textChangedConn`, `focusedConn`,
--- `focusLostConn`, `oskReturnConn` and `chromeTextConns` all live in
--- `screen_target.luau` (size-banded, `docs/handoff/SOURCE_CAP_LEDGER.md`) or
--- (`chromeTextConns`) have their own disconnect-and-rebuild pairing already.
--- task-conn-report.md's completeness table carries the per-field argument for
--- each (safe-by-dynamic-re-read, or a same-defect-family follow-up named and
--- out of this round's scope); `chromeOverrideConn` is checked here because it
--- is the one CENSUS_SLOTS field the findings named as needing the fix that
--- this round's own investigation found was ALREADY correct.
+-- `chromeTextConns` (screen_chrome.luau): task CONN round 2 swept this too,
+-- but it is not a `reconnect`/`reconnectOnChange` site — a LIST of connections
+-- plus a label instance whose Focused/FocusLost closures capture `deco` BY
+-- VALUE at build time, so the fix is a REBUILD (destroy + recreate) on
+-- identity change, keyed on the same `handle.path` every other site uses.
+describe("chromeTextConns: rebuilds (not merely reconnects) on a recycle, keyed on handle.path", function()
+	it("syncChromeText forces a destroy+rebuild when chromeTextPath no longer matches handle.path", function()
+		local at = string.find(chromeSrc, "handle.chromeText ~= nil and handle.chromeTextPath ~= handle.path", 1, true)
+		expect(at ~= nil).toBe(true)
+		local destroyAt = string.find(chromeSrc, "destroyChromeText(handle)", at :: number, true)
+		expect(destroyAt ~= nil).toBe(true)
+	end)
+	it("the identity is stamped when the label is (re)built, and cleared when it is destroyed", function()
+		expect(string.find(chromeSrc, "handle.chromeTextPath = handle.path", 1, true) ~= nil).toBe(true)
+		expect(string.find(chromeSrc, "handle.chromeTextPath = nil", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- `chromeOverrideConn` is checked here because it is the one CENSUS_SLOTS
+-- field the findings named as needing the fix that this round's own
+-- investigation found was ALREADY correct.
 describe(
 	"chromeOverrideConn: argued safe, not swept (Finding 1 named it; investigation found it already correct)",
 	function()
@@ -239,5 +262,107 @@ describe(
 				expect(at ~= nil).toBe(true)
 			end
 		)
+	end
+)
+
+--[[ TASK CONN ROUND 2 (review-conn-verdicts.md Finding 4 residual). Round 1
+	fixed `hitExpanderPointerConn`'s FIRST writer (`screen_pointer.setPointer-
+	Handlers`) but left its SECOND — `screen_target.setHitRect` — byte-for-byte
+	unchanged, still the pre-fix `== nil` guard, and marked the field "SWEPT" in
+	the completeness table with no caveat. The re-review traced a concrete
+	permanent-misroute scenario through it: a handle's earlier life declares
+	`setPointerHandlers` (so `handle.pointer` holds that occupant's handlers)
+	with no hit rect; a later life recycles the SAME pooled handle (`park`/
+	`adopt` touched neither field) into a plain Activated-only control that
+	gets a hit rect but never calls `setPointerHandlers` — `setHitRect` then
+	wires the expander to the STALE `handle.pointer`, permanently, because the
+	wiring lived inside `if expander == nil` (never re-entered once an expander
+	exists) AND was itself `== nil`-guarded (never rewires once set). Two
+	independent fixes close it: `adapter.adopt` now resets `handle.pointer` to
+	nil on every recycle (so a life that declares no pointer handlers cannot
+	inherit a prior occupant's), and the wiring moved OUTSIDE the
+	`expander == nil` block onto `reconnectOnChange` keyed on `handle.path`,
+	exactly like `screen_pointer.luau`'s sibling site.
+
+	`screen_target.luau` reaches engine globals at module scope
+	(`game:GetService`, confirmed by a direct `lune run` probe) and cannot be
+	required headlessly, so — the established pattern for this adapter family —
+	this reads the live source as TEXT. ]]
+describe("screen_target: hitExpanderPointerConn's SECOND writer (Finding 4 residual)", function()
+	it("adapter.adopt resets handle.pointer to nil on every recycle", function()
+		local FN = adapter_source.bodyOf(targetSrc, "function adapter.adopt(")
+		expect(#FN > 0).toBe(true)
+		expect(string.find(FN, "handle.pointer = nil", 1, true) ~= nil).toBe(true)
+	end)
+
+	it(
+		"setHitRect's wiring runs OUTSIDE the `expander == nil` block (the block closes right after mirrorToHitExpander)",
+		function()
+			local FN = adapter_source.bodyOf(targetSrc, "function adapter.setHitRect(")
+			expect(#FN > 0).toBe(true)
+			local gateCloseAt = string.find(FN, "mirrorToHitExpander(handle)\n\t\tend", 1, true)
+			local reconnectAt = string.find(FN, 'reconnectOnChange(handle, "hitExpanderPointerConn"', 1, true)
+			expect(gateCloseAt ~= nil and reconnectAt ~= nil).toBe(true)
+			expect((reconnectAt :: number) > (gateCloseAt :: number)).toBe(true)
+		end
+	)
+
+	it("no raw `== nil` guard survives at this site (the exact pre-fix pattern the re-review quoted)", function()
+		local FN = adapter_source.bodyOf(targetSrc, "function adapter.setHitRect(")
+		local rawAt = string.find(FN, "handle.hitExpanderPointerConn == nil", 1, true)
+		expect(rawAt == nil).toBe(true)
+	end)
+
+	it("a nil handle.pointer disconnects any stale connection rather than leaving it wired", function()
+		local FN = adapter_source.bodyOf(targetSrc, "function adapter.setHitRect(")
+		local at = string.find(FN, "elseif handle.hitExpanderPointerConn ~= nil then", 1, true)
+		expect(at ~= nil).toBe(true)
+		local disconnectAt = string.find(FN, "handle.hitExpanderPointerConn:Disconnect()", 1, true)
+		expect(disconnectAt ~= nil and (disconnectAt :: number) > (at :: number)).toBe(true)
+	end)
+end)
+
+--[[ TASK CONN ROUND 2, ITEM 5 — the ten-foot focus "pop" (`tenFootFocusScale`,
+	1.05x) overflowing a scroll-reserved edge, found+diagnosed by the MISC lane
+	(task-misc-report.md's appendix): a table row's `FocusScale` grew it to
+	306.6x40.95 against a scroll body whose `AbsoluteWindowSize` is 292 — the
+	root-frame lift-cap check (`setFocusVisual`) had no way to see that
+	reservation, since the whole-screen root is far larger than one scrolled
+	row. Fixed by ALSO capping the lift against the nearest scroll/clip host's
+	own window (`AbsoluteWindowSize` when it is a `ScrollingFrame`, else
+	`AbsoluteSize`), narrowing an already-true `lift`, never widening a false
+	one. `screen_target.luau` cannot run headlessly (confirmed: reaches
+	`game:GetService` at module scope) so this is pinned as text, matching the
+	rest of this adapter family. ]]
+describe(
+	"screen_target.setFocusVisual: the ten-foot lift also respects the nearest scroll/clip host's window (item 5)",
+	function()
+		local FN = adapter_source.bodyOf(targetSrc, "function adapter.setFocusVisual(")
+
+		it("found the function", function()
+			expect(#FN > 0).toBe(true)
+		end)
+
+		it("the host-window cap runs AFTER (and narrows) the root-frame lift, not instead of it", function()
+			local rootLiftAt = string.find(FN, "lift = pos.X + size.X * scale <= boundsPos.X + bounds.X", 1, true)
+			local hostGateAt = string.find(FN, "handle.instanceHost.crops", 1, true)
+			expect(rootLiftAt ~= nil and hostGateAt ~= nil).toBe(true)
+			expect((hostGateAt :: number) > (rootLiftAt :: number)).toBe(true)
+		end)
+
+		it(
+			"only applies when `lift` is already true (AND, not OR — never widens a refusal into an allowance)",
+			function()
+				-- pattern, not plain-text: tolerant of stylua's own line-wrapping of the
+				-- multi-clause `if`, which is not this test's business to pin exactly
+				expect(string.find(FN, "if%s+lift%s+and handle%.instanceHost ~= nil") ~= nil).toBe(true)
+			end
+		)
+
+		it("reads AbsoluteWindowSize for a ScrollingFrame host, AbsoluteSize otherwise", function()
+			expect(string.find(FN, 'hostInst:IsA("ScrollingFrame")', 1, true) ~= nil).toBe(true)
+			expect(string.find(FN, "AbsoluteWindowSize", 1, true) ~= nil).toBe(true)
+			expect(string.find(FN, "else hostInst.AbsoluteSize", 1, true) ~= nil).toBe(true)
+		end)
 	end
 )
