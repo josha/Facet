@@ -206,13 +206,29 @@ function dashboard.new(app: any): any
 
 	-- ---- card 1: Recent Brews (hero + tiles) --------------------------------
 
-	--[[ task POP fix round 1 (sweep found this real): `arrivalTransition` below
-		fades every arriving tile, and `GroupTransparency` is one Roblox scalar
-		over the WHOLE canvasGroup subtree — so `Plate` used to fade in lockstep
-		with `Body`'s thumbnail/label, exactly `newpop.mov`'s mechanism
-		(`src/render/transitions.luau`'s header names the shape). `Plate` stays
-		a plain, non-canvasGroup direct child (opaque from its first frame); the
-		NEW `Group` is the one canvasGroup, wrapping only `Body`. ]]
+	--[[ task POP fix round 1 (sweep found this real, but see the concern
+		below): `arrivalTransition`'s `fade = true` fades every arriving tile,
+		and `GroupTransparency` is one Roblox scalar over the WHOLE canvasGroup
+		subtree — so `Plate` fades in lockstep with `Body`'s thumbnail/label,
+		exactly `newpop.mov`'s mechanism (`src/render/transitions.luau`'s
+		header names the shape).
+
+		NOT FIXED THIS ROUND — measured, not assumed. The standard fix (move
+		`Plate` to a plain sibling; wrap `Body` in a NEW inner `canvasGroup`
+		`Group`) was implemented and MEASURED to introduce a real, systematic
+		~44-66px `outside-parent` overflow of `Plate` past `RecentBrews`'
+		bottom edge, at EVERY swept viewport, in the SETTLED (non-transient)
+		state — a new, worse defect, caught by `tests/overflow_sweep.spec.
+		luau`'s own reference-proof sweep before landing, not shipped. The
+		double-nested `content`-height measurement (`Tile` hugging `Group`
+		hugging `Body`) apparently does not compose the way a single level
+		does elsewhere in this same fix round (compare `MessageLayer.ribbon`'s
+		`HostRibbon`(content) > `RibbonGroup`(content), which shows no such
+		regression in RascalRally's own suite) — root cause not fully
+		isolated; reverted rather than shipped, given the risk of trading a
+		decorative fade-timing bug for a wider, always-on layout bug. Booked
+		for the next round that touches this file, alongside a Studio session
+		to isolate the solver interaction (task-pop-report.md, fix round 1). ]]
 	local function brewTile(item: any, big: boolean): any
 		local size = if big then "controls.image.defaultSize" else "controlSizes.regular.height"
 		local plate = UI.Box({
@@ -225,32 +241,25 @@ function dashboard.new(app: any): any
 		plate = UI.stroke(plate, {})
 		return UI.ZStack({
 			id = "Tile" .. tostring(item.id),
+			canvasGroup = true,
 			width = UI.fill(),
 			height = { type = "content" },
 			children = {
 				plate,
-				UI.ZStack({
-					id = "Group",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = { type = "content" },
+				UI.VStack({
+					id = "Body",
+					padding = "s",
+					gap = "xs",
+					align = "center",
 					children = {
-						UI.VStack({
-							id = "Body",
-							padding = "s",
-							gap = "xs",
-							align = "center",
-							children = {
-								parts.thumbStack(app, "Thumbs", item.items, size),
-								UI.Text({
-									id = "Id",
-									text = S.t("brews.rowLabel", { id = item.id }),
-									textSize = "caption",
-									role = "secondary",
-									lineLimit = 1,
-									disclose = true,
-								}),
-							},
+						parts.thumbStack(app, "Thumbs", item.items, size),
+						UI.Text({
+							id = "Id",
+							text = S.t("brews.rowLabel", { id = item.id }),
+							textSize = "caption",
+							role = "secondary",
+							lineLimit = 1,
+							disclose = true,
 						}),
 					},
 				}),
