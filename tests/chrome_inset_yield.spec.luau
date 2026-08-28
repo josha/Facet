@@ -272,4 +272,38 @@ describe("the lifted label is never smaller than the text it stands in for", fun
 		local box = chrome_slots.liftGeometry({ contentInsets = { top = 8, right = 14, bottom = 8, left = 14 } })
 		expect(box.size.xOffset).toBe(-28)
 	end)
+
+	--[[ THE LIFT'S ANSWER IS A FUNCTION OF THE TEXT SIZE, AND THAT IS WHY A STALE
+		READ IS A DEFECT RATHER THAN A TIDINESS POINT (review finding I5, 2026-08-28).
+
+		`screen_chrome` reads the floor off the LIVE instance's `TextSize` and used to
+		claim the measure and paint seams "can never drift". The VALUE cannot; WHEN it
+		is re-read can — `render/rect_pass` skips `setRect` for an unchanged rect and
+		the refit rides `applyRect`, so a text-size change that leaves the rect alone
+		never reaches this arithmetic (traced in that file's own comment, with the fix
+		booked against the source-cap ledger because it lands in a banded file).
+
+		A source pin cannot say any of that: it proves the argument is PASSED, not
+		that the value is right. This is the behavioural half — the same host box,
+		the same recipe, TWO text sizes, TWO verdicts. A frame that draws the 16px
+		answer while the solver has already moved to the 30px one is exactly the
+		measure-vs-paint disagreement Decision 1b exists to prevent, and this case is
+		the difference the two frames are made of. ]]
+	it("...and the SAME host box gives two different boxes at two text sizes", function()
+		local recipe = { contentInsets = { top = 8, right = 8, bottom = 8, left = 8 } }
+		-- a 36px themed control at the default preference: 36 - 16 = 20 is room for
+		-- a 16px line, so the recipe's border is honoured
+		local small = chrome_slots.liftGeometry(recipe, 36, 36, 16, 16)
+		expect(small.size.xOffset).toBe(-16)
+		expect(small.position.xOffset).toBe(8)
+		-- ...and the identical box at the largest preference, where the line is 30:
+		-- 20 no longer holds it, so the whole inset comes back and the label draws
+		local large = chrome_slots.liftGeometry(recipe, 36, 36, 30, 30)
+		expect(large.size.xOffset).toBe(0)
+		expect(large.position.xOffset).toBe(0)
+		-- the MEASURE seam reaches the same two verdicts from the same two numbers,
+		-- which is the agreement Decision 1b is about
+		expect(chrome_slots.spendInset(36, 0, 16, 16)).toBe(16)
+		expect(chrome_slots.spendInset(36, 0, 16, 30)).toBe(0)
+	end)
 end)

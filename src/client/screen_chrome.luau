@@ -578,13 +578,36 @@ function screen_chrome.new(ctx: Context)
 			hostW, hostH = rect.w, rect.h
 		end
 		--[[ THE LABEL'S OWN LINE BOX, which is the floor the recipe's inset may not
-			eat through (task THEME, 2026-08-27; `chrome_slots.liftGeometry`). It is
-			read off the LIVE instance rather than plumbed here because the host IS the
-			text node — `TextSize` is whatever the last paint wrote, so the two can
-			never drift, and a host with no text property contributes no floor at all.
-			The measure seam takes the identical number through
+			eat through (task THEME, 2026-08-27; ADR-0059 Decision 1b;
+			`chrome_slots.liftGeometry`). It is read off the LIVE instance rather than
+			plumbed here because the host IS the text node — `TextSize` is whatever the
+			last paint wrote — and a host with no text property contributes no floor at
+			all. The measure seam takes the identical number through
 			`chrome_slots.spendInset`, which is what keeps the reservation and the
-			drawn box agreeing about a control too small for its theme. ]]
+			drawn box agreeing about a control too small for its theme.
+
+			THIS COMMENT USED TO SAY "the two can never drift", AND THAT IS NOT TRUE
+			(review finding I5, traced 2026-08-28). The VALUE cannot drift; WHEN it is
+			re-read can. This function runs from two places — the chrome reconcile
+			(`syncChromeText`, on a theme swap or a plan change) and `refitIconArt`,
+			which the adapter calls from `applyRect`. `render/rect_pass.luau` skips
+			`adapter.setRect` for a rect equal to the last one written, so a node whose
+			TEXT SIZE changed while its RECT did not — a `fixed`-px themed control at a
+			new `preferredTextSize` step is exactly that shape — gets a new `TextSize`
+			from `applyProps` and NO refit. The measure seam has already given the
+			inset back (its floor rose with the text) while this seam is still holding
+			the previous frame's box: the disagreement Decision 1b exists to prevent,
+			in the one window it can still occur.
+
+			IT IS NOT FIXED HERE, and the reason is a rule rather than a judgement:
+			the fix is one call at `screen_target.luau`'s `textSize` branch
+			(`refitIconArt(handle)` beside the `syncTags` it already makes), and that
+			file is inside the source-cap band — `docs/handoff/SOURCE_CAP_LEDGER.md`
+			binds the next round that opens it for anything larger than a comment to
+			take its named extraction FIRST. Booked there, with the Studio capture it
+			needs (a themed fixed-px control at the largest text preference, measure
+			and paint agreeing). `TextScaled` is out of scope by declaration — see the
+			head of this file — so that half of the risk is closed by design. ]]
 		local lineBox = 0
 		if handle ~= nil then
 			local ok, size = pcall(function()
