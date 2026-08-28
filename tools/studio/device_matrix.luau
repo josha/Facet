@@ -680,7 +680,7 @@ local function judgeContainment(census: { any }, out: { any })
 		if #out >= 20 then
 			return
 		end
-		if d.visible == false or d.absPos == nil or d.absSize == nil then
+		if d.visible == false or d.effectivelyHidden or d.absPos == nil or d.absSize == nil then
 			continue
 		end
 		if d.absSize.x <= 0 or d.absSize.y <= 0 then
@@ -746,7 +746,7 @@ local function judgeZeroBoxes(census: { any }, out: { any })
 		if #out >= 20 then
 			return
 		end
-		if d.visible == false or d.absSize == nil then
+		if d.visible == false or d.effectivelyHidden or d.absSize == nil then
 			continue
 		end
 		if type(d.text) ~= "string" or d.text == "" then
@@ -824,6 +824,18 @@ local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw:
 		-- ScrollingFrame, and the engine clips it. Reporting that as a layout
 		-- defect would have made the check useless by making it always fire.
 		local clipDepth: number? = nil
+		-- HIDDEN ANCESTRY (SCREEN-X follow-up, 2026-08-28). `d.visible` is each
+		-- node's OWN `Visible` property, read directly off the instance — it says
+		-- nothing about an ANCESTOR that is itself hidden. A ViewThatFits-style
+		-- construction mounts every candidate and hides the ones that lost, and a
+		-- loser's own chrome decorations (`FacetChrome`/`FacetChromeText`) still
+		-- read `Visible = true` on themselves while their parent Button is
+		-- `Visible = false` — invisible in practice, on-screen in this census.
+		-- Live-caught: a compact-desktop "ActionsColumn" loser, three buttons deep,
+		-- reported six offscreen findings at a stale x=-8 (the column's collapsed
+		-- 0-width layout) that no human could ever see. Tracked the same way
+		-- `clipDepth` tracks clip ancestry, over the same single forward walk.
+		local hiddenDepth: number? = nil
 		for _, d in tree.nodes do
 			nodes += 1
 			table.insert(census, d)
@@ -831,7 +843,16 @@ local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw:
 			if clipDepth ~= nil and depth <= clipDepth then
 				clipDepth = nil
 			end
+			if hiddenDepth ~= nil and depth <= hiddenDepth then
+				hiddenDepth = nil
+			end
 			local insideClip = clipDepth ~= nil
+			local insideHidden = hiddenDepth ~= nil
+			-- annotated onto the node itself so judgeContainment/judgeZeroBoxes
+			-- (which walk the census SEPARATELY, after this loop, by ancestor NAME
+			-- rather than by this loop's depth stack) can apply the same exemption
+			-- without re-deriving clip/hidden ancestry a second way
+			d.effectivelyHidden = insideHidden or d.visible == false
 			if insideClip then
 				clippedNodes += 1
 			end
@@ -840,8 +861,11 @@ local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw:
 			end
 			if d.visible == false then
 				invisible += 1
+				if hiddenDepth == nil then
+					hiddenDepth = depth
+				end
 			end
-			if d.absPos ~= nil and d.absSize ~= nil and d.visible ~= false and not insideClip then
+			if d.absPos ~= nil and d.absSize ~= nil and d.visible ~= false and not insideClip and not insideHidden then
 				local right, bottom = d.absPos.x + d.absSize.x, d.absPos.y + d.absSize.y
 				if
 					(d.absSize.x > 0 and d.absSize.y > 0)
@@ -860,7 +884,7 @@ local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw:
 			-- (and any hidden-by-rect form) keeps its mount with a 0x0 box and
 			-- its text legitimately "does not fit" nothing
 			local sized = d.absSize ~= nil and d.absSize.x > 0 and d.absSize.y > 0
-			if d.textFits == false and sized and #unfitText < 20 then
+			if d.textFits == false and sized and not insideHidden and #unfitText < 20 then
 				-- a truncation the AUTHOR DECLARED (disclose/reveal) is the
 				-- framework's legal overflow policy with a full-value affordance —
 				-- evidence, not a failure. The runner publishes the facts channel

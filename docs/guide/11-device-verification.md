@@ -261,6 +261,109 @@ The place is evidence of the `studio-emulated` and `desktop-retail` kind at
 best; publishing it and holding it is what produces the `phone-physical` and
 `console-physical` rows this stage leaves pending.
 
+## The device-emulator visual sweep (gate)
+
+The five-view matrix above proves ONE fixture, ONE theme, per session. The
+director's own recurring finding is different in kind: overlap/cutoff/
+stray-stroke/pop bugs that show up on a THEMED surface (Pixel Quest, Fantasy
+Ornate) that no headless test constructs — because the escape is in how a
+package's own chrome (a glow, a plate, a per-state art rung) interacts with a
+real engine layout, not in the framework's declared geometry. `tools/
+check_device_sweep.py` + `tools/studio/device_sweep_matrix.json` +
+`tools/studio/device_matrix.luau`'s `row`/`observe`/`live` modes turn that
+into a gate: a machine-readable verdict over device preset × theme package ×
+scenario, captured once and diffed against a stored baseline forever after.
+
+**This gate cannot run in CI.** It requires an open Studio session with the
+place injected and an operator (human or agent) driving
+`StudioDeviceSimulatorService` and the scenario/showcase surface through the
+Studio MCP `execute_luau` tool. `check_device_sweep.py`'s default mode reads
+persisted evidence off disk; only `--selftest` (validates the matrix config's
+own shape against the real `matrix_rows` ids, no Studio needed) is
+CI-shaped.
+
+**Two ways to reach a cell**, because the framework has two mutually
+exclusive boot modes (`examples/gallery/client/boot_mode.luau`):
+
+- **Scenario mode** (`Facet_Showcase = false`, `Facet_Scenario = "theme_authoring"`
+  before Play) drives the base matrix: `theme_authoring` wraps the
+  `adaptive_controls` fixture with `installPackage:<name>` package-swapping
+  and publishes `workspace.FacetScenarioAPI`. Use `device_matrix`'s `row`
+  mode (select the device preset, then `step("installPackage", theme)`, then
+  `observe`) — this is the only surface with in-place theme swapping, so it
+  is also what any OTHER scenario-mode fixture (`ref_glade`, `ref_wardrobe`,
+  `virtual_list_native`, …) is missing: those are driven at `neutral`
+  (their own reference styling) via plain `Facet_Scenario = "<name>"` +
+  `observe`.
+- **Showcase mode** (`Facet_Showcase = true`, the default — leave
+  `Facet_Scenario` unset) is the only way to reach a themed `hud`/`menu`/
+  `tab_view`/`row-actions` demo, because `demo_picker.DEMOS` (not the
+  scenario registry) is what the showcase's in-game theme chip drives, and
+  it lists those by id. Select the demo via `workspace.FacetShowcaseAPI.
+  showNext`/`current`, apply a package via `pickPackage`, then use
+  `device_matrix`'s **`live` mode** (`observeLive`) — showcase mode never
+  creates `FacetScenarioAPI`, so `live` walks `Players.LocalPlayer.PlayerGui`
+  directly with the same containment/paint judgement (`judgeInstanceTrees`,
+  shared by both `observe` and `live`) instead of depending on it. The
+  desktop-scrollbar notable cell (below) also runs in showcase mode, at a
+  windowed (non-`ActualResolution`-forced) viewport, because that is the
+  director's own repro shape.
+
+**The matrix**: `device_sweep_matrix.json`'s `deviceRows` × `themes` on
+`baseScenario` is the floor (5 × 3 = 15 cells); `notableCells` names specific
+director-reported surfaces beyond it (each with its own device row, theme,
+scenario, and a `director` field citing the finding it re-proves). Captures
+follow `capture_viewport.sh`'s convention:
+`<deviceRow>__<theme>__<scenario>.png`, or a notable cell's own `id` in place
+of `deviceRow` when it overrides the viewport.
+
+**Evidence**: one JSON file per cell in
+`artifacts/device-emulator-sweep/rows/<cell>.json` (schema documented in
+`check_device_sweep.py`'s header — `ok`, `evidenceClass`, the four finding
+arrays, `solverDiagnostics`, `settledTwice`, a `capture` path with its
+sha256, and a `triage` block on every red cell), one PNG per cell in
+`artifacts/device-emulator-sweep/captures/`, and a `baseline.json` mapping
+cell → last-known verdict so a future run's red cell can say WHAT regressed
+rather than just that something is red. `check_device_sweep.py` (no
+`--selftest`) reads all of this and exits non-zero on any MISSING cell or
+untriaged REGRESSION.
+
+**The "first-paint watch" substitute.** If a first-paint/transition
+invariant with an on-glass arm exists for the surface under test, wire it in;
+otherwise (the common case here) call `observe`/`live` twice, a beat apart,
+and record `settledTwice = true` only when both calls agree — proving the
+settled frame matches what a fresh re-solve produces, per a `hud`/`Shrink`-
+class fixture whose Vocab chip layout genuinely shifts for several frames
+after a package swap before it settles (measured live, task SWEEP).
+
+**Trigger discipline** — run this sweep:
+- before any director device-pass/review of the showcase or a reference app;
+- after any change touching `screen_scroll_indicators.luau`,
+  `screen_presentation.luau`, `screen_target.luau`'s paint/containment path,
+  `render/transitions.luau` (backdrop/pop), or any `examples/themes/*.luau`
+  package;
+- before closing a campaign/phase that claims cross-platform or themed
+  correctness;
+- whenever a device-owed register item is claimed "covered by sweep" — the
+  row proving it must exist and pass first.
+
+**Traps specific to this gate** (measured, task SWEEP): kill any stale
+`studio_sync` on `:8642` before injecting — a second server silently answers
+alongside a leaked one and there is no error, only stale sources. A node's
+own `Visible` property says nothing about a HIDDEN ANCESTOR — a
+ViewThatFits-style construction's losing candidate is fully mounted, and its
+own chrome decorations (`FacetChrome`/`FacetChromeText`) read `Visible =
+true` on themselves while the collapsed parent is `Visible = false`; without
+tracking hidden ancestry the same way clip ancestry is tracked, the
+offscreen/containment/unfit checks report the loser's stale collapsed-width
+geometry as a live defect (`device_matrix.luau`'s `effectivelyHidden`
+annotation on the shared census, fixed in task SWEEP after it produced a
+false six-node offscreen finding on a themed phone-portrait cell). A manual
+`ScrollingFrame.CanvasPosition` write for investigation purposes can conflict
+with the framework's own reactive control of that property — call
+`FacetScenario.reset()` (or re-enter the demo) rather than trusting a session
+that has been hand-scrolled.
+
 ## What the automated matrix can never close
 
 - physical touch targeting, gestures, or touch feel;
