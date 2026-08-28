@@ -4309,19 +4309,49 @@ it cannot get stuck the same way). A scenario simulating an interrupted
 chord (a modifier key down with no matching up) can call this between steps
 rather than leave a phantom `true` for the rest of the run.
 
-**`action._deliver(value, sourceGamepad?)` and `binding._sample(x, y)` are the
-engine-adapter seam.** The leading underscore means exactly that (constitution
-§2): they are how an alternate action-system adapter —
-`src/client/roblox_input.luau` is the first-party one — delivers state into the
-headless model. They are not private, and they are not for consumer code: a
-control or a screen drives an action through `bind`/`deviceKey`, never through
-these. `sourceGamepad` (ADR-0057, d-pad auto-repeat) records whether the
-BINDING that produced this value is gamepad-classed — every `ButtonX`/`DPad*`
-keyCode and every axis binding (`Thumbstick*` is gamepad-exclusive in this
-vocabulary) is; a keyboard keyCode or a scriptable binding is not. Read back as
-`action.lastGamepad`, a plain (non-reactive) field correct exactly at the
-moment a real change fires — a deduped re-delivery of the same value never
-reaches the line that would update it.
+**`action._deliver(value, sourceGamepad?, sourceBinding?)` and
+`binding._sample(x, y)` are the engine-adapter seam.** The leading underscore
+means exactly that (constitution §2): they are how an alternate action-system
+adapter — `src/client/roblox_input.luau` is the first-party one — delivers
+state into the headless model. They are not private, and they are not for
+consumer code: a control or a screen drives an action through
+`bind`/`deviceKey`, never through these. `sourceGamepad` (ADR-0057, d-pad
+auto-repeat) records whether the BINDING that produced this value is
+gamepad-classed — every `ButtonX`/`DPad*` keyCode and every axis binding
+(`Thumbstick*` is gamepad-exclusive in this vocabulary) is; a keyboard keyCode
+or a scriptable binding is not. Read back as `action.lastGamepad`, a plain
+(non-reactive) field correct exactly at the moment a real change fires — a
+deduped re-delivery of the same value never reaches the line that would update
+it. `sourceBinding` (director item 4 review, ADR-0057 addendum) is that same
+binding object, read back as `action.lastBinding` for `system.wouldWinArbitration`
+below.
+
+**`system.wouldWinArbitration(context, binding) -> boolean`** (director item 4
+review, C1: the d-pad repeat leak). A pure query — never a delivery — that
+answers "if a real event arrived on this binding's keyCode/axis right now,
+would it still reach this context": the same priority/enabled/sink arbitration
+`deviceKey`/`deviceAxis` apply for a real event, replayed over the CURRENT set
+of contexts. A HELD `Direction1D` value can go stale with nothing left to ever
+correct it — a context disabling itself no longer zeros the value on its own
+(see `context.setEnabled` below), and a NEW higher-priority sinking context
+created after a hold began (a modal opening on top) permanently outranks a
+lower-priority context for any keyCode/axis they share, with no future engine
+event ever re-arbitrating an already-held key to notice. A per-frame consumer
+of a held value (the presenter's d-pad auto-repeat) calls this every tick,
+alongside `action.lastBinding`, to notice the moment ownership is lost and
+correct `action.state` itself rather than trusting a value nothing will ever
+update again. Does not replicate Task 8b's `modifierMatch` filtering — every
+caller today drives it from a gamepad-classed binding, and gamepad bindings
+never declare `modifiers`.
+
+**`context.setEnabled(false)` zeros every `Direction1D` action's state to `0`,
+not only `Bool` actions to `false`** (director item 4 review, C1). A disabled
+context can never win arbitration again until re-enabled, so the key-up that
+would otherwise zero a HELD `Navigate`/`Adjust` value never arrives —
+`handle.resign()` disables a surface's context exactly this way while a
+direction can still be physically held. Reading a stale nonzero value off a
+disabled context's action was a live hazard independent of the d-pad
+auto-repeat finding that surfaced it.
 
 ### `inputHint`
 
@@ -6689,10 +6719,14 @@ reports the depth as advice rather than refusing; it also
 reports a group of more than about five items and a destructive item that is not
 last. Under the `menu` presentation each level is its own panel anchored to its
 parent **row** (preferred edge trailing, flipping to leading at the screen edge).
-Under `sheet` — the touch idiom — a submenu **replaces** the sheet's contents and
-grows a Back row instead of floating a second panel over the first. Cancel /
-gamepad B closes **one** level, a tap outside closes **all** of them, and
-Right/Left enter and leave a submenu in document order.
+Under `sheet` — the touch idiom, and (ADR-0061) **the automatic idiom at any
+`sizeClass == "compact"` surface, regardless of which pointer is live** — a
+submenu **replaces** the sheet's contents and grows a Back row instead of
+floating a second panel over the first; medium/large keep the side-by-side
+`menu` expansion. Cancel / gamepad B closes **one** level, a tap outside
+closes **all** of them, and Right/Left enter and leave a submenu in document
+order — and backing out of a level restores focus to the row that led into
+it, not the level's first row.
 
 Icons are a **per-group all-or-nothing** lint — provide icons for every item in
 a group, or for none of them; a divider starts a new group. The row

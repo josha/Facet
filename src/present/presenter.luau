@@ -3120,13 +3120,38 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			`suspendAxisKeys` below) zeroes the action out from under it — repeat
 			never outlives the binding that is driving it.
 
+			OWNERSHIP IS RE-CHECKED EVERY TICK, NOT JUST AT THE START OF THE HOLD
+			(director item 4 review, finding C1). `action.state` can go stale with
+			no future delivery ever correcting it, in at least two ways a
+			one-time check at press time cannot see: `handle.resign()` disables
+			this surface's context mid-hold (a passive HUD's Cancel/`ButtonB`),
+			and `context.setEnabled(false)` used to reset only `Bool` actions —
+			fixed at the source in `actions.luau` now, but a context can ALSO be
+			outranked by a brand-new higher-priority SINKING context (a modal
+			opening on top) while staying enabled the whole time, which no
+			one-shot check and no lifecycle callback can see, because nothing
+			ever fires ON this context again to say so — the eventual key-up
+			routes to the WINNER instead. Left alone, the poll below would keep
+			calling `navigateVertical`/`navigateHorizontal` against a value
+			nothing will ever zero, against the SHARED presenter-wide focus graph
+			— driving whatever surface currently has it, typically the modal that
+			just covered this one, with the player doing nothing at all.
+			`system.wouldWinArbitration` replays the same arbitration a real key
+			event would, over the CURRENT set of contexts, for the exact binding
+			that produced the held value (`action.lastBinding`); the moment it
+			says no, the state is corrected HERE — not just this glue's own
+			`heldDir` — so any other reader of `action.state` also sees the
+			honest zero, the same guarantee `suspendAxisKeys` already gives its
+			own callers.
+
 			Repeats through the EXACT SAME `navigateVertical`/`navigateHorizontal`
 			functions a fresh press uses, so every focus-boundary/wrap rule, every
 			`navigateIntercept`, and the armed-aim sync apply to a repeated step
 			exactly as they do to a single press — nothing here reimplements the
 			ring. Scope deliberately excludes Adjust/AdjustAxis: a slider/stepper
 			held-repeat is a separate, un-asked-for UX call (director item 4 says
-			"advance selection", not "adjust a value"). ]]
+			"advance selection", not "adjust a value"); it never polls, so it
+			never turns the SAME staleness class into a periodic side effect. ]]
 		local DPAD_REPEAT_DELAY_S = 0.4 -- initial hold-before-repeat (console
 		-- convention; matches this file's own DISCLOSE_LONG_PRESS_S precedent
 		-- in screen_target.luau — see ADR-0057)
@@ -3152,6 +3177,20 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end))
 			scope:own(self.onTick(function(dt: number)
 				if heldDir == nil then
+					return
+				end
+				-- OWNERSHIP RE-CHECK (see the header above): a context that no
+				-- longer owns the binding driving this hold will never receive
+				-- the key-up that would otherwise zero it — correct it here,
+				-- for every reader of `action.state`, the moment that is true.
+				if
+					action.lastBinding == nil
+					or not actionSystem.wouldWinArbitration(action.context, action.lastBinding)
+				then
+					heldDir = nil
+					if action.state:get() ~= 0 then
+						action.state:set(0)
+					end
 					return
 				end
 				sinceLastFire += dt

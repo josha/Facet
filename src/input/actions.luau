@@ -51,6 +51,16 @@ function actions.newSystem(core: any)
 			-- presenter's d-pad auto-repeat glue (director item 4) to gate repeat
 			-- to gamepad input only.
 			lastGamepad = false,
+			-- THE BINDING THAT DELIVERED THE CURRENT VALUE (director item 4
+			-- review, finding C1). Same staleness rule as `lastGamepad` above.
+			-- A per-frame consumer of a HELD Direction1D value (the d-pad
+			-- auto-repeat glue) reads this alongside `system.wouldWinArbitration`
+			-- to notice the moment its context stops being the one arbitration
+			-- would actually deliver this binding's keyCode/axis to — the
+			-- moment a hold's state can no longer be trusted, because nothing
+			-- will ever correct it again (see `wouldWinArbitration`'s own
+			-- header for the two lifecycle transitions that cause this).
+			lastBinding = nil :: any,
 		}
 
 		-- THE HANDLER IS HANDED THE VALUE (api-architecture-consistency F-29).
@@ -81,8 +91,10 @@ function actions.newSystem(core: any)
 		-- `sourceGamepad` records whether the BINDING that produced this value is
 		-- gamepad-classed (isGamepadKeyCode, or an axis binding — see bindAxis);
 		-- nil/omitted (the scriptable-fire default when a binding has no keyCode)
-		-- reads as false.
-		function action._deliver(value: any, sourceGamepad: boolean?)
+		-- reads as false. `sourceBinding` (director item 4 review, C1) is that
+		-- SAME binding object, kept so a held value's ownership can be
+		-- re-checked later — see `lastBinding`'s own header.
+		function action._deliver(value: any, sourceGamepad: boolean?, sourceBinding: any?)
 			if not context.enabled or context.destroyed then
 				return
 			end
@@ -91,6 +103,7 @@ function actions.newSystem(core: any)
 				return
 			end
 			action.lastGamepad = sourceGamepad == true
+			action.lastBinding = sourceBinding
 			action.state:set(value)
 			if action.type == "Bool" then
 				local handlers = if value == true then action.pressedHandlers else action.releasedHandlers
@@ -146,7 +159,7 @@ function actions.newSystem(core: any)
 				if binding.removed or action.context.destroyed then
 					return -- silent no-op, spike T6a
 				end
-				action._deliver(value, binding.isGamepad)
+				action._deliver(value, binding.isGamepad, binding)
 			end
 			function binding.remove()
 				binding.removed = true
@@ -257,10 +270,25 @@ function actions.newSystem(core: any)
 			if not on then
 				-- engine resets action state when disabled (INFERRED: whether the
 				-- engine also fires Released for a key held across a disable is
-				-- undocumented; headless resets state without firing handlers)
+				-- undocumented; headless resets state without firing handlers).
+				--
+				-- DIRECTION1D TOO, NOT JUST BOOL (director item 4 review, finding
+				-- C1). A disabled context can never win arbitration again until
+				-- re-enabled, so `deviceKey`/`deviceAxis` will never deliver the
+				-- key-up that would otherwise zero a HELD Navigate/Adjust value —
+				-- `handle.resign()` disables a surface's context exactly this way
+				-- while a d-pad direction can still be physically held. Left
+				-- nonzero, a stale value is a hazard to ANY reader of
+				-- `action.state`, not only the d-pad repeat glue this finding was
+				-- raised against (which also re-checks arbitration ownership
+				-- itself every tick — see `wouldWinArbitration` — so this is
+				-- belt-and-suspenders for that specific caller, and the ONLY fix
+				-- for every other one).
 				for _, action in context.actions do
 					if action.type == "Bool" and action.state:get() == true then
 						action.state:set(false)
+					elseif action.type == "Direction1D" and action.state:get() ~= 0 then
+						action.state:set(0)
 					end
 				end
 			end
@@ -440,7 +468,7 @@ function actions.newSystem(core: any)
 			if candidate.binding.modifiers ~= nil then
 				candidate.binding.pressed = isDown
 			end
-			candidate.action._deliver(value, candidate.binding.isGamepad)
+			candidate.action._deliver(value, candidate.binding.isGamepad, candidate.binding)
 			if candidate.context.sink then
 				consumedPriority = candidate.context.priority
 			end
@@ -477,12 +505,78 @@ function actions.newSystem(core: any)
 			end
 			local value = candidate.binding._sample(x, y)
 			if value ~= nil then
-				candidate.action._deliver(value, candidate.binding.isGamepad)
+				candidate.action._deliver(value, candidate.binding.isGamepad, candidate.binding)
 			end
 			if candidate.context.sink then
 				consumedPriority = candidate.context.priority
 			end
 		end
+	end
+
+	--[[ WOULD THIS CONTEXT STILL WIN ARBITRATION FOR THIS BINDING, RIGHT NOW?
+		(director item 4 review, finding C1.) A pure query, never a delivery:
+		replays the SAME priority/enabled/sink arbitration `deviceKey`/
+		`deviceAxis` already apply for a real event, over the CURRENT set of
+		contexts, for one binding a caller already knows produced its held
+		value (`action.lastBinding`).
+
+		WHY THIS EXISTS. A Direction1D action's state can go stale in a second
+		way beyond a context disabling itself (which `setEnabled` now corrects
+		directly, above): a NEW, higher-priority SINKING context created after
+		a hold began — a modal opening on top of a screen — permanently
+		outranks a lower-priority context for any keyCode/axis they share, and
+		no future engine event ever re-fires for an already-held key to
+		correct it. `deviceKey`/`deviceAxis` only arbitrate a REAL event, and
+		the covered context's action never receives one again — the key-up
+		routes to the WINNER instead. Before this round that staleness was
+		inert (nothing reacted to a value that never changes again); a
+		per-frame consumer of a HELD value (the d-pad auto-repeat glue) turns
+		it into an unbounded periodic side effect if nothing notices. This is
+		how it notices: called every tick while a direction is held, so
+		ownership loss is caught and corrected (`action.state:set(0)`) the
+		moment it happens, not merely inferred after the fact.
+
+		DOES NOT REPLICATE MODIFIER-MATCHING (Task 8b's `modifierMatch`):
+		every binding this is driven from today is gamepad-classed
+		(`binding.isGamepad`), and gamepad bindings never declare `modifiers`
+		— see `modifierMatch`'s own header. A future caller driving this from
+		a modifier-bearing keyCode binding would need that added here first. ]]
+	function system.wouldWinArbitration(context: any, binding: any): boolean
+		if context == nil or binding == nil or context.destroyed or not context.enabled then
+			return false
+		end
+		local candidates: { any } = {}
+		for _, candidateContext in contexts do
+			if candidateContext.enabled and not candidateContext.destroyed then
+				for _, action in candidateContext.actions do
+					for _, candidateBinding in action.bindings do
+						local matches = if binding.isAxis == true
+							then candidateBinding.isAxis == true and candidateBinding.axis == binding.axis
+							else binding.keyCode ~= nil and candidateBinding.keyCode == binding.keyCode
+						if matches then
+							table.insert(candidates, candidateContext)
+							break
+						end
+					end
+				end
+			end
+		end
+		table.sort(candidates, function(a, b)
+			return a.priority > b.priority
+		end)
+		local consumedPriority: number? = nil
+		for _, candidateContext in candidates do
+			if consumedPriority ~= nil and candidateContext.priority < consumedPriority then
+				break -- sunk by a higher-priority context before reaching ours
+			end
+			if candidateContext == context then
+				return true
+			end
+			if candidateContext.sink then
+				consumedPriority = candidateContext.priority
+			end
+		end
+		return false
 	end
 
 	--[[ HOW MANY CONTEXTS THIS SYSTEM IS HOLDING. The honest read behind the

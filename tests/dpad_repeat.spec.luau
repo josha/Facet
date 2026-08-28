@@ -263,3 +263,99 @@ describe("d-pad auto-repeat + the axis-suspend Adjust seam (found while building
 		w.system.deviceKey("DPadDown", false)
 	end)
 end)
+
+-- ===========================================================================
+-- Part 4 — RED-TEAM review finding C1: a HELD direction's context can stop
+-- owning arbitration for reasons beyond "the surface was dismissed", and the
+-- repeat's own poll turns that staleness into an unbounded, invisible,
+-- periodic side effect on the SHARED (presenter-wide) focus graph. Both
+-- reproductions are the reviewer's own, verbatim.
+-- ===========================================================================
+describe("d-pad auto-repeat + RED-TEAM C1: ownership can be lost mid-hold without a dismiss", function()
+	it("Variant A — resign() mid-hold stops the repeat and zeroes navigate.state, not just heldDir", function()
+		local w = worldLib.new()
+		w.present(fiveRowScreen(), { responder = "passive" })
+		w.handle.engage()
+
+		-- a passive, not-yet-engaged surface starts with NO focus; the first
+		-- navigate event on it seeds ENTRY focus (Row1) rather than moving
+		-- relative to a prior one — `engage()` alone does not
+		w.system.deviceKey("DPadDown", true)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row1")
+		w.tick(0.4) -- repeat active: Row2
+		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+
+		-- Cancel (ButtonB) WHILE DPadDown is still physically held: resign()
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+
+		-- the fix: context.setEnabled(false) now zeros Direction1D too, so this
+		-- is 0 immediately — not left stuck at 1 forever (the review's own
+		-- measurement of the pre-fix state)
+		expect(w.handle.actions.navigate.state:get()).toBe(0)
+
+		-- 13 is deliberately NOT a multiple of the 5-row ring (the review's own
+		-- note: 20 gave a false negative by coincidence, landing back on the
+		-- start row); focus must not move AT ALL after resign
+		local afterResign = w.pres.focus.focused:get()
+		for _ = 1, 13 do
+			w.tick(0.1)
+		end
+		expect(w.pres.focus.focused:get()).toBe(afterResign)
+	end)
+
+	it(
+		"Variant B — a modal opening mid-hold stops the BACKGROUNDED repeat instead of hijacking the modal's own ring",
+		function()
+			local w = worldLib.new()
+			w.present(Facet.UI.Screen({
+				id = "Base",
+				children = {
+					Facet.UI.Button({ id = "Row1", label = "Row1" }),
+					Facet.UI.Button({ id = "Row2", label = "Row2" }),
+					Facet.UI.Button({ id = "Row3", label = "Row3" }),
+					Facet.UI.Button({ id = "Row4", label = "Row4" }),
+					Facet.UI.Button({ id = "Row5", label = "Row5" }),
+				},
+			}))
+			local baseHandle = w.handle
+
+			w.system.deviceKey("DPadDown", true) -- Row1 -> Row2
+			w.tick(0.4) -- repeat active: Base/Row3
+			expect(w.pres.focus.focused:get()).toBe("/Base/Row3")
+
+			local modalHandle = w.pres.presentModal(Facet.UI.Screen({
+				id = "Modal",
+				children = {
+					Facet.UI.Button({ id = "Row1", label = "Row1" }),
+					Facet.UI.Button({ id = "Row2", label = "Row2" }),
+					Facet.UI.Button({ id = "Row3", label = "Row3" }),
+					Facet.UI.Button({ id = "Row4", label = "Row4" }),
+					Facet.UI.Button({ id = "Row5", label = "Row5" }),
+				},
+			}))
+			w.pres.refresh()
+			expect(w.pres.focus.focused:get()).toBe("/Modal/Row1")
+
+			-- release the physical key: arbitration routes this to the MODAL's own
+			-- (higher-priority, sinking) Navigate context — Base's context never
+			-- sees it, exactly the mechanism the review measured
+			w.system.deviceKey("DPadDown", false)
+
+			-- with NO further player input, the fix must stop Base's leaked
+			-- repeat instead of letting it keep driving the shared focus graph —
+			-- which right now belongs to the modal
+			for _ = 1, 4 do
+				w.tick(0.1)
+			end
+			expect(w.pres.focus.focused:get()).toBe("/Modal/Row1")
+			expect(baseHandle.actions.navigate.state:get()).toBe(0)
+
+			-- and the modal's OWN navigation is untouched by any of this
+			w.system.deviceKey("DPadDown", true)
+			w.system.deviceKey("DPadDown", false)
+			expect(w.pres.focus.focused:get()).toBe("/Modal/Row2")
+			w.pres.dismiss(modalHandle)
+		end
+	)
+end)
