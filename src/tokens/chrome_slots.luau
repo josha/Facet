@@ -721,6 +721,42 @@ function chrome_slots.spendInset(extent: number, authored: number, inset: number
 	return inset
 end
 
+--[[ carvedBorder(snapshot, slot) -> the largest side of `snapshot.chromeInsets[slot]`,
+	or 0 when there is none (no package installed, or the slot carves nothing).
+
+	THE ONE COMPUTATION EVERY "clear the theme's own frame" DECORATION NEEDS
+	(task THEME2; ADR-0059 Decision 3's `barSurfaceSlot` carve, generalized).
+	`selection_indicator.luau`'s pill inset and `src/controls/picker.luau`'s
+	count-seal badge both needed "how far does this package's chrome carve into
+	the slot behind me", and both wrote the same four-line max-over-sides loop
+	by hand before this existed — which is exactly the shape of defect this
+	round closed twice (the pill's own inset, ADR-0059; the badge's corner
+	offset, this task) and is due to become a THIRD hand-written copy the next
+	time an author reaches for the same idea. One function, so a future
+	decoration author has something to require instead of re-deriving it.
+
+	Zero on a flat/neutral package (`chromeInsets` is all-zero there) and zero
+	with no package installed at all (`snapshot` nil or malformed) — a caller
+	combines it with its own existing value via `math.max`, never adds it,
+	matching the framework's own established idiom (`themeSnapshot.resolveTotal`
+	is for a LIST that sums; this is a FRAME that does not). ]]
+function chrome_slots.carvedBorder(snapshot: any?, slot: string): number
+	if type(snapshot) ~= "table" then
+		return 0
+	end
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	if type(plate) ~= "table" then
+		return 0
+	end
+	local carved = 0
+	for _, side in { "top", "right", "bottom", "left" } do
+		local px = (plate :: any)[side]
+		carved = math.max(carved, if type(px) == "number" then px else 0)
+	end
+	return carved
+end
+
 function chrome_slots.iconBoxPx(wantPx: number, rectW: number?, rectH: number?, padX: number, padY: number): number
 	local px = wantPx
 	if type(rectW) == "number" then

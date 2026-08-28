@@ -38,6 +38,11 @@
 --                                        still plays nothing; it says what
 --                                        happened and a subscriber decides.
 
+-- a pure geometry helper, the same precedented reach `nested_compositing.luau`
+-- (`transform_footprint`) and `sensory_feedback.luau` (`haptics`) already make
+-- for a utility with no public-surface equivalent (task THEME2)
+local chrome_slots = require("../../../src/tokens/chrome_slots")
+
 return {
 	title = "Adaptive controls (write-once)",
 	ledgerRows = {
@@ -277,6 +282,24 @@ return {
 		-- the native circle-with-a-number, and a package with a badge recipe seals
 		-- it and lifts the count centred — the count was unreadable when it was a
 		-- corner-aligned bare Text.
+		--
+		-- BADGE_CORNER_INSET (task THEME2, director item: "the badge has no
+		-- padding and overlaps the edge of the control", i2.png). `UI.padding`/
+		-- `UI.alignment` write straight onto a node's own props, never a
+		-- wrapper — so the `2` below (the seal's own INTERNAL glyph inset; see
+		-- its comment) never moved the badge off the tile's raw corner, and
+		-- under a package that carves a border into `surface = "control"`
+		-- (Pixel Quest's is 8px per side) the badge sat on top of it. Same
+		-- class `src/controls/picker.luau`'s count seal had this round, fixed
+		-- the same way: `chrome_slots.carvedBorder` reads the largest carved
+		-- side of the `control` slot's own chrome, live off the theme
+		-- snapshot. Zero on every flat package, so shipped geometry there is
+		-- unchanged.
+		local badgeCornerInset = scope:own(core:memo(function(use)
+			local snap = use(ctx.env:get("themeMetrics"))
+			local px = chrome_slots.carvedBorder(snap, "control")
+			return { top = px, right = px }
+		end))
 		local function badgedTile(id: string, badge: string)
 			return UI.overlay(
 				UI.Box({
@@ -285,35 +308,44 @@ return {
 					width = UI.fill(),
 					height = { type = "fixed", px = 44 },
 				}),
-				UI.alignment(
-					UI.padding(
-						-- 28x28, NOT 24: the parchment seal is authored at 28x28 and
-						-- its recipe reserves a 5px contentInset on every side, so the
-						-- lifted count gets 28-10 = 18px of room. At 24 it got 14 —
-						-- less than the ~14.4px line box a 12px glyph needs, which is
-						-- the very clipping this fix round is closing. 28 also paints
-						-- the seal at its native size, so nothing resamples.
-						--
-						-- textAlign is load-bearing too: the lift centres a badge's
-						-- value only when a package actually skins it. On a FLAT theme
-						-- the label draws its own text with the alignment it was
-						-- given, and the default is start — so the unthemed "3" sat
-						-- against the left edge of its circle, which is where the
-						-- director found it.
-						UI.Text({
-							id = id .. "Badge",
-							text = badge,
-							textSize = "caption",
-							textAlign = "center",
-							surface = "badge",
-							width = { type = "fixed", px = 28 },
-							height = { type = "fixed", px = 28 },
-						}),
-						2
-					),
-					"end",
-					"start"
-				)
+				UI.ZStack({
+					id = id .. "BadgeCorner",
+					alignH = "end",
+					alignV = "start",
+					width = UI.fill(),
+					height = UI.fill(),
+					-- clears the tile's own themed `control` chrome border
+					-- (see badgeCornerInset above); `{top=0,right=0}` on
+					-- every flat package
+					padding = badgeCornerInset,
+					children = {
+						UI.padding(
+							-- 28x28, NOT 24: the parchment seal is authored at 28x28 and
+							-- its recipe reserves a 5px contentInset on every side, so the
+							-- lifted count gets 28-10 = 18px of room. At 24 it got 14 —
+							-- less than the ~14.4px line box a 12px glyph needs, which is
+							-- the very clipping this fix round is closing. 28 also paints
+							-- the seal at its native size, so nothing resamples.
+							--
+							-- textAlign is load-bearing too: the lift centres a badge's
+							-- value only when a package actually skins it. On a FLAT theme
+							-- the label draws its own text with the alignment it was
+							-- given, and the default is start — so the unthemed "3" sat
+							-- against the left edge of its circle, which is where the
+							-- director found it.
+							UI.Text({
+								id = id .. "Badge",
+								text = badge,
+								textSize = "caption",
+								textAlign = "center",
+								surface = "badge",
+								width = { type = "fixed", px = 28 },
+								height = { type = "fixed", px = 28 },
+							}),
+							2
+						),
+					},
+				})
 			)
 		end
 		local toolbar = UI.HStack({

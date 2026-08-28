@@ -944,3 +944,97 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		expect(#found).toBe(0)
 	end)
 end)
+
+--[[ THE SECOND CONSUMER OF THE SAME CLASS: `adaptive_controls.luau`'s HUD-tile
+	badge (task THEME2, second round). The showcase's own count-seal badge
+	(above) is `src/controls/picker.luau`'s shared mechanism; this scenario's
+	`badgedTile` is a SEPARATE, hand-rolled construction (`UI.overlay` + a raw
+	`UI.Text` carrying its own `alignH`/`alignV`) that never went through the
+	Picker at all — so closing the Picker's copy of the defect did not close
+	this one. Measured, before this round's second fix: the tile's own `2`px
+	`UI.padding` is the seal's INTERNAL glyph inset (its own comment says so),
+	never a corner offset — `UI.padding`/`UI.alignment` write straight onto a
+	node's own props, no wrapper — so the badge sat flush at the tile's raw
+	corner exactly like the Picker's did, and Pixel Quest's `control` chrome
+	(8px/side) landed under it. `t4`'s badge is "7", which is the value in the
+	director's own photograph.
+
+	THE FIX REUSES THE SAME PRIMITIVE the Picker fix's own refactor extracted
+	for exactly this reason: `chrome_slots.carvedBorder(snapshot, "control")`,
+	now required directly by the fixture (the same precedented reach
+	`nested_compositing.luau`/`sensory_feedback.luau` already make for a
+	utility with no public-surface equivalent). ]]
+describe(
+	"themed containment: adaptive_controls' HUD-tile badge clears its own tile's chrome (director item 2, second consumer)",
+	function()
+		local TILE_IDS = { "t1", "t2", "t3", "t4" }
+
+		local function tileHits(
+			w: any,
+			snapshot: any?
+		): { { tile: string, carved: number, rightClear: number, topClear: number } }
+			local built = mountScenario(w, "adaptive_controls")
+			settle(w)
+			if snapshot ~= nil then
+				w.env:set("themeMetrics", snapshot)
+				settle(w)
+			end
+			local carved = if type(snapshot) == "table" then chrome_slots.carvedBorder(snapshot, "control") else 0
+			local out = {}
+			for _, tileId in TILE_IDS do
+				local boxSuffix = `/{tileId}+overlay/{tileId}`
+				local badgeSuffix = `/{tileId}+overlay/{tileId}BadgeCorner/{tileId}Badge`
+				local boxPath, badgePath = nil, nil
+				for _, path in w.adapter.paths() do
+					if string.sub(path, -#boxSuffix) == boxSuffix then
+						boxPath = path
+					elseif string.sub(path, -#badgeSuffix) == badgeSuffix then
+						badgePath = path
+					end
+				end
+				if boxPath == nil or badgePath == nil then
+					continue
+				end
+				local box = w.adapter.node(boxPath)
+				local badge = w.adapter.node(badgePath)
+				if box == nil or badge == nil or box.rect == nil or badge.rect == nil then
+					continue
+				end
+				table.insert(out, {
+					tile = tileId,
+					carved = carved,
+					rightClear = (box.rect.x + box.rect.w - carved) - (badge.rect.x + badge.rect.w),
+					topClear = badge.rect.y - (box.rect.y + carved),
+				})
+			end
+			return out
+		end
+
+		it(
+			"with no package installed, every tile's badge sits flush at the corner — shipped geometry, unchanged",
+			function()
+				local w = world(VIEWS[1])
+				local hits = tileHits(w, nil)
+				expect(#hits).toBe(#TILE_IDS) -- anti-vacuity: all four tiles found
+				for _, hit in hits do
+					expect(hit.carved).toBe(0)
+					expect(math.abs(hit.rightClear) <= 0.5).toBe(true)
+					expect(math.abs(hit.topClear) <= 0.5).toBe(true)
+				end
+			end
+		)
+
+		for _, pkg in PACKAGES do
+			it(`under {pkg.id}, every tile's badge clears its own tile's carved border`, function()
+				local w = world(VIEWS[1])
+				local hits = tileHits(w, pkg.snapshot)
+				expect(#hits).toBe(#TILE_IDS)
+				for _, hit in hits do
+					expect(hit.carved > 0).toBe(true) -- anti-vacuity: this package really carves `control`
+					expect(hit.rightClear >= -0.5).toBe(true)
+					expect(hit.topClear >= -0.5).toBe(true)
+				end
+			end)
+		end
+	end
+)

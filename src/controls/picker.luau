@@ -584,18 +584,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 		end))
 		badgeCornerInset = scope:own(core:memo(function(use)
-			local px = 0
-			if badgeClearSlot ~= nil then
-				local snap = use(metricsSig)
-				local insets = if type(snap) == "table" then (snap :: any).chromeInsets else nil
-				local plate = if type(insets) == "table" then (insets :: any)[badgeClearSlot] else nil
-				if type(plate) == "table" then
-					for _, side in { "top", "right", "bottom", "left" } do
-						local carved = (plate :: any)[side]
-						px = math.max(px, if type(carved) == "number" then carved else 0)
-					end
-				end
-			end
+			local px = if badgeClearSlot ~= nil then chrome_slots.carvedBorder(use(metricsSig), badgeClearSlot) else 0
 			return { top = px, right = px }
 		end))
 	end
