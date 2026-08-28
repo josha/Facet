@@ -6685,10 +6685,26 @@ restore and tap-away catcher are the presenter's own.
 
 Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
 presentation: (("automatic" | "menu" | "sheet") | Readable<string>)?, sizeClass: (string | Readable)?,
-interactionClasses: (table | Readable)?, env: Environment?, onOpen: (() -> ())?,
-onClose: (() -> ())? }`. Both adaptive facts arrive by themselves from the surface's
-environment when you pass neither, and an automatic menu with no environment anywhere
-refuses to construct (ADAPT-1); `dump().factsFrom` says which happened.
+interactionClasses: (table | Readable)?, env: Environment?, backLabel: string?,
+onOpen: (() -> ())?, onClose: (() -> ())? }`. Both adaptive facts arrive by themselves
+from the surface's environment when you pass neither, and an automatic menu with no
+environment anywhere refuses to construct (ADAPT-1); `dump().factsFrom` says which
+happened.
+
+**`backLabel` (ADR-0061 fix round 1) is the word on the `sheet` idiom's Back
+row.** Same shape as `present/nav_bar.luau`'s `NavBarSpec.backLabel` and the
+same reason it exists there: *"a Button always needs a label (a11y)... this
+construct has no i18n system of its own to invent one from."* Unlike
+`nav_bar` — which has no built-in Back verb, so omitting `backLabel` there
+means an icon-only button — `newMenu` invents its OWN Back row, so omitting
+`backLabel` here falls back to the literal English word "Back" rather than
+going blank. **That fallback is an i18n gap, not a feature**: since
+`sizeClass == "compact"` is now the framework's own default for every
+automatic menu (ADR-0061), any submenu-bearing `newMenu` shipped to a
+localized audience should set `backLabel` before it reaches a compact
+session. The row degrades to the chevron icon alone under an over-length
+label (the same `compactLabel` ladder every other row in the panel already
+uses — no `prefer`, so the word shows whenever it fits) rather than clipping.
 
 **`presentation` accepts a `Readable<string>` as well as a plain string** (gap 20,
 framework-gaps-phase2). A FORCED (non-`"automatic"`) value used to be

@@ -69,6 +69,7 @@ local function world(opts: any?)
 		presentation = options.presentation,
 		sizeClass = options.sizeClass,
 		interactionClasses = options.interactionClasses,
+		backLabel = options.backLabel,
 		onOpen = function()
 			table.insert(ran, "open")
 		end,
@@ -865,6 +866,78 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 		end
 		table.sort(stillAlive)
 		expect(table.concat(stillAlive, ", ")).toBe("")
+	end)
+
+	--[[ REVIEW FINDING I1 (fix round 1): the Back row's WORD was a hardcoded,
+		unlocalizable English literal with no caller override — a real,
+		reachable defect once this round made `sheet` (and its Back row) the
+		framework default for every compact `newMenu`. Fixed on the sibling
+		doctrine `present/nav_bar.luau`'s `NavBarSpec.backLabel` already
+		ships: an optional `spec.backLabel`, the current literal surviving only
+		as the fallback when it is absent. ]]
+	it("`backLabel` reaches the Back row's rendered label", function()
+		local w = world({ items = NESTED, presentation = "sheet", backLabel = "Zurück" })
+		w.control.api.open()
+		w.pres.refresh()
+		w.control.api.select("adjust")
+		w.pres.refresh()
+		local back = w.adapter.node("/Menu-M/Layer/Panel/Back")
+		expect(back ~= nil).toBe(true)
+		expect(string.find(back.props.label, "Zurück", 1, true) ~= nil).toBe(true)
+		-- the glyph prefix stays — only the WORD is the caller's to replace
+		expect(string.find(back.props.label, "Back", 1, true) ~= nil).toBe(false)
+	end)
+
+	it("the literal 'Back' stands as the fallback when `backLabel` is absent (no regression)", function()
+		local w = world({ items = NESTED, presentation = "sheet" })
+		w.control.api.open()
+		w.pres.refresh()
+		w.control.api.select("adjust")
+		w.pres.refresh()
+		local back = w.adapter.node("/Menu-M/Layer/Panel/Back")
+		expect(string.find(back.props.label, "Back", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ THE EXPANSION CASE (binding R9-family): a caller's localized word can
+		run well past English under pseudo-localization (this codebase's own
+		`xa`-pass convention measures ~1.4x); the Back row must degrade to its
+		icon rather than clip. `compactLabel` (no `prefer`) is the SAME ladder
+		`menu_recipe.row`'s own doctrine already gives every other row in this
+		panel — proven the same way `menu_scenario.spec.luau` already proves
+		"the solver reports nothing" for this construct: zero overflow
+		findings from the live solver, not an inspected prop. ]]
+	it("a Back label past ~1.4x an English source degrades to the icon alone rather than clipping", function()
+		--[[ `diagnostics()` was tried first and found VACUOUS here (mutation
+				check, fix round 1): it never fires for a label overflowing its OWN
+				Button, only for a BOX escaping its container, so removing the
+				`compactLabel` this fix adds does not redden it. The instrument that
+				actually sees the claim is `commit_walks.textVerdicts`' own compact
+				verdict, which the adapter mirrors as `props.icon` — set to the
+				`compactLabel` icon the instant the full label's measured width does
+				not fit the row, exactly the ladder `menu_recipe.row`'s doctrine
+				already gives every other row (never a partial/cut-off word: the WHOLE
+				label, or the WHOLE icon standing in for it). ]]
+		local longLabel = "Zurück zur vorherigen Menüebene, danke für Ihre Geduld"
+		local w = world({ items = NESTED, w = 320, presentation = "sheet", backLabel = longLabel })
+		w.control.api.open()
+		w.pres.refresh()
+		w.control.api.select("adjust")
+		w.pres.refresh()
+		local back = w.adapter.node("/Menu-M/Layer/Panel/Back")
+		expect(back ~= nil).toBe(true)
+		-- the full word does not fit a compact row — the ladder went compact,
+		-- never a mid-word clip
+		expect(back.props.icon).toBe("chevron.leading")
+		-- ...and the short, undegraded case proves this isn't just always true:
+		-- a word that DOES fit keeps its text, icon-free
+		local short = world({ items = NESTED, w = 320, presentation = "sheet", backLabel = "Zurück" })
+		short.control.api.open()
+		short.pres.refresh()
+		short.control.api.select("adjust")
+		short.pres.refresh()
+		local shortBack = short.adapter.node("/Menu-M/Layer/Panel/Back")
+		expect(shortBack.props.icon).toBeNil()
+		expect(string.find(shortBack.props.label, "Zurück", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

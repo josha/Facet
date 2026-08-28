@@ -55,6 +55,11 @@
 	medium/large keep the side-by-side expansion. Backing out of a level restores
 	focus to the row that led into it, not the level's first row — `sheet`
 	replaces its one surface on every level change, so nothing else remembers.
+	The Back row's own WORD is `spec.backLabel` (review finding I1, fix round 1)
+	— an English literal is now shown to every compact session by default, so a
+	caller shipping to a localized audience sets it, the same "this construct
+	invents no i18n of its own" stance `present/nav_bar.luau`'s `backLabel`
+	already takes.
 
 	A MENU WHOSE EVERY ITEM IS DISABLED STILL OPENS. The guidance: if all of a menu's
 	items are unavailable, the menu itself needs to remain available so people can
@@ -114,11 +119,25 @@ export type Spec = {
 		automatic presentation finds the one this control's own core published, and
 		refuses to construct when there is none. ]]
 	env: any?,
+	--[[ THE SHEET'S BACK ROW LABEL (review finding I1, task PANEL fix round 1),
+		following `present/nav_bar.luau`'s own `NavBarSpec.backLabel: string?`
+		shape exactly — same optional typing, same reason: "a Button always needs
+		a label (a11y)... this construct has no i18n system of its own to invent
+		one from." UNLIKE `nav_bar` (which has no built-in Back verb at all, so
+		omitting `backLabel` there means no text and an icon-only button),
+		`newMenu` invented its own Back row before this field existed, so omitting
+		this stays WORKING rather than blank: it falls back to the literal English
+		"Back" `buildPanel` already drew. That fallback is an i18n gap, not a
+		feature — a caller shipping `sheet`-reachable submenus (any compact
+		width, the framework default since this round) to a localized audience
+		must set this, exactly as `docs/reference/api.md` now says. ]]
+	backLabel: string?,
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }
 
 local MENU_KEYS = specGuard.keySet({
+	"backLabel",
 	"env",
 	"id",
 	"interactionClasses",
@@ -500,7 +519,22 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				rows,
 				UI.Button({
 					id = BACK_ID,
-					label = `{glyph} Back`,
+					-- `spec.backLabel` (review finding I1): the caller's localized
+					-- word, or the framework's own English fallback when absent —
+					-- see the Spec field's own comment for why this row, unlike
+					-- `nav_bar`'s, HAS a fallback at all.
+					label = `{glyph} {spec.backLabel or "Back"}`,
+					-- THE SAME DEGRADE PATH EVERY OTHER ROW IN THIS PANEL ALREADY
+					-- HAS (`menu_recipe.row`'s own doctrine: label first, icon on
+					-- `compactLabel`, deliberately NO `prefer` — "a menu row keeps
+					-- its label... the icon rides `compactLabel`, which draws it
+					-- only when the words genuinely do not fit"). A localized
+					-- `backLabel` — measured up to ~1.4x an English source under
+					-- pseudo-localization, binding R9-family — degrades to the
+					-- chevron alone rather than clipping; unlike `nav_bar`'s Back
+					-- button this one is NOT `prefer`red, because it is a row
+					-- inside this SAME panel's list, not a chrome-bar affordance.
+					compactLabel = { icon = "chevron.leading" },
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = rowHeight },
 				})

@@ -24,10 +24,16 @@ question it does not answer, corrected without inventing a breakpoint).
 and `picker` also call; this ADR does not touch their behavior (see "What this
 round does NOT change").
 **Guards:** `tests/menu.spec.luau` § "item 14 — COMPACT forces the
-single-panel idiom, not touch" (10 cases); `tests/menu_scenario.spec.luau` §
+single-panel idiom, not touch" (13 cases: 10 from the initial round, 3 from
+fix round 1's `backLabel` — override reaches the row, fallback stands when
+absent, the expansion case); `tests/menu_scenario.spec.luau` §
 "both idioms, from one control, on one machine" (three cases re-pinned off
 `PHONE`, one case added at `PHONE` proving the new rule); RR
 `games/RascalRally/code/tests/facet_menu_contract.spec.luau` (migrated).
+**Fix round 1** (`review-panel-findings.md`, RED-TEAM): Spec FAIL / quality
+NOT APPROVED on one Important (I1, the Back row's hardcoded literal — fixed,
+see "Fix round 1" below) with two Minors accepted as documented trade-offs
+(M1, M2) and everything else independently reproduced and ratified.
 
 ## Context
 
@@ -182,6 +188,126 @@ This round adds regression coverage that all three still reach `ops.back()`
 when `sheet` is chosen AUTOMATICALLY (at a compact width) rather than only
 when it is forced, since that is the newly-reachable path
 (`tests/menu.spec.luau`'s item-14 describe block).
+
+## Fix round 1 (RED-TEAM review, `review-panel-findings.md`)
+
+**Spec FAIL / quality NOT APPROVED on one Important**, everything else
+independently reproduced and ratified (including the ledger repair below).
+
+### I1 (fixed): the Back row's word was a hardcoded, unlocalizable literal with no caller override
+
+The brief's own acceptance criterion for this item — *"Localization-safe
+label (binding R9-family: label may degrade, wrap/auto-fit, never clip)"* —
+was implemented for every OTHER piece of text this round touched (nothing
+new was authored; the row's WORD itself was the gap) but was missed for the
+one new string this round's own default-widening made load-bearing: the
+`sheet` idiom's `Back` row (`buildPanel`, `label = \`{glyph} Back\``) was a
+raw English literal with no spec field to replace it. `newMenu` had no
+`backLabel`-shaped field before this round because the row itself did not
+exist before D2; this round is the first time it became the framework
+default for every compact session (previously it only rendered when touch
+was live), which is exactly why the round that widens a literal's reach is
+the round that owes checking what the literal says.
+
+**Fixed on the sibling doctrine already shipped one file over.**
+`present/nav_bar.luau`'s `NavBarSpec.backLabel: string?` states the house
+position directly: *"A Button always needs a label (a11y), so `backLabel`
+travels with it... this construct has no i18n system of its own to invent
+one from."* `newMenu` now carries the identical field, same optional typing.
+The one deliberate divergence: `nav_bar` has no built-in Back verb at all, so
+omitting `backLabel` there means an icon-only button with no fallback text;
+`newMenu` invented its own Back row before this field existed, so — to keep
+every existing (and hypothetical unset-caller) session working rather than
+regressing to blank — omitting `backLabel` here falls back to the SAME
+English literal `buildPanel` already drew. The fallback is named for what it
+is, in both the spec field's own comment and `docs/reference/api.md`: an
+i18n gap a caller ships past at their own risk, not a solved problem — the
+same stance `nav_bar`'s comment already takes, applied to the one place this
+construct's shape genuinely differs from it.
+
+**Wrap/auto-fit, never clip (R9-family):** the row now carries
+`compactLabel = { icon = "chevron.leading" }` — the SAME degrade path
+`menu_recipe.row`'s own doctrine already gives every other row in the same
+panel (label first, icon on `compactLabel`, deliberately no `prefer` —
+*"a menu row keeps its label... the icon rides `compactLabel`, which draws it
+only when the words genuinely do not fit"*). Unlike `nav_bar`'s Back button
+(`prefer = true`, always icon — a chrome-bar convention), the menu's Back row
+is a row inside the SAME list every other row belongs to, so it takes that
+list's convention rather than the chrome bar's: full text when it fits,
+icon-only when a long localized word does not, never a hard pixel clip.
+Proven with a case using a string past the ~1.4x pseudo-localization
+expansion the codebase's own `xa`-pass convention measures against (binding
+R9 family). **`handle.controller.diagnostics()` was tried first and found
+VACUOUS** (mutation check: removing the new `compactLabel` does not redden
+it) — it only reports a BOX escaping its container, never a label
+overflowing its own Button, so it cannot see this claim at all. The
+instrument that does: `commit_walks.textVerdicts`' own compact verdict,
+mirrored on the adapter as `props.icon` — set to the `compactLabel` icon the
+instant the full label's measured width does not fit the row (never a
+partial word; the whole label or the whole icon). The case asserts the long
+label produces `props.icon == "chevron.leading"` and, as the companion proof
+the assertion is not vacuously always-true, that a short label that DOES fit
+keeps its text with `props.icon == nil`.
+
+**No ADR-0040 row.** `backLabel` is a new, OPTIONAL spec key on a
+construct-level `Spec` type — not a `UI.schema`-registered blueprint class
+prop, so Decision 3's instrument (`tests/lib/public_shape.luau` +
+`tests/api_surface.spec.luau`, which walks `Facet.UI.schema.all()`) has
+nothing to see it with, the same reason `newMenu`'s existing `sizeClass`/
+`interactionClasses`/`presentation` fields carry no rows of their own.
+More directly: omitting `backLabel` is BYTE-IDENTICAL to every session's
+behavior before this field existed (the same literal, the same row, now
+also carrying a `compactLabel` degrade path nothing before this round could
+trigger because the row never received caller text to overflow with) — no
+existing caller's observable behavior moves, which is the ADR-0058 precedent
+for "additive, no row owed" rather than the B-4/B-31/B-32/B-33 "Decision 2,
+row owed even though nothing moves today" shape (those record a POLICY or
+GEOMETRY answering differently for a class of session that already existed;
+this adds a field nobody could have been passing).
+
+**Guards:** `tests/menu.spec.luau` § "item 14... backLabel" (3 new cases: the
+override reaches the row's rendered label, the fallback stands when
+`backLabel` is absent, and the expansion case above); `docs/reference/api.md`
+§ `newMenu` (the field documented, with the i18n-gap stance stated
+explicitly).
+
+### M1 (accepted as a documented trade-off, not fixed): an author-forced `presentation = "menu"` at a compact width still reproduces the exact overlapping-panel shape
+
+Confirmed exactly as the review found it: `presentationMemo`'s early return
+for any explicit, non-`"automatic"` `presentation` value runs BEFORE the
+compact override is ever evaluated (by design — see "an author-forced
+`presentation` is untouched" above), so a caller who explicitly forces
+`"menu"` on a compact surface gets the floating idiom, including its
+overlapping-panel shape, exactly as authored. This is the framework's
+existing, universal "explicit wins over automatic" pattern — not a new
+precedent invented for this fix, and not a gap in the compact override
+itself (which only ever governs what `"automatic"` resolves to) — so it is
+accepted here as a documented trade-off rather than coded around: **director
+item 14's guarantee is a property of the AUTOMATIC default, not an
+invariant enforced against an explicit override**, the same relationship
+every other forced value in this control already has to its own automatic
+counterpart (an out-of-domain reactive value, a stale forced `sizeClass`,
+etc.). No diagnostic was added: `api.diagnostics()`'s existing checks are
+all STATIC (computed once from the authored item tree at construction), and
+this condition is live (`sizeClass` can change after construction, e.g. a
+window resize), so answering it honestly at diagnose-time would require
+resolving the environment's `sizeClass` unconditionally even when
+`presentation` is forced and no environment lookup was otherwise needed —
+a real construction-cost change for every forced-`"menu"` menu, not a cheap
+addition, and a separate design question ("should a forced menu ALSO pay
+for an environment subscription it does not otherwise need, to lint itself")
+this fix round does not decide.
+
+### M2 (documented): "state preserved — scroll/focus position on back" has an inapplicable half for `newMenu`
+
+The brief's own acceptance phrasing names both scroll and focus; `newMenu`
+has no `ScrollView` anywhere in `buildPanel` (a plain `VStack`), so there is
+no scroll position to preserve — the requirement's scroll half is vacuously
+true for this construct, not independently verified, because there is
+nothing to verify. The FOCUS half is the one this control implements and
+mutation-tests (`ops.back`'s `graph.focusOn`, above). Stated here so a
+reader of the brief's own phrasing does not infer both halves were checked
+and found true.
 
 ## What this round does NOT change, and why
 
