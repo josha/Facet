@@ -1890,18 +1890,9 @@ describe("the scroll canvas reaches a theme's decoration bleed", function()
 		env:set("themeMetrics", themes.resolve(scifi.build(themes), nil, {}))
 		presenter.refresh()
 		local glowing = adapter.node("/S/List").scrollRegion.contentH
-		-- SHOWCASE2 task C (`src/render/layout_node.luau`): this used to pin 24 —
-		-- only the TRAILING edge (this file's own subject: the canvas allowance
-		-- that makes the last row's glow reachable by scrolling further) was
-		-- reserved. The LEADING edge needed the same treatment for a different
-		-- reason (no canvas exists before position 0 to scroll into, so a first
-		-- row's own glow could only ever be a layout fact, never a scroll one) —
-		-- `layout_node.luau` now reserves it as the scroll axis's own top
-		-- padding, which THIS formula already folds in as `pt` (the comment
-		-- above: "the padding the solver actually spent"). Both edges now cost
-		-- one `chromeBleed` each, so the total is `bleed * 2`, not `bleed` — the
-		-- SAME package, the SAME 10 fixed-height rows, one more real reservation.
-		expect(glowing - flat).toBe(24 * 2)
+		-- the ONLY thing that may differ here is the allowance: this package
+		-- declares no metric that would change a fixed-height row's geometry
+		expect(glowing - flat).toBe(24)
 	end)
 end)
 
