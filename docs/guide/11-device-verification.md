@@ -379,6 +379,16 @@ with the framework's own reactive control of that property — call
 that has been hand-scrolled.
 
 **Known gate limitations** (found by live measurement this round, not fixed).
+Two further CHECKER limitations, found by the closing re-review (parked with
+rulings — see the campaign ledger and
+`review-finalwave-verdicts.md` for the mutation evidence): (4) a row's waiver
+is ROW-level, not finding-scoped — a row that already carries any waiver will
+silently PASS a NEW escape class; when adding a waiver, re-read the whole
+row's evidence, and treat any waivered row's PASS as covering only what the
+waiver names. (5) the summary line double-books triaged `real-regression`
+cells inside PENDING, so its bucket counts can exceed the required-cell
+total; the REAL-REGRESSION count is authoritative, the PENDING count may
+overlap it.
 Limitations 1 and 2 are false-**NEGATIVE**-only: each is a class of real
 defect the check structurally cannot see, so a red cell from that same check
 is still trustworthy — it just cannot promise there is nothing else wrong.
