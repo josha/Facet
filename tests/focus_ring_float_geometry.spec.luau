@@ -144,6 +144,28 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 			true
 		)
 		expect(string.find(FN, "(floatCorner :: UICorner).CornerRadius = radius", 1, true) ~= nil).toBe(true)
+		--[[ THE STRUCTURAL PIN (review finding F2). The three substring checks
+			above all survive a mutation that turns the NATIVE-FALLBACK branch (the
+			only branch B-36's "corner is re-synced on EVERY call" headline is
+			about) into an unconditional `Instance.new("UICorner")` +
+			`.Parent = float` on every call, keeping the `.CornerRadius = radius`
+			write those checks look for — a one-UICorner-per-theme-swap /
+			`distanceProfile` change / `refreshFocusVisuals` pass leak that the
+			suite was silent on. Two counting pins instead:
+
+			(1) exactly ONE `Instance.new("UICorner")` call-site in the whole
+			function body — the native-fallback branch's guarded one (the
+			real-corner branch reuses `:Clone()`, never `Instance.new`). A second,
+			unguarded creation site anywhere in the function changes this count.
+			(2) exactly TWO `if floatCorner == nil then` guards — one per branch
+			(real-corner clone at (b)'s guard, native fallback at (c)'s). Removing
+			or merging either branch's guard (the exact mutation shape above —
+			the guard text disappears when the leak becomes unconditional) drops
+			this to one. ]]
+		local _, newCount = string.gsub(FN, 'Instance%.new%("UICorner"%)', "")
+		expect(newCount).toBe(1)
+		local _, guardCount = string.gsub(FN, "if floatCorner == nil then", "")
+		expect(guardCount).toBe(2)
 	end)
 
 	it("(c2) the live package's radii win over the frozen construction-time style", function()
