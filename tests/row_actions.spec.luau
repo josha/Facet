@@ -628,6 +628,56 @@ describe("RowActions control", function()
 		end
 	end)
 
+	--[[ SHOWCASE2 task B: the row_actions gallery scenario warned "Facet:
+		quarantined - Facet: double disposal of scope 'row-actions-m1'"
+		through 'm6' live at Play, every time the demo tore down. Root-caused
+		live (Studio traceback instrumentation, task-showcase2-report.md):
+		THE ROW CAN BE TORN DOWN BY TWO INDEPENDENT, BOTH-CORRECT OWNERS —
+		the app's own per-item lifecycle (the scenario's `itemScope:own(
+		function() ... built.dispose() end)`, needed so a row disposes the
+		MOMENT it leaves the list) and `examples/gallery/client/demo_host.
+		luau`'s `scopedCore` (a blanket per-demo leak guard that additionally
+		owns EVERY `core:scope(...)` a demo makes, however deep, into the
+		demo's own scope — by design, for demos that do not scope
+		themselves). On a whole-demo teardown the blanket guard's cascade can
+		reach a row's scope before the app's own per-item teardown does, so
+		the SECOND arrival finds it already gone.
+
+		This is reproduced at the CONTROL's own public contract, without
+		needing two real owners: `dispose()` called a second time on an
+		already-disposed row must be a silent no-op — the same guard
+		`src/mount.luau` already applies at its own multi-owner dispose sites
+		(`if not X:isDisposed() then X:dispose() end`), now met by this
+		composite control's `dispose()` too. ]]
+	it("dispose() a second time is a silent no-op (task SHOWCASE2 defect B)", function()
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = Facet.newPresenter(core, env, adapter, system)
+
+		local ra = row_actions.build(Facet, core, {
+			id = "Row",
+			content = content("Body"),
+			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+		})
+		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local handle = pres.present(screen)
+		pres.refresh()
+
+		ra.dispose()
+		expect(core:lastError()).toBeNil()
+		-- RED before the fix: this second call reached the row's already-
+		-- disposed scope directly and `core:lastError()` read "Facet:
+		-- quarantined - Facet: double disposal of scope 'row-actions-Row'
+		-- detected".
+		ra.dispose()
+		expect(core:lastError()).toBeNil()
+
+		pres.dismiss(handle)
+	end)
+
 	it("_settleTo retargets the spring at the verdict (Task 5 wires the gesture that produces one)", function()
 		local w = presenterWorld(function(core)
 			return row_actions.build(Facet, core, {

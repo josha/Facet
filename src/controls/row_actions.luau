@@ -3389,6 +3389,36 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
+			--[[ SHOWCASE2 task B (six live "double disposal of scope 'row-
+				actions-mN'" warnings, row_actions.luau demo). Root cause: this
+				row's `scope` can be torn down by TWO independent, both-correct
+				owners — the app's own per-item lifecycle (`examples/gallery/
+				scenarios/row_actions.luau`'s `itemScope:own(function() ...
+				built.dispose() end)`, which needs a row disposed the moment it
+				LEAVES the list) AND `examples/gallery/client/demo_host.luau`'s
+				`scopedCore` (a blanket per-demo leak guard: every `core:scope(...)`
+				a demo makes, however deep, is additionally owned into the demo's
+				OWN scope — by design, for demos that do not scope themselves).
+				Measured live: on a whole-demo teardown the blanket guard's cascade
+				reaches this scope BEFORE the ForEach's own item-scope teardown
+				does, so the SECOND arrival — this function, called again from the
+				app's own registration — found `scope` already gone.
+
+				Every OTHER step below already documents itself as idempotent
+				(`closeMenu()`, `coordinator.release()`); this was the one gap. The
+				fix is the same guard `src/mount.luau` already uses at every one of
+				its own multi-owner dispose sites (`if not X:isDisposed() then
+				X:dispose() end`) — not a special case for THIS collision, the
+				general contract a composite control's public `dispose()` must
+				already meet to be safely owned from more than one place. Skipping
+				`closeMenu`/`coordinator.release` here is safe: the only path that
+				can win this race is the WHOLE-DEMO teardown (a single row can
+				never be double-torn-down mid-session — the app's per-item path is
+				the sole owner then), and a demo tearing down discards its menu
+				stack and its coordinator in the same breath. ]]
+			if scope:isDisposed() then
+				return
+			end
 			-- Task 5: set BEFORE tearing the scope down — the commit path's
 			-- own guard (see `doCommit`'s comment) reads this synchronously
 			-- inside the same `scope:dispose()` call if a spring is settling
