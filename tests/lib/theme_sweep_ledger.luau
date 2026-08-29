@@ -965,7 +965,19 @@ theme_ledger.ROWS = {
 		variant = "table",
 		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main",
 		sig = "content overflows this vstack by Npx on the",
-		px = 40,
+		-- RE-RECORDED 2026-08-29 (task SHOWCASE3): 40 -> 55, under
+		-- fantasy-ornate/fantasy-parchment/glossy-touch only (the other five
+		-- packages stay at or under 40 here -- their own font/control sizing
+		-- lands the same extra room below the ceiling). `controls.table.rowGap`
+		-- (2px, flat) is now `math.max`'d against the active package's
+		-- `chromeBleed` (`src/controls/table.luau`'s new `rowBandGap`), so
+		-- `Main`'s own row-to-row seam widens under a themed glow the same
+		-- amount everywhere it applies -- this surface's `page-not-scrollable`
+		-- defect is pre-existing and unrepaired (the pane genuinely has no
+		-- scroll route at this viewport/preference), so the fix's own,
+		-- otherwise-correct extra room lands as MORE of the same accepted
+		-- overflow rather than a new class of defect.
+		px = 55,
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
