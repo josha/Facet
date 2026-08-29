@@ -1833,6 +1833,47 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		}
 	end))
 
+	--[[ THE BAND'S OWN ROW GAP — MAX'D AGAINST THE ACTIVE PACKAGE'S CHROME
+		GLOW (task SHOWCASE3, director repro: Samsung Galaxy S22 Ultra preset,
+		Glossy Mobile — "the Edit button, Artist column pill, and '1 more'
+		button sit right on top of each other, 0-1px spacing").
+
+		`controls.table.rowGap` is a flat 2px LITERAL
+		(`src/tokens/default_style.luau`), never overridden by any shipped
+		package — the tight seam `Main`'s rows (the auto Edit/Done toolbar,
+		the header, the disclosure band, the body) are meant to read as one
+		continuous card under a FLAT theme. It stops being enough the instant
+		a package draws a `shadow = "raised"` glow on the band's own controls
+		(`EditToggle`'s `surface = "control"`, `MoreChip`'s `surface =
+		"chip"`, a header column's own `control` plate): each control's glow
+		reaches `chromeBleed` px past its own box, and with only 2px of real
+		gap between three consecutive glow-bearing rows their shadows overlap
+		almost entirely. Measured live under Glossy Mobile (`chromeBleed`
+		17): `EditToggle` ends at y=353, the header starts at y=355 (2px
+		real gap), the header ends at y=383, `MoreChip` starts at y=385 (2px)
+		— each control's own 17px glow reaches ~15px into its neighbour,
+		which is what reads as "sitting right on top of each other" even
+		though the boxes themselves never touch.
+
+		THIS IS NOT THE SAME MECHANISM AS `bandPadding` ABOVE. That gutter is
+		HORIZONTAL (left/right, the content edge every row's own art shares);
+		this is the VERTICAL seam BETWEEN rows, which is `Main`'s own `gap`,
+		not any row's padding.
+
+		`math.max`, the SAME idiom `src/render/layout_node.luau`'s own
+		scroll-canvas reservation and `demo_picker.reservationSlack` (the
+		showcase chrome's sibling fix, same task) both use for this identical
+		class of fact: the requirement is that the seam be AT LEAST the
+		glow's reach, so a flat package (`chromeBleed` 0) leaves the literal
+		2px byte-for-byte untouched. ]]
+	local rowBandGap = scope:own(core:memo(function(use)
+		local env = surfaceEnvironment
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		local base = themeSnapshot.resolveNumber(snap, "controls.table.rowGap") or 0
+		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+		return math.max(base, bleed)
+	end))
+
 	local children = {}
 	--[[ THE HEADER BAND IS A SIBLING MODULE (2026-08-18) —
 		`controls/table_header.luau`, the seam this file's own SOURCE_CAP_LEDGER row
@@ -2108,7 +2149,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				id = "Main",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
-				gap = "controls.table.rowGap",
+				gap = rowBandGap,
 				children = children,
 			}),
 

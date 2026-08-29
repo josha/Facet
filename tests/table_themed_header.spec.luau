@@ -496,6 +496,34 @@ describe("Table header: the columns line up with the rows in every body shape", 
 		end
 	end)
 
+	--[[ THE CLEARANCE COVERS THE GLOW, NOT JUST ZERO (task SHOWCASE3, director
+		repro: Samsung Galaxy S22 Ultra preset, Glossy Mobile — "the Edit
+		button, Artist column pill, and '1 more' button sit right on top of
+		each other, 0-1px spacing"). The case above only asserted a
+		NON-NEGATIVE box clearance, which `controls.table.rowGap`'s flat 2px
+		literal already satisfied — the two boxes never overlapped, so that
+		assertion passed even while every shadowed package's own `chrome
+		.control`/`chrome.chip` glow (up to `chromeBleed` px past each box)
+		reached clean through the 2px seam into its neighbour, which is what
+		reads on a device as "sitting right on top of each other" despite a
+		technically-clearing gap. This asserts the REAL bar: the clearance
+		must be at least the package's own `chromeBleed`, the same
+		`math.max`-not-`+` idiom every sibling fix in this task uses for the
+		identical class of fact. A flat package (`bleed` 0) still only needs
+		`>= 0`, so this subsumes the case above rather than replacing it. ]]
+	it("the Edit toolbar's clearance covers the chrome glow, not merely the zero floor", function()
+		for _, shape in SHAPES do
+			for _, name in ROWS do
+				local pkg = if name == "studio-neutral" then nil else name
+				local row = solveShape(pkg, shape)
+				local clearance = tonumber(string.match(row.toolbar, "clearsHeaderBy (%-?%d+)"))
+				expect(`{shape}/{name}: clearance {clearance}, bleed {row.bleed}`).toBe(
+					`{shape}/{name}: clearance {math.max(clearance :: number, row.bleed)}, bleed {row.bleed}`
+				)
+			end
+		end
+	end)
+
 	--[[ AND THE CORPUS REALLY DOES VARY ALONG THIS AXIS. The case above passes
 		trivially for any package whose `chromeBleed` is 0 — it could pass forever
 		with the defect intact if the reference packages ever went flat, which is the
