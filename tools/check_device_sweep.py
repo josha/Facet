@@ -75,12 +75,29 @@ Default mode reads `rows/*.json`, requires full coverage of the base matrix
 (every deviceRow x theme combination on `baseScenario`) plus every
 `notableCells[].id`, and diffs each cell against `baseline.json`:
   - baseline ok, now red, no triage             -> REGRESSION (hard fail)
-  - now red, triage present                     -> PENDING (listed, not fatal)
+  - now red, triage present, kind != real-regression, OR real-regression
+    with an explicit waiver                     -> PENDING (listed, not fatal)
+  - now red, triage.kind == "real-regression"    -> REAL-REGRESSION (always
+    reported by name, never folded silently into PENDING — S2). Additionally
+    a HARD FAIL when the baseline for this cell was green and no `triage.waiver`
+    is recorded: a real regression against a green baseline is exactly the
+    case the docstring's own promise names, and "the operator forgot to
+    write a triage" must not be the only way to fail it (S2).
   - a config cell with no row file at all        -> MISSING (hard fail)
-  - now green                                    -> PASS
+  - now green, evidence supports it              -> PASS
+  - now green, but `solverDiagnostics` is unreadable because this row is
+    `live`-sourced (no `FacetScenarioAPI.report()` diagnostics channel exists
+    in showcase boot mode) -> DIAGNOSTICS-BLIND (listed, not fatal by itself,
+    but never silently counted as a clean PASS — S3)
+  - now green, but the row's OWN recorded evidence contradicts it (a non-empty
+    `containment`/`zeroBoxes` array, a non-zero `solverDiagnostics`, or an
+    `offscreenNodes`/`unfitText` entry with no derivable or explicit waiver)
+    -> UNSOUND-PASS (HARD FAIL — `ok: true` is derived from the row's own
+    evidence, never trusted verbatim; S1)
 
-Exit 0 = every cell is PASS or a triaged PENDING; 1 = at least one REGRESSION
-or MISSING cell.
+Exit 0 = every cell is PASS, DIAGNOSTICS-BLIND, or a triaged PENDING (incl. a
+waived real-regression); 1 = at least one REGRESSION, REAL-REGRESSION (against
+a green baseline, unwaived), UNSOUND-PASS, or MISSING cell.
 """
 
 import glob
@@ -100,6 +117,131 @@ CAPTURES_DIR = os.path.join(ARTIFACT_DIR, "captures")
 BASELINE_PATH = os.path.join(ARTIFACT_DIR, "baseline.json")
 
 TRIAGE_KINDS = {"known-owed", "sweep-defect", "real-regression", "physical-owed"}
+
+# `tests/lib/device_views.luau:72`, `CORE_TOP = 58` — the showcase's own
+# reserved demo/theme-chip strip height (`coreSafeInsets.top`). Hand-copied
+# across the Luau/Python boundary the same way `LIVE_STYLED_PROPS` in
+# `tools/studio/device_matrix.luau` hand-copies the runner's dump shape (S8 in
+# `review-forksweep-theme2-findings.md` names that drift risk with no guard;
+# this constant carries the same risk and the same disclosure). If the
+# showcase's reserved strip height ever changes, this must change with it or
+# the waiver below silently stops firing (never silently over-fires: a wrong
+# value here can only make MORE offscreen entries require an explicit waiver,
+# not fewer).
+RESERVED_TOP_PX = 58
+
+
+def _offscreen_waived(entry):
+    """An `offscreenNodes` entry is waived when either:
+      (a) it is EXACTLY the reserved negative-Y chrome band
+          (docs/guide/11-device-verification.md 'Known gate limitations' #3;
+          review finding S1/S4) — never a range, which would risk waiving a
+          genuinely off-screen node that merely happens to sit near the band.
+          `pos.x` must also be on-screen: the band exemption is about Y only; or
+      (b) it carries its own explicit `"waived": "<reason>"` string — the
+          per-entry escape hatch S1 asks for, for a case this function cannot
+          derive purely from geometry (e.g. a node nested INSIDE the band's own
+          box at a shallower Y, confirmed by a direct engine read rather than
+          by the exact-Y shortcut — see `ps5-showcase-hud.json`'s three
+          Strip-descendant entries).
+    """
+    if not isinstance(entry, dict):
+        return False
+    if isinstance(entry.get("waived"), str) and entry["waived"] != "":
+        return True
+    pos = entry.get("pos")
+    if not isinstance(pos, dict):
+        return False
+    return pos.get("y") == -RESERVED_TOP_PX and isinstance(pos.get("x"), (int, float)) and pos.get("x") >= -1
+
+
+def _unfit_waived(entry):
+    """An `unfitText` entry is waived when either the row's own judge already
+    recorded a DECLARED truncation policy (`declared ~= nil` —
+    `device_matrix.luau`'s `judgeInstanceTrees`: disclose/reveal is the
+    framework's legal overflow affordance, not a failure), or it carries its
+    own explicit `"waived": "<reason>"` string. An entry with neither is an
+    UNDECLARED truncation and fails an `ok: true` row (S1)."""
+    if not isinstance(entry, dict):
+        return False
+    if isinstance(entry.get("waived"), str) and entry["waived"] != "":
+        return True
+    return entry.get("declared") is not None
+
+
+def _explicit_waivers(row):
+    """Per-entry OR whole-row explicit waivers a human/agent operator can
+    still record for a class this checker cannot derive on its own — the
+    schema field S1 proposes (`row["waivers"]`, a list of free-text reasons)
+    or `triage.waiver` for the real-regression case (S2). Presence alone is
+    what is checked; the reviewer reading `notes`/`triage.detail` is what
+    judges whether the reason is honest, exactly like `triage.ref`/`.detail`
+    already work for a red cell."""
+    waivers = row.get("waivers")
+    return bool(waivers)
+
+
+def derive_pass_verdict(row):
+    """For a row claiming `ok: true`, decide whether its OWN recorded
+    evidence actually supports that (review finding S1) — an `ok` value is a
+    claim, not a fact, until this function agrees with it.
+
+    Returns (verdict, reasons) where verdict is one of:
+      "PASS"              - evidence is clean (or every non-empty array entry
+                             carries a derivable or explicit waiver).
+      "DIAGNOSTICS-BLIND"  - clean otherwise, but `solverDiagnostics` cannot be
+                             known because this row is `live`-sourced (S3) —
+                             not a failure, but never conflated with a real
+                             PASS either.
+      "UNSOUND-PASS"       - the row's own evidence contradicts `ok: true` and
+                             carries no waiver (S1) — a hard failure.
+    """
+    reasons = []
+    live_sourced = "live" in (row.get("evidenceSource") or "")
+    has_explicit_waiver = _explicit_waivers(row)
+
+    if row.get("containment"):
+        reasons.append(f"{len(row['containment'])} containment escape(s)")
+    if row.get("zeroBoxes"):
+        reasons.append(f"{len(row['zeroBoxes'])} zeroBoxes entr(y/ies)")
+
+    sd = row.get("solverDiagnostics")
+    diagnostics_blind = False
+    if sd is None:
+        if live_sourced:
+            diagnostics_blind = True
+        else:
+            reasons.append("solverDiagnostics is absent (required 0 for ok:true)")
+    elif sd != 0:
+        reasons.append(f"solverDiagnostics={sd} (required 0 for ok:true)")
+
+    unwaived_offscreen = [e for e in (row.get("offscreenNodes") or []) if not _offscreen_waived(e)]
+    if unwaived_offscreen:
+        reasons.append(f"{len(unwaived_offscreen)} unwaived offscreenNodes entr(y/ies)")
+    # A `live`-sourced row has no `textPolicies` channel at all (device_matrix's
+    # `observeLive` passes `nil` where `observe` passes `report.textPolicies`),
+    # so `declared` can never be populated here — the SAME structural blindness
+    # class `solverDiagnostics` has, just on a different array. Waiving the
+    # whole array for a live row is honest, not lenient: the row's own
+    # `judgeInstanceTrees` comment says exactly this ("informational only, not
+    # gating") for every live-sourced cell, not a hand-picked few.
+    if live_sourced:
+        unwaived_unfit = []
+    else:
+        unwaived_unfit = [e for e in (row.get("unfitText") or []) if not _unfit_waived(e)]
+    if unwaived_unfit:
+        reasons.append(f"{len(unwaived_unfit)} unwaived unfitText entr(y/ies)")
+
+    if reasons and has_explicit_waiver:
+        # an explicit, named waiver on the row covers whatever this pass could
+        # not derive on its own — still surfaced in --verbose via `reasons`,
+        # never silently dropped.
+        return ("PASS", reasons)
+    if reasons:
+        return ("UNSOUND-PASS", reasons)
+    if diagnostics_blind:
+        return ("DIAGNOSTICS-BLIND", ["solverDiagnostics unavailable: live-sourced row, no FacetScenarioAPI channel (S3)"])
+    return ("PASS", reasons)
 
 
 def load_config():
@@ -143,6 +285,14 @@ def selftest(cfg, verbose):
         for field in ("id", "deviceRow", "scenario", "director"):
             if not cell.get(field):
                 errors.append(f"cell missing '{field}': {cell}")
+        # S9: `theme` is never checked here even though base-cell naming
+        # depends on it (`f"{row}__{theme}__{scenario}"`). Presence, not
+        # truthiness: the row schema documents `theme` as legitimately null
+        # for "a scenario with no package concept, e.g. a pure device-only
+        # notable cell", so an explicit `"theme": null` must not fail this —
+        # only an ENTIRELY MISSING key (a plain typo/omission) should.
+        if "theme" not in cell:
+            errors.append(f"cell '{cell.get('id')}' has no 'theme' key at all (S9) — write `\"theme\": null` if this cell genuinely has no package concept")
         cid = cell.get("id")
         if cid in seen_ids:
             errors.append(f"duplicate cell id '{cid}' (across notableCells/plannedCells)")
@@ -200,6 +350,17 @@ def validate_row_shape(cell, row):
             errors.append(f"{cell}: triage.kind {triage.get('kind')!r} not one of {sorted(TRIAGE_KINDS)}")
         if not triage.get("ref"):
             errors.append(f"{cell}: triage has no 'ref' (cross-reference to the device-owed register or ADR)")
+        if row.get("ok") is True:
+            # S5: `triage` exists to explain a RED cell (the schema comment:
+            # "required on every `ok: false` row"). An `ok: true` row carrying
+            # one is a live contradiction — either the defect it describes is
+            # still open (the row should be `ok: false`) or it is stale (it
+            # should be removed) — never both fields telling different
+            # stories with no reader able to tell which is current.
+            errors.append(
+                f"{cell}: ok:true but carries a triage ({triage.get('kind')!r}) describing an open "
+                f"defect — contradictory (S5); fix `ok` to match the triage or drop the stale triage"
+            )
     capture = row.get("capture")
     if capture:
         full = os.path.join(ARTIFACT_DIR, capture)
@@ -226,7 +387,16 @@ def main():
             baseline = json.load(f).get("cells", {})
 
     errors = []
-    grid = {"PASS": [], "PENDING": [], "MISSING": [], "REGRESSION": []}
+    grid = {
+        "PASS": [],
+        "DIAGNOSTICS-BLIND": [],
+        "PENDING": [],
+        "REAL-REGRESSION": [],
+        "UNSOUND-PASS": [],
+        "MISSING": [],
+        "REGRESSION": [],
+    }
+    verdict_notes = {}  # cell -> reasons list, for --verbose
 
     for cell in sorted(required):
         row = rows.get(cell)
@@ -237,9 +407,43 @@ def main():
         errors.extend(validate_row_shape(cell, row))
         ok = row.get("ok") is True
         was_ok = baseline.get(cell, {}).get("ok")
+        triage = row.get("triage")
+        kind = triage.get("kind") if triage else None
+
         if ok:
-            grid["PASS"].append(cell)
-        elif row.get("triage"):
+            # S1: an `ok: true` claim is verified against the row's OWN
+            # recorded evidence before it is trusted, never taken verbatim.
+            verdict, reasons = derive_pass_verdict(row)
+            if reasons:
+                verdict_notes[cell] = reasons
+            if verdict == "PASS":
+                grid["PASS"].append(cell)
+            elif verdict == "DIAGNOSTICS-BLIND":
+                grid["DIAGNOSTICS-BLIND"].append(cell)
+            else:
+                grid["UNSOUND-PASS"].append(cell)
+                errors.append(f"{cell}: UNSOUND-PASS — claims ok:true but {'; '.join(reasons)}, no `waivers` recorded (S1)")
+            continue
+
+        # S2: a `real-regression` triage is ALWAYS reported by name — never
+        # silently absorbed into the generic PENDING bucket the summary line
+        # then reports as "0 REGRESSION" while real regressions sit inside it.
+        if kind == "real-regression":
+            grid["REAL-REGRESSION"].append(cell)
+            if was_ok is True and not (triage or {}).get("waiver"):
+                # the exact case the docstring's promise is about: baseline
+                # was green, this is a real regression, and "downgrade by
+                # writing any triage at all" is not an escape hatch.
+                errors.append(
+                    f"{cell}: REAL-REGRESSION against a GREEN baseline with no `triage.waiver` "
+                    f"(S2) — a real-regression triage on a previously-passing cell is fatal "
+                    f"unless the waiver is explicit and named"
+                )
+            else:
+                grid["PENDING"].append(cell)
+            continue
+
+        if triage:
             grid["PENDING"].append(cell)
         elif was_ok is True:
             grid["REGRESSION"].append(cell)
@@ -252,9 +456,12 @@ def main():
     extra = sorted(set(rows) - required)
 
     if verbose or errors:
-        for kind in ("PASS", "PENDING", "MISSING", "REGRESSION"):
+        for kind in ("PASS", "DIAGNOSTICS-BLIND", "PENDING", "REAL-REGRESSION", "UNSOUND-PASS", "MISSING", "REGRESSION"):
             if grid[kind]:
                 print(f"{kind} ({len(grid[kind])}): {', '.join(grid[kind])}")
+        if verbose and verdict_notes:
+            for cell in sorted(verdict_notes):
+                print(f"  note {cell}: {'; '.join(verdict_notes[cell])}")
         if extra:
             print(f"EXTRA evidence beyond the required matrix ({len(extra)}): {', '.join(extra)}")
 
@@ -265,7 +472,9 @@ def main():
 
     print(
         f"device sweep ok: {len(required)} cells required, "
-        f"{len(grid['PASS'])} PASS, {len(grid['PENDING'])} PENDING (triaged), 0 MISSING, 0 REGRESSION"
+        f"{len(grid['PASS'])} PASS, {len(grid['DIAGNOSTICS-BLIND'])} DIAGNOSTICS-BLIND, "
+        f"{len(grid['PENDING'])} PENDING (triaged), {len(grid['REAL-REGRESSION'])} REAL-REGRESSION, "
+        f"0 UNSOUND-PASS, 0 MISSING, 0 REGRESSION"
     )
     return 0
 
