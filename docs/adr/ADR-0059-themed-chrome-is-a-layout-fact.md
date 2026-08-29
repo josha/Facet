@@ -293,6 +293,27 @@ this round's actual assignment, and closing it was judged scope creep against
 carvedBorder` exists now specifically so the next author who opens this file
 has a one-line fix instead of a re-derivation.
 
+**CLOSED (task FOYER, 2026-08-29): the director subsequently ordered it
+fixed ("fix foyer").** `badgeBubble` now reads `chrome_slots.carvedSide(
+snapshot, "control", side)` PER AXIS, one call per side — the T1 fix's own
+primitive (added after this record was written; the plain scalar
+`carvedBorder` this paragraph originally cited was superseded for exactly the
+corner-offset shape before this closure landed), applied identically to both
+call sites (`AddTile`'s invite count, `BellZ`'s notice count) via one shared
+memo, since both classify to the same `control` slot by the CLASS-only
+fallback rule this record already measured. Zero on every flat package
+(`chromeInsets` is all-zero there), so shipped geometry there is unchanged.
+`tests/reference/foyer_spec.luau` gains a new group ("Foyer badgeBubble
+clears its own control's themed chrome") mirroring the other two consumers'
+proof shape: the no-package arm pins the pre-fix flush geometry unchanged,
+Pixel Quest and Fantasy Ornate are both proved clear PER AXIS with the same
+tight asymmetric-carve pin T1 added (Fantasy Ornate's `control` chrome is
+`top=10,right=14`, so a shared-max badge would over-clear the short axis by
+4px and this pin catches it), anti-vacuity throughout. ADR-0040 register: no
+row change — this is a consumer adoption of an already-registered primitive
+on an example/reference app the RascalRally consumer does not reach (grepped
+clean), not a new breaking-change entry.
+
 ## Amendment log
 
 * **2026-08-27** — decisions 1-5, as landed by the round this ADR was written for.
