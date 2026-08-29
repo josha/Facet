@@ -378,29 +378,49 @@ with the framework's own reactive control of that property — call
 `FacetScenario.reset()` (or re-enter the demo) rather than trusting a session
 that has been hand-scrolled.
 
-**Known gate limitations** (found by live measurement this round, not fixed —
-each is a false-NEGATIVE direction only, never a false-positive, so a red
-cell from any other check is still trustworthy):
+**Known gate limitations** (found by live measurement this round, not fixed).
+Limitations 1 and 2 are false-**NEGATIVE**-only: each is a class of real
+defect the check structurally cannot see, so a red cell from that same check
+is still trustworthy — it just cannot promise there is nothing else wrong.
+Limitation 3 is the opposite direction and does not get the same reassurance:
+it is a false-**POSITIVE** generator, and review finding S4
+(`review-forksweep-theme2-findings.md`) is the reason this sentence now says
+so — an earlier draft of this list called limitation 3 false-negative-only
+too, which is backwards, and is the single largest source of findings in the
+shipped sweep evidence (8 entries on `ps5-showcase-hud` alone, 2 on every
+`live`-sourced matrix cell). **Do not cite "false-negative direction only" to
+wave off a limitation-3 finding — read it as a real, expected red that needs
+an explicit per-entry waiver, never a reason to hand-set `ok: true` on the
+whole cell** (S1 in the same finding shows that is exactly what happened):
 
-- **Containment tests ancestor-escape, not sibling-adjacency.** A decoration
-  that sits flush at zero inset against a SIBLING's edge under a shared
-  ZStack (a badge overlapping its own tile's corner, say) can never be
-  flagged: `judgeContainment` only walks name-PREFIX ancestry to find a
-  tagged boundary, and two siblings composed under a shared, often-untagged,
-  sometimes not even materialized group node have no ancestry relationship
-  to test at all. Confirmed live: a HUD tile badge sitting flush at its own
-  tile's top-right corner with zero inset reads `containment: []`.
-- **Containment tests position/size, never shape.** A decoration positioned
-  and sized exactly right but painted with the wrong corner radius (a
-  hardcoded-radius focus ring on a squared-off package's button, which has no
-  `UICorner` of its own to compare against) is invisible to every existing
-  check — `dumpGuiInstance` already counts `modifierChildren.UICorner`, but
-  nothing reads the radius VALUE or compares it to anything.
+- **Containment tests ancestor-escape, not sibling-adjacency** (false
+  negative). A decoration that sits flush at zero inset against a SIBLING's
+  edge under a shared ZStack (a badge overlapping its own tile's corner, say)
+  can never be flagged: `judgeContainment` only walks name-PREFIX ancestry to
+  find a tagged boundary, and two siblings composed under a shared,
+  often-untagged, sometimes not even materialized group node have no
+  ancestry relationship to test at all. Confirmed live: a HUD tile badge
+  sitting flush at its own tile's top-right corner with zero inset reads
+  `containment: []`.
+- **Containment tests position/size, never shape** (false negative). A
+  decoration positioned and sized exactly right but painted with the wrong
+  corner radius (a hardcoded-radius focus ring on a squared-off package's
+  button, which has no `UICorner` of its own to compare against) is invisible
+  to every existing check — `dumpGuiInstance` already counts
+  `modifierChildren.UICorner`, but nothing reads the radius VALUE or compares
+  it to anything.
 - **The offscreen check has no exemption for a deliberately negative-Y
-  reserved chrome band** — the showcase's own topbar-strip reservation, and
-  any HUD strip mounted inside it, both legitimately paint above `y = 0` by
-  design (matching `coreSafeInsets.top`); only `ScrollingFrame` clipping is
-  exempted today, so this whole class reads as spurious `offscreenNodes`.
+  reserved chrome band, and that makes it a false POSITIVE generator, not a
+  false negative.** The showcase's own topbar-strip reservation, and any HUD
+  strip mounted inside it, both legitimately paint above `y = 0` by design
+  (matching `coreSafeInsets.top`, `tests/lib/device_views.luau`'s
+  `CORE_TOP = 58`); only `ScrollingFrame` clipping is exempted today, so this
+  whole class reads as **spurious** `offscreenNodes` — a red the check raises
+  over nothing wrong, which is the textbook definition of a false positive.
+  An `offscreenNodes` entry at exactly `pos.y == -coreSafeInsets.top` is
+  expected, machine-checkable, and must be waived per-entry by the gate
+  (`tools/check_device_sweep.py`'s derived-verdict pass, review finding S1) —
+  never dismissed by hand-setting the whole cell's `ok` to `true`.
 
 ## What the automated matrix can never close
 
