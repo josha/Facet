@@ -42,6 +42,16 @@
       "scenario": "theme_authoring",
       "director": "controller-routed director report 2026-08-28 (i1.png): the shared focus-ring decoration is rounded (fixed 8px UICorner) while pixel_quest's controls are square-cornered; THEME2 lane owns the fix (headless, framework files) -- capture and judge only",
       "note": "a SHAPE fact (corner radius), not a position/size fact -- structurally invisible to judgeContainment/judgeZeroBoxes; see the row's own notes for the assert class that would catch it"
+    },
+    {
+      "id": "s22-ultra-glossy-mobile-playlist-table",
+      "deviceRow": "compact-phone-portrait",
+      "viewportOverride": { "w": 359, "h": 690 },
+      "theme": "glossy_mobile",
+      "scenario": "02_playlist_table (ex02)",
+      "director": "task SHOWCASE3 repro (2026-08-29): the Studio device emulator PRESET -- Samsung Galaxy S22 Ultra -- not a bare viewport, glossy-mobile theme, the Playlist table demo. Three defects: (1) the chip row's own themed glow cropped by the demo screen painting over it (a hard dark band edge under the chips), (2) the header band's rows (auto Edit/Done toggle, header, hidden-column disclosure) reading as touching under the theme's own glow, (3) the hidden-column disclosure plate's leading-edge glow clipped flush at its own top.",
+      "presetFacts": "measured live, and this is the class of fact a bare-viewport headless sweep misses even at the SAME pixel dimensions: the preset's logical ViewportSize is 359x690 (the device picker's '772 x 360' label is a physical/orientation spec, not the logical solve size); GuiService:GetGuiInset().Y is 58 (the camera-cutout safe-area top inset, which the showcase chrome bar sits below). Reproducing this preset headlessly needs BOTH numbers set explicitly (viewportRect 359x690, coreSafeInsets.top derived from a 58 GuiInset), not just a 359x690 viewport with default insets.",
+      "status": "ALL THREE FIXED, commits 6623ee3/e27264f/53b8d82 (facet). Symptoms 1 and 2 confirmed live on this preset by direct geometry measurement (chip-row clearance 10px -> 17px; header-band row gap 2px -> 17px, both now matching glossy-mobile's chromeBleed of 17). Symptom 3's own mechanism confirmed live on this preset via the SAME outermost-clipper leading-edge reservation on the Playlist screen's own ScrollView (gap 0px under studio-neutral, 17px under glossy-mobile, A/B within one session) plus a headless red-first spec reproducing the disclosure plate's exact shape byte-for-byte (tests/theme_layers.spec.luau, floor-aware negative control included); the disclosure plate itself could not be driven open interactively in this session -- synthetic mouse and touch input (user_mouse_input, VirtualInputManager -- the latter refused by capability) do not reach this preset's Touch-preferred activation path, the same limitation task-showcase2-report.md documented and could not resolve either."
     }
   ],
   "plannedCells": [
