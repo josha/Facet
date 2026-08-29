@@ -296,9 +296,22 @@ return {
 		-- snapshot. Zero on every flat package, so shipped geometry there is
 		-- unchanged.
 		local badgeCornerInset = scope:own(core:memo(function(use)
-			local snap = use(ctx.env:get("themeMetrics"))
-			local px = chrome_slots.carvedBorder(snap, "control")
-			return { top = px, right = px }
+			-- PER AXIS (review finding T1): `carvedBorder`'s shared four-sided max
+			-- over-clears the short axis of an asymmetric package (fantasy_ornate's
+			-- `control` is top=10/right=14) — see `chrome_slots.carvedSide`'s own
+			-- comment. Same fix as `src/controls/picker.luau`'s count seal.
+			--
+			-- THE SAME SANITY GUARD `picker.luau`'s `metricsSig` carries (review
+			-- finding T3): a malformed `themeMetrics` fact (any shape without a
+			-- `.controls` table) falls back to nil rather than being handed to
+			-- `carvedSide` as-is. Harmless either way (`carvedSide` already returns
+			-- 0 for a non-table snapshot), but the two consumers had no stated
+			-- reason to differ on this, so they no longer do.
+			local raw = use(ctx.env:get("themeMetrics"))
+			local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
+			local top = chrome_slots.carvedSide(snap, "control", "top")
+			local right = chrome_slots.carvedSide(snap, "control", "right")
+			return { top = top, right = right }
 		end))
 		local function badgedTile(id: string, badge: string)
 			return UI.overlay(

@@ -584,8 +584,15 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 		end))
 		badgeCornerInset = scope:own(core:memo(function(use)
-			local px = if badgeClearSlot ~= nil then chrome_slots.carvedBorder(use(metricsSig), badgeClearSlot) else 0
-			return { top = px, right = px }
+			-- PER AXIS (review finding T1): a corner offset pads two independent
+			-- sides, and `carvedBorder`'s shared four-sided max over-clears the
+			-- short axis of any package whose `control` chrome is not itself
+			-- symmetric (fantasy_ornate: top=10, right=14). `carvedSide` reads
+			-- each axis on its own.
+			local snap = use(metricsSig)
+			local top = if badgeClearSlot ~= nil then chrome_slots.carvedSide(snap, badgeClearSlot, "top") else 0
+			local right = if badgeClearSlot ~= nil then chrome_slots.carvedSide(snap, badgeClearSlot, "right") else 0
+			return { top = top, right = right }
 		end))
 	end
 

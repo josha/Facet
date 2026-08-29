@@ -757,6 +757,40 @@ function chrome_slots.carvedBorder(snapshot: any?, slot: string): number
 	return carved
 end
 
+--[[ carvedSide(snapshot, slot, side) -> the declared inset for ONE axis of one
+	slot, or 0 with no package/slot/side declared (review finding T1,
+	`review-forksweep-theme2-findings.md`).
+
+	`carvedBorder` above collapses all four sides to their max, which is right
+	for a caller that adds ONE scalar clearance to an existing value via
+	`math.max` (`selection_indicator.luau`'s pill inset, ADR-0059 Decision 3 —
+	the case the doc comment above was written for). It is WRONG for a caller
+	padding a CORNER on two independent axes: `src/controls/picker.luau`'s
+	count-seal badge and `examples/gallery/scenarios/adaptive_controls.luau`'s
+	HUD-tile badge both did `{ top = carvedBorder(...), right = carvedBorder(...) }`
+	— the SAME one number on both axes. `fantasy_ornate`'s `control` chrome is
+	`{top=10,right=14,bottom=10,left=14}`; both badges cleared their top by 14,
+	4px past the 10 their own top carve needs. Safe direction (over-clear, never
+	under-clear — no overlap regressed), but not what B-37 promises, and blind
+	to any package whose chrome is not itself symmetric on the two axes a
+	corner badge pads.
+
+	A caller padding a corner on two axes wants ONE CALL PER AXIS:
+	`{ top = carvedSide(snap, slot, "top"), right = carvedSide(snap, slot, "right") }`.
+	A caller adding a single scalar clearance still wants `carvedBorder`. ]]
+function chrome_slots.carvedSide(snapshot: any?, slot: string, side: string): number
+	if type(snapshot) ~= "table" then
+		return 0
+	end
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	if type(plate) ~= "table" then
+		return 0
+	end
+	local px = (plate :: any)[side]
+	return if type(px) == "number" then px else 0
+end
+
 function chrome_slots.iconBoxPx(wantPx: number, rectW: number?, rectH: number?, padX: number, padY: number): number
 	local px = wantPx
 	if type(rectW) == "number" then

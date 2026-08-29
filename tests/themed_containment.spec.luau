@@ -827,6 +827,32 @@ end)
 	sliding pill itself (ADR-0059 Decision 3, director item 8) — and pads its
 	top/right by the carved amount before the "Count" text aligns to the corner.
 	Zero carve (every flat package) reproduces the exact pre-fix geometry. ]]
+-- carvedInsetSide(snapshot, slot, side) -> the RAW declared inset for one
+-- AXIS of one slot, or 0 with no package/slot/side declared (review finding
+-- T1). Independent of BOTH `chrome_slots.carvedBorder` (the scalar max) and
+-- `chrome_slots.carvedSide` (the fix's own per-axis primitive) — re-derived
+-- from the raw snapshot on each axis separately, so this oracle cannot pass
+-- merely because it shares an arithmetic mistake with the code under test.
+-- That sharing was exactly T1's finding: the old oracle here computed the
+-- SAME four-sided max the pre-fix code applied to both axes, so an
+-- asymmetric carve (fantasy_ornate's `control` is
+-- `{top=10,right=14,bottom=10,left=14}`) could never be seen — both sides
+-- read "14" and agreed with the over-inset. Module-scoped so BOTH consumer
+-- groups below (the Picker's count seal and adaptive_controls' HUD-tile
+-- badge) share one oracle rather than each re-deriving it a second time.
+local function carvedInsetSide(snapshot: any?, slot: string, side: string): number
+	if type(snapshot) ~= "table" then
+		return 0
+	end
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	if type(plate) ~= "table" then
+		return 0
+	end
+	local px = (plate :: any)[side]
+	return if type(px) == "number" then px else 0
+end
+
 describe("themed containment: the count seal clears its own segment's chrome (director item 2)", function()
 	local function badgeScreen(core: any, env: any, selected: any): any
 		local picker = Facet.Controls.Picker(core, {
@@ -849,27 +875,6 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		return UI.Screen({ id = "BadgeScreen", padding = 0, children = { picker.blueprint } }), picker
 	end
 
-	-- carved(snapshot) -> the SAME number the fix reads: the largest side of
-	-- `chromeInsets.control`, or 0 with no package installed. Independent of
-	-- `src/controls/picker.luau`'s own computation (it re-derives from the raw
-	-- snapshot rather than importing the fix's helper), so a case here cannot
-	-- pass merely because it shares a typo with the code under test.
-	local function carvedControlInset(snapshot: any?): number
-		if type(snapshot) ~= "table" then
-			return 0
-		end
-		local insets = (snapshot :: any).chromeInsets
-		local plate = if type(insets) == "table" then insets.control else nil
-		local carved = 0
-		if type(plate) == "table" then
-			for _, side in { "top", "right", "bottom", "left" } do
-				local px = (plate :: any)[side]
-				carved = math.max(carved, if type(px) == "number" then px else 0)
-			end
-		end
-		return carved
-	end
-
 	-- badgeHits(snapshot) -> one row per mounted "Count" badge: how far its own
 	-- top/right edge clears the CELL's top/right edge, minus what the package
 	-- carves. `>= -0.5` (never NEGATIVE beyond sub-pixel slack) is "cleared";
@@ -886,7 +891,8 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 			w.env:set("themeMetrics", snapshot)
 			settle(w)
 		end
-		local carved = carvedControlInset(snapshot)
+		local topCarved = carvedInsetSide(snapshot, "control", "top")
+		local rightCarved = carvedInsetSide(snapshot, "control", "right")
 		local out = {}
 		for _, path in w.adapter.paths() do
 			if #path < 12 or string.sub(path, -12) ~= "/Badge/Count" then
@@ -900,9 +906,11 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 			end
 			table.insert(out, {
 				node = path,
-				carved = carved,
-				rightClear = (cell.rect.x + cell.rect.w - carved) - (badge.rect.x + badge.rect.w),
-				topClear = badge.rect.y - (cell.rect.y + carved),
+				carved = math.max(topCarved, rightCarved), -- anti-vacuity only
+				topCarved = topCarved,
+				rightCarved = rightCarved,
+				rightClear = (cell.rect.x + cell.rect.w - rightCarved) - (badge.rect.x + badge.rect.w),
+				topClear = badge.rect.y - (cell.rect.y + topCarved),
 			})
 		end
 		return out
@@ -921,7 +929,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 	end)
 
 	for _, pkg in PACKAGES do
-		it(`under {pkg.id}, the count seal clears the segment's own carved border`, function()
+		it(`under {pkg.id}, the count seal clears the segment's own carved border, PER AXIS (T1)`, function()
 			local w = world(VIEWS[1])
 			local hits = badgeHits(w, pkg.snapshot)
 			expect(#hits > 0).toBe(true)
@@ -931,6 +939,16 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 				expect(hit.carved > 0).toBe(true)
 				expect(hit.rightClear >= -0.5).toBe(true)
 				expect(hit.topClear >= -0.5).toBe(true)
+				-- THE T1 PIN. Over-clearing is a defect too: a badge that pads BOTH
+				-- axes by the SHARED max of all four sides (the pre-fix shape) clears
+				-- an asymmetric package's short axis by more than that axis carves.
+				-- fantasy_ornate's `control` is {top=10,right=14,...} — a shared-max
+				-- badge clears top by 14 (should be 10), 4px past its own carve, and
+				-- the `>= -0.5` checks above cannot see it (over-clear never goes
+				-- negative). An exact per-axis clearance is ~0; tolerate sub-pixel
+				-- slack only.
+				expect(hit.topClear <= 0.5).toBe(true)
+				expect(hit.rightClear <= 0.5).toBe(true)
 			end
 		end)
 	end
@@ -986,7 +1004,13 @@ describe(
 				w.env:set("themeMetrics", snapshot)
 				settle(w)
 			end
-			local carved = if type(snapshot) == "table" then chrome_slots.carvedBorder(snapshot, "control") else 0
+			-- independently derived per axis (T1) — see `carvedInsetSide` above,
+			-- the Picker group's oracle: this group used to call
+			-- `chrome_slots.carvedBorder` DIRECTLY (the production scalar-max
+			-- helper), so the oracle and the code under test shared the exact
+			-- same arithmetic mistake. Re-derived here so the two can disagree.
+			local topCarved = carvedInsetSide(snapshot, "control", "top")
+			local rightCarved = carvedInsetSide(snapshot, "control", "right")
 			local out = {}
 			for _, tileId in TILE_IDS do
 				local boxSuffix = `/{tileId}+overlay/{tileId}`
@@ -1009,9 +1033,11 @@ describe(
 				end
 				table.insert(out, {
 					tile = tileId,
-					carved = carved,
-					rightClear = (box.rect.x + box.rect.w - carved) - (badge.rect.x + badge.rect.w),
-					topClear = badge.rect.y - (box.rect.y + carved),
+					carved = math.max(topCarved, rightCarved), -- anti-vacuity only
+					topCarved = topCarved,
+					rightCarved = rightCarved,
+					rightClear = (box.rect.x + box.rect.w - rightCarved) - (badge.rect.x + badge.rect.w),
+					topClear = badge.rect.y - (box.rect.y + topCarved),
 				})
 			end
 			return out
@@ -1032,7 +1058,7 @@ describe(
 		)
 
 		for _, pkg in PACKAGES do
-			it(`under {pkg.id}, every tile's badge clears its own tile's carved border`, function()
+			it(`under {pkg.id}, every tile's badge clears its own tile's carved border, PER AXIS (T1)`, function()
 				local w = world(VIEWS[1])
 				local hits = tileHits(w, pkg.snapshot)
 				expect(#hits).toBe(#TILE_IDS)
@@ -1040,6 +1066,12 @@ describe(
 					expect(hit.carved > 0).toBe(true) -- anti-vacuity: this package really carves `control`
 					expect(hit.rightClear >= -0.5).toBe(true)
 					expect(hit.topClear >= -0.5).toBe(true)
+					-- THE T1 PIN (see the Picker group above for the full mechanism):
+					-- a shared-max badge over-clears the short axis of an asymmetric
+					-- package (fantasy_ornate top=10/right=14) by 4px, which the
+					-- `>= -0.5` checks above cannot see.
+					expect(hit.topClear <= 0.5).toBe(true)
+					expect(hit.rightClear <= 0.5).toBe(true)
 				end
 			end)
 		end
