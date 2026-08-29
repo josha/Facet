@@ -383,15 +383,16 @@ Limitations 1 and 2 are false-**NEGATIVE**-only: each is a class of real
 defect the check structurally cannot see, so a red cell from that same check
 is still trustworthy — it just cannot promise there is nothing else wrong.
 Limitation 3 is the opposite direction and does not get the same reassurance:
-it is a false-**POSITIVE** generator, and review finding S4
-(`review-forksweep-theme2-findings.md`) is the reason this sentence now says
-so — an earlier draft of this list called limitation 3 false-negative-only
-too, which is backwards, and is the single largest source of findings in the
-shipped sweep evidence (8 entries on `ps5-showcase-hud` alone, 2 on every
-`live`-sourced matrix cell). **Do not cite "false-negative direction only" to
-wave off a limitation-3 finding — read it as a real, expected red that needs
-an explicit per-entry waiver, never a reason to hand-set `ok: true` on the
-whole cell** (S1 in the same finding shows that is exactly what happened):
+it is a false-**POSITIVE** generator. A prior draft of this list called
+limitation 3 false-negative-only too, which was backwards and was corrected
+after an independent review of the sweep evidence — limitation 3 is the
+single largest source of findings in the shipped sweep evidence (8 entries
+on `ps5-showcase-hud` alone, 2 on every `live`-sourced matrix cell). **Do not
+cite "false-negative direction only" to wave off a limitation-3 finding —
+read it as a real, expected red that needs an explicit per-entry waiver,
+never a reason to hand-set `ok: true` on the whole cell** (the same review
+found exactly that had happened — an `ok: true` cell whose own recorded
+finding arrays were never cross-checked against the claim):
 
 - **Containment tests ancestor-escape, not sibling-adjacency** (false
   negative). A decoration that sits flush at zero inset against a SIBLING's
@@ -418,9 +419,10 @@ whole cell** (S1 in the same finding shows that is exactly what happened):
   whole class reads as **spurious** `offscreenNodes` — a red the check raises
   over nothing wrong, which is the textbook definition of a false positive.
   An `offscreenNodes` entry at exactly `pos.y == -coreSafeInsets.top` is
-  expected, machine-checkable, and must be waived per-entry by the gate
-  (`tools/check_device_sweep.py`'s derived-verdict pass, review finding S1) —
-  never dismissed by hand-setting the whole cell's `ok` to `true`.
+  expected, machine-checkable, and must be waived per-entry by the gate's own
+  derived-verdict pass (`tools/check_device_sweep.py`, which derives `ok`
+  from the row's recorded evidence rather than trusting it verbatim) — never
+  dismissed by hand-setting the whole cell's `ok` to `true`.
 
 ## What the automated matrix can never close
 
