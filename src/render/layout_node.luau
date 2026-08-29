@@ -891,6 +891,23 @@ local function toLayoutNode(
 					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
 			end
 		end
+		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
+			HERE (task SHOWCASE3, 2026-08-29; supersedes 9eb095a, reverted).
+			The cross axis above is safe unconditional: "reachable by scrolling
+			to it" never applies to it either, but nothing has measured it
+			collapsing a real box. The leading edge (top for y, left for x) is
+			different — there is no canvas before scroll position 0 to grow
+			into, so showing a first child's own glow costs real padding, and
+			real padding taken from a box that cannot afford it is a blank
+			scroller. 9eb095a spent it right here, unconditionally, and that is
+			exactly what collapsed `overflow_sweep`'s `tab_view`/`p3_sipworks`
+			to a 0px content box under Sci-Fi HUD at narrow-landscape: this
+			pre-solve conversion sees only the node's own AUTHORED extent —
+			`math.huge` for the common fill/hug scroll container — never the
+			real offer a parent squeezing it actually has. So this only
+			STAMPS the fact; `src/layout/solver.luau`'s `arrange` spends it
+			floor-aware, against the rect it actually resolved. ]]
+		layoutNode.leadingBleed = bleed
 	end
 	local chromeInsets = metrics.chromeInsets
 	local chromeOutsets = metrics.chromeOutsets

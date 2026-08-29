@@ -1009,4 +1009,104 @@ describe("a clipping scroll container reserves the package's shadow bleed", func
 		local overshoot = widestChildOvershoot("scifi_hud")
 		expect(overshoot <= 0).toBe(true)
 	end)
+
+	--[[ TASK SHOWCASE3 (2026-08-29): the playlist table's hidden-column
+		disclosure plate clipped the "Rating" heading's own top edge under
+		Glossy Mobile at a narrow phone (director photograph) — the FIRST row
+		in the plate's y-axis list, sitting flush at `List`'s own top with a
+		`shadow = "raised"` glow painting above its box. The reservation above
+		only ever grew the CROSS axis (`left`/`right` for a y-axis scroller):
+		the block's own comment reasons the SCROLL axis's far edge is
+		"reachable by scrolling to it", which is true for the LAST row (more
+		canvas beyond it) and false for the FIRST — there is no canvas before
+		position 0 to scroll into.
+
+		THIS SUPERSEDES `9eb095a`, REVERTED THE SAME DAY. That commit spent
+		this reservation unconditionally in `render/layout_node.luau`'s
+		pre-solve conversion, which sees only a node's own AUTHORED extent —
+		`math.huge` for the common fill/hug scroll container — never the real
+		offer a squeezing parent has, so it collapsed `overflow_sweep`'s
+		`tab_view`/`p3_sipworks` to a 0px content box under Sci-Fi HUD at
+		narrow-landscape. `src/layout/solver.luau`'s `arrange` now spends it
+		instead, floor-aware (`chrome_slots.spendInset`) against the REAL
+		resolved rect — the fact the pre-solve conversion never has. The first
+		two cases below are `9eb095a`'s own (still true: this box has 400px to
+		work with and the floor never bites); the third is the negative
+		control `9eb095a` did not carry — the squeeze that broke it — proving
+		the floor now gives the reservation back instead of collapsing the box. ]]
+	local function firstChildTopOvershoot(pkgName: string, pageHeight: number?): (number, number, boolean)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local handle = pres.present(UI.Screen({
+			id = "S",
+			padding = 0,
+			children = {
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					padding = 0,
+					height = { type = "fixed", px = pageHeight or 400 },
+					width = { type = "fill", weight = 1 },
+					children = {
+						UI.Button({ id = "First", label = "First", width = { type = "fill", weight = 1 } }),
+						UI.Button({ id = "Second", label = "Second", width = { type = "fill", weight = 1 } }),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		local snap = Facet.themes.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
+		env:set("themeMetrics", snap)
+		pres.refresh()
+		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+		local page = adapter.node("/S/Page").rect
+		local first = adapter.node("/S/Page/First").rect
+		local collapsed = false
+		for _, finding in handle.controller.diagnostics() do
+			if string.find(finding.issue, "content box collapses", 1, true) ~= nil then
+				collapsed = true
+			end
+		end
+		return page.y - (first.y - bleed), bleed, collapsed
+	end
+
+	it("the FIRST child's glow lands INSIDE the clipper's own leading edge too, in every shadowed package", function()
+		for _, name in { "glossy_mobile", "glossy_touch", "scifi_hud", "fantasy_ornate" } do
+			local overshoot, bleed, collapsed = firstChildTopOvershoot(name)
+			expect(bleed > 0).toBe(true) -- these packages DO cast a shadow
+			expect(overshoot <= 0).toBe(true)
+			expect(collapsed).toBe(false)
+		end
+	end)
+
+	it("...and a package with no shadow still pays nothing on the leading edge", function()
+		local overshoot, bleed, collapsed = firstChildTopOvershoot("compact_pointer")
+		expect(bleed).toBe(0)
+		expect(overshoot <= 0).toBe(true)
+		expect(collapsed).toBe(false)
+	end)
+
+	--[[ THE NEGATIVE CONTROL `9eb095a` DID NOT CARRY. A 20px box under Sci-Fi
+		HUD's 24px bleed cannot afford the reservation at all (`0 - 24 <= 0`,
+		`chrome_slots.spendInset`'s own all-or-nothing floor): the fix must give
+		it back rather than collapse the content box to 0, which is exactly
+		what shipped-then-reverted `9eb095a` did to `tab_view`/`p3_sipworks` at
+		narrow-landscape. The floor bites HERE — `First` sits flush at the
+		box's own top, no reservation spent — and the solver reports no
+		collapse, because none was forced: the padding that could not be
+		afforded was never applied, the same rule `spendInset` already keeps
+		for a themed control's own chrome insets. ]]
+	it("a box too small for the bleed gives the reservation back instead of collapsing", function()
+		local overshoot, bleed, collapsed = firstChildTopOvershoot("scifi_hud", 20)
+		expect(bleed).toBe(24)
+		expect(collapsed).toBe(false)
+		-- the floor bit: NONE of the bleed was spent, so the first child sits
+		-- flush at the box's own top (overshoot equals the full, un-afforded
+		-- bleed rather than <= 0)
+		expect(overshoot).toBe(bleed)
+	end)
 end)

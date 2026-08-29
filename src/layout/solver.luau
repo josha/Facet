@@ -53,6 +53,13 @@ local text_metrics = require("./text_metrics")
 local textFitLib = require("./text_fit")
 local profile = require("../core/profile")
 local themeSnapshot = require("../themes/snapshot")
+-- `chrome_slots.spendInset`: the ALL-OR-NOTHING floor `arrange`'s scroll branch
+-- borrows for the leading-edge chrome bleed (task SHOWCASE3) — the same
+-- contract a themed control's own contentInsets already spend against, here
+-- applied to a scroll node's leading padding against its REAL resolved rect
+-- (`layout_node.luau`'s pre-solve conversion never has one; see the reserve's
+-- own comment in `arrange` below for why that is load-bearing).
+local chrome_slots = require("../tokens/chrome_slots")
 -- the PURE declared-content composition decision (ADR-0023). The solver supplies
 -- the measurements and consumes the rects; the ranking, the step-down/drop order
 -- and the arrangement choice live there, where a headless sweep can drive them
@@ -290,6 +297,18 @@ export type Node = {
 		already decided by the time this arrives, and what it carries is that the
 		package wants a bigger picture than this control has room for. ]]
 	sizeRefused: { want: number, reserved: number, icon: string? }?,
+	--[[ THE OUTERMOST SCROLL CLIPPER'S LEADING-EDGE CHROME BLEED (task
+		SHOWCASE3, 2026-08-29), stamped by `render/layout_node.luau` beside the
+		cross-axis reservation it already folds into `padding` unconditionally.
+		This one CANNOT fold into `padding` there: the pre-solve conversion sees
+		only this node's own AUTHORED extent (`math.huge` for the common
+		fill/hug scroll container), so an unconditional reservation has no
+		floor — landed once as `9eb095a`, reverted the same day for collapsing
+		`overflow_sweep`'s `tab_view`/`p3_sipworks` to a 0px content box under
+		Sci-Fi HUD at narrow-landscape. `arrange` spends this floor-aware,
+		against the rect it actually resolved. `nil`/`0` on every flat package
+		and on every non-outermost clipper, so neither moves. ]]
+	leadingBleed: number?,
 	-- DECLARED-CONTENT COMPOSITION (ADR-0023). `composition` marks a screen-level
 	-- container: its children are all `region` nodes and their placement comes
 	-- from src/layout/composition.luau rather than from a stack rule. `region`
@@ -2440,12 +2459,55 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		else
 			contentW = math.min(contentW, innerW)
 		end
+
+		--[[ THE LEADING EDGE'S OWN CHROME BLEED, SPENT FLOOR-AWARE, AFTER THIS
+			NODE'S OWN CHILDREN ARE ALREADY MEASURED (task SHOWCASE3; supersedes
+			`9eb095a`, reverted). The cross axis above already reserves
+			`chromeBleed` unconditionally, folded into `node.padding` BEFORE any
+			of this node's children were measured — safe there because nothing
+			has yet measured it collapsing a real box. The leading edge (top for
+			a y-axis scroller, left for an x-axis one) is different for the
+			reason `layout_node.luau`'s own comment gives: there is no canvas
+			before scroll position 0 to grow into, so the only way to show a
+			first child's own glow is real padding, and real padding taken from
+			a box that cannot afford it is a blank scroller. `rect.h`/`rect.w`
+			is the box this node ACTUALLY resolved to — the fact the pre-solve
+			conversion never has — so the same all-or-nothing floor a themed
+			control's own contentInsets already spend against applies here too:
+			afford it only if the box survives.
+
+			SPENT HERE, AFTER `measureAll`, AND THAT IS LOAD-BEARING. Folding it
+			into `pl`/`pt` before `pushContainer`/`measureAll` ran shrank
+			`ctx.containerW` for THIS node's own children during their own
+			measurement — a live fact every descendant already answers against
+			— and measured to tip an already-marginal `tab_view` strip into a
+			text wrap it did not have, at `desktop-studio-1320` under Sci-Fi HUD
+			(a NEW "content overflows this vstack" finding, not the collapse
+			`9eb095a` is named for). Every child above is already measured and
+			arranged against the UNBLED box; this only moves the CURSOR's start
+			and `padding` (below) — NOT `contentSize`, which stays the pure
+			content sum `measureAll` already reports (the adapter is the one
+			that adds padding to it for the canvas it builds, exactly as it
+			already does for the cross-axis reservation folded into `pl`/`pr`
+			above) — the same non-interference the trailing edge's own canvas
+			allowance (`render/commit_walks.luau`) already keeps. ]]
+		local leadingSpend = 0
+		if type(node.leadingBleed) == "number" and node.leadingBleed > 0 then
+			local extent = if isX then rect.w else rect.h
+			local authored = if isX then pl + pr else pt + pb
+			leadingSpend = chrome_slots.spendInset(extent, authored, node.leadingBleed)
+		end
 		out[node.id].contentSize = { w = contentW, h = contentH }
 		-- ...and the padding this solve actually SPENT, published so the canvas the
 		-- adapter is given is built from the same number the content was measured
 		-- inside. The renderer used to re-derive it from the authored prop, which
 		-- silently drops whatever a theme's `scrollbar` slot reserved (2026-07-27).
-		out[node.id].padding = { top = pt, right = pr, bottom = pb, left = pl }
+		out[node.id].padding = {
+			top = pt + (if not isX then leadingSpend else 0),
+			right = pr,
+			bottom = pb,
+			left = pl + (if isX then leadingSpend else 0),
+		}
 		--[[ ...AND THE BAR GUTTER THIS HOST ACTUALLY SPENT (director report
 			2026-08-14: "the scroll bar always overlaps content", and its follow-up
 			"it should apply to both horizontal and vertical ones").
@@ -2479,8 +2541,10 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		out[node.id].overflow = if (axis == "y" and contentH > innerH) or (axis == "x" and contentW > innerW)
 			then "scroll"
 			else node.overflow
-		-- the flow cursor advances along the SCROLL axis
-		local cursor = if isX then innerX else innerY
+		-- the flow cursor advances along the SCROLL axis; `leadingSpend` (above)
+		-- starts it `bleed` further in on the leading edge only — the trailing
+		-- edge needs no such nudge, its own canvas allowance already covers it
+		local cursor = (if isX then innerX else innerY) + leadingSpend
 		for i, child in node.children or {} do
 			local size = childSizes[i]
 			-- cross-axis fill children stretch to the scroll viewport

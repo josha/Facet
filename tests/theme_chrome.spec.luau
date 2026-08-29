@@ -1890,9 +1890,22 @@ describe("the scroll canvas reaches a theme's decoration bleed", function()
 		env:set("themeMetrics", themes.resolve(scifi.build(themes), nil, {}))
 		presenter.refresh()
 		local glowing = adapter.node("/S/List").scrollRegion.contentH
-		-- the ONLY thing that may differ here is the allowance: this package
-		-- declares no metric that would change a fixed-height row's geometry
-		expect(glowing - flat).toBe(24)
+		-- task SHOWCASE3 (2026-08-29): this used to pin 24 — only the TRAILING
+		-- edge (this file's own subject: the canvas allowance that makes the
+		-- last row's glow reachable by scrolling further) was reserved. The
+		-- LEADING edge needs the same treatment for a different reason (no
+		-- canvas exists before position 0 to scroll into, so a first row's own
+		-- glow could only ever be a layout fact, never a scroll one) —
+		-- `src/layout/solver.luau`'s `arrange` now spends it floor-aware as the
+		-- scroll axis's own top padding, which THIS formula already folds in
+		-- (the comment above: "the padding the solver actually spent"). This
+		-- scroller has 200px to work with and asks for none of it as authored
+		-- padding, so the floor never bites and both edges cost one
+		-- `chromeBleed` each — `bleed * 2`, not `bleed`, for the SAME package
+		-- and the SAME 10 fixed-height rows. `tests/theme_layers.spec.luau`'s
+		-- own new case is the sibling proof that the floor DOES bite when the
+		-- box cannot afford it (9eb095a's regression, not repeated here).
+		expect(glowing - flat).toBe(24 * 2)
 	end)
 end)
 
