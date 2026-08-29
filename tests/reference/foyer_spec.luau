@@ -890,3 +890,126 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 		teardown(w)
 	end)
 end)
+
+--[[ THE BADGE CORNER, THIRD CONSUMER (task FOYER; director order "fix foyer").
+	ADR-0059 recorded this file's own `badgeBubble` as a third, deliberately
+	unfixed occurrence of the badge-corner-offset class closed this campaign in
+	`src/controls/picker.luau`'s count seal and `examples/gallery/scenarios/
+	adaptive_controls.luau`'s HUD-tile badge — `picker.luau`'s own comment even
+	cites "the `p4_foyer` badgeBubble shape" as the precedent both of those were
+	named after. Both badge sites here (`AddTile`'s invite count, `BellZ`'s
+	notice count) decorate a `shape = "circle"` Button with no declared
+	`surface`, which classifies to the same `control` slot by the CLASS-only
+	fallback rule, so the fix's one memo covers both.
+
+	THE ORACLE IS RE-DERIVED, not borrowed from `chrome_slots.carvedSide`
+	itself — the same T1 discipline `tests/themed_containment.spec.luau`'s two
+	consumer groups use: reading `chromeInsets.control[side]` straight off the
+	raw snapshot here cannot pass merely because it shares an arithmetic
+	mistake with the code under test. The tight `<= 0.5` pin on BOTH axes below
+	IS the asymmetric-carve proof: `fantasy_ornate`'s `control` chrome is
+	`{top=10,right=14,...}`, so a badge that (incorrectly) padded both axes by
+	the shared FOUR-SIDED MAX (`chrome_slots.carvedBorder`) would clear top by
+	14 — 4px past what its own axis carves — and this pin catches exactly
+	that. ]]
+local function carvedInsetSide(snapshot: any?, slot: string, side: string): number
+	if type(snapshot) ~= "table" then
+		return 0
+	end
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	if type(plate) ~= "table" then
+		return 0
+	end
+	local px = (plate :: any)[side]
+	return if type(px) == "number" then px else 0
+end
+
+describe("Foyer badgeBubble clears its own control's themed chrome (task FOYER)", function()
+	-- host = the path with this suffix stripped: `AddTile` or `BellZ`, the
+	-- ZStack both the circle Button and the `BadgeWhen` conditional sit in —
+	-- its resolved rect IS the badge's own fill parent, since `badgeBubble`
+	-- itself is width/height `UI.fill()`.
+	local BADGE_SUFFIX = "/BadgeWhen/then/BadgeBubble/Count"
+
+	local function badgeHits(
+		w: any,
+		snapshot: any?
+	): { { host: string, carved: number, rightClear: number, topClear: number } }
+		if snapshot ~= nil then
+			w.env:set("themeMetrics", snapshot)
+			w.presenter.refresh()
+			w.presenter.refresh()
+			w.presenter.refresh()
+		end
+		local topCarved = carvedInsetSide(snapshot, "control", "top")
+		local rightCarved = carvedInsetSide(snapshot, "control", "right")
+		local out = {}
+		for _, path in w.adapter.paths() do
+			if #path <= #BADGE_SUFFIX or string.sub(path, -#BADGE_SUFFIX) ~= BADGE_SUFFIX then
+				continue
+			end
+			local hostPath = string.sub(path, 1, #path - #BADGE_SUFFIX)
+			local badge = w.adapter.node(path)
+			local host = w.adapter.node(hostPath)
+			if badge == nil or host == nil or badge.rect == nil or host.rect == nil then
+				continue
+			end
+			table.insert(out, {
+				host = hostPath,
+				carved = math.max(topCarved, rightCarved), -- anti-vacuity only
+				topCarved = topCarved,
+				rightCarved = rightCarved,
+				rightClear = (host.rect.x + host.rect.w - rightCarved) - (badge.rect.x + badge.rect.w),
+				topClear = badge.rect.y - (host.rect.y + topCarved),
+			})
+		end
+		return out
+	end
+
+	it("with no package installed, both badges sit flush at the corner — shipped geometry, unchanged", function()
+		local w = makeWorld()
+		local hits = badgeHits(w, nil)
+		expect(#hits).toBe(2) -- anti-vacuity: AddTile's invite badge + BellZ's notice badge
+		for _, hit in hits do
+			expect(hit.carved).toBe(0)
+			expect(math.abs(hit.rightClear) <= 0.5).toBe(true)
+			expect(math.abs(hit.topClear) <= 0.5).toBe(true)
+		end
+		teardown(w)
+	end)
+
+	-- THE TWO ORNATE PACKAGES `themed_containment.spec.luau` swings its own
+	-- consumer groups through: Pixel Quest carves the most (`control` 16 flat
+	-- on every side) and Fantasy Ornate the second most, ASYMMETRICALLY
+	-- (`control` top=10/right=14) — the pair the T1 pin needs, since a
+	-- symmetric carve alone cannot distinguish a per-axis fix from a
+	-- shared-max one.
+	local PACKAGES: { { id: string, snapshot: any } } = {}
+	for _, id in { "pixel_quest", "fantasy_ornate" } do
+		local module = require(`../../examples/themes/{id}`) :: any
+		local pkg, report = module.build(Facet.themes)
+		assert(
+			pkg ~= nil,
+			`{id} failed its own package gate: {report and report.errors[1] and report.errors[1].message}`
+		)
+		table.insert(PACKAGES, { id = id, snapshot = Facet.themes.resolve(pkg, nil, {}) })
+	end
+
+	for _, pkg in PACKAGES do
+		it(`under {pkg.id}, both badges clear their own host's carved border, PER AXIS (T1)`, function()
+			local w = makeWorld()
+			local hits = badgeHits(w, pkg.snapshot)
+			expect(#hits).toBe(2)
+			for _, hit in hits do
+				expect(hit.carved > 0).toBe(true) -- anti-vacuity: this package really carves `control`
+				expect(hit.rightClear >= -0.5).toBe(true)
+				expect(hit.topClear >= -0.5).toBe(true)
+				-- THE T1 PIN. Over-clearing is a defect too: see the header above.
+				expect(hit.topClear <= 0.5).toBe(true)
+				expect(hit.rightClear <= 0.5).toBe(true)
+			end
+			teardown(w)
+		end)
+	end
+end)

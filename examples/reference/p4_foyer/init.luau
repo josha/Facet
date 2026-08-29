@@ -576,6 +576,32 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	-- pixels: the floor keeps one digit a circle, the pill cap holds 99+, the
 	-- ring separates it from whatever it overlaps, and it sits ON the host's
 	-- top-right corner. One builder, used at every badge site.
+	--
+	-- BADGE_CORNER_INSET (task FOYER, director order "fix foyer": ADR-0059
+	-- recorded this builder as a third, deliberately-unfixed occurrence of the
+	-- badge-corner-offset class closed this campaign in `src/controls/picker.
+	-- luau`'s count seal and `examples/gallery/scenarios/adaptive_controls.
+	-- luau`'s HUD-tile badge — the file's own name for this shape,
+	-- `picker.luau`'s comment even citing "the `p4_foyer` badgeBubble shape"
+	-- as its precedent). Both call sites below (`AddTile`'s invite count,
+	-- `BellZ`'s notice count) decorate a `shape = "circle"` Button with no
+	-- declared `surface`, which classifies to the same `control` slot by the
+	-- CLASS-only fallback rule (`chrome_slots.classify`), so one memo, read
+	-- live off the theme snapshot, covers both sites. PER AXIS
+	-- (`chrome_slots.carvedSide`, review finding T1): a corner offset pads two
+	-- independent sides, and the scalar `carvedBorder` max over-clears the
+	-- short axis of any package whose `control` chrome is not itself
+	-- symmetric (fantasy_ornate: top=10, right=14). Zero on every flat
+	-- package (`chromeInsets` is all-zero there), so shipped geometry there is
+	-- unchanged.
+	local badgeCornerInset = scope:own(core:memo(function(use)
+		local raw = use(env:get("themeMetrics"))
+		local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
+		return {
+			top = chrome_slots.carvedSide(snap, "control", "top"),
+			right = chrome_slots.carvedSide(snap, "control", "right"),
+		}
+	end))
 	local function badgeBubble(countMemo: any): any
 		return UI.ZStack({
 			id = "BadgeBubble",
@@ -583,6 +609,10 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			alignV = "start",
 			width = UI.fill(),
 			height = UI.fill(),
+			-- clears the host's own carved `control` chrome border (see
+			-- `badgeCornerInset` above); `{top=0,right=0}` on every flat
+			-- package, so shipped geometry there is unchanged
+			padding = badgeCornerInset,
 			children = {
 				UI.stroke(
 					UI.Text({
