@@ -42,17 +42,18 @@
       "scenario": "theme_authoring",
       "director": "controller-routed director report 2026-08-28 (i1.png): the shared focus-ring decoration is rounded (fixed 8px UICorner) while pixel_quest's controls are square-cornered; THEME2 lane owns the fix (headless, framework files) -- capture and judge only",
       "note": "a SHAPE fact (corner radius), not a position/size fact -- structurally invisible to judgeContainment/judgeZeroBoxes; see the row's own notes for the assert class that would catch it"
-    },
+    }
+  ],
+  "plannedCells": [
     {
       "id": "settings-badge-pixelquest-phone",
       "deviceRow": "compact-phone-portrait",
       "theme": "pixel_quest",
       "scenario": "theme_authoring",
       "director": "controller-routed director report 2026-08-28 (i2.png): a HUD tile's badge sits flush at the tile's top-right corner with zero inset; THEME2 lane owns the fix (headless, framework files) -- capture and judge only",
-      "note": "a SIBLING-ADJACENCY/minimum-inset fact, not a containment fact -- confirmed GATE BLIND SPOT this round (containment=[] despite the visible defect); see the row's own notes for the assert class that would catch it"
-    }
-  ],
-  "plannedCells": [
+      "note": "a SIBLING-ADJACENCY/minimum-inset fact, not a containment fact -- confirmed GATE BLIND SPOT this round (containment=[] despite the visible defect); see the row's own notes for the assert class that would catch it",
+      "status": "STALE-PATH (review finding T2, task-finalwave): retired out of notableCells because the existing evidence row's node path (.../t4+overlay/t4Badge) no longer exists at HEAD -- 5805244 closed the badge-inset defect this cell names by adding a 't4BadgeCorner' wrapper node, so the live path is now .../t4+overlay/t4BadgeCorner/t4Badge. The row is still filed 'real-regression / still open' in the OLD evidence (pre-5805244), which is now itself stale: for pixel_quest specifically (symmetric 16px 'control' chrome, no T1 asymmetry) the fix should fully close it. Needs a fresh Studio re-drive at the new path before this can honestly return to notableCells as PASS or a currently-open triage."
+    },
     {
       "id": "pixelquest-hud-tablet",
       "deviceRow": "tablet-landscape",
