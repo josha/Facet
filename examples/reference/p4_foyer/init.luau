@@ -12,6 +12,46 @@
 local strings = require("@self/content/strings")
 local seedData = require("@self/content/seed")
 local Services = require("@self/services")
+--[[ HOW `chrome_slots` IS FOUND (task SHOWCASE2 defect A — this file was the
+	THIRD live instance of the same class the "All controls" empty-mount defect
+	proved). `require("../../src/tokens/chrome_slots")` is the correct FILE-
+	SYSTEM path for an `init.luau` two folders under `src/`'s sibling
+	(docs/lessons/luau-require-by-string-init-self.md — an init.luau's relative
+	require resolves against its own folder's PARENT, one fewer hop than a leaf
+	file at the same depth needs) — but live in Studio, Rojo folds
+	`p4_foyer/init.luau` into a ModuleScript named `p4_foyer` sitting under
+	`ReplicatedStorage.FacetReference`, a SIBLING of `ReplicatedStorage.Facet`
+	(`src`), not a nested descendant: the same two ".." land on
+	`ReplicatedStorage.src...`, which does not exist (measured live:
+	`could not resolve child component "src"`). Fixed the same way
+	`adaptive_controls.luau`'s `chrome_slots` reach and `sensory_feedback.
+	luau`'s `resolveAdapterModule` already establish for this two-trees reach:
+	try the ENGINE route, fall back to the FILE route, both pcall-guarded. A
+	never-nil STUB stands in if both routes fail, so every existing call site
+	below (`chrome_slots.carvedSide`) stays untouched rather than growing a
+	nil-check of its own — the stub's `carvedSide` answers 0, `carvedSide`'s
+	own documented answer for a snapshot it cannot classify. ]]
+local CHROME_SLOTS_STUB = {
+	carvedSide = function(): number
+		return 0
+	end,
+}
+local function resolveChromeSlots(): any
+	local engineOk, engineResult = pcall(function(): any
+		return require((game :: any):GetService("ReplicatedStorage").Facet.tokens.chrome_slots)
+	end)
+	if engineOk and engineResult ~= nil then
+		return engineResult
+	end
+	local fileOk, fileResult = pcall(function(): any
+		return require("../../src/tokens/chrome_slots")
+	end)
+	if fileOk and fileResult ~= nil then
+		return fileResult
+	end
+	return CHROME_SLOTS_STUB
+end
+local chrome_slots = resolveChromeSlots()
 
 local Foyer = {}
 

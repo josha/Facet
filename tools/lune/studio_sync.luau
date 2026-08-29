@@ -19,45 +19,11 @@ local fs = require("@lune/fs")
 local net = require("@lune/net")
 local serde = require("@lune/serde")
 local process = require("@lune/process")
+local studio_tree = require("./lib/studio_tree")
 
 local PORT = 8642
 
-type FileEntry = {
-	path: string, -- dot path under game, e.g. ReplicatedStorage.Facet.layout.solver
-	className: string, -- ModuleScript | LocalScript
-	file: string, -- repo-relative source file
-}
-
-local entries: { FileEntry } = {}
-
-local function addTree(fsDir: string, robloxPath: string, rootClassName: string)
-	-- the directory itself: init.luau (or init.client.luau) becomes the node
-	local initFile: string? = nil
-	local className = rootClassName
-	if fs.isFile(fsDir .. "/init.luau") then
-		initFile = fsDir .. "/init.luau"
-	elseif fs.isFile(fsDir .. "/init.client.luau") then
-		initFile = fsDir .. "/init.client.luau"
-		className = "LocalScript"
-	end
-	table.insert(entries, {
-		path = robloxPath,
-		className = if initFile then className else "Folder",
-		file = initFile or "",
-	})
-	for _, name in fs.readDir(fsDir) do
-		local full = fsDir .. "/" .. name
-		if fs.isDir(full) then
-			addTree(full, robloxPath .. "." .. name, "ModuleScript")
-		elseif name:match("%.luau$") and not name:match("%.spec%.luau$") and not name:match("^init%.") then
-			table.insert(entries, {
-				path = robloxPath .. "." .. name:gsub("%.luau$", ""),
-				className = "ModuleScript",
-				file = full,
-			})
-		end
-	end
-end
+type FileEntry = studio_tree.FileEntry
 
 -- TWO TREES, ONE AT A TIME (roadmap Step 9). The gallery and the performance lab
 -- both mount at `ReplicatedStorage.FacetScenarios`, because the lab REUSES the
@@ -73,24 +39,7 @@ end
 -- the gallery runner mapped in as a child of the lab registry.
 local mode = if process.args[1] == "perf" then "perf" else "gallery"
 
-addTree("src", "ReplicatedStorage.Facet", "ModuleScript")
-addTree("examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
-if mode == "perf" then
-	addTree("examples/performance/lab", "ReplicatedStorage.FacetScenarios", "ModuleScript")
-	table.insert(entries, {
-		path = "ReplicatedStorage.FacetScenarios.runner",
-		className = "ModuleScript",
-		file = "examples/gallery/scenarios/runner.luau",
-	})
-	addTree("examples/performance/client", "StarterPlayer.StarterPlayerScripts.PerfLab", "ModuleScript")
-else
-	addTree("examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
-	addTree("examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
-	addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
-	-- reference-app-validation: the five clean-room reference proofs,
-	-- mirrored from gallery.project.json's FacetReference mapping
-	addTree("examples/reference", "ReplicatedStorage.FacetReference", "Folder")
-end
+local entries: { FileEntry } = studio_tree.entries(mode)
 -- vendored Fusion is not needed by the gallery runtime path; skip.
 
 -- content stamp: order-stable concatenated sizes+paths hashed cheaply.

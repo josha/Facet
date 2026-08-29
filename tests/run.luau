@@ -503,6 +503,13 @@ require("./theme_drift.spec")
 -- rather than a number ban — an invented `surface` token is as much a bypass as
 -- a px text size, and it is the one that made the word-game board invisible
 require("./example_drift.spec")
+-- SHOWCASE2 task A: the same "does the tree actually reach what it claims"
+-- discipline, aimed at require PATHS rather than property authority — a
+-- gallery/scenario/reference module-scope require that resolves under Lune's
+-- file-system semantics but not live Studio's instance-tree semantics (the
+-- "All controls" empty-mount defect; second occurrence of the class this
+-- campaign, after G7+G11's Rojo mount-depth divergence, ADR-0048)
+require("./scenario_require_paths.spec")
 -- theme controller specs (package 2)
 require("./theme_controller.spec")
 -- a theme commit repaints what NO rule can express: the tint channel and a

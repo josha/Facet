@@ -63,11 +63,30 @@
 	the probe) is still owed before this round's device pass closes.
 ]]
 
--- the pure geometry this fixture used to transcribe by hand (gap 33,
--- framework-gaps-phase2) — a leaf module with no engine/theme/core
--- dependency, same reach-in idiom `sensory_feedback.luau` uses for
--- `src/client/haptics`
-local transform_footprint = require("../../../src/layout/transform_footprint")
+--[[ HOW `transform_footprint` IS FOUND (task SHOWCASE2 defect A — this file was
+	the SECOND live instance of the same class the "All controls" empty-mount
+	defect proved: a bare `require("../../../src/layout/transform_footprint")`
+	resolved under Lune but not live in Studio, measured with the identical
+	engine error `could not get parent of component ".."`. Fixed the same way
+	`adaptive_controls.luau`'s `chrome_slots` reach and `sensory_feedback.luau`'s
+	`resolveAdapterModule` already establish for this two-trees reach: try the
+	ENGINE route, fall back to the FILE route, both pcall-guarded. ]]
+local function resolveTransformFootprint(): any?
+	local engineOk, engineResult = pcall(function(): any
+		return require((game :: any):GetService("ReplicatedStorage").Facet.layout.transform_footprint)
+	end)
+	if engineOk and engineResult ~= nil then
+		return engineResult
+	end
+	local fileOk, fileResult = pcall(function(): any
+		return require("../../../src/layout/transform_footprint")
+	end)
+	if fileOk and fileResult ~= nil then
+		return fileResult
+	end
+	return nil
+end
+local transform_footprint = resolveTransformFootprint()
 
 -- the fade's resting stop: low enough that a doubled overlap is unmistakable,
 -- high enough that both plates are still on screen (the same reasoning
@@ -126,6 +145,12 @@ local CLUSTER_W, CLUSTER_H = 100, 70
 -- reservation math itself.
 local FOOTPRINT_SLACK = 6
 local function turnedFootprint(w: number, h: number, scale: number, deg: number): (number, number)
+	-- `transform_footprint == nil` only if BOTH resolution routes failed (see
+	-- `resolveTransformFootprint` above) — degrade to the unrotated footprint
+	-- rather than erroring the whole fixture out of the picker.
+	if transform_footprint == nil then
+		return w + FOOTPRINT_SLACK, h + FOOTPRINT_SLACK
+	end
 	local fw, fh = transform_footprint.transformFootprint(w, h, scale, deg)
 	return fw + FOOTPRINT_SLACK, fh + FOOTPRINT_SLACK
 end

@@ -38,10 +38,41 @@
 --                                        still plays nothing; it says what
 --                                        happened and a subscriber decides.
 
--- a pure geometry helper, the same precedented reach `nested_compositing.luau`
--- (`transform_footprint`) and `sensory_feedback.luau` (`haptics`) already make
--- for a utility with no public-surface equivalent (task THEME2)
-local chrome_slots = require("../../../src/tokens/chrome_slots")
+--[[ HOW `chrome_slots` IS FOUND (task SHOWCASE2 defect A). A bare
+	`require("../../../src/tokens/chrome_slots")` here resolved under Lune
+	(file-system path) but NOT live in Studio: `tools/build_places.sh` /
+	`tools/lune/lib/studio_tree.luau` map `src` to `ReplicatedStorage.Facet` and
+	this directory to `ReplicatedStorage.FacetScenarios` — SIBLING trees in the
+	built place, not nested, even though one sits three folders above the other
+	on disk. Measured live: `error requiring "../../../src/tokens/chrome_slots":
+	could not get parent of component ".."` — the "All controls" demo failed to
+	mount at all, since this was a MODULE-SCOPE, unguarded require.
+
+	Same idiom `sensory_feedback.luau`'s `resolveAdapterModule` already
+	established for exactly this reach (a utility with no public-surface
+	equivalent): try the ENGINE route first, fall back to the FILE route, both
+	pcall-guarded, so a missing route degrades to `nil` (native geometry,
+	`badgeCornerInset` reads 0) instead of failing the whole scenario's
+	`require`. `nested_compositing.luau` (`transform_footprint`) and
+	`examples/reference/p4_foyer/init.luau` (`chrome_slots`) carried the exact
+	same bug and are fixed the same way in the same round;
+	`tools/lune/check_scenario_requires.luau` now guards the class headlessly. ]]
+local function resolveChromeSlots(): any?
+	local engineOk, engineResult = pcall(function(): any
+		return require((game :: any):GetService("ReplicatedStorage").Facet.tokens.chrome_slots)
+	end)
+	if engineOk and engineResult ~= nil then
+		return engineResult
+	end
+	local fileOk, fileResult = pcall(function(): any
+		return require("../../../src/tokens/chrome_slots")
+	end)
+	if fileOk and fileResult ~= nil then
+		return fileResult
+	end
+	return nil
+end
+local chrome_slots = resolveChromeSlots()
 
 return {
 	title = "Adaptive controls (write-once)",
@@ -309,8 +340,11 @@ return {
 			-- reason to differ on this, so they no longer do.
 			local raw = use(ctx.env:get("themeMetrics"))
 			local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
-			local top = chrome_slots.carvedSide(snap, "control", "top")
-			local right = chrome_slots.carvedSide(snap, "control", "right")
+			-- `chrome_slots == nil` only if BOTH resolution routes failed (see
+			-- `resolveChromeSlots` above) — degrade to native geometry (no carve)
+			-- rather than erroring, same as `carvedSide`'s own non-table fallback.
+			local top = if chrome_slots then chrome_slots.carvedSide(snap, "control", "top") else 0
+			local right = if chrome_slots then chrome_slots.carvedSide(snap, "control", "right") else 0
 			return { top = top, right = right }
 		end))
 		local function badgedTile(id: string, badge: string)
