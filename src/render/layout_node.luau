@@ -879,16 +879,37 @@ local function toLayoutNode(
 	-- one reservation covers every slot at every depth — and it is 0 for any
 	-- package that declares no shadow, so a flat theme is untouched and the
 	-- neutral baseline cannot move.
+	--
+	-- ...AND THE SCROLL AXIS'S OWN LEADING EDGE IS NOT "reachable by scrolling
+	-- to it" EITHER (SHOWCASE2 task C — the playlist table's hidden-column
+	-- plate, Glossy Mobile, narrow phone: the "Rating" heading is the FIRST row
+	-- in the plate's y-axis list, its own `shadow = "raised"` glow painting
+	-- above its box, and `ClipsDescendants` cropped it flush at the plate's own
+	-- top edge). The comment above is right that a glow past the LAST row is
+	-- reachable by scrolling FORWARD into canvas the trailing allowance grows —
+	-- but a glow before the FIRST row would need scrolling BEFORE position 0,
+	-- which no canvas allowance can create. That edge is exactly as unreachable
+	-- as the cross axis the block above already protects, so it gets the same
+	-- `math.max` reservation: `top` for a y-axis scroller, `left` for an
+	-- x-axis one — the START of the scroll direction, never the END.
 	if kind == "scroll" and insideClipper ~= true then
 		local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
 		if bleed > 0 then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
 			if (props.axis or "y") == "x" then
-				layoutNode.padding =
-					{ top = math.max(top, bleed), right = right, bottom = math.max(bottom, bleed), left = left }
+				layoutNode.padding = {
+					top = math.max(top, bleed),
+					right = right,
+					bottom = math.max(bottom, bleed),
+					left = math.max(left, bleed),
+				}
 			else
-				layoutNode.padding =
-					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
+				layoutNode.padding = {
+					top = math.max(top, bleed),
+					right = math.max(right, bleed),
+					bottom = bottom,
+					left = math.max(left, bleed),
+				}
 			end
 		end
 	end

@@ -1009,4 +1009,65 @@ describe("a clipping scroll container reserves the package's shadow bleed", func
 		local overshoot = widestChildOvershoot("scifi_hud")
 		expect(overshoot <= 0).toBe(true)
 	end)
+
+	--[[ SHOWCASE2 task C: the playlist table's hidden-column disclosure plate
+		clipped the "Rating" heading's own top edge under Glossy Mobile at a
+		narrow phone (director photograph) — the FIRST row in the plate's y-axis
+		list, sitting flush at `List`'s own top with a `shadow = "raised"` glow
+		painting above its box. The pre-fix reservation only ever grew the CROSS
+		axis (`left`/`right` for a y-axis scroller): the block's own comment
+		reasoned the SCROLL axis's far edge is "reachable by scrolling to it",
+		which is true for the LAST row (more canvas beyond it) and false for the
+		FIRST — there is no canvas before position 0 to scroll into. Root-caused
+		live via `tests/lib/world.luau` + `overflow_guard` against the real
+		`02_playlist_table` example (task-showcase2-report.md); reproduced here
+		at the same fixed leaf this file's own sibling cases already use, on the
+		axis they do not check. ]]
+	local function firstChildTopOvershoot(pkgName: string): (number, number)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake.new()
+		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		pres.present(UI.Screen({
+			id = "S",
+			padding = 0,
+			children = {
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					padding = 0,
+					height = { type = "fixed", px = 400 },
+					width = { type = "fill", weight = 1 },
+					children = {
+						UI.Button({ id = "First", label = "First", width = { type = "fill", weight = 1 } }),
+						UI.Button({ id = "Second", label = "Second", width = { type = "fill", weight = 1 } }),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		local snap = Facet.themes.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
+		env:set("themeMetrics", snap)
+		pres.refresh()
+		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+		local page = adapter.node("/S/Page").rect
+		local first = adapter.node("/S/Page/First").rect
+		return page.y - (first.y - bleed), bleed
+	end
+
+	it("the FIRST child's glow lands INSIDE the clipper's own leading edge too, in every shadowed package", function()
+		for _, name in { "glossy_mobile", "glossy_touch", "scifi_hud", "fantasy_ornate" } do
+			local overshoot, bleed = firstChildTopOvershoot(name)
+			expect(bleed > 0).toBe(true) -- these packages DO cast a shadow
+			expect(overshoot <= 0).toBe(true)
+		end
+	end)
+
+	it("...and a package with no shadow still pays nothing on the leading edge", function()
+		local overshoot, bleed = firstChildTopOvershoot("compact_pointer")
+		expect(bleed).toBe(0)
+		expect(overshoot <= 0).toBe(true)
+	end)
 end)
