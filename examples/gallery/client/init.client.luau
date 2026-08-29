@@ -309,9 +309,17 @@ if bootDecision.mode == "showcase" then
 			coreTopSignal:set(coreTop)
 		end
 		-- the same space step the chrome pads itself with, so the demo below starts
-		-- clear of the chips instead of flush against them
+		-- clear of the chips instead of flush against them — MAX'D AGAINST THE
+		-- ACTIVE PACKAGE'S OWN CHROME GLOW (task SHOWCASE3, director repro: S22
+		-- Ultra preset, Glossy Mobile — the chip row's own `shadow = "raised"`
+		-- glow got cropped by the demo screen's opaque background painting over
+		-- its tail, because the plain rhythm step (10px under Glossy Mobile) was
+		-- less than the glow's own reach (17px). See `demo_picker.reservationSlack`
+		-- for the full measurement and the `math.max`-not-`+` reasoning.
 		local metrics = env:get("themeMetrics"):get()
-		local slack = if type(metrics) == "table" then metrics.space.s else 8
+		local baseSlack = if type(metrics) == "table" then metrics.space.s else 8
+		local chromeBleed = if type(metrics) == "table" then metrics.chromeBleed else nil
+		local slack = demo_picker.reservationSlack(baseSlack, chromeBleed)
 		--[[ THE TEN-FOOT MARGIN IS SPENT ONCE (director round 4, 2026-08-21). The
 			chips now sit inside the overscan insets on a television (`showcase_chrome`
 			§"AND IN PAST THE TELEVISION'S BEZEL"), so their measured bottom edge

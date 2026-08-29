@@ -84,6 +84,38 @@ function demo_picker.barReservation(coreTop: number, chipsBottom: number?, slack
 	local over = if type(overscanTop) == "number" and overscanTop > 0 then overscanTop else 0
 	return math.max(floor, math.max(0, chipsBottom - over) + slack)
 end
+
+--[[ reservationSlack(baseSlack, chromeBleed) -> the gap `barReservation` above
+	spends between the chip row's measured bottom edge and the demo starting
+	below it (task SHOWCASE3, director repro: Samsung Galaxy S22 Ultra preset,
+	Glossy Mobile — a hard dark band edge right under the "Playlist table" /
+	"Settings" chips).
+
+	`baseSlack` (`metrics.space.s`) is a PLAIN GAP — the same rhythm step the
+	chrome pads itself with — and it is the whole answer under a flat package,
+	where nothing paints past a chip's own box. It stopped being the whole
+	answer the day a package started drawing a `shadow = "raised"` glow on
+	that chip (`chrome.control`): the glow paints OUTSIDE the chip's box, by up
+	to the package's own `chromeBleed` (17px under Glossy Mobile/Glossy
+	Touch/Fantasy Ornate, 24px under Sci-Fi HUD) — measured live on the S22
+	Ultra preset (logical viewport 359x690, `GuiService:GetGuiInset().Y` 58):
+	chip row ends at y=58, `Playlist` demo screen (an OPAQUE `surface = "base"`
+	panel, presented AFTER the chrome so it paints OVER it) started at y=68,
+	only 10px below — 7px short of the chip's own 17px glow, so the demo's
+	opaque background painted over the tail of the shadow and cropped it to a
+	hard edge instead of a fade.
+
+	`math.max`, NOT `+` — the SAME idiom `src/render/layout_node.luau`'s own
+	scroll-canvas reservation already uses for this identical class of fact
+	("the requirement is that the gutter be AT LEAST the glow's reach"): a
+	package whose rhythm step already clears its own glow (there are none
+	today, but a future one might) owes nothing extra, and adding the two
+	would only ever overspend. Zero `chromeBleed` (every flat package) leaves
+	`baseSlack` untouched, so nothing unthemed moves. ]]
+function demo_picker.reservationSlack(baseSlack: number, chromeBleed: number?): number
+	local bleed = if type(chromeBleed) == "number" and chromeBleed > 0 then chromeBleed else 0
+	return math.max(baseSlack, bleed)
+end
 -- THE LABEL IS CLIPPED, NOT THE BOX — same reasoning as theme_picker's
 -- CHIP_LABEL_CHARS, and the same first wrong answer: constraining the box made
 -- "Temperature converter" WRAP to two lines, so the chip grew out of the

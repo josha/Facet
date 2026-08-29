@@ -501,6 +501,54 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 		-- a chip row that fits never SHRINKS the strip below the floor
 		expect(demo_picker.barReservation(CORE_TOP, CORE_TOP + 10, SLACK)).toBe(CORE_TOP + demo_picker.BAR_HEIGHT)
 	end)
+
+	--[[ THE BAND'S OWN CHROME GLOW (task SHOWCASE3, director repro: Samsung
+		Galaxy S22 Ultra device-emulator preset, Glossy Mobile — a hard dark
+		band edge right under the "Playlist table" / "Settings" chips). The
+		gap above is a plain rhythm step (`SLACK`), which is the whole answer
+		under a flat package; it stopped being the whole answer the day a
+		package started drawing a `shadow = "raised"` glow on the chip
+		(`chrome.control`), which paints OUTSIDE the chip's own box by up to
+		the package's `chromeBleed` — 17px under Glossy Mobile, more than
+		`SLACK` ever was. `demo_picker.reservationSlack` is the fix:
+		`math.max(SLACK, chromeBleed)`, the same idiom
+		`src/render/layout_node.luau`'s own scroll-canvas reservation already
+		uses for this identical class of fact. ]]
+	describe("reservationSlack: the gap covers the chip's own chrome glow", function()
+		it("a flat package (zero chromeBleed) leaves the plain rhythm step untouched", function()
+			expect(demo_picker.reservationSlack(SLACK, 0)).toBe(SLACK)
+			expect(demo_picker.reservationSlack(SLACK, nil)).toBe(SLACK)
+		end)
+
+		it("a glow deeper than the rhythm step WINS — math.max, never the sum", function()
+			expect(demo_picker.reservationSlack(SLACK, 17)).toBe(17)
+			-- not SLACK + 17: overspending here just delays every demo one for one,
+			-- and a package whose own rhythm already clears its glow owes nothing more
+			expect(demo_picker.reservationSlack(10, 17)).toBe(17)
+		end)
+
+		it("a rhythm step already deeper than the glow is untouched", function()
+			expect(demo_picker.reservationSlack(28, 17)).toBe(28)
+		end)
+
+		it("the reservation actually clears the chip's own glow, under every shadowed package", function()
+			for _, pkgName in { "glossy_mobile", "glossy_touch", "scifi_hud", "fantasy_ornate" } do
+				local bottom = chipRowBottom(pkgName, 0)
+				local pkg = (require)(`../examples/themes/{pkgName}`).build(Facet.themes)
+				local snap = Facet.themes.resolve(pkg, nil, {})
+				local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+				expect(bleed > 0).toBe(true) -- these packages DO cast a shadow
+				local slack = demo_picker.reservationSlack(SLACK, bleed)
+				local reserved = demo_picker.barReservation(CORE_TOP, bottom, slack)
+				-- the demo's own opaque background starts at `reserved`; the chip's
+				-- glow reaches `bottom + bleed`. The band is clear only if the first
+				-- does not land inside the second.
+				expect(`{pkgName}: gap {reserved - bottom} >= glow {bleed}`).toBe(
+					`{pkgName}: gap {math.max(reserved - bottom, bleed)} >= glow {bleed}`
+				)
+			end
+		end)
+	end)
 end)
 
 -- ===== THE HOST LOOP: a fixture's declared `present` opts must reach the
