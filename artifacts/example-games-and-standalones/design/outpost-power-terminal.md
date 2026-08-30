@@ -63,11 +63,12 @@ space is wrong". Whole units are also the better game rule — six units among t
 consumers is a decision, not a dial. So the terminal is built from controls that need
 only activation, and the adapter is honest about what it does not carry.
 
-**The spike decides whether that is the final answer.** If a surface-space pointer
-mapping proves out cheaply and exactly, `setPointerHandlers` is implemented and the
-degradation is withdrawn. If it does not, the method is deleted after construction —
-the sanctioned move, which `billboard_target.luau` already uses for the same reason —
-and the contract reports it absent by name.
+**The spike decided it, and the answer is steppers.** It proved that *activation*
+reaches a surface control, and did not prove what coordinates a *capture* would carry —
+so `setPointerHandlers` and `setTouchGestureHandlers` are deleted after construction,
+the sanctioned move `billboard_target.luau` already uses, and the contract reports them
+absent by name. A slider on this terminal would be a control whose coordinate space
+nobody has measured.
 
 ## 4. The topology, and why each part of it
 
@@ -85,7 +86,7 @@ Players.<me>.PlayerGui
   Facet_Surface_OutpostTerminal   (SurfaceGui, client-owned)
       Adornee  → Workspace.Outpost.Console
       Face     → Front
-      SizingMode = PixelsPerStud … resolution fixed by policy
+      SizingMode = FixedSize, CanvasSize = the declared canvas
       AlwaysOnTop = false
       ClipsDescendants = true
       ZIndexBehavior = Sibling
@@ -95,10 +96,12 @@ Players.<me>.PlayerGui
 Four facts hold this together, and three of them are the kind that make a spike measure
 nothing if they are wrong:
 
-1. **The `SurfaceGui` lives under `PlayerGui`, with `Adornee` pointing at the part.**
-   Parented *into* the part it is display-only: its `GuiObject`s are not input-active
-   at all. `target_contract.FUTURE.surface` names this as the precondition, and a spike
-   that parents it the wrong way measures a surface that can never be clicked.
+1. **The `SurfaceGui` lives under `PlayerGui`, with `Adornee` pointing at the part —
+   and the reason is OWNERSHIP, not input.** This design originally repeated the
+   contract's claim that a surface parented *into* the part is display-only. **The spike
+   disproved it**: both topologies take input on Studio 0.736. The rule stands anyway,
+   for the better reason — a `SurfaceGui` inside a Workspace part replicates to every
+   player and is server-owned, and shared UI is what Facet must never build.
 2. **The part must remain queryable.** `CanQuery = false` makes the surface unhittable
    while looking completely normal. The adapter requires it and says so; the Studio
    proof carries a negative control for both this and for wrong parenting.
@@ -109,12 +112,17 @@ nothing if they are wrong:
    consumer; this target writes the first one. Shipping the target without it would
    leave the fact decorative.
 
-**The canvas.** A fixed virtual-pixel canvas, so the solver is fed one exact rectangle
-and every layout decision in the framework behaves as it does on a screen. Face,
-resolution, and maximum distance are explicit adapter options with no defaults that
-guess. `AlwaysOnTop = false`, because a terminal that draws through the wall in front of
-it is not a terminal — unless the spike produces evidence that legibility requires
-otherwise, in which case the evidence goes in the ADR.
+**The canvas.** A fixed virtual-pixel canvas, measured invariant to the part: one
+`CanvasSize` held while the console was resized 8×5 → 4×2.5 → 16×10 → 8×2 studs
+reported the same `400, 250` every time, and descendants read in canvas pixels. The
+solver is fed one exact rectangle and a resize costs no re-solve. `face` is an explicit
+required option with no default, because `Front` is the −Z face and a surface on the
+wrong one renders perfectly and can never be clicked.
+
+`AlwaysOnTop` is **pinned false and is not an option**, and the spike is why: with a
+wall between the camera and the console, activation read 0 with it false, **1 with it
+true**, and 1 with the wall removed. A player does not merely see the terminal through
+geometry — they operate it.
 
 ## 5. Walk-up, engagement, and every way out
 
@@ -220,3 +228,63 @@ the native scroll host behave; whether `GetTextBoundsAsync` answers the same num
 what a tap's coordinates actually are; and what happens when the adornee streams out
 mid-session. Every one of those is a question whose wrong guess produces an adapter
 that looks correct and is not.
+
+---
+
+## 10. Two facts about the showcase place that shape this, found before building
+
+`examples/gallery.project.json` is the showcase's whole world, and it has two
+properties this terminal collides with. Both are recorded here rather than
+discovered halfway through.
+
+### There is no server at all
+
+The project maps `ReplicatedStorage`, `StarterPlayer.StarterPlayerScripts` and
+`Lighting`. **It maps no `ServerScriptService` and no `ServerStorage`.** Every example
+in this repository is client-only, which has been correct until now — none of them
+changes anything another player could see.
+
+This one does. "Applying power changes shared world state, so send domain intent to the
+server" is not satisfiable in a place with no server, and faking it client-side would
+teach exactly the lesson the plan forbids.
+
+**So the showcase gains a server side**: `examples/gallery/server/`, mapped to
+`ServerScriptService`, holding the outpost's authority and nothing else. It is small
+and it is the point — a reader should be able to see, in one file, what the server
+checks and why. It validates:
+
+- each value is a whole number inside its declared range;
+- the total is at most six;
+- the sender is the player who engaged *this* console;
+- the request is not arriving faster than a human could send it;
+- and **the player's distance to the console, measured on the server**.
+
+A `RemoteEvent` carries the intent one way and the outcome back. The UI tree is never
+replicated; only the allocation is.
+
+### `CharacterAutoLoads` is `false`, and a walk-up needs something to walk
+
+`Players.CharacterAutoLoads = false` in the showcase, and that is deliberate: forty-odd
+UI demos do not want an avatar standing in front of them.
+
+A `ProximityPrompt` needs a character — it measures distance from one, and its own
+`RequiresLineOfSight` is about one. So:
+
+- **The showcase scenario loads a character when it is selected and removes it when it
+  is switched away from.** That is scenario setup, exactly like the world fixture
+  itself, and it belongs in the runner's engine seam beside `ctx.billboard` rather than
+  in the scenario module — scenario modules stay engine-free.
+- **The standalone place sets `CharacterAutoLoads = true`** in its own project, because
+  a place whose entire content is a walk-up terminal has nothing to protect from an
+  avatar.
+
+This also makes character removal a *real* exit path rather than a hypothetical one:
+the scenario's own teardown removes the character, so the "character removed" row in
+§5 is exercised by the same control that switches demos.
+
+### What this adds to the manifest's job
+
+The place manifest now has to carry, per place: whether it needs a server side, whether
+it auto-loads a character, and which world fixture it builds. That is the
+"presentation target and world-fixture metadata" the plan already asks the manifest to
+drive — this is simply the first place that needs it to be more than a name.
