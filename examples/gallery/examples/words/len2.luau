@@ -1,0 +1,25 @@
+--!strict
+--!nolint LocalShadow
+-- GENERATED — do not edit by hand. Regenerate with:
+--     python3 tools/build_word_lists.py
+--
+-- Every accepted 2-letter guess: SCOWL sizes 10 through 70, American and pan-English word classes only.
+--
+-- Source: SCOWL (Spell Checker Oriented Word Lists) 2020.12.07
+--   https://downloads.sourceforge.net/project/wordlist/SCOWL/2020.12.07/scowl-2020.12.07.tar.gz
+--   SHA-256 5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc
+-- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md
+--
+-- The words are stored as one fixed-width run rather than a table because the
+-- lookup is a binary search over character offsets: 93 entries cost no
+-- table allocation at load and about 7 string comparisons per query.
+
+local CHUNKS = {
+	"adahaiamanasataxbebibycsdedoehemeneresetexfagogshahehihoidifinisitjajokakbkikslalmlnlolslxmambmemfmimsmumynenonuodofohoiomonooorowoxpapepipsqirersshsisosstatitotsuhumupusutwewoxixuyayeyo",
+}
+
+return table.freeze({
+	length = 2,
+	count = 93,
+	packed = table.concat(CHUNKS),
+})

@@ -41,3 +41,8 @@ __pycache__/
 # The sweep suite cache: one transcript per tree state, regenerated on any
 # edit. Machine-local by construction (it keys on THIS checkout's content).
 artifacts/suite_cache/
+
+# The pinned SCOWL archive the example word data is generated from. 2.5 MB, and
+# tools/build_word_lists.py re-downloads it on demand against a recorded SHA-256
+# — the GENERATED word data is what ships, not its source.
+tools/.wordlist-cache/

@@ -353,6 +353,12 @@ require("./examples_games.spec")
 -- two-pass letter budget across every duplicate shape, refusals that do not
 -- consume a row, monotonic key state, win/loss, and the deterministic seed
 require("./example_word_game.spec")
+-- ...and the DATA both word games now run on (stage example-games-and-standalones):
+-- a pinned licensed source, the two sets its filters produce, the per-file hashes
+-- that catch a hand-edit, the ascending order the bisection depends on, and the
+-- measured lookup cost. The words the old thirty-four-entry list refused are a
+-- case of their own, because they were the reason for the replacement
+require("./example_word_data.spec")
 
 require("./popup_button.spec")
 require("./text_input.spec")
