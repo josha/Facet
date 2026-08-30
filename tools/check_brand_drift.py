@@ -314,6 +314,25 @@ VENDOR_ALLOWLIST = [
     ("tools/check_brand_drift.py", VENDOR,
      "the guard's own match data and its planted selftest words",
      "never (it IS the guard)"),
+    #[[ CONTENT EXCEPTION 3: THE PUBLIC LIBRARY-CHOICE GUIDE. One chapter of the
+    #   guide exists to help a Roblox creator choose between Facet and the other
+    #   Roblox user-interface libraries, and the release plan asks for it by
+    #   name. It is a comparison from end to end, so the marked-block exception
+    #   above cannot hold it: that one caps an aside at COMPARISON_MAX_LINES
+    #   lines, and a whole chapter is not an aside.
+    #
+    #   The entry names ONE FILE and no prefix, so the exception cannot spread to
+    #   a sibling chapter, and every other guide page is still scanned exactly as
+    #   before. Rule 2 is unchanged for the rest of the tree: Facet still explains
+    #   ITSELF in Roblox and Facet terms, and this page explains a CHOICE, which
+    #   is the one job that cannot be done without naming what is being chosen
+    #   between. ]]
+    ("docs/guide/14-choosing-a-ui-library.md", VENDOR,
+     "content exception 3: the one public guide chapter that compares Facet with "
+     "the other Roblox user-interface libraries a creator is choosing between; a "
+     "comparison may name what it compares, and it is longer than the marked-block "
+     "exception allows",
+     "when the library-choice chapter retires"),
     #[[ FROZEN EVIDENCE, QUOTED BY PATH. artifacts/ is never scanned because a
     #   gate record keeps the name it was earned under. The gate manifest and a
     #   few specs QUOTE those paths, and a quoted path cannot be renamed
