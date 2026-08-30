@@ -32,6 +32,7 @@ local listView = require("./list")
 local detailView = require("./detail")
 local bookView = require("./book")
 local rewardsView = require("./rewards")
+local taskView = require("./task")
 
 local shell = {}
 
@@ -165,11 +166,21 @@ local function listSection(app: any, kind: string): any
 		}),
 	}
 
+	--[[ THE TASK CARD SCROLLS WITH THE CATALOGUE IT IS ABOUT, which is the same
+		home the Blend Book's unlock card already has and for the same reason: a
+		card pinned above the list eats the list's whole height on a phone. It is
+		the FIRST thing in the section, so the opening screen states the goal, the
+		progress and the next action before the menu — and browsing past it is
+		allowed, because the strip above the nav keeps the task on screen. ]]
+	local leading: { any } = { taskView.card(app) }
+	if kind == "recipes" then
+		table.insert(leading, bookView.unlockCard(app))
+	end
+
 	local listBlueprint = listView.blendList(app, {
 		id = "List",
 		items = items,
-		-- the unlock card scrolls WITH the recipes it is offering
-		leading = if kind == "recipes" then bookView.unlockCard(app) else nil,
+		leading = UI.VStack({ id = "Lead", gap = "m", width = dims.fill, children = leading }),
 		onActivate = function(blendId: string)
 			app.commands.openBlend(blendId, kind)
 		end,
@@ -271,6 +282,10 @@ local function stampsSection(app: any): any
 		width = dims.fill,
 		height = dims.percent(1),
 		children = {
+			-- the same task card the list sections lead with: the Stamps pocket is
+			-- a section like any other and must not be the one place the task
+			-- vanishes from
+			taskView.card(app),
 			UI.ZStack({
 				-- HUGS, never fills: a `fill` height inside a y-scroller measures
 				-- against a canvas that is itself derived from the content
@@ -432,11 +447,35 @@ function shell.build(app: any): any
 		},
 	}))
 
+	--[[ THE TASK BAND SITS ABOVE THE NAV, AND THAT IS THE WHOLE CHANGE OF SHAPE.
+
+		The app used to open on the blend menu inside this construct — a catalogue,
+		with the loop it is about ten orders away and nothing on screen saying so.
+		The band states the goal, the progress and the next action, and the nav
+		keeps everything it had underneath it: browsing, search, favourites, the
+		Blend Book and the Steam Stamps pocket are all still one press away and
+		none of them is required to finish the loop.
+
+		THE STRIP IS ONE LINE BY CONSTRUCTION, never a fixed px height and never a
+		paragraph: both of its texts declare `lineLimit = 1` with `disclose`, so it
+		costs exactly one line box at every text preference and in both locales, and
+		the construct's own `height = FILL` root takes everything else. The task's
+		full copy — goal, next action, verb, completion — is the CARD, and the card
+		rides inside the section's own scroller where it can be as tall as its
+		words. `views/task.luau`'s header records the measurement that decided it. ]]
 	return UI.Screen({
 		id = "Sipworks",
 		padding = 0,
 		surface = "base",
-		children = { nav.blueprint },
+		children = {
+			UI.VStack({
+				id = "Shell",
+				gap = 0,
+				width = dims.fill,
+				height = dims.fill,
+				children = { taskView.strip(app), nav.blueprint },
+			}),
+		},
 	})
 end
 

@@ -67,6 +67,15 @@ given no Instance handle for a single control's subtree. That is the gap. It is 
 per-control profile seam when a consumer needs one; the demo did not need the seam to
 be honest, and this stage's instruction is to prefer example-only changes.
 
+| FW-3 | A disclosure header should be able to follow a live locale change. Both apps' "What this shows" sections need one. | **Recorded, not fixed.** `Facet.Controls.DisclosureGroup` validates `label` as a plain `string` (`src/controls/disclosure_group.luau`), so it cannot take a reactive value and a locale flip leaves the header in the old language while everything under it changes. | None. Both apps hand-build the header from a `Button` and `UI.When` — public constructors doing exactly what the control would, one level down. | None. | Same class as the two findings these apps already record for `newLabel.title`; the pseudo-locale sweep is what makes it visible. |
+
+**Why FW-3 is recorded rather than fixed.** It is a one-word type widening on a public
+spec (`string` to a readable string), which is a public-contract change after Step 13's
+release-candidate review, for a control neither game needs. It is also the *third*
+recorded instance of one shape — a composite control accepting a plain string where the
+rest of the surface accepts a readable — and three instances is a rule to change once,
+deliberately, not three times in passing. Booked with its siblings.
+
 *(Further rows are appended as the work finds them. A row is added the moment a need
 is identified, not after the fix is written, so a workaround cannot quietly become the
 answer.)*

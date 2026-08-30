@@ -51,6 +51,7 @@ local overviewUI = require("@self/ui/overview")
 local detailUI = require("@self/ui/detail")
 local shopUI = require("@self/ui/shop")
 local keeperUI = require("@self/ui/keeper")
+local taskUI = require("@self/ui/task")
 local parts = require("@self/ui/parts")
 
 local Glade = {}
@@ -216,6 +217,97 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		return out
 	end))
 
+	--[[ ---- the played task ---------------------------------------------------
+
+		"Prepare this glade": one named glade, one named wisp, two plain rows and a
+		clear first action (`docs/plans/example-games-and-standalones.md`). Everything
+		it reads is a service that already existed — SupplyService's state memos and
+		its assigned nectar — so the task is a DERIVATION, not a second model of the
+		world, and it can never disagree with the rings the player is looking at.
+
+		`complete` is the one latched fact, and it is latched on purpose: the two
+		conditions are live (supplies drain), so a finished task that un-finished
+		itself a minute later would take the reward back for nothing the player did.
+		Before it latches, a supply falling back below full DOES un-tick its row —
+		which is the recovery path, and the task line says so in as many words. ]]
+	local taskGlade = seedData.TASK.glade
+	local taskWisp = seedData.TASK.wisp
+	local taskNectar = seedData.TASK_NECTAR
+	local taskModel: any = {
+		glade = taskGlade,
+		wisp = taskWisp,
+		nectar = taskNectar,
+		complete = scope:own(core:signal(false)),
+	}
+	taskModel.dewReady = scope:own(core:memo(function(use)
+		return use(supply.state(taskGlade, "dew")) == "full"
+	end))
+	taskModel.nectarReady = scope:own(core:memo(function(use)
+		return use(supply.nectarOf(taskGlade)) == taskNectar and use(supply.state(taskGlade, "nectar")) == "full"
+	end))
+	taskModel.ready = scope:own(core:memo(function(use)
+		return use(taskModel.dewReady) and use(taskModel.nectarReady)
+	end))
+	--[[ `touched` is the one thing a derivation cannot recover: whether a row has
+		EVER been true in this attempt. Without it a supply that drains back to
+		empty returns the task line to its opening sentence, which reads as "you
+		have not started" to a player who just did two things — and the clock can
+		put them there without touching anything at all. With it the line says what
+		CHANGED. Cleared by the reset, like every other task fact. ]]
+	taskModel.touched = scope:own(core:signal(false))
+	scope:own(core:observe(taskModel.dewReady, function(ready: boolean)
+		if ready then
+			taskModel.touched:set(true)
+		end
+	end))
+	scope:own(core:observe(taskModel.nectarReady, function(ready: boolean)
+		if ready then
+			taskModel.touched:set(true)
+		end
+	end))
+	--[[ start | nectar | dew | resume | done.
+
+		`dew` and `resume` are the two DEPLETED paths, and they are the reason this
+		task cannot silently become unsatisfiable: supplies drain on a clock, so a
+		row that was ticked can come back untocked with nothing the player did. Both
+		phases name the changed condition and both leave the same two verbs one press
+		away — refill, and choose. ]]
+	taskModel.phase = scope:own(core:memo(function(use)
+		if use(taskModel.complete) then
+			return "done"
+		end
+		local dew = use(taskModel.dewReady)
+		local nectar = use(taskModel.nectarReady)
+		if dew and nectar then
+			return "done"
+		end
+		if dew then
+			return "nectar"
+		end
+		if nectar then
+			return "dew"
+		end
+		return if use(taskModel.touched) then "resume" else "start"
+	end))
+	function taskModel.rows(): { { id: string, done: boolean } }
+		return {
+			{ id = "dew", done = taskModel.dewReady:get() },
+			{ id = "nectar", done = taskModel.nectarReady:get() },
+		}
+	end
+	function taskModel.dump(): any
+		return {
+			glade = taskGlade,
+			wisp = taskWisp,
+			nectar = taskNectar,
+			phase = taskModel.phase:get(),
+			dewReady = taskModel.dewReady:get(),
+			nectarReady = taskModel.nectarReady:get(),
+			touched = taskModel.touched:get(),
+			complete = taskModel.complete:get(),
+		}
+	end
+
 	-- ---- wisp motion --------------------------------------------------------
 	-- Two scalar springs for the flight (never one spring on a 2-D distance) plus
 	-- a scale spring and the decay-class delight glow. One record per scene form,
@@ -271,6 +363,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		visits = visits,
 		state = state,
 		nav = nav,
+		task = taskModel,
 		wispMotion = wispMotion,
 	}
 
@@ -480,7 +573,15 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				initialFocus = "SupplyRow_nectar",
 			})
 		end
-		startFlyIn(gladeId)
+		--[[ THE TASK'S WISP WAITS FOR ITS GLADE. Every other glade presents its
+			visitor the moment it is opened, exactly as before. The one named glade
+			the task is about holds the arrival back until the glade is READY, because
+			that arrival is the whole payoff of "prepare a home for a visiting wisp" —
+			a ceremony that already played before the player did anything is a
+			ceremony that belongs to nobody. `settleTask` is what fires it. ]]
+		if gladeId ~= taskGlade or taskModel.complete:get() then
+			startFlyIn(gladeId)
+		end
 	end
 
 	function nav.closeDetail()
@@ -504,6 +605,41 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			end)
 		)
 	end
+
+	-- THE ARRIVAL. The moment both rows are true, the wisp is presented — its
+	-- fly-in if the seeded visit window is still open, its delight glow either way
+	-- — and the completion state latches. One causal moment, on the frame the
+	-- second condition became true, rather than a poll.
+	local function settleTask()
+		if taskModel.complete:get() then
+			return
+		end
+		taskModel.complete:set(true)
+		-- the fly-in only if the wisp standing at the edge is the one the task
+		-- NAMED: the seeded window closes after a while, and a task that announced
+		-- Emberwisp must not fly a Tidewisp in and call it the same thing
+		local live = visits.current(taskGlade):get()
+		if live ~= nil and live.wisp == taskWisp then
+			startFlyIn(taskGlade)
+		end
+		delight(taskGlade)
+		presenter.emitFeedback({
+			type = "celebrate",
+			context = { verb = "wispSettled", glade = taskGlade, wisp = taskWisp },
+		})
+		toast(
+			"task",
+			core:memo(function(use)
+				local _ = use(state.locale)
+				return Lnow("task.toast", { wisp = Lnow("wisp." .. taskWisp), glade = Lnow("glade." .. taskGlade) })
+			end)
+		)
+	end
+	scope:own(core:observe(taskModel.ready, function(ready: boolean)
+		if ready then
+			settleTask()
+		end
+	end))
 
 	function nav.openPicker(gladeId: string)
 		pushSurface("picker", function(surfaceScope)
@@ -652,6 +788,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		state.selectedGlade:set(nil)
 		state.search:set("")
 		state.offerDismissed:set(false)
+		taskModel.complete:set(false)
+		taskModel.touched:set(false)
 		state.keeperName:set(seedData.KEEPER.displayName)
 		state.keeperContact:set(seedData.KEEPER.contact)
 		state.draftName:set(seedData.KEEPER.displayName)
@@ -672,6 +810,15 @@ function Glade.build(Facet: any, core: any, deps: any): any
 
 	function nav.confirmFreshStart()
 		presenter.emitFeedback({ type = "commit", context = { verb = "freshStart" } })
+		resetWorld()
+	end
+
+	-- THE TASK'S ONE RESET CONTROL. It is the same `resetWorld` the Keeper's Fresh
+	-- Start confirms into, without the confirmation: a player who just finished the
+	-- loop and pressed "Prepare again" has said what they want, and there is
+	-- nothing to lose that they did not just build.
+	function nav.prepareAgain()
+		presenter.emitFeedback({ type = "commit", context = { verb = "prepareAgain" } })
 		resetWorld()
 	end
 
@@ -904,10 +1051,25 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		},
 	}))
 
+	--[[ THE TASK STRIP SITS ABOVE THE NAV, and it is ONE LINE by construction —
+		both of its texts declare `lineLimit = 1` with `disclose`, so it costs one
+		line box at every text preference and in both locales and the construct's
+		own `height = FILL` root takes everything else. The task's full copy is the
+		CARD, and the card leads the Glades page inside that page's own scroller
+		where it can be as tall as its words. `ui/task.luau` records the measurement
+		that decided the split. ]]
 	local screen = UI.Screen({
 		id = "Glade",
 		surface = "base",
-		children = { navBar.blueprint },
+		children = {
+			UI.VStack({
+				id = "Shell",
+				gap = 0,
+				width = UI.fill(),
+				height = UI.fill(),
+				children = { taskUI.strip(ctx), navBar.blueprint },
+			}),
+		},
 	})
 
 	-- ---- the frame tick -----------------------------------------------------
@@ -951,6 +1113,9 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			offerDismissed = state.offerDismissed:get(),
 			favourites = favouriteList(),
 			keeper = { name = state.keeperName:get(), contact = state.keeperContact:get() },
+			-- the played task, published so a drive reads the same phase the card
+			-- paints rather than re-deriving it from the supply service
+			task = taskModel.dump(),
 			supply = supply.dump(),
 			commerce = commerce.dump(),
 			visits = visits.dump(),
@@ -1094,6 +1259,15 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				state.offerDismissed:set(true)
 				return { offerDismissed = true }
 			end,
+			-- THE TASK'S TWO VERBS, the same commands its two on-screen controls call
+			openTask = function(): any
+				nav.openGlade(taskModel.glade)
+				return { selected = state.selectedGlade:get(), task = taskModel.dump() }
+			end,
+			prepareAgain = function(): any
+				nav.prepareAgain()
+				return reportTable()
+			end,
 			reset = function(): any
 				resetWorld()
 				return reportTable()
@@ -1106,6 +1280,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		api = {
 			nav = nav,
 			state = state,
+			task = taskModel,
 			supply = supply,
 			commerce = commerce,
 			visits = visits,

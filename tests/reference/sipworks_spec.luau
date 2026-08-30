@@ -48,6 +48,15 @@ local function world(opts: any?)
 		entry = (opts or {}).entry,
 		entryItemId = (opts or {}).entryItemId,
 		seed = (opts or {}).seed,
+		--[[ THE STAMP SEED, and it is a FACT rather than a constant so this file can
+			pin BOTH halves. The shipped default is one stamp short of the card
+			(`rewards.THRESHOLD - 1`), because the whole point of the played task is
+			that a visitor sees the stamp ceremony, the reward and the free pour
+			without ten repetitive orders. The accrual arithmetic below — one stamp
+			per confirmed order, none for a rejected one — is a claim about the
+			SERVICE, not about the seed, so those cases ask for an empty card and
+			assert exactly what they always asserted. ]]
+		startEarned = (opts or {}).startEarned,
 	}
 	local built = proof.build(Facet, core, deps)
 	presenter.refresh()
@@ -564,7 +573,9 @@ describe("Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemp
 	end
 
 	it("one stamp per confirmed order, and a rejected order earns nothing", function()
-		local w = world()
+		-- an EMPTY card, deliberately: this is the accrual rule, and the shipped
+		-- seed (one stamp short) would hide the arithmetic behind the redeem branch
+		local w = world({ startEarned = 0 })
 		step(w, "open", "lantern-oolong")
 		confirmOrder(w) -- attempt 1 is the scripted rejection
 		expect(w.report().rewards.earned).toBe(0)
@@ -609,7 +620,9 @@ describe("Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemp
 	end)
 
 	it("at ten stamps the CTA is the redeem verb, and redeeming debits a flat ten", function()
-		local w = world()
+		-- from an EMPTY card plus ten earned, so `spent`/`unspent` below are the
+		-- redemption's own arithmetic and not the seed's
+		local w = world({ startEarned = 0 })
 		step(w, "open", "lantern-oolong")
 		local rewards = w.built.services.rewards
 		rewards.earn(10)
@@ -813,7 +826,7 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 	end)
 
 	it("the CTA is always pay-shaped in the compact entry, even at ten stamps", function()
-		local w = world({ viewport = PHONE, entry = "compact-link" })
+		local w = world({ viewport = PHONE, entry = "compact-link", startEarned = 0 })
 		w.built.services.rewards.earn(10)
 		w.presenter.refresh()
 		local cta = find(w, "/Cta/Band/OrderCTA")
@@ -854,7 +867,7 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 	end)
 
 	it("enterFull restores the whole shell with the model intact", function()
-		local w = world({ viewport = PHONE })
+		local w = world({ viewport = PHONE, startEarned = 0 })
 		w.built.services.rewards.earn(3)
 		step(w, "enterCompact", "copper-chai")
 		w.presenter.refresh()
@@ -1412,6 +1425,384 @@ describe("Sipworks — backdrop-finding sweep (task POP)", function()
 		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
 		w.built.dispose()
 		Facet.themes.declareApp("sip", nil)
+	end)
+end)
+
+--[[ ── THE PLAYED TASK ──────────────────────────────────────────────────────────
+
+	"Today's order" (docs/plans/example-games-and-standalones.md, "Sipworks: serve a
+	customer and earn a reward"). What is pinned here is the LOOP, not the widgets:
+	the seeded start, each step's state transition, the rejection detour that keeps
+	every stamp, the completion state, and the reset returning every observable the
+	report publishes.
+
+	It is driven through the same commands the on-screen controls call, and the two
+	verbs the task adds are driven through `adapter.driveActivate` — the closure the
+	engine itself invokes — so "the button does this" is evidence rather than a
+	claim about a step function. ]]
+describe("Sipworks — the played task: seeded start, the loop, and the reset", function()
+	local rewardsService = require("../../examples/reference/p3_sipworks/services/rewards") :: any
+	local taskService = require("../../examples/reference/p3_sipworks/services/task") :: any
+
+	-- press the real control, not the step behind it
+	local function press(w: any, suffix: string): boolean
+		local path = find(w, suffix)
+		expect(`{suffix} is focusable: {path ~= nil}`).toBe(`{suffix} is focusable: true`)
+		local ok = w.adapter.driveActivate(path :: string)
+		w.presenter.refresh()
+		return ok
+	end
+
+	-- the CTA press plus the counter's own reply window, which is what a player
+	-- waits through
+	local function placeOrder(w: any)
+		step(w, "order")
+		advance(w, 1)
+	end
+
+	it("the seeded start is ONE stamp short, and the opening screen says so", function()
+		local w = world()
+		local r = w.report()
+		-- the seed itself
+		expect(r.task.startEarned).toBe(rewardsService.THRESHOLD - 1)
+		expect(r.rewards.earned).toBe(rewardsService.THRESHOLD - 1)
+		expect(r.rewards.away).toBe(1)
+		expect(r.rewards.canRedeem).toBe(false)
+		expect(r.task.phase).toBe("order")
+		expect(r.task.served).toBe(false)
+		expect(r.task.redeemed).toBe(false)
+
+		-- ...and the opening screen: the goal in one sentence, the progress as a
+		-- number, and the next action by name
+		expect(nodeTextAt(w, findNode(w, "/TaskStrip/TaskLabel") :: string)).toBe("Today's order")
+		expect(nodeTextAt(w, findNode(w, "/TaskStrip/TaskProgress") :: string)).toBe("9 of 10 stamps")
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskGoal") :: string)).toBe(
+			"Sipworks is a tea house. Pick a blend, serve it, and take a stamp — ten stamps is a free pour."
+		)
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext") :: string)).toBe(
+			"Choose a blend and place the order."
+		)
+		expect(nodeTextAt(w, find(w, "/TaskCard/TaskActive/then/TaskBody/TaskAct") :: string)).toBe(
+			"Order Amber Harvest"
+		)
+		-- the completion state is NOT up yet
+		expect(find(w, "/TaskCard/TaskDone/then/TaskDoneGroup/TaskDoneBody/TaskReset")).toBeNil()
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("the named first action opens the blend it names, through the row's own path", function()
+		local w = world()
+		expect(w.report().selectedBlendId).toBeNil()
+		expect(press(w, "/TaskAct")).toBe(true)
+		expect(w.report().selectedBlendId).toBe(taskService.FIRST_BLEND)
+		expect(w.report().section).toBe("menu")
+		-- the CTA the task sent the player to is the app's own order verb
+		expect(nodeTextAt(w, find(w, "/Cta/Band/OrderCTA") :: string)).toBe("Place order — 49 Credits")
+		w.built.dispose()
+	end)
+
+	it("a refused order explains itself, keeps every stamp, and the retry is the same verb", function()
+		local w = world()
+		press(w, "/TaskAct")
+		placeOrder(w) -- attempt 1 is the counter's scripted refusal
+		local r = w.report()
+		expect(r.task.phase).toBe("rejected")
+		expect(r.task.refused).toBe(true)
+		-- PROGRESS IS UNTOUCHED: that is what "retry without losing progress" means
+		expect(r.rewards.earned).toBe(rewardsService.THRESHOLD - 1)
+		expect(r.task.stamps).toBe(rewardsService.THRESHOLD - 1)
+		expect(r.task.served).toBe(false)
+		-- ...and the explanation is on screen at the point of action, not only in
+		-- the four-second toast that has already started expiring
+		local notice = findNode(w, "/Cta/RejectNotice/then/RejectBox/Reject")
+		expect(nodeTextAt(w, notice :: string)).toBe(
+			"The counter turned that order away and charged nothing. "
+				.. "Your stamps are safe — order again when you're ready."
+		)
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext") :: string)).toBe(
+			nodeTextAt(w, notice :: string)
+		)
+
+		-- the retry is the SAME control, and it clears the notice it answers
+		placeOrder(w)
+		local after = w.report()
+		expect(after.task.refused).toBe(false)
+		expect(findNode(w, "/Cta/RejectNotice/then/RejectBox/Reject")).toBeNil()
+		expect(after.rewards.earned).toBe(rewardsService.THRESHOLD)
+		w.built.dispose()
+	end)
+
+	it("one accepted order takes the last stamp and the task becomes the free pour", function()
+		local w = world()
+		press(w, "/TaskAct")
+		placeOrder(w) -- refused
+		placeOrder(w) -- accepted
+		local r = w.report()
+		expect(r.task.phase).toBe("redeem")
+		expect(r.task.served).toBe(true)
+		expect(r.task.stamps).toBe(rewardsService.THRESHOLD)
+		expect(r.rewards.canRedeem).toBe(true)
+		-- the CARD is what the stamp landed on: the last seal is stamped and fresh
+		expect(r.rewards.filled).toBe(rewardsService.THRESHOLD)
+		expect(r.rewards.newSlots[1]).toBe(rewardsService.THRESHOLD)
+		-- ...and the task now names a DIFFERENT blend, because the step is "choose
+		-- another blend and redeem"
+		expect(r.task.ctaBlendId).toBe(taskService.FREE_POUR_BLEND)
+		expect(r.task.ctaBlendId ~= taskService.FIRST_BLEND).toBe(true)
+		step(w, "done")
+		expect(nodeTextAt(w, find(w, "/TaskCard/TaskActive/then/TaskBody/TaskAct") :: string)).toBe(
+			"Redeem with Mistral Mint"
+		)
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext") :: string)).toBe(
+			"Your card is full. Choose another blend and redeem the free pour."
+		)
+		w.built.dispose()
+	end)
+
+	it("redeeming the free pour ends in an unmistakable completion state with one reset", function()
+		local w = world()
+		press(w, "/TaskAct")
+		placeOrder(w)
+		placeOrder(w)
+		step(w, "done")
+		press(w, "/TaskAct") -- the second blend
+		expect(w.report().selectedBlendId).toBe(taskService.FREE_POUR_BLEND)
+		placeOrder(w)
+		local r = w.report()
+		expect(r.task.phase).toBe("done")
+		expect(r.task.redeemed).toBe(true)
+		expect(r.order.mode).toBe("redeem")
+		expect(r.rewards.spent).toBe(rewardsService.REDEEM_COST)
+
+		step(w, "done")
+		-- the completion state SAYS what was accomplished, and it replaces the task
+		-- rather than standing beside it
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskDone/then/TaskDoneGroup/TaskDoneBody/TaskDoneTitle") :: string)).toBe(
+			"A free pour, on the house."
+		)
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskDone/then/TaskDoneGroup/TaskDoneBody/TaskDoneCopy") :: string)).toBe(
+			"One order filled the stamp card, and all ten stamps went back over the counter for a free pour."
+		)
+		expect(findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext")).toBeNil()
+		expect(findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskAct")).toBeNil()
+		-- the strip says it too, so the state is legible from every section
+		expect(nodeTextAt(w, findNode(w, "/TaskStrip/TaskLabel") :: string)).toBe("A free pour, on the house.")
+		-- ONE reset control
+		expect(nodeTextAt(w, find(w, "/TaskDoneBody/TaskReset") :: string)).toBe("Serve another customer")
+		-- ...and the completion is announced on the feedback bus, on the frame the
+		-- order confirmed
+		local celebrated = false
+		for _, event in r.feedback do
+			if event.type == "celebrate" then
+				celebrated = true
+			end
+		end
+		expect(celebrated).toBe(true)
+		w.built.dispose()
+	end)
+
+	it("'Serve another customer' returns EVERY observable to the seeded start", function()
+		local w = world()
+		local opening = w.built.dump()
+		local openingReport = w.report()
+		press(w, "/TaskAct")
+		placeOrder(w)
+		placeOrder(w)
+		step(w, "done")
+		press(w, "/TaskAct")
+		placeOrder(w)
+		step(w, "done")
+		-- ...and browse a little, so the reset is not only unwinding the loop
+		step(w, "favorite", "lantern-oolong")
+		step(w, "search", "mint")
+		step(w, "section", "favorites")
+		expect(w.built.dump()).never().toBe(opening)
+
+		expect(press(w, "/TaskDoneBody/TaskReset")).toBe(true)
+		expect(w.built.dump()).toBe(opening)
+		local r = w.report()
+		expect(r.task.phase).toBe("order")
+		expect(r.task.stamps).toBe(rewardsService.THRESHOLD - 1)
+		expect(r.rewards.earned).toBe(openingReport.rewards.earned)
+		expect(r.rewards.spent).toBe(openingReport.rewards.spent)
+		expect(r.order.mode).toBe(openingReport.order.mode)
+		expect(r.section).toBe("menu")
+		expect(r.search).toBe("")
+		expect(#r.favorites).toBe(#openingReport.favorites)
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("'What this shows' is collapsed by default and comes AFTER the play task", function()
+		local w = world()
+		expect(findNode(w, "/TaskCard/TaskShowsWhen/then/TaskShowsGroup/TaskShowsBody")).toBeNil()
+		-- ...and it is reachable, after the verb it must not stand in front of
+		local order = w.report().focusPaths
+		local actAt, showsAt = nil :: number?, nil :: number?
+		for index, path in order do
+			if string.sub(path, -8) == "/TaskAct" then
+				actAt = index
+			elseif string.sub(path, -10) == "/TaskShows" then
+				showsAt = index
+			end
+		end
+		expect(`act={actAt ~= nil} shows={showsAt ~= nil}`).toBe("act=true shows=true")
+		expect((actAt :: number) < (showsAt :: number)).toBe(true)
+
+		expect(press(w, "/TaskShows")).toBe(true)
+		local body = findNode(w, "/TaskCard/TaskShowsWhen/then/TaskShowsGroup/TaskShowsBody")
+		expect(body ~= nil).toBe(true)
+		expect(string.find(nodeTextAt(w, body :: string) :: string, "sidebar", 1, true) ~= nil).toBe(true)
+		w.built.dispose()
+	end)
+
+	it("the task is placed ON the app: the catalogue and every destination survive it", function()
+		local w = world()
+		-- the whole menu is still there under the card
+		expect(w.report().visible.menu).toBe(#blends.list)
+		expect(find(w, "/Row-lantern-oolong/Line/Open") ~= nil).toBe(true)
+		-- ...as are search and all four nav destinations
+		expect(find(w, "/SearchBar/Search/Field") ~= nil).toBe(true)
+		for _, section in SECTION_ORDER do
+			expect(`{section}: {find(w, navTail(section)) ~= nil}`).toBe(`{section}: true`)
+		end
+		-- ...and the task is in every section, so browsing away never loses it
+		for _, section in SECTION_ORDER do
+			step(w, "section", section)
+			expect(`{section} strip: {findNode(w, "/TaskStrip/TaskLabel") ~= nil}`).toBe(`{section} strip: true`)
+		end
+		w.built.dispose()
+	end)
+
+	it("the compact-link entry carries NO task: there is no rewards context to finish it in", function()
+		-- spec §11: the deep-link shell has no stamps, no favourites and a
+		-- pay-shaped CTA, so a task line promising a free pour would be a dead verb
+		local w = world({ viewport = PHONE, entry = "compact-link" })
+		expect(findNode(w, "/TaskStrip/TaskLabel")).toBeNil()
+		expect(findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskAct")).toBeNil()
+		expect(w.report().task.phase).toBe("order")
+		w.built.dispose()
+	end)
+
+	it("on a landscape phone the strip yields and the CARD still carries the whole task", function()
+		-- `isShort` is the one shape where even one line is more than the nav can
+		-- spare under the thicker packages (see `views/task.luau`). Yielding is not
+		-- losing the task: the card is still the first thing on the page, with the
+		-- goal, the progress, the next action and the verb.
+		local w = world({ viewport = { x = 0, y = 0, w = 640, h = 320 }, scrollBar = 8 })
+		expect(w.built.app.cond.isShort:get()).toBe(true)
+		expect(findNode(w, "/TaskStripWhen/then/TaskStrip")).toBeNil()
+		expect(findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskGoal") ~= nil).toBe(true)
+		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext") :: string)).toBe(
+			"Choose a blend and place the order."
+		)
+		expect(find(w, "/TaskCard/TaskActive/then/TaskBody/TaskAct") ~= nil).toBe(true)
+		expect(#w.report().diagnostics).toBe(0)
+		w.built.dispose()
+	end)
+
+	it("the strip costs ONE line box at every preference and in both locales", function()
+		for _, locale in { "en", "xa" } do
+			for _, offset in { 0, 4, 10, 14 } do
+				local w = world({ viewport = { x = 0, y = 0, w = 320, h = 640 }, scrollBar = 8 })
+				w.env:set("preferredTextOffset", offset)
+				step(w, "locale", locale)
+				local strip = w.adapter.node(findNode(w, "/TaskStripWhen/then/TaskStrip") :: string)
+				local label = w.adapter.node(findNode(w, "/TaskStrip/TaskLabel") :: string)
+				-- the strip is its one line plus its own padding, never a paragraph:
+				-- a band that grew with the copy is what pushed the nav's content box
+				-- to 4px on this very viewport
+				expect(`{locale}+{offset}: {strip.rect.h <= label.rect.h * 2}`).toBe(`{locale}+{offset}: true`)
+				expect(`{locale}+{offset} diagnostics: {#w.report().diagnostics}`).toBe(
+					`{locale}+{offset} diagnostics: 0`
+				)
+				w.built.dispose()
+			end
+		end
+	end)
+end)
+
+--[[ ── NO PROOF JARGON ON THE PLAYER SURFACE ───────────────────────────────────
+
+	The plan's own line: "Remove test-only jargon and raw counters from the player
+	surface unless the number is the lesson." `Sipworks.title` used to read
+	"Sipworks (reference proof RA-P3)", which is a stage id in the one field a
+	curated standalone place's chrome would paint first. ]]
+describe("Sipworks — the player surface names no stage, proof or ledger", function()
+	local JARGON = { "proof", "stage", "gate", "ledger", "RA%-P", "clean%-room" }
+
+	it("the module title is the place's name and nothing else", function()
+		expect(proof.title).toBe("Sipworks")
+	end)
+
+	it("no locale string a player can read carries test vocabulary", function()
+		local offenders: { string } = {}
+		local function scan(key: string, value: string)
+			for _, pattern in JARGON do
+				if string.find(string.lower(value), string.lower(pattern)) ~= nil then
+					table.insert(offenders, `{key} = {value}`)
+				end
+			end
+		end
+		for key, value in strings.byLocale.en do
+			if type(value) == "string" then
+				scan(key, value)
+			else
+				for form, text in value do
+					scan(`{key}.{form}`, text)
+				end
+			end
+		end
+		table.sort(offenders)
+		expect(table.concat(offenders, "; ")).toBe("")
+	end)
+end)
+
+--[[ ── THE STANDALONE AND THE SHOWCASE ARE ONE MODULE ───────────────────────────
+
+	Both `Facet-Ref-Sipworks.rbxl` and the gallery boot the SAME scenario file,
+	which resolves the SAME `FacetReference.p3_sipworks` module — there is no
+	simplified fork of this app anywhere, and the drift this pins is the one that
+	would be invisible until somebody opened the place. Read from source text
+	because neither the scenario registry nor a Rojo project can be required
+	headlessly. ]]
+describe("Sipworks — the standalone place and the showcase scenario import one module", function()
+	local fs = require("@lune/fs")
+
+	it("the scenario resolves the reference module and forks nothing", function()
+		local source = fs.readFile("examples/gallery/scenarios/ref_sipworks.luau")
+		expect(string.find(source, 'FindFirstChild("p3_sipworks")', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "ctx.referenceModules", 1, true) ~= nil).toBe(true)
+		-- ...and it names no OTHER proof, which is what a copy-paste fork looks like
+		for _, other in { "p1_glade", "p2_cartwheel", "p4_foyer", "p5_wardrobe" } do
+			expect(`{other}: {string.find(source, other, 1, true) ~= nil}`).toBe(`{other}: false`)
+		end
+	end)
+
+	it("the standalone place maps the same two folders the gallery does", function()
+		local place = fs.readFile("tools/build_reference_places.sh")
+		expect(string.find(place, '"ref_sipworks|Facet-Ref-Sipworks"', 1, true) ~= nil).toBe(true)
+		local gallery = fs.readFile("examples/gallery.project.json")
+		-- the tail of the mapping only: the place builder writes its project through
+		-- a bash heredoc, so its `$path` keys arrive escaped as `\$path`
+		for _, mapping in { 'path": "gallery/scenarios"', 'path": "reference"' } do
+			expect(`place {mapping}: {string.find(place, mapping, 1, true) ~= nil}`).toBe(`place {mapping}: true`)
+			expect(`gallery {mapping}: {string.find(gallery, mapping, 1, true) ~= nil}`).toBe(`gallery {mapping}: true`)
+		end
+	end)
+
+	it("exactly one directory on disk IS this app", function()
+		local hits: { string } = {}
+		for _, entry in fs.readDir("examples/reference") do
+			if fs.isFile(`examples/reference/{entry}/init.luau`) then
+				local source = fs.readFile(`examples/reference/{entry}/init.luau`)
+				if string.find(source, "Sipworks.build", 1, true) ~= nil then
+					table.insert(hits, entry)
+				end
+			end
+		end
+		expect(table.concat(hits, ",")).toBe("p3_sipworks")
 	end)
 end)
 

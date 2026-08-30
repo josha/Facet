@@ -10,6 +10,7 @@
 local seedData = require("../content/seed")
 local sceneLib = require("./scene")
 local parts = require("./parts")
+local taskUI = require("./task")
 
 local overview = {}
 
@@ -432,6 +433,13 @@ function overview.glades(ctx: any): any
 		width = UI.fill(),
 		height = UI.fill(),
 		children = {
+			--[[ THE TASK CARD LEADS THE PAGE, inside the page's own scroller. It is
+				the first thing on the opening screen — goal, named subject, two
+				progress rows, next action and the verb — and the five glade cards, the
+				search field, the charm offer and everything else stay exactly where
+				they were, underneath it. Scrolling past it is allowed; losing it is
+				not, which is what the one-line strip above the nav is for. ]]
+			taskUI.card(ctx),
 			offerCard(ctx),
 			UI.VStack({
 				id = "Find",

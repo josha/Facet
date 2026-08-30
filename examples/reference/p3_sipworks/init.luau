@@ -34,6 +34,7 @@ local rewardsService = require("@self/services/rewards")
 local unlockService = require("@self/services/recipe_unlock")
 local orderService = require("@self/services/order")
 local i18nService = require("@self/services/i18n")
+local taskService = require("@self/services/task")
 local shellView = require("@self/views/shell")
 local detailView = require("@self/views/detail")
 local bookView = require("@self/views/book")
@@ -42,9 +43,28 @@ local listView = require("@self/views/list")
 local entryCompact = require("@self/entry_compact")
 
 local Sipworks = {}
-Sipworks.title = "Sipworks (reference proof RA-P3)"
+-- THE PLAYER'S NAME FOR THE PLACE, and nothing else. This read "Sipworks
+-- (reference proof RA-P3)" while the app was only ever mounted by a validation
+-- harness; it is a curated standalone place now, and a stage id is not something
+-- a player has any use for.
+Sipworks.title = "Sipworks"
 
 local FEEDBACK_LOG_CAP = 48
+
+--[[ THE SEED IS THE DESIGN DECISION (docs/plans/example-games-and-standalones.md,
+	"Sipworks: serve a customer and earn a reward").
+
+	`rewards.THRESHOLD` is ten and one confirmed order earns one stamp, so a card
+	that starts empty is TEN repetitive orders away from the free pour — and a
+	visitor who stops after two never sees the stamp ceremony, the reward or the
+	redeem branch, which is the app's best material. The card therefore starts one
+	stamp short: a single accepted order completes it, and the whole loop is four
+	presses.
+
+	It is a FACT rather than a literal so the suite can pin both halves — the
+	seeded start the player gets, and the from-zero accrual arithmetic that seeding
+	must not hide. ]]
+local START_EARNED = rewardsService.THRESHOLD - 1
 -- the batch stepper's range (spec §10). Named, because `min = 1` in a control
 -- spec and `min = 1` in a dimension read identically to a lint and only one of
 -- them is a layout number.
@@ -165,6 +185,15 @@ local APP_METRICS = {
 		It is a NAME now, so the ladder reaches it the same way it reaches its
 		neighbours — and reaches its neighbours at all. ]]
 	gatherToggle = 96,
+	--[[ the task strip's trailing progress readout ("9 of 10 stamps"). A floor
+		that keeps the count legible and a cap past which it truncates through its
+		declared `disclose` — because `lineLimit` caps LINES, never the width a
+		text asks for (the same class Glade's supply-row affordance records). At
+		320px, the largest text preference and the 1.4x expansion locale the
+		readout's natural single-line ask pushed the strip 3px past its box, which
+		the solver reported on every solve. ]]
+	taskProgressMin = 56,
+	taskProgressMax = 140,
 	-- the ambient steam backdrop (§12): eight wisps, and how far one drifts
 	wispCount = 8,
 	wispSize = 18,
@@ -194,9 +223,14 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		table.insert(blendIds, blend.id)
 	end
 	local favorites = favoritesService.new({ core = core, scope = scope, seed = seed, ids = blendIds })
-	local rewards = rewardsService.new({ core = core, scope = scope, startEarned = 0, startSpent = 0 })
+	local startEarnedFact = tonumber(factOf(deps, "startEarned"))
+	local startEarned = if startEarnedFact ~= nil then math.max(0, math.floor(startEarnedFact)) else START_EARNED
+	local startSpent = tonumber(factOf(deps, "startSpent")) or 0
+	local rewards =
+		rewardsService.new({ core = core, scope = scope, startEarned = startEarned, startSpent = startSpent })
 	local unlock = unlockService.new({ core = core, scope = scope, clock = clock })
 	local order = orderService.new({ core = core, scope = scope, clock = clock })
+	local task = taskService.new({ core = core, scope = scope, rewards = rewards, order = order })
 	local localeFact = if env ~= nil then env:get("locale") else nil
 	local i18n = i18nService.new({
 		core = core,
@@ -262,6 +296,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		unlock = unlock,
 		order = order,
 		i18n = i18n,
+		task = task,
 	}
 	app.cond = Facet.adaptive.conditions(core, env, { scope = scope })
 	--[[ AN `app.sip.*` NUMBER, for the four places a Luau NUMBER is what is needed
@@ -470,6 +505,12 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	local commands: any = {}
 	app.commands = commands
 
+	-- the seeded reset, forward-declared: "Serve another customer" is an
+	-- on-screen verb in the task band, and the band is built long before the
+	-- teardown/rebuild pair the reset needs. ONE body serves the button and the
+	-- scenario step, so the two can never drift.
+	local resetToSeed: () -> ()
+
 	-- ONE authority for "is the detail a pane or a pushed surface", and it is the
 	-- same memo the shell mounts the pane behind — so a row Activate can never
 	-- land in the gap where neither exists.
@@ -601,7 +642,28 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		-- the redeem branch does not exist in the compact-link entry: there is
 		-- no rewards context there, so the CTA is always pay-shaped (spec §11)
 		local canRedeem = app.entry == "full" and rewards.canRedeem()
-		order.placeOrder(blendId, if canRedeem then "redeem" else "paid")
+		local started = order.placeOrder(blendId, if canRedeem then "redeem" else "paid")
+		if started.started then
+			-- the retry clears the notice it is answering, and nothing else does:
+			-- a player who browses away comes back to the same explanation
+			task.notePlacing()
+		end
+	end
+
+	-- THE TASK'S OWN VERB. It does not place the order for the player — it takes
+	-- them to the one control that does, on the blend the task line names, through
+	-- the same section+open path a row Activate takes.
+	function commands.taskAction()
+		local blendId = task.ctaBlendId:get()
+		if catalog.blend(blendId) == nil then
+			return
+		end
+		commands.selectSection("menu")
+		commands.openBlend(blendId, "menu")
+	end
+
+	function commands.serveAnother()
+		resetToSeed()
 	end
 
 	function commands.dismissOrderPlaced()
@@ -703,6 +765,15 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			if app.entry == "full" and info.mode == "redeem" then
 				rewards.redeem()
 			end
+			-- the task's two latched facts. A redeem order ENDS the loop, so the
+			-- completion beat is emitted here, on the causal frame, rather than
+			-- polled by whatever happens to render next.
+			if app.entry == "full" then
+				task.noteConfirmed(info.mode)
+				if info.mode == "redeem" then
+					presenter.emitFeedback({ type = "celebrate", context = { what = "task" } })
+				end
+			end
 			-- one stamp per confirmed order (economy fixture, spec §2). In the
 			-- compact-link entry it accrues SILENTLY: there is no rewards
 			-- surface to celebrate on.
@@ -721,6 +792,11 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			})
 		elseif event == "rejected" then
 			presenter.emitFeedback({ type = "reject", reason = info.reason, context = { what = "order" } })
+			-- A REJECTION NOW HAS SOMEWHERE TO RETURN THE PLAYER TO. The toast is
+			-- transient by contract; the latch below is what keeps the explanation
+			-- and the retry on screen — in the CTA band where the press happened,
+			-- and in the task band the player comes back to.
+			task.noteRejected()
 			presenter.presentToast(
 				UI.Text({
 					id = "OrderRejected",
@@ -962,6 +1038,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		put("unlocked", unlock.unlocked:get())
 		put("unlockAttempts", unlock.attempts())
 		put("gathered", table.concat(sortedKeys(gatheredMap()), ","))
+		put("task", task.dump())
 		local surfaces = surfaceMap()
 		for _, key in sortedKeys(surfaces) do
 			put("surface." .. key, surfaces[key])
@@ -1100,6 +1177,19 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 				price = unlock.product.price,
 			},
 			recipe = { batch = state.batch:get(), gathered = sortedKeys(gatheredMap()) },
+			-- the played task, published so a headless drive reads the same phase
+			-- the band paints rather than re-deriving it from four services
+			task = {
+				phase = task.phase:get(),
+				stamps = task.stamps:get(),
+				served = task.served:get(),
+				redeemed = task.redeemed:get(),
+				refused = task.refused:get(),
+				ctaBlendId = task.ctaBlendId:get(),
+				rows = task.rows(),
+				startEarned = startEarned,
+				startSpent = startSpent,
+			},
 			surfaces = surfaceMap(),
 			flip = { card = cardFlip:get(), disc = discFlip:get() },
 			clock = { now = clock.now(), timers = clock.pending() },
@@ -1284,7 +1374,11 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		return { entry = app.entry, surfaces = surfaceMap() }
 	end
 
-	steps.reset = function()
+	-- THE ONE RESET, and the task band's "Serve another customer" button is the
+	-- player's own way of calling it (`commands.serveAnother`). Every observable
+	-- the report publishes returns to its seeded value, which is what the
+	-- determinism pin compares.
+	resetToSeed = function()
 		teardownSurfaces()
 		viewScope:dispose()
 		viewScope = scope:child("ref-sipworks-view")
@@ -1303,6 +1397,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		unlock.reset()
 		order.reset()
 		i18n.reset()
+		task.reset()
 		cardFlip:snap(0)
 		discFlip:snap(0)
 		for slot = 1, rewardsService.THRESHOLD do
@@ -1315,7 +1410,21 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		if startEntry == "compact-link" then
 			applyDeepLink()
 		end
+	end
+
+	steps.reset = function()
+		resetToSeed()
 		return { dump = dump() }
+	end
+
+	steps.taskAction = function()
+		commands.taskAction()
+		return { selected = state.selectedBlendId:get(), phase = task.phase:get(), surfaces = surfaceMap() }
+	end
+
+	steps.serveAnother = function()
+		commands.serveAnother()
+		return { dump = dump(), phase = task.phase:get() }
 	end
 
 	-- ---- the module contract ----------------------------------------------

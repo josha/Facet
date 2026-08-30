@@ -7,7 +7,7 @@
 -- 'examples' uses for the tutorial examples.
 return {
 	keyboardFirst = true,
-	title = "Reference proof: Glade",
+	title = "Glade",
 	ledgerRows = { "RA-P1" },
 	build = function(ctx: any)
 		local folder = ctx.referenceModules

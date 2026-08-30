@@ -758,7 +758,12 @@ theme_ledger.ROWS = {
 		-- `newTabView` now, so a section body is a TAB's content rather than one of
 		-- four `When`s in a ZStack. Same node, same finding, same box — the path is
 		-- the only thing that moved.
-		node = "/Glade/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
+		-- RE-RECORDED AGAIN (the played task, 2026-08-29): the nav construct now hangs
+		-- off the shell stack the one-line task strip leads, so every path under it
+		-- gained a `/Shell` segment. `globMatches` requires an EQUAL segment count, so
+		-- the old pattern stopped matching outright rather than matching wrong. Same
+		-- node, same finding, same box.
+		node = "/Glade/Shell/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
 		sig = "the 'X' chrome contentInsets could not be",
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
 		px = 68,

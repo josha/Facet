@@ -24,7 +24,11 @@ local STRINGS: { [string]: { [string]: string } } = {
 		["bell.label"] = "Notifications",
 		["notices.title"] = "Notifications",
 		["invite.label"] = "Invite friends",
-		["invite.stub"] = "Inviting friends isn't part of this proof.",
+		-- PLAYER LANGUAGE, not build language. These two lines are painted, and
+		-- they used to say "this proof" — a word from the document that
+		-- commissioned the app, in the one place a visitor reads. They say the
+		-- same honest thing in the vocabulary of the place itself.
+		["invite.stub"] = "Inviting friends isn't open yet.",
 		["section.picked"] = "Picked for you",
 		["section.continue"] = "Keep playing",
 		["section.new"] = "New this week",
@@ -38,7 +42,7 @@ local STRINGS: { [string]: { [string]: string } } = {
 		["err.feed.refresh.offline"] = "Can't refresh right now — the hallway is quiet. Try again.",
 		["err.generic"] = "Something went wrong. Try again.",
 		["stub.body"] = "Nothing to show yet.",
-		["stub.honest"] = "This wing is a labeled stub in this proof.",
+		["stub.honest"] = "This wing isn't open yet — there is nothing behind the door.",
 		["close.label"] = "Close",
 		["time.now"] = "just now",
 		["time.h"] = "%sh ago",
@@ -63,7 +67,7 @@ local STRINGS: { [string]: { [string]: string } } = {
 		["bell.label"] = "[Ñøţíƒíćáţíøɳš ĺíšţ]",
 		["notices.title"] = "[Ñøţíƒíćáţíøɳš ĺíšţ]",
 		["invite.label"] = "[Íɳνíţé ýøůŕ ƒŕíéɳďš]",
-		["invite.stub"] = "[Íɳνíţíɳǧ ƒŕíéɳďš íšɳ'ţ ƿáŕţ øƒ ţħíš ƿŕøøƒ áţ áĺĺ.]",
+		["invite.stub"] = "[Íɳνíţíɳǧ ƒŕíéɳďš íšɳ'ţ øƿéɳ ýéţ, ɳøţ ěνéɳ á ĺíţţĺé.]",
 		["section.picked"] = "[Ƥíćķéď øůţ ĵůšţ ƒøŕ ýøů]",
 		["section.continue"] = "[Ķééƿ øɳ ƿĺáýíɳǧ ţħéšé]",
 		["section.new"] = "[Ɓŕáɳď ɳéẃ ţħíš νéŕý ẃééķ]",
@@ -77,7 +81,7 @@ local STRINGS: { [string]: { [string]: string } } = {
 		["err.feed.refresh.offline"] = "[Ćáɳ'ţ ŕéƒŕéšħ ŕíǧħţ ɳøẃ — ţħé ħáĺĺẃáý íš ƣůíéţ. Ţŕý áǧáíɳ ĺáţéŕ.]",
 		["err.generic"] = "[Šøɱéţħíɳǧ ẃéɳţ ẃŕøɳǧ šøɱéẃħéŕé. Ţŕý áǧáíɳ.]",
 		["stub.body"] = "[Ñøţħíɳǧ áţ áĺĺ ţø šħøẃ ýéţ.]",
-		["stub.honest"] = "[Ţħíš ẃíɳǧ íš á ĺáβéĺéď šţůβ íɳ ţħíš ƿŕøøƒ.]",
+		["stub.honest"] = "[Ţħíš ẃíɳǧ íšɳ'ţ øƿéɳ ýéţ — ţħéŕé íš ɳøţħíɳǧ βéħíɳď ţħé ďøøŕ ħéŕé áţ áĺĺ, ɳøţ ýéţ áɳýẃáý.]",
 		["close.label"] = "[Ćĺøšé ţħíš]",
 		["time.now"] = "[ĵůšţ ɳøẃ~]",
 		["time.h"] = "[%s ħøůŕš áǧø]",

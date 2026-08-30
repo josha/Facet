@@ -310,6 +310,15 @@ local function ctaBand(app: any): any
 	local paused = app.own(core:memo(function(use)
 		return not use(order.paymentsEnabled)
 	end))
+	-- THE REJECTION, AT THE POINT OF ACTION. OrderService acknowledges a refusal
+	-- on the same turn (its status is back to `idle` before anything renders) and
+	-- the toast that announced it expires in four seconds, so a player who looked
+	-- away had nothing left to read. The task's own latch is what this notice is
+	-- over: it says what happened, says the stamps were not touched, and leaves
+	-- the CTA right underneath it to press again.
+	local refused = app.own(core:memo(function(use)
+		return app.entry == "full" and use(app.services.task.refused)
+	end))
 	-- ONE node, one id, one geometry (spec §8 asks for exactly that), and the
 	-- label is a binding — so the pay/redeem swap and the pending state cost no
 	-- remount and can never leave two CTAs on screen at once.
@@ -351,6 +360,27 @@ local function ctaBand(app: any): any
 								text = app.text("guard.paused"),
 								surface = "chip",
 								role = "secondary",
+								textSize = "caption",
+								width = dims.fill,
+							}),
+						},
+					})
+				end,
+			}),
+			UI.When({
+				id = "RejectNotice",
+				condition = refused,
+				transition = { enter = "fade" },
+				thenView = function()
+					return UI.ZStack({
+						id = "RejectBox",
+						canvasGroup = true,
+						width = dims.fill,
+						children = {
+							UI.Text({
+								id = "Reject",
+								text = app.text("task.next.rejected"),
+								surface = "chip",
 								textSize = "caption",
 								width = dims.fill,
 							}),

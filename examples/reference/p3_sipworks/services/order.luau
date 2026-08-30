@@ -163,6 +163,16 @@ function order.new(opts: any)
 	function self.reset()
 		attempts = 0
 		paymentsEnabled:set(opts.paymentsEnabled ~= false)
+		--[[ `mode` TOO, and it was the one observable a reset used to leave behind.
+			`clear()` is the END-OF-ORDER verb — it retires the status, the ready flag
+			and the blend but deliberately keeps the mode the order was placed in, so
+			the Order-Placed card can still say which kind of pour it was while it
+			fades. A RESET is a different act: it returns the world to the seed, and a
+			world seeded with `orderMode=redeem` is a world that redeemed something.
+			Found by driving the whole task loop to its free pour and then pressing
+			"Serve another customer" — the reset pin's old drive never placed a redeem
+			order, so the dump differed by exactly this field and nothing said so. ]]
+		mode:set("paid")
 		self.clear()
 	end
 

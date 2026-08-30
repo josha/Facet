@@ -64,9 +64,18 @@ seed.METRICS = {
 	-- the supply row's trailing verb: a floor that keeps it legible and a cap
 	-- past which it truncates through its declared disclose — because lineLimit
 	-- caps LINES, never the width a text asks for, and under the 1.4x locale
-	-- the verb's natural ask set the row minimum past the detail lane
+	-- the verb's natural ask set the row minimum past the detail lane.
+	--
+	-- THE CAP WAS 132 AND IS MEASURED AT 96. In the 320px detail lane the row is
+	-- 248px of content: a 56px ring, the verb, and two 12px gaps. At 132 the
+	-- expansion locale spent 122 of them on the verb and left the copy column 38px
+	-- — less than the "Low"/"Empty" chip alone, which never truncates by contract
+	-- (spec §13), so the chip painted 8px outside its own TitleRow at every width
+	-- from 678 up. The verb is the row's most redundant element (the Button it
+	-- sits in already carries the same word as its accessible name), so it is the
+	-- one that yields.
 	affordanceMin = 64,
-	affordanceMax = 132,
+	affordanceMax = 96,
 }
 
 -- ---- the sky ramp (scene art) ----------------------------------------------
@@ -95,7 +104,15 @@ seed.DEWWATER = { 0.62, 0.82, 0.88 }
 -- overview shows all three supply states — full, low, empty — on the first
 -- frame, without any step having to be driven first.
 seed.GLADES = {
-	{ id = "mossholm", favourite = true, nectar = "clover", phaseOffset = 180, nectarAge = 0, dewAge = 120 },
+	--[[ MOSSHOLM'S DEW STARTS DRY, and that is the played task's opening move.
+		It was seeded 120s in — visibly full — which made the task's first row
+		("Refill Mossholm's dew") arrive already ticked, i.e. a checklist whose
+		first item is done before the player has done anything. 820s is inside the
+		"Low" band (780) and short of "Empty" (960), so the ring reads as needing
+		attention on the first frame and one press answers it. The overview still
+		shows all three supply states at t = 0 — Lantern Dell's dew is the "full"
+		one — which is what the state-coverage case above this comment asserts. ]]
+	{ id = "mossholm", favourite = true, nectar = "clover", phaseOffset = 180, nectarAge = 0, dewAge = 820 },
 	{ id = "fernhollow", favourite = false, nectar = "meadow", phaseOffset = 0, nectarAge = 460, dewAge = 800 },
 	{ id = "lanternDell", favourite = false, nectar = "fern", phaseOffset = 60, nectarAge = 600, dewAge = 300 },
 	{ id = "brambleRest", favourite = false, nectar = "bramble", phaseOffset = 120, nectarAge = 200, dewAge = 1000 },
@@ -246,6 +263,26 @@ seed.OUTCOMES = {
 	restore = { "confirmed", "offline" },
 }
 
+-- ---- the played task --------------------------------------------------------
+--[[ "Prepare this glade" (docs/plans/example-games-and-standalones.md, "Glade:
+	prepare a home for a visiting wisp"). ONE named glade and ONE named wisp, fixed
+	at authoring time, because a task chosen at runtime is a task a test cannot pin
+	and a player cannot be told about in one sentence.
+
+	WHY THESE TWO. Mossholm is the first card and the base surface's initial focus,
+	so the named first action is where the player already is. Emberwisp is its
+	seeded visitor at t = 0 (`v2`, the window -60..240), and its favourite nectar is
+	`bramble` — a STANDARD variety, so finishing the task never requires the shop
+	and the commerce fixtures stay what they are meant to be: secondary
+	exploration. The pairing is the one this content already tells: "Dark and
+	syrupy. Emberwisps queue for it." is `summary.bramble`, authored long before
+	there was a task.
+
+	THE NECTAR IS DERIVED, NEVER RESTATED: it is `WISP_BY_ID[wisp].favourite`, so
+	editing the wisp's taste moves the task with it instead of leaving two answers
+	to one question. ]]
+seed.TASK = { glade = "mossholm", wisp = "emberwisp" }
+
 -- ---- lookups ----------------------------------------------------------------
 
 local function index(list: { any }): { [string]: any }
@@ -262,6 +299,9 @@ seed.NECTAR_BY_ID = index(seed.NECTARS)
 seed.PACK_BY_ID = index(seed.PACKS)
 seed.CHARM_BY_ID = index(seed.CHARM_TIERS)
 seed.FLORA_BY_ID = index(seed.FLORA)
+
+-- the task's nectar, derived from the named wisp's own taste (see seed.TASK)
+seed.TASK_NECTAR = seed.WISP_BY_ID[seed.TASK.wisp].favourite
 
 -- premium nectars in priority order (highest first): the shop's shelf order
 seed.PREMIUM = {}

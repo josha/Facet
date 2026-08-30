@@ -169,7 +169,9 @@ describe("Glade reference proof — module contract", function()
 
 	it("mounts headlessly through the public presenter with no core error", function()
 		local w = world()
-		expect(w.find("/Glade/Nav") ~= nil).toBe(true)
+		-- the nav construct now hangs off the shell stack the task strip leads, so
+		-- the tail is the same node one level deeper
+		expect(w.find("/Glade/Shell/Nav") ~= nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()
 		expect(w.report().proof).toBe("p1_glade")
 		expect(w.report().seed).toBe(seedData.WORLD)
@@ -275,11 +277,17 @@ describe("Glade: supply drain, low and empty (spec §1, §6)", function()
 	it("dew uses its own constants, and the two never share a threshold", function()
 		local w = world()
 		local supply = w.built.api.supply
-		-- mossholm's dew is seeded 120s in, so it reaches low 660s later
-		w.built.api.advance(seedData.DRAIN.dew.low - 120 - 1)
-		expect(supply.state("mossholm", "dew"):get()).toBe("full")
+		-- READ FROM THE SEED, never a copied literal: the played task needs Mossholm's
+		-- dew dry on the first frame (its first row is "refill it"), so this case
+		-- watches Lantern Dell — the glade whose dew IS seeded full — and takes its
+		-- age from the table rather than restating it. Same crossing, same constants.
+		local glade = "lanternDell"
+		local age = seedData.GLADE_BY_ID[glade].dewAge
+		expect(supply.state(glade, "dew"):get()).toBe("full")
+		w.built.api.advance(seedData.DRAIN.dew.low - age - 1)
+		expect(supply.state(glade, "dew"):get()).toBe("full")
 		w.built.api.advance(2)
-		expect(supply.state("mossholm", "dew"):get()).toBe("low")
+		expect(supply.state(glade, "dew"):get()).toBe("low")
 		expect(seedData.DRAIN.dew.empty > seedData.DRAIN.nectar.empty).toBe(true)
 	end)
 
@@ -1414,10 +1422,21 @@ describe("Glade: localization and the expansion locale (spec §13)", function()
 end)
 
 describe("Glade: motion (spec §11)", function()
+	--[[ THE ARRIVAL IS THE TASK'S PAYOFF NOW, so it is driven the way a player
+		earns it. Mossholm is the played task's named glade, and its wisp waits at
+		the edge until the glade is READY — fresh dew and the nectar it likes
+		(`init.luau`, `nav.openGlade`). Every other glade still presents its visitor
+		the moment it is opened. What this case asserts is unchanged: the ceremony
+		runs ONCE per visit and it completes. ]]
 	it("the wisp fly-in runs once per visit and completes", function()
 		local w = world(390, 844)
 		expect(#w.report().flyIns).toBe(0)
 		w.tap("/GladeCard_mossholm")
+		-- ...not yet: the glade is not ready for it
+		expect(#w.report().flyIns).toBe(0)
+		w.tap("/SupplyRow_dew")
+		w.tap("/SupplyRow_nectar")
+		w.tap(`/Act_{seedData.TASK_NECTAR}`)
 		expect(w.report().flyIns[1]).toBe("v2")
 		w.tick(200)
 		local log = w.report().flyIns
@@ -1453,6 +1472,10 @@ describe("Glade: motion (spec §11)", function()
 		built.api.bindHandle(handle)
 		presenter.refresh()
 		built.api.nav.openGlade("mossholm")
+		-- the same two acts the case above drives through the controls: the arrival
+		-- belongs to a prepared glade, under reduced motion exactly as under full
+		built.api.supply.refill("mossholm", "dew")
+		built.api.supply.assign("mossholm", seedData.TASK_NECTAR)
 		presenter.refresh()
 		local log = built.report().flyIns
 		-- every beat fired immediately and `onDone` reported the reduced form
@@ -1489,6 +1512,7 @@ describe("Glade: the responsibility ledger's forbidden list", function()
 		"ui/detail.luau",
 		"ui/shop.luau",
 		"ui/keeper.luau",
+		"ui/task.luau",
 	}
 	local ROOT = "examples/reference/p1_glade/"
 
@@ -1756,5 +1780,356 @@ describe("Glade detail — the locale x width x selection sweep the matrix pin c
 		end
 		w.built.steps.setLocale(w.built, "en")
 		w.built.dispose()
+	end)
+end)
+
+--[[ ── THE PLAYED TASK ──────────────────────────────────────────────────────────
+
+	"Prepare this glade" (docs/plans/example-games-and-standalones.md, "Glade:
+	prepare a home for a visiting wisp"). What is pinned here is the LOOP: the
+	seeded start, each step's state transition, BOTH orders the two acts can be
+	done in, the depleted path a clock can put the player in without them touching
+	anything, the arrival, the completion state, and the reset returning every
+	observable the report publishes.
+
+	Driven through `adapter.tap` on the real controls, which is the activation
+	closure the engine itself calls. ]]
+describe("Glade — the played task: seeded start, both orders, depletion, and the reset", function()
+	local TASK_GLADE = seedData.TASK.glade
+	local TASK_WISP = seedData.TASK.wisp
+	local TASK_NECTAR = seedData.TASK_NECTAR
+
+	-- the whole prepared state, through the two on-screen verbs
+	local function refillDew(w: any)
+		w.tap("/SupplyRow_dew")
+	end
+	local function chooseNectar(w: any, nectarId: string)
+		w.tap("/SupplyRow_nectar")
+		w.tap(`/Act_{nectarId}`)
+	end
+	-- the dump minus the ONE field a real button press adds to it: the framework's
+	-- own `activate` event, emitted after the effect the press caused (the same
+	-- ordering the refill case above asserts). Everything else is compared byte for
+	-- byte.
+	local function stateDump(w: any): string
+		local r = w.report()
+		r.feedback = {}
+		return w.built.api.serialize(r)
+	end
+
+	it("the task names a glade, a wisp and a STANDARD nectar, so the shop is never on the path", function()
+		expect(seedData.GLADE_BY_ID[TASK_GLADE] ~= nil).toBe(true)
+		expect(seedData.WISP_BY_ID[TASK_WISP] ~= nil).toBe(true)
+		-- the nectar is DERIVED from the wisp, never restated
+		expect(TASK_NECTAR).toBe(seedData.WISP_BY_ID[TASK_WISP].favourite)
+		-- ...and it is free, which is what keeps the commerce fixtures secondary
+		expect(seedData.NECTAR_BY_ID[TASK_NECTAR].premium).never().toBe(true)
+	end)
+
+	it("the seeded start has BOTH rows undone, and the opening screen says what to do", function()
+		local w = world()
+		local t = w.report().task
+		expect(t.glade).toBe(TASK_GLADE)
+		expect(t.wisp).toBe(TASK_WISP)
+		expect(t.phase).toBe("start")
+		expect(t.dewReady).toBe(false)
+		expect(t.nectarReady).toBe(false)
+		expect(t.complete).toBe(false)
+		-- the seed itself: a task whose first row arrives already ticked is not a task
+		expect(w.built.api.supply.state(TASK_GLADE, "dew"):get()).never().toBe("full")
+		expect(w.built.api.supply.nectarOf(TASK_GLADE):get()).never().toBe(TASK_NECTAR)
+
+		-- the goal in one sentence, the named subject, two plain rows, the next
+		-- action and a first action by name
+		expect(w.textOf("/TaskGoal")).toBe("Wisps visit glades that have fresh dew and the nectar they like.")
+		expect(w.textOf("/TaskSubject")).toBe("Mossholm, for Emberwisp — it likes Bramble Nectar.")
+		expect(w.textOf("/TaskRowDew/RowLabel")).toBe("Refill Mossholm's dew")
+		expect(w.textOf("/TaskRowNectar/RowLabel")).toBe("Set out Bramble Nectar")
+		expect(w.textOf("/TaskRowDew/RowState")).toBe("To do")
+		expect(w.textOf("/TaskRowNectar/RowState")).toBe("To do")
+		expect(w.textOf("/TaskNext")).toBe("Open Mossholm and refill its dew.")
+		expect(w.textOf("/TaskStrip/TaskLabel")).toBe("Prepare this glade")
+		expect(w.textOf("/TaskStrip/TaskProgress")).toBe("0 of 2 ready")
+		expect(w.node("/TaskOpen").props.label).toBe("Open Mossholm")
+		-- the completion state is not up
+		expect(w.find("/TaskAgain")).toBeNil()
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("the named first action opens the named glade, and each act ticks exactly its own row", function()
+		local w = world()
+		w.tap("/TaskOpen")
+		expect(w.report().selectedGlade).toBe(TASK_GLADE)
+
+		refillDew(w)
+		local afterDew = w.report().task
+		expect(afterDew.dewReady).toBe(true)
+		expect(afterDew.nectarReady).toBe(false)
+		expect(afterDew.phase).toBe("nectar")
+		expect(w.textOf("/TaskRowDew/RowState")).toBe("Done")
+		expect(w.textOf("/TaskStrip/TaskProgress")).toBe("1 of 2 ready")
+		expect(w.textOf("/TaskNext")).toBe("Now set out Bramble Nectar in Mossholm.")
+
+		-- the WRONG nectar ticks nothing: the row is about this wisp's taste
+		chooseNectar(w, "clover")
+		expect(w.report().task.nectarReady).toBe(false)
+		expect(w.report().task.complete).toBe(false)
+
+		chooseNectar(w, TASK_NECTAR)
+		local done = w.report().task
+		expect(done.nectarReady).toBe(true)
+		expect(done.complete).toBe(true)
+		expect(w.textOf("/TaskStrip/TaskProgress")).toBe("2 of 2 ready")
+		w.built.dispose()
+	end)
+
+	it("either order finishes it: nectar first leaves the DEW row as the one thing left", function()
+		local w = world()
+		w.tap("/TaskOpen")
+		chooseNectar(w, TASK_NECTAR)
+		local mid = w.report().task
+		expect(mid.nectarReady).toBe(true)
+		expect(mid.dewReady).toBe(false)
+		expect(mid.complete).toBe(false)
+		-- ...and the line explains the condition rather than restating the opening
+		expect(mid.phase).toBe("dew")
+		expect(w.textOf("/TaskNext")).toBe(
+			"Mossholm's dew has dried out again — refill it to finish. The nectar is still set out."
+		)
+		refillDew(w)
+		expect(w.report().task.complete).toBe(true)
+		w.built.dispose()
+	end)
+
+	it("the clock can take a row back, and the task SAYS SO and stays finishable", function()
+		local w = world()
+		w.tap("/TaskOpen")
+		refillDew(w)
+		expect(w.report().task.phase).toBe("nectar")
+
+		-- nothing the player did: the dew simply drained past its own threshold
+		w.built.api.advance(seedData.DRAIN.dew.low + 1)
+		w.presenter.refresh()
+		local drained = w.report().task
+		expect(drained.dewReady).toBe(false)
+		expect(drained.complete).toBe(false)
+		expect(drained.phase).toBe("resume")
+		expect(w.textOf("/TaskRowDew/RowState")).toBe("To do")
+		expect(w.textOf("/TaskStrip/TaskProgress")).toBe("0 of 2 ready")
+		expect(w.textOf("/TaskNext")).toBe(
+			"Mossholm's supplies have run down again. Refill the dew and set out Bramble Nectar."
+		)
+
+		-- ...and it is still finishable from there, with the same two verbs
+		chooseNectar(w, TASK_NECTAR)
+		expect(w.report().task.phase).toBe("dew")
+		refillDew(w)
+		expect(w.report().task.complete).toBe(true)
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("the wisp ARRIVES when the glade is ready — not when it is merely opened", function()
+		local w = world(390, 844)
+		w.tap(`/GladeCard_{TASK_GLADE}`)
+		-- it is visiting, and it is waiting: the ceremony belongs to the two acts
+		expect(w.built.api.visits.current(TASK_GLADE):get().wisp).toBe(TASK_WISP)
+		expect(#w.report().flyIns).toBe(0)
+		refillDew(w)
+		expect(#w.report().flyIns).toBe(0)
+		chooseNectar(w, TASK_NECTAR)
+		expect(w.report().flyIns[1]).toBe("v2")
+		-- ...and every OTHER glade is unchanged: its visitor is presented on open
+		w.tap("/Back")
+		w.tap("/GladeCard_stillpond")
+		expect(w.report().flyIns[#w.report().flyIns]).toBe("v9")
+		w.built.dispose()
+	end)
+
+	it("the completion state is unmistakable, says what was accomplished, and offers ONE reset", function()
+		local w = world()
+		w.tap("/TaskOpen")
+		refillDew(w)
+		chooseNectar(w, TASK_NECTAR)
+		expect(w.textOf("/TaskSettledTitle")).toBe("Emberwisp has settled into Mossholm.")
+		expect(w.textOf("/TaskSettledCopy")).toBe(
+			"Fresh dew and the nectar it likes are all a wisp asks for. Keep the supplies up and it will stay."
+		)
+		expect(w.node("/TaskAgain").props.label).toBe("Prepare again")
+		-- it REPLACES the task rather than standing beside it
+		expect(w.find("/TaskNext")).toBeNil()
+		expect(w.find("/TaskOpen")).toBeNil()
+		-- ...and the strip says it too, so the state reads from any section
+		expect(w.textOf("/TaskStrip/TaskLabel")).toBe("Emberwisp has settled into Mossholm.")
+		-- the arrival is announced on the feedback bus and in a toast
+		local celebrated = false
+		for _, event in w.report().feedback do
+			if event == "celebrate" then
+				celebrated = true
+			end
+		end
+		expect(celebrated).toBe(true)
+		w.tick(10)
+		local sawToast = false
+		for _, text in w.toastTexts() do
+			if string.find(text, "settles into", 1, true) ~= nil then
+				sawToast = true
+			end
+		end
+		expect(sawToast).toBe(true)
+		w.built.dispose()
+	end)
+
+	it("'Prepare again' returns EVERY observable to the seeded start", function()
+		local w = world()
+		local opening = stateDump(w)
+		w.tap("/TaskOpen")
+		refillDew(w)
+		chooseNectar(w, TASK_NECTAR)
+		-- ...and browse a little, so the reset is not only unwinding the loop
+		w.tap("/Fav_mossholm")
+		w.built.steps.search(w.built, "moss")
+		w.tick(40)
+		w.built.steps.search(w.built, "")
+		w.tick(40)
+		expect(stateDump(w)).never().toBe(opening)
+
+		w.tap("/TaskAgain")
+		expect(stateDump(w)).toBe(opening)
+		local t = w.report().task
+		expect(t.phase).toBe("start")
+		expect(t.complete).toBe(false)
+		expect(t.touched).toBe(false)
+		expect(w.report().section).toBe("glades")
+		expect(#w.report().surfaces).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("'What this shows' is collapsed by default and comes AFTER the play task", function()
+		local w = world()
+		expect(w.find("/TaskShowsBody")).toBeNil()
+		local order = w.handle.focusOrder().traversal
+		local openAt, showsAt = nil :: number?, nil :: number?
+		for index, entry in order do
+			if string.sub(entry.path, -9) == "/TaskOpen" then
+				openAt = index
+			elseif string.sub(entry.path, -10) == "/TaskShows" then
+				showsAt = index
+			end
+		end
+		expect(`open={openAt ~= nil} shows={showsAt ~= nil}`).toBe("open=true shows=true")
+		expect((openAt :: number) < (showsAt :: number)).toBe(true)
+		w.tap("/TaskShows")
+		expect(w.find("/TaskShowsBody") ~= nil).toBe(true)
+		w.built.dispose()
+	end)
+
+	it("the task is placed ON the app: every glade, section and browse verb survives it", function()
+		local w = world()
+		for _, glade in seedData.GLADES do
+			expect(`{glade.id}: {w.find("/GladeCard_" .. glade.id) ~= nil}`).toBe(`{glade.id}: true`)
+		end
+		expect(w.find("/Search/Field") ~= nil).toBe(true)
+		expect(w.find("/OfferSee") ~= nil).toBe(true)
+		for _, section in SECTION_ORDER do
+			expect(`{section}: {w.find(navTail(section)) ~= nil}`).toBe(`{section}: true`)
+			w.tap(navTail(section))
+			-- ...and the strip is in every one of them, so browsing never loses it
+			expect(`{section} strip: {w.find("/TaskStrip/TaskLabel") ~= nil}`).toBe(`{section} strip: true`)
+		end
+		w.built.dispose()
+	end)
+
+	it("on a landscape phone the strip yields and the CARD still carries the whole task", function()
+		local w = world(640, 320)
+		expect(w.built.api.conditions.isShort:get()).toBe(true)
+		expect(w.find("/TaskStripWhen/then/TaskStrip")).toBeNil()
+		expect(w.textOf("/TaskGoal")).toBe("Wisps visit glades that have fresh dew and the nectar they like.")
+		expect(w.textOf("/TaskNext")).toBe("Open Mossholm and refill its dew.")
+		expect(w.find("/TaskOpen") ~= nil).toBe(true)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		w.built.dispose()
+	end)
+
+	it("the strip costs ONE line box at every preference and in both locales", function()
+		for _, loc in { "en", "xa" } do
+			for _, offset in { 0, 4, 10, 14 } do
+				local w = world(320, 640)
+				w.env:set("preferredTextOffset", offset)
+				w.built.steps.setLocale(w.built, loc)
+				w.presenter.refresh()
+				local strip = w.node("/TaskStripWhen/then/TaskStrip")
+				local label = w.node("/TaskStrip/TaskLabel")
+				expect(`{loc}+{offset}: {strip.rect.h <= label.rect.h * 2}`).toBe(`{loc}+{offset}: true`)
+				expect(`{loc}+{offset} diagnostics: {#w.handle.controller.diagnostics()}`).toBe(
+					`{loc}+{offset} diagnostics: 0`
+				)
+				w.built.dispose()
+			end
+		end
+	end)
+end)
+
+--[[ ── NO PROOF JARGON ON THE PLAYER SURFACE ─────────────────────────────────── ]]
+describe("Glade — the player surface names no stage, proof or ledger", function()
+	local JARGON = { "proof", "stage", "gate", "clean%-room", "RA%-P" }
+
+	it("no locale string a player can read carries test vocabulary", function()
+		local offenders: { string } = {}
+		for key, value in strings.TABLES.en do
+			for _, pattern in JARGON do
+				if string.find(string.lower(value), string.lower(pattern)) ~= nil then
+					table.insert(offenders, `{key} = {value}`)
+				end
+			end
+		end
+		table.sort(offenders)
+		expect(table.concat(offenders, "; ")).toBe("")
+	end)
+end)
+
+--[[ ── THE STANDALONE AND THE SHOWCASE ARE ONE MODULE ───────────────────────────
+
+	Both `Facet-Ref-Glade.rbxl` and the gallery boot the SAME scenario file, which
+	resolves the SAME `FacetReference.p1_glade` module — there is no simplified fork
+	of this app anywhere. Read from source text because neither the scenario
+	registry nor a Rojo project can be required headlessly. ]]
+describe("Glade — the standalone place and the showcase scenario import one module", function()
+	local fs = require("@lune/fs")
+
+	it("the scenario resolves the reference module and forks nothing", function()
+		local source = fs.readFile("examples/gallery/scenarios/ref_glade.luau")
+		expect(string.find(source, 'FindFirstChild("p1_glade")', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "ctx.referenceModules", 1, true) ~= nil).toBe(true)
+		for _, other in { "p2_cartwheel", "p3_sipworks", "p4_foyer", "p5_wardrobe" } do
+			expect(`{other}: {string.find(source, other, 1, true) ~= nil}`).toBe(`{other}: false`)
+		end
+	end)
+
+	it("the standalone place maps the same two folders the gallery does", function()
+		local place = fs.readFile("tools/build_reference_places.sh")
+		expect(string.find(place, '"ref_glade|Facet-Ref-Glade"', 1, true) ~= nil).toBe(true)
+		local gallery = fs.readFile("examples/gallery.project.json")
+		-- the tail of the mapping only: the place builder writes its project through
+		-- a bash heredoc, so its `$path` keys arrive escaped as `\$path`
+		for _, mapping in { 'path": "gallery/scenarios"', 'path": "reference"' } do
+			expect(`place {mapping}: {string.find(place, mapping, 1, true) ~= nil}`).toBe(`place {mapping}: true`)
+			expect(`gallery {mapping}: {string.find(gallery, mapping, 1, true) ~= nil}`).toBe(`gallery {mapping}: true`)
+		end
+	end)
+
+	it("exactly one directory on disk IS this app", function()
+		local hits: { string } = {}
+		for _, entry in fs.readDir("examples/reference") do
+			if fs.isFile(`examples/reference/{entry}/init.luau`) then
+				local source = fs.readFile(`examples/reference/{entry}/init.luau`)
+				if string.find(source, "Glade.build", 1, true) ~= nil then
+					table.insert(hits, entry)
+				end
+			end
+		end
+		expect(table.concat(hits, ",")).toBe("p1_glade")
 	end)
 end)

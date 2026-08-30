@@ -84,6 +84,24 @@ local en: { [string]: any } = {
 	["app.title"] = "Sipworks",
 	["app.tagline"] = "A craft tea house",
 
+	-- ---- the played task (the opening screen's own copy) -------------------
+	-- One sentence for the goal, one line per phase for the next action, and a
+	-- completion state that says what was accomplished. Nothing here names a
+	-- test, a stage or a document: the player's word for the loop is "an order".
+	["task.title"] = "Today's order",
+	["task.intro"] = "Sipworks is a tea house. Pick a blend, serve it, and take a stamp — ten stamps is a free pour.",
+	["task.next.order"] = "Choose a blend and place the order.",
+	["task.next.placing"] = "The counter is taking your order…",
+	["task.next.rejected"] = "The counter turned that order away and charged nothing. Your stamps are safe — order again when you're ready.",
+	["task.next.redeem"] = "Your card is full. Choose another blend and redeem the free pour.",
+	["task.cta.order"] = "Order {title}",
+	["task.cta.redeem"] = "Redeem with {title}",
+	["task.done.title"] = "A free pour, on the house.",
+	["task.done.body"] = "One order filled the stamp card, and all ten stamps went back over the counter for a free pour.",
+	["task.done.reset"] = "Serve another customer",
+	["task.shows.open"] = "What this shows",
+	["task.shows.body"] = "One tea house, laid out for every screen: the navigation moves between a sidebar, a top band and a thumb-zone tab bar as the window changes, the order waits on a real reply that is allowed to refuse, and every word on screen comes from a table that can grow by nearly half again without clipping.",
+
 	["nav.menu"] = "Menu",
 	["nav.favorites"] = "Favorites",
 	["nav.book"] = "Blend Book",

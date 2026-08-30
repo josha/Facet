@@ -47,6 +47,31 @@ local en: { [string]: string } = {
 	["section.flora.short"] = "Flora",
 	["section.keeper.short"] = "You",
 
+	-- the played task ---------------------------------------------------------
+	-- The goal in one sentence, the named subject, one line per progress row and
+	-- one line per phase — including the phase a DRAINED supply puts the player
+	-- in, because a task that can quietly become unsatisfiable is worse than no
+	-- task at all. Nothing here names a stage, a proof or a document.
+	["task.title"] = "Prepare this glade",
+	["task.intro"] = "Wisps visit glades that have fresh dew and the nectar they like.",
+	["task.subject"] = "{glade}, for {wisp} — it likes {nectar}.",
+	["task.row.dew"] = "Refill {glade}'s dew",
+	["task.row.nectar"] = "Set out {nectar}",
+	["task.row.done"] = "Done",
+	["task.row.todo"] = "To do",
+	["task.progress"] = "{n} of 2 ready",
+	["task.next.start"] = "Open {glade} and refill its dew.",
+	["task.next.nectar"] = "Now set out {nectar} in {glade}.",
+	["task.next.dew"] = "{glade}'s dew has dried out again — refill it to finish. The nectar is still set out.",
+	["task.next.resume"] = "{glade}'s supplies have run down again. Refill the dew and set out {nectar}.",
+	["task.open"] = "Open {glade}",
+	["task.done.title"] = "{wisp} has settled into {glade}.",
+	["task.done.body"] = "Fresh dew and the nectar it likes are all a wisp asks for. Keep the supplies up and it will stay.",
+	["task.done.reset"] = "Prepare again",
+	["task.toast"] = "{wisp} settles into {glade}.",
+	["task.shows.open"] = "What this shows",
+	["task.shows.body"] = "One glade keeper's app on every screen: the tab bar moves between a sidebar, a top band and a thumb-zone dock, the detail sits beside the list where there is room and slides in over it where there is not, supplies drain on a clock the whole screen reacts to, and the arrival animates or places instantly depending on the reduced-motion setting.",
+
 	-- S1 overview -----------------------------------------------------------
 	["overview.search"] = "Find a glade",
 	["overview.visiting"] = " is visiting ",

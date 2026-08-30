@@ -173,7 +173,16 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 							}),
 						},
 					}),
-					UI.Spacer({ id = "Push" }),
+					--[[ NO `Spacer` HERE, and its removal is a defect fix rather than a
+						tidy-up. `Copy` beside it is already `fill`, so a flexible spacer
+						SPLIT the row's free space with the copy column instead of pushing
+						anything: in the 248px detail lane the copy was starved to 29px
+						while the spacer took 40, and the "Low"/"Empty" chip (23px + an
+						8px gap) then painted 2px outside its own TitleRow — 8px under the
+						1.4x locale. A fill sibling IS the push. Found the moment a glade
+						whose dew needs refilling became the one the sweep selects; the
+						same row on Fernhollow, Stillpond and Bramble Rest had carried it
+						since the row was written. ]]
 					affordance,
 				},
 			}),
