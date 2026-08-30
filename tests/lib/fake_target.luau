@@ -1324,11 +1324,55 @@ function fake_target.new(opts: Opts?)
 	-- the render path. Here the batch is held so a test can play the engine
 	-- deliberately — which is what makes the ordering claim ("first frame
 	-- conservative, exactly one re-solve exact") provable headless.
-	local textBatches: { { requests: { any }, done: ({ any }) -> () } } = {}
-	function adapter.measureTextWidths(requests: { any }, done: (results: { any }) -> ())
+	local textBatches: { { requests: { any }, done: (({ any }, boolean?) -> ())? } } = {}
+	-- batches this target has already answered once, kept so `answerAgain` can
+	-- replay the settled correction the live adapter sends (see below)
+	local answeredBatches: { { requests: { any }, done: (({ any }, boolean?) -> ())? } } = {}
+	local function forgetBatch(batch: any)
+		-- releasing `done` is the whole point: it is the RENDERER's own closure,
+		-- and it holds that surface's mounted tree
+		batch.done = nil
+		local pending = table.find(textBatches, batch)
+		if pending ~= nil then
+			table.remove(textBatches, pending)
+		end
+		local answered = table.find(answeredBatches, batch)
+		if answered ~= nil then
+			table.remove(answeredBatches, answered)
+		end
+	end
+	--[[ RETURNS THE CANCEL TOKEN THE CONTRACT DESCRIBES, and it is a memory fact
+		rather than a fidelity nicety (measured 2026-08-29).
+
+		`src/render/target_contract.luau`'s `measureTextWidths` line says an adapter
+		MAY return a nullary function the renderer calls on dispose, after which it
+		must not invoke `done` again; `screen_target` returns one
+		(`text_premeasure.measure`). This target returned nothing, which is legal —
+		and meant a batch, and therefore the `done` closure the renderer handed
+		over, was held HERE for the life of the process. That closure is
+		`renderer.attach`'s own, so it keeps `solveAndApply`'s upvalues alive:
+		`root`, the whole mounted node tree, every per-path map. So every screen
+		with one unmeasured word that a long-lived headless process presented
+		stayed in memory AFTER a complete `presenter.dismiss` — measured at ~5 KB
+		per presented node, ~120 KB per twenty-button screen, unbounded in the
+		number of cycles. A spec that plays the engine (`deliverTextWidths`) was no
+		better: the answered batch moved to `answeredBatches` and was never dropped
+		either. (This is the retention a present/dismiss loop on ONE adapter sees.
+		The suite's own heap had a second, larger cause with the same shape —
+		`src/render/surface_overlap.luau`'s registry — fixed in the same round.)
+
+		The renderer already collects these tokens (`textMeasureCancels`) and calls
+		them in `controller.dispose`, so nothing in `src/` changes. Cancelling
+		drops the batch from BOTH lists and nils `done`, so a cancelled batch
+		neither delivers nor retains — exactly what the live token promises. ]]
+	function adapter.measureTextWidths(requests: { any }, done: (results: { any }, final: boolean?) -> ()): () -> ()
 		-- NOT an op: asking the engine for word widths is an observation, not a
 		-- write to the tree, and the minimal-writes assertions count writes
-		table.insert(textBatches, { requests = requests, done = done })
+		local batch = { requests = requests, done = done }
+		table.insert(textBatches, batch)
+		return function()
+			forgetBatch(batch)
+		end
 	end
 	function adapter.textBatchCount(): number
 		return #textBatches
@@ -1367,9 +1411,13 @@ function fake_target.new(opts: Opts?)
 	end
 	-- deliver every queued batch. widthOf(word, size, font) -> number, or nil
 	-- for "the engine could not measure this one".
-	local answeredBatches: { { requests: { any }, done: ({ any }) -> () } } = {}
 	local function answer(batches: { any }, widthOf: (string, number, string) -> number?, final: boolean?)
 		for _, batch in batches do
+			-- a CANCELLED batch (the surface that asked was disposed) is not owed
+			-- an answer — the same promise the live cancel token makes
+			if batch.done == nil then
+				continue
+			end
 			local results = {}
 			for _, request in batch.requests do
 				table.insert(results, {

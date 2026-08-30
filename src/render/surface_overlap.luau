@@ -298,7 +298,33 @@ local live: { [any]: { [any]: boolean } } = setmetatable({}, { __mode = "k" }) :
 function surface_overlap.register(target: any, entry: Entry): () -> ()
 	local bucket = live[target]
 	if bucket == nil then
-		bucket = {}
+		--[[ WEAK ON THE ENTRY TOO, AND THAT IS WHAT MAKES THE WEAK TARGET KEY
+			ABOVE WORK AT ALL (measured 2026-08-29).
+
+			LUAU'S WEAK TABLES ARE NOT EPHEMERONS. A value that references its own
+			key keeps the entry alive forever — measured directly: 5 000 weak-keyed
+			rows whose value held a back-reference survived every collection, while
+			the same rows without one all went. `entry.snapshot` calls
+			`controller.coverRect()`, and that controller closes over the very
+			`target` this bucket is keyed by, so a STRONG bucket made every
+			registered surface a strong reference to its own weak key. The
+			docstring's backstop could therefore never fire: one surface whose
+			`controller.dispose()` was skipped — a test fixture abandoned without
+			teardown, an owner that drops a screen — pinned its adapter, its
+			renderer, its whole mounted tree and its core for the life of the
+			process. Measured on this suite's own specs: 335 MB after
+			`fine_grained_reactivity`, 102 MB after `playlist_columns`, 76 MB after
+			`large_text_layout`, all of it recovered by this line.
+
+			Holding the entry weakly breaks the value→key edge: the bucket now
+			references nothing strongly, so an abandoned surface's whole cycle
+			(entry → snapshot → controller → renderer → entry) collects as a unit
+			and takes its `live` row with it. A LIVE surface is always reachable
+			from its owner (the presenter's stack, a test's own `controller`), so
+			the registry keeps exactly what it is a registry OF. Explicit removal
+			in `controller.dispose()` is still the plan; this is the backstop
+			finally being one. ]]
+		bucket = setmetatable({}, { __mode = "k" }) :: any
 		live[target] = bucket
 	end
 	bucket[entry] = true
