@@ -73,7 +73,7 @@ function showcase_chips.rectFor(Facet: any, view: any, packageId: string?, snaps
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
-	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 
 	local rect: any = nil

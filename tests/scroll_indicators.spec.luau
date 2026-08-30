@@ -332,8 +332,7 @@ describe("the LIVE ScreenTarget publishes the reserve through TWO sanctioned wri
 	-- brand-new adapter answers with before the environment's first fact has ever
 	-- been pushed. It is deliberately NOT policy-aware — at construction there is no
 	-- policy yet — and stays the value `forceScrollFallback` alone can zero.
-	local CONSTRUCTION_WRITE =
-		"adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS"
+	local CONSTRUCTION_WRITE = "adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_RESERVE"
 	-- THE REAL RESERVE (director ruling 2026-08-28, screen_scroll_indicators.luau):
 	-- restated on every `setScrollIndicatorPolicy` call, which the boot sequence
 	-- guarantees runs before anything mounts (see "boot applies the session's
@@ -341,15 +340,43 @@ describe("the LIVE ScreenTarget publishes the reserve through TWO sanctioned wri
 	-- reaches the solver for every real screen. "always" keeps the construction
 	-- default; "auto" zeroes it (paired with `applyBarOverlayWiden`, which this file
 	-- does not pin — see tests/scroll_bar_measure.spec.luau).
-	-- the policy write's OWN first line — the fragment `string.gmatch`'s per-line
-	-- scan below actually sees, since the `then`/`else` continuation lines carry no
-	-- `adapter.scrollBarThickness` substring and never reach that scan's filter
-	local POLICY_WRITE_HEAD = 'adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto"'
-	local POLICY_WRITE = POLICY_WRITE_HEAD .. "\n\t\t\tthen 0\n\t\t\telse SCROLL_BAR_THICKNESS"
+	-- ONE LINE AGAIN (2026-08-30): it used to be pinned as a head plus two
+	-- continuation lines, because stylua wrapped the statement — `SCROLL_BAR_RESERVE`
+	-- is shorter than the `SCROLL_BAR_THICKNESS` it replaced, so the whole statement
+	-- now fits stylua's width and the per-line scan below sees it whole.
+	local POLICY_WRITE =
+		'adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto" then 0 else SCROLL_BAR_RESERVE'
 
 	it("its one constant is the same 8px the fake mirrors", function()
 		expect(string.find(source, "local SCROLL_BAR_THICKNESS = 8", 1, true) ~= nil).toBe(true)
 		expect(fake_target.SCROLL_BAR_THICKNESS).toBe(8)
+	end)
+
+	--[[ THE GUTTER (director report 2026-08-30): "1 pixel of padding would help a
+		lot between the left edge of the scrollbar and content... this should apply
+		to horizontal scrollbars, too."
+
+		fa7233a's own round already measured that the flush boundary the director
+		screenshotted is NOT an overlap — the reservation math is exact. Exact is
+		what the complaint is about: reserving the bar's thickness and no more puts
+		every card edge on the bar's outer pixel. So the RESERVE grew by one and the
+		PAINT did not, which is the whole content of these two pins: what the engine
+		narrows its window by (`SCROLL_BAR_THICKNESS`, unchanged) and what the solver
+		is told to hold back (`SCROLL_BAR_RESERVE`) are now different numbers, and
+		the difference IS the visible gap. `tests/scroll_bar_measure.spec.luau`
+		pins the geometry that falls out of it on both axes. ]]
+	it("the reserve is the bar PLUS a one-pixel gutter, and the PAINT never grew", function()
+		expect(string.find(source, "local SCROLL_BAR_GUTTER = 1", 1, true) ~= nil).toBe(true)
+		expect(
+			string.find(source, "local SCROLL_BAR_RESERVE = SCROLL_BAR_THICKNESS + SCROLL_BAR_GUTTER", 1, true) ~= nil
+		).toBe(true)
+		-- the fake mirrors both halves, so a spec can say which one it means
+		expect(fake_target.SCROLL_BAR_GUTTER).toBe(1)
+		expect(fake_target.SCROLL_BAR_RESERVE).toBe(fake_target.SCROLL_BAR_THICKNESS + 1)
+		-- ...and the bar INSTANCE is still born at the unpadded thickness: the
+		-- gutter is layout-only, and a fatter bar would eat the gap it just made
+		expect(string.find(source, "instance.ScrollBarThickness = SCROLL_BAR_RESERVE", 1, true)).toBeNil()
+		expect(string.find(source, "instance.ScrollBarThickness = SCROLL_BAR_THICKNESS", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("TWO writes, not one: the construction default and the policy-aware seam", function()
@@ -384,12 +411,12 @@ describe("the LIVE ScreenTarget publishes the reserve through TWO sanctioned wri
 				and string.find(line, "=", 1, true) ~= nil
 			then
 				local trimmed = string.match(line, "^%s*(.-)%s*$") or line
-				if trimmed ~= CONSTRUCTION_WRITE and trimmed ~= POLICY_WRITE_HEAD then
+				if trimmed ~= CONSTRUCTION_WRITE and trimmed ~= POLICY_WRITE then
 					error(
 						`the live ScreenTarget (screen_target.luau / screen_scroll_indicators.luau) assigns `
 							.. `the scroll reserve on a line this pin does not recognise:\n    {trimmed}\n`
-							.. `The two sanctioned writes are:\n    {CONSTRUCTION_WRITE}\n    (split across lines) `
-							.. `{POLICY_WRITE}\nIf this is a THIRD write site, collapse it into one of the two `
+							.. `The two sanctioned writes are:\n    {CONSTRUCTION_WRITE}\n    {POLICY_WRITE}\n`
+							.. `If this is a THIRD write site, collapse it into one of the two `
 							.. `above. If it is a legitimate new seam, pin it here deliberately (director ruling `
 							.. `2026-08-28, task SCROLL2, fa7233a).`,
 						0

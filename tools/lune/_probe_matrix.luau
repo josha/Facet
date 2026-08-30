@@ -21,7 +21,7 @@ local function makeWorld(facts: any)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	adapter.scrollBarThickness = 8
+	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any

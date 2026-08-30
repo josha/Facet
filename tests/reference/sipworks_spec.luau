@@ -1201,7 +1201,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = 8
+			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
 			local built =

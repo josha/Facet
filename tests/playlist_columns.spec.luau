@@ -95,7 +95,7 @@ local function world(opts: any?): World
 	-- Written before the presenter, because the boot indicator policy captures the
 	-- configured thickness on its first call.
 	if o.reserveBar then
-		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	end
 	-- Tab traversal is OPT-IN at the presenter (`keyboardNavigation`), so a case
 	-- that walks the document order has to ask for it — the same way the gallery
@@ -885,7 +885,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		if o.reserveBar ~= false then
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		end
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = {}
@@ -990,7 +990,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		-- reserved nothing, which is every world this file had before.
 		local inset = w.built.handle.controller.scrollBarInsetOf(`{GRID_ROOT}/Main/Body`)
 		expect(`spent:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
-			`spent:{fake_target.SCROLL_BAR_THICKNESS}/0`
+			`spent:{fake_target.SCROLL_BAR_RESERVE}/0`
 		)
 		local head, cells = grids(w)
 		expect(head).toBe(cells)
@@ -1031,7 +1031,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		local w = scrollingWorld({ presentOnly = true })
 		local inset = w.built.handle.controller.scrollBarInsetOf(`{GRID_ROOT}/Main/Body`)
 		expect(`spent:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
-			`spent:{fake_target.SCROLL_BAR_THICKNESS}/0`
+			`spent:{fake_target.SCROLL_BAR_RESERVE}/0`
 		)
 		local head, cells = grids(w)
 		expect(head).toBe(cells)

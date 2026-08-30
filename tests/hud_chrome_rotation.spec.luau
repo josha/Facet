@@ -91,7 +91,7 @@ local function world(view: View, appChrome: { any }?): any
 	env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
-	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	-- the runner's own resolution accessor, resolved lazily for the reason the
 	-- showcase host resolves its `foreign` seam lazily: the handle does not exist
@@ -1307,7 +1307,7 @@ describe("H1: every input that can move a give-way decision settles where a fres
 		env:set("appChromeRects", state.chips)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
-		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local handle: any = nil
 		local built = hud.build({

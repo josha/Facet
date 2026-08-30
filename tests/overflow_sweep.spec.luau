@@ -1106,7 +1106,7 @@ local function world(view: any): any
 	-- out without it is 8px wider than the device it claims to model — on every
 	-- input class, not just the pointer views. See tests/scroll_window_clip.spec.luau
 	-- for the half of this the reserve does NOT cover.
-	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
@@ -2552,7 +2552,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
-		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local handle: any = nil
 		local built = hud.build({

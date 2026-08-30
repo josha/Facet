@@ -26,7 +26,7 @@ local function world(build: (any) -> any)
 	local adapter = fake_target.new();
 	-- the live shape carried the engine bar: keep it so the reserve half of
 	-- the false positive (offer + bar on the cross axis) is in the fixture
-	(adapter :: any).scrollBarThickness = 8
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local handle = presenter.present(build(Facet.UI), {})
 	presenter.refresh()

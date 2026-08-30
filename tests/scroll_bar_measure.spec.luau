@@ -25,7 +25,9 @@ local function world(withBar: boolean, build: (any) -> any)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	if withBar then
-		(adapter :: any).scrollBarThickness = 8
+		-- the number a live `always` session publishes: the bar INSTANCE plus the
+		-- one-pixel gutter beside it (fake_target.SCROLL_BAR_RESERVE's own header)
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	end
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local handle = presenter.present(build(Facet.UI, core), {})
@@ -87,7 +89,7 @@ describe("ScrollView measure includes the bar its arrange reserves", function()
 		local shelf = handle.controller.rectOf("/S/Col/Shelf")
 		local chip = handle.controller.rectOf("/S/Col/Shelf/C1")
 		expect(shelf ~= nil and chip ~= nil).toBe(true)
-		expect(shelf.h >= chip.h + 8).toBe(true)
+		expect(shelf.h >= chip.h + fake_target.SCROLL_BAR_RESERVE).toBe(true)
 	end)
 
 	it("without a bar (fallback adapters) nothing changes", function()
@@ -155,7 +157,7 @@ describe("ScrollView measure includes the bar its arrange reserves", function()
 		expect(#diags).toBe(0)
 		local list = handle.controller.rectOf("/S/Row/List")
 		local row = handle.controller.rectOf("/S/Row/List/R1")
-		expect(list.w >= row.w + 8).toBe(true)
+		expect(list.w >= row.w + fake_target.SCROLL_BAR_RESERVE).toBe(true)
 	end)
 end)
 
@@ -181,7 +183,9 @@ describe("the bar gutter a host spent is published for its SIBLINGS to pay", fun
 	it("an X shelf reports it on `bottom` — the side an X scroller reserves from", function()
 		local _, _, _, handle = world(true, chipRow)
 		local inset = handle.controller.scrollBarInsetOf("/S/Col/Shelf")
-		expect(`x:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe("x:0/8")
+		expect(`x:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
+			`x:0/{fake_target.SCROLL_BAR_RESERVE}`
+		)
 	end)
 
 	it("a Y list reports it on `right`", function()
@@ -203,7 +207,9 @@ describe("the bar gutter a host spent is published for its SIBLINGS to pay", fun
 			})
 		end)
 		local inset = handle.controller.scrollBarInsetOf("/S/List")
-		expect(`y:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe("y:8/0")
+		expect(`y:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
+			`y:{fake_target.SCROLL_BAR_RESERVE}/0`
+		)
 	end)
 
 	it("a host whose content FITS reserves nothing, and publishes nothing", function()
@@ -313,7 +319,7 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local handle = presenter.present(cardList(Facet.UI), {})
 		presenter.refresh()
@@ -349,7 +355,7 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 		local w = policyWorld({ w = 360, h = 400 }) -- 400/60 < 20 rows: overflows
 		assertNoOverlap(w)
 		local inset = w.handle.controller.scrollBarInsetOf("/S/List")
-		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_RESERVE)
 	end)
 
 	it("desktop/pointer at rest (content fits — nothing to reserve, nothing to overlap)", function()
@@ -368,13 +374,13 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 			-- not the always-policy's 8
 			expect(w.handle.controller.scrollBarInsetOf("/S/List")).toBeNil()
 			-- and the content itself proves it, not just the published fact: an
-			-- auto card is measured `fake_target.SCROLL_BAR_THICKNESS` px WIDER
+			-- auto card is measured `fake_target.SCROLL_BAR_RESERVE` px WIDER
 			-- than the SAME list under "always", because nothing narrowed it
 			local alwaysW = policyWorld({ w = 360, h = 400 })
 			local autoCard = w.handle.controller.rectOf("/S/List/Card1")
 			local alwaysCard = alwaysW.handle.controller.rectOf("/S/List/Card1")
 			expect(autoCard ~= nil and alwaysCard ~= nil).toBe(true)
-			expect((autoCard :: any).w - (alwaysCard :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
+			expect((autoCard :: any).w - (alwaysCard :: any).w).toBe(fake_target.SCROLL_BAR_RESERVE)
 		end
 	)
 end)
@@ -408,7 +414,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		-- RascalRally's FacetRacerListScreen shape exactly (task-misc-report.md):
 		-- headerless, single `fill` column, overflowing a fixed-height panel
@@ -449,7 +455,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		local bodyPath = "/S/Tbl/Main/Body"
 		local alwaysInset = always.handle.controller.scrollBarInsetOf(bodyPath)
 		local autoInset = auto.handle.controller.scrollBarInsetOf(bodyPath)
-		expect(alwaysInset ~= nil and alwaysInset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect(alwaysInset ~= nil and alwaysInset.right).toBe(fake_target.SCROLL_BAR_RESERVE)
 		expect(autoInset).toBeNil()
 		-- a ROW's own solved box proves it too (measured live: `Body` and its
 		-- `Rows` grouping node are never themselves narrowed — `Body` reports
@@ -462,7 +468,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		local alwaysRow = always.handle.controller.rectOf(rowPath)
 		local autoRow = auto.handle.controller.rectOf(rowPath)
 		expect(alwaysRow ~= nil and autoRow ~= nil).toBe(true)
-		expect((autoRow :: any).w - (alwaysRow :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect((autoRow :: any).w - (alwaysRow :: any).w).toBe(fake_target.SCROLL_BAR_RESERVE)
 	end)
 
 	--[[ THE ALL-CONTROLS CONSTRUCTION ITSELF — item 3's reopened repro
@@ -487,7 +493,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local built = adaptive_controls.build({ Facet = Facet, core = core, env = env })
 		local handle = presenter.present(built.screen, {})
@@ -500,7 +506,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 	it("the All-controls scenario, windowed desktop: persistent (pointer default) holds space", function()
 		local w = allControlsWorld(WINDOWED_DESKTOP)
 		local inset = w.handle.controller.scrollBarInsetOf("/AdaptiveScreen/BodyScroll")
-		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect(inset ~= nil and inset.right).toBe(fake_target.SCROLL_BAR_RESERVE)
 		expect(#w.handle.controller.diagnostics()).toBe(0)
 		w.built.dispose()
 	end)
@@ -513,7 +519,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		local autoBody = w.handle.controller.rectOf("/AdaptiveScreen/BodyScroll/Body")
 		local alwaysBody = always.handle.controller.rectOf("/AdaptiveScreen/BodyScroll/Body")
 		expect(autoBody ~= nil and alwaysBody ~= nil).toBe(true)
-		expect((autoBody :: any).w - (alwaysBody :: any).w).toBe(fake_target.SCROLL_BAR_THICKNESS)
+		expect((autoBody :: any).w - (alwaysBody :: any).w).toBe(fake_target.SCROLL_BAR_RESERVE)
 		w.built.dispose()
 		always.built.dispose()
 	end)
@@ -566,7 +572,7 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local UI = Facet.UI
 		local rows: { any } = {}
@@ -668,7 +674,7 @@ describe(
 			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			local presenter = Facet.newPresenter(core, env, adapter, system)
 			local UI = Facet.UI
 			local rows: { any } = {}
@@ -713,7 +719,7 @@ describe(
 			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			local presenter = Facet.newPresenter(core, env, adapter, system)
 			local UI = Facet.UI
 			local chips: { any } = {}

@@ -136,7 +136,7 @@ local function world(view: any): any
 		capabilities = device_views.CAPABILITIES[view.input],
 		newAdapter = function()
 			local adapter = fake_target.new() :: any
-			adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			return adapter
 		end,
 		overflowGuardOff = GUARD_OFF,

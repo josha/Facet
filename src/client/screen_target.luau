@@ -78,22 +78,60 @@ local foreign_content = require("../render/foreign_content")
 
 	THE SOLVER RESERVE IS POLICY-AWARE AGAIN (director ruling 2026-08-28, task
 	SCROLL2, fa7233a, ADR-0040 row B-35; PARTIALLY RE-REVERSING 2026-08-12, which
-	itself reversed 2026-08-09): "always" reserves this thickness off the cross
-	axis unconditionally, exactly as before; "auto" reserves ZERO, paired with
+	itself reversed 2026-08-09): "always" reserves off the cross axis
+	unconditionally — this thickness until 2026-08-30, `SCROLL_BAR_RESERVE` (it
+	plus a one-pixel gutter) since; "auto" reserves ZERO, paired with
 	`screen_scroll_indicators.applyBarOverlayWiden` widening the scroll host's own
 	frame by the same amount whenever its axis overflows — which cancels the
 	engine's window-narrowing above instead of reserving against it (that file's
 	header carries the full mechanism and its disclosed limit).
 
-	The number is still one value shared by both write sites:
-	`adapter.scrollBarThickness`, published below (the pre-policy construction
-	default) and again, policy-branched, in `setScrollIndicatorPolicy`
-	(src/client/screen_scroll_indicators.luau, which is handed this constant) —
-	and `tests/lib/fake_target.luau`'s lockstep copy. ]]
+	THIS CONSTANT IS THE INSTANCE, and it is spent on PAINT and on the "auto"
+	frame-widen: `instance.ScrollBarThickness` at every host's creation, and
+	`applyBarOverlayWiden`'s cancellation of the engine's own window-narrowing
+	(both must equal what the engine actually draws). The LAYOUT reserve is
+	`SCROLL_BAR_RESERVE` below — a different number since 2026-08-30 — and it is
+	the one value shared by both `adapter.scrollBarThickness` write sites:
+	published below (the pre-policy construction default) and again,
+	policy-branched, in `setScrollIndicatorPolicy`
+	(src/client/screen_scroll_indicators.luau, which is handed both numbers) — with
+	`tests/lib/fake_target.luau`'s lockstep copy of each. ]]
 local SCROLL_BAR_THICKNESS = 8
+
+--[[ ...AND A HAIRLINE OF CLEARANCE BESIDE IT (director report 2026-08-30): "the
+	scrollbar when always present looks like it's overlapping content. In this
+	case, it might not be overlapping, but 1 pixel of padding would help a lot
+	between the left edge of the scrollbar and content. This should apply to
+	horizontal scrollbars, too."
+
+	fa7233a's own round already MEASURED that this boundary is not an overlap —
+	"Facet's reservation math is already exact". Exact is the complaint: reserving
+	the bar's thickness and not one pixel more lands every card, plate and divider
+	edge on the bar's outermost pixel, which reads as a collision whether or not
+	anything collides.
+
+	SO THE GUTTER RIDES THE RESERVE, NEVER THE PAINT. The bar INSTANCE stays
+	`SCROLL_BAR_THICKNESS` (the engine narrows a ScrollingFrame's own window by
+	exactly the instance's thickness, a fact we do not get to choose); the number
+	published as `adapter.scrollBarThickness` — which the renderer hands to
+	`solver.solve` as `scrollBarReserve` — is `SCROLL_BAR_RESERVE`. Content is
+	laid out one pixel short of the window's trailing edge, and that pixel is the
+	gap. Growing the bar instead would paint the gap away again.
+
+	BOTH AXES FOR FREE, which is the second half of the ruling: the solver spends
+	the reserve off the scroller's CROSS axis, so a y-scroller pays it on the right
+	and an x-scroller on the bottom — one constant, no second knob, and the
+	`barInset` the solve publishes (a Table header's alignment) carries the same
+	number it was measured with.
+
+	"auto" IS UNTOUCHED: an overlay bar is meant to sit ON the content and reserves
+	zero (src/client/screen_scroll_indicators.luau) — there is no gutter to hold
+	when nothing is held. ]]
+local SCROLL_BAR_GUTTER = 1
+local SCROLL_BAR_RESERVE = SCROLL_BAR_THICKNESS + SCROLL_BAR_GUTTER
 -- The scroll indicator POLICY (and its "auto" flash/fade driver) now lives in
--- src/client/screen_scroll_indicators, together with the ruling that explains
--- why the policy paints the bar but never moves the reserve above.
+-- src/client/screen_scroll_indicators, together with the ruling chain that
+-- explains which half of the reserve the policy moves and which it leaves alone.
 
 --[[ THE ENGINE VOCABULARY, now a sibling (SOURCE_CAP_LEDGER, 2026-08-22): the
 	authored-word -> engine-value maps, the two pure converters, and the stage/
@@ -261,7 +299,7 @@ function screen_target.new(opts: Opts?)
 	-- content out INSIDE the bar rather than underneath it. Zero on the fallback
 	-- path, where a plain Frame host draws no bar at all.
 	local forceScrollFallbackMode = opts ~= nil and (opts :: any).forceScrollFallback == true
-	adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
+	adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_RESERVE
 	-- scroll indicator state. SHARED BY REFERENCE with the driver in
 	-- src/client/screen_scroll_indicators (which owns the policy from here on);
 	-- it lives HERE because the create path below reads `.policy` at instance
@@ -2128,6 +2166,10 @@ function screen_target.new(opts: Opts?)
 		handlesByPath = handlesByPath,
 		indicatorState = scrollIndicatorState,
 		scrollBarThickness = SCROLL_BAR_THICKNESS,
+		-- two numbers, on purpose: the line above is the bar INSTANCE (paint, and
+		-- the engine's own window narrowing); this is what the solver holds back
+		-- for it — the instance plus `SCROLL_BAR_GUTTER` (see its header)
+		scrollBarReserve = SCROLL_BAR_RESERVE,
 		forceScrollFallback = forceScrollFallbackMode,
 	})
 	adapter.setScrollIndicatorPolicy = scrollIndicators.setScrollIndicatorPolicy

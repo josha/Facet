@@ -1081,7 +1081,7 @@ describe("Cartwheel — the solver's own verdict", function()
 				-- defaults to none, so a bar-less sweep measures every page scroller
 				-- 8px wider than the screen will, and reports clean on rows that
 				-- overflow in Studio.
-				(adapter :: any).scrollBarThickness = 8
+				(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 				local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 				local built = proof.build(Facet, core, {
 					env = env,
@@ -1115,7 +1115,7 @@ describe("Cartwheel — the solver's own verdict", function()
 			end
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = 8
+			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 			local built = proof.build(Facet, core, {
 				env = env,
@@ -1348,7 +1348,7 @@ describe("Cartwheel — reduced motion", function()
 			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = 8
+			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
 			local built =
@@ -1378,7 +1378,7 @@ describe("Cartwheel — the rows that WRAP (parity round 3)", function()
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
-		(adapter :: any).scrollBarThickness = 8
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local built = proof.build(Facet, core, {
 			env = env,

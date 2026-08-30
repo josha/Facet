@@ -87,6 +87,15 @@ local fake_target = require("./lib/fake_target")
 
 local UI = Facet.UI
 local BAR = fake_target.SCROLL_BAR_THICKNESS
+-- ...and the LAYOUT number, which is one pixel wider since 2026-08-30 (director
+-- report: "1 pixel of padding would help a lot between the left edge of the
+-- scrollbar and content... this should apply to horizontal scrollbars, too").
+-- `BAR` above is the INSTANCE — what the engine paints and what it narrows its own
+-- window by; `RESERVE` is what the adapter publishes for the solver to hold back.
+-- THE DIFFERENCE BETWEEN THEM IS THE VISIBLE GAP, and pinning it is why this file
+-- now needs both names rather than the one it used while they were equal.
+local RESERVE = fake_target.SCROLL_BAR_RESERVE
+local GUTTER = fake_target.SCROLL_BAR_GUTTER
 
 local TOUCH = { touch = true, mouse = false, keyboard = false, gamepad = false }
 local POINTER = { touch = false, mouse = true, keyboard = true, gamepad = false }
@@ -108,17 +117,25 @@ local function world(caps: any, preferred: string, rows: number, opts: any?): an
 	-- configured thickness has to be the live one before the presenter applies the
 	-- boot policy.
 	local adapter = fake_target.new();
-	(adapter :: any).scrollBarThickness = BAR
+	(adapter :: any).scrollBarThickness = RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local children = {}
 	for i = 1, rows do
+		-- the child FILLS the cross axis and is fixed along the scroll axis, so
+		-- its trailing cross edge is exactly the content box's — which is what
+		-- every window comparison below reads. An x host swaps the two: a
+		-- fill-width child of an x scroller measures as CONTENT (fill measures as
+		-- content on the scroll axis), so it would never reach the edge at all.
+		local isX = (options.axis or "y") == "x"
 		table.insert(
 			children,
 			UI.Box({
 				id = `Row{i}`,
 				surface = "control",
-				width = { type = "fill", weight = 1 },
-				height = { type = "fixed", px = options.rowHeight or 60 },
+				width = if isX then { type = "fixed", px = options.rowHeight or 60 } else { type = "fill", weight = 1 },
+				height = if isX
+					then { type = "fill", weight = 1 }
+					else { type = "fixed", px = options.rowHeight or 60 },
 			})
 		)
 	end
@@ -278,5 +295,35 @@ describe("scroll host: every policy lays content inside the window it can see", 
 		local window = w.adapter.windowRectOf("/S/Host")
 		local row = w.adapter.node("/S/Host/Row1").rect
 		expect((row.x + row.w) <= (window.x + window.w)).toBe(true)
+	end)
+
+	--[[ ...AND IT LANDS A HAIRLINE INSIDE IT, NOT FLUSH AGAINST IT (director report
+		2026-08-30). "<= the window edge" was the whole claim while the reserve and
+		the instance were the same number, and it stayed true of the exact defect
+		the director then reported: content that touches the bar's first pixel is
+		not overlapping it, and still reads as overlapping it.
+
+		THE ARITHMETIC IS THE POINT, and it is why this pin lives in the file that
+		models both numbers. The engine takes `BAR` off its own window; the solver
+		is told to hold back `RESERVE`; the row therefore stops `RESERVE - BAR`
+		short of the window's trailing edge — exactly `GUTTER`, one pixel of air.
+		Growing the bar INSTANCE to close the reserve (the plausible wrong fix)
+		makes this zero again and reddens here. ]]
+	it("✓ ...one pixel clear of it, on the RIGHT of a Y host", function()
+		local w = world(POINTER, "KeyboardAndMouse", 40)
+		local window = w.adapter.windowRectOf("/S/Host")
+		local row = w.adapter.node("/S/Host/Row1").rect
+		expect(RESERVE - BAR).toBe(GUTTER)
+		expect((window.x + window.w) - (row.x + row.w)).toBe(GUTTER)
+	end)
+
+	it("✓ ...and on the BOTTOM of an X host — the director's 'horizontal too'", function()
+		-- the SAME constant, spent off the cross axis, which for an x scroller is
+		-- the bottom edge. One reserve, both axes, no second knob.
+		local w = world(POINTER, "KeyboardAndMouse", 40, { axis = "x" })
+		local window = w.adapter.windowRectOf("/S/Host")
+		local row = w.adapter.node("/S/Host/Row1").rect
+		expect(window.h).toBe(w.adapter.node("/S/Host").rect.h - BAR)
+		expect((window.y + window.h) - (row.y + row.h)).toBe(GUTTER)
 	end)
 end)

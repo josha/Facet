@@ -177,7 +177,7 @@ local function world(view: any): any
 	env:set("capabilities", device_views.CAPABILITIES[view.input])
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new() :: any
-	adapter.scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end

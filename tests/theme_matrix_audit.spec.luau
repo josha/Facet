@@ -157,7 +157,7 @@ local function solveRow(row: any): any
 	-- the engine draws the scrollbar INSIDE the region; the live adapter reserves
 	-- 8px off the cross axis when content overflows, and a row solved without it
 	-- would lay out 8px wider than the live one
-	adapter.scrollBarThickness = 8
+	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any

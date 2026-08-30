@@ -105,6 +105,20 @@ fake_target.SCALE_MODE_ENGINE_NAME = table.freeze(SCALE_MODE_ENGINE_NAME)
 -- either way.
 fake_target.SCROLL_BAR_THICKNESS = 8
 
+-- ...AND THE RESERVE IS ONE PIXEL WIDER THAN THE BAR (director report
+-- 2026-08-30), in LOCKSTEP with `SCROLL_BAR_GUTTER`/`SCROLL_BAR_RESERVE` in
+-- src/client/screen_target.luau. `SCROLL_BAR_THICKNESS` above is the INSTANCE —
+-- what the engine paints and what it narrows its own window by. This is what the
+-- adapter PUBLISHES as `adapter.scrollBarThickness`, which the renderer feeds to
+-- `solver.solve` as `scrollBarReserve`: the bar plus a hairline of clearance, so
+-- content stops one pixel short of the bar instead of flush against it. A spec
+-- that means "the reserve a live session actually publishes" reads this one; a
+-- spec about the bar INSTANCE (the `auto` policy's frame widen, the engine's
+-- window narrowing) reads `SCROLL_BAR_THICKNESS` above. They are different
+-- numbers on purpose and the gutter is the difference.
+fake_target.SCROLL_BAR_GUTTER = 1
+fake_target.SCROLL_BAR_RESERVE = fake_target.SCROLL_BAR_THICKNESS + fake_target.SCROLL_BAR_GUTTER
+
 -- the theme a tint resolves against with NO PACKAGE INSTALLED: the library's own
 -- style, which is what the live target's `paletteTheme()` falls back to. Once a
 -- package is pushed through `setThemePackage` this fake tracks that package's

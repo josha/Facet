@@ -90,6 +90,11 @@ function screen_scroll_indicators.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
 	local state = ctx.indicatorState
 	local SCROLL_BAR_THICKNESS: number = ctx.scrollBarThickness
+	-- the LAYOUT number, one pixel wider than the instance above (screen_target's
+	-- `SCROLL_BAR_GUTTER` carries the ruling). Used by the policy write below and
+	-- nothing else: paint, the engine's window narrowing, and the "auto" frame
+	-- widen that cancels it all speak in INSTANCE thickness.
+	local SCROLL_BAR_RESERVE: number = ctx.scrollBarReserve
 	local forceScrollFallbackMode: boolean = ctx.forceScrollFallback == true
 	-- fade generation per host: a newer show/fade supersedes an in-flight one
 	local indicatorFadeToken = {} :: { [any]: number }
@@ -226,9 +231,7 @@ function screen_scroll_indicators.new(ctx: any)
 	local function setScrollIndicatorPolicy(policy: string, reduced: boolean?)
 		state.policy = if policy == "auto" then "auto" else "always"
 		state.reduced = reduced == true
-		adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto"
-			then 0
-			else SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto" then 0 else SCROLL_BAR_RESERVE
 		for _, handle in handlesByPath do
 			if handle.instance ~= nil and handle.instance:IsA("ScrollingFrame") then
 				handle.indicatorFlashed = nil

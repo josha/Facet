@@ -2129,7 +2129,7 @@ local function fixtureWorld(view: any): any
 	-- the live adapter publishes a bar thickness for a pointer session and the
 	-- fake publishes none unless asked — a sweep laid out without it models a
 	-- desktop 8px wider than the real one (tests/scroll_bar_measure.spec.luau)
-	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
@@ -3051,18 +3051,19 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 	it(
 		"§2.4 when the axis is short the LOWEST tier gives way first, and a weightless child never gives at all",
 		function()
-			-- 320x640: the HUD column is 280px and the row's natural is 432, so the
-			-- deficit is real rather than arranged for the assertion
+			-- 320x640: the HUD column is 279px (288 less the scroller's own reserve —
+			-- the bar plus its gutter) and the row's natural is 432, so the deficit is
+			-- real rather than arranged for the assertion
 			local w, built = vocabWorld(NARROW_PORTRAIT)
 			local row = rectOf(w, HUD .. "/Shrink")
 			local optional = rectOf(w, HUD .. "/Shrink/VocabOptional")
 			local useful = rectOf(w, HUD .. "/Shrink/VocabUseful")
 			local essential = rectOf(w, HUD .. "/Shrink/VocabEssential")
-			expect(`row={row.w}`).toBe("row=280")
+			expect(`row={row.w}`).toBe("row=279")
 			-- tier -1 is spent to its declared floor before tier 0 gives a pixel...
 			expect(`optional={optional.w}`).toBe("optional=24")
 			-- ...tier 0 then gives the remainder, and only the remainder
-			expect(`useful={useful.w}`).toBe("useful=104")
+			expect(`useful={useful.w}`).toBe("useful=103")
 			-- ...and `shrinkWeight = 0` (the default) is rigid whatever its siblings do
 			expect(`essential={essential.w}`).toBe("essential=140")
 			-- the row absorbed its whole deficit: it fits, so the overflow diagnostic
@@ -3095,9 +3096,14 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			local scroll = rectOf(w, SCROLL)
 			local page = rectOf(w, HUD .. "/Page")
 			-- (viewport - spacing x (count - 1)) / count x span, viewport = the
-			-- scroller's inner width (its box less the bar it reserves)
-			local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
-			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3)}`)
+			-- scroller's inner width (its box less the RESERVE it holds back — the
+			-- bar plus its one-pixel gutter, fake_target.SCROLL_BAR_RESERVE).
+			-- ROUNDED, not floored: `num.roundPx` is what the solver's own
+			-- `containerRelativeSize` spends, and the two agreed only by luck while
+			-- the viewport happened to divide evenly by 3 — the gutter made it 279
+			-- and 87.67 rounds UP (director report 2026-08-30).
+			local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3 + 0.5)}`)
 			built.dispose()
 		end
 	end)
@@ -3113,9 +3119,9 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		local scroll = rectOf(w, SCROLL)
 		local column = rectOf(w, HUD)
 		local page = rectOf(w, HUD .. "/Page")
-		local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
-		expect(`column={column.w} viewport={viewport}`).toBe(`column=588 viewport=1192`)
-		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3)}`)
+		local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+		expect(`column={column.w} viewport={viewport}`).toBe(`column=587 viewport=1191`)
+		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3 + 0.5)}`)
 		-- the parent-relative reading, which this is NOT
 		expect(page.w > math.floor((column.w - 16) / 3) + 100).toBe(true)
 		built.dispose()

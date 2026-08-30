@@ -716,8 +716,12 @@ scrolling, and fades when idle). Reduced motion never fades: `auto` degrades
 to visible-whenever-scrollable.
 
 **Persistent holds space; auto does not — and neither clips.** `"always"`
-reserves the bar's thickness off the scrolling region's cross axis, same as
-always. `"auto"` reserves NOTHING (content is measured to the full width) —
+reserves the bar's thickness *plus one pixel* off the scrolling region's cross
+axis (director report 2026-08-30: reserving the bar exactly is correct and still
+lands every card edge on the bar's outermost pixel, which reads as an overlap —
+so the reserve carries a one-pixel gutter, and the bar itself is unchanged. It
+comes off whichever edge the cross axis is, so a horizontal scroller gets the
+same clearance along its bottom). `"auto"` reserves NOTHING (content is measured to the full width) —
 but Roblox's engine still narrows a `ScrollingFrame`'s own visible window by
 the bar's thickness whenever the scroll axis overflows, regardless of paint
 policy (measured directly: even a fully transparent bar image still narrows
@@ -736,8 +740,9 @@ room has nothing safe to widen into (no viewport-bounds clamp exists yet).
 The presenter pushes the policy through the declared optional target method
 `setScrollIndicatorPolicy(policy, reduced)`; an adapter without the seam keeps
 the constant persistent bar. `scrollBarInsetOf(path)` reports the gutter a
-host reserved on its last solve — non-nil only for an overflowing `"always"`
-host, always nil for `"auto"` (nothing was reserved to report). The
+host reserved on its last solve — bar plus the one-pixel clearance, on `right`
+for a `y` scroller and `bottom` for an `x` one; non-nil only for an overflowing
+`"always"` host, always nil for `"auto"` (nothing was reserved to report). The
 indicator's COLOR stays the theme's `Scroll bar` rule; its visibility is
 behavior, not paint. Known limit, recorded: the engine bar is a single
 tintable image, so a theme-colored thumb can vanish over live WORLD content

@@ -129,7 +129,7 @@ local function solveRow(packageName: string?, sortColumn: string, resizable: boo
 	local adapter = fake_target.new()
 	-- the engine draws the bar INSIDE the region; the header's third gutter term
 	-- is a measurement of that reserve, so a row solved without it lays out wide
-	adapter.scrollBarThickness = 8
+	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local tbl = table_control.build(Facet, core, {
@@ -344,7 +344,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 		env:set("preferredInput", "Touch")
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
-		(adapter :: any).scrollBarThickness = 8
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(Facet, core, {
 			id = "Entrants",
