@@ -441,7 +441,8 @@ end)
 	  2. **312 of 312 are the BOTTOM edge.** There is no horizontal instance,
 	     because `placed.rect` is the SLOT the partition allotted and the partition
 	     is clamped to the box. Only the fallback column's tail runs past it.
-	  3. **A LEGAL composition cannot do it** — this clause WAS wrong, and ADR-0056
+	  3. **A LEGAL composition cannot do it** — this clause WAS wrong, and the
+	     give-way rule
 	     is the counterexample. It said the fact was "a measured structural fact
 	     rather than an empirical absence", reasoning that "the legality check
 	     bounds vertical fit, so 'a region left the box' and 'the composition fell
@@ -449,7 +450,7 @@ end)
 	     the content FITS, and `UI.Composition{ exclusions }` shipped a give-way
 	     whose placement arithmetic put a fitting zone `inset` px outside a lane it
 	     fits inside — legal, no rejection, no collision, and up to 300px out
-	     (`docs/adr/ADR-0056-lane-give-way-both-ends.md`). The clause is now true
+	     is its counterexample. The clause is now true
 	     again for the arithmetic reason rather than the fit reason: a legal
 	     composition's placement sums to the lane exactly. THE THREE CASES BELOW
 	     ARE THE BOUNDARY IT ACTUALLY NEEDED — at hero 400 the three-lane
@@ -491,7 +492,7 @@ describe("overflow guard: a composition region outside its box IS the declared f
 		moment it does not, which is the boundary the first two cases sit either side
 		of. THE SECOND VARIABLE is `exclusions` — a declared chrome row — and it
 		exists because the first two cases DECLARE NONE: with an inset of 0 they are
-		structurally incapable of failing on the class ADR-0056 fixed, so the
+		structurally incapable of failing on the class the give-way rule fixed, so the
 		property they name ("a legal composition keeps every region inside its own
 		box") was pinned by a case that could not break. The third case supplies the
 		arm that can. ]]
@@ -593,10 +594,10 @@ describe("overflow guard: a composition region outside its box IS the declared f
 		expect(#overflow_guard.violations(w.adapter)).toBe(0)
 	end)
 
-	--[[ THE ARM THAT CAN ACTUALLY FAIL (ADR-0056). The two cases above declare no
+	--[[ THE ARM THAT CAN ACTUALLY FAIL. The two cases above declare no
 		`exclusions`, so every lane's give-way inset is 0 and the placement term this
 		guard's verdict depends on is never exercised — they were green before the
-		ADR-0056 fix and green after, on a defect that put a region up to 300px
+		give-way fix and green after, on a defect that put a region up to 300px
 		outside its lane while the composition reported `legal = true`.
 
 		THE ROW IS DERIVED FROM THE MOUNTED BOX rather than guessed at a literal,
@@ -631,7 +632,7 @@ describe("overflow guard: a composition region outside its box IS the declared f
 		expect(`still legal: {dump.legal == true and dump.fallback == false}`).toBe("still legal: true")
 
 		--[[ THE PROPERTY, now on a tree that can break it: `ceremony` is
-			`place = "center"` and `next` is `place = "end"`, the two shapes ADR-0056
+			`place = "center"` and `next` is `place = "end"`, the two shapes the give-way rule
 			moved. Containment is `<= 0` here rather than the first case's `== 0`
 			because hero 300 leaves real slack — a region ENDING above the box's
 			bottom edge is the lane placing it, not an escape. The `end`-placed group

@@ -1,6 +1,5 @@
 --!strict
--- Shared interaction tokens + the release-velocity tracker (ADR-0022 Decision 5,
--- rows SF-D3 / SF-D2). Both are pure: the tokens read no environment and the
+-- Shared interaction tokens + the release-velocity tracker (rows SF-D3 / SF-D2). Both are pure: the tokens read no environment and the
 -- tracker reads no clock, so every case below is exact arithmetic rather than a
 -- tolerance.
 
@@ -89,11 +88,11 @@ end)
 -- `presenter.luau` is still the live authority for the numbers a responder is
 -- actually arbitrated at (this round's lane excludes `src/present/*`); this
 -- pins that `interactionTokens.contextPriority` publishes THE SAME three
--- numbers presenter.luau's own ADR-0014 section states in its comment, so a
+-- numbers presenter.luau's own responder section states in its comment, so a
 -- consumer reads a value instead of copying a literal out of prose.
 
 describe("interaction tokens: the responder priority bands (framework-gaps-phase2 item 41)", function()
-	it("publishes the three ADR-0014 bands presenter.luau's own comment states", function()
+	it("publishes the three bands presenter.luau's own comment states", function()
 		expect(tokens.contextPriority.baseScreen).toBe(1500)
 		expect(tokens.contextPriority.engagedBase).toBe(3000)
 		expect(tokens.contextPriority.modalStep).toBe(500)

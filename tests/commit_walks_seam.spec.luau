@@ -33,7 +33,7 @@
 
 	Each rule is a pure function of a string, so each carries a NEGATIVE CONTROL
 	that feeds it a broken input and proves it reports. A check that cannot fail is
-	decoration (`docs/lessons/a-red-check-cannot-report-the-next-defect.md`).
+	decoration.
 ]]
 
 local t = require("./lib/testkit")

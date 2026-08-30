@@ -1,9 +1,9 @@
 --!strict
--- PROFILE-CONDITIONAL PACKAGE SELECTION (ADR-0020 R7, rich-skinning-v2 P4).
+-- PROFILE-CONDITIONAL PACKAGE SELECTION (rich-skinning-v2 P4).
 --
 -- `selectBy = { touch = pkgA, pointer = pkgB, gamepad = pkgC }` is a
 -- DECLARATION over machinery that already exists. Nothing here detects an input
--- class — ADR-0015's `interactionClasses` fact already does, live and
+-- class — the `interactionClasses` fact already does, live and
 -- hybrid-aware — and nothing here is a second swap path: every package change is
 -- the existing atomic `swapPackage`, which is what holds mount, focus and scroll
 -- identity BY CONSTRUCTION rather than by a promise.

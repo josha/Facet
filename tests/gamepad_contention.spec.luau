@@ -11,8 +11,7 @@
 -- module actually frees gamepad ButtonA end-to-end. That is a live-engine fact
 -- (jumpAction at CAS priority 2000, ui_todo.md §3) with no headless surface, and
 -- confirming it needs a physical gamepad — the standing FAIL_ENVIRONMENT rider
--- `physical-device-confirmation` (tools/lune/gate_manifest.luau). See
--- docs/lessons/gamepad-contention-truths.md.
+-- `physical-device-confirmation` (tools/lune/gate_manifest.luau).
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect

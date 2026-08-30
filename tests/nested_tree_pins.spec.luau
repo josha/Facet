@@ -1,8 +1,8 @@
 --!strict
---[[ WHAT MUST NOT DRIFT WHILE THE TREE IS STILL FLAT (ADR-0032 step 2).
+--[[ WHAT MUST NOT DRIFT WHILE THE TREE IS STILL FLAT.
 
 	These are instruments, not features. The nested-tree migration is measured
-	against them, and ADR-0032 is explicit about the order: they "are worth
+	against them, and the migration is explicit about the order: they "are worth
 	nothing if written after the change they are meant to catch". So every case
 	below asserts what is true TODAY, on the flat tree, including the two cases
 	that a later step is EXPECTED to reverse — because a pin that reddens by name
@@ -11,9 +11,9 @@
 
 	THREE THINGS, and the third is the one this spec exists for.
 
-	1. DFS DOCUMENT ORDER IS `Sibling` ORDER (ADR-0032 Decision 3). `ZIndexBehavior`
+	1. DFS DOCUMENT ORDER IS `Sibling` ORDER. `ZIndexBehavior`
 	   on every live ScreenGui is `Sibling`, measured — not `Global`, which both the
-	   brief and the coordinator predicted and which ADR-0009's verifier F1 refuses
+	   brief and the coordinator predicted and which the billboard verifier refuses
 	   outright (a child at ZIndex 20 under a parent at 50 renders INVISIBLE, and
 	   this framework pins every button icon at 20). Under `Sibling` the engine
 	   paints a parent, then its subtree, then the parent's next sibling — which is
@@ -24,12 +24,12 @@
 	2. `tapAt` AND THE Z COUNTER AGREE. `tapAt`'s correctness rests on the comment
 	   "last match wins: document order IS paint order" — asserted in prose, in a
 	   file that does not compute paint order. `syncZOrder` is the thing that
-	   computes paint order. ADR-0032's Consequences asks for this to be pinned;
+	   computes paint order. The migration asks for this to be pinned;
 	   pinning them AGAINST EACH OTHER is worth more than pinning either alone,
 	   because it is the disagreement that would be the defect.
 
 	3. AN ANCESTOR'S `scale`/`rotation` DOES NOT REACH ITS CONTENTS — TODAY, AND
-	   THAT IS THE DEFECT (ADR-0032 Decision 4). Measured live through the real
+	   THAT IS THE DEFECT. Measured live through the real
 	   framework: a container at `rotation = 30, scale = 1.5` with an 80x40 child
 	   leaves that child 80x40 and unrotated. Not "nothing happens" — a container
 	   visibly detaching from its own contents. Step 4 makes the engine carry it,
@@ -97,7 +97,7 @@ local function groupAndSibling()
 	})
 end
 
-describe("ADR-0032 D3: the depth-first z counter IS Sibling paint order", function()
+describe("the depth-first z counter IS Sibling paint order", function()
 	it("a parent is below its own subtree, and its subtree is below its next sibling", function()
 		local adapter = render(groupAndSibling())
 		local zOf = function(path: string): number
@@ -159,13 +159,12 @@ describe("ADR-0032 D3: the depth-first z counter IS Sibling paint order", functi
 		expect(plain < lifted).toBe(true)
 		-- ...and its subtree travels with it, because the walk is depth-first over
 		-- ONE counter. This is the half a host would foreclose if `zIndex` were the
-		-- escape mechanism; it is not — a surface on its own DisplayOrder is
-		-- (ADR-0028), which is why a host being an ordering wall costs nothing.
+		-- escape mechanism; it is not — a surface on its own DisplayOrder is, which is why a host being an ordering wall costs nothing.
 		expect(lifted < kid).toBe(true)
 	end)
 end)
 
-describe("ADR-0032 Consequences: tapAt and the z counter cannot disagree", function()
+describe("tapAt and the z counter cannot disagree", function()
 	it("the tapped node is the one the counter puts on top", function()
 		-- a ZStack overlaps its children by construction, so both boxes cover the
 		-- same point and only paint order decides
@@ -206,7 +205,7 @@ describe("ADR-0032 Consequences: tapAt and the z counter cannot disagree", funct
 	end)
 end)
 
-describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the subtree", function()
+describe("the framework writes ONE node, the engine carries the subtree", function()
 	local function scaledContainer()
 		return UI.Screen({
 			id = "S",
@@ -245,10 +244,10 @@ describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the 
 
 			STEP 4 CHANGED THE ENGINE'S ANSWER AND NOT THE FRAMEWORK'S, and that
 			distinction is why half of this case is unchanged. The framework still
-			writes exactly one term on exactly one node — ADR-0026 Decision 7 holds
+			writes exactly one term on exactly one node — the one-writer rule holds
 			verbatim, and the assertion below is the same one it always was. What
 			changed is that the node is now a real instance parent, so the ENGINE
-			composes both terms for the subtree. ADR-0032 Decision 5: an
+			composes both terms for the subtree: an
 			engine-composed descendant effect is not a second writer, because it is
 			not a write to the descendant's property at all.
 
@@ -264,7 +263,7 @@ describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the 
 		local adapter = render(scaledContainer())
 		local content = adapter.node("/S/Turned/Content")
 		-- unchanged, and still the point: the framework writes one term on one node
-		-- and never accumulates paint down the subtree (ADR-0026 Decision 7)
+		-- and never accumulates paint down the subtree
 		expect(content.props.transform).toBeNil()
 		-- ...and no per-descendant scaling appeared in the framework's own model
 		expect(content.presentedVisualRect).toBeNil()
@@ -324,7 +323,7 @@ describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the 
 	end)
 end)
 
-describe("ADR-0032: a host's rect lands BEFORE its descendants', or they re-base against a ghost", function()
+describe("a host's rect lands BEFORE its descendants', or they re-base against a ghost", function()
 	--[[ FOUND LIVE, 2026-08-17, and it is the reason the arrange win was not being
 		delivered. Measured in Studio on a 120-node list inside a `ScrollView` whose
 		container grew 40px: **240 engine `Position` changes across 120 descendants**
@@ -590,7 +589,7 @@ describe("a scale that went back to 1 must come back — the UIScale corpse", fu
 		succeeds, silently, onto something that is not in the tree.
 
 		WHY IT MATTERS BEYOND THIS DEMO: any authored `scale` that is ever animated
-		to 1 and back is affected, and after ADR-0032 that now includes a container
+		to 1 and back is affected, and since nesting that now includes a container
 		whose whole subtree rides the term. The failure is silent in both
 		directions — nothing errors, and the node simply stops scaling.
 	]]

@@ -15,8 +15,8 @@
 
 	The mark is a hugging `alignH = "end"` glyph carrying the theme's own
 	`controls.table.sortMarkMargin` — "keeps the ▲/▼ clear" — and the solver
-	aligned it in the box it had NOT granted (`docs/lessons/a-far-margin-must-buy-
-	something.md`), so the reserve bought 0 px under every package including the
+	aligned it in the box it had NOT granted — a far margin must buy something —
+	so the reserve bought 0 px under every package including the
 	default. Under a flat package the column boundary it landed on is invisible;
 	under the five packages that paint a nine-slice or layered plate on the header
 	cell, that boundary is the plate's carved border, and the glyph sat outside the
@@ -150,7 +150,7 @@ local function solveRow(packageName: string?, sortColumn: string, resizable: boo
 	if packageName ~= nil then
 		pkg = PACKAGES[packageName].build(Facet.themes)
 		-- both halves of a theme: the chrome plan decides what is PAINTED, the
-		-- snapshot decides what is MEASURED (docs/lessons/a-theme-has-two-halves.md)
+		-- snapshot decides what is MEASURED
 		chromeState.setPackage(pkg)
 		env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))
 		presenter.refresh()

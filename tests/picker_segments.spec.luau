@@ -645,7 +645,7 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 	it("the plate does NOT eat the tap: a badged segment still selects", function()
 		-- the engine delivers a press to the TOPMOST interactive object only, so a
 		-- decoration painted OVER a Button has to be non-interactive or the segment
-		-- goes dead (docs/lessons/a-button-eats-the-swipe-underneath-it.md)
+		-- goes dead
 		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
 		w.adapter.tap(cellPath(w, 2) .. "/Opt2")
 		w.pres.refresh()

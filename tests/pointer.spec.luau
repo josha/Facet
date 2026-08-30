@@ -1,5 +1,5 @@
 --!strict
--- Pointer interaction seam (ADR-0008, Table Phase B foundation): Grip zones
+-- Pointer interaction seam (Table Phase B foundation): Grip zones
 -- (non-button Active nodes — engine overrides MouseIcon over GuiButtons, so
 -- resize grips must be Frames), semantic cursor hints through the adapter,
 -- pointer capture (down routes moves to the captured node until up), the

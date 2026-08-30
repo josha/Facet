@@ -4,7 +4,7 @@
 -- *"when i changed to the parchment theme, the spinner stayed blue. i'd expect
 -- to make it a similar color?"*
 --
--- THE MECHANISM. A theme commit is a RE-SOLVE and never a rebuild (ADR-0019 §2)
+-- THE MECHANISM. A theme commit is a RE-SOLVE and never a rebuild
 -- — that is what keeps mount identity, focus, scroll and text entry alive across
 -- a swap. `themeMetrics` is one of the renderer's coalesced GEOMETRY keys, so the
 -- commit re-derives everything the SOLVER reads. It re-derives nothing the
@@ -14,7 +14,7 @@
 --
 --   * the FOCUS RING's colour     — fixed 2026-07-25, when a director saw it
 --   * the TOGGLE's palette        — fixed in the same family
---   * the `tint` channel          — a rule cannot see a VALUE (ADR-0022 D6)
+--   * the `tint` channel          — a rule cannot see a VALUE
 --   * a `UI.Path`'s stroke ROLE   — a Path2D is not a GuiObject, so no selector
 --                                   can reach one at all
 --

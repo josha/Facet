@@ -1,5 +1,5 @@
 --!strict
--- Theme DRIFT lint (ADR-0019 §2). A hardcoded metric inside a reusable control
+-- Theme DRIFT lint. A hardcoded metric inside a reusable control
 -- is invisible in review and invisible to the suite — 44 is still 44 under
 -- Studio Neutral — while quietly making that control immune to every theme. So
 -- the check runs here, and it is proven to FAIL: a lint nobody has watched fail
@@ -208,7 +208,7 @@ describe("the teaching corpus spells the values the theme system already names",
 				{ line = "local x = UI.VStack({ gap = 4 })", names = '"xs"' },
 				{ line = "local x = UI.Grid({ rowGap = 16 })", names = '"m"' },
 				{ line = "local x = UI.Screen({ padding = 24 })", names = '"l"' },
-				-- THE FLIP (ADR-0047, task G-SPACE): `gap = 6` used to be the negative
+				-- THE FLIP (task G-SPACE): `gap = 6` used to be the negative
 				-- control immediately below — the one value NO name resolved to. The
 				-- scale grew a rung for it (`space.tight`, the missing spacing step),
 				-- and this is the alarm that comment said would go off.
@@ -232,7 +232,7 @@ describe("the teaching corpus spells the values the theme system already names",
 		rather than a judgement call. A number NO name resolves to is not reported,
 		because there is nothing to rewrite it to.
 
-		`gap = 6` FLIPPED (ADR-0047, task G-SPACE, 2026-08-23): it was the corpus's
+		`gap = 6` FLIPPED (task G-SPACE, 2026-08-23): it was the corpus's
 		single most common spacing value and this comment's own prior wording said
 		"the framework concedes in `snapshot.luau` that no space step is 6... the
 		day the scale grows that rung this case flips, which is exactly the alarm

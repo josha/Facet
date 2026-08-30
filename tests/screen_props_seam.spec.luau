@@ -27,8 +27,7 @@
 	all three equal, plus the shared WRITE surface (empty — see below), the one
 	construction site, and the one-way require asserted directly. Each rule is a
 	pure function of two strings, so each carries a NEGATIVE CONTROL that feeds it
-	a broken pair and proves it reports — a check that cannot fail is decoration
-	(`docs/lessons/a-red-check-cannot-report-the-next-defect.md`).
+	a broken pair and proves it reports — a check that cannot fail is decoration.
 ]]
 
 local t = require("./lib/testkit")

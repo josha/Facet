@@ -1,5 +1,5 @@
 --!strict
--- Auto input-wiring tests (ADR-0013; ui_todo §0). Proves the presenter
+-- Auto input-wiring tests (ui_todo §0). Proves the presenter
 -- AUTO-COMPOSES a mounted control's four-input story from the input-contribution
 -- bundles the composites attach to their root nodes — with NO consumer present()
 -- wiring. Every interaction goes through the REAL device paths (adapter.tap for

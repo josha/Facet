@@ -1,5 +1,5 @@
 --!strict
--- SEMANTIC ICON ASSETS (ADR-0020 R4, rich-skinning-v2 package P1).
+-- SEMANTIC ICON ASSETS (rich-skinning-v2 package P1).
 --
 -- Controls request an icon by MEANING; a raw asset id in control code stays
 -- forbidden. The propositions:

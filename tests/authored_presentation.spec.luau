@@ -1,5 +1,5 @@
 --!strict
---[[ AUTHORED PRESENTATION — `opacity`, `scale`, `rotation` (ADR-0026).
+--[[ AUTHORED PRESENTATION — `opacity`, `scale`, `rotation`.
 
 	The director's ruling, 2026-08-14: *"should opacity, transparency, and scale
 	get owned/influenced by facet? it seems like we should be able to animate
@@ -26,7 +26,7 @@
 	     nothing, and there is still exactly ONE site in the renderer that writes
 	     each of the two presentation engine properties.
 
-	F (added 2026-08-23, gap 16 framework-gaps-phase2, ADR-0026 amendment) —
+	F (added 2026-08-23, gap 16 framework-gaps-phase2) —
 	  `offset`, the fourth authored term (a paint-only TRANSLATION), over its own
 	  minimal fixture so cases A-D's off-path/cost claims about the original
 	  three stay measuring exactly what they always did.
@@ -168,8 +168,8 @@ describe("authored presentation A — the props, and the refusals", function()
 		expect(string.find(tostring(err), "opacity", 1, true) ~= nil).toBe(true)
 	end)
 
-	--[[ THE REFUSAL IS LEGIBLE (ADR-0029, director round 2026-08-15). ADR-0026
-		refused the leaf and left the message to the generic unknown-property
+	--[[ THE REFUSAL IS LEGIBLE (director round 2026-08-15). The leaf fade was
+		refused and the message left to the generic unknown-property
 		path: *"unknown property 'opacity'. Valid properties: …"* — which reads
 		as an oversight in the schema, sends the author to a list that does not
 		contain the answer, and never mentions the one-line spelling that works.
@@ -220,7 +220,7 @@ describe("authored presentation A — the props, and the refusals", function()
 		expect(`valid list:{string.find(msg, "Valid properties:", 1, true) ~= nil}`).toBe("valid list:true")
 	end)
 
-	--[[ THE ASYMMETRY, AS AN INVARIANT RATHER THAN A SPOT CHECK (ADR-0029).
+	--[[ THE ASYMMETRY, AS AN INVARIANT RATHER THAN A SPOT CHECK.
 		`scale` and `rotation` shipped on every rendered class and `opacity` on
 		two, and until now nothing said why. One rule decides all three: a term is
 		offerable on a class when ONE engine property that no style rule owns
@@ -381,7 +381,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 end)
 
-describe("authored presentation B — the composition rule (ADR-0026 Decision 2)", function()
+describe("authored presentation B — the composition rule", function()
 	it("OPACITY MULTIPLIES: authored 0.5 under a framework fade of 0.5 paints 0.25 opacity", function()
 		local w = world({ opacity = 0.5 })
 		-- the framework's own fade — a transition, a toast retiring — on the same node
@@ -591,7 +591,7 @@ describe("authored presentation D — off-path cost, and one write site", functi
 	end)
 
 	--[[ THE REFUSAL COSTS A VALID SURFACE NOTHING, and it is GATED rather than
-		asserted (ADR-0026 Decision 9's shape, ADR-0029). There is no runtime path to
+		asserted (the off-path guarantee's shape). There is no runtime path to
 		measure here at all, and that is the claim: `schema.refusal` is reached from
 		exactly one place, and that place — `unknownPropError` — only runs once a
 		property is already absent from the class, i.e. on a construction that is
@@ -647,7 +647,7 @@ end)
 
 --[[ ── E. THE PRESS DIP AND THE AUTHORED SCALE ────────────────────────────────
 
-	ADR-0026 shipped with this booked rather than fixed: the engine honours ONE
+	Authored presentation shipped with this booked rather than fixed: the engine honours ONE
 	`UIScale` per object, so an authored `scale` and a `Button`'s press dip write
 	the same instance, and the dip's recovery tweened to an ABSOLUTE `1`. The
 	first release of a scaled Button therefore destroyed the authored value
@@ -717,7 +717,7 @@ describe("authored presentation E — an authored scale survives a press", funct
 	end)
 end)
 
--- ===== E: offset, the fourth authored term (gap 16, ADR-0026 amendment) ====
+-- ===== E: offset, the fourth authored term (gap 16) ====
 --
 -- A minimal fixture of its own — one Box whose `offset` is signal-driven —
 -- rather than growing the shared `world()` above, so A-D's off-path/cost

@@ -1,5 +1,5 @@
 --!strict
--- THE ASSET ENTRY: content adoption + slice geometry (ADR-0020 R6 and the
+-- THE ASSET ENTRY: content adoption + slice geometry (the
 -- art-lane finding, rich-skinning-v2 package P1).
 --
 --   1. `content` is the canonical field and `contentId` is the kept alias; both

@@ -32,7 +32,7 @@
 
 	Each rule is a pure function of a string, so each carries a NEGATIVE CONTROL
 	that feeds it a broken input and proves it reports. A check that cannot fail
-	is decoration (`docs/lessons/a-red-check-cannot-report-the-next-defect.md`).
+	is decoration.
 ]]
 
 local t = require("./lib/testkit")
@@ -151,7 +151,7 @@ describe("the surface-lifecycle seam: HOSTED == DECLARED == READ", function()
 		-- ...and the set is not empty, which is the trap a set comparison invites:
 		-- two empty sets are equal
 		-- 16, not 15: `SURFACE_LAYER` joined 2026-08-23 for `raise` (registry
-		-- item 23; W3-D, ADR-0053)
+		-- item 23; W3-D)
 		expect(#sorted(hosted)).toBe(16)
 	end)
 
@@ -284,7 +284,7 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		local bound = boundOf(presenter)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
-		-- "raise" joined 2026-08-23 (registry item 23; W3-D, ADR-0053)
+		-- "raise" joined 2026-08-23 (registry item 23; W3-D)
 		expect(sorted(exported)).toEqual({ "back", "dismiss", "raise", "refresh", "syncFocusVisuals" })
 	end)
 

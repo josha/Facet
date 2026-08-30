@@ -557,7 +557,7 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- `artifacts/nested-instance-tree/live-probes.md` §4 measured a container's
 		-- engine writes collapse from 241 to 1 when it moves inside a real instance
 		-- host; nothing pressed that at scale or asked whether it is a frame-time win
-		-- (ADR-0032's own standing risk). Its arms also live in `levers.luau`.
+		-- (the nested tree's own standing risk). Its arms also live in `levers.luau`.
 		expect(#declared.order).toBe(17)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
@@ -2140,7 +2140,7 @@ describe("perf lab: the motion-flight pass profiles a withAnimation flight", fun
 		built.dispose()
 	end)
 
-	--[[ THE PAINT ARM AND THE OFF-PATH CONTROL (ADR-0026, 2026-08-14).
+	--[[ THE PAINT ARM AND THE OFF-PATH CONTROL (2026-08-14).
 
 		Arm D moves the AUTHORED presentation triple — opacity, scale, rotation —
 		with every rect held still, so whatever it costs is the composition and its

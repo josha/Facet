@@ -1133,8 +1133,7 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 
 	it("(b) shrinkWeight DOES NOT change which ViewThatFits candidate wins, at ANY width", function()
 		--[[ THE RULING (2026-08-14, director: "follow the declarative behaviour"), and the
-			evidence it was decided on — `docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`,
-			which carries the citations.
+			evidence it was decided on: a candidate is judged at its ideal size.
 
 			The reference sentence for a fit-picking container is:
 
@@ -1244,8 +1243,8 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 			The consequence is not academic: the row here holds two labels squeezed
 			into a fixed 260px, and squeezed labels WRAP. Unshrunk they are one line
 			(20px); shrunk they are two (39px). A shared key reserves 20 and paints
-			39 — `docs/lessons/measure-the-requirement-not-the-render.md`, the class
-			this solver has now fixed five times.
+			39 — measure the requirement, not the render, the class this solver has
+			now fixed five times.
 
 			IT MUST BE UNDER A SCROLLVIEW: the memo is gated on `ctx.hasScroll`, so a
 			fixture without one runs uncached and can say nothing about the key. The

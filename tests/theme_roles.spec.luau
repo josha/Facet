@@ -1,5 +1,5 @@
 --!strict
--- Semantic ROLE resolution end to end (ADR-0019 §2/§6): blueprint props name a
+-- Semantic ROLE resolution end to end: blueprint props name a
 -- typography role, a spacing step or a theme metric; the renderer's layout-node
 -- builder and the solver's measure path turn those names into pixels through the
 -- CURRENT `themeMetrics` snapshot. The two properties that matter:
@@ -349,7 +349,7 @@ describe("closed-set validation for the semantic prop forms", function()
 	end)
 end)
 
-describe("text_metrics: canonical font-descriptor keys (ADR-0019 §6)", function()
+describe("text_metrics: canonical font-descriptor keys", function()
 	it("a short family name and its full descriptor are ONE key", function()
 		text_metrics.resetCalibration()
 		text_metrics.resetMeasured()

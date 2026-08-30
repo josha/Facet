@@ -1,5 +1,5 @@
 --!strict
---[[ VirtualGrid four-input story (ui_todo §0; ADR-0013; matrix §1c).
+--[[ VirtualGrid four-input story (ui_todo §0; matrix §1c).
 
 	Proves the presenter AUTO-COMPOSES the lazy grid's pointer / touch / keyboard /
 	gamepad interaction from the input-contribution bundle the control attaches to
@@ -219,7 +219,7 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 		expect(lineTop + 40 <= top + 400).toBe(true)
 	end)
 
-	it("VirtualGrid keyboard: the focus dump REPORTS the second axis (ADR-0030)", function()
+	it("VirtualGrid keyboard: the focus dump REPORTS the second axis", function()
 		--[[ The whole chain in one assertion: the control declares `columns` beside
 			the order it describes, `focus_map.autoGroups` splices the group in whole,
 			the graph reads it as a rectangle, and `handle.focusOrder()` reports it.

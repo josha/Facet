@@ -37,7 +37,7 @@
 	     an unset viewport runs at 1×1, and every measured thing in it is wrong in
 	     a way the second frame silently repairs — the role-pick pop, 2026-08-04.
 	  2. The presenter is constructed AFTER the adapter, and the adapter is never
-	     shared between two presenters (ADR-0009: the instance map and the
+	     shared between two presenters (the instance map and the
 	     capture/cursor state are adapter-scoped).
 
 	`tests/lib/large_text.luau`'s `world` is the prototype this is generalised

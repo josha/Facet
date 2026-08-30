@@ -10,8 +10,7 @@
 	characters, and every live path is a write: Rojo's Studio plugin,
 	`execute_luau`, any plugin. So a module over that line silently stops
 	live-syncing into an open Studio session, and a live check against it then
-	tests the code baked into the place file rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). screen_target
+	tests the code baked into the place file rather than the edits on disk. screen_target
 	has been split along that pressure: the chrome/decoration materializer left
 	first (`screen_chrome`), then the scroll seam (`screen_scroll_indicators`),
 	the bespoke paint vocabulary (`screen_paint`), the presentation channel
@@ -63,7 +62,7 @@ end
 	code they were pinning out the far end of the window. That has already
 	happened at least twice: `adaptive.spec`'s RS-A16-D1b window was widened
 	900 -> 1500 in the 2026-07-28 fix round with the note "the invariant itself is
-	unchanged", and it ran out again the moment ADR-0032's write-skip comment
+	unchanged", and it ran out again the moment the nested tree's write-skip comment
 	landed in `applyRect`. A pin that fails because somebody EXPLAINED the code is
 	a pin that trains people to delete explanations.
 

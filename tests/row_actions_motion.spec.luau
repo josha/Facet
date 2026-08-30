@@ -22,8 +22,7 @@
 	           one.
 	  C9c/C9d  `controller.rectOf` on the row's own content plus
 	           `controller.diagnostics()` — the solver already reports the overlap
-	           this causes, and nobody was reading it
-	           (docs/lessons/the-solver-already-told-you.md).
+	           this causes, and nobody was reading it.
 	  C8a      the commit's own trace: what is still painted after the row has left,
 	           and what is painted on the frames after `onAction` fires.
 
@@ -154,7 +153,7 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageW
 		end
 		return extent
 	end
-	-- THE SOLVER ALREADY TOLD YOU (docs/lessons/the-solver-already-told-you.md):
+	-- THE SOLVER ALREADY TOLD YOU:
 	-- every fixture in this file asserts the diagnostic list, and C9c/C9d were
 	-- REPORTED there by the solver the whole time.
 	function w.diagnostics()
@@ -644,8 +643,7 @@ describe("RowActions flight — the commit's own handoff (director device round 
 			table.insert(samples, { offset = s.offset, rowH = s.rowH })
 			-- the solver, EVERY FRAME of the flight — not just once at the end.
 			-- The collapse's own overflow diagnostic was invisible for a whole
-			-- mission because the settled-state cases sampled it 200 frames late
-			-- (docs/lessons/the-solver-already-told-you.md).
+			-- mission because the settled-state cases sampled it 200 frames late.
 			local detail = {}
 			for _, d in w.diagnostics() do
 				table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)

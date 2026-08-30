@@ -268,7 +268,7 @@ describe("content-terms height: the solver arithmetic", function()
 	)
 
 	it(
-		"`rows`+`of` does NOT track the live accessibility offset — a theme metric never has, and that split is documented (ADR-0049), not a gap",
+		"`rows`+`of` does NOT track the live accessibility offset — a theme metric never has, and that split is documented, not a gap",
 		function()
 			local resolvedOf =
 				snapshot.resolveDim(NEUTRAL, { type = "content", rows = 5, of = "controlSizes.compact.height" }).of

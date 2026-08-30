@@ -66,7 +66,7 @@ local function makeWorld(opts: any?): World
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system, built = built }
 end
 
---[[ …AND THE PROOF'S APP NAMESPACE GOES WITH IT (ADR-0042). `build` declares
+--[[ …AND THE PROOF'S APP NAMESPACE GOES WITH IT. `build` declares
 	`app.cartwheel.*` process-wide, and a spec that walked away would leave the
 	group standing for every later file in this one Lune process — which makes
 	suite ORDER quietly load-bearing, and a later case's "nobody declared this"
@@ -1044,7 +1044,7 @@ describe("Cartwheel — the loop closes: charts reflect the change", function()
 end)
 
 describe("Cartwheel — the solver's own verdict", function()
-	-- THE LESSON THIS ENCODES (docs/lessons/the-solver-already-told-you.md): the
+	-- THE LESSON THIS ENCODES: the
 	-- layout diagnostics are a fixture's job to READ. A screen that overflows,
 	-- clips or falls back tells the solver so on every solve, and a proof that
 	-- never asks ships the defect a human finds in a screenshot.
@@ -1136,14 +1136,14 @@ describe("Cartwheel — the solver's own verdict", function()
 		end
 	end)
 
-	--[[ THE LADDER IS APPLIED TO ALL OF IT, OR IT IS NOT APPLIED (ADR-0042).
+	--[[ THE LADDER IS APPLIED TO ALL OF IT, OR IT IS NOT APPLIED.
 
 		This proof used to own its seven structural numbers as literals in
 		`content/metrics.luau`, with a hand `metricScale` multiply on ONE of them —
 		so at three metres the tile minimum grew to 144 while the chart band, the
 		hero band and the preview box stayed exactly where a phone left them. A
-		fixed px number holding content that is not fixed is
-		`docs/lessons/facet-fixed-px-heights.md`'s class; a fixed px number holding
+		fixed px number holding content that is not fixed is its own defect
+		class; a fixed px number holding
 		content that IS scaling is the same class read across the distance axis,
 		and a hand-rolled ladder is one somebody has to remember to climb.
 
@@ -1570,7 +1570,7 @@ describe("Cartwheel — backdrop-finding sweep (task POP)", function()
 	end)
 end)
 
---[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
+--[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE.
 
 	`build` declares `app.cartwheel.*` PROCESS-WIDE, and a spec file that walked away
 	would leave the group standing for every later file in this one Lune run —

@@ -1,5 +1,5 @@
 --!strict
---[[ ADR-0037 — composite controls live at `Facet.Controls.<Name>(core, spec)`.
+--[[ Composite controls live at `Facet.Controls.<Name>(core, spec)`.
 
 	THE SHAPE THIS PINS. `Facet.Controls.Table(core, spec)` made an author write
 	the library's name twice in every call: the first argument is the library
@@ -20,7 +20,7 @@
 	builder wired to the wrong control produces a different class.
 
 	AND THE OLD FORM STILL WORKS. That is not a nicety: it is the compatible half
-	of the migration (ADR-0037 §Migration, ADR-0011's one-minor rule). The old
+	of the migration. The old
 	form is what the comparison's control arm calls, so it is proven live by
 	every case below rather than by one token case.
 ]]
@@ -31,7 +31,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local UI = require("../src/blueprint")
 
--- the nineteen ADR-0037 names, in the ADR's own order
+-- the nineteen names, in the namespace's own order
 local NAMES = {
 	"Table",
 	"Slider",
@@ -57,7 +57,7 @@ local NAMES = {
 --[[ ...AND THE CONTROLS BORN AFTER THE ADR, which are a DIFFERENT list on
 	purpose, and empty until the first one lands.
 
-	ADR-0037 gives a control created after 0.10.0 exactly ONE public spelling.
+	A control created after 0.10.0 has exactly ONE public spelling.
 	There is no `Facet.new<Name>` for it, so it has no old form to compare against
 	and no deprecation row to carry — a new control is not born deprecated. That
 	is why it cannot simply join `NAMES` above: the two cases below `NAMES` feeds
@@ -231,8 +231,8 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	end,
 }
 
-describe("ADR-0037: the Controls namespace", function()
-	it("exports exactly the nineteen composite controls the ADR names, and nothing else", function()
+describe("the Controls namespace", function()
+	it("exports exactly the nineteen composite controls the namespace names, and nothing else", function()
 		expect(type(Facet.Controls)).toBe("table")
 		local declared: { [string]: boolean } = {}
 		for _, name in NAMES do
@@ -281,11 +281,11 @@ describe("ADR-0037: the Controls namespace", function()
 		end
 	end)
 
-	--[[ THE LEDGER IS THE NOTICE (ADR-0011). The old form keeps working for at
+	--[[ THE LEDGER IS THE NOTICE. The old form keeps working for at
 		least one minor after `since`; what makes that a promise rather than a habit
 		is a machine-readable row naming the replacement. api_surface.spec owns the
 		ledger's SHAPE — this owns its CONTENT for the nineteen. ]]
-	it("every old-form builder carries its ADR-0037 deprecation row", function()
+	it("every old-form builder carries its deprecation row", function()
 		local bySurface: { [string]: any } = {}
 		for _, entry in Facet.DEPRECATIONS :: { any } do
 			bySurface[entry.surface] = entry

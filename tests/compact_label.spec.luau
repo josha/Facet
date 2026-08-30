@@ -207,8 +207,7 @@ end)
 describe("compactLabel: one decision, two seams", function()
 	it("the box the solver RESERVED is the box the compact string needs, not the full label's", function()
 		-- this is the invariant the whole design exists for. A box reserved for one
-		-- string and drawn with another is the defect class this repo keeps meeting
-		-- (docs/lessons/one-word-two-subsystems.md); measuring at paint time or
+		-- string and drawn with another is the defect class this repo keeps meeting; measuring at paint time or
 		-- choosing at arrange time would both produce it.
 		local compact = drawAt({ label = "Edit item", compactLabel = "Ed" }, 60)
 		local literal = drawAt({ label = "Ed" }, 60)
@@ -372,7 +371,7 @@ describe("compactLabel: the closed grammar", function()
 	end)
 
 	it("refuses an unknown form — a value nothing validates is a UI that silently draws nothing", function()
-		-- docs/lessons/enum-props-accept-any-string.md: this is the boundary, and
+		-- an enum prop accepts any string, so this is the boundary, and
 		-- there is no later one that would reject it.
 		expect(refused({ glyph = "P" })).toBe(true)
 		expect(refused({ pictur = "x" })).toBe(true)

@@ -574,8 +574,7 @@ end)
 
 	This case does not assert a PASS — it asserts the measured number, so the day
 	the token moves (or a paradigm gains its own value) the change is announced
-	rather than absorbed. The verdict lives in the mission report and in
-	`docs/lessons/`, where a finding belongs. ]]
+	rather than absorbed. ]]
 describe("playlist columns: how big the divider actually is", function()
 	it("the grip is the theme's small spacing step in every paradigm, touch included", function()
 		local measured = {}
@@ -606,8 +605,7 @@ describe("playlist columns: how big the divider actually is", function()
 			Pinned rather than fixed here because the fix is a design call about
 			where a touch divider's slop comes from (a wider Grip paints a fat
 			hairline; an invisible hit inset does not exist as a Box prop today), and
-			`docs/lessons/an-eight-pixel-divider-on-a-forty-four-pixel-finger.md`
-			carries it. The day it is fixed this line changes, deliberately. ]]
+			an eight-pixel divider under a forty-four-pixel finger is what carries it. The day it is fixed this line changes, deliberately. ]]
 		expect(table.concat(measured, " ")).toBe(
 			"KeyboardAndMouse=grip8x28/row36 Touch=grip8x28/row44 Gamepad=grip8x28/row36"
 		)
@@ -620,11 +618,10 @@ end)
 	the adapter for a 44x44 hit rect CENTRED on an 8x28 grip. On the live engine
 	that is a real `FacetHitExpander` TextButton parented beside the grip at
 	`grip.z - 1` — which is still ABOVE the header cell's own `Column` button, and a
-	GuiButton sinks `InputBegan` (docs/lessons/a-button-eats-the-swipe-underneath-it).
+	GuiButton sinks `InputBegan`, so a button eats the swipe underneath it.
 
 	MEASURED LIVE, 2026-08-14, Facet-Showcase, on the fixture this file replaced,
-	with the control in the same session (docs/lessons/a-forty-four-pixel-floor-
-	under-an-eight-pixel-divider.md):
+	with the control in the same session, on a 44px floor under an 8px divider:
 
 	  | click            | inside              | result        |
 	  |------------------|---------------------|---------------|
@@ -759,9 +756,9 @@ end)
 
 --[[ A PRESS IN THE 44px BAND THAT NEVER MOVES IS A TAP, AND A TAP BELONGS TO THE
 	HEADER UNDERNEATH (director ruling, 2026-08-14 — option 1 of the four in
-	`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+	a 44px touch floor under an 8px divider).
 
-	The lesson measured two symptoms of one mechanism: the grip's `minHitSize = 44`
+	The finding measured two symptoms of one mechanism: the grip's `minHitSize = 44`
 	expander SANK every press in the trailing 26px of the header cell and forwarded
 	nothing (a dead band), while buying the divider no drag target at all (the
 	expander is painted BEHIND the grip). The ruled repair gives the expander the
@@ -1069,7 +1066,7 @@ end)
 
 --[[ THE ARROW KEYS: THE CLAIM THAT WAS RULED, BUILT, MEASURED AND WITHDRAWN.
 
-	`docs/lessons/the-camera-still-owns-the-arrow-keys.md` measured live 2026-08-14:
+	Measured live 2026-08-14, and the camera still owns the arrow keys:
 	Roblox's own default camera binds Left/Right as `RbxCameraKeypress` through
 	ContextActionService at priority 2000 and SINKS them, so a selected column's
 	Left/Right resize never receives a press. The ruled repair was a sinking

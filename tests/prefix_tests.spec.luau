@@ -9,7 +9,7 @@
 	the suite stays exactly as green as it was.
 
 	THE DEFECT CLASS IS A RENAME'S FAVOURITE HIDING PLACE, and this framework has
-	paid for it twice in one week. ADR-0038 renamed the classification tags
+	paid for it twice in one week. The classification tags were renamed
 	`luau-*` -> `facet-*` across 395 occurrences (`36d1883`, 2026-08-18). `"luau-"`
 	is five characters and `"facet-"` is six, so the sweep rewrote every literal
 	and left every length: `git log -S 'string.sub(tag, 1, 5)'` returns only the
@@ -175,7 +175,7 @@ local function walk(dir: string, out: { string })
 	end
 end
 
-describe("a prefix test cannot disagree with the prefix it tests (ADR-0038 fallout)", function()
+describe("a prefix test cannot disagree with the prefix it tests (rename fallout)", function()
 	it("no comparison in src/, tools/ or examples/ counts differently from its own literal", function()
 		local files: { string } = {}
 		for _, dir in SCANNED do

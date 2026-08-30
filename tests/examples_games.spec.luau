@@ -147,7 +147,7 @@ describe("examples/05 word game (Wordle-style)", function()
 		end
 	end)
 
-	-- Per-input proofs (ADR-0013): the example now carries NO nav-group build,
+	-- Per-input proofs: the example now carries NO nav-group build,
 	-- no focus-scope swap, and no nav-key context — the on-screen keyboard's
 	-- HStack rows yield layout-derived 2D navigation, and each key's node
 	-- onActivate types/submits. The custom context now binds only the genuinely
@@ -273,7 +273,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		end
 	end)
 
-	-- Per-input proofs (ADR-0013): the example carries NO activation router
+	-- Per-input proofs: the example carries NO activation router
 	-- (each square, rack tile and action has a node onActivate) and gains 2D
 	-- grid navigation from the board's and the rack's Grids (layout-derived
 	-- groups). Every case below drives the SAME select-then-place path — the
@@ -818,7 +818,7 @@ describe("examples/08 match-3", function()
 		end
 	end)
 
-	-- Per-input proofs (ADR-0013): the example now carries NO activation router,
+	-- Per-input proofs: the example now carries NO activation router,
 	-- no focus-scope swap, and no custom nav context — each tile has a node
 	-- onActivate (select/swap) and the board's HStack rows yield layout-derived
 	-- 2D navigation. The audit had gamepad only PARTIAL (focus-API) and every

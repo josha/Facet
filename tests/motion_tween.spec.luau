@@ -1,5 +1,5 @@
 --!strict
--- Time-based easing (ADR-0033): the curve registry,
+-- Time-based easing: the curve registry,
 -- the tween driver behind the shared `MotionValue` handle, and the engine seam.
 --
 -- What this file is really guarding, in order of how expensive the defect is:

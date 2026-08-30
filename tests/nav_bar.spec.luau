@@ -1,6 +1,6 @@
 --!strict
 -- `Facet.navBar` — the presenter-side surface-chrome seam (registry item 13;
--- W3-D, ADR-0053). Pure blueprint assembly: no core, no scope, no presenter,
+-- W3-D). Pure blueprint assembly: no core, no scope, no presenter,
 -- so this spec inspects the returned Blueprint table directly rather than
 -- mounting one — the same "cheapest instrument that can see the claim" rule
 -- `tests/blueprint*.spec.luau` already uses for other pure constructors.

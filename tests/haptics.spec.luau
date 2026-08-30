@@ -13,7 +13,7 @@
 --     range, persistence and zeroing are all undocumented).
 --   * There is NO capability API, and the only probe on the platform is boolean
 --     and belongs to the superseded service. So the probe is the five-state
---     lattice of docs/lessons/capability-probes-must-be-tri-state.md, with
+--     lattice a tri-state capability probe needs, with
 --     `unknown` — not `false` — for touch and for the pre-first-gamepad state.
 --   * `Custom` with no waveform is a GUARANTEED silent no-op, so the enum is
 --     resolved defensively by name and never falls back to it.

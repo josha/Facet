@@ -1,6 +1,6 @@
 --!strict
 -- Modal outside-tap dismissal — the two-zone spec
--- (docs/research/2026-07-21-modal-dismissal-spec.md; ADR-0014 §Drive-F1).
+-- (docs/research/2026-07-21-modal-dismissal-spec.md).
 --
 -- Zone A (no dismiss, forgiveness): the top modal's PAINTED panel rect(s) ⊕ a
 -- 24px forgiveness ring (space.l token) ∪ every focusable's 44px hit rect.
@@ -87,7 +87,7 @@ describe("modal dismissal: empty-space tap dismisses (Drive-F1 scrim catcher)", 
 end)
 
 -- ===========================================================================
--- (1b) The catcher is NOT a decoration surface (ADR-0020 R9, live-found P5).
+-- (1b) The catcher is NOT a decoration surface (live-found P5).
 -- ===========================================================================
 describe("modal dismissal: the synthesized catcher is never a skin target", function()
 	it("declares chrome_slots.NO_SLOT, so no package can paint over the screen it guards", function()

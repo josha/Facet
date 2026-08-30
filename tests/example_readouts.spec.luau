@@ -17,8 +17,8 @@
 -- noticed the two readouts had left the paths the baseline recorded. It is not in
 -- `./run-tests.sh`; it only speaks when somebody runs it. That is the same shape
 -- as the overflow diagnostic that let nine device bugs ship — see
--- `docs/lessons/the-solver-already-told-you.md` §13, *a fixture must FAIL on it,
--- or the list is a log nobody reads*.
+-- the standing rule that *a fixture must FAIL on it, or the list is a log
+-- nobody reads*.
 --
 -- WHAT IT ASSERTS, AND WHY IT IS THIS AND NOT MORE. For each tutorial example, a
 -- SHORT hand-written list of the paths that example's own docs describe as things

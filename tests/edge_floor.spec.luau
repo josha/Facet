@@ -1,5 +1,5 @@
 --!strict
--- Edge-floor knob (FIX-4 item 2, director ruling ADR-0055, 2026-08-23): "If
+-- Edge-floor knob (FIX-4 item 2, director ruling 2026-08-23): "If
 -- the user truly specifies edge-to-edge we should do so with no padding.
 -- Ensure the user can specify padding; perhaps even default so things don't
 -- ride the edge by default but can be made to." This file pins the KNOB half
@@ -8,7 +8,7 @@
 -- opt, threaded through `presenter.present`/`presentModal`/`presentCritical`).
 -- The MEASUREMENT half (the corrected floor-harness numbers) is reported, not
 -- pinned here — see task-fix4-report.md item 2. Whether the DEFAULT ever
--- flips is a separate, unshipped ADR-0040 row (director's word, not this
+-- flips is a separate, unshipped changelog row (director's word, not this
 -- round's).
 --
 -- RED-FIRST: every case below failed before `edgeFloor` existed —
@@ -108,7 +108,7 @@ describe("renderer/presenter — edgeFloor knob (FIX-4 item 2)", function()
 		expect(rect.w).toBe(390)
 	end)
 
-	it("a literal-number edgeFloor floors bottom/left/right, never top (ADR-0027)", function()
+	it("a literal-number edgeFloor floors bottom/left/right, never top", function()
 		local w = newWorld({ top = 40, bottom = 10, left = 5, right = 5 })
 		w.present(fullScreen("Padded"), { edgeFloor = 24 })
 		local rect = w.adapter.node("/Padded/Fill").rect

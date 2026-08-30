@@ -1,7 +1,7 @@
 --!strict
---[[ THE WRITE A HOST MAKES UNNECESSARY (ADR-0032, the arrange half).
+--[[ THE WRITE A HOST MAKES UNNECESSARY (the arrange half).
 
-	THE BILL, AND WHERE IT IS ACTUALLY PAID. ADR-0032's headline is that moving a
+	THE BILL, AND WHERE IT IS ACTUALLY PAID. The nested tree's headline is that moving a
 	container with 120 descendants costs 123 rect writes and 120 engine `Position`
 	writes, with incremental layout skipping ZERO — "structurally defeated by the
 	commonest layout event". Reproduced headlessly this round: grow a 20px header

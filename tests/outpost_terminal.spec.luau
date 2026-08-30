@@ -1,5 +1,5 @@
 --!strict
---[[ THE OUTPOST POWER TERMINAL — the pure half, all of it (ADR-0063; design
+--[[ THE OUTPOST POWER TERMINAL — the pure half, all of it (design
 	artifacts/example-games-and-standalones/design/outpost-power-terminal.md).
 
 	WHAT THIS FILE CAN AND CANNOT REACH, stated first because it decided the

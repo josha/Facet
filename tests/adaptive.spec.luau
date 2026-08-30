@@ -1297,8 +1297,8 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		Asserted at the source anchors because `screen_target.luau` is engine-only,
 		and asserted as the SHAPE OF THE FIX — one capture body, reached from two
 		surfaces — because a second copy of "what a press starts" is exactly how the
-		two would come to disagree. The live drive is in
-		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`. ]]
+		two would come to disagree. The live drive measured a 44px touch floor under
+		an 8px divider. ]]
 	it("the minimum-target expander begins the host's pointer capture, through the one shared body", function()
 		-- THE WHOLE ADAPTER, not one of its files: `dropHitExpander` left for
 		-- `screen_presentation` when screen_target crossed the Source cap, and a pin
@@ -1361,7 +1361,7 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- READ TO THE NEXT DECLARATION, NOT TO A CHARACTER COUNT. This window was
 		-- a fixed 900, then a fixed 1500 ("widened when applyRect grew the
 		-- centered-pivot branch, director fix round 2026-07-28 — the invariant
-		-- itself is unchanged"), and it ran out a third time when ADR-0032's
+		-- itself is unchanged"), and it ran out a third time when the nested tree's
 		-- write-skip explanation landed inside `applyRect`. Each widening was
 		-- correct and none of them fixed the instrument: a pin that reddens because
 		-- somebody EXPLAINED the code teaches people to stop explaining it.
@@ -1622,7 +1622,7 @@ describe("interactionClasses: the primary class before any input has happened", 
 end)
 
 --[[ THE PLATFORM TOPBAR BAND (director visual round 3, DV3-1) — WITH ITS
-	SEMANTICS CORRECTED AGAINST THE LIVE ENGINE, 2026-08-14 (ADR-0027).
+	SEMANTICS CORRECTED AGAINST THE LIVE ENGINE, 2026-08-14.
 
 	A game that docks its own control into the platform's topbar row — beside the
 	engine's control cluster, where a player already looks for chrome — has to be
@@ -1735,7 +1735,7 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 	end)
 end)
 
---[[ ADR-0027: `platformChrome` — WHERE THE PLATFORM'S OWN CONTROLS ARE.
+--[[ `platformChrome` — WHERE THE PLATFORM'S OWN CONTROLS ARE.
 
 	`coreSafeInsets` says "the top 58px of this window belongs to the engine". That
 	is TRUE AS A BOUNDING BOX and blunt as a fact: the engine's own controls occupy
@@ -1759,7 +1759,7 @@ end)
 	Every number is derived from facts the adapter already published. Nothing here
 	knows 164, or 58, or a device name.
 ]]
-describe("ADR-0027: platformChrome states the L, not its bounding box", function()
+describe("platformChrome states the L, not its bounding box", function()
 	local function chromeOf(env: any): any
 		return env:get("platformChrome"):get()
 	end
@@ -1898,7 +1898,7 @@ describe("ADR-0027: platformChrome states the L, not its bounding box", function
 end)
 
 -- ===========================================================================
--- ADR-0023: the HEIGHT half of adaptive.conditions.
+-- the HEIGHT half of adaptive.conditions.
 --
 -- Additive by contract. The first describe is a REGRESSION PIN, not a feature
 -- test: it fixes the exact answer of every pre-existing fact across a matrix of
@@ -1907,7 +1907,7 @@ end)
 -- explicitly because it is the one non-monotonic rule in the file.
 -- ===========================================================================
 
-describe("ADR-0023 regression pin: the width facts are byte-unchanged", function()
+describe("regression pin: the width facts are byte-unchanged", function()
 	local WIDTHS = { 0, 1, 320, 599, 600, 601, 999, 1000, 1001, 1920, 3840 }
 
 	it("sizeClass answers exactly what it answered before the height half landed", function()
@@ -1956,7 +1956,7 @@ describe("ADR-0023 regression pin: the width facts are byte-unchanged", function
 	end)
 end)
 
-describe("ADR-0023: height and orientation are facts, not device names", function()
+describe("height and orientation are facts, not device names", function()
 	it("classifies height at the same breakpoints as width", function()
 		expect(adaptive.heightClass(313)).toBe("short")
 		expect(adaptive.heightClass(599)).toBe("short")
@@ -2254,15 +2254,15 @@ describe("NM-H4a: a topbar-safe inset that cannot describe this viewport is disc
 	end)
 end)
 
---[[ director item 5 (ADR-0058): physical-size-aware ten-foot classing. The
+--[[ director item 5: physical-size-aware ten-foot classing. The
 	engine's own `displaySize` (`GuiService.ViewportDisplaySize`) is not
 	reliable enough alone to gate the ten-foot 1.5x swing — measured directly
-	in Studio (ADR-0058), a plain windowed desktop viewport reported "Large".
+	in Studio, a plain windowed desktop viewport reported "Large".
 	Touch is the corroborating signal: a real ten-foot session never has a
 	touchscreen, so "Large" + touch-capable is a contradiction this function
 	resolves toward the safer failure (a big-screen touch kiosk keeps normal
 	text; a handheld does not get inflated to console scale). ]]
-describe("director item 5: adaptive.effectiveDisplaySize (ADR-0058)", function()
+describe("director item 5: adaptive.effectiveDisplaySize", function()
 	it("downgrades Large to Medium only when touch is ALSO live", function()
 		expect(adaptive.effectiveDisplaySize("Large", true)).toBe("Medium")
 		expect(adaptive.effectiveDisplaySize("Large", false)).toBe("Large")

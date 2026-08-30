@@ -1,5 +1,5 @@
 --!strict
--- TOAST PRESENTATION (ADR-0022 Decision 4; acceptance rows SF-T1, SF-T3). The
+-- TOAST PRESENTATION (acceptance rows SF-T1, SF-T3). The
 -- scheduler's rules are proven in `toast_schedule.spec`; this file proves the
 -- SURFACE — and every assertion here is about something a toast must NOT do:
 --

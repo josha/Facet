@@ -1,5 +1,5 @@
 --!strict
---[[ A COVER'S TOUCH FLOOR STOPS AT THE FIRST THING IT COULD STEAL (DIR5 review H1, ADR-0041).
+--[[ A COVER'S TOUCH FLOOR STOPS AT THE FIRST THING IT COULD STEAL (DIR5 review H1).
 
 	THE DEFECT, MEASURED. A control under the effective touch floor gets an
 	invisible hit expander inflated around its solved rect

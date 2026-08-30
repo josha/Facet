@@ -1,5 +1,5 @@
 --!strict
--- Perceptual arrival (ADR-0022 Decision 1; acceptance rows SF-M2, SF-M3). Two
+-- Perceptual arrival (acceptance rows SF-M2, SF-M3). Two
 -- scalar springs, one live target, and the claim that matters: arrival fires on
 -- the frame the object visually LANDS, not when the solver's epsilon trips.
 --

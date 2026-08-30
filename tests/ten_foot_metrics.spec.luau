@@ -1525,7 +1525,7 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 		is the class it must paint. (A LIVE `setProfile` across the near/ten-foot
 		boundary still moves measure and not paint — a target takes its class at
 		construction, like its palette — and that is the same growth seam
-		ADR-0039 Decision 3a books, not an exemption from this census.) ]]
+		the ladder books, not an exemption from this census.) ]]
 	it("every render-target constructor in this repository states the distance it paints at", function()
 		local fs = require("@lune/fs")
 		--[[ path -> the reason its context genuinely has no distance. A constructor
@@ -1611,7 +1611,7 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 			true
 		)
 		local host = fs.readFile("src/client/host.luau")
-		-- effectiveDisplaySize, not the raw fact, since director item 5 / ADR-0058:
+		-- effectiveDisplaySize, not the raw fact, since director item 5:
 		-- the live client's real paint decision must be the touch-corrected class
 		expect(string.find(host, 'displaySize = env:get("effectiveDisplaySize"):get()', 1, true) ~= nil).toBe(true)
 		local controller = fs.readFile("src/client/theme_controller.luau")

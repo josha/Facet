@@ -1,5 +1,5 @@
 --!strict
--- The UNIFIED COLLECTION (ADR-0022 Decision 5, rows SF-L1/L2/L3): one
+-- The UNIFIED COLLECTION (rows SF-L1/L2/L3): one
 -- VirtualList that windows, selects, reorders, accepts drops and edge-scrolls at
 -- the same time. Reorder and drop ride the PUBLIC drag contract, so every case
 -- below drives the real acquisition path and asserts what the game's callbacks

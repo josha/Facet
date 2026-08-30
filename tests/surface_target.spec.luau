@@ -1,5 +1,5 @@
 --!strict
---[[ The world-surface render target's PURE half (ADR-0063).
+--[[ The world-surface render target's PURE half.
 
 	`surface_target.new` makes a `SurfaceGui`, so the engine writes themselves are
 	Studio evidence and live in

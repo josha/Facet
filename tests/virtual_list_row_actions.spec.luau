@@ -489,7 +489,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(w.debug().engagedKey).toBeNil()
 		-- THE DECLINE IS LOAD-BEARING, and this is what proves it: no pointerUp
 		-- happens in between. One live capture owns the pointer (the adapter
-		-- mirrors the engine's ADR-0008 capture model), so had the unwrapped row
+		-- mirrors the engine's capture model), so had the unwrapped row
 		-- accepted, the press below would never be delivered to r3 at all.
 		w.dragLeft("r3", 80)
 		expect(w.debug().engineCount).toBe(1)
@@ -2717,8 +2717,8 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 		every producer that could otherwise be swallowed — the one POINTER Activate
 		it exists for, the next pointer-down, a cancel (a scroll that takes the
 		capture away goes through `onPointerCancel`, which clears it), and a DEVICE
-		Activate is never eligible at all (`meta.source == "action"`; the rule in
-		`docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`). The
+		Activate is never eligible at all (`meta.source == "action"`; an arm set by a
+		gesture must name what may spend it). The
 		three cases below pin exactly those escapes.
 
 		A LIVE MEASUREMENT STILL BELONGS TO IT and is recorded in the mission report:

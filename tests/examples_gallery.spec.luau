@@ -1734,8 +1734,8 @@ describe("examples/gallery 04: settings sync", function()
 	end)
 
 	-- COMPACT PHONE, BOTH ORIENTATIONS, BOTH ENDS OF THE TEXT PREFERENCE.
-	-- The solver is asked, not the screenshot (docs/lessons/the-solver-already-
-	-- told-you.md): a fixture that never reads `controller.diagnostics()` is not
+	-- The solver is asked, not the screenshot: a fixture that never reads
+	-- `controller.diagnostics()` is not
 	-- a fixture. 360x633 is a 360x691 phone minus the 58px topbar inset.
 	it("stays laid out and operable on a compact phone at every text size", function()
 		local lt = require("./lib/large_text")
@@ -1791,7 +1791,7 @@ describe("examples/gallery 04: settings sync", function()
 		end
 	end)
 
-	-- Per-input proofs (ADR-0013): example 03 carries NO present() opts — the
+	-- Per-input proofs: example 03 carries NO present() opts — the
 	-- toggle/steppers/buttons' node onActivate handlers are dispatched by the
 	-- presenter, and the +/- HStack yields layout-derived 2D navigation.
 	it("✓ ex03 touch: a touch tap on the Music toggle applies optimistically and goes pending", function()
@@ -1941,7 +1941,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		presenter.dismiss(handle)
 	end)
 
-	-- Per-input proofs (ADR-0013): example 04 now carries NO present() opts —
+	-- Per-input proofs: example 04 now carries NO present() opts —
 	-- the base Delete button and the modal's Confirm/Cancel buttons each carry
 	-- their own node onActivate, dispatched by the presenter. These close the
 	-- pointer + touch cells the audit left UNPROVEN (a modal example that never
@@ -2090,8 +2090,7 @@ end)
 --   2. THE CHROME RESERVATION. Every demo is laid out below the picker's chip
 --      strip, which the host writes into `coreSafeInsets.top`. A world that
 --      omitted it would be measuring a screen 120px taller than the real one —
---      the margin several shipped overflow defects lived in
---      (docs/lessons/the-solver-already-told-you.md). The number is READ from
+--      the margin several shipped overflow defects lived in. The number is READ from
 --      the picker, exactly as tests/overflow_sweep.spec.luau reads it, so the
 --      two cannot drift.
 --
@@ -2148,7 +2147,7 @@ local function mountFixture(w: any, module: any): any
 	return built
 end
 
--- THE NON-NEGOTIABLE (docs/lessons/the-solver-already-told-you.md §13): a
+-- THE NON-NEGOTIABLE: a
 -- fixture must FAIL on the solver's own diagnostics, or the list is a log nobody
 -- reads. ALL of them, not only the main-axis ones the sweep filters for — a new
 -- animated surface is the highest-risk addition to a repo whose named recurring
@@ -2476,7 +2475,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 	)
 
 	--[[ THE BADGE — the fifth consequence, and the director's own question
-		(ADR-0026, 2026-08-14): *"should opacity, transparency, and scale get
+		(2026-08-14): *"should opacity, transparency, and scale get
 		owned/influenced by facet? it seems like we should be able to animate
 		those."*
 

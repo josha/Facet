@@ -385,7 +385,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			w.env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
 			w.env:set("preferredInput", "KeyboardAndMouse")
 			w.pres.refresh()
-			-- the auto Edit/Done toggle unmounts (ADR-0015)…
+			-- the auto Edit/Done toggle unmounts…
 			expect(w.adapter.node(togglePath)).toBe(nil)
 			-- …AND the control-owned editing signal resets, so grips do not linger
 			-- with no way to exit (the wedge this fixes)
@@ -701,7 +701,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		env:set("preferredTextOffset", opts.textOffset or 0)
 		if opts.package ~= nil then
 			-- the metric half of a package install, exactly as the theme picker
-			-- commits it (ADR-0019 §7) — which is what makes a themed row solvable
+			-- commits it — which is what makes a themed row solvable
 			-- headlessly at all
 			local pkg = require(`../examples/themes/{opts.package}`).build(Facet.themes)
 			env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))

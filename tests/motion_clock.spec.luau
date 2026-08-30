@@ -1,5 +1,5 @@
 --!strict
--- The motion clock and MotionValue (ADR-0022 Decision 1; acceptance rows SF-M1,
+-- The motion clock and MotionValue (acceptance rows SF-M1,
 -- SF-M5, SF-M8). Every case here steps a SCRIPTED clock, so "the same frame"
 -- means the same frame forever.
 --
@@ -732,7 +732,7 @@ end)
 	repository, and they are still kept and not deprecated, for two reasons. They
 	are the exact twins of `resetCurves` and `resolveClass`, both of which ARE
 	called — half a symmetric registry API is a worse surface than all of it. And
-	ADR-0011's ledger requires a non-empty `replacement` (tests/api_surface.spec
+	The deprecation ledger requires a non-empty `replacement` (tests/api_surface.spec
 	§"deprecations are a machine-readable ledger"): there is no successor to name,
 	so declaring them would mean inventing one, which is a promise to a reader
 	that resolves to nothing.

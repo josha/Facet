@@ -282,7 +282,7 @@ describe("director 2026-08-15 round 2: anchored content never touches the physic
 	end)
 end)
 
-describe("ADR-0027 + director item 4: the APP's chrome is reserved per column", function()
+describe("director item 4: the APP's chrome is reserved per column", function()
 	-- the showcase's chip row as the live session measures it: the left ~40% of
 	-- the band's second row, and nothing else
 	local CHIPS = { { x = 0, y = PLATFORM_TOP, w = 290, h = CHIP_STRIP } }
@@ -507,7 +507,7 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 	-- every node the adapter would actually PAINT under the left column's zones,
 	-- against the rect the app declared. A hidden node paints nothing (a dropped
 	-- region keeps its mount and its subtree keeps fixed boxes), which is the hole
-	-- the ADR-0027 checks closed one round earlier and this reuses.
+	-- the chrome-band checks closed one round earlier and this reuses.
 	local function assertLeftColumnClearsChips(w: any, where: string): number
 		local checked = 0
 		for _, path in w.adapter.paths() do
@@ -685,7 +685,7 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 				"the bar yielded to the reservation: true"
 			)
 			--[[ 240 (the viewport) - 8 (the content rect's own bottom gutter, which
-				`bandSafeContent` floors — ADR-0046 §2) - 160 (HUD_FLOOR_PX) - 62 (the
+				`bandSafeContent` floors) - 160 (HUD_FLOOR_PX) - 62 (the
 				chip row) = 10. The instrument caps against the box it is IN rather than
 				against the window: the band policy takes the platform's reservation off
 				the SURFACE now, so a cap written against the viewport is a screen the

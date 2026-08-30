@@ -1,5 +1,5 @@
 --!strict
--- LAYER STACKS, APPLIED (ADR-0020 R1/R2/R9, rich-skinning-v2 package P2).
+-- LAYER STACKS, APPLIED (rich-skinning-v2 package P2).
 --
 -- P1 made a layered package COMPILE to rules. This file is the other half, and
 -- it exists because of the exact defect class the Step 3.5 fix round found: a
@@ -986,7 +986,7 @@ describe("rung 2: the per-state map REACHES the adapter", function()
 		expect(string.find(selected, "applyOverrideVariantArt(handle)", 1, true) ~= nil).toBe(true)
 	end)
 
-	-- arch-F3 (rich-skinning-v2 verifier fix round). ADR-0020 R2: "If the map omits
+	-- arch-F3 (rich-skinning-v2 verifier fix round). The rule: "If the map omits
 	-- `disabled`, the standard disabled treatment applies over `default`
 	-- (accessibility floor preserved)." A rung-2 override decoration is UNTAGGED by
 	-- construction, so the emitted `:NonInteractable > .<tag>` rule cannot reach it

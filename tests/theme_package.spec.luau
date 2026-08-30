@@ -1,5 +1,5 @@
 --!strict
--- Theme PACKAGE compilation (ADR-0019 §1): the public `themes.define` contract.
+-- Theme PACKAGE compilation: the public `themes.define` contract.
 -- A package is declarative data, so every rejection has to name the offending
 -- field and the fix — an authoring error that reaches play as a nil metric is
 -- precisely what this compiler exists to prevent.

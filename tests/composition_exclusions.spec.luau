@@ -143,7 +143,7 @@ describe("§8: a lane starts below an exclusion its own CONTENT reaches into", f
 	end)
 end)
 
---[[ ── AND THE OTHER END OF THE LANE THE EXCLUSION SHORTENED (ADR-0056) ───────
+--[[ ── AND THE OTHER END OF THE LANE THE EXCLUSION SHORTENED ───────
 	THE BUG THESE PIN, in the director's words: *"screen-anchored HUD now overlaps
 	at the bottom"* — reported twice, on a PS5 and on a phone
 	(`artifacts/framework-gaps-phase2-fix4/item1-ps5-hud-overlap.png`, `overlap.png`),
@@ -561,7 +561,7 @@ describe("§8: `UI.Composition{ exclusions }` — the declaration, through the m
 		expect(adapter.node("/S/H/Rail").rect.y).toBe(fresh.adapter.node("/S/H/Rail").rect.y)
 	end)
 
-	it("...and the bottom-anchored zone lands INSIDE the composition, on a phone (ADR-0056)", function()
+	it("...and the bottom-anchored zone lands INSIDE the composition, on a phone", function()
 		--[[ THE DIRECTOR'S `overlap.png`, end to end. The two cases above drive the
 			pure decision and the top of the lane; this one drives the whole mounted
 			path at a phone viewport with a bottom-anchored zone, which is the shape

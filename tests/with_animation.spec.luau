@@ -487,7 +487,7 @@ describe("withAnimation: interruption carries velocity", function()
 	end)
 end)
 
---[[ A CURVE CAN DRIVE THE FLIGHT (ADR-0033 Decision 6). `withAnimation` takes a
+--[[ A CURVE CAN DRIVE THE FLIGHT. `withAnimation` takes a
 	registered motion CURVE name as well as a motion CLASS name — the progress value
 	is the same `Readable<number>` handle with a tween driver behind it, so "over
 	exactly 300 ms, quad ease-out" needs no second mechanism. The three things that
@@ -495,7 +495,7 @@ end)
 	still land exactly and instantly, the flight must actually arrive on the curve's
 	duration, and the interruption carry must NOT try to seed a velocity into a value
 	that raises on `setVelocity`. ]]
-describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", function()
+describe("withAnimation: a registered CURVE drives the flight", function()
 	local function curveWorld(opts: any?)
 		Facet.motion.resetCurves()
 		Facet.motion.registerCurve("panel", { duration = 0.3, style = "quad", direction = "out" })

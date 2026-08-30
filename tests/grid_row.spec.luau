@@ -29,7 +29,7 @@
 	    itself out with columns nobody derived.
 
 	EVERY MOUNTED FIXTURE CALLS `controller.diagnostics()` and asserts the whole
-	string (docs/lessons/the-solver-already-told-you.md): a fixture that does not
+	string: a fixture that does not
 	ask the solver what it thought is not evidence.
 ]]
 

@@ -1,5 +1,5 @@
 --!strict
--- The future spatial seam (roadmap Step 4, ADR-0021; ledger rows XP-D1..XP-D5).
+-- The future spatial seam (roadmap Step 4; ledger rows XP-D1..XP-D5).
 --
 -- These cases guard a promise and a boundary. The promise: adding spatial input
 -- later must be an adapter change, not a rewrite — so a two-dimensional
@@ -181,7 +181,7 @@ describe("normalized spatial event data (XP-D2)", function()
 	end)
 end)
 
---[[ XP-D3 WAS "declared, not implemented". IT SHIPPED (ADR-0061, 2026-08-29).
+--[[ XP-D3 WAS "declared, not implemented". IT SHIPPED (2026-08-29).
 
 	The block it guards is the same block, and it stays where it was on purpose:
 	the questions were the deliverable, and where the next implementer looks for
@@ -270,7 +270,6 @@ describe("no VR support claim (XP-D5)", function()
 		-- the two shipped documents that DISCUSS spatial UI are guarded too: a
 		-- support claim is likeliest to appear exactly where the subject comes up
 		"docs/extending/new-platform-mode.md",
-		"docs/adr/ADR-0021-spatial-seam.md",
 	}
 
 	-- A DENIAL IS NOT A CLAIM. "Nothing here is spatial support" contains the

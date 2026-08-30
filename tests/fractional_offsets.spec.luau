@@ -1,5 +1,5 @@
 --!strict
--- FRACTIONAL ANCHOR OFFSETS (ADR-0022 Decision 6; acceptance rows SF-P5/SF-K1).
+-- FRACTIONAL ANCHOR OFFSETS (acceptance rows SF-P5/SF-K1).
 --
 -- The marker-overlay shape: a minimap dot's position is a SHARE of the map, not a
 -- pixel count, and the game's projection math produces u,v in 0..1. Before this an

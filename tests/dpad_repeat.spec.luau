@@ -1,5 +1,5 @@
 --!strict
--- Gamepad d-pad auto-repeat (director item 4; ADR-0057). Holding a gamepad
+-- Gamepad d-pad auto-repeat (director item 4). Holding a gamepad
 -- direction must repeatedly advance focus after an initial delay, matching
 -- platform convention, exactly the way CoreGui's own selection navigator does
 -- for native selection — a HELD `Navigate`/`NavigateH` Direction1D only ever

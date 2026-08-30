@@ -1,5 +1,5 @@
 --!strict
--- RenderTargetAdapter conformance (ADR-0009 extension of the §13 seam): the
+-- RenderTargetAdapter conformance (the billboard extension of the §13 seam): the
 -- FakeTarget satisfies the full contract headless, and a billboard-shaped
 -- pixel canvas (small offset-Size viewport — BillboardGui canvases are offset
 -- pixels ONLY; scale means studs) renders and updates through the ordinary
@@ -75,7 +75,7 @@ describe("RenderTargetAdapter contract", function()
 	end)
 
 	-- ...and exactly one of those THEME names is a GROWTH seam, not a prerequisite
-	-- (ADR-0019: the controller calls it "for any target that grows the seam").
+	-- (the controller calls it "for any target that grows the seam").
 	-- Pinned as its own set so `themeable` cannot quietly become false for every
 	-- shipping adapter the day a growth name joins the list.
 	it("setThemeStyle is a GROWTH seam: declared, feature-detected, never a theming blocker", function()
@@ -150,7 +150,7 @@ describe("RenderTargetAdapter contract", function()
 		table.sort(absent)
 		table.sort(growthAbsent)
 		-- ScreenTarget's ONE declared-but-ungrown name, asserted exactly (ARCH-5).
-		-- ADR-0019's ruling: it takes its bespoke style at construction and exposes
+		-- The ruling: it takes its bespoke style at construction and exposes
 		-- no runtime setter, so the palette half of a swap does not reach it. Pinned
 		-- both ways — if it grows the seam this fails and says "move it".
 		expect(table.concat(growthAbsent, ",")).toBe("setThemeStyle")
@@ -201,7 +201,7 @@ describe("RenderTargetAdapter contract", function()
 	end)
 end)
 
--- ===== HANDLED-PROP PARITY (ADR-0022; found defect SF-M9) ==================
+-- ===== HANDLED-PROP PARITY (found defect SF-M9) ==================
 --
 -- The defect this pins: `setProp` is a STRING-keyed switch on both adapters, and
 -- the fake one recorded anything. So the renderer could write a prop the live

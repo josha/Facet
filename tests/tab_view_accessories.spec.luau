@@ -266,7 +266,7 @@ describe("§6 the top band's trailing edge — and the centring that must surviv
 		expect(#w.handle.controller.diagnostics()).toBe(0)
 	end)
 
-	--[[ THE HALF THAT MAKES IT SAFE (ADAPT-4 / ADR-0040 B-12). The naive fix puts
+	--[[ THE HALF THAT MAKES IT SAFE (ADAPT-4). The naive fix puts
 		the accessory in the band's own STACK, which pushes the hugging strip off
 		centre by exactly the accessory's width and reads "centered" in every dump.
 		The strip is centred in THE BOX THE TABS HAVE — the band minus what the

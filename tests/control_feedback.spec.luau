@@ -1154,8 +1154,8 @@ end)
 -- WHAT IS TESTABLE HERE AND WHAT IS NOT. A headless target cannot fire a motor
 -- and cannot read whether one fired, so nothing below asserts a sensation. What
 -- it asserts is the DECISION and the REPORTED STATE — and above all that the
--- three answers stay three. docs/lessons/capability-probes-must-be-tri-state.md
--- is about exactly this instrument shape, and this repository has now shipped a
+-- three answers stay three. A capability probe must be tri-state, which is
+-- exactly this instrument shape, and this repository has now shipped a
 -- boolean that published a false platform fact twice; `refused` and
 -- `undetermined` are therefore separate states with separate sentences, and a
 -- mutation that merges them reddens `the three answers stay three`.

@@ -1,5 +1,5 @@
 --!strict
--- IMAGE VALUE DISPLAYS (ADR-0020 R3, rich-skinning-v2 package P3): the bar
+-- IMAGE VALUE DISPLAYS (rich-skinning-v2 package P3): the bar
 -- family, the stepper plate and the toggle's two image slots.
 --
 -- This stage's standing lesson is EMISSION ≠ APPLICATION — the Step 3.5 fix
@@ -1166,7 +1166,7 @@ describe("screen_target: the toggle's art rides the instances that already exist
 	-- 24px — and that diagnosis is FALSE. The isolating live probe rendered the
 	-- same art at 44x24, 44x8 and 20x8 with SliceScale 1 and with the exactly
 	-- fitting scale: clean capsules, indistinguishable. **Roblox clamps
-	-- overlapping slice caps itself** (`docs/lessons/roblox-slice-and-uicorner.md`).
+	-- overlapping slice caps itself**.
 	--
 	-- The one variable that DID reproduce it is a real `UICorner` child on a
 	-- `ScaleType = Slice` ImageLabel: the engine rounds each of the nine patches

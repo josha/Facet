@@ -1,7 +1,7 @@
 --!strict
 -- THE ALWAYS-ON OVERFLOW SWEEP (device bug round 2026-08-12, Group B).
 --
--- WHY THIS EXISTS. `docs/lessons/the-solver-already-told-you.md` records a defect
+-- WHY THIS EXISTS. The standing lesson records a defect
 -- that shipped past a green suite, a green perf gate, a five-view device matrix
 -- and four fresh-context reviews, purely because nothing ever called
 -- `controller.diagnostics()`. On 2026-08-12 the same class arrived again, from a
@@ -57,8 +57,8 @@
 -- 4/10/14 (clean at 0, so headless and a default Studio session both saw nothing),
 -- and `examples/reference/p4_foyer`'s TopBar was found overflowing its hstack at
 -- the same preference — PRE-EXISTING, byte-identical with every edit stashed,
--- invisible for exactly the same reason. `docs/lessons/facet-fixed-px-heights.md`
--- names the class: a px height fixed against content that is not fixed. The
+-- invisible for exactly the same reason. The class is a px height fixed against
+-- content that is not fixed. The
 -- player's text preference is the one input that moves the content and nothing
 -- else, so a sweep that holds it at Medium is measuring one quarter of the
 -- screens that ship.
@@ -136,7 +136,7 @@
 --      Day vs Night, `fantasy-ornate` Crypt vs Grand Hall and `fantasy-parchment`
 --      Candlelight vs Daylight each produced BYTE-IDENTICAL finding sets over the
 --      whole cross product — 527 / 3863 / 2202 rows, zero difference — which is
---      ADR-0019's "a swap moves the palette, not the geometry" measured rather
+--      the contract's "a swap moves the palette, not the geometry" measured rather
 --      than recalled. So the axis is the eight shipped PACKAGES, not the twelve
 --      themes, and that costs nothing at all in coverage.
 --   2. EVERY VIEWPORT, because a viewport changes the TREE and not just the box.
@@ -156,7 +156,7 @@
 --
 -- ...AND THE SWING IS THE SAME MOUNT. A package is committed the way the theme
 -- picker commits one — `env:set("themeMetrics", snapshot)`, the metric half of
--- ADR-0019 §7's one transaction — so one mount per (surface, viewport) serves
+-- the theme controller's one transaction — so one mount per (surface, viewport) serves
 -- every package, exactly as it already serves every preference. Proved rather
 -- than assumed, over the whole cross product: swinging and re-mounting produced
 -- the SAME 24 963 distinct findings, zero on either side alone.
@@ -388,13 +388,13 @@ local SCENARIOS = {
 	-- viewport x text-preference cell in the cross product is a direct test of
 	-- whether the lane count this fixture offers survives the smallest box it gets
 	"virtual_hgrid",
-	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
+	-- ...and the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that
 	-- takes 200px of HEIGHT off the box, which is the case a viewport sweep would
 	-- otherwise never reach
 	"hud",
-	-- ...and UI.Foreign (ADR-0034). Its panes are FIXED-PX boxes that cannot
+	-- ...and UI.Foreign. Its panes are FIXED-PX boxes that cannot
 	-- reflow — the framework cannot ask a foreign instance how big it would like
 	-- to be, so the box is declared — sitting in a WRAPPING row beside captions
 	-- that grow with the text preference. That combination (rigid boxes, growing
@@ -402,7 +402,7 @@ local SCENARIOS = {
 	-- cross product is for, and it is the only fixture here where an overflow
 	-- would be the framework's own contract failing rather than a packaging slip
 	"foreign_content",
-	-- ...and ADR-0028's alarm fixture. It mounts a SECOND surface at build, which
+	-- ...and the cross-surface alarm fixture. It mounts a SECOND surface at build, which
 	-- is the only surface in this corpus that does — so the swept assertion here
 	-- is that the declared pair stays quiet at every viewport, preference and
 	-- package, and the class is one edit away from reddening this file (which is
@@ -433,7 +433,7 @@ local SCENARIOS = {
 	-- text preference. That combination (rigid plates, an AdaptiveStack that flips
 	-- axis, and a growing block of copy) is what the swept cross product is for
 	"canvas_group",
-	-- ADR-0035: the Background Transparency fixture. Three swatches and five
+	-- the Background Transparency fixture. Three swatches and five
 	-- setting chips that wrap, plus a fixed 300px dialog card — the two shapes a
 	-- 320px phone with the +14 text preference squeezes hardest
 	"preferred_transparency",
@@ -459,7 +459,7 @@ local SCENARIOS = {
 	-- nothing, at every viewport, preference and package — beside a bottom band
 	-- and a top band that both have to fit on a 320px-tall landscape
 	"tab_view",
-	-- ADR-0032: the nested-instance-tree compositing showcase. Two comparison
+	-- the nested-instance-tree compositing showcase. Two comparison
 	-- rows under one page scroller — a slider-driven fade pair and a
 	-- toggle-driven rotate/scale pair, each a fixed-px cluster inside an
 	-- AdaptiveStack that stacks to a column on a narrow phone — plus four
@@ -467,7 +467,7 @@ local SCENARIOS = {
 	-- swept cross product is the direct test of whether that packaging holds at
 	-- every viewport, at every preference, mid-turn as well as at rest
 	"nested_compositing",
-	-- ...and ADR-0063's world surface. Its SCREEN half is what is swept here — the
+	-- ...and the world surface. Its SCREEN half is what is swept here — the
 	-- lab around the terminal, a `fill` ScrollView of readouts over a control grid
 	-- — because the terminal itself is painted on a `SurfaceGui` this file has no
 	-- engine to build. The lab is swept for the same reason every other fixture is:
@@ -758,7 +758,7 @@ end
 	`kind` is the triage class (docs/plans/parity-round3.md carries the
 	full list with the per-view/per-preference detail):
 	  * fixed-px-vs-text  — a px extent fixed against content that is not fixed
-	                        (`docs/lessons/facet-fixed-px-heights.md`)
+
 	  * row-cannot-shrink — a row of labels/controls wider than the screen with
 	                        nothing allowed to shrink. NOTE: not ONE of these
 	                        carries the solver's "every shrinkable child is already
@@ -1708,7 +1708,7 @@ local function sweep(kind: string, name: string, mount: (any) -> any, localeMoun
 				atOffset(w, built, offset, nil, nil)
 			end
 			-- ...AND THE PACKAGE IS SWUNG THE SAME WAY (see the header's theme-axis
-			-- section). `themeMetrics` is the metric half of ADR-0019 §7's one
+			-- section). `themeMetrics` is the metric half of the controller's one
 			-- transaction and the seam the theme picker itself drives, so a package
 			-- lands on this already-mounted tree exactly as a player's swap would —
 			-- proved equivalent to a fresh mount over the whole cross product. The
@@ -2824,7 +2824,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
-	--[[ ── AND A ZONE STAYS INSIDE THE LANE IT WAS PUT IN (ADR-0056) ────────────
+	--[[ ── AND A ZONE STAYS INSIDE THE LANE IT WAS PUT IN ────────────
 
 		THE HOLE THIS CLOSES, and it is this sweep's own. Everything above polices
 		the TOP of the give-way — does the HUD clear the declared chip row — and the
@@ -3351,7 +3351,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			BUMPED, both times: the two pinned-EMPTY lists above are what the R23 ruling
 			is, and both are still empty, which is the half a count cannot say.
 
-			417 -> 414 (2026-08-27, task THEME / ADR-0059). `chrome_slots.spendInset`
+			417 -> 414 (2026-08-27, task THEME). `chrome_slots.spendInset`
 			now asks whether a node's own LINE BOX survives the package's carved border
 			rather than whether any pixels do, so an ornate disc that used to reserve a
 			frame it could not spend gives it back — and a `shape = "circle"` control's
@@ -3620,7 +3620,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 	end)
 
 	--[[ THE LANE-CONTAINMENT ORACLE BITES, on the tree the bug was reported on. This
-		is the control the ADR-0056 collector needs for exactly the reason the give-way
+		is the control the lane-containment collector needs for exactly the reason the give-way
 		one above needed its own: "zero regions outside their lane" reads identically
 		whether the geometry is clean or the comparison is dead, and this sweep had
 		been reading the second kind of zero for two director rounds.

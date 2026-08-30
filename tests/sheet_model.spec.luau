@@ -233,7 +233,7 @@ describe("sheet_model.build", function()
 		ownership and every tinted Box with no `surface` and no declared
 		`transparency` painted nothing. Measured in Studio 2026-08-15 on the live
 		plate: raw 0 / GetStyled 1; write 0.001 -> GetStyled 0.001; write 0 again ->
-		GetStyled 1 (docs/lessons/a-default-valued-write-never-claims.md).
+		GetStyled 1.
 
 		So the FILL rides a tag rule, exactly as `gripFocus` already does for the
 		same reason — and it sits in the `base` group so a surface, a slot and a
@@ -845,7 +845,7 @@ end)
 describe("RS-DIR8: a selected surface pairs with a content colour that can be read on it", function()
 	-- FOUND LIVE under glossy-touch: the segmented "Balanced" option drew
 	-- $Content (a near-black navy) on its selected art, measured rgb(66,116,215)
-	-- in the glyph band — 3.74:1, under the 4.5 floor. ADR-0019 gates
+	-- in the glyph band — 3.74:1, under the 4.5 floor. The theme contract gates
 	-- accent/onAccent as the one guaranteed pair; nothing carried that pairing to
 	-- the SELECTED state, so the lifted label kept the default content colour.
 	local function tokenOf(model: any, themeName: string, key: string): any

@@ -364,8 +364,8 @@ end)
 
 	  1. THE FALLBACK CLAIMED SUCCESS. With no `ctx.geometry` the per-path engine
 	     verdict returned `true` — "could not measure" published as "measured
-	     yes", which is the exact collapse
-	     docs/lessons/capability-probes-must-be-tri-state.md was written about.
+	     yes", which is the exact collapse a tri-state capability probe exists
+	     to prevent.
 	  2. A ROW WAS PAINTED IF *ANY* PATH PAINTED, so partial loss inside a row
 	     was invisible. The HUD's rows are groups.
 	  3. A ROW THE MODEL DID NOT WANT WAS DROPPED FROM THE DENOMINATOR ENTIRELY.
@@ -1660,7 +1660,7 @@ end)
 	perfectly healthy on every line it prints.
 
 	`controller.diagnostics()` is the framework's own answer to that and has been
-	there the whole time (docs/lessons/the-solver-already-told-you.md). It belongs on
+	there the whole time. It belongs on
 	the plate, above the paint verdict and inside the CLOSED set, because a reader
 	told "14 of 14 painting" and nothing else has been told the wrong thing. ]]
 describe("hud: the solver's own findings reach the plate", function()

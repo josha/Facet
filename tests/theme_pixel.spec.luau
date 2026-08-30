@@ -1,5 +1,5 @@
 --!strict
--- PIXEL-ART MODE (ADR-0020 R5, rich-skinning-v2 package P1).
+-- PIXEL-ART MODE (rich-skinning-v2 package P1).
 --
 -- `rendering = "pixel"` + `pixelUnit = N` turns on three generation rules, each
 -- of which rs-m5 measured a failure for:

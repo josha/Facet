@@ -1,6 +1,5 @@
 --!strict
--- Focus-skip by live predicate + the active-interaction exemption (ADR-0022
--- Decision 5, row SF-L3). The predicate is evaluated AT NAVIGATION TIME, so
+-- Focus-skip by live predicate + the active-interaction exemption (row SF-L3). The predicate is evaluated AT NAVIGATION TIME, so
 -- every case here flips eligibility between presses without touching the order —
 -- which is the whole point: a row that becomes ineligible while a card is armed
 -- must drop out of the ring with nobody rebuilding anything.

@@ -14,7 +14,7 @@
 	real device on 2026-08-13 — never the accessibility text preference. At
 	`preferredTextOffset` 4/10/14 every row overflowed its slot and the lab
 	refused to mount. Four inputs, three of them added post-mortem, and the class
-	is `docs/lessons/facet-fixed-px-heights.md`: a px height fixed against
+	is the fixed-px-height class: a px height fixed against
 	unfixed content.
 
 	The ruling was NOT to build variable extents (a subsystem, and it changes what

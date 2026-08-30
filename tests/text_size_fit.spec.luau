@@ -58,7 +58,7 @@ describe('the two constants, copied wrong — the class `textSize = "fit"` close
 	--[[ DEFECT 2, AND IT IS THE ONE THAT SHIPS WRONG PIXELS: none of the four copies
 		applies `max(typographyScale, typographyPaintScale)`. Every one of them is a
 		module-level constant or a derivation from one, so at a ten-foot display —
-		where the framework scales unauthored text by the type floor (ADR-0040 B-6/B-7)
+		where the framework scales unauthored text by the type floor
 		— the reserve does not move while the paint does. UNDER-reserve, in the unsafe
 		direction, by exactly the ladder's factor. ]]
 	it("a reserve that ignores the type ladder under-reserves by the ladder's own factor", function()

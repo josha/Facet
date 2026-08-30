@@ -194,7 +194,7 @@ end)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- THE PER-VIEW GRADIENT MODIFIER (charter cap 11 "views may apply
 -- shadow/gradient modifiers locally, with the two composing predictably";
--- ADR-0020 R8 rung 2). It follows UI.shadow's architecture exactly: bounded
+-- the rung-2 form). It follows UI.shadow's architecture exactly: bounded
 -- normalized DATA on a style-authority prop, materialized by the adapter as one
 -- bespoke child instance — never a sheet rule, because a rule and an instance
 -- would be two authorities over the same paint.
@@ -203,13 +203,13 @@ end)
 -- a device:
 --   1. the spec normalizes to engine-true data and is BOUNDED (2-3 stops,
 --      ordered, endpoints pinned, tokens resolved);
---   2. the ADR-0019 gradient ban still holds at this rung — a value control's
+--   2. the theme-rung gradient ban still holds at this rung — a value control's
 --      own chrome refuses a wash, with the same style of error;
 --   3. a text-bearing node refuses it, because a UIGradient multiplies the
 --      node's OWN engine-drawn glyphs (the Step 3.5 truth);
 --   4. it never enters layout;
 --   5. it survives a theme-package swap — the view wins on that node, and the
---      child is neither clobbered nor duplicated (ADR-0020 R8 composition).
+--      child is neither clobbered nor duplicated.
 -- ─────────────────────────────────────────────────────────────────────────────
 local stylingLib = require("../src/tokens/styling")
 local themePackage = require("../src/themes/package")

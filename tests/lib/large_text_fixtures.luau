@@ -254,7 +254,7 @@ local FIXTURES: { Fixture } = {
 			The rows are what the preference actually threatens: each declares a
 			FIXED px height off the control-size ladder while its label grows, which
 			is precisely the "painted at a size nobody measured" family this matrix
-			exists to catch (docs/lessons/, the fixed-px-height defect class). Both
+			exists to catch (the fixed-px-height defect class). Both
 			row forms are here — the leaf and the submenu row with its chevron — plus
 			the divider that separates two icon groups. ]]
 		id = "Menu-panel",
@@ -619,7 +619,7 @@ local FIXTURES: { Fixture } = {
 			return UI.Image({ id = "Ctl", image = "rbxassetid://1" })
 		end,
 	},
-	--[[ THE FOREIGN BOX (ADR-0034), SWEPT LIKE Box/Path/Image AND FOR ONE MORE
+	--[[ THE FOREIGN BOX, SWEPT LIKE Box/Path/Image AND FOR ONE MORE
 		REASON THAN THEY ARE. A Foreign draws no text of its own — its face is a
 		caller-owned GuiObject the framework never measures — so the naive reading
 		is that a text-preference sweep has nothing to look at, which is the reason
@@ -962,8 +962,7 @@ local UNSWEEPABLE: { [string]: string } = {
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on
 	-- 2026-08-14 so that file could get back under the 200,000-char
-	-- `Script.Source` WRITE cap (docs/lessons/
-	-- the-200k-source-cap-is-on-writing-not-loading.md). Neither is a control;
+	-- `Script.Source` WRITE cap. Neither is a control;
 	-- the RowActions row itself is swept and is the thing that mounts them.
 	TableColumns = "pure column-width arithmetic (the DIR-4 resize clamp) — no blueprint, nothing to mount or "
 		.. "measure. The columns it sizes are swept through the Table fixture, at every preference",

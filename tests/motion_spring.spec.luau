@@ -1,5 +1,5 @@
 --!strict
--- Motion solver + class registry (ADR-0022 Decision 1; acceptance rows SF-M1,
+-- Motion solver + class registry (acceptance rows SF-M1,
 -- SF-M5). Everything here is pure: the spring never reads a clock, so every
 -- assertion is a scripted dt away from being reproducible forever.
 --

@@ -1,5 +1,5 @@
 --!strict
--- First-responder (focus-engagement) model (ADR-0014; ui_todo §0/§3; director
+-- First-responder (focus-engagement) model (ui_todo §0/§3; director
 -- 2026-07-21). A Facet surface becomes first responder over avatar/gameplay
 -- input via FOCUS ENGAGEMENT (the responder-chain analogue), NOT by
 -- disabling player input. The proof here builds a fake gameplay stack in the

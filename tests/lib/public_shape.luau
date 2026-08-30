@@ -1,5 +1,5 @@
 --!strict
---[[ THE PUBLIC SHAPE A BREAKING CHANGE MOVES, extracted once (ADR-0040, wave
+--[[ THE PUBLIC SHAPE A BREAKING CHANGE MOVES, extracted once (wave
 	LAYOUT-FIX fix round 1, controller ruling R15).
 
 	Two shape facts about a public prop can turn working consumer code into broken

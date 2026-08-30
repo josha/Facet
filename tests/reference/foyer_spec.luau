@@ -892,7 +892,7 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 end)
 
 --[[ THE BADGE CORNER, THIRD CONSUMER (task FOYER; director order "fix foyer").
-	ADR-0059 recorded this file's own `badgeBubble` as a third, deliberately
+	The themed-chrome round recorded this file's own `badgeBubble` as a third, deliberately
 	unfixed occurrence of the badge-corner-offset class closed this campaign in
 	`src/controls/picker.luau`'s count seal and `examples/gallery/scenarios/
 	adaptive_controls.luau`'s HUD-tile badge — `picker.luau`'s own comment even

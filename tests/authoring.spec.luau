@@ -186,7 +186,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		expect(contains(err, "style authority")).toBe(true)
 	end)
 
-	it("every diagnosed property is in the ADR-0011 ledger with all required fields", function()
+	it("every diagnosed property is in the deprecation ledger with all required fields", function()
 		local wanted = { ["UI.Text.color"] = false, ["UI.Text.font"] = false }
 		for _, entry in Facet.DEPRECATIONS do
 			expect(#entry.since > 0).toBe(true)

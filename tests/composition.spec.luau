@@ -1,5 +1,5 @@
 --!strict
--- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023; ledger row OWN-D45).
+-- DECLARED-CONTENT ADAPTIVE COMPOSITION (ledger row OWN-D45).
 --
 -- The decision is PURE, so most of this file drives `composition.resolve` with a
 -- synthetic measure table and asserts the whole matrix — arrangement choice per
@@ -140,7 +140,7 @@ end
 
 -- ===== arrangement choice ==================================================
 
-describe("ADR-0023: the arrangement is chosen from the BOX, on both axes", function()
+describe("the arrangement is chosen from the BOX, on both axes", function()
 	it("a short wide offer resolves the richest arrangement (landscape phone)", function()
 		local res = resolve(733, 313)
 		expect(res.arrangement).toBe("threeLane")
@@ -196,7 +196,7 @@ end)
 
 -- ===== step-down before drop, both descending rank =========================
 
-describe("ADR-0023: step down before dropping, both in descending rank", function()
+describe("step down before dropping, both in descending rank", function()
 	it("a lane that overflows steps its LEAST important region down first", function()
 		-- one lane, tall enough for everything but the last few pixels
 		local decl = baseDecl({ arrangements = { ARRANGEMENTS[3] } })
@@ -321,7 +321,7 @@ end)
 
 -- ===== floors ==============================================================
 
-describe("ADR-0023: floors are content, and absolute", function()
+describe("floors are content, and absolute", function()
 	it("a `lines` floor resolves through the live theme's type role, CEILED as the solve is", function()
 		--[[ These read `math.ceil(...)` since 2026-08-15, and that is defect 1 of the
 			three `floorPx` carried: it computed the raw product, so a one-line floor was
@@ -372,7 +372,7 @@ end)
 
 -- ===== slack, reserved, empty ==============================================
 
-describe("ADR-0023: slack flows to fill; reserved holds; empty is absent", function()
+describe("slack flows to fill; reserved holds; empty is absent", function()
 	it("every pixel left over goes to the fill region, on both axes", function()
 		local res = resolve(1400, 900)
 		local field = res.regionById.Field
@@ -499,7 +499,7 @@ local function releaseSizes(overrides: { [string]: any }?): any
 	return sizes
 end
 
-describe("ADR-0023 rule 9 (DV6-2): an all-empty lane COLLAPSES and gives up its width", function()
+describe("rule 9 (DV6-2): an all-empty lane COLLAPSES and gives up its width", function()
 	--[[ THE MATRIX. A lane's regions can resolve to nothing in three ways, and the
 		rule has to be indifferent to which: measured EMPTY, DROPPED by rule 3, or a
 		reserved region whose schedule is over (`reserved` reading false). Anything
@@ -682,7 +682,7 @@ describe("ADR-0023 rule 9 (DV6-2): an all-empty lane COLLAPSES and gives up its 
 	end)
 end)
 
--- ===== spanning rows (DV5-1: the one contract gap ADR-0023 flagged) ========
+-- ===== spanning rows (DV5-1: the one contract gap the design flagged) =====
 -- A group declares `span = "above" | "below"` INSTEAD of a lane affinity, and is
 -- its own full-width row in that position in EVERY arrangement. Everything else
 -- about it is a group: its regions stack, they step down and drop by rank, and
@@ -710,7 +710,7 @@ local function spanDecl(overrides: { [string]: any }?): any
 	return decl
 end
 
-describe("ADR-0023 (2026-07-31): a group may SPAN the composition as its own row", function()
+describe("2026-07-31: a group may SPAN the composition as its own row", function()
 	it("the spanning row is full width, above the lanes, in EVERY arrangement", function()
 		for _, offer in
 			{ { w = 733, h = 313, arrangement = "threeLane" }, { w = 360, h = 900, arrangement = "column" } }
@@ -916,7 +916,7 @@ end)
 
 -- ===== exactly one scroll ==================================================
 
-describe("ADR-0023: exactly one scroll region", function()
+describe("exactly one scroll region", function()
 	it("a second mayScroll region is refused at DECLARATION, not resolved around", function()
 		local decl = baseDecl()
 		table.insert(decl.regions, { id = "Second", group = "next", rank = 9, forms = 1, mayScroll = true })
@@ -950,7 +950,7 @@ end)
 
 -- ===== declaration refusals ================================================
 
-describe("ADR-0023: a bad declaration is refused where it is written", function()
+describe("a bad declaration is refused where it is written", function()
 	local function refuses(mutate: (any) -> (), fragment: string)
 		local decl = baseDecl()
 		mutate(decl)
@@ -967,7 +967,7 @@ describe("ADR-0023: a bad declaration is refused where it is written", function(
 		end, "does not accept 'mayShrink'")
 	end)
 
-	-- `align` used to be the field this case reached for; ADR-0025 made it legal
+	-- `align` used to be the field this case reached for; the HUD zones made it legal
 	-- (it places a group's regions ACROSS the lane), so the case now names a field
 	-- that is still nobody's — the assertion is about the closed key set, not about
 	-- any one word
@@ -1040,7 +1040,7 @@ end)
 
 -- ===== determinism + the dump ==============================================
 
-describe("ADR-0023: the resolution is deterministic and dumpable", function()
+describe("the resolution is deterministic and dumpable", function()
 	it("two resolutions of the same offer are byte-identical dumps", function()
 		local a = composition.dump(resolve(733, 313))
 		local b = composition.dump(resolve(733, 313))
@@ -1152,7 +1152,7 @@ local function mounted(w: number, h: number)
 	return core, env, root, adapter, controller
 end
 
-describe("ADR-0023: UI.Composition, mounted", function()
+describe("UI.Composition, mounted", function()
 	it("places the lanes side by side on a short wide offer", function()
 		local _, _, _, adapter = mounted(900, 320)
 		local hero = adapter.node("/S/C/Hero/HeroFull").rect

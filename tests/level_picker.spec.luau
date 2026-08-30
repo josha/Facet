@@ -68,8 +68,7 @@ end
 	a SEMANTIC-channel prop and the adapter never records it, so
 	`node.props.focusable` is `nil` for the strip and for every segment alike — a
 	spec asserting `never().toBe(true)` on it would pass with ten focusable
-	segments and prove nothing (the class `docs/lessons/` calls a check that cannot
-	fail). `handle.focusOrder()` is the map the ring actually walks. ]]
+	segments and prove nothing — the class of check that cannot fail. `handle.focusOrder()` is the map the ring actually walks. ]]
 local function focusStopsIn(handle: any, prefix: string): { string }
 	local out: { string } = {}
 	for _, entry in handle.focusOrder().traversal do
@@ -688,7 +687,7 @@ end)
 	half, which count, which threshold — and the one geometric case it had asserted
 	`first.w > 0` and that the ten bars were equal WIDTH. Nothing ever multiplied
 	the two sides together. A rect with a width is not a rect you can see, which is
-	the same shape as `docs/lessons/a-default-valued-write-never-claims.md`: there,
+	the same shape as a default-valued write claiming nothing: there,
 	a probe read the tint off a plate that was never painted; here, a probe read the
 	width off a plate that was never given a height. In both, THE INSTRUMENT
 	REPORTED A NUMBER AND THE SCREEN WAS EMPTY.

@@ -1,5 +1,5 @@
 --!strict
--- Table cross-input WIRING tests (ui_todo §0; ADR-0013;
+-- Table cross-input WIRING tests (ui_todo §0;
 -- artifacts/input-adaptation-audit/wp-b-composites.md + matrix.md §1b).
 --
 -- These prove the DEVICE PATH end-to-end: every interaction runs through the
@@ -977,7 +977,7 @@ end)
 describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamepad", function()
 	-- THE FIXTURE CARRIES A REAL ENVIRONMENT, and every case says which INPUT it
 	-- is a phone/desktop/pad session of. The auto Edit/Done toggle is gated on the
-	-- live interaction classes (ADR-0015), so a fixture with no `env` would mount
+	-- live interaction classes, so a fixture with no `env` would mount
 	-- the toggle in EVERY case — including the mouse ones, where the whole point
 	-- is that it must not appear. `input` defaults to "mouse" because that is what
 	-- the pointer/keyboard/gamepad cases below are sessions of.
@@ -1056,7 +1056,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
 		pres.refresh()
-		-- the solver's own verdict, on every fixture (docs/lessons/the-solver-already-told-you.md)
+		-- the solver's own verdict, on every fixture
 		expect(#handle.controller.diagnostics()).toBe(0)
 		return {
 			core = core,
@@ -1310,7 +1310,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
 			expect(#w.opened).toBe(0)
 			-- and it ARRIVES the moment a touch capability goes live mid-session
-			-- (ADR-0015: affordances follow the live class set, never a stale preference)
+			-- (affordances follow the live class set, never a stale preference)
 			w.env:set("capabilities", { keyboard = true, mouse = true, touch = true, gamepad = false })
 			w.pres.refresh()
 			expect(w.adapter.node(TOGGLE) ~= nil).toBe(true)
@@ -1509,7 +1509,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		primary-action table instead of selecting it, so the default now carries a
 		much larger verb, and it is reachable from `ScreenTarget.driveActivate(path)`
 		on any session. The decision is to KEEP it (the full argument is the codicil
-		in docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md);
+		that a synthesized Activate must carry the pointer kind);
 		this case is what makes it a decision rather than an accident — a change of
 		mind has to come here and say so. `adapter.driveActivate` is the headless
 		mirror of the same seam, so this drives the verb through the seam that
@@ -2394,7 +2394,7 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 		w.settle()
 		w.press("Return")
 		expect(w.tbl.dump().columnPlate).never().toBe("closed")
-		--[[ Escape is permanently the engine's (ADR-0013 justified exception), so a
+		--[[ Escape is permanently the engine's (a justified exception), so a
 			modal's own close affordance IS the keyboard route out — the identical
 			affordance and the identical reason as `UI.Region`'s plate. ]]
 		local closePath: string? = nil

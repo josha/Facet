@@ -258,7 +258,7 @@ describe("presenter: presentCritical carries the caller's opts to the fallback (
 	end)
 end)
 
---[[ `presenter.raise` (registry item 23; W3-D, ADR-0053) — re-band a LIVE
+--[[ `presenter.raise` (registry item 23; W3-D) — re-band a LIVE
 	surface without dismiss+re-present. `examples/gallery/client/
 	showcase_chrome.luau`'s `raisePanel` is the real, migrated consumer
 	(`tests/gallery_chrome.spec.luau` describe (15) exercises it end-to-end,

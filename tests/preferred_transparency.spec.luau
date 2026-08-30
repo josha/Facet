@@ -1,6 +1,6 @@
 --!strict
 --[[ THE PLAYER'S BACKGROUND-TRANSPARENCY PREFERENCE, HONOURED BY A PAINT PATH
-	(owed row O-26, ADR-0035).
+	(owed row O-26).
 
 	`GuiService.PreferredTransparency` reaches Facet as the `preferredTransparency`
 	fact and the `effectiveTransparency` memo, and for four stages NOTHING read it —
@@ -252,12 +252,12 @@ end)
 -- 7. the authored-versus-presentation line
 -- ===========================================================================
 describe("an AUTHORED opacity is the author's number and the preference never scales it", function()
-	--[[ ADR-0026 made `opacity` an authored term the presentation channel composes
-		into `CanvasGroup.GroupTransparency`; ADR-0033's `withAnimation` interpolates
+	--[[ `opacity` is an authored term the presentation channel composes
+		into `CanvasGroup.GroupTransparency`, and `withAnimation` interpolates
 		that same term. If the preference scaled it, an author's explicit 0.5 would
 		silently become something else AND a running fade would be retargeted
 		mid-flight — the author's value and the player's preference fighting, which
-		is exactly what ADR-0035 refuses. The preference scales tokens the FRAMEWORK
+		is exactly what the preference decision refuses. The preference scales tokens the FRAMEWORK
 		declared as decoration; it never scales a number an author or an animation
 		is driving. ]]
 	local function opacityUnder(preference: number): number

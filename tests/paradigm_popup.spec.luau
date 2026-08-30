@@ -10,7 +10,7 @@
 --
 --  1. OUTSIDE-TAP dismiss (`outsideDismiss`). While the popup is open the presenter
 --     synthesizes a transparent within-screen catcher beneath the base screen
---     (Zone-A geometry over the contribution's own solved rects, the ADR-0014
+--     (Zone-A geometry over the contribution's own solved rects, the responder
 --     two-zone model), and a tap on a rendered node OUTSIDE the contribution's
 --     subtree dismisses it (onNodeTap path test). Non-destructive: selection is
 --     never touched. A real modal above the screen suppresses the catcher.

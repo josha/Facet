@@ -1,5 +1,5 @@
 --!strict
--- THE TOAST SCHEDULER (ADR-0022 Decision 4; acceptance row SF-T2). Every rule
+-- THE TOAST SCHEDULER (acceptance row SF-T2). Every rule
 -- here is a timing rule, so every case scripts `now()` — "after 1.5 seconds"
 -- means the same thing forever, on every machine.
 --

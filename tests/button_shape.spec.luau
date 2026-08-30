@@ -217,7 +217,7 @@ describe("circle Button: the reject classes name the field, the rule and the fix
 		expect(string.find(err, "ns:name", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("refuses an asset id in `icon` — a control never names an asset (ADR-0020 R4)", function()
+	it("refuses an asset id in `icon` — a control never names an asset", function()
 		fails(function()
 			UI.Button({ id = "B", label = "x", shape = "circle", icon = "rbxassetid://123456" })
 		end)
@@ -638,7 +638,7 @@ describe("circle Button paint: ONE rule is enough, and that is an invariant, not
 						continue
 					end
 					-- the ONE sanctioned exception: once art covers the node the image
-					-- IS the silhouette (ADR-0020 R9) and the node's own radius means
+					-- IS the silhouette and the node's own radius means
 					-- nothing, so the skinned-slot suppression must still win
 					expect(string.find(rule.name, "Skinned — ", 1, true) == 1).toBe(true)
 				end
@@ -721,7 +721,7 @@ describe("circle Button content: one semantic icon OR up to three characters", f
 			children = { UI.Button({ id = "More", label = "More actions", shape = "circle", icon = "more" }) },
 		}))
 		local node = adapter.node("/S/More")
-		-- ADR-0020 R4's tofu fix at a public prop: the legible character is in the
+		-- the semantic-icon tofu fix at a public prop: the legible character is in the
 		-- tree from the first frame, and NO resolution has to succeed for it to
 		-- render. A theme with art for "more" paints the picture over it.
 		expect(node.props.label).toBe("...")
@@ -870,7 +870,7 @@ describe("a Button's label wraps only where a break is legal", function()
 		-- the source pin above proves the CALL exists; this proves it lands. A
 		-- phrase in a box narrower than its own longest word must arrive at the
 		-- adapter with wrapping OFF, or the engine breaks the word inside a box the
-		-- solver measured for one line (docs/lessons/one-word-two-subsystems.md).
+		-- solver measured for one line.
 		local roomy = drawAt("Save changes", 400)
 		local tight = drawAt("Save changes", 40)
 		expect(`roomy wrapped:{roomy.textWrapped}`).toBe("roomy wrapped:nil")

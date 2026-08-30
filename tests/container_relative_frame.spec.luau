@@ -40,8 +40,7 @@
 	      -> 8 of the 13 cases FAIL, i.e. these cases observe the mechanism and not
 	         merely an arithmetic constant
 
-	Every mounted fixture asks `controller.diagnostics()`
-	(docs/lessons/the-solver-already-told-you.md).
+	Every mounted fixture asks `controller.diagnostics()`.
 ]]
 
 local fs = require("@lune/fs")
@@ -544,8 +543,7 @@ end)
 	straight back. Those two were SAFE — the triple is captured and restored
 	atomically, so the key cannot disagree with the container fields it names — and
 	that is exactly the danger: they are the only lines where a future edit could
-	break an invariant the header calls structurally impossible
-	(docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md).
+	break an invariant the header calls structurally impossible.
 
 	So the unwind is a NAMED writer now, `restoreScope`, and this case keeps the
 	header honest: nothing outside the two helpers may assign the field. It is

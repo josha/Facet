@@ -35,7 +35,7 @@ local VIEWPORT = { w = 480, h = 640 }
 
 -- ASK THE SOLVER. A perf fixture that never reads `controller.diagnostics()` may be
 -- measuring an overflowing layout, and a number taken from a screen nobody would ship
--- is not a number (docs/lessons/the-solver-already-told-you.md).
+-- is not a number.
 local function assertClean(handle: any, where: string)
 	local findings = handle.controller.diagnostics()
 	if #findings > 0 then

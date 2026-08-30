@@ -1,5 +1,5 @@
 --!strict
--- SEMANTIC ICONS, APPLIED (ADR-0020 R4, rich-skinning-v2 package P4).
+-- SEMANTIC ICONS, APPLIED (rich-skinning-v2 package P4).
 --
 -- P1 gave the framework `resolveIcon`, the ASCII fallback table and the
 -- `iconSizes` validation. Everything asserted here is the OTHER half — the half
@@ -552,7 +552,7 @@ describe("image paint is declared sheet-owned, with the adapter's instances name
 	it("every adapter-owned instance family is declared, and the names come from chrome_slots", function()
 		local declared = authority.bespokeInstances()
 		local names = {
-			-- the two families that are NOT chrome (ADR-0022): a presentation UIScale
+			-- the two families that are NOT chrome: a presentation UIScale
 			-- and the authored UI.stroke border. Their names live in the manifest
 			-- itself rather than in chrome_slots, and the invariant is the same one —
 			-- the adapter reads the name from a shared constant, so a rename cannot

@@ -616,7 +616,7 @@ describe("extension scaffold", function()
 		expect(`root screen: {string.find(scenario :: string, 'id = "ProbeWidget"', 1, true) ~= nil}`).toBe(
 			"root screen: true"
 		)
-		-- ...and it mounts the control through its ONE public spelling (ADR-0037)
+		-- ...and it mounts the control through its ONE public spelling
 		expect(`public spelling: {string.find(scenario :: string, "ctx.Facet.Controls.ProbeWidget(", 1, true) ~= nil}`).toBe(
 			"public spelling: true"
 		)

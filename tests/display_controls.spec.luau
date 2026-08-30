@@ -73,7 +73,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	end)
 
 	it("paint is style-owned through the BAR FAMILY, never a borrowed surface", function()
-		-- ADR-0020 R3: the track used to declare `surface = "control"` and the fill
+		-- the track used to declare `surface = "control"` and the fill
 		-- `surface = "accent"`, which subscribed both to treatments meant for
 		-- buttons and panels — an ornate package stretched a BUTTON plate over the
 		-- track, and a panel gradient's alpha made the fill see-through. They now

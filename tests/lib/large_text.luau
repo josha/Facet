@@ -145,7 +145,7 @@ export type WorldOpts = {
 --[[ world(opts) -> a presented-nothing world.
 
 	The PRESENTER is the driver on purpose: it is the public way a screen is put
-	on a target, it auto-wires every composite's four-input story (ADR-0013) with
+	on a target, it auto-wires every composite's four-input story with
 	no consumer opts, and it owns focus — so the same world answers the control
 	sweep, the layout sweep and the hot-swap focus/scroll cases without any spec
 	reaching past the public surface.

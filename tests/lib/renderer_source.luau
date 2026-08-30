@@ -11,8 +11,7 @@
 	or more, and every LIVE path is a write: Rojo's Studio plugin, `execute_luau`,
 	any plugin. So a module over the cap silently stops live-syncing into an open
 	Studio session, and a live check against it then tests the code baked into the
-	place file rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). `renderer.luau`
+	place file rather than the edits on disk. `renderer.luau`
 	was 242,943 characters and has shed seam after seam since: the measure seam
 	(`render/layout_node.luau`), the presentation channel
 	(`render/presentation_channel.luau`), the prop-channel manifest

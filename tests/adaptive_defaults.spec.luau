@@ -426,7 +426,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 			reaches into a private: the widest viewport at which a column disappears is
 			a number the player could count.
 
-			RE-MEASURED 2026-08-27 (task THEME, ADR-0059 Decision 5): carved 231 -> 215,
+			RE-MEASURED 2026-08-27 (task THEME): carved 231 -> 215,
 			flat unchanged at 199, difference 32 -> 16. Pixel Quest's `selection` recipe
 			now reserves the TWO design pixels its art carves rather than the four its
 			nine-slice border needs for the stretch rule, so it takes 8px a side where
@@ -808,7 +808,7 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 			interaction class and the space it got, so it refuses without an
 			environment rather than silently taking the large-screen answer.
 
-			`newVirtualGrid` joined on 2026-08-22 (ADR-0043) for a NARROWER reason, and
+			`newVirtualGrid` joined on 2026-08-22 for a NARROWER reason, and
 			it is worth naming because it is the first entry here that refuses only
 			SOMETIMES. It adapts nothing; what it needs an environment for is a fact —
 			the live theme snapshot a metric-name gutter resolves against, and the

@@ -394,7 +394,7 @@ describe("ruling 5: the two seams agree, because only one of them decides", func
 		-- `screen_target`'s TextWrapped rule sees the string and not the box, so a
 		-- phrase in a box narrower than its own longest word would wrap at paint no
 		-- matter what the solve reserved — the measure/paint split this framework
-		-- keeps meeting (docs/lessons/one-word-two-subsystems.md).
+		-- keeps meeting.
 		local tight = drawAt("Configuration options", 40)
 		expect(`tight textWrapped={tostring(tight.textWrapped)}`).toBe("tight textWrapped=false")
 		tight.root.dispose()

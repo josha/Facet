@@ -1,7 +1,7 @@
 --!strict
 --[[ THE CLASSIFICATION-TAG SYNC, DRIVEN RATHER THAN READ.
 
-	This is the regression the sticky-tag defect (ADR-0038, SCREEN-X) did not
+	This is the regression the sticky-tag defect (SCREEN-X) did not
 	have and should have. `syncTags` owns every `facet-*` tag on an instance, and
 	for four days its REMOVAL half was dead code — `string.sub(tag, 1, 5)`
 	compared five characters against the six-character `"facet-"`, so the

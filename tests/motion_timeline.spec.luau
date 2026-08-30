@@ -1,5 +1,5 @@
 --!strict
--- Timeline (ADR-0022 Decision 1; acceptance rows SF-M4, SF-M5). A choreographed
+-- Timeline (acceptance rows SF-M4, SF-M5). A choreographed
 -- sequence that a scripted clock can drive frame by frame, that can be
 -- interrupted at ANY frame, and that always resolves to a declared end state.
 --

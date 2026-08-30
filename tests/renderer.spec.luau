@@ -133,7 +133,7 @@ describe("environment: per-key isolation", function()
 		expect(env:get("sizeClass"):get()).toBe("compact")
 	end)
 
-	-- ADR-0015: the live interaction-class set, derived from capabilities +
+	-- the live interaction-class set, derived from capabilities +
 	-- preferredInput (never the preference alone)
 	it("derived interactionClasses: defaults are a pointer/keyboard desktop", function()
 		local core = customFactory.new()

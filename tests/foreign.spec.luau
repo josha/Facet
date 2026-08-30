@@ -1,6 +1,6 @@
 --!strict
 -- UI.Foreign — the bounded escape hatch to a Roblox GuiObject Facet does not
--- wrap (ADR-0034; docs/reference/api.md §Foreign).
+-- wrap (docs/reference/api.md §Foreign).
 --
 -- Six contracts, all deterministic and engine-free:
 --   (a) SCHEMA        strict authoring, and the UNBOUNDED form refused BY NAME:
@@ -355,7 +355,7 @@ describe("UI.Foreign: the foreignHost content seam (c)", function()
 
 	--[[ THE REFUSAL LADDER, in the order a caller hits it. Each rung names the
 		node, says what the candidate is, and — where there is one — names the
-		alternative that DOES work, which is the standing pattern (ADR-0029). ]]
+		alternative that DOES work, which is the standing pattern. ]]
 	it("refuses nothing, a LayerCollector, a non-GuiObject and a destroyed instance — each by name", function()
 		local _, root, _, controller = mountForeign()
 		local host = controller.foreignHost("/S/Foreign") :: any
@@ -552,7 +552,7 @@ describe("UI.Foreign: layout (e)", function()
 	--[[ THE BOX IS THE PROMISE. Facet reserves a rect and the caller fills it;
 		what keeps that a CONTRACT rather than a hope is that the container clips,
 		so no foreign instance can paint one pixel outside the rect the solver
-		reserved — which is also what keeps the cross-surface cover rect (ADR-0028)
+		reserved — which is also what keeps the cross-surface cover rect
 		honest about this node. ]]
 	it("clips its content to the reserved box, on both adapters", function()
 		local _, root, adapter, controller = mountForeign()
@@ -578,8 +578,7 @@ describe("UI.Foreign: layout (e)", function()
 		no-slot hint at CREATION and unconditionally, so no channel can override it
 		— which is a fact about the create path, not about the classifier, so the
 		classifier check alone would prove nothing. ]]
-	--[[ THE SHEET REACHES CONTENT THE FRAMEWORK DOES NOT WRITE (ADR-0034 Decision 7,
-		found live 2026-08-15). A native-mode surface links a theme StyleSheet whose
+	--[[ THE SHEET REACHES CONTENT THE FRAMEWORK DOES NOT WRITE (found live 2026-08-15). A native-mode surface links a theme StyleSheet whose
 		class-default rules select the seven GuiObject classes Facet renders, and the
 		engine decides "explicitly set" by VALUE: an adopted `Frame` born at
 		`BackgroundTransparency = 0` — the class default — cannot hold that value

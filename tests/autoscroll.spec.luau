@@ -1,5 +1,5 @@
 --!strict
--- Edge autoscroll, the pure model (ADR-0022 Decision 5, row SF-L2). Every case
+-- Edge autoscroll, the pure model (row SF-L2). Every case
 -- drives a SCRIPTED clock, so dwell, ramp, penetration, the canvas clamp and the
 -- exit decay are exact numbers rather than "it felt about right". The model
 -- scrolls nothing: it answers a delta and a state, and the host applies them.

@@ -1,5 +1,5 @@
 --!strict
--- Theme SNAPSHOT resolution (ADR-0019 §2): one frozen metric authority,
+-- Theme SNAPSHOT resolution: one frozen metric authority,
 -- composed EXACTLY ONCE in the documented order. The composition order is the
 -- whole contract — the ten-foot floor and the preferred-text reservation are
 -- applied by the existing environment/measure seams, so applying them here too

@@ -533,7 +533,8 @@ end)
 -- docs (artifacts/expansion-textinput/platform-research.json), so — unlike
 -- keyboardType — there is nothing to wire even behind a capability gate. It is a
 -- declared-intent hint carried as model data (parity with keyboardType-as-data,
--- ADR-0012), a justified engine-absent exception. Validated as a closed set.
+-- the TextInput expansion), a justified engine-absent exception. Validated as a
+-- closed set.
 describe("TextInput: submitLabel (declared Return-key hint; engine-absent clean degrade)", function()
 	it("a known submitLabel is accepted and carried as declared data (dump)", function()
 		local w = world({ initial = "", submitLabel = "search" })

@@ -393,12 +393,12 @@ describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects 
 	end)
 end)
 
---[[ DIRECTOR ITEM 5 (ADR-0058): PHYSICAL-SIZE-AWARE TEN-FOOT CLASSING.
+--[[ DIRECTOR ITEM 5: PHYSICAL-SIZE-AWARE TEN-FOOT CLASSING.
 
 	The director's report: a ROG Ally (a Windows PC handheld) reads fonts too
 	small, suspected classed as console/ten-foot BY INPUT rather than by
-	screen size. Measured directly (ADR-0058 quotes the Studio session in
-	full): the engine's own `GuiService.ViewportDisplaySize` is not reliable
+	screen size. Measured directly in a Studio session: the engine's own
+	`GuiService.ViewportDisplaySize` is not reliable
 	enough alone — an ordinary windowed desktop viewport, measured live in
 	Studio Play, reported "Large", the SAME bucket a real console reports.
 

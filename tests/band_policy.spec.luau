@@ -148,7 +148,7 @@ describe("§9: `bandSafeContent` floors its other three edges at the theme's own
 	it("a platform reporting NO lateral inset still leaves the theme's gutter", function()
 		local w = mountUnder(plainScreen(), "bandSafeContent", ZERO)
 		local rect = w.adapter.node("/S").rect
-		-- three edges floored; the TOP is the platform's and is not (ADR-0027)
+		-- three edges floored; the TOP is the platform's and is not
 		expect(`{rect.x},{rect.y},{rect.w},{rect.h}`).toBe(`{GUTTER},0,{400 - GUTTER * 2},{300 - GUTTER}`)
 	end)
 

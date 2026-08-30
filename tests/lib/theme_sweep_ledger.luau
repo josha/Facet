@@ -32,7 +32,7 @@
 --               theme-inset-yield — a control smaller than the theme it wears.
 --                 The renderer already gave the inset back and the content still
 --                 draws, so it is the mildest row here — but it is the direct
---                 signal of `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md`
+--                 signal that a fixed box cannot hold a theme's frame
 --                 ("a control's fixed dimension is a promise it cannot keep under
 --                 a theme it has not seen"), which is why it is recorded rather
 --                 than filtered.
@@ -74,7 +74,7 @@ export type Row = {
 
 theme_ledger.ROWS = {
 	{
-		-- THE 2026-08-27 ROWS (task THEME, ADR-0059). `chrome_slots.spendInset` used to
+		-- THE 2026-08-27 ROWS (task THEME). `chrome_slots.spendInset` used to
 		-- spend a package's carved border whenever ANY pixels remained; it now asks whether
 		-- the node's own LINE BOX still fits, which is what stopped a 16px glyph being drawn
 		-- into a 4x4 box (director item 6). Nothing below is a new defect — every one is a
@@ -238,7 +238,7 @@ theme_ledger.ROWS = {
 	},
 	{
 		-- NOT a yield: the feed page's own content box on a short landscape. It appeared
-		-- 2026-08-27 when Pixel Quest's frame narrowed (ADR-0059 Decision 5) and the page
+		-- 2026-08-27 when Pixel Quest's frame narrowed and the page
 		-- re-flowed; the neutral pass already waives this page's parent `HomeBody` for the
 		-- same short-landscape reason (see the spec's own waiver list).
 		--
@@ -284,7 +284,7 @@ theme_ledger.ROWS = {
 		px = 183,
 		-- RE-RECORDED 2026-08-27 (task THEME): +14 -> +0. Pixel Quest's `control`
 		-- recipe now reserves the two design pixels its art carves rather than the
-		-- four its nine-slice border needs (ADR-0059 Decision 5), so this row's
+		-- four its nine-slice border needs, so this row's
 		-- controls are 8px narrower per side and the axis caption is 3px wide of
 		-- fitting at the DEFAULT preference where it used to fit until +14.
 		since = 0,
@@ -628,7 +628,7 @@ theme_ledger.ROWS = {
 	-- Pointer and Pixel Quest each yielded theirs on all 25 board cells and all 7
 	-- rack tiles. The rewrite sizes both from
 	-- `{ type = "minMax", min = "targetSizes.minimum" }` — a FLOOR the square can
-	-- grow past, which is the answer docs/lessons/facet-fixed-px-heights.md names
+	-- grow past, which is the answer to a fixed px height
 	-- — so the inset is affordable and nothing yields. The board cell is also no
 	-- longer a Button at all (it is a plate plus a `plain` hit layer), so it
 	-- classifies into no chrome slot to begin with.
@@ -752,7 +752,7 @@ theme_ledger.ROWS = {
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
 		px = 68,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -775,7 +775,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -788,7 +788,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -801,7 +801,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -814,7 +814,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -827,7 +827,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -840,7 +840,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -853,7 +853,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -866,7 +866,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -879,7 +879,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -892,7 +892,7 @@ theme_ledger.ROWS = {
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 44,
 		since = 0,
-		-- ...and fantasy-ornate joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-ornate joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -906,7 +906,7 @@ theme_ledger.ROWS = {
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the row's box now follows the theme's own touch floor (the fixture stopped spelling it as a 44), so at ten-foot under Pixel Quest it is 68 rather than 44. The px column records the BOX, not the shortfall, and the shortfall got SMALLER: 44 - 24 = 20px of room for a 32px frame at near, 68 - 40 = 28px at distance.
 		px = 68,
 		since = 0,
-		-- ...and fantasy-parchment, glossy-touch joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and fantasy-parchment, glossy-touch joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
@@ -961,7 +961,7 @@ theme_ledger.ROWS = {
 		sig = "content box collapses to Npx on x: padding N",
 		px = 40, -- re-recorded 2026-08-28 (task SCROLL2, fa7233a): 39 -> 40, the zero-auto-reserve ruling's 8px-wider touch-derived scroll host redistributing 1px onto this rack row (390x844 still measures 39 elsewhere; this is glossy-touch's new max)
 		since = 0,
-		-- ...and pixel-quest joined 2026-08-27 (task THEME, ADR-0059): `spendInset`'s
+		-- ...and pixel-quest joined 2026-08-27 (task THEME): `spendInset`'s
 		-- affordability test is now the node's own line box, so a control this package
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
@@ -1364,7 +1364,7 @@ theme_ledger.ROWS = {
 		px = 16,
 		since = 0,
 		-- ...and pixel-quest joined them 2026-08-27 for the same reason as the row
-		-- above (ADR-0059 Decision 5), at 11px against this row's 16px ceiling
+		-- above, at 11px against this row's 16px ceiling
 		packages = "fantasy-ornate,glossy-touch,pixel-quest,scifi-hud",
 		kind = "row-cannot-shrink",
 	},

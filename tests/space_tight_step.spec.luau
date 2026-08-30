@@ -1,5 +1,5 @@
 --!strict
--- THE MISSING SPACING STEP (task G-SPACE, ADR-0047; the declarative-purity
+-- THE MISSING SPACING STEP (task G-SPACE; the declarative-purity
 -- audit's `gap = 6` finding). `xs` (4) and `s` (8) are the ladder's two
 -- smallest REQUIRED rungs and nothing named the value halfway between them —
 -- see `src/themes/package.luau`'s `DERIVED_SPACE_STEPS` comment for the full
@@ -43,7 +43,7 @@ local function derive(metrics: any, id: string?): any
 	return pkg
 end
 
-describe("space.tight — the missing spacing step (ADR-0047)", function()
+describe("space.tight — the missing spacing step", function()
 	it("resolves to 6 at Studio Neutral (xs=4, s=8)", function()
 		local neutral = snapshot.neutral()
 		expect(neutral.space.tight).toBe(6)

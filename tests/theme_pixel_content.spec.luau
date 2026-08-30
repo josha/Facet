@@ -1,5 +1,5 @@
 --!strict
--- PIXEL MODE + CONTENT ADOPTION (ADR-0020 R5/R6, rich-skinning-v2 package P4).
+-- PIXEL MODE + CONTENT ADOPTION (rich-skinning-v2 package P4).
 --
 -- P1 shipped the two pure pieces — `snapToPixelUnit` and the `content`/
 -- `contentId` normalizer — and neither had a caller. This file is the

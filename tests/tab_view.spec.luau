@@ -994,7 +994,7 @@ describe("D5: four inputs, one story", function()
 		expect(focus_map.autoGroups(rail.handle.root.node)[1].axis).toBe("vertical")
 	end)
 
-	it("the shoulders are UNBOUND while focus sits off the strip — the ADR-0013 hazard", function()
+	it("the shoulders are UNBOUND while focus sits off the strip — the auto-wiring hazard", function()
 		local w = world({
 			tabs = {
 				{
@@ -1311,18 +1311,25 @@ describe("§6: a declared `hug` bottom band centres and scrolls, like every othe
 		expect(w.adapter.node("/S/Tabs/BottomHome/then/BottomBandCenter/BottomBand")).toBeNil()
 	end)
 
-	--[[ ...AND IT IS ON THE REGISTER (ADR-0040 B-21). Shipped geometry moves for any
-		caller who declared `hug` at this placement, and `p1_glade` is one as of
-		ADR-0045 — recorded by the B-18 precedent, which owes a row for a change no
+	--[[ ...AND IT IS ON THE REGISTER. Shipped geometry moves for any caller who
+		declared `hug` at this placement, and `p1_glade` is one — recorded by the
+		same precedent that owes a row for a change no
 		fixture moves through today precisely because the next reader tuning against
 		the old shape has no other way to learn it changed. ]]
-	it("the register records it: ADR-0040 carries the hug-band row", function()
-		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
-		--[[ THE ID AND THE SUBJECT ARE ONE PATTERN, NOT TWO SUBSTRINGS (2026-08-22) —
-			see the twin note in `picker_segments.spec`. As independent `find`s this
-			passed while a second lane's row also called itself B-21. ]]
-		expect(string.find(record, '| B%-21 | `newTabView` with a DECLARED `sizing = "hug"`') ~= nil).toBe(true)
-		expect(string.find(record, "centred scroller", 1, true) ~= nil).toBe(true)
+	it("the register records it: the changelog carries the hug-band row", function()
+		local record = fs.readFile("CHANGELOG.md")
+		--[[ THE SUBJECT AND THE CLAIM ARE ONE PATTERN, NOT TWO SUBSTRINGS
+			(2026-08-22) — see the twin note in `picker_segments.spec`. As independent
+			`find`s this passed while a second lane's row carried the same label. ]]
+		expect(
+			string.find(
+				record,
+				'`newTabView` with a declared `sizing = "hug"` at `bottomBar` now gets the same',
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+		expect(string.find(record, "**centred scroller** every other hugging home gets", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a declared hug band is CENTRED — measured, not named", function()

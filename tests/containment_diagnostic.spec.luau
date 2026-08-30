@@ -1,7 +1,7 @@
 --!strict
 --[[ THE SETTLE-TIME CONTAINMENT FINDING — the solver saying the thing it knew.
 
-	`docs/lessons/the-solver-already-told-you.md` is the standing lesson: the
+	The standing lesson is that the solver already told you: the
 	solver already knows every overflow, every collapsed content box and every
 	inert prop, and names the node, the number and the fix — on a channel someone
 	has to ask. There was one thing it did NOT know how to say. Every overflow

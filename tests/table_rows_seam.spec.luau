@@ -23,8 +23,8 @@
 	mutable containers, and nothing else) and the one-way require asserted
 	directly. Each rule is a pure function of two strings, so each carries a
 	NEGATIVE CONTROL that feeds it a broken pair and proves it reports — a check
-	that cannot fail is decoration (`docs/lessons/a-red-check-cannot-report-the-
-	next-defect.md`, and this repo's own gate-integrity sweep).
+	that cannot fail is decoration (a red check cannot report the next defect,
+	and this repository's own gate-integrity sweep says so).
 ]]
 
 local t = require("./lib/testkit")

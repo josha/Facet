@@ -3,7 +3,7 @@
 	LATE INPUT CONTRIBUTIONS + THE FOCUS-VISIBLE RULE
 	(RascalRally device round 1, DB-4 the crown bug and DB-3(b)).
 
-	DB-4. The presenter's ADR-0013 auto-wiring used to be a ONE-SHOT walk at
+	DB-4. The presenter's input auto-wiring used to be a ONE-SHOT walk at
 	`present()` time, which silently assumed every contributing control is mounted
 	then. `UI.When` exists precisely so that is not true. RascalRally's whole
 	Sponsor HUD lives under one region gated on "am I a sponsor" and the presenter

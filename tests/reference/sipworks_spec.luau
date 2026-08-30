@@ -949,7 +949,7 @@ describe("Sipworks §17 — reset determinism", function()
 end)
 
 describe("Sipworks — the five-view sweep the solver itself signs off", function()
-	-- THE LESSON THIS ENCODES (docs/lessons/the-solver-already-told-you.md): a
+	-- THE LESSON THIS ENCODES: a
 	-- fixture that never calls `controller.diagnostics()` is a fixture that can
 	-- ship a screen painting outside its own box. Every viewport in the matrix,
 	-- both locales and both ends of the preferred-text ladder, driven through the
@@ -1292,7 +1292,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		w.built.dispose()
 	end)
 
-	--[[ ONE LADDER, NOT ONE NUMBER'S LADDER (ADR-0042).
+	--[[ ONE LADDER, NOT ONE NUMBER'S LADDER.
 
 		This proof owned its structural numbers as literals in
 		`content/metrics.luau`, and exactly ONE of them climbed the ten-foot ladder:
@@ -1806,7 +1806,7 @@ describe("Sipworks — the standalone place and the showcase scenario import one
 	end)
 end)
 
---[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE (ADR-0042).
+--[[ THE PROOF'S APP NAMESPACE DOES NOT OUTLIVE THIS FILE.
 
 	`build` declares `app.sip.*` PROCESS-WIDE, and a spec file that walked away
 	would leave the group standing for every later file in this one Lune run —

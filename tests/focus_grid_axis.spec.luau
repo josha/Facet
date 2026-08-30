@@ -1,5 +1,5 @@
 --!strict
---[[ THE SECOND AXIS OF A FOCUS GROUP (ADR-0030, design §9.3, UI-FOCUS-001).
+--[[ THE SECOND AXIS OF A FOCUS GROUP (design §9.3, UI-FOCUS-001).
 
 	A grid's focus ring is TWO-dimensional and the focus graph's ring was not, so
 	both lazy grids declared a 1-D group along their LANE axis and intercepted the

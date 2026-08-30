@@ -26,7 +26,7 @@ local PACKAGES = {
 	fantasy_parchment_stub = require("../examples/themes/fantasy_parchment_stub"),
 	fantasy_parchment = require("../examples/themes/fantasy_parchment"),
 	custom_control = require("../examples/themes/custom_control"),
-	-- the rung-3 worked example (ADR-0020 R8): a CONTROL module, not a package
+	-- the rung-3 worked example: a CONTROL module, not a package
 	ornate_gauge = require("../examples/themes/ornate_gauge"),
 	-- P5's reference packages, so the steps that install them are driven
 	-- headlessly and not only in a Studio session
@@ -311,7 +311,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 
 		-- RUNG 2 on the same screen: the per-view gradient is materialized once,
 		-- keeps the VIEW's values, and the package swap above neither clobbered
-		-- nor duplicated it (charter cap 11; ADR-0020 R8 composition)
+		-- nor duplicated it (charter cap 11)
 		local washPath = "/GaugeProbe/WashCard"
 		local wash = world.adapter.node(washPath)
 		expect(wash ~= nil).toBe(true)
@@ -578,7 +578,7 @@ describe("theme_authoring scenario: the report pairs the evidence", function()
 
 	it("survives a package whose recipes carry PER-STATE asset maps", function()
 		-- LIVE-FOUND (P5, 2026-07-25): `chromeProbe` indexed `package.assets` with
-		-- `recipe.asset`, which ADR-0020 R2 made legal as a TABLE. Under Fantasy
+		-- `recipe.asset`, which the per-state grammar made legal as a TABLE. Under Fantasy
 		-- Ornate — whose toggle, knob and stepper recipes all carry state maps —
 		-- the lookup returned nil and `report()` threw, so the one step that pairs
 		-- geometry with identity could not be called on the centerpiece package at

@@ -65,7 +65,7 @@ local SIZES = { 200, 2000, 20000 }
 -- rather than a hopeful one: the solver reports overflow, and every fixture here
 -- fails on a non-empty finding. (This spec's own first version hard-coded 56 with a
 -- `viewportHeight` unrelated to the viewport and never asked the solver anything —
--- the exact defect docs/lessons/the-solver-already-told-you.md is about.)
+-- the exact defect the solver's own diagnostics exist to report.)
 -- MUTATION-PROVED, not chosen: setting this to 20 reddens 16 cases with
 -- "overflows its zstack by 0x4px" from the solver; 40 and 56 are clean. So the
 -- constant is a measured floor with headroom, and the audit is what makes it one.
@@ -79,8 +79,8 @@ type Item = { id: string, label: string, value: any, flag: any }
 -- that row reads. A framework with fine-grained reactivity writes one Text; a
 -- framework that re-renders writes all of them.
 -- ASK THE SOLVER. A fixture that never reads `controller.diagnostics()` is not
--- verified, however many counters it asserts — that is the whole of
--- docs/lessons/the-solver-already-told-you.md, and it applies to a perf fixture
+-- verified, however many counters it asserts — that is the whole of the
+-- standing lesson, and it applies to a perf fixture
 -- exactly as much as to a shipped screen: a number measured on an overflowing
 -- layout describes a screen nobody would ship.
 local function assertClean(handle: any, where: string)

@@ -31,7 +31,8 @@ run happens; no emulator, preview profile or headless test can close one.
 | Performance | What does a world surface cost per frame at production node counts on the supported hardware? | a world target now exists (`surface_target`) and its per-frame cost is one of its own named open questions; nothing has been measured on spatial hardware | PENDING_PHYSICAL |
 
 Until every row above is closed on named hardware, the honest statement is: *Facet
-has an extension seam for spatial UI.* Anything stronger is unearned.
+has an extension seam for spatial UI.* Anything stronger is unearned. Nothing in
+this repository is a claim of VR support, and no shipped document may become one.
 
 ## Design rule
 

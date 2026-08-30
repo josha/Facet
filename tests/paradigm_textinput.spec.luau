@@ -14,7 +14,7 @@
 --     comes down, navigation resumes, and the value model keeps the last accepted
 --     text (never silently dropped).
 --
--- Keyed off the LIVE interaction-class set (ADR-0015), never preferredInput alone.
+-- Keyed off the LIVE interaction-class set, never preferredInput alone.
 -- Every interaction goes through the real paths (adapter.tap / adapter.focusText /
 -- system.deviceKey / env class flips), never a direct callback.
 

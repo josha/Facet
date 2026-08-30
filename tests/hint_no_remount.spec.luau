@@ -1,5 +1,5 @@
 --!strict
--- ADR-0004 Phase 1 proof (UI-INPUT-002): a PreferredInput change updates hint
+-- Phase 1 proof (UI-INPUT-002): a PreferredInput change updates hint
 -- bindings on MOUNTED controls without any factory rerun, remount, or
 -- structural change — and other bindings keep working throughout.
 
@@ -9,7 +9,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
-describe("hint changes without remount (ADR-0004)", function()
+describe("hint changes without remount", function()
 	it("preferredInput flip updates the hint text prop only; zero factory reruns", function()
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)

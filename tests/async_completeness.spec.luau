@@ -1,5 +1,5 @@
 --!strict
--- ASYNC COMPLETENESS (ADR-0022 Decision 8; acceptance rows SF-A1, SF-A2, SF-A3).
+-- ASYNC COMPLETENESS (acceptance rows SF-A1, SF-A2, SF-A3).
 -- Everything here is scripted: a fake transport answers the provider's pending
 -- window, and a fake clock decides when a spaced retry is due — so "two attempts,
 -- half a second apart, then give up" is a proposition and not a hope.

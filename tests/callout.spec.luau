@@ -484,7 +484,7 @@ describe("D3b Callout: it never blocks", function()
 		can say, and it is not strong enough: `adapter.tap(path)` looks the node up
 		by name and calls its handler, so it has no hit test and no z-order at all.
 		On a real engine input goes to the TOPMOST object and a `GuiButton` SINKS it
-		(docs/lessons/…, measured 2026-08-13) — so the one fact that decides whether
+		(measured 2026-08-13) — so the one fact that decides whether
 		the control underneath is reachable is the one the driven case cannot see.
 
 		The tap-away catcher is a full-viewport `Button`, and it was mounted at

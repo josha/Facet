@@ -22,7 +22,7 @@
 
 	Each rule is a pure function of a string, so each carries a NEGATIVE CONTROL
 	that feeds it a broken input and proves it reports. A check that cannot fail is
-	decoration (`docs/lessons/a-red-check-cannot-report-the-next-defect.md`).
+	decoration.
 ]]
 
 local t = require("./lib/testkit")
@@ -265,7 +265,7 @@ describe("the composition-resolve seam: no module-level mutable state", function
 	end
 
 	it("no module-level local is ever reassigned — two solves cannot see different helpers", function()
-		--[[ `docs/lessons/later-locals-are-not-upvalues.md` records the shape that
+		--[[ Later locals are not upvalues, and that is the shape that
 			made `shrinkStack` un-extractable until it moved: a local declared near the
 			top and assigned two thousand lines below. Nothing here may acquire one —
 			a module with mutable module state is a module the solver shares state

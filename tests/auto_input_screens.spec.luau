@@ -1,5 +1,5 @@
 --!strict
--- Framework-layer input auto-adaptation, screen level (ADR-0013; ui_todo §0).
+-- Framework-layer input auto-adaptation, screen level (ui_todo §0).
 -- Closes the remaining FRAMEWORK-AUTOMATIC cells the audit left open on PLAIN
 -- screens (no input-contribution composites):
 --   * WP-1 auto navigation groups derived from LAYOUT STRUCTURE (HStack row ->
@@ -434,7 +434,7 @@ end)
 
 -- ===========================================================================
 -- WP-3: modal keyboard Cancel = a keyboard-reachable, Activate-dismissable
--- close affordance (Escape is engine-reserved; ADR-0013 justified exception).
+-- close affordance (Escape is engine-reserved, a justified exception).
 -- ===========================================================================
 describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Activate-dismisses", function()
 	it("Navigate reaches the close Button; Return activates it and dismisses the modal end-to-end", function()

@@ -1,5 +1,5 @@
 --!strict
--- THE SCREEN-ANCHORED HUD (ADR-0025).
+-- THE SCREEN-ANCHORED HUD.
 --
 -- The commissioning case is two screenshots of a shipped FPS: fullscreen the HUD
 -- is right, and with a browser URL bar open — SAME WIDTH, ~200px LESS HEIGHT —
@@ -11,16 +11,16 @@
 --
 --   1. the nine anchored zones PARTITION the box — their rects never intersect,
 --      at any height, and a zone stays in the column it was pinned to even when
---      a neighbouring column empties (`holdsLane`, ADR-0025 Decision 2);
+--      a neighbouring column empties (`holdsLane`);
 --   2. when the height runs out the HUD DEGRADES BY RANK — step down before
---      drop, descending rank — which is ADR-0023's ladder reused literally
+--      drop, descending rank — which is the composition ladder reused literally
 --      rather than a second copy of it;
 --
 -- ...and the alarm for the residual case a partition cannot remove: a zone whose
 -- CONTENT is wider than the column it was given is drawing on top of the column
 -- next door, and `resolution.collisions` says so by name (Decision 3).
 --
--- Most of this is the PURE decision (ADR-0023 Decision 2's bargain), so a device
+-- Most of this is the PURE decision, so a device
 -- matrix is a sweep rather than a screenshot review. The last describe closes the
 -- loop through the real path: a mounted HUD over FakeTarget whose viewport loses
 -- 200px of height, where the proof is rects and the solver's own findings.
@@ -103,7 +103,7 @@ end
 
 -- ===== 1. the partition ====================================================
 
-describe("ADR-0025: the nine anchors PARTITION the screen", function()
+describe("the nine anchors PARTITION the screen", function()
 	it("the HUD preset resolves three equal columns that tile the offer exactly", function()
 		local r = composition.resolve(hud(FULL), { w = 900, h = 500 }, CTX)
 		expect(r.arrangement).toBe("hud")
@@ -160,7 +160,7 @@ end)
 
 -- ===== 2. holdsLane: a column keeps its place when it empties ===============
 
-describe("ADR-0025 Decision 2: holdsLane pins a column that has nothing in it", function()
+describe("holdsLane pins a column that has nothing in it", function()
 	local SPARSE = {
 		{ id = "Chrome", group = "topLeft", rank = 1, forms = 1 },
 		{ id = "Rail", group = "topRight", rank = 3, forms = 2, recover = "none" },
@@ -220,7 +220,7 @@ end)
 
 -- ===== 2b. the topbar zone: the row level with the platform's controls =======
 
-describe("ADR-0027: the `topbar` zone is a span row, and it is free when unused", function()
+describe("the `topbar` zone is a span row, and it is free when unused", function()
 	local function serialize(v: any): string
 		if type(v) ~= "table" then
 			return tostring(v)
@@ -288,7 +288,7 @@ end)
 
 -- ===== 3. the height shrink degrades by rank ================================
 
-describe("ADR-0025: a height shrink DEGRADES, in rank order", function()
+describe("a height shrink DEGRADES, in rank order", function()
 	it("the least important zone in the failing column gives way first", function()
 		local tall = composition.resolve(hud(FULL), { w = 900, h = 500 }, CTX)
 		expect(tall.regionById.Rail.form).toBe(1)
@@ -365,7 +365,7 @@ end)
 
 -- ===== 4. the collision alarm ==============================================
 
-describe("ADR-0025 Decision 3: a zone painting over its neighbour is REPORTED", function()
+describe("a zone painting over its neighbour is REPORTED", function()
 	-- one wide zone, authored to a size no column can hold: 400px of content in a
 	-- 300px column is 100px of paint on top of the column next door
 	local WIDE = {
@@ -492,7 +492,7 @@ local function hudScreen(): any
 	})
 end
 
-describe("ADR-0025: a mounted HUD loses 200px of height", function()
+describe("a mounted HUD loses 200px of height", function()
 	it("re-solves in place: the zones stay pinned and nothing overlaps", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
@@ -513,7 +513,7 @@ describe("ADR-0025: a mounted HUD loses 200px of height", function()
 
 		local short = controller.compositionAt("/S/H")
 		expect(short.arrangement).toBe("hud")
-		-- an arrange pass, not a rebuild (ADR-0023 Decision 4)
+		-- an arrange pass, not a rebuild
 		expect(controller.stats().creates).toBe(creates)
 		expect(controller.stats().removes).toBe(0)
 
@@ -581,7 +581,7 @@ describe("ADR-0025: a mounted HUD loses 200px of height", function()
 	end)
 end)
 
--- ===== 6. the platform's own controls are NEVER painted on (ADR-0027) =======
+-- ===== 6. the platform's own controls are NEVER painted on =======
 --
 -- THE COMMISSIONING CASE, again from the director (2026-08-14): a shipped Roblox
 -- FPS whose HUD collapses into Roblox's own chrome when a browser URL bar shrinks
@@ -658,7 +658,7 @@ describe("DIR5: the HUD demo exercises BOTH expand roles", function()
 	end)
 end)
 
-describe("ADR-0027: nothing the HUD paints lands on the platform's own controls", function()
+describe("nothing the HUD paints lands on the platform's own controls", function()
 	local Facet = require("../src") :: any
 	local hudScenario = require("../examples/gallery/scenarios/hud")
 
@@ -944,7 +944,7 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 	end)
 
 	--[[ THE STUDIO'S STANDING LOCALIZATION RULE, ON A HUD.
-		`docs/lessons/localization-safe-ui-text.md`: all player copy must survive a
+		The rule: all player copy must survive a
 		~1.4x expansion, fitting and wrapping, never clipping. A HUD is the hardest
 		case for it — every zone is a third of a lane and half of them are one line
 		— and the always-on sweep deliberately does NOT cover this axis (it sweeps

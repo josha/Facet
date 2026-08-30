@@ -991,7 +991,7 @@ describe("layout: a fill ZStack child pays for its own MARGIN", function()
 			chips were placed `start` on X and stepped a clean 2 px there all along.
 			(The vertical axis WAS centred, by a different route: each chip carried
 			`alignV = "center"` meaning "center my label", which its parent read as
-			placement — `docs/lessons/one-word-two-subsystems.md`. That is fixed at
+			placement — one word, two subsystems. That is fixed at
 			the chip, and `tests/table.spec.luau`'s drag-ghost spec now asserts the
 			2 px step on BOTH axes, so the consumer claim above is finally a checked
 			one rather than a sentence.)
@@ -1052,7 +1052,7 @@ end)
 	the same "painted at a size nobody measured" family, with the measurement
 	itself correct and the PLACEMENT spending a box that was never granted.
 
-	`docs/lessons/a-far-margin-must-buy-something.md`. ]]
+	A far margin must buy something. ]]
 describe("layout: a HUGGING ZStack child pays for its own margin too", function()
 	local function hugged(margin: any, alignH: string?, alignV: string?): any
 		local root: solver.Node = {

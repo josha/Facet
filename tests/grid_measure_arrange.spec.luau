@@ -458,8 +458,7 @@ describe("a grid line takes the grid's own flow extent when a cell fills it", fu
 		)
 		-- A ZERO-AREA RECTANGLE IS THE WHOLE BUG, so the assertion is the area and
 		-- not the height: a mark whose only paint is its fill and whose rect has no
-		-- area paints nothing at all, and no property probe can report that
-		-- (docs/lessons/a-default-valued-write-never-claims.md).
+		-- area paints nothing at all, and no property probe can report that.
 		for _, id in { "A", "B", "C" } do
 			local cell = rectOf(adapter, `/S/Host/G/{id}`)
 			expect(`{id} area: {cell.w * cell.h > 0}`).toBe(`{id} area: true`)
@@ -658,8 +657,7 @@ describe("the grid's plan has ONE owner, and both passes read it", function()
 		-- the test that decided this seam (tools/check_source_size.py): does the block
 		-- read or WRITE a mutable upvalue of the file it is leaving? The grid wrote
 		-- none, and it must not acquire one here — a module-level `local` assigned
-		-- later is both shared state across solves and the nil-global trap
-		-- (docs/lessons/later-locals-are-not-upvalues.md).
+		-- later is both shared state across solves and the nil-global trap.
 		local declared: { [string]: boolean } = {}
 		local written: { string } = {}
 		for line in string.gmatch(gridSource, "[^\n]+") do

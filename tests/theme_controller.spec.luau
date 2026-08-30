@@ -1,5 +1,5 @@
 --!strict
--- THE THEME CONTROLLER (ADR-0019 §3/§6/§7, stage theme-packages-and-skinning).
+-- THE THEME CONTROLLER.
 --
 -- What this spec pins, all of it headless:
 --   * INSTALL is all-or-nothing. Every capability check runs before the first
@@ -823,7 +823,7 @@ describe("font preflight: conservative until calibrated, then ONE relayout", fun
 			{ env = w.env, nativeStyle = native, preflightFonts = false }
 		)
 		-- the premeasure batch carries the DESCRIPTOR, not the bare family, so the
-		-- client adapter measures the face the theme declared (ADR-0019 §6)
+		-- client adapter measures the face the theme declared
 		local requested: { [string]: boolean } = {}
 		w.adapter.deliverTextWidths(function(_word: string, _size: number, font: string): number?
 			requested[font] = true
@@ -1540,7 +1540,7 @@ describe("the theme sheet follows EVERY root of the target (B12)", function()
 end)
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- COMPOSITION AT RUNG 2 (ADR-0020 R8: "the view modifier wins on that node").
+-- COMPOSITION AT RUNG 2 ("the view modifier wins on that node").
 -- A theme package swap is the case that would break it: the swap re-solves the
 -- whole surface and re-applies paint, so a per-view gradient could plausibly be
 -- clobbered (the view loses on the next swap — the exact failure the untagged
@@ -1652,7 +1652,7 @@ end)
 
 -- ===== A12: the install-policy preload seam is DRIVEN, not merely published ==
 --
--- platform verifier F2. ADR-0020 R2 promises "PreloadAsync belt-and-braces by
+-- platform verifier F2. The contract promises "PreloadAsync belt-and-braces by
 -- default". The package half was real and specced — `chrome_slots.assetsToPreload`
 -- returns the install-policy list — but nothing in the shipped controller ever
 -- asked for it, so the actual default was NO preload and RS-A17's preload numbers

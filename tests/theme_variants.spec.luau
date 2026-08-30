@@ -1,5 +1,5 @@
 --!strict
--- PER-STATE ASSET VARIANTS (ADR-0020 R2, rich-skinning-v2 package P1).
+-- PER-STATE ASSET VARIANTS (rich-skinning-v2 package P1).
 --
 -- "Selection changes the whole style" — a different picture, not a tint. The
 -- propositions:

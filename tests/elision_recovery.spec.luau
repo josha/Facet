@@ -4,7 +4,7 @@
 	ADAPTATION MAY CHANGE HOW MUCH OF SOMETHING IS SHOWN, AND WHAT IT COSTS TO
 	REACH IT. IT MAY NOT CHANGE WHETHER IT CAN BE REACHED AT ALL.
 
-	The rank ladder (ADR-0025) was never missing and never broken: it steps a region
+	The rank ladder was never missing and never broken: it steps a region
 	down to a poorer form and then drops it, in descending rank, exactly as
 	declared. What it had no vocabulary for was WHERE the content the poorer form
 	stopped showing went — so from the player's side "step down" and "delete" were
@@ -820,7 +820,7 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 		y = -58 in the same capture.
 
 		The invariant that matters is asserted directly, at the baseline's own
-		viewport — the existing ADR-0027 case covers 735x413 and this one does not
+		viewport — the existing chrome-band case covers 735x413 and this one does not
 		duplicate it, it pins the size the report was taken at. ]]
 	it("the objective chip is inside the platform's band at 749x380, not above the screen", function()
 		local w = drive({ id = "baseline", w = 749, h = 380 })

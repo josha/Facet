@@ -1300,15 +1300,14 @@ describe("EXPAND 11 — a rotation under an open plate closes it, cleanly", func
 end)
 
 -- ===== 6. THE WAY OUT, ON A KEYBOARD =======================================
---[[ ADR-0013's modal obligation, and the wave that inherited it.
+--[[ The modal obligation, and the wave that inherited it.
 
 	The plate is a MODAL — that is what stops it stranding its own contents (EXPAND
 	8's note). A modal traps the ring, and on this platform the ring is the ONLY
 	keyboard route out: Escape is permanently bound to the Roblox CoreGui menu and
-	the engine's VirtualInput refuses it outright (ADR-0013 §Justified exceptions,
-	verified live 2026-07-19), so `cancel.bind` binds ButtonB and nothing else.
+	the engine's VirtualInput refuses it outright (verified live 2026-07-19), so `cancel.bind` binds ButtonB and nothing else.
 
-	ADR-0013 already names the answer — "a focusable close affordance inside the
+	The framework already names the answer — "a focusable close affordance inside the
 	modal … screens that present a modal should always include a visible close
 	affordance for exactly this reason" — and until this wave that obligation fell
 	on the screen author. It does not any more: the framework is the thing
@@ -1414,7 +1413,7 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 	end
 
 	it("the CONTENT keeps the first stop when it has one, and the close is reachable after it", function()
-		--[[ ADR-0013's rule followed rather than overridden: the close affordance is
+		--[[ the rule followed rather than overridden: the close affordance is
 			the panel's LAST child, so a form 1 carrying its own control keeps the first
 			stop and the way out sits behind it. ]]
 		local w = worldLib.new({
@@ -1898,7 +1897,7 @@ end)
 	  * BELOW author content — allowed, and only for a COVER, which is synthesized
 	    only where nothing above it is interactive. A Facet node that is not
 	    interactive is not an `Active` GuiObject, so the gesture still reaches the
-	    cover underneath (docs/lessons/roblox-input-goes-to-the-topmost-only.md). ]]
+	    cover underneath. ]]
 
 --[[ EXPAND 15's helpers: what the fake target calls an INTERACTIVE node, and the
 	overlap of two rects. Both are used by the hit-floor sweep below. ]]
@@ -2023,7 +2022,7 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 			local markHit = w.adapter.hitRectOf(MARK)
 			table.insert(rolesSeen, if interactive then "chevron" else "cover")
 			--[[ THE INSTRUMENT IS NOT VACUOUS, AND THE TWO ROLES NOW ANSWER
-				DIFFERENTLY (ADR-0041, this file's own H1). A CHEVRON is a mark in its
+				DIFFERENTLY (this file's own H1). A CHEVRON is a mark in its
 				own reserved column and its 44px floor reaches only its region's passive
 				gutter, so it keeps the whole thing. A COVER is the region's WHOLE BOX,
 				and in THIS fixture the regions are edge to edge — so its floor reached
@@ -2122,7 +2121,7 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 							  pass (`pushHitRects` inflates around the solved rect with no
 							  knowledge of the node), which is behind the source-cap lock —
 							  named in this round's report, owed with that file's extraction. ]]
-						--[[ FORBIDDEN IN BOTH DIRECTIONS NOW (ADR-0041). This case used
+						--[[ FORBIDDEN IN BOTH DIRECTIONS NOW. This case used
 							to split here: inside the affordance's own region an interactive
 							node under the floor was banned, and ACROSS a region boundary it
 							was an EXPOSURE the case merely bounded — first by ratifying the
@@ -2143,7 +2142,7 @@ describe("EXPAND 15 — the framework paints nothing over the author's content",
 		-- which is the whole of the director's gesture
 		expect(passiveOverlaps >= 1).toBe(true)
 		--[[ ...AND NOT ONE INTERACTIVE NODE IS UNDER EITHER ROLE'S FLOOR, in its own
-			region or in a neighbour's. Before ADR-0041 this read `overhangs >= 1` and
+			region or in a neighbour's. Before the bounded floor this read `overhangs >= 1` and
 			was green BECAUSE the cover took 26% of each of the two buttons beside
 			it. ]]
 		expect(table.concat(thefts, " | ")).toBe("")
@@ -2687,7 +2686,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			framework's on top, and the player cannot see which won.
 
 			The mechanism that answers it already shipped for the region cover
-			(`render/commit_walks.growWithin`, ADR-0041): a floor that grows one side
+			(`render/commit_walks.growWithin`): a floor that grows one side
 			at a time and stops at the first pressable thing. This round widened its
 			scope from `role == "cover"` to the framework's whole synthesized chrome,
 			so the close disc is bounded by the same rule. Measured before: 6x6 = 36

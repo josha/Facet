@@ -1,11 +1,11 @@
 --!strict
--- AUTHORED PAINT ESCAPES (ADR-0022 Decision 6; acceptance rows SF-P1..SF-P4).
+-- AUTHORED PAINT ESCAPES (acceptance rows SF-P1..SF-P4).
 --
 -- Four narrow escapes from the finite-selector model, each with a declared
 -- authority: the continuous colour channel (`tint`), an Image's `scaleMode`, the
 -- authored border (`UI.stroke`), and the `zIndex` paint-order override. The
 -- boundary is the point — everything a closed set CAN express stays tokens + tags
--- + native-sheet rules (ADR-0018), so each of these has to say what it claims and
+-- + native-sheet rules, so each of these has to say what it claims and
 -- from whom.
 --
 -- Structure: the authoring boundary (construction errors), the emission (renderer
@@ -421,7 +421,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 	end)
 
 	--[[ A BARE `shape = "circle"` NODE NEVER GETS A REAL UICorner IN FALLBACK MODE
-		(task PAINT's disclosed boundary, ADR-0062; closed here now that
+		(task PAINT's disclosed boundary; closed here now that
 		`screen_target.luau`'s SOURCE_CAP_LEDGER extraction makes the fix cheap).
 		`applySurface` is the only fallback writer that materialises `corner()`;
 		a bare node (no `surface` ever authored) never reaches it, so the fallback
@@ -682,7 +682,7 @@ describe("UI.stroke: the authored border", function()
 		-- the OTHER half of coexistence, from the sheet's side: a theme's border is a
 		-- phantom `::UIStroke` MODIFIER RULE with no child instance, so the authored
 		-- child and the rule are different mechanisms on different objects and neither
-		-- can suppress the other (the engine renders both — ADR-0020 R8). If this
+		-- can suppress the other (the engine renders both). If this
 		-- family of rules ever disappeared, an authored stroke would look like it had
 		-- replaced the theme's, which is exactly the confusion to keep pinned.
 		local model = sheet_model.build({ themes = { { name = "Dark", style = default_style } } })

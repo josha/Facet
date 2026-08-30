@@ -7,7 +7,7 @@
 -- A fresh core instance is constructed per check: no cross-check state.
 --
 -- TWO ARMS, AND ONLY ONE OF THEM SHIPS. `custom` is the core Facet ships
--- (`Facet.newCore`, ADR-0002). `imperative` is the retained recompute-all
+-- (`Facet.newCore`). `imperative` is the retained recompute-all
 -- baseline, a development fixture that lives under `bench/cores/` precisely so
 -- it stays out of the distributed Package — running the identical checks
 -- against it is what keeps `contract.luau` an interface rather than a

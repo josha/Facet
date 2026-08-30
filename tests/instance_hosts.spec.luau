@@ -1,10 +1,10 @@
 --!strict
---[[ THE INSTANCE-HOST REGISTRY (ADR-0032 step 1).
+--[[ THE INSTANCE-HOST REGISTRY.
 
 	`clipHosts` was named for the first of its three triggers and outlived the
 	name: a `ScrollView`, an authored `clipChildren`, and a fade group all
 	register the same record, and only the first of the three is about clipping.
-	ADR-0032 Decision 1 renames it `instanceHosts` and makes one function —
+	The nested-tree migration renames it `instanceHosts` and makes one function —
 	`registerHost` — the single place an entry is born, "while it still has three
 	call sites' worth of meaning rather than three hundred".
 
@@ -32,7 +32,7 @@
 	   prefix and is not its descendant.
 
 	3. `hostFor` DOES NOT SCAN THE REGISTRY. This is the one that decides whether
-	   ADR-0032 is affordable. The shipped implementation iterated every
+	   nesting is affordable. The shipped implementation iterated every
 	   registered host on every `create`, which is free at three hosts and
 	   quadratic at three hundred — and "register more hosts" IS the migration.
 	   Pinned by cost, not by shape: the ancestor walk is bounded by the path's
@@ -174,7 +174,7 @@ describe("hostFor does not scan the registry, and that is what makes nesting aff
 
 		The shipped implementation was `for hostPath, entry in clipHosts do` — a
 		full scan of every registered host, on every `create` and every `adopt`.
-		At the three hosts a flat tree has, that is free. ADR-0032's whole
+		At the three hosts a flat tree has, that is free. The migration's whole
 		content is "register more hosts", so the same loop becomes O(nodes x
 		hosts) precisely as the migration proceeds — the cost arrives with the
 		feature, which is the shape of defect this project keeps finding late.
@@ -222,7 +222,7 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 		It runs against the FAKE target, whose host model was added for this: the
 		live `parkEligible` refuses to recycle a registered host, and until the fake
 		could answer "is this path a host" it had nothing to refuse on. So
-		ADR-0032's sharpest trade — "every host registered is one node removed from
+		the migration's sharpest trade — "every host registered is one node removed from
 		the recycle pool" — was invisible to every headless recycling spec.
 	]]
 	local function render(screen: any)
@@ -268,7 +268,7 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 		expect(adapter.isHost("/S/Group")).toBe(true)
 		-- THE ONE THAT KEEPS ELISION ALIVE. A VStack that only says "these are in a
 		-- column" never moves independently and composites nothing, so it stays
-		-- unregistered and stays elidable — ADR-0032 Decision 2, and the reason
+		-- unregistered and stays elidable, which is the reason
 		-- nesting is not "mirror the blueprint in Instances".
 		expect(adapter.isHost("/S/Plain")).toBe(false)
 		expect(adapter.hostCount()).toBe(3)

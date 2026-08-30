@@ -895,7 +895,7 @@ end)
 	correct in every property probe, and INVISIBLE on the screen is a real defect
 	class this repository has shipped twice — most recently thirty cells of the
 	sibling word game, whose empty plate measured 1.036:1 against the page under
-	Sci-Fi HUD (docs/lessons/a-default-valued-write-never-claims.md). Geometry
+	Sci-Fi HUD. Geometry
 	cannot see it and neither can a source review, because the declaration reads
 	perfectly well.
 

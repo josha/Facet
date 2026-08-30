@@ -1,5 +1,5 @@
 --!strict
--- THE REFERENCE THEME CORPUS (ADR-0019 "Consequences": the packages every
+-- THE REFERENCE THEME CORPUS (the packages every
 -- future stage restyles against).
 --
 -- Each package is built the way a game team would build one — through the
@@ -27,7 +27,7 @@ local MODULES = {
 	scifi_hud = require("../examples/themes/scifi_hud"),
 	fantasy_parchment_stub = require("../examples/themes/fantasy_parchment_stub"),
 	fantasy_parchment = require("../examples/themes/fantasy_parchment"),
-	-- the rich-skinning-v2 reference packages (ADR-0020, build package P5). They
+	-- the rich-skinning-v2 reference packages (build package P5). They
 	-- join the corpus rather than sitting beside it: every claim the five older
 	-- packages have to survive — public-API-only construction, a resolvable
 	-- snapshot, a stable sheet stamp, honest theme-class declarations — is a
@@ -46,7 +46,7 @@ local MODULES = {
 local theme_packages = require("../tools/lune/theme_packages")
 local ORDER = theme_packages.REFERENCE_ORDER
 local customControl = require("../examples/themes/custom_control")
--- the rung-3 worked example (ADR-0020 R8): a control with its OWN art and its
+-- the rung-3 worked example: a control with its OWN art and its
 -- own namespaced roles, checked from both directions
 local ornateGauge = require("../examples/themes/ornate_gauge")
 
@@ -189,7 +189,7 @@ describe("the corpus covers all four theme classes", function()
 		local glossy = themes.resolve(built("glossy_mobile"), nil, {})
 		expect(scifi.type.body.fontKey ~= neutral.type.body.fontKey).toBe(true)
 		expect(string.find(scifi.type.body.fontKey, "Michroma", 1, true) ~= nil).toBe(true)
-		-- two weights of ONE family must not share a key (ADR-0019 §6)
+		-- two weights of ONE family must not share a key
 		expect(glossy.type.title.fontKey ~= glossy.type.body.fontKey).toBe(true)
 		expect(string.find(glossy.type.title.fontKey, "#Bold#", 1, true) ~= nil).toBe(true)
 		-- and the rules paint what the solver measured
@@ -522,7 +522,7 @@ describe("RS-A12 Fantasy Ornate exercises every v2 capability it claims", functi
 		for _, layer in panel.layers do
 			kinds[layer.kind] = true
 		end
-		-- every kind ADR-0020 R1 defines, in one slot: a vocabulary no reference
+		-- every kind the layer stack defines, in one slot: a vocabulary no reference
 		-- package exercises is a vocabulary nobody has proved
 		for _, kind in chromeSlots.LAYER_KINDS do
 			expect(kinds[kind]).toBe(true)
@@ -822,7 +822,7 @@ describe("RS-A14 the platform pair is two snapshots, not two palettes", function
 end)
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- RUNG 3: A CUSTOM SKINNED CONTROL (ADR-0020 R8, ledger row RS-A15)
+-- RUNG 3: A CUSTOM SKINNED CONTROL (ledger row RS-A15)
 --
 -- `examples/themes/ornate_gauge.luau` is the worked example the customization
 -- ladder ends on: a control the framework knows nothing about, which brings its

@@ -6,7 +6,7 @@
 -- Measured live before the fix. Under Glossy Touch a Button costs:
 --
 --     buttonPadding   12 + 12   (the library default; the package authors none)
---   + control inset   14 + 14   (the skin's carved border, ADR-0019 §5)
+--   + control inset   14 + 14   (the skin's carved border)
 --   = 52px of horizontal chrome
 --
 -- The scenario's compact buttons are `width = { fixed, px = 52 }`. So the content

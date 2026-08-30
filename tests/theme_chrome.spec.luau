@@ -1,5 +1,5 @@
 --!strict
--- CHROME MODEL + DECORATION SLOTS (ADR-0019 §5, package 3).
+-- CHROME MODEL + DECORATION SLOTS.
 --
 -- Three propositions, each of which is only worth anything if it can fail:
 --   1. `sheet_model.buildPackage` compiles a package's chrome to rules whose
@@ -297,7 +297,7 @@ describe("a fallback node stays hidden in EVERY state (RS-DIR6-F1)", function()
 		-- the defect, stated as an ordering: this used to be false
 		expect(i["Chrome — control fallback over states"] > i["Chrome — control disabled"]).toBe(true)
 		-- ...and the pinned Priority says the same thing, which is what the engine
-		-- actually reads (ADR-0018 syncPriorities)
+		-- actually reads (syncPriorities)
 		local hide = ruleNamed(model, "Chrome — control fallback over states")
 		local dim = ruleNamed(model, "Chrome — control disabled")
 		expect(hide.priority > dim.priority).toBe(true)
@@ -377,7 +377,7 @@ describe("chrome_props: the kinds the Step 2 vocabulary lacked", function()
 end)
 
 describe("chrome_slots: classification", function()
-	it("maps the renderer's existing hints to the ADR-0019 slot vocabulary", function()
+	it("maps the renderer's existing hints to the theme slot vocabulary", function()
 		local cases = {
 			{ input = { class = "Divider" }, slot = "divider" },
 			{ input = { class = "ScrollView" }, slot = "scrollbar" },
@@ -867,7 +867,7 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 		-- flat ones: a slider still has to be visible under Studio Neutral, and
 		-- it no longer borrows a public surface to get there.
 		--
-		-- The count tracks OWN_PAINT_SLOTS, which ADR-0020 R9 extended from the
+		-- The count tracks OWN_PAINT_SLOTS, which the image-driven round extended from the
 		-- slider's rail and thumb to the bar family: one outline site per
 		-- own-paint slot, plus one corner site for each that is not round.
 		-- +1 outline since parity round 2 §3.1 added the `spinner` dot to

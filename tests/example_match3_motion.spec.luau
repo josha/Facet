@@ -520,9 +520,9 @@ describe("match-3 motion: the anchored board still navigates in two dimensions",
 	--[[ WHY THIS NEEDS ITS OWN CASE.
 
 		A `UI.Grid` hands the presenter per-row navigation groups for free
-		(ADR-0013 layout-derived groups). A `UI.Anchor` has none to read — free
+		(layout-derived groups). A `UI.Anchor` has none to read — free
 		placement is the whole point of it — so the example declares the board as
-		one RECTANGLE group (`columns`, ADR-0030) plus the two groups below it,
+		one RECTANGLE group (`columns`) plus the two groups below it,
 		through the public `navigationGroups` opt. That declaration is rebuilt
 		from the board's CURRENT occupancy, and the presenter re-derives it on a
 		structural change, so this case asks the question after a cascade has
@@ -788,7 +788,7 @@ end)
 -- =====================================================================
 --[[ THE FLOOR, AND WHERE THE NUMBER COMES FROM. 1.25:1 is the measurement the
 	word game and the crossword took (see tests/example_word_game.spec.luau's
-	block on it and docs/lessons/a-default-valued-write-never-claims.md): a plate
+	block on it, and a default-valued write claims nothing): a plate
 	declared `{ role = "surfaceStrong", blend = 0.6 }` is 1.036:1 against the page
 	under Sci-Fi HUD, present in the tree and not on the screen.
 

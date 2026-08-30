@@ -6,7 +6,7 @@
 -- exactly the idiom tests/pointer.spec.luau's Grip case and
 -- tests/table.spec.luau's row-drag cases already use — never by poking
 -- `_pointerHandlers` directly, so a wiring mistake between the composite and
--- the renderer's ADR-0008 capture would show up here the same way it would
+-- the renderer's pointer capture would show up here the same way it would
 -- for a player.
 --
 -- TIME IS SCRIPTED (drag_velocity's own contract: "this module never reads
@@ -1925,8 +1925,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 			left content-sized measures the union of its children WITHOUT their
 			offsets, so it would report a 91x73 box at (0, 0) while painting its menu
 			at (20, 556) — a container whose rect does not contain its own child, the
-			"painted at a size nobody measured" family
-			(docs/lessons/measure-the-requirement-not-the-render.md). Filling the
+			"painted at a size nobody measured" family. Filling the
 			edge-to-edge surface makes the box honest AND makes the anchor's inner
 			origin the window origin, which is the space `computeMenuAnchor` measures
 			the trigger in. ]]
@@ -3305,8 +3304,7 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 end)
 
 --[[ ═══ RULING 6: A BUTTON IN THE CONTENT ATE THE SWIPE UNDERNEATH IT ═════════
-	Measured live in Studio 2026-08-13 (`docs/lessons/a-button-eats-the-swipe-
-	underneath-it.md`): Roblox delivers `InputBegan` to the TOPMOST interactive
+	Measured live in Studio 2026-08-13: Roblox delivers `InputBegan` to the TOPMOST interactive
 	object only. A `GuiButton` sinks it and an Active Frame behind it gets nothing.
 	`row_actions` painted its hit Grip BEHIND `content`, justified by a comment
 	claiming the opposite — so a row whose content held a Button could not be
@@ -3508,7 +3506,7 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 
 	it("a POINTER-ZONE control under the Grip gets its press too, not just Buttons", function()
 		--[[ `Rating`, `Slider` and friends are not `TAPPABLE` at all — they are built
-			on `onPointerDown`/`onPointerUp` props (ADR-0008 pointer zones) and hear
+			on `onPointerDown`/`onPointerUp` props (pointer zones) and hear
 			the raw press. Before this ruling they worked (painted on top) and the
 			swipe did not; forwarding only the tappable family would have inverted
 			exactly that, on the same surfaces. So the forward replays the down/up

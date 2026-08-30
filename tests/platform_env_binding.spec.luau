@@ -289,7 +289,7 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
 		--[[ THE CAPABILITY IS UNTOUCHED, and this is the line that keeps the fix from
 			being a different bug: the pad IS live and everything that gates on liveness
-			(ADR-0015 Decision 2) must still see it. Only PRIMARY moved. ]]
+ must still see it. Only PRIMARY moved. ]]
 		expect(classes.gamepad).toBe(true)
 		unbind()
 	end)

@@ -1,5 +1,5 @@
 --!strict
--- LAYERED DECORATION SLOTS (ADR-0020 R1, rich-skinning-v2 package P1).
+-- LAYERED DECORATION SLOTS (rich-skinning-v2 package P1).
 --
 -- A slot recipe may declare a bounded STACK of layers — fill, frame, corners,
 -- edges, plaque, tile — as DATA with a fixed anchoring vocabulary. The
@@ -665,7 +665,7 @@ describe("themes.define: every layer rejection names the field, the rule and the
 			end
 		end
 		expect(entry ~= nil).toBe(true)
-		-- names the slot, states the reason, shows the fix (ADR-0019 error contract)
+		-- names the slot, states the reason, shows the fix (the error contract)
 		expect(string.find(entry.message, "barFill", 1, true) ~= nil).toBe(true)
 		expect(string.find(entry.message, "clipped", 1, true) ~= nil).toBe(true)
 		expect(string.find(entry.message, "PAINT NOTHING", 1, true) ~= nil).toBe(true)
@@ -889,7 +889,7 @@ describe("the slot vocabulary is ONE list", function()
 		for _, slot in { "barTrack", "barFill", "barCap", "barCenter", "stepperPlate", "toggleTrack", "toggleKnob" } do
 			expect(chrome_slots.isSlot(slot)).toBe(true)
 		end
-		-- whole image vs sliced (ADR-0020 R3): the stretchers slice, the
+		-- whole image vs sliced: the stretchers slice, the
 		-- fixed-size tokens do not
 		for _, slot in { "barCap", "barCenter", "stepperPlate", "toggleKnob" } do
 			expect(chrome_slots.isWholeImageSlot(slot)).toBe(true)

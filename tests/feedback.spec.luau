@@ -1,5 +1,5 @@
 --!strict
--- THE SEMANTIC FEEDBACK SEAM (ADR-0022 Decision 7; acceptance row SF-F1). What is
+-- THE SEMANTIC FEEDBACK SEAM (acceptance row SF-F1). What is
 -- actually being guarded here:
 --
 --   * EXACTNESS — one event per cause, under rapid repeat. A feedback beat that

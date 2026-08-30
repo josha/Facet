@@ -7,7 +7,7 @@
 	gallery/scenarios` are SIBLING trees under `ReplicatedStorage`, not nested
 	(measured: `could not get parent of component ".."`). This is the SECOND
 	headless-vs-instance-tree require divergence this campaign (G7+G11's Rojo
-	mount-depth was the first, ADR-0048) — `tools/lune/check_scenario_requires.
+	mount-depth was the first) — `tools/lune/check_scenario_requires.
 	luau` closes the CLASS rather than just the one site: it re-derives, for
 	every gallery/scenario/reference file, what the live Studio instance tree
 	actually looks like (`tools/lune/lib/studio_tree.luau`, the SAME module

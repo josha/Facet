@@ -15,7 +15,7 @@
 
 	  · NAMING. `itemExtent` / `viewportExtent` are the canonical, axis-neutral
 	    names. `rowHeight` / `viewportHeight` are DEPRECATED ALIASES that keep
-	    working unchanged (ADR-0011, ≥ one MINOR, registered in
+	    working unchanged (≥ one MINOR, registered in
 	    `Facet.DEPRECATIONS`) — the cases below prove an existing vertical caller
 	    passing the old names is untouched, and that passing a name AND its alias
 	    is refused rather than silently resolved.
@@ -184,7 +184,7 @@ local function world(opts: any?)
 		local r = w.rect(key) or w.rect("r1")
 		adapter.driveDragEnd(w.hitPath(key), { x = x, y = r.y + r.h / 2, pointerType = "mouse" })
 	end
-	-- the diagnostic every fixture owes (docs/lessons/the-solver-already-told-you.md)
+	-- the diagnostic every fixture owes
 	function w.diagnostics(): { any }
 		return handle.controller.diagnostics()
 	end
@@ -226,7 +226,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 		list.dispose()
 	end)
 
-	it("rowHeight / viewportHeight still work UNCHANGED — the deprecated aliases (ADR-0011)", function()
+	it("rowHeight / viewportHeight still work UNCHANGED — the deprecated aliases", function()
 		local core = Facet.newCore()
 		local rows = core:signal(makeRows(8))
 		-- the SAME list, spelled both ways: the two dumps must agree field for field
@@ -553,7 +553,7 @@ describe("VirtualList.axis — the presented canvas is a full-WIDTH one", functi
 end)
 
 -- ===========================================================================
--- FOUR-INPUT PROOF for the new axis (ui_todo §0; ADR-0013). Every case drives a
+-- FOUR-INPUT PROOF for the new axis (ui_todo §0). Every case drives a
 -- REAL device path — adapter.tap / adapter.driveScroll for pointer & touch,
 -- system.deviceKey for keyboard & gamepad — with ZERO consumer present() wiring.
 -- ===========================================================================

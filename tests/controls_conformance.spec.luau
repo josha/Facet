@@ -97,7 +97,7 @@ local function minimalInstance(core: any, class: string): any
 	elseif class == "Foreign" then
 		-- same reasoning as the Stage above, and for a stronger reason: the framework
 		-- cannot ask a foreign instance how big it would like to be, so the box is
-		-- always declared (ADR-0034)
+		-- always declared
 		return UI.Foreign({
 			id = "Fg",
 			width = { type = "fixed", px = 120 },

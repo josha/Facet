@@ -1,5 +1,5 @@
 --!strict
--- Table control Phase A tests (ADR-0007): column alignment via shared dims,
+-- Table control Phase A tests: column alignment via shared dims,
 -- variable row heights, headerless mode, selection single/multi through the
 -- activate path + keyboard focus, custom cells with live nested controls,
 -- the resize MODEL (setColumnWidth), dump determinism, churn neutrality.
@@ -98,7 +98,7 @@ local function world(spec: any)
 	local handle = pres.present(screen, {
 		-- this legacy harness drives the table's FLAT-ring story (grip in the
 		-- ring, wrap-around, shift+Navigate reorder); it opts out of the
-		-- ADR-0013 auto-grouping the Table contribution now advertises so its
+		-- auto-grouping the Table contribution now advertises so its
 		-- flat-ring assertions stay unchanged (grouped nav omits the header grip
 		-- and routes reorder through grab mode instead of shift+Navigate).
 		navigationGroups = false,
@@ -1438,7 +1438,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		-- and centring-in-the-full-box-then-displacing happened to land on 2 as
 		-- well. Once `arrange` started spending margins honestly that route stepped
 		-- 1 and the deck read as a smear; the word now lives on the Label, where it
-		-- means one thing. `docs/lessons/one-word-two-subsystems.md`.
+		-- means one thing: one word, two subsystems.
 		expect(chip2.rect.x).toBe(chip1.rect.x + 2)
 		expect(chip2.rect.y).toBe(chip1.rect.y + 2)
 		expect(chip3.rect.x).toBe(chip1.rect.x + 4)
@@ -2139,7 +2139,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 	-- gamepad session where UserInputService.PreferredInput never leaves
 	-- KeyboardAndMouse (mouse was the last-used device — e.g. clicking Play)
 	-- must STILL surface the Edit affordance. Affordances derive from the LIVE
-	-- capability set + preferredInput, never preferredInput alone (ADR-0015).
+	-- capability set + preferredInput, never preferredInput alone.
 	it(
 		"auto Edit/Done toggle: shown when a gamepad capability is live even though preferredInput stays KeyboardAndMouse",
 		function()
@@ -2718,7 +2718,7 @@ end)
 -- The solver had been reporting it the whole time: `Head-<id>/Title` filed
 -- "overflows its zstack by 0x6px ... give the box room — a `minMax` FLOOR rather
 -- than a fixed CAP". Nothing FAILED on it, so nobody read it. That is the whole
--- lesson of docs/lessons/the-solver-already-told-you.md, and it is why the first
+-- lesson: the solver already told you, and it is why the first
 -- assertion here is the diagnostics list itself.
 --
 -- The director's framing is the fix: "if height is the issue why can't we make

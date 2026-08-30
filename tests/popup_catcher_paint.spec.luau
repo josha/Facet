@@ -41,7 +41,7 @@
 	    ImageLabel 'FacetChrome'             413x735  bgT=0.00   <- the plate
 	  TextButton '/__scrim__/catcher'         413x735  bgT=1.00   <- and nothing else
 
-	Full write-up: docs/lessons/an-invisible-surface-declares-its-invisibility.md ]]
+	An invisible surface has to declare its own invisibility. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -447,7 +447,7 @@ describe("every synthesized catcher resolves to a number somebody chose", functi
 	end)
 
 	it("...and the player's PreferredTransparency composes against it, uncapped", function()
-		--[[ ADR-0035: the preference multiplies the theme's own number and is NOT
+		--[[ the preference multiplies the theme's own number and is NOT
 			floored — `PreferredTransparency = 0` is a player asking for an opaque
 			backdrop and gets one. The rule the preference is allowed to move is a
 			declared list of exactly one, and it is the same rule the case above

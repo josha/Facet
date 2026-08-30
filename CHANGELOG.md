@@ -206,10 +206,10 @@ its row here in the same commit.
     selection changes now sees fewer of them, and an `onChange` inherits a
     transaction body's obligation not to yield. A read is unaffected: a
     transaction defers the flush, never a read.
-21. `newTabView` with a declared `sizing = "hug"` resolving to the `bottomBar`
-    placement parked the strip at the band's leading edge in a stack that could
-    not scroll; it now gets the same **centred scroller** every other hugging
-    home gets. The thumb-zone band is deliberately not a scroller because a
+21. `newTabView` with a declared `sizing = "hug"` at `bottomBar` now gets the same
+    **centred scroller** every other hugging home gets. It used to park the strip
+    at the band's leading edge in a stack that could not scroll.
+    The thumb-zone band is deliberately not a scroller because a
     `fill` strip divides the offer and has nothing to overflow with — a statement
     about the default that the code was applying to the home, so a caller who
     declared `hug` there got natural-width segments at the leading edge and a

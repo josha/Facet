@@ -24,8 +24,7 @@
 	the record as a local of its own), and the one-way require asserted directly.
 	Each rule is a pure function of its input strings, so each carries a NEGATIVE
 	CONTROL that feeds it a broken pair and proves it reports — a check that cannot
-	fail is decoration (`docs/lessons/a-red-check-cannot-report-the-next-defect.md`,
-	and this repo's own gate-integrity sweep).
+	fail is decoration (and this repo's own gate-integrity sweep).
 ]]
 
 local t = require("./lib/testkit")

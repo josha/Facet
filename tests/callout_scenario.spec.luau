@@ -231,7 +231,7 @@ end)
 	MEASURED, AND IT IS NOT THE FIXTURE AND NOT `wrap`. The page's own rects are
 	inside their 12px gutter at every width from 320 up. What was flush is the
 	COACH MARK: `presenter.safeBox()` was nothing but the per-edge max of the two
-	platform inset facts, and `docs/lessons/device-emulator-truths.md` records that
+	platform inset facts, and the emulator records that
 	the engine reports only the 58px topbar and nothing lateral — so both facts are
 	structurally ZERO on the sides and the plate was placed hard against the glass.
 	The trailing chip was not overflowing either: a flush-right plate was sitting

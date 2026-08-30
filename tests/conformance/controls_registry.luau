@@ -255,8 +255,7 @@ local registry: { Entry } = {
 		-- ScrollingFrame owns scroll (wheel/pan/momentum); the mirror slides the
 		-- window and a scroll never activates. keyboard/gamepad = windowed focus
 		-- ring with keep-visible scroll-into-view; gamepad tolerates the
-		-- D-pad-as-Thumbstick1 axis. VirtualList advertises NO reorder/grab
-		-- (ADR-0013): its only live state is the engine-owned scroll position, pure
+		-- D-pad-as-Thumbstick1 axis. VirtualList advertises NO reorder/grab: its only live state is the engine-owned scroll position, pure
 		-- presentation that inherently survives any flip — no in-flight GESTURE, so
 		-- hotSwitch = false.
 		affordanceProofs = {
@@ -287,7 +286,7 @@ local registry: { Entry } = {
 		-- model. Lifted out of src/controls/virtual_list.luau verbatim because it
 		-- writes no mutable upvalue of that closure, which is what took that file
 		-- back under the 200,000-char `Script.Source` WRITE cap
-		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md) and
+		-- and
 		-- restored its live sync into an open Studio session.
 		--
 		-- Its four-input story IS the VirtualList row's above: these are the very
@@ -321,7 +320,7 @@ local registry: { Entry } = {
 			all. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for that file made the
 			extraction a PRECONDITION of the next change of any size — it was 805
 			characters from 193,000 and 7,805 from the 200,000-char `Script.Source`
-			WRITE cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+			WRITE cap.
 
 			Its four-input story IS the VirtualList row's above: every hosted swipe,
 			tray tap, Delete key and pad route cited there is this module answering,
@@ -349,8 +348,7 @@ local registry: { Entry } = {
 		-- clamped scroll offset, the keyed window and the row-path spelling. Lifted
 		-- out of src/controls/virtual_list.luau verbatim because the only mutable
 		-- upvalues it writes are its own memo-input cache, which is what took that
-		-- file back under the 200,000-char `Script.Source` WRITE cap
-		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		-- file back under the 200,000-char `Script.Source` WRITE cap.
 		--
 		-- Its four-input story IS the VirtualList row's above: every windowing case
 		-- cited there is this arithmetic answering.
@@ -1020,8 +1018,7 @@ local registry: { Entry } = {
 		-- surface — it is the pure validation/leaf-helper half of
 		-- src/controls/row_actions.luau, lifted out so that file could get back
 		-- under the 200,000-char `Script.Source` WRITE cap and live-sync into an
-		-- open Studio session again (docs/lessons/
-		-- the-200k-source-cap-is-on-writing-not-loading.md, tools/check_source_size.py).
+		-- open Studio session again (tools/check_source_size.py is the guard).
 		-- Same explicit-row-rather-than-silent-exemption treatment as ValueModel
 		-- and PathShapes above; `export`/`docsAnchor` name the PUBLIC export this
 		-- module is part of the implementation of, since it has none of its own.
@@ -1046,8 +1043,7 @@ local registry: { Entry } = {
 			`check_registration` walks `src/controls/` and a module with no row is a
 			module nothing knows about. It was extracted the day it was written,
 			because writing it inside `newTable` put that file over the
-			200,000-char `Script.Source` WRITE cap
-			(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). ]]
+			200,000-char `Script.Source` WRITE cap. ]]
 		name = "TableColumns",
 		kind = "composite",
 		module = "src/controls/table_columns.luau",
@@ -1082,8 +1078,7 @@ local registry: { Entry } = {
 
 			WHY IT LEFT `table.luau`: `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for
 			that file made the move a PRECONDITION of the next change of any size —
-			it was 1,236 characters from the 200,000-char `Script.Source` WRITE cap
-			(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). ]]
+			it was 1,236 characters from the 200,000-char `Script.Source` WRITE cap. ]]
 		name = "TableRows",
 		kind = "composite",
 		module = "src/controls/table_rows.luau",
@@ -1172,8 +1167,7 @@ local registry: { Entry } = {
 		-- through their public `_close`/`_closeMenu` handle. It was already a
 		-- PUBLIC export living inside src/controls/row_actions.luau's private body,
 		-- which made it the clearest seam there when that file had to shed
-		-- periphery to get back under the 200,000-char `Script.Source` WRITE cap
-		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		-- periphery to get back under the 200,000-char `Script.Source` WRITE cap.
 		name = "RowActionsCoordinator",
 		kind = "composite",
 		module = "src/controls/row_actions_coordinator.luau",
@@ -1192,7 +1186,7 @@ local registry: { Entry } = {
 	{
 		-- `row_actions.composeWithReorder`, whole (2026-08-14). NOT a control: it
 		-- mounts nothing and owns no node — it is the deferred-down ARBITER that
-		-- lets one raw pointer capture (ADR-0008) be claimed by either the row's
+		-- lets one raw pointer capture be claimed by either the row's
 		-- horizontal swipe or Table's vertical drag-to-reorder, replaying the
 		-- original down into exactly one of them at the axis lock. Its own
 		-- four-input story is Table's and RowActions': the same handler tables it
@@ -1221,8 +1215,7 @@ local registry: { Entry } = {
 		-- band arithmetic (`bandWidth` = the number the row TRAVELS) plus the
 		-- edit-mode gutter. Lifted out of src/controls/row_actions.luau because
 		-- every value it returns is a pure function of build-time facts, which let
-		-- that file get back under the 200,000-char `Script.Source` WRITE cap
-		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		-- that file get back under the 200,000-char `Script.Source` WRITE cap.
 		name = "RowActionsMetrics",
 		kind = "composite",
 		module = "src/controls/row_actions_metrics.luau",
@@ -1248,8 +1241,7 @@ local registry: { Entry } = {
 		-- Table) or to the host's one shared overlay (VirtualList). Lifted out of
 		-- src/controls/row_actions.luau because every input is a build-time
 		-- constant, which is what took that file back under the 200,000-char
-		-- `Script.Source` WRITE cap (docs/lessons/
-		-- the-200k-source-cap-is-on-writing-not-loading.md) and restored its live
+		-- `Script.Source` WRITE cap and restored its live
 		-- sync into an open Studio session.
 		--
 		-- Its four-input story IS the RowActions row's above: these are the very
@@ -1282,7 +1274,7 @@ local registry: { Entry } = {
 		--
 		-- ITS PAINT ORDER IS A DEVICE FACT, not a style: the Hit Grip goes AFTER
 		-- `content` because the engine delivers a press to the TOPMOST interactive
-		-- object only (docs/lessons/a-button-eats-the-swipe-underneath-it.md), and
+		-- object only, and
 		-- the minus goes after Content so a trailing swipe passes under it.
 		name = "RowActionsRoot",
 		kind = "composite",
@@ -1307,8 +1299,7 @@ local registry: { Entry } = {
 		-- src/controls/row_actions.luau because a fresh, one-shot snapshot call
 		-- needs no live reference to the closure it left, which is what let that
 		-- file pay down its own 200,000-char `Script.Source` WRITE cap trigger
-		-- (docs/handoff/SOURCE_CAP_LEDGER.md,
-		-- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		-- (the source-cap ledger).
 		name = "RowActionsDump",
 		kind = "composite",
 		module = "src/controls/row_actions_dump.luau",
@@ -1593,7 +1584,7 @@ local registry: { Entry } = {
 		-- engine's own wheel/drag channel and a touch NAKED PAN scrolls it with no
 		-- grip, while the gamepad SHOULDERS page — bound dynamically, only while
 		-- focus sits on a tab, so a screen carrying a TabView never shadows
-		-- gameplay bumpers (ADR-0013). hotSwitch = false: there is no drag, no grab
+		-- gameplay bumpers. hotSwitch = false: there is no drag, no grab
 		-- and no open edit, and a tab switch is a single Signal write, so a live
 		-- class flip mid-anything has nothing to carry or cancel — the same answer
 		-- Picker gives, for the same reason.
@@ -1764,7 +1755,7 @@ local registry: { Entry } = {
 	-- the consumer (a Grip sibling to orbit, a Button overlay to act), so the
 	-- four-input story belongs to those controls, not to the picture.
 	{ name = "Stage", kind = "leaf", inputProofs = false, affordanceProofs = false },
-	-- Foreign (ADR-0034): the 2-D sibling of Stage — a box for a GuiObject Facet
+	-- Foreign: the 2-D sibling of Stage — a box for a GuiObject Facet
 	-- does not wrap. It owns no input surface either, and for a stronger reason:
 	-- the framework has never seen the content, so it could not route input to it
 	-- if it wanted to. The four-input story belongs to the controls composed
@@ -1783,7 +1774,7 @@ local registry: { Entry } = {
 	-- layout/presentation only — no focus surface, no semantic action
 	{ name = "AdaptiveStack", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "ViewThatFits", kind = "leaf", inputProofs = false, affordanceProofs = false },
-	-- declared-content adaptive composition (ADR-0023): the screen-level sibling
+	-- declared-content adaptive composition: the screen-level sibling
 	-- of the two above. Layout/presentation only — no focus surface of its own,
 	-- no semantic action; what it OWES focus is the exclusion guarantee, which is
 	-- ViewThatFits' `hidden` mechanism at composition scale

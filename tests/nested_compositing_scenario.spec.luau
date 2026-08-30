@@ -1,5 +1,5 @@
 --!strict
---[[ THE SHOWCASE SURFACE FOR ADR-0032's TWO CAPABILITIES —
+--[[ THE SHOWCASE SURFACE FOR THE NESTED TREE'S TWO CAPABILITIES —
 	`examples/gallery/scenarios/nested_compositing.luau`.
 
 	The nested-instance-tree round's brief (item 7) requires a showcase demo for
@@ -169,7 +169,7 @@ end)
 -- THE SURFACE BUILDS AND PAINTS AT THE SWEPT VIEWPORTS, at rest and mid-drive
 -- (a fixture that only proves itself before anyone touches it is a screenshot,
 -- not a control) — the same non-negotiable `tests/examples_gallery.spec.luau`
--- holds `card_rail`/`with_animation` to (docs/lessons/the-solver-already-told-you.md §13).
+-- holds `card_rail`/`with_animation` to.
 -- ===========================================================================
 describe("nested_compositing showcase: builds and paints with ZERO solver diagnostics", function()
 	it("at the narrow/wide swept viewports, at rest", function()
@@ -329,7 +329,7 @@ end)
 -- (b) A CONTAINER THAT CARRIES ITS CONTENTS: the carrying panel's container is
 -- a real instance host and its marker parents INSIDE it; the alone panel's
 -- container is not, and its marker's nearest host is the page's own
--- ScrollView (a clip host by construction, ADR-0032 Decision 1) rather than
+-- ScrollView (a clip host by construction) rather than
 -- itself. The same registry `tests/instance_hosts.spec.luau` drives directly,
 -- asked here through the real scenario/demo-picker mount path.
 --
@@ -357,7 +357,7 @@ describe("nested_compositing showcase: a real parent, or not", function()
 			expect(carriedHost).never().toBeNil()
 			expect((carriedHost :: any).path).toBe(CARRIED)
 			-- a plain move-boundary host, not a group: no offscreen buffer was spent
-			-- to compose the carry pair's rotation and scale (ADR-0032 D2/D4)
+			-- to compose the carry pair's rotation and scale
 			expect((carriedHost :: any).crops).toBe(false)
 
 			local aloneHost = w.adapter.hostOf(STATIC .. "/Marker")
@@ -383,7 +383,7 @@ describe("nested_compositing showcase: a real parent, or not", function()
 		expect(built.carryRotation:get()).toBe(30)
 		expect(built.carryScale:get()).toBe(1.5)
 		-- registration itself does not depend on the driven VALUE — the prop KEY
-		-- being authored is what registers the host (ADR-0032 D2/D4), so turning
+		-- being authored is what registers the host, so turning
 		-- the pair back to rest must not un-register the carrying container
 		built.steps.toggleTurn()
 		w.presenter.refresh()

@@ -688,7 +688,7 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 end)
 
 --[[ D2, director item 14 (framework-gaps-phase2-followups; shouldHaveSinglePanel.png;
-	ADR-0061): the "Menus and their five triggers" showcase, driven on a phone
+	the compact boundary): the "Menus and their five triggers" showcase, driven on a phone
 	viewport with NO touch signal (Roblox Studio's own compact preset — it cannot
 	inject touch at all, so `interactionClasses.primary` reads "pointer"
 	unconditionally), showed a submenu floating over its own still-open parent

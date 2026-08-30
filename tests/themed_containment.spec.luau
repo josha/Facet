@@ -206,8 +206,8 @@ end
 	It held eleven rows, every one the SAME defect: `glass()` in
 	`examples/gallery/scenarios/hud.luau` was `ZStack{ Box(surface = "raised",
 	fill x fill), content }`, so the plate was the content's SIBLING and the
-	package's carved border was reserved on a node with no children. ADR-0059
-	Decision 2 declined the obvious repair (handing a WINDOW's frame to a chip
+	package's carved border was reserved on a node with no children. The round
+	declined the obvious repair (handing a WINDOW's frame to a chip
 	turns a 116x41 objective chip into a 92x85 blob under Fantasy Ornate —
 	measured) and booked the real question for a round that could re-spec: which
 	slot a small plate should classify into.
@@ -485,7 +485,7 @@ describe("themed containment: the four measurements, pinned", function()
 end)
 
 --[[ ITEM 9 AS A PROPERTY, NOT AS TWO NUMBERS (task THEME fix round, 2026-08-28;
-	review finding C1; ADR-0059 Decision 6).
+	review finding C1).
 
 	THE CASE ABOVE PINS THE SHIPPED RECTS, and that is not the same claim as "the
 	class is dead". It reproduced under a package one design pixel thinner: with
@@ -709,7 +709,7 @@ describe("themed containment: the guard's new rules bite", function()
 	end)
 
 	--[[ ...AND THE FRAMEWORK DOES NOT REPAIR THE CONTAINER CASE EITHER, which is
-		ADR-0059 Decision 2's rejected repair pinned as a fact rather than left to be
+		that rejected repair pinned as a fact rather than left to be
 		re-derived. Wrapping the ink in a `VStack` moves nothing: the stack is still a
 		sibling of the plate and the framework declines to hand it the plate's border,
 		because on a HUD pill the same border is a 30px window frame. The guard
@@ -817,7 +817,7 @@ end)
 	THE FIX (`src/controls/picker.luau`): the badge's own wrapper reads
 	`chromeInsets.control` off the LIVE theme snapshot — the same slot
 	`selection_indicator.luau`'s `barSurfaceSlot` already carves clear of for the
-	sliding pill itself (ADR-0059 Decision 3, director item 8) — and pads its
+	sliding pill itself (director item 8) — and pads its
 	top/right by the carved amount before the "Count" text aligns to the corner.
 	Zero carve (every flat package) reproduces the exact pre-fix geometry. ]]
 -- carvedInsetSide(snapshot, slot, side) -> the RAW declared inset for one

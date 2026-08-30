@@ -1,11 +1,11 @@
 --!strict
---[[ CROSS-SURFACE OVERLAP — the alarm for two surfaces covering each other (ADR-0028).
+--[[ CROSS-SURFACE OVERLAP — the alarm for two surfaces covering each other.
 
 	The director, 2026-08-14, watching a leftover debug probe interleave with a
 	real fixture in his live Studio session, both starting at x=16: *"the
 	framework should stop this from happening."*
 
-	ADR-0025's collision alarm answers "which REGIONS of one composition paint
+	The composition's collision alarm answers "which REGIONS of one composition paint
 	into each other". Nothing answered "which SURFACES paint into each other",
 	which is the shape a real game has constantly — a HUD, a modal, a toast
 	layer, a debug overlay, each mounted through its own `renderer.attach`.
@@ -22,7 +22,7 @@
 	     that an *unset* display order declares nothing at all.
 	  C. THE COVERING SET — every way a surface is present and covers nothing:
 	     `hidden`, an authored `opacity = 0`, a framework fade to nothing, a
-	     hidden root, an unsolved surface. ADR-0026's hand-off, pinned.
+	     hidden root, an unsolved surface. The composition hand-off, pinned.
 	  D. THE DELIVERY — it arrives through `controller.diagnostics()`, on BOTH
 	     surfaces of the pair, is not `designed`, and leaves with the surface.
 	  E. THE COST — zero scans per frame, by measurement rather than assertion.
@@ -407,7 +407,7 @@ describe("cross-surface overlap: it arrives through controller.diagnostics()", f
 	end)
 end)
 
-describe("cross-surface overlap: the covering set (ADR-0026's hand-off)", function()
+describe("cross-surface overlap: the covering set", function()
 	it("a surface whose content is `hidden` covers nothing", function()
 		local w = world()
 		local a = w.presenter.present(panel("Hud"))

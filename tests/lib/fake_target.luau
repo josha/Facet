@@ -8,12 +8,12 @@ local chrome_slots = require("../../src/tokens/chrome_slots")
 local default_style = require("../../src/tokens/default_style")
 -- the PURE paint resolvers the live adapter goes through. Sharing them is the
 -- point: a mirror that computed its own colours would prove the fake, not the
--- framework (ADR-0022 Decision 6).
+-- framework.
 local sheet_model = require("../../src/tokens/sheet_model")
 -- ...and the PURE rulings the stage content seam is made of, for the same reason
 local tag_sync = require("../../src/render/tag_sync")
 local stage_content = require("../../src/render/stage_content")
--- ...and the foreign-content seam's ruling ladder (ADR-0034), for the same
+-- ...and the foreign-content seam's ruling ladder, for the same
 -- reason: the refusals a caller sees are one function, not one per adapter
 local foreign_content = require("../../src/render/foreign_content")
 
@@ -154,7 +154,7 @@ local TINT_ALPHA_ENGINE_PROP: { [string]: { string } } = {
 }
 
 -- opts.trackThemeRoots: opt into the WHOLE-TARGET theme relink seam
--- (screen_target.relinkThemeSheet, ADR-0019 §7). Off by default so the targets
+-- (screen_target.relinkThemeSheet). Off by default so the targets
 -- that assert the single-root `linkAt` path are unaffected; on, this adapter
 -- keeps a roots list and repoints every live one, which is the contract the
 -- client target implements against real StyleLinks.
@@ -169,7 +169,7 @@ function fake_target.new(opts: Opts?)
 	-- reader, because `adopt` is the only entry point that is not told its root.
 	local lastCreatedRoot: any = nil
 
-	--[[ THE INSTANCE-HOST MIRROR (ADR-0032), AND WHY A TARGET WITH NO INSTANCES
+	--[[ THE INSTANCE-HOST MIRROR, AND WHY A TARGET WITH NO INSTANCES
 		HAS ONE AT ALL.
 
 		This adapter's core simplification is that there is no parenting here — a
@@ -180,7 +180,7 @@ function fake_target.new(opts: Opts?)
 		What it could NOT mirror is WHICH NODES ARE REAL PARENTS, and that turned
 		out to matter for something that has nothing to do with position: the live
 		`parkEligible` refuses to recycle a registered host, and this target had no
-		field to refuse on. So the single most important interaction in ADR-0032 —
+		field to refuse on. So the single most important interaction in nesting —
 		"every host registered is one node removed from the recycle pool" — was
 		invisible to every headless recycling spec. A fake that accepts what the
 		real one refuses proves the wrong thing, which is the rule the park mirror
@@ -257,7 +257,7 @@ function fake_target.new(opts: Opts?)
 		WHY IT EXISTS. Tags are the ONLY channel by which Facet's surfaces, states
 		and roles reach native paint, and this fake modelled none of them — which
 		is why a dead tag-REMOVAL loop shipped for four days under 7,116 green
-		cases and had to be found by looking at a screen (ADR-0038; the removal
+		cases and had to be found by looking at a screen (the removal
 		test compared five characters against a six-character literal).
 
 		WHAT IS SHARED AND WHAT IS MIRRORED. The DECISION is not copied: `owns` and
@@ -356,13 +356,13 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
-	-- `decorationHint` is the renderer's 4th argument (ADR-0019 fix round): the
+	-- `decorationHint` is the renderer's 4th argument (theme fix round): the
 	-- pure decoration hint read off the node's INTERNAL meta channel. A real
 	-- target uses it to classify a decoration slot and to tag the node with its
 	-- own paint identity; this one RECORDS it, so a headless test can prove the
 	-- hint actually travelled blueprint -> mount -> renderer -> adapter rather
 	-- than only that a control declared one.
-	-- `createOpts` is the renderer's 5th argument (ADR-0022 Decision 2): the
+	-- `createOpts` is the renderer's 5th argument: the
 	-- creation-time facts that decide which engine object the live adapter builds.
 	-- Mirrored, so "this node became a fade GROUP" is provable headless — the live
 	-- target materializes a CanvasGroup and nothing else can fade a subtree.
@@ -414,7 +414,7 @@ function fake_target.new(opts: Opts?)
 			node.pathRoleColor = pathRoleColor(nil)
 		end
 		-- ANY creation option means a real engine object is required, mirroring the
-		-- live guard exactly (ADR-0032 Decision 4). This read
+		-- live guard exactly. This read
 		-- `createOpts.canvasGroup ~= true` while a group was the only option there
 		-- was, and when a second option arrived the fake happily elided a node it had
 		-- just registered as a real parent — a host with no instance to be one, green
@@ -424,7 +424,7 @@ function fake_target.new(opts: Opts?)
 			node.elided = true
 		end
 		if class == "Foreign" then
-			-- MIRROR THE LIVE ADAPTER'S TWO CREATION-TIME FACTS (ADR-0034). The box
+			-- MIRROR THE LIVE ADAPTER'S TWO CREATION-TIME FACTS. The box
 			-- CLIPS from birth, because "the framework owns the box" is only a
 			-- contract if nothing the caller adopts can paint outside it; and the
 			-- node is flagged as a foreign box so the park refusal below is keyed on
@@ -454,7 +454,7 @@ function fake_target.new(opts: Opts?)
 		return node
 	end
 
-	-- THE PRESENTATION COMPOSITION, MIRRORED (ADR-0022 Decision 2). The live adapter
+	-- THE PRESENTATION COMPOSITION, MIRRORED. The live adapter
 	-- writes `rect + own transform + every ancestor's` as the node's engine Position
 	-- — it has to, because its instance tree is FLAT, so a container's move does not
 	-- carry the nodes inside it. The composed WINDOW POSITION is the fact both
@@ -754,7 +754,7 @@ function fake_target.new(opts: Opts?)
 		if handle.canvasGroupInstance ~= nil or handle.decoration ~= nil then
 			return false
 		end
-		-- A REGISTERED HOST CANNOT BE RECYCLED (ADR-0032 Consequences, mirroring
+		-- A REGISTERED HOST CANNOT BE RECYCLED (mirroring
 		-- `parkEligible`'s `hostAt(path) ~= nil`). Its subtree lives INSIDE it, so
 		-- parking it would take a whole subtree out of the tree behind the
 		-- renderer's back and hand the next adopter somebody else's children. This
@@ -848,7 +848,7 @@ function fake_target.new(opts: Opts?)
 	-- THE OPERATION LOG, READ-ONLY. Recorded since this target was written and
 	-- never exposed, which meant no spec could assert the ORDER two adapter calls
 	-- arrive in — and order is exactly what decides whether a nested subtree is
-	-- re-based against a current origin or a stale one (ADR-0032).
+	-- re-based against a current origin or a stale one.
 	function adapter.ops(): { string }
 		return ops
 	end
@@ -981,7 +981,7 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
-	-- pointer seam (ADR-0008): capture-based routing + semantic cursor hints,
+	-- pointer seam: capture-based routing + semantic cursor hints,
 	-- mirroring the ScreenTarget contract (down captures; moves/up route to
 	-- the captured node until release; a captured drag keeps its hint alive)
 	function adapter.setPointerHandlers(handle: any, handlers: any)
@@ -1521,7 +1521,7 @@ function fake_target.new(opts: Opts?)
 		return api
 	end
 
-	--[[ THE FOREIGN-CONTENT SEAM, MIRRORED (UI.Foreign, ADR-0034).
+	--[[ THE FOREIGN-CONTENT SEAM, MIRRORED (UI.Foreign).
 
 		The live adapter parents a caller's real GuiObject under a real clipping
 		Frame; there are no Instances here, so this twin RECORDS. What makes the
@@ -1629,7 +1629,7 @@ function fake_target.new(opts: Opts?)
 		return reducedMotion
 	end
 
-	--[[ THE BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035). Modelled here for the
+	--[[ THE BACKGROUND TRANSPARENCY PREFERENCE. Modelled here for the
 		same reason `setReducedMotion` is: the defect this seam exists to prevent is a
 		fact that never ARRIVES, and a fake that took the value from construction
 		instead of from the renderer's push could not see that defect. What the fake
@@ -1699,7 +1699,7 @@ function fake_target.new(opts: Opts?)
 		end
 		activeThemePalette = theme
 		-- ...AND THE REPAINT, mirroring screen_paint.refreshThemedPaint. A commit is
-		-- a RE-SOLVE and never a rebuild (ADR-0019 §2), so nothing else will ever
+		-- a RE-SOLVE and never a rebuild, so nothing else will ever
 		-- re-visit a node whose layout did not change — and a `tint` and a Path's
 		-- stroke role are paint, not geometry. Without this a static tint keeps the
 		-- OUTGOING package's colour for the rest of its life.
@@ -1750,7 +1750,7 @@ function fake_target.new(opts: Opts?)
 
 	-- a captured zone that unmounts mid-drag cancels — unless the cancel
 	-- handler answers true to reason "removed" (a drag-owned lift unmounting
-	-- its own origin row keeps the capture alive; ADR-0008)
+	-- its own origin row keeps the capture alive)
 	function adapter._cancelIfCaptured(handle: any, reason: string?)
 		if pointerCapture == handle then
 			local keep = nil
@@ -1860,8 +1860,7 @@ function fake_target.new(opts: Opts?)
 		the second half of the same defect, `nil` the legacy silent release a
 		gesture that ends OFF the button genuinely produces. The meta matches
 		`setActivateHandler`'s exactly (`source = "pointer"`, the capture's own
-		pointer kind, the release point) — a partial meta would be a different lie
-		(docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md). No
+		pointer kind, the release point) — a partial meta would be a different lie. No
 		press dip: the dip belongs to the PRESS, which this release is the end of,
 		not to the activate.
 

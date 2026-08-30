@@ -1,6 +1,6 @@
 --!strict
 --[[
-	THE APP METRIC NAMESPACE (ADR-0042, framework-gaps-phase2 gap 1).
+	THE APP METRIC NAMESPACE (framework-gaps-phase2 gap 1).
 
 	An app's own structural numbers — a tile minimum, a chart band, a dock height
 	— are not spacing steps and not control metrics, and before this round there

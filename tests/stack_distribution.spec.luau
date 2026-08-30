@@ -35,7 +35,7 @@
 	pins that, because "additive and inert" is a claim like any other.
 
 	EVERY MOUNTED FIXTURE HERE CALLS `controller.diagnostics()`
-	(docs/lessons/the-solver-already-told-you.md §13): a fixture that does not ask
+	— the solver already told you: a fixture that does not ask
 	is not evidence.
 ]]
 
@@ -553,8 +553,8 @@ describe("§2.4 shrink — the floor cascade: minMax.min, longest word, compact 
 		-- the shrink pass was an arrange-time negotiation only. Squeezed to its floor
 		-- the label wrapped to eight lines and the row was still 20px tall, so the
 		-- extra lines painted outside on the CROSS axis — the "painted at a size
-		-- nobody measured" family (docs/lessons/measure-the-requirement-not-the-
-		-- render.md), and exactly the seam a `fill` child had before the measure pass
+		-- nobody measured" family — measure the requirement, not the render — and
+		-- exactly the seam a `fill` child had before the measure pass
 		-- grew its own second pass for it (solver PASS 2).
 		--
 		-- The repair is PASS 1.5 in the solver's stack MEASURE branch: the same

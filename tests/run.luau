@@ -28,7 +28,7 @@ require("./perf_lab.spec")
 -- last-write-wins silently becomes first-measure-wins and a cut label reports
 -- truncated = false with its geometry unchanged
 require("./measure_memo.spec")
--- content-terms height (framework-gaps-phase2 gap 3, ADR-0049): the closed
+-- content-terms height (framework-gaps-phase2 gap 3): the closed
 -- construction grammar, `of`'s metric resolution, the solver arithmetic for
 -- both `lines`/`rows` shapes, the nested-scroll-diagnostic regression fix,
 -- the four migrated adaptation-slice sites, and UI.fill/UI.hug (item 14)
@@ -84,7 +84,7 @@ require("./platform_adapters_recovery.spec")
 require("./primitive_registration.spec")
 --[[ SCREEN-X: a prefix test that compares a different number of characters
 	than its own literal is a CONSTANT, so the branch behind it is dead and
-	nothing says so. ADR-0038's two renames (`luau-` -> `facet-`, five characters
+	nothing says so. The two renames (`luau-` -> `facet-`, five characters
 	to six; `LuauUI` -> `Facet`, six to five) left three of them — the adapter's
 	tag-REMOVAL loop among them. Scanned repository-wide, with the scanner's own
 	negative control, and the adapter's tag ownership pinned as ONE named fact ]]
@@ -137,7 +137,7 @@ require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
 -- its renderer-mediated content seam (camera/lighting/content root)
 require("./stage.spec")
--- UI.Foreign (ADR-0034; docs/reference/api.md §Foreign): the bounded escape
+-- UI.Foreign (docs/reference/api.md §Foreign): the bounded escape
 -- hatch to a GuiObject class Facet does not wrap — one box, one claim
 -- (`Foreign.Parent`, on the reserved `host` authority), everything else the
 -- caller's
@@ -198,7 +198,7 @@ require("./touch_gestures.spec")
 require("./input.spec")
 require("./presenter.spec")
 -- the presenter-side surface-chrome seam (framework-gaps-phase2 item 13,
--- W3-D, ADR-0053): the pure back+title+trailing bar factory
+-- W3-D): the pure back+title+trailing bar factory
 require("./nav_bar.spec")
 require("./controls_conformance.spec")
 require("./hint_no_remount.spec")
@@ -231,25 +231,25 @@ require("./table_themed_header.spec")
 require("./pointer.spec")
 require("./preview.spec")
 require("./render_target_contract.spec")
---[[ the WORLD SURFACE target's pure half (ADR-0063): the canvas rect the solver
+--[[ the WORLD SURFACE target's pure half: the canvas rect the solver
 	is handed, every argument it refuses and whether the refusal says WHY, and that
 	each capability it deletes is one the contract actually declares. It has a spec
 	at all because it resolves `screen_target` inside `new` rather than at module
 	scope — `billboard_target` does not, and therefore cannot be loaded headlessly ]]
 require("./surface_target.spec")
---[[ ...and the SURFACE the target exists for (ADR-0063): the outpost power
+--[[ ...and the SURFACE the target exists for: the outpost power
 	terminal's pure half — every range walked over the whole 4x3x5 product, every
 	refusal sentence, the server's five checks through `rules.authorize`, and the
 	engage -> adjust -> apply -> success -> reset -> exit machine. The engine half
 	(console, prompt, second host, responder handoff) is Studio evidence ]]
 require("./outpost_terminal.spec")
--- the per-node presentation channel + the SF-M9 live-adapter fix (ADR-0022 D2)
+-- the per-node presentation channel + the SF-M9 live-adapter fix
 require("./presentation_channel.spec")
--- ...and the REAL-PARENT REGISTRY it composes against (ADR-0032 step 1): one
+-- ...and the REAL-PARENT REGISTRY it composes against: one
 -- registration function, a longest-path-prefix lookup, and the cost pin that
 -- decides whether "register more hosts" is affordable at all
 require("./instance_hosts.spec")
--- ...and THE WRITE A HOST MAKES UNNECESSARY (ADR-0032, the arrange half): the
+-- ...and THE WRITE A HOST MAKES UNNECESSARY (the arrange half): the
 -- live `applyRect` driven for real, counting engine Position/Size writes, with
 -- the A/A and no-host controls that stop "never write anything" from passing
 require("./host_move_write_cost.spec")
@@ -262,9 +262,9 @@ require("./nested_tree_pins.spec")
 -- instance host's group opacity beside its rotation/scale carry, registered in
 -- scenarios/init.luau ORDER, demo_picker.DEMOS and this file's own SCENARIOS list
 require("./nested_compositing_scenario.spec")
--- the authored paint escapes: tint, scaleMode, UI.stroke, zIndex (ADR-0022 D6)
+-- the authored paint escapes: tint, scaleMode, UI.stroke, zIndex
 require("./paint_extensions.spec")
--- fractional Anchor offsets: the marker-overlay shape (ADR-0022 D6, SF-P5)
+-- fractional Anchor offsets: the marker-overlay shape (SF-P5)
 require("./fractional_offsets.spec")
 require("./presenter_drag_integration.spec")
 -- quarantine pins from the fresh-context runtime review (RR-1/RR-2/RR-4)
@@ -309,7 +309,7 @@ require("./virtual_grid_input.spec")
 -- so Down steps ONE CELL here and Right steps a whole LINE
 require("./virtual_hgrid.spec")
 require("./navigation_groups.spec")
--- ...and the mechanism BOTH grids stand on since ADR-0030: a NavigationGroup may
+-- ...and the mechanism BOTH grids stand on: a NavigationGroup may
 -- declare `columns`, and the focus graph then answers the direction perpendicular
 -- to the lanes itself, by a whole line. This is what deleted the two intercepts
 require("./focus_grid_axis.spec")
@@ -331,7 +331,7 @@ require("./sorted_entries.spec")
 require("./styling.spec")
 require("./sheet_model.spec")
 require("./native_style_scenario.spec")
--- the DEFAULT paint path (ADR-0040 B-15, director ruling 2026-08-21): sheet
+-- the DEFAULT paint path (director ruling 2026-08-21): sheet
 -- paint is what a target with no `nativeStyle` opt takes, the explicit `false`
 -- escape hatch survives, and the gallery's A/B precedence survives with it.
 require("./native_style_default.spec")
@@ -404,7 +404,7 @@ require("./modal_dismissal.spec")
 require("./paradigm_popup.spec")
 require("./popup_catcher_paint.spec")
 require("./paradigm_input_axis.spec")
--- gamepad d-pad auto-repeat (director item 4, ADR-0057): holding a direction
+-- gamepad d-pad auto-repeat (director item 4): holding a direction
 -- advances focus repeatedly after the initial delay, gamepad-only, through
 -- the same navigate/navigateH functions a fresh press uses
 require("./dpad_repeat.spec")
@@ -479,7 +479,7 @@ require("./zstack_fill_diagnostic.spec")
 -- proofs — mounted at the five recorded device-matrix viewports plus the
 -- narrowest supported one in BOTH orientations, under the showcase's own picker
 -- reservation, failing on `controller.diagnostics()`' main-axis overflow. The
--- lesson this closes (docs/lessons/the-solver-already-told-you.md) is not "read
+-- lesson this closes is not "read
 -- the diagnostics" — §13 already said that — it is that nothing in the suite
 -- FAILED on them, so the answer sat unread through a green suite, a green gate,
 -- a five-view matrix and four reviews, twice
@@ -537,7 +537,7 @@ require("./example_drift.spec")
 -- gallery/scenario/reference module-scope require that resolves under Lune's
 -- file-system semantics but not live Studio's instance-tree semantics (the
 -- "All controls" empty-mount defect; second occurrence of the class this
--- campaign, after G7+G11's Rojo mount-depth divergence, ADR-0048)
+-- campaign, after G7+G11's Rojo mount-depth divergence)
 require("./scenario_require_paths.spec")
 -- theme controller specs (package 2)
 require("./theme_controller.spec")
@@ -592,13 +592,13 @@ require("./theme_docs.spec")
 -- the maintainer map (docs/MAINTAINERS.md): every production area still points at
 -- the src tree, the specs, the scenario, the gate row and the playbook it claims
 require("./maintainer_map.spec")
--- sponsor-framework-gaps P1: the motion authority (ADR-0022 Decision 1) — pure
+-- sponsor-framework-gaps P1: the motion authority — pure
 -- solver, class registry, injectable clock, perceptual arrival, timelines, and
 -- the reduced-motion parity rules, all under a scripted clock
 require("./motion_spring.spec")
 require("./motion_clock.spec")
 require("./motion_chase.spec")
--- ...and the one thing a spring structurally cannot promise (ADR-0033): a
+-- ...and the one thing a spring structurally cannot promise: a
 -- DURATION with a CURVE, evaluated by the engine's own `TweenService:GetValue`
 -- in production and by a pure twin — pinned to the engine by a differential
 -- oracle — under Lune
@@ -609,7 +609,7 @@ require("./motion_timeline.spec")
 require("./reduced_motion_seam.spec")
 -- sponsor-framework-gaps P3: structural transitions (the mount-layer retire
 -- model, the coordinator over the presentation channel, and the presenter's own
--- surface enter/exit — ADR-0022 Decision 3, row SF-M6)
+-- surface enter/exit — row SF-M6)
 require("./transitions.spec")
 -- BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
 -- item 10 + mandate b): the structural gate for the pop class newpop.mov
@@ -620,11 +620,11 @@ require("./transitions.spec")
 -- clean after `examples/reference/p1_glade/ui/shop.luau`'s restructuring.
 require("./backdrop_fade.spec")
 -- the pure toast scheduler and the input-transparent toast surface it drives
--- (ADR-0022 Decision 4, rows SF-T1..T3)
+-- (rows SF-T1..T3)
 require("./toast_schedule.spec")
 require("./toast_presentation.spec")
 -- the one semantic feedback seam: closed taxonomy, causal frames, exactness
--- (ADR-0022 Decision 7, row SF-F1)
+-- (row SF-F1)
 require("./feedback.spec")
 -- the AUTHORED half of that seam: UI.sensoryFeedback(bp, { trigger, event })
 -- (docs/plans/parity-round2.md §3.3), and the opt-in, default-off client
@@ -641,10 +641,10 @@ require("./haptics.spec")
 -- verb a press emits (director request 2026-08-13; the comparison document §7.1)
 require("./control_feedback.spec")
 -- bounded retry with a session give-up, the preload seam, and the AsyncImage dim
--- treatment (ADR-0022 Decision 8, rows SF-A1..A3)
+-- treatment (rows SF-A1..A3)
 require("./async_completeness.spec")
 -- sponsor-framework-gaps P4: the shared interaction tokens + the rolling
--- release-velocity tracker (ADR-0022 Decision 5, rows SF-D3 / SF-D2)
+-- release-velocity tracker (rows SF-D3 / SF-D2)
 require("./interaction_tokens.spec")
 -- the pure drag-to-edge autoscroll model under a scripted clock (SF-L2)
 require("./autoscroll.spec")
@@ -692,7 +692,7 @@ require("./collection_list.spec")
 -- drivable by name, every terminal state, 20 mount/reset cycles registry-neutral
 -- (SF-C1) and the reduced-motion axis (SF-M5/SF-T3)
 require("./sponsor_scenarios.spec")
--- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023): the pure decision matrix
+-- DECLARED-CONTENT ADAPTIVE COMPOSITION: the pure decision matrix
 -- (arrangement choice, step-down/drop order, floors, reserved-at-rest, the
 -- one-scroll refusal, the column fallback) plus the mounted re-solve identity
 require("./band_policy.spec")
@@ -704,7 +704,7 @@ require("./composition_exclusions.spec")
 -- own lifetime. The knob is `expand` because `reveal` is UI.Text's, and one key
 -- with two meanings on one surface is the collision this rename removed
 require("./region_expand.spec")
--- ADR-0025: the SCREEN-ANCHORED HUD — the nine anchors as a partition that cannot
+-- the SCREEN-ANCHORED HUD — the nine anchors as a partition that cannot
 -- overlap, `holdsLane` (rule 9's counterpart), rank degradation under a HEIGHT
 -- shrink, and the collision alarm for the one case a partition cannot remove
 require("./hud_composition.spec")
@@ -721,15 +721,15 @@ require("./typography_weight_roles.spec")
 -- travels while the solver stays exact and instant
 require("./with_animation.spec")
 require("./animation_precedence.spec")
--- parity round 3, ADR-0026: AUTHORED presentation — opacity/scale/
+-- parity round 3: AUTHORED presentation — opacity/scale/
 -- rotation as a second TERM in the presentation channel rather than a second
 -- writer, and withAnimation reaching all three
 require("./authored_presentation.spec")
--- ADR-0035 / owed row O-26: the player's Background Transparency preference,
+-- owed row O-26: the player's Background Transparency preference,
 -- honoured by the one paint path that has a see-through background to honour it
 -- with — and the named refusals that keep it from becoming a blanket multiply
 require("./preferred_transparency.spec")
--- ADR-0028: the CROSS-SURFACE overlap alarm — two independently mounted
+-- the CROSS-SURFACE overlap alarm — two independently mounted
 -- surfaces covering each other with neither declaring that it means to
 require("./surface_overlap.spec")
 -- director report 2026-08-15: the shipped HUD fixture on the three axes nothing
@@ -798,7 +798,7 @@ require("./hud_paint_probe.spec")
 	expander landed on the previous node's ZIndex. Measured live on the built
 	showcase: 73 of 86 nodes diverged from a fresh mount on `zIndex` alone. ]]
 require("./hit_expander_z_band.spec")
---[[ A COVER'S TOUCH FLOOR STOPS AT ITS OWN REGION (DIR5 review H1, ADR-0041):
+--[[ A COVER'S TOUCH FLOOR STOPS AT ITS OWN REGION (DIR5 review H1):
 	the one hit floor that is BOUNDED, because a cover's rect is a whole region's
 	box and inflating it to 44px necessarily leaves the region across its full
 	width — measured as 26% of each of two neighbouring Buttons. Beside the two
@@ -808,7 +808,7 @@ require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
 require("./tab_view_accessories.spec")
 require("./level_picker.spec")
---[[ ADR-0037: `Facet.Controls.<Name>(core, spec)` — every one of the nineteen
+--[[ `Facet.Controls.<Name>(core, spec)` — every one of the nineteen
 	composites built BOTH ways from the same spec and compared on what it
 	publishes, because an entry wired to the wrong builder (or to the right one
 	with the wrong library) still returns a perfectly plausible table ]]
@@ -859,14 +859,14 @@ require("./adaptive_defaults.spec")
 	floor uses — so a television with no theme package installed measures capped
 	lanes and scaled metrics (ADAPT-L1) ]]
 require("./ten_foot_metrics.spec")
---[[ the missing spacing step (task G-SPACE, ADR-0047; the declarative-purity
+--[[ the missing spacing step (task G-SPACE; the declarative-purity
 	audit's `gap = 6` finding): a seventh, derived space step naming the value
 	halfway between `xs` and `s` — resolves to 6 at neutral, authored beats
 	derived exactly as `space.gutter` does, and is legal in the same
 	gap/rowGap/padding/px= channels its neighbors are ]]
 require("./space_tight_step.spec")
 --[[ …and the channel that lets an APP put its own structural numbers on that
-	same ladder (ADR-0042, framework-gaps-phase2 gap 1): a reserved `app.*`
+	same ladder (framework-gaps-phase2 gap 1): a reserved `app.*`
 	namespace an app declares once, that `isMetricPath` accepts, a package may
 	move, and the distance transform walks — replacing four independently
 	rediscovered shims that kept ~100 numbers outside every theme ]]

@@ -7,8 +7,7 @@
 -- outward-drawing ring under a clipping ScrollingFrame gets cut.
 --
 -- `src/client/screen_target.luau` reaches engine globals at load time and
--- cannot run headlessly (docs/lessons/the-200k-source-cap-is-on-writing-or-
--- loading.md's sibling problem), so — same instrument
+-- cannot run headlessly, so — same instrument
 -- `theme_layer_application.spec.luau` uses — this reads the live adapter as
 -- TEXT and pins the two defects' fixes structurally. Reverting either edit
 -- turns exactly one case below red.

@@ -1,8 +1,8 @@
 --!strict
--- The PUBLIC drag/drop contract (ADR-0022 Decision 5, rows SF-D1/D2/D4/D5).
+-- The PUBLIC drag/drop contract (rows SF-D1/D2/D4/D5).
 -- `UI.draggable` / `UI.dropTarget` declared on real blueprints, mounted through
 -- the real renderer, driven through the REAL acquisition paths — the engine
--- detector mirror and the ADR-0008 pointer capture — never by poking the
+-- detector mirror and the framework's pointer capture — never by poking the
 -- session directly. What is asserted is what a player would see: which target
 -- lit up, what the predicted verdict said and why, what the game's onDrop was
 -- handed, and which semantic events fired on which frame.
@@ -213,7 +213,7 @@ describe("public drag: acquisition and promotion (SF-D1, SF-D3)", function()
 		expect(b.registry.pointerDown("/S/Board/Card", { x = 20, y = 20, pointerType = "mouse" })).never().toBe(false)
 	end)
 
-	it("falls back to the ADR-0008 pointer capture when the engine has no detector", function()
+	it("falls back to the framework pointer capture when the engine has no detector", function()
 		local b = board({ noDragDetector = true })
 		expect(b.adapter.node("/S/Board/Card").dragDetector).toBe(nil)
 		b.adapter.pointerDown("/S/Board/Card", 20, 20, "mouse")

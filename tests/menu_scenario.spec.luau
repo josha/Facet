@@ -342,7 +342,7 @@ end)
 
 describe("scenario 'menu': both idioms, from one control, on one machine", function()
 	--[[ RE-PINNED FOR DIRECTOR ITEM 14 (framework-gaps-phase2-followups;
-		shouldHaveSinglePanel.png; ADR-0061). This describe block's own claim —
+		shouldHaveSinglePanel.png). This describe block's own claim —
 		"both idioms, from one control, on one machine" — used to be demonstrated
 		at `PHONE` (320x640), forcing the Idiom picker's `interactionClasses` fact
 		to reach BOTH `menu` and `sheet` without a second device. That is now the
@@ -416,7 +416,7 @@ describe("scenario 'menu': both idioms, from one control, on one machine", funct
 	end)
 
 	--[[ DIRECTOR ITEM 14, THE FIXTURE THE SCREENSHOT WAS TAKEN FROM
-		(shouldHaveSinglePanel.png; ADR-0061). At a COMPACT width the framework
+		(shouldHaveSinglePanel.png). At a COMPACT width the framework
 		now forces `sheet` regardless of which idiom this demo forces — the three
 		cases above moved off `PHONE` because this is what took their place: a
 		floating `panel` no longer fits here, on purpose, so forcing it stops

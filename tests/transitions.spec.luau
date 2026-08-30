@@ -1,5 +1,5 @@
 --!strict
--- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3; acceptance row SF-M6). Three
+-- STRUCTURAL TRANSITIONS (acceptance row SF-M6). Three
 -- layers, proven separately and then together:
 --
 --   1. the MOUNT LAYER's retire model, against a SCRIPTED collaborator — so the

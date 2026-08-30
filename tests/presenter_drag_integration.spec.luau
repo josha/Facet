@@ -1,6 +1,6 @@
 --!strict
--- STEP-5 PRESENTER INTEGRATION (the lead's glue between packages; ADR-0022
--- Decisions 4/5/7): what a surface gets WITHOUT wiring anything — the feedback
+-- STEP-5 PRESENTER INTEGRATION (the lead's glue between packages): what a
+-- surface gets WITHOUT wiring anything — the feedback
 -- bus on drag events, the shared motion clock driving terminal flights, the
 -- ghost layer, the F7 modal broadcast — plus the presenter's public frame hook.
 -- These are the seams a fixture consumes blind, so each is pinned here against

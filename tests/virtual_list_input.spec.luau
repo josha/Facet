@@ -1,5 +1,5 @@
 --!strict
--- VirtualList four-input story (ui_todo §0; ADR-0013; matrix §1c). Proves the
+-- VirtualList four-input story (ui_todo §0; matrix §1c). Proves the
 -- presenter AUTO-COMPOSES VirtualList's pointer / touch / keyboard / gamepad
 -- interaction from the input-contribution bundle the control attaches to its
 -- root — with NO consumer present() wiring. Every interaction goes through the

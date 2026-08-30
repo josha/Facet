@@ -59,7 +59,7 @@
 	    once, here.
 	  * a CLIP HOST — `clipChildren`, a fade group (a CanvasGroup renders its
 	    subtree into its own buffer, so it crops), or a `Foreign` box (which clips
-	    from birth, ADR-0034). Both axes: the engine really does cut here.
+	    from birth). Both axes: the engine really does cut here.
 	  * a PANEL — any node carrying a real `surface`. It does NOT clip, and that
 	    is exactly why it belongs: a plate that paints its content past its own
 	    edge is the defect above, and nothing in the engine will stop it.
@@ -87,13 +87,12 @@
 	ONE CLAUSE OF THAT VERDICT WAS WRONG, and it is struck above rather than left
 	to be re-derived: "a LEGAL composition cannot produce one (measured at the
 	boundary: the arrangement is rejected the moment a form outgrows the box)"
-	stood here until `docs/adr/ADR-0056-lane-give-way-both-ends.md`, which is its
-	counterexample. The reasoning was about a form OUTGROWING its box; the defect
+	stood here until the lane give-way rule, which is its counterexample. The reasoning was about a form OUTGROWING its box; the defect
 	was a zone PLACED outside a box it fits inside, by an arithmetic slip in the
 	give-way's own placement — legal, unrejected, uncollided, up to 300px out. The
 	312 count was real and every one of them really was a `fallback`; what a count
 	cannot know is whether the set it counted is closed. THE SCOPE DECISION ABOVE
-	SURVIVES on the three clauses that are still true plus ADR-0056's arithmetic (a
+	SURVIVES on the three clauses that are still true plus the give-way arithmetic (a
 	legal composition's placement now sums to the lane exactly, so the case this
 	guard would newly catch cannot be produced) — but it survives as a conclusion
 	from a proof rather than from a sample, and the pinned cases now include an arm
@@ -111,8 +110,8 @@
 	── WHAT IT DELIBERATELY CANNOT SEE ──────────────────────────────────────────
 
 	It reads SOLVED rects. A node in flight — a slide-in, a marquee, a reveal —
-	carries its travel in `presentedPosition`, composed separately (ADR-0022
-	Decision 2), so motion is outside this census by construction rather than by a
+	carries its travel in `presentedPosition`, composed separately, so motion is
+	outside this census by construction rather than by a
 	waiver somebody has to remember to write. Likewise the R18 hit-expander floor:
 	the expanded target is a FIELD on the control's handle (`setHitRect`), never a
 	node, so a sub-44px control's target legitimately exceeding its parent is not

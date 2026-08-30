@@ -40,7 +40,7 @@
 	  * motion. A slide-in, a marquee and a reveal all put a node outside its box
 	    MID-FLIGHT, and none of them is waived here, because the guard reads the
 	    SOLVED rect and the presentation offset is composed separately
-	    (`presentedPosition`, ADR-0022 Decision 2). A travelling node is inside its
+	    (`presentedPosition`). A travelling node is inside its
 	    box as far as this census is concerned, which is the honest answer: the
 	    layout is what is being judged.
 	  * a COMPOSITION REGION below its composition's box (the class the

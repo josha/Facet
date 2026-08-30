@@ -411,7 +411,7 @@ end)
 	queue is drained by `controller.refresh()`, on the host's NEXT frame. So the
 	solve that produced the measurement laid the tree out against the OLD prop,
 	and the correction arrived a frame later. Shipped instance:
-	`docs/lessons/the-node-that-must-spend-it-lives-outside.md` — a Table's header
+	the node that must spend a reservation lives outside it — a Table's header
 	pays the scrollbar gutter its body spent, and `present`'s own solve laid the
 	header out un-guttered.
 

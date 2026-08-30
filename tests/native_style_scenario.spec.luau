@@ -183,7 +183,7 @@ describe("screen_target's chrome text lift: the source contract", function()
 		-- an opaque decoration child covers the parent TextBox's engine-drawn text
 		-- and caret under Sibling z-behavior, which is what the yield must reveal
 		local focused = section("(instance :: TextBox).Focused:Connect(function()", "FocusLost:Connect")
-		-- v2 (ADR-0020 R1): the yield generalized over a LAYER STACK, so the write
+		-- v2: the yield generalized over a LAYER STACK, so the write
 		-- runs per target rather than on one named decoration. The proposition is
 		-- unchanged and still falsifiable — fully transparent, never repainted.
 		expect(string.find(focused, "for _, child in yieldTargets(handle, deco) do", 1, true) ~= nil).toBe(true)
@@ -296,7 +296,7 @@ describe("screen_target: the image IS the button (source contract)", function()
 	it("the decoration HINT arrives through create, not through a later setter", function()
 		-- a hint delivered after create() would build one decoration and churn it
 		-- for another, because skinning is create()'s last act. `createOpts` joined
-		-- the signature as a 5th argument (ADR-0022 Decision 2 — the fade group's
+		-- the signature as a 5th argument (the fade group's
 		-- engine class is another fact only create() can honour), so the contract is
 		-- "the hint is a create ARGUMENT", not the exact argument list.
 		expect(string.find(source, "function adapter.create(", 1, true) ~= nil).toBe(true)
@@ -360,7 +360,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 
 	it("a live theme swap repaints whatever is focused RIGHT NOW", function()
 		-- the theme name rides the same transaction the package does — and so
-		-- does the SNAPSHOT (ADR-0020 R4: semantic icons size from `iconSizes`,
+		-- does the SNAPSHOT (semantic icons size from `iconSizes`,
 		-- so the metrics have to arrive with the package, not a frame later)
 		expect(
 			string.find(controller, "pcall(adapter.setThemePackage, activePackage, themeName, next_)", 1, true) ~= nil

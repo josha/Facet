@@ -305,8 +305,7 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 				end
 			end
 			-- neither arm may be vacuous, or this test passes by never reaching the case
-			-- it is about (the two-sided discipline docs/lessons/the-solver-already-told-
-			-- you.md asks of every sweep)
+			-- it is about (the two-sided discipline every sweep owes)
 			expect(`wrapped={sawWrap} oneLine={sawOneLine}`).toBe("wrapped=true oneLine=true")
 		end
 	)

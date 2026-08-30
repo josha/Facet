@@ -1,5 +1,5 @@
 --!strict
--- THE PER-NODE PRESENTATION CHANNEL (ADR-0022 Decision 2; acceptance row SF-M9).
+-- THE PER-NODE PRESENTATION CHANNEL (acceptance row SF-M9).
 --
 -- The channel existed on paper before this stage: the authority manifest declared
 -- `transform`/`transparency` as presentation properties, the presenter drove the
@@ -192,8 +192,7 @@ describe("presentation transform: the keep-visible root shift (SF-M9)", function
 	end)
 
 	it("...and onto every node in the surface, which is what makes it visible at all", function()
-		-- THE DEFECT'S ROOT CAUSE. On the client the instance tree is FLAT
-		-- (docs/lessons/screen-target-tree-is-flat.md), so shifting the root node's
+		-- THE DEFECT'S ROOT CAUSE. On the client the instance tree is FLAT, so shifting the root node's
 		-- own instance moves one transparent frame. The offset has to reach the
 		-- subtree, and this is the assertion that says so.
 		local adapter, controller = render(screen())

@@ -756,7 +756,7 @@ end)
 
 	Everything above this line is a fact about the model: a state name, a row
 	index, a status string. Not one of them can see an INVISIBLE RECTANGLE —
-	`docs/lessons/a-default-valued-write-never-claims.md` is the record of a
+	a default-valued write claims nothing, and the record of that is a
 	fade that ran perfectly over three plates nobody could see, found by a screen
 	capture after several hundred correct property readings had missed it.
 
@@ -1021,7 +1021,7 @@ describe("examples/05 word game — the board holds its letters at every text si
 		px the engine paints every text node with — { 0, 4, 10, 14 }, measured, the
 		whole domain of what a player can choose (tests/lib/large_text.luau). A
 		tile is sized from a theme metric and the LETTER inside it is not, which is
-		the shape `docs/lessons/facet-fixed-px-heights.md` names: this board's tile
+		the shape a fixed px height names: this board's tile
 		was a `fixed` px cap, and under Fantasy Parchment at the largest preference
 		the glyph measured 49px in a 44px box and painted over its neighbours. The
 		solver said so; nothing was asking it at that preference.

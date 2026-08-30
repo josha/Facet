@@ -95,7 +95,7 @@ describe("the headless world substrate (REUSE-88)", function()
 		expect(w.system ~= nil).toBe(true)
 		expect(w.pres ~= nil).toBe(true)
 		-- two worlds are two of everything: an adapter shared between presenters is
-		-- ADR-0009's refusal, and a spec that reuses one gets cross-talk it cannot
+		-- the billboard round's refusal, and a spec that reuses one gets cross-talk it cannot
 		-- see (the instance map and the capture state are adapter-scoped)
 		local other = worldLib.new()
 		expect(other.adapter ~= w.adapter).toBe(true)

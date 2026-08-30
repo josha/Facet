@@ -25,7 +25,7 @@ describe("showcase catalogue", function()
 		-- same omission `async-images` and `canvas-group` closed one round earlier.
 		-- 35 the same day again, when `newLevelPicker` shipped with the fixture that
 		-- reproduces the reference screenshot
-		-- 36 on 2026-08-16/17 (ADR-0032, the nested-instance-tree round): `nested-tree`,
+		-- 36 on 2026-08-16/17 (the nested-instance-tree round): `nested-tree`,
 		-- the compositing showcase — a registered host's engine-composed group opacity
 		-- beside its rotation/scale carry, the two capabilities the round's own brief
 		-- names as its showcase deliverable
@@ -70,7 +70,7 @@ describe("showcase catalogue", function()
 		-- `row-capabilities`, the per-row opt-out family's own surface, and
 		-- `text-degrade`, the showcase rulings 1 and 5 owe (the degrade cascade is
 		-- an ORDER, and an order needs a driver a player can hold).
-		-- ...and THIRTEEN since ADR-0028: `surface-overlap`, whose four states
+		-- ...and THIRTEEN since the overlap alarm: `surface-overlap`, whose four states
 		-- paint identical pixels, so the picker entry is the only route a player
 		-- has to the one thing that tells them apart.
 		-- ...and FOURTEEN since the unified collection (2026-08-14):
@@ -105,13 +105,13 @@ describe("showcase catalogue", function()
 		-- counter — and a dictionary's iteration order is only wrong compared with
 		-- the frame BEFORE it, which is why that fixture ships a picker that
 		-- rebuilds the same twelve pairs a different way.
-		-- ...and TWENTY-ONE since ADR-0033 (2026-08-15): `time-curves`, the
+		-- ...and TWENTY-ONE since 2026-08-15: `time-curves`, the
 		-- time-based-easing surface. It is here for the same reason: what it shows
 		-- is a stopwatch reading, not a frame — an informational tween landing at
 		-- 0.52 s beside a spring given the same number that does not settle until
 		-- 1.05 s, and a reduced-motion pass where the decorative halves place
 		-- instantly while that cooldown keeps stepping.
-		-- ...and the UI.Foreign surface (ADR-0034), which is in the catalogue for a
+		-- ...and the UI.Foreign surface, which is in the catalogue for a
 		-- reason none of the others are: its three panes are not drawn by Facet at
 		-- all, so it is the only demo where "does the framework render this" is the
 		-- wrong question and "does the box hold it" is the right one.
@@ -126,7 +126,7 @@ describe("showcase catalogue", function()
 		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
 		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
-		-- 29 on 2026-08-16/17 (ADR-0032): `nested-tree`, the nested-instance-tree
+		-- 29 on 2026-08-16/17: `nested-tree`, the nested-instance-tree
 		-- compositing showcase
 		expect(fixtures).toBe(29)
 	end)
@@ -559,8 +559,8 @@ end)
 -- a fixture declared was discarded — in the SHIPPED host and nowhere else. The
 -- scenario runner passed it, the overflow sweep passed it, and the tutorial
 -- branch eleven lines below passed it: the test rigs were more correct than
--- production, which is the failure mode docs/lessons/the-solver-already-told-you.md
--- is named after, and it is why a one-argument omission survived.
+-- production, which is the failure mode the standing lesson is named after,
+-- and it is why a one-argument omission survived.
 --
 -- Two halves, because either alone is how it survived: the DELIVERY is checked
 -- generically over the whole catalogue (a fixture added tomorrow is covered),
@@ -633,7 +633,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
 		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
-		-- 29 on 2026-08-16/17 (ADR-0032): `nested-tree`
+		-- 29 on 2026-08-16/17: `nested-tree`
 		expect(fixtures).toBe(29)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
@@ -1026,7 +1026,7 @@ describe("showcase fixture: one fade group, or three (canvas_group)", function()
 			presenter = w.presenter,
 		})
 		-- it names the class it was reached for, says the prop is refused rather
-		-- than missing, and names the one line that works (ADR-0029)
+		-- than missing, and names the one line that works
 		expect(string.find(built.refusal, "'opacity' is REFUSED on UI.Text", 1, true) ~= nil).toBe(true)
 		expect(string.find(built.refusal, "not missing", 1, true) ~= nil).toBe(true)
 		expect(string.find(built.refusal, "UI.ZStack{ opacity = 0.4", 1, true) ~= nil).toBe(true)
@@ -1103,7 +1103,7 @@ local DEMO_ROOT: { [string]: string } = {
 	-- D2 and D5, whose constructs shipped before their surfaces did
 	["menu"] = "MenuDemo",
 	["tab-view"] = "TabViewDemo",
-	-- ADR-0032: the nested-instance-tree compositing showcase
+	-- the nested-instance-tree compositing showcase
 	["nested-tree"] = "NestedCompositing",
 	-- scaffold: new control roots are appended above this line. A scaffolded
 	-- scenario names its root screen after the control, so the stamped row is the

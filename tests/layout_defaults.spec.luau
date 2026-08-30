@@ -696,8 +696,7 @@ end)
 
 	THE NUMBER IS RULED AND IT IS DERIVED, not chosen: **900 = 600 x 1.5**, the
 	tablet measure times the ten-foot distance factor. That is the same
-	proportion-equality doctrine every ten-foot number in this framework rides
-	(ADR-0039): the factor is `themes.snapshot.metricScale`'s own `tenFootFloor`,
+	proportion-equality doctrine every ten-foot number in this framework rides: the factor is `themes.snapshot.metricScale`'s own `tenFootFloor`,
 	read rather than restated, and the base is `adaptive.LANE_MEASURE`. Neither
 	number is duplicated, so a re-ruled measure is one line here and a named sweep.
 
@@ -789,7 +788,7 @@ describe("B-6e — the ten-foot Composition measure caps at the ruled 900", func
 	end)
 
 	it("...and the derivation holds: it IS the tablet measure times the distance factor", function()
-		-- the acceptance is a PROPORTION, not a literal — the same shape ADR-0039
+		-- the acceptance is a PROPORTION, not a literal — the same shape the ladder
 		-- set for every other ten-foot number. If the tablet measure moves, or the
 		-- factor is re-ruled, this stays true and the literal above is the one edit
 		local adaptive = require("../src/layout/adaptive")

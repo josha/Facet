@@ -167,7 +167,7 @@ describe("documentation gate: the shipped theme surface and its docs agree", fun
 end)
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- RICH SKINNING v2 (ADR-0020 R8, ledger row RS-A15). The v2 surface added a
+-- RICH SKINNING v2 (ledger row RS-A15). The v2 surface added a
 -- chapter, a contributor playbook, a worked control and that control's own art,
 -- and every one of them can rot independently of the Step 3.5 set above. Same
 -- discipline: prove each new rule BITES rather than trusting that it exists.
