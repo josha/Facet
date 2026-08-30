@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/desktop-keyboard-navigation/gate.json",
+   "label": "evidence-1",
+   "sha256": "30d6e1c2e7da19f4029ffdc426183fba45316e3b619de6a16783b2f0c802ef56"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/step8-debt.md",
+   "label": "evidence-2",
+   "sha256": "746d425e5ac1f91a431d654e0cea4ea2d504a30a3967c03ea9d65ddf6fba6c51"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "traversal-document-order::step8-debt-cleared",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "step8-debt-cleared: 2 recorded file(s), pinned by content hash."
+}

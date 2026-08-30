@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/input-paradigms/defect-example02.md",
+   "label": "evidence-1",
+   "sha256": "d7a0bb6bad85eb6fd49d1a8a4b7c694c100de9722ecb374f3e8e2dbacd7b9fb4"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "input-paradigms::defect-example02-fix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "defect-example02-fix: 1 recorded file(s), pinned by content hash."
+}

@@ -1,0 +1,13 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "label": "evidence-1",
+   "sha256": "77d82504a727ccee46dfc146738b8b72eba6ccdfd302058d57619556a661c7df"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "reference-app-validation::places-and-builds",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "places-and-builds: 1 recorded file(s), pinned by content hash."
+}

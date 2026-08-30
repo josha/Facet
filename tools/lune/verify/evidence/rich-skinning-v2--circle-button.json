@@ -1,0 +1,24 @@
+{
+ "class": "perf",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_statewalk_desktop_studio-neutral.png",
+   "label": "evidence-2",
+   "sha256": "f7406c2048d5ff447b97cb0292e86abd03b62aedee117f80a313ce84c010a887"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-circle.json",
+   "label": "evidence-3",
+   "sha256": "b1ee1bc85d1b9b2c33532b7199fae7fa5691f654b1396c6d932faecefc1d8320"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::circle-button",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "circle-button: 3 recorded file(s), pinned by content hash."
+}

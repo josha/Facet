@@ -43,6 +43,7 @@ export type Check = {
 	resultIds: { string }?,
 	stdoutPins: { { producer: string, flags: string, pattern: string } }?,
 	shell: string?,
+	receipt: string?,
 	priorPhases: boolean?,
 }
 
@@ -61,10 +62,17 @@ export type Row = {
 	check: Check,
 }
 
+export type Phase = {
+	id: string,
+	artifactDir: string,
+	gateArtifact: string,
+	next: string?,
+}
+
 export type Graph = {
 	schema: string,
 	generatedAt: string,
-	phases: { string },
+	phases: { Phase },
 	producers: { identity.Producer },
 	rows: { Row },
 	unresolvedPatterns: { string }?,
@@ -134,6 +142,22 @@ function graph.producersForRows(rows: { Row }): { string }
 		end
 	end
 	return out
+end
+
+function graph.phaseIds(g: Graph): { string }
+	local out: { string } = {}
+	for _, p in g.phases do
+		table.insert(out, p.id)
+	end
+	return out
+end
+
+function graph.phaseById(g: Graph): { [string]: Phase }
+	local index: { [string]: Phase } = {}
+	for _, p in g.phases do
+		index[p.id] = p
+	end
+	return index
 end
 
 function graph.producersForTier(g: Graph, tier: string): { string }

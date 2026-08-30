@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/b-a12-docs-gate.json",
+   "label": "evidence-1",
+   "sha256": "842bb5e2039af753efa46467d8d50ab35d8c1c691818f2ea51a75693168d0882"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "theme-packages-and-skinning::docs-and-check-docs-cli",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "docs-and-check-docs-cli: 1 recorded file(s), pinned by content hash."
+}

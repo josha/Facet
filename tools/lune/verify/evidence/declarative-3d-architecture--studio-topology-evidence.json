@@ -1,0 +1,29 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/declarative-3d-architecture/studio-raw-client.json",
+   "label": "evidence-1",
+   "sha256": "9a28ae350025816b6fd73bc4fba3c9cc60ca4984bcbbe412ca7241c8a503eea4"
+  },
+  {
+   "archivedPath": "artifacts/declarative-3d-architecture/studio-raw-cross.json",
+   "label": "evidence-2",
+   "sha256": "b2d3fbbca80c99f8642e6f56e9bf424f236f7e7c2c6b5cb3115a50736b630504"
+  },
+  {
+   "archivedPath": "artifacts/declarative-3d-architecture/studio-raw-server.json",
+   "label": "evidence-3",
+   "sha256": "72692c7b07f6b719365f145508f4c34454238f17361ee2127f469ee5865d142d"
+  },
+  {
+   "archivedPath": "artifacts/declarative-3d-architecture/studio-topology.json",
+   "label": "evidence-4",
+   "sha256": "e1ca6585ede05507aaaafcb1ded6119a50e86c42f4f8e700717026b7e80d405d"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "declarative-3d-architecture::studio-topology-evidence",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "studio-topology-evidence: 4 recorded file(s), pinned by content hash."
+}

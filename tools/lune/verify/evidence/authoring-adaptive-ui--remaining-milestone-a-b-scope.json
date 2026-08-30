@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/a-al4-preferred-text-sweep.json",
+   "label": "evidence-1",
+   "sha256": "3025e80867eedfacc5f4fe7de4e5a64b47e439c906f5e8a0033ebaf92de7682d"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "authoring-adaptive-ui::remaining-milestone-a-b-scope",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "remaining-milestone-a-b-scope: 1 recorded file(s), pinned by content hash."
+}

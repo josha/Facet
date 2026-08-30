@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/expansion-textinput-adapter.json",
+   "label": "evidence-1",
+   "sha256": "71d0c8b77ddaac928d9b1ea2719538ad3760b7ec68ea503db95026916a66f237"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "expansion-textinput::adapter-capability-detection",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "adapter-capability-detection: 1 recorded file(s), pinned by content hash."
+}

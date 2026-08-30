@@ -35,8 +35,8 @@
 #   2. THE FINGERPRINT IS CONTENT, NEVER TIME. A clock- or session-keyed cache
 #      outliving an edit is the "reads two checked-in files and executes
 #      nothing" shape tools/prior_gates.sh exists to have removed (PG-2, ledger
-#      C-08). Any edit under src/ tests/ examples/ vendor/, or to the toolchain
-#      pins, busts it.
+#      C-08). Any edit under src/ tests/ examples/, or to the toolchain pins,
+#      busts it.
 #   3. THE FAST TIER IS REFUSED BY A BASH MATCH, NOT A PIPELINE. `printf | grep
 #      -q` returns 141 under pipefail when it MATCHES (grep exits at the first
 #      hit, printf takes SIGPIPE), which passed a fast-tier transcript straight
@@ -77,9 +77,11 @@ set_entry() {
 }
 
 # The tree the suite actually reads. examples/ is in here because the example
-# drift and reference-app specs require those modules; vendor/ because the
-# suite links against it. tools/ is deliberately NOT here — editing a gate
-# script cannot change a spec's outcome.
+# drift and reference-app specs require those modules. `vendor/` left this list
+# on 2026-08-30 with the directory itself: `find` reported "No such file or
+# directory" into /dev/null and hashed nothing, so the fingerprint was correct
+# and the argument was a lie about what the suite reads. tools/ is deliberately
+# NOT here — editing a gate script cannot change a spec's outcome.
 suite_fingerprint() {
 	{
 		# 2>/dev/null on the HASH, not just the find: a sibling agent's temp file
@@ -90,7 +92,7 @@ suite_fingerprint() {
 		# differs from the settled one, and the cache reports a MISS and re-runs.
 		# It degrades to slow, never to a wrong answer, which is the direction
 		# this has to fail in.
-		find src tests examples vendor -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null
+		find src tests examples -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null
 		shasum -a 256 run-tests.sh rokit.toml 2>/dev/null
 		lune --version 2>&1
 	} | shasum -a 256 | cut -d' ' -f1

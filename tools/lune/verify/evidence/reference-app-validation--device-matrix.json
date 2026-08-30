@@ -1,0 +1,17 @@
+{
+ "class": "device",
+ "evidence": [
+  {
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "label": "evidence-2",
+   "sha256": "3d225ebded533017720f8a0085d5cf62b4643b219443c640435247648d741e2d"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "reference-app-validation::device-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "device-matrix: 2 recorded file(s), pinned by content hash."
+}

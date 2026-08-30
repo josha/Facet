@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-substrate/a12-bridge.json",
+   "label": "evidence-1",
+   "sha256": "d51fae17300e3865a22183d91e042f575fd984089b44dde4cb3307affbdad309"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-substrate::selection-policy",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "selection-policy: 1 recorded file(s), pinned by content hash."
+}

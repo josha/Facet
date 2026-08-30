@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/input-paradigms/studio-drive.json",
+   "label": "evidence-1",
+   "sha256": "7c5db1162a2ac162d26db8d18f053d7104d634a0908efd062a05086b8a09dafe"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "input-paradigms::studio-drive",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "studio-drive: 1 recorded file(s), pinned by content hash."
+}

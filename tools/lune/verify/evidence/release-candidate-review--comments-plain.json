@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/release-candidate-review/docs/comment-audit.md",
+   "label": "evidence-1",
+   "sha256": "2e779bd4a4b3b3e6e918abcea093da579bd367765ededb2235a18defe77eb112"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:39Z",
+ "row": "release-candidate-review::comments-plain",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "comments-plain: 1 recorded file(s), pinned by content hash."
+}

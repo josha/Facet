@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/b-a3-controls-roles.json",
+   "label": "evidence-1",
+   "sha256": "c3189263e4c3e60cff4780048ef35d44b230c4de9fc0161dff1b13aafd433f05"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "theme-packages-and-skinning::controls-semantic-roles",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "controls-semantic-roles: 1 recorded file(s), pinned by content hash."
+}

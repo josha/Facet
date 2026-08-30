@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/five-view-matrix.json",
+   "label": "evidence-1",
+   "sha256": "2304a756fdba2877ce59e053ad7341992cd554f1bb97c9c4a5f47c0d669589a9"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "authoring-adaptive-ui::adaptive-fixture-fits-one-screen",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "adaptive-fixture-fits-one-screen: 1 recorded file(s), pinned by content hash."
+}

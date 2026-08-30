@@ -1,0 +1,19 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/bench.json",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/studio/part2-billboard.json",
+   "label": "evidence-2",
+   "sha256": "5f5596de0c0caab71fabcc3e60ac2e79369ec1e4c8a0206f9ae12c9aab588ae7"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "part-2-director::ws3-billboard-target",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "ws3-billboard-target: 2 recorded file(s), pinned by content hash."
+}

@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/release-candidate-review/rename/rr-consumer-ledger.md",
+   "label": "evidence-1",
+   "sha256": "5a0318b843b788579a9b56401a4b77a49a7468d5a4b921f4f866db40ed851082"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:39Z",
+ "row": "release-candidate-review::rr-consumer-sync",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "rr-consumer-sync: 1 recorded file(s), pinned by content hash."
+}

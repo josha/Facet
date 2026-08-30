@@ -1,0 +1,44 @@
+{
+ "class": "perf",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/captures/rs-m1-tilesize.png",
+   "label": "evidence-1",
+   "sha256": "0ac0e8a048be54bab957c964bf66c7dfa7bde6b352f8c716a98ebc1edfc45307"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/captures/rs-m4-fillclip.png",
+   "label": "evidence-2",
+   "sha256": "0cb03d2b811990d02483227a4beac81b135e5a8c0926e0d42b41496e400ac336"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/",
+   "label": "evidence-3",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m1-tilesize.json",
+   "label": "evidence-4",
+   "sha256": "dd611b797c6a96a215b134bfed82bd40c3f226ab811c9800a2a023f0019f72c2"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m2-layer-zorder.json",
+   "label": "evidence-5",
+   "sha256": "c93682e90c2b6c6bc84282a18b05f3b52f272326ed50270ab2ed4766fab5738f"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m4-fill-clip.json",
+   "label": "evidence-6",
+   "sha256": "661dcdf37a2afd7b326c9e0725bb31a81ad83eef1a567ba69876171366d79eb4"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m7-content.json",
+   "label": "evidence-7",
+   "sha256": "b4967688d8c735aca0810d60133cae036d0ccf46e7df9f3d67f8b7cb8fc9c70b"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::feasibility-probes",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "feasibility-probes: 7 recorded file(s), pinned by content hash."
+}

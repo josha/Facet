@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/release-candidate-review/haptics/defaults.md",
+   "label": "evidence-1",
+   "sha256": "3bdb6d420e66c07fbf335c30c260b6cb6941d17a935664e7a5e7b8bc1ee8bdf4"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:39Z",
+ "row": "release-candidate-review::haptics-defaults",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "haptics-defaults: 1 recorded file(s), pinned by content hash."
+}

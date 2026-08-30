@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-substrate/a13-resources.json",
+   "label": "evidence-1",
+   "sha256": "b0f0424ee712524c098ee385dc479ea794aef0b590acbcf47b58d90e55823f92"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/a14-image.json",
+   "label": "evidence-2",
+   "sha256": "b0f0424ee712524c098ee385dc479ea794aef0b590acbcf47b58d90e55823f92"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-substrate::resource-transport",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "resource-transport: 2 recorded file(s), pinned by content hash."
+}

@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/release-candidate-review/rename/after-inventory.json",
+   "label": "evidence-1",
+   "sha256": "590c8f92bbf670571a76f8beaa3affffc1333ed4fa19c86f4caee0105259fab2"
+  },
+  {
+   "archivedPath": "artifacts/release-candidate-review/rename/after-inventory.md",
+   "label": "evidence-2",
+   "sha256": "2cfd862c2c6048e0c1d4a1be16fa1a316586ca57b4b271a8b03735e73c51147e"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:39Z",
+ "row": "release-candidate-review::rename-canonical-identity",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "rename-canonical-identity: 2 recorded file(s), pinned by content hash."
+}

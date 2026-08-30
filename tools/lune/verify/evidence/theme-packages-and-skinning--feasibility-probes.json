@@ -1,0 +1,29 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m1-per-target-sheets.json",
+   "label": "evidence-2",
+   "sha256": "72f73aa225c7d36ece95718c4ec2dcc64d932a68771c1cd0e35a92115206c0ff"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m5-swap-atomicity-cost.json",
+   "label": "evidence-3",
+   "sha256": "9e4a3ae1e048dae7098484ddb21119bb572687e20d788c34dbadde54513b6915"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m8-render-order-combinators.json",
+   "label": "evidence-4",
+   "sha256": "290f74212b3e48b71a971bdeb25930c67ad2d7b67fedda16072e1a9904300927"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "theme-packages-and-skinning::feasibility-probes",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "feasibility-probes: 4 recorded file(s), pinned by content hash."
+}

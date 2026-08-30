@@ -1,0 +1,13 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "label": "evidence-1",
+   "sha256": "d899ccdd9822049d56cca167c2a18c00050909d771f93a2decdbcd611d46dd25"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "reference-app-validation::fixture-axes",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "fixture-axes: 1 recorded file(s), pinned by content hash."
+}

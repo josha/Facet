@@ -1,0 +1,19 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/a-sv1-scrollview.json",
+   "label": "evidence-1",
+   "sha256": "360373d2778289b0ae860c62fce85e4b1d35df45315c41f53eb531c48b9372b6"
+  },
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/native-input.json",
+   "label": "evidence-2",
+   "sha256": "ddd71df125d552f549fd6fd27b733e8f756db1ced3f5eec022c3ed9c51a086f9"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "authoring-adaptive-ui::scrollview-live-geometry",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "scrollview-live-geometry: 2 recorded file(s), pinned by content hash."
+}

@@ -56,7 +56,7 @@ local function nowIso(): string
 end
 
 --[[ A producer that hangs must not hang the coordinator. bash 3.2 has no
-	`timeout`, and macOS ships no coreutils, so the watchdog is written by hand:
+	`timeout` and this platform ships no coreutils, so the watchdog is by hand:
 	background the work, background a killer, wait for whichever finishes.
 
 	THE WATCHDOG'S STDIO IS CLOSED, AND THAT IS THE WHOLE TRICK. Written the
@@ -305,11 +305,52 @@ function runner.executeAll(producers: { identity.Producer }, ctx: Context, jobs:
 		task.wait(0.02)
 	end
 
-	-- ...and only now the ones that measure, one at a time — with the machine
-	-- given a chance to go quiet first. This is prior_gates.sh's settle,
-	-- narrowed to the producers that can actually answer differently on a busy
-	-- machine (class `perf`), instead of charged to all thirty-three gates.
+	--[[ ...and only now the ones that run alone, in DEPENDENCY ORDER — with the
+		machine given a chance to go quiet first where the answer depends on it.
+
+		The settle is prior_gates.sh's, narrowed to the producers that can
+		actually answer differently on a busy machine (class `perf`) instead of
+		charged to all thirty-three gates.
+
+		The ordering matters for a measured reason: two of these reach the suite
+		through its old front door on purpose, and run before it they each start
+		a suite of their own (351 s and 333 s in one run that had already spent
+		285 s running it once). Declared dependencies, satisfied first, turn both
+		into a read of the recorded transcript. ]]
+	local ordered: { identity.Producer } = {}
+	local placed: { [string]: boolean } = {}
+	local function place(p: identity.Producer, depth: number)
+		if placed[p.id] or depth > 8 then
+			return
+		end
+		placed[p.id] = true
+		for _, dep in p.dependsOn or {} do
+			for _, other in serial do
+				if other.id == dep then
+					place(other, depth + 1)
+				end
+			end
+		end
+		table.insert(ordered, p)
+	end
 	for _, p in serial do
+		local blocked = false
+		for _, dep in p.dependsOn or {} do
+			for _, other in serial do
+				if other.id == dep then
+					blocked = true
+				end
+			end
+		end
+		if not blocked then
+			place(p, 0)
+		end
+	end
+	for _, p in serial do
+		place(p, 0)
+	end
+
+	for _, p in ordered do
 		if p.environmentClass == "perf" then
 			runner.settle()
 		end

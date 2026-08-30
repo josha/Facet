@@ -150,6 +150,7 @@ export type Producer = {
 	environmentClass: string,
 	tiers: { [string]: boolean },
 	serialize: boolean?,
+	dependsOn: { string }?,
 	timeoutS: number?,
 	note: string?,
 	declaredEvidence: string?,

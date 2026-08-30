@@ -90,7 +90,7 @@ local producerIndex = graphMod.producerById(g)
 
 if gatePhase ~= nil then
 	local known = false
-	for _, p in g.phases do
+	for _, p in graphMod.phaseIds(g) do
 		if p == gatePhase then
 			known = true
 		end
@@ -253,6 +253,88 @@ local function recordFor(id: string): (any, string?)
 	return record, nil
 end
 
+--[[ THE PRIVATE EVIDENCE ARCHIVE, when it is beside this checkout.
+
+	Recorded evidence — a Studio drive, a device or performance capture, an
+	engine-feasibility probe — is pinned by content hash in a RECEIPT rather than
+	by a raw path and a literal grep, because a hash is the stronger pin and
+	because the path may name a stage this library does not want to publish. The
+	receipt is verified against the file on disk when it is still there, and
+	against the archive's own manifest when the archive is present. When neither
+	is available the receipt stands as DECLARED evidence and is reported
+	separately, which is what the plan requires of every evidence class a
+	headless run cannot re-take. ]]
+local archiveDigests: { [string]: string } = {}
+local archivePresent = false
+do
+	local manifest = "../Facet-private-archive/MANIFEST.json"
+	if fs.isFile(manifest) then
+		local ok, decoded = pcall(function()
+			return serde.decode("json", fs.readFile(manifest))
+		end)
+		if ok and type(decoded) == "table" and type((decoded :: any).files) == "table" then
+			archivePresent = true
+			for _, entry in (decoded :: any).files do
+				archiveDigests[entry.path] = entry.sha256
+			end
+		end
+	end
+end
+
+local declaredEvidenceRows: { { row: string, class: string, items: number } } = {}
+
+local function checkReceipt(row: graphMod.Row): (string, string)
+	local path = (row.check :: any).receipt
+	if not fs.isFile(path) then
+		return "FAIL_RECOVERABLE", `evidence receipt {path} is missing`
+	end
+	local ok, receipt = pcall(function()
+		return serde.decode("json", fs.readFile(path))
+	end)
+	if not ok or type(receipt) ~= "table" then
+		return "FAIL_RECOVERABLE", `evidence receipt {path} is not readable JSON`
+	end
+	local r = receipt :: any
+	if r.schema ~= "facet-evidence-receipt/1" then
+		return "FAIL_RECOVERABLE", `evidence receipt has schema '{tostring(r.schema)}'`
+	end
+	if r.row ~= row.id then
+		return "FAIL_RECOVERABLE", "evidence receipt names a different row than the one holding it"
+	end
+	local declared = 0
+	local mismatched: { string } = {}
+	for _, item in r.evidence do
+		local verified = false
+		if item.archivedPath ~= nil and fs.isFile(item.archivedPath) then
+			local digest = util.sha256(fs.readFile(item.archivedPath))
+			verified = true
+			if digest ~= item.sha256 then
+				table.insert(mismatched, `{item.label} no longer hashes to what was recorded`)
+			end
+		end
+		if not verified and archivePresent and item.archivedPath ~= nil then
+			local archived = archiveDigests[item.archivedPath]
+			if archived ~= nil then
+				verified = true
+				if archived ~= item.sha256 then
+					table.insert(mismatched, `{item.label} disagrees with the archive's manifest`)
+				end
+			end
+		end
+		if not verified then
+			declared += 1
+		end
+	end
+	if #mismatched > 0 then
+		return "FAIL_RECOVERABLE",
+			`recorded evidence changed after it was recorded:\n  {table.concat(mismatched, "\n  ")}`
+	end
+	if declared > 0 then
+		table.insert(declaredEvidenceRows, { row = row.id, class = r.class, items = declared })
+	end
+	return "PASS", `{#r.evidence} recorded {r.class} file(s) still hash to what was recorded`
+end
+
 local suiteCases: { [string]: string }? = nil
 local suiteTranscript: string? = nil
 local rrTranscript: string? = nil
@@ -374,6 +456,13 @@ local function evaluate(row: graphMod.Row): (string, string)
 		end
 	end
 
+	if (row.check :: any).receipt ~= nil then
+		local state, detail = checkReceipt(row)
+		if state ~= "PASS" then
+			return state, detail
+		end
+	end
+
 	if row.check.shell ~= nil then
 		local env = shellEnv()
 		local out = process.exec("bash", { "-c", row.check.shell }, { env = env })
@@ -406,7 +495,7 @@ local function evaluate(row: graphMod.Row): (string, string)
 	return "PASS", row.note
 end
 
-for _, phase in g.phases do
+for _, phase in graphMod.phaseIds(g) do
 	rowByPhase[phase] = {}
 end
 for _, row in g.rows do
@@ -430,7 +519,7 @@ end
 	RUNNING them all again, recursively. Every one of those rows is already
 	evaluated in this same run, so the question is now a lookup. ]]
 local phaseIndex: { [string]: number } = {}
-for i, phase in g.phases do
+for i, phase in graphMod.phaseIds(g) do
 	phaseIndex[phase] = i
 end
 for _, rr in rowResults do
@@ -464,16 +553,17 @@ end
 
 -- ---- phase verdicts + legacy gate.json --------------------------------------
 
-local phasesDoc = serde.decode("json", fs.readFile("phases.json"))
-local phaseInfo: { [string]: any } = {}
-for _, p in phasesDoc.phases do
-	phaseInfo[p.gate] = p
-end
+--[[ THE PHASE VIEW'S OWN RECORD, out of the graph rather than phases.json.
+	A phase id is a PUBLIC name — it is the argument to tools/gate.sh and the
+	directory the compat gate.json is written into — so the graph carries the
+	neutral id and the paths derived from it. graph-census.md records what each
+	one was called before. ]]
+local phaseInfo = graphMod.phaseById(g)
 
 local phaseStates: { { phase: string, status: string, counts: { [string]: number } } } = {}
 local overallRowsPass = true
 
-for _, phase in g.phases do
+for _, phase in graphMod.phaseIds(g) do
 	local rows = rowByPhase[phase]
 	local counts: { [string]: number } = {}
 	local worst = "PASS"
@@ -591,6 +681,16 @@ for _, rr in rowResults do
 end
 
 report.phases(phaseStates)
+if #declaredEvidenceRows > 0 then
+	print("\27[1mRecorded evidence, reported separately\27[0m")
+	print(
+		`  \27[2m{#declaredEvidenceRows} row(s) stand on declared Studio/device/performance receipts whose files are neither on disk nor in a private archive beside this checkout.\27[0m`
+	)
+	for _, d in declaredEvidenceRows do
+		print(`  \27[2m- {d.row} ({d.class}, {d.items} declared file(s))\27[0m`)
+	end
+	print("")
+end
 report.failures(failures)
 
 for _, one in oneSpecResults do

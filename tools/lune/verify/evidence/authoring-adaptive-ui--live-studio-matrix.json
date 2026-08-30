@@ -1,0 +1,29 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/five-view-matrix.json",
+   "label": "evidence-1",
+   "sha256": "2304a756fdba2877ce59e053ad7341992cd554f1bb97c9c4a5f47c0d669589a9"
+  },
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/intentional-failure.json",
+   "label": "evidence-2",
+   "sha256": "c5a4c604f19d8eebeb5d5320c940f21bfd301d7e3f6218ea6a30fc0883b6fc81"
+  },
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/native-input.json",
+   "label": "evidence-3",
+   "sha256": "ddd71df125d552f549fd6fd27b733e8f756db1ced3f5eec022c3ed9c51a086f9"
+  },
+  {
+   "archivedPath": "artifacts/authoring-adaptive-ui/matrix/orientation-change.json",
+   "label": "evidence-4",
+   "sha256": "f3a671c6acfa1f24f228a27786bcdca65545edf9b6cd72ed0863b6195d3829b6"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "authoring-adaptive-ui::live-studio-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "live-studio-matrix: 4 recorded file(s), pinned by content hash."
+}

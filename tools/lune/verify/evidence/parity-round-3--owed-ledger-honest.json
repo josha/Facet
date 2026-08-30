@@ -1,0 +1,52 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/adr-0035-preferred-transparency/live-probes.md",
+   "label": "evidence-1",
+   "sha256": "9373694a351fe157cc5dd286cfd6e68d8d06f3c90f1deb624a3ee7b8d29b23d4"
+  },
+  {
+   "archivedPath": "artifacts/adr-0035-preferred-transparency/mutation-evidence.md",
+   "label": "evidence-2",
+   "sha256": "e39964c6eeae9dd9fc1f87f9cb84b7369abd3f8b47ee497f25b294d81dde2142"
+  },
+  {
+   "archivedPath": "artifacts/rulings-1-and-5/mutation-evidence.md",
+   "label": "evidence-3",
+   "sha256": "2ce1e566e2816bf84a8b7d3ec1cac81454849036514a7bd4feb8a09483e5466b"
+  },
+  {
+   "label": "evidence-4",
+   "sha256": "bb27dfd5d2b252a422f5aa5bbd74e02c1d9997731c6ff006fce2ccb2b3705256"
+  },
+  {
+   "label": "evidence-5",
+   "sha256": "2d79323a193695e5ec371ca93f0361f3c47417450fc627f5d8b6d65784cf71da"
+  },
+  {
+   "label": "evidence-6",
+   "sha256": "537db9afe562a0056a5da6cce70a8ad567377132d094324428267866f85ff1da"
+  },
+  {
+   "label": "evidence-7",
+   "sha256": "3f50983918273cc758c499abd8d0096d8feae2c40d8ff35ccca8010e66d7262b"
+  },
+  {
+   "label": "evidence-8",
+   "sha256": "f026a0ef25f947aa337f06875b42f252eec82178ebf04df182b9263fc865964b"
+  },
+  {
+   "label": "evidence-9",
+   "sha256": "e9522d57010c7566e6680b6fd212f1dea886fba6c57fec919ada42296ef8c5dc"
+  },
+  {
+   "label": "evidence-10",
+   "sha256": "edc1b554bfa7ccea9d76844504ce4d07cfea8aced4786203f2726904afcd1640"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "parity-round-3::owed-ledger-honest",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "owed-ledger-honest: 10 recorded file(s), pinned by content hash."
+}

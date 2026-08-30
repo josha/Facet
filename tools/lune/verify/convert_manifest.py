@@ -284,8 +284,10 @@ CLASS_OVERRIDES = {
 # day to a gate that failed only when it ran inside a batch.
 SERIALIZE = {
     "bench",
-    # runs the suite several times on purpose, to break its own cache guards
+    # runs the suite on purpose, to break its own cache guards
     "suite_cache_selftest",
+    # replays every manifest grep against a live transcript of BOTH suites
+    "check_manifest_integrity-transcript",
     "perf",
     "render",
     "prove_perf_gate",
@@ -301,6 +303,19 @@ SERIALIZE = {
     "build_model",
     "package-verify",
     "rascalrally-suite",
+}
+
+# WHO HAS TO WAIT FOR WHOM.
+#
+# Two producers reach the suite through the OLD front door on purpose — the
+# cache selftest breaks its guards against a real cached run, and the manifest
+# grep-replay needs a live transcript to replay against. Run in the parallel
+# batch they race the suite producer, lose, and each start a 260-second suite of
+# their own: measured 351 s and 333 s in one run that had already spent 285 s
+# running it once. Declared here, they run after it and read the recording.
+DEPENDS_ON = {
+    "suite_cache_selftest": ["suite"],
+    "check_manifest_integrity-transcript": ["suite", "rascalrally-suite"],
 }
 
 TIMEOUTS = {
@@ -450,6 +465,7 @@ class Producers:
                 fixtures: list[str] | None = None, kind: str = "scanner",
                 tiers: dict | None = None, optional: bool = False,
                 note: str = "") -> dict:
+        # see DEPENDS_ON
         if command in self.by_command:
             return self.by_command[command]
         assert pid not in self.by_id, f"duplicate producer id {pid}"
@@ -464,6 +480,7 @@ class Producers:
             "serialize": pid in SERIALIZE,
             "timeoutS": TIMEOUTS.get(pid, 600),
             "optional": optional,
+            "dependsOn": DEPENDS_ON.get(pid, []),
             "note": note,
         }
         self.by_command[command] = rec
@@ -521,31 +538,142 @@ class Producers:
 # rows the concurrent workstreams retire or move
 # ---------------------------------------------------------------------------
 
+#[[ Rows whose SUBJECT left the product tree in this stage. Keyed by row name —
+#   every one of these is unique across the manifest — rather than by
+#   (phase, name), because a phase id is a product name this file may not spell:
+#   `tools/check_brand_drift.py` scans tools/ and holds the registries that DO
+#   carry gate ids (phases.json, requirements.json, the manifest itself) on a
+#   named allowlist. The phase comes back from the row being converted. ]]
 RETIRED = {
-    ("phase-0-foundation", "conformance-fusion-adapter"):
-        "workstream K removed the vendored Fusion tree and src/core/fusion_adapter.luau; the "
-        "conformance corpus itself still runs against the custom core inside the suite",
-    ("phase-0-foundation", "conformance-imperative-baseline"):
-        "workstream K moved src/core/imperative.luau to bench/cores/, so the imperative core is a "
-        "benchmark comparison rather than a shipped core; the corpus still runs against the custom core",
-    ("phase-0-foundation", "foundation-decision"):
-        "the row pins totals in artifacts/decision-foundation.json, archived by workstream K with the "
-        "rest of the Fusion comparison material",
-    ("code-simplicity-cleanup", "conformance-all-cores"):
-        "the loop runs the corpus over `custom fusion imperative`; two of the three cores left the "
-        "product tree with workstream K",
-    ("swiftui-parity-round4", "comparison-docs-honest"):
-        "docs/reference/{fusion,react-lua}-comparison.md were deleted by workstream K; the public "
-        "framework-choice guide (workstream E2) is their living replacement",
+    "conformance-fusion-adapter":
+        "workstream K removed the vendored third-party reactive core and the adapter that bridged "
+        "it, and archived the scorecard this row read; the conformance corpus still runs against "
+        "the custom core and the imperative baseline",
+    "comparison-docs-honest":
+        "the two framework-comparison documents this row pinned were archived out of the "
+        "repository by workstream K; the public framework-choice guide is their living replacement",
 }
 
-SWIFTUI_DOC = "docs/reference/swiftui-parity.md"
+#[[ WHICH REFERENCE DOCUMENTS ARE LEAVING, said without naming them. Workstream
+#   E1 is moving everything under docs/reference/ except the API catalogue and
+#   the constitution out of this repository, and recording where each living
+#   contract went. A row pinning one of the leaving documents is marked
+#   `pendingMigration` and repointed once that ledger exists — the path is read
+#   out of the manifest row, never typed here. ]]
+REFERENCE_DIR = "docs/reference/"
+REFERENCE_KEPT = {"api.md", "constitution.md"}
+REFERENCE_DOC_RE = re.compile(r"docs/reference/([A-Za-z0-9._-]+\.md)")
+
 MIGRATION_LEDGER = "artifacts/distribution-readiness/swiftui-migration.md"
+
+
+
+# ---------------------------------------------------------------------------
+# public naming, recorded evidence, and history
+# ---------------------------------------------------------------------------
+
+# NEUTRAL PHASE IDS (director ruling 2026-08-30). A phase id is a PUBLIC name —
+# it is the key of the graph, the argument to tools/gate.sh, and the directory
+# the compat gate.json is written into — so it may not carry a product this
+# library is not. The rule is a SHAPE, not a list of old names: a phase whose id
+# is "<something>-parity-round<n>" is "parity-round-<n>", and one that is
+# "<something>-reference-app-validation" is "reference-app-validation".
+# graph-census.md records old -> new; that document is archived privately and may
+# spell the retired names.
+PHASE_NEUTRALIZE = [
+    (re.compile(r"^[a-z0-9]+-(parity-round)(\d)$"), r"\1-\2"),
+    (re.compile(r"^[a-z0-9]+-(reference-app-validation)$"), r"\1"),
+]
+
+
+def neutral_phase(phase: str) -> str:
+    for rx, repl in PHASE_NEUTRALIZE:
+        if rx.match(phase):
+            return rx.sub(repl, phase)
+    return phase
+
+
+# Recorded evidence a MACHINE produced and a headless cache can never re-take:
+# Studio drives, device captures, performance captures, engine-feasibility
+# probes, measured row records. These keep their evidence class (the plan is
+# explicit that perf/Studio/device/moderation/network results are never upgraded
+# by a headless run) and become receipts. Everything else a row pins under
+# artifacts/ is a ledger or a verdict from a stage that has closed: a record of a
+# past decision, which leaves the public graph for the coverage map.
+LIVING_EVIDENCE = re.compile(
+    r"artifacts/(?:studio/"
+    r"|[^/]+/(?:studio|device|captures|feasibility|perf|rows|matrix)(?:/|\.)"
+    r"|[^/]+/[^/]*(?:studio-drive|device-matrix|-capture)[^/]*)"
+)
+
+# WHETHER A STRING IS SAFE TO PUBLISH, asked of the one checker that decides it.
+# The patterns are IMPORTED rather than restated, so this file carries none of
+# the words it is filtering for and cannot drift away from the guard.
+def _publication_patterns():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_facet_brand_guard", os.path.join(ROOT, "tools/check_brand_drift.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return [p for p in (module.BRAND, module.TAG, module.VENDOR, module.VENDOR_TYPES) if p is not None]
+
+
+_PUBLICATION_PATTERNS = None
+
+
+def is_publishable(text: str) -> bool:
+    global _PUBLICATION_PATTERNS
+    if _PUBLICATION_PATTERNS is None:
+        _PUBLICATION_PATTERNS = _publication_patterns()
+    return not any(p.search(text) for p in _PUBLICATION_PATTERNS)
+
+ARTIFACT_PATH = re.compile(r"artifacts/[A-Za-z0-9._/-]+")
+SOURCE_PATH = re.compile(r"(?<![\w/])(?:src|tests|examples|docs|tools|bench|package|skills)/")
+
+
+def sha256_file(path: str) -> str | None:
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        return None
 
 
 # ---------------------------------------------------------------------------
 # conversion
 # ---------------------------------------------------------------------------
+
+
+# THE ROW'S NOTE IS GENERATED, NOT INHERITED (director ruling 2026-08-30).
+#
+# The manifest's `note` strings are an implementation diary: they name vendors
+# and platforms, quote review codes, and recount the round that produced the
+# row. That prose is history and it stays in the manifest, which the director
+# archives privately. What a reader of a FAILING row needs is one plain sentence
+# saying what the row requires — so the note is derived from the check itself,
+# which also means it can never drift away from what the row actually does.
+def neutral_note(name: str, requirements: list[str], check: dict, evidence: str | None) -> str:
+    clauses: list[str] = []
+    ids = check.get("resultIds") or []
+    if ids:
+        clauses.append(f"{len(ids)} named suite case{'s' if len(ids) != 1 else ''} must pass")
+    producers = check.get("producers") or []
+    if producers:
+        clauses.append(f"{', '.join(producers)} must exit zero")
+    pins = check.get("stdoutPins") or []
+    if pins:
+        clauses.append(f"{len(pins)} pin{'s' if len(pins) != 1 else ''} on a producer's own output must match")
+    if check.get("shell"):
+        clauses.append("its file-existence and text assertions must hold")
+    if check.get("priorPhases"):
+        clauses.append("every row of every earlier phase must pass in this same run")
+    if evidence:
+        clauses.append(f"and {evidence} must exist")
+    if not clauses:
+        clauses.append("declared evidence, recorded rather than executed")
+    reqs = ", ".join(requirements) if requirements else "none recorded"
+    return f"{name}: " + "; ".join(clauses) + f". Requirements: {reqs}."
+
 
 def load_case_names(suite_results_path: str) -> list[tuple[str, str]]:
     data = json.load(open(suite_results_path))
@@ -558,6 +686,7 @@ def main() -> int:
     ap.add_argument("--manifest", default="/tmp/facet-gate-manifest.json")
     ap.add_argument("--out", default="tools/lune/verify/graph.json")
     ap.add_argument("--census", default="artifacts/distribution-readiness/verification/graph-census.md")
+    ap.add_argument("--coverage", default="artifacts/distribution-readiness/verification/coverage-map.md")
     args = ap.parse_args()
 
     os.chdir(ROOT)
@@ -565,8 +694,27 @@ def main() -> int:
         subprocess.run(["lune", "run", "tools/lune/verify/dump_manifest", args.manifest], check=True)
 
     manifest = json.load(open(args.manifest))
-    phases = [p["gate"] for p in json.load(open("phases.json"))["phases"]]
+    phase_doc = json.load(open("phases.json"))["phases"]
+    phases = [p["gate"] for p in phase_doc]
+    renamed = {p: neutral_phase(p) for p in phases}
+    phase_records = []
+    for i, p in enumerate(phases):
+        n = renamed[p]
+        nxt = renamed.get(phases[i + 1]) if i + 1 < len(phases) else None
+        phase_records.append({
+            "id": n,
+            "artifactDir": f"artifacts/{n}",
+            "gateArtifact": f"artifacts/{n}/gate.json",
+            "next": nxt,
+        })
     cases = load_case_names(args.suite_results)
+    receipts_dir = "tools/lune/verify/evidence"
+    os.makedirs(receipts_dir, exist_ok=True)
+    for stale in os.listdir(receipts_dir):
+        if stale.endswith(".json"):
+            os.remove(os.path.join(receipts_dir, stale))
+    receipts_written = 0
+    historical = []
 
     producers = Producers()
     producers.declare(
@@ -615,6 +763,7 @@ def main() -> int:
     census = {
         "result-ids": 0, "exit0": 0, "evidence-pin": 0, "prior-phases": 0,
         "declared": 0, "retired": 0, "pending-migration": 0, "pending": 0,
+        "evidence-receipt": 0, "historical": 0,
     }
     unresolved: list[str] = []
     resolved_patterns = 0
@@ -624,27 +773,30 @@ def main() -> int:
     for phase in phases:
         for entry in manifest.get(phase, []):
             name = entry["name"]
-            row_id = f"{phase}::{name}"
+            public_phase = renamed[phase]
+            row_id = f"{public_phase}::{name}"
             base = {
                 "id": row_id,
-                "phase": phase,
+                "phase": public_phase,
                 "name": name,
                 "requirements": entry.get("requirements") or [],
-                "evidence": entry.get("evidence"),
+                "evidence": (entry.get("evidence") if entry.get("evidence") and is_publishable(entry["evidence"]) else None),
                 "releaseBlocking": bool(entry.get("releaseBlocking")),
-                "note": entry.get("note") or "",
+                # `note` is generated below from the converted check; the
+                # manifest's own prose is history and stays there.
             }
-            retired = RETIRED.get((phase, name))
+            retired = RETIRED.get(name)
             if retired is not None:
                 base.update({"class": "retired", "state": "RETIRED", "retiredReason": retired,
-                             "check": {}})
+                             "check": {}, "note": f"{name}: retired in this stage; see retiredReason."})
                 census["retired"] += 1
                 rows.append(base)
                 continue
             run = entry.get("run")
             if run is None:
                 state = entry.get("state") or "PENDING"
-                base.update({"class": "declared", "state": state, "check": {}})
+                base.update({"class": "declared", "state": state, "check": {},
+                             "note": neutral_note(name, base["requirements"], {}, base.get("evidence"))})
                 census["pending" if state == "PENDING" else "declared"] += 1
                 rows.append(base)
                 continue
@@ -659,7 +811,7 @@ def main() -> int:
             stdout_pins: list[dict] = []
             residual: list[str] = []
             prior_phases = False
-            pending_migration = False
+            pending_migration: str | None = None
 
             def add_producer(pid: str) -> None:
                 if pid not in row_producers:
@@ -772,20 +924,74 @@ def main() -> int:
                     residual.append("true")
                     continue
 
-                if SWIFTUI_DOC in stripped:
-                    pending_migration = True
+                for doc in REFERENCE_DOC_RE.findall(stripped):
+                    if doc not in REFERENCE_KEPT:
+                        pending_migration = REFERENCE_DIR + doc
                 residual.append(stripped)
 
-            # `true` is the identity of `&&`, so the placeholders left by every
-            # converted clause come straight back out. Nothing is reordered.
-            kept = [c for c in residual if c.strip() != "true"]
+            #[[ THE ARTIFACT CLAUSES LEAVE THE SHELL AND BECOME A RECEIPT
+            #   (director ruling 2026-08-30).
+            #
+            #   A clause whose only paths are under artifacts/ is asserting
+            #   something about recorded evidence, and a CONTENT HASH is a
+            #   strictly stronger pin than `test -f` or a grep of the same file —
+            #   while also keeping a path that names a retired product out of a
+            #   public file. Variable assignments are followed, so
+            #   `f=artifacts/x && grep -qF "y" "$f"` moves as one group.
+            #
+            #   A row whose clauses are ALL artifact clauses and whose files are
+            #   all checked-in ledgers of a stage that closed is a record of a
+            #   past decision: it leaves the graph for the coverage map. If any
+            #   of them is recorded machine evidence — a Studio drive, a device
+            #   or performance capture, an engine-feasibility probe, a measured
+            #   row — the row stays, as a receipt of that class. ]]
+            artifact_vars: set[str] = set()
+            moved_assigns: set[str] = set()
+            kept: list[str] = []
+            moved: list[str] = []
+            artifact_paths: list[str] = []
+            for clause in residual:
+                c = clause.strip()
+                if c == "true":
+                    continue
+                paths = ARTIFACT_PATH.findall(c)
+                touches_source = bool(SOURCE_PATH.search(c))
+                uses_artifact_var = any(f"${v}" in c for v in artifact_vars)
+                assign = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(artifacts/[A-Za-z0-9._/-]+)", c)
+                if assign and not touches_source:
+                    artifact_vars.add(assign.group(1))
+                    moved_assigns.add(assign.group(1))
+                    artifact_paths.append(assign.group(2))
+                    moved.append(c)
+                    continue
+                if (paths or uses_artifact_var) and not touches_source:
+                    artifact_paths.extend(paths)
+                    named = re.match(r"([A-Za-z_][A-Za-z0-9_]*)=", c)
+                    if named:
+                        moved_assigns.add(named.group(1))
+                    moved.append(c)
+                    continue
+                kept.append(c)
+
+            #[[ A KEPT CLAUSE MAY NOT READ A VARIABLE A MOVED ONE SET.
+            #   `lost="$(comm -23 <(grep … "$a") …)" && test -z "$lost"` splits
+            #   into a moved assignment and a kept test — and the kept test then
+            #   reads an UNSET variable, which passes. That is a check that
+            #   cannot fail, manufactured by the split itself. When it would
+            #   happen, the row is not split at all. ]]
+            if any(f"${v}" in c for c in kept for v in moved_assigns):
+                kept = kept + moved
+                moved = []
+                artifact_paths = []
             shell = " && ".join(kept) if kept else None
+            artifact_paths = sorted(set(artifact_paths))
 
             if prior_phases:
                 base.update({
                     "class": "prior-phases",
                     "check": {"priorPhases": True},
                     "state": None,
+                    "note": neutral_note(name, base["requirements"], {"priorPhases": True}, base.get("evidence")),
                 })
                 census["prior-phases"] += 1
                 rows.append(base)
@@ -810,6 +1016,45 @@ def main() -> int:
                 if re.search(r"(?<!/)tools/(suite_transcript|test)\.sh", shell):
                     add_producer("suite")
 
+            receipt_path = None
+            if artifact_paths:
+                living = [q for q in artifact_paths if LIVING_EVIDENCE.match(q)]
+                if not living and not shell and not row_producers and not row_ids and not stdout_pins:
+                    historical.append({"row": row_id, "phase": public_phase, "name": name,
+                                       "requirements": base["requirements"], "paths": artifact_paths})
+                    census["historical"] += 1
+                    continue
+                joined = " ".join(living)
+                cls_name = (
+                    "device" if "/device" in joined or "device-" in joined
+                    else "perf" if "/perf" in joined or "captures" in joined
+                    else "studio" if living
+                    else "record"
+                )
+                receipt_id = row_id.replace("::", "--")
+                items = []
+                for n, q in enumerate(artifact_paths, 1):
+                    digest = sha256_file(q)
+                    item = {"label": f"evidence-{n}", "sha256": digest or "absent"}
+                    if is_publishable(q):
+                        item["archivedPath"] = q
+                    items.append(item)
+                receipt = {
+                    "schema": "facet-evidence-receipt/1",
+                    "row": row_id,
+                    "class": cls_name,
+                    "recordedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "summary": f"{name}: {len(items)} recorded file(s), pinned by content hash.",
+                    "evidence": items,
+                }
+                with open(os.path.join(receipts_dir, receipt_id + ".json"), "w") as fh:
+                    json.dump(receipt, fh, indent=1, sort_keys=True)
+                    fh.write("\n")
+                receipts_written += 1
+                receipt_path = f"{receipts_dir}/{receipt_id}.json"
+                if cls_name != "record":
+                    census["evidence-receipt"] += 1
+
             check = {}
             if row_producers:
                 check["producers"] = row_producers
@@ -820,10 +1065,15 @@ def main() -> int:
                 check["stdoutPins"] = stdout_pins
             if shell:
                 check["shell"] = shell
+            if receipt_path:
+                check["receipt"] = receipt_path
             base["check"] = check
             base["state"] = None
+            base["note"] = neutral_note(name, base["requirements"], check, base.get("evidence"))
             if pending_migration and not migration_ready:
-                base["pendingMigration"] = SWIFTUI_DOC
+                # true, not the path: the path names a document by a product
+                # name this file may not carry. The census records which one.
+                base["pendingMigration"] = True
                 census["pending-migration"] += 1
             if row_ids:
                 base["class"] = "result-ids"
@@ -850,7 +1100,7 @@ def main() -> int:
             "phases": "phases.json",
             "suiteResults": os.path.basename(args.suite_results),
         },
-        "phases": phases,
+        "phases": phase_records,
         "producers": sorted(producers.by_id.values(), key=lambda p: p["id"]),
         "rows": rows,
     }
@@ -859,7 +1109,9 @@ def main() -> int:
         fh.write("\n")
 
     graph["unresolvedPatterns"] = unresolved
-    write_census(args.census, graph, census, resolved_patterns, resolved_ids, migration_ready)
+    write_census(args.census, graph, census, resolved_patterns, resolved_ids, migration_ready,
+                 renamed, historical, receipts_written)
+    write_coverage(args.coverage, graph, historical, receipts_written)
     print(f"convert_manifest: {len(rows)} rows, {len(graph['producers'])} producers -> {args.out}")
     for k, v in sorted(census.items()):
         print(f"    {k:18s} {v}")
@@ -890,12 +1142,13 @@ def resolve(raw_pattern: str, flags: str, cases: list[tuple[str, str]]) -> list[
 
 
 def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
-                 migration_ready: bool) -> None:
+                 migration_ready: bool, renamed: dict, historical: list, receipts: int) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     rows = graph["rows"]
     by_phase: dict[str, int] = {}
     for r in rows:
         by_phase[r["phase"]] = by_phase.get(r["phase"], 0) + 1
+    phase_ids = [p["id"] for p in graph["phases"]]
     lines = [
         "# Graph census — what every gate manifest row became",
         "",
@@ -918,8 +1171,10 @@ def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
         f"| prior-phases | {census['prior-phases']} | `prior-gates-unregressed`: replay replaced by the coordinator evaluating every earlier phase from the same run |",
         f"| declared-evidence | {census['declared']} | a literal state in the manifest (Studio, physical device, or human judgement) carried across unchanged |",
         f"| pending | {census['pending']} | a bare PENDING row awaiting its work (the 34 distribution-readiness rows) |",
+        f"| evidence-receipt | {census['evidence-receipt']} | recorded Studio/device/performance evidence, pinned by content hash in `tools/lune/verify/evidence/` instead of by a raw path and a literal grep |",
+        f"| historical | {census['historical']} | a pin on a checked-in ledger or verdict from a stage that closed: a record of a past decision, archived with the phase prose (listed below) |",
         f"| retired | {census['retired']} | the row's subject left the product tree in this stage (workstream K); reasons below |",
-        f"| pending-migration | {census['pending-migration']} | the row pins `docs/reference/swiftui-parity.md`, which workstream E1 is moving; repointed when `artifacts/distribution-readiness/swiftui-migration.md` lands |",
+        f"| pending-migration | {census['pending-migration']} | the row pins a document under `docs/reference/` that workstream E1 is moving out of this repository; repointed when the migration ledger lands |",
         "",
         f"Migration ledger present: **{'yes' if migration_ready else 'not yet'}**",
         "",
@@ -931,6 +1186,67 @@ def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
     for r in rows:
         if r.get("class") == "retired":
             lines.append(f"| `{r['phase']}` | `{r['name']}` | {r['retiredReason']} |")
+    changed = [(old, new) for old, new in sorted(renamed.items()) if old != new]
+    if changed:
+        lines += [
+            "",
+            "## Phase ids renamed for the public graph",
+            "",
+            "A phase id is a public name: it is the key of the graph, the argument to",
+            "`tools/gate.sh`, and the directory the compatibility `gate.json` is written into.",
+            "The converter neutralises any id whose SHAPE carries a product this library is not",
+            "(`<x>-parity-round<n>` and `<x>-reference-app-validation`), so no public file has to",
+            "spell it. This census is archived privately with the stage evidence, so it may.",
+            "",
+            "| id in phases.json | id in the graph |",
+            "|---|---|",
+        ]
+        for old_id, new_id in changed:
+            lines.append(f"| `{old_id}` | `{new_id}` |")
+        lines += [
+            "",
+            "The frozen evidence directories under `artifacts/` keep their earned names; only the",
+            "graph's public key changes. The compatibility `gate.json` for a renamed phase is",
+            "written under the NEW name.",
+            "",
+        ]
+
+    lines += [
+        "",
+        f"## Evidence receipts ({receipts})",
+        "",
+        "A row that pinned a file under `artifacts/` by path and grepped a literal string out of",
+        "it now carries a RECEIPT instead: `tools/lune/verify/evidence/<row>.json`, holding one",
+        "sha256 per file. A content hash is a strictly stronger pin than `test -f` or a grep of",
+        "the same file, and it keeps a path that names a retired stage out of a public file. The",
+        "coordinator verifies each hash against the file on disk when it is still there, and",
+        "against `../Facet-private-archive/MANIFEST.json` when that archive is beside the",
+        "checkout; when neither is available the receipt stands as declared evidence and the run",
+        "report lists it under \"recorded evidence, reported separately\".",
+        "",
+    ]
+
+    if historical:
+        lines += [
+            "",
+            f"## Rows archived as records of a past decision ({len(historical)})",
+            "",
+            "Each of these asserted only that a checked-in ledger or verdict of a CLOSED stage",
+            "still says what it said. That is a record, not a living requirement: the requirement",
+            "it once guarded is proved today by a producer or a suite case in the same phase, and",
+            "the document itself is archived with that phase's evidence. Requirement coverage",
+            "after the removal is checked in `coverage-map.md`.",
+            "",
+            "| Phase | Row | Requirements | The files it pinned |",
+            "|---|---|---|---|",
+        ]
+        for h in historical:
+            paths = ", ".join(f"`{q}`" for q in h["paths"][:4])
+            if len(h["paths"]) > 4:
+                paths += f" (+{len(h['paths']) - 4} more)"
+            lines.append(f"| `{h['phase']}` | `{h['name']}` | {', '.join(h['requirements']) or '—'} | {paths} |")
+        lines.append("")
+
     if graph.get("unresolvedPatterns"):
         lines += [
             "",
@@ -947,7 +1263,7 @@ def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
         for line in graph["unresolvedPatterns"]:
             lines.append(f"- `{line}`")
     lines += ["", "## Rows per phase", "", "| Phase | Rows |", "|---|---:|"]
-    for p in graph["phases"]:
+    for p in phase_ids:
         lines.append(f"| `{p}` | {by_phase.get(p, 0)} |")
     lines += ["", "## Producers", "", "| Producer | Class | Serialize | Tiers | Command |", "|---|---|---|---|---|"]
     for p in graph["producers"]:
@@ -959,6 +1275,95 @@ def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
     with open(path, "w") as fh:
         fh.write("\n".join(lines))
 
+
+
+def write_coverage(path: str, graph: dict, historical: list, receipts: int) -> None:
+    """Every execution the conversion removed or merged, and what still proves it."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    rows = graph["rows"]
+    by_req: dict[str, list[str]] = {}
+    for r in rows:
+        if r.get("class") == "retired":
+            continue
+        for q in r["requirements"]:
+            by_req.setdefault(q, []).append(r["id"])
+    reqs = json.load(open("requirements.json"))["requirements"]
+    orphans = [q for q in reqs if not by_req.get(q["id"])]
+
+    producers_by_row = {r["id"]: (r.get("check") or {}).get("producers", []) for r in rows}
+
+    L = [
+        "# Coverage map — nothing was removed without a home",
+        "",
+        "Generated by `python3 tools/lune/verify/convert_manifest.py`. For every execution the",
+        "conversion removed, merged or changed shape, this names the requirement it carried, the",
+        "direction it failed in, the fixture it ran against, its negative control, and the",
+        "producer or case id that proves the same thing now.",
+        "",
+        "## 1. The mechanism that changed for 193 rows",
+        "",
+        "| Was | Is | Requirement | Failure direction | Fixture | Negative control |",
+        "|---|---|---|---|---|---|",
+        "| `out=\"$(tools/suite_transcript.sh)\" && echo \"$out\" \\| grep -q \"✓.*<sentence>\"` — one cached transcript spent per row, 1,425 times | a lookup of the case's id in the ONE structured suite result | unchanged (the row keeps its requirement ids) | a failing case reddens the row, exactly as before; a case that no longer EXISTS now reddens it too, which the grep could not distinguish from a passing one | the same suite run, at the same source identity | `tools/check_manifest_integrity.py --selftest` plants a renamed id and requires it to be rejected; the coordinator reports a missing id by name |",
+        "",
+        "## 2. Prior-gate replay",
+        "",
+        "| Was | Is | Requirement | Failure direction | Negative control |",
+        "|---|---|---|---|---|",
+        "| 16 `prior-gates-unregressed` rows, each running `tools/prior_gates.sh`, which re-ran every earlier gate, each of which re-ran ITS priors | one lookup: every row of every earlier phase, evaluated from this same run | UI-AGENT-001 (unchanged) | a regressed earlier row reddens the later phase, as before — and now names the row rather than a roll-up line | mutation M7 in `mutation-parity.md` deletes an evidence file an earlier phase pins and requires the later phase's prior-phases row to go red |",
+        "",
+        f"## 3. Rows archived as records of a past decision ({len(historical)})",
+        "",
+        "Each pinned only that a checked-in ledger or verdict of a CLOSED stage still says what it",
+        "said. The requirement each carried is listed with the living row that proves it today.",
+        "",
+        "| Phase | Row | Requirement | Still proved by |",
+        "|---|---|---|---|",
+    ]
+    for h in historical:
+        for q in (h["requirements"] or ["—"]):
+            living = by_req.get(q, [])
+            same_phase = [x for x in living if x.startswith(h["phase"] + "::")]
+            proof = ", ".join(f"`{x}`" for x in (same_phase or living)[:3]) or "**nothing — see §5**"
+            L.append(f"| `{h['phase']}` | `{h['name']}` | {q} | {proof} |")
+    L += [
+        "",
+        f"## 4. Rows whose artifact pins became receipts ({receipts})",
+        "",
+        "A `test -f <path>` or a `grep -qF \"<string>\" <path>` over recorded evidence became a",
+        "sha256 of the same file in `tools/lune/verify/evidence/`. Strictly stronger: the grep",
+        "passed on any file containing the string, the hash passes only on the file that was",
+        "recorded. Verified against the file on disk when present and against the private",
+        "archive's manifest when that archive is beside the checkout; otherwise reported",
+        "separately as declared evidence, which is the class those rows always had.",
+        "",
+        "## 5. Requirements with no living row",
+        "",
+    ]
+    if orphans:
+        L += ["| Requirement | Title | First gate |", "|---|---|---|"]
+        for q in orphans:
+            L.append(f"| `{q['id']}` | {q['title'][:110]} | `{q.get('firstGate', '—')}` |")
+    else:
+        L.append("None: every requirement in `requirements.json` is carried by at least one row that")
+        L.append("still executes.")
+    L += [
+        "",
+        "## 6. Retired rows",
+        "",
+        "| Phase | Row | Requirement | Why | Still proved by |",
+        "|---|---|---|---|---|",
+    ]
+    for r in rows:
+        if r.get("class") != "retired":
+            continue
+        for q in (r["requirements"] or ["—"]):
+            living = [x for x in by_req.get(q, [])][:3]
+            L.append(f"| `{r['phase']}` | `{r['name']}` | {q} | {r['retiredReason']} | "
+                     + (", ".join(f"`{x}`" for x in living) or "**nothing — see §5**") + " |")
+    L.append("")
+    with open(path, "w") as fh:
+        fh.write("\n".join(L))
 
 if __name__ == "__main__":
     sys.exit(main())

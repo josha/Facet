@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/expansion-textinput-drive.json",
+   "label": "evidence-1",
+   "sha256": "9ecc417b35a303aff2df62af5c9fe4f3ecad169a70ea27992701b311ec608d6f"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "expansion-textinput::studio-drive-and-screenshots",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "studio-drive-and-screenshots: 1 recorded file(s), pinned by content hash."
+}

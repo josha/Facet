@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/",
+   "label": "evidence-1",
+   "sha256": "absent"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "sponsor-framework-gaps::five-view-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "five-view-matrix: 1 recorded file(s), pinned by content hash."
+}

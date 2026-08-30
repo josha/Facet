@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-d5-no-vr-claim.json",
+   "label": "evidence-1",
+   "sha256": "bb2737e90f75741582c32e4c6ffe15822585e3a7f38ac60d11ffd90676277e23"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "cross-platform-proof::no-vr-claim",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "no-vr-claim: 1 recorded file(s), pinned by content hash."
+}

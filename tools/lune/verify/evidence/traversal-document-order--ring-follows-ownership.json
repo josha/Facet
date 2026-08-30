@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/traversal.json",
+   "label": "evidence-1",
+   "sha256": "ea2e191f0c063c0d0bb404ed46619d63495d122f94aaa033b3c0403b1be87259"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "traversal-document-order::ring-follows-ownership",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "ring-follows-ownership: 1 recorded file(s), pinned by content hash."
+}

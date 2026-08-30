@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a15-ladder-docs.json",
+   "label": "evidence-1",
+   "sha256": "104393e3cc59828a65d49201f2e55d9d89889028c70c822263ce82cbdb64d06b"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::customization-ladder-docs",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "customization-ladder-docs: 1 recorded file(s), pinned by content hash."
+}

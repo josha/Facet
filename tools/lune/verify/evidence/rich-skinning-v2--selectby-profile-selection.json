@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a10-selectby.json",
+   "label": "evidence-1",
+   "sha256": "92895754a5bb49454930550221042c79c3d5c33f4e24dda18f49d171f57a9f54"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::selectby-profile-selection",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "selectby-profile-selection: 1 recorded file(s), pinned by content hash."
+}

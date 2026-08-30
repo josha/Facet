@@ -1,0 +1,29 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/input-adaptation-audit/matrix.md",
+   "label": "evidence-1",
+   "sha256": "a252d0e3ad1b2f74ddfb5009bb6dc27d1b3aadf82bd168d7322abc6cc10e7bd9"
+  },
+  {
+   "archivedPath": "artifacts/input-adaptation-audit/wp-a-framework.md",
+   "label": "evidence-2",
+   "sha256": "8fbfcda54bd41f059ae73b8bbb00d7e4f95d5b7303b99024fe68835dc806c465"
+  },
+  {
+   "archivedPath": "artifacts/input-adaptation-audit/wp-b-composites.md",
+   "label": "evidence-3",
+   "sha256": "d72556af767a4dd615e71e1dfa032e937615b3dec1bc141c1a3c36d7aef04782"
+  },
+  {
+   "archivedPath": "artifacts/input-adaptation-audit/wp-c-examples.md",
+   "label": "evidence-4",
+   "sha256": "a92838103afad3b3cd55ead22feacc1095eae48991351a5fdb52883734082d3f"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "input-adaptation-audit::audit-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "audit-matrix: 4 recorded file(s), pinned by content hash."
+}

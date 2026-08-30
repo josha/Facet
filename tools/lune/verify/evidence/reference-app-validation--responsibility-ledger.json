@@ -1,0 +1,13 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "label": "evidence-1",
+   "sha256": "622564477c796988437567d2b09990f3211011a2553e01248e9d265755c8134a"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "reference-app-validation::responsibility-ledger",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "responsibility-ledger: 1 recorded file(s), pinned by content hash."
+}

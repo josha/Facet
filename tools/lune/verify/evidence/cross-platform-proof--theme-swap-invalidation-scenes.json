@@ -1,0 +1,19 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-scenes.json",
+   "label": "evidence-1",
+   "sha256": "843e65ea13f6736faced1092a55e5b4b72535734babf1f98b78dd23d4111d647"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-studio.json",
+   "label": "evidence-2",
+   "sha256": "ba971335074882d616526a87358d3e970942c7facb9e87675f4d656feeb4cd12"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "cross-platform-proof::theme-swap-invalidation-scenes",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "theme-swap-invalidation-scenes: 2 recorded file(s), pinned by content hash."
+}

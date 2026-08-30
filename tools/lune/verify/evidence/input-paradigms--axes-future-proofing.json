@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/input-paradigms/dryrun-chip.md",
+   "label": "evidence-1",
+   "sha256": "37a710e0b11dc0a78d252ca0a9a84e882e202758ecd0c5a007f866d65bdfafc4"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "input-paradigms::axes-future-proofing",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "axes-future-proofing: 1 recorded file(s), pinned by content hash."
+}

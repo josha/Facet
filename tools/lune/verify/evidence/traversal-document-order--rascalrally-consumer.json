@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/traversal-document-order/consumer-impact.md",
+   "label": "evidence-1",
+   "sha256": "1212192ab6828234a0eb934859823c1efadd73417c2e98bbbe1f238ec2127294"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "traversal-document-order::rascalrally-consumer",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "rascalrally-consumer: 1 recorded file(s), pinned by content hash."
+}

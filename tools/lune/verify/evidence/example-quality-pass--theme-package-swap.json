@@ -1,0 +1,19 @@
+{
+ "class": "perf",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures.json",
+   "label": "evidence-1",
+   "sha256": "3d7547752c72337e832e134938f4db3e905ef66228ffd66af8d3bc8df85b4339"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/",
+   "label": "evidence-2",
+   "sha256": "absent"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:38Z",
+ "row": "example-quality-pass::theme-package-swap",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "theme-package-swap: 2 recorded file(s), pinned by content hash."
+}

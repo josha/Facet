@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/decision-phase3-pilot.json",
+   "label": "evidence-1",
+   "sha256": "05824298e37dc7051bf9151f1e1bd6b1021d5dadb55fa8e49bae830757b14217"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "phase-3-pilot::pilot-decision",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "pilot-decision: 1 recorded file(s), pinned by content hash."
+}

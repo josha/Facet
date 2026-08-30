@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a5-image-bars.json",
+   "label": "evidence-1",
+   "sha256": "0d96ea18af42b6b5c57366c589f305222d06d77582d4ea8643f5e0540e5ee195"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a6-toggle-slots.json",
+   "label": "evidence-2",
+   "sha256": "126a50da009c417859f03657d58bd6f6f60b11449e26675405a78331cfcee10d"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::image-value-displays",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "image-value-displays: 2 recorded file(s), pinned by content hash."
+}

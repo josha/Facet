@@ -1,0 +1,29 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m10-preload.json",
+   "label": "evidence-2",
+   "sha256": "b076269a7a44d6ee22159d3208497bdc7155c10659a05ffabf3721bcb9200149"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m3-dragdetector.json",
+   "label": "evidence-3",
+   "sha256": "b397058fe27708e7bbe90e06140500e31247fb066736c2d177f7902427289cb5"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m5-path2d.json",
+   "label": "evidence-4",
+   "sha256": "14f22b03f70c133ed8a6ccaf5ae277d9f51492acd880a102ca01555f02078307"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-substrate::feasibility-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "feasibility-matrix: 4 recorded file(s), pinned by content hash."
+}

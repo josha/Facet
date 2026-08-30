@@ -1,0 +1,19 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td17-slider-focused.png",
+   "label": "evidence-1",
+   "sha256": "a2502c4ae9dc375c71ab4fb85a82c29964f842097bc070904fc33171da4b9e41"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/traversal.json",
+   "label": "evidence-2",
+   "sha256": "ea2e191f0c063c0d0bb404ed46619d63495d122f94aaa033b3c0403b1be87259"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "traversal-document-order::slider-focus-affordance",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "slider-focus-affordance: 2 recorded file(s), pinned by content hash."
+}

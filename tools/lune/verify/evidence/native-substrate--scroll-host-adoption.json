@@ -1,0 +1,14 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-substrate/a2-scroll-host.json",
+   "label": "evidence-1",
+   "sha256": "b20efcbb8f472381e380b441c840cdcbb2d7e669abcc9009cbcdd65d32cd0721"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-substrate::scroll-host-adoption",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "scroll-host-adoption: 1 recorded file(s), pinned by content hash."
+}

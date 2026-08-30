@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-substrate/verifier-architecture.json",
+   "label": "evidence-1",
+   "sha256": "3e3c16eedc319881327df5dc5435d21dde5e55102d43bea72d9513872b18b7a3"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/verifier-platform.json",
+   "label": "evidence-2",
+   "sha256": "f39a65989147b0ff86a08eacc136515944273f9e9e978f8184148a9c700e7814"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-substrate::fresh-context-verification",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "fresh-context-verification: 2 recorded file(s), pinned by content hash."
+}

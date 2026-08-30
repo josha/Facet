@@ -1,0 +1,19 @@
+{
+ "class": "record",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a1-image-is-element.json",
+   "label": "evidence-1",
+   "sha256": "3e3013e6a826b19c9670be06b34d03637bfea9a14f1089cb3299eed7220fcca4"
+  },
+  {
+   "archivedPath": "artifacts/rich-skinning-v2/rs-a2-layered-slots.json",
+   "label": "evidence-2",
+   "sha256": "fe440ebd2f32f8a25c8f9d80255fadbbe5296aee757cf160d137ee8f2b7e9b5a"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "rich-skinning-v2::layered-slots-and-posture",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "layered-slots-and-posture: 2 recorded file(s), pinned by content hash."
+}

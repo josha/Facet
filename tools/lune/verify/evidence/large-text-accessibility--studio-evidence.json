@@ -1,0 +1,19 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/large-text.json",
+   "label": "evidence-2",
+   "sha256": "ee0a26b2033bc1a0460cbcbfa03eaaf8e920857ce5d6c3a9743d67076de197d0"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "large-text-accessibility::studio-evidence",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "studio-evidence: 2 recorded file(s), pinned by content hash."
+}

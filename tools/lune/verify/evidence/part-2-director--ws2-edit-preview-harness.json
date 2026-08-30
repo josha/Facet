@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/part2-edit-preview.json",
+   "label": "evidence-1",
+   "sha256": "589dfdb7bde7c4e2b38402a556898edfb67b45bb68bdb1da8610ac983c7af8ab"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "part-2-director::ws2-edit-preview-harness",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "ws2-edit-preview-harness: 1 recorded file(s), pinned by content hash."
+}

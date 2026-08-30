@@ -1,0 +1,29 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/native-stylesheets/feasibility/",
+   "label": "evidence-1",
+   "sha256": "absent"
+  },
+  {
+   "archivedPath": "artifacts/native-stylesheets/feasibility/m10-authority-handoff.json",
+   "label": "evidence-2",
+   "sha256": "f01d254ada2e401d901b49598ab9bb2dd91dd8ad2ddafa53e5b70f42751e6686"
+  },
+  {
+   "archivedPath": "artifacts/native-stylesheets/feasibility/m2-modifier-rules.json",
+   "label": "evidence-3",
+   "sha256": "fca376925c8cf93be98cfaaef46681075acac4172d1fef3dd023c6f369b9718b"
+  },
+  {
+   "archivedPath": "artifacts/native-stylesheets/feasibility/m4-queries-and-tags.json",
+   "label": "evidence-4",
+   "sha256": "c19a90395f5e095a0880507077e8661bf4a033cf132c57eafb9a7fa4a38ed652"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:37Z",
+ "row": "native-stylesheets::spike-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "spike-matrix: 4 recorded file(s), pinned by content hash."
+}

@@ -1,0 +1,19 @@
+{
+ "class": "perf",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/release-candidate-review/perf/capture-plan.md",
+   "label": "evidence-1",
+   "sha256": "24e5cc016baf6948f7d235cbd5eaa3d509cf8f039f3d6eb2fa96c3f9faf2b4c7"
+  },
+  {
+   "archivedPath": "artifacts/release-candidate-review/perf/requalification.md",
+   "label": "evidence-2",
+   "sha256": "eb2832e1de526596413a3ff504191da60ca0573ba387b621a7802489cf709f4d"
+  }
+ ],
+ "recordedAt": "2026-08-30T19:14:39Z",
+ "row": "release-candidate-review::perf-requalification",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "perf-requalification: 2 recorded file(s), pinned by content hash."
+}
