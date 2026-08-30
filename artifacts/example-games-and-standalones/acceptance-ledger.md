@@ -1,0 +1,167 @@
+# Acceptance ledger — stage `example-games-and-standalones` (roadmap Step 13.5)
+
+Binding scope: [`docs/plans/example-games-and-standalones.md`](../../docs/plans/example-games-and-standalones.md).
+Evidence rules: [`docs/plans/agent-execution-contract.md`](../../docs/plans/agent-execution-contract.md) §2–§3.
+Registered in `phases.json` and `tools/lune/gate_manifest.luau` before implementation.
+
+**Status vocabulary** (contract §2): `PASS_AUTOMATED`, `PASS_PHYSICAL`, `PASS_HUMAN`,
+`FAIL_PRODUCT`, `FAIL_ENVIRONMENT`, `PENDING_PHYSICAL`, `PENDING_HUMAN`, and — used
+here for rows whose work has not started — `NOT_STARTED`.
+
+**Evidence levels** (contract §3): E0 source/docs · E1 headless · E2 live engine probe ·
+E3 visible Studio slice · E4 physical device · E5 human review.
+
+A row cannot pass through a different, easier row.
+
+---
+
+## A. Verification-loop optimization (`TEST-*`)
+
+Artifacts under `artifacts/example-games-and-standalones/test-optimization/`.
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| TEST-1 | The stage records cold and warm wall/CPU time, process and producer counts, cache hits/misses/invalidation reasons, test-case counts, artifact writes, and the slowest work for the Facet fast and full suites, Rascal Rally's affected and full suites, every unique deterministic gate producer this stage invokes, one Step 13.5 gate attempt, and its prior-requirement verification path. | A baseline taken from the older planning document instead of the current post-cache harness makes every later percentage meaningless. | E1 | timed runs on the documented quiet machine | `baseline.md`, `producers.md`, `baseline-raw.txt`, `perspec-head.tsv`, `perspec-rascalrally.tsv`, `producers.tsv` | **PARTIAL** — Facet full (1587.03 s / 14.25 GB / 7678), Facet fast (273.22 s / 7.38 GB / 6988), Facet per-spec isolated (300 specs / 195.0 s), Rascal Rally per-spec isolated (219 specs / 55.7 s), and all 27 unique deterministic producers are measured. Owed: Rascal Rally's full suite cold/warm and one timed gate attempt with its prior-requirement path — both currently dominated by a suite run that is about to change by an order of magnitude, so they are taken after the fix. |
+| TEST-2 | A frozen pass/fail corpus exists, and targeted mutations still make the optimized system red: a failed test, a missing spec registration, a changed result ID, a stale cache entry, a partial/truncated transcript or artifact, changed source/tool/fixture inputs, and a failed producer. | An optimization that serves a stale or partial result turns every downstream gate row into decoration in one commit. | E1 | `tools/suite_cache_selftest.sh` (extended) + the stage's mutation script | `mutations.md`, mutation transcripts | NOT_STARTED |
+| TEST-3 | For the frozen corpus, the optimized system returns the same PASS/FAIL verdict as the pre-optimization system, gate row by gate row. | Silent verdict drift: a check that used to bite stops biting, and nothing says so. | E1 | verdict-parity comparison over recorded `gate.json` files | `verdict-parity.md`, before/after `gate.json` pairs | NOT_STARTED |
+| TEST-4 | In one Step 13.5 gate attempt, each unique deterministic producer executes at most once per exact identity. | "Once" claimed from design rather than measured; a producer re-runs under a different argument spelling and nobody notices. | E1 | producer-invocation trace over a full gate attempt | `invocations-after.json` | NOT_STARTED |
+| TEST-5 | The deterministic headless work the Step 13.5 gate requires completes within 20 minutes on the documented machine. Studio, performance, physical-device, network, and other external time is reported separately and is never folded into that number. | Meeting the budget by excluding a required producer or relabelling it "external". | E1 | timed full gate attempt | `after.md` with the producer-by-producer split | NOT_STARTED |
+| TEST-6 | Agents have a trustworthy *affected* and *fast* loop in both repositories, and neither can be mistaken for a suite or release verdict. | A focused run is accepted as release evidence. | E1 | the tier commands plus their refusal tests | `tiers.md`, refusal transcripts | NOT_STARTED |
+| TEST-7 | Before/after cold and warm timings, invocation counts, percentage reduction, and the slowest survivors are recorded. | An unquantified "it feels faster". | E1 | `measure.sh` re-run at the final source identity | `before.md`, `after.md` | NOT_STARTED |
+| TEST-8 | Every removed or merged execution maps to a surviving requirement, producer, result, and negative control. No coverage, assertion strength, prior requirement, or meaningful fault/soak repetition is removed. | Speed bought with deleted proof. | E0+E1 | the removal ledger, cross-checked against `gate_manifest.luau` | `removal-ledger.md` | NOT_STARTED |
+| TEST-9 | Failure output stays clear and each failure names the smallest trustworthy rerun command. | A faster system that cannot be debugged. | E1 | seeded failures through the new path | `diagnostics.md` | NOT_STARTED |
+| TEST-10 | The deterministic gate producers are green at the tree this stage is judged at — including the three that were already red when the stage opened. | A stage that closes over inherited reds launders somebody else's regression through its own gate. | E1 | each producer run directly | `baseline.md` §"Two gate producers were already red at HEAD" | **PASS_AUTOMATED** — `stylua --check` (5 stale files, formatted; all four affected specs re-run green), `check_brand_drift` (a vendor device name in ADR-0040 line 114, from `813698b`; reworded, selftest still bites), and `check_boundary` (3 example reaches into framework internals, bisected to `59e0c1d`; fixed against already-public API) now all exit 0. |
+
+## B. Five-letter word game (`WORD-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| WORD-1 | The game validates against a real local English dictionary whose source URL, version or content hash, license, transformations, and generating command are recorded in the repository. | An unlicensed or proprietary word list; a provenance claim nobody can reproduce. | E0+E1 | the generator command, re-run | `dictionary/PROVENANCE.md`, generated data files | NOT_STARTED |
+| WORD-2 | Two sets ship: a broad accepted-guess set of thousands of normalized five-letter words, and a smaller reviewed solution set of words a player would recognise. | Familiar guesses rejected; obscure solutions. | E1 | `tests/example_word_game.spec.luau` | suite transcript | NOT_STARTED |
+| WORD-3 | Normalization happens once at build time; runtime validation is deterministic and fast, with measured source/build size and lookup cost. | A per-guess scan that is invisible headless and costly on a phone. | E1 | measurement spec | `dictionary/cost.md` | NOT_STARTED |
+| WORD-4 | Representative common words across the alphabet are accepted, the source policy's inflections behave as documented, obvious nonwords are rejected, every solution is itself an accepted guess, and a drift test fails if the generated data stops matching its recorded provenance. | A guess set that silently regenerates to something else. | E1 | the same spec | suite transcript | NOT_STARTED |
+| WORD-5 | At startup all thirty board cells are visibly present under every shipped theme: each empty cell carries persistent chrome or a placeholder, and the active row and next letter position carry a clear cue that is not colour alone. | "Present in the tree" is not "visible on screen" — a default-valued paint claims nothing. | E1+E3 | geometry/paint dump per theme, plus captures | `captures/word-*/`, geometry dumps | NOT_STARTED |
+| WORD-6 | Filled and scored letters remain readable at every preferred text size. | Clipping at Largest. | E1+E3 | large-text sweep | captures + `text_audit` output | NOT_STARTED |
+| WORD-7 | Correct two-pass duplicate scoring, keyboard evidence, win and loss, deterministic restart, and every supported input path still work. | A rewrite that quietly drops the accessible loop. | E1+E3 | spec + Studio play | transcript + capture set | NOT_STARTED |
+| WORD-8 | The phrase "tutorial word list" is gone, and a rejected guess says plainly that the game does not recognise the word. | Player-facing text that explains the fixture instead of the game. | E0+E3 | doc-style scan + capture | capture of the rejection state | NOT_STARTED |
+| WORD-9 | Common guesses the old hand-picked list rejected now play. | The lesson of the whole row: proof by the previously-failing case. | E3 | Studio play of a named list of such words | play transcript | NOT_STARTED |
+
+## C. Crossword tile game (`TILE-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| TILE-1 | The first turn must cross the highlighted centre cell; the board says so before the player acts. | An opening rule the player discovers only by being refused. | E1+E3 | spec + capture | transcript, capture | NOT_STARTED |
+| TILE-2 | A turn places rack tiles in one contiguous row or column. | Diagonal or gapped placements accepted. | E1 | spec | transcript | NOT_STARTED |
+| TILE-3 | Later turns must connect to at least one committed tile. | Disconnected islands. | E1 | spec | transcript | NOT_STARTED |
+| TILE-4 | **Submit word** validates the complete line against the shared example dictionary, commits it, scores it, and refills the rack from a deterministic bag. | A non-deterministic bag makes every later test flaky. | E1 | spec incl. replay determinism | transcript | NOT_STARTED |
+| TILE-5 | **Undo turn** returns every uncommitted tile to the rack. | Partial undo leaving orphan state. | E1+E3 | spec + play | transcript, capture | NOT_STARTED |
+| TILE-6 | An invalid placement or word explains the exact problem and preserves recoverable state. | A generic "invalid" that teaches nothing. | E1+E3 | spec per refusal class + Studio play of each | transcript, captures | NOT_STARTED |
+| TILE-7 | A visible goal and a bounded turn count produce win, loss, a summary, and restart. | An unbounded sandbox with no ending. | E1+E3 | spec + one played win | transcript, capture | NOT_STARTED |
+| TILE-8 | Legal next cells, the selected tile, uncommitted versus committed letters, the current word, score, goal, and remaining turns are all visible. | Decisions the player has to infer. | E3 | capture set | captures | NOT_STARTED |
+| TILE-9 | The player has an obvious first action and a guaranteed opening move. | A rack that cannot legally open. | E1 | spec over the seeded bag | transcript | NOT_STARTED |
+| TILE-10 | Board and rack navigation is natural for pointer/touch, keyboard, and gamepad. | A grid only a mouse can use. | E3 | four-input drive | input traces | NOT_STARTED |
+| TILE-11 | Shared word data and pure word validation live in one example-domain module; no crossword rule lives in Facet. | Game policy leaking into the framework. | E0+E1 | ownership ledger + boundary check | `ownership-ledger.md` | NOT_STARTED |
+| TILE-12 | Tests cover placement direction, gaps, centre/connectivity, crossing consistency, dictionary accept/reject, commit, undo, scoring, refill, end states, reset, rapid input, and teardown. | A green suite over an untested rule. | E1 | spec | transcript | NOT_STARTED |
+
+## D. Match-3 motion (`M3-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| M3-1 | Every tile carries a stable identity, so motion shows the same tile moving rather than a picture changing inside a fixed cell. | Keyed-by-position rendering that animates nothing real. | E1+E3 | identity spec + intermediate-frame dump | transcript, dumps | NOT_STARTED |
+| M3-2 | A successful action visibly sequences: the two selected tiles move to their proposed positions; an invalid swap returns them with feedback; a valid match marks and removes the matched tiles; survivors drop into their new rows; new tiles enter from above or through a clear bounded appearance transition; and cascades repeat match/removal/drop/refill before input unlocks. | Endpoint-only proof: the board is right and the player saw nothing. | E1+E3 | phase-by-phase intermediate evidence, not just endpoints | dumps + captures per phase | NOT_STARTED |
+| M3-3 | Movement uses public `presenter.withAnimation`; insertion and removal use the public structural-transition system; the resolution state machine uses the framework's clock or completion seam. No `TweenService`, frame loop, arbitrary `task.wait`, raw instance offset, or second animation system exists in the example. | An example-local animation system hiding a framework gap. | E0+E1 | source scan + ownership ledger | `ownership-ledger.md`, scan output | NOT_STARTED |
+| M3-4 | Input is queued or visibly refused while the board resolves, so rapid actions cannot corrupt state. | A silent drop that looks like an unresponsive game. | E1+E3 | rapid-input spec + Studio drive | transcript, capture | NOT_STARTED |
+| M3-5 | Under Reduced motion, ordering, feedback, final state, and total game rules are preserved while decorative travel and long chained flashes are removed — and not replaced by another busy effect. Simultaneous moving/flashing tiles are bounded. | "Reduced" that changes outcomes, or that swaps one distraction for another. | E1+E3 | Full/Reduced parity spec + paired captures | transcript, capture pairs | NOT_STARTED |
+| M3-6 | Reset and teardown leave no lingering animation record, and deterministic replays are unchanged. | A leak that only shows after the fifth reset. | E1 | teardown/replay spec | transcript | NOT_STARTED |
+
+## E. Sensory-feedback demo (`SENSE-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| SENSE-1 | The haptics control panel sits at the top of the scroll content, directly after the title and short introduction and before the controls it affects. The enabled toggle, its status, and the short explanation are inside the initial viewport without scrolling on the automated compact portrait, short landscape, desktop, and ten-foot profiles, including Largest text. | Source order proving nothing about rendered geometry. | E1+E3 | rendered-order and geometry assertions per profile, plus captures | geometry dumps, `captures/sense-*/` | NOT_STARTED |
+| SENSE-2 | The demo's haptics toggle starts on at every fresh mount, and the status reports honestly whether the host accepted, refused, or could not determine support. | Claiming a player felt a vibration Roblox cannot report. | E1+E3 | initial-value and install-attempt specs; Studio first-viewport capture | transcript, capture | NOT_STARTED |
+| SENSE-3 | Four clearly labelled, playable comparisons use the Step 13 public API: **Press** (built-in contact waveform on primary-action down), **Release** (its distinct built-in release phase on a valid press ending; a cancelled press shows the documented silent/cancel outcome), **Selection** (built-in selection tick only when a discrete choice's selected value changes — not on hover, not on a no-op), and **Custom** (one control using the documented public override/profile seam for an obviously distinct bounded waveform, constructing no `HapticEffect` and reaching no adapter internal). | Re-implementing the defaults inside the example, which proves the example and not the framework. | E1+E3 | per-phase specs pinning the exact Step 13 default waveform/profile identities; four-input Studio drive | transcript, traces | NOT_STARTED |
+| SENSE-4 | Visible pressed/released/selected/custom state and a bounded event history let a player see which phase was requested without reading source, and let automated Studio proof observe it without feeling the device. Each row shows the active profile and whether it uses a built-in default or the example's custom override. | An invisible demo that only the author can verify. | E3 | Studio capture + readout | captures, readout dumps | NOT_STARTED |
+| SENSE-5 | Turning the toggle off detaches and disposes the adapter and its effects; turning it on again installs exactly one working adapter; reopening or rebuilding the example restores the on default; scenario changes and teardown leave no adapter, effect, connection, or stale state. | A second adapter installed silently on the third toggle. | E1+E3 | off/on cycle, remount, and teardown specs; Studio cycle | transcript, traces | NOT_STARTED |
+| SENSE-6 | Every comparison is reachable through pointer/touch proxy, keyboard, and gamepad, with no duplicate pulses. | One activation path firing twice. | E1+E3 | four-input drive with a pulse census | traces | NOT_STARTED |
+| SENSE-7 | Facet's library-level contract is unchanged: haptics stay off until a game opts in, and the separate tests that prove it still pass. | A demo convenience becoming a framework default. | E1 | the existing opt-in specs, unmodified | transcript | NOT_STARTED |
+| SENSE-8 | Physical sensation remains a named device-verification row; nothing in the demo, its copy, or the evidence claims motor output. | Emulation relabelled as a felt vibration. | E4 | named physical procedure | pending row | PENDING_PHYSICAL |
+
+## F. World terminal and the `surface_target` render target (`WORLD-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| WORLD-1 | A Studio spike proves the `SurfaceGui` topology before any adapter is published. | Publishing an adapter against a guessed engine fact. | E2 | live Play-mode probes over Studio MCP, instrument proved first, every control restored | `spike/world-surface.md` | **PASS_AUTOMATED (E2)** — canvas mapping, the queryable precondition, occlusion + `AlwaysOnTop`, adornee lifetime, clipping, the scroll host and text bounds all measured with restores. Two corrections to the plan's own premises: the contract's "parented into the part it is display-only" precondition is **false on Studio 0.736** (both topologies take input, so the PlayerGui rule stands on *ownership*, not input), and `AlwaysOnTop = true` lets a player operate the terminal **through a wall**. `face` becomes a required adapter option after a face error made both surfaces measure as unclickable. StyleSheet cascade stays **open** — the control failed too, so the null proves nothing; it closes with Facet's own `native_style` once the adapter can mount. |
+| WORLD-2 | One public client-side `surface_target` adapter exists, built on the existing target/root-factory seam. There is no second renderer and no `SurfaceGui` branch inside any control. | A parallel render path. | E0+E1 | boundary/registration/conformance checks | check output | NOT_STARTED |
+| WORLD-3 | The obsolete "not implemented" declaration is replaced, and the ADR, api.md, constitution, guide, extension playbook, registration, boundary, property-parity, conformance, and performance truth all reflect the shipped target. | Documentation that still says the thing cannot be done. | E0 | the doc/registration checkers | check output | NOT_STARTED |
+| WORLD-4 | The first supported policy is a fixed virtual-pixel canvas with explicit face, resolution, maximum distance, and `AlwaysOnTop = false` unless evidence requires otherwise. The `SurfaceGui` is client-owned under `PlayerGui`, its `Adornee` is the replicated console part, the part must remain queryable, `presentationSpace = "world"`, and the solver is fed the exact canvas rectangle. | A server-owned or wrongly-parented GUI that appears to work in one session. | E2+E3 | positive topology assertion plus negative controls for wrong parenting and a non-queryable adornee | topology dumps | NOT_STARTED |
+| WORLD-5 | Native StyleSheet/theme resolution, clipping, text measurement, focus visuals, legibility, occlusion, and pointer coordinates are each proved on the real surface. Every optional adapter capability is either implemented correctly or removed with its named degradation — no screen-space capability appears to work while its coordinate space is wrong. | A capability that silently answers in the wrong coordinate space. | E2+E3 | per-capability probes | capability ledger, dumps | NOT_STARTED |
+| WORLD-6 | A native `ProximityPrompt` on an Attachment is the walk-up invitation. Triggering it engages exactly one Facet responder/focus scope. Direct pointer and touch activation work on the physical screen; keyboard and gamepad use the same semantic Input Action System actions and logical focus as screen UI. The example binds nothing through `ContextActionService` or `UserInputService`. | Hardware bound in the example, bypassing the semantic layer. | E1+E3 | `check_no_screen_key_bindings.py`-class scan + four-input Studio drive | scan output, traces | NOT_STARTED |
+| WORLD-7 | Cancel, the terminal's Exit control, leaving prompt range or line of sight, character removal, adornee streaming or removal, switching showcase scenarios, and teardown each resign the surface, cancel in-flight input, restore gameplay control, and leak nothing. Repeated trigger/cancel and input hot-switching are safe. | One exit path out of seven that strands the player's controls. | E3 | one drive per named exit path, each with a leak census | traces, census | NOT_STARTED |
+| WORLD-8 | The UI stays per-player and client-owned. Applying power sends domain intent to the server, which validates values, authority, rate, and the current player-to-console distance before changing replicated objects. The UI tree is never replicated and a client-side proximity claim is never trusted. | A client-authoritative world mutation. | E1+E3 | server-refusal drives for invalid, stale, and distant commands | traces | NOT_STARTED |
+| WORLD-9 | The Studio matrix covers pointer, touch proxy, keyboard, and gamepad entry/use/exit; default and oblique camera angles; near/far, occluded, streamed/removed, death, and scenario-switch lifecycles; two materially different themes; Full and Reduced motion if the terminal animates; normal and Largest text; and bounded cost versus the same showcase at idle. | Emulation presented as physical or VR proof. | E3 | the canonical device matrix driver | matrix report, captures | NOT_STARTED |
+| WORLD-10 | A plain-language guide recipe explains "put Facet on a part players can use": the client `SurfaceGui` topology, the native walk-up prompt, the responder handoff, server validation of shared world state, canvas and theme choices, teardown, supported inputs, and the exact limits — flat world-fixed UI, not declarative Parts and not VR. | A reader forced to reconstruct the recipe from an ADR. | E0 | doc checks + a fresh-reader exercise | guide page | NOT_STARTED |
+| WORLD-11 | The showcase and the standalone place run the same declarative terminal-content module. | A simplified fork that drifts. | E0+E1 | drift test over the shared module | transcript | NOT_STARTED |
+
+## G. Wardrobe retirement (`WARD-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| WARD-1 | Wardrobe is absent from the tutorial gallery, the showcase picker, the curated standalone manifest, the public example catalog, screenshots, publishable places, and the player-facing build. | A retired example still shipping to players. | E1+E3 | inventory scan + built-place inspection | `wardrobe-inventory.md` | NOT_STARTED |
+| WARD-2 | The framework behaviours and tests Wardrobe covered are inventoried first, and any useful Facet coverage is preserved by smaller focused fixtures or another selected experience. | Deleting the example and its only proof together. | E1 | coverage inventory + the replacement specs | inventory, transcript | NOT_STARTED |
+| WARD-3 | If the Step 11 reference-validation record still requires it, the old application has moved out of the public `examples/` surface into clearly owned test evidence with a written reason. Otherwise it is deleted. | Historical proof keeping a retired example presented as current. | E0+E1 | the move or the deletion, plus the audit | `wardrobe-inventory.md` | NOT_STARTED |
+
+## H. Sipworks and Glade (`SIP-*`, `GLADE-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| SIP-1 | The opening screen explains the tea-house loop in one sentence and shows a compact **Today's order** task with progress. | An opening screen that is a catalogue. | E3 | capture | capture | NOT_STARTED |
+| SIP-2 | The deterministic loop plays: choose a blend and place a successful order; the prepared drink appears and awards the final stamp needed for a free pour (seeded one stamp short); choose another blend and redeem the free pour; an unmistakable completion state says what the player accomplished and offers **Serve another customer** reset. | Ten repetitive orders needed to see the lesson. | E1+E3 | loop spec + played loop | transcript, capture sequence | NOT_STARTED |
+| SIP-3 | A rejection explains what happened and how to retry without losing progress. | Progress lost on a rejected order. | E1+E3 | rejection spec + played retry | transcript, capture | NOT_STARTED |
+| SIP-4 | The primary task stays visible or quickly recoverable and always says the next action, while catalogue, search, favourites, Blend Book, localisation, async states, compact-link entry, and adaptive navigation remain useful secondary exploration. | Secondary surface burying the task. | E3 | device/text/theme matrix | matrix report, captures | NOT_STARTED |
+| SIP-5 | Player-facing labels such as "reference proof", stage IDs, gate language, and capability-ledger codes are gone; a short optional **What this shows** explanation follows the play task rather than replacing it. | Proof jargon on a player surface. | E0+E3 | player-string scan + captures | scan output | NOT_STARTED |
+| GLADE-1 | The opening screen explains that wisps visit glades with fresh dew and suitable nectar, and shows one deterministic **Prepare this glade** task for a named glade and its named wisp, with two plain progress rows and a clear first action. | A browsing app with no task. | E3 | capture | capture | NOT_STARTED |
+| GLADE-2 | The loop plays: open the named glade and refill its dew; choose the wisp's preferred nectar; when both are true the wisp visibly arrives or brightens, both rows complete, and an unmistakable success state offers **Prepare again**. | Success the player cannot see. | E1+E3 | loop spec + played loop | transcript, capture sequence | NOT_STARTED |
+| GLADE-3 | If time advances or supplies drain, the task explains the changed condition and lets the player recover. | A dead end. | E1+E3 | depleted/recovery spec + played path | transcript, capture | NOT_STARTED |
+| GLADE-4 | Browsing, search, favourites, other glades, visitor history, flora, commerce-shaped fixtures, and Keeper settings remain secondary and never hide the task or become required to understand the core loop. | A task lost behind navigation. | E3 | device/text/theme/motion matrix | matrix report | NOT_STARTED |
+| GLADE-5 | The player understands the goal, current progress, next action, result, and what Facet adapted without reading source. | Self-certified clarity. | E5 | fresh-reviewer play | reviewer report | PENDING_HUMAN |
+
+## I. Curated standalone places and the manifest (`STAND-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| STAND-1 | The seven tutorial places remain, because the guide teaches them. | Losing the guide's own examples to a cleanup. | E1 | manifest + build | build output | NOT_STARTED |
+| STAND-2 | The superseded plain settings demo is removed only after the new shared standalone chrome covers its purpose. | Removing a lesson before its replacement exists. | E1+E3 | coverage comparison | `standalone-selection.md` | NOT_STARTED |
+| STAND-3 | Five to seven curated existing showcase standalones plus the required world terminal ship (six to eight total), covering adaptive controls and input paradigms; row actions or another platform-dependent interaction; `withAnimation` and reduced motion; one realistic large virtualized collection; one async-resource loading-and-recovery screen; one large-text or narrow-layout adaptation screen; and the terminal. Why each chosen place is uniquely useful, and why each unchosen scenario stays showcase-only, is recorded. | One place per scenario, or a required capability family with no place. | E0+E1 | the selection record + manifest drift test | `standalone-selection.md` | NOT_STARTED |
+| STAND-4 | Each standalone shows a title, the player goal or task, a discoverable first action, visible success/failure feedback, reset, and a short optional "What this shows". Test-only jargon and raw counters are absent unless the number is the lesson. | A diagnostic fixture wearing a title. | E3 | per-place capture set | captures | NOT_STARTED |
+| STAND-5 | One checked-in manifest drives the showcase registry, presentation-target and world-fixture metadata, standalone project generation, build outputs, documentation, and drift tests. No parallel list survives. | Two lists that disagree. | E1 | drift test + a scan for surviving copies | `manifest-drift.md` | NOT_STARTED |
+| STAND-6 | Every declared standalone rebuilds from the manifest and opens as a local, self-contained `.rbxl` with no publish, upload, universe ID, or Rojo requirement at play time. | A place that only opens on the author's machine. | E1+E3 | build + open each | build log, open captures | NOT_STARTED |
+| STAND-7 | The manifest rejects an orphaned or missing output. | A manifest that cannot fail. | E1 | seeded orphan and seeded missing output | mutation transcripts | NOT_STARTED |
+
+## J. Theme and motion controls (`THEME-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| THEME-1 | Every tutorial and curated standalone place exposes the existing theme picker with the public reference themes mapped into the place. | A place with no way to see the theme lesson. | E1+E3 | per-place drive | captures | NOT_STARTED |
+| THEME-2 | A theme change updates palette, type, metrics, and applicable chrome without remounting or losing game state. | A theme swap that resets the game. | E1+E3 | mount-identity and state assertions across a swap | dumps | NOT_STARTED |
+| THEME-3 | Every place with decorative or informational motion exposes the shared Full/Reduced control and writes the same `reducedMotion` environment fact as the showcase. | A per-place copy that drifts. | E1 | shared-model assertion | transcript | NOT_STARTED |
+| THEME-4 | The showcase settings model and its chrome/reservation rules are reused, not copied into each place. | Duplicated chrome policy. | E0+E1 | source scan | scan output | NOT_STARTED |
+| THEME-5 | The controls stay reachable without covering the example on small portrait, short landscape, ten-foot, and Largest-text layouts, and their focus scope neither traps focus nor steals it from the example. | Chrome that eats the demo. | E1+E3 | overlap and focus assertions across the matrix | matrix report, captures | NOT_STARTED |
+
+## K. Cleanup (`CLEAN-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| CLEAN-1 | Every example source, generated place, project file, registry entry, test, guide link, build output, and artifact reference is inventoried. | Deleting by memory. | E0+E1 | the inventory generator | `example-inventory.md` | NOT_STARTED |
+| CLEAN-2 | An old item is deleted only when it is superseded and no tutorial, showcase, standalone, test, gate, document, or build uses it; evidence whose provenance requires it is preserved outside the public branch. | Deleting a live dependency. | E1 | reference scan per deletion | `deletions.md` | NOT_STARTED |
+| CLEAN-3 | Stale generated `.rbxl` outputs, lock files, temporary projects, and dead registry entries are gone. | Repository litter shipped as product. | E1 | inventory diff | `deletions.md` | NOT_STARTED |
+| CLEAN-4 | The dead-example audit has no unexplained item. | An item nobody can account for. | E0+E1 | the audit | `example-inventory.md` | NOT_STARTED |
+
+## L. Stage gate (`GATE-*`)
+
+| ID | User-visible behavior | Risk | Evidence | Driver | Artifact | Status |
+|---|---|---|---|---|---|---|
+| GATE-1 | `tools/gate.sh example-games-and-standalones` exits 0 and writes its gate artifact. | A stage called done from prose. | E1 | the gate | `gate.json` | NOT_STARTED |
+| GATE-2 | The relevant focused and full suites, the prior example gates, the Step 13 guards, and every affected Rascal Rally check pass at the final source identity. | A green stage over a red consumer. | E1 | the suites and checks | transcripts | NOT_STARTED |
+| GATE-3 | An independent fresh-context phase-gate reviewer plays the touched loops and every requirement finding is resolved. | Self-certification. | E3+E5 | the reviewer dispatch | reviewer report + resolutions | NOT_STARTED |
+| GATE-4 | Every remaining physical or human row is named with one exact closing procedure. | A vague "pending device". | E0 | this ledger's final state | this file | NOT_STARTED |

@@ -142,6 +142,14 @@ performs the destructive remote operation.
 
 ## Documentation and installation
 
+Refresh the complete public documentation after the Step 13.5 product pass and public
+allowlist cleanup. Update the root README, guide index and capability catalog, API
+reference, installation and upgrade instructions, examples, theme catalog, extension
+guides, contributor workflow, test tiers, package release instructions, and every
+affected link or path. Remove internal-plan dependencies and stale claims. Keep one
+source of truth for each concept; the README, `AGENTS.md`, and skill route readers to
+the guides instead of copying them.
+
 The repository root must explain what Facet does, its supported Roblox environments,
 current evidence limits, installation, a five-minute screen, examples, documentation
 map, development commands, versioning, compatibility, contribution policy, security
@@ -234,6 +242,13 @@ the same complete suite, then search its human transcript for one case name. A l
 gate replays many earlier gates, which replay the same producers again. Preserve the
 coverage and negative controls; remove the repeated work and fragile transcript
 coupling.
+
+Step 13.5 now performs the first measured optimization pass against the current
+post-cache harness. Reuse its timings, producer inventory, structured results,
+invalidation rules, mutations, and implementation. Do not recreate or replace working
+Step 13.5 infrastructure during distribution preparation. This stage closes any
+remaining release-wide graph, fresh-clone, CI, and public-contributor requirements and
+rechecks the same 20-minute budget from the public candidate.
 
 Measure before redesigning. On a documented quiet machine, record wall/CPU time,
 invocation count, input/output identity, artifact writes, and the slowest specs for:

@@ -4070,6 +4070,195 @@ local manifest: { [string]: { Check } } = {
 			note = "At close: both cached suite transcripts serve green for the renamed tree, affected prior gates rerun green, representative Studio scenarios preserve their baseline, and prior behavior and performance remain intact. Earns a run string only when the close-out artifact exists.",
 		},
 	},
+
+	--[[ ROADMAP STEP 13.5 — `example-games-and-standalones`.
+
+		REGISTERED BEFORE IMPLEMENTATION, ON PURPOSE. Round 2 and round 3 were both
+		registered after their missions closed, which is recorded in this file as the
+		finding it was: `tools/gate.sh` had no stage to run, so the work closed on
+		hand-run evidence and nothing in the repository could have reddened
+		afterwards. Every row below therefore lands as PENDING and earns a `run`
+		string only when its implementation and its evidence artifact both exist.
+
+		The binding scope is docs/plans/example-games-and-standalones.md; the row IDs
+		match artifacts/example-games-and-standalones/acceptance-ledger.md so a check,
+		an artifact and an acceptance row can be read against each other. ]]
+	["example-games-and-standalones"] = {
+		{
+			name = "verification-baseline-measured",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-1. Cold and warm wall/CPU time, process and producer counts, cache hits/misses with their invalidation reasons, test-case counts, artifact writes, and the slowest work — for the Facet fast and full suites, Rascal Rally's affected and full suites, every unique deterministic producer this stage invokes, one attempt at this stage's own gate, and its prior-requirement verification path. Measured against the CURRENT post-cache harness, not the 2026-08-16 planning baseline, because tools/test.sh's transcript cache landed after that baseline was written and every percentage taken against the older numbers would flatter the result.",
+		},
+		{
+			name = "verification-mutations-bite",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-2. A frozen pass/fail corpus, plus targeted mutations proving the optimized system still reddens for a failed test, a missing spec registration, a changed result ID, a stale cache entry, a partial or truncated transcript or artifact, changed source/tool/fixture inputs, and a failed producer. The cache is the dangerous part, not the suite: serve one stale transcript and several hundred gate checks become decoration in a single commit, which is why tools/suite_cache_selftest.sh already breaks each of its guards on purpose and why anything added here is held to the same standard.",
+		},
+		{
+			name = "verification-verdict-parity",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-3. Gate row by gate row, the optimized system returns the same PASS/FAIL verdict as the pre-optimization system over the frozen corpus. A speed-up that quietly stops a check from biting is a regression wearing a stopwatch.",
+		},
+		{
+			name = "producer-runs-once-per-identity",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-4. In one attempt at this stage's gate, each unique deterministic producer executes at most once per exact source/tool/fixture identity — measured from an invocation trace, never claimed from the design. Performance, Studio, physical-device, network and other mutable external producers never inherit a headless result and are counted separately.",
+		},
+		{
+			name = "headless-budget-twenty-minutes",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-5. The deterministic headless work this stage's gate requires finishes inside twenty minutes on the documented machine, with Studio and external time reported separately rather than folded in. Missing the budget by excluding a required producer, or by relabelling one external, does not close this row.",
+		},
+		{
+			name = "affected-and-fast-loops-trustworthy",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-6. Both repositories give an agent an affected loop and a fast loop, and neither transcript can be mistaken for a suite or release verdict. Facet already refuses a fast-tier transcript by a bash match rather than a pipeline, because `printf | grep -q` returns 141 under pipefail when it MATCHES and passed a fast-tier transcript straight through once already; anything added on the Rascal Rally side is held to that same shape.",
+		},
+		{
+			name = "verification-coverage-preserved",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TEST-8. Every removed or merged execution maps to a surviving requirement, producer, result and negative control, and no coverage, assertion strength, prior requirement, or meaningful fault/soak repetition was removed to buy time.",
+		},
+		{
+			name = "word-game-dictionary",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "WORD-1..WORD-4. A real local English dictionary with its source URL, version or content hash, license, transformations and generating command recorded; a broad accepted-guess set of thousands of normalized five-letter words beside a smaller reviewed solution set; normalization done once at build time with measured size and lookup cost; and a drift test that fails when the generated data stops matching its recorded provenance. No proprietary game's word list, and no network request at runtime.",
+		},
+		{
+			name = "word-game-board-visible",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "WORD-5..WORD-9. All thirty cells visibly present at startup under every shipped theme, with persistent chrome or a placeholder in each empty cell and a cue for the active row and next letter position that is not colour alone; letters readable at every preferred text size; two-pass duplicate scoring, keyboard evidence, win/loss, deterministic restart and every input path preserved; the phrase 'tutorial word list' gone; and common guesses the old hand-picked list rejected now playing. A default-valued write claims nothing, so 'present in the tree' is not evidence of a visible cell — this row wants paint.",
+		},
+		{
+			name = "tile-game-crossword-loop",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "TILE-1..TILE-12. The finite word-building loop: first turn crosses the highlighted centre cell; a turn places rack tiles in one contiguous row or column; later turns connect to a committed tile; Submit validates the whole line against the shared example dictionary, commits, scores and refills from a deterministic bag; Undo returns uncommitted tiles; every refusal names its exact problem and preserves recoverable state; a visible goal and bounded turn count produce win, loss, summary and restart. Legal next cells, selection, uncommitted-versus-committed letters, current word, score, goal and turns are all visible, a guaranteed opening move exists, and board and rack navigation work for pointer/touch, keyboard and gamepad. Word data and pure validation live in one example-domain module; no crossword rule enters Facet.",
+		},
+		{
+			name = "match3-motion-public-surface",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "M3-1..M3-6. Stable per-tile identity, so motion shows a tile moving rather than a picture changing inside a fixed cell; the visible sequence of swap, invalid return, match removal, gravity, refill and cascades before input unlocks; public presenter.withAnimation for surviving keyed movement and the public structural-transition system for insertion and removal, driven by the framework's clock or completion seam. No TweenService, frame loop, arbitrary task.wait, raw instance offset, or second animation system in the example. Reduced motion preserves ordering, feedback, final state and the game's rules while removing decorative travel, and does not substitute another busy effect. Intermediate motion is evidence here, not just endpoints.",
+		},
+		{
+			name = "sensory-demo-opens-useful",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "SENSE-1, SENSE-2. The haptics control panel sits directly after the title and short introduction and before the controls it affects, with the toggle, its status and the explanation inside the initial viewport without scrolling on compact portrait, short landscape, desktop and ten-foot, including Largest text — proved from rendered order and geometry, not source order. The demo's toggle starts on at every fresh mount because the example explicitly requests and installs the adapter, and the status reports honestly when the host refuses or support cannot be determined. Roblox cannot tell us a motor fired, so nothing here says a player felt anything.",
+		},
+		{
+			name = "sensory-demo-four-comparisons",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "SENSE-3..SENSE-7. Four labelled playable comparisons over the Step 13 public API: the built-in contact waveform on primary-action down; its distinct built-in release phase on a valid press ending, with the documented silent or cancel outcome for a cancelled press; the built-in selection tick only when a discrete choice's selected value changes, and never on hover or a no-op; and one control using the documented public override or profile seam for an obviously distinct bounded custom waveform, constructing no HapticEffect and reaching no adapter internal. Visible state and a bounded event history make the requested phase observable without the device. Off detaches and disposes the adapter and its effects, on installs exactly one, remount restores the on default, teardown leaves nothing, and every comparison is reachable by pointer/touch proxy, keyboard and gamepad with no duplicate pulses. Facet's library-level game-opt-in contract is unchanged and its separate tests still pass.",
+		},
+		{
+			name = "surface-target-spike",
+			requirements = { "UI-AGENT-001", "UI-WORLD-001" },
+			state = "PENDING",
+			note = "WORLD-1. The Studio spike answers target_contract.FUTURE.surface's open questions BEFORE an adapter is published. The interactivity precondition is the one that decides whether the spike measured anything: a SurfaceGui's GuiObjects are input-active only when the SurfaceGui lives under PlayerGui with its Adornee set to the part — parented INTO the part it is display-only, and a spike that parents it the wrong way measures a surface that can never be clicked.",
+		},
+		{
+			name = "surface-target-public-adapter",
+			requirements = { "UI-AGENT-001", "UI-WORLD-001" },
+			state = "PENDING",
+			note = "WORLD-2..WORLD-5. One public client-side surface_target built on the existing target and root-factory seam, with no second renderer and no SurfaceGui branch inside a control; the 'not implemented' declaration replaced together with the ADR, api.md, constitution, guide, extension playbook, registration, boundary, property-parity, conformance and performance truth that currently assert its absence; a fixed virtual-pixel canvas with explicit face, resolution, maximum distance and AlwaysOnTop = false unless evidence requires otherwise; the SurfaceGui client-owned under PlayerGui with its Adornee on the replicated console part, that part required to stay queryable, presentationSpace = \"world\", and the solver fed the exact canvas rectangle. Every optional capability is implemented correctly or removed with its named degradation — deleting the method is the sanctioned move, and a screen-space capability that appears to work while its coordinate space is wrong is the failure this row exists to refuse.",
+		},
+		{
+			name = "world-terminal-plays",
+			requirements = { "UI-AGENT-001", "UI-WORLD-001" },
+			state = "PENDING",
+			note = "WORLD-6..WORLD-9, WORLD-11. The Outpost Power Terminal is a small piece of a real game, not a render-target diagnostic with buttons: a native ProximityPrompt on an Attachment invites the walk-up, triggering it engages exactly one Facet responder and focus scope, direct pointer and touch work on the physical screen, and keyboard and gamepad use the same semantic Input Action System actions and logical focus as screen UI, with nothing bound through ContextActionService or UserInputService in the example. Cancel, the Exit control, leaving range or line of sight, character removal, adornee streaming or removal, a scenario switch and teardown each resign the surface, cancel in-flight input, restore gameplay control and leak nothing. The UI stays per-player and client-owned while applying power sends domain intent the server validates for values, authority, rate and current distance. Showcase and standalone run the same declarative terminal-content module.",
+		},
+		{
+			name = "world-terminal-guide-recipe",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "WORLD-10. A plain-language guide recipe for putting Facet on a part players can use: the client SurfaceGui topology, the native walk-up prompt, the responder handoff, server validation of shared world state, canvas and theme choices, teardown, supported inputs, and the exact limits — flat world-fixed UI, not declarative Parts and not VR. It links the public adapter API and the example; a reader does not reconstruct the recipe from an ADR.",
+		},
+		{
+			name = "wardrobe-retired",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "WARD-1..WARD-3. Wardrobe is gone from the tutorial gallery, the showcase picker, the curated standalone manifest, the public example catalog, screenshots, publishable places and the player-facing build, and is not selected as a replacement for another example. The framework behaviours and tests it covered were inventoried FIRST and any useful Facet coverage preserved by smaller focused fixtures or another selected experience. It is still cited by the Step 11 reference-validation record, so if it stays it has moved out of the public examples surface into clearly owned test evidence with the reason written down; it is deleted when nothing still requires it. Historical proof does not keep a retired example presented as a current one.",
+		},
+		{
+			name = "sipworks-loop-complete",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "SIP-1..SIP-5. The opening screen explains the tea-house loop in one sentence and shows a compact Today's order task with progress; the deterministic loop runs paid order to final stamp to free pour to an unmistakable completion state and a Serve another customer reset, seeded one stamp short so the lesson does not need ten repetitive orders; a rejection explains what happened and how to retry without losing progress; the catalogue, search, favourites, Blend Book, localisation, async states, compact-link entry and adaptive navigation stay useful secondary exploration that never buries the task; and player-facing proof jargon — 'reference proof', stage IDs, gate language, capability-ledger codes — is gone, with a short optional What this shows explanation after the play task rather than in place of it.",
+		},
+		{
+			name = "glade-loop-complete",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "GLADE-1..GLADE-5. The opening screen explains that wisps visit glades with fresh dew and suitable nectar and shows one deterministic Prepare this glade task for a named glade and its named wisp, with two plain progress rows and a clear first action; refilling the dew and choosing the preferred nectar makes the wisp visibly arrive or brighten, completes both rows and presents an unmistakable success state with Prepare again; a depleted or advanced condition explains itself and lets the player recover; and browsing, search, favourites, other glades, visitor history, flora, commerce fixtures and Keeper settings stay secondary and never become required to understand the loop.",
+		},
+		{
+			name = "one-manifest-drives-places",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "STAND-1..STAND-7. One checked-in manifest drives the showcase registry, the presentation-target and world-fixture metadata, standalone project generation, build outputs, documentation and drift tests — and no parallel list survives it. Today the seven tutorial names are spelled out independently in five files and the five reference proofs in six, and nothing cross-checks them; the themes build already derives its list and says so in its own header, which is the shape to copy. The seven tutorial places stay because the guide teaches them, five to seven curated existing showcase standalones plus the required world terminal ship, every required capability family is covered, and the reason each place was chosen — and each unchosen scenario left showcase-only — is recorded. Every declared place rebuilds and opens as a local self-contained .rbxl with no publish, upload, universe ID or Rojo requirement at play time, and the manifest reddens for an orphaned or missing output.",
+		},
+		{
+			name = "places-are-playable-not-fixtures",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "STAND-4. Each standalone shows a title, the player goal or task, a discoverable first action, visible success and failure feedback, reset, and a short optional What this shows explanation. Test-only jargon and raw counters are off the player surface unless the number IS the lesson. A standalone should feel like a small screen from a real game first and a diagnostic fixture second.",
+		},
+		{
+			name = "shared-theme-and-motion-chrome",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "THEME-1..THEME-5. Every tutorial and curated standalone place exposes the existing theme picker with the public reference themes actually mapped into the place — today the tutorial places mount the picker chip but their build maps no FacetThemes folder, so every one of them offers Studio Neutral and nothing else. A theme change updates palette, type, metrics and applicable chrome without remounting or losing game state. Every place with decorative or informational motion exposes the shared Full/Reduced control and writes the same reducedMotion environment fact as the showcase, reusing the showcase settings model and its chrome and reservation rules rather than copying them per place. The controls stay reachable without covering the example on small portrait, short landscape, ten-foot and Largest text, and their focus scope neither traps focus nor steals it from the example.",
+		},
+		{
+			name = "dead-example-audit",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "CLEAN-1..CLEAN-4. Every example source, generated place, project file, registry entry, test, guide link, build output and artifact reference is inventoried, and an old item is deleted only when it is superseded and nothing — tutorial, showcase, standalone, test, gate, document or build — still uses it. Stale generated .rbxl outputs, lock files, temporary projects and dead registry entries go. Known candidates already located: examples/table_phaseb/ has no project file and is referenced by no build script, examples/showcase.project.json is superseded by the heredoc project inside tools/build_places.sh, and a Facet-Showcase.rbxl.lock from a live Rojo session is sitting in the tree. Evidence whose provenance requires it is preserved outside the public branch rather than destroyed, and the audit ends with no unexplained item.",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "The consumer lockstep rule: Rascal Rally's normal and debug Rojo projects mount GameStudio/ui/Facet/src directly, so a Facet source, public-contract, default, behaviour, asset or distribution change is incomplete until its direct game consumer is synchronized in the same stage. This stage's framework change is the new render target; the game does not use it, so the honest deliverable is an audited consumer-impact ledger plus the game-side compatibility evidence proving the live consumer is current — not a manufactured edit. Game behaviour, content ownership, feature flags, the production Facet Sponsor default and the UseFacetSponsor = false legacy rollback are preserved.",
+		},
+		{
+			name = "step-13-guards-hold",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "Step 13's product-language and clear-writing guards, its comparison allowlist, and its brand-drift and call-shape drift checks still pass over everything this stage wrote — documentation and examples included. The release-candidate review already read this surface; nothing here is permitted to walk it back.",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "The full tools/prior_gates.sh sweep regenerated at the judged source on a quiet machine, with every red either absent or allow-listed BY NAME with fresh justification rather than inherited. This row is also the stage's own headline measurement: the sweep is the dominant cost the optimization half exists to reduce, so its before and after numbers belong in the same artifact as its verdict.",
+		},
+		{
+			name = "fresh-phase-gate-review",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "GATE-3. An independent fresh-context phase-gate reviewer is given the goal, the acceptance ledger, the changed source and the raw artifacts — without the implementer's conclusions — plays the touched loops, and every requirement-affecting finding is fixed or explicitly dispositioned. Fresh context is the point: a verifier that shares the implementer's context shares its blind spots.",
+		},
+		{
+			name = "suites-green-at-close",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "GATE-1, GATE-2, GATE-4. Both suites serve green cached transcripts for the final tree, the affected prior gates rerun green, the representative Studio scenarios preserve their baselines, and every remaining physical or human row is named with one exact closing procedure. Earns a run string only when the close-out artifact exists.",
+		},
+	},
 }
 
 return manifest

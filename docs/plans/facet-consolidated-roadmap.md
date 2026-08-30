@@ -46,9 +46,9 @@ directory. Step 13 renames the complete framework and every current consumer to
    resolves public names, re-profiles and optimizes the current performance lab,
    rewrites source comments in plain human language, and removes vendor-framework
    language outside the two explicit comparison areas;
-16. the tutorial games, Sipworks, and Glade become clear, complete play loops; Wardrobe
-   retires from player examples; Facet gains a proved world-surface target and walk-up
-   terminal; and curated concepts ship as adaptable shared-source standalones;
+16. the tutorial games, Sipworks, and Glade become complete play loops; Wardrobe
+   retires; Facet gains a proved world-surface target and shared-source standalones;
+   and the Facet/Rascal Rally verification loop becomes practical without weaker proof;
 17. the existing repository is renamed `josha/Facet` and becomes an MIT-licensed,
     public-ready source distribution with a clean branch tip, audited history, tested
     human/agent onboarding, one stable Roblox Package asset, and a requirement-complete
@@ -212,7 +212,7 @@ Key corrections to the earlier roadmap:
 | 11 | Production-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
 | 13 | Facet rename, release-candidate, and maintainability review | Facet is canonical everywhere; findings resolve; control authoring/naming, sensory haptics, profiling, reuse, IAS, comments, and agent maintenance pass |
-| 13.5 | Facet game, world-surface, and standalone polish | Games, Sipworks, Glade, sensory feedback, and the walk-up terminal pass; Wardrobe retires; standalones share source and proof |
+| 13.5 | Facet game, world-surface, standalone, and test polish | Games, named examples, sensory feedback, terminal, and test-time budget pass; Wardrobe retires; proof remains complete |
 | 14 | Facet public repo, Package, tests, and agent onboarding | Existing repo is renamed and release-ready; each unique check runs once; Package, fresh clone/agents, history, and release surfaces pass |
 
 ### Milestone 1 — parity round 2 (in flight; NOT a numbered step)
@@ -1464,6 +1464,8 @@ publish/deploy or silently begin the follow-on build.
 
 ## Step 13 — Rename the framework to Facet and run a fresh release-candidate review
 
+**DONE**
+
 This stage first renames the framework and all current consumers from the pre-rename
 name to Facet, then runs the whole-framework adversarial pass requested before
 distribution. It reviews from a frozen baseline, remediates confirmed defects, makes
@@ -1539,71 +1541,69 @@ feature/package; do not publish/package or rename the remote.
 
 ## Step 13.5 — Polish Facet game tutorials and curated standalone examples
 
-This bounded Opus pass completes the tutorial games, Sipworks, Glade, and the sensory
-demo; retires Wardrobe from player examples; ships one walk-up `SurfaceGui` terminal;
-and promotes curated concepts into shared-source publishable standalones.
+This bounded Opus pass first makes Facet and Rascal Rally verification practical. It
+then completes the tutorial games, Sipworks, Glade, and sensory demo; retires Wardrobe;
+ships a walk-up `SurfaceGui` terminal; and builds shared-source standalones.
 
 ### Opus 5 goal prompt
 
 ```text
-/goal Finish Facet's tutorial games and sensory demo, add 2D UI in the 3D world, and
-ship shared-source, adaptable standalones.
+/goal Finish Facet's games/examples, add 2D UI in the 3D world, ship shared-source
+standalones, and make its verification loop practical.
 
 Run Claude Opus 5 (`claude-opus-5`) at `xhigh`. Read repo instructions and the binding
 example/standalone plan with its links. Follow its registration/baseline/ledger rules
 and preserve Step 13. Examples own content; Facet owns reusable behavior. Use public
 API; sync framework changes to RascalRally and Step 13 proof.
 
-Word game: use a licensed local five-letter English dictionary with thousands of
-guesses/familiar solutions; record provenance/build, use no proprietary/network data,
-and prove acceptance/rejection/size/cost. Keep all cells/cues visible across themes/
-text sizes. Preserve the accessible loop/reset.
+First optimize current Facet/RascalRally verification per plan. Preserve coverage,
+mutations, and current caches; add no runner. Remove repeated work, safely batch or
+parallelize pure producers, and pull forward Step 14 identity reuse when needed. Prove
+timings, invalidation/verdict parity, one run/producer, and ≤20m headless; isolate
+Studio/external time.
 
-Tile game: build the plan's finite crossword loop: center first word, contiguous
-connected turns, dictionary Submit, score/refill, Undo, precise refusals, bounded goal,
-endings, and reset. Show decisions; play major paths/inputs.
+Word game: use a licensed local five-letter dictionary with broad guesses/familiar
+solutions; record provenance/build, avoid proprietary/network data, and prove behavior/
+cost. Keep all cells/cues visible across themes/text; preserve accessible play/reset.
 
-Match-3: use stable identities, public `presenter.withAnimation` for keyed movement,
-and structural removal/entry. Sequence swap, invalid return, removal, gravity, refill,
-cascades, then unlock. Prove identity/reset/teardown and Full/Reduced result parity;
-create no example animation system.
+Tile game: build the plan's finite crossword loop with center/connection rules,
+dictionary Submit, score/refill, Undo, precise refusals, bounded goal, endings/reset,
+visible decisions, and all inputs.
 
-Sensory demo: fresh mount starts demo haptics on; toggle/status follow the intro and fit
-without scrolling across the size/Largest-text matrix. Through Step 13 public paths,
-play built-in press/release/selection plus one public custom override; do not recreate
-defaults. A visible bounded log proves phase/order/cancel/no-op without claiming motor
-output. Across inputs, prove identities, no duplicates, install, off/on, remount,
-capability, and cleanup in tests/Studio. Facet remains game-opt-in.
+Match-3: use stable identities and public motion/structural transitions. Sequence swap,
+invalid return, removal, gravity, refill, cascades, then unlock. Prove reset/teardown
+and Full/Reduced parity; create no example animation system.
 
-Retire Wardrobe from all player examples/publishable builds; move only still-required
-regression proof outside `examples`. Make shared-source Sipworks and Glade required
-standalones. PLAY their plan-defined, self-explaining goals through next action,
-progress, failure/recovery, success, and reset on all inputs; remove proof jargon.
+Sensory: start demo haptics on with toggle/status visible at the top. Through Step 13
+public paths, demonstrate press/release/selection and one custom override. Visible
+evidence and tests prove phase/cancel/no-op, identity, no duplicates, off/on, remount,
+capability, cleanup, and all inputs without claiming motor output. Keep game opt-in.
 
-World terminal: add the plan's Outpost Power Terminal to showcase and standalone from
-one module. It is 2D Facet on `SurfaceGui`, not 3D/VR. Run the Studio spike; add one
-public `surface_target` through the existing seam. Prove canvas, client-owned
-`PlayerGui + Adornee + CanQuery`, world presentation, style, clipping, legibility,
-occlusion, lifecycle, cost, and honest capabilities. Update contracts/docs.
+Retire Wardrobe from player examples/builds; move only required proof outside
+`examples`. Make shared-source Sipworks/Glade required standalones. PLAY their clear
+goal, progress, recovery, success, reset, and all inputs; remove proof jargon.
 
-Use native `ProximityPrompt` and one Facet responder. Support direct pointer/touch and
-IAS keyboard/gamepad focus. Cancel, Exit, range departure, death, removal, and teardown
-restore gameplay without leaks/stuck input. No CAS/UIS bindings. Keep UI client-side;
-server-validate shared-world intent, authority, rate, values, and distance.
+World terminal: add the shared Outpost Power Terminal to showcase/standalone. It is 2D
+Facet on `SurfaceGui`, not 3D/VR. Spike then add one public `surface_target`; prove
+canvas, client `PlayerGui + Adornee + CanQuery`, style, input, occlusion, lifecycle,
+cost, capabilities, and contracts/docs.
 
-Keep seven tutorials. Select five-to-seven showcase standalones plus the terminal as
-the plan directs. Each needs task, first action, feedback, reset, and optional lesson.
-One manifest drives showcase/fixtures/projects/builds/docs/drift; no parallel lists.
-Share theme and applicable Full/Reduced controls. Emit `.rbxl`; never publish.
+Use native `ProximityPrompt`, one Facet responder, direct pointer/touch, and IAS
+keyboard/gamepad focus. Every exit/lifecycle path restores gameplay leak-free. No CAS/
+UIS bindings. Keep UI client-side; server-validate shared-world commands.
+
+Keep seven tutorials and the plan's curated standalone count. Each needs task, first
+action, feedback/reset, and optional lesson. One manifest drives all outputs/docs;
+share theme/motion controls, emit `.rbxl`, and never publish.
 
 Delete only inventory-proved unused items; retire plain settings only after its
 replacement. PLAY changed games, sensory default/off/on, every standalone, and terminal
 walk-up/use/exit in Studio. Run the plan matrix, negatives, suites, prior gates/builds,
 Step 13, and RascalRally checks. Give fresh reviewers evidence; resolve findings.
 
-Complete only with gate exit 0/artifact; complete games and named examples; sensory/
-world proof; manifest builds; accurate docs/inventory; no workaround/dead item; and
-exact physical pendings. Report evidence/deletions. Do not publish/package.
+Complete only with gate exit 0/artifact; games/examples, test budget, sensory/world,
+manifest, docs/inventory, and no-workaround/dead-item proof; plus exact physical
+pendings. Report evidence/deletions. Do not publish/package.
 ```
 
 ## Step 14 — Prepare the existing repository for public distribution
@@ -1620,39 +1620,37 @@ free Creator Store listing public only after reviewing the release packet.
 ### Fable 5 goal prompt
 
 ```text
-/goal Rename the existing private GitHub repository to `josha/Facet`, prepare it as the
-canonical MIT public-source distribution, and create one verified private Facet Roblox
-Package with a stable reusable ID. Keep the repo and Creator Store listing private.
+/goal Rename the private repo to `josha/Facet`, prepare its canonical MIT public-source
+distribution, and create one verified private Roblox Package with a stable ID. Keep
+the repo and listing private.
 
-Use Fable 5 at highest effort; it owns judgments and delegates decided work to Opus 5
-`xhigh`. Read repo instructions and the binding distribution plan/supporting links.
-Register its gate pending; inspect remote/history/status; preserve user work/guards.
+Use Fable 5 at highest effort for judgments; delegate decided work to Opus 5 `xhigh`.
+Read repo instructions and the binding distribution plan/links. Register the gate;
+inspect remote/history/status and preserve user work/guards.
 
 Git is canonical; the Package is derived. Apply MIT with approved copyright. Preserve
 third-party notices/rights; replace incompatible material safely or block.
 Never infer ownership or silently relicense.
 
-Use a public allowlist: root/community/agent files, runtime/licensed dependencies,
-examples/docs, useful tests/builds, package tooling, and thin skill.
-Archive private material with checksums outside Git before removal. Audit Git objects
-and GitHub surfaces for secrets, game/private material, unclear rights, and bulk. If a
-purge is needed, build/test a clean candidate and owner migration/rollback packet only.
+Use the plan's public allowlist. Archive private material with checksums outside Git;
+audit Git/GitHub for secrets, private/game data, rights, and bulk. If purge is needed,
+prepare only a tested clean candidate and owner migration/rollback packet.
 
-Root `AGENTS.md` and the skill route API/theme/input/Studio/extension, package release,
-and RascalRally lockstep. Prove fresh agents work from public material alone.
+Refresh README, guide/catalog, API, install/upgrade/Package, examples, extension,
+contributor, test, release docs, and links; remove stale/internal claims and duplicates.
+Create root `AGENTS.md` and thin Agent Skills-compatible `skills/use-facet/SKILL.md`;
+route both to public API/theme/input/Studio/extension/release/RascalRally guidance.
+Prove fresh agents can build and change Facet from public material alone.
 
 Extend existing `tools/build_model.sh`; never create another model source. The Package
-contains runtime plus non-executable license/source metadata. Add commit/hash/VERSION,
-semantic manifest, non-secret asset config, and receipt. One interface provides
-offline build/status/verify and guarded create/same-ID publish/rollback; relevant
-changes rebuild and drift-check locally and in PRs.
+contains runtime plus license/source metadata. Add commit/hash/VERSION, semantic
+manifest, non-secret config, and receipt. One interface provides offline build/status/
+verify and guarded create/same-ID publish/rollback; changes rebuild/drift-check.
 
-Default to dry-run. Before remote/cloud mutation, batch one owner checkpoint for the
-exact repo rename/GitHub authority and Package creator/metadata/listing/credential.
-Refuse duplicate creation.
-Mutation requires confirmation, exact clean commit, matching version/hash/owner/asset,
-green gates, and scoped environment/CI secret. Never expose secrets, use cookies/forks,
-or create a replacement ID.
+Default dry-run. Before remote/cloud mutation, batch one owner checkpoint for rename
+authority and Package creator/metadata/listing/credential. Refuse duplicates. Mutation
+requires confirmation, exact clean commit, matching version/hash/owner/asset, green
+gates, and scoped secret. Never expose secrets, use cookies/forks, or replace the ID.
 
 Use Open Cloud Model create/update only after official-doc research and a Studio spike
 prove this `.rbxm` becomes a real Package; otherwise use the plan's Studio fallback.
@@ -1664,21 +1662,18 @@ the configured ID, poll/read back, Studio-verify, and retain its receipt.
 Never publish every commit. Document no-Rojo install, Get Latest/version/AutoUpdate,
 asset ID, and enabling the free listing only after Git is public.
 
-Profile and simplify tests/gates per plan. Map every living requirement to one
-producer. Replace full-suite transcript greps and recursive prior-gate replay with
-structured results and a run graph that executes each unique producer once per exact
-source/tool/environment identity; reject stale/partial evidence. Keep affected/fast/
-full/release tiers; isolate perf/Studio/external work. Preserve coverage and negative
-controls. Prove old/new verdict parity with mutations, single-execution/invalidation
-guards, timings, and the plan's headless budget. Run RascalRally once per matching
-release identity, not once per historical gate.
+Finish test/gate simplification per plan, reusing Step 13.5 work. Map requirements to
+one producer; replace transcript greps/prior-gate replay with structured results and
+one exact-identity run graph. Reject stale/partial evidence; keep affected/fast/full/
+release tiers and isolate perf/Studio/external work. Preserve coverage/negatives; prove
+mutation parity, invalidation, timings, and budget. Run RascalRally once per identity.
 
 Mutation-test guards; verify reproducible manifests, fresh clone/consumers, examples,
 suites/docs/adapters/prior requirements, and RascalRally sync. Complete only with gate
-exit 0, no must-purge item, private Package ID/update proof, fresh-agent success, and
-the owner visibility/listing/security/rollback packet. The one confirmed repository
-rename is in scope; do not push Git, change visibility, enable listing, publish a
-GitHub release, or rewrite/delete other remote data.
+exit 0, no must-purge item, current public docs/link proof, root `AGENTS.md`, working
+skill, private Package ID/update proof, fresh-agent success, and the owner packet. The
+confirmed repository rename is in scope; do not push Git, change visibility, enable
+listing, publish a GitHub release, or rewrite/delete other remote data.
 ```
 
 ## Completion checklist for the whole roadmap
@@ -1752,6 +1747,11 @@ The roadmap has achieved its goals only when all of these are true:
 - Sipworks completes paid order → final stamp → free pour → success → reset, and Glade
   completes dew + preferred nectar → wisp success → reset; both make goal, first/next
   action, progress, failure recovery, result, and Facet lesson clear in play;
+- Step 13.5 records cold/warm before-and-after Facet and Rascal Rally verification
+  timings; preserves the frozen pass/fail corpus and mutation bite; runs each unique
+  deterministic producer at most once per exact identity; and completes its required
+  headless work within 20 minutes on the documented machine, with Studio/external time
+  reported separately;
 - one checked-in manifest drives the showcase and six-to-eight curated standalone
   places, including the same walk-up world terminal in both; all share source and
   theme/motion chrome, rebuild self-contained, and have no obsolete or orphaned

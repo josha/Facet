@@ -1,6 +1,7 @@
 # Game tutorials and standalone example polish
 
 **Date:** 2026-08-15
+**Updated:** 2026-08-29
 **Status:** Planned after the release-candidate review and before public-repository
 preparation.
 
@@ -35,6 +36,68 @@ continue to pass Step 13's product-language and clear-writing guards.
 Register `example-games-and-standalones` before implementation with honest pending
 checks. Extend existing example, place-build, device-matrix, artifact, and gate tools.
 Do not recreate them.
+
+## Optimize the test suites before the example pass
+
+The Facet and Rascal Rally verification loops take too long for routine agent work.
+Make a measured optimization pass before repeatedly running this stage. This is test
+and gate infrastructure work, not permission to remove coverage, weaken assertions,
+skip prior requirements, reduce meaningful fault/soak repetitions, or treat a focused
+run as release evidence.
+
+Audit the current system rather than the older planning baseline. The repository
+already has `run-tests.sh --fast`, full-suite transcript caches, cache self-tests,
+manifest checks, and prior-gate recursion guards. Verify and improve those mechanisms;
+do not add a second cache, runner, manifest, or source-of-truth list.
+
+Before changing the harness, record cold and warm wall/CPU time, process and producer
+counts, cache hits/misses/invalidation reasons, test-case count, artifact writes, and
+the slowest work for:
+
+- Facet fast and full deterministic suites;
+- Rascal Rally's affected and full deterministic suites;
+- every unique scanner, formatter, build, and deterministic gate producer that Step
+  13.5 invokes;
+- one current Step 13.5 gate attempt; and
+- its prior-requirement verification path.
+
+Separate pure headless work from Studio, performance measurement, physical-device,
+network, and other external evidence. Profile both the runner and slow specs. Look for
+repeated process startup, the same suite or producer running more than once, repeated
+whole-tree scans/builds, identical fixture setup inside cross-products, accidental
+polling/timeouts, cache keys that invalidate too broadly, serialized independent work,
+and tests whose implementation is slower than the behavior they prove.
+
+Apply the smallest safe changes that materially reduce wall time. Reuse one immutable
+build or scan result for an exact source/tool/fixture identity. Batch assertions over
+one parsed tree or mounted fixture. Share expensive test setup only when isolation and
+cleanup remain provable. Parallelize only independent pure producers with isolated
+temporary and artifact paths and a measured concurrency cap. Give agents trustworthy
+affected and fast loops, but run the complete deterministic suites once at the final
+source identity.
+
+If recursive prior-gate execution remains the dominant cost, pull forward the relevant
+single-execution, structured-result, exact-invalidation work from
+`distribution-readiness.md`. Mark those Step 14 rows complete and make Step 14 consume
+them. Do not create a disposable Step 13.5 shortcut or trust an old PASS after inputs
+change. Performance, Studio, hardware, network, and mutable external producers never
+inherit a headless cache result.
+
+Freeze a representative pass/fail corpus before refactoring. Use targeted mutations
+to prove the optimized system still catches failed tests, missing registration,
+changed result IDs, stale/partial caches, changed source/tool/fixture inputs, failed
+producers, and truncated artifacts. Every removed or merged execution maps to its
+surviving requirement, producer, result, and negative control. Preserve clear failure
+output and the smallest trustworthy rerun command.
+
+Record before/after cold and warm timings, invocation counts, percent reduction,
+slowest survivors, and correctness mutations under
+`artifacts/example-games-and-standalones/test-optimization/`. The deterministic
+headless work required by the Step 13.5 gate must execute each unique producer at most
+once per exact identity and fit within Step 14's current 20-minute headless budget on
+the documented machine. Report Studio and external time separately. If that budget is
+missed, continue profiling; do not call the test optimization complete by excluding a
+required producer or relabeling it external.
 
 ## Five-letter word game
 
@@ -384,6 +447,10 @@ The gate passes only when:
 - Sipworks visibly completes paid order → final stamp → free pour → success → reset,
   and Glade visibly completes dew + preferred nectar → wisp success → reset; both
   explain the goal, next action, progress, failure recovery, and Facet lesson in play;
+- Facet and Rascal Rally test/gate baselines have measured before/after proof; each
+  unique deterministic producer runs at most once per exact identity, verdict parity
+  and invalidation mutations pass, and Step 13.5's required headless work meets the
+  20-minute budget without weakened coverage;
 - every declared standalone rebuilds and opens from the one manifest with shared
   theme/motion controls;
 - the dead-example audit has no unexplained item;

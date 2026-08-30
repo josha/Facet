@@ -1,0 +1,283 @@
+[1mFacet public surface[0m
+  [32m✓[0m loads headless under lune with the phase-1 API
+  [32m✓[0m the public API drives a full slice without touching internals
+[1mvendored Fusion 0.3[0m
+  [32m✓[0m Value/Computed propagate and peek lazily recomputes
+  [32m✓[0m Observer fires on change and disconnects on cleanup
+[1mcore conformance (custom)[0m
+  [32m✓[0m signal-read-write [UI-RUNTIME-003]
+  [32m✓[0m memo-derives-and-updates [UI-RUNTIME-003]
+  [32m✓[0m transaction-batches-observer-to-one-fire [UI-RUNTIME-003]
+  [32m✓[0m glitch-free-diamond [UI-RUNTIME-003]
+  [32m✓[0m equal-write-skipped [UI-RUNTIME-001]
+  [32m✓[0m custom-equality-respected [UI-RUNTIME-001]
+  [32m✓[0m dynamic-dependencies-swap-atomically [UI-RUNTIME-003]
+[WARN]
+Facet: quarantined - Facet cycle: memo@suite:169 -> memo@suite:172 -> memo@suite:169
+  [32m✓[0m cycle-reported-not-hung [UI-RUNTIME-003]
+[WARN]
+Facet: quarantined - Facet: writing state during memo evaluation is an error
+  [32m✓[0m write-during-memo-is-error [UI-RUNTIME-003]
+  [32m✓[0m effect-runs-post-commit-and-writes-schedule-later-round [UI-RUNTIME-003]
+[WARN]
+Facet: quarantined - Facet: flush exceeded the 100-round iteration cap (effect or settle feedback loop?); 1 pending signal write(s) discarded
+  [32m✓[0m feedback-loop-hits-iteration-cap [UI-RUNTIME-003]
+  [32m✓[0m settle-runs-after-propagation-and-converges-in-one-flush [UI-RUNTIME-003]
+  [32m✓[0m settle-callbacks-never-see-a-half-propagated-graph [UI-RUNTIME-003]
+[WARN]
+Facet: quarantined - Facet: flush exceeded the 100-round iteration cap (effect or settle feedback loop?); 1 pending signal write(s) discarded — settle callback 'settle@suite:363' is QUARANTINED and will be skipped until it is re-registered; a settle callback must converge, because it is re-run until it writes nothing
+  [32m✓[0m settle-that-never-converges-hits-the-iteration-cap [UI-RUNTIME-003]
+  [32m✓[0m settle-unsubscribe-is-idempotent-and-counter-neutral [UI-LIFE-002]
+[WARN]
+Facet: quarantined - /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/tests/conformance/suite:422: boom
+  [32m✓[0m memo-error-quarantined [UI-RUNTIME-003]
+[WARN]
+Facet: quarantined - Facet: double disposal of scope 'root' detected
+  [32m✓[0m scope-dispose-reverse-order-idempotent [UI-LIFE-001]
+  [32m✓[0m child-scope-disposed-with-parent-borrowed-not-disposed [UI-LIFE-001]
+  [32m✓[0m memory-neutral-churn [UI-LIFE-002]
+  [32m✓[0m no-spurious-fire-on-unchanged-recompute [UI-RUNTIME-001]
+  [32m✓[0m mid-transaction-derived-reads-fresh [UI-RUNTIME-003]
+  [32m✓[0m transaction-revert-produces-no-fire [UI-RUNTIME-003]
+  [32m✓[0m nan-equal-write-skipped [UI-RUNTIME-001]
+[WARN]
+Facet: quarantined - Facet: scope cleanup error in 'q': /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/tests/conformance/suite:625: cleanup boom
+  [32m✓[0m scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose [UI-LIFE-001]
+[WARN]
+Facet: quarantined - Facet: double disposal of scope 'dd' detected
+  [32m✓[0m double-dispose-detected [UI-LIFE-001]
+  [32m✓[0m observer-disposed-by-sibling-does-not-fire [UI-LIFE-001]
+  [32m✓[0m observer-added-mid-flush-fires-next-flush-only [UI-RUNTIME-003]
+  [32m✓[0m disposed-observer-never-fires [UI-LIFE-001]
+[1mmicro-screens (custom)[0m
+  [32m✓[0m micro-settings-row [UI-RUNTIME-001]
+  [32m✓[0m micro-live-hud-value [UI-RUNTIME-001]
+  [32m✓[0m micro-keyed-collection [UI-RUNTIME-002]
+[1ma11y/l10n corpus (custom)[0m
+  [32m✓[0m l10n-pseudo-loc-expansion [UI-ADAPT-001]
+  [32m✓[0m l10n-tall-script-line-height [UI-ADAPT-001]
+  [32m✓[0m l10n-cjk-full-em [UI-ADAPT-001]
+  [32m✓[0m l10n-emoji-combining-over-reservation [UI-ADAPT-001]
+  [32m✓[0m l10n-bidi-rtl-declared-fallback [UI-ADAPT-001]
+  [32m✓[0m a11y-text-size-variants [UI-ADAPT-001]
+  [32m✓[0m a11y-effective-target-by-display-class [UI-ADAPT-001]
+  [32m✓[0m a11y-target-not-shrink-under-text-scale [UI-ADAPT-001]
+  [32m✓[0m a11y-preferred-transparency-readable [UI-ADAPT-001]
+  [32m✓[0m a11y-reduced-motion-substitution [UI-ADAPT-001]
+  [32m✓[0m a11y-contrast-token-pairs-and-focus [UI-ADAPT-001]
+  [32m✓[0m corpus-text-in-content-box-or-truncation-declared [UI-ADAPT-001]
+  [32m✓[0m corpus-content-within-clip-containers [UI-ADAPT-001]
+  [32m✓[0m corpus-valid-finite-rects [UI-ADAPT-001]
+  [32m✓[0m corpus-determinism-identical-dumps [UI-ADAPT-001]
+[1mReplicatedSnapshot[0m
+  [32m✓[0m applies newer, ignores stale and duplicate revisions
+[1mReplicatedCollection[0m
+  [32m✓[0m applies in-order patches, ignores stale/dup
+  [32m✓[0m gap requests one resnapshot, refuses patches until it lands, then converges
+  [32m✓[0m reconnect = resnapshot from any newer authoritative revision
+  [32m✓[0m a resnapshot at the CURRENT revision re-bases while awaiting, instead of wedging
+  [32m✓[0m an equal-revision resnapshot is still stale when no gap is outstanding
+  [32m✓[0m a throwing requestResnapshot does not latch the gap — the next patch asks again
+[1mMutation[0m
+  [32m✓[0m optimistic apply reconciles on confirm via authoritative ingest
+  [32m✓[0m rejection restores optimistic state; duplicate responses are idempotent
+  [32m✓[0m confirm racing ahead of the snapshot cannot leave permanent divergence
+  [32m✓[0m send while pending is a structured error, not silent corruption
+  [32m✓[0m the envelope carries requestId and expectedRevision for server validation
+  [32m✓[0m a throwing optimistic apply still returns the envelope and leaves the mutation usable
+  [32m✓[0m reset() escapes a stuck pending request, restores, and the stale id stays ignored
+  [32m✓[0m a throwing restore cannot unwind reset() either
+[1mtwo clients, one semantic snapshot[0m
+  [32m✓[0m independent environments and presentation state converge on the same semantics
+[1mlayout: sizing algebra[0m
+  [32m✓[0m vstack content height = children + gaps + padding
+  [32m✓[0m fill children share remaining space by weight with exact integer total
+  [32m✓[0m uneven fill rounding is deterministic and lossless
+[1mlayout: wrapped text[0m
+  [32m✓[0m narrower width wraps to more lines and taller height
+  [32m✓[0m unknown font takes the pending path with a conservative (larger) fallback
+  [32m✓[0m text node height flows into stack layout
+[1mlayout: safe area[0m
+  [32m✓[0m coreSafeContent insets the content rect; edgeToEdge does not
+[1mlayout: ScrollView[0m
+  [32m✓[0m reports content size and scroll overflow when content exceeds viewport
+  [32m✓[0m percent height inside the unbounded scroll axis produces a diagnostic, not silence
+  [32m✓[0m a stack that cannot hold its content reports it instead of painting off-screen
+  [32m✓[0m a ViewThatFits candidate that lost does not report an overflow
+  [32m✓[0m a scroll canvas covers content laid out in fill columns that wrap
+  [32m✓[0m an aspect box paired with fill is measured at the extent it will receive
+  [32m✓[0m a stack's own align is the default for its children
+  [32m✓[0m a child's own align still beats the container's
+  [32m✓[0m a container align of stretch equalises children that would be ragged
+  [32m✓[0m a scrolling region lays content inside the scrollbar, not under it
+  [32m✓[0m a scrolling region that does not overflow reserves nothing
+  [32m✓[0m ViewThatFits chooses against its own width, not its parent's offer
+  [32m✓[0m a stack that exactly fits reports no overflow
+[1mlayout: purity and determinism[0m
+  [32m✓[0m solves a frozen snapshot without mutation and double-solve dumps are identical
+[1mlayout: ScrollView fill stretch (phase-3 regression guard)[0m
+  [32m✓[0m cross-axis fill children stretch to the scroll viewport
+[1mRS-DIR9: a per-word sum may never reserve LESS than the engine draws[0m
+  [32m✓[0m the join slack is added once per inter-word gap when the widths are ENGINE-exact
+  [32m✓[0m three gaps carry three steps: the error accumulates and so does the reservation
+  [32m✓[0m a single word carries NO slack: there is no junction to be wrong about
+  [32m✓[0m an ESTIMATED line is untouched: the estimator already over-reserves
+  [32m✓[0m the slack rides the WRAP decision too, so a line breaks before it clips
+[1mA-TXT: lineLimit caps the reserved box[0m
+  [32m✓[0m an uncapped label reserves every line it wraps to
+  [32m✓[0m a capped label stops at the cap and says it was cut
+  [32m✓[0m a cap the text does not reach changes nothing
+  [32m✓[0m a cap below one line still draws one — it is a limit, not an eraser
+  [32m✓[0m the solver honours a node's lineLimit
+[1mlayout: hug (content, capped by the offer)[0m
+  [32m✓[0m SHORT content: the box stops at the last child instead of filling
+  [32m✓[0m TALL content: the box stops at the offer instead of running off the screen
+  [32m✓[0m a hug ScrollView hugs a short list AND scrolls a long one — one declaration
+  [32m✓[0m a hug child's ceiling is what its SIBLINGS left it, not the whole stack
+  [32m✓[0m two hug siblings each see what the one before it left
+  [32m✓[0m a hug child resolves BEFORE fill shares the remainder
+  [32m✓[0m min/max clamp the content BEFORE the offer does
+[1mlayout: a fill anchor child pays for its own offset[0m
+  [32m✓[0m a leading-anchored bar pushed down loses exactly that much height
+  [32m✓[0m a trailing-anchored bar pulled in loses exactly that much width
+  [32m✓[0m a CENTRED bar gives back twice its offset — it loses room at both ends
+  [32m✓[0m no offset is still the whole box — the common case does not move
+  [32m✓[0m pushed OUT past its own anchored edge is left alone — that is deliberate
+[1mlayout: a fill ZStack child pays for its own MARGIN[0m
+  [32m✓[0m a top margin is room the child does not get, not a displacement
+  [32m✓[0m margins on both sides of an axis both come out of the fill
+  [32m✓[0m a number margin applies to all four sides
+  [32m✓[0m a filled axis ignores alignment — there is nothing left to align
+  [32m✓[0m a NON-fill child keeps the alignment it always had (no silent re-flow)
+  [32m✓[0m margins wider than the stack clamp to zero rather than going negative
+[1mlayout: a HUGGING ZStack child pays for its own margin too[0m
+  [32m✓[0m an END-aligned child stops a FAR margin short of the edge
+  [32m✓[0m ...on the vertical axis too
+  [32m✓[0m a NEAR margin still pushes an end-aligned child AWAY from its own edge
+  [32m✓[0m a CENTRED child centres in the box it was GIVEN, not the box it was denied
+  [32m✓[0m a START-aligned child is unmoved — it always sat at its near margin
+[1msolver — a ZStack child that overflows its box is reported[0m
+  [32m✓[0m names the CHILD and states the overrun
+  [32m✓[0m a child that FITS reports nothing — the check is not noise
+  [32m✓[0m `intentionalOverlap` is the opt-out for layouts whose job IS to stack over
+  [32m✓[0m it is a REPORT, not a failure: the layout still resolves
+[1mFacet.layout.transformFootprint (gap 33)[0m
+  [32m✓[0m is reachable on the public Facet table
+  [32m✓[0m reproduces the exact device defect measurement (api.md:325)
+  [32m✓[0m an unscaled, unrotated box reserves exactly its own size
+  [32m✓[0m a 90-degree rotation swaps width and height
+  [32m✓[0m scale alone (no rotation) scales both axes directly
+  [32m✓[0m always rounds UP, never clipping a fraction of a pixel off an edge
+[1mlogical focus[0m
+  [32m✓[0m navigates the screen ring and wraps at the edges (director 2026-07-20)
+  [32m✓[0m modal traps navigation with wrap and restores previous focus on pop
+  [32m✓[0m nested modals restore in LIFO order
+  [32m✓[0m removing the focused item falls to the nearest surviving neighbor
+  [32m✓[0m focus changes are observable client-local state
+[1mfocus graph: the caller's tables are never written[0m
+  [32m✓[0m a table.freeze'd flat scope pushes, navigates and removes without erroring
+  [32m✓[0m a table.freeze'd grouped scope pushes and navigates, groups included
+  [32m✓[0m one NavigationGroup literal pushed onto two scopes does not share a predicate map
+  [32m✓[0m replaceGroups copies too: the caller's array survives a later remove
+[1mmount: factory-once and dirty classes[0m
+  [32m✓[0m mounts each node exactly once with stable paths
+  [32m✓[0m a non-structural prop change dirties ONLY its node with declared classes and reruns no factory
+  [32m✓[0m duplicate explicit sibling ids are a hard error
+[1mmount: When region[0m
+  [32m✓[0m mounts/unmounts the branch scope and dirties only the region
+[1mmount: When hands its branch the branch scope[0m
+  [32m✓[0m thenView is handed the BRANCH scope — labelled with the branch path
+  [32m✓[0m the initial-true mount hands the same scope the later flip does
+  [32m✓[0m a resource owned on the handed scope is released when the branch closes
+  [32m✓[0m a flip back gets a FRESH scope: nothing from the previous entry survives
+  [32m✓[0m fifty open/close cycles leave no scope and no cleanup behind
+[1mmount: ForEach region[0m
+  [32m✓[0m applies add/remove/move with keyed scopes; moves never remount
+  [32m✓[0m duplicate keys are a hard error
+[1mmount: churn and dumps[0m
+  [32m✓[0m 50 mount/dispose cycles return mount and core registries to baseline
+  [32m✓[0m dumps are deterministic and carry dirty flags
+[1mpaths.stripThenSegments (gap 15)[0m
+  [32m✓[0m removes a single /then segment a UI.When branch injects
+  [32m✓[0m removes every /then segment across nested Whens
+  [32m✓[0m a path with no /then segment is unchanged
+  [32m✓[0m a root-level /then is removed too
+[1mcontroller.mountedPathOf (gap 15)[0m
+  [32m✓[0m resolves a node's DECLARED path to its LIVE path across a UI.When prefix
+  [32m✓[0m a path already live at the literal string resolves to itself
+  [32m✓[0m an unmounted declared path answers nil, not a false substring match
+[1mcontroller.screenRectOf relativeTo (gap 37)[0m
+  [32m✓[0m equals the manual root-relative-then-subtract arithmetic it replaces
+  [32m✓[0m a node relative to itself is {0,0,w,h}
+  [32m✓[0m answers nil when either side is not live, never a partial rect
+  [32m✓[0m the one-argument form is unaffected (no regression)
+[1mVirtualList.positionOf (gap 40)[0m
+  [32m✓[0m answers a key's current 1-based index in the data order
+  [32m✓[0m tracks a live reorder of the data, not a construction-time snapshot
+[1mprofile scopes are a closed, bounded set[0m
+  [32m✓[0m every declared label is prefixed so LibMP can select exactly this set
+  [32m✓[0m an undeclared scope name is refused at the call, naming the offender
+  [32m✓[0m refusing an undeclared name opens no scope at all
+[1ma span is balanced on every exit path[0m
+  [32m✓[0m a normal return closes the scope and returns the body's value
+  [32m✓[0m an ERRORING body still closes the scope, and the error value is unchanged
+  [32m✓[0m a non-string error value survives the span unchanged
+  [32m✓[0m nested spans unwind in order when the INNER one throws
+  [32m✓[0m a THROWING hook cannot strand the counters or the caller (RR-1/RR-2)
+  [32m✓[0m the counters see the same opens and closes the recorder does
+[1mscopes stay out of the way when the host cannot profile[0m
+  [32m✓[0m with no engine hooks the body runs, unwrapped, and no counter moves
+  [32m✓[0m scopes are OFF by default: production pays no pcall and keeps its tracebacks
+  [32m✓[0m setEnabled(false) suppresses instrumentation even where the engine exists
+  [32m✓[0m an error raised while scopes are OFF keeps its ordinary position prefix
+[1ma real render pass emits the phase set and stays balanced[0m
+  [32m✓[0m mount -> solve -> commit produces only declared labels, and closes them all
+  [32m✓[0m the number of scopes a frame opens does NOT scale with the row count
+[1mperf lab: the dataset is deterministic (PL-2)[0m
+  [32m✓[0m the same seed, count and content produce a byte-identical row set
+  [32m✓[0m a different seed produces a different row set, and the digest says so
+  [32m✓[0m each content variant is its own workload, not a relabelling of the same one
+  [32m✓[0m an unknown content variant is refused, naming it
+  [32m✓[0m the ramp ladder is bounded by a declared ceiling (PL-11)
+[1mperf lab: a resize step is the resize a device performs[0m
+  [32m✓[0m drives the adapter's whole fact-group, batched into one flush
+  [32m✓[0m a resize step is TWO reactive flushes — the round trip no longer buys a third
+[1mperf lab: the resize storm reports both costs separately[0m
+  [32m✓[0m separates a resize from a single-value change, and keeps the ratio visible
+[1mincremental layout Stage 1: boundary detection sizes the prize[0m
+  [32m✓[0m reports how much of the real workload a single change would touch
+[1mperf lab: the haptics counters (task 11)[0m
+  [32m✓[0m is OFF by default, and the counter line says so rather than omitting itself
+  [32m✓[0m a whole dense scroll with haptics ON moves NO haptic counter — it is event-driven
+  [32m✓[0m ...and the SAME adapter hears a real verb, so the zero above is not a dead binding
+  [32m✓[0m turning it back off disposes the adapter, and the line returns to `off`
+[1mperf lab: the sensory-cascade pass measures something (director ask 2026-08-13)[0m
+  [32m✓[0m runs four arms, and every one of them really pressed
+  [32m✓[0m the declared arms really carry the verb — the arms are not three copies
+[1mperf lab: selectors and workload identity (PL-2/PL-10)[0m
+  [32m✓[0m every declared workload names only passes the scenario implements
+  [32m✓[0m selecting a scenario adopts its implementation and content
+  [32m✓[0m a settings pair that is not `key=value` is REFUSED, not silently dropped
+  [32m✓[0m an unknown scenario and an unknown setting are both refused by name
+  [32m✓[0m the row count is clamped to the declared ceiling rather than honoured blindly
+[1mperf lab: exactly one implementation mounts (PL-5)[0m
+  [32m✓[0m a second mount is refused, naming the rule
+  [32m✓[0m the native reference refuses to mount where the host seam is absent, rather than silently mounting nothing
+[1mperf lab: virtualization stays bounded (PL-3/PL-4)[0m
+  [32m✓[0m 2000 logical rows mount a window, not a collection
+  [32m✓[0m the window stays bounded across a full programmatic scroll sweep
+  [32m✓[0m the bound is not a bigger row count away from firing: 20 000 rows window the same
+  [32m✓[0m NEGATIVE CONTROL: the declared window fault makes the mount FAIL, naming the defect
+  [32m✓[0m scrolling a virtualized list does NOT grow the reactive core (the row must own its controls)
+  [32m✓[0m collection churn keeps the window bounded through insert, remove and reorder
+[1mperf lab: the workload paints inside its own boxes at every viewport (PL-3)[0m
+  [32m✓[0m mounts and windows cleanly at 320x640 (narrowest supported phone portrait)
+  [32m✓[0m mounts and windows cleanly at 359x718 (the device that exposed the defect)
+  [32m✓[0m mounts and windows cleanly at 390x844 (compact phone portrait)
+  [32m✓[0m mounts and windows cleanly at 667x375 (small phone landscape)
+  [32m✓[0m mounts and windows cleanly at 844x390 (compact phone landscape)
+  [32m✓[0m mounts and windows cleanly at 1080x810 (tablet landscape)
+  [32m✓[0m mounts and windows cleanly at 1280x720 (desktop)
+  [32m✓[0m mounts and windows cleanly at 1920x1080 (console / ten-foot)
+  [32m✓[0m survives ROTATION after mounting — the case a real device found
+  [32m✓[0m the scenario cycler steps through every workload and WRAPS at both ends

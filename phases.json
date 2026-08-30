@@ -256,6 +256,14 @@
    "specSection": "docs/plans/release-candidate-review.md (binding, frozen fe920dc 2026-08-17)",
    "artifactDir": "artifacts/release-candidate-review",
    "gateArtifact": "artifacts/release-candidate-review/gate.json",
+   "next": "example-games-and-standalones"
+  },
+  {
+   "gate": "example-games-and-standalones",
+   "title": "Games, world surface, standalones, and a practical verification loop (roadmap Step 13.5): first a measured optimization of the Facet and Rascal Rally verification loops that preserves every requirement, mutation and negative control while running each unique deterministic producer at most once per exact source identity inside a 20-minute headless budget; then a real licensed five-letter dictionary behind the word game, a finite crossword loop in the tile game, match-3 motion built only from the public animation and structural-transition surfaces, a sensory-feedback demo that opens with haptics requested on and demonstrates the shipped press/release/selection defaults plus one public custom override, Wardrobe retired from every player surface, Sipworks and Glade completed as playable loops, the Outpost Power Terminal proved on a new public client-owned SurfaceGui render target, and one checked-in manifest driving the showcase, the curated standalone places, their shared theme and motion controls, their builds, their documentation and their drift tests",
+   "specSection": "docs/plans/example-games-and-standalones.md (binding scope) + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+   "artifactDir": "artifacts/example-games-and-standalones",
+   "gateArtifact": "artifacts/example-games-and-standalones/gate.json",
    "next": null
   }
  ]
