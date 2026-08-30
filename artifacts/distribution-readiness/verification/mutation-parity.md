@@ -25,9 +25,21 @@ broken expectation, a deleted `require`, a planted forbidden word — and
 file a mutation is sitting in would commit the mutation with it. The window is
 the length of a suite run.
 
-**A mutation is credited only when the baseline was green.** A defect that
-"reddens" a phase that was already red proves nothing, and the runner records
-both numbers so a reader can see which is which.
+**A mutation is credited only for a row that was NOT already failing.** The
+first version of this runner compared exit codes, and every mutation came back
+inconclusive — this tree carries reds that belong to other workstreams (a
+product-language guard mid-sweep, an allowlist awaiting the archival step, four
+transcript greps whose case was renamed before this stage opened), so every
+phase was already non-zero and "it exited 1 afterwards" would have credited a
+mutation for a failure it had nothing to do with. Each path is therefore asked
+WHICH ROWS FAIL, before and after, and the verdict is the difference. It is the
+same rule `tools/check_manifest_integrity.py --selftest` uses on itself, and it
+is the only one that means anything on a tree in motion.
+
+The same rule exposed a mutation that was proving nothing: planting a retired
+product name reddened neither path, because the guard that would have caught it
+was ALREADY failing. It was replaced with a broken link in a public guide, which
+two green producers hold.
 
 ## The corpus
 

@@ -34,7 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
+import re
 import subprocess
 import sys
 import time
@@ -129,7 +129,7 @@ def build_corpus():
     RUN = "tests/run.luau"
     SMOKE = "tests/smoke.spec.luau"
     GRAPH = "tools/lune/verify/graph.json"
-    DOC = "docs/guide/01-your-first-screen.md"
+    DOC = "docs/guide/01-concepts.md"
     SRC = "src/init.luau"
 
     def result_file(producer="check_boundary"):
@@ -140,7 +140,7 @@ def build_corpus():
     # ---- M1: a focus case's expectation is broken -------------------------
     def m1_apply():
         state["m1"] = _save([FOCUS])
-        _edit(FOCUS, ".toBeTruthy()", ".toBeFalsy()")
+        _edit(FOCUS, 'expect(graph.focused:get()).toBe("Music")', 'expect(graph.focused:get()).toBe("a value no focus graph ever holds")')
 
     muts.append(Mutation(
         "M1", "a focus case's expectation is broken", "phase-0-foundation", "parity",
@@ -208,14 +208,20 @@ def build_corpus():
     ))
 
     # ---- M8: a brand-drift word is planted --------------------------------
+    #[[ THE PLANTED DEFECT HAS TO REACH A PRODUCER THAT IS GREEN. The first
+    #   version of this mutation planted a retired product name, and neither
+    #   path gained a failing row — because the product-language guard was
+    #   ALREADY red on this tree for reasons another workstream owns, so one more
+    #   match changed nothing anybody could see. A mutation whose producer is
+    #   already failing proves nothing. This one breaks a link in a public
+    #   document, which `check_links_cli` and `check_docs_cli` both hold, and
+    #   both of those are green. ]]
     def m8_apply():
         state["m8"] = _save([DOC])
-        # The planted word is BUILT rather than written, so this file carries no
-        # match of its own for the guard it is exercising.
-        _append(DOC, "\nThis paragraph names the retired product: " + "luau" + "ui" + ".\n")
+        _append(DOC, "\nSee [the page that is not there](./99-no-such-chapter.md) for more.\n")
 
     muts.append(Mutation(
-        "M8", "a retired product name is planted in a public guide", "release-candidate-review", "parity",
+        "M8", "a broken link is planted in a public guide", "release-candidate-review", "parity",
         m8_apply, lambda: _restore(state["m8"]),
         "a scanner producer that fails must redden every row that asserts its exit 0",
     ))
@@ -340,7 +346,9 @@ def _canonical(value):
     if isinstance(value, (int, float)):
         if float(value) == int(value) and abs(value) < 2 ** 53:
             return "%d" % int(value)
-        return "%.17g" % value
+        # eighteen digits, exactly as tools/lune/verify/util.luau emits them —
+        # seventeen loses a double to a stripped trailing zero
+        return "%.18g" % value
     if isinstance(value, str):
         out = []
         for ch in value:
@@ -374,24 +382,45 @@ def run_mutation(m, results):
     print(f"\n=== {m.id} — {m.title} ({m.kind}) ===")
     row = {"id": m.id, "title": m.title, "phase": m.phase, "kind": m.kind, "why": m.why}
     if m.kind == "parity":
-        old_before, _, _ = sh(OLD.format(phase=m.phase))
-        new_before, _, _ = sh(NEW.format(phase=m.phase))
-        row["oldBefore"], row["newBefore"] = old_before, new_before
-        print(f"  baseline: old={old_before} new={new_before}")
+        #[[ THE VERDICT IS THE SET OF FAILING ROWS, NOT THE EXIT CODE.
+        #
+        #   This tree carries reds that belong to other workstreams — a product
+        #   guard mid-sweep, an allowlist awaiting an archival step, four greps
+        #   whose case was renamed before this stage opened. Every phase is
+        #   therefore already non-zero, and "it exited 1 afterwards" would credit
+        #   a mutation for a failure it had nothing to do with.
+        #
+        #   So each path is asked WHICH ROWS FAIL, before and after, and a
+        #   mutation is credited only for a row that was not failing before. That
+        #   is the same rule the manifest checker's own selftest uses, and it is
+        #   the only one that means anything on a tree in motion. ]]
+        old_before_code, old_before_out, _ = sh(OLD.format(phase=m.phase))
+        old_before = _failing_rows_old(old_before_out)
+        new_before_code, _, _ = sh(NEW.format(phase=m.phase))
+        new_before = _failing_rows_new()
+        print(f"  baseline: old={len(old_before)} failing row(s), new={len(new_before)}")
         m.apply()
         try:
-            new_after, new_out, secs = sh(NEW.format(phase=m.phase))
-            old_after, old_out, _ = sh(OLD.format(phase=m.phase))
+            new_after_code, new_out, secs = sh(NEW.format(phase=m.phase))
+            new_after = _failing_rows_new()
+            old_after_code, old_out, _ = sh(OLD.format(phase=m.phase))
+            old_after = _failing_rows_old(old_out)
         finally:
             m.restore()
-        row["oldAfter"], row["newAfter"] = old_after, new_after
-        row["newDetail"] = _first_failure(new_out)
-        row["oldDetail"] = _first_failure(old_out)
-        row["verdict"] = (
-            "PARITY" if (old_before == 0 and new_before == 0 and old_after != 0 and new_after != 0)
-            else "REVIEW"
-        )
-        print(f"  mutated : old={old_after} new={new_after}  -> {row['verdict']} ({secs:.0f}s)")
+        old_new_failures = sorted(old_after - old_before)
+        new_new_failures = sorted(new_after - new_before)
+        row["oldBefore"], row["oldAfter"] = len(old_before), len(old_after)
+        row["newBefore"], row["newAfter"] = len(new_before), len(new_after)
+        row["oldNewFailures"] = old_new_failures[:6]
+        row["newNewFailures"] = new_new_failures[:6]
+        row["oldExit"], row["newExit"] = old_after_code, new_after_code
+        row["verdict"] = "PARITY" if (old_new_failures and new_new_failures) else (
+            "NEW-ONLY" if new_new_failures else "REVIEW")
+        print(f"  mutated : old +{len(old_new_failures)} new +{len(new_new_failures)}  -> {row['verdict']} ({secs:.0f}s)")
+        if new_new_failures:
+            print(f"      new path first: {new_new_failures[0][:110]}")
+        if old_new_failures:
+            print(f"      old path first: {old_new_failures[0][:110]}")
     elif m.kind == "reuse":
         # The question is not "does it go red" but "does it REFUSE TO REUSE".
         m.apply()
@@ -433,6 +462,33 @@ def _reuse_reason(out):
         if "body hash mismatch" in stripped or "different toolchain" in stripped or "evidence classes are never upgraded" in stripped or "silent zero" in stripped or "partial run" in stripped:
             return stripped
     return ""
+
+
+
+def _failing_rows_old(out):
+    """Which rows the legacy gate printed as non-passing."""
+    rows = set()
+    for line in out.splitlines():
+        stripped = _strip_ansi(line)
+        m = re.match(r"\s{2}(FAIL_RECOVERABLE|BLOCKED_CRITICAL|PENDING)\s+(\S.*)$", stripped)
+        if m:
+            rows.add(m.group(2).strip())
+    return rows
+
+
+def _failing_rows_new():
+    """Which rows the coordinator's own run record says are failing."""
+    path = os.path.join(SCRATCH, "artifacts/verify/latest-full.json")
+    try:
+        with open(path) as fh:
+            record = json.load(fh)
+    except (OSError, ValueError):
+        return set()
+    return {
+        r["id"]
+        for r in record["rows"]
+        if r["state"] in ("FAIL_RECOVERABLE", "BLOCKED_CRITICAL")
+    }
 
 
 def _first_failure(out):
