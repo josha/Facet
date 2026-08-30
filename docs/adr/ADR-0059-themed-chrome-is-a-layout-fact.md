@@ -9,7 +9,7 @@ every package that carves a border, and that earns it
 **[ADR-0040](ADR-0040-unreleased-breaking-changes.md) row B-32** on the same
 precedent B-18/B-21/B-25/B-30/B-31 set: a geometry change is a row even where the
 change is a repair.
-**Companions:** [ADR-0019](ADR-0019-theme-package-schema.md) §5 (the promise this
+**Companions:** [ADR-0019](ADR-0019-theme-packages.md) §5 (the promise this
 keeps in two more places — "a nine-slice skin has a carved border that content
 must clear"), [ADR-0020](ADR-0020-rich-skinning-v2.md) R4/R5 (semantic icons and
 the pixel rules), the containment invariant's own charter in

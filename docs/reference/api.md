@@ -486,7 +486,7 @@ selector cannot express. Two value forms:
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
-alpha, engine-true and the same word and polarity as [`UI.stroke`](#uistroke).
+alpha, engine-true and the same word and polarity as [`UI.stroke`](#stroke).
 It exists for the one thing a composite cannot express: a translucent plate over
 a backdrop the author cannot know — a scrim over a live 3D scene, a label pill
 over a canvas that draws its own content. Where the backdrop *is* known, prefer
@@ -5673,8 +5673,8 @@ identical rows (`artifacts/variable-item-extents/perf.md`, tier 1). Reach for it
 the row's height genuinely cannot be predicted — text that wraps with no `lineLimit`,
 user content, a localization you do not control — and keep declaring the ones you can.
 
-Why this exists, which candidate design was refused and what remains:
-[`docs/plans/variable-item-extents.md`](../plans/variable-item-extents.md).
+Why this exists, which candidate design was refused and what remains is recorded
+in `docs/plans/variable-item-extents.md` (archived privately).
 
 <a id="a-lying-itemextent"></a>
 **A lying `itemExtent` is caught and named — on either form.** The window is

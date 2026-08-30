@@ -4,7 +4,7 @@
 **Status:** Accepted
 **Number:** 0043. 0040 is the unreleased-breaking-changes register; **this
 decision adds no row there** and §"Not a breaking change" below says why.
-**Companions:** [ADR-0037](ADR-0037-controls-namespace.md) (the namespace these
+**Companions:** [ADR-0037](ADR-0037-public-call-shapes.md) (the namespace these
 controls are reached through), [ADR-0019](ADR-0019-theme-packages.md) §2 (the
 metric vocabulary a named gutter resolves against),
 `docs/handoff/SOURCE_CAP_LEDGER.md` (the extraction that had to precede the
