@@ -12,7 +12,7 @@
    "sha256": "eb2832e1de526596413a3ff504191da60ca0573ba387b621a7802489cf709f4d"
   }
  ],
- "recordedAt": "2026-08-30T19:27:59Z",
+ "recordedAt": "2026-08-30T20:47:31Z",
  "row": "release-candidate-review::perf-requalification",
  "schema": "facet-evidence-receipt/1",
  "summary": "perf-requalification: 2 recorded file(s), pinned by content hash."

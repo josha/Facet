@@ -7,7 +7,7 @@
    "sha256": "90756e1fd2f5ffaf29f78a0fcd5278a9650a1c654c0eeb60254e2ed1cff6f1fd"
   }
  ],
- "recordedAt": "2026-08-30T19:27:58Z",
+ "recordedAt": "2026-08-30T20:47:30Z",
  "row": "performance-stress-places::optimization-loop-recorded",
  "schema": "facet-evidence-receipt/1",
  "summary": "optimization-loop-recorded: 1 recorded file(s), pinned by content hash."

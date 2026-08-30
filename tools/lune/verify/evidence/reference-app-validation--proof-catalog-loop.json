@@ -6,7 +6,7 @@
    "sha256": "ab002dc67874f7c12ea53522d214eae1552fd788337d2b8a6ba1b688336863c3"
   }
  ],
- "recordedAt": "2026-08-30T19:27:58Z",
+ "recordedAt": "2026-08-30T20:47:30Z",
  "row": "reference-app-validation::proof-catalog-loop",
  "schema": "facet-evidence-receipt/1",
  "summary": "proof-catalog-loop: 1 recorded file(s), pinned by content hash."

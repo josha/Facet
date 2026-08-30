@@ -7,7 +7,7 @@
    "sha256": "c92760c5c65367e609a72d6997425091e790fd8c20fb9068b83d447c3ac8a435"
   }
  ],
- "recordedAt": "2026-08-30T19:27:58Z",
+ "recordedAt": "2026-08-30T20:47:30Z",
  "row": "example-quality-pass::device-matrix",
  "schema": "facet-evidence-receipt/1",
  "summary": "device-matrix: 1 recorded file(s), pinned by content hash."

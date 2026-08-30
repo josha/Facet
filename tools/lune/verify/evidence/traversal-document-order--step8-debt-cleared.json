@@ -12,7 +12,7 @@
    "sha256": "746d425e5ac1f91a431d654e0cea4ea2d504a30a3967c03ea9d65ddf6fba6c51"
   }
  ],
- "recordedAt": "2026-08-30T19:27:57Z",
+ "recordedAt": "2026-08-30T20:47:29Z",
  "row": "traversal-document-order::step8-debt-cleared",
  "schema": "facet-evidence-receipt/1",
  "summary": "step8-debt-cleared: 2 recorded file(s), pinned by content hash."

@@ -17,7 +17,7 @@ producer or case id that proves the same thing now.
 |---|---|---|---|---|
 | 16 `prior-gates-unregressed` rows, each running `tools/prior_gates.sh`, which re-ran every earlier gate, each of which re-ran ITS priors | one lookup: every row of every earlier phase, evaluated from this same run | UI-AGENT-001 (unchanged) | a regressed earlier row reddens the later phase, as before — and now names the row rather than a roll-up line | mutation M7 in `mutation-parity.md` deletes an evidence file an earlier phase pins and requires the later phase's prior-phases row to go red |
 
-## 3. Rows archived as records of a past decision (53)
+## 3. Rows archived as records of a past decision (57)
 
 Each pinned only that a checked-in ledger or verdict of a CLOSED stage still says what it
 said. The requirement each carried is listed with the living row that proves it today.
@@ -25,6 +25,7 @@ said. The requirement each carried is listed with the living row that proves it 
 | Phase | Row | Requirement | Still proved by |
 |---|---|---|---|
 | `phase-0-foundation` | `worldtarget-seam` | UI-EXT-001 | `part-2-director::ws3-billboard-target`, `parity-round-4::foreign-instance-seam` |
+| `phase-0-foundation` | `foundation-decision` | UI-AGENT-001 | `phase-0-foundation::doctor`, `phase-0-foundation::test-suite`, `phase-0-foundation::opus-verification` |
 | `phase-3-pilot` | `pilot-decision` | UI-AGENT-001 | `phase-3-pilot::game-suite-green`, `phase-3-pilot::library-suite-green`, `phase-3-pilot::framework-defects-fixed-in-framework` |
 | `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
 | `input-adaptation-audit` | `opus-verification` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
@@ -65,9 +66,12 @@ said. The requirement each carried is listed with the living row that proves it 
 | `reference-app-validation` | `capability-ledger` | UI-AGENT-001 | `reference-app-validation::source-inspection-and-ip-boundary`, `reference-app-validation::responsibility-ledger`, `reference-app-validation::proof-garden-loop` |
 | `reference-app-validation` | `fresh-context-reviews` | UI-AGENT-001 | `reference-app-validation::source-inspection-and-ip-boundary`, `reference-app-validation::responsibility-ledger`, `reference-app-validation::proof-garden-loop` |
 | `reference-app-validation` | `physical-and-human-rows` | UI-INPUT-001 | `phase-0-foundation::input-action-spike`, `phase-1-minimal-screen::settings-subset-multi-input`, `phase-2-settings-parity::touch-and-action-paths` |
-| `declarative-3d-architecture` | `alternatives-compared` | UI-AGENT-001 | `declarative-3d-architecture::adr-decisive`, `declarative-3d-architecture::spike-headless-green`, `declarative-3d-architecture::spike-isolated` |
-| `declarative-3d-architecture` | `use-case-inventory` | UI-AGENT-001 | `declarative-3d-architecture::adr-decisive`, `declarative-3d-architecture::spike-headless-green`, `declarative-3d-architecture::spike-isolated` |
-| `declarative-3d-architecture` | `reviews-resolved` | UI-AGENT-001 | `declarative-3d-architecture::adr-decisive`, `declarative-3d-architecture::spike-headless-green`, `declarative-3d-architecture::spike-isolated` |
+| `declarative-3d-architecture` | `adr-decisive` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `declarative-3d-architecture` | `alternatives-compared` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `declarative-3d-architecture` | `use-case-inventory` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `declarative-3d-architecture` | `spike-headless-green` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `declarative-3d-architecture` | `spike-isolated` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `declarative-3d-architecture` | `reviews-resolved` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
 | `release-candidate-review` | `baselines-frozen` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
 | `release-candidate-review` | `studio-baseline-frozen` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
 | `release-candidate-review` | `facet-collision-evidence` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
@@ -175,4 +179,4 @@ the API catalogue, or a spec — and is listed here for the sweep that creates i
 | `phase-0-foundation` | `conformance-fusion-adapter` | UI-RUNTIME-003 | workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline | `phase-0-foundation::conformance-custom-core`, `phase-0-foundation::conformance-imperative-baseline`, `phase-4-hardening::fuzz-scheduler` |
 | `phase-0-foundation` | `conformance-fusion-adapter` | UI-LIFE-001 | workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline | `phase-0-foundation::conformance-custom-core`, `phase-0-foundation::conformance-imperative-baseline`, `phase-4-hardening::fault-injection` |
 | `phase-0-foundation` | `conformance-fusion-adapter` | UI-LIFE-002 | workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline | `phase-0-foundation::conformance-custom-core`, `phase-0-foundation::conformance-imperative-baseline`, `phase-1-minimal-screen::churn-registry-neutral` |
-| `parity-round-4` | `comparison-docs-honest` | UI-AGENT-001 | the two framework-comparison documents this row pinned were archived out of the repository by workstream K; the public framework-choice guide is their living replacement | `phase-0-foundation::doctor`, `phase-0-foundation::test-suite`, `phase-0-foundation::foundation-decision` |
+| `parity-round-4` | `comparison-docs-honest` | UI-AGENT-001 | the two framework-comparison documents this row pinned were archived out of the repository by workstream K; the public framework-choice guide is their living replacement | `phase-0-foundation::doctor`, `phase-0-foundation::test-suite`, `phase-0-foundation::opus-verification` |

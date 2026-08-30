@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-30T19:27:59Z",
+ "generatedAt": "2026-08-30T20:47:31Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -4543,7 +4543,15 @@
    "inputs": [
     "src/**",
     "tests/**",
-    "examples/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
     "run-tests.sh",
     "rokit.toml"
    ],
@@ -4567,7 +4575,15 @@
    "inputs": [
     "src/**",
     "tests/**",
-    "examples/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
     "run-tests.sh",
     "rokit.toml"
    ],
@@ -4903,22 +4919,6 @@
    "requirements": [
     "UI-FID-001",
     "UI-DIAG-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "test -f \"$f\" && grep -qF \"custom: 144.00\" \"$f\" && test \"$(grep -cE '^- [a-z]+: [0-9]+\\.[0-9]{2}$' \"$f\")\" -ge 3"
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "phase-0-foundation::foundation-decision",
-   "name": "foundation-decision",
-   "note": "foundation-decision: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "phase-0-foundation",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
    ],
    "state": null
   },
@@ -12512,54 +12512,6 @@
   },
   {
    "check": {
-    "shell": "test -f \"$f\" && grep -qF \"Decision, in one paragraph\" \"$f\" && grep -qF \"Build it as a SIBLING system\" \"$f\" && grep -qF \"explained like you\" \"$f\" && grep -qF \"start building until a concrete consumer mission exists\" \"$f\" && grep -qF \"blesses its core as a public\" \"$f\" && grep -qF \"Extraction is reconsidered\" \"$f\" && grep -qF \"First bounded milestone\" \"$f\" && grep -qF \"Non-goals\" \"$f\" && grep -qF \"Evidence still required before any production use\" \"$f\" && grep -qF \"removal signals fire before the removal is\" \"$f\" && grep -qF \"Under Immediate signal mode\" \"$f\""
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "declarative-3d-architecture::adr-decisive",
-   "name": "adr-decisive",
-   "note": "adr-decisive: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "declarative-3d-architecture",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "test -f \"$f\" && grep -qF \"This ADR decides; it does not build.\" \"$f\" && grep -qF \"What the spike proved (and what it disproved)\" \"$f\" && grep -qiE \"^\\*\\*Status:\\*\\*\" \"$f\" && grep -qF \"when a consumer arrives\" \"$f\""
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "declarative-3d-architecture::spike-headless-green",
-   "name": "spike-headless-green",
-   "note": "spike-headless-green: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "declarative-3d-architecture",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "test -f \"$f\" && grep -qF \"LuauScene\" \"$f\" && grep -qiF \"sibling\" \"$f\" && grep -qF \"Deliberately different (nothing below is shared)\" \"$f\" && grep -qF \"Shared (the kernel and its conventions)\" \"$f\" && grep -qF \"Non-goals\" \"$f\""
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "declarative-3d-architecture::spike-isolated",
-   "name": "spike-isolated",
-   "note": "spike-isolated: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "declarative-3d-architecture",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
     "producers": [
      "check_spike-artifacts-declarative-3d-architecture-studio-694f2a"
     ],
@@ -13124,14 +13076,13 @@
      "motion_tween::clock:tween — the clock entry cannot leak::a scope owns the clock, and a tween dies with it",
      "with_animation::withAnimation: a registered CURVE drives the flight (ADR-0033)::ARRIVES ON THE CURVE'S DURATION — the thing a class cannot promise",
      "with_animation::withAnimation: a registered CURVE drives the flight (ADR-0033)::an unknown name is refused, and the message names BOTH vocabularies"
-    ],
-    "shell": "grep -qF \"WITHDRAWN 2026-08-15, by the consumer rider this ADR commissioned.\" \"$f\" && grep -qF \"No shipped consumer had a curve taken away from it.\" \"$f\" && grep -qF \"AMENDED 2026-08-15.\" \"$f\" && grep -q \"RascalRally requires .motion_driver. nowhere\" \"$f\" && grep -qF \"The engine is not cheaper here. It is correct, and correct is the reason to take\" \"$f\" && grep -qF \"58.6 ns\" \"$f\" && grep -qF \"a pure twin ships, pinned by a differential oracle\" \"$f\""
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::time-based-easing",
    "name": "time-based-easing",
-   "note": "time-based-easing: 15 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-MOTION-001, UI-AGENT-001.",
+   "note": "time-based-easing: 15 named suite cases must pass; suite must exit zero. Requirements: UI-MOTION-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13167,7 +13118,7 @@
      "stage::UI.Stage: mount, dump, dispose (b)::mount/render/dispose returns the core registry to baseline",
      "foreign::UI.Foreign: mount, elision, dispose (b)::mount/render/dispose returns the core registry to baseline"
     ],
-    "shell": "grep -qF \"the seam hands back nothing\" \"$f\" && grep -qF \"The caller passes their instance **in**; nothing Facet owns travels **out**.\" \"$f\" && grep -qF \"This departs from the shape\" \"$f\" && grep -qF \"goes live, owning exactly one property, and this is what it was reserved for\" \"$f\" && grep -q \"is now the manifest.s only .host. entry\" \"$f\" && grep -qF \"is structural, not a promise\" \"$f\" && grep -qF \"stays deferred\" \"$f\" && grep -q \"Foreign = { Parent = .host. }\" src/render/authority.luau"
+    "shell": "grep -q \"Foreign = { Parent = .host. }\" src/render/authority.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13203,7 +13154,7 @@
      "preferred_transparency::the two paint modes compose the SAME number::the bespoke scrim write goes through backdropTransparency, not a bare token read",
      "preferred_transparency::the two paint modes compose the SAME number::the native rule patch goes through it too, over the DECLARED scope"
     ],
-    "shell": "grep -qF \"the scope is a measurement, not a taste call\" \"$f\" && grep -qF \"is the only rule in Facet\" \"$f\" && grep -qF \"The preference scales translucency the FRAMEWORK declared as\" \"$f\" && grep -qF \"The alpha *is* the disabled state.\" \"$f\" && grep -qF \"A border is not a background.\" \"$f\" && grep -qF \"A shadow that is opaque is a black box, and a glow that is opaque is a rectangle.\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\" && grep -qF \"PREFERENCE_RULE_PROPS\" src/tokens/sheet_model.luau"
+    "shell": "grep -qF \"PREFERENCE_RULE_PROPS\" src/tokens/sheet_model.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13300,7 +13251,7 @@
      "virtual_grid_input::VirtualGrid keyboard input (no consumer wiring)::VirtualGrid keyboard: the focus dump REPORTS the second axis (ADR-0030)",
      "virtual_hgrid::VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a copy::Right/Left moves a whole LINE, not one cell"
     ],
-    "shell": "! grep -q \"bindFocusGraph\" src/controls/virtual_grid.luau && grep -q \"THERE IS NO .navigateIntercept. HERE ANY MORE, AND ITS DELETION IS THE POINT\" src/controls/virtual_grid.luau && grep -qF \"columns = lanesNow()\" src/controls/virtual_grid.luau && grep -qF \"laneCount\" src/focus/focus_graph.luau && grep -qF \"an AXIS PAIR on the existing group, never a new group KIND\" \"$f\" && grep -qF \"adds no ordering opinion at all\" \"$f\" && grep -qF \"The order of a 2-D group is a complete row-major rectangle, and only the last line may be short.\" \"$f\" && grep -qF \"make a cell unreachable with a focus-skip predicate, never with a\" \"$f\""
+    "shell": "! grep -q \"bindFocusGraph\" src/controls/virtual_grid.luau && grep -q \"THERE IS NO .navigateIntercept. HERE ANY MORE, AND ITS DELETION IS THE POINT\" src/controls/virtual_grid.luau && grep -qF \"columns = lanesNow()\" src/controls/virtual_grid.luau && grep -qF \"laneCount\" src/focus/focus_graph.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13635,14 +13586,13 @@
      "authored_presentation::authored presentation A — the props, and the refusals::a plain sibling is NOT promoted to a fade group",
      "authored_presentation::authored presentation C — withAnimation reaches all three::REDUCED MOTION deletes the flight and never the destination",
      "authored_presentation::authored presentation D — off-path cost, and one write site::a surface authoring NONE of the three writes no presentation property at all"
-    ],
-    "shell": "grep -qF \"the authored value is an INPUT to the presentation authority, never a writer\" \"$f\" && grep -qF \"The manifest does not change. Not one line.\" \"$f\" && grep -qF \"The dip is a relative gesture, and always meant to be.\" \"$f\""
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::authored-presentation-composition",
    "name": "authored-presentation-composition",
-   "note": "authored-presentation-composition: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-MOTION-001, UI-STYLE-001.",
+   "note": "authored-presentation-composition: 13 named suite cases must pass; suite must exit zero. Requirements: UI-MOTION-001, UI-STYLE-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13673,14 +13623,13 @@
      "surface_overlap::cross-surface overlap: it arrives through controller.diagnostics()::a disposed surface leaves the REGISTRY: the target's bucket does not grow with every mount",
      "surface_overlap::cross-surface overlap: the cost is zero off the inspection path::two surfaces on DIFFERENT targets never see each other",
      "overflow_sweep::overflow sweep: gallery scenarios::scenario 'surface_overlap': the solver reports NOTHING at any swept viewport, at any text size"
-    ],
-    "shell": "grep -qF \"the alarm reads DECLARATIONS, not geometry\" \"$f\" && grep -qF \"An UNSET display order declares nothing at all\" \"$f\" && grep -qF \"What is deliberately NOT a declaration\" \"$f\" && grep -qF \"it is an INSPECTION API, not a solve-time finding\" \"$f\""
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::cross-surface-overlap",
    "name": "cross-surface-overlap",
-   "note": "cross-surface-overlap: 16 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-LAYOUT-001, UI-AGENT-001.",
+   "note": "cross-surface-overlap: 16 named suite cases must pass; suite must exit zero. Requirements: UI-LAYOUT-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13708,14 +13657,13 @@
      "authored_presentation::authored presentation D — off-path cost, and one write site::the refusal is on the ERROR PATH ONLY — one caller, and it is the failing constructor",
      "authored_presentation::authored presentation A — the props, and the refusals::the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0",
      "authored_presentation::authored presentation A — the props, and the refusals::a REACTIVE value out of domain is refused at the read site too, not silently painted"
-    ],
-    "shell": "grep -qF \"the leaf fade stays refused, because a composition has no base term to compose against\" \"$f\" && grep -qF \"the refusal is a construction error that names the fix\" \"$f\" && grep -qF \"The five structural classes are deliberately excluded\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\""
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::leaf-opacity-refusal",
    "name": "leaf-opacity-refusal",
-   "note": "leaf-opacity-refusal: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-STYLE-001, UI-AGENT-001.",
+   "note": "leaf-opacity-refusal: 13 named suite cases must pass; suite must exit zero. Requirements: UI-STYLE-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13746,7 +13694,7 @@
      "nested_tree_pins::ADR-0032 D3: the depth-first z counter IS Sibling paint order::a parent is below its own subtree, and its subtree is below its next sibling",
      "nested_tree_pins::ADR-0032 D3: the depth-first z counter IS Sibling paint order::the counter is strictly increasing — no two nodes share a slot"
     ],
-    "shell": "test -f \"$f\" && grep -qF \"BUILT by the nested-instance-tree round\" \"$f\" && grep -qF \"never merely because it has children\" \"$f\" && grep -qF \"Nesting is therefore not\" \"$f\" && grep -q \"layout objects stay refused, and nesting is not an argument for them\" \"$f\" && grep -qF \"Before release is the cheap door, and it closes at 1.0.\" \"$f\" && grep -qF \"241 engine writes become 1\" \"$f\" && grep -q \"ZIndexBehavior.Sibling\" src/client/screen_target.luau && grep -q \"local function registerHost\" src/client/screen_presentation.luau && grep -q \"handle.lastWriteX ~= px\" src/client/screen_presentation.luau && grep -q \"function adapter.settleRects\" src/client/screen_target.luau && test -f src/render/instance_boundary.luau && test -f src/render/rect_pass.luau"
+    "shell": "grep -q \"ZIndexBehavior.Sibling\" src/client/screen_target.luau && grep -q \"local function registerHost\" src/client/screen_presentation.luau && grep -q \"handle.lastWriteX ~= px\" src/client/screen_presentation.luau && grep -q \"function adapter.settleRects\" src/client/screen_target.luau && test -f src/render/instance_boundary.luau && test -f src/render/rect_pass.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -22526,7 +22474,7 @@
   },
   {
    "check": {
-    "shell": "grep -qF \"tools/build_places.sh\" \"$f\" && if [ \"$open\" != \"0\" ]; then echo \"the device pass found ${open} FAIL_PRODUCT row(s) - the packet is ready, the product is not\"; exit 1; fi && f=artifacts/navigation-and-menus/review-packet.md && test -f \"$f\" && grep -qF \"Automation complete, release evidence pending\" \"$f\" && grep -qF \"If it does not match the sha above\" \"$f\" && for id in P1 P2 P3 P4 P5 P6 P7 P8 H1 H2 H3 H4 H4a H5; do grep -q \"^### ${id} \" \"$f\" || { echo \"review packet has no ${id} row\"; exit 1; }; done && grep -qF \"Paint probe\" \"$f\" && grep -qF \"hidden under\" \"$f\" && test -f artifacts/navigation-and-menus/h4a-paint-probe.md && for d in menu tab-view level-picker callout hud ex02 all-controls sensory-feedback; do grep -q \"id .${d}.\" \"$f\" || { echo \"review packet never names the ${d} demo by id - a reviewer cannot find it\"; exit 1; }; done && for s in \"Requested\" \"This platform says no\" \"Could not determine\"; do grep -qF \"$s\" \"$f\" || { echo \"the P8 tri-state is missing its ${s} row - two of three is the collapse this row exists to prevent\"; exit 1; }; done && a=artifacts/navigation-and-menus/acceptance.md && for id in NM-X1 NM-X2 NM-X3; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_PHYSICAL|PASS_PHYSICAL|FAIL_PRODUCT\" || { echo \"${id} is not an honest device state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a device row cannot pass through a headless proxy\"; exit 1; fi; done && for id in NM-X4 NM-X5; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_HUMAN|PASS_HUMAN|FAIL_PRODUCT\" || { echo \"${id} is not an honest judgement state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a judgement row cannot pass through a headless proxy\"; exit 1; fi; done && open=\"$(grep -cE \"^[|] [*][*]NM-[^|]*[|].*FAIL_PRODUCT\" \"$a\" || true)\""
+    "shell": "f=artifacts/navigation-and-menus/review-packet.md && test -f \"$f\" && grep -qF \"Automation complete, release evidence pending\" \"$f\" && grep -qF \"tools/build_places.sh\" \"$f\" && grep -qF \"If it does not match the sha above\" \"$f\" && for id in P1 P2 P3 P4 P5 P6 P7 P8 H1 H2 H3 H4 H4a H5; do grep -q \"^### ${id} \" \"$f\" || { echo \"review packet has no ${id} row\"; exit 1; }; done && grep -qF \"Paint probe\" \"$f\" && grep -qF \"hidden under\" \"$f\" && test -f artifacts/navigation-and-menus/h4a-paint-probe.md && for d in menu tab-view level-picker callout hud ex02 all-controls sensory-feedback; do grep -q \"id .${d}.\" \"$f\" || { echo \"review packet never names the ${d} demo by id - a reviewer cannot find it\"; exit 1; }; done && for s in \"Requested\" \"This platform says no\" \"Could not determine\"; do grep -qF \"$s\" \"$f\" || { echo \"the P8 tri-state is missing its ${s} row - two of three is the collapse this row exists to prevent\"; exit 1; }; done && a=artifacts/navigation-and-menus/acceptance.md && for id in NM-X1 NM-X2 NM-X3; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_PHYSICAL|PASS_PHYSICAL|FAIL_PRODUCT\" || { echo \"${id} is not an honest device state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a device row cannot pass through a headless proxy\"; exit 1; fi; done && for id in NM-X4 NM-X5; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_HUMAN|PASS_HUMAN|FAIL_PRODUCT\" || { echo \"${id} is not an honest judgement state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a judgement row cannot pass through a headless proxy\"; exit 1; fi; done && open=\"$(grep -cE \"^[|] [*][*]NM-[^|]*[|].*FAIL_PRODUCT\" \"$a\" || true)\" && if [ \"$open\" != \"0\" ]; then echo \"the device pass found ${open} FAIL_PRODUCT row(s) - the packet is ready, the product is not\"; exit 1; fi"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/navigation-and-menus/review-packet.md",

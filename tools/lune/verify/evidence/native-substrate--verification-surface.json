@@ -7,7 +7,7 @@
    "sha256": "99e6eae2030d415e1e95f8f0174d468961ba65eb1dc11eac96437f9bec8a6695"
   }
  ],
- "recordedAt": "2026-08-30T19:27:57Z",
+ "recordedAt": "2026-08-30T20:47:29Z",
  "row": "native-substrate::verification-surface",
  "schema": "facet-evidence-receipt/1",
  "summary": "verification-surface: 1 recorded file(s), pinned by content hash."

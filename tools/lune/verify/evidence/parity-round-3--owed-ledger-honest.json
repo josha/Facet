@@ -45,7 +45,7 @@
    "sha256": "edc1b554bfa7ccea9d76844504ce4d07cfea8aced4786203f2726904afcd1640"
   }
  ],
- "recordedAt": "2026-08-30T19:27:58Z",
+ "recordedAt": "2026-08-30T20:47:30Z",
  "row": "parity-round-3::owed-ledger-honest",
  "schema": "facet-evidence-receipt/1",
  "summary": "owed-ledger-honest: 10 recorded file(s), pinned by content hash."

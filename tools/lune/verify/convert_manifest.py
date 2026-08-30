@@ -207,10 +207,33 @@ SOURCE_INPUTS = [
     "LICENSE",
 ]
 
-# What the SUITE reads. tools/ is deliberately absent, exactly as
-# tools/test.sh's own fingerprint has it: editing a gate script cannot change a
-# spec's outcome.
-SUITE_INPUTS = ["src/**", "tests/**", "examples/**", "run-tests.sh", "rokit.toml"]
+#[[ WHAT THE SUITE READS.
+#
+#   tools/ is deliberately absent, exactly as tools/test.sh's own fingerprint has
+#   it: editing a gate script cannot change a spec's outcome.
+#
+#   AND SO IS examples/places/. Those are BUILD OUTPUTS — `.rbxl` files that
+#   `tools/build_places.sh` and `tools/build_reference_places.sh` regenerate, and
+#   that no spec reads (measured: one mention across the whole of tests/, in a
+#   README). Left in, a run that rebuilt them moved the suite's identity, so the
+#   suite could never be reused by the NEXT run: measured three consecutive full
+#   runs with three different suite identities and no reuse at all. An input a
+#   producer in the same run rewrites is not an input, it is a clock. ]]
+SUITE_INPUTS = [
+    "src/**",
+    "tests/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
+    "run-tests.sh",
+    "rokit.toml",
+]
 
 RR = "../../../games/RascalRally/code"
 
@@ -963,8 +986,10 @@ def main() -> int:
             #   or performance capture, an engine-feasibility probe, a measured
             #   row — the row stays, as a receipt of that class. ]]
             internal_dropped: list[str] = []
+            internal_vars: set[str] = set()
             artifact_vars: set[str] = set()
             moved_assigns: set[str] = set()
+            ordered: list[tuple[str, str]] = []  # (clause, "keep" | "move")
             kept: list[str] = []
             moved: list[str] = []
             artifact_paths: list[str] = []
@@ -973,9 +998,17 @@ def main() -> int:
                 if c == "true":
                     continue
                 if INTERNAL_DOC.search(c):
+                    named = re.match(r"([A-Za-z_][A-Za-z0-9_]*)=", c)
+                    if named:
+                        # …and anything that reads the variable it set, or the
+                        # kept clause becomes `test -f ""`, which passes.
+                        internal_vars.add(named.group(1))
                     internal_dropped.append(c)
                     internal_clauses.append({"row": row_id, "phase": public_phase, "name": name,
                                              "requirements": base["requirements"], "clause": c})
+                    continue
+                if internal_vars and any(f"${v}" in c for v in internal_vars):
+                    internal_dropped.append(c)
                     continue
                 paths = ARTIFACT_PATH.findall(c)
                 touches_source = bool(SOURCE_PATH.search(c))
@@ -986,6 +1019,7 @@ def main() -> int:
                     moved_assigns.add(assign.group(1))
                     artifact_paths.append(assign.group(2))
                     moved.append(c)
+                    ordered.append((c, "move"))
                     continue
                 if (paths or uses_artifact_var) and not touches_source:
                     artifact_paths.extend(paths)
@@ -993,8 +1027,10 @@ def main() -> int:
                     if named:
                         moved_assigns.add(named.group(1))
                     moved.append(c)
+                    ordered.append((c, "move"))
                     continue
                 kept.append(c)
+                ordered.append((c, "keep"))
 
             #[[ A KEPT CLAUSE MAY NOT READ A VARIABLE A MOVED ONE SET.
             #   `lost="$(comm -23 <(grep … "$a") …)" && test -z "$lost"` splits
@@ -1003,7 +1039,10 @@ def main() -> int:
             #   cannot fail, manufactured by the split itself. When it would
             #   happen, the row is not split at all. ]]
             if any(f"${v}" in c for c in kept for v in moved_assigns):
-                kept = kept + moved
+                # IN THE ORIGINAL ORDER. Re-joining as kept + moved puts an
+                # assignment AFTER the clause that reads it, which is the same
+                # unset-variable defect one step further along.
+                kept = [c for c, _ in ordered]
                 moved = []
                 artifact_paths = []
             shell = " && ".join(kept) if kept else None

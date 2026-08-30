@@ -382,13 +382,25 @@ local failures: { report.Failure } = {}
 	saw the assignment — so `f=artifacts/… && test -f "$f"` became `test -f ''`
 	and fifty rows failed for a reason that had nothing to do with them.
 	Measured 2026-08-30. One shell, one expansion. ]]
+--[[ ...AND THE PATHS IN IT ARE ABSOLUTE. Several converted rows `cd` into the
+	sibling game checkout before grepping the recorded transcript, and a path
+	relative to the library root does not survive that: `grep … "$VAR"` found
+	nothing and thirteen rows failed for a reason that had nothing to do with
+	them. Measured 2026-08-30. ]]
+local function absolute(path: string): string
+	if string.sub(path, 1, 1) == "/" then
+		return path
+	end
+	return `{process.cwd}/{path}`
+end
+
 local function shellEnv(): { [string]: string }
 	local env: { [string]: string } = {}
 	if suiteTranscript ~= nil then
-		env.FACET_VERIFY_SUITE_TRANSCRIPT = suiteTranscript
+		env.FACET_VERIFY_SUITE_TRANSCRIPT = absolute(suiteTranscript)
 	end
 	if rrTranscript ~= nil then
-		env.FACET_VERIFY_RR_TRANSCRIPT = rrTranscript
+		env.FACET_VERIFY_RR_TRANSCRIPT = absolute(rrTranscript)
 	end
 	return env
 end

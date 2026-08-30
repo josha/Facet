@@ -22,7 +22,7 @@
    "sha256": "a92838103afad3b3cd55ead22feacc1095eae48991351a5fdb52883734082d3f"
   }
  ],
- "recordedAt": "2026-08-30T19:27:57Z",
+ "recordedAt": "2026-08-30T20:47:29Z",
  "row": "input-adaptation-audit::audit-matrix",
  "schema": "facet-evidence-receipt/1",
  "summary": "audit-matrix: 4 recorded file(s), pinned by content hash."
