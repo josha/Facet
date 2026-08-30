@@ -16,12 +16,17 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 mkdir -p examples/places
 
+# FOUR, NOT FIVE, SINCE 2026-08-30: `ref_wardrobe|Facet-Ref-Wardrobe` was
+# removed with the Wardrobe retirement (docs/plans/example-games-and-standalones.md,
+# "Retire Wardrobe; complete Sipworks and Glade"). A publishable place is exactly
+# what a retired example must not still have, so `examples/places/Facet-Ref-Wardrobe.rbxl`
+# was deleted with it. The app survives only as test evidence for the closed
+# reference-app-validation gate, at tests/fixtures/retired/p5_wardrobe.
 PROOFS=(
   "ref_glade|Facet-Ref-Glade"
   "ref_cartwheel|Facet-Ref-Cartwheel"
   "ref_sipworks|Facet-Ref-Sipworks"
   "ref_foyer|Facet-Ref-Foyer"
-  "ref_wardrobe|Facet-Ref-Wardrobe"
 )
 
 for entry in "${PROOFS[@]}"; do

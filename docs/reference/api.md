@@ -2821,8 +2821,8 @@ into the chain at whatever depth it happens to sit
 (`mount.luau`'s `branchPath = path .. "/then"`), so `"/S/PaneZ/Pane"` as authored
 might mount at `"/S/PaneZ/then/Pane"`. Before this, the only route to the real path
 was enumerating every live path and substring-scanning it for a known suffix (dead
-code in `examples/reference/p5_wardrobe/init.luau`, since no adapter ever grew that
-enumeration).
+code in the retired Wardrobe fixture, `tests/fixtures/retired/p5_wardrobe/init.luau`,
+since no adapter ever grew that enumeration).
 
 `controller.mountedPathOf(declaredPath) -> string?` resolves it directly: an exact
 match first, then the live path whose `/then`-stripped form equals the declared

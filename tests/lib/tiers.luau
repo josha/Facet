@@ -124,7 +124,13 @@ tiers.SLOW = {
 	{
 		spec = "reference/wardrobe_spec",
 		ms = 497,
-		why = "clean-room reference proof: try-on history, the purchase lifecycle, the stage seam and the split-to-stacked Composition flip with state survival",
+		-- UNCHANGED BY THE 2026-08-30 WARDROBE RETIREMENT, deliberately: the spec keeps
+		-- its name, its path and its cost — only the app it mounts moved, to
+		-- tests/fixtures/retired/p5_wardrobe. It is the one reference proof that is no
+		-- longer a player example; it still runs because the closed
+		-- reference-app-validation gate cites it. Delete this row when that fixture goes
+		-- (the condition is in tests/fixtures/retired/README.md).
+		why = "clean-room reference proof (now a RETIRED fixture): try-on history, the purchase lifecycle, the stage seam and the split-to-stacked Composition flip with state survival",
 	},
 } :: { Exclusion }
 

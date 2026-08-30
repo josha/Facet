@@ -35,7 +35,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local fake_target = require("./lib/fake_target")
+local worldLib = require("./lib/world")
 local sheet_model = require("../src/tokens/sheet_model")
 local tokens = require("../src/tokens/tokens")
 local match3 = require("../examples/gallery/examples/07_match3")
@@ -73,22 +73,23 @@ local DROP_BOARD = {
 	{ "a", "b", "c", "d", "e", "a" },
 }
 
+--[[ ON THE SHARED SUBSTRATE, because R12's trigger says so: "the next spec file
+	that ADDS a builder migrates its file instead". This file was one of two that
+	added one.
+
+	`reducedMotion` goes through the substrate's named option rather than a raw
+	`env:set`, which matters here more than anywhere: `motionPolicy` is DERIVED
+	from that fact and setting the derived key is refused — the right refusal, and
+	one this file's whole Full/Reduced parity claim rests on. ]]
 local function makeWorld(opts: any?): (any, any, any)
 	local options = opts or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	if options.reducedMotion then
-		-- `motionPolicy` is DERIVED from this fact; setting the derived key is
-		-- refused, which is the right refusal
-		env:set("reducedMotion", true)
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
-	return core, deps, adapter
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = 390, h = 844 },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		reducedMotion = options.reducedMotion == true,
+	})
+	local deps = { env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
+	return w.core, deps, w.adapter
 end
 
 --[[ SETTLE WHAT THE MOUNT ITSELF STARTED, before measuring a move.

@@ -67,14 +67,21 @@ local ORDER = {
 	-- `newRowActions`/Table `rowActions` — a hand-wrapped ScrollView>VStack
 	-- list sharing one coordinator, plus a reorderable/editable Table
 	"row_actions",
-	-- roadmap Step 11 (reference-app-validation): the five clean-room
-	-- reference proofs, one scenario per proof, each a thin delegation to its
-	-- examples/reference module (see ref_*.luau headers)
+	-- roadmap Step 11 (reference-app-validation): the clean-room reference
+	-- proofs, one scenario per proof, each a thin delegation to its
+	-- examples/reference module (see ref_*.luau headers).
+	--
+	-- FOUR, NOT FIVE, SINCE 2026-08-30. `ref_wardrobe` was deleted with the
+	-- Wardrobe retirement (docs/plans/example-games-and-standalones.md, "Retire
+	-- Wardrobe; complete Sipworks and Glade"): the app is no longer a player
+	-- example, so it has no scenario, no place and no picker entry. It survives
+	-- only as test evidence for the closed reference-app-validation gate, at
+	-- tests/fixtures/retired/p5_wardrobe (read that directory's README before
+	-- re-adding anything here).
 	"ref_glade",
 	"ref_cartwheel",
 	"ref_sipworks",
 	"ref_foyer",
-	"ref_wardrobe",
 	-- parity round 2 (docs/plans/parity-round2.md): the two
 	-- surfaces that carry this round's new public API into a place a player can
 	-- actually reach. `card_rail` is `newVirtualList`'s horizontal axis (§2.3);

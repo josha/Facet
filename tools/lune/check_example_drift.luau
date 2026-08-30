@@ -204,31 +204,19 @@ local ALLOWLIST: { { file: string, match: string, why: string } } = {
 		match = 'height = { type = "fixed", px = 10 },',
 		why = "the presence dot's other axis — the same display-only marker ruling as its width",
 	},
-	{
-		file = "examples/reference/p5_wardrobe/init.luau",
-		match = 'width = { type = "minMax", min = 260, max = CONFIRM_W },',
-		why = "purchase-confirm panel structure (spec's confirmW), layout not chrome",
-	},
-	{
-		file = "examples/reference/p5_wardrobe/init.luau",
-		match = 'width = { type = "minMax", min = 240, max = 360 },',
-		why = "refine panel structure: a small filter sheet's readable bounds",
-	},
-	{
-		file = "examples/reference/p5_wardrobe/init.luau",
-		match = 'height = { type = "fixed", px = 3 },',
-		why = "the category-selection underline: indicator form, constant across themes",
-	},
-	{
-		file = "examples/reference/p5_wardrobe/init.luau",
-		match = "ambient = { r = 0.55, g = 0.55, b = 0.58 },",
-		why = "3D stage lighting is CONTENT behind the stage seam (the scene's own light), not UI paint",
-	},
-	{
-		file = "examples/reference/p5_wardrobe/init.luau",
-		match = "lightColor = { r = 1, g = 0.98, b = 0.94 },",
-		why = "stage-scene light colour is 3D content behind the stage seam by contract, never UI paint",
-	},
+	--[[ THE FIVE `examples/reference/p5_wardrobe/init.luau` ENTRIES WERE DELETED
+		ON 2026-08-30, and the reason is the tree, not a re-judgement. Wardrobe was
+		retired as a player example (docs/plans/example-games-and-standalones.md,
+		"Retire Wardrobe; complete Sipworks and Glade") and its source moved to
+		`tests/fixtures/retired/p5_wardrobe`, which is neither SCANNED_DIR nor
+		REFERENCE_DIR — so those five exemptions could never fire again, and an
+		allowlist entry that cannot fire is a claim nobody checks. Each judgement
+		they carried survives on a line this lint still reads: the two panel
+		`minMax` structure rows and the 3px selection underline are the same
+		rulings as p4_foyer's four entries above, and the two stage-light rows are
+		the same "3D scene light is CONTENT behind the stage seam, never UI paint"
+		ruling as p2_cartwheel's two entries below. Nothing was decided differently;
+		one of the two files stating each ruling simply stopped being an example. ]]
 	{
 		file = "examples/reference/p2_cartwheel/init.luau",
 		match = "ambient = { r = 0.38, g = 0.36, b = 0.42 },",

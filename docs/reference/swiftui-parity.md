@@ -2001,13 +2001,26 @@ evidence rather than demos. Ledgers and evidence:
 | Cartwheel (`p2_cartwheel`) | Food Truck ([SW-127]) | adaptive split navigation, live order arrivals, a status machine and service-owned countdown that survive navigation, charts, entitlement gates, and a `UI.Stage` 3D hero |
 | Sipworks (`p3_sipworks`) | Fruta ([SW-128]) | catalog/search/favorites, orders plus reward stamps plus threshold redemption, purchase-shaped recipe unlock, deep localization including plural fixtures and a ≥1.4× pseudo-locale, and a compact entry flow reusing the full components |
 | Foyer (`p4_foyer`) | Roblox app home screen | sectioned discovery feed, friends carousel, search collapse, refresh and visit command lifecycles |
-| Wardrobe (`p5_wardrobe`) | Roblox app avatar editor | try-on with undo/redo history over a live `UI.Stage` mannequin, purchase lifecycle with visible rejections, split ⇄ stacked layout survival |
+| Wardrobe (`p5_wardrobe`) — **RETIRED as an example, 2026-08-30** | Roblox app avatar editor | try-on with undo/redo history over a live `UI.Stage` mannequin, purchase lifecycle with visible rejections, split ⇄ stacked layout survival |
 
 All five carry their adaptation through `UI.ViewThatFits`, `UI.AdaptiveStack`,
 and `UI.Composition`/`UI.Region` with **zero device-name branches** — the
 strongest available evidence that the adaptive-layout story is real rather than
-demo-shaped. Their specs (`tests/reference/*_spec.luau`) run in the suite, and
-the five places are built by `tools/build_places.sh`.
+demo-shaped. All five specs (`tests/reference/*_spec.luau`) still run in the
+suite.
+
+**Four of the five are current examples; Wardrobe is not.** Wardrobe was retired
+as a player example on 2026-08-30
+(`docs/plans/example-games-and-standalones.md`): it has no showcase scenario, no
+picker entry and no publishable place, and its source moved out of `examples/`
+to `tests/fixtures/retired/p5_wardrobe` — read that directory's README, and the
+coverage inventory at
+`artifacts/example-games-and-standalones/wardrobe-inventory.md`, for what it
+covered and where each behaviour is proved now. Its row stays in this table
+because the row is a record of what was *proved*, and the
+reference-app-validation gate that proved it is closed and earned; retiring an
+example does not un-prove what it demonstrated. The four current standalone
+places are built by `tools/build_reference_places.sh`.
 
 **Honest approximations the proofs declare.** Where a SwiftUI original does
 something Facet cannot, the proof says so instead of faking it: shared-element

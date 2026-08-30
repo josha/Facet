@@ -291,7 +291,7 @@ exclusive boot modes (`examples/gallery/client/boot_mode.luau`):
   and publishes `workspace.FacetScenarioAPI`. Use `device_matrix`'s `row`
   mode (select the device preset, then `step("installPackage", theme)`, then
   `observe`) — this is the only surface with in-place theme swapping, so it
-  is also what any OTHER scenario-mode fixture (`ref_glade`, `ref_wardrobe`,
+  is also what any OTHER scenario-mode fixture (`ref_glade`, `ref_foyer`,
   `virtual_list_native`, …) is missing: those are driven at `neutral`
   (their own reference styling) via plain `Facet_Scenario = "<name>"` +
   `observe`.

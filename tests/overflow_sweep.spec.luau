@@ -484,7 +484,13 @@ local EXAMPLES = {
 	"07_match3",
 }
 
-local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer", "p5_wardrobe" }
+-- FOUR, NOT FIVE, SINCE 2026-08-30. `p5_wardrobe` left this corpus with the
+-- Wardrobe retirement (docs/plans/example-games-and-standalones.md): the app is
+-- no longer a player-facing surface, so it is no longer a surface this sweep is
+-- claiming is clean. Its four `surface = "p5_wardrobe"` rows were deleted from
+-- tests/lib/theme_sweep_ledger.luau in the same change, with the reason recorded
+-- in that file's header — the stale-row case below is what forces that pairing.
+local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer" }
 
 --[[ ── WHAT COUNTS AS A FINDING: EVERYTHING THE SOLVER SAYS ───────────────────
 

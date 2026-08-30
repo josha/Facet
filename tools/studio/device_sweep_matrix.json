@@ -123,14 +123,6 @@
       "status": "not reached this round"
     },
     {
-      "id": "wardrobe-grids-phone",
-      "deviceRow": "compact-phone-portrait",
-      "theme": "neutral",
-      "scenario": "ref_wardrobe",
-      "director": "MISC round Studio-owed item 15: 'Picked for you' and 'Everything' grids, cards no longer cramped",
-      "status": "not reached this round"
-    },
-    {
       "id": "conn-park-adopt-recycle",
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
@@ -138,6 +130,19 @@
       "director": "CONN round Studio-owed (findings 1 and 4): a park->adopt recycle of a row carrying a pointer-down/drag handler + Grip(hover) + scroll-wheel host, confirming the fresh occupant's handlers respond and the sub-floor hit-expander margin routes to the new occupant",
       "note": "behavioral (connection-identity) claim; a black-box visual sweep can only evidence the GEOMETRY half (hit-expander margin on the post-recycle occupant) -- the handler-identity half needs an internal probe or stays physical/Studio-interactive owed",
       "status": "not reached this round"
+    }
+  ],
+  "retiredCells": [
+    {
+      "id": "wardrobe-grids-phone",
+      "wasIn": "plannedCells",
+      "deviceRow": "compact-phone-portrait",
+      "theme": "neutral",
+      "wasScenario": "ref_wardrobe",
+      "director": "MISC round Studio-owed item 15: 'Picked for you' and 'Everything' grids, cards no longer cramped",
+      "retired": "2026-08-30",
+      "reason": "RETIRED WITH THE SURFACE, not with a fix. Wardrobe was retired as a player example (docs/plans/example-games-and-standalones.md, 'Retire Wardrobe; complete Sipworks and Glade'): the `ref_wardrobe` scenario this cell names was deleted, so there is nothing left for an operator to select in Studio. NOTHING IS LOST, and that was checked rather than assumed: this cell was PLANNED and NEVER DRIVEN ('not reached this round'), so it held no evidence -- retiring it removes a plan, not a proof. The claim it was going to make (grid cards not cramped at a phone width) is pinned headlessly and still runs, in tests/reference/wardrobe_spec.luau's 'Picked-for-you cards fill their lane' block: the catalog column claims the whole phone viewport, every card is the same width, the row tiles the grid exactly, and the thumbnail never paints past its own Col at the floor lane. The live phone-grid device row that remains is `glade-corner-rings-phone`.",
+      "note": "This array is read by nobody: check_device_sweep.py verdicts `notableCells` + the base matrix, and only requires a `status` on `plannedCells`. It exists so a retired cell leaves a reason behind instead of a silent deletion."
     }
   ]
 }

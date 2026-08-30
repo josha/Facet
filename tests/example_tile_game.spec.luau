@@ -29,7 +29,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local fake_target = require("./lib/fake_target")
+local worldLib = require("./lib/world")
 local sheet_model = require("../src/tokens/sheet_model")
 local tokens = require("../src/tokens/tokens")
 local words = require("../examples/gallery/examples/words")
@@ -37,15 +37,20 @@ local tileGame = require("../examples/gallery/examples/06_tile_game")
 
 local rules = tileGame.rules
 
+--[[ ON THE SHARED SUBSTRATE, because R12's trigger says so: "the next spec file
+	that ADDS a builder migrates its file instead". This file was one of two that
+	added one, and `tests/world_substrate.spec.luau` counted them.
+
+	What the substrate buys here is not tidiness. Its keyword-only options table
+	cannot transpose the adapter and the action system — the collision that
+	commissioned it, where Luau binds an action system to a variable called
+	`adapter` without a word and the spec fails three edits later in a file nobody
+	touched. It also sets `viewportRect` BEFORE the presenter exists, so no solve
+	ever runs against an unset 1x1 viewport. ]]
 local function makeWorld(viewport: any?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", viewport or { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
-	return core, deps, adapter
+	local w = worldLib.new({ viewport = viewport or { x = 0, y = 0, w = 800, h = 600 } })
+	local deps = { env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
+	return w.core, deps, w.adapter
 end
 
 local function newGame(core: any, deps: any): any

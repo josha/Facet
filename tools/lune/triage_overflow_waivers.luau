@@ -141,7 +141,9 @@ local EXAMPLES = {
 	"06_tile_game",
 	"07_match3",
 }
-local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer", "p5_wardrobe" }
+-- FOUR, NOT FIVE, SINCE 2026-08-30 (Wardrobe retirement): this list is a
+-- hand-kept copy of `tests/overflow_sweep.spec.luau`'s, and the two must agree.
+local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer" }
 local VARIANTS: { [string]: { step: string, values: { string } } } = {
 	row_actions = { step = "mode", values = { "list", "table", "vlist" } },
 }

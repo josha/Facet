@@ -420,6 +420,15 @@ describe("the teaching corpus spells the values the theme system already names",
 		expect(table.concat(names, "\n")).toBe(table.concat({
 			"examples/gallery/client/demo_picker.luau [BAR_HEIGHT]",
 			"examples/gallery/client/theme_picker.luau [BAR_HEIGHT]",
+			--[[ THE CROSSWORD'S TWO SEVENS (stage example-games-and-standalones).
+				`SIZE = 7` is the board's width in SQUARES and `RACK_SIZE = 7` is how
+				many letters a player holds — game rules, not dimensions, and a theme
+				has no opinion about either. They are coupled only in the sense the
+				detector means: a named numeric constant read where a layout reads it,
+				because the board's Grid takes SIZE columns. The decision recorded
+				here is that they stay game rules; the cell's own SIZE in pixels is a
+				`minMax` floor on `targetSizes.minimum`, which is the themed half. ]]
+			"examples/gallery/examples/06_tile_game.luau [RACK_SIZE SIZE]",
 			"examples/gallery/scenarios/hud.luau [HUD_FLOOR_PX]",
 			"examples/gallery/scenarios/perf_capture.luau [ROSTER_ROW_PADDING viewportExtent=<literal>]",
 			"examples/performance/lab/levers.luau [itemExtent=<literal>]",

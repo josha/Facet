@@ -10,7 +10,12 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
-local proof = require("../../examples/reference/p5_wardrobe") :: any
+-- THE APP IS A RETIRED FIXTURE, NOT AN EXAMPLE (2026-08-30). Wardrobe was
+-- retired as a player example and moved out of `examples/` into clearly owned
+-- test evidence; this spec is the only thing that mounts it, and the earned
+-- `reference-app-validation` rows below are why it still exists at all. See
+-- tests/fixtures/retired/README.md.
+local proof = require("../fixtures/retired/p5_wardrobe") :: any
 
 local BODY = "/Wardrobe/BoutiqueWhen/then/Body"
 local PANE = BODY .. "/Preview/PreviewCol/PaneZ/Pane"

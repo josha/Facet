@@ -37,6 +37,22 @@
 --                 a theme it has not seen"), which is why it is recorded rather
 --                 than filtered.
 --
+-- FOUR ROWS LEFT ON 2026-08-30 FOR A DIFFERENT REASON, and it is worth telling
+-- the two apart. Deleting a row normally means the DEFECT was fixed (below). The
+-- four rows keyed to the p5_wardrobe SURFACE — the catalog filter disc, the two
+-- history discs, and the preview Controls layer-overlap — went because the surface
+-- left the corpus: Wardrobe was retired as a player example on 2026-08-30
+-- (docs/plans/example-games-and-standalones.md, "Retire Wardrobe; complete
+-- Sipworks and Glade"), so it is no longer in `tests/overflow_sweep.spec.luau`'s
+-- `PROOFS` and nothing in the themed tier can produce those findings any more.
+-- The spec's own "every ledger row still fires" case is what forced this deletion
+-- to happen in the same change rather than rotting quietly. The three
+-- `theme-inset-yield` rows were never Wardrobe's anyway — they are the
+-- 44px-icon-button-under-a-themed-chrome class that p4_foyer's top bar still
+-- carries here, so nothing about that class went unrecorded. The app itself is
+-- kept as test evidence at tests/fixtures/retired/p5_wardrobe; it is simply not
+-- swept, because a retired surface has nobody to be clean for.
+--
 -- TWO ROWS ARE ALREADY GONE, and they are why this file exists at all: O-23
 -- (`progress_ring`'s spinner row, 40px past its box under both Glossy packages at
 -- the DEFAULT preference) and O-25 (`02_playlist_table`'s cells, 4px outside
@@ -239,38 +255,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "compact-pointer,pixel-quest",
 		kind = "collapsed-box",
-	},
-	{
-		-- the catalog's filter disc and the preview's two history discs — icon buttons on
-		-- the 44px target floor, the same story as p4_foyer's top bar.
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/CategoryRow/Filter",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 44,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Preview/PreviewCol/PaneZ/Controls/History/Undo",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 44,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Preview/PreviewCol/PaneZ/Controls/History/Redo",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 44,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
 	},
 	{
 		surface = "row_actions",
@@ -913,16 +897,6 @@ theme_ledger.ROWS = {
 		-- had always been too small for finally says so.
 		packages = "fantasy-ornate,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Preview/PreviewCol/PaneZ/Controls",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 44,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest",
-		kind = "layer-overlap",
 	},
 	{
 		surface = "scroll_host",
