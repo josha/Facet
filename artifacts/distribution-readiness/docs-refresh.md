@@ -233,13 +233,19 @@ land; 7883 is this workstream's final reading.
 
 ## 7. What is red, and whose it is
 
-**`python3 tools/check_brand_drift.py` FAILS**, with 12 matches, and **none of
-them is in a file this workstream owns**:
+**`python3 tools/check_brand_drift.py` FAILS**, and **none of the matches is in
+a file this workstream owns**. Two readings, both taken here:
 
-- `docs/plans/facet-consolidated-roadmap.md` (2) — the owner's roadmap, which
-  leaves the public tree;
-- `tools/lune/gate_manifest.luau` (10) — the gate manifest, which the
-  verification-graph workstream is retiring and which also leaves the tree.
+- at commit `f632021`, **12 matches**: `docs/plans/facet-consolidated-roadmap.md`
+  (2), the owner's roadmap, which leaves the public tree; and
+  `tools/lune/gate_manifest.luau` (10), the gate manifest, which the
+  verification-graph workstream is retiring and which also leaves the tree;
+- re-read after that workstream regenerated its converted graph, **189
+  matches**: the same 12, plus about 177 inside the uncommitted
+  `tools/lune/verify/graph.json`, whose converted rows carry the old manifest's
+  prose. That file is workstream T's and is being edited as this is written;
+  the director has raised it with that workstream directly. This workstream did
+  not touch it.
 
 The cause is workstream E1 removing the retired comparison document's entry from
 the guard's allowlist while both of those files still name it. Both files are in
