@@ -149,27 +149,33 @@ describe("scroll host: the fake target models the engine's window", function()
 		expect(window.h).toBe(frame.h)
 	end)
 
-	it("✓ under 'always', a Y host that overflows loses the bar's thickness off its WIDTH, never its height", function()
-		-- POINTER, not TOUCH (moved 2026-08-28, task SCROLL2, fa7233a): "always" is
-		-- the policy this case's own claim is still true of. See the next case for
-		-- what "auto" now does to the same construction.
-		local w = world(POINTER, "KeyboardAndMouse", 40)
-		local frame = w.adapter.node("/S/Host").rect
-		local window = w.adapter.windowRectOf("/S/Host")
-		expect(window.w).toBe(frame.w - BAR)
-		expect(window.h).toBe(frame.h)
-	end)
+	it(
+		"✓ under 'always', a Y host that overflows loses the bar's thickness off its WIDTH, never its height",
+		function()
+			-- POINTER, not TOUCH (moved 2026-08-28, task SCROLL2, fa7233a): "always" is
+			-- the policy this case's own claim is still true of. See the next case for
+			-- what "auto" now does to the same construction.
+			local w = world(POINTER, "KeyboardAndMouse", 40)
+			local frame = w.adapter.node("/S/Host").rect
+			local window = w.adapter.windowRectOf("/S/Host")
+			expect(window.w).toBe(frame.w - BAR)
+			expect(window.h).toBe(frame.h)
+		end
+	)
 
-	it("✓ under 'auto', the SAME overflowing Y host loses NOTHING off its window (director ruling 2026-08-28)", function()
-		-- the zero reserve is paired live with a frame widen that cancels the
-		-- engine's own narrowing; this fake models that pair's NET OUTCOME
-		-- directly — window == the full rect, not frame - BAR.
-		local w = world(TOUCH, "Touch", 40)
-		local frame = w.adapter.node("/S/Host").rect
-		local window = w.adapter.windowRectOf("/S/Host")
-		expect(window.w).toBe(frame.w)
-		expect(window.h).toBe(frame.h)
-	end)
+	it(
+		"✓ under 'auto', the SAME overflowing Y host loses NOTHING off its window (director ruling 2026-08-28)",
+		function()
+			-- the zero reserve is paired live with a frame widen that cancels the
+			-- engine's own narrowing; this fake models that pair's NET OUTCOME
+			-- directly — window == the full rect, not frame - BAR.
+			local w = world(TOUCH, "Touch", 40)
+			local frame = w.adapter.node("/S/Host").rect
+			local window = w.adapter.windowRectOf("/S/Host")
+			expect(window.w).toBe(frame.w)
+			expect(window.h).toBe(frame.h)
+		end
+	)
 
 	it("✓ a host that declared `indicators = 'none'` has no bar and loses nothing", function()
 		local w = world(TOUCH, "Touch", 40, { indicators = "none" })
@@ -209,30 +215,33 @@ describe("scroll host: the fake target models the engine's window", function()
 		expect(`h:{window.h}`).toBe(`h:{frame.h}`)
 	end)
 
-	it("✓ under 'auto' the RESERVE drops to zero while the BAR INSTANCE stays 8 (director ruling 2026-08-28)", function()
-		local w = world(TOUCH, "Touch", 40)
-		-- a touch session still derives the overlay policy — that decides the
-		-- bar's PAINT, and — since 2026-08-28 — the LAYOUT RESERVE too.
-		expect((w.adapter :: any).scrollIndicatorPolicy).toBe("auto")
-		-- the RESERVE the target publishes to the solver is zero again...
-		expect((w.adapter :: any).scrollBarThickness).toBe(0)
-		-- ...but the ScrollingFrame INSTANCE the engine actually charges a window
-		-- for is unchanged: 8, exactly like under "always". The gap between those
-		-- two numbers is what `applyBarOverlayWiden` exists to close live, and
-		-- what this fake's `window.w == frame.w` (previous case) closes in its own
-		-- net-outcome model.
-		expect(w.adapter.node("/S/Host").barInstanceThickness).toBe(BAR)
-		--
-		-- READ THIS AS A STATEMENT ABOUT THE FAKE (red-team T1, 2026-08-13). The
-		-- fixture opts the fake target into the thickness itself, so every number in
-		-- this file — including the failure message below, which names
-		-- `src/client/screen_target.luau` — is about `tests/lib/fake_target.luau`'s
-		-- mirrored `setScrollIndicatorPolicy`. What this file proves is the LAYOUT
-		-- CONSEQUENCE of the reserve; that the live adapter's TWO write sites still
-		-- publish it this way is pinned from source in `tests/scroll_indicators.spec.luau`
-		-- ("the LIVE ScreenTarget publishes the reserve through TWO sanctioned
-		-- writes"), and nowhere else.
-	end)
+	it(
+		"✓ under 'auto' the RESERVE drops to zero while the BAR INSTANCE stays 8 (director ruling 2026-08-28)",
+		function()
+			local w = world(TOUCH, "Touch", 40)
+			-- a touch session still derives the overlay policy — that decides the
+			-- bar's PAINT, and — since 2026-08-28 — the LAYOUT RESERVE too.
+			expect((w.adapter :: any).scrollIndicatorPolicy).toBe("auto")
+			-- the RESERVE the target publishes to the solver is zero again...
+			expect((w.adapter :: any).scrollBarThickness).toBe(0)
+			-- ...but the ScrollingFrame INSTANCE the engine actually charges a window
+			-- for is unchanged: 8, exactly like under "always". The gap between those
+			-- two numbers is what `applyBarOverlayWiden` exists to close live, and
+			-- what this fake's `window.w == frame.w` (previous case) closes in its own
+			-- net-outcome model.
+			expect(w.adapter.node("/S/Host").barInstanceThickness).toBe(BAR)
+			--
+			-- READ THIS AS A STATEMENT ABOUT THE FAKE (red-team T1, 2026-08-13). The
+			-- fixture opts the fake target into the thickness itself, so every number in
+			-- this file — including the failure message below, which names
+			-- `src/client/screen_target.luau` — is about `tests/lib/fake_target.luau`'s
+			-- mirrored `setScrollIndicatorPolicy`. What this file proves is the LAYOUT
+			-- CONSEQUENCE of the reserve; that the live adapter's TWO write sites still
+			-- publish it this way is pinned from source in `tests/scroll_indicators.spec.luau`
+			-- ("the LIVE ScreenTarget publishes the reserve through TWO sanctioned
+			-- writes"), and nowhere else.
+		end
+	)
 end)
 
 -- ===== the recorded defect ================================================

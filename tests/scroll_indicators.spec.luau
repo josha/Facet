@@ -332,7 +332,8 @@ describe("the LIVE ScreenTarget publishes the reserve through TWO sanctioned wri
 	-- brand-new adapter answers with before the environment's first fact has ever
 	-- been pushed. It is deliberately NOT policy-aware — at construction there is no
 	-- policy yet — and stays the value `forceScrollFallback` alone can zero.
-	local CONSTRUCTION_WRITE = "adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS"
+	local CONSTRUCTION_WRITE =
+		"adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS"
 	-- THE REAL RESERVE (director ruling 2026-08-28, screen_scroll_indicators.luau):
 	-- restated on every `setScrollIndicatorPolicy` call, which the boot sequence
 	-- guarantees runs before anything mounts (see "boot applies the session's
@@ -344,7 +345,7 @@ describe("the LIVE ScreenTarget publishes the reserve through TWO sanctioned wri
 	-- scan below actually sees, since the `then`/`else` continuation lines carry no
 	-- `adapter.scrollBarThickness` substring and never reach that scan's filter
 	local POLICY_WRITE_HEAD = 'adapter.scrollBarThickness = if forceScrollFallbackMode or state.policy == "auto"'
-	local POLICY_WRITE = POLICY_WRITE_HEAD .. '\n\t\t\tthen 0\n\t\t\telse SCROLL_BAR_THICKNESS'
+	local POLICY_WRITE = POLICY_WRITE_HEAD .. "\n\t\t\tthen 0\n\t\t\telse SCROLL_BAR_THICKNESS"
 
 	it("its one constant is the same 8px the fake mirrors", function()
 		expect(string.find(source, "local SCROLL_BAR_THICKNESS = 8", 1, true) ~= nil).toBe(true)

@@ -63,31 +63,6 @@
 	the probe) is still owed before this round's device pass closes.
 ]]
 
---[[ HOW `transform_footprint` IS FOUND (task SHOWCASE2 defect A — this file was
-	the SECOND live instance of the same class the "All controls" empty-mount
-	defect proved: a bare `require("../../../src/layout/transform_footprint")`
-	resolved under Lune but not live in Studio, measured with the identical
-	engine error `could not get parent of component ".."`. Fixed the same way
-	`adaptive_controls.luau`'s `chrome_slots` reach and `sensory_feedback.luau`'s
-	`resolveAdapterModule` already establish for this two-trees reach: try the
-	ENGINE route, fall back to the FILE route, both pcall-guarded. ]]
-local function resolveTransformFootprint(): any?
-	local engineOk, engineResult = pcall(function(): any
-		return require((game :: any):GetService("ReplicatedStorage").Facet.layout.transform_footprint)
-	end)
-	if engineOk and engineResult ~= nil then
-		return engineResult
-	end
-	local fileOk, fileResult = pcall(function(): any
-		return require("../../../src/layout/transform_footprint")
-	end)
-	if fileOk and fileResult ~= nil then
-		return fileResult
-	end
-	return nil
-end
-local transform_footprint = resolveTransformFootprint()
-
 -- the fade's resting stop: low enough that a doubled overlap is unmistakable,
 -- high enough that both plates are still on screen (the same reasoning
 -- `canvas_group.luau`'s STOPS[3] = 0.4 documents for its own resting value)
@@ -143,18 +118,22 @@ local CLUSTER_W, CLUSTER_H = 100, 70
 -- named it as owed. `FOOTPRINT_SLACK` stays HERE: it is this demo's own
 -- buffer choice (api.md's worked rounding example), never part of the
 -- reservation math itself.
+--
+-- IT IS READ OFF THE PUBLIC LIBRARY, `Facet.layout.transformFootprint`, and
+-- therefore off the handle `build` is already given — never off
+-- `src/layout/transform_footprint`. That internal reach is what forced this
+-- file's old two-route pcall resolver (ENGINE path first, FILE path second),
+-- because `src` and this directory mount as SIBLING trees in the built place
+-- and a bare relative require resolved under Lune but not live in Studio (task
+-- SHOWCASE2 defect A). A public member of the library the host hands in needs
+-- no resolution on either tree, so the resolver is gone and with it the
+-- degraded "both routes failed" branch — the export cannot be missing, and a
+-- fallback that can never fire is a claim nothing can check.
 local FOOTPRINT_SLACK = 6
-local function turnedFootprint(w: number, h: number, scale: number, deg: number): (number, number)
-	-- `transform_footprint == nil` only if BOTH resolution routes failed (see
-	-- `resolveTransformFootprint` above) — degrade to the unrotated footprint
-	-- rather than erroring the whole fixture out of the picker.
-	if transform_footprint == nil then
-		return w + FOOTPRINT_SLACK, h + FOOTPRINT_SLACK
-	end
-	local fw, fh = transform_footprint.transformFootprint(w, h, scale, deg)
+local function turnedFootprint(Facet: any, w: number, h: number, scale: number, deg: number): (number, number)
+	local fw, fh = Facet.layout.transformFootprint(w, h, scale, deg)
 	return fw + FOOTPRINT_SLACK, fh + FOOTPRINT_SLACK
 end
-local STAGE_W, STAGE_H = turnedFootprint(CLUSTER_W, CLUSTER_H, TURN_SCALE, TURN_ROTATION)
 local PLATE_W, PLATE_H = 70, 40
 local MARKER = 20
 
@@ -198,6 +177,11 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("nested-compositing")
+		-- the stage's reservation, computed HERE rather than at module scope
+		-- because `Facet.layout.transformFootprint` arrives with `ctx` (see
+		-- `turnedFootprint` above). Same three constants, same numbers: a
+		-- 100x70 cluster at 1.5x / 30° is 182.40 x 165.93 plus the slack.
+		local STAGE_W, STAGE_H = turnedFootprint(Facet, CLUSTER_W, CLUSTER_H, TURN_SCALE, TURN_ROTATION)
 		-- ADAPT-L4: both comparisons below say "side by side where there is room, a
 		-- column where there is not", and until 2026-08-21 neither ever went side by
 		-- side — `UI.AdaptiveStack` defaulted to a column forever. The axis is the

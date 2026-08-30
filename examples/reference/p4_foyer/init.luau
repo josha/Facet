@@ -12,46 +12,43 @@
 local strings = require("@self/content/strings")
 local seedData = require("@self/content/seed")
 local Services = require("@self/services")
---[[ HOW `chrome_slots` IS FOUND (task SHOWCASE2 defect A — this file was the
-	THIRD live instance of the same class the "All controls" empty-mount defect
-	proved). `require("../../src/tokens/chrome_slots")` is the correct FILE-
-	SYSTEM path for an `init.luau` two folders under `src/`'s sibling
-	(docs/lessons/luau-require-by-string-init-self.md — an init.luau's relative
-	require resolves against its own folder's PARENT, one fewer hop than a leaf
-	file at the same depth needs) — but live in Studio, Rojo folds
-	`p4_foyer/init.luau` into a ModuleScript named `p4_foyer` sitting under
-	`ReplicatedStorage.FacetReference`, a SIBLING of `ReplicatedStorage.Facet`
-	(`src`), not a nested descendant: the same two ".." land on
-	`ReplicatedStorage.src...`, which does not exist (measured live:
-	`could not resolve child component "src"`). Fixed the same way
-	`adaptive_controls.luau`'s `chrome_slots` reach and `sensory_feedback.
-	luau`'s `resolveAdapterModule` already establish for this two-trees reach:
-	try the ENGINE route, fall back to the FILE route, both pcall-guarded. A
-	never-nil STUB stands in if both routes fail, so every existing call site
-	below (`chrome_slots.carvedSide`) stays untouched rather than growing a
-	nil-check of its own — the stub's `carvedSide` answers 0, `carvedSide`'s
-	own documented answer for a snapshot it cannot classify. ]]
-local CHROME_SLOTS_STUB = {
-	carvedSide = function(): number
+--[[ THE CARVED BORDER, READ STRAIGHT OFF THE PUBLIC THEME SNAPSHOT.
+
+	`chromeInsets` is documented theme-snapshot data — `docs/reference/api.md`
+	"Art geometry: `chromeInsets`, `chromeOutsets` and `chromeBleed`" and
+	`docs/guide/09-custom-themes.md`: `chromeInsets[slot] = {top, right, bottom,
+	left}`, "Every slot publishes an entry, zero included", to be "read directly
+	only when a caller must predict a decorated node's *content* box". The badge
+	bubble below must land INSIDE its host's carved border, which is exactly
+	that caller and the only reason this proof reads the map at all.
+
+	WHAT USED TO BE HERE, AND WHY IT IS GONE. This read went through
+	`src/tokens/chrome_slots.carvedSide`, reached by a two-route pcall (the
+	ENGINE path `ReplicatedStorage.Facet.tokens.chrome_slots` first, the FILE
+	path `require("../../src/tokens/chrome_slots")` second) plus a never-nil
+	stub — the shape task SHOWCASE2 defect A introduced after a bare relative
+	require resolved under Lune but NOT live in Studio, where Rojo folds this
+	`init.luau` into `ReplicatedStorage.FacetReference.p4_foyer`, a SIBLING of
+	`ReplicatedStorage.Facet` rather than a descendant. All of that existed only
+	to reach a framework INTERNAL, which is what `tools/lune/check_boundary`'s
+	`consumer-requires-facet-internal` rule flags an example for. The public
+	field needs no resolution on either tree, so there is nothing left to
+	resolve and no stub for a route that cannot fail.
+
+	The local below keeps `carvedSide`'s exact defensiveness and its exact
+	answers: a non-table snapshot, a missing slot, or a non-number side all read
+	`0`, because a flat package legitimately carves nothing and that is not an
+	error. Two call sites, one per axis — deliberately NOT a shared example
+	utility module. ]]
+local function carvedSide(snapshot: any?, slot: string, side: string): number
+	if type(snapshot) ~= "table" then
 		return 0
-	end,
-}
-local function resolveChromeSlots(): any
-	local engineOk, engineResult = pcall(function(): any
-		return require((game :: any):GetService("ReplicatedStorage").Facet.tokens.chrome_slots)
-	end)
-	if engineOk and engineResult ~= nil then
-		return engineResult
 	end
-	local fileOk, fileResult = pcall(function(): any
-		return require("../../src/tokens/chrome_slots")
-	end)
-	if fileOk and fileResult ~= nil then
-		return fileResult
-	end
-	return CHROME_SLOTS_STUB
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	local px = if type(plate) == "table" then (plate :: any)[side] else nil
+	return if type(px) == "number" then px else 0
 end
-local chrome_slots = resolveChromeSlots()
 
 local Foyer = {}
 
@@ -626,20 +623,20 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	-- as its precedent). Both call sites below (`AddTile`'s invite count,
 	-- `BellZ`'s notice count) decorate a `shape = "circle"` Button with no
 	-- declared `surface`, which classifies to the same `control` slot by the
-	-- CLASS-only fallback rule (`chrome_slots.classify`), so one memo, read
-	-- live off the theme snapshot, covers both sites. PER AXIS
-	-- (`chrome_slots.carvedSide`, review finding T1): a corner offset pads two
-	-- independent sides, and the scalar `carvedBorder` max over-clears the
-	-- short axis of any package whose `control` chrome is not itself
-	-- symmetric (fantasy_ornate: top=10, right=14). Zero on every flat
+	-- CLASS-only fallback rule the framework's own classifier applies, so one
+	-- memo, read live off the theme snapshot, covers both sites. PER AXIS
+	-- (`carvedSide` at the top of this file, review finding T1): a corner
+	-- offset pads two independent sides, and a scalar four-sided max
+	-- over-clears the short axis of any package whose `control` chrome is not
+	-- itself symmetric (fantasy_ornate: top=10, right=14). Zero on every flat
 	-- package (`chromeInsets` is all-zero there), so shipped geometry there is
 	-- unchanged.
 	local badgeCornerInset = scope:own(core:memo(function(use)
 		local raw = use(env:get("themeMetrics"))
 		local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
 		return {
-			top = chrome_slots.carvedSide(snap, "control", "top"),
-			right = chrome_slots.carvedSide(snap, "control", "right"),
+			top = carvedSide(snap, "control", "top"),
+			right = carvedSide(snap, "control", "right"),
 		}
 	end))
 	local function badgeBubble(countMemo: any): any

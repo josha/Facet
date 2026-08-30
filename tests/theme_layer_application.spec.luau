@@ -333,7 +333,8 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		-- ...and the two FLOORS (task THEME): the label's own line box, so this seam
 		-- and `spendInset` reach the same verdict about a control too small for its frame
 		expect(
-			string.find(geom, "plaque or chrome_slots.liftGeometry(plan, hostW, hostH, lineBox, lineBox)", 1, true) ~= nil
+			string.find(geom, "plaque or chrome_slots.liftGeometry(plan, hostW, hostH, lineBox, lineBox)", 1, true)
+				~= nil
 		).toBe(true)
 		expect(string.find(geom, "local plaque = chrome_slots.plaqueTextBox(plan)", 1, true) ~= nil).toBe(true)
 		-- ...and the PLAQUE path takes no full-bleed compensation. The generic lift is

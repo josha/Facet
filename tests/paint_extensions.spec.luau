@@ -435,7 +435,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		expect(`applyTint found: {#tint > 0}`).toBe("applyTint found: true")
 		-- gated on all three: fallback mode, the circle shape, and NO surface ever
 		-- declared — a surfaced node's UICorner belongs to applySurface alone
-		expect(contains(tint, "not nativeMode and handle.shape == \"circle\" and handle.declaredSurface == nil")).toBe(
+		expect(contains(tint, 'not nativeMode and handle.shape == "circle" and handle.declaredSurface == nil')).toBe(
 			true
 		)
 		-- guarded against a second UICorner on a node applySurface already carved

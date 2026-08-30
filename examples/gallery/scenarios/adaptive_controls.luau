@@ -38,41 +38,41 @@
 --                                        still plays nothing; it says what
 --                                        happened and a subscriber decides.
 
---[[ HOW `chrome_slots` IS FOUND (task SHOWCASE2 defect A). A bare
-	`require("../../../src/tokens/chrome_slots")` here resolved under Lune
-	(file-system path) but NOT live in Studio: `tools/build_places.sh` /
-	`tools/lune/lib/studio_tree.luau` map `src` to `ReplicatedStorage.Facet` and
-	this directory to `ReplicatedStorage.FacetScenarios` — SIBLING trees in the
-	built place, not nested, even though one sits three folders above the other
-	on disk. Measured live: `error requiring "../../../src/tokens/chrome_slots":
-	could not get parent of component ".."` — the "All controls" demo failed to
-	mount at all, since this was a MODULE-SCOPE, unguarded require.
+--[[ THE CARVED BORDER, READ STRAIGHT OFF THE PUBLIC THEME SNAPSHOT.
 
-	Same idiom `sensory_feedback.luau`'s `resolveAdapterModule` already
-	established for exactly this reach (a utility with no public-surface
-	equivalent): try the ENGINE route first, fall back to the FILE route, both
-	pcall-guarded, so a missing route degrades to `nil` (native geometry,
-	`badgeCornerInset` reads 0) instead of failing the whole scenario's
-	`require`. `nested_compositing.luau` (`transform_footprint`) and
-	`examples/reference/p4_foyer/init.luau` (`chrome_slots`) carried the exact
-	same bug and are fixed the same way in the same round;
-	`tools/lune/check_scenario_requires.luau` now guards the class headlessly. ]]
-local function resolveChromeSlots(): any?
-	local engineOk, engineResult = pcall(function(): any
-		return require((game :: any):GetService("ReplicatedStorage").Facet.tokens.chrome_slots)
-	end)
-	if engineOk and engineResult ~= nil then
-		return engineResult
+	`chromeInsets` is documented theme-snapshot data — `docs/reference/api.md`
+	"Art geometry: `chromeInsets`, `chromeOutsets` and `chromeBleed`" and
+	`docs/guide/09-custom-themes.md`: `chromeInsets[slot] = {top, right, bottom,
+	left}`, "Every slot publishes an entry, zero included", to be "read directly
+	only when a caller must predict a decorated node's *content* box". A corner
+	badge that must land INSIDE the tile's carved border is exactly that caller,
+	and it is the only reason this fixture reads the map at all.
+
+	WHAT USED TO BE HERE, AND WHY IT IS GONE. This read went through
+	`src/tokens/chrome_slots.carvedSide`, reached by a two-route pcall (the
+	ENGINE path `ReplicatedStorage.Facet.tokens.chrome_slots` first, the FILE
+	path `require("../../../src/tokens/chrome_slots")` second) — the shape task
+	SHOWCASE2 defect A introduced after a bare relative require resolved under
+	Lune but NOT live in Studio, where `src` and this directory mount as SIBLING
+	trees. Both halves of that dance existed only to reach a framework INTERNAL,
+	which is what `tools/lune/check_boundary`'s `consumer-requires-facet-internal`
+	rule flags an example for. The public field needs no resolution on either
+	tree, so there is nothing left to resolve and no fallback that could fire.
+
+	The local below keeps `carvedSide`'s exact defensiveness and its exact
+	answers: a non-table snapshot, a missing slot, or a non-number side all read
+	`0`, because a flat package legitimately carves nothing and that is not an
+	error. Two call sites, one per axis — deliberately NOT a shared example
+	utility module. ]]
+local function carvedSide(snapshot: any?, slot: string, side: string): number
+	if type(snapshot) ~= "table" then
+		return 0
 	end
-	local fileOk, fileResult = pcall(function(): any
-		return require("../../../src/tokens/chrome_slots")
-	end)
-	if fileOk and fileResult ~= nil then
-		return fileResult
-	end
-	return nil
+	local insets = (snapshot :: any).chromeInsets
+	local plate = if type(insets) == "table" then (insets :: any)[slot] else nil
+	local px = if type(plate) == "table" then (plate :: any)[side] else nil
+	return if type(px) == "number" then px else 0
 end
-local chrome_slots = resolveChromeSlots()
 
 return {
 	title = "Adaptive controls (write-once)",
@@ -322,30 +322,25 @@ return {
 		-- under a package that carves a border into `surface = "control"`
 		-- (Pixel Quest's is 8px per side) the badge sat on top of it. Same
 		-- class `src/controls/picker.luau`'s count seal had this round, fixed
-		-- the same way: `chrome_slots.carvedBorder` reads the largest carved
-		-- side of the `control` slot's own chrome, live off the theme
-		-- snapshot. Zero on every flat package, so shipped geometry there is
-		-- unchanged.
+		-- the same way: the `control` slot's own carved chrome, read live off
+		-- the theme snapshot. Zero on every flat package, so shipped geometry
+		-- there is unchanged.
 		local badgeCornerInset = scope:own(core:memo(function(use)
-			-- PER AXIS (review finding T1): `carvedBorder`'s shared four-sided max
-			-- over-clears the short axis of an asymmetric package (fantasy_ornate's
-			-- `control` is top=10/right=14) — see `chrome_slots.carvedSide`'s own
-			-- comment. Same fix as `src/controls/picker.luau`'s count seal.
+			-- PER AXIS (review finding T1): a shared four-sided max (the scalar
+			-- `carvedBorder` shape) over-clears the short axis of an asymmetric
+			-- package (fantasy_ornate's `control` is top=10/right=14). A corner
+			-- badge pads two INDEPENDENT sides, so it reads one side per axis.
+			-- Same fix as `src/controls/picker.luau`'s count seal.
 			--
 			-- THE SAME SANITY GUARD `picker.luau`'s `metricsSig` carries (review
 			-- finding T3): a malformed `themeMetrics` fact (any shape without a
-			-- `.controls` table) falls back to nil rather than being handed to
-			-- `carvedSide` as-is. Harmless either way (`carvedSide` already returns
-			-- 0 for a non-table snapshot), but the two consumers had no stated
-			-- reason to differ on this, so they no longer do.
+			-- `.controls` table) falls back to nil rather than being read as-is.
+			-- Harmless either way (`carvedSide` above already answers 0 for a
+			-- non-table snapshot), but the two consumers had no stated reason to
+			-- differ on this, so they no longer do.
 			local raw = use(ctx.env:get("themeMetrics"))
 			local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
-			-- `chrome_slots == nil` only if BOTH resolution routes failed (see
-			-- `resolveChromeSlots` above) — degrade to native geometry (no carve)
-			-- rather than erroring, same as `carvedSide`'s own non-table fallback.
-			local top = if chrome_slots then chrome_slots.carvedSide(snap, "control", "top") else 0
-			local right = if chrome_slots then chrome_slots.carvedSide(snap, "control", "right") else 0
-			return { top = top, right = right }
+			return { top = carvedSide(snap, "control", "top"), right = carvedSide(snap, "control", "right") }
 		end))
 		local function badgedTile(id: string, badge: string)
 			return UI.overlay(

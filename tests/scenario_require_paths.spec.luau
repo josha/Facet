@@ -74,11 +74,12 @@ describe("scenario_require_paths: every gallery/scenario/reference require resol
 	end)
 
 	it("does NOT fire on the same literal string used inside the SAFE dual-route idiom", function()
-		-- the established idiom (`resolveAdapterModule`/`resolveChromeSlots`)
-		-- keeps this exact string as its Lune-only fallback route, indented
-		-- inside a pcall — the guard must tell that apart from an unguarded
-		-- module-scope require, or it would break the very idiom it exists to
-		-- push authors toward.
+		-- the established idiom (`sensory_feedback.luau`'s
+		-- `resolveAdapterModule`, the one live user now that the three
+		-- historical sites read the public surface instead) keeps this exact
+		-- string as its Lune-only fallback route, indented inside a pcall — the
+		-- guard must tell that apart from an unguarded module-scope require, or
+		-- it would break the very idiom it exists to push authors toward.
 		local result = checker.check({
 			injectFile = KNOWN_BAD_FILE,
 			injectLine = 'local function mutationProbe()\n\tlocal ok, mod = pcall(function()\n\t\treturn require("../../../src/tokens/chrome_slots")\n\tend)\n\treturn ok and mod or nil\nend',

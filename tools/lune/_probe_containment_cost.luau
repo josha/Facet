@@ -19,10 +19,12 @@ for i, zone in { "bottomLeft", "bottomRight", "left" } do
 	table.insert(REGIONS, { id = id, group = zone, rank = 10 + i, forms = 1 })
 end
 
-local CTX = { measure = function(id: string, _f: number, _w: number, _h: number): (number, number)
-	local s = SIZES[id]
-	return s.w, s.h
-end }
+local CTX = {
+	measure = function(id: string, _f: number, _w: number, _h: number): (number, number)
+		local s = SIZES[id]
+		return s.w, s.h
+	end,
+}
 
 local DECL = { groups = composition.HUD_GROUPS, arrangements = { composition.HUD }, regions = REGIONS }
 
@@ -51,10 +53,7 @@ local function scan(r: any): number
 		if lane == nil then
 			continue
 		end
-		if
-			(reg.rect.y + reg.rect.h) - (lane.rect.y + lane.rect.h) > 0.5
-			or lane.rect.y - reg.rect.y > 0.5
-		then
+		if (reg.rect.y + reg.rect.h) - (lane.rect.y + lane.rect.h) > 0.5 or lane.rect.y - reg.rect.y > 0.5 then
 			hits += 1
 		end
 	end

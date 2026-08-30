@@ -20,8 +20,8 @@
 	  - examples/gallery/scenarios/nested_compositing.luau (transform_footprint).
 	  - examples/reference/p4_foyer/init.luau (chrome_slots).
 
-	All three are now fixed with the idiom `sensory_feedback.luau`'s
-	`resolveAdapterModule` already established: try the ENGINE route
+	They were first fixed with the idiom `sensory_feedback.luau`'s
+	`resolveAdapterModule` established: try the ENGINE route
 	(`require((game):GetService("ReplicatedStorage").Facet...)`) first, fall back
 	to the FILE route (the same literal string this guard would otherwise flag),
 	both pcall-guarded, resolved lazily inside a function — never at module scope.
@@ -31,8 +31,21 @@
 	UNCONDITIONALLY when the module loads: `require(...)` on a line with ZERO
 	leading whitespace (module scope). A guarded fallback always sits indented
 	inside a `pcall(function() ... end)` body, so this is precise, not a proxy —
-	confirmed against all three fixed sites plus both already-shipped safe
-	fallbacks (sensory_feedback.luau, and this file's own two new ones).
+	confirmed against the fixed sites plus both already-shipped safe fallbacks
+	(sensory_feedback.luau, and this file's own two new ones).
+
+	THE THREE SITES ABOVE NO LONGER REACH ACROSS THE TREES AT ALL (2026-08-29).
+	The engine route is an INSTANCE PATH into a framework internal, which is what
+	`tools/lune/check_boundary`'s `consumer-requires-facet-internal` rule flags an
+	example for — so all three moved onto the public surface they never needed to
+	leave: `Facet.layout.transformFootprint` off the library handle the host
+	already passes in, and the documented `chromeInsets` field of the theme
+	snapshot both badge sites already held. Nothing resolves, so nothing had to be
+	resolved. `sensory_feedback.luau`'s reach for a CLIENT ADAPTER module — which
+	genuinely has no public equivalent — is the one live user of the idiom, and it
+	is what keeps this guard's negative cases honest. The guard itself is
+	unchanged and still enforcing: the class it names is a property of the two
+	mount trees, not of these three files.
 
 	Scope: every EXAMPLE/SCENARIO/REFERENCE file the `studio_sync` manifest would
 	serve into the same place `tools/studio/inject.luau` patches Studio with —
