@@ -633,6 +633,8 @@ require("./drag_public.spec")
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)
 require("./row_actions.spec")
+-- row actions: the dump() seam (task EXTRACT2) — one-way, READ==DECLARED==PASSED
+require("./row_actions_dump_seam.spec")
 require("./row_capability_optouts.spec")
 -- ...and the SHOWCASE surface for that family (parity round 3 item C, standing
 -- rule 4): the fixture a player opens, its three refusals driven through a real

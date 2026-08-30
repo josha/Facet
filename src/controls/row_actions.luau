@@ -9,11 +9,13 @@
 -- — Tasks 5-8) and the coordinator (Task 7) build on the seams declared here
 -- without touching this file's structure.
 --
---[[ WHERE THE REST OF IT LIVES (split 2026-08-14). This file is the ONE ENGINE
-	and nothing else. Five siblings hold the periphery, and every one of them
-	passed the same test before it left: does it read or write a MUTABLE upvalue
-	of `buildEngine`? None does — each takes build-time facts and reactive nodes
-	this closure creates once and never reassigns.
+--[[ WHERE THE REST OF IT LIVES (split 2026-08-14; row_actions_dump added
+	2026-08-29, task EXTRACT2). This file is the ONE ENGINE and nothing else.
+	Seven siblings hold the periphery, and every one of them passed the same
+	test before it left: does it read or write a MUTABLE upvalue of
+	`buildEngine`? None does — each takes build-time facts and reactive nodes
+	this closure creates once and never reassigns (row_actions_dump: values,
+	taken fresh at call time — see its own header).
 
 	  row_actions_spec.luau        the ActionSpec authoring contract (validation),
 	                               `Edge`/`ActionSpec`, patternEscape/isPathPrefix/
@@ -32,6 +34,8 @@
 	                               trays, the sliding Content, the Hit Grip and
 	                               the edit minus, in paint order. Hosted mode
 	                               builds none of it.
+	  row_actions_dump.luau        the `dump()` schema build, called fresh by
+	                               value on every `api.dump()` — see its own header.
 
 	WHY: this file crossed 200,000 characters, which is the cap on ASSIGNING
 	`Script.Source` — the path Rojo live-sync, `execute_luau` and every plugin
@@ -177,6 +181,8 @@ local rowActionsTrays = require("./row_actions_trays")
 -- ...and the standalone/Table row node those trays are parented under. Hosted
 -- mode builds none of it, which is the whole point of hosted mode.
 local rowActionsRoot = require("./row_actions_root")
+-- ...and the `dump()` schema build (task EXTRACT2), called fresh by value.
+local rowActionsDump = require("./row_actions_dump")
 
 -- ALIASED AT MODULE SCOPE, above every caller, deliberately — a local declared
 -- LATER is not an upvalue, it silently captures a nil global
@@ -2752,33 +2758,17 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- anything reading the dump. `committed` wins outright, ahead of the
 	-- `edge == nil` check, for the identical reason `isOpen()` above checks
 	-- it first.
+	-- schema build moved to row_actions_dump.luau (task EXTRACT2); this reads
+	-- today's live values once and hands them over by value.
 	local function dump()
-		local edge = openEdge:get()
-		local phase
-		if committed then
-			phase = "committing"
-		elseif edge == nil then
-			phase = "closed"
-		else
-			phase = "open"
-		end
-		return {
-			schema = "facet-rowactions-dump/1",
+		return rowActionsDump.build({
 			id = id,
-			offset = offset:get(),
-			openEdge = edge,
-			phase = phase,
-			-- Task 8: the action menu's own open state, independent of the
-			-- tray's `openEdge`/`phase` above.
+			offsetPx = offset:get(),
+			openEdge = openEdge:get(),
+			committed = committed,
 			menuOpen = menuOpen:get(),
-			-- ruling 4: the height the FLIP decision is made against, published so a
-			-- test can compare the number this file actually uses with the one the
-			-- solver paints. Without it the only available check compares the solver
-			-- against a second copy of the same arithmetic written in the test — a
-			-- check that cannot see this file being wrong, which is the class
-			-- docs/lessons and the simplicity gate both name.
 			menuHeightPx = predictedMenuHeight(),
-		}
+		})
 	end
 
 	-- REDTEAM FIX (item 11, MEDIUM): `handleActivate` (below, in the `else`

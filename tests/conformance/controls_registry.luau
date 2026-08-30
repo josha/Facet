@@ -1299,6 +1299,32 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- the `dump()` schema build itself (task EXTRACT2, 2026-08-29): `build(p)`
+		-- takes today's committed/offset/openEdge/menuOpen/menuHeightPx BY VALUE
+		-- and returns the schema table the row engine's own `api.dump()` hands
+		-- back. NOT a control in its own right — it is the diagnostics-snapshot
+		-- half of RowActions, holding no instance of its own. Lifted out of
+		-- src/controls/row_actions.luau because a fresh, one-shot snapshot call
+		-- needs no live reference to the closure it left, which is what let that
+		-- file pay down its own 200,000-char `Script.Source` WRITE cap trigger
+		-- (docs/handoff/SOURCE_CAP_LEDGER.md,
+		-- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		name = "RowActionsDump",
+		kind = "composite",
+		module = "src/controls/row_actions_dump.luau",
+		export = "Controls.RowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions_dump_seam.spec.luau",
+		docsAnchor = "newRowActions",
+		-- NO INSTANCE: `build(p)` is a pure, one-shot function of its arguments.
+		-- What it returns IS the row engine's own dump() — there is no second
+		-- state to summarize.
+		dump = false,
+		reason = "build(p) is a pure one-shot snapshot function with no instance of its own — its return value IS the row engine's dump(), not a second thing to report",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "VirtualGrid",
 		kind = "composite",
 		module = "src/controls/virtual_grid.luau",
