@@ -54,6 +54,23 @@ local current = "<preload>"
 
 local cases: { { owner: string, name: string, ms: number } } = {}
 
+--[[ THE PROGRESS CURVE (added 2026-08-29, stage example-games-and-standalones).
+
+	A per-file ranking answers "which spec is dear". It cannot answer the
+	question this stage actually opened, which is why the suite went from 83 s at
+	5,618 cases to 1,587 s at 7,678 with a 14 GB peak: if the cost is one bad
+	spec the ranking finds it, and if the cost is a heap that grows all run and
+	makes the collector charge everybody, the ranking blames whichever specs
+	happen to run last.
+
+	So every case also records where it sat in the run order and what the heap
+	measured immediately after it. A rising `heapKb` with a rising per-case `ms`
+	is GC pressure and the defect is a retention; a flat heap with one spike is
+	an ordinary slow spec. The two have completely different fixes, and nothing
+	in this harness could previously tell them apart. ]]
+local progress: { { i: number, atMs: number, heapKb: number, owner: string } } = {}
+local caseOrdinal = 0
+
 local originalIt = testkit.it
 testkit.it = function(name: string, fn: () -> ())
 	local owner = current
@@ -66,6 +83,17 @@ testkit.it = function(name: string, fn: () -> ())
 		local dt = os.clock() - t0
 		record.ms = dt * 1000
 		caseClock[owner] = (caseClock[owner] or 0) + dt
+		caseOrdinal += 1
+		-- sampled, not every case: `collectgarbage("count")` is cheap but 7,678
+		-- rows of it is noise, and the curve is what matters
+		if caseOrdinal % 25 == 0 then
+			table.insert(progress, {
+				i = caseOrdinal,
+				atMs = os.clock() * 1000,
+				heapKb = collectgarbage("count"),
+				owner = owner,
+			})
+		end
 		if not ok then
 			error(err, 0)
 		end
@@ -132,6 +160,29 @@ table.insert(lines, "rank\tcase_ms\tspec\tcase")
 for i = 1, math.min(30, #cases) do
 	local c = cases[i]
 	table.insert(lines, string.format("%d\t%.1f\t%s\t%s", i, c.ms, c.owner, c.name))
+end
+
+-- ...and the progress curve. `ms_per_case` is the average over the twenty-five
+-- cases ending at this sample, so a rising column IS the slowdown, measured
+-- rather than inferred.
+table.insert(lines, "")
+table.insert(lines, "case_index\telapsed_ms\theap_kb\tms_per_case\tspec_at_sample")
+local prevAt, prevI = wallStart * 1000, 0
+for _, p in progress do
+	local span = p.atMs - prevAt
+	local n = p.i - prevI
+	table.insert(
+		lines,
+		string.format(
+			"%d\t%.0f\t%.0f\t%.1f\t%s",
+			p.i,
+			p.atMs - wallStart * 1000,
+			p.heapKb,
+			span / math.max(1, n),
+			p.owner
+		)
+	)
+	prevAt, prevI = p.atMs, p.i
 end
 
 local json: { string } = {}

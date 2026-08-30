@@ -139,6 +139,36 @@ current_load() {
 	uptime | sed 's/.*load averages*: *//' | awk '{print $1}' | tr -d ','
 }
 
+# ...AND ONLY BEFORE THE GATES THAT MEASURE SOMETHING (stage
+# example-games-and-standalones, 2026-08-29). The settle above is charged to
+# every gate, and with thirty-two registered stages that is up to twenty-four
+# minutes of deliberate idling in one sweep. Twelve stages run bench/soak/perf/
+# faults/fuzz; the other twenty run source scanners, document checks, greps of a
+# cached transcript and file-existence assertions, none of which can answer
+# differently on a warm machine.
+#
+# THE LIST IS DERIVED FROM THE MANIFEST, NEVER TYPED HERE. A hand-kept list of
+# "timing-sensitive gates" is wrong the first time somebody adds a bench row to a
+# stage that did not have one, and wrong SILENTLY — the new row simply starts
+# measuring a busy machine and the flake surfaces weeks later attached to the
+# wrong change. tools/lune/settle_gates reads every stage's own commands.
+#
+# AND IT FAILS TOWARDS SETTLING. If that helper cannot run, every gate settles,
+# exactly as before: the cost of an unnecessary wait is time, the cost of a
+# missing one is a red gate nobody can reproduce.
+SETTLE_STAGES=""
+if SETTLE_STAGES="$(lune run tools/lune/settle_gates 2>/dev/null)" && [ -n "$SETTLE_STAGES" ]; then
+	echo "prior_gates: settling before $(echo "$SETTLE_STAGES" | wc -l | tr -d ' ') of ${#gates[@]} gates (the ones that measure)" >&2
+else
+	SETTLE_STAGES=""
+	echo "prior_gates: could not derive the settle set — settling before EVERY gate" >&2
+fi
+
+measures_time() {
+	[ -z "$SETTLE_STAGES" ] && return 0
+	printf '%s\n' "$SETTLE_STAGES" | grep -qx "$1"
+}
+
 # See RECURSION GUARD in the header. Exported here rather than per-invocation so
 # it reaches tools/gate.sh -> lune -> the check's own `bash -c`.
 export FACET_PRIOR_GATES_NESTED=1
@@ -150,10 +180,12 @@ export FACET_PRIOR_GATES_NESTED=1
 # standalone, failed inside a sweep running against two other sweeps, a Studio
 # session and three agents). Recording the settle policy and the load each gate
 # actually started at makes a suspicious FAIL self-diagnosing.
-echo "# settle: max=${PRIOR_GATES_SETTLE_MAX:-45}s threshold=${PRIOR_GATES_SETTLE_LOAD:-2} (1-min load average)" >"$tmp"
+echo "# settle: max=${PRIOR_GATES_SETTLE_MAX:-45}s threshold=${PRIOR_GATES_SETTLE_LOAD:-2} (1-min load average); applied to $(if [ -z "$SETTLE_STAGES" ]; then echo "EVERY gate (derivation unavailable)"; else echo "$(printf '%s\n' "$SETTLE_STAGES" | wc -l | tr -d ' ') measuring gate(s) of ${#gates[@]}"; fi)" >"$tmp"
 
 for g in "${gates[@]}"; do
-	settle
+	if measures_time "$g"; then
+		settle
+	fi
 	started_at_load="$(current_load)"
 	log="$(tools/gate.sh "$g" 2>&1)"
 	code=$?
