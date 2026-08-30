@@ -31,7 +31,22 @@ both numbers so a reader can see which is which.
 
 ## The corpus
 
-<!--CORPUS-->
+| # | Mutation | Phase | Kind | Why it is in the corpus |
+|---|---|---|---|---|
+| M1 | a focus case's expectation is broken (`.toBeTruthy()` → `.toBeFalsy()`) | `phase-0-foundation` | parity | the plain failing-test case: a red case must redden every row that cites it |
+| M2 | a spec's `require` is deleted from `tests/run.luau` | `api-architecture-consistency` | parity | an unregistered spec is a SILENT ZERO — the suite still exits 0, with a smaller number |
+| M3 | the suite is truncated by a main-thread yield | `phase-0-foundation` | parity | the run ends EARLY AND WITH EXIT 0, so the exit code proves nothing |
+| M4 | an `it()` a gate row names is renamed | `phase-0-foundation` | parity | the changed-test-ID mutation: a missing id must be a loud FAIL, never a satisfied lookup |
+| M5 | a stored result is edited after it was written | `phase-0-foundation` | new-only | the body hash: a hand-edited result must be refused, not served |
+| M6 | a result claims a different toolchain (re-hashed, so only that rule can fire) | `phase-0-foundation` | new-only | a result taken under another toolchain is not this tree's evidence |
+| M7 | an evidence document a row pins is deleted | `navigation-and-menus` | parity | a row whose evidence is gone must not pass on the strength of its other clauses |
+| M8 | a retired product name is planted in a public guide | `release-candidate-review` | parity | a scanner producer that fails must redden every row that asserts its exit 0 |
+| M9 | a require of the excised third-party core is planted in `src/` | `distribution-readiness` | parity | the hard no-third-party-core check, exercised as a producer |
+| M10 | a stored result is offered after an input changed | `phase-0-foundation` | reuse | identity: the suite's result must NOT be reused after a source edit |
+| M11 | a partial suite result is offered (a quarter of the cases, re-hashed) | `phase-0-foundation` | new-only | truncation: fewer specs reported than registered must be refused |
+| M12 | a perf-class result is offered to a deterministic row (re-hashed) | `phase-0-foundation` | new-only | evidence classes are never upgraded by a headless cache |
+| M13 | a PENDING row is flipped to PASS with nothing behind it | `distribution-readiness` | parity | the cheapest way to fake a gate; only the new path has a graph to fake |
+
 
 ## Results
 

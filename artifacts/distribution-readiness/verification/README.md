@@ -11,8 +11,8 @@ manifest row became), `coverage-map.md` (nothing removed without a home),
 
 | Was | Is |
 |---|---|
-| 233 rows, each spending one cached suite transcript and grepping it for a sentence — 1,425 patterns in all | 193 rows looking up 9,335 case ids in ONE structured suite result (`facet-suite-results/1`, written by `tests/lib/testkit.luau`) |
-| 266 scanner invocations of 124 distinct commands, many byte-identical | 134 producers, each run at most once per exact input identity |
+| 233 rows, each spending one cached suite transcript and grepping it for a sentence — 1,421 patterns in all | 193 rows looking up 9,341 case ids in ONE structured suite result (`facet-suite-results/1`, written by `tests/lib/testkit.luau`) |
+| 266 scanner invocations of 124 distinct commands, many byte-identical | 133 producers, each run at most once per exact input identity |
 | 16 `prior-gates-unregressed` rows, each re-running every earlier gate, each of which re-ran ITS priors | one lookup: every earlier phase's rows, evaluated from the same run |
 | 74 rows pinning a checked-in ledger of a closed stage by path and literal string | recorded machine evidence keeps its row as a content-hash receipt; a record of a past decision leaves the graph for `coverage-map.md` |
 | `tools/lune/gate.luau` running a phase's rows as shell | `tools/verify.sh`, evaluating every phase view from one run |
@@ -26,9 +26,9 @@ manifest row became), `coverage-map.md` (nothing removed without a home),
 | `tools/lune/verify/results.luau` | the result store, and every reason it refuses one |
 | `tools/lune/verify/graph.luau` + `graph.json` | the graph: requirement → producer → result ids → phase view. `graph.json` is GENERATED — regenerate it, never hand-edit it |
 | `tools/lune/verify/convert_manifest.py` | the generator: splits each manifest row on top-level `&&` (round trip asserted byte for byte), resolves greps to case ids, maps commands to producers, writes the census and the coverage map |
-| `tools/lune/verify/run.luau` | producer execution: reuse or run, parallel batch then the serialized ones in dependency order, a settle before anything that measures |
+| `tools/lune/verify/run.luau` | producer execution: reuse or run, parallel batch then the serialized ones in dependency order, a settle before anything that measures AND is about to run |
 | `tools/lune/verify_cli.luau` + `tools/verify.sh` | the coordinator |
-| `tools/lune/verify/selftest.luau` | the store's own negative controls — 31 refusals, each made on purpose |
+| `tools/lune/verify/selftest.luau` | the store's own negative controls — 32 checks, each refusal made on purpose |
 | `tools/lune/verify/evidence/*.json` | one content-hash receipt per row that pins recorded evidence |
 
 ## The commands
@@ -79,5 +79,64 @@ reported separately" rather than folding it into the headless verdict.
 
 ## Numbers
 
-See `timings.md` for cold and warm release timings against the twenty-minute
-budget, the ten slowest producers, and the irreducible ones.
+| Tier | Cold | Warm | Producers | Reused warm |
+|---|---:|---:|---:|---:|
+| `full` | 308.4 s | 23.4 s | 128 | 121 / 128 |
+| `release` | **534.7 s (8 m 55 s)** | 146.5 s | 133 | 119 / 133 |
+
+The release run is 55 % of the twenty-minute budget. `timings.md` carries the
+`/usr/bin/time` lines, the ten slowest producers, the per-evidence-class split,
+the invocation trace's own answer to "did any producer run twice" (no), and the
+two irreducible producers with owner, class, cost and trigger.
+
+## What the conversion produced
+
+| Class | Rows |
+|---|---:|
+| converted to case-id lookups | 193 |
+| exit-zero on a producer | 98 |
+| evidence pins kept verbatim | 128 |
+| recorded-evidence receipts (content hash) | 47 |
+| prior-phase re-evaluation | 16 |
+| declared evidence (device / human) | 16 |
+| pending (the registration block and honest device rows) | 57 |
+| retired with their subject | 2 |
+| archived as records of past decisions | 57 |
+
+1,421 transcript greps resolved into 9,341 case-id references. Four greps match
+no case in this suite — they were red before this workstream began, they are
+named in `graph-census.md`, and they keep their grep against the ONE recorded
+transcript so their verdict is unchanged.
+
+## What is red, and why
+
+A release run reports 401 PASS and 34 FAIL_RECOVERABLE. None of the failures is
+caused by the conversion, and each is named in the run report with the smallest
+command that reproduces it:
+
+- **the product-language guard and its selftest** (4 rows) — the guard cannot
+  complete its selftest on a tree that carries pre-existing matches, and the two
+  that remain are the owner's uncommitted plan edits. Recorded by the workstream
+  that owns the guard;
+- **the public-allowlist check** (1 row) — its 615 strays await the director's
+  archival step;
+- **four stale transcript greps** (3 rows) — cases renamed before this stage
+  opened;
+- **one example lint** (1 row) — a tutorial example acquired a navigation
+  property the lint forbids; red in the working tree too, and older than this
+  work;
+- **`bench`** (perf class) — measures wall clock against a frozen p95 on a
+  machine running six agents;
+- the rest are the **prior-phase rows**, which are red exactly because an
+  earlier phase is: that is the row doing its job.
+
+## Left for the director
+
+- `tools/lune/gate_manifest.luau` stays for the archival step. The graph is
+  regenerated from it, so the manifest remains the conversion source until it is
+  archived; `tools/lune/gate_legacy.luau` is deleted with this workstream's last
+  commit, once the mutation corpus has been recorded.
+- 57 rows are archived as records of past decisions and 128 evidence pins remain
+  as text; both lists are in `coverage-map.md` for the archival pass.
+- `UI-LAYOUT-003` (text premeasurement) has no living row. It had none before
+  this conversion either — the coverage map says so in its own column.
