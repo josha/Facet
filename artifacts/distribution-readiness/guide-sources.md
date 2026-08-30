@@ -62,6 +62,17 @@ ahead of its newest published release, and Vide tags releases without a leading
 | `docs/adr/ADR-0018-native-stylesheets.md` | Native stylesheets as the runtime styling source of truth, and the default paint path since 2026-08-21. |
 | `docs/adr/ADR-0063-surface-render-target.md` | The world-surface target ships as a thin root swap over `screen_target`; flat two-dimensional Facet on a `SurfaceGui`; the `PlayerGui` + `Adornee` ownership rule. |
 
+## One wording note
+
+Vide's README describes the project with the two words that spell this
+framework's own retired brand when they sit next to each other, so
+`tools/check_brand_drift.py` rule 1 reddens on that exact phrase. The chapter
+therefore quotes the project's repository description, "A reactive Luau library
+for creating UI", together with the README's "inspired by Solid". Both are the
+project's own words and neither is altered. The verbatim README sentence is
+kept in the source table above, which sits under `artifacts/` and is out of
+that rule's scope.
+
 ## Claims deliberately NOT made
 
 - **No relative speed claim, in either direction.** No matched, fair, checked-in
@@ -87,6 +98,7 @@ ahead of its newest published release, and Vide tags releases without a leading
 | `python3 tools/check_doc_style.py` | PASS — 24 documents, no over-long instruction step, no unexpanded acronym, no internal shorthand. |
 | `grep -nE -i 'stars\|popular\|official\|maintainer\|community\|faster\|slower\|built on Fusion'` on the chapter | no matches (exit 1). |
 | `tools/check_brand_drift.py` vendor scan of the chapter, unplanted | 0 hits. |
+| `tools/check_brand_drift.py` rule 1 (the retired brand) over the chapter | 0 hits, after the wording note above. The guard scans TRACKED files, so this hit did not appear until the first commit made the chapter tracked; re-run rule 1 after any commit that adds a file. |
 | planted vendor word in the chapter | 0 hits — the new allowlist entry excuses it. |
 | the same planted word in `docs/guide/01-concepts.md` | 1 hit — the entry is scoped to one file and does not leak to a sibling chapter. |
 | `check_brand_drift.selftest_vendor()` | exit 0 with the new entry in place: a planted vendor word in `src/` and one in `docs/guide` outside a marked block are each still caught, the marked block still excuses its own text, and an over-long and an unclosed block are each still reported. |

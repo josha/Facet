@@ -55,9 +55,10 @@ The one-sentence version of each library:
 - **Fusion** — a Luau library for reactive state and for creating or adopting
   Roblox instances from it, organised around scopes that clean themselves up
   (Fusion documentation, version 0.3). `[FACT]`
-- **Vide** — "a reactive Luau UI library inspired by Solid", built on a source
-  and effect pair, where each reactive property gets its own effect (Vide
-  README and reactivity documentation). `[FACT]`
+- **Vide** — "a reactive Luau library for creating UI", "inspired by Solid",
+  built on a source and effect pair, where each reactive property gets its own
+  effect (Vide repository description, README, and reactivity documentation).
+  `[FACT]`
 
 ## 14.2 The comparison
 
