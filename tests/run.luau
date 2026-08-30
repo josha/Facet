@@ -377,6 +377,12 @@ require("./example_word_data.spec")
 -- nine refusals as nine exact sentences on screen, both endings, a seeded replay,
 -- and the forty-nine board plates measured against the page in every shipped theme
 require("./example_tile_game.spec")
+-- ...and the MATCH-3 board's MOTION (stage example-games-and-standalones): tile
+-- identity across a move, the painted middle of a swap, the removal/gravity/refill
+-- ordering, a reset mid-cascade, full/reduced parity with no branch to keep agreeing,
+-- a scan for a second animation system, and thirty-six tiles measured against the
+-- page in every shipped theme
+require("./example_match3_motion.spec")
 
 require("./popup_button.spec")
 require("./text_input.spec")

@@ -38,10 +38,25 @@ assets.match3Tiles = {
 -- the semantic colour each kind carries, ON TOP of its distinct shape. A theme
 -- role, never a literal — so a package swap recolours the board with it. Shape is
 -- the primary cue; colour is the accelerator.
+--
+-- THESE ARE THE FIVE TINT ROLES THAT ARE ACTUALLY VISIBLE (measured 2026-08-29,
+-- match-3 motion). Kind `c` used to be `controlSelected`, and that is a CONTROL
+-- CHROME role: every theme keeps the selected-control fill within a few percent
+-- of the surface it highlights, so under Classic Desktop / Day a `c` tile painted
+-- 1.127:1 against the page — present in the tree, correct in every property
+-- probe, and not there on the screen. It is the same category error the word
+-- game's `surfaceStrong` board plate was (1.036:1), one class over.
+--
+-- Swept across all fifteen shipped themes, exactly five of the ten tint roles
+-- clear the 1.25:1 visibility floor at every one of them, and these are they:
+-- accent (worst 3.318:1), content (9.614), contentStrong (11.210),
+-- contentSecondary (4.302), danger (1.795). No two resolve to the same colour in
+-- any theme. `tests/example_match3_motion.spec.luau` measures this from the
+-- RENDERED node and keeps the old role as its negative control.
 assets.match3Tints = {
 	a = "accent",
 	b = "content",
-	c = "controlSelected",
+	c = "contentStrong",
 	d = "danger",
 	e = "contentSecondary",
 }

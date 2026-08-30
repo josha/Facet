@@ -459,6 +459,29 @@ end)
 -- =====================================================================
 -- 08 — match-3 with async image tiles and adaptive layout
 -- =====================================================================
+
+--[[ THE BOARD RESOLVES OVER TIME NOW (match-3 motion, 2026-08-29).
+
+	Before this stage a swap was one synchronous call: the array changed, every
+	cell repainted, and "afterwards" was the same instruction. The board is a set
+	of TILES with stable identity now, and its resolve sequence — swap, mark,
+	remove, drop, refill, cascade — is a state machine on `presenter.onTick`. So
+	an endpoint assertion has to reach the endpoint: the cases below advance the
+	presenter's own clock rather than assuming the frame they are standing on is
+	the last one.
+
+	`settleBoard` is deliberately generous (ten seconds of clock at 60 fps) and
+	deliberately NOT a frame count anyone reads a meaning into — the claims stay
+	about the settled board, and the frame-by-frame claims live in
+	tests/example_match3_motion.spec.luau, which is where the middle of a motion
+	is the subject. ]]
+local FRAME = 1 / 60
+local function settleBoard(pres: any)
+	for _ = 1, 600 do
+		pres.tick(FRAME)
+	end
+end
+
 describe("examples/08 match-3", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
@@ -483,6 +506,7 @@ describe("examples/08 match-3", function()
 			{ "a", "c", "e", "b", "d", "c" },
 		})
 		game.swap(1, 3, 2, 3) -- brings an 'a' up to complete a,a,a on row 1
+		settleBoard(deps.presenter) -- the cascade runs on the presenter's clock
 		-- the three matched cells are no longer 'a','a','a' held in place: they
 		-- cleared and the board refilled (no empty holes remain)
 		local snap = game.boardSnapshot()
@@ -502,6 +526,7 @@ describe("examples/08 match-3", function()
 			{ "a", "c", "e", "b", "d", "c" },
 		})
 		game2.swap(1, 3, 2, 3)
+		settleBoard(deps2.presenter)
 		expect(game2.boardSnapshot()).toEqual(snap)
 		game.dispose()
 		game2.dispose()
@@ -671,6 +696,7 @@ describe("examples/08 match-3", function()
 		local before = game.boardSnapshot()
 		adapter.tap(game.cellPath(1, 1))
 		adapter.tap(game.cellPath(1, 2)) -- adjacent, but makes nothing
+		settleBoard(deps.presenter) -- the pair travels, then travels back
 		expect(game.boardSnapshot()).toEqual(before)
 		expect(game.moves()).toBe(0)
 		expect(game.score()).toBe(0)
@@ -715,6 +741,7 @@ describe("examples/08 match-3", function()
 		})
 		adapter.tap(game.cellPath(1, 3))
 		adapter.tap(game.cellPath(2, 3))
+		settleBoard(deps.presenter)
 		expect(game.moves()).toBe(1)
 		expect(game.score() >= 3).toBe(true) -- at least the run of three it made
 		expect(string.find(game.hintText(), "Cleared", 1, true) ~= nil).toBe(true)
@@ -752,6 +779,7 @@ describe("examples/08 match-3", function()
 		for _ = 1, 15 do
 			adapter.tap(game.cellPath(1, 1))
 			adapter.tap(game.cellPath(1, 2))
+			settleBoard(deps.presenter)
 			adapter.tap(game.cellPath(6, 6))
 			adapter.tap(game.reloadPath)
 			adapter.tap(game.breakPath)
@@ -782,6 +810,7 @@ describe("examples/08 match-3", function()
 		local baseline = core:counters()
 		local game = match3.build(Facet, core, deps)
 		game.swap(1, 1, 1, 2)
+		settleBoard(deps.presenter)
 		game.dispose()
 		local after = core:counters()
 		for key, value in baseline :: { [string]: number } do
@@ -809,6 +838,7 @@ describe("examples/08 match-3", function()
 		local ref = match3.build(Facet, core, deps)
 		ref.debugSetBoard(SWAP_BOARD)
 		ref.swap(1, 3, 2, 3)
+		settleBoard(deps.presenter)
 		local snap = ref.boardSnapshot()
 		ref.dispose()
 		return snap
@@ -820,6 +850,7 @@ describe("examples/08 match-3", function()
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3)) -- select
 		adapter.tap(game.cellPath(2, 3)) -- adjacent -> swap
+		settleBoard(deps.presenter)
 		expect(game.boardSnapshot()).toEqual(referenceAfterSwap())
 		game.dispose()
 	end)
@@ -830,6 +861,7 @@ describe("examples/08 match-3", function()
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3), { pointer = "touch" })
 		adapter.tap(game.cellPath(2, 3), { pointer = "touch" })
+		settleBoard(deps.presenter)
 		expect(game.boardSnapshot()).toEqual(referenceAfterSwap())
 		game.dispose()
 	end)
@@ -847,6 +879,7 @@ describe("examples/08 match-3", function()
 		press(sys, "Return") -- select (1,3)
 		press(sys, "Down") -- to (2,3)
 		press(sys, "Return") -- swap
+		settleBoard(deps.presenter)
 		expect(game.boardSnapshot()).toEqual(referenceAfterSwap())
 		game.dispose()
 	end)
@@ -864,6 +897,7 @@ describe("examples/08 match-3", function()
 		press(sys, "ButtonA") -- select (1,3)
 		press(sys, "DPadDown") -- to (2,3)
 		press(sys, "ButtonA") -- swap
+		settleBoard(deps.presenter)
 		expect(game.boardSnapshot()).toEqual(referenceAfterSwap())
 		game.dispose()
 	end)

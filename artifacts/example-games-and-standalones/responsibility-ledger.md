@@ -76,6 +76,15 @@ recorded instance of one shape — a composite control accepting a plain string 
 rest of the surface accepts a readable — and three instances is a rule to change once,
 deliberately, not three times in passing. Booked with its siblings.
 
+| FW-4 | A board of movable, identity-bearing tiles needs two-dimensional focus. The match-3 rewrite builds one the way api.md itself prescribes — `UI.Anchor` holding a keyed `ForEach`, "the minimap-dot / name-tag idiom". | **Recorded, not fixed.** `src/present/focus_map.luau` derives a grid navigation group from `node.class == "Grid"` (or a horizontal run). An `Anchor` of keyed children is neither, so the board fell back to the flat vertical ring: Right did nothing and Down stepped by one. The framework recommends a layout for a moving board and then cannot navigate it. | None. The example uses `present(bp, { navigationGroups = fn })` — documented for exactly this, "hand-wired screens" — with ADR-0030's `columns` rectangle group. | None. | Two spec cases, including navigation **after** a cascade has moved and replaced tiles, because the derivation is cached against a structure epoch and the board publishes items row-major so a move bumps it. |
+
+**What FW-4 costs, stated rather than glossed.** Pinning explicit groups replaces the
+derivation for the **whole surface**, so the example must also declare the artwork row
+and the reset button — about thirty-five lines the framework used to derive — and it
+loses the artwork `Grid`'s own derived per-row group. That is the real price of the gap,
+and it is why this is a ledger row rather than a shrug: the public escape hatch works,
+and using it is strictly worse than the derivation would have been.
+
 *(Further rows are appended as the work finds them. A row is added the moment a need
 is identified, not after the fix is written, so a workaround cannot quietly become the
 answer.)*

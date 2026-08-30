@@ -818,6 +818,121 @@ do
 	table.insert(ALLOWED_NEW_NODES, { path = entry[1], why = entry[2] })
 end
 
+--[[ THE MATCH-3 BOARD BECAME A SET OF TILES (2026-08-29, the
+	example-games-and-standalones stage, "Match-3 motion").
+
+	WHAT CHANGED AND WHY. The board was a `UI.Grid` of thirty-six fixed CELLS,
+	each holding a `kind` signal: a "swap" was two pictures exchanging inside two
+	stationary boxes, and the file said so at its own line 398 — animating a tile
+	over time was "intentionally not built". The plan requires the opposite:
+	stable identity, so motion represents the same TILE moving. So the board is a
+	`UI.Anchor` holding a keyed `UI.ForEach` of tiles now — a tile has an `id`
+	handed out once at deal or refill, its anchored `u`/`v` offsets are what a
+	move changes, `presenter.withAnimation` paints the travel, and the region's
+	`enter`/`exit` transitions carry insertion and removal.
+
+	EVERY NODE UNDER THE BOARD IS THEREFORE NEW, AND EVERY OLD ONE IS GONE, and
+	the two are enumerated separately rather than waived by one prefix:
+
+	  * the 108 old `board/cellR_C[/img|/hit]` nodes DISAPPEAR. Disappearance has
+	    no per-path list in this file — `RESHAPED_SUBTREES` is the only instrument
+	    for it — so there is one entry below whose prefix is `/Match3/Page/board/
+	    cell`, which matches the removed cell nodes and NOTHING ELSE: the tiles
+	    that replace them live under `/Match3/Page/board/tiles/`, so not one new
+	    node is covered by it.
+	  * the 109 new nodes are enumerated by EXACT PATH in the loop below (the
+	    `ForEach` region plus `cell`, `cell/img` and `cell/hit` for each of the
+	    thirty-six ids). The ids are 1..36 in row-major order because a deal hands
+	    them out that way, and this dump is the opening board — a refilled tile
+	    takes 37 and up and never appears here.
+
+	THE BOARD ITSELF keeps its path and changes three things, each with its own
+	entry: its CLASS (`Grid` -> `Anchor`), its RECT (356 -> 336 square, at every
+	viewport) and its PROPS (`clipChildren=true`).
+
+	The 20px is the GAP, and it did not disappear — it moved inside the tile. The
+	old grid was six 56px cells with five 4px gaps between them (6x56 + 5x4 =
+	356); the anchored board is six 56px PITCHES with no gap (6x56 = 336) and the
+	picture is inset inside its own tile by the theme's `xs` step (`margin` on the
+	`Image`, 56x56 -> 48x48 at 20,153). So the gutter a player sees is 8px rather
+	than 4, the tile's TAP TARGET grew to the whole 56px pitch — the four-pixel
+	dead lanes between cells are gone — and the board is 20px narrower and
+	shorter. Nothing else on the page moves that is not already characterized:
+	`/Match3/Page/ArtStatus`, `/Art` and `/Reset` are all covered by the existing
+	`/Match3/Page/Art` and `/Match3/Page/Reset` rect entries above, and `Title`,
+	`Hint` and `Stats` are byte-identical because they sit above the board.
+
+	`clipChildren` is the `overflow = "clip"` the board declares so that a
+	refilled tile, which spends one phase ABOVE the board on its way in, is hidden
+	rather than painted over the score line.
+
+	AND THE TILES ARE DUMPED MID-ENTER, which is a fact about this GENERATOR
+	rather than about the example: it renders once and never ticks the presenter,
+	so the thirty-six rows are frozen on the first frame of the region's declared
+	`materialize` enter — `transform={scale=0.96,x=0,y=0};transparency=1`. Under a
+	client that drives `presenter.tick` they resolve to scale 1 / opaque within
+	one motion class (~0.3s); the per-theme contrast of all thirty-six is measured
+	on the SETTLED tree in tests/example_match3_motion.spec.luau, which advances
+	the clock first for exactly this reason. ]]
+local MATCH3_TILE = "the match-3 board's tile: a keyed `UI.ForEach` row under a `UI.Anchor`, anchored at a share of "
+	.. "the board's own inner box, where a fixed `UI.Grid` cell used to be. See the block comment above this "
+	.. "loop for the whole change."
+table.insert(ALLOWED_NEW_NODES, {
+	path = "/Match3/Page/board/tiles",
+	why = "the keyed region itself: `UI.ForEach` over the tiles, keyed on the tile id. It mounts no instance "
+		.. "of its own (its rect is nil here) and it is what makes a tile that moves keep its mounted node, "
+		.. "its scopes and its state. "
+		.. MATCH3_TILE,
+})
+for id = 1, 36 do
+	local cell = `/Match3/Page/board/tiles/[{id}]/cell`
+	table.insert(ALLOWED_NEW_NODES, {
+		path = cell,
+		why = MATCH3_TILE
+			.. " It is a `canvasGroup` ZStack because the region declares a fading enter/exit and a fading "
+			.. "form needs a fade group, and it is the node `withAnimation` installs its record on when the "
+			.. "tile travels.",
+	})
+	table.insert(ALLOWED_NEW_NODES, {
+		path = `{cell}/img`,
+		why = MATCH3_TILE
+			.. " The picture, inset inside its own tap target by the theme's `xs` margin — which is where "
+			.. "the grid's 4px gap went. Its tint role moved `controlSelected` -> `contentStrong` for kind "
+			.. "`c` in the same round: a control-chrome role sits within a few percent of the surface it "
+			.. "highlights, so a `c` tile measured 1.127:1 against the page under Classic Desktop / Day.",
+	})
+	table.insert(ALLOWED_NEW_NODES, {
+		path = `{cell}/hit`,
+		why = MATCH3_TILE
+			.. " The hit layer: a `plain` Button carrying the fallback symbol, the selected chrome and the "
+			.. "onActivate. It is a REAL control with its own effective-target floor, not a marker — a "
+			.. "marker layer is display-only by contract and sits below that floor.",
+	})
+end
+table.insert(ALLOWED_CLASS_DRIFT, {
+	fixture = "07_match3",
+	path = "/Match3/Page/board",
+	from = "Grid",
+	to = "Anchor",
+	why = "the board places tiles FREELY now, by id, instead of flowing thirty-six cells in six columns. A "
+		.. "grid cannot express a tile that is between two rows, or one that is above the board on its way "
+		.. "in. See the block comment above the tile loop.",
+})
+table.insert(ALLOWED_RECT_DRIFT, {
+	fixture = "07_match3",
+	path = "/Match3/Page/board",
+	why = "356x356 -> 336x336 at every viewport, and it is the GAP moving inside the tile rather than "
+		.. "disappearing: 6x56 + 5x4 became 6x56 with the picture inset by the theme's `xs` step. Pinned as "
+		.. "an EXACT path, so the thirty-six tiles under it keep their own rect coverage. See the block "
+		.. "comment above the tile loop.",
+})
+table.insert(ALLOWED_PROP_DRIFT, {
+	path = "/Match3/Page/board",
+	why = '`clipChildren=true` only, from the `overflow = "clip"` the board now declares: a refilled tile '
+		.. "spends one phase above the board on its way in, and the board hides it rather than painting it "
+		.. "over the score line.",
+})
+
 -- A SUBTREE THAT WAS DELIBERATELY RE-SHAPED. The two lists above are per-NODE,
 -- which is right when a decision moves a node; it is the wrong instrument when a
 -- decision replaces a hand-rolled composite with a framework CONTROL, because
@@ -829,6 +944,21 @@ end
 -- hit-rect and prop drift on every node that still exists elsewhere is checked
 -- exactly as before, so this cannot be used to hide a regression next door.
 local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = {
+	{
+		fixture = "07_match3",
+		prefix = "/Match3/Page/board/cell",
+		why = "THE DISAPPEARANCE HALF of the match-3 rewrite, and nothing else. The 108 old "
+			.. "`board/cellR_C[/img|/hit]` nodes are gone because the board is a keyed set of TILES now "
+			.. "rather than thirty-six fixed cells; the full argument is the block comment above the tile "
+			.. "loop further up this file. This prefix is the narrowest one that names them — the tiles that "
+			.. "replace them live under `/Match3/Page/board/tiles/`, so it covers NOT ONE new node, and "
+			.. "every one of the 109 new nodes is enumerated by exact path in ALLOWED_NEW_NODES instead. It "
+			.. "is a prefix only because disappearance has no per-path list in this file. What replaces the "
+			.. "node-for-node record inside `./run-tests.sh`: tests/example_readouts.spec.luau (every "
+			.. "published readout path still resolves) and tests/example_match3_motion.spec.luau, which "
+			.. "measures all thirty-six tiles' paint against the page in every shipped theme and drives the "
+			.. "board's motion frame by frame.",
+	},
 	{
 		fixture = "02_playlist_table",
 		prefix = "/Playlist/",
