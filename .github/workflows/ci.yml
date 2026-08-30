@@ -1,0 +1,79 @@
+name: CI
+
+# Every push to the default branch, and every pull request. Nothing here needs a
+# secret: the whole run is formatting, the headless suite, the source scanners
+# and one offline build. Publishing lives in its own manually dispatched
+# workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first: the older answer was about
+# code nobody is looking at any more.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Rokit is the toolchain manager. `rokit.toml` pins Rojo, luau-lsp, Lune
+      # and StyLua, so this step and the next are the whole setup, and the runner
+      # gets exactly the versions a contributor has.
+      - name: Install Rokit
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install the pinned toolchain
+        run: rokit install --no-trust-check
+
+      - name: Report the toolchain
+        run: |
+          rojo --version
+          lune --version
+          stylua --version
+          python3 --version
+
+      - name: Formatting
+        run: stylua --check src tests tools bench examples
+
+      # The full deterministic tier when the coordinator is present; the suite
+      # itself otherwise. Both mean "every deterministic check, exactly once".
+      - name: Tests
+        run: |
+          if [ -x tools/verify.sh ]; then
+            tools/verify.sh full
+          else
+            ./run-tests.sh
+          fi
+
+      - name: Naming and product-language scan
+        run: python3 tools/check_brand_drift.py
+
+      - name: Documentation links
+        run: lune run tools/lune/check_links_cli
+
+      # The distributable model, built and then inspected: it must carry the
+      # library and nothing else.
+      - name: Build the distributable model
+        run: tools/build_model.sh
+
+      - name: The model is the library alone
+        run: python3 tools/check_library_purity.py

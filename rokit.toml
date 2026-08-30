@@ -14,6 +14,15 @@
 # project file failed the build outright with "Unknown property", so it was
 # documented as a manual post-build step that a rebuild silently undoes. On
 # 7.7.0 it simply builds.
+#
+# LUNE AND STYLUA JOINED THE PIN (2026-08-30), for the same reason and one more.
+# Both were installed per-machine and neither was declared anywhere, so a
+# contributor and a continuous-integration runner could disagree about the
+# formatter that gates every change and about the runtime that runs the suite —
+# with nothing to say so, exactly as Rojo did above. `rokit install` now gets all
+# four, which is also what makes `.github/workflows/ci.yml` a two-line setup.
 [tools]
 rojo = "rojo-rbx/rojo@7.7.0"
 luau-lsp = "JohnnyMorganz/luau-lsp@1.69.0"
+lune = "lune-org/lune@0.10.4"
+stylua = "JohnnyMorganz/StyLua@2.5.2"
